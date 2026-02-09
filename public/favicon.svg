@@ -1,12 +1,13 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
   <defs>
     <linearGradient id="fg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#2A295C"/>
-      <stop offset="50%" stop-color="#7B3FA0"/>
-      <stop offset="100%" stop-color="#FF0066"/>
+      <stop offset="0%" stop-color="#1a1a8e"/>
+      <stop offset="45%" stop-color="#7b3fa0"/>
+      <stop offset="100%" stop-color="#f01070"/>
     </linearGradient>
   </defs>
   <rect width="64" height="64" rx="14" fill="white"/>
-  <text x="32" y="46" text-anchor="middle" font-family="Inter, sans-serif" font-weight="800" font-size="38" fill="url(#fg)">SL</text>
-  <circle cx="52" cy="12" r="4" fill="#FF0066"/>
+  <text x="32" y="46" text-anchor="middle" font-family="'Segoe UI', Inter, sans-serif" font-weight="800" font-size="36" font-style="italic" fill="url(#fg)">SL</text>
+  <!-- Star sparkle -->
+  <path d="M 52 10 L 53 6 L 54 10 L 58 11 L 54 12 L 53 16 L 52 12 L 48 11 Z" fill="#f01070"/>
 </svg>
