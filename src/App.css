@@ -1020,6 +1020,107 @@ body {
   white-space: pre-wrap;
 }
 
+/* ── PIN Lock Screen ─────────────────────────────────────── */
+.pinOverlay {
+  position: fixed;
+  inset: 0;
+  background: linear-gradient(135deg, var(--sdx-navy) 0%, #3a3980 40%, #6B3FA0 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+.pinCard {
+  background: var(--sdx-white);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 20px 60px rgba(0,0,0,.3);
+  padding: 48px 40px;
+  width: 380px;
+  max-width: 90vw;
+  text-align: center;
+}
+.pinLogo {
+  height: 48px;
+  margin-bottom: 24px;
+}
+.pinTitle {
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: var(--sdx-navy);
+  margin-bottom: 6px;
+}
+.pinSub {
+  font-size: 0.84rem;
+  color: var(--sdx-gray-500);
+  margin-bottom: 28px;
+  line-height: 1.4;
+}
+.pinForm {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.pinInput {
+  width: 100%;
+  padding: 14px 18px;
+  border: 2px solid var(--sdx-gray-200);
+  border-radius: var(--radius-md);
+  font-size: 1.5rem;
+  font-family: inherit;
+  text-align: center;
+  letter-spacing: 12px;
+  color: var(--sdx-navy);
+  outline: none;
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+.pinInput:focus {
+  border-color: var(--sdx-blue);
+  box-shadow: 0 0 0 4px rgba(40,56,151,.12);
+}
+.pinInput::placeholder {
+  letter-spacing: normal;
+  font-size: 0.9rem;
+  color: var(--sdx-gray-300);
+}
+.pinError {
+  color: var(--sdx-red);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+.pinBtn {
+  padding: 14px;
+  font-size: 0.95rem;
+  border-radius: var(--radius-md);
+}
+.pinFooter {
+  margin-top: 24px;
+  font-size: 0.72rem;
+  color: var(--sdx-gray-400);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+.pinLock {
+  font-size: 0.9rem;
+}
+
+/* ── Lock Button ─────────────────────────────────────────── */
+.btnLock {
+  background: transparent;
+  border: 1px solid rgba(255,255,255,.2);
+  color: rgba(255,255,255,.7);
+  padding: 6px 10px;
+  font-size: 1rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition);
+}
+.btnLock:hover {
+  background: rgba(255,255,255,.15);
+  color: white;
+}
+
 /* ── Scrollbar ───────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
