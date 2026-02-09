@@ -1831,8 +1831,8 @@ export default function App() {
                   <div className="guideSub">Fast checklist for sit-down kitchen inspections</div>
                 </div>
                 <div className="pillRow">
-                  <span className="pill">Hand sink >= 95 F</span>
-                  <span className="pill">3-comp wash >= 110 F</span>
+                  <span className="pill">Hand sink {"\u2265"} 95 F</span>
+                  <span className="pill">3-comp wash {"\u2265"} 110 F</span>
                 </div>
               </div>
 
