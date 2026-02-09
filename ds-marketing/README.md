@@ -19,18 +19,8 @@ ds-marketing/
 |-- week1/
 |   |-- images/                   <-- UPLOAD THESE TO INSTAGRAM
 |   |   |-- monday/               <-- 10 slides (schedule Mon 11 AM)
-|   |   |   |-- slide_01_hook.png
-|   |   |   |-- slide_02.png
-|   |   |   |-- ... (through slide_10_cta.png)
-|   |   |
 |   |   |-- wednesday/            <-- 10 slides (schedule Wed 11 AM)
-|   |   |   |-- slide_01_hook.png
-|   |   |   |-- ... (through slide_10_cta.png)
-|   |   |
 |   |   |-- friday/               <-- 3 slides (schedule Fri 11 AM)
-|   |       |-- slide_01_hook.png
-|   |       |-- slide_02.png
-|   |       |-- slide_03_cta.png
 |   |
 |   |-- captions/                 <-- COPY/PASTE THESE AS CAPTIONS
 |       |-- week1_monday_social_mistakes.md
@@ -41,10 +31,37 @@ ds-marketing/
 |-- dm-outreach/                  <-- DM TEMPLATES FOR LEAD OUTREACH
 |   |-- dm_outreach_templates.md
 |
-|-- tools/                        <-- IMAGE GENERATOR (reuse for future weeks)
-    |-- generate_carousels.py
-    |-- BebasNeue-Regular.ttf
+|-- tools/                        <-- AI IMAGE/VIDEO GENERATORS
+    |-- DIRECT_LINKS.md           <-- Click links to generate images in browser
+    |-- generate_with_ai.py       <-- Run on your computer: generates ALL images + videos
+    |-- open_all_links.py         <-- Opens all image links in browser tabs at once
+    |-- BebasNeue-Regular.ttf     <-- Font file for Canva overlays
 ```
+
+---
+
+## GENERATE AI IMAGES (3 Options)
+
+### Option A: One-Click Script (EASIEST)
+1. Download `tools/generate_with_ai.py` to your computer
+2. Open Terminal
+3. Run: `python3 generate_with_ai.py`
+4. All 23 images + 3 video reels generate automatically
+5. Find them in `./ai-output/`
+
+### Option B: Open All in Browser
+1. Download `tools/open_all_links.py` to your computer
+2. Run: `python3 open_all_links.py`
+3. All 26 links open in your browser
+4. Right-click each image -> "Save image as..."
+
+### Option C: Manual (One at a Time)
+1. Open `tools/DIRECT_LINKS.md`
+2. Copy any link
+3. Paste in browser -> wait 10-30 seconds
+4. Right-click image -> Save
+
+**All options use Pollinations.ai - 100% FREE, no signup, no watermark.**
 
 ---
 
