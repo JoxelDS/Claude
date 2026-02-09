@@ -1,17 +1,189 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
 
-/* ── localStorage helpers for History ────────────────────── */
-const STORAGE_KEY = "sdx_inspection_history";
+/* ── AES-256-GCM Encryption (Web Crypto API) ────────────── */
+const SALT_KEY = "sdx_salt";
+const HASH_KEY = "sdx_pin_hash";
+const DATA_KEY = "sdx_inspection_vault";
+const LOCK_TIMEOUT_MS = 10 * 60 * 1000; // 10 min inactivity lock
 
-function loadHistory() {
+async function getSalt() {
+  let stored = localStorage.getItem(SALT_KEY);
+  if (stored) return new Uint8Array(JSON.parse(stored));
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  localStorage.setItem(SALT_KEY, JSON.stringify(Array.from(salt)));
+  return salt;
+}
+
+async function deriveKey(pin) {
+  const enc = new TextEncoder();
+  const salt = await getSalt();
+  const keyMaterial = await crypto.subtle.importKey("raw", enc.encode(pin), "PBKDF2", false, ["deriveBits", "deriveKey"]);
+  return crypto.subtle.deriveKey(
+    { name: "PBKDF2", salt, iterations: 100000, hash: "SHA-256" },
+    keyMaterial,
+    { name: "AES-GCM", length: 256 },
+    false,
+    ["encrypt", "decrypt"]
+  );
+}
+
+async function hashPin(pin) {
+  const enc = new TextEncoder();
+  const salt = await getSalt();
+  const data = new Uint8Array([...salt, ...enc.encode(pin)]);
+  const hash = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
+async function encryptData(data, key) {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const enc = new TextEncoder();
+  const ciphertext = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, enc.encode(JSON.stringify(data)));
+  return JSON.stringify({ iv: Array.from(iv), ct: Array.from(new Uint8Array(ciphertext)) });
+}
+
+async function decryptData(stored, key) {
+  if (!stored) return [];
   try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+    const { iv, ct } = JSON.parse(stored);
+    const plaintext = await crypto.subtle.decrypt({ name: "AES-GCM", iv: new Uint8Array(iv) }, key, new Uint8Array(ct));
+    return JSON.parse(new TextDecoder().decode(plaintext));
   } catch { return []; }
 }
 
-function saveHistory(records) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+/* ── Secure Storage helpers ──────────────────────────────── */
+let _cryptoKey = null;
+
+async function loadHistory() {
+  if (!_cryptoKey) return [];
+  const stored = localStorage.getItem(DATA_KEY);
+  return decryptData(stored, _cryptoKey);
+}
+
+async function saveHistory(records) {
+  if (!_cryptoKey) return;
+  const encrypted = await encryptData(records, _cryptoKey);
+  localStorage.setItem(DATA_KEY, encrypted);
+}
+
+function hasPinSetup() {
+  return !!localStorage.getItem(HASH_KEY);
+}
+
+async function setupPin(pin) {
+  const h = await hashPin(pin);
+  localStorage.setItem(HASH_KEY, h);
+  _cryptoKey = await deriveKey(pin);
+  return true;
+}
+
+async function verifyPin(pin) {
+  const h = await hashPin(pin);
+  const stored = localStorage.getItem(HASH_KEY);
+  if (h === stored) {
+    _cryptoKey = await deriveKey(pin);
+    return true;
+  }
+  return false;
+}
+
+function lockApp() {
+  _cryptoKey = null;
+}
+
+/* ── PIN Lock Screen ─────────────────────────────────────── */
+function PinScreen({ onUnlock }) {
+  const isSetup = hasPinSetup();
+  const [pin, setPin] = useState("");
+  const [confirmPin, setConfirmPin] = useState("");
+  const [step, setStep] = useState(isSetup ? "enter" : "create"); // create | confirm | enter
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const inputRef = useRef(null);
+
+  useEffect(() => { inputRef.current?.focus(); }, [step]);
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+
+    try {
+      if (step === "create") {
+        if (pin.length < 4) { setError("PIN must be at least 4 digits"); setLoading(false); return; }
+        setConfirmPin(pin);
+        setPin("");
+        setStep("confirm");
+        setLoading(false);
+        return;
+      }
+
+      if (step === "confirm") {
+        if (pin !== confirmPin) {
+          setError("PINs don't match. Try again.");
+          setPin("");
+          setStep("create");
+          setConfirmPin("");
+          setLoading(false);
+          return;
+        }
+        await setupPin(pin);
+        onUnlock();
+        return;
+      }
+
+      if (step === "enter") {
+        const ok = await verifyPin(pin);
+        if (ok) { onUnlock(); return; }
+        setError("Wrong PIN. Try again.");
+        setPin("");
+        setLoading(false);
+      }
+    } catch {
+      setError("Something went wrong. Try again.");
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="pinOverlay">
+      <div className="pinCard">
+        <img src="/sodexo-live-logo.svg" alt="Sodexo Live!" className="pinLogo" />
+        <div className="pinTitle">
+          {step === "create" && "Create Your PIN"}
+          {step === "confirm" && "Confirm Your PIN"}
+          {step === "enter" && "Enter Your PIN"}
+        </div>
+        <div className="pinSub">
+          {step === "create" && "Set a PIN to protect your inspection data"}
+          {step === "confirm" && "Enter the same PIN again to confirm"}
+          {step === "enter" && "Your data is encrypted and secure"}
+        </div>
+        <form onSubmit={handleSubmit} className="pinForm">
+          <input
+            ref={inputRef}
+            className="pinInput"
+            type="password"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            maxLength={8}
+            value={pin}
+            onChange={e => setPin(e.target.value.replace(/\D/g, ""))}
+            placeholder="Enter PIN"
+            autoComplete="off"
+          />
+          {error && <div className="pinError">{error}</div>}
+          <button className="btn btnPrimary pinBtn" type="submit" disabled={loading || pin.length < 4}>
+            {loading ? "Verifying..." : step === "enter" ? "Unlock" : step === "confirm" ? "Confirm & Save" : "Next"}
+          </button>
+        </form>
+        <div className="pinFooter">
+          <span className="pinLock">&#128274;</span> AES-256 encrypted &middot; stored only on this device
+        </div>
+      </div>
+    </div>
+  );
 }
 
 /* ── File download helper ────────────────────────────────── */
@@ -896,11 +1068,16 @@ function exportAsTxt({ output, inspectionDate, siteName }) {
 
 /* ── History Page Component ──────────────────────────────── */
 function HistoryPage({ onBack }) {
-  const [history, setHistory] = useState(() => loadHistory());
+  const [history, setHistory] = useState([]);
   const [filterDate, setFilterDate] = useState("");
   const [filterType, setFilterType] = useState("");
   const [filterIssue, setFilterIssue] = useState("");
   const [expandedId, setExpandedId] = useState(null);
+  const [historyLoaded, setHistoryLoaded] = useState(false);
+
+  useEffect(() => {
+    loadHistory().then(h => { setHistory(h); setHistoryLoaded(true); });
+  }, []);
 
   const issueTypes = useMemo(() => {
     const set = new Set();
@@ -929,13 +1106,13 @@ function HistoryPage({ onBack }) {
   function deleteRecord(id) {
     const next = history.filter(r => r.id !== id);
     setHistory(next);
-    saveHistory(next);
+    saveHistory(next).catch(() => {});
   }
 
   function clearAll() {
     if (!confirm("Delete all inspection history? This cannot be undone.")) return;
     setHistory([]);
-    saveHistory([]);
+    saveHistory([]).catch(() => {});
   }
 
   const uniqueDates = [...new Set(history.map(r => r.inspectionDate).filter(Boolean))].sort().reverse();
@@ -1168,7 +1345,9 @@ function GuideSection({ title, items, inspection, setInspection }) {
 }
 
 export default function App() {
+  const [locked, setLocked] = useState(true);
   const [page, setPage] = useState("inspector"); // "inspector" | "history"
+  const lastActivity = useRef(Date.now());
 
   const [noteType, setNoteType] = useState("meeting");
   const [context, setContext] = useState(() => buildDefaultContext("meeting"));
@@ -1192,6 +1371,38 @@ export default function App() {
   const [aiTips, setAiTips] = useState([]);
   const [saved, setSaved] = useState(false);
 
+  // Track activity for auto-lock
+  const resetActivity = useCallback(() => { lastActivity.current = Date.now(); }, []);
+
+  useEffect(() => {
+    if (locked) return;
+    const events = ["mousedown", "keydown", "touchstart", "scroll"];
+    events.forEach(e => window.addEventListener(e, resetActivity, { passive: true }));
+    const timer = setInterval(() => {
+      if (Date.now() - lastActivity.current > LOCK_TIMEOUT_MS) {
+        lockApp();
+        setLocked(true);
+      }
+    }, 30000);
+    return () => {
+      events.forEach(e => window.removeEventListener(e, resetActivity));
+      clearInterval(timer);
+    };
+  }, [locked, resetActivity]);
+
+  // Warn before leaving with unsaved work
+  useEffect(() => {
+    function handleBeforeUnload(e) {
+      if (rawNotes.trim() && !saved) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    }
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [rawNotes, saved]);
+
+  if (locked) return <PinScreen onUnlock={() => { setLocked(false); resetActivity(); }} />;
   if (page === "history") return <HistoryPage onBack={() => setPage("inspector")} />;
 
   const spec = NOTE_TYPES[noteType];
@@ -1280,7 +1491,7 @@ export default function App() {
     setAiTips(tips);
   }
 
-  function saveToHistory() {
+  async function saveToHistory() {
     const record = {
       id: `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
       savedAt: new Date().toISOString(),
@@ -1295,9 +1506,9 @@ export default function App() {
       output,
       inspection,
     };
-    const history = loadHistory();
+    const history = await loadHistory();
     history.unshift(record);
-    saveHistory(history);
+    await saveHistory(history);
     setSaved(true);
     setTimeout(() => setSaved(false), 2500);
   }
@@ -1326,6 +1537,7 @@ export default function App() {
         </div>
 
         <div className="topActions">
+          <button className="btn btnLock" onClick={() => { lockApp(); setLocked(true); }} type="button" title="Lock app">&#128274;</button>
           <button className="btn btnGhost" onClick={() => setPage("history")} type="button">Past Reports</button>
           <button className="btn btnGhost" onClick={loadSample} type="button">Try Example</button>
           <button className="btn btnAi" onClick={runAiAssist} type="button">AI Tips</button>
