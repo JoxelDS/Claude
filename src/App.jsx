@@ -632,6 +632,192 @@ function aiAssist({ inspection, rawNotes, context, noteType }) {
   return tips;
 }
 
+/* ── Rendered Output Component (visual, not code) ────────── */
+function RenderedOutput({ noteType, useCase, context, inspection, rawNotes, inspectionType, inspectionDate, inspectorName, siteName, siteNumber, sitePhone, supervisorName }) {
+  const status = calcOverallStatus(inspection);
+  const actionItems = buildActionItems({ inspection, rawNotes });
+  const expandedNotes = expandAbbreviations(rawNotes);
+  const location = siteName || (noteType === "meeting" ? context?.kitchen : context?.position) || "Kitchen";
+  const date = inspectionDate || context?.date || "—";
+  const playbook = INSPECTION_PLAYBOOK[inspectionType] || INSPECTION_PLAYBOOK["Regular Inspection"];
+  const { index: photoIndexList } = buildPhotoIndex(inspection);
+
+  const statusBadge = (s) => {
+    if (s === "OK") return <span className="roBadge roBadgePass">Pass</span>;
+    if (s === "N/A") return <span className="roBadge roBadgeNa">N/A</span>;
+    if (s === "Not Clean") return <span className="roBadge roBadgeFail">Not Clean</span>;
+    return <span className="roBadge roBadgeWarn">Needs Attention</span>;
+  };
+
+  const findings = [];
+  const addFinding = (label, node) => {
+    if (node?.status && node.status !== "OK" && node.status !== "N/A")
+      findings.push({ label, status: node.status, notes: node.notes });
+  };
+  addFinding("Ceiling", inspection?.facility?.ceiling);
+  addFinding("Walls", inspection?.facility?.walls);
+  addFinding("Floors", inspection?.facility?.floors);
+  addFinding("Lighting", inspection?.facility?.lighting);
+  addFinding("Employee practices", inspection?.operations?.employeePractices);
+  addFinding("Handwashing / supplies", inspection?.operations?.handwashing);
+  addFinding("Labeling / dating", inspection?.operations?.labelingDating);
+  addFinding("Logs / documentation", inspection?.operations?.logs);
+  addFinding("Double-door cooler", inspection?.equipment?.doubleDoorCooler);
+  addFinding("Double-door freezer", inspection?.equipment?.doubleDoorFreezer);
+  addFinding("Walk-in cooler", inspection?.equipment?.walkInCooler);
+  addFinding("Warmers / hot holding", inspection?.equipment?.warmers);
+  addFinding("Ovens", inspection?.equipment?.ovens);
+  addFinding("3-compartment sink", inspection?.equipment?.threeCompSink);
+  addFinding("Ecolab / chemicals", inspection?.equipment?.ecolab);
+  const handT = Number(inspection?.temps?.handSinkTempF);
+  const threeT = Number(inspection?.temps?.threeCompSinkTempF);
+  if (handT && handT < 95) findings.push({ label: "Hand sink temp", status: "Fail", notes: `${handT}°F (below 95°F minimum)` });
+  if (threeT && threeT < 110) findings.push({ label: "3-comp wash temp", status: "Fail", notes: `${threeT}°F (below 110°F minimum)` });
+
+  const scorecardSections = [
+    { title: "Facility", items: [
+      ["Ceiling", inspection?.facility?.ceiling],
+      ["Walls", inspection?.facility?.walls],
+      ["Floors", inspection?.facility?.floors],
+      ["Lighting", inspection?.facility?.lighting],
+    ]},
+    { title: "Operations", items: [
+      ["Employee practices", inspection?.operations?.employeePractices],
+      ["Handwashing", inspection?.operations?.handwashing],
+      ["Labeling / dating", inspection?.operations?.labelingDating],
+      ["Logs", inspection?.operations?.logs],
+    ]},
+    { title: "Equipment", items: [
+      ["Double-door cooler", inspection?.equipment?.doubleDoorCooler],
+      ["Double-door freezer", inspection?.equipment?.doubleDoorFreezer],
+      ["Walk-in cooler", inspection?.equipment?.walkInCooler],
+      ["Warmers", inspection?.equipment?.warmers],
+      ["Ovens", inspection?.equipment?.ovens],
+      ["3-comp sink", inspection?.equipment?.threeCompSink],
+      ["Ecolab", inspection?.equipment?.ecolab],
+    ]},
+  ];
+
+  return (
+    <div className="renderedOutput">
+      {/* Header */}
+      <div className="roHeader">
+        <div className="roHeaderTop">
+          <div>
+            <div className="roTitle">{location}</div>
+            <div className="roSubtitle">{inspectionType || "Inspection"} &middot; {date}</div>
+          </div>
+          <div className={cx("roStatusBig", status === "Pass" ? "roStatusPass" : "roStatusFail")}>
+            {status}
+          </div>
+        </div>
+        <div className="roMetaGrid">
+          <div className="roMetaItem"><span className="roMetaLabel">Inspector</span><span>{inspectorName || "—"}</span></div>
+          <div className="roMetaItem"><span className="roMetaLabel">Supervisor</span><span>{supervisorName || "—"}</span></div>
+          {siteNumber && <div className="roMetaItem"><span className="roMetaLabel">Unit #</span><span>{siteNumber}</span></div>}
+          {sitePhone && <div className="roMetaItem"><span className="roMetaLabel">Phone</span><span>{sitePhone}</span></div>}
+          <div className="roMetaItem"><span className="roMetaLabel">Hand Sink</span><span>{inspection?.temps?.handSinkTempF || "—"}°F {handT >= 95 ? "✓" : handT ? "✗" : ""}</span></div>
+          <div className="roMetaItem"><span className="roMetaLabel">3-Comp Wash</span><span>{inspection?.temps?.threeCompSinkTempF || "—"}°F {threeT >= 110 ? "✓" : threeT ? "✗" : ""}</span></div>
+        </div>
+      </div>
+
+      {/* Opening message for Email/Doc */}
+      {(useCase === "Email Summary" || useCase === "Google Doc") && (
+        <div className="roSection">
+          <p className="roText">{playbook.opening}</p>
+        </div>
+      )}
+
+      {/* Findings */}
+      {findings.length > 0 ? (
+        <div className="roSection">
+          <div className="roSectionTitle">Findings</div>
+          <div className="roFindings">
+            {findings.map((f, i) => (
+              <div className="roFindingRow" key={i}>
+                <span className="roFindingLabel">{f.label}</span>
+                <span className={cx("roBadge", f.status === "Not Clean" || f.status === "Fail" ? "roBadgeFail" : "roBadgeWarn")}>{f.status}</span>
+                {f.notes && <span className="roFindingNote">{f.notes}</span>}
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <div className="roSection">
+          <div className="roSectionTitle">Findings</div>
+          <div className="roAllClear">All areas passed inspection</div>
+        </div>
+      )}
+
+      {/* Scorecard view */}
+      {useCase === "Evaluation Scorecard" && (
+        <div className="roSection">
+          <div className="roSectionTitle">Full Scorecard</div>
+          {scorecardSections.map(sec => (
+            <div key={sec.title} className="roScoreSection">
+              <div className="roScoreSectionTitle">{sec.title}</div>
+              {sec.items.map(([label, node]) => (
+                <div className="roScoreRow" key={label}>
+                  <span className="roScoreLabel">{label}</span>
+                  {statusBadge(node?.status || "N/A")}
+                  {node?.notes && <span className="roScoreNote">{node.notes}</span>}
+                </div>
+              ))}
+            </div>
+          ))}
+          <div className="roScoreSection">
+            <div className="roScoreSectionTitle">Temperatures</div>
+            <div className="roScoreRow">
+              <span className="roScoreLabel">Hand sink</span>
+              <span className={cx("roBadge", handT >= 95 ? "roBadgePass" : handT ? "roBadgeFail" : "roBadgeNa")}>{inspection?.temps?.handSinkTempF || "—"}°F</span>
+            </div>
+            <div className="roScoreRow">
+              <span className="roScoreLabel">3-comp wash</span>
+              <span className={cx("roBadge", threeT >= 110 ? "roBadgePass" : threeT ? "roBadgeFail" : "roBadgeNa")}>{inspection?.temps?.threeCompSinkTempF || "—"}°F</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Action Items */}
+      {actionItems.length > 0 && (
+        <div className="roSection">
+          <div className="roSectionTitle">Action Items <span className="roCount">{actionItems.length}</span></div>
+          <div className="roActions">
+            {actionItems.map((a, i) => (
+              <div className="roActionRow" key={i}>
+                <span className={cx("roPriority", a.priority === "High" ? "roPriorityHigh" : "roPriorityMed")}>{a.priority}</span>
+                <span className="roActionText">{a.issue}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Photo index */}
+      {photoIndexList.length > 0 && (
+        <div className="roSection">
+          <div className="roSectionTitle">Photos</div>
+          <div className="roPhotos">
+            {photoIndexList.map(p => (
+              <div className="roPhotoRow" key={p.num}>
+                <span className="roPhotoNum">#{p.num}</span>
+                <span>{p.label}{p.caption ? ` — ${p.caption}` : ""}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Expanded notes */}
+      <div className="roSection">
+        <div className="roSectionTitle">Notes</div>
+        <div className="roNotes">{expandedNotes || rawNotes || "—"}</div>
+      </div>
+    </div>
+  );
+}
+
 /* ── CSV export from inspection data ─────────────────────── */
 function buildCsvRows({ inspection, rawNotes, inspectionType, inspectionDate, inspectorName, siteName, siteNumber, supervisorName }) {
   const rows = [["Section", "Item", "Status", "Notes", "Priority"]];
@@ -1140,14 +1326,11 @@ export default function App() {
         </div>
 
         <div className="topActions">
-          <button className="btn btnGhost" onClick={() => setPage("history")} type="button">History</button>
-          <button className="btn btnGhost" onClick={loadSample} type="button">Load sample</button>
-          <button className="btn btnAi" onClick={runAiAssist} type="button">AI Assist</button>
-          {useCase === "Email Summary" ? (
-            <button className="btn btnGhost" onClick={showEmailPreviewNow} type="button">Email preview</button>
-          ) : null}
+          <button className="btn btnGhost" onClick={() => setPage("history")} type="button">Past Reports</button>
+          <button className="btn btnGhost" onClick={loadSample} type="button">Try Example</button>
+          <button className="btn btnAi" onClick={runAiAssist} type="button">AI Tips</button>
           <button className={cx("btn", "btnPrimary")} onClick={onTransform} type="button" disabled={loading}>
-            {loading ? "Formatting..." : "Transform"}
+            {loading ? "Generating..." : "Generate Report"}
           </button>
         </div>
       </header>
@@ -1328,17 +1511,25 @@ export default function App() {
 
             {!output ? (
               <div className="emptyState">
-                <div className="emptyTitle">No output yet</div>
-                <div className="emptySub">Load a sample or paste raw notes, then click Transform.</div>
+                <div className="emptyIcon">&#9998;</div>
+                <div className="emptyTitle">Ready to generate your report</div>
+                <div className="emptySub">Fill in the inspection details on the left, then click <strong>Generate Report</strong>.</div>
               </div>
             ) : (
               <>
-                <pre className="outputPre">{output}</pre>
+                <RenderedOutput
+                  noteType={noteType} useCase={useCase} context={context}
+                  inspection={inspection} rawNotes={rawNotes}
+                  inspectionType={inspectionType} inspectionDate={inspectionDate}
+                  inspectorName={inspectorName} siteName={siteName}
+                  siteNumber={siteNumber} sitePhone={sitePhone}
+                  supervisorName={supervisorName}
+                />
                 <div className="downloadBar">
-                  <span className="downloadLabel">Download as:</span>
-                  <button className="btn btnDownload" type="button" onClick={onDownloadCsv}>CSV (Excel)</button>
-                  <button className="btn btnDownload" type="button" onClick={onDownloadHtml}>HTML (Word)</button>
-                  <button className="btn btnDownload" type="button" onClick={onDownloadTxt}>TXT</button>
+                  <span className="downloadLabel">Download:</span>
+                  <button className="btn btnDownload" type="button" onClick={onDownloadCsv}>Excel (CSV)</button>
+                  <button className="btn btnDownload" type="button" onClick={onDownloadHtml}>Word (HTML)</button>
+                  <button className="btn btnDownload" type="button" onClick={onDownloadTxt}>Text File</button>
                 </div>
               </>
             )}
