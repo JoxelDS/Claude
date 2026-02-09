@@ -1606,7 +1606,6 @@ export default function App() {
   if (page === "admin") return <AdminPanel currentUser={currentUser} onBack={() => setPage("inspector")} />;
 
   const spec = NOTE_TYPES[noteType];
-  const canTransform = useMemo(() => rawNotes.trim().length > 0, [rawNotes]);
 
   function switchNoteType(next) {
     setNoteType(next);
