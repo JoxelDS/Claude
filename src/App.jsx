@@ -126,6 +126,22 @@ const INSPECTION_PLAYBOOK = {
   },
 };
 
+/* ── Abbreviation expansion map ──────────────────────────── */
+const ABBREV_MAP = [
+  [/\bw\//gi, "with"], [/\bKM\b/g, "Kitchen Manager"], [/\bq\b/gi, "question"],
+  [/\btemp(s?)\b/gi, "temperature$1"], [/\bok\b/gi, "OK"], [/\bchk\b/gi, "check"],
+  [/\bwk\b/gi, "week"], [/\b(\d+)x\b/gi, "$1×"], [/\binsp\b/gi, "inspection"],
+  [/\bsvc\b/gi, "service"], [/\btherm(s?)\b/gi, "thermometer$1"],
+  [/\bchem\b/gi, "chemical"], [/\bdocs?\b/gi, "document(s)"], [/\bpic\b/gi, "photo"],
+  [/\bborder\b/gi, "borderline"],
+];
+
+function expandAbbreviations(text) {
+  let out = text;
+  for (const [re, rep] of ABBREV_MAP) out = out.replace(re, rep);
+  return out;
+}
+
 function cx(...classes) {
   return classes.filter(Boolean).join(" ");
 }
@@ -229,26 +245,29 @@ function calcOverallStatus(inspection) {
   return bad.length ? "Needs Attention" : "Pass";
 }
 
-function buildSubject({
-  noteType,
-  context,
-  inspection,
-  inspectionType,
-  inspectionDate,
-  siteName,
-  siteNumber,
-}) {
+/* ── Validation: check for missing fields ────────────────── */
+function validateForm({ inspectionDate, inspectorName, context, noteType, inspection }) {
+  const warnings = [];
+  if (!inspectionDate) warnings.push("Inspection Date is missing");
+  if (!inspectorName) warnings.push("Inspector Name is missing");
+
+  const ctxFields = NOTE_TYPES[noteType].contextFields;
+  for (const f of ctxFields) {
+    if (!context[f.key]?.trim()) warnings.push(`${f.label} is missing`);
+  }
+
+  if (!inspection.temps.handSinkTempF) warnings.push("Hand sink temperature not recorded");
+  if (!inspection.temps.threeCompSinkTempF) warnings.push("3-comp sink temperature not recorded");
+
+  return warnings;
+}
+
+function buildSubject({ noteType, context, inspection, inspectionType, inspectionDate, siteName, siteNumber }) {
   const status = calcOverallStatus(inspection);
-
-  const baseLocation =
-    siteName ||
-    (noteType === "meeting" ? context?.kitchen : context?.position) ||
-    "Kitchen";
-
+  const baseLocation = siteName || (noteType === "meeting" ? context?.kitchen : context?.position) || "Kitchen";
   const unitTag = siteNumber ? ` (#${siteNumber})` : "";
   const date = inspectionDate || context?.date || "Date";
   const typeTag = inspectionType ? ` – ${inspectionType}` : "";
-
   return `Subject: ${baseLocation}${unitTag} Kitchen Inspection${typeTag} – ${date} – ${status}`;
 }
 
@@ -270,7 +289,6 @@ function buildPhotoIndex(inspection) {
     ["equipment", "threeCompSink", "Equipment > 3-compartment sink"],
     ["equipment", "ecolab", "Equipment > Ecolab / chemicals"],
   ];
-
   let n = 0;
   const index = [];
   const mapByPath = {};
@@ -293,30 +311,25 @@ function buildPhotoIndex(inspection) {
 function buildActionItems({ inspection, rawNotes }) {
   const items = [];
   const { mapByPath } = buildPhotoIndex(inspection);
-
   const pushIfBad = (pathKey, label, node) => {
     if (!node?.status) return;
     if (node.status === "Needs Attention" || node.status === "Not Clean") {
       items.push({
         issue: `${label}: ${sanitizeText(node.notes) || "Issue noted"}`,
-        owner: "",
-        due: "",
+        owner: "", due: "",
         priority: node.status === "Not Clean" ? "High" : "Med",
         photos: mapByPath[pathKey] || [],
       });
     }
   };
-
   pushIfBad("facility.ceiling", "Ceiling", inspection?.facility?.ceiling);
   pushIfBad("facility.walls", "Walls", inspection?.facility?.walls);
   pushIfBad("facility.floors", "Floors", inspection?.facility?.floors);
   pushIfBad("facility.lighting", "Lighting", inspection?.facility?.lighting);
-
   pushIfBad("operations.employeePractices", "Employee practices", inspection?.operations?.employeePractices);
   pushIfBad("operations.handwashing", "Handwashing / supplies", inspection?.operations?.handwashing);
   pushIfBad("operations.labelingDating", "Labeling / dating", inspection?.operations?.labelingDating);
   pushIfBad("operations.logs", "Logs / documentation", inspection?.operations?.logs);
-
   pushIfBad("equipment.doubleDoorCooler", "Double-door cooler", inspection?.equipment?.doubleDoorCooler);
   pushIfBad("equipment.doubleDoorFreezer", "Double-door freezer", inspection?.equipment?.doubleDoorFreezer);
   pushIfBad("equipment.walkInCooler", "Walk-in cooler", inspection?.equipment?.walkInCooler);
@@ -324,27 +337,16 @@ function buildActionItems({ inspection, rawNotes }) {
   pushIfBad("equipment.ovens", "Ovens", inspection?.equipment?.ovens);
   pushIfBad("equipment.threeCompSink", "3-compartment sink", inspection?.equipment?.threeCompSink);
   pushIfBad("equipment.ecolab", "Ecolab / chemicals", inspection?.equipment?.ecolab);
-
   const hand = Number(inspection?.temps?.handSinkTempF);
-  if (!Number.isNaN(hand) && hand && hand < 95) {
+  if (!Number.isNaN(hand) && hand && hand < 95)
     items.push({ issue: `Hand sink temperature below minimum: ${hand}°F (min 95°F)`, owner: "", due: "", priority: "High", photos: [] });
-  }
   const three = Number(inspection?.temps?.threeCompSinkTempF);
-  if (!Number.isNaN(three) && three && three < 110) {
+  if (!Number.isNaN(three) && three && three < 110)
     items.push({ issue: `3-compartment sink wash temperature below minimum: ${three}°F (min 110°F)`, owner: "", due: "", priority: "High", photos: [] });
-  }
-
-  for (const a of parseActionLines(rawNotes)) {
+  for (const a of parseActionLines(rawNotes))
     items.push({ issue: a.issue, owner: "", due: "", priority: "Med", photos: [] });
-  }
-
   const seen = new Set();
-  return items.filter((it) => {
-    const k = it.issue.toLowerCase();
-    if (seen.has(k)) return false;
-    seen.add(k);
-    return true;
-  });
+  return items.filter((it) => { const k = it.issue.toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true; });
 }
 
 function tableMarkdown(rows) {
@@ -358,44 +360,15 @@ function tableMarkdown(rows) {
   return `${header}\n${body || "|  |  |  |  |  |"}`;
 }
 
-function emailPreview({
-  noteType,
-  context,
-  inspection,
-  rawNotes,
-  inspectionType,
-  inspectionDate,
-  inspectorName,
-  siteName,
-  siteNumber,
-  sitePhone,
-  supervisorName,
-}) {
-  const playbook =
-    INSPECTION_PLAYBOOK[inspectionType] || INSPECTION_PLAYBOOK["Regular Inspection"];
-
-  const subject = buildSubject({
-    noteType,
-    context,
-    inspection,
-    inspectionType,
-    inspectionDate,
-    siteName,
-    siteNumber,
-  });
-
+function emailPreview({ noteType, context, inspection, rawNotes, inspectionType, inspectionDate, inspectorName, siteName, siteNumber, sitePhone, supervisorName }) {
+  const playbook = INSPECTION_PLAYBOOK[inspectionType] || INSPECTION_PLAYBOOK["Regular Inspection"];
+  const subject = buildSubject({ noteType, context, inspection, inspectionType, inspectionDate, siteName, siteNumber });
   const status = calcOverallStatus(inspection);
   const actionItems = buildActionItems({ inspection, rawNotes });
   const { index: photoIndexList } = buildPhotoIndex(inspection);
-
-  const location =
-    siteName ||
-    (noteType === "meeting" ? context?.kitchen : context?.position) ||
-    "Kitchen";
-
+  const location = siteName || (noteType === "meeting" ? context?.kitchen : context?.position) || "Kitchen";
   const unit = siteNumber ? ` (#${siteNumber})` : "";
   const date = inspectionDate || context?.date || "—";
-
   const snapshotLines = [
     `- Inspection Type: ${inspectionType || "—"}`,
     `- Site: ${location}${unit}`,
@@ -404,45 +377,31 @@ function emailPreview({
     `- Supervisor: ${supervisorName || "—"}`,
     sitePhone ? `- Site Phone: ${sitePhone}` : null,
     `- Overall Status: ${status}`,
-  ]
-    .filter(Boolean)
-    .join("\n");
-
+  ].filter(Boolean).join("\n");
   const ctxLines = [
     `- siteName: ${siteName || "—"}`,
     `- siteNumber: ${siteNumber || "—"}`,
     `- supervisorName: ${supervisorName || "—"}`,
     sitePhone ? `- sitePhone: ${sitePhone}` : null,
     ...Object.entries(context || {}).map(([k, v]) => `- ${k}: ${v || "—"}`),
-  ]
-    .filter(Boolean)
-    .join("\n");
-
+  ].filter(Boolean).join("\n");
   const photoIndex = photoIndexList.length
-    ? photoIndexList
-        .map((p) => `Photo ${p.num} — ${p.label}${p.caption ? ` — ${p.caption}` : ""}`)
-        .join("\n")
+    ? photoIndexList.map((p) => `Photo ${p.num} — ${p.label}${p.caption ? ` — ${p.caption}` : ""}`).join("\n")
     : "No photos attached.";
-
-  // Findings by area
   const findings = [];
   const addFinding = (label, node) => {
     if (!node) return;
-    if (node.status && node.status !== "OK" && node.status !== "N/A") {
+    if (node.status && node.status !== "OK" && node.status !== "N/A")
       findings.push(`- ${label}: ${node.status}${node.notes ? ` — ${node.notes}` : ""}`);
-    }
   };
-
   addFinding("Facility > Ceiling", inspection?.facility?.ceiling);
   addFinding("Facility > Walls", inspection?.facility?.walls);
   addFinding("Facility > Floors", inspection?.facility?.floors);
   addFinding("Facility > Lighting", inspection?.facility?.lighting);
-
   addFinding("Operations > Employee practices", inspection?.operations?.employeePractices);
   addFinding("Operations > Handwashing / supplies", inspection?.operations?.handwashing);
   addFinding("Operations > Labeling / dating", inspection?.operations?.labelingDating);
   addFinding("Operations > Logs / documentation", inspection?.operations?.logs);
-
   addFinding("Equipment > Double-door cooler", inspection?.equipment?.doubleDoorCooler);
   addFinding("Equipment > Double-door freezer", inspection?.equipment?.doubleDoorFreezer);
   addFinding("Equipment > Walk-in cooler", inspection?.equipment?.walkInCooler);
@@ -450,69 +409,203 @@ function emailPreview({
   addFinding("Equipment > Ovens", inspection?.equipment?.ovens);
   addFinding("Equipment > 3-compartment sink", inspection?.equipment?.threeCompSink);
   addFinding("Equipment > Ecolab / chemicals", inspection?.equipment?.ecolab);
-
-  const hand = Number(inspection?.temps?.handSinkTempF);
-  const three = Number(inspection?.temps?.threeCompSinkTempF);
-  if (!Number.isNaN(hand) && hand && hand < 95)
-    findings.push(`- Temps > Hand sink: ${hand}°F (below 95°F minimum)`);
-  if (!Number.isNaN(three) && three && three < 110)
-    findings.push(`- Temps > 3-comp wash: ${three}°F (below 110°F minimum)`);
-
-  const findingsText = findings.length
-    ? findings.join("\n")
-    : "- No exceptions noted from checklist/temps.";
-
-  const critical = actionItems
-    .filter((a) => a.priority === "High")
-    .map((a) => `- ${a.issue}${a.photos?.length ? ` (Photo ${a.photos.join(", ")})` : ""}`)
-    .join("\n");
-
-  const criticalText =
-    critical ||
-    (inspectionType === "Event Day"
-      ? "- No critical blockers identified for service."
-      : "- No critical issues flagged.");
-
+  const handT = Number(inspection?.temps?.handSinkTempF);
+  const threeT = Number(inspection?.temps?.threeCompSinkTempF);
+  if (!Number.isNaN(handT) && handT && handT < 95) findings.push(`- Temps > Hand sink: ${handT}°F (below 95°F minimum)`);
+  if (!Number.isNaN(threeT) && threeT && threeT < 110) findings.push(`- Temps > 3-comp wash: ${threeT}°F (below 110°F minimum)`);
+  const findingsText = findings.length ? findings.join("\n") : "- No exceptions noted from checklist/temps.";
+  const critical = actionItems.filter((a) => a.priority === "High").map((a) => `- ${a.issue}${a.photos?.length ? ` (Photo ${a.photos.join(", ")})` : ""}`).join("\n");
+  const criticalText = critical || (inspectionType === "Event Day" ? "- No critical blockers identified for service." : "- No critical issues flagged.");
   return [
-    subject,
-    "",
-    `Hi team,`,
-    "",
-    playbook.opening,
-    "",
-    `## ${playbook.headline} — Snapshot`,
-    snapshotLines,
-    "",
-    `## Context (from sit-down notes)`,
-    ctxLines || "- —",
-    "",
-    `## Critical Risks`,
-    criticalText,
-    "",
-    `## Findings by Area`,
-    findingsText,
-    "",
-    `## Corrective Actions (please assign Owner + Due)`,
-    tableMarkdown(actionItems),
-    "",
-    `## Photo Index`,
-    photoIndex,
-    "",
-    `## Raw Notes (verbatim)`,
-    rawNotes || "—",
+    subject, "", `Hi team,`, "", playbook.opening, "",
+    `## ${playbook.headline} — Snapshot`, snapshotLines, "",
+    `## Context (from sit-down notes)`, ctxLines || "- —", "",
+    `## Critical Risks`, criticalText, "",
+    `## Findings by Area`, findingsText, "",
+    `## Corrective Actions (please assign Owner + Due)`, tableMarkdown(actionItems), "",
+    `## Photo Index`, photoIndex, "",
+    `## Raw Notes (verbatim)`, rawNotes || "—",
   ].join("\n");
 }
 
-async function transformNotes({ noteType, useCase, context, inspection, rawNotes, emailAssist, meta }) {
-  const res = await fetch("/api/transform", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ noteType, useCase, context, inspection, rawNotes, emailAssist, meta }),
-  });
-  if (!res.ok) throw new Error((await res.text().catch(() => "")) || `Request failed (${res.status})`);
-  const data = await res.json();
-  if (!data?.output) throw new Error("Invalid server response: missing output");
-  return data.output;
+/* ── Local Transform (no backend needed) ─────────────────── */
+function transformLocally({ noteType, useCase, context, inspection, rawNotes, inspectionType, inspectionDate, inspectorName, siteName, siteNumber, sitePhone, supervisorName }) {
+  const status = calcOverallStatus(inspection);
+  const actionItems = buildActionItems({ inspection, rawNotes });
+  const expandedNotes = expandAbbreviations(rawNotes);
+  const location = siteName || (noteType === "meeting" ? context?.kitchen : context?.position) || "Kitchen";
+  const date = inspectionDate || context?.date || "—";
+
+  if (useCase === "Email Summary") {
+    return emailPreview({ noteType, context, inspection, rawNotes, inspectionType, inspectionDate, inspectorName, siteName, siteNumber, sitePhone, supervisorName });
+  }
+
+  if (useCase === "Slack Update") {
+    const lines = [
+      `*${inspectionType || "Inspection"} — ${location} — ${date}*`,
+      `Inspector: ${inspectorName || "—"} | Status: *${status}*`,
+      "",
+      `*Summary:*`,
+      expandedNotes,
+      "",
+    ];
+    if (actionItems.length) {
+      lines.push(`*Action Items (${actionItems.length}):*`);
+      for (const a of actionItems) lines.push(`  • [${a.priority}] ${a.issue}`);
+    } else {
+      lines.push("No corrective actions needed.");
+    }
+    return lines.join("\n");
+  }
+
+  if (useCase === "Google Doc") {
+    const lines = [
+      `# ${inspectionType || "Inspection"} — ${location}`,
+      `Date: ${date} | Inspector: ${inspectorName || "—"} | Supervisor: ${supervisorName || "—"}`,
+      `Overall Status: ${status}`,
+      "",
+      "## Expanded Notes",
+      expandedNotes,
+      "",
+      "## Findings",
+    ];
+    const addFinding = (label, node) => {
+      if (node?.status && node.status !== "OK" && node.status !== "N/A")
+        lines.push(`- **${label}**: ${node.status}${node.notes ? ` — ${node.notes}` : ""}`);
+    };
+    addFinding("Ceiling", inspection?.facility?.ceiling);
+    addFinding("Walls", inspection?.facility?.walls);
+    addFinding("Floors", inspection?.facility?.floors);
+    addFinding("Lighting", inspection?.facility?.lighting);
+    addFinding("Employee practices", inspection?.operations?.employeePractices);
+    addFinding("Handwashing", inspection?.operations?.handwashing);
+    addFinding("Labeling / dating", inspection?.operations?.labelingDating);
+    addFinding("Logs", inspection?.operations?.logs);
+    addFinding("Double-door cooler", inspection?.equipment?.doubleDoorCooler);
+    addFinding("Double-door freezer", inspection?.equipment?.doubleDoorFreezer);
+    addFinding("Walk-in cooler", inspection?.equipment?.walkInCooler);
+    addFinding("Warmers", inspection?.equipment?.warmers);
+    addFinding("Ovens", inspection?.equipment?.ovens);
+    addFinding("3-compartment sink", inspection?.equipment?.threeCompSink);
+    addFinding("Ecolab / chemicals", inspection?.equipment?.ecolab);
+    if (lines[lines.length - 1] === "## Findings") lines.push("- All areas OK.");
+    lines.push("", "## Action Items");
+    if (actionItems.length) {
+      lines.push(tableMarkdown(actionItems));
+    } else {
+      lines.push("No corrective actions needed.");
+    }
+    return lines.join("\n");
+  }
+
+  if (useCase === "Evaluation Scorecard") {
+    const sections = [
+      { title: "Facility", items: [
+        ["Ceiling", inspection?.facility?.ceiling],
+        ["Walls", inspection?.facility?.walls],
+        ["Floors", inspection?.facility?.floors],
+        ["Lighting", inspection?.facility?.lighting],
+      ]},
+      { title: "Operations", items: [
+        ["Employee practices", inspection?.operations?.employeePractices],
+        ["Handwashing", inspection?.operations?.handwashing],
+        ["Labeling / dating", inspection?.operations?.labelingDating],
+        ["Logs", inspection?.operations?.logs],
+      ]},
+      { title: "Equipment", items: [
+        ["Double-door cooler", inspection?.equipment?.doubleDoorCooler],
+        ["Double-door freezer", inspection?.equipment?.doubleDoorFreezer],
+        ["Walk-in cooler", inspection?.equipment?.walkInCooler],
+        ["Warmers", inspection?.equipment?.warmers],
+        ["Ovens", inspection?.equipment?.ovens],
+        ["3-comp sink", inspection?.equipment?.threeCompSink],
+        ["Ecolab", inspection?.equipment?.ecolab],
+      ]},
+    ];
+    const lines = [
+      `EVALUATION SCORECARD`,
+      `${"=".repeat(50)}`,
+      `${inspectionType || "Inspection"} — ${location} — ${date}`,
+      `Inspector: ${inspectorName || "—"}`,
+      `Overall: ${status}`,
+      "",
+    ];
+    for (const sec of sections) {
+      lines.push(`--- ${sec.title.toUpperCase()} ---`);
+      for (const [label, node] of sec.items) {
+        const s = node?.status || "N/A";
+        const icon = s === "OK" ? "[PASS]" : s === "N/A" ? "[ -- ]" : "[FAIL]";
+        lines.push(`  ${icon} ${label}${node?.notes ? ` — ${node.notes}` : ""}`);
+      }
+      lines.push("");
+    }
+    lines.push(`--- TEMPERATURES ---`);
+    const hs = inspection?.temps?.handSinkTempF;
+    const ts = inspection?.temps?.threeCompSinkTempF;
+    lines.push(`  Hand sink: ${hs || "—"}°F ${Number(hs) >= 95 ? "[PASS]" : hs ? "[FAIL]" : ""}`);
+    lines.push(`  3-comp wash: ${ts || "—"}°F ${Number(ts) >= 110 ? "[PASS]" : ts ? "[FAIL]" : ""}`);
+    lines.push("", `--- ACTION ITEMS (${actionItems.length}) ---`);
+    for (const a of actionItems) lines.push(`  [${a.priority}] ${a.issue}`);
+    if (!actionItems.length) lines.push("  None.");
+    lines.push("", `--- RAW NOTES ---`, expandedNotes);
+    return lines.join("\n");
+  }
+
+  return emailPreview({ noteType, context, inspection, rawNotes, inspectionType, inspectionDate, inspectorName, siteName, siteNumber, sitePhone, supervisorName });
+}
+
+/* ── AI Assist: smart suggestions from checklist + notes ── */
+function aiAssist({ inspection, rawNotes, context, noteType }) {
+  const tips = [];
+  const notes = (rawNotes || "").toLowerCase();
+
+  // Check for items flagged "Needs Attention" without notes
+  const checkNode = (label, node) => {
+    if (node?.status === "Needs Attention" && !node?.notes?.trim()) {
+      tips.push(`"${label}" is flagged Needs Attention but has no notes — add details so corrective actions are clear.`);
+    }
+    if (node?.status === "Not Clean" && !node?.notes?.trim()) {
+      tips.push(`"${label}" is flagged Not Clean but has no notes — describe the issue for the report.`);
+    }
+  };
+  checkNode("Ceiling", inspection?.facility?.ceiling);
+  checkNode("Walls", inspection?.facility?.walls);
+  checkNode("Floors", inspection?.facility?.floors);
+  checkNode("Lighting", inspection?.facility?.lighting);
+  checkNode("Employee practices", inspection?.operations?.employeePractices);
+  checkNode("Handwashing", inspection?.operations?.handwashing);
+  checkNode("Labeling / dating", inspection?.operations?.labelingDating);
+  checkNode("Logs", inspection?.operations?.logs);
+  checkNode("Double-door cooler", inspection?.equipment?.doubleDoorCooler);
+  checkNode("Double-door freezer", inspection?.equipment?.doubleDoorFreezer);
+  checkNode("Walk-in cooler", inspection?.equipment?.walkInCooler);
+  checkNode("Warmers", inspection?.equipment?.warmers);
+  checkNode("Ovens", inspection?.equipment?.ovens);
+  checkNode("3-compartment sink", inspection?.equipment?.threeCompSink);
+  checkNode("Ecolab / chemicals", inspection?.equipment?.ecolab);
+
+  // Temperature checks
+  const hs = Number(inspection?.temps?.handSinkTempF);
+  const ts = Number(inspection?.temps?.threeCompSinkTempF);
+  if (hs && hs < 95) tips.push(`Hand sink temp is ${hs}°F (below 95°F min). Flag for immediate maintenance.`);
+  if (ts && ts < 110) tips.push(`3-comp sink wash temp is ${ts}°F (below 110°F min). Check water heater.`);
+  if (hs && hs >= 95 && hs < 100) tips.push(`Hand sink temp is ${hs}°F — passes but is close to the 95°F minimum. Monitor.`);
+  if (ts && ts >= 110 && ts < 115) tips.push(`3-comp wash temp is ${ts}°F — passes but is close to the 110°F minimum. Monitor.`);
+
+  // Raw notes analysis
+  if (notes.includes("allergen")) tips.push("Allergen concerns detected in notes — ensure allergen training is scheduled and documented.");
+  if (notes.includes("haccp")) tips.push("HACCP mentioned — verify all HACCP logs are complete and signed before next inspection.");
+  if (notes.includes("pest") || notes.includes("trap")) tips.push("Pest control mentioned — document trap locations and schedule pest vendor follow-up.");
+  if (notes.includes("cutting board") || notes.includes("scored")) tips.push("Scored cutting boards noted — replace immediately per food safety protocol.");
+  if (notes.includes("calibrat")) tips.push("Thermometer calibration mentioned — document last calibration date and schedule next.");
+
+  // Action items without specific owners
+  const actionLines = parseActionLines(rawNotes);
+  if (actionLines.length > 3) tips.push(`${actionLines.length} action items found in notes — consider prioritizing the top 3 for immediate follow-up.`);
+
+  if (!tips.length) tips.push("No issues detected. Inspection looks clean!");
+
+  return tips;
 }
 
 function PhotoStrip({ photos, onRemove }) {
@@ -522,9 +615,7 @@ function PhotoStrip({ photos, onRemove }) {
       {photos.map((p) => (
         <div className="photoThumb" key={p.id}>
           <img src={p.previewUrl} alt={p.name} />
-          <button className="thumbX" type="button" onClick={() => onRemove(p.id)} aria-label="Remove photo">
-            ×
-          </button>
+          <button className="thumbX" type="button" onClick={() => onRemove(p.id)} aria-label="Remove photo">×</button>
         </div>
       ))}
     </div>
@@ -541,15 +632,8 @@ function GuideSection({ title, items, inspection, setInspection }) {
       if (!f.type.startsWith("image/")) continue;
       if (bytesToMb(f.size) > PHOTO_MAX_MB) continue;
       const previewUrl = await fileToDataUrl(f);
-      enriched.push({
-        id: `${Date.now()}_${Math.random().toString(16).slice(2)}`,
-        name: f.name,
-        sizeMb: bytesToMb(f.size),
-        type: f.type,
-        previewUrl,
-      });
+      enriched.push({ id: `${Date.now()}_${Math.random().toString(16).slice(2)}`, name: f.name, sizeMb: bytesToMb(f.size), type: f.type, previewUrl });
     }
-
     setInspection((prev) => {
       const path = pathKey.split(".");
       const current = getAtPath(prev, path) || withPhotos({ status: "OK", notes: "" });
@@ -574,46 +658,24 @@ function GuideSection({ title, items, inspection, setInspection }) {
         {items.map((it) => {
           const key = it.path.join(".");
           const current = getAtPath(inspection, it.path) || withPhotos({ status: "OK", notes: "" });
-
           return (
             <div className="guideItem" key={key}>
               <div className="guideItemHead">
                 <div className="guideLabel">{it.label}</div>
-                <select
-                  className="select selectSmall"
-                  value={current.status}
-                  onChange={(e) =>
-                    setInspection((prev) => setAtPath(prev, it.path, { ...current, status: e.target.value }))
-                  }
-                >
-                  {STATUS_OPTIONS.map((s) => (
-                    <option key={s} value={s}>{s}</option>
-                  ))}
+                <select className="select selectSmall" value={current.status}
+                  onChange={(e) => setInspection((prev) => setAtPath(prev, it.path, { ...current, status: e.target.value }))}>
+                  {STATUS_OPTIONS.map((s) => (<option key={s} value={s}>{s}</option>))}
                 </select>
               </div>
-
-              <input
-                className="input inputSmall"
-                value={current.notes}
+              <input className="input inputSmall" value={current.notes}
                 onChange={(e) => setInspection((prev) => setAtPath(prev, it.path, { ...current, notes: e.target.value }))}
-                placeholder="Issue / observation (optional)"
-              />
-
+                placeholder="Issue / observation (optional)" />
               <div className="photoRow">
-                <input
-                  ref={(el) => (fileRefs.current[key] = el)}
-                  className="fileInput"
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  onChange={(e) => { addPhotos(key, e.target.files); e.target.value = ""; }}
-                />
-                <button className="btn btnGhost btnSmall" type="button" onClick={() => fileRefs.current[key]?.click()}>
-                  Add photos
-                </button>
-                <span className="hint">Up to {PHOTO_LIMIT} (≤ {PHOTO_MAX_MB}MB each)</span>
+                <input ref={(el) => (fileRefs.current[key] = el)} className="fileInput" type="file" accept="image/*" multiple
+                  onChange={(e) => { addPhotos(key, e.target.files); e.target.value = ""; }} />
+                <button className="btn btnGhost btnSmall" type="button" onClick={() => fileRefs.current[key]?.click()}>Add photos</button>
+                <span className="hint">Up to {PHOTO_LIMIT} ({PHOTO_MAX_MB}MB each)</span>
               </div>
-
               <PhotoStrip photos={current.photos} onRemove={(id) => removePhoto(key, id)} />
             </div>
           );
@@ -631,12 +693,10 @@ export default function App() {
   const [rawNotes, setRawNotes] = useState("");
   const [useCase, setUseCase] = useState(NOTE_TYPES.meeting.useCases[0]);
 
-  // Global inspection metadata
   const [inspectionType, setInspectionType] = useState("Regular Inspection");
   const [inspectionDate, setInspectionDate] = useState("");
   const [inspectorName, setInspectorName] = useState("");
 
-  // Site / location metadata
   const [siteName, setSiteName] = useState("");
   const [siteNumber, setSiteNumber] = useState("");
   const [supervisorName, setSupervisorName] = useState("");
@@ -645,6 +705,8 @@ export default function App() {
   const [output, setOutput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [warnings, setWarnings] = useState([]);
+  const [aiTips, setAiTips] = useState([]);
 
   const spec = NOTE_TYPES[noteType];
   const canTransform = useMemo(() => rawNotes.trim().length > 0, [rawNotes]);
@@ -657,6 +719,8 @@ export default function App() {
     setRawNotes("");
     setOutput("");
     setError("");
+    setWarnings([]);
+    setAiTips([]);
   }
 
   function loadSample() {
@@ -664,58 +728,45 @@ export default function App() {
     setContext({ ...s.context });
     setInspection(s.inspection ? { ...s.inspection } : buildDefaultInspection());
     setRawNotes(s.rawNotes || "");
-
-    // load meta if present
     setInspectionType(s.meta?.inspectionType || "Regular Inspection");
     setInspectionDate(s.meta?.inspectionDate || s.context?.date || "");
     setInspectorName(s.meta?.inspectorName || "");
-
-    // reset site fields (not in sample data)
     setSiteName("");
     setSiteNumber("");
     setSupervisorName("");
     setSitePhone("");
-
     setOutput("");
     setError("");
+    setWarnings([]);
+    setAiTips([]);
   }
 
-  async function onTransform() {
+  function onTransform() {
     setError("");
+    setWarnings([]);
+    setAiTips([]);
+
+    // Validate
+    const w = validateForm({ inspectionDate, inspectorName, context, noteType, inspection });
+    if (w.length) setWarnings(w);
+
+    if (!rawNotes.trim()) {
+      setError("Please enter raw notes before transforming.");
+      return;
+    }
+
     setLoading(true);
     try {
-      const meta = {
-        inspectionType,
-        inspectionDate: inspectionDate || context?.date || "",
-        inspectorName,
-        site: {
-          name: siteName,
-          number: siteNumber,
-          supervisorName,
-          phone: sitePhone,
-        },
-      };
-
-      const emailAssist =
-        useCase === "Email Summary"
-          ? {
-              subject: buildSubject({
-                noteType,
-                context,
-                inspection,
-                inspectionType,
-                inspectionDate,
-                siteName,
-                siteNumber,
-              }),
-              actionItems: buildActionItems({ inspection, rawNotes }),
-              photoIndex: buildPhotoIndex(inspection).index,
-              meta,
-            }
-          : null;
-
-      const out = await transformNotes({ noteType, useCase, context, inspection, rawNotes, emailAssist, meta });
+      const out = transformLocally({
+        noteType, useCase, context, inspection, rawNotes,
+        inspectionType, inspectionDate, inspectorName,
+        siteName, siteNumber, sitePhone, supervisorName,
+      });
       setOutput(out);
+
+      // Run AI assist
+      const tips = aiAssist({ inspection, rawNotes, context, noteType });
+      setAiTips(tips);
     } catch (e) {
       setError(e?.message || "Something went wrong");
     } finally {
@@ -730,43 +781,38 @@ export default function App() {
 
   function showEmailPreviewNow() {
     const preview = emailPreview({
-      noteType,
-      context,
-      inspection,
-      rawNotes,
-      inspectionType,
+      noteType, context, inspection, rawNotes, inspectionType,
       inspectionDate: inspectionDate || context?.date || "",
-      inspectorName,
-      siteName,
-      siteNumber,
-      sitePhone,
-      supervisorName,
+      inspectorName, siteName, siteNumber, sitePhone, supervisorName,
     });
     setOutput(preview);
     setError("");
+  }
+
+  function runAiAssist() {
+    const tips = aiAssist({ inspection, rawNotes, context, noteType });
+    setAiTips(tips);
   }
 
   return (
     <div className="appShell">
       <header className="topBar">
         <div className="brandLeft">
-          <svg className="logoSvg" width="40" height="40" viewBox="0 0 40 40" fill="none" aria-label="Sodexo Live">
-            <rect width="40" height="40" rx="8" fill="#EE0000"/>
-            <text x="20" y="27" textAnchor="middle" fill="white" fontWeight="800" fontSize="20" fontFamily="Inter, sans-serif">S</text>
-          </svg>
+          <img src="/sodexo-live-logo.svg" alt="Sodexo Live!" className="brandLogo" />
           <div>
-            <div className="brandTitle">Sodexo Live! <span style={{fontWeight:400, opacity:0.8, fontSize:'0.85em'}}>Kitchen Inspection</span></div>
+            <div className="brandTitle">Kitchen Inspection</div>
             <div className="brandSub">Turn sit-down inspection notes into organized documents</div>
           </div>
         </div>
 
         <div className="topActions">
           <button className="btn btnGhost" onClick={loadSample} type="button">Load sample</button>
+          <button className="btn btnAi" onClick={runAiAssist} type="button">AI Assist</button>
           {useCase === "Email Summary" ? (
             <button className="btn btnGhost" onClick={showEmailPreviewNow} type="button">Email preview</button>
           ) : null}
-          <button className={cx("btn", "btnPrimary")} onClick={onTransform} type="button" disabled={!canTransform || loading}>
-            {loading ? "Formatting…" : "Transform"}
+          <button className={cx("btn", "btnPrimary")} onClick={onTransform} type="button" disabled={loading}>
+            {loading ? "Formatting..." : "Transform"}
           </button>
         </div>
       </header>
@@ -787,51 +833,40 @@ export default function App() {
           </div>
 
           <div className="cardBody">
-            {/* Inspection meta + site fields */}
             <div className="fieldGrid">
               <label className="field">
                 <span className="fieldLabel">Inspection Type</span>
                 <select className="select" value={inspectionType} onChange={(e) => setInspectionType(e.target.value)}>
-                  {INSPECTION_TYPES.map((t) => (
-                    <option key={t} value={t}>{t}</option>
-                  ))}
+                  {INSPECTION_TYPES.map((t) => (<option key={t} value={t}>{t}</option>))}
                 </select>
               </label>
-
               <label className="field">
                 <span className="fieldLabel">Inspection Date</span>
                 <input className="input" value={inspectionDate} onChange={(e) => setInspectionDate(e.target.value)} placeholder="YYYY-MM-DD" />
               </label>
-
               <label className="field">
                 <span className="fieldLabel">Inspector Name</span>
                 <input className="input" value={inspectorName} onChange={(e) => setInspectorName(e.target.value)} placeholder="e.g., J. Da Silva" />
               </label>
-
               <label className="field">
                 <span className="fieldLabel">Supervisor Name</span>
                 <input className="input" value={supervisorName} onChange={(e) => setSupervisorName(e.target.value)} placeholder="e.g., GM / Chef Lead" />
               </label>
-
               <label className="field">
                 <span className="fieldLabel">Restaurant / Local Name</span>
                 <input className="input" value={siteName} onChange={(e) => setSiteName(e.target.value)} placeholder="e.g., North Stand Kitchen" />
               </label>
-
               <label className="field">
                 <span className="fieldLabel">Location / Unit Number</span>
                 <input className="input" value={siteNumber} onChange={(e) => setSiteNumber(e.target.value)} placeholder="e.g., Unit 12 / Loc-204" />
               </label>
-
               <label className="field">
                 <span className="fieldLabel">Location Phone (optional)</span>
                 <input className="input" value={sitePhone} onChange={(e) => setSitePhone(e.target.value)} placeholder="e.g., (305) 555-0123" />
               </label>
-
               <div className="field" />
             </div>
 
-            {/* Original context fields */}
             <div className="fieldGrid">
               {spec.contextFields.map((f) => (
                 <label className="field" key={f.key}>
@@ -847,9 +882,7 @@ export default function App() {
                 <span className="hint">Adapts to the selected note type</span>
               </div>
               <select className="select" value={useCase} onChange={(e) => setUseCase(e.target.value)}>
-                {spec.useCases.map((u) => (
-                  <option key={u} value={u}>{u}</option>
-                ))}
+                {spec.useCases.map((u) => (<option key={u} value={u}>{u}</option>))}
               </select>
             </div>
 
@@ -860,64 +893,52 @@ export default function App() {
                   <div className="guideSub">Fast checklist for sit-down kitchen inspections</div>
                 </div>
                 <div className="pillRow">
-                  <span className="pill">Hand sink ≥ 95°F</span>
-                  <span className="pill">3-comp wash ≥ 110°F</span>
+                  <span className="pill">Hand sink >= 95 F</span>
+                  <span className="pill">3-comp wash >= 110 F</span>
                 </div>
               </div>
 
-              <GuideSection
-                title="Facility: ceiling → walls → floors → lighting"
+              <GuideSection title="Facility: ceiling, walls, floors, lighting"
                 items={[
                   { path: ["facility", "ceiling"], label: "Ceiling" },
                   { path: ["facility", "walls"], label: "Walls" },
                   { path: ["facility", "floors"], label: "Floors" },
                   { path: ["facility", "lighting"], label: "Lighting" },
-                ]}
-                inspection={inspection}
-                setInspection={setInspection}
-              />
+                ]} inspection={inspection} setInspection={setInspection} />
 
-              <GuideSection
-                title="Operations: employees + process controls"
+              <GuideSection title="Operations: employees + process controls"
                 items={[
                   { path: ["operations", "employeePractices"], label: "Employee practices" },
                   { path: ["operations", "handwashing"], label: "Handwashing / supplies" },
                   { path: ["operations", "labelingDating"], label: "Labeling / dating" },
                   { path: ["operations", "logs"], label: "Logs / documentation" },
-                ]}
-                inspection={inspection}
-                setInspection={setInspection}
-              />
+                ]} inspection={inspection} setInspection={setInspection} />
 
               <div className="tempsRow">
                 <div className="tempsTitle">Key temperatures</div>
                 <div className="tempsGrid">
                   <label className="field" style={{ marginTop: 0 }}>
-                    <span className="fieldLabel">Hand sink temp (°F)</span>
+                    <span className="fieldLabel">Hand sink temp (F)</span>
                     <input className="input" inputMode="numeric" value={inspection.temps.handSinkTempF}
                       onChange={(e) => setInspection((prev) => ({ ...prev, temps: { ...prev.temps, handSinkTempF: e.target.value } }))}
-                      placeholder="e.g., 97"
-                    />
+                      placeholder="e.g., 97" />
                     <span className="hint">
-                      {Number(inspection.temps.handSinkTempF) >= 95 ? "Meets ≥95°F" : inspection.temps.handSinkTempF ? "Below 95°F — flag" : ""}
+                      {Number(inspection.temps.handSinkTempF) >= 95 ? "Meets >=95 F" : inspection.temps.handSinkTempF ? "Below 95 F - flag" : ""}
                     </span>
                   </label>
-
                   <label className="field" style={{ marginTop: 0 }}>
-                    <span className="fieldLabel">3-comp wash temp (°F)</span>
+                    <span className="fieldLabel">3-comp wash temp (F)</span>
                     <input className="input" inputMode="numeric" value={inspection.temps.threeCompSinkTempF}
                       onChange={(e) => setInspection((prev) => ({ ...prev, temps: { ...prev.temps, threeCompSinkTempF: e.target.value } }))}
-                      placeholder="e.g., 112"
-                    />
+                      placeholder="e.g., 112" />
                     <span className="hint">
-                      {Number(inspection.temps.threeCompSinkTempF) >= 110 ? "Meets ≥110°F" : inspection.temps.threeCompSinkTempF ? "Below 110°F — flag" : ""}
+                      {Number(inspection.temps.threeCompSinkTempF) >= 110 ? "Meets >=110 F" : inspection.temps.threeCompSinkTempF ? "Below 110 F - flag" : ""}
                     </span>
                   </label>
                 </div>
               </div>
 
-              <GuideSection
-                title="Equipment check"
+              <GuideSection title="Equipment check"
                 items={[
                   { path: ["equipment", "doubleDoorCooler"], label: "Double-door cooler" },
                   { path: ["equipment", "doubleDoorFreezer"], label: "Double-door freezer" },
@@ -926,10 +947,7 @@ export default function App() {
                   { path: ["equipment", "ovens"], label: "Ovens" },
                   { path: ["equipment", "threeCompSink"], label: "3-compartment sink" },
                   { path: ["equipment", "ecolab"], label: "Ecolab / chemicals" },
-                ]}
-                inspection={inspection}
-                setInspection={setInspection}
-              />
+                ]} inspection={inspection} setInspection={setInspection} />
             </div>
 
             <div className="field">
@@ -937,9 +955,15 @@ export default function App() {
                 <span className="fieldLabel">Raw notes</span>
                 <span className="hint">Abbreviations are expanded while preserving meaning</span>
               </div>
-              <textarea className="textarea" value={rawNotes} onChange={(e) => setRawNotes(e.target.value)} placeholder="Paste quick inspection notes here…" rows={10} />
+              <textarea className="textarea" value={rawNotes} onChange={(e) => setRawNotes(e.target.value)} placeholder="Paste quick inspection notes here..." rows={10} />
             </div>
 
+            {warnings.length > 0 && (
+              <div className="warningBox">
+                <strong>Missing information:</strong>
+                <ul>{warnings.map((w, i) => <li key={i}>{w}</li>)}</ul>
+              </div>
+            )}
             {error ? <div className="errorBox">{error}</div> : null}
           </div>
         </section>
@@ -957,10 +981,17 @@ export default function App() {
           </div>
 
           <div className="cardBody">
+            {aiTips.length > 0 && (
+              <div className="aiBox">
+                <div className="aiBoxTitle">AI Assistant</div>
+                <ul>{aiTips.map((tip, i) => <li key={i}>{tip}</li>)}</ul>
+              </div>
+            )}
+
             {!output ? (
               <div className="emptyState">
                 <div className="emptyTitle">No output yet</div>
-                <div className="emptySub">Load a sample or paste raw notes, then Transform (or Email preview).</div>
+                <div className="emptySub">Load a sample or paste raw notes, then click Transform.</div>
               </div>
             ) : (
               <pre className="outputPre">{output}</pre>
@@ -970,6 +1001,7 @@ export default function App() {
       </main>
 
       <footer className="footer">
+        <img src="/sodexo-live-logo.svg" alt="Sodexo Live!" className="footerLogo" />
         <span>Tip: Attach the same photos listed in the Photo Index so the email references match.</span>
       </footer>
     </div>

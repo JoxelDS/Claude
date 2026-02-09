@@ -538,6 +538,83 @@ body {
   margin-top: 14px;
 }
 
+/* ── Warning Box ─────────────────────────────────────────── */
+.warningBox {
+  background: var(--sdx-amber-light);
+  border: 1px solid rgba(217,119,6,.2);
+  border-left: 4px solid var(--sdx-amber);
+  color: #92400E;
+  padding: 12px 16px;
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  font-weight: 500;
+  margin-top: 14px;
+}
+.warningBox strong {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 700;
+  color: #78350F;
+}
+.warningBox ul {
+  margin: 0;
+  padding-left: 18px;
+}
+.warningBox li {
+  margin-bottom: 2px;
+}
+
+/* ── AI Box ──────────────────────────────────────────────── */
+.aiBox {
+  background: linear-gradient(135deg, #EDE9FE 0%, #F0FDFA 100%);
+  border: 1px solid rgba(123,63,160,.2);
+  border-left: 4px solid #7B3FA0;
+  padding: 14px 18px;
+  border-radius: var(--radius-sm);
+  font-size: 0.84rem;
+  margin-bottom: 18px;
+}
+.aiBoxTitle {
+  font-weight: 700;
+  color: #7B3FA0;
+  margin-bottom: 8px;
+  font-size: 0.88rem;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.aiBoxTitle::before {
+  content: '\2728';
+}
+.aiBox ul {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--sdx-gray-700);
+}
+.aiBox li {
+  margin-bottom: 4px;
+  line-height: 1.5;
+}
+
+/* ── AI Button ───────────────────────────────────────────── */
+.btnAi {
+  background: linear-gradient(135deg, #7B3FA0 0%, #D946A8 100%);
+  color: var(--sdx-white);
+  border: none;
+}
+.btnAi:hover:not(:disabled) {
+  background: linear-gradient(135deg, #6B2F90 0%, #C93698 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(123,63,160,.3);
+}
+
+/* ── Brand Logo ──────────────────────────────────────────── */
+.brandLogo {
+  height: 40px;
+  width: auto;
+  flex-shrink: 0;
+}
+
 /* ── Footer ──────────────────────────────────────────────── */
 .footer {
   background: var(--sdx-navy);
@@ -545,6 +622,15 @@ body {
   text-align: center;
   padding: 14px 28px;
   font-size: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+.footerLogo {
+  height: 24px;
+  width: auto;
+  opacity: 0.7;
 }
 
 /* ── Scrollbar ───────────────────────────────────────────── */

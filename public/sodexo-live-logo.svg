@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 260">
+  <defs>
+    <linearGradient id="liveGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#2A295C"/>
+      <stop offset="35%" stop-color="#7B3FA0"/>
+      <stop offset="70%" stop-color="#D946A8"/>
+      <stop offset="100%" stop-color="#FF0066"/>
+    </linearGradient>
+    <linearGradient id="sodexoGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#7B3FA0"/>
+      <stop offset="100%" stop-color="#C944A0"/>
+    </linearGradient>
+    <linearGradient id="starGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FF0066"/>
+      <stop offset="100%" stop-color="#FF3388"/>
+    </linearGradient>
+  </defs>
+  <!-- Stylized "l" with swooping calligraphic stroke -->
+  <path d="M 60 220 Q 20 220 30 180 Q 40 140 55 100 Q 70 60 85 40 Q 100 20 105 30 Q 110 40 95 80 Q 80 120 70 160 Q 60 200 75 210 Q 90 220 110 210" stroke="url(#liveGrad)" stroke-width="12" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- "i" -->
+  <path d="M 125 140 Q 125 135 130 130 L 130 210 Q 130 215 128 218" stroke="url(#liveGrad)" stroke-width="10" fill="none" stroke-linecap="round"/>
+  <!-- "i" dot -->
+  <circle cx="132" cy="118" r="6" fill="url(#liveGrad)"/>
+  <!-- "v" -->
+  <path d="M 150 130 Q 165 195 175 210 Q 185 195 200 130" stroke="url(#liveGrad)" stroke-width="10" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- "e" -->
+  <path d="M 215 170 Q 245 160 250 175 Q 255 190 240 205 Q 225 220 210 215 Q 195 210 200 190 Q 205 170 230 165" stroke="url(#liveGrad)" stroke-width="10" fill="none" stroke-linecap="round"/>
+  <!-- "!" exclamation mark - swooping line -->
+  <path d="M 280 60 Q 290 40 295 50 Q 300 60 290 120 Q 280 180 275 200" stroke="#FF0066" stroke-width="11" fill="none" stroke-linecap="round"/>
+  <!-- "!" dot -->
+  <circle cx="273" cy="225" r="7" fill="#FF0066"/>
+  <!-- Star sparkle -->
+  <path d="M 265 45 L 268 35 L 271 45 L 280 48 L 271 51 L 268 60 L 265 51 L 256 48 Z" fill="url(#starGrad)"/>
+  <!-- "sodexo" text -->
+  <text x="130" y="95" font-family="'Inter', 'Segoe UI', sans-serif" font-size="52" font-weight="700" fill="url(#sodexoGrad)" letter-spacing="2">sodexo</text>
+</svg>
