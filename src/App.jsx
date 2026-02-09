@@ -92,11 +92,11 @@ function lockApp() {
   _cryptoKey = null;
 }
 
-/* ── PIN Lock Screen ─────────────────────────────────────── */
+/* ── Badge Lock Screen ────────────────────────────────────── */
 function PinScreen({ onUnlock }) {
   const isSetup = hasPinSetup();
-  const [pin, setPin] = useState("");
-  const [confirmPin, setConfirmPin] = useState("");
+  const [badge, setBadge] = useState("");
+  const [confirmBadge, setConfirmBadge] = useState("");
   const [step, setStep] = useState(isSetup ? "enter" : "create"); // create | confirm | enter
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -111,33 +111,33 @@ function PinScreen({ onUnlock }) {
 
     try {
       if (step === "create") {
-        if (pin.length < 4) { setError("PIN must be at least 4 digits"); setLoading(false); return; }
-        setConfirmPin(pin);
-        setPin("");
+        if (badge.trim().length < 3) { setError("Badge number must be at least 3 characters"); setLoading(false); return; }
+        setConfirmBadge(badge.trim());
+        setBadge("");
         setStep("confirm");
         setLoading(false);
         return;
       }
 
       if (step === "confirm") {
-        if (pin !== confirmPin) {
-          setError("PINs don't match. Try again.");
-          setPin("");
+        if (badge.trim() !== confirmBadge) {
+          setError("Badge numbers don't match. Try again.");
+          setBadge("");
           setStep("create");
-          setConfirmPin("");
+          setConfirmBadge("");
           setLoading(false);
           return;
         }
-        await setupPin(pin);
+        await setupPin(badge.trim());
         onUnlock();
         return;
       }
 
       if (step === "enter") {
-        const ok = await verifyPin(pin);
+        const ok = await verifyPin(badge.trim());
         if (ok) { onUnlock(); return; }
-        setError("Wrong PIN. Try again.");
-        setPin("");
+        setError("Badge number not recognized. Try again.");
+        setBadge("");
         setLoading(false);
       }
     } catch {
@@ -151,31 +151,29 @@ function PinScreen({ onUnlock }) {
       <div className="pinCard">
         <img src="/sodexo-live-logo.svg" alt="Sodexo Live!" className="pinLogo" />
         <div className="pinTitle">
-          {step === "create" && "Create Your PIN"}
-          {step === "confirm" && "Confirm Your PIN"}
-          {step === "enter" && "Enter Your PIN"}
+          {step === "create" && "Register Your Badge"}
+          {step === "confirm" && "Confirm Badge Number"}
+          {step === "enter" && "Badge Sign-In"}
         </div>
         <div className="pinSub">
-          {step === "create" && "Set a PIN to protect your inspection data"}
-          {step === "confirm" && "Enter the same PIN again to confirm"}
-          {step === "enter" && "Your data is encrypted and secure"}
+          {step === "create" && "Enter your work badge number to secure your inspection data"}
+          {step === "confirm" && "Enter the same badge number again to confirm"}
+          {step === "enter" && "Enter your badge number to access your inspections"}
         </div>
         <form onSubmit={handleSubmit} className="pinForm">
           <input
             ref={inputRef}
-            className="pinInput"
+            className="pinInput badgeInput"
             type="password"
-            inputMode="numeric"
-            pattern="[0-9]*"
-            maxLength={8}
-            value={pin}
-            onChange={e => setPin(e.target.value.replace(/\D/g, ""))}
-            placeholder="Enter PIN"
+            maxLength={20}
+            value={badge}
+            onChange={e => setBadge(e.target.value)}
+            placeholder="Badge #"
             autoComplete="off"
           />
           {error && <div className="pinError">{error}</div>}
-          <button className="btn btnPrimary pinBtn" type="submit" disabled={loading || pin.length < 4}>
-            {loading ? "Verifying..." : step === "enter" ? "Unlock" : step === "confirm" ? "Confirm & Save" : "Next"}
+          <button className="btn btnPrimary pinBtn" type="submit" disabled={loading || badge.trim().length < 3}>
+            {loading ? "Verifying..." : step === "enter" ? "Sign In" : step === "confirm" ? "Confirm & Save" : "Next"}
           </button>
         </form>
         <div className="pinFooter">
