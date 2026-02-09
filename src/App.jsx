@@ -1,5 +1,29 @@
-import React, { useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
+
+/* ── localStorage helpers for History ────────────────────── */
+const STORAGE_KEY = "sdx_inspection_history";
+
+function loadHistory() {
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+  } catch { return []; }
+}
+
+function saveHistory(records) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+}
+
+/* ── File download helper ────────────────────────────────── */
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
+}
 
 const NOTE_TYPES = {
   interview: {
@@ -608,6 +632,277 @@ function aiAssist({ inspection, rawNotes, context, noteType }) {
   return tips;
 }
 
+/* ── CSV export from inspection data ─────────────────────── */
+function buildCsvRows({ inspection, rawNotes, inspectionType, inspectionDate, inspectorName, siteName, siteNumber, supervisorName }) {
+  const rows = [["Section", "Item", "Status", "Notes", "Priority"]];
+  const add = (section, label, node) => {
+    if (!node) return;
+    const priority = (node.status === "Not Clean") ? "High" : (node.status === "Needs Attention") ? "Med" : "";
+    rows.push([section, label, node.status || "", (node.notes || "").replace(/"/g, '""'), priority]);
+  };
+  add("Facility", "Ceiling", inspection?.facility?.ceiling);
+  add("Facility", "Walls", inspection?.facility?.walls);
+  add("Facility", "Floors", inspection?.facility?.floors);
+  add("Facility", "Lighting", inspection?.facility?.lighting);
+  add("Operations", "Employee practices", inspection?.operations?.employeePractices);
+  add("Operations", "Handwashing / supplies", inspection?.operations?.handwashing);
+  add("Operations", "Labeling / dating", inspection?.operations?.labelingDating);
+  add("Operations", "Logs / documentation", inspection?.operations?.logs);
+  add("Equipment", "Double-door cooler", inspection?.equipment?.doubleDoorCooler);
+  add("Equipment", "Double-door freezer", inspection?.equipment?.doubleDoorFreezer);
+  add("Equipment", "Walk-in cooler", inspection?.equipment?.walkInCooler);
+  add("Equipment", "Warmers / hot holding", inspection?.equipment?.warmers);
+  add("Equipment", "Ovens", inspection?.equipment?.ovens);
+  add("Equipment", "3-compartment sink", inspection?.equipment?.threeCompSink);
+  add("Equipment", "Ecolab / chemicals", inspection?.equipment?.ecolab);
+  rows.push(["Temps", "Hand sink (F)", inspection?.temps?.handSinkTempF || "", Number(inspection?.temps?.handSinkTempF) >= 95 ? "Pass" : "Below min", ""]);
+  rows.push(["Temps", "3-comp wash (F)", inspection?.temps?.threeCompSinkTempF || "", Number(inspection?.temps?.threeCompSinkTempF) >= 110 ? "Pass" : "Below min", ""]);
+  return rows;
+}
+
+function exportAsCsv({ inspection, rawNotes, inspectionType, inspectionDate, inspectorName, siteName, siteNumber, supervisorName }) {
+  const meta = [
+    ["Inspection Type", inspectionType],
+    ["Date", inspectionDate],
+    ["Inspector", inspectorName],
+    ["Site", siteName],
+    ["Unit #", siteNumber],
+    ["Supervisor", supervisorName],
+    [""],
+  ];
+  const dataRows = buildCsvRows({ inspection, rawNotes, inspectionType, inspectionDate, inspectorName, siteName, siteNumber, supervisorName });
+  const allRows = [...meta, ...dataRows, [""], ["Raw Notes", (rawNotes || "").replace(/"/g, '""')]];
+  const csv = allRows.map(r => r.map(c => `"${c}"`).join(",")).join("\n");
+  const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+  const filename = `inspection_${inspectionDate || "undated"}_${(siteName || "site").replace(/\s+/g, "_")}.csv`;
+  downloadBlob(blob, filename);
+}
+
+function exportAsHtml({ output, inspectionType, inspectionDate, siteName, inspectorName }) {
+  const html = `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>Inspection Report - ${inspectionDate || "Report"}</title>
+<style>body{font-family:Calibri,Arial,sans-serif;max-width:800px;margin:40px auto;padding:20px;color:#1F2937;line-height:1.6}
+h1{color:#2A295C;border-bottom:3px solid #EE0000;padding-bottom:8px}
+h2{color:#283897;margin-top:24px}
+table{border-collapse:collapse;width:100%;margin:12px 0}
+th,td{border:1px solid #DDE1E8;padding:8px 12px;text-align:left}
+th{background:#2A295C;color:white;font-weight:600}
+.meta{background:#F7F8FA;padding:16px;border-radius:8px;margin-bottom:24px}
+.meta strong{color:#2A295C}
+pre{background:#F7F8FA;padding:16px;border-radius:8px;white-space:pre-wrap;font-size:13px}
+</style></head><body>
+<h1>Kitchen Inspection Report</h1>
+<div class="meta">
+<strong>Type:</strong> ${inspectionType || "—"} | <strong>Date:</strong> ${inspectionDate || "—"} | <strong>Site:</strong> ${siteName || "—"} | <strong>Inspector:</strong> ${inspectorName || "—"}
+</div>
+<pre>${(output || "").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</pre>
+</body></html>`;
+  const blob = new Blob([html], { type: "text/html;charset=utf-8;" });
+  const filename = `inspection_${inspectionDate || "undated"}_${(siteName || "site").replace(/\s+/g, "_")}.html`;
+  downloadBlob(blob, filename);
+}
+
+function exportAsTxt({ output, inspectionDate, siteName }) {
+  const blob = new Blob([output || ""], { type: "text/plain;charset=utf-8;" });
+  const filename = `inspection_${inspectionDate || "undated"}_${(siteName || "site").replace(/\s+/g, "_")}.txt`;
+  downloadBlob(blob, filename);
+}
+
+/* ── History Page Component ──────────────────────────────── */
+function HistoryPage({ onBack }) {
+  const [history, setHistory] = useState(() => loadHistory());
+  const [filterDate, setFilterDate] = useState("");
+  const [filterType, setFilterType] = useState("");
+  const [filterIssue, setFilterIssue] = useState("");
+  const [expandedId, setExpandedId] = useState(null);
+
+  const issueTypes = useMemo(() => {
+    const set = new Set();
+    for (const rec of history) {
+      for (const item of (rec.actionItems || [])) {
+        set.add(item.issue?.split(":")[0]?.trim() || "Other");
+      }
+    }
+    return Array.from(set).sort();
+  }, [history]);
+
+  const filtered = useMemo(() => {
+    return history.filter(rec => {
+      if (filterDate && rec.inspectionDate !== filterDate) return false;
+      if (filterType && rec.inspectionType !== filterType) return false;
+      if (filterIssue) {
+        const hasIssue = (rec.actionItems || []).some(a =>
+          a.issue?.toLowerCase().includes(filterIssue.toLowerCase())
+        );
+        if (!hasIssue) return false;
+      }
+      return true;
+    });
+  }, [history, filterDate, filterType, filterIssue]);
+
+  function deleteRecord(id) {
+    const next = history.filter(r => r.id !== id);
+    setHistory(next);
+    saveHistory(next);
+  }
+
+  function clearAll() {
+    if (!confirm("Delete all inspection history? This cannot be undone.")) return;
+    setHistory([]);
+    saveHistory([]);
+  }
+
+  const uniqueDates = [...new Set(history.map(r => r.inspectionDate).filter(Boolean))].sort().reverse();
+  const uniqueTypes = [...new Set(history.map(r => r.inspectionType).filter(Boolean))].sort();
+
+  return (
+    <div className="appShell">
+      <header className="topBar">
+        <div className="brandLeft">
+          <img src="/sodexo-live-logo.svg" alt="Sodexo Live!" className="brandLogo" />
+          <div>
+            <div className="brandTitle">Inspection History</div>
+            <div className="brandSub">{history.length} saved inspection{history.length !== 1 ? "s" : ""}</div>
+          </div>
+        </div>
+        <div className="topActions">
+          <button className="btn btnGhost" onClick={onBack} type="button">Back to Inspector</button>
+          {history.length > 0 && (
+            <button className="btn btnGhost" onClick={clearAll} type="button" style={{color: "#EE0000", borderColor: "#EE0000"}}>Clear All</button>
+          )}
+        </div>
+      </header>
+
+      <main style={{ padding: "24px 28px", maxWidth: 1200, margin: "0 auto", width: "100%" }}>
+        {/* Filters */}
+        <div className="card" style={{ marginBottom: 24 }}>
+          <div className="cardHeader">
+            <div className="cardTitle">Filters</div>
+            {(filterDate || filterType || filterIssue) && (
+              <button className="btn btnGhost btnSmall" type="button" onClick={() => { setFilterDate(""); setFilterType(""); setFilterIssue(""); }}>
+                Clear filters
+              </button>
+            )}
+          </div>
+          <div className="cardBody">
+            <div className="fieldGrid" style={{ gridTemplateColumns: "1fr 1fr 1fr" }}>
+              <label className="field">
+                <span className="fieldLabel">Date</span>
+                <select className="select" value={filterDate} onChange={e => setFilterDate(e.target.value)}>
+                  <option value="">All dates</option>
+                  {uniqueDates.map(d => <option key={d} value={d}>{d}</option>)}
+                </select>
+              </label>
+              <label className="field">
+                <span className="fieldLabel">Inspection Type</span>
+                <select className="select" value={filterType} onChange={e => setFilterType(e.target.value)}>
+                  <option value="">All types</option>
+                  {uniqueTypes.map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </label>
+              <label className="field">
+                <span className="fieldLabel">Search Issues</span>
+                <input className="input" value={filterIssue} onChange={e => setFilterIssue(e.target.value)} placeholder="e.g., floor, temp, allergen..." />
+              </label>
+            </div>
+          </div>
+        </div>
+
+        {/* Results */}
+        {filtered.length === 0 ? (
+          <div className="card">
+            <div className="cardBody">
+              <div className="emptyState">
+                <div className="emptyTitle">{history.length === 0 ? "No inspections saved yet" : "No matches"}</div>
+                <div className="emptySub">{history.length === 0 ? "Complete an inspection and click Save to build your history." : "Try adjusting your filters."}</div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="historyList">
+            {filtered.map(rec => {
+              const isExpanded = expandedId === rec.id;
+              const issues = rec.actionItems || [];
+              const statusColor = rec.overallStatus === "Pass" ? "#15803D" : "#EE0000";
+              return (
+                <div className="card historyCard" key={rec.id} style={{ marginBottom: 16 }}>
+                  <div className="cardHeader" style={{ cursor: "pointer" }} onClick={() => setExpandedId(isExpanded ? null : rec.id)}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 16, flex: 1 }}>
+                      <span className="historyStatus" style={{ background: statusColor }}>{rec.overallStatus}</span>
+                      <div>
+                        <div className="cardTitle">{rec.siteName || rec.location || "Inspection"}</div>
+                        <div className="cardSub">{rec.inspectionDate} &middot; {rec.inspectionType} &middot; {rec.inspectorName || "—"}</div>
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      {issues.length > 0 && <span className="pill">{issues.length} issue{issues.length !== 1 ? "s" : ""}</span>}
+                      <span style={{ fontSize: "1.2rem", color: "var(--sdx-gray-400)" }}>{isExpanded ? "\u25B2" : "\u25BC"}</span>
+                    </div>
+                  </div>
+
+                  {isExpanded && (
+                    <div className="cardBody">
+                      <div className="historyMeta">
+                        <div><strong>Inspector:</strong> {rec.inspectorName || "—"}</div>
+                        <div><strong>Supervisor:</strong> {rec.supervisorName || "—"}</div>
+                        <div><strong>Unit #:</strong> {rec.siteNumber || "—"}</div>
+                        <div><strong>Hand sink:</strong> {rec.temps?.handSinkTempF || "—"}°F</div>
+                        <div><strong>3-comp wash:</strong> {rec.temps?.threeCompSinkTempF || "—"}°F</div>
+                      </div>
+
+                      {issues.length > 0 && (
+                        <div style={{ marginTop: 16 }}>
+                          <div className="guideSectionTitle">Action Items</div>
+                          <table className="historyTable">
+                            <thead>
+                              <tr><th>Issue</th><th>Priority</th></tr>
+                            </thead>
+                            <tbody>
+                              {issues.map((a, i) => (
+                                <tr key={i}>
+                                  <td>{a.issue}</td>
+                                  <td><span className={cx("priorityBadge", a.priority === "High" ? "priorityHigh" : "priorityMed")}>{a.priority}</span></td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+
+                      {rec.rawNotes && (
+                        <div style={{ marginTop: 16 }}>
+                          <div className="guideSectionTitle">Raw Notes</div>
+                          <pre className="outputPre" style={{ maxHeight: 200 }}>{rec.rawNotes}</pre>
+                        </div>
+                      )}
+
+                      <div style={{ marginTop: 16, display: "flex", gap: 8 }}>
+                        <button className="btn btnGhost btnSmall" type="button" onClick={() => {
+                          exportAsTxt({ output: rec.output || rec.rawNotes || "", inspectionDate: rec.inspectionDate, siteName: rec.siteName });
+                        }}>Download TXT</button>
+                        <button className="btn btnGhost btnSmall" type="button" onClick={() => {
+                          exportAsHtml({ output: rec.output || rec.rawNotes || "", inspectionType: rec.inspectionType, inspectionDate: rec.inspectionDate, siteName: rec.siteName, inspectorName: rec.inspectorName });
+                        }}>Download HTML</button>
+                        <button className="btn btnGhost btnSmall" type="button" onClick={() => deleteRecord(rec.id)}
+                          style={{ color: "#EE0000", borderColor: "rgba(238,0,0,.3)", marginLeft: "auto" }}>Delete</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </main>
+
+      <footer className="footer">
+        <img src="/sodexo-live-logo.svg" alt="Sodexo Live!" className="footerLogo" />
+        <span>Inspection history is stored locally in your browser.</span>
+      </footer>
+    </div>
+  );
+}
+
 function PhotoStrip({ photos, onRemove }) {
   if (!photos?.length) return null;
   return (
@@ -687,6 +982,8 @@ function GuideSection({ title, items, inspection, setInspection }) {
 }
 
 export default function App() {
+  const [page, setPage] = useState("inspector"); // "inspector" | "history"
+
   const [noteType, setNoteType] = useState("meeting");
   const [context, setContext] = useState(() => buildDefaultContext("meeting"));
   const [inspection, setInspection] = useState(() => buildDefaultInspection());
@@ -707,6 +1004,9 @@ export default function App() {
   const [error, setError] = useState("");
   const [warnings, setWarnings] = useState([]);
   const [aiTips, setAiTips] = useState([]);
+  const [saved, setSaved] = useState(false);
+
+  if (page === "history") return <HistoryPage onBack={() => setPage("inspector")} />;
 
   const spec = NOTE_TYPES[noteType];
   const canTransform = useMemo(() => rawNotes.trim().length > 0, [rawNotes]);
@@ -794,6 +1094,40 @@ export default function App() {
     setAiTips(tips);
   }
 
+  function saveToHistory() {
+    const record = {
+      id: `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      savedAt: new Date().toISOString(),
+      noteType, inspectionType, inspectionDate, inspectorName,
+      siteName, siteNumber, supervisorName, sitePhone,
+      location: siteName || (noteType === "meeting" ? context?.kitchen : context?.position) || "Kitchen",
+      context: { ...context },
+      temps: { ...inspection.temps },
+      overallStatus: calcOverallStatus(inspection),
+      actionItems: buildActionItems({ inspection, rawNotes }),
+      rawNotes,
+      output,
+      inspection,
+    };
+    const history = loadHistory();
+    history.unshift(record);
+    saveHistory(history);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2500);
+  }
+
+  function onDownloadCsv() {
+    exportAsCsv({ inspection, rawNotes, inspectionType, inspectionDate, inspectorName, siteName, siteNumber, supervisorName });
+  }
+
+  function onDownloadHtml() {
+    exportAsHtml({ output, inspectionType, inspectionDate, siteName, inspectorName });
+  }
+
+  function onDownloadTxt() {
+    exportAsTxt({ output, inspectionDate, siteName });
+  }
+
   return (
     <div className="appShell">
       <header className="topBar">
@@ -806,6 +1140,7 @@ export default function App() {
         </div>
 
         <div className="topActions">
+          <button className="btn btnGhost" onClick={() => setPage("history")} type="button">History</button>
           <button className="btn btnGhost" onClick={loadSample} type="button">Load sample</button>
           <button className="btn btnAi" onClick={runAiAssist} type="button">AI Assist</button>
           {useCase === "Email Summary" ? (
@@ -977,6 +1312,9 @@ export default function App() {
             </div>
             <div className="outputActions">
               <button className="btn btnGhost" type="button" onClick={copyOutput} disabled={!output}>Copy</button>
+              <button className={cx("btn", saved ? "btnSaved" : "btnSave")} type="button" onClick={saveToHistory} disabled={!output}>
+                {saved ? "Saved!" : "Save"}
+              </button>
             </div>
           </div>
 
@@ -994,7 +1332,15 @@ export default function App() {
                 <div className="emptySub">Load a sample or paste raw notes, then click Transform.</div>
               </div>
             ) : (
-              <pre className="outputPre">{output}</pre>
+              <>
+                <pre className="outputPre">{output}</pre>
+                <div className="downloadBar">
+                  <span className="downloadLabel">Download as:</span>
+                  <button className="btn btnDownload" type="button" onClick={onDownloadCsv}>CSV (Excel)</button>
+                  <button className="btn btnDownload" type="button" onClick={onDownloadHtml}>HTML (Word)</button>
+                  <button className="btn btnDownload" type="button" onClick={onDownloadTxt}>TXT</button>
+                </div>
+              </>
             )}
           </div>
         </section>
