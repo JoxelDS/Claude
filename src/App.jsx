@@ -3,9 +3,13 @@ import "./App.css";
 
 /* ── AES-256-GCM Encryption (Web Crypto API) ────────────── */
 const SALT_KEY = "sdx_salt";
-const HASH_KEY = "sdx_pin_hash";
+const USERS_KEY = "sdx_users";
 const DATA_KEY = "sdx_inspection_vault";
+const DEVICE_SECRET_KEY = "sdx_device_secret";
 const LOCK_TIMEOUT_MS = 10 * 60 * 1000; // 10 min inactivity lock
+
+// First administrator – auto-seeded on first launch
+const SEED_ADMIN = { name: "Joxel Da Silva", badge: "365582", department: "Safety Inspector" };
 
 async function getSalt() {
   let stored = localStorage.getItem(SALT_KEY);
@@ -15,10 +19,10 @@ async function getSalt() {
   return salt;
 }
 
-async function deriveKey(pin) {
+async function deriveKey(secret) {
   const enc = new TextEncoder();
   const salt = await getSalt();
-  const keyMaterial = await crypto.subtle.importKey("raw", enc.encode(pin), "PBKDF2", false, ["deriveBits", "deriveKey"]);
+  const keyMaterial = await crypto.subtle.importKey("raw", enc.encode(secret), "PBKDF2", false, ["deriveBits", "deriveKey"]);
   return crypto.subtle.deriveKey(
     { name: "PBKDF2", salt, iterations: 100000, hash: "SHA-256" },
     keyMaterial,
@@ -28,10 +32,10 @@ async function deriveKey(pin) {
   );
 }
 
-async function hashPin(pin) {
+async function hashBadge(badge) {
   const enc = new TextEncoder();
   const salt = await getSalt();
-  const data = new Uint8Array([...salt, ...enc.encode(pin)]);
+  const data = new Uint8Array([...salt, ...enc.encode(badge)]);
   const hash = await crypto.subtle.digest("SHA-256", data);
   return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, "0")).join("");
 }
@@ -52,8 +56,41 @@ async function decryptData(stored, key) {
   } catch { return []; }
 }
 
+/* ── Device-level master encryption key ───────────────────── */
+async function getMasterKey() {
+  let secret = localStorage.getItem(DEVICE_SECRET_KEY);
+  if (!secret) {
+    const bytes = crypto.getRandomValues(new Uint8Array(32));
+    secret = Array.from(bytes).map(b => b.toString(16).padStart(2, "0")).join("");
+    localStorage.setItem(DEVICE_SECRET_KEY, secret);
+  }
+  return deriveKey("sdx_master_" + secret);
+}
+
+/* ── User Registry ────────────────────────────────────────── */
+function getUsers() {
+  try { return JSON.parse(localStorage.getItem(USERS_KEY) || "[]"); }
+  catch { return []; }
+}
+
+function saveUsers(users) {
+  localStorage.setItem(USERS_KEY, JSON.stringify(users));
+}
+
+async function ensureSeedAdmin() {
+  const users = getUsers();
+  if (users.length > 0) return;
+  const h = await hashBadge(SEED_ADMIN.badge);
+  saveUsers([{
+    badgeHash: h, name: SEED_ADMIN.name,
+    department: SEED_ADMIN.department, role: "admin",
+    approved: true, registeredAt: new Date().toISOString()
+  }]);
+}
+
 /* ── Secure Storage helpers ──────────────────────────────── */
 let _cryptoKey = null;
+let _currentUser = null;
 
 async function loadHistory() {
   if (!_cryptoKey) return [];
@@ -67,115 +104,157 @@ async function saveHistory(records) {
   localStorage.setItem(DATA_KEY, encrypted);
 }
 
-function hasPinSetup() {
-  return !!localStorage.getItem(HASH_KEY);
+/* ── Auth functions ───────────────────────────────────────── */
+async function signIn(badge) {
+  await ensureSeedAdmin();
+  const h = await hashBadge(badge);
+  const users = getUsers();
+  const user = users.find(u => u.badgeHash === h);
+  if (!user) return { ok: false, reason: "not_found" };
+  if (!user.approved) return { ok: false, reason: "pending" };
+  _cryptoKey = await getMasterKey();
+  _currentUser = { ...user };
+  return { ok: true, user: _currentUser };
 }
 
-async function setupPin(pin) {
-  const h = await hashPin(pin);
-  localStorage.setItem(HASH_KEY, h);
-  _cryptoKey = await deriveKey(pin);
-  return true;
-}
-
-async function verifyPin(pin) {
-  const h = await hashPin(pin);
-  const stored = localStorage.getItem(HASH_KEY);
-  if (h === stored) {
-    _cryptoKey = await deriveKey(pin);
-    return true;
-  }
-  return false;
+async function registerNewUser(badge, name, department) {
+  const h = await hashBadge(badge);
+  const users = getUsers();
+  if (users.find(u => u.badgeHash === h)) return { ok: false, reason: "exists" };
+  users.push({
+    badgeHash: h, name, department,
+    role: "inspector", approved: false,
+    registeredAt: new Date().toISOString()
+  });
+  saveUsers(users);
+  return { ok: true };
 }
 
 function lockApp() {
   _cryptoKey = null;
+  _currentUser = null;
 }
 
-/* ── Badge Lock Screen ────────────────────────────────────── */
-function PinScreen({ onUnlock }) {
-  const isSetup = hasPinSetup();
+function getCurrentUser() { return _currentUser; }
+
+/* ── Admin helpers ────────────────────────────────────────── */
+function approveUser(badgeHash) {
+  const users = getUsers();
+  const u = users.find(x => x.badgeHash === badgeHash);
+  if (u) { u.approved = true; saveUsers(users); }
+}
+
+function denyUser(badgeHash) {
+  saveUsers(getUsers().filter(u => u.badgeHash !== badgeHash));
+}
+
+function promoteToAdmin(badgeHash) {
+  const users = getUsers();
+  const u = users.find(x => x.badgeHash === badgeHash);
+  if (u) { u.role = "admin"; saveUsers(users); }
+}
+
+function demoteToInspector(badgeHash) {
+  const users = getUsers();
+  const u = users.find(x => x.badgeHash === badgeHash);
+  if (u) { u.role = "inspector"; saveUsers(users); }
+}
+
+/* ── Badge Sign-In Screen ─────────────────────────────────── */
+function BadgeScreen({ onUnlock }) {
   const [badge, setBadge] = useState("");
-  const [confirmBadge, setConfirmBadge] = useState("");
-  const [step, setStep] = useState(isSetup ? "enter" : "create"); // create | confirm | enter
+  const [mode, setMode] = useState("signin"); // signin | register | pending
+  const [regName, setRegName] = useState("");
+  const [regDept, setRegDept] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState("");
   const inputRef = useRef(null);
 
-  useEffect(() => { inputRef.current?.focus(); }, [step]);
+  useEffect(() => { ensureSeedAdmin(); }, []);
+  useEffect(() => { inputRef.current?.focus(); }, [mode]);
 
-  async function handleSubmit(e) {
+  async function handleSignIn(e) {
     e.preventDefault();
-    setError("");
-    setLoading(true);
-
+    setError(""); setLoading(true);
     try {
-      if (step === "create") {
-        if (badge.trim().length < 3) { setError("Badge number must be at least 3 characters"); setLoading(false); return; }
-        setConfirmBadge(badge.trim());
-        setBadge("");
-        setStep("confirm");
-        setLoading(false);
-        return;
+      const result = await signIn(badge.trim());
+      if (result.ok) { onUnlock(result.user); return; }
+      if (result.reason === "pending") {
+        setMode("pending");
+      } else {
+        setError("Badge not recognized. Request access below if you\u2019re new.");
       }
+    } catch { setError("Something went wrong. Try again."); }
+    finally { setLoading(false); }
+  }
 
-      if (step === "confirm") {
-        if (badge.trim() !== confirmBadge) {
-          setError("Badge numbers don't match. Try again.");
-          setBadge("");
-          setStep("create");
-          setConfirmBadge("");
-          setLoading(false);
-          return;
-        }
-        await setupPin(badge.trim());
-        onUnlock();
-        return;
+  async function handleRegister(e) {
+    e.preventDefault();
+    setError(""); setLoading(true);
+    try {
+      const result = await registerNewUser(badge.trim(), regName.trim(), regDept.trim());
+      if (result.ok) {
+        setSuccess("Registration submitted! Ask an administrator to approve your badge.");
+        setMode("pending");
+      } else if (result.reason === "exists") {
+        setError("This badge is already registered. Try signing in.");
       }
-
-      if (step === "enter") {
-        const ok = await verifyPin(badge.trim());
-        if (ok) { onUnlock(); return; }
-        setError("Badge number not recognized. Try again.");
-        setBadge("");
-        setLoading(false);
-      }
-    } catch {
-      setError("Something went wrong. Try again.");
-      setLoading(false);
-    }
+    } catch { setError("Registration failed. Try again."); }
+    finally { setLoading(false); }
   }
 
   return (
     <div className="pinOverlay">
       <div className="pinCard">
         <img src="/sodexo-live-logo.svg" alt="Sodexo Live!" className="pinLogo" />
-        <div className="pinTitle">
-          {step === "create" && "Register Your Badge"}
-          {step === "confirm" && "Confirm Badge Number"}
-          {step === "enter" && "Badge Sign-In"}
-        </div>
-        <div className="pinSub">
-          {step === "create" && "Enter your work badge number to secure your inspection data"}
-          {step === "confirm" && "Enter the same badge number again to confirm"}
-          {step === "enter" && "Enter your badge number to access your inspections"}
-        </div>
-        <form onSubmit={handleSubmit} className="pinForm">
-          <input
-            ref={inputRef}
-            className="pinInput badgeInput"
-            type="password"
-            maxLength={20}
-            value={badge}
-            onChange={e => setBadge(e.target.value)}
-            placeholder="Badge #"
-            autoComplete="off"
-          />
-          {error && <div className="pinError">{error}</div>}
-          <button className="btn btnPrimary pinBtn" type="submit" disabled={loading || badge.trim().length < 3}>
-            {loading ? "Verifying..." : step === "enter" ? "Sign In" : step === "confirm" ? "Confirm & Save" : "Next"}
+
+        {mode === "signin" && (<>
+          <div className="pinTitle">Badge Sign-In</div>
+          <div className="pinSub">Enter your work badge number to access inspections</div>
+          <form onSubmit={handleSignIn} className="pinForm">
+            <input ref={inputRef} className="pinInput badgeInput" type="password" maxLength={20}
+              value={badge} onChange={e => setBadge(e.target.value)} placeholder="Badge #" autoComplete="off" />
+            {error && <div className="pinError">{error}</div>}
+            <button className="btn btnPrimary pinBtn" type="submit" disabled={loading || badge.trim().length < 3}>
+              {loading ? "Verifying..." : "Sign In"}
+            </button>
+          </form>
+          <button className="btnLink" type="button" onClick={() => { setMode("register"); setError(""); setBadge(""); }}>
+            New here? Request access
           </button>
-        </form>
+        </>)}
+
+        {mode === "register" && (<>
+          <div className="pinTitle">Request Access</div>
+          <div className="pinSub">Fill in your details. An administrator will review your request.</div>
+          <form onSubmit={handleRegister} className="pinForm">
+            <input ref={inputRef} className="pinInput badgeInput" type="password" maxLength={20}
+              value={badge} onChange={e => setBadge(e.target.value)} placeholder="Badge #" autoComplete="off" />
+            <input className="input regInput" value={regName} onChange={e => setRegName(e.target.value)}
+              placeholder="Full name" autoComplete="name" />
+            <input className="input regInput" value={regDept} onChange={e => setRegDept(e.target.value)}
+              placeholder="Department" />
+            {error && <div className="pinError">{error}</div>}
+            <button className="btn btnPrimary pinBtn" type="submit"
+              disabled={loading || badge.trim().length < 3 || !regName.trim() || !regDept.trim()}>
+              {loading ? "Submitting..." : "Request Access"}
+            </button>
+          </form>
+          <button className="btnLink" type="button" onClick={() => { setMode("signin"); setError(""); setBadge(""); }}>
+            Already registered? Sign in
+          </button>
+        </>)}
+
+        {mode === "pending" && (<>
+          <div className="pinTitle">Pending Approval</div>
+          <div className="pinSub">{success || "Your access request is awaiting administrator approval."}</div>
+          <div className="pendingIcon">&#9203;</div>
+          <button className="btnLink" type="button" onClick={() => { setMode("signin"); setError(""); setSuccess(""); setBadge(""); }}>
+            Back to sign in
+          </button>
+        </>)}
+
         <div className="pinFooter">
           <span className="pinLock">&#128274;</span> AES-256 encrypted &middot; stored only on this device
         </div>
@@ -1264,6 +1343,127 @@ function HistoryPage({ onBack }) {
   );
 }
 
+/* ── Admin Panel ──────────────────────────────────────────── */
+function AdminPanel({ currentUser, onBack }) {
+  const [users, setUsers] = useState(() => getUsers());
+
+  function refresh() { setUsers(getUsers()); }
+
+  function handleApprove(badgeHash) { approveUser(badgeHash); refresh(); }
+
+  function handleDeny(badgeHash) {
+    if (!confirm("Remove this access request?")) return;
+    denyUser(badgeHash); refresh();
+  }
+
+  function handlePromote(badgeHash) { promoteToAdmin(badgeHash); refresh(); }
+
+  function handleDemote(badgeHash) { demoteToInspector(badgeHash); refresh(); }
+
+  function handleRemove(badgeHash) {
+    if (!confirm("Remove this user? They will need to request access again.")) return;
+    denyUser(badgeHash); refresh();
+  }
+
+  const pending = users.filter(u => !u.approved);
+  const approved = users.filter(u => u.approved);
+  const adminCount = users.filter(u => u.role === "admin" && u.approved).length;
+
+  return (
+    <div className="appShell">
+      <header className="topBar">
+        <div className="brandLeft">
+          <img src="/sodexo-live-logo.svg" alt="Sodexo Live!" className="brandLogo" />
+          <div>
+            <div className="brandTitle">Admin Panel</div>
+            <div className="brandSub">Manage user access &amp; permissions</div>
+          </div>
+        </div>
+        <div className="topActions">
+          <button className="btn btnGhost" onClick={onBack} type="button">Back to Inspector</button>
+        </div>
+      </header>
+
+      <main style={{ padding: "24px 28px", maxWidth: 900, margin: "0 auto", width: "100%" }}>
+        {/* Pending approvals */}
+        {pending.length > 0 && (
+          <div className="card adminCard" style={{ marginBottom: 24 }}>
+            <div className="cardHeader">
+              <div className="cardTitle">
+                Pending Approvals
+                <span className="adminCount">{pending.length}</span>
+              </div>
+            </div>
+            <div className="cardBody">
+              {pending.map(u => (
+                <div className="adminUserRow" key={u.badgeHash}>
+                  <div className="adminUserInfo">
+                    <div className="adminUserName">{u.name}</div>
+                    <div className="adminUserMeta">{u.department} &middot; Requested {new Date(u.registeredAt).toLocaleDateString()}</div>
+                  </div>
+                  <div className="adminUserActions">
+                    <button className="btn btnPrimary btnSmall" onClick={() => handleApprove(u.badgeHash)}>Approve</button>
+                    <button className="btn btnGhost btnSmall adminDenyBtn" onClick={() => handleDeny(u.badgeHash)}>Deny</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Approved users */}
+        <div className="card adminCard">
+          <div className="cardHeader">
+            <div className="cardTitle">
+              Team Members
+              <span className="adminCount">{approved.length}</span>
+            </div>
+          </div>
+          <div className="cardBody">
+            {approved.length === 0 ? (
+              <div className="emptyState">
+                <div className="emptyTitle">No approved users</div>
+              </div>
+            ) : approved.map(u => {
+              const isSelf = u.badgeHash === currentUser?.badgeHash;
+              const isOnlyAdmin = u.role === "admin" && adminCount <= 1;
+              return (
+                <div className="adminUserRow" key={u.badgeHash}>
+                  <div className="adminUserInfo">
+                    <div className="adminUserName">
+                      {u.name}
+                      {u.role === "admin" && <span className="roleBadge adminRoleBadge">Admin</span>}
+                      {u.role === "inspector" && <span className="roleBadge inspectorRoleBadge">Inspector</span>}
+                      {isSelf && <span className="roleBadge youRoleBadge">You</span>}
+                    </div>
+                    <div className="adminUserMeta">{u.department} &middot; Since {new Date(u.registeredAt).toLocaleDateString()}</div>
+                  </div>
+                  <div className="adminUserActions">
+                    {u.role === "inspector" && (
+                      <button className="btn btnGhost btnSmall" onClick={() => handlePromote(u.badgeHash)}>Make Admin</button>
+                    )}
+                    {u.role === "admin" && !isOnlyAdmin && !isSelf && (
+                      <button className="btn btnGhost btnSmall" onClick={() => handleDemote(u.badgeHash)}>Remove Admin</button>
+                    )}
+                    {!isSelf && (
+                      <button className="btn btnGhost btnSmall adminDenyBtn" onClick={() => handleRemove(u.badgeHash)}>Remove</button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </main>
+
+      <footer className="footer">
+        <img src="/sodexo-live-logo.svg" alt="Sodexo Live!" className="footerLogo" />
+        <span>User accounts are stored locally on this device.</span>
+      </footer>
+    </div>
+  );
+}
+
 function PhotoStrip({ photos, onRemove }) {
   if (!photos?.length) return null;
   return (
@@ -1344,7 +1544,8 @@ function GuideSection({ title, items, inspection, setInspection }) {
 
 export default function App() {
   const [locked, setLocked] = useState(true);
-  const [page, setPage] = useState("inspector"); // "inspector" | "history"
+  const [currentUser, setCurrentUser] = useState(null);
+  const [page, setPage] = useState("inspector"); // "inspector" | "history" | "admin"
   const lastActivity = useRef(Date.now());
 
   const [noteType, setNoteType] = useState("meeting");
@@ -1400,8 +1601,9 @@ export default function App() {
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [rawNotes, saved]);
 
-  if (locked) return <PinScreen onUnlock={() => { setLocked(false); resetActivity(); }} />;
+  if (locked) return <BadgeScreen onUnlock={(user) => { setCurrentUser(user); setLocked(false); resetActivity(); }} />;
   if (page === "history") return <HistoryPage onBack={() => setPage("inspector")} />;
+  if (page === "admin") return <AdminPanel currentUser={currentUser} onBack={() => setPage("inspector")} />;
 
   const spec = NOTE_TYPES[noteType];
   const canTransform = useMemo(() => rawNotes.trim().length > 0, [rawNotes]);
@@ -1535,7 +1737,15 @@ export default function App() {
         </div>
 
         <div className="topActions">
-          <button className="btn btnLock" onClick={() => { lockApp(); setLocked(true); }} type="button" title="Lock app">&#128274;</button>
+          {currentUser && (
+            <span className="userBadgeLabel">
+              {currentUser.name}{currentUser.role === "admin" ? " (Admin)" : ""}
+            </span>
+          )}
+          <button className="btn btnLock" onClick={() => { lockApp(); setCurrentUser(null); setLocked(true); }} type="button" title="Lock app">&#128274;</button>
+          {currentUser?.role === "admin" && (
+            <button className="btn btnAdmin" onClick={() => setPage("admin")} type="button">Admin</button>
+          )}
           <button className="btn btnGhost" onClick={() => setPage("history")} type="button">Past Reports</button>
           <button className="btn btnGhost" onClick={loadSample} type="button">Try Example</button>
           <button className="btn btnAi" onClick={runAiAssist} type="button">AI Tips</button>
