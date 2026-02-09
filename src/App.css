@@ -1082,6 +1082,10 @@ body {
   font-size: 0.9rem;
   color: var(--sdx-gray-300);
 }
+.badgeInput {
+  letter-spacing: 4px;
+  font-size: 1.25rem;
+}
 .pinError {
   color: var(--sdx-red);
   font-size: 0.82rem;
