@@ -1125,6 +1125,141 @@ body {
   color: white;
 }
 
+/* ── Registration / Badge Screen extras ──────────────────── */
+.regInput {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  font-size: 0.95rem;
+}
+.btnLink {
+  background: none;
+  border: none;
+  color: var(--sdx-blue);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 8px;
+  margin-top: 4px;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.btnLink:hover {
+  color: var(--sdx-navy);
+}
+.pendingIcon {
+  font-size: 3rem;
+  margin: 18px 0 10px;
+  text-align: center;
+}
+
+/* ── Admin Button (top bar) ─────────────────────────────── */
+.btnAdmin {
+  background: linear-gradient(135deg, var(--sdx-navy), var(--sdx-blue));
+  color: white;
+  border: none;
+  padding: 6px 14px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition);
+  letter-spacing: 0.5px;
+}
+.btnAdmin:hover {
+  filter: brightness(1.15);
+  transform: translateY(-1px);
+}
+.userBadgeLabel {
+  color: rgba(255,255,255,.7);
+  font-size: 0.78rem;
+  font-weight: 500;
+  padding-right: 4px;
+  white-space: nowrap;
+}
+
+/* ── Admin Panel ────────────────────────────────────────── */
+.adminCard {
+  border: 1px solid var(--sdx-gray-200);
+}
+.adminCount {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--sdx-blue);
+  color: white;
+  font-size: 0.72rem;
+  font-weight: 700;
+  min-width: 22px;
+  height: 22px;
+  border-radius: 11px;
+  margin-left: 8px;
+  padding: 0 6px;
+}
+.adminUserRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--sdx-gray-100);
+  gap: 16px;
+}
+.adminUserRow:last-child {
+  border-bottom: none;
+}
+.adminUserInfo {
+  flex: 1;
+  min-width: 0;
+}
+.adminUserName {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--sdx-navy);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.adminUserMeta {
+  font-size: 0.8rem;
+  color: var(--sdx-gray-400);
+  margin-top: 2px;
+}
+.adminUserActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.adminDenyBtn {
+  color: #EE0000 !important;
+  border-color: rgba(238,0,0,.3) !important;
+}
+
+/* ── Role Badges ────────────────────────────────────────── */
+.roleBadge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+.adminRoleBadge {
+  background: linear-gradient(135deg, var(--sdx-navy), var(--sdx-blue));
+  color: white;
+}
+.inspectorRoleBadge {
+  background: var(--sdx-gray-100);
+  color: var(--sdx-gray-500);
+}
+.youRoleBadge {
+  background: rgba(21,128,61,.1);
+  color: #15803D;
+  border: 1px solid rgba(21,128,61,.2);
+}
+
 /* ── Scrollbar ───────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
