@@ -1,4 +1,5 @@
 import React, { useMemo, useRef, useState } from "react";
+import "./App.css";
 
 const NOTE_TYPES = {
   interview: {
@@ -749,9 +750,12 @@ export default function App() {
     <div className="appShell">
       <header className="topBar">
         <div className="brandLeft">
-          <div className="logoMark" aria-hidden="true" />
+          <svg className="logoSvg" width="40" height="40" viewBox="0 0 40 40" fill="none" aria-label="Sodexo Live">
+            <rect width="40" height="40" rx="8" fill="#EE0000"/>
+            <text x="20" y="27" textAnchor="middle" fill="white" fontWeight="800" fontSize="20" fontFamily="Inter, sans-serif">S</text>
+          </svg>
           <div>
-            <div className="brandTitle">Kitchen Inspection Notes</div>
+            <div className="brandTitle">Sodexo Live! <span style={{fontWeight:400, opacity:0.8, fontSize:'0.85em'}}>Kitchen Inspection</span></div>
             <div className="brandSub">Turn sit-down inspection notes into organized documents</div>
           </div>
         </div>
