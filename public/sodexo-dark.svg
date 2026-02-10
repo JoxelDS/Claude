@@ -1,9 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 140">
-  <!-- "sodexo" in white for dark backgrounds, with red swoosh + white star -->
+  <!-- "sodexo" in navy blue for light backgrounds -->
   <text x="20" y="108"
     font-family="'Segoe UI', 'Inter', 'Helvetica Neue', Arial, sans-serif"
     font-size="100" font-weight="700"
-    fill="#FFFFFF" letter-spacing="-1">sodexo</text>
+    fill="#1B1E8A" letter-spacing="-1">sodexo</text>
 
   <!-- Red swoosh rising from the "x" to star -->
   <path d="
@@ -18,5 +18,5 @@
   " fill="#EE0000"/>
 
   <!-- 8-point star -->
-  <polygon points="370,8 373,-4 376,8 388,5 378,14 388,22 376,18 373,30 370,18 358,22 368,14 358,5" fill="#FFFFFF"/>
+  <polygon points="370,8 373,-4 376,8 388,5 378,14 388,22 376,18 373,30 370,18 358,22 368,14 358,5" fill="#1B1E8A"/>
 </svg>

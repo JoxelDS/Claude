@@ -207,7 +207,7 @@ function BadgeScreen({ onUnlock }) {
   return (
     <div className="pinOverlay">
       <div className="pinCard">
-        <img src="/sodexo-live-logo.svg" alt="Sodexo Live!" className="pinLogo" />
+        <img src="/sodexo-dark.svg" alt="Sodexo" className="pinLogo" />
 
         {mode === "signin" && (<>
           <div className="pinTitle">Badge Sign-In</div>
@@ -887,181 +887,212 @@ function RenderedOutput({ noteType, useCase, context, inspection, rawNotes, insp
   const actionItems = buildActionItems({ inspection, rawNotes });
   const expandedNotes = expandAbbreviations(rawNotes);
   const location = siteName || (noteType === "meeting" ? context?.kitchen : context?.position) || "Kitchen";
-  const date = inspectionDate || context?.date || "—";
+  const date = inspectionDate || context?.date || new Date().toLocaleDateString();
   const playbook = INSPECTION_PLAYBOOK[inspectionType] || INSPECTION_PLAYBOOK["Regular Inspection"];
   const { index: photoIndexList } = buildPhotoIndex(inspection);
 
-  const statusBadge = (s) => {
-    if (s === "OK") return <span className="roBadge roBadgePass">Pass</span>;
-    if (s === "N/A") return <span className="roBadge roBadgeNa">N/A</span>;
-    if (s === "Not Clean") return <span className="roBadge roBadgeFail">Not Clean</span>;
-    return <span className="roBadge roBadgeWarn">Needs Attention</span>;
-  };
-
-  const findings = [];
-  const addFinding = (label, node) => {
-    if (node?.status && node.status !== "OK" && node.status !== "N/A")
-      findings.push({ label, status: node.status, notes: node.notes });
-  };
-  addFinding("Ceiling", inspection?.facility?.ceiling);
-  addFinding("Walls", inspection?.facility?.walls);
-  addFinding("Floors", inspection?.facility?.floors);
-  addFinding("Lighting", inspection?.facility?.lighting);
-  addFinding("Employee practices", inspection?.operations?.employeePractices);
-  addFinding("Handwashing / supplies", inspection?.operations?.handwashing);
-  addFinding("Labeling / dating", inspection?.operations?.labelingDating);
-  addFinding("Logs / documentation", inspection?.operations?.logs);
-  addFinding("Double-door cooler", inspection?.equipment?.doubleDoorCooler);
-  addFinding("Double-door freezer", inspection?.equipment?.doubleDoorFreezer);
-  addFinding("Walk-in cooler", inspection?.equipment?.walkInCooler);
-  addFinding("Warmers / hot holding", inspection?.equipment?.warmers);
-  addFinding("Ovens", inspection?.equipment?.ovens);
-  addFinding("3-compartment sink", inspection?.equipment?.threeCompSink);
-  addFinding("Ecolab / chemicals", inspection?.equipment?.ecolab);
   const handT = Number(inspection?.temps?.handSinkTempF);
   const threeT = Number(inspection?.temps?.threeCompSinkTempF);
-  if (handT && handT < 95) findings.push({ label: "Hand sink temp", status: "Fail", notes: `${handT}°F (below 95°F minimum)` });
-  if (threeT && threeT < 110) findings.push({ label: "3-comp wash temp", status: "Fail", notes: `${threeT}°F (below 110°F minimum)` });
 
-  const scorecardSections = [
-    { title: "Facility", items: [
-      ["Ceiling", inspection?.facility?.ceiling],
-      ["Walls", inspection?.facility?.walls],
-      ["Floors", inspection?.facility?.floors],
-      ["Lighting", inspection?.facility?.lighting],
-    ]},
-    { title: "Operations", items: [
-      ["Employee practices", inspection?.operations?.employeePractices],
-      ["Handwashing", inspection?.operations?.handwashing],
-      ["Labeling / dating", inspection?.operations?.labelingDating],
-      ["Logs", inspection?.operations?.logs],
-    ]},
-    { title: "Equipment", items: [
-      ["Double-door cooler", inspection?.equipment?.doubleDoorCooler],
-      ["Double-door freezer", inspection?.equipment?.doubleDoorFreezer],
-      ["Walk-in cooler", inspection?.equipment?.walkInCooler],
-      ["Warmers", inspection?.equipment?.warmers],
-      ["Ovens", inspection?.equipment?.ovens],
-      ["3-comp sink", inspection?.equipment?.threeCompSink],
-      ["Ecolab", inspection?.equipment?.ecolab],
-    ]},
+  const allItems = [
+    { section: "Facility", label: "Ceiling", node: inspection?.facility?.ceiling },
+    { section: "Facility", label: "Walls", node: inspection?.facility?.walls },
+    { section: "Facility", label: "Floors", node: inspection?.facility?.floors },
+    { section: "Facility", label: "Lighting", node: inspection?.facility?.lighting },
+    { section: "Operations", label: "Employee Practices", node: inspection?.operations?.employeePractices },
+    { section: "Operations", label: "Handwashing / Supplies", node: inspection?.operations?.handwashing },
+    { section: "Operations", label: "Labeling / Dating", node: inspection?.operations?.labelingDating },
+    { section: "Operations", label: "Logs / Documentation", node: inspection?.operations?.logs },
+    { section: "Equipment", label: "Double-Door Cooler", node: inspection?.equipment?.doubleDoorCooler },
+    { section: "Equipment", label: "Double-Door Freezer", node: inspection?.equipment?.doubleDoorFreezer },
+    { section: "Equipment", label: "Walk-In Cooler", node: inspection?.equipment?.walkInCooler },
+    { section: "Equipment", label: "Warmers / Hot Holding", node: inspection?.equipment?.warmers },
+    { section: "Equipment", label: "Ovens", node: inspection?.equipment?.ovens },
+    { section: "Equipment", label: "3-Compartment Sink", node: inspection?.equipment?.threeCompSink },
+    { section: "Equipment", label: "Ecolab / Chemicals", node: inspection?.equipment?.ecolab },
   ];
 
+  const findings = allItems.filter(it => it.node?.status && it.node.status !== "OK" && it.node.status !== "N/A");
+  if (handT && handT < 95) findings.push({ section: "Temperature", label: "Hand Sink", node: { status: "Not Clean", notes: `${handT}\u00B0F (below 95\u00B0F minimum)` } });
+  if (threeT && threeT < 110) findings.push({ section: "Temperature", label: "3-Comp Wash", node: { status: "Not Clean", notes: `${threeT}\u00B0F (below 110\u00B0F minimum)` } });
+
+  const sections = ["Facility", "Operations", "Equipment"];
+
   return (
-    <div className="renderedOutput">
-      {/* Header */}
-      <div className="roHeader">
-        <div className="roHeaderTop">
-          <div>
-            <div className="roTitle">{location}</div>
-            <div className="roSubtitle">{inspectionType || "Inspection"} &middot; {date}</div>
+    <div className="rpt">
+      {/* Report Header Bar */}
+      <div className="rptHeader">
+        <img src="/sodexo-dark.svg" alt="Sodexo" className="rptLogo" />
+        <div className="rptHeaderRight">
+          <div className="rptDocType">{inspectionType || "Kitchen Inspection"}</div>
+          <div className="rptDocId">Report #{Date.now().toString(36).toUpperCase()}</div>
+        </div>
+      </div>
+
+      {/* Title + Status */}
+      <div className="rptTitleBar">
+        <div>
+          <div className="rptTitle">{location || "Inspection Report"}</div>
+          <div className="rptDate">{date}</div>
+        </div>
+        <div className={cx("rptStatus", status === "Pass" ? "rptStatusPass" : "rptStatusFail")}>
+          {status === "Pass" ? "PASSED" : "NEEDS ATTENTION"}
+        </div>
+      </div>
+
+      {/* Info Grid */}
+      <div className="rptInfoGrid">
+        <div className="rptInfoItem">
+          <div className="rptInfoLabel">Inspector</div>
+          <div className="rptInfoValue">{inspectorName || "\u2014"}</div>
+        </div>
+        <div className="rptInfoItem">
+          <div className="rptInfoLabel">Supervisor</div>
+          <div className="rptInfoValue">{supervisorName || "\u2014"}</div>
+        </div>
+        <div className="rptInfoItem">
+          <div className="rptInfoLabel">Unit / Location</div>
+          <div className="rptInfoValue">{siteNumber || "\u2014"}</div>
+        </div>
+        {sitePhone && (
+          <div className="rptInfoItem">
+            <div className="rptInfoLabel">Phone</div>
+            <div className="rptInfoValue">{sitePhone}</div>
           </div>
-          <div className={cx("roStatusBig", status === "Pass" ? "roStatusPass" : "roStatusFail")}>
-            {status}
+        )}
+        <div className="rptInfoItem">
+          <div className="rptInfoLabel">Hand Sink Temp</div>
+          <div className="rptInfoValue">
+            {inspection?.temps?.handSinkTempF ? `${inspection.temps.handSinkTempF}\u00B0F` : "\u2014"}
+            {handT >= 95 && <span className="rptCheck">{" \u2705"}</span>}
+            {handT > 0 && handT < 95 && <span className="rptWarn">{" \u26A0\uFE0F Below 95\u00B0F"}</span>}
           </div>
         </div>
-        <div className="roMetaGrid">
-          <div className="roMetaItem"><span className="roMetaLabel">Inspector</span><span>{inspectorName || "—"}</span></div>
-          <div className="roMetaItem"><span className="roMetaLabel">Supervisor</span><span>{supervisorName || "—"}</span></div>
-          {siteNumber && <div className="roMetaItem"><span className="roMetaLabel">Unit #</span><span>{siteNumber}</span></div>}
-          {sitePhone && <div className="roMetaItem"><span className="roMetaLabel">Phone</span><span>{sitePhone}</span></div>}
-          <div className="roMetaItem"><span className="roMetaLabel">Hand Sink</span><span>{inspection?.temps?.handSinkTempF || "—"}°F {handT >= 95 ? "✓" : handT ? "✗" : ""}</span></div>
-          <div className="roMetaItem"><span className="roMetaLabel">3-Comp Wash</span><span>{inspection?.temps?.threeCompSinkTempF || "—"}°F {threeT >= 110 ? "✓" : threeT ? "✗" : ""}</span></div>
+        <div className="rptInfoItem">
+          <div className="rptInfoLabel">3-Comp Wash Temp</div>
+          <div className="rptInfoValue">
+            {inspection?.temps?.threeCompSinkTempF ? `${inspection.temps.threeCompSinkTempF}\u00B0F` : "\u2014"}
+            {threeT >= 110 && <span className="rptCheck">{" \u2705"}</span>}
+            {threeT > 0 && threeT < 110 && <span className="rptWarn">{" \u26A0\uFE0F Below 110\u00B0F"}</span>}
+          </div>
         </div>
       </div>
 
       {/* Opening message for Email/Doc */}
-      {(useCase === "Email Summary" || useCase === "Google Doc") && (
-        <div className="roSection">
-          <p className="roText">{playbook.opening}</p>
+      {(useCase === "Email Summary" || useCase === "Google Doc") && playbook.opening && (
+        <div className="rptBlock">
+          <p className="rptParagraph">{playbook.opening}</p>
         </div>
       )}
 
-      {/* Findings */}
-      {findings.length > 0 ? (
-        <div className="roSection">
-          <div className="roSectionTitle">Findings</div>
-          <div className="roFindings">
-            {findings.map((f, i) => (
-              <div className="roFindingRow" key={i}>
-                <span className="roFindingLabel">{f.label}</span>
-                <span className={cx("roBadge", f.status === "Not Clean" || f.status === "Fail" ? "roBadgeFail" : "roBadgeWarn")}>{f.status}</span>
-                {f.notes && <span className="roFindingNote">{f.notes}</span>}
+      {/* Full Scorecard Table */}
+      <div className="rptBlock">
+        <div className="rptBlockTitle">Inspection Scorecard</div>
+        <table className="rptTable">
+          <thead>
+            <tr>
+              <th>Section</th>
+              <th>Item</th>
+              <th>Status</th>
+              <th>Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            {sections.map(sec => {
+              const items = allItems.filter(it => it.section === sec);
+              return items.map((it, i) => (
+                <tr key={it.label} className={it.node?.status === "Not Clean" ? "rptRowFail" : it.node?.status === "Needs Attention" ? "rptRowWarn" : ""}>
+                  {i === 0 && <td rowSpan={items.length} className="rptSectionCell">{sec}</td>}
+                  <td>{it.label}</td>
+                  <td>
+                    <span className={cx("rptStatusPill",
+                      it.node?.status === "OK" ? "rptPillPass" :
+                      it.node?.status === "Not Clean" ? "rptPillFail" :
+                      it.node?.status === "Needs Attention" ? "rptPillWarn" : "rptPillNa"
+                    )}>
+                      {it.node?.status || "N/A"}
+                    </span>
+                  </td>
+                  <td className="rptNoteCell">{it.node?.notes || "\u2014"}</td>
+                </tr>
+              ));
+            })}
+            {/* Temperature rows */}
+            <tr className={handT > 0 && handT < 95 ? "rptRowFail" : ""}>
+              <td rowSpan={2} className="rptSectionCell">Temps</td>
+              <td>Hand Sink</td>
+              <td><span className={cx("rptStatusPill", handT >= 95 ? "rptPillPass" : handT ? "rptPillFail" : "rptPillNa")}>{inspection?.temps?.handSinkTempF ? `${inspection.temps.handSinkTempF}\u00B0F` : "N/A"}</span></td>
+              <td className="rptNoteCell">{handT >= 95 ? "Meets minimum" : handT ? "Below 95\u00B0F minimum" : "\u2014"}</td>
+            </tr>
+            <tr className={threeT > 0 && threeT < 110 ? "rptRowFail" : ""}>
+              <td>3-Comp Wash</td>
+              <td><span className={cx("rptStatusPill", threeT >= 110 ? "rptPillPass" : threeT ? "rptPillFail" : "rptPillNa")}>{inspection?.temps?.threeCompSinkTempF ? `${inspection.temps.threeCompSinkTempF}\u00B0F` : "N/A"}</span></td>
+              <td className="rptNoteCell">{threeT >= 110 ? "Meets minimum" : threeT ? "Below 110\u00B0F minimum" : "\u2014"}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      {/* Findings Summary (only if issues) */}
+      {findings.length > 0 && (
+        <div className="rptBlock rptBlockAlert">
+          <div className="rptBlockTitle rptBlockTitleAlert">Issues Found ({findings.length})</div>
+          {findings.map((f, i) => (
+            <div className="rptIssueRow" key={i}>
+              <span className="rptIssueNum">{i + 1}</span>
+              <div className="rptIssueContent">
+                <div className="rptIssueName">{f.label} <span className="rptIssueSection">({f.section})</span></div>
+                {f.node?.notes && <div className="rptIssueDetail">{f.node.notes}</div>}
               </div>
-            ))}
-          </div>
-        </div>
-      ) : (
-        <div className="roSection">
-          <div className="roSectionTitle">Findings</div>
-          <div className="roAllClear">All areas passed inspection</div>
-        </div>
-      )}
-
-      {/* Scorecard view */}
-      {useCase === "Evaluation Scorecard" && (
-        <div className="roSection">
-          <div className="roSectionTitle">Full Scorecard</div>
-          {scorecardSections.map(sec => (
-            <div key={sec.title} className="roScoreSection">
-              <div className="roScoreSectionTitle">{sec.title}</div>
-              {sec.items.map(([label, node]) => (
-                <div className="roScoreRow" key={label}>
-                  <span className="roScoreLabel">{label}</span>
-                  {statusBadge(node?.status || "N/A")}
-                  {node?.notes && <span className="roScoreNote">{node.notes}</span>}
-                </div>
-              ))}
+              <span className={cx("rptStatusPill", f.node?.status === "Not Clean" ? "rptPillFail" : "rptPillWarn")}>{f.node?.status}</span>
             </div>
           ))}
-          <div className="roScoreSection">
-            <div className="roScoreSectionTitle">Temperatures</div>
-            <div className="roScoreRow">
-              <span className="roScoreLabel">Hand sink</span>
-              <span className={cx("roBadge", handT >= 95 ? "roBadgePass" : handT ? "roBadgeFail" : "roBadgeNa")}>{inspection?.temps?.handSinkTempF || "—"}°F</span>
-            </div>
-            <div className="roScoreRow">
-              <span className="roScoreLabel">3-comp wash</span>
-              <span className={cx("roBadge", threeT >= 110 ? "roBadgePass" : threeT ? "roBadgeFail" : "roBadgeNa")}>{inspection?.temps?.threeCompSinkTempF || "—"}°F</span>
-            </div>
-          </div>
         </div>
       )}
 
       {/* Action Items */}
       {actionItems.length > 0 && (
-        <div className="roSection">
-          <div className="roSectionTitle">Action Items <span className="roCount">{actionItems.length}</span></div>
-          <div className="roActions">
-            {actionItems.map((a, i) => (
-              <div className="roActionRow" key={i}>
-                <span className={cx("roPriority", a.priority === "High" ? "roPriorityHigh" : "roPriorityMed")}>{a.priority}</span>
-                <span className="roActionText">{a.issue}</span>
+        <div className="rptBlock">
+          <div className="rptBlockTitle">Corrective Actions Required</div>
+          {actionItems.map((a, i) => (
+            <div className="rptActionRow" key={i}>
+              <span className={cx("rptPriorityDot", a.priority === "High" ? "rptDotHigh" : "rptDotMed")} />
+              <div className="rptActionContent">
+                <span className="rptActionText">{a.issue}</span>
+                <span className={cx("rptPriorityLabel", a.priority === "High" ? "rptLabelHigh" : "rptLabelMed")}>{a.priority} Priority</span>
               </div>
-            ))}
-          </div>
+            </div>
+          ))}
         </div>
       )}
 
-      {/* Photo index */}
+      {/* Photo Index */}
       {photoIndexList.length > 0 && (
-        <div className="roSection">
-          <div className="roSectionTitle">Photos</div>
-          <div className="roPhotos">
+        <div className="rptBlock">
+          <div className="rptBlockTitle">Photo Index</div>
+          <div className="rptPhotoList">
             {photoIndexList.map(p => (
-              <div className="roPhotoRow" key={p.num}>
-                <span className="roPhotoNum">#{p.num}</span>
-                <span>{p.label}{p.caption ? ` — ${p.caption}` : ""}</span>
+              <div className="rptPhotoItem" key={p.num}>
+                <span className="rptPhotoNum">Photo #{p.num}</span>
+                <span>{p.label}{p.caption ? ` \u2014 ${p.caption}` : ""}</span>
               </div>
             ))}
           </div>
         </div>
       )}
 
-      {/* Expanded notes */}
-      <div className="roSection">
-        <div className="roSectionTitle">Notes</div>
-        <div className="roNotes">{expandedNotes || rawNotes || "—"}</div>
+      {/* Notes */}
+      {(expandedNotes || rawNotes) && (
+        <div className="rptBlock">
+          <div className="rptBlockTitle">Inspector Notes</div>
+          <div className="rptNotesContent">{expandedNotes || rawNotes}</div>
+        </div>
+      )}
+
+      {/* Footer */}
+      <div className="rptFooter">
+        <div>Generated {new Date().toLocaleDateString()} {new Date().toLocaleTimeString()} &middot; Sodexo Kitchen Inspection System</div>
+        <div>This report is confidential and intended for internal use only.</div>
       </div>
     </div>
   );
@@ -1199,7 +1230,7 @@ function HistoryPage({ onBack }) {
     <div className="appShell">
       <header className="topBar">
         <div className="brandLeft">
-          <img src="/sodexo-live-logo.svg" alt="Sodexo Live!" className="brandLogo" />
+          <img src="/sodexo-live-logo.svg" alt="Sodexo" className="brandLogo" />
           <div>
             <div className="brandTitle">Inspection History</div>
             <div className="brandSub">{history.length} saved inspection{history.length !== 1 ? "s" : ""}</div>
@@ -1336,7 +1367,7 @@ function HistoryPage({ onBack }) {
       </main>
 
       <footer className="footer">
-        <img src="/sodexo-live-logo.svg" alt="Sodexo Live!" className="footerLogo" />
+        <img src="/sodexo-live-logo.svg" alt="Sodexo" className="footerLogo" />
         <span>Inspection history is stored locally in your browser.</span>
       </footer>
     </div>
@@ -1373,7 +1404,7 @@ function AdminPanel({ currentUser, onBack }) {
     <div className="appShell">
       <header className="topBar">
         <div className="brandLeft">
-          <img src="/sodexo-live-logo.svg" alt="Sodexo Live!" className="brandLogo" />
+          <img src="/sodexo-live-logo.svg" alt="Sodexo" className="brandLogo" />
           <div>
             <div className="brandTitle">Admin Panel</div>
             <div className="brandSub">Manage user access &amp; permissions</div>
@@ -1457,7 +1488,7 @@ function AdminPanel({ currentUser, onBack }) {
       </main>
 
       <footer className="footer">
-        <img src="/sodexo-live-logo.svg" alt="Sodexo Live!" className="footerLogo" />
+        <img src="/sodexo-live-logo.svg" alt="Sodexo" className="footerLogo" />
         <span>User accounts are stored locally on this device.</span>
       </footer>
     </div>
@@ -1728,7 +1759,7 @@ export default function App() {
     <div className="appShell">
       <header className="topBar">
         <div className="brandLeft">
-          <img src="/sodexo-live-logo.svg" alt="Sodexo Live!" className="brandLogo" />
+          <img src="/sodexo-live-logo.svg" alt="Sodexo" className="brandLogo" />
           <div>
             <div className="brandTitle">Kitchen Inspection</div>
             <div className="brandSub">Turn sit-down inspection notes into organized documents</div>
@@ -1957,7 +1988,7 @@ export default function App() {
       </main>
 
       <footer className="footer">
-        <img src="/sodexo-live-logo.svg" alt="Sodexo Live!" className="footerLogo" />
+        <img src="/sodexo-live-logo.svg" alt="Sodexo" className="footerLogo" />
         <span>Tip: Attach the same photos listed in the Photo Index so the email references match.</span>
       </footer>
     </div>
