@@ -40,9 +40,9 @@ html {
 
 body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  background: var(--sdx-gray-50);
+  background: #f0f2f7;
   color: var(--sdx-gray-800);
-  line-height: 1.5;
+  line-height: 1.6;
 }
 
 /* ── App Shell ───────────────────────────────────────────── */
@@ -54,14 +54,14 @@ body {
 
 /* ── Top Bar ─────────────────────────────────────────────── */
 .topBar {
-  background: var(--sdx-navy);
+  background: linear-gradient(135deg, var(--sdx-navy) 0%, #1e1d4a 50%, var(--sdx-blue) 100%);
   color: var(--sdx-white);
   padding: 0 28px;
   height: 64px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  box-shadow: 0 2px 8px rgba(42,41,92,.2);
+  box-shadow: 0 3px 12px rgba(42,41,92,.25);
   position: sticky;
   top: 0;
   z-index: 100;
@@ -117,15 +117,16 @@ body {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 8px 18px;
+  padding: 10px 20px;
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: 8px;
   font-size: 0.87rem;
   font-weight: 600;
   cursor: pointer;
   transition: all var(--transition);
   white-space: nowrap;
   line-height: 1.3;
+  font-family: inherit;
 }
 .btn:disabled {
   opacity: 0.45;
@@ -186,18 +187,18 @@ body {
 .card {
   background: var(--sdx-white);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-md);
+  box-shadow: 0 2px 8px rgba(42,41,92,.06), 0 0 0 1px rgba(42,41,92,.04);
   overflow: hidden;
-  border: 1px solid var(--sdx-gray-100);
+  border: none;
 }
 
 .cardHeader {
-  padding: 16px 22px;
+  padding: 18px 24px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   border-bottom: 1px solid var(--sdx-gray-100);
-  background: var(--sdx-gray-50);
+  background: linear-gradient(180deg, #fafbfd 0%, var(--sdx-gray-50) 100%);
 }
 
 .cardTitle {
@@ -212,7 +213,7 @@ body {
 }
 
 .cardBody {
-  padding: 22px;
+  padding: 24px;
 }
 
 /* ── Segmented Tabs ──────────────────────────────────────── */
@@ -277,10 +278,10 @@ body {
 
 .input, .select, .textarea {
   width: 100%;
-  padding: 9px 12px;
+  padding: 10px 14px;
   border: 1.5px solid var(--sdx-gray-200);
-  border-radius: var(--radius-sm);
-  font-size: 0.87rem;
+  border-radius: 8px;
+  font-size: 0.88rem;
   font-family: inherit;
   color: var(--sdx-gray-800);
   background: var(--sdx-white);
@@ -289,7 +290,7 @@ body {
 }
 .input:focus, .select:focus, .textarea:focus {
   border-color: var(--sdx-blue);
-  box-shadow: 0 0 0 3px rgba(40,56,151,.1);
+  box-shadow: 0 0 0 3px rgba(40,56,151,.12);
 }
 .inputSmall {
   padding: 6px 10px;
@@ -617,16 +618,17 @@ body {
 
 /* ── Footer ──────────────────────────────────────────────── */
 .footer {
-  background: var(--sdx-navy);
-  color: rgba(255,255,255,.6);
+  background: linear-gradient(135deg, var(--sdx-navy) 0%, #1e1d4a 50%, var(--sdx-blue) 100%);
+  color: rgba(255,255,255,.65);
   text-align: center;
-  padding: 14px 28px;
-  padding-bottom: 60px;
-  font-size: 0.75rem;
+  padding: 16px 28px;
+  padding-bottom: 64px;
+  font-size: 0.78rem;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 12px;
+  letter-spacing: 0.1px;
 }
 .footerLogo {
   height: 24px;
@@ -1358,11 +1360,10 @@ body {
 }
 .fabLeft {
   left: 20px;
-  background: #fff;
-  color: var(--sdx-navy);
-  border: 1px solid var(--sdx-gray-200);
+  background: linear-gradient(135deg, var(--sdx-blue) 0%, var(--sdx-navy) 100%);
+  color: #fff;
 }
-.fabLeft:hover { background: var(--sdx-gray-50); }
+.fabLeft:hover { background: linear-gradient(135deg, #3049b5 0%, #1f1e4e 100%); }
 .fabRight {
   right: 20px;
   background: linear-gradient(135deg, var(--sdx-blue) 0%, var(--sdx-navy) 100%);
@@ -1441,15 +1442,15 @@ body {
 /* ── iPad Portrait / Small Tablet (601–768px) ─────────── */
 @media (max-width: 768px) {
   .topBar {
-    padding: 10px 16px;
+    padding: 12px 16px;
     height: auto;
     min-height: 56px;
     flex-wrap: wrap;
-    gap: 8px;
+    gap: 10px;
   }
   .brandLeft { gap: 10px; }
-  .brandLogo { height: 32px; }
-  .brandTitle { font-size: 0.95rem; }
+  .brandLogo { height: 30px; }
+  .brandTitle { font-size: 1rem; font-weight: 700; }
   .brandSub { display: none; }
   .topActions {
     gap: 8px;
@@ -1457,8 +1458,9 @@ body {
     justify-content: flex-end;
   }
   .topActions .btn {
-    padding: 8px 14px;
-    font-size: 0.8rem;
+    padding: 9px 16px;
+    font-size: 0.82rem;
+    border-radius: 8px;
   }
   .userBadgeLabel { display: none; }
 
@@ -1467,7 +1469,7 @@ body {
     padding: 16px;
     gap: 16px;
   }
-  .cardHeader { padding: 14px 18px; }
+  .cardHeader { padding: 16px 18px; }
   .cardBody { padding: 18px; }
   .fieldGrid { gap: 12px; }
 
@@ -1530,30 +1532,31 @@ body {
   .fabRight { right: 12px; }
 
   .topBar {
-    padding: 8px 12px;
-    gap: 6px;
+    padding: 10px 14px;
+    gap: 8px;
   }
-  .brandLogo { height: 26px; }
-  .brandTitle { font-size: 0.88rem; }
+  .brandLogo { height: 24px; }
+  .brandTitle { font-size: 0.92rem; }
   .topActions {
     width: 100%;
     justify-content: center;
-    gap: 5px;
+    gap: 6px;
     flex-wrap: wrap;
   }
   .topActions .btn {
-    padding: 8px 10px;
-    font-size: 0.75rem;
+    padding: 9px 14px;
+    font-size: 0.78rem;
+    border-radius: 8px;
   }
-  .btnAdmin { padding: 8px 12px; font-size: 0.72rem; }
-  .btnLock { padding: 6px 10px; font-size: 0.9rem; }
+  .btnAdmin { padding: 9px 14px; font-size: 0.78rem; }
+  .btnLock { padding: 8px 12px; font-size: 1rem; }
 
   .grid {
-    padding: 10px;
-    gap: 12px;
+    padding: 12px;
+    gap: 14px;
   }
   .cardHeader {
-    padding: 12px 14px;
+    padding: 14px 16px;
     flex-direction: column;
     align-items: flex-start;
     gap: 8px;
