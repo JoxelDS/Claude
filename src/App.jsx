@@ -1548,26 +1548,29 @@ function exportAsTxt({ output, inspectionDate, siteName }) {
 
 /* ── Temperature Trend Chart (pure SVG) ─────────────────── */
 function TempTrendChart({ history }) {
+  const [hoveredPoint, setHoveredPoint] = useState(null);
+
   // Group by location+floor, sorted by date
   const locationData = useMemo(() => {
     const map = {};
     for (const rec of history) {
       const key = `${rec.siteName || rec.location || "Unknown"}${rec.floor ? ` - ${rec.floor}` : ""}`;
-      if (!map[key]) map[key] = [];
+      const unitNum = rec.siteNumber || "";
+      if (!map[key]) map[key] = { points: [], unitNum };
       const hand = Number(rec.temps?.handSinkTempF);
       const three = Number(rec.temps?.threeCompSinkTempF);
       if (hand || three) {
-        map[key].push({
+        map[key].points.push({
           date: rec.inspectionDate || rec.savedAt?.slice(0, 10) || "—",
           handSink: hand || null,
           threeComp: three || null,
           floor: rec.floor || "",
+          status: rec.overallStatus || "—",
         });
       }
     }
-    // Sort each location's entries by date
     for (const k of Object.keys(map)) {
-      map[k].sort((a, b) => a.date.localeCompare(b.date));
+      map[k].points.sort((a, b) => a.date.localeCompare(b.date));
     }
     return map;
   }, [history]);
@@ -1575,63 +1578,143 @@ function TempTrendChart({ history }) {
   const locations = Object.keys(locationData);
   if (locations.length === 0) return null;
 
-  const W = 440, H = 180, PAD = 40, PADR = 20, PADT = 25, PADB = 45;
+  const W = 500, H = 220, PAD = 45, PADR = 20, PADT = 20, PADB = 50;
 
   return (
     <div className="card" style={{ marginBottom: 24 }}>
-      <div className="cardHeader"><div className="cardTitle">Temperature Trends by Location</div></div>
+      <div className="cardHeader">
+        <div className="cardTitle">Temperature Trends by Location</div>
+        <div className="cardSub" style={{ fontSize: "0.72rem", color: "#6b7280" }}>{locations.length} location{locations.length !== 1 ? "s" : ""} tracked</div>
+      </div>
       <div className="cardBody">
         <div className="tempChartsGrid">
           {locations.map(loc => {
-            const points = locationData[loc];
+            const { points, unitNum } = locationData[loc];
             const allTemps = points.flatMap(p => [p.handSink, p.threeComp]).filter(Boolean);
             if (allTemps.length === 0) return null;
-            const minT = Math.min(...allTemps) - 5;
-            const maxT = Math.max(...allTemps) + 5;
+            const minT = Math.min(...allTemps, 90) - 5;
+            const maxT = Math.max(...allTemps, 115) + 5;
             const rangeT = maxT - minT || 1;
-            const xStep = points.length > 1 ? (W - PAD - PADR) / (points.length - 1) : 0;
+            const xStep = points.length > 1 ? (W - PAD - PADR) / (points.length - 1) : (W - PAD - PADR) / 2;
+            const xOff = points.length === 1 ? (W - PAD - PADR) / 2 : 0;
 
-            const toX = (i) => PAD + i * xStep;
+            const toX = (i) => PAD + xOff + i * xStep;
             const toY = (t) => PADT + (H - PADT - PADB) * (1 - (t - minT) / rangeT);
 
-            const handPts = points.map((p, i) => p.handSink ? `${toX(i)},${toY(p.handSink)}` : null).filter(Boolean);
-            const threePts = points.map((p, i) => p.threeComp ? `${toX(i)},${toY(p.threeComp)}` : null).filter(Boolean);
+            // Build smooth path points
+            const handCoords = points.map((p, i) => p.handSink ? [toX(i), toY(p.handSink)] : null).filter(Boolean);
+            const threeCoords = points.map((p, i) => p.threeComp ? [toX(i), toY(p.threeComp)] : null).filter(Boolean);
+            const toPath = (coords) => coords.map((c, i) => `${i === 0 ? "M" : "L"}${c[0]},${c[1]}`).join(" ");
+            const toAreaPath = (coords) => {
+              if (coords.length < 2) return "";
+              const bottom = H - PADB;
+              return `${toPath(coords)} L${coords[coords.length - 1][0]},${bottom} L${coords[0][0]},${bottom} Z`;
+            };
+
+            // Horizontal grid lines
+            const gridSteps = [];
+            for (let t = Math.ceil(minT / 10) * 10; t <= maxT; t += 10) gridSteps.push(t);
+
+            // Avg temps
+            const handAvg = handCoords.length > 0 ? Math.round(points.reduce((s, p) => s + (p.handSink || 0), 0) / points.filter(p => p.handSink).length) : null;
+            const threeAvg = threeCoords.length > 0 ? Math.round(points.reduce((s, p) => s + (p.threeComp || 0), 0) / points.filter(p => p.threeComp).length) : null;
 
             return (
               <div key={loc} className="tempChartItem">
-                <div className="tempChartLabel">{loc}</div>
-                <svg viewBox={`0 0 ${W} ${H}`} className="tempChartSvg">
+                <div className="tempChartHeader">
+                  <div className="tempChartLabel">{loc}</div>
+                  {unitNum && <span className="tempChartUnit">#{unitNum}</span>}
+                </div>
+                <div className="tempChartAvgs">
+                  {handAvg !== null && <span className="tempAvgPill" style={{ background: handAvg >= 95 ? "#dbeafe" : "#fee2e2", color: handAvg >= 95 ? "#1d4ed8" : "#dc2626" }}>Avg Hand: {handAvg}°F</span>}
+                  {threeAvg !== null && <span className="tempAvgPill" style={{ background: threeAvg >= 110 ? "#ede9fe" : "#fee2e2", color: threeAvg >= 110 ? "#7c3aed" : "#dc2626" }}>Avg 3-Comp: {threeAvg}°F</span>}
+                  <span className="tempAvgPill" style={{ background: "#f0fdf4", color: "#15803d" }}>{points.length} reading{points.length !== 1 ? "s" : ""}</span>
+                </div>
+                <svg viewBox={`0 0 ${W} ${H}`} className="tempChartSvg" onMouseLeave={() => setHoveredPoint(null)}>
+                  <defs>
+                    <linearGradient id={`handGrad-${loc.replace(/\W/g, "")}`} x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.25" />
+                      <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.02" />
+                    </linearGradient>
+                    <linearGradient id={`threeGrad-${loc.replace(/\W/g, "")}`} x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#8b5cf6" stopOpacity="0.25" />
+                      <stop offset="100%" stopColor="#8b5cf6" stopOpacity="0.02" />
+                    </linearGradient>
+                  </defs>
+
                   {/* Grid lines */}
+                  {gridSteps.map(t => (
+                    <g key={t}>
+                      <line x1={PAD} y1={toY(t)} x2={W - PADR} y2={toY(t)} stroke="#e5e7eb" strokeWidth="1" />
+                      <text x={PAD - 6} y={toY(t) + 4} textAnchor="end" fontSize="9" fill="#9ca3af">{t}°</text>
+                    </g>
+                  ))}
+
+                  {/* Threshold lines */}
                   {[95, 110].map(threshold => {
                     if (threshold < minT || threshold > maxT) return null;
                     const y = toY(threshold);
                     return (
                       <g key={threshold}>
-                        <line x1={PAD} y1={y} x2={W - PADR} y2={y} stroke={threshold === 95 ? "#3b82f6" : "#8b5cf6"} strokeDasharray="4,3" strokeWidth="1" opacity="0.5" />
-                        <text x={PAD - 4} y={y + 3} textAnchor="end" fontSize="9" fill={threshold === 95 ? "#3b82f6" : "#8b5cf6"}>{threshold}°F</text>
+                        <line x1={PAD} y1={y} x2={W - PADR} y2={y} stroke={threshold === 95 ? "#3b82f6" : "#8b5cf6"} strokeDasharray="6,4" strokeWidth="1.5" opacity="0.6" />
+                        <rect x={W - PADR + 2} y={y - 8} width="36" height="16" rx="3" fill={threshold === 95 ? "#3b82f6" : "#8b5cf6"} opacity="0.9" />
+                        <text x={W - PADR + 20} y={y + 4} textAnchor="middle" fontSize="8" fill="white" fontWeight="bold">{threshold}°F</text>
                       </g>
                     );
                   })}
-                  {/* Y-axis labels */}
-                  <text x={PAD - 4} y={toY(maxT) + 3} textAnchor="end" fontSize="9" fill="#888">{Math.round(maxT)}°</text>
-                  <text x={PAD - 4} y={toY(minT) + 3} textAnchor="end" fontSize="9" fill="#888">{Math.round(minT)}°</text>
+
+                  {/* Area fills */}
+                  {handCoords.length >= 2 && <path d={toAreaPath(handCoords)} fill={`url(#handGrad-${loc.replace(/\W/g, "")})`} />}
+                  {threeCoords.length >= 2 && <path d={toAreaPath(threeCoords)} fill={`url(#threeGrad-${loc.replace(/\W/g, "")})`} />}
+
+                  {/* Lines */}
+                  {handCoords.length > 1 && <path d={toPath(handCoords)} fill="none" stroke="#3b82f6" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />}
+                  {threeCoords.length > 1 && <path d={toPath(threeCoords)} fill="none" stroke="#8b5cf6" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />}
+
+                  {/* Data points with hover */}
+                  {points.map((p, i) => {
+                    const hk = `${loc}-${i}`;
+                    return (
+                      <g key={i} onMouseEnter={() => setHoveredPoint(hk)} onTouchStart={() => setHoveredPoint(hk)}>
+                        {p.handSink && (
+                          <>
+                            <circle cx={toX(i)} cy={toY(p.handSink)} r="5" fill="white" stroke={p.handSink >= 95 ? "#3b82f6" : "#ef4444"} strokeWidth="2.5" />
+                            {hoveredPoint === hk && (
+                              <g>
+                                <rect x={toX(i) - 30} y={toY(p.handSink) - 26} width="60" height="20" rx="4" fill="#1e293b" opacity="0.9" />
+                                <text x={toX(i)} y={toY(p.handSink) - 12} textAnchor="middle" fontSize="10" fill="white" fontWeight="bold">{p.handSink}°F</text>
+                              </g>
+                            )}
+                          </>
+                        )}
+                        {p.threeComp && (
+                          <>
+                            <circle cx={toX(i)} cy={toY(p.threeComp)} r="5" fill="white" stroke={p.threeComp >= 110 ? "#8b5cf6" : "#ef4444"} strokeWidth="2.5" />
+                            {hoveredPoint === hk && (
+                              <g>
+                                <rect x={toX(i) - 30} y={toY(p.threeComp) - 26} width="60" height="20" rx="4" fill="#1e293b" opacity="0.9" />
+                                <text x={toX(i)} y={toY(p.threeComp) - 12} textAnchor="middle" fontSize="10" fill="white" fontWeight="bold">{p.threeComp}°F</text>
+                              </g>
+                            )}
+                          </>
+                        )}
+                        {/* Invisible larger hit area */}
+                        <rect x={toX(i) - 15} y={PADT} width="30" height={H - PADT - PADB} fill="transparent" />
+                      </g>
+                    );
+                  })}
+
                   {/* X-axis labels */}
                   {points.map((p, i) => (
-                    <text key={i} x={toX(i)} y={H - 8} textAnchor="middle" fontSize="8" fill="#888" transform={`rotate(-25, ${toX(i)}, ${H - 8})`}>
+                    <text key={i} x={toX(i)} y={H - 10} textAnchor="middle" fontSize="9" fill="#6b7280" fontWeight="500">
                       {p.date.slice(5)}
                     </text>
                   ))}
-                  {/* Hand sink line (blue) */}
-                  {handPts.length > 1 && <polyline points={handPts.join(" ")} fill="none" stroke="#3b82f6" strokeWidth="2" />}
-                  {points.map((p, i) => p.handSink ? <circle key={`h${i}`} cx={toX(i)} cy={toY(p.handSink)} r="3.5" fill={p.handSink >= 95 ? "#3b82f6" : "#ef4444"} /> : null)}
-                  {/* 3-comp line (purple) */}
-                  {threePts.length > 1 && <polyline points={threePts.join(" ")} fill="none" stroke="#8b5cf6" strokeWidth="2" />}
-                  {points.map((p, i) => p.threeComp ? <circle key={`t${i}`} cx={toX(i)} cy={toY(p.threeComp)} r="3.5" fill={p.threeComp >= 110 ? "#8b5cf6" : "#ef4444"} /> : null)}
                 </svg>
                 <div className="tempChartLegend">
-                  <span className="tempLegendDot" style={{ background: "#3b82f6" }} /> Hand Sink (min 95°F)
-                  <span className="tempLegendDot" style={{ background: "#8b5cf6", marginLeft: 12 }} /> 3-Comp (min 110°F)
-                  <span className="tempLegendDot" style={{ background: "#ef4444", marginLeft: 12 }} /> Below min
+                  <span className="tempLegendItem"><span className="tempLegendDot" style={{ background: "#3b82f6" }} /> Hand Sink (min 95°F)</span>
+                  <span className="tempLegendItem"><span className="tempLegendDot" style={{ background: "#8b5cf6" }} /> 3-Comp (min 110°F)</span>
+                  <span className="tempLegendItem"><span className="tempLegendDot" style={{ background: "#ef4444" }} /> Below min</span>
                 </div>
               </div>
             );
@@ -1647,33 +1730,55 @@ function RecurringIssuesPanel({ history }) {
   const analysis = useMemo(() => {
     if (history.length < 2) return null;
 
-    // 1. Count how many times each issue area appears across inspections
-    const issueCounts = {};
+    // 1. Count issues per category and track which kitchens have them
+    const issueCounts = {};      // { "Ceiling": 5 }
+    const issueKitchens = {};    // { "Ceiling": [ { name, unit, floor }, ... ] }
     const issueByLocation = {};
     const locationInspectionCount = {};
 
     for (const rec of history) {
-      const loc = `${rec.siteName || rec.location || "Unknown"}${rec.floor ? ` (${rec.floor})` : ""}`;
-      locationInspectionCount[loc] = (locationInspectionCount[loc] || 0) + 1;
+      const locLabel = `${rec.siteName || rec.location || "Unknown"}${rec.floor ? ` (${rec.floor})` : ""}`;
+      const locUnit = rec.siteNumber || "";
+      locationInspectionCount[locLabel] = (locationInspectionCount[locLabel] || 0) + 1;
 
       const seenInThisRec = new Set();
       for (const item of (rec.actionItems || [])) {
-        // Extract the category (e.g., "Ceiling", "Floors", "Hand sink temperature")
         const cat = item.issue?.split(":")[0]?.trim() || "Other";
         if (seenInThisRec.has(cat)) continue;
         seenInThisRec.add(cat);
 
         issueCounts[cat] = (issueCounts[cat] || 0) + 1;
 
-        if (!issueByLocation[loc]) issueByLocation[loc] = {};
-        issueByLocation[loc][cat] = (issueByLocation[loc][cat] || 0) + 1;
+        // Track which kitchens have this issue
+        if (!issueKitchens[cat]) issueKitchens[cat] = [];
+        issueKitchens[cat].push({
+          name: rec.siteName || rec.location || "Unknown",
+          unit: locUnit,
+          floor: rec.floor || "",
+          date: rec.inspectionDate || "",
+        });
+
+        if (!issueByLocation[locLabel]) issueByLocation[locLabel] = {};
+        issueByLocation[locLabel][cat] = (issueByLocation[locLabel][cat] || 0) + 1;
       }
     }
 
-    // 2. Find recurring issues (appeared in 2+ inspections)
+    // 2. Find recurring issues (appeared in 2+ inspections) with their kitchens
     const recurring = Object.entries(issueCounts)
       .filter(([, count]) => count >= 2)
-      .sort((a, b) => b[1] - a[1]);
+      .sort((a, b) => b[1] - a[1])
+      .map(([cat, count]) => {
+        // Group kitchens by name+unit, show unique locations
+        const kitchenMap = {};
+        for (const k of issueKitchens[cat]) {
+          const key = `${k.name}${k.unit ? ` #${k.unit}` : ""}${k.floor ? ` (${k.floor})` : ""}`;
+          if (!kitchenMap[key]) kitchenMap[key] = { label: key, count: 0, dates: [] };
+          kitchenMap[key].count++;
+          if (k.date) kitchenMap[key].dates.push(k.date);
+        }
+        const kitchens = Object.values(kitchenMap).sort((a, b) => b.count - a.count);
+        return { category: cat, count, kitchens };
+      });
 
     // 3. Per-location recurring
     const locationRecurring = {};
@@ -1696,10 +1801,22 @@ function RecurringIssuesPanel({ history }) {
     }
     const tempComplianceRate = tempChecks > 0 ? Math.round(((tempChecks - tempFails) / tempChecks) * 100) : null;
 
-    return { recurring, locationRecurring, tempComplianceRate, tempChecks, tempFails, totalInspections: history.length };
+    // 5. Worst locations — most total issues
+    const locIssueCount = {};
+    for (const rec of history) {
+      const locLabel = `${rec.siteName || rec.location || "Unknown"}${rec.siteNumber ? ` #${rec.siteNumber}` : ""}${rec.floor ? ` (${rec.floor})` : ""}`;
+      locIssueCount[locLabel] = (locIssueCount[locLabel] || 0) + (rec.actionItems || []).length;
+    }
+    const worstLocations = Object.entries(locIssueCount)
+      .filter(([, c]) => c >= 2)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5);
+
+    return { recurring, locationRecurring, tempComplianceRate, tempChecks, tempFails, totalInspections: history.length, worstLocations };
   }, [history]);
 
-  if (!analysis || (analysis.recurring.length === 0 && Object.keys(analysis.locationRecurring).length === 0)) return null;
+  if (!analysis) return null;
+  if (analysis.recurring.length === 0 && Object.keys(analysis.locationRecurring).length === 0 && analysis.worstLocations.length === 0) return null;
 
   return (
     <div className="card" style={{ marginBottom: 24 }}>
@@ -1727,16 +1844,41 @@ function RecurringIssuesPanel({ history }) {
           </div>
         </div>
 
-        {/* Global recurring issues */}
+        {/* Global recurring issues — now shows which kitchens */}
         {analysis.recurring.length > 0 && (
           <div style={{ marginTop: 16 }}>
             <div className="guideSectionTitle">Issues That Keep Coming Back</div>
             <div className="recurringList">
-              {analysis.recurring.map(([cat, count]) => (
-                <div key={cat} className="recurringItem">
+              {analysis.recurring.map(({ category, count, kitchens }) => (
+                <div key={category} className="recurringItem recurringItemExpanded">
                   <span className="recurringBar" style={{ width: `${Math.min(100, (count / analysis.totalInspections) * 100)}%` }} />
-                  <span className="recurringLabel">{cat}</span>
-                  <span className="recurringCount">{count} of {analysis.totalInspections} inspections ({Math.round((count / analysis.totalInspections) * 100)}%)</span>
+                  <div className="recurringTop">
+                    <span className="recurringLabel">{category}</span>
+                    <span className="recurringBadge">{count}/{analysis.totalInspections} ({Math.round((count / analysis.totalInspections) * 100)}%)</span>
+                  </div>
+                  <div className="recurringKitchens">
+                    {kitchens.map((k, i) => (
+                      <span key={i} className="recurringKitchenTag">
+                        {k.label} <span className="recurringKitchenCount">&times;{k.count}</span>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Worst locations ranking */}
+        {analysis.worstLocations.length > 0 && (
+          <div style={{ marginTop: 20 }}>
+            <div className="guideSectionTitle">Locations With Most Issues</div>
+            <div className="worstLocationsList">
+              {analysis.worstLocations.map(([loc, count], i) => (
+                <div key={loc} className="worstLocation">
+                  <span className="worstRank" style={{ background: i === 0 ? "#EE0000" : i === 1 ? "#f97316" : "#eab308" }}>#{i + 1}</span>
+                  <span className="worstName">{loc}</span>
+                  <span className="worstCount">{count} issue{count !== 1 ? "s" : ""}</span>
                 </div>
               ))}
             </div>
@@ -1746,7 +1888,7 @@ function RecurringIssuesPanel({ history }) {
         {/* Per-location recurring */}
         {Object.keys(analysis.locationRecurring).length > 0 && (
           <div style={{ marginTop: 20 }}>
-            <div className="guideSectionTitle">Flagged Locations</div>
+            <div className="guideSectionTitle">Flagged Locations — Repeat Problems</div>
             {Object.entries(analysis.locationRecurring).map(([loc, issues]) => (
               <div key={loc} className="flaggedLocation">
                 <div className="flaggedLocationName">{loc}</div>
@@ -2722,7 +2864,7 @@ export default function App() {
         </section>
 
         {/* RIGHT */}
-        <section className="card">
+        <section className="card" id="report-output">
           <div className="cardHeader">
             <div>
               <div className="cardTitle">Output</div>
@@ -2775,6 +2917,20 @@ export default function App() {
       {/* Floating corner buttons */}
       <button className="fab fabLeft" onClick={loadSample} type="button" title="Try Example">&#128221; Try Example</button>
       <button className="fab fabRight" onClick={runAiAssist} type="button" title="AI Tips">&#9889; AI Tips</button>
+
+      {/* Sticky action bar — appears when report is generated */}
+      {output && (
+        <div className="stickyActionBar">
+          <button className="btn stickyBtn stickyBtnView" type="button" onClick={() => {
+            const el = document.getElementById("report-output");
+            if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+          }}>&#128196; View Report</button>
+          <button className={cx("btn stickyBtn", saved ? "stickyBtnSaved" : "stickyBtnSave")} type="button" onClick={saveToHistory}>
+            {saved ? "\u2705 Saved!" : "&#128190; Save Report"}
+          </button>
+          <button className="btn stickyBtn stickyBtnNew" type="button" onClick={startNewInspection}>+ New</button>
+        </div>
+      )}
 
       <footer className="footer">
         <img src={LOGO_WHITE} alt="Sodexo" className="footerLogo" />
