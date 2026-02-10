@@ -2004,6 +2004,7 @@ function HistoryPage({ onBack }) {
           )}
         </div>
       </header>
+      <div className="topBarSpacer" />
 
       <main className="pageMain pageMainWide">
         {/* Filters */}
@@ -2258,6 +2259,7 @@ function AdminPanel({ currentUser, onBack }) {
           <button className="btn btnGhost" onClick={onBack} type="button">Back to Inspector</button>
         </div>
       </header>
+      <div className="topBarSpacer" />
 
       <main className="pageMain pageMainNarrow">
         {/* Add User */}
@@ -2753,6 +2755,7 @@ export default function App() {
           </div>
         )}
       </header>
+      <div className="topBarSpacer" />
 
       <main className="grid">
         {/* LEFT */}
