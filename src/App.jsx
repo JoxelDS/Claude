@@ -279,64 +279,15 @@ function downloadBlob(blob, filename) {
 }
 
 const NOTE_TYPES = {
-  interview: {
-    label: "Interview Notes",
-    contextFields: [
-      { key: "position", label: "Position" },
-      { key: "interviewer", label: "Interviewer" },
-      { key: "date", label: "Date" },
-      { key: "duration", label: "Duration" },
-    ],
-    useCases: ["Evaluation Scorecard", "Slack Update", "Email Summary"],
-    sample: {
-      meta: {
-        inspectionType: "Regular Inspection",
-        inspectionDate: "2026-02-09",
-        inspectorName: "J. Da Silva",
-      },
-      context: {
-        position: "Kitchen Manager (Venue A)",
-        interviewer: "J. Da Silva",
-        date: "2026-02-09",
-        duration: "35 min",
-      },
-      inspection: {
-        facility: {
-          ceiling: { status: "Needs Attention", notes: "Dust near vents over prep.", photos: [] },
-          walls: { status: "OK", notes: "", photos: [] },
-          floors: { status: "Needs Attention", notes: "Wet by walk-in; add wet-floor sign.", photos: [] },
-          lighting: { status: "Needs Attention", notes: "Bulb out over dish station.", photos: [] },
-        },
-        operations: {
-          employeePractices: { status: "Needs Attention", notes: "New staff needs allergen + glove-change coaching.", photos: [] },
-          handwashing: { status: "OK", notes: "Soap low at one hand sink.", photos: [] },
-          labelingDating: { status: "OK", notes: "", photos: [] },
-          logs: { status: "Needs Attention", notes: "HACCP docs questions; verify log completeness.", photos: [] },
-        },
-        temps: { handSinkTempF: 98, threeCompSinkTempF: 112 },
-        equipment: {
-          doubleDoorCooler: { status: "OK", notes: "38°F", photos: [] },
-          doubleDoorFreezer: { status: "OK", notes: "-2°F", photos: [] },
-          walkInCooler: { status: "OK", notes: "", photos: [] },
-          warmers: { status: "OK", notes: "Hot hold 150°F", photos: [] },
-          ovens: { status: "OK", notes: "", photos: [] },
-          threeCompSink: { status: "Needs Attention", notes: "Verify wash temp ≥110°F consistently.", photos: [] },
-          ecolab: { status: "OK", notes: "Sanitizer 150 ppm", photos: [] },
-        },
-      },
-      rawNotes:
-        "met w/ KM. walked line. temps ok. q on HACCP docs. 2x hand sink low soap. dish area: sanitizer 150ppm (good). floor by walk-in wet. staff: 1 new, needs allergen training. action: order soap, replace bulb, add wet floor sign, retrain on glove change. next chk 1wk.",
-    },
-  },
-  meeting: {
-    label: "Meeting Notes",
+  inspection: {
+    label: "Kitchen Inspection",
     contextFields: [
       { key: "kitchen", label: "Kitchen / Location" },
       { key: "participants", label: "Participants" },
       { key: "date", label: "Date" },
       { key: "duration", label: "Duration" },
     ],
-    useCases: ["Google Doc", "Slack Update", "Email Summary"],
+    useCases: ["Email Summary", "Google Doc", "Slack Update", "Evaluation Scorecard"],
     sample: {
       meta: {
         inspectionType: "Event Day",
@@ -344,7 +295,7 @@ const NOTE_TYPES = {
         inspectorName: "J. Da Silva",
       },
       context: {
-        kitchen: "Concourse Kitchen — North Stand",
+        kitchen: "Concourse Kitchen \u2014 North Stand",
         participants: "Chef Lead, Sanitation Lead, Ops Manager",
         date: "2026-02-09",
         duration: "25 min",
@@ -354,23 +305,23 @@ const NOTE_TYPES = {
           ceiling: { status: "OK", notes: "", photos: [] },
           walls: { status: "OK", notes: "", photos: [] },
           floors: { status: "Needs Attention", notes: "Slip hazard near mop sink.", photos: [] },
-          lighting: { status: "OK", notes: "", photos: [] },
+          lighting: { status: "Needs Attention", notes: "Bulb out over dish station.", photos: [] },
         },
         operations: {
           employeePractices: { status: "Needs Attention", notes: "Coaching on hot holding.", photos: [] },
-          handwashing: { status: "OK", notes: "", photos: [] },
+          handwashing: { status: "OK", notes: "Soap low at one hand sink.", photos: [] },
           labelingDating: { status: "Needs Attention", notes: "A few unlabeled containers.", photos: [] },
           logs: { status: "Needs Attention", notes: "Chemical logs missing 2/7.", photos: [] },
         },
         temps: { handSinkTempF: 96, threeCompSinkTempF: 110 },
         equipment: {
-          doubleDoorCooler: { status: "OK", notes: "38°F", photos: [] },
+          doubleDoorCooler: { status: "OK", notes: "38\u00B0F", photos: [] },
           doubleDoorFreezer: { status: "OK", notes: "", photos: [] },
           walkInCooler: { status: "OK", notes: "", photos: [] },
-          warmers: { status: "Needs Attention", notes: "Hot hold 142°F (borderline).", photos: [] },
+          warmers: { status: "Needs Attention", notes: "Hot hold 142\u00B0F (borderline).", photos: [] },
           ovens: { status: "OK", notes: "", photos: [] },
           threeCompSink: { status: "OK", notes: "", photos: [] },
-          ecolab: { status: "OK", notes: "", photos: [] },
+          ecolab: { status: "OK", notes: "Sanitizer 150 ppm", photos: [] },
         },
       },
       rawNotes:
@@ -541,7 +492,7 @@ function validateForm({ inspectionDate, inspectorName, context, noteType, inspec
 
 function buildSubject({ noteType, context, inspection, inspectionType, inspectionDate, siteName, siteNumber }) {
   const status = calcOverallStatus(inspection);
-  const baseLocation = siteName || (noteType === "meeting" ? context?.kitchen : context?.position) || "Kitchen";
+  const baseLocation = siteName || context?.kitchen || "Kitchen";
   const unitTag = siteNumber ? ` (#${siteNumber})` : "";
   const date = inspectionDate || context?.date || "Date";
   const typeTag = inspectionType ? ` – ${inspectionType}` : "";
@@ -643,7 +594,7 @@ function emailPreview({ noteType, context, inspection, rawNotes, inspectionType,
   const status = calcOverallStatus(inspection);
   const actionItems = buildActionItems({ inspection, rawNotes });
   const { index: photoIndexList } = buildPhotoIndex(inspection);
-  const location = siteName || (noteType === "meeting" ? context?.kitchen : context?.position) || "Kitchen";
+  const location = siteName || context?.kitchen || "Kitchen";
   const unit = siteNumber ? ` (#${siteNumber})` : "";
   const date = inspectionDate || context?.date || "—";
   const snapshotLines = [
@@ -710,7 +661,7 @@ function transformLocally({ noteType, useCase, context, inspection, rawNotes, in
   const status = calcOverallStatus(inspection);
   const actionItems = buildActionItems({ inspection, rawNotes });
   const expandedNotes = expandAbbreviations(rawNotes);
-  const location = siteName || (noteType === "meeting" ? context?.kitchen : context?.position) || "Kitchen";
+  const location = siteName || context?.kitchen || "Kitchen";
   const date = inspectionDate || context?.date || "—";
 
   if (useCase === "Email Summary") {
@@ -890,7 +841,7 @@ function RenderedOutput({ noteType, useCase, context, inspection, rawNotes, insp
   const status = calcOverallStatus(inspection);
   const actionItems = buildActionItems({ inspection, rawNotes });
   const expandedNotes = expandAbbreviations(rawNotes);
-  const location = siteName || (noteType === "meeting" ? context?.kitchen : context?.position) || "Kitchen";
+  const location = siteName || context?.kitchen || "Kitchen";
   const date = inspectionDate || context?.date || new Date().toLocaleDateString();
   const playbook = INSPECTION_PLAYBOOK[inspectionType] || INSPECTION_PLAYBOOK["Regular Inspection"];
   const { index: photoIndexList } = buildPhotoIndex(inspection);
@@ -1701,11 +1652,11 @@ export default function App() {
   const [page, setPage] = useState("inspector"); // "inspector" | "history" | "admin"
   const lastActivity = useRef(Date.now());
 
-  const [noteType, setNoteType] = useState("meeting");
-  const [context, setContext] = useState(() => buildDefaultContext("meeting"));
+  const [noteType, setNoteType] = useState("inspection");
+  const [context, setContext] = useState(() => buildDefaultContext("inspection"));
   const [inspection, setInspection] = useState(() => buildDefaultInspection());
   const [rawNotes, setRawNotes] = useState("");
-  const [useCase, setUseCase] = useState(NOTE_TYPES.meeting.useCases[0]);
+  const [useCase, setUseCase] = useState(NOTE_TYPES.inspection.useCases[0]);
 
   const [inspectionType, setInspectionType] = useState("Regular Inspection");
   const [inspectionDate, setInspectionDate] = useState("");
@@ -1849,7 +1800,7 @@ export default function App() {
       savedAt: new Date().toISOString(),
       noteType, inspectionType, inspectionDate, inspectorName,
       siteName, siteNumber, supervisorName, sitePhone,
-      location: siteName || (noteType === "meeting" ? context?.kitchen : context?.position) || "Kitchen",
+      location: siteName || context?.kitchen || "Kitchen",
       context: { ...context },
       temps: { ...inspection.temps },
       overallStatus: calcOverallStatus(inspection),
@@ -1911,15 +1862,7 @@ export default function App() {
         {/* LEFT */}
         <section className="card">
           <div className="cardHeader">
-            <div className="cardTitle">Input</div>
-            <div className="noteTypeRow" role="tablist" aria-label="Note type">
-              <button className={cx("seg", noteType === "interview" && "segActive")} onClick={() => switchNoteType("interview")} type="button">
-                {NOTE_TYPES.interview.label}
-              </button>
-              <button className={cx("seg", noteType === "meeting" && "segActive")} onClick={() => switchNoteType("meeting")} type="button">
-                {NOTE_TYPES.meeting.label}
-              </button>
-            </div>
+            <div className="cardTitle">Inspection Details</div>
           </div>
 
           <div className="cardBody">
