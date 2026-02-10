@@ -443,6 +443,7 @@ const PHOTO_LIMIT = 6;
 const PHOTO_MAX_MB = 8;
 
 const INSPECTION_TYPES = ["Event Day", "Post Event", "Regular Inspection"];
+const FLOOR_OPTIONS = ["Floor 1", "Floor 2", "Floor 3"];
 
 const INSPECTION_PLAYBOOK = {
   "Event Day": {
@@ -821,7 +822,7 @@ function tableMarkdown(rows) {
   return `${header}\n${body || "|  |  |  |  |  |"}`;
 }
 
-function emailPreview({ noteType, context, inspection, rawNotes, inspectionType, inspectionDate, inspectorName, siteName, siteNumber, sitePhone, supervisorName }) {
+function emailPreview({ noteType, context, inspection, rawNotes, inspectionType, inspectionDate, inspectorName, siteName, siteNumber, sitePhone, supervisorName, floor }) {
   const playbook = INSPECTION_PLAYBOOK[inspectionType] || INSPECTION_PLAYBOOK["Regular Inspection"];
   const subject = buildSubject({ noteType, context, inspection, inspectionType, inspectionDate, siteName, siteNumber });
   const status = calcOverallStatus(inspection);
@@ -833,6 +834,7 @@ function emailPreview({ noteType, context, inspection, rawNotes, inspectionType,
   const snapshotLines = [
     `- Inspection Type: ${inspectionType || "—"}`,
     `- Site: ${location}${unit}`,
+    floor ? `- Floor: ${floor}` : null,
     `- Date: ${date}`,
     `- Inspector: ${inspectorName || "—"}`,
     `- Supervisor: ${supervisorName || "—"}`,
@@ -890,7 +892,7 @@ function emailPreview({ noteType, context, inspection, rawNotes, inspectionType,
 }
 
 /* ── Local Transform (no backend needed) ─────────────────── */
-function transformLocally({ noteType, useCase, context, inspection, rawNotes, inspectionType, inspectionDate, inspectorName, siteName, siteNumber, sitePhone, supervisorName }) {
+function transformLocally({ noteType, useCase, context, inspection, rawNotes, inspectionType, inspectionDate, inspectorName, siteName, siteNumber, sitePhone, supervisorName, floor }) {
   const status = calcOverallStatus(inspection);
   const actionItems = buildActionItems({ inspection, rawNotes });
   const expandedNotes = expandAbbreviations(rawNotes);
@@ -898,7 +900,7 @@ function transformLocally({ noteType, useCase, context, inspection, rawNotes, in
   const date = inspectionDate || context?.date || "—";
 
   if (useCase === "Email Summary") {
-    return emailPreview({ noteType, context, inspection, rawNotes, inspectionType, inspectionDate, inspectorName, siteName, siteNumber, sitePhone, supervisorName });
+    return emailPreview({ noteType, context, inspection, rawNotes, inspectionType, inspectionDate, inspectorName, siteName, siteNumber, sitePhone, supervisorName, floor });
   }
 
   if (useCase === "Slack Update") {
@@ -1012,7 +1014,7 @@ function transformLocally({ noteType, useCase, context, inspection, rawNotes, in
     return lines.join("\n");
   }
 
-  return emailPreview({ noteType, context, inspection, rawNotes, inspectionType, inspectionDate, inspectorName, siteName, siteNumber, sitePhone, supervisorName });
+  return emailPreview({ noteType, context, inspection, rawNotes, inspectionType, inspectionDate, inspectorName, siteName, siteNumber, sitePhone, supervisorName, floor });
 }
 
 /* ── AI Assist: smart suggestions from checklist + notes ── */
@@ -1070,7 +1072,7 @@ function aiAssist({ inspection, rawNotes, context, noteType }) {
 }
 
 /* ── Rendered Output Component (visual, not code) ────────── */
-function RenderedOutput({ noteType, useCase, context, inspection, rawNotes, inspectionType, inspectionDate, inspectorName, siteName, siteNumber, sitePhone, supervisorName }) {
+function RenderedOutput({ noteType, useCase, context, inspection, rawNotes, inspectionType, inspectionDate, inspectorName, siteName, siteNumber, sitePhone, supervisorName, floor }) {
   const status = calcOverallStatus(inspection);
   const actionItems = buildActionItems({ inspection, rawNotes });
   const expandedNotes = expandAbbreviations(rawNotes);
@@ -1142,6 +1144,12 @@ function RenderedOutput({ noteType, useCase, context, inspection, rawNotes, insp
           <div className="rptInfoLabel">Unit / Location</div>
           <div className="rptInfoValue">{siteNumber || "\u2014"}</div>
         </div>
+        {floor && (
+          <div className="rptInfoItem">
+            <div className="rptInfoLabel">Floor</div>
+            <div className="rptInfoValue">{floor}</div>
+          </div>
+        )}
         {sitePhone && (
           <div className="rptInfoItem">
             <div className="rptInfoLabel">Phone</div>
@@ -1331,7 +1339,7 @@ function buildCsvRows({ inspection, rawNotes, inspectionType, inspectionDate, in
   return rows;
 }
 
-function exportAsCsv({ inspection, rawNotes, inspectionType, inspectionDate, inspectorName, siteName, siteNumber, supervisorName }) {
+function exportAsCsv({ inspection, rawNotes, inspectionType, inspectionDate, inspectorName, siteName, siteNumber, supervisorName, floor }) {
   const dataRows = buildCsvRows({ inspection, rawNotes, inspectionType, inspectionDate, inspectorName, siteName, siteNumber, supervisorName });
   const status = calcOverallStatus(inspection);
   const actionItems = buildActionItems({ inspection, rawNotes });
@@ -1360,6 +1368,7 @@ function exportAsCsv({ inspection, rawNotes, inspectionType, inspectionDate, ins
   <tr><td class="meta-label">Inspector</td><td colspan="4">${inspectorName || ""}</td></tr>
   <tr><td class="meta-label">Site / Location</td><td colspan="4">${siteName || ""}</td></tr>
   <tr><td class="meta-label">Unit #</td><td colspan="4">${siteNumber || ""}</td></tr>
+  <tr><td class="meta-label">Floor</td><td colspan="4">${floor || ""}</td></tr>
   <tr><td class="meta-label">Supervisor</td><td colspan="4">${supervisorName || ""}</td></tr>
   <tr><td class="meta-label">Overall Status</td><td colspan="4" class="${status === "Pass" ? "pass" : "fail"}">${status}</td></tr>
   <tr><td colspan="5"></td></tr>
@@ -1502,11 +1511,235 @@ function exportAsTxt({ output, inspectionDate, siteName }) {
   downloadBlob(blob, filename);
 }
 
+/* ── Temperature Trend Chart (pure SVG) ─────────────────── */
+function TempTrendChart({ history }) {
+  // Group by location+floor, sorted by date
+  const locationData = useMemo(() => {
+    const map = {};
+    for (const rec of history) {
+      const key = `${rec.siteName || rec.location || "Unknown"}${rec.floor ? ` - ${rec.floor}` : ""}`;
+      if (!map[key]) map[key] = [];
+      const hand = Number(rec.temps?.handSinkTempF);
+      const three = Number(rec.temps?.threeCompSinkTempF);
+      if (hand || three) {
+        map[key].push({
+          date: rec.inspectionDate || rec.savedAt?.slice(0, 10) || "—",
+          handSink: hand || null,
+          threeComp: three || null,
+          floor: rec.floor || "",
+        });
+      }
+    }
+    // Sort each location's entries by date
+    for (const k of Object.keys(map)) {
+      map[k].sort((a, b) => a.date.localeCompare(b.date));
+    }
+    return map;
+  }, [history]);
+
+  const locations = Object.keys(locationData);
+  if (locations.length === 0) return null;
+
+  const W = 440, H = 180, PAD = 40, PADR = 20, PADT = 25, PADB = 45;
+
+  return (
+    <div className="card" style={{ marginBottom: 24 }}>
+      <div className="cardHeader"><div className="cardTitle">Temperature Trends by Location</div></div>
+      <div className="cardBody">
+        <div className="tempChartsGrid">
+          {locations.map(loc => {
+            const points = locationData[loc];
+            const allTemps = points.flatMap(p => [p.handSink, p.threeComp]).filter(Boolean);
+            if (allTemps.length === 0) return null;
+            const minT = Math.min(...allTemps) - 5;
+            const maxT = Math.max(...allTemps) + 5;
+            const rangeT = maxT - minT || 1;
+            const xStep = points.length > 1 ? (W - PAD - PADR) / (points.length - 1) : 0;
+
+            const toX = (i) => PAD + i * xStep;
+            const toY = (t) => PADT + (H - PADT - PADB) * (1 - (t - minT) / rangeT);
+
+            const handPts = points.map((p, i) => p.handSink ? `${toX(i)},${toY(p.handSink)}` : null).filter(Boolean);
+            const threePts = points.map((p, i) => p.threeComp ? `${toX(i)},${toY(p.threeComp)}` : null).filter(Boolean);
+
+            return (
+              <div key={loc} className="tempChartItem">
+                <div className="tempChartLabel">{loc}</div>
+                <svg viewBox={`0 0 ${W} ${H}`} className="tempChartSvg">
+                  {/* Grid lines */}
+                  {[95, 110].map(threshold => {
+                    if (threshold < minT || threshold > maxT) return null;
+                    const y = toY(threshold);
+                    return (
+                      <g key={threshold}>
+                        <line x1={PAD} y1={y} x2={W - PADR} y2={y} stroke={threshold === 95 ? "#3b82f6" : "#8b5cf6"} strokeDasharray="4,3" strokeWidth="1" opacity="0.5" />
+                        <text x={PAD - 4} y={y + 3} textAnchor="end" fontSize="9" fill={threshold === 95 ? "#3b82f6" : "#8b5cf6"}>{threshold}°F</text>
+                      </g>
+                    );
+                  })}
+                  {/* Y-axis labels */}
+                  <text x={PAD - 4} y={toY(maxT) + 3} textAnchor="end" fontSize="9" fill="#888">{Math.round(maxT)}°</text>
+                  <text x={PAD - 4} y={toY(minT) + 3} textAnchor="end" fontSize="9" fill="#888">{Math.round(minT)}°</text>
+                  {/* X-axis labels */}
+                  {points.map((p, i) => (
+                    <text key={i} x={toX(i)} y={H - 8} textAnchor="middle" fontSize="8" fill="#888" transform={`rotate(-25, ${toX(i)}, ${H - 8})`}>
+                      {p.date.slice(5)}
+                    </text>
+                  ))}
+                  {/* Hand sink line (blue) */}
+                  {handPts.length > 1 && <polyline points={handPts.join(" ")} fill="none" stroke="#3b82f6" strokeWidth="2" />}
+                  {points.map((p, i) => p.handSink ? <circle key={`h${i}`} cx={toX(i)} cy={toY(p.handSink)} r="3.5" fill={p.handSink >= 95 ? "#3b82f6" : "#ef4444"} /> : null)}
+                  {/* 3-comp line (purple) */}
+                  {threePts.length > 1 && <polyline points={threePts.join(" ")} fill="none" stroke="#8b5cf6" strokeWidth="2" />}
+                  {points.map((p, i) => p.threeComp ? <circle key={`t${i}`} cx={toX(i)} cy={toY(p.threeComp)} r="3.5" fill={p.threeComp >= 110 ? "#8b5cf6" : "#ef4444"} /> : null)}
+                </svg>
+                <div className="tempChartLegend">
+                  <span className="tempLegendDot" style={{ background: "#3b82f6" }} /> Hand Sink (min 95°F)
+                  <span className="tempLegendDot" style={{ background: "#8b5cf6", marginLeft: 12 }} /> 3-Comp (min 110°F)
+                  <span className="tempLegendDot" style={{ background: "#ef4444", marginLeft: 12 }} /> Below min
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Recurring Issues Analysis ──────────────────────────── */
+function RecurringIssuesPanel({ history }) {
+  const analysis = useMemo(() => {
+    if (history.length < 2) return null;
+
+    // 1. Count how many times each issue area appears across inspections
+    const issueCounts = {};
+    const issueByLocation = {};
+    const locationInspectionCount = {};
+
+    for (const rec of history) {
+      const loc = `${rec.siteName || rec.location || "Unknown"}${rec.floor ? ` (${rec.floor})` : ""}`;
+      locationInspectionCount[loc] = (locationInspectionCount[loc] || 0) + 1;
+
+      const seenInThisRec = new Set();
+      for (const item of (rec.actionItems || [])) {
+        // Extract the category (e.g., "Ceiling", "Floors", "Hand sink temperature")
+        const cat = item.issue?.split(":")[0]?.trim() || "Other";
+        if (seenInThisRec.has(cat)) continue;
+        seenInThisRec.add(cat);
+
+        issueCounts[cat] = (issueCounts[cat] || 0) + 1;
+
+        if (!issueByLocation[loc]) issueByLocation[loc] = {};
+        issueByLocation[loc][cat] = (issueByLocation[loc][cat] || 0) + 1;
+      }
+    }
+
+    // 2. Find recurring issues (appeared in 2+ inspections)
+    const recurring = Object.entries(issueCounts)
+      .filter(([, count]) => count >= 2)
+      .sort((a, b) => b[1] - a[1]);
+
+    // 3. Per-location recurring
+    const locationRecurring = {};
+    for (const [loc, cats] of Object.entries(issueByLocation)) {
+      const total = locationInspectionCount[loc] || 1;
+      const recs = Object.entries(cats)
+        .filter(([, c]) => c >= 2)
+        .map(([cat, c]) => ({ category: cat, count: c, rate: Math.round((c / total) * 100) }))
+        .sort((a, b) => b.rate - a.rate);
+      if (recs.length > 0) locationRecurring[loc] = recs;
+    }
+
+    // 4. Temperature compliance rate
+    let tempChecks = 0, tempFails = 0;
+    for (const rec of history) {
+      const hand = Number(rec.temps?.handSinkTempF);
+      const three = Number(rec.temps?.threeCompSinkTempF);
+      if (hand) { tempChecks++; if (hand < 95) tempFails++; }
+      if (three) { tempChecks++; if (three < 110) tempFails++; }
+    }
+    const tempComplianceRate = tempChecks > 0 ? Math.round(((tempChecks - tempFails) / tempChecks) * 100) : null;
+
+    return { recurring, locationRecurring, tempComplianceRate, tempChecks, tempFails, totalInspections: history.length };
+  }, [history]);
+
+  if (!analysis || (analysis.recurring.length === 0 && Object.keys(analysis.locationRecurring).length === 0)) return null;
+
+  return (
+    <div className="card" style={{ marginBottom: 24 }}>
+      <div className="cardHeader"><div className="cardTitle">Recurring Issues Tracker</div></div>
+      <div className="cardBody">
+        {/* Overall stats */}
+        <div className="analysisStatsRow">
+          <div className="analysisStat">
+            <div className="analysisStatNum">{analysis.totalInspections}</div>
+            <div className="analysisStatLabel">Total Inspections</div>
+          </div>
+          {analysis.tempComplianceRate !== null && (
+            <div className="analysisStat">
+              <div className="analysisStatNum" style={{ color: analysis.tempComplianceRate >= 90 ? "#15803D" : "#EE0000" }}>
+                {analysis.tempComplianceRate}%
+              </div>
+              <div className="analysisStatLabel">Temp Compliance</div>
+            </div>
+          )}
+          <div className="analysisStat">
+            <div className="analysisStatNum" style={{ color: analysis.recurring.length > 0 ? "#EE0000" : "#15803D" }}>
+              {analysis.recurring.length}
+            </div>
+            <div className="analysisStatLabel">Repeat Issues</div>
+          </div>
+        </div>
+
+        {/* Global recurring issues */}
+        {analysis.recurring.length > 0 && (
+          <div style={{ marginTop: 16 }}>
+            <div className="guideSectionTitle">Issues That Keep Coming Back</div>
+            <div className="recurringList">
+              {analysis.recurring.map(([cat, count]) => (
+                <div key={cat} className="recurringItem">
+                  <span className="recurringBar" style={{ width: `${Math.min(100, (count / analysis.totalInspections) * 100)}%` }} />
+                  <span className="recurringLabel">{cat}</span>
+                  <span className="recurringCount">{count} of {analysis.totalInspections} inspections ({Math.round((count / analysis.totalInspections) * 100)}%)</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Per-location recurring */}
+        {Object.keys(analysis.locationRecurring).length > 0 && (
+          <div style={{ marginTop: 20 }}>
+            <div className="guideSectionTitle">Flagged Locations</div>
+            {Object.entries(analysis.locationRecurring).map(([loc, issues]) => (
+              <div key={loc} className="flaggedLocation">
+                <div className="flaggedLocationName">{loc}</div>
+                <div className="flaggedIssuesList">
+                  {issues.map((iss, i) => (
+                    <div key={i} className="flaggedIssue">
+                      <span className="flaggedIssueCat">{iss.category}</span>
+                      <span className="flaggedIssueRate" style={{ color: iss.rate >= 50 ? "#EE0000" : "#b45309" }}>
+                        {iss.count}x ({iss.rate}% of inspections)
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /* ── History Page Component ──────────────────────────────── */
 function HistoryPage({ onBack }) {
   const [history, setHistory] = useState([]);
   const [filterDate, setFilterDate] = useState("");
   const [filterType, setFilterType] = useState("");
+  const [filterFloor, setFilterFloor] = useState("");
   const [filterIssue, setFilterIssue] = useState("");
   const [expandedId, setExpandedId] = useState(null);
   const [historyLoaded, setHistoryLoaded] = useState(false);
@@ -1529,6 +1762,7 @@ function HistoryPage({ onBack }) {
     return history.filter(rec => {
       if (filterDate && rec.inspectionDate !== filterDate) return false;
       if (filterType && rec.inspectionType !== filterType) return false;
+      if (filterFloor && rec.floor !== filterFloor) return false;
       if (filterIssue) {
         const hasIssue = (rec.actionItems || []).some(a =>
           a.issue?.toLowerCase().includes(filterIssue.toLowerCase())
@@ -1537,7 +1771,7 @@ function HistoryPage({ onBack }) {
       }
       return true;
     });
-  }, [history, filterDate, filterType, filterIssue]);
+  }, [history, filterDate, filterType, filterFloor, filterIssue]);
 
   function deleteRecord(id) {
     const next = history.filter(r => r.id !== id);
@@ -1553,6 +1787,7 @@ function HistoryPage({ onBack }) {
 
   const uniqueDates = [...new Set(history.map(r => r.inspectionDate).filter(Boolean))].sort().reverse();
   const uniqueTypes = [...new Set(history.map(r => r.inspectionType).filter(Boolean))].sort();
+  const uniqueFloors = [...new Set(history.map(r => r.floor).filter(Boolean))].sort();
 
   return (
     <div className="appShell">
@@ -1577,8 +1812,8 @@ function HistoryPage({ onBack }) {
         <div className="card" style={{ marginBottom: 24 }}>
           <div className="cardHeader">
             <div className="cardTitle">Filters</div>
-            {(filterDate || filterType || filterIssue) && (
-              <button className="btn btnGhost btnSmall" type="button" onClick={() => { setFilterDate(""); setFilterType(""); setFilterIssue(""); }}>
+            {(filterDate || filterType || filterFloor || filterIssue) && (
+              <button className="btn btnGhost btnSmall" type="button" onClick={() => { setFilterDate(""); setFilterType(""); setFilterFloor(""); setFilterIssue(""); }}>
                 Clear filters
               </button>
             )}
@@ -1600,12 +1835,27 @@ function HistoryPage({ onBack }) {
                 </select>
               </label>
               <label className="field">
+                <span className="fieldLabel">Floor</span>
+                <select className="select" value={filterFloor} onChange={e => setFilterFloor(e.target.value)}>
+                  <option value="">All floors</option>
+                  {uniqueFloors.map(f => <option key={f} value={f}>{f}</option>)}
+                </select>
+              </label>
+              <label className="field">
                 <span className="fieldLabel">Search Issues</span>
-                <input className="input" value={filterIssue} onChange={e => setFilterIssue(e.target.value)} placeholder="e.g., floor, temp, allergen..." />
+                <input className="input" value={filterIssue} onChange={e => setFilterIssue(e.target.value)} placeholder="e.g., ceiling, temp, allergen..." />
               </label>
             </div>
           </div>
         </div>
+
+        {/* Analytics */}
+        {history.length >= 2 && (
+          <>
+            <TempTrendChart history={filtered.length > 0 ? filtered : history} />
+            <RecurringIssuesPanel history={filtered.length > 0 ? filtered : history} />
+          </>
+        )}
 
         {/* Results */}
         {filtered.length === 0 ? (
@@ -1636,6 +1886,7 @@ function HistoryPage({ onBack }) {
                             rec.inspectionType === "Event Day" ? "typeBadgeEvent" :
                             rec.inspectionType === "Post Event" ? "typeBadgePost" : "typeBadgeRegular"
                           )}>{rec.inspectionType}</span>
+                          {rec.floor && <>{" "}&middot; <span className="typeBadge typeBadgeFloor">{rec.floor}</span></>}
                           {" "}&middot; {rec.inspectorName || "—"}
                         </div>
                       </div>
@@ -1652,6 +1903,7 @@ function HistoryPage({ onBack }) {
                         <div><strong>Inspector:</strong> {rec.inspectorName || "—"}</div>
                         <div><strong>Supervisor:</strong> {rec.supervisorName || "—"}</div>
                         <div><strong>Unit #:</strong> {rec.siteNumber || "—"}</div>
+                        <div><strong>Floor:</strong> {rec.floor || "—"}</div>
                         <div><strong>Hand sink:</strong> {rec.temps?.handSinkTempF || "—"}°F</div>
                         <div><strong>3-comp wash:</strong> {rec.temps?.threeCompSinkTempF || "—"}°F</div>
                       </div>
@@ -2022,6 +2274,7 @@ export default function App() {
   const [siteNumber, setSiteNumber] = useState("");
   const [supervisorName, setSupervisorName] = useState("");
   const [sitePhone, setSitePhone] = useState("");
+  const [floor, setFloor] = useState("Floor 1");
 
   const [output, setOutput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -2116,7 +2369,7 @@ export default function App() {
       const out = transformLocally({
         noteType, useCase, context, inspection, rawNotes,
         inspectionType, inspectionDate, inspectorName,
-        siteName, siteNumber, sitePhone, supervisorName,
+        siteName, siteNumber, sitePhone, supervisorName, floor,
       });
       setOutput(out);
 
@@ -2139,7 +2392,7 @@ export default function App() {
     const preview = emailPreview({
       noteType, context, inspection, rawNotes, inspectionType,
       inspectionDate: inspectionDate || context?.date || "",
-      inspectorName, siteName, siteNumber, sitePhone, supervisorName,
+      inspectorName, siteName, siteNumber, sitePhone, supervisorName, floor,
     });
     setOutput(preview);
     setError("");
@@ -2155,7 +2408,7 @@ export default function App() {
       id: `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
       savedAt: new Date().toISOString(),
       noteType, inspectionType, inspectionDate, inspectorName,
-      siteName, siteNumber, supervisorName, sitePhone,
+      siteName, siteNumber, supervisorName, sitePhone, floor,
       location: siteName || context?.kitchen || "Kitchen",
       context: { ...context },
       temps: { ...inspection.temps },
@@ -2171,11 +2424,11 @@ export default function App() {
   }
 
   function onDownloadCsv() {
-    exportAsCsv({ inspection, rawNotes, inspectionType, inspectionDate, inspectorName, siteName, siteNumber, supervisorName });
+    exportAsCsv({ inspection, rawNotes, inspectionType, inspectionDate, inspectorName, siteName, siteNumber, supervisorName, floor });
   }
 
   function onDownloadHtml() {
-    exportAsHtml({ output, inspection, rawNotes, inspectionType, inspectionDate, siteName, siteNumber, sitePhone, inspectorName, supervisorName });
+    exportAsHtml({ output, inspection, rawNotes, inspectionType, inspectionDate, siteName, siteNumber, sitePhone, inspectorName, supervisorName, floor });
   }
 
   function onDownloadTxt() {
@@ -2249,7 +2502,12 @@ export default function App() {
                 <span className="fieldLabel">Location Phone (optional)</span>
                 <input className="input" value={sitePhone} onChange={(e) => setSitePhone(e.target.value)} placeholder="e.g., (305) 555-0123" />
               </label>
-              <div className="field" />
+              <label className="field">
+                <span className="fieldLabel">Floor</span>
+                <select className="select" value={floor} onChange={(e) => setFloor(e.target.value)}>
+                  {FLOOR_OPTIONS.map((f) => (<option key={f} value={f}>{f}</option>))}
+                </select>
+              </label>
             </div>
 
             <div className="fieldGrid">
@@ -2390,7 +2648,7 @@ export default function App() {
                   inspectionType={inspectionType} inspectionDate={inspectionDate}
                   inspectorName={inspectorName} siteName={siteName}
                   siteNumber={siteNumber} sitePhone={sitePhone}
-                  supervisorName={supervisorName}
+                  supervisorName={supervisorName} floor={floor}
                 />
                 <div className="downloadBar">
                   <span className="downloadLabel">Download:</span>
