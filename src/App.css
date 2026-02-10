@@ -72,6 +72,19 @@ body {
   align-items: center;
   gap: 14px;
 }
+.brandClickable {
+  cursor: pointer;
+  border-radius: 8px;
+  padding: 6px 10px;
+  margin: -6px -10px;
+  transition: background 0.15s ease;
+}
+.brandClickable:hover {
+  background: rgba(255,255,255,.1);
+}
+.brandClickable:active {
+  background: rgba(255,255,255,.15);
+}
 
 .logoMark {
   width: 36px;
@@ -153,8 +166,8 @@ body {
 }
 
 .btnSmall {
-  padding: 5px 12px;
-  font-size: 0.8rem;
+  padding: 7px 14px;
+  font-size: 0.82rem;
 }
 
 /* Card-level ghost buttons (dark text) */
@@ -174,10 +187,13 @@ body {
 .grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 24px;
-  padding: 24px 28px;
+  gap: 28px;
+  padding: 28px 32px;
   flex: 1;
   align-items: start;
+  max-width: 1440px;
+  margin: 0 auto;
+  width: 100%;
 }
 @media (max-width: 1100px) {
   .grid { grid-template-columns: 1fr; }
@@ -247,8 +263,8 @@ body {
 .fieldGrid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 14px;
-  margin-bottom: 18px;
+  gap: 16px;
+  margin-bottom: 20px;
 }
 @media (max-width: 600px) {
   .fieldGrid { grid-template-columns: 1fr; }
