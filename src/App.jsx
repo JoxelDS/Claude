@@ -142,6 +142,20 @@ function lockApp() {
 function getCurrentUser() { return _currentUser; }
 
 /* ── Admin helpers ────────────────────────────────────────── */
+async function adminAddUser(badge, name, department, role) {
+  const h = await hashBadge(badge);
+  const users = getUsers();
+  if (users.find(u => u.badgeHash === h)) return { ok: false, reason: "exists" };
+  users.push({
+    badgeHash: h, name, department,
+    role: role || "inspector",
+    approved: true,
+    registeredAt: new Date().toISOString()
+  });
+  saveUsers(users);
+  return { ok: true };
+}
+
 function approveUser(badgeHash) {
   const users = getUsers();
   const u = users.find(x => x.badgeHash === badgeHash);
@@ -1450,6 +1464,14 @@ function HistoryPage({ onBack }) {
 /* ── Admin Panel ──────────────────────────────────────────── */
 function AdminPanel({ currentUser, onBack }) {
   const [users, setUsers] = useState(() => getUsers());
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [addBadge, setAddBadge] = useState("");
+  const [addName, setAddName] = useState("");
+  const [addDept, setAddDept] = useState("");
+  const [addRole, setAddRole] = useState("inspector");
+  const [addError, setAddError] = useState("");
+  const [addSuccess, setAddSuccess] = useState("");
+  const [addLoading, setAddLoading] = useState(false);
 
   function refresh() { setUsers(getUsers()); }
 
@@ -1467,6 +1489,24 @@ function AdminPanel({ currentUser, onBack }) {
   function handleRemove(badgeHash) {
     if (!confirm("Remove this user? They will need to request access again.")) return;
     denyUser(badgeHash); refresh();
+  }
+
+  async function handleAddUser(e) {
+    e.preventDefault();
+    setAddError(""); setAddSuccess(""); setAddLoading(true);
+    try {
+      if (addBadge.trim().length < 3) { setAddError("Badge number must be at least 3 characters."); return; }
+      const result = await adminAddUser(addBadge.trim(), addName.trim(), addDept.trim(), addRole);
+      if (result.ok) {
+        setAddSuccess(`${addName.trim()} added as ${addRole === "admin" ? "Admin" : "Inspector"}.`);
+        setAddBadge(""); setAddName(""); setAddDept(""); setAddRole("inspector");
+        refresh();
+        setTimeout(() => setAddSuccess(""), 3000);
+      } else if (result.reason === "exists") {
+        setAddError("This badge number is already registered.");
+      }
+    } catch { setAddError("Failed to add user. Try again."); }
+    finally { setAddLoading(false); }
   }
 
   const pending = users.filter(u => !u.approved);
@@ -1489,6 +1529,49 @@ function AdminPanel({ currentUser, onBack }) {
       </header>
 
       <main className="pageMain pageMainNarrow">
+        {/* Add User */}
+        <div className="card adminCard" style={{ marginBottom: 24 }}>
+          <div className="cardHeader">
+            <div className="cardTitle">Add New User</div>
+            <button className="btn btnGhost btnSmall" type="button" onClick={() => { setShowAddForm(!showAddForm); setAddError(""); setAddSuccess(""); }}>
+              {showAddForm ? "Cancel" : "+ Add User"}
+            </button>
+          </div>
+          {showAddForm && (
+            <div className="cardBody">
+              <form onSubmit={handleAddUser} className="addUserForm">
+                <div className="fieldGrid">
+                  <label className="field">
+                    <span className="fieldLabel">Badge Number</span>
+                    <input className="input" type="password" value={addBadge} onChange={e => setAddBadge(e.target.value)} placeholder="Enter badge #" autoComplete="off" />
+                  </label>
+                  <label className="field">
+                    <span className="fieldLabel">Full Name</span>
+                    <input className="input" value={addName} onChange={e => setAddName(e.target.value)} placeholder="e.g., Jane Smith" />
+                  </label>
+                  <label className="field">
+                    <span className="fieldLabel">Department</span>
+                    <input className="input" value={addDept} onChange={e => setAddDept(e.target.value)} placeholder="e.g., Safety Inspector" />
+                  </label>
+                  <label className="field">
+                    <span className="fieldLabel">Role</span>
+                    <select className="select" value={addRole} onChange={e => setAddRole(e.target.value)}>
+                      <option value="inspector">Inspector</option>
+                      <option value="admin">Admin</option>
+                    </select>
+                  </label>
+                </div>
+                {addError && <div className="pinError" style={{ marginTop: 8 }}>{addError}</div>}
+                {addSuccess && <div className="addUserSuccess">{addSuccess}</div>}
+                <button className="btn btnPrimary" type="submit" style={{ marginTop: 12 }}
+                  disabled={addLoading || addBadge.trim().length < 3 || !addName.trim() || !addDept.trim()}>
+                  {addLoading ? "Adding..." : `Add as ${addRole === "admin" ? "Admin" : "Inspector"}`}
+                </button>
+              </form>
+            </div>
+          )}
+        </div>
+
         {/* Pending approvals */}
         {pending.length > 0 && (
           <div className="card adminCard" style={{ marginBottom: 24 }}>

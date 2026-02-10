@@ -1297,6 +1297,18 @@ body {
   border-color: rgba(238,0,0,.3) !important;
 }
 
+/* ── Add User Form ─────────────────────────────────────── */
+.addUserForm { display: flex; flex-direction: column; }
+.addUserSuccess {
+  margin-top: 8px;
+  padding: 10px 14px;
+  background: #ECFDF5;
+  color: #15803D;
+  border-radius: var(--radius-sm);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
 /* ── Role Badges ────────────────────────────────────────── */
 .roleBadge {
   display: inline-block;
