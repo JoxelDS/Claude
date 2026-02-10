@@ -106,28 +106,29 @@ def REG(sz):
 # AI VOICE ENGINE v2 — Natural Human Sound
 # ══════════════════════════════════════════════
 
-async def _gen_voice(text, path, voice=VOICE, rate="-8%", pitch="-2Hz"):
-    """
-    Generate voice with natural pacing.
-    rate=-8% slows it slightly for authority.
-    pitch=-2Hz deepens it slightly for gravitas.
-    """
-    communicate = edge_tts.Communicate(text, voice, rate=rate, pitch=pitch)
+async def _gen_voice(text, path, voice=VOICE, rate="-8%"):
+    """Generate voice with natural pacing. rate=-8% slows for authority."""
+    communicate = edge_tts.Communicate(text, voice, rate=rate)
     await communicate.save(path)
 
 
-def make_voice(text, path, voice=VOICE, rate="-8%", pitch="-2Hz"):
+def make_voice(text, path, voice=VOICE, rate="-8%"):
     """Generate AI voiceover — deep, authoritative, human-like."""
     if os.path.exists(path) and os.path.getsize(path) > 1000:
         print(f"    \u2713 voice cached")
         return True
-    try:
-        asyncio.run(_gen_voice(text, path, voice, rate, pitch))
-        if os.path.exists(path) and os.path.getsize(path) > 1000:
-            print(f"    \u2713 voice generated")
-            return True
-    except Exception as e:
-        print(f"    ! voice failed: {e}")
+    # Try preferred voice first, fallback to alternatives
+    voices_to_try = [voice, "en-US-GuyNeural", "en-US-ChristopherNeural", "en-US-EricNeural"]
+    for v in voices_to_try:
+        try:
+            asyncio.run(_gen_voice(text, path, v, rate))
+            if os.path.exists(path) and os.path.getsize(path) > 1000:
+                print(f"    \u2713 voice generated ({v})")
+                return True
+        except Exception as e:
+            print(f"    trying next voice... ({type(e).__name__})")
+            continue
+    print(f"    ! all voices failed")
     return False
 
 
@@ -641,7 +642,8 @@ def render_reel(scenes, voice_path, music_path, out_path):
     for i, sc in enumerate(scenes):
         tp = f"{OUT}/_tf_{i}.png"
         sc["image"].save(tp, quality=95)
-        cl = ImageClip(tp).with_duration(sc["dur"])
+        dur = sc.get("duration", sc.get("dur", 3))
+        cl = ImageClip(tp).with_duration(dur)
         # Alternate zoom for dynamism
         if i % 3 == 0:
             cl = zoom_fx(cl, 1.0, 1.06)
