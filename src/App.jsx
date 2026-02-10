@@ -1,11 +1,15 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
+import { db, isConfigured as FIREBASE_ON } from "./firebase.js";
+import {
+  collection, doc, getDocs, getDoc, setDoc, deleteDoc, updateDoc, query, orderBy
+} from "firebase/firestore";
 
 const BASE = import.meta.env.BASE_URL;
 const LOGO_WHITE = `${BASE}sodexo-live-logo.svg`;
 const LOGO_DARK = `${BASE}sodexo-dark.svg`;
 
-/* ── AES-256-GCM Encryption (Web Crypto API) ────────────── */
+/* ── AES-256-GCM Encryption (localStorage fallback only) ── */
 const SALT_KEY = "sdx_salt";
 const USERS_KEY = "sdx_users";
 const DATA_KEY = "sdx_inspection_vault";
@@ -60,7 +64,6 @@ async function decryptData(stored, key) {
   } catch { return []; }
 }
 
-/* ── Device-level master encryption key ───────────────────── */
 async function getMasterKey() {
   let secret = localStorage.getItem(DEVICE_SECRET_KEY);
   if (!secret) {
@@ -71,66 +74,157 @@ async function getMasterKey() {
   return deriveKey("sdx_master_" + secret);
 }
 
+/* ══════════════════════════════════════════════════════════
+   Storage Layer — Firestore (cloud) or localStorage (local)
+   ══════════════════════════════════════════════════════════ */
+
 /* ── User Registry ────────────────────────────────────────── */
-function getUsers() {
+async function getUsers() {
+  if (FIREBASE_ON) {
+    try {
+      const snap = await getDocs(collection(db, "users"));
+      return snap.docs.map(d => d.data());
+    } catch { return []; }
+  }
   try { return JSON.parse(localStorage.getItem(USERS_KEY) || "[]"); }
   catch { return []; }
 }
 
-function saveUsers(users) {
+async function saveUsers(users) {
+  if (FIREBASE_ON) {
+    try {
+      // Write each user as a separate document keyed by badgeHash
+      for (const u of users) {
+        await setDoc(doc(db, "users", u.badgeHash), u);
+      }
+    } catch (e) { console.error("Firestore saveUsers error:", e); }
+    return;
+  }
   localStorage.setItem(USERS_KEY, JSON.stringify(users));
 }
 
+async function saveOneUser(user) {
+  if (FIREBASE_ON) {
+    try { await setDoc(doc(db, "users", user.badgeHash), user); } catch {}
+    return;
+  }
+  const users = await getUsers();
+  const idx = users.findIndex(u => u.badgeHash === user.badgeHash);
+  if (idx >= 0) users[idx] = user; else users.push(user);
+  localStorage.setItem(USERS_KEY, JSON.stringify(users));
+}
+
+async function deleteOneUser(badgeHash) {
+  if (FIREBASE_ON) {
+    try { await deleteDoc(doc(db, "users", badgeHash)); } catch {}
+    return;
+  }
+  const users = await getUsers();
+  localStorage.setItem(USERS_KEY, JSON.stringify(users.filter(u => u.badgeHash !== badgeHash)));
+}
+
 async function ensureSeedAdmin() {
-  const users = getUsers();
+  const users = await getUsers();
   if (users.length > 0) return;
   const h = await hashBadge(SEED_ADMIN.badge);
-  saveUsers([{
+  const seedUser = {
     badgeHash: h, name: SEED_ADMIN.name,
     department: SEED_ADMIN.department, role: "admin",
     approved: true, registeredAt: new Date().toISOString()
-  }]);
+  };
+  if (FIREBASE_ON) {
+    await setDoc(doc(db, "users", h), seedUser);
+  } else {
+    localStorage.setItem(USERS_KEY, JSON.stringify([seedUser]));
+  }
 }
 
-/* ── Secure Storage helpers ──────────────────────────────── */
+/* ── Inspection History ───────────────────────────────────── */
 let _cryptoKey = null;
 let _currentUser = null;
 
 async function loadHistory() {
+  if (FIREBASE_ON) {
+    try {
+      const snap = await getDocs(collection(db, "inspections"));
+      const list = snap.docs.map(d => d.data());
+      list.sort((a, b) => (b.savedAt || "").localeCompare(a.savedAt || ""));
+      return list;
+    } catch { return []; }
+  }
   if (!_cryptoKey) return [];
   const stored = localStorage.getItem(DATA_KEY);
   return decryptData(stored, _cryptoKey);
 }
 
 async function saveHistory(records) {
+  if (FIREBASE_ON) {
+    try {
+      for (const rec of records) {
+        await setDoc(doc(db, "inspections", rec.id), rec);
+      }
+    } catch (e) { console.error("Firestore saveHistory error:", e); }
+    return;
+  }
   if (!_cryptoKey) return;
   const encrypted = await encryptData(records, _cryptoKey);
   localStorage.setItem(DATA_KEY, encrypted);
+}
+
+async function saveOneInspection(record) {
+  if (FIREBASE_ON) {
+    try { await setDoc(doc(db, "inspections", record.id), record); } catch {}
+    return;
+  }
+  // localStorage: load all, prepend, save all
+  const history = await loadHistory();
+  history.unshift(record);
+  await saveHistory(history);
+}
+
+async function deleteOneInspection(id) {
+  if (FIREBASE_ON) {
+    try { await deleteDoc(doc(db, "inspections", id)); } catch {}
+    return;
+  }
+  const history = await loadHistory();
+  await saveHistory(history.filter(r => r.id !== id));
+}
+
+async function clearAllInspections() {
+  if (FIREBASE_ON) {
+    try {
+      const snap = await getDocs(collection(db, "inspections"));
+      for (const d of snap.docs) await deleteDoc(d.ref);
+    } catch {}
+    return;
+  }
+  await saveHistory([]);
 }
 
 /* ── Auth functions ───────────────────────────────────────── */
 async function signIn(badge) {
   await ensureSeedAdmin();
   const h = await hashBadge(badge);
-  const users = getUsers();
+  const users = await getUsers();
   const user = users.find(u => u.badgeHash === h);
   if (!user) return { ok: false, reason: "not_found" };
   if (!user.approved) return { ok: false, reason: "pending" };
-  _cryptoKey = await getMasterKey();
+  if (!FIREBASE_ON) _cryptoKey = await getMasterKey();
   _currentUser = { ...user };
   return { ok: true, user: _currentUser };
 }
 
 async function registerNewUser(badge, name, department) {
   const h = await hashBadge(badge);
-  const users = getUsers();
+  const users = await getUsers();
   if (users.find(u => u.badgeHash === h)) return { ok: false, reason: "exists" };
-  users.push({
+  const newUser = {
     badgeHash: h, name, department,
     role: "inspector", approved: false,
     registeredAt: new Date().toISOString()
-  });
-  saveUsers(users);
+  };
+  await saveOneUser(newUser);
   return { ok: true };
 }
 
@@ -141,41 +235,41 @@ function lockApp() {
 
 function getCurrentUser() { return _currentUser; }
 
-/* ── Admin helpers ────────────────────────────────────────── */
+/* ── Admin helpers (all async for Firestore) ──────────────── */
 async function adminAddUser(badge, name, department, role) {
   const h = await hashBadge(badge);
-  const users = getUsers();
+  const users = await getUsers();
   if (users.find(u => u.badgeHash === h)) return { ok: false, reason: "exists" };
-  users.push({
+  const newUser = {
     badgeHash: h, name, department,
     role: role || "inspector",
     approved: true,
     registeredAt: new Date().toISOString()
-  });
-  saveUsers(users);
+  };
+  await saveOneUser(newUser);
   return { ok: true };
 }
 
-function approveUser(badgeHash) {
-  const users = getUsers();
+async function approveUser(badgeHash) {
+  const users = await getUsers();
   const u = users.find(x => x.badgeHash === badgeHash);
-  if (u) { u.approved = true; saveUsers(users); }
+  if (u) { u.approved = true; await saveOneUser(u); }
 }
 
-function denyUser(badgeHash) {
-  saveUsers(getUsers().filter(u => u.badgeHash !== badgeHash));
+async function denyUser(badgeHash) {
+  await deleteOneUser(badgeHash);
 }
 
-function promoteToAdmin(badgeHash) {
-  const users = getUsers();
+async function promoteToAdmin(badgeHash) {
+  const users = await getUsers();
   const u = users.find(x => x.badgeHash === badgeHash);
-  if (u) { u.role = "admin"; saveUsers(users); }
+  if (u) { u.role = "admin"; await saveOneUser(u); }
 }
 
-function demoteToInspector(badgeHash) {
-  const users = getUsers();
+async function demoteToInspector(badgeHash) {
+  const users = await getUsers();
   const u = users.find(x => x.badgeHash === badgeHash);
-  if (u) { u.role = "inspector"; saveUsers(users); }
+  if (u) { u.role = "inspector"; await saveOneUser(u); }
 }
 
 /* ── Badge Sign-In Screen ─────────────────────────────────── */
@@ -1448,13 +1542,13 @@ function HistoryPage({ onBack }) {
   function deleteRecord(id) {
     const next = history.filter(r => r.id !== id);
     setHistory(next);
-    saveHistory(next).catch(() => {});
+    deleteOneInspection(id).catch(() => {});
   }
 
   function clearAll() {
     if (!confirm("Delete all inspection history? This cannot be undone.")) return;
     setHistory([]);
-    saveHistory([]).catch(() => {});
+    clearAllInspections().catch(() => {});
   }
 
   const uniqueDates = [...new Set(history.map(r => r.inspectionDate).filter(Boolean))].sort().reverse();
@@ -1622,7 +1716,7 @@ function HistoryPage({ onBack }) {
 
       <footer className="footer">
         <img src={LOGO_WHITE} alt="Sodexo" className="footerLogo" />
-        <span>Inspection history is stored locally in your browser.</span>
+        <span>{FIREBASE_ON ? "\u2601\uFE0F Inspection history synced to cloud database." : "Inspection history is stored locally in your browser."}</span>
       </footer>
     </div>
   );
@@ -1630,7 +1724,7 @@ function HistoryPage({ onBack }) {
 
 /* ── Admin Panel ──────────────────────────────────────────── */
 function AdminPanel({ currentUser, onBack }) {
-  const [users, setUsers] = useState(() => getUsers());
+  const [users, setUsers] = useState([]);
   const [showAddForm, setShowAddForm] = useState(false);
   const [addBadge, setAddBadge] = useState("");
   const [addName, setAddName] = useState("");
@@ -1640,22 +1734,25 @@ function AdminPanel({ currentUser, onBack }) {
   const [addSuccess, setAddSuccess] = useState("");
   const [addLoading, setAddLoading] = useState(false);
 
-  function refresh() { setUsers(getUsers()); }
+  // Load users on mount
+  useEffect(() => { getUsers().then(setUsers); }, []);
 
-  function handleApprove(badgeHash) { approveUser(badgeHash); refresh(); }
+  async function refresh() { setUsers(await getUsers()); }
 
-  function handleDeny(badgeHash) {
+  async function handleApprove(badgeHash) { await approveUser(badgeHash); await refresh(); }
+
+  async function handleDeny(badgeHash) {
     if (!confirm("Remove this access request?")) return;
-    denyUser(badgeHash); refresh();
+    await denyUser(badgeHash); await refresh();
   }
 
-  function handlePromote(badgeHash) { promoteToAdmin(badgeHash); refresh(); }
+  async function handlePromote(badgeHash) { await promoteToAdmin(badgeHash); await refresh(); }
 
-  function handleDemote(badgeHash) { demoteToInspector(badgeHash); refresh(); }
+  async function handleDemote(badgeHash) { await demoteToInspector(badgeHash); await refresh(); }
 
-  function handleRemove(badgeHash) {
+  async function handleRemove(badgeHash) {
     if (!confirm("Remove this user? They will need to request access again.")) return;
-    denyUser(badgeHash); refresh();
+    await denyUser(badgeHash); await refresh();
   }
 
   async function handleAddUser(e) {
@@ -1667,7 +1764,7 @@ function AdminPanel({ currentUser, onBack }) {
       if (result.ok) {
         setAddSuccess(`${addName.trim()} added as ${addRole === "admin" ? "Admin" : "Inspector"}.`);
         setAddBadge(""); setAddName(""); setAddDept(""); setAddRole("inspector");
-        refresh();
+        await refresh();
         setTimeout(() => setAddSuccess(""), 3000);
       } else if (result.reason === "exists") {
         setAddError("This badge number is already registered.");
@@ -1812,7 +1909,7 @@ function AdminPanel({ currentUser, onBack }) {
 
       <footer className="footer">
         <img src={LOGO_WHITE} alt="Sodexo" className="footerLogo" />
-        <span>User accounts are stored locally on this device.</span>
+        <span>{FIREBASE_ON ? "\u2601\uFE0F User accounts synced to cloud database." : "User accounts are stored locally on this device."}</span>
       </footer>
     </div>
   );
@@ -2068,9 +2165,7 @@ export default function App() {
       output,
       inspection,
     };
-    const history = await loadHistory();
-    history.unshift(record);
-    await saveHistory(history);
+    await saveOneInspection(record);
     setSaved(true);
     setTimeout(() => setSaved(false), 2500);
   }
@@ -2315,7 +2410,7 @@ export default function App() {
 
       <footer className="footer">
         <img src={LOGO_WHITE} alt="Sodexo" className="footerLogo" />
-        <span>Tip: Attach the same photos listed in the Photo Index so the email references match.</span>
+        <span>{FIREBASE_ON ? "\u2601\uFE0F Cloud database connected \u2014 data syncs across all devices." : "\U0001F512 Data stored locally on this device."}</span>
       </footer>
     </div>
   );
