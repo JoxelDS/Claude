@@ -1317,7 +1317,7 @@ function HistoryPage({ onBack }) {
         </div>
       </header>
 
-      <main style={{ padding: "24px 28px", maxWidth: 1200, margin: "0 auto", width: "100%" }}>
+      <main className="pageMain pageMainWide">
         {/* Filters */}
         <div className="card" style={{ marginBottom: 24 }}>
           <div className="cardHeader">
@@ -1329,7 +1329,7 @@ function HistoryPage({ onBack }) {
             )}
           </div>
           <div className="cardBody">
-            <div className="fieldGrid" style={{ gridTemplateColumns: "1fr 1fr 1fr" }}>
+            <div className="fieldGrid filterGrid">
               <label className="field">
                 <span className="fieldLabel">Date</span>
                 <select className="select" value={filterDate} onChange={e => setFilterDate(e.target.value)}>
@@ -1488,7 +1488,7 @@ function AdminPanel({ currentUser, onBack }) {
         </div>
       </header>
 
-      <main style={{ padding: "24px 28px", maxWidth: 900, margin: "0 auto", width: "100%" }}>
+      <main className="pageMain pageMainNarrow">
         {/* Pending approvals */}
         {pending.length > 0 && (
           <div className="card adminCard" style={{ marginBottom: 24 }}>
