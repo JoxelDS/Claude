@@ -1797,6 +1797,50 @@ body {
   .pinFooter { margin-top: 10px; }
 }
 
+/* ── Clickable warning items ────────────────────────────── */
+.warningLink {
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-style: dashed;
+  text-underline-offset: 2px;
+  transition: color 0.15s;
+}
+.warningLink:hover {
+  color: #b45309;
+}
+.fieldHighlight {
+  animation: fieldPulse 2s ease-out;
+}
+@keyframes fieldPulse {
+  0%   { box-shadow: 0 0 0 3px rgba(234, 179, 8, 0.6); border-radius: 8px; }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+
+/* ── New Inspection button ─────────────────────────────── */
+.btnNew {
+  background: #15803D;
+  color: white;
+  border: none;
+  font-weight: 700;
+  font-size: 0.8rem;
+  padding: 6px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.btnNew:hover { background: #166534; }
+
+/* ── Photo button ──────────────────────────────────────── */
+.photoBtn {
+  border-color: var(--sdx-navy);
+  color: var(--sdx-navy);
+  font-weight: 600;
+}
+.photoBtn:hover {
+  background: var(--sdx-navy);
+  color: white;
+}
+
 /* ── Floor Badge ────────────────────────────────────────── */
 .typeBadgeFloor {
   background: #FFF7ED;

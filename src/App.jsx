@@ -672,6 +672,41 @@ function fileToDataUrl(file) {
   });
 }
 
+// Compress an image file to a smaller data URL using canvas
+function compressImage(file, maxDim = 800, quality = 0.6) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      let { width, height } = img;
+      if (width > maxDim || height > maxDim) {
+        const ratio = Math.min(maxDim / width, maxDim / height);
+        width = Math.round(width * ratio);
+        height = Math.round(height * ratio);
+      }
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0, width, height);
+      resolve(canvas.toDataURL("image/jpeg", quality));
+    };
+    img.onerror = () => resolve(null);
+    img.src = URL.createObjectURL(file);
+  });
+}
+
+function countPhotos(inspection) {
+  let n = 0;
+  const walk = (obj) => {
+    if (!obj || typeof obj !== "object") return;
+    if (Array.isArray(obj)) { obj.forEach(walk); return; }
+    if (obj.photos?.length) n += obj.photos.length;
+    for (const v of Object.values(obj)) walk(v);
+  };
+  walk(inspection);
+  return n;
+}
+
 function sanitizeText(s) {
   return String(s || "").trim();
 }
@@ -710,16 +745,16 @@ function calcOverallStatus(inspection) {
 /* ── Validation: check for missing fields ────────────────── */
 function validateForm({ inspectionDate, inspectorName, context, noteType, inspection }) {
   const warnings = [];
-  if (!inspectionDate) warnings.push("Inspection Date is missing");
-  if (!inspectorName) warnings.push("Inspector Name is missing");
+  if (!inspectionDate) warnings.push({ text: "Inspection Date is missing", fieldId: "field-inspectionDate" });
+  if (!inspectorName) warnings.push({ text: "Inspector Name is missing", fieldId: "field-inspectorName" });
 
   const ctxFields = NOTE_TYPES[noteType].contextFields;
   for (const f of ctxFields) {
-    if (!context[f.key]?.trim()) warnings.push(`${f.label} is missing`);
+    if (!context[f.key]?.trim()) warnings.push({ text: `${f.label} is missing`, fieldId: `field-ctx-${f.key}` });
   }
 
-  if (!inspection.temps.handSinkTempF) warnings.push("Hand sink temperature not recorded");
-  if (!inspection.temps.threeCompSinkTempF) warnings.push("3-comp sink temperature not recorded");
+  if (!inspection.temps.handSinkTempF) warnings.push({ text: "Hand sink temperature not recorded", fieldId: "field-handSinkTempF" });
+  if (!inspection.temps.threeCompSinkTempF) warnings.push({ text: "3-comp sink temperature not recorded", fieldId: "field-threeCompSinkTempF" });
 
   return warnings;
 }
@@ -2190,9 +2225,12 @@ function GuideSection({ title, items, inspection, setInspection }) {
     for (const f of accepted) {
       if (!f.type.startsWith("image/")) continue;
       if (bytesToMb(f.size) > PHOTO_MAX_MB) continue;
-      const previewUrl = await fileToDataUrl(f);
-      enriched.push({ id: `${Date.now()}_${Math.random().toString(16).slice(2)}`, name: f.name, sizeMb: bytesToMb(f.size), type: f.type, previewUrl });
+      // Compress to save storage space (resizes to max 800px, JPEG 60% quality)
+      const previewUrl = await compressImage(f);
+      if (!previewUrl) continue;
+      enriched.push({ id: `${Date.now()}_${Math.random().toString(16).slice(2)}`, name: f.name, sizeMb: bytesToMb(f.size), type: "image/jpeg", previewUrl });
     }
+    if (enriched.length === 0) return;
     setInspection((prev) => {
       const path = pathKey.split(".");
       const current = getAtPath(prev, path) || withPhotos({ status: "OK", notes: "" });
@@ -2230,9 +2268,11 @@ function GuideSection({ title, items, inspection, setInspection }) {
                 onChange={(e) => setInspection((prev) => setAtPath(prev, it.path, { ...current, notes: e.target.value }))}
                 placeholder="Issue / observation (optional)" />
               <div className="photoRow">
-                <input ref={(el) => (fileRefs.current[key] = el)} className="fileInput" type="file" accept="image/*" multiple
+                <input ref={(el) => (fileRefs.current[key] = el)} className="fileInput" type="file" accept="image/*" capture="environment" multiple
                   onChange={(e) => { addPhotos(key, e.target.files); e.target.value = ""; }} />
-                <button className="btn btnGhost btnSmall" type="button" onClick={() => fileRefs.current[key]?.click()}>Add photos</button>
+                <button className="btn btnGhost btnSmall photoBtn" type="button" onClick={() => fileRefs.current[key]?.click()}>
+                  &#128247; Add photos
+                </button>
                 <span className="hint">Up to {PHOTO_LIMIT} ({PHOTO_MAX_MB}MB each)</span>
               </div>
               <PhotoStrip photos={current.photos} onRemove={(id) => removePhoto(key, id)} />
@@ -2260,6 +2300,23 @@ export default function App() {
     }
   }, []);
 
+  // Automated daily cache cleanup — checks once per hour, cleans if new day
+  useEffect(() => {
+    const LAST_CLEAN_KEY = "sdx_last_cache_clean";
+    function cleanIfNewDay() {
+      const today = new Date().toISOString().slice(0, 10);
+      const last = localStorage.getItem(LAST_CLEAN_KEY);
+      if (last === today) return;
+      localStorage.setItem(LAST_CLEAN_KEY, today);
+      if (navigator.serviceWorker?.controller) {
+        navigator.serviceWorker.controller.postMessage("CLEAN_CACHE");
+      }
+    }
+    cleanIfNewDay();
+    const timer = setInterval(cleanIfNewDay, 60 * 60 * 1000); // check every hour
+    return () => clearInterval(timer);
+  }, []);
+
   const [noteType, setNoteType] = useState("inspection");
   const [context, setContext] = useState(() => buildDefaultContext("inspection"));
   const [inspection, setInspection] = useState(() => buildDefaultInspection());
@@ -2267,7 +2324,7 @@ export default function App() {
   const [useCase, setUseCase] = useState(NOTE_TYPES.inspection.useCases[0]);
 
   const [inspectionType, setInspectionType] = useState("Regular Inspection");
-  const [inspectionDate, setInspectionDate] = useState("");
+  const [inspectionDate, setInspectionDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [inspectorName, setInspectorName] = useState("");
 
   const [siteName, setSiteName] = useState("");
@@ -2314,7 +2371,7 @@ export default function App() {
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [rawNotes, saved]);
 
-  if (locked) return <BadgeScreen onUnlock={(user) => { setCurrentUser(user); setLocked(false); resetActivity(); }} />;
+  if (locked) return <BadgeScreen onUnlock={(user) => { setCurrentUser(user); setLocked(false); resetActivity(); if (user?.name && !inspectorName) setInspectorName(user.name); }} />;
   if (page === "history") return <HistoryPage onBack={() => setPage("inspector")} />;
   if (page === "admin") return <AdminPanel currentUser={currentUser} onBack={() => setPage("inspector")} />;
 
@@ -2330,6 +2387,26 @@ export default function App() {
     setError("");
     setWarnings([]);
     setAiTips([]);
+  }
+
+  function startNewInspection() {
+    setContext(buildDefaultContext(noteType));
+    setInspection(buildDefaultInspection());
+    setRawNotes("");
+    setOutput("");
+    setError("");
+    setWarnings([]);
+    setAiTips([]);
+    setSaved(false);
+    setInspectionType("Regular Inspection");
+    setInspectionDate(new Date().toISOString().slice(0, 10));
+    setInspectorName(currentUser?.name || "");
+    setSiteName("");
+    setSiteNumber("");
+    setSupervisorName("");
+    setSitePhone("");
+    setFloor("Floor 1");
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   function loadSample() {
@@ -2404,6 +2481,21 @@ export default function App() {
   }
 
   async function saveToHistory() {
+    // Strip large photo data URLs from inspection copy to keep record size manageable
+    function stripPhotos(obj) {
+      if (!obj || typeof obj !== "object") return obj;
+      if (Array.isArray(obj)) return obj.map(stripPhotos);
+      const out = {};
+      for (const [k, v] of Object.entries(obj)) {
+        if (k === "photos" && Array.isArray(v)) {
+          out.photos = v.map(p => ({ id: p.id, name: p.name, sizeMb: p.sizeMb, type: p.type }));
+        } else {
+          out[k] = stripPhotos(v);
+        }
+      }
+      return out;
+    }
+
     const record = {
       id: `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
       savedAt: new Date().toISOString(),
@@ -2416,11 +2508,17 @@ export default function App() {
       actionItems: buildActionItems({ inspection, rawNotes }),
       rawNotes,
       output,
-      inspection,
+      inspection: stripPhotos(inspection),
+      photoCount: countPhotos(inspection),
     };
-    await saveOneInspection(record);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2500);
+    try {
+      await saveOneInspection(record);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+    } catch (e) {
+      console.error("Save failed:", e);
+      setError("Save failed — record may be too large. Try removing some photos.");
+    }
   }
 
   function onDownloadCsv() {
@@ -2456,6 +2554,7 @@ export default function App() {
           {currentUser?.role === "admin" && (
             <button className="btn btnAdmin" onClick={() => setPage("admin")} type="button">Admin</button>
           )}
+          <button className="btn btnNew" onClick={startNewInspection} type="button" title="Start a fresh inspection">+ New</button>
           <button className="btn btnGhost" onClick={() => setPage("history")} type="button">Past Reports</button>
           <button className={cx("btn", "btnPrimary")} onClick={onTransform} type="button" disabled={loading}>
             {loading ? "Generating..." : "Generate Report"}
@@ -2478,23 +2577,23 @@ export default function App() {
                   {INSPECTION_TYPES.map((t) => (<option key={t} value={t}>{t}</option>))}
                 </select>
               </label>
-              <label className="field">
+              <label className="field" id="field-inspectionDate">
                 <span className="fieldLabel">Inspection Date</span>
-                <input className="input" value={inspectionDate} onChange={(e) => setInspectionDate(e.target.value)} placeholder="YYYY-MM-DD" />
+                <input className="input" type="date" value={inspectionDate} onChange={(e) => setInspectionDate(e.target.value)} />
               </label>
-              <label className="field">
+              <label className="field" id="field-inspectorName">
                 <span className="fieldLabel">Inspector Name</span>
                 <input className="input" value={inspectorName} onChange={(e) => setInspectorName(e.target.value)} placeholder="e.g., J. Da Silva" />
               </label>
-              <label className="field">
+              <label className="field" id="field-supervisorName">
                 <span className="fieldLabel">Supervisor Name</span>
                 <input className="input" value={supervisorName} onChange={(e) => setSupervisorName(e.target.value)} placeholder="e.g., GM / Chef Lead" />
               </label>
-              <label className="field">
+              <label className="field" id="field-siteName">
                 <span className="fieldLabel">Restaurant / Local Name</span>
                 <input className="input" value={siteName} onChange={(e) => setSiteName(e.target.value)} placeholder="e.g., North Stand Kitchen" />
               </label>
-              <label className="field">
+              <label className="field" id="field-siteNumber">
                 <span className="fieldLabel">Location / Unit Number</span>
                 <input className="input" value={siteNumber} onChange={(e) => setSiteNumber(e.target.value)} placeholder="e.g., Unit 12 / Loc-204" />
               </label>
@@ -2512,7 +2611,7 @@ export default function App() {
 
             <div className="fieldGrid">
               {spec.contextFields.map((f) => (
-                <label className="field" key={f.key}>
+                <label className="field" key={f.key} id={`field-ctx-${f.key}`}>
                   <span className="fieldLabel">{f.label}</span>
                   <input className="input" value={context[f.key] ?? ""} onChange={(e) => setContext((c) => ({ ...c, [f.key]: e.target.value }))} placeholder={f.label} />
                 </label>
@@ -2560,7 +2659,7 @@ export default function App() {
               <div className="tempsRow">
                 <div className="tempsTitle">Key temperatures</div>
                 <div className="tempsGrid">
-                  <label className="field" style={{ marginTop: 0 }}>
+                  <label className="field" id="field-handSinkTempF" style={{ marginTop: 0 }}>
                     <span className="fieldLabel">Hand sink temp (F)</span>
                     <input className="input" inputMode="numeric" value={inspection.temps.handSinkTempF}
                       onChange={(e) => setInspection((prev) => ({ ...prev, temps: { ...prev.temps, handSinkTempF: e.target.value } }))}
@@ -2569,7 +2668,7 @@ export default function App() {
                       {Number(inspection.temps.handSinkTempF) >= 95 ? "Meets >=95 F" : inspection.temps.handSinkTempF ? "Below 95 F - flag" : ""}
                     </span>
                   </label>
-                  <label className="field" style={{ marginTop: 0 }}>
+                  <label className="field" id="field-threeCompSinkTempF" style={{ marginTop: 0 }}>
                     <span className="fieldLabel">3-comp wash temp (F)</span>
                     <input className="input" inputMode="numeric" value={inspection.temps.threeCompSinkTempF}
                       onChange={(e) => setInspection((prev) => ({ ...prev, temps: { ...prev.temps, threeCompSinkTempF: e.target.value } }))}
@@ -2604,7 +2703,18 @@ export default function App() {
             {warnings.length > 0 && (
               <div className="warningBox">
                 <strong>Missing information:</strong>
-                <ul>{warnings.map((w, i) => <li key={i}>{w}</li>)}</ul>
+                <ul>{warnings.map((w, i) => (
+                  <li key={i} className="warningLink" onClick={() => {
+                    const el = document.getElementById(w.fieldId);
+                    if (el) {
+                      el.scrollIntoView({ behavior: "smooth", block: "center" });
+                      const input = el.querySelector("input, select, textarea");
+                      if (input) setTimeout(() => input.focus(), 400);
+                      el.classList.add("fieldHighlight");
+                      setTimeout(() => el.classList.remove("fieldHighlight"), 2000);
+                    }
+                  }}>{w.text}</li>
+                ))}</ul>
               </div>
             )}
             {error ? <div className="errorBox">{error}</div> : null}
