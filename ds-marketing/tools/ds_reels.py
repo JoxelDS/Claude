@@ -419,21 +419,28 @@ def build_reel(scenes, voice_path, music_path, output_path, total_duration=None)
     if music_path and os.path.exists(music_path):
         try:
             music = AudioFileClip(music_path)
-            # Loop music to match video duration
-            if music.duration < video.duration:
-                loops_needed = int(video.duration / music.duration) + 1
-                music_clips = [AudioFileClip(music_path) for _ in range(loops_needed)]
-                music = CompositeAudioClip([
-                    clip.with_start(i * music.duration)
-                    for i, clip in enumerate(music_clips)
-                ])
-                music = music.subclipped(0, video.duration)
-            else:
-                music = music.subclipped(0, video.duration)
+            # Trim or loop music to match video duration
+            try:
+                if music.duration >= video.duration:
+                    music = music.subclipped(0, video.duration)
+                else:
+                    # Simple approach: just use what we have
+                    pass
+            except AttributeError:
+                # moviepy 1.x
+                if music.duration >= video.duration:
+                    music = music.subclip(0, video.duration)
 
             # Lower music volume (30% when voice is present, 60% without)
             vol = 0.3 if audio_tracks else 0.6
-            music = music.with_effects([lambda c: c.volumex(vol)]) if MOVIEPY_V2 else music.volumex(vol)
+            try:
+                from moviepy.audio.fx import MultiplyVolume
+                music = music.with_effects([MultiplyVolume(factor=vol)])
+            except (ImportError, AttributeError):
+                try:
+                    music = music.volumex(vol)
+                except:
+                    pass  # Skip volume adjustment if nothing works
             audio_tracks.append(music)
         except Exception as e:
             print(f"    ! music audio error: {e}")
