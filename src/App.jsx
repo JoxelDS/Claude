@@ -1895,6 +1895,15 @@ export default function App() {
   const [page, setPage] = useState("inspector"); // "inspector" | "history" | "admin"
   const lastActivity = useRef(Date.now());
 
+  // Dismiss splash screen once React mounts
+  useEffect(() => {
+    const splash = document.getElementById("splash");
+    if (splash) {
+      splash.classList.add("hide");
+      setTimeout(() => splash.remove(), 350);
+    }
+  }, []);
+
   const [noteType, setNoteType] = useState("inspection");
   const [context, setContext] = useState(() => buildDefaultContext("inspection"));
   const [inspection, setInspection] = useState(() => buildDefaultInspection());
