@@ -7,3 +7,12 @@ ReactDOM.createRoot(document.getElementById("root")).render(
     <App />
   </React.StrictMode>
 );
+
+// Register service worker for offline caching + faster repeat loads
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register(
+      `${import.meta.env.BASE_URL}sw.js`
+    ).catch(() => {});
+  });
+}
