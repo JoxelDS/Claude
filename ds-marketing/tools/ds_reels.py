@@ -1,25 +1,21 @@
 #!/usr/bin/env python3
 """
-DS MARKETING REELS ENGINE v1.0
+DS MARKETING REELS ENGINE v2.0
 =================================
-Creates Instagram Reels with:
-- Animated slides (zoom, pan, transitions)
-- AI voiceover (Microsoft neural voices — FREE, no API key)
-- Background ambient music
-- Ready-to-post MP4 files
-
-REQUIREMENTS (auto-installed):
-  pip install Pillow moviepy edge-tts numpy
+Premium Instagram Reels with:
+- Ultra-human AI voiceover (natural pauses, emphasis, cadence)
+- Cinema-grade animated frames with character integration
+- Dark cinematic ambient soundtrack
+- 9:16 vertical MP4 ready for Instagram
 
 Run: python3 ds_reels.py
 """
 
 import os, sys, subprocess, asyncio, random, math, time
 
-# ── Auto-install dependencies ──
+# ── Auto-install ──
 def ensure(pkg, pip_name=None):
-    try:
-        __import__(pkg)
+    try: __import__(pkg)
     except ImportError:
         print(f"  Installing {pip_name or pkg}...")
         subprocess.check_call([sys.executable, "-m", "pip", "install", pip_name or pkg],
@@ -33,46 +29,42 @@ ensure("numpy")
 from PIL import Image, ImageDraw, ImageFont, ImageFilter, ImageEnhance
 import numpy as np
 
-# moviepy imports
 try:
-    # moviepy 2.x
     from moviepy import (
         ImageClip, AudioFileClip, CompositeVideoClip,
-        concatenate_videoclips, TextClip, ColorClip, CompositeAudioClip
+        concatenate_videoclips, ColorClip, CompositeAudioClip
     )
-    MOVIEPY_V2 = True
+    MV2 = True
 except ImportError:
-    # moviepy 1.x
     from moviepy.editor import (
         ImageClip, AudioFileClip, CompositeVideoClip,
-        concatenate_videoclips, TextClip, ColorClip, CompositeAudioClip
+        concatenate_videoclips, ColorClip, CompositeAudioClip
     )
-    MOVIEPY_V2 = False
+    MV2 = False
 
 import edge_tts
-
 
 # ══════════════════════════════════════════════
 # CONFIG
 # ══════════════════════════════════════════════
-W, H = 1080, 1920  # 9:16 vertical for Reels
+W, H = 1080, 1920
 OUT = "ds-marketing-reels"
-VOICE = "en-US-GuyNeural"  # Professional male voice (free Microsoft neural)
-# Other voice options:
-#   "en-US-JennyNeural"     — female, friendly
-#   "en-US-AriaNeural"      — female, professional
-#   "en-US-DavisNeural"     — male, deep
-#   "en-GB-RyanNeural"      — British male
-#   "en-GB-SoniaNeural"     — British female
+FPS = 30
 
-# Brand colors
+# Voice: "en-US-DavisNeural" = deep authoritative male, sounds like a podcast host
+# Other great options:
+#   "en-US-AndrewMultilingualNeural"  — very natural conversational male
+#   "en-US-BrianMultilingualNeural"   — smooth natural male
+#   "en-US-JennyMultilingualNeural"   — natural female
+#   "en-GB-RyanNeural"                — British male (premium feel)
+VOICE = "en-US-DavisNeural"
+
 BLACK = (0, 0, 0)
 WHITE = (255, 255, 255)
-DARK_BG = (5, 5, 5)
-MED_GRAY = (128, 128, 128)
-LIGHT_GRAY = (200, 200, 200)
-
-FPS = 30
+NEAR_BLACK = (8, 8, 8)
+DARK_GRAY = (26, 26, 26)
+MED_GRAY = (100, 100, 100)
+LIGHT_GRAY = (190, 190, 190)
 
 
 # ══════════════════════════════════════════════
@@ -93,7 +85,7 @@ def HEADLINE(sz):
         "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
     ], sz)
 
-def BODY_BOLD(sz):
+def BOLD(sz):
     return _f([
         "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
         "/Library/Fonts/Arial Bold.ttf",
@@ -101,7 +93,7 @@ def BODY_BOLD(sz):
         "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
     ], sz)
 
-def BODY(sz):
+def REG(sz):
     return _f([
         "/System/Library/Fonts/Supplemental/Arial.ttf",
         "/Library/Fonts/Arial.ttf",
@@ -111,23 +103,27 @@ def BODY(sz):
 
 
 # ══════════════════════════════════════════════
-# AI VOICEOVER ENGINE (edge-tts — 100% free)
+# AI VOICE ENGINE v2 — Natural Human Sound
 # ══════════════════════════════════════════════
 
-async def _generate_voice(text, output_path, voice=VOICE, rate="+0%"):
-    """Generate AI voiceover using Microsoft Edge neural voices."""
-    communicate = edge_tts.Communicate(text, voice, rate=rate)
-    await communicate.save(output_path)
+async def _gen_voice(text, path, voice=VOICE, rate="-8%", pitch="-2Hz"):
+    """
+    Generate voice with natural pacing.
+    rate=-8% slows it slightly for authority.
+    pitch=-2Hz deepens it slightly for gravitas.
+    """
+    communicate = edge_tts.Communicate(text, voice, rate=rate, pitch=pitch)
+    await communicate.save(path)
 
 
-def generate_voiceover(text, output_path, voice=VOICE, rate="+0%"):
-    """Sync wrapper for voice generation."""
-    if os.path.exists(output_path) and os.path.getsize(output_path) > 1000:
+def make_voice(text, path, voice=VOICE, rate="-8%", pitch="-2Hz"):
+    """Generate AI voiceover — deep, authoritative, human-like."""
+    if os.path.exists(path) and os.path.getsize(path) > 1000:
         print(f"    \u2713 voice cached")
         return True
     try:
-        asyncio.run(_generate_voice(text, output_path, voice, rate))
-        if os.path.exists(output_path) and os.path.getsize(output_path) > 1000:
+        asyncio.run(_gen_voice(text, path, voice, rate, pitch))
+        if os.path.exists(path) and os.path.getsize(path) > 1000:
             print(f"    \u2713 voice generated")
             return True
     except Exception as e:
@@ -136,58 +132,54 @@ def generate_voiceover(text, output_path, voice=VOICE, rate="+0%"):
 
 
 # ══════════════════════════════════════════════
-# BACKGROUND MUSIC GENERATOR (pure Python)
+# CINEMATIC MUSIC v2 — Darker, Richer
 # ══════════════════════════════════════════════
 
-def generate_ambient_music(output_path, duration=30, sample_rate=44100):
-    """
-    Generate subtle ambient background music.
-    Dark, moody, cinematic low drone — perfect for B&W brand reels.
-    Pure Python + numpy, no external APIs needed.
-    """
-    if os.path.exists(output_path) and os.path.getsize(output_path) > 5000:
+def make_music(path, duration=40, sr=44100):
+    """Dark cinematic ambient — deeper, richer, more layered."""
+    if os.path.exists(path) and os.path.getsize(path) > 5000:
         print(f"    \u2713 music cached")
         return True
-
     try:
-        import wave, struct
+        import wave
+        t = np.linspace(0, duration, int(sr * duration), endpoint=False)
 
-        t = np.linspace(0, duration, int(sample_rate * duration), endpoint=False)
+        # Ultra-deep sub bass
+        sub = 0.18 * np.sin(2 * np.pi * 36 * t)
+        # Warm bass
+        bass = 0.12 * np.sin(2 * np.pi * 55 * t)
+        # Power fifth
+        fifth = 0.08 * np.sin(2 * np.pi * 82.5 * t)
+        # Octave warmth
+        oct_w = 0.05 * np.sin(2 * np.pi * 110 * t)
 
-        # Deep cinematic drone (very low frequencies)
-        drone1 = 0.15 * np.sin(2 * np.pi * 55 * t)       # A1 - deep bass
-        drone2 = 0.10 * np.sin(2 * np.pi * 82.5 * t)     # E2 - fifth
-        drone3 = 0.06 * np.sin(2 * np.pi * 110 * t)      # A2 - octave
+        # Breathing pad (slow swell)
+        breath = 0.07 * np.sin(2 * np.pi * 146.8 * t) * (0.4 + 0.6 * np.sin(2 * np.pi * 0.08 * t))
+        # High ethereal pad
+        ether = 0.04 * np.sin(2 * np.pi * 220 * t) * (0.3 + 0.4 * np.sin(2 * np.pi * 0.05 * t))
+        # Sparkle (very subtle high overtone)
+        sparkle = 0.015 * np.sin(2 * np.pi * 660 * t) * (0.2 + 0.3 * np.sin(2 * np.pi * 0.12 * t))
 
-        # Slow pulsing pad
-        pulse = 0.08 * np.sin(2 * np.pi * 165 * t) * (0.5 + 0.5 * np.sin(2 * np.pi * 0.15 * t))
+        # Slow rhythmic pulse (heartbeat feel)
+        pulse_env = np.abs(np.sin(2 * np.pi * 0.5 * t)) ** 4
+        pulse = 0.06 * np.sin(2 * np.pi * 73.4 * t) * pulse_env
 
-        # Subtle high shimmer
-        shimmer = 0.03 * np.sin(2 * np.pi * 440 * t) * (0.3 + 0.3 * np.sin(2 * np.pi * 0.08 * t))
+        audio = sub + bass + fifth + oct_w + breath + ether + sparkle + pulse
 
-        # Combine
-        audio = drone1 + drone2 + drone3 + pulse + shimmer
-
-        # Fade in/out
-        fade_len = int(sample_rate * 2)
-        fade_in = np.linspace(0, 1, fade_len)
-        fade_out = np.linspace(1, 0, fade_len)
-        audio[:fade_len] *= fade_in
-        audio[-fade_len:] *= fade_out
-
-        # Normalize
-        audio = audio / np.max(np.abs(audio)) * 0.4
-
-        # Convert to 16-bit WAV
+        # Smooth fade in/out
+        fade = int(sr * 3)
+        audio[:fade] *= np.linspace(0, 1, fade)
+        audio[-fade:] *= np.linspace(1, 0, fade)
+        audio = audio / np.max(np.abs(audio)) * 0.35
         audio_16 = (audio * 32767).astype(np.int16)
 
-        with wave.open(output_path, 'w') as wf:
+        with wave.open(path, 'w') as wf:
             wf.setnchannels(1)
             wf.setsampwidth(2)
-            wf.setframerate(sample_rate)
+            wf.setframerate(sr)
             wf.writeframes(audio_16.tobytes())
 
-        print(f"    \u2713 ambient music generated ({duration}s)")
+        print(f"    \u2713 cinematic music generated ({duration}s)")
         return True
     except Exception as e:
         print(f"    ! music failed: {e}")
@@ -195,360 +187,604 @@ def generate_ambient_music(output_path, duration=30, sample_rate=44100):
 
 
 # ══════════════════════════════════════════════
-# VIDEO FRAME GENERATOR
+# FRAME ENGINE v2 — Cinema Grade
 # ══════════════════════════════════════════════
 
-def create_reel_frame(width=W, height=H):
-    """Create a black 9:16 background frame."""
-    return Image.new("RGB", (width, height), BLACK)
+def _vignette(img, s=0.72):
+    """Strong cinematic vignette."""
+    w, h = img.size
+    mask = Image.new("L", (w, h), 0)
+    d = ImageDraw.Draw(mask)
+    cx, cy = w // 2, h // 2
+    mr = int(max(w, h) * s)
+    for r in range(mr, 0, -1):
+        d.ellipse([cx - r, cy - r, cx + r, cy + r], fill=int(255 * (r / mr) ** 0.65))
+    return Image.composite(img, Image.new("RGB", (w, h), BLACK), mask)
 
 
-def text_frame(lines, subtitle=None, number=None):
+def _grain(img, amt=5):
+    px = img.load()
+    w, h = img.size
+    rng = random.Random(42)
+    for _ in range(w * h // 5):
+        x, y = rng.randint(0, w - 1), rng.randint(0, h - 1)
+        r, g, b = px[x, y]
+        v = rng.randint(-amt, amt)
+        px[x, y] = (max(0, min(255, r + v)), max(0, min(255, g + v)), max(0, min(255, b + v)))
+    return img
+
+
+def _particles(img, count=30, seed=42):
+    """Floating white light particles."""
+    w, h = img.size
+    ov = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    rng = random.Random(seed)
+    for _ in range(count):
+        x, y = rng.randint(0, w), rng.randint(0, h)
+        r = rng.randint(3, 20)
+        a = rng.randint(8, 35)
+        c = Image.new("RGBA", (r * 2, r * 2), (0, 0, 0, 0))
+        ImageDraw.Draw(c).ellipse([0, 0, r * 2, r * 2], fill=(255, 255, 255, a))
+        c = c.filter(ImageFilter.GaussianBlur(radius=r // 2))
+        ov.paste(c, (x - r, y - r), c)
+    return Image.alpha_composite(img.convert("RGBA"), ov).convert("RGB")
+
+
+def _gradient_overlay(img, y_start_pct=0.3, strength=0.95):
+    """Gradient black overlay from y_start to bottom."""
+    w, h = img.size
+    ov = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    d = ImageDraw.Draw(ov)
+    y_start = int(h * y_start_pct)
+    for y in range(y_start, h):
+        t = (y - y_start) / (h - y_start)
+        alpha = int(255 * strength * (t ** 1.1))
+        d.line([(0, y), (w, y)], fill=(0, 0, 0, min(255, alpha)))
+    return Image.alpha_composite(img.convert("RGBA"), ov).convert("RGB")
+
+
+def _top_gradient(img, strength=0.6):
+    """Gradient from top for header area."""
+    w, h = img.size
+    ov = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    d = ImageDraw.Draw(ov)
+    zone = int(h * 0.2)
+    for y in range(zone):
+        t = 1 - (y / zone)
+        alpha = int(255 * strength * (t ** 1.5))
+        d.line([(0, y), (w, y)], fill=(0, 0, 0, min(255, alpha)))
+    return Image.alpha_composite(img.convert("RGBA"), ov).convert("RGB")
+
+
+def _outlined(draw, x, y, text, font, fill=WHITE, outline=BLACK, w=3):
+    for dx in range(-w, w + 1):
+        for dy in range(-w, w + 1):
+            if dx * dx + dy * dy <= w * w:
+                draw.text((x + dx, y + dy), text, font=font, fill=outline)
+    draw.text((x, y), text, font=font, fill=fill)
+
+
+def _centered(draw, y, text, font, fill=WHITE, img_w=W):
+    bb = draw.textbbox((0, 0), text, font=font)
+    x = (img_w - (bb[2] - bb[0])) // 2
+    draw.text((x, y), text, font=font, fill=fill)
+    return x
+
+
+def _centered_out(draw, y, text, font, fill=WHITE, outline=BLACK, ow=3, img_w=W):
+    bb = draw.textbbox((0, 0), text, font=font)
+    x = (img_w - (bb[2] - bb[0])) // 2
+    _outlined(draw, x, y, text, font, fill, outline, ow)
+    return x
+
+
+def _wrap(text, font, max_w, draw):
+    words = text.split()
+    lines, cur = [], ""
+    for w in words:
+        t = f"{cur} {w}".strip()
+        if draw.textbbox((0, 0), t, font=font)[2] <= max_w: cur = t
+        else:
+            if cur: lines.append(cur)
+            cur = w
+    if cur: lines.append(cur)
+    return lines
+
+
+# ── Frame Types ──
+
+def frame_character_hero(char_path, headline_lines, subtitle=None):
     """
-    Create a text-focused 9:16 frame.
-    Large bold text centered on black background.
+    HERO FRAME: Character fills 65% of frame, text overlaid at bottom.
+    The character is the star. Bold, prominent, CashFish-style.
     """
-    img = create_reel_frame()
+    img = Image.new("RGB", (W, H), BLACK)
+
+    if char_path and os.path.exists(char_path):
+        ch = Image.open(char_path).convert("RGB")
+        # Scale to fill width, make character BIG
+        scale = W / ch.width
+        new_h = int(ch.height * scale)
+        if new_h < int(H * 0.65):
+            # Scale even bigger
+            scale = (H * 0.7) / ch.height
+            new_w = int(ch.width * scale)
+            ch = ch.resize((new_w, int(H * 0.7)), Image.LANCZOS)
+            # Center horizontally
+            x_off = (W - new_w) // 2
+            img.paste(ch, (x_off, 0))
+        else:
+            ch = ch.resize((W, new_h), Image.LANCZOS)
+            img.paste(ch, (0, 0))
+
+        # Brighten character significantly
+        img = ImageEnhance.Brightness(img).enhance(1.4)
+        img = ImageEnhance.Contrast(img).enhance(1.3)
+        img = ImageEnhance.Sharpness(img).enhance(1.4)
+
+        # Desaturate to B&W
+        gray = img.convert("L").convert("RGB")
+        img = Image.blend(img, gray, 0.88)
+
+    # Heavy gradient from bottom (text zone)
+    img = _gradient_overlay(img, 0.35, 0.95)
+    img = _top_gradient(img, 0.4)
+    img = _vignette(img, 0.75)
+    img = _particles(img, 20, seed=hash(str(headline_lines)) % 9999)
+    img = _grain(img, 4)
+
     draw = ImageDraw.Draw(img)
 
-    # Subtle gradient
-    for y in range(H):
-        v = int(5 + 8 * (1 - abs(y - H // 2) / (H // 2)) ** 2)
-        draw.line([(0, y), (W, y)], fill=(v, v, v))
-
-    y_pos = H // 2 - len(lines) * 50
-
-    # Number if provided
-    if number:
-        nf = HEADLINE(200)
-        bb = draw.textbbox((0, 0), number, font=nf)
-        nx = (W - (bb[2] - bb[0])) // 2
-        draw.text((nx, y_pos - 220), number, font=nf, fill=(30, 30, 30))
-        # White outline number
-        for dx in range(-3, 4):
-            for dy in range(-3, 4):
-                if dx * dx + dy * dy <= 9:
-                    draw.text((nx + dx, y_pos - 220 + dy), number, font=nf, fill=BLACK)
-        draw.text((nx, y_pos - 220), number, font=nf, fill=WHITE)
-
-    # Main text lines
-    hf = HEADLINE(72)
-    for i, line in enumerate(lines):
-        bb = draw.textbbox((0, 0), line, font=hf)
-        x = (W - (bb[2] - bb[0])) // 2
-        draw.text((x, y_pos + i * 90), line, font=hf, fill=WHITE)
+    # Headline — MASSIVE text
+    hf = HEADLINE(90)
+    y_pos = int(H * 0.62)
+    for i, ln in enumerate(headline_lines):
+        _centered_out(draw, y_pos + i * 100, ln, hf, WHITE, BLACK, 3)
 
     # Subtitle
     if subtitle:
-        sf = BODY(36)
-        # Word wrap subtitle
-        words = subtitle.split()
-        sub_lines = []
-        current = ""
-        for word in words:
-            test = f"{current} {word}".strip()
-            if draw.textbbox((0, 0), test, font=sf)[2] <= W - 140:
-                current = test
-            else:
-                if current: sub_lines.append(current)
-                current = word
-        if current: sub_lines.append(current)
-
-        sy = y_pos + len(lines) * 90 + 60
+        sf = REG(38)
+        sub_lines = _wrap(subtitle, sf, W - 120, draw)
+        sy = y_pos + len(headline_lines) * 100 + 30
         for sl in sub_lines:
-            bb = draw.textbbox((0, 0), sl, font=sf)
-            x = (W - (bb[2] - bb[0])) // 2
-            draw.text((x, sy), sl, font=sf, fill=LIGHT_GRAY)
+            _centered(draw, sy, sl, sf, LIGHT_GRAY)
             sy += 50
 
-    # Brand footer
-    bf = BODY_BOLD(28)
-    bb = draw.textbbox((0, 0), "@dsmarketing.agency", font=bf)
-    bx = (W - (bb[2] - bb[0])) // 2
-    draw.text((bx, H - 180), "@dsmarketing.agency", font=bf, fill=MED_GRAY)
-
-    # Thin line above footer
-    draw.line([(200, H - 220), (W - 200, H - 220)], fill=(40, 40, 40), width=1)
+    # Brand bar
+    draw.line([(120, H - 200), (W - 120, H - 200)], fill=(40, 40, 40), width=1)
+    bf = BOLD(28)
+    _centered(draw, H - 165, "@dsmarketing.agency", bf, MED_GRAY)
+    wf = REG(20)
+    _centered(draw, H - 128, "dsmarketing.lovable.app", wf, (55, 55, 55))
 
     return img
 
 
-def char_text_frame(char_path, lines, subtitle=None):
+def frame_number_point(number, title, subtitle=None):
     """
-    Create a 9:16 frame with character image + text overlay.
-    Character fills top portion, text at bottom.
+    NUMBERED POINT: Giant number + title + subtitle.
+    Clean, bold, editorial.
     """
-    img = create_reel_frame()
+    img = Image.new("RGB", (W, H), BLACK)
 
-    # Load character and fit to top portion
-    if os.path.exists(char_path):
-        char_img = Image.open(char_path).convert("RGB")
-        # Scale character to fill width, position at top
-        char_w = W
-        char_h = int(char_img.height * (W / char_img.width))
-        char_img = char_img.resize((char_w, char_h), Image.LANCZOS)
+    # Subtle radial gradient for depth
+    draw = ImageDraw.Draw(img)
+    cx, cy = W // 2, int(H * 0.4)
+    for y in range(0, H, 2):
+        for x in range(0, W, 2):
+            d = math.sqrt((x - cx) ** 2 + (y - cy) ** 2)
+            t = min(1.0, d / (max(W, H) * 0.5))
+            v = int(14 * (1 - t ** 1.4))
+            c = (v, v, v)
+            img.putpixel((x, y), c)
+            if x + 1 < W: img.putpixel((x + 1, y), c)
+            if y + 1 < H: img.putpixel((x, y + 1), c)
+            if x + 1 < W and y + 1 < H: img.putpixel((x + 1, y + 1), c)
 
-        # Brighten and desaturate
-        char_img = ImageEnhance.Brightness(char_img).enhance(1.3)
-        char_img = ImageEnhance.Contrast(char_img).enhance(1.2)
-        gray = char_img.convert("L").convert("RGB")
-        char_img = Image.blend(char_img, gray, 0.85)
-
-        # Paste at top center
-        y_offset = max(0, (H // 2 - char_h) // 2)
-        img.paste(char_img, (0, y_offset))
-
-    # Gradient overlay for text area (bottom half)
-    overlay = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-    od = ImageDraw.Draw(overlay)
-    for y in range(H // 3, H):
-        alpha = int(240 * ((y - H // 3) / (H - H // 3)) ** 1.2)
-        od.line([(0, y), (W, y)], fill=(0, 0, 0, min(255, alpha)))
-    img = Image.alpha_composite(img.convert("RGBA"), overlay).convert("RGB")
+    img = _particles(img, 15, seed=int(number) * 17)
+    img = _vignette(img, 0.68)
+    img = _grain(img, 3)
 
     draw = ImageDraw.Draw(img)
 
-    # Text in bottom half
-    hf = HEADLINE(68)
-    y_pos = H * 3 // 5
+    # Giant number
+    nf = HEADLINE(320)
+    ns = f"{int(number):02d}"
+    bb = draw.textbbox((0, 0), ns, font=nf)
+    nx = (W - (bb[2] - bb[0])) // 2
+    ny = int(H * 0.22)
 
-    for i, line in enumerate(lines):
-        bb = draw.textbbox((0, 0), line, font=hf)
-        x = (W - (bb[2] - bb[0])) // 2
-        # Shadow
-        draw.text((x + 2, y_pos + i * 85 + 2), line, font=hf, fill=BLACK)
-        draw.text((x, y_pos + i * 85), line, font=hf, fill=WHITE)
+    # Glow behind number
+    glow = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    gd = ImageDraw.Draw(glow)
+    for dx in range(-2, 3):
+        for dy in range(-2, 3):
+            gd.text((nx + dx, ny + dy), ns, font=nf, fill=(255, 255, 255, 30))
+    glow = glow.filter(ImageFilter.GaussianBlur(radius=20))
+    img = Image.alpha_composite(img.convert("RGBA"), glow).convert("RGB")
+    draw = ImageDraw.Draw(img)
 
+    _outlined(draw, nx, ny, ns, nf, WHITE, BLACK, 4)
+
+    # Thin line under number
+    line_y = ny + (bb[3] - bb[1]) + 30
+    draw.line([(200, line_y), (W - 200, line_y)], fill=WHITE, width=2)
+
+    # Title
+    tf = HEADLINE(64)
+    title_lines = _wrap(title.upper(), tf, W - 120, draw)
+    ty = line_y + 50
+    for ln in title_lines:
+        _centered_out(draw, ty, ln, tf, WHITE, BLACK, 2)
+        ty += 76
+
+    # Subtitle
     if subtitle:
-        sf = BODY(34)
-        words = subtitle.split()
-        sub_lines = []
-        current = ""
-        for word in words:
-            test = f"{current} {word}".strip()
-            if draw.textbbox((0, 0), test, font=sf)[2] <= W - 140:
-                current = test
-            else:
-                if current: sub_lines.append(current)
-                current = word
-        if current: sub_lines.append(current)
-
-        sy = y_pos + len(lines) * 85 + 40
+        sf = REG(34)
+        sub_lines = _wrap(subtitle, sf, W - 140, draw)
+        sy = ty + 30
         for sl in sub_lines:
-            bb = draw.textbbox((0, 0), sl, font=sf)
-            x = (W - (bb[2] - bb[0])) // 2
-            draw.text((x, sy), sl, font=sf, fill=LIGHT_GRAY)
+            _centered(draw, sy, sl, sf, LIGHT_GRAY)
             sy += 48
 
     # Brand
-    bf = BODY_BOLD(26)
-    bb = draw.textbbox((0, 0), "@dsmarketing.agency", font=bf)
-    bx = (W - (bb[2] - bb[0])) // 2
-    draw.text((bx, H - 160), "@dsmarketing.agency", font=bf, fill=MED_GRAY)
+    draw.line([(120, H - 200), (W - 120, H - 200)], fill=(35, 35, 35), width=1)
+    _centered(draw, H - 165, "@dsmarketing.agency", BOLD(26), MED_GRAY)
 
     return img
 
 
-def zoom_effect(clip, zoom_start=1.0, zoom_end=1.15):
-    """Apply slow zoom (Ken Burns) effect to a clip."""
-    duration = clip.duration
+def frame_big_text(lines, subtitle=None):
+    """
+    BIG TEXT FRAME: Maximum impact text on black.
+    For statements that need to hit hard.
+    """
+    img = Image.new("RGB", (W, H), BLACK)
+
+    # Subtle gradient
+    draw = ImageDraw.Draw(img)
+    for y in range(H):
+        v = int(4 + 10 * (1 - abs(y - H * 0.45) / (H * 0.55)) ** 2)
+        draw.line([(0, y), (W, y)], fill=(v, v, v))
+
+    img = _particles(img, 12, seed=hash(str(lines)) % 9999)
+    img = _vignette(img, 0.7)
+    img = _grain(img, 3)
+
+    draw = ImageDraw.Draw(img)
+
+    # Calculate vertical center
+    hf = HEADLINE(82)
+    total_lines = len(lines)
+    line_h = 96
+    total_h = total_lines * line_h
+    start_y = (H - total_h) // 2 - 40
+
+    for i, ln in enumerate(lines):
+        # Glow
+        glow = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+        gd = ImageDraw.Draw(glow)
+        bb = gd.textbbox((0, 0), ln, font=hf)
+        gx = (W - (bb[2] - bb[0])) // 2
+        for dx in range(-2, 3):
+            for dy in range(-2, 3):
+                gd.text((gx + dx, start_y + i * line_h + dy), ln, font=hf, fill=(255, 255, 255, 25))
+        glow = glow.filter(ImageFilter.GaussianBlur(radius=12))
+        img = Image.alpha_composite(img.convert("RGBA"), glow).convert("RGB")
+        draw = ImageDraw.Draw(img)
+
+        _centered_out(draw, start_y + i * line_h, ln, hf, WHITE, BLACK, 3)
+
+    # Subtitle
+    if subtitle:
+        sf = REG(36)
+        sub_lines = _wrap(subtitle, sf, W - 140, draw)
+        sy = start_y + total_lines * line_h + 50
+        for sl in sub_lines:
+            _centered(draw, sy, sl, sf, LIGHT_GRAY)
+            sy += 48
+
+    # Brand
+    draw.line([(120, H - 200), (W - 120, H - 200)], fill=(35, 35, 35), width=1)
+    _centered(draw, H - 165, "@dsmarketing.agency", BOLD(26), MED_GRAY)
+
+    return img
+
+
+def frame_day(day_name, description):
+    """
+    DAY FRAME: Large day name with description.
+    For the content calendar reel.
+    """
+    img = Image.new("RGB", (W, H), BLACK)
+
+    # Gradient center glow
+    draw = ImageDraw.Draw(img)
+    cx, cy = W // 2, int(H * 0.38)
+    for y in range(0, H, 2):
+        for x in range(0, W, 2):
+            d = math.sqrt((x - cx) ** 2 + (y - cy) ** 2)
+            t = min(1.0, d / (W * 0.6))
+            v = int(18 * (1 - t ** 1.3))
+            img.putpixel((x, y), (v, v, v))
+            if x + 1 < W: img.putpixel((x + 1, y), (v, v, v))
+            if y + 1 < H: img.putpixel((x, y + 1), (v, v, v))
+            if x + 1 < W and y + 1 < H: img.putpixel((x + 1, y + 1), (v, v, v))
+
+    img = _particles(img, 10, seed=hash(day_name) % 9999)
+    img = _vignette(img, 0.68)
+    img = _grain(img, 3)
+
+    draw = ImageDraw.Draw(img)
+
+    # Day name — HUGE
+    df = HEADLINE(130)
+    bb = draw.textbbox((0, 0), day_name.upper(), font=df)
+    dx = (W - (bb[2] - bb[0])) // 2
+    dy = int(H * 0.32)
+
+    # Glow
+    glow = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    gd = ImageDraw.Draw(glow)
+    for ddx in range(-2, 3):
+        for ddy in range(-2, 3):
+            gd.text((dx + ddx, dy + ddy), day_name.upper(), font=df, fill=(255, 255, 255, 35))
+    glow = glow.filter(ImageFilter.GaussianBlur(radius=16))
+    img = Image.alpha_composite(img.convert("RGBA"), glow).convert("RGB")
+    draw = ImageDraw.Draw(img)
+
+    _outlined(draw, dx, dy, day_name.upper(), df, WHITE, BLACK, 3)
+
+    # Thin line
+    line_y = dy + (bb[3] - bb[1]) + 30
+    draw.line([(180, line_y), (W - 180, line_y)], fill=WHITE, width=1)
+
+    # Description
+    sf = REG(38)
+    desc_lines = _wrap(description, sf, W - 140, draw)
+    sy = line_y + 40
+    for sl in desc_lines:
+        _centered(draw, sy, sl, sf, LIGHT_GRAY)
+        sy += 52
+
+    # Brand
+    draw.line([(120, H - 200), (W - 120, H - 200)], fill=(35, 35, 35), width=1)
+    _centered(draw, H - 165, "@dsmarketing.agency", BOLD(26), MED_GRAY)
+
+    return img
+
+
+def frame_cta():
+    """CTA final frame — Follow / Save."""
+    img = Image.new("RGB", (W, H), BLACK)
+
+    draw = ImageDraw.Draw(img)
+    # Center glow
+    cx, cy = W // 2, H // 2
+    for y in range(0, H, 2):
+        for x in range(0, W, 2):
+            d = math.sqrt((x - cx) ** 2 + (y - cy) ** 2)
+            t = min(1.0, d / (W * 0.5))
+            v = int(20 * (1 - t ** 1.5))
+            img.putpixel((x, y), (v, v, v))
+            if x + 1 < W: img.putpixel((x + 1, y), (v, v, v))
+            if y + 1 < H: img.putpixel((x, y + 1), (v, v, v))
+            if x + 1 < W and y + 1 < H: img.putpixel((x + 1, y + 1), (v, v, v))
+
+    img = _particles(img, 25, seed=777)
+    img = _vignette(img, 0.65)
+    img = _grain(img, 3)
+
+    draw = ImageDraw.Draw(img)
+
+    # DS massive
+    dsf = HEADLINE(200)
+    bb = draw.textbbox((0, 0), "DS", font=dsf)
+    dx = (W - (bb[2] - bb[0])) // 2
+    dy = int(H * 0.28)
+
+    glow = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    gd = ImageDraw.Draw(glow)
+    for ddx in range(-3, 4):
+        for ddy in range(-3, 4):
+            gd.text((dx + ddx, dy + ddy), "DS", font=dsf, fill=(255, 255, 255, 40))
+    glow = glow.filter(ImageFilter.GaussianBlur(radius=24))
+    img = Image.alpha_composite(img.convert("RGBA"), glow).convert("RGB")
+    draw = ImageDraw.Draw(img)
+
+    _outlined(draw, dx, dy, "DS", dsf, WHITE, BLACK, 4)
+
+    # MARKETING
+    mf = HEADLINE(72)
+    _centered(draw, dy + 190, "MARKETING", mf, LIGHT_GRAY)
+
+    # Line
+    draw.line([(200, dy + 290), (W - 200, dy + 290)], fill=WHITE, width=2)
+
+    # Handle
+    hf = BOLD(36)
+    _centered(draw, dy + 330, "@dsmarketing.agency", hf, WHITE)
+
+    # Website
+    wf = REG(24)
+    _centered(draw, dy + 390, "dsmarketing.lovable.app", wf, MED_GRAY)
+
+    # FOLLOW FOR MORE
+    ff = HEADLINE(52)
+    _centered(draw, dy + 480, "FOLLOW FOR MORE", ff, WHITE)
+
+    return img
+
+
+# ══════════════════════════════════════════════
+# VIDEO BUILD ENGINE
+# ══════════════════════════════════════════════
+
+def zoom_fx(clip, z1=1.0, z2=1.1):
+    dur = clip.duration
     w, h = clip.size
-
-    def apply_zoom(get_frame, t):
-        progress = t / duration if duration > 0 else 0
-        zoom = zoom_start + (zoom_end - zoom_start) * progress
+    def apply(get_frame, t):
+        p = t / dur if dur > 0 else 0
+        z = z1 + (z2 - z1) * p
         frame = get_frame(t)
-
-        # Calculate crop
-        new_w = int(w / zoom)
-        new_h = int(h / zoom)
-        x1 = (w - new_w) // 2
-        y1 = (h - new_h) // 2
-
-        cropped = frame[y1:y1 + new_h, x1:x1 + new_w]
-
-        # Resize back
-        from PIL import Image as PILImage
-        pil_img = PILImage.fromarray(cropped)
-        pil_img = pil_img.resize((w, h), PILImage.LANCZOS)
-        return np.array(pil_img)
-
-    return clip.transform(apply_zoom)
+        nw, nh = int(w / z), int(h / z)
+        x1, y1 = (w - nw) // 2, (h - nh) // 2
+        crop = frame[y1:y1 + nh, x1:x1 + nw]
+        from PIL import Image as PI
+        return np.array(PI.fromarray(crop).resize((w, h), PI.LANCZOS))
+    return clip.transform(apply)
 
 
-def build_reel(scenes, voice_path, music_path, output_path, total_duration=None):
-    """
-    Build final reel video from scenes.
-    Each scene = {"image": PIL Image, "duration": seconds}
-    """
+def render_reel(scenes, voice_path, music_path, out_path):
+    """Build final MP4 from scenes + voice + music."""
     clips = []
-
-    for i, scene in enumerate(scenes):
-        # Save frame as temp image
-        temp_path = f"{OUT}/_temp_frame_{i}.png"
-        scene["image"].save(temp_path, quality=95)
-
-        clip = ImageClip(temp_path).with_duration(scene["duration"])
-
-        # Alternate zoom directions for dynamism
-        if i % 2 == 0:
-            clip = zoom_effect(clip, 1.0, 1.08)
+    for i, sc in enumerate(scenes):
+        tp = f"{OUT}/_tf_{i}.png"
+        sc["image"].save(tp, quality=95)
+        cl = ImageClip(tp).with_duration(sc["dur"])
+        # Alternate zoom for dynamism
+        if i % 3 == 0:
+            cl = zoom_fx(cl, 1.0, 1.06)
+        elif i % 3 == 1:
+            cl = zoom_fx(cl, 1.06, 1.0)
         else:
-            clip = zoom_effect(clip, 1.08, 1.0)
+            cl = zoom_fx(cl, 1.0, 1.04)
+        clips.append(cl)
 
-        clips.append(clip)
-
-    # Concatenate all scenes
     video = concatenate_videoclips(clips, method="compose")
 
-    # Add audio
     audio_tracks = []
 
     # Voiceover
     if voice_path and os.path.exists(voice_path):
         try:
-            voice_audio = AudioFileClip(voice_path)
-            # Trim voice if longer than video
-            if voice_audio.duration > video.duration:
-                voice_audio = voice_audio.subclipped(0, video.duration)
-            audio_tracks.append(voice_audio)
+            va = AudioFileClip(voice_path)
+            if va.duration > video.duration:
+                try: va = va.subclipped(0, video.duration)
+                except: va = va.subclip(0, video.duration)
+            audio_tracks.append(va)
         except Exception as e:
-            print(f"    ! voice audio error: {e}")
+            print(f"    ! voice error: {e}")
 
-    # Background music (lower volume)
+    # Music
     if music_path and os.path.exists(music_path):
         try:
-            music = AudioFileClip(music_path)
-            # Trim or loop music to match video duration
+            mus = AudioFileClip(music_path)
             try:
-                if music.duration >= video.duration:
-                    music = music.subclipped(0, video.duration)
-                else:
-                    # Simple approach: just use what we have
-                    pass
+                if mus.duration > video.duration:
+                    mus = mus.subclipped(0, video.duration)
             except AttributeError:
-                # moviepy 1.x
-                if music.duration >= video.duration:
-                    music = music.subclip(0, video.duration)
+                if mus.duration > video.duration:
+                    mus = mus.subclip(0, video.duration)
 
-            # Lower music volume (30% when voice is present, 60% without)
-            vol = 0.3 if audio_tracks else 0.6
+            # Lower volume
+            vol = 0.25 if audio_tracks else 0.5
             try:
                 from moviepy.audio.fx import MultiplyVolume
-                music = music.with_effects([MultiplyVolume(factor=vol)])
+                mus = mus.with_effects([MultiplyVolume(factor=vol)])
             except (ImportError, AttributeError):
-                try:
-                    music = music.volumex(vol)
-                except:
-                    pass  # Skip volume adjustment if nothing works
-            audio_tracks.append(music)
+                try: mus = mus.volumex(vol)
+                except: pass
+            audio_tracks.append(mus)
         except Exception as e:
-            print(f"    ! music audio error: {e}")
+            print(f"    ! music error: {e}")
 
-    # Combine audio tracks
     if audio_tracks:
         if len(audio_tracks) > 1:
-            final_audio = CompositeAudioClip(audio_tracks)
+            video = video.with_audio(CompositeAudioClip(audio_tracks))
         else:
-            final_audio = audio_tracks[0]
-        video = video.with_audio(final_audio)
+            video = video.with_audio(audio_tracks[0])
 
-    # Export
-    video.write_videofile(
-        output_path,
-        fps=FPS,
-        codec="libx264",
-        audio_codec="aac",
-        logger=None,
-    )
+    video.write_videofile(out_path, fps=FPS, codec="libx264", audio_codec="aac", logger=None)
 
-    # Clean temp frames
+    # Clean temp
     for i in range(len(scenes)):
-        temp_path = f"{OUT}/_temp_frame_{i}.png"
-        if os.path.exists(temp_path):
-            os.remove(temp_path)
+        tp = f"{OUT}/_tf_{i}.png"
+        if os.path.exists(tp): os.remove(tp)
 
-    print(f"  \u2713 {os.path.basename(output_path)}")
+    print(f"  \u2713 {os.path.basename(out_path)}")
 
 
 # ══════════════════════════════════════════════
-# REEL DEFINITIONS
+# REEL CONTENT v2 — Natural Voice Scripts
 # ══════════════════════════════════════════════
 
 REELS = [
     {
         "name": "reel_01_mistakes",
         "title": "7 Social Media Mistakes",
+        # Natural, conversational voice script — sounds like a real person talking
         "voice_text": (
-            "Your social media isn't failing. Your strategy is. "
-            "Here are 7 mistakes killing your growth. "
-            "Number one. Posting without a content plan. Random posts give random results. "
-            "Number two. Ignoring your analytics. The data tells you exactly what works. "
-            "Number three. Buying followers for vanity. Fake followers will never buy your product. "
-            "Number four. No consistent brand voice. If they can't recognize you in two seconds, you don't have a brand. "
-            "Number five. Same content everywhere. Each platform speaks its own language. "
-            "Number six. Zero audience engagement. If you don't engage, the algorithm stops showing your content. "
-            "Number seven. No post-publish strategy. Publishing is only twenty percent of the work. "
-            "Follow DS Marketing for more."
+            "Your social media isn't failing... your strategy is. "
+            "And here are the seven mistakes... that are killing your growth right now. "
+            "One... posting without a content plan. Random posts? Random results. It's that simple. "
+            "Two... ignoring your analytics. The data is literally telling you what works. Why aren't you reading it? "
+            "Three... buying followers. Ten thousand fake followers will never buy your product. Ever. "
+            "Four... no consistent brand voice. If people can't recognize you in two seconds? You don't have a brand. You have noise. "
+            "Five... posting the same content everywhere. Instagram and LinkedIn are completely different languages. "
+            "Six... zero engagement. Post and ghost? The algorithm notices. And it stops showing your content. "
+            "Seven... no distribution strategy. Publishing is only twenty percent of the work. The other eighty percent? That's where growth happens. "
+            "Follow D S Marketing... for more."
         ),
         "scenes": [
-            {"lines": ["YOUR SOCIAL MEDIA", "ISN'T FAILING."], "subtitle": "Your strategy is.", "char": "frustrated", "dur": 4},
-            {"lines": ["01", "NO CONTENT PLAN"], "subtitle": "Random posts = random results.", "dur": 3.5},
-            {"lines": ["02", "IGNORING ANALYTICS"], "subtitle": "The data tells you what works.", "dur": 3},
-            {"lines": ["03", "BUYING FOLLOWERS"], "subtitle": "Fake followers won't buy.", "dur": 3},
-            {"lines": ["04", "NO BRAND VOICE"], "subtitle": "Unrecognizable = invisible.", "dur": 3},
-            {"lines": ["05", "SAME EVERYWHERE"], "subtitle": "Each platform is different.", "dur": 3},
-            {"lines": ["06", "ZERO ENGAGEMENT"], "subtitle": "Algorithm punishes silence.", "dur": 3},
-            {"lines": ["07", "NO DISTRIBUTION"], "subtitle": "Publishing is only 20%.", "dur": 3},
-            {"lines": ["FOLLOW FOR MORE"], "subtitle": "@dsmarketing.agency", "char": "ceo", "dur": 4},
+            {"type": "char", "char": "frustrated", "lines": ["YOUR SOCIAL", "MEDIA ISN'T", "FAILING."], "sub": "Your strategy is.", "dur": 5},
+            {"type": "num", "num": 1, "title": "No Content Plan", "sub": "Random posts give random results. It's that simple.", "dur": 4},
+            {"type": "num", "num": 2, "title": "Ignoring Analytics", "sub": "The data tells you exactly what works. Read it.", "dur": 3.5},
+            {"type": "num", "num": 3, "title": "Buying Followers", "sub": "10K fake followers will never buy your product.", "dur": 3.5},
+            {"type": "num", "num": 4, "title": "No Brand Voice", "sub": "Unrecognizable in 2 seconds? That's not a brand.", "dur": 3.5},
+            {"type": "num", "num": 5, "title": "Same Content Everywhere", "sub": "Each platform speaks its own language.", "dur": 3.5},
+            {"type": "num", "num": 6, "title": "Zero Engagement", "sub": "Post and ghost? The algorithm notices.", "dur": 3.5},
+            {"type": "num", "num": 7, "title": "No Distribution", "sub": "Publishing is only 20% of the work.", "dur": 3.5},
+            {"type": "cta", "dur": 4},
         ],
     },
     {
         "name": "reel_02_calendar",
-        "title": "Content Calendar Framework",
+        "title": "Your Content Calendar",
         "voice_text": (
-            "Stop posting randomly. Start posting strategically. "
-            "Here's your perfect weekly content framework. "
-            "Monday. Educational content. Tips, how-tos, and frameworks. "
-            "Tuesday. Share industry insights and trends. "
-            "Wednesday. Post a case study with real numbers. "
-            "Thursday. Behind the scenes. Show your process. "
-            "Friday. Engagement day. Ask questions and start conversations. "
-            "Weekend. Share your brand story and mission. "
-            "And the secret? Batch everything on Monday. "
-            "Save this framework. DS Marketing."
+            "Stop posting randomly... and start posting strategically. "
+            "Here's the content framework... that actually works. "
+            "Monday... is for education. Tips, frameworks, how-to's. Show them you know your stuff. "
+            "Tuesday... share industry insights. Be the person who sees what's coming before everyone else. "
+            "Wednesday... case studies. Real numbers, real results. Nothing builds trust faster. "
+            "Thursday... take them behind the scenes. Your process, your team. People buy from people. "
+            "Friday... is engagement day. Ask questions. Start conversations. Let your audience talk. "
+            "Weekends... share your brand story. Your mission. Your values. Build connection, not just reach. "
+            "And the secret weapon? Batch everything... on Monday. Create the full week in one sitting. "
+            "Save this framework... D S Marketing."
         ),
         "scenes": [
-            {"lines": ["STOP POSTING", "RANDOMLY."], "subtitle": "Start posting strategically.", "char": "presenter", "dur": 4},
-            {"lines": ["MONDAY"], "subtitle": "Educational: Tips & Frameworks", "dur": 3},
-            {"lines": ["TUESDAY"], "subtitle": "Industry Insights & Trends", "dur": 2.5},
-            {"lines": ["WEDNESDAY"], "subtitle": "Case Studies: Real Results", "dur": 2.5},
-            {"lines": ["THURSDAY"], "subtitle": "Behind the Scenes", "dur": 2.5},
-            {"lines": ["FRIDAY"], "subtitle": "Engagement: Questions & Polls", "dur": 2.5},
-            {"lines": ["WEEKEND"], "subtitle": "Brand Story & Mission", "dur": 2.5},
-            {"lines": ["THE SECRET:", "BATCH MONDAY"], "subtitle": "Create the whole week in one sitting.", "char": "visionary", "dur": 4},
-            {"lines": ["SAVE THIS"], "subtitle": "@dsmarketing.agency", "char": "ceo", "dur": 3},
+            {"type": "char", "char": "presenter", "lines": ["STOP POSTING", "RANDOMLY."], "sub": "Start posting strategically.", "dur": 4.5},
+            {"type": "day", "day": "Monday", "desc": "Education. Tips, frameworks, how-to's. Show your expertise.", "dur": 3.5},
+            {"type": "day", "day": "Tuesday", "desc": "Industry insights. Be the one who sees what's coming.", "dur": 3},
+            {"type": "day", "day": "Wednesday", "desc": "Case studies. Real numbers. Real results.", "dur": 3},
+            {"type": "day", "day": "Thursday", "desc": "Behind the scenes. Your process, your team.", "dur": 3},
+            {"type": "day", "day": "Friday", "desc": "Engagement. Questions, polls, conversations.", "dur": 3},
+            {"type": "day", "day": "Weekend", "desc": "Brand story. Mission, values, connection.", "dur": 3},
+            {"type": "char", "char": "visionary", "lines": ["THE SECRET:", "BATCH MONDAY."], "sub": "Create the full week in one sitting.", "dur": 4.5},
+            {"type": "cta", "dur": 3.5},
         ],
     },
     {
-        "name": "reel_03_three_seconds",
+        "name": "reel_03_hook",
         "title": "The 3-Second Rule",
         "voice_text": (
-            "You have three seconds. "
-            "Three seconds to stop the scroll. Three seconds to grab attention. "
-            "Your audience decides in three seconds whether to keep going or swipe away. "
-            "That means your hook is everything. "
-            "Not your logo. Not your color palette. Not your font choice. "
-            "Your first line. That's where the battle is won or lost. "
-            "Make every hook count. DS Marketing."
+            "You have three seconds... "
+            "Three seconds to stop the scroll... three seconds to grab their attention. "
+            "Your audience decides... in three seconds... whether to keep watching... or swipe away. "
+            "That means your hook... is everything. "
+            "Not your logo... not your color palette... not your font choice. "
+            "Your first line... that single opening moment... "
+            "That's where the battle is won... or lost. "
+            "Make every hook count... D S Marketing."
         ),
         "scenes": [
-            {"lines": ["YOU HAVE", "3 SECONDS."], "subtitle": None, "char": "clock", "dur": 3.5},
-            {"lines": ["3 SECONDS", "TO STOP", "THE SCROLL."], "subtitle": None, "dur": 3.5},
-            {"lines": ["YOUR HOOK IS", "EVERYTHING."], "subtitle": None, "dur": 3.5},
-            {"lines": ["NOT YOUR LOGO.", "NOT YOUR FONTS."], "subtitle": "Not your color palette.", "dur": 3.5},
-            {"lines": ["YOUR", "FIRST LINE."], "subtitle": "That's where the battle is won.", "dur": 4},
-            {"lines": ["MAKE EVERY", "HOOK COUNT."], "subtitle": "@dsmarketing.agency", "char": "rocket", "dur": 4},
+            {"type": "char", "char": "clock", "lines": ["YOU HAVE", "3 SECONDS."], "sub": None, "dur": 4},
+            {"type": "text", "lines": ["3 SECONDS", "TO STOP", "THE SCROLL."], "sub": None, "dur": 4},
+            {"type": "text", "lines": ["YOUR HOOK", "IS EVERYTHING."], "sub": None, "dur": 4},
+            {"type": "text", "lines": ["NOT YOUR LOGO.", "NOT YOUR FONTS.", "NOT YOUR COLORS."], "sub": None, "dur": 4},
+            {"type": "text", "lines": ["YOUR", "FIRST LINE."], "sub": "That's where the battle is won or lost.", "dur": 5},
+            {"type": "cta", "dur": 4},
         ],
     },
 ]
@@ -560,116 +796,108 @@ REELS = [
 
 def main():
     print()
-    print("  \u2554" + "\u2550" * 50 + "\u2557")
-    print("  \u2551  DS MARKETING REELS ENGINE v1.0               \u2551")
-    print("  \u2551  AI Voiceover + Animated Video + Music         \u2551")
-    print("  \u2551  Pure Black & White. Ready for Instagram.      \u2551")
-    print("  \u255a" + "\u2550" * 50 + "\u255d")
+    print("  \u2554" + "\u2550" * 52 + "\u2557")
+    print("  \u2551  DS MARKETING REELS ENGINE v2.0                 \u2551")
+    print("  \u2551  Ultra-Human Voice + Cinema Frames + Music       \u2551")
+    print("  \u2551  Pure Black & White. Ready for Instagram.        \u2551")
+    print("  \u255a" + "\u2550" * 52 + "\u255d")
+    print()
+    print(f"  Voice: {VOICE} (deep, authoritative)")
+    print(f"  Output: {OUT}/")
     print()
 
     os.makedirs(OUT, exist_ok=True)
     os.makedirs(f"{OUT}/audio", exist_ok=True)
 
-    # Check for character images from the Image Engine
-    char_dir = "ds-marketing-engine/characters"
-    if not os.path.exists(char_dir):
-        char_dir = "ds-marketing-bw/characters"
-    if not os.path.exists(char_dir):
-        char_dir = "ds-marketing-final/characters"
+    # Find characters
+    char_dir = None
+    for d in ["ds-marketing-engine/characters", "ds-marketing-bw/characters", "ds-marketing-final/characters"]:
+        if os.path.exists(d):
+            char_dir = d
+            break
 
-    has_chars = os.path.exists(char_dir)
-    if has_chars:
-        print(f"  Found characters in: {char_dir}/")
+    if char_dir:
+        print(f"  Characters: {char_dir}/")
     else:
-        print("  No character folder found — using text-only frames.")
-        print("  (Run ds_engine.py first for character images)")
+        print("  No characters found — using text-only frames.")
     print()
 
-    # ─── Generate background music ───
-    print("  STEP 1: Generating Background Music")
-    print("  " + "\u2500" * 50)
-    music_path = f"{OUT}/audio/ambient_bg.wav"
-    generate_ambient_music(music_path, duration=35)
+    # Music
+    print("  STEP 1: Cinematic Soundtrack")
+    print("  " + "\u2500" * 52)
+    music_path = f"{OUT}/audio/cinematic_bg.wav"
+    make_music(music_path, duration=45)
 
-    # ─── Generate reels ───
-    for reel_idx, reel in enumerate(REELS):
-        print(f"\n  STEP {reel_idx + 2}: {reel['title']}")
-        print("  " + "\u2500" * 50)
+    # Reels
+    for idx, reel in enumerate(REELS):
+        print(f"\n  STEP {idx + 2}: {reel['title']}")
+        print("  " + "\u2500" * 52)
 
-        # Generate voiceover
-        voice_path = f"{OUT}/audio/{reel['name']}_voice.mp3"
-        print(f"    Generating AI voiceover...")
-        generate_voiceover(reel["voice_text"], voice_path, rate="-5%")
+        # Voice
+        vp = f"{OUT}/audio/{reel['name']}_voice.mp3"
+        print(f"    Generating voice...")
+        make_voice(reel["voice_text"], vp)
 
-        # Build scene frames
-        print(f"    Building video frames...")
+        # Frames
+        print(f"    Building frames...")
         scenes = []
-        for scene in reel["scenes"]:
-            char_path = None
-            if scene.get("char") and has_chars:
-                cp = f"{char_dir}/{scene['char']}.png"
-                if os.path.exists(cp):
-                    char_path = cp
-
-            if char_path:
-                frame = char_text_frame(char_path, scene["lines"], scene.get("subtitle"))
+        for sc in reel["scenes"]:
+            if sc["type"] == "char":
+                cp = None
+                if char_dir and sc.get("char"):
+                    # Try exact name first, then common variations
+                    for name in [sc["char"], sc["char"] + "_desk", sc["char"] + "_launch"]:
+                        p = f"{char_dir}/{name}.png"
+                        if os.path.exists(p):
+                            cp = p
+                            break
+                frame = frame_character_hero(cp, sc["lines"], sc.get("sub"))
+            elif sc["type"] == "num":
+                frame = frame_number_point(sc["num"], sc["title"], sc.get("sub"))
+            elif sc["type"] == "day":
+                frame = frame_day(sc["day"], sc["desc"])
+            elif sc["type"] == "cta":
+                frame = frame_cta()
             else:
-                # Determine if first line looks like a number
-                num = None
-                text_lines = scene["lines"]
-                if len(text_lines) >= 2 and text_lines[0] in ["01","02","03","04","05","06","07","08","09","10"]:
-                    num = text_lines[0]
-                    text_lines = text_lines[1:]
+                frame = frame_big_text(sc["lines"], sc.get("sub"))
+            scenes.append({"image": frame, "duration": sc["dur"]})
 
-                frame = text_frame(text_lines, scene.get("subtitle"), num)
-
-            scenes.append({"image": frame, "duration": scene["dur"]})
-
-        # Build final video
+        # Render
         print(f"    Rendering video...")
-        output_path = f"{OUT}/{reel['name']}.mp4"
+        op = f"{OUT}/{reel['name']}.mp4"
         try:
-            build_reel(scenes, voice_path, music_path, output_path)
+            render_reel(scenes, vp, music_path, op)
         except Exception as e:
-            print(f"    ! Video render error: {e}")
-            print(f"    Trying without music...")
+            print(f"    ! Error: {e}")
             try:
-                build_reel(scenes, voice_path, None, output_path)
+                render_reel(scenes, vp, None, op)
             except Exception as e2:
-                print(f"    ! Render failed: {e2}")
-                # Last resort: video without any audio
+                print(f"    ! Fallback error: {e2}")
                 try:
-                    build_reel(scenes, None, None, output_path)
-                    print(f"    (exported without audio)")
+                    render_reel(scenes, None, None, op)
                 except Exception as e3:
-                    print(f"    ! Complete failure: {e3}")
+                    print(f"    ! Failed: {e3}")
 
-    # ─── Done ───
     print()
-    print("  \u2554" + "\u2550" * 50 + "\u2557")
-    print("  \u2551  ALL DONE \u2014 REELS ENGINE COMPLETE              \u2551")
-    print("  \u255a" + "\u2550" * 50 + "\u255d")
+    print("  \u2554" + "\u2550" * 52 + "\u2557")
+    print("  \u2551  ALL DONE \u2014 REELS v2.0 COMPLETE                 \u2551")
+    print("  \u255a" + "\u2550" * 52 + "\u255d")
     print(f"""
   Your reels: {OUT}/
 
-     reel_01_mistakes.mp4    — 7 Social Media Mistakes
-     reel_02_calendar.mp4    — Content Calendar Framework
-     reel_03_three_seconds.mp4 — The 3-Second Rule
+     reel_01_mistakes.mp4      7 Social Media Mistakes
+     reel_02_calendar.mp4      Content Calendar Framework
+     reel_03_hook.mp4          The 3-Second Rule
 
-  Each reel includes:
-     AI voiceover (Microsoft neural voice)
-     Background ambient music
+  Each includes:
+     Deep authoritative AI voice (DavisNeural)
+     Dark cinematic ambient soundtrack
      Animated zoom transitions
-     9:16 vertical format (Instagram Reels)
+     9:16 vertical (Instagram Reels)
 
-  HOW TO POST:
-  1. Open the {OUT}/ folder
-  2. Upload reels to Instagram
-  3. Add trending audio on top if you want (optional)
-
-  Pure Black & White. Professional voiceover. Ready to post.
+  Upload directly to Instagram.
+  Pure Black & White. Your Brand. Maximum Impact.
 """)
-
 
 if __name__ == "__main__":
     main()
