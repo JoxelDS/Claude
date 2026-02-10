@@ -1,6 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
 
+const BASE = import.meta.env.BASE_URL;
+const LOGO_WHITE = `${BASE}sodexo-live-logo.svg`;
+const LOGO_DARK = `${BASE}sodexo-dark.svg`;
+
 /* ── AES-256-GCM Encryption (Web Crypto API) ────────────── */
 const SALT_KEY = "sdx_salt";
 const USERS_KEY = "sdx_users";
@@ -207,7 +211,7 @@ function BadgeScreen({ onUnlock }) {
   return (
     <div className="pinOverlay">
       <div className="pinCard">
-        <img src="/sodexo-dark.svg" alt="Sodexo" className="pinLogo" />
+        <img src={LOGO_DARK} alt="Sodexo" className="pinLogo" />
 
         {mode === "signin" && (<>
           <div className="pinTitle">Badge Sign-In</div>
@@ -922,7 +926,7 @@ function RenderedOutput({ noteType, useCase, context, inspection, rawNotes, insp
     <div className="rpt">
       {/* Report Header Bar */}
       <div className="rptHeader">
-        <img src="/sodexo-dark.svg" alt="Sodexo" className="rptLogo" />
+        <img src={LOGO_DARK} alt="Sodexo" className="rptLogo" />
         <div className="rptHeaderRight">
           <div className="rptDocType">{inspectionType || "Kitchen Inspection"}</div>
           <div className="rptDocId">Report #{Date.now().toString(36).toUpperCase()}</div>
@@ -1348,7 +1352,7 @@ function HistoryPage({ onBack }) {
     <div className="appShell">
       <header className="topBar">
         <div className="brandLeft">
-          <img src="/sodexo-live-logo.svg" alt="Sodexo" className="brandLogo" />
+          <img src={LOGO_WHITE} alt="Sodexo" className="brandLogo" />
           <div>
             <div className="brandTitle">Inspection History</div>
             <div className="brandSub">{history.length} saved inspection{history.length !== 1 ? "s" : ""}</div>
@@ -1485,7 +1489,7 @@ function HistoryPage({ onBack }) {
       </main>
 
       <footer className="footer">
-        <img src="/sodexo-live-logo.svg" alt="Sodexo" className="footerLogo" />
+        <img src={LOGO_WHITE} alt="Sodexo" className="footerLogo" />
         <span>Inspection history is stored locally in your browser.</span>
       </footer>
     </div>
@@ -1522,7 +1526,7 @@ function AdminPanel({ currentUser, onBack }) {
     <div className="appShell">
       <header className="topBar">
         <div className="brandLeft">
-          <img src="/sodexo-live-logo.svg" alt="Sodexo" className="brandLogo" />
+          <img src={LOGO_WHITE} alt="Sodexo" className="brandLogo" />
           <div>
             <div className="brandTitle">Admin Panel</div>
             <div className="brandSub">Manage user access &amp; permissions</div>
@@ -1606,7 +1610,7 @@ function AdminPanel({ currentUser, onBack }) {
       </main>
 
       <footer className="footer">
-        <img src="/sodexo-live-logo.svg" alt="Sodexo" className="footerLogo" />
+        <img src={LOGO_WHITE} alt="Sodexo" className="footerLogo" />
         <span>User accounts are stored locally on this device.</span>
       </footer>
     </div>
@@ -1877,7 +1881,7 @@ export default function App() {
     <div className="appShell">
       <header className="topBar">
         <div className="brandLeft">
-          <img src="/sodexo-live-logo.svg" alt="Sodexo" className="brandLogo" />
+          <img src={LOGO_WHITE} alt="Sodexo" className="brandLogo" />
           <div>
             <div className="brandTitle">Kitchen Inspection</div>
             <div className="brandSub">Turn sit-down inspection notes into organized documents</div>
@@ -2106,7 +2110,7 @@ export default function App() {
       </main>
 
       <footer className="footer">
-        <img src="/sodexo-live-logo.svg" alt="Sodexo" className="footerLogo" />
+        <img src={LOGO_WHITE} alt="Sodexo" className="footerLogo" />
         <span>Tip: Attach the same photos listed in the Photo Index so the email references match.</span>
       </footer>
     </div>
