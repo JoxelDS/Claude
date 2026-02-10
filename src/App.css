@@ -1320,8 +1320,296 @@ body {
   border: 1px solid rgba(21,128,61,.2);
 }
 
+/* ── Page Main (for History + Admin) ─────────────────────── */
+.pageMain {
+  padding: 24px 28px;
+  margin: 0 auto;
+  width: 100%;
+}
+.pageMainWide { max-width: 1200px; }
+.pageMainNarrow { max-width: 900px; }
+.filterGrid { grid-template-columns: 1fr 1fr 1fr; }
+
 /* ── Scrollbar ───────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--sdx-gray-300); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--sdx-gray-400); }
+
+/* ── Touch & Mobile Foundations ─────────────────────────── */
+
+/* Prevent tap highlight flash on all touch devices */
+@media (pointer: coarse) {
+  * { -webkit-tap-highlight-color: transparent; }
+
+  /* Minimum 44px touch targets (Apple HIG / WCAG) */
+  .btn, .select, .seg, .btnLink, .btnLock, .btnAdmin {
+    min-height: 44px;
+  }
+  .btnSmall { min-height: 38px; }
+
+  /* Smoother scrolling everywhere */
+  .outputPre, .rptTable, .cardBody, .historyList {
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* Safe-area insets for modern iPhones + iPads with rounded displays */
+@supports (padding: env(safe-area-inset-top)) {
+  .topBar {
+    padding-left: max(28px, env(safe-area-inset-left));
+    padding-right: max(28px, env(safe-area-inset-right));
+  }
+  .footer {
+    padding-bottom: max(14px, env(safe-area-inset-bottom));
+    padding-left: max(28px, env(safe-area-inset-left));
+    padding-right: max(28px, env(safe-area-inset-right));
+  }
+  .grid {
+    padding-left: max(28px, env(safe-area-inset-left));
+    padding-right: max(28px, env(safe-area-inset-right));
+  }
+  .pinOverlay {
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
+}
+
+/* ── iPad Landscape (1024–1100px) ──────────────────────── */
+@media (max-width: 1100px) and (min-width: 769px) {
+  .grid { gap: 18px; padding: 20px 22px; }
+  .topActions { gap: 8px; }
+  .topActions .btn { padding: 7px 12px; font-size: 0.82rem; }
+  .userBadgeLabel { font-size: 0.72rem; max-width: 140px; overflow: hidden; text-overflow: ellipsis; }
+  .cardBody { padding: 18px; }
+  .fieldGrid { gap: 12px; }
+
+  /* Report table on narrower 2-col layout */
+  .rptTable th, .rptTable td { padding: 7px 10px; font-size: 0.78rem; }
+  .rptSectionCell { font-size: 0.72rem; }
+}
+
+/* ── iPad Portrait / Small Tablet (601–768px) ─────────── */
+@media (max-width: 768px) {
+  .topBar {
+    padding: 10px 16px;
+    height: auto;
+    min-height: 56px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .brandLeft { gap: 10px; }
+  .brandLogo { height: 32px; }
+  .brandTitle { font-size: 0.95rem; }
+  .brandSub { display: none; }
+  .topActions {
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+  .topActions .btn {
+    padding: 8px 14px;
+    font-size: 0.8rem;
+  }
+  .userBadgeLabel { display: none; }
+
+  .grid {
+    grid-template-columns: 1fr;
+    padding: 16px;
+    gap: 16px;
+  }
+  .cardHeader { padding: 14px 18px; }
+  .cardBody { padding: 18px; }
+  .fieldGrid { gap: 12px; }
+
+  .downloadBar {
+    flex-direction: column;
+    gap: 8px;
+    align-items: stretch;
+  }
+  .downloadBar .btn { width: 100%; justify-content: center; min-height: 44px; }
+
+  /* Report output */
+  .rptHeader { padding: 14px 18px; }
+  .rptTitleBar { padding: 16px 18px; flex-direction: column; align-items: flex-start; gap: 10px; }
+  .rptTitle { font-size: 1.15rem; }
+  .rptInfoGrid { grid-template-columns: 1fr 1fr; }
+  .rptInfoItem { padding: 10px 18px; }
+  .rptBlock { padding: 16px 18px; }
+  .rptTable { font-size: 0.78rem; }
+  .rptTable th, .rptTable td { padding: 8px 10px; }
+
+  /* History page */
+  .historyMeta { grid-template-columns: 1fr 1fr; }
+
+  /* Admin panel */
+  .adminUserRow { flex-direction: column; align-items: flex-start; gap: 10px; }
+  .adminUserActions { width: 100%; }
+  .adminUserActions .btn { flex: 1; justify-content: center; }
+
+  /* Page mains */
+  .pageMain { padding: 16px; }
+  .filterGrid { grid-template-columns: 1fr 1fr; }
+
+  /* Badge / sign-in screen */
+  .pinCard { width: 400px; max-width: 90vw; padding: 36px 32px; }
+  .pinInput { min-height: 52px; }
+  .pinBtn { min-height: 48px; }
+}
+
+/* ── Large Phone / iPad Split View (481–600px) ────────── */
+@media (max-width: 600px) {
+  .fieldGrid { grid-template-columns: 1fr; }
+  .filterGrid { grid-template-columns: 1fr; }
+
+  .topActions {
+    width: 100%;
+    justify-content: flex-end;
+    gap: 6px;
+  }
+
+  /* History filter grid */
+  .historyMeta { grid-template-columns: 1fr; }
+
+  .pageMain { padding: 12px; }
+}
+
+/* ── Phone (≤480px) ───────────────────────────────────── */
+@media (max-width: 480px) {
+  .topBar {
+    padding: 8px 12px;
+    gap: 6px;
+  }
+  .brandLogo { height: 26px; }
+  .brandTitle { font-size: 0.88rem; }
+  .topActions {
+    width: 100%;
+    justify-content: center;
+    gap: 5px;
+    flex-wrap: wrap;
+  }
+  .topActions .btn {
+    padding: 8px 10px;
+    font-size: 0.75rem;
+  }
+  .btnAdmin { padding: 8px 12px; font-size: 0.72rem; }
+  .btnLock { padding: 6px 10px; font-size: 0.9rem; }
+
+  .grid {
+    padding: 10px;
+    gap: 12px;
+  }
+  .cardHeader {
+    padding: 12px 14px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  .cardBody { padding: 14px; }
+  .cardTitle { font-size: 0.92rem; }
+
+  .fieldGrid { grid-template-columns: 1fr; gap: 10px; margin-bottom: 12px; }
+
+  /* 16px prevents iOS zoom on focus */
+  .input, .select, .textarea, .pinInput, .regInput { font-size: 16px; }
+  .textarea { min-height: 120px; }
+
+  .outputActions { flex-direction: column; gap: 6px; width: 100%; }
+  .outputActions .btn { width: 100%; }
+
+  /* Guide section */
+  .guide { padding: 14px; }
+  .guideItemHead { flex-direction: column; align-items: flex-start; gap: 8px; }
+  .guideItemHead .select { width: 100%; }
+  .guideItem { padding: 14px 12px; }
+  .tempsGrid { grid-template-columns: 1fr; }
+  .pillRow { flex-wrap: wrap; }
+
+  /* Report */
+  .rptHeader { flex-direction: column; gap: 8px; align-items: flex-start; }
+  .rptHeaderRight { text-align: left; }
+  .rptTitleBar { padding: 14px; }
+  .rptTitle { font-size: 1.05rem; }
+  .rptStatus { padding: 8px 16px; font-size: 0.72rem; text-align: center; width: 100%; }
+  .rptInfoGrid { grid-template-columns: 1fr; }
+  .rptInfoItem { padding: 10px 14px; border-right: none; }
+  .rptBlock { padding: 14px; }
+  .rptBlockTitle { font-size: 0.74rem; }
+  .rptTable { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .rptTable th, .rptTable td { padding: 6px 8px; font-size: 0.72rem; white-space: nowrap; }
+  .rptSectionCell { font-size: 0.7rem; }
+  .rptIssueRow { flex-wrap: wrap; }
+  .rptIssueContent { min-width: 0; }
+  .rptActionRow { flex-wrap: wrap; }
+  .rptActionContent { flex-direction: column; align-items: flex-start; gap: 4px; }
+  .rptFooter { font-size: 0.64rem; padding: 12px 14px; }
+
+  /* History */
+  .historyTable { font-size: 0.78rem; display: block; overflow-x: auto; }
+  .historyTable th, .historyTable td { padding: 8px 10px; }
+
+  /* Admin */
+  .adminUserRow { padding: 14px 0; }
+  .adminUserActions { gap: 6px; flex-wrap: wrap; }
+  .adminUserActions .btn { padding: 8px 12px; font-size: 0.75rem; flex: 1; min-width: 0; justify-content: center; }
+  .roleBadge { font-size: 0.62rem; padding: 2px 6px; }
+
+  /* Badge screen */
+  .pinOverlay { padding: 16px; align-items: flex-start; padding-top: 10vh; }
+  .pinCard { width: 100%; max-width: 100%; padding: 28px 20px; border-radius: var(--radius-md); }
+  .pinLogo { height: 38px; }
+  .pinTitle { font-size: 1.15rem; }
+  .pinSub { font-size: 0.8rem; }
+  .pinInput { font-size: 16px; padding: 14px; min-height: 52px; }
+  .badgeInput { letter-spacing: 3px; }
+  .regInput { font-size: 16px; min-height: 48px; }
+  .pinBtn { min-height: 48px; font-size: 0.92rem; }
+  .btnLink { min-height: 44px; display: flex; align-items: center; justify-content: center; }
+
+  /* Footer */
+  .footer { padding: 12px 16px; font-size: 0.7rem; flex-direction: column; gap: 6px; }
+  .footerLogo { height: 20px; }
+
+  /* Download bar */
+  .downloadBar { padding: 12px 14px; }
+  .downloadLabel { font-size: 0.78rem; }
+  .btnDownload { font-size: 0.8rem; padding: 10px 14px; min-height: 44px; }
+}
+
+/* ── Very Small Phone (≤360px) ────────────────────────── */
+@media (max-width: 360px) {
+  .grid { padding: 8px; gap: 10px; }
+  .cardHeader { padding: 10px 12px; }
+  .cardBody { padding: 12px; }
+  .topActions .btn { padding: 7px 6px; font-size: 0.68rem; }
+  .brandLogo { height: 22px; }
+  .brandTitle { font-size: 0.82rem; }
+  .guide { padding: 10px; margin: 12px 0; }
+  .rptInfoItem { padding: 8px 12px; }
+  .rptBlock { padding: 10px 12px; }
+  .pinCard { padding: 24px 16px; }
+}
+
+/* ── iPad Landscape-only tweaks ───────────────────────── */
+@media (min-width: 769px) and (max-width: 1100px) and (orientation: landscape) {
+  /* Keep 2-col grid but give more room */
+  .grid { grid-template-columns: 1fr 1fr; gap: 16px; padding: 16px 20px; }
+  .rptInfoGrid { grid-template-columns: repeat(3, 1fr); }
+}
+
+/* ── iPad Portrait-only tweaks ────────────────────────── */
+@media (min-width: 769px) and (max-width: 1100px) and (orientation: portrait) {
+  /* Single-column on iPad portrait for better readability */
+  .grid { grid-template-columns: 1fr; max-width: 700px; margin-left: auto; margin-right: auto; }
+}
+
+/* ── Landscape phone (short height) ──────────────────── */
+@media (max-height: 500px) and (orientation: landscape) {
+  .topBar { min-height: 44px; padding-top: 4px; padding-bottom: 4px; }
+  .pinOverlay { align-items: flex-start; padding-top: 8px; }
+  .pinCard { padding: 16px 20px; }
+  .pinLogo { height: 28px; margin-bottom: 12px; }
+  .pinTitle { font-size: 1rem; margin-bottom: 4px; }
+  .pinSub { font-size: 0.75rem; margin-bottom: 12px; }
+  .pinForm { gap: 8px; }
+  .pinFooter { margin-top: 10px; }
+}
