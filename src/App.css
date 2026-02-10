@@ -1851,41 +1851,75 @@ body {
 /* ── Temperature Trend Charts ──────────────────────────── */
 .tempChartsGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
   gap: 24px;
 }
 .tempChartItem {
   background: #fafbfc;
-  border-radius: 10px;
-  padding: 14px 12px 10px;
+  border-radius: 12px;
+  padding: 16px 14px 12px;
   border: 1px solid #e5e7eb;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+}
+.tempChartHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+  padding: 0 4px;
 }
 .tempChartLabel {
   font-weight: 700;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   color: var(--sdx-navy);
+}
+.tempChartUnit {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #6b7280;
+  background: #f3f4f6;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+.tempChartAvgs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
   margin-bottom: 8px;
-  padding-left: 4px;
+  padding: 0 4px;
+}
+.tempAvgPill {
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 100px;
+  white-space: nowrap;
 }
 .tempChartSvg {
   width: 100%;
   height: auto;
-  max-height: 180px;
+  max-height: 220px;
+  cursor: crosshair;
 }
 .tempChartLegend {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 0.7rem;
+  gap: 14px;
+  font-size: 0.72rem;
   color: #6b7280;
-  margin-top: 6px;
+  margin-top: 8px;
   padding-left: 4px;
   flex-wrap: wrap;
 }
+.tempLegendItem {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
 .tempLegendDot {
   display: inline-block;
-  width: 9px;
-  height: 9px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
   flex-shrink: 0;
 }
@@ -1924,16 +1958,19 @@ body {
 .recurringList {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
   margin-top: 10px;
 }
 .recurringItem {
   position: relative;
   background: #fef2f2;
-  border-radius: 8px;
+  border-radius: 10px;
   padding: 10px 14px;
   border: 1px solid #fecaca;
   overflow: hidden;
+}
+.recurringItemExpanded {
+  padding: 12px 16px;
 }
 .recurringBar {
   position: absolute;
@@ -1944,11 +1981,28 @@ body {
   border-right: 2px solid rgba(239, 68, 68, 0.2);
   pointer-events: none;
 }
+.recurringTop {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
 .recurringLabel {
   position: relative;
   font-weight: 700;
-  font-size: 0.85rem;
+  font-size: 0.88rem;
   color: #991b1b;
+}
+.recurringBadge {
+  position: relative;
+  font-size: 0.7rem;
+  font-weight: 700;
+  background: #dc2626;
+  color: white;
+  padding: 2px 8px;
+  border-radius: 100px;
+  white-space: nowrap;
 }
 .recurringCount {
   position: relative;
@@ -1956,6 +2010,65 @@ body {
   font-size: 0.72rem;
   color: #b91c1c;
   margin-top: 2px;
+}
+.recurringKitchens {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 8px;
+}
+.recurringKitchenTag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #7f1d1d;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  padding: 3px 9px;
+  border-radius: 6px;
+}
+.recurringKitchenCount {
+  font-weight: 800;
+  color: #dc2626;
+}
+
+/* Worst locations ranking */
+.worstLocationsList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+}
+.worstLocation {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #fafbfc;
+  border-radius: 8px;
+  padding: 10px 14px;
+  border: 1px solid #e5e7eb;
+}
+.worstRank {
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: white;
+  padding: 3px 8px;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+.worstName {
+  flex: 1;
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: #1e293b;
+}
+.worstCount {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #dc2626;
 }
 
 .flaggedLocation {
@@ -1988,6 +2101,54 @@ body {
 .flaggedIssueCat { font-weight: 600; color: #78350f; }
 .flaggedIssueRate { font-weight: 700; font-size: 0.75rem; }
 
+/* ── Sticky Action Bar ──────────────────────────────────── */
+.stickyActionBar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  gap: 8px;
+  padding: 10px 16px;
+  padding-bottom: max(10px, env(safe-area-inset-bottom));
+  background: linear-gradient(135deg, #2A295C 0%, #1a1940 100%);
+  box-shadow: 0 -4px 20px rgba(0,0,0,0.25);
+  z-index: 1000;
+  justify-content: center;
+}
+.stickyBtn {
+  font-weight: 700;
+  font-size: 0.82rem;
+  padding: 10px 18px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: transform 0.1s, opacity 0.15s;
+}
+.stickyBtn:active { transform: scale(0.97); }
+.stickyBtnView {
+  background: white;
+  color: var(--sdx-navy);
+}
+.stickyBtnSave {
+  background: #15803D;
+  color: white;
+}
+.stickyBtnSaved {
+  background: #22c55e;
+  color: white;
+}
+.stickyBtnNew {
+  background: rgba(255,255,255,0.15);
+  color: white;
+  border: 1px solid rgba(255,255,255,0.3);
+}
+.stickyBtnNew:hover { background: rgba(255,255,255,0.25); }
+
+/* Push footer up so sticky bar doesn't cover it */
+.footer { padding-bottom: 60px; }
+
 /* ── Responsive: charts on smaller screens ──────────── */
 @media (max-width: 600px) {
   .tempChartsGrid { grid-template-columns: 1fr; }
@@ -1995,4 +2156,8 @@ body {
   .analysisStat { padding: 10px 8px; min-width: 80px; }
   .analysisStatNum { font-size: 1.3rem; }
   .flaggedIssue { flex-direction: column; align-items: flex-start; gap: 2px; }
+  .stickyBtn { padding: 10px 12px; font-size: 0.78rem; }
+  .worstLocation { padding: 8px 10px; }
+  .recurringKitchens { gap: 4px; }
+  .recurringKitchenTag { font-size: 0.68rem; padding: 2px 7px; }
 }
