@@ -1536,7 +1536,14 @@ function HistoryPage({ onBack }) {
                       <span className="historyStatus" style={{ background: statusColor }}>{rec.overallStatus}</span>
                       <div>
                         <div className="cardTitle">{rec.siteName || rec.location || "Inspection"}</div>
-                        <div className="cardSub">{rec.inspectionDate} &middot; {rec.inspectionType} &middot; {rec.inspectorName || "—"}</div>
+                        <div className="cardSub">
+                          {rec.inspectionDate} &middot;{" "}
+                          <span className={cx("typeBadge",
+                            rec.inspectionType === "Event Day" ? "typeBadgeEvent" :
+                            rec.inspectionType === "Post Event" ? "typeBadgePost" : "typeBadgeRegular"
+                          )}>{rec.inspectionType}</span>
+                          {" "}&middot; {rec.inspectorName || "—"}
+                        </div>
                       </div>
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
