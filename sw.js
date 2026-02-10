@@ -1,5 +1,5 @@
-// Sodexo Kitchen Inspection — Service Worker (cache-first)
-const CACHE_NAME = "sdx-inspect-v1";
+// Sodexo Kitchen Inspection — Service Worker (cache-first + daily cleanup)
+const CACHE_NAME = "sdx-inspect-v2";
 const PRECACHE = [
   "./",
   "./favicon.svg",
@@ -23,6 +23,15 @@ self.addEventListener("activate", (e) => {
     )
   );
   self.clients.claim();
+});
+
+// Daily cache cleanup — runs via message from the app
+self.addEventListener("message", (e) => {
+  if (e.data === "CLEAN_CACHE") {
+    caches.delete(CACHE_NAME).then(() => {
+      caches.open(CACHE_NAME).then((cache) => cache.addAll(PRECACHE));
+    });
+  }
 });
 
 // Fetch: stale-while-revalidate for assets, network-first for API/fonts
