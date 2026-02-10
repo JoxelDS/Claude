@@ -1659,7 +1659,9 @@ body {
     min-height: 52px;
     flex-wrap: nowrap;
     gap: 8px;
-    position: relative;
+    position: sticky;
+    top: 0;
+    z-index: 100;
   }
   .brandLeft { gap: 8px; }
   .brandLogo { height: 28px; }
