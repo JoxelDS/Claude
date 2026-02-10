@@ -384,6 +384,131 @@ function expandAbbreviations(text) {
   return out;
 }
 
+/* ── Smart Notes Formatter: bullet points + grammar ────── */
+const GRAMMAR_FIXES = [
+  [/\bi\b/g, "I"],
+  [/\bdoesnt\b/gi, "doesn't"],
+  [/\bdidnt\b/gi, "didn't"],
+  [/\bwasnt\b/gi, "wasn't"],
+  [/\bwerent\b/gi, "weren't"],
+  [/\bcant\b/gi, "can't"],
+  [/\bwont\b/gi, "won't"],
+  [/\bcouldnt\b/gi, "couldn't"],
+  [/\bshouldnt\b/gi, "shouldn't"],
+  [/\bwouldnt\b/gi, "wouldn't"],
+  [/\bisnt\b/gi, "isn't"],
+  [/\barent\b/gi, "aren't"],
+  [/\bhasnt\b/gi, "hasn't"],
+  [/\bhavent\b/gi, "haven't"],
+  [/\btheyre\b/gi, "they're"],
+  [/\btheres\b/gi, "there's"],
+  [/\bwere\b(?!\s)/gi, "we're"],
+  [/\bits\b(?=\s+[a-z])/gi, "it's"],
+  [/\brecieved?\b/gi, "received"],
+  [/\bseperately?\b/gi, "separately"],
+  [/\boccured\b/gi, "occurred"],
+  [/\buntill?\b/gi, "until"],
+  [/\balot\b/gi, "a lot"],
+  [/\bteh\b/gi, "the"],
+  [/\bwich\b/gi, "which"],
+  [/\bthere\s+is\b/gi, "there is"],
+  [/\bthru\b/gi, "through"],
+  [/\bppl\b/gi, "people"],
+  [/\bmgr\b/gi, "manager"],
+  [/\bmgmt\b/gi, "management"],
+  [/\bequip\b/gi, "equipment"],
+  [/\bmaint\b/gi, "maintenance"],
+  [/\brefrig\b/gi, "refrigerator"],
+  [/\binfo\b/gi, "information"],
+  [/\bamt\b/gi, "amount"],
+  [/\bapprox\b/gi, "approximately"],
+  [/\bmin\b(?=\s|\.|\,|$)/gi, "minimum"],
+  [/\bmax\b(?=\s|\.|\,|$)/gi, "maximum"],
+  [/\bF\b(?=\s*[\.\,\)]|$)/g, "°F"],
+];
+
+// Categories to tag bullet points by keyword
+const NOTE_CATEGORIES = [
+  { key: "action", patterns: [/\baction\b/i, /\breplace\b/i, /\bfix\b/i, /\brepair\b/i, /\bschedule\b/i, /\bcoach\b/i, /\bfollow\s*up\b/i, /\bbackfill\b/i, /\breset\b/i] },
+  { key: "finding", patterns: [/\bfound\b/i, /\bnoted\b/i, /\bobserved\b/i, /\bscored\b/i, /\bmissing\b/i, /\bshifted\b/i, /\blow\b/i, /\bbroken\b/i, /\bdamaged\b/i, /\bflagged\b/i] },
+  { key: "temp", patterns: [/\d+\s*°?F/i, /\btemperature\b/i, /\bcooler\b/i, /\bfreezer\b/i, /\bhot\s*hold/i, /\bwarm/i] },
+  { key: "question", patterns: [/\bquestion\b/i, /\basked\b/i, /\bwhen\b/i, /\?$/] },
+  { key: "owner", patterns: [/\bowner\b/i, /\bdue\b/i, /\bassign/i, /\bchef\s*lead\b/i] },
+  { key: "context", patterns: [/\bsitdown\b/i, /\bsit-down\b/i, /\brecap\b/i, /\bafter\b/i, /\bbefore\b/i, /\bduring\b/i] },
+];
+
+function categorize(sentence) {
+  for (const cat of NOTE_CATEGORIES) {
+    for (const p of cat.patterns) {
+      if (p.test(sentence)) return cat.key;
+    }
+  }
+  return "general";
+}
+
+const CATEGORY_LABELS = {
+  context: "Context",
+  finding: "Findings",
+  temp: "Temperatures",
+  question: "Questions",
+  action: "Action Items",
+  owner: "Ownership & Deadlines",
+  general: "Notes",
+};
+
+const CATEGORY_ORDER = ["context", "temp", "finding", "question", "action", "owner", "general"];
+
+function fixGrammar(text) {
+  let out = text;
+  for (const [re, rep] of GRAMMAR_FIXES) out = out.replace(re, rep);
+  // Capitalize first letter of the sentence
+  out = out.replace(/^\s*([a-z])/, (_, c) => c.toUpperCase());
+  // Fix double spaces
+  out = out.replace(/\s{2,}/g, " ");
+  // End with a period if it doesn't end with punctuation
+  out = out.trim();
+  if (out && !/[.!?]$/.test(out)) out += ".";
+  return out;
+}
+
+function formatNotesStructured(rawNotes) {
+  if (!rawNotes || !rawNotes.trim()) return { bullets: [], grouped: {} };
+
+  // Step 1: expand abbreviations
+  let text = expandAbbreviations(rawNotes);
+
+  // Step 2: split into sentences by period, semicolon, or newline
+  const raw = text
+    .split(/(?<=\.)\s+|;\s*|\n+/)
+    .map(s => s.trim())
+    .filter(s => s.length > 2);
+
+  // Step 3: fix grammar and capitalize
+  const bullets = raw.map(s => fixGrammar(s));
+
+  // Step 4: group by category
+  const grouped = {};
+  for (const b of bullets) {
+    const cat = categorize(b);
+    if (!grouped[cat]) grouped[cat] = [];
+    grouped[cat].push(b);
+  }
+
+  return { bullets, grouped };
+}
+
+function formatNotesText(rawNotes) {
+  const { grouped } = formatNotesStructured(rawNotes);
+  const lines = [];
+  for (const cat of CATEGORY_ORDER) {
+    if (!grouped[cat] || !grouped[cat].length) continue;
+    lines.push(`${CATEGORY_LABELS[cat]}:`);
+    for (const b of grouped[cat]) lines.push(`  • ${b}`);
+    lines.push("");
+  }
+  return lines.join("\n").trim() || rawNotes || "";
+}
+
 function cx(...classes) {
   return classes.filter(Boolean).join(" ");
 }
@@ -666,7 +791,7 @@ function emailPreview({ noteType, context, inspection, rawNotes, inspectionType,
     `## Findings by Area`, findingsText, "",
     `## Corrective Actions (please assign Owner + Due)`, tableMarkdown(actionItems), "",
     `## Photo Index`, photoIndex, "",
-    `## Raw Notes (verbatim)`, rawNotes || "—",
+    `## Inspector Notes (organized)`, formatNotesText(rawNotes) || "—",
   ].join("\n");
 }
 
@@ -688,7 +813,7 @@ function transformLocally({ noteType, useCase, context, inspection, rawNotes, in
       `Inspector: ${inspectorName || "—"} | Status: *${status}*`,
       "",
       `*Summary:*`,
-      expandedNotes,
+      formatNotesText(rawNotes),
       "",
     ];
     if (actionItems.length) {
@@ -706,8 +831,8 @@ function transformLocally({ noteType, useCase, context, inspection, rawNotes, in
       `Date: ${date} | Inspector: ${inspectorName || "—"} | Supervisor: ${supervisorName || "—"}`,
       `Overall Status: ${status}`,
       "",
-      "## Expanded Notes",
-      expandedNotes,
+      "## Inspector Notes",
+      formatNotesText(rawNotes),
       "",
       "## Findings",
     ];
@@ -789,7 +914,7 @@ function transformLocally({ noteType, useCase, context, inspection, rawNotes, in
     lines.push("", `--- ACTION ITEMS (${actionItems.length}) ---`);
     for (const a of actionItems) lines.push(`  [${a.priority}] ${a.issue}`);
     if (!actionItems.length) lines.push("  None.");
-    lines.push("", `--- RAW NOTES ---`, expandedNotes);
+    lines.push("", `--- INSPECTOR NOTES ---`, formatNotesText(rawNotes));
     return lines.join("\n");
   }
 
@@ -1050,13 +1175,30 @@ function RenderedOutput({ noteType, useCase, context, inspection, rawNotes, insp
         </div>
       )}
 
-      {/* Notes */}
-      {(expandedNotes || rawNotes) && (
-        <div className="rptBlock">
-          <div className="rptBlockTitle">Inspector Notes</div>
-          <div className="rptNotesContent">{expandedNotes || rawNotes}</div>
-        </div>
-      )}
+      {/* Notes – organized by category with bullet points */}
+      {rawNotes && (() => {
+        const { grouped } = formatNotesStructured(rawNotes);
+        const hasBullets = Object.values(grouped).some(arr => arr.length > 0);
+        if (!hasBullets) return null;
+        return (
+          <div className="rptBlock">
+            <div className="rptBlockTitle">Inspector Notes</div>
+            <div className="rptNotesOrganized">
+              {CATEGORY_ORDER.map(cat => {
+                if (!grouped[cat] || !grouped[cat].length) return null;
+                return (
+                  <div className="rptNoteCategory" key={cat}>
+                    <div className={cx("rptNoteCatLabel", `rptNoteCat--${cat}`)}>{CATEGORY_LABELS[cat]}</div>
+                    <ul className="rptNoteBullets">
+                      {grouped[cat].map((b, i) => <li key={i}>{b}</li>)}
+                    </ul>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Footer */}
       <div className="rptFooter">
@@ -1139,8 +1281,8 @@ function exportAsCsv({ inspection, rawNotes, inspectionType, inspectionDate, ins
   <tr><th>#</th><th colspan="3">Issue</th><th>Priority</th></tr>
   ${actionItems.map((a, i) => `<tr><td>${i + 1}</td><td colspan="3">${a.issue}</td><td class="${a.priority === "High" ? "fail" : "warn"}">${a.priority}</td></tr>`).join("\n  ")}
   <tr><td colspan="5"></td></tr>` : ""}
-  <tr><td class="section-header" colspan="5">RAW NOTES</td></tr>
-  <tr><td colspan="5" style="white-space:pre-wrap;font-size:10pt;">${(rawNotes || "").replace(/</g, "&lt;")}</td></tr>
+  <tr><td class="section-header" colspan="5">INSPECTOR NOTES</td></tr>
+  <tr><td colspan="5" style="white-space:pre-wrap;font-size:10pt;">${formatNotesText(rawNotes).replace(/</g, "&lt;")}</td></tr>
 </table></body></html>`;
 
   const blob = new Blob([html], { type: "application/vnd.ms-excel" });
@@ -1242,7 +1384,12 @@ ${actionItems.length > 0 ? `
 </table>` : ""}
 
 <h2>Inspector Notes</h2>
-<div class="notes-box">${(expandedNotes || rawNotes || "\u2014").replace(/</g, "&lt;")}</div>
+${(() => {
+  const { grouped } = formatNotesStructured(rawNotes);
+  const cats = CATEGORY_ORDER.filter(c => grouped[c]?.length);
+  if (!cats.length) return `<div class="notes-box">\u2014</div>`;
+  return cats.map(cat => `<div style="margin-bottom:12px;"><p style="font-weight:bold;color:#2A295C;font-size:10pt;margin:0 0 4px 0;">${CATEGORY_LABELS[cat]}</p><ul style="margin:0;padding-left:20px;">${grouped[cat].map(b => `<li style="margin-bottom:4px;font-size:10pt;line-height:1.5;">${b.replace(/</g, "&lt;")}</li>`).join("")}</ul></div>`).join("");
+})()}
 
 <div class="footer">
   <p>Generated ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()} \u2022 Sodexo Kitchen Inspection System</p>
@@ -1429,8 +1576,21 @@ function HistoryPage({ onBack }) {
 
                       {rec.rawNotes && (
                         <div style={{ marginTop: 16 }}>
-                          <div className="guideSectionTitle">Raw Notes</div>
-                          <pre className="outputPre" style={{ maxHeight: 200 }}>{rec.rawNotes}</pre>
+                          <div className="guideSectionTitle">Inspector Notes</div>
+                          <div className="historyNotesFormatted" style={{ maxHeight: 250, overflowY: "auto" }}>
+                            {(() => {
+                              const { grouped } = formatNotesStructured(rec.rawNotes);
+                              return CATEGORY_ORDER.map(cat => {
+                                if (!grouped[cat]?.length) return null;
+                                return (
+                                  <div key={cat} style={{ marginBottom: 10 }}>
+                                    <div className={cx("rptNoteCatLabel", `rptNoteCat--${cat}`)}>{CATEGORY_LABELS[cat]}</div>
+                                    <ul className="rptNoteBullets">{grouped[cat].map((b, i) => <li key={i}>{b}</li>)}</ul>
+                                  </div>
+                                );
+                              });
+                            })()}
+                          </div>
                         </div>
                       )}
 
