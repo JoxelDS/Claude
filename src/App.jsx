@@ -1726,7 +1726,7 @@ function TempTrendChart({ history }) {
 }
 
 /* ── Recurring Issues Analysis ──────────────────────────── */
-function RecurringIssuesPanel({ history }) {
+function RecurringIssuesPanel({ history, onLocationClick }) {
   const analysis = useMemo(() => {
     if (history.length < 2) return null;
 
@@ -1858,7 +1858,7 @@ function RecurringIssuesPanel({ history }) {
                   </div>
                   <div className="recurringKitchens">
                     {kitchens.map((k, i) => (
-                      <span key={i} className="recurringKitchenTag">
+                      <span key={i} className="recurringKitchenTag recurringKitchenClickable" onClick={() => onLocationClick?.(k.label.split(" #")[0].split(" (")[0])}>
                         {k.label} <span className="recurringKitchenCount">&times;{k.count}</span>
                       </span>
                     ))}
@@ -1875,10 +1875,11 @@ function RecurringIssuesPanel({ history }) {
             <div className="guideSectionTitle">Locations With Most Issues</div>
             <div className="worstLocationsList">
               {analysis.worstLocations.map(([loc, count], i) => (
-                <div key={loc} className="worstLocation">
+                <div key={loc} className="worstLocation worstLocationClickable" onClick={() => onLocationClick?.(loc.split(" #")[0].split(" (")[0])}>
                   <span className="worstRank" style={{ background: i === 0 ? "#EE0000" : i === 1 ? "#f97316" : "#eab308" }}>#{i + 1}</span>
                   <span className="worstName">{loc}</span>
                   <span className="worstCount">{count} issue{count !== 1 ? "s" : ""}</span>
+                  <span className="worstArrow">&#8594;</span>
                 </div>
               ))}
             </div>
@@ -1918,8 +1919,10 @@ function HistoryPage({ onBack }) {
   const [filterType, setFilterType] = useState("");
   const [filterFloor, setFilterFloor] = useState("");
   const [filterIssue, setFilterIssue] = useState("");
+  const [filterSite, setFilterSite] = useState("");
   const [expandedId, setExpandedId] = useState(null);
   const [historyLoaded, setHistoryLoaded] = useState(false);
+  const [historyTab, setHistoryTab] = useState("reports"); // "reports" | "analytics"
 
   useEffect(() => {
     loadHistory().then(h => { setHistory(h); setHistoryLoaded(true); });
@@ -1940,6 +1943,10 @@ function HistoryPage({ onBack }) {
       if (filterDate && rec.inspectionDate !== filterDate) return false;
       if (filterType && rec.inspectionType !== filterType) return false;
       if (filterFloor && rec.floor !== filterFloor) return false;
+      if (filterSite) {
+        const recSite = `${rec.siteName || rec.location || ""}${rec.siteNumber ? ` #${rec.siteNumber}` : ""}`;
+        if (!recSite.toLowerCase().includes(filterSite.toLowerCase())) return false;
+      }
       if (filterIssue) {
         const hasIssue = (rec.actionItems || []).some(a =>
           a.issue?.toLowerCase().includes(filterIssue.toLowerCase())
@@ -1948,7 +1955,21 @@ function HistoryPage({ onBack }) {
       }
       return true;
     });
-  }, [history, filterDate, filterType, filterFloor, filterIssue]);
+  }, [history, filterDate, filterType, filterFloor, filterSite, filterIssue]);
+
+  // Function to jump to a specific location's reports
+  function filterByLocation(locLabel) {
+    setFilterSite(locLabel);
+    setFilterDate("");
+    setFilterType("");
+    setFilterFloor("");
+    setFilterIssue("");
+    setHistoryTab("reports");
+    setTimeout(() => {
+      const el = document.getElementById("history-results");
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 100);
+  }
 
   function deleteRecord(id) {
     const next = history.filter(r => r.id !== id);
@@ -1989,8 +2010,8 @@ function HistoryPage({ onBack }) {
         <div className="card" style={{ marginBottom: 24 }}>
           <div className="cardHeader">
             <div className="cardTitle">Filters</div>
-            {(filterDate || filterType || filterFloor || filterIssue) && (
-              <button className="btn btnGhost btnSmall" type="button" onClick={() => { setFilterDate(""); setFilterType(""); setFilterFloor(""); setFilterIssue(""); }}>
+            {(filterDate || filterType || filterFloor || filterSite || filterIssue) && (
+              <button className="btn btnGhost btnSmall" type="button" onClick={() => { setFilterDate(""); setFilterType(""); setFilterFloor(""); setFilterSite(""); setFilterIssue(""); }}>
                 Clear filters
               </button>
             )}
@@ -2019,6 +2040,10 @@ function HistoryPage({ onBack }) {
                 </select>
               </label>
               <label className="field">
+                <span className="fieldLabel">Location</span>
+                <input className="input" value={filterSite} onChange={e => setFilterSite(e.target.value)} placeholder="e.g., North Kitchen #204" />
+              </label>
+              <label className="field">
                 <span className="fieldLabel">Search Issues</span>
                 <input className="input" value={filterIssue} onChange={e => setFilterIssue(e.target.value)} placeholder="e.g., ceiling, temp, allergen..." />
               </label>
@@ -2026,16 +2051,29 @@ function HistoryPage({ onBack }) {
           </div>
         </div>
 
-        {/* Analytics */}
+        {/* Tabs */}
         {history.length >= 2 && (
+          <div className="historyTabs">
+            <button className={cx("historyTab", historyTab === "reports" && "historyTabActive")} onClick={() => setHistoryTab("reports")} type="button">
+              Reports ({filtered.length})
+            </button>
+            <button className={cx("historyTab", historyTab === "analytics" && "historyTabActive")} onClick={() => setHistoryTab("analytics")} type="button">
+              Analytics
+            </button>
+          </div>
+        )}
+
+        {/* Analytics Tab */}
+        {historyTab === "analytics" && history.length >= 2 && (
           <>
             <TempTrendChart history={filtered.length > 0 ? filtered : history} />
-            <RecurringIssuesPanel history={filtered.length > 0 ? filtered : history} />
+            <RecurringIssuesPanel history={filtered.length > 0 ? filtered : history} onLocationClick={filterByLocation} />
           </>
         )}
 
-        {/* Results */}
-        {filtered.length === 0 ? (
+        {/* Reports Tab */}
+        {historyTab === "reports" && (
+          filtered.length === 0 ? (
           <div className="card">
             <div className="cardBody">
               <div className="emptyState">
@@ -2045,7 +2083,7 @@ function HistoryPage({ onBack }) {
             </div>
           </div>
         ) : (
-          <div className="historyList">
+          <div className="historyList" id="history-results">
             {filtered.map(rec => {
               const isExpanded = expandedId === rec.id;
               const issues = rec.actionItems || [];
@@ -2140,7 +2178,7 @@ function HistoryPage({ onBack }) {
               );
             })}
           </div>
-        )}
+        ))}
       </main>
 
       <footer className="footer">
@@ -2475,6 +2513,8 @@ export default function App() {
   const [sitePhone, setSitePhone] = useState("");
   const [floor, setFloor] = useState("Floor 1");
 
+  const [menuOpen, setMenuOpen] = useState(false);
+
   const [output, setOutput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -2686,7 +2726,8 @@ export default function App() {
           </div>
         </div>
 
-        <div className="topActions">
+        {/* Desktop actions */}
+        <div className="topActionsDesktop">
           {currentUser && (
             <span className="userBadgeLabel">
               {currentUser.name}{currentUser.role === "admin" ? " (Admin)" : ""}
@@ -2696,12 +2737,39 @@ export default function App() {
           {currentUser?.role === "admin" && (
             <button className="btn btnAdmin" onClick={() => setPage("admin")} type="button">Admin</button>
           )}
-          <button className="btn btnNew" onClick={startNewInspection} type="button" title="Start a fresh inspection">+ New</button>
+          <button className="btn btnNew" onClick={startNewInspection} type="button">+ New</button>
           <button className="btn btnGhost" onClick={() => setPage("history")} type="button">Past Reports</button>
           <button className={cx("btn", "btnPrimary")} onClick={onTransform} type="button" disabled={loading}>
             {loading ? "Generating..." : "Generate Report"}
           </button>
         </div>
+
+        {/* Mobile hamburger */}
+        <div className="topActionsMobile">
+          <button className={cx("btn", "btnPrimary", "btnGenMobile")} onClick={onTransform} type="button" disabled={loading}>
+            {loading ? "..." : "Generate"}
+          </button>
+          <button className="hamburgerBtn" onClick={() => setMenuOpen(!menuOpen)} type="button" aria-label="Menu">
+            <span className={cx("hamburgerIcon", menuOpen && "hamburgerOpen")}>
+              <span /><span /><span />
+            </span>
+          </button>
+        </div>
+
+        {/* Mobile dropdown menu */}
+        {menuOpen && (
+          <div className="mobileMenu" onClick={() => setMenuOpen(false)}>
+            {currentUser && (
+              <div className="mobileMenuUser">{currentUser.name}{currentUser.role === "admin" ? " (Admin)" : ""}</div>
+            )}
+            <button className="mobileMenuItem" onClick={startNewInspection} type="button">+ New Inspection</button>
+            <button className="mobileMenuItem" onClick={() => setPage("history")} type="button">Past Reports</button>
+            {currentUser?.role === "admin" && (
+              <button className="mobileMenuItem" onClick={() => setPage("admin")} type="button">Admin Panel</button>
+            )}
+            <button className="mobileMenuItem mobileMenuDanger" onClick={() => { lockApp(); setCurrentUser(null); setLocked(true); }} type="button">Lock App</button>
+          </div>
+        )}
       </header>
 
       <main className="grid">
