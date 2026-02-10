@@ -621,6 +621,7 @@ body {
   color: rgba(255,255,255,.6);
   text-align: center;
   padding: 14px 28px;
+  padding-bottom: 60px;
   font-size: 0.75rem;
   display: flex;
   align-items: center;
@@ -1320,6 +1321,43 @@ body {
   border: 1px solid rgba(21,128,61,.2);
 }
 
+/* ── Floating Action Buttons (bottom corners) ────────────── */
+.fab {
+  position: fixed;
+  bottom: 20px;
+  z-index: 100;
+  padding: 12px 20px;
+  border-radius: 50px;
+  border: none;
+  font-size: 0.82rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2), 0 1px 4px rgba(0, 0, 0, 0.12);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+  white-space: nowrap;
+}
+.fab:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.25), 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+.fab:active {
+  transform: translateY(0);
+}
+.fabLeft {
+  left: 20px;
+  background: #fff;
+  color: var(--sdx-navy);
+  border: 1px solid var(--sdx-gray-200);
+}
+.fabLeft:hover { background: var(--sdx-gray-50); }
+.fabRight {
+  right: 20px;
+  background: linear-gradient(135deg, var(--sdx-blue) 0%, var(--sdx-navy) 100%);
+  color: #fff;
+}
+.fabRight:hover { background: linear-gradient(135deg, #3049b5 0%, #1f1e4e 100%); }
+
 /* ── Page Main (for History + Admin) ─────────────────────── */
 .pageMain {
   padding: 24px 28px;
@@ -1475,6 +1513,10 @@ body {
 
 /* ── Phone (≤480px) ───────────────────────────────────── */
 @media (max-width: 480px) {
+  .fab { bottom: 14px; padding: 10px 14px; font-size: 0.74rem; }
+  .fabLeft { left: 12px; }
+  .fabRight { right: 12px; }
+
   .topBar {
     padding: 8px 12px;
     gap: 6px;

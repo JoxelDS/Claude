@@ -1850,8 +1850,6 @@ export default function App() {
             <button className="btn btnAdmin" onClick={() => setPage("admin")} type="button">Admin</button>
           )}
           <button className="btn btnGhost" onClick={() => setPage("history")} type="button">Past Reports</button>
-          <button className="btn btnGhost" onClick={loadSample} type="button">Try Example</button>
-          <button className="btn btnAi" onClick={runAiAssist} type="button">AI Tips</button>
           <button className={cx("btn", "btnPrimary")} onClick={onTransform} type="button" disabled={loading}>
             {loading ? "Generating..." : "Generate Report"}
           </button>
@@ -2051,6 +2049,10 @@ export default function App() {
           </div>
         </section>
       </main>
+
+      {/* Floating corner buttons */}
+      <button className="fab fabLeft" onClick={loadSample} type="button" title="Try Example">&#128221; Try Example</button>
+      <button className="fab fabRight" onClick={runAiAssist} type="button" title="AI Tips">&#9889; AI Tips</button>
 
       <footer className="footer">
         <img src={LOGO_WHITE} alt="Sodexo" className="footerLogo" />
