@@ -1463,7 +1463,7 @@ function HistoryPage({ onBack }) {
   return (
     <div className="appShell">
       <header className="topBar">
-        <div className="brandLeft">
+        <div className="brandLeft brandClickable" onClick={onBack} title="Back to Inspector">
           <img src={LOGO_WHITE} alt="Sodexo" className="brandLogo" />
           <div>
             <div className="brandTitle">Inspection History</div>
@@ -1676,7 +1676,7 @@ function AdminPanel({ currentUser, onBack }) {
   return (
     <div className="appShell">
       <header className="topBar">
-        <div className="brandLeft">
+        <div className="brandLeft brandClickable" onClick={onBack} title="Back to Inspector">
           <img src={LOGO_WHITE} alt="Sodexo" className="brandLogo" />
           <div>
             <div className="brandTitle">Admin Panel</div>
@@ -2074,7 +2074,7 @@ export default function App() {
   return (
     <div className="appShell">
       <header className="topBar">
-        <div className="brandLeft">
+        <div className="brandLeft brandClickable" onClick={() => { setPage("inspector"); window.scrollTo({ top: 0, behavior: "smooth" }); }} title="Home">
           <img src={LOGO_WHITE} alt="Sodexo" className="brandLogo" />
           <div>
             <div className="brandTitle">Kitchen Inspection</div>
