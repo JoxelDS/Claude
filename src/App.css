@@ -123,26 +123,31 @@ body {
   align-items: center;
   gap: 10px;
 }
-.topActionsDesktop {
+/* ── Hamburger Menu (all screen sizes) ─────────────────── */
+.topActionsHamburger {
   display: flex;
   align-items: center;
   gap: 10px;
 }
-.topActionsMobile {
-  display: none;
-  align-items: center;
-  gap: 8px;
+.btnGenHeader {
+  padding: 9px 20px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  white-space: nowrap;
 }
-
-/* ── Hamburger Menu ────────────────────────────────────── */
 .hamburgerBtn {
-  background: none;
-  border: none;
+  background: rgba(255,255,255,0.1);
+  border: 1px solid rgba(255,255,255,0.2);
   cursor: pointer;
-  padding: 8px;
+  padding: 8px 10px;
   display: flex;
   align-items: center;
   justify-content: center;
+  border-radius: 8px;
+  transition: background 0.15s;
+}
+.hamburgerBtn:hover {
+  background: rgba(255,255,255,0.2);
 }
 .hamburgerIcon {
   display: flex;
@@ -161,22 +166,18 @@ body {
 .hamburgerOpen span:nth-child(1) { transform: translateY(6.5px) rotate(45deg); }
 .hamburgerOpen span:nth-child(2) { opacity: 0; }
 .hamburgerOpen span:nth-child(3) { transform: translateY(-6.5px) rotate(-45deg); }
-.btnGenMobile {
-  padding: 8px 16px;
-  font-size: 0.8rem;
-  font-weight: 700;
-}
-.mobileMenu {
+.dropdownMenu {
   position: absolute;
   top: 100%;
   right: 0;
-  left: 0;
+  min-width: 220px;
   background: linear-gradient(135deg, #2A295C 0%, #1a1940 100%);
-  padding: 8px 16px 16px;
+  padding: 8px 12px 12px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+  gap: 2px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.35);
+  border-radius: 0 0 12px 12px;
   z-index: 999;
   animation: menuSlideDown 0.2s ease-out;
 }
@@ -184,29 +185,30 @@ body {
   from { opacity: 0; transform: translateY(-10px); }
   to { opacity: 1; transform: translateY(0); }
 }
-.mobileMenuUser {
+.dropdownMenuUser {
   color: rgba(255,255,255,0.7);
-  font-size: 0.75rem;
+  font-size: 0.78rem;
   font-weight: 600;
-  padding: 8px 12px 4px;
+  padding: 8px 12px 6px;
   border-bottom: 1px solid rgba(255,255,255,0.1);
   margin-bottom: 4px;
 }
-.mobileMenuItem {
+.dropdownMenuItem {
   background: none;
   border: none;
   color: white;
   font-size: 0.9rem;
   font-weight: 600;
-  padding: 12px 12px;
+  padding: 12px 14px;
   text-align: left;
   cursor: pointer;
   border-radius: 8px;
   transition: background 0.15s;
+  font-family: inherit;
 }
-.mobileMenuItem:hover { background: rgba(255,255,255,0.1); }
-.mobileMenuDanger { color: #fca5a5; }
-.mobileMenuDanger:hover { background: rgba(239,68,68,0.2); }
+.dropdownMenuItem:hover { background: rgba(255,255,255,0.12); }
+.dropdownMenuDanger { color: #fca5a5; }
+.dropdownMenuDanger:hover { background: rgba(239,68,68,0.2); }
 
 /* ── Buttons ─────────────────────────────────────────────── */
 .btn {
@@ -1638,9 +1640,9 @@ body {
 /* ── iPad Landscape (1024–1100px) ──────────────────────── */
 @media (max-width: 1100px) and (min-width: 769px) {
   .grid { gap: 18px; padding: 20px 22px; }
-  .topActions, .topActionsDesktop { gap: 8px; }
-  .topActions .btn, .topActionsDesktop .btn { padding: 7px 12px; font-size: 0.82rem; }
-  .userBadgeLabel { font-size: 0.72rem; max-width: 140px; overflow: hidden; text-overflow: ellipsis; }
+  .topActions { gap: 8px; }
+  .topActions .btn { padding: 7px 12px; font-size: 0.82rem; }
+  .btnGenHeader { padding: 8px 16px; font-size: 0.82rem; }
   .cardBody { padding: 18px; }
   .fieldGrid { gap: 12px; }
 
@@ -1663,11 +1665,10 @@ body {
   .brandLogo { height: 28px; }
   .brandTitle { font-size: 0.92rem; font-weight: 700; }
   .brandSub { display: none; }
-  .topActionsDesktop { display: none; }
-  .topActionsMobile { display: flex; }
   .topActions { gap: 6px; }
   .topActions .btn { padding: 7px 12px; font-size: 0.82rem; }
-  .userBadgeLabel { display: none; }
+  .btnGenHeader { padding: 8px 14px; font-size: 0.8rem; }
+  .dropdownMenu { left: 0; border-radius: 0 0 8px 8px; }
 
   .grid {
     grid-template-columns: 1fr;

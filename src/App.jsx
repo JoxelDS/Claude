@@ -2726,28 +2726,10 @@ export default function App() {
           </div>
         </div>
 
-        {/* Desktop actions */}
-        <div className="topActionsDesktop">
-          {currentUser && (
-            <span className="userBadgeLabel">
-              {currentUser.name}{currentUser.role === "admin" ? " (Admin)" : ""}
-            </span>
-          )}
-          <button className="btn btnLock" onClick={() => { lockApp(); setCurrentUser(null); setLocked(true); }} type="button" title="Lock app">&#128274;</button>
-          {currentUser?.role === "admin" && (
-            <button className="btn btnAdmin" onClick={() => setPage("admin")} type="button">Admin</button>
-          )}
-          <button className="btn btnNew" onClick={startNewInspection} type="button">+ New</button>
-          <button className="btn btnGhost" onClick={() => setPage("history")} type="button">Past Reports</button>
-          <button className={cx("btn", "btnPrimary")} onClick={onTransform} type="button" disabled={loading}>
+        {/* Header actions: Generate + Hamburger */}
+        <div className="topActionsHamburger">
+          <button className={cx("btn", "btnPrimary", "btnGenHeader")} onClick={onTransform} type="button" disabled={loading}>
             {loading ? "Generating..." : "Generate Report"}
-          </button>
-        </div>
-
-        {/* Mobile hamburger */}
-        <div className="topActionsMobile">
-          <button className={cx("btn", "btnPrimary", "btnGenMobile")} onClick={onTransform} type="button" disabled={loading}>
-            {loading ? "..." : "Generate"}
           </button>
           <button className="hamburgerBtn" onClick={() => setMenuOpen(!menuOpen)} type="button" aria-label="Menu">
             <span className={cx("hamburgerIcon", menuOpen && "hamburgerOpen")}>
@@ -2756,18 +2738,18 @@ export default function App() {
           </button>
         </div>
 
-        {/* Mobile dropdown menu */}
+        {/* Dropdown menu */}
         {menuOpen && (
-          <div className="mobileMenu" onClick={() => setMenuOpen(false)}>
+          <div className="dropdownMenu" onClick={() => setMenuOpen(false)}>
             {currentUser && (
-              <div className="mobileMenuUser">{currentUser.name}{currentUser.role === "admin" ? " (Admin)" : ""}</div>
+              <div className="dropdownMenuUser">{currentUser.name}{currentUser.role === "admin" ? " (Admin)" : ""}</div>
             )}
-            <button className="mobileMenuItem" onClick={startNewInspection} type="button">+ New Inspection</button>
-            <button className="mobileMenuItem" onClick={() => setPage("history")} type="button">Past Reports</button>
+            <button className="dropdownMenuItem" onClick={startNewInspection} type="button">+ New Inspection</button>
+            <button className="dropdownMenuItem" onClick={() => setPage("history")} type="button">Past Reports</button>
             {currentUser?.role === "admin" && (
-              <button className="mobileMenuItem" onClick={() => setPage("admin")} type="button">Admin Panel</button>
+              <button className="dropdownMenuItem" onClick={() => setPage("admin")} type="button">Admin Panel</button>
             )}
-            <button className="mobileMenuItem mobileMenuDanger" onClick={() => { lockApp(); setCurrentUser(null); setLocked(true); }} type="button">Lock App</button>
+            <button className="dropdownMenuItem dropdownMenuDanger" onClick={() => { lockApp(); setCurrentUser(null); setLocked(true); }} type="button">Lock App</button>
           </div>
         )}
       </header>
