@@ -1127,44 +1127,162 @@ function buildCsvRows({ inspection, rawNotes, inspectionType, inspectionDate, in
 }
 
 function exportAsCsv({ inspection, rawNotes, inspectionType, inspectionDate, inspectorName, siteName, siteNumber, supervisorName }) {
-  const meta = [
-    ["Inspection Type", inspectionType],
-    ["Date", inspectionDate],
-    ["Inspector", inspectorName],
-    ["Site", siteName],
-    ["Unit #", siteNumber],
-    ["Supervisor", supervisorName],
-    [""],
-  ];
   const dataRows = buildCsvRows({ inspection, rawNotes, inspectionType, inspectionDate, inspectorName, siteName, siteNumber, supervisorName });
-  const allRows = [...meta, ...dataRows, [""], ["Raw Notes", (rawNotes || "").replace(/"/g, '""')]];
-  const csv = allRows.map(r => r.map(c => `"${c}"`).join(",")).join("\n");
-  const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
-  const filename = `inspection_${inspectionDate || "undated"}_${(siteName || "site").replace(/\s+/g, "_")}.csv`;
+  const status = calcOverallStatus(inspection);
+  const actionItems = buildActionItems({ inspection, rawNotes });
+
+  // Build an HTML table that Excel understands natively
+  const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+<head><meta charset="utf-8">
+<!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet>
+<x:Name>Inspection</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions>
+</x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]-->
+<style>
+  td, th { mso-number-format:"\\@"; padding: 6px 10px; border: 1px solid #ccc; font-family: Calibri, Arial; font-size: 11pt; }
+  th { background: #2A295C; color: white; font-weight: bold; }
+  .section-header { background: #F0F1F5; font-weight: bold; color: #2A295C; font-size: 12pt; }
+  .pass { background: #ECFDF5; color: #15803D; font-weight: bold; }
+  .fail { background: #FEF2F2; color: #DC2626; font-weight: bold; }
+  .warn { background: #FFFBEB; color: #D97706; }
+  .meta-label { font-weight: bold; color: #2A295C; background: #F7F8FA; }
+  .title { font-size: 16pt; font-weight: bold; color: #2A295C; }
+</style></head><body>
+<table>
+  <tr><td class="title" colspan="5">SODEXO KITCHEN INSPECTION REPORT</td></tr>
+  <tr><td colspan="5" style="border-bottom: 3px solid #EE0000; padding: 0;"></td></tr>
+  <tr><td class="meta-label">Inspection Type</td><td colspan="4">${inspectionType || ""}</td></tr>
+  <tr><td class="meta-label">Date</td><td colspan="4">${inspectionDate || ""}</td></tr>
+  <tr><td class="meta-label">Inspector</td><td colspan="4">${inspectorName || ""}</td></tr>
+  <tr><td class="meta-label">Site / Location</td><td colspan="4">${siteName || ""}</td></tr>
+  <tr><td class="meta-label">Unit #</td><td colspan="4">${siteNumber || ""}</td></tr>
+  <tr><td class="meta-label">Supervisor</td><td colspan="4">${supervisorName || ""}</td></tr>
+  <tr><td class="meta-label">Overall Status</td><td colspan="4" class="${status === "Pass" ? "pass" : "fail"}">${status}</td></tr>
+  <tr><td colspan="5"></td></tr>
+  <tr><td class="section-header" colspan="5">INSPECTION SCORECARD</td></tr>
+  <tr><th>Section</th><th>Item</th><th>Status</th><th>Notes</th><th>Priority</th></tr>
+  ${dataRows.slice(1).map(r => {
+    const statusClass = r[2] === "OK" ? "pass" : r[2] === "Not Clean" ? "fail" : r[2] === "Needs Attention" ? "warn" : "";
+    return `<tr><td>${r[0]}</td><td>${r[1]}</td><td class="${statusClass}">${r[2]}</td><td>${r[3]}</td><td>${r[4]}</td></tr>`;
+  }).join("\n  ")}
+  <tr><td colspan="5"></td></tr>
+  ${actionItems.length > 0 ? `
+  <tr><td class="section-header" colspan="5">CORRECTIVE ACTIONS</td></tr>
+  <tr><th>#</th><th colspan="3">Issue</th><th>Priority</th></tr>
+  ${actionItems.map((a, i) => `<tr><td>${i + 1}</td><td colspan="3">${a.issue}</td><td class="${a.priority === "High" ? "fail" : "warn"}">${a.priority}</td></tr>`).join("\n  ")}
+  <tr><td colspan="5"></td></tr>` : ""}
+  <tr><td class="section-header" colspan="5">RAW NOTES</td></tr>
+  <tr><td colspan="5" style="white-space:pre-wrap;font-size:10pt;">${(rawNotes || "").replace(/</g, "&lt;")}</td></tr>
+</table></body></html>`;
+
+  const blob = new Blob([html], { type: "application/vnd.ms-excel" });
+  const filename = `inspection_${inspectionDate || "undated"}_${(siteName || "site").replace(/\s+/g, "_")}.xls`;
   downloadBlob(blob, filename);
 }
 
-function exportAsHtml({ output, inspectionType, inspectionDate, siteName, inspectorName }) {
-  const html = `<!DOCTYPE html>
-<html><head><meta charset="utf-8"><title>Inspection Report - ${inspectionDate || "Report"}</title>
-<style>body{font-family:Calibri,Arial,sans-serif;max-width:800px;margin:40px auto;padding:20px;color:#1F2937;line-height:1.6}
-h1{color:#2A295C;border-bottom:3px solid #EE0000;padding-bottom:8px}
-h2{color:#283897;margin-top:24px}
-table{border-collapse:collapse;width:100%;margin:12px 0}
-th,td{border:1px solid #DDE1E8;padding:8px 12px;text-align:left}
-th{background:#2A295C;color:white;font-weight:600}
-.meta{background:#F7F8FA;padding:16px;border-radius:8px;margin-bottom:24px}
-.meta strong{color:#2A295C}
-pre{background:#F7F8FA;padding:16px;border-radius:8px;white-space:pre-wrap;font-size:13px}
+function exportAsHtml({ output, inspection, rawNotes, inspectionType, inspectionDate, siteName, siteNumber, sitePhone, inspectorName, supervisorName }) {
+  const status = calcOverallStatus(inspection);
+  const actionItems = buildActionItems({ inspection, rawNotes });
+  const expandedNotes = expandAbbreviations(rawNotes);
+
+  const allItems = [
+    ["Facility", "Ceiling", inspection?.facility?.ceiling],
+    ["Facility", "Walls", inspection?.facility?.walls],
+    ["Facility", "Floors", inspection?.facility?.floors],
+    ["Facility", "Lighting", inspection?.facility?.lighting],
+    ["Operations", "Employee Practices", inspection?.operations?.employeePractices],
+    ["Operations", "Handwashing / Supplies", inspection?.operations?.handwashing],
+    ["Operations", "Labeling / Dating", inspection?.operations?.labelingDating],
+    ["Operations", "Logs / Documentation", inspection?.operations?.logs],
+    ["Equipment", "Double-Door Cooler", inspection?.equipment?.doubleDoorCooler],
+    ["Equipment", "Double-Door Freezer", inspection?.equipment?.doubleDoorFreezer],
+    ["Equipment", "Walk-In Cooler", inspection?.equipment?.walkInCooler],
+    ["Equipment", "Warmers / Hot Holding", inspection?.equipment?.warmers],
+    ["Equipment", "Ovens", inspection?.equipment?.ovens],
+    ["Equipment", "3-Compartment Sink", inspection?.equipment?.threeCompSink],
+    ["Equipment", "Ecolab / Chemicals", inspection?.equipment?.ecolab],
+  ];
+  const findings = allItems.filter(([,,node]) => node?.status && node.status !== "OK" && node.status !== "N/A");
+  const handT = Number(inspection?.temps?.handSinkTempF);
+  const threeT = Number(inspection?.temps?.threeCompSinkTempF);
+
+  // Generate Word-compatible HTML document
+  const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+<head><meta charset="utf-8">
+<!--[if gte mso 9]><xml><w:WordDocument><w:View>Print</w:View><w:Zoom>100</w:Zoom></w:WordDocument></xml><![endif]-->
+<style>
+  @page { size: letter; margin: 1in; }
+  body { font-family: Calibri, Arial, sans-serif; font-size: 11pt; color: #1F2937; line-height: 1.5; }
+  h1 { color: #2A295C; font-size: 22pt; margin-bottom: 4px; }
+  h2 { color: #2A295C; font-size: 14pt; border-bottom: 2px solid #2A295C; padding-bottom: 4px; margin-top: 24px; }
+  .red-line { border-bottom: 3px solid #EE0000; margin-bottom: 20px; }
+  .info-table { width: 100%; border-collapse: collapse; margin: 16px 0; }
+  .info-table td { padding: 8px 12px; border: 1px solid #E5E7EB; font-size: 10pt; }
+  .info-label { background: #F7F8FA; font-weight: bold; color: #2A295C; width: 30%; }
+  .status-pass { background: #ECFDF5; color: #15803D; font-weight: bold; font-size: 12pt; text-align: center; padding: 10px; }
+  .status-fail { background: #FEF2F2; color: #DC2626; font-weight: bold; font-size: 12pt; text-align: center; padding: 10px; }
+  table.scorecard { width: 100%; border-collapse: collapse; margin: 12px 0; }
+  table.scorecard th { background: #2A295C; color: white; padding: 8px 12px; text-align: left; font-size: 10pt; }
+  table.scorecard td { padding: 7px 12px; border: 1px solid #E5E7EB; font-size: 10pt; }
+  .sc-section { background: #F0F1F5; font-weight: bold; color: #2A295C; }
+  .pill-pass { background: #ECFDF5; color: #15803D; font-weight: bold; padding: 2px 8px; }
+  .pill-fail { background: #FEF2F2; color: #DC2626; font-weight: bold; padding: 2px 8px; }
+  .pill-warn { background: #FFFBEB; color: #D97706; font-weight: bold; padding: 2px 8px; }
+  .pill-na { background: #F3F4F6; color: #9CA3AF; padding: 2px 8px; }
+  .issue-num { background: #DC2626; color: white; font-weight: bold; padding: 2px 8px; text-align: center; width: 30px; }
+  .notes-box { background: #F7F8FA; padding: 16px; border-left: 3px solid #2A295C; white-space: pre-wrap; font-size: 10pt; line-height: 1.7; }
+  .footer { margin-top: 32px; padding-top: 12px; border-top: 1px solid #E5E7EB; font-size: 8pt; color: #9CA3AF; text-align: center; }
 </style></head><body>
-<h1>Kitchen Inspection Report</h1>
-<div class="meta">
-<strong>Type:</strong> ${inspectionType || "—"} | <strong>Date:</strong> ${inspectionDate || "—"} | <strong>Site:</strong> ${siteName || "—"} | <strong>Inspector:</strong> ${inspectorName || "—"}
+
+<h1>Sodexo Kitchen Inspection Report</h1>
+<div class="red-line"></div>
+
+<table class="info-table">
+  <tr><td class="info-label">Inspection Type</td><td>${inspectionType || "\u2014"}</td><td class="info-label">Date</td><td>${inspectionDate || "\u2014"}</td></tr>
+  <tr><td class="info-label">Inspector</td><td>${inspectorName || "\u2014"}</td><td class="info-label">Supervisor</td><td>${supervisorName || "\u2014"}</td></tr>
+  <tr><td class="info-label">Site / Location</td><td>${siteName || "\u2014"}</td><td class="info-label">Unit #</td><td>${siteNumber || "\u2014"}</td></tr>
+  ${sitePhone ? `<tr><td class="info-label">Phone</td><td>${sitePhone}</td><td></td><td></td></tr>` : ""}
+  <tr><td class="info-label">Hand Sink Temp</td><td>${inspection?.temps?.handSinkTempF ? inspection.temps.handSinkTempF + "\u00B0F" : "\u2014"} ${handT >= 95 ? "\u2705" : handT ? "\u26A0\uFE0F Below 95\u00B0F" : ""}</td>
+      <td class="info-label">3-Comp Wash Temp</td><td>${inspection?.temps?.threeCompSinkTempF ? inspection.temps.threeCompSinkTempF + "\u00B0F" : "\u2014"} ${threeT >= 110 ? "\u2705" : threeT ? "\u26A0\uFE0F Below 110\u00B0F" : ""}</td></tr>
+  <tr><td class="info-label">Overall Status</td><td colspan="3" class="${status === "Pass" ? "status-pass" : "status-fail"}">${status === "Pass" ? "PASSED" : "NEEDS ATTENTION"}</td></tr>
+</table>
+
+<h2>Inspection Scorecard</h2>
+<table class="scorecard">
+  <tr><th>Section</th><th>Item</th><th>Status</th><th>Notes</th></tr>
+  ${allItems.map(([sec, label, node]) => {
+    const st = node?.status || "N/A";
+    const cls = st === "OK" ? "pill-pass" : st === "Not Clean" ? "pill-fail" : st === "Needs Attention" ? "pill-warn" : "pill-na";
+    return `<tr><td>${sec}</td><td>${label}</td><td><span class="${cls}">${st}</span></td><td>${node?.notes || "\u2014"}</td></tr>`;
+  }).join("\n  ")}
+  <tr><td>Temps</td><td>Hand Sink</td><td><span class="${handT >= 95 ? "pill-pass" : handT ? "pill-fail" : "pill-na"}">${inspection?.temps?.handSinkTempF ? inspection.temps.handSinkTempF + "\u00B0F" : "N/A"}</span></td><td>${handT >= 95 ? "Meets minimum" : handT ? "Below 95\u00B0F minimum" : "\u2014"}</td></tr>
+  <tr><td>Temps</td><td>3-Comp Wash</td><td><span class="${threeT >= 110 ? "pill-pass" : threeT ? "pill-fail" : "pill-na"}">${inspection?.temps?.threeCompSinkTempF ? inspection.temps.threeCompSinkTempF + "\u00B0F" : "N/A"}</span></td><td>${threeT >= 110 ? "Meets minimum" : threeT ? "Below 110\u00B0F minimum" : "\u2014"}</td></tr>
+</table>
+
+${findings.length > 0 ? `
+<h2>Issues Found (${findings.length})</h2>
+<table class="scorecard">
+  <tr><th>#</th><th>Area</th><th>Item</th><th>Status</th><th>Notes</th></tr>
+  ${findings.map(([sec, label, node], i) => `<tr><td class="issue-num">${i + 1}</td><td>${sec}</td><td>${label}</td><td><span class="pill-fail">${node.status}</span></td><td>${node.notes || ""}</td></tr>`).join("\n  ")}
+</table>` : `<h2>Issues</h2><p style="background:#ECFDF5;padding:12px;color:#15803D;font-weight:bold;text-align:center;">All areas passed inspection</p>`}
+
+${actionItems.length > 0 ? `
+<h2>Corrective Actions Required</h2>
+<table class="scorecard">
+  <tr><th>#</th><th>Issue</th><th>Priority</th></tr>
+  ${actionItems.map((a, i) => `<tr><td style="text-align:center">${i + 1}</td><td>${a.issue}</td><td><span class="${a.priority === "High" ? "pill-fail" : "pill-warn"}">${a.priority}</span></td></tr>`).join("\n  ")}
+</table>` : ""}
+
+<h2>Inspector Notes</h2>
+<div class="notes-box">${(expandedNotes || rawNotes || "\u2014").replace(/</g, "&lt;")}</div>
+
+<div class="footer">
+  <p>Generated ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()} \u2022 Sodexo Kitchen Inspection System</p>
+  <p>This report is confidential and intended for internal use only.</p>
 </div>
-<pre>${(output || "").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</pre>
 </body></html>`;
-  const blob = new Blob([html], { type: "text/html;charset=utf-8;" });
-  const filename = `inspection_${inspectionDate || "undated"}_${(siteName || "site").replace(/\s+/g, "_")}.html`;
+
+  const blob = new Blob([html], { type: "application/msword" });
+  const filename = `inspection_${inspectionDate || "undated"}_${(siteName || "site").replace(/\s+/g, "_")}.doc`;
   downloadBlob(blob, filename);
 }
 
@@ -1748,7 +1866,7 @@ export default function App() {
   }
 
   function onDownloadHtml() {
-    exportAsHtml({ output, inspectionType, inspectionDate, siteName, inspectorName });
+    exportAsHtml({ output, inspection, rawNotes, inspectionType, inspectionDate, siteName, siteNumber, sitePhone, inspectorName, supervisorName });
   }
 
   function onDownloadTxt() {
@@ -1977,9 +2095,9 @@ export default function App() {
                 />
                 <div className="downloadBar">
                   <span className="downloadLabel">Download:</span>
-                  <button className="btn btnDownload" type="button" onClick={onDownloadCsv}>Excel (CSV)</button>
-                  <button className="btn btnDownload" type="button" onClick={onDownloadHtml}>Word (HTML)</button>
-                  <button className="btn btnDownload" type="button" onClick={onDownloadTxt}>Text File</button>
+                  <button className="btn btnDownload" type="button" onClick={onDownloadCsv}>Excel (.xls)</button>
+                  <button className="btn btnDownload" type="button" onClick={onDownloadHtml}>Word (.doc)</button>
+                  <button className="btn btnDownload" type="button" onClick={onDownloadTxt}>Text (.txt)</button>
                 </div>
               </>
             )}
