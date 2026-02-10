@@ -62,9 +62,15 @@ body {
   align-items: center;
   justify-content: space-between;
   box-shadow: 0 3px 12px rgba(42,41,92,.25);
-  position: sticky;
+  position: fixed;
   top: 0;
+  left: 0;
+  right: 0;
   z-index: 100;
+}
+.topBarSpacer {
+  height: 64px;
+  flex-shrink: 0;
 }
 
 .brandLeft {
@@ -1659,10 +1665,8 @@ body {
     min-height: 52px;
     flex-wrap: nowrap;
     gap: 8px;
-    position: sticky;
-    top: 0;
-    z-index: 100;
   }
+  .topBarSpacer { height: 52px; }
   .brandLeft { gap: 8px; }
   .brandLogo { height: 28px; }
   .brandTitle { font-size: 0.92rem; font-weight: 700; }
