@@ -1072,6 +1072,88 @@ body {
   border-left: 3px solid var(--sdx-navy);
 }
 
+/* Organized Notes (categorized bullet points) */
+.rptNotesOrganized {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.rptNoteCategory {
+  background: var(--sdx-gray-50);
+  border-radius: var(--radius-sm);
+  padding: 14px 16px;
+  border-left: 3px solid var(--sdx-gray-300);
+}
+.rptNoteCatLabel {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+  color: var(--sdx-gray-500);
+}
+.rptNoteCat--context { border-left-color: var(--sdx-blue); }
+.rptNoteCat--context .rptNoteCatLabel,
+.rptNoteCat--context { color: var(--sdx-blue); }
+.rptNoteCategory.rptNoteCat--context { border-left-color: var(--sdx-blue); }
+
+.rptNoteCat--finding { border-left-color: var(--sdx-amber); }
+.rptNoteCat--finding .rptNoteCatLabel { color: var(--sdx-amber); }
+
+.rptNoteCat--temp { border-left-color: #7c3aed; }
+.rptNoteCat--temp .rptNoteCatLabel { color: #7c3aed; }
+
+.rptNoteCat--question { border-left-color: #0891b2; }
+.rptNoteCat--question .rptNoteCatLabel { color: #0891b2; }
+
+.rptNoteCat--action { border-left-color: var(--sdx-red); }
+.rptNoteCat--action .rptNoteCatLabel { color: var(--sdx-red); }
+
+.rptNoteCat--owner { border-left-color: var(--sdx-green); }
+.rptNoteCat--owner .rptNoteCatLabel { color: var(--sdx-green); }
+
+.rptNoteCat--general { border-left-color: var(--sdx-gray-400); }
+.rptNoteCat--general .rptNoteCatLabel { color: var(--sdx-gray-500); }
+
+.rptNoteBullets {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.rptNoteBullets li {
+  font-size: 0.84rem;
+  color: var(--sdx-gray-700);
+  line-height: 1.6;
+  padding-left: 18px;
+  position: relative;
+}
+.rptNoteBullets li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 8px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--sdx-gray-300);
+}
+.rptNoteCat--action .rptNoteBullets li::before { background: var(--sdx-red); }
+.rptNoteCat--finding .rptNoteBullets li::before { background: var(--sdx-amber); }
+.rptNoteCat--temp .rptNoteBullets li::before { background: #7c3aed; }
+.rptNoteCat--question .rptNoteBullets li::before { background: #0891b2; }
+.rptNoteCat--context .rptNoteBullets li::before { background: var(--sdx-blue); }
+.rptNoteCat--owner .rptNoteBullets li::before { background: var(--sdx-green); }
+
+.historyNotesFormatted {
+  padding: 12px;
+  background: var(--sdx-gray-50);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--sdx-gray-100);
+}
+
 /* Report Footer */
 .rptFooter {
   padding: 14px 24px;
