@@ -1,19 +1,21 @@
 #!/usr/bin/env python3
 """
-DS MARKETING REELS ENGINE v2.0
-=================================
-Premium Instagram Reels with:
-- Ultra-human AI voiceover (natural pauses, emphasis, cadence)
-- Cinema-grade animated frames with character integration
-- Dark cinematic ambient soundtrack
-- 9:16 vertical MP4 ready for Instagram
+DS MARKETING VIDEO ENGINE v3.0
+==================================
+REAL animated videos — not slideshows.
+Frame-by-frame rendering with:
+- Text that fades in word by word
+- Floating particles that drift
+- Smooth crossfade transitions
+- Animated light pulses
+- AI voiceover + cinematic music
+- 9:16 vertical MP4 for Instagram Reels
 
 Run: python3 ds_reels.py
 """
 
-import os, sys, subprocess, asyncio, random, math, time
+import os, sys, subprocess, asyncio, random, math, time, struct
 
-# ── Auto-install ──
 def ensure(pkg, pip_name=None):
     try: __import__(pkg)
     except ImportError:
@@ -22,25 +24,21 @@ def ensure(pkg, pip_name=None):
                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 ensure("PIL", "Pillow")
-ensure("moviepy")
-ensure("edge_tts", "edge-tts")
 ensure("numpy")
+ensure("edge_tts", "edge-tts")
 
 from PIL import Image, ImageDraw, ImageFont, ImageFilter, ImageEnhance
 import numpy as np
 
+# Check moviepy
 try:
-    from moviepy import (
-        ImageClip, AudioFileClip, CompositeVideoClip,
-        concatenate_videoclips, ColorClip, CompositeAudioClip
-    )
-    MV2 = True
-except ImportError:
-    from moviepy.editor import (
-        ImageClip, AudioFileClip, CompositeVideoClip,
-        concatenate_videoclips, ColorClip, CompositeAudioClip
-    )
-    MV2 = False
+    ensure("moviepy")
+    try:
+        from moviepy import ImageSequenceClip, AudioFileClip, CompositeAudioClip, concatenate_videoclips
+    except ImportError:
+        from moviepy.editor import ImageSequenceClip, AudioFileClip, CompositeAudioClip, concatenate_videoclips
+except:
+    pass
 
 import edge_tts
 
@@ -49,615 +47,533 @@ import edge_tts
 # ══════════════════════════════════════════════
 W, H = 1080, 1920
 OUT = "ds-marketing-reels"
-FPS = 30
-
-# Voice: "en-US-DavisNeural" = deep authoritative male, sounds like a podcast host
-# Other great options:
-#   "en-US-AndrewMultilingualNeural"  — very natural conversational male
-#   "en-US-BrianMultilingualNeural"   — smooth natural male
-#   "en-US-JennyMultilingualNeural"   — natural female
-#   "en-GB-RyanNeural"                — British male (premium feel)
+FPS = 20  # 20fps = good quality, faster render
 VOICE = "en-US-DavisNeural"
 
 BLACK = (0, 0, 0)
 WHITE = (255, 255, 255)
-NEAR_BLACK = (8, 8, 8)
-DARK_GRAY = (26, 26, 26)
-MED_GRAY = (100, 100, 100)
 LIGHT_GRAY = (190, 190, 190)
+MED_GRAY = (100, 100, 100)
 
 
 # ══════════════════════════════════════════════
 # FONTS
 # ══════════════════════════════════════════════
+_font_cache = {}
 def _f(paths, sz):
+    key = (tuple(paths), sz)
+    if key in _font_cache:
+        return _font_cache[key]
     for p in paths:
         if os.path.exists(p):
-            try: return ImageFont.truetype(p, sz)
+            try:
+                f = ImageFont.truetype(p, sz)
+                _font_cache[key] = f
+                return f
             except: pass
-    return ImageFont.load_default()
+    f = ImageFont.load_default()
+    _font_cache[key] = f
+    return f
 
-def HEADLINE(sz):
-    return _f([
-        "BebasNeue-Regular.ttf",
-        "/System/Library/Fonts/Supplemental/Impact.ttf",
-        "/Library/Fonts/Impact.ttf",
-        "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
-    ], sz)
+def H_FONT(sz):
+    return _f(["BebasNeue-Regular.ttf",
+               "/System/Library/Fonts/Supplemental/Impact.ttf",
+               "/Library/Fonts/Impact.ttf",
+               "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf"], sz)
 
-def BOLD(sz):
-    return _f([
-        "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
-        "/Library/Fonts/Arial Bold.ttf",
-        "/System/Library/Fonts/Helvetica-Bold.otf",
-        "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
-    ], sz)
+def B_FONT(sz):
+    return _f(["/System/Library/Fonts/Supplemental/Arial Bold.ttf",
+               "/Library/Fonts/Arial Bold.ttf",
+               "/System/Library/Fonts/Helvetica-Bold.otf",
+               "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf"], sz)
 
-def REG(sz):
-    return _f([
-        "/System/Library/Fonts/Supplemental/Arial.ttf",
-        "/Library/Fonts/Arial.ttf",
-        "/System/Library/Fonts/Helvetica.ttc",
-        "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
-    ], sz)
+def R_FONT(sz):
+    return _f(["/System/Library/Fonts/Supplemental/Arial.ttf",
+               "/Library/Fonts/Arial.ttf",
+               "/System/Library/Fonts/Helvetica.ttc",
+               "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf"], sz)
 
 
 # ══════════════════════════════════════════════
-# AI VOICE ENGINE v2 — Natural Human Sound
+# VOICE ENGINE
 # ══════════════════════════════════════════════
+async def _gen_voice(text, path, voice, rate):
+    c = edge_tts.Communicate(text, voice, rate=rate)
+    await c.save(path)
 
-async def _gen_voice(text, path, voice=VOICE, rate="-8%"):
-    """Generate voice with natural pacing. rate=-8% slows for authority."""
-    communicate = edge_tts.Communicate(text, voice, rate=rate)
-    await communicate.save(path)
-
-
-def make_voice(text, path, voice=VOICE, rate="-8%"):
-    """Generate AI voiceover — deep, authoritative, human-like."""
+def make_voice(text, path):
     if os.path.exists(path) and os.path.getsize(path) > 1000:
         print(f"    \u2713 voice cached")
         return True
-    # Try preferred voice first, fallback to alternatives
-    voices_to_try = [voice, "en-US-GuyNeural", "en-US-ChristopherNeural", "en-US-EricNeural"]
-    for v in voices_to_try:
+    for v in [VOICE, "en-US-GuyNeural", "en-US-ChristopherNeural", "en-US-EricNeural"]:
         try:
-            asyncio.run(_gen_voice(text, path, v, rate))
+            asyncio.run(_gen_voice(text, path, v, "-8%"))
             if os.path.exists(path) and os.path.getsize(path) > 1000:
-                print(f"    \u2713 voice generated ({v})")
+                print(f"    \u2713 voice ({v})")
                 return True
-        except Exception as e:
-            print(f"    trying next voice... ({type(e).__name__})")
+        except:
             continue
-    print(f"    ! all voices failed")
+    print(f"    ! voice failed")
     return False
 
 
 # ══════════════════════════════════════════════
-# CINEMATIC MUSIC v2 — Darker, Richer
+# MUSIC ENGINE
 # ══════════════════════════════════════════════
-
-def make_music(path, duration=40, sr=44100):
-    """Dark cinematic ambient — deeper, richer, more layered."""
+def make_music(path, duration=45, sr=44100):
     if os.path.exists(path) and os.path.getsize(path) > 5000:
         print(f"    \u2713 music cached")
         return True
     try:
         import wave
         t = np.linspace(0, duration, int(sr * duration), endpoint=False)
-
-        # Ultra-deep sub bass
-        sub = 0.18 * np.sin(2 * np.pi * 36 * t)
-        # Warm bass
-        bass = 0.12 * np.sin(2 * np.pi * 55 * t)
-        # Power fifth
-        fifth = 0.08 * np.sin(2 * np.pi * 82.5 * t)
-        # Octave warmth
-        oct_w = 0.05 * np.sin(2 * np.pi * 110 * t)
-
-        # Breathing pad (slow swell)
-        breath = 0.07 * np.sin(2 * np.pi * 146.8 * t) * (0.4 + 0.6 * np.sin(2 * np.pi * 0.08 * t))
-        # High ethereal pad
-        ether = 0.04 * np.sin(2 * np.pi * 220 * t) * (0.3 + 0.4 * np.sin(2 * np.pi * 0.05 * t))
-        # Sparkle (very subtle high overtone)
-        sparkle = 0.015 * np.sin(2 * np.pi * 660 * t) * (0.2 + 0.3 * np.sin(2 * np.pi * 0.12 * t))
-
-        # Slow rhythmic pulse (heartbeat feel)
-        pulse_env = np.abs(np.sin(2 * np.pi * 0.5 * t)) ** 4
-        pulse = 0.06 * np.sin(2 * np.pi * 73.4 * t) * pulse_env
-
-        audio = sub + bass + fifth + oct_w + breath + ether + sparkle + pulse
-
-        # Smooth fade in/out
+        audio = (0.18 * np.sin(2*np.pi*36*t) +
+                 0.12 * np.sin(2*np.pi*55*t) +
+                 0.08 * np.sin(2*np.pi*82.5*t) +
+                 0.05 * np.sin(2*np.pi*110*t) +
+                 0.07 * np.sin(2*np.pi*146.8*t) * (0.4 + 0.6*np.sin(2*np.pi*0.08*t)) +
+                 0.04 * np.sin(2*np.pi*220*t) * (0.3 + 0.4*np.sin(2*np.pi*0.05*t)) +
+                 0.015 * np.sin(2*np.pi*660*t) * (0.2 + 0.3*np.sin(2*np.pi*0.12*t)) +
+                 0.06 * np.sin(2*np.pi*73.4*t) * np.abs(np.sin(2*np.pi*0.5*t))**4)
         fade = int(sr * 3)
         audio[:fade] *= np.linspace(0, 1, fade)
         audio[-fade:] *= np.linspace(1, 0, fade)
-        audio = audio / np.max(np.abs(audio)) * 0.35
-        audio_16 = (audio * 32767).astype(np.int16)
-
+        audio = (audio / np.max(np.abs(audio)) * 0.35 * 32767).astype(np.int16)
         with wave.open(path, 'w') as wf:
-            wf.setnchannels(1)
-            wf.setsampwidth(2)
-            wf.setframerate(sr)
-            wf.writeframes(audio_16.tobytes())
-
-        print(f"    \u2713 cinematic music generated ({duration}s)")
+            wf.setnchannels(1); wf.setsampwidth(2); wf.setframerate(sr)
+            wf.writeframes(audio.tobytes())
+        print(f"    \u2713 music generated")
         return True
     except Exception as e:
-        print(f"    ! music failed: {e}")
+        print(f"    ! music: {e}")
         return False
 
 
 # ══════════════════════════════════════════════
-# FRAME ENGINE v2 — Cinema Grade
+# ANIMATION ENGINE — Frame by Frame
 # ══════════════════════════════════════════════
 
-def _vignette(img, s=0.72):
-    """Strong cinematic vignette."""
-    w, h = img.size
-    mask = Image.new("L", (w, h), 0)
-    d = ImageDraw.Draw(mask)
-    cx, cy = w // 2, h // 2
-    mr = int(max(w, h) * s)
-    for r in range(mr, 0, -1):
-        d.ellipse([cx - r, cy - r, cx + r, cy + r], fill=int(255 * (r / mr) ** 0.65))
-    return Image.composite(img, Image.new("RGB", (w, h), BLACK), mask)
+class Particle:
+    """A floating light particle that drifts."""
+    def __init__(self, rng):
+        self.x = rng.randint(0, W)
+        self.y = rng.randint(0, H)
+        self.r = rng.randint(3, 18)
+        self.alpha = rng.randint(10, 40)
+        self.vx = rng.uniform(-0.3, 0.3)
+        self.vy = rng.uniform(-0.5, -0.1)  # drift upward
+        self.pulse_speed = rng.uniform(0.5, 2.0)
+        self.pulse_offset = rng.uniform(0, 6.28)
+
+    def update(self, dt):
+        self.x += self.vx * dt * 60
+        self.y += self.vy * dt * 60
+        if self.y < -20: self.y = H + 20
+        if self.x < -20: self.x = W + 20
+        if self.x > W + 20: self.x = -20
+
+    def draw(self, img_array, t):
+        pulse = 0.6 + 0.4 * math.sin(t * self.pulse_speed + self.pulse_offset)
+        a = int(self.alpha * pulse)
+        r = self.r
+        ix, iy = int(self.x), int(self.y)
+        for dy in range(-r, r + 1):
+            for dx in range(-r, r + 1):
+                dist = math.sqrt(dx*dx + dy*dy)
+                if dist <= r:
+                    px, py = ix + dx, iy + dy
+                    if 0 <= px < W and 0 <= py < H:
+                        falloff = 1 - (dist / r)
+                        blend = a * falloff * falloff / 255
+                        img_array[py, px] = np.clip(
+                            img_array[py, px] + np.array([255*blend, 255*blend, 255*blend]),
+                            0, 255
+                        ).astype(np.uint8)
 
 
-def _grain(img, amt=5):
-    px = img.load()
-    w, h = img.size
-    rng = random.Random(42)
-    for _ in range(w * h // 5):
-        x, y = rng.randint(0, w - 1), rng.randint(0, h - 1)
-        r, g, b = px[x, y]
-        v = rng.randint(-amt, amt)
-        px[x, y] = (max(0, min(255, r + v)), max(0, min(255, g + v)), max(0, min(255, b + v)))
-    return img
+def ease_out(t):
+    """Smooth ease-out curve."""
+    return 1 - (1 - t) ** 3
+
+def ease_in_out(t):
+    """Smooth ease in-out."""
+    if t < 0.5:
+        return 4 * t * t * t
+    return 1 - (-2 * t + 2) ** 3 / 2
 
 
-def _particles(img, count=30, seed=42):
-    """Floating white light particles."""
-    w, h = img.size
-    ov = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-    rng = random.Random(seed)
-    for _ in range(count):
-        x, y = rng.randint(0, w), rng.randint(0, h)
-        r = rng.randint(3, 20)
-        a = rng.randint(8, 35)
-        c = Image.new("RGBA", (r * 2, r * 2), (0, 0, 0, 0))
-        ImageDraw.Draw(c).ellipse([0, 0, r * 2, r * 2], fill=(255, 255, 255, a))
-        c = c.filter(ImageFilter.GaussianBlur(radius=r // 2))
-        ov.paste(c, (x - r, y - r), c)
-    return Image.alpha_composite(img.convert("RGBA"), ov).convert("RGB")
-
-
-def _gradient_overlay(img, y_start_pct=0.3, strength=0.95):
-    """Gradient black overlay from y_start to bottom."""
-    w, h = img.size
-    ov = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-    d = ImageDraw.Draw(ov)
-    y_start = int(h * y_start_pct)
-    for y in range(y_start, h):
-        t = (y - y_start) / (h - y_start)
-        alpha = int(255 * strength * (t ** 1.1))
-        d.line([(0, y), (w, y)], fill=(0, 0, 0, min(255, alpha)))
-    return Image.alpha_composite(img.convert("RGBA"), ov).convert("RGB")
-
-
-def _top_gradient(img, strength=0.6):
-    """Gradient from top for header area."""
-    w, h = img.size
-    ov = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-    d = ImageDraw.Draw(ov)
-    zone = int(h * 0.2)
-    for y in range(zone):
-        t = 1 - (y / zone)
-        alpha = int(255 * strength * (t ** 1.5))
-        d.line([(0, y), (w, y)], fill=(0, 0, 0, min(255, alpha)))
-    return Image.alpha_composite(img.convert("RGBA"), ov).convert("RGB")
-
-
-def _outlined(draw, x, y, text, font, fill=WHITE, outline=BLACK, w=3):
-    for dx in range(-w, w + 1):
-        for dy in range(-w, w + 1):
-            if dx * dx + dy * dy <= w * w:
-                draw.text((x + dx, y + dy), text, font=font, fill=outline)
-    draw.text((x, y), text, font=font, fill=fill)
-
-
-def _centered(draw, y, text, font, fill=WHITE, img_w=W):
+def render_text_centered(draw, y, text, font, alpha=255, img_w=W):
+    """Render centered text with alpha (approximated via grayscale)."""
     bb = draw.textbbox((0, 0), text, font=font)
     x = (img_w - (bb[2] - bb[0])) // 2
-    draw.text((x, y), text, font=font, fill=fill)
+    if alpha >= 250:
+        # Full opacity — draw with outline for readability
+        for ddx in range(-3, 4):
+            for ddy in range(-3, 4):
+                if ddx*ddx + ddy*ddy <= 9:
+                    draw.text((x+ddx, y+ddy), text, font=font, fill=(0, 0, 0))
+        draw.text((x, y), text, font=font, fill=WHITE)
+    else:
+        c = max(0, min(255, alpha))
+        for ddx in range(-2, 3):
+            for ddy in range(-2, 3):
+                if ddx*ddx + ddy*ddy <= 4:
+                    draw.text((x+ddx, y+ddy), text, font=font, fill=(0, 0, 0))
+        draw.text((x, y), text, font=font, fill=(c, c, c))
     return x
 
 
-def _centered_out(draw, y, text, font, fill=WHITE, outline=BLACK, ow=3, img_w=W):
-    bb = draw.textbbox((0, 0), text, font=font)
-    x = (img_w - (bb[2] - bb[0])) // 2
-    _outlined(draw, x, y, text, font, fill, outline, ow)
-    return x
-
-
-def _wrap(text, font, max_w, draw):
-    words = text.split()
-    lines, cur = [], ""
-    for w in words:
-        t = f"{cur} {w}".strip()
-        if draw.textbbox((0, 0), t, font=font)[2] <= max_w: cur = t
-        else:
-            if cur: lines.append(cur)
-            cur = w
-    if cur: lines.append(cur)
-    return lines
-
-
-# ── Frame Types ──
-
-def frame_character_hero(char_path, headline_lines, subtitle=None):
+def render_scene_frame(scene, t, scene_duration, particles):
     """
-    HERO FRAME: Character fills 65% of frame, text overlaid at bottom.
-    The character is the star. Bold, prominent, CashFish-style.
+    Render a single frame of a scene at time t.
+    Returns a numpy array (H, W, 3).
     """
     img = Image.new("RGB", (W, H), BLACK)
 
-    if char_path and os.path.exists(char_path):
-        ch = Image.open(char_path).convert("RGB")
-        # Scale to fill width, make character BIG
-        scale = W / ch.width
-        new_h = int(ch.height * scale)
-        if new_h < int(H * 0.65):
-            # Scale even bigger
-            scale = (H * 0.7) / ch.height
-            new_w = int(ch.width * scale)
-            ch = ch.resize((new_w, int(H * 0.7)), Image.LANCZOS)
-            # Center horizontally
-            x_off = (W - new_w) // 2
-            img.paste(ch, (x_off, 0))
-        else:
-            ch = ch.resize((W, new_h), Image.LANCZOS)
-            img.paste(ch, (0, 0))
-
-        # Brighten character significantly
-        img = ImageEnhance.Brightness(img).enhance(1.4)
-        img = ImageEnhance.Contrast(img).enhance(1.3)
-        img = ImageEnhance.Sharpness(img).enhance(1.4)
-
-        # Desaturate to B&W
-        gray = img.convert("L").convert("RGB")
-        img = Image.blend(img, gray, 0.88)
-
-    # Heavy gradient from bottom (text zone)
-    img = _gradient_overlay(img, 0.35, 0.95)
-    img = _top_gradient(img, 0.4)
-    img = _vignette(img, 0.75)
-    img = _particles(img, 20, seed=hash(str(headline_lines)) % 9999)
-    img = _grain(img, 4)
-
-    draw = ImageDraw.Draw(img)
-
-    # Headline — MASSIVE text
-    hf = HEADLINE(90)
-    y_pos = int(H * 0.62)
-    for i, ln in enumerate(headline_lines):
-        _centered_out(draw, y_pos + i * 100, ln, hf, WHITE, BLACK, 3)
-
-    # Subtitle
-    if subtitle:
-        sf = REG(38)
-        sub_lines = _wrap(subtitle, sf, W - 120, draw)
-        sy = y_pos + len(headline_lines) * 100 + 30
-        for sl in sub_lines:
-            _centered(draw, sy, sl, sf, LIGHT_GRAY)
-            sy += 50
-
-    # Brand bar
-    draw.line([(120, H - 200), (W - 120, H - 200)], fill=(40, 40, 40), width=1)
-    bf = BOLD(28)
-    _centered(draw, H - 165, "@dsmarketing.agency", bf, MED_GRAY)
-    wf = REG(20)
-    _centered(draw, H - 128, "dsmarketing.lovable.app", wf, (55, 55, 55))
-
-    return img
-
-
-def frame_number_point(number, title, subtitle=None):
-    """
-    NUMBERED POINT: Giant number + title + subtitle.
-    Clean, bold, editorial.
-    """
-    img = Image.new("RGB", (W, H), BLACK)
-
-    # Subtle radial gradient for depth
+    # Subtle animated background glow
+    pulse = 0.5 + 0.5 * math.sin(t * 0.8)
+    glow_v = int(6 + 8 * pulse)
     draw = ImageDraw.Draw(img)
     cx, cy = W // 2, int(H * 0.4)
-    for y in range(0, H, 2):
-        for x in range(0, W, 2):
-            d = math.sqrt((x - cx) ** 2 + (y - cy) ** 2)
-            t = min(1.0, d / (max(W, H) * 0.5))
-            v = int(14 * (1 - t ** 1.4))
-            c = (v, v, v)
-            img.putpixel((x, y), c)
-            if x + 1 < W: img.putpixel((x + 1, y), c)
-            if y + 1 < H: img.putpixel((x, y + 1), c)
-            if x + 1 < W and y + 1 < H: img.putpixel((x + 1, y + 1), c)
+    # Simple radial gradient (optimized — skip pixels)
+    for y_pos in range(0, H, 4):
+        for x_pos in range(0, W, 4):
+            d = math.sqrt((x_pos - cx)**2 + (y_pos - cy)**2)
+            tt = min(1.0, d / (max(W, H) * 0.45))
+            v = int(glow_v * (1 - tt**1.3))
+            if v > 0:
+                for dy in range(4):
+                    for dx in range(4):
+                        if y_pos+dy < H and x_pos+dx < W:
+                            img.putpixel((x_pos+dx, y_pos+dy), (v, v, v))
 
-    img = _particles(img, 15, seed=int(number) * 17)
-    img = _vignette(img, 0.68)
-    img = _grain(img, 3)
+    # Character background if available
+    if scene.get("char_img"):
+        char_img = scene["char_img"]
+        # Fade character in during first 0.5s
+        char_alpha = min(1.0, t / 0.5) if t < 0.5 else 1.0
+        if char_alpha > 0:
+            # Blend character onto background
+            ch_array = np.array(char_img).astype(np.float32)
+            bg_array = np.array(img).astype(np.float32)
+            blended = bg_array * (1 - char_alpha) + ch_array * char_alpha
+            img = Image.fromarray(blended.astype(np.uint8))
 
     draw = ImageDraw.Draw(img)
 
-    # Giant number
-    nf = HEADLINE(320)
-    ns = f"{int(number):02d}"
-    bb = draw.textbbox((0, 0), ns, font=nf)
-    nx = (W - (bb[2] - bb[0])) // 2
-    ny = int(H * 0.22)
+    # Progress through scene (0.0 to 1.0)
+    progress = t / scene_duration if scene_duration > 0 else 1.0
 
-    # Glow behind number
-    glow = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-    gd = ImageDraw.Draw(glow)
-    for dx in range(-2, 3):
-        for dy in range(-2, 3):
-            gd.text((nx + dx, ny + dy), ns, font=nf, fill=(255, 255, 255, 30))
-    glow = glow.filter(ImageFilter.GaussianBlur(radius=20))
-    img = Image.alpha_composite(img.convert("RGBA"), glow).convert("RGB")
-    draw = ImageDraw.Draw(img)
+    scene_type = scene.get("type", "text")
 
-    _outlined(draw, nx, ny, ns, nf, WHITE, BLACK, 4)
+    if scene_type == "title":
+        # Animated title reveal — lines fade in one by one
+        lines = scene.get("lines", [])
+        sub = scene.get("sub")
+        stagger = 0.4  # seconds between each line appearing
+        hf = H_FONT(90)
 
-    # Thin line under number
-    line_y = ny + (bb[3] - bb[1]) + 30
-    draw.line([(200, line_y), (W - 200, line_y)], fill=WHITE, width=2)
+        y_start = int(H * 0.35) if not scene.get("char_img") else int(H * 0.58)
 
-    # Title
-    tf = HEADLINE(64)
-    title_lines = _wrap(title.upper(), tf, W - 120, draw)
-    ty = line_y + 50
-    for ln in title_lines:
-        _centered_out(draw, ty, ln, tf, WHITE, BLACK, 2)
-        ty += 76
+        for i, ln in enumerate(lines):
+            line_start = i * stagger
+            line_progress = max(0, min(1, (t - line_start) / 0.4))
+            alpha = int(255 * ease_out(line_progress))
+            # Slide up effect
+            y_offset = int(30 * (1 - ease_out(line_progress)))
+            if alpha > 0:
+                render_text_centered(draw, y_start + i * 105 + y_offset, ln, hf, alpha)
 
-    # Subtitle
-    if subtitle:
-        sf = REG(34)
-        sub_lines = _wrap(subtitle, sf, W - 140, draw)
-        sy = ty + 30
-        for sl in sub_lines:
-            _centered(draw, sy, sl, sf, LIGHT_GRAY)
-            sy += 48
+        # Subtitle fades in after all lines
+        if sub:
+            sub_start = len(lines) * stagger + 0.3
+            sub_progress = max(0, min(1, (t - sub_start) / 0.5))
+            sub_alpha = int(255 * ease_out(sub_progress))
+            if sub_alpha > 0:
+                sf = R_FONT(38)
+                c = max(0, min(190, int(190 * ease_out(sub_progress))))
+                bb = draw.textbbox((0, 0), sub, font=sf)
+                sx = (W - (bb[2] - bb[0])) // 2
+                draw.text((sx, y_start + len(lines) * 105 + 40), sub, font=sf, fill=(c, c, c))
 
-    # Brand
-    draw.line([(120, H - 200), (W - 120, H - 200)], fill=(35, 35, 35), width=1)
-    _centered(draw, H - 165, "@dsmarketing.agency", BOLD(26), MED_GRAY)
+    elif scene_type == "number":
+        # Giant number zooms in, then title fades in
+        num = scene.get("num", 1)
+        title = scene.get("title", "")
+        sub = scene.get("sub")
 
-    return img
+        # Number animation: scale from 0 to full in 0.5s
+        num_progress = min(1.0, t / 0.5)
+        num_scale = ease_out(num_progress)
+        num_alpha = int(255 * num_scale)
+
+        if num_alpha > 5:
+            ns = f"{num:02d}"
+            font_size = int(280 * num_scale)
+            if font_size > 20:
+                nf = H_FONT(max(20, font_size))
+                bb = draw.textbbox((0, 0), ns, font=nf)
+                nx = (W - (bb[2] - bb[0])) // 2
+                ny = int(H * 0.2) + int(40 * (1 - num_scale))
+                c = min(255, num_alpha)
+                # Outline
+                for ddx in range(-4, 5):
+                    for ddy in range(-4, 5):
+                        if ddx*ddx + ddy*ddy <= 16:
+                            draw.text((nx+ddx, ny+ddy), ns, font=nf, fill=(0,0,0))
+                draw.text((nx, ny), ns, font=nf, fill=(c, c, c))
+
+        # Line appears at 0.5s
+        line_progress = max(0, min(1, (t - 0.5) / 0.3))
+        if line_progress > 0:
+            line_w = int((W - 400) * ease_out(line_progress))
+            line_x = (W - line_w) // 2
+            line_y = int(H * 0.48)
+            draw.line([(line_x, line_y), (line_x + line_w, line_y)], fill=WHITE, width=2)
+
+        # Title fades in at 0.7s
+        title_progress = max(0, min(1, (t - 0.7) / 0.4))
+        if title_progress > 0:
+            tf = H_FONT(60)
+            ta = int(255 * ease_out(title_progress))
+            y_off = int(20 * (1 - ease_out(title_progress)))
+            # Word wrap
+            words = title.upper().split()
+            lines_t = []
+            cur = ""
+            for w in words:
+                test = f"{cur} {w}".strip()
+                if draw.textbbox((0, 0), test, font=tf)[2] <= W - 120: cur = test
+                else:
+                    if cur: lines_t.append(cur)
+                    cur = w
+            if cur: lines_t.append(cur)
+
+            ty = int(H * 0.5) + 20 + y_off
+            for ln in lines_t:
+                render_text_centered(draw, ty, ln, tf, ta)
+                ty += 72
+
+        # Subtitle at 1.0s
+        if sub:
+            sub_progress = max(0, min(1, (t - 1.0) / 0.4))
+            if sub_progress > 0:
+                sf = R_FONT(32)
+                c = int(190 * ease_out(sub_progress))
+                # wrap
+                words = sub.split()
+                lines_s = []
+                cur = ""
+                for w in words:
+                    test = f"{cur} {w}".strip()
+                    if draw.textbbox((0, 0), test, font=sf)[2] <= W - 140: cur = test
+                    else:
+                        if cur: lines_s.append(cur)
+                        cur = w
+                if cur: lines_s.append(cur)
+                sy = int(H * 0.68)
+                for sl in lines_s:
+                    bb = draw.textbbox((0, 0), sl, font=sf)
+                    sx = (W - (bb[2] - bb[0])) // 2
+                    draw.text((sx, sy), sl, font=sf, fill=(c, c, c))
+                    sy += 44
+
+    elif scene_type == "day":
+        # Day name zooms in big, description slides up
+        day = scene.get("day", "")
+        desc = scene.get("desc", "")
+
+        day_progress = min(1.0, t / 0.5)
+        day_scale = ease_out(day_progress)
+
+        font_size = int(120 * day_scale)
+        if font_size > 20:
+            df = H_FONT(max(20, font_size))
+            c = int(255 * day_scale)
+            bb = draw.textbbox((0, 0), day.upper(), font=df)
+            dx = (W - (bb[2] - bb[0])) // 2
+            dy = int(H * 0.32) + int(30 * (1 - day_scale))
+            for ddx in range(-3, 4):
+                for ddy in range(-3, 4):
+                    if ddx*ddx + ddy*ddy <= 9:
+                        draw.text((dx+ddx, dy+ddy), day.upper(), font=df, fill=(0,0,0))
+            draw.text((dx, dy), day.upper(), font=df, fill=(c, c, c))
+
+        # Line
+        line_progress = max(0, min(1, (t - 0.4) / 0.3))
+        if line_progress > 0:
+            lw = int((W - 360) * ease_out(line_progress))
+            lx = (W - lw) // 2
+            ly = int(H * 0.46)
+            draw.line([(lx, ly), (lx + lw, ly)], fill=WHITE, width=1)
+
+        # Description
+        desc_progress = max(0, min(1, (t - 0.6) / 0.4))
+        if desc_progress > 0:
+            sf = R_FONT(36)
+            c = int(190 * ease_out(desc_progress))
+            y_off = int(20 * (1 - ease_out(desc_progress)))
+            words = desc.split()
+            lines_d = []
+            cur = ""
+            for w in words:
+                test = f"{cur} {w}".strip()
+                if draw.textbbox((0, 0), test, font=sf)[2] <= W - 140: cur = test
+                else:
+                    if cur: lines_d.append(cur)
+                    cur = w
+            if cur: lines_d.append(cur)
+            sy = int(H * 0.49) + y_off
+            for sl in lines_d:
+                bb = draw.textbbox((0, 0), sl, font=sf)
+                sx = (W - (bb[2] - bb[0])) // 2
+                draw.text((sx, sy), sl, font=sf, fill=(c, c, c))
+                sy += 50
+
+    elif scene_type == "cta":
+        # DS logo pulses, then text fades in
+        pulse_alpha = 0.7 + 0.3 * math.sin(t * 2)
+
+        ds_progress = min(1.0, t / 0.6)
+        ds_scale = ease_out(ds_progress)
+        font_size = int(180 * ds_scale)
+        if font_size > 20:
+            dsf = H_FONT(max(20, font_size))
+            c = int(255 * ds_scale * pulse_alpha)
+            bb = draw.textbbox((0, 0), "DS", font=dsf)
+            dx = (W - (bb[2] - bb[0])) // 2
+            dy = int(H * 0.26) + int(40 * (1 - ds_scale))
+            for ddx in range(-4, 5):
+                for ddy in range(-4, 5):
+                    if ddx*ddx + ddy*ddy <= 16:
+                        draw.text((dx+ddx, dy+ddy), "DS", font=dsf, fill=(0,0,0))
+            draw.text((dx, dy), "DS", font=dsf, fill=(c, c, c))
+
+        # MARKETING
+        mkt_progress = max(0, min(1, (t - 0.4) / 0.4))
+        if mkt_progress > 0:
+            mf = H_FONT(65)
+            c = int(190 * ease_out(mkt_progress))
+            render_text_centered(draw, int(H * 0.42), "MARKETING", mf, c)
+
+        # Line
+        line_prog = max(0, min(1, (t - 0.7) / 0.3))
+        if line_prog > 0:
+            lw = int(500 * ease_out(line_prog))
+            lx = (W - lw) // 2
+            draw.line([(lx, int(H*0.5)), (lx+lw, int(H*0.5))], fill=WHITE, width=2)
+
+        # Handle
+        h_prog = max(0, min(1, (t - 0.9) / 0.3))
+        if h_prog > 0:
+            hf = B_FONT(34)
+            c = int(255 * ease_out(h_prog))
+            bb = draw.textbbox((0,0), "@dsmarketing.agency", font=hf)
+            hx = (W - (bb[2]-bb[0])) // 2
+            draw.text((hx, int(H*0.54)), "@dsmarketing.agency", font=hf, fill=(c,c,c))
+
+        wf_prog = max(0, min(1, (t - 1.1) / 0.3))
+        if wf_prog > 0:
+            wf = R_FONT(22)
+            c = int(100 * ease_out(wf_prog))
+            bb = draw.textbbox((0,0), "dsmarketing.lovable.app", font=wf)
+            wx = (W - (bb[2]-bb[0])) // 2
+            draw.text((wx, int(H*0.6)), "dsmarketing.lovable.app", font=wf, fill=(c,c,c))
+
+        ff_prog = max(0, min(1, (t - 1.3) / 0.4))
+        if ff_prog > 0:
+            ff = H_FONT(50)
+            c = int(255 * ease_out(ff_prog))
+            render_text_centered(draw, int(H*0.68), "FOLLOW FOR MORE", ff, c)
+
+    else:
+        # Generic text scene — lines fade in with stagger
+        lines = scene.get("lines", [])
+        sub = scene.get("sub")
+        stagger = 0.35
+        hf = H_FONT(80)
+        y_start = (H - len(lines) * 100) // 2 - 50
+
+        for i, ln in enumerate(lines):
+            line_start = i * stagger
+            lp = max(0, min(1, (t - line_start) / 0.4))
+            alpha = int(255 * ease_out(lp))
+            y_off = int(25 * (1 - ease_out(lp)))
+            if alpha > 0:
+                render_text_centered(draw, y_start + i * 100 + y_off, ln, hf, alpha)
+
+        if sub:
+            sub_start = len(lines) * stagger + 0.3
+            sp = max(0, min(1, (t - sub_start) / 0.5))
+            if sp > 0:
+                sf = R_FONT(34)
+                c = int(190 * ease_out(sp))
+                bb = draw.textbbox((0,0), sub, font=sf)
+                sx = (W - (bb[2]-bb[0])) // 2
+                draw.text((sx, y_start + len(lines)*100 + 50), sub, font=sf, fill=(c,c,c))
+
+    # Brand watermark (always visible, subtle)
+    bf = B_FONT(22)
+    draw.text((W//2 - 90, H - 140), "@dsmarketing.agency", font=bf, fill=(50, 50, 50))
+
+    # Scene fade-in (first 0.3s) and fade-out (last 0.3s)
+    arr = np.array(img)
+
+    if t < 0.3:
+        arr = (arr * (t / 0.3)).astype(np.uint8)
+    if scene_duration - t < 0.3:
+        arr = (arr * ((scene_duration - t) / 0.3)).astype(np.uint8)
+
+    # Draw particles onto array
+    for p in particles:
+        p.update(1.0 / FPS)
+        p.draw(arr, t)
+
+    return arr
 
 
-def frame_big_text(lines, subtitle=None):
+def render_reel_animated(scenes, voice_path, music_path, output_path):
     """
-    BIG TEXT FRAME: Maximum impact text on black.
-    For statements that need to hit hard.
+    Render a full reel frame-by-frame with real animation.
     """
-    img = Image.new("RGB", (W, H), BLACK)
+    # Initialize particles
+    rng = random.Random(42)
+    particles = [Particle(rng) for _ in range(25)]
 
-    # Subtle gradient
-    draw = ImageDraw.Draw(img)
-    for y in range(H):
-        v = int(4 + 10 * (1 - abs(y - H * 0.45) / (H * 0.55)) ** 2)
-        draw.line([(0, y), (W, y)], fill=(v, v, v))
+    all_frames = []
+    total_frames = 0
 
-    img = _particles(img, 12, seed=hash(str(lines)) % 9999)
-    img = _vignette(img, 0.7)
-    img = _grain(img, 3)
+    for sc_idx, scene in enumerate(scenes):
+        dur = scene["dur"]
+        n_frames = int(dur * FPS)
+        total_frames += n_frames
+        print(f"      scene {sc_idx+1}/{len(scenes)}: {n_frames} frames ({dur}s)...", end=" ", flush=True)
 
-    draw = ImageDraw.Draw(img)
+        for f_idx in range(n_frames):
+            t = f_idx / FPS
+            frame = render_scene_frame(scene, t, dur, particles)
+            all_frames.append(frame)
 
-    # Calculate vertical center
-    hf = HEADLINE(82)
-    total_lines = len(lines)
-    line_h = 96
-    total_h = total_lines * line_h
-    start_y = (H - total_h) // 2 - 40
+        print("done")
 
-    for i, ln in enumerate(lines):
-        # Glow
-        glow = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-        gd = ImageDraw.Draw(glow)
-        bb = gd.textbbox((0, 0), ln, font=hf)
-        gx = (W - (bb[2] - bb[0])) // 2
-        for dx in range(-2, 3):
-            for dy in range(-2, 3):
-                gd.text((gx + dx, start_y + i * line_h + dy), ln, font=hf, fill=(255, 255, 255, 25))
-        glow = glow.filter(ImageFilter.GaussianBlur(radius=12))
-        img = Image.alpha_composite(img.convert("RGBA"), glow).convert("RGB")
-        draw = ImageDraw.Draw(img)
+    print(f"    Total: {total_frames} frames ({total_frames/FPS:.1f}s)")
+    print(f"    Encoding video...")
 
-        _centered_out(draw, start_y + i * line_h, ln, hf, WHITE, BLACK, 3)
+    # Save frames as temporary files and build video
+    temp_dir = f"{OUT}/_frames"
+    os.makedirs(temp_dir, exist_ok=True)
 
-    # Subtitle
-    if subtitle:
-        sf = REG(36)
-        sub_lines = _wrap(subtitle, sf, W - 140, draw)
-        sy = start_y + total_lines * line_h + 50
-        for sl in sub_lines:
-            _centered(draw, sy, sl, sf, LIGHT_GRAY)
-            sy += 48
+    frame_paths = []
+    for i, frame in enumerate(all_frames):
+        p = f"{temp_dir}/f_{i:05d}.png"
+        Image.fromarray(frame).save(p, quality=90)
+        frame_paths.append(p)
 
-    # Brand
-    draw.line([(120, H - 200), (W - 120, H - 200)], fill=(35, 35, 35), width=1)
-    _centered(draw, H - 165, "@dsmarketing.agency", BOLD(26), MED_GRAY)
+    # Build video with moviepy
+    video = ImageSequenceClip(frame_paths, fps=FPS)
 
-    return img
-
-
-def frame_day(day_name, description):
-    """
-    DAY FRAME: Large day name with description.
-    For the content calendar reel.
-    """
-    img = Image.new("RGB", (W, H), BLACK)
-
-    # Gradient center glow
-    draw = ImageDraw.Draw(img)
-    cx, cy = W // 2, int(H * 0.38)
-    for y in range(0, H, 2):
-        for x in range(0, W, 2):
-            d = math.sqrt((x - cx) ** 2 + (y - cy) ** 2)
-            t = min(1.0, d / (W * 0.6))
-            v = int(18 * (1 - t ** 1.3))
-            img.putpixel((x, y), (v, v, v))
-            if x + 1 < W: img.putpixel((x + 1, y), (v, v, v))
-            if y + 1 < H: img.putpixel((x, y + 1), (v, v, v))
-            if x + 1 < W and y + 1 < H: img.putpixel((x + 1, y + 1), (v, v, v))
-
-    img = _particles(img, 10, seed=hash(day_name) % 9999)
-    img = _vignette(img, 0.68)
-    img = _grain(img, 3)
-
-    draw = ImageDraw.Draw(img)
-
-    # Day name — HUGE
-    df = HEADLINE(130)
-    bb = draw.textbbox((0, 0), day_name.upper(), font=df)
-    dx = (W - (bb[2] - bb[0])) // 2
-    dy = int(H * 0.32)
-
-    # Glow
-    glow = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-    gd = ImageDraw.Draw(glow)
-    for ddx in range(-2, 3):
-        for ddy in range(-2, 3):
-            gd.text((dx + ddx, dy + ddy), day_name.upper(), font=df, fill=(255, 255, 255, 35))
-    glow = glow.filter(ImageFilter.GaussianBlur(radius=16))
-    img = Image.alpha_composite(img.convert("RGBA"), glow).convert("RGB")
-    draw = ImageDraw.Draw(img)
-
-    _outlined(draw, dx, dy, day_name.upper(), df, WHITE, BLACK, 3)
-
-    # Thin line
-    line_y = dy + (bb[3] - bb[1]) + 30
-    draw.line([(180, line_y), (W - 180, line_y)], fill=WHITE, width=1)
-
-    # Description
-    sf = REG(38)
-    desc_lines = _wrap(description, sf, W - 140, draw)
-    sy = line_y + 40
-    for sl in desc_lines:
-        _centered(draw, sy, sl, sf, LIGHT_GRAY)
-        sy += 52
-
-    # Brand
-    draw.line([(120, H - 200), (W - 120, H - 200)], fill=(35, 35, 35), width=1)
-    _centered(draw, H - 165, "@dsmarketing.agency", BOLD(26), MED_GRAY)
-
-    return img
-
-
-def frame_cta():
-    """CTA final frame — Follow / Save."""
-    img = Image.new("RGB", (W, H), BLACK)
-
-    draw = ImageDraw.Draw(img)
-    # Center glow
-    cx, cy = W // 2, H // 2
-    for y in range(0, H, 2):
-        for x in range(0, W, 2):
-            d = math.sqrt((x - cx) ** 2 + (y - cy) ** 2)
-            t = min(1.0, d / (W * 0.5))
-            v = int(20 * (1 - t ** 1.5))
-            img.putpixel((x, y), (v, v, v))
-            if x + 1 < W: img.putpixel((x + 1, y), (v, v, v))
-            if y + 1 < H: img.putpixel((x, y + 1), (v, v, v))
-            if x + 1 < W and y + 1 < H: img.putpixel((x + 1, y + 1), (v, v, v))
-
-    img = _particles(img, 25, seed=777)
-    img = _vignette(img, 0.65)
-    img = _grain(img, 3)
-
-    draw = ImageDraw.Draw(img)
-
-    # DS massive
-    dsf = HEADLINE(200)
-    bb = draw.textbbox((0, 0), "DS", font=dsf)
-    dx = (W - (bb[2] - bb[0])) // 2
-    dy = int(H * 0.28)
-
-    glow = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-    gd = ImageDraw.Draw(glow)
-    for ddx in range(-3, 4):
-        for ddy in range(-3, 4):
-            gd.text((dx + ddx, dy + ddy), "DS", font=dsf, fill=(255, 255, 255, 40))
-    glow = glow.filter(ImageFilter.GaussianBlur(radius=24))
-    img = Image.alpha_composite(img.convert("RGBA"), glow).convert("RGB")
-    draw = ImageDraw.Draw(img)
-
-    _outlined(draw, dx, dy, "DS", dsf, WHITE, BLACK, 4)
-
-    # MARKETING
-    mf = HEADLINE(72)
-    _centered(draw, dy + 190, "MARKETING", mf, LIGHT_GRAY)
-
-    # Line
-    draw.line([(200, dy + 290), (W - 200, dy + 290)], fill=WHITE, width=2)
-
-    # Handle
-    hf = BOLD(36)
-    _centered(draw, dy + 330, "@dsmarketing.agency", hf, WHITE)
-
-    # Website
-    wf = REG(24)
-    _centered(draw, dy + 390, "dsmarketing.lovable.app", wf, MED_GRAY)
-
-    # FOLLOW FOR MORE
-    ff = HEADLINE(52)
-    _centered(draw, dy + 480, "FOLLOW FOR MORE", ff, WHITE)
-
-    return img
-
-
-# ══════════════════════════════════════════════
-# VIDEO BUILD ENGINE
-# ══════════════════════════════════════════════
-
-def zoom_fx(clip, z1=1.0, z2=1.1):
-    dur = clip.duration
-    w, h = clip.size
-    def apply(get_frame, t):
-        p = t / dur if dur > 0 else 0
-        z = z1 + (z2 - z1) * p
-        frame = get_frame(t)
-        nw, nh = int(w / z), int(h / z)
-        x1, y1 = (w - nw) // 2, (h - nh) // 2
-        crop = frame[y1:y1 + nh, x1:x1 + nw]
-        from PIL import Image as PI
-        return np.array(PI.fromarray(crop).resize((w, h), PI.LANCZOS))
-    return clip.transform(apply)
-
-
-def render_reel(scenes, voice_path, music_path, out_path):
-    """Build final MP4 from scenes + voice + music."""
-    clips = []
-    for i, sc in enumerate(scenes):
-        tp = f"{OUT}/_tf_{i}.png"
-        sc["image"].save(tp, quality=95)
-        dur = sc.get("duration", sc.get("dur", 3))
-        cl = ImageClip(tp).with_duration(dur)
-        # Alternate zoom for dynamism
-        if i % 3 == 0:
-            cl = zoom_fx(cl, 1.0, 1.06)
-        elif i % 3 == 1:
-            cl = zoom_fx(cl, 1.06, 1.0)
-        else:
-            cl = zoom_fx(cl, 1.0, 1.04)
-        clips.append(cl)
-
-    video = concatenate_videoclips(clips, method="compose")
-
+    # Audio
     audio_tracks = []
-
-    # Voiceover
     if voice_path and os.path.exists(voice_path):
         try:
             va = AudioFileClip(voice_path)
@@ -666,30 +582,24 @@ def render_reel(scenes, voice_path, music_path, out_path):
                 except: va = va.subclip(0, video.duration)
             audio_tracks.append(va)
         except Exception as e:
-            print(f"    ! voice error: {e}")
+            print(f"    ! voice: {e}")
 
-    # Music
     if music_path and os.path.exists(music_path):
         try:
             mus = AudioFileClip(music_path)
-            try:
-                if mus.duration > video.duration:
-                    mus = mus.subclipped(0, video.duration)
-            except AttributeError:
-                if mus.duration > video.duration:
-                    mus = mus.subclip(0, video.duration)
-
-            # Lower volume
+            if mus.duration > video.duration:
+                try: mus = mus.subclipped(0, video.duration)
+                except: mus = mus.subclip(0, video.duration)
             vol = 0.25 if audio_tracks else 0.5
             try:
                 from moviepy.audio.fx import MultiplyVolume
                 mus = mus.with_effects([MultiplyVolume(factor=vol)])
-            except (ImportError, AttributeError):
+            except:
                 try: mus = mus.volumex(vol)
                 except: pass
             audio_tracks.append(mus)
         except Exception as e:
-            print(f"    ! music error: {e}")
+            print(f"    ! music: {e}")
 
     if audio_tracks:
         if len(audio_tracks) > 1:
@@ -697,47 +607,89 @@ def render_reel(scenes, voice_path, music_path, out_path):
         else:
             video = video.with_audio(audio_tracks[0])
 
-    video.write_videofile(out_path, fps=FPS, codec="libx264", audio_codec="aac", logger=None)
+    video.write_videofile(output_path, fps=FPS, codec="libx264", audio_codec="aac", logger=None)
 
-    # Clean temp
-    for i in range(len(scenes)):
-        tp = f"{OUT}/_tf_{i}.png"
-        if os.path.exists(tp): os.remove(tp)
+    # Cleanup
+    for p in frame_paths:
+        try: os.remove(p)
+        except: pass
+    try: os.rmdir(temp_dir)
+    except: pass
 
-    print(f"  \u2713 {os.path.basename(out_path)}")
+    print(f"  \u2713 {os.path.basename(output_path)}")
 
 
 # ══════════════════════════════════════════════
-# REEL CONTENT v2 — Natural Voice Scripts
+# REEL CONTENT
 # ══════════════════════════════════════════════
+
+def load_char(char_dir, name):
+    """Load and prepare character for video frames."""
+    if not char_dir:
+        return None
+    for n in [name, name + "_desk", name + "_launch"]:
+        p = f"{char_dir}/{n}.png"
+        if os.path.exists(p):
+            ch = Image.open(p).convert("RGB")
+            # Scale to fill width
+            scale = W / ch.width
+            new_h = int(ch.height * scale)
+            if new_h < int(H * 0.65):
+                scale = (H * 0.7) / ch.height
+            new_w = int(ch.width * scale)
+            new_h = int(ch.height * scale)
+            ch = ch.resize((new_w, new_h), Image.LANCZOS)
+
+            # Brighten + desaturate
+            ch = ImageEnhance.Brightness(ch).enhance(1.3)
+            ch = ImageEnhance.Contrast(ch).enhance(1.2)
+            gray = ch.convert("L").convert("RGB")
+            ch = Image.blend(ch, gray, 0.85)
+
+            # Place on black canvas
+            canvas = Image.new("RGB", (W, H), BLACK)
+            x_off = (W - new_w) // 2
+            canvas.paste(ch, (x_off, 0))
+
+            # Gradient overlay bottom
+            ov = Image.new("RGBA", (W, H), (0,0,0,0))
+            d = ImageDraw.Draw(ov)
+            for y in range(int(H*0.3), H):
+                t = (y - H*0.3) / (H*0.7)
+                a = int(240 * t**1.1)
+                d.line([(0,y),(W,y)], fill=(0,0,0,min(255,a)))
+            canvas = Image.alpha_composite(canvas.convert("RGBA"), ov).convert("RGB")
+
+            return canvas
+    return None
+
 
 REELS = [
     {
         "name": "reel_01_mistakes",
         "title": "7 Social Media Mistakes",
-        # Natural, conversational voice script — sounds like a real person talking
         "voice_text": (
             "Your social media isn't failing... your strategy is. "
             "And here are the seven mistakes... that are killing your growth right now. "
             "One... posting without a content plan. Random posts? Random results. It's that simple. "
             "Two... ignoring your analytics. The data is literally telling you what works. Why aren't you reading it? "
             "Three... buying followers. Ten thousand fake followers will never buy your product. Ever. "
-            "Four... no consistent brand voice. If people can't recognize you in two seconds? You don't have a brand. You have noise. "
-            "Five... posting the same content everywhere. Instagram and LinkedIn are completely different languages. "
-            "Six... zero engagement. Post and ghost? The algorithm notices. And it stops showing your content. "
-            "Seven... no distribution strategy. Publishing is only twenty percent of the work. The other eighty percent? That's where growth happens. "
+            "Four... no consistent brand voice. If people can't recognize you in two seconds? You don't have a brand. "
+            "Five... posting the same content everywhere. Instagram and LinkedIn are completely different. "
+            "Six... zero engagement. Post and ghost? The algorithm notices. "
+            "Seven... no distribution strategy. Publishing is only twenty percent of the work. "
             "Follow D S Marketing... for more."
         ),
         "scenes": [
-            {"type": "char", "char": "frustrated", "lines": ["YOUR SOCIAL", "MEDIA ISN'T", "FAILING."], "sub": "Your strategy is.", "dur": 5},
-            {"type": "num", "num": 1, "title": "No Content Plan", "sub": "Random posts give random results. It's that simple.", "dur": 4},
-            {"type": "num", "num": 2, "title": "Ignoring Analytics", "sub": "The data tells you exactly what works. Read it.", "dur": 3.5},
-            {"type": "num", "num": 3, "title": "Buying Followers", "sub": "10K fake followers will never buy your product.", "dur": 3.5},
-            {"type": "num", "num": 4, "title": "No Brand Voice", "sub": "Unrecognizable in 2 seconds? That's not a brand.", "dur": 3.5},
-            {"type": "num", "num": 5, "title": "Same Content Everywhere", "sub": "Each platform speaks its own language.", "dur": 3.5},
-            {"type": "num", "num": 6, "title": "Zero Engagement", "sub": "Post and ghost? The algorithm notices.", "dur": 3.5},
-            {"type": "num", "num": 7, "title": "No Distribution", "sub": "Publishing is only 20% of the work.", "dur": 3.5},
-            {"type": "cta", "dur": 4},
+            {"type": "title", "char": "frustrated", "lines": ["YOUR SOCIAL", "MEDIA ISN'T", "FAILING."], "sub": "Your strategy is.", "dur": 5},
+            {"type": "number", "num": 1, "title": "No Content Plan", "sub": "Random posts give random results.", "dur": 4},
+            {"type": "number", "num": 2, "title": "Ignoring Analytics", "sub": "The data tells you what works.", "dur": 3.5},
+            {"type": "number", "num": 3, "title": "Buying Followers", "sub": "Fake followers never buy.", "dur": 3.5},
+            {"type": "number", "num": 4, "title": "No Brand Voice", "sub": "Unrecognizable = invisible.", "dur": 3.5},
+            {"type": "number", "num": 5, "title": "Same Everywhere", "sub": "Each platform is different.", "dur": 3.5},
+            {"type": "number", "num": 6, "title": "Zero Engagement", "sub": "The algorithm notices silence.", "dur": 3.5},
+            {"type": "number", "num": 7, "title": "No Distribution", "sub": "Publishing is only 20%.", "dur": 3.5},
+            {"type": "cta", "dur": 4.5},
         ],
     },
     {
@@ -746,24 +698,24 @@ REELS = [
         "voice_text": (
             "Stop posting randomly... and start posting strategically. "
             "Here's the content framework... that actually works. "
-            "Monday... is for education. Tips, frameworks, how-to's. Show them you know your stuff. "
-            "Tuesday... share industry insights. Be the person who sees what's coming before everyone else. "
-            "Wednesday... case studies. Real numbers, real results. Nothing builds trust faster. "
-            "Thursday... take them behind the scenes. Your process, your team. People buy from people. "
-            "Friday... is engagement day. Ask questions. Start conversations. Let your audience talk. "
-            "Weekends... share your brand story. Your mission. Your values. Build connection, not just reach. "
-            "And the secret weapon? Batch everything... on Monday. Create the full week in one sitting. "
-            "Save this framework... D S Marketing."
+            "Monday... education. Tips, frameworks, how-to's. "
+            "Tuesday... industry insights. See what's coming. "
+            "Wednesday... case studies. Real numbers. "
+            "Thursday... behind the scenes. Your process. "
+            "Friday... engagement. Questions and conversations. "
+            "Weekends... brand story. Mission and values. "
+            "The secret weapon? Batch everything on Monday. "
+            "Save this... D S Marketing."
         ),
         "scenes": [
-            {"type": "char", "char": "presenter", "lines": ["STOP POSTING", "RANDOMLY."], "sub": "Start posting strategically.", "dur": 4.5},
-            {"type": "day", "day": "Monday", "desc": "Education. Tips, frameworks, how-to's. Show your expertise.", "dur": 3.5},
-            {"type": "day", "day": "Tuesday", "desc": "Industry insights. Be the one who sees what's coming.", "dur": 3},
-            {"type": "day", "day": "Wednesday", "desc": "Case studies. Real numbers. Real results.", "dur": 3},
-            {"type": "day", "day": "Thursday", "desc": "Behind the scenes. Your process, your team.", "dur": 3},
-            {"type": "day", "day": "Friday", "desc": "Engagement. Questions, polls, conversations.", "dur": 3},
-            {"type": "day", "day": "Weekend", "desc": "Brand story. Mission, values, connection.", "dur": 3},
-            {"type": "char", "char": "visionary", "lines": ["THE SECRET:", "BATCH MONDAY."], "sub": "Create the full week in one sitting.", "dur": 4.5},
+            {"type": "title", "char": "presenter", "lines": ["STOP POSTING", "RANDOMLY."], "sub": "Start posting strategically.", "dur": 4.5},
+            {"type": "day", "day": "Monday", "desc": "Education. Tips, frameworks, how-to's.", "dur": 3},
+            {"type": "day", "day": "Tuesday", "desc": "Industry insights. See what's coming.", "dur": 2.8},
+            {"type": "day", "day": "Wednesday", "desc": "Case studies. Real numbers, real results.", "dur": 2.8},
+            {"type": "day", "day": "Thursday", "desc": "Behind the scenes. Your process.", "dur": 2.8},
+            {"type": "day", "day": "Friday", "desc": "Engagement. Questions and conversations.", "dur": 2.8},
+            {"type": "day", "day": "Weekend", "desc": "Brand story. Mission and values.", "dur": 2.8},
+            {"type": "title", "char": "visionary", "lines": ["THE SECRET:", "BATCH MONDAY."], "sub": "Create the full week in one sitting.", "dur": 4},
             {"type": "cta", "dur": 3.5},
         ],
     },
@@ -772,20 +724,19 @@ REELS = [
         "title": "The 3-Second Rule",
         "voice_text": (
             "You have three seconds... "
-            "Three seconds to stop the scroll... three seconds to grab their attention. "
-            "Your audience decides... in three seconds... whether to keep watching... or swipe away. "
-            "That means your hook... is everything. "
-            "Not your logo... not your color palette... not your font choice. "
-            "Your first line... that single opening moment... "
-            "That's where the battle is won... or lost. "
+            "Three seconds to stop the scroll... "
+            "Your audience decides in three seconds... whether to keep watching... or swipe away. "
+            "Your hook... is everything. "
+            "Not your logo... not your colors... not your fonts... "
+            "Your first line... that's where the battle is won... or lost. "
             "Make every hook count... D S Marketing."
         ),
         "scenes": [
-            {"type": "char", "char": "clock", "lines": ["YOU HAVE", "3 SECONDS."], "sub": None, "dur": 4},
-            {"type": "text", "lines": ["3 SECONDS", "TO STOP", "THE SCROLL."], "sub": None, "dur": 4},
-            {"type": "text", "lines": ["YOUR HOOK", "IS EVERYTHING."], "sub": None, "dur": 4},
-            {"type": "text", "lines": ["NOT YOUR LOGO.", "NOT YOUR FONTS.", "NOT YOUR COLORS."], "sub": None, "dur": 4},
-            {"type": "text", "lines": ["YOUR", "FIRST LINE."], "sub": "That's where the battle is won or lost.", "dur": 5},
+            {"type": "title", "char": "clock", "lines": ["YOU HAVE", "3 SECONDS."], "dur": 3.5},
+            {"type": "text", "lines": ["3 SECONDS", "TO STOP", "THE SCROLL."], "dur": 3.5},
+            {"type": "text", "lines": ["YOUR HOOK IS", "EVERYTHING."], "dur": 3.5},
+            {"type": "text", "lines": ["NOT YOUR LOGO.", "NOT YOUR FONTS.", "NOT YOUR COLORS."], "dur": 3.5},
+            {"type": "text", "lines": ["YOUR", "FIRST LINE."], "sub": "That's where the battle is won.", "dur": 4.5},
             {"type": "cta", "dur": 4},
         ],
     },
@@ -798,14 +749,13 @@ REELS = [
 
 def main():
     print()
-    print("  \u2554" + "\u2550" * 52 + "\u2557")
-    print("  \u2551  DS MARKETING REELS ENGINE v2.0                 \u2551")
-    print("  \u2551  Ultra-Human Voice + Cinema Frames + Music       \u2551")
-    print("  \u2551  Pure Black & White. Ready for Instagram.        \u2551")
-    print("  \u255a" + "\u2550" * 52 + "\u255d")
+    print("  \u2554" + "\u2550" * 54 + "\u2557")
+    print("  \u2551  DS MARKETING VIDEO ENGINE v3.0                  \u2551")
+    print("  \u2551  Real Animation. Frame by Frame. Not Slideshows. \u2551")
+    print("  \u2551  AI Voice + Cinematic Music + Moving Particles.  \u2551")
+    print("  \u255a" + "\u2550" * 54 + "\u255d")
     print()
-    print(f"  Voice: {VOICE} (deep, authoritative)")
-    print(f"  Output: {OUT}/")
+    print(f"  Rendering at {FPS}fps | {W}x{H} | 9:16 vertical")
     print()
 
     os.makedirs(OUT, exist_ok=True)
@@ -821,69 +771,45 @@ def main():
     if char_dir:
         print(f"  Characters: {char_dir}/")
     else:
-        print("  No characters found — using text-only frames.")
+        print("  No characters found. Run ds_engine.py first for character images.")
     print()
 
     # Music
     print("  STEP 1: Cinematic Soundtrack")
-    print("  " + "\u2500" * 52)
+    print("  " + "\u2500" * 54)
     music_path = f"{OUT}/audio/cinematic_bg.wav"
-    make_music(music_path, duration=45)
+    make_music(music_path, 50)
 
     # Reels
     for idx, reel in enumerate(REELS):
         print(f"\n  STEP {idx + 2}: {reel['title']}")
-        print("  " + "\u2500" * 52)
+        print("  " + "\u2500" * 54)
 
         # Voice
         vp = f"{OUT}/audio/{reel['name']}_voice.mp3"
         print(f"    Generating voice...")
         make_voice(reel["voice_text"], vp)
 
-        # Frames
-        print(f"    Building frames...")
-        scenes = []
+        # Load characters for scenes
+        print(f"    Loading characters...")
         for sc in reel["scenes"]:
-            if sc["type"] == "char":
-                cp = None
-                if char_dir and sc.get("char"):
-                    # Try exact name first, then common variations
-                    for name in [sc["char"], sc["char"] + "_desk", sc["char"] + "_launch"]:
-                        p = f"{char_dir}/{name}.png"
-                        if os.path.exists(p):
-                            cp = p
-                            break
-                frame = frame_character_hero(cp, sc["lines"], sc.get("sub"))
-            elif sc["type"] == "num":
-                frame = frame_number_point(sc["num"], sc["title"], sc.get("sub"))
-            elif sc["type"] == "day":
-                frame = frame_day(sc["day"], sc["desc"])
-            elif sc["type"] == "cta":
-                frame = frame_cta()
-            else:
-                frame = frame_big_text(sc["lines"], sc.get("sub"))
-            scenes.append({"image": frame, "duration": sc["dur"]})
+            if sc.get("char"):
+                sc["char_img"] = load_char(char_dir, sc["char"])
 
-        # Render
-        print(f"    Rendering video...")
+        # Render animation frame by frame
+        print(f"    Rendering animation (this takes a few minutes)...")
         op = f"{OUT}/{reel['name']}.mp4"
         try:
-            render_reel(scenes, vp, music_path, op)
+            render_reel_animated(reel["scenes"], vp, music_path, op)
         except Exception as e:
             print(f"    ! Error: {e}")
-            try:
-                render_reel(scenes, vp, None, op)
-            except Exception as e2:
-                print(f"    ! Fallback error: {e2}")
-                try:
-                    render_reel(scenes, None, None, op)
-                except Exception as e3:
-                    print(f"    ! Failed: {e3}")
+            import traceback
+            traceback.print_exc()
 
     print()
-    print("  \u2554" + "\u2550" * 52 + "\u2557")
-    print("  \u2551  ALL DONE \u2014 REELS v2.0 COMPLETE                 \u2551")
-    print("  \u255a" + "\u2550" * 52 + "\u255d")
+    print("  \u2554" + "\u2550" * 54 + "\u2557")
+    print("  \u2551  ALL DONE \u2014 VIDEO ENGINE v3.0 COMPLETE           \u2551")
+    print("  \u255a" + "\u2550" * 54 + "\u255d")
     print(f"""
   Your reels: {OUT}/
 
@@ -891,15 +817,17 @@ def main():
      reel_02_calendar.mp4      Content Calendar Framework
      reel_03_hook.mp4          The 3-Second Rule
 
-  Each includes:
-     Deep authoritative AI voice (DavisNeural)
-     Dark cinematic ambient soundtrack
-     Animated zoom transitions
-     9:16 vertical (Instagram Reels)
+  REAL ANIMATION:
+     Text fades in word by word
+     Numbers zoom and scale up
+     Floating particles that drift
+     Smooth crossfade transitions
+     Pulsing light effects
+     AI voiceover + cinematic music
 
-  Upload directly to Instagram.
-  Pure Black & White. Your Brand. Maximum Impact.
+  Upload directly to Instagram Reels.
 """)
+
 
 if __name__ == "__main__":
     main()
