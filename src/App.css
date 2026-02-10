@@ -769,255 +769,315 @@ body {
   opacity: 0.3;
 }
 
-/* ── Rendered Output ─────────────────────────────────────── */
-.renderedOutput {
+/* ── Professional Report Output ─────────────────────────── */
+.rpt {
   border: 1px solid var(--sdx-gray-200);
   border-radius: var(--radius-md);
   overflow: hidden;
+  background: white;
+  font-size: 0.86rem;
 }
 
-.roHeader {
-  background: linear-gradient(135deg, var(--sdx-navy) 0%, #3a3980 100%);
-  color: white;
-  padding: 20px 24px;
-}
-.roHeaderTop {
+/* Report Header */
+.rptHeader {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 16px;
+  padding: 16px 24px;
+  border-bottom: 3px solid var(--sdx-navy);
 }
-.roTitle {
-  font-size: 1.25rem;
-  font-weight: 800;
-  letter-spacing: -0.3px;
-}
-.roSubtitle {
-  font-size: 0.84rem;
-  opacity: 0.75;
-  margin-top: 4px;
-}
-.roStatusBig {
-  padding: 6px 18px;
-  border-radius: 100px;
-  font-size: 0.82rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.8px;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-.roStatusPass {
-  background: rgba(21,128,61,.2);
-  color: #86efac;
-  border: 1.5px solid rgba(21,128,61,.4);
-}
-.roStatusFail {
-  background: rgba(238,0,0,.2);
-  color: #fca5a5;
-  border: 1.5px solid rgba(238,0,0,.4);
-}
-
-.roMetaGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: 10px;
-}
-.roMetaItem {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  font-size: 0.84rem;
-}
-.roMetaLabel {
-  font-size: 0.68rem;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  opacity: 0.6;
-  font-weight: 600;
-}
-
-/* Sections */
-.roSection {
-  padding: 18px 24px;
-  border-bottom: 1px solid var(--sdx-gray-100);
-}
-.roSection:last-child {
-  border-bottom: none;
-}
-.roSectionTitle {
-  font-size: 0.82rem;
+.rptLogo { height: 32px; width: auto; }
+.rptHeaderRight { text-align: right; }
+.rptDocType {
+  font-size: 0.72rem;
   font-weight: 700;
   color: var(--sdx-navy);
   text-transform: uppercase;
-  letter-spacing: 0.4px;
-  margin-bottom: 12px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  letter-spacing: 1px;
 }
-.roCount {
-  background: var(--sdx-red);
-  color: white;
+.rptDocId {
   font-size: 0.68rem;
-  padding: 1px 8px;
-  border-radius: 100px;
-  font-weight: 700;
-}
-.roText {
-  font-size: 0.88rem;
-  color: var(--sdx-gray-600);
-  line-height: 1.6;
+  color: var(--sdx-gray-400);
+  margin-top: 2px;
 }
 
-/* Badges */
-.roBadge {
-  display: inline-block;
-  padding: 2px 10px;
-  border-radius: 100px;
+/* Title Bar */
+.rptTitleBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  background: var(--sdx-gray-50);
+  border-bottom: 1px solid var(--sdx-gray-200);
+  gap: 16px;
+}
+.rptTitle {
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: var(--sdx-navy);
+  letter-spacing: -0.3px;
+}
+.rptDate {
+  font-size: 0.84rem;
+  color: var(--sdx-gray-400);
+  margin-top: 2px;
+}
+.rptStatus {
+  padding: 8px 20px;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.rptStatusPass {
+  background: #ECFDF5;
+  color: #15803D;
+  border: 2px solid #86EFAC;
+}
+.rptStatusFail {
+  background: #FEF2F2;
+  color: #DC2626;
+  border: 2px solid #FECACA;
+}
+
+/* Info Grid */
+.rptInfoGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0;
+  border-bottom: 1px solid var(--sdx-gray-200);
+}
+.rptInfoItem {
+  padding: 12px 24px;
+  border-right: 1px solid var(--sdx-gray-100);
+  border-bottom: 1px solid var(--sdx-gray-100);
+}
+.rptInfoItem:nth-child(3n) { border-right: none; }
+.rptInfoLabel {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--sdx-gray-400);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin-bottom: 4px;
+}
+.rptInfoValue {
+  font-size: 0.88rem;
+  color: var(--sdx-navy);
+  font-weight: 600;
+}
+.rptCheck { color: #15803D; }
+.rptWarn { color: #DC2626; font-size: 0.78rem; font-weight: 600; }
+
+/* Content Blocks */
+.rptBlock {
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--sdx-gray-100);
+}
+.rptBlock:last-of-type { border-bottom: none; }
+.rptBlockTitle {
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: var(--sdx-navy);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin-bottom: 14px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid var(--sdx-navy);
+}
+.rptBlockAlert {
+  background: #FEF2F2;
+}
+.rptBlockTitleAlert {
+  color: #DC2626;
+  border-bottom-color: #DC2626;
+}
+.rptParagraph {
+  font-size: 0.88rem;
+  color: var(--sdx-gray-600);
+  line-height: 1.7;
+  margin: 0;
+}
+
+/* Scorecard Table */
+.rptTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+.rptTable th {
+  background: var(--sdx-navy);
+  color: white;
+  padding: 10px 14px;
+  text-align: left;
   font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.rptTable td {
+  padding: 9px 14px;
+  border-bottom: 1px solid var(--sdx-gray-100);
+  color: var(--sdx-gray-700);
+  vertical-align: middle;
+}
+.rptTable tbody tr:hover { background: var(--sdx-gray-50); }
+.rptSectionCell {
+  font-weight: 700;
+  color: var(--sdx-navy);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  background: var(--sdx-gray-50);
+  border-right: 2px solid var(--sdx-navy);
+  vertical-align: top;
+}
+.rptNoteCell {
+  color: var(--sdx-gray-400);
+  font-style: italic;
+  font-size: 0.8rem;
+}
+.rptRowFail { background: rgba(220,38,38,.04); }
+.rptRowWarn { background: rgba(217,119,6,.04); }
+
+/* Status Pills */
+.rptStatusPill {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 4px;
+  font-size: 0.7rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.3px;
   white-space: nowrap;
 }
-.roBadgePass { background: var(--sdx-green-light); color: var(--sdx-green); }
-.roBadgeFail { background: var(--sdx-red-light); color: var(--sdx-red); }
-.roBadgeWarn { background: var(--sdx-amber-light); color: var(--sdx-amber); }
-.roBadgeNa { background: var(--sdx-gray-100); color: var(--sdx-gray-400); }
+.rptPillPass { background: #ECFDF5; color: #15803D; }
+.rptPillFail { background: #FEF2F2; color: #DC2626; }
+.rptPillWarn { background: #FFFBEB; color: #D97706; }
+.rptPillNa { background: var(--sdx-gray-100); color: var(--sdx-gray-400); }
 
-/* Findings */
-.roFindings {
+/* Issue Rows */
+.rptIssueRow {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(220,38,38,.1);
 }
-.roFindingRow {
+.rptIssueRow:last-child { border-bottom: none; }
+.rptIssueNum {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #DC2626;
+  color: white;
+  font-size: 0.72rem;
+  font-weight: 800;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 14px;
-  background: var(--sdx-gray-50);
-  border-radius: var(--radius-sm);
-  border-left: 3px solid var(--sdx-amber);
+  justify-content: center;
+  flex-shrink: 0;
 }
-.roFindingLabel {
-  font-weight: 600;
-  font-size: 0.86rem;
-  color: var(--sdx-gray-700);
-  min-width: 140px;
+.rptIssueContent { flex: 1; }
+.rptIssueName {
+  font-weight: 700;
+  color: var(--sdx-navy);
+  font-size: 0.88rem;
 }
-.roFindingNote {
+.rptIssueSection {
+  font-weight: 400;
+  color: var(--sdx-gray-400);
+  font-size: 0.78rem;
+}
+.rptIssueDetail {
   font-size: 0.82rem;
   color: var(--sdx-gray-500);
-  font-style: italic;
-}
-.roAllClear {
-  padding: 16px;
-  background: var(--sdx-green-light);
-  border-radius: var(--radius-sm);
-  color: var(--sdx-green);
-  font-weight: 600;
-  font-size: 0.88rem;
-  text-align: center;
+  margin-top: 2px;
 }
 
-/* Action Items */
-.roActions {
+/* Action Rows */
+.rptActionRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--sdx-gray-100);
+}
+.rptActionRow:last-child { border-bottom: none; }
+.rptPriorityDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-top: 5px;
+  flex-shrink: 0;
+}
+.rptDotHigh { background: #DC2626; }
+.rptDotMed { background: #D97706; }
+.rptActionContent {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.rptActionText {
+  font-size: 0.86rem;
+  color: var(--sdx-gray-700);
+}
+.rptPriorityLabel {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  flex-shrink: 0;
+}
+.rptLabelHigh { color: #DC2626; }
+.rptLabelMed { color: #D97706; }
+
+/* Photo Index */
+.rptPhotoList {
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
-.roActionRow {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 10px 14px;
-  background: var(--sdx-gray-50);
-  border-radius: var(--radius-sm);
-}
-.roPriority {
-  display: inline-block;
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 0.7rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  flex-shrink: 0;
-  margin-top: 2px;
-}
-.roPriorityHigh { background: var(--sdx-red); color: white; }
-.roPriorityMed { background: var(--sdx-amber); color: white; }
-.roActionText {
-  font-size: 0.86rem;
-  color: var(--sdx-gray-700);
-  line-height: 1.4;
-}
-
-/* Scorecard */
-.roScoreSection {
-  margin-bottom: 14px;
-}
-.roScoreSectionTitle {
-  font-size: 0.76rem;
-  font-weight: 700;
-  color: var(--sdx-blue);
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-  padding: 6px 0;
-  border-bottom: 2px solid var(--sdx-blue);
-  margin-bottom: 6px;
-}
-.roScoreRow {
+.rptPhotoItem {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 7px 12px;
-  border-bottom: 1px solid var(--sdx-gray-100);
-}
-.roScoreRow:last-child { border-bottom: none; }
-.roScoreLabel {
-  font-size: 0.84rem;
-  color: var(--sdx-gray-700);
-  min-width: 160px;
-}
-.roScoreNote {
-  font-size: 0.78rem;
-  color: var(--sdx-gray-400);
-  font-style: italic;
-}
-
-/* Photos */
-.roPhotos {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.roPhotoRow {
-  display: flex;
-  align-items: center;
-  gap: 8px;
   font-size: 0.84rem;
   color: var(--sdx-gray-600);
-  padding: 4px 0;
 }
-.roPhotoNum {
+.rptPhotoNum {
   font-weight: 700;
-  color: var(--sdx-blue);
-  min-width: 28px;
+  color: var(--sdx-navy);
+  font-size: 0.78rem;
+  min-width: 65px;
 }
 
 /* Notes */
-.roNotes {
+.rptNotesContent {
   font-size: 0.86rem;
   color: var(--sdx-gray-600);
   line-height: 1.7;
   background: var(--sdx-gray-50);
-  padding: 14px 16px;
+  padding: 16px;
   border-radius: var(--radius-sm);
   white-space: pre-wrap;
+  border-left: 3px solid var(--sdx-navy);
+}
+
+/* Report Footer */
+.rptFooter {
+  padding: 14px 24px;
+  background: var(--sdx-gray-50);
+  border-top: 1px solid var(--sdx-gray-200);
+  font-size: 0.68rem;
+  color: var(--sdx-gray-400);
+  text-align: center;
+  line-height: 1.6;
 }
 
 /* ── PIN Lock Screen ─────────────────────────────────────── */
