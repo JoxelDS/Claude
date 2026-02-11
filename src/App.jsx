@@ -393,7 +393,6 @@ const NOTE_TYPES = {
       { key: "kitchen", label: "Kitchen / Location" },
       { key: "participants", label: "Participants" },
       { key: "date", label: "Date" },
-      { key: "duration", label: "Duration" },
     ],
     useCases: ["Email Summary", "Google Doc", "Slack Update", "Evaluation Scorecard"],
     sample: {
@@ -406,7 +405,6 @@ const NOTE_TYPES = {
         kitchen: "Concourse Kitchen \u2014 North Stand",
         participants: "Chef Lead, Sanitation Lead, Ops Manager",
         date: "2026-02-09",
-        duration: "25 min",
       },
       inspection: {
         facility: {
@@ -2476,6 +2474,8 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
   const [page, setPage] = useState("inspector"); // "inspector" | "history" | "admin"
   const [pendingCount, setPendingCount] = useState(0);
+  const [headerH, setHeaderH] = useState(64);
+  const headerRef = useRef(null);
   const lastActivity = useRef(Date.now());
 
   // Dismiss splash screen once React mounts
@@ -2486,6 +2486,15 @@ export default function App() {
       setTimeout(() => splash.remove(), 350);
     }
   }, []);
+
+  // Measure header height for spacer
+  useEffect(() => {
+    if (!headerRef.current) return;
+    const ro = new ResizeObserver(([e]) => setHeaderH(e.contentRect.height));
+    ro.observe(headerRef.current);
+    setHeaderH(headerRef.current.offsetHeight);
+    return () => ro.disconnect();
+  }, [locked, page]);
 
   // Check for pending users (admin notification)
   useEffect(() => {
@@ -2738,7 +2747,7 @@ export default function App() {
 
   return (
     <div className="appShell">
-      <header className="topBar">
+      <header className="topBar" ref={headerRef}>
         <div className="brandLeft brandClickable" onClick={() => { setPage("inspector"); window.scrollTo({ top: 0, behavior: "smooth" }); }} title="Home">
           <img src={LOGO_WHITE} alt="Sodexo" className="brandLogo" />
           <div>
@@ -2778,7 +2787,7 @@ export default function App() {
           </div>
         )}
       </header>
-      <div className="topBarSpacer" />
+      <div style={{ height: headerH, flexShrink: 0 }} />
 
       <main className="grid">
         {/* LEFT */}
