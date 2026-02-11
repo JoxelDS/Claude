@@ -470,6 +470,36 @@ const INSPECTION_TYPES = ["Event Day", "Post Event", "Regular Inspection"];
 const LOCATION_TYPES = ["Concession", "Subcontractor", "Portable"];
 const FLOOR_OPTIONS = ["Floor 1", "Floor 2", "Floor 3"];
 
+// Cold equipment: items that need temperature readings during inspection
+const COLD_EQUIPMENT = {
+  doubleDoorCooler: { type: "cooler", max: 40, label: "Double-door cooler" },
+  doubleDoorFreezer: { type: "freezer", max: 20, label: "Double-door freezer" },
+  walkInCooler: { type: "cooler", max: 40, label: "Walk-in cooler" },
+  walkInFreezer: { type: "freezer", max: 20, label: "Walk-in freezer" },
+  prepCooler: { type: "cooler", max: 40, label: "Prep cooler" },
+};
+function detectColdType(label) {
+  const l = (label || "").toLowerCase();
+  if (/freezer|freez/.test(l)) return { type: "freezer", max: 20 };
+  if (/cooler|cool|refrig|wic|w\.i\.c|walk.in.*c/i.test(l)) return { type: "cooler", max: 40 };
+  return null;
+}
+// Collect all equipment temperature readings
+function collectEquipTemps(inspection) {
+  const results = [];
+  const equip = inspection?.equipment || {};
+  for (const [k, node] of Object.entries(equip)) {
+    if (!node?.tempF && node?.tempF !== 0) continue;
+    const t = Number(node.tempF);
+    if (!t && node.tempF === "") continue;
+    const cold = COLD_EQUIPMENT[k] || (k.startsWith("custom_") ? detectColdType(node.label) : null);
+    if (!cold) continue;
+    const label = COLD_EQUIPMENT[k]?.label || node.label || k;
+    results.push({ key: k, label, tempF: node.tempF, tempNum: t, type: cold.type, max: cold.max, pass: t <= cold.max });
+  }
+  return results;
+}
+
 const INSPECTION_PLAYBOOK = {
   "Event Day": {
     headline: "Event Day Readiness",
@@ -659,11 +689,13 @@ function buildDefaultInspection() {
       labelingDating: withPhotos({ status: "OK", notes: "" }),
       logs: withPhotos({ status: "OK", notes: "" }),
     },
-    temps: { handSinkTempF: "", threeCompSinkTempF: "", coolerTempF: "", freezerTempF: "" },
+    temps: { handSinkTempF: "", threeCompSinkTempF: "" },
     equipment: {
-      doubleDoorCooler: withPhotos({ status: "OK", notes: "" }),
-      doubleDoorFreezer: withPhotos({ status: "OK", notes: "" }),
-      walkInCooler: withPhotos({ status: "OK", notes: "" }),
+      doubleDoorCooler: withPhotos({ status: "OK", notes: "", tempF: "" }),
+      doubleDoorFreezer: withPhotos({ status: "OK", notes: "", tempF: "" }),
+      walkInCooler: withPhotos({ status: "OK", notes: "", tempF: "" }),
+      walkInFreezer: withPhotos({ status: "OK", notes: "", tempF: "" }),
+      prepCooler: withPhotos({ status: "OK", notes: "", tempF: "" }),
       warmers: withPhotos({ status: "OK", notes: "" }),
       ovens: withPhotos({ status: "OK", notes: "" }),
       threeCompSink: withPhotos({ status: "OK", notes: "" }),
@@ -807,6 +839,8 @@ function buildPhotoIndex(inspection) {
     ["equipment", "doubleDoorCooler", "Equipment > Double-door cooler"],
     ["equipment", "doubleDoorFreezer", "Equipment > Double-door freezer"],
     ["equipment", "walkInCooler", "Equipment > Walk-in cooler"],
+    ["equipment", "walkInFreezer", "Equipment > Walk-in freezer"],
+    ["equipment", "prepCooler", "Equipment > Prep cooler"],
     ["equipment", "warmers", "Equipment > Warmers / hot holding"],
     ["equipment", "ovens", "Equipment > Ovens"],
     ["equipment", "threeCompSink", "Equipment > 3-compartment sink"],
@@ -866,22 +900,24 @@ function buildActionItems({ inspection, rawNotes }) {
   pushIfBad("equipment.doubleDoorCooler", "Double-door cooler", inspection?.equipment?.doubleDoorCooler);
   pushIfBad("equipment.doubleDoorFreezer", "Double-door freezer", inspection?.equipment?.doubleDoorFreezer);
   pushIfBad("equipment.walkInCooler", "Walk-in cooler", inspection?.equipment?.walkInCooler);
+  pushIfBad("equipment.walkInFreezer", "Walk-in freezer", inspection?.equipment?.walkInFreezer);
+  pushIfBad("equipment.prepCooler", "Prep cooler", inspection?.equipment?.prepCooler);
   pushIfBad("equipment.warmers", "Warmers / hot holding", inspection?.equipment?.warmers);
   pushIfBad("equipment.ovens", "Ovens", inspection?.equipment?.ovens);
   pushIfBad("equipment.threeCompSink", "3-compartment sink", inspection?.equipment?.threeCompSink);
   pushIfBad("equipment.ecolab", "Ecolab / chemicals", inspection?.equipment?.ecolab);
+  // Water temps
   const hand = Number(inspection?.temps?.handSinkTempF);
   if (!Number.isNaN(hand) && hand && hand < 95)
     items.push({ issue: `Hand sink temperature below minimum: ${hand}°F (min 95°F)`, owner: "", due: "", priority: "High", photos: [] });
   const three = Number(inspection?.temps?.threeCompSinkTempF);
   if (!Number.isNaN(three) && three && three < 110)
     items.push({ issue: `3-compartment sink wash temperature below minimum: ${three}°F (min 110°F)`, owner: "", due: "", priority: "High", photos: [] });
-  const cooler = Number(inspection?.temps?.coolerTempF);
-  if (!Number.isNaN(cooler) && inspection?.temps?.coolerTempF && cooler > 40)
-    items.push({ issue: `Cooler temperature above maximum: ${cooler}°F (max 40°F)`, owner: "", due: "", priority: "High", photos: [] });
-  const freezer = Number(inspection?.temps?.freezerTempF);
-  if (!Number.isNaN(freezer) && inspection?.temps?.freezerTempF && freezer > 20)
-    items.push({ issue: `Freezer temperature above maximum: ${freezer}°F (max 20°F)`, owner: "", due: "", priority: "High", photos: [] });
+  // Per-equipment cold temps
+  for (const et of collectEquipTemps(inspection)) {
+    if (!et.pass)
+      items.push({ issue: `${et.label} temperature above maximum: ${et.tempNum}°F (max ${et.max}°F)`, owner: "", due: "", priority: "High", photos: [] });
+  }
   for (const a of parseActionLines(rawNotes))
     items.push({ issue: a.issue, owner: "", due: "", priority: "Med", photos: [] });
   const seen = new Set();
@@ -1119,24 +1155,26 @@ function aiAssist({ inspection, rawNotes, context, noteType }) {
   checkNode("Double-door cooler", inspection?.equipment?.doubleDoorCooler);
   checkNode("Double-door freezer", inspection?.equipment?.doubleDoorFreezer);
   checkNode("Walk-in cooler", inspection?.equipment?.walkInCooler);
+  checkNode("Walk-in freezer", inspection?.equipment?.walkInFreezer);
+  checkNode("Prep cooler", inspection?.equipment?.prepCooler);
   checkNode("Warmers", inspection?.equipment?.warmers);
   checkNode("Ovens", inspection?.equipment?.ovens);
   checkNode("3-compartment sink", inspection?.equipment?.threeCompSink);
   checkNode("Ecolab / chemicals", inspection?.equipment?.ecolab);
 
-  // Temperature checks
+  // Water temperature checks
   const hs = Number(inspection?.temps?.handSinkTempF);
   const ts = Number(inspection?.temps?.threeCompSinkTempF);
   if (hs && hs < 95) tips.push(`Hand sink temp is ${hs}°F (below 95°F min). Flag for immediate maintenance.`);
   if (ts && ts < 110) tips.push(`3-comp sink wash temp is ${ts}°F (below 110°F min). Check water heater.`);
   if (hs && hs >= 95 && hs < 100) tips.push(`Hand sink temp is ${hs}°F — passes but is close to the 95°F minimum. Monitor.`);
   if (ts && ts >= 110 && ts < 115) tips.push(`3-comp wash temp is ${ts}°F — passes but is close to the 110°F minimum. Monitor.`);
-  const cl = Number(inspection?.temps?.coolerTempF);
-  const fz = Number(inspection?.temps?.freezerTempF);
-  if (cl && cl > 40) tips.push(`Cooler temp is ${cl}°F (above 40°F max). Potential food safety hazard — check refrigeration immediately.`);
-  if (fz && fz > 20) tips.push(`Freezer temp is ${fz}°F (above 20°F max). Check freezer compressor and door seals.`);
-  if (cl && cl <= 40 && cl > 35) tips.push(`Cooler temp is ${cl}°F — passes but close to the 40°F maximum. Monitor.`);
-  if (fz && fz <= 20 && fz > 15) tips.push(`Freezer temp is ${fz}°F — passes but close to the 20°F maximum. Monitor.`);
+  // Per-equipment cold temps
+  for (const et of collectEquipTemps(inspection)) {
+    if (!et.pass) tips.push(`${et.label} temp is ${et.tempNum}°F (above ${et.max}°F max). ${et.type === "freezer" ? "Check freezer compressor and door seals." : "Potential food safety hazard — check refrigeration immediately."}`);
+    else if (et.type === "cooler" && et.tempNum > 35) tips.push(`${et.label} temp is ${et.tempNum}°F — passes but close to the 40°F maximum. Monitor.`);
+    else if (et.type === "freezer" && et.tempNum > 15) tips.push(`${et.label} temp is ${et.tempNum}°F — passes but close to the 20°F maximum. Monitor.`);
+  }
 
   // Raw notes analysis
   if (notes.includes("allergen")) tips.push("Allergen concerns detected in notes — ensure allergen training is scheduled and documented.");
@@ -1193,21 +1231,20 @@ function buildExportSummary({ inspection, rawNotes, inspectionType, inspectionDa
   // Temp summary
   const handT = Number(inspection?.temps?.handSinkTempF);
   const threeT = Number(inspection?.temps?.threeCompSinkTempF);
-  const coolerT = Number(inspection?.temps?.coolerTempF);
-  const freezerT = Number(inspection?.temps?.freezerTempF);
+  const eTemps = collectEquipTemps(inspection);
   const tempIssues = [];
   if (handT && handT < 95) tempIssues.push(`hand sink at ${handT}\u00B0F (below 95\u00B0F)`);
   if (threeT && threeT < 110) tempIssues.push(`3-comp wash at ${threeT}\u00B0F (below 110\u00B0F)`);
-  if (coolerT && coolerT > 40) tempIssues.push(`cooler at ${coolerT}\u00B0F (above 40\u00B0F)`);
-  if (freezerT && freezerT > 20) tempIssues.push(`freezer at ${freezerT}\u00B0F (above 20\u00B0F)`);
+  for (const et of eTemps) {
+    if (!et.pass) tempIssues.push(`${et.label} at ${et.tempNum}\u00B0F (above ${et.max}\u00B0F)`);
+  }
   if (tempIssues.length > 0) {
     lines.push(`Temperature violations: ${tempIssues.join("; ")}. Immediate corrective action required.`);
   } else {
     const tempOk = [];
     if (handT) tempOk.push("hand sink");
     if (threeT) tempOk.push("3-comp wash");
-    if (coolerT) tempOk.push("cooler");
-    if (freezerT) tempOk.push("freezer");
+    for (const et of eTemps) tempOk.push(et.label.toLowerCase());
     if (tempOk.length) lines.push(`All recorded temperatures (${tempOk.join(", ")}) are within acceptable ranges.`);
   }
 
@@ -1234,8 +1271,7 @@ function RenderedOutput({ noteType, useCase, context, inspection, rawNotes, insp
 
   const handT = Number(inspection?.temps?.handSinkTempF);
   const threeT = Number(inspection?.temps?.threeCompSinkTempF);
-  const coolerT = Number(inspection?.temps?.coolerTempF);
-  const freezerT = Number(inspection?.temps?.freezerTempF);
+  const equipTemps = collectEquipTemps(inspection);
 
   // Collect custom items from each section
   function getCustomItems(sectionKey, sectionLabel) {
@@ -1259,6 +1295,8 @@ function RenderedOutput({ noteType, useCase, context, inspection, rawNotes, insp
     { section: "Equipment", label: "Double-Door Cooler", node: inspection?.equipment?.doubleDoorCooler },
     { section: "Equipment", label: "Double-Door Freezer", node: inspection?.equipment?.doubleDoorFreezer },
     { section: "Equipment", label: "Walk-In Cooler", node: inspection?.equipment?.walkInCooler },
+    { section: "Equipment", label: "Walk-In Freezer", node: inspection?.equipment?.walkInFreezer },
+    { section: "Equipment", label: "Prep Cooler", node: inspection?.equipment?.prepCooler },
     { section: "Equipment", label: "Warmers / Hot Holding", node: inspection?.equipment?.warmers },
     { section: "Equipment", label: "Ovens", node: inspection?.equipment?.ovens },
     { section: "Equipment", label: "3-Compartment Sink", node: inspection?.equipment?.threeCompSink },
@@ -1269,8 +1307,9 @@ function RenderedOutput({ noteType, useCase, context, inspection, rawNotes, insp
   const findings = allItems.filter(it => it.node?.status && it.node.status !== "OK" && it.node.status !== "N/A");
   if (handT && handT < 95) findings.push({ section: "Temperature", label: "Hand Sink", node: { status: "Not Clean", notes: `${handT}\u00B0F (below 95\u00B0F minimum)` } });
   if (threeT && threeT < 110) findings.push({ section: "Temperature", label: "3-Comp Wash", node: { status: "Not Clean", notes: `${threeT}\u00B0F (below 110\u00B0F minimum)` } });
-  if (coolerT && coolerT > 40) findings.push({ section: "Temperature", label: "Cooler", node: { status: "Not Clean", notes: `${coolerT}\u00B0F (above 40\u00B0F maximum)` } });
-  if (freezerT && freezerT > 20) findings.push({ section: "Temperature", label: "Freezer", node: { status: "Not Clean", notes: `${freezerT}\u00B0F (above 20\u00B0F maximum)` } });
+  for (const et of equipTemps) {
+    if (!et.pass) findings.push({ section: "Temperature", label: et.label, node: { status: "Not Clean", notes: `${et.tempNum}\u00B0F (above ${et.max}\u00B0F maximum)` } });
+  }
 
   const sections = ["Facility", "Operations", "Equipment"];
 
@@ -1344,22 +1383,16 @@ function RenderedOutput({ noteType, useCase, context, inspection, rawNotes, insp
             {threeT > 0 && threeT < 110 && <span className="rptWarn">{" \u26A0\uFE0F Below 110\u00B0F"}</span>}
           </div>
         </div>
-        <div className="rptInfoItem">
-          <div className="rptInfoLabel">Cooler Temp</div>
-          <div className="rptInfoValue">
-            {inspection?.temps?.coolerTempF ? `${inspection.temps.coolerTempF}\u00B0F` : "\u2014"}
-            {coolerT > 0 && coolerT <= 40 && <span className="rptCheck">{" \u2705"}</span>}
-            {coolerT > 40 && <span className="rptWarn">{" \u26A0\uFE0F Above 40\u00B0F"}</span>}
+        {equipTemps.map(et => (
+          <div className="rptInfoItem" key={et.key}>
+            <div className="rptInfoLabel">{et.label}</div>
+            <div className="rptInfoValue">
+              {et.tempF}{"\u00B0F"}
+              {et.pass && <span className="rptCheck">{" \u2705"}</span>}
+              {!et.pass && <span className="rptWarn">{` \u26A0\uFE0F Above ${et.max}\u00B0F`}</span>}
+            </div>
           </div>
-        </div>
-        <div className="rptInfoItem">
-          <div className="rptInfoLabel">Freezer Temp</div>
-          <div className="rptInfoValue">
-            {inspection?.temps?.freezerTempF ? `${inspection.temps.freezerTempF}\u00B0F` : "\u2014"}
-            {freezerT > 0 && freezerT <= 20 && <span className="rptCheck">{" \u2705"}</span>}
-            {freezerT > 20 && <span className="rptWarn">{" \u26A0\uFE0F Above 20\u00B0F"}</span>}
-          </div>
-        </div>
+        ))}
       </div>
 
       {/* Opening message for Email/Doc */}
@@ -1525,14 +1558,17 @@ function buildCsvRows({ inspection, rawNotes, inspectionType, inspectionDate, in
   add("Equipment", "Double-door cooler", inspection?.equipment?.doubleDoorCooler);
   add("Equipment", "Double-door freezer", inspection?.equipment?.doubleDoorFreezer);
   add("Equipment", "Walk-in cooler", inspection?.equipment?.walkInCooler);
+  add("Equipment", "Walk-in freezer", inspection?.equipment?.walkInFreezer);
+  add("Equipment", "Prep cooler", inspection?.equipment?.prepCooler);
   add("Equipment", "Warmers / hot holding", inspection?.equipment?.warmers);
   add("Equipment", "Ovens", inspection?.equipment?.ovens);
   add("Equipment", "3-compartment sink", inspection?.equipment?.threeCompSink);
   add("Equipment", "Ecolab / chemicals", inspection?.equipment?.ecolab);
   rows.push(["Temps", "Hand sink (F)", inspection?.temps?.handSinkTempF || "", Number(inspection?.temps?.handSinkTempF) >= 95 ? "Pass" : "Below min", ""]);
   rows.push(["Temps", "3-comp wash (F)", inspection?.temps?.threeCompSinkTempF || "", Number(inspection?.temps?.threeCompSinkTempF) >= 110 ? "Pass" : "Below min", ""]);
-  rows.push(["Temps", "Cooler (F)", inspection?.temps?.coolerTempF || "", inspection?.temps?.coolerTempF ? (Number(inspection.temps.coolerTempF) <= 40 ? "Pass" : "Above max") : "", ""]);
-  rows.push(["Temps", "Freezer (F)", inspection?.temps?.freezerTempF || "", inspection?.temps?.freezerTempF ? (Number(inspection.temps.freezerTempF) <= 20 ? "Pass" : "Above max") : "", ""]);
+  for (const et of collectEquipTemps(inspection)) {
+    rows.push(["Temps", `${et.label} (F)`, et.tempF, et.pass ? "Pass" : "Above max", ""]);
+  }
   return rows;
 }
 
@@ -1618,6 +1654,8 @@ function exportAsHtml({ output, inspection, rawNotes, inspectionType, inspection
     ["Equipment", "Double-Door Cooler", inspection?.equipment?.doubleDoorCooler],
     ["Equipment", "Double-Door Freezer", inspection?.equipment?.doubleDoorFreezer],
     ["Equipment", "Walk-In Cooler", inspection?.equipment?.walkInCooler],
+    ["Equipment", "Walk-In Freezer", inspection?.equipment?.walkInFreezer],
+    ["Equipment", "Prep Cooler", inspection?.equipment?.prepCooler],
     ["Equipment", "Warmers / Hot Holding", inspection?.equipment?.warmers],
     ["Equipment", "Ovens", inspection?.equipment?.ovens],
     ["Equipment", "3-Compartment Sink", inspection?.equipment?.threeCompSink],
@@ -1626,8 +1664,7 @@ function exportAsHtml({ output, inspection, rawNotes, inspectionType, inspection
   const findings = allItems.filter(([,,node]) => node?.status && node.status !== "OK" && node.status !== "N/A");
   const handT = Number(inspection?.temps?.handSinkTempF);
   const threeT = Number(inspection?.temps?.threeCompSinkTempF);
-  const coolerT = Number(inspection?.temps?.coolerTempF);
-  const freezerT = Number(inspection?.temps?.freezerTempF);
+  const eTemps = collectEquipTemps(inspection);
 
   // Generate Word-compatible HTML document
   const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
@@ -1674,8 +1711,13 @@ function exportAsHtml({ output, inspection, rawNotes, inspectionType, inspection
   ${sitePhone ? `<tr><td class="info-label">Phone</td><td>${sitePhone}</td><td></td><td></td></tr>` : ""}
   <tr><td class="info-label">Hand Sink Temp</td><td>${inspection?.temps?.handSinkTempF ? inspection.temps.handSinkTempF + "\u00B0F" : "\u2014"} ${handT >= 95 ? "\u2705" : handT ? "\u26A0\uFE0F Below 95\u00B0F" : ""}</td>
       <td class="info-label">3-Comp Wash Temp</td><td>${inspection?.temps?.threeCompSinkTempF ? inspection.temps.threeCompSinkTempF + "\u00B0F" : "\u2014"} ${threeT >= 110 ? "\u2705" : threeT ? "\u26A0\uFE0F Below 110\u00B0F" : ""}</td></tr>
-  <tr><td class="info-label">Cooler Temp</td><td>${inspection?.temps?.coolerTempF ? inspection.temps.coolerTempF + "\u00B0F" : "\u2014"} ${inspection?.temps?.coolerTempF ? (coolerT <= 40 ? "\u2705" : "\u26A0\uFE0F Above 40\u00B0F") : ""}</td>
-      <td class="info-label">Freezer Temp</td><td>${inspection?.temps?.freezerTempF ? inspection.temps.freezerTempF + "\u00B0F" : "\u2014"} ${inspection?.temps?.freezerTempF ? (freezerT <= 20 ? "\u2705" : "\u26A0\uFE0F Above 20\u00B0F") : ""}</td></tr>
+  ${eTemps.length > 0 ? eTemps.map((et, i, arr) => {
+    if (i % 2 === 0) {
+      const next = arr[i + 1];
+      return `<tr><td class="info-label">${et.label}</td><td>${et.tempF}\u00B0F ${et.pass ? "\u2705" : "\u26A0\uFE0F Above " + et.max + "\u00B0F"}</td>${next ? `<td class="info-label">${next.label}</td><td>${next.tempF}\u00B0F ${next.pass ? "\u2705" : "\u26A0\uFE0F Above " + next.max + "\u00B0F"}</td>` : `<td></td><td></td>`}</tr>`;
+    }
+    return "";
+  }).filter(Boolean).join("\n  ") : ""}
   <tr><td class="info-label">Overall Status</td><td colspan="3" class="${status === "Pass" ? "status-pass" : "status-fail"}">${status === "Pass" ? "PASSED" : "NEEDS ATTENTION"}</td></tr>
 </table>
 
@@ -1694,8 +1736,7 @@ ${execSummary.split("\n\n").map(p => `<p>${p.replace(/</g, "&lt;")}</p>`).join("
   }).join("\n  ")}
   <tr><td>Temps</td><td>Hand Sink</td><td><span class="${handT >= 95 ? "pill-pass" : handT ? "pill-fail" : "pill-na"}">${inspection?.temps?.handSinkTempF ? inspection.temps.handSinkTempF + "\u00B0F" : "N/A"}</span></td><td>${handT >= 95 ? "Meets minimum" : handT ? "Below 95\u00B0F minimum" : "\u2014"}</td></tr>
   <tr><td>Temps</td><td>3-Comp Wash</td><td><span class="${threeT >= 110 ? "pill-pass" : threeT ? "pill-fail" : "pill-na"}">${inspection?.temps?.threeCompSinkTempF ? inspection.temps.threeCompSinkTempF + "\u00B0F" : "N/A"}</span></td><td>${threeT >= 110 ? "Meets minimum" : threeT ? "Below 110\u00B0F minimum" : "\u2014"}</td></tr>
-  <tr><td>Temps</td><td>Cooler</td><td><span class="${inspection?.temps?.coolerTempF ? (coolerT <= 40 ? "pill-pass" : "pill-fail") : "pill-na"}">${inspection?.temps?.coolerTempF ? inspection.temps.coolerTempF + "\u00B0F" : "N/A"}</span></td><td>${inspection?.temps?.coolerTempF ? (coolerT <= 40 ? "Meets maximum" : "Above 40\u00B0F maximum") : "\u2014"}</td></tr>
-  <tr><td>Temps</td><td>Freezer</td><td><span class="${inspection?.temps?.freezerTempF ? (freezerT <= 20 ? "pill-pass" : "pill-fail") : "pill-na"}">${inspection?.temps?.freezerTempF ? inspection.temps.freezerTempF + "\u00B0F" : "N/A"}</span></td><td>${inspection?.temps?.freezerTempF ? (freezerT <= 20 ? "Meets maximum" : "Above 20\u00B0F maximum") : "\u2014"}</td></tr>
+  ${eTemps.map(et => `<tr><td>Temps</td><td>${et.label}</td><td><span class="${et.pass ? "pill-pass" : "pill-fail"}">${et.tempF}\u00B0F</span></td><td>${et.pass ? `Meets \u2264${et.max}\u00B0F` : `Above ${et.max}\u00B0F maximum`}</td></tr>`).join("\n  ")}
 </table>
 
 ${findings.length > 0 ? `
@@ -1757,15 +1798,30 @@ function TempTrendChart({ history }) {
       if (!map[key]) map[key] = { points: [], unitNum };
       const hand = Number(rec.temps?.handSinkTempF);
       const three = Number(rec.temps?.threeCompSinkTempF);
-      const cool = Number(rec.temps?.coolerTempF);
-      const frz = Number(rec.temps?.freezerTempF);
-      if (hand || three || cool || frz) {
+      // Collect cooler/freezer temps from equipment items (per-equipment)
+      let coolTemps = [], frzTemps = [];
+      // Support new per-equipment temps
+      const equip = rec.inspection?.equipment || {};
+      for (const [ek, node] of Object.entries(equip)) {
+        if (!node?.tempF) continue;
+        const t = Number(node.tempF);
+        if (!t) continue;
+        const cold = COLD_EQUIPMENT[ek] || (ek.startsWith("custom_") ? detectColdType(node.label) : null);
+        if (cold?.type === "cooler") coolTemps.push(t);
+        else if (cold?.type === "freezer") frzTemps.push(t);
+      }
+      // Fallback: old records may have temps.coolerTempF / freezerTempF
+      if (!coolTemps.length && rec.temps?.coolerTempF) { const v = Number(rec.temps.coolerTempF); if (v) coolTemps.push(v); }
+      if (!frzTemps.length && rec.temps?.freezerTempF) { const v = Number(rec.temps.freezerTempF); if (v) frzTemps.push(v); }
+      const coolAvg = coolTemps.length ? Math.round(coolTemps.reduce((a, b) => a + b, 0) / coolTemps.length) : null;
+      const frzAvg = frzTemps.length ? Math.round(frzTemps.reduce((a, b) => a + b, 0) / frzTemps.length) : null;
+      if (hand || three || coolAvg || frzAvg) {
         map[key].points.push({
           date: rec.inspectionDate || rec.savedAt?.slice(0, 10) || "—",
           handSink: hand || null,
           threeComp: three || null,
-          cooler: cool || null,
-          freezer: frz || null,
+          cooler: coolAvg,
+          freezer: frzAvg,
           floor: rec.floor || "",
           status: rec.overallStatus || "—",
         });
@@ -2655,7 +2711,7 @@ function PhotoStrip({ photos, onRemove }) {
   );
 }
 
-function GuideSection({ title, items, inspection, setInspection, allowCustom, sectionKey }) {
+function GuideSection({ title, items, inspection, setInspection, allowCustom, sectionKey, coldEquipmentMap }) {
   const fileRefs = useRef({});
   const [newItemName, setNewItemName] = useState("");
 
@@ -2705,16 +2761,37 @@ function GuideSection({ title, items, inspection, setInspection, allowCustom, se
       <div className="guideItems">
         {allItems.map((it) => {
           const key = it.path.join(".");
+          const itemKey = it.path[it.path.length - 1];
           const current = getAtPath(inspection, it.path) || withPhotos({ status: "OK", notes: "" });
+          // Determine if this is cold equipment needing a temp reading
+          const coldInfo = coldEquipmentMap?.[itemKey] || (it.isCustom ? detectColdType(it.label) : null);
+          const tempVal = current.tempF || "";
+          const tempNum = Number(tempVal);
           return (
             <div className="guideItem" key={key}>
               <div className="guideItemHead">
-                <div className="guideLabel">{it.label}</div>
+                <div className="guideLabel">
+                  {it.label}
+                  {coldInfo && <span className="coldTypeBadge">{coldInfo.type === "cooler" ? "\u2744 Cooler" : "\u2744 Freezer"}</span>}
+                </div>
                 <select className="select selectSmall" value={current.status}
                   onChange={(e) => setInspection((prev) => setAtPath(prev, it.path, { ...current, status: e.target.value }))}>
                   {STATUS_OPTIONS.map((s) => (<option key={s} value={s}>{s}</option>))}
                 </select>
               </div>
+              {coldInfo && (
+                <div className="equipTempRow">
+                  <div className="tempInputWrap" style={{ flex: 1 }}>
+                    <input className="input inputSmall tempInput" inputMode="numeric" value={tempVal}
+                      onChange={(e) => setInspection((prev) => setAtPath(prev, it.path, { ...current, tempF: e.target.value }))}
+                      placeholder={coldInfo.type === "cooler" ? "40" : "10"} />
+                    <span className="tempUnit">{"\u00B0F"}</span>
+                  </div>
+                  <span className="hint" style={{ whiteSpace: "nowrap" }}>
+                    {tempVal ? (tempNum <= coldInfo.max ? `\u2705 \u2264${coldInfo.max}\u00B0F` : `\u26A0\uFE0F Above ${coldInfo.max}\u00B0F`) : `Max ${coldInfo.max}\u00B0F`}
+                  </span>
+                </div>
+              )}
               <input className="input inputSmall" value={current.notes}
                 onChange={(e) => setInspection((prev) => setAtPath(prev, it.path, { ...current, notes: e.target.value }))}
                 placeholder="Issue / observation (optional)" />
@@ -2737,14 +2814,16 @@ function GuideSection({ title, items, inspection, setInspection, allowCustom, se
             placeholder="Add new item (e.g., Walk-in freezer)" onKeyDown={(e) => {
               if (e.key === "Enter" && newItemName.trim()) {
                 const key = `custom_${Date.now()}`;
-                setInspection((prev) => setAtPath(prev, [sectionKey, key], { status: "OK", notes: "", photos: [], label: newItemName.trim() }));
+                const cold = detectColdType(newItemName.trim());
+                setInspection((prev) => setAtPath(prev, [sectionKey, key], { status: "OK", notes: "", photos: [], label: newItemName.trim(), ...(cold ? { tempF: "" } : {}) }));
                 setNewItemName("");
               }
             }} />
           <button className="btn btnGhost btnSmall" type="button" onClick={() => {
             if (!newItemName.trim()) return;
             const key = `custom_${Date.now()}`;
-            setInspection((prev) => setAtPath(prev, [sectionKey, key], { status: "OK", notes: "", photos: [], label: newItemName.trim() }));
+            const cold = detectColdType(newItemName.trim());
+            setInspection((prev) => setAtPath(prev, [sectionKey, key], { status: "OK", notes: "", photos: [], label: newItemName.trim(), ...(cold ? { tempF: "" } : {}) }));
             setNewItemName("");
           }}>+ Add</button>
         </div>
@@ -3232,31 +3311,8 @@ export default function App() {
                       {Number(inspection.temps.threeCompSinkTempF) >= 110 ? "Meets >=110 F" : inspection.temps.threeCompSinkTempF ? "Below 110 F - flag" : ""}
                     </span>
                   </label>
-                  <label className="field" id="field-coolerTempF" style={{ marginTop: 0 }}>
-                    <span className="fieldLabel">Cooler temp</span>
-                    <div className="tempInputWrap">
-                      <input className="input tempInput" inputMode="numeric" value={inspection.temps.coolerTempF}
-                        onChange={(e) => setInspection((prev) => ({ ...prev, temps: { ...prev.temps, coolerTempF: e.target.value } }))}
-                        placeholder="38" />
-                      <span className="tempUnit">{"\u00B0F"}</span>
-                    </div>
-                    <span className="hint">
-                      {inspection.temps.coolerTempF ? (Number(inspection.temps.coolerTempF) <= 40 ? "Meets <=40 F" : "Above 40 F - flag") : ""}
-                    </span>
-                  </label>
-                  <label className="field" id="field-freezerTempF" style={{ marginTop: 0 }}>
-                    <span className="fieldLabel">Freezer temp</span>
-                    <div className="tempInputWrap">
-                      <input className="input tempInput" inputMode="numeric" value={inspection.temps.freezerTempF}
-                        onChange={(e) => setInspection((prev) => ({ ...prev, temps: { ...prev.temps, freezerTempF: e.target.value } }))}
-                        placeholder="10" />
-                      <span className="tempUnit">{"\u00B0F"}</span>
-                    </div>
-                    <span className="hint">
-                      {inspection.temps.freezerTempF ? (Number(inspection.temps.freezerTempF) <= 20 ? "Meets <=20 F" : "Above 20 F - flag") : ""}
-                    </span>
-                  </label>
                 </div>
+                <div className="hint" style={{ marginTop: 6, fontSize: "0.72rem" }}>Cooler / freezer temps are entered on each equipment item below</div>
               </div>
 
               <GuideSection title="Equipment check"
@@ -3264,12 +3320,14 @@ export default function App() {
                   { path: ["equipment", "doubleDoorCooler"], label: "Double-door cooler" },
                   { path: ["equipment", "doubleDoorFreezer"], label: "Double-door freezer" },
                   { path: ["equipment", "walkInCooler"], label: "Walk-in cooler" },
+                  { path: ["equipment", "walkInFreezer"], label: "Walk-in freezer" },
+                  { path: ["equipment", "prepCooler"], label: "Prep cooler" },
                   { path: ["equipment", "warmers"], label: "Warmers / hot holding" },
                   { path: ["equipment", "ovens"], label: "Ovens" },
                   { path: ["equipment", "threeCompSink"], label: "3-compartment sink" },
                   { path: ["equipment", "ecolab"], label: "Ecolab / chemicals" },
                 ]} inspection={inspection} setInspection={setInspection}
-                allowCustom sectionKey="equipment" />
+                allowCustom sectionKey="equipment" coldEquipmentMap={COLD_EQUIPMENT} />
             </div>
 
             <div className="field">
