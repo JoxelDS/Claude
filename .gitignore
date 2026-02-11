@@ -1,2 +1,8 @@
 node_modules/
 dist/
+
+# Server secrets — NEVER commit these
+.env
+serviceAccountKey.json
+*.pem
+*.key
