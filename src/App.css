@@ -562,6 +562,28 @@ body {
   align-items: center;
 }
 .guideAddItem .input { flex: 1; }
+.coldTypeBadge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 7px;
+  border-radius: 10px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  background: #dbeafe;
+  color: #1d4ed8;
+  letter-spacing: 0.2px;
+  vertical-align: middle;
+}
+.equipTempRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 4px;
+  margin-bottom: 2px;
+}
+.equipTempRow .tempInputWrap {
+  max-width: 130px;
+}
 
 /* ── Temperatures ────────────────────────────────────────── */
 .tempsRow {
