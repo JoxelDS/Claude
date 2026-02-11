@@ -2403,6 +2403,8 @@ function PhotoStrip({ photos, onRemove }) {
 
 function GuideSection({ title, items, inspection, setInspection }) {
   const fileRefs = useRef({});
+  const galleryRefs = useRef({});
+  const [photoMenu, setPhotoMenu] = useState(null); // key of open menu
 
   async function addPhotos(pathKey, files) {
     const accepted = Array.from(files || []).slice(0, PHOTO_LIMIT);
@@ -2453,11 +2455,25 @@ function GuideSection({ title, items, inspection, setInspection }) {
                 onChange={(e) => setInspection((prev) => setAtPath(prev, it.path, { ...current, notes: e.target.value }))}
                 placeholder="Issue / observation (optional)" />
               <div className="photoRow">
-                <input ref={(el) => (fileRefs.current[key] = el)} className="fileInput" type="file" accept="image/*" capture="environment" multiple
-                  onChange={(e) => { addPhotos(key, e.target.files); e.target.value = ""; }} />
-                <button className="btn btnGhost btnSmall photoBtn" type="button" onClick={() => fileRefs.current[key]?.click()}>
-                  &#128247; Add photos
-                </button>
+                <input ref={(el) => (galleryRefs.current[key] = el)} className="fileInput" type="file" accept="image/*" multiple
+                  onChange={(e) => { addPhotos(key, e.target.files); e.target.value = ""; setPhotoMenu(null); }} />
+                <input ref={(el) => (fileRefs.current[key] = el)} className="fileInput" type="file" accept="image/*,.pdf,.heic,.heif" multiple
+                  onChange={(e) => { addPhotos(key, e.target.files); e.target.value = ""; setPhotoMenu(null); }} />
+                <div className="photoPickerWrap">
+                  <button className="btn btnGhost btnSmall photoBtn" type="button" onClick={() => setPhotoMenu(photoMenu === key ? null : key)}>
+                    &#128247; Add photos
+                  </button>
+                  {photoMenu === key && (
+                    <div className="photoPickerMenu">
+                      <button className="photoPickerItem" type="button" onClick={() => { galleryRefs.current[key]?.click(); }}>
+                        &#128444;&#65039; Photo Gallery
+                      </button>
+                      <button className="photoPickerItem" type="button" onClick={() => { fileRefs.current[key]?.click(); }}>
+                        &#128193; Browse Files
+                      </button>
+                    </div>
+                  )}
+                </div>
                 <span className="hint">Up to {PHOTO_LIMIT} ({PHOTO_MAX_MB}MB each)</span>
               </div>
               <PhotoStrip photos={current.photos} onRemove={(id) => removePhoto(key, id)} />
