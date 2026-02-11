@@ -657,7 +657,7 @@ function buildDefaultInspection() {
       labelingDating: withPhotos({ status: "OK", notes: "" }),
       logs: withPhotos({ status: "OK", notes: "" }),
     },
-    temps: { handSinkTempF: "", threeCompSinkTempF: "" },
+    temps: { handSinkTempF: "", threeCompSinkTempF: "", coolerTempF: "", freezerTempF: "" },
     equipment: {
       doubleDoorCooler: withPhotos({ status: "OK", notes: "" }),
       doubleDoorFreezer: withPhotos({ status: "OK", notes: "" }),
@@ -874,6 +874,12 @@ function buildActionItems({ inspection, rawNotes }) {
   const three = Number(inspection?.temps?.threeCompSinkTempF);
   if (!Number.isNaN(three) && three && three < 110)
     items.push({ issue: `3-compartment sink wash temperature below minimum: ${three}°F (min 110°F)`, owner: "", due: "", priority: "High", photos: [] });
+  const cooler = Number(inspection?.temps?.coolerTempF);
+  if (!Number.isNaN(cooler) && inspection?.temps?.coolerTempF && cooler > 40)
+    items.push({ issue: `Cooler temperature above maximum: ${cooler}°F (max 40°F)`, owner: "", due: "", priority: "High", photos: [] });
+  const freezer = Number(inspection?.temps?.freezerTempF);
+  if (!Number.isNaN(freezer) && inspection?.temps?.freezerTempF && freezer > 20)
+    items.push({ issue: `Freezer temperature above maximum: ${freezer}°F (max 20°F)`, owner: "", due: "", priority: "High", photos: [] });
   for (const a of parseActionLines(rawNotes))
     items.push({ issue: a.issue, owner: "", due: "", priority: "Med", photos: [] });
   const seen = new Set();
@@ -1123,6 +1129,12 @@ function aiAssist({ inspection, rawNotes, context, noteType }) {
   if (ts && ts < 110) tips.push(`3-comp sink wash temp is ${ts}°F (below 110°F min). Check water heater.`);
   if (hs && hs >= 95 && hs < 100) tips.push(`Hand sink temp is ${hs}°F — passes but is close to the 95°F minimum. Monitor.`);
   if (ts && ts >= 110 && ts < 115) tips.push(`3-comp wash temp is ${ts}°F — passes but is close to the 110°F minimum. Monitor.`);
+  const cl = Number(inspection?.temps?.coolerTempF);
+  const fz = Number(inspection?.temps?.freezerTempF);
+  if (cl && cl > 40) tips.push(`Cooler temp is ${cl}°F (above 40°F max). Potential food safety hazard — check refrigeration immediately.`);
+  if (fz && fz > 20) tips.push(`Freezer temp is ${fz}°F (above 20°F max). Check freezer compressor and door seals.`);
+  if (cl && cl <= 40 && cl > 35) tips.push(`Cooler temp is ${cl}°F — passes but close to the 40°F maximum. Monitor.`);
+  if (fz && fz <= 20 && fz > 15) tips.push(`Freezer temp is ${fz}°F — passes but close to the 20°F maximum. Monitor.`);
 
   // Raw notes analysis
   if (notes.includes("allergen")) tips.push("Allergen concerns detected in notes — ensure allergen training is scheduled and documented.");
@@ -1152,6 +1164,8 @@ function RenderedOutput({ noteType, useCase, context, inspection, rawNotes, insp
 
   const handT = Number(inspection?.temps?.handSinkTempF);
   const threeT = Number(inspection?.temps?.threeCompSinkTempF);
+  const coolerT = Number(inspection?.temps?.coolerTempF);
+  const freezerT = Number(inspection?.temps?.freezerTempF);
 
   // Collect custom items from each section
   function getCustomItems(sectionKey, sectionLabel) {
@@ -1185,6 +1199,8 @@ function RenderedOutput({ noteType, useCase, context, inspection, rawNotes, insp
   const findings = allItems.filter(it => it.node?.status && it.node.status !== "OK" && it.node.status !== "N/A");
   if (handT && handT < 95) findings.push({ section: "Temperature", label: "Hand Sink", node: { status: "Not Clean", notes: `${handT}\u00B0F (below 95\u00B0F minimum)` } });
   if (threeT && threeT < 110) findings.push({ section: "Temperature", label: "3-Comp Wash", node: { status: "Not Clean", notes: `${threeT}\u00B0F (below 110\u00B0F minimum)` } });
+  if (coolerT && coolerT > 40) findings.push({ section: "Temperature", label: "Cooler", node: { status: "Not Clean", notes: `${coolerT}\u00B0F (above 40\u00B0F maximum)` } });
+  if (freezerT && freezerT > 20) findings.push({ section: "Temperature", label: "Freezer", node: { status: "Not Clean", notes: `${freezerT}\u00B0F (above 20\u00B0F maximum)` } });
 
   const sections = ["Facility", "Operations", "Equipment"];
 
@@ -1256,6 +1272,22 @@ function RenderedOutput({ noteType, useCase, context, inspection, rawNotes, insp
             {inspection?.temps?.threeCompSinkTempF ? `${inspection.temps.threeCompSinkTempF}\u00B0F` : "\u2014"}
             {threeT >= 110 && <span className="rptCheck">{" \u2705"}</span>}
             {threeT > 0 && threeT < 110 && <span className="rptWarn">{" \u26A0\uFE0F Below 110\u00B0F"}</span>}
+          </div>
+        </div>
+        <div className="rptInfoItem">
+          <div className="rptInfoLabel">Cooler Temp</div>
+          <div className="rptInfoValue">
+            {inspection?.temps?.coolerTempF ? `${inspection.temps.coolerTempF}\u00B0F` : "\u2014"}
+            {coolerT > 0 && coolerT <= 40 && <span className="rptCheck">{" \u2705"}</span>}
+            {coolerT > 40 && <span className="rptWarn">{" \u26A0\uFE0F Above 40\u00B0F"}</span>}
+          </div>
+        </div>
+        <div className="rptInfoItem">
+          <div className="rptInfoLabel">Freezer Temp</div>
+          <div className="rptInfoValue">
+            {inspection?.temps?.freezerTempF ? `${inspection.temps.freezerTempF}\u00B0F` : "\u2014"}
+            {freezerT > 0 && freezerT <= 20 && <span className="rptCheck">{" \u2705"}</span>}
+            {freezerT > 20 && <span className="rptWarn">{" \u26A0\uFE0F Above 20\u00B0F"}</span>}
           </div>
         </div>
       </div>
@@ -1429,6 +1461,8 @@ function buildCsvRows({ inspection, rawNotes, inspectionType, inspectionDate, in
   add("Equipment", "Ecolab / chemicals", inspection?.equipment?.ecolab);
   rows.push(["Temps", "Hand sink (F)", inspection?.temps?.handSinkTempF || "", Number(inspection?.temps?.handSinkTempF) >= 95 ? "Pass" : "Below min", ""]);
   rows.push(["Temps", "3-comp wash (F)", inspection?.temps?.threeCompSinkTempF || "", Number(inspection?.temps?.threeCompSinkTempF) >= 110 ? "Pass" : "Below min", ""]);
+  rows.push(["Temps", "Cooler (F)", inspection?.temps?.coolerTempF || "", inspection?.temps?.coolerTempF ? (Number(inspection.temps.coolerTempF) <= 40 ? "Pass" : "Above max") : "", ""]);
+  rows.push(["Temps", "Freezer (F)", inspection?.temps?.freezerTempF || "", inspection?.temps?.freezerTempF ? (Number(inspection.temps.freezerTempF) <= 20 ? "Pass" : "Above max") : "", ""]);
   return rows;
 }
 
@@ -1511,6 +1545,8 @@ function exportAsHtml({ output, inspection, rawNotes, inspectionType, inspection
   const findings = allItems.filter(([,,node]) => node?.status && node.status !== "OK" && node.status !== "N/A");
   const handT = Number(inspection?.temps?.handSinkTempF);
   const threeT = Number(inspection?.temps?.threeCompSinkTempF);
+  const coolerT = Number(inspection?.temps?.coolerTempF);
+  const freezerT = Number(inspection?.temps?.freezerTempF);
 
   // Generate Word-compatible HTML document
   const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
@@ -1550,6 +1586,8 @@ function exportAsHtml({ output, inspection, rawNotes, inspectionType, inspection
   ${sitePhone ? `<tr><td class="info-label">Phone</td><td>${sitePhone}</td><td></td><td></td></tr>` : ""}
   <tr><td class="info-label">Hand Sink Temp</td><td>${inspection?.temps?.handSinkTempF ? inspection.temps.handSinkTempF + "\u00B0F" : "\u2014"} ${handT >= 95 ? "\u2705" : handT ? "\u26A0\uFE0F Below 95\u00B0F" : ""}</td>
       <td class="info-label">3-Comp Wash Temp</td><td>${inspection?.temps?.threeCompSinkTempF ? inspection.temps.threeCompSinkTempF + "\u00B0F" : "\u2014"} ${threeT >= 110 ? "\u2705" : threeT ? "\u26A0\uFE0F Below 110\u00B0F" : ""}</td></tr>
+  <tr><td class="info-label">Cooler Temp</td><td>${inspection?.temps?.coolerTempF ? inspection.temps.coolerTempF + "\u00B0F" : "\u2014"} ${inspection?.temps?.coolerTempF ? (coolerT <= 40 ? "\u2705" : "\u26A0\uFE0F Above 40\u00B0F") : ""}</td>
+      <td class="info-label">Freezer Temp</td><td>${inspection?.temps?.freezerTempF ? inspection.temps.freezerTempF + "\u00B0F" : "\u2014"} ${inspection?.temps?.freezerTempF ? (freezerT <= 20 ? "\u2705" : "\u26A0\uFE0F Above 20\u00B0F") : ""}</td></tr>
   <tr><td class="info-label">Overall Status</td><td colspan="3" class="${status === "Pass" ? "status-pass" : "status-fail"}">${status === "Pass" ? "PASSED" : "NEEDS ATTENTION"}</td></tr>
 </table>
 
@@ -1563,6 +1601,8 @@ function exportAsHtml({ output, inspection, rawNotes, inspectionType, inspection
   }).join("\n  ")}
   <tr><td>Temps</td><td>Hand Sink</td><td><span class="${handT >= 95 ? "pill-pass" : handT ? "pill-fail" : "pill-na"}">${inspection?.temps?.handSinkTempF ? inspection.temps.handSinkTempF + "\u00B0F" : "N/A"}</span></td><td>${handT >= 95 ? "Meets minimum" : handT ? "Below 95\u00B0F minimum" : "\u2014"}</td></tr>
   <tr><td>Temps</td><td>3-Comp Wash</td><td><span class="${threeT >= 110 ? "pill-pass" : threeT ? "pill-fail" : "pill-na"}">${inspection?.temps?.threeCompSinkTempF ? inspection.temps.threeCompSinkTempF + "\u00B0F" : "N/A"}</span></td><td>${threeT >= 110 ? "Meets minimum" : threeT ? "Below 110\u00B0F minimum" : "\u2014"}</td></tr>
+  <tr><td>Temps</td><td>Cooler</td><td><span class="${inspection?.temps?.coolerTempF ? (coolerT <= 40 ? "pill-pass" : "pill-fail") : "pill-na"}">${inspection?.temps?.coolerTempF ? inspection.temps.coolerTempF + "\u00B0F" : "N/A"}</span></td><td>${inspection?.temps?.coolerTempF ? (coolerT <= 40 ? "Meets maximum" : "Above 40\u00B0F maximum") : "\u2014"}</td></tr>
+  <tr><td>Temps</td><td>Freezer</td><td><span class="${inspection?.temps?.freezerTempF ? (freezerT <= 20 ? "pill-pass" : "pill-fail") : "pill-na"}">${inspection?.temps?.freezerTempF ? inspection.temps.freezerTempF + "\u00B0F" : "N/A"}</span></td><td>${inspection?.temps?.freezerTempF ? (freezerT <= 20 ? "Meets maximum" : "Above 20\u00B0F maximum") : "\u2014"}</td></tr>
 </table>
 
 ${findings.length > 0 ? `
@@ -1607,7 +1647,7 @@ function exportAsTxt({ output, inspectionDate, siteName }) {
 /* ── Temperature Trend Chart (pure SVG) ─────────────────── */
 function TempTrendChart({ history }) {
   const [hoveredPoint, setHoveredPoint] = useState(null);
-  const [focusedLine, setFocusedLine] = useState(null); // null | "hand" | "three"
+  const [focusedLine, setFocusedLine] = useState(null); // null | "hand" | "three" | "cooler" | "freezer"
 
   // Group by location+floor, sorted by date
   const locationData = useMemo(() => {
@@ -1618,11 +1658,15 @@ function TempTrendChart({ history }) {
       if (!map[key]) map[key] = { points: [], unitNum };
       const hand = Number(rec.temps?.handSinkTempF);
       const three = Number(rec.temps?.threeCompSinkTempF);
-      if (hand || three) {
+      const cool = Number(rec.temps?.coolerTempF);
+      const frz = Number(rec.temps?.freezerTempF);
+      if (hand || three || cool || frz) {
         map[key].points.push({
           date: rec.inspectionDate || rec.savedAt?.slice(0, 10) || "—",
           handSink: hand || null,
           threeComp: three || null,
+          cooler: cool || null,
+          freezer: frz || null,
           floor: rec.floor || "",
           status: rec.overallStatus || "—",
         });
@@ -1649,9 +1693,9 @@ function TempTrendChart({ history }) {
         <div className="tempChartsGrid">
           {locations.map(loc => {
             const { points, unitNum } = locationData[loc];
-            const allTemps = points.flatMap(p => [p.handSink, p.threeComp]).filter(Boolean);
+            const allTemps = points.flatMap(p => [p.handSink, p.threeComp, p.cooler, p.freezer]).filter(Boolean);
             if (allTemps.length === 0) return null;
-            const minT = Math.min(...allTemps, 90) - 5;
+            const minT = Math.min(...allTemps, 0) - 5;
             const maxT = Math.max(...allTemps, 115) + 5;
             const rangeT = maxT - minT || 1;
             const xStep = points.length > 1 ? (W - PAD - PADR) / (points.length - 1) : (W - PAD - PADR) / 2;
@@ -1663,6 +1707,8 @@ function TempTrendChart({ history }) {
             // Build smooth path points
             const handCoords = points.map((p, i) => p.handSink ? [toX(i), toY(p.handSink)] : null).filter(Boolean);
             const threeCoords = points.map((p, i) => p.threeComp ? [toX(i), toY(p.threeComp)] : null).filter(Boolean);
+            const coolerCoords = points.map((p, i) => p.cooler ? [toX(i), toY(p.cooler)] : null).filter(Boolean);
+            const freezerCoords = points.map((p, i) => p.freezer ? [toX(i), toY(p.freezer)] : null).filter(Boolean);
             const toPath = (coords) => coords.map((c, i) => `${i === 0 ? "M" : "L"}${c[0]},${c[1]}`).join(" ");
             const toAreaPath = (coords) => {
               if (coords.length < 2) return "";
@@ -1677,6 +1723,8 @@ function TempTrendChart({ history }) {
             // Avg temps
             const handAvg = handCoords.length > 0 ? Math.round(points.reduce((s, p) => s + (p.handSink || 0), 0) / points.filter(p => p.handSink).length) : null;
             const threeAvg = threeCoords.length > 0 ? Math.round(points.reduce((s, p) => s + (p.threeComp || 0), 0) / points.filter(p => p.threeComp).length) : null;
+            const coolerAvg = coolerCoords.length > 0 ? Math.round(points.reduce((s, p) => s + (p.cooler || 0), 0) / points.filter(p => p.cooler).length) : null;
+            const freezerAvg = freezerCoords.length > 0 ? Math.round(points.reduce((s, p) => s + (p.freezer || 0), 0) / points.filter(p => p.freezer).length) : null;
 
             return (
               <div key={loc} className="tempChartItem">
@@ -1687,6 +1735,8 @@ function TempTrendChart({ history }) {
                 <div className="tempChartAvgs">
                   {handAvg !== null && <span className={cx("tempAvgPill", "tempAvgPillClickable", focusedLine === "hand" && "tempAvgPillActive")} style={{ background: focusedLine === "hand" ? "#3b82f6" : handAvg >= 95 ? "#dbeafe" : "#fee2e2", color: focusedLine === "hand" ? "#fff" : handAvg >= 95 ? "#1d4ed8" : "#dc2626" }} onClick={() => setFocusedLine(focusedLine === "hand" ? null : "hand")}>Avg Hand: {handAvg}°F</span>}
                   {threeAvg !== null && <span className={cx("tempAvgPill", "tempAvgPillClickable", focusedLine === "three" && "tempAvgPillActive")} style={{ background: focusedLine === "three" ? "#8b5cf6" : threeAvg >= 110 ? "#ede9fe" : "#fee2e2", color: focusedLine === "three" ? "#fff" : threeAvg >= 110 ? "#7c3aed" : "#dc2626" }} onClick={() => setFocusedLine(focusedLine === "three" ? null : "three")}>Avg 3-Comp: {threeAvg}°F</span>}
+                  {coolerAvg !== null && <span className={cx("tempAvgPill", "tempAvgPillClickable", focusedLine === "cooler" && "tempAvgPillActive")} style={{ background: focusedLine === "cooler" ? "#059669" : coolerAvg <= 40 ? "#d1fae5" : "#fee2e2", color: focusedLine === "cooler" ? "#fff" : coolerAvg <= 40 ? "#059669" : "#dc2626" }} onClick={() => setFocusedLine(focusedLine === "cooler" ? null : "cooler")}>Avg Cooler: {coolerAvg}°F</span>}
+                  {freezerAvg !== null && <span className={cx("tempAvgPill", "tempAvgPillClickable", focusedLine === "freezer" && "tempAvgPillActive")} style={{ background: focusedLine === "freezer" ? "#0891b2" : freezerAvg <= 20 ? "#cffafe" : "#fee2e2", color: focusedLine === "freezer" ? "#fff" : freezerAvg <= 20 ? "#0891b2" : "#dc2626" }} onClick={() => setFocusedLine(focusedLine === "freezer" ? null : "freezer")}>Avg Freezer: {freezerAvg}°F</span>}
                   <span className="tempAvgPill" style={{ background: "#f0fdf4", color: "#15803d" }}>{points.length} reading{points.length !== 1 ? "s" : ""}</span>
                 </div>
                 <svg viewBox={`0 0 ${W} ${H}`} className="tempChartSvg" onMouseLeave={() => setHoveredPoint(null)}>
@@ -1699,6 +1749,14 @@ function TempTrendChart({ history }) {
                       <stop offset="0%" stopColor="#8b5cf6" stopOpacity="0.25" />
                       <stop offset="100%" stopColor="#8b5cf6" stopOpacity="0.02" />
                     </linearGradient>
+                    <linearGradient id={`coolerGrad-${loc.replace(/\W/g, "")}`} x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#059669" stopOpacity="0.25" />
+                      <stop offset="100%" stopColor="#059669" stopOpacity="0.02" />
+                    </linearGradient>
+                    <linearGradient id={`freezerGrad-${loc.replace(/\W/g, "")}`} x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#0891b2" stopOpacity="0.25" />
+                      <stop offset="100%" stopColor="#0891b2" stopOpacity="0.02" />
+                    </linearGradient>
                   </defs>
 
                   {/* Grid lines */}
@@ -1710,15 +1768,14 @@ function TempTrendChart({ history }) {
                   ))}
 
                   {/* Threshold lines */}
-                  {[95, 110].map(threshold => {
+                  {[{v:95,line:"hand",c:"#3b82f6"},{v:110,line:"three",c:"#8b5cf6"},{v:40,line:"cooler",c:"#059669"},{v:20,line:"freezer",c:"#0891b2"}].map(({v:threshold,line:lineKey,c:color}) => {
                     if (threshold < minT || threshold > maxT) return null;
                     const y = toY(threshold);
-                    const isHand = threshold === 95;
-                    const dimmed = focusedLine && focusedLine !== (isHand ? "hand" : "three");
+                    const dimmed = focusedLine && focusedLine !== lineKey;
                     return (
                       <g key={threshold} opacity={dimmed ? 0.15 : 1} style={{ transition: "opacity 0.3s" }}>
-                        <line x1={PAD} y1={y} x2={W - PADR} y2={y} stroke={isHand ? "#3b82f6" : "#8b5cf6"} strokeDasharray="6,4" strokeWidth="1.5" opacity="0.6" />
-                        <rect x={W - PADR + 2} y={y - 8} width="36" height="16" rx="3" fill={isHand ? "#3b82f6" : "#8b5cf6"} opacity="0.9" />
+                        <line x1={PAD} y1={y} x2={W - PADR} y2={y} stroke={color} strokeDasharray="6,4" strokeWidth="1.5" opacity="0.6" />
+                        <rect x={W - PADR + 2} y={y - 8} width="36" height="16" rx="3" fill={color} opacity="0.9" />
                         <text x={W - PADR + 20} y={y + 4} textAnchor="middle" fontSize="8" fill="white" fontWeight="bold">{threshold}°F</text>
                       </g>
                     );
@@ -1727,10 +1784,14 @@ function TempTrendChart({ history }) {
                   {/* Area fills */}
                   {handCoords.length >= 2 && <path d={toAreaPath(handCoords)} fill={`url(#handGrad-${loc.replace(/\W/g, "")})`} opacity={focusedLine && focusedLine !== "hand" ? 0.1 : 1} style={{ transition: "opacity 0.3s" }} />}
                   {threeCoords.length >= 2 && <path d={toAreaPath(threeCoords)} fill={`url(#threeGrad-${loc.replace(/\W/g, "")})`} opacity={focusedLine && focusedLine !== "three" ? 0.1 : 1} style={{ transition: "opacity 0.3s" }} />}
+                  {coolerCoords.length >= 2 && <path d={toAreaPath(coolerCoords)} fill={`url(#coolerGrad-${loc.replace(/\W/g, "")})`} opacity={focusedLine && focusedLine !== "cooler" ? 0.1 : 1} style={{ transition: "opacity 0.3s" }} />}
+                  {freezerCoords.length >= 2 && <path d={toAreaPath(freezerCoords)} fill={`url(#freezerGrad-${loc.replace(/\W/g, "")})`} opacity={focusedLine && focusedLine !== "freezer" ? 0.1 : 1} style={{ transition: "opacity 0.3s" }} />}
 
                   {/* Lines */}
                   {handCoords.length > 1 && <path d={toPath(handCoords)} fill="none" stroke="#3b82f6" strokeWidth={focusedLine === "hand" ? "3.5" : "2.5"} strokeLinecap="round" strokeLinejoin="round" opacity={focusedLine && focusedLine !== "hand" ? 0.15 : 1} style={{ transition: "opacity 0.3s, stroke-width 0.3s" }} />}
                   {threeCoords.length > 1 && <path d={toPath(threeCoords)} fill="none" stroke="#8b5cf6" strokeWidth={focusedLine === "three" ? "3.5" : "2.5"} strokeLinecap="round" strokeLinejoin="round" opacity={focusedLine && focusedLine !== "three" ? 0.15 : 1} style={{ transition: "opacity 0.3s, stroke-width 0.3s" }} />}
+                  {coolerCoords.length > 1 && <path d={toPath(coolerCoords)} fill="none" stroke="#059669" strokeWidth={focusedLine === "cooler" ? "3.5" : "2.5"} strokeLinecap="round" strokeLinejoin="round" opacity={focusedLine && focusedLine !== "cooler" ? 0.15 : 1} style={{ transition: "opacity 0.3s, stroke-width 0.3s" }} />}
+                  {freezerCoords.length > 1 && <path d={toPath(freezerCoords)} fill="none" stroke="#0891b2" strokeWidth={focusedLine === "freezer" ? "3.5" : "2.5"} strokeLinecap="round" strokeLinejoin="round" opacity={focusedLine && focusedLine !== "freezer" ? 0.15 : 1} style={{ transition: "opacity 0.3s, stroke-width 0.3s" }} />}
 
                   {/* Data points with hover */}
                   {points.map((p, i) => {
@@ -1759,6 +1820,28 @@ function TempTrendChart({ history }) {
                             )}
                           </g>
                         )}
+                        {p.cooler && (
+                          <g opacity={focusedLine && focusedLine !== "cooler" ? 0.15 : 1} style={{ transition: "opacity 0.3s" }}>
+                            <circle cx={toX(i)} cy={toY(p.cooler)} r={focusedLine === "cooler" ? 6 : 5} fill="white" stroke={p.cooler <= 40 ? "#059669" : "#ef4444"} strokeWidth="2.5" style={{ transition: "r 0.3s" }} />
+                            {(hoveredPoint === hk || focusedLine === "cooler") && (
+                              <g>
+                                <rect x={toX(i) - 30} y={toY(p.cooler) - 26} width="60" height="20" rx="4" fill="#1e293b" opacity="0.9" />
+                                <text x={toX(i)} y={toY(p.cooler) - 12} textAnchor="middle" fontSize="10" fill="white" fontWeight="bold">{p.cooler}°F</text>
+                              </g>
+                            )}
+                          </g>
+                        )}
+                        {p.freezer && (
+                          <g opacity={focusedLine && focusedLine !== "freezer" ? 0.15 : 1} style={{ transition: "opacity 0.3s" }}>
+                            <circle cx={toX(i)} cy={toY(p.freezer)} r={focusedLine === "freezer" ? 6 : 5} fill="white" stroke={p.freezer <= 20 ? "#0891b2" : "#ef4444"} strokeWidth="2.5" style={{ transition: "r 0.3s" }} />
+                            {(hoveredPoint === hk || focusedLine === "freezer") && (
+                              <g>
+                                <rect x={toX(i) - 30} y={toY(p.freezer) - 26} width="60" height="20" rx="4" fill="#1e293b" opacity="0.9" />
+                                <text x={toX(i)} y={toY(p.freezer) - 12} textAnchor="middle" fontSize="10" fill="white" fontWeight="bold">{p.freezer}°F</text>
+                              </g>
+                            )}
+                          </g>
+                        )}
                         {/* Invisible larger hit area */}
                         <rect x={toX(i) - 15} y={PADT} width="30" height={H - PADT - PADB} fill="transparent" />
                       </g>
@@ -1775,7 +1858,9 @@ function TempTrendChart({ history }) {
                 <div className="tempChartLegend">
                   <span className="tempLegendItem"><span className="tempLegendDot" style={{ background: "#3b82f6" }} /> Hand Sink (min 95°F)</span>
                   <span className="tempLegendItem"><span className="tempLegendDot" style={{ background: "#8b5cf6" }} /> 3-Comp (min 110°F)</span>
-                  <span className="tempLegendItem"><span className="tempLegendDot" style={{ background: "#ef4444" }} /> Below min</span>
+                  <span className="tempLegendItem"><span className="tempLegendDot" style={{ background: "#059669" }} /> Cooler (max 40°F)</span>
+                  <span className="tempLegendItem"><span className="tempLegendDot" style={{ background: "#0891b2" }} /> Freezer (max 20°F)</span>
+                  <span className="tempLegendItem"><span className="tempLegendDot" style={{ background: "#ef4444" }} /> Out of range</span>
                 </div>
               </div>
             );
@@ -2997,6 +3082,8 @@ export default function App() {
                 <div className="pillRow">
                   <span className="pill">Hand sink {"\u2265"} 95 F</span>
                   <span className="pill">3-comp wash {"\u2265"} 110 F</span>
+                  <span className="pill">Cooler {"\u2264"} 40 F</span>
+                  <span className="pill">Freezer {"\u2264"} 20 F</span>
                 </div>
               </div>
 
@@ -3037,6 +3124,24 @@ export default function App() {
                       placeholder="e.g., 112" />
                     <span className="hint">
                       {Number(inspection.temps.threeCompSinkTempF) >= 110 ? "Meets >=110 F" : inspection.temps.threeCompSinkTempF ? "Below 110 F - flag" : ""}
+                    </span>
+                  </label>
+                  <label className="field" id="field-coolerTempF" style={{ marginTop: 0 }}>
+                    <span className="fieldLabel">Cooler temp (F)</span>
+                    <input className="input" inputMode="numeric" value={inspection.temps.coolerTempF}
+                      onChange={(e) => setInspection((prev) => ({ ...prev, temps: { ...prev.temps, coolerTempF: e.target.value } }))}
+                      placeholder="e.g., 38" />
+                    <span className="hint">
+                      {inspection.temps.coolerTempF ? (Number(inspection.temps.coolerTempF) <= 40 ? "Meets <=40 F" : "Above 40 F - flag") : ""}
+                    </span>
+                  </label>
+                  <label className="field" id="field-freezerTempF" style={{ marginTop: 0 }}>
+                    <span className="fieldLabel">Freezer temp (F)</span>
+                    <input className="input" inputMode="numeric" value={inspection.temps.freezerTempF}
+                      onChange={(e) => setInspection((prev) => ({ ...prev, temps: { ...prev.temps, freezerTempF: e.target.value } }))}
+                      placeholder="e.g., 10" />
+                    <span className="hint">
+                      {inspection.temps.freezerTempF ? (Number(inspection.temps.freezerTempF) <= 20 ? "Meets <=20 F" : "Above 20 F - flag") : ""}
                     </span>
                   </label>
                 </div>
