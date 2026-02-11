@@ -612,6 +612,7 @@ function buildDefaultContext(noteType) {
   const spec = NOTE_TYPES[noteType];
   const obj = {};
   for (const f of spec.contextFields) obj[f.key] = "";
+  if (obj.date !== undefined) obj.date = new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
   return obj;
 }
 
@@ -2403,8 +2404,6 @@ function PhotoStrip({ photos, onRemove }) {
 
 function GuideSection({ title, items, inspection, setInspection }) {
   const fileRefs = useRef({});
-  const galleryRefs = useRef({});
-  const [photoMenu, setPhotoMenu] = useState(null); // key of open menu
 
   async function addPhotos(pathKey, files) {
     const accepted = Array.from(files || []).slice(0, PHOTO_LIMIT);
@@ -2455,25 +2454,11 @@ function GuideSection({ title, items, inspection, setInspection }) {
                 onChange={(e) => setInspection((prev) => setAtPath(prev, it.path, { ...current, notes: e.target.value }))}
                 placeholder="Issue / observation (optional)" />
               <div className="photoRow">
-                <input ref={(el) => (galleryRefs.current[key] = el)} className="fileInput" type="file" accept="image/*" multiple
-                  onChange={(e) => { addPhotos(key, e.target.files); e.target.value = ""; setPhotoMenu(null); }} />
-                <input ref={(el) => (fileRefs.current[key] = el)} className="fileInput" type="file" accept="image/*,.pdf,.heic,.heif" multiple
-                  onChange={(e) => { addPhotos(key, e.target.files); e.target.value = ""; setPhotoMenu(null); }} />
-                <div className="photoPickerWrap">
-                  <button className="btn btnGhost btnSmall photoBtn" type="button" onClick={() => setPhotoMenu(photoMenu === key ? null : key)}>
-                    &#128247; Add photos
-                  </button>
-                  {photoMenu === key && (
-                    <div className="photoPickerMenu">
-                      <button className="photoPickerItem" type="button" onClick={() => { galleryRefs.current[key]?.click(); }}>
-                        &#128444;&#65039; Photo Gallery
-                      </button>
-                      <button className="photoPickerItem" type="button" onClick={() => { fileRefs.current[key]?.click(); }}>
-                        &#128193; Browse Files
-                      </button>
-                    </div>
-                  )}
-                </div>
+                <input ref={(el) => (fileRefs.current[key] = el)} className="fileInput" type="file" accept="image/*" multiple
+                  onChange={(e) => { addPhotos(key, e.target.files); e.target.value = ""; }} />
+                <button className="btn btnGhost btnSmall photoBtn" type="button" onClick={() => fileRefs.current[key]?.click()}>
+                  &#128247; Add photos
+                </button>
                 <span className="hint">Up to {PHOTO_LIMIT} ({PHOTO_MAX_MB}MB each)</span>
               </div>
               <PhotoStrip photos={current.photos} onRemove={(id) => removePhoto(key, id)} />
@@ -2786,33 +2771,33 @@ export default function App() {
           <div className="cardBody">
             <div className="fieldGrid">
               <label className="field">
-                <span className="fieldLabel">Inspection Type</span>
+                <span className="fieldLabel">Type</span>
                 <select className="select" value={inspectionType} onChange={(e) => setInspectionType(e.target.value)}>
                   {INSPECTION_TYPES.map((t) => (<option key={t} value={t}>{t}</option>))}
                 </select>
               </label>
               <label className="field" id="field-inspectionDate">
-                <span className="fieldLabel">Inspection Date</span>
+                <span className="fieldLabel">Date</span>
                 <input className="input" type="date" value={inspectionDate} onChange={(e) => setInspectionDate(e.target.value)} />
               </label>
               <label className="field" id="field-inspectorName">
-                <span className="fieldLabel">Inspector Name</span>
+                <span className="fieldLabel">Inspector</span>
                 <input className="input" value={inspectorName} onChange={(e) => setInspectorName(e.target.value)} placeholder="e.g., J. Da Silva" />
               </label>
               <label className="field" id="field-supervisorName">
-                <span className="fieldLabel">Supervisor Name</span>
+                <span className="fieldLabel">Supervisor</span>
                 <input className="input" value={supervisorName} onChange={(e) => setSupervisorName(e.target.value)} placeholder="e.g., GM / Chef Lead" />
               </label>
               <label className="field" id="field-siteName">
-                <span className="fieldLabel">Restaurant / Local Name</span>
+                <span className="fieldLabel">Restaurant / Location</span>
                 <input className="input" value={siteName} onChange={(e) => setSiteName(e.target.value)} placeholder="e.g., North Stand Kitchen" />
               </label>
               <label className="field" id="field-siteNumber">
-                <span className="fieldLabel">Location / Unit Number</span>
+                <span className="fieldLabel">Unit Number</span>
                 <input className="input" value={siteNumber} onChange={(e) => setSiteNumber(e.target.value)} placeholder="e.g., Unit 12 / Loc-204" />
               </label>
               <label className="field">
-                <span className="fieldLabel">Location Phone (optional)</span>
+                <span className="fieldLabel">Phone (optional)</span>
                 <input className="input" value={sitePhone} onChange={(e) => setSitePhone(e.target.value)} placeholder="e.g., (305) 555-0123" />
               </label>
               <label className="field">
