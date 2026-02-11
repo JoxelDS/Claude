@@ -553,6 +553,15 @@ body {
   margin-top: 10px;
   font-style: italic;
 }
+.guideAddItem {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--sdx-gray-200);
+  align-items: center;
+}
+.guideAddItem .input { flex: 1; }
 
 /* ── Temperatures ────────────────────────────────────────── */
 .tempsRow {
@@ -1210,23 +1219,46 @@ body {
 .rptLabelMed { color: #D97706; }
 
 /* Photo Index */
-.rptPhotoList {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+.rptPhotoGallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
 }
-.rptPhotoItem {
+.rptPhotoCard {
+  border: 1px solid var(--sdx-gray-200);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--sdx-gray-50);
+}
+.rptPhotoImg {
+  width: 100%;
+  height: 140px;
+  object-fit: cover;
+  display: block;
+}
+.rptPhotoPlaceholder {
+  width: 100%;
+  height: 140px;
   display: flex;
   align-items: center;
-  gap: 10px;
-  font-size: 0.84rem;
+  justify-content: center;
+  background: var(--sdx-gray-100);
+  color: var(--sdx-gray-400);
+  font-size: 0.78rem;
+}
+.rptPhotoCaption {
+  padding: 8px 10px;
+  font-size: 0.72rem;
   color: var(--sdx-gray-600);
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
 }
 .rptPhotoNum {
   font-weight: 700;
   color: var(--sdx-navy);
-  font-size: 0.78rem;
-  min-width: 65px;
+  font-size: 0.72rem;
+  flex-shrink: 0;
 }
 
 /* Notes */
@@ -1950,6 +1982,11 @@ body {
   background: #FFF7ED;
   color: #C2410C;
   border: 1px solid #FED7AA;
+}
+.typeBadgeLocType {
+  background: #F0F9FF;
+  color: #0369A1;
+  border: 1px solid #BAE6FD;
 }
 
 /* ── Temperature Trend Charts ──────────────────────────── */
