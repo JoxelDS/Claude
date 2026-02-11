@@ -245,6 +245,7 @@ async function registerNewUser(badge, name, department) {
   if (users.find(u => u.badgeHash === h)) return { ok: false, reason: "exists" };
   const newUser = {
     badgeHash: h, name, department,
+    badgeDisplay: badge.length > 4 ? "\u2022\u2022\u2022\u2022" + badge.slice(-4) : badge,
     role: "inspector", approved: false,
     registeredAt: new Date().toISOString()
   };
@@ -266,6 +267,7 @@ async function adminAddUser(badge, name, department, role) {
   if (users.find(u => u.badgeHash === h)) return { ok: false, reason: "exists" };
   const newUser = {
     badgeHash: h, name, department,
+    badgeDisplay: badge.length > 4 ? "\u2022\u2022\u2022\u2022" + badge.slice(-4) : badge,
     role: role || "inspector",
     approved: true,
     registeredAt: new Date().toISOString()
@@ -1152,6 +1154,74 @@ function aiAssist({ inspection, rawNotes, context, noteType }) {
   return tips;
 }
 
+/* ── AI Export Summary: executive summary for documents ───── */
+function buildExportSummary({ inspection, rawNotes, inspectionType, inspectionDate, siteName }) {
+  const status = calcOverallStatus(inspection);
+  const actionItems = buildActionItems({ inspection, rawNotes });
+  const tips = aiAssist({ inspection, rawNotes, context: {}, noteType: "Kitchen Inspection" });
+  const date = inspectionDate || new Date().toLocaleDateString();
+  const loc = siteName || "the inspected location";
+
+  // Count statuses
+  let okCount = 0, attentionCount = 0, notCleanCount = 0;
+  const sections = ["facility", "operations", "equipment"];
+  for (const sec of sections) {
+    const data = inspection?.[sec] || {};
+    for (const k of Object.keys(data)) {
+      const s = data[k]?.status;
+      if (s === "OK") okCount++;
+      else if (s === "Needs Attention") attentionCount++;
+      else if (s === "Not Clean") notCleanCount++;
+    }
+  }
+  const total = okCount + attentionCount + notCleanCount;
+  const passRate = total > 0 ? Math.round((okCount / total) * 100) : 100;
+
+  // Build summary paragraphs
+  const lines = [];
+  if (status === "Pass") {
+    lines.push(`This ${inspectionType || "inspection"} of ${loc} on ${date} resulted in an overall PASS with a ${passRate}% compliance rate. ${okCount} of ${total} items met standards.`);
+  } else {
+    lines.push(`This ${inspectionType || "inspection"} of ${loc} on ${date} requires attention. ${notCleanCount + attentionCount} of ${total} items were flagged, resulting in a ${passRate}% compliance rate.`);
+  }
+
+  if (actionItems.length > 0) {
+    const highCount = actionItems.filter(a => a.priority === "High").length;
+    lines.push(`${actionItems.length} corrective action${actionItems.length !== 1 ? "s" : ""} required${highCount > 0 ? ` (${highCount} high priority)` : ""}. Immediate follow-up recommended for all high-priority items.`);
+  }
+
+  // Temp summary
+  const handT = Number(inspection?.temps?.handSinkTempF);
+  const threeT = Number(inspection?.temps?.threeCompSinkTempF);
+  const coolerT = Number(inspection?.temps?.coolerTempF);
+  const freezerT = Number(inspection?.temps?.freezerTempF);
+  const tempIssues = [];
+  if (handT && handT < 95) tempIssues.push(`hand sink at ${handT}\u00B0F (below 95\u00B0F)`);
+  if (threeT && threeT < 110) tempIssues.push(`3-comp wash at ${threeT}\u00B0F (below 110\u00B0F)`);
+  if (coolerT && coolerT > 40) tempIssues.push(`cooler at ${coolerT}\u00B0F (above 40\u00B0F)`);
+  if (freezerT && freezerT > 20) tempIssues.push(`freezer at ${freezerT}\u00B0F (above 20\u00B0F)`);
+  if (tempIssues.length > 0) {
+    lines.push(`Temperature violations: ${tempIssues.join("; ")}. Immediate corrective action required.`);
+  } else {
+    const tempOk = [];
+    if (handT) tempOk.push("hand sink");
+    if (threeT) tempOk.push("3-comp wash");
+    if (coolerT) tempOk.push("cooler");
+    if (freezerT) tempOk.push("freezer");
+    if (tempOk.length) lines.push(`All recorded temperatures (${tempOk.join(", ")}) are within acceptable ranges.`);
+  }
+
+  // Smart recommendations
+  const recs = [];
+  if (notCleanCount > 0) recs.push("Schedule re-inspection within 48 hours for all Not Clean items.");
+  if (attentionCount >= 3) recs.push("Consider additional staff training — multiple areas flagged for attention.");
+  if (tempIssues.length > 0) recs.push("Contact maintenance for equipment check on out-of-range temperatures.");
+  if (actionItems.length === 0 && status === "Pass") recs.push("No corrective actions needed. Continue current maintenance schedule.");
+  if (recs.length) lines.push("Recommendations: " + recs.join(" "));
+
+  return lines.join("\n\n");
+}
+
 /* ── Rendered Output Component (visual, not code) ────────── */
 function RenderedOutput({ noteType, useCase, context, inspection, rawNotes, inspectionType, inspectionDate, inspectorName, siteName, siteNumber, sitePhone, supervisorName, locationType, floor }) {
   const status = calcOverallStatus(inspection);
@@ -1470,6 +1540,8 @@ function exportAsCsv({ inspection, rawNotes, inspectionType, inspectionDate, ins
   const dataRows = buildCsvRows({ inspection, rawNotes, inspectionType, inspectionDate, inspectorName, siteName, siteNumber, supervisorName });
   const status = calcOverallStatus(inspection);
   const actionItems = buildActionItems({ inspection, rawNotes });
+  const { index: photoList } = buildPhotoIndex(inspection);
+  const execSummary = buildExportSummary({ inspection, rawNotes, inspectionType, inspectionDate, siteName });
 
   // Build an HTML table that Excel understands natively
   const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
@@ -1499,6 +1571,9 @@ function exportAsCsv({ inspection, rawNotes, inspectionType, inspectionDate, ins
   <tr><td class="meta-label">Supervisor</td><td colspan="4">${supervisorName || ""}</td></tr>
   <tr><td class="meta-label">Overall Status</td><td colspan="4" class="${status === "Pass" ? "pass" : "fail"}">${status}</td></tr>
   <tr><td colspan="5"></td></tr>
+  <tr><td class="section-header" colspan="5">EXECUTIVE SUMMARY</td></tr>
+  <tr><td colspan="5" style="white-space:pre-wrap;font-size:10pt;background:#F0F4FF;line-height:1.7;padding:12px;">${execSummary.replace(/</g, "&lt;")}</td></tr>
+  <tr><td colspan="5"></td></tr>
   <tr><td class="section-header" colspan="5">INSPECTION SCORECARD</td></tr>
   <tr><th>Section</th><th>Item</th><th>Status</th><th>Notes</th><th>Priority</th></tr>
   ${dataRows.slice(1).map(r => {
@@ -1513,6 +1588,10 @@ function exportAsCsv({ inspection, rawNotes, inspectionType, inspectionDate, ins
   <tr><td colspan="5"></td></tr>` : ""}
   <tr><td class="section-header" colspan="5">INSPECTOR NOTES</td></tr>
   <tr><td colspan="5" style="white-space:pre-wrap;font-size:10pt;">${formatNotesText(rawNotes).replace(/</g, "&lt;")}</td></tr>
+  ${photoList.length > 0 ? `
+  <tr><td colspan="5"></td></tr>
+  <tr><td class="section-header" colspan="5">PHOTO EVIDENCE (${photoList.length})</td></tr>
+  ${photoList.map(p => `<tr><td style="text-align:center;font-weight:bold;color:#2A295C;">#${p.num}</td><td colspan="2">${p.previewUrl ? `<img src="${p.previewUrl}" width="200" height="150" style="object-fit:cover;" />` : "No preview"}</td><td colspan="2" style="font-size:9pt;vertical-align:top;">${(p.label || "").replace(/</g, "&lt;")}${p.caption ? `<br/>${p.caption.replace(/</g, "&lt;")}` : ""}</td></tr>`).join("\n  ")}` : ""}
 </table></body></html>`;
 
   const blob = new Blob([html], { type: "application/vnd.ms-excel" });
@@ -1524,6 +1603,8 @@ function exportAsHtml({ output, inspection, rawNotes, inspectionType, inspection
   const status = calcOverallStatus(inspection);
   const actionItems = buildActionItems({ inspection, rawNotes });
   const expandedNotes = expandAbbreviations(rawNotes);
+  const { index: photoList } = buildPhotoIndex(inspection);
+  const execSummary = buildExportSummary({ inspection, rawNotes, inspectionType, inspectionDate, siteName });
 
   const allItems = [
     ["Facility", "Ceiling", inspection?.facility?.ceiling],
@@ -1573,6 +1654,13 @@ function exportAsHtml({ output, inspection, rawNotes, inspectionType, inspection
   .pill-na { background: #F3F4F6; color: #9CA3AF; padding: 2px 8px; }
   .issue-num { background: #DC2626; color: white; font-weight: bold; padding: 2px 8px; text-align: center; width: 30px; }
   .notes-box { background: #F7F8FA; padding: 16px; border-left: 3px solid #2A295C; white-space: pre-wrap; font-size: 10pt; line-height: 1.7; }
+  .exec-summary { background: #F0F4FF; border: 1px solid #C7D2FE; border-radius: 6px; padding: 16px 20px; margin: 16px 0; font-size: 10pt; line-height: 1.7; color: #1E293B; }
+  .exec-summary p { margin: 0 0 8px 0; }
+  .photo-grid { display: flex; flex-wrap: wrap; gap: 12px; margin: 12px 0; }
+  .photo-card { width: 200px; border: 1px solid #E5E7EB; border-radius: 6px; overflow: hidden; break-inside: avoid; page-break-inside: avoid; }
+  .photo-card img { width: 100%; height: 150px; object-fit: cover; display: block; }
+  .photo-caption { padding: 6px 8px; font-size: 8pt; color: #4B5563; background: #F9FAFB; }
+  .photo-num { font-weight: bold; color: #2A295C; }
   .footer { margin-top: 32px; padding-top: 12px; border-top: 1px solid #E5E7EB; font-size: 8pt; color: #9CA3AF; text-align: center; }
 </style></head><body>
 
@@ -1590,6 +1678,11 @@ function exportAsHtml({ output, inspection, rawNotes, inspectionType, inspection
       <td class="info-label">Freezer Temp</td><td>${inspection?.temps?.freezerTempF ? inspection.temps.freezerTempF + "\u00B0F" : "\u2014"} ${inspection?.temps?.freezerTempF ? (freezerT <= 20 ? "\u2705" : "\u26A0\uFE0F Above 20\u00B0F") : ""}</td></tr>
   <tr><td class="info-label">Overall Status</td><td colspan="3" class="${status === "Pass" ? "status-pass" : "status-fail"}">${status === "Pass" ? "PASSED" : "NEEDS ATTENTION"}</td></tr>
 </table>
+
+<h2>Executive Summary</h2>
+<div class="exec-summary">
+${execSummary.split("\n\n").map(p => `<p>${p.replace(/</g, "&lt;")}</p>`).join("\n")}
+</div>
 
 <h2>Inspection Scorecard</h2>
 <table class="scorecard">
@@ -1626,6 +1719,12 @@ ${(() => {
   if (!cats.length) return `<div class="notes-box">\u2014</div>`;
   return cats.map(cat => `<div style="margin-bottom:12px;"><p style="font-weight:bold;color:#2A295C;font-size:10pt;margin:0 0 4px 0;">${CATEGORY_LABELS[cat]}</p><ul style="margin:0;padding-left:20px;">${grouped[cat].map(b => `<li style="margin-bottom:4px;font-size:10pt;line-height:1.5;">${b.replace(/</g, "&lt;")}</li>`).join("")}</ul></div>`).join("");
 })()}
+
+${photoList.length > 0 ? `
+<h2>Photo Evidence (${photoList.length})</h2>
+<div class="photo-grid">
+${photoList.map(p => `<div class="photo-card">${p.previewUrl ? `<img src="${p.previewUrl}" alt="Photo #${p.num}" />` : `<div style="width:200px;height:150px;background:#F3F4F6;display:flex;align-items:center;justify-content:center;color:#9CA3AF;font-size:9pt;">No preview</div>`}<div class="photo-caption"><span class="photo-num">#${p.num}</span> ${(p.label || "").replace(/</g, "&lt;")}${p.caption ? ` \u2014 ${p.caption.replace(/</g, "&lt;")}` : ""}</div></div>`).join("\n")}
+</div>` : ""}
 
 <div class="footer">
   <p>Generated ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()} \u2022 Sodexo Kitchen Inspection System</p>
@@ -2475,7 +2574,7 @@ function AdminPanel({ currentUser, onBack }) {
               {pending.map(u => (
                 <div className="adminUserRow" key={u.badgeHash}>
                   <div className="adminUserInfo">
-                    <div className="adminUserName">{u.name}</div>
+                    <div className="adminUserName">{u.name} {u.badgeDisplay && <span className="badgeNumDisplay">Badge: {u.badgeDisplay}</span>}</div>
                     <div className="adminUserMeta">{u.department} &middot; Requested {new Date(u.registeredAt).toLocaleDateString()}</div>
                   </div>
                   <div className="adminUserActions">
@@ -2512,6 +2611,7 @@ function AdminPanel({ currentUser, onBack }) {
                       {u.role === "admin" && <span className="roleBadge adminRoleBadge">Admin</span>}
                       {u.role === "inspector" && <span className="roleBadge inspectorRoleBadge">Inspector</span>}
                       {isSelf && <span className="roleBadge youRoleBadge">You</span>}
+                      {u.badgeDisplay && <span className="badgeNumDisplay">Badge: {u.badgeDisplay}</span>}
                     </div>
                     <div className="adminUserMeta">{u.department} &middot; Since {new Date(u.registeredAt).toLocaleDateString()}</div>
                   </div>
@@ -3109,37 +3209,49 @@ export default function App() {
                 <div className="tempsTitle">Key temperatures</div>
                 <div className="tempsGrid">
                   <label className="field" id="field-handSinkTempF" style={{ marginTop: 0 }}>
-                    <span className="fieldLabel">Hand sink temp (F)</span>
-                    <input className="input" inputMode="numeric" value={inspection.temps.handSinkTempF}
-                      onChange={(e) => setInspection((prev) => ({ ...prev, temps: { ...prev.temps, handSinkTempF: e.target.value } }))}
-                      placeholder="e.g., 97" />
+                    <span className="fieldLabel">Hand sink temp</span>
+                    <div className="tempInputWrap">
+                      <input className="input tempInput" inputMode="numeric" value={inspection.temps.handSinkTempF}
+                        onChange={(e) => setInspection((prev) => ({ ...prev, temps: { ...prev.temps, handSinkTempF: e.target.value } }))}
+                        placeholder="97" />
+                      <span className="tempUnit">{"\u00B0F"}</span>
+                    </div>
                     <span className="hint">
                       {Number(inspection.temps.handSinkTempF) >= 95 ? "Meets >=95 F" : inspection.temps.handSinkTempF ? "Below 95 F - flag" : ""}
                     </span>
                   </label>
                   <label className="field" id="field-threeCompSinkTempF" style={{ marginTop: 0 }}>
-                    <span className="fieldLabel">3-comp wash temp (F)</span>
-                    <input className="input" inputMode="numeric" value={inspection.temps.threeCompSinkTempF}
-                      onChange={(e) => setInspection((prev) => ({ ...prev, temps: { ...prev.temps, threeCompSinkTempF: e.target.value } }))}
-                      placeholder="e.g., 112" />
+                    <span className="fieldLabel">3-comp wash temp</span>
+                    <div className="tempInputWrap">
+                      <input className="input tempInput" inputMode="numeric" value={inspection.temps.threeCompSinkTempF}
+                        onChange={(e) => setInspection((prev) => ({ ...prev, temps: { ...prev.temps, threeCompSinkTempF: e.target.value } }))}
+                        placeholder="112" />
+                      <span className="tempUnit">{"\u00B0F"}</span>
+                    </div>
                     <span className="hint">
                       {Number(inspection.temps.threeCompSinkTempF) >= 110 ? "Meets >=110 F" : inspection.temps.threeCompSinkTempF ? "Below 110 F - flag" : ""}
                     </span>
                   </label>
                   <label className="field" id="field-coolerTempF" style={{ marginTop: 0 }}>
-                    <span className="fieldLabel">Cooler temp (F)</span>
-                    <input className="input" inputMode="numeric" value={inspection.temps.coolerTempF}
-                      onChange={(e) => setInspection((prev) => ({ ...prev, temps: { ...prev.temps, coolerTempF: e.target.value } }))}
-                      placeholder="e.g., 38" />
+                    <span className="fieldLabel">Cooler temp</span>
+                    <div className="tempInputWrap">
+                      <input className="input tempInput" inputMode="numeric" value={inspection.temps.coolerTempF}
+                        onChange={(e) => setInspection((prev) => ({ ...prev, temps: { ...prev.temps, coolerTempF: e.target.value } }))}
+                        placeholder="38" />
+                      <span className="tempUnit">{"\u00B0F"}</span>
+                    </div>
                     <span className="hint">
                       {inspection.temps.coolerTempF ? (Number(inspection.temps.coolerTempF) <= 40 ? "Meets <=40 F" : "Above 40 F - flag") : ""}
                     </span>
                   </label>
                   <label className="field" id="field-freezerTempF" style={{ marginTop: 0 }}>
-                    <span className="fieldLabel">Freezer temp (F)</span>
-                    <input className="input" inputMode="numeric" value={inspection.temps.freezerTempF}
-                      onChange={(e) => setInspection((prev) => ({ ...prev, temps: { ...prev.temps, freezerTempF: e.target.value } }))}
-                      placeholder="e.g., 10" />
+                    <span className="fieldLabel">Freezer temp</span>
+                    <div className="tempInputWrap">
+                      <input className="input tempInput" inputMode="numeric" value={inspection.temps.freezerTempF}
+                        onChange={(e) => setInspection((prev) => ({ ...prev, temps: { ...prev.temps, freezerTempF: e.target.value } }))}
+                        placeholder="10" />
+                      <span className="tempUnit">{"\u00B0F"}</span>
+                    </div>
                     <span className="hint">
                       {inspection.temps.freezerTempF ? (Number(inspection.temps.freezerTempF) <= 20 ? "Meets <=20 F" : "Above 20 F - flag") : ""}
                     </span>
