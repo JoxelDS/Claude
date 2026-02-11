@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-DS MARKETING MEGA ENGINE v1.0
+DS MARKETING MEGA ENGINE v2.0
 ═══════════════════════════════════════════════════════
-The ultimate content pipeline. Chains every AI available.
+Premium carousel generator. Every slide is a visual statement.
 
 IMAGE ENGINES (tried in order, best first):
   1. Google Gemini (Nano Banana) — best quality, free API key
@@ -15,20 +15,12 @@ CONTENT ENGINE:
 
 RENDERING ENGINE:
   - Playwright (headless Chrome) — real CSS, Google Fonts, retina 2x
-  - Falls back to Pillow if Playwright not installed
-
-OUTPUT:
-  - 5 premium Instagram carousel posts (8-9 slides each)
-  - AI-generated cover backgrounds
-  - Ready-to-post captions with hashtags
   - 1080x1350 @ 2x retina (2160x2700 actual)
 
 SETUP:
   1. Get free Gemini API key: https://aistudio.google.com/apikey
-  2. Get free Together.ai key: https://api.together.ai/settings/api-keys
+  2. (Optional) Get free Together.ai key: https://api.together.ai/settings/api-keys
   3. Run: python3 ds_mega.py
-
-The script asks for your keys on first run and saves them locally.
 """
 
 import os, sys, subprocess, json, random, time, base64, io
@@ -126,7 +118,7 @@ def setup_keys():
 # ENGINE 1: GOOGLE GEMINI (Nano Banana)
 # ══════════════════════════════════════════════
 def gemini_generate(prompt, api_key, out_path):
-    """Generate image using Google Gemini (Nano Banana quality)."""
+    """Generate image using Google Gemini."""
     try:
         url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key={api_key}"
         payload = {
@@ -137,7 +129,6 @@ def gemini_generate(prompt, api_key, out_path):
         if r.status_code != 200:
             return None
         data = r.json()
-        # Extract image from response
         for candidate in data.get("candidates", []):
             for part in candidate.get("content", {}).get("parts", []):
                 if "inlineData" in part:
@@ -146,12 +137,12 @@ def gemini_generate(prompt, api_key, out_path):
                     img.save(out_path, quality=95)
                     return out_path
         return None
-    except Exception as e:
+    except:
         return None
 
 
 def gemini_imagen(prompt, api_key, out_path):
-    """Generate image using Imagen 4 via Gemini API."""
+    """Generate image using Imagen via Gemini API."""
     try:
         url = f"https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key={api_key}"
         payload = {
@@ -160,7 +151,6 @@ def gemini_imagen(prompt, api_key, out_path):
         }
         r = requests.post(url, json=payload, timeout=60)
         if r.status_code != 200:
-            # Try alternate endpoint
             url2 = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key={api_key}"
             payload2 = {
                 "contents": [{"parts": [{"text": f"Generate a high quality photorealistic image: {prompt}"}]}],
@@ -172,7 +162,6 @@ def gemini_imagen(prompt, api_key, out_path):
 
         data = r.json()
 
-        # Check for Imagen response format
         predictions = data.get("predictions", [])
         if predictions:
             img_bytes = base64.b64decode(predictions[0].get("bytesBase64Encoded", ""))
@@ -180,7 +169,6 @@ def gemini_imagen(prompt, api_key, out_path):
             img.save(out_path, quality=95)
             return out_path
 
-        # Check for Gemini response format
         for candidate in data.get("candidates", []):
             for part in candidate.get("content", {}).get("parts", []):
                 if "inlineData" in part:
@@ -205,7 +193,7 @@ def flux_generate(prompt, api_key, out_path):
                 "model": "black-forest-labs/FLUX.1-schnell-Free",
                 "prompt": prompt,
                 "width": 1024,
-                "height": 1280,  # 4:5 ratio
+                "height": 1280,
                 "steps": 4,
                 "n": 1,
                 "response_format": "b64_json"
@@ -248,9 +236,8 @@ def generate_image(prompt, out_path, keys, label="image"):
         print(f"      ✓ {label} (cached)")
         return out_path
 
-    # ENGINE 1: Gemini (Nano Banana)
     if keys.get("gemini"):
-        print(f"      → Trying Gemini (Nano Banana)...", end=" ", flush=True)
+        print(f"      → Trying Gemini...", end=" ", flush=True)
         result = gemini_generate(prompt, keys["gemini"], out_path)
         if not result:
             result = gemini_imagen(prompt, keys["gemini"], out_path)
@@ -259,16 +246,14 @@ def generate_image(prompt, out_path, keys, label="image"):
             return result
         print("✗")
 
-    # ENGINE 2: Together.ai FLUX
     if keys.get("together"):
-        print(f"      → Trying FLUX (Together.ai)...", end=" ", flush=True)
+        print(f"      → Trying FLUX...", end=" ", flush=True)
         result = flux_generate(prompt, keys["together"], out_path)
         if result:
             print("✓ FLUX")
             return result
         print("✗")
 
-    # ENGINE 3: Pollinations (always works)
     print(f"      → Trying Pollinations...", end=" ", flush=True)
     result = pollinations_generate(prompt, out_path)
     if result:
@@ -321,7 +306,7 @@ def ask_ai_json(prompt, model):
 
 
 # ══════════════════════════════════════════════
-# HTML TEMPLATES — Playwright Rendering
+# HTML TEMPLATES v2 — Premium Visual Design
 # ══════════════════════════════════════════════
 
 FONTS = """<link rel="preconnect" href="https://fonts.googleapis.com">
@@ -331,127 +316,339 @@ FONTS = """<link rel="preconnect" href="https://fonts.googleapis.com">
 BASE_CSS = """* { margin: 0; padding: 0; box-sizing: border-box; }
 body { width: 1080px; height: 1350px; overflow: hidden; font-family: 'Inter', sans-serif; -webkit-font-smoothing: antialiased; }
 .slide { width: 1080px; height: 1350px; position: relative; overflow: hidden; }
-.brand-header { position: absolute; top: 40px; left: 45px; display: flex; align-items: center; gap: 14px; z-index: 10; }
-.brand-circle { width: 40px; height: 40px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.85); display: flex; align-items: center; justify-content: center; font-family: 'Poppins'; font-weight: 800; font-size: 15px; color: white; background: rgba(255,255,255,0.08); backdrop-filter: blur(10px); }
-.brand-name { font-weight: 700; font-size: 19px; color: rgba(255,255,255,0.85); letter-spacing: 0.3px; }"""
+.brand-header { position: absolute; top: 40px; left: 50px; display: flex; align-items: center; gap: 14px; z-index: 10; }
+.brand-circle { width: 42px; height: 42px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.9); display: flex; align-items: center; justify-content: center; font-family: 'Poppins'; font-weight: 800; font-size: 15px; color: white; background: rgba(255,255,255,0.06); backdrop-filter: blur(10px); }
+.brand-name { font-weight: 700; font-size: 20px; color: rgba(255,255,255,0.85); letter-spacing: 0.5px; }"""
 
-def html_cover(lines, subtitle, bg_b64="", number=None, total=8):
+
+# ──────────────────────────────────────────────
+# COVER SLIDE — Big hero with photo bg + rich fallback
+# ──────────────────────────────────────────────
+def html_cover(lines, subtitle, bg_b64="", number=None, total=8, topic_tag="Social Media Tips"):
     lines_html = "\n".join(f'<div class="title-line">{l}</div>' for l in lines)
     num_html = f'<div class="num-badge">{number}</div>' if number else ""
-    dots = "".join(f'<div class="dot {"active" if i==0 else ""}"></div>' for i in range(min(total,8)))
+    dots = "".join(f'<div class="dot {"active" if i==0 else ""}"></div>' for i in range(min(total, 8)))
+    bg_style = f"background-image:url('{bg_b64}');" if bg_b64 and len(bg_b64) > 100 else ""
     return f"""<!DOCTYPE html><html><head>{FONTS}<style>
 {BASE_CSS}
 .slide {{ background: #000; }}
-.bg {{ position:absolute; inset:0; background-image:url('{bg_b64}'); background-size:cover; background-position:center; filter:brightness(0.4) saturate(0.12) contrast(1.25); }}
-.overlay {{ position:absolute; inset:0; background:linear-gradient(180deg, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.05) 25%, rgba(0,0,0,0.5) 55%, rgba(0,0,0,0.95) 82%, #000 100%); }}
-.num-badge {{ position:absolute; top:32px; right:45px; font-family:'Poppins'; font-weight:900; font-size:110px; color:white; text-shadow:0 0 60px rgba(255,255,255,0.3),0 0 120px rgba(255,255,255,0.08); z-index:10; }}
-.content {{ position:absolute; bottom:95px; left:50px; right:50px; z-index:10; }}
-.title-line {{ font-family:'Poppins'; font-weight:900; font-size:86px; color:white; line-height:1.02; letter-spacing:-2px; text-shadow:0 4px 30px rgba(0,0,0,0.9); }}
-.subtitle {{ font-family:'Inter'; font-weight:400; font-size:27px; color:rgba(255,255,255,0.65); margin-top:18px; }}
-.footer {{ position:absolute; bottom:28px; left:50px; right:50px; display:flex; justify-content:space-between; align-items:center; z-index:10; }}
+
+/* Photo background layer */
+.bg {{ position:absolute; inset:0; {bg_style} background-size:cover; background-position:center; filter:brightness(0.35) saturate(0.15) contrast(1.2); }}
+
+/* Rich gradient fallback — always renders for visual depth */
+.orb1 {{ position:absolute; top:-15%; right:-10%; width:800px; height:800px; border-radius:50%; background:radial-gradient(circle,rgba(255,255,255,0.08) 0%,transparent 60%); }}
+.orb2 {{ position:absolute; bottom:10%; left:-25%; width:700px; height:700px; border-radius:50%; background:radial-gradient(circle,rgba(255,255,255,0.05) 0%,transparent 55%); }}
+.orb3 {{ position:absolute; top:35%; left:50%; width:500px; height:500px; border-radius:50%; background:radial-gradient(circle,rgba(255,255,255,0.035) 0%,transparent 50%); }}
+
+/* Dark vignette overlay */
+.overlay {{ position:absolute; inset:0; background:linear-gradient(180deg,
+    rgba(0,0,0,0.25) 0%,
+    rgba(0,0,0,0.0) 15%,
+    rgba(0,0,0,0.0) 25%,
+    rgba(0,0,0,0.35) 50%,
+    rgba(0,0,0,0.88) 75%,
+    #000 95%); }}
+
+/* Grid texture overlay */
+.grid-texture {{ position:absolute; inset:0; opacity:0.03;
+    background-image: linear-gradient(rgba(255,255,255,0.5) 1px, transparent 1px),
+                      linear-gradient(90deg, rgba(255,255,255,0.5) 1px, transparent 1px);
+    background-size: 60px 60px; }}
+
+/* Corner accent shapes */
+.corner-tl {{ position:absolute; top:0; left:0; width:200px; height:200px; border-bottom:1px solid rgba(255,255,255,0.06); border-right:1px solid rgba(255,255,255,0.06); }}
+.corner-br {{ position:absolute; bottom:0; right:0; width:250px; height:250px; border-top:1px solid rgba(255,255,255,0.06); border-left:1px solid rgba(255,255,255,0.06); }}
+
+/* Accent elements */
+.accent-line {{ position:absolute; top:120px; left:50px; width:60px; height:3px; background:white; z-index:10; }}
+.accent-line2 {{ position:absolute; top:142px; left:50px; width:30px; height:2px; background:rgba(255,255,255,0.35); z-index:10; }}
+.topic-tag {{ position:absolute; top:175px; left:50px; font-family:'Inter'; font-weight:600; font-size:14px; color:rgba(255,255,255,0.35); text-transform:uppercase; letter-spacing:5px; z-index:10; }}
+
+/* Number badge with glow */
+.num-badge {{ position:absolute; top:28px; right:50px; font-family:'Poppins'; font-weight:900; font-size:140px; color:white; text-shadow:0 0 80px rgba(255,255,255,0.3),0 0 160px rgba(255,255,255,0.08); z-index:10; line-height:1; }}
+.num-glow {{ position:absolute; top:15px; right:30px; width:220px; height:220px; border-radius:50%; background:radial-gradient(circle,rgba(255,255,255,0.1) 0%,transparent 65%); z-index:9; }}
+
+/* Main title area — bottom positioned */
+.content {{ position:absolute; bottom:110px; left:50px; right:50px; z-index:10; }}
+.title-line {{ font-family:'Poppins'; font-weight:900; font-size:88px; color:white; line-height:1.02; letter-spacing:-3px; text-shadow:0 4px 40px rgba(0,0,0,0.9),0 0 80px rgba(0,0,0,0.5); }}
+.subtitle {{ font-family:'Inter'; font-weight:400; font-size:26px; color:rgba(255,255,255,0.55); margin-top:22px; line-height:1.4; }}
+
+/* Decorative dots */
+.deco-dots {{ position:absolute; top:240px; left:50px; display:flex; gap:8px; z-index:10; }}
+.deco-dot {{ width:5px; height:5px; border-radius:50%; background:rgba(255,255,255,0.2); }}
+
+/* Bottom bar */
+.bottom-line {{ position:absolute; bottom:95px; left:50px; right:50px; height:1px; background:linear-gradient(90deg,rgba(255,255,255,0.35),rgba(255,255,255,0.03)); z-index:10; }}
+.footer {{ position:absolute; bottom:30px; left:50px; right:50px; display:flex; justify-content:space-between; align-items:center; z-index:10; }}
 .handle {{ display:flex; flex-direction:column; }}
-.handle-label {{ font-size:13px; color:rgba(255,255,255,0.4); font-weight:500; }}
-.handle-name {{ font-size:17px; color:rgba(255,255,255,0.75); font-weight:700; }}
-.swipe {{ font-size:16px; color:rgba(255,255,255,0.4); font-weight:500; }}
+.handle-label {{ font-size:12px; color:rgba(255,255,255,0.3); font-weight:500; letter-spacing:1px; text-transform:uppercase; }}
+.handle-name {{ font-size:17px; color:rgba(255,255,255,0.7); font-weight:700; margin-top:2px; }}
+.swipe {{ font-size:15px; color:rgba(255,255,255,0.35); font-weight:500; display:flex; align-items:center; gap:8px; letter-spacing:1px; }}
 .dots {{ position:absolute; bottom:8px; left:50%; transform:translateX(-50%); display:flex; gap:8px; z-index:10; }}
-.dot {{ width:8px; height:8px; border-radius:50%; background:rgba(255,255,255,0.25); }}
+.dot {{ width:8px; height:8px; border-radius:50%; background:rgba(255,255,255,0.2); }}
 .dot.active {{ background:white; }}
+
+/* Vertical text on right edge */
+.vert-text {{ position:absolute; top:50%; right:30px; transform:translateY(-50%) rotate(90deg); font-family:'Inter'; font-weight:600; font-size:11px; color:rgba(255,255,255,0.1); letter-spacing:6px; text-transform:uppercase; z-index:10; white-space:nowrap; }}
 </style></head><body><div class="slide">
-<div class="bg"></div><div class="overlay"></div>
+<div class="bg"></div>
+<div class="orb1"></div><div class="orb2"></div><div class="orb3"></div>
+<div class="overlay"></div>
+<div class="grid-texture"></div>
+<div class="corner-tl"></div><div class="corner-br"></div>
 <div class="brand-header"><div class="brand-circle">DS</div><div class="brand-name">DS Marketing</div></div>
+<div class="accent-line"></div><div class="accent-line2"></div>
+<div class="topic-tag">{topic_tag}</div>
+<div class="deco-dots"><div class="deco-dot"></div><div class="deco-dot"></div><div class="deco-dot"></div></div>
 {num_html}
+{"<div class='num-glow'></div>" if number else ""}
+<div class="vert-text">DS Marketing Agency</div>
 <div class="content">{lines_html}<div class="subtitle">{subtitle}</div></div>
-<div class="footer"><div class="handle"><span class="handle-label">Instagram</span><span class="handle-name">DS.Marketing</span></div><div class="swipe">swipe &larr;</div></div>
+<div class="bottom-line"></div>
+<div class="footer"><div class="handle"><span class="handle-label">Follow</span><span class="handle-name">{BRAND}</span></div><div class="swipe">SWIPE &larr;</div></div>
 <div class="dots">{dots}</div>
 </div></body></html>"""
 
 
+# ──────────────────────────────────────────────
+# CONTENT SLIDE — Numbered tip with bullets
+# ──────────────────────────────────────────────
 def html_content(num, headline, points, page, total):
-    pts = "\n".join(f'<div class="point"><span class="bullet">&#9670;</span><span class="pt">{p}</span></div>' for p in points)
+    pts = "\n".join(f'''<div class="point">
+        <div class="bullet-wrap"><div class="bullet-diamond"></div></div>
+        <div class="pt-text">
+            <div class="pt">{p}</div>
+        </div>
+    </div>''' for p in points)
+
     return f"""<!DOCTYPE html><html><head>{FONTS}<style>
 {BASE_CSS}
-.slide {{ background:linear-gradient(170deg,#0a0a0a 0%,#101010 50%,#0a0a0a 100%); }}
-.glow {{ position:absolute; top:-150px; left:50%; transform:translateX(-50%); width:600px; height:500px; border-radius:50%; background:radial-gradient(circle,rgba(255,255,255,0.04) 0%,transparent 70%); }}
-.big-num {{ font-family:'Poppins'; font-weight:900; font-size:190px; color:white; line-height:1; margin:110px 0 0 50px; text-shadow:0 0 80px rgba(255,255,255,0.12); }}
-.divider {{ width:calc(100% - 100px); height:1px; background:linear-gradient(90deg,rgba(255,255,255,0.4),rgba(255,255,255,0.05)); margin:15px 50px; }}
-.headline {{ font-family:'Poppins'; font-weight:800; font-size:50px; color:white; line-height:1.15; margin:20px 50px 0; letter-spacing:-1px; }}
-.points {{ margin:35px 50px 0; display:flex; flex-direction:column; gap:20px; }}
-.point {{ display:flex; align-items:flex-start; gap:14px; }}
-.bullet {{ font-size:13px; color:rgba(255,255,255,0.35); margin-top:8px; }}
-.pt {{ font-family:'Inter'; font-weight:400; font-size:25px; color:rgba(255,255,255,0.72); line-height:1.55; }}
-.footer {{ position:absolute; bottom:32px; left:50px; right:50px; display:flex; justify-content:space-between; align-items:center; }}
-.fh {{ font-size:15px; color:rgba(255,255,255,0.3); font-weight:500; }}
-.page {{ padding:7px 18px; border:1px solid rgba(255,255,255,0.18); border-radius:7px; font-size:14px; font-weight:600; color:rgba(255,255,255,0.45); }}
-.fs {{ font-size:15px; color:rgba(255,255,255,0.3); }}
+.slide {{ background:linear-gradient(165deg,#0c0c0c 0%,#0a0a0a 40%,#080808 100%); }}
+
+/* Background visual layers */
+.grid-texture {{ position:absolute; inset:0; opacity:0.025;
+    background-image: linear-gradient(rgba(255,255,255,0.5) 1px, transparent 1px),
+                      linear-gradient(90deg, rgba(255,255,255,0.5) 1px, transparent 1px);
+    background-size: 60px 60px; }}
+.orb-top {{ position:absolute; top:-100px; right:-50px; width:500px; height:500px; border-radius:50%; background:radial-gradient(circle,rgba(255,255,255,0.05) 0%,transparent 65%); }}
+.orb-bottom {{ position:absolute; bottom:-100px; left:-80px; width:400px; height:400px; border-radius:50%; background:radial-gradient(circle,rgba(255,255,255,0.03) 0%,transparent 60%); }}
+
+/* Vertical accent line on left */
+.side-line {{ position:absolute; top:120px; left:50px; width:3px; height:80px; background:linear-gradient(180deg,white,transparent); z-index:10; }}
+
+/* Big number — dominant visual anchor */
+.num-section {{ position:absolute; top:110px; left:50px; right:50px; z-index:10; }}
+.big-num {{ font-family:'Poppins'; font-weight:900; font-size:200px; color:white; line-height:0.85; text-shadow:0 0 100px rgba(255,255,255,0.1); }}
+.num-label {{ font-family:'Inter'; font-weight:600; font-size:13px; color:rgba(255,255,255,0.25); letter-spacing:5px; text-transform:uppercase; margin-top:5px; }}
+
+/* Divider */
+.divider {{ position:absolute; top:350px; left:50px; right:50px; height:1px; background:linear-gradient(90deg,rgba(255,255,255,0.4),rgba(255,255,255,0.02)); z-index:10; }}
+
+/* Headline */
+.headline {{ position:absolute; top:375px; left:50px; right:50px; font-family:'Poppins'; font-weight:800; font-size:48px; color:white; line-height:1.12; letter-spacing:-1.5px; z-index:10; }}
+
+/* Content points — properly spaced */
+.points {{ position:absolute; top:520px; left:50px; right:50px; bottom:120px; display:flex; flex-direction:column; justify-content:flex-start; gap:0; z-index:10; }}
+.point {{ display:flex; align-items:flex-start; gap:18px; padding:22px 0; border-bottom:1px solid rgba(255,255,255,0.05); }}
+.point:last-child {{ border-bottom:none; }}
+.bullet-wrap {{ flex-shrink:0; width:28px; height:28px; display:flex; align-items:center; justify-content:center; margin-top:4px; }}
+.bullet-diamond {{ width:8px; height:8px; background:white; transform:rotate(45deg); opacity:0.6; }}
+.pt {{ font-family:'Inter'; font-weight:400; font-size:26px; color:rgba(255,255,255,0.75); line-height:1.6; }}
+
+/* Decorative element — right side circles */
+.deco-circle1 {{ position:absolute; top:180px; right:50px; width:140px; height:140px; border-radius:50%; border:1px solid rgba(255,255,255,0.05); z-index:5; }}
+.deco-circle2 {{ position:absolute; top:200px; right:70px; width:100px; height:100px; border-radius:50%; border:1px solid rgba(255,255,255,0.03); z-index:5; }}
+
+/* Vertical text */
+.vert-text {{ position:absolute; top:50%; right:25px; transform:translateY(-50%) rotate(90deg); font-family:'Inter'; font-weight:600; font-size:10px; color:rgba(255,255,255,0.07); letter-spacing:5px; text-transform:uppercase; z-index:5; white-space:nowrap; }}
+
+/* Footer */
+.footer {{ position:absolute; bottom:32px; left:50px; right:50px; display:flex; justify-content:space-between; align-items:center; z-index:10; }}
+.fh {{ font-size:14px; color:rgba(255,255,255,0.3); font-weight:600; letter-spacing:0.5px; }}
+.page {{ padding:8px 20px; border:1px solid rgba(255,255,255,0.2); border-radius:8px; font-size:13px; font-weight:700; color:rgba(255,255,255,0.5); letter-spacing:1px; }}
+.fs {{ font-size:14px; color:rgba(255,255,255,0.25); letter-spacing:1px; }}
 </style></head><body><div class="slide">
-<div class="glow"></div>
+<div class="grid-texture"></div>
+<div class="orb-top"></div><div class="orb-bottom"></div>
 <div class="brand-header"><div class="brand-circle">DS</div><div class="brand-name">DS Marketing</div></div>
-<div class="big-num">{num:02d}</div><div class="divider"></div>
+<div class="side-line"></div>
+<div class="num-section">
+    <div class="big-num">{num:02d}</div>
+    <div class="num-label">Step {num} of {total - 2}</div>
+</div>
+<div class="divider"></div>
 <div class="headline">{headline.upper()}</div>
 <div class="points">{pts}</div>
-<div class="footer"><div class="fh">Instagram &nbsp;|&nbsp; DS.Marketing</div><div class="page">Page {page}/{total}</div><div class="fs">swipe &larr;</div></div>
+<div class="deco-circle1"></div><div class="deco-circle2"></div>
+<div class="vert-text">DS Marketing Agency</div>
+<div class="footer"><div class="fh">{BRAND}</div><div class="page">{page} / {total}</div><div class="fs">SWIPE &larr;</div></div>
 </div></body></html>"""
 
 
+# ──────────────────────────────────────────────
+# STAT SLIDE — Big number impact
+# ──────────────────────────────────────────────
 def html_stat(big_num, label, desc, page, total):
     return f"""<!DOCTYPE html><html><head>{FONTS}<style>
 {BASE_CSS}
-.slide {{ background:#000; display:flex; flex-direction:column; align-items:center; justify-content:center; }}
-.glow {{ position:absolute; top:50%; left:50%; transform:translate(-50%,-60%); width:500px; height:500px; border-radius:50%; background:radial-gradient(circle,rgba(255,255,255,0.06) 0%,transparent 65%); }}
-.sn {{ font-family:'Poppins'; font-weight:900; font-size:175px; color:white; text-shadow:0 0 60px rgba(255,255,255,0.22),0 0 120px rgba(255,255,255,0.08); letter-spacing:-3px; z-index:2; }}
-.sl {{ font-family:'Poppins'; font-weight:700; font-size:46px; color:rgba(255,255,255,0.82); text-align:center; text-transform:uppercase; margin-top:8px; max-width:800px; line-height:1.2; z-index:2; }}
-.line {{ width:160px; height:1px; background:rgba(255,255,255,0.25); margin:30px 0; z-index:2; }}
-.sd {{ font-family:'Inter'; font-weight:400; font-size:23px; color:rgba(255,255,255,0.45); text-align:center; max-width:680px; line-height:1.6; z-index:2; }}
-.footer {{ position:absolute; bottom:32px; left:50px; right:50px; display:flex; justify-content:space-between; align-items:center; }}
-.fh {{ font-size:15px; color:rgba(255,255,255,0.3); font-weight:500; }}
-.page {{ padding:7px 18px; border:1px solid rgba(255,255,255,0.18); border-radius:7px; font-size:14px; font-weight:600; color:rgba(255,255,255,0.45); }}
-.fs {{ font-size:15px; color:rgba(255,255,255,0.3); }}
+.slide {{ background:#050505; display:flex; flex-direction:column; align-items:center; justify-content:center; }}
+
+/* Background layers */
+.grid-texture {{ position:absolute; inset:0; opacity:0.02;
+    background-image: linear-gradient(rgba(255,255,255,0.5) 1px, transparent 1px),
+                      linear-gradient(90deg, rgba(255,255,255,0.5) 1px, transparent 1px);
+    background-size: 60px 60px; }}
+.orb-center {{ position:absolute; top:50%; left:50%; transform:translate(-50%,-55%); width:600px; height:600px; border-radius:50%; background:radial-gradient(circle,rgba(255,255,255,0.07) 0%,transparent 60%); }}
+.orb-small {{ position:absolute; top:15%; right:10%; width:300px; height:300px; border-radius:50%; background:radial-gradient(circle,rgba(255,255,255,0.03) 0%,transparent 55%); }}
+
+/* Ring decoration around the number */
+.ring {{ position:absolute; top:50%; left:50%; transform:translate(-50%,-60%); width:420px; height:420px; border-radius:50%; border:1px solid rgba(255,255,255,0.06); z-index:1; }}
+.ring2 {{ position:absolute; top:50%; left:50%; transform:translate(-50%,-60%); width:480px; height:480px; border-radius:50%; border:1px solid rgba(255,255,255,0.03); z-index:1; }}
+
+/* Corner accents */
+.corner-marks {{ }}
+.cm-tl {{ position:absolute; top:100px; left:50px; }}
+.cm-tl::before {{ content:''; display:block; width:25px; height:1px; background:rgba(255,255,255,0.2); }}
+.cm-tl::after {{ content:''; display:block; width:1px; height:25px; background:rgba(255,255,255,0.2); margin-top:-1px; }}
+.cm-br {{ position:absolute; bottom:100px; right:50px; text-align:right; }}
+.cm-br::before {{ content:''; display:block; width:25px; height:1px; background:rgba(255,255,255,0.2); margin-left:auto; }}
+.cm-br::after {{ content:''; display:block; width:1px; height:25px; background:rgba(255,255,255,0.2); margin-left:auto; margin-top:-1px; }}
+
+/* Stat number */
+.stat-num {{ font-family:'Poppins'; font-weight:900; font-size:180px; color:white; text-shadow:0 0 80px rgba(255,255,255,0.2),0 0 160px rgba(255,255,255,0.06); letter-spacing:-5px; z-index:5; line-height:1; }}
+.stat-label {{ font-family:'Poppins'; font-weight:700; font-size:40px; color:rgba(255,255,255,0.85); text-align:center; text-transform:uppercase; margin-top:15px; max-width:800px; line-height:1.2; z-index:5; letter-spacing:1px; }}
+.stat-line {{ width:160px; height:2px; background:linear-gradient(90deg,transparent,rgba(255,255,255,0.3),transparent); margin:35px 0; z-index:5; }}
+.stat-desc {{ font-family:'Inter'; font-weight:400; font-size:22px; color:rgba(255,255,255,0.42); text-align:center; max-width:700px; line-height:1.7; z-index:5; padding:0 30px; }}
+
+/* Data label above number */
+.data-label {{ font-family:'Inter'; font-weight:600; font-size:12px; color:rgba(255,255,255,0.2); letter-spacing:5px; text-transform:uppercase; margin-bottom:15px; z-index:5; }}
+
+/* Footer */
+.footer {{ position:absolute; bottom:32px; left:50px; right:50px; display:flex; justify-content:space-between; align-items:center; z-index:10; }}
+.fh {{ font-size:14px; color:rgba(255,255,255,0.3); font-weight:600; }}
+.page {{ padding:8px 20px; border:1px solid rgba(255,255,255,0.2); border-radius:8px; font-size:13px; font-weight:700; color:rgba(255,255,255,0.5); letter-spacing:1px; }}
+.fs {{ font-size:14px; color:rgba(255,255,255,0.25); letter-spacing:1px; }}
 </style></head><body><div class="slide">
-<div class="glow"></div>
+<div class="grid-texture"></div>
+<div class="orb-center"></div><div class="orb-small"></div>
+<div class="ring"></div><div class="ring2"></div>
 <div class="brand-header"><div class="brand-circle">DS</div><div class="brand-name">DS Marketing</div></div>
-<div class="sn">{big_num}</div><div class="sl">{label}</div><div class="line"></div><div class="sd">{desc}</div>
-<div class="footer"><div class="fh">Instagram &nbsp;|&nbsp; DS.Marketing</div><div class="page">Page {page}/{total}</div><div class="fs">swipe &larr;</div></div>
+<div class="cm-tl"></div><div class="cm-br"></div>
+<div class="data-label">The Data Says</div>
+<div class="stat-num">{big_num}</div>
+<div class="stat-label">{label}</div>
+<div class="stat-line"></div>
+<div class="stat-desc">{desc}</div>
+<div class="footer"><div class="fh">{BRAND}</div><div class="page">{page} / {total}</div><div class="fs">SWIPE &larr;</div></div>
 </div></body></html>"""
 
 
+# ──────────────────────────────────────────────
+# QUOTE SLIDE — Elegant quote with decorative marks
+# ──────────────────────────────────────────────
 def html_quote(text, author, page, total):
     return f"""<!DOCTYPE html><html><head>{FONTS}<style>
 {BASE_CSS}
-.slide {{ background:#050505; display:flex; flex-direction:column; align-items:center; justify-content:center; }}
-.glow {{ position:absolute; top:40%; left:50%; transform:translate(-50%,-50%); width:700px; height:400px; border-radius:50%; background:radial-gradient(ellipse,rgba(255,255,255,0.03) 0%,transparent 70%); }}
-.qm {{ font-family:'Poppins'; font-weight:900; font-size:200px; color:rgba(255,255,255,0.07); line-height:0.8; margin-bottom:-30px; z-index:2; }}
-.qt {{ font-family:'Inter'; font-weight:300; font-style:italic; font-size:35px; color:rgba(255,255,255,0.88); text-align:center; max-width:800px; line-height:1.65; z-index:2; padding:0 30px; }}
-.ql {{ width:110px; height:1px; background:rgba(255,255,255,0.22); margin:40px 0 22px; z-index:2; }}
-.qa {{ font-family:'Inter'; font-weight:600; font-size:21px; color:rgba(255,255,255,0.45); letter-spacing:2px; text-transform:uppercase; z-index:2; }}
-.footer {{ position:absolute; bottom:32px; left:50px; right:50px; display:flex; justify-content:space-between; align-items:center; }}
-.fh {{ font-size:15px; color:rgba(255,255,255,0.3); font-weight:500; }}
-.page {{ padding:7px 18px; border:1px solid rgba(255,255,255,0.18); border-radius:7px; font-size:14px; font-weight:600; color:rgba(255,255,255,0.45); }}
-.fs {{ font-size:15px; color:rgba(255,255,255,0.3); }}
+.slide {{ background:#030303; display:flex; flex-direction:column; align-items:center; justify-content:center; }}
+
+/* Background layers */
+.grid-texture {{ position:absolute; inset:0; opacity:0.015;
+    background-image: linear-gradient(rgba(255,255,255,0.5) 1px, transparent 1px),
+                      linear-gradient(90deg, rgba(255,255,255,0.5) 1px, transparent 1px);
+    background-size: 60px 60px; }}
+.orb-center {{ position:absolute; top:40%; left:50%; transform:translate(-50%,-50%); width:700px; height:500px; border-radius:50%; background:radial-gradient(ellipse,rgba(255,255,255,0.04) 0%,transparent 65%); }}
+
+/* Large decorative quote marks */
+.quote-open {{ position:absolute; top:200px; left:80px; font-family:'Poppins'; font-weight:900; font-size:300px; color:rgba(255,255,255,0.04); line-height:0.7; z-index:1; }}
+.quote-close {{ position:absolute; bottom:220px; right:80px; font-family:'Poppins'; font-weight:900; font-size:300px; color:rgba(255,255,255,0.04); line-height:0.7; z-index:1; transform:rotate(180deg); }}
+
+/* Vertical lines decoration */
+.vline-left {{ position:absolute; top:30%; left:60px; width:1px; height:40%; background:linear-gradient(180deg,transparent,rgba(255,255,255,0.08),transparent); }}
+.vline-right {{ position:absolute; top:25%; right:60px; width:1px; height:50%; background:linear-gradient(180deg,transparent,rgba(255,255,255,0.06),transparent); }}
+
+/* Quote content */
+.quote-wrap {{ z-index:5; max-width:850px; padding:0 60px; display:flex; flex-direction:column; align-items:center; }}
+.quote-mark-sm {{ font-family:'Poppins'; font-weight:900; font-size:80px; color:rgba(255,255,255,0.12); line-height:0.6; margin-bottom:10px; }}
+.quote-text {{ font-family:'Inter'; font-weight:300; font-style:italic; font-size:36px; color:rgba(255,255,255,0.9); text-align:center; line-height:1.7; }}
+.quote-line {{ width:120px; height:2px; background:linear-gradient(90deg,transparent,rgba(255,255,255,0.25),transparent); margin:40px 0 25px; }}
+.quote-author {{ font-family:'Inter'; font-weight:600; font-size:20px; color:rgba(255,255,255,0.4); letter-spacing:3px; text-transform:uppercase; }}
+
+/* Decorative dots */
+.deco-dots-q {{ display:flex; gap:10px; margin-top:30px; }}
+.deco-dot-q {{ width:4px; height:4px; border-radius:50%; background:rgba(255,255,255,0.15); }}
+
+/* Footer */
+.footer {{ position:absolute; bottom:32px; left:50px; right:50px; display:flex; justify-content:space-between; align-items:center; z-index:10; }}
+.fh {{ font-size:14px; color:rgba(255,255,255,0.3); font-weight:600; }}
+.page {{ padding:8px 20px; border:1px solid rgba(255,255,255,0.2); border-radius:8px; font-size:13px; font-weight:700; color:rgba(255,255,255,0.5); letter-spacing:1px; }}
+.fs {{ font-size:14px; color:rgba(255,255,255,0.25); letter-spacing:1px; }}
 </style></head><body><div class="slide">
-<div class="glow"></div>
+<div class="grid-texture"></div>
+<div class="orb-center"></div>
+<div class="quote-open">&ldquo;</div><div class="quote-close">&ldquo;</div>
+<div class="vline-left"></div><div class="vline-right"></div>
 <div class="brand-header"><div class="brand-circle">DS</div><div class="brand-name">DS Marketing</div></div>
-<div class="qm">&ldquo;</div><div class="qt">{text}</div><div class="ql"></div><div class="qa">&mdash; {author}</div>
-<div class="footer"><div class="fh">Instagram &nbsp;|&nbsp; DS.Marketing</div><div class="page">Page {page}/{total}</div><div class="fs">swipe &larr;</div></div>
+<div class="quote-wrap">
+    <div class="quote-mark-sm">&ldquo;</div>
+    <div class="quote-text">{text}</div>
+    <div class="quote-line"></div>
+    <div class="quote-author">&mdash; {author}</div>
+    <div class="deco-dots-q"><div class="deco-dot-q"></div><div class="deco-dot-q"></div><div class="deco-dot-q"></div></div>
+</div>
+<div class="footer"><div class="fh">{BRAND}</div><div class="page">{page} / {total}</div><div class="fs">SWIPE &larr;</div></div>
 </div></body></html>"""
 
 
+# ──────────────────────────────────────────────
+# CTA SLIDE — Follow + brand closing
+# ──────────────────────────────────────────────
 def html_cta(total):
-    dots = "".join(f'<div class="dot {"active" if i==total-1 else ""}"></div>' for i in range(min(total,8)))
+    dots = "".join(f'<div class="dot {"active" if i==total-1 else ""}"></div>' for i in range(min(total, 8)))
     return f"""<!DOCTYPE html><html><head>{FONTS}<style>
 {BASE_CSS}
 .slide {{ background:#000; display:flex; flex-direction:column; align-items:center; justify-content:center; }}
-.glow {{ position:absolute; top:28%; left:50%; transform:translate(-50%,-50%); width:500px; height:500px; border-radius:50%; background:radial-gradient(circle,rgba(255,255,255,0.06) 0%,transparent 60%); }}
-.logo {{ font-family:'Poppins'; font-weight:900; font-size:175px; color:white; letter-spacing:-5px; text-shadow:0 0 60px rgba(255,255,255,0.18),0 0 120px rgba(255,255,255,0.06); z-index:2; }}
-.sub {{ font-family:'Poppins'; font-weight:700; font-size:40px; color:rgba(255,255,255,0.65); letter-spacing:12px; text-transform:uppercase; margin-top:-8px; z-index:2; }}
-.line {{ width:380px; height:2px; background:linear-gradient(90deg,transparent,rgba(255,255,255,0.45),transparent); margin:32px 0; z-index:2; }}
-.handle {{ font-family:'Inter'; font-weight:700; font-size:30px; color:white; z-index:2; }}
-.site {{ font-family:'Inter'; font-weight:400; font-size:19px; color:rgba(255,255,255,0.35); margin-top:10px; z-index:2; }}
-.btn {{ margin-top:45px; padding:16px 45px; border:2px solid white; border-radius:12px; font-family:'Poppins'; font-weight:700; font-size:26px; color:white; letter-spacing:2px; text-transform:uppercase; z-index:2; }}
+
+/* Background */
+.grid-texture {{ position:absolute; inset:0; opacity:0.02;
+    background-image: linear-gradient(rgba(255,255,255,0.5) 1px, transparent 1px),
+                      linear-gradient(90deg, rgba(255,255,255,0.5) 1px, transparent 1px);
+    background-size: 60px 60px; }}
+.orb-top {{ position:absolute; top:15%; left:50%; transform:translateX(-50%); width:600px; height:600px; border-radius:50%; background:radial-gradient(circle,rgba(255,255,255,0.06) 0%,transparent 55%); }}
+.orb-bottom {{ position:absolute; bottom:-10%; left:30%; width:400px; height:400px; border-radius:50%; background:radial-gradient(circle,rgba(255,255,255,0.03) 0%,transparent 50%); }}
+
+/* Ring decoration */
+.ring-cta {{ position:absolute; top:50%; left:50%; transform:translate(-50%,-55%); width:500px; height:500px; border-radius:50%; border:1px solid rgba(255,255,255,0.04); }}
+
+/* Corner marks */
+.cm-tl {{ position:absolute; top:50px; left:50px; }}
+.cm-tl::before {{ content:''; display:block; width:20px; height:1px; background:rgba(255,255,255,0.15); }}
+.cm-tl::after {{ content:''; display:block; width:1px; height:20px; background:rgba(255,255,255,0.15); margin-top:-1px; }}
+.cm-tr {{ position:absolute; top:50px; right:50px; text-align:right; }}
+.cm-tr::before {{ content:''; display:block; width:20px; height:1px; background:rgba(255,255,255,0.15); margin-left:auto; }}
+.cm-tr::after {{ content:''; display:block; width:1px; height:20px; background:rgba(255,255,255,0.15); margin-left:auto; margin-top:-1px; }}
+.cm-bl {{ position:absolute; bottom:50px; left:50px; display:flex; flex-direction:column; justify-content:flex-end; height:21px; }}
+.cm-bl::before {{ content:''; display:block; width:1px; height:20px; background:rgba(255,255,255,0.15); }}
+.cm-bl::after {{ content:''; display:block; width:20px; height:1px; background:rgba(255,255,255,0.15); }}
+.cm-br {{ position:absolute; bottom:50px; right:50px; display:flex; flex-direction:column; align-items:flex-end; justify-content:flex-end; height:21px; }}
+.cm-br::before {{ content:''; display:block; width:1px; height:20px; background:rgba(255,255,255,0.15); margin-left:auto; }}
+.cm-br::after {{ content:''; display:block; width:20px; height:1px; background:rgba(255,255,255,0.15); }}
+
+/* Content */
+.logo {{ font-family:'Poppins'; font-weight:900; font-size:160px; color:white; letter-spacing:-6px; text-shadow:0 0 80px rgba(255,255,255,0.15),0 0 160px rgba(255,255,255,0.05); z-index:5; }}
+.sub {{ font-family:'Poppins'; font-weight:700; font-size:38px; color:rgba(255,255,255,0.6); letter-spacing:14px; text-transform:uppercase; margin-top:-5px; z-index:5; }}
+.line {{ width:350px; height:2px; background:linear-gradient(90deg,transparent,rgba(255,255,255,0.4),transparent); margin:35px 0; z-index:5; }}
+.handle {{ font-family:'Inter'; font-weight:700; font-size:30px; color:white; z-index:5; }}
+.site {{ font-family:'Inter'; font-weight:400; font-size:18px; color:rgba(255,255,255,0.3); margin-top:10px; z-index:5; }}
+.btn {{ margin-top:50px; padding:18px 50px; border:2px solid white; border-radius:14px; font-family:'Poppins'; font-weight:700; font-size:24px; color:white; letter-spacing:3px; text-transform:uppercase; z-index:5; }}
 .dots {{ position:absolute; bottom:12px; display:flex; gap:8px; z-index:10; }}
 .dot {{ width:8px; height:8px; border-radius:50%; background:rgba(255,255,255,0.25); }}
 .dot.active {{ background:white; }}
 </style></head><body><div class="slide">
-<div class="glow"></div>
+<div class="grid-texture"></div>
+<div class="orb-top"></div><div class="orb-bottom"></div>
+<div class="ring-cta"></div>
+<div class="cm-tl"></div><div class="cm-tr"></div><div class="cm-bl"></div><div class="cm-br"></div>
 <div class="logo">DS</div><div class="sub">Marketing</div><div class="line"></div>
 <div class="handle">{BRAND}</div><div class="site">{BRAND_SITE}</div>
 <div class="btn">Follow For More</div>
@@ -502,6 +699,7 @@ DEFAULTS = [
         "topic": "5 Social Media Mistakes Killing Your Growth",
         "cover_lines": ["5 Mistakes", "Killing Your", "Growth"],
         "cover_sub": "Stop making these. Your competitors aren't.",
+        "topic_tag": "Growth Strategy",
         "number": 5,
         "bg_prompt": "professional dark moody office desk with MacBook laptop showing analytics, coffee cup, dramatic cinematic studio lighting, dark background, shallow depth of field, ultra realistic, 8K photography",
         "slides": [
@@ -519,6 +717,7 @@ DEFAULTS = [
         "topic": "The Content Calendar That Actually Works",
         "cover_lines": ["The Content", "Calendar That", "Works"],
         "cover_sub": "Framework beats random. Every time.",
+        "topic_tag": "Content Strategy",
         "number": 7,
         "bg_prompt": "modern minimalist workspace planner notebook and pen on dark wooden desk, dramatic rim lighting from the side, cinematic dark moody atmosphere, studio photography, 8K, shallow depth of field",
         "slides": [
@@ -536,6 +735,7 @@ DEFAULTS = [
         "topic": "The Hook Formula That Stops the Scroll",
         "cover_lines": ["The Hook", "Formula"],
         "cover_sub": "3 seconds. That's all you get.",
+        "topic_tag": "Copywriting",
         "number": 3,
         "bg_prompt": "dramatic close up of hands typing on laptop keyboard with blue screen glow reflecting on face, dark room, cinematic moody lighting, studio photography, ultra realistic, 8K",
         "slides": [
@@ -551,6 +751,7 @@ DEFAULTS = [
         "topic": "How to 10X Your Instagram Engagement",
         "cover_lines": ["10X Your", "Engagement"],
         "cover_sub": "Engagement isn't luck. It's strategy.",
+        "topic_tag": "Engagement",
         "number": 5,
         "bg_prompt": "iPhone showing Instagram app with notification badges on dark marble desk next to small plant, soft dramatic studio lighting, luxury aesthetic, dark background, 8K photography, shallow depth of field",
         "slides": [
@@ -568,6 +769,7 @@ DEFAULTS = [
         "topic": "Build a Brand People Remember",
         "cover_lines": ["Build a Brand", "People", "Remember"],
         "cover_sub": "If they can't recognize you in 2 seconds, you don't have a brand.",
+        "topic_tag": "Branding",
         "number": 4,
         "bg_prompt": "luxury premium items on dark velvet background, leather notebook, fountain pen, expensive watch, dramatic studio lighting, high contrast, cinematic dark moody photography, 8K",
         "slides": [
@@ -589,9 +791,9 @@ DEFAULTS = [
 def main():
     print()
     print("  ╔══════════════════════════════════════════════════════════╗")
-    print("  ║  DS MARKETING MEGA ENGINE v1.0                          ║")
-    print("  ║  Gemini (Nano Banana) → FLUX → Pollinations             ║")
-    print("  ║  Ollama Content AI → Playwright CSS Rendering           ║")
+    print("  ║  DS MARKETING MEGA ENGINE v2.0                          ║")
+    print("  ║  Premium Visual Design — Every Slide a Statement        ║")
+    print("  ║  Gemini → FLUX → Pollinations | Playwright CSS          ║")
     print("  ╚══════════════════════════════════════════════════════════╝")
     print()
 
@@ -609,9 +811,9 @@ def main():
 
     # Engines status
     engines = []
-    if keys.get("gemini"): engines.append("Gemini (Nano Banana)")
-    if keys.get("together"): engines.append("FLUX (Together.ai)")
-    engines.append("Pollinations (fallback)")
+    if keys.get("gemini"): engines.append("Gemini")
+    if keys.get("together"): engines.append("FLUX")
+    engines.append("Pollinations")
     print(f"  Image engines: {' → '.join(engines)}")
     print()
 
@@ -635,7 +837,7 @@ def main():
             print(f"    ✓ Ollama ({model})")
             print("    Generating content...")
             result = ask_ai_json("""Generate 5 Instagram carousel ideas for a social media marketing agency.
-Return ONLY JSON array with objects: "topic" (string), "cover_lines" (array of 2-3 strings), "cover_sub" (string), "number" (int), "bg_prompt" (dark moody cinematic image prompt), "slides" (array of objects with "headline" and "points" array of 3 strings), "quote" (object: "text","author"), "stat" (object: "number","label","desc"), "caption" (string with hashtags).
+Return ONLY JSON array with objects: "topic" (string), "cover_lines" (array of 2-3 strings for the big cover title), "cover_sub" (subtitle string), "topic_tag" (2-word category label), "number" (int), "bg_prompt" (dark moody cinematic image prompt), "slides" (array of objects with "headline" and "points" array of 3 strings), "quote" (object: "text","author"), "stat" (object: "number","label","desc"), "caption" (string with hashtags).
 Return ONLY JSON.""", model)
             if result and isinstance(result, list) and len(result) >= 3:
                 carousels = result
@@ -653,6 +855,7 @@ Return ONLY JSON.""", model)
     print("  " + "─" * 58)
     print(f"    Output: {W}x{H} @ 2x retina ({W*2}x{H*2}px)")
     print(f"    Fonts: Poppins + Inter (Google Fonts)")
+    print(f"    Design: v2 Premium (grid texture + gradient orbs + accent shapes)")
     print()
 
     with sync_playwright() as p:
@@ -681,24 +884,46 @@ Return ONLY JSON.""", model)
             n = 1
             # Cover
             print(f"    Rendering slides...")
-            render_html(browser, html_cover(c.get("cover_lines",["TITLE"]), c.get("cover_sub",""), bg_b64, c.get("number"), total), f"{post_dir}/{n:02d}_cover.png")
+            topic_tag = c.get("topic_tag", "Social Media Tips")
+            render_html(browser, html_cover(
+                c.get("cover_lines", ["TITLE"]),
+                c.get("cover_sub", ""),
+                bg_b64,
+                c.get("number"),
+                total,
+                topic_tag
+            ), f"{post_dir}/{n:02d}_cover.png")
             n += 1
 
-            # Content
+            # Content slides
             for si, s in enumerate(slides):
-                render_html(browser, html_content(si+1, s.get("headline",""), s.get("points",[]), n, total), f"{post_dir}/{n:02d}_content.png")
+                render_html(browser, html_content(
+                    si+1,
+                    s.get("headline", ""),
+                    s.get("points", []),
+                    n, total
+                ), f"{post_dir}/{n:02d}_content.png")
                 n += 1
 
             # Stat
             if has_stat:
                 st = c["stat"]
-                render_html(browser, html_stat(st.get("number",""), st.get("label",""), st.get("desc",""), n, total), f"{post_dir}/{n:02d}_stat.png")
+                render_html(browser, html_stat(
+                    st.get("number", ""),
+                    st.get("label", ""),
+                    st.get("desc", ""),
+                    n, total
+                ), f"{post_dir}/{n:02d}_stat.png")
                 n += 1
 
             # Quote
             if has_quote:
                 q = c["quote"]
-                render_html(browser, html_quote(q.get("text",""), q.get("author",""), n, total), f"{post_dir}/{n:02d}_quote.png")
+                render_html(browser, html_quote(
+                    q.get("text", ""),
+                    q.get("author", ""),
+                    n, total
+                ), f"{post_dir}/{n:02d}_quote.png")
                 n += 1
 
             # CTA
@@ -719,16 +944,27 @@ Return ONLY JSON.""", model)
         browser.close()
 
     print("  ╔══════════════════════════════════════════════════════════╗")
-    print("  ║  ALL DONE — MEGA ENGINE COMPLETE                        ║")
+    print("  ║  ALL DONE — MEGA ENGINE v2.0 COMPLETE                   ║")
     print("  ╚══════════════════════════════════════════════════════════╝")
     print(f"\n  Your content: {OUT}/\n")
     for i, c in enumerate(carousels):
         print(f"     post_{i+1:02d}/  {c.get('topic','')}")
     print(f"""
   Each post: cover + content slides + stat + quote + CTA + caption
-  Style: Roman Knox x CashFish x Dark Gradients (B&W)
-  Rendering: Real CSS (Poppins/Inter) @ 2x retina
-  Images: {'Gemini (Nano Banana)' if keys.get('gemini') else 'FLUX' if keys.get('together') else 'Pollinations'}
+
+  v2 DESIGN UPGRADES:
+    ✓ Grid texture overlay on every slide
+    ✓ Gradient orbs for visual depth
+    ✓ Corner accent marks and shapes
+    ✓ Decorative rings on stat/CTA slides
+    ✓ Richer bullet design with diamond markers
+    ✓ Vertical text accents
+    ✓ Better content spacing — no empty space
+    ✓ Large decorative quote marks
+    ✓ Data labels and step counters
+
+  Rendering: Playwright CSS @ 2x retina (Poppins + Inter)
+  Images: {'Gemini' if keys.get('gemini') else 'FLUX' if keys.get('together') else 'Pollinations'}
 
   Upload directly to Instagram as carousel posts.
   Captions ready in {OUT}/captions/
