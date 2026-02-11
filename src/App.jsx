@@ -2475,6 +2475,7 @@ export default function App() {
   const [locked, setLocked] = useState(true);
   const [currentUser, setCurrentUser] = useState(null);
   const [page, setPage] = useState("inspector"); // "inspector" | "history" | "admin"
+  const [pendingCount, setPendingCount] = useState(0);
   const lastActivity = useRef(Date.now());
 
   // Dismiss splash screen once React mounts
@@ -2485,6 +2486,20 @@ export default function App() {
       setTimeout(() => splash.remove(), 350);
     }
   }, []);
+
+  // Check for pending users (admin notification)
+  useEffect(() => {
+    if (!currentUser || currentUser.role !== "admin" || locked) { setPendingCount(0); return; }
+    async function checkPending() {
+      try {
+        const all = await getUsers();
+        setPendingCount(all.filter(u => !u.approved).length);
+      } catch { /* ignore */ }
+    }
+    checkPending();
+    const iv = setInterval(checkPending, 30000); // re-check every 30s
+    return () => clearInterval(iv);
+  }, [currentUser, locked, page]);
 
   // Automated daily cache cleanup — checks once per hour, cleans if new day
   useEffect(() => {
@@ -2741,6 +2756,7 @@ export default function App() {
             <span className={cx("hamburgerIcon", menuOpen && "hamburgerOpen")}>
               <span /><span /><span />
             </span>
+            {pendingCount > 0 && <span className="hamburgerBadge">{pendingCount}</span>}
           </button>
         </div>
 
@@ -2753,7 +2769,10 @@ export default function App() {
             <button className="dropdownMenuItem" onClick={startNewInspection} type="button">+ New Inspection</button>
             <button className="dropdownMenuItem" onClick={() => setPage("history")} type="button">Past Reports</button>
             {currentUser?.role === "admin" && (
-              <button className="dropdownMenuItem" onClick={() => setPage("admin")} type="button">Admin Panel</button>
+              <button className="dropdownMenuItem" onClick={() => setPage("admin")} type="button">
+                Admin Panel
+                {pendingCount > 0 && <span className="menuBadge">{pendingCount} pending</span>}
+              </button>
             )}
             <button className="dropdownMenuItem dropdownMenuDanger" onClick={() => { lockApp(); setCurrentUser(null); setLocked(true); }} type="button">Lock App</button>
           </div>
