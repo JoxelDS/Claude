@@ -359,7 +359,7 @@ body {
   margin-bottom: 20px;
 }
 @media (max-width: 600px) {
-  .fieldGrid { grid-template-columns: 1fr; }
+  .fieldGrid { grid-template-columns: 1fr 1fr; gap: 8px; }
 }
 
 .field {
@@ -1722,7 +1722,7 @@ body {
 
 /* ── Large Phone / iPad Split View (481–600px) ────────── */
 @media (max-width: 600px) {
-  .fieldGrid { grid-template-columns: 1fr; }
+  .fieldGrid { grid-template-columns: 1fr 1fr; gap: 8px; }
   .filterGrid { grid-template-columns: 1fr; }
 
   /* History filter grid */
@@ -1759,8 +1759,9 @@ body {
   .cardBody { padding: 14px; }
   .cardTitle { font-size: 0.92rem; }
 
-  .fieldGrid { grid-template-columns: 1fr; gap: 10px; margin-bottom: 12px; }
+  .fieldGrid { grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
   .fieldLabel { font-size: 0.7rem; text-transform: none; letter-spacing: 0; font-weight: 600; }
+  .field { min-width: 0; }
 
   /* 16px prevents iOS zoom on focus */
   .input, .select, .textarea, .pinInput, .regInput { font-size: 16px; }

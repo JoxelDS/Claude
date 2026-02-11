@@ -612,7 +612,7 @@ function buildDefaultContext(noteType) {
   const spec = NOTE_TYPES[noteType];
   const obj = {};
   for (const f of spec.contextFields) obj[f.key] = "";
-  if (obj.date !== undefined) obj.date = new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+  if (obj.date !== undefined) obj.date = new Date().toISOString().slice(0, 10);
   return obj;
 }
 
@@ -2812,7 +2812,11 @@ export default function App() {
               {spec.contextFields.map((f) => (
                 <label className="field" key={f.key} id={`field-ctx-${f.key}`}>
                   <span className="fieldLabel">{f.label}</span>
-                  <input className="input" value={context[f.key] ?? ""} onChange={(e) => setContext((c) => ({ ...c, [f.key]: e.target.value }))} placeholder={f.label} />
+                  {f.key === "date" ? (
+                    <input className="input" type="date" value={context[f.key] ?? ""} onChange={(e) => setContext((c) => ({ ...c, [f.key]: e.target.value }))} />
+                  ) : (
+                    <input className="input" value={context[f.key] ?? ""} onChange={(e) => setContext((c) => ({ ...c, [f.key]: e.target.value }))} placeholder={f.label} />
+                  )}
                 </label>
               ))}
             </div>
