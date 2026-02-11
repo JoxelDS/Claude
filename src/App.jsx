@@ -15,6 +15,30 @@ const USERS_KEY = "sdx_users";
 const DATA_KEY = "sdx_inspection_vault";
 const DEVICE_SECRET_KEY = "sdx_device_secret";
 const LOCK_TIMEOUT_MS = 10 * 60 * 1000; // 10 min inactivity lock
+const AUTOFILL_KEY = "sdx_autofill_memory";
+
+function getAutofillMemory() {
+  try { return JSON.parse(localStorage.getItem(AUTOFILL_KEY)) || {}; } catch { return {}; }
+}
+
+function learnFromSave(record) {
+  const mem = getAutofillMemory();
+  const fields = ["siteName", "siteNumber", "supervisorName", "sitePhone", "locationType"];
+  for (const f of fields) {
+    if (!record[f]) continue;
+    if (!mem[f]) mem[f] = [];
+    if (!mem[f].includes(record[f])) {
+      mem[f].unshift(record[f]);
+      mem[f] = mem[f].slice(0, 10); // keep last 10 unique values
+    }
+  }
+  // Learn site → number mapping
+  if (record.siteName && record.siteNumber) {
+    if (!mem.siteMap) mem.siteMap = {};
+    mem.siteMap[record.siteName] = { siteNumber: record.siteNumber, sitePhone: record.sitePhone || "", supervisorName: record.supervisorName || "", locationType: record.locationType || "", floor: record.floor || "" };
+  }
+  localStorage.setItem(AUTOFILL_KEY, JSON.stringify(mem));
+}
 
 // First administrator – auto-seeded on first launch
 const SEED_ADMIN = { name: "Joxel Da Silva", badge: "365582", department: "Safety Inspector" };
@@ -441,6 +465,7 @@ const PHOTO_LIMIT = 6;
 const PHOTO_MAX_MB = 8;
 
 const INSPECTION_TYPES = ["Event Day", "Post Event", "Regular Inspection"];
+const LOCATION_TYPES = ["Concession", "Subcontractor", "Portable"];
 const FLOOR_OPTIONS = ["Floor 1", "Floor 2", "Floor 3"];
 
 const INSPECTION_PLAYBOOK = {
@@ -785,6 +810,16 @@ function buildPhotoIndex(inspection) {
     ["equipment", "threeCompSink", "Equipment > 3-compartment sink"],
     ["equipment", "ecolab", "Equipment > Ecolab / chemicals"],
   ];
+  // Add custom items from each section
+  for (const sec of ["facility", "operations", "equipment"]) {
+    const data = inspection?.[sec] || {};
+    for (const k of Object.keys(data)) {
+      if (k.startsWith("custom_")) {
+        const secLabel = sec.charAt(0).toUpperCase() + sec.slice(1);
+        order.push([sec, k, `${secLabel} > ${data[k]?.label || "Custom"}`]);
+      }
+    }
+  }
   let n = 0;
   const index = [];
   const mapByPath = {};
@@ -798,7 +833,7 @@ function buildPhotoIndex(inspection) {
       n += 1;
       mapByPath[pathKey].push(n);
       const caption = sanitizeText(node?.notes) || sanitizeText(p?.name) || "";
-      index.push({ num: n, label, caption });
+      index.push({ num: n, label, caption, previewUrl: p.previewUrl || null });
     }
   }
   return { index, mapByPath };
@@ -1106,7 +1141,7 @@ function aiAssist({ inspection, rawNotes, context, noteType }) {
 }
 
 /* ── Rendered Output Component (visual, not code) ────────── */
-function RenderedOutput({ noteType, useCase, context, inspection, rawNotes, inspectionType, inspectionDate, inspectorName, siteName, siteNumber, sitePhone, supervisorName, floor }) {
+function RenderedOutput({ noteType, useCase, context, inspection, rawNotes, inspectionType, inspectionDate, inspectorName, siteName, siteNumber, sitePhone, supervisorName, locationType, floor }) {
   const status = calcOverallStatus(inspection);
   const actionItems = buildActionItems({ inspection, rawNotes });
   const expandedNotes = expandAbbreviations(rawNotes);
@@ -1118,15 +1153,25 @@ function RenderedOutput({ noteType, useCase, context, inspection, rawNotes, insp
   const handT = Number(inspection?.temps?.handSinkTempF);
   const threeT = Number(inspection?.temps?.threeCompSinkTempF);
 
+  // Collect custom items from each section
+  function getCustomItems(sectionKey, sectionLabel) {
+    const data = inspection?.[sectionKey] || {};
+    return Object.keys(data).filter(k => k.startsWith("custom_")).map(k => ({
+      section: sectionLabel, label: data[k]?.label || "Custom", node: data[k],
+    }));
+  }
+
   const allItems = [
     { section: "Facility", label: "Ceiling", node: inspection?.facility?.ceiling },
     { section: "Facility", label: "Walls", node: inspection?.facility?.walls },
     { section: "Facility", label: "Floors", node: inspection?.facility?.floors },
     { section: "Facility", label: "Lighting", node: inspection?.facility?.lighting },
+    ...getCustomItems("facility", "Facility"),
     { section: "Operations", label: "Employee Practices", node: inspection?.operations?.employeePractices },
     { section: "Operations", label: "Handwashing / Supplies", node: inspection?.operations?.handwashing },
     { section: "Operations", label: "Labeling / Dating", node: inspection?.operations?.labelingDating },
     { section: "Operations", label: "Logs / Documentation", node: inspection?.operations?.logs },
+    ...getCustomItems("operations", "Operations"),
     { section: "Equipment", label: "Double-Door Cooler", node: inspection?.equipment?.doubleDoorCooler },
     { section: "Equipment", label: "Double-Door Freezer", node: inspection?.equipment?.doubleDoorFreezer },
     { section: "Equipment", label: "Walk-In Cooler", node: inspection?.equipment?.walkInCooler },
@@ -1134,6 +1179,7 @@ function RenderedOutput({ noteType, useCase, context, inspection, rawNotes, insp
     { section: "Equipment", label: "Ovens", node: inspection?.equipment?.ovens },
     { section: "Equipment", label: "3-Compartment Sink", node: inspection?.equipment?.threeCompSink },
     { section: "Equipment", label: "Ecolab / Chemicals", node: inspection?.equipment?.ecolab },
+    ...getCustomItems("equipment", "Equipment"),
   ];
 
   const findings = allItems.filter(it => it.node?.status && it.node.status !== "OK" && it.node.status !== "N/A");
@@ -1178,6 +1224,12 @@ function RenderedOutput({ noteType, useCase, context, inspection, rawNotes, insp
           <div className="rptInfoLabel">Unit / Location</div>
           <div className="rptInfoValue">{siteNumber || "\u2014"}</div>
         </div>
+        {locationType && (
+          <div className="rptInfoItem">
+            <div className="rptInfoLabel">Type</div>
+            <div className="rptInfoValue">{locationType}</div>
+          </div>
+        )}
         {floor && (
           <div className="rptInfoItem">
             <div className="rptInfoLabel">Floor</div>
@@ -1296,15 +1348,22 @@ function RenderedOutput({ noteType, useCase, context, inspection, rawNotes, insp
         </div>
       )}
 
-      {/* Photo Index */}
+      {/* Photo Evidence */}
       {photoIndexList.length > 0 && (
         <div className="rptBlock">
-          <div className="rptBlockTitle">Photo Index</div>
-          <div className="rptPhotoList">
+          <div className="rptBlockTitle">Photo Evidence ({photoIndexList.length})</div>
+          <div className="rptPhotoGallery">
             {photoIndexList.map(p => (
-              <div className="rptPhotoItem" key={p.num}>
-                <span className="rptPhotoNum">Photo #{p.num}</span>
-                <span>{p.label}{p.caption ? ` \u2014 ${p.caption}` : ""}</span>
+              <div className="rptPhotoCard" key={p.num}>
+                {p.previewUrl ? (
+                  <img src={p.previewUrl} alt={`Photo #${p.num}`} className="rptPhotoImg" />
+                ) : (
+                  <div className="rptPhotoPlaceholder">No preview</div>
+                )}
+                <div className="rptPhotoCaption">
+                  <span className="rptPhotoNum">#{p.num}</span>
+                  <span>{p.label}{p.caption ? ` \u2014 ${p.caption}` : ""}</span>
+                </div>
               </div>
             ))}
           </div>
@@ -1922,6 +1981,7 @@ function HistoryPage({ onBack }) {
   const [filterFloor, setFilterFloor] = useState("");
   const [filterIssue, setFilterIssue] = useState("");
   const [filterSite, setFilterSite] = useState("");
+  const [filterLocType, setFilterLocType] = useState("");
   const [expandedId, setExpandedId] = useState(null);
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const [historyTab, setHistoryTab] = useState("reports"); // "reports" | "analytics"
@@ -1945,6 +2005,7 @@ function HistoryPage({ onBack }) {
       if (filterDate && rec.inspectionDate !== filterDate) return false;
       if (filterType && rec.inspectionType !== filterType) return false;
       if (filterFloor && rec.floor !== filterFloor) return false;
+      if (filterLocType && rec.locationType !== filterLocType) return false;
       if (filterSite) {
         const recSite = `${rec.siteName || rec.location || ""}${rec.siteNumber ? ` #${rec.siteNumber}` : ""}`;
         if (!recSite.toLowerCase().includes(filterSite.toLowerCase())) return false;
@@ -1988,6 +2049,7 @@ function HistoryPage({ onBack }) {
   const uniqueDates = [...new Set(history.map(r => r.inspectionDate).filter(Boolean))].sort().reverse();
   const uniqueTypes = [...new Set(history.map(r => r.inspectionType).filter(Boolean))].sort();
   const uniqueFloors = [...new Set(history.map(r => r.floor).filter(Boolean))].sort();
+  const uniqueLocTypes = [...new Set(history.map(r => r.locationType).filter(Boolean))].sort();
 
   return (
     <div className="appShell">
@@ -2040,6 +2102,13 @@ function HistoryPage({ onBack }) {
                 <select className="select" value={filterFloor} onChange={e => setFilterFloor(e.target.value)}>
                   <option value="">All floors</option>
                   {uniqueFloors.map(f => <option key={f} value={f}>{f}</option>)}
+                </select>
+              </label>
+              <label className="field">
+                <span className="fieldLabel">Location Type</span>
+                <select className="select" value={filterLocType} onChange={e => setFilterLocType(e.target.value)}>
+                  <option value="">All types</option>
+                  {uniqueLocTypes.map(t => <option key={t} value={t}>{t}</option>)}
                 </select>
               </label>
               <label className="field">
@@ -2104,6 +2173,7 @@ function HistoryPage({ onBack }) {
                             rec.inspectionType === "Event Day" ? "typeBadgeEvent" :
                             rec.inspectionType === "Post Event" ? "typeBadgePost" : "typeBadgeRegular"
                           )}>{rec.inspectionType}</span>
+                          {rec.locationType && <>{" "}&middot; <span className="typeBadge typeBadgeLocType">{rec.locationType}</span></>}
                           {rec.floor && <>{" "}&middot; <span className="typeBadge typeBadgeFloor">{rec.floor}</span></>}
                           {" "}&middot; {rec.inspectorName || "—"}
                         </div>
@@ -2400,8 +2470,9 @@ function PhotoStrip({ photos, onRemove }) {
   );
 }
 
-function GuideSection({ title, items, inspection, setInspection }) {
+function GuideSection({ title, items, inspection, setInspection, allowCustom, sectionKey }) {
   const fileRefs = useRef({});
+  const [newItemName, setNewItemName] = useState("");
 
   async function addPhotos(pathKey, files) {
     const accepted = Array.from(files || []).slice(0, PHOTO_LIMIT);
@@ -2432,11 +2503,22 @@ function GuideSection({ title, items, inspection, setInspection }) {
     });
   }
 
+  // Collect custom items for this section
+  const customItems = useMemo(() => {
+    if (!allowCustom || !sectionKey) return [];
+    const sectionData = inspection?.[sectionKey] || {};
+    return Object.keys(sectionData)
+      .filter(k => k.startsWith("custom_"))
+      .map(k => ({ path: [sectionKey, k], label: sectionData[k]?.label || "Custom item", isCustom: true, customKey: k }));
+  }, [allowCustom, sectionKey, inspection]);
+
+  const allItems = [...items, ...customItems];
+
   return (
     <div className="guideSection">
       <div className="guideSectionTitle">{title}</div>
       <div className="guideItems">
-        {items.map((it) => {
+        {allItems.map((it) => {
           const key = it.path.join(".");
           const current = getAtPath(inspection, it.path) || withPhotos({ status: "OK", notes: "" });
           return (
@@ -2464,7 +2546,24 @@ function GuideSection({ title, items, inspection, setInspection }) {
           );
         })}
       </div>
-      <div className="guideNote">Photos are stored locally for preview. For production: upload images and store URLs.</div>
+      {allowCustom && (
+        <div className="guideAddItem">
+          <input className="input inputSmall" value={newItemName} onChange={(e) => setNewItemName(e.target.value)}
+            placeholder="Add new item (e.g., Walk-in freezer)" onKeyDown={(e) => {
+              if (e.key === "Enter" && newItemName.trim()) {
+                const key = `custom_${Date.now()}`;
+                setInspection((prev) => setAtPath(prev, [sectionKey, key], { status: "OK", notes: "", photos: [], label: newItemName.trim() }));
+                setNewItemName("");
+              }
+            }} />
+          <button className="btn btnGhost btnSmall" type="button" onClick={() => {
+            if (!newItemName.trim()) return;
+            const key = `custom_${Date.now()}`;
+            setInspection((prev) => setAtPath(prev, [sectionKey, key], { status: "OK", notes: "", photos: [], label: newItemName.trim() }));
+            setNewItemName("");
+          }}>+ Add</button>
+        </div>
+      )}
     </div>
   );
 }
@@ -2541,6 +2640,7 @@ export default function App() {
   const [siteNumber, setSiteNumber] = useState("");
   const [supervisorName, setSupervisorName] = useState("");
   const [sitePhone, setSitePhone] = useState("");
+  const [locationType, setLocationType] = useState("Concession");
   const [floor, setFloor] = useState("Floor 1");
 
   const [menuOpen, setMenuOpen] = useState(false);
@@ -2617,6 +2717,7 @@ export default function App() {
     setSiteNumber("");
     setSupervisorName("");
     setSitePhone("");
+    setLocationType("Concession");
     setFloor("Floor 1");
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
@@ -2712,7 +2813,7 @@ export default function App() {
       id: `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
       savedAt: new Date().toISOString(),
       noteType, inspectionType, inspectionDate, inspectorName,
-      siteName, siteNumber, supervisorName, sitePhone, floor,
+      siteName, siteNumber, supervisorName, sitePhone, locationType, floor,
       location: siteName || context?.kitchen || "Kitchen",
       context: { ...context },
       temps: { ...inspection.temps },
@@ -2725,6 +2826,7 @@ export default function App() {
     };
     try {
       await saveOneInspection(record);
+      learnFromSave(record);
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
     } catch (e) {
@@ -2814,15 +2916,42 @@ export default function App() {
               </label>
               <label className="field" id="field-supervisorName">
                 <span className="fieldLabel">Supervisor</span>
-                <input className="input" value={supervisorName} onChange={(e) => setSupervisorName(e.target.value)} placeholder="e.g., GM / Chef Lead" />
+                <input className="input" list="supervisorSuggestions" value={supervisorName} onChange={(e) => setSupervisorName(e.target.value)} placeholder="e.g., GM / Chef Lead" />
+                <datalist id="supervisorSuggestions">
+                  {(getAutofillMemory().supervisorName || []).map((s, i) => <option key={i} value={s} />)}
+                </datalist>
               </label>
               <label className="field" id="field-siteName">
                 <span className="fieldLabel">Restaurant / Location</span>
-                <input className="input" value={siteName} onChange={(e) => setSiteName(e.target.value)} placeholder="e.g., North Stand Kitchen" />
+                <input className="input" list="siteNameSuggestions" value={siteName} onChange={(e) => {
+                  const val = e.target.value;
+                  setSiteName(val);
+                  const mem = getAutofillMemory();
+                  const mapped = mem.siteMap?.[val];
+                  if (mapped) {
+                    if (mapped.siteNumber && !siteNumber) setSiteNumber(mapped.siteNumber);
+                    if (mapped.sitePhone && !sitePhone) setSitePhone(mapped.sitePhone);
+                    if (mapped.supervisorName && !supervisorName) setSupervisorName(mapped.supervisorName);
+                    if (mapped.locationType) setLocationType(mapped.locationType);
+                    if (mapped.floor) setFloor(mapped.floor);
+                  }
+                }} placeholder="e.g., North Stand Kitchen" />
+                <datalist id="siteNameSuggestions">
+                  {(getAutofillMemory().siteName || []).map((s, i) => <option key={i} value={s} />)}
+                </datalist>
               </label>
               <label className="field" id="field-siteNumber">
                 <span className="fieldLabel">Unit Number</span>
-                <input className="input" value={siteNumber} onChange={(e) => setSiteNumber(e.target.value)} placeholder="e.g., Unit 12 / Loc-204" />
+                <input className="input" list="siteNumberSuggestions" value={siteNumber} onChange={(e) => setSiteNumber(e.target.value)} placeholder="e.g., Unit 12 / Loc-204" />
+                <datalist id="siteNumberSuggestions">
+                  {(getAutofillMemory().siteNumber || []).map((s, i) => <option key={i} value={s} />)}
+                </datalist>
+              </label>
+              <label className="field">
+                <span className="fieldLabel">Location Type</span>
+                <select className="select" value={locationType} onChange={(e) => setLocationType(e.target.value)}>
+                  {LOCATION_TYPES.map((t) => (<option key={t} value={t}>{t}</option>))}
+                </select>
               </label>
               <label className="field">
                 <span className="fieldLabel">Phone (optional)</span>
@@ -2877,7 +3006,8 @@ export default function App() {
                   { path: ["facility", "walls"], label: "Walls" },
                   { path: ["facility", "floors"], label: "Floors" },
                   { path: ["facility", "lighting"], label: "Lighting" },
-                ]} inspection={inspection} setInspection={setInspection} />
+                ]} inspection={inspection} setInspection={setInspection}
+                allowCustom sectionKey="facility" />
 
               <GuideSection title="Operations: employees + process controls"
                 items={[
@@ -2885,7 +3015,8 @@ export default function App() {
                   { path: ["operations", "handwashing"], label: "Handwashing / supplies" },
                   { path: ["operations", "labelingDating"], label: "Labeling / dating" },
                   { path: ["operations", "logs"], label: "Logs / documentation" },
-                ]} inspection={inspection} setInspection={setInspection} />
+                ]} inspection={inspection} setInspection={setInspection}
+                allowCustom sectionKey="operations" />
 
               <div className="tempsRow">
                 <div className="tempsTitle">Key temperatures</div>
@@ -2920,7 +3051,8 @@ export default function App() {
                   { path: ["equipment", "ovens"], label: "Ovens" },
                   { path: ["equipment", "threeCompSink"], label: "3-compartment sink" },
                   { path: ["equipment", "ecolab"], label: "Ecolab / chemicals" },
-                ]} inspection={inspection} setInspection={setInspection} />
+                ]} inspection={inspection} setInspection={setInspection}
+                allowCustom sectionKey="equipment" />
             </div>
 
             <div className="field">
@@ -2989,7 +3121,7 @@ export default function App() {
                   inspectionType={inspectionType} inspectionDate={inspectionDate}
                   inspectorName={inspectorName} siteName={siteName}
                   siteNumber={siteNumber} sitePhone={sitePhone}
-                  supervisorName={supervisorName} floor={floor}
+                  supervisorName={supervisorName} locationType={locationType} floor={floor}
                 />
                 <div className="downloadBar">
                   <span className="downloadLabel">Download:</span>
