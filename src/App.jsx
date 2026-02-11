@@ -3311,8 +3311,30 @@ export default function App() {
                       {Number(inspection.temps.threeCompSinkTempF) >= 110 ? "Meets >=110 F" : inspection.temps.threeCompSinkTempF ? "Below 110 F - flag" : ""}
                     </span>
                   </label>
+                  {/* Cold equipment temps — synced with equipment items below */}
+                  {Object.entries(COLD_EQUIPMENT).map(([eqKey, cold]) => {
+                    const node = inspection.equipment?.[eqKey];
+                    const val = node?.tempF || "";
+                    const num = Number(val);
+                    return (
+                      <label className="field" key={eqKey} style={{ marginTop: 0 }}>
+                        <span className="fieldLabel">{cold.label} temp</span>
+                        <div className="tempInputWrap">
+                          <input className="input tempInput" inputMode="numeric" value={val}
+                            onChange={(e) => setInspection((prev) => {
+                              const cur = prev.equipment?.[eqKey] || { status: "OK", notes: "", photos: [] };
+                              return { ...prev, equipment: { ...prev.equipment, [eqKey]: { ...cur, tempF: e.target.value } } };
+                            })}
+                            placeholder={cold.type === "cooler" ? "38" : "10"} />
+                          <span className="tempUnit">{"\u00B0F"}</span>
+                        </div>
+                        <span className="hint">
+                          {val ? (num <= cold.max ? `Meets \u2264${cold.max} F` : `Above ${cold.max} F - flag`) : ""}
+                        </span>
+                      </label>
+                    );
+                  })}
                 </div>
-                <div className="hint" style={{ marginTop: 6, fontSize: "0.72rem" }}>Cooler / freezer temps are entered on each equipment item below</div>
               </div>
 
               <GuideSection title="Equipment check"
