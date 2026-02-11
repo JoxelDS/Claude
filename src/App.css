@@ -586,6 +586,23 @@ body {
   grid-template-columns: 1fr 1fr;
   gap: 14px;
 }
+.tempInputWrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.tempInput {
+  padding-right: 36px !important;
+}
+.tempUnit {
+  position: absolute;
+  right: 10px;
+  color: var(--sdx-gray-400);
+  font-size: 0.85rem;
+  font-weight: 600;
+  pointer-events: none;
+  user-select: none;
+}
 
 /* ── Photos ──────────────────────────────────────────────── */
 .photoRow {
@@ -1616,6 +1633,18 @@ body {
   background: rgba(21,128,61,.1);
   color: #15803D;
   border: 1px solid rgba(21,128,61,.2);
+}
+.badgeNumDisplay {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  font-family: monospace;
+  background: var(--sdx-gray-100);
+  color: var(--sdx-navy);
+  border: 1px solid var(--sdx-gray-200);
+  margin-left: 4px;
 }
 
 /* ── Floating Action Buttons (bottom corners) ────────────── */
