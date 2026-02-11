@@ -1760,6 +1760,7 @@ body {
   .cardTitle { font-size: 0.92rem; }
 
   .fieldGrid { grid-template-columns: 1fr; gap: 10px; margin-bottom: 12px; }
+  .fieldLabel { font-size: 0.7rem; text-transform: none; letter-spacing: 0; font-weight: 600; }
 
   /* 16px prevents iOS zoom on focus */
   .input, .select, .textarea, .pinInput, .regInput { font-size: 16px; }
@@ -1908,45 +1909,6 @@ body {
   background: var(--sdx-navy);
   color: white;
 }
-.photoPickerWrap {
-  position: relative;
-}
-.photoPickerMenu {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  margin-top: 4px;
-  background: white;
-  border: 1px solid var(--sdx-gray-200);
-  border-radius: 10px;
-  box-shadow: 0 6px 20px rgba(0,0,0,0.15);
-  z-index: 50;
-  overflow: hidden;
-  min-width: 180px;
-  animation: menuSlideDown 0.15s ease-out;
-}
-.photoPickerItem {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  padding: 14px 16px;
-  border: none;
-  background: none;
-  font-size: 0.88rem;
-  font-weight: 600;
-  font-family: inherit;
-  color: var(--sdx-gray-700);
-  cursor: pointer;
-  transition: background 0.15s;
-}
-.photoPickerItem:hover {
-  background: var(--sdx-gray-100);
-}
-.photoPickerItem + .photoPickerItem {
-  border-top: 1px solid var(--sdx-gray-100);
-}
-
 /* ── Floor Badge ────────────────────────────────────────── */
 .typeBadgeFloor {
   background: #FFF7ED;
