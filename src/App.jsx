@@ -1549,6 +1549,7 @@ function exportAsTxt({ output, inspectionDate, siteName }) {
 /* ── Temperature Trend Chart (pure SVG) ─────────────────── */
 function TempTrendChart({ history }) {
   const [hoveredPoint, setHoveredPoint] = useState(null);
+  const [focusedLine, setFocusedLine] = useState(null); // null | "hand" | "three"
 
   // Group by location+floor, sorted by date
   const locationData = useMemo(() => {
@@ -1626,8 +1627,8 @@ function TempTrendChart({ history }) {
                   {unitNum && <span className="tempChartUnit">#{unitNum}</span>}
                 </div>
                 <div className="tempChartAvgs">
-                  {handAvg !== null && <span className="tempAvgPill" style={{ background: handAvg >= 95 ? "#dbeafe" : "#fee2e2", color: handAvg >= 95 ? "#1d4ed8" : "#dc2626" }}>Avg Hand: {handAvg}°F</span>}
-                  {threeAvg !== null && <span className="tempAvgPill" style={{ background: threeAvg >= 110 ? "#ede9fe" : "#fee2e2", color: threeAvg >= 110 ? "#7c3aed" : "#dc2626" }}>Avg 3-Comp: {threeAvg}°F</span>}
+                  {handAvg !== null && <span className={cx("tempAvgPill", "tempAvgPillClickable", focusedLine === "hand" && "tempAvgPillActive")} style={{ background: focusedLine === "hand" ? "#3b82f6" : handAvg >= 95 ? "#dbeafe" : "#fee2e2", color: focusedLine === "hand" ? "#fff" : handAvg >= 95 ? "#1d4ed8" : "#dc2626" }} onClick={() => setFocusedLine(focusedLine === "hand" ? null : "hand")}>Avg Hand: {handAvg}°F</span>}
+                  {threeAvg !== null && <span className={cx("tempAvgPill", "tempAvgPillClickable", focusedLine === "three" && "tempAvgPillActive")} style={{ background: focusedLine === "three" ? "#8b5cf6" : threeAvg >= 110 ? "#ede9fe" : "#fee2e2", color: focusedLine === "three" ? "#fff" : threeAvg >= 110 ? "#7c3aed" : "#dc2626" }} onClick={() => setFocusedLine(focusedLine === "three" ? null : "three")}>Avg 3-Comp: {threeAvg}°F</span>}
                   <span className="tempAvgPill" style={{ background: "#f0fdf4", color: "#15803d" }}>{points.length} reading{points.length !== 1 ? "s" : ""}</span>
                 </div>
                 <svg viewBox={`0 0 ${W} ${H}`} className="tempChartSvg" onMouseLeave={() => setHoveredPoint(null)}>
@@ -1654,22 +1655,24 @@ function TempTrendChart({ history }) {
                   {[95, 110].map(threshold => {
                     if (threshold < minT || threshold > maxT) return null;
                     const y = toY(threshold);
+                    const isHand = threshold === 95;
+                    const dimmed = focusedLine && focusedLine !== (isHand ? "hand" : "three");
                     return (
-                      <g key={threshold}>
-                        <line x1={PAD} y1={y} x2={W - PADR} y2={y} stroke={threshold === 95 ? "#3b82f6" : "#8b5cf6"} strokeDasharray="6,4" strokeWidth="1.5" opacity="0.6" />
-                        <rect x={W - PADR + 2} y={y - 8} width="36" height="16" rx="3" fill={threshold === 95 ? "#3b82f6" : "#8b5cf6"} opacity="0.9" />
+                      <g key={threshold} opacity={dimmed ? 0.15 : 1} style={{ transition: "opacity 0.3s" }}>
+                        <line x1={PAD} y1={y} x2={W - PADR} y2={y} stroke={isHand ? "#3b82f6" : "#8b5cf6"} strokeDasharray="6,4" strokeWidth="1.5" opacity="0.6" />
+                        <rect x={W - PADR + 2} y={y - 8} width="36" height="16" rx="3" fill={isHand ? "#3b82f6" : "#8b5cf6"} opacity="0.9" />
                         <text x={W - PADR + 20} y={y + 4} textAnchor="middle" fontSize="8" fill="white" fontWeight="bold">{threshold}°F</text>
                       </g>
                     );
                   })}
 
                   {/* Area fills */}
-                  {handCoords.length >= 2 && <path d={toAreaPath(handCoords)} fill={`url(#handGrad-${loc.replace(/\W/g, "")})`} />}
-                  {threeCoords.length >= 2 && <path d={toAreaPath(threeCoords)} fill={`url(#threeGrad-${loc.replace(/\W/g, "")})`} />}
+                  {handCoords.length >= 2 && <path d={toAreaPath(handCoords)} fill={`url(#handGrad-${loc.replace(/\W/g, "")})`} opacity={focusedLine && focusedLine !== "hand" ? 0.1 : 1} style={{ transition: "opacity 0.3s" }} />}
+                  {threeCoords.length >= 2 && <path d={toAreaPath(threeCoords)} fill={`url(#threeGrad-${loc.replace(/\W/g, "")})`} opacity={focusedLine && focusedLine !== "three" ? 0.1 : 1} style={{ transition: "opacity 0.3s" }} />}
 
                   {/* Lines */}
-                  {handCoords.length > 1 && <path d={toPath(handCoords)} fill="none" stroke="#3b82f6" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />}
-                  {threeCoords.length > 1 && <path d={toPath(threeCoords)} fill="none" stroke="#8b5cf6" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />}
+                  {handCoords.length > 1 && <path d={toPath(handCoords)} fill="none" stroke="#3b82f6" strokeWidth={focusedLine === "hand" ? "3.5" : "2.5"} strokeLinecap="round" strokeLinejoin="round" opacity={focusedLine && focusedLine !== "hand" ? 0.15 : 1} style={{ transition: "opacity 0.3s, stroke-width 0.3s" }} />}
+                  {threeCoords.length > 1 && <path d={toPath(threeCoords)} fill="none" stroke="#8b5cf6" strokeWidth={focusedLine === "three" ? "3.5" : "2.5"} strokeLinecap="round" strokeLinejoin="round" opacity={focusedLine && focusedLine !== "three" ? 0.15 : 1} style={{ transition: "opacity 0.3s, stroke-width 0.3s" }} />}
 
                   {/* Data points with hover */}
                   {points.map((p, i) => {
@@ -1677,26 +1680,26 @@ function TempTrendChart({ history }) {
                     return (
                       <g key={i} onMouseEnter={() => setHoveredPoint(hk)} onTouchStart={() => setHoveredPoint(hk)}>
                         {p.handSink && (
-                          <>
-                            <circle cx={toX(i)} cy={toY(p.handSink)} r="5" fill="white" stroke={p.handSink >= 95 ? "#3b82f6" : "#ef4444"} strokeWidth="2.5" />
-                            {hoveredPoint === hk && (
+                          <g opacity={focusedLine && focusedLine !== "hand" ? 0.15 : 1} style={{ transition: "opacity 0.3s" }}>
+                            <circle cx={toX(i)} cy={toY(p.handSink)} r={focusedLine === "hand" ? 6 : 5} fill="white" stroke={p.handSink >= 95 ? "#3b82f6" : "#ef4444"} strokeWidth="2.5" style={{ transition: "r 0.3s" }} />
+                            {(hoveredPoint === hk || focusedLine === "hand") && (
                               <g>
                                 <rect x={toX(i) - 30} y={toY(p.handSink) - 26} width="60" height="20" rx="4" fill="#1e293b" opacity="0.9" />
                                 <text x={toX(i)} y={toY(p.handSink) - 12} textAnchor="middle" fontSize="10" fill="white" fontWeight="bold">{p.handSink}°F</text>
                               </g>
                             )}
-                          </>
+                          </g>
                         )}
                         {p.threeComp && (
-                          <>
-                            <circle cx={toX(i)} cy={toY(p.threeComp)} r="5" fill="white" stroke={p.threeComp >= 110 ? "#8b5cf6" : "#ef4444"} strokeWidth="2.5" />
-                            {hoveredPoint === hk && (
+                          <g opacity={focusedLine && focusedLine !== "three" ? 0.15 : 1} style={{ transition: "opacity 0.3s" }}>
+                            <circle cx={toX(i)} cy={toY(p.threeComp)} r={focusedLine === "three" ? 6 : 5} fill="white" stroke={p.threeComp >= 110 ? "#8b5cf6" : "#ef4444"} strokeWidth="2.5" style={{ transition: "r 0.3s" }} />
+                            {(hoveredPoint === hk || focusedLine === "three") && (
                               <g>
                                 <rect x={toX(i) - 30} y={toY(p.threeComp) - 26} width="60" height="20" rx="4" fill="#1e293b" opacity="0.9" />
                                 <text x={toX(i)} y={toY(p.threeComp) - 12} textAnchor="middle" fontSize="10" fill="white" fontWeight="bold">{p.threeComp}°F</text>
                               </g>
                             )}
-                          </>
+                          </g>
                         )}
                         {/* Invisible larger hit area */}
                         <rect x={toX(i) - 15} y={PADT} width="30" height={H - PADT - PADB} fill="transparent" />
