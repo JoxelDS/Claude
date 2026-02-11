@@ -336,19 +336,24 @@ def html_cover(lines, subtitle, bg_b64="", number=None, total=8, topic_tag="Soci
 /* Photo background layer */
 .bg {{ position:absolute; inset:0; {bg_style} background-size:cover; background-position:center; filter:brightness(0.35) saturate(0.15) contrast(1.2); }}
 
-/* Rich gradient fallback — always renders for visual depth */
-.orb1 {{ position:absolute; top:-15%; right:-10%; width:800px; height:800px; border-radius:50%; background:radial-gradient(circle,rgba(255,255,255,0.08) 0%,transparent 60%); }}
-.orb2 {{ position:absolute; bottom:10%; left:-25%; width:700px; height:700px; border-radius:50%; background:radial-gradient(circle,rgba(255,255,255,0.05) 0%,transparent 55%); }}
-.orb3 {{ position:absolute; top:35%; left:50%; width:500px; height:500px; border-radius:50%; background:radial-gradient(circle,rgba(255,255,255,0.035) 0%,transparent 50%); }}
+/* Rich gradient atmosphere — dramatic visual depth */
+.orb1 {{ position:absolute; top:-20%; right:-15%; width:900px; height:900px; border-radius:50%; background:radial-gradient(circle,rgba(255,255,255,0.12) 0%,rgba(255,255,255,0.04) 30%,transparent 60%); }}
+.orb2 {{ position:absolute; bottom:5%; left:-30%; width:800px; height:800px; border-radius:50%; background:radial-gradient(circle,rgba(255,255,255,0.08) 0%,rgba(255,255,255,0.02) 35%,transparent 55%); }}
+.orb3 {{ position:absolute; top:25%; left:40%; width:600px; height:600px; border-radius:50%; background:radial-gradient(circle,rgba(255,255,255,0.06) 0%,transparent 50%); }}
+.orb4 {{ position:absolute; bottom:30%; right:10%; width:350px; height:350px; border-radius:50%; background:radial-gradient(circle,rgba(255,255,255,0.05) 0%,transparent 55%); }}
+
+/* Diagonal light streak */
+.light-streak {{ position:absolute; top:-200px; right:200px; width:2px; height:800px; background:linear-gradient(180deg,transparent,rgba(255,255,255,0.06),rgba(255,255,255,0.1),rgba(255,255,255,0.06),transparent); transform:rotate(25deg); }}
+.light-streak2 {{ position:absolute; top:-100px; right:280px; width:1px; height:600px; background:linear-gradient(180deg,transparent,rgba(255,255,255,0.04),rgba(255,255,255,0.06),transparent); transform:rotate(25deg); }}
 
 /* Dark vignette overlay */
 .overlay {{ position:absolute; inset:0; background:linear-gradient(180deg,
-    rgba(0,0,0,0.25) 0%,
+    rgba(0,0,0,0.15) 0%,
     rgba(0,0,0,0.0) 15%,
     rgba(0,0,0,0.0) 25%,
-    rgba(0,0,0,0.35) 50%,
-    rgba(0,0,0,0.88) 75%,
-    #000 95%); }}
+    rgba(0,0,0,0.3) 50%,
+    rgba(0,0,0,0.85) 72%,
+    #000 92%); }}
 
 /* Grid texture overlay */
 .grid-texture {{ position:absolute; inset:0; opacity:0.03;
@@ -393,7 +398,8 @@ def html_cover(lines, subtitle, bg_b64="", number=None, total=8, topic_tag="Soci
 .vert-text {{ position:absolute; top:50%; right:30px; transform:translateY(-50%) rotate(90deg); font-family:'Inter'; font-weight:600; font-size:11px; color:rgba(255,255,255,0.1); letter-spacing:6px; text-transform:uppercase; z-index:10; white-space:nowrap; }}
 </style></head><body><div class="slide">
 <div class="bg"></div>
-<div class="orb1"></div><div class="orb2"></div><div class="orb3"></div>
+<div class="orb1"></div><div class="orb2"></div><div class="orb3"></div><div class="orb4"></div>
+<div class="light-streak"></div><div class="light-streak2"></div>
 <div class="overlay"></div>
 <div class="grid-texture"></div>
 <div class="corner-tl"></div><div class="corner-br"></div>
@@ -412,15 +418,23 @@ def html_cover(lines, subtitle, bg_b64="", number=None, total=8, topic_tag="Soci
 
 
 # ──────────────────────────────────────────────
-# CONTENT SLIDE — Numbered tip with bullets
+# CONTENT SLIDE — Numbered tip with bullets (v2.1 — fills full space)
 # ──────────────────────────────────────────────
 def html_content(num, headline, points, page, total):
-    pts = "\n".join(f'''<div class="point">
-        <div class="bullet-wrap"><div class="bullet-diamond"></div></div>
-        <div class="pt-text">
-            <div class="pt">{p}</div>
-        </div>
-    </div>''' for p in points)
+    # Build numbered bullet points with sub-descriptions
+    pts = ""
+    for i, p in enumerate(points):
+        letter = chr(65 + i)  # A, B, C
+        pts += f'''<div class="point">
+            <div class="point-num">{letter}</div>
+            <div class="point-content">
+                <div class="pt">{p}</div>
+                <div class="pt-bar"></div>
+            </div>
+        </div>'''
+
+    # Key takeaway = first point shortened
+    takeaway = points[0].split('.')[0] + '.' if points else headline
 
     return f"""<!DOCTYPE html><html><head>{FONTS}<style>
 {BASE_CSS}
@@ -432,7 +446,7 @@ def html_content(num, headline, points, page, total):
                       linear-gradient(90deg, rgba(255,255,255,0.5) 1px, transparent 1px);
     background-size: 60px 60px; }}
 .orb-top {{ position:absolute; top:-100px; right:-50px; width:500px; height:500px; border-radius:50%; background:radial-gradient(circle,rgba(255,255,255,0.05) 0%,transparent 65%); }}
-.orb-bottom {{ position:absolute; bottom:-100px; left:-80px; width:400px; height:400px; border-radius:50%; background:radial-gradient(circle,rgba(255,255,255,0.03) 0%,transparent 60%); }}
+.orb-bottom {{ position:absolute; bottom:100px; left:-80px; width:500px; height:500px; border-radius:50%; background:radial-gradient(circle,rgba(255,255,255,0.04) 0%,transparent 55%); }}
 
 /* Vertical accent line on left */
 .side-line {{ position:absolute; top:120px; left:50px; width:3px; height:80px; background:linear-gradient(180deg,white,transparent); z-index:10; }}
@@ -443,18 +457,26 @@ def html_content(num, headline, points, page, total):
 .num-label {{ font-family:'Inter'; font-weight:600; font-size:13px; color:rgba(255,255,255,0.25); letter-spacing:5px; text-transform:uppercase; margin-top:5px; }}
 
 /* Divider */
-.divider {{ position:absolute; top:350px; left:50px; right:50px; height:1px; background:linear-gradient(90deg,rgba(255,255,255,0.4),rgba(255,255,255,0.02)); z-index:10; }}
+.divider {{ position:absolute; top:345px; left:50px; right:50px; height:1px; background:linear-gradient(90deg,rgba(255,255,255,0.4),rgba(255,255,255,0.02)); z-index:10; }}
 
 /* Headline */
-.headline {{ position:absolute; top:375px; left:50px; right:50px; font-family:'Poppins'; font-weight:800; font-size:48px; color:white; line-height:1.12; letter-spacing:-1.5px; z-index:10; }}
+.headline {{ position:absolute; top:370px; left:50px; right:80px; font-family:'Poppins'; font-weight:800; font-size:50px; color:white; line-height:1.1; letter-spacing:-1.5px; z-index:10; }}
 
-/* Content points — properly spaced */
-.points {{ position:absolute; top:520px; left:50px; right:50px; bottom:120px; display:flex; flex-direction:column; justify-content:flex-start; gap:0; z-index:10; }}
-.point {{ display:flex; align-items:flex-start; gap:18px; padding:22px 0; border-bottom:1px solid rgba(255,255,255,0.05); }}
-.point:last-child {{ border-bottom:none; }}
-.bullet-wrap {{ flex-shrink:0; width:28px; height:28px; display:flex; align-items:center; justify-content:center; margin-top:4px; }}
-.bullet-diamond {{ width:8px; height:8px; background:white; transform:rotate(45deg); opacity:0.6; }}
-.pt {{ font-family:'Inter'; font-weight:400; font-size:26px; color:rgba(255,255,255,0.75); line-height:1.6; }}
+/* Content points — SPREAD across full vertical space */
+.points {{ position:absolute; top:490px; left:50px; right:50px; bottom:240px; display:flex; flex-direction:column; justify-content:space-between; z-index:10; }}
+.point {{ display:flex; align-items:flex-start; gap:22px; padding:28px 30px; background:rgba(255,255,255,0.02); border-radius:14px; border:1px solid rgba(255,255,255,0.04); }}
+.point-num {{ flex-shrink:0; width:42px; height:42px; display:flex; align-items:center; justify-content:center; font-family:'Poppins'; font-weight:800; font-size:18px; color:white; border:2px solid rgba(255,255,255,0.25); border-radius:10px; }}
+.point-content {{ flex:1; }}
+.pt {{ font-family:'Inter'; font-weight:500; font-size:27px; color:rgba(255,255,255,0.82); line-height:1.5; }}
+.pt-bar {{ width:40px; height:2px; background:rgba(255,255,255,0.1); margin-top:12px; border-radius:1px; }}
+
+/* Key Takeaway box at bottom */
+.takeaway {{ position:absolute; bottom:85px; left:50px; right:50px; padding:28px 35px; background:linear-gradient(135deg,rgba(255,255,255,0.06),rgba(255,255,255,0.02)); border:1px solid rgba(255,255,255,0.1); border-radius:16px; z-index:10; display:flex; align-items:center; gap:20px; }}
+.takeaway-icon {{ flex-shrink:0; width:48px; height:48px; border-radius:12px; background:white; display:flex; align-items:center; justify-content:center; font-size:22px; }}
+.takeaway-icon span {{ color:#000; font-weight:900; font-family:'Poppins'; }}
+.takeaway-content {{ flex:1; }}
+.takeaway-label {{ font-family:'Inter'; font-weight:700; font-size:12px; color:rgba(255,255,255,0.4); letter-spacing:3px; text-transform:uppercase; margin-bottom:4px; }}
+.takeaway-text {{ font-family:'Inter'; font-weight:500; font-size:20px; color:rgba(255,255,255,0.7); line-height:1.4; }}
 
 /* Decorative element — right side circles */
 .deco-circle1 {{ position:absolute; top:180px; right:50px; width:140px; height:140px; border-radius:50%; border:1px solid rgba(255,255,255,0.05); z-index:5; }}
@@ -480,6 +502,13 @@ def html_content(num, headline, points, page, total):
 <div class="divider"></div>
 <div class="headline">{headline.upper()}</div>
 <div class="points">{pts}</div>
+<div class="takeaway">
+    <div class="takeaway-icon"><span>!</span></div>
+    <div class="takeaway-content">
+        <div class="takeaway-label">Key Takeaway</div>
+        <div class="takeaway-text">{takeaway}</div>
+    </div>
+</div>
 <div class="deco-circle1"></div><div class="deco-circle2"></div>
 <div class="vert-text">DS Marketing Agency</div>
 <div class="footer"><div class="fh">{BRAND}</div><div class="page">{page} / {total}</div><div class="fs">SWIPE &larr;</div></div>
