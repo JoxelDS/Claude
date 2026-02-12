@@ -4,6 +4,12 @@ import { db, isConfigured as FIREBASE_ON } from "./firebase.js";
 import {
   collection, doc, getDocs, getDoc, setDoc, deleteDoc, updateDoc, query, orderBy
 } from "firebase/firestore";
+import {
+  apiLogin, apiRegister, apiLogout, apiGetMe,
+  apiGetUsers, apiApproveUser, apiDenyUser,
+  apiChangeRole, apiDeleteUser, apiAddUser,
+  tryRestoreSession, hasActiveToken,
+} from "./api.js";
 
 const BASE = import.meta.env.BASE_URL;
 const LOGO_WHITE = `${BASE}sodexo-live-logo.svg`;
@@ -40,8 +46,21 @@ function learnFromSave(record) {
   localStorage.setItem(AUTOFILL_KEY, JSON.stringify(mem));
 }
 
-// First administrator – auto-seeded on first launch
+// First administrator – auto-seeded on first launch (local fallback only; server seeds its own admin)
 const SEED_ADMIN = { name: "Joxel Da Silva", badge: "365582", department: "Safety Inspector" };
+
+/* ── Server detection ──────────────────────────────────────
+   Hit /api/health to see if the Express backend is running.
+   If yes, all user operations go through the server.
+   If no, fall back to the existing localStorage / Firestore path. */
+let _serverAvailable = null; // null = not checked, true/false after check
+const _serverReadyPromise = fetch("/api/health", { method: "GET" })
+  .then(r => { _serverAvailable = r.ok; })
+  .catch(() => { _serverAvailable = false; });
+async function isServerUp() {
+  if (_serverAvailable === null) await _serverReadyPromise;
+  return _serverAvailable;
+}
 
 async function getSalt() {
   let stored = localStorage.getItem(SALT_KEY);
@@ -103,7 +122,12 @@ async function getMasterKey() {
    ══════════════════════════════════════════════════════════ */
 
 /* ── User Registry ────────────────────────────────────────── */
+// Server-backed: apiGetUsers returns users from the Express backend.
+// Local fallback: getUsers reads from Firestore or localStorage.
 async function getUsers() {
+  if (await isServerUp()) {
+    try { return await apiGetUsers(); } catch { /* fall through */ }
+  }
   if (FIREBASE_ON) {
     try {
       const snap = await getDocs(collection(db, "users"));
@@ -115,9 +139,9 @@ async function getUsers() {
 }
 
 async function saveUsers(users) {
+  // Server handles its own persistence — only used for local fallback
   if (FIREBASE_ON) {
     try {
-      // Write each user as a separate document keyed by badgeHash
       for (const u of users) {
         await setDoc(doc(db, "users", u.badgeHash), u);
       }
@@ -148,6 +172,8 @@ async function deleteOneUser(badgeHash) {
 }
 
 async function ensureSeedAdmin() {
+  // Server auto-seeds its own admin — skip if server is up
+  if (await isServerUp()) return;
   const users = await getUsers();
   if (users.length > 0) return;
   const h = await hashBadge(SEED_ADMIN.badge);
@@ -228,6 +254,17 @@ async function clearAllInspections() {
 
 /* ── Auth functions ───────────────────────────────────────── */
 async function signIn(badge) {
+  // Try server-based login first
+  if (await isServerUp()) {
+    const result = await apiLogin(badge);
+    if (result.ok) {
+      _currentUser = { ...result.user };
+      return { ok: true, user: _currentUser };
+    }
+    return result; // { ok: false, reason: "not_found" | "pending" | "error" }
+  }
+
+  // Fallback: local sign-in
   await ensureSeedAdmin();
   const h = await hashBadge(badge);
   const users = await getUsers();
@@ -240,6 +277,12 @@ async function signIn(badge) {
 }
 
 async function registerNewUser(badge, name, department) {
+  // Try server-based registration first
+  if (await isServerUp()) {
+    return apiRegister(badge, name, department);
+  }
+
+  // Fallback: local registration
   const h = await hashBadge(badge);
   const users = await getUsers();
   if (users.find(u => u.badgeHash === h)) return { ok: false, reason: "exists" };
@@ -253,15 +296,21 @@ async function registerNewUser(badge, name, department) {
   return { ok: true };
 }
 
-function lockApp() {
+async function lockApp() {
+  if (await isServerUp()) await apiLogout();
   _cryptoKey = null;
   _currentUser = null;
 }
 
 function getCurrentUser() { return _currentUser; }
 
-/* ── Admin helpers (all async for Firestore) ──────────────── */
+/* ── Admin helpers ─────────────────────────────────────────── */
 async function adminAddUser(badge, name, department, role) {
+  if (await isServerUp()) {
+    return apiAddUser(badge, name, department, role);
+  }
+
+  // Fallback: local add
   const h = await hashBadge(badge);
   const users = await getUsers();
   if (users.find(u => u.badgeHash === h)) return { ok: false, reason: "exists" };
@@ -276,26 +325,36 @@ async function adminAddUser(badge, name, department, role) {
   return { ok: true };
 }
 
-async function approveUser(badgeHash) {
+async function approveUser(userId) {
+  if (await isServerUp()) { await apiApproveUser(userId); return; }
+  // Fallback: local approve (userId is badgeHash in local mode)
   const users = await getUsers();
-  const u = users.find(x => x.badgeHash === badgeHash);
+  const u = users.find(x => x.badgeHash === userId);
   if (u) { u.approved = true; await saveOneUser(u); }
 }
 
-async function denyUser(badgeHash) {
-  await deleteOneUser(badgeHash);
+async function denyUser(userId) {
+  if (await isServerUp()) { await apiDenyUser(userId); return; }
+  await deleteOneUser(userId);
 }
 
-async function promoteToAdmin(badgeHash) {
+async function promoteToAdmin(userId) {
+  if (await isServerUp()) { await apiChangeRole(userId, "admin"); return; }
   const users = await getUsers();
-  const u = users.find(x => x.badgeHash === badgeHash);
+  const u = users.find(x => x.badgeHash === userId);
   if (u) { u.role = "admin"; await saveOneUser(u); }
 }
 
-async function demoteToInspector(badgeHash) {
+async function demoteToInspector(userId) {
+  if (await isServerUp()) { await apiChangeRole(userId, "inspector"); return; }
   const users = await getUsers();
-  const u = users.find(x => x.badgeHash === badgeHash);
+  const u = users.find(x => x.badgeHash === userId);
   if (u) { u.role = "inspector"; await saveOneUser(u); }
+}
+
+async function removeUser(userId) {
+  if (await isServerUp()) { await apiDeleteUser(userId); return; }
+  await deleteOneUser(userId);
 }
 
 /* ── Badge Sign-In Screen ─────────────────────────────────── */
@@ -394,7 +453,7 @@ function BadgeScreen({ onUnlock }) {
         </>)}
 
         <div className="pinFooter">
-          <span className="pinLock">&#128274;</span> AES-256 encrypted &middot; stored only on this device
+          <span className="pinLock">&#128274;</span> {_serverAvailable ? "Secured by server &middot; JWT authentication" : "AES-256 encrypted \u00b7 stored only on this device"}
         </div>
       </div>
     </div>
@@ -2523,20 +2582,23 @@ function AdminPanel({ currentUser, onBack }) {
 
   async function refresh() { setUsers(await getUsers()); }
 
-  async function handleApprove(badgeHash) { await approveUser(badgeHash); await refresh(); }
+  // Use server `id` when available, fall back to `badgeHash` for local mode
+  function uid(u) { return u.id || u.badgeHash; }
 
-  async function handleDeny(badgeHash) {
+  async function handleApprove(u) { await approveUser(uid(u)); await refresh(); }
+
+  async function handleDeny(u) {
     if (!confirm("Remove this access request?")) return;
-    await denyUser(badgeHash); await refresh();
+    await denyUser(uid(u)); await refresh();
   }
 
-  async function handlePromote(badgeHash) { await promoteToAdmin(badgeHash); await refresh(); }
+  async function handlePromote(u) { await promoteToAdmin(uid(u)); await refresh(); }
 
-  async function handleDemote(badgeHash) { await demoteToInspector(badgeHash); await refresh(); }
+  async function handleDemote(u) { await demoteToInspector(uid(u)); await refresh(); }
 
-  async function handleRemove(badgeHash) {
+  async function handleRemove(u) {
     if (!confirm("Remove this user? They will need to request access again.")) return;
-    await denyUser(badgeHash); await refresh();
+    await removeUser(uid(u)); await refresh();
   }
 
   async function handleAddUser(e) {
@@ -2632,14 +2694,14 @@ function AdminPanel({ currentUser, onBack }) {
             </div>
             <div className="cardBody">
               {pending.map(u => (
-                <div className="adminUserRow" key={u.badgeHash}>
+                <div className="adminUserRow" key={uid(u)}>
                   <div className="adminUserInfo">
                     <div className="adminUserName">{u.name} {u.badgeDisplay && <span className="badgeNumDisplay">Badge: {u.badgeDisplay}</span>}</div>
                     <div className="adminUserMeta">{u.department} &middot; Requested {new Date(u.registeredAt).toLocaleDateString()}</div>
                   </div>
                   <div className="adminUserActions">
-                    <button className="btn btnPrimary btnSmall" onClick={() => handleApprove(u.badgeHash)}>Approve</button>
-                    <button className="btn btnGhost btnSmall adminDenyBtn" onClick={() => handleDeny(u.badgeHash)}>Deny</button>
+                    <button className="btn btnPrimary btnSmall" onClick={() => handleApprove(u)}>Approve</button>
+                    <button className="btn btnGhost btnSmall adminDenyBtn" onClick={() => handleDeny(u)}>Deny</button>
                   </div>
                 </div>
               ))}
@@ -2661,10 +2723,10 @@ function AdminPanel({ currentUser, onBack }) {
                 <div className="emptyTitle">No approved users</div>
               </div>
             ) : approved.map(u => {
-              const isSelf = u.badgeHash === currentUser?.badgeHash;
+              const isSelf = (u.id && u.id === currentUser?.id) || (u.badgeHash && u.badgeHash === currentUser?.badgeHash);
               const isOnlyAdmin = u.role === "admin" && adminCount <= 1;
               return (
-                <div className="adminUserRow" key={u.badgeHash}>
+                <div className="adminUserRow" key={uid(u)}>
                   <div className="adminUserInfo">
                     <div className="adminUserName">
                       {u.name}
@@ -2677,13 +2739,13 @@ function AdminPanel({ currentUser, onBack }) {
                   </div>
                   <div className="adminUserActions">
                     {u.role === "inspector" && (
-                      <button className="btn btnGhost btnSmall" onClick={() => handlePromote(u.badgeHash)}>Make Admin</button>
+                      <button className="btn btnGhost btnSmall" onClick={() => handlePromote(u)}>Make Admin</button>
                     )}
                     {u.role === "admin" && !isOnlyAdmin && !isSelf && (
-                      <button className="btn btnGhost btnSmall" onClick={() => handleDemote(u.badgeHash)}>Remove Admin</button>
+                      <button className="btn btnGhost btnSmall" onClick={() => handleDemote(u)}>Remove Admin</button>
                     )}
                     {!isSelf && (
-                      <button className="btn btnGhost btnSmall adminDenyBtn" onClick={() => handleRemove(u.badgeHash)}>Remove</button>
+                      <button className="btn btnGhost btnSmall adminDenyBtn" onClick={() => handleRemove(u)}>Remove</button>
                     )}
                   </div>
                 </div>
@@ -2695,7 +2757,7 @@ function AdminPanel({ currentUser, onBack }) {
 
       <footer className="footer">
         <img src={LOGO_WHITE} alt="Sodexo" className="footerLogo" />
-        <span>{FIREBASE_ON ? "\u2601\uFE0F User accounts synced to cloud database." : "User accounts are stored locally on this device."}</span>
+        <span>{(_serverAvailable || FIREBASE_ON) ? "User accounts managed by secure server." : "User accounts are stored locally on this device."}</span>
       </footer>
     </div>
   );
@@ -2852,6 +2914,17 @@ export default function App() {
       splash.classList.add("hide");
       setTimeout(() => splash.remove(), 350);
     }
+  }, []);
+
+  // Try to restore server session on mount (refresh token cookie)
+  useEffect(() => {
+    tryRestoreSession().then(user => {
+      if (user) {
+        _currentUser = user;
+        setCurrentUser(user);
+        setLocked(false);
+      }
+    }).catch(() => { /* no session to restore */ });
   }, []);
 
   // Measure header height for spacer
