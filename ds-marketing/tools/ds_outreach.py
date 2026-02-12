@@ -7,17 +7,23 @@ Legitimate B2B cold email system. CAN-SPAM compliant.
 Features:
   1. Business Prospector — finds businesses via Google search
   2. Email Finder — extracts public emails from business websites
-  3. Cold Email Sender — Gmail SMTP, personalized, CAN-SPAM compliant
+  3. Cold Email Sender — Gmail SMTP OR SendGrid API
   4. Pipeline Sync — connects to ds_acquisition.py pipeline
   5. Follow-Up Manager — automated follow-up scheduling
 
-SETUP:
-  1. Enable 2FA on your Gmail account
-  2. Go to myaccount.google.com/apppasswords
-  3. Generate an App Password for "Mail"
-  4. Run: python3 ds_outreach.py
+SETUP (choose one):
+  Option A — Personal Gmail:
+    1. Create a free personal Gmail (not Workspace)
+    2. Enable 2FA → myaccount.google.com/security
+    3. Create App Password → myaccount.google.com/apppasswords
+    4. Run: python3 ds_outreach.py
 
-Gmail free limit: ~500 emails/day. We send max 80/day to stay safe.
+  Option B — SendGrid (FREE, no Gmail needed):
+    1. Go to signup.sendgrid.com (free account)
+    2. Create an API key (Settings → API Keys)
+    3. Run: python3 ds_outreach.py
+
+Gmail limit: ~500/day (we cap at 80). SendGrid free: 100/day.
 """
 
 import os, sys, subprocess, json, time, random, re
@@ -52,7 +58,7 @@ PIPELINE_FILE = os.path.expanduser("~/Documents/ds_pipeline.json")
 EMAIL_LOG_FILE = os.path.expanduser("~/Documents/ds_email_log.json")
 FOLLOWUP_FILE = os.path.expanduser("~/Documents/ds_followups.json")
 
-MAX_EMAILS_PER_DAY = 80      # Gmail safe limit
+MAX_EMAILS_PER_DAY = 80      # Safe limit (Gmail: 500/day, SendGrid free: 100/day)
 EMAIL_DELAY_MIN = 30          # seconds between emails
 EMAIL_DELAY_MAX = 90          # seconds between emails
 PHYSICAL_ADDRESS = "DS Marketing — Miami, FL"
@@ -196,8 +202,10 @@ def save_json(path, data):
 
 def load_config():
     return load_json(CONFIG_FILE, {
+        "method": "",           # "gmail" or "sendgrid"
         "gmail_user": "",
         "gmail_app_password": "",
+        "sendgrid_api_key": "",
         "sender_name": "Joxel Da Silva",
         "sender_email": "",
     })
@@ -379,44 +387,82 @@ def prospect_businesses(niche=None, city=None, count=20):
 # ══════════════════════════════════════════════
 # 2. EMAIL SENDER — CAN-SPAM COMPLIANT
 # ══════════════════════════════════════════════
-def setup_gmail():
-    """Setup Gmail credentials."""
+def setup_email():
+    """Setup email sending method."""
     cfg = load_config()
 
     print("\n  ╔══════════════════════════════════════════════╗")
-    print("  ║  GMAIL SETUP                                  ║")
+    print("  ║  EMAIL SETUP — Choose your sending method     ║")
     print("  ╚══════════════════════════════════════════════╝")
     print()
-    print("  To send cold emails, you need a Gmail App Password:")
-    print("  1. Go to myaccount.google.com")
-    print("  2. Enable 2-Step Verification (Security tab)")
-    print("  3. Go to myaccount.google.com/apppasswords")
-    print("  4. Create an App Password for 'Mail'")
-    print("  5. Copy the 16-character password")
+    print("  1. Gmail (personal Gmail + App Password)")
+    print("  2. SendGrid (FREE — sign up at signup.sendgrid.com)")
     print()
 
-    gmail = input("  Gmail address: ").strip()
-    app_pass = input("  App Password (16 chars, no spaces): ").strip()
-    sender_name = input("  Your name [Joxel Da Silva]: ").strip() or "Joxel Da Silva"
+    choice = input("  Choice [1/2]: ").strip()
 
-    cfg["gmail_user"] = gmail
-    cfg["gmail_app_password"] = app_pass
-    cfg["sender_name"] = sender_name
-    cfg["sender_email"] = gmail
-    save_config(cfg)
-    print("  ✓ Gmail config saved!")
+    if choice == "2":
+        print()
+        print("  ── SendGrid Setup ──")
+        print("  1. Go to signup.sendgrid.com → create free account")
+        print("  2. Go to Settings → API Keys → Create API Key")
+        print("  3. Give it 'Full Access' and copy the key")
+        print()
+        api_key = input("  SendGrid API Key: ").strip()
+        sender_email = input("  Your email (sender 'from' address): ").strip()
+        sender_name = input("  Your name [Joxel Da Silva]: ").strip() or "Joxel Da Silva"
+
+        cfg["method"] = "sendgrid"
+        cfg["sendgrid_api_key"] = api_key
+        cfg["sender_email"] = sender_email
+        cfg["sender_name"] = sender_name
+        save_config(cfg)
+        print("  ✓ SendGrid config saved!")
+
+        # Verify sender identity
+        print("\n  IMPORTANT: SendGrid requires sender verification.")
+        print(f"  Check {sender_email} for a verification email from SendGrid.")
+        print("  Click the link to verify before sending.")
+    else:
+        print()
+        print("  ── Gmail Setup ──")
+        print("  1. Use a PERSONAL Gmail (not Workspace)")
+        print("  2. Enable 2-Step Verification → myaccount.google.com/security")
+        print("  3. Create App Password → myaccount.google.com/apppasswords")
+        print("  4. Copy the 16-character password")
+        print()
+        gmail = input("  Gmail address: ").strip()
+        app_pass = input("  App Password (16 chars, no spaces): ").strip()
+        sender_name = input("  Your name [Joxel Da Silva]: ").strip() or "Joxel Da Silva"
+
+        cfg["method"] = "gmail"
+        cfg["gmail_user"] = gmail
+        cfg["gmail_app_password"] = app_pass
+        cfg["sender_email"] = gmail
+        cfg["sender_name"] = sender_name
+        save_config(cfg)
+        print("  ✓ Gmail config saved!")
+
     return cfg
 
 
 def send_email(cfg, to_email, subject, body):
-    """Send a single email via Gmail SMTP."""
+    """Send a single email via Gmail SMTP or SendGrid API."""
+    method = cfg.get("method", "gmail")
+
+    if method == "sendgrid":
+        return send_via_sendgrid(cfg, to_email, subject, body)
+    else:
+        return send_via_gmail(cfg, to_email, subject, body)
+
+
+def send_via_gmail(cfg, to_email, subject, body):
+    """Send via Gmail SMTP."""
     msg = MIMEMultipart("alternative")
     msg["From"] = f"{cfg['sender_name']} <{cfg['gmail_user']}>"
     msg["To"] = to_email
     msg["Subject"] = subject
     msg["Reply-To"] = cfg["gmail_user"]
-
-    # Plain text version
     msg.attach(MIMEText(body, "plain"))
 
     context = ssl.create_default_context()
@@ -425,6 +471,34 @@ def send_email(cfg, to_email, subject, body):
             server.login(cfg["gmail_user"], cfg["gmail_app_password"])
             server.sendmail(cfg["gmail_user"], to_email, msg.as_string())
         return True, None
+    except Exception as e:
+        return False, str(e)
+
+
+def send_via_sendgrid(cfg, to_email, subject, body):
+    """Send via SendGrid API (no SMTP needed)."""
+    try:
+        resp = requests.post(
+            "https://api.sendgrid.com/v3/mail/send",
+            headers={
+                "Authorization": f"Bearer {cfg['sendgrid_api_key']}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "personalizations": [{"to": [{"email": to_email}]}],
+                "from": {
+                    "email": cfg["sender_email"],
+                    "name": cfg["sender_name"],
+                },
+                "subject": subject,
+                "content": [{"type": "text/plain", "value": body}],
+            },
+            timeout=15,
+        )
+        if resp.status_code in (200, 201, 202):
+            return True, None
+        else:
+            return False, f"SendGrid {resp.status_code}: {resp.text[:200]}"
     except Exception as e:
         return False, str(e)
 
@@ -447,8 +521,8 @@ def personalize_subject(template, prospect):
 def send_cold_emails(max_count=None):
     """Send cold emails to new prospects."""
     cfg = load_config()
-    if not cfg.get("gmail_user") or not cfg.get("gmail_app_password"):
-        cfg = setup_gmail()
+    if not cfg.get("method"):
+        cfg = setup_email()
 
     data = load_prospects()
     log = load_email_log()
@@ -533,8 +607,8 @@ def send_cold_emails(max_count=None):
 def send_followups():
     """Send scheduled follow-ups."""
     cfg = load_config()
-    if not cfg.get("gmail_user"):
-        print("  Setup Gmail first (option 5).")
+    if not cfg.get("method"):
+        print("  Setup email first (option 5).")
         return
 
     data = load_prospects()
@@ -900,7 +974,7 @@ def main():
         print("  │  2. Send cold emails                               │")
         print("  │  3. Send follow-ups                                │")
         print("  │  4. Auto-run (find + email + follow-up)            │")
-        print("  │  5. Setup Gmail                                    │")
+        print("  │  5. Setup email (Gmail or SendGrid)                │")
         print("  │  6. Add prospect manually                          │")
         print("  │  7. Add prospects in bulk                          │")
         print("  │  8. View all prospects                             │")
@@ -926,7 +1000,7 @@ def main():
         elif choice == "4":
             auto_run()
         elif choice == "5":
-            setup_gmail()
+            setup_email()
         elif choice == "6":
             add_manual_prospect()
         elif choice == "7":
