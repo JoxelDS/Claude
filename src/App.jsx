@@ -2514,8 +2514,12 @@ function AdminPanel({ currentUser, onBack }) {
   const [addSuccess, setAddSuccess] = useState("");
   const [addLoading, setAddLoading] = useState(false);
 
-  // Load users on mount
-  useEffect(() => { getUsers().then(setUsers); }, []);
+  // Load users on mount + auto-refresh every 10s
+  useEffect(() => {
+    getUsers().then(setUsers);
+    const iv = setInterval(() => { getUsers().then(setUsers); }, 10000);
+    return () => clearInterval(iv);
+  }, []);
 
   async function refresh() { setUsers(await getUsers()); }
 
