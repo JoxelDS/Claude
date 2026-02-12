@@ -98,7 +98,7 @@ router.post(
 );
 
 // ── GET /api/reports ─────────────────────────────────────────────
-// List reports. Inspectors see only their own; admins see all.
+// List reports. All authenticated users see all reports.
 router.get(
   "/",
   [
@@ -113,11 +113,6 @@ router.get(
 
       const snapshot = await ref.get();
       let reports = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-
-      // Inspectors can only see their own reports
-      if (req.user.role === "inspector") {
-        reports = reports.filter((r) => r.createdBy === req.user.id);
-      }
 
       // Optional type filter
       if (req.query.type) {
@@ -155,11 +150,6 @@ router.get(
       }
 
       const report = doc.data();
-
-      // Inspectors can only view their own reports
-      if (req.user.role === "inspector" && report.createdBy !== req.user.id) {
-        return res.status(403).json({ error: "Access denied." });
-      }
 
       res.json({ report: { id: doc.id, ...report } });
     } catch (err) {
