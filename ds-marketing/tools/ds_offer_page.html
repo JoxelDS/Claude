@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DS Marketing — Landing Page Service</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Poppins:wght@600;700;800;900&display=swap" rel="stylesheet">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Inter', sans-serif; background: #000; color: white; -webkit-font-smoothing: antialiased; }
+
+.hero {
+    min-height: 100vh; padding: 60px 24px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;
+    background: radial-gradient(ellipse at top, rgba(255,255,255,0.06) 0%, transparent 50%);
+}
+.badge { padding: 8px 20px; border: 1px solid rgba(255,255,255,0.15); border-radius: 100px; font-size: 12px; font-weight: 600; letter-spacing: 2px; text-transform: uppercase; color: rgba(255,255,255,0.5); margin-bottom: 30px; }
+.hero h1 { font-family: 'Poppins', sans-serif; font-weight: 900; font-size: clamp(36px, 8vw, 56px); line-height: 1.05; letter-spacing: -2px; margin-bottom: 20px; }
+.hero h1 span { color: rgba(255,255,255,0.4); }
+.hero p { font-size: 18px; color: rgba(255,255,255,0.5); max-width: 500px; line-height: 1.6; margin-bottom: 35px; }
+.price-tag { font-family: 'Poppins'; font-weight: 900; font-size: 64px; margin-bottom: 5px; }
+.price-sub { font-size: 14px; color: rgba(255,255,255,0.35); letter-spacing: 1px; margin-bottom: 40px; }
+.cta-btn { display: inline-block; padding: 18px 45px; background: white; color: black; font-weight: 800; font-size: 16px; border-radius: 14px; text-decoration: none; letter-spacing: 1px; text-transform: uppercase; }
+.cta-btn:hover { opacity: 0.9; }
+
+.section { padding: 80px 24px; max-width: 600px; margin: 0 auto; }
+.section-label { font-size: 12px; font-weight: 700; letter-spacing: 4px; text-transform: uppercase; color: rgba(255,255,255,0.3); margin-bottom: 20px; }
+.section h2 { font-family: 'Poppins'; font-weight: 800; font-size: 32px; letter-spacing: -1px; margin-bottom: 30px; }
+
+.checklist { list-style: none; }
+.checklist li { display: flex; align-items: flex-start; gap: 16px; padding: 18px 0; border-bottom: 1px solid rgba(255,255,255,0.06); }
+.checklist li:last-child { border-bottom: none; }
+.check { flex-shrink: 0; width: 28px; height: 28px; border-radius: 8px; background: rgba(255,255,255,0.08); display: flex; align-items: center; justify-content: center; font-size: 14px; }
+.checklist .title { font-weight: 700; font-size: 17px; margin-bottom: 4px; }
+.checklist .desc { font-size: 14px; color: rgba(255,255,255,0.45); line-height: 1.5; }
+
+.process { counter-reset: step; }
+.step { display: flex; gap: 20px; padding: 24px 0; border-bottom: 1px solid rgba(255,255,255,0.06); }
+.step:last-child { border-bottom: none; }
+.step-num { flex-shrink: 0; width: 44px; height: 44px; border-radius: 12px; border: 2px solid rgba(255,255,255,0.15); display: flex; align-items: center; justify-content: center; font-family: 'Poppins'; font-weight: 800; font-size: 18px; }
+.step .title { font-weight: 700; font-size: 17px; margin-bottom: 4px; }
+.step .desc { font-size: 14px; color: rgba(255,255,255,0.45); line-height: 1.5; }
+
+.guarantee { padding: 40px 24px; margin: 0 24px; border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; text-align: center; background: rgba(255,255,255,0.02); }
+.guarantee h3 { font-family: 'Poppins'; font-weight: 800; font-size: 24px; margin-bottom: 12px; }
+.guarantee p { color: rgba(255,255,255,0.5); font-size: 15px; line-height: 1.6; }
+
+.final-cta { padding: 80px 24px; text-align: center; }
+.final-cta h2 { font-family: 'Poppins'; font-weight: 900; font-size: 36px; letter-spacing: -1px; margin-bottom: 15px; }
+.final-cta p { color: rgba(255,255,255,0.4); font-size: 16px; margin-bottom: 30px; }
+
+.footer { padding: 40px 24px; text-align: center; border-top: 1px solid rgba(255,255,255,0.06); }
+.footer .brand { font-family: 'Poppins'; font-weight: 900; font-size: 24px; margin-bottom: 8px; }
+.footer .handle { font-size: 15px; color: rgba(255,255,255,0.4); margin-bottom: 4px; }
+.footer .site { font-size: 13px; color: rgba(255,255,255,0.25); }
+
+.divider { width: 60px; height: 2px; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent); margin: 0 auto; }
+</style>
+</head>
+<body>
+
+<div class="hero">
+    <div class="badge">Limited Availability</div>
+    <h1>A Landing Page<br>That <span>Actually</span><br>Converts</h1>
+    <p>Custom-designed, mobile-responsive landing pages for Miami businesses. Delivered in 24 hours.</p>
+    <div class="price-tag">$300</div>
+    <div class="price-sub">FLAT FEE — NO MONTHLY CHARGES</div>
+    <a href="https://instagram.com/dsmarketing.agency" class="cta-btn">Get Started Today</a>
+</div>
+
+<div class="section">
+    <div class="section-label">What's Included</div>
+    <h2>Everything you need. Nothing you don't.</h2>
+    <ul class="checklist">
+        <li>
+            <div class="check">&#10003;</div>
+            <div><div class="title">Custom Design</div><div class="desc">Matching your brand colors, fonts, and style. Not a generic template.</div></div>
+        </li>
+        <li>
+            <div class="check">&#10003;</div>
+            <div><div class="title">Professional Copywriting</div><div class="desc">Words that sell. Headlines, descriptions, and calls-to-action written for you.</div></div>
+        </li>
+        <li>
+            <div class="check">&#10003;</div>
+            <div><div class="title">Mobile Responsive</div><div class="desc">85% of your customers browse on their phone. Your page will look perfect on every device.</div></div>
+        </li>
+        <li>
+            <div class="check">&#10003;</div>
+            <div><div class="title">Contact Form or Booking</div><div class="desc">Capture leads, take bookings, or connect to your scheduling tool.</div></div>
+        </li>
+        <li>
+            <div class="check">&#10003;</div>
+            <div><div class="title">Hosted & Live</div><div class="desc">Your page goes live on a real domain. No extra hosting costs.</div></div>
+        </li>
+        <li>
+            <div class="check">&#10003;</div>
+            <div><div class="title">SEO Optimized</div><div class="desc">Show up on Google when customers search for your service in Miami.</div></div>
+        </li>
+        <li>
+            <div class="check">&#10003;</div>
+            <div><div class="title">1 Round of Revisions</div><div class="desc">Not happy with something? I'll adjust it until you love it.</div></div>
+        </li>
+    </ul>
+</div>
+
+<div class="divider"></div>
+
+<div class="section">
+    <div class="section-label">How It Works</div>
+    <h2>3 steps. That's it.</h2>
+    <div class="process">
+        <div class="step">
+            <div class="step-num">1</div>
+            <div><div class="title">Send me your info</div><div class="desc">Your logo, brand colors, and what you want the page to do (get bookings, collect leads, sell a product).</div></div>
+        </div>
+        <div class="step">
+            <div class="step-num">2</div>
+            <div><div class="title">I build it in 24 hours</div><div class="desc">You get a first draft within 24 hours. Professional design, real copy, fully functional.</div></div>
+        </div>
+        <div class="step">
+            <div class="step-num">3</div>
+            <div><div class="title">Review & go live</div><div class="desc">Request any changes, I make them same day. Then we launch. You start getting customers.</div></div>
+        </div>
+    </div>
+</div>
+
+<div class="divider"></div>
+
+<div class="section">
+    <div class="guarantee">
+        <h3>100% Satisfaction Guarantee</h3>
+        <p>If you don't love your landing page, I'll revise it until you do — or refund your money. Zero risk.</p>
+    </div>
+</div>
+
+<div class="section" style="text-align:center;">
+    <div class="section-label">The Reality</div>
+    <h2>You're losing customers every day without a landing page.</h2>
+    <p style="color:rgba(255,255,255,0.45); line-height:1.7; font-size:16px; margin-top:15px;">
+        When someone finds you on Instagram and wants to learn more —
+        where do they go? If the answer isn't a professional landing page,
+        you're leaving money on the table.<br><br>
+        <strong style="color:white;">Fix it in 24 hours for $300.</strong>
+    </p>
+</div>
+
+<div class="final-cta">
+    <h2>Ready to start?</h2>
+    <p>DM me on Instagram or text me directly.</p>
+    <a href="https://instagram.com/dsmarketing.agency" class="cta-btn">DM @dsmarketing.agency</a>
+</div>
+
+<div class="footer">
+    <div class="brand">DS Marketing</div>
+    <div class="handle">@dsmarketing.agency</div>
+    <div class="site">Miami, FL</div>
+</div>
+
+</body>
+</html>
