@@ -8,6 +8,7 @@ import {
   apiLogin, apiRegister, apiLogout, apiGetMe,
   apiGetUsers, apiApproveUser, apiDenyUser,
   apiChangeRole, apiDeleteUser, apiAddUser,
+  apiGetReports, apiCreateReport, apiDeleteReport, apiClearAllReports,
   tryRestoreSession, hasActiveToken,
 } from "./api.js";
 
@@ -194,6 +195,14 @@ let _cryptoKey = null;
 let _currentUser = null;
 
 async function loadHistory() {
+  // Server-backed: fetch from API (shared across all devices)
+  if (await isServerUp()) {
+    try {
+      const reports = await apiGetReports();
+      reports.sort((a, b) => (b.savedAt || b.createdAt || "").localeCompare(a.savedAt || a.createdAt || ""));
+      return reports;
+    } catch { /* fall through */ }
+  }
   if (FIREBASE_ON) {
     try {
       const snap = await getDocs(collection(db, "inspections"));
@@ -222,6 +231,12 @@ async function saveHistory(records) {
 }
 
 async function saveOneInspection(record) {
+  // Server-backed: create via API (shared across all devices)
+  if (await isServerUp()) {
+    const result = await apiCreateReport(record);
+    if (result.ok) return;
+    // fall through to other methods if server save fails
+  }
   if (FIREBASE_ON) {
     try { await setDoc(doc(db, "inspections", record.id), record); } catch {}
     return;
@@ -233,6 +248,10 @@ async function saveOneInspection(record) {
 }
 
 async function deleteOneInspection(id) {
+  // Server-backed: delete via API
+  if (await isServerUp()) {
+    try { await apiDeleteReport(id); return; } catch { /* fall through */ }
+  }
   if (FIREBASE_ON) {
     try { await deleteDoc(doc(db, "inspections", id)); } catch {}
     return;
@@ -242,6 +261,16 @@ async function deleteOneInspection(id) {
 }
 
 async function clearAllInspections() {
+  // Server-backed: delete all via API
+  if (await isServerUp()) {
+    try {
+      const reports = await apiGetReports();
+      if (reports.length > 0) {
+        await apiClearAllReports(reports.map(r => r.id));
+      }
+      return;
+    } catch { /* fall through */ }
+  }
   if (FIREBASE_ON) {
     try {
       const snap = await getDocs(collection(db, "inspections"));
@@ -2555,7 +2584,7 @@ function HistoryPage({ onBack }) {
 
       <footer className="footer">
         <img src={LOGO_WHITE} alt="Sodexo" className="footerLogo" />
-        <span>{FIREBASE_ON ? "\u2601\uFE0F Inspection history synced to cloud database." : "Inspection history is stored locally in your browser."}</span>
+        <span>{(_serverAvailable || FIREBASE_ON) ? "\u2601\uFE0F Inspection history synced to cloud — shared across all devices." : "Inspection history is stored locally in your browser."}</span>
       </footer>
     </div>
   );
@@ -3529,7 +3558,7 @@ export default function App() {
 
       <footer className="footer">
         <img src={LOGO_WHITE} alt="Sodexo" className="footerLogo" />
-        <span>{FIREBASE_ON ? "\u2601\uFE0F Cloud database connected \u2014 data syncs across all devices." : "\U0001F512 Data stored locally on this device."}</span>
+        <span>{(_serverAvailable || FIREBASE_ON) ? "\u2601\uFE0F Cloud database connected \u2014 data syncs across all devices." : "\U0001F512 Data stored locally on this device."}</span>
       </footer>
     </div>
   );

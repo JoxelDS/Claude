@@ -166,6 +166,39 @@ export async function apiAddUser(badge, name, department, role) {
   return { ok: true, user: data.user };
 }
 
+// ── Report endpoints ─────────────────────────────────────
+
+export async function apiGetReports() {
+  const res = await authFetch(`${API_BASE}/reports?limit=100`);
+  if (!res.ok) return [];
+  const data = await res.json();
+  return data.reports || [];
+}
+
+export async function apiCreateReport(report) {
+  const res = await authFetch(`${API_BASE}/reports`, {
+    method: "POST",
+    body: JSON.stringify(report),
+  });
+  if (!res.ok) return { ok: false };
+  const data = await res.json();
+  return { ok: true, report: data.report };
+}
+
+export async function apiDeleteReport(id) {
+  const res = await authFetch(`${API_BASE}/reports/${id}`, {
+    method: "DELETE",
+  });
+  return res.ok;
+}
+
+export async function apiClearAllReports(reportIds) {
+  const results = await Promise.allSettled(
+    reportIds.map(id => authFetch(`${API_BASE}/reports/${id}`, { method: "DELETE" }))
+  );
+  return results.every(r => r.status === "fulfilled" && r.value.ok);
+}
+
 // ── Session restore ───────────────────────────────────────
 
 export async function tryRestoreSession() {
