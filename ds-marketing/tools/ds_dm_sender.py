@@ -53,41 +53,47 @@ MIAMI_HASHTAGS = [
 DM_TEMPLATES = [
     """Hey! I came across your page and love what you're doing 🔥
 
-Quick question — do you have a landing page for your business? I noticed a lot of Miami businesses are missing out on customers because they don't have one.
+Quick question — do you have a website or landing page? I build high-converting sites for Miami businesses.
 
-I build custom landing pages for $300, delivered in 24 hours. Everything included — design, copywriting, mobile-friendly, hosted.
+Check out my work: dsmarketing.lovable.app
 
-Would you be open to seeing what yours could look like? I can put together a free mockup!
+$300 flat, delivered in 24 hours. Design, copywriting, mobile-friendly — everything included.
+
+Want me to show you what yours could look like?
 
 — Joxel, DS Marketing
 @dsmarketing.agency""",
 
     """Hey! Your page looks great 🙌
 
-I help Miami businesses get more customers with professional landing pages. Most of my clients see results within the first week.
+I help Miami businesses get more customers with professional websites and landing pages. My clients see results within the first week.
 
-$300 flat — custom design, mobile responsive, delivered in 24 hours. No monthly fees.
+See examples of my work here: dsmarketing.lovable.app
 
-Want me to show you what I could build for you? I'll do a free mockup, no strings attached.
+$300 flat — no monthly fees. Delivered in 24 hours.
+
+Want a free mockup? No strings attached.
 
 — Joxel, DS Marketing""",
 
     """Hey! Love your content 🔥
 
-Quick one — I'm a web designer based in Miami and I'm taking on 2 more landing page projects this week at my launch price of $300.
+I'm a web designer in Miami and I'm taking on 2 more projects this week at my launch price of $300.
 
-Custom design, professional copy, mobile-friendly, live in 24 hours. No templates — everything built from scratch for your brand.
+Custom design, professional copy, mobile-friendly, live in 24 hours. Check my portfolio: dsmarketing.lovable.app
 
-Interested? I can put together a quick preview for you!
+Interested? I can build a preview for you today!
 
 — Joxel
 @dsmarketing.agency""",
 
-    """Hey! Found your page and had to reach out 🙌
+    """Hey! Had to reach out 🙌
 
-A lot of businesses like yours are losing customers because they don't have a proper landing page. When someone wants to learn more, where do they go?
+A lot of businesses like yours are losing customers because people can't find you online. When someone wants to learn more — where do they go?
 
-I fix that. $300, 24 hours, custom built for your brand. Check out what I do: dsmarketing.lovable.app
+I fix that. $300, 24 hours, built for YOUR brand.
+
+See what I do: dsmarketing.lovable.app
 
 Want me to show you what yours could look like?
 
@@ -95,11 +101,11 @@ Want me to show you what yours could look like?
 
     """Hey! Your business looks awesome 🔥
 
-I build landing pages for Miami businesses — professional design, copywriting included, mobile-friendly, live in 24 hours.
+I noticed you might not have a website yet — I build professional sites for Miami businesses that actually convert visitors into customers.
 
-$300 flat, no hidden fees, no monthly charges.
+Portfolio + booking: dsmarketing.lovable.app
 
-Would it help if I showed you a quick mockup? Takes me 10 minutes and it's completely free.
+$300 flat, no hidden fees. Live in 24 hours. Want a free mockup?
 
 — Joxel
 @dsmarketing.agency""",
