@@ -86,7 +86,10 @@ async function decryptData(stored, key) {
     const { iv, ct } = JSON.parse(stored);
     const plaintext = await crypto.subtle.decrypt({ name: "AES-GCM", iv: new Uint8Array(iv) }, key, new Uint8Array(ct));
     return JSON.parse(new TextDecoder().decode(plaintext));
-  } catch { return []; }
+  } catch (e) {
+    console.error("Decryption failed — stored data may be corrupted:", e);
+    return { _decryptError: true };
+  }
 }
 
 async function getMasterKey() {
@@ -179,7 +182,9 @@ async function loadHistory() {
   }
   if (!_cryptoKey) return [];
   const stored = localStorage.getItem(DATA_KEY);
-  return decryptData(stored, _cryptoKey);
+  const result = await decryptData(stored, _cryptoKey);
+  if (result && result._decryptError) return [];
+  return result;
 }
 
 async function saveHistory(records) {
@@ -202,7 +207,15 @@ async function saveOneInspection(record) {
     return;
   }
   // localStorage: load all, prepend, save all
-  const history = await loadHistory();
+  // Guard: if decryption failed, don't overwrite existing data with just the new record
+  if (!_cryptoKey) return;
+  const stored = localStorage.getItem(DATA_KEY);
+  const existing = await decryptData(stored, _cryptoKey);
+  if (existing && existing._decryptError) {
+    console.error("Cannot save — existing data could not be decrypted. Refusing to overwrite.");
+    throw new Error("Save blocked — existing history could not be read. Your previous reports are still stored safely.");
+  }
+  const history = Array.isArray(existing) ? existing : [];
   history.unshift(record);
   await saveHistory(history);
 }
@@ -2228,7 +2241,14 @@ function HistoryPage({ onBack }) {
   const [historyTab, setHistoryTab] = useState("reports"); // "reports" | "analytics"
 
   useEffect(() => {
-    loadHistory().then(h => { setHistory(h); setHistoryLoaded(true); });
+    loadHistory().then(h => {
+      console.log(`[History] Loaded ${h.length} report(s)`);
+      setHistory(h);
+      setHistoryLoaded(true);
+    }).catch(e => {
+      console.error("[History] Failed to load:", e);
+      setHistoryLoaded(true);
+    });
   }, []);
 
   const issueTypes = useMemo(() => {

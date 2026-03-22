@@ -1901,7 +1901,10 @@ datalist {
   .topBarSpacer { height: 56px; }
   .brandLogo { height: 22px; }
   .brandTitle { font-size: 0.85rem; }
-  .btnGenHeader { padding: 7px 12px; font-size: 0.75rem; }
+  .brandSub { display: none; }
+  .topActionsHamburger { gap: 6px; flex-shrink: 1; min-width: 0; }
+  .btnShare { padding: 6px 10px; font-size: 0.72rem; }
+  .btnGenHeader { padding: 7px 10px; font-size: 0.72rem; }
   .btnAdmin { padding: 9px 14px; font-size: 0.78rem; }
   .btnLock { padding: 8px 12px; font-size: 1rem; }
 
