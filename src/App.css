@@ -308,6 +308,7 @@ body {
 .btnSmall {
   padding: 7px 14px;
   font-size: 0.82rem;
+  white-space: nowrap;
 }
 
 /* Card-level ghost buttons (dark text) */
@@ -2603,11 +2604,6 @@ datalist {
   color: #374151;
   background: #fff;
   min-width: 0;
-}
-.btnSmall {
-  padding: 8px 14px;
-  font-size: 0.78rem;
-  white-space: nowrap;
 }
 .earlyShareBtn {
   width: 100%;
