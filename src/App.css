@@ -2771,3 +2771,113 @@ datalist {
   background: #dbeafe;
   color: #1d4ed8;
 }
+
+/* ── Interview Notes Section ─────────────────────── */
+.interviewSection {
+  margin-top: 16px;
+  margin-bottom: 16px;
+  border: 1px solid var(--sdx-gray-200);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.interviewSectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: var(--sdx-gray-50);
+  cursor: pointer;
+  user-select: none;
+  transition: background var(--transition);
+}
+.interviewSectionHeader:hover {
+  background: var(--sdx-gray-100);
+}
+.interviewSectionTitle {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--sdx-navy);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.interviewCount {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 10px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  background: var(--sdx-red);
+  color: white;
+}
+.interviewToggle {
+  font-size: 0.7rem;
+  color: var(--sdx-gray-400);
+}
+.interviewEntries {
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.interviewEmpty {
+  font-size: 0.82rem;
+  color: var(--sdx-gray-400);
+  font-style: italic;
+  text-align: center;
+  padding: 8px 0;
+}
+.interviewCard {
+  background: var(--sdx-white);
+  border: 1px solid var(--sdx-gray-200);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: border-color var(--transition);
+}
+.interviewCard:hover {
+  border-color: var(--sdx-gray-300);
+}
+.interviewCardHead {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.interviewCardFields {
+  display: flex;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+.interviewCardFields .input {
+  flex: 1;
+  min-width: 0;
+}
+.interviewRemoveBtn {
+  flex-shrink: 0;
+  font-size: 1.1rem;
+  line-height: 1;
+  padding: 2px 8px;
+  color: var(--sdx-gray-400);
+}
+.interviewRemoveBtn:hover {
+  color: var(--sdx-red);
+}
+.textareaSmall {
+  font-size: 0.82rem;
+  min-height: 40px;
+  resize: vertical;
+}
+.interviewAddBtn {
+  align-self: flex-start;
+  color: var(--sdx-blue);
+  font-weight: 600;
+}

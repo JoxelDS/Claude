@@ -719,6 +719,18 @@ function formatNotesText(rawNotes) {
   return lines.join("\n").trim() || rawNotes || "";
 }
 
+function formatInterviewNotes(interviewNotes) {
+  if (!interviewNotes || !interviewNotes.length) return "";
+  const filled = interviewNotes.filter((n) => n.name?.trim() || n.keyPoints?.trim());
+  if (!filled.length) return "";
+  return filled.map((n) => {
+    const lines = [`**${n.name || "Unnamed"}**${n.role ? ` (${n.role})` : ""}`];
+    if (n.keyPoints?.trim()) lines.push(`  Key points: ${n.keyPoints.trim()}`);
+    if (n.followUps?.trim()) lines.push(`  Follow-ups: ${n.followUps.trim()}`);
+    return lines.join("\n");
+  }).join("\n\n");
+}
+
 function cx(...classes) {
   return classes.filter(Boolean).join(" ");
 }
@@ -761,6 +773,7 @@ function buildDefaultInspection() {
       threeCompSink: withPhotos({ status: "OK", notes: "" }),
       ecolab: withPhotos({ status: "OK", notes: "" }),
     },
+    interviewNotes: [],
   };
 }
 
@@ -1052,16 +1065,18 @@ function emailPreview({ noteType, context, inspection, rawNotes, inspectionType,
   const findingsText = findings.length ? findings.join("\n") : "- No exceptions noted from checklist/temps.";
   const critical = actionItems.filter((a) => a.priority === "High").map((a) => `- ${a.issue}${a.photos?.length ? ` (Photo ${a.photos.join(", ")})` : ""}`).join("\n");
   const criticalText = critical || (inspectionType === "Event Day" ? "- No critical blockers identified for service." : "- No critical issues flagged.");
-  return [
+  const interviewText = formatInterviewNotes(inspection?.interviewNotes);
+  const sections = [
     subject, "", `Hi team,`, "", playbook.opening, "",
     `## ${playbook.headline} — Snapshot`, snapshotLines, "",
     `## Context (from sit-down notes)`, ctxLines || "- —", "",
     `## Critical Risks`, criticalText, "",
     `## Findings by Area`, findingsText, "",
     `## Corrective Actions (please assign Owner + Due)`, tableMarkdown(actionItems), "",
-    `## Photo Index`, photoIndex, "",
-    `## Inspector Notes (organized)`, formatNotesText(rawNotes) || "—",
-  ].join("\n");
+  ];
+  if (interviewText) sections.push(`## Interview Notes`, interviewText, "");
+  sections.push(`## Photo Index`, photoIndex, "", `## Inspector Notes (organized)`, formatNotesText(rawNotes) || "—");
+  return sections.join("\n");
 }
 
 /* ── Local Transform (no backend needed) ─────────────────── */
@@ -1091,6 +1106,8 @@ function transformLocally({ noteType, useCase, context, inspection, rawNotes, in
     } else {
       lines.push("No corrective actions needed.");
     }
+    const ivText = formatInterviewNotes(inspection?.interviewNotes);
+    if (ivText) { lines.push("", `*Interview Notes:*`, ivText); }
     return lines.join("\n");
   }
 
@@ -1125,6 +1142,8 @@ function transformLocally({ noteType, useCase, context, inspection, rawNotes, in
     addFinding("3-compartment sink", inspection?.equipment?.threeCompSink);
     addFinding("Ecolab / chemicals", inspection?.equipment?.ecolab);
     if (lines[lines.length - 1] === "## Findings") lines.push("- All areas OK.");
+    const ivText = formatInterviewNotes(inspection?.interviewNotes);
+    if (ivText) { lines.push("", "## Interview Notes", ivText); }
     lines.push("", "## Action Items");
     if (actionItems.length) {
       lines.push(tableMarkdown(actionItems));
@@ -1183,6 +1202,8 @@ function transformLocally({ noteType, useCase, context, inspection, rawNotes, in
     lines.push("", `--- ACTION ITEMS (${actionItems.length}) ---`);
     for (const a of actionItems) lines.push(`  [${a.priority}] ${a.issue}`);
     if (!actionItems.length) lines.push("  None.");
+    const ivText = formatInterviewNotes(inspection?.interviewNotes);
+    if (ivText) { lines.push("", `--- INTERVIEW NOTES ---`, ivText); }
     lines.push("", `--- INSPECTOR NOTES ---`, formatNotesText(rawNotes));
     return lines.join("\n");
   }
@@ -2847,6 +2868,69 @@ function PhotoStrip({ photos, onRemove }) {
   );
 }
 
+/* ── Interview Notes Section ───────────────────────────────── */
+function InterviewNotesSection({ inspection, setInspection }) {
+  const [collapsed, setCollapsed] = useState(true);
+  const notes = inspection.interviewNotes || [];
+
+  function addEntry() {
+    setInspection((prev) => ({
+      ...prev,
+      interviewNotes: [...(prev.interviewNotes || []), { id: `iv_${Date.now()}`, name: "", role: "", keyPoints: "", followUps: "" }],
+    }));
+    setCollapsed(false);
+  }
+
+  function updateEntry(id, field, value) {
+    setInspection((prev) => ({
+      ...prev,
+      interviewNotes: (prev.interviewNotes || []).map((e) => (e.id === id ? { ...e, [field]: value } : e)),
+    }));
+  }
+
+  function removeEntry(id) {
+    setInspection((prev) => ({
+      ...prev,
+      interviewNotes: (prev.interviewNotes || []).filter((e) => e.id !== id),
+    }));
+  }
+
+  const filledCount = notes.filter((n) => n.name.trim() || n.keyPoints.trim()).length;
+
+  return (
+    <div className="interviewSection">
+      <div className="interviewSectionHeader" onClick={() => setCollapsed(!collapsed)}>
+        <div className="interviewSectionTitle">
+          Interview Notes
+          {filledCount > 0 && <span className="interviewCount">{filledCount}</span>}
+        </div>
+        <span className="interviewToggle">{collapsed ? "\u25B6" : "\u25BC"}</span>
+      </div>
+      {!collapsed && (
+        <div className="interviewEntries">
+          {notes.length === 0 && (
+            <div className="interviewEmpty">No interviews recorded yet. Click below to add one.</div>
+          )}
+          {notes.map((entry) => (
+            <div className="interviewCard" key={entry.id}>
+              <div className="interviewCardHead">
+                <div className="interviewCardFields">
+                  <input className="input inputSmall" value={entry.name} onChange={(e) => updateEntry(entry.id, "name", e.target.value)} placeholder="Person interviewed" />
+                  <input className="input inputSmall" value={entry.role} onChange={(e) => updateEntry(entry.id, "role", e.target.value)} placeholder="Role (e.g., Chef Lead)" />
+                </div>
+                <button className="btn btnGhost btnSmall interviewRemoveBtn" type="button" onClick={() => removeEntry(entry.id)} title="Remove">&times;</button>
+              </div>
+              <textarea className="textarea textareaSmall" value={entry.keyPoints} onChange={(e) => updateEntry(entry.id, "keyPoints", e.target.value)} placeholder="Key points discussed..." rows={3} />
+              <textarea className="textarea textareaSmall" value={entry.followUps} onChange={(e) => updateEntry(entry.id, "followUps", e.target.value)} placeholder="Follow-up actions or commitments..." rows={2} />
+            </div>
+          ))}
+          <button className="btn btnGhost btnSmall interviewAddBtn" type="button" onClick={addEntry}>+ Add Interview</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function GuideSection({ title, items, inspection, setInspection, allowCustom, sectionKey, coldEquipmentMap }) {
   const fileRefs = useRef({});
   const [newItemName, setNewItemName] = useState("");
@@ -3853,6 +3937,8 @@ function InspectorApp() {
                   { path: ["equipment", "ecolab"], label: "Ecolab / chemicals" },
                 ]} inspection={inspection} setInspection={setInspection}
                 allowCustom sectionKey="equipment" coldEquipmentMap={COLD_EQUIPMENT} />
+
+              <InterviewNotesSection inspection={inspection} setInspection={setInspection} />
             </div>
 
             <div className="field">
