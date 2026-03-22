@@ -2836,6 +2836,56 @@ function GuideSection({ title, items, inspection, setInspection, allowCustom, se
   );
 }
 
+/* ── Share / QR helpers ─────────────────────────────────── */
+function buildShareUrl({ inspectorName, siteName, siteNumber, supervisorName, sitePhone, inspectionType, inspectionDate }) {
+  const base = window.location.origin + window.location.pathname;
+  const params = new URLSearchParams();
+  if (inspectorName)  params.set("inspector", inspectorName);
+  if (siteName)       params.set("site", siteName);
+  if (siteNumber)     params.set("unit", siteNumber);
+  if (supervisorName) params.set("supervisor", supervisorName);
+  if (sitePhone)      params.set("phone", sitePhone);
+  if (inspectionType) params.set("type", inspectionType);
+  if (inspectionDate) params.set("date", inspectionDate);
+  return `${base}?${params.toString()}`;
+}
+function qrSrc(url) {
+  return `https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=8&data=${encodeURIComponent(url)}`;
+}
+function ShareModal({ shareUrl, onClose }) {
+  const [copied, setCopied] = useState(false);
+  function copyLink() {
+    navigator.clipboard.writeText(shareUrl).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }
+  return (
+    <div className="modalOverlay" onClick={onClose}>
+      <div className="modalBox" onClick={(e) => e.stopPropagation()}>
+        <div className="modalHeader">
+          <span>Share Inspection Link</span>
+          <button className="modalClose" onClick={onClose} type="button">✕</button>
+        </div>
+        <div className="modalBody">
+          <div className="qrWrap">
+            <img className="qrImg" src={qrSrc(shareUrl)} alt="QR code" width={220} height={220} />
+          </div>
+          <p style={{ textAlign: "center", margin: "10px 0 14px", fontSize: "0.82rem", color: "#6b7280" }}>
+            Staff scan this QR to open the pre-filled form
+          </p>
+          <div className="shareUrlRow">
+            <input className="input shareUrlInput" readOnly value={shareUrl} onFocus={(e) => e.target.select()} />
+            <button className="btn btnPrimary" type="button" onClick={copyLink}>
+              {copied ? "Copied!" : "Copy link"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const [locked, setLocked] = useState(true);
   const [currentUser, setCurrentUser] = useState(null);
@@ -2912,6 +2962,7 @@ export default function App() {
   const [floor, setFloor] = useState("Floor 1");
 
   const [menuOpen, setMenuOpen] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
 
   const [output, setOutput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -2938,6 +2989,20 @@ export default function App() {
       clearInterval(timer);
     };
   }, [locked, resetActivity]);
+
+  // Pre-fill form from share URL params (runs once on mount)
+  useEffect(() => {
+    const p = new URLSearchParams(window.location.search);
+    if (p.has("inspector")) setInspectorName(p.get("inspector"));
+    if (p.has("site"))      setSiteName(p.get("site"));
+    if (p.has("unit"))      setSiteNumber(p.get("unit"));
+    if (p.has("supervisor")) setSupervisorName(p.get("supervisor"));
+    if (p.has("phone"))     setSitePhone(p.get("phone"));
+    if (p.has("type"))      setInspectionType(p.get("type"));
+    if (p.has("date"))      setInspectionDate(p.get("date"));
+    // Clean URL without reloading
+    if (p.toString()) window.history.replaceState({}, "", window.location.pathname);
+  }, []);
 
   // Warn before leaving with unsaved work
   useEffect(() => {
@@ -3007,6 +3072,12 @@ export default function App() {
     setWarnings([]);
     setAiTips([]);
   }
+
+  const canShare = inspectorName.trim().length > 0 && siteName.trim().length > 0;
+  const shareUrl = useMemo(
+    () => buildShareUrl({ inspectorName, siteName, siteNumber, supervisorName, sitePhone, inspectionType, inspectionDate }),
+    [inspectorName, siteName, siteNumber, supervisorName, sitePhone, inspectionType, inspectionDate]
+  );
 
   function onTransform() {
     setError("");
@@ -3126,8 +3197,13 @@ export default function App() {
           </div>
         </div>
 
-        {/* Header actions: Generate + Hamburger */}
+        {/* Header actions: Share + Generate + Hamburger */}
         <div className="topActionsHamburger">
+          {canShare && (
+            <button className="btn btnShare" type="button" onClick={() => setShowShareModal(true)} title="Share pre-filled form link">
+              📤 Share
+            </button>
+          )}
           <button className={cx("btn", "btnPrimary", "btnGenHeader")} onClick={onTransform} type="button" disabled={loading}>
             {loading ? "Generating..." : "Generate Report"}
           </button>
@@ -3458,6 +3534,10 @@ export default function App() {
         <img src={LOGO_WHITE} alt="Sodexo" className="footerLogo" />
         <span>{FIREBASE_ON ? "\u2601\uFE0F Cloud database connected \u2014 data syncs across all devices." : "\U0001F512 Data stored locally on this device."}</span>
       </footer>
+
+      {showShareModal && (
+        <ShareModal shareUrl={shareUrl} onClose={() => setShowShareModal(false)} />
+      )}
     </div>
   );
 }

@@ -77,6 +77,9 @@ body {
   display: flex;
   align-items: center;
   gap: 14px;
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
 }
 .brandClickable {
   cursor: pointer;
@@ -117,11 +120,17 @@ body {
   font-size: 1.1rem;
   font-weight: 700;
   letter-spacing: -0.3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .brandSub {
   font-size: 0.75rem;
   opacity: 0.7;
   margin-top: 1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .topActions {
@@ -134,6 +143,7 @@ body {
   display: flex;
   align-items: center;
   gap: 10px;
+  flex-shrink: 0;
 }
 .btnGenHeader {
   padding: 9px 20px;
@@ -1773,6 +1783,11 @@ body {
   .rptSectionCell { font-size: 0.72rem; }
 }
 
+/* ── Hide long subtitle before it crowds the header buttons ── */
+@media (max-width: 900px) {
+  .brandSub { display: none; }
+}
+
 /* ── iPad Portrait / Small Tablet (601–768px) ─────────── */
 @media (max-width: 768px) {
   .topBar {
@@ -2416,4 +2431,96 @@ body {
   .worstLocation { padding: 8px 10px; }
   .recurringKitchens { gap: 4px; }
   .recurringKitchenTag { font-size: 0.68rem; padding: 2px 7px; }
+}
+
+/* ── Share / QR Modal ───────────────────────────────────── */
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 500;
+  padding: 16px;
+}
+.modalBox {
+  background: #fff;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 420px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.modalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid #e5e7eb;
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--sdx-navy);
+}
+.modalClose {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1.1rem;
+  color: #6b7280;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: background 0.15s, color 0.15s;
+  line-height: 1;
+}
+.modalClose:hover { background: #f3f4f6; color: #1e293b; }
+.modalBody {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.qrWrap {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 14px;
+  display: inline-flex;
+}
+.qrImg {
+  display: block;
+  border-radius: 6px;
+}
+.shareUrlRow {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+  margin-top: 14px;
+}
+.shareUrlInput {
+  flex: 1;
+  font-size: 0.8rem;
+  color: #374151;
+  background: #f9fafb;
+  min-width: 0;
+}
+.btnShare {
+  padding: 9px 16px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  white-space: nowrap;
+  background: rgba(255,255,255,0.15);
+  border: 1px solid rgba(255,255,255,0.35);
+  color: white;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.btnShare:hover { background: rgba(255,255,255,0.25); }
+@media (max-width: 480px) {
+  .modalBox { max-width: 100%; border-radius: 12px; }
+  .shareUrlRow { flex-direction: column; }
+  .shareUrlRow .btn { width: 100%; justify-content: center; }
 }
