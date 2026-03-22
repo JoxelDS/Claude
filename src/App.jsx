@@ -102,6 +102,23 @@ async function getMasterKey() {
   return deriveKey("sdx_master_" + secret);
 }
 
+async function tryRecoverWithSecret(oldSecret) {
+  const stored = localStorage.getItem(DATA_KEY);
+  if (!stored) return null;
+  try {
+    const key = await deriveKey("sdx_master_" + oldSecret);
+    const result = await decryptData(stored, key);
+    if (result && result._decryptError) return null;
+    return result;
+  } catch { return null; }
+}
+
+async function reEncryptHistory(records) {
+  if (!_cryptoKey) return;
+  const encrypted = await encryptData(records, _cryptoKey);
+  localStorage.setItem(DATA_KEY, encrypted);
+}
+
 /* ══════════════════════════════════════════════════════════
    Storage Layer — Firestore (cloud) or localStorage (local)
    ══════════════════════════════════════════════════════════ */
@@ -2239,15 +2256,26 @@ function HistoryPage({ onBack }) {
   const [expandedId, setExpandedId] = useState(null);
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const [historyTab, setHistoryTab] = useState("reports"); // "reports" | "analytics"
+  const [showRecovery, setShowRecovery] = useState(false);
+  const [recoverySecret, setRecoverySecret] = useState("");
+  const [recoveryStatus, setRecoveryStatus] = useState("");
+  const [hasEncryptedData, setHasEncryptedData] = useState(false);
 
   useEffect(() => {
     loadHistory().then(h => {
       console.log(`[History] Loaded ${h.length} report(s)`);
       setHistory(h);
       setHistoryLoaded(true);
+      // Check if there's encrypted data but we couldn't read any reports
+      if (h.length === 0 && !FIREBASE_ON && localStorage.getItem(DATA_KEY)) {
+        setHasEncryptedData(true);
+      }
     }).catch(e => {
       console.error("[History] Failed to load:", e);
       setHistoryLoaded(true);
+      if (!FIREBASE_ON && localStorage.getItem(DATA_KEY)) {
+        setHasEncryptedData(true);
+      }
     });
   }, []);
 
@@ -2402,6 +2430,60 @@ function HistoryPage({ onBack }) {
             <TempTrendChart history={filtered.length > 0 ? filtered : history} />
             <RecurringIssuesPanel history={filtered.length > 0 ? filtered : history} onLocationClick={filterByLocation} />
           </>
+        )}
+
+        {/* Data Recovery Banner */}
+        {hasEncryptedData && history.length === 0 && (
+          <div className="card" style={{ marginBottom: 16 }}>
+            <div className="cardBody" style={{ padding: 20 }}>
+              <div style={{ color: "#92400e", background: "#fffbeb", border: "1px solid #fcd34d", borderRadius: 10, padding: 16 }}>
+                <strong>Encrypted reports found</strong>
+                <p style={{ margin: "8px 0 0", fontSize: "0.85rem", color: "#78350f" }}>
+                  There are saved reports on this device but they can't be decrypted with the current key.
+                  This happens when the device secret changes. If you have the old device secret, you can recover them.
+                </p>
+                {!showRecovery ? (
+                  <button className="btn btnPrimary" type="button" style={{ marginTop: 12 }}
+                    onClick={() => setShowRecovery(true)}>
+                    Recover Reports
+                  </button>
+                ) : (
+                  <div style={{ marginTop: 12 }}>
+                    <p style={{ fontSize: "0.78rem", color: "#78350f", marginBottom: 8 }}>
+                      Open browser DevTools (F12) → Console → type: <code style={{ background: "#fef3c7", padding: "2px 4px", borderRadius: 3 }}>localStorage.getItem("sdx_device_secret")</code> on the old session, or check if you have it saved.
+                    </p>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <input className="input" value={recoverySecret} onChange={(e) => setRecoverySecret(e.target.value)}
+                        placeholder="Paste old device secret here..." style={{ flex: 1 }} />
+                      <button className="btn btnPrimary" type="button" disabled={!recoverySecret.trim()}
+                        onClick={async () => {
+                          setRecoveryStatus("Trying...");
+                          const recovered = await tryRecoverWithSecret(recoverySecret.trim());
+                          if (recovered && recovered.length > 0) {
+                            // Re-encrypt with current key and save
+                            await reEncryptHistory(recovered);
+                            setHistory(recovered);
+                            setHasEncryptedData(false);
+                            setShowRecovery(false);
+                            setRecoveryStatus("");
+                            setRecoverySecret("");
+                          } else {
+                            setRecoveryStatus("Could not decrypt with that secret. Check the value and try again.");
+                          }
+                        }}>
+                        Try
+                      </button>
+                    </div>
+                    {recoveryStatus && (
+                      <p style={{ marginTop: 8, fontSize: "0.82rem", color: recoveryStatus.startsWith("Could") ? "#dc2626" : "#059669" }}>
+                        {recoveryStatus}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
         )}
 
         {/* Reports Tab */}
