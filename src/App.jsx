@@ -3338,6 +3338,43 @@ export default function App() {
               </label>
             </div>
 
+            {/* Early Share — let supervisors scan QR and start temps before full report */}
+            {earlyShareToken ? (() => {
+                const earlyUrl = `${window.location.origin}${window.location.pathname}#share/${earlyShareToken}`;
+                return (
+                  <div className="earlyShare">
+                    <div className="earlyShareHeader">
+                      <span className="earlyShareTitle">{t("share.readyToScan")}</span>
+                      <span className="earlyShareSub">{t("share.supervisorCanStart")}</span>
+                    </div>
+                    <div className="shareQrSection">
+                      <ShareQRCode url={earlyUrl} />
+                    </div>
+                    <div className="shareLinkRow">
+                      <input className="input shareLinkInput" readOnly value={earlyUrl} />
+                      <button className="btn btnPrimary btnSmall" type="button" onClick={async () => {
+                        try {
+                          if (navigator.share) {
+                            await navigator.share({ title: t("share.title"), text: t("share.linkDesc"), url: earlyUrl });
+                          } else if (navigator.clipboard?.writeText) {
+                            await navigator.clipboard.writeText(earlyUrl);
+                            setShareCopied(true);
+                            setTimeout(() => setShareCopied(false), 2000);
+                          }
+                        } catch {}
+                      }}>
+                        {shareCopied ? t("share.copied") : (navigator.share ? t("share.send") : t("share.copyLink"))}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })() : (
+                <button className="btn btnGhost earlyShareBtn" type="button" disabled={earlyShareLoading || !siteName.trim() || !inspectorName.trim()}
+                  onClick={createEarlyShare}>
+                  {earlyShareLoading ? t("share.creating") : t("share.earlyShareBtn")}
+                </button>
+              )
+            }
             <div className="fieldGrid">
               {spec.contextFields.map((f) => (
                 <label className="field" key={f.key} id={`field-ctx-${f.key}`}>
