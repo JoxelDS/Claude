@@ -257,6 +257,35 @@ async function clearAllInspections() {
   await saveHistory([]);
 }
 
+/* ── Supervisor Temperature Submissions ──────────────────── */
+const SUPERVISOR_SUBS_KEY = "sdx_supervisor_submissions";
+
+function supervisorSubKey(site, unit, date) {
+  return `${(site || "").trim().toLowerCase()}|${(unit || "").trim().toLowerCase()}|${date || ""}`;
+}
+
+async function saveSupervisorSubmission(submission) {
+  if (FIREBASE_ON) {
+    try { await setDoc(doc(db, "supervisorTemps", submission.id), submission); } catch {}
+    return;
+  }
+  const all = JSON.parse(localStorage.getItem(SUPERVISOR_SUBS_KEY) || "[]");
+  all.unshift(submission);
+  localStorage.setItem(SUPERVISOR_SUBS_KEY, JSON.stringify(all));
+}
+
+async function loadSupervisorSubmissions(site, unit, date) {
+  const matchKey = supervisorSubKey(site, unit, date);
+  if (FIREBASE_ON) {
+    try {
+      const snap = await getDocs(collection(db, "supervisorTemps"));
+      return snap.docs.map(d => d.data()).filter(s => supervisorSubKey(s.siteName, s.siteNumber, s.inspectionDate) === matchKey);
+    } catch { return []; }
+  }
+  const all = JSON.parse(localStorage.getItem(SUPERVISOR_SUBS_KEY) || "[]");
+  return all.filter(s => supervisorSubKey(s.siteName, s.siteNumber, s.inspectionDate) === matchKey);
+}
+
 /* ── Auth functions ───────────────────────────────────────── */
 async function signIn(badge) {
   await ensureSeedAdmin();
@@ -2939,11 +2968,144 @@ function GuideSection({ title, items, inspection, setInspection, allowCustom, se
   );
 }
 
+/* ── Supervisor Portal (standalone page for QR link) ───── */
+function SupervisorPortal({ params }) {
+  const [supName, setSupName] = useState(params.get("supervisor") || "");
+  const [supPhone, setSupPhone] = useState(params.get("phone") || "");
+  const [supEmail, setSupEmail] = useState("");
+  const [temps, setTemps] = useState({
+    handSinkTempF: "", threeCompSinkTempF: "",
+    doubleDoorCooler: "", doubleDoorFreezer: "",
+    walkInCooler: "", walkInFreezer: "", prepCooler: "",
+  });
+  const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [submitError, setSubmitError] = useState("");
+
+  const siteName = params.get("site") || "";
+  const siteNumber = params.get("unit") || "";
+  const inspectorName = params.get("inspector") || "";
+  const inspectionDate = params.get("date") || new Date().toISOString().slice(0, 10);
+
+  function setTemp(key, val) {
+    setTemps(prev => ({ ...prev, [key]: val }));
+  }
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    if (!supName.trim()) { setSubmitError("Please enter your name."); return; }
+    setSubmitting(true);
+    setSubmitError("");
+    try {
+      const submission = {
+        id: `sup_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+        supervisorName: supName.trim(),
+        supervisorPhone: supPhone.trim(),
+        supervisorEmail: supEmail.trim(),
+        siteName, siteNumber, inspectorName, inspectionDate,
+        temps: { ...temps },
+        submittedAt: new Date().toISOString(),
+      };
+      await saveSupervisorSubmission(submission);
+      setSubmitted(true);
+    } catch {
+      setSubmitError("Failed to submit. Please try again.");
+    }
+    setSubmitting(false);
+  }
+
+  const tempFields = [
+    { key: "handSinkTempF", label: "Hand sink", placeholder: "97", hint: "\u2265 95\u00B0F" },
+    { key: "threeCompSinkTempF", label: "3-comp wash", placeholder: "112", hint: "\u2265 110\u00B0F" },
+    { key: "doubleDoorCooler", label: "Double-door cooler", placeholder: "38", hint: "\u2264 40\u00B0F" },
+    { key: "doubleDoorFreezer", label: "Double-door freezer", placeholder: "10", hint: "\u2264 20\u00B0F" },
+    { key: "walkInCooler", label: "Walk-in cooler", placeholder: "38", hint: "\u2264 40\u00B0F" },
+    { key: "walkInFreezer", label: "Walk-in freezer", placeholder: "10", hint: "\u2264 20\u00B0F" },
+    { key: "prepCooler", label: "Prep cooler", placeholder: "38", hint: "\u2264 40\u00B0F" },
+  ];
+
+  if (submitted) {
+    return (
+      <div className="supPortal">
+        <div className="supPortalCard">
+          <img src={LOGO_DARK} alt="Sodexo Live!" className="supLogo" />
+          <div className="supSuccessIcon">{"\u2705"}</div>
+          <h2 className="supTitle">Temperatures Submitted!</h2>
+          <p className="supSub">Thank you, {supName}. Your HACCP temperature readings have been recorded for <strong>{siteName}</strong>{siteNumber ? ` (${siteNumber})` : ""}.</p>
+          <p className="supSub" style={{ marginTop: 8, fontSize: "0.78rem", color: "#6b7280" }}>Inspector {inspectorName} will see your submission in their report.</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="supPortal">
+      <div className="supPortalCard">
+        <img src={LOGO_DARK} alt="Sodexo Live!" className="supLogo" />
+        <h2 className="supTitle">HACCP Temperature Submission</h2>
+        <p className="supSub">Submit temperature readings for <strong>{siteName || "this location"}</strong>{siteNumber ? ` (${siteNumber})` : ""}</p>
+        {inspectorName && <p className="supSub" style={{ fontSize: "0.78rem", color: "#6b7280" }}>Requested by Inspector: {inspectorName}</p>}
+
+        <form onSubmit={handleSubmit} className="supForm">
+          <div className="supSection">
+            <div className="supSectionTitle">Your Information</div>
+            <label className="field">
+              <span className="fieldLabel">Full Name *</span>
+              <input className="input" value={supName} onChange={e => setSupName(e.target.value)} placeholder="e.g., John Smith" required />
+            </label>
+            <label className="field">
+              <span className="fieldLabel">Phone</span>
+              <input className="input" type="tel" value={supPhone} onChange={e => setSupPhone(e.target.value)} placeholder="e.g., (305) 555-0123" />
+            </label>
+            <label className="field">
+              <span className="fieldLabel">Email</span>
+              <input className="input" type="email" value={supEmail} onChange={e => setSupEmail(e.target.value)} placeholder="e.g., john@example.com" />
+            </label>
+          </div>
+
+          <div className="supSection">
+            <div className="supSectionTitle">Temperature Readings ({"\u00B0F"})</div>
+            <div className="supTempGrid">
+              {tempFields.map(tf => {
+                const val = temps[tf.key];
+                const num = Number(val);
+                const isHot = tf.key === "handSinkTempF" || tf.key === "threeCompSinkTempF";
+                const threshold = tf.key === "handSinkTempF" ? 95 : tf.key === "threeCompSinkTempF" ? 110 : tf.key.includes("Freezer") ? 20 : 40;
+                const pass = val ? (isHot ? num >= threshold : num <= threshold) : null;
+                return (
+                  <label className="field" key={tf.key}>
+                    <span className="fieldLabel">{tf.label}</span>
+                    <div className="tempInputWrap">
+                      <input className="input tempInput" inputMode="numeric" value={val}
+                        onChange={e => setTemp(tf.key, e.target.value)} placeholder={tf.placeholder} />
+                      <span className="tempUnit">{"\u00B0F"}</span>
+                    </div>
+                    <span className="hint">
+                      {pass === true ? `\u2705 ${tf.hint}` : pass === false ? `\u26A0\uFE0F Outside range (${tf.hint})` : tf.hint}
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+
+          {submitError && <div className="supError">{submitError}</div>}
+
+          <button className="btn btnPrimary supSubmitBtn" type="submit" disabled={submitting}>
+            {submitting ? "Submitting..." : "Submit Temperatures"}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 /* ── Share / QR helpers ─────────────────────────────────── */
 function buildShareUrl({ inspectorName, siteName, siteNumber, supervisorName, sitePhone, inspectionType, inspectionDate }) {
   // Always use the canonical app root so QR links work from any page/path
   const base = window.location.origin + "/Claude/";
   const params = new URLSearchParams();
+  params.set("mode", "supervisor");
   if (inspectorName)  params.set("inspector", inspectorName);
   if (siteName)       params.set("site", siteName);
   if (siteNumber)     params.set("unit", siteNumber);
@@ -2996,10 +3158,10 @@ function ShareModal({ shareUrl, onClose }) {
             <canvas ref={canvasRef} className="qrImg" />
           </a>
           <p style={{ textAlign: "center", margin: "10px 0 4px", fontSize: "0.82rem", color: "#6b7280" }}>
-            Staff scan this QR to open the pre-filled form
+            Supervisor scans this QR to submit HACCP temperatures
           </p>
           <p style={{ textAlign: "center", margin: "0 0 14px", fontSize: "0.75rem", color: "#9ca3af" }}>
-            Or tap the QR / use the link below
+            They will enter their name, contact info, and temperature readings
           </p>
           <div className="shareUrlRow">
             <input className="input shareUrlInput" readOnly value={shareUrl} onFocus={(e) => e.target.select()} />
@@ -3037,6 +3199,10 @@ function EarlyShareQR({ url }) {
 }
 
 export default function App() {
+  // Check for supervisor mode BEFORE anything else
+  const urlParams = useMemo(() => new URLSearchParams(window.location.search), []);
+  const isSupervisorMode = urlParams.get("mode") === "supervisor";
+
   const [locked, setLocked] = useState(true);
   const [currentUser, setCurrentUser] = useState(null);
   const [page, setPage] = useState("inspector"); // "inspector" | "history" | "admin"
@@ -3053,6 +3219,9 @@ export default function App() {
       setTimeout(() => splash.remove(), 350);
     }
   }, []);
+
+  // If supervisor mode, render the portal directly (no login required)
+  if (isSupervisorMode) return <SupervisorPortal params={urlParams} />;
 
   // Measure header height for spacer
   useEffect(() => {
@@ -3123,6 +3292,7 @@ export default function App() {
   const [warnings, setWarnings] = useState([]);
   const [aiTips, setAiTips] = useState([]);
   const [saved, setSaved] = useState(false);
+  const [supervisorSubs, setSupervisorSubs] = useState([]);
 
   // Track activity for auto-lock
   const resetActivity = useCallback(() => { lastActivity.current = Date.now(); }, []);
@@ -3168,6 +3338,16 @@ export default function App() {
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [rawNotes, saved]);
+
+  // Load supervisor temperature submissions for current site/unit/date
+  useEffect(() => {
+    if (!siteName.trim() || locked) return;
+    let cancelled = false;
+    loadSupervisorSubmissions(siteName, siteNumber, inspectionDate).then(subs => {
+      if (!cancelled) setSupervisorSubs(subs);
+    });
+    return () => { cancelled = true; };
+  }, [siteName, siteNumber, inspectionDate, locked]);
 
   if (locked) return <BadgeScreen onUnlock={(user) => { setCurrentUser(user); setLocked(false); resetActivity(); if (user?.name && !inspectorName) setInspectorName(user.name); }} />;
   if (page === "history") return <HistoryPage onBack={() => setPage("inspector")} />;
@@ -3335,6 +3515,7 @@ export default function App() {
       output,
       inspection: stripPhotos(inspection),
       photoCount: countPhotos(inspection),
+      supervisorSubmissions: supervisorSubs,
     };
     try {
       await saveOneInspection(record);
@@ -3489,7 +3670,7 @@ export default function App() {
                   <div className="earlyShare">
                     <div className="earlyShareHeader">
                       <span className="earlyShareTitle">Ready to scan</span>
-                      <span className="earlyShareSub">Supervisor can scan this QR to start taking temperatures</span>
+                      <span className="earlyShareSub">Supervisor scans this QR to submit their name, contact info, and HACCP temperatures</span>
                     </div>
                     <div className="shareQrSection">
                       <EarlyShareQR url={earlyUrl} />
@@ -3626,6 +3807,34 @@ export default function App() {
                   })}
                 </div>
               </div>
+
+              {/* Supervisor Submitted Temperatures */}
+              {supervisorSubs.length > 0 && (
+                <div className="supSubsSection">
+                  <div className="supSubsTitle">Supervisor Temperature Submissions</div>
+                  {supervisorSubs.map((sub, i) => (
+                    <div className="supSubCard" key={sub.id || i}>
+                      <div className="supSubHeader">
+                        <strong>{sub.supervisorName}</strong>
+                        {sub.supervisorPhone && <span className="supSubContact">{sub.supervisorPhone}</span>}
+                        {sub.supervisorEmail && <span className="supSubContact">{sub.supervisorEmail}</span>}
+                        <span className="supSubTime">{new Date(sub.submittedAt).toLocaleString()}</span>
+                      </div>
+                      <div className="supSubTemps">
+                        {Object.entries(sub.temps || {}).filter(([, v]) => v).map(([k, v]) => {
+                          const labels = {
+                            handSinkTempF: "Hand sink", threeCompSinkTempF: "3-comp wash",
+                            doubleDoorCooler: "Dbl-door cooler", doubleDoorFreezer: "Dbl-door freezer",
+                            walkInCooler: "Walk-in cooler", walkInFreezer: "Walk-in freezer",
+                            prepCooler: "Prep cooler",
+                          };
+                          return <span className="supSubTempPill" key={k}>{labels[k] || k}: {v}{"\u00B0F"}</span>;
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
 
               <GuideSection title="Equipment check"
                 items={[

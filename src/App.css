@@ -1934,8 +1934,8 @@ datalist {
 
   /* Guide section */
   .guide { padding: 14px; }
-  .guideItemHead { flex-direction: column; align-items: flex-start; gap: 8px; }
-  .guideItemHead .select { width: 100%; }
+  .guideItemHead { flex-direction: row; align-items: center; gap: 8px; }
+  .guideItemHead .select { width: auto; min-width: 90px; flex-shrink: 0; }
   .guideItem { padding: 14px 12px; }
   .tempsGrid { grid-template-columns: 1fr; }
   .pillRow { flex-wrap: wrap; }
@@ -2630,4 +2630,144 @@ datalist {
 @media (max-width: 480px) {
   .shareLinkRow { flex-direction: column; }
   .shareLinkRow .btn { width: 100%; justify-content: center; }
+}
+
+/* ── Supervisor Portal ──────────────────────────────────── */
+.supPortal {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #f7f8fa 0%, #e8ecf8 100%);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 24px 16px;
+}
+.supPortalCard {
+  background: var(--sdx-white);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  max-width: 540px;
+  width: 100%;
+  padding: 32px 28px;
+}
+.supLogo {
+  display: block;
+  height: 32px;
+  margin: 0 auto 20px;
+}
+.supTitle {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--sdx-navy);
+  text-align: center;
+  margin-bottom: 6px;
+}
+.supSub {
+  font-size: 0.85rem;
+  color: var(--sdx-gray-600);
+  text-align: center;
+  margin-bottom: 4px;
+}
+.supSuccessIcon {
+  font-size: 3rem;
+  text-align: center;
+  margin: 20px 0 10px;
+}
+.supForm {
+  margin-top: 20px;
+}
+.supSection {
+  margin-bottom: 20px;
+}
+.supSectionTitle {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--sdx-navy);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid var(--sdx-red);
+  margin-bottom: 12px;
+}
+.supTempGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+.supSubmitBtn {
+  width: 100%;
+  padding: 14px 20px;
+  font-size: 1rem;
+  font-weight: 700;
+  margin-top: 8px;
+}
+.supError {
+  background: var(--sdx-red-light);
+  color: var(--sdx-red-dark);
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  margin-bottom: 12px;
+}
+@media (max-width: 480px) {
+  .supPortalCard { padding: 24px 18px; }
+  .supTempGrid { grid-template-columns: 1fr; }
+  .supTitle { font-size: 1.05rem; }
+}
+
+/* ── Supervisor Submissions Display (Inspector view) ───── */
+.supSubsSection {
+  background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
+  border: 1px solid #bbf7d0;
+  border-radius: var(--radius-sm);
+  padding: 14px;
+  margin-bottom: 16px;
+}
+.supSubsTitle {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--sdx-green);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid var(--sdx-green);
+  margin-bottom: 12px;
+}
+.supSubCard {
+  background: var(--sdx-white);
+  border: 1px solid #d1fae5;
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  margin-bottom: 8px;
+}
+.supSubCard:last-child { margin-bottom: 0; }
+.supSubHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: 0.85rem;
+}
+.supSubContact {
+  font-size: 0.78rem;
+  color: var(--sdx-gray-500);
+}
+.supSubTime {
+  font-size: 0.72rem;
+  color: var(--sdx-gray-400);
+  margin-left: auto;
+}
+.supSubTemps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.supSubTempPill {
+  display: inline-flex;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: #dbeafe;
+  color: #1d4ed8;
 }
