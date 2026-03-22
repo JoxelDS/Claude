@@ -2915,6 +2915,25 @@ function ShareModal({ shareUrl, onClose }) {
   );
 }
 
+/* ── Inline QR for early share (no modal) ────────────── */
+function EarlyShareQR({ url }) {
+  const canvasRef = useRef(null);
+  useEffect(() => {
+    if (canvasRef.current && url) {
+      QRCode.toCanvas(canvasRef.current, url, {
+        width: 180,
+        margin: 2,
+        color: { dark: "#2A295C", light: "#ffffff" },
+      });
+    }
+  }, [url]);
+  return (
+    <a href={url} target="_blank" rel="noopener noreferrer" className="qrWrap" title="Open link">
+      <canvas ref={canvasRef} className="qrImg" />
+    </a>
+  );
+}
+
 export default function App() {
   const [locked, setLocked] = useState(true);
   const [currentUser, setCurrentUser] = useState(null);
@@ -2992,6 +3011,9 @@ export default function App() {
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
+  const [earlyShareToken, setEarlyShareToken] = useState(null);
+  const [earlyShareLoading, setEarlyShareLoading] = useState(false);
+  const [shareCopied, setShareCopied] = useState(false);
 
   const [output, setOutput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -3081,6 +3103,8 @@ export default function App() {
     setSitePhone("");
     setLocationType("Concession");
     setFloor("Floor 1");
+    setEarlyShareToken(null);
+    setShareCopied(false);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
@@ -3107,6 +3131,24 @@ export default function App() {
     () => buildShareUrl({ inspectorName, siteName, siteNumber, supervisorName, sitePhone, inspectionType, inspectionDate }),
     [inspectorName, siteName, siteNumber, supervisorName, sitePhone, inspectionType, inspectionDate]
   );
+
+  // Early share — generate a token so supervisors can scan QR and start taking temps
+  function createEarlyShare() {
+    setEarlyShareLoading(true);
+    // Generate a simple unique token from current form data
+    const token = btoa(JSON.stringify({
+      inspector: inspectorName.trim(),
+      site: siteName.trim(),
+      unit: siteNumber.trim(),
+      supervisor: supervisorName.trim(),
+      phone: sitePhone.trim(),
+      type: inspectionType,
+      date: inspectionDate,
+      ts: Date.now()
+    })).replace(/[+/=]/g, c => ({ "+": "-", "/": "_", "=": "" }[c]));
+    setEarlyShareToken(token);
+    setEarlyShareLoading(false);
+  }
 
   function onTransform() {
     setError("");
@@ -3264,7 +3306,7 @@ export default function App() {
       </header>
       <div style={{ height: headerH, flexShrink: 0 }} />
 
-      <main className="grid">
+      <main className={cx("grid", output && "hasStickyBar")}>
         {/* LEFT */}
         <section className="card">
           <div className="cardHeader">
@@ -3340,22 +3382,22 @@ export default function App() {
 
             {/* Early Share — let supervisors scan QR and start temps before full report */}
             {earlyShareToken ? (() => {
-                const earlyUrl = `${window.location.origin}${window.location.pathname}#share/${earlyShareToken}`;
+                const earlyUrl = buildShareUrl({ inspectorName, siteName, siteNumber, supervisorName, sitePhone, inspectionType, inspectionDate });
                 return (
                   <div className="earlyShare">
                     <div className="earlyShareHeader">
-                      <span className="earlyShareTitle">{t("share.readyToScan")}</span>
-                      <span className="earlyShareSub">{t("share.supervisorCanStart")}</span>
+                      <span className="earlyShareTitle">Ready to scan</span>
+                      <span className="earlyShareSub">Supervisor can scan this QR to start taking temperatures</span>
                     </div>
                     <div className="shareQrSection">
-                      <ShareQRCode url={earlyUrl} />
+                      <EarlyShareQR url={earlyUrl} />
                     </div>
                     <div className="shareLinkRow">
-                      <input className="input shareLinkInput" readOnly value={earlyUrl} />
+                      <input className="input shareLinkInput" readOnly value={earlyUrl} onFocus={(e) => e.target.select()} />
                       <button className="btn btnPrimary btnSmall" type="button" onClick={async () => {
                         try {
                           if (navigator.share) {
-                            await navigator.share({ title: t("share.title"), text: t("share.linkDesc"), url: earlyUrl });
+                            await navigator.share({ title: "Inspection Link", text: "Open to start temperature checks", url: earlyUrl });
                           } else if (navigator.clipboard?.writeText) {
                             await navigator.clipboard.writeText(earlyUrl);
                             setShareCopied(true);
@@ -3363,7 +3405,7 @@ export default function App() {
                           }
                         } catch {}
                       }}>
-                        {shareCopied ? t("share.copied") : (navigator.share ? t("share.send") : t("share.copyLink"))}
+                        {shareCopied ? "Copied!" : (navigator.share ? "Send" : "Copy link")}
                       </button>
                     </div>
                   </div>
@@ -3371,7 +3413,7 @@ export default function App() {
               })() : (
                 <button className="btn btnGhost earlyShareBtn" type="button" disabled={earlyShareLoading || !siteName.trim() || !inspectorName.trim()}
                   onClick={createEarlyShare}>
-                  {earlyShareLoading ? t("share.creating") : t("share.earlyShareBtn")}
+                  {earlyShareLoading ? "Creating..." : "📤 Share early — let them start temps"}
                 </button>
               )
             }

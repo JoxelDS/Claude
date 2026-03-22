@@ -2412,6 +2412,10 @@ datalist {
   z-index: 1000;
   justify-content: center;
 }
+/* Push content above sticky bar so it doesn't overlap */
+.grid.hasStickyBar {
+  padding-bottom: 80px;
+}
 .stickyBtn {
   font-weight: 700;
   font-size: 0.82rem;
@@ -2555,4 +2559,76 @@ datalist {
   .modalBox { max-width: 100%; border-radius: 12px; }
   .shareUrlRow { flex-direction: column; }
   .shareUrlRow .btn { width: 100%; justify-content: center; }
+}
+
+/* ── Early Share (inline QR before report) ────────────── */
+.earlyShare {
+  background: linear-gradient(135deg, #f0f4ff 0%, #e8ecf8 100%);
+  border: 1px solid #d1d9f0;
+  border-radius: 12px;
+  padding: 18px;
+  margin: 12px 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+.earlyShareHeader {
+  text-align: center;
+}
+.earlyShareTitle {
+  display: block;
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--sdx-navy);
+  margin-bottom: 2px;
+}
+.earlyShareSub {
+  display: block;
+  font-size: 0.78rem;
+  color: #6b7280;
+}
+.shareQrSection {
+  display: flex;
+  justify-content: center;
+}
+.shareLinkRow {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+}
+.shareLinkInput {
+  flex: 1;
+  font-size: 0.78rem;
+  color: #374151;
+  background: #fff;
+  min-width: 0;
+}
+.btnSmall {
+  padding: 8px 14px;
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+.earlyShareBtn {
+  width: 100%;
+  margin: 8px 0;
+  padding: 12px 16px;
+  font-size: 0.85rem;
+  border: 2px dashed #c7d0e0;
+  border-radius: 10px;
+  color: var(--sdx-navy);
+  background: #f8faff;
+  transition: border-color 0.15s, background 0.15s;
+}
+.earlyShareBtn:hover:not(:disabled) {
+  border-color: var(--sdx-blue);
+  background: #eef2ff;
+}
+.earlyShareBtn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+@media (max-width: 480px) {
+  .shareLinkRow { flex-direction: column; }
+  .shareLinkRow .btn { width: 100%; justify-content: center; }
 }
