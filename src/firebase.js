@@ -28,14 +28,14 @@
 import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 
-// ⬇️ PASTE YOUR FIREBASE CONFIG HERE ⬇️
 const firebaseConfig = {
-  apiKey: "",
-  authDomain: "",
-  projectId: "",
-  storageBucket: "",
-  messagingSenderId: "",
-  appId: "",
+  apiKey: "AIzaSyDgXvyvFuKUc59IDB8Fr52ydZ0hiJfJeZU",
+  authDomain: "sodexoinspection.firebaseapp.com",
+  projectId: "sodexoinspection",
+  storageBucket: "sodexoinspection.firebasestorage.app",
+  messagingSenderId: "511560917271",
+  appId: "1:511560917271:web:ef71e55659f0088278d752",
+  measurementId: "G-Q8TJ05QSBP",
 };
 
 // Check if Firebase is configured
