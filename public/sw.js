@@ -1,5 +1,5 @@
 // Sodexo Kitchen Inspection — Service Worker (cache-first + daily cleanup)
-const CACHE_NAME = "sdx-inspect-v2";
+const CACHE_NAME = "sdx-inspect-v3";
 const PRECACHE = [
   "./",
   "./favicon.svg",
