@@ -1,13 +1,12 @@
-// Sodexo Kitchen Inspection — Service Worker (cache-first + daily cleanup)
-const CACHE_NAME = "sdx-inspect-v4";
+// Sodexo Kitchen Inspection — Service Worker (network-first for HTML)
+const CACHE_NAME = "sdx-inspect-v5";
 const PRECACHE = [
-  "./",
   "./favicon.svg",
   "./sodexo-live-logo.svg",
   "./sodexo-dark.svg",
 ];
 
-// Install: precache critical assets
+// Install: precache static assets only, skip waiting immediately
 self.addEventListener("install", (e) => {
   e.waitUntil(
     caches.open(CACHE_NAME).then((cache) => cache.addAll(PRECACHE))
@@ -15,7 +14,7 @@ self.addEventListener("install", (e) => {
   self.skipWaiting();
 });
 
-// Activate: clean old caches
+// Activate: delete ALL old caches and take control immediately
 self.addEventListener("activate", (e) => {
   e.waitUntil(
     caches.keys().then((keys) =>
@@ -25,23 +24,38 @@ self.addEventListener("activate", (e) => {
   self.clients.claim();
 });
 
-// Daily cache cleanup — runs via message from the app
+// Cache cleanup via message
 self.addEventListener("message", (e) => {
   if (e.data === "CLEAN_CACHE") {
-    caches.delete(CACHE_NAME).then(() => {
-      caches.open(CACHE_NAME).then((cache) => cache.addAll(PRECACHE));
-    });
+    caches.keys().then((keys) =>
+      Promise.all(keys.map((k) => caches.delete(k)))
+    );
   }
 });
 
-// Fetch: stale-while-revalidate for assets, network-first for API/fonts
+// Fetch strategy:
+// - HTML (navigation): network-first (always get latest index.html)
+// - Hashed assets (JS/CSS): cache-first (hash guarantees correctness)
+// - Fonts: network-first
+// - Everything else: network-first
 self.addEventListener("fetch", (e) => {
   const url = new URL(e.request.url);
 
-  // Skip non-GET requests
   if (e.request.method !== "GET") return;
 
-  // Network-first for Google Fonts (always fresh)
+  // Network-first for navigation requests (HTML pages)
+  if (e.request.mode === "navigate" || url.pathname.endsWith(".html") || url.pathname.endsWith("/")) {
+    e.respondWith(
+      fetch(e.request).then((res) => {
+        const clone = res.clone();
+        caches.open(CACHE_NAME).then((c) => c.put(e.request, clone));
+        return res;
+      }).catch(() => caches.match(e.request))
+    );
+    return;
+  }
+
+  // Network-first for Google Fonts
   if (url.hostname.includes("fonts.googleapis.com") || url.hostname.includes("fonts.gstatic.com")) {
     e.respondWith(
       fetch(e.request).then((res) => {
@@ -53,19 +67,33 @@ self.addEventListener("fetch", (e) => {
     return;
   }
 
-  // Stale-while-revalidate for same-origin assets
-  if (url.origin === location.origin) {
+  // Cache-first for hashed assets (e.g. index-B9Gh1LjJ.js) — hash ensures freshness
+  if (url.origin === location.origin && /assets\/.*-\w+\.\w+$/.test(url.pathname)) {
     e.respondWith(
       caches.match(e.request).then((cached) => {
-        const fetchPromise = fetch(e.request).then((res) => {
+        if (cached) return cached;
+        return fetch(e.request).then((res) => {
           if (res.ok) {
             const clone = res.clone();
             caches.open(CACHE_NAME).then((c) => c.put(e.request, clone));
           }
           return res;
-        }).catch(() => cached);
-        return cached || fetchPromise;
+        });
       })
+    );
+    return;
+  }
+
+  // Network-first for everything else
+  if (url.origin === location.origin) {
+    e.respondWith(
+      fetch(e.request).then((res) => {
+        if (res.ok) {
+          const clone = res.clone();
+          caches.open(CACHE_NAME).then((c) => c.put(e.request, clone));
+        }
+        return res;
+      }).catch(() => caches.match(e.request))
     );
   }
 });
