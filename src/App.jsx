@@ -522,7 +522,7 @@ const NOTE_TYPES = {
   },
 };
 
-const STATUS_OPTIONS = ["OK", "Not Clean", "Needs Attention", "N/A"];
+const STATUS_OPTIONS = ["OK", "Not Clean", "Needs Attention", "Maintenance", "N/A"];
 const PHOTO_LIMIT = 6;
 const PHOTO_MAX_MB = 8;
 
@@ -845,7 +845,7 @@ function calcOverallStatus(inspection) {
   const bad = [];
   const walk = (node) => {
     if (!node || typeof node !== "object") return;
-    if (node.status && (node.status === "Needs Attention" || node.status === "Not Clean")) bad.push(true);
+    if (node.status && (node.status === "Needs Attention" || node.status === "Not Clean" || node.status === "Maintenance")) bad.push(true);
     for (const k of Object.keys(node)) walk(node[k]);
   };
   walk(inspection?.facility);
@@ -940,11 +940,11 @@ function buildActionItems({ inspection, rawNotes }) {
   const { mapByPath } = buildPhotoIndex(inspection);
   const pushIfBad = (pathKey, label, node) => {
     if (!node?.status) return;
-    if (node.status === "Needs Attention" || node.status === "Not Clean") {
+    if (node.status === "Needs Attention" || node.status === "Not Clean" || node.status === "Maintenance") {
       items.push({
         issue: `${label}: ${sanitizeText(node.notes) || "Issue noted"}`,
         owner: "", due: "",
-        priority: node.status === "Not Clean" ? "High" : "Med",
+        priority: node.status === "Not Clean" ? "High" : node.status === "Maintenance" ? "Med" : "Med",
         photos: mapByPath[pathKey] || [],
       });
     }
