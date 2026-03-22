@@ -2839,7 +2839,8 @@ function GuideSection({ title, items, inspection, setInspection, allowCustom, se
 
 /* ── Share / QR helpers ─────────────────────────────────── */
 function buildShareUrl({ inspectorName, siteName, siteNumber, supervisorName, sitePhone, inspectionType, inspectionDate }) {
-  const base = window.location.origin + window.location.pathname;
+  // Always use the canonical app root so QR links work from any page/path
+  const base = window.location.origin + "/Claude/";
   const params = new URLSearchParams();
   if (inspectorName)  params.set("inspector", inspectorName);
   if (siteName)       params.set("site", siteName);
@@ -2868,6 +2869,16 @@ function ShareModal({ shareUrl, onClose }) {
     navigator.clipboard.writeText(shareUrl).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
+    }).catch(() => {
+      // Fallback for browsers that block clipboard
+      const el = document.createElement("textarea");
+      el.value = shareUrl;
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand("copy");
+      document.body.removeChild(el);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
     });
   }
   return (
@@ -2878,18 +2889,26 @@ function ShareModal({ shareUrl, onClose }) {
           <button className="modalClose" onClick={onClose} type="button">✕</button>
         </div>
         <div className="modalBody">
-          <div className="qrWrap">
+          {/* QR wrapped in an anchor so scanning/tapping opens the URL */}
+          <a href={shareUrl} target="_blank" rel="noopener noreferrer" className="qrWrap" title="Open link">
             <canvas ref={canvasRef} className="qrImg" />
-          </div>
-          <p style={{ textAlign: "center", margin: "10px 0 14px", fontSize: "0.82rem", color: "#6b7280" }}>
+          </a>
+          <p style={{ textAlign: "center", margin: "10px 0 4px", fontSize: "0.82rem", color: "#6b7280" }}>
             Staff scan this QR to open the pre-filled form
+          </p>
+          <p style={{ textAlign: "center", margin: "0 0 14px", fontSize: "0.75rem", color: "#9ca3af" }}>
+            Or tap the QR / use the link below
           </p>
           <div className="shareUrlRow">
             <input className="input shareUrlInput" readOnly value={shareUrl} onFocus={(e) => e.target.select()} />
             <button className="btn btnPrimary" type="button" onClick={copyLink}>
-              {copied ? "Copied!" : "Copy link"}
+              {copied ? "✓ Copied!" : "Copy link"}
             </button>
           </div>
+          <a href={shareUrl} target="_blank" rel="noopener noreferrer"
+            style={{ display: "block", textAlign: "center", marginTop: 10, fontSize: "0.8rem", color: "var(--sdx-blue)", textDecoration: "underline" }}>
+            Open link in browser →
+          </a>
         </div>
       </div>
     </div>

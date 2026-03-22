@@ -82,7 +82,7 @@ body {
   overflow: hidden;
 }
 /* The text block (title + subtitle) inside brandLeft must also shrink */
-.brandLeft > div {
+.topBar .brandLeft > div {
   min-width: 0;
   overflow: hidden;
 }
@@ -406,8 +406,17 @@ body {
   gap: 16px;
   margin-bottom: 20px;
 }
+/* Last field in an odd position spans full width to avoid orphan empty cell */
+.fieldGrid .field:last-child:nth-child(odd) {
+  grid-column: 1 / -1;
+}
 @media (max-width: 600px) {
   .fieldGrid { grid-template-columns: 1fr 1fr; gap: 8px; }
+}
+/* Fix iOS date input appearance */
+input[type="date"] {
+  -webkit-appearance: none;
+  appearance: none;
 }
 
 .field {
@@ -455,7 +464,8 @@ body {
 .selectSmall {
   padding: 5px 8px;
   font-size: 0.82rem;
-  min-width: 130px;
+  min-width: 100px;
+  flex-shrink: 0;
 }
 
 .textarea {
@@ -560,6 +570,9 @@ body {
   font-size: 0.87rem;
   font-weight: 600;
   color: var(--sdx-gray-700);
+  flex: 1;
+  min-width: 0;
+  word-break: break-word;
 }
 
 .guideNote {
@@ -649,6 +662,11 @@ body {
   margin-top: 6px;
 }
 .fileInput {
+  display: none;
+}
+
+/* Hide datalist elements — they must not render as visible boxes */
+datalist {
   display: none;
 }
 
@@ -2493,6 +2511,13 @@ body {
   border-radius: 12px;
   padding: 14px;
   display: inline-flex;
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  text-decoration: none;
+}
+.qrWrap:hover {
+  border-color: var(--sdx-blue);
+  box-shadow: 0 0 0 3px rgba(40,56,151,0.10);
 }
 .qrImg {
   display: block;
