@@ -3198,19 +3198,11 @@ function EarlyShareQR({ url }) {
   );
 }
 
+// Top-level wrapper — routes to SupervisorPortal or main App without breaking hooks
+const _urlParams = new URLSearchParams(window.location.search);
+const _isSupervisorMode = _urlParams.get("mode") === "supervisor";
+
 export default function App() {
-  // Check for supervisor mode BEFORE anything else
-  const urlParams = useMemo(() => new URLSearchParams(window.location.search), []);
-  const isSupervisorMode = urlParams.get("mode") === "supervisor";
-
-  const [locked, setLocked] = useState(true);
-  const [currentUser, setCurrentUser] = useState(null);
-  const [page, setPage] = useState("inspector"); // "inspector" | "history" | "admin"
-  const [pendingCount, setPendingCount] = useState(0);
-  const [headerH, setHeaderH] = useState(64);
-  const headerRef = useRef(null);
-  const lastActivity = useRef(Date.now());
-
   // Dismiss splash screen once React mounts
   useEffect(() => {
     const splash = document.getElementById("splash");
@@ -3221,7 +3213,19 @@ export default function App() {
   }, []);
 
   // If supervisor mode, render the portal directly (no login required)
-  if (isSupervisorMode) return <SupervisorPortal params={urlParams} />;
+  if (_isSupervisorMode) return <SupervisorPortal params={_urlParams} />;
+
+  return <InspectorApp />;
+}
+
+function InspectorApp() {
+  const [locked, setLocked] = useState(true);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [page, setPage] = useState("inspector"); // "inspector" | "history" | "admin"
+  const [pendingCount, setPendingCount] = useState(0);
+  const [headerH, setHeaderH] = useState(64);
+  const headerRef = useRef(null);
+  const lastActivity = useRef(Date.now());
 
   // Measure header height for spacer
   useEffect(() => {
