@@ -2287,6 +2287,40 @@ function HistoryPage({ onBack }) {
     clearAllInspections().catch(() => {});
   }
 
+  function exportBackup() {
+    const blob = new Blob([JSON.stringify(history, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `inspection-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function importBackup(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      try {
+        const records = JSON.parse(ev.target.result);
+        if (!Array.isArray(records)) { alert("Invalid backup file."); return; }
+        // Merge: keep existing records, add any new ones by id
+        const existingIds = new Set(history.map(r => r.id));
+        const toAdd = records.filter(r => r.id && !existingIds.has(r.id));
+        if (toAdd.length === 0) { alert("No new records found in backup."); return; }
+        const merged = [...toAdd, ...history].sort((a, b) => (b.savedAt || "").localeCompare(a.savedAt || ""));
+        setHistory(merged);
+        await saveHistory(merged);
+        alert(`✓ Restored ${toAdd.length} inspection${toAdd.length !== 1 ? "s" : ""} from backup.`);
+      } catch { alert("Could not read backup file. Make sure it's a valid JSON backup."); }
+    };
+    reader.readAsText(file);
+    e.target.value = ""; // reset so same file can be imported again
+  }
+
+  const importRef = useRef(null);
+
   const uniqueDates = [...new Set(history.map(r => r.inspectionDate).filter(Boolean))].sort().reverse();
   const uniqueTypes = [...new Set(history.map(r => r.inspectionType).filter(Boolean))].sort();
   const uniqueFloors = [...new Set(history.map(r => r.floor).filter(Boolean))].sort();
@@ -2304,8 +2338,13 @@ function HistoryPage({ onBack }) {
         </div>
         <div className="topActions">
           <button className="btn btnGhost" onClick={onBack} type="button">Back to Inspector</button>
+          <input ref={importRef} type="file" accept=".json" style={{ display: "none" }} onChange={importBackup} />
+          <button className="btn btnGhost" onClick={() => importRef.current?.click()} type="button" title="Restore reports from a backup file">↑ Import</button>
           {history.length > 0 && (
-            <button className="btn btnGhost" onClick={clearAll} type="button" style={{color: "#EE0000", borderColor: "#EE0000"}}>Clear All</button>
+            <>
+              <button className="btn btnGhost" onClick={exportBackup} type="button" title="Download all reports as a backup file">↓ Backup</button>
+              <button className="btn btnGhost" onClick={clearAll} type="button" style={{color: "#EE0000", borderColor: "#EE0000"}}>Clear All</button>
+            </>
           )}
         </div>
       </header>
