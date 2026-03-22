@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import QRCode from "qrcode";
 import "./App.css";
 import { db, isConfigured as FIREBASE_ON } from "./firebase.js";
 import {
@@ -2849,11 +2850,20 @@ function buildShareUrl({ inspectorName, siteName, siteNumber, supervisorName, si
   if (inspectionDate) params.set("date", inspectionDate);
   return `${base}?${params.toString()}`;
 }
-function qrSrc(url) {
-  return `https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=8&data=${encodeURIComponent(url)}`;
-}
 function ShareModal({ shareUrl, onClose }) {
+  const canvasRef = useRef(null);
   const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (canvasRef.current) {
+      QRCode.toCanvas(canvasRef.current, shareUrl, {
+        width: 220,
+        margin: 2,
+        color: { dark: "#2A295C", light: "#ffffff" },
+      });
+    }
+  }, [shareUrl]);
+
   function copyLink() {
     navigator.clipboard.writeText(shareUrl).then(() => {
       setCopied(true);
@@ -2869,7 +2879,7 @@ function ShareModal({ shareUrl, onClose }) {
         </div>
         <div className="modalBody">
           <div className="qrWrap">
-            <img className="qrImg" src={qrSrc(shareUrl)} alt="QR code" width={220} height={220} />
+            <canvas ref={canvasRef} className="qrImg" />
           </div>
           <p style={{ textAlign: "center", margin: "10px 0 14px", fontSize: "0.82rem", color: "#6b7280" }}>
             Staff scan this QR to open the pre-filled form

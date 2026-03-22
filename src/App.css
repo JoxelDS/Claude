@@ -81,6 +81,11 @@ body {
   flex: 1;
   overflow: hidden;
 }
+/* The text block (title + subtitle) inside brandLeft must also shrink */
+.brandLeft > div {
+  min-width: 0;
+  overflow: hidden;
+}
 .brandClickable {
   cursor: pointer;
   border-radius: 8px;
