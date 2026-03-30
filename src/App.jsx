@@ -2744,7 +2744,7 @@ function LocationsPanel({ loc, passColor, trendArrow, MiniBar, EmptyState }) {
 ══════════════════════════════════════════════════════════════════ */
 function AIHealthMonitor({ history }) {
   const [snapshot, setSnapshot]   = React.useState(() => AIEngine.getSnapshot());
-  const [activeTab, setActiveTab] = React.useState("suggestions");
+  const [activeTab, setActiveTab] = React.useState("insights");
   const [dismissed, setDismissed] = React.useState(() => {
     try { return JSON.parse(localStorage.getItem("sdx_ai_dismissed") || "[]"); } catch { return []; }
   });
@@ -2769,126 +2769,135 @@ function AIHealthMonitor({ history }) {
 
   const { suggestions = [], usageReport, perfReport = [], generatedAt, patterns } = snapshot;
   const visibleSugs = suggestions.filter(s => !dismissed.includes(s.id));
+  const criticalCount = visibleSugs.filter(s => s.priority === "critical").length;
 
-  const priorityColor = {
-    critical: { bg: "#fef2f2", border: "#fecaca", dot: "#dc2626", label: "#991b1b" },
-    high:     { bg: "#fff7ed", border: "#fed7aa", dot: "#ea580c", label: "#9a3412" },
-    medium:   { bg: "#fefce8", border: "#fef08a", dot: "#ca8a04", label: "#854d0e" },
-    low:      { bg: "#f0f9ff", border: "#bae6fd", dot: "#0284c7", label: "#0c4a6e" },
-    info:     { bg: "#f0fdf4", border: "#bbf7d0", dot: "#16a34a", label: "#15803d" },
-  };
-
-  const perfStatusColor = { good: "#15803D", "needs improvement": "#b45309", poor: "#dc2626" };
-
-  /* helpers */
+  /* ── helpers ───────────────────────────────────────────── */
   function passColor(r) {
-    if (r >= 80) return "#15803D";
-    if (r >= 60) return "#b45309";
+    if (r >= 80) return "#16a34a";
+    if (r >= 60) return "#d97706";
     return "#dc2626";
   }
   function trendArrow(label) {
-    if (label === "improving") return { icon: "↑", color: "#15803D" };
+    if (label === "improving") return { icon: "↑", color: "#16a34a" };
     if (label === "declining" || label === "worsening") return { icon: "↓", color: "#dc2626" };
-    return { icon: "→", color: "#6b7280" };
+    return { icon: "→", color: "#94a3b8" };
   }
   function MiniBar({ pct, color = "#2563EB" }) {
     return (
-      <div style={{ flex: 1, background: "#e5e7eb", borderRadius: 99, overflow: "hidden", height: 7 }}>
-        <div style={{ height: "100%", background: color, borderRadius: 99, width: `${Math.min(100, pct)}%` }} />
+      <div style={{ flex: 1, background: "#f1f5f9", borderRadius: 99, overflow: "hidden", height: 6 }}>
+        <div style={{ height: "100%", background: color, borderRadius: 99, width: `${Math.min(100, pct || 0)}%`, transition: "width .4s ease" }} />
       </div>
     );
   }
   function EmptyState({ icon = "📭", msg }) {
     return (
-      <div style={{ textAlign: "center", padding: "28px 0", color: "#9ca3af" }}>
-        <div style={{ fontSize: "2rem", marginBottom: 8 }}>{icon}</div>
-        <div style={{ fontSize: "0.83rem" }}>{msg}</div>
+      <div style={{ textAlign: "center", padding: "36px 20px", color: "#94a3b8" }}>
+        <div style={{ fontSize: "2.2rem", marginBottom: 10, opacity: 0.6 }}>{icon}</div>
+        <div style={{ fontSize: "0.85rem", lineHeight: 1.6, maxWidth: 260, margin: "0 auto" }}>{msg}</div>
+      </div>
+    );
+  }
+  function SectionLabel({ children }) {
+    return <div style={{ fontSize: "0.7rem", fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase", color: "#94a3b8", marginBottom: 10, marginTop: 4 }}>{children}</div>;
+  }
+  function StatPill({ label, val, color }) {
+    return (
+      <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 10, padding: "10px 14px", textAlign: "center", flex: "1 1 80px" }}>
+        <div style={{ fontWeight: 700, fontSize: "1.15rem", color: color || "#1e293b", lineHeight: 1.1 }}>{val}</div>
+        <div style={{ fontSize: "0.67rem", color: "#94a3b8", marginTop: 3 }}>{label}</div>
       </div>
     );
   }
 
+  /* ── priority colors ────────────────────────────────────── */
+  const pColor = {
+    critical: { bg: "#fff1f2", border: "#fecdd3", accent: "#e11d48",  text: "#9f1239" },
+    high:     { bg: "#fff7ed", border: "#fed7aa", accent: "#ea580c",  text: "#9a3412" },
+    medium:   { bg: "#fefce8", border: "#fef08a", accent: "#ca8a04",  text: "#713f12" },
+    low:      { bg: "#f0f9ff", border: "#bae6fd", accent: "#0284c7",  text: "#0c4a6e" },
+    info:     { bg: "#f0fdf4", border: "#bbf7d0", accent: "#16a34a",  text: "#14532d" },
+  };
+
+  /* ── nav tabs ───────────────────────────────────────────── */
   const tabs = [
-    { key: "suggestions", label: `💡 Tips${visibleSugs.length > 0 ? ` (${visibleSugs.length})` : ""}` },
-    { key: "inspectors",  label: "👤 Inspectors" },
-    { key: "supervisors", label: "🏢 Supervisors" },
-    { key: "locations",   label: "🗺️ Locations" },
-    { key: "behavior",    label: "📋 Behavior" },
-    { key: "crossInsp",   label: "⚖️ Calibration" },
-    { key: "resolution",  label: "🔓 Resolution" },
-    { key: "inventory",   label: "🔧 Inventory" },
-    { key: "usage",       label: "📊 Usage" },
-    { key: "perf",        label: "⚡ Perf" },
+    { key: "insights",   icon: "💡", label: "Insights",   badge: visibleSugs.length || null },
+    { key: "people",     icon: "👥", label: "People"  },
+    { key: "locations",  icon: "📍", label: "Locations" },
+    { key: "activity",   icon: "📈", label: "Activity" },
+    { key: "more",       icon: "⋯",  label: "More"    },
   ];
 
   return (
-    <div className="card" style={{ marginBottom: 24, border: "1.5px solid rgba(37,99,235,.2)", background: "linear-gradient(135deg, #f8faff 0%, #f0f4ff 100%)" }}>
-      <div className="cardHeader" style={{ borderBottom: "1px solid rgba(37,99,235,.12)", paddingBottom: 12 }}>
-        <div>
-          <div className="cardTitle" style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <span style={{ fontSize: "1.3rem" }}>🧠</span>
-            <span>AI System Monitor</span>
-            {visibleSugs.filter(s => s.priority === "critical").length > 0 && (
-              <span style={{ background: "#dc2626", color: "#fff", borderRadius: 99, fontSize: "0.68rem", fontWeight: 700, padding: "2px 8px" }}>
-                {visibleSugs.filter(s => s.priority === "critical").length} CRITICAL
-              </span>
-            )}
-          </div>
-          <div className="cardSub" style={{ fontSize: "0.71rem", marginTop: 2, color: "#6b7280" }}>
-            Self-improving · continuously learns from every angle of usage
-            {generatedAt && <span> · Last updated {new Date(generatedAt).toLocaleTimeString()}</span>}
+    <div className="aiMonitorCard">
+      {/* ── Header ──────────────────────────────────────── */}
+      <div className="aiMonitorHeader">
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div className="aiMonitorBrain">🧠</div>
+          <div>
+            <div className="aiMonitorTitle">AI Monitor</div>
+            <div className="aiMonitorSub">
+              {generatedAt
+                ? `Updated ${new Date(generatedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
+                : "Learning from your inspections"}
+            </div>
           </div>
         </div>
+        {criticalCount > 0 && (
+          <div className="aiMonitorCritical">{criticalCount} critical</div>
+        )}
       </div>
 
-      {/* Sub-tabs — horizontally scrollable on small screens */}
-      <div style={{ display: "flex", gap: 0, borderBottom: "1px solid rgba(37,99,235,.1)", padding: "0 8px", overflowX: "auto" }}>
+      {/* ── Tab Nav ─────────────────────────────────────── */}
+      <div className="aiMonitorNav">
         {tabs.map(t => (
-          <button
-            key={t.key}
-            type="button"
+          <button key={t.key} type="button"
+            className={`aiMonitorNavBtn${activeTab === t.key ? " active" : ""}`}
             onClick={() => setActiveTab(t.key)}
-            style={{
-              background: "none", border: "none", padding: "9px 11px", cursor: "pointer", whiteSpace: "nowrap",
-              fontSize: "0.75rem", fontWeight: activeTab === t.key ? 700 : 400,
-              color: activeTab === t.key ? "#2563EB" : "#6b7280",
-              borderBottom: activeTab === t.key ? "2px solid #2563EB" : "2px solid transparent",
-              marginBottom: -1, transition: "all .15s",
-            }}
-          >{t.label}</button>
+          >
+            <span className="aiMonitorNavIcon">{t.icon}</span>
+            <span className="aiMonitorNavLabel">{t.label}</span>
+            {t.badge ? <span className="aiMonitorNavBadge">{t.badge}</span> : null}
+          </button>
         ))}
       </div>
 
-      <div className="cardBody" style={{ paddingTop: 16 }}>
+      {/* ── Content ─────────────────────────────────────── */}
+      <div className="aiMonitorBody">
 
-        {/* ── SUGGESTIONS TAB ─────────────────────────────── */}
-        {activeTab === "suggestions" && (
-          <>
-            {visibleSugs.length === 0 ? (
-              <div style={{ textAlign: "center", padding: "24px 0", color: "#6b7280" }}>
-                <div style={{ fontSize: "2rem", marginBottom: 8 }}>✅</div>
-                <div style={{ fontWeight: 600, marginBottom: 4 }}>No suggestions right now</div>
-                <div style={{ fontSize: "0.82rem" }}>The AI found no improvement opportunities. Keep up the great work!</div>
+        {/* ══ INSIGHTS ════════════════════════════════════ */}
+        {activeTab === "insights" && (
+          <div>
+            {/* Overall stats strip */}
+            {patterns && (
+              <div style={{ display: "flex", gap: 8, marginBottom: 18, flexWrap: "wrap" }}>
+                <StatPill label="Pass rate" val={`${patterns.passRate}%`} color={passColor(patterns.passRate)} />
+                <StatPill label="Reports" val={patterns.totalRecords} />
+                <StatPill label="Avg issues" val={patterns.avgIssuesPerReport} />
+                <StatPill label="Weak sites" val={patterns.weakLocations?.length || 0} color={patterns.weakLocations?.length > 0 ? "#dc2626" : undefined} />
               </div>
+            )}
+
+            {visibleSugs.length === 0 ? (
+              <EmptyState icon="✅" msg="No suggestions right now — the AI found no improvement opportunities. Keep up the great work!" />
             ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {visibleSugs.map(s => {
-                  const c = priorityColor[s.priority] || priorityColor.low;
+                  const c = pColor[s.priority] || pColor.low;
                   return (
-                    <div key={s.id} style={{ background: c.bg, border: `1px solid ${c.border}`, borderRadius: 10, padding: "12px 14px", position: "relative" }}>
-                      <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
-                        <span style={{ fontSize: "1.3rem", flexShrink: 0 }}>{s.icon}</span>
+                    <div key={s.id} className="aiSugCard" style={{ background: c.bg, borderColor: c.border }}>
+                      <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+                        <div className="aiSugIcon">{s.icon}</div>
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontWeight: 700, fontSize: "0.88rem", color: c.label, marginBottom: 3 }}>
-                            <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: c.dot, marginRight: 6, verticalAlign: "middle" }} />
-                            {s.priority.toUpperCase()} · {s.title}
+                          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                            <span className="aiSugPriority" style={{ background: c.accent + "22", color: c.accent }}>
+                              {s.priority}
+                            </span>
+                            <span style={{ fontWeight: 600, fontSize: "0.87rem", color: "#1e293b" }}>{s.title}</span>
                           </div>
-                          <div style={{ fontSize: "0.82rem", color: "#374151", marginBottom: 6, lineHeight: 1.5 }}>{s.body}</div>
-                          <div style={{ fontSize: "0.76rem", color: "#6b7280", display: "flex", alignItems: "center", gap: 4 }}>
-                            <span>▶</span> <em>{s.action}</em>
-                          </div>
+                          <div style={{ fontSize: "0.83rem", color: "#475569", lineHeight: 1.55 }}>{s.body}</div>
+                          <div style={{ fontSize: "0.76rem", color: c.accent, marginTop: 6, fontWeight: 500 }}>→ {s.action}</div>
                         </div>
-                        <button type="button" title="Dismiss" onClick={() => dismiss(s.id)}
-                          style={{ background: "none", border: "none", cursor: "pointer", color: "#9ca3af", fontSize: "1rem", padding: "0 4px", flexShrink: 0 }}>✕</button>
+                        <button type="button" onClick={() => dismiss(s.id)} className="aiSugDismiss">✕</button>
                       </div>
                     </div>
                   );
@@ -2896,591 +2905,376 @@ function AIHealthMonitor({ history }) {
               </div>
             )}
             {dismissed.length > 0 && (
-              <button type="button"
-                style={{ background: "none", border: "none", cursor: "pointer", color: "#6b7280", fontSize: "0.75rem", marginTop: 10 }}
-                onClick={() => { setDismissed([]); try { localStorage.removeItem("sdx_ai_dismissed"); } catch {} }}
-              >↩ Restore {dismissed.length} dismissed suggestion{dismissed.length !== 1 ? "s" : ""}</button>
+              <button type="button" className="aiRestoreBtn"
+                onClick={() => { setDismissed([]); try { localStorage.removeItem("sdx_ai_dismissed"); } catch {} }}>
+                ↩ Restore {dismissed.length} dismissed
+              </button>
             )}
-            {patterns && (
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 16, padding: "12px 0", borderTop: "1px solid rgba(37,99,235,.1)" }}>
-                {[
-                  { label: "Records analysed", val: patterns.totalRecords },
-                  { label: "Overall pass rate", val: `${patterns.passRate}%`, color: passColor(patterns.passRate) },
-                  { label: "Avg issues/report", val: patterns.avgIssuesPerReport },
-                  { label: "Weak locations", val: patterns.weakLocations?.length || 0 },
-                  { label: "Schedule gaps", val: patterns.scheduleGaps?.length || 0 },
-                ].map(stat => (
-                  <div key={stat.label} style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 8, padding: "8px 14px", textAlign: "center", flex: "1 1 90px" }}>
-                    <div style={{ fontWeight: 700, fontSize: "1.1rem", color: stat.color || "#1e293b" }}>{stat.val}</div>
-                    <div style={{ fontSize: "0.7rem", color: "#6b7280" }}>{stat.label}</div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </>
+          </div>
         )}
 
-        {/* ── INSPECTORS TAB ──────────────────────────────── */}
-        {activeTab === "inspectors" && (() => {
-          const profiles = patterns?.inspectorProfiles || [];
-          if (!profiles.length) return <EmptyState icon="👤" msg="Inspector profiles will appear after saving inspections with inspector names." />;
+        {/* ══ PEOPLE ══════════════════════════════════════ */}
+        {activeTab === "people" && (() => {
+          const inspProfiles = patterns?.inspectorProfiles || [];
+          const supProfiles  = patterns?.supervisorProfiles || [];
+
           return (
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              <div style={{ fontSize: "0.74rem", color: "#6b7280", marginBottom: 4 }}>
-                Ranked by total inspections. Trend compares first-half vs second-half pass rate.
-              </div>
-              {profiles.map((p, i) => {
-                const arrow = trendArrow(p.trendLabel);
-                return (
-                  <div key={p.name} style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 10, padding: "12px 14px" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                      <span style={{ fontWeight: 700, fontSize: "0.82rem", color: "#1e293b", flex: 1 }}>
-                        #{i + 1} {p.name}
-                      </span>
-                      <span style={{ fontSize: "0.78rem", fontWeight: 700, color: arrow.color }}>{arrow.icon} {p.trendLabel}</span>
-                    </div>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
-                      {[
-                        { label: "Inspections", val: p.total },
-                        { label: "Pass rate", val: `${p.passRate}%`, color: passColor(p.passRate) },
-                        { label: "Avg issues", val: p.avgIssues },
-                        { label: "Sites", val: p.siteCount },
-                      ].map(s => (
-                        <div key={s.label} style={{ background: "#f8faff", border: "1px solid #e0e7ff", borderRadius: 7, padding: "5px 10px", textAlign: "center" }}>
-                          <div style={{ fontWeight: 700, fontSize: "0.95rem", color: s.color || "#2563EB" }}>{s.val}</div>
-                          <div style={{ fontSize: "0.65rem", color: "#6b7280" }}>{s.label}</div>
+            <div>
+              {/* Inspectors */}
+              <SectionLabel>Inspectors</SectionLabel>
+              {inspProfiles.length === 0
+                ? <EmptyState icon="👤" msg="Fill in inspector names when saving inspections to see profiles." />
+                : inspProfiles.map((p, i) => {
+                    const arrow = trendArrow(p.trendLabel);
+                    return (
+                      <div key={p.name} className="aiPersonCard">
+                        <div style={{ display: "flex", alignItems: "center", marginBottom: 8 }}>
+                          <div className="aiPersonRank">#{i + 1}</div>
+                          <div style={{ flex: 1, fontWeight: 600, fontSize: "0.9rem", color: "#1e293b" }}>{p.name}</div>
+                          <div style={{ fontSize: "0.8rem", fontWeight: 700, color: arrow.color }}>{arrow.icon} {p.trendLabel}</div>
                         </div>
-                      ))}
-                    </div>
-                    {/* Pass rate bar */}
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                      <div style={{ fontSize: "0.7rem", color: "#6b7280", minWidth: 64 }}>Pass rate</div>
-                      <MiniBar pct={p.passRate} color={passColor(p.passRate)} />
-                      <div style={{ fontSize: "0.7rem", color: passColor(p.passRate), fontWeight: 700, minWidth: 34, textAlign: "right" }}>{p.passRate}%</div>
-                    </div>
-                    {p.topIssues?.length > 0 && (
-                      <div style={{ fontSize: "0.72rem", color: "#6b7280" }}>
-                        <span style={{ fontWeight: 600, color: "#374151" }}>Top issues: </span>
-                        {p.topIssues.slice(0, 3).join(" · ")}
-                      </div>
-                    )}
-                    {p.recentSites?.length > 0 && (
-                      <div style={{ fontSize: "0.7rem", color: "#9ca3af", marginTop: 4 }}>
-                        Recent: {p.recentSites.slice(0, 3).join(", ")}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          );
-        })()}
-
-        {/* ── SUPERVISORS TAB ─────────────────────────────── */}
-        {activeTab === "supervisors" && (() => {
-          const profiles = patterns?.supervisorProfiles || [];
-          if (!profiles.length) return <EmptyState icon="🏢" msg="Supervisor profiles will appear after saving inspections with supervisor names." />;
-          return (
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              <div style={{ fontSize: "0.74rem", color: "#6b7280", marginBottom: 4 }}>
-                Ranked by total inspections. Recurring issues = same issue found at the same site on multiple visits.
-              </div>
-              {profiles.map((p, i) => (
-                <div key={p.name} style={{
-                  background: "#fff", border: p.hasRecurringIssues ? "1.5px solid #fecaca" : "1px solid #e5e7eb",
-                  borderRadius: 10, padding: "12px 14px",
-                }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                    <span style={{ fontWeight: 700, fontSize: "0.82rem", color: "#1e293b", flex: 1 }}>
-                      #{i + 1} {p.name}
-                    </span>
-                    {p.hasRecurringIssues && (
-                      <span style={{ background: "#fef2f2", color: "#991b1b", border: "1px solid #fecaca", borderRadius: 99, fontSize: "0.65rem", fontWeight: 700, padding: "2px 7px" }}>
-                        ⚠ Recurring issues
-                      </span>
-                    )}
-                  </div>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
-                    {[
-                      { label: "Inspections", val: p.total },
-                      { label: "Pass rate", val: `${p.passRate}%`, color: passColor(p.passRate) },
-                      { label: "Sites", val: p.siteCount },
-                    ].map(s => (
-                      <div key={s.label} style={{ background: "#f8faff", border: "1px solid #e0e7ff", borderRadius: 7, padding: "5px 10px", textAlign: "center" }}>
-                        <div style={{ fontWeight: 700, fontSize: "0.95rem", color: s.color || "#2563EB" }}>{s.val}</div>
-                        <div style={{ fontSize: "0.65rem", color: "#6b7280" }}>{s.label}</div>
-                      </div>
-                    ))}
-                  </div>
-                  {p.problemSites?.length > 0 && (
-                    <div style={{ marginTop: 6 }}>
-                      <div style={{ fontSize: "0.72rem", fontWeight: 600, color: "#374151", marginBottom: 4 }}>Problem sites:</div>
-                      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                        {p.problemSites.slice(0, 3).map(s => (
-                          <div key={s.site} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                            <div style={{ fontSize: "0.72rem", color: "#374151", flex: 1 }}>{s.site}</div>
-                            <MiniBar pct={100 - (s.total > 0 ? Math.round((s.fails / s.total) * 100) : 0)} color="#dc2626" />
-                            <div style={{ fontSize: "0.68rem", color: "#dc2626", minWidth: 42, textAlign: "right" }}>
-                              {s.fails}/{s.total} fail
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  {p.topIssues?.length > 0 && (
-                    <div style={{ fontSize: "0.72rem", color: "#6b7280", marginTop: 6 }}>
-                      <span style={{ fontWeight: 600, color: "#374151" }}>Top issues: </span>
-                      {p.topIssues.slice(0, 3).join(" · ")}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          );
-        })()}
-
-        {/* ── LOCATIONS TAB ───────────────────────────────── */}
-        {activeTab === "locations" && (
-          <LocationsPanel loc={patterns?.locationProfile} passColor={passColor} trendArrow={trendArrow} MiniBar={MiniBar} EmptyState={EmptyState} />
-        )}
-
-        {/* ── BEHAVIOR TAB ────────────────────────────────── */}
-        {activeTab === "behavior" && (() => {
-          const b = patterns?.behavior;
-          if (!b) return <EmptyState icon="📋" msg="Behavior analytics will appear after saving inspections." />;
-
-          const dayNames  = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-          const hourBuckets = b.hourBuckets || new Array(24).fill(0);
-          const dayBuckets  = b.dayBuckets  || new Array(7).fill(0);
-          const maxH = Math.max(...hourBuckets, 1);
-          const maxD = Math.max(...dayBuckets, 1);
-
-          const completeness = b.completeness || {};
-          const compFields = [
-            { key: "inspectorName", label: "Inspector name" },
-            { key: "supervisorName", label: "Supervisor name" },
-            { key: "temps", label: "Temperatures" },
-            { key: "floor", label: "Floor / area" },
-          ];
-
-          return (
-            <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-
-              {/* Hour-of-day heatmap */}
-              <div>
-                <div style={{ fontWeight: 600, fontSize: "0.8rem", color: "#374151", marginBottom: 8 }}>
-                  Inspections by Hour of Day
-                  {b.peakHourLabel && <span style={{ fontWeight: 400, color: "#6b7280", marginLeft: 6 }}>Peak: {b.peakHourLabel}</span>}
-                </div>
-                <div style={{ display: "flex", gap: 2, alignItems: "flex-end", height: 50 }}>
-                  {hourBuckets.map((count, h) => {
-                    const hgt = Math.max(3, Math.round((count / maxH) * 44));
-                    const isActive = count > 0;
-                    return (
-                      <div key={h} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center" }} title={`${h}:00 — ${count} inspection${count !== 1 ? "s" : ""}`}>
-                        <div style={{
-                          width: "100%", height: hgt, borderRadius: "2px 2px 0 0",
-                          background: isActive ? (h === b.peakHour ? "#2563EB" : "rgba(37,99,235,.4)") : "#e5e7eb",
-                        }} />
-                        {(h % 6 === 0) && <div style={{ fontSize: "0.55rem", color: "#9ca3af", marginTop: 2 }}>{h}h</div>}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Day-of-week bars */}
-              <div>
-                <div style={{ fontWeight: 600, fontSize: "0.8rem", color: "#374151", marginBottom: 8 }}>
-                  Inspections by Day of Week
-                  {b.peakDayLabel && <span style={{ fontWeight: 400, color: "#6b7280", marginLeft: 6 }}>Busiest: {b.peakDayLabel}</span>}
-                </div>
-                <div style={{ display: "flex", gap: 6, alignItems: "flex-end", height: 60 }}>
-                  {dayBuckets.map((count, d) => {
-                    const hgt = Math.max(4, Math.round((count / maxD) * 52));
-                    return (
-                      <div key={d} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
-                        <div title={`${dayNames[d]}: ${count}`} style={{
-                          width: "100%", height: hgt, borderRadius: "3px 3px 0 0",
-                          background: d === b.peakDay ? "#2563EB" : "rgba(37,99,235,.35)",
-                        }} />
-                        <div style={{ fontSize: "0.65rem", color: "#9ca3af" }}>{dayNames[d]}</div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Inspection type frequency */}
-              {b.topTypes?.length > 0 && (
-                <div>
-                  <div style={{ fontWeight: 600, fontSize: "0.8rem", color: "#374151", marginBottom: 8 }}>Top Inspection Types</div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                    {b.topTypes.slice(0, 5).map(t => (
-                      <div key={t.type} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <div style={{ fontSize: "0.78rem", color: "#374151", minWidth: 130, flexShrink: 0 }}>{t.type}</div>
-                        <MiniBar pct={Math.round((t.count / b.topTypes[0].count) * 100)} />
-                        <div style={{ fontSize: "0.72rem", color: "#6b7280", minWidth: 28, textAlign: "right" }}>{t.count}×</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Data completeness */}
-              <div>
-                <div style={{ fontWeight: 600, fontSize: "0.8rem", color: "#374151", marginBottom: 8 }}>Form Field Completeness</div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
-                  {compFields.map(f => {
-                    const pct = completeness[f.key] ?? 0;
-                    const color = pct >= 90 ? "#15803D" : pct >= 60 ? "#b45309" : "#dc2626";
-                    return (
-                      <div key={f.key} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <div style={{ fontSize: "0.78rem", color: "#374151", minWidth: 128, flexShrink: 0 }}>{f.label}</div>
-                        <MiniBar pct={pct} color={color} />
-                        <div style={{ fontSize: "0.72rem", color, fontWeight: 700, minWidth: 36, textAlign: "right" }}>{pct}%</div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Quick stats */}
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                {[
-                  { label: "Total records", val: b.total || 0 },
-                  { label: "Avg issues", val: b.avgIssues ?? 0 },
-                  { label: "Zero-issue passes", val: b.zeroIssuePasses || 0 },
-                  { label: "High-issue records", val: b.highIssueRecords || 0 },
-                ].map(s => (
-                  <div key={s.label} style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 8, padding: "8px 12px", textAlign: "center", flex: "1 1 90px" }}>
-                    <div style={{ fontWeight: 700, fontSize: "1rem", color: "#2563EB" }}>{s.val}</div>
-                    <div style={{ fontSize: "0.68rem", color: "#6b7280" }}>{s.label}</div>
-                  </div>
-                ))}
-              </div>
-
-            </div>
-          );
-        })()}
-
-        {/* ── CALIBRATION TAB (Cross-Inspector) ─────────── */}
-        {activeTab === "crossInsp" && (() => {
-          const ci = patterns?.crossInspector;
-          if (!ci) return <EmptyState icon="⚖️" msg="Inspector calibration analysis requires at least 4 inspections with inspector names filled in." />;
-          const { profiles = [], siteCorrelations = [], rubberStampers = [], thorough = [], globalAvgIssues = 0 } = ci;
-          if (profiles.length < 2) return <EmptyState icon="⚖️" msg="Calibration analysis requires at least 2 inspectors with 2+ inspections each." />;
-          return (
-            <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-
-              {/* Inspector comparison table */}
-              <div>
-                <div style={{ fontWeight: 600, fontSize: "0.8rem", color: "#374151", marginBottom: 8 }}>Inspector Comparison</div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                  {profiles.map(p => {
-                    const isRubber = rubberStampers.some(r => r.name === p.name);
-                    const isThorough = thorough.some(t => t.name === p.name);
-                    return (
-                      <div key={p.name} style={{ background: "#fff", border: `1.5px solid ${isRubber ? "#f59e0b" : isThorough ? "#2563EB" : "#e5e7eb"}`, borderRadius: 8, padding: "8px 12px" }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-                          <span style={{ fontWeight: 600, fontSize: "0.82rem", color: "#111827" }}>{p.name}</span>
-                          <span style={{ display: "flex", gap: 6 }}>
-                            {isRubber && <span style={{ background: "#fef3c7", color: "#92400e", borderRadius: 99, fontSize: "0.65rem", fontWeight: 700, padding: "2px 7px" }}>Under-reporting?</span>}
-                            {isThorough && <span style={{ background: "#dbeafe", color: "#1e40af", borderRadius: 99, fontSize: "0.65rem", fontWeight: 700, padding: "2px 7px" }}>Most Thorough</span>}
-                          </span>
+                        <div style={{ display: "flex", gap: 3, marginBottom: 8 }}>
+                          <MiniBar pct={p.passRate} color={passColor(p.passRate)} />
+                          <span style={{ fontSize: "0.78rem", fontWeight: 700, color: passColor(p.passRate), minWidth: 36, textAlign: "right" }}>{p.passRate}%</span>
                         </div>
-                        <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                          <span style={{ fontSize: "0.73rem", color: "#6b7280" }}>{p.total} visits</span>
-                          <span style={{ fontSize: "0.73rem", color: passColor(p.passRate), fontWeight: 600 }}>{p.passRate}% pass</span>
-                          <span style={{ fontSize: "0.73rem", color: "#374151" }}>Avg {p.avgIssues} issues/visit</span>
-                          <span style={{ fontSize: "0.73rem", color: "#6b7280" }}>{p.zeroIssuePct}% zero-issue</span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-                <div style={{ fontSize: "0.7rem", color: "#9ca3af", marginTop: 6 }}>Team avg: {globalAvgIssues} issues/visit</div>
-              </div>
-
-              {/* Site/Inspector discrepancies */}
-              {siteCorrelations.length > 0 && (
-                <div>
-                  <div style={{ fontWeight: 600, fontSize: "0.8rem", color: "#374151", marginBottom: 8 }}>
-                    Sites with Inspector Pass-Rate Gaps
-                    <span style={{ fontWeight: 400, color: "#6b7280", marginLeft: 6, fontSize: "0.71rem" }}>same site, different results</span>
-                  </div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                    {siteCorrelations.map(sc => (
-                      <div key={sc.site} style={{ background: "#fff", border: "1.5px solid #fca5a5", borderRadius: 8, padding: "8px 12px" }}>
-                        <div style={{ fontWeight: 600, fontSize: "0.82rem", color: "#111827", marginBottom: 4 }}>{sc.site}</div>
-                        <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-                          {sc.all.map(a => (
-                            <div key={a.insp} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                              <div style={{ fontSize: "0.75rem", color: "#374151", minWidth: 110, flexShrink: 0 }}>{a.insp}</div>
-                              <MiniBar pct={a.passRate} color={passColor(a.passRate)} />
-                              <div style={{ fontSize: "0.72rem", color: passColor(a.passRate), fontWeight: 700, minWidth: 38, textAlign: "right" }}>{a.passRate}%</div>
-                            </div>
+                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                          {[
+                            { l: "visits", v: p.total },
+                            { l: "avg issues", v: p.avgIssues },
+                            { l: "sites", v: p.siteCount },
+                          ].map(s => (
+                            <span key={s.l} className="aiChip">{s.v} {s.l}</span>
                           ))}
                         </div>
-                        <div style={{ fontSize: "0.68rem", color: "#dc2626", marginTop: 4 }}>⚠ {sc.spread}-point gap — calibration recommended</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-            </div>
-          );
-        })()}
-
-        {/* ── RESOLUTION TAB ──────────────────────────────── */}
-        {activeTab === "resolution" && (() => {
-          const res = patterns?.issueResolution;
-          if (!res) return <EmptyState icon="🔓" msg="Issue resolution tracking requires at least 4 inspections with action items filled in." />;
-          const { siteResults = [], globalRecurrenceRate = 0, totalFollowUps = 0 } = res;
-          if (totalFollowUps === 0) return <EmptyState icon="🔓" msg="No follow-up visits found yet. Resolution tracking activates once the same site has been inspected more than once." />;
-          return (
-            <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-
-              {/* Global rate */}
-              <div style={{ background: globalRecurrenceRate >= 50 ? "#fef2f2" : globalRecurrenceRate >= 30 ? "#fffbeb" : "#f0fdf4", border: `1.5px solid ${globalRecurrenceRate >= 50 ? "#fca5a5" : globalRecurrenceRate >= 30 ? "#fcd34d" : "#86efac"}`, borderRadius: 10, padding: "10px 14px" }}>
-                <div style={{ fontWeight: 700, fontSize: "1.05rem", color: globalRecurrenceRate >= 50 ? "#dc2626" : globalRecurrenceRate >= 30 ? "#92400e" : "#15803D" }}>
-                  {globalRecurrenceRate}% issue recurrence rate
-                </div>
-                <div style={{ fontSize: "0.75rem", color: "#6b7280", marginTop: 2 }}>
-                  Across {totalFollowUps} follow-up visit{totalFollowUps !== 1 ? "s" : ""}, issues reappeared {globalRecurrenceRate}% of the time. {globalRecurrenceRate >= 50 ? "Corrective actions are not being completed." : globalRecurrenceRate >= 30 ? "Some issues are not being resolved between visits." : "Most issues are being resolved. Good work."}
-                </div>
-              </div>
-
-              {/* Per-site resolution rates */}
-              <div>
-                <div style={{ fontWeight: 600, fontSize: "0.8rem", color: "#374151", marginBottom: 8 }}>Resolution Rate by Site</div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                  {siteResults.map(s => {
-                    const resolvedPct = 100 - s.recurrenceRate;
-                    return (
-                      <div key={s.site} style={{ background: "#fff", border: `1.5px solid ${s.recurrenceRate >= 50 ? "#fca5a5" : "#e5e7eb"}`, borderRadius: 8, padding: "8px 12px" }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                          <span style={{ fontWeight: 600, fontSize: "0.82rem", color: "#111827" }}>{s.site}</span>
-                          <span style={{ fontSize: "0.72rem", color: "#6b7280" }}>{s.followUps} follow-up{s.followUps !== 1 ? "s" : ""}</span>
-                        </div>
-                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                          <div style={{ fontSize: "0.73rem", color: "#374151", minWidth: 90, flexShrink: 0 }}>Resolved</div>
-                          <MiniBar pct={resolvedPct} color={resolvedPct >= 70 ? "#15803D" : resolvedPct >= 50 ? "#b45309" : "#dc2626"} />
-                          <div style={{ fontSize: "0.72rem", fontWeight: 700, color: resolvedPct >= 70 ? "#15803D" : resolvedPct >= 50 ? "#b45309" : "#dc2626", minWidth: 36, textAlign: "right" }}>{resolvedPct}%</div>
-                        </div>
-                        {s.topPersistent.length > 0 && (
-                          <div style={{ fontSize: "0.68rem", color: "#6b7280" }}>
-                            Persistent: {s.topPersistent.map(p => `"${p.issue}" (${p.times}×)`).join(", ")}
+                        {p.topIssues?.length > 0 && (
+                          <div style={{ fontSize: "0.75rem", color: "#64748b", marginTop: 7 }}>
+                            Common: {p.topIssues.slice(0, 3).join(" · ")}
                           </div>
                         )}
                       </div>
                     );
-                  })}
-                </div>
-              </div>
+                  })
+              }
 
+              {/* Supervisors */}
+              {supProfiles.length > 0 && (
+                <>
+                  <SectionLabel style={{ marginTop: 18 }}>Supervisors</SectionLabel>
+                  {supProfiles.map((p, i) => (
+                    <div key={p.name} className="aiPersonCard" style={{ borderColor: p.hasRecurringIssues ? "#fca5a5" : undefined }}>
+                      <div style={{ display: "flex", alignItems: "center", marginBottom: 8 }}>
+                        <div className="aiPersonRank">#{i + 1}</div>
+                        <div style={{ flex: 1, fontWeight: 600, fontSize: "0.9rem", color: "#1e293b" }}>{p.name}</div>
+                        {p.hasRecurringIssues && (
+                          <span className="aiChip" style={{ background: "#fee2e2", color: "#991b1b" }}>⚠ Recurring</span>
+                        )}
+                      </div>
+                      <div style={{ display: "flex", gap: 3, marginBottom: 8 }}>
+                        <MiniBar pct={p.passRate} color={passColor(p.passRate)} />
+                        <span style={{ fontSize: "0.78rem", fontWeight: 700, color: passColor(p.passRate), minWidth: 36, textAlign: "right" }}>{p.passRate}%</span>
+                      </div>
+                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                        {[
+                          { l: "visits", v: p.total },
+                          { l: "sites", v: p.siteCount },
+                        ].map(s => (
+                          <span key={s.l} className="aiChip">{s.v} {s.l}</span>
+                        ))}
+                      </div>
+                      {p.topIssues?.length > 0 && (
+                        <div style={{ fontSize: "0.75rem", color: "#64748b", marginTop: 7 }}>
+                          Issues: {p.topIssues.slice(0, 3).join(" · ")}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </>
+              )}
+
+              {/* Calibration notice */}
+              {(() => {
+                const ci = patterns?.crossInspector;
+                if (!ci || ci.siteCorrelations?.length === 0) return null;
+                return (
+                  <div className="aiAlertBanner" style={{ marginTop: 14 }}>
+                    <span style={{ fontSize: "1rem" }}>⚖️</span>
+                    <div>
+                      <div style={{ fontWeight: 600, fontSize: "0.84rem" }}>Calibration gap detected</div>
+                      <div style={{ fontSize: "0.78rem", color: "#475569", marginTop: 2 }}>
+                        {ci.siteCorrelations.length} site{ci.siteCorrelations.length !== 1 ? "s" : ""} show different pass rates between inspectors — review scoring consistency.
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           );
         })()}
 
-        {/* ── INVENTORY TAB ───────────────────────────────── */}
-        {activeTab === "inventory" && (() => {
-          const inv = patterns?.equipmentInventory;
-          if (!inv || inv.length === 0) return (
-            <EmptyState icon="🔧" msg="No equipment counts recorded yet. Open an inspection, expand the Equipment section, and fill in the '# Units at this location' field for each piece of equipment." />
-          );
-          const fleetMax = Math.max(...inv.map(e => e.fleetTotal), 1);
-          const today = new Date();
-          const daysSince = (dateStr) => {
-            if (!dateStr) return null;
-            const d = new Date(dateStr);
-            if (isNaN(d)) return null;
-            return Math.floor((today - d) / 86400000);
-          };
-          const sourceIcon = { Facility: "🏢", Subcontractor: "🤝", Stadium: "🏟️", Event: "🎪" };
-          const sourceBg   = { Facility: "#f0fdf4", Subcontractor: "#fef3c7", Stadium: "#eff6ff", Event: "#fdf4ff" };
-          const sourceClr  = { Facility: "#166534", Subcontractor: "#92400e", Stadium: "#1d4ed8", Event: "#7c3aed" };
-          return (
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              <div style={{ fontWeight: 600, fontSize: "0.85rem", color: "#374151", marginBottom: 4 }}>Fleet Equipment Inventory</div>
-              <div style={{ fontSize: "0.75rem", color: "#6b7280", marginBottom: 8 }}>
-                Based on the <strong>latest inspection per site</strong>. Equipment removed since the last visit is automatically dropped. Use "Equipment owned by" to flag subcontractor or event-temporary units.
-              </div>
-              {inv.map(eq => {
-                const hasTmp = eq.temporaryUnits > 0;
-                return (
-                  <div key={eq.key} style={{ background: "#fff", border: `1.5px solid ${hasTmp ? "#fde68a" : "#e5e7eb"}`, borderRadius: 10, padding: "10px 14px" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                      <span style={{ fontWeight: 700, fontSize: "0.85rem", color: "#111827" }}>{eq.label}</span>
-                      <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                        {hasTmp && (
-                          <span title={`${eq.temporaryUnits} temporary unit${eq.temporaryUnits !== 1 ? "s" : ""} (Subcontractor / Stadium / Event)`}
-                            style={{ fontSize: "0.68rem", background: "#fef3c7", color: "#92400e", border: "1px solid #fde68a", borderRadius: 6, padding: "1px 6px" }}>
-                            ⚠️ {eq.temporaryUnits} temp
+        {/* ══ LOCATIONS ═══════════════════════════════════ */}
+        {activeTab === "locations" && (
+          <div>
+            {/* Resolution summary */}
+            {(() => {
+              const res = patterns?.issueResolution;
+              if (!res || res.totalFollowUps === 0) return null;
+              const rate = res.globalRecurrenceRate;
+              const color = rate >= 50 ? "#dc2626" : rate >= 30 ? "#d97706" : "#16a34a";
+              return (
+                <div className="aiStatBanner" style={{ borderColor: color + "55", background: color + "0d", marginBottom: 14 }}>
+                  <div style={{ fontWeight: 700, fontSize: "1.3rem", color }}>{100 - rate}%</div>
+                  <div>
+                    <div style={{ fontWeight: 600, fontSize: "0.84rem", color: "#1e293b" }}>Issue resolution rate</div>
+                    <div style={{ fontSize: "0.77rem", color: "#64748b" }}>{res.totalFollowUps} follow-up visits analysed</div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            <LocationsPanel
+              loc={patterns?.locationProfile}
+              passColor={passColor}
+              trendArrow={trendArrow}
+              MiniBar={MiniBar}
+              EmptyState={EmptyState}
+            />
+
+            {/* Inventory summary */}
+            {(() => {
+              const inv = patterns?.equipmentInventory;
+              if (!inv || inv.length === 0) return null;
+              const fleetMax = Math.max(...inv.map(e => e.fleetTotal), 1);
+              const today = new Date();
+              const daysSince = (ds) => {
+                if (!ds) return null;
+                const d = new Date(ds);
+                return isNaN(d) ? null : Math.floor((today - d) / 86400000);
+              };
+              const sourceIcon = { Facility: "🏢", Subcontractor: "🤝", Stadium: "🏟️", Event: "🎪" };
+              const sourceClr  = { Facility: "#166534", Subcontractor: "#92400e", Stadium: "#1d4ed8", Event: "#7c3aed" };
+              const sourceBg   = { Facility: "#f0fdf4", Subcontractor: "#fef9c3", Stadium: "#eff6ff", Event: "#faf5ff" };
+              return (
+                <>
+                  <SectionLabel style={{ marginTop: 18 }}>Equipment Fleet</SectionLabel>
+                  {inv.map(eq => {
+                    const hasTmp = eq.temporaryUnits > 0;
+                    return (
+                      <div key={eq.key} className="aiPersonCard" style={{ borderColor: hasTmp ? "#fde68a" : undefined }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 7 }}>
+                          <span style={{ fontWeight: 600, fontSize: "0.88rem", color: "#1e293b" }}>{eq.label}</span>
+                          <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                            {hasTmp && <span className="aiChip" style={{ background: "#fef9c3", color: "#92400e" }}>⚠ {eq.temporaryUnits} temp</span>}
+                            <span style={{ fontWeight: 800, fontSize: "1rem", color: "#2563EB" }}>{eq.fleetTotal}</span>
+                          </div>
+                        </div>
+                        <div style={{ display: "flex", gap: 4, alignItems: "center", marginBottom: 7 }}>
+                          <MiniBar pct={Math.round((eq.fleetTotal / fleetMax) * 100)} color="#2563EB" />
+                          <span style={{ fontSize: "0.72rem", color: "#94a3b8", whiteSpace: "nowrap" }}>
+                            {eq.siteCount} site{eq.siteCount !== 1 ? "s" : ""} · avg {eq.avgPerSite}
                           </span>
-                        )}
-                        <span style={{ fontWeight: 800, fontSize: "1rem", color: "#2563EB" }}>{eq.fleetTotal} total</span>
-                      </div>
-                    </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                      <MiniBar pct={Math.round((eq.fleetTotal / fleetMax) * 100)} color="#2563EB" />
-                      <span style={{ fontSize: "0.7rem", color: "#6b7280", whiteSpace: "nowrap" }}>
-                        {eq.siteCount} site{eq.siteCount !== 1 ? "s" : ""} · avg {eq.avgPerSite} per site
-                      </span>
-                    </div>
-                    {/* Source breakdown row */}
-                    {(eq.sources?.Subcontractor > 0 || eq.sources?.Stadium > 0 || eq.sources?.Event > 0) && (
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 6 }}>
-                        {["Facility","Subcontractor","Stadium","Event"].filter(s => eq.sources?.[s] > 0).map(s => (
-                          <span key={s} style={{ fontSize: "0.67rem", background: sourceBg[s], color: sourceClr[s], border: `1px solid ${sourceClr[s]}33`, borderRadius: 6, padding: "2px 7px" }}>
-                            {sourceIcon[s]} {s}: {eq.sources[s]}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                    {/* Per-site breakdown with source badge + last-seen */}
-                    {eq.siteBreakdown.length > 0 && (
-                      <div style={{ display: "flex", flexDirection: "column", gap: 3, marginTop: 4 }}>
-                        {eq.siteBreakdown.slice(0, 6).map(s => {
+                        </div>
+                        {eq.siteBreakdown.slice(0, 4).map(s => {
                           const days = daysSince(s.lastSeen);
                           const isTmp = s.source && s.source !== "Facility";
                           return (
-                            <div key={s.site} style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                              <span style={{ fontSize: "0.67rem", background: isTmp ? "#fef9c3" : "#eff6ff", color: isTmp ? "#78350f" : "#1d4ed8", border: `1px solid ${isTmp ? "#fde68a" : "#bfdbfe"}`, borderRadius: 6, padding: "2px 7px" }}>
-                                {s.site}: {s.count}
+                            <div key={s.site} style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 3 }}>
+                              <span className="aiChip" style={{ background: isTmp ? sourceBg[s.source] : "#f1f5f9", color: isTmp ? sourceClr[s.source] : "#475569" }}>
+                                {isTmp ? sourceIcon[s.source] : ""} {s.site}: {s.count}
                               </span>
-                              {isTmp && (
-                                <span style={{ fontSize: "0.63rem", color: "#92400e" }}>{sourceIcon[s.source]} {s.source}</span>
-                              )}
                               {days !== null && (
-                                <span style={{ fontSize: "0.63rem", color: days > 60 ? "#dc2626" : days > 30 ? "#d97706" : "#6b7280" }}
-                                  title={`Last inspected: ${s.lastSeen}`}>
-                                  {days === 0 ? "today" : `${days}d ago`}{days > 60 ? " ⚠️" : ""}
+                                <span style={{ fontSize: "0.68rem", color: days > 60 ? "#dc2626" : days > 30 ? "#d97706" : "#94a3b8" }}>
+                                  {days === 0 ? "today" : `${days}d ago`}
                                 </span>
                               )}
                             </div>
                           );
                         })}
                       </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          );
-        })()}
+                    );
+                  })}
+                </>
+              );
+            })()}
+          </div>
+        )}
 
-        {/* ── USAGE TAB ───────────────────────────────────── */}
-        {activeTab === "usage" && usageReport && (
-          <div>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
-              {[
-                { label: "Total sessions", val: usageReport.sessions },
-                { label: "Total interactions", val: usageReport.totalInteractions },
-                { label: "Avg per day", val: usageReport.avgDailyInteractions },
-                { label: "Active days", val: usageReport.activeDays },
-              ].map(stat => (
-                <div key={stat.label} style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 8, padding: "10px 16px", textAlign: "center", flex: "1 1 100px" }}>
-                  <div style={{ fontWeight: 700, fontSize: "1.2rem", color: "#2563EB" }}>{stat.val}</div>
-                  <div style={{ fontSize: "0.7rem", color: "#6b7280" }}>{stat.label}</div>
-                </div>
-              ))}
-            </div>
+        {/* ══ ACTIVITY ════════════════════════════════════ */}
+        {activeTab === "activity" && (() => {
+          const b = patterns?.behavior;
+          if (!b) return <EmptyState icon="📈" msg="Activity analytics will appear after saving a few inspections." />;
 
-            {usageReport.recentDays.length > 0 && (
-              <>
-                <div style={{ fontWeight: 600, fontSize: "0.8rem", color: "#374151", marginBottom: 8 }}>Activity — Last 7 days</div>
-                <div style={{ display: "flex", gap: 4, alignItems: "flex-end", height: 60, marginBottom: 14 }}>
-                  {usageReport.recentDays.map(d => {
-                    const max = Math.max(...usageReport.recentDays.map(x => x.interactions), 1);
-                    const h = Math.max(4, Math.round((d.interactions / max) * 52));
+          const dayNames    = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+          const hourBuckets = b.hourBuckets || new Array(24).fill(0);
+          const dayBuckets  = b.dayBuckets  || new Array(7).fill(0);
+          const maxH = Math.max(...hourBuckets, 1);
+          const maxD = Math.max(...dayBuckets, 1);
+          const completeness = b.completeness || {};
+
+          return (
+            <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+
+              {/* Quick stats */}
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <StatPill label="Total records" val={b.total || 0} />
+                <StatPill label="Avg issues" val={b.avgIssues ?? 0} />
+                <StatPill label="Zero-issue" val={b.zeroIssuePasses || 0} color="#16a34a" />
+                <StatPill label="High-issue" val={b.highIssueRecords || 0} color={b.highIssueRecords > 0 ? "#dc2626" : undefined} />
+              </div>
+
+              {/* Hour of day */}
+              <div>
+                <SectionLabel>
+                  By hour{b.peakHourLabel ? ` · peak: ${b.peakHourLabel}` : ""}
+                </SectionLabel>
+                <div style={{ display: "flex", gap: 2, alignItems: "flex-end", height: 48 }}>
+                  {hourBuckets.map((count, h) => {
+                    const hgt = Math.max(2, Math.round((count / maxH) * 42));
                     return (
-                      <div key={d.date} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
-                        <div title={`${d.interactions} interactions`} style={{ width: "100%", height: h, background: "#2563EB", borderRadius: "3px 3px 0 0", opacity: 0.8 }} />
-                        <div style={{ fontSize: "0.6rem", color: "#9ca3af" }}>{d.date.slice(5)}</div>
+                      <div key={h} title={`${h}:00 — ${count}`}
+                        style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center" }}>
+                        <div style={{
+                          width: "100%", height: hgt, borderRadius: "2px 2px 0 0",
+                          background: count > 0 ? (h === b.peakHour ? "#2563EB" : "#93c5fd") : "#f1f5f9",
+                        }} />
+                        {h % 6 === 0 && <div style={{ fontSize: "0.5rem", color: "#cbd5e1", marginTop: 2 }}>{h}h</div>}
                       </div>
                     );
                   })}
                 </div>
-              </>
-            )}
-
-            {usageReport.topActions.length > 0 && (
-              <>
-                <div style={{ fontWeight: 600, fontSize: "0.8rem", color: "#374151", marginBottom: 6 }}>Top actions</div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                  {usageReport.topActions.slice(0, 6).map(a => (
-                    <div key={a.name} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <div style={{ fontSize: "0.78rem", color: "#374151", minWidth: 140, flexShrink: 0 }}>{a.name}</div>
-                      <div style={{ flex: 1, background: "#e5e7eb", borderRadius: 99, overflow: "hidden", height: 8 }}>
-                        <div style={{ height: "100%", background: "#2563EB", borderRadius: 99, width: `${Math.round((a.count / usageReport.topActions[0].count) * 100)}%` }} />
-                      </div>
-                      <div style={{ fontSize: "0.72rem", color: "#6b7280", minWidth: 28, textAlign: "right" }}>{a.count}×</div>
-                    </div>
-                  ))}
-                </div>
-              </>
-            )}
-
-            {usageReport.firstSeen && (
-              <div style={{ fontSize: "0.72rem", color: "#9ca3af", marginTop: 14 }}>
-                First seen: {new Date(usageReport.firstSeen).toLocaleDateString()} · Last seen: {new Date(usageReport.lastSeen).toLocaleDateString()}
               </div>
-            )}
-          </div>
-        )}
-        {activeTab === "usage" && !usageReport && (
-          <EmptyState icon="📊" msg="Usage data will appear after interacting with the app for a session." />
-        )}
 
-        {/* ── PERFORMANCE TAB ─────────────────────────────── */}
-        {activeTab === "perf" && (
-          <div>
-            {perfReport.length === 0 ? (
-              <div style={{ textAlign: "center", padding: "20px 0", color: "#9ca3af", fontSize: "0.85rem" }}>
-                Performance metrics will appear after using the app for a moment.
+              {/* Day of week */}
+              <div>
+                <SectionLabel>
+                  By day{b.peakDayLabel ? ` · busiest: ${b.peakDayLabel}` : ""}
+                </SectionLabel>
+                <div style={{ display: "flex", gap: 5, alignItems: "flex-end", height: 56 }}>
+                  {dayBuckets.map((count, d) => {
+                    const hgt = Math.max(3, Math.round((count / maxD) * 50));
+                    return (
+                      <div key={d} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+                        <div title={`${dayNames[d]}: ${count}`} style={{
+                          width: "100%", height: hgt, borderRadius: "3px 3px 0 0",
+                          background: d === b.peakDay ? "#2563EB" : "#bfdbfe",
+                        }} />
+                        <div style={{ fontSize: "0.65rem", color: "#94a3b8" }}>{dayNames[d].slice(0, 2)}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Top types */}
+              {b.topTypes?.length > 0 && (
+                <div>
+                  <SectionLabel>Top inspection types</SectionLabel>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    {b.topTypes.slice(0, 5).map(t => (
+                      <div key={t.type} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <div style={{ fontSize: "0.82rem", color: "#374151", minWidth: 120, flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.type}</div>
+                        <MiniBar pct={Math.round((t.count / b.topTypes[0].count) * 100)} color="#3b82f6" />
+                        <div style={{ fontSize: "0.74rem", color: "#94a3b8", minWidth: 24, textAlign: "right" }}>{t.count}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Completeness */}
+              <div>
+                <SectionLabel>Form completeness</SectionLabel>
+                <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+                  {[
+                    { key: "inspectorName", label: "Inspector name" },
+                    { key: "supervisorName", label: "Supervisor name" },
+                    { key: "temps",          label: "Temperatures" },
+                    { key: "floor",          label: "Floor / area" },
+                  ].map(f => {
+                    const pct = completeness[f.key] ?? 0;
+                    const color = pct >= 90 ? "#16a34a" : pct >= 60 ? "#d97706" : "#dc2626";
+                    return (
+                      <div key={f.key} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <div style={{ fontSize: "0.8rem", color: "#374151", minWidth: 118, flexShrink: 0 }}>{f.label}</div>
+                        <MiniBar pct={pct} color={color} />
+                        <div style={{ fontSize: "0.75rem", color, fontWeight: 700, minWidth: 34, textAlign: "right" }}>{pct}%</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* ══ MORE (Usage + Perf) ══════════════════════════ */}
+        {activeTab === "more" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+
+            {/* Usage */}
+            {usageReport ? (
+              <div>
+                <SectionLabel>App usage</SectionLabel>
+                <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
+                  <StatPill label="Sessions" val={usageReport.sessions} />
+                  <StatPill label="Interactions" val={usageReport.totalInteractions} />
+                  <StatPill label="Active days" val={usageReport.activeDays} />
+                </div>
+                {usageReport.recentDays.length > 0 && (
+                  <div style={{ display: "flex", gap: 4, alignItems: "flex-end", height: 52, marginBottom: 4 }}>
+                    {usageReport.recentDays.map(d => {
+                      const max = Math.max(...usageReport.recentDays.map(x => x.interactions), 1);
+                      const h = Math.max(3, Math.round((d.interactions / max) * 46));
+                      return (
+                        <div key={d.date} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
+                          <div title={`${d.interactions}`} style={{ width: "100%", height: h, background: "#3b82f6", borderRadius: "3px 3px 0 0", opacity: 0.75 }} />
+                          <div style={{ fontSize: "0.58rem", color: "#94a3b8" }}>{d.date.slice(5)}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                {usageReport.topActions.length > 0 && (
+                  <div style={{ marginTop: 12 }}>
+                    <SectionLabel>Top actions</SectionLabel>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                      {usageReport.topActions.slice(0, 5).map(a => (
+                        <div key={a.name} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <div style={{ fontSize: "0.8rem", color: "#374151", minWidth: 130, flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.name}</div>
+                          <MiniBar pct={Math.round((a.count / usageReport.topActions[0].count) * 100)} color="#3b82f6" />
+                          <div style={{ fontSize: "0.74rem", color: "#94a3b8", minWidth: 24, textAlign: "right" }}>{a.count}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
-              <>
-                <div style={{ fontSize: "0.75rem", color: "#6b7280", marginBottom: 12 }}>
-                  Real browser vitals measured during this session. Green = good, yellow = needs improvement, red = poor.
-                </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  {perfReport.map(m => (
-                    <div key={m.key} style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 10, padding: "10px 14px" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <div>
-                          <div style={{ fontWeight: 600, fontSize: "0.83rem", color: "#1e293b" }}>{m.label}</div>
-                          {m.baseline && m.regression && (
-                            <div style={{ fontSize: "0.72rem", color: "#dc2626" }}>⚠ {m.regression}% slower than baseline ({m.baseline}{m.unit})</div>
-                          )}
-                          {m.baseline && !m.regression && (
-                            <div style={{ fontSize: "0.72rem", color: "#15803D" }}>✓ Within baseline ({m.baseline}{m.unit})</div>
-                          )}
+              <EmptyState icon="📊" msg="Usage data will appear after your first session." />
+            )}
+
+            {/* Performance */}
+            {perfReport.length > 0 && (
+              <div>
+                <SectionLabel>Performance</SectionLabel>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {perfReport.map(m => {
+                    const sc = { good: "#16a34a", "needs improvement": "#d97706", poor: "#dc2626" };
+                    const color = sc[m.status] || "#64748b";
+                    return (
+                      <div key={m.key} style={{ display: "flex", alignItems: "center", gap: 10, background: "#f8fafc", borderRadius: 10, padding: "10px 14px" }}>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontWeight: 600, fontSize: "0.84rem", color: "#1e293b" }}>{m.label}</div>
+                          {m.regression && <div style={{ fontSize: "0.72rem", color: "#dc2626", marginTop: 1 }}>⚠ {m.regression}% regression</div>}
                         </div>
                         <div style={{ textAlign: "right" }}>
-                          <div style={{ fontWeight: 700, fontSize: "1.1rem", color: perfStatusColor[m.status] || "#374151" }}>{m.value}{m.unit}</div>
-                          <div style={{ fontSize: "0.68rem", color: perfStatusColor[m.status] || "#6b7280", textTransform: "capitalize" }}>{m.status}</div>
+                          <div style={{ fontWeight: 700, fontSize: "1rem", color }}>{m.value}{m.unit}</div>
+                          <div style={{ fontSize: "0.67rem", color, textTransform: "capitalize" }}>{m.status}</div>
                         </div>
                       </div>
-                      {m.thresholds && (
-                        <div style={{ marginTop: 6, background: "#f3f4f6", borderRadius: 99, height: 5, overflow: "hidden" }}>
-                          <div style={{
-                            height: "100%", borderRadius: 99,
-                            background: perfStatusColor[m.status] || "#374151",
-                            width: `${Math.min(100, Math.round((m.value / m.thresholds.poor) * 100))}%`,
-                          }} />
-                        </div>
-                      )}
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
-                <div style={{ fontSize: "0.7rem", color: "#9ca3af", marginTop: 12 }}>
-                  Baselines are computed from the first 3 sessions. Regressions ≥30% are flagged automatically.
-                </div>
-              </>
+              </div>
             )}
           </div>
         )}
