@@ -36,6 +36,8 @@ html {
   font-size: 15px;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* Prevent browser swipe-to-navigate (back/forward) from wiping unsaved forms */
+  overscroll-behavior-x: none;
 }
 
 body {
@@ -43,6 +45,8 @@ body {
   background: #f0f2f7;
   color: var(--sdx-gray-800);
   line-height: 1.6;
+  /* Belt-and-suspenders: block horizontal overscroll navigation on the body too */
+  overscroll-behavior-x: none;
 }
 
 /* ── App Shell ───────────────────────────────────────────── */
@@ -50,6 +54,7 @@ body {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  overscroll-behavior-x: none;
 }
 
 /* ── Top Bar ─────────────────────────────────────────────── */
@@ -413,6 +418,11 @@ body {
 @media (max-width: 600px) {
   .fieldGrid { grid-template-columns: 1fr 1fr; gap: 8px; }
 }
+/* Stack to single column on very small screens so labels/inputs don't get squeezed */
+@media (max-width: 380px) {
+  .fieldGrid { grid-template-columns: 1fr; gap: 10px; }
+  .fieldGrid .field:last-child:nth-child(odd) { grid-column: auto; }
+}
 /* Fix iOS date input appearance */
 input[type="date"] {
   -webkit-appearance: none;
@@ -464,8 +474,10 @@ input[type="date"] {
 .selectSmall {
   padding: 5px 8px;
   font-size: 0.82rem;
-  min-width: 100px;
+  min-width: 90px;
+  max-width: 140px;
   flex-shrink: 0;
+  width: auto;
 }
 
 .textarea {
@@ -486,6 +498,9 @@ input[type="date"] {
   border-radius: var(--radius-md);
   padding: 18px;
   margin: 18px 0;
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .guideHeader {
@@ -529,6 +544,9 @@ input[type="date"] {
 /* Guide Sections */
 .guideSection {
   margin-bottom: 16px;
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
 }
 .guideSectionTitle {
   font-size: 0.82rem;
@@ -539,12 +557,23 @@ input[type="date"] {
   margin-bottom: 10px;
   text-transform: uppercase;
   letter-spacing: 0.3px;
+  writing-mode: horizontal-tb !important;
+  text-orientation: mixed !important;
+  display: block;
+  width: 100%;
+  min-width: 0;
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  unicode-bidi: normal !important;
 }
 
 .guideItems {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  min-width: 0;
+  width: 100%;
 }
 
 .guideItem {
@@ -553,6 +582,9 @@ input[type="date"] {
   border-radius: var(--radius-sm);
   padding: 12px;
   transition: border-color var(--transition);
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
 }
 .guideItem:hover {
   border-color: var(--sdx-gray-300);
@@ -564,15 +596,22 @@ input[type="date"] {
   justify-content: space-between;
   margin-bottom: 8px;
   gap: 10px;
+  min-width: 0;
+  width: 100%;
 }
 
 .guideLabel {
   font-size: 0.87rem;
   font-weight: 600;
   color: var(--sdx-gray-700);
-  flex: 1;
+  flex: 1 1 0%;
   min-width: 0;
+  max-width: 100%;
   word-break: break-word;
+  overflow-wrap: break-word;
+  white-space: normal;
+  writing-mode: horizontal-tb !important;
+  text-orientation: mixed !important;
 }
 
 .guideNote {
@@ -611,6 +650,71 @@ input[type="date"] {
 }
 .equipTempRow .tempInputWrap {
   max-width: 130px;
+}
+.equipCountRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  margin-bottom: 4px;
+}
+.equipCountLabel {
+  font-size: 0.75rem;
+  color: #6b7280;
+  white-space: nowrap;
+}
+.equipCountInput {
+  width: 72px !important;
+  text-align: center;
+}
+
+/* ── Equipment N/A toggle ─────────────────────────────────── */
+.naToggleBtn {
+  flex-shrink: 0;
+  padding: 3px 10px;
+  border-radius: 20px;
+  border: 1.5px solid #d1d5db;
+  background: #f9fafb;
+  color: #6b7280;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  line-height: 1;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.naToggleBtn:hover {
+  border-color: #9ca3af;
+  background: #f3f4f6;
+  color: #374151;
+}
+.naToggleBtnActive {
+  background: #fef3c7;
+  border-color: #fbbf24;
+  color: #92400e;
+}
+.naToggleBtnActive:hover {
+  background: #fde68a;
+  border-color: #f59e0b;
+  color: #78350f;
+}
+.naBadge {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #9ca3af;
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 1px 8px;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+.guideItemNA {
+  opacity: 0.55;
+  background: #f9fafb;
+}
+.guideItemNA .guideLabel {
+  color: #9ca3af;
 }
 
 /* ── Temperatures ────────────────────────────────────────── */
@@ -1156,8 +1260,15 @@ datalist {
 }
 
 /* Scorecard Table */
+.rptTableWrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  width: 100%;
+  border-radius: var(--radius-sm);
+}
 .rptTable {
   width: 100%;
+  min-width: 480px;
   border-collapse: collapse;
   font-size: 0.82rem;
 }
@@ -1459,7 +1570,31 @@ datalist {
 }
 .pinLogo {
   height: 48px;
-  margin-bottom: 24px;
+  margin-bottom: 16px;
+}
+/* ── Venue badge shown on login card when ?v= is set ── */
+.venueBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--sdx-navy);
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  padding: 4px 12px;
+  border-radius: 999px;
+  margin-bottom: 18px;
+  max-width: 100%;
+}
+.venueBadgeIcon {
+  font-size: 0.9rem;
+  line-height: 1;
+}
+.venueBadgeName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .pinTitle {
   font-size: 1.3rem;
@@ -1522,6 +1657,14 @@ datalist {
   align-items: center;
   justify-content: center;
   gap: 6px;
+}
+.pinPatent {
+  margin-top: 8px;
+  font-size: 0.62rem;
+  color: var(--sdx-gray-300);
+  letter-spacing: 0.06em;
+  text-align: center;
+  text-transform: uppercase;
 }
 .pinLock {
   font-size: 0.9rem;
@@ -2395,6 +2538,104 @@ datalist {
 .flaggedIssueCat { font-weight: 600; color: #78350f; }
 .flaggedIssueRate { font-weight: 700; font-size: 0.75rem; }
 
+/* ── Predictive Insights Panel ───────────────────────────── */
+.predictiveIntro {
+  font-size: 0.78rem;
+  color: #6b7280;
+  margin-bottom: 4px;
+  line-height: 1.5;
+}
+.predictiveList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 16px;
+}
+.predictiveItem {
+  border-radius: 10px;
+  border: 1.5px solid #e5e7eb;
+  background: #fafbfc;
+  padding: 12px 14px;
+  cursor: pointer;
+  transition: box-shadow 0.15s, transform 0.1s;
+  user-select: none;
+}
+.predictiveItem:hover {
+  box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+  transform: translateY(-1px);
+}
+.predictiveItemTop {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.predictiveRiskIcon {
+  font-size: 1.05rem;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.predictiveItemMain {
+  flex: 1;
+  min-width: 0;
+}
+.predictiveItemMsg {
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: #1e293b;
+  line-height: 1.45;
+}
+.predictiveItemMeta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 5px;
+}
+.predictiveTypeBadge {
+  font-size: 0.66rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 100px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+.predictiveRiskLabel {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+.predictiveChevron {
+  font-size: 0.7rem;
+  color: #9ca3af;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.predictiveDetail {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  margin-top: 10px;
+  padding: 9px 12px;
+  background: #f1f5f9;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  color: #334155;
+  line-height: 1.5;
+  border-left: 3px solid #94a3b8;
+}
+.predictiveDetailIcon {
+  flex-shrink: 0;
+  font-size: 0.9rem;
+}
+.predictiveFooter {
+  margin-top: 14px;
+  font-size: 0.68rem;
+  color: #9ca3af;
+  text-align: center;
+  font-style: italic;
+}
+
 /* ── Sticky Action Bar ──────────────────────────────────── */
 .stickyActionBar {
   position: fixed;
@@ -2425,6 +2666,12 @@ datalist {
   background: white;
   color: var(--sdx-navy);
 }
+.stickyBtnEdit {
+  background: rgba(255,255,255,0.15);
+  color: white;
+  border: 1px solid rgba(255,255,255,0.3);
+}
+.stickyBtnEdit:hover { background: rgba(255,255,255,0.25); }
 .stickyBtnSave {
   background: #15803D;
   color: white;
@@ -2439,6 +2686,106 @@ datalist {
   border: 1px solid rgba(255,255,255,0.3);
 }
 .stickyBtnNew:hover { background: rgba(255,255,255,0.25); }
+.stickyBtnHaccp {
+  background: rgba(234,179,8,0.25);
+  color: white;
+  border: 1px solid rgba(234,179,8,0.55);
+}
+.stickyBtnHaccp:hover { background: rgba(234,179,8,0.4); }
+.stickyBtnHaccpOff {
+  background: rgba(100,100,100,0.1);
+  color: rgba(255,255,255,0.3);
+  border: 1px solid rgba(150,150,150,0.2);
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* HACCP logs inside history report card */
+.haccpReportSection { margin-top: 16px; }
+.haccpReportEmpty {
+  font-size: 0.8rem;
+  color: #6b7280;
+  padding: 10px 12px;
+  background: rgba(255,255,255,0.03);
+  border-radius: 8px;
+  border: 1px dashed rgba(255,255,255,0.1);
+}
+.haccpReportCard {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-top: 8px;
+}
+.haccpReportCardTop {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.haccpReportCardName { font-size: 0.85rem; font-weight: 600; color: #f3f4f6; flex: 1; }
+.haccpReportCardTime { font-size: 0.75rem; color: #9ca3af; }
+.haccpReportBadge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 20px;
+}
+.haccpReportBadgePass { background: rgba(21,128,61,0.25); color: #4ade80; border: 1px solid rgba(74,222,128,0.3); }
+.haccpReportBadgeFail { background: rgba(239,68,68,0.2); color: #f87171; border: 1px solid rgba(248,113,113,0.3); }
+.haccpReportTemps { display: flex; flex-direction: column; gap: 5px; }
+.haccpReportTempRow { display: flex; align-items: center; gap: 8px; }
+.haccpReportTempLabel { font-size: 0.78rem; color: #9ca3af; flex: 1; }
+.haccpReportTempVals { display: flex; gap: 5px; flex-wrap: wrap; }
+.haccpReportTempVal {
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 5px;
+}
+.haccpReportTempVal.pass { background: rgba(21,128,61,0.2); color: #4ade80; }
+.haccpReportTempVal.fail { background: rgba(239,68,68,0.2); color: #f87171; }
+.haccpReportProblem {
+  margin-top: 8px;
+  padding: 8px 10px;
+  background: rgba(255,255,255,0.04);
+  border-radius: 7px;
+  font-size: 0.8rem;
+  color: #d1d5db;
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+}
+.haccpReportSeverity { font-size: 0.9rem; flex-shrink: 0; }
+
+/* ── History Card Chat Log ─────────────────────────── */
+.historyChatLog {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 240px;
+  overflow-y: auto;
+  padding: 8px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 8px;
+  margin-top: 6px;
+}
+.historyChatMsg { display: flex; flex-direction: column; max-width: 82%; }
+.historyChatIns { align-self: flex-end; align-items: flex-end; }
+.historyChatSup { align-self: flex-start; align-items: flex-start; }
+.historyChatBubble {
+  padding: 6px 10px;
+  border-radius: 10px;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.historyChatIns .historyChatBubble { background: rgba(59,130,246,0.25); color: #e2e8f0; border-bottom-right-radius: 3px; }
+.historyChatSup .historyChatBubble { background: rgba(234,179,8,0.2); color: #fef3c7; border-bottom-left-radius: 3px; }
+.historyChatMeta { font-size: 0.7rem; color: #9ca3af; margin-top: 2px; padding: 0 2px; }
 
 /* Push footer up so sticky bar doesn't cover it */
 .footer { padding-bottom: 60px; }
@@ -2549,8 +2896,790 @@ datalist {
   transition: background 0.15s;
 }
 .btnShare:hover { background: rgba(255,255,255,0.25); }
+.btnHaccp {
+  padding: 9px 16px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  white-space: nowrap;
+  background: rgba(234,179,8,0.25);
+  border: 1px solid rgba(234,179,8,0.55);
+  color: white;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.btnHaccp:hover { background: rgba(234,179,8,0.4); }
+.btnHaccpDisabled {
+  padding: 9px 16px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  white-space: nowrap;
+  background: rgba(100,100,100,0.15);
+  border: 1px solid rgba(150,150,150,0.3);
+  color: rgba(255,255,255,0.35);
+  border-radius: 8px;
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+/* HACCP location step */
+.haccpLocConfirm { display: flex; flex-direction: column; gap: 12px; }
+.haccpLocConfirmLabel { font-size: 0.75rem; color: #9ca3af; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+.haccpLocConfirmBox {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 10px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.haccpLocConfirmName { font-size: 1.05rem; font-weight: 700; color: #f9fafb; }
+.haccpLocConfirmMeta { font-size: 0.82rem; color: #9ca3af; }
+.haccpTextBtn {
+  background: none;
+  border: none;
+  color: #6b7280;
+  font-size: 0.8rem;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 4px 0;
+  text-align: center;
+}
+.haccpTextBtn:hover { color: #9ca3af; }
+.haccpLocEntry { display: flex; flex-direction: column; gap: 4px; }
+
 @media (max-width: 480px) {
   .modalBox { max-width: 100%; border-radius: 12px; }
   .shareUrlRow { flex-direction: column; }
   .shareUrlRow .btn { width: 100%; justify-content: center; }
+}
+
+/* ── Maintenance section ────────────────────────────────── */
+
+/* One unified control bar: [Status dropdown] [🔴 High] [🟡 Med] [🟢 Low] */
+.maintControlBar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+  background: #f4f6fb;
+  border: 1px solid #d8dff0;
+  border-radius: 8px;
+  padding: 6px 10px;
+}
+.maintControlBar .select {
+  flex-shrink: 0;
+}
+.maintPriorityInline {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.maintPriorityBtn {
+  padding: 4px 10px;
+  border-radius: 20px;
+  border: 1.5px solid transparent;
+  font-size: 0.73rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+  background: #e9ecf5;
+  color: var(--sdx-gray-500);
+  white-space: nowrap;
+}
+.maintPriorityBtn:hover { filter: brightness(0.94); }
+.maintPriorityBtn.active-High { background: #fee2e2; border-color: #ef4444; color: #b91c1c; }
+.maintPriorityBtn.active-Med  { background: #fef3c7; border-color: #f59e0b; color: #92400e; }
+.maintPriorityBtn.active-Low  { background: #dcfce7; border-color: #22c55e; color: #166534; }
+/* Legacy row (not used now but kept for safety) */
+.maintPriorityRow { display: flex; gap: 8px; margin-bottom: 8px; align-items: center; flex-wrap: wrap; }
+.maintPriorityLabel { font-size: 0.7rem; font-weight: 700; padding: 2px 8px; border-radius: 12px; display: inline-flex; align-items: center; gap: 3px; }
+.maintPriorityLabel.High { background: #fee2e2; color: #b91c1c; }
+.maintPriorityLabel.Med  { background: #fef3c7; color: #92400e; }
+.maintPriorityLabel.Low  { background: #dcfce7; color: #166534; }
+
+/* ── HACCP Supervisor Portal ────────────────────────────── */
+.haccpOverlay {
+  min-height: 100vh;
+  background: linear-gradient(145deg, #1e1b4b 0%, #312e81 60%, #1e1b4b 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 24px 16px 40px;
+}
+.haccpLogo {
+  height: 36px;
+  margin-bottom: 12px;
+  filter: brightness(0) invert(1);
+}
+.haccpCard {
+  background: #fff;
+  border-radius: 20px;
+  width: 100%;
+  max-width: 520px;
+  overflow: hidden;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.35);
+}
+.haccpCardHeader {
+  background: linear-gradient(135deg, #1e1b4b, #4f46e5);
+  color: #fff;
+  padding: 20px 24px 16px;
+}
+.haccpCardTitle {
+  font-size: 1.15rem;
+  font-weight: 800;
+  margin-bottom: 2px;
+}
+.haccpCardSub {
+  font-size: 0.78rem;
+  color: rgba(255,255,255,0.7);
+}
+.haccpCardBody {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.haccpSection {
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  overflow: hidden;
+}
+.haccpSectionHead {
+  background: #f8fafc;
+  padding: 10px 16px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #1e1b4b;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  border-bottom: 1px solid #e5e7eb;
+}
+.haccpSectionBody {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.haccpTempRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.haccpFoodNameInput {
+  flex: 1;
+  min-width: 120px;
+  padding: 7px 10px;
+  border: 1.5px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  color: #374151;
+  background: #fafafa;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.haccpFoodNameInput:focus { border-color: #2563eb; background: #fff; }
+.haccpFoodNameInput::placeholder { color: #9ca3af; }
+.haccpReportFoodName {
+  font-weight: 600;
+  color: #374151;
+}
+.haccpTempLabel {
+  flex: 1;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #374151;
+  min-width: 0;
+}
+.haccpTempInputWrap {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.haccpTempInput {
+  width: 72px;
+  padding: 8px 10px;
+  border: 1.5px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 700;
+  text-align: center;
+  color: #111827;
+  background: #fff;
+}
+.haccpTempInput:focus { outline: none; border-color: #4f46e5; }
+.haccpTempUnit { font-size: 0.85rem; color: #6b7280; font-weight: 600; }
+.haccpTempStatus {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 20px;
+  min-width: 52px;
+  text-align: center;
+}
+.haccpTempStatus.pass { background: #dcfce7; color: #166534; }
+.haccpTempStatus.fail { background: #fee2e2; color: #b91c1c; }
+.haccpTempStatus.empty { background: #f3f4f6; color: #9ca3af; }
+.haccpSubmitRow {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.haccpSubmitBtn {
+  flex: 1;
+  min-height: 48px;
+  background: linear-gradient(135deg, #1e1b4b, #4f46e5);
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.haccpSubmitBtn:disabled { opacity: 0.4; cursor: not-allowed; }
+.haccpSuccessBox {
+  background: #dcfce7;
+  border: 1.5px solid #22c55e;
+  border-radius: 12px;
+  padding: 16px 20px;
+  text-align: center;
+  color: #166534;
+  font-weight: 600;
+}
+
+/* Chat */
+.haccpChatList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 260px;
+  overflow-y: auto;
+  padding: 4px 0;
+}
+.haccpChatMsg {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-width: 90%;
+}
+.haccpChatMsg.mine { align-self: flex-end; align-items: flex-end; }
+.haccpChatMsg.theirs { align-self: flex-start; align-items: flex-start; }
+.haccpChatBubble {
+  padding: 8px 12px;
+  border-radius: 14px;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  word-break: break-word;
+}
+.haccpChatMsg.mine .haccpChatBubble {
+  background: #4f46e5;
+  color: #fff;
+  border-bottom-right-radius: 4px;
+}
+.haccpChatMsg.theirs .haccpChatBubble {
+  background: #f3f4f6;
+  color: #111827;
+  border-bottom-left-radius: 4px;
+}
+.haccpChatMeta {
+  font-size: 0.65rem;
+  color: #9ca3af;
+  padding: 0 4px;
+}
+.haccpChatInputRow {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+.haccpChatInput {
+  flex: 1;
+  padding: 10px 12px;
+  border: 1.5px solid #d1d5db;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  color: #111827;
+  background: #fff;
+  resize: none;
+  min-height: 42px;
+  max-height: 100px;
+}
+.haccpChatInput:focus { outline: none; border-color: #4f46e5; }
+.haccpChatSendBtn {
+  background: #4f46e5;
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 0 16px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.haccpChatSendBtn:disabled { opacity: 0.4; cursor: not-allowed; }
+.haccpEmptyChat {
+  text-align: center;
+  color: #9ca3af;
+  font-size: 0.8rem;
+  padding: 16px 0;
+}
+
+/* Problem report */
+.haccpProblemTextarea {
+  width: 100%;
+  min-height: 80px;
+  padding: 10px 12px;
+  border: 1.5px solid #d1d5db;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  color: #111827;
+  resize: vertical;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+.haccpProblemTextarea:focus { outline: none; border-color: #4f46e5; }
+.haccpProblemSeverity {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+.haccpSeverityBtn {
+  padding: 5px 14px;
+  border-radius: 20px;
+  border: 2px solid transparent;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  background: #f3f4f6;
+  color: #6b7280;
+  transition: all 0.15s;
+}
+.haccpSeverityBtn.sel-urgent { background: #fee2e2; border-color: #ef4444; color: #b91c1c; }
+.haccpSeverityBtn.sel-issue  { background: #fef3c7; border-color: #f59e0b; color: #92400e; }
+.haccpSeverityBtn.sel-info   { background: #dbeafe; border-color: #3b82f6; color: #1d4ed8; }
+
+/* ── Admin: HACCP Submissions view ─────────────────────── */
+.haccpSubmissionCard {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 12px;
+}
+.haccpSubmissionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 10px;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.haccpSubmissionName {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #1e1b4b;
+}
+.haccpSubmissionMeta {
+  font-size: 0.72rem;
+  color: #6b7280;
+  margin-top: 2px;
+}
+.haccpSubmissionDate {
+  font-size: 0.72rem;
+  color: #9ca3af;
+  white-space: nowrap;
+}
+.haccpTempGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.haccpTempCell {
+  background: #f8fafc;
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+.haccpTempCellLabel { font-size: 0.72rem; color: #6b7280; margin-bottom: 2px; }
+.haccpTempCellVal { font-size: 1rem; font-weight: 800; color: #111827; }
+.haccpTempCellVal.fail { color: #b91c1c; }
+.haccpTempCellVal.pass { color: #166534; }
+
+@media (max-width: 540px) {
+  .haccpCardBody { padding: 16px; gap: 12px; }
+  .haccpTempRow { flex-wrap: wrap; }
+  .haccpTempLabel { width: 100%; }
+}
+
+/* ── Collapsible Guide Section Toggle ─────────────────── */
+.guideSectionToggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: linear-gradient(135deg, #f0f4ff 0%, #e8edf8 100%);
+  border: 1.5px solid #c5cfe8;
+  border-left: 4px solid var(--sdx-red);
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-bottom: 4px;
+  cursor: pointer;
+  gap: 10px;
+  text-align: left;
+  transition: background 0.18s, box-shadow 0.18s, transform 0.1s;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.07);
+}
+.guideSectionToggle:hover {
+  background: linear-gradient(135deg, #e2e9ff 0%, #d6dffa 100%);
+  box-shadow: 0 3px 10px rgba(0,0,0,0.12);
+  transform: translateY(-1px);
+}
+.guideSectionToggle:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+/* When open, add a bottom gap before items */
+.guideSectionToggle[aria-expanded="true"] {
+  margin-bottom: 10px;
+  border-bottom-left-radius: 4px;
+  border-bottom-right-radius: 4px;
+}
+/* The title text sits inside the button — same style as before */
+.guideSectionToggle .guideSectionTitle {
+  border-bottom: none;
+  padding: 0;
+  margin: 0;
+  flex: 1;
+  color: var(--sdx-navy);
+}
+.guideSectionChevron {
+  font-size: 0.75rem;
+  color: var(--sdx-red);
+  flex-shrink: 0;
+  transition: transform 0.25s ease;
+  background: rgba(255,255,255,0.65);
+  border-radius: 50%;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.guideSectionToggle[aria-expanded="true"] .guideSectionChevron {
+  transform: rotate(180deg);
+}
+/* Delete button on guide/maintenance items */
+.guideItemDeleteBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1rem;
+  padding: 2px 4px;
+  border-radius: 4px;
+  opacity: 0.55;
+  transition: opacity 0.15s, background 0.15s;
+  flex-shrink: 0;
+}
+.guideItemDeleteBtn:hover {
+  opacity: 1;
+  background: #ffe4e4;
+}
+/* Empty hint shown when no items exist yet (Portable/Subcontractor equipment) */
+.guideSectionEmptyHint {
+  font-size: 0.82rem;
+  color: #5a6a8a;
+  background: #f4f7ff;
+  border: 1.5px dashed #c5cfe8;
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin-bottom: 10px;
+  line-height: 1.55;
+}
+/* Maintenance sub-header inside the combined section */
+.maintSubHeader {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--sdx-navy);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 10px 0 4px 0;
+  border-top: 1px dashed #c5cfe8;
+  margin-top: 12px;
+}
+
+/* ── Inline Chat (inside the report card) ─────────────── */
+.inlineChatCard {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  margin-top: 18px;
+  background: #f9fafb;
+}
+.inlineChatToggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--sdx-navy);
+  gap: 6px;
+}
+.inlineChatToggle:hover { background: #f0f2ff; }
+.inlineChatChevron { font-size: 0.65rem; color: #9ca3af; }
+.inlineChatBadge {
+  background: var(--sdx-red);
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 800;
+  border-radius: 99px;
+  padding: 1px 6px;
+  margin-left: auto;
+}
+.inlineChatBody {
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+}
+.inlineChatList {
+  max-height: 260px;
+  overflow-y: auto;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.inlineChatInputRow {
+  display: flex;
+  gap: 8px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--border);
+  align-items: flex-end;
+  background: #fff;
+}
+
+/* ── HACCP Location Banner ─────────────────────────────────────── */
+.haccpLocationBanner {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: linear-gradient(90deg, #eef2ff 0%, #f0fdf4 100%);
+  border: 1.5px solid #c7d2fe;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #1e1b4b;
+  margin-bottom: 14px;
+}
+.haccpLocationUnit {
+  font-weight: 400;
+  color: #4338ca;
+  font-size: 0.85rem;
+}
+
+/* ── HACCP Multiple-Reading Temp Block ─────────────────────────── */
+.haccpTempBlock {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.haccpTempBlockHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.haccpTempLabel {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #111827;
+  flex: 1;
+}
+.haccpAddReadingBtn {
+  background: #eef2ff;
+  border: 1.5px solid #a5b4fc;
+  color: #4338ca;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 4px 10px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s;
+}
+.haccpAddReadingBtn:hover {
+  background: #e0e7ff;
+  border-color: #6366f1;
+}
+.haccpRemoveReadingBtn {
+  background: none;
+  border: none;
+  color: #9ca3af;
+  font-size: 1rem;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  flex-shrink: 0;
+  transition: background 0.15s, color 0.15s;
+}
+.haccpRemoveReadingBtn:hover {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+/* ── End-of-Day Corrective Action Prompt ─────────────────────────────── */
+.eodOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  z-index: 1200;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0 0 env(safe-area-inset-bottom, 0);
+  animation: eodFadeIn 0.25s ease;
+}
+@keyframes eodFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.eodModal {
+  background: #fff;
+  border-radius: 20px 20px 0 0;
+  width: 100%;
+  max-width: 600px;
+  padding: 24px 20px 20px;
+  box-shadow: 0 -4px 32px rgba(0,0,0,0.18);
+  animation: eodSlideUp 0.28s cubic-bezier(0.22, 0.61, 0.36, 1);
+  max-height: 85vh;
+  overflow-y: auto;
+}
+@keyframes eodSlideUp {
+  from { transform: translateY(40px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+.eodHeader {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.eodIcon {
+  font-size: 1.8rem;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.eodTitle {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #1f2937;
+  line-height: 1.3;
+}
+.eodSub {
+  font-size: 0.82rem;
+  color: #6b7280;
+  margin-top: 2px;
+}
+.eodClose {
+  margin-left: auto;
+  background: none;
+  border: none;
+  font-size: 1rem;
+  color: #9ca3af;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 6px;
+  flex-shrink: 0;
+  transition: background 0.15s, color 0.15s;
+}
+.eodClose:hover { background: #f3f4f6; color: #374151; }
+.eodSection {
+  margin-bottom: 16px;
+}
+.eodAllClear {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 10px;
+  padding: 12px 14px;
+  color: #166534;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+.eodCheck { font-size: 1.2rem; flex-shrink: 0; }
+.eodSectionTitle {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #374151;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 8px;
+}
+.eodList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.eodItemGood {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 0.83rem;
+  color: #166534;
+}
+.eodItemWarn {
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 0.83rem;
+  color: #92400e;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.eodPriority {
+  flex-shrink: 0;
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  background: #fef3c7;
+  color: #92400e;
+}
+.eodActions {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+}
+.eodBtnNotes {
+  flex: 1;
+}
+.eodBtnDone {
+  flex: 2;
 }

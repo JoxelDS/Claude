@@ -26,7 +26,7 @@
  */
 
 import { initializeApp } from "firebase/app";
-import { getFirestore } from "firebase/firestore";
+import { getFirestore, collection } from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDgXvyvFuKUc59IDB8Fr52ydZ0hiJfJeZU",
@@ -47,6 +47,26 @@ let db = null;
 if (isConfigured) {
   app = initializeApp(firebaseConfig);
   db = getFirestore(app);
+}
+
+/* ── Multi-venue support ─────────────────────────────────────────
+   activeVenueId is set once at boot from the ?v= URL param.
+   venueCol(name) returns the Firestore collection reference
+   scoped to the current venue:  /venues/{venueId}/{name}
+──────────────────────────────────────────────────────────────── */
+export let activeVenueId = "default";
+
+export function setVenue(id) {
+  activeVenueId = id || "default";
+}
+
+/**
+ * Returns a Firestore CollectionReference scoped to the active venue.
+ * Usage:  venueCol("inspections")  →  /venues/hard-rock-stadium/inspections
+ */
+export function venueCol(name) {
+  if (!db) return null;
+  return collection(db, "venues", activeVenueId, name);
 }
 
 export { db, isConfigured };

@@ -1,22 +1,151 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import QRCode from "qrcode";
 import "./App.css";
-import { db, isConfigured as FIREBASE_ON } from "./firebase.js";
+import { db, isConfigured as FIREBASE_ON, setVenue, venueCol } from "./firebase.js";
+import { collection } from "firebase/firestore";
+import AIEngine from "./AIEngine.js";
+
+/* ── Boot AI Engine once at module load (venue-scoped) ──────────────────── */
+// VENUE_ID is defined later in this file but JS hoisting means the IIFE
+// runs synchronously before this line executes — so VENUE_ID is available.
+// However, to be safe we re-read from URL directly here.
+AIEngine.boot((() => {
+  try {
+    const v = new URLSearchParams(window.location.search).get("v") || "";
+    return v.trim().toLowerCase().replace(/[^a-z0-9_-]/g, "") || "default";
+  } catch { return "default"; }
+})());
 import {
-  collection, doc, getDocs, getDoc, setDoc, deleteDoc, updateDoc, query, orderBy
+  doc, getDocs, getDoc, setDoc, deleteDoc, updateDoc, query, orderBy, where
 } from "firebase/firestore";
+
+/* ── Runtime Security Shield ─────────────────────────────────────────────────
+   Runs once at module load (production only). Three layers:
+   1. Console lockdown  – replaces all console methods with no-ops so
+      attackers can't use the browser console to probe the app.
+   2. DevTools size-trap – window resize delta trick: DevTools opening changes
+      the window's inner dimensions; we detect this and lock the UI.
+   3. Right-click / key block – disables context-menu and F12/Ctrl+Shift+I
+      so casual snoopers hit a wall immediately.
+   None of these stop a determined expert, but they stop 99% of attempts.
+─────────────────────────────────────────────────────────────────────────── */
+if (import.meta.env.PROD) {
+  // ── 1. Console lockdown ────────────────────────────────────────────────
+  (() => {
+    const noop = () => {};
+    const methods = ["log","warn","error","info","debug","table","dir",
+                     "dirxml","group","groupEnd","groupCollapsed","trace",
+                     "assert","count","countReset","time","timeEnd",
+                     "timeLog","profile","profileEnd","clear"];
+    methods.forEach(m => { try { console[m] = noop; } catch {} });
+    // Freeze the console object so it can't be restored
+    try { Object.freeze(console); } catch {}
+  })();
+
+  // ── 2. DevTools open detector ──────────────────────────────────────────
+  (() => {
+    const THRESHOLD = 160; // px — DevTools panel is larger than this
+    let devToolsOpen = false;
+
+    function check() {
+      const widthDiff  = window.outerWidth  - window.innerWidth;
+      const heightDiff = window.outerHeight - window.innerHeight;
+      const opened = widthDiff > THRESHOLD || heightDiff > THRESHOLD;
+
+      if (opened && !devToolsOpen) {
+        devToolsOpen = true;
+        // Overlay a full-screen warning and clear the page body
+        const shield = document.createElement("div");
+        shield.id = "__sdx_shield";
+        shield.style.cssText = [
+          "position:fixed","inset:0","z-index:2147483647",
+          "background:#0f172a","color:#f1f5f9",
+          "display:flex","flex-direction:column",
+          "align-items:center","justify-content:center",
+          "font-family:sans-serif","font-size:1.25rem",
+          "text-align:center","padding:2rem","gap:1rem",
+        ].join(";");
+        shield.innerHTML = `
+          <div style="font-size:3rem">🔒</div>
+          <div style="font-weight:700;font-size:1.5rem">Access Restricted</div>
+          <div style="opacity:.7;max-width:380px">
+            Developer tools are not permitted on this application.<br/>
+            Please close DevTools and reload the page.
+          </div>`;
+        document.body.innerHTML = "";
+        document.body.appendChild(shield);
+      } else if (!opened && devToolsOpen) {
+        devToolsOpen = false;
+        // Reload the page cleanly when DevTools is closed
+        window.location.reload();
+      }
+    }
+
+    // Poll every 800ms — fast enough to catch opening, gentle on CPU
+    setInterval(check, 800);
+    window.addEventListener("resize", check);
+  })();
+
+  // ── 3. Context-menu + keyboard shortcut blocking ───────────────────────
+  (() => {
+    // Disable right-click context menu
+    document.addEventListener("contextmenu", e => e.preventDefault(), true);
+
+    document.addEventListener("keydown", e => {
+      const k = e.key?.toUpperCase();
+      // F12
+      if (k === "F12") { e.preventDefault(); e.stopPropagation(); return false; }
+      // Ctrl+Shift+I  /  Ctrl+Shift+J  /  Ctrl+Shift+C  (DevTools shortcuts)
+      if (e.ctrlKey && e.shiftKey && ["I","J","C","K","U"].includes(k)) {
+        e.preventDefault(); e.stopPropagation(); return false;
+      }
+      // Cmd+Option+I (Mac DevTools)
+      if (e.metaKey && e.altKey && k === "I") {
+        e.preventDefault(); e.stopPropagation(); return false;
+      }
+      // Ctrl+U (View Source)
+      if (e.ctrlKey && k === "U") {
+        e.preventDefault(); e.stopPropagation(); return false;
+      }
+    }, true);
+  })();
+}
 
 const BASE = import.meta.env.BASE_URL;
 const LOGO_WHITE = `${BASE}sodexo-live-logo.svg`;
 const LOGO_DARK = `${BASE}sodexo-dark.svg`;
 
+/* ── Multi-venue: detect ?v=venueSlug from URL ───────────────────
+   Each venue gets completely isolated data (localStorage + Firestore).
+   Example: https://yourapp.com/?v=hard-rock-stadium
+   Slug is sanitized to lowercase letters, digits, hyphens, underscores.
+   Falls back to "default" if param is absent or invalid.
+──────────────────────────────────────────────────────────────── */
+const VENUE_ID = (() => {
+  try {
+    const v = new URLSearchParams(window.location.search).get("v") || "";
+    return v.trim().toLowerCase().replace(/[^a-z0-9_-]/g, "") || "default";
+  } catch { return "default"; }
+})();
+
+// Human-readable venue name from ?vname= param (optional display label)
+const VENUE_NAME = (() => {
+  try {
+    const n = new URLSearchParams(window.location.search).get("vname") || "";
+    return decodeURIComponent(n).trim().slice(0, 60) || null;
+  } catch { return null; }
+})();
+
+// Bind the active venue in Firebase module so all venueCol() calls are scoped correctly
+setVenue(VENUE_ID);
+
 /* ── AES-256-GCM Encryption (localStorage fallback only) ── */
-const SALT_KEY = "sdx_salt";
-const USERS_KEY = "sdx_users";
-const DATA_KEY = "sdx_inspection_vault";
-const DEVICE_SECRET_KEY = "sdx_device_secret";
-const LOCK_TIMEOUT_MS = 10 * 60 * 1000; // 10 min inactivity lock
-const AUTOFILL_KEY = "sdx_autofill_memory";
+const SALT_KEY           = `sdx_salt_${VENUE_ID}`;
+const USERS_KEY          = `sdx_users_${VENUE_ID}`;
+const DATA_KEY           = `sdx_inspection_vault_${VENUE_ID}`;
+const DEVICE_SECRET_KEY  = `sdx_device_secret_${VENUE_ID}`;
+const LOCK_TIMEOUT_MS    = 10 * 60 * 1000; // 10 min inactivity lock
+const AUTOFILL_KEY       = `sdx_autofill_memory_${VENUE_ID}`;
 
 function getAutofillMemory() {
   try { return JSON.parse(localStorage.getItem(AUTOFILL_KEY)) || {}; } catch { return {}; }
@@ -24,7 +153,8 @@ function getAutofillMemory() {
 
 function learnFromSave(record) {
   const mem = getAutofillMemory();
-  const fields = ["siteName", "siteNumber", "supervisorName", "sitePhone", "locationType"];
+  // supervisorName intentionally excluded — stored per-site in siteMap only (no cross-site list)
+  const fields = ["siteName", "siteNumber", "sitePhone", "locationType"];
   for (const f of fields) {
     if (!record[f]) continue;
     if (!mem[f]) mem[f] = [];
@@ -33,12 +163,51 @@ function learnFromSave(record) {
       mem[f] = mem[f].slice(0, 10); // keep last 10 unique values
     }
   }
-  // Learn site → number mapping
-  if (record.siteName && record.siteNumber) {
+  // Learn site → number mapping + equipment items (for Portable/Subcontractor)
+  if (record.siteName) {
     if (!mem.siteMap) mem.siteMap = {};
-    mem.siteMap[record.siteName] = { siteNumber: record.siteNumber, sitePhone: record.sitePhone || "", supervisorName: record.supervisorName || "", locationType: record.locationType || "", floor: record.floor || "" };
+    const existing = mem.siteMap[record.siteName] || {};
+    const update = {
+      ...existing,
+      siteNumber: record.siteNumber || existing.siteNumber || "",
+      sitePhone: record.sitePhone || existing.sitePhone || "",
+      supervisorName: record.supervisorName || existing.supervisorName || "",
+      locationType: record.locationType || existing.locationType || "",
+      floor: record.floor || existing.floor || "",
+    };
+    // For Portable/Subcontractor: remember all equipment items (built-in + custom) at this site
+    if (record.locationType === "Portable" || record.locationType === "Subcontractor") {
+      const equip = record.inspection?.equipment || {};
+      // Build a list of { key, label, equipSource } for every equipment item saved at this site
+      const equipItems = Object.entries(equip)
+        .filter(([, v]) => !v?.notApplicable) // skip items marked N/A — they're not here
+        .map(([k, v]) => ({
+          key: k,
+          label: v?.label || null, // custom items have a label, built-in ones don't
+          equipSource: v?.equipSource || "Facility",
+        })).filter(e => e.key);
+      if (equipItems.length > 0) update.equipmentItems = equipItems;
+    }
+    mem.siteMap[record.siteName] = update;
   }
   localStorage.setItem(AUTOFILL_KEY, JSON.stringify(mem));
+}
+
+// Build a blank equipment section from a remembered equipmentItems list
+// (used when autofilling a Portable / Subcontractor site)
+function buildEquipFromMemory(equipItems) {
+  const equip = {};
+  for (const { key, label, equipSource } of equipItems) {
+    const cold = detectColdType(label || key);
+    equip[key] = {
+      status: "OK", notes: "", photos: [],
+      count: "",
+      equipSource: equipSource || "Facility",
+      ...(label ? { label } : {}),          // custom items carry their label
+      ...(cold ? { tempF: "" } : {}),
+    };
+  }
+  return equip;
 }
 
 // First administrator – auto-seeded on first launch
@@ -66,9 +235,10 @@ async function deriveKey(secret) {
 }
 
 async function hashBadge(badge) {
+  // NOTE: No device-local salt — uses a fixed app prefix so the hash is
+  // identical on every device. This is required for cross-device Firestore login.
   const enc = new TextEncoder();
-  const salt = await getSalt();
-  const data = new Uint8Array([...salt, ...enc.encode(badge)]);
+  const data = enc.encode("sdx_badge_v2_" + badge.trim());
   const hash = await crypto.subtle.digest("SHA-256", data);
   return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, "0")).join("");
 }
@@ -103,13 +273,42 @@ async function getMasterKey() {
    Storage Layer — Firestore (cloud) or localStorage (local)
    ══════════════════════════════════════════════════════════ */
 
+/* ── Venue-scoped localStorage fallback keys ─────────────────
+   Used only when FIREBASE_ON is false (local-only mode).
+   Each key is namespaced by VENUE_ID so venues never share data.
+──────────────────────────────────────────────────────────────── */
+const HACCP_SUBS_KEY = `sdx_haccp_subs_${VENUE_ID}`;
+const PROBLEMS_KEY   = `sdx_problems_${VENUE_ID}`;
+const CHAT_KEY       = `sdx_chat_${VENUE_ID}`;
+
+/* ── Legacy Firestore collection helper ──────────────────────
+   Before multi-venue support all data lived in flat top-level
+   collections: /users, /inspections, /haccpSubmissions, etc.
+   When VENUE_ID === "default" (no ?v= param) we first try the
+   new scoped path and, if empty, fall back to the old flat path
+   so existing reports are never lost.
+──────────────────────────────────────────────────────────────── */
+function legacyCol(name) {
+  return collection(db, name);
+}
+// True when the app is running without any ?v= param — the original
+// single-venue mode. In this mode we read from old flat collections
+// as the authoritative source AND write to both paths so data is
+// available whether or not the user adds ?v= later.
+const IS_DEFAULT_VENUE = VENUE_ID === "default";
+
 /* ── User Registry ────────────────────────────────────────── */
 async function getUsers() {
   if (FIREBASE_ON) {
     try {
-      const snap = await getDocs(collection(db, "users"));
+      // Default venue: read from legacy flat collection (existing data lives there)
+      const col = IS_DEFAULT_VENUE ? legacyCol("users") : venueCol("users");
+      const snap = await getDocs(col);
       return snap.docs.map(d => d.data());
-    } catch { return []; }
+    } catch (e) {
+      console.error("Firestore getUsers error:", e);
+      throw e; // surface so sign-in shows a real error instead of "badge not recognized"
+    }
   }
   try { return JSON.parse(localStorage.getItem(USERS_KEY) || "[]"); }
   catch { return []; }
@@ -118,9 +317,9 @@ async function getUsers() {
 async function saveUsers(users) {
   if (FIREBASE_ON) {
     try {
-      // Write each user as a separate document keyed by badgeHash
+      const col = IS_DEFAULT_VENUE ? legacyCol("users") : venueCol("users");
       for (const u of users) {
-        await setDoc(doc(db, "users", u.badgeHash), u);
+        await setDoc(doc(col, u.badgeHash), u);
       }
     } catch (e) { console.error("Firestore saveUsers error:", e); }
     return;
@@ -130,7 +329,10 @@ async function saveUsers(users) {
 
 async function saveOneUser(user) {
   if (FIREBASE_ON) {
-    try { await setDoc(doc(db, "users", user.badgeHash), user); } catch {}
+    try {
+      const col = IS_DEFAULT_VENUE ? legacyCol("users") : venueCol("users");
+      await setDoc(doc(col, user.badgeHash), user);
+    } catch {}
     return;
   }
   const users = await getUsers();
@@ -141,7 +343,10 @@ async function saveOneUser(user) {
 
 async function deleteOneUser(badgeHash) {
   if (FIREBASE_ON) {
-    try { await deleteDoc(doc(db, "users", badgeHash)); } catch {}
+    try {
+      const col = IS_DEFAULT_VENUE ? legacyCol("users") : venueCol("users");
+      await deleteDoc(doc(col, badgeHash));
+    } catch {}
     return;
   }
   const users = await getUsers();
@@ -158,7 +363,8 @@ async function ensureSeedAdmin() {
     approved: true, registeredAt: new Date().toISOString()
   };
   if (FIREBASE_ON) {
-    await setDoc(doc(db, "users", h), seedUser);
+    const col = IS_DEFAULT_VENUE ? legacyCol("users") : venueCol("users");
+    await setDoc(doc(col, h), seedUser);
   } else {
     localStorage.setItem(USERS_KEY, JSON.stringify([seedUser]));
   }
@@ -171,7 +377,9 @@ let _currentUser = null;
 async function loadHistory() {
   if (FIREBASE_ON) {
     try {
-      const snap = await getDocs(collection(db, "inspections"));
+      // Default venue → read legacy flat collection where all existing data lives
+      const col = IS_DEFAULT_VENUE ? legacyCol("inspections") : venueCol("inspections");
+      const snap = await getDocs(col);
       const list = snap.docs.map(d => d.data());
       list.sort((a, b) => (b.savedAt || "").localeCompare(a.savedAt || ""));
       return list;
@@ -185,8 +393,9 @@ async function loadHistory() {
 async function saveHistory(records) {
   if (FIREBASE_ON) {
     try {
+      const col = IS_DEFAULT_VENUE ? legacyCol("inspections") : venueCol("inspections");
       for (const rec of records) {
-        await setDoc(doc(db, "inspections", rec.id), rec);
+        await setDoc(doc(col, rec.id), rec);
       }
     } catch (e) { console.error("Firestore saveHistory error:", e); }
     return;
@@ -198,7 +407,10 @@ async function saveHistory(records) {
 
 async function saveOneInspection(record) {
   if (FIREBASE_ON) {
-    try { await setDoc(doc(db, "inspections", record.id), record); } catch {}
+    try {
+      const col = IS_DEFAULT_VENUE ? legacyCol("inspections") : venueCol("inspections");
+      await setDoc(doc(col, record.id), record);
+    } catch {}
     return;
   }
   // localStorage: load all, prepend, save all
@@ -209,7 +421,10 @@ async function saveOneInspection(record) {
 
 async function deleteOneInspection(id) {
   if (FIREBASE_ON) {
-    try { await deleteDoc(doc(db, "inspections", id)); } catch {}
+    try {
+      const col = IS_DEFAULT_VENUE ? legacyCol("inspections") : venueCol("inspections");
+      await deleteDoc(doc(col, id));
+    } catch {}
     return;
   }
   const history = await loadHistory();
@@ -219,12 +434,125 @@ async function deleteOneInspection(id) {
 async function clearAllInspections() {
   if (FIREBASE_ON) {
     try {
-      const snap = await getDocs(collection(db, "inspections"));
+      const col = IS_DEFAULT_VENUE ? legacyCol("inspections") : venueCol("inspections");
+      const snap = await getDocs(col);
       for (const d of snap.docs) await deleteDoc(d.ref);
     } catch {}
     return;
   }
   await saveHistory([]);
+}
+
+/* ── HACCP Supervisor Submissions ────────────────────────── */
+async function saveHaccpSubmission(record) {
+  if (FIREBASE_ON) {
+    try {
+      const col = IS_DEFAULT_VENUE ? legacyCol("haccpSubmissions") : venueCol("haccpSubmissions");
+      await setDoc(doc(col, record.id), record);
+    } catch (e) { console.error(e); }
+    return;
+  }
+  const list = JSON.parse(localStorage.getItem(HACCP_SUBS_KEY) || "[]");
+  list.unshift(record);
+  localStorage.setItem(HACCP_SUBS_KEY, JSON.stringify(list.slice(0, 200)));
+}
+
+async function loadHaccpSubmissions() {
+  if (FIREBASE_ON) {
+    try {
+      const col = IS_DEFAULT_VENUE ? legacyCol("haccpSubmissions") : venueCol("haccpSubmissions");
+      const snap = await getDocs(query(col, orderBy("submittedAt", "desc")));
+      return snap.docs.map(d => d.data());
+    } catch { return []; }
+  }
+  try { return JSON.parse(localStorage.getItem(HACCP_SUBS_KEY) || "[]"); } catch { return []; }
+}
+
+async function loadHaccpForReport(reportId) {
+  if (!reportId) return [];
+  if (FIREBASE_ON) {
+    try {
+      // NOTE: Only two where() clauses — adding orderBy here would require a
+      // Firestore composite index (reportId + type + submittedAt).  Sort in JS
+      // instead so the query works without any index configuration.
+      const col = IS_DEFAULT_VENUE ? legacyCol("haccpSubmissions") : venueCol("haccpSubmissions");
+      const snap = await getDocs(
+        query(col,
+          where("reportId", "==", reportId),
+          where("type", "==", "submission"))
+      );
+      return snap.docs
+        .map(d => d.data())
+        .sort((a, b) => (a.submittedAt || "").localeCompare(b.submittedAt || ""));
+    } catch (e) { console.error("loadHaccpForReport:", e); return []; }
+  }
+  try {
+    const all = JSON.parse(localStorage.getItem(HACCP_SUBS_KEY) || "[]");
+    return all
+      .filter(r => r.reportId === reportId && r.type === "submission")
+      .sort((a, b) => (a.submittedAt || "").localeCompare(b.submittedAt || ""));
+  } catch { return []; }
+}
+
+/* ── Problem Reports ──────────────────────────────────────── */
+async function saveProblemReport(record) {
+  if (FIREBASE_ON) {
+    try {
+      const col = IS_DEFAULT_VENUE ? legacyCol("problemReports") : venueCol("problemReports");
+      await setDoc(doc(col, record.id), record);
+    } catch (e) { console.error(e); }
+    return;
+  }
+  const list = JSON.parse(localStorage.getItem(PROBLEMS_KEY) || "[]");
+  list.unshift(record);
+  localStorage.setItem(PROBLEMS_KEY, JSON.stringify(list.slice(0, 200)));
+}
+
+async function loadProblemReports() {
+  if (FIREBASE_ON) {
+    try {
+      const col = IS_DEFAULT_VENUE ? legacyCol("problemReports") : venueCol("problemReports");
+      const snap = await getDocs(query(col, orderBy("reportedAt", "desc")));
+      return snap.docs.map(d => d.data());
+    } catch { return []; }
+  }
+  try { return JSON.parse(localStorage.getItem(PROBLEMS_KEY) || "[]"); } catch { return []; }
+}
+
+/* ── Supervisor Chat ──────────────────────────────────────── */
+async function saveChatMessage(msg) {
+  if (FIREBASE_ON) {
+    try {
+      const col = IS_DEFAULT_VENUE ? legacyCol("supervisorChat") : venueCol("supervisorChat");
+      await setDoc(doc(col, msg.id), msg);
+    } catch (e) { console.error(e); }
+    return;
+  }
+  const list = JSON.parse(localStorage.getItem(CHAT_KEY) || "[]");
+  list.push(msg);
+  localStorage.setItem(CHAT_KEY, JSON.stringify(list.slice(-300)));
+}
+
+async function loadChatMessages(sessionId) {
+  if (FIREBASE_ON) {
+    try {
+      const col = IS_DEFAULT_VENUE ? legacyCol("supervisorChat") : venueCol("supervisorChat");
+      // No orderBy → no composite index required; sort in JS instead
+      const q = sessionId
+        ? query(col, where("sessionId", "==", sessionId))
+        : col;
+      const snap = await getDocs(q);
+      const msgs = snap.docs.map(d => d.data());
+      msgs.sort((a, b) => (a.sentAt > b.sentAt ? 1 : -1));
+      return msgs;
+    } catch (e) { console.error("loadChatMessages error:", e); return []; }
+  }
+  try {
+    const all = JSON.parse(localStorage.getItem(CHAT_KEY) || "[]");
+    const filtered = sessionId ? all.filter(m => m.sessionId === sessionId) : all;
+    filtered.sort((a, b) => (a.sentAt > b.sentAt ? 1 : -1));
+    return filtered;
+  } catch { return []; }
 }
 
 /* ── Auth functions ───────────────────────────────────────── */
@@ -324,7 +652,10 @@ function BadgeScreen({ onUnlock }) {
       } else {
         setError("Badge not recognized. Request access below if you\u2019re new.");
       }
-    } catch { setError("Something went wrong. Try again."); }
+    } catch (e) {
+      console.error("Sign-in error:", e);
+      setError("Could not reach the database. Check your connection and try again.");
+    }
     finally { setLoading(false); }
   }
 
@@ -343,10 +674,23 @@ function BadgeScreen({ onUnlock }) {
     finally { setLoading(false); }
   }
 
+  // Derive a display label for the venue shown on the login card.
+  // Priority: ?vname= param → prettified ?v= slug → nothing (default venue)
+  const venueDisplayName = VENUE_NAME ||
+    (VENUE_ID !== "default"
+      ? VENUE_ID.replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase())
+      : null);
+
   return (
     <div className="pinOverlay">
       <div className="pinCard">
         <img src={LOGO_DARK} alt="Sodexo" className="pinLogo" />
+        {venueDisplayName && (
+          <div className="venueBadge">
+            <span className="venueBadgeIcon">🏟️</span>
+            <span className="venueBadgeName">{venueDisplayName}</span>
+          </div>
+        )}
 
         {mode === "signin" && (<>
           <div className="pinTitle">Badge Sign-In</div>
@@ -395,8 +739,12 @@ function BadgeScreen({ onUnlock }) {
         </>)}
 
         <div className="pinFooter">
-          <span className="pinLock">&#128274;</span> AES-256 encrypted &middot; stored only on this device
+          {FIREBASE_ON
+            ? <><span className="pinLock">☁️</span> Synced to secure cloud database</>
+            : <><span className="pinLock">&#128274;</span> AES-256 encrypted &middot; stored only on this device</>
+          }
         </div>
+        <div className="pinPatent">Patent Pending</div>
       </div>
     </div>
   );
@@ -463,7 +811,7 @@ const NOTE_TYPES = {
   },
 };
 
-const STATUS_OPTIONS = ["OK", "Not Clean", "Needs Attention", "N/A"];
+const STATUS_OPTIONS = ["OK", "Needs Attention", "Maintenance"];
 const PHOTO_LIMIT = 6;
 const PHOTO_MAX_MB = 8;
 
@@ -692,15 +1040,23 @@ function buildDefaultInspection() {
     },
     temps: { handSinkTempF: "", threeCompSinkTempF: "" },
     equipment: {
-      doubleDoorCooler: withPhotos({ status: "OK", notes: "", tempF: "" }),
-      doubleDoorFreezer: withPhotos({ status: "OK", notes: "", tempF: "" }),
-      walkInCooler: withPhotos({ status: "OK", notes: "", tempF: "" }),
-      walkInFreezer: withPhotos({ status: "OK", notes: "", tempF: "" }),
-      prepCooler: withPhotos({ status: "OK", notes: "", tempF: "" }),
-      warmers: withPhotos({ status: "OK", notes: "" }),
-      ovens: withPhotos({ status: "OK", notes: "" }),
-      threeCompSink: withPhotos({ status: "OK", notes: "" }),
-      ecolab: withPhotos({ status: "OK", notes: "" }),
+      doubleDoorCooler: withPhotos({ status: "OK", notes: "", tempF: "", count: "", notApplicable: false, equipSource: "Facility" }),
+      doubleDoorFreezer: withPhotos({ status: "OK", notes: "", tempF: "", count: "", notApplicable: false, equipSource: "Facility" }),
+      walkInCooler: withPhotos({ status: "OK", notes: "", tempF: "", count: "", notApplicable: false, equipSource: "Facility" }),
+      walkInFreezer: withPhotos({ status: "OK", notes: "", tempF: "", count: "", notApplicable: false, equipSource: "Facility" }),
+      prepCooler: withPhotos({ status: "OK", notes: "", tempF: "", count: "", notApplicable: false, equipSource: "Facility" }),
+      warmers: withPhotos({ status: "OK", notes: "", count: "", notApplicable: false, equipSource: "Facility" }),
+      ovens: withPhotos({ status: "OK", notes: "", count: "", notApplicable: false, equipSource: "Facility" }),
+      threeCompSink: withPhotos({ status: "OK", notes: "", count: "", notApplicable: false, equipSource: "Facility" }),
+      ecolab: withPhotos({ status: "OK", notes: "", count: "", notApplicable: false, equipSource: "Facility" }),
+    },
+    maintenance: {
+      hvac: withPhotos({ status: "OK", notes: "", priority: "Low" }),
+      plumbing: withPhotos({ status: "OK", notes: "", priority: "Low" }),
+      pestControl: withPhotos({ status: "OK", notes: "", priority: "Low" }),
+      electricalSafety: withPhotos({ status: "OK", notes: "", priority: "Low" }),
+      dumpsterArea: withPhotos({ status: "OK", notes: "", priority: "Low" }),
+      structuralDamage: withPhotos({ status: "OK", notes: "", priority: "Low" }),
     },
   };
 }
@@ -907,6 +1263,29 @@ function buildActionItems({ inspection, rawNotes }) {
   pushIfBad("equipment.ovens", "Ovens", inspection?.equipment?.ovens);
   pushIfBad("equipment.threeCompSink", "3-compartment sink", inspection?.equipment?.threeCompSink);
   pushIfBad("equipment.ecolab", "Ecolab / chemicals", inspection?.equipment?.ecolab);
+  // Maintenance items — priority pulled from the node itself
+  const pushMaint = (pathKey, label, node) => {
+    if (!node?.status) return;
+    if (node.status === "Needs Attention" || node.status === "Not Clean") {
+      items.push({
+        issue: `Maintenance – ${label}: ${sanitizeText(node.notes) || "Issue noted"}`,
+        owner: "", due: "",
+        priority: node.priority === "High" ? "High" : node.priority === "Med" ? "Med" : (node.status === "Not Clean" ? "High" : "Med"),
+        photos: mapByPath[pathKey] || [],
+      });
+    }
+  };
+  pushMaint("maintenance.hvac", "HVAC", inspection?.maintenance?.hvac);
+  pushMaint("maintenance.plumbing", "Plumbing", inspection?.maintenance?.plumbing);
+  pushMaint("maintenance.pestControl", "Pest control", inspection?.maintenance?.pestControl);
+  pushMaint("maintenance.electricalSafety", "Electrical safety", inspection?.maintenance?.electricalSafety);
+  pushMaint("maintenance.dumpsterArea", "Dumpster / waste area", inspection?.maintenance?.dumpsterArea);
+  pushMaint("maintenance.structuralDamage", "Structural damage", inspection?.maintenance?.structuralDamage);
+  // Custom maintenance items
+  const maintData = inspection?.maintenance || {};
+  for (const [k, node] of Object.entries(maintData)) {
+    if (k.startsWith("custom_")) pushMaint(`maintenance.${k}`, node?.label || k, node);
+  }
   // Water temps
   const hand = Number(inspection?.temps?.handSinkTempF);
   if (!Number.isNaN(hand) && hand && hand < 95)
@@ -1406,49 +1785,51 @@ function RenderedOutput({ noteType, useCase, context, inspection, rawNotes, insp
       {/* Full Scorecard Table */}
       <div className="rptBlock">
         <div className="rptBlockTitle">Inspection Scorecard</div>
-        <table className="rptTable">
-          <thead>
-            <tr>
-              <th>Section</th>
-              <th>Item</th>
-              <th>Status</th>
-              <th>Notes</th>
-            </tr>
-          </thead>
-          <tbody>
-            {sections.map(sec => {
-              const items = allItems.filter(it => it.section === sec);
-              return items.map((it, i) => (
-                <tr key={it.label} className={it.node?.status === "Not Clean" ? "rptRowFail" : it.node?.status === "Needs Attention" ? "rptRowWarn" : ""}>
-                  {i === 0 && <td rowSpan={items.length} className="rptSectionCell">{sec}</td>}
-                  <td>{it.label}</td>
-                  <td>
-                    <span className={cx("rptStatusPill",
-                      it.node?.status === "OK" ? "rptPillPass" :
-                      it.node?.status === "Not Clean" ? "rptPillFail" :
-                      it.node?.status === "Needs Attention" ? "rptPillWarn" : "rptPillNa"
-                    )}>
-                      {it.node?.status || "N/A"}
-                    </span>
-                  </td>
-                  <td className="rptNoteCell">{it.node?.notes || "\u2014"}</td>
-                </tr>
-              ));
-            })}
-            {/* Temperature rows */}
-            <tr className={handT > 0 && handT < 95 ? "rptRowFail" : ""}>
-              <td rowSpan={2} className="rptSectionCell">Temps</td>
-              <td>Hand Sink</td>
-              <td><span className={cx("rptStatusPill", handT >= 95 ? "rptPillPass" : handT ? "rptPillFail" : "rptPillNa")}>{inspection?.temps?.handSinkTempF ? `${inspection.temps.handSinkTempF}\u00B0F` : "N/A"}</span></td>
-              <td className="rptNoteCell">{handT >= 95 ? "Meets minimum" : handT ? "Below 95\u00B0F minimum" : "\u2014"}</td>
-            </tr>
-            <tr className={threeT > 0 && threeT < 110 ? "rptRowFail" : ""}>
-              <td>3-Comp Wash</td>
-              <td><span className={cx("rptStatusPill", threeT >= 110 ? "rptPillPass" : threeT ? "rptPillFail" : "rptPillNa")}>{inspection?.temps?.threeCompSinkTempF ? `${inspection.temps.threeCompSinkTempF}\u00B0F` : "N/A"}</span></td>
-              <td className="rptNoteCell">{threeT >= 110 ? "Meets minimum" : threeT ? "Below 110\u00B0F minimum" : "\u2014"}</td>
-            </tr>
-          </tbody>
-        </table>
+        <div className="rptTableWrap">
+          <table className="rptTable">
+            <thead>
+              <tr>
+                <th>Section</th>
+                <th>Item</th>
+                <th>Status</th>
+                <th>Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sections.map(sec => {
+                const items = allItems.filter(it => it.section === sec);
+                return items.map((it, i) => (
+                  <tr key={it.label} className={it.node?.status === "Not Clean" ? "rptRowFail" : it.node?.status === "Needs Attention" ? "rptRowWarn" : ""}>
+                    {i === 0 && <td rowSpan={items.length} className="rptSectionCell">{sec}</td>}
+                    <td>{it.label}</td>
+                    <td>
+                      <span className={cx("rptStatusPill",
+                        it.node?.status === "OK" ? "rptPillPass" :
+                        it.node?.status === "Not Clean" ? "rptPillFail" :
+                        it.node?.status === "Needs Attention" ? "rptPillWarn" : "rptPillNa"
+                      )}>
+                        {it.node?.status || "N/A"}
+                      </span>
+                    </td>
+                    <td className="rptNoteCell">{it.node?.notes || "\u2014"}</td>
+                  </tr>
+                ));
+              })}
+              {/* Temperature rows */}
+              <tr className={handT > 0 && handT < 95 ? "rptRowFail" : ""}>
+                <td rowSpan={2} className="rptSectionCell">Temps</td>
+                <td>Hand Sink</td>
+                <td><span className={cx("rptStatusPill", handT >= 95 ? "rptPillPass" : handT ? "rptPillFail" : "rptPillNa")}>{inspection?.temps?.handSinkTempF ? `${inspection.temps.handSinkTempF}\u00B0F` : "N/A"}</span></td>
+                <td className="rptNoteCell">{handT >= 95 ? "Meets minimum" : handT ? "Below 95\u00B0F minimum" : "\u2014"}</td>
+              </tr>
+              <tr className={threeT > 0 && threeT < 110 ? "rptRowFail" : ""}>
+                <td>3-Comp Wash</td>
+                <td><span className={cx("rptStatusPill", threeT >= 110 ? "rptPillPass" : threeT ? "rptPillFail" : "rptPillNa")}>{inspection?.temps?.threeCompSinkTempF ? `${inspection.temps.threeCompSinkTempF}\u00B0F` : "N/A"}</span></td>
+                <td className="rptNoteCell">{threeT >= 110 ? "Meets minimum" : threeT ? "Below 110\u00B0F minimum" : "\u2014"}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* Findings Summary (only if issues) */}
@@ -2027,6 +2408,1182 @@ function TempTrendChart({ history }) {
   );
 }
 
+/* ── Predictive AI Engine ────────────────────────────────── */
+function buildPredictions(history) {
+  if (!history || history.length < 2) return [];
+  const predictions = [];
+
+  // Sort history oldest → newest
+  const sorted = [...history].sort((a, b) => {
+    const da = new Date(a.inspectionDate || 0);
+    const db = new Date(b.inspectionDate || 0);
+    return da - db;
+  });
+
+  // ── 1. Per-location issue recurrence prediction ──────────
+  // For each location, look at the last N inspections. If a category
+  // appeared in ≥60% of them, it's predicted to appear again.
+  const byLocation = {};
+  for (const rec of sorted) {
+    const loc = `${rec.siteName || rec.location || "Unknown"}${rec.siteNumber ? ` #${rec.siteNumber}` : ""}${rec.floor ? ` (${rec.floor})` : ""}`;
+    if (!byLocation[loc]) byLocation[loc] = [];
+    byLocation[loc].push(rec);
+  }
+
+  for (const [loc, recs] of Object.entries(byLocation)) {
+    if (recs.length < 2) continue;
+    const recent = recs.slice(-6); // last 6 inspections at this location
+    const catCounts = {};
+    for (const rec of recent) {
+      const seen = new Set();
+      for (const item of (rec.actionItems || [])) {
+        const cat = item.issue?.split(":")[0]?.trim() || "Other";
+        if (!seen.has(cat)) {
+          seen.add(cat);
+          catCounts[cat] = (catCounts[cat] || 0) + 1;
+        }
+      }
+    }
+    for (const [cat, count] of Object.entries(catCounts)) {
+      const rate = count / recent.length;
+      if (rate >= 0.6) {
+        const risk = rate >= 0.85 ? "high" : "medium";
+        predictions.push({
+          type: "recurrence",
+          risk,
+          location: loc,
+          category: cat,
+          rate: Math.round(rate * 100),
+          occurrences: count,
+          total: recent.length,
+          message: `"${cat}" issues have appeared in ${count} of the last ${recent.length} inspections at ${loc} (${Math.round(rate * 100)}%) — likely to recur.`,
+          detail: `This category has been flagged consistently. Address root cause to break the pattern.`,
+        });
+      }
+    }
+  }
+
+  // ── 2. Temperature drift prediction (equipment) ──────────
+  // If a cooler/freezer temp has been creeping upward over the last 3+
+  // readings at a location, predict it will breach threshold.
+  const EQUIP_KEYS = [
+    { key: "doubleDoorCooler", label: "Double-Door Cooler", max: 40, type: "cooler" },
+    { key: "doubleDoorFreezer", label: "Double-Door Freezer", max: 20, type: "freezer" },
+    { key: "walkInCooler", label: "Walk-In Cooler", max: 40, type: "cooler" },
+    { key: "walkInFreezer", label: "Walk-In Freezer", max: 20, type: "freezer" },
+    { key: "prepCooler", label: "Prep Cooler", max: 40, type: "cooler" },
+  ];
+
+  for (const [loc, recs] of Object.entries(byLocation)) {
+    for (const equip of EQUIP_KEYS) {
+      const readings = recs
+        .map(r => ({ date: r.inspectionDate, val: Number(r.inspection?.equipment?.[equip.key]?.tempF || r[equip.key + "TempF"] || NaN) }))
+        .filter(r => !isNaN(r.val) && r.val > 0);
+      if (readings.length < 3) continue;
+      const last3 = readings.slice(-3);
+      // Check monotonic upward trend in last 3 readings
+      const rising = last3[1].val > last3[0].val && last3[2].val > last3[1].val;
+      if (!rising) continue;
+      const drift = last3[2].val - last3[0].val;
+      const currentTemp = last3[2].val;
+      const gap = equip.max - currentTemp;
+      if (drift <= 0 || gap >= 15) continue; // not significant
+      const stepsToBreech = Math.ceil(gap / (drift / 2));
+      const risk = gap < 5 ? "high" : "medium";
+      predictions.push({
+        type: "tempDrift",
+        risk,
+        location: loc,
+        category: equip.label,
+        message: `${equip.label} at ${loc} has risen from ${last3[0].val}°F → ${last3[2].val}°F over the last ${last3.length} inspections (${gap > 0 ? `${gap.toFixed(1)}°F below max` : "AT OR ABOVE MAX"}).`,
+        detail: risk === "high"
+          ? `Temperature is dangerously close to the ${equip.max}°F limit. Inspect compressor and door seals before the next visit.`
+          : `Upward trend detected. Schedule preventive maintenance within ${stepsToBreech} inspection cycle(s) to avoid failure.`,
+        currentTemp,
+        maxTemp: equip.max,
+        drift: drift.toFixed(1),
+      });
+    }
+  }
+
+  // ── 3. Issue escalation prediction ──────────────────────
+  // If a specific category was "Needs Attention" in 2+ consecutive
+  // inspections at a location, predict it will escalate to "Not Clean".
+  const SECTION_MAP = {
+    facility: ["ceiling", "walls", "floors", "lighting"],
+    operations: ["employeePractices", "handwashing", "labelingDating", "logs"],
+    equipment: ["doubleDoorCooler", "doubleDoorFreezer", "walkInCooler", "walkInFreezer", "prepCooler", "warmers", "ovens", "threeCompSink", "ecolab"],
+    maintenance: ["hvac", "plumbing", "pestControl", "electricalSafety", "dumpsterArea", "structuralDamage"],
+  };
+  const ITEM_LABEL = {
+    ceiling: "Ceiling", walls: "Walls", floors: "Floors", lighting: "Lighting",
+    employeePractices: "Employee Practices", handwashing: "Handwashing",
+    labelingDating: "Labeling / Dating", logs: "Logs",
+    doubleDoorCooler: "Double-Door Cooler", doubleDoorFreezer: "Double-Door Freezer",
+    walkInCooler: "Walk-In Cooler", walkInFreezer: "Walk-In Freezer",
+    prepCooler: "Prep Cooler", warmers: "Warmers", ovens: "Ovens",
+    threeCompSink: "3-Comp Sink", ecolab: "Ecolab / Chemicals",
+    hvac: "HVAC", plumbing: "Plumbing", pestControl: "Pest Control",
+    electricalSafety: "Electrical Safety", dumpsterArea: "Dumpster Area",
+    structuralDamage: "Structural Damage",
+  };
+
+  for (const [loc, recs] of Object.entries(byLocation)) {
+    if (recs.length < 2) continue;
+    const last3 = recs.slice(-3);
+    for (const [section, keys] of Object.entries(SECTION_MAP)) {
+      for (const itemKey of keys) {
+        const statuses = last3
+          .map(r => r.inspection?.[section]?.[itemKey]?.status || null)
+          .filter(Boolean);
+        if (statuses.length < 2) continue;
+        // All recent readings are "Needs Attention" → escalation risk
+        const allAttention = statuses.every(s => s === "Needs Attention");
+        if (allAttention && statuses.length >= 2) {
+          predictions.push({
+            type: "escalation",
+            risk: statuses.length >= 3 ? "high" : "medium",
+            location: loc,
+            category: ITEM_LABEL[itemKey] || itemKey,
+            message: `"${ITEM_LABEL[itemKey] || itemKey}" at ${loc} has been "Needs Attention" for ${statuses.length} consecutive inspections.`,
+            detail: `Unresolved items tend to escalate to "Not Clean". Assign ownership and set a corrective action deadline before the next visit.`,
+          });
+        }
+      }
+    }
+  }
+
+  // ── 4. Overdue inspection + prior issues risk flag ───────
+  const now = new Date();
+  for (const [loc, recs] of Object.entries(byLocation)) {
+    const lastRec = recs[recs.length - 1];
+    const lastDate = new Date(lastRec.inspectionDate || 0);
+    const daysSince = Math.floor((now - lastDate) / (1000 * 60 * 60 * 24));
+    const hadIssues = (lastRec.actionItems || []).length > 0;
+    if (daysSince >= 30 && hadIssues) {
+      const risk = daysSince >= 60 ? "high" : "medium";
+      predictions.push({
+        type: "overdue",
+        risk,
+        location: loc,
+        category: "Inspection Gap",
+        message: `${loc} hasn't been inspected in ${daysSince} days and had ${lastRec.actionItems.length} unresolved issue(s) at last visit.`,
+        detail: `Schedule an inspection soon — unresolved issues left unchecked increase the risk of a health code violation.`,
+        daysSince,
+      });
+    }
+  }
+
+  // ── 5. Hand sink / 3-comp sink temperature trend ─────────
+  for (const [loc, recs] of Object.entries(byLocation)) {
+    const handTemps = recs.map(r => Number(r.temps?.handSinkTempF || r.handSinkTempF || NaN)).filter(v => !isNaN(v) && v > 0);
+    const threeTemps = recs.map(r => Number(r.temps?.threeCompSinkTempF || r.threeCompSinkTempF || NaN)).filter(v => !isNaN(v) && v > 0);
+
+    if (handTemps.length >= 3) {
+      const last3 = handTemps.slice(-3);
+      const declining = last3[0] > last3[1] && last3[1] > last3[2];
+      if (declining && last3[2] < 100) {
+        predictions.push({
+          type: "tempDrift",
+          risk: last3[2] < 97 ? "high" : "medium",
+          location: loc,
+          category: "Hand Sink Water Temp",
+          message: `Hand sink temperature at ${loc} has been declining: ${last3[0]}°F → ${last3[1]}°F → ${last3[2]}°F (min: 95°F).`,
+          detail: `Downward trend approaching the 95°F minimum. Inspect water heater output and check for mixing valve issues.`,
+        });
+      }
+    }
+    if (threeTemps.length >= 3) {
+      const last3 = threeTemps.slice(-3);
+      const declining = last3[0] > last3[1] && last3[1] > last3[2];
+      if (declining && last3[2] < 115) {
+        predictions.push({
+          type: "tempDrift",
+          risk: last3[2] < 112 ? "high" : "medium",
+          location: loc,
+          category: "3-Comp Sink Wash Temp",
+          message: `3-comp sink wash temperature at ${loc} declining: ${last3[0]}°F → ${last3[1]}°F → ${last3[2]}°F (min: 110°F).`,
+          detail: `Trend approaching the 110°F minimum. Check water heater capacity and booster heater for the sink.`,
+        });
+      }
+    }
+  }
+
+  // De-duplicate and sort: high risk first, then medium
+  const seen = new Set();
+  const deduped = predictions.filter(p => {
+    const k = `${p.type}|${p.location}|${p.category}`;
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+
+  return deduped.sort((a, b) => {
+    const order = { high: 0, medium: 1, watch: 2 };
+    return (order[a.risk] ?? 3) - (order[b.risk] ?? 3);
+  });
+}
+
+/* ── LocationsPanel — inner sub-panel for the Locations tab ────── */
+function LocationsPanel({ loc, passColor, trendArrow, MiniBar, EmptyState }) {
+  const [locSub, setLocSub] = React.useState("floor");
+  if (!loc) return <EmptyState icon="🗺️" msg="Location profiles will appear after saving inspections with site/floor/type data." />;
+
+  const { byFloor = [], byType = [], bySite = [] } = loc;
+
+  return (
+    <div>
+      <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
+        {[
+          { key: "floor", label: `🏗 By Floor (${byFloor.length})` },
+          { key: "type",  label: `🏪 By Type (${byType.length})` },
+          { key: "site",  label: `📍 By Site (${bySite.length})` },
+        ].map(t => (
+          <button key={t.key} type="button" onClick={() => setLocSub(t.key)}
+            style={{
+              background: locSub === t.key ? "#eff6ff" : "#f9fafb",
+              border: locSub === t.key ? "1.5px solid #93c5fd" : "1px solid #e5e7eb",
+              borderRadius: 7, padding: "5px 10px", cursor: "pointer",
+              fontSize: "0.73rem", fontWeight: locSub === t.key ? 700 : 400,
+              color: locSub === t.key ? "#1d4ed8" : "#6b7280",
+            }}
+          >{t.label}</button>
+        ))}
+      </div>
+
+      {locSub === "floor" && (
+        byFloor.length === 0
+          ? <EmptyState icon="🏗" msg="No floor data yet. Add floor info when saving inspections." />
+          : <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {byFloor.map(f => (
+                <div key={f.floor} style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 9, padding: "10px 13px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                    <span style={{ fontWeight: 700, fontSize: "0.82rem", color: "#1e293b", flex: 1 }}>{f.floor}</span>
+                    <span style={{ fontWeight: 700, fontSize: "0.82rem", color: passColor(f.passRate) }}>{f.passRate}%</span>
+                    <span style={{ fontSize: "0.7rem", color: "#6b7280" }}>{f.total} inspections</span>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <div style={{ fontSize: "0.7rem", color: "#6b7280", minWidth: 60 }}>Pass rate</div>
+                    <MiniBar pct={f.passRate} color={passColor(f.passRate)} />
+                  </div>
+                  {f.topIssue && (
+                    <div style={{ fontSize: "0.7rem", color: "#6b7280", marginTop: 5 }}>
+                      Top issue: <span style={{ color: "#374151", fontWeight: 600 }}>{f.topIssue}</span>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+      )}
+
+      {locSub === "type" && (
+        byType.length === 0
+          ? <EmptyState icon="🏪" msg="No location type data yet. Add location type when saving inspections." />
+          : <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {byType.map(t => (
+                <div key={t.type} style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 9, padding: "10px 13px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                    <span style={{ fontWeight: 700, fontSize: "0.82rem", color: "#1e293b", flex: 1 }}>{t.type}</span>
+                    <span style={{ fontWeight: 700, fontSize: "0.82rem", color: passColor(t.passRate) }}>{t.passRate}%</span>
+                    <span style={{ fontSize: "0.7rem", color: "#6b7280" }}>{t.total} inspections</span>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                    <div style={{ fontSize: "0.7rem", color: "#6b7280", minWidth: 60 }}>Pass rate</div>
+                    <MiniBar pct={t.passRate} color={passColor(t.passRate)} />
+                  </div>
+                  {t.topIssues?.length > 0 && (
+                    <div style={{ fontSize: "0.7rem", color: "#6b7280" }}>
+                      Top: {t.topIssues.slice(0, 3).join(" · ")}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+      )}
+
+      {locSub === "site" && (
+        bySite.length === 0
+          ? <EmptyState icon="📍" msg="No site data yet." />
+          : <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {bySite.map(s => {
+                const arrow = trendArrow(s.trendLabel);
+                return (
+                  <div key={s.site} style={{
+                    background: "#fff",
+                    border: s.trendLabel === "worsening" ? "1.5px solid #fecaca" : "1px solid #e5e7eb",
+                    borderRadius: 9, padding: "10px 13px",
+                  }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 5 }}>
+                      <span style={{ fontWeight: 700, fontSize: "0.8rem", color: "#1e293b", flex: 1 }}>{s.site}</span>
+                      <span style={{ fontWeight: 700, fontSize: "0.75rem", color: arrow.color }}>{arrow.icon} {s.trendLabel}</span>
+                      <span style={{ fontWeight: 700, fontSize: "0.82rem", color: passColor(s.passRate) }}>{s.passRate}%</span>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <div style={{ fontSize: "0.7rem", color: "#6b7280", minWidth: 60 }}>Pass rate</div>
+                      <MiniBar pct={s.passRate} color={passColor(s.passRate)} />
+                      <div style={{ fontSize: "0.68rem", color: "#9ca3af", minWidth: 50, textAlign: "right" }}>{s.total} visits</div>
+                    </div>
+                    {s.lastInspected && (
+                      <div style={{ fontSize: "0.68rem", color: "#9ca3af", marginTop: 4 }}>
+                        Last: {new Date(s.lastInspected).toLocaleDateString()}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+      )}
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   AIHealthMonitor  — live self-improving analytics dashboard panel
+   Shows: AI Suggestions · Inspectors · Supervisors · Locations ·
+          Behavior · Usage Stats · Performance Vitals
+══════════════════════════════════════════════════════════════════ */
+function AIHealthMonitor({ history }) {
+  const [snapshot, setSnapshot]   = React.useState(() => AIEngine.getSnapshot());
+  const [activeTab, setActiveTab] = React.useState("suggestions");
+  const [dismissed, setDismissed] = React.useState(() => {
+    try { return JSON.parse(localStorage.getItem("sdx_ai_dismissed") || "[]"); } catch { return []; }
+  });
+
+  React.useEffect(() => {
+    if (history && history.length > 0) {
+      AIEngine.learnFromHistory(history);
+      setSnapshot(AIEngine.getSnapshot());
+    }
+  }, [history]);
+
+  React.useEffect(() => {
+    const unsub = AIEngine.subscribe(() => setSnapshot(AIEngine.getSnapshot()));
+    return unsub;
+  }, []);
+
+  function dismiss(id) {
+    const next = [...dismissed, id];
+    setDismissed(next);
+    try { localStorage.setItem("sdx_ai_dismissed", JSON.stringify(next)); } catch {}
+  }
+
+  const { suggestions = [], usageReport, perfReport = [], generatedAt, patterns } = snapshot;
+  const visibleSugs = suggestions.filter(s => !dismissed.includes(s.id));
+
+  const priorityColor = {
+    critical: { bg: "#fef2f2", border: "#fecaca", dot: "#dc2626", label: "#991b1b" },
+    high:     { bg: "#fff7ed", border: "#fed7aa", dot: "#ea580c", label: "#9a3412" },
+    medium:   { bg: "#fefce8", border: "#fef08a", dot: "#ca8a04", label: "#854d0e" },
+    low:      { bg: "#f0f9ff", border: "#bae6fd", dot: "#0284c7", label: "#0c4a6e" },
+    info:     { bg: "#f0fdf4", border: "#bbf7d0", dot: "#16a34a", label: "#15803d" },
+  };
+
+  const perfStatusColor = { good: "#15803D", "needs improvement": "#b45309", poor: "#dc2626" };
+
+  /* helpers */
+  function passColor(r) {
+    if (r >= 80) return "#15803D";
+    if (r >= 60) return "#b45309";
+    return "#dc2626";
+  }
+  function trendArrow(label) {
+    if (label === "improving") return { icon: "↑", color: "#15803D" };
+    if (label === "declining" || label === "worsening") return { icon: "↓", color: "#dc2626" };
+    return { icon: "→", color: "#6b7280" };
+  }
+  function MiniBar({ pct, color = "#2563EB" }) {
+    return (
+      <div style={{ flex: 1, background: "#e5e7eb", borderRadius: 99, overflow: "hidden", height: 7 }}>
+        <div style={{ height: "100%", background: color, borderRadius: 99, width: `${Math.min(100, pct)}%` }} />
+      </div>
+    );
+  }
+  function EmptyState({ icon = "📭", msg }) {
+    return (
+      <div style={{ textAlign: "center", padding: "28px 0", color: "#9ca3af" }}>
+        <div style={{ fontSize: "2rem", marginBottom: 8 }}>{icon}</div>
+        <div style={{ fontSize: "0.83rem" }}>{msg}</div>
+      </div>
+    );
+  }
+
+  const tabs = [
+    { key: "suggestions", label: `💡 Tips${visibleSugs.length > 0 ? ` (${visibleSugs.length})` : ""}` },
+    { key: "inspectors",  label: "👤 Inspectors" },
+    { key: "supervisors", label: "🏢 Supervisors" },
+    { key: "locations",   label: "🗺️ Locations" },
+    { key: "behavior",    label: "📋 Behavior" },
+    { key: "crossInsp",   label: "⚖️ Calibration" },
+    { key: "resolution",  label: "🔓 Resolution" },
+    { key: "inventory",   label: "🔧 Inventory" },
+    { key: "usage",       label: "📊 Usage" },
+    { key: "perf",        label: "⚡ Perf" },
+  ];
+
+  return (
+    <div className="card" style={{ marginBottom: 24, border: "1.5px solid rgba(37,99,235,.2)", background: "linear-gradient(135deg, #f8faff 0%, #f0f4ff 100%)" }}>
+      <div className="cardHeader" style={{ borderBottom: "1px solid rgba(37,99,235,.12)", paddingBottom: 12 }}>
+        <div>
+          <div className="cardTitle" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontSize: "1.3rem" }}>🧠</span>
+            <span>AI System Monitor</span>
+            {visibleSugs.filter(s => s.priority === "critical").length > 0 && (
+              <span style={{ background: "#dc2626", color: "#fff", borderRadius: 99, fontSize: "0.68rem", fontWeight: 700, padding: "2px 8px" }}>
+                {visibleSugs.filter(s => s.priority === "critical").length} CRITICAL
+              </span>
+            )}
+          </div>
+          <div className="cardSub" style={{ fontSize: "0.71rem", marginTop: 2, color: "#6b7280" }}>
+            Self-improving · continuously learns from every angle of usage
+            {generatedAt && <span> · Last updated {new Date(generatedAt).toLocaleTimeString()}</span>}
+          </div>
+        </div>
+      </div>
+
+      {/* Sub-tabs — horizontally scrollable on small screens */}
+      <div style={{ display: "flex", gap: 0, borderBottom: "1px solid rgba(37,99,235,.1)", padding: "0 8px", overflowX: "auto" }}>
+        {tabs.map(t => (
+          <button
+            key={t.key}
+            type="button"
+            onClick={() => setActiveTab(t.key)}
+            style={{
+              background: "none", border: "none", padding: "9px 11px", cursor: "pointer", whiteSpace: "nowrap",
+              fontSize: "0.75rem", fontWeight: activeTab === t.key ? 700 : 400,
+              color: activeTab === t.key ? "#2563EB" : "#6b7280",
+              borderBottom: activeTab === t.key ? "2px solid #2563EB" : "2px solid transparent",
+              marginBottom: -1, transition: "all .15s",
+            }}
+          >{t.label}</button>
+        ))}
+      </div>
+
+      <div className="cardBody" style={{ paddingTop: 16 }}>
+
+        {/* ── SUGGESTIONS TAB ─────────────────────────────── */}
+        {activeTab === "suggestions" && (
+          <>
+            {visibleSugs.length === 0 ? (
+              <div style={{ textAlign: "center", padding: "24px 0", color: "#6b7280" }}>
+                <div style={{ fontSize: "2rem", marginBottom: 8 }}>✅</div>
+                <div style={{ fontWeight: 600, marginBottom: 4 }}>No suggestions right now</div>
+                <div style={{ fontSize: "0.82rem" }}>The AI found no improvement opportunities. Keep up the great work!</div>
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {visibleSugs.map(s => {
+                  const c = priorityColor[s.priority] || priorityColor.low;
+                  return (
+                    <div key={s.id} style={{ background: c.bg, border: `1px solid ${c.border}`, borderRadius: 10, padding: "12px 14px", position: "relative" }}>
+                      <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+                        <span style={{ fontSize: "1.3rem", flexShrink: 0 }}>{s.icon}</span>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontWeight: 700, fontSize: "0.88rem", color: c.label, marginBottom: 3 }}>
+                            <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: c.dot, marginRight: 6, verticalAlign: "middle" }} />
+                            {s.priority.toUpperCase()} · {s.title}
+                          </div>
+                          <div style={{ fontSize: "0.82rem", color: "#374151", marginBottom: 6, lineHeight: 1.5 }}>{s.body}</div>
+                          <div style={{ fontSize: "0.76rem", color: "#6b7280", display: "flex", alignItems: "center", gap: 4 }}>
+                            <span>▶</span> <em>{s.action}</em>
+                          </div>
+                        </div>
+                        <button type="button" title="Dismiss" onClick={() => dismiss(s.id)}
+                          style={{ background: "none", border: "none", cursor: "pointer", color: "#9ca3af", fontSize: "1rem", padding: "0 4px", flexShrink: 0 }}>✕</button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            {dismissed.length > 0 && (
+              <button type="button"
+                style={{ background: "none", border: "none", cursor: "pointer", color: "#6b7280", fontSize: "0.75rem", marginTop: 10 }}
+                onClick={() => { setDismissed([]); try { localStorage.removeItem("sdx_ai_dismissed"); } catch {} }}
+              >↩ Restore {dismissed.length} dismissed suggestion{dismissed.length !== 1 ? "s" : ""}</button>
+            )}
+            {patterns && (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 16, padding: "12px 0", borderTop: "1px solid rgba(37,99,235,.1)" }}>
+                {[
+                  { label: "Records analysed", val: patterns.totalRecords },
+                  { label: "Overall pass rate", val: `${patterns.passRate}%`, color: passColor(patterns.passRate) },
+                  { label: "Avg issues/report", val: patterns.avgIssuesPerReport },
+                  { label: "Weak locations", val: patterns.weakLocations?.length || 0 },
+                  { label: "Schedule gaps", val: patterns.scheduleGaps?.length || 0 },
+                ].map(stat => (
+                  <div key={stat.label} style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 8, padding: "8px 14px", textAlign: "center", flex: "1 1 90px" }}>
+                    <div style={{ fontWeight: 700, fontSize: "1.1rem", color: stat.color || "#1e293b" }}>{stat.val}</div>
+                    <div style={{ fontSize: "0.7rem", color: "#6b7280" }}>{stat.label}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+
+        {/* ── INSPECTORS TAB ──────────────────────────────── */}
+        {activeTab === "inspectors" && (() => {
+          const profiles = patterns?.inspectorProfiles || [];
+          if (!profiles.length) return <EmptyState icon="👤" msg="Inspector profiles will appear after saving inspections with inspector names." />;
+          return (
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <div style={{ fontSize: "0.74rem", color: "#6b7280", marginBottom: 4 }}>
+                Ranked by total inspections. Trend compares first-half vs second-half pass rate.
+              </div>
+              {profiles.map((p, i) => {
+                const arrow = trendArrow(p.trendLabel);
+                return (
+                  <div key={p.name} style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 10, padding: "12px 14px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                      <span style={{ fontWeight: 700, fontSize: "0.82rem", color: "#1e293b", flex: 1 }}>
+                        #{i + 1} {p.name}
+                      </span>
+                      <span style={{ fontSize: "0.78rem", fontWeight: 700, color: arrow.color }}>{arrow.icon} {p.trendLabel}</span>
+                    </div>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
+                      {[
+                        { label: "Inspections", val: p.total },
+                        { label: "Pass rate", val: `${p.passRate}%`, color: passColor(p.passRate) },
+                        { label: "Avg issues", val: p.avgIssues },
+                        { label: "Sites", val: p.siteCount },
+                      ].map(s => (
+                        <div key={s.label} style={{ background: "#f8faff", border: "1px solid #e0e7ff", borderRadius: 7, padding: "5px 10px", textAlign: "center" }}>
+                          <div style={{ fontWeight: 700, fontSize: "0.95rem", color: s.color || "#2563EB" }}>{s.val}</div>
+                          <div style={{ fontSize: "0.65rem", color: "#6b7280" }}>{s.label}</div>
+                        </div>
+                      ))}
+                    </div>
+                    {/* Pass rate bar */}
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                      <div style={{ fontSize: "0.7rem", color: "#6b7280", minWidth: 64 }}>Pass rate</div>
+                      <MiniBar pct={p.passRate} color={passColor(p.passRate)} />
+                      <div style={{ fontSize: "0.7rem", color: passColor(p.passRate), fontWeight: 700, minWidth: 34, textAlign: "right" }}>{p.passRate}%</div>
+                    </div>
+                    {p.topIssues?.length > 0 && (
+                      <div style={{ fontSize: "0.72rem", color: "#6b7280" }}>
+                        <span style={{ fontWeight: 600, color: "#374151" }}>Top issues: </span>
+                        {p.topIssues.slice(0, 3).join(" · ")}
+                      </div>
+                    )}
+                    {p.recentSites?.length > 0 && (
+                      <div style={{ fontSize: "0.7rem", color: "#9ca3af", marginTop: 4 }}>
+                        Recent: {p.recentSites.slice(0, 3).join(", ")}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })()}
+
+        {/* ── SUPERVISORS TAB ─────────────────────────────── */}
+        {activeTab === "supervisors" && (() => {
+          const profiles = patterns?.supervisorProfiles || [];
+          if (!profiles.length) return <EmptyState icon="🏢" msg="Supervisor profiles will appear after saving inspections with supervisor names." />;
+          return (
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <div style={{ fontSize: "0.74rem", color: "#6b7280", marginBottom: 4 }}>
+                Ranked by total inspections. Recurring issues = same issue found at the same site on multiple visits.
+              </div>
+              {profiles.map((p, i) => (
+                <div key={p.name} style={{
+                  background: "#fff", border: p.hasRecurringIssues ? "1.5px solid #fecaca" : "1px solid #e5e7eb",
+                  borderRadius: 10, padding: "12px 14px",
+                }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                    <span style={{ fontWeight: 700, fontSize: "0.82rem", color: "#1e293b", flex: 1 }}>
+                      #{i + 1} {p.name}
+                    </span>
+                    {p.hasRecurringIssues && (
+                      <span style={{ background: "#fef2f2", color: "#991b1b", border: "1px solid #fecaca", borderRadius: 99, fontSize: "0.65rem", fontWeight: 700, padding: "2px 7px" }}>
+                        ⚠ Recurring issues
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
+                    {[
+                      { label: "Inspections", val: p.total },
+                      { label: "Pass rate", val: `${p.passRate}%`, color: passColor(p.passRate) },
+                      { label: "Sites", val: p.siteCount },
+                    ].map(s => (
+                      <div key={s.label} style={{ background: "#f8faff", border: "1px solid #e0e7ff", borderRadius: 7, padding: "5px 10px", textAlign: "center" }}>
+                        <div style={{ fontWeight: 700, fontSize: "0.95rem", color: s.color || "#2563EB" }}>{s.val}</div>
+                        <div style={{ fontSize: "0.65rem", color: "#6b7280" }}>{s.label}</div>
+                      </div>
+                    ))}
+                  </div>
+                  {p.problemSites?.length > 0 && (
+                    <div style={{ marginTop: 6 }}>
+                      <div style={{ fontSize: "0.72rem", fontWeight: 600, color: "#374151", marginBottom: 4 }}>Problem sites:</div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                        {p.problemSites.slice(0, 3).map(s => (
+                          <div key={s.site} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                            <div style={{ fontSize: "0.72rem", color: "#374151", flex: 1 }}>{s.site}</div>
+                            <MiniBar pct={100 - (s.total > 0 ? Math.round((s.fails / s.total) * 100) : 0)} color="#dc2626" />
+                            <div style={{ fontSize: "0.68rem", color: "#dc2626", minWidth: 42, textAlign: "right" }}>
+                              {s.fails}/{s.total} fail
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {p.topIssues?.length > 0 && (
+                    <div style={{ fontSize: "0.72rem", color: "#6b7280", marginTop: 6 }}>
+                      <span style={{ fontWeight: 600, color: "#374151" }}>Top issues: </span>
+                      {p.topIssues.slice(0, 3).join(" · ")}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          );
+        })()}
+
+        {/* ── LOCATIONS TAB ───────────────────────────────── */}
+        {activeTab === "locations" && (
+          <LocationsPanel loc={patterns?.locationProfile} passColor={passColor} trendArrow={trendArrow} MiniBar={MiniBar} EmptyState={EmptyState} />
+        )}
+
+        {/* ── BEHAVIOR TAB ────────────────────────────────── */}
+        {activeTab === "behavior" && (() => {
+          const b = patterns?.behavior;
+          if (!b) return <EmptyState icon="📋" msg="Behavior analytics will appear after saving inspections." />;
+
+          const dayNames  = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+          const hourBuckets = b.hourBuckets || new Array(24).fill(0);
+          const dayBuckets  = b.dayBuckets  || new Array(7).fill(0);
+          const maxH = Math.max(...hourBuckets, 1);
+          const maxD = Math.max(...dayBuckets, 1);
+
+          const completeness = b.completeness || {};
+          const compFields = [
+            { key: "inspectorName", label: "Inspector name" },
+            { key: "supervisorName", label: "Supervisor name" },
+            { key: "temps", label: "Temperatures" },
+            { key: "floor", label: "Floor / area" },
+          ];
+
+          return (
+            <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+
+              {/* Hour-of-day heatmap */}
+              <div>
+                <div style={{ fontWeight: 600, fontSize: "0.8rem", color: "#374151", marginBottom: 8 }}>
+                  Inspections by Hour of Day
+                  {b.peakHourLabel && <span style={{ fontWeight: 400, color: "#6b7280", marginLeft: 6 }}>Peak: {b.peakHourLabel}</span>}
+                </div>
+                <div style={{ display: "flex", gap: 2, alignItems: "flex-end", height: 50 }}>
+                  {hourBuckets.map((count, h) => {
+                    const hgt = Math.max(3, Math.round((count / maxH) * 44));
+                    const isActive = count > 0;
+                    return (
+                      <div key={h} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center" }} title={`${h}:00 — ${count} inspection${count !== 1 ? "s" : ""}`}>
+                        <div style={{
+                          width: "100%", height: hgt, borderRadius: "2px 2px 0 0",
+                          background: isActive ? (h === b.peakHour ? "#2563EB" : "rgba(37,99,235,.4)") : "#e5e7eb",
+                        }} />
+                        {(h % 6 === 0) && <div style={{ fontSize: "0.55rem", color: "#9ca3af", marginTop: 2 }}>{h}h</div>}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Day-of-week bars */}
+              <div>
+                <div style={{ fontWeight: 600, fontSize: "0.8rem", color: "#374151", marginBottom: 8 }}>
+                  Inspections by Day of Week
+                  {b.peakDayLabel && <span style={{ fontWeight: 400, color: "#6b7280", marginLeft: 6 }}>Busiest: {b.peakDayLabel}</span>}
+                </div>
+                <div style={{ display: "flex", gap: 6, alignItems: "flex-end", height: 60 }}>
+                  {dayBuckets.map((count, d) => {
+                    const hgt = Math.max(4, Math.round((count / maxD) * 52));
+                    return (
+                      <div key={d} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
+                        <div title={`${dayNames[d]}: ${count}`} style={{
+                          width: "100%", height: hgt, borderRadius: "3px 3px 0 0",
+                          background: d === b.peakDay ? "#2563EB" : "rgba(37,99,235,.35)",
+                        }} />
+                        <div style={{ fontSize: "0.65rem", color: "#9ca3af" }}>{dayNames[d]}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Inspection type frequency */}
+              {b.topTypes?.length > 0 && (
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: "0.8rem", color: "#374151", marginBottom: 8 }}>Top Inspection Types</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                    {b.topTypes.slice(0, 5).map(t => (
+                      <div key={t.type} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <div style={{ fontSize: "0.78rem", color: "#374151", minWidth: 130, flexShrink: 0 }}>{t.type}</div>
+                        <MiniBar pct={Math.round((t.count / b.topTypes[0].count) * 100)} />
+                        <div style={{ fontSize: "0.72rem", color: "#6b7280", minWidth: 28, textAlign: "right" }}>{t.count}×</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Data completeness */}
+              <div>
+                <div style={{ fontWeight: 600, fontSize: "0.8rem", color: "#374151", marginBottom: 8 }}>Form Field Completeness</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+                  {compFields.map(f => {
+                    const pct = completeness[f.key] ?? 0;
+                    const color = pct >= 90 ? "#15803D" : pct >= 60 ? "#b45309" : "#dc2626";
+                    return (
+                      <div key={f.key} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <div style={{ fontSize: "0.78rem", color: "#374151", minWidth: 128, flexShrink: 0 }}>{f.label}</div>
+                        <MiniBar pct={pct} color={color} />
+                        <div style={{ fontSize: "0.72rem", color, fontWeight: 700, minWidth: 36, textAlign: "right" }}>{pct}%</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Quick stats */}
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                {[
+                  { label: "Total records", val: b.total || 0 },
+                  { label: "Avg issues", val: b.avgIssues ?? 0 },
+                  { label: "Zero-issue passes", val: b.zeroIssuePasses || 0 },
+                  { label: "High-issue records", val: b.highIssueRecords || 0 },
+                ].map(s => (
+                  <div key={s.label} style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 8, padding: "8px 12px", textAlign: "center", flex: "1 1 90px" }}>
+                    <div style={{ fontWeight: 700, fontSize: "1rem", color: "#2563EB" }}>{s.val}</div>
+                    <div style={{ fontSize: "0.68rem", color: "#6b7280" }}>{s.label}</div>
+                  </div>
+                ))}
+              </div>
+
+            </div>
+          );
+        })()}
+
+        {/* ── CALIBRATION TAB (Cross-Inspector) ─────────── */}
+        {activeTab === "crossInsp" && (() => {
+          const ci = patterns?.crossInspector;
+          if (!ci) return <EmptyState icon="⚖️" msg="Inspector calibration analysis requires at least 4 inspections with inspector names filled in." />;
+          const { profiles = [], siteCorrelations = [], rubberStampers = [], thorough = [], globalAvgIssues = 0 } = ci;
+          if (profiles.length < 2) return <EmptyState icon="⚖️" msg="Calibration analysis requires at least 2 inspectors with 2+ inspections each." />;
+          return (
+            <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+
+              {/* Inspector comparison table */}
+              <div>
+                <div style={{ fontWeight: 600, fontSize: "0.8rem", color: "#374151", marginBottom: 8 }}>Inspector Comparison</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {profiles.map(p => {
+                    const isRubber = rubberStampers.some(r => r.name === p.name);
+                    const isThorough = thorough.some(t => t.name === p.name);
+                    return (
+                      <div key={p.name} style={{ background: "#fff", border: `1.5px solid ${isRubber ? "#f59e0b" : isThorough ? "#2563EB" : "#e5e7eb"}`, borderRadius: 8, padding: "8px 12px" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                          <span style={{ fontWeight: 600, fontSize: "0.82rem", color: "#111827" }}>{p.name}</span>
+                          <span style={{ display: "flex", gap: 6 }}>
+                            {isRubber && <span style={{ background: "#fef3c7", color: "#92400e", borderRadius: 99, fontSize: "0.65rem", fontWeight: 700, padding: "2px 7px" }}>Under-reporting?</span>}
+                            {isThorough && <span style={{ background: "#dbeafe", color: "#1e40af", borderRadius: 99, fontSize: "0.65rem", fontWeight: 700, padding: "2px 7px" }}>Most Thorough</span>}
+                          </span>
+                        </div>
+                        <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                          <span style={{ fontSize: "0.73rem", color: "#6b7280" }}>{p.total} visits</span>
+                          <span style={{ fontSize: "0.73rem", color: passColor(p.passRate), fontWeight: 600 }}>{p.passRate}% pass</span>
+                          <span style={{ fontSize: "0.73rem", color: "#374151" }}>Avg {p.avgIssues} issues/visit</span>
+                          <span style={{ fontSize: "0.73rem", color: "#6b7280" }}>{p.zeroIssuePct}% zero-issue</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div style={{ fontSize: "0.7rem", color: "#9ca3af", marginTop: 6 }}>Team avg: {globalAvgIssues} issues/visit</div>
+              </div>
+
+              {/* Site/Inspector discrepancies */}
+              {siteCorrelations.length > 0 && (
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: "0.8rem", color: "#374151", marginBottom: 8 }}>
+                    Sites with Inspector Pass-Rate Gaps
+                    <span style={{ fontWeight: 400, color: "#6b7280", marginLeft: 6, fontSize: "0.71rem" }}>same site, different results</span>
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    {siteCorrelations.map(sc => (
+                      <div key={sc.site} style={{ background: "#fff", border: "1.5px solid #fca5a5", borderRadius: 8, padding: "8px 12px" }}>
+                        <div style={{ fontWeight: 600, fontSize: "0.82rem", color: "#111827", marginBottom: 4 }}>{sc.site}</div>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                          {sc.all.map(a => (
+                            <div key={a.insp} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                              <div style={{ fontSize: "0.75rem", color: "#374151", minWidth: 110, flexShrink: 0 }}>{a.insp}</div>
+                              <MiniBar pct={a.passRate} color={passColor(a.passRate)} />
+                              <div style={{ fontSize: "0.72rem", color: passColor(a.passRate), fontWeight: 700, minWidth: 38, textAlign: "right" }}>{a.passRate}%</div>
+                            </div>
+                          ))}
+                        </div>
+                        <div style={{ fontSize: "0.68rem", color: "#dc2626", marginTop: 4 }}>⚠ {sc.spread}-point gap — calibration recommended</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+            </div>
+          );
+        })()}
+
+        {/* ── RESOLUTION TAB ──────────────────────────────── */}
+        {activeTab === "resolution" && (() => {
+          const res = patterns?.issueResolution;
+          if (!res) return <EmptyState icon="🔓" msg="Issue resolution tracking requires at least 4 inspections with action items filled in." />;
+          const { siteResults = [], globalRecurrenceRate = 0, totalFollowUps = 0 } = res;
+          if (totalFollowUps === 0) return <EmptyState icon="🔓" msg="No follow-up visits found yet. Resolution tracking activates once the same site has been inspected more than once." />;
+          return (
+            <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+
+              {/* Global rate */}
+              <div style={{ background: globalRecurrenceRate >= 50 ? "#fef2f2" : globalRecurrenceRate >= 30 ? "#fffbeb" : "#f0fdf4", border: `1.5px solid ${globalRecurrenceRate >= 50 ? "#fca5a5" : globalRecurrenceRate >= 30 ? "#fcd34d" : "#86efac"}`, borderRadius: 10, padding: "10px 14px" }}>
+                <div style={{ fontWeight: 700, fontSize: "1.05rem", color: globalRecurrenceRate >= 50 ? "#dc2626" : globalRecurrenceRate >= 30 ? "#92400e" : "#15803D" }}>
+                  {globalRecurrenceRate}% issue recurrence rate
+                </div>
+                <div style={{ fontSize: "0.75rem", color: "#6b7280", marginTop: 2 }}>
+                  Across {totalFollowUps} follow-up visit{totalFollowUps !== 1 ? "s" : ""}, issues reappeared {globalRecurrenceRate}% of the time. {globalRecurrenceRate >= 50 ? "Corrective actions are not being completed." : globalRecurrenceRate >= 30 ? "Some issues are not being resolved between visits." : "Most issues are being resolved. Good work."}
+                </div>
+              </div>
+
+              {/* Per-site resolution rates */}
+              <div>
+                <div style={{ fontWeight: 600, fontSize: "0.8rem", color: "#374151", marginBottom: 8 }}>Resolution Rate by Site</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {siteResults.map(s => {
+                    const resolvedPct = 100 - s.recurrenceRate;
+                    return (
+                      <div key={s.site} style={{ background: "#fff", border: `1.5px solid ${s.recurrenceRate >= 50 ? "#fca5a5" : "#e5e7eb"}`, borderRadius: 8, padding: "8px 12px" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                          <span style={{ fontWeight: 600, fontSize: "0.82rem", color: "#111827" }}>{s.site}</span>
+                          <span style={{ fontSize: "0.72rem", color: "#6b7280" }}>{s.followUps} follow-up{s.followUps !== 1 ? "s" : ""}</span>
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                          <div style={{ fontSize: "0.73rem", color: "#374151", minWidth: 90, flexShrink: 0 }}>Resolved</div>
+                          <MiniBar pct={resolvedPct} color={resolvedPct >= 70 ? "#15803D" : resolvedPct >= 50 ? "#b45309" : "#dc2626"} />
+                          <div style={{ fontSize: "0.72rem", fontWeight: 700, color: resolvedPct >= 70 ? "#15803D" : resolvedPct >= 50 ? "#b45309" : "#dc2626", minWidth: 36, textAlign: "right" }}>{resolvedPct}%</div>
+                        </div>
+                        {s.topPersistent.length > 0 && (
+                          <div style={{ fontSize: "0.68rem", color: "#6b7280" }}>
+                            Persistent: {s.topPersistent.map(p => `"${p.issue}" (${p.times}×)`).join(", ")}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+            </div>
+          );
+        })()}
+
+        {/* ── INVENTORY TAB ───────────────────────────────── */}
+        {activeTab === "inventory" && (() => {
+          const inv = patterns?.equipmentInventory;
+          if (!inv || inv.length === 0) return (
+            <EmptyState icon="🔧" msg="No equipment counts recorded yet. Open an inspection, expand the Equipment section, and fill in the '# Units at this location' field for each piece of equipment." />
+          );
+          const fleetMax = Math.max(...inv.map(e => e.fleetTotal), 1);
+          const today = new Date();
+          const daysSince = (dateStr) => {
+            if (!dateStr) return null;
+            const d = new Date(dateStr);
+            if (isNaN(d)) return null;
+            return Math.floor((today - d) / 86400000);
+          };
+          const sourceIcon = { Facility: "🏢", Subcontractor: "🤝", Stadium: "🏟️", Event: "🎪" };
+          const sourceBg   = { Facility: "#f0fdf4", Subcontractor: "#fef3c7", Stadium: "#eff6ff", Event: "#fdf4ff" };
+          const sourceClr  = { Facility: "#166534", Subcontractor: "#92400e", Stadium: "#1d4ed8", Event: "#7c3aed" };
+          return (
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <div style={{ fontWeight: 600, fontSize: "0.85rem", color: "#374151", marginBottom: 4 }}>Fleet Equipment Inventory</div>
+              <div style={{ fontSize: "0.75rem", color: "#6b7280", marginBottom: 8 }}>
+                Based on the <strong>latest inspection per site</strong>. Equipment removed since the last visit is automatically dropped. Use "Equipment owned by" to flag subcontractor or event-temporary units.
+              </div>
+              {inv.map(eq => {
+                const hasTmp = eq.temporaryUnits > 0;
+                return (
+                  <div key={eq.key} style={{ background: "#fff", border: `1.5px solid ${hasTmp ? "#fde68a" : "#e5e7eb"}`, borderRadius: 10, padding: "10px 14px" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                      <span style={{ fontWeight: 700, fontSize: "0.85rem", color: "#111827" }}>{eq.label}</span>
+                      <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                        {hasTmp && (
+                          <span title={`${eq.temporaryUnits} temporary unit${eq.temporaryUnits !== 1 ? "s" : ""} (Subcontractor / Stadium / Event)`}
+                            style={{ fontSize: "0.68rem", background: "#fef3c7", color: "#92400e", border: "1px solid #fde68a", borderRadius: 6, padding: "1px 6px" }}>
+                            ⚠️ {eq.temporaryUnits} temp
+                          </span>
+                        )}
+                        <span style={{ fontWeight: 800, fontSize: "1rem", color: "#2563EB" }}>{eq.fleetTotal} total</span>
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                      <MiniBar pct={Math.round((eq.fleetTotal / fleetMax) * 100)} color="#2563EB" />
+                      <span style={{ fontSize: "0.7rem", color: "#6b7280", whiteSpace: "nowrap" }}>
+                        {eq.siteCount} site{eq.siteCount !== 1 ? "s" : ""} · avg {eq.avgPerSite} per site
+                      </span>
+                    </div>
+                    {/* Source breakdown row */}
+                    {(eq.sources?.Subcontractor > 0 || eq.sources?.Stadium > 0 || eq.sources?.Event > 0) && (
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 6 }}>
+                        {["Facility","Subcontractor","Stadium","Event"].filter(s => eq.sources?.[s] > 0).map(s => (
+                          <span key={s} style={{ fontSize: "0.67rem", background: sourceBg[s], color: sourceClr[s], border: `1px solid ${sourceClr[s]}33`, borderRadius: 6, padding: "2px 7px" }}>
+                            {sourceIcon[s]} {s}: {eq.sources[s]}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    {/* Per-site breakdown with source badge + last-seen */}
+                    {eq.siteBreakdown.length > 0 && (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 3, marginTop: 4 }}>
+                        {eq.siteBreakdown.slice(0, 6).map(s => {
+                          const days = daysSince(s.lastSeen);
+                          const isTmp = s.source && s.source !== "Facility";
+                          return (
+                            <div key={s.site} style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                              <span style={{ fontSize: "0.67rem", background: isTmp ? "#fef9c3" : "#eff6ff", color: isTmp ? "#78350f" : "#1d4ed8", border: `1px solid ${isTmp ? "#fde68a" : "#bfdbfe"}`, borderRadius: 6, padding: "2px 7px" }}>
+                                {s.site}: {s.count}
+                              </span>
+                              {isTmp && (
+                                <span style={{ fontSize: "0.63rem", color: "#92400e" }}>{sourceIcon[s.source]} {s.source}</span>
+                              )}
+                              {days !== null && (
+                                <span style={{ fontSize: "0.63rem", color: days > 60 ? "#dc2626" : days > 30 ? "#d97706" : "#6b7280" }}
+                                  title={`Last inspected: ${s.lastSeen}`}>
+                                  {days === 0 ? "today" : `${days}d ago`}{days > 60 ? " ⚠️" : ""}
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })()}
+
+        {/* ── USAGE TAB ───────────────────────────────────── */}
+        {activeTab === "usage" && usageReport && (
+          <div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
+              {[
+                { label: "Total sessions", val: usageReport.sessions },
+                { label: "Total interactions", val: usageReport.totalInteractions },
+                { label: "Avg per day", val: usageReport.avgDailyInteractions },
+                { label: "Active days", val: usageReport.activeDays },
+              ].map(stat => (
+                <div key={stat.label} style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 8, padding: "10px 16px", textAlign: "center", flex: "1 1 100px" }}>
+                  <div style={{ fontWeight: 700, fontSize: "1.2rem", color: "#2563EB" }}>{stat.val}</div>
+                  <div style={{ fontSize: "0.7rem", color: "#6b7280" }}>{stat.label}</div>
+                </div>
+              ))}
+            </div>
+
+            {usageReport.recentDays.length > 0 && (
+              <>
+                <div style={{ fontWeight: 600, fontSize: "0.8rem", color: "#374151", marginBottom: 8 }}>Activity — Last 7 days</div>
+                <div style={{ display: "flex", gap: 4, alignItems: "flex-end", height: 60, marginBottom: 14 }}>
+                  {usageReport.recentDays.map(d => {
+                    const max = Math.max(...usageReport.recentDays.map(x => x.interactions), 1);
+                    const h = Math.max(4, Math.round((d.interactions / max) * 52));
+                    return (
+                      <div key={d.date} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
+                        <div title={`${d.interactions} interactions`} style={{ width: "100%", height: h, background: "#2563EB", borderRadius: "3px 3px 0 0", opacity: 0.8 }} />
+                        <div style={{ fontSize: "0.6rem", color: "#9ca3af" }}>{d.date.slice(5)}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+
+            {usageReport.topActions.length > 0 && (
+              <>
+                <div style={{ fontWeight: 600, fontSize: "0.8rem", color: "#374151", marginBottom: 6 }}>Top actions</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                  {usageReport.topActions.slice(0, 6).map(a => (
+                    <div key={a.name} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <div style={{ fontSize: "0.78rem", color: "#374151", minWidth: 140, flexShrink: 0 }}>{a.name}</div>
+                      <div style={{ flex: 1, background: "#e5e7eb", borderRadius: 99, overflow: "hidden", height: 8 }}>
+                        <div style={{ height: "100%", background: "#2563EB", borderRadius: 99, width: `${Math.round((a.count / usageReport.topActions[0].count) * 100)}%` }} />
+                      </div>
+                      <div style={{ fontSize: "0.72rem", color: "#6b7280", minWidth: 28, textAlign: "right" }}>{a.count}×</div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {usageReport.firstSeen && (
+              <div style={{ fontSize: "0.72rem", color: "#9ca3af", marginTop: 14 }}>
+                First seen: {new Date(usageReport.firstSeen).toLocaleDateString()} · Last seen: {new Date(usageReport.lastSeen).toLocaleDateString()}
+              </div>
+            )}
+          </div>
+        )}
+        {activeTab === "usage" && !usageReport && (
+          <EmptyState icon="📊" msg="Usage data will appear after interacting with the app for a session." />
+        )}
+
+        {/* ── PERFORMANCE TAB ─────────────────────────────── */}
+        {activeTab === "perf" && (
+          <div>
+            {perfReport.length === 0 ? (
+              <div style={{ textAlign: "center", padding: "20px 0", color: "#9ca3af", fontSize: "0.85rem" }}>
+                Performance metrics will appear after using the app for a moment.
+              </div>
+            ) : (
+              <>
+                <div style={{ fontSize: "0.75rem", color: "#6b7280", marginBottom: 12 }}>
+                  Real browser vitals measured during this session. Green = good, yellow = needs improvement, red = poor.
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {perfReport.map(m => (
+                    <div key={m.key} style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 10, padding: "10px 14px" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <div>
+                          <div style={{ fontWeight: 600, fontSize: "0.83rem", color: "#1e293b" }}>{m.label}</div>
+                          {m.baseline && m.regression && (
+                            <div style={{ fontSize: "0.72rem", color: "#dc2626" }}>⚠ {m.regression}% slower than baseline ({m.baseline}{m.unit})</div>
+                          )}
+                          {m.baseline && !m.regression && (
+                            <div style={{ fontSize: "0.72rem", color: "#15803D" }}>✓ Within baseline ({m.baseline}{m.unit})</div>
+                          )}
+                        </div>
+                        <div style={{ textAlign: "right" }}>
+                          <div style={{ fontWeight: 700, fontSize: "1.1rem", color: perfStatusColor[m.status] || "#374151" }}>{m.value}{m.unit}</div>
+                          <div style={{ fontSize: "0.68rem", color: perfStatusColor[m.status] || "#6b7280", textTransform: "capitalize" }}>{m.status}</div>
+                        </div>
+                      </div>
+                      {m.thresholds && (
+                        <div style={{ marginTop: 6, background: "#f3f4f6", borderRadius: 99, height: 5, overflow: "hidden" }}>
+                          <div style={{
+                            height: "100%", borderRadius: 99,
+                            background: perfStatusColor[m.status] || "#374151",
+                            width: `${Math.min(100, Math.round((m.value / m.thresholds.poor) * 100))}%`,
+                          }} />
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <div style={{ fontSize: "0.7rem", color: "#9ca3af", marginTop: 12 }}>
+                  Baselines are computed from the first 3 sessions. Regressions ≥30% are flagged automatically.
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+      </div>
+    </div>
+  );
+}
+
+/* ── Predictive Insights Panel ───────────────────────────── */
+function PredictiveInsightsPanel({ history }) {
+  const [expanded, setExpanded] = React.useState({});
+  const predictions = useMemo(() => buildPredictions(history), [history]);
+
+  if (!predictions || predictions.length === 0) return null;
+
+  const high   = predictions.filter(p => p.risk === "high");
+  const medium = predictions.filter(p => p.risk === "medium");
+
+  const riskIcon  = { high: "🔴", medium: "🟡", watch: "🔵" };
+  const riskLabel = { high: "High Risk", medium: "Medium Risk", watch: "Watch" };
+  const riskColor = { high: "#EE0000", medium: "#b45309", watch: "#1d4ed8" };
+  const typeBadge = {
+    recurrence: { label: "Recurrence", bg: "#fef2f2", color: "#991b1b", border: "#fecaca" },
+    tempDrift:  { label: "Temp Trend",  bg: "#fff7ed", color: "#9a3412", border: "#fed7aa" },
+    escalation: { label: "Escalation", bg: "#fdf4ff", color: "#7e22ce", border: "#e9d5ff" },
+    overdue:    { label: "Overdue",     bg: "#f0f9ff", color: "#0c4a6e", border: "#bae6fd" },
+  };
+
+  const toggle = (i) => setExpanded(prev => ({ ...prev, [i]: !prev[i] }));
+
+  return (
+    <div className="card" style={{ marginBottom: 24 }}>
+      <div className="cardHeader">
+        <div className="cardTitle">🤖 Predictive Insights</div>
+      </div>
+      <div className="cardBody">
+        <div className="predictiveIntro">
+          AI analysis of {history.length} inspection records — identifying patterns and forecasting future risk.
+        </div>
+
+        {/* Risk summary bar */}
+        <div className="analysisStatsRow" style={{ marginTop: 12 }}>
+          <div className="analysisStat">
+            <div className="analysisStatNum">{predictions.length}</div>
+            <div className="analysisStatLabel">Predictions</div>
+          </div>
+          <div className="analysisStat">
+            <div className="analysisStatNum" style={{ color: high.length > 0 ? "#EE0000" : "#15803D" }}>{high.length}</div>
+            <div className="analysisStatLabel">High Risk</div>
+          </div>
+          <div className="analysisStat">
+            <div className="analysisStatNum" style={{ color: medium.length > 0 ? "#b45309" : "#15803D" }}>{medium.length}</div>
+            <div className="analysisStatLabel">Medium Risk</div>
+          </div>
+        </div>
+
+        {/* Prediction cards */}
+        <div className="predictiveList">
+          {predictions.map((p, i) => {
+            const bt = typeBadge[p.type] || { label: p.type, bg: "#f9fafb", color: "#374151", border: "#e5e7eb" };
+            const isOpen = !!expanded[i];
+            return (
+              <div
+                key={i}
+                className="predictiveItem"
+                style={{ borderColor: riskColor[p.risk] + "55" }}
+                onClick={() => toggle(i)}
+              >
+                <div className="predictiveItemTop">
+                  <span className="predictiveRiskIcon">{riskIcon[p.risk]}</span>
+                  <div className="predictiveItemMain">
+                    <div className="predictiveItemMsg">{p.message}</div>
+                    <div className="predictiveItemMeta">
+                      <span className="predictiveTypeBadge" style={{ background: bt.bg, color: bt.color, border: `1px solid ${bt.border}` }}>
+                        {bt.label}
+                      </span>
+                      <span className="predictiveRiskLabel" style={{ color: riskColor[p.risk] }}>
+                        {riskLabel[p.risk]}
+                      </span>
+                    </div>
+                  </div>
+                  <span className="predictiveChevron">{isOpen ? "▲" : "▼"}</span>
+                </div>
+                {isOpen && (
+                  <div className="predictiveDetail">
+                    <span className="predictiveDetailIcon">💡</span>
+                    {p.detail}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="predictiveFooter">
+          Predictions are based on historical patterns in your inspection data. Always verify findings on-site.
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ── Recurring Issues Analysis ──────────────────────────── */
 function RecurringIssuesPanel({ history, onLocationClick }) {
   const analysis = useMemo(() => {
@@ -2214,8 +3771,26 @@ function RecurringIssuesPanel({ history, onLocationClick }) {
   );
 }
 
+/* ── HACCP temp items + pass/fail helper (used by HaccpPortal AND HistoryPage) ── */
+const HACCP_TEMP_ITEMS = [
+  { key: "hotHolding",     label: "Hot Holding",        unit: "°F", min: 135, type: "hot" },
+  { key: "coldHolding",    label: "Cold Holding",        unit: "°F", max: 41,  type: "cold" },
+  { key: "cookingTemp",    label: "Cooking Temp",        unit: "°F", min: 165, type: "hot" },
+  { key: "reheating",      label: "Reheating Temp",      unit: "°F", min: 165, type: "hot" },
+  { key: "walkInCooler",   label: "Walk-in Cooler",      unit: "°F", max: 41,  type: "cold" },
+  { key: "walkInFreezer",  label: "Walk-in Freezer",     unit: "°F", max: 10,  type: "cold" },
+];
+
+function tempPass(item, val) {
+  const n = Number(val);
+  if (!val || isNaN(n)) return null;
+  if (item.type === "hot")  return n >= item.min;
+  if (item.type === "cold") return n <= item.max;
+  return null;
+}
+
 /* ── History Page Component ──────────────────────────────── */
-function HistoryPage({ onBack }) {
+function HistoryPage({ onBack, onEdit }) {
   const [history, setHistory] = useState([]);
   const [filterDate, setFilterDate] = useState("");
   const [filterType, setFilterType] = useState("");
@@ -2226,10 +3801,39 @@ function HistoryPage({ onBack }) {
   const [expandedId, setExpandedId] = useState(null);
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const [historyTab, setHistoryTab] = useState("reports"); // "reports" | "analytics"
+  const [haccpByReport, setHaccpByReport] = useState({}); // { [reportId]: [...submissions] }
+  const [chatByReport, setChatByReport] = useState({});  // { [reportId]: [...messages] }
 
   useEffect(() => {
-    loadHistory().then(h => { setHistory(h); setHistoryLoaded(true); });
+    loadHistory().then(h => {
+      setHistory(h);
+      setHistoryLoaded(true);
+      // Feed history into AI engine on first load
+      if (h.length > 0) AIEngine.learnFromHistory(h);
+    });
   }, []);
+
+  // When a card is expanded, load + auto-refresh HACCP submissions and chat every 8s
+  useEffect(() => {
+    if (!expandedId) return;
+    // Initial load
+    loadHaccpForReport(expandedId).then(subs => {
+      setHaccpByReport(prev => ({ ...prev, [expandedId]: subs }));
+    });
+    loadChatMessages(expandedId).then(msgs => {
+      setChatByReport(prev => ({ ...prev, [expandedId]: msgs }));
+    });
+    // Live refresh while card is open
+    const iv = setInterval(() => {
+      loadHaccpForReport(expandedId).then(subs => {
+        setHaccpByReport(prev => ({ ...prev, [expandedId]: subs }));
+      });
+      loadChatMessages(expandedId).then(msgs => {
+        setChatByReport(prev => ({ ...prev, [expandedId]: msgs }));
+      });
+    }, 8000);
+    return () => clearInterval(iv);
+  }, [expandedId]);
 
   const issueTypes = useMemo(() => {
     const set = new Set();
@@ -2259,7 +3863,7 @@ function HistoryPage({ onBack }) {
       }
       return true;
     });
-  }, [history, filterDate, filterType, filterFloor, filterSite, filterIssue]);
+  }, [history, filterDate, filterType, filterFloor, filterLocType, filterSite, filterIssue]);
 
   // Function to jump to a specific location's reports
   function filterByLocation(locLabel) {
@@ -2355,8 +3959,8 @@ function HistoryPage({ onBack }) {
         <div className="card" style={{ marginBottom: 24 }}>
           <div className="cardHeader">
             <div className="cardTitle">Filters</div>
-            {(filterDate || filterType || filterFloor || filterSite || filterIssue) && (
-              <button className="btn btnGhost btnSmall" type="button" onClick={() => { setFilterDate(""); setFilterType(""); setFilterFloor(""); setFilterSite(""); setFilterIssue(""); }}>
+            {(filterDate || filterType || filterFloor || filterLocType || filterSite || filterIssue) && (
+              <button className="btn btnGhost btnSmall" type="button" onClick={() => { setFilterDate(""); setFilterType(""); setFilterFloor(""); setFilterLocType(""); setFilterSite(""); setFilterIssue(""); }}>
                 Clear filters
               </button>
             )}
@@ -2409,7 +4013,7 @@ function HistoryPage({ onBack }) {
             <button className={cx("historyTab", historyTab === "reports" && "historyTabActive")} onClick={() => setHistoryTab("reports")} type="button">
               Reports ({filtered.length})
             </button>
-            <button className={cx("historyTab", historyTab === "analytics" && "historyTabActive")} onClick={() => setHistoryTab("analytics")} type="button">
+            <button className={cx("historyTab", historyTab === "analytics" && "historyTabActive")} onClick={() => { setHistoryTab("analytics"); AIEngine.trackPage("analytics"); AIEngine.trackAction("openAnalyticsTab"); }} type="button">
               Analytics
             </button>
           </div>
@@ -2418,6 +4022,8 @@ function HistoryPage({ onBack }) {
         {/* Analytics Tab */}
         {historyTab === "analytics" && history.length >= 2 && (
           <>
+            <AIHealthMonitor history={filtered.length > 0 ? filtered : history} />
+            <PredictiveInsightsPanel history={filtered.length > 0 ? filtered : history} />
             <TempTrendChart history={filtered.length > 0 ? filtered : history} />
             <RecurringIssuesPanel history={filtered.length > 0 ? filtered : history} onLocationClick={filterByLocation} />
           </>
@@ -2461,6 +4067,15 @@ function HistoryPage({ onBack }) {
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                       {issues.length > 0 && <span className="pill">{issues.length} issue{issues.length !== 1 ? "s" : ""}</span>}
+                      {onEdit && (
+                        <button
+                          className="btn btnGhost btnSmall"
+                          type="button"
+                          title="Edit this report"
+                          style={{ color: "#2563EB", borderColor: "rgba(37,99,235,.3)", fontWeight: 600 }}
+                          onClick={e => { e.stopPropagation(); onEdit(rec); }}
+                        >✏️ Edit</button>
+                      )}
                       <span style={{ fontSize: "1.2rem", color: "var(--sdx-gray-400)" }}>{isExpanded ? "\u25B2" : "\u25BC"}</span>
                     </div>
                   </div>
@@ -2515,13 +4130,107 @@ function HistoryPage({ onBack }) {
                         </div>
                       )}
 
-                      <div style={{ marginTop: 16, display: "flex", gap: 8 }}>
+                      {/* HACCP Temperature Logs linked to this report */}
+                      {(() => {
+                        const haccpSubs = haccpByReport[rec.id];
+                        if (haccpSubs === undefined) return (
+                          <div style={{ marginTop: 16, fontSize: "0.8rem", color: "#6b7280" }}>Loading HACCP logs…</div>
+                        );
+                        if (haccpSubs.length === 0) return (
+                          <div className="haccpReportSection haccpReportEmpty">
+                            <span>🌡️ No HACCP temperature logs submitted for this report yet.</span>
+                          </div>
+                        );
+                        return (
+                          <div className="haccpReportSection" style={{ marginTop: 16 }}>
+                            <div className="guideSectionTitle">🌡️ HACCP Temperature Logs ({haccpSubs.length})</div>
+                            {haccpSubs.map((sub, si) => {
+                              const flagged = Object.entries(sub.temps || {}).filter(([k, vals]) => {
+                                const item = HACCP_TEMP_ITEMS.find(i => i.key === k);
+                                if (!item) return false;
+                                return (vals || []).some(v => v !== "" && !tempPass(item, v));
+                              });
+                              return (
+                                <div className="haccpReportCard" key={sub.id || si}>
+                                  <div className="haccpReportCardTop">
+                                    <span className="haccpReportCardName">👤 {sub.supervisorName}</span>
+                                    <span className="haccpReportCardTime">{sub.submittedAt ? new Date(sub.submittedAt).toLocaleString() : "—"}</span>
+                                    {flagged.length > 0
+                                      ? <span className="haccpReportBadge haccpReportBadgeFail">⚠️ {flagged.length} flag{flagged.length !== 1 ? "s" : ""}</span>
+                                      : <span className="haccpReportBadge haccpReportBadgePass">✓ All OK</span>
+                                    }
+                                  </div>
+                                  <div className="haccpReportTemps">
+                                    {HACCP_TEMP_ITEMS.map(item => {
+                                      const vals = (sub.temps || {})[item.key] || [];
+                                      if (vals.length === 0 || vals.every(v => v === "")) return null;
+                                      return (
+                                        <div className="haccpReportTempRow" key={item.key}>
+                                          <span className="haccpReportTempLabel">{item.label}</span>
+                                          <span className="haccpReportTempVals">
+                                            {vals.filter(v => v !== "").map((v, vi) => {
+                                              const ok = tempPass(item, v);
+                                              const foodName = ((sub.foodNames || {})[item.key] || [])[vi] || "";
+                                              return (
+                                                <span key={vi} className={`haccpReportTempVal ${ok ? "pass" : "fail"}`}>
+                                                  {foodName ? <span className="haccpReportFoodName">{foodName} — </span> : null}
+                                                  {v}{item.unit}
+                                                </span>
+                                              );
+                                            })}
+                                          </span>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                  {sub.problemReport?.text && (
+                                    <div className="haccpReportProblem">
+                                      <span className={`haccpReportSeverity sev-${sub.problemReport.severity}`}>
+                                        {sub.problemReport.severity === "urgent" ? "🔴" : sub.problemReport.severity === "issue" ? "🟡" : "🔵"}
+                                      </span>
+                                      {sub.problemReport.text}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        );
+                      })()}
+
+                      {/* ── Chat History for this report ── */}
+                      {(() => {
+                        const msgs = chatByReport[rec.id];
+                        if (!msgs || msgs.length === 0) return null;
+                        return (
+                          <div style={{ marginTop: 16 }}>
+                            <div className="guideSectionTitle">💬 Chat Log ({msgs.length} message{msgs.length !== 1 ? "s" : ""})</div>
+                            <div className="historyChatLog">
+                              {msgs.map(m => (
+                                <div key={m.id} className={`historyChatMsg ${m.fromSupervisor ? "historyChatSup" : "historyChatIns"}`}>
+                                  <div className="historyChatBubble">{m.text}</div>
+                                  <div className="historyChatMeta">
+                                    {m.sender || (m.fromSupervisor ? "Supervisor" : "Inspector")} · {new Date(m.sentAt).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })()}
+
+                      <div style={{ marginTop: 16, display: "flex", gap: 8, flexWrap: "wrap" }}>
                         <button className="btn btnGhost btnSmall" type="button" onClick={() => {
                           exportAsTxt({ output: rec.output || rec.rawNotes || "", inspectionDate: rec.inspectionDate, siteName: rec.siteName });
                         }}>Download TXT</button>
                         <button className="btn btnGhost btnSmall" type="button" onClick={() => {
                           exportAsHtml({ output: rec.output || rec.rawNotes || "", inspectionType: rec.inspectionType, inspectionDate: rec.inspectionDate, siteName: rec.siteName, inspectorName: rec.inspectorName });
                         }}>Download HTML</button>
+                        {onEdit && (
+                          <button className="btn btnGhost btnSmall" type="button"
+                            style={{ color: "#2563EB", borderColor: "rgba(37,99,235,.3)" }}
+                            onClick={() => onEdit(rec)}>✏️ Edit</button>
+                        )}
                         <button className="btn btnGhost btnSmall" type="button" onClick={() => deleteRecord(rec.id)}
                           style={{ color: "#EE0000", borderColor: "rgba(238,0,0,.3)", marginLeft: "auto" }}>Delete</button>
                       </div>
@@ -2755,9 +4464,11 @@ function PhotoStrip({ photos, onRemove }) {
   );
 }
 
-function GuideSection({ title, items, inspection, setInspection, allowCustom, sectionKey, coldEquipmentMap }) {
+function GuideSection({ title, items, inspection, setInspection, allowCustom, sectionKey, coldEquipmentMap, maintenanceItems, emptyHint }) {
   const fileRefs = useRef({});
   const [newItemName, setNewItemName] = useState("");
+  const [newMaintName, setNewMaintName] = useState("");
+  const [open, setOpen] = useState(false);
 
   async function addPhotos(pathKey, files) {
     const accepted = Array.from(files || []).slice(0, PHOTO_LIMIT);
@@ -2801,75 +4512,302 @@ function GuideSection({ title, items, inspection, setInspection, allowCustom, se
 
   return (
     <div className="guideSection">
-      <div className="guideSectionTitle">{title}</div>
-      <div className="guideItems">
-        {allItems.map((it) => {
-          const key = it.path.join(".");
-          const itemKey = it.path[it.path.length - 1];
-          const current = getAtPath(inspection, it.path) || withPhotos({ status: "OK", notes: "" });
-          // Determine if this is cold equipment needing a temp reading
-          const coldInfo = coldEquipmentMap?.[itemKey] || (it.isCustom ? detectColdType(it.label) : null);
-          const tempVal = current.tempF || "";
-          const tempNum = Number(tempVal);
-          return (
-            <div className="guideItem" key={key}>
-              <div className="guideItemHead">
-                <div className="guideLabel">
-                  {it.label}
-                  {coldInfo && <span className="coldTypeBadge">{coldInfo.type === "cooler" ? "\u2744 Cooler" : "\u2744 Freezer"}</span>}
-                </div>
-                <select className="select selectSmall" value={current.status}
-                  onChange={(e) => setInspection((prev) => setAtPath(prev, it.path, { ...current, status: e.target.value }))}>
-                  {STATUS_OPTIONS.map((s) => (<option key={s} value={s}>{s}</option>))}
-                </select>
-              </div>
-              {coldInfo && (
-                <div className="equipTempRow">
-                  <div className="tempInputWrap" style={{ flex: 1 }}>
-                    <input className="input inputSmall tempInput" inputMode="numeric" value={tempVal}
-                      onChange={(e) => setInspection((prev) => setAtPath(prev, it.path, { ...current, tempF: e.target.value }))}
-                      placeholder={coldInfo.type === "cooler" ? "40" : "10"} />
-                    <span className="tempUnit">{"\u00B0F"}</span>
+      <button
+        type="button"
+        className="guideSectionToggle"
+        onClick={() => setOpen(o => !o)}
+        aria-expanded={open}
+      >
+        <span className="guideSectionTitle">{title}</span>
+        <span className="guideSectionChevron">▼</span>
+      </button>
+      {open && (
+        <>
+          {allItems.length === 0 && emptyHint && (
+            <div className="guideSectionEmptyHint">{emptyHint}</div>
+          )}
+          <div className="guideItems">
+            {allItems.map((it) => {
+              const key = it.path.join(".");
+              const itemKey = it.path[it.path.length - 1];
+              const current = getAtPath(inspection, it.path) || withPhotos({ status: "OK", notes: "" });
+              // Determine if this is cold equipment needing a temp reading
+              const coldInfo = coldEquipmentMap?.[itemKey] || (it.isCustom ? detectColdType(it.label) : null);
+              const tempVal = current.tempF || "";
+              const tempNum = Number(tempVal);
+              const isNA = !!current.notApplicable;
+              const toggleNA = () => setInspection((prev) =>
+                setAtPath(prev, it.path, { ...current, notApplicable: !isNA })
+              );
+              return (
+                <div className={`guideItem${isNA ? " guideItemNA" : ""}`} key={key}>
+                  <div className="guideItemHead">
+                    <div className="guideLabel">
+                      {it.label}
+                      {coldInfo && !isNA && <span className="coldTypeBadge">{coldInfo.type === "cooler" ? "\u2744 Cooler" : "\u2744 Freezer"}</span>}
+                      {isNA && <span className="naBadge">Not at this location</span>}
+                    </div>
+                    {!isNA && (
+                      <select className="select selectSmall" value={current.status}
+                        onChange={(e) => setInspection((prev) => setAtPath(prev, it.path, { ...current, status: e.target.value }))}>
+                        {STATUS_OPTIONS.map((s) => (<option key={s} value={s}>{s}</option>))}
+                      </select>
+                    )}
+                    <button type="button" className={`naToggleBtn${isNA ? " naToggleBtnActive" : ""}`}
+                      title={isNA ? "Mark as present at this location" : "Mark as N/A — not at this location"}
+                      onClick={toggleNA}>
+                      {isNA ? "↩ Undo N/A" : "N/A"}
+                    </button>
+                    {it.isCustom && (
+                      <button type="button" className="guideItemDeleteBtn" title="Remove item"
+                        onClick={() => setInspection(prev => {
+                          const section = { ...(prev[it.path[0]] || {}) };
+                          delete section[it.path[1]];
+                          return { ...prev, [it.path[0]]: section };
+                        })}>🗑️</button>
+                    )}
                   </div>
-                  <span className="hint" style={{ whiteSpace: "nowrap" }}>
-                    {tempVal ? (tempNum <= coldInfo.max ? `\u2705 \u2264${coldInfo.max}\u00B0F` : `\u26A0\uFE0F Above ${coldInfo.max}\u00B0F`) : `Max ${coldInfo.max}\u00B0F`}
-                  </span>
+                  {!isNA && (
+                    <>
+                      {coldInfo && (
+                        <div className="equipTempRow">
+                          <div className="tempInputWrap" style={{ flex: 1 }}>
+                            <input className="input inputSmall tempInput" inputMode="numeric" value={tempVal}
+                              onChange={(e) => setInspection((prev) => setAtPath(prev, it.path, { ...current, tempF: e.target.value }))}
+                              placeholder={coldInfo.type === "cooler" ? "40" : "10"} />
+                            <span className="tempUnit">{"\u00B0F"}</span>
+                          </div>
+                          <span className="hint" style={{ whiteSpace: "nowrap" }}>
+                            {tempVal ? (tempNum <= coldInfo.max ? `\u2705 \u2264${coldInfo.max}\u00B0F` : `\u26A0\uFE0F Above ${coldInfo.max}\u00B0F`) : `Max ${coldInfo.max}\u00B0F`}
+                          </span>
+                        </div>
+                      )}
+                      <div className="equipCountRow">
+                        <label className="equipCountLabel"># Units at this location:</label>
+                        <input className="input inputSmall equipCountInput" type="number" min="0" inputMode="numeric"
+                          value={current.count ?? ""}
+                          onChange={(e) => setInspection((prev) => setAtPath(prev, it.path, { ...current, count: e.target.value }))}
+                          placeholder="1" />
+                      </div>
+                      <div className="equipCountRow">
+                        <label className="equipCountLabel">Equipment owned by:</label>
+                        <select className="select selectSmall"
+                          value={current.equipSource || "Facility"}
+                          onChange={(e) => setInspection((prev) => setAtPath(prev, it.path, { ...current, equipSource: e.target.value }))}>
+                          <option value="Facility">🏢 Facility (permanent)</option>
+                          <option value="Subcontractor">🤝 Subcontractor</option>
+                          <option value="Stadium">🏟️ Stadium / Venue</option>
+                          <option value="Event">🎪 Event (temporary)</option>
+                        </select>
+                      </div>
+                      <input className="input inputSmall" value={current.notes}
+                        onChange={(e) => setInspection((prev) => setAtPath(prev, it.path, { ...current, notes: e.target.value }))}
+                        placeholder="Issue / observation (optional)" />
+                      <div className="photoRow">
+                        <input ref={(el) => (fileRefs.current[key] = el)} className="fileInput" type="file" accept="image/*" multiple
+                          onChange={(e) => { addPhotos(key, e.target.files); e.target.value = ""; }} />
+                        <button className="btn btnGhost btnSmall photoBtn" type="button" onClick={() => fileRefs.current[key]?.click()}>
+                          📷 Add photos
+                        </button>
+                        <span className="hint">Up to {PHOTO_LIMIT} ({PHOTO_MAX_MB}MB each)</span>
+                      </div>
+                      <PhotoStrip photos={current.photos} onRemove={(id) => removePhoto(key, id)} />
+                    </>
+                  )}
                 </div>
-              )}
-              <input className="input inputSmall" value={current.notes}
-                onChange={(e) => setInspection((prev) => setAtPath(prev, it.path, { ...current, notes: e.target.value }))}
-                placeholder="Issue / observation (optional)" />
-              <div className="photoRow">
-                <input ref={(el) => (fileRefs.current[key] = el)} className="fileInput" type="file" accept="image/*" multiple
-                  onChange={(e) => { addPhotos(key, e.target.files); e.target.value = ""; }} />
-                <button className="btn btnGhost btnSmall photoBtn" type="button" onClick={() => fileRefs.current[key]?.click()}>
-                  &#128247; Add photos
-                </button>
-                <span className="hint">Up to {PHOTO_LIMIT} ({PHOTO_MAX_MB}MB each)</span>
-              </div>
-              <PhotoStrip photos={current.photos} onRemove={(id) => removePhoto(key, id)} />
-            </div>
-          );
-        })}
-      </div>
-      {allowCustom && (
-        <div className="guideAddItem">
-          <input className="input inputSmall" value={newItemName} onChange={(e) => setNewItemName(e.target.value)}
-            placeholder="Add new item (e.g., Walk-in freezer)" onKeyDown={(e) => {
-              if (e.key === "Enter" && newItemName.trim()) {
+              );
+            })}
+          </div>
+          {allowCustom && (
+            <div className="guideAddItem">
+              <input className="input inputSmall" value={newItemName} onChange={(e) => setNewItemName(e.target.value)}
+                placeholder="Add new item (e.g., Walk-in freezer)" onKeyDown={(e) => {
+                  if (e.key === "Enter" && newItemName.trim()) {
+                    const key = `custom_${Date.now()}`;
+                    const cold = detectColdType(newItemName.trim());
+                    setInspection((prev) => setAtPath(prev, [sectionKey, key], { status: "OK", notes: "", photos: [], label: newItemName.trim(), count: "", equipSource: "Facility", ...(cold ? { tempF: "" } : {}) }));
+                    setNewItemName("");
+                  }
+                }} />
+              <button className="btn btnGhost btnSmall" type="button" onClick={() => {
+                if (!newItemName.trim()) return;
                 const key = `custom_${Date.now()}`;
                 const cold = detectColdType(newItemName.trim());
-                setInspection((prev) => setAtPath(prev, [sectionKey, key], { status: "OK", notes: "", photos: [], label: newItemName.trim(), ...(cold ? { tempF: "" } : {}) }));
+                setInspection((prev) => setAtPath(prev, [sectionKey, key], { status: "OK", notes: "", photos: [], label: newItemName.trim(), count: "", equipSource: "Facility", ...(cold ? { tempF: "" } : {}) }));
                 setNewItemName("");
-              }
-            }} />
-          <button className="btn btnGhost btnSmall" type="button" onClick={() => {
-            if (!newItemName.trim()) return;
-            const key = `custom_${Date.now()}`;
-            const cold = detectColdType(newItemName.trim());
-            setInspection((prev) => setAtPath(prev, [sectionKey, key], { status: "OK", notes: "", photos: [], label: newItemName.trim(), ...(cold ? { tempF: "" } : {}) }));
-            setNewItemName("");
-          }}>+ Add</button>
+              }}>+ Add</button>
+            </div>
+          )}
+          {/* ── Maintenance sub-items (with priority) ── */}
+          {maintenanceItems && (() => {
+            const customMaintItems = (() => {
+              const sec = inspection?.maintenance || {};
+              return Object.keys(sec)
+                .filter(k => k.startsWith("custom_"))
+                .map(k => ({ path: ["maintenance", k], label: sec[k]?.label || "Custom item", isCustom: true, hasPriority: true }));
+            })();
+            const allMaintItems = [...maintenanceItems, ...customMaintItems];
+            return (
+              <>
+                <div className="maintSubHeader">🔧 Maintenance items</div>
+                <div className="guideItems">
+                  {allMaintItems.map(it => {
+                    const pathKey = it.path.join(".");
+                    const cur = getAtPath(inspection, it.path) || withPhotos({ status: "OK", notes: "", priority: "Low" });
+                    const priority = cur.priority || "Low";
+                    return (
+                      <div className="guideItem" key={pathKey}>
+                        <div className="guideItemHead" style={{ marginBottom: 8 }}>
+                          <div className="guideLabel">{it.label}</div>
+                          {it.isCustom && (
+                            <button type="button" className="guideItemDeleteBtn" title="Remove item"
+                              onClick={() => setInspection(prev => {
+                                const section = { ...(prev[it.path[0]] || {}) };
+                                delete section[it.path[1]];
+                                return { ...prev, [it.path[0]]: section };
+                              })}>🗑️</button>
+                          )}
+                        </div>
+                        <div className="maintControlBar">
+                          <select className="select selectSmall" value={cur.status}
+                            onChange={e => setInspection(prev => setAtPath(prev, it.path, { ...cur, status: e.target.value }))}>
+                            {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+                          </select>
+                          <div className="maintPriorityInline">
+                            {["High", "Med", "Low"].map(p => (
+                              <button key={p} type="button"
+                                className={`maintPriorityBtn ${priority === p ? `active-${p}` : ""}`}
+                                onClick={() => setInspection(prev => setAtPath(prev, it.path, { ...cur, priority: p }))}>
+                                {p === "High" ? "🔴" : p === "Med" ? "🟡" : "🟢"} {p}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        <input className="input inputSmall" value={cur.notes}
+                          onChange={e => setInspection(prev => setAtPath(prev, it.path, { ...cur, notes: e.target.value }))}
+                          placeholder="Notes / description (optional)" />
+                        <div className="photoRow">
+                          <input ref={el => (fileRefs.current[pathKey] = el)} className="fileInput" type="file" accept="image/*" multiple
+                            onChange={e => { addPhotos(pathKey, e.target.files); e.target.value = ""; }} />
+                          <button className="btn btnGhost btnSmall photoBtn" type="button" onClick={() => fileRefs.current[pathKey]?.click()}>
+                            📷 Add photos
+                          </button>
+                          <span className="hint">Up to {PHOTO_LIMIT} ({PHOTO_MAX_MB}MB each)</span>
+                        </div>
+                        <PhotoStrip photos={cur.photos} onRemove={id => {
+                          setInspection(prev => {
+                            const cur2 = getAtPath(prev, it.path) || withPhotos({ status: "OK", notes: "", priority: "Low" });
+                            return setAtPath(prev, it.path, { ...cur2, photos: (cur2.photos || []).filter(p => p.id !== id) });
+                          });
+                        }} />
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="guideAddItem">
+                  <input className="input inputSmall" value={newMaintName} onChange={e => setNewMaintName(e.target.value)}
+                    placeholder="Add maintenance item (e.g., Generator)" onKeyDown={e => {
+                      if (e.key === "Enter" && newMaintName.trim()) {
+                        const k = `custom_${Date.now()}`;
+                        setInspection(prev => setAtPath(prev, ["maintenance", k], { status: "OK", notes: "", priority: "Low", photos: [], label: newMaintName.trim() }));
+                        setNewMaintName("");
+                      }
+                    }} />
+                  <button className="btn btnGhost btnSmall" type="button" onClick={() => {
+                    if (!newMaintName.trim()) return;
+                    const k = `custom_${Date.now()}`;
+                    setInspection(prev => setAtPath(prev, ["maintenance", k], { status: "OK", notes: "", priority: "Low", photos: [], label: newMaintName.trim() }));
+                    setNewMaintName("");
+                  }}>+ Add</button>
+                </div>
+              </>
+            );
+          })()}
+        </>
+      )}
+    </div>
+  );
+}
+
+/* ── Inline Chat (embedded in the report output section) ───── */
+function InlineChat({ currentUser, sessionId }) {
+  const [messages, setMessages] = useState([]);
+  const [input, setInput] = useState("");
+  const [sending, setSending] = useState(false);
+  const [open, setOpen] = useState(true);
+  const listRef = useRef(null);
+  const prevCountRef = useRef(0);
+
+  useEffect(() => {
+    loadChatMessages(sessionId).then(setMessages);
+    const iv = setInterval(() => loadChatMessages(sessionId).then(setMessages), 6000);
+    return () => clearInterval(iv);
+  }, [sessionId]);
+
+  // Only scroll the chat list itself when new messages arrive — never the whole page
+  useEffect(() => {
+    if (!open) return;
+    if (messages.length > prevCountRef.current && listRef.current) {
+      listRef.current.scrollTop = listRef.current.scrollHeight;
+    }
+    prevCountRef.current = messages.length;
+  }, [messages, open]);
+
+  async function send() {
+    if (!input.trim() || sending) return;
+    setSending(true);
+    const msg = {
+      id: `chat_${Date.now()}_${Math.random().toString(16).slice(2)}`,
+      sessionId: sessionId || "",
+      sender: currentUser?.name || "Inspector",
+      text: input.trim(),
+      sentAt: new Date().toISOString(),
+      fromSupervisor: false,
+    };
+    await saveChatMessage(msg);
+    setInput("");
+    const updated = await loadChatMessages(sessionId);
+    setMessages(updated);
+    setSending(false);
+  }
+
+  const unread = messages.filter(m => m.fromSupervisor).length;
+
+  return (
+    <div className="inlineChatCard">
+      <button className="inlineChatToggle" type="button" onClick={() => setOpen(o => !o)}>
+        <span>💬 Supervisor Chat</span>
+        {unread > 0 && !open && <span className="inlineChatBadge">{unread}</span>}
+        <span className="inlineChatChevron">{open ? "▲" : "▼"}</span>
+      </button>
+      {open && (
+        <div className="inlineChatBody">
+          <div className="inlineChatList" ref={listRef}>
+            {messages.length === 0
+              ? <div className="haccpEmptyChat">No messages yet — supervisor messages appear here in real time.</div>
+              : messages.map(m => (
+                <div key={m.id} className={`haccpChatMsg ${m.fromSupervisor ? "theirs" : "mine"}`}>
+                  <div className="haccpChatBubble">{m.text}</div>
+                  <div className="haccpChatMeta">
+                    {m.fromSupervisor ? (m.sender || "Supervisor") : "You"} · {new Date(m.sentAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                  </div>
+                </div>
+              ))
+            }
+          </div>
+          <div className="inlineChatInputRow">
+            <textarea
+              className="haccpChatInput"
+              rows={1}
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              placeholder="Reply to supervisor…"
+              onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
+            />
+            <button className="haccpChatSendBtn" onClick={send} disabled={!input.trim() || sending}>
+              {sending ? "…" : "Send"}
+            </button>
+          </div>
         </div>
       )}
     </div>
@@ -2954,6 +4892,719 @@ function ShareModal({ shareUrl, onClose }) {
   );
 }
 
+/* ── HACCP QR Modal (inspector side) ─────────────────────── */
+function HaccpQrModal({ onClose, siteName, siteNumber, floor, locationType, reportId }) {
+  const canvasRef = useRef(null);
+  const [copied, setCopied] = useState(false);
+  const haccpUrl = (() => {
+    const base = window.location.origin + "/Claude/";
+    const p = new URLSearchParams({ haccp: "1" });
+    if (siteName?.trim())     p.set("site", siteName.trim());
+    if (siteNumber?.trim())   p.set("unit", siteNumber.trim());
+    if (floor?.trim())        p.set("floor", floor.trim());
+    if (locationType?.trim()) p.set("loctype", locationType.trim());
+    if (reportId?.trim())     p.set("rid", reportId.trim());
+    return base + "?" + p.toString();
+  })();
+
+  useEffect(() => {
+    if (canvasRef.current) {
+      QRCode.toCanvas(canvasRef.current, haccpUrl, {
+        width: 220, margin: 2,
+        color: { dark: "#2A295C", light: "#ffffff" },
+      });
+    }
+  }, [haccpUrl]);
+
+  function copyLink() {
+    navigator.clipboard.writeText(haccpUrl).then(() => {
+      setCopied(true); setTimeout(() => setCopied(false), 2000);
+    }).catch(() => {
+      const el = document.createElement("textarea");
+      el.value = haccpUrl;
+      document.body.appendChild(el); el.select();
+      document.execCommand("copy"); document.body.removeChild(el);
+      setCopied(true); setTimeout(() => setCopied(false), 2000);
+    });
+  }
+
+  return (
+    <div className="modalOverlay" onClick={onClose}>
+      <div className="modalBox" onClick={(e) => e.stopPropagation()}>
+        <div className="modalHeader">
+          <span>🌡️ HACCP Supervisor Portal QR</span>
+          <button className="modalClose" onClick={onClose} type="button">✕</button>
+        </div>
+        <div className="modalBody">
+          <a href={haccpUrl} target="_blank" rel="noopener noreferrer" className="qrWrap" title="Open HACCP portal">
+            <canvas ref={canvasRef} className="qrImg" />
+          </a>
+          <p style={{ textAlign:"center", margin:"10px 0 4px", fontSize:"0.82rem", color:"#6b7280" }}>
+            Supervisor scans this QR to open the HACCP form
+          </p>
+          <p style={{ textAlign:"center", margin:"0 0 14px", fontSize:"0.75rem", color:"#9ca3af" }}>
+            They will only see temperatures, problem report &amp; chat — not the full app
+          </p>
+          <div className="shareUrlRow">
+            <input className="input shareUrlInput" readOnly value={haccpUrl} onFocus={(e) => e.target.select()} />
+            <button className="btn btnPrimary" type="button" onClick={copyLink}>
+              {copied ? "✓ Copied!" : "Copy link"}
+            </button>
+          </div>
+          <a href={haccpUrl} target="_blank" rel="noopener noreferrer"
+            style={{ display:"block", textAlign:"center", marginTop:10, fontSize:"0.8rem", color:"var(--sdx-blue)", textDecoration:"underline" }}>
+            Open HACCP portal in browser →
+          </a>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Inspector Chat Panel (to reply to supervisors) ────────── */
+function InspectorChatPanel({ currentUser, onClose, sessionId }) {
+  const [messages, setMessages] = useState([]);
+  const [input, setInput] = useState("");
+  const [sending, setSending] = useState(false);
+  const listRef = useRef(null);
+  const prevCountRef = useRef(0);
+
+  useEffect(() => {
+    loadChatMessages(sessionId).then(setMessages);
+    const iv = setInterval(() => loadChatMessages(sessionId).then(setMessages), 6000);
+    return () => clearInterval(iv);
+  }, [sessionId]);
+
+  // Only scroll the chat list container — never the whole page
+  useEffect(() => {
+    if (messages.length > prevCountRef.current && listRef.current) {
+      listRef.current.scrollTop = listRef.current.scrollHeight;
+    }
+    prevCountRef.current = messages.length;
+  }, [messages]);
+
+  async function send() {
+    if (!input.trim() || sending) return;
+    setSending(true);
+    const msg = {
+      id: `chat_${Date.now()}_${Math.random().toString(16).slice(2)}`,
+      sessionId: sessionId || "",
+      sender: currentUser?.name || "Inspector",
+      text: input.trim(),
+      sentAt: new Date().toISOString(),
+      fromSupervisor: false,
+    };
+    await saveChatMessage(msg);
+    setInput("");
+    const updated = await loadChatMessages(sessionId);
+    setMessages(updated);
+    setSending(false);
+  }
+
+  return (
+    <div className="modalOverlay" onClick={onClose}>
+      <div className="modalBox" style={{ maxWidth: 480, height: "70vh", display:"flex", flexDirection:"column" }} onClick={(e) => e.stopPropagation()}>
+        <div className="modalHeader">
+          <span>💬 Chat with Supervisor</span>
+          <button className="modalClose" onClick={onClose} type="button">✕</button>
+        </div>
+        <div className="haccpChatList" ref={listRef} style={{ flex:1, overflowY:"auto", padding:"12px 16px" }}>
+          {messages.length === 0 && <div className="haccpEmptyChat">No messages yet.</div>}
+          {messages.map(m => (
+            <div key={m.id} className={`haccpChatMsg ${m.fromSupervisor ? "theirs" : "mine"}`}>
+              <div className="haccpChatBubble">{m.text}</div>
+              <div className="haccpChatMeta">
+                {m.fromSupervisor ? (m.sender || "Supervisor") : "You"} · {new Date(m.sentAt).toLocaleTimeString([], { hour:"2-digit", minute:"2-digit" })}
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="haccpChatInputRow" style={{ padding:"10px 16px", borderTop:"1px solid var(--border)" }}>
+          <textarea className="haccpChatInput" rows={1} value={input} onChange={e => setInput(e.target.value)}
+            placeholder="Type reply to supervisor..."
+            onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }} />
+          <button className="haccpChatSendBtn" onClick={send} disabled={!input.trim() || sending}>
+            {sending ? "…" : "Send"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── HACCP Chat Block — standalone so it never remounts on parent re-render ── */
+// Must live outside HaccpPortal. An inner function component is recreated on every
+// render, causing React to unmount+remount it — which dismisses the mobile keyboard.
+function HaccpChatBlock({ chatMessages, chatInput, setChatInput, chatSending, sendChat, chatListRef }) {
+  return (
+    <div className="haccpSection">
+      <div className="haccpSectionHead">💬 Chat with Inspector</div>
+      <div className="haccpSectionBody">
+        <div className="haccpChatList" ref={chatListRef}>
+          {chatMessages.length === 0 && (
+            <div className="haccpEmptyChat">No messages yet. Start the conversation!</div>
+          )}
+          {chatMessages.map(m => (
+            <div key={m.id} className={`haccpChatMsg ${m.fromSupervisor ? "mine" : "theirs"}`}>
+              <div className="haccpChatBubble">{m.text}</div>
+              <div className="haccpChatMeta">
+                {m.fromSupervisor ? "You" : (m.sender || "Inspector")} · {new Date(m.sentAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="haccpChatInputRow">
+          <textarea className="haccpChatInput" rows={1}
+            value={chatInput} onChange={e => setChatInput(e.target.value)}
+            placeholder="Type a message..."
+            onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendChat(); } }} />
+          <button className="haccpChatSendBtn" onClick={sendChat} disabled={!chatInput.trim() || chatSending}>
+            {chatSending ? "…" : "Send"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── HACCP Supervisor Portal ─────────────────────────────── */
+// Default HACCP temperature items supervisors can fill out
+function HaccpPortal() {
+  // Read location info embedded in the QR URL
+  const urlParams = new URLSearchParams(window.location.search);
+  const urlSite     = urlParams.get("site")    || "";
+  const urlUnit     = urlParams.get("unit")    || "";
+  const urlFloor    = urlParams.get("floor")   || "";
+  const urlLocType  = urlParams.get("loctype") || "";
+  const urlReportId = urlParams.get("rid")     || ""; // inspector report this HACCP log belongs to
+
+  // If QR has site info pre-filled, the step order is: "ident" → "location" → "form" → "done"
+  // If no site info in URL, we add a manual "location" step after ident so the form is still linked.
+  // "ident" → supervisor enters name + phone
+  // "location" → confirm (QR) or enter (manual) the restaurant name, unit, floor
+  // "form" → temperatures + problem report
+  // "done" → confirmation
+
+  const [step, setStep] = useState("ident"); // "ident" | "location" | "form" | "done"
+  const [supName, setSupName] = useState("");
+  const [supPhone, setSupPhone] = useState("");
+  const [sessionId, setSessionId] = useState(null);
+
+  // Location state — seeded from URL params (QR-encoded)
+  const [locSite, setLocSite]       = useState(urlSite);
+  const [locUnit, setLocUnit]       = useState(urlUnit);
+  const [locFloor, setLocFloor]     = useState(urlFloor);
+  const [locType, setLocType]       = useState(urlLocType);
+  // temps: { [itemKey]: string[] }  — array of readings per item
+  const [temps, setTemps] = useState(() =>
+    Object.fromEntries(HACCP_TEMP_ITEMS.map(it => [it.key, [""]]))
+  );
+  // foodNames: { [itemKey]: string[] } — food item name for each reading (parallel to temps)
+  const [foodNames, setFoodNames] = useState(() =>
+    Object.fromEntries(HACCP_TEMP_ITEMS.map(it => [it.key, [""]]))
+  );
+  const [problem, setProblem] = useState("");
+  const [severity, setSeverity] = useState("issue");
+  const [problemPhotos, setProblemPhotos] = useState([]);
+  const problemPhotoRef = useRef(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [chatMessages, setChatMessages] = useState([]);
+  const [chatInput, setChatInput] = useState("");
+  const [chatSending, setChatSending] = useState(false);
+  const chatListRef = useRef(null);
+  const chatPrevCountRef = useRef(0);
+
+  // Load chat scoped to this report (urlReportId), so supervisor and inspector share the same thread
+  useEffect(() => {
+    const chatKey = urlReportId || sessionId;
+    if (!chatKey) return;
+    loadChatMessages(chatKey).then(setChatMessages);
+    const iv = setInterval(() => loadChatMessages(chatKey).then(setChatMessages), 8000);
+    return () => clearInterval(iv);
+  }, [urlReportId, sessionId]);
+
+  // Only scroll the chat list container when new messages arrive — never the whole page
+  useEffect(() => {
+    if (chatMessages.length > chatPrevCountRef.current && chatListRef.current) {
+      chatListRef.current.scrollTop = chatListRef.current.scrollHeight;
+    }
+    chatPrevCountRef.current = chatMessages.length;
+  }, [chatMessages]);
+
+  // Step 1: supervisor enters name + phone → go to location confirmation step
+  async function handleIdentSubmit() {
+    if (!supName.trim() || !supPhone.trim()) return;
+    // Generate the session ID now so we can link ident record to the whole session
+    const newSessionId = `session_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+    setSessionId(newSessionId);
+    const identId = `supident_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+    await saveHaccpSubmission({
+      id: identId,
+      type: "ident",
+      sessionId: newSessionId,
+      reportId: urlReportId,
+      supervisorName: supName.trim(),
+      supervisorPhone: supPhone.trim(),
+      site: locSite,
+      unit: locUnit,
+      floor: locFloor,
+      locationType: locType,
+      submittedAt: new Date().toISOString(),
+    });
+    setStep("location");
+  }
+
+  // Step 2: supervisor confirms or fills in the location → go to HACCP form
+  function handleLocationSubmit() {
+    if (!locSite.trim()) return; // restaurant name is required
+    setStep("form");
+  }
+
+  // Add photos to the problem report
+  async function addProblemPhotos(files) {
+    const accepted = Array.from(files || []).slice(0, PHOTO_LIMIT - problemPhotos.length);
+    const enriched = [];
+    for (const f of accepted) {
+      if (!f.type.startsWith("image/")) continue;
+      if (bytesToMb(f.size) > PHOTO_MAX_MB) continue;
+      const previewUrl = await compressImage(f);
+      if (!previewUrl) continue;
+      enriched.push({ id: `${Date.now()}_${Math.random().toString(16).slice(2)}`, name: f.name, previewUrl });
+    }
+    if (enriched.length) setProblemPhotos(prev => [...prev, ...enriched].slice(0, PHOTO_LIMIT));
+  }
+
+  async function handleSubmit() {
+    setSubmitting(true);
+    // Build flat temps map for storage (collect all readings per item)
+    const tempsFlat = {};
+    for (const [k, arr] of Object.entries(temps)) {
+      tempsFlat[k] = arr.filter(v => v.trim() !== "");
+    }
+    // Build flat food names map — keep names aligned with temps readings
+    const foodNamesFlat = {};
+    for (const [k, arr] of Object.entries(foodNames)) {
+      foodNamesFlat[k] = arr.map(v => v.trim());
+    }
+    const id = `haccp_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+    const record = {
+      id,
+      type: "submission",
+      sessionId: sessionId || "",
+      reportId: urlReportId,
+      supervisorName: supName.trim(),
+      supervisorPhone: supPhone.trim(),
+      site: locSite.trim(),
+      unit: locUnit.trim(),
+      floor: locFloor.trim(),
+      locationType: locType.trim(),
+      temps: tempsFlat,
+      foodNames: foodNamesFlat,
+      problemReport: problem.trim() ? { text: problem.trim(), severity, photos: problemPhotos } : null,
+      submittedAt: new Date().toISOString(),
+    };
+    await saveHaccpSubmission(record);
+    if (problem.trim()) {
+      const prId = `prob_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+      await saveProblemReport({
+        id: prId,
+        reportId: urlReportId,
+        supervisorName: supName.trim(),
+        supervisorPhone: supPhone.trim(),
+        site: locSite.trim(),
+        unit: locUnit.trim(),
+        floor: locFloor.trim(),
+        locationType: locType.trim(),
+        text: problem.trim(),
+        severity,
+        photos: problemPhotos,
+        reportedAt: new Date().toISOString(),
+        status: "open",
+      });
+    }
+    setSubmitting(false);
+    setStep("done");
+  }
+
+  async function sendChat() {
+    if (!chatInput.trim() || chatSending) return;
+    setChatSending(true);
+    const chatKey = urlReportId || sessionId || "";
+    const msg = {
+      id: `chat_${Date.now()}_${Math.random().toString(16).slice(2)}`,
+      sessionId: chatKey,
+      sender: supName.trim() || "Supervisor",
+      senderPhone: supPhone.trim() || "",
+      text: chatInput.trim(),
+      sentAt: new Date().toISOString(),
+      fromSupervisor: true,
+    };
+    await saveChatMessage(msg);
+    setChatInput("");
+    const updated = await loadChatMessages(chatKey);
+    setChatMessages(updated);
+    setChatSending(false);
+  }
+
+  // ChatBlock is defined outside HaccpPortal (see HaccpChatBlock below) to prevent
+  // keyboard dismissal on mobile — an inner function component remounts on every render.
+
+  // Location banner shown on every step when confirmed location is set
+  const LocationBanner = locSite ? (
+    <div className="haccpLocationBanner">
+      🏢 <strong>{locSite}</strong>
+      {locUnit  ? <span className="haccpLocationUnit"> · Unit #{locUnit}</span>  : null}
+      {locFloor ? <span className="haccpLocationUnit"> · {locFloor}</span>       : null}
+      {locType  ? <span className="haccpLocationUnit"> · {locType}</span>        : null}
+    </div>
+  ) : null;
+
+  return (
+    <div className="haccpOverlay">
+      <img src={`${BASE}sodexo-live-logo.svg`} alt="Sodexo" className="haccpLogo" />
+
+      {step === "ident" && (
+        <div className="haccpCard">
+          <div className="haccpCardHeader">
+            <div className="haccpCardTitle">🌡️ HACCP Temperature Log</div>
+            <div className="haccpCardSub">Please identify yourself before submitting temperatures</div>
+          </div>
+          <div className="haccpCardBody">
+            {LocationBanner}
+            <label className="field" style={{ margin: 0 }}>
+              <span className="fieldLabel">Your Name <span style={{ color: "#ef4444" }}>*</span></span>
+              <input className="input" value={supName} onChange={e => setSupName(e.target.value)}
+                placeholder="Full name" autoFocus />
+            </label>
+            <label className="field" style={{ margin: 0, marginTop: 10 }}>
+              <span className="fieldLabel">Phone Number <span style={{ color: "#ef4444" }}>*</span></span>
+              <input className="input" type="tel" value={supPhone} onChange={e => setSupPhone(e.target.value)}
+                placeholder="e.g. 787-555-1234" inputMode="tel" />
+              <span className="hint">So the inspector can reach you if needed</span>
+            </label>
+            <button className="haccpSubmitBtn" onClick={handleIdentSubmit}
+              disabled={!supName.trim() || !supPhone.trim()}>
+              Continue →
+            </button>
+          </div>
+        </div>
+      )}
+
+      {step === "location" && (
+        <div className="haccpCard">
+          <div className="haccpCardHeader">
+            <div className="haccpCardTitle">📍 Confirm Location</div>
+            <div className="haccpCardSub">Verify this log is for the correct restaurant</div>
+          </div>
+          <div className="haccpCardBody">
+            {urlSite && locSite ? (
+              /* QR had location embedded — show confirmation card */
+              <div className="haccpLocConfirm">
+                <div className="haccpLocConfirmLabel">Location from QR code:</div>
+                <div className="haccpLocConfirmBox">
+                  <div className="haccpLocConfirmName">{locSite}</div>
+                  {locUnit  && <div className="haccpLocConfirmMeta">Unit #{locUnit}</div>}
+                  {locFloor && <div className="haccpLocConfirmMeta">{locFloor}</div>}
+                  {locType  && <div className="haccpLocConfirmMeta">{locType}</div>}
+                </div>
+                <button className="haccpSubmitBtn" onClick={handleLocationSubmit}>
+                  ✓ This is my location
+                </button>
+                <button className="haccpTextBtn" onClick={() => {
+                  setLocSite(""); setLocUnit(""); setLocFloor(""); setLocType("");
+                }}>
+                  Edit location manually
+                </button>
+              </div>
+            ) : (
+              /* No QR location — manual entry form */
+              <div className="haccpLocEntry">
+                <label className="field" style={{ margin: 0 }}>
+                  <span className="fieldLabel">Restaurant Name <span style={{ color: "#ef4444" }}>*</span></span>
+                  <input className="input" value={locSite} onChange={e => setLocSite(e.target.value)}
+                    placeholder="e.g. Sodexo Live – Yankee Stadium" autoFocus />
+                </label>
+                <label className="field" style={{ margin: 0, marginTop: 10 }}>
+                  <span className="fieldLabel">Unit / Store Number <span className="hint" style={{ fontWeight: 400 }}>(optional)</span></span>
+                  <input className="input" value={locUnit} onChange={e => setLocUnit(e.target.value)}
+                    placeholder="e.g. Unit 4" />
+                </label>
+                <label className="field" style={{ margin: 0, marginTop: 10 }}>
+                  <span className="fieldLabel">Floor / Area <span className="hint" style={{ fontWeight: 400 }}>(optional)</span></span>
+                  <input className="input" value={locFloor} onChange={e => setLocFloor(e.target.value)}
+                    placeholder="e.g. Floor 2, Concourse A" />
+                </label>
+                <button className="haccpSubmitBtn" onClick={handleLocationSubmit}
+                  disabled={!locSite.trim()}>
+                  Continue →
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {step === "form" && (
+        <div className="haccpCard">
+          <div className="haccpCardHeader">
+            <div className="haccpCardTitle">🌡️ HACCP Temperature Log</div>
+            <div className="haccpCardSub">Hi {supName} · {supPhone}</div>
+          </div>
+          <div className="haccpCardBody">
+            {LocationBanner}
+
+            {/* Temperature section — multiple readings per item */}
+            <div className="haccpSection">
+              <div className="haccpSectionHead">Temperature Readings</div>
+              <div className="haccpSectionBody">
+                {HACCP_TEMP_ITEMS.map(item => {
+                  const readings = temps[item.key] || [""];
+                  return (
+                    <div className="haccpTempBlock" key={item.key}>
+                      <div className="haccpTempBlockHead">
+                        <span className="haccpTempLabel">
+                          {item.label}
+                          <span style={{ fontSize: "0.68rem", color: "#9ca3af", fontWeight: 400, marginLeft: 6 }}>
+                            {item.type === "hot" ? `Min ${item.min}${item.unit}` : `Max ${item.max}${item.unit}`}
+                          </span>
+                        </span>
+                        <button type="button" className="haccpAddReadingBtn"
+                          onClick={() => {
+                            setTemps(p => ({ ...p, [item.key]: [...(p[item.key] || [""]), ""] }));
+                            setFoodNames(p => ({ ...p, [item.key]: [...(p[item.key] || [""]), ""] }));
+                          }}>
+                          + Reading
+                        </button>
+                      </div>
+                      {readings.map((val, idx) => {
+                        const pass = tempPass(item, val);
+                        const foodName = (foodNames[item.key] || [""])[idx] ?? "";
+                        return (
+                          <div className="haccpTempRow" key={idx}>
+                            <input className="haccpFoodNameInput" type="text"
+                              value={foodName}
+                              onChange={e => setFoodNames(p => {
+                                const arr = [...(p[item.key] || [""])];
+                                arr[idx] = e.target.value;
+                                return { ...p, [item.key]: arr };
+                              })}
+                              placeholder="Food item (e.g. Chicken)" />
+                            <div className="haccpTempInputWrap">
+                              <input className="haccpTempInput" type="number" inputMode="decimal"
+                                value={val}
+                                onChange={e => setTemps(p => {
+                                  const arr = [...(p[item.key] || [""])];
+                                  arr[idx] = e.target.value;
+                                  return { ...p, [item.key]: arr };
+                                })}
+                                placeholder="—" />
+                              <span className="haccpTempUnit">{item.unit}</span>
+                            </div>
+                            <span className={`haccpTempStatus ${pass === null ? "empty" : pass ? "pass" : "fail"}`}>
+                              {pass === null ? "—" : pass ? "✓ OK" : "⚠️ Flag"}
+                            </span>
+                            {readings.length > 1 && (
+                              <button type="button" className="haccpRemoveReadingBtn"
+                                onClick={() => {
+                                  setTemps(p => {
+                                    const arr = (p[item.key] || [""]).filter((_, i) => i !== idx);
+                                    return { ...p, [item.key]: arr.length ? arr : [""] };
+                                  });
+                                  setFoodNames(p => {
+                                    const arr = (p[item.key] || [""]).filter((_, i) => i !== idx);
+                                    return { ...p, [item.key]: arr.length ? arr : [""] };
+                                  });
+                                }}>✕</button>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Problem report section with photo upload */}
+            <div className="haccpSection">
+              <div className="haccpSectionHead">Report a Problem (optional)</div>
+              <div className="haccpSectionBody">
+                <textarea className="haccpProblemTextarea"
+                  value={problem} onChange={e => setProblem(e.target.value)}
+                  placeholder="Describe any issue, equipment problem, or safety concern..." />
+                <div className="haccpProblemSeverity">
+                  <span style={{ fontSize: "0.75rem", color: "#6b7280", alignSelf: "center" }}>Severity:</span>
+                  {[["urgent","🔴 Urgent"],["issue","🟡 Issue"],["info","🔵 Info"]].map(([val, label]) => (
+                    <button key={val} className={`haccpSeverityBtn ${severity === val ? `sel-${val}` : ""}`}
+                      type="button" onClick={() => setSeverity(val)}>{label}</button>
+                  ))}
+                </div>
+                <input ref={problemPhotoRef} type="file" accept="image/*" multiple className="fileInput"
+                  onChange={e => { addProblemPhotos(e.target.files); e.target.value = ""; }} />
+                <button type="button" className="btn btnGhost btnSmall photoBtn"
+                  style={{ marginTop: 8 }}
+                  onClick={() => problemPhotoRef.current?.click()}>
+                  📷 Add photos to report
+                </button>
+                {problemPhotos.length > 0 && (
+                  <div className="photoStrip" style={{ marginTop: 8 }}>
+                    {problemPhotos.map(p => (
+                      <div className="photoThumb" key={p.id}>
+                        <img src={p.previewUrl} alt={p.name} />
+                        <button className="thumbX" type="button"
+                          onClick={() => setProblemPhotos(prev => prev.filter(x => x.id !== p.id))}>×</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <HaccpChatBlock
+              chatMessages={chatMessages}
+              chatInput={chatInput}
+              setChatInput={setChatInput}
+              chatSending={chatSending}
+              sendChat={sendChat}
+              chatListRef={chatListRef}
+            />
+
+            <button className="haccpSubmitBtn" onClick={handleSubmit} disabled={submitting}>
+              {submitting ? "Submitting…" : "Submit Temperature Log"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {step === "done" && (
+        <div className="haccpCard">
+          <div className="haccpCardHeader">
+            <div className="haccpCardTitle">✅ Submitted!</div>
+            <div className="haccpCardSub">Thank you, {supName}</div>
+          </div>
+          <div className="haccpCardBody">
+            {LocationBanner}
+            <div className="haccpSuccessBox">
+              Your temperature log has been submitted and will appear in the inspection report.
+              {problem.trim() && " Your problem report has also been received."}
+            </div>
+            <HaccpChatBlock
+              chatMessages={chatMessages}
+              chatInput={chatInput}
+              setChatInput={setChatInput}
+              chatSending={chatSending}
+              sendChat={sendChat}
+              chatListRef={chatListRef}
+            />
+            <button className="haccpSubmitBtn" onClick={() => {
+              // Go back to ident screen so a new sessionId is generated for the next submission
+              setStep("ident");
+              setSupName("");
+              setSupPhone("");
+              setSessionId(null);
+              setProblem("");
+              setProblemPhotos([]);
+              setTemps(Object.fromEntries(HACCP_TEMP_ITEMS.map(it => [it.key, [""]])));
+              setFoodNames(Object.fromEntries(HACCP_TEMP_ITEMS.map(it => [it.key, [""]])));
+            }}>
+              Submit Another Log
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// End-of-day corrective action prompt modal
+function EodCorrectivePrompt({ inspection, rawNotes, onDismiss, onAddNotes }) {
+  // Analyze raw notes for action items already documented
+  const { grouped } = formatNotesStructured(rawNotes);
+  const documentedActions = grouped.action || [];
+
+  // Collect flagged issues that may still need corrective action
+  const actionItems = buildActionItems({ inspection, rawNotes });
+  // Separate issues that already appear in documented actions vs those that don't
+  const flaggedIssues = actionItems.filter(item => {
+    // Check if this issue is already referenced in documented actions
+    const issueText = item.issue.toLowerCase();
+    return !documentedActions.some(a => {
+      const aText = a.toLowerCase();
+      // Cross-reference by key words
+      const words = issueText.split(/\s+/).filter(w => w.length > 4);
+      return words.some(w => aText.includes(w));
+    });
+  });
+
+  const hasDocumented = documentedActions.length > 0;
+  const hasPending = flaggedIssues.length > 0;
+  const allClear = !hasPending && hasDocumented;
+  const noIssues = !hasPending && !hasDocumented;
+
+  return (
+    <div className="eodOverlay" onClick={(e) => { if (e.target === e.currentTarget) onDismiss(); }}>
+      <div className="eodModal">
+        <div className="eodHeader">
+          <span className="eodIcon">🌆</span>
+          <div>
+            <div className="eodTitle">End-of-Day Check</div>
+            <div className="eodSub">Did you document all corrective actions taken today?</div>
+          </div>
+          <button className="eodClose" onClick={onDismiss} title="Dismiss">✕</button>
+        </div>
+
+        {noIssues && (
+          <div className="eodSection eodAllClear">
+            <span className="eodCheck">✅</span>
+            <span>No flagged issues found and no notes recorded yet. You&apos;re good to go — or add notes if needed.</span>
+          </div>
+        )}
+
+        {allClear && (
+          <div className="eodSection eodAllClear">
+            <span className="eodCheck">✅</span>
+            <span>All flagged issues appear to have corrective actions documented. Great job!</span>
+          </div>
+        )}
+
+        {hasDocumented && (
+          <div className="eodSection">
+            <div className="eodSectionTitle">✅ Documented corrective actions</div>
+            <ul className="eodList">
+              {documentedActions.map((a, i) => (
+                <li key={i} className="eodItemGood">{a}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {hasPending && (
+          <div className="eodSection">
+            <div className="eodSectionTitle">⚠️ Issues that may still need corrective action</div>
+            <ul className="eodList">
+              {flaggedIssues.map((item, i) => (
+                <li key={i} className="eodItemWarn">
+                  <span className={`eodPriority eodPriority-${item.priority.toLowerCase()}`}>{item.priority}</span>
+                  {item.issue}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        <div className="eodActions">
+          <button className="btn btnSecondary eodBtnNotes" onClick={onAddNotes}>
+            ✏️ Add notes
+          </button>
+          <button className="btn btnPrimary eodBtnDone" onClick={onDismiss}>
+            ✓ All done for today
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const [locked, setLocked] = useState(true);
   const [currentUser, setCurrentUser] = useState(null);
@@ -3031,6 +5682,8 @@ export default function App() {
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
+  const [showHaccpModal, setShowHaccpModal] = useState(false);
+  const [showChatPanel, setShowChatPanel] = useState(false);
 
   const [output, setOutput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -3038,6 +5691,9 @@ export default function App() {
   const [warnings, setWarnings] = useState([]);
   const [aiTips, setAiTips] = useState([]);
   const [saved, setSaved] = useState(false);
+  const [savedReportId, setSavedReportId] = useState(null); // ID of the most recently saved report
+  const [showEodPrompt, setShowEodPrompt] = useState(false);
+  const rawNotesRef = useRef(null);
 
   // Track activity for auto-lock
   const resetActivity = useCallback(() => { lastActivity.current = Date.now(); }, []);
@@ -3084,9 +5740,67 @@ export default function App() {
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [rawNotes, saved]);
 
+  // Block browser swipe-to-navigate (back/forward) so filling out a report
+  // near the screen edge can't accidentally reset the page.
+  useEffect(() => {
+    let startX = 0;
+    let startY = 0;
+    function onTouchStart(e) {
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+    }
+    function onTouchMove(e) {
+      const dx = Math.abs(e.touches[0].clientX - startX);
+      const dy = Math.abs(e.touches[0].clientY - startY);
+      // Only block clearly horizontal swipes (not vertical scrolling)
+      if (dx > dy && dx > 10) {
+        e.preventDefault();
+      }
+    }
+    document.addEventListener("touchstart", onTouchStart, { passive: true });
+    document.addEventListener("touchmove", onTouchMove, { passive: false });
+    return () => {
+      document.removeEventListener("touchstart", onTouchStart);
+      document.removeEventListener("touchmove", onTouchMove);
+    };
+  }, []);
+
+  // End-of-day corrective action prompt — checks every 5 minutes
+  // Triggers when hour >= 17 (5 PM) and inspection has flagged issues or raw notes present
+  useEffect(() => {
+    const EOD_DISMISS_KEY = "sdx_eod_dismissed";
+    function checkEod() {
+      const now = new Date();
+      const hour = now.getHours();
+      if (hour < 17) return; // before 5 PM — don't show
+      const today = now.toISOString().slice(0, 10);
+      const dismissed = localStorage.getItem(EOD_DISMISS_KEY);
+      if (dismissed === today) return; // already dismissed today
+      // Only show if there's actual inspection work (has site name or raw notes)
+      if (!siteName.trim() && !rawNotes.trim()) return;
+      setShowEodPrompt(true);
+    }
+    checkEod();
+    const timer = setInterval(checkEod, 5 * 60 * 1000); // re-check every 5 min
+    return () => clearInterval(timer);
+  }, [siteName, rawNotes]);
+
+  // NOTE: useMemo hooks must be declared before any conditional early returns (Rules of Hooks)
+  const canShare = inspectorName.trim().length > 0 && siteName.trim().length > 0;
+  // QR appears as soon as name + location are filled (unit number optional)
+  const canShowQr = siteName.trim().length > 0 && inspectorName.trim().length > 0;
+  const shareUrl = useMemo(
+    () => buildShareUrl({ inspectorName, siteName, siteNumber, supervisorName, sitePhone, inspectionType, inspectionDate }),
+    [inspectorName, siteName, siteNumber, supervisorName, sitePhone, inspectionType, inspectionDate]
+  );
+
+  // Supervisor HACCP portal — served via ?haccp=1 URL param (no auth required)
+  const isHaccpPortal = new URLSearchParams(window.location.search).has("haccp");
+  if (isHaccpPortal) return <HaccpPortal />;
+
   if (locked) return <BadgeScreen onUnlock={(user) => { setCurrentUser(user); setLocked(false); resetActivity(); if (user?.name && !inspectorName) setInspectorName(user.name); }} />;
-  if (page === "history") return <HistoryPage onBack={() => setPage("inspector")} />;
-  if (page === "admin") return <AdminPanel currentUser={currentUser} onBack={() => setPage("inspector")} />;
+  if (page === "history") { AIEngine.trackPage("history"); return <HistoryPage onBack={() => setPage("inspector")} onEdit={loadRecordForEdit} />; }
+  if (page === "admin")   { AIEngine.trackPage("admin");   return <AdminPanel currentUser={currentUser} onBack={() => setPage("inspector")} />; }
 
   const spec = NOTE_TYPES[noteType];
 
@@ -3111,6 +5825,7 @@ export default function App() {
     setWarnings([]);
     setAiTips([]);
     setSaved(false);
+    setSavedReportId(null);
     setInspectionType("Regular Inspection");
     setInspectionDate(new Date().toISOString().slice(0, 10));
     setInspectorName(currentUser?.name || "");
@@ -3120,6 +5835,33 @@ export default function App() {
     setSitePhone("");
     setLocationType("Concession");
     setFloor("Floor 1");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function loadRecordForEdit(rec) {
+    // Restore every field from the saved record back into the form
+    const nt = rec.noteType || "inspection";
+    setNoteType(nt);
+    setInspectionType(rec.inspectionType || "Regular Inspection");
+    setInspectionDate(rec.inspectionDate || "");
+    setInspectorName(rec.inspectorName || "");
+    setSiteName(rec.siteName || "");
+    setSiteNumber(rec.siteNumber || "");
+    setSupervisorName(rec.supervisorName || "");
+    setSitePhone(rec.sitePhone || "");
+    setLocationType(rec.locationType || "Concession");
+    setFloor(rec.floor || "Floor 1");
+    setContext(rec.context ? { ...rec.context } : buildDefaultContext(nt));
+    setInspection(rec.inspection ? { ...rec.inspection } : buildDefaultInspection());
+    setRawNotes(rec.rawNotes || "");
+    setOutput(rec.output || "");
+    // Keep the same report ID so re-saving overwrites the existing record
+    setSavedReportId(rec.id);
+    setSaved(false);
+    setError("");
+    setWarnings([]);
+    setAiTips([]);
+    setPage("inspector");
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
@@ -3140,12 +5882,6 @@ export default function App() {
     setWarnings([]);
     setAiTips([]);
   }
-
-  const canShare = inspectorName.trim().length > 0 && siteName.trim().length > 0;
-  const shareUrl = useMemo(
-    () => buildShareUrl({ inspectorName, siteName, siteNumber, supervisorName, sitePhone, inspectionType, inspectionDate }),
-    [inspectorName, siteName, siteNumber, supervisorName, sitePhone, inspectionType, inspectionDate]
-  );
 
   function onTransform() {
     setError("");
@@ -3169,6 +5905,13 @@ export default function App() {
         siteName, siteNumber, sitePhone, supervisorName, floor,
       });
       setOutput(out);
+
+      // Assign a provisional report ID immediately so InlineChat is scoped
+      // to this specific report from the moment it is generated — not null.
+      // saveToHistory() will reuse this same ID when the user saves.
+      setSavedReportId(prev =>
+        prev ? prev : `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+      );
 
       // Run AI assist
       const tips = aiAssist({ inspection, rawNotes, context, noteType });
@@ -3217,7 +5960,9 @@ export default function App() {
     }
 
     const record = {
-      id: `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      // Reuse the provisional ID assigned at onTransform() time so that any
+      // chat messages written before saving remain associated with this record.
+      id: savedReportId || `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
       savedAt: new Date().toISOString(),
       noteType, inspectionType, inspectionDate, inspectorName,
       siteName, siteNumber, supervisorName, sitePhone, locationType, floor,
@@ -3235,7 +5980,17 @@ export default function App() {
       await saveOneInspection(record);
       learnFromSave(record);
       setSaved(true);
+      setSavedReportId(record.id);
       setTimeout(() => setSaved(false), 2500);
+      // Tell AI engine about the new save — triggers self-improvement cycle
+      AIEngine.trackAction("saveInspection", {
+        overallStatus: record.overallStatus,
+        inspectionType: record.inspectionType,
+        locationType: record.locationType || "unknown",
+        issueCount: (record.actionItems || []).length,
+      });
+      const allHistory = await loadHistory();
+      AIEngine.learnFromInspection(record, allHistory);
     } catch (e) {
       console.error("Save failed:", e);
       setError("Save failed — record may be too large. Try removing some photos.");
@@ -3265,13 +6020,14 @@ export default function App() {
           </div>
         </div>
 
-        {/* Header actions: Share + Generate + Hamburger */}
+        {/* Header actions: Share + HACCP QR + Generate + Hamburger */}
         <div className="topActionsHamburger">
           {canShare && (
             <button className="btn btnShare" type="button" onClick={() => setShowShareModal(true)} title="Share pre-filled form link">
               📤 Share
             </button>
           )}
+          {/* HACCP QR button moved to sticky action bar after save */}
           <button className={cx("btn", "btnPrimary", "btnGenHeader")} onClick={onTransform} type="button" disabled={loading}>
             {loading ? "Generating..." : "Generate Report"}
           </button>
@@ -3330,7 +6086,14 @@ export default function App() {
                 <span className="fieldLabel">Supervisor</span>
                 <input className="input" list="supervisorSuggestions" value={supervisorName} onChange={(e) => setSupervisorName(e.target.value)} placeholder="e.g., GM / Chef Lead" />
                 <datalist id="supervisorSuggestions">
-                  {(getAutofillMemory().supervisorName || []).map((s, i) => <option key={i} value={s} />)}
+                  {/* Only suggest supervisors remembered for the current site — prevents cross-site contamination */}
+                  {(() => {
+                    const mem = getAutofillMemory();
+                    const siteSuper = siteName ? mem.siteMap?.[siteName]?.supervisorName : null;
+                    // If we have a site-specific supervisor, offer only that; otherwise offer nothing
+                    // (do NOT offer all supervisors from all sites)
+                    return siteSuper ? [<option key="site" value={siteSuper} />] : null;
+                  })()}
                 </datalist>
               </label>
               <label className="field" id="field-siteName">
@@ -3346,6 +6109,12 @@ export default function App() {
                     if (mapped.supervisorName && !supervisorName) setSupervisorName(mapped.supervisorName);
                     if (mapped.locationType) setLocationType(mapped.locationType);
                     if (mapped.floor) setFloor(mapped.floor);
+                    // Restore remembered equipment for Portable / Subcontractor sites
+                    const lt = mapped.locationType || locationType;
+                    if ((lt === "Portable" || lt === "Subcontractor") && mapped.equipmentItems?.length) {
+                      const restoredEquip = buildEquipFromMemory(mapped.equipmentItems);
+                      setInspection(prev => ({ ...prev, equipment: restoredEquip }));
+                    }
                   }
                 }} placeholder="e.g., North Stand Kitchen" />
                 <datalist id="siteNameSuggestions">
@@ -3414,14 +6183,22 @@ export default function App() {
                 </div>
               </div>
 
-              <GuideSection title="Facility: ceiling, walls, floors, lighting"
+              <GuideSection title="🏢 Facility & Maintenance"
                 items={[
                   { path: ["facility", "ceiling"], label: "Ceiling" },
                   { path: ["facility", "walls"], label: "Walls" },
                   { path: ["facility", "floors"], label: "Floors" },
                   { path: ["facility", "lighting"], label: "Lighting" },
                 ]} inspection={inspection} setInspection={setInspection}
-                allowCustom sectionKey="facility" />
+                allowCustom sectionKey="facility"
+                maintenanceItems={[
+                  { path: ["maintenance", "pestControl"],       label: "Pest control",        hasPriority: true },
+                  { path: ["maintenance", "hvac"],              label: "HVAC / Air conditioning", hasPriority: true },
+                  { path: ["maintenance", "plumbing"],          label: "Plumbing / Drains",   hasPriority: true },
+                  { path: ["maintenance", "electricalSafety"],  label: "Electrical safety",   hasPriority: true },
+                  { path: ["maintenance", "dumpsterArea"],      label: "Dumpster / trash area", hasPriority: true },
+                  { path: ["maintenance", "structuralDamage"],  label: "Structural damage",   hasPriority: true },
+                ]} />
 
               <GuideSection title="Operations: employees + process controls"
                 items={[
@@ -3459,8 +6236,18 @@ export default function App() {
                       {Number(inspection.temps.threeCompSinkTempF) >= 110 ? "Meets >=110 F" : inspection.temps.threeCompSinkTempF ? "Below 110 F - flag" : ""}
                     </span>
                   </label>
-                  {/* Cold equipment temps — synced with equipment items below */}
-                  {Object.entries(COLD_EQUIPMENT).map(([eqKey, cold]) => {
+                  {/* Cold equipment temps — synced with equipment items below.
+                      For Portable/Subcontractor, show temps for any equipment item
+                      that has a cold type (detected from label or key). */}
+                  {(locationType === "Concession"
+                    ? Object.entries(COLD_EQUIPMENT)
+                    : Object.entries(inspection.equipment || {})
+                        .filter(([k, v]) => detectColdType(v?.label || k))
+                        .map(([k, v]) => {
+                          const cold = detectColdType(v?.label || k);
+                          return [k, { ...cold, label: v?.label || k }];
+                        })
+                  ).map(([eqKey, cold]) => {
                     const node = inspection.equipment?.[eqKey];
                     const val = node?.tempF || "";
                     const num = Number(val);
@@ -3485,19 +6272,31 @@ export default function App() {
                 </div>
               </div>
 
-              <GuideSection title="Equipment check"
-                items={[
-                  { path: ["equipment", "doubleDoorCooler"], label: "Double-door cooler" },
-                  { path: ["equipment", "doubleDoorFreezer"], label: "Double-door freezer" },
-                  { path: ["equipment", "walkInCooler"], label: "Walk-in cooler" },
-                  { path: ["equipment", "walkInFreezer"], label: "Walk-in freezer" },
-                  { path: ["equipment", "prepCooler"], label: "Prep cooler" },
-                  { path: ["equipment", "warmers"], label: "Warmers / hot holding" },
-                  { path: ["equipment", "ovens"], label: "Ovens" },
-                  { path: ["equipment", "threeCompSink"], label: "3-compartment sink" },
-                  { path: ["equipment", "ecolab"], label: "Ecolab / chemicals" },
-                ]} inspection={inspection} setInspection={setInspection}
-                allowCustom sectionKey="equipment" coldEquipmentMap={COLD_EQUIPMENT} />
+              {locationType === "Concession" ? (
+                <GuideSection title="Equipment check"
+                  items={[
+                    { path: ["equipment", "doubleDoorCooler"], label: "Double-door cooler" },
+                    { path: ["equipment", "doubleDoorFreezer"], label: "Double-door freezer" },
+                    { path: ["equipment", "walkInCooler"], label: "Walk-in cooler" },
+                    { path: ["equipment", "walkInFreezer"], label: "Walk-in freezer" },
+                    { path: ["equipment", "prepCooler"], label: "Prep cooler" },
+                    { path: ["equipment", "warmers"], label: "Warmers / hot holding" },
+                    { path: ["equipment", "ovens"], label: "Ovens" },
+                    { path: ["equipment", "threeCompSink"], label: "3-compartment sink" },
+                    { path: ["equipment", "ecolab"], label: "Ecolab / chemicals" },
+                  ]} inspection={inspection} setInspection={setInspection}
+                  allowCustom sectionKey="equipment" coldEquipmentMap={COLD_EQUIPMENT} />
+              ) : (
+                /* Portable / Subcontractor — no preset equipment, inspector builds the list */
+                <GuideSection
+                  title={`Equipment check — ${locationType}`}
+                  items={[]}
+                  inspection={inspection} setInspection={setInspection}
+                  allowCustom sectionKey="equipment" coldEquipmentMap={COLD_EQUIPMENT}
+                  emptyHint={`This is a ${locationType} location. Add only the equipment that is actually present here — your list will be remembered for next time.`}
+                />
+              )}
+
             </div>
 
             <div className="field">
@@ -3505,7 +6304,7 @@ export default function App() {
                 <span className="fieldLabel">Raw notes</span>
                 <span className="hint">Abbreviations are expanded while preserving meaning</span>
               </div>
-              <textarea className="textarea" value={rawNotes} onChange={(e) => setRawNotes(e.target.value)} placeholder="Paste quick inspection notes here..." rows={10} />
+              <textarea ref={rawNotesRef} className="textarea" value={rawNotes} onChange={(e) => setRawNotes(e.target.value)} placeholder="Paste quick inspection notes here..." rows={10} />
             </div>
 
             {warnings.length > 0 && (
@@ -3574,6 +6373,8 @@ export default function App() {
                   <button className="btn btnDownload" type="button" onClick={onDownloadHtml}>Word (.doc)</button>
                   <button className="btn btnDownload" type="button" onClick={onDownloadTxt}>Text (.txt)</button>
                 </div>
+                {/* ── Inline Supervisor Chat — scoped to this report's ID ── */}
+                <InlineChat currentUser={currentUser} sessionId={savedReportId} />
               </>
             )}
           </div>
@@ -3591,20 +6392,57 @@ export default function App() {
             const el = document.getElementById("report-output");
             if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
           }}>&#128196; View Report</button>
+          <button className="btn stickyBtn stickyBtnEdit" type="button" onClick={() => {
+            window.scrollTo({ top: 0, behavior: "smooth" });
+          }}>✏️ Edit</button>
           <button className={cx("btn stickyBtn", saved ? "stickyBtnSaved" : "stickyBtnSave")} type="button" onClick={saveToHistory}>
-            {saved ? "\u2705 Saved!" : "&#128190; Save Report"}
+            {saved ? "✅ Saved!" : "💾 Save Report"}
           </button>
+          {savedReportId ? (
+            <button className="btn stickyBtn stickyBtnHaccp" type="button" onClick={() => setShowHaccpModal(true)} title="Share HACCP temperature log QR with supervisor">
+              🌡️ HACCP QR
+            </button>
+          ) : (
+            <button className="btn stickyBtn stickyBtnHaccpOff" type="button" disabled title="Save the report first to generate a location-linked HACCP QR">
+              🌡️ HACCP QR
+            </button>
+          )}
           <button className="btn stickyBtn stickyBtnNew" type="button" onClick={startNewInspection}>+ New</button>
         </div>
       )}
 
       <footer className="footer">
         <img src={LOGO_WHITE} alt="Sodexo" className="footerLogo" />
-        <span>{FIREBASE_ON ? "\u2601\uFE0F Cloud database connected \u2014 data syncs across all devices." : "\U0001F512 Data stored locally on this device."}</span>
+        <span>{FIREBASE_ON ? "☁️ Cloud database connected — data syncs across all devices." : "🔒 Data stored locally on this device."}</span>
       </footer>
 
       {showShareModal && (
         <ShareModal shareUrl={shareUrl} onClose={() => setShowShareModal(false)} />
+      )}
+      {showHaccpModal && (
+        <HaccpQrModal onClose={() => setShowHaccpModal(false)} siteName={siteName} siteNumber={siteNumber} floor={floor} locationType={locationType} reportId={savedReportId} />
+      )}
+      {/* Chat is now embedded inline in the report output section */}
+
+      {showEodPrompt && (
+        <EodCorrectivePrompt
+          inspection={inspection}
+          rawNotes={rawNotes}
+          onDismiss={() => {
+            const today = new Date().toISOString().slice(0, 10);
+            localStorage.setItem("sdx_eod_dismissed", today);
+            setShowEodPrompt(false);
+          }}
+          onAddNotes={() => {
+            setShowEodPrompt(false);
+            setTimeout(() => {
+              if (rawNotesRef.current) {
+                rawNotesRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+                rawNotesRef.current.focus();
+              }
+            }, 150);
+          }}
+        />
       )}
     </div>
   );

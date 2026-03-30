@@ -16,32 +16,89 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
+    // Guard: incoming data must not be larger than 100 KB worth of keys
+    function notTooLarge() {
+      return request.resource.data.keys().size() < 100;
+    }
+
     // ── Users collection ──────────────────────────────────────────
-    // Only admins can read the full user list.
-    // Users can read their own document.
-    // Only the server (admin SDK) should write user data.
+    // Admins read the full user list; users read their own doc.
+    // All writes come from inside the app (authenticated users / admin SDK).
     match /users/{userId} {
-      allow read: if isOwner(userId) || isAdmin();
-      allow create: if false;  // Only via server Admin SDK
-      allow update: if false;  // Only via server Admin SDK
-      allow delete: if false;  // Only via server Admin SDK
+      allow read:   if isOwner(userId) || isAdmin();
+      // Allow authenticated users to create/update only their own document
+      // (self-registration flow). Admins can create/update any user doc.
+      allow create: if isAuthenticated() &&
+                       (request.auth.uid == userId || isAdmin()) &&
+                       notTooLarge();
+      allow update: if isAuthenticated() &&
+                       (request.auth.uid == userId || isAdmin()) &&
+                       notTooLarge();
+      allow delete: if isAdmin();
     }
 
     // ── Inspections collection ────────────────────────────────────
-    // Inspectors can read/write their own reports.
-    // Admins can read/write all reports.
+    // Inspectors read/write their own reports; admins read/write all.
     match /inspections/{inspectionId} {
       allow read: if isAuthenticated() &&
         (resource.data.createdBy == request.auth.uid || isAdmin());
 
       allow create: if isAuthenticated() &&
-        request.resource.data.createdBy == request.auth.uid;
+        request.resource.data.createdBy == request.auth.uid &&
+        notTooLarge();
 
       allow update: if isAuthenticated() &&
-        (resource.data.createdBy == request.auth.uid || isAdmin());
+        (resource.data.createdBy == request.auth.uid || isAdmin()) &&
+        notTooLarge();
 
+      // Only the owning inspector or an admin may delete a report
       allow delete: if isAuthenticated() &&
         (resource.data.createdBy == request.auth.uid || isAdmin());
+    }
+
+    // ── HACCP Submissions collection ─────────────────────────────
+    // Written by unauthenticated supervisors via the public HACCP portal.
+    // Read only by authenticated admins.
+    // No updates or deletes from the client — immutable once saved.
+    match /haccpSubmissions/{submissionId} {
+      allow read:   if isAdmin();
+      allow create: if notTooLarge() &&
+                       request.resource.data.keys().hasAll(["id", "type", "submittedAt"]) &&
+                       request.resource.data.id is string &&
+                       request.resource.data.type is string &&
+                       request.resource.data.submittedAt is string;
+      allow update: if false;
+      allow delete: if isAdmin();
+    }
+
+    // ── Problem Reports collection ────────────────────────────────
+    // Written by unauthenticated supervisors; read/deleted by admins only.
+    // Immutable once written from the client.
+    match /problemReports/{reportId} {
+      allow read:   if isAdmin();
+      allow create: if notTooLarge() &&
+                       request.resource.data.keys().hasAll(["id", "reportedAt"]) &&
+                       request.resource.data.id is string &&
+                       request.resource.data.reportedAt is string;
+      allow update: if false;
+      allow delete: if isAdmin();
+    }
+
+    // ── Supervisor Chat collection ────────────────────────────────
+    // Any user (authenticated or anonymous) may create a message.
+    // Any authenticated user may read (to see replies in-app).
+    // Messages are immutable; only admins can delete.
+    match /supervisorChat/{messageId} {
+      allow read:   if isAuthenticated();
+      // Public HACCP portal write — validate required fields + size
+      allow create: if notTooLarge() &&
+                       request.resource.data.keys().hasAll(["id", "sessionId", "sender", "text", "sentAt"]) &&
+                       request.resource.data.id is string &&
+                       request.resource.data.text is string &&
+                       request.resource.data.text.size() <= 4000 &&
+                       request.resource.data.sentAt is string;
+      allow update: if false;
+      allow delete: if isAdmin();
     }
 
     // ── Deny everything else ──────────────────────────────────────
