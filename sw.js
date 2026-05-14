@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v5: network-first for app shell, stale-while-revalidate for static assets
-const CACHE_NAME = "sdx-inspect-v5";
+// v6: force eviction of stale JS bundles from v5 cache
+const CACHE_NAME = "sdx-inspect-v6";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
