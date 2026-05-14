@@ -1,59 +1,101 @@
-// Sodexo Kitchen Inspection — Service Worker (cache-first + daily cleanup)
-const CACHE_NAME = "sdx-inspect-v4";
+// Sodexo Kitchen Inspection — Service Worker
+// v5: network-first for app shell, stale-while-revalidate for static assets
+const CACHE_NAME = "sdx-inspect-v5";
 const PRECACHE = [
-  "./",
   "./favicon.svg",
   "./sodexo-live-logo.svg",
   "./sodexo-dark.svg",
 ];
 
-// Install: precache critical assets
+// Install: precache static assets (NOT the HTML or JS bundles — those use network-first)
 self.addEventListener("install", (e) => {
   e.waitUntil(
     caches.open(CACHE_NAME).then((cache) => cache.addAll(PRECACHE))
   );
+  // Take over immediately — don't wait for old SW to be idle
   self.skipWaiting();
 });
 
-// Activate: clean old caches
+// Activate: delete ALL old caches, then claim all clients
 self.addEventListener("activate", (e) => {
   e.waitUntil(
     caches.keys().then((keys) =>
       Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
-    )
+    ).then(() => self.clients.claim())
   );
-  self.clients.claim();
 });
 
-// Daily cache cleanup — runs via message from the app
+// Message handler: manual cache bust from app + update notification
 self.addEventListener("message", (e) => {
   if (e.data === "CLEAN_CACHE") {
     caches.delete(CACHE_NAME).then(() => {
       caches.open(CACHE_NAME).then((cache) => cache.addAll(PRECACHE));
     });
   }
+  if (e.data === "SKIP_WAITING") {
+    self.skipWaiting();
+  }
 });
 
-// Fetch: stale-while-revalidate for assets, network-first for API/fonts
+// Fetch strategy:
+// - HTML (index.html / navigation): network-first so new deploys are always picked up
+// - Google Fonts: network-first with cache fallback
+// - JS/CSS assets (hashed filenames): cache-first (immutable once deployed)
+// - Everything else same-origin: stale-while-revalidate
 self.addEventListener("fetch", (e) => {
   const url = new URL(e.request.url);
 
-  // Skip non-GET requests
+  // Skip non-GET
   if (e.request.method !== "GET") return;
 
-  // Network-first for Google Fonts (always fresh)
-  if (url.hostname.includes("fonts.googleapis.com") || url.hostname.includes("fonts.gstatic.com")) {
+  // Network-first for navigation (index.html) — ensures fresh app shell
+  if (e.request.mode === "navigate") {
     e.respondWith(
-      fetch(e.request).then((res) => {
-        const clone = res.clone();
-        caches.open(CACHE_NAME).then((c) => c.put(e.request, clone));
-        return res;
-      }).catch(() => caches.match(e.request))
+      fetch(e.request)
+        .then((res) => {
+          if (res.ok) {
+            const clone = res.clone();
+            caches.open(CACHE_NAME).then((c) => c.put(e.request, clone));
+          }
+          return res;
+        })
+        .catch(() => caches.match(e.request))
     );
     return;
   }
 
-  // Stale-while-revalidate for same-origin assets
+  // Network-first for Google Fonts
+  if (url.hostname.includes("fonts.googleapis.com") || url.hostname.includes("fonts.gstatic.com")) {
+    e.respondWith(
+      fetch(e.request)
+        .then((res) => {
+          const clone = res.clone();
+          caches.open(CACHE_NAME).then((c) => c.put(e.request, clone));
+          return res;
+        })
+        .catch(() => caches.match(e.request))
+    );
+    return;
+  }
+
+  // Cache-first for hashed JS/CSS assets — safe because filenames change on every deploy
+  if (url.origin === location.origin && /\/assets\/[^/]+\.(js|css)$/.test(url.pathname)) {
+    e.respondWith(
+      caches.match(e.request).then((cached) => {
+        if (cached) return cached;
+        return fetch(e.request).then((res) => {
+          if (res.ok) {
+            const clone = res.clone();
+            caches.open(CACHE_NAME).then((c) => c.put(e.request, clone));
+          }
+          return res;
+        });
+      })
+    );
+    return;
+  }
+
+  // Stale-while-revalidate for other same-origin resources (SVGs, etc.)
   if (url.origin === location.origin) {
     e.respondWith(
       caches.match(e.request).then((cached) => {
