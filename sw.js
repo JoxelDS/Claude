@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v8: force eviction of all stale caches
-const CACHE_NAME = "sdx-inspect-v8";
+// v9: force eviction of all stale caches after redeploy fix
+const CACHE_NAME = "sdx-inspect-v9";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
