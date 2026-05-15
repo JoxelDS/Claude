@@ -44,25 +44,18 @@
   </script>
   <script type="text/javascript" src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
   <style>
-    /* Google Translate top-bar banner — hide it; we have our own button */
-    .goog-te-banner-frame { display: none !important; }
-    body { top: 0 !important; }
-    /* Style the inline widget to match our app */
-    #google_translate_element .goog-te-gadget-simple {
-      border: 1px solid #d1d5db !important;
-      border-radius: 6px !important;
-      padding: 4px 8px !important;
-      background: #f9fafb !important;
-      font-size: 0.82rem !important;
-      color: #374151 !important;
-    }
-    #google_translate_element .goog-te-gadget-simple span,
-    #google_translate_element .goog-te-gadget-simple a {
-      color: #374151 !important;
-      font-family: inherit !important;
-      font-size: 0.82rem !important;
-    }
-    #google_translate_element .goog-te-gadget-simple .goog-te-menu-value span:first-child { display: none; }
+    /* Hide ALL Google Translate chrome — banner, tooltip, top bar */
+    .goog-te-banner-frame,
+    .goog-te-balloon-frame,
+    #goog-gt-tt,
+    .goog-te-balloon-frame,
+    .goog-tooltip,
+    .goog-tooltip-content,
+    iframe.skiptranslate { display: none !important; }
+    /* Prevent Google from pushing body down */
+    body { top: 0 !important; margin-top: 0 !important; }
+    body.translated-ltr,
+    body.translated-rtl { top: 0 !important; }
   </style>
     <script type="module" crossorigin src="/Claude/assets/BE3iWxZ6.js"></script>
     <link rel="modulepreload" crossorigin href="/Claude/assets/N--QU9DW.js">
