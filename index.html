@@ -44,22 +44,29 @@
   </script>
   <script type="text/javascript" src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
   <style>
-    /* Hide ALL Google Translate chrome — banner, tooltip, top bar */
+    /* Hide ALL Google Translate chrome — banner, tooltip, top bar, logo */
     .goog-te-banner-frame,
     .goog-te-balloon-frame,
+    .goog-te-menu-frame,
     #goog-gt-tt,
-    .goog-te-balloon-frame,
     .goog-tooltip,
     .goog-tooltip-content,
-    iframe.skiptranslate { display: none !important; }
-    /* Prevent Google from pushing body down */
-    body { top: 0 !important; margin-top: 0 !important; }
+    .goog-te-spinner,
+    .VIpgJd-ZVi9od-aZ2wEe,
+    .VIpgJd-ZVi9od-aZ2wEe-OiiCO,
+    iframe.skiptranslate,
+    .skiptranslate { display: none !important; visibility: hidden !important; }
+    /* Prevent Google from pushing body down or repositioning it */
+    body,
     body.translated-ltr,
-    body.translated-rtl { top: 0 !important; }
+    body.translated-rtl { top: 0 !important; margin-top: 0 !important; position: static !important; }
+    /* Kill the top bar that flashes when translation is applied */
+    .goog-te-banner-frame.skiptranslate { display: none !important; }
+    font[style*="vertical-align"] { vertical-align: inherit !important; }
   </style>
-    <script type="module" crossorigin src="/Claude/assets/BOBb_qtV.js"></script>
+    <script type="module" crossorigin src="/Claude/assets/BNqU-qA5.js"></script>
     <link rel="modulepreload" crossorigin href="/Claude/assets/N--QU9DW.js">
-    <link rel="stylesheet" crossorigin href="/Claude/assets/BVjrByk3.css">
+    <link rel="stylesheet" crossorigin href="/Claude/assets/4Lki4dmv.css">
   </head>
   <body>
     <!-- Google Translate widget — mounted here permanently, teleported into popover via JS -->
