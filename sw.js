@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v9: force eviction of all stale caches after redeploy fix
-const CACHE_NAME = "sdx-inspect-v9";
+// v10: clear cache after output field removed from Firestore saves
+const CACHE_NAME = "sdx-inspect-v10";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
