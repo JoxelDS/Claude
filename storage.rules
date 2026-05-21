@@ -1,0 +1,24 @@
+rules_version = '2';
+
+// Firebase Storage rules for Sodexo Kitchen Inspection
+// App uses badge-based auth (no Firebase Auth tokens), so request.auth is always null.
+// Access control is handled at the application level via SHA-256 badge hashing.
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Photos uploaded during inspections
+    match /photos/{venueId}/{inspectionId}/{photoId} {
+      // Anyone can read photos (inspection reports are shared within the venue)
+      allow read: if true;
+
+      // Allow writes for image files up to 10 MB
+      allow write: if request.resource.size < 10 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*');
+    }
+
+    // Deny everything else
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

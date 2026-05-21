@@ -26,7 +26,8 @@
  */
 
 import { initializeApp } from "firebase/app";
-import { getFirestore, collection } from "firebase/firestore";
+import { getFirestore, collection, doc } from "firebase/firestore";
+import { getStorage, ref, uploadString, getDownloadURL, deleteObject } from "firebase/storage";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDgXvyvFuKUc59IDB8Fr52ydZ0hiJfJeZU",
@@ -43,10 +44,12 @@ const isConfigured = Boolean(firebaseConfig.apiKey && firebaseConfig.projectId);
 
 let app = null;
 let db = null;
+let storage = null;
 
 if (isConfigured) {
   app = initializeApp(firebaseConfig);
   db = getFirestore(app);
+  storage = getStorage(app);
 }
 
 /* ── Multi-venue support ─────────────────────────────────────────
@@ -69,4 +72,49 @@ export function venueCol(name) {
   return collection(db, "venues", activeVenueId, name);
 }
 
-export { db, isConfigured };
+/**
+ * Top-level venue registry collection — stores venue metadata (name, type, address, status).
+ * Path: /venueRegistry/{venueId}  (NOT scoped under /venues/, so global_admin can read all)
+ */
+export function venueRegistryCol() {
+  if (!db) return null;
+  return collection(db, "venueRegistry");
+}
+
+export function venueRegistryDoc(venueId) {
+  if (!db) return null;
+  return doc(db, "venueRegistry", venueId);
+}
+
+/**
+ * Upload a base64 data URL to Firebase Storage.
+ * Path: photos/{venueId}/{inspectionId}/{photoId}.jpg
+ * Returns the permanent HTTPS download URL.
+ */
+export async function uploadPhoto(dataUrl, venueId, inspectionId, photoId) {
+  if (!storage) { console.error("uploadPhoto: storage is null"); return null; }
+  try {
+    const path = `photos/${venueId}/${inspectionId}/${photoId}.jpg`;
+    const photoRef = ref(storage, path);
+    await uploadString(photoRef, dataUrl, "data_url", { contentType: "image/jpeg" });
+    const url = await getDownloadURL(photoRef);
+    console.log("uploadPhoto success:", path);
+    return url;
+  } catch (e) {
+    console.error("uploadPhoto error code:", e.code, "message:", e.message);
+    return null;
+  }
+}
+
+/**
+ * Delete a photo from Firebase Storage by its storage path or full URL.
+ */
+export async function deletePhoto(venueId, inspectionId, photoId) {
+  if (!storage) return;
+  try {
+    const path = `photos/${venueId}/${inspectionId}/${photoId}.jpg`;
+    await deleteObject(ref(storage, path));
+  } catch (_) {}
+}
+
+export { db, storage, isConfigured };

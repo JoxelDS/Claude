@@ -1,0 +1,21 @@
+[debug] [2026-05-19T14:13:31.758Z] ----------------------------------------------------------------------
+[debug] [2026-05-19T14:13:31.760Z] Command:       /usr/local/bin/node /Users/joxeldasilva/Claude/node_modules/.bin/firebase projects:list
+[debug] [2026-05-19T14:13:31.760Z] CLI Version:   15.18.0
+[debug] [2026-05-19T14:13:31.761Z] Platform:      darwin
+[debug] [2026-05-19T14:13:31.761Z] Node Version:  v24.13.1
+[debug] [2026-05-19T14:13:31.761Z] Time:          Tue May 19 2026 10:13:31 GMT-0400 (Eastern Daylight Time)
+[debug] [2026-05-19T14:13:31.761Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-05-19T14:13:31.834Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-05-19T14:13:32.061Z] Running auto auth
+[debug] [2026-05-19T14:13:32.063Z] No OAuth tokens found
+[debug] [2026-05-19T14:13:32.064Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/projects pageSize=1000
+[debug] [2026-05-19T14:13:32.365Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/projects 403
+[debug] [2026-05-19T14:13:32.365Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/projects [omitted]
+[debug] [2026-05-19T14:13:32.366Z] Request to https://firebase.googleapis.com/v1beta1/projects?pageSize=1000 had HTTP Error: 403, Your application is authenticating by using local Application Default Credentials. The firebase.googleapis.com API requires a quota project, which is not set by default. To learn how to set your quota project, see https://cloud.google.com/docs/authentication/adc-troubleshooting/user-creds .
+[debug] [2026-05-19T14:13:32.366Z] FirebaseError: Request to https://firebase.googleapis.com/v1beta1/projects?pageSize=1000 had HTTP Error: 403, Your application is authenticating by using local Application Default Credentials. The firebase.googleapis.com API requires a quota project, which is not set by default. To learn how to set your quota project, see https://cloud.google.com/docs/authentication/adc-troubleshooting/user-creds .
+    at responseToError (/Users/joxeldasilva/Claude/node_modules/firebase-tools/lib/responseToError.js:53:12)
+    at RetryOperation._fn (/Users/joxeldasilva/Claude/node_modules/firebase-tools/lib/apiv2.js:333:77)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+[error] 
+[error] Error: Failed to list Firebase projects. See firebase-debug.log for more info.

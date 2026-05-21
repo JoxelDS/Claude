@@ -42,6 +42,14 @@ function saveJSON(key, value) {
 }
 function nowISO() { return new Date().toISOString(); }
 function todayKey() { return new Date().toISOString().slice(0, 10); }
+// Composite site key: "Wynwood Walkthrough #142a" vs "Wynwood Walkthrough #122a"
+// Uses both siteName and siteNumber (permit number) so two sites sharing the same
+// name but at different numbers are tracked separately.
+function siteKey(rec) {
+  const name = (rec.siteName || rec.location || "Unknown").trim();
+  const num  = (rec.siteNumber || "").trim();
+  return num ? `${name} #${num}` : name;
+}
 
 /* ══════════════════════════════════════════════════════════════════
    AIMemory  — the engine's persistent brain
@@ -171,7 +179,7 @@ const InspectorProfiler = {
       if (rec.overallStatus === "Pass") map[name].passes += 1;
       const items = rec.actionItems || [];
       map[name].issues += items.length;
-      if (rec.siteName) map[name].sites.add(rec.siteName);
+      map[name].sites.add(siteKey(rec));
       for (const item of items) {
         const cat = (item.issue || "").split(":")[0].trim() || "Other";
         map[name].cats[cat] = (map[name].cats[cat] || 0) + 1;
@@ -211,9 +219,107 @@ const InspectorProfiler = {
         const recent = sorted.slice(-3).map(r => ({
           date: r.inspectionDate,
           status: r.overallStatus,
-          site: r.siteName || "?",
+          site: siteKey(r),
           issues: (r.actionItems || []).length,
         }));
+
+        // ── Time tracking (report duration in seconds) ──────────
+        const durations = v.records
+          .map(r => r.reportDurationSeconds)
+          .filter(d => typeof d === "number" && d > 0);
+        const avgDurationSec = durations.length
+          ? Math.round(durations.reduce((a, b) => a + b, 0) / durations.length)
+          : null;
+        // Per-site time breakdown
+        const siteTimeMap = {};
+        for (const r of v.records) {
+          const sk = siteKey(r);
+          if (!siteTimeMap[sk]) siteTimeMap[sk] = { total: 0, count: 0 };
+          if (typeof r.reportDurationSeconds === "number" && r.reportDurationSeconds > 0) {
+            siteTimeMap[sk].total += r.reportDurationSeconds;
+            siteTimeMap[sk].count += 1;
+          }
+        }
+        const timePerSite = Object.entries(siteTimeMap)
+          .map(([site, s]) => ({
+            site,
+            avgSec: s.count ? Math.round(s.total / s.count) : null,
+            count: s.count,
+          }))
+          .filter(s => s.avgSec !== null)
+          .sort((a, b) => b.avgSec - a.avgSec);
+
+        // ── Turnaround time: inspectionDate → savedAt (submission lag) ──
+        // Same-day = 0, next-day = 1, etc.  Measures how quickly the inspector submits.
+        const turnaroundDays = v.records
+          .filter(r => r.inspectionDate && r.savedAt)
+          .map(r => {
+            const inspMs = new Date(r.inspectionDate + "T00:00:00").getTime();
+            const saveMs = new Date(r.savedAt).getTime();
+            return Math.max(0, Math.round((saveMs - inspMs) / 86400000));
+          });
+        const avgTurnaroundDays = turnaroundDays.length
+          ? parseFloat((turnaroundDays.reduce((a, b) => a + b, 0) / turnaroundDays.length).toFixed(1))
+          : null;
+        const sameDayRate = turnaroundDays.length
+          ? Math.round((turnaroundDays.filter(d => d === 0).length / turnaroundDays.length) * 100)
+          : null;
+
+        // ── Inspector throughput: inspections per active day ──
+        // Active days = distinct inspectionDate values this inspector worked.
+        const activeDates = new Set(v.records.map(r => r.inspectionDate).filter(Boolean));
+        const activeDayCount = activeDates.size;
+        const inspPerDay = activeDayCount > 0
+          ? parseFloat((total / activeDayCount).toFixed(1))
+          : null;
+
+        // ── Site re-inspection interval: avg days between consecutive visits to the SAME site ──
+        // Group records by site, sort by inspectionDate, compute day gaps.
+        const siteVisits = {}; // { siteKey: [date1, date2, ...] sorted asc }
+        for (const r of v.records) {
+          if (!r.inspectionDate) continue;
+          const sk = siteKey(r);
+          if (!siteVisits[sk]) siteVisits[sk] = [];
+          siteVisits[sk].push(r.inspectionDate);
+        }
+        const reinspIntervals = []; // day counts between consecutive visits, all sites
+        const siteReinspDetail = []; // { site, visits, avgDays } for display
+        for (const [sk, dates] of Object.entries(siteVisits)) {
+          const sorted2 = [...new Set(dates)].sort();
+          if (sorted2.length < 2) continue;
+          const siteDayGaps = [];
+          for (let i = 1; i < sorted2.length; i++) {
+            const a = new Date(sorted2[i - 1]).getTime();
+            const b = new Date(sorted2[i]).getTime();
+            const days = Math.round((b - a) / 86400000);
+            if (days > 0) { siteDayGaps.push(days); reinspIntervals.push(days); }
+          }
+          if (siteDayGaps.length > 0) {
+            siteReinspDetail.push({
+              site: sk,
+              visits: sorted2.length,
+              avgDays: parseFloat((siteDayGaps.reduce((a, b) => a + b, 0) / siteDayGaps.length).toFixed(0)),
+              lastVisit: sorted2[sorted2.length - 1],
+            });
+          }
+        }
+        const avgReinspDays = reinspIntervals.length
+          ? parseFloat((reinspIntervals.reduce((a, b) => a + b, 0) / reinspIntervals.length).toFixed(0))
+          : null;
+        // Sort by most-frequently revisited sites first
+        siteReinspDetail.sort((a, b) => b.visits - a.visits);
+
+        // ── Performance score: composite of pass rate + issue finds + speed ──
+        // Higher is better. passRate 0-100 weighted 60%, avgIssues bonus (up to 20 pts
+        // for finding issues = thoroughness), speed bonus capped at 20 pts.
+        const speedBonus = avgDurationSec !== null
+          ? Math.min(20, Math.round(20 * Math.min(1, 1200 / Math.max(avgDurationSec, 60)))) // bonus for <20min avg
+          : 10; // neutral if no data
+        const performanceScore = Math.min(100, Math.round(
+          passRate * 0.6
+          + Math.min(20, avgIssues * 4)   // up to 20pts for finding issues
+          + speedBonus
+        ));
 
         return {
           name,
@@ -229,6 +335,22 @@ const InspectorProfiler = {
           recent,
           firstPassRate,
           secondPassRate,
+          // Time tracking (within inspection — report duration)
+          avgDurationSec,
+          timePerSite,
+          durationCount: durations.length,
+          // Turnaround time (inspectionDate → savedAt submission lag)
+          avgTurnaroundDays,
+          sameDayRate,
+          turnaroundCount: turnaroundDays.length,
+          // Inspector throughput
+          activeDayCount,
+          inspPerDay,
+          // Site re-inspection interval
+          avgReinspDays,
+          siteReinspDetail,
+          // Overall performance score
+          performanceScore,
         };
       })
       .sort((a, b) => b.total - a.total);
@@ -250,15 +372,13 @@ const SupervisorProfiler = {
       if (!map[sup]) map[sup] = { records: [], passes: 0, sites: new Set(), issueCats: {}, problematicSites: {} };
       map[sup].records.push(rec);
       if (rec.overallStatus === "Pass") map[sup].passes += 1;
-      if (rec.siteName) {
-        map[sup].sites.add(rec.siteName);
-        const siteKey = rec.siteName;
-        if (!map[sup].problematicSites[siteKey]) map[sup].problematicSites[siteKey] = { total: 0, fails: 0, issues: [] };
-        map[sup].problematicSites[siteKey].total += 1;
-        if (rec.overallStatus !== "Pass") map[sup].problematicSites[siteKey].fails += 1;
-        for (const item of (rec.actionItems || [])) {
-          map[sup].problematicSites[siteKey].issues.push(item.issue || "");
-        }
+      const sk = siteKey(rec);
+      map[sup].sites.add(sk);
+      if (!map[sup].problematicSites[sk]) map[sup].problematicSites[sk] = { total: 0, fails: 0, issues: [] };
+      map[sup].problematicSites[sk].total += 1;
+      if (rec.overallStatus !== "Pass") map[sup].problematicSites[sk].fails += 1;
+      for (const item of (rec.actionItems || [])) {
+        map[sup].problematicSites[sk].issues.push(item.issue || "");
       }
       for (const item of (rec.actionItems || [])) {
         const cat = (item.issue || "").split(":")[0].trim() || "Other";
@@ -375,7 +495,7 @@ const LocationProfiler = {
       (a.inspectionDate || "").localeCompare(b.inspectionDate || "")
     );
     for (const rec of sortedHist) {
-      const site = rec.siteName || "Unknown";
+      const site = siteKey(rec);
       if (!siteMap[site]) siteMap[site] = { records: [], passes: 0, issues: 0 };
       siteMap[site].records.push(rec);
       if (rec.overallStatus === "Pass") siteMap[site].passes += 1;
@@ -520,7 +640,7 @@ const CrossInspectorAnalyzer = {
       if (rec.overallStatus === "Pass") inspMap[name].passes += 1;
       if (rec.overallStatus === "Pass" && issueCount === 0) inspMap[name].zeroIssuePasses += 1;
       // Track which sites each inspector visited
-      const site = rec.siteName || rec.location || "Unknown";
+      const site = siteKey(rec);
       if (!inspMap[name].sites[site]) inspMap[name].sites[site] = { total: 0, passes: 0 };
       inspMap[name].sites[site].total += 1;
       if (rec.overallStatus === "Pass") inspMap[name].sites[site].passes += 1;
@@ -556,7 +676,7 @@ const CrossInspectorAnalyzer = {
     // i.e., same site passes under inspector A but fails under inspector B
     const siteInspectorMap = {};
     for (const rec of history) {
-      const site = rec.siteName || rec.location || "Unknown";
+      const site = siteKey(rec);
       const name = rec.inspectorName || "Unknown";
       if (!siteInspectorMap[site]) siteInspectorMap[site] = {};
       if (!siteInspectorMap[site][name]) siteInspectorMap[site][name] = { total: 0, passes: 0 };
@@ -601,7 +721,7 @@ const IssueResolutionTracker = {
     // Group records by site, sort by date
     const siteMap = {};
     for (const rec of history) {
-      const site = rec.siteName || rec.location || "Unknown";
+      const site = siteKey(rec);
       if (!siteMap[site]) siteMap[site] = [];
       siteMap[site].push(rec);
     }
@@ -733,7 +853,7 @@ const HealthInspectorModel = {
         for (const [key, cat] of Object.entries(this.RISK_CATEGORIES)) {
           if (cat.patterns.some(p => p.test(issueText))) {
             catCounts[key].count++;
-            if (rec.siteName) catCounts[key].sites.add(rec.siteName);
+            catCounts[key].sites.add(siteKey(rec));
             catCounts[key].issues.push(issueText);
             if (cat.fdaRisk.startsWith("Priority")) priorityViolations++;
             break; // assign to first matching category only
@@ -988,7 +1108,7 @@ const PatternMiner = {
     // ── Weak locations (fail rate ≥ 40%) ──────────────────
     const locMap = {};
     for (const rec of sorted) {
-      const loc = `${rec.siteName || rec.location || "Unknown"}${rec.floor ? ` (${rec.floor})` : ""}`;
+      const loc = `${siteKey(rec)}${rec.floor ? ` (${rec.floor})` : ""}`;
       if (!locMap[loc]) locMap[loc] = { total: 0, fails: 0, issueCats: {} };
       locMap[loc].total += 1;
       if (rec.overallStatus !== "Pass") locMap[loc].fails += 1;
@@ -1174,12 +1294,32 @@ const PatternMiner = {
       ecolab:            "Ecolab / Sanitizer",
     };
 
+    // Normalize a user-entered equipment label to a canonical EQUIP_LABEL_MAP key.
+    // Strips brand names so "Delfield Double Door Cooler" → "doubleDoorCooler".
+    // Returns null if no canonical type can be determined.
+    function normalizeEquipKey(rawLabel) {
+      const l = (rawLabel || "").toLowerCase();
+      if (/walk.?in.*freezer|walk.?in.*frz|wif\b/.test(l)) return "walkInFreezer";
+      if (/walk.?in.*cool|walk.?in.*ref|wic\b|w\.i\.c/.test(l))  return "walkInCooler";
+      if (/prep.*freezer|freezer.*prep/.test(l))                  return "doubleDoorFreezer";
+      if (/prep.*cool|cool.*prep/.test(l))                        return "prepCooler";
+      if (/double.?door.*freezer|two.?door.*freezer|2.?door.*freezer|freezer.*double|reach.?in.*freezer/.test(l)) return "doubleDoorFreezer";
+      if (/double.?door.*cool|two.?door.*cool|2.?door.*cool|cool.*double|reach.?in.*cool|reach.?in.*ref/.test(l)) return "doubleDoorCooler";
+      if (/freezer|freez/.test(l)) return "doubleDoorFreezer";
+      if (/cooler|refrig|cool/.test(l)) return "doubleDoorCooler";
+      if (/warmer|warming/.test(l)) return "warmers";
+      if (/oven|convect/.test(l)) return "ovens";
+      if (/3.?comp|three.?comp|3 comp/.test(l)) return "threeCompSink";
+      if (/ecolab|sanitiz|chemical dispens/.test(l)) return "ecolab";
+      return null;
+    }
+
     // Step 1 — Build a map of site → latestDate so we know which record to use per site.
     // sorted is already chronological (oldest→newest), so we iterate and keep overwriting.
     // siteLatest: { [site]: { date, equipment } }
     const siteLatest = {};
     for (const rec of sorted) {
-      const site = rec.siteName || rec.location || "Unknown";
+      const site = siteKey(rec);
       const recDate = rec.inspectionDate || rec.savedAt || "";
       const equipment = rec.inspection?.equipment || rec.equipment || {};
       // Only update if this record is newer than what we have for this site
@@ -1213,10 +1353,20 @@ const PatternMiner = {
           n = 1;
         }
 
-        const label  = EQUIP_LABEL_MAP[key] || item?.label || key;
+        // For custom items, try to normalize to a canonical equipment type
+        // so "Delfield Double Door Cooler" groups with "Double-Door Cooler".
+        const rawLabel = item?.label || key;
+        const isCustom = !EQUIP_LABEL_MAP[key] && key.startsWith("custom_");
+        const normalizedKey = isCustom ? (normalizeEquipKey(rawLabel) || key) : key;
+        const label  = EQUIP_LABEL_MAP[normalizedKey] || rawLabel;
         const source = item?.equipSource || "Facility";
-        if (!equipMap[key]) equipMap[key] = { label, sites: {} };
-        equipMap[key].sites[site] = { count: n, source, lastSeen: date };
+        if (!equipMap[normalizedKey]) equipMap[normalizedKey] = { label, sites: {} };
+        const prev = equipMap[normalizedKey].sites[site];
+        equipMap[normalizedKey].sites[site] = {
+          count: (prev?.count || 0) + n,
+          source,
+          lastSeen: date,
+        };
       }
     }
 
@@ -1245,6 +1395,68 @@ const PatternMiner = {
       };
     }).sort((a, b) => b.fleetTotal - a.fleetTotal);
 
+    // ── Equipment absence detection ────────────────────────────────────────────
+    // Build historical roster per site (across ALL records, not just the latest).
+    // If a piece of equipment appeared ≥2 times historically at a site but is
+    // completely absent from the most recent inspection, flag it as possibly removed.
+    const siteHistorical = {};  // { [site]: { [equipKey]: { count, lastSeen, label } } }
+    for (const rec of sorted) {
+      const site = siteKey(rec);
+      const equipment = rec.inspection?.equipment || rec.equipment || {};
+      if (!siteHistorical[site]) siteHistorical[site] = {};
+      for (const [key, item] of Object.entries(equipment)) {
+        if (item?.notApplicable === true) continue;
+        const countVal = item?.count ?? "";
+        let n;
+        if (countVal !== "" && countVal !== null && countVal !== undefined) {
+          n = Number(countVal);
+          if (isNaN(n) || n <= 0) continue;
+        } else {
+          const hasStatus = item?.status && item.status !== "";
+          const hasTemp   = item?.tempF  && item.tempF  !== "";
+          const hasNotes  = item?.notes  && item.notes  !== "";
+          const hasName   = item?.label  && item.label  !== "";
+          if (!hasStatus && !hasTemp && !hasNotes && !hasName) continue;
+          n = 1;
+        }
+        const recDate = rec.inspectionDate || rec.savedAt || "";
+        const label = EQUIP_LABEL_MAP[key] || item?.label || key;
+        if (!siteHistorical[site][key]) siteHistorical[site][key] = { count: 0, lastSeen: "", label };
+        siteHistorical[site][key].count += n;
+        if (recDate > siteHistorical[site][key].lastSeen) siteHistorical[site][key].lastSeen = recDate;
+      }
+    }
+
+    // Cross-reference with siteLatest: flag equipment absent from the latest snapshot
+    const equipAbsence = [];
+    for (const [site, equipHist] of Object.entries(siteHistorical)) {
+      const latestEquip = siteLatest[site]?.equipment || {};
+      const latestDate  = siteLatest[site]?.date || "";
+      for (const [key, hist] of Object.entries(equipHist)) {
+        if (hist.count < 2) continue; // need ≥2 historical occurrences to be confident
+        const latestItem = latestEquip[key];
+        const latestNA   = latestItem?.notApplicable === true;
+        // Absent = either not present in latest OR explicitly marked N/A
+        const latestCount = latestItem ? (() => {
+          const cv = latestItem.count ?? "";
+          if (cv !== "" && cv !== null) { const n = Number(cv); return isNaN(n) ? 0 : n; }
+          const has = (latestItem.status || latestItem.tempF || latestItem.notes || latestItem.label);
+          return has ? 1 : 0;
+        })() : 0;
+        if (!latestNA && latestCount > 0) continue; // still present in latest — no issue
+        equipAbsence.push({
+          site,
+          equipKey: key,
+          label: hist.label,
+          historicalCount: hist.count,
+          lastSeenDate: hist.lastSeen,
+          latestInspDate: latestDate,
+          markedNA: latestNA,
+        });
+      }
+    }
+    patterns.equipmentAbsence = equipAbsence;
+
     saveJSON(PATTERNS_KEY, patterns);
     return patterns;
   },
@@ -1268,11 +1480,11 @@ const SuggestionGen = {
           type: "quality",
           priority: loc.failRate >= 80 ? "critical" : "high",
           icon: "📍",
-          title: `Focus attention on ${loc.location}`,
-          body: `This location has failed ${loc.failRate}% of inspections (${loc.failCount}/${loc.total}). `
-              + (loc.topIssue ? `Top recurring issue: "${loc.topIssue}". ` : "")
-              + `Consider a dedicated corrective action plan or more frequent visits.`,
-          action: `Filter Past Reports to "${loc.location}" and review all action items`,
+          title: `${loc.location} needs attention`,
+          body: `This spot has failed ${loc.failRate}% of its inspections — that's ${loc.failCount} out of ${loc.total} visits. `
+              + (loc.topIssue ? `The most common problem found there is "${loc.topIssue}". ` : "")
+              + `Someone needs to go there, find out what's going wrong, and fix it.`,
+          action: `Go to Past Reports, filter by "${loc.location}", and check all the flagged items`,
           category: "location",
         });
       }
@@ -1287,10 +1499,10 @@ const SuggestionGen = {
           type: "pattern",
           priority: top.rate >= 50 ? "high" : "medium",
           icon: "🔁",
-          title: `"${top.category}" is your most frequent issue (${top.rate}% of reports)`,
-          body: `Appears across ${top.locationCount} location(s). This systemic issue likely has a fixable root cause `
-              + `(training gap, equipment, or process). Addressing it could improve your pass rate significantly.`,
-          action: "Run a root-cause analysis across all flagged sites",
+          title: `"${top.category}" keeps showing up — it's your biggest problem right now`,
+          body: `This issue has shown up in ${top.rate}% of all your inspections, across ${top.locationCount} location(s). `
+              + `That means it's happening everywhere, not just in one spot. Something needs to change — whether that's more training, fixing equipment, or changing how things are done.`,
+          action: `Find out why "${top.category}" keeps failing and fix the root cause — don't just note it each time`,
           category: "issue",
         });
       }
@@ -1306,10 +1518,10 @@ const SuggestionGen = {
         type: "schedule",
         priority: "critical",
         icon: "⏰",
-        title: `${g.location} has not been inspected in ${g.daysSince} days`,
-        body: `This is well past the recommended 30-day cycle. `
-            + (g.hadIssues ? "The last visit had unresolved issues — extended gaps increase compliance risk." : "Schedule a visit soon."),
-        action: `Schedule an inspection at ${g.location} immediately`,
+        title: `${g.location} hasn't been checked in ${g.daysSince} days — that's too long`,
+        body: `You should be visiting every location at least once a month. This one has been missed. `
+            + (g.hadIssues ? `The last time someone went there, there were problems that were never fully fixed — so it really needs a visit now.` : `Get someone out there soon.`),
+        action: `Send an inspector to ${g.location} as soon as possible`,
         category: "schedule",
       });
     } else if (highGaps.length > 0) {
@@ -1318,9 +1530,9 @@ const SuggestionGen = {
         type: "schedule",
         priority: "high",
         icon: "📅",
-        title: `${highGaps.length} location(s) overdue for inspection (40+ days)`,
-        body: `Locations: ${highGaps.map(g => g.location).join(", ")}. Consider adjusting your inspection schedule to cover all sites monthly.`,
-        action: "Review schedule and add upcoming inspection dates",
+        title: `${highGaps.length} location${highGaps.length !== 1 ? "s" : ""} haven't been visited in over 40 days`,
+        body: `These spots are overdue: ${highGaps.map(g => g.location).join(", ")}. Every location should be checked at least once a month — the longer you wait, the more problems can build up without anyone knowing.`,
+        action: "Look at your schedule and make sure every location gets a visit this month",
         category: "schedule",
       });
     }
@@ -1332,10 +1544,10 @@ const SuggestionGen = {
         type: "quality",
         priority: patterns.passRate < 50 ? "critical" : "high",
         icon: "📉",
-        title: `Overall pass rate is ${patterns.passRate}% — below the 70% target`,
-        body: `Out of ${patterns.totalRecords} inspections, only ${Math.round(patterns.totalRecords * patterns.passRate / 100)} passed. `
-            + `Review your top issues and weak locations for targeted improvement.`,
-        action: "Open Analytics → Recurring Issues for a full breakdown",
+        title: `Only ${patterns.passRate}% of inspections are passing — that needs to improve`,
+        body: `Out of ${patterns.totalRecords} inspections, only ${Math.round(patterns.totalRecords * patterns.passRate / 100)} passed. That's not good enough. `
+            + `Look at which locations keep failing and what problems keep coming up — those are the things you need to fix first.`,
+        action: "Open Analytics and look at Recurring Issues to see what's going wrong most often",
         category: "quality",
       });
     }
@@ -1347,9 +1559,9 @@ const SuggestionGen = {
         type: "temperature",
         priority: alert.severity === "critical" ? "critical" : "high",
         icon: "🌡️",
-        title: `${alert.metric} trending toward limit at ${alert.location}`,
-        body: `Recent readings: ${alert.trend}. Currently ${alert.gapToLimit}°F from the ${alert.threshold}°F threshold. Action needed.`,
-        action: `Inspect water heater / equipment at ${alert.location}`,
+        title: `Temperature is creeping up at ${alert.location} — check it now`,
+        body: `The ${alert.metric} readings have been going up lately: ${alert.trend}. It's only ${alert.gapToLimit}°F away from the limit of ${alert.threshold}°F. If it keeps rising, you'll have a violation. Don't wait.`,
+        action: `Go check the equipment at ${alert.location} and find out why the temperature is climbing`,
         category: "temperature",
       });
     }
@@ -1364,11 +1576,11 @@ const SuggestionGen = {
           type: "inspector",
           priority: "high",
           icon: "👤",
-          title: `${insp.name}'s pass rate is declining`,
-          body: `Pass rate dropped from ${insp.firstPassRate}% to ${insp.secondPassRate}% across their last ${insp.total} inspections. `
-              + (insp.topIssues.length ? `Most flagged category: "${insp.topIssues[0].cat}". ` : "")
-              + `Consider a coaching session or refresher on recurring issue categories.`,
-          action: `Review ${insp.name}'s recent reports in Past Reports`,
+          title: `${insp.name} is struggling — their results have been getting worse`,
+          body: `Their pass rate went from ${insp.firstPassRate}% down to ${insp.secondPassRate}% over their last ${insp.total} inspections. `
+              + (insp.topIssues.length ? `The issue they miss most often is "${insp.topIssues[0].cat}". ` : "")
+              + `This person probably needs some extra support or a refresher — not blame, just help.`,
+          action: `Look at ${insp.name}'s recent reports and have a one-on-one conversation to find out what's going on`,
           category: "inspector",
         });
       }
@@ -1379,10 +1591,11 @@ const SuggestionGen = {
           type: "inspector",
           priority: "medium",
           icon: "🎯",
-          title: `${insp.name} has a ${insp.passRate}% pass rate across ${insp.total} inspections`,
-          body: `They visit ${insp.siteCount} site(s). Average ${insp.avgIssues} issues per report. `
-              + (insp.topIssues.length ? `Most common flags: ${insp.topIssues.slice(0,2).map(i=>i.cat).join(", ")}.` : ""),
-          action: `Review inspection reports and provide targeted feedback`,
+          title: `${insp.name} is only passing ${insp.passRate}% of their inspections`,
+          body: `Over ${insp.total} inspections at ${insp.siteCount} location(s), they're finding an average of ${insp.avgIssues} problems per visit. `
+              + (insp.topIssues.length ? `The things they most often flag as issues are: ${insp.topIssues.slice(0,2).map(i=>i.cat).join(" and ")}.` : "")
+              + ` They may need extra training or closer support.`,
+          action: `Look over their recent inspection reports and give them honest, helpful feedback`,
           category: "inspector",
         });
       }
@@ -1393,9 +1606,9 @@ const SuggestionGen = {
           type: "positive",
           priority: "info",
           icon: "📈",
-          title: `${insp.name} is showing consistent improvement`,
-          body: `Pass rate improved from ${insp.firstPassRate}% to ${insp.secondPassRate}% — a ${insp.trend}pt gain across ${insp.total} inspections.`,
-          action: "Recognize the improvement and keep monitoring",
+          title: `${insp.name} is doing better — great progress!`,
+          body: `Their pass rate went from ${insp.firstPassRate}% up to ${insp.secondPassRate}% over ${insp.total} inspections — that's a ${insp.trend}-point improvement. Whatever they're doing, it's working.`,
+          action: "Tell them they're doing great and keep an eye on their progress",
           category: "inspector",
         });
       }
@@ -1410,10 +1623,11 @@ const SuggestionGen = {
           type: "supervisor",
           priority: "high",
           icon: "🏢",
-          title: `Sites under ${sup.name} have a ${sup.passRate}% pass rate`,
-          body: `Across ${sup.siteCount} site(s) and ${sup.total} inspections, compliance is below target. `
-              + (sup.problemSites.length ? `Most problematic site: ${sup.problemSites[0].site} (${sup.problemSites[0].failRate}% fail rate).` : ""),
-          action: `Schedule a compliance review with ${sup.name}`,
+          title: `The locations ${sup.name} oversees are struggling — only ${sup.passRate}% passing`,
+          body: `Across ${sup.total} inspections at ${sup.siteCount} location(s), things aren't meeting standards. `
+              + (sup.problemSites.length ? `The biggest problem spot is ${sup.problemSites[0].site}, which fails ${sup.problemSites[0].failRate}% of the time.` : "")
+              + ` This supervisor may need more support or accountability.`,
+          action: `Have a direct conversation with ${sup.name} about what's going wrong and how to fix it`,
           category: "supervisor",
         });
       }
@@ -1426,9 +1640,9 @@ const SuggestionGen = {
             type: "supervisor",
             priority: "medium",
             icon: "🔄",
-            title: `Recurring unresolved issues at ${prob.site} (${sup.name})`,
-            body: `Issue "${prob.recurringIssues[0].issue}" has appeared ${prob.recurringIssues[0].times}x. This suggests corrective actions are not being completed. Follow up required.`,
-            action: `Review corrective action status for ${prob.site} with ${sup.name}`,
+            title: `The same problem keeps coming back at ${prob.site} and nobody is fixing it`,
+            body: `"${prob.recurringIssues[0].issue}" has been flagged ${prob.recurringIssues[0].times} times at this location. Inspectors keep writing it down, but nobody is going back and actually fixing it. That needs to stop.`,
+            action: `Talk to ${sup.name} and find out why the fix at ${prob.site} still hasn't been done`,
             category: "supervisor",
           });
         }
@@ -1445,11 +1659,11 @@ const SuggestionGen = {
           type: "location",
           priority: "medium",
           icon: "🏪",
-          title: `${lt.type} locations have a ${lt.passRate}% pass rate`,
-          body: `Across ${lt.total} inspections of ${lt.type} units, compliance is low. `
-              + (lt.topIssues.length ? `Top issues: ${lt.topIssues.slice(0,2).map(i=>i.cat).join(", ")}.` : "")
-              + ` These unit types may need targeted SOPs or more frequent checks.`,
-          action: `Create a ${lt.type}-specific checklist or SOP`,
+          title: `Your ${lt.type} locations are failing a lot — only ${lt.passRate}% passing`,
+          body: `Across ${lt.total} inspections of ${lt.type} locations, something is consistently going wrong. `
+              + (lt.topIssues.length ? `The most common problems are: ${lt.topIssues.slice(0,2).map(i=>i.cat).join(" and ")}.` : "")
+              + ` These types of locations might need their own specific checklist or more frequent visits.`,
+          action: `Create a checklist made specifically for ${lt.type} locations and make sure inspectors use it`,
           category: "location",
         });
       }
@@ -1463,10 +1677,11 @@ const SuggestionGen = {
         type: "location",
         priority: "medium",
         icon: "🏗️",
-        title: `${worstFloor.floor} has the lowest compliance (${worstFloor.passRate}% pass rate)`,
-        body: `${worstFloor.total} inspections show avg ${worstFloor.avgIssues} issues per visit. `
-            + (worstFloor.topIssue ? `Most common issue: "${worstFloor.topIssue}".` : ""),
-        action: `Prioritize inspections and corrective actions on ${worstFloor.floor}`,
+        title: `${worstFloor.floor} is your most problematic area — only ${worstFloor.passRate}% of inspections pass`,
+        body: `Over ${worstFloor.total} visits, inspectors find an average of ${worstFloor.avgIssues} problems per inspection there. `
+            + (worstFloor.topIssue ? `The most common thing going wrong is "${worstFloor.topIssue}".` : "")
+            + ` This area needs extra attention right now.`,
+        action: `Make ${worstFloor.floor} a priority — inspect it more often and follow up on every problem found`,
         category: "location",
       });
     }
@@ -1482,9 +1697,9 @@ const SuggestionGen = {
           type: "data",
           priority: "medium",
           icon: "📝",
-          title: `Supervisor name missing in ${100 - comp.supervisorName}% of reports`,
-          body: `${beh.missingFields?.supervisorName || "Several"} report(s) don't have a supervisor recorded. This limits accountability tracking and the supervisor pattern analysis.`,
-          action: "Ensure Supervisor Name is filled in on every inspection",
+          title: `${100 - comp.supervisorName}% of reports don't have a supervisor name — please fix this`,
+          body: `${beh.missingFields?.supervisorName || "Several"} inspections were saved without listing who the supervisor was. Without that info, it's impossible to know who's responsible for what. It only takes a second to fill in.`,
+          action: "Make sure everyone fills in the Supervisor Name field on every single inspection",
           category: "data",
         });
       }
@@ -1495,9 +1710,9 @@ const SuggestionGen = {
           type: "data",
           priority: "medium",
           icon: "🌡️",
-          title: `Temperature data missing in ${100 - comp.temps}% of reports`,
-          body: `Temperatures are required for compliance and enable the AI to detect cooling trends before they become violations.`,
-          action: "Record hand sink & 3-comp temperatures on every inspection",
+          title: `Temperatures aren't being recorded in ${100 - comp.temps}% of inspections`,
+          body: `Temperature readings are one of the most important parts of a food safety inspection. Without them, you can't prove food is being stored safely — and problems can go unnoticed until it's too late.`,
+          action: "Record temperatures every time — hand sink, 3-compartment sink, cold and hot holding",
           category: "data",
         });
       }
@@ -1510,10 +1725,11 @@ const SuggestionGen = {
         type: "feature",
         priority: "info",
         icon: "📊",
-        title: `Most inspections happen on ${beh.peakDayLabel}s`,
-        body: `${beh.total} inspections show ${beh.peakDayLabel} as your peak inspection day. Peak hour: ${beh.peakHourLabel}. `
-            + (beh.topTypes?.[0] ? `Most common type: ${beh.topTypes[0].type} (${beh.topTypes[0].pct}%).` : ""),
-        action: "Review scheduling to spread inspections evenly through the week",
+        title: `Most of your inspections are happening on ${beh.peakDayLabel}s`,
+        body: `Looking at ${beh.total} inspections, ${beh.peakDayLabel} is by far the busiest day, usually around ${beh.peakHourLabel}. `
+            + (beh.topTypes?.[0] ? `The most common type of location being inspected is ${beh.topTypes[0].type} (${beh.topTypes[0].pct}% of all visits). ` : "")
+            + `Spreading inspections more evenly through the week means you catch problems faster.`,
+        action: "Spread your inspections throughout the week so no location goes too long without a check",
         category: "behavior",
       });
     }
@@ -1527,10 +1743,9 @@ const SuggestionGen = {
         type: "location",
         priority: "high",
         icon: "⚠️",
-        title: `${worst.site} is getting worse over time`,
-        body: `Pass rate dropped ${Math.abs(worst.trend)}pts in recent inspections (now ${worst.passRate}%). `
-            + `Avg ${worst.avgIssues} issues per visit. Early intervention recommended.`,
-        action: `Conduct a deep-dive inspection at ${worst.site} and review corrective actions`,
+        title: `${worst.site} is getting worse — things there are heading in the wrong direction`,
+        body: `The pass rate at ${worst.site} has dropped ${Math.abs(worst.trend)} points recently and is now at ${worst.passRate}%. Inspectors are finding an average of ${worst.avgIssues} problems per visit. If nothing changes, it's going to get worse.`,
+        action: `Do a thorough inspection at ${worst.site} right now and make sure every problem gets fixed, not just noted`,
         category: "location",
       });
     }
@@ -1544,9 +1759,9 @@ const SuggestionGen = {
           type: "feature",
           priority: "low",
           icon: "💡",
-          title: "Discover the Analytics tab",
-          body: `You have ${patterns.totalRecords} saved inspections. The Analytics tab shows temperature trends, recurring issues, inspector stats, and AI-powered insights — updated automatically.`,
-          action: "Tap 'Analytics' in Past Reports",
+          title: "You haven't tried Analytics yet — there's a lot of useful stuff in there",
+          body: `You've done ${patterns.totalRecords} inspections and all that data is being tracked. The Analytics tab turns it into easy-to-read charts and trends — temperature patterns, common problems, inspector performance, and more.`,
+          action: "Tap 'Analytics' in Past Reports to see what the data is telling you",
           category: "feature",
         });
       }
@@ -1559,9 +1774,9 @@ const SuggestionGen = {
         type: "positive",
         priority: "info",
         icon: "🏆",
-        title: `Excellent compliance — ${patterns.passRate}% pass rate`,
-        body: `${Math.round(patterns.totalRecords * patterns.passRate / 100)} out of ${patterns.totalRecords} inspections passed. Keep up the great work.`,
-        action: "Continue current practices and monitor for regressions",
+        title: `Things are looking really good — ${patterns.passRate}% of inspections are passing!`,
+        body: `${Math.round(patterns.totalRecords * patterns.passRate / 100)} out of ${patterns.totalRecords} inspections passed. That's excellent. The team is doing great work — just make sure to keep it up and catch any problems early before they become trends.`,
+        action: "Keep doing what's working and stay on top of any new issues right away",
         category: "positive",
       });
     }
@@ -1575,11 +1790,11 @@ const SuggestionGen = {
         type: "quality",
         priority: "high",
         icon: "🔓",
-        title: `Action items at ${ps.site} keep recurring (${ps.recurrenceRate}% unresolved)`,
-        body: `In ${ps.followUps} follow-up visit(s), the same issues reappeared ${ps.recurred} time(s). `
-            + (ps.topPersistent.length ? `Most persistent: "${ps.topPersistent[0].issue}" (seen ${ps.topPersistent[0].times}x). ` : "")
-            + `Corrective actions are not being completed between visits.`,
-        action: `Verify corrective actions are completed before closing each inspection at ${ps.site}`,
+        title: `Problems at ${ps.site} keep coming back — they're not being fixed`,
+        body: `Inspectors have gone back to ${ps.site} ${ps.followUps} time(s) and found the same issues ${ps.recurred} time(s). `
+            + (ps.topPersistent.length ? `The one that keeps coming back most is "${ps.topPersistent[0].issue}" — that's been seen ${ps.topPersistent[0].times} times now. ` : "")
+            + `Someone is writing the problems down but nobody is actually going back and fixing them.`,
+        action: `Before marking any inspection at ${ps.site} as done, confirm the problems from last time were actually fixed`,
         category: "quality",
       });
     }
@@ -1589,9 +1804,9 @@ const SuggestionGen = {
         type: "pattern",
         priority: "high",
         icon: "♻️",
-        title: `${resolution.globalRecurrenceRate}% of issues reappear on the next visit`,
-        body: `Across all sites with follow-up inspections, issues are not being resolved between visits more than half the time. This suggests corrective actions are being logged but not executed.`,
-        action: "Implement a follow-up verification step to confirm each corrective action is completed",
+        title: `${resolution.globalRecurrenceRate}% of flagged problems come back on the next visit`,
+        body: `More than half the time, when an inspector returns to a location, the same problems from last time are still there. That means problems are being written down but not actually fixed. This is happening across all your locations, not just one.`,
+        action: "Before closing any inspection, someone needs to confirm that the problems from the previous visit were actually taken care of",
         category: "quality",
       });
     }
@@ -1605,9 +1820,9 @@ const SuggestionGen = {
           type: "inspector",
           priority: "medium",
           icon: "👁️",
-          title: `${rs.name} records zero issues on ${rs.zeroIssuePct}% of inspections`,
-          body: `Avg ${rs.avgIssues} issues/visit vs. team average of ${cross.globalAvgIssues}. Consistently zero-issue passes may indicate under-reporting. A calibration visit or joint inspection is recommended.`,
-          action: `Schedule a calibration inspection with ${rs.name} alongside another inspector`,
+          title: `${rs.name} almost never finds any problems — that might be worth a second look`,
+          body: `They report zero issues on ${rs.zeroIssuePct}% of their inspections, averaging only ${rs.avgIssues} problems per visit. The rest of the team averages ${cross.globalAvgIssues}. It's possible everything really is perfect — but it's also possible they're not looking closely enough.`,
+          action: `Have ${rs.name} do an inspection alongside another inspector so you can compare what they each notice`,
           category: "inspector",
         });
       }
@@ -1617,9 +1832,9 @@ const SuggestionGen = {
           type: "positive",
           priority: "info",
           icon: "🔍",
-          title: `${th.name} is your most thorough inspector`,
-          body: `Logs ${th.avgIssues} issues/visit on average — ${th.deviation} above the team average of ${cross.globalAvgIssues}. Consider using their inspection style as a benchmark for the team.`,
-          action: `Review ${th.name}'s recent inspections to document best practices`,
+          title: `${th.name} is your most detail-oriented inspector — seriously impressive`,
+          body: `They catch an average of ${th.avgIssues} issues per visit, which is ${th.deviation} more than the team average of ${cross.globalAvgIssues}. They're not just finding more problems — they're helping keep standards high for everyone.`,
+          action: `Look at how ${th.name} does their inspections and use their approach as an example for the whole team`,
           category: "inspector",
         });
       }
@@ -1629,9 +1844,9 @@ const SuggestionGen = {
           type: "inspector",
           priority: "medium",
           icon: "⚖️",
-          title: `${sc.site}: ${sc.spread}pt pass rate gap between inspectors`,
-          body: `${sc.best.insp} passes this site ${sc.best.passRate}% of the time; ${sc.worst.insp} only ${sc.worst.passRate}%. A ${sc.spread}-point spread may signal inconsistent standards or inspector familiarity bias.`,
-          action: `Run a joint inspection at ${sc.site} with both ${sc.best.insp} and ${sc.worst.insp} to calibrate standards`,
+          title: `At ${sc.site}, two inspectors are getting very different results`,
+          body: `${sc.best.insp} passes this location ${sc.best.passRate}% of the time, but ${sc.worst.insp} only passes it ${sc.worst.passRate}% of the time. That's a ${sc.spread}-point difference. Either one of them is missing things, or they're not using the same standards.`,
+          action: `Send both ${sc.best.insp} and ${sc.worst.insp} to ${sc.site} at the same time and compare what they find`,
           category: "inspector",
         });
       }
@@ -1649,9 +1864,9 @@ const SuggestionGen = {
           type: "pattern",
           priority: "high",
           icon: "📉",
-          title: `Pass rate dropped ${Math.abs(delta)} points over the last 2 weeks`,
-          body: `Recent 2-week avg: ${Math.round(recent2)}% vs prior 2-week avg: ${Math.round(prior2)}%. A sharp short-term decline often signals a new operational issue or recent staff change.`,
-          action: "Review the most recent failed inspections to identify a common cause",
+          title: `Your pass rate dropped ${Math.abs(delta)} points in just the last 2 weeks — something changed`,
+          body: `Two weeks ago you were averaging ${Math.round(prior2)}%. Now it's down to ${Math.round(recent2)}%. A drop this fast usually means something specific happened — a new employee, a broken piece of equipment, a procedure that changed. Find out what it is.`,
+          action: "Look at the most recent failed inspections and find out what they all have in common",
           category: "trend",
         });
       } else if (delta >= 15) {
@@ -1660,9 +1875,9 @@ const SuggestionGen = {
           type: "positive",
           priority: "info",
           icon: "📈",
-          title: `Pass rate improved ${delta} points over the last 2 weeks`,
-          body: `Recent 2-week avg: ${Math.round(recent2)}% vs prior 2-week avg: ${Math.round(prior2)}%. Recent corrective actions appear to be working.`,
-          action: "Document what changed and share the improvement with your team",
+          title: `Your pass rate went up ${delta} points in the last 2 weeks — keep it up!`,
+          body: `You went from ${Math.round(prior2)}% two weeks ago to ${Math.round(recent2)}% now. Whatever the team has been doing differently is clearly working. Don't lose that momentum.`,
+          action: "Figure out what changed and make sure everyone on the team knows about it",
           category: "trend",
         });
       }
@@ -1680,9 +1895,9 @@ const SuggestionGen = {
           type: "pattern",
           priority: "medium",
           icon: "🗓️",
-          title: `${worstSeason.month} is historically your lowest-compliance month`,
-          body: `Based on past data, ${worstSeason.month} has a ${worstSeason.passRate}% pass rate — the lowest of any month. You're in this month now. Increase inspection frequency or pre-emptively address known seasonal issues.`,
-          action: `Review past ${worstSeason.month} inspections and address recurring issues proactively`,
+          title: `Heads up — ${worstSeason.month} is historically your worst month`,
+          body: `Every year, ${worstSeason.month} has the lowest pass rate of any month — around ${worstSeason.passRate}%. You're in that month right now. This is the time to be extra careful, increase check-ins, and get ahead of problems before they happen.`,
+          action: `Look at what went wrong in past ${worstSeason.month} inspections and fix those things now, before they happen again`,
           category: "trend",
         });
       }
@@ -1698,11 +1913,11 @@ const SuggestionGen = {
           type: "foodSafety",
           priority: "critical",
           icon: "🚨",
-          title: `${hi.priorityRatio}% of all issues are FDA Priority violations`,
-          body: `FDA Priority violations (temperature abuse, cross-contamination, hygiene) represent the highest food safety risk. `
-              + (hi.topCategory ? `The most common risk category is "${hi.topCategory.label}" (${hi.topCategory.count} occurrences). ` : "")
-              + `These directly cause foodborne illness and must be addressed first.`,
-          action: "Prioritize corrective actions for temperature control, cross-contamination, and hygiene violations",
+          title: `${hi.priorityRatio}% of your violations are the most serious kind — these can make people sick`,
+          body: `The violations you're recording most often — things like food stored at wrong temperatures, cross-contamination, and hygiene issues — are the ones that directly cause foodborne illness. `
+              + (hi.topCategory ? `The biggest one right now is "${hi.topCategory.label}", which has come up ${hi.topCategory.count} times. ` : "")
+              + `These need to be fixed immediately, before anything else.`,
+          action: "Stop everything else and fix the temperature, cross-contamination, and hygiene problems first — these are the most dangerous",
           category: "foodSafety",
         });
       }
@@ -1714,10 +1929,9 @@ const SuggestionGen = {
           type: "inspector",
           priority: "medium",
           icon: "👁️",
-          title: `"${nf.label}" issues are never recorded — possible blind spot`,
-          body: `This is an FDA ${nf.fdaRisk} category that inspectors frequently find issues in. `
-              + `If no violations have been recorded, it may indicate this area is being under-inspected or overlooked. Consider reviewing this category explicitly on the next inspection.`,
-          action: `Explicitly check ${nf.label} conditions on the next inspection`,
+          title: `Nobody has ever flagged a problem with "${nf.label}" — is anyone actually checking?`,
+          body: `"${nf.label}" is a category where health inspectors find issues all the time. The fact that it's never been flagged here is unusual. It might mean everything is truly perfect — or it might mean inspectors aren't looking closely enough at this area.`,
+          action: `On the next inspection, specifically and carefully check "${nf.label}" — don't just glance at it`,
           category: "inspector",
         });
       }
@@ -1730,11 +1944,11 @@ const SuggestionGen = {
           type: "foodSafety",
           priority: "high",
           icon: "⚠️",
-          title: `Cross-contamination risk flagged ${contamCat.count} times across ${contamCat.siteCount} site(s)`,
-          body: `Cross-contamination (raw vs ready-to-eat, improper storage order, color-coded equipment violations) is one of the leading causes of foodborne illness. `
-              + (contamCat.topIssues.length ? `Most common: "${contamCat.topIssues[0].issue}".` : "")
-              + ` Ensure all sites are following proper storage hierarchy and using color-coded tools.`,
-          action: "Verify raw protein storage is always below ready-to-eat foods; check cutting board color codes",
+          title: `Cross-contamination has been flagged ${contamCat.count} times — this is a serious food safety risk`,
+          body: `Cross-contamination — like storing raw meat above ready-to-eat food, or using the same cutting board for different foods — is one of the main ways people get sick from food. It's showing up at ${contamCat.siteCount} location(s). `
+              + (contamCat.topIssues.length ? `The most common specific problem is "${contamCat.topIssues[0].issue}".` : "")
+              + ` This needs to be fixed everywhere, not just noted.`,
+          action: "Check every location: raw proteins must always be stored below ready-to-eat food, and color-coded tools must be used correctly",
           category: "foodSafety",
         });
       }
@@ -1750,12 +1964,12 @@ const SuggestionGen = {
           type: "data",
           priority: "medium",
           icon: "📋",
-          title: `Average inspection thoroughness is ${wf.avgThoroughnessScore}/100`,
-          body: `Health inspectors should complete temperatures, equipment checks, notes, and supervisor info on every visit. `
-              + (wf.noTempsRate > 30 ? `Temperatures missing ${wf.noTempsRate}% of the time. ` : "")
-              + (wf.noEquipRate > 30 ? `Equipment not checked ${wf.noEquipRate}% of the time. ` : "")
-              + `More complete inspections improve AI accuracy and compliance evidence.`,
-          action: "Fill in all sections on every inspection: temps, equipment status, supervisor, floor, and notes",
+          title: `Inspections are only ${wf.avgThoroughnessScore}% complete on average — too much is being skipped`,
+          body: `A good inspection covers temperatures, equipment, supervisor info, notes, and more. Right now, a lot of those sections are being left blank. `
+              + (wf.noTempsRate > 30 ? `Temperatures are being skipped ${wf.noTempsRate}% of the time. ` : "")
+              + (wf.noEquipRate > 30 ? `Equipment isn't being checked ${wf.noEquipRate}% of the time. ` : "")
+              + `Incomplete inspections make it harder to catch problems and harder to prove compliance.`,
+          action: "Fill in every section on every inspection — temps, equipment, supervisor name, floor, and notes all matter",
           category: "data",
         });
       }
@@ -1766,9 +1980,9 @@ const SuggestionGen = {
           type: "pattern",
           priority: "medium",
           icon: "📉",
-          title: `Inspection thoroughness dropped ${Math.abs(wf.recentTrend)} points recently`,
-          body: `Recent inspections are less complete than prior ones. This may indicate time pressure, fatigue, or process drift. Incomplete inspections miss violations and weaken compliance records.`,
-          action: "Review recent inspections and identify which sections are being skipped",
+          title: `Inspections have been getting less and less thorough lately`,
+          body: `Compared to a few weeks ago, recent inspections are missing a lot more sections. This can happen when people are busy or tired — but skipping sections means problems can slip through without anyone noticing.`,
+          action: "Look at the most recent inspections and figure out which parts are being skipped — then make sure they get filled in",
           category: "behavior",
         });
       }
@@ -1780,10 +1994,9 @@ const SuggestionGen = {
           type: "inspector",
           priority: "medium",
           icon: "📋",
-          title: `${lowThoroughInspector.name}'s inspections average ${lowThoroughInspector.avgScore}/100 thoroughness`,
-          body: `Temperatures are missing on ${lowThoroughInspector.noTempsRate}% of their inspections. `
-              + `Incomplete form submissions reduce the AI's ability to detect patterns and generate useful suggestions.`,
-          action: `Coach ${lowThoroughInspector.name} on completing all form sections, especially temperature readings`,
+          title: `${lowThoroughInspector.name} is leaving a lot of the inspection form blank`,
+          body: `Their inspections are only ${lowThoroughInspector.avgScore}% complete on average. Temperatures are being skipped ${lowThoroughInspector.noTempsRate}% of the time. An inspection that's half-empty doesn't give you the full picture — it's hard to catch problems if they're not written down.`,
+          action: `Walk through the inspection form with ${lowThoroughInspector.name} and make sure they know every section needs to be filled in, especially temperature readings`,
           category: "inspector",
         });
       }
@@ -1798,12 +2011,11 @@ const SuggestionGen = {
           type: "temperature",
           priority: tempCat.rate >= 50 ? "high" : "medium",
           icon: "🌡️",
-          title: `Temperature control issues in ${tempCat.rate}% of all flagged violations`,
-          body: `The FDA danger zone is 41–135°F. Food held in this range for over 4 hours poses direct foodborne illness risk. `
-              + `Temperature control issues appeared at ${tempCat.siteCount} site(s). `
-              + (tempCat.topIssues.length ? `Most frequent: "${tempCat.topIssues[0].issue}".` : "")
-              + ` Verify calibrated thermometers are used and temps recorded at every inspection.`,
-          action: "Ensure all cold-hold is ≤41°F and hot-hold is ≥135°F; verify equipment calibration",
+          title: `Temperature problems make up ${tempCat.rate}% of all violations — food safety risk is high`,
+          body: `Food that's not kept cold enough (below 41°F) or hot enough (above 135°F) can make people seriously sick. This is showing up at ${tempCat.siteCount} location(s). `
+              + (tempCat.topIssues.length ? `The most common specific problem is "${tempCat.topIssues[0].issue}".` : "")
+              + ` Every inspector needs to be checking and recording temperatures every single visit.`,
+          action: "Check that all cold food is at 41°F or below and all hot food is at 135°F or above — and make sure thermometers are working correctly",
           category: "temperature",
         });
       }
@@ -1818,12 +2030,33 @@ const SuggestionGen = {
           type: "foodSafety",
           priority: "medium",
           icon: "📦",
-          title: `Food source & dating issues found ${foodCat.count} time(s) across ${foodCat.siteCount} site(s)`,
-          body: `Undated or expired products violate FDA labeling requirements and increase cross-contamination risk. FIFO (First In, First Out) rotation prevents product aging. `
-              + (foodCat.topIssues.length ? `Most common: "${foodCat.topIssues[0].issue}".` : "")
-              + ` Ensure all items have prep/expiry dates and are rotated on each shift.`,
-          action: "Verify date labels on all open products; train staff on FIFO rotation during pre-shift",
+          title: `Food labeling and dating problems found ${foodCat.count} times across ${foodCat.siteCount} location(s)`,
+          body: `Food that doesn't have a date label — or that's past its date — is a health risk and a violation. Every open item needs to be labeled with when it was prepared or when it expires. `
+              + (foodCat.topIssues.length ? `The most common problem found is "${foodCat.topIssues[0].issue}".` : "")
+              + ` Staff also need to use the oldest food first (FIFO — first in, first out) so nothing sits around too long.`,
+          action: "Check date labels on every open product and make sure staff know to use older food first before opening new items",
           category: "foodSafety",
+        });
+      }
+    }
+
+    // ── 22. Equipment absence — item historically at a site now missing ────────
+    if (patterns.equipmentAbsence && patterns.equipmentAbsence.length > 0) {
+      for (const item of patterns.equipmentAbsence) {
+        const lastSeenFormatted = item.lastSeenDate ? item.lastSeenDate.slice(0, 10) : "unknown date";
+        const latestFormatted   = item.latestInspDate ? item.latestInspDate.slice(0, 10) : "most recent inspection";
+        suggestions.push({
+          id: `equip-absent-${item.site.replace(/\s+/g, "-")}-${item.equipKey}`,
+          type: "equipmentAbsence",
+          priority: "medium",
+          icon: "⚠️",
+          title: `${item.label} is missing from ${item.site} — was it removed or just skipped?`,
+          body: `This piece of equipment was checked ${item.historicalCount} times at ${item.site} — last seen on ${lastSeenFormatted} — but it was ${item.markedNA ? "marked as N/A" : "not found"} on the most recent inspection on ${latestFormatted}. `
+              + `Either it was taken away, or the inspector missed it. Either way, someone needs to check.`,
+          action: `Go to ${item.site} and confirm: is ${item.label} still there? If it was removed, update the equipment list so this alert doesn't keep coming up`,
+          category: "equipment",
+          site: item.site,
+          equipKey: item.equipKey,
         });
       }
     }
@@ -2036,6 +2269,13 @@ const AIEngine = {
       generatedAt: SuggestionGen.getGeneratedAt(),
       memory:      AIMemory.getAll(),
     };
+  },
+
+  // Returns inspector profiles sorted by performanceScore descending (best first)
+  getInspectorRanking(history) {
+    if (!history || history.length === 0) return [];
+    const profiles = InspectorProfiler.mine(history);
+    return [...profiles].sort((a, b) => b.performanceScore - a.performanceScore);
   },
 };
 

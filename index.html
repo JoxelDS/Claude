@@ -33,8 +33,41 @@
       .sp-fill{width:40%;height:100%;background:#EE0000;border-radius:3px;animation:sp .8s ease infinite alternate}
       @keyframes sp{from{transform:translateX(0)}to{transform:translateX(200%)}}
     </style>
+  <!-- Google Translate Element (free, no API key) -->
+  <script type="text/javascript">
+    function googleTranslateElementInit() {
+      new google.translate.TranslateElement(
+        { pageLanguage: 'en', autoDisplay: false },
+        'google_translate_element'
+      );
+    }
+  </script>
+  <script type="text/javascript" src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
+  <style>
+    /* Hide ALL Google Translate chrome — banner, tooltip, top bar, logo */
+    .goog-te-banner-frame,
+    .goog-te-balloon-frame,
+    .goog-te-menu-frame,
+    #goog-gt-tt,
+    .goog-tooltip,
+    .goog-tooltip-content,
+    .goog-te-spinner,
+    .VIpgJd-ZVi9od-aZ2wEe,
+    .VIpgJd-ZVi9od-aZ2wEe-OiiCO,
+    iframe.skiptranslate,
+    .skiptranslate { display: none !important; visibility: hidden !important; }
+    /* Prevent Google from pushing body down or repositioning it */
+    body,
+    body.translated-ltr,
+    body.translated-rtl { top: 0 !important; margin-top: 0 !important; position: static !important; }
+    /* Kill the top bar that flashes when translation is applied */
+    .goog-te-banner-frame.skiptranslate { display: none !important; }
+    font[style*="vertical-align"] { vertical-align: inherit !important; }
+  </style>
   </head>
   <body>
+    <!-- Google Translate widget — mounted here permanently, teleported into popover via JS -->
+    <div id="google_translate_element" style="position:fixed;top:-9999px;left:-9999px;"></div>
     <!-- Instant splash screen while JS loads -->
     <div id="splash">
       <div class="sp-logo">Sodexo Live!</div>
@@ -42,5 +75,36 @@
     </div>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
+    <!-- Splash watchdog: if React hasn't dismissed the splash in 6s, the JS
+         bundle likely failed to load (stale SW cache). Clear all caches and reload. -->
+    <script>
+      (function () {
+        var TIMEOUT = 6000;
+        var t = setTimeout(function () {
+          var splash = document.getElementById("splash");
+          if (!splash || splash.classList.contains("hide")) return; // React mounted fine
+          // React never mounted — nuke SW caches and reload fresh
+          if ("serviceWorker" in navigator && navigator.serviceWorker.controller) {
+            navigator.serviceWorker.controller.postMessage("CLEAN_CACHE");
+          }
+          if ("caches" in window) {
+            caches.keys().then(function (keys) {
+              return Promise.all(keys.map(function (k) { return caches.delete(k); }));
+            }).then(function () { window.location.reload(true); });
+          } else {
+            window.location.reload(true);
+          }
+        }, TIMEOUT);
+        // React dismissed splash — cancel watchdog
+        var observer = new MutationObserver(function () {
+          var splash = document.getElementById("splash");
+          if (!splash || splash.classList.contains("hide")) {
+            clearTimeout(t);
+            observer.disconnect();
+          }
+        });
+        observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["class"] });
+      })();
+    </script>
   </body>
 </html>

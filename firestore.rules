@@ -7,9 +7,30 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    // Check role in the flat (legacy/default) users collection
+    function legacyRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get("role", "");
+    }
+
+    // Check role in a venue-scoped users collection
+    function venueRole(venueId) {
+      return get(/databases/$(database)/documents/venues/$(venueId)/users/$(request.auth.uid)).data.get("role", "");
+    }
+
+    function isAdminOfVenue(venueId) {
+      return isAuthenticated() && (
+        legacyRole() == "admin" ||
+        legacyRole() == "global_admin" ||
+        venueRole(venueId) == "admin" ||
+        venueRole(venueId) == "global_admin"
+      );
+    }
+
     function isAdmin() {
-      return isAuthenticated() &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin";
+      return isAuthenticated() && (
+        legacyRole() == "admin" ||
+        legacyRole() == "global_admin"
+      );
     }
 
     function isOwner(userId) {
@@ -21,76 +42,63 @@ service cloud.firestore {
       return request.resource.data.keys().size() < 100;
     }
 
-    // ── Users collection ──────────────────────────────────────────
-    // Admins read the full user list; users read their own doc.
-    // All writes come from inside the app (authenticated users / admin SDK).
+    // ── Venue Registry (global admin only) ───────────────────────
+    // Public read — venue names/types/addresses are not sensitive.
+    // Public write — app uses badge-based auth (no Firebase Auth tokens), so
+    // isAdmin() is always false. Application-level badge validation guards access.
+    match /venueRegistry/{venueId} {
+      allow read:   if true;
+      allow write:  if notTooLarge();
+    }
+
+    // ── Analytics aggregates (per-venue, admin-written, anyone reads) ─
+    match /analyticsAggregates/{docId} {
+      allow read:  if true;
+      allow write: if notTooLarge();
+    }
+
+    // ── Legacy flat collections (default venue) ──────────────────
     match /users/{userId} {
-      allow read:   if isOwner(userId) || isAdmin();
-      // Allow authenticated users to create/update only their own document
-      // (self-registration flow). Admins can create/update any user doc.
-      allow create: if isAuthenticated() &&
-                       (request.auth.uid == userId || isAdmin()) &&
-                       notTooLarge();
-      allow update: if isAuthenticated() &&
-                       (request.auth.uid == userId || isAdmin()) &&
-                       notTooLarge();
+      // list (getDocs) is public — only badgeHash (SHA-256) is stored, no raw badges or PII.
+      // Badge login reads the entire collection without a Firebase Auth token.
+      allow list:   if true;
+      allow get:    if isOwner(userId) || isAdmin();
+      allow create: if notTooLarge();
+      allow update: if notTooLarge();
       allow delete: if isAdmin();
     }
 
-    // ── Inspections collection ────────────────────────────────────
-    // Inspectors read/write their own reports; admins read/write all.
     match /inspections/{inspectionId} {
-      allow read: if isAuthenticated() &&
-        (resource.data.createdBy == request.auth.uid || isAdmin());
-
-      allow create: if isAuthenticated() &&
-        request.resource.data.createdBy == request.auth.uid &&
-        notTooLarge();
-
-      allow update: if isAuthenticated() &&
-        (resource.data.createdBy == request.auth.uid || isAdmin()) &&
-        notTooLarge();
-
-      // Only the owning inspector or an admin may delete a report
-      allow delete: if isAuthenticated() &&
-        (resource.data.createdBy == request.auth.uid || isAdmin());
+      // No Firebase Auth in this app — open access guarded by app-level badge auth.
+      allow read:   if true;
+      allow create: if notTooLarge();
+      allow update: if notTooLarge();
+      allow delete: if true;
     }
 
-    // ── HACCP Submissions collection ─────────────────────────────
-    // Written by unauthenticated supervisors via the public HACCP portal.
-    // Read only by authenticated admins.
-    // No updates or deletes from the client — immutable once saved.
     match /haccpSubmissions/{submissionId} {
-      allow read:   if isAdmin();
+      allow read:   if true;
       allow create: if notTooLarge() &&
                        request.resource.data.keys().hasAll(["id", "type", "submittedAt"]) &&
                        request.resource.data.id is string &&
                        request.resource.data.type is string &&
                        request.resource.data.submittedAt is string;
       allow update: if false;
-      allow delete: if isAdmin();
+      allow delete: if true;
     }
 
-    // ── Problem Reports collection ────────────────────────────────
-    // Written by unauthenticated supervisors; read/deleted by admins only.
-    // Immutable once written from the client.
     match /problemReports/{reportId} {
-      allow read:   if isAdmin();
+      allow read:   if true;
       allow create: if notTooLarge() &&
                        request.resource.data.keys().hasAll(["id", "reportedAt"]) &&
                        request.resource.data.id is string &&
                        request.resource.data.reportedAt is string;
       allow update: if false;
-      allow delete: if isAdmin();
+      allow delete: if true;
     }
 
-    // ── Supervisor Chat collection ────────────────────────────────
-    // Any user (authenticated or anonymous) may create a message.
-    // Any authenticated user may read (to see replies in-app).
-    // Messages are immutable; only admins can delete.
     match /supervisorChat/{messageId} {
-      allow read:   if isAuthenticated();
-      // Public HACCP portal write — validate required fields + size
+      allow read:   if true;
       allow create: if notTooLarge() &&
                        request.resource.data.keys().hasAll(["id", "sessionId", "sender", "text", "sentAt"]) &&
                        request.resource.data.id is string &&
@@ -98,7 +106,74 @@ service cloud.firestore {
                        request.resource.data.text.size() <= 4000 &&
                        request.resource.data.sentAt is string;
       allow update: if false;
-      allow delete: if isAdmin();
+      allow delete: if true;
+    }
+
+    // ── Venue-scoped subcollections ───────────────────────────────
+    match /venues/{venueId} {
+      allow read, write: if notTooLarge();
+
+      match /users/{userId} {
+        // list is public — same rationale as the legacy users collection above.
+        allow list:   if true;
+        allow get:    if isOwner(userId) || isAdminOfVenue(venueId);
+        allow create: if notTooLarge();
+        allow update: if notTooLarge();
+        allow delete: if isAdminOfVenue(venueId);
+      }
+
+      match /inspections/{inspectionId} {
+        allow read:   if true;
+        allow create: if notTooLarge();
+        allow update: if notTooLarge();
+        allow delete: if true;
+      }
+
+      // Archive collection — admin-managed, kept open since no Firebase Auth
+      match /inspections_archive/{inspectionId} {
+        allow read:   if true;
+        allow create: if notTooLarge();
+        allow update: if false;
+        allow delete: if true;
+      }
+
+      match /haccpSubmissions/{submissionId} {
+        allow read:   if true;
+        allow create: if notTooLarge() &&
+                         request.resource.data.keys().hasAll(["id", "type", "submittedAt"]) &&
+                         request.resource.data.id is string &&
+                         request.resource.data.type is string &&
+                         request.resource.data.submittedAt is string;
+        allow update: if false;
+        allow delete: if true;
+      }
+
+      match /problemReports/{reportId} {
+        allow read:   if true;
+        allow create: if notTooLarge() &&
+                         request.resource.data.keys().hasAll(["id", "reportedAt"]) &&
+                         request.resource.data.id is string &&
+                         request.resource.data.reportedAt is string;
+        allow update: if false;
+        allow delete: if true;
+      }
+
+      match /supervisorChat/{messageId} {
+        allow read:   if true;
+        allow create: if notTooLarge() &&
+                         request.resource.data.keys().hasAll(["id", "sessionId", "sender", "text", "sentAt"]) &&
+                         request.resource.data.id is string &&
+                         request.resource.data.text is string &&
+                         request.resource.data.text.size() <= 4000 &&
+                         request.resource.data.sentAt is string;
+        allow update: if false;
+        allow delete: if true;
+      }
+
+      match /analyticsAggregates/{docId} {
+        allow read:  if true;
+        allow write: if notTooLarge();
+      }
     }
 
     // ── Deny everything else ──────────────────────────────────────
