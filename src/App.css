@@ -1591,7 +1591,6 @@ datalist {
 /* ── Inline Full Report View ─────────────────────────────── */
 .rptFullReport {
   padding: 0 !important;
-  overflow: hidden;
 }
 .rptReportHeader {
   display: flex;
@@ -1638,11 +1637,12 @@ datalist {
   flex-shrink: 0;
 }
 .rptStatusBadge {
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   font-weight: 800;
-  padding: 6px 16px;
+  padding: 6px 14px;
   border-radius: 100px;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
 }
 .rptStatusPass {
   background: #dcfce7;

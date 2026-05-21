@@ -1614,11 +1614,11 @@ function buildActionItems({ inspection, rawNotes }) {
       });
       return;
     }
-    if (node.status === "Needs Attention" || node.status === "Not Clean") {
+    if (node.status === "Needs Attention" || node.status === "Not Clean" || node.status === "Maintenance") {
       items.push({
         issue: `${label}: ${sanitizeText(node.notes) || "Issue noted"}`,
         owner: "", due: "",
-        priority: node.status === "Not Clean" ? "High" : "Med",
+        priority: node.status === "Maintenance" ? "Maintenance" : node.status === "Not Clean" ? "High" : "Med",
         photos: mapByPath[pathKey] || [],
       });
     }
@@ -1643,11 +1643,11 @@ function buildActionItems({ inspection, rawNotes }) {
   // Maintenance items — priority pulled from the node itself
   const pushMaint = (pathKey, label, node) => {
     if (!node?.status) return;
-    if (node.status === "Needs Attention" || node.status === "Not Clean") {
+    if (node.status === "Needs Attention" || node.status === "Not Clean" || node.status === "Maintenance") {
       items.push({
         issue: `Maintenance – ${label}: ${sanitizeText(node.notes) || "Issue noted"}`,
         owner: "", due: "",
-        priority: node.priority === "High" ? "High" : node.priority === "Med" ? "Med" : (node.status === "Not Clean" ? "High" : "Med"),
+        priority: "Maintenance",
         photos: mapByPath[pathKey] || [],
       });
     }
@@ -5692,7 +5692,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
           <div className="historyList" id="history-results">
             {filtered.map(rec => {
               const isExpanded = expandedId === rec.id;
-              const issues = rec.actionItems || [];
+              const issues = buildActionItems({ inspection: rec.inspection, rawNotes: rec.rawNotes });
               const statusColor = rec.overallStatus === "Pass" ? "#15803D" : "#EE0000";
               return (
                 <div
@@ -10641,6 +10641,7 @@ export default function App() {
     setEventName("");
     clearDraft(); // explicitly reset — discard any saved draft
     setDraftBanner(null);
+    setPage("inspector");
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
