@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v10: clear cache after output field removed from Firestore saves
-const CACHE_NAME = "sdx-inspect-v10";
+// v11: add push + notificationclick handlers for admin alerts
+const CACHE_NAME = "sdx-inspect-v11";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
@@ -35,6 +35,39 @@ self.addEventListener("message", (e) => {
   if (e.data === "SKIP_WAITING") {
     self.skipWaiting();
   }
+});
+
+// Push notification handler — receives payloads from the page via postMessage-based relay
+// (true VAPID server-sent push would also hit this handler)
+self.addEventListener("push", (e) => {
+  let data = {};
+  try { data = e.data?.json() || {}; } catch { data = { title: e.data?.text() || "Sodexo Inspection" }; }
+  e.waitUntil(
+    self.registration.showNotification(data.title || "Sodexo Inspection", {
+      body: data.body || "",
+      icon: "/Claude/favicon.svg",
+      badge: "/Claude/favicon.svg",
+      tag: data.tag || "sdx-notif",
+      requireInteraction: false,
+      data: { url: data.url || "/Claude/" },
+    })
+  );
+});
+
+// Open/focus the app when a notification is clicked
+self.addEventListener("notificationclick", (e) => {
+  e.notification.close();
+  const target = e.notification.data?.url || "/Claude/";
+  e.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
+      for (const client of clientList) {
+        if (client.url.includes("/Claude/") && "focus" in client) {
+          return client.focus();
+        }
+      }
+      return self.clients.openWindow(target);
+    })
+  );
 });
 
 // Fetch strategy:
