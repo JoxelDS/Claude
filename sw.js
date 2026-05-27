@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v17: quick-pick equipment type chips (cooler/freezer presets + name field)
-const CACHE_NAME = "sdx-inspect-v17";
+// v18: venue license auto-fill memory + multi-unit ice maker / filter tracking
+const CACHE_NAME = "sdx-inspect-v18";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
