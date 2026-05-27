@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v22: equipment type chips organized into coolers / freezers groups
-const CACHE_NAME = "sdx-inspect-v22";
+// v23: coolers/freezers side-by-side with divider line and blue tones
+const CACHE_NAME = "sdx-inspect-v23";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
