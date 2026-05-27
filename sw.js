@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v16: removed inline priority buttons (High/Med/Low chips)
-const CACHE_NAME = "sdx-inspect-v16";
+// v17: quick-pick equipment type chips (cooler/freezer presets + name field)
+const CACHE_NAME = "sdx-inspect-v17";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
