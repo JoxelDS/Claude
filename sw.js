@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v13: checklist intuitive pass/issue badges + CSS polish
-const CACHE_NAME = "sdx-inspect-v13";
+// v14: checklist fixed-order (no jump), compact rows, status chips
+const CACHE_NAME = "sdx-inspect-v14";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
