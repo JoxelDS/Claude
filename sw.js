@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v18: venue license auto-fill memory + multi-unit ice maker / filter tracking
-const CACHE_NAME = "sdx-inspect-v18";
+// v19: restaurant license forced uppercase
+const CACHE_NAME = "sdx-inspect-v19";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
