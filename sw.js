@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v11: add push + notificationclick handlers for admin alerts
-const CACHE_NAME = "sdx-inspect-v11";
+// v12: checklist grouped by status (Issues / Passed / Pending)
+const CACHE_NAME = "sdx-inspect-v12";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
