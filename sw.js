@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v20: issue category quick-filter chips in history search
-const CACHE_NAME = "sdx-inspect-v20";
+// v21: facilities section grouped with equipments and utensils
+const CACHE_NAME = "sdx-inspect-v21";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
