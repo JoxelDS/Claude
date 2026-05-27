@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v19: restaurant license forced uppercase
-const CACHE_NAME = "sdx-inspect-v19";
+// v20: issue category quick-filter chips in history search
+const CACHE_NAME = "sdx-inspect-v20";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
