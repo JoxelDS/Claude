@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v34: fix inventory totals (fleetTotal), correct location count, clean search results
-const CACHE_NAME = "sdx-inspect-v34";
+// v35: equipment sub-filters (Walk-in, Double Door, Prep, etc.) within each category bucket
+const CACHE_NAME = "sdx-inspect-v35";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
