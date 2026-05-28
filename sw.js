@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v37: Equipment dropdown shows cooler/freezer/sink sub-types inline with counts
-const CACHE_NAME = "sdx-inspect-v37";
+// v38: Equipment filter replaced with two-row pill/chip UI (category + sub-type pills)
+const CACHE_NAME = "sdx-inspect-v38";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
