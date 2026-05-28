@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v38: Equipment filter replaced with two-row pill/chip UI (category + sub-type pills)
-const CACHE_NAME = "sdx-inspect-v38";
+// v39: Dashboard performance inventory gets same two-row pill filter (bucket + sub-type)
+const CACHE_NAME = "sdx-inspect-v39";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
