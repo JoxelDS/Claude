@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v35: equipment sub-filters (Walk-in, Double Door, Prep, etc.) within each category bucket
-const CACHE_NAME = "sdx-inspect-v35";
+// v36: location-first inventory UI with Equipment Type + Location Type dropdowns, grouped by location type
+const CACHE_NAME = "sdx-inspect-v36";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
