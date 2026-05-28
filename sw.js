@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v40: Fix inventory tab reload flash — hoist EquipRow/IceMakerRow/FilterRows/SiteCard/TotalsStrip out of IIFE
-const CACHE_NAME = "sdx-inspect-v40";
+// v41: Fix KPI_BUCKETS scope crash — hoist to module level (shared by Inventory + PerformanceDashboard)
+const CACHE_NAME = "sdx-inspect-v41";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
