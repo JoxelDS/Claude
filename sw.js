@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v26: filter rows + date format fix
-const CACHE_NAME = "sdx-inspect-v26";
+// v27: multi-filter dates per ice maker
+const CACHE_NAME = "sdx-inspect-v27";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
