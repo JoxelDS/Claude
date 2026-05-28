@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v33: equipment drill-down: Category → Location → Unit names (3 layers)
-const CACHE_NAME = "sdx-inspect-v33";
+// v34: fix inventory totals (fleetTotal), correct location count, clean search results
+const CACHE_NAME = "sdx-inspect-v34";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
