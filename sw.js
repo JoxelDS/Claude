@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v25: inventory label keying fix
-const CACHE_NAME = "sdx-inspect-v25";
+// v26: filter rows + date format fix
+const CACHE_NAME = "sdx-inspect-v26";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
