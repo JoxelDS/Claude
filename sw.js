@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v28: fix filter remove button inside label
-const CACHE_NAME = "sdx-inspect-v28";
+// v29: premium inventory tab redesign — navy KPI header, styled section headers, premium SiteCard
+const CACHE_NAME = "sdx-inspect-v29";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
