@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v29: premium inventory tab redesign — navy KPI header, styled section headers, premium SiteCard
-const CACHE_NAME = "sdx-inspect-v29";
+// v30: navy KPI header added to AIHealthMonitor analytics locations tab
+const CACHE_NAME = "sdx-inspect-v30";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
