@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v30: navy KPI header added to AIHealthMonitor analytics locations tab
-const CACHE_NAME = "sdx-inspect-v30";
+// v31: analytics locations — grouped KPI buckets, styled filter chips, fix NaN total
+const CACHE_NAME = "sdx-inspect-v31";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
