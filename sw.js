@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
 // v23: coolers/freezers side-by-side with divider line and blue tones
-const CACHE_NAME = "sdx-inspect-v23";
+const CACHE_NAME = "sdx-inspect-v24";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
