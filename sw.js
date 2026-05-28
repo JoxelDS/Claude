@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v27: multi-filter dates per ice maker
-const CACHE_NAME = "sdx-inspect-v27";
+// v28: fix filter remove button inside label
+const CACHE_NAME = "sdx-inspect-v28";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
