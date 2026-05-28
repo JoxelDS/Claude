@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v31: analytics locations — grouped KPI buckets, styled filter chips, fix NaN total
-const CACHE_NAME = "sdx-inspect-v31";
+// v32: analytics locations — bucket-only filter bar, professional styled layout
+const CACHE_NAME = "sdx-inspect-v32";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
