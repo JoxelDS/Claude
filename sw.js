@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v41: Fix KPI_BUCKETS scope crash — hoist to module level (shared by Inventory + PerformanceDashboard)
-const CACHE_NAME = "sdx-inspect-v41";
+// v42: Fix EQUIP_META scope crash — hoist to module level alongside KPI_BUCKETS
+const CACHE_NAME = "sdx-inspect-v42";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
