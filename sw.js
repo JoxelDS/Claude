@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v36: location-first inventory UI with Equipment Type + Location Type dropdowns, grouped by location type
-const CACHE_NAME = "sdx-inspect-v36";
+// v37: Equipment dropdown shows cooler/freezer/sink sub-types inline with counts
+const CACHE_NAME = "sdx-inspect-v37";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
