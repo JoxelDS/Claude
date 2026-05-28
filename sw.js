@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v39: Dashboard performance inventory gets same two-row pill filter (bucket + sub-type)
-const CACHE_NAME = "sdx-inspect-v39";
+// v40: Fix inventory tab reload flash — hoist EquipRow/IceMakerRow/FilterRows/SiteCard/TotalsStrip out of IIFE
+const CACHE_NAME = "sdx-inspect-v40";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
