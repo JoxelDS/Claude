@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v44: Temp alerts, corrective actions, PDF export, score/grade, reminders, trend charts, offline indicator, equipment scanner
-const CACHE_NAME = "sdx-inspect-v44";
+// v45: Temp alerts, corrective actions, PDF export, score/grade, reminders, trend charts, offline indicator, equipment scanner, QR label printing
+const CACHE_NAME = "sdx-inspect-v45";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
