@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v42: Fix EQUIP_META scope crash — hoist to module level alongside KPI_BUCKETS
-const CACHE_NAME = "sdx-inspect-v42";
+// v43: Ice Maker first-class — KPI tile, filter pill, totals, SiteCard chip, remove Maintenance footer
+const CACHE_NAME = "sdx-inspect-v43";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
