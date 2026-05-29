@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v43: Ice Maker first-class — KPI tile, filter pill, totals, SiteCard chip, remove Maintenance footer
-const CACHE_NAME = "sdx-inspect-v43";
+// v44: Temp alerts, corrective actions, PDF export, score/grade, reminders, trend charts, offline indicator, equipment scanner
+const CACHE_NAME = "sdx-inspect-v44";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
