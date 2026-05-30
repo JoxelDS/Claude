@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v51: QR button in-app nav, remove Equipment Scanner from menu, Safari scan fallback, Supplies Needed mobile layout fix
-const CACHE_NAME = "sdx-inspect-v51";
+// v52: Supplies Needed section recolored to match guide theme
+const CACHE_NAME = "sdx-inspect-v52";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
