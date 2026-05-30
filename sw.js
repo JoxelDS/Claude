@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v46: Temp violations penalize inspection score, Critical priority styling in reports, HACCP food temps inline in scorecard
-const CACHE_NAME = "sdx-inspect-v46";
+// v47: Brand, kitchen location, and QR button on equipment cards; autofill from site memory
+const CACHE_NAME = "sdx-inspect-v47";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
