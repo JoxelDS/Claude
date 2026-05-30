@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v49: Multi-step delete confirmation for venue removal; delete bug fix (errors no longer silent)
-const CACHE_NAME = "sdx-inspect-v49";
+// v50: Unified Equipment Info Bar — Brand, Location, Asset Tag in single header panel
+const CACHE_NAME = "sdx-inspect-v50";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
