@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v50: Unified Equipment Info Bar — Brand, Location, Asset Tag in single header panel
-const CACHE_NAME = "sdx-inspect-v50";
+// v51: QR button in-app nav, remove Equipment Scanner from menu, Safari scan fallback, Supplies Needed mobile layout fix
+const CACHE_NAME = "sdx-inspect-v51";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
