@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v53: Inspection Schedule — scheduled slots with date + location + note
-const CACHE_NAME = "sdx-inspect-v53";
+// v54: Scheduled inspection slots — added Unit # field
+const CACHE_NAME = "sdx-inspect-v54";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
