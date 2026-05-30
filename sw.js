@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v55: Scheduled inspection slots — inspector assignment dropdown
-const CACHE_NAME = "sdx-inspect-v55";
+// v56: Remove ewee from inspector dropdown; suppress Unknown in results
+const CACHE_NAME = "sdx-inspect-v56";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
