@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v52: Supplies Needed section recolored to match guide theme
-const CACHE_NAME = "sdx-inspect-v52";
+// v53: Inspection Schedule — scheduled slots with date + location + note
+const CACHE_NAME = "sdx-inspect-v53";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
