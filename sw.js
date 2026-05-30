@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v47: Brand, kitchen location, and QR button on equipment cards; autofill from site memory
-const CACHE_NAME = "sdx-inspect-v47";
+// v48: Brand/Location/QR gated to equipment sections only; location datalist prefill options
+const CACHE_NAME = "sdx-inspect-v48";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
