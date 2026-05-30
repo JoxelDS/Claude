@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v48: Brand/Location/QR gated to equipment sections only; location datalist prefill options
-const CACHE_NAME = "sdx-inspect-v48";
+// v49: Multi-step delete confirmation for venue removal; delete bug fix (errors no longer silent)
+const CACHE_NAME = "sdx-inspect-v49";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
