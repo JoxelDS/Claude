@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v57: Count all equipment types (Other bucket) in inventory totals
-const CACHE_NAME = "sdx-inspect-v57";
+// v58: Remove Sanitizer sub-bucket; rename Ecolab inspector field
+const CACHE_NAME = "sdx-inspect-v58";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
