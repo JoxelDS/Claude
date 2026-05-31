@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v62: Print Labels page now shows all equipment (not just asset-tagged); no-tag fallback
-const CACHE_NAME = "sdx-inspect-v62";
+// v63: Performance Dashboard Export — Excel reports (global all-inspectors + per-inspector individual)
+const CACHE_NAME = "sdx-inspect-v63";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
