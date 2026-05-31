@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v56: Remove ewee from inspector dropdown; suppress Unknown in results
-const CACHE_NAME = "sdx-inspect-v56";
+// v57: Count all equipment types (Other bucket) in inventory totals
+const CACHE_NAME = "sdx-inspect-v57";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
