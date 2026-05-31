@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v64: Performance Dashboard Export — Word (.docx) export added; Print removed from export dropdown; dropdown enlarged
-const CACHE_NAME = "sdx-inspect-v64";
+// v65: Remove "Unknown" from inspector ranking (inspections missing inspector name are skipped)
+const CACHE_NAME = "sdx-inspect-v65";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
