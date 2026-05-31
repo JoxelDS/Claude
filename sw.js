@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v61: Optimistic user removal in AdminPanel; fix equipment progress false positive
-const CACHE_NAME = "sdx-inspect-v61";
+// v62: Print Labels page now shows all equipment (not just asset-tagged); no-tag fallback
+const CACHE_NAME = "sdx-inspect-v62";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
