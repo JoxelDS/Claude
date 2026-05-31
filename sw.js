@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v58: Remove Sanitizer sub-bucket; rename Ecolab inspector field
-const CACHE_NAME = "sdx-inspect-v58";
+// v59: Unify photo upload/compression utility; shared restoreFormState; locations + timeline analytics tabs
+const CACHE_NAME = "sdx-inspect-v59";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
