@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v60: Fix form progress bar — Equipment section no longer falsely shows complete on blank form
-const CACHE_NAME = "sdx-inspect-v60";
+// v61: Optimistic user removal in AdminPanel; fix equipment progress false positive
+const CACHE_NAME = "sdx-inspect-v61";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
