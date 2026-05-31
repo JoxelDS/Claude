@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v59: Unify photo upload/compression utility; shared restoreFormState; locations + timeline analytics tabs
-const CACHE_NAME = "sdx-inspect-v59";
+// v60: Fix form progress bar — Equipment section no longer falsely shows complete on blank form
+const CACHE_NAME = "sdx-inspect-v60";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
