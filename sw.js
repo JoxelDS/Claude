@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v63: Performance Dashboard Export — Excel reports (global all-inspectors + per-inspector individual)
-const CACHE_NAME = "sdx-inspect-v63";
+// v64: Performance Dashboard Export — Word (.docx) export added; Print removed from export dropdown; dropdown enlarged
+const CACHE_NAME = "sdx-inspect-v64";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
