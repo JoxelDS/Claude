@@ -1,33 +1,45 @@
 /*
  * Firebase Configuration for Sodexo Kitchen Inspection
  *
- * SETUP INSTRUCTIONS:
- * 1. Go to https://console.firebase.google.com
- * 2. Click "Create a project" → name it "sodexo-inspection"
- * 3. Once created, click the gear icon → "Project settings"
- * 4. Scroll down to "Your apps" → click the </> (Web) icon
- * 5. Register the app (name: "Kitchen Inspection")
- * 6. Copy the firebaseConfig object and paste it below
- * 7. Go to "Build" → "Firestore Database" → "Create database"
- *    - Choose "Start in production mode"
- *    - Pick the closest region
- * 8. In Firestore, go to "Rules" tab and paste:
+ * ── API KEY SECURITY ──────────────────────────────────────────────
+ * The API key below is a BROWSER key (public identifier). It is safe
+ * to bundle in client code because it only routes requests to the
+ * correct Firebase project — it does NOT grant write access on its own.
+ * Real protection comes from Firestore and Storage security rules.
  *
- *    rules_version = '2';
- *    service cloud.firestore {
- *      match /databases/{database}/documents {
- *        match /{document=**} {
- *          allow read, write: if true;
- *        }
- *      }
- *    }
+ * For additional hardening, restrict this key in Google Cloud Console:
+ *   1. https://console.cloud.google.com → APIs & Services → Credentials
+ *   2. Find the "Browser key (auto created by Firebase)" entry
+ *   3. Under "Application restrictions" → select "HTTP referrers (websites)"
+ *   4. Add your domain(s):
+ *        joxeldasilva.github.io/*
+ *        localhost:5173/*        (dev only — remove in production)
+ *   5. Under "API restrictions" → select "Restrict key"
+ *   6. Enable only:
+ *        Cloud Firestore API
+ *        Firebase Storage
+ *        Identity Toolkit API  (if using Firebase Auth in the future)
+ *   7. Save. Requests from any other domain or to any other API will be
+ *      rejected by Google before they even hit Firebase.
  *
- *    (For production, tighten these rules later)
+ * ── ROTATING THE KEY ─────────────────────────────────────────────
+ * If you believe the key has been compromised:
+ *   1. Go to Google Cloud Console → APIs & Services → Credentials
+ *   2. Find the Browser key → click the three-dot menu → "Regenerate key"
+ *   3. Update the apiKey value below with the new key
+ *   4. Rebuild and deploy: npm run build && npm run deploy
+ *
+ * ── RULES FILES ──────────────────────────────────────────────────
+ * Security rules live in:
+ *   firestore.rules  — Firestore read/write validation
+ *   storage.rules    — Firebase Storage photo upload validation
+ * Deploy them with:
+ *   firebase deploy --only firestore:rules,storage
  */
 
 import { initializeApp } from "firebase/app";
 import { getFirestore, collection, doc } from "firebase/firestore";
-import { getStorage, ref, uploadString, getDownloadURL, deleteObject } from "firebase/storage";
+import { getStorage, ref, uploadString, getDownloadURL, getBlob, deleteObject } from "firebase/storage";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDgXvyvFuKUc59IDB8Fr52ydZ0hiJfJeZU",
@@ -117,4 +129,4 @@ export async function deletePhoto(venueId, inspectionId, photoId) {
   } catch (_) {}
 }
 
-export { db, storage, isConfigured };
+export { db, storage, ref as storageRef, getBlob as storageGetBlob, isConfigured };

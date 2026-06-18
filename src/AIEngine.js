@@ -173,7 +173,8 @@ const InspectorProfiler = {
     const map = {}; // { name: { records: [], passes, issues, cats: {}, sites: Set } }
 
     for (const rec of history) {
-      const name = (rec.inspectorName || "").trim() || "Unknown";
+      const name = (rec.inspectorName || "").trim();
+      if (!name) continue; // skip inspections with no inspector name
       if (!map[name]) map[name] = { records: [], passes: 0, issues: 0, cats: {}, sites: new Set() };
       map[name].records.push(rec);
       if (rec.overallStatus === "Pass") map[name].passes += 1;
@@ -184,6 +185,20 @@ const InspectorProfiler = {
         const cat = (item.issue || "").split(":")[0].trim() || "Other";
         map[name].cats[cat] = (map[name].cats[cat] || 0) + 1;
       }
+    }
+
+    // ── Compute per-site baseline pass rates (all inspectors combined) ──
+    // Used to normalize each inspector's pass rate against site difficulty.
+    const siteBaseline = {}; // { siteKey: { passes, total } }
+    for (const rec of history) {
+      const sk = siteKey(rec);
+      if (!siteBaseline[sk]) siteBaseline[sk] = { passes: 0, total: 0 };
+      siteBaseline[sk].total += 1;
+      if (rec.overallStatus === "Pass") siteBaseline[sk].passes += 1;
+    }
+    const siteBaselineRate = {}; // { siteKey: avgPassRate 0-100 }
+    for (const [sk, s] of Object.entries(siteBaseline)) {
+      if (s.total >= 3) siteBaselineRate[sk] = Math.round((s.passes / s.total) * 100);
     }
 
     return Object.entries(map)
@@ -223,20 +238,41 @@ const InspectorProfiler = {
           issues: (r.actionItems || []).length,
         }));
 
-        // ── Time tracking (report duration in seconds) ──────────
-        const durations = v.records
-          .map(r => r.reportDurationSeconds)
+        // ── Time tracking: only use records where the on-site timer was explicitly confirmed ──────────
+        const timedRecords = v.records.filter(r => r.timerConfirmed === true);
+        const durations = timedRecords
+          .map(r => r.inspectionDurationSeconds ?? r.reportDurationSeconds)
           .filter(d => typeof d === "number" && d > 0);
         const avgDurationSec = durations.length
           ? Math.round(durations.reduce((a, b) => a + b, 0) / durations.length)
           : null;
+        const minDurationSec = durations.length ? Math.min(...durations) : null;
+        const maxDurationSec = durations.length ? Math.max(...durations) : null;
+        const totalTimeSec = durations.length ? durations.reduce((a, b) => a + b, 0) : null;
+        const onSiteTimedCount = timedRecords.filter(r => typeof r.inspectionDurationSeconds === "number" && r.inspectionDurationSeconds > 0).length;
+        // Duration trend: first half avg vs second half avg (positive = getting slower)
+        const sortedByDate = [...timedRecords]
+          .filter(r => (typeof r.inspectionDurationSeconds === "number" && r.inspectionDurationSeconds > 0) || (typeof r.reportDurationSeconds === "number" && r.reportDurationSeconds > 0))
+          .filter(r => r.inspectionDate)
+          .sort((a, b) => (a.inspectionDate || "").localeCompare(b.inspectionDate || ""));
+        const dHalf = Math.floor(sortedByDate.length / 2);
+        const firstHalfDurations = sortedByDate.slice(0, dHalf).map(r => r.inspectionDurationSeconds ?? r.reportDurationSeconds);
+        const secondHalfDurations = sortedByDate.slice(dHalf).map(r => r.inspectionDurationSeconds ?? r.reportDurationSeconds);
+        const firstHalfAvgDur = firstHalfDurations.length
+          ? Math.round(firstHalfDurations.reduce((a, b) => a + b, 0) / firstHalfDurations.length) : null;
+        const secondHalfAvgDur = secondHalfDurations.length
+          ? Math.round(secondHalfDurations.reduce((a, b) => a + b, 0) / secondHalfDurations.length) : null;
+        // durationTrend: negative = getting faster (good), positive = getting slower (bad)
+        const durationTrend = (firstHalfAvgDur !== null && secondHalfAvgDur !== null)
+          ? secondHalfAvgDur - firstHalfAvgDur : null;
         // Per-site time breakdown
         const siteTimeMap = {};
-        for (const r of v.records) {
+        for (const r of timedRecords) {
           const sk = siteKey(r);
           if (!siteTimeMap[sk]) siteTimeMap[sk] = { total: 0, count: 0 };
-          if (typeof r.reportDurationSeconds === "number" && r.reportDurationSeconds > 0) {
-            siteTimeMap[sk].total += r.reportDurationSeconds;
+          const dur = r.inspectionDurationSeconds ?? r.reportDurationSeconds;
+          if (typeof dur === "number" && dur > 0) {
+            siteTimeMap[sk].total += dur;
             siteTimeMap[sk].count += 1;
           }
         }
@@ -309,16 +345,151 @@ const InspectorProfiler = {
         // Sort by most-frequently revisited sites first
         siteReinspDetail.sort((a, b) => b.visits - a.visits);
 
-        // ── Performance score: composite of pass rate + issue finds + speed ──
-        // Higher is better. passRate 0-100 weighted 60%, avgIssues bonus (up to 20 pts
-        // for finding issues = thoroughness), speed bonus capped at 20 pts.
-        const speedBonus = avgDurationSec !== null
-          ? Math.min(20, Math.round(20 * Math.min(1, 1200 / Math.max(avgDurationSec, 60)))) // bonus for <20min avg
-          : 10; // neutral if no data
+        // ── Event inspection tracking ──────────────────────────────
+        const eventRecs = v.records.filter(r => r.eventName && r.eventName.trim());
+        const eventInspectionCount = eventRecs.length;
+        const eventPassRate = eventRecs.length
+          ? Math.round((eventRecs.filter(r => r.overallStatus === "Pass").length / eventRecs.length) * 100)
+          : null;
+        const eventNames = [...new Set(eventRecs.map(r => r.eventName.trim()))].slice(0, 5);
+
+        // ── Participant tracking ───────────────────────────────────
+        const participantNames = [
+          ...new Set(v.records.map(r => r.participantName).filter(Boolean).map(p => p.trim()))
+        ].slice(0, 5);
+
+        // ── Note type breakdown per inspector ─────────────────────
+        const inspNoteTypes = {};
+        for (const r of v.records) {
+          if (r.noteType) inspNoteTypes[r.noteType] = (inspNoteTypes[r.noteType] || 0) + 1;
+        }
+        const noteTypeBreakdown = Object.entries(inspNoteTypes)
+          .map(([type, count]) => ({ type, count }))
+          .sort((a, b) => b.count - a.count);
+
+        // ── Site-normalized pass rate ────────────────────────────────────
+        // Compare each inspector's pass rate at each site to that site's overall baseline.
+        // If a site is historically hard (60% avg), an inspector at 70% is punching above weight.
+        // normalizedPassRate = weighted avg of (inspectorRate - siteBaseline) per site, offset back to 0-100.
+        const siteNormDeltas = [];
+        const sitesWithBaseline = [...v.sites].filter(sk => siteBaselineRate[sk] !== undefined);
+        for (const sk of sitesWithBaseline) {
+          // Inspector's pass rate at this specific site
+          const siteRecs = v.records.filter(r => siteKey(r) === sk);
+          if (siteRecs.length < 2) continue;
+          const siteInspPasses = siteRecs.filter(r => r.overallStatus === "Pass").length;
+          const siteInspRate = Math.round((siteInspPasses / siteRecs.length) * 100);
+          const delta = siteInspRate - siteBaselineRate[sk]; // positive = beating site avg
+          siteNormDeltas.push({ delta, weight: siteRecs.length });
+        }
+        // Weighted avg delta: positive = above-average for their sites, negative = below
+        const totalWeight = siteNormDeltas.reduce((s, d) => s + d.weight, 0);
+        const weightedDelta = totalWeight > 0
+          ? Math.round(siteNormDeltas.reduce((s, d) => s + d.delta * d.weight, 0) / totalWeight)
+          : 0;
+        // normalizedPassRate: clamp to 0-100 (centered at passRate, adjusted by site difficulty)
+        const normalizedPassRate = Math.max(0, Math.min(100, passRate + Math.round(weightedDelta * 0.4)));
+        // Use normalizedPassRate when we have enough site data, else raw passRate
+        const effectivePassRate = sitesWithBaseline.length >= 2 && siteNormDeltas.length >= 2
+          ? normalizedPassRate : passRate;
+
+        // ── Note quality score ───────────────────────────────────────────
+        // Measures how thoroughly an inspector fills out the form:
+        //   1. Checklist completion rate — % of items that have a status set
+        //   2. Item notes written — % of flagged/attention items that have a written note
+        //   3. Observation specificity — avg character length of those notes
+        // Combined into a 0-25 point score.
+        let totalChecklistItems = 0;
+        let completedChecklistItems = 0;
+        let flaggedItemsWithNote = 0;
+        let flaggedItemsTotal = 0;
+        const allItemNoteTexts = [];
+        for (const r of v.records) {
+          const insp = r.inspection || {};
+          for (const section of Object.values(insp)) {
+            if (!section || typeof section !== "object") continue;
+            for (const item of Object.values(section)) {
+              if (!item || typeof item !== "object") continue;
+              // Skip temp-only entries and pure metadata
+              if (Object.keys(item).every(k => ["handSinkTempF","threeCompSinkSanitizer","handSinkOutOfOrder","threeCompSinkOutOfOrder","coolerTempF","freezerTempF"].includes(k))) continue;
+              const hasStatus = item.status && item.status !== "";
+              if (!hasStatus) continue; // item not touched at all — skip
+              totalChecklistItems++;
+              completedChecklistItems++;
+              const isFlagged = item.status === "Needs Attention" || item.status === "Fail" || item.status === "Needs Cleaning";
+              if (isFlagged) {
+                flaggedItemsTotal++;
+                const noteText = (item.notes || "").trim();
+                if (noteText.length > 0) {
+                  flaggedItemsWithNote++;
+                  allItemNoteTexts.push(noteText);
+                }
+              }
+            }
+          }
+        }
+        // Completion rate: % of touched items that have a status (already 100% by construction above)
+        // Flagged note coverage: % of flagged items that have a written explanation
+        const flaggedNoteCoverage = flaggedItemsTotal > 0
+          ? Math.round((flaggedItemsWithNote / flaggedItemsTotal) * 100)
+          : 100; // no flags = can't penalize
+        // Note specificity: avg char length of written notes on flagged items
+        const avgNoteLength = allItemNoteTexts.length
+          ? Math.round(allItemNoteTexts.reduce((s, t) => s + t.length, 0) / allItemNoteTexts.length)
+          : 0;
+        // Score breakdown (0-25 pts):
+        //   Up to 15 pts for flagged-item note coverage (100% = 15pts, 75%+ = 10pts, 50%+ = 5pts, <50% = 0)
+        //   Up to 10 pts for note specificity (50+ chars avg = 10, 30+ = 7, 15+ = 4, <15 = 0)
+        const coverageScore = flaggedItemsTotal === 0 ? 10  // no flags, neutral
+          : flaggedNoteCoverage >= 100 ? 15
+          : flaggedNoteCoverage >= 75  ? 10
+          : flaggedNoteCoverage >= 50  ? 5
+          : 0;
+        const specificityScore = avgNoteLength >= 50 ? 10
+          : avgNoteLength >= 30 ? 7
+          : avgNoteLength >= 15 ? 4
+          : 0;
+        const noteQualityScore = coverageScore + specificityScore;
+
+        // ── Score variance (rubber-stamp detection) ──────────────────────
+        // Real inspectors see variance — different sites have different conditions.
+        // An inspector with suspiciously low variance across many records may be copying results.
+        // Variance = std deviation of per-inspection pass/fail (0 or 1 per record).
+        const passValues = v.records.map(r => r.overallStatus === "Pass" ? 1 : 0);
+        const passValueMean = passValues.reduce((a, b) => a + b, 0) / passValues.length;
+        const passVariance = passValues.reduce((s, x) => s + Math.pow(x - passValueMean, 2), 0) / passValues.length;
+        // passVariance ranges 0 (all same) to 0.25 (50/50 split — max natural variance)
+        // Flag if >= 5 records and variance < 0.05 (>95% same result every time)
+        const isSuspiciouslyFlat = v.records.length >= 5 && passVariance < 0.05;
+        // Also flag if pass rate is extremely high (>95%) AND low issue rate — likely rubber-stamping
+        const isRubberStampPattern = passRate >= 95 && avgIssues < 0.5 && total >= 5;
+
+        // ── Consistency score (0-20): how stable their quality is over recent records ──
+        // Compare recent 8-record window vs overall pass rate.
+        // Low variance from their own baseline = consistent (good). High swing = erratic.
+        const recentSorted = [...v.records].sort((a, b) => (a.inspectionDate || "").localeCompare(b.inspectionDate || ""));
+        const windowSize = Math.min(recentSorted.length, 8);
+        const recentWindow = recentSorted.slice(-windowSize);
+        const windowPasses = recentWindow.filter(r => r.overallStatus === "Pass").length;
+        const windowPassRate = Math.round((windowPasses / recentWindow.length) * 100);
+        const passRateVariance = Math.abs(windowPassRate - passRate);
+        const consistencyScore = Math.max(0, 20 - Math.round(passRateVariance * 0.4));
+
+        // ── Real Work Score ───────────────────────────────────────────────
+        // Pure output-quality scoring — no time component.
+        // Components:
+        //   effectivePassRate × 0.35  →  0–35 pts  (site-normalized pass rate)
+        //   issueRate         × 0.30  →  0–30 pts  (avg 3+ issues/visit = full)
+        //   noteQualityScore          →  0–25 pts  (specificity of findings)
+        //   consistencyScore × 0.50  →  0–10 pts  (stable performance)
+        // Rubber-stamp patterns are penalized separately in buildVerdict() via signals.
+        const issueComponent = Math.min(30, Math.round((avgIssues / 3) * 30));
+        const consistencyComponent = Math.round(consistencyScore * 0.5); // 0-10 pts
         const performanceScore = Math.min(100, Math.round(
-          passRate * 0.6
-          + Math.min(20, avgIssues * 4)   // up to 20pts for finding issues
-          + speedBonus
+          effectivePassRate * 0.35
+          + issueComponent
+          + noteQualityScore
+          + consistencyComponent
         ));
 
         return {
@@ -337,6 +508,12 @@ const InspectorProfiler = {
           secondPassRate,
           // Time tracking (within inspection — report duration)
           avgDurationSec,
+          minDurationSec,
+          maxDurationSec,
+          totalTimeSec,
+          durationTrend,
+          firstHalfAvgDur,
+          secondHalfAvgDur,
           timePerSite,
           durationCount: durations.length,
           // Turnaround time (inspectionDate → savedAt submission lag)
@@ -349,8 +526,32 @@ const InspectorProfiler = {
           // Site re-inspection interval
           avgReinspDays,
           siteReinspDetail,
-          // Overall performance score
+          // Event inspections
+          eventInspectionCount,
+          eventRate: total ? Math.round((eventInspectionCount / total) * 100) : 0,
+          eventPassRate,
+          eventNames,
+          // Participants
+          participantNames,
+          // Note type breakdown
+          noteTypeBreakdown,
+          // Overall performance score (Real Work Score)
           performanceScore,
+          // Site-normalized metrics
+          normalizedPassRate,
+          effectivePassRate,
+          weightedDelta,
+          sitesWithBaseline: sitesWithBaseline.length,
+          // Note quality
+          avgNoteLength,
+          noteQualityScore,
+          flaggedNoteCoverage,
+          // Rubber-stamp / variance detection
+          passVariance: parseFloat(passVariance.toFixed(3)),
+          isSuspiciouslyFlat,
+          isRubberStampPattern,
+          // Consistency
+          consistencyScore,
         };
       })
       .sort((a, b) => b.total - a.total);
@@ -542,6 +743,7 @@ const BehaviorTracker = {
     let missingInspector   = 0;
     let missingSupervisor  = 0;
     let missingTemps       = 0;
+    let missingFoodTemps   = 0;
     let missingFloor       = 0;
     let zeroIssuePass      = 0; // passes with 0 action items (thorough?)
     let highIssueCount     = 0; // records with 5+ action items
@@ -566,6 +768,9 @@ const BehaviorTracker = {
       if (!rec.supervisorName || rec.supervisorName.trim() === "") missingSupervisor++;
       if (!rec.temps?.handSinkTempF && !rec.temps?.threeCompSinkTempF) missingTemps++;
       if (!rec.floor || rec.floor.trim() === "") missingFloor++;
+      // foodTemps completeness — object with at least one numeric entry
+      const hasFoodTemps = rec.foodTemps && Object.values(rec.foodTemps).some(v => v && Number(v) > 0);
+      if (!hasFoodTemps) missingFoodTemps++;
       const issues = (rec.actionItems || []).length;
       if (issues === 0 && rec.overallStatus === "Pass") zeroIssuePass++;
       if (issues >= 5) highIssueCount++;
@@ -588,6 +793,7 @@ const BehaviorTracker = {
       inspectorName:  Math.round(((total - missingInspector)  / total) * 100),
       supervisorName: Math.round(((total - missingSupervisor) / total) * 100),
       temps:          Math.round(((total - missingTemps)      / total) * 100),
+      foodTemps:      Math.round(((total - missingFoodTemps)  / total) * 100),
       floor:          Math.round(((total - missingFloor)      / total) * 100),
     };
 
@@ -609,6 +815,7 @@ const BehaviorTracker = {
         inspectorName: missingInspector,
         supervisorName: missingSupervisor,
         temps: missingTemps,
+        foodTemps: missingFoodTemps,
         floor: missingFloor,
       },
       zeroIssuePasses: zeroIssuePass,
@@ -965,15 +1172,22 @@ const InspectionWorkflowTracker = {
     const equip  = Object.values(equipObj).some(e => e?.status && e.status !== "");
     const notes  = (record.rawNotes || "").trim().length > 30;
     const items  = (record.actionItems || []).length;
+    const hasFoodTemps = record.foodTemps && Object.values(record.foodTemps).some(v => v && Number(v) > 0);
+    const photos = Number(record.photoCount) || 0;
 
     // Compute a simple thoroughness score (0-100)
+    // temps(20) + equip(20) + notes(15) + supervisorName(10) + floor(10) + items(5)
+    // + foodTemps(10) + photos(10) = 100 max
     let score = 0;
-    if (temps)  score += 25;
-    if (equip)  score += 25;
-    if (notes)  score += 20;
-    if (record.supervisorName?.trim()) score += 15;
+    if (temps)  score += 20;
+    if (equip)  score += 20;
+    if (notes)  score += 15;
+    if (record.supervisorName?.trim()) score += 10;
     if (record.floor?.trim()) score += 10;
     if (items > 0) score += 5;
+    if (hasFoodTemps) score += 10;
+    if (photos >= 1) score += 5;
+    if (photos >= 3) score += 5; // extra 5 for 3+ photos (total 10 photo points)
 
     data.sessions.push({
       date: record.inspectionDate || todayKey(),
@@ -982,8 +1196,10 @@ const InspectionWorkflowTracker = {
       hasTemps: temps,
       hasEquip: equip,
       hasNotes: notes,
+      hasFoodTemps: !!hasFoodTemps,
       hasActionItems: items > 0,
       actionItemCount: items,
+      photoCount: photos,
       thoroughnessScore: score,
       savedAt: nowISO(),
     });
@@ -1000,10 +1216,12 @@ const InspectionWorkflowTracker = {
     if (s.length < 3) return null;
 
     const total = s.length;
-    const noTemps  = s.filter(x => !x.hasTemps).length;
-    const noEquip  = s.filter(x => !x.hasEquip).length;
-    const noNotes  = s.filter(x => !x.hasNotes).length;
-    const noItems  = s.filter(x => !x.hasActionItems).length;
+    const noTemps      = s.filter(x => !x.hasTemps).length;
+    const noEquip      = s.filter(x => !x.hasEquip).length;
+    const noNotes      = s.filter(x => !x.hasNotes).length;
+    const noItems      = s.filter(x => !x.hasActionItems).length;
+    const noFoodTemps  = s.filter(x => !x.hasFoodTemps).length;
+    const noPhotos     = s.filter(x => !x.photoCount).length;
     const avgScore = Math.round(s.reduce((sum, x) => sum + (x.thoroughnessScore || 0), 0) / total);
 
     // Per-inspector thoroughness (last 20 sessions per inspector)
@@ -1028,10 +1246,12 @@ const InspectionWorkflowTracker = {
     return {
       total,
       avgThoroughnessScore: avgScore,
-      noTempsRate:  Math.round((noTemps  / total) * 100),
-      noEquipRate:  Math.round((noEquip  / total) * 100),
-      noNotesRate:  Math.round((noNotes  / total) * 100),
-      noItemsRate:  Math.round((noItems  / total) * 100),
+      noTempsRate:     Math.round((noTemps     / total) * 100),
+      noEquipRate:     Math.round((noEquip     / total) * 100),
+      noNotesRate:     Math.round((noNotes     / total) * 100),
+      noItemsRate:     Math.round((noItems     / total) * 100),
+      noFoodTempsRate: Math.round((noFoodTemps / total) * 100),
+      noPhotosRate:    Math.round((noPhotos    / total) * 100),
       inspectorWorkflow,
       // Trend: last 5 vs prior 5 thoroughness scores
       recentTrend: (() => {
@@ -1060,10 +1280,13 @@ const PatternMiner = {
       weakLocations: [],
       scheduleGaps: [],
       tempAlerts: [],
+      foodTempAlerts: [],
       inspectorStats: [],
       monthlyTrend: [],
       avgIssuesPerReport: 0,
-      // NEW: deep profiles
+      topSupplies: [],
+      noteTypeBreakdown: [],
+      // deep profiles
       inspectorProfiles: [],
       supervisorProfiles: [],
       locationProfile: { byFloor: [], byType: [], bySite: [] },
@@ -1181,6 +1404,79 @@ const PatternMiner = {
         });
       }
     }
+
+    // ── Food temperature alerts (cold holding >41°F, hot holding <135°F) ──
+    // foodTemps is an object: { slot1: tempValue, slot2: tempValue, ... }
+    // foodTempNames is: { slot1: "Chicken", slot2: "Rice", ... }
+    const COLD_MAX = 41;  // °F — FDA cold holding limit
+    const HOT_MIN  = 135; // °F — FDA hot holding minimum
+    const foodTempViolationMap = {}; // { [site]: { violations: [], dates: [] } }
+    for (const rec of sorted) {
+      const ft    = rec.foodTemps    || {};
+      const ftNames = rec.foodTempNames || {};
+      const site  = siteKey(rec);
+      const date  = rec.inspectionDate || rec.savedAt || "";
+      for (const [slot, rawVal] of Object.entries(ft)) {
+        const val = Number(rawVal);
+        if (!val || isNaN(val)) continue;
+        const itemName = ftNames[slot] || slot;
+        // Determine if cold or hot holding based on value range heuristic:
+        //   <50°F likely cold holding, >100°F likely hot holding
+        let violation = false;
+        let type = "";
+        if (val < 50 && val > COLD_MAX) { violation = true; type = "cold"; }
+        else if (val > 100 && val < HOT_MIN) { violation = true; type = "hot"; }
+        if (!violation) continue;
+        if (!foodTempViolationMap[site]) foodTempViolationMap[site] = [];
+        foodTempViolationMap[site].push({ item: itemName, val, type, date });
+      }
+    }
+    // Summarize top sites by food temp violation frequency
+    patterns.foodTempAlerts = Object.entries(foodTempViolationMap)
+      .map(([site, viols]) => {
+        const coldViols = viols.filter(v => v.type === "cold");
+        const hotViols  = viols.filter(v => v.type === "hot");
+        const lastDate  = viols.map(v => v.date).sort().reverse()[0] || "";
+        return {
+          site,
+          violationCount: viols.length,
+          coldViolations: coldViols.length,
+          hotViolations:  hotViols.length,
+          lastDate,
+          severity: viols.length >= 5 ? "critical" : viols.length >= 2 ? "warning" : "watch",
+          recentItems: viols.slice(-3).map(v => `${v.item}: ${v.val}°F (${v.type})`),
+        };
+      })
+      .sort((a, b) => b.violationCount - a.violationCount)
+      .slice(0, 10);
+
+    // ── Supplies needed aggregation ────────────────────────
+    // suppliesNeeded is an array of { item: string } objects
+    const supplyMap = {};
+    for (const rec of sorted) {
+      const supplies = rec.suppliesNeeded || [];
+      for (const s of supplies) {
+        const item = (s.item || "").trim();
+        if (!item) continue;
+        const key = item.toLowerCase();
+        if (!supplyMap[key]) supplyMap[key] = { label: item, count: 0, sites: new Set() };
+        supplyMap[key].count++;
+        supplyMap[key].sites.add(siteKey(rec));
+      }
+    }
+    patterns.topSupplies = Object.values(supplyMap)
+      .map(v => ({ item: v.label, count: v.count, siteCount: v.sites.size }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 15);
+
+    // ── Note type breakdown (from behavior, re-exposed for SuggestionGen) ──
+    const ntFreq = {};
+    for (const rec of sorted) {
+      if (rec.noteType) ntFreq[rec.noteType] = (ntFreq[rec.noteType] || 0) + 1;
+    }
+    patterns.noteTypeBreakdown = Object.entries(ntFreq)
+      .map(([type, count]) => ({ type, count, pct: Math.round((count / sorted.length) * 100) }))
+      .sort((a, b) => b.count - a.count);
 
     // ── Inspector stats (basic) ────────────────────────────
     const inspMap = {};
@@ -1353,16 +1649,17 @@ const PatternMiner = {
           n = 1;
         }
 
-        // For custom items, try to normalize to a canonical equipment type
-        // so "Delfield Double Door Cooler" groups with "Double-Door Cooler".
-        const rawLabel = item?.label || key;
-        const isCustom = !EQUIP_LABEL_MAP[key] && key.startsWith("custom_");
-        const normalizedKey = isCustom ? (normalizeEquipKey(rawLabel) || key) : key;
-        const label  = EQUIP_LABEL_MAP[normalizedKey] || rawLabel;
-        const source = item?.equipSource || "Facility";
-        if (!equipMap[normalizedKey]) equipMap[normalizedKey] = { label, sites: {} };
-        const prev = equipMap[normalizedKey].sites[site];
-        equipMap[normalizedKey].sites[site] = {
+        // Key by specific label — matching PerformanceDashboard "latest inspection wins".
+        // If the item has a user-entered label (e.g. "Prep Cooler", "Walk-In Freezer"),
+        // use that as the key so distinct equipment names stay as separate rows.
+        // Fall back to the canonical key only when no label is present.
+        const rawLabel = (item?.label || "").trim();
+        const equipKey = rawLabel || key;
+        const label    = rawLabel || EQUIP_LABEL_MAP[key] || key;
+        const source   = item?.equipSource || "Facility";
+        if (!equipMap[equipKey]) equipMap[equipKey] = { label, sites: {} };
+        const prev = equipMap[equipKey].sites[site];
+        equipMap[equipKey].sites[site] = {
           count: (prev?.count || 0) + n,
           source,
           lastSeen: date,
@@ -2059,6 +2356,82 @@ const SuggestionGen = {
           equipKey: item.equipKey,
         });
       }
+    }
+
+    // ── 23. Food temperature violations (cold/hot holding) ────
+    const foodTempAlerts = patterns.foodTempAlerts || [];
+    for (const fta of foodTempAlerts.slice(0, 3)) {
+      suggestions.push({
+        id: `food-temp-violation-${fta.site.replace(/\s+/g, "-")}`,
+        type: "foodSafety",
+        priority: fta.severity === "critical" ? "critical" : fta.severity === "warning" ? "high" : "medium",
+        icon: "🌡️",
+        title: `Food temperature violations at ${fta.site} — ${fta.violationCount} out-of-range readings recorded`,
+        body: `Cold food must stay at or below 41°F; hot food must stay at or above 135°F. At ${fta.site}, `
+            + (fta.coldViolations > 0 ? `${fta.coldViolations} cold-holding reading(s) were too warm` : "")
+            + (fta.coldViolations > 0 && fta.hotViolations > 0 ? " and " : "")
+            + (fta.hotViolations > 0 ? `${fta.hotViolations} hot-holding reading(s) were too cold` : "")
+            + `. ${fta.recentItems.length ? `Recent examples: ${fta.recentItems.join(", ")}.` : ""} Food in the temperature danger zone (41–135°F) can cause serious illness.`,
+        action: `Check every cooler and hot-hold unit at ${fta.site}, calibrate thermometers, and verify all food items are within safe temperature range`,
+        category: "temperature",
+      });
+    }
+
+    // ── 24. Recurring supply shortages ─────────────────────
+    const topSupplies = patterns.topSupplies || [];
+    const frequentSupplies = topSupplies.filter(s => s.count >= 3);
+    if (frequentSupplies.length >= 2) {
+      const topItems = frequentSupplies.slice(0, 3).map(s => `${s.item} (${s.count}×)`).join(", ");
+      suggestions.push({
+        id: "recurring-supply-shortages",
+        type: "quality",
+        priority: "medium",
+        icon: "📦",
+        title: `The same supplies keep running out — ${frequentSupplies.length} items are needed repeatedly`,
+        body: `Inspectors have been requesting the same items over and over: ${topItems}. These recurring requests point to a stocking or ordering problem. If inspectors keep having to ask for the same things, it means they're not consistently available, which can slow down operations and compromise food safety.`,
+        action: `Add ${frequentSupplies.slice(0, 2).map(s => s.item).join(" and ")} to your standard restocking checklist so they're always on hand`,
+        category: "quality",
+      });
+    } else if (frequentSupplies.length === 1) {
+      const s = frequentSupplies[0];
+      suggestions.push({
+        id: `supply-shortage-${s.item.replace(/\s+/g, "-")}`,
+        type: "quality",
+        priority: "low",
+        icon: "📦",
+        title: `"${s.item}" has been requested ${s.count} times — it keeps running out`,
+        body: `This item has been flagged as needed across ${s.siteCount} location(s). If it keeps running out, it should be added to the standard restocking process so inspectors always have it available.`,
+        action: `Make sure "${s.item}" is part of the regular supply order and that ${s.siteCount > 1 ? "all affected locations are" : "this location is"} properly stocked`,
+        category: "quality",
+      });
+    }
+
+    // ── 25. Food temperature completeness warning ──────────
+    if (beh.completeness && beh.completeness.foodTemps < 60 && patterns.totalRecords >= 5) {
+      suggestions.push({
+        id: "missing-food-temps",
+        type: "data",
+        priority: "medium",
+        icon: "🌡️",
+        title: `Food temperatures aren't being recorded in ${100 - beh.completeness.foodTemps}% of inspections`,
+        body: `Cold and hot holding temperatures for actual food items are the most direct indicator of food safety. Right now, ${beh.missingFields?.foodTemps || "many"} inspections were completed without recording any food temperatures. This makes it impossible to verify food is being stored safely.`,
+        action: "Record the temperature of at least one cold-hold and one hot-hold item on every inspection — use a calibrated probe thermometer",
+        category: "data",
+      });
+    }
+
+    // ── 26. No photos warning ──────────────────────────────
+    if (wf && wf.noPhotosRate >= 70 && wf.total >= 5) {
+      suggestions.push({
+        id: "no-photos-pattern",
+        type: "data",
+        priority: "low",
+        icon: "📷",
+        title: `${wf.noPhotosRate}% of inspections have no photos — photos help document violations`,
+        body: `Photos are one of the best ways to document what an inspector actually found. They provide proof for follow-ups, help supervisors understand severity, and can be critical if there's a dispute. Right now, most inspections are being submitted without any photos attached.`,
+        action: "Encourage inspectors to take at least one photo of any problem they find during an inspection",
+        category: "data",
+      });
     }
 
     // Sort: critical → high → medium → low → info

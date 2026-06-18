@@ -1,22 +1,64 @@
 rules_version = '2';
 
-// Firebase Storage rules for Sodexo Kitchen Inspection
-// App uses badge-based auth (no Firebase Auth tokens), so request.auth is always null.
-// Access control is handled at the application level via SHA-256 badge hashing.
+// ══════════════════════════════════════════════════════════════════
+//  FIREBASE STORAGE SECURITY RULES
+//  App uses badge-based auth — request.auth is always null.
+//  Protection layers:
+//    1. Path structure enforcement  — only /photos/{v}/{i}/{p} is writable
+//    2. Content-type restriction    — images only (MIME check)
+//    3. File-size cap               — 10 MB maximum per photo
+//    4. Segment-length caps         — prevents path-injection / abuse
+//    5. Deny-all catch-all          — every other path is fully blocked
+//    6. Delete blocked              — photos cannot be removed from client
+// ══════════════════════════════════════════════════════════════════
+
 service firebase.storage {
   match /b/{bucket}/o {
 
-    // Photos uploaded during inspections
-    match /photos/{venueId}/{inspectionId}/{photoId} {
-      // Anyone can read photos (inspection reports are shared within the venue)
-      allow read: if true;
+    // ── Helpers ──────────────────────────────────────────────────
 
-      // Allow writes for image files up to 10 MB
-      allow write: if request.resource.size < 10 * 1024 * 1024
-                   && request.resource.contentType.matches('image/.*');
+    // Max file size: 10 MB
+    function withinSizeLimit() {
+      return request.resource.size <= 10 * 1024 * 1024;
     }
 
-    // Deny everything else
+    // Content-type must be an image (jpeg, png, webp, gif, heic …)
+    function isImage() {
+      return request.resource.contentType.matches('image/.*');
+    }
+
+    // Path segment must be a non-empty string ≤ maxLen characters.
+    // Guards against oversized/injected path components.
+    function validSegment(seg, maxLen) {
+      return seg is string && seg.size() > 0 && seg.size() <= maxLen;
+    }
+
+    // ── Inspection photos ────────────────────────────────────────
+    //  Structure: /photos/{venueId}/{inspectionId}/{photoId}
+    //  • venueId       — ≤ 64 chars  (e.g. "sodexo-main", "venue-abc123")
+    //  • inspectionId  — ≤ 128 chars (UUIDv4 or composite key)
+    //  • photoId       — ≤ 128 chars (timestamp-based filename)
+    match /photos/{venueId}/{inspectionId}/{photoId} {
+
+      // Public read — inspection photos are shared across devices/users
+      allow read: if validSegment(venueId, 64)
+                  && validSegment(inspectionId, 128)
+                  && validSegment(photoId, 128);
+
+      // Write: must be a valid-path, image file, within size limit
+      allow create: if validSegment(venueId, 64)
+                    && validSegment(inspectionId, 128)
+                    && validSegment(photoId, 128)
+                    && withinSizeLimit()
+                    && isImage();
+
+      // Immutable — photos cannot be overwritten or deleted from client
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    // ── Deny everything else ─────────────────────────────────────
+    // Any path not matching /photos/{v}/{i}/{p} is fully blocked.
     match /{allPaths=**} {
       allow read, write: if false;
     }

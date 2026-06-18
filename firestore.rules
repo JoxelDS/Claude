@@ -2,181 +2,226 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ── Helper functions ──────────────────────────────────────────
-    function isAuthenticated() {
-      return request.auth != null;
-    }
+    // ══════════════════════════════════════════════════════════════════
+    //  SECURITY MODEL
+    //  This app uses badge-based auth (no Firebase Auth tokens).
+    //  Rules cannot use request.auth for identity. Protection is layered:
+    //    1. Document structure validation  — rejects malformed/random writes
+    //    2. Field-count caps               — blocks oversized payloads
+    //    3. Required-field enforcement     — each collection requires
+    //       specific typed fields, stopping arbitrary REST API abuse
+    //    4. Immutability on records        — update/delete locked on
+    //       submissions, reports, chat messages, archive docs
+    //    5. Deny-all catch-all             — blocks all unlisted paths
+    //
+    //  Reads are intentionally public — inspection records contain no
+    //  personal health data and must be accessible across devices.
+    // ══════════════════════════════════════════════════════════════════
 
-    // Check role in the flat (legacy/default) users collection
-    function legacyRole() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get("role", "");
-    }
+    // ── Helpers ───────────────────────────────────────────────────────
 
-    // Check role in a venue-scoped users collection
-    function venueRole(venueId) {
-      return get(/databases/$(database)/documents/venues/$(venueId)/users/$(request.auth.uid)).data.get("role", "");
-    }
-
-    function isAdminOfVenue(venueId) {
-      return isAuthenticated() && (
-        legacyRole() == "admin" ||
-        legacyRole() == "global_admin" ||
-        venueRole(venueId) == "admin" ||
-        venueRole(venueId) == "global_admin"
-      );
-    }
-
-    function isAdmin() {
-      return isAuthenticated() && (
-        legacyRole() == "admin" ||
-        legacyRole() == "global_admin"
-      );
-    }
-
-    function isOwner(userId) {
-      return isAuthenticated() && request.auth.uid == userId;
-    }
-
-    // Guard: incoming data must not be larger than 100 KB worth of keys
+    // Cap at 80 top-level keys to prevent oversized documents
     function notTooLarge() {
-      return request.resource.data.keys().size() < 100;
+      return request.resource.data.keys().size() <= 80;
     }
 
-    // ── Venue Registry (global admin only) ───────────────────────
-    // Public read — venue names/types/addresses are not sensitive.
-    // Public write — app uses badge-based auth (no Firebase Auth tokens), so
-    // isAdmin() is always false. Application-level badge validation guards access.
+    // Field must exist, be a non-empty string, within a max length
+    function strField(field, maxLen) {
+      return field in request.resource.data
+          && request.resource.data[field] is string
+          && request.resource.data[field].size() > 0
+          && request.resource.data[field].size() <= maxLen;
+    }
+
+    // Field must exist and be a boolean
+    function boolField(field) {
+      return field in request.resource.data
+          && request.resource.data[field] is bool;
+    }
+
+    // Minimum shape every inspection document must have.
+    // Blocks garbage / random REST API writes.
+    function validInspection() {
+      return notTooLarge()
+          && strField("id",             64)
+          && strField("inspectorName",  120)
+          && strField("siteName",       200)
+          && strField("inspectionDate",  32)
+          && strField("overallStatus",   32);
+    }
+
+    // Minimum shape every user document must have.
+    function validUser() {
+      return notTooLarge()
+          && strField("badgeHash",  128)
+          && strField("name",       120)
+          && strField("role",        32)
+          && boolField("approved");
+    }
+
+    // ── Venue Registry ────────────────────────────────────────────────
+    // Public read — venue names / addresses are not sensitive.
+    // Writes require a structured venue document. Deletes blocked.
     match /venueRegistry/{venueId} {
-      allow read:   if true;
-      allow write:  if notTooLarge();
+      allow read: if true;
+      allow create: if notTooLarge()
+                    && strField("name",    200)
+                    && strField("status",   32);
+      allow update: if notTooLarge()
+                    && strField("name",    200)
+                    && strField("status",   32);
+      allow delete: if false;
     }
 
-    // ── Analytics aggregates (per-venue, admin-written, anyone reads) ─
+    // ── Analytics aggregates ──────────────────────────────────────────
     match /analyticsAggregates/{docId} {
-      allow read:  if true;
-      allow write: if notTooLarge();
+      allow read: if true;
+      allow create, update: if notTooLarge() && strField("venueId", 64);
+      allow delete: if false;
     }
 
-    // ── Legacy flat collections (default venue) ──────────────────
+    // ══════════════════════════════════════════════════════════════════
+    //  LEGACY FLAT COLLECTIONS  (default venue)
+    // ══════════════════════════════════════════════════════════════════
+
+    // ── Users (legacy) ────────────────────────────────────────────────
+    // Full list must be readable for badge login to find the user.
+    // Only the badgeHash (SHA-256) is stored — no raw badge numbers.
     match /users/{userId} {
-      // list (getDocs) is public — only badgeHash (SHA-256) is stored, no raw badges or PII.
-      // Badge login reads the entire collection without a Firebase Auth token.
-      allow list:   if true;
-      allow get:    if isOwner(userId) || isAdmin();
-      allow create: if notTooLarge();
-      allow update: if notTooLarge();
-      allow delete: if isAdmin();
-    }
-
-    match /inspections/{inspectionId} {
-      // No Firebase Auth in this app — open access guarded by app-level badge auth.
       allow read:   if true;
-      allow create: if notTooLarge();
-      allow update: if notTooLarge();
-      allow delete: if true;
+      allow create: if validUser();
+      allow update: if validUser();
+      allow delete: if false;  // Deletions only via admin flow, never arbitrary
     }
 
+    // ── Inspections (legacy) ──────────────────────────────────────────
+    match /inspections/{inspectionId} {
+      allow read:   if true;
+      allow create: if validInspection();
+      allow update: if validInspection();
+      allow delete: if false;  // Records cannot be deleted from the client
+    }
+
+    // ── HACCP Submissions (legacy) ────────────────────────────────────
     match /haccpSubmissions/{submissionId} {
       allow read:   if true;
-      allow create: if notTooLarge() &&
-                       request.resource.data.keys().hasAll(["id", "type", "submittedAt"]) &&
-                       request.resource.data.id is string &&
-                       request.resource.data.type is string &&
-                       request.resource.data.submittedAt is string;
-      allow update: if false;
-      allow delete: if true;
+      allow create: if notTooLarge()
+                    && strField("id",           64)
+                    && strField("type",         64)
+                    && strField("submittedAt",  32);
+      allow update: if false;  // Immutable
+      allow delete: if false;
     }
 
+    // ── Problem Reports (legacy) ──────────────────────────────────────
     match /problemReports/{reportId} {
       allow read:   if true;
-      allow create: if notTooLarge() &&
-                       request.resource.data.keys().hasAll(["id", "reportedAt"]) &&
-                       request.resource.data.id is string &&
-                       request.resource.data.reportedAt is string;
-      allow update: if false;
-      allow delete: if true;
+      allow create: if notTooLarge()
+                    && strField("id",         64)
+                    && strField("reportedAt", 32);
+      allow update: if false;  // Immutable
+      allow delete: if false;
     }
 
+    // ── Supervisor Chat (legacy) ──────────────────────────────────────
     match /supervisorChat/{messageId} {
       allow read:   if true;
-      allow create: if notTooLarge() &&
-                       request.resource.data.keys().hasAll(["id", "sessionId", "sender", "text", "sentAt"]) &&
-                       request.resource.data.id is string &&
-                       request.resource.data.text is string &&
-                       request.resource.data.text.size() <= 4000 &&
-                       request.resource.data.sentAt is string;
-      allow update: if false;
-      allow delete: if true;
+      allow create: if notTooLarge()
+                    && strField("id",        64)
+                    && strField("sessionId", 64)
+                    && strField("sender",    120)
+                    && strField("text",      4000)
+                    && strField("sentAt",    32);
+      allow update: if false;  // Immutable
+      allow delete: if false;
     }
 
-    // ── Venue-scoped subcollections ───────────────────────────────
-    match /venues/{venueId} {
-      allow read, write: if notTooLarge();
+    // ══════════════════════════════════════════════════════════════════
+    //  VENUE-SCOPED SUBCOLLECTIONS  /venues/{venueId}/...
+    // ══════════════════════════════════════════════════════════════════
 
-      match /users/{userId} {
-        // list is public — same rationale as the legacy users collection above.
-        allow list:   if true;
-        allow get:    if isOwner(userId) || isAdminOfVenue(venueId);
-        allow create: if notTooLarge();
-        allow update: if notTooLarge();
-        allow delete: if isAdminOfVenue(venueId);
+    match /venues/{venueId} {
+      // Venue root doc: read freely, write only with a venueId field
+      allow read: if true;
+      allow create, update: if notTooLarge() && strField("venueId", 64);
+      allow delete: if false;
+
+      // Shared memory (site name autocomplete map)
+      match /sharedMemory/{docId} {
+        allow read: if true;
+        allow create, update: if notTooLarge();
+        allow delete: if false;
       }
 
+      // ── Users (venue-scoped) ────────────────────────────────────────
+      match /users/{userId} {
+        allow read:   if true;
+        allow create: if validUser();
+        allow update: if validUser();
+        allow delete: if false;
+      }
+
+      // ── Inspections (venue-scoped) ──────────────────────────────────
       match /inspections/{inspectionId} {
         allow read:   if true;
-        allow create: if notTooLarge();
-        allow update: if notTooLarge();
-        allow delete: if true;
+        allow create: if validInspection();
+        allow update: if validInspection();
+        allow delete: if false;
       }
 
-      // Archive collection — admin-managed, kept open since no Firebase Auth
+      // ── Archive (venue-scoped) ──────────────────────────────────────
+      // Write-once; archived records can never be modified or removed
       match /inspections_archive/{inspectionId} {
         allow read:   if true;
-        allow create: if notTooLarge();
+        allow create: if validInspection();
         allow update: if false;
-        allow delete: if true;
+        allow delete: if false;
       }
 
+      // ── HACCP Submissions (venue-scoped) ────────────────────────────
       match /haccpSubmissions/{submissionId} {
         allow read:   if true;
-        allow create: if notTooLarge() &&
-                         request.resource.data.keys().hasAll(["id", "type", "submittedAt"]) &&
-                         request.resource.data.id is string &&
-                         request.resource.data.type is string &&
-                         request.resource.data.submittedAt is string;
+        allow create: if notTooLarge()
+                      && strField("id",           64)
+                      && strField("type",         64)
+                      && strField("submittedAt",  32);
         allow update: if false;
-        allow delete: if true;
+        allow delete: if false;
       }
 
+      // ── Problem Reports (venue-scoped) ──────────────────────────────
       match /problemReports/{reportId} {
         allow read:   if true;
-        allow create: if notTooLarge() &&
-                         request.resource.data.keys().hasAll(["id", "reportedAt"]) &&
-                         request.resource.data.id is string &&
-                         request.resource.data.reportedAt is string;
+        allow create: if notTooLarge()
+                      && strField("id",         64)
+                      && strField("reportedAt", 32);
         allow update: if false;
-        allow delete: if true;
+        allow delete: if false;
       }
 
+      // ── Supervisor Chat (venue-scoped) ──────────────────────────────
       match /supervisorChat/{messageId} {
         allow read:   if true;
-        allow create: if notTooLarge() &&
-                         request.resource.data.keys().hasAll(["id", "sessionId", "sender", "text", "sentAt"]) &&
-                         request.resource.data.id is string &&
-                         request.resource.data.text is string &&
-                         request.resource.data.text.size() <= 4000 &&
-                         request.resource.data.sentAt is string;
+        allow create: if notTooLarge()
+                      && strField("id",        64)
+                      && strField("sessionId", 64)
+                      && strField("sender",    120)
+                      && strField("text",      4000)
+                      && strField("sentAt",    32);
         allow update: if false;
-        allow delete: if true;
+        allow delete: if false;
       }
 
+      // ── Analytics Aggregates (venue-scoped) ─────────────────────────
       match /analyticsAggregates/{docId} {
-        allow read:  if true;
-        allow write: if notTooLarge();
+        allow read: if true;
+        allow create, update: if notTooLarge() && strField("venueId", 64);
+        allow delete: if false;
       }
     }
 
-    // ── Deny everything else ──────────────────────────────────────
+    // ── Deny everything else ──────────────────────────────────────────
+    // Any path not explicitly listed above is fully blocked.
     match /{document=**} {
       allow read, write: if false;
     }
