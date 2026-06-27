@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v66: Fix CI photo thumbnails (thumbUrl fallback + onError handler)
-const CACHE_NAME = "sdx-inspect-v66";
+// v67: Allow supervisor to submit multiple logs without re-entering name/location
+const CACHE_NAME = "sdx-inspect-v67";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
