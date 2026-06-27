@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v67: Allow supervisor to submit multiple logs without re-entering name/location
-const CACHE_NAME = "sdx-inspect-v67";
+// v68: Notification shows stand + unit, click scrolls to HACCP panel; stand check-in summary in LiveHaccpPanel
+const CACHE_NAME = "sdx-inspect-v68";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
