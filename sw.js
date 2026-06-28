@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v70: Per-reading time field on HACCP temperature form; auto-fills on first entry; shown in LiveHaccpPanel
-const CACHE_NAME = "sdx-inspect-v70";
+// v71: Chat notifications show sender name + stand + unit number
+const CACHE_NAME = "sdx-inspect-v71";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
