@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v71: Chat notifications show sender name + stand + unit number
-const CACHE_NAME = "sdx-inspect-v71";
+// v72: Time fields for inspection guide sink temperatures (Hand Wash & 3-Comp Sink)
+const CACHE_NAME = "sdx-inspect-v72";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
