@@ -1,10 +1,13 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v72: Time fields for inspection guide sink temperatures (Hand Wash & 3-Comp Sink)
-const CACHE_NAME = "sdx-inspect-v72";
+// v73: PWA manifest + PNG icons + silent auto-reload on update
+const CACHE_NAME = "sdx-inspect-v73";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
   "./sodexo-dark.svg",
+  "./manifest.json",
+  "./icons/icon-192.png",
+  "./icons/icon-512.png",
 ];
 
 // Install: precache static assets (NOT the HTML or JS bundles — those use network-first)

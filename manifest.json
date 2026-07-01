@@ -1,0 +1,26 @@
+{
+  "name": "Sodexo Live! Kitchen Inspection",
+  "short_name": "Sodexo Inspect",
+  "description": "Kitchen inspection, HACCP logging, and food safety checklists for Sodexo Live! venues.",
+  "start_url": "/Claude/",
+  "scope": "/Claude/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "theme_color": "#2A295C",
+  "background_color": "#2A295C",
+  "lang": "en-US",
+  "icons": [
+    {
+      "src": "/Claude/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/Claude/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
