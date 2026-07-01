@@ -12,7 +12,7 @@
 
        Using a nested <svg> to embed the logo with its own viewBox:
   -->
-  <svg x="26" y="176" width="460" height="134" viewBox="0 0 480 140">
+  <svg x="26" y="155" width="460" height="134" viewBox="0 0 480 140">
     <!-- "sodexo" in white -->
     <text x="20" y="108"
       font-family="'Segoe UI', 'Inter', 'Helvetica Neue', Arial, sans-serif"
