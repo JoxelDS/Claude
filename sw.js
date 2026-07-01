@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v73: PWA manifest + PNG icons + silent auto-reload on update
-const CACHE_NAME = "sdx-inspect-v73";
+// v74: improved favicon + global offline banner
+const CACHE_NAME = "sdx-inspect-v74";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
