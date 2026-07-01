@@ -1,135 +1,68 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
   <defs>
-    <!-- Deep navy gradient background -->
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#1E2080"/>
-      <stop offset="100%" stop-color="#0F1155"/>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%"  stop-color="#1C1C5C"/>
+      <stop offset="100%" stop-color="#080820"/>
     </linearGradient>
-    <!-- Subtle inner glow on the shield -->
-    <linearGradient id="shieldGrad" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.18"/>
-      <stop offset="100%" stop-color="#ffffff" stop-opacity="0.04"/>
+    <linearGradient id="red" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%"  stop-color="#CC0000"/>
+      <stop offset="100%" stop-color="#FF3333"/>
     </linearGradient>
-    <!-- Checkmark gradient — white to light blue -->
-    <linearGradient id="checkGrad" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#ffffff"/>
-      <stop offset="100%" stop-color="#c7d8ff"/>
-    </linearGradient>
-    <!-- Red accent gradient -->
-    <linearGradient id="redGrad" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#FF2020"/>
-      <stop offset="100%" stop-color="#CC0000"/>
-    </linearGradient>
-    <!-- Drop shadow filter for depth -->
-    <filter id="shadow" x="-15%" y="-15%" width="130%" height="130%">
-      <feDropShadow dx="0" dy="8" stdDeviation="16" flood-color="#000000" flood-opacity="0.45"/>
+    <filter id="starGlow" x="-80%" y="-80%" width="260%" height="260%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="8" result="b"/>
+      <feComposite in="SourceGraphic" in2="b" operator="over"/>
     </filter>
-    <!-- Soft glow around checkmark -->
-    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-      <feGaussianBlur stdDeviation="6" result="blur"/>
-      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
-    </filter>
+    <clipPath id="roundRect">
+      <rect width="512" height="512" rx="108"/>
+    </clipPath>
   </defs>
 
-  <!-- Rounded square background -->
-  <rect width="512" height="512" rx="110" fill="url(#bg)"/>
+  <!-- Background -->
+  <rect width="512" height="512" rx="108" fill="url(#bg)"/>
 
-  <!-- Subtle top-left highlight for depth -->
-  <rect width="512" height="512" rx="110" fill="url(#shieldGrad)"/>
-
-  <!-- ── Shield shape — centered, slightly raised ── -->
-  <!--
-    Shield: starts wide at the top, narrows toward a pointed bottom.
-    Path: top-left corner → across top → top-right → down right side →
-          curve inward → meet at point bottom-center → mirror back up left.
+  <!-- 
+    S letterform — pure rectangles + circles, NO arc commands
+    Canvas 512x512. S occupies left portion, leaves right margin.
+    
+    S anatomy (no arcs):
+    - Top bar: horizontal rect going right, tall enough to read
+    - Right drop: vertical rect on right side going down
+    - Bridge: diagonal parallelogram across center
+    - Left drop: vertical rect on left side going down  
+    - Bottom bar: horizontal rect going right
+    
+    The trick: the "openings" of the S (where the counter-forms are)
+    are just the GAPS between the components — no cutouts needed.
   -->
-  <path d="
-    M 256 88
-    L 368 120
-    C 388 126, 400 144, 400 164
-    L 400 270
-    C 400 330, 348 378, 280 408
-    L 256 418
-    L 232 408
-    C 164 378, 112 330, 112 270
-    L 112 164
-    C 112 144, 124 126, 144 120
-    Z
-  " fill="url(#shieldGrad)" stroke="rgba(255,255,255,0.22)" stroke-width="3" filter="url(#shadow)"/>
 
-  <!-- Shield fill — slightly lighter than bg for contrast -->
-  <path d="
-    M 256 88
-    L 368 120
-    C 388 126, 400 144, 400 164
-    L 400 270
-    C 400 330, 348 378, 280 408
-    L 256 418
-    L 232 408
-    C 164 378, 112 330, 112 270
-    L 112 164
-    C 112 144, 124 126, 144 120
-    Z
-  " fill="rgba(255,255,255,0.07)" stroke="rgba(255,255,255,0.28)" stroke-width="2.5"/>
+  <!-- S letterform in white -->
+  <!-- Top horizontal bar -->
+  <rect x="78" y="82" width="230" height="72" rx="36" fill="white"/>
+  <!-- Right vertical bar (right side of top C) -->
+  <rect x="238" y="82" width="72" height="206" rx="36" fill="white"/>
+  <!-- Bridge: diagonal parallelogram from top-right to bottom-left -->
+  <polygon points="310,212  78,294  78,360  310,278" fill="white"/>
+  <!-- Left vertical bar (left side of bottom C) -->
+  <rect x="78" y="240" width="72" height="196" rx="36" fill="white"/>
+  <!-- Bottom horizontal bar -->
+  <rect x="78" y="364" width="230" height="72" rx="36" fill="white"/>
 
-  <!-- ── Bold checkmark inside the shield ── -->
-  <!-- Large, centered, clean checkmark: left short stroke + right long stroke -->
-  <polyline
-    points="172,260 222,318 342,196"
-    fill="none"
-    stroke="url(#checkGrad)"
-    stroke-width="46"
-    stroke-linecap="round"
-    stroke-linejoin="round"
-    filter="url(#glow)"
-  />
+  <!-- 
+    Red diagonal slash — the Sodexo brand signature
+    Goes from bottom-left to top-right, crossing the S
+    Positioned roughly center of the S shape
+    Angle: about 55 degrees from horizontal
+    
+    The slash is a thin red parallelogram:
+    Bottom point: (100, 430)
+    Top point: (300, 130)
+    Width: ~28px perpendicular to the stroke
+  -->
+  <!-- Red slash stroke (parallelogram) -->
+  <polygon points="85,420  115,440  315,140  285,120" fill="url(#red)"/>
 
-  <!-- ── Red accent pill — bottom right of shield ── -->
-  <rect x="310" y="348" width="116" height="46" rx="23" fill="url(#redGrad)" filter="url(#shadow)"/>
-  <!-- White "OK" text inside the red pill — rendered as paths to avoid font deps -->
-  <!-- "✓" checkmark mini icon inside the red pill (white) -->
-  <polyline
-    points="328,371 343,387 378,358"
-    fill="none"
-    stroke="#ffffff"
-    stroke-width="8"
-    stroke-linecap="round"
-    stroke-linejoin="round"
-  />
+  <!-- 4-pointed star at top of slash (Sodexo brand star) -->
+  <path d="M 300,108 L 309,132 L 333,141 L 309,150 L 300,174 L 291,150 L 267,141 L 291,132 Z"
+    fill="#FF2222" filter="url(#starGlow)"/>
 
-  <!-- ── Four-pointed star — top right of icon, above shield ── -->
-  <path d="
-    M 414 76
-    L 420 96
-    L 440 102
-    L 420 108
-    L 414 128
-    L 408 108
-    L 388 102
-    L 408 96
-    Z
-  " fill="#FFFFFF" opacity="0.9"/>
-
-  <!-- ── Subtle "SL" monogram at shield top — tiny, brand mark ── -->
-  <!-- "S" as a compact path at shield crown -->
-  <path d="
-    M 244 112
-    C 250 112, 256 115, 256 120
-    C 256 124, 252 126, 246 128
-    L 242 129
-    C 236 131, 232 134, 232 139
-    C 232 143, 236 146, 242 146
-    C 246 146, 250 145, 252 142
-    L 249 140
-    C 247 142, 245 143, 242 143
-    C 239 143, 237 142, 237 139
-    C 237 137, 239 136, 244 134
-    L 248 133
-    C 255 131, 260 128, 260 123
-    C 260 117, 254 110, 245 110
-    C 240 110, 235 112, 232 115
-    L 235 117
-    C 237 115, 240 112, 244 112
-    Z
-  " fill="rgba(255,255,255,0.6)"/>
 </svg>

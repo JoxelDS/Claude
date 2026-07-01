@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
 // v75: sophisticated shield favicon with checkmark
-const CACHE_NAME = "sdx-inspect-v75";
+const CACHE_NAME = "sdx-inspect-v76";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
