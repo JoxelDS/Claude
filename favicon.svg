@@ -61,8 +61,8 @@
   <!-- Red slash stroke (parallelogram) -->
   <polygon points="85,420  115,440  315,140  285,120" fill="url(#red)"/>
 
-  <!-- 4-pointed star at top of slash (Sodexo brand star) -->
-  <path d="M 300,108 L 309,132 L 333,141 L 309,150 L 300,174 L 291,150 L 267,141 L 291,132 Z"
-    fill="#FF2222" filter="url(#starGlow)"/>
+  <!-- 4-pointed star at top of slash (Sodexo brand star — white/light like original logo) -->
+  <path d="M 300,105 L 311,132 L 338,143 L 311,154 L 300,181 L 289,154 L 262,143 L 289,132 Z"
+    fill="white" filter="url(#starGlow)"/>
 
 </svg>
