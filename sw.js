@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
 // v77: real Sodexo logo favicon (white sodexo + red swoosh + star on navy)
-const CACHE_NAME = "sdx-inspect-v87"; // v87: Notification center overhaul — tabbed panel (All/Messages/Alerts/System), unread dots, full message text, date+time, pulsing bell
+const CACHE_NAME = "sdx-inspect-v88"; // v88: Mandatory comment on checklist fail — red border, inline warning, block Next/Done nav until comment filled
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
