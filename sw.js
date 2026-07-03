@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
 // v77: real Sodexo logo favicon (white sodexo + red swoosh + star on navy)
-const CACHE_NAME = "sdx-inspect-v86"; // v86: Inline comment + corrective action on failed temperature readings in inspector guide HACCP food temps section
+const CACHE_NAME = "sdx-inspect-v87"; // v87: Notification center overhaul — tabbed panel (All/Messages/Alerts/System), unread dots, full message text, date+time, pulsing bell
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
