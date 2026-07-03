@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
 // v77: real Sodexo logo favicon (white sodexo + red swoosh + star on navy)
-const CACHE_NAME = "sdx-inspect-v88"; // v88: Mandatory comment on checklist fail — red border, inline warning, block Next/Done nav until comment filled
+const CACHE_NAME = "sdx-inspect-v89"; // v89: Inventory locked until 15 qualifying inspections — progress bar, unlock gate, MIN_EQUIP_INSPECTIONS=15
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
