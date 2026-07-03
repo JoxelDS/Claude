@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
 // v77: real Sodexo logo favicon (white sodexo + red swoosh + star on navy)
-const CACHE_NAME = "sdx-inspect-v81"; // v81: HACCP scoping fix + inspector temps + urgent flag notifications
+const CACHE_NAME = "sdx-inspect-v82"; // v82: fix sendReminder chat scoped to reportId so supervisor receives it
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
