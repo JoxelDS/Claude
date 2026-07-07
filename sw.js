@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
 // v77: real Sodexo logo favicon (white sodexo + red swoosh + star on navy)
-const CACHE_NAME = "sdx-inspect-v94"; // v94: Predictive Insights cards now show Unit # and License number
+const CACHE_NAME = "sdx-inspect-v95"; // v95: Checklist Detail sheet now embeds real photos instead of raw URL strings
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
