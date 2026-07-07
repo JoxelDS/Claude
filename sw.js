@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
 // v77: real Sodexo logo favicon (white sodexo + red swoosh + star on navy)
-const CACHE_NAME = "sdx-inspect-v92"; // v92: Higher quality photo upload — 4000px max @ 96% JPEG (was 1200px @ 82%)
+const CACHE_NAME = "sdx-inspect-v93"; // v93: Fix Excel photo embed — remove * 9525 EMU multiplier (images now render correctly)
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
