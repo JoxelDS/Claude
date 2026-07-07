@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
 // v77: real Sodexo logo favicon (white sodexo + red swoosh + star on navy)
-const CACHE_NAME = "sdx-inspect-v93"; // v93: Fix Excel photo embed — remove * 9525 EMU multiplier (images now render correctly)
+const CACHE_NAME = "sdx-inspect-v94"; // v94: Predictive Insights cards now show Unit # and License number
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
