@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
 // v77: real Sodexo logo favicon (white sodexo + red swoosh + star on navy)
-const CACHE_NAME = "sdx-inspect-v91"; // v91: Download button on photo thumbnails (checklist lightbox + thumbnail strip)
+const CACHE_NAME = "sdx-inspect-v92"; // v92: Higher quality photo upload — 4000px max @ 96% JPEG (was 1200px @ 82%)
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
