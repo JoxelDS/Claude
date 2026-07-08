@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
 // v77: real Sodexo logo favicon (white sodexo + red swoosh + star on navy)
-const CACHE_NAME = "sdx-inspect-v97"; // v97: HACCP mandatory description + corrective action + re-check temp when flagged; auto-notify inspector on supervisor flagged submit
+const CACHE_NAME = "sdx-inspect-v97b"; // v97b: HACCP flag fields only reveal after supervisor clicks Submit — prevents gaming the form
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
