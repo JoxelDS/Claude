@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
 // v77: real Sodexo logo favicon (white sodexo + red swoosh + star on navy)
-const CACHE_NAME = "sdx-inspect-v97e"; // v97e: HACCP Excel sheet adds Inspector column
+const CACHE_NAME = "sdx-inspect-v97f"; // v97f: Per-item priority selector for checklist failures
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
