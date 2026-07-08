@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
 // v77: real Sodexo logo favicon (white sodexo + red swoosh + star on navy)
-const CACHE_NAME = "sdx-inspect-v97c"; // v97c: inline mini Submit button on each temp item so supervisor doesn't have to scroll down
+const CACHE_NAME = "sdx-inspect-v97d"; // v97d: inspector guide same anti-gaming + inline Next→ button per temp item
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
