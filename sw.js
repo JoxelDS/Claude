@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
 // v77: real Sodexo logo favicon (white sodexo + red swoosh + star on navy)
-const CACHE_NAME = "sdx-inspect-v96"; // v96: Excel export now includes ALL photos — section-level AND per-checklist-item photos in both Checklist Detail and venue photo tabs
+const CACHE_NAME = "sdx-inspect-v97"; // v97: HACCP mandatory description + corrective action + re-check temp when flagged; auto-notify inspector on supervisor flagged submit
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
