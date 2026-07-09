@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
 // v77: real Sodexo logo favicon (white sodexo + red swoosh + star on navy)
-const CACHE_NAME = "sdx-inspect-v97af"; // v97af: Action Items Excel Comment column now reads a.notes (inspector checklist comment) instead of missing a.comment field
+const CACHE_NAME = "sdx-inspect-v97ag"; // v97ag: Action Items Excel splits parenthetical comment out of issue text into Comment column; issue cell shows clean label only
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
