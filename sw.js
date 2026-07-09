@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
 // v77: real Sodexo logo favicon (white sodexo + red swoosh + star on navy)
-const CACHE_NAME = "sdx-inspect-v97ad"; // v97ad: Checklist Detail Section Status shows specific status only for failed items; passing items always show OK
+const CACHE_NAME = "sdx-inspect-v97ae"; // v97ae: Checklist Detail Section Status shows "Status not set" when failed item has no status assigned
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
