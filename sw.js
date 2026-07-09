@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
 // v77: real Sodexo logo favicon (white sodexo + red swoosh + star on navy)
-const CACHE_NAME = "sdx-inspect-v97z"; // v97z: HACCP flagged temp fields appear instantly on flag, no submit-attempt required
+const CACHE_NAME = "sdx-inspect-v97aa"; // v97aa: HACCP Food Temperatures moved inside Step 0 of inspector guide so Next → flows correctly to Facilities
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
