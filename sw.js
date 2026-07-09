@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
 // v77: real Sodexo logo favicon (white sodexo + red swoosh + star on navy)
-const CACHE_NAME = "sdx-inspect-v97x"; // v97x: Excel bulk summary — supervisor name fallback from HACCP submissions
+const CACHE_NAME = "sdx-inspect-v97y"; // v97y: HACCP submit button blocked until all flagged temps have description + corrective action
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
