@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
 // v77: real Sodexo logo favicon (white sodexo + red swoosh + star on navy)
-const CACHE_NAME = "sdx-inspect-v97i"; // v97i: Default priority is Low for Fail — inspector bumps up to Medium/High as needed
+const CACHE_NAME = "sdx-inspect-v97j"; // v97j: Polished segmented priority controls — clean professional layout
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
