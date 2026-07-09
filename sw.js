@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
 // v77: real Sodexo logo favicon (white sodexo + red swoosh + star on navy)
-const CACHE_NAME = "sdx-inspect-v97ag"; // v97ag: Action Items Excel splits parenthetical comment out of issue text into Comment column; issue cell shows clean label only
+const CACHE_NAME = "sdx-inspect-v97ah"; // v97ah: Action Items Excel photos — store photoUrls (direct URL refs) on action items so photos embed correctly in col P; prefer item-level photos over section-level
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
