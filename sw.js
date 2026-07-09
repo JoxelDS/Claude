@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
 // v77: real Sodexo logo favicon (white sodexo + red swoosh + star on navy)
-const CACHE_NAME = "sdx-inspect-v97m"; // v97m: Spacious status + corrective action fields with labels and textarea
+const CACHE_NAME = "sdx-inspect-v97n"; // v97n: Add Follow-up to status menu + fix Excel Priority column mapping
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
