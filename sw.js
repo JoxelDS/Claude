@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
 // v77: real Sodexo logo favicon (white sodexo + red swoosh + star on navy)
-const CACHE_NAME = "sdx-inspect-v97ae"; // v97ae: Checklist Detail Section Status shows "Status not set" when failed item has no status assigned
+const CACHE_NAME = "sdx-inspect-v97af"; // v97af: Action Items Excel Comment column now reads a.notes (inspector checklist comment) instead of missing a.comment field
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
