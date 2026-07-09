@@ -1377,6 +1377,46 @@ input[type="date"] {
   gap: 8px;
   width: 100%;
 }
+/* Priority row — shown only when item is failed */
+.clItemPriorityRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+}
+.clItemPriorityLabel {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.clPriorityPill {
+  border-radius: 20px;
+  padding: 3px 11px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  border: 1.5px solid transparent;
+  cursor: pointer;
+  transition: background 0.13s, border-color 0.13s, color 0.13s;
+  white-space: nowrap;
+}
+.clPriorityPillHigh  { background: #fef2f2; border-color: #fca5a5; color: #b91c1c; }
+.clPriorityPillMedium { background: #fffbeb; border-color: #fcd34d; color: #92400e; }
+.clPriorityPillLow   { background: #f0f9ff; border-color: #7dd3fc; color: #075985; }
+.clPriorityPillHigh.clPriorityPillActive   { background: #dc2626; border-color: #dc2626; color: #fff; }
+.clPriorityPillMedium.clPriorityPillActive { background: #d97706; border-color: #d97706; color: #fff; }
+.clPriorityPillLow.clPriorityPillActive    { background: #0284c7; border-color: #0284c7; color: #fff; }
+/* Hint label shown inside failed comment row */
+.clItemCommentHint {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #b91c1c;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
 /* Per-item comment row (comment input + camera button) */
 .clItemCommentRow {
   display: flex;

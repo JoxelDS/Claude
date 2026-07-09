@@ -16836,6 +16836,11 @@ function GuideSection({ title, items, inspection, setInspection, allowCustom, se
                           const newChecklist = (cur2.checklist || []).map((c, i) => i === idx ? { ...c, comment } : c);
                           return setAtPath(prev, it.path, { ...cur2, checklist: newChecklist });
                         });
+                        const makeSetPriority = (idx, priority) => setInspection((prev) => {
+                          const cur2 = getAtPath(prev, it.path) || withPhotos({ status: "OK", notes: "" });
+                          const newChecklist = (cur2.checklist || []).map((c, i) => i === idx ? { ...c, priority } : c);
+                          return setAtPath(prev, it.path, { ...cur2, checklist: newChecklist });
+                        });
                         const addCiPhoto = async (idx, files) => {
                           const inspId = inspectionId || `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
                           const existingCount = (current.checklist?.[idx]?.photos || []).length;
@@ -16910,13 +16915,34 @@ function GuideSection({ title, items, inspection, setInspection, allowCustom, se
                                           ✕
                                         </button>
                                       </div>
+                                      {isFail && (
+                                        <div className="clItemPriorityRow">
+                                          <span className="clItemPriorityLabel">Priority:</span>
+                                          {["High", "Medium", "Low"].map(p => {
+                                            const active = (ci.priority || "High") === p;
+                                            return (
+                                              <button
+                                                key={p}
+                                                type="button"
+                                                className={`clPriorityPill clPriorityPill${p}${active ? " clPriorityPillActive" : ""}`}
+                                                onClick={() => makeSetPriority(idx, p)}
+                                                aria-pressed={active}>
+                                                {p}
+                                              </button>
+                                            );
+                                          })}
+                                        </div>
+                                      )}
                                       <div className="clItemCommentRow">
+                                        {isFail && (
+                                          <span className="clItemCommentHint">Describe the issue</span>
+                                        )}
                                         <input
                                           type="text"
                                           className="clItemComment"
                                           value={ci.comment || ""}
                                           onChange={(e) => makeSetComment(idx, e.target.value)}
-                                          placeholder={commentPlaceholder}
+                                          placeholder={isFail ? "What was observed?" : commentPlaceholder}
                                           aria-label={`Comment for ${ci.label}`}
                                         />
                                         <input
