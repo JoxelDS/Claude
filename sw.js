@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
 // v77: real Sodexo logo favicon (white sodexo + red swoosh + star on navy)
-const CACHE_NAME = "sdx-inspect-v97v"; // v97v: Past reports sorted newest-first; action item cards cleaner layout
+const CACHE_NAME = "sdx-inspect-v97w"; // v97w: Action item cards — pure vertical stack, no overlap
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
