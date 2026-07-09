@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
 // v77: real Sodexo logo favicon (white sodexo + red swoosh + star on navy)
-const CACHE_NAME = "sdx-inspect-v97ac"; // v97ac: Checklist Detail Section Status now shows actual status (e.g. Critical Violation) instead of generic Fail/OK
+const CACHE_NAME = "sdx-inspect-v97ad"; // v97ad: Checklist Detail Section Status shows specific status only for failed items; passing items always show OK
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
