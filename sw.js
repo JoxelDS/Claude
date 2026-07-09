@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
 // v77: real Sodexo logo favicon (white sodexo + red swoosh + star on navy)
-const CACHE_NAME = "sdx-inspect-v97k"; // v97k: Problem type selector (Maintenance/Cleaning/Temperature/Compliance/Structural/Equipment) replaces High/Medium/Low
+const CACHE_NAME = "sdx-inspect-v97l"; // v97l: Per-checklist-item status dropdown (Fail/Needs Attention/Critical Violation/etc) after every X
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
