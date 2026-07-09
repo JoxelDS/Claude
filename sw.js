@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
 // v77: real Sodexo logo favicon (white sodexo + red swoosh + star on navy)
-const CACHE_NAME = "sdx-inspect-v97q"; // v97q: Redesigned fail card UI + improved Word/PDF report structure
+const CACHE_NAME = "sdx-inspect-v97r"; // v97r: Fix priority pipeline — remove nodePriority refs, full status fallback, Follow-up in isFail, Scorecard color-coding
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
