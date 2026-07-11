@@ -16987,7 +16987,7 @@ function GuideSection({ title, items, inspection, setInspection, allowCustom, se
                                             <label className="clItemFailLabel">📋 Status</label>
                                             <select
                                               className="select selectSmall clItemStatusSelect"
-                                              value={ci.ciStatus || "Fail"}
+                                              value={ci.ciStatus || current.status || "Fail"}
                                               onChange={(e) => makeSetCiStatus(idx, e.target.value)}
                                               aria-label={`Status for ${ci.label}`}
                                             >
@@ -17069,7 +17069,7 @@ function GuideSection({ title, items, inspection, setInspection, allowCustom, se
                                         <div className="ciPhotoStrip">
                                           {ciPhotos.map(p => (
                                             <div key={p.id} className="ciPhotoThumb">
-                                              <img src={p.url || p.dataUrl} alt="item photo" />
+                                              <img src={p.thumbUrl || p.previewUrl || p.url || p.dataUrl} alt="item photo" />
                                               <button
                                                 type="button"
                                                 className="ciPhotoRemove"

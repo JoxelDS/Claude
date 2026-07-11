@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v71: Status dropdown inside fail panel on X click
-const CACHE_NAME = "sdx-inspect-v71";
+// v72: Fix blank checklist photos; restore status from saved data
+const CACHE_NAME = "sdx-inspect-v72";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
