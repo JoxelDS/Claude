@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v68: Force cache refresh — guide display fix + fail panel
-const CACHE_NAME = "sdx-inspect-v68";
+// v69: Fail panel only on X click; comment row hidden when unselected
+const CACHE_NAME = "sdx-inspect-v69";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",

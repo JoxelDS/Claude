@@ -17026,14 +17026,14 @@ function GuideSection({ title, items, inspection, setInspection, allowCustom, se
                                             </button>
                                           </div>
                                         </div>
-                                      ) : (
+                                      ) : isPass ? (
                                         <div className="clItemCommentRow">
                                           <input
                                             type="text"
                                             className="clItemComment"
                                             value={ci.comment || ""}
                                             onChange={(e) => makeSetComment(idx, e.target.value)}
-                                            placeholder={isPass ? "Optional note…" : "Add a comment…"}
+                                            placeholder="Optional note…"
                                             aria-label={`Comment for ${ci.label}`}
                                           />
                                           <input
@@ -17054,7 +17054,7 @@ function GuideSection({ title, items, inspection, setInspection, allowCustom, se
                                             📷{ciPhotos.length > 0 ? ` ${ciPhotos.length}` : ""}
                                           </button>
                                         </div>
-                                      )}
+                                      ) : null}
                                       {ciPhotos.length > 0 && (
                                         <div className="ciPhotoStrip">
                                           {ciPhotos.map(p => (
