@@ -13382,7 +13382,7 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName }) {
 
           {/* ── TAB NAV ── */}
           <div className="perfPrintHide perfTabsWrapper">
-            {[["rankings","Rankings"],["time","Timing"],["verdict","Verdict"],["inventory","Inventory"],["licenses","Licenses"],["trends","Trends"]].map(([id, label]) => (
+            {[["rankings","Rankings"],["time","Timing"],["verdict","Verdict"],["inventory","Inventory"],["licenses","Licenses"],["trends","Trends"],["equip_intel","🧠 Equipment"]].map(([id, label]) => (
               <button key={id} onClick={() => setActiveTab(id)} className={cx("perfTab", activeTab === id && "perfTabActive")}>
                 <span>{label}</span>
               </button>
@@ -14938,8 +14938,298 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName }) {
             );
           })()}
 
+          {activeTab === "equip_intel" && (
+            <EquipmentIntelTab managedVenueId={managedVenueId} />
+          )}
+
         </div>
       )}
+    </div>
+  );
+}
+
+// ── Equipment Intel embedded tab (same logic as EquipmentIntelPage but inline) ──
+function EquipmentIntelTab({ managedVenueId }) {
+  const [status, setStatus] = useState("idle");
+  const [progress, setProgress] = useState("");
+  const [result, setResult] = useState(null);
+  const [error, setError] = useState("");
+  const [licenseEdits, setLicenseEdits] = useState({});
+
+  const EQUIP_LABELS = {
+    coolers:"Cooler",freezer:"Freezer",warmers:"Warmer",grill:"Grill",fryer:"Fryer",
+    hood:"Hood",iceMaker:"Ice Maker",otherEquip:"Other Equipment",
+    doubleDoorCooler:"Double-Door Cooler",doubleDoorFreezer:"Double-Door Freezer",
+    walkInCooler:"Walk-In Cooler",walkInFreezer:"Walk-In Freezer",prepCooler:"Prep Cooler",
+    ovens:"Oven",threeCompSink:"3-Compartment Sink",ecolab:"Ecolab",
+    backBarCooler:"Back Bar Cooler",beerWalkInCooler:"Beer Walk-In Cooler",
+    underBarCooler:"Under-Bar Cooler",iceBin:"Ice Bin",wineChiller:"Wine Chiller",
+  };
+  const MIN_INSPECTIONS = 10;
+
+  async function runAnalysis() {
+    let apiKey = localStorage.getItem("sdx_openai_key") || "";
+    if (!apiKey) {
+      apiKey = window.prompt("AI analysis requires your OpenAI API key.\nStored only in this browser.\n\nGet one at platform.openai.com") || "";
+      if (!apiKey) return;
+      localStorage.setItem("sdx_openai_key", apiKey.trim());
+    }
+    setStatus("loading"); setError(""); setResult(null);
+    try {
+      setProgress("Loading all inspections…");
+      const venueId = managedVenueId || VENUE_ID;
+      const col = venueId === "default" ? legacyCol("inspections") : collection(db, "venues", venueId, "inspections");
+      const snap = await getDocs(query(col, orderBy("savedAt", "desc")));
+      const allRecs = snap.docs.map(d => d.data());
+      const registry = await loadLicenseRegistry(venueId);
+      setProgress(`Loaded ${allRecs.length} inspections. Building data…`);
+
+      const locationMap = {};
+      for (const rec of allRecs) {
+        if (!rec.siteName) continue;
+        const locType = rec.locationType || "";
+        if (!["Concession","Subcontractor","Bar"].includes(locType)) continue;
+        const key = `${rec.siteName}|||${rec.siteNumber || ""}`;
+        if (!locationMap[key]) locationMap[key] = {
+          siteName: rec.siteName, siteNumber: rec.siteNumber || "",
+          locationType: locType, floor: rec.floor || "",
+          inspectionCount: 0, licenses: {}, equipmentData: {},
+          adminLicense: registry[key]?.license || null,
+        };
+        const loc = locationMap[key];
+        loc.inspectionCount++;
+        if (rec.restaurantLicense && rec.restaurantLicense !== "NO LICENSE") {
+          const lic = rec.restaurantLicense.trim();
+          loc.licenses[lic] = (loc.licenses[lic] || 0) + 1;
+        }
+        const equip = rec.inspection?.equipment || {};
+        for (const [k, v] of Object.entries(equip)) {
+          if (!v || v.notApplicable) continue;
+          const label = EQUIP_LABELS[k] || v.label || k;
+          if (!loc.equipmentData[label]) loc.equipmentData[label] = { count: 0, brands: new Set(), sources: new Set() };
+          const ed = loc.equipmentData[label];
+          ed.count++;
+          if (v.brand) ed.brands.add(v.brand.trim());
+          if (v.equipSource) ed.sources.add(v.equipSource);
+        }
+      }
+
+      const totalInspections = allRecs.length;
+      const locations = Object.values(locationMap).sort((a, b) => b.inspectionCount - a.inspectionCount);
+      const locationSummaries = locations.map(loc => {
+        const permanentEquip = Object.entries(loc.equipmentData)
+          .filter(([, ed]) => ed.count >= MIN_INSPECTIONS)
+          .sort((a, b) => b[1].count - a[1].count)
+          .map(([label, ed]) => {
+            const brandStr = ed.brands.size ? ` [brand: ${[...ed.brands].join("/")}]` : "";
+            const srcStr = ed.sources.size ? ` [source: ${[...ed.sources].join("/")}]` : "";
+            return `${label} (${ed.count} inspections)${brandStr}${srcStr}`;
+          }).join("; ");
+        const licEntries = Object.entries(loc.licenses).sort((a, b) => b[1] - a[1]);
+        const licStr = loc.adminLicense ? `ADMIN OVERRIDE: ${loc.adminLicense}` : licEntries.map(([l, c]) => `${l} (seen ${c}x)`).join(", ") || "NONE";
+        return `• ${loc.siteName}${loc.siteNumber ? ` #${loc.siteNumber}` : ""} [${loc.locationType}, ${loc.floor}] — ${loc.inspectionCount} total inspections\n  Equipment (≥10 inspections): ${permanentEquip || "none qualify"}\n  License: ${licStr}`;
+      }).join("\n\n");
+
+      setProgress("Sending to AI…");
+      const prompt = `You are a food-safety compliance analyst at a large sports venue.
+Data from ${totalInspections} inspections. Equipment listed only if it appeared in AT LEAST 10 inspections — these are confirmed permanent.
+
+${locationSummaries}
+
+Tasks:
+1. List ONLY the equipment items provided (pre-filtered to ≥10 inspections). Include brand and source if available.
+2. Determine the single correct license: use ADMIN OVERRIDE if present; otherwise use most frequent. Flag "multiple" if conflicting.
+3. Flag locations with no license.
+4. Separate concessions/bars vs subcontractors.
+
+Return JSON only:
+{"summary":"...","concessions":[{"name":"...","unit":"...","floor":"...","locationType":"...","inspections":0,"permanentEquipment":[{"label":"Grill","brand":"...","source":"Facility","seenIn":0}],"license":"...","licenseStatus":"on_file|missing|multiple|admin_override","allLicensesSeen":["..."]}],"subcontractors":[...same...],"noLicense":["..."],"totalLocations":0,"totalInspections":0}
+Do NOT invent or modify any data.`;
+
+      const res = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey.trim()}` },
+        body: JSON.stringify({ model: "gpt-4o", max_tokens: 6000, messages: [{ role: "user", content: prompt }] }),
+      });
+      if (!res.ok) { const err = await res.json().catch(() => ({})); if (res.status === 401) localStorage.removeItem("sdx_openai_key"); throw new Error(err?.error?.message || `API error ${res.status}`); }
+      const data = await res.json();
+      const content = data.choices?.[0]?.message?.content || "";
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) throw new Error("Could not parse AI response.");
+      setResult(JSON.parse(jsonMatch[0]));
+      setStatus("done");
+    } catch (e) { setError(e.message || "Analysis failed."); setStatus("error"); }
+  }
+
+  async function saveLicenseInline(locKey, locName, licenseValue) {
+    setLicenseEdits(p => ({ ...p, [locKey]: { ...p[locKey], saving: true } }));
+    const venueId = managedVenueId || VENUE_ID;
+    const registry = await loadLicenseRegistry(venueId);
+    registry[locKey] = { license: licenseValue.trim(), locationName: locName, updatedAt: new Date().toISOString() };
+    await saveLicenseRegistry(venueId, registry);
+    setResult(prev => {
+      if (!prev) return prev;
+      const upd = list => (list || []).map(loc => {
+        const lk = `${loc.name}|||${loc.unit || ""}`;
+        return lk === locKey ? { ...loc, license: licenseValue.trim(), licenseStatus: "admin_override" } : loc;
+      });
+      return { ...prev, concessions: upd(prev.concessions), subcontractors: upd(prev.subcontractors) };
+    });
+    setLicenseEdits(p => ({ ...p, [locKey]: { editing: false, value: licenseValue, saving: false, saved: true } }));
+    setTimeout(() => setLicenseEdits(p => ({ ...p, [locKey]: { ...p[locKey], saved: false } })), 2500);
+  }
+
+  const LicenseBadge = ({ loc, locKey }) => {
+    const edit = licenseEdits[locKey] || {};
+    if (edit.editing) return (
+      <div style={{ display: "flex", gap: 5, alignItems: "center", flexWrap: "wrap" }}>
+        <input autoFocus type="text" value={edit.value ?? loc.license ?? ""}
+          onChange={e => setLicenseEdits(p => ({ ...p, [locKey]: { ...p[locKey], value: e.target.value } }))}
+          onKeyDown={e => { if (e.key === "Enter") saveLicenseInline(locKey, loc.name, edit.value ?? ""); if (e.key === "Escape") setLicenseEdits(p => ({ ...p, [locKey]: { editing: false } })); }}
+          style={{ border: "1px solid #2563eb", borderRadius: 5, padding: "2px 7px", fontSize: "0.75rem", width: 150 }} placeholder="License #" />
+        <button type="button" onClick={() => saveLicenseInline(locKey, loc.name, edit.value ?? "")} disabled={edit.saving}
+          style={{ background: "#1d4ed8", color: "#fff", border: "none", borderRadius: 5, padding: "2px 9px", fontSize: "0.7rem", cursor: "pointer" }}>{edit.saving ? "…" : "Save"}</button>
+        <button type="button" onClick={() => setLicenseEdits(p => ({ ...p, [locKey]: { editing: false } }))}
+          style={{ background: "none", border: "1px solid #e2e8f0", borderRadius: 5, padding: "2px 7px", fontSize: "0.7rem", cursor: "pointer", color: "#6b7280" }}>✕</button>
+      </div>
+    );
+    const bd = (bg, color, border, text) => (
+      <span onClick={() => setLicenseEdits(p => ({ ...p, [locKey]: { editing: true, value: loc.license || "" } }))}
+        style={{ display:"inline-flex", alignItems:"center", gap:4, background:bg, color, border:`1px solid ${border}`, borderRadius:6, padding:"2px 8px", fontSize:"0.7rem", fontWeight:700, cursor:"pointer" }}>
+        {text}
+      </span>
+    );
+    if (edit.saved) return bd("#f0fdf4","#15803d","#bbf7d0","✓ Saved!");
+    if (loc.licenseStatus === "admin_override") return bd("#eff6ff","#1d4ed8","#bfdbfe",`🔒 ${loc.license} ✏`);
+    if (loc.licenseStatus === "missing") return bd("#fef2f2","#dc2626","#fecaca","⚠ No License — add ✏");
+    if (loc.licenseStatus === "multiple") return bd("#fffbeb","#b45309","#fde68a",`⚠ Multiple (${(loc.allLicensesSeen||[]).length}) — fix ✏`);
+    return bd("#f0fdf4","#15803d","#bbf7d0",`✓ ${loc.license} ✏`);
+  };
+
+  const LocationCard = ({ loc }) => {
+    const locKey = `${loc.name}|||${loc.unit || ""}`;
+    return (
+      <div style={{ border:"1px solid #e2e8f0", borderRadius:10, padding:"12px 14px", marginBottom:8, background:"#fff" }}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:8, flexWrap:"wrap", marginBottom:7 }}>
+          <div>
+            <span style={{ fontWeight:700, fontSize:"0.88rem", color:"#0f172a" }}>{loc.name}{loc.unit ? ` #${loc.unit}` : ""}</span>
+            {loc.floor && <span style={{ fontSize:"0.72rem", color:"#6b7280", marginLeft:6 }}>{loc.floor}</span>}
+          </div>
+          <span style={{ fontSize:"0.68rem", color:"#94a3b8", flexShrink:0 }}>{loc.inspections} inspections</span>
+        </div>
+        <div style={{ display:"flex", alignItems:"center", gap:7, flexWrap:"wrap", marginBottom:loc.permanentEquipment?.length ? 9 : 0 }}>
+          <span style={{ fontSize:"0.7rem", color:"#6b7280", fontWeight:600 }}>📋 License:</span>
+          <LicenseBadge loc={loc} locKey={locKey} />
+          {loc.allLicensesSeen?.length > 1 && (
+            <span style={{ fontSize:"0.65rem", color:"#9ca3af" }}>
+              (also: {loc.allLicensesSeen.filter(l => l !== loc.license).join(", ")})
+            </span>
+          )}
+        </div>
+        {loc.permanentEquipment?.length > 0 ? (
+          <div>
+            <div style={{ fontSize:"0.68rem", color:"#6b7280", fontWeight:600, marginBottom:4 }}>🔧 Permanent Equipment — confirmed ≥{MIN_INSPECTIONS} inspections:</div>
+            <div style={{ display:"flex", flexWrap:"wrap", gap:4 }}>
+              {loc.permanentEquipment.map((eq, i) => {
+                const label = typeof eq === "string" ? eq : eq.label;
+                const brand = typeof eq === "object" ? eq.brand : null;
+                const src   = typeof eq === "object" ? eq.source : null;
+                const seen  = typeof eq === "object" ? eq.seenIn : null;
+                return (
+                  <span key={i} title={[brand && `Brand: ${brand}`, src && `Source: ${src}`, seen && `${seen} inspections`].filter(Boolean).join(" · ")}
+                    style={{ background:"#eff6ff", color:"#1d4ed8", border:"1px solid #bfdbfe", borderRadius:5, padding:"2px 8px", fontSize:"0.69rem", fontWeight:600, cursor: seen ? "help" : "default" }}>
+                    {label}{brand ? ` · ${brand}` : ""}{seen ? <span style={{ fontWeight:400, marginLeft:3, color:"#60a5fa" }}>{seen}×</span> : null}
+                  </span>
+                );
+              })}
+            </div>
+          </div>
+        ) : (
+          <div style={{ fontSize:"0.74rem", color:"#9ca3af", fontStyle:"italic" }}>No equipment confirmed in ≥{MIN_INSPECTIONS} inspections yet</div>
+        )}
+      </div>
+    );
+  };
+
+  if (status === "idle") return (
+    <div style={{ textAlign:"center", padding:"40px 20px" }}>
+      <div style={{ fontSize:"2.5rem", marginBottom:10 }}>🧠</div>
+      <div style={{ fontWeight:700, fontSize:"1rem", color:"#0f172a", marginBottom:6 }}>Equipment & License Analysis</div>
+      <div style={{ color:"#6b7280", fontSize:"0.82rem", maxWidth:420, margin:"0 auto 20px", lineHeight:1.6 }}>
+        Reads every inspection. Equipment only listed as permanent if it appeared in <strong>at least {MIN_INSPECTIONS} inspections</strong>. Click any license badge to edit it.
+      </div>
+      <button type="button" onClick={runAnalysis}
+        style={{ background:"#064e3b", color:"#fff", border:"none", borderRadius:9, padding:"10px 24px", fontSize:"0.9rem", fontWeight:700, cursor:"pointer" }}>
+        🚀 Run Analysis
+      </button>
+    </div>
+  );
+
+  if (status === "loading") return (
+    <div style={{ textAlign:"center", padding:"40px 20px" }}>
+      <div style={{ fontSize:"1.8rem", marginBottom:10 }}>⏳</div>
+      <div style={{ fontWeight:600, color:"#0f172a", marginBottom:6 }}>Analyzing…</div>
+      <div style={{ color:"#6b7280", fontSize:"0.82rem" }}>{progress}</div>
+    </div>
+  );
+
+  if (status === "error") return (
+    <div style={{ background:"#fef2f2", border:"1px solid #fecaca", borderRadius:10, padding:"16px", color:"#dc2626" }}>
+      <strong>Error:</strong> {error}
+      <button type="button" onClick={() => setStatus("idle")}
+        style={{ display:"block", marginTop:10, color:"#dc2626", background:"none", border:"1px solid #fca5a5", borderRadius:6, padding:"4px 12px", cursor:"pointer" }}>
+        Try Again
+      </button>
+    </div>
+  );
+
+  if (status !== "done" || !result) return null;
+
+  return (
+    <div>
+      {result.summary && (
+        <div style={{ background:"#f0fdf4", border:"1px solid #bbf7d0", borderRadius:10, padding:"12px 14px", marginBottom:16, color:"#14532d", fontSize:"0.82rem", lineHeight:1.6 }}>
+          {result.summary}
+        </div>
+      )}
+      <div style={{ display:"flex", gap:8, marginBottom:14, flexWrap:"wrap" }}>
+        {[
+          { label:"Inspections", val: result.totalInspections },
+          { label:"Locations", val: result.totalLocations },
+          { label:"No License", val: result.noLicense?.length || 0, warn: (result.noLicense?.length || 0) > 0 },
+        ].map(s => (
+          <div key={s.label} style={{ flex:1, minWidth:90, background: s.warn ? "#fef2f2" : "#fff", border:`1px solid ${s.warn ? "#fecaca" : "#e2e8f0"}`, borderRadius:9, padding:"10px 12px", textAlign:"center" }}>
+            <div style={{ fontSize:"1.3rem", fontWeight:800, color: s.warn ? "#dc2626" : "#0f172a" }}>{s.val}</div>
+            <div style={{ fontSize:"0.66rem", color:"#6b7280" }}>{s.label}</div>
+          </div>
+        ))}
+      </div>
+      {result.noLicense?.length > 0 && (
+        <div style={{ background:"#fef2f2", border:"1px solid #fecaca", borderRadius:9, padding:"10px 14px", marginBottom:14 }}>
+          <div style={{ fontWeight:700, color:"#dc2626", marginBottom:4, fontSize:"0.82rem" }}>⚠️ No License on Record</div>
+          {result.noLicense.map(n => <div key={n} style={{ fontSize:"0.78rem", color:"#991b1b" }}>• {n}</div>)}
+        </div>
+      )}
+      {result.concessions?.length > 0 && (
+        <div style={{ marginBottom:20 }}>
+          <div style={{ fontWeight:700, fontSize:"0.9rem", color:"#0f172a", marginBottom:8, borderBottom:"2px solid #e2e8f0", paddingBottom:5 }}>
+            🏪 Concessions & Bars ({result.concessions.length})
+          </div>
+          {result.concessions.map(loc => <LocationCard key={`${loc.name}${loc.unit}`} loc={loc} />)}
+        </div>
+      )}
+      {result.subcontractors?.length > 0 && (
+        <div style={{ marginBottom:20 }}>
+          <div style={{ fontWeight:700, fontSize:"0.9rem", color:"#0f172a", marginBottom:8, borderBottom:"2px solid #e2e8f0", paddingBottom:5 }}>
+            🤝 Subcontractors ({result.subcontractors.length})
+          </div>
+          {result.subcontractors.map(loc => <LocationCard key={`${loc.name}${loc.unit}`} loc={loc} />)}
+        </div>
+      )}
+      <button type="button" onClick={() => { setStatus("idle"); setResult(null); }}
+        style={{ background:"#f1f5f9", color:"#475569", border:"1px solid #e2e8f0", borderRadius:7, padding:"7px 16px", cursor:"pointer", fontSize:"0.8rem" }}>
+        🔄 Re-run Analysis
+      </button>
     </div>
   );
 }
