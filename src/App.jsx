@@ -4173,7 +4173,7 @@ async function exportAsCsv({ inspection, notesPhotos, rawNotes, inspectionType, 
   if (photoList.length > 0) {
     const ws3 = wb.addWorksheet("Photos");
     // col widths: #(5), Section(30), Caption(40), Photo(80)
-    ws3.columns = [{ width: 5 }, { width: 30 }, { width: 40 }, { width: 80 }];
+    ws3.columns = [{ width: 5 }, { width: 30 }, { width: 40 }, { width: 130 }];
 
     const ws3TitleRow = ws3.addRow(["PHOTO LOG"]);
     ws3TitleRow.height = 24;
@@ -4187,10 +4187,10 @@ async function exportAsCsv({ inspection, notesPhotos, rawNotes, inspectionType, 
     ws3.views = [{ state: "frozen", ySplit: ws3HRow.number, topLeftCell: `A${ws3HRow.number + 1}`, activeCell: "A1" }];
 
     // Image cell height in points. 1pt ≈ 1.333px. 360pt ≈ 480px — large enough for clear viewing.
-    const IMG_HEIGHT_PT = 360;
-    // Absolute pixel dimensions for the embedded image (fills most of the tall cell)
-    const IMG_W_PX = 560;
-    const IMG_H_PX = 420;
+    const IMG_HEIGHT_PT = 540;
+    // Absolute pixel dimensions — large enough for true HD clarity in Excel
+    const IMG_W_PX = 1024;
+    const IMG_H_PX = 768;
 
     for (let i = 0; i < photoList.length; i++) {
       const p = photoList[i];
@@ -8065,9 +8065,9 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
       usedSheetNames.add(name);
       return name;
     }
-    const IMG_HEIGHT_PT = 360; // ~5 inches — maximum useful height for clear photo viewing
-    const BULK_IMG_W_PX = 560;
-    const BULK_IMG_H_PX = 420;
+    const IMG_HEIGHT_PT = 540; // ~7.5 inches — HD photo display height
+    const BULK_IMG_W_PX = 1024;
+    const BULK_IMG_H_PX = 768;
 
     for (let ri = 0; ri < records.length; ri++) {
       const rec = records[ri];
@@ -8081,7 +8081,7 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
       if (withImg.length === 0) continue;
 
       const wsPh = wb.addWorksheet(safeSheetName(rec.siteName || rec.location, rec.siteNumber, ri));
-      wsPh.columns = [{ width: 6 }, { width: 32 }, { width: 38 }, { width: 75 }];
+      wsPh.columns = [{ width: 6 }, { width: 32 }, { width: 38 }, { width: 130 }];
 
       const phTitle = wsPh.addRow([`PHOTOS — ${(rec.siteName || rec.location || "Venue").toUpperCase()}${rec.siteNumber ? ` #${rec.siteNumber}` : ""}  |  ${rec.inspectionDate || ""}`]);
       phTitle.height = 26;

@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v86: Excel photos — checklist item photos in per-location tabs; larger high-quality images
-const CACHE_NAME = "sdx-inspect-v86";
+// v87: Excel photos — HD quality 1024x768 display, wider columns, taller rows
+const CACHE_NAME = "sdx-inspect-v87";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
