@@ -7274,7 +7274,12 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const [historyTab, setHistoryTab] = useState("reports"); // "reports" | "analytics"
   const [haccpByReport, setHaccpByReport] = useState({}); // { [reportId]: [...submissions] }
-  const [haccpSubmittedIds, setHaccpSubmittedIds] = useState(new Set()); // all reportIds with ≥1 submission — updated in real time
+  // Derived — auto-updates whenever any source populates haccpByReport
+  const haccpSubmittedIds = useMemo(() => {
+    const s = new Set();
+    Object.keys(haccpByReport).forEach(id => { if ((haccpByReport[id]?.length || 0) > 0) s.add(id); });
+    return s;
+  }, [haccpByReport]);
   const [chatByReport, setChatByReport] = useState({});  // { [reportId]: [...messages] }
   const [showHistoryMenu, setShowHistoryMenu] = useState(false);
   const [analyticsTab, setAnalyticsTab] = useState("temp"); // "temp" | "insights" | "predictive" | "recurring"
@@ -7310,7 +7315,7 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
     loadHaccpSubmissions().then(subs => {
       const map = {};
       subs.filter(s => s.type === "submission").forEach(s => {
-        const key = s.reportId || s.inspectionId;
+        const key = s.reportId || s.sessionId || s.inspectionId;
         if (key) { if (!map[key]) map[key] = []; map[key].push(s); }
       });
       setHaccpByReport(prev => ({ ...prev, ...map }));
@@ -7339,7 +7344,6 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
   // Real-time listener on the full haccpSubmissions collection — updates all card badges instantly
   useEffect(() => {
     if (!FIREBASE_ON || !db) return;
-    const idSet = new Set();
     const byReport = {};
     function processSnap(snap) {
       snap.docs.forEach(d => {
@@ -7347,12 +7351,9 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
         if (data.type !== "submission") return;
         const key = data.reportId || data.sessionId || data.inspectionId;
         if (!key) return;
-        idSet.add(key);
         if (!byReport[key]) byReport[key] = [];
-        // avoid duplicates within the merged map
         if (!byReport[key].some(s => s.id === data.id)) byReport[key].push(data);
       });
-      setHaccpSubmittedIds(new Set(idSet));
       setHaccpByReport(prev => ({ ...prev, ...byReport }));
     }
     const unsubs = [];
