@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v66: Force cache refresh — guide steps structural fix
-const CACHE_NAME = "sdx-inspect-v66";
+// v67: Force cache refresh — guide slider panel nesting fix
+const CACHE_NAME = "sdx-inspect-v67";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
