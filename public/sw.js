@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v65: Remove "Unknown" from inspector ranking (inspections missing inspector name are skipped)
-const CACHE_NAME = "sdx-inspect-v65";
+// v66: Force cache refresh — guide steps structural fix
+const CACHE_NAME = "sdx-inspect-v66";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
