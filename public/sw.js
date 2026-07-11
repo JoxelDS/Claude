@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v96: Memoize per-card buildActionItems/calcScore so Select button is instant
-const CACHE_NAME = "sdx-inspect-v96";
+// v97: Remove HACCP admin panel — auto-create handles it silently
+const CACHE_NAME = "sdx-inspect-v97";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",

@@ -17063,8 +17063,6 @@ function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVe
           <span style={{ marginLeft: "auto", color: "#6ee7b7", fontSize: "1.1rem" }}>→</span>
         </button>
 
-        {/* ── HACCP Submissions without a matching Inspection Report ───────── */}
-        <OrphanedHaccpSection />
 
         {/* Inspection Schedule Settings */}
         <div className="card adminCard" style={{ marginBottom: 24 }}>
