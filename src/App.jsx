@@ -19897,8 +19897,14 @@ export default function App() {
         const reports = await loadProblemReports();
         for (const r of reports) {
           const nid = `problem_${r.id}`;
-          const site = r.siteName || r.location || "this location";
-          fireNotification(nid, "problem_report", "⚠️ Problem Report", `${site}${r.siteNumber ? ` · Unit ${r.siteNumber}` : ""}: ${r.description?.slice(0, 80) || "New problem flagged."}`, null, { siteName: r.siteName || "", siteNumber: r.siteNumber || "" });
+          const site = r.siteName || r.site || r.location || "this location";
+          const unitStr = r.siteNumber || r.unit || "";
+          fireNotification(nid, "problem_report", "⚠️ Problem Report", `${r.description?.slice(0, 80) || "New problem flagged."}`, null, {
+            siteName: site,
+            siteNumber: unitStr,
+            supervisorName: r.supervisorName || "",
+            reportId: r.reportId || "",
+          });
         }
       } catch { /* ignore */ }
 
@@ -19912,7 +19918,7 @@ export default function App() {
           const locationTag = m.siteNumber ? `Unit ${m.siteNumber}` : (m.siteName || "");
           const title = m.sender ? `💬 ${m.sender}` : "💬 Inspector Message";
           const body = `${locationTag ? `[${locationTag}] ` : ""}${m.text?.slice(0, 100) || "A new message was sent."}`;
-          fireNotification(nid, "chat", title, body, null, { siteName: m.siteName || "", siteNumber: m.siteNumber || "", sender: m.sender || "" });
+          fireNotification(nid, "chat", title, body, null, { siteName: m.siteName || "", siteNumber: m.siteNumber || "", sender: m.sender || "", supervisorName: m.sender || "", reportId: m.sessionId || "" });
         }
       } catch { /* ignore */ }
     }
@@ -21282,7 +21288,9 @@ export default function App() {
             ) : (
               notifItems.map(n => {
                 const accentColor = n.type === "chat" ? "#3b82f6" : n.type === "problem_report" ? "#ef4444" : n.type === "assignment" ? "#8b5cf6" : "#f59e0b";
-                const locationLine = [n.siteName, n.siteNumber ? `Unit ${n.siteNumber}` : ""].filter(Boolean).join(" · ");
+                const typeIcon = n.type === "chat" ? "💬" : n.type === "problem_report" ? "⚠️" : n.type === "assignment" ? "📋" : "🔔";
+                const typeLabel = n.type === "chat" ? "Message" : n.type === "problem_report" ? "Problem Report" : n.type === "assignment" ? "Assignment" : "Alert";
+                const hasReport = !!n.reportId;
                 return (
                 <div
                   key={n.id}
@@ -21291,23 +21299,49 @@ export default function App() {
                   <button
                     type="button"
                     className="dropdownMenuItem"
-                    style={{ flex: 1, flexDirection: "column", alignItems: "flex-start", gap: 3, borderLeft: "none", borderRadius: 0, padding: "0.55rem 0.75rem" }}
+                    style={{ flex: 1, flexDirection: "column", alignItems: "flex-start", gap: 4, borderLeft: "none", borderRadius: 0, padding: "0.6rem 0.75rem" }}
                     onClick={() => {
                       setNotifItems(prev => prev.filter(x => x.id !== n.id));
                       setNotifOpen(false);
-                      if (n.type === "chat" || n.type === "problem_report") setPage("admin");
+                      if (hasReport) {
+                        setPage("history");
+                        setExpandedId(n.reportId);
+                        setTimeout(() => {
+                          const el = document.querySelector(`[data-recid="${n.reportId}"]`);
+                          if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+                        }, 300);
+                      } else if (n.type === "chat" || n.type === "problem_report") {
+                        setPage("admin");
+                      }
                     }}
                   >
-                    <span style={{ fontWeight: 700, fontSize: "0.83rem", color: "#1e293b" }}>{n.title}</span>
-                    {locationLine && (
-                      <span style={{ fontSize: "0.74rem", fontWeight: 600, color: accentColor, background: `${accentColor}18`, borderRadius: 4, padding: "1px 6px", display: "inline-block" }}>
-                        📍 {locationLine}
+                    {/* Type badge + time row */}
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", gap: 6 }}>
+                      <span style={{ fontSize: "0.7rem", fontWeight: 700, color: accentColor, background: `${accentColor}18`, borderRadius: 4, padding: "1px 6px" }}>
+                        {typeIcon} {typeLabel}
+                      </span>
+                      <span style={{ fontSize: "0.68rem", color: "#94a3b8", flexShrink: 0 }}>
+                        {new Date(n.ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                      </span>
+                    </div>
+                    {/* Supervisor name */}
+                    {(n.supervisorName || n.sender) && (
+                      <span style={{ fontWeight: 700, fontSize: "0.85rem", color: "#1e293b" }}>
+                        👤 {n.supervisorName || n.sender}
                       </span>
                     )}
+                    {/* Stand + unit */}
+                    {(n.siteName || n.siteNumber) && (
+                      <span style={{ fontSize: "0.75rem", fontWeight: 600, color: accentColor, background: `${accentColor}12`, borderRadius: 4, padding: "2px 7px", display: "inline-flex", alignItems: "center", gap: 4 }}>
+                        📍 {[n.siteName, n.siteNumber ? `Unit ${n.siteNumber}` : ""].filter(Boolean).join(" · ")}
+                      </span>
+                    )}
+                    {/* Body text */}
                     <span style={{ fontSize: "0.76rem", color: "#475569", whiteSpace: "normal", textAlign: "left", lineHeight: 1.4 }}>{n.body}</span>
-                    <span style={{ fontSize: "0.7rem", color: "#94a3b8" }}>
-                      {new Date(n.ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                    </span>
+                    {/* Tap hint */}
+                    {hasReport && (
+                      <span style={{ fontSize: "0.68rem", color: accentColor, fontWeight: 600 }}>Tap to open report →</span>
+                    )}
                   </button>
                   <button
                     type="button"

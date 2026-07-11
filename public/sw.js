@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v97: Remove HACCP admin panel — auto-create handles it silently
-const CACHE_NAME = "sdx-inspect-v97";
+// v98: Notifications show supervisor name, stand, unit and tap-to-open-report
+const CACHE_NAME = "sdx-inspect-v98";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
