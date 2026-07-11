@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v99: Notification dropdown white bg, high-contrast text, tap to open report
-const CACHE_NAME = "sdx-inspect-v99";
+// v100: HACCP badge updates in real time when supervisor submits temperatures
+const CACHE_NAME = "sdx-inspect-v100";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",

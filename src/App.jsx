@@ -7274,6 +7274,7 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const [historyTab, setHistoryTab] = useState("reports"); // "reports" | "analytics"
   const [haccpByReport, setHaccpByReport] = useState({}); // { [reportId]: [...submissions] }
+  const [haccpSubmittedIds, setHaccpSubmittedIds] = useState(new Set()); // all reportIds with ≥1 submission — updated in real time
   const [chatByReport, setChatByReport] = useState({});  // { [reportId]: [...messages] }
   const [showHistoryMenu, setShowHistoryMenu] = useState(false);
   const [analyticsTab, setAnalyticsTab] = useState("temp"); // "temp" | "insights" | "predictive" | "recurring"
@@ -7334,6 +7335,39 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
       }
     });
   }, [managedVenueId, filterDateFrom, filterDateTo]);
+
+  // Real-time listener on the full haccpSubmissions collection — updates all card badges instantly
+  useEffect(() => {
+    if (!FIREBASE_ON || !db) return;
+    const idSet = new Set();
+    const byReport = {};
+    function processSnap(snap) {
+      snap.docs.forEach(d => {
+        const data = d.data();
+        if (data.type !== "submission") return;
+        const key = data.reportId || data.sessionId || data.inspectionId;
+        if (!key) return;
+        idSet.add(key);
+        if (!byReport[key]) byReport[key] = [];
+        // avoid duplicates within the merged map
+        if (!byReport[key].some(s => s.id === data.id)) byReport[key].push(data);
+      });
+      setHaccpSubmittedIds(new Set(idSet));
+      setHaccpByReport(prev => ({ ...prev, ...byReport }));
+    }
+    const unsubs = [];
+    try {
+      const uLegacy = onSnapshot(legacyCol("haccpSubmissions"), processSnap, () => {});
+      unsubs.push(uLegacy);
+    } catch { /* ignore */ }
+    if (!IS_DEFAULT_VENUE()) {
+      try {
+        const uVenue = onSnapshot(venueCol("haccpSubmissions"), processSnap, () => {});
+        unsubs.push(uVenue);
+      } catch { /* ignore */ }
+    }
+    return () => unsubs.forEach(u => { try { u(); } catch { /* ignore */ } });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   function loadMoreHistory() {
     if (!historyHasMore || historyLoadingMore) return;
@@ -9521,7 +9555,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                         </span>
                       )}
                       {issues.length > 0 && <span className="pill">{issues.length} issue{issues.length !== 1 ? "s" : ""}</span>}
-                      {(haccpByReport[rec.id]?.length > 0) ? (
+                      {(haccpSubmittedIds.has(rec.id) || haccpByReport[rec.id]?.length > 0) ? (
                         <span title="HACCP form submitted" style={{ display:"inline-flex", alignItems:"center", gap:3, background:"#f0fdf4", color:"#15803d", border:"1px solid #bbf7d0", borderRadius:8, padding:"2px 8px", fontSize:"0.72rem", fontWeight:700, flexShrink:0 }}>
                           🌡️ HACCP
                         </span>
