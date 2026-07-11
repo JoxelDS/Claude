@@ -20894,10 +20894,10 @@ export default function App() {
 
               {/* ── Step viewport: show only active step ───────────────── */}
               <div className="guideStepViewport">
-                <div className="guideStepTrack" style={{ transform: `translateX(-${guideStep * 100}%)` }}>
+                <div className="guideStepTrack">
 
                   {/* ══ Step 0: Temps & Supplies ══════════════════════════ */}
-                  <div className="guideStepPanel">
+                  <div className="guideStepPanel" style={{ display: guideStep === 0 ? "block" : "none" }}>
 
               {/* ── Supplies Needed ─────────────────────────────────────── */}
               {(() => {
@@ -21109,7 +21109,7 @@ export default function App() {
                   </div>{/* end Step 0 panel */}
 
                   {/* ══ Step 1: Facilities ════════════════════════════════ */}
-                  <div className="guideStepPanel">
+                  <div className="guideStepPanel" style={{ display: guideStep === 1 ? "block" : "none" }}>
 
                 <GuideSection title="🏢 Facilities"
                   items={[
@@ -21134,7 +21134,7 @@ export default function App() {
                   </div>{/* end Step 1 panel */}
 
                   {/* ══ Step 2: Equipment ═════════════════════════════════ */}
-                  <div className="guideStepPanel">
+                  <div className="guideStepPanel" style={{ display: guideStep === 2 ? "block" : "none" }}>
 
                 {/* Equipment only — Utensils is Step 3 */}
                 {locationType === "Concession" ? (
@@ -21191,7 +21191,7 @@ export default function App() {
                   </div>{/* end Step 2 panel */}
 
                   {/* ══ Step 3: Utensils ══════════════════════════════════ */}
-                  <div className="guideStepPanel">
+                  <div className="guideStepPanel" style={{ display: guideStep === 3 ? "block" : "none" }}>
 
                 <GuideSection title="🧹 Utensils"
                   items={[
