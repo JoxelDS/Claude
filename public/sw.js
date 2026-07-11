@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v94: Fix permissions error — inspectorName/siteName must be non-empty for Firestore rules
-const CACHE_NAME = "sdx-inspect-v94";
+// v95: Admin HACCP panel sweeps ALL venue collections so no QR scan is missed
+const CACHE_NAME = "sdx-inspect-v95";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",

@@ -16614,16 +16614,46 @@ function HaccpAdminSection() {
   useEffect(() => {
     async function load() {
       try {
-        const [allSubs, { list: allRecs }] = await Promise.all([
-          loadHaccpSubmissions(),
-          loadHistory(undefined, { pageSize: 500 }),
+        // Load HACCP submissions from legacy root + current venue + ALL registered venues
+        const legacyHaccp = getDocs(query(legacyCol("haccpSubmissions"), orderBy("submittedAt", "desc"))).catch(() => null);
+        const venueHaccp = !IS_DEFAULT_VENUE()
+          ? getDocs(query(venueCol("haccpSubmissions"), orderBy("submittedAt", "desc"))).catch(() => null)
+          : Promise.resolve(null);
+
+        // Load inspections from legacy + current venue
+        const legacyRecs = loadHistory("default", { pageSize: 500 });
+        const venueRecs = !IS_DEFAULT_VENUE()
+          ? loadHistory(undefined, { pageSize: 500 })
+          : Promise.resolve({ list: [] });
+
+        // Load all registered venue IDs so we can sweep every venue's HACCP subs
+        const regSnap = await getDocs(venueRegistryCol()).catch(() => null);
+        const extraVenueIds = regSnap
+          ? regSnap.docs.map(d => d.id).filter(id => id !== "default" && id !== activeVenueId)
+          : [];
+        const extraHaccpSnaps = await Promise.all(
+          extraVenueIds.map(vid =>
+            getDocs(query(collection(db, "venues", vid, "haccpSubmissions"), orderBy("submittedAt", "desc"))).catch(() => null)
+          )
+        );
+
+        const [legacySnap, venueSnap, { list: legRecList }, { list: venRecList }] = await Promise.all([
+          legacyHaccp, venueHaccp, legacyRecs, venueRecs,
         ]);
-        const todaySubs = allSubs.filter(s => (s.submittedAt || "").startsWith(today));
-        // Deduplicate by submission id
+
+        const rawSubs = [
+          ...(legacySnap ? legacySnap.docs.map(d => d.data()) : []),
+          ...(venueSnap  ? venueSnap.docs.map(d => d.data())  : []),
+          ...extraHaccpSnaps.flatMap(s => s ? s.docs.map(d => d.data()) : []),
+        ];
+        const todaySubs = rawSubs.filter(s => (s.submittedAt || "").startsWith(today));
         const seen = new Set();
         const unique = todaySubs.filter(s => { if (seen.has(s.id)) return false; seen.add(s.id); return true; });
         setSubs(unique);
-        setRecs(allRecs);
+
+        const allRecs = [...legRecList, ...venRecList];
+        const seenRec = new Set();
+        setRecs(allRecs.filter(r => { if (seenRec.has(r.id)) return false; seenRec.add(r.id); return true; }));
       } catch { setSubs([]); }
     }
     load();
