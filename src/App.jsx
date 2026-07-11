@@ -15947,6 +15947,296 @@ function GlobalAdminPanel({ currentUser, onBack, onManageVenue, onEnterVenue, on
 }
 
 /* ── Admin Panel ──────────────────────────────────────────── */
+// ── Equipment & License Intelligence Page ─────────────────────────────────────
+function EquipmentIntelPage({ onBack, managedVenueId }) {
+  const [status, setStatus] = useState("idle"); // "idle" | "loading" | "done" | "error"
+  const [progress, setProgress] = useState("");
+  const [result, setResult] = useState(null);
+  const [error, setError] = useState("");
+
+  const BUILT_IN_EQUIP_KEYS = new Set([
+    "coolers","freezer","warmers","grill","fryer","hood","iceMaker","otherEquip",
+    "doubleDoorCooler","doubleDoorFreezer","walkInCooler","walkInFreezer","prepCooler",
+    "ovens","threeCompSink","ecolab","backBarCooler","beerWalkInCooler","underBarCooler",
+    "iceBin","wineChiller",
+  ]);
+
+  const EQUIP_LABELS = {
+    coolers: "Cooler", freezer: "Freezer", warmers: "Warmer", grill: "Grill",
+    fryer: "Fryer", hood: "Hood", iceMaker: "Ice Maker", otherEquip: "Other Equipment",
+    doubleDoorCooler: "Double-Door Cooler", doubleDoorFreezer: "Double-Door Freezer",
+    walkInCooler: "Walk-In Cooler", walkInFreezer: "Walk-In Freezer",
+    prepCooler: "Prep Cooler", ovens: "Oven", threeCompSink: "3-Compartment Sink",
+    ecolab: "Ecolab", backBarCooler: "Back Bar Cooler", beerWalkInCooler: "Beer Walk-In Cooler",
+    underBarCooler: "Under-Bar Cooler", iceBin: "Ice Bin", wineChiller: "Wine Chiller",
+  };
+
+  async function runAnalysis() {
+    let apiKey = localStorage.getItem("sdx_openai_key") || "";
+    if (!apiKey) {
+      apiKey = window.prompt(
+        "AI analysis requires your OpenAI API key.\nIt is stored only in this browser (never sent to our servers).\n\nGet one at platform.openai.com"
+      ) || "";
+      if (!apiKey) return;
+      localStorage.setItem("sdx_openai_key", apiKey.trim());
+    }
+
+    setStatus("loading");
+    setError("");
+    setResult(null);
+
+    try {
+      // Step 1: load all inspections
+      setProgress("Loading all inspections…");
+      const venueId = managedVenueId || VENUE_ID;
+      const col = venueId === "default"
+        ? legacyCol("inspections")
+        : collection(db, "venues", venueId, "inspections");
+      const snap = await getDocs(query(col, orderBy("savedAt", "desc")));
+      const allRecs = snap.docs.map(d => d.data());
+      setProgress(`Loaded ${allRecs.length} inspections. Building summary…`);
+
+      // Step 2: build a compact summary per location for the AI
+      const locationMap = {};
+      for (const rec of allRecs) {
+        if (!rec.siteName) continue;
+        const locType = rec.locationType || "";
+        if (!["Concession", "Subcontractor", "Bar"].includes(locType)) continue;
+        const key = `${rec.siteName}|${rec.siteNumber || ""}`;
+        if (!locationMap[key]) {
+          locationMap[key] = {
+            siteName: rec.siteName,
+            siteNumber: rec.siteNumber || "",
+            locationType: locType,
+            floor: rec.floor || "",
+            inspectionCount: 0,
+            licenses: new Set(),
+            equipmentCounts: {}, // label -> count of inspections it appeared
+          };
+        }
+        const loc = locationMap[key];
+        loc.inspectionCount++;
+        if (rec.restaurantLicense && rec.restaurantLicense !== "NO LICENSE") {
+          loc.licenses.add(rec.restaurantLicense.trim());
+        }
+        // Count equipment appearances
+        const equip = rec.inspection?.equipment || {};
+        for (const [k, v] of Object.entries(equip)) {
+          if (!v || v.notApplicable) continue;
+          const label = EQUIP_LABELS[k] || v.label || k;
+          loc.equipmentCounts[label] = (loc.equipmentCounts[label] || 0) + 1;
+        }
+      }
+
+      const totalInspections = allRecs.length;
+      const locations = Object.values(locationMap).sort((a, b) =>
+        b.inspectionCount - a.inspectionCount
+      );
+
+      // Build compact text for AI
+      const locationSummaries = locations.map(loc => {
+        const freq = loc.inspectionCount;
+        const equip = Object.entries(loc.equipmentCounts)
+          .filter(([, c]) => c >= Math.max(1, freq * 0.4)) // appeared in ≥40% of inspections
+          .sort((a, b) => b[1] - a[1])
+          .map(([label, c]) => `${label} (${c}/${freq} inspections)`)
+          .join(", ");
+        const licenses = [...loc.licenses].join(", ") || "none recorded";
+        return `- ${loc.siteName}${loc.siteNumber ? ` #${loc.siteNumber}` : ""} [${loc.locationType}, ${loc.floor}] — ${freq} inspections | Equipment: ${equip || "none"} | License: ${licenses}`;
+      }).join("\n");
+
+      setProgress("Sending to AI for analysis…");
+
+      const prompt = `You are a food-safety compliance analyst at a large sports venue (Hard Rock Stadium / similar).
+You have data from ${totalInspections} kitchen inspections across ${locations.length} permanent or recurring concession/subcontractor locations.
+
+Here is a compact summary — each line is one location with how many times each equipment item appeared in their inspections:
+
+${locationSummaries}
+
+Your task:
+1. For each location, determine the PERMANENT or HIGHLY RECURRING equipment list (items that appear in ≥50% of inspections = consider it permanent equipment). If a location only has 1-2 inspections, still list what was found.
+2. Identify the restaurant license(s) for each location accurately. If multiple different licenses appear, note which is most recent or most common.
+3. Flag any locations with NO license on record.
+4. Group subcontractors vs concessions.
+
+Return a JSON object with this structure:
+{
+  "summary": "2-3 sentence overall summary of findings",
+  "concessions": [
+    {
+      "name": "...",
+      "unit": "...",
+      "floor": "...",
+      "inspections": 0,
+      "permanentEquipment": ["Grill", "Fryer", ...],
+      "license": "FD-...",
+      "licenseStatus": "on_file" | "missing" | "multiple"
+    }
+  ],
+  "subcontractors": [ ...same shape... ],
+  "noLicense": ["location name", ...],
+  "totalLocations": 0,
+  "totalInspections": 0
+}
+
+Be accurate — only include equipment as permanent if the data supports it. Do not guess or invent equipment or license numbers.`;
+
+      const body = {
+        model: "gpt-4o",
+        max_tokens: 4000,
+        messages: [{ role: "user", content: prompt }],
+      };
+      const res = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey.trim()}` },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        if (res.status === 401) localStorage.removeItem("sdx_openai_key");
+        throw new Error(err?.error?.message || `API error ${res.status}`);
+      }
+      const data = await res.json();
+      const content = data.choices?.[0]?.message?.content || "";
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) throw new Error("Could not parse AI response.");
+      const parsed = JSON.parse(jsonMatch[0]);
+      setResult(parsed);
+      setStatus("done");
+    } catch (e) {
+      setError(e.message || "Analysis failed.");
+      setStatus("error");
+    }
+  }
+
+  const licBadge = (loc) => {
+    if (loc.licenseStatus === "missing") return <span style={{ background: "#fef2f2", color: "#dc2626", border: "1px solid #fecaca", borderRadius: 6, padding: "1px 7px", fontSize: "0.72rem", fontWeight: 700 }}>⚠ No License</span>;
+    if (loc.licenseStatus === "multiple") return <span style={{ background: "#fffbeb", color: "#b45309", border: "1px solid #fde68a", borderRadius: 6, padding: "1px 7px", fontSize: "0.72rem", fontWeight: 700 }}>⚠ Multiple</span>;
+    return <span style={{ background: "#f0fdf4", color: "#15803d", border: "1px solid #bbf7d0", borderRadius: 6, padding: "1px 7px", fontSize: "0.72rem", fontWeight: 700 }}>✓ {loc.license || "On File"}</span>;
+  };
+
+  const LocationCard = ({ loc }) => (
+    <div style={{ border: "1px solid #e2e8f0", borderRadius: 10, padding: "12px 14px", marginBottom: 10, background: "#fff" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8, flexWrap: "wrap" }}>
+        <div>
+          <span style={{ fontWeight: 700, fontSize: "0.9rem", color: "var(--sdx-navy)" }}>{loc.name}{loc.unit ? ` #${loc.unit}` : ""}</span>
+          {loc.floor && <span style={{ fontSize: "0.75rem", color: "#6b7280", marginLeft: 8 }}>{loc.floor}</span>}
+        </div>
+        <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+          <span style={{ fontSize: "0.72rem", color: "#6b7280" }}>{loc.inspections} inspections</span>
+          {licBadge(loc)}
+        </div>
+      </div>
+      {loc.permanentEquipment?.length > 0 && (
+        <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: 5 }}>
+          {loc.permanentEquipment.map(eq => (
+            <span key={eq} style={{ background: "#eff6ff", color: "#1d4ed8", border: "1px solid #bfdbfe", borderRadius: 6, padding: "2px 8px", fontSize: "0.72rem", fontWeight: 600 }}>
+              {eq}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
+  return (
+    <div style={{ minHeight: "100vh", background: "#f8fafc" }}>
+      <div style={{ background: "var(--sdx-navy)", color: "#fff", padding: "16px 20px", display: "flex", alignItems: "center", gap: 12 }}>
+        <button type="button" onClick={onBack} style={{ background: "rgba(255,255,255,0.15)", border: "none", color: "#fff", borderRadius: 8, padding: "6px 12px", cursor: "pointer", fontSize: "0.85rem" }}>← Back</button>
+        <div>
+          <div style={{ fontWeight: 700, fontSize: "1.05rem" }}>🧠 Equipment & License Intelligence</div>
+          <div style={{ fontSize: "0.75rem", color: "#93c5fd" }}>AI-powered analysis of all inspection records</div>
+        </div>
+      </div>
+
+      <div style={{ maxWidth: 760, margin: "0 auto", padding: "20px 16px" }}>
+        {status === "idle" && (
+          <div style={{ textAlign: "center", padding: "40px 20px" }}>
+            <div style={{ fontSize: "3rem", marginBottom: 12 }}>🧠</div>
+            <div style={{ fontWeight: 700, fontSize: "1.1rem", color: "var(--sdx-navy)", marginBottom: 8 }}>Analyze All Inspection Data</div>
+            <div style={{ color: "#6b7280", fontSize: "0.88rem", marginBottom: 24, maxWidth: 440, margin: "0 auto 24px" }}>
+              Reads every past inspection and uses AI to build an accurate equipment inventory and license registry for each permanent concession and subcontractor.
+            </div>
+            <button type="button" onClick={runAnalysis}
+              style={{ background: "#064e3b", color: "#fff", border: "none", borderRadius: 10, padding: "12px 28px", fontSize: "0.95rem", fontWeight: 700, cursor: "pointer" }}>
+              🚀 Run Analysis
+            </button>
+          </div>
+        )}
+
+        {status === "loading" && (
+          <div style={{ textAlign: "center", padding: "40px 20px" }}>
+            <div style={{ fontSize: "2rem", marginBottom: 12 }}>⏳</div>
+            <div style={{ fontWeight: 600, color: "var(--sdx-navy)", marginBottom: 8 }}>Analyzing…</div>
+            <div style={{ color: "#6b7280", fontSize: "0.85rem" }}>{progress}</div>
+          </div>
+        )}
+
+        {status === "error" && (
+          <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 10, padding: "16px 20px", marginBottom: 16, color: "#dc2626" }}>
+            <strong>Error:</strong> {error}
+            <button type="button" onClick={() => setStatus("idle")} style={{ display: "block", marginTop: 10, color: "#dc2626", background: "none", border: "1px solid #fca5a5", borderRadius: 6, padding: "4px 12px", cursor: "pointer" }}>Try Again</button>
+          </div>
+        )}
+
+        {status === "done" && result && (
+          <div>
+            {result.summary && (
+              <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 10, padding: "14px 16px", marginBottom: 20, color: "#14532d", fontSize: "0.88rem", lineHeight: 1.6 }}>
+                {result.summary}
+              </div>
+            )}
+
+            <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
+              {[
+                { label: "Total Inspections", val: result.totalInspections },
+                { label: "Locations Analyzed", val: result.totalLocations },
+                { label: "No License", val: result.noLicense?.length || 0, warn: (result.noLicense?.length || 0) > 0 },
+              ].map(s => (
+                <div key={s.label} style={{ flex: 1, minWidth: 120, background: s.warn ? "#fef2f2" : "#fff", border: `1px solid ${s.warn ? "#fecaca" : "#e2e8f0"}`, borderRadius: 10, padding: "12px 14px", textAlign: "center" }}>
+                  <div style={{ fontSize: "1.4rem", fontWeight: 800, color: s.warn ? "#dc2626" : "var(--sdx-navy)" }}>{s.val}</div>
+                  <div style={{ fontSize: "0.72rem", color: "#6b7280" }}>{s.label}</div>
+                </div>
+              ))}
+            </div>
+
+            {result.noLicense?.length > 0 && (
+              <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 10, padding: "12px 16px", marginBottom: 16 }}>
+                <div style={{ fontWeight: 700, color: "#dc2626", marginBottom: 6 }}>⚠️ Locations with No License on Record</div>
+                {result.noLicense.map(n => <div key={n} style={{ fontSize: "0.85rem", color: "#991b1b" }}>• {n}</div>)}
+              </div>
+            )}
+
+            {result.concessions?.length > 0 && (
+              <div style={{ marginBottom: 20 }}>
+                <div style={{ fontWeight: 700, fontSize: "1rem", color: "var(--sdx-navy)", marginBottom: 10, borderBottom: "2px solid #e2e8f0", paddingBottom: 6 }}>
+                  🏪 Concessions ({result.concessions.length})
+                </div>
+                {result.concessions.map(loc => <LocationCard key={`${loc.name}${loc.unit}`} loc={loc} />)}
+              </div>
+            )}
+
+            {result.subcontractors?.length > 0 && (
+              <div style={{ marginBottom: 20 }}>
+                <div style={{ fontWeight: 700, fontSize: "1rem", color: "var(--sdx-navy)", marginBottom: 10, borderBottom: "2px solid #e2e8f0", paddingBottom: 6 }}>
+                  🤝 Subcontractors ({result.subcontractors.length})
+                </div>
+                {result.subcontractors.map(loc => <LocationCard key={`${loc.name}${loc.unit}`} loc={loc} />)}
+              </div>
+            )}
+
+            <button type="button" onClick={() => setStatus("idle")}
+              style={{ background: "#f1f5f9", color: "#475569", border: "1px solid #e2e8f0", borderRadius: 8, padding: "8px 18px", cursor: "pointer", fontSize: "0.85rem", marginTop: 8 }}>
+              🔄 Re-run Analysis
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVenueName, venueSettings, onSaveVenueSettings }) {
   const [users, setUsers] = useState([]);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -16108,6 +16398,28 @@ function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVe
             </div>
           </div>
           <span style={{ marginLeft: "auto", color: "#93c5fd", fontSize: "1.1rem" }}>→</span>
+        </button>
+
+        {/* Equipment & License Intelligence */}
+        <button
+          type="button"
+          onClick={() => onNavigate && onNavigate("equipment_intel")}
+          style={{
+            width: "100%", marginBottom: "1rem", padding: "1rem 1.25rem",
+            background: "linear-gradient(135deg, #064e3b 0%, #065f46 100%)",
+            border: "1px solid #10b98155", borderRadius: "10px",
+            color: "#fff", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.75rem",
+            textAlign: "left",
+          }}
+        >
+          <span style={{ fontSize: "1.5rem" }}>🧠</span>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: "0.95rem" }}>Equipment & License Intelligence</div>
+            <div style={{ fontSize: "0.78rem", color: "#6ee7b7", marginTop: "0.1rem" }}>
+              AI analysis of all inspections · Equipment inventory · License registry
+            </div>
+          </div>
+          <span style={{ marginLeft: "auto", color: "#6ee7b7", fontSize: "1.1rem" }}>→</span>
         </button>
 
         {/* Inspection Schedule Settings */}
@@ -19564,6 +19876,7 @@ export default function App() {
     />;
   }
   if (page === "performance") { AIEngine.trackPage("performance"); return <PerformanceDashboard onBack={() => setPage("admin")} managedVenueId={managedVenueId} managedVenueName={managedVenueName} />; }
+  if (page === "equipment_intel") { return <EquipmentIntelPage onBack={() => setPage("admin")} managedVenueId={managedVenueId} />; }
   if (page === "myteam")      { return <MyTeamPage currentUser={currentUser} onBack={() => setPage("inspector")} />; }
   if (page === "mylocations") { return <MyLocationsPage currentUser={currentUser} venueSettings={venueSettings} saveVenueSettings={saveVenueSettings} onBack={() => setPage("inspector")} onSelectLocation={(loc, slotId) => { setSiteName(loc); activeSlotIdRef.current = slotId || null; setPage("inspector"); window.scrollTo({ top: 0, behavior: "smooth" }); }} />; }
   if (page === "mytemps")           { return <MyTempsPage currentUser={currentUser} onBack={() => setPage("inspector")} />; }

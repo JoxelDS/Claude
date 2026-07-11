@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v81: Inspector HACCP temp rows also lock on Submit — same as supervisor portal
-const CACHE_NAME = "sdx-inspect-v81";
+// v82: Equipment & License Intelligence — AI analysis of all inspections
+const CACHE_NAME = "sdx-inspect-v82";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
