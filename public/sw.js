@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v79: Supervisor HACCP flags only show after field loses focus (prevents gaming)
-const CACHE_NAME = "sdx-inspect-v79";
+// v80: Supervisor HACCP temp rows lock on Submit — read-only, no delete after locking
+const CACHE_NAME = "sdx-inspect-v80";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",

@@ -17991,6 +17991,8 @@ function HaccpPortal() {
   // { key: string, label: string, unit: "°F", type: "hot"|"cold", min?: number, max?: number }
   // Committed temps: only updated onBlur so pass/fail isn't shown while typing
   const [committedTemps, setCommittedTemps] = useState({});
+  // Locked readings: Set of `${itemKey}_${idx}` — once locked, row is read-only
+  const [lockedReadings, setLockedReadings] = useState(new Set());
   // Inline label editing: which item key is currently being edited
   const [editingLabel, setEditingLabel] = useState(null); // null | itemKey
   const [editingLabelVal, setEditingLabelVal] = useState("");
@@ -18117,6 +18119,7 @@ function HaccpPortal() {
       temps: tempsFlat,
       foodNames: foodNamesFlat,
       correctiveActions,
+      lockedReadings: [...lockedReadings],
       itemLabels,
       customItems,
       problemReport: problem.trim() ? { text: problem.trim(), severity, photos: problemPhotos.map(p => ({ id: p.id, name: p.name, sizeMb: p.sizeMb, type: p.type, tag: p.tag || "", previewUrl: (p.previewUrl && !p.previewUrl.startsWith("data:")) ? p.previewUrl : "" })) } : null,
@@ -18352,83 +18355,92 @@ function HaccpPortal() {
                       </div>
                       {readings.map((val, idx) => {
                         const foodName = (foodNames[item.key] || [""])[idx] ?? "";
-                        const committedVal = (committedTemps[item.key] || [])[idx];
-                        const rawDigits = String(committedVal ?? "").replace(/\D/g, "");
+                        const caKey = `${item.key}_${idx}`;
+                        const locked = lockedReadings.has(caKey);
+                        // Pass/fail only evaluated on locked readings
+                        const rawDigits = String(val).replace(/\D/g, "");
                         const hasName = foodName.trim().length > 0;
                         const hasTemp = rawDigits.length >= 2;
-                        const pass = (hasName && hasTemp && committedVal !== undefined) ? tempPass(item, committedVal) : null;
-                        const caKey = `${item.key}_${idx}`;
-                        const isTyping = val !== committedVal && val !== "";
+                        const pass = locked ? ((hasName && hasTemp) ? tempPass(item, val) : null) : null;
+                        const canLock = hasName && hasTemp;
                         return (
-                          <div key={idx} style={{ marginBottom: 6 }}>
-                          <div className="haccpTempRow">
-                            <input className="haccpFoodNameInput" type="text"
-                              value={foodName}
-                              onChange={e => setFoodNames(p => {
-                                const arr = [...(p[item.key] || [""])];
-                                arr[idx] = e.target.value;
-                                return { ...p, [item.key]: arr };
-                              })}
-                              onBlur={() => setCommittedTemps(p => {
-                                const arr = [...(p[item.key] || [])];
-                                arr[idx] = val;
-                                return { ...p, [item.key]: arr };
-                              })}
-                              placeholder="Food item (e.g. Chicken)" />
-                            <div className="haccpTempInputWrap">
-                              <input className="haccpTempInput" type="number" inputMode="decimal"
-                                value={val}
-                                onChange={e => setTemps(p => {
+                          <div key={idx} style={{ marginBottom: 8 }}>
+                            <div className="haccpTempRow" style={locked ? { background: "#f8fafc", borderRadius: 8, padding: "4px 6px" } : undefined}>
+                              <input className="haccpFoodNameInput" type="text"
+                                value={foodName}
+                                readOnly={locked}
+                                onChange={e => setFoodNames(p => {
                                   const arr = [...(p[item.key] || [""])];
                                   arr[idx] = e.target.value;
                                   return { ...p, [item.key]: arr };
                                 })}
-                                onBlur={() => setCommittedTemps(p => {
-                                  const arr = [...(p[item.key] || [])];
-                                  arr[idx] = val;
-                                  return { ...p, [item.key]: arr };
-                                })}
-                                placeholder="—"
-                                style={pass === false ? { borderColor: "#dc2626", background: "#fff5f5" } : undefined} />
-                              <span className="haccpTempUnit">{item.unit}</span>
-                            </div>
-                            <span className={`haccpTempStatus ${isTyping || pass === null ? "empty" : pass ? "pass" : "fail"}`}>
-                              {isTyping || pass === null ? "—" : pass ? "✓ OK" : "⚠️ Flag"}
-                            </span>
-                            {readings.length > 1 && (
-                              <button type="button" className="haccpRemoveReadingBtn"
-                                onClick={() => {
-                                  setTemps(p => {
-                                    const arr = (p[item.key] || [""]).filter((_, i) => i !== idx);
-                                    return { ...p, [item.key]: arr.length ? arr : [""] };
-                                  });
-                                  setFoodNames(p => {
-                                    const arr = (p[item.key] || [""]).filter((_, i) => i !== idx);
-                                    return { ...p, [item.key]: arr.length ? arr : [""] };
-                                  });
-                                  setCommittedTemps(p => {
-                                    const arr = (p[item.key] || []).filter((_, i) => i !== idx);
+                                placeholder="Food item (e.g. Chicken)"
+                                style={locked ? { background: "#f1f5f9", color: "#475569", cursor: "default" } : undefined} />
+                              <div className="haccpTempInputWrap">
+                                <input className="haccpTempInput" type="number" inputMode="decimal"
+                                  value={val}
+                                  readOnly={locked}
+                                  onChange={e => setTemps(p => {
+                                    const arr = [...(p[item.key] || [""])];
+                                    arr[idx] = e.target.value;
                                     return { ...p, [item.key]: arr };
-                                  });
-                                  setCorrectiveActions(p => { const n = { ...p }; delete n[caKey]; return n; });
-                                }}>✕</button>
-                            )}
-                          </div>
-                          {pass === false && !isTyping && (
-                            <div style={{ marginTop: 6, display: "flex", flexDirection: "column", gap: 6 }}>
-                              <div style={{ fontSize: "0.75rem", color: "#b45309", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 6, padding: "5px 8px" }}>
-                                ⚠️ Take another temperature reading in 30 minutes
+                                  })}
+                                  placeholder="—"
+                                  style={locked
+                                    ? { background: "#f1f5f9", color: "#475569", cursor: "default", ...(pass === false ? { borderColor: "#dc2626" } : pass === true ? { borderColor: "#16a34a" } : {}) }
+                                    : undefined} />
+                                <span className="haccpTempUnit">{item.unit}</span>
                               </div>
-                              <textarea
-                                className="haccpFoodNameInput"
-                                rows={2}
-                                value={correctiveActions[caKey] || ""}
-                                onChange={e => setCorrectiveActions(p => ({ ...p, [caKey]: e.target.value }))}
-                                placeholder="Corrective action taken (required for off-temp)"
-                                style={{ resize: "vertical", fontSize: "0.82rem", fontFamily: "inherit", borderColor: correctiveActions[caKey]?.trim() ? undefined : "#dc2626" }}
-                              />
+                              {locked ? (
+                                <span className={`haccpTempStatus ${pass === null ? "empty" : pass ? "pass" : "fail"}`}>
+                                  {pass === null ? "—" : pass ? "✓ OK" : "⚠️ Flag"}
+                                </span>
+                              ) : (
+                                <button type="button"
+                                  onClick={() => {
+                                    if (!canLock) return;
+                                    setLockedReadings(p => new Set([...p, caKey]));
+                                  }}
+                                  style={{
+                                    fontSize: "0.72rem", fontWeight: 700, padding: "3px 10px",
+                                    borderRadius: 6, border: "none", cursor: canLock ? "pointer" : "not-allowed",
+                                    background: canLock ? "#1e40af" : "#cbd5e1", color: "#fff",
+                                    whiteSpace: "nowrap", flexShrink: 0,
+                                  }}
+                                  title={canLock ? "Lock this reading" : "Enter food name and temperature first"}>
+                                  ✔ Submit
+                                </button>
+                              )}
+                              {!locked && readings.length > 1 && (
+                                <button type="button" className="haccpRemoveReadingBtn"
+                                  onClick={() => {
+                                    setTemps(p => {
+                                      const arr = (p[item.key] || [""]).filter((_, i) => i !== idx);
+                                      return { ...p, [item.key]: arr.length ? arr : [""] };
+                                    });
+                                    setFoodNames(p => {
+                                      const arr = (p[item.key] || [""]).filter((_, i) => i !== idx);
+                                      return { ...p, [item.key]: arr.length ? arr : [""] };
+                                    });
+                                    setCorrectiveActions(p => { const n = { ...p }; delete n[caKey]; return n; });
+                                  }}>✕</button>
+                              )}
                             </div>
-                          )}
+                            {locked && pass === false && (
+                              <div style={{ marginTop: 6, display: "flex", flexDirection: "column", gap: 6 }}>
+                                <div style={{ fontSize: "0.75rem", color: "#b45309", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 6, padding: "5px 8px" }}>
+                                  ⚠️ Take another temperature reading in 30 minutes
+                                </div>
+                                <textarea
+                                  className="haccpFoodNameInput"
+                                  rows={2}
+                                  value={correctiveActions[caKey] || ""}
+                                  onChange={e => setCorrectiveActions(p => ({ ...p, [caKey]: e.target.value }))}
+                                  placeholder="Corrective action taken (required for off-temp)"
+                                  style={{ resize: "vertical", fontSize: "0.82rem", fontFamily: "inherit", borderColor: correctiveActions[caKey]?.trim() ? undefined : "#dc2626" }}
+                                />
+                              </div>
+                            )}
                           </div>
                         );
                       })}
