@@ -21052,6 +21052,7 @@ export default function App() {
                   </div>
                 </div>
 
+                  </div>{/* end equipCheckWrapper */}
                   </div>{/* end Step 0 panel */}
 
                   {/* ══ Step 1: Facilities ════════════════════════════════ */}
