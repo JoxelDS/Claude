@@ -21132,31 +21132,18 @@ export default function App() {
                 {/* Equipment only — Utensils is Step 3 */}
                 {locationType === "Concession" ? (
                   <GuideSection title="🔧 Equipments"
-                    items={[
-                      { path: ["equipment", "coolers"],    label: "Coolers — thermometer, temp display, bottom racks, gaskets, door handles, lights, leakage, wheels?" },
-                      { path: ["equipment", "freezer"],    label: "Freezer — temp display, bottom racks, gaskets, door handles, lights, leakage, wheels, fans, ice build-up?" },
-                      { path: ["equipment", "warmers"],    label: "Warmers — clean, working properly?" },
-                      { path: ["equipment", "grill"],      label: "Grill — clean, working, grease trap clean, knobs OK, no gas smell?" },
-                      { path: ["equipment", "fryer"],      label: "Fryer — oil quality, oil level, temp correct, basket clean, drain clean, no leaks?" },
-                      { path: ["equipment", "hood"],       label: "Hood — clean, working, no leakage, hood lights OK?" },
-                      { path: ["equipment", "iceMaker"],   label: "Ice Maker Machine — clean, door works, scoop/holder, ice bucket, filter OK, no leakage?" },
-                      { path: ["equipment", "otherEquip"], label: "Other Equipments — clean and in good condition?" },
-                    ]} inspection={inspection} setInspection={setInspection}
-                    allowCustom sectionKey="equipment" coldEquipmentMap={COLD_EQUIPMENT} inspectionId={savedReportId} venueId={activeVenueId} siteName={siteName} onError={msg => { setError(msg); setTimeout(() => setError(""), 8000); }} onOpenPrintLabels={({ tag, label }) => setPage("print_labels")} defaultOpen={true} />
+                    items={[]}
+                    inspection={inspection} setInspection={setInspection}
+                    allowCustom sectionKey="equipment" coldEquipmentMap={COLD_EQUIPMENT} inspectionId={savedReportId} venueId={activeVenueId} siteName={siteName} onError={msg => { setError(msg); setTimeout(() => setError(""), 8000); }} onOpenPrintLabels={({ tag, label }) => setPage("print_labels")}
+                    emptyHint="Tap a button below to add each piece of equipment at this location. Your list will be remembered for next time."
+                    defaultOpen={true} />
                 ) : locationType === "Bar" ? (
                   <GuideSection title="🔧 Equipments — Bar"
-                    items={[
-                      { path: ["equipment", "backBarCooler"], label: "Back Bar Cooler — clean inside, bottles organized?" },
-                      { path: ["equipment", "beerWalkInCooler"], label: "Beer Walk-In Cooler — door seals tight, kegs stored safely?" },
-                      { path: ["equipment", "underBarCooler"], label: "Under-Bar Cooler — clean, door closing properly?" },
-                      { path: ["equipment", "iceBin"], label: "Ice Bin / Ice Machine — clean, no mold or pink slime, scoop stored handle-up?" },
-                      { path: ["equipment", "wineChiller"], label: "Wine Chiller — temp correct, bottles stored properly?" },
-                      { path: ["equipment", "glasswasher"], label: "Glass Washer — working, sanitizer level OK, no cloudy glasses?" },
-                      { path: ["equipment", "threeCompSink"], label: "Dish Washing Sink — 3 sections set up: wash, rinse, sanitize?" },
-                      { path: ["equipment", "beerLines"], label: "Beer Lines / Taps — cleaned recently, no buildup or off smell?" },
-                      { path: ["equipment", "ecolab"], label: "Chemicals (Ecolab) — correct concentration, properly labeled, stored away from food?" },
-                    ]} inspection={inspection} setInspection={setInspection}
-                    allowCustom sectionKey="equipment" coldEquipmentMap={BAR_COLD_EQUIPMENT} inspectionId={savedReportId} venueId={activeVenueId} siteName={siteName} onError={msg => { setError(msg); setTimeout(() => setError(""), 8000); }} onOpenPrintLabels={({ tag, label }) => setPage("print_labels")} defaultOpen={true} />
+                    items={[]}
+                    inspection={inspection} setInspection={setInspection}
+                    allowCustom sectionKey="equipment" coldEquipmentMap={BAR_COLD_EQUIPMENT} inspectionId={savedReportId} venueId={activeVenueId} siteName={siteName} onError={msg => { setError(msg); setTimeout(() => setError(""), 8000); }} onOpenPrintLabels={({ tag, label }) => setPage("print_labels")}
+                    emptyHint="Tap a button below to add each piece of equipment at this bar. Your list will be remembered for next time."
+                    defaultOpen={true} />
                 ) : locationType === "Event / Temporary" ? (
                   <GuideSection
                     title="🔧 Equipments — Event / Temporary"
