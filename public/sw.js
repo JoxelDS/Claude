@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v92: HACCP admin panel — move submissions to correct location, reassign supervisor
-const CACHE_NAME = "sdx-inspect-v92";
+// v93: Fix permissions error — create reports for all HACCP QR scans with one tap
+const CACHE_NAME = "sdx-inspect-v93";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",

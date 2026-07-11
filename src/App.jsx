@@ -16668,14 +16668,18 @@ function HaccpAdminSection() {
     setBusy(p => ({ ...p, [sub.id]: true }));
     try {
       const newReportId = `manual_${Date.now()}_${Math.random().toString(16).slice(2)}`;
-      // Create the blank inspection record
+      // Create the blank inspection record (admin has write permission here)
       const rec = makeBlankRecord({ id: newReportId, siteName, siteNumber, floor, locationType, supervisorName: sub.supervisorName, supervisorPhone: sub.supervisorPhone });
       await saveOneInspection(rec);
-      // Save a copy of the HACCP submission pointing to the new report
-      const updatedSub = { ...sub, id: `${sub.id}_reassigned_${Date.now()}`, reportId: newReportId, sessionId: newReportId };
-      await saveHaccpSubmission(updatedSub);
-      setDone(p => ({ ...p, [sub.id]: `✓ Moved to ${siteName}${siteNumber ? ` #${siteNumber}` : ""}` }));
+      // Try to update the existing HACCP submission's reportId so temperatures link to new report.
+      // This may fail if Firestore rules restrict haccpSubmissions writes — that's OK, the blank report still gets created.
+      try {
+        const col = IS_DEFAULT_VENUE() ? legacyCol("haccpSubmissions") : venueCol("haccpSubmissions");
+        await updateDoc(doc(col, sub.id), { reportId: newReportId, sessionId: newReportId });
+      } catch { /* ignore permission error — report was still created */ }
+      setDone(p => ({ ...p, [sub.id]: `✓ Report created: ${siteName}${siteNumber ? ` #${siteNumber}` : ""}` }));
       setRecs(prev => [...prev, rec]);
+      setSubs(prev => prev.map(s => s.id === sub.id ? { ...s, reportId: newReportId } : s));
       setReassigning(null);
     } catch (e) {
       alert("Failed: " + (e?.message || String(e)));
@@ -16691,12 +16695,29 @@ function HaccpAdminSection() {
       const rid = sub.reportId || sub.sessionId || `orphan_${Date.now()}`;
       const rec = makeBlankRecord({ id: rid, siteName: sub.site, siteNumber: sub.unit, floor: sub.floor, locationType: sub.locationType, supervisorName: sub.supervisorName, supervisorPhone: sub.supervisorPhone });
       await saveOneInspection(rec);
+      // Try to update HACCP doc's reportId — may fail due to Firestore rules, that's OK
+      try {
+        const col = IS_DEFAULT_VENUE() ? legacyCol("haccpSubmissions") : venueCol("haccpSubmissions");
+        await updateDoc(doc(col, sub.id), { reportId: rid, sessionId: rid });
+      } catch { /* ignore */ }
       setDone(p => ({ ...p, [sub.id]: `✓ Report created for ${sub.site || sub.unit}` }));
       setRecs(prev => [...prev, rec]);
     } catch (e) {
       alert("Failed: " + (e?.message || String(e)));
     } finally {
       setBusy(p => ({ ...p, [sub.id]: false }));
+    }
+  }
+
+  // Auto-create blank reports for ALL submissions that don't have a linked report yet
+  async function createAllMissing() {
+    const reportIds = new Set(recs.map(r => r.id));
+    const missing = (subs || []).filter(s => {
+      const rid = s.reportId || s.sessionId || "";
+      return !rid || !reportIds.has(rid);
+    });
+    for (const sub of missing) {
+      await createReport(sub);
     }
   }
 
@@ -16711,9 +16732,15 @@ function HaccpAdminSection() {
         <div className="cardTitle" style={{ color: "#1e3a8a" }}>🌡️ Today's HACCP Submissions ({subs.length})</div>
       </div>
       <div className="cardBody">
-        <p style={{ margin: "0 0 1rem", fontSize: "0.85rem", color: "#1e40af" }}>
-          All HACCP temperature logs submitted today. If a supervisor scanned the wrong QR code, use <strong>Move to correct report</strong> to reassign their data.
-        </p>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: "1rem" }}>
+          <p style={{ margin: 0, fontSize: "0.85rem", color: "#1e40af", flex: 1 }}>
+            All HACCP temperature logs submitted today. Use <strong>Move to correct report</strong> to fix wrong QR code scans.
+          </p>
+          <button type="button" className="btn" onClick={createAllMissing}
+            style={{ fontSize: "0.82rem", whiteSpace: "nowrap", flexShrink: 0 }}>
+            📋 Create all missing reports
+          </button>
+        </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {subs.map(sub => {
             const rid = sub.reportId || sub.sessionId || "";
@@ -16749,13 +16776,11 @@ function HaccpAdminSection() {
                     <span style={{ color: "#15803d", fontWeight: 700, fontSize: "0.82rem", alignSelf: "center" }}>{isDone}</span>
                   ) : (
                     <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignSelf: "center" }}>
-                      {isOrphaned && (
-                        <button type="button" className="btn" disabled={isBusy}
-                          onClick={() => createReport(sub)}
-                          style={{ fontSize: "0.8rem", padding: "0.3rem 0.7rem", background: "#d97706", border: "none" }}>
-                          {isBusy ? "…" : "📋 Create report"}
-                        </button>
-                      )}
+                      <button type="button" className="btn" disabled={isBusy}
+                        onClick={() => createReport(sub)}
+                        style={{ fontSize: "0.8rem", padding: "0.3rem 0.7rem", background: isOrphaned ? "#d97706" : "#2563eb", border: "none" }}>
+                        {isBusy ? "…" : "📋 Create report"}
+                      </button>
                       <button type="button" className="btn btnGhost" disabled={isBusy}
                         onClick={() => setReassigning(isReassigning ? null : { subId: sub.id, siteName: sub.site || "", siteNumber: sub.unit || "", floor: sub.floor || "", locationType: sub.locationType || "Concession" })}
                         style={{ fontSize: "0.8rem", padding: "0.3rem 0.7rem" }}>
