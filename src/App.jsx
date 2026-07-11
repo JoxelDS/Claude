@@ -16597,12 +16597,18 @@ async function processPhotoFiles(files, { limit, inspId, venueId, firebaseOn, on
     if (bytesToMb(f.size) > PHOTO_MAX_MB) continue;
     const thumbUrl = await compressImage(f, 220, 0.55);
     if (!thumbUrl) continue;
-    const exportUrl = await compressImage(f, 800, 0.82);
+    // Read original file as data URL for maximum export quality (no re-compression)
+    const originalDataUrl = await new Promise(resolve => {
+      const rd = new FileReader();
+      rd.onload = () => resolve(rd.result);
+      rd.onerror = () => resolve(null);
+      rd.readAsDataURL(f);
+    });
+    const exportUrl = originalDataUrl || await compressImage(f, 1200, 0.92);
     const photoId = `${Date.now()}_${Math.random().toString(16).slice(2)}`;
     let previewUrl = exportUrl || thumbUrl;
     if (firebaseOn) {
-      const storageData = await compressImage(f, 1200, 0.88);
-      const storageUrl = await uploadPhoto(storageData || previewUrl, venueId, inspId, photoId);
+      const storageUrl = await uploadPhoto(exportUrl || previewUrl, venueId, inspId, photoId);
       if (storageUrl) {
         previewUrl = storageUrl;
       } else {
