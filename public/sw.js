@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v70: Remove OK/status dropdown from guide items
-const CACHE_NAME = "sdx-inspect-v70";
+// v71: Status dropdown inside fail panel on X click
+const CACHE_NAME = "sdx-inspect-v71";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",

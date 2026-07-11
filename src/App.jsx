@@ -16902,6 +16902,11 @@ function GuideSection({ title, items, inspection, setInspection, allowCustom, se
                           const newChecklist = (cur2.checklist || []).map((c, i) => i === idx ? { ...c, correctiveAction } : c);
                           return setAtPath(prev, it.path, { ...cur2, checklist: newChecklist });
                         });
+                        const makeSetCiStatus = (idx, ciStatus) => setInspection((prev) => {
+                          const cur2 = getAtPath(prev, it.path) || withPhotos({ status: "OK", notes: "" });
+                          const newChecklist = (cur2.checklist || []).map((c, i) => i === idx ? { ...c, ciStatus } : c);
+                          return setAtPath(prev, it.path, { ...cur2, checklist: newChecklist });
+                        });
                         const addCiPhoto = async (idx, files) => {
                           const inspId = inspectionId || `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
                           const existingCount = (current.checklist?.[idx]?.photos || []).length;
@@ -16978,6 +16983,17 @@ function GuideSection({ title, items, inspection, setInspection, allowCustom, se
                                       </div>
                                       {isFail ? (
                                         <div className="clItemFailPanel">
+                                          <div className="clItemFailField">
+                                            <label className="clItemFailLabel">📋 Status</label>
+                                            <select
+                                              className="select selectSmall clItemStatusSelect"
+                                              value={ci.ciStatus || "Fail"}
+                                              onChange={(e) => makeSetCiStatus(idx, e.target.value)}
+                                              aria-label={`Status for ${ci.label}`}
+                                            >
+                                              {STATUS_OPTIONS.map((s) => (<option key={s} value={s}>{s}</option>))}
+                                            </select>
+                                          </div>
                                           <div className="clItemFailField">
                                             <label className="clItemFailLabel">⚠️ Issue Description <span style={{color:"#dc2626"}}>*</span></label>
                                             <input

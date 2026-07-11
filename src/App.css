@@ -1535,6 +1535,9 @@ input[type="date"] {
   color: #ef4444;
   opacity: 0.7;
 }
+.clItemStatusSelect {
+  width: 100%;
+}
 .clItemFailPhotoRow {
   display: flex;
   align-items: center;
