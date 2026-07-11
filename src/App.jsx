@@ -20844,7 +20844,7 @@ export default function App() {
                 <div className="guideStepTrack">
 
                   {/* ══ Step 0: Temps & Supplies ══════════════════════════ */}
-                  <div className="guideStepPanel" style={{ display: guideStep === 0 ? "block" : "none" }}>
+                  <div className="guideStepPanel">
 
               {/* ── Supplies Needed ─────────────────────────────────────── */}
               {(() => {
@@ -20856,6 +20856,7 @@ export default function App() {
                 };
                 return (
                   <div id="supplies-section" style={{
+                    display: guideStep === 0 ? "" : "none",
                     border: `2px solid ${urgentCount > 0 ? "#f97316" : suppliesNeeded.some(s => s.item.trim()) ? "#fbbf24" : "#DDE1E8"}`,
                     borderRadius: 12, padding: "14px 16px",
                     background: urgentCount > 0 ? "#fff7ed" : suppliesNeeded.some(s => s.item.trim()) ? "#fffbeb" : "#F7F8FA",
@@ -21052,7 +21053,6 @@ export default function App() {
                   </div>
                 </div>
 
-                  </div>{/* end equipCheckWrapper */}
                   </div>{/* end Step 0 panel */}
 
                   {/* ══ Step 1: Facilities ════════════════════════════════ */}
