@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v75: Load up to 1000 reports at once in history
-const CACHE_NAME = "sdx-inspect-v75";
+// v76: Load all HACCP subs on history open; badge visible on all cards
+const CACHE_NAME = "sdx-inspect-v76";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",

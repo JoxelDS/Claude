@@ -7288,6 +7288,15 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
     setHistoryLastDoc(null);
     setHistoryHasMore(false);
     setHistoryLoaded(false);
+    // Load all HACCP submissions upfront so every card can show the badge
+    loadHaccpSubmissions().then(subs => {
+      const map = {};
+      subs.filter(s => s.type === "submission").forEach(s => {
+        const key = s.reportId || s.inspectionId;
+        if (key) { if (!map[key]) map[key] = []; map[key].push(s); }
+      });
+      setHaccpByReport(prev => ({ ...prev, ...map }));
+    }).catch(() => {});
     loadHistory(managedVenueId || undefined, {
       dateFrom: filterDateFrom || undefined,
       dateTo: filterDateTo || undefined,
