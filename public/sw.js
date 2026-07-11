@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v69: Fail panel only on X click; comment row hidden when unselected
-const CACHE_NAME = "sdx-inspect-v69";
+// v70: Remove OK/status dropdown from guide items
+const CACHE_NAME = "sdx-inspect-v70";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",

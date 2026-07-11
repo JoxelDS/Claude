@@ -16748,12 +16748,6 @@ function GuideSection({ title, items, inspection, setInspection, allowCustom, se
                       })()}
                       {isNA && <span className="naBadge">Not at this location</span>}
                     </div>
-                    {!isNA && (
-                      <select className="select selectSmall" value={current.status}
-                        onChange={(e) => setInspection((prev) => setAtPath(prev, it.path, { ...current, status: e.target.value }))}>
-                        {STATUS_OPTIONS.map((s) => (<option key={s} value={s}>{s}</option>))}
-                      </select>
-                    )}
                     <button type="button" className={`naToggleBtn${isNA ? " naToggleBtnActive" : ""}`}
                       title={isNA ? "Mark as present at this location" : "Mark as N/A — not at this location"}
                       onClick={toggleNA}>
