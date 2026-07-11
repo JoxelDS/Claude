@@ -2526,6 +2526,7 @@ function buildPhotoIndex(inspection, notesPhotos) {
     ["equipment", "freezer",    "Equipments > Freezer"],
     ["equipment", "warmers",    "Equipments > Warmers"],
     ["equipment", "grill",      "Equipments > Grill"],
+    ["equipment", "fryer",      "Equipments > Fryer"],
     ["equipment", "hood",       "Equipments > Hood"],
     ["equipment", "iceMaker",   "Equipments > Ice Maker Machine"],
     ["equipment", "otherEquip", "Equipments > Other Equipments"],
@@ -2621,7 +2622,8 @@ function buildActionItems({ inspection, rawNotes, foodTemps: ftArg, foodTempName
       ? `${failDetail} — Other: ${otherNote}`
       : failDetail;
     items.push({
-      issue: `${label}: ${issueText}`,
+      issue: `${label}: ${failDetail}`,
+      notes: otherNote || "",
       owner: "", due: "",
       priority: node.status === "Maintenance" ? "Maintenance" : (node.status === "Fail" || node.status === "Not Clean" || failedChecks.length > 0) ? "High" : "Med",
       photos: mapByPath[pathKey] || [],
@@ -2639,6 +2641,7 @@ function buildActionItems({ inspection, rawNotes, foodTemps: ftArg, foodTempName
   pushIfBad("equipment.freezer",    "Equipments – Freezer",             inspection?.equipment?.freezer);
   pushIfBad("equipment.warmers",    "Equipments – Warmers",             inspection?.equipment?.warmers);
   pushIfBad("equipment.grill",      "Equipments – Grill",               inspection?.equipment?.grill);
+  pushIfBad("equipment.fryer",      "Equipments – Fryer",               inspection?.equipment?.fryer);
   pushIfBad("equipment.hood",       "Equipments – Hood",                inspection?.equipment?.hood);
   pushIfBad("equipment.iceMaker",   "Equipments – Ice Maker Machine",   inspection?.equipment?.iceMaker);
   pushIfBad("equipment.otherEquip", "Equipments – Other Equipments",    inspection?.equipment?.otherEquip);
@@ -3753,6 +3756,7 @@ function buildCsvRows({ inspection, rawNotes, inspectionType, inspectionDate, in
   add("Equipments", "Freezer",              inspection?.equipment?.freezer);
   add("Equipments", "Warmers",              inspection?.equipment?.warmers);
   add("Equipments", "Grill",               inspection?.equipment?.grill);
+  add("Equipments", "Fryer",               inspection?.equipment?.fryer);
   add("Equipments", "Hood",                inspection?.equipment?.hood);
   add("Equipments", "Ice Maker Machine",   inspection?.equipment?.iceMaker);
   add("Equipments", "Other Equipments",    inspection?.equipment?.otherEquip);
@@ -3762,7 +3766,6 @@ function buildCsvRows({ inspection, rawNotes, inspectionType, inspectionDate, in
   add("Equipments", "Walk-in cooler",      inspection?.equipment?.walkInCooler);
   add("Equipments", "Walk-in freezer",     inspection?.equipment?.walkInFreezer);
   add("Equipments", "Prep cooler",         inspection?.equipment?.prepCooler);
-  add("Equipments", "Warmers / hot holding", inspection?.equipment?.warmers);
   add("Equipments", "Ovens",               inspection?.equipment?.ovens);
   add("Equipments", "3-compartment sink",  inspection?.equipment?.threeCompSink);
   add("Equipments", "Ecolab / chemicals",  inspection?.equipment?.ecolab);
@@ -4088,19 +4091,33 @@ async function exportAsCsv({ inspection, notesPhotos, rawNotes, inspectionType, 
   // ══════════════════════════════════════════════════════════════════════════
   if (actionItems.length > 0) {
     const ws2 = wb.addWorksheet("Action Items");
-    ws2.columns = [{ width: 5 }, { width: 24 }, { width: 62 }, { width: 14 }];
+    ws2.columns = [{ width: 5 }, { width: 22 }, { width: 50 }, { width: 38 }, { width: 14 }];
 
     const ws2TitleRow = ws2.addRow(["ACTION ITEMS"]);
     ws2TitleRow.height = 24;
-    ws2.mergeCells(`A${ws2TitleRow.number}:D${ws2TitleRow.number}`);
+    ws2.mergeCells(`A${ws2TitleRow.number}:E${ws2TitleRow.number}`);
     applyStyle(ws2TitleRow.getCell(1), hdr(true, 13, WHITE, NAVY));
 
-    const ws2Header = ["#", "Area / Section", "Issue", "Priority"];
+    const ws2Header = ["#", "Area / Section", "Issue", "Inspector Notes", "Priority"];
     const ws2HRow = ws2.addRow(ws2Header);
     ws2HRow.height = 20;
     ws2Header.forEach((_, ci) => applyStyle(ws2HRow.getCell(ci + 1), subHdr(RED)));
-    ws2.autoFilter = { from: { row: ws2HRow.number, column: 1 }, to: { row: ws2HRow.number, column: 4 } };
+    ws2.autoFilter = { from: { row: ws2HRow.number, column: 1 }, to: { row: ws2HRow.number, column: 5 } };
     ws2.views = [{ state: "frozen", ySplit: ws2HRow.number, topLeftCell: `A${ws2HRow.number + 1}`, activeCell: "A1" }];
+
+    const priStyle = (p) => {
+      const n = (p || "").toLowerCase();
+      let bg, text;
+      if (n === "high" || n === "fail")                                     { bg = FAIL_R; text = FAIL_RT; }
+      else if (n === "med" || n === "medium" || n === "needs attention")    { bg = ATTN_Y; text = ATTN_YT; }
+      else if (n === "low")                                                 { bg = "D6E4F7"; text = "1C4A7A"; }
+      else if (n === "maintenance")                                         { bg = "FCE4D6"; text = "843C0C"; }
+      else if (n === "follow-up" || n === "followup")                       { bg = "E8EAF6"; text = "3949AB"; }
+      else                                                                  { bg = PASS_G;  text = PASS_GT; }
+      return { font: { bold: true, size: 10, name: "Calibri", color: { argb: "FF" + text } },
+               fill: { type: "pattern", pattern: "solid", fgColor: { argb: "FF" + bg } },
+               alignment: { vertical: "top", horizontal: "center", wrapText: true } };
+    };
 
     actionItems.forEach((a, i) => {
       const raw = str(a.issue);
@@ -4108,13 +4125,15 @@ async function exportAsCsv({ inspection, notesPhotos, rawNotes, inspectionType, 
       const area = colonIdx > 0 && colonIdx < 40 ? raw.slice(0, colonIdx).trim() : (str(a.area) || "General");
       const issue = colonIdx > 0 && colonIdx < 40 ? raw.slice(colonIdx + 1).trim() : raw;
       const pri = str(a.priority);
+      const notes = str(a.notes || a.corrective || "");
       const bg = i % 2 === 0 ? WHITE : SILVER;
-      const row = ws2.addRow([i + 1, area, issue, pri]);
+      const row = ws2.addRow([i + 1, area, issue, notes, pri]);
       row.height = 18;
       row.getCell(1).style = { ...bodyCell(bg), alignment: { horizontal: "center", vertical: "top" } };
       row.getCell(2).style = bodyCell(bg);
       row.getCell(3).style = bodyCell(bg);
-      row.getCell(4).style = statusCell(pri === "High" ? "Not Clean" : pri === "Medium" ? "Needs Attention" : "OK");
+      row.getCell(4).style = { ...bodyCell(bg), font: { size: 10, name: "Calibri", color: { argb: "FF555555" }, italic: true } };
+      row.getCell(5).style = priStyle(pri);
     });
   }
 
@@ -4156,22 +4175,27 @@ async function exportAsCsv({ inspection, notesPhotos, rawNotes, inspectionType, 
       row.getCell(3).style = { ...bodyCell(bg), alignment: { wrapText: true, vertical: "top" } };
       row.getCell(4).style = { fill: { type: "pattern", pattern: "solid", fgColor: { argb: "FF" + bg } } };
 
-      // Embed image if we have base64 data
-      const dataUrl = p.dataUrl || p.previewUrl || "";
+      // Embed image — prefer high-quality exportUrl, fall back to previewUrl/thumbUrl
+      let dataUrl = p.exportUrl || p.dataUrl || "";
+      if (!dataUrl || !dataUrl.startsWith("data:")) {
+        // previewUrl may be a Firebase URL — try to fetch it
+        const candidate = p.previewUrl || p.thumbUrl || "";
+        if (candidate.startsWith("http")) {
+          try { const resp = await fetch(candidate); const blob = await resp.blob(); dataUrl = await new Promise(r => { const rd = new FileReader(); rd.onload = () => r(rd.result); rd.readAsDataURL(blob); }); } catch { dataUrl = p.thumbUrl || ""; }
+        } else if (candidate.startsWith("data:")) { dataUrl = candidate; }
+      }
       if (dataUrl && dataUrl.startsWith("data:image")) {
         try {
-          // Strip the data:image/...;base64, prefix
           const commaIdx = dataUrl.indexOf(",");
           const base64 = commaIdx >= 0 ? dataUrl.slice(commaIdx + 1) : dataUrl;
           const ext = dataUrl.includes("image/png") ? "png" : "jpeg";
           const imageId = wb.addImage({ base64, extension: ext });
           ws3.addImage(imageId, {
-            tl: { col: 3, row: row.number - 1 },      // 0-indexed: col 3 = column D
-            br: { col: 4, row: row.number },            // bottom-right exclusive
+            tl: { col: 3, row: row.number - 1 },
+            br: { col: 4, row: row.number },
             editAs: "oneCell",
           });
         } catch (_) {
-          // If image embed fails, fall back to showing the URL as text
           row.getCell(4).value = str(p.previewUrl || "");
           row.getCell(4).style = { ...bodyCell(bg), font: { size: 9, color: { argb: "FF1B5EAF" }, name: "Calibri" } };
         }
@@ -4345,6 +4369,7 @@ async function exportAsHtml({ output, inspection, notesPhotos, rawNotes, inspect
     ["Equipments", "Freezer",             inspection?.equipment?.freezer],
     ["Equipments", "Warmers",             inspection?.equipment?.warmers],
     ["Equipments", "Grill",               inspection?.equipment?.grill],
+    ["Equipments", "Fryer",               inspection?.equipment?.fryer],
     ["Equipments", "Hood",                inspection?.equipment?.hood],
     ["Equipments", "Ice Maker Machine",   inspection?.equipment?.iceMaker],
     ["Equipments", "Other Equipments",    inspection?.equipment?.otherEquip],
@@ -7610,6 +7635,36 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
         alignment: { vertical: "top", horizontal: "center", wrapText: true },
       };
     };
+    const bPriority = (p) => {
+      const n = (p || "").toLowerCase();
+      let bg, text;
+      if (n === "high" || n === "fail")                                   { bg = FAIL_R; text = FAIL_RT; }
+      else if (n === "med" || n === "medium" || n === "needs attention")  { bg = ATTN_Y; text = ATTN_YT; }
+      else if (n === "low")                                               { bg = "D6E4F7"; text = "1C4A7A"; }
+      else if (n === "maintenance")                                       { bg = "FCE4D6"; text = "843C0C"; }
+      else if (n === "follow-up" || n === "followup")                     { bg = "E8EAF6"; text = "3949AB"; }
+      else                                                                { bg = PASS_G;  text = PASS_GT; }
+      return {
+        font: { bold: true, size: 10, name: "Calibri", color: { argb: "FF" + text } },
+        fill: { type: "pattern", pattern: "solid", fgColor: { argb: "FF" + bg } },
+        alignment: { vertical: "top", horizontal: "center", wrapText: true },
+      };
+    };
+    const bStatusExt = (s) => {
+      const n = (s || "").toLowerCase();
+      const isPass = n === "pass" || n === "ok";
+      const isFail = n === "not clean" || n === "flag" || n === "fail";
+      const isAttn = n === "needs attention";
+      const isMaint = n === "maintenance";
+      const isFollow = n === "follow-up" || n === "followup";
+      const bg   = isPass ? PASS_G : isFail ? FAIL_R : isAttn ? ATTN_Y : isMaint ? "FCE4D6" : isFollow ? "E8EAF6" : WHITE;
+      const text = isPass ? PASS_GT : isFail ? FAIL_RT : isAttn ? ATTN_YT : isMaint ? "843C0C" : isFollow ? "3949AB" : "333333";
+      return {
+        font: { bold: true, size: 10, name: "Calibri", color: { argb: "FF" + text } },
+        fill: { type: "pattern", pattern: "solid", fgColor: { argb: "FF" + bg } },
+        alignment: { vertical: "top", horizontal: "center", wrapText: true },
+      };
+    };
     const applyB = (cell, style) => Object.assign(cell, style);
 
     const str = v => (v == null ? "" : String(v));
@@ -7667,19 +7722,19 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
     const ws2 = wb.addWorksheet("Action Items");
     ws2.columns = [
       { width: 4 }, { width: 28 }, { width: 10 }, { width: 16 },
-      { width: 12 }, { width: 18 }, { width: 20 }, { width: 16 }, { width: 40 }, { width: 40 },
-      { width: 20 }, { width: 14 },
+      { width: 12 }, { width: 18 }, { width: 20 }, { width: 16 }, { width: 40 }, { width: 36 },
+      { width: 20 }, { width: 14 }, { width: 14 },
     ];
     const s2Title = ws2.addRow(["ACTION ITEMS — ALL VENUES"]);
     s2Title.height = 26;
-    ws2.mergeCells(`A${s2Title.number}:L${s2Title.number}`);
+    ws2.mergeCells(`A${s2Title.number}:M${s2Title.number}`);
     applyB(s2Title.getCell(1), bHdr(10));
 
-    const s2Headers = ["#", "Site / Location", "Unit #", "Location Type", "Date", "Inspection Type", "Inspector", "Area", "Issue", "Corrective Action", "Owner", "Due Date"];
+    const s2Headers = ["#", "Site / Location", "Unit #", "Location Type", "Date", "Inspection Type", "Inspector", "Area", "Issue", "Inspector Notes", "Owner", "Due Date", "Priority"];
     const s2HRow = ws2.addRow(s2Headers);
     s2HRow.height = 20;
     s2Headers.forEach((_, ci) => applyB(s2HRow.getCell(ci + 1), bSubHdr()));
-    ws2.autoFilter = { from: { row: s2HRow.number, column: 1 }, to: { row: s2HRow.number, column: 12 } };
+    ws2.autoFilter = { from: { row: s2HRow.number, column: 1 }, to: { row: s2HRow.number, column: 13 } };
     ws2.views = [{ state: "frozen", ySplit: s2HRow.number, topLeftCell: `A${s2HRow.number + 1}`, activeCell: "A1" }];
 
     let rowNum = 0;
@@ -7687,13 +7742,16 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
       (rec.actionItems || []).forEach((a, ai) => {
         rowNum++;
         const { area, issue } = splitIssue(a);
+        const notes = str(a.notes || a.corrective || "");
+        const pri = str(a.priority || "");
         const bg = rowNum % 2 === 0 ? SILVER : WHITE;
         const row = ws2.addRow([
           rowNum, str(rec.siteName || rec.location), str(rec.siteNumber), str(rec.locationType),
           str(rec.inspectionDate), str(rec.inspectionType), str(rec.inspectorName),
-          area, issue, str(a.corrective), str(a.owner || "—"), str(a.due || "—"),
+          area, issue, notes, str(a.owner || "—"), str(a.due || "—"), pri,
         ]);
         [1,2,3,4,5,6,7,8,9,10,11,12].forEach(ci => { row.getCell(ci).style = bBody(bg); });
+        row.getCell(13).style = bPriority(pri);
       });
     });
 
@@ -7710,6 +7768,7 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
       ["Equipments", "Freezer",             insp => insp?.equipment?.freezer],
       ["Equipments", "Warmers",             insp => insp?.equipment?.warmers],
       ["Equipments", "Grill",               insp => insp?.equipment?.grill],
+      ["Equipments", "Fryer",               insp => insp?.equipment?.fryer],
       ["Equipments", "Hood",                insp => insp?.equipment?.hood],
       ["Equipments", "Ice Maker Machine",   insp => insp?.equipment?.iceMaker],
       ["Equipments", "Other Equipments",    insp => insp?.equipment?.otherEquip],
@@ -7890,8 +7949,7 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
             "—", "—", "—", "—", problemText,
           ]);
           row.height = 16;
-          [1,2,3,4,5,6,7,8,9,10,12].forEach(ci => { row.getCell(ci).style = bBody(bg); });
-          row.getCell(11).style = bStatus("");
+          [1,2,3,4,5,6,7,8,9,10,11,12].forEach(ci => { row.getCell(ci).style = bBody(bg); });
         } else {
           readings.forEach((r, ri) => {
             supRowNum++;
@@ -7911,7 +7969,7 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
             ]);
             row.height = 16;
             [1,2,3,4,5,6,7,8,9,10,12].forEach(ci => { row.getCell(ci).style = bBody(bg); });
-            row.getCell(11).style = bStatus(result);
+            row.getCell(11).style = bStatusExt(result);
           });
         }
       });
@@ -16537,20 +16595,21 @@ async function processPhotoFiles(files, { limit, inspId, venueId, firebaseOn, on
   for (const f of accepted) {
     if (!f.type.startsWith("image/")) continue;
     if (bytesToMb(f.size) > PHOTO_MAX_MB) continue;
-    const thumbUrl = await compressImage(f);
+    const thumbUrl = await compressImage(f, 220, 0.55);
     if (!thumbUrl) continue;
+    const exportUrl = await compressImage(f, 800, 0.82);
     const photoId = `${Date.now()}_${Math.random().toString(16).slice(2)}`;
-    let previewUrl = thumbUrl;
+    let previewUrl = exportUrl || thumbUrl;
     if (firebaseOn) {
-      const storageData = await compressImage(f, 1200, 0.82);
-      const storageUrl = await uploadPhoto(storageData || thumbUrl, venueId, inspId, photoId);
+      const storageData = await compressImage(f, 1200, 0.88);
+      const storageUrl = await uploadPhoto(storageData || previewUrl, venueId, inspId, photoId);
       if (storageUrl) {
         previewUrl = storageUrl;
       } else {
         failCount++;
       }
     }
-    photos.push({ id: photoId, name: f.name, sizeMb: bytesToMb(f.size), type: "image/jpeg", previewUrl, thumbUrl, tag: "" });
+    photos.push({ id: photoId, name: f.name, sizeMb: bytesToMb(f.size), type: "image/jpeg", previewUrl, thumbUrl, exportUrl: exportUrl || thumbUrl, tag: "" });
   }
   if (failCount > 0 && onError) {
     onError(`⚠️ ${failCount} photo${failCount > 1 ? "s" : ""} saved as low-res thumbnail (cloud upload failed). Check your internet connection. The photo${failCount > 1 ? "s" : ""} will still appear in reports.`);
@@ -20774,15 +20833,12 @@ export default function App() {
                 );
               })()}
 
-              {/* ── Step viewport: slide between steps ─────────────────── */}
+              {/* ── Step viewport: show only active step ───────────────── */}
               <div className="guideStepViewport">
-                <div
-                  className="guideStepTrack"
-                  style={{ transform: `translateX(-${guideStep * 100}%)` }}
-                >
+                <div className="guideStepTrack">
 
                   {/* ══ Step 0: Temps & Supplies ══════════════════════════ */}
-                  <div className="guideStepPanel">
+                  <div className="guideStepPanel" style={{ display: guideStep === 0 ? "block" : "none" }}>
 
               {/* ── Supplies Needed ─────────────────────────────────────── */}
               {(() => {
@@ -20993,7 +21049,7 @@ export default function App() {
                   </div>{/* end Step 0 panel */}
 
                   {/* ══ Step 1: Facilities ════════════════════════════════ */}
-                  <div className="guideStepPanel">
+                  <div className="guideStepPanel" style={{ display: guideStep === 1 ? "block" : "none" }}>
 
                 <GuideSection title="🏢 Facilities"
                   items={[
@@ -21018,7 +21074,7 @@ export default function App() {
                   </div>{/* end Step 1 panel */}
 
                   {/* ══ Step 2: Equipment ═════════════════════════════════ */}
-                  <div className="guideStepPanel">
+                  <div className="guideStepPanel" style={{ display: guideStep === 2 ? "block" : "none" }}>
 
                 {/* Equipment only — Utensils is Step 3 */}
                 {locationType === "Concession" ? (
@@ -21075,7 +21131,7 @@ export default function App() {
                   </div>{/* end Step 2 panel */}
 
                   {/* ══ Step 3: Utensils ══════════════════════════════════ */}
-                  <div className="guideStepPanel">
+                  <div className="guideStepPanel" style={{ display: guideStep === 3 ? "block" : "none" }}>
 
                 <GuideSection title="🧹 Utensils"
                   items={[
