@@ -7655,7 +7655,7 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
     URL.revokeObjectURL(url);
   }
 
-  async function exportBulkExcel(records) {
+  async function exportBulkExcel(records, haccpMap = {}) {
     if (!records || records.length === 0) return;
 
     // ── Pre-fetch HACCP data for ALL records in the export ─────────────────
@@ -7794,7 +7794,9 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
       const bg = i % 2 === 0 ? WHITE : SILVER;
       const row = ws1.addRow([
         i + 1, str(rec.siteName || rec.location), str(rec.siteNumber), str(rec.locationType || "—"), str(rec.floor || "—"),
-        str(rec.inspectionDate), str(rec.inspectionType), str(rec.inspectorName), str(rec.supervisorName), str(rec.participantName || "—"),
+        str(rec.inspectionDate), str(rec.inspectionType), str(rec.inspectorName),
+        str(rec.supervisorName || (haccpMap[rec.id]?.[0]?.supervisorName) || ""),
+        str(rec.participantName || "—"),
         str(rec.eventName || "—"), str(rec.overallStatus || "—"), issues.length, hi,
       ]);
       row.height = 18;
@@ -10278,7 +10280,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
           }));
           if (showIssueFilter === "excel") {
             try {
-              const result = await exportBulkExcel(filteredRecords);
+              const result = await exportBulkExcel(filteredRecords, haccpByReport);
               if (result) downloadBlob(result.blob, result.filename);
             } catch (err) { alert("Excel download failed: " + (err?.message || String(err))); }
           } else if (showIssueFilter === "pdf") {
