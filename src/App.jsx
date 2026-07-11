@@ -1180,6 +1180,15 @@ async function loadHaccpForReport(reportId) {
       // was introduced still live in the legacy root collection).
       const cols = [legacyCol("haccpSubmissions")];
       if (!IS_DEFAULT_VENUE()) cols.push(venueCol("haccpSubmissions"));
+      // Sweep ALL registered venues — submissions for Seeds/Sol Cubano/Wynwood etc.
+      // live under their own venue paths, not just the currently-active venue.
+      const reg = await getDocs(venueRegistryCol()).catch(() => null);
+      if (reg) {
+        reg.docs.forEach(d => {
+          if (d.id !== "default" && d.id !== activeVenueId)
+            cols.push(collection(db, "venues", d.id, "haccpSubmissions"));
+        });
+      }
       const snaps = await Promise.all(
         cols.map(col => getDocs(query(col, where("reportId", "==", reportId), where("type", "==", "submission"))).catch(() => null))
       );
@@ -1211,10 +1220,16 @@ async function loadHaccpBySite(siteName, inspectionDate) {
   const datePrefix = inspectionDate.slice(0, 10); // "YYYY-MM-DD"
   if (FIREBASE_ON) {
     try {
-      // Query BOTH legacy root + venue-scoped collections so submissions are found
-      // regardless of which Firestore path was used at write time.
+      // Query legacy root + current venue + ALL registered venues.
       const cols = [legacyCol("haccpSubmissions")];
       if (!IS_DEFAULT_VENUE()) cols.push(venueCol("haccpSubmissions"));
+      const reg2 = await getDocs(venueRegistryCol()).catch(() => null);
+      if (reg2) {
+        reg2.docs.forEach(d => {
+          if (d.id !== "default" && d.id !== activeVenueId)
+            cols.push(collection(db, "venues", d.id, "haccpSubmissions"));
+        });
+      }
       const snaps = await Promise.all(
         cols.map(col => getDocs(query(col, where("type", "==", "submission"))).catch(() => null))
       );
