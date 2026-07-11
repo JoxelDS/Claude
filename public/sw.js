@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v78: Red HACCP badge on cards without submission; green on submitted
-const CACHE_NAME = "sdx-inspect-v78";
+// v79: Supervisor HACCP flags only show after field loses focus (prevents gaming)
+const CACHE_NAME = "sdx-inspect-v79";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",

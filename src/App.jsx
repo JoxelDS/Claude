@@ -17989,6 +17989,8 @@ function HaccpPortal() {
   // Custom temperature items added by the supervisor (beyond the 6 defaults)
   const [customItems, setCustomItems] = useState([]);
   // { key: string, label: string, unit: "°F", type: "hot"|"cold", min?: number, max?: number }
+  // Committed temps: only updated onBlur so pass/fail isn't shown while typing
+  const [committedTemps, setCommittedTemps] = useState({});
   // Inline label editing: which item key is currently being edited
   const [editingLabel, setEditingLabel] = useState(null); // null | itemKey
   const [editingLabelVal, setEditingLabelVal] = useState("");
@@ -18350,11 +18352,13 @@ function HaccpPortal() {
                       </div>
                       {readings.map((val, idx) => {
                         const foodName = (foodNames[item.key] || [""])[idx] ?? "";
-                        const rawDigits = String(val).replace(/\D/g, "");
+                        const committedVal = (committedTemps[item.key] || [])[idx];
+                        const rawDigits = String(committedVal ?? "").replace(/\D/g, "");
                         const hasName = foodName.trim().length > 0;
                         const hasTemp = rawDigits.length >= 2;
-                        const pass = (hasName && hasTemp) ? tempPass(item, val) : null;
+                        const pass = (hasName && hasTemp && committedVal !== undefined) ? tempPass(item, committedVal) : null;
                         const caKey = `${item.key}_${idx}`;
+                        const isTyping = val !== committedVal && val !== "";
                         return (
                           <div key={idx} style={{ marginBottom: 6 }}>
                           <div className="haccpTempRow">
@@ -18363,6 +18367,11 @@ function HaccpPortal() {
                               onChange={e => setFoodNames(p => {
                                 const arr = [...(p[item.key] || [""])];
                                 arr[idx] = e.target.value;
+                                return { ...p, [item.key]: arr };
+                              })}
+                              onBlur={() => setCommittedTemps(p => {
+                                const arr = [...(p[item.key] || [])];
+                                arr[idx] = val;
                                 return { ...p, [item.key]: arr };
                               })}
                               placeholder="Food item (e.g. Chicken)" />
@@ -18374,12 +18383,17 @@ function HaccpPortal() {
                                   arr[idx] = e.target.value;
                                   return { ...p, [item.key]: arr };
                                 })}
+                                onBlur={() => setCommittedTemps(p => {
+                                  const arr = [...(p[item.key] || [])];
+                                  arr[idx] = val;
+                                  return { ...p, [item.key]: arr };
+                                })}
                                 placeholder="—"
                                 style={pass === false ? { borderColor: "#dc2626", background: "#fff5f5" } : undefined} />
                               <span className="haccpTempUnit">{item.unit}</span>
                             </div>
-                            <span className={`haccpTempStatus ${pass === null ? "empty" : pass ? "pass" : "fail"}`}>
-                              {pass === null ? "—" : pass ? "✓ OK" : "⚠️ Flag"}
+                            <span className={`haccpTempStatus ${isTyping || pass === null ? "empty" : pass ? "pass" : "fail"}`}>
+                              {isTyping || pass === null ? "—" : pass ? "✓ OK" : "⚠️ Flag"}
                             </span>
                             {readings.length > 1 && (
                               <button type="button" className="haccpRemoveReadingBtn"
@@ -18392,11 +18406,15 @@ function HaccpPortal() {
                                     const arr = (p[item.key] || [""]).filter((_, i) => i !== idx);
                                     return { ...p, [item.key]: arr.length ? arr : [""] };
                                   });
+                                  setCommittedTemps(p => {
+                                    const arr = (p[item.key] || []).filter((_, i) => i !== idx);
+                                    return { ...p, [item.key]: arr };
+                                  });
                                   setCorrectiveActions(p => { const n = { ...p }; delete n[caKey]; return n; });
                                 }}>✕</button>
                             )}
                           </div>
-                          {pass === false && (
+                          {pass === false && !isTyping && (
                             <div style={{ marginTop: 6, display: "flex", flexDirection: "column", gap: 6 }}>
                               <div style={{ fontSize: "0.75rem", color: "#b45309", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 6, padding: "5px 8px" }}>
                                 ⚠️ Take another temperature reading in 30 minutes
