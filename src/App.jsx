@@ -14968,12 +14968,6 @@ function EquipmentIntelTab({ managedVenueId }) {
   const MIN_INSPECTIONS = 10;
 
   async function runAnalysis() {
-    let apiKey = localStorage.getItem("sdx_openai_key") || "";
-    if (!apiKey) {
-      apiKey = window.prompt("AI analysis requires your OpenAI API key.\nStored only in this browser.\n\nGet one at platform.openai.com") || "";
-      if (!apiKey) return;
-      localStorage.setItem("sdx_openai_key", apiKey.trim());
-    }
     setStatus("loading"); setError(""); setResult(null);
     try {
       setProgress("Loading all inspections…");
@@ -15014,49 +15008,51 @@ function EquipmentIntelTab({ managedVenueId }) {
         }
       }
 
+      // Build result locally — no AI needed
       const totalInspections = allRecs.length;
       const locations = Object.values(locationMap).sort((a, b) => b.inspectionCount - a.inspectionCount);
-      const locationSummaries = locations.map(loc => {
-        const permanentEquip = Object.entries(loc.equipmentData)
+      const noLicense = [];
+      const concessions = [];
+      const subcontractors = [];
+
+      for (const loc of locations) {
+        const locKey = `${loc.siteName}|||${loc.siteNumber}`;
+        const licEntries = Object.entries(loc.licenses).sort((a, b) => b[1] - a[1]);
+        const allLicensesSeen = licEntries.map(([l]) => l);
+        let license = null, licenseStatus = "missing";
+        if (loc.adminLicense) {
+          license = loc.adminLicense; licenseStatus = "admin_override";
+        } else if (licEntries.length === 1) {
+          license = licEntries[0][0]; licenseStatus = "on_file";
+        } else if (licEntries.length > 1) {
+          license = licEntries[0][0]; licenseStatus = "multiple";
+        }
+        if (!license) noLicense.push(`${loc.siteName}${loc.siteNumber ? ` #${loc.siteNumber}` : ""}`);
+
+        const permanentEquipment = Object.entries(loc.equipmentData)
           .filter(([, ed]) => ed.count >= MIN_INSPECTIONS)
           .sort((a, b) => b[1].count - a[1].count)
-          .map(([label, ed]) => {
-            const brandStr = ed.brands.size ? ` [brand: ${[...ed.brands].join("/")}]` : "";
-            const srcStr = ed.sources.size ? ` [source: ${[...ed.sources].join("/")}]` : "";
-            return `${label} (${ed.count} inspections)${brandStr}${srcStr}`;
-          }).join("; ");
-        const licEntries = Object.entries(loc.licenses).sort((a, b) => b[1] - a[1]);
-        const licStr = loc.adminLicense ? `ADMIN OVERRIDE: ${loc.adminLicense}` : licEntries.map(([l, c]) => `${l} (seen ${c}x)`).join(", ") || "NONE";
-        return `• ${loc.siteName}${loc.siteNumber ? ` #${loc.siteNumber}` : ""} [${loc.locationType}, ${loc.floor}] — ${loc.inspectionCount} total inspections\n  Equipment (≥10 inspections): ${permanentEquip || "none qualify"}\n  License: ${licStr}`;
-      }).join("\n\n");
+          .map(([label, ed]) => ({
+            label,
+            brand: [...ed.brands].join("/") || null,
+            source: [...ed.sources].join("/") || null,
+            seenIn: ed.count,
+          }));
 
-      setProgress("Sending to AI…");
-      const prompt = `You are a food-safety compliance analyst at a large sports venue.
-Data from ${totalInspections} inspections. Equipment listed only if it appeared in AT LEAST 10 inspections — these are confirmed permanent.
+        const card = {
+          name: loc.siteName, unit: loc.siteNumber, floor: loc.floor,
+          locationType: loc.locationType, inspections: loc.inspectionCount,
+          permanentEquipment, license, licenseStatus, allLicensesSeen,
+        };
+        if (loc.locationType === "Subcontractor") subcontractors.push(card);
+        else concessions.push(card);
+      }
 
-${locationSummaries}
+      const locWithLic = locations.filter(l => Object.keys(l.licenses).length > 0 || l.adminLicense).length;
+      const permEquipTotal = locations.reduce((s, l) => s + Object.values(l.equipmentData).filter(e => e.count >= MIN_INSPECTIONS).length, 0);
+      const summary = `${totalInspections} inspections across ${locations.length} locations (${concessions.length} concessions/bars, ${subcontractors.length} subcontractors). ${locWithLic} locations have license records. ${permEquipTotal} permanent equipment items confirmed across all sites (≥${MIN_INSPECTIONS} inspections each).`;
 
-Tasks:
-1. List ONLY the equipment items provided (pre-filtered to ≥10 inspections). Include brand and source if available.
-2. Determine the single correct license: use ADMIN OVERRIDE if present; otherwise use most frequent. Flag "multiple" if conflicting.
-3. Flag locations with no license.
-4. Separate concessions/bars vs subcontractors.
-
-Return JSON only:
-{"summary":"...","concessions":[{"name":"...","unit":"...","floor":"...","locationType":"...","inspections":0,"permanentEquipment":[{"label":"Grill","brand":"...","source":"Facility","seenIn":0}],"license":"...","licenseStatus":"on_file|missing|multiple|admin_override","allLicensesSeen":["..."]}],"subcontractors":[...same...],"noLicense":["..."],"totalLocations":0,"totalInspections":0}
-Do NOT invent or modify any data.`;
-
-      const res = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey.trim()}` },
-        body: JSON.stringify({ model: "gpt-4o", max_tokens: 6000, messages: [{ role: "user", content: prompt }] }),
-      });
-      if (!res.ok) { const err = await res.json().catch(() => ({})); if (res.status === 401) localStorage.removeItem("sdx_openai_key"); throw new Error(err?.error?.message || `API error ${res.status}`); }
-      const data = await res.json();
-      const content = data.choices?.[0]?.message?.content || "";
-      const jsonMatch = content.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) throw new Error("Could not parse AI response.");
-      setResult(JSON.parse(jsonMatch[0]));
+      setResult({ summary, concessions, subcontractors, noLicense, totalLocations: locations.length, totalInspections });
       setStatus("done");
     } catch (e) { setError(e.message || "Analysis failed."); setStatus("error"); }
   }
@@ -15156,7 +15152,7 @@ Do NOT invent or modify any data.`;
       <div style={{ fontSize:"2.5rem", marginBottom:10 }}>🧠</div>
       <div style={{ fontWeight:700, fontSize:"1rem", color:"#0f172a", marginBottom:6 }}>Equipment & License Analysis</div>
       <div style={{ color:"#6b7280", fontSize:"0.82rem", maxWidth:420, margin:"0 auto 20px", lineHeight:1.6 }}>
-        Reads every inspection. Equipment only listed as permanent if it appeared in <strong>at least {MIN_INSPECTIONS} inspections</strong>. Click any license badge to edit it.
+        Reads every inspection. Equipment only listed as permanent if it appeared in <strong>at least {MIN_INSPECTIONS} inspections</strong>. Licenses determined from inspection history — click any badge to edit.
       </div>
       <button type="button" onClick={runAnalysis}
         style={{ background:"#064e3b", color:"#fff", border:"none", borderRadius:9, padding:"10px 24px", fontSize:"0.9rem", fontWeight:700, cursor:"pointer" }}>
@@ -16274,15 +16270,6 @@ function EquipmentIntelPage({ onBack, managedVenueId }) {
   const MIN_INSPECTIONS = 10; // equipment must appear in at least 10 inspections to be considered permanent
 
   async function runAnalysis() {
-    let apiKey = localStorage.getItem("sdx_openai_key") || "";
-    if (!apiKey) {
-      apiKey = window.prompt(
-        "AI analysis requires your OpenAI API key.\nIt is stored only in this browser (never sent to our servers).\n\nGet one at platform.openai.com"
-      ) || "";
-      if (!apiKey) return;
-      localStorage.setItem("sdx_openai_key", apiKey.trim());
-    }
-
     setStatus("loading");
     setError("");
     setResult(null);
@@ -16296,12 +16283,9 @@ function EquipmentIntelPage({ onBack, managedVenueId }) {
       const snap = await getDocs(query(col, orderBy("savedAt", "desc")));
       const allRecs = snap.docs.map(d => d.data());
 
-      // Also load any admin-edited licenses from registry
       const registry = await loadLicenseRegistry(venueId);
-
       setProgress(`Loaded ${allRecs.length} inspections. Building equipment & license data…`);
 
-      // Build per-location data from all records
       const locationMap = {};
       for (const rec of allRecs) {
         if (!rec.siteName) continue;
@@ -16310,112 +16294,74 @@ function EquipmentIntelPage({ onBack, managedVenueId }) {
         const key = `${rec.siteName}|||${rec.siteNumber || ""}`;
         if (!locationMap[key]) {
           locationMap[key] = {
-            siteName: rec.siteName,
-            siteNumber: rec.siteNumber || "",
-            locationType: locType,
-            floor: rec.floor || "",
-            inspectionCount: 0,
-            licenses: {},    // licenseNumber -> count
-            equipmentData: {}, // label -> { count, brands: Set, sources: Set }
+            siteName: rec.siteName, siteNumber: rec.siteNumber || "",
+            locationType: locType, floor: rec.floor || "",
+            inspectionCount: 0, licenses: {}, equipmentData: {},
             adminLicense: registry[key]?.license || null,
           };
         }
         const loc = locationMap[key];
         loc.inspectionCount++;
-        // Track license frequency
         if (rec.restaurantLicense && rec.restaurantLicense !== "NO LICENSE") {
           const lic = rec.restaurantLicense.trim();
           loc.licenses[lic] = (loc.licenses[lic] || 0) + 1;
         }
-        // Track equipment with full details
         const equip = rec.inspection?.equipment || {};
         for (const [k, v] of Object.entries(equip)) {
           if (!v || v.notApplicable) continue;
           const label = EQUIP_LABELS[k] || v.label || k;
-          if (!loc.equipmentData[label]) loc.equipmentData[label] = { count: 0, brands: new Set(), sources: new Set(), counts: [] };
+          if (!loc.equipmentData[label]) loc.equipmentData[label] = { count: 0, brands: new Set(), sources: new Set() };
           const ed = loc.equipmentData[label];
           ed.count++;
           if (v.brand) ed.brands.add(v.brand.trim());
           if (v.equipSource) ed.sources.add(v.equipSource);
-          if (v.count) ed.counts.push(String(v.count));
         }
       }
 
+      // Build result locally — no external API needed
       const totalInspections = allRecs.length;
       const locations = Object.values(locationMap).sort((a, b) => b.inspectionCount - a.inspectionCount);
+      const noLicense = [];
+      const concessions = [];
+      const subcontractors = [];
 
-      // Build AI prompt — only send equipment that appeared in ≥10 inspections
-      const locationSummaries = locations.map(loc => {
-        const permanentEquip = Object.entries(loc.equipmentData)
+      for (const loc of locations) {
+        const licEntries = Object.entries(loc.licenses).sort((a, b) => b[1] - a[1]);
+        const allLicensesSeen = licEntries.map(([l]) => l);
+        let license = null, licenseStatus = "missing";
+        if (loc.adminLicense) {
+          license = loc.adminLicense; licenseStatus = "admin_override";
+        } else if (licEntries.length === 1) {
+          license = licEntries[0][0]; licenseStatus = "on_file";
+        } else if (licEntries.length > 1) {
+          license = licEntries[0][0]; licenseStatus = "multiple";
+        }
+        if (!license) noLicense.push(`${loc.siteName}${loc.siteNumber ? ` #${loc.siteNumber}` : ""}`);
+
+        const permanentEquipment = Object.entries(loc.equipmentData)
           .filter(([, ed]) => ed.count >= MIN_INSPECTIONS)
           .sort((a, b) => b[1].count - a[1].count)
-          .map(([label, ed]) => {
-            const brandStr = ed.brands.size ? ` [brand: ${[...ed.brands].join("/")}]` : "";
-            const srcStr = ed.sources.size ? ` [source: ${[...ed.sources].join("/")}]` : "";
-            return `${label} (${ed.count} inspections)${brandStr}${srcStr}`;
-          })
-          .join("; ");
-        const licEntries = Object.entries(loc.licenses).sort((a, b) => b[1] - a[1]);
-        const licStr = loc.adminLicense
-          ? `ADMIN OVERRIDE: ${loc.adminLicense}`
-          : licEntries.map(([l, c]) => `${l} (seen ${c}x)`).join(", ") || "NONE";
-        return `• ${loc.siteName}${loc.siteNumber ? ` #${loc.siteNumber}` : ""} [${loc.locationType}, ${loc.floor}] — ${loc.inspectionCount} total inspections\n  Equipment (≥10 inspections): ${permanentEquip || "none qualify"}\n  License: ${licStr}`;
-      }).join("\n\n");
+          .map(([label, ed]) => ({
+            label,
+            brand: [...ed.brands].join("/") || null,
+            source: [...ed.sources].join("/") || null,
+            seenIn: ed.count,
+          }));
 
-      setProgress("Sending to AI for analysis…");
-
-      const prompt = `You are a food-safety compliance analyst at a large sports venue.
-You have data from ${totalInspections} kitchen inspections. For each concession/subcontractor location below, equipment is only listed if it appeared in AT LEAST 10 inspections — these are confirmed permanent items.
-
-${locationSummaries}
-
-Tasks:
-1. For each location list ONLY the equipment items provided (do not add, remove, or guess any — they are already pre-filtered to ≥10 inspections). Include brand and source info if available.
-2. Determine the single correct license: if "ADMIN OVERRIDE" is present use that; otherwise use the most frequently seen license number. If multiple different licenses exist and no override, flag as "multiple".
-3. Flag locations with no license data.
-4. Separate into concessions vs subcontractors. Bars go with concessions.
-
-Return JSON only:
-{
-  "summary": "2-3 sentence overall summary",
-  "concessions": [{
-    "name": "...", "unit": "...", "floor": "...", "locationType": "...",
-    "inspections": 0,
-    "permanentEquipment": [{ "label": "Grill", "brand": "...", "source": "Facility", "seenIn": 0 }],
-    "license": "FD-... or null",
-    "licenseStatus": "on_file|missing|multiple|admin_override",
-    "allLicensesSeen": ["FD-001", "FD-002"]
-  }],
-  "subcontractors": [...same shape...],
-  "noLicense": ["location name"],
-  "totalLocations": 0,
-  "totalInspections": 0
-}
-
-Do NOT invent or modify any data. Use exactly what is provided.`;
-
-      const res = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey.trim()}` },
-        body: JSON.stringify({ model: "gpt-4o", max_tokens: 6000, messages: [{ role: "user", content: prompt }] }),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        if (res.status === 401) localStorage.removeItem("sdx_openai_key");
-        throw new Error(err?.error?.message || `API error ${res.status}`);
+        const card = {
+          name: loc.siteName, unit: loc.siteNumber, floor: loc.floor,
+          locationType: loc.locationType, inspections: loc.inspectionCount,
+          permanentEquipment, license, licenseStatus, allLicensesSeen,
+        };
+        if (loc.locationType === "Subcontractor") subcontractors.push(card);
+        else concessions.push(card);
       }
-      const data = await res.json();
-      const content = data.choices?.[0]?.message?.content || "";
-      const jsonMatch = content.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) throw new Error("Could not parse AI response.");
-      const parsed = JSON.parse(jsonMatch[0]);
-      // Attach rawLocationMap for license editing reference
-      parsed.rawLocationMap = Object.fromEntries(
-        Object.entries(locationMap).map(([k, v]) => [k, {
-          licenses: v.licenses, adminLicense: v.adminLicense, inspectionCount: v.inspectionCount,
-        }])
-      );
-      setResult(parsed);
+
+      const locWithLic = locations.filter(l => Object.keys(l.licenses).length > 0 || l.adminLicense).length;
+      const permEquipTotal = locations.reduce((s, l) => s + Object.values(l.equipmentData).filter(e => e.count >= MIN_INSPECTIONS).length, 0);
+      const summary = `${totalInspections} inspections across ${locations.length} locations (${concessions.length} concessions/bars, ${subcontractors.length} subcontractors). ${locWithLic} locations have license records. ${permEquipTotal} permanent equipment items confirmed across all sites (≥${MIN_INSPECTIONS} inspections each).`;
+
+      setResult({ summary, concessions, subcontractors, noLicense, totalLocations: locations.length, totalInspections });
       setStatus("done");
     } catch (e) {
       setError(e.message || "Analysis failed.");

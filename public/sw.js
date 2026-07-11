@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v84: Equipment & License Intelligence tab inside Performance Dashboard
-const CACHE_NAME = "sdx-inspect-v84";
+// v85: Equipment & License Intel — no OpenAI key required, fully local analysis
+const CACHE_NAME = "sdx-inspect-v85";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
