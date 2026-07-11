@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v95: Admin HACCP panel sweeps ALL venue collections so no QR scan is missed
-const CACHE_NAME = "sdx-inspect-v95";
+// v96: Memoize per-card buildActionItems/calcScore so Select button is instant
+const CACHE_NAME = "sdx-inspect-v96";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",

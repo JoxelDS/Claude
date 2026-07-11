@@ -7448,6 +7448,18 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
     });
   }, [history, filterDate, filterType, filterFloor, filterLocType, filterSite, filterIssue]);
 
+  // Pre-compute expensive per-card values once per filtered change, not on every render
+  const cardMeta = useMemo(() => {
+    const map = {};
+    for (const rec of filtered) {
+      map[rec.id] = {
+        issues: buildActionItems({ inspection: rec.inspection, rawNotes: rec.rawNotes, foodTemps: rec.foodTemps, foodTempNames: rec.foodTempNames }),
+        score: calcInspectionScore(rec.inspection, { foodTemps: rec.foodTemps, foodTempNames: rec.foodTempNames }),
+      };
+    }
+    return map;
+  }, [filtered]);
+
   // Function to jump to a specific location's reports
   function filterByLocation(locLabel) {
     setFilterSite(locLabel);
@@ -9422,9 +9434,8 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
           >
             {filtered.map(rec => {
               const isExpanded = expandedId === rec.id;
-              const issues = buildActionItems({ inspection: rec.inspection, rawNotes: rec.rawNotes, foodTemps: rec.foodTemps, foodTempNames: rec.foodTempNames });
+              const { issues, score } = cardMeta[rec.id] || { issues: [], score: null };
               const statusColor = rec.overallStatus === "Pass" ? "#15803D" : "#EE0000";
-              const score = calcInspectionScore(rec.inspection, { foodTemps: rec.foodTemps, foodTempNames: rec.foodTempNames });
               return (
                 <div
                   className="card historyCard"
