@@ -20841,7 +20841,7 @@ export default function App() {
 
               {/* ── Step viewport: show only active step ───────────────── */}
               <div className="guideStepViewport">
-                <div className="guideStepTrack">
+                <div className="guideStepTrack" style={{ transform: `translateX(-${guideStep * 100}%)` }}>
 
                   {/* ══ Step 0: Temps & Supplies ══════════════════════════ */}
                   <div className="guideStepPanel">
@@ -20856,7 +20856,6 @@ export default function App() {
                 };
                 return (
                   <div id="supplies-section" style={{
-                    display: guideStep === 0 ? "" : "none",
                     border: `2px solid ${urgentCount > 0 ? "#f97316" : suppliesNeeded.some(s => s.item.trim()) ? "#fbbf24" : "#DDE1E8"}`,
                     borderRadius: 12, padding: "14px 16px",
                     background: urgentCount > 0 ? "#fff7ed" : suppliesNeeded.some(s => s.item.trim()) ? "#fffbeb" : "#F7F8FA",
@@ -20946,7 +20945,7 @@ export default function App() {
                 );
               })()}
 
-              <div className="equipCheckWrapper" style={{ display: guideStep === 0 ? "" : "none" }}>
+              <div className="equipCheckWrapper">
                 <div className="equipCheckBanner">
                   🌡️ Temperatures &amp; Equipment Check
                   <span className="equipCheckBannerSub">Record all temperatures and check the status of every piece of equipment</span>
@@ -21056,7 +21055,7 @@ export default function App() {
                   </div>{/* end Step 0 panel */}
 
                   {/* ══ Step 1: Facilities ════════════════════════════════ */}
-                  <div className="guideStepPanel" style={{ display: guideStep === 1 ? "block" : "none" }}>
+                  <div className="guideStepPanel">
 
                 <GuideSection title="🏢 Facilities"
                   items={[
@@ -21081,7 +21080,7 @@ export default function App() {
                   </div>{/* end Step 1 panel */}
 
                   {/* ══ Step 2: Equipment ═════════════════════════════════ */}
-                  <div className="guideStepPanel" style={{ display: guideStep === 2 ? "block" : "none" }}>
+                  <div className="guideStepPanel">
 
                 {/* Equipment only — Utensils is Step 3 */}
                 {locationType === "Concession" ? (
@@ -21138,7 +21137,7 @@ export default function App() {
                   </div>{/* end Step 2 panel */}
 
                   {/* ══ Step 3: Utensils ══════════════════════════════════ */}
-                  <div className="guideStepPanel" style={{ display: guideStep === 3 ? "block" : "none" }}>
+                  <div className="guideStepPanel">
 
                 <GuideSection title="🧹 Utensils"
                   items={[
