@@ -989,7 +989,7 @@ let _currentUser = null;
 async function loadHistory(forVenueId, opts = {}) {
   if (FIREBASE_ON) {
     try {
-      const { dateFrom, dateTo, lastDoc: cursor, pageSize = 50 } = opts;
+      const { dateFrom, dateTo, lastDoc: cursor, pageSize = 500 } = opts;
       const targetVenue = forVenueId || VENUE_ID;
       const col = targetVenue === "default" ? legacyCol("inspections") : collection(db, "venues", targetVenue, "inspections");
 
@@ -7291,6 +7291,7 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
     loadHistory(managedVenueId || undefined, {
       dateFrom: filterDateFrom || undefined,
       dateTo: filterDateTo || undefined,
+      pageSize: 1000,
     }).then(({ list, lastDoc, hasMore }) => {
       setHistory(list);
       setHistoryLastDoc(lastDoc);
@@ -7315,6 +7316,7 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
       dateFrom: filterDateFrom || undefined,
       dateTo: filterDateTo || undefined,
       lastDoc: historyLastDoc,
+      pageSize: 1000,
     }).then(({ list, lastDoc, hasMore }) => {
       setHistory(prev => [...prev, ...list]);
       setHistoryLastDoc(lastDoc);
