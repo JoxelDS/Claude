@@ -4128,7 +4128,19 @@ async function exportAsCsv({ inspection, notesPhotos, rawNotes, inspectionType, 
       row.getCell(1).style = { ...bodyCell(bg), alignment: { horizontal: "center", vertical: "top" } };
       row.getCell(2).style = bodyCell(bg);
       row.getCell(3).style = bodyCell(bg);
-      row.getCell(4).style = statusCell(pri === "High" ? "Not Clean" : pri === "Medium" ? "Needs Attention" : "OK");
+      const priNorm = pri.toLowerCase();
+      let priBg, priText;
+      if (priNorm === "high" || priNorm === "fail")                             { priBg = FAIL_R; priText = FAIL_RT; }
+      else if (priNorm === "medium" || priNorm === "med" || priNorm === "needs attention") { priBg = ATTN_Y; priText = ATTN_YT; }
+      else if (priNorm === "low")                                               { priBg = "D6E4F7"; priText = "1C4A7A"; }
+      else if (priNorm === "maintenance")                                       { priBg = "FCE4D6"; priText = "843C0C"; }
+      else if (priNorm === "follow-up" || priNorm === "followup")               { priBg = "E8EAF6"; priText = "3949AB"; }
+      else                                                                      { priBg = PASS_G;  priText = PASS_GT; }
+      row.getCell(4).style = {
+        font: { bold: true, size: 10, name: "Calibri", color: { argb: "FF" + priText } },
+        fill: { type: "pattern", pattern: "solid", fgColor: { argb: "FF" + priBg } },
+        alignment: { vertical: "top", horizontal: "center", wrapText: true },
+      };
     });
   }
 
@@ -7624,6 +7636,21 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
         alignment: { vertical: "top", horizontal: "center", wrapText: true },
       };
     };
+    const bPriority = (p) => {
+      const norm = (p || "").toLowerCase();
+      let bg, text;
+      if (norm === "high" || norm === "fail")                            { bg = "FFC7CE"; text = "9C0006"; }
+      else if (norm === "medium" || norm === "med" || norm === "needs attention") { bg = "FFEB9C"; text = "9C6500"; }
+      else if (norm === "low")                                           { bg = "D6E4F7"; text = "1C4A7A"; }
+      else if (norm === "maintenance")                                   { bg = "FCE4D6"; text = "843C0C"; }
+      else if (norm === "follow-up" || norm === "followup")              { bg = "E8EAF6"; text = "3949AB"; }
+      else                                                               { bg = WHITE;    text = "333333"; }
+      return {
+        font: { bold: true, size: 10, name: "Calibri", color: { argb: "FF" + text } },
+        fill: { type: "pattern", pattern: "solid", fgColor: { argb: "FF" + bg } },
+        alignment: { vertical: "top", horizontal: "center", wrapText: true },
+      };
+    };
     const applyB = (cell, style) => Object.assign(cell, style);
 
     const str = v => (v == null ? "" : String(v));
@@ -7682,18 +7709,18 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
     ws2.columns = [
       { width: 4 }, { width: 28 }, { width: 10 }, { width: 16 },
       { width: 12 }, { width: 18 }, { width: 20 }, { width: 16 }, { width: 40 }, { width: 40 },
-      { width: 20 }, { width: 14 },
+      { width: 20 }, { width: 14 }, { width: 14 },
     ];
     const s2Title = ws2.addRow(["ACTION ITEMS — ALL VENUES"]);
     s2Title.height = 26;
-    ws2.mergeCells(`A${s2Title.number}:L${s2Title.number}`);
+    ws2.mergeCells(`A${s2Title.number}:M${s2Title.number}`);
     applyB(s2Title.getCell(1), bHdr(10));
 
-    const s2Headers = ["#", "Site / Location", "Unit #", "Location Type", "Date", "Inspection Type", "Inspector", "Area", "Issue", "Corrective Action", "Owner", "Due Date"];
+    const s2Headers = ["#", "Site / Location", "Unit #", "Location Type", "Date", "Inspection Type", "Inspector", "Area", "Issue", "Corrective Action", "Owner", "Due Date", "Priority"];
     const s2HRow = ws2.addRow(s2Headers);
     s2HRow.height = 20;
     s2Headers.forEach((_, ci) => applyB(s2HRow.getCell(ci + 1), bSubHdr()));
-    ws2.autoFilter = { from: { row: s2HRow.number, column: 1 }, to: { row: s2HRow.number, column: 12 } };
+    ws2.autoFilter = { from: { row: s2HRow.number, column: 1 }, to: { row: s2HRow.number, column: 13 } };
     ws2.views = [{ state: "frozen", ySplit: s2HRow.number, topLeftCell: `A${s2HRow.number + 1}`, activeCell: "A1" }];
 
     let rowNum = 0;
@@ -7705,9 +7732,10 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
         const row = ws2.addRow([
           rowNum, str(rec.siteName || rec.location), str(rec.siteNumber), str(rec.locationType),
           str(rec.inspectionDate), str(rec.inspectionType), str(rec.inspectorName),
-          area, issue, str(a.corrective), str(a.owner || "—"), str(a.due || "—"),
+          area, issue, str(a.corrective), str(a.owner || "—"), str(a.due || "—"), str(a.priority || ""),
         ]);
         [1,2,3,4,5,6,7,8,9,10,11,12].forEach(ci => { row.getCell(ci).style = bBody(bg); });
+        applyB(row.getCell(13), bPriority(a.priority));
       });
     });
 
