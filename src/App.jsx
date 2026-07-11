@@ -20627,8 +20627,44 @@ export default function App() {
     if (docSizeKb > 900) {
       console.warn("saveToHistory: document approaching 1MB limit!", docSizeKb, "KB");
     }
+    // If document is too large, strip ALL data URLs (keep only Firebase Storage http URLs) and retry
+    function nukeDataUrls(obj) {
+      if (!obj || typeof obj !== "object") return obj;
+      if (Array.isArray(obj)) return obj.map(nukeDataUrls);
+      const out = {};
+      for (const [k, v] of Object.entries(obj)) {
+        if (k === "photos" && Array.isArray(v)) {
+          out.photos = v.map(p => ({
+            id: p.id, name: p.name, sizeMb: p.sizeMb, type: p.type, tag: p.tag || "",
+            previewUrl: p.previewUrl?.startsWith("http") ? p.previewUrl : "",
+            thumbUrl: p.thumbUrl?.startsWith("http") ? p.thumbUrl : "",
+          }));
+        } else {
+          out[k] = nukeDataUrls(v);
+        }
+      }
+      return out;
+    }
+
+    async function trySave(rec) {
+      try {
+        await saveOneInspection(rec);
+        return true;
+      } catch (e) {
+        const errMsg = (e?.message || "").toLowerCase();
+        const isSizeErr = e?.code === "resource-exhausted" || errMsg.includes("size") || errMsg.includes("too large") || errMsg.includes("exceed");
+        if (isSizeErr) {
+          // Retry with all data URLs stripped — keep only Firebase Storage URLs
+          const slim = { ...rec, inspection: { ...nukeDataUrls(rec.inspection) } };
+          await saveOneInspection(slim);
+          return true;
+        }
+        throw e;
+      }
+    }
+
     try {
-      await saveOneInspection(record);
+      await trySave(record);
       learnFromSave(record);
       clearDraft(); // draft committed — remove auto-save
       reportInProgressRef.current = false; // prevent auto-save from re-saving completed inspection

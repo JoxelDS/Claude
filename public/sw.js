@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v88: Unlimited photos (30/report), save-size fix deployed, better notification cards
-const CACHE_NAME = "sdx-inspect-v88";
+// v89: Auto-retry save by stripping data URLs if doc too large — no more save failures
+const CACHE_NAME = "sdx-inspect-v89";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
