@@ -2577,14 +2577,14 @@ function buildPhotoIndex(inspection, notesPhotos) {
       n += 1;
       mapByPath[pathKey].push(n);
       const caption = sanitizeText(node?.notes) || sanitizeText(p?.name) || "";
-      index.push({ num: n, label, caption, previewUrl: p.previewUrl || null, thumbUrl: p.thumbUrl || null });
+      index.push({ num: n, label, caption, previewUrl: p.previewUrl || p.thumbUrl || null, thumbUrl: p.thumbUrl || null });
     }
   }
   // Include notes photos (attached to the raw notes / inspector notes section)
   const notesPhotoArr = notesPhotos || inspection?._notesPhotos || [];
   for (const p of notesPhotoArr) {
     n += 1;
-    index.push({ num: n, label: "Inspector Notes", caption: sanitizeText(p?.name) || "", previewUrl: p.previewUrl || null, thumbUrl: p.thumbUrl || null });
+    index.push({ num: n, label: "Inspector Notes", caption: sanitizeText(p?.name) || "", previewUrl: p.previewUrl || p.thumbUrl || null, thumbUrl: p.thumbUrl || null });
   }
   return { index, mapByPath };
 }
