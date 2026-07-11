@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v90: Admin panel shows orphaned HACCP logs — create blank report for missing inspections
-const CACHE_NAME = "sdx-inspect-v90";
+// v91: Auto-create inspection report on every HACCP form submission
+const CACHE_NAME = "sdx-inspect-v91";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",

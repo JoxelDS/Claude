@@ -18947,6 +18947,54 @@ function HaccpPortal() {
       submittedAt: new Date().toISOString(),
     };
     await saveHaccpSubmission(record);
+
+    // Auto-create a blank inspection record if one doesn't already exist for this report ID.
+    // This ensures every HACCP submission always has a linked report in the history,
+    // even when the inspector's save failed or the QR code was scanned without a prior report.
+    if (urlReportId) {
+      try {
+        const { list: existing } = await loadHistory(undefined, { pageSize: 500 });
+        const alreadyExists = existing.some(r => r.id === urlReportId);
+        if (!alreadyExists) {
+          const today = new Date().toISOString().slice(0, 10);
+          const blankRecord = {
+            id: urlReportId,
+            savedAt: new Date().toISOString(),
+            savedByHash: "",
+            noteType: "inspection",
+            inspectionType: "Post Event",
+            inspectionDate: today,
+            inspectorName: "",
+            participantName: "",
+            siteName: locSite.trim(),
+            siteNumber: locUnit.trim(),
+            supervisorName: supName.trim(),
+            sitePhone: supPhone.trim(),
+            floor: locFloor.trim(),
+            locationType: locType.trim() || "Concession",
+            restaurantLicense: "",
+            licenseMissing: false,
+            eventName: "",
+            overallStatus: "Pending Review",
+            actionItems: [],
+            rawNotes: "",
+            suppliesNeeded: [],
+            location: locSite.trim() || locUnit.trim() || "Unknown",
+            context: {},
+            temps: {},
+            foodTemps: {},
+            foodTempNames: {},
+            inspection: { _notesPhotos: [] },
+            photoCount: 0,
+            _autoCreatedFromHaccp: true,
+            _haccpSubmittedBy: supName.trim(),
+            _haccpSubmittedAt: new Date().toISOString(),
+          };
+          await saveOneInspection(blankRecord);
+        }
+      } catch { /* ignore — HACCP submission already saved, report creation is best-effort */ }
+    }
+
     if (problem.trim()) {
       const prId = `prob_${Date.now()}_${Math.random().toString(16).slice(2)}`;
       await saveProblemReport({
