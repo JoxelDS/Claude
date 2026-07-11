@@ -17990,6 +17990,8 @@ function HaccpPortal() {
   const [editingLabelVal, setEditingLabelVal] = useState("");
   // Custom item labels overrides for default items
   const [labelOverrides, setLabelOverrides] = useState({});
+  // Corrective actions for off-temp readings: { [`${itemKey}_${idx}`]: string }
+  const [correctiveActions, setCorrectiveActions] = useState({});
   const [problem, setProblem] = useState("");
   const [severity, setSeverity] = useState("issue");
   const [problemPhotos, setProblemPhotos] = useState([]);
@@ -18108,6 +18110,7 @@ function HaccpPortal() {
       locationType: locType.trim(),
       temps: tempsFlat,
       foodNames: foodNamesFlat,
+      correctiveActions,
       itemLabels,
       customItems,
       problemReport: problem.trim() ? { text: problem.trim(), severity, photos: problemPhotos.map(p => ({ id: p.id, name: p.name, sizeMb: p.sizeMb, type: p.type, tag: p.tag || "", previewUrl: (p.previewUrl && !p.previewUrl.startsWith("data:")) ? p.previewUrl : "" })) } : null,
@@ -18342,10 +18345,15 @@ function HaccpPortal() {
                         </div>
                       </div>
                       {readings.map((val, idx) => {
-                        const pass = tempPass(item, val);
                         const foodName = (foodNames[item.key] || [""])[idx] ?? "";
+                        const rawDigits = String(val).replace(/\D/g, "");
+                        const hasName = foodName.trim().length > 0;
+                        const hasTemp = rawDigits.length >= 2;
+                        const pass = (hasName && hasTemp) ? tempPass(item, val) : null;
+                        const caKey = `${item.key}_${idx}`;
                         return (
-                          <div className="haccpTempRow" key={idx}>
+                          <div key={idx} style={{ marginBottom: 6 }}>
+                          <div className="haccpTempRow">
                             <input className="haccpFoodNameInput" type="text"
                               value={foodName}
                               onChange={e => setFoodNames(p => {
@@ -18380,8 +18388,25 @@ function HaccpPortal() {
                                     const arr = (p[item.key] || [""]).filter((_, i) => i !== idx);
                                     return { ...p, [item.key]: arr.length ? arr : [""] };
                                   });
+                                  setCorrectiveActions(p => { const n = { ...p }; delete n[caKey]; return n; });
                                 }}>✕</button>
                             )}
+                          </div>
+                          {pass === false && (
+                            <div style={{ marginTop: 6, display: "flex", flexDirection: "column", gap: 6 }}>
+                              <div style={{ fontSize: "0.75rem", color: "#b45309", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 6, padding: "5px 8px" }}>
+                                ⚠️ Take another temperature reading in 30 minutes
+                              </div>
+                              <textarea
+                                className="haccpFoodNameInput"
+                                rows={2}
+                                value={correctiveActions[caKey] || ""}
+                                onChange={e => setCorrectiveActions(p => ({ ...p, [caKey]: e.target.value }))}
+                                placeholder="Corrective action taken (required for off-temp)"
+                                style={{ resize: "vertical", fontSize: "0.82rem", fontFamily: "inherit", borderColor: correctiveActions[caKey]?.trim() ? undefined : "#dc2626" }}
+                              />
+                            </div>
+                          )}
                           </div>
                         );
                       })}
@@ -21344,8 +21369,8 @@ export default function App() {
                       </div>
                       {readings.map((val, idx) => {
                         const rawDigits = String(val).replace(/\D/g, "");
-                        const pass = rawDigits.length >= 2 ? tempPass(item, val) : null;
                         const name = names[idx] ?? "";
+                        const pass = (rawDigits.length >= 2 && name.trim()) ? tempPass(item, val) : null;
                         const haccpFoodNameFieldId = `field-haccp-name-${item.key}-${idx}`;
                         return (
                           <div key={idx} style={{ display: "flex", gap: 6, alignItems: "flex-start", marginBottom: 4, flexDirection: "column" }}>
