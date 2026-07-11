@@ -2580,6 +2580,25 @@ function buildPhotoIndex(inspection, notesPhotos) {
       index.push({ num: n, label, caption, previewUrl: p.previewUrl || p.thumbUrl || null, thumbUrl: p.thumbUrl || null });
     }
   }
+  // Include checklist sub-item photos (photos attached to individual checklist items in each section)
+  for (const sec of ["facility", "equipment", "utensils", "operations", "maintenance"]) {
+    const data = inspection?.[sec] || {};
+    for (const [itemKey, node] of Object.entries(data)) {
+      const checklist = node?.checklist || [];
+      for (const ci of checklist) {
+        const ciPhotos = ci.photos || [];
+        if (!ciPhotos.length) continue;
+        const secLabel = sec.charAt(0).toUpperCase() + sec.slice(1);
+        const areaLabel = `${secLabel} > ${node?.label || itemKey} > ${ci.label || "Checklist item"}`;
+        for (const p of ciPhotos) {
+          n += 1;
+          const previewUrl = p.previewUrl || p.url || p.thumbUrl || p.dataUrl || null;
+          const thumbUrl = p.thumbUrl || p.url || p.dataUrl || null;
+          index.push({ num: n, label: areaLabel, caption: sanitizeText(ci.problem || ci.label) || "", previewUrl, thumbUrl });
+        }
+      }
+    }
+  }
   // Include notes photos (attached to the raw notes / inspector notes section)
   const notesPhotoArr = notesPhotos || inspection?._notesPhotos || [];
   for (const p of notesPhotoArr) {
@@ -4167,12 +4186,11 @@ async function exportAsCsv({ inspection, notesPhotos, rawNotes, inspectionType, 
     ws3Header.forEach((_, ci) => applyStyle(ws3HRow.getCell(ci + 1), subHdr(RED)));
     ws3.views = [{ state: "frozen", ySplit: ws3HRow.number, topLeftCell: `A${ws3HRow.number + 1}`, activeCell: "A1" }];
 
-    // Image cell height in points. ExcelJS row height is in points; 1pt ≈ 1.333px.
-    // We want images ~160px tall → ~120pt row height.
-    const IMG_HEIGHT_PT = 120;
-    // Image display size in EMU (English Metric Units). 1px = 9525 EMU.
-    const IMG_W_PX = 200;
-    const IMG_H_PX = 160;
+    // Image cell height in points. 1pt ≈ 1.333px. 360pt ≈ 480px — large enough for clear viewing.
+    const IMG_HEIGHT_PT = 360;
+    // Absolute pixel dimensions for the embedded image (fills most of the tall cell)
+    const IMG_W_PX = 560;
+    const IMG_H_PX = 420;
 
     for (let i = 0; i < photoList.length; i++) {
       const p = photoList[i];
@@ -4189,7 +4207,6 @@ async function exportAsCsv({ inspection, notesPhotos, rawNotes, inspectionType, 
       // Embed image — prefer high-quality exportUrl, fall back to previewUrl/thumbUrl
       let dataUrl = p.exportUrl || p.dataUrl || "";
       if (!dataUrl || !dataUrl.startsWith("data:")) {
-        // previewUrl may be a Firebase URL — try to fetch it
         const candidate = p.previewUrl || p.thumbUrl || "";
         if (candidate.startsWith("http")) {
           try { const resp = await fetch(candidate); const blob = await resp.blob(); dataUrl = await new Promise(r => { const rd = new FileReader(); rd.onload = () => r(rd.result); rd.readAsDataURL(blob); }); } catch { dataUrl = p.thumbUrl || ""; }
@@ -4201,10 +4218,10 @@ async function exportAsCsv({ inspection, notesPhotos, rawNotes, inspectionType, 
           const base64 = commaIdx >= 0 ? dataUrl.slice(commaIdx + 1) : dataUrl;
           const ext = dataUrl.includes("image/png") ? "png" : "jpeg";
           const imageId = wb.addImage({ base64, extension: ext });
+          // Use absolute pixel sizing — image renders at full resolution regardless of cell zoom
           ws3.addImage(imageId, {
             tl: { col: 3, row: row.number - 1 },
-            br: { col: 4, row: row.number },
-            editAs: "oneCell",
+            ext: { width: IMG_W_PX, height: IMG_H_PX },
           });
         } catch (_) {
           row.getCell(4).value = str(p.previewUrl || "");
@@ -8048,7 +8065,9 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
       usedSheetNames.add(name);
       return name;
     }
-    const IMG_HEIGHT_PT = 220; // ~3 inches — large enough to see clearly
+    const IMG_HEIGHT_PT = 360; // ~5 inches — maximum useful height for clear photo viewing
+    const BULK_IMG_W_PX = 560;
+    const BULK_IMG_H_PX = 420;
 
     for (let ri = 0; ri < records.length; ri++) {
       const rec = records[ri];
@@ -8062,7 +8081,7 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
       if (withImg.length === 0) continue;
 
       const wsPh = wb.addWorksheet(safeSheetName(rec.siteName || rec.location, rec.siteNumber, ri));
-      wsPh.columns = [{ width: 6 }, { width: 32 }, { width: 38 }, { width: 58 }];
+      wsPh.columns = [{ width: 6 }, { width: 32 }, { width: 38 }, { width: 75 }];
 
       const phTitle = wsPh.addRow([`PHOTOS — ${(rec.siteName || rec.location || "Venue").toUpperCase()}${rec.siteNumber ? ` #${rec.siteNumber}` : ""}  |  ${rec.inspectionDate || ""}`]);
       phTitle.height = 26;
@@ -8093,8 +8112,7 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
           const imageId = wb.addImage({ base64, extension: ext });
           wsPh.addImage(imageId, {
             tl: { col: 3, row: row.number - 1 },
-            br: { col: 4, row: row.number },
-            editAs: "oneCell",
+            ext: { width: BULK_IMG_W_PX, height: BULK_IMG_H_PX },
           });
         } catch (_) {
           row.getCell(4).value = str(p.previewUrl || "");

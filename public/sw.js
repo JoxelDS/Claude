@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v85: Equipment & License Intel — no OpenAI key required, fully local analysis
-const CACHE_NAME = "sdx-inspect-v85";
+// v86: Excel photos — checklist item photos in per-location tabs; larger high-quality images
+const CACHE_NAME = "sdx-inspect-v86";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
