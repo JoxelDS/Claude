@@ -9481,6 +9481,11 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                         </span>
                       )}
                       {issues.length > 0 && <span className="pill">{issues.length} issue{issues.length !== 1 ? "s" : ""}</span>}
+                      {(haccpByReport[rec.id]?.length > 0) && (
+                        <span title="HACCP form submitted" style={{ display:"inline-flex", alignItems:"center", gap:3, background:"#f0fdf4", color:"#15803d", border:"1px solid #bbf7d0", borderRadius:8, padding:"2px 8px", fontSize:"0.72rem", fontWeight:700, flexShrink:0 }}>
+                          🌡️ HACCP
+                        </span>
+                      )}
                       {onEdit && canEditRec(rec) && (
                         <button
                           className="btn btnGhost btnSmall"
@@ -9638,6 +9643,15 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                                               {resolved.resolvedNote && <span>"{resolved.resolvedNote}" · </span>}
                                               <span>{resolved.resolvedBy ? `${resolved.resolvedBy} · ` : ""}</span>
                                               <span>{resolved.resolvedAt ? new Date(resolved.resolvedAt).toLocaleString() : ""}</span>
+                                            </div>
+                                          )}
+                                          {a.ciPhotos?.length > 0 && (
+                                            <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginTop:6 }}>
+                                              {a.ciPhotos.map((p, pi) => (
+                                                <img key={pi} src={p.thumb} alt="issue photo"
+                                                  onClick={() => setLightboxPhoto({ url: p.url || p.thumb, num: pi+1, label: a.issue, caption: "" })}
+                                                  style={{ width:56, height:56, objectFit:"cover", borderRadius:7, border:"1px solid #e2e8f0", cursor:"zoom-in" }} />
+                                              ))}
                                             </div>
                                           )}
                                         </div>

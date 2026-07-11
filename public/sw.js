@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v73: Photo lightbox + download; issue photos in action items
-const CACHE_NAME = "sdx-inspect-v73";
+// v74: HACCP badge on cards; issue photos in saved report view
+const CACHE_NAME = "sdx-inspect-v74";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
