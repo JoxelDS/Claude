@@ -9492,8 +9492,12 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                         </span>
                       )}
                       {issues.length > 0 && <span className="pill">{issues.length} issue{issues.length !== 1 ? "s" : ""}</span>}
-                      {(haccpByReport[rec.id]?.length > 0) && (
+                      {(haccpByReport[rec.id]?.length > 0) ? (
                         <span title="HACCP form submitted" style={{ display:"inline-flex", alignItems:"center", gap:3, background:"#f0fdf4", color:"#15803d", border:"1px solid #bbf7d0", borderRadius:8, padding:"2px 8px", fontSize:"0.72rem", fontWeight:700, flexShrink:0 }}>
+                          🌡️ HACCP
+                        </span>
+                      ) : (
+                        <span title="HACCP form not submitted" style={{ display:"inline-flex", alignItems:"center", gap:3, background:"#fef2f2", color:"#dc2626", border:"1px solid #fecaca", borderRadius:8, padding:"2px 8px", fontSize:"0.72rem", fontWeight:700, flexShrink:0 }}>
                           🌡️ HACCP
                         </span>
                       )}

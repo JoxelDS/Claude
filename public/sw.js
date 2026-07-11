@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v77: HACCP temp flag requires name+temp; supervisor log corrective action + 30-min reminder
-const CACHE_NAME = "sdx-inspect-v77";
+// v78: Red HACCP badge on cards without submission; green on submitted
+const CACHE_NAME = "sdx-inspect-v78";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
