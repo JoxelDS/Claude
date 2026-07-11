@@ -2604,13 +2604,12 @@ function buildActionItems({ inspection, rawNotes, foodTemps: ftArg, foodTempName
     }
     // Collect specific checklist items marked NO — use problem description so
     // readers immediately understand what the actual issue is.
-    const failedCheckItems = Array.isArray(node.checklist)
-      ? node.checklist.filter(c => c.value === "NO")
+    const failedChecks = Array.isArray(node.checklist)
+      ? node.checklist.filter(c => c.value === "NO").map(c => {
+          const base = c.problem || c.label;
+          return c.comment?.trim() ? `${base} (${c.comment.trim()})` : base;
+        })
       : [];
-    const failedChecks = failedCheckItems.map(c => {
-      const base = c.problem || c.label;
-      return c.comment?.trim() ? `${base} (${c.comment.trim()})` : base;
-    });
     const isFail = node.status === "Fail" || node.status === "Needs Attention" || node.status === "Not Clean" || node.status === "Maintenance";
     if (!isFail && failedChecks.length === 0) return;
     // Build issue description: list specific failed items, then other notes
@@ -2621,23 +2620,10 @@ function buildActionItems({ inspection, rawNotes, foodTemps: ftArg, foodTempName
     const issueText = failedChecks.length > 0 && otherNote
       ? `${failDetail} — Other: ${otherNote}`
       : failDetail;
-    // Use the highest inspector-set priority among failed checklist items,
-    // falling back to the section-level status-derived priority.
-    const PRIO_RANK = { High: 3, Medium: 2, Med: 2, Low: 1, Maintenance: 0 };
-    const ciMaxPriority = failedCheckItems.reduce((best, c) => {
-      const p = c.priority || "High";
-      return (PRIO_RANK[p] || 0) > (PRIO_RANK[best] || 0) ? p : best;
-    }, null);
-    const statusPriority = node.status === "Maintenance" ? "Maintenance"
-      : (node.status === "Fail" || node.status === "Not Clean" || failedChecks.length > 0) ? "High"
-      : "Med";
-    const resolvedPriority = ciMaxPriority && (PRIO_RANK[ciMaxPriority] || 0) > 0
-      ? (ciMaxPriority === "Medium" ? "Med" : ciMaxPriority)
-      : statusPriority;
     items.push({
       issue: `${label}: ${issueText}`,
       owner: "", due: "",
-      priority: resolvedPriority,
+      priority: node.status === "Maintenance" ? "Maintenance" : (node.status === "Fail" || node.status === "Not Clean" || failedChecks.length > 0) ? "High" : "Med",
       photos: mapByPath[pathKey] || [],
     });
   };
@@ -4128,19 +4114,7 @@ async function exportAsCsv({ inspection, notesPhotos, rawNotes, inspectionType, 
       row.getCell(1).style = { ...bodyCell(bg), alignment: { horizontal: "center", vertical: "top" } };
       row.getCell(2).style = bodyCell(bg);
       row.getCell(3).style = bodyCell(bg);
-      const priNorm = pri.toLowerCase();
-      let priBg, priText;
-      if (priNorm === "high" || priNorm === "fail")                             { priBg = FAIL_R; priText = FAIL_RT; }
-      else if (priNorm === "medium" || priNorm === "med" || priNorm === "needs attention") { priBg = ATTN_Y; priText = ATTN_YT; }
-      else if (priNorm === "low")                                               { priBg = "D6E4F7"; priText = "1C4A7A"; }
-      else if (priNorm === "maintenance")                                       { priBg = "FCE4D6"; priText = "843C0C"; }
-      else if (priNorm === "follow-up" || priNorm === "followup")               { priBg = "E8EAF6"; priText = "3949AB"; }
-      else                                                                      { priBg = PASS_G;  priText = PASS_GT; }
-      row.getCell(4).style = {
-        font: { bold: true, size: 10, name: "Calibri", color: { argb: "FF" + priText } },
-        fill: { type: "pattern", pattern: "solid", fgColor: { argb: "FF" + priBg } },
-        alignment: { vertical: "top", horizontal: "center", wrapText: true },
-      };
+      row.getCell(4).style = statusCell(pri === "High" ? "Not Clean" : pri === "Medium" ? "Needs Attention" : "OK");
     });
   }
 
@@ -7636,21 +7610,6 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
         alignment: { vertical: "top", horizontal: "center", wrapText: true },
       };
     };
-    const bPriority = (p) => {
-      const norm = (p || "").toLowerCase();
-      let bg, text;
-      if (norm === "high" || norm === "fail")                            { bg = "FFC7CE"; text = "9C0006"; }
-      else if (norm === "medium" || norm === "med" || norm === "needs attention") { bg = "FFEB9C"; text = "9C6500"; }
-      else if (norm === "low")                                           { bg = "D6E4F7"; text = "1C4A7A"; }
-      else if (norm === "maintenance")                                   { bg = "FCE4D6"; text = "843C0C"; }
-      else if (norm === "follow-up" || norm === "followup")              { bg = "E8EAF6"; text = "3949AB"; }
-      else                                                               { bg = WHITE;    text = "333333"; }
-      return {
-        font: { bold: true, size: 10, name: "Calibri", color: { argb: "FF" + text } },
-        fill: { type: "pattern", pattern: "solid", fgColor: { argb: "FF" + bg } },
-        alignment: { vertical: "top", horizontal: "center", wrapText: true },
-      };
-    };
     const applyB = (cell, style) => Object.assign(cell, style);
 
     const str = v => (v == null ? "" : String(v));
@@ -7709,18 +7668,18 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
     ws2.columns = [
       { width: 4 }, { width: 28 }, { width: 10 }, { width: 16 },
       { width: 12 }, { width: 18 }, { width: 20 }, { width: 16 }, { width: 40 }, { width: 40 },
-      { width: 20 }, { width: 14 }, { width: 14 },
+      { width: 20 }, { width: 14 },
     ];
     const s2Title = ws2.addRow(["ACTION ITEMS — ALL VENUES"]);
     s2Title.height = 26;
-    ws2.mergeCells(`A${s2Title.number}:M${s2Title.number}`);
+    ws2.mergeCells(`A${s2Title.number}:L${s2Title.number}`);
     applyB(s2Title.getCell(1), bHdr(10));
 
-    const s2Headers = ["#", "Site / Location", "Unit #", "Location Type", "Date", "Inspection Type", "Inspector", "Area", "Issue", "Corrective Action", "Owner", "Due Date", "Priority"];
+    const s2Headers = ["#", "Site / Location", "Unit #", "Location Type", "Date", "Inspection Type", "Inspector", "Area", "Issue", "Corrective Action", "Owner", "Due Date"];
     const s2HRow = ws2.addRow(s2Headers);
     s2HRow.height = 20;
     s2Headers.forEach((_, ci) => applyB(s2HRow.getCell(ci + 1), bSubHdr()));
-    ws2.autoFilter = { from: { row: s2HRow.number, column: 1 }, to: { row: s2HRow.number, column: 13 } };
+    ws2.autoFilter = { from: { row: s2HRow.number, column: 1 }, to: { row: s2HRow.number, column: 12 } };
     ws2.views = [{ state: "frozen", ySplit: s2HRow.number, topLeftCell: `A${s2HRow.number + 1}`, activeCell: "A1" }];
 
     let rowNum = 0;
@@ -7732,10 +7691,9 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
         const row = ws2.addRow([
           rowNum, str(rec.siteName || rec.location), str(rec.siteNumber), str(rec.locationType),
           str(rec.inspectionDate), str(rec.inspectionType), str(rec.inspectorName),
-          area, issue, str(a.corrective), str(a.owner || "—"), str(a.due || "—"), str(a.priority || ""),
+          area, issue, str(a.corrective), str(a.owner || "—"), str(a.due || "—"),
         ]);
         [1,2,3,4,5,6,7,8,9,10,11,12].forEach(ci => { row.getCell(ci).style = bBody(bg); });
-        applyB(row.getCell(13), bPriority(a.priority));
       });
     });
 
@@ -16878,11 +16836,6 @@ function GuideSection({ title, items, inspection, setInspection, allowCustom, se
                           const newChecklist = (cur2.checklist || []).map((c, i) => i === idx ? { ...c, comment } : c);
                           return setAtPath(prev, it.path, { ...cur2, checklist: newChecklist });
                         });
-                        const makeSetPriority = (idx, priority) => setInspection((prev) => {
-                          const cur2 = getAtPath(prev, it.path) || withPhotos({ status: "OK", notes: "" });
-                          const newChecklist = (cur2.checklist || []).map((c, i) => i === idx ? { ...c, priority } : c);
-                          return setAtPath(prev, it.path, { ...cur2, checklist: newChecklist });
-                        });
                         const addCiPhoto = async (idx, files) => {
                           const inspId = inspectionId || `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
                           const existingCount = (current.checklist?.[idx]?.photos || []).length;
@@ -16938,7 +16891,6 @@ function GuideSection({ title, items, inspection, setInspection, allowCustom, se
                                   const ciPhotos = ci.photos || [];
                                   return (
                                     <div key={idx} className={rowClass}>
-                                      {/* ── Item header: label + pass/fail toggle ── */}
                                       <div className="clItemRow">
                                         <span className="checklistLabel">{ci.label}</span>
                                         <button
@@ -16958,94 +16910,33 @@ function GuideSection({ title, items, inspection, setInspection, allowCustom, se
                                           ✕
                                         </button>
                                       </div>
-                                      {/* ── Issue detail panel (failed items only) ── */}
-                                      {isFail && (
-                                        <div className="clItemIssuePanel">
-                                          <div className="clItemIssuePanelHeader">
-                                            <span className="clItemIssueIcon">⚠</span>
-                                            <span className="clItemIssueTitle">Issue flagged — complete details below</span>
-                                          </div>
-                                          <div className="clItemPriorityRow">
-                                            <span className="clItemPriorityLabel">Priority</span>
-                                            {[
-                                              { key: "High",   label: "High",   icon: "🔴" },
-                                              { key: "Medium", label: "Medium", icon: "🟡" },
-                                              { key: "Low",    label: "Low",    icon: "🔵" },
-                                            ].map(({ key: p, label: pLabel, icon }) => {
-                                              const active = (ci.priority || "High") === p;
-                                              return (
-                                                <button
-                                                  key={p}
-                                                  type="button"
-                                                  className={`clPriorityPill clPriorityPill${p}${active ? " clPriorityPillActive" : ""}`}
-                                                  onClick={() => makeSetPriority(idx, p)}
-                                                  aria-pressed={active}
-                                                  title={`Set priority to ${pLabel}`}>
-                                                  {icon} {pLabel}
-                                                </button>
-                                              );
-                                            })}
-                                          </div>
-                                          <div className="clItemCommentRow">
-                                            <input
-                                              type="file"
-                                              accept="image/*"
-                                              multiple
-                                              className="fileInput"
-                                              ref={(el) => { fileRefs.current[ciRefKey] = el; }}
-                                              onChange={(e) => { addCiPhoto(idx, e.target.files); e.target.value = ""; }}
-                                            />
-                                            <input
-                                              type="text"
-                                              className="clItemComment clItemCommentRequired"
-                                              value={ci.comment || ""}
-                                              onChange={(e) => makeSetComment(idx, e.target.value)}
-                                              placeholder="Describe what was observed…"
-                                              aria-label={`Issue description for ${ci.label}`}
-                                              aria-required="true"
-                                            />
-                                            <button
-                                              type="button"
-                                              className={`clItemPhotoBtn${ciPhotos.length > 0 ? " clItemPhotoBtnHasPhotos" : ""}`}
-                                              title={ciPhotos.length > 0 ? `${ciPhotos.length} photo${ciPhotos.length > 1 ? "s" : ""} attached` : "Add photo"}
-                                              disabled={ciPhotos.length >= PHOTO_LIMIT}
-                                              onClick={() => fileRefs.current[ciRefKey]?.click()}
-                                              aria-label={`Add photo for ${ci.label}`}>
-                                              📷{ciPhotos.length > 0 ? ` ${ciPhotos.length}` : ""}
-                                            </button>
-                                          </div>
-                                        </div>
-                                      )}
-                                      {/* ── Note row for passed / pending items ── */}
-                                      {!isFail && (
-                                        <div className="clItemCommentRow">
-                                          <input
-                                            type="file"
-                                            accept="image/*"
-                                            multiple
-                                            className="fileInput"
-                                            ref={(el) => { fileRefs.current[ciRefKey] = el; }}
-                                            onChange={(e) => { addCiPhoto(idx, e.target.files); e.target.value = ""; }}
-                                          />
-                                          <input
-                                            type="text"
-                                            className="clItemComment"
-                                            value={ci.comment || ""}
-                                            onChange={(e) => makeSetComment(idx, e.target.value)}
-                                            placeholder={commentPlaceholder}
-                                            aria-label={`Comment for ${ci.label}`}
-                                          />
-                                          <button
-                                            type="button"
-                                            className={`clItemPhotoBtn${ciPhotos.length > 0 ? " clItemPhotoBtnHasPhotos" : ""}`}
-                                            title={ciPhotos.length > 0 ? `${ciPhotos.length} photo${ciPhotos.length > 1 ? "s" : ""} attached` : "Add photo"}
-                                            disabled={ciPhotos.length >= PHOTO_LIMIT}
-                                            onClick={() => fileRefs.current[ciRefKey]?.click()}
-                                            aria-label={`Add photo for ${ci.label}`}>
-                                            📷{ciPhotos.length > 0 ? ` ${ciPhotos.length}` : ""}
-                                          </button>
-                                        </div>
-                                      )}
+                                      <div className="clItemCommentRow">
+                                        <input
+                                          type="text"
+                                          className="clItemComment"
+                                          value={ci.comment || ""}
+                                          onChange={(e) => makeSetComment(idx, e.target.value)}
+                                          placeholder={commentPlaceholder}
+                                          aria-label={`Comment for ${ci.label}`}
+                                        />
+                                        <input
+                                          type="file"
+                                          accept="image/*"
+                                          multiple
+                                          className="fileInput"
+                                          ref={(el) => { fileRefs.current[ciRefKey] = el; }}
+                                          onChange={(e) => { addCiPhoto(idx, e.target.files); e.target.value = ""; }}
+                                        />
+                                        <button
+                                          type="button"
+                                          className={`clItemPhotoBtn${ciPhotos.length > 0 ? " clItemPhotoBtnHasPhotos" : ""}`}
+                                          title={ciPhotos.length > 0 ? `${ciPhotos.length} photo${ciPhotos.length > 1 ? "s" : ""} attached` : "Add photo"}
+                                          disabled={ciPhotos.length >= PHOTO_LIMIT}
+                                          onClick={() => fileRefs.current[ciRefKey]?.click()}
+                                          aria-label={`Add photo for ${ci.label}`}>
+                                          📷{ciPhotos.length > 0 ? ` ${ciPhotos.length}` : ""}
+                                        </button>
+                                      </div>
                                       {ciPhotos.length > 0 && (
                                         <div className="ciPhotoStrip">
                                           {ciPhotos.map(p => (
@@ -21132,18 +21023,31 @@ export default function App() {
                 {/* Equipment only — Utensils is Step 3 */}
                 {locationType === "Concession" ? (
                   <GuideSection title="🔧 Equipments"
-                    items={[]}
-                    inspection={inspection} setInspection={setInspection}
-                    allowCustom sectionKey="equipment" coldEquipmentMap={COLD_EQUIPMENT} inspectionId={savedReportId} venueId={activeVenueId} siteName={siteName} onError={msg => { setError(msg); setTimeout(() => setError(""), 8000); }} onOpenPrintLabels={({ tag, label }) => setPage("print_labels")}
-                    emptyHint="Tap a button below to add each piece of equipment at this location. Your list will be remembered for next time."
-                    defaultOpen={true} />
+                    items={[
+                      { path: ["equipment", "coolers"],    label: "Coolers — thermometer, temp display, bottom racks, gaskets, door handles, lights, leakage, wheels?" },
+                      { path: ["equipment", "freezer"],    label: "Freezer — temp display, bottom racks, gaskets, door handles, lights, leakage, wheels, fans, ice build-up?" },
+                      { path: ["equipment", "warmers"],    label: "Warmers — clean, working properly?" },
+                      { path: ["equipment", "grill"],      label: "Grill — clean, working, grease trap clean, knobs OK, no gas smell?" },
+                      { path: ["equipment", "fryer"],      label: "Fryer — oil quality, oil level, temp correct, basket clean, drain clean, no leaks?" },
+                      { path: ["equipment", "hood"],       label: "Hood — clean, working, no leakage, hood lights OK?" },
+                      { path: ["equipment", "iceMaker"],   label: "Ice Maker Machine — clean, door works, scoop/holder, ice bucket, filter OK, no leakage?" },
+                      { path: ["equipment", "otherEquip"], label: "Other Equipments — clean and in good condition?" },
+                    ]} inspection={inspection} setInspection={setInspection}
+                    allowCustom sectionKey="equipment" coldEquipmentMap={COLD_EQUIPMENT} inspectionId={savedReportId} venueId={activeVenueId} siteName={siteName} onError={msg => { setError(msg); setTimeout(() => setError(""), 8000); }} onOpenPrintLabels={({ tag, label }) => setPage("print_labels")} defaultOpen={true} />
                 ) : locationType === "Bar" ? (
                   <GuideSection title="🔧 Equipments — Bar"
-                    items={[]}
-                    inspection={inspection} setInspection={setInspection}
-                    allowCustom sectionKey="equipment" coldEquipmentMap={BAR_COLD_EQUIPMENT} inspectionId={savedReportId} venueId={activeVenueId} siteName={siteName} onError={msg => { setError(msg); setTimeout(() => setError(""), 8000); }} onOpenPrintLabels={({ tag, label }) => setPage("print_labels")}
-                    emptyHint="Tap a button below to add each piece of equipment at this bar. Your list will be remembered for next time."
-                    defaultOpen={true} />
+                    items={[
+                      { path: ["equipment", "backBarCooler"], label: "Back Bar Cooler — clean inside, bottles organized?" },
+                      { path: ["equipment", "beerWalkInCooler"], label: "Beer Walk-In Cooler — door seals tight, kegs stored safely?" },
+                      { path: ["equipment", "underBarCooler"], label: "Under-Bar Cooler — clean, door closing properly?" },
+                      { path: ["equipment", "iceBin"], label: "Ice Bin / Ice Machine — clean, no mold or pink slime, scoop stored handle-up?" },
+                      { path: ["equipment", "wineChiller"], label: "Wine Chiller — temp correct, bottles stored properly?" },
+                      { path: ["equipment", "glasswasher"], label: "Glass Washer — working, sanitizer level OK, no cloudy glasses?" },
+                      { path: ["equipment", "threeCompSink"], label: "Dish Washing Sink — 3 sections set up: wash, rinse, sanitize?" },
+                      { path: ["equipment", "beerLines"], label: "Beer Lines / Taps — cleaned recently, no buildup or off smell?" },
+                      { path: ["equipment", "ecolab"], label: "Chemicals (Ecolab) — correct concentration, properly labeled, stored away from food?" },
+                    ]} inspection={inspection} setInspection={setInspection}
+                    allowCustom sectionKey="equipment" coldEquipmentMap={BAR_COLD_EQUIPMENT} inspectionId={savedReportId} venueId={activeVenueId} siteName={siteName} onError={msg => { setError(msg); setTimeout(() => setError(""), 8000); }} onOpenPrintLabels={({ tag, label }) => setPage("print_labels")} defaultOpen={true} />
                 ) : locationType === "Event / Temporary" ? (
                   <GuideSection
                     title="🔧 Equipments — Event / Temporary"
