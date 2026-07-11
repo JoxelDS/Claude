@@ -1710,7 +1710,7 @@ const NOTE_TYPES = {
 };
 
 const STATUS_OPTIONS = ["OK", "Fail", "Needs Attention", "Critical Violation", "Corrected On-Site", "Maintenance", "Off / Not In Use", "N/A"];
-const PHOTO_LIMIT = 6;
+const PHOTO_LIMIT = 30;
 const PHOTO_MAX_MB = 8;
 
 const INSPECTION_TYPES = ["Event Day", "Post Event", "Regular Inspection"];
@@ -17330,6 +17330,8 @@ async function processPhotoFiles(files, { limit, inspId, venueId, firebaseOn, on
         previewUrl = storageUrl;
       } else {
         failCount++;
+        // Firebase upload failed — fall back to small thumbnail so Firestore doesn't exceed 1MB
+        previewUrl = thumbUrl;
       }
     }
     photos.push({ id: photoId, name: f.name, sizeMb: bytesToMb(f.size), type: "image/jpeg", previewUrl, thumbUrl, exportUrl: exportUrl || thumbUrl, tag: "" });
@@ -18292,7 +18294,7 @@ function LiveHaccpPanel({ reportId, subsFromParent }) {
 }
 
 /* ── Inline Chat (embedded in the report output section) ───── */
-function InlineChat({ currentUser, sessionId }) {
+function InlineChat({ currentUser, sessionId, siteName, siteNumber }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
@@ -18323,6 +18325,8 @@ function InlineChat({ currentUser, sessionId }) {
       text: input.trim(),
       sentAt: new Date().toISOString(),
       fromSupervisor: false,
+      siteName: siteName || "",
+      siteNumber: siteNumber || "",
     };
     await saveChatMessage(msg);
     setInput("");
@@ -19457,7 +19461,7 @@ export default function App() {
     } catch { /* ignore — audio context may be blocked */ }
   }
 
-  function fireNotification(id, type, title, body, url) {
+  function fireNotification(id, type, title, body, url, meta = {}) {
     // Track seen IDs to avoid duplicate notifications
     let seen = [];
     try { seen = JSON.parse(localStorage.getItem(NOTIF_SEEN_KEY) || "[]"); } catch { seen = []; }
@@ -19467,7 +19471,7 @@ export default function App() {
     localStorage.setItem(NOTIF_SEEN_KEY, JSON.stringify(seen.slice(-500)));
 
     // Add to in-app notification list
-    setNotifItems(prev => [{ id, type, title, body, url, ts: Date.now() }, ...prev].slice(0, 50));
+    setNotifItems(prev => [{ id, type, title, body, url, ts: Date.now(), ...meta }, ...prev].slice(0, 50));
 
     // Play alert sound
     playBeep();
@@ -19569,7 +19573,7 @@ export default function App() {
         for (const r of reports) {
           const nid = `problem_${r.id}`;
           const site = r.siteName || r.location || "this location";
-          fireNotification(nid, "problem_report", "Problem Report Submitted", `New problem flagged at ${site}.`, null);
+          fireNotification(nid, "problem_report", "⚠️ Problem Report", `${site}${r.siteNumber ? ` · Unit ${r.siteNumber}` : ""}: ${r.description?.slice(0, 80) || "New problem flagged."}`, null, { siteName: r.siteName || "", siteNumber: r.siteNumber || "" });
         }
       } catch { /* ignore */ }
 
@@ -19580,7 +19584,10 @@ export default function App() {
         const msgs = snap.docs.map(d => d.data()).filter(m => !m.fromSupervisor);
         for (const m of msgs) {
           const nid = `chat_${m.id}`;
-          fireNotification(nid, "chat", "New Supervisor Chat Message", m.text?.slice(0, 80) || "A new message was sent.", null);
+          const locationTag = m.siteNumber ? `Unit ${m.siteNumber}` : (m.siteName || "");
+          const title = m.sender ? `💬 ${m.sender}` : "💬 Inspector Message";
+          const body = `${locationTag ? `[${locationTag}] ` : ""}${m.text?.slice(0, 100) || "A new message was sent."}`;
+          fireNotification(nid, "chat", title, body, null, { siteName: m.siteName || "", siteNumber: m.siteNumber || "", sender: m.sender || "" });
         }
       } catch { /* ignore */ }
     }
@@ -20555,20 +20562,20 @@ export default function App() {
       const out = {};
       for (const [k, v] of Object.entries(obj)) {
         if (k === "photos" && Array.isArray(v)) {
-          out.photos = v.map(p => ({
-            id: p.id,
-            name: p.name,
-            sizeMb: p.sizeMb,
-            type: p.type,
-            tag: p.tag || "",
-            // Prefer HTTPS Storage URLs (no size concern).
-            // If Storage upload failed, previewUrl is a compressed thumbnail base64 (~5-15 KB)
-            // from compressImage(f, 200, 0.3) — small enough to keep in Firestore as a fallback.
-            // Only drop it if it's empty/undefined.
-            previewUrl: p.previewUrl || "",
-            // Keep thumbUrl so exports can fall back to it when Storage URL is unavailable.
-            thumbUrl: p.thumbUrl || "",
-          }));
+          out.photos = v.map(p => {
+            // If previewUrl is a huge data URL (Firebase upload failed), fall back to thumbUrl
+            // to avoid exceeding Firestore's 1MB document limit.
+            const safePreview = p.previewUrl?.startsWith("http")
+              ? p.previewUrl                          // Firebase Storage URL — always safe
+              : (p.previewUrl && p.previewUrl.length < 80000)
+                ? p.previewUrl                        // small data URL — keep it
+                : (p.thumbUrl || "");                 // large data URL — use thumb instead
+            return {
+              id: p.id, name: p.name, sizeMb: p.sizeMb, type: p.type, tag: p.tag || "",
+              previewUrl: safePreview,
+              thumbUrl: p.thumbUrl || "",
+            };
+          });
         } else {
           out[k] = stripPhotos(v);
         }
@@ -20912,37 +20919,46 @@ export default function App() {
             {notifItems.length === 0 ? (
               <div style={{ padding: "1.2rem 1rem", color: "#94a3b8", fontSize: "0.85rem", textAlign: "center" }}>No notifications</div>
             ) : (
-              notifItems.map(n => (
+              notifItems.map(n => {
+                const accentColor = n.type === "chat" ? "#3b82f6" : n.type === "problem_report" ? "#ef4444" : n.type === "assignment" ? "#8b5cf6" : "#f59e0b";
+                const locationLine = [n.siteName, n.siteNumber ? `Unit ${n.siteNumber}` : ""].filter(Boolean).join(" · ");
+                return (
                 <div
                   key={n.id}
-                  style={{ display: "flex", alignItems: "stretch", borderLeft: `3px solid ${n.type === "chat" ? "#3b82f6" : n.type === "problem_report" ? "#ef4444" : "#f59e0b"}` }}
+                  style={{ display: "flex", alignItems: "stretch", borderLeft: `3px solid ${accentColor}`, borderBottom: "1px solid #f1f5f9" }}
                 >
                   <button
                     type="button"
                     className="dropdownMenuItem"
-                    style={{ flex: 1, flexDirection: "column", alignItems: "flex-start", gap: 2, borderLeft: "none", borderRadius: 0 }}
+                    style={{ flex: 1, flexDirection: "column", alignItems: "flex-start", gap: 3, borderLeft: "none", borderRadius: 0, padding: "0.55rem 0.75rem" }}
                     onClick={() => {
                       setNotifItems(prev => prev.filter(x => x.id !== n.id));
                       setNotifOpen(false);
-                      setPage("admin");
+                      if (n.type === "chat" || n.type === "problem_report") setPage("admin");
                     }}
                   >
-                    <span style={{ fontWeight: 600, fontSize: "0.82rem" }}>{n.title}</span>
-                    <span style={{ fontSize: "0.77rem", color: "#64748b", whiteSpace: "normal", textAlign: "left" }}>{n.body}</span>
-                    <span style={{ fontSize: "0.72rem", color: "#94a3b8" }}>
+                    <span style={{ fontWeight: 700, fontSize: "0.83rem", color: "#1e293b" }}>{n.title}</span>
+                    {locationLine && (
+                      <span style={{ fontSize: "0.74rem", fontWeight: 600, color: accentColor, background: `${accentColor}18`, borderRadius: 4, padding: "1px 6px", display: "inline-block" }}>
+                        📍 {locationLine}
+                      </span>
+                    )}
+                    <span style={{ fontSize: "0.76rem", color: "#475569", whiteSpace: "normal", textAlign: "left", lineHeight: 1.4 }}>{n.body}</span>
+                    <span style={{ fontSize: "0.7rem", color: "#94a3b8" }}>
                       {new Date(n.ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                     </span>
                   </button>
                   <button
                     type="button"
                     onClick={e => { e.stopPropagation(); setNotifItems(prev => prev.filter(x => x.id !== n.id)); }}
-                    style={{ background: "none", border: "none", cursor: "pointer", padding: "0 0.75rem", color: "#94a3b8", fontSize: "1rem", flexShrink: 0, alignSelf: "center" }}
+                    style={{ background: "none", border: "none", cursor: "pointer", padding: "0 0.75rem", color: "#94a3b8", fontSize: "1.1rem", flexShrink: 0, alignSelf: "center" }}
                     aria-label="Dismiss notification"
                   >
                     ×
                   </button>
                 </div>
-              ))
+                );
+              })
             )}
           </div>
         )}
@@ -22574,7 +22590,7 @@ export default function App() {
                 {/* ── Live HACCP Temperature Logs — real-time from supervisor ── */}
                 <LiveHaccpPanel reportId={savedReportId} subsFromParent={liveHaccpSubs} />
                 {/* ── Inline Supervisor Chat — scoped to this report's ID ── */}
-                <InlineChat currentUser={currentUser} sessionId={savedReportId} />
+                <InlineChat currentUser={currentUser} sessionId={savedReportId} siteName={siteName} siteNumber={siteNumber} />
               </>
             )}
           </div>

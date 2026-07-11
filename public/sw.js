@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v87: Excel photos — HD quality 1024x768 display, wider columns, taller rows
-const CACHE_NAME = "sdx-inspect-v87";
+// v88: Unlimited photos (30/report), save-size fix deployed, better notification cards
+const CACHE_NAME = "sdx-inspect-v88";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
