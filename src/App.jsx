@@ -16602,8 +16602,14 @@ function EquipmentIntelPage({ onBack, managedVenueId }) {
   );
 }
 
-function OrphanedHaccpSection({ orphanedSubs, setOrphanedSubs, orphanCreating, setOrphanCreating, orphanCreated, setOrphanCreated }) {
+function HaccpAdminSection() {
   const today = new Date().toISOString().slice(0, 10);
+  const [subs, setSubs] = useState(null);   // all today's HACCP submissions
+  const [recs, setRecs] = useState([]);      // all inspection records
+  const [busy, setBusy] = useState({});      // { [subId]: true }
+  const [done, setDone] = useState({});      // { [subId]: string } — success message
+  // Reassign form state: { subId, siteName, siteNumber, floor, locationType, supervisorName }
+  const [reassigning, setReassigning] = useState(null);
 
   useEffect(() => {
     async function load() {
@@ -16613,112 +16619,184 @@ function OrphanedHaccpSection({ orphanedSubs, setOrphanedSubs, orphanCreating, s
           loadHistory(undefined, { pageSize: 500 }),
         ]);
         const todaySubs = allSubs.filter(s => (s.submittedAt || "").startsWith(today));
-        const reportIds = new Set(allRecs.map(r => r.id));
-        // A submission is orphaned if its linked reportId has no saved inspection record
-        // Group by reportId to avoid showing duplicates for the same missing report
-        const byReport = {};
-        for (const s of todaySubs) {
-          const rid = s.reportId || s.sessionId || "";
-          if (!rid || reportIds.has(rid)) continue; // report exists — skip
-          if (!byReport[rid]) byReport[rid] = s; // keep first submission per missing report
-        }
-        setOrphanedSubs(Object.values(byReport));
-      } catch {
-        setOrphanedSubs([]);
-      }
+        // Deduplicate by submission id
+        const seen = new Set();
+        const unique = todaySubs.filter(s => { if (seen.has(s.id)) return false; seen.add(s.id); return true; });
+        setSubs(unique);
+        setRecs(allRecs);
+      } catch { setSubs([]); }
     }
     load();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  async function createBlankReport(sub) {
-    const rid = sub.reportId || sub.sessionId || `orphan_${Date.now()}`;
-    setOrphanCreating(prev => ({ ...prev, [rid]: true }));
+  function makeBlankRecord({ id, siteName, siteNumber, floor, locationType, supervisorName, supervisorPhone }) {
+    return {
+      id,
+      savedAt: new Date().toISOString(),
+      savedByHash: "",
+      noteType: "inspection",
+      inspectionType: "Post Event",
+      inspectionDate: today,
+      inspectorName: "",
+      participantName: "",
+      siteName: siteName || "",
+      siteNumber: siteNumber || "",
+      supervisorName: supervisorName || "",
+      sitePhone: supervisorPhone || "",
+      floor: floor || "",
+      locationType: locationType || "Concession",
+      restaurantLicense: "",
+      licenseMissing: false,
+      eventName: "",
+      overallStatus: "Pending Review",
+      actionItems: [],
+      rawNotes: "",
+      suppliesNeeded: [],
+      location: siteName || siteNumber || "Unknown",
+      context: {},
+      temps: {},
+      foodTemps: {},
+      foodTempNames: {},
+      inspection: { _notesPhotos: [] },
+      photoCount: 0,
+      _autoCreatedFromHaccp: true,
+    };
+  }
+
+  // Create a new blank report and re-link this HACCP submission to it
+  async function reassignToNewReport(sub, { siteName, siteNumber, floor, locationType }) {
+    setBusy(p => ({ ...p, [sub.id]: true }));
     try {
-      const record = {
-        id: rid,
-        savedAt: new Date().toISOString(),
-        savedByHash: "",
-        noteType: "inspection",
-        inspectionType: "Post Event",
-        inspectionDate: today,
-        inspectorName: "",
-        participantName: "",
-        siteName: sub.site || "",
-        siteNumber: sub.unit || "",
-        supervisorName: sub.supervisorName || "",
-        sitePhone: sub.supervisorPhone || "",
-        floor: sub.floor || "",
-        locationType: sub.locationType || "Concession",
-        restaurantLicense: "",
-        licenseMissing: false,
-        eventName: "",
-        overallStatus: "Pending Review",
-        actionItems: [],
-        rawNotes: "",
-        suppliesNeeded: [],
-        location: sub.site || sub.unit || "Unknown",
-        context: {},
-        temps: {},
-        foodTemps: {},
-        foodTempNames: {},
-        inspection: { _notesPhotos: [] },
-        photoCount: 0,
-        _autoCreatedFromHaccp: true,
-        _haccpSubmittedBy: sub.supervisorName || "",
-        _haccpSubmittedAt: sub.submittedAt || "",
-      };
-      await saveOneInspection(record);
-      setOrphanCreated(prev => ({ ...prev, [rid]: true }));
-      // Remove from orphaned list
-      setOrphanedSubs(prev => (prev || []).filter(s => (s.reportId || s.sessionId) !== rid));
+      const newReportId = `manual_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+      // Create the blank inspection record
+      const rec = makeBlankRecord({ id: newReportId, siteName, siteNumber, floor, locationType, supervisorName: sub.supervisorName, supervisorPhone: sub.supervisorPhone });
+      await saveOneInspection(rec);
+      // Save a copy of the HACCP submission pointing to the new report
+      const updatedSub = { ...sub, id: `${sub.id}_reassigned_${Date.now()}`, reportId: newReportId, sessionId: newReportId };
+      await saveHaccpSubmission(updatedSub);
+      setDone(p => ({ ...p, [sub.id]: `✓ Moved to ${siteName}${siteNumber ? ` #${siteNumber}` : ""}` }));
+      setRecs(prev => [...prev, rec]);
+      setReassigning(null);
     } catch (e) {
-      alert("Failed to create report: " + (e?.message || String(e)));
+      alert("Failed: " + (e?.message || String(e)));
     } finally {
-      setOrphanCreating(prev => ({ ...prev, [rid]: false }));
+      setBusy(p => ({ ...p, [sub.id]: false }));
     }
   }
 
-  if (!orphanedSubs || orphanedSubs.length === 0) return null;
+  // Create a blank report for an orphaned submission (no existing report)
+  async function createReport(sub) {
+    setBusy(p => ({ ...p, [sub.id]: true }));
+    try {
+      const rid = sub.reportId || sub.sessionId || `orphan_${Date.now()}`;
+      const rec = makeBlankRecord({ id: rid, siteName: sub.site, siteNumber: sub.unit, floor: sub.floor, locationType: sub.locationType, supervisorName: sub.supervisorName, supervisorPhone: sub.supervisorPhone });
+      await saveOneInspection(rec);
+      setDone(p => ({ ...p, [sub.id]: `✓ Report created for ${sub.site || sub.unit}` }));
+      setRecs(prev => [...prev, rec]);
+    } catch (e) {
+      alert("Failed: " + (e?.message || String(e)));
+    } finally {
+      setBusy(p => ({ ...p, [sub.id]: false }));
+    }
+  }
+
+  if (!subs) return null; // still loading
+  if (subs.length === 0) return null;
+
+  const reportMap = Object.fromEntries(recs.map(r => [r.id, r]));
 
   return (
-    <div className="card adminCard" style={{ marginBottom: 24, borderLeft: "4px solid #f59e0b" }}>
-      <div className="cardHeader" style={{ background: "#fffbeb" }}>
-        <div className="cardTitle" style={{ color: "#92400e" }}>⚠️ HACCP Logs Without Inspection Reports ({orphanedSubs.length})</div>
+    <div className="card adminCard" style={{ marginBottom: 24, borderLeft: "4px solid #3b82f6" }}>
+      <div className="cardHeader" style={{ background: "#eff6ff" }}>
+        <div className="cardTitle" style={{ color: "#1e3a8a" }}>🌡️ Today's HACCP Submissions ({subs.length})</div>
       </div>
       <div className="cardBody">
-        <p style={{ margin: "0 0 1rem", fontSize: "0.85rem", color: "#78350f" }}>
-          These supervisors submitted HACCP temperature logs today but the inspector's report failed to save. Tap <strong>Create Report</strong> to generate a blank inspection record — the HACCP data will link automatically.
+        <p style={{ margin: "0 0 1rem", fontSize: "0.85rem", color: "#1e40af" }}>
+          All HACCP temperature logs submitted today. If a supervisor scanned the wrong QR code, use <strong>Move to correct report</strong> to reassign their data.
         </p>
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {orphanedSubs.map(sub => {
-            const rid = sub.reportId || sub.sessionId || sub.id;
-            const created = orphanCreated[rid];
-            const creating = orphanCreating[rid];
+          {subs.map(sub => {
+            const rid = sub.reportId || sub.sessionId || "";
+            const linkedRec = rid ? reportMap[rid] : null;
+            const isOrphaned = rid && !linkedRec;
+            const isDone = done[sub.id];
+            const isBusy = busy[sub.id];
+            const isReassigning = reassigning?.subId === sub.id;
+
             return (
-              <div key={rid} style={{ background: "#fef3c7", border: "1px solid #fcd34d", borderRadius: 8, padding: "0.75rem 1rem", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-                <div style={{ flex: 1, minWidth: 200 }}>
-                  <div style={{ fontWeight: 700, fontSize: "0.9rem", color: "#1e293b" }}>
-                    {sub.site || "Unknown Location"}{sub.unit ? ` · Unit ${sub.unit}` : ""}
+              <div key={sub.id} style={{ background: isOrphaned ? "#fef3c7" : "#f0f9ff", border: `1px solid ${isOrphaned ? "#fcd34d" : "#bae6fd"}`, borderRadius: 8, padding: "0.75rem 1rem" }}>
+                <div style={{ display: "flex", alignItems: "flex-start", gap: 10, flexWrap: "wrap" }}>
+                  <div style={{ flex: 1, minWidth: 180 }}>
+                    <div style={{ fontWeight: 700, fontSize: "0.9rem", color: "#1e293b" }}>
+                      👤 {sub.supervisorName || "Unknown supervisor"}
+                    </div>
+                    <div style={{ fontSize: "0.8rem", color: "#475569", marginTop: 2 }}>
+                      Submitted {sub.submittedAt ? new Date(sub.submittedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—"}
+                    </div>
+                    <div style={{ fontSize: "0.78rem", marginTop: 4 }}>
+                      {linkedRec ? (
+                        <span style={{ color: "#15803d", fontWeight: 600 }}>
+                          ✓ Linked to: {linkedRec.siteName || linkedRec.location}{linkedRec.siteNumber ? ` #${linkedRec.siteNumber}` : ""}
+                        </span>
+                      ) : isOrphaned ? (
+                        <span style={{ color: "#b45309", fontWeight: 600 }}>⚠️ No report found — was: {sub.site || sub.unit || "unknown"}</span>
+                      ) : (
+                        <span style={{ color: "#94a3b8" }}>Submitted via: {sub.site || sub.unit || "—"}</span>
+                      )}
+                    </div>
                   </div>
-                  <div style={{ fontSize: "0.8rem", color: "#64748b", marginTop: 2 }}>
-                    👤 {sub.supervisorName || "Unknown supervisor"}{sub.floor ? ` · ${sub.floor}` : ""}{sub.locationType ? ` · ${sub.locationType}` : ""}
-                  </div>
-                  <div style={{ fontSize: "0.75rem", color: "#94a3b8", marginTop: 2 }}>
-                    Submitted: {sub.submittedAt ? new Date(sub.submittedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—"}
-                  </div>
+                  {isDone ? (
+                    <span style={{ color: "#15803d", fontWeight: 700, fontSize: "0.82rem", alignSelf: "center" }}>{isDone}</span>
+                  ) : (
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignSelf: "center" }}>
+                      {isOrphaned && (
+                        <button type="button" className="btn" disabled={isBusy}
+                          onClick={() => createReport(sub)}
+                          style={{ fontSize: "0.8rem", padding: "0.3rem 0.7rem", background: "#d97706", border: "none" }}>
+                          {isBusy ? "…" : "📋 Create report"}
+                        </button>
+                      )}
+                      <button type="button" className="btn btnGhost" disabled={isBusy}
+                        onClick={() => setReassigning(isReassigning ? null : { subId: sub.id, siteName: sub.site || "", siteNumber: sub.unit || "", floor: sub.floor || "", locationType: sub.locationType || "Concession" })}
+                        style={{ fontSize: "0.8rem", padding: "0.3rem 0.7rem" }}>
+                        {isReassigning ? "Cancel" : "✏️ Move to correct report"}
+                      </button>
+                    </div>
+                  )}
                 </div>
-                {created ? (
-                  <span style={{ color: "#15803d", fontWeight: 700, fontSize: "0.85rem" }}>✓ Report created</span>
-                ) : (
-                  <button
-                    type="button"
-                    className="btn"
-                    disabled={creating}
-                    onClick={() => createBlankReport(sub)}
-                    style={{ background: "#d97706", border: "none", whiteSpace: "nowrap", flexShrink: 0 }}
-                  >
-                    {creating ? "Creating…" : "📋 Create Report"}
-                  </button>
+
+                {/* Inline reassign form */}
+                {isReassigning && (
+                  <div style={{ marginTop: 12, padding: "0.75rem", background: "#fff", borderRadius: 6, border: "1px solid #cbd5e1", display: "flex", flexDirection: "column", gap: 8 }}>
+                    <div style={{ fontWeight: 600, fontSize: "0.83rem", color: "#1e293b", marginBottom: 2 }}>
+                      Move {sub.supervisorName}'s HACCP log to:
+                    </div>
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      <input placeholder="Restaurant name (e.g. Tostitos)"
+                        value={reassigning.siteName}
+                        onChange={e => setReassigning(p => ({ ...p, siteName: e.target.value }))}
+                        style={{ flex: 2, minWidth: 140, padding: "0.35rem 0.6rem", border: "1.5px solid #cbd5e1", borderRadius: 6, fontSize: "0.85rem" }} />
+                      <input placeholder="Unit # (e.g. 119)"
+                        value={reassigning.siteNumber}
+                        onChange={e => setReassigning(p => ({ ...p, siteNumber: e.target.value }))}
+                        style={{ flex: 1, minWidth: 80, padding: "0.35rem 0.6rem", border: "1.5px solid #cbd5e1", borderRadius: 6, fontSize: "0.85rem" }} />
+                      <input placeholder="Floor (e.g. Floor 1)"
+                        value={reassigning.floor}
+                        onChange={e => setReassigning(p => ({ ...p, floor: e.target.value }))}
+                        style={{ flex: 1, minWidth: 80, padding: "0.35rem 0.6rem", border: "1.5px solid #cbd5e1", borderRadius: 6, fontSize: "0.85rem" }} />
+                    </div>
+                    <div style={{ display: "flex", gap: 8, marginTop: 2 }}>
+                      <button type="button" className="btn" disabled={!reassigning.siteName && !reassigning.siteNumber}
+                        onClick={() => reassignToNewReport(sub, reassigning)}
+                        style={{ fontSize: "0.82rem", padding: "0.35rem 0.9rem" }}>
+                        ✓ Save &amp; Move
+                      </button>
+                      <button type="button" className="btn btnGhost" onClick={() => setReassigning(null)}
+                        style={{ fontSize: "0.82rem", padding: "0.35rem 0.7rem" }}>
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
                 )}
               </div>
             );
@@ -16728,6 +16806,8 @@ function OrphanedHaccpSection({ orphanedSubs, setOrphanedSubs, orphanCreating, s
     </div>
   );
 }
+// Keep alias so AdminPanel JSX still works
+function OrphanedHaccpSection() { return <HaccpAdminSection />; }
 
 function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVenueName, venueSettings, onSaveVenueSettings }) {
   const [users, setUsers] = useState([]);
@@ -16918,14 +16998,7 @@ function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVe
         </button>
 
         {/* ── HACCP Submissions without a matching Inspection Report ───────── */}
-        <OrphanedHaccpSection
-          orphanedSubs={orphanedSubs}
-          setOrphanedSubs={setOrphanedSubs}
-          orphanCreating={orphanCreating}
-          setOrphanCreating={setOrphanCreating}
-          orphanCreated={orphanCreated}
-          setOrphanCreated={setOrphanCreated}
-        />
+        <OrphanedHaccpSection />
 
         {/* Inspection Schedule Settings */}
         <div className="card adminCard" style={{ marginBottom: 24 }}>

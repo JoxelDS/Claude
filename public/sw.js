@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v91: Auto-create inspection report on every HACCP form submission
-const CACHE_NAME = "sdx-inspect-v91";
+// v92: HACCP admin panel — move submissions to correct location, reassign supervisor
+const CACHE_NAME = "sdx-inspect-v92";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
