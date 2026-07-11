@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v82: Equipment & License Intelligence — AI analysis of all inspections
-const CACHE_NAME = "sdx-inspect-v82";
+// v83: Equipment Intel: 10-inspection threshold, brand/source detail, admin license edit, new-license prompt
+const CACHE_NAME = "sdx-inspect-v83";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",

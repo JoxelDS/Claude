@@ -15948,18 +15948,28 @@ function GlobalAdminPanel({ currentUser, onBack, onManageVenue, onEnterVenue, on
 
 /* ── Admin Panel ──────────────────────────────────────────── */
 // ── Equipment & License Intelligence Page ─────────────────────────────────────
-function EquipmentIntelPage({ onBack, managedVenueId }) {
-  const [status, setStatus] = useState("idle"); // "idle" | "loading" | "done" | "error"
-  const [progress, setProgress] = useState("");
-  const [result, setResult] = useState(null);
-  const [error, setError] = useState("");
+// ── Firestore helpers for license registry ────────────────────────────────────
+async function loadLicenseRegistry(venueId) {
+  try {
+    const vid = venueId || VENUE_ID;
+    const ref = doc(db, "venues", vid, "sharedMemory", "licenseRegistry");
+    const snap = await getDoc(ref);
+    return snap.exists() ? (snap.data().locations || {}) : {};
+  } catch { return {}; }
+}
+async function saveLicenseRegistry(venueId, locations) {
+  const vid = venueId || VENUE_ID;
+  const ref = doc(db, "venues", vid, "sharedMemory", "licenseRegistry");
+  await setDoc(ref, { locations, updatedAt: new Date().toISOString() }, { merge: true });
+}
 
-  const BUILT_IN_EQUIP_KEYS = new Set([
-    "coolers","freezer","warmers","grill","fryer","hood","iceMaker","otherEquip",
-    "doubleDoorCooler","doubleDoorFreezer","walkInCooler","walkInFreezer","prepCooler",
-    "ovens","threeCompSink","ecolab","backBarCooler","beerWalkInCooler","underBarCooler",
-    "iceBin","wineChiller",
-  ]);
+function EquipmentIntelPage({ onBack, managedVenueId }) {
+  const [status, setStatus] = useState("idle");
+  const [progress, setProgress] = useState("");
+  const [result, setResult] = useState(null); // { summary, concessions, subcontractors, noLicense, totalLocations, totalInspections, rawLocationMap }
+  const [error, setError] = useState("");
+  // Admin license editing: { [locationKey]: { editing: bool, value: string, saving: bool, saved: bool } }
+  const [licenseEdits, setLicenseEdits] = useState({});
 
   const EQUIP_LABELS = {
     coolers: "Cooler", freezer: "Freezer", warmers: "Warmer", grill: "Grill",
@@ -15970,6 +15980,8 @@ function EquipmentIntelPage({ onBack, managedVenueId }) {
     ecolab: "Ecolab", backBarCooler: "Back Bar Cooler", beerWalkInCooler: "Beer Walk-In Cooler",
     underBarCooler: "Under-Bar Cooler", iceBin: "Ice Bin", wineChiller: "Wine Chiller",
   };
+
+  const MIN_INSPECTIONS = 10; // equipment must appear in at least 10 inspections to be considered permanent
 
   async function runAnalysis() {
     let apiKey = localStorage.getItem("sdx_openai_key") || "";
@@ -15986,7 +15998,6 @@ function EquipmentIntelPage({ onBack, managedVenueId }) {
     setResult(null);
 
     try {
-      // Step 1: load all inspections
       setProgress("Loading all inspections…");
       const venueId = managedVenueId || VENUE_ID;
       const col = venueId === "default"
@@ -15994,15 +16005,19 @@ function EquipmentIntelPage({ onBack, managedVenueId }) {
         : collection(db, "venues", venueId, "inspections");
       const snap = await getDocs(query(col, orderBy("savedAt", "desc")));
       const allRecs = snap.docs.map(d => d.data());
-      setProgress(`Loaded ${allRecs.length} inspections. Building summary…`);
 
-      // Step 2: build a compact summary per location for the AI
+      // Also load any admin-edited licenses from registry
+      const registry = await loadLicenseRegistry(venueId);
+
+      setProgress(`Loaded ${allRecs.length} inspections. Building equipment & license data…`);
+
+      // Build per-location data from all records
       const locationMap = {};
       for (const rec of allRecs) {
         if (!rec.siteName) continue;
         const locType = rec.locationType || "";
         if (!["Concession", "Subcontractor", "Bar"].includes(locType)) continue;
-        const key = `${rec.siteName}|${rec.siteNumber || ""}`;
+        const key = `${rec.siteName}|||${rec.siteNumber || ""}`;
         if (!locationMap[key]) {
           locationMap[key] = {
             siteName: rec.siteName,
@@ -16010,87 +16025,89 @@ function EquipmentIntelPage({ onBack, managedVenueId }) {
             locationType: locType,
             floor: rec.floor || "",
             inspectionCount: 0,
-            licenses: new Set(),
-            equipmentCounts: {}, // label -> count of inspections it appeared
+            licenses: {},    // licenseNumber -> count
+            equipmentData: {}, // label -> { count, brands: Set, sources: Set }
+            adminLicense: registry[key]?.license || null,
           };
         }
         const loc = locationMap[key];
         loc.inspectionCount++;
+        // Track license frequency
         if (rec.restaurantLicense && rec.restaurantLicense !== "NO LICENSE") {
-          loc.licenses.add(rec.restaurantLicense.trim());
+          const lic = rec.restaurantLicense.trim();
+          loc.licenses[lic] = (loc.licenses[lic] || 0) + 1;
         }
-        // Count equipment appearances
+        // Track equipment with full details
         const equip = rec.inspection?.equipment || {};
         for (const [k, v] of Object.entries(equip)) {
           if (!v || v.notApplicable) continue;
           const label = EQUIP_LABELS[k] || v.label || k;
-          loc.equipmentCounts[label] = (loc.equipmentCounts[label] || 0) + 1;
+          if (!loc.equipmentData[label]) loc.equipmentData[label] = { count: 0, brands: new Set(), sources: new Set(), counts: [] };
+          const ed = loc.equipmentData[label];
+          ed.count++;
+          if (v.brand) ed.brands.add(v.brand.trim());
+          if (v.equipSource) ed.sources.add(v.equipSource);
+          if (v.count) ed.counts.push(String(v.count));
         }
       }
 
       const totalInspections = allRecs.length;
-      const locations = Object.values(locationMap).sort((a, b) =>
-        b.inspectionCount - a.inspectionCount
-      );
+      const locations = Object.values(locationMap).sort((a, b) => b.inspectionCount - a.inspectionCount);
 
-      // Build compact text for AI
+      // Build AI prompt — only send equipment that appeared in ≥10 inspections
       const locationSummaries = locations.map(loc => {
-        const freq = loc.inspectionCount;
-        const equip = Object.entries(loc.equipmentCounts)
-          .filter(([, c]) => c >= Math.max(1, freq * 0.4)) // appeared in ≥40% of inspections
-          .sort((a, b) => b[1] - a[1])
-          .map(([label, c]) => `${label} (${c}/${freq} inspections)`)
-          .join(", ");
-        const licenses = [...loc.licenses].join(", ") || "none recorded";
-        return `- ${loc.siteName}${loc.siteNumber ? ` #${loc.siteNumber}` : ""} [${loc.locationType}, ${loc.floor}] — ${freq} inspections | Equipment: ${equip || "none"} | License: ${licenses}`;
-      }).join("\n");
+        const permanentEquip = Object.entries(loc.equipmentData)
+          .filter(([, ed]) => ed.count >= MIN_INSPECTIONS)
+          .sort((a, b) => b[1].count - a[1].count)
+          .map(([label, ed]) => {
+            const brandStr = ed.brands.size ? ` [brand: ${[...ed.brands].join("/")}]` : "";
+            const srcStr = ed.sources.size ? ` [source: ${[...ed.sources].join("/")}]` : "";
+            return `${label} (${ed.count} inspections)${brandStr}${srcStr}`;
+          })
+          .join("; ");
+        const licEntries = Object.entries(loc.licenses).sort((a, b) => b[1] - a[1]);
+        const licStr = loc.adminLicense
+          ? `ADMIN OVERRIDE: ${loc.adminLicense}`
+          : licEntries.map(([l, c]) => `${l} (seen ${c}x)`).join(", ") || "NONE";
+        return `• ${loc.siteName}${loc.siteNumber ? ` #${loc.siteNumber}` : ""} [${loc.locationType}, ${loc.floor}] — ${loc.inspectionCount} total inspections\n  Equipment (≥10 inspections): ${permanentEquip || "none qualify"}\n  License: ${licStr}`;
+      }).join("\n\n");
 
       setProgress("Sending to AI for analysis…");
 
-      const prompt = `You are a food-safety compliance analyst at a large sports venue (Hard Rock Stadium / similar).
-You have data from ${totalInspections} kitchen inspections across ${locations.length} permanent or recurring concession/subcontractor locations.
-
-Here is a compact summary — each line is one location with how many times each equipment item appeared in their inspections:
+      const prompt = `You are a food-safety compliance analyst at a large sports venue.
+You have data from ${totalInspections} kitchen inspections. For each concession/subcontractor location below, equipment is only listed if it appeared in AT LEAST 10 inspections — these are confirmed permanent items.
 
 ${locationSummaries}
 
-Your task:
-1. For each location, determine the PERMANENT or HIGHLY RECURRING equipment list (items that appear in ≥50% of inspections = consider it permanent equipment). If a location only has 1-2 inspections, still list what was found.
-2. Identify the restaurant license(s) for each location accurately. If multiple different licenses appear, note which is most recent or most common.
-3. Flag any locations with NO license on record.
-4. Group subcontractors vs concessions.
+Tasks:
+1. For each location list ONLY the equipment items provided (do not add, remove, or guess any — they are already pre-filtered to ≥10 inspections). Include brand and source info if available.
+2. Determine the single correct license: if "ADMIN OVERRIDE" is present use that; otherwise use the most frequently seen license number. If multiple different licenses exist and no override, flag as "multiple".
+3. Flag locations with no license data.
+4. Separate into concessions vs subcontractors. Bars go with concessions.
 
-Return a JSON object with this structure:
+Return JSON only:
 {
-  "summary": "2-3 sentence overall summary of findings",
-  "concessions": [
-    {
-      "name": "...",
-      "unit": "...",
-      "floor": "...",
-      "inspections": 0,
-      "permanentEquipment": ["Grill", "Fryer", ...],
-      "license": "FD-...",
-      "licenseStatus": "on_file" | "missing" | "multiple"
-    }
-  ],
-  "subcontractors": [ ...same shape... ],
-  "noLicense": ["location name", ...],
+  "summary": "2-3 sentence overall summary",
+  "concessions": [{
+    "name": "...", "unit": "...", "floor": "...", "locationType": "...",
+    "inspections": 0,
+    "permanentEquipment": [{ "label": "Grill", "brand": "...", "source": "Facility", "seenIn": 0 }],
+    "license": "FD-... or null",
+    "licenseStatus": "on_file|missing|multiple|admin_override",
+    "allLicensesSeen": ["FD-001", "FD-002"]
+  }],
+  "subcontractors": [...same shape...],
+  "noLicense": ["location name"],
   "totalLocations": 0,
   "totalInspections": 0
 }
 
-Be accurate — only include equipment as permanent if the data supports it. Do not guess or invent equipment or license numbers.`;
+Do NOT invent or modify any data. Use exactly what is provided.`;
 
-      const body = {
-        model: "gpt-4o",
-        max_tokens: 4000,
-        messages: [{ role: "user", content: prompt }],
-      };
       const res = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey.trim()}` },
-        body: JSON.stringify(body),
+        body: JSON.stringify({ model: "gpt-4o", max_tokens: 6000, messages: [{ role: "user", content: prompt }] }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -16102,6 +16119,12 @@ Be accurate — only include equipment as permanent if the data supports it. Do 
       const jsonMatch = content.match(/\{[\s\S]*\}/);
       if (!jsonMatch) throw new Error("Could not parse AI response.");
       const parsed = JSON.parse(jsonMatch[0]);
+      // Attach rawLocationMap for license editing reference
+      parsed.rawLocationMap = Object.fromEntries(
+        Object.entries(locationMap).map(([k, v]) => [k, {
+          licenses: v.licenses, adminLicense: v.adminLicense, inspectionCount: v.inspectionCount,
+        }])
+      );
       setResult(parsed);
       setStatus("done");
     } catch (e) {
@@ -16110,35 +16133,123 @@ Be accurate — only include equipment as permanent if the data supports it. Do 
     }
   }
 
-  const licBadge = (loc) => {
-    if (loc.licenseStatus === "missing") return <span style={{ background: "#fef2f2", color: "#dc2626", border: "1px solid #fecaca", borderRadius: 6, padding: "1px 7px", fontSize: "0.72rem", fontWeight: 700 }}>⚠ No License</span>;
-    if (loc.licenseStatus === "multiple") return <span style={{ background: "#fffbeb", color: "#b45309", border: "1px solid #fde68a", borderRadius: 6, padding: "1px 7px", fontSize: "0.72rem", fontWeight: 700 }}>⚠ Multiple</span>;
-    return <span style={{ background: "#f0fdf4", color: "#15803d", border: "1px solid #bbf7d0", borderRadius: 6, padding: "1px 7px", fontSize: "0.72rem", fontWeight: 700 }}>✓ {loc.license || "On File"}</span>;
+  async function saveLicense(locKey, locName, licenseValue) {
+    setLicenseEdits(p => ({ ...p, [locKey]: { ...p[locKey], saving: true } }));
+    const venueId = managedVenueId || VENUE_ID;
+    const registry = await loadLicenseRegistry(venueId);
+    registry[locKey] = { license: licenseValue.trim(), locationName: locName, updatedAt: new Date().toISOString() };
+    await saveLicenseRegistry(venueId, registry);
+    // Update result in-place so UI reflects the new license
+    setResult(prev => {
+      if (!prev) return prev;
+      const updateList = (list) => (list || []).map(loc => {
+        const lk = `${loc.name}|||${loc.unit || ""}`;
+        if (lk !== locKey) return loc;
+        return { ...loc, license: licenseValue.trim(), licenseStatus: "admin_override" };
+      });
+      return { ...prev, concessions: updateList(prev.concessions), subcontractors: updateList(prev.subcontractors) };
+    });
+    setLicenseEdits(p => ({ ...p, [locKey]: { editing: false, value: licenseValue, saving: false, saved: true } }));
+    setTimeout(() => setLicenseEdits(p => ({ ...p, [locKey]: { ...p[locKey], saved: false } })), 2500);
+  }
+
+  const LicenseBadge = ({ loc, locKey }) => {
+    const edit = licenseEdits[locKey] || {};
+    if (edit.editing) {
+      return (
+        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          <input
+            autoFocus
+            type="text"
+            value={edit.value ?? loc.license ?? ""}
+            onChange={e => setLicenseEdits(p => ({ ...p, [locKey]: { ...p[locKey], value: e.target.value } }))}
+            onKeyDown={e => { if (e.key === "Enter") saveLicense(locKey, loc.name, edit.value ?? ""); if (e.key === "Escape") setLicenseEdits(p => ({ ...p, [locKey]: { editing: false } })); }}
+            style={{ border: "1px solid #2563eb", borderRadius: 6, padding: "2px 8px", fontSize: "0.78rem", width: 160 }}
+            placeholder="Enter license #"
+          />
+          <button type="button" onClick={() => saveLicense(locKey, loc.name, edit.value ?? "")} disabled={edit.saving}
+            style={{ background: "#1d4ed8", color: "#fff", border: "none", borderRadius: 6, padding: "2px 10px", fontSize: "0.72rem", cursor: "pointer" }}>
+            {edit.saving ? "…" : "Save"}
+          </button>
+          <button type="button" onClick={() => setLicenseEdits(p => ({ ...p, [locKey]: { editing: false } }))}
+            style={{ background: "none", border: "1px solid #e2e8f0", borderRadius: 6, padding: "2px 8px", fontSize: "0.72rem", cursor: "pointer", color: "#6b7280" }}>
+            Cancel
+          </button>
+        </div>
+      );
+    }
+    const badgeStyle = (bg, color, border) => ({
+      display: "inline-flex", alignItems: "center", gap: 5,
+      background: bg, color, border: `1px solid ${border}`,
+      borderRadius: 6, padding: "2px 8px", fontSize: "0.72rem", fontWeight: 700, cursor: "pointer",
+    });
+    const startEdit = () => setLicenseEdits(p => ({ ...p, [locKey]: { editing: true, value: loc.license || "" } }));
+    if (edit.saved) return <span style={badgeStyle("#f0fdf4","#15803d","#bbf7d0")}>✓ Saved!</span>;
+    if (loc.licenseStatus === "admin_override") return <span onClick={startEdit} title="Admin override — click to edit" style={badgeStyle("#eff6ff","#1d4ed8","#bfdbfe")}>🔒 {loc.license} ✏</span>;
+    if (loc.licenseStatus === "missing") return <span onClick={startEdit} title="No license — click to add" style={badgeStyle("#fef2f2","#dc2626","#fecaca")}>⚠ No License — click to add ✏</span>;
+    if (loc.licenseStatus === "multiple") return (
+      <span onClick={startEdit} title={`Multiple licenses seen: ${(loc.allLicensesSeen||[]).join(", ")} — click to set correct one`} style={badgeStyle("#fffbeb","#b45309","#fde68a")}>
+        ⚠ Multiple ({(loc.allLicensesSeen||[]).length}) — click to fix ✏
+      </span>
+    );
+    return <span onClick={startEdit} title="Click to edit license" style={badgeStyle("#f0fdf4","#15803d","#bbf7d0")}>✓ {loc.license} ✏</span>;
   };
 
-  const LocationCard = ({ loc }) => (
-    <div style={{ border: "1px solid #e2e8f0", borderRadius: 10, padding: "12px 14px", marginBottom: 10, background: "#fff" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8, flexWrap: "wrap" }}>
-        <div>
-          <span style={{ fontWeight: 700, fontSize: "0.9rem", color: "var(--sdx-navy)" }}>{loc.name}{loc.unit ? ` #${loc.unit}` : ""}</span>
-          {loc.floor && <span style={{ fontSize: "0.75rem", color: "#6b7280", marginLeft: 8 }}>{loc.floor}</span>}
-        </div>
-        <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
-          <span style={{ fontSize: "0.72rem", color: "#6b7280" }}>{loc.inspections} inspections</span>
-          {licBadge(loc)}
-        </div>
-      </div>
-      {loc.permanentEquipment?.length > 0 && (
-        <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: 5 }}>
-          {loc.permanentEquipment.map(eq => (
-            <span key={eq} style={{ background: "#eff6ff", color: "#1d4ed8", border: "1px solid #bfdbfe", borderRadius: 6, padding: "2px 8px", fontSize: "0.72rem", fontWeight: 600 }}>
-              {eq}
+  const LocationCard = ({ loc }) => {
+    const locKey = `${loc.name}|||${loc.unit || ""}`;
+    return (
+      <div style={{ border: "1px solid #e2e8f0", borderRadius: 10, padding: "14px 16px", marginBottom: 10, background: "#fff" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
+          <div>
+            <span style={{ fontWeight: 700, fontSize: "0.92rem", color: "var(--sdx-navy)" }}>
+              {loc.name}{loc.unit ? ` #${loc.unit}` : ""}
             </span>
-          ))}
+            {loc.floor && <span style={{ fontSize: "0.75rem", color: "#6b7280", marginLeft: 8 }}>{loc.floor}</span>}
+          </div>
+          <span style={{ fontSize: "0.72rem", color: "#6b7280", whiteSpace: "nowrap" }}>{loc.inspections} inspections</span>
         </div>
-      )}
-    </div>
-  );
+
+        {/* License row */}
+        <div style={{ marginBottom: 10, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <span style={{ fontSize: "0.75rem", color: "#6b7280", fontWeight: 600 }}>📋 License:</span>
+          <LicenseBadge loc={loc} locKey={locKey} />
+          {loc.allLicensesSeen?.length > 1 && (
+            <span style={{ fontSize: "0.68rem", color: "#9ca3af" }}>
+              (also seen: {loc.allLicensesSeen.filter(l => l !== loc.license).join(", ")})
+            </span>
+          )}
+        </div>
+
+        {/* Equipment */}
+        {loc.permanentEquipment?.length > 0 ? (
+          <div>
+            <div style={{ fontSize: "0.72rem", color: "#6b7280", fontWeight: 600, marginBottom: 5 }}>
+              🔧 Permanent Equipment ({loc.permanentEquipment.length} items — confirmed ≥{MIN_INSPECTIONS} inspections each):
+            </div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+              {loc.permanentEquipment.map((eq, i) => {
+                const label = typeof eq === "string" ? eq : eq.label;
+                const brand = typeof eq === "object" ? eq.brand : null;
+                const src = typeof eq === "object" ? eq.source : null;
+                const seen = typeof eq === "object" ? eq.seenIn : null;
+                return (
+                  <span key={i} title={[brand && `Brand: ${brand}`, src && `Source: ${src}`, seen && `Seen in ${seen} inspections`].filter(Boolean).join(" · ")}
+                    style={{ background: "#eff6ff", color: "#1d4ed8", border: "1px solid #bfdbfe", borderRadius: 6, padding: "3px 9px", fontSize: "0.72rem", fontWeight: 600, cursor: seen ? "help" : "default" }}>
+                    {label}{brand ? ` · ${brand}` : ""}
+                    {seen ? <span style={{ fontWeight: 400, marginLeft: 4, color: "#60a5fa" }}>{seen}×</span> : null}
+                  </span>
+                );
+              })}
+            </div>
+          </div>
+        ) : (
+          <div style={{ fontSize: "0.78rem", color: "#9ca3af", fontStyle: "italic" }}>
+            No equipment confirmed in ≥{MIN_INSPECTIONS} inspections yet
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div style={{ minHeight: "100vh", background: "#f8fafc" }}>
@@ -16146,17 +16257,17 @@ Be accurate — only include equipment as permanent if the data supports it. Do 
         <button type="button" onClick={onBack} style={{ background: "rgba(255,255,255,0.15)", border: "none", color: "#fff", borderRadius: 8, padding: "6px 12px", cursor: "pointer", fontSize: "0.85rem" }}>← Back</button>
         <div>
           <div style={{ fontWeight: 700, fontSize: "1.05rem" }}>🧠 Equipment & License Intelligence</div>
-          <div style={{ fontSize: "0.75rem", color: "#93c5fd" }}>AI-powered analysis of all inspection records</div>
+          <div style={{ fontSize: "0.75rem", color: "#93c5fd" }}>AI-powered · Equipment confirmed ≥{MIN_INSPECTIONS} inspections · Click any license to edit</div>
         </div>
       </div>
 
-      <div style={{ maxWidth: 760, margin: "0 auto", padding: "20px 16px" }}>
+      <div style={{ maxWidth: 800, margin: "0 auto", padding: "20px 16px" }}>
         {status === "idle" && (
           <div style={{ textAlign: "center", padding: "40px 20px" }}>
             <div style={{ fontSize: "3rem", marginBottom: 12 }}>🧠</div>
             <div style={{ fontWeight: 700, fontSize: "1.1rem", color: "var(--sdx-navy)", marginBottom: 8 }}>Analyze All Inspection Data</div>
-            <div style={{ color: "#6b7280", fontSize: "0.88rem", marginBottom: 24, maxWidth: 440, margin: "0 auto 24px" }}>
-              Reads every past inspection and uses AI to build an accurate equipment inventory and license registry for each permanent concession and subcontractor.
+            <div style={{ color: "#6b7280", fontSize: "0.88rem", maxWidth: 480, margin: "0 auto 24px", lineHeight: 1.6 }}>
+              Reads every past inspection. Equipment is only listed as permanent if it appeared in <strong>at least {MIN_INSPECTIONS} inspections</strong> at that location. Licenses are determined from inspection history — admins can override them.
             </div>
             <button type="button" onClick={runAnalysis}
               style={{ background: "#064e3b", color: "#fff", border: "none", borderRadius: 10, padding: "12px 28px", fontSize: "0.95rem", fontWeight: 700, cursor: "pointer" }}>
@@ -16168,7 +16279,7 @@ Be accurate — only include equipment as permanent if the data supports it. Do 
         {status === "loading" && (
           <div style={{ textAlign: "center", padding: "40px 20px" }}>
             <div style={{ fontSize: "2rem", marginBottom: 12 }}>⏳</div>
-            <div style={{ fontWeight: 600, color: "var(--sdx-navy)", marginBottom: 8 }}>Analyzing…</div>
+            <div style={{ fontWeight: 600, color: "var(--sdx-navy)", marginBottom: 8 }}>Analyzing all inspections…</div>
             <div style={{ color: "#6b7280", fontSize: "0.85rem" }}>{progress}</div>
           </div>
         )}
@@ -16190,35 +16301,35 @@ Be accurate — only include equipment as permanent if the data supports it. Do 
 
             <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
               {[
-                { label: "Total Inspections", val: result.totalInspections },
-                { label: "Locations Analyzed", val: result.totalLocations },
-                { label: "No License", val: result.noLicense?.length || 0, warn: (result.noLicense?.length || 0) > 0 },
+                { label: "Inspections Analyzed", val: result.totalInspections },
+                { label: "Locations Found", val: result.totalLocations },
+                { label: "Missing License", val: result.noLicense?.length || 0, warn: (result.noLicense?.length || 0) > 0 },
               ].map(s => (
-                <div key={s.label} style={{ flex: 1, minWidth: 120, background: s.warn ? "#fef2f2" : "#fff", border: `1px solid ${s.warn ? "#fecaca" : "#e2e8f0"}`, borderRadius: 10, padding: "12px 14px", textAlign: "center" }}>
-                  <div style={{ fontSize: "1.4rem", fontWeight: 800, color: s.warn ? "#dc2626" : "var(--sdx-navy)" }}>{s.val}</div>
-                  <div style={{ fontSize: "0.72rem", color: "#6b7280" }}>{s.label}</div>
+                <div key={s.label} style={{ flex: 1, minWidth: 110, background: s.warn ? "#fef2f2" : "#fff", border: `1px solid ${s.warn ? "#fecaca" : "#e2e8f0"}`, borderRadius: 10, padding: "12px 14px", textAlign: "center" }}>
+                  <div style={{ fontSize: "1.5rem", fontWeight: 800, color: s.warn ? "#dc2626" : "var(--sdx-navy)" }}>{s.val}</div>
+                  <div style={{ fontSize: "0.7rem", color: "#6b7280" }}>{s.label}</div>
                 </div>
               ))}
             </div>
 
             {result.noLicense?.length > 0 && (
               <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 10, padding: "12px 16px", marginBottom: 16 }}>
-                <div style={{ fontWeight: 700, color: "#dc2626", marginBottom: 6 }}>⚠️ Locations with No License on Record</div>
+                <div style={{ fontWeight: 700, color: "#dc2626", marginBottom: 6 }}>⚠️ No License on Record</div>
                 {result.noLicense.map(n => <div key={n} style={{ fontSize: "0.85rem", color: "#991b1b" }}>• {n}</div>)}
               </div>
             )}
 
             {result.concessions?.length > 0 && (
-              <div style={{ marginBottom: 20 }}>
+              <div style={{ marginBottom: 24 }}>
                 <div style={{ fontWeight: 700, fontSize: "1rem", color: "var(--sdx-navy)", marginBottom: 10, borderBottom: "2px solid #e2e8f0", paddingBottom: 6 }}>
-                  🏪 Concessions ({result.concessions.length})
+                  🏪 Concessions & Bars ({result.concessions.length})
                 </div>
                 {result.concessions.map(loc => <LocationCard key={`${loc.name}${loc.unit}`} loc={loc} />)}
               </div>
             )}
 
             {result.subcontractors?.length > 0 && (
-              <div style={{ marginBottom: 20 }}>
+              <div style={{ marginBottom: 24 }}>
                 <div style={{ fontWeight: 700, fontSize: "1rem", color: "var(--sdx-navy)", marginBottom: 10, borderBottom: "2px solid #e2e8f0", paddingBottom: 6 }}>
                   🤝 Subcontractors ({result.subcontractors.length})
                 </div>
@@ -16226,8 +16337,8 @@ Be accurate — only include equipment as permanent if the data supports it. Do 
               </div>
             )}
 
-            <button type="button" onClick={() => setStatus("idle")}
-              style={{ background: "#f1f5f9", color: "#475569", border: "1px solid #e2e8f0", borderRadius: 8, padding: "8px 18px", cursor: "pointer", fontSize: "0.85rem", marginTop: 8 }}>
+            <button type="button" onClick={() => { setStatus("idle"); setResult(null); }}
+              style={{ background: "#f1f5f9", color: "#475569", border: "1px solid #e2e8f0", borderRadius: 8, padding: "8px 18px", cursor: "pointer", fontSize: "0.85rem", marginTop: 4 }}>
               🔄 Re-run Analysis
             </button>
           </div>
@@ -21201,7 +21312,31 @@ export default function App() {
                   className="input"
                   value={restaurantLicense === "NO LICENSE" ? "" : restaurantLicense}
                   disabled={restaurantLicense === "NO LICENSE"}
-                  onBlur={(e) => smartFieldCorrect("field-restaurantLicense", e.target.value)}
+                  onBlur={async (e) => {
+                    smartFieldCorrect("field-restaurantLicense", e.target.value);
+                    const entered = e.target.value.trim().toUpperCase();
+                    if (!entered || entered === "NO LICENSE") return;
+                    // Check if this license is new (not in registry or siteMap)
+                    try {
+                      const vid = activeVenueId || VENUE_ID;
+                      const registry = await loadLicenseRegistry(vid);
+                      const allKnownLicenses = new Set([
+                        ...Object.values(registry).map(r => (r.license || "").toUpperCase()),
+                      ]);
+                      // Also check localStorage siteMap
+                      try {
+                        const sm = JSON.parse(localStorage.getItem(`sdx_siteMap_${vid}`) || localStorage.getItem("sdx_siteMap") || "{}");
+                        Object.values(sm).forEach(s => { if (s.restaurantLicense) allKnownLicenses.add(s.restaurantLicense.toUpperCase()); });
+                      } catch {}
+                      if (allKnownLicenses.size > 0 && !allKnownLicenses.has(entered)) {
+                        if (window.confirm(`"${entered}" is a license number not previously seen in our records.\n\nIs this a NEW license for ${siteName || "this location"}?\n\nPress OK to keep it, or Cancel to clear the field.`)) {
+                          // keep — user confirmed it's new
+                        } else {
+                          setRestaurantLicense("");
+                        }
+                      }
+                    } catch {}
+                  }}
                   onChange={(e) => setRestaurantLicense(e.target.value.toUpperCase())}
                   placeholder={restaurantLicense === "NO LICENSE" ? "Marked as No License on File" : "e.g., FD-2024-00123"}
                   style={{
