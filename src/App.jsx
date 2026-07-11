@@ -2605,30 +2605,28 @@ function buildActionItems({ inspection, rawNotes, foodTemps: ftArg, foodTempName
     }
     // Collect specific checklist items marked NO — use problem description so
     // readers immediately understand what the actual issue is.
-    const failedChecks = Array.isArray(node.checklist)
-      ? node.checklist.filter(c => c.value === "NO").map(c => {
-          const base = c.problem || c.label;
-          let desc = c.comment?.trim() ? `${base} — ${c.comment.trim()}` : base;
-          if (c.correctiveAction?.trim()) desc += ` [Corrective action: ${c.correctiveAction.trim()}]`;
-          return desc;
-        })
-      : [];
+    const failedChecklist = Array.isArray(node.checklist) ? node.checklist.filter(c => c.value === "NO") : [];
+    const failedChecks = failedChecklist.map(c => {
+      const base = c.problem || c.label;
+      let desc = c.comment?.trim() ? `${base} — ${c.comment.trim()}` : base;
+      if (c.correctiveAction?.trim()) desc += ` [Corrective action: ${c.correctiveAction.trim()}]`;
+      return desc;
+    });
+    // Collect photos from failed checklist sub-items
+    const ciPhotos = failedChecklist.flatMap(c => (c.photos || []).map(p => ({ url: p.previewUrl || p.thumbUrl || p.url || p.dataUrl, thumb: p.thumbUrl || p.previewUrl || p.url || p.dataUrl })));
     const isFail = node.status === "Fail" || node.status === "Needs Attention" || node.status === "Not Clean" || node.status === "Maintenance";
     if (!isFail && failedChecks.length === 0) return;
-    // Build issue description: list specific failed items, then other notes
     const failDetail = failedChecks.length > 0
       ? failedChecks.join(", ")
       : (sanitizeText(node.notes) || "Issue noted");
     const otherNote = sanitizeText(node.notes);
-    const issueText = failedChecks.length > 0 && otherNote
-      ? `${failDetail} — Other: ${otherNote}`
-      : failDetail;
     items.push({
       issue: `${label}: ${failDetail}`,
       notes: otherNote || "",
       owner: "", due: "",
       priority: node.status === "Maintenance" ? "Maintenance" : (node.status === "Fail" || node.status === "Not Clean" || failedChecks.length > 0) ? "High" : "Med",
       photos: mapByPath[pathKey] || [],
+      ciPhotos,
     });
   };
   // ── FACILITIES ────────────────────────────────────────────────
@@ -3642,6 +3640,14 @@ function RenderedOutput({ noteType, useCase, context, inspection, rawNotes, insp
                    a.priority === "Maintenance" ? "Maintenance" :
                    `${lbl.medium} ${lbl.priority}`}
                 </span>
+                {a.ciPhotos?.length > 0 && (
+                  <div style={{display:"flex",gap:6,flexWrap:"wrap",marginTop:6}}>
+                    {a.ciPhotos.map((p, pi) => (
+                      <img key={pi} src={p.thumb} alt="issue photo" onClick={() => setLightboxSrc(p.url || p.thumb)}
+                        style={{width:52,height:52,objectFit:"cover",borderRadius:6,border:"1px solid #e2e8f0",cursor:"zoom-in"}} />
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           ))}
@@ -3703,9 +3709,12 @@ function RenderedOutput({ noteType, useCase, context, inspection, rawNotes, insp
 
       {/* Photo Lightbox */}
       {lightboxSrc && (
-        <div onClick={() => setLightboxSrc(null)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.9)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",cursor:"zoom-out"}}>
-          <img src={lightboxSrc} alt="Full size photo" style={{maxWidth:"95vw",maxHeight:"95vh",objectFit:"contain",borderRadius:8,boxShadow:"0 4px 32px rgba(0,0,0,0.5)"}} />
-          <button onClick={() => setLightboxSrc(null)} style={{position:"absolute",top:16,right:16,background:"rgba(255,255,255,0.15)",border:"none",color:"#fff",fontSize:28,width:44,height:44,borderRadius:"50%",cursor:"pointer",lineHeight:1}}>×</button>
+        <div onClick={() => setLightboxSrc(null)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.92)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",cursor:"zoom-out",flexDirection:"column",gap:16}}>
+          <img src={lightboxSrc} alt="Full size photo" onClick={e => e.stopPropagation()} style={{maxWidth:"92vw",maxHeight:"80vh",objectFit:"contain",borderRadius:8,boxShadow:"0 4px 32px rgba(0,0,0,0.5)",cursor:"default"}} />
+          <div style={{display:"flex",gap:12}} onClick={e => e.stopPropagation()}>
+            <a href={lightboxSrc} download="photo.jpg" style={{padding:"10px 22px",background:"#fff",color:"#1e293b",borderRadius:8,fontWeight:700,fontSize:"0.9rem",textDecoration:"none",display:"flex",alignItems:"center",gap:6}}>⬇ Download</a>
+            <button onClick={() => setLightboxSrc(null)} style={{padding:"10px 22px",background:"rgba(255,255,255,0.15)",border:"none",color:"#fff",borderRadius:8,fontWeight:700,fontSize:"0.9rem",cursor:"pointer"}}>✕ Close</button>
+          </div>
         </div>
       )}
     </div>
@@ -16632,6 +16641,7 @@ function GuideSection({ title, items, inspection, setInspection, allowCustom, se
   const [newMaintName, setNewMaintName] = useState("");
   const [open, setOpen] = useState(defaultOpen);
   const [expandedDetails, setExpandedDetails] = useState({});
+  const [lightboxUrl, setLightboxUrl] = useState(null);
   const toggleDetails = (key) => setExpandedDetails(p => ({ ...p, [key]: !p[key] }));
 
   // Build a map of { [itemKey]: { brand, kitchenArea } } from autofill memory for this site
@@ -17069,7 +17079,7 @@ function GuideSection({ title, items, inspection, setInspection, allowCustom, se
                                         <div className="ciPhotoStrip">
                                           {ciPhotos.map(p => (
                                             <div key={p.id} className="ciPhotoThumb">
-                                              <img src={p.thumbUrl || p.previewUrl || p.url || p.dataUrl} alt="item photo" />
+                                              <img src={p.thumbUrl || p.previewUrl || p.url || p.dataUrl} alt="item photo" style={{cursor:"zoom-in"}} onClick={() => setLightboxUrl(p.previewUrl || p.thumbUrl || p.url || p.dataUrl)} />
                                               <button
                                                 type="button"
                                                 className="ciPhotoRemove"
@@ -17391,6 +17401,15 @@ function GuideSection({ title, items, inspection, setInspection, allowCustom, se
             );
           })()}
         </>
+      )}
+      {lightboxUrl && (
+        <div onClick={() => setLightboxUrl(null)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.92)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",cursor:"zoom-out",flexDirection:"column",gap:16}}>
+          <img src={lightboxUrl} alt="Full size" onClick={e => e.stopPropagation()} style={{maxWidth:"92vw",maxHeight:"80vh",objectFit:"contain",borderRadius:10,boxShadow:"0 4px 40px rgba(0,0,0,0.6)",cursor:"default"}} />
+          <div style={{display:"flex",gap:12}} onClick={e => e.stopPropagation()}>
+            <a href={lightboxUrl} download="photo.jpg" style={{padding:"10px 22px",background:"#fff",color:"#1e293b",borderRadius:8,fontWeight:700,fontSize:"0.9rem",textDecoration:"none",display:"flex",alignItems:"center",gap:6}}>⬇ Download</a>
+            <button onClick={() => setLightboxUrl(null)} style={{padding:"10px 22px",background:"rgba(255,255,255,0.15)",border:"none",color:"#fff",borderRadius:8,fontWeight:700,fontSize:"0.9rem",cursor:"pointer"}}>✕ Close</button>
+          </div>
+        </div>
       )}
     </div>
   );
