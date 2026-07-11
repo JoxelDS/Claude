@@ -16602,6 +16602,133 @@ function EquipmentIntelPage({ onBack, managedVenueId }) {
   );
 }
 
+function OrphanedHaccpSection({ orphanedSubs, setOrphanedSubs, orphanCreating, setOrphanCreating, orphanCreated, setOrphanCreated }) {
+  const today = new Date().toISOString().slice(0, 10);
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const [allSubs, { list: allRecs }] = await Promise.all([
+          loadHaccpSubmissions(),
+          loadHistory(undefined, { pageSize: 500 }),
+        ]);
+        const todaySubs = allSubs.filter(s => (s.submittedAt || "").startsWith(today));
+        const reportIds = new Set(allRecs.map(r => r.id));
+        // A submission is orphaned if its linked reportId has no saved inspection record
+        // Group by reportId to avoid showing duplicates for the same missing report
+        const byReport = {};
+        for (const s of todaySubs) {
+          const rid = s.reportId || s.sessionId || "";
+          if (!rid || reportIds.has(rid)) continue; // report exists — skip
+          if (!byReport[rid]) byReport[rid] = s; // keep first submission per missing report
+        }
+        setOrphanedSubs(Object.values(byReport));
+      } catch {
+        setOrphanedSubs([]);
+      }
+    }
+    load();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function createBlankReport(sub) {
+    const rid = sub.reportId || sub.sessionId || `orphan_${Date.now()}`;
+    setOrphanCreating(prev => ({ ...prev, [rid]: true }));
+    try {
+      const record = {
+        id: rid,
+        savedAt: new Date().toISOString(),
+        savedByHash: "",
+        noteType: "inspection",
+        inspectionType: "Post Event",
+        inspectionDate: today,
+        inspectorName: "",
+        participantName: "",
+        siteName: sub.site || "",
+        siteNumber: sub.unit || "",
+        supervisorName: sub.supervisorName || "",
+        sitePhone: sub.supervisorPhone || "",
+        floor: sub.floor || "",
+        locationType: sub.locationType || "Concession",
+        restaurantLicense: "",
+        licenseMissing: false,
+        eventName: "",
+        overallStatus: "Pending Review",
+        actionItems: [],
+        rawNotes: "",
+        suppliesNeeded: [],
+        location: sub.site || sub.unit || "Unknown",
+        context: {},
+        temps: {},
+        foodTemps: {},
+        foodTempNames: {},
+        inspection: { _notesPhotos: [] },
+        photoCount: 0,
+        _autoCreatedFromHaccp: true,
+        _haccpSubmittedBy: sub.supervisorName || "",
+        _haccpSubmittedAt: sub.submittedAt || "",
+      };
+      await saveOneInspection(record);
+      setOrphanCreated(prev => ({ ...prev, [rid]: true }));
+      // Remove from orphaned list
+      setOrphanedSubs(prev => (prev || []).filter(s => (s.reportId || s.sessionId) !== rid));
+    } catch (e) {
+      alert("Failed to create report: " + (e?.message || String(e)));
+    } finally {
+      setOrphanCreating(prev => ({ ...prev, [rid]: false }));
+    }
+  }
+
+  if (!orphanedSubs || orphanedSubs.length === 0) return null;
+
+  return (
+    <div className="card adminCard" style={{ marginBottom: 24, borderLeft: "4px solid #f59e0b" }}>
+      <div className="cardHeader" style={{ background: "#fffbeb" }}>
+        <div className="cardTitle" style={{ color: "#92400e" }}>⚠️ HACCP Logs Without Inspection Reports ({orphanedSubs.length})</div>
+      </div>
+      <div className="cardBody">
+        <p style={{ margin: "0 0 1rem", fontSize: "0.85rem", color: "#78350f" }}>
+          These supervisors submitted HACCP temperature logs today but the inspector's report failed to save. Tap <strong>Create Report</strong> to generate a blank inspection record — the HACCP data will link automatically.
+        </p>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {orphanedSubs.map(sub => {
+            const rid = sub.reportId || sub.sessionId || sub.id;
+            const created = orphanCreated[rid];
+            const creating = orphanCreating[rid];
+            return (
+              <div key={rid} style={{ background: "#fef3c7", border: "1px solid #fcd34d", borderRadius: 8, padding: "0.75rem 1rem", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                <div style={{ flex: 1, minWidth: 200 }}>
+                  <div style={{ fontWeight: 700, fontSize: "0.9rem", color: "#1e293b" }}>
+                    {sub.site || "Unknown Location"}{sub.unit ? ` · Unit ${sub.unit}` : ""}
+                  </div>
+                  <div style={{ fontSize: "0.8rem", color: "#64748b", marginTop: 2 }}>
+                    👤 {sub.supervisorName || "Unknown supervisor"}{sub.floor ? ` · ${sub.floor}` : ""}{sub.locationType ? ` · ${sub.locationType}` : ""}
+                  </div>
+                  <div style={{ fontSize: "0.75rem", color: "#94a3b8", marginTop: 2 }}>
+                    Submitted: {sub.submittedAt ? new Date(sub.submittedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—"}
+                  </div>
+                </div>
+                {created ? (
+                  <span style={{ color: "#15803d", fontWeight: 700, fontSize: "0.85rem" }}>✓ Report created</span>
+                ) : (
+                  <button
+                    type="button"
+                    className="btn"
+                    disabled={creating}
+                    onClick={() => createBlankReport(sub)}
+                    style={{ background: "#d97706", border: "none", whiteSpace: "nowrap", flexShrink: 0 }}
+                  >
+                    {creating ? "Creating…" : "📋 Create Report"}
+                  </button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVenueName, venueSettings, onSaveVenueSettings }) {
   const [users, setUsers] = useState([]);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -16624,6 +16751,9 @@ function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVe
   const [scheduleInspector, setScheduleInspector] = useState("");
   const [scheduleNote, setScheduleNote] = useState("");
   const [scheduleAdded, setScheduleAdded] = useState(false);
+  const [orphanedSubs, setOrphanedSubs] = useState(null); // null = not loaded yet
+  const [orphanCreating, setOrphanCreating] = useState({}); // { [subId]: true }
+  const [orphanCreated, setOrphanCreated] = useState({}); // { [subId]: true }
 
   // Load users on mount + auto-refresh every 10s
   useEffect(() => {
@@ -16786,6 +16916,16 @@ function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVe
           </div>
           <span style={{ marginLeft: "auto", color: "#6ee7b7", fontSize: "1.1rem" }}>→</span>
         </button>
+
+        {/* ── HACCP Submissions without a matching Inspection Report ───────── */}
+        <OrphanedHaccpSection
+          orphanedSubs={orphanedSubs}
+          setOrphanedSubs={setOrphanedSubs}
+          orphanCreating={orphanCreating}
+          setOrphanCreating={setOrphanCreating}
+          orphanCreated={orphanCreated}
+          setOrphanCreated={setOrphanCreated}
+        />
 
         {/* Inspection Schedule Settings */}
         <div className="card adminCard" style={{ marginBottom: 24 }}>

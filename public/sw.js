@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v89: Auto-retry save by stripping data URLs if doc too large — no more save failures
-const CACHE_NAME = "sdx-inspect-v89";
+// v90: Admin panel shows orphaned HACCP logs — create blank report for missing inspections
+const CACHE_NAME = "sdx-inspect-v90";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
