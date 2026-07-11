@@ -2604,12 +2604,13 @@ function buildActionItems({ inspection, rawNotes, foodTemps: ftArg, foodTempName
     }
     // Collect specific checklist items marked NO — use problem description so
     // readers immediately understand what the actual issue is.
-    const failedChecks = Array.isArray(node.checklist)
-      ? node.checklist.filter(c => c.value === "NO").map(c => {
-          const base = c.problem || c.label;
-          return c.comment?.trim() ? `${base} (${c.comment.trim()})` : base;
-        })
+    const failedCheckItems = Array.isArray(node.checklist)
+      ? node.checklist.filter(c => c.value === "NO")
       : [];
+    const failedChecks = failedCheckItems.map(c => {
+      const base = c.problem || c.label;
+      return c.comment?.trim() ? `${base} (${c.comment.trim()})` : base;
+    });
     const isFail = node.status === "Fail" || node.status === "Needs Attention" || node.status === "Not Clean" || node.status === "Maintenance";
     if (!isFail && failedChecks.length === 0) return;
     // Build issue description: list specific failed items, then other notes
@@ -2620,10 +2621,23 @@ function buildActionItems({ inspection, rawNotes, foodTemps: ftArg, foodTempName
     const issueText = failedChecks.length > 0 && otherNote
       ? `${failDetail} — Other: ${otherNote}`
       : failDetail;
+    // Use the highest inspector-set priority among failed checklist items,
+    // falling back to the section-level status-derived priority.
+    const PRIO_RANK = { High: 3, Medium: 2, Med: 2, Low: 1, Maintenance: 0 };
+    const ciMaxPriority = failedCheckItems.reduce((best, c) => {
+      const p = c.priority || "High";
+      return (PRIO_RANK[p] || 0) > (PRIO_RANK[best] || 0) ? p : best;
+    }, null);
+    const statusPriority = node.status === "Maintenance" ? "Maintenance"
+      : (node.status === "Fail" || node.status === "Not Clean" || failedChecks.length > 0) ? "High"
+      : "Med";
+    const resolvedPriority = ciMaxPriority && (PRIO_RANK[ciMaxPriority] || 0) > 0
+      ? (ciMaxPriority === "Medium" ? "Med" : ciMaxPriority)
+      : statusPriority;
     items.push({
       issue: `${label}: ${issueText}`,
       owner: "", due: "",
-      priority: node.status === "Maintenance" ? "Maintenance" : (node.status === "Fail" || node.status === "Not Clean" || failedChecks.length > 0) ? "High" : "Med",
+      priority: resolvedPriority,
       photos: mapByPath[pathKey] || [],
     });
   };
@@ -16896,6 +16910,7 @@ function GuideSection({ title, items, inspection, setInspection, allowCustom, se
                                   const ciPhotos = ci.photos || [];
                                   return (
                                     <div key={idx} className={rowClass}>
+                                      {/* ── Item header: label + pass/fail toggle ── */}
                                       <div className="clItemRow">
                                         <span className="checklistLabel">{ci.label}</span>
                                         <button
@@ -16915,54 +16930,94 @@ function GuideSection({ title, items, inspection, setInspection, allowCustom, se
                                           ✕
                                         </button>
                                       </div>
+                                      {/* ── Issue detail panel (failed items only) ── */}
                                       {isFail && (
-                                        <div className="clItemPriorityRow">
-                                          <span className="clItemPriorityLabel">Priority:</span>
-                                          {["High", "Medium", "Low"].map(p => {
-                                            const active = (ci.priority || "High") === p;
-                                            return (
-                                              <button
-                                                key={p}
-                                                type="button"
-                                                className={`clPriorityPill clPriorityPill${p}${active ? " clPriorityPillActive" : ""}`}
-                                                onClick={() => makeSetPriority(idx, p)}
-                                                aria-pressed={active}>
-                                                {p}
-                                              </button>
-                                            );
-                                          })}
+                                        <div className="clItemIssuePanel">
+                                          <div className="clItemIssuePanelHeader">
+                                            <span className="clItemIssueIcon">⚠</span>
+                                            <span className="clItemIssueTitle">Issue flagged — complete details below</span>
+                                          </div>
+                                          <div className="clItemPriorityRow">
+                                            <span className="clItemPriorityLabel">Priority</span>
+                                            {[
+                                              { key: "High",   label: "High",   icon: "🔴" },
+                                              { key: "Medium", label: "Medium", icon: "🟡" },
+                                              { key: "Low",    label: "Low",    icon: "🔵" },
+                                            ].map(({ key: p, label: pLabel, icon }) => {
+                                              const active = (ci.priority || "High") === p;
+                                              return (
+                                                <button
+                                                  key={p}
+                                                  type="button"
+                                                  className={`clPriorityPill clPriorityPill${p}${active ? " clPriorityPillActive" : ""}`}
+                                                  onClick={() => makeSetPriority(idx, p)}
+                                                  aria-pressed={active}
+                                                  title={`Set priority to ${pLabel}`}>
+                                                  {icon} {pLabel}
+                                                </button>
+                                              );
+                                            })}
+                                          </div>
+                                          <div className="clItemCommentRow">
+                                            <input
+                                              type="file"
+                                              accept="image/*"
+                                              multiple
+                                              className="fileInput"
+                                              ref={(el) => { fileRefs.current[ciRefKey] = el; }}
+                                              onChange={(e) => { addCiPhoto(idx, e.target.files); e.target.value = ""; }}
+                                            />
+                                            <input
+                                              type="text"
+                                              className="clItemComment clItemCommentRequired"
+                                              value={ci.comment || ""}
+                                              onChange={(e) => makeSetComment(idx, e.target.value)}
+                                              placeholder="Describe what was observed…"
+                                              aria-label={`Issue description for ${ci.label}`}
+                                              aria-required="true"
+                                            />
+                                            <button
+                                              type="button"
+                                              className={`clItemPhotoBtn${ciPhotos.length > 0 ? " clItemPhotoBtnHasPhotos" : ""}`}
+                                              title={ciPhotos.length > 0 ? `${ciPhotos.length} photo${ciPhotos.length > 1 ? "s" : ""} attached` : "Add photo"}
+                                              disabled={ciPhotos.length >= PHOTO_LIMIT}
+                                              onClick={() => fileRefs.current[ciRefKey]?.click()}
+                                              aria-label={`Add photo for ${ci.label}`}>
+                                              📷{ciPhotos.length > 0 ? ` ${ciPhotos.length}` : ""}
+                                            </button>
+                                          </div>
                                         </div>
                                       )}
-                                      <div className="clItemCommentRow">
-                                        {isFail && (
-                                          <span className="clItemCommentHint">Describe the issue</span>
-                                        )}
-                                        <input
-                                          type="text"
-                                          className="clItemComment"
-                                          value={ci.comment || ""}
-                                          onChange={(e) => makeSetComment(idx, e.target.value)}
-                                          placeholder={isFail ? "What was observed?" : commentPlaceholder}
-                                          aria-label={`Comment for ${ci.label}`}
-                                        />
-                                        <input
-                                          type="file"
-                                          accept="image/*"
-                                          multiple
-                                          className="fileInput"
-                                          ref={(el) => { fileRefs.current[ciRefKey] = el; }}
-                                          onChange={(e) => { addCiPhoto(idx, e.target.files); e.target.value = ""; }}
-                                        />
-                                        <button
-                                          type="button"
-                                          className={`clItemPhotoBtn${ciPhotos.length > 0 ? " clItemPhotoBtnHasPhotos" : ""}`}
-                                          title={ciPhotos.length > 0 ? `${ciPhotos.length} photo${ciPhotos.length > 1 ? "s" : ""} attached` : "Add photo"}
-                                          disabled={ciPhotos.length >= PHOTO_LIMIT}
-                                          onClick={() => fileRefs.current[ciRefKey]?.click()}
-                                          aria-label={`Add photo for ${ci.label}`}>
-                                          📷{ciPhotos.length > 0 ? ` ${ciPhotos.length}` : ""}
-                                        </button>
-                                      </div>
+                                      {/* ── Note row for passed / pending items ── */}
+                                      {!isFail && (
+                                        <div className="clItemCommentRow">
+                                          <input
+                                            type="file"
+                                            accept="image/*"
+                                            multiple
+                                            className="fileInput"
+                                            ref={(el) => { fileRefs.current[ciRefKey] = el; }}
+                                            onChange={(e) => { addCiPhoto(idx, e.target.files); e.target.value = ""; }}
+                                          />
+                                          <input
+                                            type="text"
+                                            className="clItemComment"
+                                            value={ci.comment || ""}
+                                            onChange={(e) => makeSetComment(idx, e.target.value)}
+                                            placeholder={commentPlaceholder}
+                                            aria-label={`Comment for ${ci.label}`}
+                                          />
+                                          <button
+                                            type="button"
+                                            className={`clItemPhotoBtn${ciPhotos.length > 0 ? " clItemPhotoBtnHasPhotos" : ""}`}
+                                            title={ciPhotos.length > 0 ? `${ciPhotos.length} photo${ciPhotos.length > 1 ? "s" : ""} attached` : "Add photo"}
+                                            disabled={ciPhotos.length >= PHOTO_LIMIT}
+                                            onClick={() => fileRefs.current[ciRefKey]?.click()}
+                                            aria-label={`Add photo for ${ci.label}`}>
+                                            📷{ciPhotos.length > 0 ? ` ${ciPhotos.length}` : ""}
+                                          </button>
+                                        </div>
+                                      )}
                                       {ciPhotos.length > 0 && (
                                         <div className="ciPhotoStrip">
                                           {ciPhotos.map(p => (

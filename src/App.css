@@ -1377,45 +1377,76 @@ input[type="date"] {
   gap: 8px;
   width: 100%;
 }
-/* Priority row — shown only when item is failed */
+/* ── Issue detail panel: shown only when checklist item is failed ── */
+.clItemIssuePanel {
+  margin-top: 6px;
+  background: #fff5f5;
+  border: 1.5px solid #fca5a5;
+  border-radius: 8px;
+  padding: 8px 10px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.clItemIssuePanelHeader {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.clItemIssueIcon {
+  font-size: 0.85rem;
+  color: #dc2626;
+  flex-shrink: 0;
+}
+.clItemIssueTitle {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #991b1b;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+/* Priority row inside issue panel */
 .clItemPriorityRow {
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-top: 6px;
+  flex-wrap: wrap;
 }
 .clItemPriorityLabel {
   font-size: 0.72rem;
-  font-weight: 600;
+  font-weight: 700;
   color: #64748b;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   white-space: nowrap;
   flex-shrink: 0;
+  margin-right: 2px;
 }
 .clPriorityPill {
   border-radius: 20px;
-  padding: 3px 11px;
+  padding: 4px 12px;
   font-size: 0.76rem;
   font-weight: 600;
   border: 1.5px solid transparent;
   cursor: pointer;
-  transition: background 0.13s, border-color 0.13s, color 0.13s;
+  transition: background 0.13s, border-color 0.13s, color 0.13s, box-shadow 0.13s;
   white-space: nowrap;
+  line-height: 1.4;
 }
-.clPriorityPillHigh  { background: #fef2f2; border-color: #fca5a5; color: #b91c1c; }
-.clPriorityPillMedium { background: #fffbeb; border-color: #fcd34d; color: #92400e; }
-.clPriorityPillLow   { background: #f0f9ff; border-color: #7dd3fc; color: #075985; }
-.clPriorityPillHigh.clPriorityPillActive   { background: #dc2626; border-color: #dc2626; color: #fff; }
-.clPriorityPillMedium.clPriorityPillActive { background: #d97706; border-color: #d97706; color: #fff; }
-.clPriorityPillLow.clPriorityPillActive    { background: #0284c7; border-color: #0284c7; color: #fff; }
-/* Hint label shown inside failed comment row */
-.clItemCommentHint {
-  font-size: 0.72rem;
-  font-weight: 600;
-  color: #b91c1c;
-  white-space: nowrap;
-  flex-shrink: 0;
+.clPriorityPill:hover  { box-shadow: 0 1px 4px rgba(0,0,0,0.10); }
+.clPriorityPillHigh    { background: #fef2f2; border-color: #fca5a5; color: #b91c1c; }
+.clPriorityPillMedium  { background: #fffbeb; border-color: #fcd34d; color: #92400e; }
+.clPriorityPillLow     { background: #f0f9ff; border-color: #7dd3fc; color: #075985; }
+.clPriorityPillHigh.clPriorityPillActive   { background: #dc2626; border-color: #dc2626; color: #fff; box-shadow: 0 1px 6px rgba(220,38,38,0.30); }
+.clPriorityPillMedium.clPriorityPillActive { background: #d97706; border-color: #d97706; color: #fff; box-shadow: 0 1px 6px rgba(217,119,6,0.30); }
+.clPriorityPillLow.clPriorityPillActive    { background: #0284c7; border-color: #0284c7; color: #fff; box-shadow: 0 1px 6px rgba(2,132,199,0.30); }
+/* Required comment field inside issue panel */
+.clItemCommentRequired {
+  border-color: #fca5a5 !important;
+}
+.clItemCommentRequired:focus {
+  border-color: #dc2626 !important;
+  box-shadow: 0 0 0 2px rgba(220,38,38,0.15) !important;
 }
 /* Per-item comment row (comment input + camera button) */
 .clItemCommentRow {
