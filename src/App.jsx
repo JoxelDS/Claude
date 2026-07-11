@@ -21052,6 +21052,7 @@ export default function App() {
                   </div>
                 </div>
 
+                  </div>{/* end equipCheckWrapper */}
                   </div>{/* end Step 0 panel */}
 
                   {/* ══ Step 1: Facilities ════════════════════════════════ */}
@@ -21149,7 +21150,6 @@ export default function App() {
                   </div>{/* end Step 3 panel */}
 
                 </div>{/* end guideStepTrack */}
-              </div>{/* end guideStepViewport */}
 
               {/* ── Stepper navigation buttons ──────────────────────────── */}
               <div className="guideStepNav">
