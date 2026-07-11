@@ -19017,6 +19017,7 @@ export default function App() {
   const [foodTempNames, setFoodTempNames] = useState(() =>
     Object.fromEntries(HACCP_TEMP_ITEMS.map(it => [it.key, [""]]))
   );
+  const [lockedInspectorReadings, setLockedInspectorReadings] = useState(new Set());
   const [rawNotes, setRawNotes] = useState("");
   const [notesPhotos, setNotesPhotos] = useState([]);  // photos attached to raw notes section
   const notesPhotoRef = useRef(null);
@@ -19636,6 +19637,7 @@ export default function App() {
     setEventName("");
     setFoodTemps(Object.fromEntries(HACCP_TEMP_ITEMS.map(it => [it.key, [""]])));
     setFoodTempNames(Object.fromEntries(HACCP_TEMP_ITEMS.map(it => [it.key, [""]])));
+    setLockedInspectorReadings(new Set());
     setFieldCorrections({});
     setNotesSuggestions(null);
     setSuggestionsDismissed(false);
@@ -21402,19 +21404,26 @@ export default function App() {
                         </button>
                       </div>
                       {readings.map((val, idx) => {
-                        const rawDigits = String(val).replace(/\D/g, "");
                         const name = names[idx] ?? "";
-                        const pass = (rawDigits.length >= 2 && name.trim()) ? tempPass(item, val) : null;
+                        const inspLockKey = `${item.key}_${idx}`;
+                        const locked = lockedInspectorReadings.has(inspLockKey);
+                        const rawDigits = String(val).replace(/\D/g, "");
+                        const hasName = name.trim().length > 0;
+                        const hasTemp = rawDigits.length >= 2;
+                        const pass = locked ? ((hasName && hasTemp) ? tempPass(item, val) : null) : null;
+                        const canLock = hasName && hasTemp;
                         const haccpFoodNameFieldId = `field-haccp-name-${item.key}-${idx}`;
                         return (
-                          <div key={idx} style={{ display: "flex", gap: 6, alignItems: "flex-start", marginBottom: 4, flexDirection: "column" }}>
-                            <div style={{ display: "flex", gap: 6, alignItems: "center", width: "100%" }}>
+                          <div key={idx} style={{ display: "flex", gap: 6, alignItems: "flex-start", marginBottom: 6, flexDirection: "column" }}>
+                            <div style={{ display: "flex", gap: 6, alignItems: "center", width: "100%", ...(locked ? { background: "#f8fafc", borderRadius: 8, padding: "4px 6px" } : {}) }}>
                             <input
                               className="input"
                               type="text"
                               placeholder="Food item"
                               value={name}
+                              readOnly={locked}
                               onBlur={e => {
+                                if (locked) return;
                                 const v = e.target.value.trim();
                                 const tempOnly = /^\s*(\d{2,3}(\.\d)?)\s*°?\s*[Ff]?\s*$/.test(v);
                                 const numOnly = /^\d{2,3}$/.test(v);
@@ -21442,7 +21451,7 @@ export default function App() {
                                 arr[idx] = e.target.value;
                                 return { ...p, [item.key]: arr };
                               })}
-                              style={{ flex: 1, minWidth: 0, fontSize: "0.82rem" }}
+                              style={{ flex: 1, minWidth: 0, fontSize: "0.82rem", ...(locked ? { background: "#f1f5f9", color: "#475569", cursor: "default" } : {}) }}
                             />
                             <div className="tempInputWrap" style={{ width: 90 }}>
                               <input
@@ -21451,22 +21460,39 @@ export default function App() {
                                 inputMode="decimal"
                                 placeholder="—"
                                 value={val}
+                                readOnly={locked}
                                 onChange={e => setFoodTemps(p => {
                                   const arr = [...(p[item.key] || [""])];
                                   arr[idx] = e.target.value;
                                   return { ...p, [item.key]: arr };
                                 })}
-                                style={pass === false ? { borderColor: "#dc2626", background: "#fff5f5" } : undefined}
+                                style={locked
+                                  ? { background: "#f1f5f9", color: "#475569", cursor: "default", ...(pass === false ? { borderColor: "#dc2626" } : pass === true ? { borderColor: "#16a34a" } : {}) }
+                                  : undefined}
                               />
                               <span className="tempUnit">°F</span>
                             </div>
-                            <span style={{
-                              fontSize: "0.75rem", fontWeight: 600, minWidth: 56, textAlign: "center",
-                              color: pass === null ? "#9ca3af" : pass ? "#16a34a" : "#dc2626",
-                            }}>
-                              {pass === null ? "—" : pass ? "✓ OK" : "⚠️ Flag"}
-                            </span>
-                            {readings.length > 1 && (
+                            {locked ? (
+                              <span style={{
+                                fontSize: "0.75rem", fontWeight: 600, minWidth: 56, textAlign: "center",
+                                color: pass === null ? "#9ca3af" : pass ? "#16a34a" : "#dc2626",
+                              }}>
+                                {pass === null ? "—" : pass ? "✓ OK" : "⚠️ Flag"}
+                              </span>
+                            ) : (
+                              <button type="button"
+                                onClick={() => { if (canLock) setLockedInspectorReadings(p => new Set([...p, inspLockKey])); }}
+                                style={{
+                                  fontSize: "0.72rem", fontWeight: 700, padding: "3px 10px",
+                                  borderRadius: 6, border: "none", cursor: canLock ? "pointer" : "not-allowed",
+                                  background: canLock ? "#1e40af" : "#cbd5e1", color: "#fff",
+                                  whiteSpace: "nowrap", flexShrink: 0,
+                                }}
+                                title={canLock ? "Lock this reading" : "Enter food name and temperature first"}>
+                                ✔ Submit
+                              </button>
+                            )}
+                            {!locked && readings.length > 1 && (
                               <button type="button"
                                 className="btn btnGhost btnSmall"
                                 style={{ color: "#9ca3af", padding: "2px 6px", fontSize: "0.8rem" }}
@@ -21479,12 +21505,17 @@ export default function App() {
                                     const arr = (p[item.key] || [""]).filter((_, i) => i !== idx);
                                     return { ...p, [item.key]: arr.length ? arr : [""] };
                                   });
+                                  setLockedInspectorReadings(p => {
+                                    const n = new Set(p);
+                                    n.delete(inspLockKey);
+                                    return n;
+                                  });
                                 }}>✕</button>
                             )}
                             </div>
-                            {fieldCorrections[haccpFoodNameFieldId] && <FieldCorrectionBanner correction={fieldCorrections[haccpFoodNameFieldId]} />}
-                            {pass === false && (
-                              <div style={{ fontSize: "0.75rem", color: "#b45309", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 6, padding: "4px 8px", marginTop: 2 }}>
+                            {!locked && fieldCorrections[haccpFoodNameFieldId] && <FieldCorrectionBanner correction={fieldCorrections[haccpFoodNameFieldId]} />}
+                            {locked && pass === false && (
+                              <div style={{ fontSize: "0.75rem", color: "#b45309", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 6, padding: "4px 8px", marginTop: 2, width: "100%" }}>
                                 📋 Off temp — will be added as a follow-up action item
                               </div>
                             )}

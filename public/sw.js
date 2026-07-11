@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v80: Supervisor HACCP temp rows lock on Submit — read-only, no delete after locking
-const CACHE_NAME = "sdx-inspect-v80";
+// v81: Inspector HACCP temp rows also lock on Submit — same as supervisor portal
+const CACHE_NAME = "sdx-inspect-v81";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
