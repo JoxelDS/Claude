@@ -20945,7 +20945,7 @@ export default function App() {
                 );
               })()}
 
-              <div className="equipCheckWrapper">
+              <div className="equipCheckWrapper" style={{ display: guideStep === 0 ? "" : "none" }}>
                 <div className="equipCheckBanner">
                   🌡️ Temperatures &amp; Equipment Check
                   <span className="equipCheckBannerSub">Record all temperatures and check the status of every piece of equipment</span>
