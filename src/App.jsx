@@ -18415,7 +18415,7 @@ function EodCorrectivePrompt({ inspection, rawNotes, onDismiss, onAddNotes }) {
   const documentedActions = grouped.action || [];
 
   // Collect flagged issues that may still need corrective action
-  const actionItems = buildActionItems({ inspection, rawNotes, foodTemps, foodTempNames });
+  const actionItems = buildActionItems({ inspection, rawNotes });
   // Separate issues that already appear in documented actions vs those that don't
   const flaggedIssues = actionItems.filter(item => {
     // Check if this issue is already referenced in documented actions
