@@ -3879,11 +3879,12 @@ datalist {
 }
 .recurringItem {
   position: relative;
-  background: #fef2f2;
-  border-radius: 10px;
-  padding: 10px 14px;
-  border: 1px solid #fecaca;
+  background: #fff;
+  border-radius: 12px;
+  padding: 12px 16px;
+  border: 1px solid #e8ecf0;
   overflow: hidden;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
 }
 .recurringItemExpanded {
   padding: 12px 16px;
@@ -3893,8 +3894,8 @@ datalist {
   top: 0;
   left: 0;
   bottom: 0;
-  background: rgba(239, 68, 68, 0.08);
-  border-right: 2px solid rgba(239, 68, 68, 0.2);
+  background: rgba(168, 25, 46, 0.05);
+  border-right: 2px solid rgba(168, 25, 46, 0.15);
   pointer-events: none;
 }
 .recurringTop {
@@ -3908,23 +3909,24 @@ datalist {
   position: relative;
   font-weight: 700;
   font-size: 0.88rem;
-  color: #991b1b;
+  color: #1e293b;
 }
 .recurringBadge {
   position: relative;
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   font-weight: 700;
-  background: #dc2626;
+  background: #A8192E;
   color: white;
-  padding: 2px 8px;
+  padding: 3px 9px;
   border-radius: 100px;
   white-space: nowrap;
+  letter-spacing: 0.02em;
 }
 .recurringCount {
   position: relative;
   display: block;
   font-size: 0.72rem;
-  color: #b91c1c;
+  color: #64748b;
   margin-top: 2px;
 }
 .recurringKitchens {
@@ -3946,17 +3948,17 @@ datalist {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 0.72rem;
-  font-weight: 600;
-  color: #7f1d1d;
-  background: rgba(239, 68, 68, 0.1);
-  border: 1px solid rgba(239, 68, 68, 0.2);
+  font-size: 0.71rem;
+  font-weight: 500;
+  color: #374151;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
   padding: 3px 9px;
   border-radius: 6px;
 }
 .recurringKitchenCount {
   font-weight: 800;
-  color: #dc2626;
+  color: #A8192E;
 }
 
 /* Worst locations ranking */
@@ -4140,25 +4142,26 @@ datalist {
 /* ── Performance Dashboard Tab Nav ──────────────────────── */
 .perfTabsWrapper {
   display: flex;
-  gap: 4px;
-  margin-bottom: 1.1rem;
-  background: #e8edf4;
-  border-radius: 14px;
-  padding: 4px;
+  gap: 2px;
+  margin: 0 0 1.25rem;
+  background: #f1f4f9;
+  border-radius: 12px;
+  padding: 3px;
   overflow-x: auto;
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
+  border: 1px solid #e2e8f0;
 }
 .perfTabsWrapper::-webkit-scrollbar { display: none; }
 .perfTab {
   flex: 1 1 0;
   min-width: 0;
-  padding: 9px 6px;
+  padding: 8px 4px;
   border: none;
   cursor: pointer;
-  border-radius: 10px;
-  font-weight: 700;
-  font-size: 0.67rem;
+  border-radius: 9px;
+  font-weight: 600;
+  font-size: 0.66rem;
   background: transparent;
   color: #64748b;
   display: flex;
@@ -4167,13 +4170,13 @@ datalist {
   transition: background 0.15s, color 0.15s, box-shadow 0.15s;
   text-align: center;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.07em;
   line-height: 1;
   overflow: hidden;
   white-space: nowrap;
 }
 .perfTab:hover {
-  background: rgba(255,255,255,0.6);
+  background: rgba(255,255,255,0.7);
   color: var(--sdx-navy);
 }
 .perfTabIcon {
@@ -4183,7 +4186,7 @@ datalist {
   background: #fff;
   color: var(--sdx-navy);
   font-weight: 800;
-  box-shadow: 0 1px 6px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.07);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.1), 0 0 0 1px rgba(28,43,94,0.06);
 }
 .perfTabActive:hover {
   background: #fff;

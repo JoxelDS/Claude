@@ -13600,6 +13600,505 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName }) {
             );
           })()}
 
+          {/* ── LICENSES TAB ── */}
+          {activeTab === "licenses" && (
+            <LicensesTab
+              history={history}
+              invLicenseData={invLicenseData}
+              setInvLicenseData={setInvLicenseData}
+              invLicenseMismatches={invLicenseMismatches}
+              dismissedMismatches={dismissedMismatches}
+              setDismissedMismatches={setDismissedMismatches}
+            />
+          )}
+
+
+          {activeTab === "verdict" && (
+            <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+
+              {/* Explainer banner */}
+              <div style={{
+                background: "#fff", borderRadius: 12, padding: "0.7rem 0.95rem",
+                border: "1.5px solid #e2e8f0", display: "flex", alignItems: "flex-start", gap: "0.5rem"
+              }}>
+                <div style={{ fontSize: "0.76rem", color: "#475569", lineHeight: 1.55 }}>
+                  <span style={{ fontWeight: 700, color: "#0f172a" }}>Retention Analysis</span> — each inspector is rated on real output signals: pass rate, issue-finding, note quality, rubber-stamp detection, site coverage, and recent trajectory. Use this as a starting point for reviews, not as a final decision.
+                </div>
+              </div>
+
+              {ranking.map((p) => {
+                const v = buildVerdict(p);
+                return (
+                  <div key={p.name} style={{
+                    background: v.bgColor, borderRadius: 16, overflow: "hidden",
+                    border: `1.5px solid ${v.borderColor}`,
+                    boxShadow: "0 2px 10px rgba(0,0,0,0.05)"
+                  }}>
+                    {/* ── Card header: avatar + name + verdict badge ── */}
+                    <div style={{
+                      display: "flex", alignItems: "center", gap: "0.75rem",
+                      padding: "0.9rem 0.95rem 0.7rem", borderBottom: `1px solid ${v.borderColor}`
+                    }}>
+                      {/* Avatar */}
+                      <div style={{
+                        width: 42, height: 42, borderRadius: 12, flexShrink: 0,
+                        background: avatarBg(p.name),
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        fontSize: "0.85rem", fontWeight: 900, color: "#fff"
+                      }}>{initials(p.name)}</div>
+
+                      {/* Name + stats */}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 800, color: "#0f172a", fontSize: "0.92rem", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.name}</div>
+                        <div style={{ fontSize: "0.69rem", color: "#64748b", marginTop: "0.08rem" }}>
+                          {p.total} insp · {p.passRate}% pass · {p.siteCount} site{p.siteCount !== 1 ? "s" : ""}
+                        </div>
+                      </div>
+
+                      {/* Verdict badge */}
+                      <div style={{
+                        flexShrink: 0, background: v.color, color: "#fff",
+                        borderRadius: 10, padding: "0.3rem 0.5rem",
+                        fontSize: "0.62rem", fontWeight: 800, textAlign: "center",
+                        maxWidth: 80, lineHeight: 1.3
+                      }}>
+                        <div style={{ fontSize: "0.9rem", lineHeight: 1 }}>{v.emoji}</div>
+                        <div style={{ marginTop: "0.15rem", letterSpacing: "0.01em" }}>
+                          {v.verdict.split("—")[0].trim()}
+                        </div>
+                        {v.verdict.includes("—") && (
+                          <div style={{ fontWeight: 600, opacity: 0.85, fontSize: "0.58rem" }}>
+                            {v.verdict.split("—")[1].trim()}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* ── Summary line ── */}
+                    <div style={{ padding: "0.65rem 0.95rem 0.5rem", fontSize: "0.76rem", color: v.color, fontWeight: 600, lineHeight: 1.5, borderBottom: `1px solid ${v.borderColor}` }}>
+                      {v.summary}
+                    </div>
+
+                    {/* ── Signals list ── */}
+                    <div style={{ padding: "0.6rem 0.95rem 0.5rem" }}>
+                      <div style={{ fontSize: "0.6rem", fontWeight: 800, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.45rem" }}>Performance signals</div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: "0.35rem" }}>
+                        {v.signals.map((s, si) => {
+                          const dotColor = s.type === "positive" ? "#16a34a" : s.type === "danger" ? "#dc2626" : s.type === "warning" ? "#d97706" : "#94a3b8";
+                          return (
+                            <div key={si} style={{ display: "flex", gap: "0.55rem", alignItems: "flex-start" }}>
+                              <div style={{ width: 7, height: 7, borderRadius: "50%", background: dotColor, flexShrink: 0, marginTop: "0.32rem" }} />
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <span style={{ fontWeight: 700, fontSize: "0.76rem", color: "#1e293b" }}>{s.label}</span>
+                                <span style={{ fontSize: "0.73rem", color: "#64748b", marginLeft: "0.35rem" }}>{s.detail}</span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* ── Recommendations ── */}
+                    {v.recommendations.length > 0 && (
+                      <div style={{
+                        margin: "0 0.95rem 0.75rem",
+                        background: "rgba(0,0,0,0.04)", borderRadius: 10,
+                        padding: "0.55rem 0.7rem",
+                        borderLeft: `3px solid ${v.color}`
+                      }}>
+                        <div style={{ fontSize: "0.6rem", fontWeight: 800, color: v.color, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.3rem" }}>Recommended actions</div>
+                        {v.recommendations.map((r, ri) => (
+                          <div key={ri} style={{ fontSize: "0.74rem", color: "#374151", lineHeight: 1.5, marginBottom: ri < v.recommendations.length - 1 ? "0.3rem" : 0 }}>
+                            → {r}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* ── Admin Feedback ── */}
+                    {(() => {
+                      const savedNote = getFeedback(p.name);
+                      const isOpen = feedbackOpen[p.name] || false;
+                      const draft = feedbackDraft[p.name] ?? savedNote;
+                      return (
+                        <div style={{ borderTop: `1px solid ${v.borderColor}`, margin: "0 0 0 0" }}>
+                          {/* Toggle button */}
+                          <button
+                            onClick={() => setFeedbackOpen(prev => ({ ...prev, [p.name]: !prev[p.name] }))}
+                            style={{
+                              width: "100%", background: "none", border: "none", cursor: "pointer",
+                              display: "flex", alignItems: "center", gap: "0.45rem",
+                              padding: "0.55rem 0.95rem",
+                              color: savedNote ? "#0f172a" : "#64748b",
+                              fontSize: "0.71rem", fontWeight: savedNote ? 700 : 500,
+                              textAlign: "left"
+                            }}
+                            type="button"
+                          >
+                            <span style={{ fontSize: "0.85rem" }}>📝</span>
+                            <span style={{ flex: 1 }}>
+                              {savedNote
+                                ? isOpen ? "Edit admin note" : `Note: ${savedNote.length > 60 ? savedNote.slice(0, 60) + "…" : savedNote}`
+                                : "Add admin note"}
+                            </span>
+                            <span style={{ fontSize: "0.65rem", color: "#94a3b8", marginLeft: "auto" }}>{isOpen ? "▲" : "▼"}</span>
+                          </button>
+
+                          {/* Expanded feedback form */}
+                          {isOpen && (
+                            <div style={{ padding: "0 0.95rem 0.8rem" }}>
+                              <textarea
+                                value={draft}
+                                onChange={e => setFeedbackDraft(prev => ({ ...prev, [p.name]: e.target.value }))}
+                                placeholder="Write your notes about this inspector (e.g. strengths, areas to coach, follow-up needed)…"
+                                rows={3}
+                                style={{
+                                  width: "100%", boxSizing: "border-box",
+                                  resize: "vertical", minHeight: 70,
+                                  border: "1.5px solid #cbd5e1", borderRadius: 9,
+                                  padding: "0.55rem 0.7rem", fontSize: "0.78rem",
+                                  color: "#1e293b", lineHeight: 1.55,
+                                  fontFamily: "inherit", background: "#f8fafc",
+                                  outline: "none"
+                                }}
+                                onFocus={e => { e.target.style.borderColor = "#3b82f6"; e.target.style.background = "#fff"; }}
+                                onBlur={e => { e.target.style.borderColor = "#cbd5e1"; e.target.style.background = "#f8fafc"; }}
+                              />
+                              <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.45rem", justifyContent: "flex-end" }}>
+                                {savedNote && (
+                                  <button
+                                    onClick={() => {
+                                      const key = (managedVenueId || "default") + "||" + p.name;
+                                      const updated = { ...feedbackNotes };
+                                      delete updated[key];
+                                      setFeedbackNotes(updated);
+                                      setFeedbackDraft(prev => ({ ...prev, [p.name]: "" }));
+                                      try { localStorage.setItem("inspectorFeedbackNotes", JSON.stringify(updated)); } catch {}
+                                      setFeedbackOpen(prev => ({ ...prev, [p.name]: false }));
+                                    }}
+                                    type="button"
+                                    style={{
+                                      background: "none", border: "1.5px solid #fca5a5", borderRadius: 7,
+                                      color: "#dc2626", fontSize: "0.72rem", fontWeight: 600,
+                                      padding: "0.3rem 0.65rem", cursor: "pointer"
+                                    }}
+                                  >Delete note</button>
+                                )}
+                                <button
+                                  onClick={() => {
+                                    setFeedbackDraft(prev => ({ ...prev, [p.name]: savedNote }));
+                                    setFeedbackOpen(prev => ({ ...prev, [p.name]: false }));
+                                  }}
+                                  type="button"
+                                  style={{
+                                    background: "none", border: "1.5px solid #e2e8f0", borderRadius: 7,
+                                    color: "#64748b", fontSize: "0.72rem", fontWeight: 600,
+                                    padding: "0.3rem 0.65rem", cursor: "pointer"
+                                  }}
+                                >Cancel</button>
+                                <button
+                                  onClick={() => {
+                                    saveFeedback(p.name);
+                                    setFeedbackOpen(prev => ({ ...prev, [p.name]: false }));
+                                  }}
+                                  type="button"
+                                  style={{
+                                    background: "#0f172a", border: "none", borderRadius: 7,
+                                    color: "#fff", fontSize: "0.72rem", fontWeight: 700,
+                                    padding: "0.3rem 0.75rem", cursor: "pointer"
+                                  }}
+                                >Save note</button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                );
+              })}
+
+              {/* Footer disclaimer */}
+              <div style={{ fontSize: "0.68rem", color: "#94a3b8", textAlign: "center", padding: "0.25rem 1rem 0.5rem", lineHeight: 1.5 }}>
+                Verdicts are based on inspection data only. Always consider context, site conditions, and direct observation before making employment decisions.
+              </div>
+            </div>
+          )}
+
+
+          {/* ── TRENDS TAB ── */}
+          {activeTab === "trends" && (() => {
+            // ── Compute monthly buckets ───────────────────────────────────────
+            const buckets = {}; // { "2026-03": { scores: [], passes: 0, total: 0 } }
+            const sorted = [...history].sort((a, b) => (a.savedAt || "").localeCompare(b.savedAt || ""));
+            for (const r of sorted) {
+              const monthKey = (r.savedAt || r.inspectionDate || "").slice(0, 7);
+              if (!monthKey || monthKey.length < 7) continue;
+              if (!buckets[monthKey]) buckets[monthKey] = { scores: [], passes: 0, total: 0 };
+              const sc = calcInspectionScore(r.inspection);
+              if (sc) buckets[monthKey].scores.push(sc.pct);
+              buckets[monthKey].total++;
+              if ((r.overallStatus || "").toLowerCase() === "pass") buckets[monthKey].passes++;
+            }
+            const months = Object.keys(buckets).sort();
+            const points = months.map(m => {
+              const b = buckets[m];
+              const avgPct = b.scores.length ? Math.round(b.scores.reduce((s, v) => s + v, 0) / b.scores.length) : null;
+              const passRate = b.total ? Math.round((b.passes / b.total) * 100) : null;
+              return { month: m, avgPct, passRate, total: b.total };
+            });
+
+            // ── Compute top recurring issues ──────────────────────────────────
+            const issueCounts = {};
+            for (const r of history) {
+              if (!Array.isArray(r.issues)) continue;
+              for (const iss of r.issues) {
+                const cat = iss.category || iss.label || "Other";
+                issueCounts[cat] = (issueCounts[cat] || 0) + 1;
+              }
+            }
+            const topIssues = Object.entries(issueCounts)
+              .sort((a, b) => b[1] - a[1])
+              .slice(0, 8)
+              .map(([cat, count]) => ({ cat, count }));
+            const maxIssueCount = topIssues[0]?.count || 1;
+
+            // ── SVG line chart helpers ────────────────────────────────────────
+            const W = 320, H = 120, PAD = { top: 12, right: 10, bottom: 28, left: 32 };
+            const chartW = W - PAD.left - PAD.right;
+            const chartH = H - PAD.top - PAD.bottom;
+
+            function toSvgX(i) {
+              return PAD.left + (points.length > 1 ? (i / (points.length - 1)) * chartW : chartW / 2);
+            }
+            function toSvgY(val) {
+              // val is 0-100 percentage; invert for SVG (0 = top)
+              return PAD.top + chartH - (val / 100) * chartH;
+            }
+
+            const scoreLinePoints = points
+              .map((p, i) => p.avgPct !== null ? `${toSvgX(i)},${toSvgY(p.avgPct)}` : null)
+              .filter(Boolean).join(" ");
+            const passLinePoints = points
+              .map((p, i) => p.passRate !== null ? `${toSvgX(i)},${toSvgY(p.passRate)}` : null)
+              .filter(Boolean).join(" ");
+
+            // Area fill for score line
+            const firstScore = points.findIndex(p => p.avgPct !== null);
+            const lastScore  = points.map((p, i) => p.avgPct !== null ? i : -1).filter(i => i >= 0).slice(-1)[0];
+            const scoreArea = firstScore >= 0
+              ? `${toSvgX(firstScore)},${PAD.top + chartH} ${scoreLinePoints} ${toSvgX(lastScore)},${PAD.top + chartH}`
+              : "";
+
+            const labelMonth = (m) => {
+              const [y, mo] = m.split("-");
+              const names = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+              return (names[parseInt(mo, 10) - 1] || mo) + (y !== new Date().getFullYear().toString() ? ` '${y.slice(2)}` : "");
+            };
+
+            // Pick label indices — show at most 6 evenly spaced
+            const labelStep = Math.max(1, Math.ceil(points.length / 6));
+            const labelIdxs = points.map((_, i) => i).filter(i => i % labelStep === 0 || i === points.length - 1);
+
+            const hasChartData = points.length >= 2;
+
+            return (
+              <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+
+                {/* ── Score over time ── */}
+                <div style={{ background: "#fff", borderRadius: 16, border: "1.5px solid #e2e8f0", overflow: "hidden" }}>
+                  <div style={{ padding: "0.75rem 0.9rem 0.5rem", borderBottom: "1px solid #f1f5f9" }}>
+                    <div style={{ fontWeight: 800, fontSize: "0.88rem", color: "#0f172a" }}>Compliance Score Over Time</div>
+                    <div style={{ fontSize: "0.68rem", color: "#94a3b8" }}>Monthly average compliance % and pass rate</div>
+                  </div>
+
+                  {!hasChartData ? (
+                    <div style={{ padding: "2rem 1rem", textAlign: "center", color: "#94a3b8", fontSize: "0.82rem" }}>
+                      Not enough data yet — need inspections across at least 2 months.
+                    </div>
+                  ) : (
+                    <div style={{ padding: "0.75rem 0.5rem 0.5rem", overflowX: "auto" }}>
+                      {/* Legend */}
+                      <div style={{ display: "flex", gap: "1rem", paddingLeft: PAD.left, marginBottom: "0.35rem" }}>
+                        {[["#2A295C", "Compliance %"], ["#22c55e", "Pass Rate %"]].map(([color, label]) => (
+                          <div key={label} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: "0.66rem", color: "#475569", fontWeight: 600 }}>
+                            <div style={{ width: 20, height: 3, background: color, borderRadius: 2 }} />
+                            {label}
+                          </div>
+                        ))}
+                      </div>
+
+                      <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ display: "block", minWidth: Math.max(W, points.length * 32) }}>
+                        {/* Y-axis grid lines at 0, 25, 50, 75, 100 */}
+                        {[0, 25, 50, 75, 100].map(v => (
+                          <g key={v}>
+                            <line x1={PAD.left} y1={toSvgY(v)} x2={W - PAD.right} y2={toSvgY(v)}
+                              stroke="#f1f5f9" strokeWidth={v === 0 || v === 100 ? 1.5 : 1} />
+                            <text x={PAD.left - 4} y={toSvgY(v) + 3.5}
+                              textAnchor="end" fontSize="8" fill="#94a3b8" fontFamily="Inter,sans-serif">{v}</text>
+                          </g>
+                        ))}
+
+                        {/* Area under score line */}
+                        {scoreArea && (
+                          <polygon points={scoreArea} fill="#2A295C" fillOpacity="0.07" />
+                        )}
+
+                        {/* Pass rate line */}
+                        {passLinePoints && (
+                          <polyline points={passLinePoints} fill="none" stroke="#22c55e" strokeWidth="1.5"
+                            strokeLinejoin="round" strokeLinecap="round" strokeDasharray="4 2" />
+                        )}
+
+                        {/* Score line */}
+                        {scoreLinePoints && (
+                          <polyline points={scoreLinePoints} fill="none" stroke="#2A295C" strokeWidth="2"
+                            strokeLinejoin="round" strokeLinecap="round" />
+                        )}
+
+                        {/* Dots on score line */}
+                        {points.map((p, i) => p.avgPct !== null && (
+                          <g key={i}>
+                            <circle cx={toSvgX(i)} cy={toSvgY(p.avgPct)} r="3.5"
+                              fill="#fff" stroke="#2A295C" strokeWidth="1.5" />
+                            {/* Value label above dot — only if not too crowded */}
+                            {(points.length <= 8) && (
+                              <text x={toSvgX(i)} y={toSvgY(p.avgPct) - 6}
+                                textAnchor="middle" fontSize="7" fontWeight="700"
+                                fill="#2A295C" fontFamily="Inter,sans-serif">{p.avgPct}%</text>
+                            )}
+                          </g>
+                        ))}
+
+                        {/* X-axis month labels */}
+                        {labelIdxs.map(i => (
+                          <text key={i} x={toSvgX(i)} y={H - 6}
+                            textAnchor="middle" fontSize="7.5" fill="#94a3b8" fontFamily="Inter,sans-serif">
+                            {labelMonth(points[i].month)}
+                          </text>
+                        ))}
+                      </svg>
+
+                      {/* Mini data table below chart */}
+                      <div style={{ overflowX: "auto", marginTop: "0.5rem" }}>
+                        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.68rem" }}>
+                          <thead>
+                            <tr>
+                              {["Month","Inspections","Avg Score","Pass Rate"].map(h => (
+                                <th key={h} style={{ padding: "0.25rem 0.5rem", textAlign: h === "Month" ? "left" : "center",
+                                  fontWeight: 700, color: "#64748b", borderBottom: "1.5px solid #e2e8f0", whiteSpace: "nowrap" }}>{h}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {[...points].reverse().map(p => (
+                              <tr key={p.month} style={{ borderBottom: "1px solid #f8fafc" }}>
+                                <td style={{ padding: "0.25rem 0.5rem", color: "#0f172a", fontWeight: 600 }}>{labelMonth(p.month)}</td>
+                                <td style={{ padding: "0.25rem 0.5rem", textAlign: "center", color: "#475569" }}>{p.total}</td>
+                                <td style={{ padding: "0.25rem 0.5rem", textAlign: "center",
+                                  fontWeight: 700,
+                                  color: p.avgPct !== null ? (p.avgPct >= 90 ? "#16a34a" : p.avgPct >= 70 ? "#ca8a04" : "#dc2626") : "#94a3b8" }}>
+                                  {p.avgPct !== null ? `${p.avgPct}%` : "—"}
+                                </td>
+                                <td style={{ padding: "0.25rem 0.5rem", textAlign: "center",
+                                  fontWeight: 700,
+                                  color: p.passRate !== null ? passColor(p.passRate) : "#94a3b8" }}>
+                                  {p.passRate !== null ? `${p.passRate}%` : "—"}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* ── Recurring Issues Bar Chart ── */}
+                <div style={{ background: "#fff", borderRadius: 16, border: "1.5px solid #e2e8f0", overflow: "hidden" }}>
+                  <div style={{ padding: "0.75rem 0.9rem 0.5rem", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                    <span style={{ fontSize: "1rem" }}>🔁</span>
+                    <div>
+                      <div style={{ fontWeight: 800, fontSize: "0.88rem", color: "#0f172a" }}>Recurring Issues</div>
+                      <div style={{ fontSize: "0.68rem", color: "#94a3b8" }}>Top issue categories across all inspections</div>
+                    </div>
+                    <div style={{ marginLeft: "auto", fontWeight: 700, fontSize: "0.7rem", color: "#94a3b8" }}>
+                      {history.length} insp
+                    </div>
+                  </div>
+
+                  {topIssues.length === 0 ? (
+                    <div style={{ padding: "2rem 1rem", textAlign: "center", color: "#94a3b8", fontSize: "0.82rem" }}>
+                      No issues recorded yet.
+                    </div>
+                  ) : (
+                    <div style={{ padding: "0.75rem 0.9rem" }}>
+                      {topIssues.map(({ cat, count }, idx) => {
+                        const pct = Math.round((count / maxIssueCount) * 100);
+                        const barColor = idx === 0 ? "#EE0000" : idx < 3 ? "#f97316" : "#2A295C";
+                        return (
+                          <div key={cat} style={{ marginBottom: "0.6rem" }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "0.2rem" }}>
+                              <span style={{ fontSize: "0.76rem", fontWeight: 600, color: "#0f172a", flex: 1, minWidth: 0,
+                                whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", marginRight: 8 }}>
+                                {idx === 0 && "🔴 "}{cat}
+                              </span>
+                              <span style={{ fontSize: "0.72rem", fontWeight: 800, color: barColor, flexShrink: 0 }}>{count}x</span>
+                            </div>
+                            <div style={{ height: 8, background: "#f1f5f9", borderRadius: 6, overflow: "hidden" }}>
+                              <div style={{ width: `${pct}%`, height: "100%", background: barColor,
+                                borderRadius: 6, transition: "width 0.4s ease" }} />
+                            </div>
+                          </div>
+                        );
+                      })}
+                      <div style={{ fontSize: "0.65rem", color: "#94a3b8", marginTop: "0.25rem" }}>
+                        Bar length relative to most frequent issue. {topIssues.length < Object.keys(issueCounts).length && `Showing top ${topIssues.length} of ${Object.keys(issueCounts).length}.`}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* ── Volume by Month (bar chart) ── */}
+                {points.length >= 2 && (
+                  <div style={{ background: "#fff", borderRadius: 16, border: "1.5px solid #e2e8f0", overflow: "hidden" }}>
+                    <div style={{ padding: "0.75rem 0.9rem 0.5rem", borderBottom: "1px solid #f1f5f9" }}>
+                      <div style={{ fontWeight: 800, fontSize: "0.88rem", color: "#0f172a" }}>Inspection Volume</div>
+                      <div style={{ fontSize: "0.68rem", color: "#94a3b8" }}>Number of inspections per month</div>
+                    </div>
+                    <div style={{ padding: "0.75rem 0.9rem" }}>
+                      {(() => {
+                        const maxVol = Math.max(...points.map(p => p.total));
+                        return points.map(p => {
+                          const barPct = maxVol ? Math.max(4, Math.round((p.total / maxVol) * 100)) : 4;
+                          return (
+                            <div key={p.month} style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.45rem" }}>
+                              <div style={{ width: 44, flexShrink: 0, fontSize: "0.65rem", fontWeight: 600, color: "#64748b", textAlign: "right" }}>
+                                {labelMonth(p.month)}
+                              </div>
+                              <div style={{ flex: 1, height: 14, background: "#f1f5f9", borderRadius: 6, overflow: "hidden" }}>
+                                <div style={{ width: `${barPct}%`, height: "100%", background: "#2A295C", borderRadius: 6 }} />
+                              </div>
+                              <div style={{ width: 22, flexShrink: 0, fontSize: "0.68rem", fontWeight: 800, color: "#2A295C", textAlign: "left" }}>
+                                {p.total}
+                              </div>
+                            </div>
+                          );
+                        });
+                      })()}
+                    </div>
+                  </div>
+                )}
+
+              </div>
+            );
+          })()}
+
+          {activeTab === "equip_intel" && (
+            <EquipmentIntelTab managedVenueId={managedVenueId} />
+          )}
+
+
 
         </div>
       )}

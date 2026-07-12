@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v107: Remove AI Quick Insights card and Locations tab
-const CACHE_NAME = "sdx-inspect-v107";
+// v108: Restore Verdict/Licenses/Trends tabs; polish Recurring Issues and Perf Dashboard UI
+const CACHE_NAME = "sdx-inspect-v108";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
