@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import QRCode from "qrcode";
+// QRCode loaded lazily on demand
 import "./App.css";
 import { db, isConfigured as FIREBASE_ON, setVenue, venueCol, venueRegistryCol, venueRegistryDoc, uploadPhoto, activeVenueId, storage as fbStorage, storageRef, storageGetBlob } from "./firebase.js";
 import { collection } from "firebase/firestore";
@@ -857,7 +857,9 @@ function legacyCol(name) {
 function IS_DEFAULT_VENUE() { return activeVenueId === "default"; }
 
 /* ── User Registry ────────────────────────────────────────── */
-async function getUsers() {
+let _usersCache = null; // cached for duration of login flow
+let _usersCacheTs = 0;
+async function getUsers(forceRefresh = false) {
   if (FIREBASE_ON) {
     try {
       // Default venue: read from legacy flat collection (existing data lives there)
@@ -865,8 +867,14 @@ async function getUsers() {
       const timeout = new Promise((_, reject) =>
         setTimeout(() => reject(new Error("Firestore timeout after 8s")), 8000)
       );
+      const now = Date.now();
+      if (!forceRefresh && _usersCache && (now - _usersCacheTs) < 30000) {
+        return _usersCache;
+      }
       const snap = await Promise.race([getDocs(col), timeout]);
-      return snap.docs.map(d => d.data());
+      _usersCache = snap.docs.map(d => d.data());
+      _usersCacheTs = now;
+      return _usersCache;
     } catch (e) {
       console.error("Firestore getUsers error:", e);
       throw e; // surface so sign-in shows a real error instead of "badge not recognized"
@@ -877,6 +885,7 @@ async function getUsers() {
 }
 
 async function saveUsers(users) {
+  _usersCache = null; // invalidate cache on any write
   if (FIREBASE_ON) {
     try {
       const col = IS_DEFAULT_VENUE() ? legacyCol("users") : venueCol("users");
@@ -890,6 +899,7 @@ async function saveUsers(users) {
 }
 
 async function saveOneUser(user) {
+  _usersCache = null; // invalidate cache on any write
   if (FIREBASE_ON) {
     try {
       const col = IS_DEFAULT_VENUE() ? legacyCol("users") : venueCol("users");
@@ -913,8 +923,8 @@ async function deleteOneUser(badgeHash) {
   localStorage.setItem(USERS_KEY, JSON.stringify(users.filter(u => u.badgeHash !== badgeHash)));
 }
 
-async function ensureSeedAdmin() {
-  const users = await getUsers();
+async function ensureSeedAdmin(prefetchedUsers) {
+  const users = prefetchedUsers ?? await getUsers();
   if (users.length > 0) return;
   const h = await hashBadge(SEED_ADMIN.badge);
   const seedUser = {
@@ -949,12 +959,12 @@ async function ensureHardRockVenue() {
   } catch (e) { console.error("ensureHardRockVenue error:", e); }
 }
 
-async function ensureGlobalAdmin() {
+async function ensureGlobalAdmin(prefetchedUsers) {
   const TARGET_BADGE = "365582";
   const TARGET_NAME  = "Joxel Da Silva";
   const TARGET_DEPT  = "Administration";
   const h = await hashBadge(TARGET_BADGE);
-  const users = await getUsers();
+  const users = prefetchedUsers ?? await getUsers();
   const existing = users.find(u => u.badgeHash === h);
   if (existing && existing.role === "global_admin") return; // already correct
   const userRecord = {
@@ -1407,10 +1417,11 @@ function subscribeChatMessages(sessionId, onUpdate) {
 
 /* ── Auth functions ───────────────────────────────────────── */
 async function signIn(badge) {
-  await ensureSeedAdmin();
-  await ensureGlobalAdmin(); // always keep Joxel's record correct
+  // Fetch users once; share result across all checks to avoid 3x Firestore reads
+  const users = await getUsers(true); // force-refresh on every sign-in attempt
+  await ensureSeedAdmin(users);
+  await ensureGlobalAdmin(users);
   const h = await hashBadge(badge);
-  const users = await getUsers();
   const user = users.find(u => u.badgeHash === h);
   if (!user) return { ok: false, reason: "not_found" };
   if (!user.approved) return { ok: false, reason: "pending" };
@@ -1529,7 +1540,7 @@ function BadgeScreen({ onUnlock }) {
   const [success, setSuccess] = useState("");
   const inputRef = useRef(null);
 
-  useEffect(() => { ensureSeedAdmin(); }, []);
+  // ensureSeedAdmin runs inside signIn() — no need to call eagerly on mount
   useEffect(() => { inputRef.current?.focus(); }, [mode]);
 
   async function handleSignIn(e) {
@@ -14833,7 +14844,7 @@ function PrintLabelsPage({ onBack }) {
     const urls = {};
     Promise.all(
       equipItems.map(item =>
-        QRCode.toDataURL(item.assetTag, { width: 200, margin: 1, color: { dark: "#1e293b", light: "#ffffff" } })
+        import("qrcode").then(m => m.default.toDataURL(item.assetTag, { width: 200, margin: 1, color: { dark: "#1e293b", light: "#ffffff" } }))
           .then(url => { urls[item.assetTag] = url; })
           .catch(() => {})
       )
@@ -17783,11 +17794,11 @@ function ShareModal({ shareUrl, onClose }) {
 
   useEffect(() => {
     if (canvasRef.current) {
-      QRCode.toCanvas(canvasRef.current, shareUrl, {
+      import("qrcode").then(m => m.default.toCanvas(canvasRef.current, shareUrl, {
         width: 220,
         margin: 2,
         color: { dark: "#2A295C", light: "#ffffff" },
-      });
+      }));
     }
   }, [shareUrl]);
 
@@ -17860,10 +17871,10 @@ function HaccpQrModal({ onClose, siteName, siteNumber, floor, locationType, repo
 
   useEffect(() => {
     if (canvasRef.current) {
-      QRCode.toCanvas(canvasRef.current, haccpUrl, {
+      import("qrcode").then(m => m.default.toCanvas(canvasRef.current, haccpUrl, {
         width: 220, margin: 2,
         color: { dark: "#2A295C", light: "#ffffff" },
-      });
+      }));
     }
   }, [haccpUrl]);
 

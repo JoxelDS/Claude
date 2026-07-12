@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v108: Restore Verdict/Licenses/Trends tabs; polish Recurring Issues and Perf Dashboard UI
-const CACHE_NAME = "sdx-inspect-v108";
+// v109: Faster login — cache Firestore user reads, lazy QRCode, remove eager ensureSeedAdmin
+const CACHE_NAME = "sdx-inspect-v109";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
