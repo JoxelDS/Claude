@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v111: Fix Firebase Storage CORS — add cors.json, reduce upload size for mobile reliability
-const CACHE_NAME = "sdx-inspect-v111";
+// v112: Inspector task notifications — persist to Firestore, bell for all users, task list button
+const CACHE_NAME = "sdx-inspect-v112";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",

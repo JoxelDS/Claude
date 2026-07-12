@@ -38,7 +38,7 @@
  */
 
 import { initializeApp } from "firebase/app";
-import { getFirestore, collection, doc } from "firebase/firestore";
+import { getFirestore, collection, doc, addDoc, getDocs, query, where, updateDoc } from "firebase/firestore";
 import { getStorage, ref, uploadString, getDownloadURL, getBlob, deleteObject } from "firebase/storage";
 
 const firebaseConfig = {
@@ -126,6 +126,51 @@ export async function deletePhoto(venueId, inspectionId, photoId) {
   try {
     const path = `photos/${venueId}/${inspectionId}/${photoId}.jpg`;
     await deleteObject(ref(storage, path));
+  } catch (_) {}
+}
+
+/**
+ * Write an assignment notification for an inspector to Firestore.
+ * Called when an admin adds a scheduled slot with an inspector assigned.
+ */
+export async function saveInspectorNotification(notif) {
+  if (!db) return null;
+  try {
+    const ref = await addDoc(collection(db, "inspectorNotifications"), { ...notif, read: false, createdAt: Date.now() });
+    return ref.id;
+  } catch (e) {
+    console.error("saveInspectorNotification error:", e.message);
+    return null;
+  }
+}
+
+/**
+ * Fetch all unread notifications for an inspector by name (case-sensitive match).
+ * Returns array of { id, ...fields }.
+ */
+export async function getInspectorNotifications(inspectorName) {
+  if (!db) return [];
+  try {
+    const q = query(
+      collection(db, "inspectorNotifications"),
+      where("inspectorName", "==", inspectorName),
+      where("read", "==", false)
+    );
+    const snap = await getDocs(q);
+    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  } catch (e) {
+    console.error("getInspectorNotifications error:", e.message);
+    return [];
+  }
+}
+
+/**
+ * Mark a single notification as read.
+ */
+export async function markNotificationRead(notifId) {
+  if (!db) return;
+  try {
+    await updateDoc(doc(db, "inspectorNotifications", notifId), { read: true });
   } catch (_) {}
 }
 

@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import QRCode from "qrcode";
 import "./App.css";
-import { db, isConfigured as FIREBASE_ON, setVenue, venueCol, venueRegistryCol, venueRegistryDoc, uploadPhoto, activeVenueId, storage as fbStorage, storageRef, storageGetBlob } from "./firebase.js";
+import { db, isConfigured as FIREBASE_ON, setVenue, venueCol, venueRegistryCol, venueRegistryDoc, uploadPhoto, activeVenueId, storage as fbStorage, storageRef, storageGetBlob, saveInspectorNotification, getInspectorNotifications, markNotificationRead } from "./firebase.js";
 import { collection } from "firebase/firestore";
 import AIEngine from "./AIEngine.js";
 
@@ -16262,6 +16262,16 @@ function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVe
                         };
                         const existing = venueSettings?.scheduleSlots || [];
                         onSaveVenueSettings?.({ scheduleSlots: [...existing, slot] });
+                        if (slot.inspector && FIREBASE_ON) {
+                          saveInspectorNotification({
+                            inspectorName: slot.inspector,
+                            slotId: slot.id,
+                            date: slot.date,
+                            location: slot.location,
+                            unit: slot.unit || "",
+                            note: slot.note || "",
+                          });
+                        }
                         setScheduleDate("");
                         setScheduleLoc("");
                         setScheduleUnit("");
@@ -19319,9 +19329,27 @@ export default function App() {
     resetActivity();
     // Merge shared site map from Firestore into local autofill memory (non-blocking)
     syncSharedSiteMap();
-    // Request browser notification permission for admin/global_admin users
-    if ((user?.role === "admin" || user?.role === "global_admin") && typeof Notification !== "undefined" && Notification.permission === "default") {
+    // Request browser notification permission
+    if (typeof Notification !== "undefined" && Notification.permission === "default") {
       Notification.requestPermission().catch(() => {});
+    }
+    // Load unread assignment notifications for inspectors/location managers
+    if (user?.name && FIREBASE_ON && (user?.role === "inspector" || user?.role === "location_manager" || user?.role === "admin" || user?.role === "global_admin")) {
+      getInspectorNotifications(user.name).then(notifs => {
+        notifs.forEach(n => {
+          const dateStr = n.date ? ` on ${n.date}` : "";
+          const locStr = n.location ? ` — ${n.location}` : "";
+          const unitStr = n.unit ? ` (Unit ${n.unit})` : "";
+          fireNotification(
+            `assignment_${n.id}`,
+            "assignment",
+            "📋 New Inspection Assigned",
+            `${locStr}${unitStr}${dateStr}${n.note ? `: ${n.note}` : ""}`.trim() || "Check your task list",
+            "/Claude/"
+          );
+          markNotificationRead(n.id);
+        });
+      }).catch(() => {});
     }
     // Global admin lands on the global panel, not the inspector
     if (user?.role === "global_admin") {
@@ -20023,8 +20051,8 @@ export default function App() {
             <span className="genBtnLabel">{loading ? "Generating..." : "Generate Report"}</span>
           </button>
           <div className="topActionsDivider" aria-hidden="true" />
-          {/* Notification bell — shown only for admin users */}
-          {(currentUser?.role === "admin" || currentUser?.role === "global_admin") && (
+          {/* Notification bell — shown for all logged-in users */}
+          {currentUser && (
             <button
               ref={notifBellRef}
               className="hamburgerBtn"
@@ -20395,6 +20423,13 @@ export default function App() {
                 );
               })}
             </div>
+            <button
+              type="button"
+              onClick={() => setPage("mylocations")}
+              style={{ marginTop: 10, background: "#2563eb", color: "#fff", border: "none", borderRadius: 8, padding: "0.45rem 1.1rem", fontWeight: 700, fontSize: "0.84rem", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}
+            >
+              📋 View My Full Task List →
+            </button>
           </div>
         );
       })()}
