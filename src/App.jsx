@@ -8958,7 +8958,6 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                 { key: "insights",   label: "Insights"   },
                 { key: "predictive", label: "Predictive" },
                 { key: "recurring",  label: "Recurring"  },
-                { key: "locations",  label: "Locations"  },
                 { key: "timeline",   label: "Timeline"   },
               ].map(({ key, label }) => (
                 <button
@@ -9082,77 +9081,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                 </div>
               );
             })()}
-            {analyticsTab === "locations" && (() => {
-              const src = filtered.length > 0 ? filtered : history;
-              // Group by siteName
-              const byLocation = {};
-              src.forEach(rec => {
-                const loc = rec.siteName?.trim() || rec.location?.trim() || "Unknown";
-                if (!byLocation[loc]) byLocation[loc] = [];
-                byLocation[loc].push(rec);
-              });
-              const today = new Date();
-              today.setHours(0, 0, 0, 0);
-              const rows = Object.entries(byLocation).map(([name, recs]) => {
-                // Sort descending by date
-                const sorted = [...recs].sort((a, b) => (b.savedAt || b.date || "").localeCompare(a.savedAt || a.date || ""));
-                const lastRec = sorted[0];
-                const lastDateStr = lastRec?.savedAt?.slice(0, 10) || lastRec?.date?.slice(0, 10) || null;
-                let daysSince = null;
-                if (lastDateStr) {
-                  const d = new Date(lastDateStr);
-                  daysSince = Math.round((today - d) / 86400000);
-                }
-                const overdue = daysSince !== null && daysSince >= 7;
-                const warn = daysSince !== null && daysSince >= 4 && !overdue;
-                return { name, count: recs.length, lastDateStr, daysSince, overdue, warn };
-              }).sort((a, b) => (b.daysSince ?? 9999) - (a.daysSince ?? 9999));
 
-              return (
-                <div style={{ marginTop: 12 }}>
-                  <div style={{ fontWeight: 700, fontSize: "0.82rem", color: "#374151", marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>
-                    📍 Inspection Completion by Location
-                    <span style={{ fontWeight: 400, fontSize: "0.76rem", color: "#6b7280" }}>{rows.length} locations · {src.length} total inspections</span>
-                  </div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                    {rows.map((r, i) => (
-                      <div key={i} style={{
-                        display: "flex", alignItems: "center", gap: 10,
-                        background: r.overdue ? "#fef2f2" : r.warn ? "#fffbeb" : "#f9fafb",
-                        border: `1px solid ${r.overdue ? "#fca5a5" : r.warn ? "#fde68a" : "#e5e7eb"}`,
-                        borderRadius: 10, padding: "10px 14px",
-                      }}>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontWeight: 700, fontSize: "0.85rem", color: "#111827", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.name}</div>
-                          <div style={{ fontSize: "0.75rem", color: "#6b7280", marginTop: 2 }}>
-                            {r.count} inspection{r.count !== 1 ? "s" : ""}
-                            {r.lastDateStr ? ` · Last: ${r.lastDateStr}` : " · No date recorded"}
-                          </div>
-                        </div>
-                        <div style={{ textAlign: "right", flexShrink: 0 }}>
-                          {r.daysSince === null ? (
-                            <span style={{ fontSize: "0.75rem", color: "#9ca3af" }}>—</span>
-                          ) : r.daysSince === 0 ? (
-                            <span style={{ fontSize: "0.78rem", fontWeight: 700, color: "#16a34a" }}>Today</span>
-                          ) : (
-                            <span style={{ fontSize: "0.78rem", fontWeight: 700, color: r.overdue ? "#dc2626" : r.warn ? "#d97706" : "#374151" }}>
-                              {r.daysSince}d ago
-                            </span>
-                          )}
-                          {r.overdue && <div style={{ fontSize: "0.68rem", fontWeight: 700, color: "#dc2626", marginTop: 1 }}>OVERDUE</div>}
-                          {r.warn && !r.overdue && <div style={{ fontSize: "0.68rem", fontWeight: 700, color: "#d97706", marginTop: 1 }}>Due soon</div>}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  {rows.filter(r => r.overdue).length > 0 && (
-                    <div style={{ marginTop: 10, padding: "8px 12px", background: "#fee2e2", border: "1px solid #fca5a5", borderRadius: 8, fontSize: "0.78rem", color: "#991b1b", fontWeight: 600 }}>
-                      ⚠️ {rows.filter(r => r.overdue).length} location{rows.filter(r => r.overdue).length !== 1 ? "s" : ""} overdue (7+ days since last inspection)
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
           </>
         )}
 
@@ -15577,7 +15506,6 @@ function HaccpAdminSection() {
 function OrphanedHaccpSection() { return <HaccpAdminSection />; }
 
 function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVenueName, venueSettings, onSaveVenueSettings }) {
-  const [aiSnap] = useState(() => AIEngine.getSnapshot());
   const [users, setUsers] = useState([]);
   const [showAddForm, setShowAddForm] = useState(false);
   const [addBadge, setAddBadge] = useState("");
@@ -15721,82 +15649,6 @@ function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVe
             <button type="button" onClick={() => setRemoveError("")} style={{ background: "none", border: "none", color: "#991b1b", cursor: "pointer", fontWeight: 700, fontSize: "1.1rem", lineHeight: 1, padding: "0 2px" }}>×</button>
           </div>
         )}
-        {/* ── AI Quick Insights ─────────────────────────────────────────── */}
-        {(() => {
-          const pat = aiSnap?.patterns;
-          if (!pat) return null;
-          const profiles = (pat.inspectorProfiles || []).slice(0, 5);
-          const anomalies = (pat.equipAnomalies || []).slice(0, 3);
-          const gaps = (pat.scheduleGaps || [])
-            .filter(g => g.severity === "critical" || g.severity === "high")
-            .slice(0, 3);
-          const weakLocs = (pat.weakLocations || []).slice(0, 3);
-          const hasContent = profiles.length || anomalies.length || gaps.length || weakLocs.length;
-          if (!hasContent) return null;
-          return (
-            <div style={{ background: "#fff", border: "1.5px solid #c7d2fe", borderRadius: 12, padding: "14px 16px", marginBottom: "1rem" }}>
-              <div style={{ fontSize: "0.62rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.1em", color: "#4338ca", marginBottom: 12 }}>🤖 AI Quick Insights</div>
-
-              {/* Performance Pulse */}
-              {profiles.length > 0 && (
-                <div style={{ marginBottom: 14 }}>
-                  <div style={{ fontSize: "0.7rem", fontWeight: 700, color: "#475569", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.07em" }}>👥 Inspector Performance</div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                    {profiles.map((p, i) => {
-                      const score = p.performanceScore ?? 0;
-                      const color = score >= 80 ? "#16a34a" : score >= 60 ? "#d97706" : "#dc2626";
-                      return (
-                        <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 9px", background: "#f8fafc", borderRadius: 8 }}>
-                          <div style={{ minWidth: 30, height: 30, borderRadius: "50%", background: color + "22", border: `1.5px solid ${color}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.7rem", fontWeight: 900, color }}>{score}</div>
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontWeight: 700, fontSize: "0.82rem", color: "#1e293b", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.name || "Inspector"}</div>
-                            <div style={{ fontSize: "0.68rem", color: "#64748b" }}>{p.recentCount || 0} reports · {p.passRate ?? 0}% pass</div>
-                          </div>
-                          <div style={{ fontSize: "0.68rem", fontWeight: 700, color }}>{score >= 80 ? "✅ Great" : score >= 60 ? "⚠️ OK" : "🔴 Review"}</div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  <button type="button" onClick={() => onNavigate && onNavigate("performance")} style={{ marginTop: 7, fontSize: "0.75rem", color: "#4338ca", background: "none", border: "none", cursor: "pointer", fontWeight: 700, padding: 0 }}>View full rankings →</button>
-                </div>
-              )}
-
-              {/* Anomaly & weak location alerts */}
-              {(anomalies.length > 0 || weakLocs.length > 0) && (
-                <div style={{ marginBottom: 14 }}>
-                  <div style={{ fontSize: "0.7rem", fontWeight: 700, color: "#475569", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.07em" }}>⚠️ Anomalies</div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                    {anomalies.map((a, i) => (
-                      <div key={`a${i}`} style={{ padding: "6px 9px", background: "#fff7ed", border: "1px solid #fed7aa", borderRadius: 8, fontSize: "0.78rem", color: "#7c2d12" }}>
-                        <strong>{a.label}</strong> at {a.site} — flagged {a.consecutiveFlags} visits in a row
-                      </div>
-                    ))}
-                    {weakLocs.map((l, i) => (
-                      <div key={`w${i}`} style={{ padding: "6px 9px", background: "#fff1f2", border: "1px solid #fecaca", borderRadius: 8, fontSize: "0.78rem", color: "#991b1b" }}>
-                        📍 <strong>{l.location}</strong> — {l.failRate}% fail rate ({l.failCount}/{l.total} visits)
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Scheduling recommendations */}
-              {gaps.length > 0 && (
-                <div>
-                  <div style={{ fontSize: "0.7rem", fontWeight: 700, color: "#475569", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.07em" }}>📅 Overdue Inspections</div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                    {gaps.map((g, i) => (
-                      <div key={i} style={{ padding: "6px 9px", background: g.severity === "critical" ? "#fff1f2" : "#fefce8", border: `1px solid ${g.severity === "critical" ? "#fecaca" : "#fde68a"}`, borderRadius: 8, fontSize: "0.78rem", color: g.severity === "critical" ? "#991b1b" : "#713f12" }}>
-                        📅 <strong>{g.location}</strong> — {g.daysSince} days since last inspection{g.hadIssues ? " · had open issues" : ""}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          );
-        })()}
-
         {/* Performance Dashboard shortcut */}
         <button
           type="button"

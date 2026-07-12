@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v106: Fix duplicate haccpMap variable in exportBulkExcel
-const CACHE_NAME = "sdx-inspect-v106";
+// v107: Remove AI Quick Insights card and Locations tab
+const CACHE_NAME = "sdx-inspect-v107";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
