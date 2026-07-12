@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v105: Remove Equipment & License Intelligence button
-const CACHE_NAME = "sdx-inspect-v105";
+// v106: Fix duplicate haccpMap variable in exportBulkExcel
+const CACHE_NAME = "sdx-inspect-v106";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",

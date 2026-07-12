@@ -7384,9 +7384,9 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
     // haccpByReport only holds data for the currently-expanded card.
     // For bulk exports we must eagerly fetch every record's submissions so
     // the Supervisor Log sheet is populated regardless of which cards were open.
-    const haccpMap = { ...haccpByReport }; // start with whatever is already loaded
+    const fullHaccpMap = { ...haccpByReport, ...haccpMap }; // merge pre-loaded + already fetched
     await Promise.all(records.map(async rec => {
-      if (haccpMap[rec.id] !== undefined) return; // already loaded
+      if (fullHaccpMap[rec.id] !== undefined) return; // already loaded
       const byId  = await loadHaccpForReport(rec.id);
       const bySite = (rec.siteName || rec.location) && rec.inspectionDate
         ? await loadHaccpBySite(rec.siteName || rec.location, rec.inspectionDate)
@@ -7399,7 +7399,7 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
         seen.add(key);
         return true;
       }).sort((a, b) => (a.submittedAt || "").localeCompare(b.submittedAt || ""));
-      haccpMap[rec.id] = merged;
+      fullHaccpMap[rec.id] = merged;
     }));
     // ───────────────────────────────────────────────────────────────────────
 
@@ -7517,7 +7517,7 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
       const row = ws1.addRow([
         i + 1, str(rec.siteName || rec.location), str(rec.siteNumber), str(rec.locationType || "—"), str(rec.floor || "—"),
         str(rec.inspectionDate), str(rec.inspectionType), str(rec.inspectorName),
-        str(rec.supervisorName || (haccpMap[rec.id]?.[0]?.supervisorName) || ""),
+        str(rec.supervisorName || (fullHaccpMap[rec.id]?.[0]?.supervisorName) || ""),
         str(rec.participantName || "—"),
         str(rec.eventName || "—"), str(rec.overallStatus || "—"), issues.length, hi,
       ]);
@@ -7730,7 +7730,7 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
 
     let supRowNum = 0;
     records.forEach(rec => {
-      const subs = haccpMap[rec.id] || [];
+      const subs = fullHaccpMap[rec.id] || [];
       subs.forEach(sub => {
         const allSubItems = [
           ...HACCP_TEMP_ITEMS,
