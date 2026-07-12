@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v103: AI Equipment Health dashboard + smarter Admin panel
-const CACHE_NAME = "sdx-inspect-v103";
+// v104: Remove Inventory and Equipment tabs
+const CACHE_NAME = "sdx-inspect-v104";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
