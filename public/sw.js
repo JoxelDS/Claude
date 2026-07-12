@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v109: Faster login — cache Firestore user reads, lazy QRCode, remove eager ensureSeedAdmin
-const CACHE_NAME = "sdx-inspect-v109";
+// v110: Fix supervisor log photos — save thumbUrl fallback, show photos in history card
+const CACHE_NAME = "sdx-inspect-v110";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",

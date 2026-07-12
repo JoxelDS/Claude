@@ -9614,6 +9614,14 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                                       {sub.problemReport.text}
                                     </div>
                                   )}
+                                  {(sub.problemReport?.photos || []).filter(p => p.previewUrl).length > 0 && (
+                                    <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginTop: 6 }}>
+                                      {sub.problemReport.photos.filter(p => p.previewUrl).map((ph, pi) => (
+                                        <img key={ph.id || pi} src={ph.previewUrl} alt={ph.tag || "photo"}
+                                          style={{ width: 60, height: 60, objectFit: "cover", borderRadius: 7, border: "1px solid #e5e7eb", cursor: "pointer" }} />
+                                      ))}
+                                    </div>
+                                  )}
                                 </div>
                               );
                             })}
@@ -18199,7 +18207,7 @@ function HaccpPortal() {
       lockedReadings: [...lockedReadings],
       itemLabels,
       customItems,
-      problemReport: problem.trim() ? { text: problem.trim(), severity, photos: problemPhotos.map(p => ({ id: p.id, name: p.name, sizeMb: p.sizeMb, type: p.type, tag: p.tag || "", previewUrl: (p.previewUrl && !p.previewUrl.startsWith("data:")) ? p.previewUrl : "" })) } : null,
+      problemReport: problem.trim() ? { text: problem.trim(), severity, photos: problemPhotos.map(p => ({ id: p.id, name: p.name, sizeMb: p.sizeMb, type: p.type, tag: p.tag || "", previewUrl: (p.previewUrl && !p.previewUrl.startsWith("data:")) ? p.previewUrl : (p.thumbUrl || "") })) } : null,
       submittedAt: new Date().toISOString(),
     };
     await saveHaccpSubmission(record);
@@ -18264,7 +18272,7 @@ function HaccpPortal() {
         locationType: locType.trim(),
         text: problem.trim(),
         severity,
-        photos: problemPhotos.map(p => ({ id: p.id, name: p.name, sizeMb: p.sizeMb, type: p.type, tag: p.tag || "", previewUrl: (p.previewUrl && !p.previewUrl.startsWith("data:")) ? p.previewUrl : "" })),
+        photos: problemPhotos.map(p => ({ id: p.id, name: p.name, sizeMb: p.sizeMb, type: p.type, tag: p.tag || "", previewUrl: (p.previewUrl && !p.previewUrl.startsWith("data:")) ? p.previewUrl : (p.thumbUrl || "") })),
         reportedAt: new Date().toISOString(),
         status: "open",
       });
