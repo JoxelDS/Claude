@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v102: Multi-venue HACCP sweep for bulk Excel Supervisor column
-const CACHE_NAME = "sdx-inspect-v102";
+// v103: AI Equipment Health dashboard + smarter Admin panel
+const CACHE_NAME = "sdx-inspect-v103";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",

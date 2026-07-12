@@ -1754,6 +1754,114 @@ const PatternMiner = {
     }
     patterns.equipmentAbsence = equipAbsence;
 
+    // ── Equipment Health Scores ──────────────────────────────────────────────
+    // Compute flag rates per category (coolers/freezers/sinks/other) from actionItems
+    const EQUIP_CAT_KW = {
+      coolers:  ["cooler"],
+      freezers: ["freezer"],
+      sinks:    ["sink"],
+      other:    ["warmer", "oven", "grill", "prep", "shelf", "rack", "hood", "fryer", "refriger"],
+    };
+    const equipSeen = { coolers: 0, freezers: 0, sinks: 0, other: 0 };
+    const equipFlagged = { coolers: 0, freezers: 0, sinks: 0, other: 0 };
+    const nowMs = Date.now();
+    const recent30 = sorted.filter(r => (nowMs - new Date(r.inspectionDate || 0).getTime()) < 30 * 86400000);
+    const prior30  = sorted.filter(r => { const ms = nowMs - new Date(r.inspectionDate || 0).getTime(); return ms >= 30 * 86400000 && ms < 60 * 86400000; });
+    for (const rec of sorted) {
+      const hasEquip = Object.keys(rec.inspection?.equipment || rec.equipment || {}).length > 0;
+      if (!hasEquip) continue;
+      const flags = { coolers: false, freezers: false, sinks: false, other: false };
+      for (const it of (rec.actionItems || [])) {
+        const txt = (it.issue || "").toLowerCase();
+        for (const [cat, kws] of Object.entries(EQUIP_CAT_KW)) {
+          if (kws.some(kw => txt.includes(kw))) flags[cat] = true;
+        }
+      }
+      for (const cat of Object.keys(equipSeen)) {
+        equipSeen[cat]++;
+        if (flags[cat]) equipFlagged[cat]++;
+      }
+    }
+    const equipHealthScores = {};
+    for (const cat of Object.keys(equipSeen)) {
+      const total = equipSeen[cat];
+      if (!total) { equipHealthScores[cat] = null; continue; }
+      const flagCount = equipFlagged[cat];
+      const kws = EQUIP_CAT_KW[cat];
+      const recentFl = recent30.filter(r => (r.actionItems || []).some(it => kws.some(kw => (it.issue || "").toLowerCase().includes(kw)))).length;
+      const priorFl  = prior30.filter(r =>  (r.actionItems || []).some(it => kws.some(kw => (it.issue || "").toLowerCase().includes(kw)))).length;
+      const recentRate = recent30.length ? recentFl / recent30.length : 0;
+      const priorRate  = prior30.length  ? priorFl  / prior30.length  : 0;
+      equipHealthScores[cat] = {
+        healthPct: Math.round(100 - (flagCount / total * 100)),
+        flagCount,
+        total,
+        trend: prior30.length > 0 ? Math.round((priorRate - recentRate) * 100) : 0,
+      };
+    }
+    patterns.equipHealthScores = equipHealthScores;
+
+    // ── Maintenance Priority ─────────────────────────────────────────────────
+    // Most-flagged equipment issues across all sites, ranked by total flag count
+    const maintMap = {};
+    for (const rec of sorted) {
+      const site = rec.siteName || rec.location || "Unknown";
+      const date = rec.inspectionDate || rec.savedAt || "";
+      for (const it of (rec.actionItems || [])) {
+        const full = it.issue || "";
+        const label = full.includes(":") ? full.split(":").slice(1).join(":").trim() : full;
+        if (!label) continue;
+        const txt = full.toLowerCase();
+        const cat = txt.includes("cooler") ? "coolers" : txt.includes("freezer") ? "freezers" : txt.includes("sink") ? "sinks" : "other";
+        if (!maintMap[label]) maintMap[label] = { count: 0, sites: {}, lastSeen: "", category: cat };
+        maintMap[label].count++;
+        maintMap[label].sites[site] = (maintMap[label].sites[site] || 0) + 1;
+        if (date > maintMap[label].lastSeen) maintMap[label].lastSeen = date;
+      }
+    }
+    patterns.maintenancePriority = Object.entries(maintMap)
+      .map(([label, v], i) => ({
+        rank: i + 1,
+        label,
+        totalFlags: v.count,
+        category: v.category,
+        sites: Object.entries(v.sites).map(([site, count]) => ({ site, count })).sort((a, b) => b.count - a.count),
+        lastSeen: v.lastSeen,
+        urgency: v.count > 10 ? "critical" : v.count >= 5 ? "high" : v.count >= 2 ? "medium" : "low",
+      }))
+      .sort((a, b) => b.totalFlags - a.totalFlags)
+      .slice(0, 10)
+      .map((item, i) => ({ ...item, rank: i + 1 }));
+
+    // ── Equipment Anomalies (3+ consecutive flags at same site) ─────────────
+    const siteRecs = {};
+    for (const rec of sorted) {
+      const site = rec.siteName || rec.location || "Unknown";
+      if (!siteRecs[site]) siteRecs[site] = [];
+      siteRecs[site].push(rec);
+    }
+    const anomalyList = [];
+    for (const [site, recs] of Object.entries(siteRecs)) {
+      if (recs.length < 3) continue;
+      const issueSet = new Set(recs.flatMap(r => (r.actionItems || []).map(it => (it.issue || "").split(":")[0].trim())));
+      for (const issueLabel of issueSet) {
+        if (!issueLabel) continue;
+        let run = 0, maxRun = 0, lastSeen = "";
+        for (const rec of recs) {
+          const has = (rec.actionItems || []).some(it => (it.issue || "").split(":")[0].trim() === issueLabel);
+          if (has) { run++; const d = rec.inspectionDate || rec.savedAt || ""; if (d > lastSeen) lastSeen = d; }
+          else run = 0;
+          if (run > maxRun) maxRun = run;
+        }
+        if (maxRun >= 3) {
+          const txt = issueLabel.toLowerCase();
+          const cat = txt.includes("cooler") ? "coolers" : txt.includes("freezer") ? "freezers" : txt.includes("sink") ? "sinks" : "other";
+          anomalyList.push({ site, label: issueLabel, consecutiveFlags: maxRun, lastSeen, category: cat });
+        }
+      }
+    }
+    patterns.equipAnomalies = anomalyList.sort((a, b) => b.consecutiveFlags - a.consecutiveFlags).slice(0, 8);
+
     saveJSON(PATTERNS_KEY, patterns);
     return patterns;
   },

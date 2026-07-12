@@ -6003,6 +6003,8 @@ function AIHealthMonitor({ history, currentUser }) {
   const [filterLoc,      setFilterLoc]      = React.useState("");
   const [filterEquip,    setFilterEquip]    = React.useState("");
   const [filterSubEquip, setFilterSubEquip] = React.useState("");
+  const [equipQuery,     setEquipQuery]     = React.useState("");
+  const [equipAnswer,    setEquipAnswer]    = React.useState("");
 
   React.useEffect(() => {
     if (history && history.length > 0) {
@@ -6083,9 +6085,9 @@ function AIHealthMonitor({ history, currentUser }) {
 
   /* ── nav tabs ───────────────────────────────────────────── */
   const tabs = [
-    { key: "insights",  label: "Tips",      badge: visibleSugs.length || null },
-    { key: "locations", label: "Inventory" },
-    { key: "supplies",  label: "Supplies"  },
+    { key: "insights",  label: "Tips",             badge: visibleSugs.length || null },
+    { key: "locations", label: "Equipment Health" },
+    { key: "supplies",  label: "Supplies"          },
   ];
 
   return (
@@ -6463,35 +6465,177 @@ function AIHealthMonitor({ history, currentUser }) {
           const dropdownStyle = { fontSize: "0.82rem", padding: "7px 28px 7px 11px", border: "1.5px solid #e2e8f0", borderRadius: 10, background: "#fff", color: "#1e293b", fontWeight: 600, outline: "none", cursor: "pointer", appearance: "none", WebkitAppearance: "none", backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%2364748b'/%3E%3C/svg%3E\")", backgroundRepeat: "no-repeat", backgroundPosition: "right 9px center" };
           const activeBucketObj = equipGroups.find(b => b.key === equipBucketKey);
 
+          // ── NL query answer engine ──────────────────────────────────────
+          function answerEquipQuery(q) {
+            const txt = q.toLowerCase().trim();
+            if (!txt) return "";
+            const priority = patterns?.maintenancePriority || [];
+            const health   = patterns?.equipHealthScores   || {};
+            const anomalies = patterns?.equipAnomalies     || [];
+            // Detect category
+            const cat = txt.includes("freezer") ? "freezers" : txt.includes("cooler") ? "coolers" : txt.includes("sink") ? "sinks" : null;
+            // Detect intent
+            const isWorst = /worst|bad|fail|flag|problem|issue|urgent|critical/i.test(txt);
+            const isFloor = /floor\s*(\d+)/i.exec(txt);
+            const isSite  = /site|location|where/i.test(txt);
+            const isTrend = /trend|improv|getting better|worse/i.test(txt);
+            const isCount = /how many|count|total/i.test(txt);
+            const filtered = cat ? priority.filter(p => p.category === cat) : priority;
+            if (filtered.length === 0) return cat
+              ? `No ${cat} issues found in recent inspections. Great news!`
+              : "No equipment issues found. Your team is on top of maintenance!";
+            const top = filtered[0];
+            if (isTrend && cat && health[cat]) {
+              const h = health[cat];
+              const dir = h.trend > 0 ? `improving (▲ ${h.trend}% fewer flags vs last month)` : h.trend < 0 ? `getting worse (▼ ${Math.abs(h.trend)}% more flags)` : "stable";
+              return `${cat.charAt(0).toUpperCase() + cat.slice(1)} health is ${dir}. Current health score: ${h.healthPct}% with ${h.flagCount} total flags.`;
+            }
+            if (isFloor) {
+              const floorNum = isFloor[1];
+              const floorItems = filtered.filter(p => p.sites.some(s => s.site.includes(`floor ${floorNum}`) || s.site.includes(`(${floorNum})`)));
+              if (!floorItems.length) return `No ${cat || "equipment"} flags found for Floor ${floorNum}.`;
+              const worst = floorItems[0];
+              return `Floor ${floorNum}: "${worst.label}" is the most flagged ${cat || "equipment"} issue (${worst.totalFlags} flags). Sites: ${worst.sites.slice(0, 2).map(s => s.site).join(", ")}.`;
+            }
+            if (isCount) {
+              const total = filtered.reduce((s, p) => s + p.totalFlags, 0);
+              return `${cat ? cat.charAt(0).toUpperCase() + cat.slice(1) : "Equipment"} flags: ${total} total across ${filtered.length} distinct issue${filtered.length !== 1 ? "s" : ""} in ${filtered[0]?.sites?.length || 0} location${(filtered[0]?.sites?.length || 0) !== 1 ? "s" : ""}.`;
+            }
+            if (isSite) {
+              const siteMap = {};
+              filtered.forEach(p => p.sites.forEach(s => { siteMap[s.site] = (siteMap[s.site] || 0) + s.count; }));
+              const topSite = Object.entries(siteMap).sort((a, b) => b[1] - a[1])[0];
+              if (!topSite) return "No location data available.";
+              return `Most ${cat || "equipment"} issues are at "${topSite[0]}" (${topSite[1]} flags). Check that location first.`;
+            }
+            // Default: top flagged item
+            const urgencyVerb = top.urgency === "critical" ? "urgently needs attention" : top.urgency === "high" ? "needs attention" : "should be reviewed";
+            const siteNames = top.sites.slice(0, 2).map(s => s.site).join(", ");
+            return `"${top.label}" ${urgencyVerb} — flagged ${top.totalFlags} time${top.totalFlags !== 1 ? "s" : ""} at: ${siteNames}${top.sites.length > 2 ? ` (+${top.sites.length - 2} more)` : ""}. Last flagged: ${top.lastSeen ? new Date(top.lastSeen).toLocaleDateString() : "—"}.`;
+          }
+
           return (
             <div>
-              {/* ── Navy KPI summary header ── */}
-              {inv.length > 0 && (
-                <div style={{ borderRadius: 16, overflow: "hidden", boxShadow: "0 8px 28px rgba(42,41,92,0.22)", marginBottom: 16 }}>
-                  <div style={{ background: "linear-gradient(160deg, #2A295C 0%, #1d1c50 60%, #283897 100%)", position: "relative", padding: "1rem 1.1rem 0.9rem" }}>
-                    <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 3, background: "linear-gradient(90deg, #EE0000, #ff5555, #EE0000)" }} />
-                    <div style={{ fontSize: "0.58rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.12em", color: "rgba(255,255,255,0.55)", marginBottom: 10 }}>Equipment Inventory — Analytics</div>
-                    <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.min(bucketTotals.length, 4)}, 1fr)`, gap: 8 }}>
-                      {bucketTotals.map(b => (
-                        <div key={b.key} style={{ background: "rgba(255,255,255,0.1)", backdropFilter: "blur(4px)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 12, padding: "0.6rem 0.5rem", textAlign: "center" }}>
-                          <div style={{ fontWeight: 900, fontSize: "1.5rem", color: "#fff", lineHeight: 1.1 }}>{b.total}</div>
-                          <div style={{ fontSize: "0.58rem", color: "rgba(255,255,255,0.65)", fontWeight: 700, marginTop: 2, textTransform: "uppercase", letterSpacing: "0.04em" }}>{b.label}</div>
+              {/* ── Equipment Health Scorecard ─────────────────────────────── */}
+              {(() => {
+                const hs = patterns?.equipHealthScores || {};
+                const CATS = [
+                  { key: "coolers",  label: "Coolers",  icon: "🧊" },
+                  { key: "freezers", label: "Freezers", icon: "❄️" },
+                  { key: "sinks",    label: "Sinks",    icon: "🚰" },
+                  { key: "other",    label: "Other",    icon: "🔧" },
+                ];
+                const available = CATS.filter(c => hs[c.key]);
+                if (!available.length) return null;
+                return (
+                  <div style={{ marginBottom: 18 }}>
+                    <div style={{ fontSize: "0.62rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.1em", color: "#64748b", marginBottom: 8 }}>Equipment Health Scores</div>
+                    <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.min(available.length, 4)}, 1fr)`, gap: 8 }}>
+                      {available.map(c => {
+                        const d = hs[c.key];
+                        const color = d.healthPct >= 85 ? "#16a34a" : d.healthPct >= 65 ? "#d97706" : "#dc2626";
+                        const bg    = d.healthPct >= 85 ? "#f0fdf4" : d.healthPct >= 65 ? "#fefce8" : "#fff1f2";
+                        const border= d.healthPct >= 85 ? "#bbf7d0" : d.healthPct >= 65 ? "#fde68a" : "#fecaca";
+                        const trendArrowStr = d.trend > 0 ? `▲ +${d.trend}%` : d.trend < 0 ? `▼ ${d.trend}%` : "→ stable";
+                        const trendColor = d.trend > 0 ? "#16a34a" : d.trend < 0 ? "#dc2626" : "#64748b";
+                        return (
+                          <div key={c.key} style={{ background: bg, border: `1.5px solid ${border}`, borderRadius: 12, padding: "0.75rem 0.6rem", textAlign: "center" }}>
+                            <div style={{ fontSize: "1.1rem", marginBottom: 2 }}>{c.icon}</div>
+                            <div style={{ fontWeight: 900, fontSize: "1.4rem", color, lineHeight: 1.1 }}>{d.healthPct}%</div>
+                            <div style={{ fontSize: "0.62rem", fontWeight: 700, color: "#475569", marginTop: 1, textTransform: "uppercase", letterSpacing: "0.04em" }}>{c.label}</div>
+                            <div style={{ fontSize: "0.62rem", color: trendColor, fontWeight: 600, marginTop: 3 }}>{trendArrowStr}</div>
+                            <div style={{ fontSize: "0.6rem", color: "#94a3b8", marginTop: 1 }}>{d.flagCount} flags</div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* ── Maintenance Priority List ──────────────────────────────── */}
+              {(() => {
+                const mp = (patterns?.maintenancePriority || []).slice(0, 5);
+                if (!mp.length) return null;
+                const URGENCY_STYLE = {
+                  critical: { bg: "#fee2e2", color: "#991b1b", border: "#fca5a5", label: "CRITICAL" },
+                  high:     { bg: "#fff7ed", color: "#9a3412", border: "#fed7aa", label: "HIGH" },
+                  medium:   { bg: "#fefce8", color: "#854d0e", border: "#fde68a", label: "MEDIUM" },
+                  low:      { bg: "#f0fdf4", color: "#166534", border: "#bbf7d0", label: "LOW" },
+                };
+                return (
+                  <div style={{ marginBottom: 16 }}>
+                    <div style={{ fontSize: "0.62rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.1em", color: "#64748b", marginBottom: 8 }}>🔧 Maintenance Priority</div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+                      {mp.map((item, i) => {
+                        const u = URGENCY_STYLE[item.urgency] || URGENCY_STYLE.low;
+                        const siteList = item.sites.slice(0, 2).map(s => s.site).join(", ");
+                        const extra = item.sites.length > 2 ? ` +${item.sites.length - 2} more` : "";
+                        return (
+                          <div key={i} style={{ display: "flex", gap: 10, alignItems: "flex-start", background: u.bg, border: `1.5px solid ${u.border}`, borderRadius: 10, padding: "9px 11px" }}>
+                            <div style={{ minWidth: 22, height: 22, background: u.color, borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: "0.65rem", fontWeight: 900 }}>#{item.rank}</div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+                                <span style={{ fontWeight: 700, fontSize: "0.83rem", color: "#1e293b" }}>{item.label}</span>
+                                <span style={{ background: u.color, color: "#fff", borderRadius: 4, padding: "1px 6px", fontSize: "0.6rem", fontWeight: 800, letterSpacing: "0.05em" }}>{u.label}</span>
+                              </div>
+                              <div style={{ fontSize: "0.72rem", color: "#64748b", marginTop: 2 }}>
+                                Flagged {item.totalFlags}× · Last: {item.lastSeen ? new Date(item.lastSeen).toLocaleDateString() : "—"}
+                              </div>
+                              <div style={{ fontSize: "0.7rem", color: "#94a3b8", marginTop: 1 }}>{siteList}{extra}</div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* ── Anomaly Alerts ─────────────────────────────────────────── */}
+              {(() => {
+                const an = patterns?.equipAnomalies || [];
+                if (!an.length) return null;
+                return (
+                  <div style={{ marginBottom: 16, background: "#fff7ed", border: "1.5px solid #fed7aa", borderRadius: 12, padding: "11px 13px" }}>
+                    <div style={{ fontSize: "0.62rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.1em", color: "#9a3412", marginBottom: 7 }}>⚠️ Recurring Issues Detected</div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                      {an.map((a, i) => (
+                        <div key={i} style={{ fontSize: "0.8rem", color: "#7c2d12", display: "flex", gap: 6 }}>
+                          <span style={{ color: "#ea580c", fontWeight: 700, flexShrink: 0 }}>●</span>
+                          <span><strong>{a.label}</strong> at {a.site} — flagged {a.consecutiveFlags} inspections in a row</span>
                         </div>
                       ))}
                     </div>
                   </div>
-                  <div style={{ background: "#fff", padding: "0.55rem 1.1rem", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-                    <span style={{ fontSize: "0.72rem", color: "#64748b", fontWeight: 600 }}>
-                      {grandTotalUnits} total units across {locationCount} location{locationCount !== 1 ? "s" : ""}
-                    </span>
-                    {tempUnits > 0 && (
-                      <span style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "#fefce8", border: "1px solid #fde68a", borderRadius: 7, padding: "2px 8px", fontSize: "0.68rem", fontWeight: 700, color: "#92400e" }}>
-                        ⚠️ {tempUnits} temporary unit{tempUnits !== 1 ? "s" : ""}
-                      </span>
-                    )}
-                  </div>
+                );
+              })()}
+
+              {/* ── Natural Language Query Box ──────────────────────────────── */}
+              <div style={{ marginBottom: 16, background: "#f8faff", border: "1.5px solid #c7d2fe", borderRadius: 12, padding: "11px 13px" }}>
+                <div style={{ fontSize: "0.62rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.1em", color: "#4338ca", marginBottom: 7 }}>🤖 Ask About Your Equipment</div>
+                <div style={{ display: "flex", gap: 7 }}>
+                  <input
+                    type="text"
+                    value={equipQuery}
+                    onChange={e => setEquipQuery(e.target.value)}
+                    onKeyDown={e => { if (e.key === "Enter") setEquipAnswer(answerEquipQuery(equipQuery)); }}
+                    placeholder="e.g. which freezers are worst? or coolers floor 2"
+                    style={{ flex: 1, fontSize: "0.82rem", padding: "7px 11px", border: "1.5px solid #c7d2fe", borderRadius: 8, outline: "none", background: "#fff" }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setEquipAnswer(answerEquipQuery(equipQuery))}
+                    style={{ padding: "7px 14px", borderRadius: 8, border: "none", background: "#4338ca", color: "#fff", fontSize: "0.8rem", fontWeight: 700, cursor: "pointer", flexShrink: 0 }}>
+                    Ask
+                  </button>
                 </div>
-              )}
+                {equipAnswer && (
+                  <div style={{ marginTop: 8, padding: "9px 11px", background: "#fff", border: "1px solid #c7d2fe", borderRadius: 8, fontSize: "0.83rem", color: "#1e293b", lineHeight: 1.5 }}>
+                    💬 {equipAnswer}
+                  </div>
+                )}
+              </div>
 
               {/* ── Filter bar ───────────────────────────────────────────────── */}
               <div style={{ marginBottom: 14 }}>
@@ -16928,6 +17072,7 @@ function HaccpAdminSection() {
 function OrphanedHaccpSection() { return <HaccpAdminSection />; }
 
 function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVenueName, venueSettings, onSaveVenueSettings }) {
+  const [aiSnap] = useState(() => AIEngine.getSnapshot());
   const [users, setUsers] = useState([]);
   const [showAddForm, setShowAddForm] = useState(false);
   const [addBadge, setAddBadge] = useState("");
@@ -17071,6 +17216,82 @@ function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVe
             <button type="button" onClick={() => setRemoveError("")} style={{ background: "none", border: "none", color: "#991b1b", cursor: "pointer", fontWeight: 700, fontSize: "1.1rem", lineHeight: 1, padding: "0 2px" }}>×</button>
           </div>
         )}
+        {/* ── AI Quick Insights ─────────────────────────────────────────── */}
+        {(() => {
+          const pat = aiSnap?.patterns;
+          if (!pat) return null;
+          const profiles = (pat.inspectorProfiles || []).slice(0, 5);
+          const anomalies = (pat.equipAnomalies || []).slice(0, 3);
+          const gaps = (pat.scheduleGaps || [])
+            .filter(g => g.severity === "critical" || g.severity === "high")
+            .slice(0, 3);
+          const weakLocs = (pat.weakLocations || []).slice(0, 3);
+          const hasContent = profiles.length || anomalies.length || gaps.length || weakLocs.length;
+          if (!hasContent) return null;
+          return (
+            <div style={{ background: "#fff", border: "1.5px solid #c7d2fe", borderRadius: 12, padding: "14px 16px", marginBottom: "1rem" }}>
+              <div style={{ fontSize: "0.62rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.1em", color: "#4338ca", marginBottom: 12 }}>🤖 AI Quick Insights</div>
+
+              {/* Performance Pulse */}
+              {profiles.length > 0 && (
+                <div style={{ marginBottom: 14 }}>
+                  <div style={{ fontSize: "0.7rem", fontWeight: 700, color: "#475569", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.07em" }}>👥 Inspector Performance</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                    {profiles.map((p, i) => {
+                      const score = p.performanceScore ?? 0;
+                      const color = score >= 80 ? "#16a34a" : score >= 60 ? "#d97706" : "#dc2626";
+                      return (
+                        <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 9px", background: "#f8fafc", borderRadius: 8 }}>
+                          <div style={{ minWidth: 30, height: 30, borderRadius: "50%", background: color + "22", border: `1.5px solid ${color}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.7rem", fontWeight: 900, color }}>{score}</div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontWeight: 700, fontSize: "0.82rem", color: "#1e293b", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.name || "Inspector"}</div>
+                            <div style={{ fontSize: "0.68rem", color: "#64748b" }}>{p.recentCount || 0} reports · {p.passRate ?? 0}% pass</div>
+                          </div>
+                          <div style={{ fontSize: "0.68rem", fontWeight: 700, color }}>{score >= 80 ? "✅ Great" : score >= 60 ? "⚠️ OK" : "🔴 Review"}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <button type="button" onClick={() => onNavigate && onNavigate("performance")} style={{ marginTop: 7, fontSize: "0.75rem", color: "#4338ca", background: "none", border: "none", cursor: "pointer", fontWeight: 700, padding: 0 }}>View full rankings →</button>
+                </div>
+              )}
+
+              {/* Anomaly & weak location alerts */}
+              {(anomalies.length > 0 || weakLocs.length > 0) && (
+                <div style={{ marginBottom: 14 }}>
+                  <div style={{ fontSize: "0.7rem", fontWeight: 700, color: "#475569", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.07em" }}>⚠️ Anomalies</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                    {anomalies.map((a, i) => (
+                      <div key={`a${i}`} style={{ padding: "6px 9px", background: "#fff7ed", border: "1px solid #fed7aa", borderRadius: 8, fontSize: "0.78rem", color: "#7c2d12" }}>
+                        <strong>{a.label}</strong> at {a.site} — flagged {a.consecutiveFlags} visits in a row
+                      </div>
+                    ))}
+                    {weakLocs.map((l, i) => (
+                      <div key={`w${i}`} style={{ padding: "6px 9px", background: "#fff1f2", border: "1px solid #fecaca", borderRadius: 8, fontSize: "0.78rem", color: "#991b1b" }}>
+                        📍 <strong>{l.location}</strong> — {l.failRate}% fail rate ({l.failCount}/{l.total} visits)
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Scheduling recommendations */}
+              {gaps.length > 0 && (
+                <div>
+                  <div style={{ fontSize: "0.7rem", fontWeight: 700, color: "#475569", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.07em" }}>📅 Overdue Inspections</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                    {gaps.map((g, i) => (
+                      <div key={i} style={{ padding: "6px 9px", background: g.severity === "critical" ? "#fff1f2" : "#fefce8", border: `1px solid ${g.severity === "critical" ? "#fecaca" : "#fde68a"}`, borderRadius: 8, fontSize: "0.78rem", color: g.severity === "critical" ? "#991b1b" : "#713f12" }}>
+                        📅 <strong>{g.location}</strong> — {g.daysSince} days since last inspection{g.hadIssues ? " · had open issues" : ""}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
         {/* Performance Dashboard shortcut */}
         <button
           type="button"
