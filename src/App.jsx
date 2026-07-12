@@ -17952,7 +17952,7 @@ function HaccpPortal() {
       const photoId = `${Date.now()}_${Math.random().toString(16).slice(2)}`;
       let previewUrl = thumbUrl;
       if (FIREBASE_ON) {
-        const storageData = await compressImage(f, 1200, 0.82);
+        const storageData = await compressImage(f, 1024, 0.78);
         const storageUrl = await uploadPhoto(storageData || thumbUrl, activeVenueId, inspId, photoId);
         if (storageUrl) {
           previewUrl = storageUrl;

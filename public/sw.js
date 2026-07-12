@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v65: Remove "Unknown" from inspector ranking (inspections missing inspector name are skipped)
-const CACHE_NAME = "sdx-inspect-v65";
+// v111: Fix Firebase Storage CORS — add cors.json, reduce upload size for mobile reliability
+const CACHE_NAME = "sdx-inspect-v111";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
