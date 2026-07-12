@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v104: Remove Inventory and Equipment tabs
-const CACHE_NAME = "sdx-inspect-v104";
+// v105: Remove Equipment & License Intelligence button
+const CACHE_NAME = "sdx-inspect-v105";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",

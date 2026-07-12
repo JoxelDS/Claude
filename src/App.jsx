@@ -15819,27 +15819,6 @@ function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVe
           <span style={{ marginLeft: "auto", color: "#93c5fd", fontSize: "1.1rem" }}>→</span>
         </button>
 
-        {/* Equipment & License Intelligence */}
-        <button
-          type="button"
-          onClick={() => onNavigate && onNavigate("equipment_intel")}
-          style={{
-            width: "100%", marginBottom: "1rem", padding: "1rem 1.25rem",
-            background: "linear-gradient(135deg, #064e3b 0%, #065f46 100%)",
-            border: "1px solid #10b98155", borderRadius: "10px",
-            color: "#fff", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.75rem",
-            textAlign: "left",
-          }}
-        >
-          <span style={{ fontSize: "1.5rem" }}>🧠</span>
-          <div>
-            <div style={{ fontWeight: 700, fontSize: "0.95rem" }}>Equipment & License Intelligence</div>
-            <div style={{ fontSize: "0.78rem", color: "#6ee7b7", marginTop: "0.1rem" }}>
-              AI analysis of all inspections · Equipment inventory · License registry
-            </div>
-          </div>
-          <span style={{ marginLeft: "auto", color: "#6ee7b7", fontSize: "1.1rem" }}>→</span>
-        </button>
 
 
         {/* Inspection Schedule Settings */}
