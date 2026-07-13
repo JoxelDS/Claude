@@ -7246,6 +7246,7 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const [historyTab, setHistoryTab] = useState("reports"); // "reports" | "analytics"
   const [haccpByReport, setHaccpByReport] = useState({}); // { [reportId]: [...submissions] }
+  const [haccpReportIds, setHaccpReportIds] = useState(new Set()); // reportIds known to have ≥1 HACCP submission
   const [chatByReport, setChatByReport] = useState({});  // { [reportId]: [...messages] }
   const [showHistoryMenu, setShowHistoryMenu] = useState(false);
   const [analyticsTab, setAnalyticsTab] = useState("temp"); // "temp" | "insights" | "predictive" | "recurring"
@@ -7285,6 +7286,18 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
       setHistoryLastDoc(lastDoc);
       setHistoryHasMore(hasMore);
       setHistoryLoaded(true);
+      // Eagerly load which reportIds have HACCP submissions so badges show correct color immediately
+      if (FIREBASE_ON && list.length > 0) {
+        loadHaccpSubmissions().then(subs => {
+          const ids = new Set(subs.filter(s => s.reportId && s.type === "submission").map(s => s.reportId));
+          setHaccpReportIds(ids);
+        }).catch(() => {});
+      } else if (!FIREBASE_ON) {
+        try {
+          const subs = JSON.parse(localStorage.getItem(HACCP_SUBS_KEY) || "[]");
+          setHaccpReportIds(new Set(subs.filter(s => s.reportId && s.type === "submission").map(s => s.reportId)));
+        } catch (_) {}
+      }
       if (list.length > 0) {
         const qualifiedList = list.filter(r => {
           const lt = (r.locationType || "").trim();
@@ -7376,6 +7389,19 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
       if (siteIv) clearInterval(siteIv);
     };
   }, [expandedId, history]);
+
+  // Keep haccpReportIds in sync whenever haccpByReport gains new data from expanded cards
+  useEffect(() => {
+    const newIds = Object.entries(haccpByReport)
+      .filter(([, subs]) => Array.isArray(subs) && subs.length > 0)
+      .map(([id]) => id);
+    if (newIds.length === 0) return;
+    setHaccpReportIds(prev => {
+      const next = new Set(prev);
+      newIds.forEach(id => next.add(id));
+      return next;
+    });
+  }, [haccpByReport]);
 
   const issueTypes = useMemo(() => {
     const set = new Set();
@@ -9470,6 +9496,15 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                         </span>
                       )}
                       {issues.length > 0 && <span className="pill">{issues.length} issue{issues.length !== 1 ? "s" : ""}</span>}
+                      {(haccpReportIds.has(rec.id) || haccpByReport[rec.id]?.length > 0) ? (
+                        <span title="HACCP temperature log submitted" style={{ display: "inline-flex", alignItems: "center", gap: 3, background: "#f0fdf4", color: "#15803d", border: "1px solid #bbf7d0", borderRadius: 8, padding: "2px 8px", fontSize: "0.72rem", fontWeight: 700, flexShrink: 0 }}>
+                          🌡️ HACCP
+                        </span>
+                      ) : (
+                        <span title="HACCP temperature log not yet submitted" style={{ display: "inline-flex", alignItems: "center", gap: 3, background: "#fef2f2", color: "#dc2626", border: "1px solid #fecaca", borderRadius: 8, padding: "2px 8px", fontSize: "0.72rem", fontWeight: 700, flexShrink: 0 }}>
+                          🌡️ HACCP
+                        </span>
+                      )}
                       {onEdit && canEditRec(rec) && (
                         <button
                           className="btn btnGhost btnSmall"

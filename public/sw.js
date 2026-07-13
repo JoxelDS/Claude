@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v112: Inspector task notifications — persist to Firestore, bell for all users, task list button
-const CACHE_NAME = "sdx-inspect-v112";
+// v113: Fix HACCP badge — pre-load submission status so green shows without clicking
+const CACHE_NAME = "sdx-inspect-v113";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
