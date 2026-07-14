@@ -2605,7 +2605,7 @@ function buildPhotoIndex(inspection, notesPhotos) {
   return { index, mapByPath };
 }
 
-function buildActionItems({ inspection, rawNotes, foodTemps: ftArg, foodTempNames: fnArg, foodTempCorrections: fcArg }) {
+function buildActionItems({ inspection, rawNotes, foodTemps: ftArg, foodTempNames: fnArg, foodTempCorrections: fcArg, foodTempSubmitted: fsArg }) {
   const items = [];
   const { mapByPath } = buildPhotoIndex(inspection);
   const pushIfBad = (pathKey, label, node) => {
@@ -2727,16 +2727,22 @@ function buildActionItems({ inspection, rawNotes, foodTemps: ftArg, foodTempName
   const ft = ftArg || inspection?.foodTemps || {};
   const fn = fnArg || inspection?.foodTempNames || {};
   const fc = fcArg || inspection?.foodTempCorrections || {};
+  const fs = fsArg || inspection?.foodTempSubmitted || {};
   for (const item of HACCP_TEMP_ITEMS) {
-    const vals = (ft[item.key] || []).filter(v => v !== "");
+    const allVals = ft[item.key] || [];
     const names = fn[item.key] || [];
     const corrections = fc[item.key] || [];
+    const submittedFlags = fs[item.key] || [];
+    // Only consider submitted readings — skip unsubmitted (they haven't been confirmed yet)
+    const vals = allVals.filter((v, i) => v !== "" && submittedFlags[i] === true);
+    const submittedIndexes = allVals.map((v, i) => v !== "" && submittedFlags[i] === true ? i : -1).filter(i => i >= 0);
     vals.forEach((v, vi) => {
+      const origIdx = submittedIndexes[vi];
       const pass = tempPass(item, v);
       if (pass === false) {
-        const foodLabel = names[vi]?.trim() ? ` (${names[vi].trim()})` : "";
+        const foodLabel = names[origIdx]?.trim() ? ` (${names[origIdx].trim()})` : "";
         const threshold = item.type === "hot" ? `min ${item.min}°F` : `max ${item.max}°F`;
-        const corrective = (corrections[vi] || "").trim();
+        const corrective = (corrections[origIdx] || "").trim();
         const correctiveText = corrective ? ` — Corrective action: ${corrective}` : "";
         items.push({
           issue: `HACCP – ${item.label}${foodLabel}: out-of-range reading ${Number(v)}°F (${threshold})${correctiveText}`,
@@ -18415,13 +18421,11 @@ function HaccpPortal() {
                       type="button" onClick={() => setSeverity(val)}>{label}</button>
                   ))}
                 </div>
-                <input ref={problemPhotoRef} type="file" accept="image/*" multiple className="fileInput"
-                  onChange={e => { addProblemPhotos(e.target.files); e.target.value = ""; }} />
-                <button type="button" className="btn btnGhost btnSmall photoBtn"
-                  style={{ marginTop: 8 }}
-                  onClick={() => problemPhotoRef.current?.click()}>
+                <label className="btn btnGhost btnSmall photoBtn" style={{ marginTop: 8, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}>
                   📷 Add photos to report
-                </button>
+                  <input ref={problemPhotoRef} type="file" accept="image/*" multiple className="fileInput"
+                    onChange={e => { addProblemPhotos(e.target.files); e.target.value = ""; }} />
+                </label>
                 {photoError && (
                   <div style={{ marginTop: 8, padding: "0.5rem 0.75rem", background: "#fef3c7", border: "1px solid #f59e0b", borderRadius: 6, color: "#92400e", fontSize: "0.82rem" }}>
                     {photoError}
@@ -18960,6 +18964,10 @@ export default function App() {
   );
   const [foodTempCorrections, setFoodTempCorrections] = useState(() =>
     Object.fromEntries(HACCP_TEMP_ITEMS.map(it => [it.key, [""]]))
+  );
+  // tracks which readings have been submitted (confirmed) — only submitted readings show pass/flag
+  const [foodTempSubmitted, setFoodTempSubmitted] = useState(() =>
+    Object.fromEntries(HACCP_TEMP_ITEMS.map(it => [it.key, [false]]))
   );
   const [rawNotes, setRawNotes] = useState("");
   const [notesPhotos, setNotesPhotos] = useState([]);  // photos attached to raw notes section
@@ -19599,6 +19607,7 @@ export default function App() {
     setFoodTemps(Object.fromEntries(HACCP_TEMP_ITEMS.map(it => [it.key, [""]])));
     setFoodTempNames(Object.fromEntries(HACCP_TEMP_ITEMS.map(it => [it.key, [""]])));
     setFoodTempCorrections(Object.fromEntries(HACCP_TEMP_ITEMS.map(it => [it.key, [""]])));
+    setFoodTempSubmitted(Object.fromEntries(HACCP_TEMP_ITEMS.map(it => [it.key, [false]])));
     setFieldCorrections({});
     setNotesSuggestions(null);
     setSuggestionsDismissed(false);
@@ -19647,6 +19656,7 @@ export default function App() {
     if (snapshot.foodTemps && typeof snapshot.foodTemps === "object") setFoodTemps({ ...snapshot.foodTemps });
     if (snapshot.foodTempNames && typeof snapshot.foodTempNames === "object") setFoodTempNames({ ...snapshot.foodTempNames });
     if (snapshot.foodTempCorrections && typeof snapshot.foodTempCorrections === "object") setFoodTempCorrections({ ...snapshot.foodTempCorrections });
+    if (snapshot.foodTempSubmitted && typeof snapshot.foodTempSubmitted === "object") setFoodTempSubmitted({ ...snapshot.foodTempSubmitted });
     if (snapshot.inspection !== undefined) setNotesPhotos(Array.isArray(snapshot.inspection?._notesPhotos) ? snapshot.inspection?._notesPhotos : []);
     if (snapshot.suppliesNeeded !== undefined) setSuppliesNeeded(Array.isArray(snapshot.suppliesNeeded) ? snapshot.suppliesNeeded : []);
     if (snapshot.rawNotes !== undefined) setRawNotes(snapshot.rawNotes || "");
@@ -19877,8 +19887,9 @@ export default function App() {
       foodTemps: { ...foodTemps },
       foodTempNames: { ...foodTempNames },
       foodTempCorrections: { ...foodTempCorrections },
+      foodTempSubmitted: { ...foodTempSubmitted },
       overallStatus: calcOverallStatus(inspection, { foodTemps, foodTempNames }),
-      actionItems: buildActionItems({ inspection, rawNotes, foodTemps, foodTempNames, foodTempCorrections }),
+      actionItems: buildActionItems({ inspection, rawNotes, foodTemps, foodTempNames, foodTempCorrections, foodTempSubmitted }),
       rawNotes,
       // output is NOT stored — it's regenerated on demand from transformLocally.
       // Storing the full report text was pushing documents over Firestore's 1MB limit.
@@ -21364,6 +21375,7 @@ export default function App() {
                   const readings = foodTemps[item.key] || [""];
                   const names = foodTempNames[item.key] || [""];
                   const corrections = foodTempCorrections[item.key] || [""];
+                  const submitted = foodTempSubmitted[item.key] || [false];
                   return (
                     <div key={item.key} style={{ borderBottom: "1px solid #e2e8f0", paddingBottom: 10 }}>
                       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
@@ -21380,26 +21392,31 @@ export default function App() {
                             setFoodTemps(p => ({ ...p, [item.key]: [...(p[item.key] || [""]), ""] }));
                             setFoodTempNames(p => ({ ...p, [item.key]: [...(p[item.key] || [""]), ""] }));
                             setFoodTempCorrections(p => ({ ...p, [item.key]: [...(p[item.key] || [""]), ""] }));
+                            setFoodTempSubmitted(p => ({ ...p, [item.key]: [...(p[item.key] || [false]), false] }));
                           }}>
                           + Reading
                         </button>
                       </div>
                       {readings.map((val, idx) => {
+                        const isSubmitted = submitted[idx] === true;
                         const rawDigits = String(val).replace(/\D/g, "");
-                        const pass = rawDigits.length >= 2 ? tempPass(item, val) : null;
+                        const pass = isSubmitted && rawDigits.length >= 2 ? tempPass(item, val) : null;
                         const name = names[idx] ?? "";
                         const correction = corrections[idx] ?? "";
                         const haccpFoodNameFieldId = `field-haccp-name-${item.key}-${idx}`;
                         const needsCorrection = pass === false && !correction.trim();
+                        const canSubmit = rawDigits.length >= 2;
                         return (
-                          <div key={idx} style={{ display: "flex", gap: 6, alignItems: "flex-start", marginBottom: 4, flexDirection: "column" }}>
+                          <div key={idx} style={{ display: "flex", gap: 6, alignItems: "flex-start", marginBottom: 6, flexDirection: "column" }}>
                             <div style={{ display: "flex", gap: 6, alignItems: "center", width: "100%" }}>
                             <input
                               className="input"
                               type="text"
                               placeholder="Food item (e.g. Chicken)"
                               value={name}
+                              disabled={isSubmitted}
                               onBlur={e => {
+                                if (isSubmitted) return;
                                 const v = e.target.value.trim();
                                 const tempOnly = /^\s*(\d{2,3}(\.\d)?)\s*°?\s*[Ff]?\s*$/.test(v);
                                 const numOnly = /^\d{2,3}$/.test(v);
@@ -21427,7 +21444,7 @@ export default function App() {
                                 arr[idx] = e.target.value;
                                 return { ...p, [item.key]: arr };
                               })}
-                              style={{ flex: 1, minWidth: 0, fontSize: "0.82rem" }}
+                              style={{ flex: 1, minWidth: 0, fontSize: "0.82rem", opacity: isSubmitted ? 0.7 : 1 }}
                             />
                             <div className="tempInputWrap" style={{ width: 90 }}>
                               <input
@@ -21436,29 +21453,63 @@ export default function App() {
                                 inputMode="decimal"
                                 placeholder="—"
                                 value={val}
+                                disabled={isSubmitted}
                                 onChange={e => setFoodTemps(p => {
                                   const arr = [...(p[item.key] || [""])];
                                   arr[idx] = e.target.value;
                                   return { ...p, [item.key]: arr };
                                 })}
-                                style={pass === false ? { borderColor: "#dc2626", background: "#fff5f5" } : undefined}
+                                style={{ opacity: isSubmitted ? 0.7 : 1 }}
                               />
                               <span className="tempUnit">°F</span>
                             </div>
-                            {pass !== null && (
+                            {/* Show result badge only after submit */}
+                            {isSubmitted && pass !== null && (
                               <span style={{
                                 fontSize: "0.75rem", fontWeight: 700, minWidth: 56, textAlign: "center",
                                 padding: "3px 8px", borderRadius: 6,
                                 background: pass ? "#dcfce7" : "#fee2e2",
                                 color: pass ? "#15803d" : "#dc2626",
+                                flexShrink: 0,
                               }}>
                                 {pass ? "✓ OK" : "⚠ Flag"}
                               </span>
                             )}
+                            {/* Submit button — only shown before confirming */}
+                            {!isSubmitted && (
+                              <button type="button"
+                                className="btn btnSmall"
+                                style={{ background: canSubmit ? "#2563eb" : "#e2e8f0", color: canSubmit ? "#fff" : "#9ca3af", fontWeight: 700, fontSize: "0.75rem", padding: "4px 12px", borderRadius: 8, flexShrink: 0, cursor: canSubmit ? "pointer" : "default", border: "none" }}
+                                disabled={!canSubmit}
+                                onClick={() => {
+                                  setFoodTempSubmitted(p => {
+                                    const arr = [...(p[item.key] || [false])];
+                                    arr[idx] = true;
+                                    return { ...p, [item.key]: arr };
+                                  });
+                                }}>
+                                Submit
+                              </button>
+                            )}
+                            {/* Edit button — shown after submitting */}
+                            {isSubmitted && (
+                              <button type="button"
+                                className="btn btnGhost btnSmall"
+                                style={{ color: "#64748b", padding: "2px 8px", fontSize: "0.75rem", flexShrink: 0 }}
+                                onClick={() => {
+                                  setFoodTempSubmitted(p => {
+                                    const arr = [...(p[item.key] || [false])];
+                                    arr[idx] = false;
+                                    return { ...p, [item.key]: arr };
+                                  });
+                                }}>
+                                Edit
+                              </button>
+                            )}
                             {readings.length > 1 && (
                               <button type="button"
                                 className="btn btnGhost btnSmall"
-                                style={{ color: "#9ca3af", padding: "2px 6px", fontSize: "0.8rem" }}
+                                style={{ color: "#9ca3af", padding: "2px 6px", fontSize: "0.8rem", flexShrink: 0 }}
                                 onClick={() => {
                                   setFoodTemps(p => {
                                     const arr = (p[item.key] || [""]).filter((_, i) => i !== idx);
@@ -21472,11 +21523,16 @@ export default function App() {
                                     const arr = (p[item.key] || [""]).filter((_, i) => i !== idx);
                                     return { ...p, [item.key]: arr.length ? arr : [""] };
                                   });
+                                  setFoodTempSubmitted(p => {
+                                    const arr = (p[item.key] || [false]).filter((_, i) => i !== idx);
+                                    return { ...p, [item.key]: arr.length ? arr : [false] };
+                                  });
                                 }}>✕</button>
                             )}
                             </div>
                             {fieldCorrections[haccpFoodNameFieldId] && <FieldCorrectionBanner correction={fieldCorrections[haccpFoodNameFieldId]} />}
-                            {pass === false && (
+                            {/* Corrective action — only shown after submit when flagged */}
+                            {isSubmitted && pass === false && (
                               <div style={{ width: "100%", background: "#fff5f5", border: `1px solid ${needsCorrection ? "#dc2626" : "#fca5a5"}`, borderRadius: 8, padding: "8px 10px", marginTop: 2 }}>
                                 <label style={{ display: "block", fontSize: "0.72rem", fontWeight: 700, color: "#dc2626", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>
                                   🔧 CORRECTIVE ACTION TAKEN *
@@ -21495,7 +21551,7 @@ export default function App() {
                                 />
                                 {needsCorrection && (
                                   <div style={{ fontSize: "0.72rem", color: "#dc2626", marginTop: 3, fontWeight: 600 }}>
-                                    Required — corrective action must be entered for out-of-range temperatures
+                                    Required — enter what corrective action was taken
                                   </div>
                                 )}
                               </div>
