@@ -2605,7 +2605,7 @@ function buildPhotoIndex(inspection, notesPhotos) {
   return { index, mapByPath };
 }
 
-function buildActionItems({ inspection, rawNotes, foodTemps: ftArg, foodTempNames: fnArg }) {
+function buildActionItems({ inspection, rawNotes, foodTemps: ftArg, foodTempNames: fnArg, foodTempCorrections: fcArg }) {
   const items = [];
   const { mapByPath } = buildPhotoIndex(inspection);
   const pushIfBad = (pathKey, label, node) => {
@@ -2726,16 +2726,20 @@ function buildActionItems({ inspection, rawNotes, foodTemps: ftArg, foodTempName
   // ftArg/fnArg passed from live form; fall back to embedded fields on saved records
   const ft = ftArg || inspection?.foodTemps || {};
   const fn = fnArg || inspection?.foodTempNames || {};
+  const fc = fcArg || inspection?.foodTempCorrections || {};
   for (const item of HACCP_TEMP_ITEMS) {
     const vals = (ft[item.key] || []).filter(v => v !== "");
     const names = fn[item.key] || [];
+    const corrections = fc[item.key] || [];
     vals.forEach((v, vi) => {
       const pass = tempPass(item, v);
       if (pass === false) {
         const foodLabel = names[vi]?.trim() ? ` (${names[vi].trim()})` : "";
         const threshold = item.type === "hot" ? `min ${item.min}°F` : `max ${item.max}°F`;
+        const corrective = (corrections[vi] || "").trim();
+        const correctiveText = corrective ? ` — Corrective action: ${corrective}` : "";
         items.push({
-          issue: `HACCP – ${item.label}${foodLabel}: out-of-range reading ${Number(v)}°F (${threshold})`,
+          issue: `HACCP – ${item.label}${foodLabel}: out-of-range reading ${Number(v)}°F (${threshold})${correctiveText}`,
           owner: "", due: "",
           priority: "Follow-up",
           photos: [],
@@ -18954,6 +18958,9 @@ export default function App() {
   const [foodTempNames, setFoodTempNames] = useState(() =>
     Object.fromEntries(HACCP_TEMP_ITEMS.map(it => [it.key, [""]]))
   );
+  const [foodTempCorrections, setFoodTempCorrections] = useState(() =>
+    Object.fromEntries(HACCP_TEMP_ITEMS.map(it => [it.key, [""]]))
+  );
   const [rawNotes, setRawNotes] = useState("");
   const [notesPhotos, setNotesPhotos] = useState([]);  // photos attached to raw notes section
   const notesPhotoRef = useRef(null);
@@ -19591,6 +19598,7 @@ export default function App() {
     setEventName("");
     setFoodTemps(Object.fromEntries(HACCP_TEMP_ITEMS.map(it => [it.key, [""]])));
     setFoodTempNames(Object.fromEntries(HACCP_TEMP_ITEMS.map(it => [it.key, [""]])));
+    setFoodTempCorrections(Object.fromEntries(HACCP_TEMP_ITEMS.map(it => [it.key, [""]])));
     setFieldCorrections({});
     setNotesSuggestions(null);
     setSuggestionsDismissed(false);
@@ -19638,6 +19646,7 @@ export default function App() {
     }
     if (snapshot.foodTemps && typeof snapshot.foodTemps === "object") setFoodTemps({ ...snapshot.foodTemps });
     if (snapshot.foodTempNames && typeof snapshot.foodTempNames === "object") setFoodTempNames({ ...snapshot.foodTempNames });
+    if (snapshot.foodTempCorrections && typeof snapshot.foodTempCorrections === "object") setFoodTempCorrections({ ...snapshot.foodTempCorrections });
     if (snapshot.inspection !== undefined) setNotesPhotos(Array.isArray(snapshot.inspection?._notesPhotos) ? snapshot.inspection?._notesPhotos : []);
     if (snapshot.suppliesNeeded !== undefined) setSuppliesNeeded(Array.isArray(snapshot.suppliesNeeded) ? snapshot.suppliesNeeded : []);
     if (snapshot.rawNotes !== undefined) setRawNotes(snapshot.rawNotes || "");
@@ -19867,8 +19876,9 @@ export default function App() {
       temps: { ...inspection.temps },
       foodTemps: { ...foodTemps },
       foodTempNames: { ...foodTempNames },
+      foodTempCorrections: { ...foodTempCorrections },
       overallStatus: calcOverallStatus(inspection, { foodTemps, foodTempNames }),
-      actionItems: buildActionItems({ inspection, rawNotes, foodTemps, foodTempNames }),
+      actionItems: buildActionItems({ inspection, rawNotes, foodTemps, foodTempNames, foodTempCorrections }),
       rawNotes,
       // output is NOT stored — it's regenerated on demand from transformLocally.
       // Storing the full report text was pushing documents over Firestore's 1MB limit.
@@ -21353,6 +21363,7 @@ export default function App() {
                 {HACCP_TEMP_ITEMS.map(item => {
                   const readings = foodTemps[item.key] || [""];
                   const names = foodTempNames[item.key] || [""];
+                  const corrections = foodTempCorrections[item.key] || [""];
                   return (
                     <div key={item.key} style={{ borderBottom: "1px solid #e2e8f0", paddingBottom: 10 }}>
                       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
@@ -21368,6 +21379,7 @@ export default function App() {
                           onClick={() => {
                             setFoodTemps(p => ({ ...p, [item.key]: [...(p[item.key] || [""]), ""] }));
                             setFoodTempNames(p => ({ ...p, [item.key]: [...(p[item.key] || [""]), ""] }));
+                            setFoodTempCorrections(p => ({ ...p, [item.key]: [...(p[item.key] || [""]), ""] }));
                           }}>
                           + Reading
                         </button>
@@ -21376,14 +21388,16 @@ export default function App() {
                         const rawDigits = String(val).replace(/\D/g, "");
                         const pass = rawDigits.length >= 2 ? tempPass(item, val) : null;
                         const name = names[idx] ?? "";
+                        const correction = corrections[idx] ?? "";
                         const haccpFoodNameFieldId = `field-haccp-name-${item.key}-${idx}`;
+                        const needsCorrection = pass === false && !correction.trim();
                         return (
                           <div key={idx} style={{ display: "flex", gap: 6, alignItems: "flex-start", marginBottom: 4, flexDirection: "column" }}>
                             <div style={{ display: "flex", gap: 6, alignItems: "center", width: "100%" }}>
                             <input
                               className="input"
                               type="text"
-                              placeholder="Food item"
+                              placeholder="Food item (e.g. Chicken)"
                               value={name}
                               onBlur={e => {
                                 const v = e.target.value.trim();
@@ -21431,12 +21445,16 @@ export default function App() {
                               />
                               <span className="tempUnit">°F</span>
                             </div>
-                            <span style={{
-                              fontSize: "0.75rem", fontWeight: 600, minWidth: 56, textAlign: "center",
-                              color: pass === null ? "#9ca3af" : pass ? "#16a34a" : "#dc2626",
-                            }}>
-                              {pass === null ? "—" : pass ? "✓ OK" : "⚠️ Flag"}
-                            </span>
+                            {pass !== null && (
+                              <span style={{
+                                fontSize: "0.75rem", fontWeight: 700, minWidth: 56, textAlign: "center",
+                                padding: "3px 8px", borderRadius: 6,
+                                background: pass ? "#dcfce7" : "#fee2e2",
+                                color: pass ? "#15803d" : "#dc2626",
+                              }}>
+                                {pass ? "✓ OK" : "⚠ Flag"}
+                              </span>
+                            )}
                             {readings.length > 1 && (
                               <button type="button"
                                 className="btn btnGhost btnSmall"
@@ -21450,13 +21468,36 @@ export default function App() {
                                     const arr = (p[item.key] || [""]).filter((_, i) => i !== idx);
                                     return { ...p, [item.key]: arr.length ? arr : [""] };
                                   });
+                                  setFoodTempCorrections(p => {
+                                    const arr = (p[item.key] || [""]).filter((_, i) => i !== idx);
+                                    return { ...p, [item.key]: arr.length ? arr : [""] };
+                                  });
                                 }}>✕</button>
                             )}
                             </div>
                             {fieldCorrections[haccpFoodNameFieldId] && <FieldCorrectionBanner correction={fieldCorrections[haccpFoodNameFieldId]} />}
                             {pass === false && (
-                              <div style={{ fontSize: "0.75rem", color: "#b45309", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 6, padding: "4px 8px", marginTop: 2 }}>
-                                📋 Off temp — will be added as a follow-up action item
+                              <div style={{ width: "100%", background: "#fff5f5", border: `1px solid ${needsCorrection ? "#dc2626" : "#fca5a5"}`, borderRadius: 8, padding: "8px 10px", marginTop: 2 }}>
+                                <label style={{ display: "block", fontSize: "0.72rem", fontWeight: 700, color: "#dc2626", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                                  🔧 CORRECTIVE ACTION TAKEN *
+                                </label>
+                                <textarea
+                                  className="input"
+                                  rows={2}
+                                  placeholder="What was done to correct this? (e.g. Discarded food, adjusted equipment, reheated to 165°F…)"
+                                  value={correction}
+                                  onChange={e => setFoodTempCorrections(p => {
+                                    const arr = [...(p[item.key] || [""])];
+                                    arr[idx] = e.target.value;
+                                    return { ...p, [item.key]: arr };
+                                  })}
+                                  style={{ width: "100%", fontSize: "0.82rem", resize: "vertical", borderColor: needsCorrection ? "#dc2626" : "#fca5a5", background: "#fff" }}
+                                />
+                                {needsCorrection && (
+                                  <div style={{ fontSize: "0.72rem", color: "#dc2626", marginTop: 3, fontWeight: 600 }}>
+                                    Required — corrective action must be entered for out-of-range temperatures
+                                  </div>
+                                )}
                               </div>
                             )}
                           </div>
