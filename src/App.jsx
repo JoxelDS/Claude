@@ -2643,7 +2643,7 @@ function buildActionItems({ inspection, rawNotes, foodTemps: ftArg, foodTempName
       issue: `${label}: ${failDetail}`,
       notes: otherNote || "",
       owner: "", due: "",
-      status: node.status || "",
+      status: node.status || (failedChecks.length > 0 ? "Fail" : ""),
       priority: node.status === "Maintenance" ? "Maintenance" : (node.status === "Fail" || node.status === "Not Clean" || failedChecks.length > 0) ? "High" : "Med",
       photos: mapByPath[pathKey] || [],
     });
