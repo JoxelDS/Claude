@@ -13,11 +13,19 @@
     <meta http-equiv="Expires" content="0" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/favicon.svg" />
-    <!-- DNS prefetch + preconnect for Google Fonts (fastest load) -->
+    <!-- DNS prefetch + preconnect for Google Fonts -->
     <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
     <link rel="dns-prefetch" href="https://fonts.gstatic.com" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- Firebase preconnect (auth + Firestore + Storage) -->
+    <link rel="preconnect" href="https://firestore.googleapis.com" />
+    <link rel="preconnect" href="https://identitytoolkit.googleapis.com" />
+    <link rel="preconnect" href="https://securetoken.googleapis.com" />
+    <link rel="dns-prefetch" href="https://firebasestorage.googleapis.com" />
+    <!-- Google Translate CDN — dns-prefetch only since it loads async -->
+    <link rel="dns-prefetch" href="//translate.google.com" />
+    <link rel="dns-prefetch" href="//translate.googleapis.com" />
     <!-- Preload font CSS so it starts downloading immediately -->
     <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
@@ -33,16 +41,22 @@
       .sp-fill{width:40%;height:100%;background:#EE0000;border-radius:3px;animation:sp .8s ease infinite alternate}
       @keyframes sp{from{transform:translateX(0)}to{transform:translateX(200%)}}
     </style>
-  <!-- Google Translate Element (free, no API key) -->
-  <script type="text/javascript">
+  <!-- Google Translate — loaded async so it never blocks first paint -->
+  <script>
     function googleTranslateElementInit() {
       new google.translate.TranslateElement(
         { pageLanguage: 'en', autoDisplay: false },
         'google_translate_element'
       );
     }
+    // Defer until after page is interactive
+    window.addEventListener('load', function() {
+      var s = document.createElement('script');
+      s.src = '//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit';
+      s.async = true;
+      document.head.appendChild(s);
+    });
   </script>
-  <script type="text/javascript" src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
   <style>
     /* Hide ALL Google Translate chrome — banner, tooltip, top bar, logo */
     .goog-te-banner-frame,

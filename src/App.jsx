@@ -7271,7 +7271,7 @@ function ImportReviewModal({ fields: initialFields, imagePreview, saving, onSave
 }
 
 /* ── History Page Component ──────────────────────────────── */
-function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, currentUser }) {
+function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, currentUser, notifItems, onNotifDismiss, onNotifClearAll, onMyTasks }) {
   // Returns true if the current user is allowed to edit the given record.
   // Allowed: the original author (matched by badgeHash), any admin, or global_admin.
   function canEditRec(rec) {
@@ -7281,6 +7281,7 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
     return false;
   }
   const [history, setHistory] = useState([]);
+  const [historyNotifOpen, setHistoryNotifOpen] = useState(false);
   const [filterDate, setFilterDate] = useState("");
   const [filterType, setFilterType] = useState("");
   const [filterFloor, setFilterFloor] = useState("");
@@ -8998,6 +8999,9 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
         <div className="topActions">
           {/* Desktop: show all buttons inline */}
           <button className="btn btnGhost historyDesktopBtn" onClick={onBack} type="button">Back to Inspector</button>
+          {onMyTasks && (currentUser?.role === "inspector" || currentUser?.role === "location_manager") && (
+            <button className="btn btnGhost historyDesktopBtn" onClick={onMyTasks} type="button">📋 My Tasks</button>
+          )}
           {history.length > 0 && (
             <button
               className="btn btnGhost historyDesktopBtn"
@@ -9006,12 +9010,63 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
               style={selectMode ? { background: "#1d4ed8", color: "#fff", borderColor: "#1d4ed8" } : {}}
             >{selectMode ? "✕ Cancel" : "☑ Select"}</button>
           )}
+          {/* Notification bell for all users */}
+          {currentUser && notifItems && (
+            <div style={{ position: "relative" }}>
+              <button
+                className="hamburgerBtn"
+                onClick={() => setHistoryNotifOpen(v => !v)}
+                type="button"
+                aria-label="Notifications"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: "#fff", display: "block" }}>
+                  <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                  <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+                </svg>
+                {notifItems.length > 0 && (
+                  <span className="hamburgerBadge" style={{ background: "#ef4444" }}>
+                    {notifItems.length > 9 ? "9+" : notifItems.length}
+                  </span>
+                )}
+              </button>
+              {historyNotifOpen && (
+                <div className="dropdownMenu" style={{ right: 0, left: "auto", minWidth: 300, maxWidth: 380, maxHeight: 420, overflowY: "auto", background: "#fff", padding: 0 }} onClick={e => e.stopPropagation()}>
+                  <div style={{ padding: "0.65rem 1rem", fontWeight: 700, fontSize: "0.85rem", color: "#1e293b", borderBottom: "1px solid #e2e8f0", display: "flex", justifyContent: "space-between", alignItems: "center", background: "#f8fafc" }}>
+                    <span>🔔 Notifications</span>
+                    {notifItems.length > 0 && (
+                      <button type="button" style={{ background: "none", border: "none", cursor: "pointer", color: "#64748b", fontSize: "0.75rem" }} onClick={() => { onNotifClearAll?.(); setHistoryNotifOpen(false); }}>Clear all</button>
+                    )}
+                  </div>
+                  {notifItems.length === 0 ? (
+                    <div style={{ padding: "1.5rem 1rem", color: "#64748b", fontSize: "0.85rem", textAlign: "center" }}>No notifications</div>
+                  ) : (
+                    notifItems.map(n => (
+                      <div key={n.id} style={{ display: "flex", alignItems: "stretch", borderLeft: `4px solid ${n.type === "chat" ? "#3b82f6" : n.type === "problem_report" ? "#ef4444" : "#f59e0b"}`, borderBottom: "1px solid #f1f5f9", background: "#fff" }}>
+                        <button type="button" style={{ flex: 1, flexDirection: "column", alignItems: "flex-start", gap: 3, background: "none", border: "none", cursor: "pointer", padding: "0.65rem 0.75rem", textAlign: "left" }}
+                          onClick={() => { onNotifDismiss?.(n.id); setHistoryNotifOpen(false); if (n.type === "assignment") onMyTasks?.(); }}>
+                          <span style={{ fontWeight: 700, fontSize: "0.82rem", color: "#0f172a", display: "block" }}>{n.title}</span>
+                          <span style={{ fontSize: "0.78rem", color: "#334155", whiteSpace: "normal", display: "block", marginTop: 2, lineHeight: 1.4 }}>{n.body}</span>
+                        </button>
+                        <button type="button" onClick={() => onNotifDismiss?.(n.id)} style={{ background: "none", border: "none", cursor: "pointer", padding: "0 0.75rem", color: "#94a3b8", fontSize: "1.1rem", flexShrink: 0, alignSelf: "center" }} aria-label="Dismiss">×</button>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+          )}
           {/* Mobile: single ⋯ menu button */}
           <div className="historyMobileMenu" style={{ position: "relative" }}>
             <button className="btn btnGhost" onClick={() => setShowHistoryMenu(m => !m)} type="button" style={{ fontSize: "1.2rem", padding: "6px 12px", letterSpacing: "0.05em" }}>⋯</button>
             {showHistoryMenu && (
               <div className="dropdownMenu" style={{ right: 0, left: "auto", minWidth: 230, padding: "14px 10px 18px", gap: 4 }} onClick={() => setShowHistoryMenu(false)}>
                 <button className="dropdownMenuItem" onClick={onBack} type="button" style={{ padding: "15px 20px", fontSize: "0.97rem" }}>← Back to Inspector</button>
+                {onMyTasks && (currentUser?.role === "inspector" || currentUser?.role === "location_manager") && (
+                  <>
+                    <div style={{ height: 1, background: "rgba(255,255,255,0.12)", margin: "8px 10px" }} />
+                    <button className="dropdownMenuItem" onClick={() => { onMyTasks(); setShowHistoryMenu(false); }} type="button" style={{ padding: "15px 20px", fontSize: "0.97rem" }}>📋 My Tasks</button>
+                  </>
+                )}
                 {history.length > 0 && (
                   <>
                     <div style={{ height: 1, background: "rgba(255,255,255,0.12)", margin: "8px 10px" }} />
@@ -19667,7 +19722,12 @@ export default function App() {
   if (page === "history") { AIEngine.trackPage("history"); return <HistoryPage onBack={() => {
     if (managedVenueId) { setVenue(VENUE_ID); setManagedVenueId(null); setManagedVenueName(null); setPage("global_admin"); }
     else { setPage("inspector"); }
-  }} onEdit={loadRecordForEdit} managedVenueId={managedVenueId} managedVenueName={managedVenueName} currentUser={currentUser} />; }
+  }} onEdit={loadRecordForEdit} managedVenueId={managedVenueId} managedVenueName={managedVenueName} currentUser={currentUser}
+    notifItems={notifItems}
+    onNotifDismiss={id => setNotifItems(prev => prev.filter(x => x.id !== id))}
+    onNotifClearAll={() => setNotifItems([])}
+    onMyTasks={() => setPage("mylocations")}
+  />; }
   if (page === "global_admin") {
     return <GlobalAdminPanel
       currentUser={currentUser}
