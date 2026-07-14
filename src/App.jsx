@@ -9688,6 +9688,11 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                                       <div style={{ display: "flex", alignItems: "flex-start", gap: 8, flex: 1 }}>
                                         <span className={cx("priorityBadge",
                                           resolved ? "priorityResolved" :
+                                          (a.status === "Critical Violation" || a.status === "Fail" || a.status === "Not Clean") ? "priorityCritical" :
+                                          (a.status === "Needs Attention") ? "priorityHigh" :
+                                          (a.status === "Maintenance") ? "priorityMaint" :
+                                          (a.status === "Follow-Up" || a.status === "Follow-up") ? "priorityFollowup" :
+                                          (a.status === "Corrected On-Site" || a.status === "OK") ? "priorityResolved" :
                                           a.priority === "Critical" ? "priorityCritical" :
                                           a.priority === "Maintenance" ? "priorityMaint" :
                                           a.priority === "High" ? "priorityHigh" :
@@ -10417,12 +10422,19 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                             {(() => {
                               const st = item.status || item.priority || "";
                               const cfg =
-                                st === "Not Clean"   ? { bg: "#fff7ed", color: "#c2410c", border: "#fed7aa" } :
-                                st === "Fail"        ? { bg: "#fef2f2", color: "#dc2626", border: "#fecaca" } :
-                                st === "Follow-Up"   ? { bg: "#f0f9ff", color: "#0284c7", border: "#bae6fd" } :
-                                st === "Maintenance" ? { bg: "#faf5ff", color: "#7c3aed", border: "#e9d5ff" } :
-                                isHigh               ? { bg: "#fef2f2", color: "#dc2626", border: "#fecaca" } :
-                                                       { bg: "#fefce8", color: "#a16207", border: "#fde68a" };
+                                st === "Not Clean"          ? { bg: "#fff7ed", color: "#c2410c", border: "#fed7aa" } :
+                                st === "Fail"               ? { bg: "#fef2f2", color: "#dc2626", border: "#fecaca" } :
+                                st === "Critical Violation" ? { bg: "#fef2f2", color: "#991b1b", border: "#fca5a5" } :
+                                st === "Needs Attention"    ? { bg: "#fff7ed", color: "#c2410c", border: "#fed7aa" } :
+                                st === "Follow-Up"          ? { bg: "#f0f9ff", color: "#0284c7", border: "#bae6fd" } :
+                                st === "Follow-up"          ? { bg: "#f0f9ff", color: "#0284c7", border: "#bae6fd" } :
+                                st === "Maintenance"        ? { bg: "#faf5ff", color: "#7c3aed", border: "#e9d5ff" } :
+                                st === "Corrected On-Site"  ? { bg: "#f0fdf4", color: "#15803d", border: "#bbf7d0" } :
+                                st === "Off / Not In Use"   ? { bg: "#f8fafc", color: "#64748b", border: "#e2e8f0" } :
+                                st === "N/A"                ? { bg: "#f8fafc", color: "#94a3b8", border: "#e2e8f0" } :
+                                st === "OK"                 ? { bg: "#f0fdf4", color: "#15803d", border: "#bbf7d0" } :
+                                isHigh                      ? { bg: "#fef2f2", color: "#dc2626", border: "#fecaca" } :
+                                                              { bg: "#fefce8", color: "#a16207", border: "#fde68a" };
                               return (
                                 <span style={{ fontSize: "0.68rem", fontWeight: 700, padding: "2px 8px", borderRadius: 6, flexShrink: 0, letterSpacing: "0.03em", marginTop: 2, background: cfg.bg, color: cfg.color, border: `1px solid ${cfg.border}` }}>
                                   {st || "High"}
