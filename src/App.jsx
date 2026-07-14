@@ -7289,6 +7289,7 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
   const [showIssueFilter, setShowIssueFilter] = useState(null); // null | "excel" | "word" | "pdf"
   const [selectedIssueKeys, setSelectedIssueKeys] = useState(null); // null = all issues
   const [modalIssueSearch, setModalIssueSearch] = useState(""); // search filter inside issue modal
+  const [issueExporting, setIssueExporting] = useState(false);
   // Corrective action tracking: { [recId]: { [issueKey]: { resolvedAt, resolvedNote, resolvedBy } } }
   const [resolvedIssues, setResolvedIssues] = useState({});
   // Resolve modal state: { recId, issueKey, issueText } | null
@@ -10239,28 +10240,31 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
           });
         }
         async function doExport() {
-          const issueKeys = selectedIssueKeys || new Set(allIssues.map(i => i.key));
-          // Filter each record's actionItems to only selected keys
-          // Use the same splitIssueModal logic so keys match what the modal built
-          const filteredRecords = selectedRecords.map(rec => ({
-            ...rec,
-            actionItems: (rec.actionItems || []).filter(a => {
-              const { area } = splitIssueModal(a);
-              const key = `${area.trim()}|||${(a.issue || "").trim()}`;
-              return issueKeys.has(key);
-            }),
-          }));
-          if (showIssueFilter === "excel") {
-            try {
+          setIssueExporting(true);
+          try {
+            const issueKeys = selectedIssueKeys || new Set(allIssues.map(i => i.key));
+            const filteredRecords = selectedRecords.map(rec => ({
+              ...rec,
+              actionItems: (rec.actionItems || []).filter(a => {
+                const { area } = splitIssueModal(a);
+                const key = `${area.trim()}|||${(a.issue || "").trim()}`;
+                return issueKeys.has(key);
+              }),
+            }));
+            if (showIssueFilter === "excel") {
               const result = await exportBulkExcel(filteredRecords);
               if (result) downloadBlob(result.blob, result.filename);
-            } catch (err) { alert("Excel download failed: " + (err?.message || String(err))); }
-          } else if (showIssueFilter === "pdf") {
-            await exportBulkPdf(filteredRecords);
-          } else {
-            await exportBulkWord(filteredRecords);
+            } else if (showIssueFilter === "pdf") {
+              await exportBulkPdf(filteredRecords);
+            } else {
+              await exportBulkWord(filteredRecords);
+            }
+            setShowIssueFilter(null);
+          } catch (err) {
+            alert("Export failed: " + (err?.message || String(err)));
+          } finally {
+            setIssueExporting(false);
           }
-          setShowIssueFilter(null);
         }
 
         const exportAccent = showIssueFilter === "excel" ? "#16a34a" : showIssueFilter === "pdf" ? "#dc2626" : "#2563eb";
@@ -10457,19 +10461,21 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                   onMouseLeave={e => e.currentTarget.style.background = "#fff"}>
                   Cancel
                 </button>
-                <button type="button" onClick={doExport} disabled={selectedCount === 0}
+                <button type="button" onClick={doExport} disabled={selectedCount === 0 || issueExporting}
                   style={{
                     flex: 2, padding: "12px", borderRadius: 12, border: "none",
-                    cursor: selectedCount === 0 ? "not-allowed" : "pointer",
+                    cursor: (selectedCount === 0 || issueExporting) ? "not-allowed" : "pointer",
                     fontWeight: 700, fontSize: "0.92rem",
-                    background: selectedCount === 0 ? "#e2e8f0" : `linear-gradient(135deg, ${exportAccent}, ${showIssueFilter === "excel" ? "#15803d" : showIssueFilter === "pdf" ? "#b91c1c" : "#1d4ed8"})`,
-                    color: selectedCount === 0 ? "#94a3b8" : "#fff",
-                    boxShadow: selectedCount === 0 ? "none" : `0 2px 12px ${exportAccent}44`,
+                    background: (selectedCount === 0 || issueExporting) ? "#e2e8f0" : `linear-gradient(135deg, ${exportAccent}, ${showIssueFilter === "excel" ? "#15803d" : showIssueFilter === "pdf" ? "#b91c1c" : "#1d4ed8"})`,
+                    color: (selectedCount === 0 || issueExporting) ? "#94a3b8" : "#fff",
+                    boxShadow: (selectedCount === 0 || issueExporting) ? "none" : `0 2px 12px ${exportAccent}44`,
                     transition: "all 0.15s",
                     display: "flex", alignItems: "center", justifyContent: "center", gap: 7,
                   }}>
-                  <span style={{ fontSize: "1rem" }}>{exportIcon}</span>
-                  <span>{selectedCount > 0 ? `Export ${selectedCount} Issue${selectedCount !== 1 ? "s" : ""} to ${exportLabel}` : `Select issues to export`}</span>
+                  {issueExporting
+                    ? <><span style={{ width: 16, height: 16, border: "2px solid #94a3b8", borderTopColor: "#475569", borderRadius: "50%", display: "inline-block", animation: "spin 0.7s linear infinite" }} /><span>Preparing download…</span></>
+                    : <><span style={{ fontSize: "1rem" }}>{exportIcon}</span><span>{selectedCount > 0 ? `Export ${selectedCount} Issue${selectedCount !== 1 ? "s" : ""} to ${exportLabel}` : `Select issues to export`}</span></>
+                  }
                 </button>
               </div>
             </div>
