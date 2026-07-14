@@ -20175,9 +20175,9 @@ export default function App() {
 
         {/* Notification dropdown */}
         {notifOpen && (
-          <div ref={notifDropRef} className="dropdownMenu" style={{ minWidth: 300, maxWidth: 380, maxHeight: 420, overflowY: "auto" }}>
-            <div style={{ padding: "0.6rem 1rem", fontWeight: 700, fontSize: "0.85rem", color: "#2A295C", borderBottom: "1px solid #e2e8f0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span>Notifications</span>
+          <div ref={notifDropRef} className="dropdownMenu" style={{ minWidth: 300, maxWidth: 380, maxHeight: 420, overflowY: "auto", background: "#fff", padding: 0 }}>
+            <div style={{ padding: "0.65rem 1rem", fontWeight: 700, fontSize: "0.85rem", color: "#1e293b", borderBottom: "1px solid #e2e8f0", display: "flex", justifyContent: "space-between", alignItems: "center", background: "#f8fafc", borderRadius: "0 0 0 0" }}>
+              <span>🔔 Notifications</span>
               {notifItems.length > 0 && (
                 <button type="button" style={{ background: "none", border: "none", cursor: "pointer", color: "#64748b", fontSize: "0.75rem" }} onClick={() => setNotifItems([])}>
                   Clear all
@@ -20185,17 +20185,16 @@ export default function App() {
               )}
             </div>
             {notifItems.length === 0 ? (
-              <div style={{ padding: "1.2rem 1rem", color: "#94a3b8", fontSize: "0.85rem", textAlign: "center" }}>No notifications</div>
+              <div style={{ padding: "1.5rem 1rem", color: "#64748b", fontSize: "0.85rem", textAlign: "center", background: "#fff" }}>No notifications</div>
             ) : (
               notifItems.map(n => (
                 <div
                   key={n.id}
-                  style={{ display: "flex", alignItems: "stretch", borderLeft: `3px solid ${n.type === "chat" ? "#3b82f6" : n.type === "problem_report" ? "#ef4444" : "#f59e0b"}` }}
+                  style={{ display: "flex", alignItems: "stretch", borderLeft: `4px solid ${n.type === "chat" ? "#3b82f6" : n.type === "problem_report" ? "#ef4444" : "#f59e0b"}`, borderBottom: "1px solid #f1f5f9", background: "#fff" }}
                 >
                   <button
                     type="button"
-                    className="dropdownMenuItem"
-                    style={{ flex: 1, flexDirection: "column", alignItems: "flex-start", gap: 2, borderLeft: "none", borderRadius: 0 }}
+                    style={{ flex: 1, flexDirection: "column", alignItems: "flex-start", gap: 3, background: "none", border: "none", cursor: "pointer", padding: "0.65rem 0.75rem", textAlign: "left" }}
                     onClick={() => {
                       setNotifItems(prev => prev.filter(x => x.id !== n.id));
                       setNotifOpen(false);
@@ -20210,16 +20209,16 @@ export default function App() {
                       }
                     }}
                   >
-                    <span style={{ fontWeight: 600, fontSize: "0.82rem" }}>{n.title}</span>
-                    <span style={{ fontSize: "0.77rem", color: "#64748b", whiteSpace: "normal", textAlign: "left" }}>{n.body}</span>
-                    <span style={{ fontSize: "0.72rem", color: "#94a3b8" }}>
+                    <span style={{ fontWeight: 700, fontSize: "0.82rem", color: "#0f172a", display: "block" }}>{n.title}</span>
+                    <span style={{ fontSize: "0.78rem", color: "#334155", whiteSpace: "normal", display: "block", marginTop: 2, lineHeight: 1.4 }}>{n.body}</span>
+                    <span style={{ fontSize: "0.72rem", color: "#94a3b8", display: "block", marginTop: 3 }}>
                       {new Date(n.ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                     </span>
                   </button>
                   <button
                     type="button"
                     onClick={e => { e.stopPropagation(); setNotifItems(prev => prev.filter(x => x.id !== n.id)); }}
-                    style={{ background: "none", border: "none", cursor: "pointer", padding: "0 0.75rem", color: "#94a3b8", fontSize: "1rem", flexShrink: 0, alignSelf: "center" }}
+                    style={{ background: "none", border: "none", cursor: "pointer", padding: "0 0.75rem", color: "#94a3b8", fontSize: "1.1rem", flexShrink: 0, alignSelf: "center" }}
                     aria-label="Dismiss notification"
                   >
                     ×
