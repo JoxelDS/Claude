@@ -2569,15 +2569,31 @@ function buildPhotoIndex(inspection, notesPhotos) {
   const mapByPath = {};
   for (const [a, b, label] of order) {
     const node = inspection?.[a]?.[b];
-    const photos = node?.photos || [];
-    if (!photos.length) continue;
     const pathKey = `${a}.${b}`;
-    mapByPath[pathKey] = [];
-    for (const p of photos) {
-      n += 1;
-      mapByPath[pathKey].push(n);
-      const caption = sanitizeText(node?.notes) || sanitizeText(p?.name) || "";
-      index.push({ num: n, label, caption, previewUrl: p.previewUrl || p.url || p.dataUrl || null, thumbUrl: p.thumbUrl || null });
+    // Section-level photos
+    const photos = node?.photos || [];
+    if (photos.length) {
+      mapByPath[pathKey] = mapByPath[pathKey] || [];
+      for (const p of photos) {
+        n += 1;
+        mapByPath[pathKey].push(n);
+        const caption = sanitizeText(node?.notes) || sanitizeText(p?.name) || "";
+        index.push({ num: n, label, caption, previewUrl: p.previewUrl || p.url || p.dataUrl || null, thumbUrl: p.thumbUrl || null });
+      }
+    }
+    // Checklist-item photos (taken when marking an item ✗)
+    const checklist = node?.checklist || [];
+    for (const ci of checklist) {
+      const ciPhotos = ci.photos || [];
+      if (!ciPhotos.length) continue;
+      mapByPath[pathKey] = mapByPath[pathKey] || [];
+      const ciLabel = `${label} — ${ci.label || "Item"}`;
+      for (const p of ciPhotos) {
+        n += 1;
+        mapByPath[pathKey].push(n);
+        const caption = sanitizeText(ci.comment) || sanitizeText(p?.name) || "";
+        index.push({ num: n, label: ciLabel, caption, previewUrl: p.previewUrl || p.url || p.dataUrl || null, thumbUrl: p.thumbUrl || null });
+      }
     }
   }
   // Include notes photos (attached to the raw notes / inspector notes section)
