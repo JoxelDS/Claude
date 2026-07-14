@@ -1,13 +1,10 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v77: real Sodexo logo favicon (white sodexo + red swoosh + star on navy)
-const CACHE_NAME = "sdx-inspect-v97ah"; // v97ah: Action Items Excel photos — store photoUrls (direct URL refs) on action items so photos embed correctly in col P; prefer item-level photos over section-level
+// v115: Skip accidental-tap flags — section needs failed checklist item or notes to appear in action items
+const CACHE_NAME = "sdx-inspect-v115";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
   "./sodexo-dark.svg",
-  "./manifest.json",
-  "./icons/icon-192.png",
-  "./icons/icon-512.png",
 ];
 
 // Install: precache static assets (NOT the HTML or JS bundles — those use network-first)
