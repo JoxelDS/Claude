@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v113: Fix HACCP badge — pre-load submission status so green shows without clicking
-const CACHE_NAME = "sdx-inspect-v113";
+// v119: Restored to July 13 state
+const CACHE_NAME = "sdx-inspect-v119";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
