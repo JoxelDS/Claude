@@ -13525,11 +13525,6 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName }) {
                     <span style={{ background: "rgba(255,255,255,0.08)", borderRadius: 5, padding: "0.12rem 0.4rem", fontSize: "0.66rem", color: "rgba(255,255,255,0.5)", fontWeight: 600, whiteSpace: "nowrap" }}>
                       {best.siteCount} site{best.siteCount !== 1 ? "s" : ""}
                     </span>
-                    {best.avgDurationSec && (
-                      <span style={{ background: "rgba(255,255,255,0.07)", borderRadius: 5, padding: "0.12rem 0.4rem", fontSize: "0.66rem", color: "rgba(255,255,255,0.48)", fontWeight: 600, whiteSpace: "nowrap" }}>
-                        ⏱ {fmtDur(best.avgDurationSec)}
-                      </span>
-                    )}
                   </div>
                 </div>
 
@@ -13551,7 +13546,7 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName }) {
 
           {/* ── TAB NAV ── */}
           <div className="perfPrintHide perfTabsWrapper">
-            {[["rankings","Rankings"],["time","Timing"],["verdict","Verdict"],["licenses","Licenses"],["trends","Trends"]].map(([id, label]) => (
+            {[["rankings","Rankings"],["time","Duration"],["verdict","Verdict"],["licenses","Licenses"],["trends","Trends"]].map(([id, label]) => (
               <button key={id} onClick={() => setActiveTab(id)} className={cx("perfTab", activeTab === id && "perfTabActive")}>
                 <span>{label}</span>
               </button>
@@ -13704,16 +13699,12 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName }) {
 
           {/* ── TIME TAB ── */}
           {activeTab === "time" && (() => {
-            const timedRanking = [...ranking].filter(p => p.avgDurationSec).sort((a, b) => a.avgDurationSec - b.avgDurationSec);
+            // Sort alphabetically — no speed ranking
+            const timedRanking = [...ranking].filter(p => p.avgDurationSec).sort((a, b) => a.name.localeCompare(b.name));
             const teamAvgSec = timedRanking.length
               ? Math.round(timedRanking.reduce((s, p) => s + p.avgDurationSec, 0) / timedRanking.length)
               : null;
             const maxDur = timedRanking.length ? Math.max(...timedRanking.map(p => p.avgDurationSec)) : 0;
-            const fastestP = timedRanking[0] || null;
-            const slowestP = timedRanking[timedRanking.length - 1] || null;
-            const timeLostVsFastest = fastestP && slowestP
-              ? slowestP.avgDurationSec - fastestP.avgDurationSec
-              : 0;
 
             // Sort ranking by real work score for quality summary
             const byQuality = [...ranking].sort((a, b) => b.performanceScore - a.performanceScore);
@@ -13770,53 +13761,44 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName }) {
                   </div>
                 )}
 
-                {/* ── Section 1: Time Intelligence Summary ── */}
-                {timedRanking.length >= 2 && teamAvgSec && (
+                {/* ── Section 1: Duration Overview ── */}
+                {timedRanking.length >= 1 && teamAvgSec && (
                   <div style={{
                     background: `linear-gradient(135deg, ${NAVY} 0%, #1e1d4a 100%)`,
                     borderRadius: 16, padding: "1rem 1.1rem", color: "#fff",
                     boxShadow: "0 6px 24px rgba(42,41,92,0.25)"
                   }}>
                     <div style={{ fontSize: "0.7rem", fontWeight: 700, opacity: 0.65, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.6rem" }}>Report Completion Time</div>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "0.6rem" }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.6rem" }}>
                       <div style={{ textAlign: "center" }}>
                         <div style={{ fontSize: "1.3rem", fontWeight: 900, lineHeight: 1 }}>{fmtDur(teamAvgSec)}</div>
                         <div style={{ fontSize: "0.58rem", opacity: 0.6, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", marginTop: 2 }}>Team Avg</div>
                       </div>
-                      <div style={{ textAlign: "center", borderLeft: "1px solid rgba(255,255,255,0.15)", borderRight: "1px solid rgba(255,255,255,0.15)" }}>
-                        <div style={{ fontSize: "1.3rem", fontWeight: 900, lineHeight: 1, color: "#4ade80" }}>{fmtDur(fastestP?.avgDurationSec)}</div>
-                        <div style={{ fontSize: "0.58rem", opacity: 0.6, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", marginTop: 2 }}>Fastest</div>
-                        <div style={{ fontSize: "0.6rem", opacity: 0.55, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{fastestP?.name?.split(" ")[0]}</div>
-                      </div>
-                      <div style={{ textAlign: "center" }}>
-                        <div style={{ fontSize: "1.3rem", fontWeight: 900, lineHeight: 1, color: timeLostVsFastest > 600 ? "#f87171" : "#fbbf24" }}>{fmtDur(timeLostVsFastest)}</div>
-                        <div style={{ fontSize: "0.58rem", opacity: 0.6, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", marginTop: 2 }}>Max Gap</div>
-                        <div style={{ fontSize: "0.6rem", opacity: 0.55, marginTop: 1 }}>fast ↔ slow</div>
+                      <div style={{ textAlign: "center", borderLeft: "1px solid rgba(255,255,255,0.15)" }}>
+                        <div style={{ fontSize: "1.3rem", fontWeight: 900, lineHeight: 1, color: "#fbbf24" }}>{timedRanking.filter(p => p.avgDurationSec < 300).length}</div>
+                        <div style={{ fontSize: "0.58rem", opacity: 0.6, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", marginTop: 2 }}>Under 5 min ⚠️</div>
+                        <div style={{ fontSize: "0.6rem", opacity: 0.55, marginTop: 1 }}>may need review</div>
                       </div>
                     </div>
-                    {timeLostVsFastest > 600 && (
-                      <div style={{ marginTop: "0.75rem", background: "rgba(248,113,113,0.15)", borderRadius: 8, padding: "0.45rem 0.65rem", fontSize: "0.7rem", color: "#fca5a5", lineHeight: 1.45 }}>
-                        ⚠️ <strong>{slowestP?.name?.split(" ")[0]}</strong> takes {fmtDur(timeLostVsFastest)} longer per inspection than {fastestP?.name?.split(" ")[0]}
-                        {slowestP?.durationCount >= 3 && ` — across ${slowestP.durationCount} inspections, that adds up to ${fmtDur(timeLostVsFastest * slowestP.durationCount)} in extra time`}.
-                      </div>
-                    )}
+                    <div style={{ marginTop: "0.75rem", background: "rgba(255,255,255,0.08)", borderRadius: 8, padding: "0.45rem 0.65rem", fontSize: "0.7rem", color: "rgba(255,255,255,0.75)", lineHeight: 1.45 }}>
+                      Longer inspection time generally reflects more thorough on-site work. Very short completions (&lt;5 min) may indicate the form was filled in quickly without being on-site.
+                    </div>
                   </div>
                 )}
 
-                {/* ── Section 2: On-Site Duration Race ── */}
+                {/* ── Section 2: Per-Inspector Duration ── */}
                 <div style={{ background: "#fff", borderRadius: 14, padding: "0.85rem 0.9rem", border: "1.5px solid #f1f5f9", boxShadow: "0 1px 6px rgba(0,0,0,0.04)" }}>
-                  {/* Disclaimer banner about what timing measures */}
-                  <div style={{ background: "#fff7ed", border: "1.5px solid #fed7aa", borderRadius: 10, padding: "0.55rem 0.75rem", marginBottom: "0.75rem", display: "flex", alignItems: "flex-start", gap: "0.4rem" }}>
-                    <span style={{ fontSize: "0.95rem", flexShrink: 0 }}>⚠️</span>
-                    <div style={{ fontSize: "0.7rem", color: "#92400e", lineHeight: 1.5 }}>
-                      <strong>This measures report completion time</strong> — the gap between when the inspector opens the form and when they save it. It is <strong>not verified on-site time</strong>. Use the <strong>Verdict tab</strong> for true output-quality ranking. Timing data is only available for inspections that logged a start timestamp.
+                  <div style={{ background: "#f0f9ff", border: "1.5px solid #bae6fd", borderRadius: 10, padding: "0.55rem 0.75rem", marginBottom: "0.75rem", display: "flex", alignItems: "flex-start", gap: "0.4rem" }}>
+                    <span style={{ fontSize: "0.95rem", flexShrink: 0 }}>ℹ️</span>
+                    <div style={{ fontSize: "0.7rem", color: "#0369a1", lineHeight: 1.5 }}>
+                      <strong>Duration is a thoroughness signal, not a speed contest.</strong> Inspections that take longer generally reflect more careful on-site work. Very short completions (&lt;5 min) are flagged in amber as they may indicate the form was filled in without being fully on-site. Use the <strong>Verdict tab</strong> for quality rankings.
                     </div>
                   </div>
 
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.7rem" }}>
                     <div>
-                      <div style={{ fontSize: "0.82rem", fontWeight: 800, color: "#0f172a" }}>Report Completion Time</div>
-                      <div style={{ fontSize: "0.67rem", color: "#94a3b8", marginTop: 1 }}>Avg time from form open to report save · reference only, not a quality signal</div>
+                      <div style={{ fontSize: "0.82rem", fontWeight: 800, color: "#0f172a" }}>Avg Completion Time per Inspector</div>
+                      <div style={{ fontSize: "0.67rem", color: "#94a3b8", marginTop: 1 }}>Time from form open to save · reference data only</div>
                     </div>
                     {teamAvgSec && (
                       <div style={{ background: "#f1f5f9", borderRadius: 8, padding: "0.2rem 0.5rem", fontSize: "0.65rem", color: "#64748b", fontWeight: 700, flexShrink: 0 }}>
@@ -13830,30 +13812,21 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName }) {
                   ) : (
                     <div style={{ display: "flex", flexDirection: "column", gap: "0.55rem" }}>
                       {timedRanking.map((p, i) => {
-                        const isFastest = fastestP && p.name === fastestP.name;
-                        const isSlowest = slowestP && p.name === slowestP.name && timedRanking.length > 1;
+                        const isTooFast = p.avgDurationSec < 300; // < 5 min — potential quality concern
                         const barPct = maxDur ? Math.round((p.avgDurationSec / maxDur) * 100) : 100;
                         const vsTeam = teamAvgSec ? p.avgDurationSec - teamAvgSec : 0;
-                        const durColor = p.avgDurationSec <= 600 ? "#22c55e" : p.avgDurationSec <= 1200 ? "#3b82f6" : p.avgDurationSec <= 1800 ? "#f59e0b" : "#ef4444";
-                        const speedTrend = p.durationTrend !== null
-                          ? (p.durationTrend < -60 ? { label: "↓ Getting faster", color: "#22c55e" }
-                            : p.durationTrend > 60 ? { label: "↑ Getting slower", color: "#ef4444" }
-                            : { label: "→ Stable speed", color: "#94a3b8" })
+                        // Color logic: too fast = amber warning, normal = neutral blue, long = green (thorough)
+                        const durColor = isTooFast ? "#f59e0b" : p.avgDurationSec >= 1200 ? "#22c55e" : "#3b82f6";
+                        const durationTrendLabel = p.durationTrend !== null
+                          ? (p.durationTrend < -60 ? { label: "↓ Getting faster", color: "#f59e0b" }
+                            : p.durationTrend > 60 ? { label: "↑ Taking more time", color: "#22c55e" }
+                            : { label: "→ Consistent duration", color: "#94a3b8" })
                           : null;
                         return (
-                          <div key={p.name} style={{ border: isFastest ? `1.5px solid ${NAVY}25` : "1px solid #f1f5f9", borderRadius: 12, overflow: "hidden", background: isFastest ? "#f8f9ff" : "#fafafa" }}>
-                            {isFastest && <div style={{ height: 2, background: `linear-gradient(90deg, ${NAVY}, #6366f1)` }} />}
-                            {isSlowest && <div style={{ height: 2, background: "linear-gradient(90deg, #ef4444, #f97316)" }} />}
+                          <div key={p.name} style={{ border: isTooFast ? "1.5px solid #fde68a" : "1px solid #f1f5f9", borderRadius: 12, overflow: "hidden", background: isTooFast ? "#fffbeb" : "#fafafa" }}>
+                            {isTooFast && <div style={{ height: 2, background: "linear-gradient(90deg, #f59e0b, #fbbf24)" }} />}
                             <div style={{ padding: "0.65rem 0.75rem" }}>
                               <div style={{ display: "flex", alignItems: "center", gap: "0.55rem" }}>
-                                {/* Rank badge */}
-                                <div style={{
-                                  width: 28, height: 28, borderRadius: 8, flexShrink: 0,
-                                  background: isFastest ? NAVY : "#f1f5f9",
-                                  display: "flex", alignItems: "center", justifyContent: "center",
-                                  fontSize: "0.68rem", fontWeight: 900,
-                                  color: isFastest ? "#fff" : "#94a3b8"
-                                }}>#{i+1}</div>
                                 {/* Avatar */}
                                 <div style={{
                                   width: 32, height: 32, borderRadius: 9, flexShrink: 0,
@@ -13865,29 +13838,28 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName }) {
                                 <div style={{ flex: 1, minWidth: 0 }}>
                                   <div style={{ display: "flex", alignItems: "center", gap: "0.3rem", flexWrap: "wrap" }}>
                                     <span style={{ fontWeight: 800, color: "#0f172a", fontSize: "0.87rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 140 }}>{p.name}</span>
-                                    {isFastest && <span style={{ background: NAVY, color: "#fff", fontSize: "0.55rem", padding: "0.08rem 0.35rem", borderRadius: 20, fontWeight: 800, whiteSpace: "nowrap" }}>⚡ FASTEST</span>}
-                                    {isSlowest && <span style={{ background: "#ef4444", color: "#fff", fontSize: "0.55rem", padding: "0.08rem 0.35rem", borderRadius: 20, fontWeight: 800, whiteSpace: "nowrap" }}>🐢 SLOWEST</span>}
-                                    {speedTrend && <span style={{ fontSize: "0.58rem", color: speedTrend.color, fontWeight: 700, whiteSpace: "nowrap" }}>{speedTrend.label}</span>}
+                                    {isTooFast && <span style={{ background: "#f59e0b", color: "#fff", fontSize: "0.55rem", padding: "0.08rem 0.35rem", borderRadius: 20, fontWeight: 800, whiteSpace: "nowrap" }}>⚠️ Very short</span>}
+                                    {durationTrendLabel && <span style={{ fontSize: "0.58rem", color: durationTrendLabel.color, fontWeight: 700, whiteSpace: "nowrap" }}>{durationTrendLabel.label}</span>}
                                   </div>
                                   <div style={{ fontSize: "0.65rem", color: "#94a3b8", marginTop: 1 }}>
-                                    {p.durationCount} timed · best {fmtDur(p.minDurationSec)} · worst {fmtDur(p.maxDurationSec)}
+                                    {p.durationCount} timed · shortest {fmtDur(p.minDurationSec)} · longest {fmtDur(p.maxDurationSec)}
                                   </div>
                                 </div>
                                 {/* Avg time chip */}
-                                <div style={{ flexShrink: 0, textAlign: "center", background: isFastest ? NAVY : durColor + "15", borderRadius: 10, padding: "0.3rem 0.5rem", border: `1.5px solid ${isFastest ? "transparent" : durColor + "30"}`, minWidth: 50 }}>
-                                  <div style={{ fontSize: "0.9rem", fontWeight: 900, color: isFastest ? "#fff" : durColor, lineHeight: 1, whiteSpace: "nowrap" }}>{fmtDur(p.avgDurationSec)}</div>
-                                  <div style={{ fontSize: "0.48rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", color: isFastest ? "rgba(255,255,255,0.55)" : durColor, opacity: 0.8 }}>avg</div>
+                                <div style={{ flexShrink: 0, textAlign: "center", background: durColor + "15", borderRadius: 10, padding: "0.3rem 0.5rem", border: `1.5px solid ${durColor}30`, minWidth: 50 }}>
+                                  <div style={{ fontSize: "0.9rem", fontWeight: 900, color: durColor, lineHeight: 1, whiteSpace: "nowrap" }}>{fmtDur(p.avgDurationSec)}</div>
+                                  <div style={{ fontSize: "0.48rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", color: durColor, opacity: 0.8 }}>avg</div>
                                 </div>
                               </div>
                               {/* Progress bar + vs-team indicator */}
                               <div style={{ marginTop: "0.45rem" }}>
                                 <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
                                   <div style={{ flex: 1, height: 5, background: "#f1f5f9", borderRadius: 99 }}>
-                                    <div style={{ height: "100%", width: `${barPct}%`, borderRadius: 99, background: isFastest ? NAVY : durColor, transition: "width 0.6s ease", opacity: 0.85 }} />
+                                    <div style={{ height: "100%", width: `${barPct}%`, borderRadius: 99, background: durColor, transition: "width 0.6s ease", opacity: 0.85 }} />
                                   </div>
                                   {teamAvgSec && (
-                                    <span style={{ fontSize: "0.6rem", fontWeight: 700, color: vsTeam > 0 ? "#ef4444" : "#22c55e", whiteSpace: "nowrap", flexShrink: 0 }}>
-                                      {vsTeam > 0 ? `+${fmtDur(vsTeam)} vs avg` : vsTeam < 0 ? `${fmtDur(Math.abs(vsTeam))} faster` : "= avg"}
+                                    <span style={{ fontSize: "0.6rem", fontWeight: 700, color: "#64748b", whiteSpace: "nowrap", flexShrink: 0 }}>
+                                      {vsTeam > 0 ? `+${fmtDur(vsTeam)} vs avg` : vsTeam < 0 ? `${fmtDur(Math.abs(vsTeam))} below avg` : "= avg"}
                                     </span>
                                   )}
                                 </div>
