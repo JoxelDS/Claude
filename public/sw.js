@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
 // v119: Restored to July 13 state
-const CACHE_NAME = "sdx-inspect-v119";
+const CACHE_NAME = "sdx-inspect-v121";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",

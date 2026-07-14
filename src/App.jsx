@@ -6041,7 +6041,6 @@ function AIHealthMonitor({ history, currentUser }) {
   /* ── nav tabs ───────────────────────────────────────────── */
   const tabs = [
     { key: "insights",  label: "Tips",      badge: visibleSugs.length || null },
-    { key: "locations", label: "Inventory" },
     { key: "supplies",  label: "Supplies"  },
   ];
 
@@ -9173,7 +9172,6 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                 { key: "insights",   label: "Insights"   },
                 { key: "predictive", label: "Predictive" },
                 { key: "recurring",  label: "Recurring"  },
-                { key: "locations",  label: "Locations"  },
                 { key: "timeline",   label: "Timeline"   },
               ].map(({ key, label }) => (
                 <button
@@ -9470,7 +9468,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                           )}
                         </div>
                         <div className="cardSub">
-                          {rec.inspectionDate} &middot;{" "}
+                          {rec.inspectionDate || (rec.savedAt ? new Date(rec.savedAt).toLocaleDateString([], { year: "numeric", month: "short", day: "numeric" }) : rec.submittedAt ? new Date(rec.submittedAt).toLocaleDateString([], { year: "numeric", month: "short", day: "numeric" }) : "—")} &middot;{" "}
                           <span className={cx("typeBadge",
                             rec.inspectionType === "Event Day" ? "typeBadgeEvent" :
                             rec.inspectionType === "Post Event" ? "typeBadgePost" : "typeBadgeRegular"
@@ -13377,7 +13375,7 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName }) {
 
           {/* ── TAB NAV ── */}
           <div className="perfPrintHide perfTabsWrapper">
-            {[["rankings","Rankings"],["time","Timing"],["verdict","Verdict"],["inventory","Inventory"],["licenses","Licenses"],["trends","Trends"]].map(([id, label]) => (
+            {[["rankings","Rankings"],["time","Timing"],["verdict","Verdict"],["licenses","Licenses"],["trends","Trends"]].map(([id, label]) => (
               <button key={id} onClick={() => setActiveTab(id)} className={cx("perfTab", activeTab === id && "perfTabActive")}>
                 <span>{label}</span>
               </button>
@@ -18771,7 +18769,9 @@ export default function App() {
         for (const r of reports) {
           const nid = `problem_${r.id}`;
           const site = r.siteName || r.location || "this location";
-          fireNotification(nid, "problem_report", "Problem Report Submitted", `New problem flagged at ${site}.`, null);
+          const unitPart = r.siteNumber ? ` · Unit ${r.siteNumber}` : "";
+          const supPart = r.supervisorName ? ` · Supervisor: ${r.supervisorName}` : "";
+          fireNotification(nid, "problem_report", "Problem Report Submitted", `${site}${unitPart}${supPart}`, `record:${r.id}`);
         }
       } catch { /* ignore */ }
 
@@ -18821,11 +18821,13 @@ export default function App() {
       const dateLabel = slot.date
         ? new Date(slot.date + "T12:00:00").toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })
         : slot.date;
+      const supPart = slot.supervisor ? ` · Supervisor: ${slot.supervisor}` : "";
+      const unitPart = slot.unit ? ` · Unit ${slot.unit}` : "";
       fireNotification(
         nid,
         "assignment",
-        "Inspection Assigned to You",
-        `You have an inspection at ${slot.location || "a location"}${slot.unit ? ` (Unit ${slot.unit})` : ""} on ${dateLabel}.`,
+        "📋 Inspection Assigned to You",
+        `${slot.location || "Location TBD"}${unitPart} · ${dateLabel}${supPart}${slot.note ? ` · ${slot.note}` : ""}`,
         null
       );
     }
@@ -19372,15 +19374,15 @@ export default function App() {
     if (user?.name && FIREBASE_ON && (user?.role === "inspector" || user?.role === "location_manager" || user?.role === "admin" || user?.role === "global_admin")) {
       getInspectorNotifications(user.name).then(notifs => {
         notifs.forEach(n => {
-          const dateStr = n.date ? ` on ${n.date}` : "";
-          const locStr = n.location ? ` — ${n.location}` : "";
-          const unitStr = n.unit ? ` (Unit ${n.unit})` : "";
+          const dateStr = n.date ? ` · ${n.date}` : "";
+          const unitStr = n.unit ? ` · Unit ${n.unit}` : "";
+          const supStr = n.supervisor ? ` · Supervisor: ${n.supervisor}` : "";
           fireNotification(
             `assignment_${n.id}`,
             "assignment",
             "📋 New Inspection Assigned",
-            `${locStr}${unitStr}${dateStr}${n.note ? `: ${n.note}` : ""}`.trim() || "Check your task list",
-            "/Claude/"
+            `${n.location || "Location TBD"}${unitStr}${dateStr}${supStr}${n.note ? ` · ${n.note}` : ""}`,
+            null
           );
           markNotificationRead(n.id);
         });
@@ -20141,7 +20143,15 @@ export default function App() {
                     onClick={() => {
                       setNotifItems(prev => prev.filter(x => x.id !== n.id));
                       setNotifOpen(false);
-                      setPage("admin");
+                      if (n.type === "assignment") {
+                        setPage("mylocations");
+                      } else if (n.url && n.url.startsWith("record:")) {
+                        const recId = n.url.replace("record:", "");
+                        setPage("history");
+                        setTimeout(() => setExpandedId(recId), 300);
+                      } else {
+                        setPage("admin");
+                      }
                     }}
                   >
                     <span style={{ fontWeight: 600, fontSize: "0.82rem" }}>{n.title}</span>
@@ -20914,7 +20924,8 @@ export default function App() {
                 <div className="guideStepTrack">
 
                   {/* ══ Step 0: Temps & Supplies ══════════════════════════ */}
-                  <div className="guideStepPanel" style={{ display: guideStep === 0 ? "block" : "none" }}>
+                  <div className="guideStepPanel">
+                  <div style={{ display: guideStep === 0 ? "block" : "none" }}>
 
               {/* ── Supplies Needed ─────────────────────────────────────── */}
               {(() => {
@@ -21122,7 +21133,8 @@ export default function App() {
                   </div>
                 </div>
 
-                  </div>{/* end Step 0 panel */}
+                  </div>{/* end equipCheckWrapper */}
+                  </div>{/* end step-0 content */}
 
                   {/* ══ Step 1: Facilities ════════════════════════════════ */}
                   <div className="guideStepPanel" style={{ display: guideStep === 1 ? "block" : "none" }}>
