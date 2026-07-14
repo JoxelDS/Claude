@@ -6181,3 +6181,4 @@ datalist {
 }
 
 /* Cutting board cards — built inline in JSX, no extra class needed */
+@keyframes spin { to { transform: rotate(360deg); } }

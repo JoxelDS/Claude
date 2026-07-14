@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v110: Fix supervisor log photos — save thumbUrl fallback, show photos in history card
-const CACHE_NAME = "sdx-inspect-v110";
+// v119: Restored to July 13 state
+const CACHE_NAME = "sdx-inspect-v136";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",

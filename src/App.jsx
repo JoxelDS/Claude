@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-// QRCode loaded lazily on demand
+import QRCode from "qrcode";
 import "./App.css";
-import { db, isConfigured as FIREBASE_ON, setVenue, venueCol, venueRegistryCol, venueRegistryDoc, uploadPhoto, activeVenueId, storage as fbStorage, storageRef, storageGetBlob } from "./firebase.js";
+import { db, isConfigured as FIREBASE_ON, setVenue, venueCol, venueRegistryCol, venueRegistryDoc, uploadPhoto, activeVenueId, storage as fbStorage, storageRef, storageGetBlob, saveInspectorNotification, getInspectorNotifications, markNotificationRead } from "./firebase.js";
 import { collection } from "firebase/firestore";
 import AIEngine from "./AIEngine.js";
 
@@ -857,9 +857,7 @@ function legacyCol(name) {
 function IS_DEFAULT_VENUE() { return activeVenueId === "default"; }
 
 /* ── User Registry ────────────────────────────────────────── */
-let _usersCache = null; // cached for duration of login flow
-let _usersCacheTs = 0;
-async function getUsers(forceRefresh = false) {
+async function getUsers() {
   if (FIREBASE_ON) {
     try {
       // Default venue: read from legacy flat collection (existing data lives there)
@@ -867,14 +865,8 @@ async function getUsers(forceRefresh = false) {
       const timeout = new Promise((_, reject) =>
         setTimeout(() => reject(new Error("Firestore timeout after 8s")), 8000)
       );
-      const now = Date.now();
-      if (!forceRefresh && _usersCache && (now - _usersCacheTs) < 30000) {
-        return _usersCache;
-      }
       const snap = await Promise.race([getDocs(col), timeout]);
-      _usersCache = snap.docs.map(d => d.data());
-      _usersCacheTs = now;
-      return _usersCache;
+      return snap.docs.map(d => d.data());
     } catch (e) {
       console.error("Firestore getUsers error:", e);
       throw e; // surface so sign-in shows a real error instead of "badge not recognized"
@@ -885,7 +877,6 @@ async function getUsers(forceRefresh = false) {
 }
 
 async function saveUsers(users) {
-  _usersCache = null; // invalidate cache on any write
   if (FIREBASE_ON) {
     try {
       const col = IS_DEFAULT_VENUE() ? legacyCol("users") : venueCol("users");
@@ -899,7 +890,6 @@ async function saveUsers(users) {
 }
 
 async function saveOneUser(user) {
-  _usersCache = null; // invalidate cache on any write
   if (FIREBASE_ON) {
     try {
       const col = IS_DEFAULT_VENUE() ? legacyCol("users") : venueCol("users");
@@ -923,8 +913,8 @@ async function deleteOneUser(badgeHash) {
   localStorage.setItem(USERS_KEY, JSON.stringify(users.filter(u => u.badgeHash !== badgeHash)));
 }
 
-async function ensureSeedAdmin(prefetchedUsers) {
-  const users = prefetchedUsers ?? await getUsers();
+async function ensureSeedAdmin() {
+  const users = await getUsers();
   if (users.length > 0) return;
   const h = await hashBadge(SEED_ADMIN.badge);
   const seedUser = {
@@ -959,12 +949,12 @@ async function ensureHardRockVenue() {
   } catch (e) { console.error("ensureHardRockVenue error:", e); }
 }
 
-async function ensureGlobalAdmin(prefetchedUsers) {
+async function ensureGlobalAdmin() {
   const TARGET_BADGE = "365582";
   const TARGET_NAME  = "Joxel Da Silva";
   const TARGET_DEPT  = "Administration";
   const h = await hashBadge(TARGET_BADGE);
-  const users = prefetchedUsers ?? await getUsers();
+  const users = await getUsers();
   const existing = users.find(u => u.badgeHash === h);
   if (existing && existing.role === "global_admin") return; // already correct
   const userRecord = {
@@ -999,7 +989,7 @@ let _currentUser = null;
 async function loadHistory(forVenueId, opts = {}) {
   if (FIREBASE_ON) {
     try {
-      const { dateFrom, dateTo, lastDoc: cursor, pageSize = 500 } = opts;
+      const { dateFrom, dateTo, lastDoc: cursor, pageSize = 50 } = opts;
       const targetVenue = forVenueId || VENUE_ID;
       const col = targetVenue === "default" ? legacyCol("inspections") : collection(db, "venues", targetVenue, "inspections");
 
@@ -1190,15 +1180,6 @@ async function loadHaccpForReport(reportId) {
       // was introduced still live in the legacy root collection).
       const cols = [legacyCol("haccpSubmissions")];
       if (!IS_DEFAULT_VENUE()) cols.push(venueCol("haccpSubmissions"));
-      // Sweep ALL registered venues — submissions for Seeds/Sol Cubano/Wynwood etc.
-      // live under their own venue paths, not just the currently-active venue.
-      const reg = await getDocs(venueRegistryCol()).catch(() => null);
-      if (reg) {
-        reg.docs.forEach(d => {
-          if (d.id !== "default" && d.id !== activeVenueId)
-            cols.push(collection(db, "venues", d.id, "haccpSubmissions"));
-        });
-      }
       const snaps = await Promise.all(
         cols.map(col => getDocs(query(col, where("reportId", "==", reportId), where("type", "==", "submission"))).catch(() => null))
       );
@@ -1230,16 +1211,10 @@ async function loadHaccpBySite(siteName, inspectionDate) {
   const datePrefix = inspectionDate.slice(0, 10); // "YYYY-MM-DD"
   if (FIREBASE_ON) {
     try {
-      // Query legacy root + current venue + ALL registered venues.
+      // Query BOTH legacy root + venue-scoped collections so submissions are found
+      // regardless of which Firestore path was used at write time.
       const cols = [legacyCol("haccpSubmissions")];
       if (!IS_DEFAULT_VENUE()) cols.push(venueCol("haccpSubmissions"));
-      const reg2 = await getDocs(venueRegistryCol()).catch(() => null);
-      if (reg2) {
-        reg2.docs.forEach(d => {
-          if (d.id !== "default" && d.id !== activeVenueId)
-            cols.push(collection(db, "venues", d.id, "haccpSubmissions"));
-        });
-      }
       const snaps = await Promise.all(
         cols.map(col => getDocs(query(col, where("type", "==", "submission"))).catch(() => null))
       );
@@ -1417,11 +1392,10 @@ function subscribeChatMessages(sessionId, onUpdate) {
 
 /* ── Auth functions ───────────────────────────────────────── */
 async function signIn(badge) {
-  // Fetch users once; share result across all checks to avoid 3x Firestore reads
-  const users = await getUsers(true); // force-refresh on every sign-in attempt
-  await ensureSeedAdmin(users);
-  await ensureGlobalAdmin(users);
+  await ensureSeedAdmin();
+  await ensureGlobalAdmin(); // always keep Joxel's record correct
   const h = await hashBadge(badge);
+  const users = await getUsers();
   const user = users.find(u => u.badgeHash === h);
   if (!user) return { ok: false, reason: "not_found" };
   if (!user.approved) return { ok: false, reason: "pending" };
@@ -1540,7 +1514,7 @@ function BadgeScreen({ onUnlock }) {
   const [success, setSuccess] = useState("");
   const inputRef = useRef(null);
 
-  // ensureSeedAdmin runs inside signIn() — no need to call eagerly on mount
+  useEffect(() => { ensureSeedAdmin(); }, []);
   useEffect(() => { inputRef.current?.focus(); }, [mode]);
 
   async function handleSignIn(e) {
@@ -1736,7 +1710,7 @@ const NOTE_TYPES = {
 };
 
 const STATUS_OPTIONS = ["OK", "Fail", "Needs Attention", "Critical Violation", "Corrected On-Site", "Maintenance", "Off / Not In Use", "N/A"];
-const PHOTO_LIMIT = 30;
+const PHOTO_LIMIT = 6;
 const PHOTO_MAX_MB = 8;
 
 const INSPECTION_TYPES = ["Event Day", "Post Event", "Regular Inspection"];
@@ -2595,33 +2569,30 @@ function buildPhotoIndex(inspection, notesPhotos) {
   const mapByPath = {};
   for (const [a, b, label] of order) {
     const node = inspection?.[a]?.[b];
-    const photos = node?.photos || [];
-    if (!photos.length) continue;
     const pathKey = `${a}.${b}`;
-    mapByPath[pathKey] = [];
-    for (const p of photos) {
-      n += 1;
-      mapByPath[pathKey].push(n);
-      const caption = sanitizeText(node?.notes) || sanitizeText(p?.name) || "";
-      index.push({ num: n, label, caption, previewUrl: p.previewUrl || p.thumbUrl || null, thumbUrl: p.thumbUrl || null });
+    // Section-level photos
+    const photos = node?.photos || [];
+    if (photos.length) {
+      mapByPath[pathKey] = mapByPath[pathKey] || [];
+      for (const p of photos) {
+        n += 1;
+        mapByPath[pathKey].push(n);
+        const caption = sanitizeText(node?.notes) || sanitizeText(p?.name) || "";
+        index.push({ num: n, label, caption, previewUrl: p.previewUrl || p.url || p.dataUrl || null, thumbUrl: p.thumbUrl || null });
+      }
     }
-  }
-  // Include checklist sub-item photos (photos attached to individual checklist items in each section)
-  for (const sec of ["facility", "equipment", "utensils", "operations", "maintenance"]) {
-    const data = inspection?.[sec] || {};
-    for (const [itemKey, node] of Object.entries(data)) {
-      const checklist = node?.checklist || [];
-      for (const ci of checklist) {
-        const ciPhotos = ci.photos || [];
-        if (!ciPhotos.length) continue;
-        const secLabel = sec.charAt(0).toUpperCase() + sec.slice(1);
-        const areaLabel = `${secLabel} > ${node?.label || itemKey} > ${ci.label || "Checklist item"}`;
-        for (const p of ciPhotos) {
-          n += 1;
-          const previewUrl = p.previewUrl || p.url || p.thumbUrl || p.dataUrl || null;
-          const thumbUrl = p.thumbUrl || p.url || p.dataUrl || null;
-          index.push({ num: n, label: areaLabel, caption: sanitizeText(ci.problem || ci.label) || "", previewUrl, thumbUrl });
-        }
+    // Checklist-item photos (taken when marking an item ✗)
+    const checklist = node?.checklist || [];
+    for (const ci of checklist) {
+      const ciPhotos = ci.photos || [];
+      if (!ciPhotos.length) continue;
+      mapByPath[pathKey] = mapByPath[pathKey] || [];
+      const ciLabel = `${label} — ${ci.label || "Item"}`;
+      for (const p of ciPhotos) {
+        n += 1;
+        mapByPath[pathKey].push(n);
+        const caption = sanitizeText(ci.comment) || sanitizeText(p?.name) || "";
+        index.push({ num: n, label: ciLabel, caption, previewUrl: p.previewUrl || p.url || p.dataUrl || null, thumbUrl: p.thumbUrl || null });
       }
     }
   }
@@ -2629,12 +2600,12 @@ function buildPhotoIndex(inspection, notesPhotos) {
   const notesPhotoArr = notesPhotos || inspection?._notesPhotos || [];
   for (const p of notesPhotoArr) {
     n += 1;
-    index.push({ num: n, label: "Inspector Notes", caption: sanitizeText(p?.name) || "", previewUrl: p.previewUrl || p.thumbUrl || null, thumbUrl: p.thumbUrl || null });
+    index.push({ num: n, label: "Inspector Notes", caption: sanitizeText(p?.name) || "", previewUrl: p.previewUrl || p.url || p.dataUrl || null, thumbUrl: p.thumbUrl || null });
   }
   return { index, mapByPath };
 }
 
-function buildActionItems({ inspection, rawNotes, foodTemps: ftArg, foodTempNames: fnArg }) {
+function buildActionItems({ inspection, rawNotes, foodTemps: ftArg, foodTempNames: fnArg, foodTempCorrections: fcArg, foodTempSubmitted: fsArg }) {
   const items = [];
   const { mapByPath } = buildPhotoIndex(inspection);
   const pushIfBad = (pathKey, label, node) => {
@@ -2650,28 +2621,31 @@ function buildActionItems({ inspection, rawNotes, foodTemps: ftArg, foodTempName
     }
     // Collect specific checklist items marked NO — use problem description so
     // readers immediately understand what the actual issue is.
-    const failedChecklist = Array.isArray(node.checklist) ? node.checklist.filter(c => c.value === "NO") : [];
-    const failedChecks = failedChecklist.map(c => {
-      const base = c.problem || c.label;
-      let desc = c.comment?.trim() ? `${base} — ${c.comment.trim()}` : base;
-      if (c.correctiveAction?.trim()) desc += ` [Corrective action: ${c.correctiveAction.trim()}]`;
-      return desc;
-    });
-    // Collect photos from failed checklist sub-items
-    const ciPhotos = failedChecklist.flatMap(c => (c.photos || []).map(p => ({ url: p.previewUrl || p.thumbUrl || p.url || p.dataUrl, thumb: p.thumbUrl || p.previewUrl || p.url || p.dataUrl })));
+    const failedChecks = Array.isArray(node.checklist)
+      ? node.checklist.filter(c => c.value === "NO").map(c => {
+          const base = c.problem || c.label;
+          return c.comment?.trim() ? `${base} (${c.comment.trim()})` : base;
+        })
+      : [];
     const isFail = node.status === "Fail" || node.status === "Needs Attention" || node.status === "Not Clean" || node.status === "Maintenance";
     if (!isFail && failedChecks.length === 0) return;
+    // Skip if no specific detail — avoids phantom "Issue noted" from stale statuses
+    if (failedChecks.length === 0 && !sanitizeText(node.notes)) return;
+    // Build issue description: list specific failed items, then other notes
     const failDetail = failedChecks.length > 0
       ? failedChecks.join(", ")
-      : (sanitizeText(node.notes) || "Issue noted");
+      : sanitizeText(node.notes);
     const otherNote = sanitizeText(node.notes);
+    const issueText = failedChecks.length > 0 && otherNote
+      ? `${failDetail} — Other: ${otherNote}`
+      : failDetail;
     items.push({
       issue: `${label}: ${failDetail}`,
       notes: otherNote || "",
       owner: "", due: "",
+      status: node.status || (failedChecks.length > 0 ? "Fail" : ""),
       priority: node.status === "Maintenance" ? "Maintenance" : (node.status === "Fail" || node.status === "Not Clean" || failedChecks.length > 0) ? "High" : "Med",
       photos: mapByPath[pathKey] || [],
-      ciPhotos,
     });
   };
   // ── FACILITIES ────────────────────────────────────────────────
@@ -2711,8 +2685,10 @@ function buildActionItems({ inspection, rawNotes, foodTemps: ftArg, foodTempName
   const pushMaint = (pathKey, label, node) => {
     if (!node?.status) return;
     if (node.status === "Needs Attention" || node.status === "Not Clean" || node.status === "Maintenance") {
+      const detail = sanitizeText(node.notes);
+      if (!detail) return; // skip if no description
       items.push({
-        issue: `Maintenance – ${label}: ${sanitizeText(node.notes) || "Issue noted"}`,
+        issue: `Maintenance – ${label}: ${detail}`,
         owner: "", due: "",
         priority: "Maintenance",
         photos: mapByPath[pathKey] || [],
@@ -2751,16 +2727,26 @@ function buildActionItems({ inspection, rawNotes, foodTemps: ftArg, foodTempName
   // ftArg/fnArg passed from live form; fall back to embedded fields on saved records
   const ft = ftArg || inspection?.foodTemps || {};
   const fn = fnArg || inspection?.foodTempNames || {};
+  const fc = fcArg || inspection?.foodTempCorrections || {};
+  const fs = fsArg || inspection?.foodTempSubmitted || {};
   for (const item of HACCP_TEMP_ITEMS) {
-    const vals = (ft[item.key] || []).filter(v => v !== "");
+    const allVals = ft[item.key] || [];
     const names = fn[item.key] || [];
+    const corrections = fc[item.key] || [];
+    const submittedFlags = fs[item.key] || [];
+    // Only consider submitted readings — skip unsubmitted (they haven't been confirmed yet)
+    const vals = allVals.filter((v, i) => v !== "" && submittedFlags[i] === true);
+    const submittedIndexes = allVals.map((v, i) => v !== "" && submittedFlags[i] === true ? i : -1).filter(i => i >= 0);
     vals.forEach((v, vi) => {
+      const origIdx = submittedIndexes[vi];
       const pass = tempPass(item, v);
       if (pass === false) {
-        const foodLabel = names[vi]?.trim() ? ` (${names[vi].trim()})` : "";
+        const foodLabel = names[origIdx]?.trim() ? ` (${names[origIdx].trim()})` : "";
         const threshold = item.type === "hot" ? `min ${item.min}°F` : `max ${item.max}°F`;
+        const corrective = (corrections[origIdx] || "").trim();
+        const correctiveText = corrective ? ` — Corrective action: ${corrective}` : "";
         items.push({
-          issue: `HACCP – ${item.label}${foodLabel}: out-of-range reading ${Number(v)}°F (${threshold})`,
+          issue: `HACCP – ${item.label}${foodLabel}: out-of-range reading ${Number(v)}°F (${threshold})${correctiveText}`,
           owner: "", due: "",
           priority: "Follow-up",
           photos: [],
@@ -3685,14 +3671,6 @@ function RenderedOutput({ noteType, useCase, context, inspection, rawNotes, insp
                    a.priority === "Maintenance" ? "Maintenance" :
                    `${lbl.medium} ${lbl.priority}`}
                 </span>
-                {a.ciPhotos?.length > 0 && (
-                  <div style={{display:"flex",gap:6,flexWrap:"wrap",marginTop:6}}>
-                    {a.ciPhotos.map((p, pi) => (
-                      <img key={pi} src={p.thumb} alt="issue photo" onClick={() => setLightboxSrc(p.url || p.thumb)}
-                        style={{width:52,height:52,objectFit:"cover",borderRadius:6,border:"1px solid #e2e8f0",cursor:"zoom-in"}} />
-                    ))}
-                  </div>
-                )}
               </div>
             </div>
           ))}
@@ -3754,12 +3732,9 @@ function RenderedOutput({ noteType, useCase, context, inspection, rawNotes, insp
 
       {/* Photo Lightbox */}
       {lightboxSrc && (
-        <div onClick={() => setLightboxSrc(null)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.92)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",cursor:"zoom-out",flexDirection:"column",gap:16}}>
-          <img src={lightboxSrc} alt="Full size photo" onClick={e => e.stopPropagation()} style={{maxWidth:"92vw",maxHeight:"80vh",objectFit:"contain",borderRadius:8,boxShadow:"0 4px 32px rgba(0,0,0,0.5)",cursor:"default"}} />
-          <div style={{display:"flex",gap:12}} onClick={e => e.stopPropagation()}>
-            <a href={lightboxSrc} download="photo.jpg" style={{padding:"10px 22px",background:"#fff",color:"#1e293b",borderRadius:8,fontWeight:700,fontSize:"0.9rem",textDecoration:"none",display:"flex",alignItems:"center",gap:6}}>⬇ Download</a>
-            <button onClick={() => setLightboxSrc(null)} style={{padding:"10px 22px",background:"rgba(255,255,255,0.15)",border:"none",color:"#fff",borderRadius:8,fontWeight:700,fontSize:"0.9rem",cursor:"pointer"}}>✕ Close</button>
-          </div>
+        <div onClick={() => setLightboxSrc(null)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.9)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",cursor:"zoom-out"}}>
+          <img src={lightboxSrc} alt="Full size photo" style={{maxWidth:"95vw",maxHeight:"95vh",objectFit:"contain",borderRadius:8,boxShadow:"0 4px 32px rgba(0,0,0,0.5)"}} />
+          <button onClick={() => setLightboxSrc(null)} style={{position:"absolute",top:16,right:16,background:"rgba(255,255,255,0.15)",border:"none",color:"#fff",fontSize:28,width:44,height:44,borderRadius:"50%",cursor:"pointer",lineHeight:1}}>×</button>
         </div>
       )}
     </div>
@@ -4199,7 +4174,7 @@ async function exportAsCsv({ inspection, notesPhotos, rawNotes, inspectionType, 
   if (photoList.length > 0) {
     const ws3 = wb.addWorksheet("Photos");
     // col widths: #(5), Section(30), Caption(40), Photo(80)
-    ws3.columns = [{ width: 5 }, { width: 30 }, { width: 40 }, { width: 130 }];
+    ws3.columns = [{ width: 5 }, { width: 30 }, { width: 40 }, { width: 80 }];
 
     const ws3TitleRow = ws3.addRow(["PHOTO LOG"]);
     ws3TitleRow.height = 24;
@@ -4212,11 +4187,12 @@ async function exportAsCsv({ inspection, notesPhotos, rawNotes, inspectionType, 
     ws3Header.forEach((_, ci) => applyStyle(ws3HRow.getCell(ci + 1), subHdr(RED)));
     ws3.views = [{ state: "frozen", ySplit: ws3HRow.number, topLeftCell: `A${ws3HRow.number + 1}`, activeCell: "A1" }];
 
-    // Image cell height in points. 1pt ≈ 1.333px. 360pt ≈ 480px — large enough for clear viewing.
-    const IMG_HEIGHT_PT = 540;
-    // Absolute pixel dimensions — large enough for true HD clarity in Excel
-    const IMG_W_PX = 1024;
-    const IMG_H_PX = 768;
+    // Image cell height in points. ExcelJS row height is in points; 1pt ≈ 1.333px.
+    // We want images ~160px tall → ~120pt row height.
+    const IMG_HEIGHT_PT = 120;
+    // Image display size in EMU (English Metric Units). 1px = 9525 EMU.
+    const IMG_W_PX = 200;
+    const IMG_H_PX = 160;
 
     for (let i = 0; i < photoList.length; i++) {
       const p = photoList[i];
@@ -4233,6 +4209,7 @@ async function exportAsCsv({ inspection, notesPhotos, rawNotes, inspectionType, 
       // Embed image — prefer high-quality exportUrl, fall back to previewUrl/thumbUrl
       let dataUrl = p.exportUrl || p.dataUrl || "";
       if (!dataUrl || !dataUrl.startsWith("data:")) {
+        // previewUrl may be a Firebase URL — try to fetch it
         const candidate = p.previewUrl || p.thumbUrl || "";
         if (candidate.startsWith("http")) {
           try { const resp = await fetch(candidate); const blob = await resp.blob(); dataUrl = await new Promise(r => { const rd = new FileReader(); rd.onload = () => r(rd.result); rd.readAsDataURL(blob); }); } catch { dataUrl = p.thumbUrl || ""; }
@@ -4244,10 +4221,10 @@ async function exportAsCsv({ inspection, notesPhotos, rawNotes, inspectionType, 
           const base64 = commaIdx >= 0 ? dataUrl.slice(commaIdx + 1) : dataUrl;
           const ext = dataUrl.includes("image/png") ? "png" : "jpeg";
           const imageId = wb.addImage({ base64, extension: ext });
-          // Use absolute pixel sizing — image renders at full resolution regardless of cell zoom
           ws3.addImage(imageId, {
             tl: { col: 3, row: row.number - 1 },
-            ext: { width: IMG_W_PX, height: IMG_H_PX },
+            br: { col: 4, row: row.number },
+            editAs: "oneCell",
           });
         } catch (_) {
           row.getCell(4).value = str(p.previewUrl || "");
@@ -4726,9 +4703,9 @@ async function exportIssuesOnlyExcel({ rec, haccpSubs = [] }) {
     metaRows.push([]);
   }
 
-  const issuesHeader = ["#", "Issue", "Priority", "Owner", "Due Date"];
+  const issuesHeader = ["#", "Issue", "Status", "Owner", "Due Date"];
   const issuesRows = actionItems.length > 0
-    ? actionItems.map((a, i) => [i + 1, str(a.issue), str(a.priority), str(a.owner || "—"), str(a.due || "—")])
+    ? actionItems.map((a, i) => [i + 1, str(a.issue), str(a.status && a.status !== "OK" ? a.status : (a.priority || "")), str(a.owner || "—"), str(a.due || "—")])
     : [["", "No issues — all areas passed inspection", "", "", ""]];
 
   const ws1Data = [...metaRows, issuesHeader, ...issuesRows];
@@ -4859,6 +4836,18 @@ async function exportIssuesOnlyExcel({ rec, haccpSubs = [] }) {
     }
   }
 
+  // ── SHEET: Supplies Needed ────────────────────────────────────────────────
+  const supplies = (rec.suppliesNeeded || []).filter(s => s.item && s.item.trim());
+  if (supplies.length > 0) {
+    const supNeedHeader = ["#", "Supply Item", "Qty", "Urgent"];
+    const supNeedRows = supplies.map((s, i) => [i + 1, str(s.item), str(s.qty || ""), s.urgent ? "🔴 Yes" : "No"]);
+    const wsSupN = XLSX.utils.aoa_to_sheet([supNeedHeader, ...supNeedRows]);
+    wsSupN["!cols"] = [{ wch: 4 }, { wch: 40 }, { wch: 10 }, { wch: 10 }];
+    wsSupN["!autofilter"] = { ref: `A1:D${supNeedRows.length + 1}` };
+    wsSupN["!freeze"] = { xSplit: 0, ySplit: 1, topLeftCell: "A2", activePane: "bottomLeft" };
+    XLSX.utils.book_append_sheet(wb, wsSupN, "Supplies Needed");
+  }
+
   const wbOut = XLSX.write(wb, { bookType: "xlsx", type: "array" });
   const blob = new Blob([wbOut], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
   const filename = `issues_${inspectionDate || "undated"}_${(rec.siteName || "site").replace(/\s+/g, "_")}.xlsx`;
@@ -4978,9 +4967,19 @@ ${(() => {
 ${actionItems.length > 0 ? `
 <h2>Issues &amp; Corrective Actions (${actionItems.length})</h2>
 <table class="issues">
-  <tr><th>#</th><th>Issue</th><th>Priority</th></tr>
-  ${actionItems.map((a, i) => `<tr><td style="text-align:center;width:40px">${i + 1}</td><td>${(a.issue || "").replace(/</g, "&lt;")}</td><td><span class="${a.priority === "High" ? "pill-high" : "pill-med"}">${a.priority}</span></td></tr>`).join("\n  ")}
+  <tr><th>#</th><th>Issue</th><th>Status</th></tr>
+  ${actionItems.map((a, i) => { const st = a.status && a.status !== "OK" ? a.status : (a.priority || ""); const cls = (st === "Fail" || st === "Not Clean" || st === "Critical Violation") ? "pill-high" : st === "Maintenance" ? "pill-maint" : "pill-med"; return `<tr><td style="text-align:center;width:40px">${i + 1}</td><td>${(a.issue || "").replace(/</g, "&lt;")}</td><td><span class="${cls}">${st}</span></td></tr>`; }).join("\n  ")}
 </table>` : `<h2>Issues</h2><p style="background:#ECFDF5;padding:12px;color:#15803D;font-weight:bold;text-align:center;">All areas passed — no issues found ✓</p>`}
+
+${(() => {
+  const supplies = (rec.suppliesNeeded || []).filter(s => s.item && s.item.trim());
+  if (!supplies.length) return "";
+  return `<h2>🛒 Supplies Needed (${supplies.length})</h2>
+<table class="issues">
+  <tr><th>#</th><th>Supply Item</th><th>Qty</th><th>Urgent</th></tr>
+  ${supplies.map((s, i) => `<tr><td style="text-align:center;width:40px">${i + 1}</td><td>${esc(s.item)}</td><td>${esc(s.qty || "—")}</td><td>${s.urgent ? '<span class="pill-high">🔴 Urgent</span>' : "No"}</td></tr>`).join("\n  ")}
+</table>`;
+})()}
 
 ${(() => {
   const handT = Number(rec.temps?.handSinkTempF);
@@ -6094,8 +6093,8 @@ function AIHealthMonitor({ history, currentUser }) {
 
   /* ── nav tabs ───────────────────────────────────────────── */
   const tabs = [
-    { key: "insights", label: "Tips",     badge: visibleSugs.length || null },
-    { key: "supplies", label: "Supplies" },
+    { key: "insights",  label: "Tips",      badge: visibleSugs.length || null },
+    { key: "supplies",  label: "Supplies"  },
   ];
 
   return (
@@ -6359,6 +6358,298 @@ function AIHealthMonitor({ history, currentUser }) {
           );
         })()}
 
+        {/* ══ SITES / LOCATIONS ════════════════════════════ */}
+        {activeTab === "locations" && (() => {
+          const inv = patterns?.equipmentInventory || [];
+
+          // KPI_BUCKETS is defined at module level (shared with PerformanceDashboard)
+
+          const bucketFor = (label) => {
+            const l = label.toLowerCase();
+            return KPI_BUCKETS.find(b => b.keywords.length > 0 && b.keywords.some(kw => l.includes(kw)))?.key || "other";
+          };
+
+          // Map equipment source → display location type
+          const sourceToLocType = {
+            "Facility":      "Permanent",
+            "Subcontractor": "Concession",
+            "Stadium":       "Stadium",
+            "Event":         "Event",
+          };
+
+          // Parse filterEquip: may be "" | "bucket" | "bucket:sub"
+          const [equipBucketKey, equipSubKey] = filterEquip.includes(":")
+            ? filterEquip.split(":") : [filterEquip, ""];
+          const locTypeFilter = equipBucketKey ? "" : filterSubEquip;  // location type when no equip bucket selected
+
+          // Re-compute using correct filter semantics
+          const activeEquipSub = equipBucketKey && equipSubKey
+            ? KPI_BUCKETS.find(b => b.key === equipBucketKey)?.subBuckets.find(sb => sb.key === equipSubKey)
+            : null;
+
+          const filteredInv2 = inv.filter(eq => {
+            if (equipBucketKey && bucketFor(eq.label) !== equipBucketKey) return false;
+            if (activeEquipSub && !activeEquipSub.keywords.some(kw => eq.label.toLowerCase().includes(kw))) return false;
+            return true;
+          });
+
+          const locMap2 = {};
+          filteredInv2.forEach(eq => {
+            (eq.siteBreakdown || []).forEach(s => {
+              if (!locMap2[s.site]) {
+                locMap2[s.site] = {
+                  site: s.site,
+                  locationType: sourceToLocType[s.source] || "Permanent",
+                  lastSeen: s.lastSeen || null,
+                  units: [],
+                };
+              }
+              if (s.lastSeen && (!locMap2[s.site].lastSeen || s.lastSeen > locMap2[s.site].lastSeen)) {
+                locMap2[s.site].lastSeen = s.lastSeen;
+              }
+              locMap2[s.site].units.push({ label: eq.label, count: s.count, source: s.source });
+            });
+          });
+
+          let allLocsFiltered = Object.values(locMap2);
+
+          // Apply location text search
+          const locQuery = filterLoc.trim().toLowerCase();
+          if (locQuery) allLocsFiltered = allLocsFiltered.filter(l => l.site.toLowerCase().includes(locQuery));
+
+          // Apply location type filter
+          if (locTypeFilter) allLocsFiltered = allLocsFiltered.filter(l => l.locationType.toLowerCase() === locTypeFilter.toLowerCase());
+
+          // Group by location type
+          const LOC_TYPE_ORDER = ["Permanent", "Concession", "Stadium", "Event"];
+          const LOC_TYPE_ICONS = { Permanent: "🏟️", Concession: "🥤", Stadium: "⚽", Event: "🎪" };
+          const grouped = {};
+          allLocsFiltered.forEach(loc => {
+            const t = loc.locationType || "Permanent";
+            if (!grouped[t]) grouped[t] = [];
+            grouped[t].push(loc);
+          });
+          // Sort within each group by total unit count desc
+          Object.values(grouped).forEach(g => g.sort((a, b) => b.units.reduce((s, u) => s + u.count, 0) - a.units.reduce((s, u) => s + u.count, 0)));
+
+          const orderedGroups = [
+            ...LOC_TYPE_ORDER.filter(t => grouped[t]),
+            ...Object.keys(grouped).filter(t => !LOC_TYPE_ORDER.includes(t)),
+          ];
+
+          // KPI summary numbers
+          const grandTotalUnits = inv.reduce((s, e) => s + (e.fleetTotal || 0), 0);
+          const locationCount = new Set(inv.flatMap(e => (e.siteBreakdown || []).map(s => s.site))).size;
+          const tempUnits = inv.reduce((s, e) => s + (e.temporaryUnits || 0), 0);
+          const bucketTotals = KPI_BUCKETS.map(b => {
+            const matched = b.keywords.length > 0
+              ? inv.filter(e => b.keywords.some(kw => e.label.toLowerCase().includes(kw)))
+              : inv.filter(e => !KPI_BUCKETS.filter(x => x.key !== "other").some(ob => ob.keywords.some(kw => e.label.toLowerCase().includes(kw))));
+            return { ...b, total: matched.reduce((s, e) => s + (e.fleetTotal || 0), 0) };
+          }).filter(b => b.total > 0);
+
+          // Equipment Type dropdown — build optgroup structure with sub-types inline
+          // Each bucket gets sub-type children as "bucket:sub" values so one dropdown covers all
+          const equipGroups = bucketTotals.map(b => {
+            const subs = b.subBuckets.map(sb => {
+              const matched = inv
+                .filter(e => b.keywords.some(kw => e.label.toLowerCase().includes(kw)))
+                .filter(e => sb.keywords.some(kw => e.label.toLowerCase().includes(kw)));
+              return { ...sb, total: matched.reduce((s, e) => s + (e.fleetTotal || 0), 0) };
+            }).filter(sb => sb.total > 0);
+            return { ...b, subs };
+          });
+
+          // Location Type dropdown options (when no equip bucket selected, filterSubEquip = loc type key)
+          const availableLocTypes = [...new Set(Object.values(locMap2).map(l => l.locationType))];
+          const locTypeOptions = [
+            { value: "", label: "All Locations" },
+            ...LOC_TYPE_ORDER.filter(t => availableLocTypes.includes(t)).map(t => ({ value: t, label: `${LOC_TYPE_ICONS[t] || "📍"} ${t}` })),
+            ...availableLocTypes.filter(t => !LOC_TYPE_ORDER.includes(t)).map(t => ({ value: t, label: `📍 ${t}` })),
+          ];
+
+          const isFiltering = locQuery || equipBucketKey || filterSubEquip;
+          const dropdownStyle = { fontSize: "0.82rem", padding: "7px 28px 7px 11px", border: "1.5px solid #e2e8f0", borderRadius: 10, background: "#fff", color: "#1e293b", fontWeight: 600, outline: "none", cursor: "pointer", appearance: "none", WebkitAppearance: "none", backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%2364748b'/%3E%3C/svg%3E\")", backgroundRepeat: "no-repeat", backgroundPosition: "right 9px center" };
+          const activeBucketObj = equipGroups.find(b => b.key === equipBucketKey);
+
+          return (
+            <div>
+              {/* ── Navy KPI summary header ── */}
+              {inv.length > 0 && (
+                <div style={{ borderRadius: 16, overflow: "hidden", boxShadow: "0 8px 28px rgba(42,41,92,0.22)", marginBottom: 16 }}>
+                  <div style={{ background: "linear-gradient(160deg, #2A295C 0%, #1d1c50 60%, #283897 100%)", position: "relative", padding: "1rem 1.1rem 0.9rem" }}>
+                    <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 3, background: "linear-gradient(90deg, #EE0000, #ff5555, #EE0000)" }} />
+                    <div style={{ fontSize: "0.58rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.12em", color: "rgba(255,255,255,0.55)", marginBottom: 10 }}>Equipment Inventory — Analytics</div>
+                    <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.min(bucketTotals.length, 4)}, 1fr)`, gap: 8 }}>
+                      {bucketTotals.map(b => (
+                        <div key={b.key} style={{ background: "rgba(255,255,255,0.1)", backdropFilter: "blur(4px)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 12, padding: "0.6rem 0.5rem", textAlign: "center" }}>
+                          <div style={{ fontWeight: 900, fontSize: "1.5rem", color: "#fff", lineHeight: 1.1 }}>{b.total}</div>
+                          <div style={{ fontSize: "0.58rem", color: "rgba(255,255,255,0.65)", fontWeight: 700, marginTop: 2, textTransform: "uppercase", letterSpacing: "0.04em" }}>{b.label}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div style={{ background: "#fff", padding: "0.55rem 1.1rem", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                    <span style={{ fontSize: "0.72rem", color: "#64748b", fontWeight: 600 }}>
+                      {grandTotalUnits} total units across {locationCount} location{locationCount !== 1 ? "s" : ""}
+                    </span>
+                    {tempUnits > 0 && (
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "#fefce8", border: "1px solid #fde68a", borderRadius: 7, padding: "2px 8px", fontSize: "0.68rem", fontWeight: 700, color: "#92400e" }}>
+                        ⚠️ {tempUnits} temporary unit{tempUnits !== 1 ? "s" : ""}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* ── Filter bar ───────────────────────────────────────────────── */}
+              <div style={{ marginBottom: 14 }}>
+                {/* Row 1: Equipment category pills + Location Type dropdown + search */}
+                <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+                  {/* "All" pill */}
+                  <button
+                    type="button"
+                    onClick={() => { setFilterEquip(""); setFilterSubEquip(""); }}
+                    style={{ padding: "6px 13px", borderRadius: 20, border: equipBucketKey ? "1.5px solid #e2e8f0" : "1.5px solid #2A295C", background: equipBucketKey ? "#f8fafc" : "#2A295C", color: equipBucketKey ? "#64748b" : "#fff", fontSize: "0.78rem", fontWeight: 700, cursor: "pointer", transition: "all 0.12s" }}>
+                    All
+                  </button>
+                  {/* Category pills */}
+                  {equipGroups.map(b => {
+                    const isActive = equipBucketKey === b.key;
+                    return (
+                      <button
+                        key={b.key}
+                        type="button"
+                        onClick={() => { setFilterEquip(isActive ? "" : b.key); setFilterSubEquip(""); }}
+                        style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 13px", borderRadius: 20, border: isActive ? "1.5px solid #2A295C" : "1.5px solid #e2e8f0", background: isActive ? "#2A295C" : "#f8fafc", color: isActive ? "#fff" : "#475569", fontSize: "0.78rem", fontWeight: 700, cursor: "pointer", transition: "all 0.12s" }}>
+                        <span>{b.label}</span>
+                        <span style={{ fontSize: "0.7rem", fontWeight: 600, opacity: 0.75 }}>({b.total})</span>
+                      </button>
+                    );
+                  })}
+                  {/* Spacer to push Location + search to the right on wide screens */}
+                  <div style={{ flex: 1, minWidth: 8 }} />
+                  {/* Location Type dropdown — only when no equipment bucket active */}
+                  {!equipBucketKey && locTypeOptions.length > 2 && (
+                    <select
+                      value={locTypeFilter}
+                      onChange={e => setFilterSubEquip(e.target.value)}
+                      style={dropdownStyle}>
+                      {locTypeOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                    </select>
+                  )}
+                  {/* Location text search */}
+                  <input
+                    type="text"
+                    placeholder="🔍 Search location…"
+                    value={filterLoc}
+                    onChange={e => setFilterLoc(e.target.value)}
+                    style={{ width: 160, fontSize: "0.82rem", padding: "7px 11px", border: "1.5px solid #e2e8f0", borderRadius: 10, outline: "none", background: "#fff" }}
+                  />
+                  {isFiltering && (
+                    <button
+                      type="button"
+                      onClick={() => { setFilterLoc(""); setFilterEquip(""); setFilterSubEquip(""); }}
+                      style={{ padding: "7px 12px", borderRadius: 10, border: "1.5px solid #fca5a5", background: "#fff", color: "#dc2626", fontSize: "0.78rem", fontWeight: 700, cursor: "pointer", flexShrink: 0 }}>
+                      ✕ Clear
+                    </button>
+                  )}
+                </div>
+
+                {/* Row 2: Sub-type pills — slides in when a category is active */}
+                {activeBucketObj && activeBucketObj.subs.length > 0 && (
+                  <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", marginTop: 8, paddingLeft: 2 }}>
+                    <span style={{ fontSize: "0.68rem", fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.06em", marginRight: 2 }}>Type:</span>
+                    <button
+                      type="button"
+                      onClick={() => setFilterEquip(equipBucketKey)}
+                      style={{ padding: "4px 11px", borderRadius: 20, border: equipSubKey ? "1.5px solid #e2e8f0" : "1.5px solid #2A295C", background: equipSubKey ? "#f8fafc" : "#2A295C", color: equipSubKey ? "#64748b" : "#fff", fontSize: "0.75rem", fontWeight: 700, cursor: "pointer" }}>
+                      All {activeBucketObj.label}
+                    </button>
+                    {activeBucketObj.subs.map(sb => {
+                      const isActiveSub = equipSubKey === sb.key;
+                      return (
+                        <button
+                          key={sb.key}
+                          type="button"
+                          onClick={() => setFilterEquip(isActiveSub ? equipBucketKey : `${equipBucketKey}:${sb.key}`)}
+                          style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 11px", borderRadius: 20, border: isActiveSub ? "1.5px solid #2A295C" : "1.5px solid #e2e8f0", background: isActiveSub ? "#2A295C" : "#f8fafc", color: isActiveSub ? "#fff" : "#475569", fontSize: "0.75rem", fontWeight: 700, cursor: "pointer", transition: "all 0.12s" }}>
+                          {sb.label}
+                          <span style={{ fontSize: "0.68rem", opacity: 0.75 }}>({sb.total})</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Fix rate banner */}
+              {!isFiltering && (() => {
+                const res = patterns?.issueResolution;
+                if (!res || res.totalFollowUps === 0) return null;
+                const rate = res.globalRecurrenceRate;
+                const color = rate >= 50 ? "#dc2626" : rate >= 30 ? "#d97706" : "#16a34a";
+                const fixRate = 100 - rate;
+                return (
+                  <div style={{ background: color + "0f", border: `2px solid ${color}44`, borderRadius: 14, padding: "14px 16px", marginBottom: 16, display: "flex", gap: 14, alignItems: "center" }}>
+                    <div style={{ fontWeight: 900, fontSize: "2rem", color, lineHeight: 1 }}>{fixRate}%</div>
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: "0.92rem", color: "#1e293b" }}>
+                        {fixRate >= 70 ? "🎉 Problems are getting fixed!" : fixRate >= 50 ? "👀 Some problems keep coming back" : "🔴 Too many problems are not getting fixed"}
+                      </div>
+                      <div style={{ fontSize: "0.8rem", color: "#64748b", marginTop: 3 }}>Out of {res.totalFollowUps} follow-up visit{res.totalFollowUps !== 1 ? "s" : ""}</div>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Location profiles — shown only when not filtering equipment */}
+              {!isFiltering && (
+                <LocationsPanel
+                  loc={patterns?.locationProfile}
+                  passColor={passColor}
+                  trendArrow={trendArrow}
+                  MiniBar={MiniBar}
+                  EmptyState={EmptyState}
+                />
+              )}
+
+              {/* ── Location-first grouped equipment list ──────────────────────── */}
+              {inv.length === 0 ? (
+                <EmptyState icon="📦" msg="Equipment inventory will appear after saving inspections with equipment data." />
+              ) : allLocsFiltered.length === 0 ? (
+                <EmptyState icon="🔍" msg="Nothing found. Try different filters or clear the search." />
+              ) : (
+                orderedGroups.map(locType => {
+                  const locs = grouped[locType] || [];
+                  const groupTotal = locs.reduce((s, l) => s + l.units.reduce((us, u) => us + u.count, 0), 0);
+                  const equipLabel = equipBucketKey
+                    ? (activeEquipSub ? `${activeEquipSub.label} ${KPI_BUCKETS.find(b => b.key === equipBucketKey)?.label || ""}`.trim() : KPI_BUCKETS.find(b => b.key === equipBucketKey)?.label || "Equipment")
+                    : "units";
+                  return (
+                    <div key={locType} style={{ marginBottom: 24 }}>
+                      {/* Section header */}
+                      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10, paddingLeft: 4, borderLeft: "4px solid #2A295C" }}>
+                        <span style={{ fontSize: "0.72rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.1em", color: "#2A295C" }}>
+                          {LOC_TYPE_ICONS[locType] || "📍"} {locType} Locations
+                        </span>
+                        <span style={{ fontSize: "0.7rem", color: "#64748b", fontWeight: 600 }}>— {locs.length} site{locs.length !== 1 ? "s" : ""} — {groupTotal} {equipLabel}</span>
+                      </div>
+                      {/* Location cards */}
+                      {locs.map(loc => (
+                        <EquipLocationCard
+                          key={loc.site}
+                          loc={loc}
+                          filterEquip={equipBucketKey}
+                          filterSubEquip={equipSubKey}
+                        />
+                      ))}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          );
         })()}
 
         {/* ══ CHARTS / ACTIVITY ════════════════════════════ */}
@@ -7007,12 +7298,7 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const [historyTab, setHistoryTab] = useState("reports"); // "reports" | "analytics"
   const [haccpByReport, setHaccpByReport] = useState({}); // { [reportId]: [...submissions] }
-  // Derived — auto-updates whenever any source populates haccpByReport
-  const haccpSubmittedIds = useMemo(() => {
-    const s = new Set();
-    Object.keys(haccpByReport).forEach(id => { if ((haccpByReport[id]?.length || 0) > 0) s.add(id); });
-    return s;
-  }, [haccpByReport]);
+  const [haccpReportIds, setHaccpReportIds] = useState(new Set()); // reportIds known to have ≥1 HACCP submission
   const [chatByReport, setChatByReport] = useState({});  // { [reportId]: [...messages] }
   const [showHistoryMenu, setShowHistoryMenu] = useState(false);
   const [analyticsTab, setAnalyticsTab] = useState("temp"); // "temp" | "insights" | "predictive" | "recurring"
@@ -7025,6 +7311,7 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
   const [showIssueFilter, setShowIssueFilter] = useState(null); // null | "excel" | "word" | "pdf"
   const [selectedIssueKeys, setSelectedIssueKeys] = useState(null); // null = all issues
   const [modalIssueSearch, setModalIssueSearch] = useState(""); // search filter inside issue modal
+  const [issueExporting, setIssueExporting] = useState(false);
   // Corrective action tracking: { [recId]: { [issueKey]: { resolvedAt, resolvedNote, resolvedBy } } }
   const [resolvedIssues, setResolvedIssues] = useState({});
   // Resolve modal state: { recId, issueKey, issueText } | null
@@ -7044,24 +7331,27 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
     setHistoryLastDoc(null);
     setHistoryHasMore(false);
     setHistoryLoaded(false);
-    // Load all HACCP submissions upfront so every card can show the badge
-    loadHaccpSubmissions().then(subs => {
-      const map = {};
-      subs.filter(s => s.type === "submission").forEach(s => {
-        const key = s.reportId || s.sessionId || s.inspectionId;
-        if (key) { if (!map[key]) map[key] = []; map[key].push(s); }
-      });
-      setHaccpByReport(prev => ({ ...prev, ...map }));
-    }).catch(() => {});
     loadHistory(managedVenueId || undefined, {
       dateFrom: filterDateFrom || undefined,
       dateTo: filterDateTo || undefined,
-      pageSize: 1000,
+      pageSize: 300,
     }).then(({ list, lastDoc, hasMore }) => {
       setHistory(list);
       setHistoryLastDoc(lastDoc);
       setHistoryHasMore(hasMore);
       setHistoryLoaded(true);
+      // Eagerly load which reportIds have HACCP submissions so badges show correct color immediately
+      if (FIREBASE_ON && list.length > 0) {
+        loadHaccpSubmissions().then(subs => {
+          const ids = new Set(subs.filter(s => s.reportId && s.type === "submission").map(s => s.reportId));
+          setHaccpReportIds(ids);
+        }).catch(() => {});
+      } else if (!FIREBASE_ON) {
+        try {
+          const subs = JSON.parse(localStorage.getItem(HACCP_SUBS_KEY) || "[]");
+          setHaccpReportIds(new Set(subs.filter(s => s.reportId && s.type === "submission").map(s => s.reportId)));
+        } catch (_) {}
+      }
       if (list.length > 0) {
         const qualifiedList = list.filter(r => {
           const lt = (r.locationType || "").trim();
@@ -7074,35 +7364,6 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
     });
   }, [managedVenueId, filterDateFrom, filterDateTo]);
 
-  // Real-time listener on the full haccpSubmissions collection — updates all card badges instantly
-  useEffect(() => {
-    if (!FIREBASE_ON || !db) return;
-    const byReport = {};
-    function processSnap(snap) {
-      snap.docs.forEach(d => {
-        const data = d.data();
-        if (data.type !== "submission") return;
-        const key = data.reportId || data.sessionId || data.inspectionId;
-        if (!key) return;
-        if (!byReport[key]) byReport[key] = [];
-        if (!byReport[key].some(s => s.id === data.id)) byReport[key].push(data);
-      });
-      setHaccpByReport(prev => ({ ...prev, ...byReport }));
-    }
-    const unsubs = [];
-    try {
-      const uLegacy = onSnapshot(legacyCol("haccpSubmissions"), processSnap, () => {});
-      unsubs.push(uLegacy);
-    } catch { /* ignore */ }
-    if (!IS_DEFAULT_VENUE()) {
-      try {
-        const uVenue = onSnapshot(venueCol("haccpSubmissions"), processSnap, () => {});
-        unsubs.push(uVenue);
-      } catch { /* ignore */ }
-    }
-    return () => unsubs.forEach(u => { try { u(); } catch { /* ignore */ } });
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
   function loadMoreHistory() {
     if (!historyHasMore || historyLoadingMore) return;
     setHistoryLoadingMore(true);
@@ -7110,7 +7371,6 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
       dateFrom: filterDateFrom || undefined,
       dateTo: filterDateTo || undefined,
       lastDoc: historyLastDoc,
-      pageSize: 1000,
     }).then(({ list, lastDoc, hasMore }) => {
       setHistory(prev => [...prev, ...list]);
       setHistoryLastDoc(lastDoc);
@@ -7184,6 +7444,19 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
     };
   }, [expandedId, history]);
 
+  // Keep haccpReportIds in sync whenever haccpByReport gains new data from expanded cards
+  useEffect(() => {
+    const newIds = Object.entries(haccpByReport)
+      .filter(([, subs]) => Array.isArray(subs) && subs.length > 0)
+      .map(([id]) => id);
+    if (newIds.length === 0) return;
+    setHaccpReportIds(prev => {
+      const next = new Set(prev);
+      newIds.forEach(id => next.add(id));
+      return next;
+    });
+  }, [haccpByReport]);
+
   const issueTypes = useMemo(() => {
     const set = new Set();
     for (const rec of history) {
@@ -7216,16 +7489,12 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
     });
   }, [history, filterDate, filterType, filterFloor, filterLocType, filterSite, filterIssue]);
 
-  // Pre-compute expensive per-card values once per filtered change, not on every render
-  const cardMeta = useMemo(() => {
-    const map = {};
-    for (const rec of filtered) {
-      map[rec.id] = {
-        issues: buildActionItems({ inspection: rec.inspection, rawNotes: rec.rawNotes, foodTemps: rec.foodTemps, foodTempNames: rec.foodTempNames }),
-        score: calcInspectionScore(rec.inspection, { foodTemps: rec.foodTemps, foodTempNames: rec.foodTempNames }),
-      };
-    }
-    return map;
+  // Pre-compute expensive per-record values once when filtered list changes
+  const filteredMeta = useMemo(() => {
+    return filtered.map(rec => ({
+      issues: buildActionItems({ inspection: rec.inspection, rawNotes: rec.rawNotes, foodTemps: rec.foodTemps, foodTempNames: rec.foodTempNames }),
+      score: calcInspectionScore(rec.inspection, { foodTemps: rec.foodTemps, foodTempNames: rec.foodTempNames }),
+    }));
   }, [filtered]);
 
   // Function to jump to a specific location's reports
@@ -7388,16 +7657,16 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
     URL.revokeObjectURL(url);
   }
 
-  async function exportBulkExcel(records, haccpMap = {}) {
+  async function exportBulkExcel(records) {
     if (!records || records.length === 0) return;
 
     // ── Pre-fetch HACCP data for ALL records in the export ─────────────────
     // haccpByReport only holds data for the currently-expanded card.
     // For bulk exports we must eagerly fetch every record's submissions so
     // the Supervisor Log sheet is populated regardless of which cards were open.
-    const fullHaccpMap = { ...haccpByReport, ...haccpMap }; // merge pre-loaded + already fetched
+    const haccpMap = { ...haccpByReport }; // start with whatever is already loaded
     await Promise.all(records.map(async rec => {
-      if (fullHaccpMap[rec.id] !== undefined) return; // already loaded
+      if (haccpMap[rec.id] !== undefined) return; // already loaded
       const byId  = await loadHaccpForReport(rec.id);
       const bySite = (rec.siteName || rec.location) && rec.inspectionDate
         ? await loadHaccpBySite(rec.siteName || rec.location, rec.inspectionDate)
@@ -7410,7 +7679,7 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
         seen.add(key);
         return true;
       }).sort((a, b) => (a.submittedAt || "").localeCompare(b.submittedAt || ""));
-      fullHaccpMap[rec.id] = merged;
+      haccpMap[rec.id] = merged;
     }));
     // ───────────────────────────────────────────────────────────────────────
 
@@ -7527,9 +7796,7 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
       const bg = i % 2 === 0 ? WHITE : SILVER;
       const row = ws1.addRow([
         i + 1, str(rec.siteName || rec.location), str(rec.siteNumber), str(rec.locationType || "—"), str(rec.floor || "—"),
-        str(rec.inspectionDate), str(rec.inspectionType), str(rec.inspectorName),
-        str(rec.supervisorName || (fullHaccpMap[rec.id]?.[0]?.supervisorName) || ""),
-        str(rec.participantName || "—"),
+        str(rec.inspectionDate), str(rec.inspectionType), str(rec.inspectorName), str(rec.supervisorName), str(rec.participantName || "—"),
         str(rec.eventName || "—"), str(rec.overallStatus || "—"), issues.length, hi,
       ]);
       row.height = 18;
@@ -7551,7 +7818,7 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
     ws2.mergeCells(`A${s2Title.number}:M${s2Title.number}`);
     applyB(s2Title.getCell(1), bHdr(10));
 
-    const s2Headers = ["#", "Site / Location", "Unit #", "Location Type", "Date", "Inspection Type", "Inspector", "Area", "Issue", "Inspector Notes", "Owner", "Due Date", "Priority"];
+    const s2Headers = ["#", "Site / Location", "Unit #", "Location Type", "Date", "Inspection Type", "Inspector", "Area", "Issue", "Inspector Notes", "Owner", "Due Date", "Status"];
     const s2HRow = ws2.addRow(s2Headers);
     s2HRow.height = 20;
     s2Headers.forEach((_, ci) => applyB(s2HRow.getCell(ci + 1), bSubHdr()));
@@ -7564,15 +7831,16 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
         rowNum++;
         const { area, issue } = splitIssue(a);
         const notes = str(a.notes || a.corrective || "");
-        const pri = str(a.priority || "");
+        // Use the inspector's chosen status; fall back to priority label only if no status set
+        const statusLabel = str(a.status && a.status !== "OK" ? a.status : (a.priority || ""));
         const bg = rowNum % 2 === 0 ? SILVER : WHITE;
         const row = ws2.addRow([
           rowNum, str(rec.siteName || rec.location), str(rec.siteNumber), str(rec.locationType),
           str(rec.inspectionDate), str(rec.inspectionType), str(rec.inspectorName),
-          area, issue, notes, str(a.owner || "—"), str(a.due || "—"), pri,
+          area, issue, notes, str(a.owner || "—"), str(a.due || "—"), statusLabel,
         ]);
         [1,2,3,4,5,6,7,8,9,10,11,12].forEach(ci => { row.getCell(ci).style = bBody(bg); });
-        row.getCell(13).style = bPriority(pri);
+        row.getCell(13).style = bStatusExt(statusLabel);
       });
     });
 
@@ -7741,7 +8009,7 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
 
     let supRowNum = 0;
     records.forEach(rec => {
-      const subs = fullHaccpMap[rec.id] || [];
+      const subs = haccpMap[rec.id] || [];
       subs.forEach(sub => {
         const allSubItems = [
           ...HACCP_TEMP_ITEMS,
@@ -7837,8 +8105,38 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
       }
     });
 
+    // ── SHEET: Supplies Needed ─────────────────────────────────────────────
+    const allSupplies = records.flatMap(rec =>
+      (rec.suppliesNeeded || []).map(s => ({ ...s, _site: rec.siteName || rec.location || "—", _date: rec.inspectionDate || "—", _inspector: rec.inspectorName || "—" }))
+    );
+    if (allSupplies.length > 0) {
+      const wsS = wb.addWorksheet("Supplies Needed");
+      wsS.columns = [{ width: 4 }, { width: 28 }, { width: 14 }, { width: 18 }, { width: 12 }, { width: 12 }];
+      const sSTitle = wsS.addRow(["SUPPLIES NEEDED — ALL VENUES"]);
+      sSTitle.height = 26;
+      wsS.mergeCells(`A${sSTitle.number}:F${sSTitle.number}`);
+      applyB(sSTitle.getCell(1), bHdr(12));
+      const sHeaders = ["#", "Site / Location", "Date", "Inspector", "Supply Item", "Qty / Urgent"];
+      const sHRow = wsS.addRow(sHeaders);
+      sHRow.height = 20;
+      sHeaders.forEach((_, ci) => applyB(sHRow.getCell(ci + 1), bSubHdr()));
+      wsS.autoFilter = { from: { row: sHRow.number, column: 1 }, to: { row: sHRow.number, column: 6 } };
+      wsS.views = [{ state: "frozen", ySplit: sHRow.number, topLeftCell: `A${sHRow.number + 1}`, activeCell: "A1" }];
+      allSupplies.forEach((s, i) => {
+        const bg = i % 2 === 0 ? WHITE : SILVER;
+        const urgentLabel = s.urgent ? "🔴 Urgent" : s.qty ? str(s.qty) : "—";
+        const row = wsS.addRow([i + 1, str(s._site), str(s._date), str(s._inspector), str(s.item), urgentLabel]);
+        row.height = 18;
+        [1,2,3,4,5].forEach(ci => row.getCell(ci).style = bBody(bg));
+        const urgCell = row.getCell(6);
+        urgCell.style = s.urgent
+          ? { font: { bold: true, size: 10, color: { argb: "FF" + FAIL_RT }, name: "Calibri" }, fill: { type: "pattern", pattern: "solid", fgColor: { argb: "FF" + FAIL_R } }, alignment: { vertical: "top", wrapText: true }, border: { bottom: { style: "hair", color: { argb: "FFD1D5DB" } } } }
+          : bBody(bg);
+      });
+    }
+
     // ── PHOTO SHEETS: one sheet per venue that has photos ─────────────────
-    const usedSheetNames = new Set(["Inspection Summary", "Action Items", "Checklist Detail", "Equipment Temps", "Supervisor Log", "HACCP Temps"]);
+    const usedSheetNames = new Set(["Inspection Summary", "Action Items", "Checklist Detail", "Equipment Temps", "Supervisor Log", "HACCP Temps", "Supplies Needed"]);
     function safeSheetName(site, num, idx) {
       const base = ((site || "Venue") + (num ? ` #${num}` : ""))
         .replace(/[\\/?*[\]:]/g, "").slice(0, 28).trim() || `Venue ${idx + 1}`;
@@ -7847,9 +8145,7 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
       usedSheetNames.add(name);
       return name;
     }
-    const IMG_HEIGHT_PT = 540; // ~7.5 inches — HD photo display height
-    const BULK_IMG_W_PX = 1024;
-    const BULK_IMG_H_PX = 768;
+    const IMG_HEIGHT_PT = 220; // ~3 inches — large enough to see clearly
 
     for (let ri = 0; ri < records.length; ri++) {
       const rec = records[ri];
@@ -7863,7 +8159,7 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
       if (withImg.length === 0) continue;
 
       const wsPh = wb.addWorksheet(safeSheetName(rec.siteName || rec.location, rec.siteNumber, ri));
-      wsPh.columns = [{ width: 6 }, { width: 32 }, { width: 38 }, { width: 130 }];
+      wsPh.columns = [{ width: 6 }, { width: 32 }, { width: 38 }, { width: 58 }];
 
       const phTitle = wsPh.addRow([`PHOTOS — ${(rec.siteName || rec.location || "Venue").toUpperCase()}${rec.siteNumber ? ` #${rec.siteNumber}` : ""}  |  ${rec.inspectionDate || ""}`]);
       phTitle.height = 26;
@@ -7894,7 +8190,8 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
           const imageId = wb.addImage({ base64, extension: ext });
           wsPh.addImage(imageId, {
             tl: { col: 3, row: row.number - 1 },
-            ext: { width: BULK_IMG_W_PX, height: BULK_IMG_H_PX },
+            br: { col: 4, row: row.number },
+            editAs: "oneCell",
           });
         } catch (_) {
           row.getCell(4).value = str(p.previewUrl || "");
@@ -8687,10 +8984,10 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
 
   const importRef = useRef(null);
 
-  const uniqueDates = [...new Set(history.map(r => r.inspectionDate).filter(Boolean))].sort().reverse();
-  const uniqueTypes = [...new Set(history.map(r => r.inspectionType).filter(Boolean))].sort();
-  const uniqueFloors = [...new Set(history.map(r => r.floor).filter(Boolean))].sort();
-  const uniqueLocTypes = [...new Set(history.map(r => r.locationType).filter(Boolean))].sort();
+  const uniqueDates = useMemo(() => [...new Set(history.map(r => r.inspectionDate).filter(Boolean))].sort().reverse(), [history]);
+  const uniqueTypes = useMemo(() => [...new Set(history.map(r => r.inspectionType).filter(Boolean))].sort(), [history]);
+  const uniqueFloors = useMemo(() => [...new Set(history.map(r => r.floor).filter(Boolean))].sort(), [history]);
+  const uniqueLocTypes = useMemo(() => [...new Set(history.map(r => r.locationType).filter(Boolean))].sort(), [history]);
 
   return (
     <div className="appShell">
@@ -9092,7 +9389,77 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                 </div>
               );
             })()}
+            {analyticsTab === "locations" && (() => {
+              const src = filtered.length > 0 ? filtered : history;
+              // Group by siteName
+              const byLocation = {};
+              src.forEach(rec => {
+                const loc = rec.siteName?.trim() || rec.location?.trim() || "Unknown";
+                if (!byLocation[loc]) byLocation[loc] = [];
+                byLocation[loc].push(rec);
+              });
+              const today = new Date();
+              today.setHours(0, 0, 0, 0);
+              const rows = Object.entries(byLocation).map(([name, recs]) => {
+                // Sort descending by date
+                const sorted = [...recs].sort((a, b) => (b.savedAt || b.date || "").localeCompare(a.savedAt || a.date || ""));
+                const lastRec = sorted[0];
+                const lastDateStr = lastRec?.savedAt?.slice(0, 10) || lastRec?.date?.slice(0, 10) || null;
+                let daysSince = null;
+                if (lastDateStr) {
+                  const d = new Date(lastDateStr);
+                  daysSince = Math.round((today - d) / 86400000);
+                }
+                const overdue = daysSince !== null && daysSince >= 7;
+                const warn = daysSince !== null && daysSince >= 4 && !overdue;
+                return { name, count: recs.length, lastDateStr, daysSince, overdue, warn };
+              }).sort((a, b) => (b.daysSince ?? 9999) - (a.daysSince ?? 9999));
 
+              return (
+                <div style={{ marginTop: 12 }}>
+                  <div style={{ fontWeight: 700, fontSize: "0.82rem", color: "#374151", marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>
+                    📍 Inspection Completion by Location
+                    <span style={{ fontWeight: 400, fontSize: "0.76rem", color: "#6b7280" }}>{rows.length} locations · {src.length} total inspections</span>
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    {rows.map((r, i) => (
+                      <div key={i} style={{
+                        display: "flex", alignItems: "center", gap: 10,
+                        background: r.overdue ? "#fef2f2" : r.warn ? "#fffbeb" : "#f9fafb",
+                        border: `1px solid ${r.overdue ? "#fca5a5" : r.warn ? "#fde68a" : "#e5e7eb"}`,
+                        borderRadius: 10, padding: "10px 14px",
+                      }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontWeight: 700, fontSize: "0.85rem", color: "#111827", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.name}</div>
+                          <div style={{ fontSize: "0.75rem", color: "#6b7280", marginTop: 2 }}>
+                            {r.count} inspection{r.count !== 1 ? "s" : ""}
+                            {r.lastDateStr ? ` · Last: ${r.lastDateStr}` : " · No date recorded"}
+                          </div>
+                        </div>
+                        <div style={{ textAlign: "right", flexShrink: 0 }}>
+                          {r.daysSince === null ? (
+                            <span style={{ fontSize: "0.75rem", color: "#9ca3af" }}>—</span>
+                          ) : r.daysSince === 0 ? (
+                            <span style={{ fontSize: "0.78rem", fontWeight: 700, color: "#16a34a" }}>Today</span>
+                          ) : (
+                            <span style={{ fontSize: "0.78rem", fontWeight: 700, color: r.overdue ? "#dc2626" : r.warn ? "#d97706" : "#374151" }}>
+                              {r.daysSince}d ago
+                            </span>
+                          )}
+                          {r.overdue && <div style={{ fontSize: "0.68rem", fontWeight: 700, color: "#dc2626", marginTop: 1 }}>OVERDUE</div>}
+                          {r.warn && !r.overdue && <div style={{ fontSize: "0.68rem", fontWeight: 700, color: "#d97706", marginTop: 1 }}>Due soon</div>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {rows.filter(r => r.overdue).length > 0 && (
+                    <div style={{ marginTop: 10, padding: "8px 12px", background: "#fee2e2", border: "1px solid #fca5a5", borderRadius: 8, fontSize: "0.78rem", color: "#991b1b", fontWeight: 600 }}>
+                      ⚠️ {rows.filter(r => r.overdue).length} location{rows.filter(r => r.overdue).length !== 1 ? "s" : ""} overdue (7+ days since last inspection)
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </>
         )}
 
@@ -9131,10 +9498,11 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
               });
             } : undefined}
           >
-            {filtered.map(rec => {
+            {filtered.map((rec, recIdx) => {
               const isExpanded = expandedId === rec.id;
-              const { issues, score } = cardMeta[rec.id] || { issues: [], score: null };
+              const issues = filteredMeta[recIdx]?.issues || [];
               const statusColor = rec.overallStatus === "Pass" ? "#15803D" : "#EE0000";
+              const score = filteredMeta[recIdx]?.score || calcInspectionScore(rec.inspection, { foodTemps: rec.foodTemps, foodTempNames: rec.foodTempNames });
               return (
                 <div
                   className="card historyCard"
@@ -9194,7 +9562,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                           )}
                         </div>
                         <div className="cardSub">
-                          {rec.inspectionDate} &middot;{" "}
+                          {rec.inspectionDate || (rec.savedAt ? new Date(rec.savedAt).toLocaleDateString([], { year: "numeric", month: "short", day: "numeric" }) : rec.submittedAt ? new Date(rec.submittedAt).toLocaleDateString([], { year: "numeric", month: "short", day: "numeric" }) : "—")} &middot;{" "}
                           <span className={cx("typeBadge",
                             rec.inspectionType === "Event Day" ? "typeBadgeEvent" :
                             rec.inspectionType === "Post Event" ? "typeBadgePost" : "typeBadgeRegular"
@@ -9220,12 +9588,12 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                         </span>
                       )}
                       {issues.length > 0 && <span className="pill">{issues.length} issue{issues.length !== 1 ? "s" : ""}</span>}
-                      {(haccpSubmittedIds.has(rec.id) || haccpByReport[rec.id]?.length > 0) ? (
-                        <span title="HACCP form submitted" style={{ display:"inline-flex", alignItems:"center", gap:3, background:"#f0fdf4", color:"#15803d", border:"1px solid #bbf7d0", borderRadius:8, padding:"2px 8px", fontSize:"0.72rem", fontWeight:700, flexShrink:0 }}>
+                      {(haccpReportIds.has(rec.id) || haccpByReport[rec.id]?.length > 0) ? (
+                        <span title="HACCP temperature log submitted" style={{ display: "inline-flex", alignItems: "center", gap: 3, background: "#f0fdf4", color: "#15803d", border: "1px solid #bbf7d0", borderRadius: 8, padding: "2px 8px", fontSize: "0.72rem", fontWeight: 700, flexShrink: 0 }}>
                           🌡️ HACCP
                         </span>
                       ) : (
-                        <span title="HACCP form not submitted" style={{ display:"inline-flex", alignItems:"center", gap:3, background:"#fef2f2", color:"#dc2626", border:"1px solid #fecaca", borderRadius:8, padding:"2px 8px", fontSize:"0.72rem", fontWeight:700, flexShrink:0 }}>
+                        <span title="HACCP temperature log not yet submitted" style={{ display: "inline-flex", alignItems: "center", gap: 3, background: "#fef2f2", color: "#dc2626", border: "1px solid #fecaca", borderRadius: 8, padding: "2px 8px", fontSize: "0.72rem", fontWeight: 700, flexShrink: 0 }}>
                           🌡️ HACCP
                         </span>
                       )}
@@ -9374,11 +9742,16 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                                       <div style={{ display: "flex", alignItems: "flex-start", gap: 8, flex: 1 }}>
                                         <span className={cx("priorityBadge",
                                           resolved ? "priorityResolved" :
+                                          (a.status === "Critical Violation" || a.status === "Fail" || a.status === "Not Clean") ? "priorityCritical" :
+                                          (a.status === "Needs Attention") ? "priorityHigh" :
+                                          (a.status === "Maintenance") ? "priorityMaint" :
+                                          (a.status === "Follow-Up" || a.status === "Follow-up") ? "priorityFollowup" :
+                                          (a.status === "Corrected On-Site" || a.status === "OK") ? "priorityResolved" :
                                           a.priority === "Critical" ? "priorityCritical" :
                                           a.priority === "Maintenance" ? "priorityMaint" :
                                           a.priority === "High" ? "priorityHigh" :
                                           a.priority === "Follow-up" ? "priorityFollowup" : "priorityMed"
-                                        )}>{resolved ? "✓ Resolved" : a.priority}</span>
+                                        )}>{resolved ? "✓ Resolved" : (a.status && a.status !== "OK" ? a.status : a.priority)}</span>
                                         <div style={{ flex: 1 }}>
                                           <span className="issueRowText" style={resolved ? { textDecoration: "line-through", color: "#64748b" } : undefined}>{a.issue}</span>
                                           {resolved && (
@@ -9386,15 +9759,6 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                                               {resolved.resolvedNote && <span>"{resolved.resolvedNote}" · </span>}
                                               <span>{resolved.resolvedBy ? `${resolved.resolvedBy} · ` : ""}</span>
                                               <span>{resolved.resolvedAt ? new Date(resolved.resolvedAt).toLocaleString() : ""}</span>
-                                            </div>
-                                          )}
-                                          {a.ciPhotos?.length > 0 && (
-                                            <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginTop:6 }}>
-                                              {a.ciPhotos.map((p, pi) => (
-                                                <img key={pi} src={p.thumb} alt="issue photo"
-                                                  onClick={() => setLightboxPhoto({ url: p.url || p.thumb, num: pi+1, label: a.issue, caption: "" })}
-                                                  style={{ width:56, height:56, objectFit:"cover", borderRadius:7, border:"1px solid #e2e8f0", cursor:"zoom-in" }} />
-                                              ))}
                                             </div>
                                           )}
                                         </div>
@@ -9612,14 +9976,6 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                                         {sub.problemReport.severity === "urgent" ? "🔴" : sub.problemReport.severity === "issue" ? "🟡" : "🔵"}
                                       </span>
                                       {sub.problemReport.text}
-                                    </div>
-                                  )}
-                                  {(sub.problemReport?.photos || []).filter(p => p.previewUrl).length > 0 && (
-                                    <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginTop: 6 }}>
-                                      {sub.problemReport.photos.filter(p => p.previewUrl).map((ph, pi) => (
-                                        <img key={ph.id || pi} src={ph.previewUrl} alt={ph.tag || "photo"}
-                                          style={{ width: 60, height: 60, objectFit: "cover", borderRadius: 7, border: "1px solid #e5e7eb", cursor: "pointer" }} />
-                                      ))}
                                     </div>
                                   )}
                                 </div>
@@ -9903,7 +10259,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
             const key = `${area.trim()}|||${(a.issue || "").trim()}`;
             if (!seen.has(key)) {
               seen.add(key);
-              allIssues.push({ key, area, issue, priority: a.priority || "Medium", corrective: a.corrective || "" });
+              allIssues.push({ key, area, issue, priority: a.priority || "Medium", status: a.status || "", corrective: a.corrective || "" });
             }
           }
         }
@@ -9937,28 +10293,31 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
           });
         }
         async function doExport() {
-          const issueKeys = selectedIssueKeys || new Set(allIssues.map(i => i.key));
-          // Filter each record's actionItems to only selected keys
-          // Use the same splitIssueModal logic so keys match what the modal built
-          const filteredRecords = selectedRecords.map(rec => ({
-            ...rec,
-            actionItems: (rec.actionItems || []).filter(a => {
-              const { area } = splitIssueModal(a);
-              const key = `${area.trim()}|||${(a.issue || "").trim()}`;
-              return issueKeys.has(key);
-            }),
-          }));
-          if (showIssueFilter === "excel") {
-            try {
-              const result = await exportBulkExcel(filteredRecords, haccpByReport);
+          setIssueExporting(true);
+          try {
+            const issueKeys = selectedIssueKeys || new Set(allIssues.map(i => i.key));
+            const filteredRecords = selectedRecords.map(rec => ({
+              ...rec,
+              actionItems: (rec.actionItems || []).filter(a => {
+                const { area } = splitIssueModal(a);
+                const key = `${area.trim()}|||${(a.issue || "").trim()}`;
+                return issueKeys.has(key);
+              }),
+            }));
+            if (showIssueFilter === "excel") {
+              const result = await exportBulkExcel(filteredRecords);
               if (result) downloadBlob(result.blob, result.filename);
-            } catch (err) { alert("Excel download failed: " + (err?.message || String(err))); }
-          } else if (showIssueFilter === "pdf") {
-            await exportBulkPdf(filteredRecords);
-          } else {
-            await exportBulkWord(filteredRecords);
+            } else if (showIssueFilter === "pdf") {
+              await exportBulkPdf(filteredRecords);
+            } else {
+              await exportBulkWord(filteredRecords);
+            }
+            setShowIssueFilter(null);
+          } catch (err) {
+            alert("Export failed: " + (err?.message || String(err)));
+          } finally {
+            setIssueExporting(false);
           }
-          setShowIssueFilter(null);
         }
 
         const exportAccent = showIssueFilter === "excel" ? "#16a34a" : showIssueFilter === "pdf" ? "#dc2626" : "#2563eb";
@@ -9966,7 +10325,8 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
         const exportAccentMid = showIssueFilter === "excel" ? "#dcfce7" : showIssueFilter === "pdf" ? "#fee2e2" : "#dbeafe";
         const exportLabel = showIssueFilter === "excel" ? "Excel" : showIssueFilter === "pdf" ? "PDF" : "Word";
         const exportIcon = showIssueFilter === "excel" ? "📊" : showIssueFilter === "pdf" ? "📄" : "📝";
-        const highCount = allIssues.filter(i => i.priority === "High" && effectiveKeys.has(i.key)).length;
+        const CRITICAL_STATUSES = new Set(["Fail", "Not Clean", "Critical Violation", "Needs Attention"]);
+        const highCount = allIssues.filter(i => effectiveKeys.has(i.key) && (CRITICAL_STATUSES.has(i.status) || (!i.status && i.priority === "High"))).length;
         const selectedCount = effectiveKeys.size;
 
         return (
@@ -10016,7 +10376,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                   </div>
                   {highCount > 0 && (
                     <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 10px", borderRadius: 8, background: "#fff7ed", border: "1px solid #fed7aa" }}>
-                      <span style={{ fontSize: "0.78rem", fontWeight: 700, color: "#c2410c" }}>⚠ {highCount} high priority</span>
+                      <span style={{ fontSize: "0.78rem", fontWeight: 700, color: "#c2410c" }}>⚠ {highCount} critical status</span>
                     </div>
                   )}
                   <button type="button"
@@ -10117,12 +10477,28 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                             <input type="checkbox" readOnly checked={isSelected}
                               style={{ width: 15, height: 15, accentColor: exportAccent, flexShrink: 0, cursor: "pointer", marginTop: 2 }} />
                             <span style={{ flex: 1, fontSize: "0.84rem", color: isSelected ? "#0f172a" : "#374151", lineHeight: 1.5, fontWeight: isSelected ? 500 : 400 }}>{item.issue || "—"}</span>
-                            <span style={{
-                              fontSize: "0.68rem", fontWeight: 700, padding: "2px 8px", borderRadius: 6, flexShrink: 0, letterSpacing: "0.03em", marginTop: 2,
-                              background: isHigh ? "#fef2f2" : item.priority === "Follow-up" ? "#f0f9ff" : "#fefce8",
-                              color: isHigh ? "#dc2626" : item.priority === "Follow-up" ? "#0284c7" : "#a16207",
-                              border: `1px solid ${isHigh ? "#fecaca" : item.priority === "Follow-up" ? "#bae6fd" : "#fde68a"}`,
-                            }}>{item.priority}</span>
+                            {(() => {
+                              const st = item.status || item.priority || "";
+                              const cfg =
+                                st === "Not Clean"          ? { bg: "#fff7ed", color: "#c2410c", border: "#fed7aa" } :
+                                st === "Fail"               ? { bg: "#fef2f2", color: "#dc2626", border: "#fecaca" } :
+                                st === "Critical Violation" ? { bg: "#fef2f2", color: "#991b1b", border: "#fca5a5" } :
+                                st === "Needs Attention"    ? { bg: "#fff7ed", color: "#c2410c", border: "#fed7aa" } :
+                                st === "Follow-Up"          ? { bg: "#f0f9ff", color: "#0284c7", border: "#bae6fd" } :
+                                st === "Follow-up"          ? { bg: "#f0f9ff", color: "#0284c7", border: "#bae6fd" } :
+                                st === "Maintenance"        ? { bg: "#faf5ff", color: "#7c3aed", border: "#e9d5ff" } :
+                                st === "Corrected On-Site"  ? { bg: "#f0fdf4", color: "#15803d", border: "#bbf7d0" } :
+                                st === "Off / Not In Use"   ? { bg: "#f8fafc", color: "#64748b", border: "#e2e8f0" } :
+                                st === "N/A"                ? { bg: "#f8fafc", color: "#94a3b8", border: "#e2e8f0" } :
+                                st === "OK"                 ? { bg: "#f0fdf4", color: "#15803d", border: "#bbf7d0" } :
+                                isHigh                      ? { bg: "#fef2f2", color: "#dc2626", border: "#fecaca" } :
+                                                              { bg: "#fefce8", color: "#a16207", border: "#fde68a" };
+                              return (
+                                <span style={{ fontSize: "0.68rem", fontWeight: 700, padding: "2px 8px", borderRadius: 6, flexShrink: 0, letterSpacing: "0.03em", marginTop: 2, background: cfg.bg, color: cfg.color, border: `1px solid ${cfg.border}` }}>
+                                  {st || "High"}
+                                </span>
+                              );
+                            })()}
                           </div>
                         );
                       })}
@@ -10139,19 +10515,21 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                   onMouseLeave={e => e.currentTarget.style.background = "#fff"}>
                   Cancel
                 </button>
-                <button type="button" onClick={doExport} disabled={selectedCount === 0}
+                <button type="button" onClick={doExport} disabled={selectedCount === 0 || issueExporting}
                   style={{
                     flex: 2, padding: "12px", borderRadius: 12, border: "none",
-                    cursor: selectedCount === 0 ? "not-allowed" : "pointer",
+                    cursor: (selectedCount === 0 || issueExporting) ? "not-allowed" : "pointer",
                     fontWeight: 700, fontSize: "0.92rem",
-                    background: selectedCount === 0 ? "#e2e8f0" : `linear-gradient(135deg, ${exportAccent}, ${showIssueFilter === "excel" ? "#15803d" : showIssueFilter === "pdf" ? "#b91c1c" : "#1d4ed8"})`,
-                    color: selectedCount === 0 ? "#94a3b8" : "#fff",
-                    boxShadow: selectedCount === 0 ? "none" : `0 2px 12px ${exportAccent}44`,
+                    background: (selectedCount === 0 || issueExporting) ? "#e2e8f0" : `linear-gradient(135deg, ${exportAccent}, ${showIssueFilter === "excel" ? "#15803d" : showIssueFilter === "pdf" ? "#b91c1c" : "#1d4ed8"})`,
+                    color: (selectedCount === 0 || issueExporting) ? "#94a3b8" : "#fff",
+                    boxShadow: (selectedCount === 0 || issueExporting) ? "none" : `0 2px 12px ${exportAccent}44`,
                     transition: "all 0.15s",
                     display: "flex", alignItems: "center", justifyContent: "center", gap: 7,
                   }}>
-                  <span style={{ fontSize: "1rem" }}>{exportIcon}</span>
-                  <span>{selectedCount > 0 ? `Export ${selectedCount} Issue${selectedCount !== 1 ? "s" : ""} to ${exportLabel}` : `Select issues to export`}</span>
+                  {issueExporting
+                    ? <><span style={{ width: 16, height: 16, border: "2px solid #94a3b8", borderTopColor: "#475569", borderRadius: "50%", display: "inline-block", animation: "spin 0.7s linear infinite" }} /><span>Preparing download…</span></>
+                    : <><span style={{ fontSize: "1rem" }}>{exportIcon}</span><span>{selectedCount > 0 ? `Export ${selectedCount} Issue${selectedCount !== 1 ? "s" : ""} to ${exportLabel}` : `Select issues to export`}</span></>
+                  }
                 </button>
               </div>
             </div>
@@ -13619,6 +13997,569 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName }) {
             );
           })()}
 
+          {/* ── VERDICT TAB ── */}
+          {activeTab === "inventory" && (() => {
+            // ── Equipment Inventory — built from inspection history ──────────
+            // Tracks coolers, freezers, hand sinks, 3-comp sinks seen in reports.
+            // Groups: Permanent (Concession/Bar/Pantry), Subcontractor, Events (Portable/Event Day/Event/Temporary)
+
+            const EQUIP_LABELS = {
+              coolers: "Cooler", freezer: "Freezer",
+              "2-Door Cooler": "Cooler", "1-Door Cooler": "Cooler",
+              "Walk-In Cooler": "Cooler", "Prep Cooler": "Cooler",
+              "2-Door Freezer": "Freezer", "1-Door Freezer": "Freezer",
+              "Walk-In Freezer": "Freezer",
+            };
+
+            const isCooler  = (label = "") => /cooler/i.test(label);
+            const isFreezer = (label = "") => /freezer/i.test(label);
+            const isHandSink  = (label = "") => /hand.?sink/i.test(label);
+            const is3CompSink = (label = "") => /(3.comp|three.comp|3-comp)/i.test(label);
+
+            const extractEquip = (record) => {
+              const equip = record.inspection?.equipment || {};
+              const facility = record.inspection?.facility || {};
+              const items = [];
+
+              // Equipment section — coolers, freezers, custom items
+              for (const [key, val] of Object.entries(equip)) {
+                if (!val || val.notApplicable) continue;
+                const label = val.label || key;
+                const tempF = val.tempF || "";
+                const status = val.status || "OK";
+                if (isCooler(label))       items.push({ type: "Cooler",  label, tempF, status });
+                else if (isFreezer(label)) items.push({ type: "Freezer", label, tempF, status });
+                else                       items.push({ type: "Other",   label, tempF, status });
+              }
+
+              // Facility section — hand sinks, 3-comp sinks
+              for (const [key, val] of Object.entries(facility)) {
+                if (!val || val.notApplicable) continue;
+                const label = val.label || key;
+                const status = val.status || "OK";
+                if (isHandSink(label))   items.push({ type: "Hand Sink",    label, tempF: record.temps?.handSinkTempF || "", status });
+                if (is3CompSink(label))  items.push({ type: "3-Comp Sink",  label, tempF: record.temps?.threeCompSinkTempF || "", status });
+              }
+
+              // Also check built-in facility keys directly
+              if (facility.handSink && !facility.handSink.notApplicable)
+                if (!items.some(i => i.type === "Hand Sink" && i.label === (facility.handSink.label || "handSink")))
+                  items.push({ type: "Hand Sink",   label: facility.handSink.label || "Hand Sink",   tempF: record.temps?.handSinkTempF || "", status: facility.handSink.status || "OK" });
+              if (facility.threeCompSinks && !facility.threeCompSinks.notApplicable)
+                if (!items.some(i => i.type === "3-Comp Sink" && i.label === (facility.threeCompSinks.label || "threeCompSinks")))
+                  items.push({ type: "3-Comp Sink", label: facility.threeCompSinks.label || "3-Comp Sink", tempF: record.temps?.threeCompSinkTempF || "", status: facility.threeCompSinks.status || "OK" });
+
+              return items;
+            };
+
+            const isPermanent     = (lt) => ["Concession","Bar","Pantry"].includes(lt);
+            const isSubcontractor = (lt) => lt === "Subcontractor";
+            // Portable/Event/Temporary location types are always event-side.
+            // inspectionType "Event Day" or "Post Event" on ANY location type also goes
+            // to the event section — keeping permanent baselines clean.
+            const isEventInspType = (it) => it === "Event Day" || it === "Post Event";
+            const isEventLocType  = (lt) => ["Portable","Event / Temporary"].includes(lt);
+
+            // ── Qualification gate for inventory counts & insights ────────────
+            // Bar and Pantry: exempt from the 3-field requirement, but must have
+            //   a passing inspection ("well done") to count.
+            // All other types: must have siteNumber + siteName + restaurantLicense.
+            const qualifiesForCounting = (rec) => {
+              const lt = (rec.locationType || "").trim();
+              if (lt === "Bar" || lt === "Pantry") {
+                return (rec.overallStatus || "").toLowerCase() === "pass";
+              }
+              return !!(rec.siteNumber?.trim()) && !!(rec.siteName?.trim()) && !!(rec.restaurantLicense?.trim());
+            };
+
+            // ── Build inventory maps ──────────────────────────────────────────
+            // PERMANENT locations (Concession/Bar/Pantry):
+            //   • Only Regular Inspection records feed the permanent baseline.
+            //   • Event Day / Post Event records at these locations go to the
+            //     event section instead — so the permanent count never includes
+            //     temporary / brought-in event equipment.
+            //   • Count strategy: MAXIMUM count seen across all Regular Inspections
+            //     per label, not just the latest. Inspections can miss items; the
+            //     highest ever seen is the most reliable equipment count.
+            //
+            // SUBCONTRACTOR locations:
+            //   • Subcontractors that appear in Regular Inspections across ≥2
+            //     distinct dates are "permanent subcontractors" — they are a fixed
+            //     presence and their baseline belongs in the permanent section
+            //     (shown with a "Subcontractor" badge, not "Concession" etc.).
+            //   • One-off or single-visit subcontractors stay in their own
+            //     Subcontractor section.
+            //
+            // EVENT section (grouped by eventName||siteName):
+            //   • Includes records with inspectionType "Event Day" OR "Post Event",
+            //     regardless of locationType.
+            //   • Also includes Portable / Event/Temporary location types.
+            //   • Event Day and Post Event for the same event+venue are merged into
+            //     one group — the max count per item across both is used (Post Event
+            //     the day after may catch equipment the Event Day inspector missed).
+            //   • Each group shows which inspection types it covers.
+
+            // First pass: bucket records
+            const permRecords  = {}; // siteName → [{ date, lt, it, equipItems }]
+            const subRecords   = {}; // siteName → [{ date, equipItems, lt }]
+            // eventRecords key: "eventName||siteName" regardless of location type
+            const eventRecords = {}; // evKey → [{ date, eventName, siteName, lt, it, equipItems }]
+
+            for (const record of history) {
+              // Skip records that don't qualify for counting
+              if (!qualifiesForCounting(record)) continue;
+
+              const lt = record.locationType || "";
+              const it = record.inspectionType || "";
+              const site = (record.siteName || record.location || "—").trim();
+              const eventName = (record.eventName || "").trim();
+              const date = record.savedAt || "";
+              const equipItems = extractEquip(record);
+              if (!equipItems.length) continue;
+
+              // Route to event section if: event/post-event inspection type, OR portable loc type
+              if (isEventInspType(it) || isEventLocType(lt)) {
+                // Use eventName if set; fall back to site name so ad-hoc portables still group
+                const evKey = `${eventName || "—"}||${site}`;
+                if (!eventRecords[evKey]) eventRecords[evKey] = [];
+                eventRecords[evKey].push({ date, eventName: eventName || "—", siteName: site, lt, it, equipItems });
+              } else if (isSubcontractor(lt)) {
+                // Collect in subRecords first; promotion to permanent happens in second pass
+                if (!subRecords[site]) subRecords[site] = [];
+                subRecords[site].push({ date, equipItems, lt });
+              } else {
+                // Permanent: only Regular Inspection (anything that is NOT event/post-event)
+                if (!permRecords[site]) permRecords[site] = [];
+                permRecords[site].push({ date, equipItems, lt, it });
+              }
+            }
+
+            // Promote recurring subcontractors to permanent.
+            // A subcontractor site that has Regular Inspection records on ≥2 distinct
+            // calendar dates is considered a permanent fixture at this venue.
+            const promotedSubKeys = new Set();
+            for (const [site, records] of Object.entries(subRecords)) {
+              const distinctDates = new Set(records.map(r => (r.date || "").slice(0, 10)).filter(Boolean));
+              if (distinctDates.size >= 2) {
+                // Move to permRecords with locationType "Subcontractor" preserved
+                if (!permRecords[site]) permRecords[site] = [];
+                for (const rec of records) permRecords[site].push({ ...rec, it: "Regular Inspection" });
+                promotedSubKeys.add(site);
+              }
+            }
+            // Remove promoted sites from subRecords so they don't appear in both sections
+            for (const site of promotedSubKeys) delete subRecords[site];
+
+            // Helper: build item map using MAXIMUM count seen across all inspections.
+            // Status and temp come from the LATEST inspection (most current reading).
+            // This prevents a single inspection that missed an item from dropping the count.
+            const buildItemsFromMax = (records) => {
+              if (!records || !records.length) return { items: {}, date: "", lt: "", inspTypes: new Set() };
+              const sorted = [...records].sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+              const latest = sorted[0];
+              const inspTypes = new Set(records.map(r => r.it).filter(Boolean));
+
+              // Per-inspection count snapshot: for each inspection, count how many
+              // times each label appears.
+              const maxCounts   = {}; // label → highest count seen in any single inspection
+              const latestMeta  = {}; // label → { type, status, tempF, date } from latest inspection
+
+              for (const rec of sorted) {
+                // Count within this single inspection
+                const snapshot = {};
+                for (const eq of rec.equipItems) {
+                  const k = eq.label || eq.type;
+                  snapshot[k] = (snapshot[k] || 0) + 1;
+                  // Track type so we can reconstruct the item
+                  if (!latestMeta[k]) latestMeta[k] = { type: eq.type, label: eq.label || eq.type, lastStatus: eq.status, lastTemp: eq.tempF, lastDate: rec.date };
+                  // Update status/temp from the LATEST (already sorted desc, so only first write matters)
+                }
+                // Take max count per label across all inspections
+                for (const [k, cnt] of Object.entries(snapshot)) {
+                  maxCounts[k] = Math.max(maxCounts[k] || 0, cnt);
+                }
+              }
+
+              // Build final items map
+              const items = {};
+              for (const [k, count] of Object.entries(maxCounts)) {
+                const meta = latestMeta[k] || {};
+                items[k] = {
+                  type: meta.type || "Other",
+                  label: meta.label || k,
+                  count,
+                  lastStatus: meta.lastStatus || "OK",
+                  lastTemp: meta.lastTemp || "",
+                  lastDate: meta.lastDate || latest.date,
+                };
+              }
+              return { items, date: latest.date, lt: latest.lt, inspTypes };
+            };
+
+            // Second pass: build final maps
+            const permanent     = {};
+            const subcontractor = {};
+            const events        = {};
+
+            for (const [site, records] of Object.entries(permRecords)) {
+              const { items, date, lt } = buildItemsFromMax(records);
+              if (!Object.keys(items).length) continue;
+              const locType = records.find(r => r.lt)?.lt || "";
+              permanent[site] = { siteName: site, locationType: lt || locType, items, date };
+            }
+
+            for (const [site, records] of Object.entries(subRecords)) {
+              const { items, date } = buildItemsFromMax(records);
+              if (!Object.keys(items).length) continue;
+              subcontractor[site] = { siteName: site, items, date };
+            }
+
+            for (const [evKey, records] of Object.entries(eventRecords)) {
+              // Merge Event Day + Post Event: max count across all records for this event+site
+              const { items, date, inspTypes } = buildItemsFromMax(records);
+              if (!Object.keys(items).length) continue;
+              const sorted = [...records].sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+              const r0 = sorted[0];
+              const hasEventDay  = inspTypes.has("Event Day");
+              const hasPostEvent = inspTypes.has("Post Event");
+              // Determine the earliest Event Day date and latest Post Event date for display
+              const eventDayRecs  = records.filter(r => r.it === "Event Day").sort((a,b) => (a.date||"").localeCompare(b.date||""));
+              const postEventRecs = records.filter(r => r.it === "Post Event").sort((a,b) => (b.date||"").localeCompare(a.date||""));
+              const eventDayDate  = eventDayRecs[0]?.date  || "";
+              const postEventDate = postEventRecs[0]?.date || "";
+              events[evKey] = {
+                eventName: r0.eventName,
+                siteName: r0.siteName,
+                items,
+                date,
+                hasEventDay,
+                hasPostEvent,
+                eventDayDate,
+                postEventDate,
+                inspectionCount: records.length,
+              };
+            }
+
+            const permList  = Object.values(permanent).sort((a,b) => a.siteName.localeCompare(b.siteName));
+            const subList   = Object.values(subcontractor).sort((a,b) => a.siteName.localeCompare(b.siteName));
+            // Sort events: most recent first (by latest record date)
+            const eventList = Object.values(events).sort((a,b) => (b.date||"").localeCompare(a.date||""));
+
+            // ── Compute totals across all lists (uses overrides when set) ────
+            // Override key: "eventName||siteName::itemLabel" — uses label (specific item)
+            const computeTotals = (list) => {
+              const t = {};
+              for (const site of list) {
+                const siteKey = `${site.eventName || ""}||${site.siteName}`;
+                for (const item of Object.values(site.items)) {
+                  const ovKey = `${siteKey}::${item.label || item.type}`;
+                  const ov = invCountOverrides[ovKey];
+                  t[item.type] = (t[item.type] || 0) + (ov !== undefined ? ov : item.count);
+                }
+                const iceCnt = iceMakerData[siteKey]?.count || 0;
+                if (iceCnt) t["Ice Maker"] = (t["Ice Maker"] || 0) + iceCnt;
+              }
+              return t;
+            };
+            const totalPerm  = computeTotals(permList);
+            const totalSub   = computeTotals(subList);
+            const totalEvent = computeTotals(eventList);
+            const grandTotal = {};
+            for (const t of [totalPerm, totalSub, totalEvent]) {
+              for (const [k, v] of Object.entries(t)) {
+                grandTotal[k] = (grandTotal[k] || 0) + v;
+              }
+            }
+            // EQUIP_META is defined at module level
+
+            // ── Pill filter groups (all sites, unfiltered) ────────────────
+            const allSiteItems = [...permList, ...subList, ...eventList].flatMap(s => Object.values(s.items));
+            const invEquipGroups = KPI_BUCKETS.map(b => {
+              // bucket total
+              const typeMap = { coolers: ["Cooler"], freezers: ["Freezer"], sinks: ["Hand Sink", "3-Comp Sink"] };
+              const types = typeMap[b.key];
+              const bucketItems = types
+                ? allSiteItems.filter(it => types.includes(it.type))
+                : allSiteItems.filter(it => !["Cooler","Freezer","Hand Sink","3-Comp Sink"].includes(it.type));
+              const bucketTotal = bucketItems.reduce((s, it) => s + (it.count || 1), 0);
+              // sub-type totals
+              const subs = (b.subBuckets || []).map(sb => {
+                const subItems = bucketItems.filter(it => sb.keywords.some(kw => (it.label||"").toLowerCase().includes(kw)));
+                return { ...sb, total: subItems.reduce((s, it) => s + (it.count || 1), 0) };
+              }).filter(sb => sb.total > 0);
+              return { ...b, total: bucketTotal, subs };
+            }).filter(b => b.total > 0);
+            // Ice Maker is tracked separately (not in site.items) — add dedicated pill
+            const totalIceMakerAll = grandTotal["Ice Maker"] || 0;
+            if (totalIceMakerAll > 0) {
+              invEquipGroups.push({ key: "icemaker", icon: "🧊", label: "Ice Makers", total: totalIceMakerAll, subs: [] });
+            }
+            const invActiveBucketObj = invEquipGroups.find(b => b.key === invEquipBucket);
+
+            // Format date as MM/DD/YYYY
+            const fmtDate = (val) => {
+              if (!val) return "";
+              // val may be YYYY-MM-DD or MM/DD/YYYY already
+              if (/^\d{4}-\d{2}-\d{2}/.test(val)) {
+                const [y, m, d] = val.slice(0, 10).split("-");
+                return `${m}/${d}/${y}`;
+              }
+              return val;
+            };
+
+            // ── Apply filters ─────────────────────────────────────────────
+            const sq = invSearch.trim().toLowerCase();
+
+            // ── Bucket/sub-type resolution for pill filter ────────────────
+            const BUCKET_TYPE_MAP = { coolers: "Cooler", freezers: "Freezer", sinks: null, other: null };
+            const invActiveSub = invEquipBucket && invEquipSub
+              ? KPI_BUCKETS.find(b => b.key === invEquipBucket)?.subBuckets.find(sb => sb.key === invEquipSub)
+              : null;
+
+            const filterSite = (site) => {
+              // text search: matches site name, custom name, or event name
+              const customName = (invNameOverrides[site.siteName] || "").toLowerCase();
+              if (sq && !site.siteName.toLowerCase().includes(sq) && !customName.includes(sq) && !(site.eventName||"").toLowerCase().includes(sq)) return null;
+              // pill bucket filter
+              let items = site.items;
+              if (invEquipBucket === "icemaker") {
+                // Ice Maker filter: show only sites that have ice makers (keep all items)
+                const sk = `${site.eventName || ""}||${site.siteName}`;
+                if (!(iceMakerData[sk]?.count > 0)) return null;
+                return { ...site, items };
+              } else if (invEquipBucket) {
+                const mappedType = BUCKET_TYPE_MAP[invEquipBucket];
+                if (mappedType) {
+                  items = Object.fromEntries(Object.entries(items).filter(([,v]) => v.type === mappedType));
+                } else if (invEquipBucket === "sinks") {
+                  items = Object.fromEntries(Object.entries(items).filter(([,v]) => v.type === "Hand Sink" || v.type === "3-Comp Sink"));
+                } else if (invEquipBucket === "other") {
+                  items = Object.fromEntries(Object.entries(items).filter(([,v]) => v.type !== "Cooler" && v.type !== "Freezer" && v.type !== "Hand Sink" && v.type !== "3-Comp Sink"));
+                }
+                // sub-type filter on label keywords
+                if (invActiveSub) {
+                  items = Object.fromEntries(Object.entries(items).filter(([,v]) =>
+                    invActiveSub.keywords.some(kw => (v.label || "").toLowerCase().includes(kw))
+                  ));
+                }
+              } else if (invTypeFilter) {
+                // legacy fallback (kept for safety)
+                items = Object.fromEntries(Object.entries(items).filter(([,v]) => v.type === invTypeFilter));
+              }
+              if (Object.keys(items).length === 0) return null;
+              return { ...site, items };
+            };
+
+            const filteredPerm  = (invLocFilter === "subcontractor" || invLocFilter === "event") ? [] : permList.map(filterSite).filter(Boolean);
+            const filteredSub   = (invLocFilter === "permanent" || invLocFilter === "event")       ? [] : subList.map(filterSite).filter(Boolean);
+            const filteredEvent = (invLocFilter === "permanent" || invLocFilter === "subcontractor") ? [] : eventList.map(filterSite).filter(Boolean);
+
+            const hasAny      = permList.length || subList.length || eventList.length;
+            const hasFiltered = filteredPerm.length || filteredSub.length || filteredEvent.length;
+            const isFiltering = sq || invEquipBucket || invTypeFilter || invLocFilter;
+
+            return (
+              <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+
+                {/* ── Grand Total Summary bar ── */}
+                {hasAny && (
+                  <div style={{ borderRadius: 16, overflow: "hidden", boxShadow: "0 8px 28px rgba(42,41,92,0.22)" }}>
+                    {/* Dark navy header */}
+                    <div style={{ background: `linear-gradient(160deg, ${NAVY} 0%, #1d1c50 60%, #283897 100%)`, position: "relative", padding: "1rem 1.1rem 0.9rem" }}>
+                      {/* Red accent strip */}
+                      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 3, background: "linear-gradient(90deg, #EE0000, #ff5555, #EE0000)" }} />
+                      <div style={{ fontSize: "0.58rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.12em", color: "rgba(255,255,255,0.55)", marginBottom: 10 }}>Equipment Inventory — All Locations</div>
+                      {/* KPI grid — only show types with at least one unit */}
+                      {(() => {
+                        const kpiItems = EQUIP_META.filter(m => (grandTotal[m.type] || 0) > 0);
+                        return (
+                          <div style={{ display: "grid", gridTemplateColumns: `repeat(${kpiItems.length || 1}, 1fr)`, gap: 8 }}>
+                            {kpiItems.map(m => (
+                              <div key={m.type} style={{ background: "rgba(255,255,255,0.1)", backdropFilter: "blur(4px)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 12, padding: "0.6rem 0.5rem", textAlign: "center", overflow: "hidden", position: "relative" }}>
+                                <div style={{ position: "absolute", top: 0, left: "20%", right: "20%", height: 2, background: m.color || "rgba(255,255,255,0.4)", borderRadius: "0 0 3px 3px" }} />
+                                <div style={{ fontWeight: 900, fontSize: "1.5rem", color: "#fff", lineHeight: 1.1, marginTop: 2 }}>{grandTotal[m.type]}</div>
+                                <div style={{ fontSize: "0.58rem", color: "rgba(255,255,255,0.65)", fontWeight: 700, marginTop: 2, textTransform: "uppercase", letterSpacing: "0.04em" }}>{m.type}{grandTotal[m.type] !== 1 ? "s" : ""}</div>
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      })()}
+                    </div>
+                    {/* White bottom section — breakdown by group + ice/filter */}
+                    <div style={{ background: "#fff", padding: "0.7rem 1.1rem 0.75rem" }}>
+                      {/* Breakdown by group */}
+                      {[
+                        { label: "Concession", totals: totalPerm,  color: "#2563eb", bg: "#eff6ff", show: permList.length > 0 },
+                        { label: "Subcontractor", totals: totalSub,   color: "#7c3aed", bg: "#f5f3ff", show: subList.length > 0 },
+                        { label: "Portables", totals: totalEvent, color: "#d97706", bg: "#fffbeb", show: eventList.length > 0 },
+                      ].filter(g => g.show).map((g, gi) => {
+                        const cols = EQUIP_META.filter(m => g.totals[m.type] > 0);
+                        if (!cols.length) return null;
+                        return (
+                          <div key={g.label} style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", paddingTop: gi === 0 ? 0 : 7, marginTop: gi === 0 ? 0 : 7, borderTop: gi === 0 ? "none" : "1px solid #f1f5f9" }}>
+                            <span style={{ fontSize: "0.65rem", fontWeight: 800, color: g.color, minWidth: 115 }}>{g.label}</span>
+                            <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+                              {cols.map(m => (
+                                <span key={m.type} style={{ display: "inline-flex", alignItems: "center", gap: 3, background: m.bg, border: `1px solid ${m.color}40`, borderRadius: 7, padding: "2px 8px", fontSize: "0.65rem", fontWeight: 700, color: m.color }}>
+                                  <span style={{ fontSize: "0.6rem", opacity: 0.7 }}>{m.type.slice(0,3).toUpperCase()}</span> {g.totals[m.type]}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* ── Filter bar ── */}
+                {hasAny && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                    {/* Search */}
+                    <input
+                      type="text"
+                      value={invSearch}
+                      onChange={e => setInvSearch(e.target.value)}
+                      placeholder="Search site or event name…"
+                      style={{ padding: "0.65rem 0.9rem", borderRadius: 11, border: "1.5px solid #e2e8f0", fontSize: "0.85rem", color: "#0f172a", outline: "none", background: "#fff", boxShadow: "0 1px 4px rgba(42,41,92,0.06)" }}
+                    />
+
+                    {/* ── Row 1: Equipment category pills + Location Type + Clear ── */}
+                    <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+                      {/* "All" pill */}
+                      <button type="button"
+                        onClick={() => { setInvEquipBucket(""); setInvEquipSub(""); }}
+                        style={{ padding: "6px 13px", borderRadius: 20, border: invEquipBucket ? "1.5px solid #e2e8f0" : "1.5px solid #2A295C", background: invEquipBucket ? "#f8fafc" : "#2A295C", color: invEquipBucket ? "#64748b" : "#fff", fontSize: "0.78rem", fontWeight: 700, cursor: "pointer" }}>
+                        All
+                      </button>
+                      {invEquipGroups.map(b => {
+                        const isActive = invEquipBucket === b.key;
+                        return (
+                          <button key={b.key} type="button"
+                            onClick={() => { setInvEquipBucket(isActive ? "" : b.key); setInvEquipSub(""); }}
+                            style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 13px", borderRadius: 20, border: isActive ? "1.5px solid #2A295C" : "1.5px solid #e2e8f0", background: isActive ? "#2A295C" : "#f8fafc", color: isActive ? "#fff" : "#475569", fontSize: "0.78rem", fontWeight: 700, cursor: "pointer", transition: "all 0.12s" }}>
+                            <span>{b.label}</span>
+                            <span style={{ fontSize: "0.7rem", opacity: 0.75 }}>({b.total})</span>
+                          </button>
+                        );
+                      })}
+                      <div style={{ flex: 1, minWidth: 8 }} />
+                      {/* Location Type dropdown */}
+                      <select
+                        value={invLocFilter}
+                        onChange={e => setInvLocFilter(e.target.value)}
+                        style={{ padding: "0.38rem 0.6rem", borderRadius: 7, border: `1.5px solid ${invLocFilter ? "#d97706" : "#cbd5e1"}`, background: invLocFilter ? "#fffbeb" : "#fff", color: invLocFilter ? "#92400e" : "#374151", fontSize: "0.8rem", fontWeight: 600, cursor: "pointer", outline: "none" }}>
+                        <option value="">All Locations</option>
+                        <option value="permanent">Permanent</option>
+                        <option value="subcontractor">Subcontractor</option>
+                        <option value="event">Events</option>
+                      </select>
+                      {/* Clear */}
+                      {isFiltering && (
+                        <button type="button"
+                          onClick={() => { setInvSearch(""); setInvEquipBucket(""); setInvEquipSub(""); setInvTypeFilter(""); setInvLocFilter(""); }}
+                          style={{ padding: "6px 12px", borderRadius: 10, border: "1.5px solid #fca5a5", background: "#fff", color: "#dc2626", fontSize: "0.78rem", fontWeight: 700, cursor: "pointer" }}>
+                          ✕ Clear
+                        </button>
+                      )}
+                    </div>
+
+                    {/* ── Row 2: Sub-type pills — appears when a category is active ── */}
+                    {invActiveBucketObj && invActiveBucketObj.subs.length > 0 && (
+                      <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", paddingLeft: 2 }}>
+                        <span style={{ fontSize: "0.68rem", fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.06em", marginRight: 2 }}>Type:</span>
+                        <button type="button"
+                          onClick={() => setInvEquipSub("")}
+                          style={{ padding: "4px 11px", borderRadius: 20, border: invEquipSub ? "1.5px solid #e2e8f0" : "1.5px solid #2A295C", background: invEquipSub ? "#f8fafc" : "#2A295C", color: invEquipSub ? "#64748b" : "#fff", fontSize: "0.75rem", fontWeight: 700, cursor: "pointer" }}>
+                          All {invActiveBucketObj.label}
+                        </button>
+                        {invActiveBucketObj.subs.map(sb => {
+                          const isActiveSub = invEquipSub === sb.key;
+                          return (
+                            <button key={sb.key} type="button"
+                              onClick={() => setInvEquipSub(isActiveSub ? "" : sb.key)}
+                              style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 11px", borderRadius: 20, border: isActiveSub ? "1.5px solid #2A295C" : "1.5px solid #e2e8f0", background: isActiveSub ? "#2A295C" : "#f8fafc", color: isActiveSub ? "#fff" : "#475569", fontSize: "0.75rem", fontWeight: 700, cursor: "pointer", transition: "all 0.12s" }}>
+                              {sb.label}
+                              <span style={{ fontSize: "0.68rem", opacity: 0.75 }}>({sb.total})</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {!hasAny && (
+                  <div style={{ textAlign: "center", padding: "2.5rem 1rem", color: "#94a3b8", fontSize: "0.85rem" }}>
+                    No equipment found in inspection history yet.
+                  </div>
+                )}
+
+                {isFiltering && !hasFiltered && (
+                  <div style={{ textAlign: "center", padding: "1.5rem 1rem", color: "#94a3b8", fontSize: "0.85rem" }}>
+                    Nothing matched. Try different filters.
+                  </div>
+                )}
+
+                {/* ── PERMANENT (Concession / Bar / Pantry) ── */}
+                {filteredPerm.length > 0 && (
+                  <div>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginBottom: "0.7rem", padding: "0.55rem 0.9rem", background: "linear-gradient(90deg, #eff6ff 0%, #f8fafc 100%)", borderRadius: 10, border: "1px solid #bfdbfe", borderLeft: "4px solid #3b82f6" }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: "0.7rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em", color: "#1d4ed8" }}>
+                          Permanent Locations
+                        </div>
+                        <div style={{ fontSize: "0.62rem", color: "#3b82f6", fontWeight: 600, marginTop: 1 }}>{filteredPerm.length} site{filteredPerm.length !== 1 ? "s" : ""}</div>
+                      </div>
+                      <TotalsStrip totals={computeTotals(filteredPerm)} color="#3b82f6" />
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
+                      {filteredPerm.map(site => <SiteCard key={site.siteName} site={site} badge={site.locationType || "Concession"} badgeColor={site.locationType === "Subcontractor" ? "#7c3aed" : NAVY} showIceMaker />)}
+                    </div>
+                  </div>
+                )}
+
+                {/* ── SUBCONTRACTOR ── */}
+                {filteredSub.length > 0 && (
+                  <div>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginBottom: "0.7rem", padding: "0.55rem 0.9rem", background: "linear-gradient(90deg, #f5f3ff 0%, #f8fafc 100%)", borderRadius: 10, border: "1px solid #ddd6fe", borderLeft: "4px solid #7c3aed" }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: "0.7rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em", color: "#6d28d9" }}>
+                          Subcontractors
+                        </div>
+                        <div style={{ fontSize: "0.62rem", color: "#7c3aed", fontWeight: 600, marginTop: 1 }}>{filteredSub.length} operator{filteredSub.length !== 1 ? "s" : ""}</div>
+                      </div>
+                      <TotalsStrip totals={computeTotals(filteredSub)} color="#7c3aed" />
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
+                      {filteredSub.map(site => <SiteCard key={site.siteName} site={site} badge="Subcontractor" badgeColor="#7c3aed" />)}
+                    </div>
+                  </div>
+                )}
+
+                {/* ── EVENTS (Portable / Event Day / Temporary) ── */}
+                {filteredEvent.length > 0 && (
+                  <div>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginBottom: "0.7rem", padding: "0.55rem 0.9rem", background: "linear-gradient(90deg, #fffbeb 0%, #f8fafc 100%)", borderRadius: 10, border: "1px solid #fde68a", borderLeft: "4px solid #d97706" }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: "0.7rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em", color: "#b45309" }}>
+                          Events & Portables
+                        </div>
+                        <div style={{ fontSize: "0.62rem", color: "#d97706", fontWeight: 600, marginTop: 1 }}>{filteredEvent.length} event{filteredEvent.length !== 1 ? "s" : ""}</div>
+                      </div>
+                      <TotalsStrip totals={computeTotals(filteredEvent)} color="#d97706" />
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
+                      {filteredEvent.map(site => <SiteCard key={`${site.eventName}||${site.siteName}`} site={site} badge={site.eventName || "Event"} badgeColor="#d97706" />)}
+                    </div>
+                  </div>
+                )}
+
+              </div>
+            );
+          })()}
+
+
           {/* ── LICENSES TAB ── */}
           {activeTab === "licenses" && (
             <LicensesTab
@@ -13630,7 +14571,6 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName }) {
               setDismissedMismatches={setDismissedMismatches}
             />
           )}
-
 
           {activeTab === "verdict" && (
             <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
@@ -13843,7 +14783,6 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName }) {
               </div>
             </div>
           )}
-
 
           {/* ── TRENDS TAB ── */}
           {activeTab === "trends" && (() => {
@@ -14113,296 +15052,8 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName }) {
             );
           })()}
 
-          {activeTab === "equip_intel" && (
-            <EquipmentIntelTab managedVenueId={managedVenueId} />
-          )}
-
-
-
         </div>
       )}
-    </div>
-  );
-}
-
-// ── Equipment Intel embedded tab (same logic as EquipmentIntelPage but inline) ──
-function EquipmentIntelTab({ managedVenueId }) {
-  const [status, setStatus] = useState("idle");
-  const [progress, setProgress] = useState("");
-  const [result, setResult] = useState(null);
-  const [error, setError] = useState("");
-  const [licenseEdits, setLicenseEdits] = useState({});
-
-  const EQUIP_LABELS = {
-    coolers:"Cooler",freezer:"Freezer",warmers:"Warmer",grill:"Grill",fryer:"Fryer",
-    hood:"Hood",iceMaker:"Ice Maker",otherEquip:"Other Equipment",
-    doubleDoorCooler:"Double-Door Cooler",doubleDoorFreezer:"Double-Door Freezer",
-    walkInCooler:"Walk-In Cooler",walkInFreezer:"Walk-In Freezer",prepCooler:"Prep Cooler",
-    ovens:"Oven",threeCompSink:"3-Compartment Sink",ecolab:"Ecolab",
-    backBarCooler:"Back Bar Cooler",beerWalkInCooler:"Beer Walk-In Cooler",
-    underBarCooler:"Under-Bar Cooler",iceBin:"Ice Bin",wineChiller:"Wine Chiller",
-  };
-  const MIN_INSPECTIONS = 10;
-
-  async function runAnalysis() {
-    setStatus("loading"); setError(""); setResult(null);
-    try {
-      setProgress("Loading all inspections…");
-      const venueId = managedVenueId || VENUE_ID;
-      const col = venueId === "default" ? legacyCol("inspections") : collection(db, "venues", venueId, "inspections");
-      const snap = await getDocs(query(col, orderBy("savedAt", "desc")));
-      const allRecs = snap.docs.map(d => d.data());
-      const registry = await loadLicenseRegistry(venueId);
-      setProgress(`Loaded ${allRecs.length} inspections. Building data…`);
-
-      const locationMap = {};
-      for (const rec of allRecs) {
-        if (!rec.siteName) continue;
-        const locType = rec.locationType || "";
-        if (!["Concession","Subcontractor","Bar"].includes(locType)) continue;
-        const key = `${rec.siteName}|||${rec.siteNumber || ""}`;
-        if (!locationMap[key]) locationMap[key] = {
-          siteName: rec.siteName, siteNumber: rec.siteNumber || "",
-          locationType: locType, floor: rec.floor || "",
-          inspectionCount: 0, licenses: {}, equipmentData: {},
-          adminLicense: registry[key]?.license || null,
-        };
-        const loc = locationMap[key];
-        loc.inspectionCount++;
-        if (rec.restaurantLicense && rec.restaurantLicense !== "NO LICENSE") {
-          const lic = rec.restaurantLicense.trim();
-          loc.licenses[lic] = (loc.licenses[lic] || 0) + 1;
-        }
-        const equip = rec.inspection?.equipment || {};
-        for (const [k, v] of Object.entries(equip)) {
-          if (!v || v.notApplicable) continue;
-          const label = EQUIP_LABELS[k] || v.label || k;
-          if (!loc.equipmentData[label]) loc.equipmentData[label] = { count: 0, brands: new Set(), sources: new Set() };
-          const ed = loc.equipmentData[label];
-          ed.count++;
-          if (v.brand) ed.brands.add(v.brand.trim());
-          if (v.equipSource) ed.sources.add(v.equipSource);
-        }
-      }
-
-      // Build result locally — no AI needed
-      const totalInspections = allRecs.length;
-      const locations = Object.values(locationMap).sort((a, b) => b.inspectionCount - a.inspectionCount);
-      const noLicense = [];
-      const concessions = [];
-      const subcontractors = [];
-
-      for (const loc of locations) {
-        const locKey = `${loc.siteName}|||${loc.siteNumber}`;
-        const licEntries = Object.entries(loc.licenses).sort((a, b) => b[1] - a[1]);
-        const allLicensesSeen = licEntries.map(([l]) => l);
-        let license = null, licenseStatus = "missing";
-        if (loc.adminLicense) {
-          license = loc.adminLicense; licenseStatus = "admin_override";
-        } else if (licEntries.length === 1) {
-          license = licEntries[0][0]; licenseStatus = "on_file";
-        } else if (licEntries.length > 1) {
-          license = licEntries[0][0]; licenseStatus = "multiple";
-        }
-        if (!license) noLicense.push(`${loc.siteName}${loc.siteNumber ? ` #${loc.siteNumber}` : ""}`);
-
-        const permanentEquipment = Object.entries(loc.equipmentData)
-          .filter(([, ed]) => ed.count >= MIN_INSPECTIONS)
-          .sort((a, b) => b[1].count - a[1].count)
-          .map(([label, ed]) => ({
-            label,
-            brand: [...ed.brands].join("/") || null,
-            source: [...ed.sources].join("/") || null,
-            seenIn: ed.count,
-          }));
-
-        const card = {
-          name: loc.siteName, unit: loc.siteNumber, floor: loc.floor,
-          locationType: loc.locationType, inspections: loc.inspectionCount,
-          permanentEquipment, license, licenseStatus, allLicensesSeen,
-        };
-        if (loc.locationType === "Subcontractor") subcontractors.push(card);
-        else concessions.push(card);
-      }
-
-      const locWithLic = locations.filter(l => Object.keys(l.licenses).length > 0 || l.adminLicense).length;
-      const permEquipTotal = locations.reduce((s, l) => s + Object.values(l.equipmentData).filter(e => e.count >= MIN_INSPECTIONS).length, 0);
-      const summary = `${totalInspections} inspections across ${locations.length} locations (${concessions.length} concessions/bars, ${subcontractors.length} subcontractors). ${locWithLic} locations have license records. ${permEquipTotal} permanent equipment items confirmed across all sites (≥${MIN_INSPECTIONS} inspections each).`;
-
-      setResult({ summary, concessions, subcontractors, noLicense, totalLocations: locations.length, totalInspections });
-      setStatus("done");
-    } catch (e) { setError(e.message || "Analysis failed."); setStatus("error"); }
-  }
-
-  async function saveLicenseInline(locKey, locName, licenseValue) {
-    setLicenseEdits(p => ({ ...p, [locKey]: { ...p[locKey], saving: true } }));
-    const venueId = managedVenueId || VENUE_ID;
-    const registry = await loadLicenseRegistry(venueId);
-    registry[locKey] = { license: licenseValue.trim(), locationName: locName, updatedAt: new Date().toISOString() };
-    await saveLicenseRegistry(venueId, registry);
-    setResult(prev => {
-      if (!prev) return prev;
-      const upd = list => (list || []).map(loc => {
-        const lk = `${loc.name}|||${loc.unit || ""}`;
-        return lk === locKey ? { ...loc, license: licenseValue.trim(), licenseStatus: "admin_override" } : loc;
-      });
-      return { ...prev, concessions: upd(prev.concessions), subcontractors: upd(prev.subcontractors) };
-    });
-    setLicenseEdits(p => ({ ...p, [locKey]: { editing: false, value: licenseValue, saving: false, saved: true } }));
-    setTimeout(() => setLicenseEdits(p => ({ ...p, [locKey]: { ...p[locKey], saved: false } })), 2500);
-  }
-
-  const LicenseBadge = ({ loc, locKey }) => {
-    const edit = licenseEdits[locKey] || {};
-    if (edit.editing) return (
-      <div style={{ display: "flex", gap: 5, alignItems: "center", flexWrap: "wrap" }}>
-        <input autoFocus type="text" value={edit.value ?? loc.license ?? ""}
-          onChange={e => setLicenseEdits(p => ({ ...p, [locKey]: { ...p[locKey], value: e.target.value } }))}
-          onKeyDown={e => { if (e.key === "Enter") saveLicenseInline(locKey, loc.name, edit.value ?? ""); if (e.key === "Escape") setLicenseEdits(p => ({ ...p, [locKey]: { editing: false } })); }}
-          style={{ border: "1px solid #2563eb", borderRadius: 5, padding: "2px 7px", fontSize: "0.75rem", width: 150 }} placeholder="License #" />
-        <button type="button" onClick={() => saveLicenseInline(locKey, loc.name, edit.value ?? "")} disabled={edit.saving}
-          style={{ background: "#1d4ed8", color: "#fff", border: "none", borderRadius: 5, padding: "2px 9px", fontSize: "0.7rem", cursor: "pointer" }}>{edit.saving ? "…" : "Save"}</button>
-        <button type="button" onClick={() => setLicenseEdits(p => ({ ...p, [locKey]: { editing: false } }))}
-          style={{ background: "none", border: "1px solid #e2e8f0", borderRadius: 5, padding: "2px 7px", fontSize: "0.7rem", cursor: "pointer", color: "#6b7280" }}>✕</button>
-      </div>
-    );
-    const bd = (bg, color, border, text) => (
-      <span onClick={() => setLicenseEdits(p => ({ ...p, [locKey]: { editing: true, value: loc.license || "" } }))}
-        style={{ display:"inline-flex", alignItems:"center", gap:4, background:bg, color, border:`1px solid ${border}`, borderRadius:6, padding:"2px 8px", fontSize:"0.7rem", fontWeight:700, cursor:"pointer" }}>
-        {text}
-      </span>
-    );
-    if (edit.saved) return bd("#f0fdf4","#15803d","#bbf7d0","✓ Saved!");
-    if (loc.licenseStatus === "admin_override") return bd("#eff6ff","#1d4ed8","#bfdbfe",`🔒 ${loc.license} ✏`);
-    if (loc.licenseStatus === "missing") return bd("#fef2f2","#dc2626","#fecaca","⚠ No License — add ✏");
-    if (loc.licenseStatus === "multiple") return bd("#fffbeb","#b45309","#fde68a",`⚠ Multiple (${(loc.allLicensesSeen||[]).length}) — fix ✏`);
-    return bd("#f0fdf4","#15803d","#bbf7d0",`✓ ${loc.license} ✏`);
-  };
-
-  const LocationCard = ({ loc }) => {
-    const locKey = `${loc.name}|||${loc.unit || ""}`;
-    return (
-      <div style={{ border:"1px solid #e2e8f0", borderRadius:10, padding:"12px 14px", marginBottom:8, background:"#fff" }}>
-        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:8, flexWrap:"wrap", marginBottom:7 }}>
-          <div>
-            <span style={{ fontWeight:700, fontSize:"0.88rem", color:"#0f172a" }}>{loc.name}{loc.unit ? ` #${loc.unit}` : ""}</span>
-            {loc.floor && <span style={{ fontSize:"0.72rem", color:"#6b7280", marginLeft:6 }}>{loc.floor}</span>}
-          </div>
-          <span style={{ fontSize:"0.68rem", color:"#94a3b8", flexShrink:0 }}>{loc.inspections} inspections</span>
-        </div>
-        <div style={{ display:"flex", alignItems:"center", gap:7, flexWrap:"wrap", marginBottom:loc.permanentEquipment?.length ? 9 : 0 }}>
-          <span style={{ fontSize:"0.7rem", color:"#6b7280", fontWeight:600 }}>📋 License:</span>
-          <LicenseBadge loc={loc} locKey={locKey} />
-          {loc.allLicensesSeen?.length > 1 && (
-            <span style={{ fontSize:"0.65rem", color:"#9ca3af" }}>
-              (also: {loc.allLicensesSeen.filter(l => l !== loc.license).join(", ")})
-            </span>
-          )}
-        </div>
-        {loc.permanentEquipment?.length > 0 ? (
-          <div>
-            <div style={{ fontSize:"0.68rem", color:"#6b7280", fontWeight:600, marginBottom:4 }}>🔧 Permanent Equipment — confirmed ≥{MIN_INSPECTIONS} inspections:</div>
-            <div style={{ display:"flex", flexWrap:"wrap", gap:4 }}>
-              {loc.permanentEquipment.map((eq, i) => {
-                const label = typeof eq === "string" ? eq : eq.label;
-                const brand = typeof eq === "object" ? eq.brand : null;
-                const src   = typeof eq === "object" ? eq.source : null;
-                const seen  = typeof eq === "object" ? eq.seenIn : null;
-                return (
-                  <span key={i} title={[brand && `Brand: ${brand}`, src && `Source: ${src}`, seen && `${seen} inspections`].filter(Boolean).join(" · ")}
-                    style={{ background:"#eff6ff", color:"#1d4ed8", border:"1px solid #bfdbfe", borderRadius:5, padding:"2px 8px", fontSize:"0.69rem", fontWeight:600, cursor: seen ? "help" : "default" }}>
-                    {label}{brand ? ` · ${brand}` : ""}{seen ? <span style={{ fontWeight:400, marginLeft:3, color:"#60a5fa" }}>{seen}×</span> : null}
-                  </span>
-                );
-              })}
-            </div>
-          </div>
-        ) : (
-          <div style={{ fontSize:"0.74rem", color:"#9ca3af", fontStyle:"italic" }}>No equipment confirmed in ≥{MIN_INSPECTIONS} inspections yet</div>
-        )}
-      </div>
-    );
-  };
-
-  if (status === "idle") return (
-    <div style={{ textAlign:"center", padding:"40px 20px" }}>
-      <div style={{ fontSize:"2.5rem", marginBottom:10 }}>🧠</div>
-      <div style={{ fontWeight:700, fontSize:"1rem", color:"#0f172a", marginBottom:6 }}>Equipment & License Analysis</div>
-      <div style={{ color:"#6b7280", fontSize:"0.82rem", maxWidth:420, margin:"0 auto 20px", lineHeight:1.6 }}>
-        Reads every inspection. Equipment only listed as permanent if it appeared in <strong>at least {MIN_INSPECTIONS} inspections</strong>. Licenses determined from inspection history — click any badge to edit.
-      </div>
-      <button type="button" onClick={runAnalysis}
-        style={{ background:"#064e3b", color:"#fff", border:"none", borderRadius:9, padding:"10px 24px", fontSize:"0.9rem", fontWeight:700, cursor:"pointer" }}>
-        🚀 Run Analysis
-      </button>
-    </div>
-  );
-
-  if (status === "loading") return (
-    <div style={{ textAlign:"center", padding:"40px 20px" }}>
-      <div style={{ fontSize:"1.8rem", marginBottom:10 }}>⏳</div>
-      <div style={{ fontWeight:600, color:"#0f172a", marginBottom:6 }}>Analyzing…</div>
-      <div style={{ color:"#6b7280", fontSize:"0.82rem" }}>{progress}</div>
-    </div>
-  );
-
-  if (status === "error") return (
-    <div style={{ background:"#fef2f2", border:"1px solid #fecaca", borderRadius:10, padding:"16px", color:"#dc2626" }}>
-      <strong>Error:</strong> {error}
-      <button type="button" onClick={() => setStatus("idle")}
-        style={{ display:"block", marginTop:10, color:"#dc2626", background:"none", border:"1px solid #fca5a5", borderRadius:6, padding:"4px 12px", cursor:"pointer" }}>
-        Try Again
-      </button>
-    </div>
-  );
-
-  if (status !== "done" || !result) return null;
-
-  return (
-    <div>
-      {result.summary && (
-        <div style={{ background:"#f0fdf4", border:"1px solid #bbf7d0", borderRadius:10, padding:"12px 14px", marginBottom:16, color:"#14532d", fontSize:"0.82rem", lineHeight:1.6 }}>
-          {result.summary}
-        </div>
-      )}
-      <div style={{ display:"flex", gap:8, marginBottom:14, flexWrap:"wrap" }}>
-        {[
-          { label:"Inspections", val: result.totalInspections },
-          { label:"Locations", val: result.totalLocations },
-          { label:"No License", val: result.noLicense?.length || 0, warn: (result.noLicense?.length || 0) > 0 },
-        ].map(s => (
-          <div key={s.label} style={{ flex:1, minWidth:90, background: s.warn ? "#fef2f2" : "#fff", border:`1px solid ${s.warn ? "#fecaca" : "#e2e8f0"}`, borderRadius:9, padding:"10px 12px", textAlign:"center" }}>
-            <div style={{ fontSize:"1.3rem", fontWeight:800, color: s.warn ? "#dc2626" : "#0f172a" }}>{s.val}</div>
-            <div style={{ fontSize:"0.66rem", color:"#6b7280" }}>{s.label}</div>
-          </div>
-        ))}
-      </div>
-      {result.noLicense?.length > 0 && (
-        <div style={{ background:"#fef2f2", border:"1px solid #fecaca", borderRadius:9, padding:"10px 14px", marginBottom:14 }}>
-          <div style={{ fontWeight:700, color:"#dc2626", marginBottom:4, fontSize:"0.82rem" }}>⚠️ No License on Record</div>
-          {result.noLicense.map(n => <div key={n} style={{ fontSize:"0.78rem", color:"#991b1b" }}>• {n}</div>)}
-        </div>
-      )}
-      {result.concessions?.length > 0 && (
-        <div style={{ marginBottom:20 }}>
-          <div style={{ fontWeight:700, fontSize:"0.9rem", color:"#0f172a", marginBottom:8, borderBottom:"2px solid #e2e8f0", paddingBottom:5 }}>
-            🏪 Concessions & Bars ({result.concessions.length})
-          </div>
-          {result.concessions.map(loc => <LocationCard key={`${loc.name}${loc.unit}`} loc={loc} />)}
-        </div>
-      )}
-      {result.subcontractors?.length > 0 && (
-        <div style={{ marginBottom:20 }}>
-          <div style={{ fontWeight:700, fontSize:"0.9rem", color:"#0f172a", marginBottom:8, borderBottom:"2px solid #e2e8f0", paddingBottom:5 }}>
-            🤝 Subcontractors ({result.subcontractors.length})
-          </div>
-          {result.subcontractors.map(loc => <LocationCard key={`${loc.name}${loc.unit}`} loc={loc} />)}
-        </div>
-      )}
-      <button type="button" onClick={() => { setStatus("idle"); setResult(null); }}
-        style={{ background:"#f1f5f9", color:"#475569", border:"1px solid #e2e8f0", borderRadius:7, padding:"7px 16px", cursor:"pointer", fontSize:"0.8rem" }}>
-        🔄 Re-run Analysis
-      </button>
     </div>
   );
 }
@@ -14852,7 +15503,7 @@ function PrintLabelsPage({ onBack }) {
     const urls = {};
     Promise.all(
       equipItems.map(item =>
-        import("qrcode").then(m => m.default.toDataURL(item.assetTag, { width: 200, margin: 1, color: { dark: "#1e293b", light: "#ffffff" } }))
+        QRCode.toDataURL(item.assetTag, { width: 200, margin: 1, color: { dark: "#1e293b", light: "#ffffff" } })
           .then(url => { urls[item.assetTag] = url; })
           .catch(() => {})
       )
@@ -15410,619 +16061,6 @@ function GlobalAdminPanel({ currentUser, onBack, onManageVenue, onEnterVenue, on
 }
 
 /* ── Admin Panel ──────────────────────────────────────────── */
-// ── Equipment & License Intelligence Page ─────────────────────────────────────
-// ── Firestore helpers for license registry ────────────────────────────────────
-async function loadLicenseRegistry(venueId) {
-  try {
-    const vid = venueId || VENUE_ID;
-    const ref = doc(db, "venues", vid, "sharedMemory", "licenseRegistry");
-    const snap = await getDoc(ref);
-    return snap.exists() ? (snap.data().locations || {}) : {};
-  } catch { return {}; }
-}
-async function saveLicenseRegistry(venueId, locations) {
-  const vid = venueId || VENUE_ID;
-  const ref = doc(db, "venues", vid, "sharedMemory", "licenseRegistry");
-  await setDoc(ref, { locations, updatedAt: new Date().toISOString() }, { merge: true });
-}
-
-function EquipmentIntelPage({ onBack, managedVenueId }) {
-  const [status, setStatus] = useState("idle");
-  const [progress, setProgress] = useState("");
-  const [result, setResult] = useState(null); // { summary, concessions, subcontractors, noLicense, totalLocations, totalInspections, rawLocationMap }
-  const [error, setError] = useState("");
-  // Admin license editing: { [locationKey]: { editing: bool, value: string, saving: bool, saved: bool } }
-  const [licenseEdits, setLicenseEdits] = useState({});
-
-  const EQUIP_LABELS = {
-    coolers: "Cooler", freezer: "Freezer", warmers: "Warmer", grill: "Grill",
-    fryer: "Fryer", hood: "Hood", iceMaker: "Ice Maker", otherEquip: "Other Equipment",
-    doubleDoorCooler: "Double-Door Cooler", doubleDoorFreezer: "Double-Door Freezer",
-    walkInCooler: "Walk-In Cooler", walkInFreezer: "Walk-In Freezer",
-    prepCooler: "Prep Cooler", ovens: "Oven", threeCompSink: "3-Compartment Sink",
-    ecolab: "Ecolab", backBarCooler: "Back Bar Cooler", beerWalkInCooler: "Beer Walk-In Cooler",
-    underBarCooler: "Under-Bar Cooler", iceBin: "Ice Bin", wineChiller: "Wine Chiller",
-  };
-
-  const MIN_INSPECTIONS = 10; // equipment must appear in at least 10 inspections to be considered permanent
-
-  async function runAnalysis() {
-    setStatus("loading");
-    setError("");
-    setResult(null);
-
-    try {
-      setProgress("Loading all inspections…");
-      const venueId = managedVenueId || VENUE_ID;
-      const col = venueId === "default"
-        ? legacyCol("inspections")
-        : collection(db, "venues", venueId, "inspections");
-      const snap = await getDocs(query(col, orderBy("savedAt", "desc")));
-      const allRecs = snap.docs.map(d => d.data());
-
-      const registry = await loadLicenseRegistry(venueId);
-      setProgress(`Loaded ${allRecs.length} inspections. Building equipment & license data…`);
-
-      const locationMap = {};
-      for (const rec of allRecs) {
-        if (!rec.siteName) continue;
-        const locType = rec.locationType || "";
-        if (!["Concession", "Subcontractor", "Bar"].includes(locType)) continue;
-        const key = `${rec.siteName}|||${rec.siteNumber || ""}`;
-        if (!locationMap[key]) {
-          locationMap[key] = {
-            siteName: rec.siteName, siteNumber: rec.siteNumber || "",
-            locationType: locType, floor: rec.floor || "",
-            inspectionCount: 0, licenses: {}, equipmentData: {},
-            adminLicense: registry[key]?.license || null,
-          };
-        }
-        const loc = locationMap[key];
-        loc.inspectionCount++;
-        if (rec.restaurantLicense && rec.restaurantLicense !== "NO LICENSE") {
-          const lic = rec.restaurantLicense.trim();
-          loc.licenses[lic] = (loc.licenses[lic] || 0) + 1;
-        }
-        const equip = rec.inspection?.equipment || {};
-        for (const [k, v] of Object.entries(equip)) {
-          if (!v || v.notApplicable) continue;
-          const label = EQUIP_LABELS[k] || v.label || k;
-          if (!loc.equipmentData[label]) loc.equipmentData[label] = { count: 0, brands: new Set(), sources: new Set() };
-          const ed = loc.equipmentData[label];
-          ed.count++;
-          if (v.brand) ed.brands.add(v.brand.trim());
-          if (v.equipSource) ed.sources.add(v.equipSource);
-        }
-      }
-
-      // Build result locally — no external API needed
-      const totalInspections = allRecs.length;
-      const locations = Object.values(locationMap).sort((a, b) => b.inspectionCount - a.inspectionCount);
-      const noLicense = [];
-      const concessions = [];
-      const subcontractors = [];
-
-      for (const loc of locations) {
-        const licEntries = Object.entries(loc.licenses).sort((a, b) => b[1] - a[1]);
-        const allLicensesSeen = licEntries.map(([l]) => l);
-        let license = null, licenseStatus = "missing";
-        if (loc.adminLicense) {
-          license = loc.adminLicense; licenseStatus = "admin_override";
-        } else if (licEntries.length === 1) {
-          license = licEntries[0][0]; licenseStatus = "on_file";
-        } else if (licEntries.length > 1) {
-          license = licEntries[0][0]; licenseStatus = "multiple";
-        }
-        if (!license) noLicense.push(`${loc.siteName}${loc.siteNumber ? ` #${loc.siteNumber}` : ""}`);
-
-        const permanentEquipment = Object.entries(loc.equipmentData)
-          .filter(([, ed]) => ed.count >= MIN_INSPECTIONS)
-          .sort((a, b) => b[1].count - a[1].count)
-          .map(([label, ed]) => ({
-            label,
-            brand: [...ed.brands].join("/") || null,
-            source: [...ed.sources].join("/") || null,
-            seenIn: ed.count,
-          }));
-
-        const card = {
-          name: loc.siteName, unit: loc.siteNumber, floor: loc.floor,
-          locationType: loc.locationType, inspections: loc.inspectionCount,
-          permanentEquipment, license, licenseStatus, allLicensesSeen,
-        };
-        if (loc.locationType === "Subcontractor") subcontractors.push(card);
-        else concessions.push(card);
-      }
-
-      const locWithLic = locations.filter(l => Object.keys(l.licenses).length > 0 || l.adminLicense).length;
-      const permEquipTotal = locations.reduce((s, l) => s + Object.values(l.equipmentData).filter(e => e.count >= MIN_INSPECTIONS).length, 0);
-      const summary = `${totalInspections} inspections across ${locations.length} locations (${concessions.length} concessions/bars, ${subcontractors.length} subcontractors). ${locWithLic} locations have license records. ${permEquipTotal} permanent equipment items confirmed across all sites (≥${MIN_INSPECTIONS} inspections each).`;
-
-      setResult({ summary, concessions, subcontractors, noLicense, totalLocations: locations.length, totalInspections });
-      setStatus("done");
-    } catch (e) {
-      setError(e.message || "Analysis failed.");
-      setStatus("error");
-    }
-  }
-
-  async function saveLicense(locKey, locName, licenseValue) {
-    setLicenseEdits(p => ({ ...p, [locKey]: { ...p[locKey], saving: true } }));
-    const venueId = managedVenueId || VENUE_ID;
-    const registry = await loadLicenseRegistry(venueId);
-    registry[locKey] = { license: licenseValue.trim(), locationName: locName, updatedAt: new Date().toISOString() };
-    await saveLicenseRegistry(venueId, registry);
-    // Update result in-place so UI reflects the new license
-    setResult(prev => {
-      if (!prev) return prev;
-      const updateList = (list) => (list || []).map(loc => {
-        const lk = `${loc.name}|||${loc.unit || ""}`;
-        if (lk !== locKey) return loc;
-        return { ...loc, license: licenseValue.trim(), licenseStatus: "admin_override" };
-      });
-      return { ...prev, concessions: updateList(prev.concessions), subcontractors: updateList(prev.subcontractors) };
-    });
-    setLicenseEdits(p => ({ ...p, [locKey]: { editing: false, value: licenseValue, saving: false, saved: true } }));
-    setTimeout(() => setLicenseEdits(p => ({ ...p, [locKey]: { ...p[locKey], saved: false } })), 2500);
-  }
-
-  const LicenseBadge = ({ loc, locKey }) => {
-    const edit = licenseEdits[locKey] || {};
-    if (edit.editing) {
-      return (
-        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-          <input
-            autoFocus
-            type="text"
-            value={edit.value ?? loc.license ?? ""}
-            onChange={e => setLicenseEdits(p => ({ ...p, [locKey]: { ...p[locKey], value: e.target.value } }))}
-            onKeyDown={e => { if (e.key === "Enter") saveLicense(locKey, loc.name, edit.value ?? ""); if (e.key === "Escape") setLicenseEdits(p => ({ ...p, [locKey]: { editing: false } })); }}
-            style={{ border: "1px solid #2563eb", borderRadius: 6, padding: "2px 8px", fontSize: "0.78rem", width: 160 }}
-            placeholder="Enter license #"
-          />
-          <button type="button" onClick={() => saveLicense(locKey, loc.name, edit.value ?? "")} disabled={edit.saving}
-            style={{ background: "#1d4ed8", color: "#fff", border: "none", borderRadius: 6, padding: "2px 10px", fontSize: "0.72rem", cursor: "pointer" }}>
-            {edit.saving ? "…" : "Save"}
-          </button>
-          <button type="button" onClick={() => setLicenseEdits(p => ({ ...p, [locKey]: { editing: false } }))}
-            style={{ background: "none", border: "1px solid #e2e8f0", borderRadius: 6, padding: "2px 8px", fontSize: "0.72rem", cursor: "pointer", color: "#6b7280" }}>
-            Cancel
-          </button>
-        </div>
-      );
-    }
-    const badgeStyle = (bg, color, border) => ({
-      display: "inline-flex", alignItems: "center", gap: 5,
-      background: bg, color, border: `1px solid ${border}`,
-      borderRadius: 6, padding: "2px 8px", fontSize: "0.72rem", fontWeight: 700, cursor: "pointer",
-    });
-    const startEdit = () => setLicenseEdits(p => ({ ...p, [locKey]: { editing: true, value: loc.license || "" } }));
-    if (edit.saved) return <span style={badgeStyle("#f0fdf4","#15803d","#bbf7d0")}>✓ Saved!</span>;
-    if (loc.licenseStatus === "admin_override") return <span onClick={startEdit} title="Admin override — click to edit" style={badgeStyle("#eff6ff","#1d4ed8","#bfdbfe")}>🔒 {loc.license} ✏</span>;
-    if (loc.licenseStatus === "missing") return <span onClick={startEdit} title="No license — click to add" style={badgeStyle("#fef2f2","#dc2626","#fecaca")}>⚠ No License — click to add ✏</span>;
-    if (loc.licenseStatus === "multiple") return (
-      <span onClick={startEdit} title={`Multiple licenses seen: ${(loc.allLicensesSeen||[]).join(", ")} — click to set correct one`} style={badgeStyle("#fffbeb","#b45309","#fde68a")}>
-        ⚠ Multiple ({(loc.allLicensesSeen||[]).length}) — click to fix ✏
-      </span>
-    );
-    return <span onClick={startEdit} title="Click to edit license" style={badgeStyle("#f0fdf4","#15803d","#bbf7d0")}>✓ {loc.license} ✏</span>;
-  };
-
-  const LocationCard = ({ loc }) => {
-    const locKey = `${loc.name}|||${loc.unit || ""}`;
-    return (
-      <div style={{ border: "1px solid #e2e8f0", borderRadius: 10, padding: "14px 16px", marginBottom: 10, background: "#fff" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
-          <div>
-            <span style={{ fontWeight: 700, fontSize: "0.92rem", color: "var(--sdx-navy)" }}>
-              {loc.name}{loc.unit ? ` #${loc.unit}` : ""}
-            </span>
-            {loc.floor && <span style={{ fontSize: "0.75rem", color: "#6b7280", marginLeft: 8 }}>{loc.floor}</span>}
-          </div>
-          <span style={{ fontSize: "0.72rem", color: "#6b7280", whiteSpace: "nowrap" }}>{loc.inspections} inspections</span>
-        </div>
-
-        {/* License row */}
-        <div style={{ marginBottom: 10, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-          <span style={{ fontSize: "0.75rem", color: "#6b7280", fontWeight: 600 }}>📋 License:</span>
-          <LicenseBadge loc={loc} locKey={locKey} />
-          {loc.allLicensesSeen?.length > 1 && (
-            <span style={{ fontSize: "0.68rem", color: "#9ca3af" }}>
-              (also seen: {loc.allLicensesSeen.filter(l => l !== loc.license).join(", ")})
-            </span>
-          )}
-        </div>
-
-        {/* Equipment */}
-        {loc.permanentEquipment?.length > 0 ? (
-          <div>
-            <div style={{ fontSize: "0.72rem", color: "#6b7280", fontWeight: 600, marginBottom: 5 }}>
-              🔧 Permanent Equipment ({loc.permanentEquipment.length} items — confirmed ≥{MIN_INSPECTIONS} inspections each):
-            </div>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
-              {loc.permanentEquipment.map((eq, i) => {
-                const label = typeof eq === "string" ? eq : eq.label;
-                const brand = typeof eq === "object" ? eq.brand : null;
-                const src = typeof eq === "object" ? eq.source : null;
-                const seen = typeof eq === "object" ? eq.seenIn : null;
-                return (
-                  <span key={i} title={[brand && `Brand: ${brand}`, src && `Source: ${src}`, seen && `Seen in ${seen} inspections`].filter(Boolean).join(" · ")}
-                    style={{ background: "#eff6ff", color: "#1d4ed8", border: "1px solid #bfdbfe", borderRadius: 6, padding: "3px 9px", fontSize: "0.72rem", fontWeight: 600, cursor: seen ? "help" : "default" }}>
-                    {label}{brand ? ` · ${brand}` : ""}
-                    {seen ? <span style={{ fontWeight: 400, marginLeft: 4, color: "#60a5fa" }}>{seen}×</span> : null}
-                  </span>
-                );
-              })}
-            </div>
-          </div>
-        ) : (
-          <div style={{ fontSize: "0.78rem", color: "#9ca3af", fontStyle: "italic" }}>
-            No equipment confirmed in ≥{MIN_INSPECTIONS} inspections yet
-          </div>
-        )}
-      </div>
-    );
-  };
-
-  return (
-    <div style={{ minHeight: "100vh", background: "#f8fafc" }}>
-      <div style={{ background: "var(--sdx-navy)", color: "#fff", padding: "16px 20px", display: "flex", alignItems: "center", gap: 12 }}>
-        <button type="button" onClick={onBack} style={{ background: "rgba(255,255,255,0.15)", border: "none", color: "#fff", borderRadius: 8, padding: "6px 12px", cursor: "pointer", fontSize: "0.85rem" }}>← Back</button>
-        <div>
-          <div style={{ fontWeight: 700, fontSize: "1.05rem" }}>🧠 Equipment & License Intelligence</div>
-          <div style={{ fontSize: "0.75rem", color: "#93c5fd" }}>AI-powered · Equipment confirmed ≥{MIN_INSPECTIONS} inspections · Click any license to edit</div>
-        </div>
-      </div>
-
-      <div style={{ maxWidth: 800, margin: "0 auto", padding: "20px 16px" }}>
-        {status === "idle" && (
-          <div style={{ textAlign: "center", padding: "40px 20px" }}>
-            <div style={{ fontSize: "3rem", marginBottom: 12 }}>🧠</div>
-            <div style={{ fontWeight: 700, fontSize: "1.1rem", color: "var(--sdx-navy)", marginBottom: 8 }}>Analyze All Inspection Data</div>
-            <div style={{ color: "#6b7280", fontSize: "0.88rem", maxWidth: 480, margin: "0 auto 24px", lineHeight: 1.6 }}>
-              Reads every past inspection. Equipment is only listed as permanent if it appeared in <strong>at least {MIN_INSPECTIONS} inspections</strong> at that location. Licenses are determined from inspection history — admins can override them.
-            </div>
-            <button type="button" onClick={runAnalysis}
-              style={{ background: "#064e3b", color: "#fff", border: "none", borderRadius: 10, padding: "12px 28px", fontSize: "0.95rem", fontWeight: 700, cursor: "pointer" }}>
-              🚀 Run Analysis
-            </button>
-          </div>
-        )}
-
-        {status === "loading" && (
-          <div style={{ textAlign: "center", padding: "40px 20px" }}>
-            <div style={{ fontSize: "2rem", marginBottom: 12 }}>⏳</div>
-            <div style={{ fontWeight: 600, color: "var(--sdx-navy)", marginBottom: 8 }}>Analyzing all inspections…</div>
-            <div style={{ color: "#6b7280", fontSize: "0.85rem" }}>{progress}</div>
-          </div>
-        )}
-
-        {status === "error" && (
-          <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 10, padding: "16px 20px", marginBottom: 16, color: "#dc2626" }}>
-            <strong>Error:</strong> {error}
-            <button type="button" onClick={() => setStatus("idle")} style={{ display: "block", marginTop: 10, color: "#dc2626", background: "none", border: "1px solid #fca5a5", borderRadius: 6, padding: "4px 12px", cursor: "pointer" }}>Try Again</button>
-          </div>
-        )}
-
-        {status === "done" && result && (
-          <div>
-            {result.summary && (
-              <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 10, padding: "14px 16px", marginBottom: 20, color: "#14532d", fontSize: "0.88rem", lineHeight: 1.6 }}>
-                {result.summary}
-              </div>
-            )}
-
-            <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
-              {[
-                { label: "Inspections Analyzed", val: result.totalInspections },
-                { label: "Locations Found", val: result.totalLocations },
-                { label: "Missing License", val: result.noLicense?.length || 0, warn: (result.noLicense?.length || 0) > 0 },
-              ].map(s => (
-                <div key={s.label} style={{ flex: 1, minWidth: 110, background: s.warn ? "#fef2f2" : "#fff", border: `1px solid ${s.warn ? "#fecaca" : "#e2e8f0"}`, borderRadius: 10, padding: "12px 14px", textAlign: "center" }}>
-                  <div style={{ fontSize: "1.5rem", fontWeight: 800, color: s.warn ? "#dc2626" : "var(--sdx-navy)" }}>{s.val}</div>
-                  <div style={{ fontSize: "0.7rem", color: "#6b7280" }}>{s.label}</div>
-                </div>
-              ))}
-            </div>
-
-            {result.noLicense?.length > 0 && (
-              <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 10, padding: "12px 16px", marginBottom: 16 }}>
-                <div style={{ fontWeight: 700, color: "#dc2626", marginBottom: 6 }}>⚠️ No License on Record</div>
-                {result.noLicense.map(n => <div key={n} style={{ fontSize: "0.85rem", color: "#991b1b" }}>• {n}</div>)}
-              </div>
-            )}
-
-            {result.concessions?.length > 0 && (
-              <div style={{ marginBottom: 24 }}>
-                <div style={{ fontWeight: 700, fontSize: "1rem", color: "var(--sdx-navy)", marginBottom: 10, borderBottom: "2px solid #e2e8f0", paddingBottom: 6 }}>
-                  🏪 Concessions & Bars ({result.concessions.length})
-                </div>
-                {result.concessions.map(loc => <LocationCard key={`${loc.name}${loc.unit}`} loc={loc} />)}
-              </div>
-            )}
-
-            {result.subcontractors?.length > 0 && (
-              <div style={{ marginBottom: 24 }}>
-                <div style={{ fontWeight: 700, fontSize: "1rem", color: "var(--sdx-navy)", marginBottom: 10, borderBottom: "2px solid #e2e8f0", paddingBottom: 6 }}>
-                  🤝 Subcontractors ({result.subcontractors.length})
-                </div>
-                {result.subcontractors.map(loc => <LocationCard key={`${loc.name}${loc.unit}`} loc={loc} />)}
-              </div>
-            )}
-
-            <button type="button" onClick={() => { setStatus("idle"); setResult(null); }}
-              style={{ background: "#f1f5f9", color: "#475569", border: "1px solid #e2e8f0", borderRadius: 8, padding: "8px 18px", cursor: "pointer", fontSize: "0.85rem", marginTop: 4 }}>
-              🔄 Re-run Analysis
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function HaccpAdminSection() {
-  const today = new Date().toISOString().slice(0, 10);
-  const [subs, setSubs] = useState(null);   // all today's HACCP submissions
-  const [recs, setRecs] = useState([]);      // all inspection records
-  const [busy, setBusy] = useState({});      // { [subId]: true }
-  const [done, setDone] = useState({});      // { [subId]: string } — success message
-  // Reassign form state: { subId, siteName, siteNumber, floor, locationType, supervisorName }
-  const [reassigning, setReassigning] = useState(null);
-
-  useEffect(() => {
-    async function load() {
-      try {
-        // Load HACCP submissions from legacy root + current venue + ALL registered venues
-        const legacyHaccp = getDocs(query(legacyCol("haccpSubmissions"), orderBy("submittedAt", "desc"))).catch(() => null);
-        const venueHaccp = !IS_DEFAULT_VENUE()
-          ? getDocs(query(venueCol("haccpSubmissions"), orderBy("submittedAt", "desc"))).catch(() => null)
-          : Promise.resolve(null);
-
-        // Load inspections from legacy + current venue
-        const legacyRecs = loadHistory("default", { pageSize: 500 });
-        const venueRecs = !IS_DEFAULT_VENUE()
-          ? loadHistory(undefined, { pageSize: 500 })
-          : Promise.resolve({ list: [] });
-
-        // Load all registered venue IDs so we can sweep every venue's HACCP subs
-        const regSnap = await getDocs(venueRegistryCol()).catch(() => null);
-        const extraVenueIds = regSnap
-          ? regSnap.docs.map(d => d.id).filter(id => id !== "default" && id !== activeVenueId)
-          : [];
-        const extraHaccpSnaps = await Promise.all(
-          extraVenueIds.map(vid =>
-            getDocs(query(collection(db, "venues", vid, "haccpSubmissions"), orderBy("submittedAt", "desc"))).catch(() => null)
-          )
-        );
-
-        const [legacySnap, venueSnap, { list: legRecList }, { list: venRecList }] = await Promise.all([
-          legacyHaccp, venueHaccp, legacyRecs, venueRecs,
-        ]);
-
-        const rawSubs = [
-          ...(legacySnap ? legacySnap.docs.map(d => d.data()) : []),
-          ...(venueSnap  ? venueSnap.docs.map(d => d.data())  : []),
-          ...extraHaccpSnaps.flatMap(s => s ? s.docs.map(d => d.data()) : []),
-        ];
-        const todaySubs = rawSubs.filter(s => (s.submittedAt || "").startsWith(today));
-        const seen = new Set();
-        const unique = todaySubs.filter(s => { if (seen.has(s.id)) return false; seen.add(s.id); return true; });
-        setSubs(unique);
-
-        const allRecs = [...legRecList, ...venRecList];
-        const seenRec = new Set();
-        setRecs(allRecs.filter(r => { if (seenRec.has(r.id)) return false; seenRec.add(r.id); return true; }));
-      } catch { setSubs([]); }
-    }
-    load();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  function makeBlankRecord({ id, siteName, siteNumber, floor, locationType, supervisorName, supervisorPhone }) {
-    return {
-      id,
-      savedAt: new Date().toISOString(),
-      savedByHash: "",
-      noteType: "inspection",
-      inspectionType: "Post Event",
-      inspectionDate: today,
-      inspectorName: supervisorName || "Admin",
-      participantName: "",
-      siteName: siteName || siteNumber || "Unknown",
-      siteNumber: siteNumber || "",
-      supervisorName: supervisorName || "",
-      sitePhone: supervisorPhone || "",
-      floor: floor || "",
-      locationType: locationType || "Concession",
-      restaurantLicense: "",
-      licenseMissing: false,
-      eventName: "",
-      overallStatus: "Pending Review",
-      actionItems: [],
-      rawNotes: "",
-      suppliesNeeded: [],
-      location: siteName || siteNumber || "Unknown",
-      context: {},
-      temps: {},
-      foodTemps: {},
-      foodTempNames: {},
-      inspection: { _notesPhotos: [] },
-      photoCount: 0,
-      _autoCreatedFromHaccp: true,
-    };
-  }
-
-  // Create a new blank report and re-link this HACCP submission to it
-  async function reassignToNewReport(sub, { siteName, siteNumber, floor, locationType }) {
-    setBusy(p => ({ ...p, [sub.id]: true }));
-    try {
-      const newReportId = `manual_${Date.now()}_${Math.random().toString(16).slice(2)}`;
-      // Create the blank inspection record (admin has write permission here)
-      const rec = makeBlankRecord({ id: newReportId, siteName, siteNumber, floor, locationType, supervisorName: sub.supervisorName, supervisorPhone: sub.supervisorPhone });
-      await saveOneInspection(rec);
-      // Try to update the existing HACCP submission's reportId so temperatures link to new report.
-      // This may fail if Firestore rules restrict haccpSubmissions writes — that's OK, the blank report still gets created.
-      try {
-        const col = IS_DEFAULT_VENUE() ? legacyCol("haccpSubmissions") : venueCol("haccpSubmissions");
-        await updateDoc(doc(col, sub.id), { reportId: newReportId, sessionId: newReportId });
-      } catch { /* ignore permission error — report was still created */ }
-      setDone(p => ({ ...p, [sub.id]: `✓ Report created: ${siteName}${siteNumber ? ` #${siteNumber}` : ""}` }));
-      setRecs(prev => [...prev, rec]);
-      setSubs(prev => prev.map(s => s.id === sub.id ? { ...s, reportId: newReportId } : s));
-      setReassigning(null);
-    } catch (e) {
-      alert("Failed: " + (e?.message || String(e)));
-    } finally {
-      setBusy(p => ({ ...p, [sub.id]: false }));
-    }
-  }
-
-  // Create a blank report for an orphaned submission (no existing report)
-  async function createReport(sub) {
-    setBusy(p => ({ ...p, [sub.id]: true }));
-    try {
-      const rid = sub.reportId || sub.sessionId || `orphan_${Date.now()}`;
-      const rec = makeBlankRecord({ id: rid, siteName: sub.site, siteNumber: sub.unit, floor: sub.floor, locationType: sub.locationType, supervisorName: sub.supervisorName, supervisorPhone: sub.supervisorPhone });
-      await saveOneInspection(rec);
-      // Try to update HACCP doc's reportId — may fail due to Firestore rules, that's OK
-      try {
-        const col = IS_DEFAULT_VENUE() ? legacyCol("haccpSubmissions") : venueCol("haccpSubmissions");
-        await updateDoc(doc(col, sub.id), { reportId: rid, sessionId: rid });
-      } catch { /* ignore */ }
-      setDone(p => ({ ...p, [sub.id]: `✓ Report created for ${sub.site || sub.unit}` }));
-      setRecs(prev => [...prev, rec]);
-    } catch (e) {
-      alert("Failed: " + (e?.message || String(e)));
-    } finally {
-      setBusy(p => ({ ...p, [sub.id]: false }));
-    }
-  }
-
-  // Auto-create blank reports for ALL submissions that don't have a linked report yet
-  async function createAllMissing() {
-    const reportIds = new Set(recs.map(r => r.id));
-    const missing = (subs || []).filter(s => {
-      const rid = s.reportId || s.sessionId || "";
-      return !rid || !reportIds.has(rid);
-    });
-    for (const sub of missing) {
-      await createReport(sub);
-    }
-  }
-
-  if (!subs) return null; // still loading
-  if (subs.length === 0) return null;
-
-  const reportMap = Object.fromEntries(recs.map(r => [r.id, r]));
-
-  return (
-    <div className="card adminCard" style={{ marginBottom: 24, borderLeft: "4px solid #3b82f6" }}>
-      <div className="cardHeader" style={{ background: "#eff6ff" }}>
-        <div className="cardTitle" style={{ color: "#1e3a8a" }}>🌡️ Today's HACCP Submissions ({subs.length})</div>
-      </div>
-      <div className="cardBody">
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: "1rem" }}>
-          <p style={{ margin: 0, fontSize: "0.85rem", color: "#1e40af", flex: 1 }}>
-            All HACCP temperature logs submitted today. Use <strong>Move to correct report</strong> to fix wrong QR code scans.
-          </p>
-          <button type="button" className="btn" onClick={createAllMissing}
-            style={{ fontSize: "0.82rem", whiteSpace: "nowrap", flexShrink: 0 }}>
-            📋 Create all missing reports
-          </button>
-        </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {subs.map(sub => {
-            const rid = sub.reportId || sub.sessionId || "";
-            const linkedRec = rid ? reportMap[rid] : null;
-            const isOrphaned = rid && !linkedRec;
-            const isDone = done[sub.id];
-            const isBusy = busy[sub.id];
-            const isReassigning = reassigning?.subId === sub.id;
-
-            return (
-              <div key={sub.id} style={{ background: isOrphaned ? "#fef3c7" : "#f0f9ff", border: `1px solid ${isOrphaned ? "#fcd34d" : "#bae6fd"}`, borderRadius: 8, padding: "0.75rem 1rem" }}>
-                <div style={{ display: "flex", alignItems: "flex-start", gap: 10, flexWrap: "wrap" }}>
-                  <div style={{ flex: 1, minWidth: 180 }}>
-                    <div style={{ fontWeight: 700, fontSize: "0.9rem", color: "#1e293b" }}>
-                      👤 {sub.supervisorName || "Unknown supervisor"}
-                    </div>
-                    <div style={{ fontSize: "0.8rem", color: "#475569", marginTop: 2 }}>
-                      Submitted {sub.submittedAt ? new Date(sub.submittedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—"}
-                    </div>
-                    <div style={{ fontSize: "0.78rem", marginTop: 4 }}>
-                      {linkedRec ? (
-                        <span style={{ color: "#15803d", fontWeight: 600 }}>
-                          ✓ Linked to: {linkedRec.siteName || linkedRec.location}{linkedRec.siteNumber ? ` #${linkedRec.siteNumber}` : ""}
-                        </span>
-                      ) : isOrphaned ? (
-                        <span style={{ color: "#b45309", fontWeight: 600 }}>⚠️ No report found — was: {sub.site || sub.unit || "unknown"}</span>
-                      ) : (
-                        <span style={{ color: "#94a3b8" }}>Submitted via: {sub.site || sub.unit || "—"}</span>
-                      )}
-                    </div>
-                  </div>
-                  {isDone ? (
-                    <span style={{ color: "#15803d", fontWeight: 700, fontSize: "0.82rem", alignSelf: "center" }}>{isDone}</span>
-                  ) : (
-                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignSelf: "center" }}>
-                      <button type="button" className="btn" disabled={isBusy}
-                        onClick={() => createReport(sub)}
-                        style={{ fontSize: "0.8rem", padding: "0.3rem 0.7rem", background: isOrphaned ? "#d97706" : "#2563eb", border: "none" }}>
-                        {isBusy ? "…" : "📋 Create report"}
-                      </button>
-                      <button type="button" className="btn btnGhost" disabled={isBusy}
-                        onClick={() => setReassigning(isReassigning ? null : { subId: sub.id, siteName: sub.site || "", siteNumber: sub.unit || "", floor: sub.floor || "", locationType: sub.locationType || "Concession" })}
-                        style={{ fontSize: "0.8rem", padding: "0.3rem 0.7rem" }}>
-                        {isReassigning ? "Cancel" : "✏️ Move to correct report"}
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                {/* Inline reassign form */}
-                {isReassigning && (
-                  <div style={{ marginTop: 12, padding: "0.75rem", background: "#fff", borderRadius: 6, border: "1px solid #cbd5e1", display: "flex", flexDirection: "column", gap: 8 }}>
-                    <div style={{ fontWeight: 600, fontSize: "0.83rem", color: "#1e293b", marginBottom: 2 }}>
-                      Move {sub.supervisorName}'s HACCP log to:
-                    </div>
-                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                      <input placeholder="Restaurant name (e.g. Tostitos)"
-                        value={reassigning.siteName}
-                        onChange={e => setReassigning(p => ({ ...p, siteName: e.target.value }))}
-                        style={{ flex: 2, minWidth: 140, padding: "0.35rem 0.6rem", border: "1.5px solid #cbd5e1", borderRadius: 6, fontSize: "0.85rem" }} />
-                      <input placeholder="Unit # (e.g. 119)"
-                        value={reassigning.siteNumber}
-                        onChange={e => setReassigning(p => ({ ...p, siteNumber: e.target.value }))}
-                        style={{ flex: 1, minWidth: 80, padding: "0.35rem 0.6rem", border: "1.5px solid #cbd5e1", borderRadius: 6, fontSize: "0.85rem" }} />
-                      <input placeholder="Floor (e.g. Floor 1)"
-                        value={reassigning.floor}
-                        onChange={e => setReassigning(p => ({ ...p, floor: e.target.value }))}
-                        style={{ flex: 1, minWidth: 80, padding: "0.35rem 0.6rem", border: "1.5px solid #cbd5e1", borderRadius: 6, fontSize: "0.85rem" }} />
-                    </div>
-                    <div style={{ display: "flex", gap: 8, marginTop: 2 }}>
-                      <button type="button" className="btn" disabled={!reassigning.siteName && !reassigning.siteNumber}
-                        onClick={() => reassignToNewReport(sub, reassigning)}
-                        style={{ fontSize: "0.82rem", padding: "0.35rem 0.9rem" }}>
-                        ✓ Save &amp; Move
-                      </button>
-                      <button type="button" className="btn btnGhost" onClick={() => setReassigning(null)}
-                        style={{ fontSize: "0.82rem", padding: "0.35rem 0.7rem" }}>
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    </div>
-  );
-}
-// Keep alias so AdminPanel JSX still works
-function OrphanedHaccpSection() { return <HaccpAdminSection />; }
-
 function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVenueName, venueSettings, onSaveVenueSettings }) {
   const [users, setUsers] = useState([]);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -16045,9 +16083,6 @@ function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVe
   const [scheduleInspector, setScheduleInspector] = useState("");
   const [scheduleNote, setScheduleNote] = useState("");
   const [scheduleAdded, setScheduleAdded] = useState(false);
-  const [orphanedSubs, setOrphanedSubs] = useState(null); // null = not loaded yet
-  const [orphanCreating, setOrphanCreating] = useState({}); // { [subId]: true }
-  const [orphanCreated, setOrphanCreated] = useState({}); // { [subId]: true }
 
   // Load users on mount + auto-refresh every 10s
   useEffect(() => {
@@ -16188,8 +16223,6 @@ function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVe
           </div>
           <span style={{ marginLeft: "auto", color: "#93c5fd", fontSize: "1.1rem" }}>→</span>
         </button>
-
-
 
         {/* Inspection Schedule Settings */}
         <div className="card adminCard" style={{ marginBottom: 24 }}>
@@ -16383,6 +16416,16 @@ function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVe
                         };
                         const existing = venueSettings?.scheduleSlots || [];
                         onSaveVenueSettings?.({ scheduleSlots: [...existing, slot] });
+                        if (slot.inspector && FIREBASE_ON) {
+                          saveInspectorNotification({
+                            inspectorName: slot.inspector,
+                            slotId: slot.id,
+                            date: slot.date,
+                            location: slot.location,
+                            unit: slot.unit || "",
+                            note: slot.note || "",
+                          });
+                        }
                         setScheduleDate("");
                         setScheduleLoc("");
                         setScheduleUnit("");
@@ -16734,8 +16777,6 @@ async function processPhotoFiles(files, { limit, inspId, venueId, firebaseOn, on
         previewUrl = storageUrl;
       } else {
         failCount++;
-        // Firebase upload failed — fall back to small thumbnail so Firestore doesn't exceed 1MB
-        previewUrl = thumbUrl;
       }
     }
     photos.push({ id: photoId, name: f.name, sizeMb: bytesToMb(f.size), type: "image/jpeg", previewUrl, thumbUrl, exportUrl: exportUrl || thumbUrl, tag: "" });
@@ -16746,14 +16787,14 @@ async function processPhotoFiles(files, { limit, inspId, venueId, firebaseOn, on
   return { photos, failCount };
 }
 
-function GuideSection({ title, items, inspection, setInspection, allowCustom, sectionKey, coldEquipmentMap, maintenanceItems, emptyHint, inspectionId, onError, siteName, onOpenPrintLabels, defaultOpen = false }) {
+const GuideSection = React.memo(function GuideSection({ title, items, inspection, setInspection, allowCustom, sectionKey, coldEquipmentMap, maintenanceItems, emptyHint, inspectionId, onError, siteName, onOpenPrintLabels, defaultOpen = false }) {
+
   const fileRefs = useRef({});
   const [newItemName, setNewItemName] = useState("");
   const [newEquipType, setNewEquipType] = useState(null); // null = no type selected yet
   const [newMaintName, setNewMaintName] = useState("");
   const [open, setOpen] = useState(defaultOpen);
   const [expandedDetails, setExpandedDetails] = useState({});
-  const [lightboxUrl, setLightboxUrl] = useState(null);
   const toggleDetails = (key) => setExpandedDetails(p => ({ ...p, [key]: !p[key] }));
 
   // Build a map of { [itemKey]: { brand, kitchenArea } } from autofill memory for this site
@@ -16850,10 +16891,18 @@ function GuideSection({ title, items, inspection, setInspection, allowCustom, se
               const toggleNA = () => setInspection((prev) =>
                 setAtPath(prev, it.path, { ...current, notApplicable: !isNA })
               );
+              const isFilled = isNA || !!(current.status && current.status !== "OK") ||
+                !!(current.notes && current.notes.trim()) ||
+                !!(current.checklist && current.checklist.some(c => c.value === "NO")) ||
+                !!(current.photos && current.photos.length > 0) ||
+                !!(current.tempF);
+              const isItemOpen = expandedDetails[key] !== undefined ? expandedDetails[key] : isFilled;
               return (
                 <div className={`guideItem${isNA ? " guideItemNA" : ""}`} key={key}>
-                  <div className="guideItemHead">
-                    <div className="guideLabel">
+                  <button type="button" className="guideItemHead guideItemToggle"
+                    onClick={() => toggleDetails(key)}
+                    style={{ width: "100%", textAlign: "left", background: "none", border: "none", cursor: "pointer", padding: 0, display: "flex", alignItems: "center", gap: 8 }}>
+                    <div className="guideLabel" style={{ flex: 1 }}>
                       {(() => {
                         const parts = it.label.split(" — ");
                         const name = parts[0];
@@ -16864,27 +16913,51 @@ function GuideSection({ title, items, inspection, setInspection, allowCustom, se
                               {name}
                               {coldInfo && !isNA && <span className="coldTypeBadge">{coldInfo.type === "cooler" ? "\u2744 Cooler" : "\u2744 Freezer"}</span>}
                             </span>
-                            {question && <span className="guideLabelQuestion">{question}</span>}
+                            {question && <span className="guideLabelQuestion" style={isItemOpen ? {} : { opacity: 0.6 }}>{question}</span>}
                           </>
                         );
                       })()}
                       {isNA && <span className="naBadge">Not at this location</span>}
                     </div>
-                    <button type="button" className={`naToggleBtn${isNA ? " naToggleBtnActive" : ""}`}
-                      title={isNA ? "Mark as present at this location" : "Mark as N/A — not at this location"}
-                      onClick={toggleNA}>
-                      {isNA ? "↩ Undo N/A" : "N/A"}
-                    </button>
-                    {it.isCustom && (
-                      <button type="button" className="guideItemDeleteBtn" title="Remove item"
-                        onClick={() => setInspection(prev => {
-                          const section = { ...(prev[it.path[0]] || {}) };
-                          delete section[it.path[1]];
-                          return { ...prev, [it.path[0]]: section };
-                        })}>🗑️</button>
+                    {!isNA && current.status && current.status !== "OK" && (
+                      <span style={{
+                        fontSize: "0.72rem", fontWeight: 700, padding: "2px 8px", borderRadius: 6,
+                        background: current.status === "Fail" || current.status === "Critical Violation" ? "#fef2f2" : "#fff7ed",
+                        color: current.status === "Fail" || current.status === "Critical Violation" ? "#dc2626" : "#c2410c",
+                        border: `1px solid ${current.status === "Fail" || current.status === "Critical Violation" ? "#fca5a5" : "#fed7aa"}`,
+                        whiteSpace: "nowrap",
+                      }}>{current.status}</span>
                     )}
-                  </div>
-                  {!isNA && (
+                    {!isItemOpen && isFilled && !isNA && !(current.status && current.status !== "OK") && (
+                      <span style={{ fontSize: "0.7rem", fontWeight: 600, padding: "2px 8px", borderRadius: 6, background: "#f0fdf4", color: "#15803d", border: "1px solid #bbf7d0", whiteSpace: "nowrap" }}>✓ Filled</span>
+                    )}
+                    {!isItemOpen && !isFilled && (
+                      <span style={{ fontSize: "0.7rem", color: "#94a3b8", fontStyle: "italic", whiteSpace: "nowrap" }}>Tap to fill in</span>
+                    )}
+                    <span style={{ fontSize: "0.75rem", color: "#94a3b8", display: "inline-block", transform: isItemOpen ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s", flexShrink: 0 }}>▼</span>
+                  </button>
+                  {isNA && (
+                    <div style={{ display: "flex", justifyContent: "flex-end", paddingRight: 4, paddingBottom: 4 }}>
+                      <button type="button" className="naToggleBtn naToggleBtnActive"
+                        onClick={e => { e.stopPropagation(); toggleNA(); }}>↩ Undo N/A</button>
+                    </div>
+                  )}
+                  {!isNA && isItemOpen && (
+                    <div style={{ display: "flex", justifyContent: "flex-end", gap: 6, paddingRight: 4, paddingBottom: 4 }}>
+                      <button type="button" className="naToggleBtn"
+                        title="Mark as N/A — not at this location"
+                        onClick={e => { e.stopPropagation(); toggleNA(); }}>N/A</button>
+                      {it.isCustom && (
+                        <button type="button" className="guideItemDeleteBtn" title="Remove item"
+                          onClick={e => { e.stopPropagation(); setInspection(prev => {
+                            const section = { ...(prev[it.path[0]] || {}) };
+                            delete section[it.path[1]];
+                            return { ...prev, [it.path[0]]: section };
+                          }); }}>🗑️</button>
+                      )}
+                    </div>
+                  )}
+                  {!isNA && isItemOpen && (
                     <>
                       {/* ── Equipment Info Bar: Brand | Location | Asset Tag ── */}
                       {sectionKey === "equipment" && (() => {
@@ -17010,8 +17083,7 @@ function GuideSection({ title, items, inspection, setInspection, allowCustom, se
                           const next = cur2val === val ? "" : val;
                           const newChecklist = (cur2.checklist || []).map((c, i) => i === idx ? { ...c, value: next } : c);
                           const hasNo = newChecklist.some(c => c.value === "NO");
-                          const allAnswered = newChecklist.every(c => c.value !== "");
-                          const newStatus = hasNo ? "Fail" : (allAnswered ? "OK" : cur2.status);
+                          const newStatus = hasNo ? "Fail" : "OK";
                           return setAtPath(prev, it.path, { ...cur2, checklist: newChecklist, status: newStatus });
                         });
                         const makeSetComment = (idx, comment) => setInspection((prev) => {
@@ -17019,14 +17091,14 @@ function GuideSection({ title, items, inspection, setInspection, allowCustom, se
                           const newChecklist = (cur2.checklist || []).map((c, i) => i === idx ? { ...c, comment } : c);
                           return setAtPath(prev, it.path, { ...cur2, checklist: newChecklist });
                         });
-                        const makeSetCorrectiveAction = (idx, correctiveAction) => setInspection((prev) => {
-                          const cur2 = getAtPath(prev, it.path) || withPhotos({ status: "OK", notes: "" });
-                          const newChecklist = (cur2.checklist || []).map((c, i) => i === idx ? { ...c, correctiveAction } : c);
-                          return setAtPath(prev, it.path, { ...cur2, checklist: newChecklist });
-                        });
                         const makeSetCiStatus = (idx, ciStatus) => setInspection((prev) => {
                           const cur2 = getAtPath(prev, it.path) || withPhotos({ status: "OK", notes: "" });
                           const newChecklist = (cur2.checklist || []).map((c, i) => i === idx ? { ...c, ciStatus } : c);
+                          return setAtPath(prev, it.path, { ...cur2, checklist: newChecklist });
+                        });
+                        const makeSetCiCorrective = (idx, corrective) => setInspection((prev) => {
+                          const cur2 = getAtPath(prev, it.path) || withPhotos({ status: "OK", notes: "" });
+                          const newChecklist = (cur2.checklist || []).map((c, i) => i === idx ? { ...c, corrective } : c);
                           return setAtPath(prev, it.path, { ...cur2, checklist: newChecklist });
                         });
                         const addCiPhoto = async (idx, files) => {
@@ -17104,94 +17176,60 @@ function GuideSection({ title, items, inspection, setInspection, allowCustom, se
                                         </button>
                                       </div>
                                       {isFail ? (
-                                        <div className="clItemFailPanel">
-                                          <div className="clItemFailField">
-                                            <label className="clItemFailLabel">📋 Status</label>
+                                        <div style={{ background: "#fff7ed", border: "1.5px solid #fed7aa", borderRadius: 8, padding: "10px 12px", marginTop: 6, display: "flex", flexDirection: "column", gap: 8 }}>
+                                          <div>
+                                            <div style={{ fontSize: "0.7rem", fontWeight: 700, color: "#92400e", letterSpacing: "0.06em", marginBottom: 3 }}>📋 STATUS</div>
                                             <select
-                                              className="select selectSmall clItemStatusSelect"
-                                              value={ci.ciStatus || current.status || "Fail"}
+                                              className="select selectSmall"
+                                              value={ci.ciStatus || "Needs Attention"}
                                               onChange={(e) => makeSetCiStatus(idx, e.target.value)}
-                                              aria-label={`Status for ${ci.label}`}
-                                            >
-                                              {STATUS_OPTIONS.map((s) => (<option key={s} value={s}>{s}</option>))}
+                                              style={{ width: "100%" }}>
+                                              {["Needs Attention","Fail","Critical Violation","Corrected On-Site","Maintenance","Off / Not In Use"].map(s => <option key={s} value={s}>{s}</option>)}
                                             </select>
                                           </div>
-                                          <div className="clItemFailField">
-                                            <label className="clItemFailLabel">⚠️ Issue Description <span style={{color:"#dc2626"}}>*</span></label>
+                                          <div>
+                                            <div style={{ fontSize: "0.7rem", fontWeight: 700, color: "#92400e", letterSpacing: "0.06em", marginBottom: 3 }}>⚠️ ISSUE DESCRIPTION <span style={{ color: "#dc2626" }}>*</span></div>
                                             <input
                                               type="text"
-                                              className={`clItemComment clItemCommentRequired${!ci.comment ? " clItemCommentEmpty" : ""}`}
+                                              className="input inputSmall"
                                               value={ci.comment || ""}
                                               onChange={(e) => makeSetComment(idx, e.target.value)}
-                                              placeholder="Describe the issue (required)…"
-                                              aria-label={`Issue description for ${ci.label}`}
+                                              placeholder="Describe the issue (required)..."
+                                              style={{ width: "100%", borderColor: !ci.comment?.trim() ? "#fca5a5" : undefined }}
                                             />
                                           </div>
-                                          <div className="clItemFailField">
-                                            <label className="clItemFailLabel">🔧 Corrective Action Taken</label>
+                                          <div>
+                                            <div style={{ fontSize: "0.7rem", fontWeight: 700, color: "#92400e", letterSpacing: "0.06em", marginBottom: 3 }}>🔧 CORRECTIVE ACTION TAKEN</div>
                                             <input
                                               type="text"
-                                              className="clItemComment clItemCorrectiveAction"
-                                              value={ci.correctiveAction || ""}
-                                              onChange={(e) => makeSetCorrectiveAction(idx, e.target.value)}
-                                              placeholder="What was done to fix it?…"
-                                              aria-label={`Corrective action for ${ci.label}`}
+                                              className="input inputSmall"
+                                              value={ci.corrective || ""}
+                                              onChange={(e) => makeSetCiCorrective(idx, e.target.value)}
+                                              placeholder="What was done to fix it?..."
+                                              style={{ width: "100%" }}
                                             />
                                           </div>
-                                          <div className="clItemFailPhotoRow">
-                                            <input
-                                              type="file"
-                                              accept="image/*"
-                                              multiple
-                                              className="fileInput"
-                                              ref={(el) => { fileRefs.current[ciRefKey] = el; }}
-                                              onChange={(e) => { addCiPhoto(idx, e.target.files); e.target.value = ""; }}
-                                            />
-                                            <button
-                                              type="button"
-                                              className={`clItemPhotoBtn${ciPhotos.length > 0 ? " clItemPhotoBtnHasPhotos" : ""}`}
-                                              title={ciPhotos.length > 0 ? `${ciPhotos.length} photo${ciPhotos.length > 1 ? "s" : ""} attached` : "Add photo evidence"}
-                                              disabled={ciPhotos.length >= PHOTO_LIMIT}
-                                              onClick={() => fileRefs.current[ciRefKey]?.click()}
-                                              aria-label={`Add photo for ${ci.label}`}>
-                                              📷 {ciPhotos.length > 0 ? `${ciPhotos.length} photo${ciPhotos.length > 1 ? "s" : ""}` : "Add Photo"}
+                                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                            <input type="file" accept="image/*" multiple className="fileInput" ref={(el) => { fileRefs.current[ciRefKey] = el; }} onChange={(e) => { addCiPhoto(idx, e.target.files); e.target.value = ""; }} />
+                                            <button type="button" className={`clItemPhotoBtn${ciPhotos.length > 0 ? " clItemPhotoBtnHasPhotos" : ""}`} title={ciPhotos.length > 0 ? `${ciPhotos.length} photo${ciPhotos.length > 1 ? "s" : ""} attached` : "Add Photo"} disabled={ciPhotos.length >= PHOTO_LIMIT} onClick={() => fileRefs.current[ciRefKey]?.click()} aria-label={`Add photo for ${ci.label}`}>
+                                              📷 Add Photo{ciPhotos.length > 0 ? ` (${ciPhotos.length})` : ""}
                                             </button>
                                           </div>
                                         </div>
-                                      ) : isPass ? (
+                                      ) : (
                                         <div className="clItemCommentRow">
-                                          <input
-                                            type="text"
-                                            className="clItemComment"
-                                            value={ci.comment || ""}
-                                            onChange={(e) => makeSetComment(idx, e.target.value)}
-                                            placeholder="Optional note…"
-                                            aria-label={`Comment for ${ci.label}`}
-                                          />
-                                          <input
-                                            type="file"
-                                            accept="image/*"
-                                            multiple
-                                            className="fileInput"
-                                            ref={(el) => { fileRefs.current[ciRefKey] = el; }}
-                                            onChange={(e) => { addCiPhoto(idx, e.target.files); e.target.value = ""; }}
-                                          />
-                                          <button
-                                            type="button"
-                                            className={`clItemPhotoBtn${ciPhotos.length > 0 ? " clItemPhotoBtnHasPhotos" : ""}`}
-                                            title={ciPhotos.length > 0 ? `${ciPhotos.length} photo${ciPhotos.length > 1 ? "s" : ""} attached` : "Add photo"}
-                                            disabled={ciPhotos.length >= PHOTO_LIMIT}
-                                            onClick={() => fileRefs.current[ciRefKey]?.click()}
-                                            aria-label={`Add photo for ${ci.label}`}>
+                                          <input type="text" className="clItemComment" value={ci.comment || ""} onChange={(e) => makeSetComment(idx, e.target.value)} placeholder={isPass ? "Optional note..." : "Add a comment..."} aria-label={`Comment for ${ci.label}`} />
+                                          <input type="file" accept="image/*" multiple className="fileInput" ref={(el) => { fileRefs.current[ciRefKey] = el; }} onChange={(e) => { addCiPhoto(idx, e.target.files); e.target.value = ""; }} />
+                                          <button type="button" className={`clItemPhotoBtn${ciPhotos.length > 0 ? " clItemPhotoBtnHasPhotos" : ""}`} title={ciPhotos.length > 0 ? `${ciPhotos.length} photo${ciPhotos.length > 1 ? "s" : ""} attached` : "Add photo"} disabled={ciPhotos.length >= PHOTO_LIMIT} onClick={() => fileRefs.current[ciRefKey]?.click()} aria-label={`Add photo for ${ci.label}`}>
                                             📷{ciPhotos.length > 0 ? ` ${ciPhotos.length}` : ""}
                                           </button>
                                         </div>
-                                      ) : null}
+                                      )}
                                       {ciPhotos.length > 0 && (
                                         <div className="ciPhotoStrip">
                                           {ciPhotos.map(p => (
                                             <div key={p.id} className="ciPhotoThumb">
-                                              <img src={p.thumbUrl || p.previewUrl || p.url || p.dataUrl} alt="item photo" style={{cursor:"zoom-in"}} onClick={() => setLightboxUrl(p.previewUrl || p.thumbUrl || p.url || p.dataUrl)} />
+                                              <img src={p.previewUrl || p.thumbUrl || p.url || p.dataUrl} alt="item photo" />
                                               <button
                                                 type="button"
                                                 className="ciPhotoRemove"
@@ -17514,18 +17552,18 @@ function GuideSection({ title, items, inspection, setInspection, allowCustom, se
           })()}
         </>
       )}
-      {lightboxUrl && (
-        <div onClick={() => setLightboxUrl(null)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.92)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",cursor:"zoom-out",flexDirection:"column",gap:16}}>
-          <img src={lightboxUrl} alt="Full size" onClick={e => e.stopPropagation()} style={{maxWidth:"92vw",maxHeight:"80vh",objectFit:"contain",borderRadius:10,boxShadow:"0 4px 40px rgba(0,0,0,0.6)",cursor:"default"}} />
-          <div style={{display:"flex",gap:12}} onClick={e => e.stopPropagation()}>
-            <a href={lightboxUrl} download="photo.jpg" style={{padding:"10px 22px",background:"#fff",color:"#1e293b",borderRadius:8,fontWeight:700,fontSize:"0.9rem",textDecoration:"none",display:"flex",alignItems:"center",gap:6}}>⬇ Download</a>
-            <button onClick={() => setLightboxUrl(null)} style={{padding:"10px 22px",background:"rgba(255,255,255,0.15)",border:"none",color:"#fff",borderRadius:8,fontWeight:700,fontSize:"0.9rem",cursor:"pointer"}}>✕ Close</button>
-          </div>
-        </div>
-      )}
     </div>
   );
-}
+}, (prev, next) => {
+  // Only re-render when the section's own data or maintenance data changes
+  if (prev.sectionKey !== next.sectionKey) return false;
+  if (prev.inspection?.[prev.sectionKey] !== next.inspection?.[next.sectionKey]) return false;
+  if (prev.inspection?.maintenance !== next.inspection?.maintenance) return false;
+  if (prev.title !== next.title) return false;
+  if (prev.inspectionId !== next.inspectionId) return false;
+  if (prev.siteName !== next.siteName) return false;
+  return true;
+}); // end GuideSection React.memo
 
 /* ── Live HACCP Panel (real-time supervisor temp submissions) ── */
 // subsFromParent: if provided by the parent (already subscribed), use it directly
@@ -17698,7 +17736,7 @@ function LiveHaccpPanel({ reportId, subsFromParent }) {
 }
 
 /* ── Inline Chat (embedded in the report output section) ───── */
-function InlineChat({ currentUser, sessionId, siteName, siteNumber }) {
+function InlineChat({ currentUser, sessionId }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
@@ -17729,8 +17767,6 @@ function InlineChat({ currentUser, sessionId, siteName, siteNumber }) {
       text: input.trim(),
       sentAt: new Date().toISOString(),
       fromSupervisor: false,
-      siteName: siteName || "",
-      siteNumber: siteNumber || "",
     };
     await saveChatMessage(msg);
     setInput("");
@@ -17802,11 +17838,11 @@ function ShareModal({ shareUrl, onClose }) {
 
   useEffect(() => {
     if (canvasRef.current) {
-      import("qrcode").then(m => m.default.toCanvas(canvasRef.current, shareUrl, {
+      QRCode.toCanvas(canvasRef.current, shareUrl, {
         width: 220,
         margin: 2,
         color: { dark: "#2A295C", light: "#ffffff" },
-      }));
+      });
     }
   }, [shareUrl]);
 
@@ -17879,10 +17915,10 @@ function HaccpQrModal({ onClose, siteName, siteNumber, floor, locationType, repo
 
   useEffect(() => {
     if (canvasRef.current) {
-      import("qrcode").then(m => m.default.toCanvas(canvasRef.current, haccpUrl, {
+      QRCode.toCanvas(canvasRef.current, haccpUrl, {
         width: 220, margin: 2,
         color: { dark: "#2A295C", light: "#ffffff" },
-      }));
+      });
     }
   }, [haccpUrl]);
 
@@ -18071,20 +18107,22 @@ function HaccpPortal() {
   const [foodNames, setFoodNames] = useState(() =>
     Object.fromEntries(HACCP_TEMP_ITEMS.map(it => [it.key, [""]]))
   );
+  // submitted: tracks which readings have been confirmed (pass/flag only shown after submit)
+  const [tempSubmitted, setTempSubmitted] = useState(() =>
+    Object.fromEntries(HACCP_TEMP_ITEMS.map(it => [it.key, [false]]))
+  );
+  // corrections: corrective action text for each flagged reading
+  const [tempCorrections, setTempCorrections] = useState(() =>
+    Object.fromEntries(HACCP_TEMP_ITEMS.map(it => [it.key, [""]]))
+  );
   // Custom temperature items added by the supervisor (beyond the 6 defaults)
   const [customItems, setCustomItems] = useState([]);
   // { key: string, label: string, unit: "°F", type: "hot"|"cold", min?: number, max?: number }
-  // Committed temps: only updated onBlur so pass/fail isn't shown while typing
-  const [committedTemps, setCommittedTemps] = useState({});
-  // Locked readings: Set of `${itemKey}_${idx}` — once locked, row is read-only
-  const [lockedReadings, setLockedReadings] = useState(new Set());
   // Inline label editing: which item key is currently being edited
   const [editingLabel, setEditingLabel] = useState(null); // null | itemKey
   const [editingLabelVal, setEditingLabelVal] = useState("");
   // Custom item labels overrides for default items
   const [labelOverrides, setLabelOverrides] = useState({});
-  // Corrective actions for off-temp readings: { [`${itemKey}_${idx}`]: string }
-  const [correctiveActions, setCorrectiveActions] = useState({});
   const [problem, setProblem] = useState("");
   const [severity, setSeverity] = useState("issue");
   const [problemPhotos, setProblemPhotos] = useState([]);
@@ -18154,7 +18192,7 @@ function HaccpPortal() {
       const photoId = `${Date.now()}_${Math.random().toString(16).slice(2)}`;
       let previewUrl = thumbUrl;
       if (FIREBASE_ON) {
-        const storageData = await compressImage(f, 1200, 0.82);
+        const storageData = await compressImage(f, 1024, 0.78);
         const storageUrl = await uploadPhoto(storageData || thumbUrl, activeVenueId, inspId, photoId);
         if (storageUrl) {
           previewUrl = storageUrl;
@@ -18203,62 +18241,13 @@ function HaccpPortal() {
       locationType: locType.trim(),
       temps: tempsFlat,
       foodNames: foodNamesFlat,
-      correctiveActions,
-      lockedReadings: [...lockedReadings],
+      tempCorrections: Object.fromEntries(Object.entries(tempCorrections).map(([k, arr]) => [k, arr.map(v => (v || "").trim())])),
       itemLabels,
       customItems,
-      problemReport: problem.trim() ? { text: problem.trim(), severity, photos: problemPhotos.map(p => ({ id: p.id, name: p.name, sizeMb: p.sizeMb, type: p.type, tag: p.tag || "", previewUrl: (p.previewUrl && !p.previewUrl.startsWith("data:")) ? p.previewUrl : (p.thumbUrl || "") })) } : null,
+      problemReport: problem.trim() ? { text: problem.trim(), severity, photos: problemPhotos.map(p => ({ id: p.id, name: p.name, sizeMb: p.sizeMb, type: p.type, tag: p.tag || "", previewUrl: (p.previewUrl && !p.previewUrl.startsWith("data:")) ? p.previewUrl : "" })) } : null,
       submittedAt: new Date().toISOString(),
     };
     await saveHaccpSubmission(record);
-
-    // Auto-create a blank inspection record if one doesn't already exist for this report ID.
-    // This ensures every HACCP submission always has a linked report in the history,
-    // even when the inspector's save failed or the QR code was scanned without a prior report.
-    if (urlReportId) {
-      try {
-        const { list: existing } = await loadHistory(undefined, { pageSize: 500 });
-        const alreadyExists = existing.some(r => r.id === urlReportId);
-        if (!alreadyExists) {
-          const today = new Date().toISOString().slice(0, 10);
-          const blankRecord = {
-            id: urlReportId,
-            savedAt: new Date().toISOString(),
-            savedByHash: "",
-            noteType: "inspection",
-            inspectionType: "Post Event",
-            inspectionDate: today,
-            inspectorName: supName.trim() || "Admin",
-            participantName: "",
-            siteName: locSite.trim() || locUnit.trim() || "Unknown",
-            siteNumber: locUnit.trim(),
-            supervisorName: supName.trim(),
-            sitePhone: supPhone.trim(),
-            floor: locFloor.trim(),
-            locationType: locType.trim() || "Concession",
-            restaurantLicense: "",
-            licenseMissing: false,
-            eventName: "",
-            overallStatus: "Pending Review",
-            actionItems: [],
-            rawNotes: "",
-            suppliesNeeded: [],
-            location: locSite.trim() || locUnit.trim() || "Unknown",
-            context: {},
-            temps: {},
-            foodTemps: {},
-            foodTempNames: {},
-            inspection: { _notesPhotos: [] },
-            photoCount: 0,
-            _autoCreatedFromHaccp: true,
-            _haccpSubmittedBy: supName.trim(),
-            _haccpSubmittedAt: new Date().toISOString(),
-          };
-          await saveOneInspection(blankRecord);
-        }
-      } catch { /* ignore — HACCP submission already saved, report creation is best-effort */ }
-    }
-
     if (problem.trim()) {
       const prId = `prob_${Date.now()}_${Math.random().toString(16).slice(2)}`;
       await saveProblemReport({
@@ -18272,7 +18261,7 @@ function HaccpPortal() {
         locationType: locType.trim(),
         text: problem.trim(),
         severity,
-        photos: problemPhotos.map(p => ({ id: p.id, name: p.name, sizeMb: p.sizeMb, type: p.type, tag: p.tag || "", previewUrl: (p.previewUrl && !p.previewUrl.startsWith("data:")) ? p.previewUrl : (p.thumbUrl || "") })),
+        photos: problemPhotos.map(p => ({ id: p.id, name: p.name, sizeMb: p.sizeMb, type: p.type, tag: p.tag || "", previewUrl: (p.previewUrl && !p.previewUrl.startsWith("data:")) ? p.previewUrl : "" })),
         reportedAt: new Date().toISOString(),
         status: "open",
       });
@@ -18481,97 +18470,98 @@ function HaccpPortal() {
                             onClick={() => {
                               setTemps(p => ({ ...p, [item.key]: [...(p[item.key] || [""]), ""] }));
                               setFoodNames(p => ({ ...p, [item.key]: [...(p[item.key] || [""]), ""] }));
+                              setTempSubmitted(p => ({ ...p, [item.key]: [...(p[item.key] || [false]), false] }));
+                              setTempCorrections(p => ({ ...p, [item.key]: [...(p[item.key] || [""]), ""] }));
                             }}>
                             + Reading
                           </button>
                         </div>
                       </div>
                       {readings.map((val, idx) => {
-                        const foodName = (foodNames[item.key] || [""])[idx] ?? "";
-                        const caKey = `${item.key}_${idx}`;
-                        const locked = lockedReadings.has(caKey);
-                        // Pass/fail only evaluated on locked readings
+                        const isSubmitted = (tempSubmitted[item.key] || [])[idx] === true;
                         const rawDigits = String(val).replace(/\D/g, "");
-                        const hasName = foodName.trim().length > 0;
-                        const hasTemp = rawDigits.length >= 2;
-                        const pass = locked ? ((hasName && hasTemp) ? tempPass(item, val) : null) : null;
-                        const canLock = hasName && hasTemp;
+                        const pass = isSubmitted && rawDigits.length >= 1 ? tempPass(item, val) : null;
+                        const foodName = (foodNames[item.key] || [""])[idx] ?? "";
+                        const correction = (tempCorrections[item.key] || [""])[idx] ?? "";
+                        const canSubmit = rawDigits.length >= 1;
+                        const needsCorrection = pass === false && !correction.trim();
                         return (
-                          <div key={idx} style={{ marginBottom: 8 }}>
-                            <div className="haccpTempRow" style={locked ? { background: "#f8fafc", borderRadius: 8, padding: "4px 6px" } : undefined}>
+                          <div key={idx} style={{ marginBottom: 6 }}>
+                            <div className="haccpTempRow">
                               <input className="haccpFoodNameInput" type="text"
                                 value={foodName}
-                                readOnly={locked}
+                                disabled={isSubmitted}
                                 onChange={e => setFoodNames(p => {
                                   const arr = [...(p[item.key] || [""])];
                                   arr[idx] = e.target.value;
                                   return { ...p, [item.key]: arr };
                                 })}
                                 placeholder="Food item (e.g. Chicken)"
-                                style={locked ? { background: "#f1f5f9", color: "#475569", cursor: "default" } : undefined} />
+                                style={{ opacity: isSubmitted ? 0.7 : 1 }} />
                               <div className="haccpTempInputWrap">
                                 <input className="haccpTempInput" type="number" inputMode="decimal"
                                   value={val}
-                                  readOnly={locked}
+                                  disabled={isSubmitted}
                                   onChange={e => setTemps(p => {
                                     const arr = [...(p[item.key] || [""])];
                                     arr[idx] = e.target.value;
                                     return { ...p, [item.key]: arr };
                                   })}
                                   placeholder="—"
-                                  style={locked
-                                    ? { background: "#f1f5f9", color: "#475569", cursor: "default", ...(pass === false ? { borderColor: "#dc2626" } : pass === true ? { borderColor: "#16a34a" } : {}) }
-                                    : undefined} />
+                                  style={{ opacity: isSubmitted ? 0.7 : 1 }} />
                                 <span className="haccpTempUnit">{item.unit}</span>
                               </div>
-                              {locked ? (
-                                <span className={`haccpTempStatus ${pass === null ? "empty" : pass ? "pass" : "fail"}`}>
-                                  {pass === null ? "—" : pass ? "✓ OK" : "⚠️ Flag"}
+                              {/* Pass/flag badge — only after submit */}
+                              {isSubmitted && pass !== null && (
+                                <span className={`haccpTempStatus ${pass ? "pass" : "fail"}`}>
+                                  {pass ? "✓ OK" : "⚠ Flag"}
                                 </span>
-                              ) : (
+                              )}
+                              {/* Submit button — before confirming */}
+                              {!isSubmitted && (
                                 <button type="button"
-                                  onClick={() => {
-                                    if (!canLock) return;
-                                    setLockedReadings(p => new Set([...p, caKey]));
-                                  }}
-                                  style={{
-                                    fontSize: "0.72rem", fontWeight: 700, padding: "3px 10px",
-                                    borderRadius: 6, border: "none", cursor: canLock ? "pointer" : "not-allowed",
-                                    background: canLock ? "#1e40af" : "#cbd5e1", color: "#fff",
-                                    whiteSpace: "nowrap", flexShrink: 0,
-                                  }}
-                                  title={canLock ? "Lock this reading" : "Enter food name and temperature first"}>
-                                  ✔ Submit
+                                  style={{ background: canSubmit ? "#2563eb" : "#e2e8f0", color: canSubmit ? "#fff" : "#9ca3af", fontWeight: 700, fontSize: "0.75rem", padding: "5px 12px", borderRadius: 8, flexShrink: 0, cursor: canSubmit ? "pointer" : "default", border: "none", whiteSpace: "nowrap" }}
+                                  disabled={!canSubmit}
+                                  onClick={() => setTempSubmitted(p => {
+                                    const arr = [...(p[item.key] || [false])];
+                                    arr[idx] = true;
+                                    return { ...p, [item.key]: arr };
+                                  })}>
+                                  Submit
                                 </button>
                               )}
-                              {!locked && readings.length > 1 && (
+                              {readings.length > 1 && (
                                 <button type="button" className="haccpRemoveReadingBtn"
                                   onClick={() => {
-                                    setTemps(p => {
-                                      const arr = (p[item.key] || [""]).filter((_, i) => i !== idx);
-                                      return { ...p, [item.key]: arr.length ? arr : [""] };
-                                    });
-                                    setFoodNames(p => {
-                                      const arr = (p[item.key] || [""]).filter((_, i) => i !== idx);
-                                      return { ...p, [item.key]: arr.length ? arr : [""] };
-                                    });
-                                    setCorrectiveActions(p => { const n = { ...p }; delete n[caKey]; return n; });
+                                    setTemps(p => { const arr = (p[item.key]||[""]).filter((_,i)=>i!==idx); return {...p,[item.key]:arr.length?arr:[""]}; });
+                                    setFoodNames(p => { const arr = (p[item.key]||[""]).filter((_,i)=>i!==idx); return {...p,[item.key]:arr.length?arr:[""]}; });
+                                    setTempSubmitted(p => { const arr = (p[item.key]||[false]).filter((_,i)=>i!==idx); return {...p,[item.key]:arr.length?arr:[false]}; });
+                                    setTempCorrections(p => { const arr = (p[item.key]||[""]).filter((_,i)=>i!==idx); return {...p,[item.key]:arr.length?arr:[""]}; });
                                   }}>✕</button>
                               )}
                             </div>
-                            {locked && pass === false && (
-                              <div style={{ marginTop: 6, display: "flex", flexDirection: "column", gap: 6 }}>
-                                <div style={{ fontSize: "0.75rem", color: "#b45309", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 6, padding: "5px 8px" }}>
-                                  ⚠️ Take another temperature reading in 30 minutes
-                                </div>
+                            {/* Corrective action — only shown after submit when flagged */}
+                            {isSubmitted && pass === false && (
+                              <div style={{ background: "#fff5f5", border: `1px solid ${needsCorrection ? "#dc2626" : "#fca5a5"}`, borderRadius: 8, padding: "8px 10px", marginTop: 4 }}>
+                                <label style={{ display: "block", fontSize: "0.72rem", fontWeight: 700, color: "#dc2626", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                                  🔧 CORRECTIVE ACTION TAKEN *
+                                </label>
                                 <textarea
-                                  className="haccpFoodNameInput"
                                   rows={2}
-                                  value={correctiveActions[caKey] || ""}
-                                  onChange={e => setCorrectiveActions(p => ({ ...p, [caKey]: e.target.value }))}
-                                  placeholder="Corrective action taken (required for off-temp)"
-                                  style={{ resize: "vertical", fontSize: "0.82rem", fontFamily: "inherit", borderColor: correctiveActions[caKey]?.trim() ? undefined : "#dc2626" }}
+                                  placeholder="What was done to correct this? (e.g. Discarded food, adjusted equipment…)"
+                                  value={correction}
+                                  onChange={e => setTempCorrections(p => {
+                                    const arr = [...(p[item.key] || [""])];
+                                    arr[idx] = e.target.value;
+                                    return { ...p, [item.key]: arr };
+                                  })}
+                                  style={{ width: "100%", fontSize: "0.82rem", resize: "vertical", borderColor: needsCorrection ? "#dc2626" : "#fca5a5", border: `1px solid ${needsCorrection ? "#dc2626" : "#fca5a5"}`, borderRadius: 6, padding: "6px 8px", outline: "none" }}
                                 />
+                                {needsCorrection && (
+                                  <div style={{ fontSize: "0.72rem", color: "#dc2626", marginTop: 3, fontWeight: 600 }}>
+                                    Required — enter corrective action for out-of-range temperatures
+                                  </div>
+                                )}
                               </div>
                             )}
                           </div>
@@ -18611,13 +18601,11 @@ function HaccpPortal() {
                       type="button" onClick={() => setSeverity(val)}>{label}</button>
                   ))}
                 </div>
-                <input ref={problemPhotoRef} type="file" accept="image/*" multiple className="fileInput"
-                  onChange={e => { addProblemPhotos(e.target.files); e.target.value = ""; }} />
-                <button type="button" className="btn btnGhost btnSmall photoBtn"
-                  style={{ marginTop: 8 }}
-                  onClick={() => problemPhotoRef.current?.click()}>
+                <label className="btn btnGhost btnSmall photoBtn" style={{ marginTop: 8, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}>
                   📷 Add photos to report
-                </button>
+                  <input ref={problemPhotoRef} type="file" accept="image/*" multiple className="fileInput"
+                    onChange={e => { addProblemPhotos(e.target.files); e.target.value = ""; }} />
+                </label>
                 {photoError && (
                   <div style={{ marginTop: 8, padding: "0.5rem 0.75rem", background: "#fef3c7", border: "1px solid #f59e0b", borderRadius: 6, color: "#92400e", fontSize: "0.82rem" }}>
                     {photoError}
@@ -18693,6 +18681,8 @@ function HaccpPortal() {
               setProblemPhotos([]);
               setTemps(Object.fromEntries(HACCP_TEMP_ITEMS.map(it => [it.key, [""]])));
               setFoodNames(Object.fromEntries(HACCP_TEMP_ITEMS.map(it => [it.key, [""]])));
+              setTempSubmitted(Object.fromEntries(HACCP_TEMP_ITEMS.map(it => [it.key, [false]])));
+              setTempCorrections(Object.fromEntries(HACCP_TEMP_ITEMS.map(it => [it.key, [""]])));
               setCustomItems([]);
               setEditingLabel(null);
               setEditingLabelVal("");
@@ -18913,7 +18903,7 @@ export default function App() {
     } catch { /* ignore — audio context may be blocked */ }
   }
 
-  function fireNotification(id, type, title, body, url, meta = {}) {
+  function fireNotification(id, type, title, body, url) {
     // Track seen IDs to avoid duplicate notifications
     let seen = [];
     try { seen = JSON.parse(localStorage.getItem(NOTIF_SEEN_KEY) || "[]"); } catch { seen = []; }
@@ -18923,7 +18913,7 @@ export default function App() {
     localStorage.setItem(NOTIF_SEEN_KEY, JSON.stringify(seen.slice(-500)));
 
     // Add to in-app notification list
-    setNotifItems(prev => [{ id, type, title, body, url, ts: Date.now(), ...meta }, ...prev].slice(0, 50));
+    setNotifItems(prev => [{ id, type, title, body, url, ts: Date.now() }, ...prev].slice(0, 50));
 
     // Play alert sound
     playBeep();
@@ -19010,7 +19000,7 @@ export default function App() {
       } catch { /* ignore */ }
     }
     checkPending();
-    const iv = setInterval(checkPending, 30000); // re-check every 30s
+    const iv = setInterval(checkPending, 60000); // re-check every 60s
     return () => clearInterval(iv);
   }, [currentUser, locked, page]);
 
@@ -19024,14 +19014,10 @@ export default function App() {
         const reports = await loadProblemReports();
         for (const r of reports) {
           const nid = `problem_${r.id}`;
-          const site = r.siteName || r.site || r.location || "this location";
-          const unitStr = r.siteNumber || r.unit || "";
-          fireNotification(nid, "problem_report", "⚠️ Problem Report", `${r.description?.slice(0, 80) || "New problem flagged."}`, null, {
-            siteName: site,
-            siteNumber: unitStr,
-            supervisorName: r.supervisorName || "",
-            reportId: r.reportId || "",
-          });
+          const site = r.siteName || r.location || "this location";
+          const unitPart = r.siteNumber ? ` · Unit ${r.siteNumber}` : "";
+          const supPart = r.supervisorName ? ` · Supervisor: ${r.supervisorName}` : "";
+          fireNotification(nid, "problem_report", "Problem Report Submitted", `${site}${unitPart}${supPart}`, `record:${r.id}`);
         }
       } catch { /* ignore */ }
 
@@ -19042,16 +19028,13 @@ export default function App() {
         const msgs = snap.docs.map(d => d.data()).filter(m => !m.fromSupervisor);
         for (const m of msgs) {
           const nid = `chat_${m.id}`;
-          const locationTag = m.siteNumber ? `Unit ${m.siteNumber}` : (m.siteName || "");
-          const title = m.sender ? `💬 ${m.sender}` : "💬 Inspector Message";
-          const body = `${locationTag ? `[${locationTag}] ` : ""}${m.text?.slice(0, 100) || "A new message was sent."}`;
-          fireNotification(nid, "chat", title, body, null, { siteName: m.siteName || "", siteNumber: m.siteNumber || "", sender: m.sender || "", supervisorName: m.sender || "", reportId: m.sessionId || "" });
+          fireNotification(nid, "chat", "New Supervisor Chat Message", m.text?.slice(0, 80) || "A new message was sent.", null);
         }
       } catch { /* ignore */ }
     }
 
     pollForAdminNotifications();
-    const iv = setInterval(pollForAdminNotifications, 15000); // poll every 15s
+    const iv = setInterval(pollForAdminNotifications, 60000); // poll every 60s
     return () => clearInterval(iv);
   }, [currentUser, locked]);
 
@@ -19084,11 +19067,13 @@ export default function App() {
       const dateLabel = slot.date
         ? new Date(slot.date + "T12:00:00").toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })
         : slot.date;
+      const supPart = slot.supervisor ? ` · Supervisor: ${slot.supervisor}` : "";
+      const unitPart = slot.unit ? ` · Unit ${slot.unit}` : "";
       fireNotification(
         nid,
         "assignment",
-        "Inspection Assigned to You",
-        `You have an inspection at ${slot.location || "a location"}${slot.unit ? ` (Unit ${slot.unit})` : ""} on ${dateLabel}.`,
+        "📋 Inspection Assigned to You",
+        `${slot.location || "Location TBD"}${unitPart} · ${dateLabel}${supPart}${slot.note ? ` · ${slot.note}` : ""}`,
         null
       );
     }
@@ -19159,7 +19144,13 @@ export default function App() {
   const [foodTempNames, setFoodTempNames] = useState(() =>
     Object.fromEntries(HACCP_TEMP_ITEMS.map(it => [it.key, [""]]))
   );
-  const [lockedInspectorReadings, setLockedInspectorReadings] = useState(new Set());
+  const [foodTempCorrections, setFoodTempCorrections] = useState(() =>
+    Object.fromEntries(HACCP_TEMP_ITEMS.map(it => [it.key, [""]]))
+  );
+  // tracks which readings have been submitted (confirmed) — only submitted readings show pass/flag
+  const [foodTempSubmitted, setFoodTempSubmitted] = useState(() =>
+    Object.fromEntries(HACCP_TEMP_ITEMS.map(it => [it.key, [false]]))
+  );
   const [rawNotes, setRawNotes] = useState("");
   const [notesPhotos, setNotesPhotos] = useState([]);  // photos attached to raw notes section
   const notesPhotoRef = useRef(null);
@@ -19628,9 +19619,27 @@ export default function App() {
     resetActivity();
     // Merge shared site map from Firestore into local autofill memory (non-blocking)
     syncSharedSiteMap();
-    // Request browser notification permission for admin/global_admin users
-    if ((user?.role === "admin" || user?.role === "global_admin") && typeof Notification !== "undefined" && Notification.permission === "default") {
+    // Request browser notification permission
+    if (typeof Notification !== "undefined" && Notification.permission === "default") {
       Notification.requestPermission().catch(() => {});
+    }
+    // Load unread assignment notifications for inspectors/location managers
+    if (user?.name && FIREBASE_ON && (user?.role === "inspector" || user?.role === "location_manager" || user?.role === "admin" || user?.role === "global_admin")) {
+      getInspectorNotifications(user.name).then(notifs => {
+        notifs.forEach(n => {
+          const dateStr = n.date ? ` · ${n.date}` : "";
+          const unitStr = n.unit ? ` · Unit ${n.unit}` : "";
+          const supStr = n.supervisor ? ` · Supervisor: ${n.supervisor}` : "";
+          fireNotification(
+            `assignment_${n.id}`,
+            "assignment",
+            "📋 New Inspection Assigned",
+            `${n.location || "Location TBD"}${unitStr}${dateStr}${supStr}${n.note ? ` · ${n.note}` : ""}`,
+            null
+          );
+          markNotificationRead(n.id);
+        });
+      }).catch(() => {});
     }
     // Global admin lands on the global panel, not the inspector
     if (user?.role === "global_admin") {
@@ -19706,7 +19715,6 @@ export default function App() {
     />;
   }
   if (page === "performance") { AIEngine.trackPage("performance"); return <PerformanceDashboard onBack={() => setPage("admin")} managedVenueId={managedVenueId} managedVenueName={managedVenueName} />; }
-  if (page === "equipment_intel") { return <EquipmentIntelPage onBack={() => setPage("admin")} managedVenueId={managedVenueId} />; }
   if (page === "myteam")      { return <MyTeamPage currentUser={currentUser} onBack={() => setPage("inspector")} />; }
   if (page === "mylocations") { return <MyLocationsPage currentUser={currentUser} venueSettings={venueSettings} saveVenueSettings={saveVenueSettings} onBack={() => setPage("inspector")} onSelectLocation={(loc, slotId) => { setSiteName(loc); activeSlotIdRef.current = slotId || null; setPage("inspector"); window.scrollTo({ top: 0, behavior: "smooth" }); }} />; }
   if (page === "mytemps")           { return <MyTempsPage currentUser={currentUser} onBack={() => setPage("inspector")} />; }
@@ -19780,7 +19788,8 @@ export default function App() {
     setEventName("");
     setFoodTemps(Object.fromEntries(HACCP_TEMP_ITEMS.map(it => [it.key, [""]])));
     setFoodTempNames(Object.fromEntries(HACCP_TEMP_ITEMS.map(it => [it.key, [""]])));
-    setLockedInspectorReadings(new Set());
+    setFoodTempCorrections(Object.fromEntries(HACCP_TEMP_ITEMS.map(it => [it.key, [""]])));
+    setFoodTempSubmitted(Object.fromEntries(HACCP_TEMP_ITEMS.map(it => [it.key, [false]])));
     setFieldCorrections({});
     setNotesSuggestions(null);
     setSuggestionsDismissed(false);
@@ -19828,6 +19837,8 @@ export default function App() {
     }
     if (snapshot.foodTemps && typeof snapshot.foodTemps === "object") setFoodTemps({ ...snapshot.foodTemps });
     if (snapshot.foodTempNames && typeof snapshot.foodTempNames === "object") setFoodTempNames({ ...snapshot.foodTempNames });
+    if (snapshot.foodTempCorrections && typeof snapshot.foodTempCorrections === "object") setFoodTempCorrections({ ...snapshot.foodTempCorrections });
+    if (snapshot.foodTempSubmitted && typeof snapshot.foodTempSubmitted === "object") setFoodTempSubmitted({ ...snapshot.foodTempSubmitted });
     if (snapshot.inspection !== undefined) setNotesPhotos(Array.isArray(snapshot.inspection?._notesPhotos) ? snapshot.inspection?._notesPhotos : []);
     if (snapshot.suppliesNeeded !== undefined) setSuppliesNeeded(Array.isArray(snapshot.suppliesNeeded) ? snapshot.suppliesNeeded : []);
     if (snapshot.rawNotes !== undefined) setRawNotes(snapshot.rawNotes || "");
@@ -20020,20 +20031,20 @@ export default function App() {
       const out = {};
       for (const [k, v] of Object.entries(obj)) {
         if (k === "photos" && Array.isArray(v)) {
-          out.photos = v.map(p => {
-            // If previewUrl is a huge data URL (Firebase upload failed), fall back to thumbUrl
-            // to avoid exceeding Firestore's 1MB document limit.
-            const safePreview = p.previewUrl?.startsWith("http")
-              ? p.previewUrl                          // Firebase Storage URL — always safe
-              : (p.previewUrl && p.previewUrl.length < 80000)
-                ? p.previewUrl                        // small data URL — keep it
-                : (p.thumbUrl || "");                 // large data URL — use thumb instead
-            return {
-              id: p.id, name: p.name, sizeMb: p.sizeMb, type: p.type, tag: p.tag || "",
-              previewUrl: safePreview,
-              thumbUrl: p.thumbUrl || "",
-            };
-          });
+          out.photos = v.map(p => ({
+            id: p.id,
+            name: p.name,
+            sizeMb: p.sizeMb,
+            type: p.type,
+            tag: p.tag || "",
+            // Prefer HTTPS Storage URLs (no size concern).
+            // If Storage upload failed, previewUrl is a compressed thumbnail base64 (~5-15 KB)
+            // from compressImage(f, 200, 0.3) — small enough to keep in Firestore as a fallback.
+            // Only drop it if it's empty/undefined.
+            previewUrl: p.previewUrl || "",
+            // Keep thumbUrl so exports can fall back to it when Storage URL is unavailable.
+            thumbUrl: p.thumbUrl || "",
+          }));
         } else {
           out[k] = stripPhotos(v);
         }
@@ -20057,8 +20068,10 @@ export default function App() {
       temps: { ...inspection.temps },
       foodTemps: { ...foodTemps },
       foodTempNames: { ...foodTempNames },
+      foodTempCorrections: { ...foodTempCorrections },
+      foodTempSubmitted: { ...foodTempSubmitted },
       overallStatus: calcOverallStatus(inspection, { foodTemps, foodTempNames }),
-      actionItems: buildActionItems({ inspection, rawNotes, foodTemps, foodTempNames }),
+      actionItems: buildActionItems({ inspection, rawNotes, foodTemps, foodTempNames, foodTempCorrections, foodTempSubmitted }),
       rawNotes,
       // output is NOT stored — it's regenerated on demand from transformLocally.
       // Storing the full report text was pushing documents over Firestore's 1MB limit.
@@ -20085,44 +20098,8 @@ export default function App() {
     if (docSizeKb > 900) {
       console.warn("saveToHistory: document approaching 1MB limit!", docSizeKb, "KB");
     }
-    // If document is too large, strip ALL data URLs (keep only Firebase Storage http URLs) and retry
-    function nukeDataUrls(obj) {
-      if (!obj || typeof obj !== "object") return obj;
-      if (Array.isArray(obj)) return obj.map(nukeDataUrls);
-      const out = {};
-      for (const [k, v] of Object.entries(obj)) {
-        if (k === "photos" && Array.isArray(v)) {
-          out.photos = v.map(p => ({
-            id: p.id, name: p.name, sizeMb: p.sizeMb, type: p.type, tag: p.tag || "",
-            previewUrl: p.previewUrl?.startsWith("http") ? p.previewUrl : "",
-            thumbUrl: p.thumbUrl?.startsWith("http") ? p.thumbUrl : "",
-          }));
-        } else {
-          out[k] = nukeDataUrls(v);
-        }
-      }
-      return out;
-    }
-
-    async function trySave(rec) {
-      try {
-        await saveOneInspection(rec);
-        return true;
-      } catch (e) {
-        const errMsg = (e?.message || "").toLowerCase();
-        const isSizeErr = e?.code === "resource-exhausted" || errMsg.includes("size") || errMsg.includes("too large") || errMsg.includes("exceed");
-        if (isSizeErr) {
-          // Retry with all data URLs stripped — keep only Firebase Storage URLs
-          const slim = { ...rec, inspection: { ...nukeDataUrls(rec.inspection) } };
-          await saveOneInspection(slim);
-          return true;
-        }
-        throw e;
-      }
-    }
-
     try {
-      await trySave(record);
+      await saveOneInspection(record);
       learnFromSave(record);
       clearDraft(); // draft committed — remove auto-save
       reportInProgressRef.current = false; // prevent auto-save from re-saving completed inspection
@@ -20370,8 +20347,8 @@ export default function App() {
             <span className="genBtnLabel">{loading ? "Generating..." : "Generate Report"}</span>
           </button>
           <div className="topActionsDivider" aria-hidden="true" />
-          {/* Notification bell — shown only for admin users */}
-          {(currentUser?.role === "admin" || currentUser?.role === "global_admin") && (
+          {/* Notification bell — shown for all logged-in users */}
+          {currentUser && (
             <button
               ref={notifBellRef}
               className="hamburgerBtn"
@@ -20401,85 +20378,56 @@ export default function App() {
 
         {/* Notification dropdown */}
         {notifOpen && (
-          <div ref={notifDropRef} className="dropdownMenu" style={{ minWidth: 300, maxWidth: 380, maxHeight: 480, overflowY: "auto", background: "#fff", padding: 0 }}>
-            <div style={{ padding: "0.65rem 1rem", fontWeight: 700, fontSize: "0.85rem", color: "#2A295C", borderBottom: "2px solid #e2e8f0", display: "flex", justifyContent: "space-between", alignItems: "center", position: "sticky", top: 0, background: "#fff", zIndex: 1 }}>
+          <div ref={notifDropRef} className="dropdownMenu" style={{ minWidth: 300, maxWidth: 380, maxHeight: 420, overflowY: "auto", background: "#fff", padding: 0 }}>
+            <div style={{ padding: "0.65rem 1rem", fontWeight: 700, fontSize: "0.85rem", color: "#1e293b", borderBottom: "1px solid #e2e8f0", display: "flex", justifyContent: "space-between", alignItems: "center", background: "#f8fafc", borderRadius: "0 0 0 0" }}>
               <span>🔔 Notifications</span>
               {notifItems.length > 0 && (
-                <button type="button" style={{ background: "none", border: "none", cursor: "pointer", color: "#64748b", fontSize: "0.75rem", fontWeight: 600 }} onClick={() => setNotifItems([])}>
+                <button type="button" style={{ background: "none", border: "none", cursor: "pointer", color: "#64748b", fontSize: "0.75rem" }} onClick={() => setNotifItems([])}>
                   Clear all
                 </button>
               )}
             </div>
             {notifItems.length === 0 ? (
-              <div style={{ padding: "1.5rem 1rem", color: "#94a3b8", fontSize: "0.85rem", textAlign: "center" }}>No notifications</div>
+              <div style={{ padding: "1.5rem 1rem", color: "#64748b", fontSize: "0.85rem", textAlign: "center", background: "#fff" }}>No notifications</div>
             ) : (
-              notifItems.map(n => {
-                const accentColor = n.type === "chat" ? "#3b82f6" : n.type === "problem_report" ? "#ef4444" : n.type === "assignment" ? "#8b5cf6" : "#f59e0b";
-                const typeIcon = n.type === "chat" ? "💬" : n.type === "problem_report" ? "⚠️" : n.type === "assignment" ? "📋" : "🔔";
-                const typeLabel = n.type === "chat" ? "Message" : n.type === "problem_report" ? "Problem Report" : n.type === "assignment" ? "Assignment" : "Alert";
-                const hasReport = !!n.reportId;
-                return (
+              notifItems.map(n => (
                 <div
                   key={n.id}
-                  style={{ display: "flex", alignItems: "stretch", borderLeft: `3px solid ${accentColor}`, borderBottom: "1px solid #f1f5f9" }}
+                  style={{ display: "flex", alignItems: "stretch", borderLeft: `4px solid ${n.type === "chat" ? "#3b82f6" : n.type === "problem_report" ? "#ef4444" : "#f59e0b"}`, borderBottom: "1px solid #f1f5f9", background: "#fff" }}
                 >
                   <button
                     type="button"
-                    style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 4, background: "none", border: "none", borderRadius: 0, padding: "0.65rem 0.75rem", cursor: "pointer", width: "100%", textAlign: "left" }}
+                    style={{ flex: 1, flexDirection: "column", alignItems: "flex-start", gap: 3, background: "none", border: "none", cursor: "pointer", padding: "0.65rem 0.75rem", textAlign: "left" }}
                     onClick={() => {
                       setNotifItems(prev => prev.filter(x => x.id !== n.id));
                       setNotifOpen(false);
-                      if (hasReport) {
+                      if (n.type === "assignment") {
+                        setPage("mylocations");
+                      } else if (n.url && n.url.startsWith("record:")) {
+                        const recId = n.url.replace("record:", "");
                         setPage("history");
-                        setExpandedId(n.reportId);
-                        setTimeout(() => {
-                          const el = document.querySelector(`[data-recid="${n.reportId}"]`);
-                          if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
-                        }, 300);
-                      } else if (n.type === "chat" || n.type === "problem_report") {
+                        setTimeout(() => setExpandedId(recId), 300);
+                      } else {
                         setPage("admin");
                       }
                     }}
                   >
-                    {/* Type badge + time row */}
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", gap: 6 }}>
-                      <span style={{ fontSize: "0.7rem", fontWeight: 700, color: "#fff", background: accentColor, borderRadius: 4, padding: "2px 7px" }}>
-                        {typeIcon} {typeLabel}
-                      </span>
-                      <span style={{ fontSize: "0.68rem", color: "#64748b", flexShrink: 0, fontWeight: 500 }}>
-                        {new Date(n.ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                      </span>
-                    </div>
-                    {/* Supervisor name */}
-                    {(n.supervisorName || n.sender) && (
-                      <span style={{ fontWeight: 800, fontSize: "0.88rem", color: "#0f172a" }}>
-                        👤 {n.supervisorName || n.sender}
-                      </span>
-                    )}
-                    {/* Stand + unit */}
-                    {(n.siteName || n.siteNumber) && (
-                      <span style={{ fontSize: "0.76rem", fontWeight: 700, color: accentColor, background: `${accentColor}20`, borderRadius: 4, padding: "2px 8px", display: "inline-block" }}>
-                        📍 {[n.siteName, n.siteNumber ? `Unit ${n.siteNumber}` : ""].filter(Boolean).join(" · ")}
-                      </span>
-                    )}
-                    {/* Body text */}
-                    <span style={{ fontSize: "0.78rem", color: "#334155", whiteSpace: "normal", lineHeight: 1.4, fontWeight: 500 }}>{n.body}</span>
-                    {/* Tap hint */}
-                    {hasReport && (
-                      <span style={{ fontSize: "0.69rem", color: accentColor, fontWeight: 700 }}>Tap to open report →</span>
-                    )}
+                    <span style={{ fontWeight: 700, fontSize: "0.82rem", color: "#0f172a", display: "block" }}>{n.title}</span>
+                    <span style={{ fontSize: "0.78rem", color: "#334155", whiteSpace: "normal", display: "block", marginTop: 2, lineHeight: 1.4 }}>{n.body}</span>
+                    <span style={{ fontSize: "0.72rem", color: "#94a3b8", display: "block", marginTop: 3 }}>
+                      {new Date(n.ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                    </span>
                   </button>
                   <button
                     type="button"
                     onClick={e => { e.stopPropagation(); setNotifItems(prev => prev.filter(x => x.id !== n.id)); }}
-                    style={{ background: "none", border: "none", cursor: "pointer", padding: "0 0.75rem", color: "#94a3b8", fontSize: "1.2rem", flexShrink: 0, alignSelf: "center" }}
+                    style={{ background: "none", border: "none", cursor: "pointer", padding: "0 0.75rem", color: "#94a3b8", fontSize: "1.1rem", flexShrink: 0, alignSelf: "center" }}
                     aria-label="Dismiss notification"
                   >
                     ×
                   </button>
                 </div>
-                );
-              })
+              ))
             )}
           </div>
         )}
@@ -20610,9 +20558,9 @@ export default function App() {
             position: "fixed",
             inset: 0,
             zIndex: 99,
-            background: "rgba(15, 23, 42, 0.72)",
-            backdropFilter: "blur(6px)",
-            WebkitBackdropFilter: "blur(6px)",
+            background: "rgba(15, 23, 42, 0.35)",
+            backdropFilter: "blur(2px)",
+            WebkitBackdropFilter: "blur(2px)",
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
@@ -20778,6 +20726,13 @@ export default function App() {
                 );
               })}
             </div>
+            <button
+              type="button"
+              onClick={() => setPage("mylocations")}
+              style={{ marginTop: 10, background: "#2563eb", color: "#fff", border: "none", borderRadius: 8, padding: "0.45rem 1.1rem", fontWeight: 700, fontSize: "0.84rem", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}
+            >
+              📋 View My Full Task List →
+            </button>
           </div>
         );
       })()}
@@ -21103,31 +21058,7 @@ export default function App() {
                   className="input"
                   value={restaurantLicense === "NO LICENSE" ? "" : restaurantLicense}
                   disabled={restaurantLicense === "NO LICENSE"}
-                  onBlur={async (e) => {
-                    smartFieldCorrect("field-restaurantLicense", e.target.value);
-                    const entered = e.target.value.trim().toUpperCase();
-                    if (!entered || entered === "NO LICENSE") return;
-                    // Check if this license is new (not in registry or siteMap)
-                    try {
-                      const vid = activeVenueId || VENUE_ID;
-                      const registry = await loadLicenseRegistry(vid);
-                      const allKnownLicenses = new Set([
-                        ...Object.values(registry).map(r => (r.license || "").toUpperCase()),
-                      ]);
-                      // Also check localStorage siteMap
-                      try {
-                        const sm = JSON.parse(localStorage.getItem(`sdx_siteMap_${vid}`) || localStorage.getItem("sdx_siteMap") || "{}");
-                        Object.values(sm).forEach(s => { if (s.restaurantLicense) allKnownLicenses.add(s.restaurantLicense.toUpperCase()); });
-                      } catch {}
-                      if (allKnownLicenses.size > 0 && !allKnownLicenses.has(entered)) {
-                        if (window.confirm(`"${entered}" is a license number not previously seen in our records.\n\nIs this a NEW license for ${siteName || "this location"}?\n\nPress OK to keep it, or Cancel to clear the field.`)) {
-                          // keep — user confirmed it's new
-                        } else {
-                          setRestaurantLicense("");
-                        }
-                      }
-                    } catch {}
-                  }}
+                  onBlur={(e) => smartFieldCorrect("field-restaurantLicense", e.target.value)}
                   onChange={(e) => setRestaurantLicense(e.target.value.toUpperCase())}
                   placeholder={restaurantLicense === "NO LICENSE" ? "Marked as No License on File" : "e.g., FD-2024-00123"}
                   style={{
@@ -21251,7 +21182,8 @@ export default function App() {
                 <div className="guideStepTrack">
 
                   {/* ══ Step 0: Temps & Supplies ══════════════════════════ */}
-                  <div className="guideStepPanel" style={{ display: guideStep === 0 ? "block" : "none" }}>
+                  <div className="guideStepPanel">
+                  <div style={{ display: guideStep === 0 ? "block" : "none" }}>
 
               {/* ── Supplies Needed ─────────────────────────────────────── */}
               {(() => {
@@ -21384,28 +21316,60 @@ export default function App() {
                         </div>
                       ) : (
                         <>
-                          <div className="tempInputWrap">
-                            <input className="input tempInput" inputMode="numeric" value={inspection.temps.handSinkTempF}
-                              onBlur={(e) => smartFieldCorrect("field-handSinkTempF", e.target.value)}
-                              onChange={(e) => setInspection((prev) => ({ ...prev, temps: { ...prev.temps, handSinkTempF: e.target.value } }))}
-                              placeholder="97" />
-                            <span className="tempUnit">{"\u00B0F"}</span>
-                          </div>
-                          {fieldCorrections["field-handSinkTempF"] && <FieldCorrectionBanner correction={fieldCorrections["field-handSinkTempF"]} />}
                           {(() => {
                             const raw = inspection.temps.handSinkTempF;
-                            if (!raw || String(raw).replace(/\D/g, "").length < 2) return null;
+                            const digits = String(raw || "").replace(/\D/g, "");
+                            const isSubmitted = !!inspection.temps.handSinkSubmitted;
+                            const canSubmit = digits.length >= 2;
                             const v = Number(raw);
-                            if (v >= 95) return <span className="tempStatusBadge tempStatusGood">✅ {v}°F — Good</span>;
-                            if (v >= 85) return <span className="tempStatusBadge tempStatusWarn">⚠️ {v}°F — Low, needs 95°F</span>;
-                            return <span className="tempStatusBadge tempStatusBad">🚨 {v}°F — Too cold</span>;
+                            const isFlagged = isSubmitted && canSubmit && v < 95;
+                            const needsCorrection = isFlagged && !(inspection.temps.handSinkCorrection || "").trim();
+                            return (
+                              <>
+                                <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                                  <div className="tempInputWrap" style={{ flex: "0 0 auto" }}>
+                                    <input className="input tempInput" inputMode="numeric" value={raw}
+                                      disabled={isSubmitted}
+                                      onBlur={(e) => !isSubmitted && smartFieldCorrect("field-handSinkTempF", e.target.value)}
+                                      onChange={(e) => setInspection((prev) => ({ ...prev, temps: { ...prev.temps, handSinkTempF: e.target.value } }))}
+                                      placeholder="97"
+                                      style={isSubmitted ? { opacity: 0.6, background: "#f8fafc" } : {}} />
+                                    <span className="tempUnit">{String.fromCharCode(176) + "F"}</span>
+                                  </div>
+                                  {!isSubmitted && (
+                                    <button type="button"
+                                      style={{ background: canSubmit ? "#2563eb" : "#e2e8f0", color: canSubmit ? "#fff" : "#9ca3af", fontWeight: 700, fontSize: "0.75rem", padding: "4px 12px", borderRadius: 8, flexShrink: 0, cursor: canSubmit ? "pointer" : "default", border: "none" }}
+                                      disabled={!canSubmit}
+                                      onClick={() => setInspection(prev => ({ ...prev, temps: { ...prev.temps, handSinkSubmitted: true } }))}>
+                                      Submit
+                                    </button>
+                                  )}
+                                  {isSubmitted && canSubmit && (
+                                    <span style={{ fontSize: "0.75rem", fontWeight: 700, padding: "3px 10px", borderRadius: 8, background: !isFlagged ? "#dcfce7" : "#fee2e2", color: !isFlagged ? "#15803d" : "#dc2626" }}>
+                                      {!isFlagged ? "\u2713 OK" : "\u26a0 Flag"}
+                                    </span>
+                                  )}
+                                </div>
+                                {fieldCorrections["field-handSinkTempF"] && <FieldCorrectionBanner correction={fieldCorrections["field-handSinkTempF"]} />}
+                                {isFlagged && (
+                                  <div style={{ width: "100%", background: "#fff5f5", border: `1px solid ${needsCorrection ? "#dc2626" : "#fca5a5"}`, borderRadius: 8, padding: "8px 10px", marginTop: 6 }}>
+                                    <label style={{ display: "block", fontSize: "0.72rem", fontWeight: 700, color: "#dc2626", marginBottom: 4 }}>{String.fromCharCode(0x1F527)} CORRECTIVE ACTION TAKEN *</label>
+                                    <textarea className="input" rows={2} placeholder="What was done to correct this?..."
+                                      value={inspection.temps.handSinkCorrection || ""}
+                                      onChange={(e) => setInspection(prev => ({ ...prev, temps: { ...prev.temps, handSinkCorrection: e.target.value } }))}
+                                      style={{ borderColor: needsCorrection ? "#dc2626" : "#fca5a5", fontSize: "0.82rem" }} />
+                                    {needsCorrection && <div style={{ fontSize: "0.72rem", color: "#dc2626", fontWeight: 600 }}>Required — enter what corrective action was taken</div>}
+                                  </div>
+                                )}
+                                {isSubmitted && !isFlagged && (
+                                  <textarea className="input" rows={2} placeholder="Notes (optional)"
+                                    value={inspection.temps.handSinkNote || ""}
+                                    onChange={(e) => setInspection((prev) => ({ ...prev, temps: { ...prev.temps, handSinkNote: e.target.value } }))}
+                                    style={{ marginTop: 6, resize: "vertical", fontSize: "0.82rem" }} />
+                                )}
+                              </>
+                            );
                           })()}
-                          {inspection.temps.handSinkTempF !== "" && (
-                            <textarea className="input" rows={2} placeholder="Notes (optional)"
-                              value={inspection.temps.handSinkNote || ""}
-                              onChange={(e) => setInspection((prev) => ({ ...prev, temps: { ...prev.temps, handSinkNote: e.target.value } }))}
-                              style={{ marginTop: 6, resize: "vertical", fontSize: "0.82rem" }} />
-                          )}
                         </>
                       )}
                     </div>
@@ -21431,28 +21395,60 @@ export default function App() {
                         </div>
                       ) : (
                         <>
-                          <div className="tempInputWrap">
-                            <input className="input tempInput" inputMode="numeric" value={inspection.temps.threeCompSinkTempF}
-                              onBlur={(e) => smartFieldCorrect("field-threeCompSinkTempF", e.target.value)}
-                              onChange={(e) => setInspection((prev) => ({ ...prev, temps: { ...prev.temps, threeCompSinkTempF: e.target.value } }))}
-                              placeholder="112" />
-                            <span className="tempUnit">{"\u00B0F"}</span>
-                          </div>
-                          {fieldCorrections["field-threeCompSinkTempF"] && <FieldCorrectionBanner correction={fieldCorrections["field-threeCompSinkTempF"]} />}
                           {(() => {
                             const raw = inspection.temps.threeCompSinkTempF;
-                            if (!raw || String(raw).replace(/\D/g, "").length < 2) return null;
+                            const digits = String(raw || "").replace(/\D/g, "");
+                            const isSubmitted = !!inspection.temps.threeCompSinkSubmitted;
+                            const canSubmit = digits.length >= 2;
                             const v = Number(raw);
-                            if (v >= 110) return <span className="tempStatusBadge tempStatusGood">✅ {v}°F — Good</span>;
-                            if (v >= 100) return <span className="tempStatusBadge tempStatusWarn">⚠️ {v}°F — Low, needs 110°F</span>;
-                            return <span className="tempStatusBadge tempStatusBad">🚨 {v}°F — Too cold</span>;
+                            const isFlagged = isSubmitted && canSubmit && v < 110;
+                            const needsCorrection = isFlagged && !(inspection.temps.threeCompSinkCorrection || "").trim();
+                            return (
+                              <>
+                                <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                                  <div className="tempInputWrap" style={{ flex: "0 0 auto" }}>
+                                    <input className="input tempInput" inputMode="numeric" value={raw}
+                                      disabled={isSubmitted}
+                                      onBlur={(e) => !isSubmitted && smartFieldCorrect("field-threeCompSinkTempF", e.target.value)}
+                                      onChange={(e) => setInspection((prev) => ({ ...prev, temps: { ...prev.temps, threeCompSinkTempF: e.target.value } }))}
+                                      placeholder="112"
+                                      style={isSubmitted ? { opacity: 0.6, background: "#f8fafc" } : {}} />
+                                    <span className="tempUnit">{String.fromCharCode(176) + "F"}</span>
+                                  </div>
+                                  {!isSubmitted && (
+                                    <button type="button"
+                                      style={{ background: canSubmit ? "#2563eb" : "#e2e8f0", color: canSubmit ? "#fff" : "#9ca3af", fontWeight: 700, fontSize: "0.75rem", padding: "4px 12px", borderRadius: 8, flexShrink: 0, cursor: canSubmit ? "pointer" : "default", border: "none" }}
+                                      disabled={!canSubmit}
+                                      onClick={() => setInspection(prev => ({ ...prev, temps: { ...prev.temps, threeCompSinkSubmitted: true } }))}>
+                                      Submit
+                                    </button>
+                                  )}
+                                  {isSubmitted && canSubmit && (
+                                    <span style={{ fontSize: "0.75rem", fontWeight: 700, padding: "3px 10px", borderRadius: 8, background: !isFlagged ? "#dcfce7" : "#fee2e2", color: !isFlagged ? "#15803d" : "#dc2626" }}>
+                                      {!isFlagged ? "\u2713 OK" : "\u26a0 Flag"}
+                                    </span>
+                                  )}
+                                </div>
+                                {fieldCorrections["field-threeCompSinkTempF"] && <FieldCorrectionBanner correction={fieldCorrections["field-threeCompSinkTempF"]} />}
+                                {isFlagged && (
+                                  <div style={{ width: "100%", background: "#fff5f5", border: `1px solid ${needsCorrection ? "#dc2626" : "#fca5a5"}`, borderRadius: 8, padding: "8px 10px", marginTop: 6 }}>
+                                    <label style={{ display: "block", fontSize: "0.72rem", fontWeight: 700, color: "#dc2626", marginBottom: 4 }}>{String.fromCharCode(0x1F527)} CORRECTIVE ACTION TAKEN *</label>
+                                    <textarea className="input" rows={2} placeholder="What was done to correct this?..."
+                                      value={inspection.temps.threeCompSinkCorrection || ""}
+                                      onChange={(e) => setInspection(prev => ({ ...prev, temps: { ...prev.temps, threeCompSinkCorrection: e.target.value } }))}
+                                      style={{ borderColor: needsCorrection ? "#dc2626" : "#fca5a5", fontSize: "0.82rem" }} />
+                                    {needsCorrection && <div style={{ fontSize: "0.72rem", color: "#dc2626", fontWeight: 600 }}>Required — enter what corrective action was taken</div>}
+                                  </div>
+                                )}
+                                {isSubmitted && !isFlagged && (
+                                  <textarea className="input" rows={2} placeholder="Notes (optional)"
+                                    value={inspection.temps.threeCompSinkNote || ""}
+                                    onChange={(e) => setInspection((prev) => ({ ...prev, temps: { ...prev.temps, threeCompSinkNote: e.target.value } }))}
+                                    style={{ marginTop: 6, resize: "vertical", fontSize: "0.82rem" }} />
+                                )}
+                              </>
+                            );
                           })()}
-                          {inspection.temps.threeCompSinkTempF !== "" && (
-                            <textarea className="input" rows={2} placeholder="Notes (optional)"
-                              value={inspection.temps.threeCompSinkNote || ""}
-                              onChange={(e) => setInspection((prev) => ({ ...prev, temps: { ...prev.temps, threeCompSinkNote: e.target.value } }))}
-                              style={{ marginTop: 6, resize: "vertical", fontSize: "0.82rem" }} />
-                          )}
                         </>
                       )}
                     </div>
@@ -21460,7 +21456,7 @@ export default function App() {
                 </div>
 
                   </div>{/* end equipCheckWrapper */}
-                  </div>{/* end Step 0 panel */}
+                  </div>{/* end step-0 content */}
 
                   {/* ══ Step 1: Facilities ════════════════════════════════ */}
                   <div className="guideStepPanel" style={{ display: guideStep === 1 ? "block" : "none" }}>
@@ -21557,6 +21553,7 @@ export default function App() {
                   </div>{/* end Step 3 panel */}
 
                 </div>{/* end guideStepTrack */}
+              </div>{/* end guideStepViewport */}
 
               {/* ── Stepper navigation buttons ──────────────────────────── */}
               <div className="guideStepNav">
@@ -21623,6 +21620,8 @@ export default function App() {
                 {HACCP_TEMP_ITEMS.map(item => {
                   const readings = foodTemps[item.key] || [""];
                   const names = foodTempNames[item.key] || [""];
+                  const corrections = foodTempCorrections[item.key] || [""];
+                  const submitted = foodTempSubmitted[item.key] || [false];
                   return (
                     <div key={item.key} style={{ borderBottom: "1px solid #e2e8f0", paddingBottom: 10 }}>
                       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
@@ -21638,31 +21637,32 @@ export default function App() {
                           onClick={() => {
                             setFoodTemps(p => ({ ...p, [item.key]: [...(p[item.key] || [""]), ""] }));
                             setFoodTempNames(p => ({ ...p, [item.key]: [...(p[item.key] || [""]), ""] }));
+                            setFoodTempCorrections(p => ({ ...p, [item.key]: [...(p[item.key] || [""]), ""] }));
+                            setFoodTempSubmitted(p => ({ ...p, [item.key]: [...(p[item.key] || [false]), false] }));
                           }}>
                           + Reading
                         </button>
                       </div>
                       {readings.map((val, idx) => {
-                        const name = names[idx] ?? "";
-                        const inspLockKey = `${item.key}_${idx}`;
-                        const locked = lockedInspectorReadings.has(inspLockKey);
+                        const isSubmitted = submitted[idx] === true;
                         const rawDigits = String(val).replace(/\D/g, "");
-                        const hasName = name.trim().length > 0;
-                        const hasTemp = rawDigits.length >= 2;
-                        const pass = locked ? ((hasName && hasTemp) ? tempPass(item, val) : null) : null;
-                        const canLock = hasName && hasTemp;
+                        const pass = isSubmitted && rawDigits.length >= 2 ? tempPass(item, val) : null;
+                        const name = names[idx] ?? "";
+                        const correction = corrections[idx] ?? "";
                         const haccpFoodNameFieldId = `field-haccp-name-${item.key}-${idx}`;
+                        const needsCorrection = pass === false && !correction.trim();
+                        const canSubmit = rawDigits.length >= 2;
                         return (
                           <div key={idx} style={{ display: "flex", gap: 6, alignItems: "flex-start", marginBottom: 6, flexDirection: "column" }}>
-                            <div style={{ display: "flex", gap: 6, alignItems: "center", width: "100%", ...(locked ? { background: "#f8fafc", borderRadius: 8, padding: "4px 6px" } : {}) }}>
+                            <div style={{ display: "flex", gap: 6, alignItems: "center", width: "100%" }}>
                             <input
                               className="input"
                               type="text"
-                              placeholder="Food item"
+                              placeholder="Food item (e.g. Chicken)"
                               value={name}
-                              readOnly={locked}
+                              disabled={isSubmitted}
                               onBlur={e => {
-                                if (locked) return;
+                                if (isSubmitted) return;
                                 const v = e.target.value.trim();
                                 const tempOnly = /^\s*(\d{2,3}(\.\d)?)\s*°?\s*[Ff]?\s*$/.test(v);
                                 const numOnly = /^\d{2,3}$/.test(v);
@@ -21690,7 +21690,7 @@ export default function App() {
                                 arr[idx] = e.target.value;
                                 return { ...p, [item.key]: arr };
                               })}
-                              style={{ flex: 1, minWidth: 0, fontSize: "0.82rem", ...(locked ? { background: "#f1f5f9", color: "#475569", cursor: "default" } : {}) }}
+                              style={{ flex: 1, minWidth: 0, fontSize: "0.82rem", opacity: isSubmitted ? 0.7 : 1 }}
                             />
                             <div className="tempInputWrap" style={{ width: 90 }}>
                               <input
@@ -21699,42 +21699,48 @@ export default function App() {
                                 inputMode="decimal"
                                 placeholder="—"
                                 value={val}
-                                readOnly={locked}
+                                disabled={isSubmitted}
                                 onChange={e => setFoodTemps(p => {
                                   const arr = [...(p[item.key] || [""])];
                                   arr[idx] = e.target.value;
                                   return { ...p, [item.key]: arr };
                                 })}
-                                style={locked
-                                  ? { background: "#f1f5f9", color: "#475569", cursor: "default", ...(pass === false ? { borderColor: "#dc2626" } : pass === true ? { borderColor: "#16a34a" } : {}) }
-                                  : undefined}
+                                style={{ opacity: isSubmitted ? 0.7 : 1 }}
                               />
                               <span className="tempUnit">°F</span>
                             </div>
-                            {locked ? (
+                            {/* Show result badge only after submit */}
+                            {isSubmitted && pass !== null && (
                               <span style={{
-                                fontSize: "0.75rem", fontWeight: 600, minWidth: 56, textAlign: "center",
-                                color: pass === null ? "#9ca3af" : pass ? "#16a34a" : "#dc2626",
+                                fontSize: "0.75rem", fontWeight: 700, minWidth: 56, textAlign: "center",
+                                padding: "3px 8px", borderRadius: 6,
+                                background: pass ? "#dcfce7" : "#fee2e2",
+                                color: pass ? "#15803d" : "#dc2626",
+                                flexShrink: 0,
                               }}>
-                                {pass === null ? "—" : pass ? "✓ OK" : "⚠️ Flag"}
+                                {pass ? "✓ OK" : "⚠ Flag"}
                               </span>
-                            ) : (
+                            )}
+                            {/* Submit button — only shown before confirming */}
+                            {!isSubmitted && (
                               <button type="button"
-                                onClick={() => { if (canLock) setLockedInspectorReadings(p => new Set([...p, inspLockKey])); }}
-                                style={{
-                                  fontSize: "0.72rem", fontWeight: 700, padding: "3px 10px",
-                                  borderRadius: 6, border: "none", cursor: canLock ? "pointer" : "not-allowed",
-                                  background: canLock ? "#1e40af" : "#cbd5e1", color: "#fff",
-                                  whiteSpace: "nowrap", flexShrink: 0,
-                                }}
-                                title={canLock ? "Lock this reading" : "Enter food name and temperature first"}>
-                                ✔ Submit
+                                className="btn btnSmall"
+                                style={{ background: canSubmit ? "#2563eb" : "#e2e8f0", color: canSubmit ? "#fff" : "#9ca3af", fontWeight: 700, fontSize: "0.75rem", padding: "4px 12px", borderRadius: 8, flexShrink: 0, cursor: canSubmit ? "pointer" : "default", border: "none" }}
+                                disabled={!canSubmit}
+                                onClick={() => {
+                                  setFoodTempSubmitted(p => {
+                                    const arr = [...(p[item.key] || [false])];
+                                    arr[idx] = true;
+                                    return { ...p, [item.key]: arr };
+                                  });
+                                }}>
+                                Submit
                               </button>
                             )}
-                            {!locked && readings.length > 1 && (
+                            {readings.length > 1 && (
                               <button type="button"
                                 className="btn btnGhost btnSmall"
-                                style={{ color: "#9ca3af", padding: "2px 6px", fontSize: "0.8rem" }}
+                                style={{ color: "#9ca3af", padding: "2px 6px", fontSize: "0.8rem", flexShrink: 0 }}
                                 onClick={() => {
                                   setFoodTemps(p => {
                                     const arr = (p[item.key] || [""]).filter((_, i) => i !== idx);
@@ -21744,18 +21750,41 @@ export default function App() {
                                     const arr = (p[item.key] || [""]).filter((_, i) => i !== idx);
                                     return { ...p, [item.key]: arr.length ? arr : [""] };
                                   });
-                                  setLockedInspectorReadings(p => {
-                                    const n = new Set(p);
-                                    n.delete(inspLockKey);
-                                    return n;
+                                  setFoodTempCorrections(p => {
+                                    const arr = (p[item.key] || [""]).filter((_, i) => i !== idx);
+                                    return { ...p, [item.key]: arr.length ? arr : [""] };
+                                  });
+                                  setFoodTempSubmitted(p => {
+                                    const arr = (p[item.key] || [false]).filter((_, i) => i !== idx);
+                                    return { ...p, [item.key]: arr.length ? arr : [false] };
                                   });
                                 }}>✕</button>
                             )}
                             </div>
-                            {!locked && fieldCorrections[haccpFoodNameFieldId] && <FieldCorrectionBanner correction={fieldCorrections[haccpFoodNameFieldId]} />}
-                            {locked && pass === false && (
-                              <div style={{ fontSize: "0.75rem", color: "#b45309", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 6, padding: "4px 8px", marginTop: 2, width: "100%" }}>
-                                📋 Off temp — will be added as a follow-up action item
+                            {fieldCorrections[haccpFoodNameFieldId] && <FieldCorrectionBanner correction={fieldCorrections[haccpFoodNameFieldId]} />}
+                            {/* Corrective action — only shown after submit when flagged */}
+                            {isSubmitted && pass === false && (
+                              <div style={{ width: "100%", background: "#fff5f5", border: `1px solid ${needsCorrection ? "#dc2626" : "#fca5a5"}`, borderRadius: 8, padding: "8px 10px", marginTop: 2 }}>
+                                <label style={{ display: "block", fontSize: "0.72rem", fontWeight: 700, color: "#dc2626", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                                  🔧 CORRECTIVE ACTION TAKEN *
+                                </label>
+                                <textarea
+                                  className="input"
+                                  rows={2}
+                                  placeholder="What was done to correct this? (e.g. Discarded food, adjusted equipment, reheated to 165°F…)"
+                                  value={correction}
+                                  onChange={e => setFoodTempCorrections(p => {
+                                    const arr = [...(p[item.key] || [""])];
+                                    arr[idx] = e.target.value;
+                                    return { ...p, [item.key]: arr };
+                                  })}
+                                  style={{ width: "100%", fontSize: "0.82rem", resize: "vertical", borderColor: needsCorrection ? "#dc2626" : "#fca5a5", background: "#fff" }}
+                                />
+                                {needsCorrection && (
+                                  <div style={{ fontSize: "0.72rem", color: "#dc2626", marginTop: 3, fontWeight: 600 }}>
+                                    Required — enter what corrective action was taken
+                                  </div>
+                                )}
                               </div>
                             )}
                           </div>
@@ -22111,7 +22140,7 @@ export default function App() {
                 {/* ── Live HACCP Temperature Logs — real-time from supervisor ── */}
                 <LiveHaccpPanel reportId={savedReportId} subsFromParent={liveHaccpSubs} />
                 {/* ── Inline Supervisor Chat — scoped to this report's ID ── */}
-                <InlineChat currentUser={currentUser} sessionId={savedReportId} siteName={siteName} siteNumber={siteNumber} />
+                <InlineChat currentUser={currentUser} sessionId={savedReportId} />
               </>
             )}
           </div>
