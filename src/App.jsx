@@ -7796,7 +7796,7 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
     ws2.mergeCells(`A${s2Title.number}:M${s2Title.number}`);
     applyB(s2Title.getCell(1), bHdr(10));
 
-    const s2Headers = ["#", "Site / Location", "Unit #", "Location Type", "Date", "Inspection Type", "Inspector", "Area", "Issue", "Inspector Notes", "Owner", "Due Date", "Priority"];
+    const s2Headers = ["#", "Site / Location", "Unit #", "Location Type", "Date", "Inspection Type", "Inspector", "Area", "Issue", "Inspector Notes", "Owner", "Due Date", "Status"];
     const s2HRow = ws2.addRow(s2Headers);
     s2HRow.height = 20;
     s2Headers.forEach((_, ci) => applyB(s2HRow.getCell(ci + 1), bSubHdr()));
@@ -7809,15 +7809,16 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
         rowNum++;
         const { area, issue } = splitIssue(a);
         const notes = str(a.notes || a.corrective || "");
-        const pri = str(a.priority || "");
+        // Use the inspector's chosen status; fall back to priority label only if no status set
+        const statusLabel = str(a.status && a.status !== "OK" ? a.status : (a.priority || ""));
         const bg = rowNum % 2 === 0 ? SILVER : WHITE;
         const row = ws2.addRow([
           rowNum, str(rec.siteName || rec.location), str(rec.siteNumber), str(rec.locationType),
           str(rec.inspectionDate), str(rec.inspectionType), str(rec.inspectorName),
-          area, issue, notes, str(a.owner || "—"), str(a.due || "—"), pri,
+          area, issue, notes, str(a.owner || "—"), str(a.due || "—"), statusLabel,
         ]);
         [1,2,3,4,5,6,7,8,9,10,11,12].forEach(ci => { row.getCell(ci).style = bBody(bg); });
-        row.getCell(13).style = bPriority(pri);
+        row.getCell(13).style = bStatusExt(statusLabel);
       });
     });
 
@@ -10272,7 +10273,8 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
         const exportAccentMid = showIssueFilter === "excel" ? "#dcfce7" : showIssueFilter === "pdf" ? "#fee2e2" : "#dbeafe";
         const exportLabel = showIssueFilter === "excel" ? "Excel" : showIssueFilter === "pdf" ? "PDF" : "Word";
         const exportIcon = showIssueFilter === "excel" ? "📊" : showIssueFilter === "pdf" ? "📄" : "📝";
-        const highCount = allIssues.filter(i => i.priority === "High" && effectiveKeys.has(i.key)).length;
+        const CRITICAL_STATUSES = new Set(["Fail", "Not Clean", "Critical Violation", "Needs Attention"]);
+        const highCount = allIssues.filter(i => effectiveKeys.has(i.key) && (CRITICAL_STATUSES.has(i.status) || (!i.status && i.priority === "High"))).length;
         const selectedCount = effectiveKeys.size;
 
         return (
@@ -10322,7 +10324,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                   </div>
                   {highCount > 0 && (
                     <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 10px", borderRadius: 8, background: "#fff7ed", border: "1px solid #fed7aa" }}>
-                      <span style={{ fontSize: "0.78rem", fontWeight: 700, color: "#c2410c" }}>⚠ {highCount} high priority</span>
+                      <span style={{ fontSize: "0.78rem", fontWeight: 700, color: "#c2410c" }}>⚠ {highCount} critical status</span>
                     </div>
                   )}
                   <button type="button"
