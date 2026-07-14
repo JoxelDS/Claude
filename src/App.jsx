@@ -2577,14 +2577,14 @@ function buildPhotoIndex(inspection, notesPhotos) {
       n += 1;
       mapByPath[pathKey].push(n);
       const caption = sanitizeText(node?.notes) || sanitizeText(p?.name) || "";
-      index.push({ num: n, label, caption, previewUrl: p.previewUrl || null, thumbUrl: p.thumbUrl || null });
+      index.push({ num: n, label, caption, previewUrl: p.previewUrl || p.url || p.dataUrl || null, thumbUrl: p.thumbUrl || null });
     }
   }
   // Include notes photos (attached to the raw notes / inspector notes section)
   const notesPhotoArr = notesPhotos || inspection?._notesPhotos || [];
   for (const p of notesPhotoArr) {
     n += 1;
-    index.push({ num: n, label: "Inspector Notes", caption: sanitizeText(p?.name) || "", previewUrl: p.previewUrl || null, thumbUrl: p.thumbUrl || null });
+    index.push({ num: n, label: "Inspector Notes", caption: sanitizeText(p?.name) || "", previewUrl: p.previewUrl || p.url || p.dataUrl || null, thumbUrl: p.thumbUrl || null });
   }
   return { index, mapByPath };
 }
@@ -16789,11 +16789,14 @@ function GuideSection({ title, items, inspection, setInspection, allowCustom, se
                       })()}
                       {isNA && <span className="naBadge">Not at this location</span>}
                     </div>
-                    {!isNA && (
-                      <select className="select selectSmall" value={current.status}
-                        onChange={(e) => setInspection((prev) => setAtPath(prev, it.path, { ...current, status: e.target.value }))}>
-                        {STATUS_OPTIONS.map((s) => (<option key={s} value={s}>{s}</option>))}
-                      </select>
+                    {!isNA && current.status && current.status !== "OK" && (
+                      <span style={{
+                        fontSize: "0.72rem", fontWeight: 700, padding: "2px 8px", borderRadius: 6,
+                        background: current.status === "Fail" || current.status === "Critical Violation" ? "#fef2f2" : "#fff7ed",
+                        color: current.status === "Fail" || current.status === "Critical Violation" ? "#dc2626" : "#c2410c",
+                        border: `1px solid ${current.status === "Fail" || current.status === "Critical Violation" ? "#fca5a5" : "#fed7aa"}`,
+                        whiteSpace: "nowrap",
+                      }}>{current.status}</span>
                     )}
                     <button type="button" className={`naToggleBtn${isNA ? " naToggleBtnActive" : ""}`}
                       title={isNA ? "Mark as present at this location" : "Mark as N/A — not at this location"}
