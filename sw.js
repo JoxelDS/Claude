@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v116: Revert photo quality and accidental-tap flag changes
-const CACHE_NAME = "sdx-inspect-v116";
+// v118: Fix build error — guide panels back to display:none/block
+const CACHE_NAME = "sdx-inspect-v118";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
