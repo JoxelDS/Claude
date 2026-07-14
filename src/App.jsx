@@ -16891,10 +16891,18 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
               const toggleNA = () => setInspection((prev) =>
                 setAtPath(prev, it.path, { ...current, notApplicable: !isNA })
               );
+              const isFilled = isNA || !!(current.status && current.status !== "OK") ||
+                !!(current.notes && current.notes.trim()) ||
+                !!(current.checklist && current.checklist.some(c => c.value === "NO")) ||
+                !!(current.photos && current.photos.length > 0) ||
+                !!(current.tempF);
+              const isItemOpen = expandedDetails[key] !== undefined ? expandedDetails[key] : isFilled;
               return (
                 <div className={`guideItem${isNA ? " guideItemNA" : ""}`} key={key}>
-                  <div className="guideItemHead">
-                    <div className="guideLabel">
+                  <button type="button" className="guideItemHead guideItemToggle"
+                    onClick={() => toggleDetails(key)}
+                    style={{ width: "100%", textAlign: "left", background: "none", border: "none", cursor: "pointer", padding: 0, display: "flex", alignItems: "center", gap: 8 }}>
+                    <div className="guideLabel" style={{ flex: 1 }}>
                       {(() => {
                         const parts = it.label.split(" — ");
                         const name = parts[0];
@@ -16905,7 +16913,7 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                               {name}
                               {coldInfo && !isNA && <span className="coldTypeBadge">{coldInfo.type === "cooler" ? "\u2744 Cooler" : "\u2744 Freezer"}</span>}
                             </span>
-                            {question && <span className="guideLabelQuestion">{question}</span>}
+                            {question && <span className="guideLabelQuestion" style={isItemOpen ? {} : { opacity: 0.6 }}>{question}</span>}
                           </>
                         );
                       })()}
@@ -16920,21 +16928,36 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                         whiteSpace: "nowrap",
                       }}>{current.status}</span>
                     )}
-                    <button type="button" className={`naToggleBtn${isNA ? " naToggleBtnActive" : ""}`}
-                      title={isNA ? "Mark as present at this location" : "Mark as N/A — not at this location"}
-                      onClick={toggleNA}>
-                      {isNA ? "↩ Undo N/A" : "N/A"}
-                    </button>
-                    {it.isCustom && (
-                      <button type="button" className="guideItemDeleteBtn" title="Remove item"
-                        onClick={() => setInspection(prev => {
-                          const section = { ...(prev[it.path[0]] || {}) };
-                          delete section[it.path[1]];
-                          return { ...prev, [it.path[0]]: section };
-                        })}>🗑️</button>
+                    {!isItemOpen && isFilled && !isNA && !(current.status && current.status !== "OK") && (
+                      <span style={{ fontSize: "0.7rem", fontWeight: 600, padding: "2px 8px", borderRadius: 6, background: "#f0fdf4", color: "#15803d", border: "1px solid #bbf7d0", whiteSpace: "nowrap" }}>✓ Filled</span>
                     )}
-                  </div>
-                  {!isNA && (
+                    {!isItemOpen && !isFilled && (
+                      <span style={{ fontSize: "0.7rem", color: "#94a3b8", fontStyle: "italic", whiteSpace: "nowrap" }}>Tap to fill in</span>
+                    )}
+                    <span style={{ fontSize: "0.75rem", color: "#94a3b8", display: "inline-block", transform: isItemOpen ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s", flexShrink: 0 }}>▼</span>
+                  </button>
+                  {isNA && (
+                    <div style={{ display: "flex", justifyContent: "flex-end", paddingRight: 4, paddingBottom: 4 }}>
+                      <button type="button" className="naToggleBtn naToggleBtnActive"
+                        onClick={e => { e.stopPropagation(); toggleNA(); }}>↩ Undo N/A</button>
+                    </div>
+                  )}
+                  {!isNA && isItemOpen && (
+                    <div style={{ display: "flex", justifyContent: "flex-end", gap: 6, paddingRight: 4, paddingBottom: 4 }}>
+                      <button type="button" className="naToggleBtn"
+                        title="Mark as N/A — not at this location"
+                        onClick={e => { e.stopPropagation(); toggleNA(); }}>N/A</button>
+                      {it.isCustom && (
+                        <button type="button" className="guideItemDeleteBtn" title="Remove item"
+                          onClick={e => { e.stopPropagation(); setInspection(prev => {
+                            const section = { ...(prev[it.path[0]] || {}) };
+                            delete section[it.path[1]];
+                            return { ...prev, [it.path[0]]: section };
+                          }); }}>🗑️</button>
+                      )}
+                    </div>
+                  )}
+                  {!isNA && isItemOpen && (
                     <>
                       {/* ── Equipment Info Bar: Brand | Location | Asset Tag ── */}
                       {sectionKey === "equipment" && (() => {
