@@ -17984,6 +17984,14 @@ function HaccpPortal() {
   const [foodNames, setFoodNames] = useState(() =>
     Object.fromEntries(HACCP_TEMP_ITEMS.map(it => [it.key, [""]]))
   );
+  // submitted: tracks which readings have been confirmed (pass/flag only shown after submit)
+  const [tempSubmitted, setTempSubmitted] = useState(() =>
+    Object.fromEntries(HACCP_TEMP_ITEMS.map(it => [it.key, [false]]))
+  );
+  // corrections: corrective action text for each flagged reading
+  const [tempCorrections, setTempCorrections] = useState(() =>
+    Object.fromEntries(HACCP_TEMP_ITEMS.map(it => [it.key, [""]]))
+  );
   // Custom temperature items added by the supervisor (beyond the 6 defaults)
   const [customItems, setCustomItems] = useState([]);
   // { key: string, label: string, unit: "°F", type: "hot"|"cold", min?: number, max?: number }
@@ -18110,6 +18118,7 @@ function HaccpPortal() {
       locationType: locType.trim(),
       temps: tempsFlat,
       foodNames: foodNamesFlat,
+      tempCorrections: Object.fromEntries(Object.entries(tempCorrections).map(([k, arr]) => [k, arr.map(v => (v || "").trim())])),
       itemLabels,
       customItems,
       problemReport: problem.trim() ? { text: problem.trim(), severity, photos: problemPhotos.map(p => ({ id: p.id, name: p.name, sizeMb: p.sizeMb, type: p.type, tag: p.tag || "", previewUrl: (p.previewUrl && !p.previewUrl.startsWith("data:")) ? p.previewUrl : "" })) } : null,
@@ -18338,51 +18347,111 @@ function HaccpPortal() {
                             onClick={() => {
                               setTemps(p => ({ ...p, [item.key]: [...(p[item.key] || [""]), ""] }));
                               setFoodNames(p => ({ ...p, [item.key]: [...(p[item.key] || [""]), ""] }));
+                              setTempSubmitted(p => ({ ...p, [item.key]: [...(p[item.key] || [false]), false] }));
+                              setTempCorrections(p => ({ ...p, [item.key]: [...(p[item.key] || [""]), ""] }));
                             }}>
                             + Reading
                           </button>
                         </div>
                       </div>
                       {readings.map((val, idx) => {
-                        const pass = tempPass(item, val);
+                        const isSubmitted = (tempSubmitted[item.key] || [])[idx] === true;
+                        const rawDigits = String(val).replace(/\D/g, "");
+                        const pass = isSubmitted && rawDigits.length >= 1 ? tempPass(item, val) : null;
                         const foodName = (foodNames[item.key] || [""])[idx] ?? "";
+                        const correction = (tempCorrections[item.key] || [""])[idx] ?? "";
+                        const canSubmit = rawDigits.length >= 1;
+                        const needsCorrection = pass === false && !correction.trim();
                         return (
-                          <div className="haccpTempRow" key={idx}>
-                            <input className="haccpFoodNameInput" type="text"
-                              value={foodName}
-                              onChange={e => setFoodNames(p => {
-                                const arr = [...(p[item.key] || [""])];
-                                arr[idx] = e.target.value;
-                                return { ...p, [item.key]: arr };
-                              })}
-                              placeholder="Food item (e.g. Chicken)" />
-                            <div className="haccpTempInputWrap">
-                              <input className="haccpTempInput" type="number" inputMode="decimal"
-                                value={val}
-                                onChange={e => setTemps(p => {
+                          <div key={idx} style={{ marginBottom: 6 }}>
+                            <div className="haccpTempRow">
+                              <input className="haccpFoodNameInput" type="text"
+                                value={foodName}
+                                disabled={isSubmitted}
+                                onChange={e => setFoodNames(p => {
                                   const arr = [...(p[item.key] || [""])];
                                   arr[idx] = e.target.value;
                                   return { ...p, [item.key]: arr };
                                 })}
-                                placeholder="—"
-                                style={pass === false ? { borderColor: "#dc2626", background: "#fff5f5" } : undefined} />
-                              <span className="haccpTempUnit">{item.unit}</span>
+                                placeholder="Food item (e.g. Chicken)"
+                                style={{ opacity: isSubmitted ? 0.7 : 1 }} />
+                              <div className="haccpTempInputWrap">
+                                <input className="haccpTempInput" type="number" inputMode="decimal"
+                                  value={val}
+                                  disabled={isSubmitted}
+                                  onChange={e => setTemps(p => {
+                                    const arr = [...(p[item.key] || [""])];
+                                    arr[idx] = e.target.value;
+                                    return { ...p, [item.key]: arr };
+                                  })}
+                                  placeholder="—"
+                                  style={{ opacity: isSubmitted ? 0.7 : 1 }} />
+                                <span className="haccpTempUnit">{item.unit}</span>
+                              </div>
+                              {/* Pass/flag badge — only after submit */}
+                              {isSubmitted && pass !== null && (
+                                <span className={`haccpTempStatus ${pass ? "pass" : "fail"}`}>
+                                  {pass ? "✓ OK" : "⚠ Flag"}
+                                </span>
+                              )}
+                              {/* Submit button — before confirming */}
+                              {!isSubmitted && (
+                                <button type="button"
+                                  style={{ background: canSubmit ? "#2563eb" : "#e2e8f0", color: canSubmit ? "#fff" : "#9ca3af", fontWeight: 700, fontSize: "0.75rem", padding: "5px 12px", borderRadius: 8, flexShrink: 0, cursor: canSubmit ? "pointer" : "default", border: "none", whiteSpace: "nowrap" }}
+                                  disabled={!canSubmit}
+                                  onClick={() => setTempSubmitted(p => {
+                                    const arr = [...(p[item.key] || [false])];
+                                    arr[idx] = true;
+                                    return { ...p, [item.key]: arr };
+                                  })}>
+                                  Submit
+                                </button>
+                              )}
+                              {/* Edit button — after submitting */}
+                              {isSubmitted && (
+                                <button type="button" className="haccpRemoveReadingBtn"
+                                  style={{ color: "#64748b", fontSize: "0.72rem", padding: "3px 8px" }}
+                                  onClick={() => setTempSubmitted(p => {
+                                    const arr = [...(p[item.key] || [false])];
+                                    arr[idx] = false;
+                                    return { ...p, [item.key]: arr };
+                                  })}>
+                                  Edit
+                                </button>
+                              )}
+                              {readings.length > 1 && (
+                                <button type="button" className="haccpRemoveReadingBtn"
+                                  onClick={() => {
+                                    setTemps(p => { const arr = (p[item.key]||[""]).filter((_,i)=>i!==idx); return {...p,[item.key]:arr.length?arr:[""]}; });
+                                    setFoodNames(p => { const arr = (p[item.key]||[""]).filter((_,i)=>i!==idx); return {...p,[item.key]:arr.length?arr:[""]}; });
+                                    setTempSubmitted(p => { const arr = (p[item.key]||[false]).filter((_,i)=>i!==idx); return {...p,[item.key]:arr.length?arr:[false]}; });
+                                    setTempCorrections(p => { const arr = (p[item.key]||[""]).filter((_,i)=>i!==idx); return {...p,[item.key]:arr.length?arr:[""]}; });
+                                  }}>✕</button>
+                              )}
                             </div>
-                            <span className={`haccpTempStatus ${pass === null ? "empty" : pass ? "pass" : "fail"}`}>
-                              {pass === null ? "—" : pass ? "✓ OK" : "⚠️ Flag"}
-                            </span>
-                            {readings.length > 1 && (
-                              <button type="button" className="haccpRemoveReadingBtn"
-                                onClick={() => {
-                                  setTemps(p => {
-                                    const arr = (p[item.key] || [""]).filter((_, i) => i !== idx);
-                                    return { ...p, [item.key]: arr.length ? arr : [""] };
-                                  });
-                                  setFoodNames(p => {
-                                    const arr = (p[item.key] || [""]).filter((_, i) => i !== idx);
-                                    return { ...p, [item.key]: arr.length ? arr : [""] };
-                                  });
-                                }}>✕</button>
+                            {/* Corrective action — only shown after submit when flagged */}
+                            {isSubmitted && pass === false && (
+                              <div style={{ background: "#fff5f5", border: `1px solid ${needsCorrection ? "#dc2626" : "#fca5a5"}`, borderRadius: 8, padding: "8px 10px", marginTop: 4 }}>
+                                <label style={{ display: "block", fontSize: "0.72rem", fontWeight: 700, color: "#dc2626", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                                  🔧 CORRECTIVE ACTION TAKEN *
+                                </label>
+                                <textarea
+                                  rows={2}
+                                  placeholder="What was done to correct this? (e.g. Discarded food, adjusted equipment…)"
+                                  value={correction}
+                                  onChange={e => setTempCorrections(p => {
+                                    const arr = [...(p[item.key] || [""])];
+                                    arr[idx] = e.target.value;
+                                    return { ...p, [item.key]: arr };
+                                  })}
+                                  style={{ width: "100%", fontSize: "0.82rem", resize: "vertical", borderColor: needsCorrection ? "#dc2626" : "#fca5a5", border: `1px solid ${needsCorrection ? "#dc2626" : "#fca5a5"}`, borderRadius: 6, padding: "6px 8px", outline: "none" }}
+                                />
+                                {needsCorrection && (
+                                  <div style={{ fontSize: "0.72rem", color: "#dc2626", marginTop: 3, fontWeight: 600 }}>
+                                    Required — enter corrective action for out-of-range temperatures
+                                  </div>
+                                )}
+                              </div>
                             )}
                           </div>
                         );
@@ -18501,6 +18570,8 @@ function HaccpPortal() {
               setProblemPhotos([]);
               setTemps(Object.fromEntries(HACCP_TEMP_ITEMS.map(it => [it.key, [""]])));
               setFoodNames(Object.fromEntries(HACCP_TEMP_ITEMS.map(it => [it.key, [""]])));
+              setTempSubmitted(Object.fromEntries(HACCP_TEMP_ITEMS.map(it => [it.key, [false]])));
+              setTempCorrections(Object.fromEntries(HACCP_TEMP_ITEMS.map(it => [it.key, [""]])));
               setCustomItems([]);
               setEditingLabel(null);
               setEditingLabelVal("");
