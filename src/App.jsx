@@ -2613,10 +2613,12 @@ function buildActionItems({ inspection, rawNotes, foodTemps: ftArg, foodTempName
       : [];
     const isFail = node.status === "Fail" || node.status === "Needs Attention" || node.status === "Not Clean" || node.status === "Maintenance";
     if (!isFail && failedChecks.length === 0) return;
+    // Skip if no specific detail — avoids phantom "Issue noted" from stale statuses
+    if (failedChecks.length === 0 && !sanitizeText(node.notes)) return;
     // Build issue description: list specific failed items, then other notes
     const failDetail = failedChecks.length > 0
       ? failedChecks.join(", ")
-      : (sanitizeText(node.notes) || "Issue noted");
+      : sanitizeText(node.notes);
     const otherNote = sanitizeText(node.notes);
     const issueText = failedChecks.length > 0 && otherNote
       ? `${failDetail} — Other: ${otherNote}`
@@ -2666,8 +2668,10 @@ function buildActionItems({ inspection, rawNotes, foodTemps: ftArg, foodTempName
   const pushMaint = (pathKey, label, node) => {
     if (!node?.status) return;
     if (node.status === "Needs Attention" || node.status === "Not Clean" || node.status === "Maintenance") {
+      const detail = sanitizeText(node.notes);
+      if (!detail) return; // skip if no description
       items.push({
-        issue: `Maintenance – ${label}: ${sanitizeText(node.notes) || "Issue noted"}`,
+        issue: `Maintenance – ${label}: ${detail}`,
         owner: "", due: "",
         priority: "Maintenance",
         photos: mapByPath[pathKey] || [],
@@ -7280,6 +7284,7 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
     loadHistory(managedVenueId || undefined, {
       dateFrom: filterDateFrom || undefined,
       dateTo: filterDateTo || undefined,
+      pageSize: 300,
     }).then(({ list, lastDoc, hasMore }) => {
       setHistory(list);
       setHistoryLastDoc(lastDoc);
@@ -16938,8 +16943,7 @@ function GuideSection({ title, items, inspection, setInspection, allowCustom, se
                           const next = cur2val === val ? "" : val;
                           const newChecklist = (cur2.checklist || []).map((c, i) => i === idx ? { ...c, value: next } : c);
                           const hasNo = newChecklist.some(c => c.value === "NO");
-                          const allAnswered = newChecklist.every(c => c.value !== "");
-                          const newStatus = hasNo ? "Fail" : (allAnswered ? "OK" : cur2.status);
+                          const newStatus = hasNo ? "Fail" : "OK";
                           return setAtPath(prev, it.path, { ...cur2, checklist: newChecklist, status: newStatus });
                         });
                         const makeSetComment = (idx, comment) => setInspection((prev) => {
@@ -17085,7 +17089,7 @@ function GuideSection({ title, items, inspection, setInspection, allowCustom, se
                                         <div className="ciPhotoStrip">
                                           {ciPhotos.map(p => (
                                             <div key={p.id} className="ciPhotoThumb">
-                                              <img src={p.url || p.dataUrl} alt="item photo" />
+                                              <img src={p.previewUrl || p.thumbUrl || p.url || p.dataUrl} alt="item photo" />
                                               <button
                                                 type="button"
                                                 className="ciPhotoRemove"
