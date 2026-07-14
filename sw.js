@@ -1,6 +1,6 @@
 // Sodexo Kitchen Inspection — Service Worker
-// v115: Skip accidental-tap flags — section needs failed checklist item or notes to appear in action items
-const CACHE_NAME = "sdx-inspect-v115";
+// v116: Revert photo quality and accidental-tap flag changes
+const CACHE_NAME = "sdx-inspect-v116";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
