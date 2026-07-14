@@ -7465,6 +7465,14 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
     });
   }, [history, filterDate, filterType, filterFloor, filterLocType, filterSite, filterIssue]);
 
+  // Pre-compute expensive per-record values once when filtered list changes
+  const filteredMeta = useMemo(() => {
+    return filtered.map(rec => ({
+      issues: buildActionItems({ inspection: rec.inspection, rawNotes: rec.rawNotes, foodTemps: rec.foodTemps, foodTempNames: rec.foodTempNames }),
+      score: calcInspectionScore(rec.inspection, { foodTemps: rec.foodTemps, foodTempNames: rec.foodTempNames }),
+    }));
+  }, [filtered]);
+
   // Function to jump to a specific location's reports
   function filterByLocation(locLabel) {
     setFilterSite(locLabel);
@@ -8921,10 +8929,10 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
 
   const importRef = useRef(null);
 
-  const uniqueDates = [...new Set(history.map(r => r.inspectionDate).filter(Boolean))].sort().reverse();
-  const uniqueTypes = [...new Set(history.map(r => r.inspectionType).filter(Boolean))].sort();
-  const uniqueFloors = [...new Set(history.map(r => r.floor).filter(Boolean))].sort();
-  const uniqueLocTypes = [...new Set(history.map(r => r.locationType).filter(Boolean))].sort();
+  const uniqueDates = useMemo(() => [...new Set(history.map(r => r.inspectionDate).filter(Boolean))].sort().reverse(), [history]);
+  const uniqueTypes = useMemo(() => [...new Set(history.map(r => r.inspectionType).filter(Boolean))].sort(), [history]);
+  const uniqueFloors = useMemo(() => [...new Set(history.map(r => r.floor).filter(Boolean))].sort(), [history]);
+  const uniqueLocTypes = useMemo(() => [...new Set(history.map(r => r.locationType).filter(Boolean))].sort(), [history]);
 
   return (
     <div className="appShell">
@@ -9435,11 +9443,11 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
               });
             } : undefined}
           >
-            {filtered.map(rec => {
+            {filtered.map((rec, recIdx) => {
               const isExpanded = expandedId === rec.id;
-              const issues = buildActionItems({ inspection: rec.inspection, rawNotes: rec.rawNotes, foodTemps: rec.foodTemps, foodTempNames: rec.foodTempNames });
+              const issues = filteredMeta[recIdx]?.issues || [];
               const statusColor = rec.overallStatus === "Pass" ? "#15803D" : "#EE0000";
-              const score = calcInspectionScore(rec.inspection, { foodTemps: rec.foodTemps, foodTempNames: rec.foodTempNames });
+              const score = filteredMeta[recIdx]?.score || calcInspectionScore(rec.inspection, { foodTemps: rec.foodTemps, foodTempNames: rec.foodTempNames });
               return (
                 <div
                   className="card historyCard"
@@ -16697,7 +16705,8 @@ async function processPhotoFiles(files, { limit, inspId, venueId, firebaseOn, on
   return { photos, failCount };
 }
 
-function GuideSection({ title, items, inspection, setInspection, allowCustom, sectionKey, coldEquipmentMap, maintenanceItems, emptyHint, inspectionId, onError, siteName, onOpenPrintLabels, defaultOpen = false }) {
+const GuideSection = React.memo(function GuideSection({ title, items, inspection, setInspection, allowCustom, sectionKey, coldEquipmentMap, maintenanceItems, emptyHint, inspectionId, onError, siteName, onOpenPrintLabels, defaultOpen = false }) {
+
   const fileRefs = useRef({});
   const [newItemName, setNewItemName] = useState("");
   const [newEquipType, setNewEquipType] = useState(null); // null = no type selected yet
@@ -17440,7 +17449,16 @@ function GuideSection({ title, items, inspection, setInspection, allowCustom, se
       )}
     </div>
   );
-}
+}, (prev, next) => {
+  // Only re-render when the section's own data or maintenance data changes
+  if (prev.sectionKey !== next.sectionKey) return false;
+  if (prev.inspection?.[prev.sectionKey] !== next.inspection?.[next.sectionKey]) return false;
+  if (prev.inspection?.maintenance !== next.inspection?.maintenance) return false;
+  if (prev.title !== next.title) return false;
+  if (prev.inspectionId !== next.inspectionId) return false;
+  if (prev.siteName !== next.siteName) return false;
+  return true;
+}); // end GuideSection React.memo
 
 /* ── Live HACCP Panel (real-time supervisor temp submissions) ── */
 // subsFromParent: if provided by the parent (already subscribed), use it directly
@@ -18877,7 +18895,7 @@ export default function App() {
       } catch { /* ignore */ }
     }
     checkPending();
-    const iv = setInterval(checkPending, 30000); // re-check every 30s
+    const iv = setInterval(checkPending, 60000); // re-check every 60s
     return () => clearInterval(iv);
   }, [currentUser, locked, page]);
 
@@ -18911,7 +18929,7 @@ export default function App() {
     }
 
     pollForAdminNotifications();
-    const iv = setInterval(pollForAdminNotifications, 15000); // poll every 15s
+    const iv = setInterval(pollForAdminNotifications, 60000); // poll every 60s
     return () => clearInterval(iv);
   }, [currentUser, locked]);
 
