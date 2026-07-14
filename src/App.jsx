@@ -18407,18 +18407,6 @@ function HaccpPortal() {
                                   Submit
                                 </button>
                               )}
-                              {/* Edit button — after submitting */}
-                              {isSubmitted && (
-                                <button type="button" className="haccpRemoveReadingBtn"
-                                  style={{ color: "#64748b", fontSize: "0.72rem", padding: "3px 8px" }}
-                                  onClick={() => setTempSubmitted(p => {
-                                    const arr = [...(p[item.key] || [false])];
-                                    arr[idx] = false;
-                                    return { ...p, [item.key]: arr };
-                                  })}>
-                                  Edit
-                                </button>
-                              )}
                               {readings.length > 1 && (
                                 <button type="button" className="haccpRemoveReadingBtn"
                                   onClick={() => {
@@ -21205,28 +21193,60 @@ export default function App() {
                         </div>
                       ) : (
                         <>
-                          <div className="tempInputWrap">
-                            <input className="input tempInput" inputMode="numeric" value={inspection.temps.handSinkTempF}
-                              onBlur={(e) => smartFieldCorrect("field-handSinkTempF", e.target.value)}
-                              onChange={(e) => setInspection((prev) => ({ ...prev, temps: { ...prev.temps, handSinkTempF: e.target.value } }))}
-                              placeholder="97" />
-                            <span className="tempUnit">{"\u00B0F"}</span>
-                          </div>
-                          {fieldCorrections["field-handSinkTempF"] && <FieldCorrectionBanner correction={fieldCorrections["field-handSinkTempF"]} />}
                           {(() => {
                             const raw = inspection.temps.handSinkTempF;
-                            if (!raw || String(raw).replace(/\D/g, "").length < 2) return null;
+                            const digits = String(raw || "").replace(/\D/g, "");
+                            const isSubmitted = !!inspection.temps.handSinkSubmitted;
+                            const canSubmit = digits.length >= 2;
                             const v = Number(raw);
-                            if (v >= 95) return <span className="tempStatusBadge tempStatusGood">✅ {v}°F — Good</span>;
-                            if (v >= 85) return <span className="tempStatusBadge tempStatusWarn">⚠️ {v}°F — Low, needs 95°F</span>;
-                            return <span className="tempStatusBadge tempStatusBad">🚨 {v}°F — Too cold</span>;
+                            const isFlagged = isSubmitted && canSubmit && v < 95;
+                            const needsCorrection = isFlagged && !(inspection.temps.handSinkCorrection || "").trim();
+                            return (
+                              <>
+                                <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                                  <div className="tempInputWrap" style={{ flex: "0 0 auto" }}>
+                                    <input className="input tempInput" inputMode="numeric" value={raw}
+                                      disabled={isSubmitted}
+                                      onBlur={(e) => !isSubmitted && smartFieldCorrect("field-handSinkTempF", e.target.value)}
+                                      onChange={(e) => setInspection((prev) => ({ ...prev, temps: { ...prev.temps, handSinkTempF: e.target.value } }))}
+                                      placeholder="97"
+                                      style={isSubmitted ? { opacity: 0.6, background: "#f8fafc" } : {}} />
+                                    <span className="tempUnit">{String.fromCharCode(176) + "F"}</span>
+                                  </div>
+                                  {!isSubmitted && (
+                                    <button type="button"
+                                      style={{ background: canSubmit ? "#2563eb" : "#e2e8f0", color: canSubmit ? "#fff" : "#9ca3af", fontWeight: 700, fontSize: "0.75rem", padding: "4px 12px", borderRadius: 8, flexShrink: 0, cursor: canSubmit ? "pointer" : "default", border: "none" }}
+                                      disabled={!canSubmit}
+                                      onClick={() => setInspection(prev => ({ ...prev, temps: { ...prev.temps, handSinkSubmitted: true } }))}>
+                                      Submit
+                                    </button>
+                                  )}
+                                  {isSubmitted && canSubmit && (
+                                    <span style={{ fontSize: "0.75rem", fontWeight: 700, padding: "3px 10px", borderRadius: 8, background: !isFlagged ? "#dcfce7" : "#fee2e2", color: !isFlagged ? "#15803d" : "#dc2626" }}>
+                                      {!isFlagged ? "\u2713 OK" : "\u26a0 Flag"}
+                                    </span>
+                                  )}
+                                </div>
+                                {fieldCorrections["field-handSinkTempF"] && <FieldCorrectionBanner correction={fieldCorrections["field-handSinkTempF"]} />}
+                                {isFlagged && (
+                                  <div style={{ width: "100%", background: "#fff5f5", border: `1px solid ${needsCorrection ? "#dc2626" : "#fca5a5"}`, borderRadius: 8, padding: "8px 10px", marginTop: 6 }}>
+                                    <label style={{ display: "block", fontSize: "0.72rem", fontWeight: 700, color: "#dc2626", marginBottom: 4 }}>{String.fromCharCode(0x1F527)} CORRECTIVE ACTION TAKEN *</label>
+                                    <textarea className="input" rows={2} placeholder="What was done to correct this?..."
+                                      value={inspection.temps.handSinkCorrection || ""}
+                                      onChange={(e) => setInspection(prev => ({ ...prev, temps: { ...prev.temps, handSinkCorrection: e.target.value } }))}
+                                      style={{ borderColor: needsCorrection ? "#dc2626" : "#fca5a5", fontSize: "0.82rem" }} />
+                                    {needsCorrection && <div style={{ fontSize: "0.72rem", color: "#dc2626", fontWeight: 600 }}>Required — enter what corrective action was taken</div>}
+                                  </div>
+                                )}
+                                {isSubmitted && !isFlagged && (
+                                  <textarea className="input" rows={2} placeholder="Notes (optional)"
+                                    value={inspection.temps.handSinkNote || ""}
+                                    onChange={(e) => setInspection((prev) => ({ ...prev, temps: { ...prev.temps, handSinkNote: e.target.value } }))}
+                                    style={{ marginTop: 6, resize: "vertical", fontSize: "0.82rem" }} />
+                                )}
+                              </>
+                            );
                           })()}
-                          {inspection.temps.handSinkTempF !== "" && (
-                            <textarea className="input" rows={2} placeholder="Notes (optional)"
-                              value={inspection.temps.handSinkNote || ""}
-                              onChange={(e) => setInspection((prev) => ({ ...prev, temps: { ...prev.temps, handSinkNote: e.target.value } }))}
-                              style={{ marginTop: 6, resize: "vertical", fontSize: "0.82rem" }} />
-                          )}
                         </>
                       )}
                     </div>
@@ -21252,28 +21272,60 @@ export default function App() {
                         </div>
                       ) : (
                         <>
-                          <div className="tempInputWrap">
-                            <input className="input tempInput" inputMode="numeric" value={inspection.temps.threeCompSinkTempF}
-                              onBlur={(e) => smartFieldCorrect("field-threeCompSinkTempF", e.target.value)}
-                              onChange={(e) => setInspection((prev) => ({ ...prev, temps: { ...prev.temps, threeCompSinkTempF: e.target.value } }))}
-                              placeholder="112" />
-                            <span className="tempUnit">{"\u00B0F"}</span>
-                          </div>
-                          {fieldCorrections["field-threeCompSinkTempF"] && <FieldCorrectionBanner correction={fieldCorrections["field-threeCompSinkTempF"]} />}
                           {(() => {
                             const raw = inspection.temps.threeCompSinkTempF;
-                            if (!raw || String(raw).replace(/\D/g, "").length < 2) return null;
+                            const digits = String(raw || "").replace(/\D/g, "");
+                            const isSubmitted = !!inspection.temps.threeCompSinkSubmitted;
+                            const canSubmit = digits.length >= 2;
                             const v = Number(raw);
-                            if (v >= 110) return <span className="tempStatusBadge tempStatusGood">✅ {v}°F — Good</span>;
-                            if (v >= 100) return <span className="tempStatusBadge tempStatusWarn">⚠️ {v}°F — Low, needs 110°F</span>;
-                            return <span className="tempStatusBadge tempStatusBad">🚨 {v}°F — Too cold</span>;
+                            const isFlagged = isSubmitted && canSubmit && v < 110;
+                            const needsCorrection = isFlagged && !(inspection.temps.threeCompSinkCorrection || "").trim();
+                            return (
+                              <>
+                                <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                                  <div className="tempInputWrap" style={{ flex: "0 0 auto" }}>
+                                    <input className="input tempInput" inputMode="numeric" value={raw}
+                                      disabled={isSubmitted}
+                                      onBlur={(e) => !isSubmitted && smartFieldCorrect("field-threeCompSinkTempF", e.target.value)}
+                                      onChange={(e) => setInspection((prev) => ({ ...prev, temps: { ...prev.temps, threeCompSinkTempF: e.target.value } }))}
+                                      placeholder="112"
+                                      style={isSubmitted ? { opacity: 0.6, background: "#f8fafc" } : {}} />
+                                    <span className="tempUnit">{String.fromCharCode(176) + "F"}</span>
+                                  </div>
+                                  {!isSubmitted && (
+                                    <button type="button"
+                                      style={{ background: canSubmit ? "#2563eb" : "#e2e8f0", color: canSubmit ? "#fff" : "#9ca3af", fontWeight: 700, fontSize: "0.75rem", padding: "4px 12px", borderRadius: 8, flexShrink: 0, cursor: canSubmit ? "pointer" : "default", border: "none" }}
+                                      disabled={!canSubmit}
+                                      onClick={() => setInspection(prev => ({ ...prev, temps: { ...prev.temps, threeCompSinkSubmitted: true } }))}>
+                                      Submit
+                                    </button>
+                                  )}
+                                  {isSubmitted && canSubmit && (
+                                    <span style={{ fontSize: "0.75rem", fontWeight: 700, padding: "3px 10px", borderRadius: 8, background: !isFlagged ? "#dcfce7" : "#fee2e2", color: !isFlagged ? "#15803d" : "#dc2626" }}>
+                                      {!isFlagged ? "\u2713 OK" : "\u26a0 Flag"}
+                                    </span>
+                                  )}
+                                </div>
+                                {fieldCorrections["field-threeCompSinkTempF"] && <FieldCorrectionBanner correction={fieldCorrections["field-threeCompSinkTempF"]} />}
+                                {isFlagged && (
+                                  <div style={{ width: "100%", background: "#fff5f5", border: `1px solid ${needsCorrection ? "#dc2626" : "#fca5a5"}`, borderRadius: 8, padding: "8px 10px", marginTop: 6 }}>
+                                    <label style={{ display: "block", fontSize: "0.72rem", fontWeight: 700, color: "#dc2626", marginBottom: 4 }}>{String.fromCharCode(0x1F527)} CORRECTIVE ACTION TAKEN *</label>
+                                    <textarea className="input" rows={2} placeholder="What was done to correct this?..."
+                                      value={inspection.temps.threeCompSinkCorrection || ""}
+                                      onChange={(e) => setInspection(prev => ({ ...prev, temps: { ...prev.temps, threeCompSinkCorrection: e.target.value } }))}
+                                      style={{ borderColor: needsCorrection ? "#dc2626" : "#fca5a5", fontSize: "0.82rem" }} />
+                                    {needsCorrection && <div style={{ fontSize: "0.72rem", color: "#dc2626", fontWeight: 600 }}>Required — enter what corrective action was taken</div>}
+                                  </div>
+                                )}
+                                {isSubmitted && !isFlagged && (
+                                  <textarea className="input" rows={2} placeholder="Notes (optional)"
+                                    value={inspection.temps.threeCompSinkNote || ""}
+                                    onChange={(e) => setInspection((prev) => ({ ...prev, temps: { ...prev.temps, threeCompSinkNote: e.target.value } }))}
+                                    style={{ marginTop: 6, resize: "vertical", fontSize: "0.82rem" }} />
+                                )}
+                              </>
+                            );
                           })()}
-                          {inspection.temps.threeCompSinkTempF !== "" && (
-                            <textarea className="input" rows={2} placeholder="Notes (optional)"
-                              value={inspection.temps.threeCompSinkNote || ""}
-                              onChange={(e) => setInspection((prev) => ({ ...prev, temps: { ...prev.temps, threeCompSinkNote: e.target.value } }))}
-                              style={{ marginTop: 6, resize: "vertical", fontSize: "0.82rem" }} />
-                          )}
                         </>
                       )}
                     </div>
@@ -21560,21 +21612,6 @@ export default function App() {
                                   });
                                 }}>
                                 Submit
-                              </button>
-                            )}
-                            {/* Edit button — shown after submitting */}
-                            {isSubmitted && (
-                              <button type="button"
-                                className="btn btnGhost btnSmall"
-                                style={{ color: "#64748b", padding: "2px 8px", fontSize: "0.75rem", flexShrink: 0 }}
-                                onClick={() => {
-                                  setFoodTempSubmitted(p => {
-                                    const arr = [...(p[item.key] || [false])];
-                                    arr[idx] = false;
-                                    return { ...p, [item.key]: arr };
-                                  });
-                                }}>
-                                Edit
                               </button>
                             )}
                             {readings.length > 1 && (
