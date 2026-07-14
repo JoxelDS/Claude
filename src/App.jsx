@@ -4703,9 +4703,9 @@ async function exportIssuesOnlyExcel({ rec, haccpSubs = [] }) {
     metaRows.push([]);
   }
 
-  const issuesHeader = ["#", "Issue", "Priority", "Owner", "Due Date"];
+  const issuesHeader = ["#", "Issue", "Status", "Owner", "Due Date"];
   const issuesRows = actionItems.length > 0
-    ? actionItems.map((a, i) => [i + 1, str(a.issue), str(a.priority), str(a.owner || "—"), str(a.due || "—")])
+    ? actionItems.map((a, i) => [i + 1, str(a.issue), str(a.status && a.status !== "OK" ? a.status : (a.priority || "")), str(a.owner || "—"), str(a.due || "—")])
     : [["", "No issues — all areas passed inspection", "", "", ""]];
 
   const ws1Data = [...metaRows, issuesHeader, ...issuesRows];
@@ -4836,6 +4836,18 @@ async function exportIssuesOnlyExcel({ rec, haccpSubs = [] }) {
     }
   }
 
+  // ── SHEET: Supplies Needed ────────────────────────────────────────────────
+  const supplies = (rec.suppliesNeeded || []).filter(s => s.item && s.item.trim());
+  if (supplies.length > 0) {
+    const supNeedHeader = ["#", "Supply Item", "Qty", "Urgent"];
+    const supNeedRows = supplies.map((s, i) => [i + 1, str(s.item), str(s.qty || ""), s.urgent ? "🔴 Yes" : "No"]);
+    const wsSupN = XLSX.utils.aoa_to_sheet([supNeedHeader, ...supNeedRows]);
+    wsSupN["!cols"] = [{ wch: 4 }, { wch: 40 }, { wch: 10 }, { wch: 10 }];
+    wsSupN["!autofilter"] = { ref: `A1:D${supNeedRows.length + 1}` };
+    wsSupN["!freeze"] = { xSplit: 0, ySplit: 1, topLeftCell: "A2", activePane: "bottomLeft" };
+    XLSX.utils.book_append_sheet(wb, wsSupN, "Supplies Needed");
+  }
+
   const wbOut = XLSX.write(wb, { bookType: "xlsx", type: "array" });
   const blob = new Blob([wbOut], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
   const filename = `issues_${inspectionDate || "undated"}_${(rec.siteName || "site").replace(/\s+/g, "_")}.xlsx`;
@@ -4955,9 +4967,19 @@ ${(() => {
 ${actionItems.length > 0 ? `
 <h2>Issues &amp; Corrective Actions (${actionItems.length})</h2>
 <table class="issues">
-  <tr><th>#</th><th>Issue</th><th>Priority</th></tr>
-  ${actionItems.map((a, i) => `<tr><td style="text-align:center;width:40px">${i + 1}</td><td>${(a.issue || "").replace(/</g, "&lt;")}</td><td><span class="${a.priority === "High" ? "pill-high" : "pill-med"}">${a.priority}</span></td></tr>`).join("\n  ")}
+  <tr><th>#</th><th>Issue</th><th>Status</th></tr>
+  ${actionItems.map((a, i) => { const st = a.status && a.status !== "OK" ? a.status : (a.priority || ""); const cls = (st === "Fail" || st === "Not Clean" || st === "Critical Violation") ? "pill-high" : st === "Maintenance" ? "pill-maint" : "pill-med"; return `<tr><td style="text-align:center;width:40px">${i + 1}</td><td>${(a.issue || "").replace(/</g, "&lt;")}</td><td><span class="${cls}">${st}</span></td></tr>`; }).join("\n  ")}
 </table>` : `<h2>Issues</h2><p style="background:#ECFDF5;padding:12px;color:#15803D;font-weight:bold;text-align:center;">All areas passed — no issues found ✓</p>`}
+
+${(() => {
+  const supplies = (rec.suppliesNeeded || []).filter(s => s.item && s.item.trim());
+  if (!supplies.length) return "";
+  return `<h2>🛒 Supplies Needed (${supplies.length})</h2>
+<table class="issues">
+  <tr><th>#</th><th>Supply Item</th><th>Qty</th><th>Urgent</th></tr>
+  ${supplies.map((s, i) => `<tr><td style="text-align:center;width:40px">${i + 1}</td><td>${esc(s.item)}</td><td>${esc(s.qty || "—")}</td><td>${s.urgent ? '<span class="pill-high">🔴 Urgent</span>' : "No"}</td></tr>`).join("\n  ")}
+</table>`;
+})()}
 
 ${(() => {
   const handT = Number(rec.temps?.handSinkTempF);
@@ -8083,8 +8105,38 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
       }
     });
 
+    // ── SHEET: Supplies Needed ─────────────────────────────────────────────
+    const allSupplies = records.flatMap(rec =>
+      (rec.suppliesNeeded || []).map(s => ({ ...s, _site: rec.siteName || rec.location || "—", _date: rec.inspectionDate || "—", _inspector: rec.inspectorName || "—" }))
+    );
+    if (allSupplies.length > 0) {
+      const wsS = wb.addWorksheet("Supplies Needed");
+      wsS.columns = [{ width: 4 }, { width: 28 }, { width: 14 }, { width: 18 }, { width: 12 }, { width: 12 }];
+      const sSTitle = wsS.addRow(["SUPPLIES NEEDED — ALL VENUES"]);
+      sSTitle.height = 26;
+      wsS.mergeCells(`A${sSTitle.number}:F${sSTitle.number}`);
+      applyB(sSTitle.getCell(1), bHdr(12));
+      const sHeaders = ["#", "Site / Location", "Date", "Inspector", "Supply Item", "Qty / Urgent"];
+      const sHRow = wsS.addRow(sHeaders);
+      sHRow.height = 20;
+      sHeaders.forEach((_, ci) => applyB(sHRow.getCell(ci + 1), bSubHdr()));
+      wsS.autoFilter = { from: { row: sHRow.number, column: 1 }, to: { row: sHRow.number, column: 6 } };
+      wsS.views = [{ state: "frozen", ySplit: sHRow.number, topLeftCell: `A${sHRow.number + 1}`, activeCell: "A1" }];
+      allSupplies.forEach((s, i) => {
+        const bg = i % 2 === 0 ? WHITE : SILVER;
+        const urgentLabel = s.urgent ? "🔴 Urgent" : s.qty ? str(s.qty) : "—";
+        const row = wsS.addRow([i + 1, str(s._site), str(s._date), str(s._inspector), str(s.item), urgentLabel]);
+        row.height = 18;
+        [1,2,3,4,5].forEach(ci => row.getCell(ci).style = bBody(bg));
+        const urgCell = row.getCell(6);
+        urgCell.style = s.urgent
+          ? { font: { bold: true, size: 10, color: { argb: "FF" + FAIL_RT }, name: "Calibri" }, fill: { type: "pattern", pattern: "solid", fgColor: { argb: "FF" + FAIL_R } }, alignment: { vertical: "top", wrapText: true }, border: { bottom: { style: "hair", color: { argb: "FFD1D5DB" } } } }
+          : bBody(bg);
+      });
+    }
+
     // ── PHOTO SHEETS: one sheet per venue that has photos ─────────────────
-    const usedSheetNames = new Set(["Inspection Summary", "Action Items", "Checklist Detail", "Equipment Temps", "Supervisor Log", "HACCP Temps"]);
+    const usedSheetNames = new Set(["Inspection Summary", "Action Items", "Checklist Detail", "Equipment Temps", "Supervisor Log", "HACCP Temps", "Supplies Needed"]);
     function safeSheetName(site, num, idx) {
       const base = ((site || "Venue") + (num ? ` #${num}` : ""))
         .replace(/[\\/?*[\]:]/g, "").slice(0, 28).trim() || `Venue ${idx + 1}`;
