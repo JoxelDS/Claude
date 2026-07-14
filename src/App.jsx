@@ -2643,6 +2643,7 @@ function buildActionItems({ inspection, rawNotes, foodTemps: ftArg, foodTempName
       issue: `${label}: ${failDetail}`,
       notes: otherNote || "",
       owner: "", due: "",
+      status: node.status || "",
       priority: node.status === "Maintenance" ? "Maintenance" : (node.status === "Fail" || node.status === "Not Clean" || failedChecks.length > 0) ? "High" : "Med",
       photos: mapByPath[pathKey] || [],
     });
@@ -9691,7 +9692,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                                           a.priority === "Maintenance" ? "priorityMaint" :
                                           a.priority === "High" ? "priorityHigh" :
                                           a.priority === "Follow-up" ? "priorityFollowup" : "priorityMed"
-                                        )}>{resolved ? "✓ Resolved" : a.priority}</span>
+                                        )}>{resolved ? "✓ Resolved" : (a.status && a.status !== "OK" ? a.status : a.priority)}</span>
                                         <div style={{ flex: 1 }}>
                                           <span className="issueRowText" style={resolved ? { textDecoration: "line-through", color: "#64748b" } : undefined}>{a.issue}</span>
                                           {resolved && (
@@ -10199,7 +10200,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
             const key = `${area.trim()}|||${(a.issue || "").trim()}`;
             if (!seen.has(key)) {
               seen.add(key);
-              allIssues.push({ key, area, issue, priority: a.priority || "Medium", corrective: a.corrective || "" });
+              allIssues.push({ key, area, issue, priority: a.priority || "Medium", status: a.status || "", corrective: a.corrective || "" });
             }
           }
         }
@@ -10413,12 +10414,21 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                             <input type="checkbox" readOnly checked={isSelected}
                               style={{ width: 15, height: 15, accentColor: exportAccent, flexShrink: 0, cursor: "pointer", marginTop: 2 }} />
                             <span style={{ flex: 1, fontSize: "0.84rem", color: isSelected ? "#0f172a" : "#374151", lineHeight: 1.5, fontWeight: isSelected ? 500 : 400 }}>{item.issue || "—"}</span>
-                            <span style={{
-                              fontSize: "0.68rem", fontWeight: 700, padding: "2px 8px", borderRadius: 6, flexShrink: 0, letterSpacing: "0.03em", marginTop: 2,
-                              background: isHigh ? "#fef2f2" : item.priority === "Follow-up" ? "#f0f9ff" : "#fefce8",
-                              color: isHigh ? "#dc2626" : item.priority === "Follow-up" ? "#0284c7" : "#a16207",
-                              border: `1px solid ${isHigh ? "#fecaca" : item.priority === "Follow-up" ? "#bae6fd" : "#fde68a"}`,
-                            }}>{item.priority}</span>
+                            {(() => {
+                              const st = item.status || item.priority || "";
+                              const cfg =
+                                st === "Not Clean"   ? { bg: "#fff7ed", color: "#c2410c", border: "#fed7aa" } :
+                                st === "Fail"        ? { bg: "#fef2f2", color: "#dc2626", border: "#fecaca" } :
+                                st === "Follow-Up"   ? { bg: "#f0f9ff", color: "#0284c7", border: "#bae6fd" } :
+                                st === "Maintenance" ? { bg: "#faf5ff", color: "#7c3aed", border: "#e9d5ff" } :
+                                isHigh               ? { bg: "#fef2f2", color: "#dc2626", border: "#fecaca" } :
+                                                       { bg: "#fefce8", color: "#a16207", border: "#fde68a" };
+                              return (
+                                <span style={{ fontSize: "0.68rem", fontWeight: 700, padding: "2px 8px", borderRadius: 6, flexShrink: 0, letterSpacing: "0.03em", marginTop: 2, background: cfg.bg, color: cfg.color, border: `1px solid ${cfg.border}` }}>
+                                  {st || "High"}
+                                </span>
+                              );
+                            })()}
                           </div>
                         );
                       })}
