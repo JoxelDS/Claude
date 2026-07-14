@@ -16944,6 +16944,16 @@ function GuideSection({ title, items, inspection, setInspection, allowCustom, se
                           const newChecklist = (cur2.checklist || []).map((c, i) => i === idx ? { ...c, comment } : c);
                           return setAtPath(prev, it.path, { ...cur2, checklist: newChecklist });
                         });
+                        const makeSetCiStatus = (idx, ciStatus) => setInspection((prev) => {
+                          const cur2 = getAtPath(prev, it.path) || withPhotos({ status: "OK", notes: "" });
+                          const newChecklist = (cur2.checklist || []).map((c, i) => i === idx ? { ...c, ciStatus } : c);
+                          return setAtPath(prev, it.path, { ...cur2, checklist: newChecklist });
+                        });
+                        const makeSetCiCorrective = (idx, corrective) => setInspection((prev) => {
+                          const cur2 = getAtPath(prev, it.path) || withPhotos({ status: "OK", notes: "" });
+                          const newChecklist = (cur2.checklist || []).map((c, i) => i === idx ? { ...c, corrective } : c);
+                          return setAtPath(prev, it.path, { ...cur2, checklist: newChecklist });
+                        });
                         const addCiPhoto = async (idx, files) => {
                           const inspId = inspectionId || `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
                           const existingCount = (current.checklist?.[idx]?.photos || []).length;
@@ -17018,33 +17028,56 @@ function GuideSection({ title, items, inspection, setInspection, allowCustom, se
                                           ✕
                                         </button>
                                       </div>
-                                      <div className="clItemCommentRow">
-                                        <input
-                                          type="text"
-                                          className="clItemComment"
-                                          value={ci.comment || ""}
-                                          onChange={(e) => makeSetComment(idx, e.target.value)}
-                                          placeholder={commentPlaceholder}
-                                          aria-label={`Comment for ${ci.label}`}
-                                        />
-                                        <input
-                                          type="file"
-                                          accept="image/*"
-                                          multiple
-                                          className="fileInput"
-                                          ref={(el) => { fileRefs.current[ciRefKey] = el; }}
-                                          onChange={(e) => { addCiPhoto(idx, e.target.files); e.target.value = ""; }}
-                                        />
-                                        <button
-                                          type="button"
-                                          className={`clItemPhotoBtn${ciPhotos.length > 0 ? " clItemPhotoBtnHasPhotos" : ""}`}
-                                          title={ciPhotos.length > 0 ? `${ciPhotos.length} photo${ciPhotos.length > 1 ? "s" : ""} attached` : "Add photo"}
-                                          disabled={ciPhotos.length >= PHOTO_LIMIT}
-                                          onClick={() => fileRefs.current[ciRefKey]?.click()}
-                                          aria-label={`Add photo for ${ci.label}`}>
-                                          📷{ciPhotos.length > 0 ? ` ${ciPhotos.length}` : ""}
-                                        </button>
-                                      </div>
+                                      {isFail ? (
+                                        <div style={{ background: "#fff7ed", border: "1.5px solid #fed7aa", borderRadius: 8, padding: "10px 12px", marginTop: 6, display: "flex", flexDirection: "column", gap: 8 }}>
+                                          <div>
+                                            <div style={{ fontSize: "0.7rem", fontWeight: 700, color: "#92400e", letterSpacing: "0.06em", marginBottom: 3 }}>📋 STATUS</div>
+                                            <select
+                                              className="select selectSmall"
+                                              value={ci.ciStatus || "Needs Attention"}
+                                              onChange={(e) => makeSetCiStatus(idx, e.target.value)}
+                                              style={{ width: "100%" }}>
+                                              {["Needs Attention","Fail","Critical Violation","Corrected On-Site","Maintenance","Off / Not In Use"].map(s => <option key={s} value={s}>{s}</option>)}
+                                            </select>
+                                          </div>
+                                          <div>
+                                            <div style={{ fontSize: "0.7rem", fontWeight: 700, color: "#92400e", letterSpacing: "0.06em", marginBottom: 3 }}>⚠️ ISSUE DESCRIPTION <span style={{ color: "#dc2626" }}>*</span></div>
+                                            <input
+                                              type="text"
+                                              className="input inputSmall"
+                                              value={ci.comment || ""}
+                                              onChange={(e) => makeSetComment(idx, e.target.value)}
+                                              placeholder="Describe the issue (required)..."
+                                              style={{ width: "100%", borderColor: !ci.comment?.trim() ? "#fca5a5" : undefined }}
+                                            />
+                                          </div>
+                                          <div>
+                                            <div style={{ fontSize: "0.7rem", fontWeight: 700, color: "#92400e", letterSpacing: "0.06em", marginBottom: 3 }}>🔧 CORRECTIVE ACTION TAKEN</div>
+                                            <input
+                                              type="text"
+                                              className="input inputSmall"
+                                              value={ci.corrective || ""}
+                                              onChange={(e) => makeSetCiCorrective(idx, e.target.value)}
+                                              placeholder="What was done to fix it?..."
+                                              style={{ width: "100%" }}
+                                            />
+                                          </div>
+                                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                            <input type="file" accept="image/*" multiple className="fileInput" ref={(el) => { fileRefs.current[ciRefKey] = el; }} onChange={(e) => { addCiPhoto(idx, e.target.files); e.target.value = ""; }} />
+                                            <button type="button" className={`clItemPhotoBtn${ciPhotos.length > 0 ? " clItemPhotoBtnHasPhotos" : ""}`} title={ciPhotos.length > 0 ? `${ciPhotos.length} photo${ciPhotos.length > 1 ? "s" : ""} attached` : "Add Photo"} disabled={ciPhotos.length >= PHOTO_LIMIT} onClick={() => fileRefs.current[ciRefKey]?.click()} aria-label={`Add photo for ${ci.label}`}>
+                                              📷 Add Photo{ciPhotos.length > 0 ? ` (${ciPhotos.length})` : ""}
+                                            </button>
+                                          </div>
+                                        </div>
+                                      ) : (
+                                        <div className="clItemCommentRow">
+                                          <input type="text" className="clItemComment" value={ci.comment || ""} onChange={(e) => makeSetComment(idx, e.target.value)} placeholder={isPass ? "Optional note..." : "Add a comment..."} aria-label={`Comment for ${ci.label}`} />
+                                          <input type="file" accept="image/*" multiple className="fileInput" ref={(el) => { fileRefs.current[ciRefKey] = el; }} onChange={(e) => { addCiPhoto(idx, e.target.files); e.target.value = ""; }} />
+                                          <button type="button" className={`clItemPhotoBtn${ciPhotos.length > 0 ? " clItemPhotoBtnHasPhotos" : ""}`} title={ciPhotos.length > 0 ? `${ciPhotos.length} photo${ciPhotos.length > 1 ? "s" : ""} attached` : "Add photo"} disabled={ciPhotos.length >= PHOTO_LIMIT} onClick={() => fileRefs.current[ciRefKey]?.click()} aria-label={`Add photo for ${ci.label}`}>
+                                            📷{ciPhotos.length > 0 ? ` ${ciPhotos.length}` : ""}
+                                          </button>
+                                        </div>
+                                      )}
                                       {ciPhotos.length > 0 && (
                                         <div className="ciPhotoStrip">
                                           {ciPhotos.map(p => (
@@ -20300,9 +20333,9 @@ export default function App() {
             position: "fixed",
             inset: 0,
             zIndex: 99,
-            background: "rgba(15, 23, 42, 0.72)",
-            backdropFilter: "blur(6px)",
-            WebkitBackdropFilter: "blur(6px)",
+            background: "rgba(15, 23, 42, 0.35)",
+            backdropFilter: "blur(2px)",
+            WebkitBackdropFilter: "blur(2px)",
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
