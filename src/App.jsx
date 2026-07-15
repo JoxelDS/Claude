@@ -2643,7 +2643,8 @@ function buildActionItems({ inspection, rawNotes, foodTemps: ftArg, foodTempName
       issue: `${label}: ${failDetail}`,
       notes: otherNote || "",
       owner: "", due: "",
-      status: node.status || (failedChecks.length > 0 ? "Fail" : ""),
+      // Normalize old "High"/"Med" stored in node.status — those are priority values, not statuses
+      status: (node.status && node.status !== "High" && node.status !== "Med" ? node.status : "") || (failedChecks.length > 0 ? "Fail" : ""),
       priority: node.status === "Maintenance" ? "Maintenance" : (node.status === "Fail" || node.status === "Not Clean" || failedChecks.length > 0) ? "High" : "Med",
       photos: mapByPath[pathKey] || [],
     });
@@ -9806,7 +9807,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                                           a.priority === "Maintenance" ? "priorityMaint" :
                                           a.priority === "High" ? "priorityHigh" :
                                           a.priority === "Follow-up" ? "priorityFollowup" : "priorityMed"
-                                        )}>{resolved ? "✓ Resolved" : (a.status && a.status !== "OK" ? a.status : a.priority)}</span>
+                                        )}>{resolved ? "✓ Resolved" : (() => { const st = a.status && a.status !== "OK" ? a.status : a.priority; return st === "High" ? "Fail" : st === "Med" ? "Needs Attention" : st; })()}</span>
                                         <div style={{ flex: 1 }}>
                                           <span className="issueRowText" style={resolved ? { textDecoration: "line-through", color: "#64748b" } : undefined}>{a.issue}</span>
                                           {resolved && (
@@ -10109,7 +10110,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
                             <button className="btn" type="button"
                               style={{ background: "#2A295C", color: "#fff", borderColor: "#2A295C", fontWeight: 600, padding: "0.6rem 1rem" }}
-                              onClick={() => { setDlPickerId(rec.id); setDlScope(null); }}>
+                              onClick={() => { setDlPickerId(rec.id); setDlScope(null); import("exceljs").catch(() => {}); }}>
                               ⬇️ Download Report
                             </button>
                             {onEdit && canEditRec(rec) && (
@@ -10272,6 +10273,8 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                   setSelectedIssueKeys(null); // reset to all
                   setModalIssueSearch(""); // reset search
                   setShowIssueFilter(fmt);
+                  // Preload ExcelJS in background so it's cached when they click Download
+                  if (fmt === "excel") import("exceljs").catch(() => {});
                 }}
               >{label}</button>
             ))}
