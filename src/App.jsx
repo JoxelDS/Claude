@@ -2619,35 +2619,57 @@ function buildActionItems({ inspection, rawNotes, foodTemps: ftArg, foodTempName
       });
       return;
     }
-    // Collect specific checklist items marked NO — use problem description so
-    // readers immediately understand what the actual issue is.
-    const failedChecks = Array.isArray(node.checklist)
-      ? node.checklist.filter(c => c.value === "NO").map(c => {
-          const base = c.problem || c.label;
-          return c.comment?.trim() ? `${base} (${c.comment.trim()})` : base;
-        })
-      : [];
+    const sectionStatus = (node.status && node.status !== "High" && node.status !== "Med") ? node.status : "";
     const isFail = node.status === "Fail" || node.status === "Needs Attention" || node.status === "Not Clean" || node.status === "Maintenance";
-    if (!isFail && failedChecks.length === 0) return;
-    // Skip if no specific detail — avoids phantom "Issue noted" from stale statuses
-    if (failedChecks.length === 0 && !sanitizeText(node.notes)) return;
-    // Build issue description: list specific failed items, then other notes
-    const failDetail = failedChecks.length > 0
-      ? failedChecks.join(", ")
-      : sanitizeText(node.notes);
-    const otherNote = sanitizeText(node.notes);
-    const issueText = failedChecks.length > 0 && otherNote
-      ? `${failDetail} — Other: ${otherNote}`
-      : failDetail;
-    items.push({
-      issue: `${label}: ${failDetail}`,
-      notes: otherNote || "",
-      owner: "", due: "",
-      // Normalize old "High"/"Med" stored in node.status — those are priority values, not statuses
-      status: (node.status && node.status !== "High" && node.status !== "Med" ? node.status : "") || (failedChecks.length > 0 ? "Fail" : ""),
-      priority: node.status === "Maintenance" ? "Maintenance" : (node.status === "Fail" || node.status === "Not Clean" || failedChecks.length > 0) ? "High" : "Med",
-      photos: mapByPath[pathKey] || [],
-    });
+    const failedCheckItems = Array.isArray(node.checklist)
+      ? node.checklist.filter(c => c.value === "NO")
+      : [];
+    if (!isFail && failedCheckItems.length === 0) return;
+    if (failedCheckItems.length === 0 && !sanitizeText(node.notes)) return;
+
+    if (failedCheckItems.length > 0) {
+      // Emit one action item per failed checklist item so each gets its own Excel row
+      const otherNote = sanitizeText(node.notes);
+      failedCheckItems.forEach(c => {
+        const base = c.problem || c.label;
+        const detail = c.comment?.trim() ? `${base} (${c.comment.trim()})` : base;
+        // Per-item status takes priority; fall back to section status
+        const itemStatus = (c.ciStatus && c.ciStatus !== "High" && c.ciStatus !== "Med") ? c.ciStatus : sectionStatus || "Fail";
+        items.push({
+          issue: `${label}: ${detail}`,
+          notes: c.corrective ? sanitizeText(c.corrective) : otherNote || "",
+          owner: "", due: "",
+          status: itemStatus,
+          priority: itemStatus === "Maintenance" ? "Maintenance" : "High",
+          photos: c.photos?.length ? c.photos : (mapByPath[pathKey] || []),
+        });
+      });
+      // If there are also section-level notes with no checklist source, add as a summary row
+      if (otherNote) {
+        const onlyNotesMatter = failedCheckItems.every(c => !c.problem && !c.label);
+        if (onlyNotesMatter) {
+          items.push({
+            issue: `${label}: ${otherNote}`,
+            notes: "",
+            owner: "", due: "",
+            status: sectionStatus || "Fail",
+            priority: sectionStatus === "Maintenance" ? "Maintenance" : "High",
+            photos: mapByPath[pathKey] || [],
+          });
+        }
+      }
+    } else {
+      // No checklist failures — section-level issue only
+      const detail = sanitizeText(node.notes);
+      items.push({
+        issue: `${label}: ${detail}`,
+        notes: "",
+        owner: "", due: "",
+        status: sectionStatus || "Fail",
+        priority: sectionStatus === "Maintenance" ? "Maintenance" : "High",
+        photos: mapByPath[pathKey] || [],
+      });
+    }
   };
   // ── FACILITIES ────────────────────────────────────────────────
   pushIfBad("facility.ceiling",        "Facilities – Ceiling",               inspection?.facility?.ceiling);
