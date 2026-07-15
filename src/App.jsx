@@ -4728,7 +4728,7 @@ async function exportIssuesOnlyExcel({ rec, haccpSubs = [] }) {
 
   const issuesHeader = ["#", "Issue", "Status", "Owner", "Due Date"];
   const issuesRows = actionItems.length > 0
-    ? actionItems.map((a, i) => [i + 1, str(a.issue), str(a.status && a.status !== "OK" ? a.status : (a.priority || "")), str(a.owner || "—"), str(a.due || "—")])
+    ? actionItems.map((a, i) => { const st = a.status && a.status !== "OK" && a.status !== "High" && a.status !== "Med" ? a.status : (a.priority === "Follow-up" || a.priority === "Maintenance" ? a.priority : (a.status === "High" || !a.status || a.status === "OK" ? "Fail" : a.status)); return [i + 1, str(a.issue), str(st), str(a.owner || "—"), str(a.due || "—")]; })
     : [["", "No issues — all areas passed inspection", "", "", ""]];
 
   const ws1Data = [...metaRows, issuesHeader, ...issuesRows];
@@ -7855,8 +7855,9 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
         rowNum++;
         const { area, issue } = splitIssue(a);
         const notes = str(a.notes || a.corrective || "");
-        // Use the inspector's chosen status; fall back to priority label only if no status set
-        const statusLabel = str(a.status && a.status !== "OK" ? a.status : (a.priority || ""));
+        // Use the inspector's chosen status; never output raw priority "High"/"Med" as a status
+        const _rawSt = a.status && a.status !== "OK" && a.status !== "High" && a.status !== "Med" ? a.status : "";
+        const statusLabel = str(_rawSt || (a.priority === "Follow-up" || a.priority === "Maintenance" ? a.priority : "Fail"));
         const bg = rowNum % 2 === 0 ? SILVER : WHITE;
         const row = ws2.addRow([
           rowNum, str(rec.siteName || rec.location), str(rec.siteNumber), str(rec.locationType),
