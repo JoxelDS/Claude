@@ -2637,7 +2637,8 @@ function buildActionItems({ inspection, rawNotes, foodTemps: ftArg, foodTempName
         const itemStatus = (c.ciStatus && c.ciStatus !== "High" && c.ciStatus !== "Med") ? c.ciStatus : sectionStatus || "Fail";
         items.push({
           issue: `${label}: ${detail}`,
-          notes: c.corrective ? sanitizeText(c.corrective) : otherNote || "",
+          notes: otherNote || "",
+          corrective: sanitizeText(c.corrective) || "",
           owner: "", due: "",
           status: itemStatus,
           priority: itemStatus === "Maintenance" ? "Maintenance" : "High",
@@ -4676,7 +4677,10 @@ function exportAsTxt({ output, inspectionDate, siteName }) {
 // Issues-only Excel export (from a saved history record)
 async function exportIssuesOnlyExcel({ rec, haccpSubs = [] }) {
   const XLSX = await import("xlsx");
-  const actionItems = rec.actionItems || [];
+  // Recompute action items from raw inspection so old records also get split rows + correct statuses
+  const actionItems = rec.inspection
+    ? buildActionItems({ inspection: rec.inspection, rawNotes: rec.inspection, foodTemps: rec.foodTemps, foodTempNames: rec.foodTempNames, foodTempCorrections: rec.foodTempCorrections, foodTempSubmitted: rec.foodTempSubmitted })
+    : (rec.actionItems || []);
   const siteName = rec.siteName || "—";
   const inspectionDate = rec.inspectionDate || "—";
   const inspectorName = rec.inspectorName || "—";
@@ -4726,18 +4730,31 @@ async function exportIssuesOnlyExcel({ rec, haccpSubs = [] }) {
     metaRows.push([]);
   }
 
-  const issuesHeader = ["#", "Issue", "Status", "Owner", "Due Date"];
+  function stripEmbCorrective(text) {
+    const m = (text || "").match(/^(.*?)\s*\[Corrective action:\s*(.*?)\]\s*$/is);
+    return m ? { issueClean: m[1].trim(), embCorrective: m[2].trim() } : { issueClean: (text || "").trim(), embCorrective: "" };
+  }
+  const issuesHeader = ["#", "Area", "Issue", "Inspector Notes", "Corrective Action", "Status", "Owner", "Due Date"];
   const issuesRows = actionItems.length > 0
-    ? actionItems.map((a, i) => { const st = a.status && a.status !== "OK" && a.status !== "High" && a.status !== "Med" ? a.status : (a.priority === "Follow-up" || a.priority === "Maintenance" ? a.priority : (a.status === "High" || !a.status || a.status === "OK" ? "Fail" : a.status)); return [i + 1, str(a.issue), str(st), str(a.owner || "—"), str(a.due || "—")]; })
-    : [["", "No issues — all areas passed inspection", "", "", ""]];
+    ? actionItems.map((a, i) => {
+        const rawIssue = a.issue || "";
+        const colonIdx = rawIssue.indexOf(":");
+        const area = colonIdx > 0 && colonIdx < 40 ? rawIssue.slice(0, colonIdx).trim() : "General";
+        const { issueClean, embCorrective } = stripEmbCorrective(colonIdx > 0 && colonIdx < 40 ? rawIssue.slice(colonIdx + 1).trim() : rawIssue);
+        const corrective = str(a.corrective || embCorrective || "");
+        const _rawSt = a.status && a.status !== "OK" && a.status !== "High" && a.status !== "Med" ? a.status : "";
+        const st = _rawSt || (a.priority === "Follow-up" || a.priority === "Maintenance" ? a.priority : "Fail");
+        return [i + 1, area, issueClean, str(a.notes || ""), corrective, str(st), str(a.owner || "—"), str(a.due || "—")];
+      })
+    : [["", "", "No issues — all areas passed inspection", "", "", "", "", ""]];
 
   const ws1Data = [...metaRows, issuesHeader, ...issuesRows];
   const ws1 = XLSX.utils.aoa_to_sheet(ws1Data);
 
   const headerRowIdx = metaRows.length;
-  ws1["!autofilter"] = { ref: `A${headerRowIdx + 1}:E${headerRowIdx + 1 + issuesRows.length}` };
+  ws1["!autofilter"] = { ref: `A${headerRowIdx + 1}:H${headerRowIdx + 1 + issuesRows.length}` };
   ws1["!freeze"] = { xSplit: 0, ySplit: headerRowIdx + 1, topLeftCell: `A${headerRowIdx + 2}`, activePane: "bottomLeft" };
-  ws1["!cols"] = [{ wch: 4 }, { wch: 65 }, { wch: 12 }, { wch: 20 }, { wch: 14 }];
+  ws1["!cols"] = [{ wch: 4 }, { wch: 22 }, { wch: 50 }, { wch: 28 }, { wch: 28 }, { wch: 14 }, { wch: 18 }, { wch: 14 }];
 
   // ── SHEET 2: Photos ──────────────────────────────────────────────────────
   const wb = XLSX.utils.book_new();
@@ -7834,38 +7851,52 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
     const ws2 = wb.addWorksheet("Action Items");
     ws2.columns = [
       { width: 4 }, { width: 28 }, { width: 10 }, { width: 16 },
-      { width: 12 }, { width: 18 }, { width: 20 }, { width: 16 }, { width: 40 }, { width: 36 },
-      { width: 20 }, { width: 14 }, { width: 14 },
+      { width: 12 }, { width: 18 }, { width: 20 }, { width: 16 }, { width: 40 }, { width: 30 },
+      { width: 30 }, { width: 20 }, { width: 14 }, { width: 14 },
     ];
     const s2Title = ws2.addRow(["ACTION ITEMS — ALL VENUES"]);
     s2Title.height = 26;
-    ws2.mergeCells(`A${s2Title.number}:M${s2Title.number}`);
+    ws2.mergeCells(`A${s2Title.number}:N${s2Title.number}`);
     applyB(s2Title.getCell(1), bHdr(10));
 
-    const s2Headers = ["#", "Site / Location", "Unit #", "Location Type", "Date", "Inspection Type", "Inspector", "Area", "Issue", "Inspector Notes", "Owner", "Due Date", "Status"];
+    const s2Headers = ["#", "Site / Location", "Unit #", "Location Type", "Date", "Inspection Type", "Inspector", "Area", "Issue", "Inspector Notes", "Corrective Action", "Owner", "Due Date", "Status"];
     const s2HRow = ws2.addRow(s2Headers);
     s2HRow.height = 20;
     s2Headers.forEach((_, ci) => applyB(s2HRow.getCell(ci + 1), bSubHdr()));
-    ws2.autoFilter = { from: { row: s2HRow.number, column: 1 }, to: { row: s2HRow.number, column: 13 } };
+    ws2.autoFilter = { from: { row: s2HRow.number, column: 1 }, to: { row: s2HRow.number, column: 14 } };
     ws2.views = [{ state: "frozen", ySplit: s2HRow.number, topLeftCell: `A${s2HRow.number + 1}`, activeCell: "A1" }];
+
+    // Strip "[Corrective action: ...]" embedded in old issue text, return { issueClean, embeddedCorrectve }
+    function stripEmbeddedCorrectve(text) {
+      const m = (text || "").match(/^(.*?)\s*\[Corrective action:\s*(.*?)\]\s*$/is);
+      return m ? { issueClean: m[1].trim(), embeddedCorrective: m[2].trim() } : { issueClean: (text || "").trim(), embeddedCorrective: "" };
+    }
 
     let rowNum = 0;
     records.forEach(rec => {
-      (rec.actionItems || []).forEach((a, ai) => {
+      // Recompute from raw inspection so old merged rows are split and statuses are correct
+      const actionItems = rec.inspection
+        ? buildActionItems({ inspection: rec.inspection, rawNotes: rec.inspection, foodTemps: rec.foodTemps, foodTempNames: rec.foodTempNames, foodTempCorrections: rec.foodTempCorrections, foodTempSubmitted: rec.foodTempSubmitted })
+        : (rec.actionItems || []);
+      actionItems.forEach(a => {
         rowNum++;
-        const { area, issue } = splitIssue(a);
-        const notes = str(a.notes || a.corrective || "");
-        // Use the inspector's chosen status; never output raw priority "High"/"Med" as a status
+        const { area } = splitIssue(a);
+        const { issueClean, embeddedCorrective } = stripEmbeddedCorrectve(a.issue);
+        // Strip area prefix from issue text (it's already in its own column)
+        const issueText = issueClean.replace(/^[^:]{1,40}:\s*/, "");
+        const inspNotes = str(a.notes || "");
+        const corrective = str(a.corrective || embeddedCorrective || "");
+        // Normalize status — never output raw "High"/"Med"
         const _rawSt = a.status && a.status !== "OK" && a.status !== "High" && a.status !== "Med" ? a.status : "";
         const statusLabel = str(_rawSt || (a.priority === "Follow-up" || a.priority === "Maintenance" ? a.priority : "Fail"));
         const bg = rowNum % 2 === 0 ? SILVER : WHITE;
         const row = ws2.addRow([
           rowNum, str(rec.siteName || rec.location), str(rec.siteNumber), str(rec.locationType),
           str(rec.inspectionDate), str(rec.inspectionType), str(rec.inspectorName),
-          area, issue, notes, str(a.owner || "—"), str(a.due || "—"), statusLabel,
+          area, issueText, inspNotes, corrective, str(a.owner || "—"), str(a.due || "—"), statusLabel,
         ]);
-        [1,2,3,4,5,6,7,8,9,10,11,12].forEach(ci => { row.getCell(ci).style = bBody(bg); });
-        row.getCell(13).style = bStatusExt(statusLabel);
+        [1,2,3,4,5,6,7,8,9,10,11,12,13].forEach(ci => { row.getCell(ci).style = bBody(bg); });
+        row.getCell(14).style = bStatusExt(statusLabel);
       });
     });
 
