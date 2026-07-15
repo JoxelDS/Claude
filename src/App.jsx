@@ -8193,13 +8193,14 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
     }
 
     // ── PHOTO SHEETS: one sheet per venue that has photos ─────────────────
-    const usedSheetNames = new Set(["Inspection Summary", "Action Items", "Checklist Detail", "Equipment Temps", "Supervisor Log", "HACCP Temps", "Supplies Needed"]);
+    // Store lowercase so comparison is case-insensitive — ExcelJS enforces case-insensitive uniqueness
+    const usedSheetNames = new Set(["inspection summary", "action items", "checklist detail", "equipment temps", "supervisor log", "haccp temps", "supplies needed"]);
     function safeSheetName(site, num, idx) {
       const base = ((site || "Venue") + (num ? ` #${num}` : ""))
         .replace(/[\\/?*[\]:]/g, "").slice(0, 28).trim() || `Venue ${idx + 1}`;
       let name = base; let n = 2;
-      while (usedSheetNames.has(name)) { name = `${base.slice(0, 25)} (${n++})`; }
-      usedSheetNames.add(name);
+      while (usedSheetNames.has(name.toLowerCase())) { name = `${base.slice(0, 25)} (${n++})`; }
+      usedSheetNames.add(name.toLowerCase());
       return name;
     }
     const IMG_HEIGHT_PT = 220; // ~3 inches — large enough to see clearly
@@ -8215,7 +8216,9 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
       const withImg = photoList.filter(p => p.dataUrl && p.dataUrl.startsWith("data:image"));
       if (withImg.length === 0) continue;
 
-      const wsPh = wb.addWorksheet(safeSheetName(rec.siteName || rec.location, rec.siteNumber, ri));
+      let _shName = safeSheetName(rec.siteName || rec.location, rec.siteNumber, ri);
+      let _shAttempt = 0;
+      while (true) { try { var wsPh = wb.addWorksheet(_shName); break; } catch (_) { _shName = `${_shName.slice(0,24)} (${++_shAttempt})`; } }
       wsPh.columns = [{ width: 6 }, { width: 32 }, { width: 38 }, { width: 58 }];
 
       const phTitle = wsPh.addRow([`PHOTOS — ${(rec.siteName || rec.location || "Venue").toUpperCase()}${rec.siteNumber ? ` #${rec.siteNumber}` : ""}  |  ${rec.inspectionDate || ""}`]);
