@@ -10331,16 +10331,23 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
           return { area: "General", issue: raw };
         }
         // Build a de-duped list of all issues across selected reports
+        // Recompute action items from raw inspection data so old merged records
+        // also get split into per-checklist-item rows with correct statuses.
         const allIssues = [];
         const seen = new Set();
         for (const rec of selectedRecords) {
-          for (const a of (rec.actionItems || [])) {
+          const computed = rec.inspection
+            ? buildActionItems({ inspection: rec.inspection, rawNotes: rec.inspection, foodTemps: rec.foodTemps, foodTempNames: rec.foodTempNames, foodTempCorrections: rec.foodTempCorrections, foodTempSubmitted: rec.foodTempSubmitted })
+            : (rec.actionItems || []);
+          for (const a of computed) {
             const { area, issue } = splitIssueModal(a);
-            // key: area + issue text (normalized)
             const key = `${area.trim()}|||${(a.issue || "").trim()}`;
+            // Normalize legacy "High"/"Med" priority labels to proper status values
+            const rawStatus = a.status && a.status !== "High" && a.status !== "Med" ? a.status : "";
+            const normStatus = rawStatus || (a.priority === "Follow-up" || a.priority === "Maintenance" ? a.priority : (a.priority === "Med" ? "Needs Attention" : "Fail"));
             if (!seen.has(key)) {
               seen.add(key);
-              allIssues.push({ key, area, issue, priority: a.priority || "Medium", status: a.status || "", corrective: a.corrective || "" });
+              allIssues.push({ key, area, issue, priority: a.priority || "High", status: normStatus, corrective: a.corrective || a.notes || "" });
             }
           }
         }
@@ -10559,7 +10566,8 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                               style={{ width: 15, height: 15, accentColor: exportAccent, flexShrink: 0, cursor: "pointer", marginTop: 2 }} />
                             <span style={{ flex: 1, fontSize: "0.84rem", color: isSelected ? "#0f172a" : "#374151", lineHeight: 1.5, fontWeight: isSelected ? 500 : 400 }}>{item.issue || "—"}</span>
                             {(() => {
-                              const st = item.status || item.priority || "";
+                              // item.status is already normalized (never "High"/"Med") — use it directly
+                              const st = item.status || "Fail";
                               const cfg =
                                 st === "Not Clean"          ? { bg: "#fff7ed", color: "#c2410c", border: "#fed7aa" } :
                                 st === "Fail"               ? { bg: "#fef2f2", color: "#dc2626", border: "#fecaca" } :
@@ -10572,11 +10580,10 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                                 st === "Off / Not In Use"   ? { bg: "#f8fafc", color: "#64748b", border: "#e2e8f0" } :
                                 st === "N/A"                ? { bg: "#f8fafc", color: "#94a3b8", border: "#e2e8f0" } :
                                 st === "OK"                 ? { bg: "#f0fdf4", color: "#15803d", border: "#bbf7d0" } :
-                                isHigh                      ? { bg: "#fef2f2", color: "#dc2626", border: "#fecaca" } :
                                                               { bg: "#fefce8", color: "#a16207", border: "#fde68a" };
                               return (
                                 <span style={{ fontSize: "0.68rem", fontWeight: 700, padding: "2px 8px", borderRadius: 6, flexShrink: 0, letterSpacing: "0.03em", marginTop: 2, background: cfg.bg, color: cfg.color, border: `1px solid ${cfg.border}` }}>
-                                  {st || "High"}
+                                  {st}
                                 </span>
                               );
                             })()}
