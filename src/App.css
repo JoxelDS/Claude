@@ -36,8 +36,8 @@ html {
   font-size: 15px;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  /* Prevent browser swipe-to-navigate (back/forward) from wiping unsaved forms */
-  overscroll-behavior-x: none;
+  /* Block both horizontal swipe-navigate and vertical pull-to-refresh */
+  overscroll-behavior: none;
 }
 
 body {
@@ -45,8 +45,8 @@ body {
   background: #f0f2f7;
   color: var(--sdx-gray-800);
   line-height: 1.6;
-  /* Belt-and-suspenders: block horizontal overscroll navigation on the body too */
-  overscroll-behavior-x: none;
+  /* Block horizontal swipe-navigate and vertical pull-to-refresh */
+  overscroll-behavior: none;
 }
 
 /* ── App Shell ───────────────────────────────────────────── */
@@ -54,7 +54,7 @@ body {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  overscroll-behavior-x: none;
+  overscroll-behavior: none;
 }
 
 /* ── Top Bar ─────────────────────────────────────────────── */
