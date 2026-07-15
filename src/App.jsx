@@ -16971,16 +16971,7 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                       })()}
                       {isNA && <span className="naBadge">Not at this location</span>}
                     </div>
-                    {!isNA && current.status && current.status !== "OK" && (
-                      <span style={{
-                        fontSize: "0.72rem", fontWeight: 700, padding: "2px 8px", borderRadius: 6,
-                        background: current.status === "Fail" || current.status === "Critical Violation" ? "#fef2f2" : "#fff7ed",
-                        color: current.status === "Fail" || current.status === "Critical Violation" ? "#dc2626" : "#c2410c",
-                        border: `1px solid ${current.status === "Fail" || current.status === "Critical Violation" ? "#fca5a5" : "#fed7aa"}`,
-                        whiteSpace: "nowrap",
-                      }}>{current.status}</span>
-                    )}
-                    {!isItemOpen && isFilled && !isNA && !(current.status && current.status !== "OK") && (
+                    {!isItemOpen && isFilled && !isNA && (
                       <span style={{ fontSize: "0.7rem", fontWeight: 600, padding: "2px 8px", borderRadius: 6, background: "#f0fdf4", color: "#15803d", border: "1px solid #bbf7d0", whiteSpace: "nowrap" }}>✓ Filled</span>
                     )}
                     {!isItemOpen && !isFilled && (
