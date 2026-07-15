@@ -2632,12 +2632,13 @@ function buildActionItems({ inspection, rawNotes, foodTemps: ftArg, foodTempName
       const otherNote = sanitizeText(node.notes);
       failedCheckItems.forEach(c => {
         const base = c.problem || c.label;
-        const detail = c.comment?.trim() ? `${base} (${c.comment.trim()})` : base;
+        // Keep issue text clean — inspector's location note goes in notes column, not embedded in issue
+        const itemNote = c.comment?.trim() || "";
         // Per-item status takes priority; fall back to section status
         const itemStatus = (c.ciStatus && c.ciStatus !== "High" && c.ciStatus !== "Med") ? c.ciStatus : sectionStatus || "Fail";
         items.push({
-          issue: `${label}: ${detail}`,
-          notes: otherNote || "",
+          issue: `${label}: ${base}`,
+          notes: itemNote || otherNote || "",
           corrective: sanitizeText(c.corrective) || "",
           owner: "", due: "",
           status: itemStatus,
