@@ -4873,7 +4873,7 @@ async function exportIssuesOnlyExcel({ rec, haccpSubs = [] }) {
       wsSup["!cols"] = [{ wch: 22 }, { wch: 22 }, { wch: 24 }, { wch: 22 }, { wch: 10 }, { wch: 8 }, { wch: 40 }];
       wsSup["!autofilter"] = { ref: `A1:G${supRows.length + 1}` };
       wsSup["!freeze"] = { xSplit: 0, ySplit: 1, topLeftCell: "A2", activePane: "bottomLeft" };
-      XLSX.utils.book_append_sheet(wb, wsSup, "HACCP / Supervisor Log");
+      XLSX.utils.book_append_sheet(wb, wsSup, "HACCP - Supervisor Log");
     }
   }
 
@@ -8048,7 +8048,7 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
 
     // ── SHEET 5: Supervisor Log + HACCP Temps (combined) ─────────────────
     // Columns: # | Site | Unit# | Date | Insp Type | Inspector | Supervisor | Submitted At | Source | HACCP Item | Food Name | Temp (°F) | Result | Problem / Notes
-    const ws6 = wb.addWorksheet("HACCP / Supervisor Log");
+    const ws6 = wb.addWorksheet("HACCP - Supervisor Log");
     ws6.columns = [
       { width: 4 }, { width: 26 }, { width: 8 }, { width: 12 },
       { width: 16 }, { width: 20 }, { width: 20 }, { width: 22 }, { width: 14 }, { width: 22 }, { width: 22 }, { width: 10 }, { width: 10 }, { width: 44 },
@@ -8188,7 +8188,7 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
 
     // ── PHOTO SHEETS: one sheet per venue that has photos ─────────────────
     // Store lowercase so comparison is case-insensitive — ExcelJS enforces case-insensitive uniqueness
-    const usedSheetNames = new Set(["inspection summary", "action items", "checklist detail", "equipment temps", "haccp / supervisor log", "supplies needed"]);
+    const usedSheetNames = new Set(["inspection summary", "action items", "checklist detail", "equipment temps", "haccp - supervisor log", "supplies needed"]);
     function safeSheetName(site, num, idx) {
       const base = ((site || "Venue") + (num ? ` #${num}` : ""))
         .replace(/[\\/?*[\]:]/g, "").slice(0, 28).trim() || `Venue ${idx + 1}`;
@@ -10413,14 +10413,19 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
           setIssueExporting(true);
           try {
             const issueKeys = selectedIssueKeys || new Set(allIssues.map(i => i.key));
-            const filteredRecords = selectedRecords.map(rec => ({
-              ...rec,
-              actionItems: (rec.actionItems || []).filter(a => {
-                const { area } = splitIssueModal(a);
-                const key = `${area.trim()}|||${(a.issue || "").trim()}`;
-                return issueKeys.has(key);
-              }),
-            }));
+            const filteredRecords = selectedRecords.map(rec => {
+              const computed = rec.inspection
+                ? buildActionItems({ inspection: rec.inspection, rawNotes: rec.inspection, foodTemps: rec.foodTemps, foodTempNames: rec.foodTempNames, foodTempCorrections: rec.foodTempCorrections, foodTempSubmitted: rec.foodTempSubmitted })
+                : (rec.actionItems || []);
+              return {
+                ...rec,
+                actionItems: computed.filter(a => {
+                  const { area } = splitIssueModal(a);
+                  const key = `${(area || "").trim()}|||${(a.issue || "").trim()}`;
+                  return issueKeys.has(key);
+                }),
+              };
+            });
             if (showIssueFilter === "excel") {
               const result = await exportBulkExcel(filteredRecords);
               if (result) downloadBlob(result.blob, result.filename);
