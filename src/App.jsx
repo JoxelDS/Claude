@@ -7148,9 +7148,9 @@ function RecurringIssuesPanel({ history, onLocationClick }) {
 /* ── HACCP temp items + pass/fail helper (used by HaccpPortal AND HistoryPage) ── */
 const HACCP_TEMP_ITEMS = [
   { key: "hotHolding",     label: "Hot Holding",        unit: "°F", min: 135, type: "hot" },
-  { key: "coldHolding",    label: "Cold Holding",        unit: "°F", max: 41,  type: "cold" },
   { key: "cookingTemp",    label: "Cooking Temp",        unit: "°F", min: 165, type: "hot" },
   { key: "reheating",      label: "Reheating Temp",      unit: "°F", min: 165, type: "hot" },
+  { key: "coldHolding",    label: "Cold Holding",        unit: "°F", max: 41,  type: "cold" },
   { key: "walkInCooler",   label: "Walk-in Cooler",      unit: "°F", max: 41,  type: "cold" },
   { key: "walkInFreezer",  label: "Walk-in Freezer",     unit: "°F", max: 10,  type: "cold" },
 ];
@@ -21716,10 +21716,10 @@ export default function App() {
                   const corrections = foodTempCorrections[item.key] || [""];
                   const submitted = foodTempSubmitted[item.key] || [false];
                   return (
-                    <div key={item.key} style={{ borderBottom: "1px solid #e2e8f0", paddingBottom: 10 }}>
+                    <div key={item.key} style={{ borderBottom: "1px solid #e2e8f0", paddingBottom: 10, borderLeft: item.type === "hot" ? "3px solid #ef4444" : "3px solid #3b82f6", paddingLeft: 8, borderRadius: 2, background: item.type === "hot" ? "rgba(254,242,242,0.5)" : "rgba(239,246,255,0.5)" }}>
                       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-                        <span style={{ fontWeight: 700, fontSize: "0.88rem", color: "var(--sdx-navy)" }}>
-                          {item.label}
+                        <span style={{ fontWeight: 700, fontSize: "0.88rem", color: item.type === "hot" ? "#b91c1c" : "#1d4ed8" }}>
+                          {item.type === "hot" ? "🔥 " : "❄️ "}{item.label}
                           <span style={{ fontWeight: 400, fontSize: "0.75rem", color: "var(--sdx-gray-500)", marginLeft: 6 }}>
                             {item.type === "hot" ? `Min ${item.min}°F` : `Max ${item.max}°F`}
                           </span>
