@@ -18527,7 +18527,7 @@ function HaccpPortal() {
                           <span className="haccpTempLabel"
                             title="Click to rename"
                             onClick={() => { setEditingLabel(item.key); setEditingLabelVal(displayLabel); }}
-                            style={{ cursor: "pointer", color: item.type === "hot" ? "#fca5a5" : item.type === "cold" ? "#93c5fd" : undefined }}>
+                            style={{ cursor: "pointer", color: item.type === "hot" ? "#f87171" : item.type === "cold" ? "#60a5fa" : undefined }}>
                             {item.type === "hot" ? "🔥 " : item.type === "cold" ? "❄️ " : ""}{displayLabel}
                             <span style={{ fontSize: "0.68rem", color: "#9ca3af", fontWeight: 400, marginLeft: 6 }}>
                               {item.type === "hot" ? `Min ${item.min}${item.unit}` : `Max ${item.max}${item.unit}`}
