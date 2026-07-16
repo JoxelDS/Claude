@@ -8046,25 +8046,28 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
       });
     });
 
-    // ── SHEET 5: Supervisor Log ────────────────────────────────────────────
+    // ── SHEET 5: Supervisor Log + HACCP Temps (combined) ─────────────────
+    // Columns: # | Site | Unit# | Date | Insp Type | Inspector | Supervisor | Submitted At | Source | HACCP Item | Food Name | Temp (°F) | Result | Problem / Notes
     const ws6 = wb.addWorksheet("Supervisor Log");
     ws6.columns = [
-      { width: 4 }, { width: 28 }, { width: 10 }, { width: 12 },
-      { width: 18 }, { width: 22 }, { width: 24 }, { width: 22 }, { width: 14 }, { width: 10 }, { width: 10 }, { width: 36 },
+      { width: 4 }, { width: 26 }, { width: 8 }, { width: 12 },
+      { width: 16 }, { width: 20 }, { width: 20 }, { width: 22 }, { width: 14 }, { width: 22 }, { width: 22 }, { width: 10 }, { width: 10 }, { width: 44 },
     ];
-    const s6Title = ws6.addRow(["SUPERVISOR QR LOG — ALL VENUES"]);
+    const s6Title = ws6.addRow(["SUPERVISOR LOG & HACCP TEMPERATURES — ALL VENUES"]);
     s6Title.height = 26;
-    ws6.mergeCells(`A${s6Title.number}:L${s6Title.number}`);
+    ws6.mergeCells(`A${s6Title.number}:N${s6Title.number}`);
     applyB(s6Title.getCell(1), bHdr(13));
 
-    const s6Headers = ["#", "Site / Location", "Unit #", "Date", "Inspection Type", "Supervisor", "Submitted At", "HACCP Item", "Food Name", "Temp (°F)", "Result", "Problem Report"];
+    const s6Headers = ["#", "Site / Location", "Unit #", "Date", "Inspection Type", "Inspector", "Supervisor / Submitter", "Submitted At", "Source", "HACCP Item", "Food Name", "Temp (°F)", "Result", "Problem Report / Notes"];
     const s6HRow = ws6.addRow(s6Headers);
     s6HRow.height = 20;
     s6Headers.forEach((_, ci) => applyB(s6HRow.getCell(ci + 1), bSubHdr()));
-    ws6.autoFilter = { from: { row: s6HRow.number, column: 1 }, to: { row: s6HRow.number, column: 12 } };
+    ws6.autoFilter = { from: { row: s6HRow.number, column: 1 }, to: { row: s6HRow.number, column: 14 } };
     ws6.views = [{ state: "frozen", ySplit: s6HRow.number, topLeftCell: `A${s6HRow.number + 1}`, activeCell: "A1" }];
 
     let supRowNum = 0;
+
+    // ── Part A: Supervisor QR submissions ─────────────────────────────────
     records.forEach(rec => {
       const subs = haccpMap[rec.id] || [];
       subs.forEach(sub => {
@@ -8074,8 +8077,12 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
         ];
         const submittedAt = sub.submittedAt ? new Date(sub.submittedAt).toLocaleString() : "—";
         const severity = sub.problemReport?.severity;
-        const sevEmoji = severity === "urgent" ? "🔴" : severity === "issue" ? "🟡" : severity ? "🔵" : "";
-        const problemText = sub.problemReport?.text ? `${sevEmoji} ${sub.problemReport.text}` : "—";
+        const sevEmoji = severity === "urgent" ? "🔴 URGENT" : severity === "issue" ? "🟡 Issue" : severity ? "🔵 Note" : "";
+        const photoCount = sub.problemReport?.photos?.length || 0;
+        const photoNote = photoCount > 0 ? ` [${photoCount} photo${photoCount > 1 ? "s" : ""} attached]` : "";
+        const problemText = sub.problemReport?.text
+          ? `${sevEmoji}${sevEmoji ? ": " : ""}${sub.problemReport.text}${photoNote}`
+          : photoCount > 0 ? `${photoNote.trim()}` : "—";
 
         const readings = [];
         allSubItems.forEach(item => {
@@ -8086,16 +8093,15 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
         });
 
         if (readings.length === 0) {
-          // Submission with no readings — still emit one row
           supRowNum++;
           const bg = supRowNum % 2 === 0 ? SILVER : WHITE;
           const row = ws6.addRow([
             supRowNum, str(rec.siteName || rec.location), str(rec.siteNumber), str(rec.inspectionDate),
-            str(rec.inspectionType), str(sub.supervisorName || "—"), submittedAt,
-            "—", "—", "—", "—", problemText,
+            str(rec.inspectionType), str(rec.inspectorName || "—"), str(sub.supervisorName || "—"), submittedAt,
+            "Supervisor QR", "—", "—", "—", "—", problemText,
           ]);
-          row.height = 16;
-          [1,2,3,4,5,6,7,8,9,10,11,12].forEach(ci => { row.getCell(ci).style = bBody(bg); });
+          row.height = problemText.length > 60 ? 32 : 18;
+          [1,2,3,4,5,6,7,8,9,10,11,12,13,14].forEach(ci => { row.getCell(ci).style = bBody(bg); });
         } else {
           readings.forEach((r, ri) => {
             supRowNum++;
@@ -8108,59 +8114,55 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
               ri === 0 ? str(rec.siteNumber) : "",
               ri === 0 ? str(rec.inspectionDate) : "",
               ri === 0 ? str(rec.inspectionType) : "",
+              ri === 0 ? str(rec.inspectorName || "—") : "",
               ri === 0 ? str(sub.supervisorName || "—") : "",
               ri === 0 ? submittedAt : "",
+              "Supervisor QR",
               r.displayLabel, r.foodName, r.temp, result,
               ri === 0 ? problemText : "",
             ]);
-            row.height = 16;
-            [1,2,3,4,5,6,7,8,9,10,12].forEach(ci => { row.getCell(ci).style = bBody(bg); });
-            row.getCell(11).style = bStatusExt(result);
+            row.height = ri === 0 && problemText.length > 60 ? 32 : 18;
+            [1,2,3,4,5,6,7,8,9,10,11,12,14].forEach(ci => { row.getCell(ci).style = bBody(bg); });
+            row.getCell(13).style = bStatusExt(result);
           });
         }
       });
     });
 
-    // ── SHEET 6: HACCP Food Temperatures ──────────────────────────────────
-    const ws4 = wb.addWorksheet("HACCP Temps");
-    ws4.columns = [
-      { width: 4 }, { width: 28 }, { width: 10 }, { width: 12 },
-      { width: 18 }, { width: 22 }, { width: 24 }, { width: 18 }, { width: 10 },
-    ];
-    const s4Title = ws4.addRow(["HACCP FOOD TEMPERATURES — ALL VENUES"]);
-    s4Title.height = 26;
-    ws4.mergeCells(`A${s4Title.number}:I${s4Title.number}`);
-    applyB(s4Title.getCell(1), bHdr(13));
-
-    const s4Headers = ["#", "Site / Location", "Unit #", "Date", "Inspection Type", "HACCP Item", "Food Name", "Temperature (°F)", "Result"];
-    const s4HRow = ws4.addRow(s4Headers);
-    s4HRow.height = 20;
-    s4Headers.forEach((_, ci) => applyB(s4HRow.getCell(ci + 1), bSubHdr()));
-    ws4.autoFilter = { from: { row: s4HRow.number, column: 1 }, to: { row: s4HRow.number, column: 9 } };
-    ws4.views = [{ state: "frozen", ySplit: s4HRow.number, topLeftCell: `A${s4HRow.number + 1}`, activeCell: "A1" }];
-
-    let haccpRowNum = 0;
+    // ── Part B: Inspector-recorded HACCP temps (from inspection form) ──────
     records.forEach(rec => {
       const ft = rec.foodTemps || {};
       const fn = rec.foodTempNames || {};
+      const fc = rec.foodTempCorrections || {};
       for (const item of HACCP_TEMP_ITEMS) {
         const vals = (ft[item.key] || []).filter(v => v !== "");
         const names = fn[item.key] || [];
+        const corrections = fc[item.key] || [];
         vals.forEach((v, vi) => {
-          haccpRowNum++;
+          supRowNum++;
           const pass = tempPass(item, v);
           const result = pass === true ? "Pass" : pass === false ? "Flag" : "";
-          const bg = haccpRowNum % 2 === 0 ? SILVER : WHITE;
-          const row = ws4.addRow([
-            haccpRowNum, str(rec.siteName || rec.location), str(rec.siteNumber), str(rec.inspectionDate),
-            str(rec.inspectionType), item.label, names[vi] || "", v, result,
+          const corrNote = corrections[vi] ? `Correction: ${corrections[vi]}` : "";
+          const bg = supRowNum % 2 === 0 ? SILVER : WHITE;
+          const row = ws6.addRow([
+            supRowNum, str(rec.siteName || rec.location), str(rec.siteNumber), str(rec.inspectionDate),
+            str(rec.inspectionType), str(rec.inspectorName || "—"), "—", str(rec.inspectionDate),
+            "Inspector Form", item.label, names[vi] || "", v, result, corrNote,
           ]);
-          row.height = 16;
-          [1,2,3,4,5,6,7,8].forEach(ci => { row.getCell(ci).style = bBody(bg); });
-          row.getCell(9).style = bStatus(result);
+          row.height = 18;
+          [1,2,3,4,5,6,7,8,9,10,11,12,14].forEach(ci => { row.getCell(ci).style = bBody(bg); });
+          row.getCell(13).style = bStatusExt(result);
         });
       }
     });
+
+    // ── SHEET 6: HACCP Temps (kept for backward compat but now points to combined sheet) ──
+    const ws4 = wb.addWorksheet("HACCP Temps");
+    ws4.columns = [{ width: 60 }];
+    const haccpNote = ws4.addRow(["ℹ️ HACCP temperatures have been merged into the 'Supervisor Log' sheet for a unified view."]);
+    haccpNote.height = 28;
+    ws4.mergeCells(`A${haccpNote.number}:A${haccpNote.number}`);
+    haccpNote.getCell(1).style = { font: { italic: true, size: 11, color: { argb: "FF475569" } }, alignment: { vertical: "middle", wrapText: true } };
 
     // ── SHEET: Supplies Needed ─────────────────────────────────────────────
     const allSupplies = records.flatMap(rec =>
