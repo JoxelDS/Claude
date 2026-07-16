@@ -18494,7 +18494,7 @@ function HaccpPortal() {
                   const displayLabel = labelOverrides[item.key] ?? item.label;
                   const readings = temps[item.key] || [""];
                   return (
-                    <div className="haccpTempBlock" key={item.key}>
+                    <div className="haccpTempBlock" key={item.key} style={item.type === "hot" ? { borderLeft: "3px solid #ef4444", background: "rgba(254,242,242,0.08)" } : item.type === "cold" ? { borderLeft: "3px solid #3b82f6", background: "rgba(239,246,255,0.08)" } : {}}>
                       <div className="haccpTempBlockHead">
                         {editingLabel === item.key ? (
                           <span style={{ display: "flex", alignItems: "center", gap: 4, flex: 1 }}>
@@ -18535,8 +18535,8 @@ function HaccpPortal() {
                           <span className="haccpTempLabel"
                             title="Click to rename"
                             onClick={() => { setEditingLabel(item.key); setEditingLabelVal(displayLabel); }}
-                            style={{ cursor: "pointer" }}>
-                            {displayLabel}
+                            style={{ cursor: "pointer", color: item.type === "hot" ? "#fca5a5" : item.type === "cold" ? "#93c5fd" : undefined }}>
+                            {item.type === "hot" ? "🔥 " : item.type === "cold" ? "❄️ " : ""}{displayLabel}
                             <span style={{ fontSize: "0.68rem", color: "#9ca3af", fontWeight: 400, marginLeft: 6 }}>
                               {item.type === "hot" ? `Min ${item.min}${item.unit}` : `Max ${item.max}${item.unit}`}
                             </span>
