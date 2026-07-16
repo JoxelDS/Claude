@@ -1941,7 +1941,7 @@ function fixGrammar(text) {
 }
 
 function formatNotesStructured(rawNotes) {
-  if (!rawNotes || !rawNotes.trim()) return { bullets: [], grouped: {} };
+  if (!rawNotes || typeof rawNotes !== "string" || !rawNotes.trim()) return { bullets: [], grouped: {} };
 
   // Step 1: expand abbreviations
   let text = expandAbbreviations(rawNotes);
@@ -1975,7 +1975,7 @@ function formatNotesText(rawNotes) {
     for (const b of grouped[cat]) lines.push(`  • ${b}`);
     lines.push("");
   }
-  return lines.join("\n").trim() || rawNotes || "";
+  return lines.join("\n").trim() || (typeof rawNotes === "string" ? rawNotes : "") || "";
 }
 
 function cx(...classes) {
@@ -8688,7 +8688,7 @@ ${ftItems.flatMap(item => {
       : "";
   })()}
   ${(() => {
-    const notesText = formatNotesText(rec.inspection);
+    const notesText = formatNotesText(rec.notes || rec.rawNotes || "");
     if (!notesText) return "";
     const lines = notesText.split("\n").filter(l => l.trim())
       .map(l => `<p style="font-size:8.5pt;margin:2px 0;color:#374151;">${esc(l)}</p>`).join("");
