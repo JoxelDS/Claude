@@ -8156,14 +8156,6 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
       }
     });
 
-    // ── SHEET 6: HACCP Temps (kept for backward compat but now points to combined sheet) ──
-    const ws4 = wb.addWorksheet("HACCP Temps");
-    ws4.columns = [{ width: 60 }];
-    const haccpNote = ws4.addRow(["ℹ️ HACCP temperatures have been merged into the 'Supervisor Log' sheet for a unified view."]);
-    haccpNote.height = 28;
-    ws4.mergeCells(`A${haccpNote.number}:A${haccpNote.number}`);
-    haccpNote.getCell(1).style = { font: { italic: true, size: 11, color: { argb: "FF475569" } }, alignment: { vertical: "middle", wrapText: true } };
-
     // ── SHEET: Supplies Needed ─────────────────────────────────────────────
     const allSupplies = records.flatMap(rec =>
       (rec.suppliesNeeded || []).map(s => ({ ...s, _site: rec.siteName || rec.location || "—", _date: rec.inspectionDate || "—", _inspector: rec.inspectorName || "—" }))
@@ -8196,7 +8188,7 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
 
     // ── PHOTO SHEETS: one sheet per venue that has photos ─────────────────
     // Store lowercase so comparison is case-insensitive — ExcelJS enforces case-insensitive uniqueness
-    const usedSheetNames = new Set(["inspection summary", "action items", "checklist detail", "equipment temps", "supervisor log", "haccp temps", "supplies needed"]);
+    const usedSheetNames = new Set(["inspection summary", "action items", "checklist detail", "equipment temps", "supervisor log", "supplies needed"]);
     function safeSheetName(site, num, idx) {
       const base = ((site || "Venue") + (num ? ` #${num}` : ""))
         .replace(/[\\/?*[\]:]/g, "").slice(0, 28).trim() || `Venue ${idx + 1}`;
