@@ -1162,9 +1162,15 @@ async function saveHaccpSubmission(record) {
 async function loadHaccpSubmissions() {
   if (FIREBASE_ON) {
     try {
-      const col = IS_DEFAULT_VENUE() ? legacyCol("haccpSubmissions") : venueCol("haccpSubmissions");
-      const snap = await getDocs(query(col, orderBy("submittedAt", "desc")));
-      return snap.docs.map(d => d.data());
+      const cols = [legacyCol("haccpSubmissions")];
+      if (!IS_DEFAULT_VENUE()) cols.push(venueCol("haccpSubmissions"));
+      const snaps = await Promise.all(
+        cols.map(col => getDocs(query(col, orderBy("submittedAt", "desc"))).catch(() => null))
+      );
+      const seen = new Set();
+      return snaps
+        .flatMap(snap => snap ? snap.docs.map(d => d.data()) : [])
+        .filter(r => { const k = r.id || r.submittedAt; if (seen.has(k)) return false; seen.add(k); return true; });
     } catch { return []; }
   }
   try { return JSON.parse(localStorage.getItem(HACCP_SUBS_KEY) || "[]"); } catch { return []; }
