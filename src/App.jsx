@@ -18568,7 +18568,7 @@ function HaccpPortal() {
                         const pass = isSubmitted && rawDigits.length >= 1 ? tempPass(item, val) : null;
                         const foodName = (foodNames[item.key] || [""])[idx] ?? "";
                         const correction = (tempCorrections[item.key] || [""])[idx] ?? "";
-                        const canSubmit = rawDigits.length >= 1;
+                        const canSubmit = rawDigits.length >= 1 && foodName.trim().length > 0;
                         const needsCorrection = pass === false && !correction.trim();
                         return (
                           <div key={idx} style={{ marginBottom: 6 }}>
@@ -21741,7 +21741,7 @@ export default function App() {
                         const correction = corrections[idx] ?? "";
                         const haccpFoodNameFieldId = `field-haccp-name-${item.key}-${idx}`;
                         const needsCorrection = pass === false && !correction.trim();
-                        const canSubmit = rawDigits.length >= 2;
+                        const canSubmit = rawDigits.length >= 2 && name.trim().length > 0;
                         return (
                           <div key={idx} style={{ display: "flex", gap: 6, alignItems: "flex-start", marginBottom: 6, flexDirection: "column" }}>
                             <div style={{ display: "flex", gap: 6, alignItems: "center", width: "100%" }}>
