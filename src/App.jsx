@@ -19889,6 +19889,7 @@ export default function App() {
     setFieldCorrections({});
     setNotesSuggestions(null);
     setSuggestionsDismissed(false);
+    setGuideStep(0);
     clearDraft(); // explicitly reset — discard any saved draft
     setDraftBanner(null);
     setPage("inspector");
