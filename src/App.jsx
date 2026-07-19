@@ -7153,12 +7153,15 @@ function RecurringIssuesPanel({ history, onLocationClick }) {
 
 /* ── HACCP temp items + pass/fail helper (used by HaccpPortal AND HistoryPage) ── */
 const HACCP_TEMP_ITEMS = [
-  { key: "hotHolding",     label: "Hot Holding",        unit: "°F", min: 135, type: "hot" },
-  { key: "cookingTemp",    label: "Cooking Temp",        unit: "°F", min: 165, type: "hot" },
-  { key: "reheating",      label: "Reheating Temp",      unit: "°F", min: 165, type: "hot" },
-  { key: "coldHolding",    label: "Cold Holding",        unit: "°F", max: 41,  type: "cold" },
-  { key: "walkInCooler",   label: "Walk-in Cooler",      unit: "°F", max: 41,  type: "cold" },
-  { key: "walkInFreezer",  label: "Walk-in Freezer",     unit: "°F", max: 10,  type: "cold" },
+  { key: "hotHolding",        label: "Hot Holding",                  unit: "°F", min: 135, type: "hot",  hint: "All hot foods" },
+  { key: "cookingPoultry",    label: "Cooking – Poultry",            unit: "°F", min: 165, type: "hot",  hint: "Chicken, turkey, duck" },
+  { key: "cookingGroundMeat", label: "Cooking – Ground Meat",        unit: "°F", min: 155, type: "hot",  hint: "Beef, pork, veal, lamb" },
+  { key: "cookingWholeCuts",  label: "Cooking – Whole Cuts",         unit: "°F", min: 145, type: "hot",  hint: "Beef, pork, veal, lamb steaks/roasts" },
+  { key: "cookingSeafood",    label: "Cooking – Seafood & Eggs",     unit: "°F", min: 145, type: "hot",  hint: "Fish, shellfish, shell eggs" },
+  { key: "reheating",         label: "Reheating Temp",               unit: "°F", min: 165, type: "hot",  hint: "All reheated foods" },
+  { key: "coldHolding",       label: "Cold Holding",                 unit: "°F", max: 41,  type: "cold", hint: "All cold foods" },
+  { key: "walkInCooler",      label: "Walk-in Cooler",               unit: "°F", max: 41,  type: "cold", hint: "Ambient air temp" },
+  { key: "walkInFreezer",     label: "Walk-in Freezer",              unit: "°F", max: 0,   type: "cold", hint: "USDA: ≤ 0 °F" },
 ];
 
 function tempPass(item, val) {
@@ -8143,10 +8146,12 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
       const ft = rec.foodTemps || {};
       const fn = rec.foodTempNames || {};
       const fc = rec.foodTempCorrections || {};
+      const ftt = rec.foodTempTimes || {};
       for (const item of HACCP_TEMP_ITEMS) {
         const vals = (ft[item.key] || []).filter(v => v !== "");
         const names = fn[item.key] || [];
         const corrections = fc[item.key] || [];
+        const times = ftt[item.key] || [];
         vals.forEach((v, vi) => {
           supRowNum++;
           const pass = tempPass(item, v);
@@ -8155,7 +8160,7 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
           const bg = supRowNum % 2 === 0 ? SILVER : WHITE;
           const row = ws6.addRow([
             supRowNum, str(rec.siteName || rec.location), str(rec.siteNumber), str(rec.inspectionDate),
-            str(rec.inspectionType), str(rec.inspectorName || "—"), "—", str(rec.inspectionDate),
+            str(rec.inspectionType), str(rec.inspectorName || "—"), "—", str(times[vi] || rec.inspectionDate),
             "Inspector Form", item.label, names[vi] || "", v, result, corrNote,
           ]);
           row.height = 18;
@@ -18209,6 +18214,10 @@ function HaccpPortal() {
   const [tempCorrections, setTempCorrections] = useState(() =>
     Object.fromEntries(HACCP_TEMP_ITEMS.map(it => [it.key, [""]]))
   );
+  // times: time of each reading (HH:MM) per item
+  const [tempTimes, setTempTimes] = useState(() =>
+    Object.fromEntries(HACCP_TEMP_ITEMS.map(it => [it.key, [""]]))
+  );
   // Custom temperature items added by the supervisor (beyond the 6 defaults)
   const [customItems, setCustomItems] = useState([]);
   // { key: string, label: string, unit: "°F", type: "hot"|"cold", min?: number, max?: number }
@@ -18336,6 +18345,7 @@ function HaccpPortal() {
       temps: tempsFlat,
       foodNames: foodNamesFlat,
       tempCorrections: Object.fromEntries(Object.entries(tempCorrections).map(([k, arr]) => [k, arr.map(v => (v || "").trim())])),
+      tempTimes: Object.fromEntries(Object.entries(tempTimes).map(([k, arr]) => [k, arr.map(v => (v || "").trim())])),
       itemLabels,
       customItems,
       problemReport: problem.trim() ? { text: problem.trim(), severity, photos: problemPhotos.map(p => ({ id: p.id, name: p.name, sizeMb: p.sizeMb, type: p.type, tag: p.tag || "", previewUrl: (p.previewUrl && !p.previewUrl.startsWith("data:")) ? p.previewUrl : "" })) } : null,
@@ -18546,6 +18556,7 @@ function HaccpPortal() {
                             <span style={{ fontSize: "0.68rem", color: "#9ca3af", fontWeight: 400, marginLeft: 6 }}>
                               {item.type === "hot" ? `Min ${item.min}${item.unit}` : `Max ${item.max}${item.unit}`}
                             </span>
+                            {item.hint && <span style={{ fontSize: "0.64rem", color: "#6b7280", fontWeight: 400, marginLeft: 5, fontStyle: "italic" }}>({item.hint})</span>}
                             <span style={{ fontSize: "0.65rem", color: "#6b7280", marginLeft: 5 }}>✏️</span>
                           </span>
                         )}
@@ -18566,6 +18577,7 @@ function HaccpPortal() {
                               setFoodNames(p => ({ ...p, [item.key]: [...(p[item.key] || [""]), ""] }));
                               setTempSubmitted(p => ({ ...p, [item.key]: [...(p[item.key] || [false]), false] }));
                               setTempCorrections(p => ({ ...p, [item.key]: [...(p[item.key] || [""]), ""] }));
+                              setTempTimes(p => ({ ...p, [item.key]: [...(p[item.key] || [""]), ""] }));
                             }}>
                             + Reading
                           </button>
@@ -18577,11 +18589,21 @@ function HaccpPortal() {
                         const pass = isSubmitted && rawDigits.length >= 1 ? tempPass(item, val) : null;
                         const foodName = (foodNames[item.key] || [""])[idx] ?? "";
                         const correction = (tempCorrections[item.key] || [""])[idx] ?? "";
-                        const canSubmit = rawDigits.length >= 1 && foodName.trim().length > 0;
+                        const readingTime = (tempTimes[item.key] || [""])[idx] ?? "";
+                        const canSubmit = rawDigits.length >= 1 && foodName.trim().length > 0 && readingTime.trim().length > 0;
                         const needsCorrection = pass === false && !correction.trim();
                         return (
                           <div key={idx} style={{ marginBottom: 6 }}>
-                            <div className="haccpTempRow">
+                            <div className="haccpTempRow" style={{ flexWrap: "wrap", gap: 6 }}>
+                              <input type="time"
+                                value={readingTime}
+                                disabled={isSubmitted}
+                                onChange={e => setTempTimes(p => {
+                                  const arr = [...(p[item.key] || [""])];
+                                  arr[idx] = e.target.value;
+                                  return { ...p, [item.key]: arr };
+                                })}
+                                style={{ width: 110, fontSize: "0.78rem", borderRadius: 8, border: "1.5px solid #334155", background: "#1e293b", color: "#e2e8f0", padding: "4px 8px", opacity: isSubmitted ? 0.7 : 1, flexShrink: 0 }} />
                               <input className="haccpFoodNameInput" type="text"
                                 value={foodName}
                                 disabled={isSubmitted}
@@ -18777,6 +18799,7 @@ function HaccpPortal() {
               setFoodNames(Object.fromEntries(HACCP_TEMP_ITEMS.map(it => [it.key, [""]])));
               setTempSubmitted(Object.fromEntries(HACCP_TEMP_ITEMS.map(it => [it.key, [false]])));
               setTempCorrections(Object.fromEntries(HACCP_TEMP_ITEMS.map(it => [it.key, [""]])));
+              setTempTimes(Object.fromEntries(HACCP_TEMP_ITEMS.map(it => [it.key, [""]])));
               setCustomItems([]);
               setEditingLabel(null);
               setEditingLabelVal("");
@@ -19244,6 +19267,9 @@ export default function App() {
   // tracks which readings have been submitted (confirmed) — only submitted readings show pass/flag
   const [foodTempSubmitted, setFoodTempSubmitted] = useState(() =>
     Object.fromEntries(HACCP_TEMP_ITEMS.map(it => [it.key, [false]]))
+  );
+  const [foodTempTimes, setFoodTempTimes] = useState(() =>
+    Object.fromEntries(HACCP_TEMP_ITEMS.map(it => [it.key, [""]]))
   );
   const [rawNotes, setRawNotes] = useState("");
   const [notesPhotos, setNotesPhotos] = useState([]);  // photos attached to raw notes section
@@ -19889,6 +19915,7 @@ export default function App() {
     setFoodTempNames(Object.fromEntries(HACCP_TEMP_ITEMS.map(it => [it.key, [""]])));
     setFoodTempCorrections(Object.fromEntries(HACCP_TEMP_ITEMS.map(it => [it.key, [""]])));
     setFoodTempSubmitted(Object.fromEntries(HACCP_TEMP_ITEMS.map(it => [it.key, [false]])));
+    setFoodTempTimes(Object.fromEntries(HACCP_TEMP_ITEMS.map(it => [it.key, [""]])));
     setFieldCorrections({});
     setNotesSuggestions(null);
     setSuggestionsDismissed(false);
@@ -19939,6 +19966,7 @@ export default function App() {
     if (snapshot.foodTempNames && typeof snapshot.foodTempNames === "object") setFoodTempNames({ ...snapshot.foodTempNames });
     if (snapshot.foodTempCorrections && typeof snapshot.foodTempCorrections === "object") setFoodTempCorrections({ ...snapshot.foodTempCorrections });
     if (snapshot.foodTempSubmitted && typeof snapshot.foodTempSubmitted === "object") setFoodTempSubmitted({ ...snapshot.foodTempSubmitted });
+    if (snapshot.foodTempTimes && typeof snapshot.foodTempTimes === "object") setFoodTempTimes({ ...snapshot.foodTempTimes });
     if (snapshot.inspection !== undefined) setNotesPhotos(Array.isArray(snapshot.inspection?._notesPhotos) ? snapshot.inspection?._notesPhotos : []);
     if (snapshot.suppliesNeeded !== undefined) setSuppliesNeeded(Array.isArray(snapshot.suppliesNeeded) ? snapshot.suppliesNeeded : []);
     if (snapshot.rawNotes !== undefined) setRawNotes(snapshot.rawNotes || "");
@@ -20170,6 +20198,7 @@ export default function App() {
       foodTempNames: { ...foodTempNames },
       foodTempCorrections: { ...foodTempCorrections },
       foodTempSubmitted: { ...foodTempSubmitted },
+      foodTempTimes: { ...foodTempTimes },
       overallStatus: calcOverallStatus(inspection, { foodTemps, foodTempNames }),
       actionItems: buildActionItems({ inspection, rawNotes, foodTemps, foodTempNames, foodTempCorrections, foodTempSubmitted }),
       rawNotes,
@@ -21730,6 +21759,7 @@ export default function App() {
                           <span style={{ fontWeight: 400, fontSize: "0.75rem", color: "var(--sdx-gray-500)", marginLeft: 6 }}>
                             {item.type === "hot" ? `Min ${item.min}°F` : `Max ${item.max}°F`}
                           </span>
+                          {item.hint && <span style={{ fontWeight: 400, fontSize: "0.72rem", color: "#64748b", marginLeft: 6, fontStyle: "italic" }}>({item.hint})</span>}
                         </span>
                         <button type="button"
                           className="btn btnGhost btnSmall"
@@ -21739,6 +21769,7 @@ export default function App() {
                             setFoodTempNames(p => ({ ...p, [item.key]: [...(p[item.key] || [""]), ""] }));
                             setFoodTempCorrections(p => ({ ...p, [item.key]: [...(p[item.key] || [""]), ""] }));
                             setFoodTempSubmitted(p => ({ ...p, [item.key]: [...(p[item.key] || [false]), false] }));
+                            setFoodTempTimes(p => ({ ...p, [item.key]: [...(p[item.key] || [""]), ""] }));
                           }}>
                           + Reading
                         </button>
@@ -21751,10 +21782,20 @@ export default function App() {
                         const correction = corrections[idx] ?? "";
                         const haccpFoodNameFieldId = `field-haccp-name-${item.key}-${idx}`;
                         const needsCorrection = pass === false && !correction.trim();
-                        const canSubmit = rawDigits.length >= 2 && name.trim().length > 0;
+                        const readingTime = (foodTempTimes[item.key] || [""])[idx] ?? "";
+                        const canSubmit = rawDigits.length >= 2 && name.trim().length > 0 && readingTime.trim().length > 0;
                         return (
                           <div key={idx} style={{ display: "flex", gap: 6, alignItems: "flex-start", marginBottom: 6, flexDirection: "column" }}>
                             <div style={{ display: "flex", gap: 6, alignItems: "center", width: "100%" }}>
+                            <input type="time"
+                              value={readingTime}
+                              disabled={isSubmitted}
+                              onChange={e => setFoodTempTimes(p => {
+                                const arr = [...(p[item.key] || [""])];
+                                arr[idx] = e.target.value;
+                                return { ...p, [item.key]: arr };
+                              })}
+                              style={{ width: 110, fontSize: "0.78rem", borderRadius: 8, border: "1.5px solid #e2e8f0", padding: "5px 8px", opacity: isSubmitted ? 0.7 : 1, flexShrink: 0 }} />
                             <input
                               className="input"
                               type="text"
@@ -21857,6 +21898,10 @@ export default function App() {
                                   setFoodTempSubmitted(p => {
                                     const arr = (p[item.key] || [false]).filter((_, i) => i !== idx);
                                     return { ...p, [item.key]: arr.length ? arr : [false] };
+                                  });
+                                  setFoodTempTimes(p => {
+                                    const arr = (p[item.key] || [""]).filter((_, i) => i !== idx);
+                                    return { ...p, [item.key]: arr.length ? arr : [""] };
                                   });
                                 }}>✕</button>
                             )}
