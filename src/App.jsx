@@ -7161,7 +7161,7 @@ const HACCP_TEMP_ITEMS = [
   { key: "reheating",         label: "Reheating Temp",               unit: "°F", min: 165, type: "hot",  hint: "All reheated foods" },
   { key: "coldHolding",       label: "Cold Holding",                 unit: "°F", max: 41,  type: "cold", hint: "All cold foods" },
   { key: "walkInCooler",      label: "Walk-in Cooler",               unit: "°F", max: 41,  type: "cold", hint: "Ambient air temp" },
-  { key: "walkInFreezer",     label: "Walk-in Freezer",              unit: "°F", max: 0,   type: "cold", hint: "USDA: ≤ 0 °F" },
+  { key: "walkInFreezer",     label: "Walk-in Freezer",              unit: "°F", max: 20,  type: "cold", hint: "Max 20 °F" },
 ];
 
 function tempPass(item, val) {
