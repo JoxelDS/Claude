@@ -13,11 +13,19 @@
     <meta http-equiv="Expires" content="0" />
     <link rel="icon" type="image/svg+xml" href="/Claude/favicon.svg" />
     <link rel="apple-touch-icon" href="/Claude/favicon.svg" />
-    <!-- DNS prefetch + preconnect for Google Fonts (fastest load) -->
+    <!-- DNS prefetch + preconnect for Google Fonts -->
     <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
     <link rel="dns-prefetch" href="https://fonts.gstatic.com" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- Firebase preconnect (auth + Firestore + Storage) -->
+    <link rel="preconnect" href="https://firestore.googleapis.com" />
+    <link rel="preconnect" href="https://identitytoolkit.googleapis.com" />
+    <link rel="preconnect" href="https://securetoken.googleapis.com" />
+    <link rel="dns-prefetch" href="https://firebasestorage.googleapis.com" />
+    <!-- Google Translate CDN — dns-prefetch only since it loads async -->
+    <link rel="dns-prefetch" href="//translate.google.com" />
+    <link rel="dns-prefetch" href="//translate.googleapis.com" />
     <!-- Preload font CSS so it starts downloading immediately -->
     <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
@@ -33,16 +41,22 @@
       .sp-fill{width:40%;height:100%;background:#EE0000;border-radius:3px;animation:sp .8s ease infinite alternate}
       @keyframes sp{from{transform:translateX(0)}to{transform:translateX(200%)}}
     </style>
-  <!-- Google Translate Element (free, no API key) -->
-  <script type="text/javascript">
+  <!-- Google Translate — loaded async so it never blocks first paint -->
+  <script>
     function googleTranslateElementInit() {
       new google.translate.TranslateElement(
         { pageLanguage: 'en', autoDisplay: false },
         'google_translate_element'
       );
     }
+    // Defer until after page is interactive
+    window.addEventListener('load', function() {
+      var s = document.createElement('script');
+      s.src = '//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit';
+      s.async = true;
+      document.head.appendChild(s);
+    });
   </script>
-  <script type="text/javascript" src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
   <style>
     /* Hide ALL Google Translate chrome — banner, tooltip, top bar, logo */
     .goog-te-banner-frame,
@@ -64,12 +78,12 @@
     .goog-te-banner-frame.skiptranslate { display: none !important; }
     font[style*="vertical-align"] { vertical-align: inherit !important; }
   </style>
-    <script type="module" crossorigin src="/Claude/assets/DmYUJ51A.js"></script>
+    <script type="module" crossorigin src="/Claude/assets/Bu7L-JIk.js"></script>
     <link rel="modulepreload" crossorigin href="/Claude/assets/DCpd0Dq0.js">
     <link rel="modulepreload" crossorigin href="/Claude/assets/Bczy5Qg0.js">
     <link rel="modulepreload" crossorigin href="/Claude/assets/DMWRW1Jt.js">
     <link rel="modulepreload" crossorigin href="/Claude/assets/395TmP3i.js">
-    <link rel="stylesheet" crossorigin href="/Claude/assets/q-Z7oO2v.css">
+    <link rel="stylesheet" crossorigin href="/Claude/assets/D_sMIErM.css">
   </head>
   <body>
     <!-- Google Translate widget — mounted here permanently, teleported into popover via JS -->
