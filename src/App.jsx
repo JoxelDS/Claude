@@ -21221,11 +21221,9 @@ export default function App() {
               {/* ── Stepper header ─────────────────────────────────────── */}
               {(() => {
                 const isEventDay = inspectionType === "Event Day";
-                // On Event Day, Operations is step 1 (priority); otherwise it's last
                 const STEP_LABELS = isEventDay
                   ? ["Operations ⭐", "Temps & Supplies", "Facilities", "Equipment", "Utensils"]
                   : ["Temps & Supplies", "Facilities", "Equipment", "Utensils", "Operations"];
-                // Maps display step index → panel index (0=Temps,1=Facilities,2=Equipment,3=Utensils,4=Operations)
                 const STEP_ORDER = isEventDay ? [4, 0, 1, 2, 3] : [0, 1, 2, 3, 4];
                 const activePanel = STEP_ORDER[guideStep];
                 const totalSteps = STEP_LABELS.length;
@@ -21275,7 +21273,7 @@ export default function App() {
 
                   {/* ══ Step 0: Temps & Supplies ══════════════════════════ */}
                   <div className="guideStepPanel">
-                  <div style={{ display: activePanel === 0 ? "block" : "none" }}>
+                  <div style={{ display: (inspectionType==="Event Day"?[4,0,1,2,3]:[0,1,2,3,4])[guideStep]===0?"block":"none" }}>
 
               {/* ── Supplies Needed ─────────────────────────────────────── */}
               {(() => {
@@ -21551,7 +21549,7 @@ export default function App() {
                   </div>{/* end step-0 content */}
 
                   {/* ══ Step 1: Facilities ════════════════════════════════ */}
-                  <div className="guideStepPanel" style={{ display: activePanel === 1 ? "block" : "none" }}>
+                  <div className="guideStepPanel" style={{ display: (inspectionType==="Event Day"?[4,0,1,2,3]:[0,1,2,3,4])[guideStep]===1?"block":"none" }}>
 
                 <GuideSection title="🏢 Facilities"
                   items={[
@@ -21576,7 +21574,7 @@ export default function App() {
                   </div>{/* end Step 1 panel */}
 
                   {/* ══ Step 2: Equipment ═════════════════════════════════ */}
-                  <div className="guideStepPanel" style={{ display: activePanel === 2 ? "block" : "none" }}>
+                  <div className="guideStepPanel" style={{ display: (inspectionType==="Event Day"?[4,0,1,2,3]:[0,1,2,3,4])[guideStep]===2?"block":"none" }}>
 
                 {/* Equipment only — Utensils is Step 3 */}
                 {locationType === "Concession" ? (
@@ -21633,7 +21631,7 @@ export default function App() {
                   </div>{/* end Step 2 panel */}
 
                   {/* ══ Step 3: Utensils ══════════════════════════════════ */}
-                  <div className="guideStepPanel" style={{ display: activePanel === 3 ? "block" : "none" }}>
+                  <div className="guideStepPanel" style={{ display: (inspectionType==="Event Day"?[4,0,1,2,3]:[0,1,2,3,4])[guideStep]===3?"block":"none" }}>
 
                 <GuideSection title="🧹 Utensils"
                   items={[
@@ -21645,7 +21643,7 @@ export default function App() {
                   </div>{/* end Step 3 panel */}
 
                   {/* ══ Step 4: Operations ════════════════════════════════ */}
-                  <div className="guideStepPanel" style={{ display: activePanel === 4 ? "block" : "none" }}>
+                  <div className="guideStepPanel" style={{ display: (inspectionType==="Event Day"?[4,0,1,2,3]:[0,1,2,3,4])[guideStep]===4?"block":"none" }}>
 
                 {inspectionType === "Event Day" && (
                   <div style={{ background: "#fff7ed", border: "1.5px solid #fb923c", borderRadius: 10, padding: "10px 14px", marginBottom: 12, display: "flex", gap: 10, alignItems: "flex-start" }}>
