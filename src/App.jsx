@@ -2300,12 +2300,24 @@ function buildDefaultInspection() {
     },
     // ── TEMPERATURES (kept as-is — form header fields) ──────────
     temps: { handSinkTempF: "", handSinkNote: "", handSinkOutOfOrder: false, threeCompSinkTempF: "", threeCompSinkNote: "", threeCompSinkOutOfOrder: false, iceMakerCleanedDate: "" },
-    // ── LEGACY FIELDS (kept for backward compat with old saved records) ──
     operations: {
+      // legacy keys (backward compat)
       employeePractices: withPhotos({ status: "OK", notes: "" }),
-      handwashing:       withPhotos({ status: "OK", notes: "" }),
       labelingDating:    withPhotos({ status: "OK", notes: "" }),
       logs:              withPhotos({ status: "OK", notes: "" }),
+      // new personal hygiene & operational keys
+      hairnets:           withChecklist("hairnets"),
+      gloves:             withChecklist("gloves"),
+      uniforms:           withChecklist("uniforms"),
+      handwashing:        withChecklist("handwashing"),
+      illnessPolicy:      withChecklist("illnessPolicy"),
+      foodLabeling:       withChecklist("foodLabeling"),
+      dateRotation:       withChecklist("dateRotation"),
+      crossContamination: withChecklist("crossContamination"),
+      chemicalStorage:    withChecklist("chemicalStorage"),
+      thermometers:       withChecklist("thermometers"),
+      staffingLevels:     withChecklist("staffingLevels"),
+      openFoodCoverage:   withChecklist("openFoodCoverage"),
     },
     maintenance: {
       hvac:             withPhotos({ status: "OK", notes: "", priority: "Low" }),
@@ -7932,10 +7944,21 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
       ["Equipments", "Other Equipments",    insp => insp?.equipment?.otherEquip],
       ["Utensils",   "Cleaning Utensils",   insp => insp?.utensils?.cleaningUtensils],
       ["Utensils",   "Cooking Utensils",    insp => insp?.utensils?.cookingUtensils],
-      ["Operations", "Employee Practices",  insp => insp?.operations?.employeePractices],
-      ["Operations", "Handwashing",         insp => insp?.operations?.handwashing],
-      ["Operations", "Labeling / Dating",   insp => insp?.operations?.labelingDating],
-      ["Operations", "Logs / Docs",         insp => insp?.operations?.logs],
+      ["Operations", "Employee Practices",   insp => insp?.operations?.employeePractices],
+      ["Operations", "Labeling / Dating",    insp => insp?.operations?.labelingDating],
+      ["Operations", "Logs / Docs",          insp => insp?.operations?.logs],
+      ["Operations", "Hairnets / Hats",      insp => insp?.operations?.hairnets],
+      ["Operations", "Gloves",               insp => insp?.operations?.gloves],
+      ["Operations", "Uniforms",             insp => insp?.operations?.uniforms],
+      ["Operations", "Handwashing",          insp => insp?.operations?.handwashing],
+      ["Operations", "Illness Policy",       insp => insp?.operations?.illnessPolicy],
+      ["Operations", "Food Labeling",        insp => insp?.operations?.foodLabeling],
+      ["Operations", "Date Rotation (FIFO)", insp => insp?.operations?.dateRotation],
+      ["Operations", "Cross-Contamination",  insp => insp?.operations?.crossContamination],
+      ["Operations", "Chemical Storage",     insp => insp?.operations?.chemicalStorage],
+      ["Operations", "Thermometers",         insp => insp?.operations?.thermometers],
+      ["Operations", "Staffing",             insp => insp?.operations?.staffingLevels],
+      ["Operations", "Open Food Coverage",   insp => insp?.operations?.openFoodCoverage],
     ];
     const clDetail = node => {
       if (!Array.isArray(node?.checklist) || node.checklist.length === 0) return "";
@@ -21197,7 +21220,7 @@ export default function App() {
             <div className="guide">
               {/* ── Stepper header ─────────────────────────────────────── */}
               {(() => {
-                const STEP_LABELS = ["Temps & Supplies", "Facilities", "Equipment", "Utensils"];
+                const STEP_LABELS = ["Temps & Supplies", "Facilities", "Equipment", "Utensils", "Operations"];
                 const totalSteps = STEP_LABELS.length;
                 const pct = ((guideStep + 1) / totalSteps) * 100;
                 return (
@@ -21613,6 +21636,43 @@ export default function App() {
                   allowCustom sectionKey="utensils" inspectionId={savedReportId} venueId={activeVenueId} onError={msg => { setError(msg); setTimeout(() => setError(""), 8000); }} defaultOpen={true} />
 
                   </div>{/* end Step 3 panel */}
+
+                  {/* ══ Step 4: Operations ════════════════════════════════ */}
+                  <div className="guideStepPanel" style={{ display: guideStep === 4 ? "block" : "none" }}>
+
+                {inspectionType === "Event Day" && (
+                  <div style={{ background: "#fff7ed", border: "1.5px solid #fb923c", borderRadius: 10, padding: "10px 14px", marginBottom: 12, display: "flex", gap: 10, alignItems: "flex-start" }}>
+                    <span style={{ fontSize: "1.2rem", flexShrink: 0 }}>🎟️</span>
+                    <div>
+                      <div style={{ fontWeight: 700, color: "#c2410c", fontSize: "0.88rem", marginBottom: 2 }}>Event Day — Operations Priority</div>
+                      <div style={{ fontSize: "0.82rem", color: "#9a3412" }}>On event days all staff must be in full uniform with hairnets/hats, gloves on ready-to-eat foods, and handwashing logs current before doors open.</div>
+                    </div>
+                  </div>
+                )}
+
+                <GuideSection title="👷 Personal Hygiene & Dress Code"
+                  items={[
+                    { path: ["operations", "hairnets"],      label: "Hairnets / Hats — all food-handling staff wearing proper hair restraints?" },
+                    { path: ["operations", "gloves"],        label: "Gloves — worn when handling ready-to-eat foods, changed between tasks, no torn/soiled gloves in use?" },
+                    { path: ["operations", "uniforms"],      label: "Uniforms — clean, full uniform (shirt, apron, non-slip shoes), no jewelry on hands/wrists?" },
+                    { path: ["operations", "handwashing"],   label: "Handwashing — staff washing hands at correct sink, with soap, for 20 s, after glove removal/raw food/restroom?" },
+                    { path: ["operations", "illnessPolicy"], label: "Illness Policy — any staff with symptoms (vomiting, diarrhea, jaundice) removed from food handling?" },
+                  ]} inspection={inspection} setInspection={setInspection}
+                  allowCustom sectionKey="operations" inspectionId={savedReportId} venueId={activeVenueId} onError={msg => { setError(msg); setTimeout(() => setError(""), 8000); }} defaultOpen={true} />
+
+                <GuideSection title="⚙️ Operational Compliance"
+                  items={[
+                    { path: ["operations", "foodLabeling"],     label: "Food Labeling — all prepped/stored food labeled with name and date, no unlabeled containers?" },
+                    { path: ["operations", "dateRotation"],     label: "Date Rotation (FIFO) — oldest product in front, expired items discarded, nothing past use-by date?" },
+                    { path: ["operations", "crossContamination"],label: "Cross-Contamination — raw meats stored below ready-to-eat foods, separate cutting boards/utensils used?" },
+                    { path: ["operations", "chemicalStorage"],  label: "Chemical Storage — cleaning chemicals stored away from food/equipment, properly labeled?" },
+                    { path: ["operations", "thermometers"],     label: "Thermometers — probe thermometers available, calibrated, sanitized between uses?" },
+                    { path: ["operations", "staffingLevels"],   label: "Staffing — sufficient staff for volume, all positions covered, no unsupervised minors in hazardous areas?" },
+                    { path: ["operations", "openFoodCoverage"],  label: "Open Food — all food covered/protected from contamination when not actively in use?" },
+                  ]} inspection={inspection} setInspection={setInspection}
+                  allowCustom sectionKey="operations" inspectionId={savedReportId} venueId={activeVenueId} onError={msg => { setError(msg); setTimeout(() => setError(""), 8000); }} defaultOpen={true} />
+
+                  </div>{/* end Step 4 panel */}
 
                 </div>{/* end guideStepTrack */}
               </div>{/* end guideStepViewport */}
