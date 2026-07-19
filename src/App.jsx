@@ -4152,7 +4152,7 @@ async function exportAsCsv({ inspection, notesPhotos, rawNotes, inspectionType, 
   // SHEET 2: Action Items
   // ══════════════════════════════════════════════════════════════════════════
   if (actionItems.length > 0) {
-    const ws2 = wb.addWorksheet("Action Items");
+    const ws2 = wb.addWorksheet("Inspection Findings");
     ws2.columns = [{ width: 5 }, { width: 22 }, { width: 50 }, { width: 38 }, { width: 14 }];
 
     const ws2TitleRow = ws2.addRow(["ACTION ITEMS"]);
@@ -7861,7 +7861,7 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
     });
 
     // ── SHEET 2: Action Items ──────────────────────────────────────────────
-    const ws2 = wb.addWorksheet("Action Items");
+    const ws2 = wb.addWorksheet("Inspection Findings");
     ws2.columns = [
       { width: 4 }, { width: 28 }, { width: 10 }, { width: 16 },
       { width: 12 }, { width: 18 }, { width: 20 }, { width: 16 }, { width: 40 }, { width: 30 },
@@ -8202,7 +8202,7 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
 
     // ── PHOTO SHEETS: one sheet per venue that has photos ─────────────────
     // Store lowercase so comparison is case-insensitive — ExcelJS enforces case-insensitive uniqueness
-    const usedSheetNames = new Set(["inspection summary", "action items", "checklist detail", "equipment temps", "haccp - supervisor log", "supplies needed"]);
+    const usedSheetNames = new Set(["inspection summary", "inspection findings", "checklist detail", "equipment temps", "haccp - supervisor log", "supplies needed"]);
     function safeSheetName(site, num, idx) {
       const base = ((site || "Venue") + (num ? ` #${num}` : ""))
         .replace(/[\\/?*[\]:]/g, "").slice(0, 28).trim() || `Venue ${idx + 1}`;
