@@ -21752,14 +21752,13 @@ export default function App() {
                   const corrections = foodTempCorrections[item.key] || [""];
                   const submitted = foodTempSubmitted[item.key] || [false];
                   return (
-                    <div key={item.key} style={{ borderBottom: "1px solid #e2e8f0", paddingBottom: 10, borderLeft: item.type === "hot" ? "3px solid #ef4444" : "3px solid #3b82f6", paddingLeft: 8, borderRadius: 2, background: item.type === "hot" ? "rgba(254,242,242,0.5)" : "rgba(239,246,255,0.5)" }}>
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-                        <span style={{ fontWeight: 700, fontSize: "0.88rem", color: item.type === "hot" ? "#b91c1c" : "#1d4ed8" }}>
-                          {item.type === "hot" ? "🔥 " : "❄️ "}{item.label}
-                          <span style={{ fontWeight: 400, fontSize: "0.75rem", color: "var(--sdx-gray-500)", marginLeft: 6 }}>
-                            {item.type === "hot" ? `Min ${item.min}°F` : `Max ${item.max}°F`}
+                    <div key={item.key} style={{ borderBottom: "1px solid #e2e8f0", paddingBottom: 6, paddingTop: 4, borderLeft: item.type === "hot" ? "3px solid #ef4444" : "3px solid #3b82f6", paddingLeft: 8, borderRadius: 2, background: item.type === "hot" ? "rgba(254,242,242,0.5)" : "rgba(239,246,255,0.5)" }}>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4, flexWrap: "nowrap", gap: 4 }}>
+                        <span style={{ fontWeight: 700, fontSize: "0.85rem", color: item.type === "hot" ? "#b91c1c" : "#1d4ed8", display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap", minWidth: 0 }}>
+                          <span style={{ whiteSpace: "nowrap" }}>{item.type === "hot" ? "🔥" : "❄️"} {item.label}</span>
+                          <span style={{ fontWeight: 400, fontSize: "0.72rem", color: "#64748b", whiteSpace: "nowrap" }}>
+                            {item.type === "hot" ? `Min ${item.min}°F` : `Max ${item.max}°F`}{item.hint ? ` · ${item.hint}` : ""}
                           </span>
-                          {item.hint && <span style={{ fontWeight: 400, fontSize: "0.72rem", color: "#64748b", marginLeft: 6, fontStyle: "italic" }}>({item.hint})</span>}
                         </span>
                         <button type="button"
                           className="btn btnGhost btnSmall"
@@ -21795,7 +21794,7 @@ export default function App() {
                                 arr[idx] = e.target.value;
                                 return { ...p, [item.key]: arr };
                               })}
-                              style={{ width: 110, fontSize: "0.78rem", borderRadius: 8, border: "1.5px solid #e2e8f0", padding: "5px 8px", opacity: isSubmitted ? 0.7 : 1, flexShrink: 0 }} />
+                              style={{ width: 110, fontSize: "0.78rem", borderRadius: 8, border: "1.5px solid #cbd5e1", background: "#fff", color: "#1e293b", padding: "5px 8px", opacity: isSubmitted ? 0.7 : 1, flexShrink: 0 }} />
                             <input
                               className="input"
                               type="text"
