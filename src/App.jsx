@@ -7951,73 +7951,6 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
       return lines.join("\n");
     };
 
-    const ws3 = wb.addWorksheet("Checklist Detail");
-    ws3.columns = [
-      { width: 4 }, { width: 28 }, { width: 10 }, { width: 12 },
-      { width: 18 }, { width: 14 }, { width: 22 }, { width: 16 }, { width: 44 }, { width: 12 }, { width: 36 }, { width: 40 },
-    ];
-    const s3Title = ws3.addRow(["CHECKLIST DETAIL — ALL VENUES"]);
-    s3Title.height = 26;
-    ws3.mergeCells(`A${s3Title.number}:L${s3Title.number}`);
-    applyB(s3Title.getCell(1), bHdr(11));
-
-    const s3Headers = ["#", "Site / Location", "Unit #", "Date", "Inspection Type", "Section", "Item", "Item Status", "Checklist Item", "Result", "Notes", "Item Photo URLs"];
-    const s3HRow = ws3.addRow(s3Headers);
-    s3HRow.height = 20;
-    s3Headers.forEach((_, ci) => applyB(s3HRow.getCell(ci + 1), bSubHdr()));
-    ws3.autoFilter = { from: { row: s3HRow.number, column: 1 }, to: { row: s3HRow.number, column: 12 } };
-    ws3.views = [{ state: "frozen", ySplit: s3HRow.number, topLeftCell: `A${s3HRow.number + 1}`, activeCell: "A1" }];
-
-    let clRowNum = 0;
-    records.forEach(rec => {
-      const insp = rec.inspection;
-      if (!insp) return;
-      checklistSections.forEach(([section, item, getNode]) => {
-        const node = getNode(insp);
-        if (!node) return;
-        const checklist = Array.isArray(node?.checklist) ? node.checklist : [];
-        if (checklist.length === 0) {
-          // No checklist items — emit a single row with just the status
-          clRowNum++;
-          const bg = clRowNum % 2 === 0 ? SILVER : WHITE;
-          const row = ws3.addRow([
-            clRowNum, str(rec.siteName || rec.location), str(rec.siteNumber), str(rec.inspectionDate),
-            str(rec.inspectionType), section, item, str(node.status || ""), "", "", str(node.notes || ""), "",
-          ]);
-          row.height = 18;
-          [1,2,3,4,5,6,7,9,10,11,12].forEach(ci => { row.getCell(ci).style = bBody(bg); });
-          row.getCell(8).style = bStatus(str(node.status));
-        } else {
-          // One row per checklist item so filters work on individual pass/fail items
-          // Sort: failed (NO) first, then passed (YES)
-          const sorted = [
-            ...checklist.filter(c => c.value === "NO"),
-            ...checklist.filter(c => c.value === "YES"),
-            ...checklist.filter(c => c.value !== "NO" && c.value !== "YES"),
-          ];
-          sorted.forEach((c, ci2) => {
-            clRowNum++;
-            const bg = clRowNum % 2 === 0 ? SILVER : WHITE;
-            const result = c.value === "NO" ? "❌ Fail" : c.value === "YES" ? "✅ Pass" : "—";
-            const ciPhotoUrls = (c.photos || []).map(p => p.url || p.dataUrl || "").filter(Boolean).join("\n");
-            const row = ws3.addRow([
-              clRowNum, str(rec.siteName || rec.location), str(rec.siteNumber), str(rec.inspectionDate),
-              str(rec.inspectionType), section, item, ci2 === 0 ? str(node.status || "") : "",
-              str(c.label || ""), result, ci2 === 0 ? str(node.notes || "") : "", str(ciPhotoUrls),
-            ]);
-            const lineCount = ciPhotoUrls ? ciPhotoUrls.split("\n").length + 1 : 1;
-            row.height = lineCount > 1 ? 18 + (lineCount - 1) * 14 : 18;
-            [1,2,3,4,5,6,7,9,11].forEach(ci => { row.getCell(ci).style = bBody(bg); });
-            row.getCell(8).style = ci2 === 0 ? bStatus(str(node.status)) : bBody(bg);
-            row.getCell(10).style = c.value === "NO"
-              ? { ...bBody(bg), font: { bold: true, color: { argb: "FFDC2626" }, size: 10, name: "Calibri" } }
-              : { ...bBody(bg), font: { bold: false, color: { argb: "FF15803D" }, size: 10, name: "Calibri" } };
-            row.getCell(12).style = { ...bBody(bg), alignment: { wrapText: true, vertical: "top" } };
-          });
-        }
-      });
-    });
-
     // ── SHEET 4: Equipment Temperatures ───────────────────────────────────
     const ws5 = wb.addWorksheet("Equipment Temps");
     ws5.columns = [
@@ -8202,7 +8135,7 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
 
     // ── PHOTO SHEETS: one sheet per venue that has photos ─────────────────
     // Store lowercase so comparison is case-insensitive — ExcelJS enforces case-insensitive uniqueness
-    const usedSheetNames = new Set(["inspection summary", "inspection findings", "checklist detail", "equipment temps", "haccp - supervisor log", "supplies needed"]);
+    const usedSheetNames = new Set(["inspection summary", "inspection findings", "equipment temps", "haccp - supervisor log", "supplies needed"]);
     function safeSheetName(site, num, idx) {
       const base = ((site || "Venue") + (num ? ` #${num}` : ""))
         .replace(/[\\/?*[\]:]/g, "").slice(0, 28).trim() || `Venue ${idx + 1}`;
