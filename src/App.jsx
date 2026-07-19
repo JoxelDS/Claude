@@ -7325,6 +7325,9 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
     if (!currentUser) return false;
     if (currentUser.role === "admin" || currentUser.role === "global_admin") return true;
     if (rec.savedByHash && currentUser.badgeHash && rec.savedByHash === currentUser.badgeHash) return true;
+    // Inspectors can edit reports they authored (matched by name for older records without savedByHash)
+    if (currentUser.name && rec.inspectorName &&
+        rec.inspectorName.trim().toLowerCase() === currentUser.name.trim().toLowerCase()) return true;
     return false;
   }
   const [history, setHistory] = useState([]);
@@ -16518,7 +16521,7 @@ function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVe
                         onSaveVenueSettings?.({ scheduleSlots: [...existing, slot] });
                         if (slot.inspector && FIREBASE_ON) {
                           saveInspectorNotification({
-                            inspectorName: slot.inspector,
+                            inspectorName: slot.inspector.trim().toLowerCase(),
                             slotId: slot.id,
                             date: slot.date,
                             location: slot.location,

@@ -153,7 +153,7 @@ export async function getInspectorNotifications(inspectorName) {
   try {
     const q = query(
       collection(db, "inspectorNotifications"),
-      where("inspectorName", "==", inspectorName),
+      where("inspectorName", "==", (inspectorName || "").trim().toLowerCase()),
       where("read", "==", false)
     );
     const snap = await getDocs(q);
