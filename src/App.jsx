@@ -18607,7 +18607,7 @@ function HaccpPortal() {
                               {/* Submit button — before confirming */}
                               {!isSubmitted && (
                                 <button type="button"
-                                  style={{ background: canSubmit ? "#2563eb" : "#1e293b", color: canSubmit ? "#fff" : "#64748b", fontWeight: 700, fontSize: "0.75rem", padding: "5px 12px", borderRadius: 8, flexShrink: 0, cursor: canSubmit ? "pointer" : "default", border: canSubmit ? "none" : "1.5px solid #334155", whiteSpace: "nowrap" }}
+                                  style={{ background: canSubmit ? "#2563eb" : "#fff", color: canSubmit ? "#fff" : "#9ca3af", fontWeight: 700, fontSize: "0.75rem", padding: "5px 12px", borderRadius: 8, flexShrink: 0, cursor: canSubmit ? "pointer" : "default", border: canSubmit ? "none" : "1.5px solid #cbd5e1", whiteSpace: "nowrap" }}
                                   disabled={!canSubmit}
                                   onClick={() => setTempSubmitted(p => {
                                     const arr = [...(p[item.key] || [false])];
@@ -18728,7 +18728,7 @@ function HaccpPortal() {
                                       )}
                                       {!isSubmitted && (
                                         <button type="button"
-                                          style={{ background: canSubmit ? "#2563eb" : "#1e293b", color: canSubmit ? "#fff" : "#64748b", fontWeight: 700, fontSize: "0.75rem", padding: "5px 12px", borderRadius: 8, flexShrink: 0, cursor: canSubmit ? "pointer" : "default", border: canSubmit ? "none" : "1.5px solid #334155", whiteSpace: "nowrap" }}
+                                          style={{ background: canSubmit ? "#2563eb" : "#fff", color: canSubmit ? "#fff" : "#9ca3af", fontWeight: 700, fontSize: "0.75rem", padding: "5px 12px", borderRadius: 8, flexShrink: 0, cursor: canSubmit ? "pointer" : "default", border: canSubmit ? "none" : "1.5px solid #cbd5e1", whiteSpace: "nowrap" }}
                                           disabled={!canSubmit}
                                           onClick={() => setTempSubmitted(p => { const arr=[...(p[item.key]||[false])]; arr[idx]=true; return {...p,[item.key]:arr}; })}>
                                           Submit
