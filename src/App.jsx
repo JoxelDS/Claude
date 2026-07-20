@@ -5157,13 +5157,18 @@ function TempTrendChart({ history }) {
   const [locSearch, setLocSearch] = useState(""); // text filter for location search
   const [showLocDropdown, setShowLocDropdown] = useState(false); // show filtered list
 
-  // Group by location+unit+floor, sorted by date
+  // Group by license + name + unit + floor for accurate deduplication
   const locationData = useMemo(() => {
     const map = {};
     for (const rec of history) {
-      const unitNum = rec.siteNumber || "";
-      const key = `${rec.siteName || rec.location || "—"}${unitNum ? ` #${unitNum}` : ""}${rec.floor ? ` - ${rec.floor}` : ""}`;
-      if (!map[key]) map[key] = { points: [], unitNum };
+      const unitNum = (rec.siteNumber || "").trim();
+      const name = (rec.siteName || rec.location || "—").trim();
+      const license = (rec.restaurantLicense || "").trim().replace(/^NO LICENSE$/i, "");
+      // Key: license (if present) takes priority for identity; unit number disambiguates same-name locations
+      const key = [license || name, unitNum, rec.floor].filter(Boolean).join(" | ");
+      // Human-readable display label shown in UI pills
+      const displayLabel = `${name}${unitNum ? ` #${unitNum}` : ""}${rec.floor ? ` - ${rec.floor}` : ""}`;
+      if (!map[key]) map[key] = { points: [], unitNum, label: displayLabel, license };
       const hand = Number(rec.temps?.handSinkTempF);
       const three = Number(rec.temps?.threeCompSinkTempF);
       // Collect cooler/freezer temps from equipment items (per-equipment)
@@ -5291,7 +5296,7 @@ function TempTrendChart({ history }) {
               <input
                 type="text"
                 placeholder="Search location…"
-                value={locSearch || (showLocDropdown ? "" : activeLoc)}
+                value={locSearch || (showLocDropdown ? "" : (locationData[activeLoc]?.label || activeLoc))}
                 onFocus={() => { setLocSearch(""); setShowLocDropdown(true); }}
                 onChange={e => { setLocSearch(e.target.value); setShowLocDropdown(true); }}
                 onBlur={() => { setTimeout(() => setShowLocDropdown(false), 220); }}
@@ -5322,11 +5327,11 @@ function TempTrendChart({ history }) {
                   boxShadow: "0 4px 16px rgba(0,0,0,0.13)",
                 }}>
                   {locations
-                    .filter(loc => loc.toLowerCase().includes((locSearch || "").toLowerCase()))
+                    .filter(loc => (locationData[loc]?.label || loc).toLowerCase().includes((locSearch || "").toLowerCase()))
                     .map(loc => {
                       const uNum = locationData[loc]?.unitNum;
-                      // Split display: unit badge + name
-                      const dispName = uNum ? loc.replace(` #${uNum}`, "") : loc;
+                      const label = locationData[loc]?.label || loc;
+                      const dispName = uNum ? label.replace(` #${uNum}`, "") : label;
                       return (
                         <div
                           key={loc}
@@ -5352,7 +5357,7 @@ function TempTrendChart({ history }) {
                         </div>
                       );
                     })}
-                  {locations.filter(loc => loc.toLowerCase().includes((locSearch || "").toLowerCase())).length === 0 && (
+                  {locations.filter(loc => (locationData[loc]?.label || loc).toLowerCase().includes((locSearch || "").toLowerCase())).length === 0 && (
                     <div style={{ padding: "0.5rem 0.75rem", fontSize: "0.75rem", color: "#9ca3af" }}>No matches</div>
                   )}
                 </div>
