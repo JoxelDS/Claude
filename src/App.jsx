@@ -18679,17 +18679,15 @@ function HaccpPortal() {
                           const readings = temps[item.key] || [""];
                           return (
                             <div key={item.key} style={{ background: m.bg, borderBottom: ci < cookingItems.length - 1 ? `1px solid ${m.border}` : "none", padding: "8px 12px" }}>
-                              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6, gap: 6 }}>
-                                <div style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}>
-                                  <span style={{ fontSize: "1.1rem", flexShrink: 0 }}>{m.emoji}</span>
-                                  <div style={{ minWidth: 0 }}>
-                                    <div style={{ fontWeight: 700, fontSize: "0.82rem", color: m.color }}>{item.label}</div>
-                                    <div style={{ fontSize: "0.68rem", color: "#94a3b8", marginTop: 1 }}>{item.hint}</div>
-                                  </div>
-                                  <span style={{ background: m.badgeBg, color: "#fff", borderRadius: 6, padding: "2px 8px", fontSize: "0.78rem", fontWeight: 800, flexShrink: 0 }}>
-                                    ≥{item.min}°F
-                                  </span>
+                              <div style={{ display: "flex", alignItems: "center", marginBottom: 6, gap: 6 }}>
+                                <span style={{ fontSize: "1.1rem", flexShrink: 0 }}>{m.emoji}</span>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                  <div style={{ fontWeight: 700, fontSize: "0.82rem", color: m.color }}>{item.label}</div>
+                                  <div style={{ fontSize: "0.68rem", color: "#94a3b8", marginTop: 1 }}>{item.hint}</div>
                                 </div>
+                                <span style={{ background: m.badgeBg, color: "#fff", borderRadius: 6, padding: "2px 8px", fontSize: "0.78rem", fontWeight: 800, flexShrink: 0, minWidth: 68, textAlign: "center" }}>
+                                  ≥{item.min}°F
+                                </span>
                                 <button type="button" className="haccpAddReadingBtn" style={{ fontSize: "0.7rem", padding: "2px 8px", flexShrink: 0 }}
                                   onClick={() => {
                                     setTemps(p => ({ ...p, [item.key]: [...(p[item.key] || [""]), ""] }));
@@ -22015,17 +22013,15 @@ export default function App() {
                                 const m = cookingMeta[item.key] || { emoji: "🔥", color: "#b91c1c", bg: "#fff5f5", border: "#fecaca", badge: "#7f1d1d" };
                                 return (
                                   <div key={item.key} style={{ background: m.bg, borderBottom: ci < cookingItems.length - 1 ? `1px solid ${m.border}` : "none", padding: "8px 12px" }}>
-                                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6, gap: 6 }}>
-                                      <div style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}>
-                                        <span style={{ fontSize: "1.1rem", flexShrink: 0 }}>{m.emoji}</span>
-                                        <div style={{ minWidth: 0 }}>
-                                          <div style={{ fontWeight: 700, fontSize: "0.82rem", color: m.color }}>{item.label}</div>
-                                          <div style={{ fontSize: "0.68rem", color: "#64748b", marginTop: 1 }}>{item.hint}</div>
-                                        </div>
-                                        <span style={{ background: m.badge, color: "#fff", borderRadius: 6, padding: "2px 8px", fontSize: "0.78rem", fontWeight: 800, flexShrink: 0, letterSpacing: "0.02em" }}>
-                                          ≥{item.min}°F
-                                        </span>
+                                    <div style={{ display: "flex", alignItems: "center", marginBottom: 6, gap: 6 }}>
+                                      <span style={{ fontSize: "1.1rem", flexShrink: 0 }}>{m.emoji}</span>
+                                      <div style={{ flex: 1, minWidth: 0 }}>
+                                        <div style={{ fontWeight: 700, fontSize: "0.82rem", color: m.color }}>{item.label}</div>
+                                        <div style={{ fontSize: "0.68rem", color: "#64748b", marginTop: 1 }}>{item.hint}</div>
                                       </div>
+                                      <span style={{ background: m.badge, color: "#fff", borderRadius: 6, padding: "2px 8px", fontSize: "0.78rem", fontWeight: 800, flexShrink: 0, minWidth: 68, textAlign: "center", letterSpacing: "0.02em" }}>
+                                        ≥{item.min}°F
+                                      </span>
                                       <button type="button" className="btn btnGhost btnSmall" style={{ fontSize: "0.7rem", padding: "2px 8px", flexShrink: 0 }}
                                         onClick={() => {
                                           setFoodTemps(p=>({...p,[item.key]:[...(p[item.key]||[""]),""]}));
