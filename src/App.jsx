@@ -18574,7 +18574,7 @@ function HaccpPortal() {
                                   arr[idx] = e.target.value;
                                   return { ...p, [item.key]: arr };
                                 })}
-                                style={{ width: 110, fontSize: "0.78rem", borderRadius: 8, border: "1.5px solid #334155", background: "#1e293b", color: "#e2e8f0", padding: "4px 8px", opacity: isSubmitted ? 0.7 : 1, flexShrink: 0 }} />
+                                style={{ width: 110, fontSize: "0.78rem", borderRadius: 8, border: isSubmitted ? "1.5px solid #334155" : "1.5px solid #38bdf8", background: "#0f172a", color: "#f0f9ff", padding: "4px 8px", opacity: isSubmitted ? 0.6 : 1, flexShrink: 0, fontWeight: 600 }} />
                               <input className="haccpFoodNameInput" type="text"
                                 value={foodName}
                                 disabled={isSubmitted}
@@ -18607,7 +18607,7 @@ function HaccpPortal() {
                               {/* Submit button — before confirming */}
                               {!isSubmitted && (
                                 <button type="button"
-                                  style={{ background: canSubmit ? "#2563eb" : "#e2e8f0", color: canSubmit ? "#fff" : "#9ca3af", fontWeight: 700, fontSize: "0.75rem", padding: "5px 12px", borderRadius: 8, flexShrink: 0, cursor: canSubmit ? "pointer" : "default", border: "none", whiteSpace: "nowrap" }}
+                                  style={{ background: canSubmit ? "#2563eb" : "#1e293b", color: canSubmit ? "#fff" : "#64748b", fontWeight: 700, fontSize: "0.75rem", padding: "5px 12px", borderRadius: 8, flexShrink: 0, cursor: canSubmit ? "pointer" : "default", border: canSubmit ? "none" : "1.5px solid #334155", whiteSpace: "nowrap" }}
                                   disabled={!canSubmit}
                                   onClick={() => setTempSubmitted(p => {
                                     const arr = [...(p[item.key] || [false])];
@@ -18713,7 +18713,7 @@ function HaccpPortal() {
                                     <div className="haccpTempRow" style={{ flexWrap: "wrap", gap: 6 }}>
                                       <input type="time" value={readingTime} disabled={isSubmitted}
                                         onChange={e => setTempTimes(p => { const arr=[...(p[item.key]||[""])]; arr[idx]=e.target.value; return {...p,[item.key]:arr}; })}
-                                        style={{ width: 110, fontSize: "0.78rem", borderRadius: 8, border: "1.5px solid #334155", background: "#1e293b", color: "#e2e8f0", padding: "4px 8px", opacity: isSubmitted ? 0.7 : 1, flexShrink: 0 }} />
+                                        style={{ width: 110, fontSize: "0.78rem", borderRadius: 8, border: isSubmitted ? "1.5px solid #334155" : "1.5px solid #38bdf8", background: "#0f172a", color: "#f0f9ff", padding: "4px 8px", opacity: isSubmitted ? 0.6 : 1, flexShrink: 0, fontWeight: 600 }} />
                                       <input className="haccpFoodNameInput" type="text" value={foodName} disabled={isSubmitted}
                                         onChange={e => setFoodNames(p => { const arr=[...(p[item.key]||[""])]; arr[idx]=e.target.value; return {...p,[item.key]:arr}; })}
                                         placeholder="Food item (e.g. Chicken)" style={{ opacity: isSubmitted ? 0.7 : 1 }} />
@@ -18728,7 +18728,7 @@ function HaccpPortal() {
                                       )}
                                       {!isSubmitted && (
                                         <button type="button"
-                                          style={{ background: canSubmit ? "#2563eb" : "#334155", color: canSubmit ? "#fff" : "#64748b", fontWeight: 700, fontSize: "0.75rem", padding: "5px 12px", borderRadius: 8, flexShrink: 0, cursor: canSubmit ? "pointer" : "default", border: "none", whiteSpace: "nowrap" }}
+                                          style={{ background: canSubmit ? "#2563eb" : "#1e293b", color: canSubmit ? "#fff" : "#64748b", fontWeight: 700, fontSize: "0.75rem", padding: "5px 12px", borderRadius: 8, flexShrink: 0, cursor: canSubmit ? "pointer" : "default", border: canSubmit ? "none" : "1.5px solid #334155", whiteSpace: "nowrap" }}
                                           disabled={!canSubmit}
                                           onClick={() => setTempSubmitted(p => { const arr=[...(p[item.key]||[false])]; arr[idx]=true; return {...p,[item.key]:arr}; })}>
                                           Submit
