@@ -21878,31 +21878,53 @@ export default function App() {
                       {otherItems.filter(i => i.type === "hot" && i.key !== "reheating").map(renderItemBlock)}
 
                       {/* All cooking types grouped into one block */}
-                      <div style={{ borderBottom: "1px solid #e2e8f0", paddingBottom: 6, paddingTop: 4, borderLeft: "3px solid #ef4444", paddingLeft: 8, borderRadius: 2, background: "rgba(254,242,242,0.5)" }}>
-                        <div style={{ fontWeight: 700, fontSize: "0.85rem", color: "#b91c1c", marginBottom: 6 }}>🔥 Cooking Temperatures</div>
-                        {cookingItems.map(item => {
-                          const readings = foodTemps[item.key] || [""];
-                          return (
-                            <div key={item.key} style={{ marginBottom: 8 }}>
-                              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 3 }}>
-                                <span style={{ fontSize: "0.8rem", fontWeight: 600, color: "#7f1d1d", display: "flex", alignItems: "center", gap: 4 }}>
-                                  {item.label}
-                                  <span style={{ fontWeight: 400, fontSize: "0.7rem", color: "#64748b" }}>Min {item.min}°F · {item.hint}</span>
-                                </span>
-                                <button type="button" className="btn btnGhost btnSmall" style={{ fontSize: "0.7rem", padding: "2px 8px" }}
-                                  onClick={() => {
-                                    setFoodTemps(p=>({...p,[item.key]:[...(p[item.key]||[""]),""]}));
-                                    setFoodTempNames(p=>({...p,[item.key]:[...(p[item.key]||[""]),""]}));
-                                    setFoodTempCorrections(p=>({...p,[item.key]:[...(p[item.key]||[""]),""]}));
-                                    setFoodTempSubmitted(p=>({...p,[item.key]:[...(p[item.key]||[false]),false]}));
-                                    setFoodTempTimes(p=>({...p,[item.key]:[...(p[item.key]||[""]),""]}));
-                                  }}>+ Reading</button>
-                              </div>
-                              {renderReadingRows(item)}
+                      {(() => {
+                        const cookingMeta = {
+                          cookingPoultry:    { emoji: "🐔", color: "#d97706", bg: "#fffbeb", border: "#fde68a", badge: "#92400e" },
+                          cookingGroundMeat: { emoji: "🥩", color: "#dc2626", bg: "#fff5f5", border: "#fecaca", badge: "#7f1d1d" },
+                          cookingWholeCuts:  { emoji: "🥩", color: "#b45309", bg: "#fffbeb", border: "#fde68a", badge: "#78350f" },
+                          cookingSeafood:    { emoji: "🐟", color: "#0e7490", bg: "#f0fdfa", border: "#99f6e4", badge: "#134e4a" },
+                        };
+                        return (
+                          <div style={{ border: "1.5px solid #fca5a5", borderRadius: 10, overflow: "hidden", background: "#fff" }}>
+                            <div style={{ background: "linear-gradient(90deg,#b91c1c,#dc2626)", padding: "7px 12px", display: "flex", alignItems: "center", gap: 6 }}>
+                              <span style={{ fontSize: "1rem" }}>🔥</span>
+                              <span style={{ fontWeight: 800, fontSize: "0.88rem", color: "#fff", letterSpacing: "0.02em" }}>Cooking Temperatures</span>
+                              <span style={{ fontSize: "0.7rem", color: "#fecaca", marginLeft: 2 }}>— required internal temp before serving</span>
                             </div>
-                          );
-                        })}
-                      </div>
+                            <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+                              {cookingItems.map((item, ci) => {
+                                const m = cookingMeta[item.key] || { emoji: "🔥", color: "#b91c1c", bg: "#fff5f5", border: "#fecaca", badge: "#7f1d1d" };
+                                return (
+                                  <div key={item.key} style={{ background: m.bg, borderBottom: ci < cookingItems.length - 1 ? `1px solid ${m.border}` : "none", padding: "8px 12px" }}>
+                                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6, gap: 6 }}>
+                                      <div style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}>
+                                        <span style={{ fontSize: "1.1rem", flexShrink: 0 }}>{m.emoji}</span>
+                                        <div style={{ minWidth: 0 }}>
+                                          <div style={{ fontWeight: 700, fontSize: "0.82rem", color: m.color }}>{item.label}</div>
+                                          <div style={{ fontSize: "0.68rem", color: "#64748b", marginTop: 1 }}>{item.hint}</div>
+                                        </div>
+                                        <span style={{ background: m.badge, color: "#fff", borderRadius: 6, padding: "2px 8px", fontSize: "0.78rem", fontWeight: 800, flexShrink: 0, letterSpacing: "0.02em" }}>
+                                          ≥{item.min}°F
+                                        </span>
+                                      </div>
+                                      <button type="button" className="btn btnGhost btnSmall" style={{ fontSize: "0.7rem", padding: "2px 8px", flexShrink: 0 }}
+                                        onClick={() => {
+                                          setFoodTemps(p=>({...p,[item.key]:[...(p[item.key]||[""]),""]}));
+                                          setFoodTempNames(p=>({...p,[item.key]:[...(p[item.key]||[""]),""]}));
+                                          setFoodTempCorrections(p=>({...p,[item.key]:[...(p[item.key]||[""]),""]}));
+                                          setFoodTempSubmitted(p=>({...p,[item.key]:[...(p[item.key]||[false]),false]}));
+                                          setFoodTempTimes(p=>({...p,[item.key]:[...(p[item.key]||[""]),""]}));
+                                        }}>+ Reading</button>
+                                    </div>
+                                    {renderReadingRows(item)}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })()}
 
                       {/* Reheating */}
                       {otherItems.filter(i => i.key === "reheating").map(renderItemBlock)}
