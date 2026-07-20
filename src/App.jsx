@@ -18574,7 +18574,7 @@ function HaccpPortal() {
                                   arr[idx] = e.target.value;
                                   return { ...p, [item.key]: arr };
                                 })}
-                                style={{ width: 110, fontSize: "0.78rem", borderRadius: 8, border: isSubmitted ? "1.5px solid #334155" : "1.5px solid #38bdf8", background: "#0f172a", color: "#f0f9ff", padding: "4px 8px", opacity: isSubmitted ? 0.6 : 1, flexShrink: 0, fontWeight: 600 }} />
+                                style={{ width: 110, fontSize: "0.78rem", borderRadius: 8, border: "1.5px solid #cbd5e1", background: "#fff", color: "#1e293b", padding: "4px 8px", opacity: isSubmitted ? 0.6 : 1, flexShrink: 0 }} />
                               <input className="haccpFoodNameInput" type="text"
                                 value={foodName}
                                 disabled={isSubmitted}
@@ -18713,7 +18713,7 @@ function HaccpPortal() {
                                     <div className="haccpTempRow" style={{ flexWrap: "wrap", gap: 6 }}>
                                       <input type="time" value={readingTime} disabled={isSubmitted}
                                         onChange={e => setTempTimes(p => { const arr=[...(p[item.key]||[""])]; arr[idx]=e.target.value; return {...p,[item.key]:arr}; })}
-                                        style={{ width: 110, fontSize: "0.78rem", borderRadius: 8, border: isSubmitted ? "1.5px solid #334155" : "1.5px solid #38bdf8", background: "#0f172a", color: "#f0f9ff", padding: "4px 8px", opacity: isSubmitted ? 0.6 : 1, flexShrink: 0, fontWeight: 600 }} />
+                                        style={{ width: 110, fontSize: "0.78rem", borderRadius: 8, border: "1.5px solid #cbd5e1", background: "#fff", color: "#1e293b", padding: "4px 8px", opacity: isSubmitted ? 0.6 : 1, flexShrink: 0 }} />
                                       <input className="haccpFoodNameInput" type="text" value={foodName} disabled={isSubmitted}
                                         onChange={e => setFoodNames(p => { const arr=[...(p[item.key]||[""])]; arr[idx]=e.target.value; return {...p,[item.key]:arr}; })}
                                         placeholder="Food item (e.g. Chicken)" style={{ opacity: isSubmitted ? 0.7 : 1 }} />
