@@ -18466,11 +18466,21 @@ function HaccpPortal() {
             <div className="haccpSection">
               <div className="haccpSectionHead">Temperature Readings</div>
               <div className="haccpSectionBody">
-                {[...HACCP_TEMP_ITEMS, ...customItems].map((item, _itemIdx) => {
-                  const isCustom = !HACCP_TEMP_ITEMS.find(d => d.key === item.key);
-                  const displayLabel = labelOverrides[item.key] ?? item.label;
-                  const readings = temps[item.key] || [""];
-                  return (
+                {(() => {
+                  const cookingMeta = {
+                    cookingPoultry:    { emoji: "🐔", color: "#fbbf24", bg: "rgba(251,191,36,0.10)", border: "rgba(251,191,36,0.35)", badgeBg: "#92400e" },
+                    cookingGroundMeat: { emoji: "🥩", color: "#f87171", bg: "rgba(248,113,113,0.10)", border: "rgba(248,113,113,0.35)", badgeBg: "#7f1d1d" },
+                    cookingWholeCuts:  { emoji: "🥩", color: "#fb923c", bg: "rgba(251,146,60,0.10)", border: "rgba(251,146,60,0.35)", badgeBg: "#7c2d12" },
+                    cookingSeafood:    { emoji: "🐟", color: "#22d3ee", bg: "rgba(34,211,238,0.08)", border: "rgba(34,211,238,0.3)",  badgeBg: "#164e63" },
+                  };
+                  const standardItems = [...HACCP_TEMP_ITEMS.filter(i => !i.group), ...customItems];
+                  const cookingItems  = HACCP_TEMP_ITEMS.filter(i => i.group === "cooking");
+
+                  function renderReadingBlock(item) {
+                    const isCustom = !HACCP_TEMP_ITEMS.find(d => d.key === item.key);
+                    const displayLabel = labelOverrides[item.key] ?? item.label;
+                    const readings = temps[item.key] || [""];
+                    return (
                     <div className="haccpTempBlock" key={item.key} style={item.type === "hot" ? { borderLeft: "3px solid #ef4444", background: "rgba(254,242,242,0.08)" } : item.type === "cold" ? { borderLeft: "3px solid #3b82f6", background: "rgba(239,246,255,0.08)" } : {}}>
                       <div className="haccpTempBlockHead">
                         {editingLabel === item.key ? (
@@ -18646,7 +18656,115 @@ function HaccpPortal() {
                       })}
                     </div>
                   );
-                })}
+                  } // end renderReadingBlock
+
+                  // Items before cooking (Hot Holding)
+                  const beforeCooking = standardItems.filter(i => i.type === "hot" && i.key !== "reheating" && !i.group);
+                  // Items after cooking (Reheating + Cold)
+                  const afterCooking  = standardItems.filter(i => i.key === "reheating" || i.type === "cold" || (!i.type && i.group !== "cooking"));
+
+                  return (
+                    <>
+                      {beforeCooking.map(item => renderReadingBlock(item))}
+
+                      {/* Cooking temps — grouped visual block */}
+                      <div style={{ border: "1.5px solid rgba(239,68,68,0.4)", borderRadius: 10, overflow: "hidden", marginBottom: 2 }}>
+                        <div style={{ background: "linear-gradient(90deg,#7f1d1d,#b91c1c)", padding: "7px 12px", display: "flex", alignItems: "center", gap: 6 }}>
+                          <span style={{ fontSize: "1rem" }}>🔥</span>
+                          <span style={{ fontWeight: 800, fontSize: "0.88rem", color: "#fff", letterSpacing: "0.02em" }}>Cooking Temperatures</span>
+                          <span style={{ fontSize: "0.7rem", color: "#fca5a5", marginLeft: 2 }}>— required internal temp before serving</span>
+                        </div>
+                        {cookingItems.map((item, ci) => {
+                          const m = cookingMeta[item.key] || { emoji: "🔥", color: "#f87171", bg: "rgba(248,113,113,0.10)", border: "rgba(248,113,113,0.35)", badgeBg: "#7f1d1d" };
+                          const readings = temps[item.key] || [""];
+                          return (
+                            <div key={item.key} style={{ background: m.bg, borderBottom: ci < cookingItems.length - 1 ? `1px solid ${m.border}` : "none", padding: "8px 12px" }}>
+                              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6, gap: 6 }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}>
+                                  <span style={{ fontSize: "1.1rem", flexShrink: 0 }}>{m.emoji}</span>
+                                  <div style={{ minWidth: 0 }}>
+                                    <div style={{ fontWeight: 700, fontSize: "0.82rem", color: m.color }}>{item.label}</div>
+                                    <div style={{ fontSize: "0.68rem", color: "#94a3b8", marginTop: 1 }}>{item.hint}</div>
+                                  </div>
+                                  <span style={{ background: m.badgeBg, color: "#fff", borderRadius: 6, padding: "2px 8px", fontSize: "0.78rem", fontWeight: 800, flexShrink: 0 }}>
+                                    ≥{item.min}°F
+                                  </span>
+                                </div>
+                                <button type="button" className="haccpAddReadingBtn" style={{ fontSize: "0.7rem", padding: "2px 8px", flexShrink: 0 }}
+                                  onClick={() => {
+                                    setTemps(p => ({ ...p, [item.key]: [...(p[item.key] || [""]), ""] }));
+                                    setFoodNames(p => ({ ...p, [item.key]: [...(p[item.key] || [""]), ""] }));
+                                    setTempSubmitted(p => ({ ...p, [item.key]: [...(p[item.key] || [false]), false] }));
+                                    setTempCorrections(p => ({ ...p, [item.key]: [...(p[item.key] || [""]), ""] }));
+                                    setTempTimes(p => ({ ...p, [item.key]: [...(p[item.key] || [""]), ""] }));
+                                  }}>+ Reading</button>
+                              </div>
+                              {readings.map((val, idx) => {
+                                const isSubmitted = (tempSubmitted[item.key] || [])[idx] === true;
+                                const rawDigits = String(val).replace(/\D/g, "");
+                                const pass = isSubmitted && rawDigits.length >= 1 ? tempPass(item, val) : null;
+                                const foodName = (foodNames[item.key] || [""])[idx] ?? "";
+                                const correction = (tempCorrections[item.key] || [""])[idx] ?? "";
+                                const readingTime = (tempTimes[item.key] || [""])[idx] ?? "";
+                                const canSubmit = rawDigits.length >= 1 && foodName.trim().length > 0 && readingTime.trim().length > 0;
+                                const needsCorrection = pass === false && !correction.trim();
+                                return (
+                                  <div key={idx} style={{ marginBottom: 6 }}>
+                                    <div className="haccpTempRow" style={{ flexWrap: "wrap", gap: 6 }}>
+                                      <input type="time" value={readingTime} disabled={isSubmitted}
+                                        onChange={e => setTempTimes(p => { const arr=[...(p[item.key]||[""])]; arr[idx]=e.target.value; return {...p,[item.key]:arr}; })}
+                                        style={{ width: 110, fontSize: "0.78rem", borderRadius: 8, border: "1.5px solid #334155", background: "#1e293b", color: "#e2e8f0", padding: "4px 8px", opacity: isSubmitted ? 0.7 : 1, flexShrink: 0 }} />
+                                      <input className="haccpFoodNameInput" type="text" value={foodName} disabled={isSubmitted}
+                                        onChange={e => setFoodNames(p => { const arr=[...(p[item.key]||[""])]; arr[idx]=e.target.value; return {...p,[item.key]:arr}; })}
+                                        placeholder="Food item (e.g. Chicken)" style={{ opacity: isSubmitted ? 0.7 : 1 }} />
+                                      <div className="haccpTempInputWrap">
+                                        <input className="haccpTempInput" type="number" inputMode="decimal" value={val} disabled={isSubmitted}
+                                          onChange={e => setTemps(p => { const arr=[...(p[item.key]||[""])]; arr[idx]=e.target.value; return {...p,[item.key]:arr}; })}
+                                          placeholder="—" style={{ opacity: isSubmitted ? 0.7 : 1 }} />
+                                        <span className="haccpTempUnit">{item.unit}</span>
+                                      </div>
+                                      {isSubmitted && pass !== null && (
+                                        <span className={`haccpTempStatus ${pass ? "pass" : "fail"}`}>{pass ? "✓ OK" : "⚠ Flag"}</span>
+                                      )}
+                                      {!isSubmitted && (
+                                        <button type="button"
+                                          style={{ background: canSubmit ? "#2563eb" : "#334155", color: canSubmit ? "#fff" : "#64748b", fontWeight: 700, fontSize: "0.75rem", padding: "5px 12px", borderRadius: 8, flexShrink: 0, cursor: canSubmit ? "pointer" : "default", border: "none", whiteSpace: "nowrap" }}
+                                          disabled={!canSubmit}
+                                          onClick={() => setTempSubmitted(p => { const arr=[...(p[item.key]||[false])]; arr[idx]=true; return {...p,[item.key]:arr}; })}>
+                                          Submit
+                                        </button>
+                                      )}
+                                      {readings.length > 1 && (
+                                        <button type="button" className="haccpRemoveReadingBtn"
+                                          onClick={() => {
+                                            setTemps(p => { const arr=(p[item.key]||[""]).filter((_,i)=>i!==idx); return {...p,[item.key]:arr.length?arr:[""]}; });
+                                            setFoodNames(p => { const arr=(p[item.key]||[""]).filter((_,i)=>i!==idx); return {...p,[item.key]:arr.length?arr:[""]}; });
+                                            setTempSubmitted(p => { const arr=(p[item.key]||[false]).filter((_,i)=>i!==idx); return {...p,[item.key]:arr.length?arr:[false]}; });
+                                            setTempCorrections(p => { const arr=(p[item.key]||[""]).filter((_,i)=>i!==idx); return {...p,[item.key]:arr.length?arr:[""]}; });
+                                          }}>✕</button>
+                                      )}
+                                    </div>
+                                    {isSubmitted && pass === false && (
+                                      <div style={{ background: "rgba(127,29,29,0.25)", border: `1px solid ${needsCorrection ? "#dc2626" : "#fca5a5"}`, borderRadius: 8, padding: "8px 10px", marginTop: 4 }}>
+                                        <label style={{ display: "block", fontSize: "0.72rem", fontWeight: 700, color: "#fca5a5", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>🔧 CORRECTIVE ACTION TAKEN *</label>
+                                        <textarea rows={2} placeholder="What was done? (e.g. Discarded food, reheated to 165°F…)" value={correction}
+                                          onChange={e => setTempCorrections(p => { const arr=[...(p[item.key]||[""])]; arr[idx]=e.target.value; return {...p,[item.key]:arr}; })}
+                                          style={{ width: "100%", fontSize: "0.82rem", resize: "vertical", border: `1px solid ${needsCorrection ? "#dc2626" : "#fca5a5"}`, borderRadius: 6, padding: "6px 8px", outline: "none", background: "#1e293b", color: "#e2e8f0" }} />
+                                        {needsCorrection && <div style={{ fontSize: "0.72rem", color: "#f87171", marginTop: 3, fontWeight: 600 }}>Required — enter corrective action</div>}
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {afterCooking.map(item => renderReadingBlock(item))}
+                    </>
+                  );
+                })()}
                 {/* Add custom temperature item */}
                 <button type="button" className="haccpAddItemBtn"
                   onClick={() => {
