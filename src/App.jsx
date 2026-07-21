@@ -9562,11 +9562,10 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
             className="historyList"
             id="history-results"
             ref={historyListRef}
-            style={selectMode ? { touchAction: "none", userSelect: "none" } : {}}
             onPointerUp={() => { dragSelecting.current = false; }}
             onPointerCancel={() => { dragSelecting.current = false; }}
             onPointerMove={selectMode ? (e) => {
-              if (!dragSelecting.current) return;
+              if (!dragSelecting.current || e.pointerType === "touch") return;
               const el = document.elementFromPoint(e.clientX, e.clientY);
               if (!el) return;
               const card = el.closest("[data-recid]");
@@ -9591,10 +9590,9 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                   className="card historyCard"
                   key={rec.id}
                   data-recid={rec.id}
-                  style={{ marginBottom: 16, outline: selectMode && selectedIds.has(rec.id) ? "2px solid #1d4ed8" : "none", outlineOffset: 2, touchAction: selectMode ? "none" : "auto" }}
-                  onTouchStart={selectMode ? (e) => { e.preventDefault(); } : undefined}
+                  style={{ marginBottom: 16, outline: selectMode && selectedIds.has(rec.id) ? "2.5px solid #1d4ed8" : "none", outlineOffset: 2, background: selectMode && selectedIds.has(rec.id) ? "#eff6ff" : undefined, transition: "background 0.15s, outline 0.1s" }}
                   onPointerDown={selectMode ? (e) => {
-                    e.preventDefault();
+                    if (e.pointerType === "touch") return;
                     dragSelecting.current = true;
                     const adding = !selectedIds.has(rec.id);
                     dragSelectAction.current = adding ? "add" : "remove";
@@ -9611,8 +9609,11 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                     style={{ cursor: "pointer" }}
                     onClick={() => {
                       if (selectMode) {
-                        // click-only toggle (no drag movement)
-                        return;
+                        setSelectedIds(prev => {
+                          const next = new Set(prev);
+                          next.has(rec.id) ? next.delete(rec.id) : next.add(rec.id);
+                          return next;
+                        });
                       } else {
                         setExpandedId(isExpanded ? null : rec.id);
                       }
@@ -9625,7 +9626,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                           checked={selectedIds.has(rec.id)}
                           onChange={() => {}}
                           onClick={e => e.stopPropagation()}
-                          style={{ width: 18, height: 18, accentColor: "#1d4ed8", cursor: "pointer", flexShrink: 0 }}
+                          style={{ width: 22, height: 22, accentColor: "#1d4ed8", cursor: "pointer", flexShrink: 0, touchAction: "manipulation" }}
                         />
                       )}
                       <span className="historyStatus" style={{ background: statusColor }}>{rec.overallStatus}</span>
