@@ -21286,17 +21286,12 @@ export default function App() {
                           setInspection(prev => ({ ...prev, equipment: restoredEquip }));
                         }
                       }
-                      // License auto-fill: try multiple lookup strategies in priority order.
-                      // Only fills if the field is currently empty (don't overwrite user input).
+                      // License auto-fill (Hard Rock Stadium only for seed lookup)
                       if (!restaurantLicense) {
-                        // 1) invLicenseData exact key match (user-managed registry / seeded from history)
                         const licEntry = invLicenseData[val];
                         if (licEntry?.licenseNum && licEntry.licenseNum !== "NO LICENSE") {
                           setRestaurantLicense(licEntry.licenseNum);
-                        } else {
-                          // 2) Multi-strategy seed lookup: normalised full name, unit number extraction,
-                          //    name-only (strips number prefix). Uses siteNumber already in state for
-                          //    strategy 2 so the number field doesn't need to be typed first.
+                        } else if (IS_DEFAULT_VENUE()) {
                           const seedLic = lookupLicenseFromSeed(val, siteNumber);
                           if (seedLic) setRestaurantLicense(seedLic);
                         }
@@ -21314,13 +21309,15 @@ export default function App() {
                 <input className="input" list="siteNumberSuggestions" value={siteNumber} onBlur={(e) => smartFieldCorrect("field-siteNumber", e.target.value)} onChange={(e) => {
                   const val = e.target.value;
                   setSiteNumber(val);
-                  // Auto-fill site name + license from unit number
-                  const numKey = val.toUpperCase().trim();
-                  const seedName = LICENSE_NAME_BY_NUMBER[numKey];
-                  if (seedName && !siteName) setSiteName(seedName);
-                  if (!restaurantLicense) {
-                    const seedLic = lookupLicenseFromSeed(siteName || seedName || "", val);
-                    if (seedLic) setRestaurantLicense(seedLic);
+                  // Auto-fill site name + license from unit number (Hard Rock Stadium only)
+                  if (IS_DEFAULT_VENUE()) {
+                    const numKey = val.toUpperCase().trim();
+                    const seedName = LICENSE_NAME_BY_NUMBER[numKey];
+                    if (seedName && !siteName) setSiteName(seedName);
+                    if (!restaurantLicense) {
+                      const seedLic = lookupLicenseFromSeed(siteName || seedName || "", val);
+                      if (seedLic) setRestaurantLicense(seedLic);
+                    }
                   }
                 }} placeholder="e.g., Unit 12 / Loc-204" />
                 <datalist id="siteNumberSuggestions">
