@@ -2,7 +2,7 @@
 // v119: Restored to July 13 state
 
 
-const CACHE_NAME = "sdx-inspect-v153";
+const CACHE_NAME = "sdx-inspect-v154";
 
 const PRECACHE = [
   "./favicon.svg",
@@ -48,11 +48,11 @@ self.addEventListener("push", (e) => {
   e.waitUntil(
     self.registration.showNotification(data.title || "Sodexo Inspection", {
       body: data.body || "",
-      icon: "/inspect/favicon.svg",
-      badge: "/inspect/favicon.svg",
+      icon: "/favicon.svg",
+      badge: "/favicon.svg",
       tag: data.tag || "sdx-notif",
       requireInteraction: false,
-      data: { url: data.url || "/inspect/" },
+      data: { url: data.url || "/" },
     })
   );
 });
@@ -60,11 +60,11 @@ self.addEventListener("push", (e) => {
 // Open/focus the app when a notification is clicked
 self.addEventListener("notificationclick", (e) => {
   e.notification.close();
-  const target = e.notification.data?.url || "/inspect/";
+  const target = e.notification.data?.url || "/";
   e.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
       for (const client of clientList) {
-        if (client.url.includes("/inspect/") && "focus" in client) {
+        if (client.url.startsWith(self.location.origin) && "focus" in client) {
           return client.focus();
         }
       }

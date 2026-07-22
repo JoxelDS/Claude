@@ -5,7 +5,7 @@ export default defineConfig({
   plugins: [
     react(),
   ],
-  base: "/inspect/",
+  base: "/",
   build: {
     sourcemap: false,
     minify: "esbuild",
