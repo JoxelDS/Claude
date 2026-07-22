@@ -18200,6 +18200,29 @@ function HaccpPortal() {
   const chatListRef = useRef(null);
   const chatPrevCountRef = useRef(0);
 
+  // Lock the page while the supervisor is filling in the form — prevents accidental back-button exits
+  useEffect(() => {
+    if (step !== "form") return;
+    // Push an extra history entry so the back button comes back here instead of leaving
+    window.history.pushState({ haccpLock: true }, "");
+    function handlePop() {
+      // Re-push so every back-button press bounces back
+      window.history.pushState({ haccpLock: true }, "");
+      // Show a gentle native alert (won't block the UI thread like confirm())
+      alert("⚠️ Don't close this page — your temperature log hasn't been submitted yet.\n\nFinish entering your readings and tap \"Submit Log\" to save.");
+    }
+    function handleBeforeUnload(e) {
+      e.preventDefault();
+      e.returnValue = "";
+    }
+    window.addEventListener("popstate", handlePop);
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => {
+      window.removeEventListener("popstate", handlePop);
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, [step]);
+
   // Load chat scoped to this report (urlReportId), so supervisor and inspector share the same thread
   useEffect(() => {
     const chatKey = urlReportId || sessionId;
