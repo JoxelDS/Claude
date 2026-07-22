@@ -13737,67 +13737,14 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName }) {
 
           {/* ── TIME TAB ── */}
           {activeTab === "time" && (() => {
-            // Sort alphabetically — no speed ranking
             const timedRanking = [...ranking].filter(p => p.avgDurationSec).sort((a, b) => a.name.localeCompare(b.name));
             const teamAvgSec = timedRanking.length
               ? Math.round(timedRanking.reduce((s, p) => s + p.avgDurationSec, 0) / timedRanking.length)
               : null;
             const maxDur = timedRanking.length ? Math.max(...timedRanking.map(p => p.avgDurationSec)) : 0;
 
-            // Sort ranking by real work score for quality summary
-            const byQuality = [...ranking].sort((a, b) => b.performanceScore - a.performanceScore);
-
             return (
               <div style={{ display: "flex", flexDirection: "column", gap: "0.65rem" }}>
-
-                {/* ── Real Work Quality Summary (top of timing tab) ── */}
-                {byQuality.length > 0 && (
-                  <div style={{ background: "#fff", borderRadius: 14, padding: "0.85rem 0.9rem", border: "1.5px solid #f1f5f9", boxShadow: "0 1px 6px rgba(0,0,0,0.04)" }}>
-                    <div style={{ fontSize: "0.82rem", fontWeight: 800, color: "#0f172a", marginBottom: 2 }}>Output Quality Ranking</div>
-                    <div style={{ fontSize: "0.67rem", color: "#94a3b8", marginBottom: "0.7rem" }}>Ranked by Real Work Score — issue detection, note quality, and consistency. This is what actually matters.</div>
-                    <div style={{ display: "flex", flexDirection: "column", gap: "0.45rem" }}>
-                      {byQuality.map((p, i) => {
-                        const noteLabel = p.noteQualityScore >= 25 ? { text: "Detailed notes", color: "#15803d", bg: "#f0fdf4" }
-                          : p.noteQualityScore >= 18 ? { text: "Good notes", color: "#16a34a", bg: "#f0fdf4" }
-                          : p.noteQualityScore >= 10 ? { text: "Adequate notes", color: "#ca8a04", bg: "#fefce8" }
-                          : { text: "Vague notes", color: "#dc2626", bg: "#fef2f2" };
-                        const issueLabel = p.avgIssues >= 3 ? { text: `${p.avgIssues.toFixed(1)} iss/visit`, color: "#1d4ed8", bg: "#eff6ff" }
-                          : p.avgIssues >= 1.5 ? { text: `${p.avgIssues.toFixed(1)} iss/visit`, color: "#0369a1", bg: "#f0f9ff" }
-                          : p.avgIssues >= 0.5 ? { text: `${p.avgIssues.toFixed(1)} iss/visit`, color: "#92400e", bg: "#fff7ed" }
-                          : { text: "Low issue find rate", color: "#991b1b", bg: "#fef2f2" };
-                        const flagLabel = p.isRubberStampPattern ? { text: "⚠ Rubber-stamp", color: "#991b1b", bg: "#fef2f2" }
-                          : p.isSuspiciouslyFlat ? { text: "⚠ Flat results", color: "#92400e", bg: "#fff7ed" }
-                          : null;
-                        const scoreColor2 = p.performanceScore >= 70 ? "#16a34a" : p.performanceScore >= 45 ? "#ca8a04" : "#dc2626";
-                        return (
-                          <div key={p.name + "-q"} style={{ display: "flex", alignItems: "center", gap: "0.55rem", padding: "0.55rem 0.65rem", borderRadius: 10, background: i === 0 ? "#f8f9ff" : "#fafafa", border: i === 0 ? `1.5px solid ${NAVY}20` : "1px solid #f1f5f9" }}>
-                            {i === 0 && <div style={{ width: "100%", height: 2, position: "absolute", top: 0, left: 0, background: NAVY, borderRadius: "10px 10px 0 0" }} />}
-                            {/* Rank */}
-                            <div style={{ width: 24, height: 24, borderRadius: 7, flexShrink: 0, background: i < 3 ? [RED, "#64748b", "#d97706"][i] : "#f1f5f9", display: "flex", alignItems: "center", justifyContent: "center", fontSize: i < 3 ? "0.8rem" : "0.62rem", fontWeight: 900, color: i < 3 ? "#fff" : "#94a3b8" }}>
-                              {["🥇","🥈","🥉"][i] || `#${i+1}`}
-                            </div>
-                            {/* Avatar */}
-                            <div style={{ width: 28, height: 28, borderRadius: 8, flexShrink: 0, background: avatarBg(p.name), display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.62rem", fontWeight: 900, color: "#fff" }}>{initials(p.name)}</div>
-                            {/* Info */}
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{ fontWeight: 800, fontSize: "0.82rem", color: "#0f172a", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.name}</div>
-                              <div style={{ display: "flex", gap: "0.22rem", flexWrap: "wrap", marginTop: "0.2rem" }}>
-                                <span style={{ fontSize: "0.6rem", fontWeight: 700, padding: "0.06rem 0.3rem", borderRadius: 4, background: noteLabel.bg, color: noteLabel.color }}>📝 {noteLabel.text}</span>
-                                <span style={{ fontSize: "0.6rem", fontWeight: 700, padding: "0.06rem 0.3rem", borderRadius: 4, background: issueLabel.bg, color: issueLabel.color }}>🔍 {issueLabel.text}</span>
-                                {flagLabel && <span style={{ fontSize: "0.6rem", fontWeight: 700, padding: "0.06rem 0.3rem", borderRadius: 4, background: flagLabel.bg, color: flagLabel.color }}>{flagLabel.text}</span>}
-                              </div>
-                            </div>
-                            {/* Score */}
-                            <div style={{ flexShrink: 0, textAlign: "center", minWidth: 40, background: scoreColor2 + "15", borderRadius: 9, padding: "0.3rem 0.4rem", border: `1.5px solid ${scoreColor2}25` }}>
-                              <div style={{ fontSize: "0.95rem", fontWeight: 900, color: scoreColor2, lineHeight: 1 }}>{p.performanceScore}</div>
-                              <div style={{ fontSize: "0.46rem", fontWeight: 700, color: scoreColor2, opacity: 0.7, textTransform: "uppercase" }}>score</div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
 
                 {/* ── Section 1: Duration Overview ── */}
                 {timedRanking.length >= 1 && teamAvgSec && (
@@ -14872,12 +14819,25 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName }) {
             });
 
             // ── Compute top recurring issues ──────────────────────────────────
+            // Issues are computed from inspection data via buildActionItems.
+            // Each item.issue is "Section: detail" — we count by section name.
             const issueCounts = {};
             for (const r of history) {
-              if (!Array.isArray(r.issues)) continue;
-              for (const iss of r.issues) {
-                const cat = iss.category || iss.label || "Other";
-                issueCounts[cat] = (issueCounts[cat] || 0) + 1;
+              if (!r.inspection) continue;
+              const items = buildActionItems({
+                inspection: r.inspection,
+                rawNotes: r.rawNotes,
+                foodTemps: r.foodTemps,
+                foodTempNames: r.foodTempNames,
+              });
+              // Count each unique section once per inspection (not per item)
+              const seenSections = new Set();
+              for (const item of items) {
+                const section = (item.issue || "").split(":")[0].trim() || "Other";
+                if (!seenSections.has(section)) {
+                  seenSections.add(section);
+                  issueCounts[section] = (issueCounts[section] || 0) + 1;
+                }
               }
             }
             const topIssues = Object.entries(issueCounts)
