@@ -7396,6 +7396,8 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
   const [historyLastDoc, setHistoryLastDoc] = useState(null);
   const [historyHasMore, setHistoryHasMore] = useState(false);
   const [historyLoadingMore, setHistoryLoadingMore] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(50);
+  const sentinelRef = useRef(null);
 
   useEffect(() => {
     setHistory([]);
@@ -7405,7 +7407,7 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
     loadHistory(managedVenueId || undefined, {
       dateFrom: filterDateFrom || undefined,
       dateTo: filterDateTo || undefined,
-      pageSize: 300,
+      pageSize: 50,
     }).then(({ list, lastDoc, hasMore }) => {
       setHistory(list);
       setHistoryLastDoc(lastDoc);
@@ -7560,13 +7562,35 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
     });
   }, [history, filterDate, filterType, filterFloor, filterLocType, filterSite, filterIssue]);
 
-  // Pre-compute expensive per-record values once when filtered list changes
+  // Reset visible window when filters change
+  useEffect(() => { setVisibleCount(50); }, [filterDate, filterType, filterFloor, filterLocType, filterSite, filterIssue]);
+
+  // Visible slice — only render what's on screen
+  const visibleFiltered = useMemo(() => filtered.slice(0, visibleCount), [filtered, visibleCount]);
+
+  // Pre-compute expensive per-record values only for visible records
   const filteredMeta = useMemo(() => {
-    return filtered.map(rec => ({
+    return visibleFiltered.map(rec => ({
       issues: buildActionItems({ inspection: rec.inspection, rawNotes: rec.rawNotes, foodTemps: rec.foodTemps, foodTempNames: rec.foodTempNames }),
       score: calcInspectionScore(rec.inspection, { foodTemps: rec.foodTemps, foodTempNames: rec.foodTempNames }),
     }));
-  }, [filtered]);
+  }, [visibleFiltered]);
+
+  // IntersectionObserver: auto-load more when sentinel scrolls into view
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+    const obs = new IntersectionObserver(entries => {
+      if (!entries[0].isIntersecting) return;
+      if (visibleCount < filtered.length) {
+        setVisibleCount(c => Math.min(c + 50, filtered.length));
+      } else if (historyHasMore && !historyLoadingMore) {
+        loadMoreHistory();
+      }
+    }, { rootMargin: "300px" });
+    obs.observe(sentinel);
+    return () => obs.disconnect();
+  }, [visibleCount, filtered.length, historyHasMore, historyLoadingMore]);
 
   // Function to jump to a specific location's reports
   function filterByLocation(locLabel) {
@@ -9588,7 +9612,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
               });
             } : undefined}
           >
-            {filtered.map((rec, recIdx) => {
+            {visibleFiltered.map((rec, recIdx) => {
               const isExpanded = expandedId === rec.id;
               const issues = filteredMeta[recIdx]?.issues || [];
               const statusColor = rec.overallStatus === "Pass" ? "#15803D" : "#EE0000";
@@ -10246,16 +10270,11 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                 </div>
               );
             })}
-            {historyHasMore && (
-              <div style={{ textAlign: "center", padding: "16px 0" }}>
-                <button
-                  className="btn btnGhost"
-                  type="button"
-                  onClick={loadMoreHistory}
-                  disabled={historyLoadingMore}
-                >
-                  {historyLoadingMore ? "Loading…" : `Load more (${history.length} loaded)`}
-                </button>
+            {/* Sentinel: auto-loads more records or expands visible window as user scrolls */}
+            <div ref={sentinelRef} style={{ height: 1 }} />
+            {(historyLoadingMore || visibleCount < filtered.length) && (
+              <div style={{ textAlign: "center", padding: "20px 0", color: "#6b7280", fontSize: "0.82rem" }}>
+                Loading more…
               </div>
             )}
           </div>
