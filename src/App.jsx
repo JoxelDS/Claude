@@ -11753,21 +11753,30 @@ function LicensesTab({ history, invLicenseData, setInvLicenseData, invLicenseMis
                     We noticed <strong>{m.licenses.length} different license numbers</strong> in the inspection history for this location. Which one is correct?
                   </div>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: "0.35rem", marginTop: "0.4rem" }}>
-                    {m.licenses.map(lic => (
-                      <button key={lic} type="button"
-                        onClick={() => {
-                          setInvLicenseData(prev => ({ ...prev, [m.siteName]: { ...(prev[m.siteName] || {}), licenseNum: lic } }));
-                          setDismissedMismatches(prev => new Set([...prev, m.siteName]));
-                        }}
-                        style={{
-                          padding: "0.25rem 0.6rem", borderRadius: 7,
-                          border: "1.5px solid #f59e0b", background: "#fff",
-                          fontWeight: 700, fontSize: "0.72rem", color: "#92400e",
-                          cursor: "pointer", fontFamily: "monospace",
-                        }}>
-                        {lic}
-                      </button>
-                    ))}
+                    {m.licenses.map(lic => {
+                      const officialLic = lookupLicenseFromSeed(m.siteName, null);
+                      const isOfficial = officialLic && lic === officialLic;
+                      return (
+                        <button key={lic} type="button"
+                          onClick={() => {
+                            setInvLicenseData(prev => ({ ...prev, [m.siteName]: { ...(prev[m.siteName] || {}), licenseNum: lic } }));
+                            setDismissedMismatches(prev => new Set([...prev, m.siteName]));
+                          }}
+                          style={{
+                            padding: "0.25rem 0.6rem", borderRadius: 7,
+                            border: isOfficial ? "2px solid #16a34a" : "1.5px solid #f59e0b",
+                            background: isOfficial ? "#f0fdf4" : "#fff",
+                            fontWeight: 700, fontSize: "0.72rem",
+                            color: isOfficial ? "#15803d" : "#92400e",
+                            cursor: "pointer", fontFamily: "monospace",
+                            display: "flex", alignItems: "center", gap: "0.3rem",
+                          }}>
+                          {isOfficial && <span style={{ fontSize: "0.65rem", fontWeight: 800 }}>✓</span>}
+                          {lic}
+                          {isOfficial && <span style={{ fontSize: "0.58rem", fontWeight: 800, background: "#16a34a", color: "#fff", borderRadius: 4, padding: "0 4px" }}>Official</span>}
+                        </button>
+                      );
+                    })}
                     <button type="button"
                       onClick={() => setDismissedMismatches(prev => new Set([...prev, m.siteName]))}
                       style={{
@@ -13641,7 +13650,7 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName }) {
 
           {/* ── TAB NAV ── */}
           <div className="perfPrintHide perfTabsWrapper">
-            {[["licenses","Licenses"],["trends","Trends"]].map(([id, label]) => (
+            {[["licenses","Licenses"],["time","Duration"],["trends","Trends"]].map(([id, label]) => (
               <button key={id} onClick={() => setActiveTab(id)} className={cx("perfTab", activeTab === id && "perfTabActive")}>
                 <span>{label}</span>
               </button>
@@ -13886,7 +13895,7 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName }) {
                   <div style={{ background: "#f0f9ff", border: "1.5px solid #bae6fd", borderRadius: 10, padding: "0.55rem 0.75rem", marginBottom: "0.75rem", display: "flex", alignItems: "flex-start", gap: "0.4rem" }}>
                     <span style={{ fontSize: "0.95rem", flexShrink: 0 }}>ℹ️</span>
                     <div style={{ fontSize: "0.7rem", color: "#0369a1", lineHeight: 1.5 }}>
-                      <strong>Duration is a thoroughness signal, not a speed contest.</strong> Inspections that take longer generally reflect more careful on-site work. Very short completions (&lt;5 min) are flagged in amber as they may indicate the form was filled in without being fully on-site. Use the <strong>Verdict tab</strong> for quality rankings.
+                      <strong>Duration is a thoroughness signal, not a speed contest.</strong> Inspections that take longer generally reflect more careful on-site work. Very short completions (&lt;5 min) are flagged in amber as they may indicate the form was filled in without being fully on-site.
                     </div>
                   </div>
 
