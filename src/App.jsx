@@ -8868,14 +8868,22 @@ ${reportBlocks}
 </div>
 </body></html>`;
 
-    const win = window.open("", "_blank");
-    if (!win) { alert("Please allow pop-ups for this site to open the PDF preview."); return; }
-    win.document.write(pdfHtml);
-    win.document.close();
-    // Give images time to load, then auto-trigger print dialog
-    win.addEventListener("load", () => {
-      setTimeout(() => win.print(), 800);
-    });
+    // Open in a same-tab iframe to avoid popup blockers, then auto-print
+    const blob = new Blob([pdfHtml], { type: "text/html" });
+    const blobUrl = URL.createObjectURL(blob);
+    const frame = document.createElement("iframe");
+    frame.style.cssText = "position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:99999;background:#fff";
+    frame.src = blobUrl;
+    document.body.appendChild(frame);
+    frame.onload = () => {
+      setTimeout(() => {
+        try { frame.contentWindow.print(); } catch (_) {}
+        // Remove the iframe after the print dialog closes (or after 60s timeout)
+        const cleanup = () => { document.body.removeChild(frame); URL.revokeObjectURL(blobUrl); };
+        frame.contentWindow.addEventListener("afterprint", cleanup, { once: true });
+        setTimeout(cleanup, 60000);
+      }, 800);
+    };
   }
 
   async function callVisionOCR(base64Data, mimeType) {
