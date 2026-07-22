@@ -7364,6 +7364,25 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
     });
   }, [managedVenueId, filterDateFrom, filterDateTo]);
 
+  // Refresh history when the user returns to this tab (covers stale Smart Insights data)
+  useEffect(() => {
+    function onVisible() {
+      if (document.visibilityState === "visible") {
+        loadHistory(managedVenueId || undefined, {
+          dateFrom: filterDateFrom || undefined,
+          dateTo: filterDateTo || undefined,
+          pageSize: 50,
+        }).then(({ list, lastDoc, hasMore }) => {
+          setHistory(list);
+          setHistoryLastDoc(lastDoc);
+          setHistoryHasMore(hasMore);
+        }).catch(() => {});
+      }
+    }
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [managedVenueId, filterDateFrom, filterDateTo]); // eslint-disable-line react-hooks/exhaustive-deps
+
   function loadMoreHistory() {
     if (!historyHasMore || historyLoadingMore) return;
     setHistoryLoadingMore(true);
@@ -18849,7 +18868,35 @@ export default function App() {
     const next = { ...venueSettings, ...updates };
     setVenueSettings(next);
     localStorage.setItem(VENUE_SETTINGS_KEY, JSON.stringify(next));
+    // Persist to Firestore so all devices stay in sync
+    if (FIREBASE_ON) {
+      setDoc(
+        doc(db, "venues", VENUE_ID, "sharedMemory", "venueSettings"),
+        { ...next, _updatedAt: new Date().toISOString() },
+        { merge: false }
+      ).catch(() => {});
+    }
   }
+
+  // Real-time listener: keep venueSettings in sync across devices
+  useEffect(() => {
+    if (!FIREBASE_ON) return;
+    const unsub = onSnapshot(
+      doc(db, "venues", VENUE_ID, "sharedMemory", "venueSettings"),
+      (snap) => {
+        if (!snap.exists()) return;
+        const remote = snap.data();
+        delete remote._updatedAt;
+        setVenueSettings(prev => {
+          const merged = { ...prev, ...remote };
+          localStorage.setItem(VENUE_SETTINGS_KEY, JSON.stringify(merged));
+          return merged;
+        });
+      },
+      () => {} // ignore errors silently
+    );
+    return () => unsub();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Online / offline indicator ────────────────────────────────────────────
   const [isOnline, setIsOnline] = useState(() => navigator.onLine);
