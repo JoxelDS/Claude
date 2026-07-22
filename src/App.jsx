@@ -14847,16 +14847,25 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName }) {
             const maxIssueCount = topIssues[0]?.count || 1;
 
             // ── SVG line chart helpers ────────────────────────────────────────
-            const W = 320, H = 120, PAD = { top: 12, right: 10, bottom: 28, left: 32 };
+            const W = 320, H = 90, PAD = { top: 14, right: 10, bottom: 22, left: 30 };
             const chartW = W - PAD.left - PAD.right;
             const chartH = H - PAD.top - PAD.bottom;
+
+            // Zoom Y axis to data range — pad 3% above and below
+            const allVals = points.flatMap(p => [p.avgPct, p.passRate]).filter(v => v !== null);
+            const yMin = allVals.length ? Math.max(0,  Math.floor((Math.min(...allVals) - 3) / 5) * 5) : 0;
+            const yMax = allVals.length ? Math.min(100, Math.ceil( (Math.max(...allVals) + 3) / 5) * 5) : 100;
+            const yRange = yMax - yMin || 1;
+            // Grid ticks: ~4 evenly spaced within [yMin, yMax]
+            const yStep = [1,2,5,10,20,25][([1,2,5,10,20,25].findIndex(s => (yRange / s) <= 4) + 0) || 5];
+            const yTicks = [];
+            for (let v = Math.ceil(yMin / yStep) * yStep; v <= yMax; v += yStep) yTicks.push(v);
 
             function toSvgX(i) {
               return PAD.left + (points.length > 1 ? (i / (points.length - 1)) * chartW : chartW / 2);
             }
             function toSvgY(val) {
-              // val is 0-100 percentage; invert for SVG (0 = top)
-              return PAD.top + chartH - (val / 100) * chartH;
+              return PAD.top + chartH - ((val - yMin) / yRange) * chartH;
             }
 
             const scoreLinePoints = points
@@ -14886,45 +14895,47 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName }) {
             const hasChartData = points.length >= 2;
 
             return (
-              <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
 
-                {/* ── Score over time ── */}
+                {/* ── Score over time + data table side by side on desktop ── */}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: "0.75rem", alignItems: "start" }}>
                 <div style={{ background: "#fff", borderRadius: 16, border: "1.5px solid #e2e8f0", overflow: "hidden" }}>
-                  <div style={{ padding: "0.75rem 0.9rem 0.5rem", borderBottom: "1px solid #f1f5f9" }}>
-                    <div style={{ fontWeight: 800, fontSize: "0.88rem", color: "#0f172a" }}>Compliance Score Over Time</div>
-                    <div style={{ fontSize: "0.68rem", color: "#94a3b8" }}>Monthly average compliance % and pass rate</div>
+                  <div style={{ padding: "0.6rem 0.9rem 0.4rem", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                    <div>
+                      <div style={{ fontWeight: 800, fontSize: "0.85rem", color: "#0f172a" }}>Compliance Score Over Time</div>
+                      <div style={{ fontSize: "0.65rem", color: "#94a3b8" }}>Monthly average compliance % and pass rate</div>
+                    </div>
+                    {/* Legend inline in header */}
+                    <div style={{ marginLeft: "auto", display: "flex", gap: "0.75rem", flexShrink: 0 }}>
+                      {[["#2A295C", "Compliance"], ["#22c55e", "Pass Rate"]].map(([color, label]) => (
+                        <div key={label} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: "0.62rem", color: "#64748b", fontWeight: 600 }}>
+                          <div style={{ width: 16, height: 2.5, background: color, borderRadius: 2 }} />
+                          {label}
+                        </div>
+                      ))}
+                    </div>
                   </div>
 
                   {!hasChartData ? (
-                    <div style={{ padding: "2rem 1rem", textAlign: "center", color: "#94a3b8", fontSize: "0.82rem" }}>
+                    <div style={{ padding: "1.5rem 1rem", textAlign: "center", color: "#94a3b8", fontSize: "0.82rem" }}>
                       Not enough data yet — need inspections across at least 2 months.
                     </div>
                   ) : (
-                    <div style={{ padding: "0.75rem 0.5rem 0.5rem", overflowX: "auto" }}>
-                      {/* Legend */}
-                      <div style={{ display: "flex", gap: "1rem", paddingLeft: PAD.left, marginBottom: "0.35rem" }}>
-                        {[["#2A295C", "Compliance %"], ["#22c55e", "Pass Rate %"]].map(([color, label]) => (
-                          <div key={label} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: "0.66rem", color: "#475569", fontWeight: 600 }}>
-                            <div style={{ width: 20, height: 3, background: color, borderRadius: 2 }} />
-                            {label}
-                          </div>
-                        ))}
-                      </div>
-
+                    <div style={{ padding: "0.5rem 0.5rem 0.35rem", overflowX: "auto" }}>
                       <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ display: "block", minWidth: Math.max(W, points.length * 32) }}>
-                        {/* Y-axis grid lines at 0, 25, 50, 75, 100 */}
-                        {[0, 25, 50, 75, 100].map(v => (
+                        {/* Y-axis grid lines at computed ticks */}
+                        {yTicks.map(v => (
                           <g key={v}>
                             <line x1={PAD.left} y1={toSvgY(v)} x2={W - PAD.right} y2={toSvgY(v)}
-                              stroke="#f1f5f9" strokeWidth={v === 0 || v === 100 ? 1.5 : 1} />
+                              stroke={v === yMax ? "#cbd5e1" : "#f1f5f9"} strokeWidth={1} />
                             <text x={PAD.left - 4} y={toSvgY(v) + 3.5}
-                              textAnchor="end" fontSize="8" fill="#94a3b8" fontFamily="Inter,sans-serif">{v}</text>
+                              textAnchor="end" fontSize="7" fill="#94a3b8" fontFamily="Inter,sans-serif">{v}</text>
                           </g>
                         ))}
 
                         {/* Area under score line */}
                         {scoreArea && (
-                          <polygon points={scoreArea} fill="#2A295C" fillOpacity="0.07" />
+                          <polygon points={scoreArea} fill="#2A295C" fillOpacity="0.06" />
                         )}
 
                         {/* Pass rate line */}
@@ -14962,40 +14973,45 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName }) {
                         ))}
                       </svg>
 
-                      {/* Mini data table below chart */}
-                      <div style={{ overflowX: "auto", marginTop: "0.5rem" }}>
-                        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.68rem" }}>
-                          <thead>
-                            <tr>
-                              {["Month","Inspections","Avg Score","Pass Rate"].map(h => (
-                                <th key={h} style={{ padding: "0.25rem 0.5rem", textAlign: h === "Month" ? "left" : "center",
-                                  fontWeight: 700, color: "#64748b", borderBottom: "1.5px solid #e2e8f0", whiteSpace: "nowrap" }}>{h}</th>
-                              ))}
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {[...points].reverse().map(p => (
-                              <tr key={p.month} style={{ borderBottom: "1px solid #f8fafc" }}>
-                                <td style={{ padding: "0.25rem 0.5rem", color: "#0f172a", fontWeight: 600 }}>{labelMonth(p.month)}</td>
-                                <td style={{ padding: "0.25rem 0.5rem", textAlign: "center", color: "#475569" }}>{p.total}</td>
-                                <td style={{ padding: "0.25rem 0.5rem", textAlign: "center",
-                                  fontWeight: 700,
-                                  color: p.avgPct !== null ? (p.avgPct >= 90 ? "#16a34a" : p.avgPct >= 70 ? "#ca8a04" : "#dc2626") : "#94a3b8" }}>
-                                  {p.avgPct !== null ? `${p.avgPct}%` : "—"}
-                                </td>
-                                <td style={{ padding: "0.25rem 0.5rem", textAlign: "center",
-                                  fontWeight: 700,
-                                  color: p.passRate !== null ? passColor(p.passRate) : "#94a3b8" }}>
-                                  {p.passRate !== null ? `${p.passRate}%` : "—"}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
                     </div>
                   )}
                 </div>
+
+                {/* Data table — second column on desktop */}
+                {hasChartData && (
+                  <div style={{ background: "#fff", borderRadius: 16, border: "1.5px solid #e2e8f0", overflow: "hidden", minWidth: 200 }}>
+                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.68rem" }}>
+                      <thead>
+                        <tr style={{ background: "#f8fafc" }}>
+                          {["Month","Insp","Score","Pass"].map(h => (
+                            <th key={h} style={{ padding: "0.4rem 0.5rem", textAlign: h === "Month" ? "left" : "center",
+                              fontWeight: 700, color: "#64748b", borderBottom: "1.5px solid #e2e8f0", whiteSpace: "nowrap" }}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {[...points].reverse().map(p => (
+                          <tr key={p.month} style={{ borderBottom: "1px solid #f8fafc" }}>
+                            <td style={{ padding: "0.3rem 0.5rem", color: "#0f172a", fontWeight: 600 }}>{labelMonth(p.month)}</td>
+                            <td style={{ padding: "0.3rem 0.5rem", textAlign: "center", color: "#475569" }}>{p.total}</td>
+                            <td style={{ padding: "0.3rem 0.5rem", textAlign: "center", fontWeight: 700,
+                              color: p.avgPct !== null ? (p.avgPct >= 90 ? "#16a34a" : p.avgPct >= 70 ? "#ca8a04" : "#dc2626") : "#94a3b8" }}>
+                              {p.avgPct !== null ? `${p.avgPct}%` : "—"}
+                            </td>
+                            <td style={{ padding: "0.3rem 0.5rem", textAlign: "center", fontWeight: 700,
+                              color: p.passRate !== null ? passColor(p.passRate) : "#94a3b8" }}>
+                              {p.passRate !== null ? `${p.passRate}%` : "—"}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+                </div>{/* end top grid */}
+
+                {/* ── Bottom row: Recurring Issues + Volume side by side ── */}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
 
                 {/* ── Recurring Issues Bar Chart ── */}
                 <div style={{ background: "#fff", borderRadius: 16, border: "1.5px solid #e2e8f0", overflow: "hidden" }}>
@@ -15073,6 +15089,7 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName }) {
                   </div>
                 )}
 
+                </div>{/* end bottom grid */}
               </div>
             );
           })()}
