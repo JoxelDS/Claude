@@ -11941,7 +11941,7 @@ function LicensesTab({ history, invLicenseData, setInvLicenseData, invLicenseMis
 function PerformanceDashboard({ onBack, managedVenueId, managedVenueName }) {
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("rankings");
+  const [activeTab, setActiveTab] = useState("licenses");
   const [expandedSiteTags, setExpandedSiteTags] = useState(new Set()); // inspector names with expanded site tags
   const [invSearch,       setInvSearch]       = useState("");
   const [invTypeFilter,   setInvTypeFilter]   = useState(""); // Cooler|Freezer|Hand Sink|3-Comp Sink|""
@@ -13616,7 +13616,7 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName }) {
 
           {/* ── TAB NAV ── */}
           <div className="perfPrintHide perfTabsWrapper">
-            {[["rankings","Rankings"],["time","Duration"],["verdict","Verdict"],["licenses","Licenses"],["trends","Trends"]].map(([id, label]) => (
+            {[["licenses","Licenses"],["trends","Trends"]].map(([id, label]) => (
               <button key={id} onClick={() => setActiveTab(id)} className={cx("perfTab", activeTab === id && "perfTabActive")}>
                 <span>{label}</span>
               </button>
