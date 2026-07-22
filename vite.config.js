@@ -5,7 +5,7 @@ export default defineConfig({
   plugins: [
     react(),
   ],
-  base: "/",
+  base: "/Claude/",
   build: {
     sourcemap: false,
     minify: "esbuild",
