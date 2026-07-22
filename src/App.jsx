@@ -562,6 +562,31 @@ const LICENSE_SEED_BY_NAME = (() => {
   return result;
 })();
 
+/* ── Canonical restaurant name lookup by unit/stand number ───────────────
+   Derived from HARD_ROCK_LICENSE_SEED: the first "NNN - Name" entry for each
+   unambiguous number becomes the canonical name for that unit.
+   Used to auto-fill siteName when an inspector enters a unit number.
+──────────────────────────────────────────────────────────────────────── */
+const LICENSE_NAME_BY_NUMBER = (() => {
+  const byNum = {};
+  for (const key of Object.keys(HARD_ROCK_LICENSE_SEED)) {
+    const dashIdx = key.indexOf(" - ");
+    if (dashIdx === -1) continue;
+    const numPart = key.slice(0, dashIdx).trim();
+    const namePart = key.slice(dashIdx + 3).trim();
+    const m = numPart.match(/^([A-Z]?\d+[A-Z]?)$/i);
+    if (!m) continue;
+    const num = m[1].toUpperCase();
+    if (!byNum[num]) byNum[num] = new Set();
+    byNum[num].add(namePart);
+  }
+  const result = {};
+  for (const [num, names] of Object.entries(byNum)) {
+    if (names.size === 1) result[num] = [...names][0];
+  }
+  return result;
+})();
+
 /**
  * Look up a license number from the seed tables using multiple strategies:
  * 1. Exact normalised full key match (e.g. "101 MAGIC CITY DOGS")
@@ -21289,10 +21314,12 @@ export default function App() {
                 <input className="input" list="siteNumberSuggestions" value={siteNumber} onBlur={(e) => smartFieldCorrect("field-siteNumber", e.target.value)} onChange={(e) => {
                   const val = e.target.value;
                   setSiteNumber(val);
-                  // If license is empty, try to pre-fill from the unit number alone
-                  // (useful when inspector fills Unit # before or without the site name)
+                  // Auto-fill site name + license from unit number
+                  const numKey = val.toUpperCase().trim();
+                  const seedName = LICENSE_NAME_BY_NUMBER[numKey];
+                  if (seedName && !siteName) setSiteName(seedName);
                   if (!restaurantLicense) {
-                    const seedLic = lookupLicenseFromSeed(siteName, val);
+                    const seedLic = lookupLicenseFromSeed(siteName || seedName || "", val);
                     if (seedLic) setRestaurantLicense(seedLic);
                   }
                 }} placeholder="e.g., Unit 12 / Loc-204" />
