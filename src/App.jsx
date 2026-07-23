@@ -8349,14 +8349,14 @@ ${subs.length ? `<table class="issues"><tr><th colspan="4" style="background:#4B
 <div class="red-line"></div>
 <p style="font-size:8.5pt;color:#6B7280;margin:0 0 12px;">${records.length} location${records.length !== 1 ? "s" : ""} inspected</p>
 
+<h2>Issues Reported</h2>
+${issuesSection || '<p style="color:#6B7280;font-size:9pt;">No open issues recorded &mdash; all locations passed.</p>'}
+
 <h2>Equipment Temperatures</h2>
 ${equipSection || '<p style="color:#6B7280;font-size:9pt;">No equipment temperatures recorded.</p>'}
 
-<h2>HACCP Forms</h2>
+<h2>HACCP Temperatures</h2>
 ${haccpSection || '<p style="color:#6B7280;font-size:9pt;">No HACCP temperature data recorded.</p>'}
-
-<h2>Issues Found</h2>
-${issuesSection || '<p style="color:#6B7280;font-size:9pt;">No open issues recorded.</p>'}
 
 <div class="footer"><p>Generated ${dateStr} &bull; Sodexo Live Inspection System</p></div>
 </body></html>`;
@@ -8525,14 +8525,14 @@ ${subs.length ? `<p class="sub-label">Supervisor QR Log</p>
 <div class="brand-line"></div>
 <p class="meta">${dateStr} &bull; ${records.length} location${records.length !== 1 ? "s" : ""} inspected</p>
 
+<div class="section-title">Issues Reported</div>
+${issuesSection || '<p style="color:#6b7280;font-size:9pt;">No open issues recorded &mdash; all locations passed.</p>'}
+
 <div class="section-title">Equipment Temperatures</div>
 ${equipSection || '<p style="color:#6b7280;font-size:9pt;">No equipment temperatures recorded.</p>'}
 
-<div class="section-title">HACCP Forms</div>
+<div class="section-title">HACCP Temperatures</div>
 ${haccpSection || '<p style="color:#6b7280;font-size:9pt;">No HACCP temperature data recorded.</p>'}
-
-<div class="section-title">Issues Found</div>
-${issuesSection || '<p style="color:#6b7280;font-size:9pt;">No open issues recorded — all locations passed.</p>'}
 
 <div class="footer"><p>Generated ${dateStr} &bull; Sodexo Live Inspection System</p></div>
 </body></html>`;
