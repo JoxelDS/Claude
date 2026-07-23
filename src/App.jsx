@@ -8256,8 +8256,8 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
       if (!isNaN(threeT) && threeT > 0) equipRows.push(`<tr><td>3-Comp Sink</td><td>${threeT}&deg;F</td><td>&mdash;</td></tr>`);
       eTemps.forEach(e => equipRows.push(`<tr><td>${esc(e.label)}</td><td>${e.tempF}&deg;F</td><td class="${e.pass ? "pill-pass" : "pill-fail"}">${e.pass ? "OK" : "Flag"}</td></tr>`));
       if (!equipRows.length) return "";
-      return `<h3 style="margin:14px 0 4px;font-size:11pt;color:#2A295C;">${locLabel(rec, idx)}</h3>
-<table class="issues"><tr><th>Equipment</th><th>Temp (&deg;F)</th><th>Status</th></tr>${equipRows.join("")}</table>`;
+      return `<h3 class="loc">${locLabel(rec, idx)}</h3>
+<table class="issues"><tr><th>Equipment</th><th>Temp</th><th>Status</th></tr>${equipRows.join("")}</table>`;
     }).filter(Boolean).join("\n");
 
     // ── Section 2: HACCP Forms ───────────────────────────────────────────────
@@ -8295,14 +8295,12 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
         const badgeTxt = flagged.length > 0 ? `${flagged.length} Flag${flagged.length !== 1 ? "s" : ""}` : "All OK";
         const submittedStr = sub.submittedAt ? new Date(sub.submittedAt).toLocaleString() : "&mdash;";
         const problem = sub.problemReport?.text ? `<tr><td colspan="4" style="background:#FFF7ED;color:#92400E;padding:4px 8px;font-size:8pt;">Problem: ${esc(sub.problemReport.text)}</td></tr>` : "";
-        return `<tr style="background:#F0F4FF;"><td colspan="4" style="font-weight:bold;padding:4px 8px;font-size:9pt;">${esc(sub.supervisorName || "Supervisor")} &mdash; ${submittedStr} &nbsp;<span class="${badgeCls}">${badgeTxt}</span></td></tr>${tempRows}${problem}`;
+        return `<tr class="sub-hdr"><td colspan="4">${esc(sub.supervisorName || "Supervisor")} &mdash; ${submittedStr} &nbsp;<span class="${badgeCls}">${badgeTxt}</span></td></tr>${tempRows}${problem}`;
       }).join("");
 
-      return `<h3 style="margin:14px 0 4px;font-size:11pt;color:#2A295C;">${locLabel(rec, idx)}</h3>
-${ftItems.length ? `<p style="font-size:8pt;font-weight:bold;color:#64748b;margin:4px 0 2px;">Inspector-Recorded Food Temps</p>
-<table class="issues"><tr><th>Item</th><th>Food Name</th><th>Temp (&deg;F)</th><th>Result</th></tr>${foodRows}</table>` : ""}
-${subs.length ? `<p style="font-size:8pt;font-weight:bold;color:#64748b;margin:6px 0 2px;">Supervisor QR Log</p>
-<table class="issues"><tr><th>Item</th><th>Food Name</th><th>Temp (&deg;F)</th><th>Pass/Flag</th></tr>${subRows}</table>` : ""}`;
+      return `<h3 class="loc">${locLabel(rec, idx)}</h3>
+${ftItems.length ? `<table class="issues"><tr><th>Item</th><th>Food Name</th><th>Temp</th><th>Result</th></tr>${foodRows}</table>` : ""}
+${subs.length ? `<table class="issues"><tr><th colspan="4" style="background:#4B5563;">Supervisor QR Log</th></tr><tr><th>Item</th><th>Food Name</th><th>Temp</th><th>Pass/Flag</th></tr>${subRows}</table>` : ""}`;
     }).filter(Boolean).join("\n");
 
     // ── Section 3: Issues Found ──────────────────────────────────────────────
@@ -8321,7 +8319,7 @@ ${subs.length ? `<p style="font-size:8pt;font-weight:bold;color:#64748b;margin:6
         const prioClass = a.priority === "Critical" ? "pill-critical" : a.priority === "High" ? "pill-high" : "pill-med";
         return `<tr><td>${esc(area)}</td><td>${esc(issueText)}</td><td class="${prioClass}">${a.priority || "&mdash;"}</td><td>${esc(a.corrective || "&mdash;")}</td></tr>`;
       }).join("");
-      return `<h3 style="margin:14px 0 4px;font-size:11pt;color:#2A295C;">${locLabel(rec, idx)} <span class="${rec.overallStatus === "Pass" ? "pill-pass" : "pill-fail"}">${rec.overallStatus || ""}</span></h3>
+      return `<h3 class="loc">${locLabel(rec, idx)} <span class="${rec.overallStatus === "Pass" ? "pill-pass" : "pill-fail"}">${rec.overallStatus || ""}</span></h3>
 <table class="issues"><tr><th>Area</th><th>Issue</th><th>Priority</th><th>Corrective Action</th></tr>${rows}</table>`;
     }).filter(Boolean).join("\n");
 
@@ -8329,21 +8327,23 @@ ${subs.length ? `<p style="font-size:8pt;font-weight:bold;color:#64748b;margin:6
 <head><meta charset="utf-8">
 <!--[if gte mso 9]><xml><w:WordDocument><w:View>Print</w:View><w:Zoom>100</w:Zoom></w:WordDocument></xml><![endif]-->
 <style>
-  @page { size: letter; margin: 0.9in; }
-  body { font-family: Calibri, Arial, sans-serif; font-size: 10pt; color: #1F2937; line-height: 1.4; }
-  h1 { color: #2A295C; font-size: 16pt; margin: 0 0 2px; }
-  h2 { color: #2A295C; font-size: 13pt; border-bottom: 3px solid #2A295C; padding-bottom: 4px; margin: 0 0 8px; page-break-before: always; }
+  @page { size: letter; margin: 0.6in 0.7in; }
+  body { font-family: Calibri, Arial, sans-serif; font-size: 8.5pt; color: #1F2937; line-height: 1.3; }
+  h1 { color: #2A295C; font-size: 13pt; margin: 0 0 2px; }
+  h2 { color: #fff; background: #2A295C; font-size: 10pt; padding: 4px 10px; margin: 0 0 6px; page-break-before: always; }
   h2:first-of-type { page-break-before: avoid; }
-  .red-line { border-bottom: 3px solid #EE0000; margin: 4px 0 10px; }
-  table.issues { width: 100%; border-collapse: collapse; margin: 4px 0 10px; }
-  table.issues th { background: #2A295C; color: white; padding: 5px 8px; text-align: left; font-size: 8pt; }
-  table.issues td { padding: 4px 8px; border: 1px solid #E5E7EB; font-size: 8.5pt; vertical-align: top; }
-  .pill-high { background: #FEF2F2; color: #DC2626; font-weight: bold; padding: 1px 5px; }
-  .pill-med { background: #FFFBEB; color: #D97706; font-weight: bold; padding: 1px 5px; }
-  .pill-critical { background: #7f1d1d; color: #fff; font-weight: bold; padding: 1px 5px; }
-  .pill-pass { background: #ECFDF5; color: #15803D; font-weight: bold; padding: 1px 5px; }
-  .pill-fail { background: #FEF2F2; color: #DC2626; font-weight: bold; padding: 1px 5px; }
-  .footer { margin-top: 20px; padding-top: 8px; border-top: 1px solid #E5E7EB; font-size: 7.5pt; color: #9CA3AF; text-align: center; }
+  .red-line { border-bottom: 3px solid #EE0000; margin: 3px 0 8px; }
+  h3.loc { font-size: 8.5pt; color: #2A295C; margin: 8px 0 2px; border-bottom: 1px solid #D1D5DB; padding-bottom: 2px; }
+  table.issues { width: 100%; border-collapse: collapse; margin: 2px 0 6px; }
+  table.issues th { background: #374151; color: white; padding: 3px 6px; text-align: left; font-size: 7.5pt; }
+  table.issues td { padding: 2px 6px; border: 1px solid #E5E7EB; font-size: 7.5pt; vertical-align: top; }
+  .sub-hdr td { background: #EEF2FF; font-weight: bold; font-size: 7.5pt; padding: 2px 6px; }
+  .pill-high { background: #FEF2F2; color: #DC2626; font-weight: bold; padding: 0 4px; }
+  .pill-med { background: #FFFBEB; color: #D97706; font-weight: bold; padding: 0 4px; }
+  .pill-critical { background: #7f1d1d; color: #fff; font-weight: bold; padding: 0 4px; }
+  .pill-pass { background: #ECFDF5; color: #15803D; font-weight: bold; padding: 0 4px; }
+  .pill-fail { background: #FEF2F2; color: #DC2626; font-weight: bold; padding: 0 4px; }
+  .footer { margin-top: 10px; padding-top: 4px; border-top: 1px solid #E5E7EB; font-size: 7pt; color: #9CA3AF; text-align: center; }
 </style></head><body>
 <h1>Inspection Report &mdash; ${dateStr}</h1>
 <div class="red-line"></div>
@@ -8482,36 +8482,32 @@ ${subs.length ? `<p class="sub-label">Supervisor QR Log</p>
 <meta charset="utf-8">
 <title>Inspection Report — ${dateStr}</title>
 <style>
-  @page { size: letter; margin: 0.75in; }
+  @page { size: letter; margin: 0.5in 0.65in; }
   * { box-sizing: border-box; }
-  body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 9.5pt; color: #1f2937; line-height: 1.4; margin: 0; background: #fff; }
-  h1 { color: #2A295C; font-size: 18pt; margin: 0 0 2px; }
-  .brand-line { height: 4px; background: #EE0000; margin: 4px 0 10px; }
-  .meta { font-size: 8pt; color: #6b7280; margin-bottom: 14px; }
-  /* Section headers — each starts a new page */
-  .section-title { font-size: 13pt; font-weight: 800; color: #fff; background: #2A295C; padding: 8px 14px; margin: 0 0 10px; page-break-before: always; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 8pt; color: #1f2937; line-height: 1.3; margin: 0; background: #fff; }
+  h1 { color: #2A295C; font-size: 13pt; margin: 0 0 2px; }
+  .brand-line { height: 3px; background: #EE0000; margin: 3px 0 6px; }
+  .meta { font-size: 7.5pt; color: #6b7280; margin-bottom: 8px; }
+  .section-title { font-size: 10pt; font-weight: 800; color: #fff; background: #2A295C; padding: 5px 12px; margin: 0 0 6px; page-break-before: always; }
   .section-title:first-of-type { page-break-before: avoid; }
-  /* Location blocks */
-  .loc-block { margin-bottom: 14px; }
-  .loc-heading { font-size: 10pt; font-weight: 700; color: #1e293b; margin: 0 0 4px; }
-  .unit-num { font-weight: 400; font-size: 8.5pt; color: #64748b; }
-  .date-chip { font-weight: 400; font-size: 8pt; color: #64748b; }
-  .sub-label { font-size: 7.5pt; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.04em; margin: 6px 0 2px; }
-  /* Tables */
-  .data-table { width: 100%; border-collapse: collapse; font-size: 8.5pt; margin-bottom: 6px; }
-  .data-table th { background: #2A295C; color: #fff; padding: 5px 8px; text-align: left; }
-  .data-table td { padding: 4px 8px; border: 1px solid #e5e7eb; vertical-align: top; }
-  .sub-header td { background: #EEF2FF; font-weight: 700; font-size: 8pt; padding: 4px 8px; }
-  /* Pills */
-  .pill-high     { background: #fee2e2; color: #dc2626; font-weight: 700; padding: 1px 5px; border-radius: 3px; font-size: 7.5pt; }
-  .pill-med      { background: #fef9c3; color: #a16207; font-weight: 700; padding: 1px 5px; border-radius: 3px; font-size: 7.5pt; }
-  .pill-critical { background: #7f1d1d; color: #fff; font-weight: 700; padding: 1px 5px; border-radius: 3px; font-size: 7.5pt; }
-  .pill-pass     { background: #dcfce7; color: #15803d; font-weight: 700; padding: 1px 5px; border-radius: 3px; font-size: 7.5pt; }
-  .pill-fail     { background: #fee2e2; color: #dc2626; font-weight: 700; padding: 1px 5px; border-radius: 3px; font-size: 7.5pt; }
-  .status-badge  { border-radius: 4px; padding: 2px 8px; font-weight: 800; font-size: 8pt; }
+  .loc-block { margin-bottom: 8px; }
+  .loc-heading { font-size: 8.5pt; font-weight: 700; color: #1e293b; margin: 0 0 2px; border-bottom: 1px solid #D1D5DB; padding-bottom: 1px; }
+  .unit-num { font-weight: 400; font-size: 7.5pt; color: #64748b; }
+  .date-chip { font-weight: 400; font-size: 7.5pt; color: #64748b; }
+  .sub-label { font-size: 7pt; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.03em; margin: 4px 0 1px; }
+  .data-table { width: 100%; border-collapse: collapse; font-size: 7.5pt; margin-bottom: 4px; }
+  .data-table th { background: #374151; color: #fff; padding: 3px 6px; text-align: left; }
+  .data-table td { padding: 2px 6px; border: 1px solid #e5e7eb; vertical-align: top; }
+  .sub-header td { background: #EEF2FF; font-weight: 700; font-size: 7.5pt; padding: 2px 6px; }
+  .pill-high     { background: #fee2e2; color: #dc2626; font-weight: 700; padding: 0 4px; border-radius: 3px; }
+  .pill-med      { background: #fef9c3; color: #a16207; font-weight: 700; padding: 0 4px; border-radius: 3px; }
+  .pill-critical { background: #7f1d1d; color: #fff; font-weight: 700; padding: 0 4px; border-radius: 3px; }
+  .pill-pass     { background: #dcfce7; color: #15803d; font-weight: 700; padding: 0 4px; border-radius: 3px; }
+  .pill-fail     { background: #fee2e2; color: #dc2626; font-weight: 700; padding: 0 4px; border-radius: 3px; }
+  .status-badge  { border-radius: 3px; padding: 1px 6px; font-weight: 800; font-size: 7.5pt; }
   .badge-pass { background: #dcfce7; color: #15803d; }
   .badge-fail { background: #fee2e2; color: #dc2626; }
-  .footer { margin-top: 20px; padding-top: 8px; border-top: 1px solid #e5e7eb; font-size: 7.5pt; color: #9ca3af; text-align: center; }
+  .footer { margin-top: 10px; padding-top: 6px; border-top: 1px solid #e5e7eb; font-size: 7pt; color: #9ca3af; text-align: center; }
   @media print {
     body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     .no-print { display: none !important; }
