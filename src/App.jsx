@@ -8255,95 +8255,10 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
     const esc = s => (s || "").toString().replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
     const reportBlocks = (await Promise.all(records.map(async (rec, idx) => {
-      const issues = rec.actionItems || [];
-      const statusClass = rec.overallStatus === "Pass" ? "status-pass" : "status-fail";
-      const issueRows = issues.length > 0
-        ? issues.map((a, i) => {
-            // Parse area from issue text if area field is empty (older records)
-            let area = (a.area || "").trim();
-            let issueText = (a.issue || "").trim();
-            if (!area) {
-              const colonIdx = issueText.indexOf(":");
-              if (colonIdx > 0 && colonIdx < 40) {
-                area = issueText.slice(0, colonIdx).trim();
-                issueText = issueText.slice(colonIdx + 1).trim();
-              } else {
-                area = "General";
-              }
-            }
-            const recRes = rec.resolvedIssues || {};
-            const res = recRes[i];
-            const prioClass = res ? "pill-resolved" : a.priority === "Critical" ? "pill-critical" : a.priority === "High" ? "pill-high" : "pill-med";
-            const prioLabel = res ? "✓ Resolved" : (a.priority || "—");
-            const correctiveCell = res
-              ? `✓ ${res.resolvedNote || "Resolved"}${res.resolvedBy ? ` (${res.resolvedBy})` : ""}${res.resolvedAt ? ` — ${new Date(res.resolvedAt).toLocaleDateString()}` : ""}`
-              : esc(a.corrective || "—");
-            const rowStyle = res ? 'opacity:0.75;text-decoration:line-through;' : '';
-            return `<tr style="${rowStyle}"><td style="text-align:center;width:36px">${i + 1}</td><td>${esc(area)}</td><td>${esc(issueText)}</td><td class="${prioClass}">${prioLabel}</td><td style="${res ? 'color:#15803d;text-decoration:none;' : ''}">${correctiveCell}</td></tr>`;
-          }).join("\n")
-        : `<tr><td colspan="5" class="status-pass">No issues recorded — all areas passed ✓</td></tr>`;
-
-      // Build photo section — prefetch as base64 so Word can embed them
-      const { index: photoListRaw } = buildPhotoIndex(rec.inspection || rec, rec.inspection?._notesPhotos || rec._notesPhotos);
-      const photoList = await Promise.all(
-        photoListRaw.map(async p => ({ ...p, previewUrl: await fetchAsDataUrl(p.previewUrl, p.thumbUrl) }))
-      );
-      // Group photos by section label (same as single-record export)
-      const photoGroups = {};
-      const photoGroupOrder = [];
-      for (const p of photoList) {
-        const sec = p.label || "Other";
-        if (!photoGroups[sec]) { photoGroups[sec] = []; photoGroupOrder.push(sec); }
-        photoGroups[sec].push(p);
-      }
-      // Build categorized photo section using table layout (Word doesn't support flexbox/object-fit)
-      const photoSection = photoList.length > 0
-        ? `<p style="font-weight:bold;color:#2A295C;margin:16px 0 8px;">Photos (${photoList.length})</p>
-${photoGroupOrder.map(sec => {
-  const photos = photoGroups[sec];
-  const rows = [];
-  for (let pi = 0; pi < photos.length; pi += 3) {
-    const chunk = photos.slice(pi, pi + 3);
-    const cells = chunk.map(p => `<td style="width:190px;padding:6px;vertical-align:top;text-align:center;border:none;">${p.previewUrl
-      ? `<img src="${p.previewUrl}" width="170" height="130" alt="${esc(p.label || "Photo")}" style="display:block;margin:0 auto;">`
-      : `<table style="width:170px;height:130px;border:1px solid #D1D5DB;"><tr><td style="text-align:center;color:#9CA3AF;font-size:8pt;border:none;">No photo</td></tr></table>`
-    }<p style="margin:4px 0 0;font-size:8pt;color:#374151;">#${p.num}${p.caption ? ` \u2014 ${esc(p.caption)}` : ""}</p></td>`).join("");
-    rows.push(`<tr>${cells}</tr>`);
-  }
-  return `<p style="font-weight:600;color:#2A295C;font-size:10pt;margin:12px 0 4px;border-bottom:1px solid #E5E7EB;padding-bottom:3px;">${esc(sec)} <span style="font-weight:normal;color:#64748b;font-size:8pt;">(${photos.length} photo${photos.length !== 1 ? "s" : ""})</span></p><table style="border-collapse:collapse;">${rows.join("")}</table>`;
-}).join("")}`
-        : "";
-
       return `
-<div style="page-break-inside:avoid;margin-bottom:28px;">
-  <h2>${idx + 1}. ${esc(rec.siteName || rec.location || "Inspection")}${rec.siteNumber ? ` — Unit #${esc(rec.siteNumber)}` : ""}</h2>
-  <table class="info-table">
-    <tr><td class="info-label">Site / Location</td><td colspan="3">${esc(rec.siteName || rec.location || "—")}</td></tr>
-    <tr><td class="info-label">Date</td><td>${esc(rec.inspectionDate || "—")}</td><td class="info-label">Inspection Type</td><td>${esc(rec.inspectionType || "—")}</td></tr>
-    <tr><td class="info-label">Inspector</td><td>${esc(rec.inspectorName || "—")}</td><td class="info-label">Supervisor</td><td>${esc(rec.supervisorName || "—")}</td></tr>
-    ${rec.participantName ? `<tr><td class="info-label">Participant</td><td colspan="3">${esc(rec.participantName)}</td></tr>` : ""}
-    <tr><td class="info-label">Unit #</td><td>${esc(rec.siteNumber || "—")}</td><td class="info-label">Location Type</td><td>${esc(rec.locationType || "—")}</td></tr>
-    ${rec.floor ? `<tr><td class="info-label">Floor</td><td>${esc(rec.floor)}</td><td class="info-label">Event</td><td>${esc(rec.eventName || "—")}</td></tr>` : ""}
-    ${rec.restaurantLicense && rec.restaurantLicense !== "NO LICENSE" ? `<tr><td class="info-label">License #</td><td>${esc(rec.restaurantLicense)}</td><td class="info-label">License Missing</td><td>${rec.licenseMissing ? "Yes" : "No"}</td></tr>` : ""}
-    ${rec.sitePhone ? `<tr><td class="info-label">Phone</td><td>${esc(rec.sitePhone)}</td><td></td><td></td></tr>` : ""}
-    <tr><td class="info-label">Overall Status</td><td class="${statusClass}">${esc(rec.overallStatus || "—")}</td><td class="info-label">Compliance Score</td><td>${(() => { const s = calcInspectionScore(rec.inspection); return s ? `<strong style="color:${s.color}">${s.pct}% — Grade ${s.grade}</strong> (${s.passed}/${s.scoredTotal} items)` : "—"; })()}</td></tr>
-  </table>
-  ${(() => {
-    const execSum = buildExportSummary({ inspection: rec.inspection, rawNotes: rec.rawNotes, inspectionType: rec.inspectionType, inspectionDate: rec.inspectionDate, siteName: rec.siteName || rec.location, foodTemps: rec.foodTemps, foodTempNames: rec.foodTempNames });
-    return execSum ? `<div style="background:#F0F4FF;border:1px solid #C7D2FE;border-radius:4px;padding:12px 16px;margin:10px 0;font-size:10pt;line-height:1.6;color:#1E293B;">${execSum.split("\n\n").map(p => `<p style="margin:0 0 6px 0;">${esc(p)}</p>`).join("")}</div>` : "";
-  })()}
-  ${(() => {
-    const rawNotes = rec.rawNotes || rec.notes || "";
-    const { grouped } = formatNotesStructured(rawNotes);
-    const cats = CATEGORY_ORDER.filter(c => grouped[c]?.length);
-    if (!cats.length) return "";
-    return `<p style="font-weight:bold;color:#2A295C;margin:12px 0 4px;font-size:10pt;">Inspector Notes</p><div style="background:#F7F8FA;border-left:3px solid #2A295C;padding:10px 14px;margin:0 0 10px;">${cats.map(cat => `<p style="font-weight:bold;color:#2A295C;font-size:9pt;margin:0 0 3px;">${CATEGORY_LABELS[cat]}</p><ul style="margin:0 0 8px;padding-left:18px;">${grouped[cat].map(b => `<li style="font-size:9pt;line-height:1.5;">${esc(b)}</li>`).join("")}</ul>`).join("")}</div>`;
-  })()}
-  ${issues.length > 0 ? `<p style="font-weight:bold;color:#2A295C;margin:12px 0 4px;">Action Items (${issues.length})</p>` : ""}
-  <table class="issues">
-    <tr><th>#</th><th>Area</th><th>Issue</th><th>Priority</th><th>Corrective Action</th></tr>
-    ${issueRows}
-  </table>
+<div style="page-break-inside:avoid;margin-bottom:24px;border-top:2px solid #2A295C;padding-top:12px;">
+  <h2 style="margin:0 0 4px;font-size:13pt;">${idx + 1}. ${esc(rec.siteName || rec.location || "Inspection")}${rec.siteNumber ? ` &mdash; Unit #${esc(rec.siteNumber)}` : ""}</h2>
+  <p style="margin:0 0 8px;font-size:9pt;color:#6B7280;">Date: ${esc(rec.inspectionDate || "&mdash;")} &bull; Inspector: ${esc(rec.inspectorName || "&mdash;")}</p>
   ${(() => {
     const ft = rec.foodTemps || {};
     const fn = rec.foodTempNames || {};
@@ -8355,13 +8270,12 @@ ${photoGroupOrder.map(sec => {
       return vals.map((v, vi) => {
         const pass = tempPass(item, v);
         const cls = pass === true ? "pill-pass" : pass === false ? "pill-fail" : "";
-        const txt = pass === true ? "✓ Pass" : pass === false ? "⚠️ Flag" : "—";
-        return `<tr><td>${esc(item.label)}</td><td>${esc(names[vi] || "—")}</td><td>${esc(v)}°F</td><td class="${cls}" style="font-weight:bold;">${txt}</td></tr>`;
+        return `<tr><td>${esc(item.label)}</td><td>${esc(names[vi] || "&mdash;")}</td><td>${esc(v)}&deg;F</td><td class="${cls}">${pass === true ? "Pass" : pass === false ? "Flag" : "&mdash;"}</td></tr>`;
       });
     }).join("\n    ");
-    return `<p style="font-weight:bold;color:#2A295C;margin:12px 0 4px;font-size:10pt;">HACCP Food Temperatures</p>
+    return `<p style="font-weight:bold;color:#2A295C;margin:8px 0 3px;font-size:9pt;">HACCP Food Temperatures</p>
   <table class="issues">
-    <tr><th>Item</th><th>Food Name</th><th>Temperature</th><th>Result</th></tr>
+    <tr><th>Item</th><th>Food Name</th><th>Temp (&deg;F)</th><th>Result</th></tr>
     ${rows}
   </table>`;
   })()}
@@ -8370,13 +8284,13 @@ ${photoGroupOrder.map(sec => {
     const threeT = Number(rec.temps?.threeCompSinkTempF);
     const eTemps = collectEquipTemps(rec.inspection);
     const equipRows = [];
-    if (!isNaN(handT) && handT > 0) equipRows.push(`<tr><td>Hand Sink</td><td>${handT}°F</td><td>—</td></tr>`);
-    if (!isNaN(threeT) && threeT > 0) equipRows.push(`<tr><td>3-Comp Sink</td><td>${threeT}°F</td><td>—</td></tr>`);
-    eTemps.forEach(e => equipRows.push(`<tr><td>${esc(e.label)}</td><td>${e.tempF}°F</td><td class="${e.pass ? "pill-pass" : "pill-fail"}">${e.pass ? "✓ OK" : "⚠️ Flag"}</td></tr>`));
+    if (!isNaN(handT) && handT > 0) equipRows.push(`<tr><td>Hand Sink</td><td>${handT}&deg;F</td><td>&mdash;</td></tr>`);
+    if (!isNaN(threeT) && threeT > 0) equipRows.push(`<tr><td>3-Comp Sink</td><td>${threeT}&deg;F</td><td>&mdash;</td></tr>`);
+    eTemps.forEach(e => equipRows.push(`<tr><td>${esc(e.label)}</td><td>${e.tempF}&deg;F</td><td class="${e.pass ? "pill-pass" : "pill-fail"}">${e.pass ? "OK" : "Flag"}</td></tr>`));
     if (!equipRows.length) return "";
-    return `<p style="font-weight:bold;color:#2A295C;margin:12px 0 4px;font-size:10pt;">Equipment Temperatures</p>
+    return `<p style="font-weight:bold;color:#2A295C;margin:8px 0 3px;font-size:9pt;">Equipment Temperatures</p>
   <table class="issues">
-    <tr><th>Equipment</th><th>Temperature</th><th>Status</th></tr>
+    <tr><th>Equipment</th><th>Temp (&deg;F)</th><th>Status</th></tr>
     ${equipRows.join("\n    ")}
   </table>`;
   })()}
@@ -8392,69 +8306,33 @@ ${photoGroupOrder.map(sec => {
         const vals = ((sub.temps || {})[item.key] || []).filter(v => v !== "");
         return vals.some(v => !tempPass(item, v));
       });
-      const tempRows = allSubItems.map(item => {
+      const tempRows = allSubItems.flatMap(item => {
         const vals = ((sub.temps || {})[item.key] || []).filter(v => v !== "");
-        if (!vals.length) return "";
+        if (!vals.length) return [];
         const displayLabel = (sub.itemLabels || {})[item.key] || item.label;
         return vals.map((v, vi) => {
           const pass = tempPass(item, v);
           const foodName = ((sub.foodNames || {})[item.key] || [])[vi] || "";
-          const statusCls = pass === true ? "pill-pass" : pass === false ? "pill-fail" : "";
-          return `<tr><td>${esc(displayLabel)}</td><td>${esc(foodName) || "—"}</td><td>${esc(v)}°F</td><td class="${statusCls}" style="font-weight:bold;">${pass === true ? "✓ OK" : pass === false ? "⚠️ Flag" : "—"}</td></tr>`;
-        }).join("\n      ");
-      }).filter(Boolean).join("\n      ");
-      const badgeTxt = flagged.length > 0 ? `⚠️ ${flagged.length} flag${flagged.length !== 1 ? "s" : ""}` : "✓ All OK";
+          const cls = pass === true ? "pill-pass" : pass === false ? "pill-fail" : "";
+          return `<tr><td>${esc(displayLabel)}</td><td>${esc(foodName) || "&mdash;"}</td><td>${esc(v)}&deg;F</td><td class="${cls}">${pass === true ? "OK" : pass === false ? "Flag" : "&mdash;"}</td></tr>`;
+        });
+      }).join("\n      ");
       const badgeCls = flagged.length > 0 ? "pill-fail" : "pill-pass";
-      const submittedStr = sub.submittedAt ? new Date(sub.submittedAt).toLocaleString() : "—";
-      return `<tr style="background:#F0F4FF;"><td colspan="4" style="font-weight:bold;padding:6px 8px;">👤 ${esc(sub.supervisorName || "Supervisor")} &nbsp; <span style="font-weight:400;font-size:9pt;color:#6B7280;">${submittedStr}</span> &nbsp; <span class="${badgeCls}">${badgeTxt}</span></td></tr>
+      const badgeTxt = flagged.length > 0 ? `${flagged.length} Flag${flagged.length !== 1 ? "s" : ""}` : "All OK";
+      const submittedStr = sub.submittedAt ? new Date(sub.submittedAt).toLocaleString() : "&mdash;";
+      const problem = sub.problemReport?.text
+        ? `<tr><td colspan="4" style="background:#FFF7ED;color:#92400E;padding:5px 8px;font-size:8pt;">Problem: ${esc(sub.problemReport.text)}</td></tr>`
+        : "";
+      return `<tr style="background:#F0F4FF;"><td colspan="4" style="font-weight:bold;padding:5px 8px;font-size:9pt;">${esc(sub.supervisorName || "Supervisor")} &mdash; ${submittedStr} &nbsp;<span class="${badgeCls}">${badgeTxt}</span></td></tr>
       ${tempRows}
-      ${sub.problemReport?.text ? `<tr><td colspan="4" style="background:#FFF7ED;color:#92400E;padding:5px 8px;font-size:9pt;">⚠️ Problem: ${esc(sub.problemReport.text)}</td></tr>` : ""}`;
+      ${problem}`;
     }).join("\n    ");
-    return `<p style="font-weight:bold;color:#2A295C;margin:12px 0 4px;font-size:10pt;">Supervisor QR Log (${subs.length})</p>
+    return `<p style="font-weight:bold;color:#2A295C;margin:8px 0 3px;font-size:9pt;">HACCP Supervisor Log (${subs.length})</p>
   <table class="issues">
-    <tr><th>Item</th><th>Food Name</th><th>Temperature</th><th>Pass/Flag</th></tr>
+    <tr><th>Item</th><th>Food Name</th><th>Temp (&deg;F)</th><th>Pass/Flag</th></tr>
     ${rows}
   </table>`;
   })()}
-  ${(() => {
-    // Per-checklist-item photos — grouped by section > item label
-    const ciPhotoEntries = [];
-    const checklistSectionsWord = [
-      ["facility","ceiling"],["facility","walls"],["facility","floors"],
-      ["facility","threeCompSinks"],["facility","handSink"],["facility","mopArea"],
-      ["equipment","coolers"],["equipment","freezer"],["equipment","warmers"],
-      ["equipment","grill"],["equipment","hood"],["equipment","iceMaker"],["equipment","otherEquip"],
-      ["utensils","cleaningUtensils"],["utensils","cookingUtensils"],
-      ["operations","employeePractices"],["operations","handwashing"],
-      ["operations","labelingDating"],["operations","logs"],
-    ];
-    for (const [sec, key] of checklistSectionsWord) {
-      const node = rec.inspection?.[sec]?.[key];
-      if (!Array.isArray(node?.checklist)) continue;
-      for (const c of node.checklist) {
-        const photos = (c.photos || []).filter(p => p.url || p.dataUrl);
-        if (!photos.length) continue;
-        const result = c.value === "NO" ? "❌ Fail" : c.value === "YES" ? "✅ Pass" : "";
-        ciPhotoEntries.push({ label: c.label || "Item", result, comment: c.comment || "", photos });
-      }
-    }
-    if (!ciPhotoEntries.length) return "";
-    const rows = [];
-    for (let pi = 0; pi < ciPhotoEntries.length; pi++) {
-      const entry = ciPhotoEntries[pi];
-      const imgHtml = entry.photos.map(p => {
-        const src = p.url || p.dataUrl || "";
-        return src
-          ? `<td style="width:160px;padding:4px;vertical-align:top;text-align:center;border:none;"><img src="${src}" width="145" height="110" alt="${esc(entry.label)}" style="display:block;margin:0 auto;"><p style="margin:3px 0 0;font-size:7.5pt;color:#374151;">${esc(entry.result)} ${esc(entry.label)}${entry.comment ? ` — ${esc(entry.comment)}` : ""}</p></td>`
-          : "";
-      }).filter(Boolean).join("");
-      if (imgHtml) rows.push(`<tr>${imgHtml}</tr>`);
-    }
-    return rows.length
-      ? `<p style="font-weight:bold;color:#2A295C;margin:16px 0 8px;">Checklist Item Photos (${ciPhotoEntries.length} item${ciPhotoEntries.length !== 1 ? "s" : ""})</p><table style="border-collapse:collapse;">${rows.join("")}</table>`
-      : "";
-  })()}
-  ${photoSection}
 </div>`;
     }))).join("\n");
 
@@ -8554,75 +8432,6 @@ ${reportBlocks}
     const esc = s => (s || "").toString().replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
     const reportBlocks = (await Promise.all(records.map(async (rec, idx) => {
-      const issues = rec.actionItems || [];
-      const issueRows = issues.length > 0
-        ? issues.map((a, i) => {
-            let area = (a.area || "").trim();
-            let issueText = (a.issue || "").trim();
-            if (!area) {
-              const colonIdx = issueText.indexOf(":");
-              if (colonIdx > 0 && colonIdx < 40) {
-                area = issueText.slice(0, colonIdx).trim();
-                issueText = issueText.slice(colonIdx + 1).trim();
-              } else { area = "General"; }
-            }
-            const recRes = rec.resolvedIssues || {};
-            const res = recRes[i];
-            const pillCls = res ? "pill-resolved" : a.priority === "Critical" ? "pill-critical" : a.priority === "High" ? "pill-high" : "pill-med";
-            const pillLabel = res ? "✓ Resolved" : (a.priority || "—");
-            const correctiveCell = res
-              ? `✓ ${esc(res.resolvedNote || "Resolved")}${res.resolvedBy ? ` (${esc(res.resolvedBy)})` : ""}${res.resolvedAt ? ` — ${new Date(res.resolvedAt).toLocaleDateString()}` : ""}`
-              : esc(a.corrective || "—");
-            const rowStyle = res ? 'opacity:0.75;' : '';
-            return `<tr style="${rowStyle}"><td class="num-cell">${i + 1}</td><td>${esc(area)}</td><td>${res ? `<s>${esc(issueText)}</s>` : esc(issueText)}</td><td><span class="${pillCls}">${pillLabel}</span></td><td style="${res ? 'color:#15803d;' : ''}">${correctiveCell}</td></tr>`;
-          }).join("\n")
-        : `<tr><td colspan="5" class="no-issues">No action items recorded — all areas passed ✓</td></tr>`;
-
-      // Photos — prefetch as data URLs so they embed inline in the PDF
-      const { index: photoListRaw } = buildPhotoIndex(rec.inspection || rec, rec.inspection?._notesPhotos || rec._notesPhotos);
-      const photoList = await Promise.all(
-        photoListRaw.map(async p => ({ ...p, previewUrl: await fetchAsDataUrl(p.previewUrl, p.thumbUrl) }))
-      );
-      const photoGroups = {};
-      const photoGroupOrder = [];
-      for (const p of photoList) {
-        const sec = p.label || "Other";
-        if (!photoGroups[sec]) { photoGroups[sec] = []; photoGroupOrder.push(sec); }
-        photoGroups[sec].push(p);
-      }
-      const photoSection = photoList.length > 0
-        ? `<h3 class="section-heading">Photos (${photoList.length})</h3>
-${photoGroupOrder.map(sec => {
-  const photos = photoGroups[sec];
-  return `<p class="photo-group-label">${esc(sec)} <span class="photo-count">(${photos.length} photo${photos.length !== 1 ? "s" : ""})</span></p>
-<div class="photo-grid">${photos.map(p => `<div class="photo-card">${p.previewUrl
-  ? `<img src="${p.previewUrl}" alt="Photo #${p.num}" class="photo-img">`
-  : `<div class="photo-placeholder">No preview</div>`
-}<p class="photo-caption"><strong>#${p.num}</strong>${p.caption ? ` — ${esc(p.caption)}` : ""}</p></div>`).join("")}</div>`;
-}).join("")}`
-        : "";
-
-      // HACCP temps
-      const ft = rec.foodTemps || {};
-      const fn = rec.foodTempNames || {};
-      const ftItems = HACCP_TEMP_ITEMS.filter(item => (ft[item.key] || []).filter(v => v !== "").length > 0);
-      const haccpSection = ftItems.length > 0
-        ? `<h3 class="section-heading">HACCP Food Temperatures</h3>
-<table class="data-table"><thead><tr><th>Item</th><th>Food Name</th><th>Temp (°F)</th><th>Result</th></tr></thead><tbody>
-${ftItems.flatMap(item => {
-  const vals = (ft[item.key] || []).filter(v => v !== "");
-  const names = fn[item.key] || [];
-  return vals.map((v, vi) => {
-    const pass = tempPass(item, v);
-    const cls = pass === true ? "pill-pass" : pass === false ? "pill-fail" : "";
-    return `<tr><td>${esc(item.label)}</td><td>${esc(names[vi] || "—")}</td><td>${esc(v)}°F</td><td><span class="${cls}">${pass === true ? "✓ Pass" : pass === false ? "⚠ Flag" : "—"}</span></td></tr>`;
-  });
-}).join("")}
-</tbody></table>` : "";
-
-      const openCount = issues.filter((_, i) => !(rec.resolvedIssues || {})[i]).length;
-      const resolvedCount = issues.length - openCount;
-
       return `
 <div class="record-block">
   <div class="record-header">
@@ -8630,51 +8439,36 @@ ${ftItems.flatMap(item => {
     <div class="record-title">${esc(rec.siteName || rec.location || "Inspection")}${rec.siteNumber ? ` <span class="unit-num">Unit #${esc(rec.siteNumber)}</span>` : ""}</div>
     <span class="status-badge ${rec.overallStatus === "Pass" ? "badge-pass" : "badge-fail"}">${rec.overallStatus === "Pass" ? "PASS" : "FAIL"}</span>
   </div>
-  <table class="info-table">
-    <tr><td class="info-label">Site / Location</td><td colspan="3">${esc(rec.siteName || rec.location || "—")}</td></tr>
-    <tr><td class="info-label">Date</td><td>${esc(rec.inspectionDate || "—")}</td><td class="info-label">Type</td><td>${esc(rec.inspectionType || "—")}</td></tr>
-    <tr><td class="info-label">Inspector</td><td>${esc(rec.inspectorName || "—")}</td><td class="info-label">Supervisor</td><td>${esc(rec.supervisorName || "—")}</td></tr>
-    ${rec.participantName ? `<tr><td class="info-label">Participant</td><td colspan="3">${esc(rec.participantName)}</td></tr>` : ""}
-    <tr><td class="info-label">Unit #</td><td>${esc(rec.siteNumber || "—")}</td><td class="info-label">Location Type</td><td>${esc(rec.locationType || "—")}</td></tr>
-    ${rec.floor ? `<tr><td class="info-label">Floor</td><td>${esc(rec.floor)}</td><td class="info-label">Event</td><td>${esc(rec.eventName || "—")}</td></tr>` : ""}
-    ${rec.restaurantLicense && rec.restaurantLicense !== "NO LICENSE" ? `<tr><td class="info-label">License #</td><td>${esc(rec.restaurantLicense)}</td><td class="info-label">License Missing</td><td>${rec.licenseMissing ? "Yes" : "No"}</td></tr>` : ""}
-    ${rec.sitePhone ? `<tr><td class="info-label">Phone</td><td>${esc(rec.sitePhone)}</td><td></td><td></td></tr>` : ""}
-    <tr>
-      <td class="info-label">Overall Status</td>
-      <td style="font-weight:700;color:${rec.overallStatus === 'Pass' ? '#15803d' : '#dc2626'};">${esc(rec.overallStatus || "—")}</td>
-      <td class="info-label">Compliance Score</td>
-      <td>${(() => { const s = calcInspectionScore(rec.inspection); return s ? `<strong style="color:${s.color}">${s.pct}% — Grade ${s.grade}</strong> <span style="color:#64748b">(${s.passed}/${s.scoredTotal} items)</span>` : "—"; })()}</td>
-    </tr>
-  </table>
+  <p style="margin:0 0 8px;font-size:8.5pt;color:#6b7280;">Date: ${esc(rec.inspectionDate || "\u2014")} &bull; Inspector: ${esc(rec.inspectorName || "\u2014")}</p>
   ${(() => {
-    const summary = buildExportSummary(rec, haccpMap[rec.id] || []);
-    return summary
-      ? `<h3 class="section-heading">Executive Summary</h3><p style="font-size:9pt;color:#374151;margin:4px 0 10px 0;line-height:1.6;background:#F8FAFC;border-left:3px solid #2A295C;padding:8px 12px;">${esc(summary)}</p>`
-      : "";
+    const ft = rec.foodTemps || {};
+    const fn = rec.foodTempNames || {};
+    const ftItems = HACCP_TEMP_ITEMS.filter(item => (ft[item.key] || []).filter(v => v !== "").length > 0);
+    if (!ftItems.length) return "";
+    return `<h3 class="section-heading">HACCP Food Temperatures</h3>
+<table class="data-table"><thead><tr><th>Item</th><th>Food Name</th><th>Temp (\u00b0F)</th><th>Result</th></tr></thead><tbody>
+${ftItems.flatMap(item => {
+  const vals = (ft[item.key] || []).filter(v => v !== "");
+  const names = fn[item.key] || [];
+  return vals.map((v, vi) => {
+    const pass = tempPass(item, v);
+    const cls = pass === true ? "pill-pass" : pass === false ? "pill-fail" : "";
+    return `<tr><td>${esc(item.label)}</td><td>${esc(names[vi] || "\u2014")}</td><td>${esc(v)}\u00b0F</td><td><span class="${cls}">${pass === true ? "Pass" : pass === false ? "Flag" : "\u2014"}</span></td></tr>`;
+  });
+}).join("")}
+</tbody></table>`;
   })()}
-  ${(() => {
-    const notesText = formatNotesText(rec.inspection);
-    if (!notesText) return "";
-    const lines = notesText.split("\n").filter(l => l.trim())
-      .map(l => `<p style="font-size:8.5pt;margin:2px 0;color:#374151;">${esc(l)}</p>`).join("");
-    return `<h3 class="section-heading">Inspector Notes</h3><div style="background:#F7F8FA;border-left:3px solid #94A3B8;padding:8px 12px;margin:4px 0 10px 0;">${lines}</div>`;
-  })()}
-  <h3 class="section-heading">Action Items (${issues.length > 0 ? `${openCount} open${resolvedCount > 0 ? `, ${resolvedCount} resolved` : ""}` : "None"})</h3>
-  <table class="data-table"><thead><tr><th class="num-col">#</th><th>Area</th><th>Issue</th><th>Priority</th><th>Corrective Action</th></tr></thead><tbody>
-  ${issueRows}
-  </tbody></table>
-  ${haccpSection}
   ${(() => {
     const handT = Number(rec.temps?.handSinkTempF);
     const threeT = Number(rec.temps?.threeCompSinkTempF);
     const eTemps = collectEquipTemps(rec.inspection);
     const equipRows = [];
-    if (!isNaN(handT) && handT > 0) equipRows.push(`<tr><td>Hand Sink</td><td>${handT}°F</td><td>—</td></tr>`);
-    if (!isNaN(threeT) && threeT > 0) equipRows.push(`<tr><td>3-Comp Sink</td><td>${threeT}°F</td><td>—</td></tr>`);
-    eTemps.forEach(e => equipRows.push(`<tr><td>${esc(e.label)}</td><td>${e.tempF}°F</td><td class="${e.pass ? "pill-pass" : "pill-fail"}">${e.pass ? "✓ OK" : "⚠ Flag"}</td></tr>`));
+    if (!isNaN(handT) && handT > 0) equipRows.push(`<tr><td>Hand Sink</td><td>${handT}\u00b0F</td><td>\u2014</td></tr>`);
+    if (!isNaN(threeT) && threeT > 0) equipRows.push(`<tr><td>3-Comp Sink</td><td>${threeT}\u00b0F</td><td>\u2014</td></tr>`);
+    eTemps.forEach(e => equipRows.push(`<tr><td>${esc(e.label)}</td><td>${e.tempF}\u00b0F</td><td><span class="${e.pass ? "pill-pass" : "pill-fail"}">${e.pass ? "OK" : "Flag"}</span></td></tr>`));
     if (!equipRows.length) return "";
     return `<h3 class="section-heading">Equipment Temperatures</h3>
-<table class="data-table"><thead><tr><th>Equipment</th><th>Temperature</th><th>Status</th></tr></thead><tbody>
+<table class="data-table"><thead><tr><th>Equipment</th><th>Temp (\u00b0F)</th><th>Status</th></tr></thead><tbody>
 ${equipRows.join("\n")}
 </tbody></table>`;
   })()}
@@ -8698,75 +8492,31 @@ ${equipRows.join("\n")}
           const pass = tempPass(item, v);
           const foodName = ((sub.foodNames || {})[item.key] || [])[vi] || "";
           const cls = pass === true ? "pill-pass" : pass === false ? "pill-fail" : "";
-          return `<tr>
-            <td>${esc(displayLabel)}</td>
-            <td>${esc(foodName) || "—"}</td>
-            <td>${esc(v)}°F</td>
-            <td><span class="${cls}">${pass === true ? "✓ Pass" : pass === false ? "⚠ Flag" : "—"}</span></td>
-          </tr>`;
+          return `<tr><td>${esc(displayLabel)}</td><td>${esc(foodName) || "\u2014"}</td><td>${esc(v)}\u00b0F</td><td><span class="${cls}">${pass === true ? "Pass" : pass === false ? "Flag" : "\u2014"}</span></td></tr>`;
         });
       }).join("");
-      const badgeTxt = flagged.length > 0 ? `⚠ ${flagged.length} flag${flagged.length !== 1 ? "s" : ""}` : "✓ All OK";
+      const badgeTxt = flagged.length > 0 ? `${flagged.length} Flag${flagged.length !== 1 ? "s" : ""}` : "All OK";
       const badgeCls = flagged.length > 0 ? "pill-fail" : "pill-pass";
-      const submittedStr = sub.submittedAt ? new Date(sub.submittedAt).toLocaleString() : "—";
-      const severity = sub.problemReport?.severity;
-      const sevEmoji = severity === "urgent" ? "🔴" : severity === "issue" ? "🟡" : "🔵";
+      const submittedStr = sub.submittedAt ? new Date(sub.submittedAt).toLocaleString() : "\u2014";
+      const problem = sub.problemReport?.text
+        ? `<tr><td colspan="4" style="background:#FFF7ED;color:#92400E;padding:4px 8px;font-size:8pt;">Problem: ${esc(sub.problemReport.text)}</td></tr>`
+        : "";
       return `
         <tr style="background:#F0F4FF;">
-          <td colspan="4" style="font-weight:bold;padding:6px 8px;">
-            👤 ${esc(sub.supervisorName || "Supervisor")}
-            &nbsp;<span style="font-weight:400;font-size:8pt;color:#6B7280;">${submittedStr}</span>
-            &nbsp;<span class="${badgeCls}">${badgeTxt}</span>
-          </td>
+          <td colspan="4" style="font-weight:bold;padding:5px 8px;font-size:8.5pt;">${esc(sub.supervisorName || "Supervisor")} \u2014 ${submittedStr} <span class="${badgeCls}" style="margin-left:6px;">${badgeTxt}</span></td>
         </tr>
         ${tempRows}
-        ${sub.problemReport?.text ? `<tr><td colspan="4" style="background:#FFF7ED;color:#92400E;padding:5px 8px;font-size:8pt;">${sevEmoji} Problem: ${esc(sub.problemReport.text)}</td></tr>` : ""}
-      `;
+        ${problem}`;
     }).join("");
-    return `<h3 class="section-heading">Supervisor QR Log (${subs.length})</h3>
+    return `<h3 class="section-heading">HACCP Supervisor Log (${subs.length})</h3>
 <table class="data-table" style="font-size:8.5pt;">
-  <thead><tr><th>Item</th><th>Food Name</th><th>Temp (°F)</th><th>Pass / Flag</th></tr></thead>
+  <thead><tr><th>Item</th><th>Food Name</th><th>Temp (\u00b0F)</th><th>Pass / Flag</th></tr></thead>
   <tbody>${rows}</tbody>
 </table>`;
   })()}
-  ${(() => {
-    // Per-checklist-item photos
-    const ciPhotoEntries = [];
-    const checklistSectionsPdf = [
-      ["facility","ceiling"],["facility","walls"],["facility","floors"],
-      ["facility","threeCompSinks"],["facility","handSink"],["facility","mopArea"],
-      ["equipment","coolers"],["equipment","freezer"],["equipment","warmers"],
-      ["equipment","grill"],["equipment","hood"],["equipment","iceMaker"],["equipment","otherEquip"],
-      ["utensils","cleaningUtensils"],["utensils","cookingUtensils"],
-      ["operations","employeePractices"],["operations","handwashing"],
-      ["operations","labelingDating"],["operations","logs"],
-    ];
-    for (const [sec, key] of checklistSectionsPdf) {
-      const node = rec.inspection?.[sec]?.[key];
-      if (!Array.isArray(node?.checklist)) continue;
-      for (const c of node.checklist) {
-        const photos = (c.photos || []).filter(p => p.url || p.dataUrl);
-        if (!photos.length) continue;
-        const result = c.value === "NO" ? "❌ Fail" : c.value === "YES" ? "✅ Pass" : "";
-        ciPhotoEntries.push({ label: c.label || "Item", result, comment: c.comment || "", photos });
-      }
-    }
-    if (!ciPhotoEntries.length) return "";
-    const imgCards = ciPhotoEntries.flatMap(entry =>
-      entry.photos.map(p => {
-        const src = p.url || p.dataUrl || "";
-        return src
-          ? `<div class="photo-card"><img src="${src}" alt="${esc(entry.label)}" class="photo-img"><p class="photo-caption"><strong>${esc(entry.result)}</strong> ${esc(entry.label)}${entry.comment ? `<br><em>${esc(entry.comment)}</em>` : ""}</p></div>`
-          : "";
-      }).filter(Boolean)
-    );
-    return imgCards.length
-      ? `<h3 class="section-heading">Checklist Item Photos (${ciPhotoEntries.length} item${ciPhotoEntries.length !== 1 ? "s" : ""})</h3><div class="photo-grid">${imgCards.join("")}</div>`
-      : "";
-  })()}
-  ${photoSection}
 </div>`;
     }))).join("\n");
+
 
     const pdfHtml = `<!DOCTYPE html>
 <html lang="en">
