@@ -8246,69 +8246,13 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
     const locLabel = (rec, idx) =>
       `${idx + 1}. ${esc(rec.siteName || rec.location || "Inspection")}${rec.siteNumber ? ` &mdash; Unit #${esc(rec.siteNumber)}` : ""} <span style="font-weight:400;font-size:9pt;color:#6B7280;">(${esc(rec.inspectionDate || "&mdash;")})</span>`;
 
-    // ── Section 1: Equipment Temperatures ───────────────────────────────────
-    const equipSection = records.map((rec, idx) => {
-      const handT = Number(rec.temps?.handSinkTempF);
-      const threeT = Number(rec.temps?.threeCompSinkTempF);
-      const eTemps = collectEquipTemps(rec.inspection);
-      const equipRows = [];
-      if (!isNaN(handT) && handT > 0) equipRows.push(`<tr><td>Hand Sink</td><td>${handT}&deg;F</td><td>&mdash;</td></tr>`);
-      if (!isNaN(threeT) && threeT > 0) equipRows.push(`<tr><td>3-Comp Sink</td><td>${threeT}&deg;F</td><td>&mdash;</td></tr>`);
-      eTemps.forEach(e => equipRows.push(`<tr><td>${esc(e.label)}</td><td>${e.tempF}&deg;F</td><td class="${e.pass ? "pill-pass" : "pill-fail"}">${e.pass ? "OK" : "Flag"}</td></tr>`));
-      if (!equipRows.length) return "";
-      return `<h3 class="loc">${locLabel(rec, idx)}</h3>
-<table class="issues"><tr><th>Equipment</th><th>Temp</th><th>Status</th></tr>${equipRows.join("")}</table>`;
-    }).filter(Boolean).join("\n");
+    const wLocShort = (rec) => `${esc(rec.siteName || rec.location || "Inspection")}${rec.siteNumber ? ` #${esc(rec.siteNumber)}` : ""}`;
 
-    // ── Section 2: HACCP Forms ───────────────────────────────────────────────
-    const haccpSection = records.map((rec, idx) => {
-      const ft = rec.foodTemps || {};
-      const fn = rec.foodTempNames || {};
-      const ftItems = HACCP_TEMP_ITEMS.filter(item => (ft[item.key] || []).filter(v => v !== "").length > 0);
-      const subs = haccpMap[rec.id] || [];
-      if (!ftItems.length && !subs.length) return "";
-
-      const foodRows = ftItems.flatMap(item => {
-        const vals = (ft[item.key] || []).filter(v => v !== "");
-        return vals.map((v, vi) => {
-          const pass = tempPass(item, v);
-          const cls = pass === true ? "pill-pass" : pass === false ? "pill-fail" : "";
-          return `<tr><td>${esc(item.label)}</td><td>${esc((fn[item.key] || [])[vi] || "&mdash;")}</td><td>${esc(v)}&deg;F</td><td class="${cls}">${pass === true ? "Pass" : pass === false ? "Flag" : "&mdash;"}</td></tr>`;
-        });
-      }).join("");
-
-      const subRows = subs.map(sub => {
-        const allSubItems = [...HACCP_TEMP_ITEMS, ...(sub.customItems || []).filter(ci => !HACCP_TEMP_ITEMS.find(d => d.key === ci.key))];
-        const flagged = allSubItems.filter(item => ((sub.temps || {})[item.key] || []).filter(v => v !== "").some(v => !tempPass(item, v)));
-        const tempRows = allSubItems.flatMap(item => {
-          const vals = ((sub.temps || {})[item.key] || []).filter(v => v !== "");
-          if (!vals.length) return [];
-          const displayLabel = (sub.itemLabels || {})[item.key] || item.label;
-          return vals.map((v, vi) => {
-            const pass = tempPass(item, v);
-            const foodName = ((sub.foodNames || {})[item.key] || [])[vi] || "";
-            const cls = pass === true ? "pill-pass" : pass === false ? "pill-fail" : "";
-            return `<tr><td>${esc(displayLabel)}</td><td>${esc(foodName) || "&mdash;"}</td><td>${esc(v)}&deg;F</td><td class="${cls}">${pass === true ? "OK" : pass === false ? "Flag" : "&mdash;"}</td></tr>`;
-          });
-        }).join("");
-        const badgeCls = flagged.length > 0 ? "pill-fail" : "pill-pass";
-        const badgeTxt = flagged.length > 0 ? `${flagged.length} Flag${flagged.length !== 1 ? "s" : ""}` : "All OK";
-        const submittedStr = sub.submittedAt ? new Date(sub.submittedAt).toLocaleString() : "&mdash;";
-        const problem = sub.problemReport?.text ? `<tr><td colspan="4" style="background:#FFF7ED;color:#92400E;padding:4px 8px;font-size:8pt;">Problem: ${esc(sub.problemReport.text)}</td></tr>` : "";
-        return `<tr class="sub-hdr"><td colspan="4">${esc(sub.supervisorName || "Supervisor")} &mdash; ${submittedStr} &nbsp;<span class="${badgeCls}">${badgeTxt}</span></td></tr>${tempRows}${problem}`;
-      }).join("");
-
-      return `<h3 class="loc">${locLabel(rec, idx)}</h3>
-${ftItems.length ? `<table class="issues"><tr><th>Item</th><th>Food Name</th><th>Temp</th><th>Result</th></tr>${foodRows}</table>` : ""}
-${subs.length ? `<table class="issues"><tr><th colspan="4" style="background:#4B5563;">Supervisor QR Log</th></tr><tr><th>Item</th><th>Food Name</th><th>Temp</th><th>Pass/Flag</th></tr>${subRows}</table>` : ""}`;
-    }).filter(Boolean).join("\n");
-
-    // ── Section 3: Issues Found ──────────────────────────────────────────────
-    const issuesSection = records.map((rec, idx) => {
+    // ── Section 1: Issues Reported — flat table ──────────────────────────────
+    const wIssueRows = records.flatMap(rec => {
       const issues = rec.actionItems || [];
       const open = issues.filter((_, i) => !(rec.resolvedIssues || {})[i]);
-      if (!open.length) return "";
-      const rows = open.map(a => {
+      return open.map(a => {
         let area = (a.area || "").trim();
         let issueText = (a.issue || "").trim();
         if (!area) {
@@ -8317,11 +8261,64 @@ ${subs.length ? `<table class="issues"><tr><th colspan="4" style="background:#4B
           else { area = "General"; }
         }
         const prioClass = a.priority === "Critical" ? "pill-critical" : a.priority === "High" ? "pill-high" : "pill-med";
-        return `<tr><td>${esc(area)}</td><td>${esc(issueText)}</td><td class="${prioClass}">${a.priority || "&mdash;"}</td><td>${esc(a.corrective || "&mdash;")}</td></tr>`;
-      }).join("");
-      return `<h3 class="loc">${locLabel(rec, idx)} <span class="${rec.overallStatus === "Pass" ? "pill-pass" : "pill-fail"}">${rec.overallStatus || ""}</span></h3>
-<table class="issues"><tr><th>Area</th><th>Issue</th><th>Priority</th><th>Corrective Action</th></tr>${rows}</table>`;
-    }).filter(Boolean).join("\n");
+        return `<tr><td class="loc-col">${wLocShort(rec)}</td><td>${esc(area)}</td><td>${esc(issueText)}</td><td class="${prioClass}">${esc(a.priority || "&mdash;")}</td><td>${esc(a.corrective || "&mdash;")}</td></tr>`;
+      });
+    });
+    const issuesSection = wIssueRows.length
+      ? `<table class="issues"><tr><th>Location</th><th>Area</th><th>Issue</th><th>Priority</th><th>Corrective Action</th></tr>${wIssueRows.join("")}</table>`
+      : "";
+
+    // ── Section 2: Equipment Temperatures — flat table ───────────────────────
+    const wEquipRows = records.flatMap(rec => {
+      const rows = [];
+      const handT = Number(rec.temps?.handSinkTempF);
+      const threeT = Number(rec.temps?.threeCompSinkTempF);
+      const eTemps = collectEquipTemps(rec.inspection);
+      const loc = wLocShort(rec);
+      if (!isNaN(handT) && handT > 0) rows.push(`<tr><td class="loc-col">${loc}</td><td>Hand Sink</td><td>${handT}&deg;F</td><td>&mdash;</td></tr>`);
+      if (!isNaN(threeT) && threeT > 0) rows.push(`<tr><td class="loc-col">${loc}</td><td>3-Comp Sink</td><td>${threeT}&deg;F</td><td>&mdash;</td></tr>`);
+      eTemps.forEach(e => rows.push(`<tr><td class="loc-col">${loc}</td><td>${esc(e.label)}</td><td>${e.tempF}&deg;F</td><td class="${e.pass ? "pill-pass" : "pill-fail"}">${e.pass ? "OK" : "Flag"}</td></tr>`));
+      return rows;
+    });
+    const equipSection = wEquipRows.length
+      ? `<table class="issues"><tr><th>Location</th><th>Equipment</th><th>Temp</th><th>Status</th></tr>${wEquipRows.join("")}</table>`
+      : "";
+
+    // ── Section 3: HACCP Temperatures — flat table ───────────────────────────
+    const wHaccpRows = records.flatMap(rec => {
+      const rows = [];
+      const loc = wLocShort(rec);
+      const ft = rec.foodTemps || {};
+      const fn = rec.foodTempNames || {};
+      const ftItems = HACCP_TEMP_ITEMS.filter(item => (ft[item.key] || []).filter(v => v !== "").length > 0);
+      ftItems.forEach(item => {
+        (ft[item.key] || []).filter(v => v !== "").forEach((v, vi) => {
+          const pass = tempPass(item, v);
+          const cls = pass === true ? "pill-pass" : pass === false ? "pill-fail" : "";
+          rows.push(`<tr><td class="loc-col">${loc}</td><td>${esc(item.label)}</td><td>${esc((fn[item.key] || [])[vi] || "&mdash;")}</td><td>${esc(v)}&deg;F</td><td class="${cls}">${pass === true ? "Pass" : pass === false ? "Flag" : "&mdash;"}</td></tr>`);
+        });
+      });
+      const subs = haccpMap[rec.id] || [];
+      subs.forEach(sub => {
+        const allSubItems = [...HACCP_TEMP_ITEMS, ...(sub.customItems || []).filter(ci => !HACCP_TEMP_ITEMS.find(d => d.key === ci.key))];
+        allSubItems.forEach(item => {
+          ((sub.temps || {})[item.key] || []).filter(v => v !== "").forEach((v, vi) => {
+            const pass = tempPass(item, v);
+            const foodName = ((sub.foodNames || {})[item.key] || [])[vi] || "";
+            const displayLabel = (sub.itemLabels || {})[item.key] || item.label;
+            const cls = pass === true ? "pill-pass" : pass === false ? "pill-fail" : "";
+            rows.push(`<tr><td class="loc-col">${loc}</td><td>${esc(displayLabel)}</td><td>${esc(foodName) || "&mdash;"}</td><td>${esc(v)}&deg;F</td><td class="${cls}">${pass === true ? "OK" : pass === false ? "Flag" : "&mdash;"}</td></tr>`);
+          });
+        });
+        if (sub.problemReport?.text) {
+          rows.push(`<tr><td class="loc-col">${loc}</td><td colspan="4" style="background:#FFF7ED;color:#92400E;">Problem: ${esc(sub.problemReport.text)}</td></tr>`);
+        }
+      });
+      return rows;
+    });
+    const haccpSection = wHaccpRows.length
+      ? `<table class="issues"><tr><th>Location</th><th>Item</th><th>Food Name</th><th>Temp</th><th>Result</th></tr>${wHaccpRows.join("")}</table>`
+      : "";
 
     const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
 <head><meta charset="utf-8">
@@ -8333,11 +8330,10 @@ ${subs.length ? `<table class="issues"><tr><th colspan="4" style="background:#4B
   h2 { color: #fff; background: #2A295C; font-size: 10pt; padding: 4px 10px; margin: 0 0 6px; page-break-before: always; }
   h2:first-of-type { page-break-before: avoid; }
   .red-line { border-bottom: 3px solid #EE0000; margin: 3px 0 8px; }
-  h3.loc { font-size: 8.5pt; color: #2A295C; margin: 8px 0 2px; border-bottom: 1px solid #D1D5DB; padding-bottom: 2px; }
   table.issues { width: 100%; border-collapse: collapse; margin: 2px 0 6px; }
   table.issues th { background: #374151; color: white; padding: 3px 6px; text-align: left; font-size: 7.5pt; }
   table.issues td { padding: 2px 6px; border: 1px solid #E5E7EB; font-size: 7.5pt; vertical-align: top; }
-  .sub-hdr td { background: #EEF2FF; font-weight: bold; font-size: 7.5pt; padding: 2px 6px; }
+  table.issues td.loc-col { font-weight: bold; color: #1e3a5f; background: #f0f4ff; white-space: nowrap; }
   .pill-high { background: #FEF2F2; color: #DC2626; font-weight: bold; padding: 0 4px; }
   .pill-med { background: #FFFBEB; color: #D97706; font-weight: bold; padding: 0 4px; }
   .pill-critical { background: #7f1d1d; color: #fff; font-weight: bold; padding: 0 4px; }
@@ -8395,72 +8391,13 @@ ${haccpSection || '<p style="color:#6B7280;font-size:9pt;">No HACCP temperature 
     const locLabel = (rec, idx) =>
       `${idx + 1}. ${esc(rec.siteName || rec.location || "Inspection")}${rec.siteNumber ? ` <span class="unit-num">Unit #${esc(rec.siteNumber)}</span>` : ""} <span class="date-chip">${esc(rec.inspectionDate || "—")}</span>`;
 
-    // ── Section 1: Equipment Temperatures ───────────────────────────────────
-    const equipSection = records.map((rec, idx) => {
-      const handT = Number(rec.temps?.handSinkTempF);
-      const threeT = Number(rec.temps?.threeCompSinkTempF);
-      const eTemps = collectEquipTemps(rec.inspection);
-      const equipRows = [];
-      if (!isNaN(handT) && handT > 0) equipRows.push(`<tr><td>Hand Sink</td><td>${handT}°F</td><td>—</td></tr>`);
-      if (!isNaN(threeT) && threeT > 0) equipRows.push(`<tr><td>3-Comp Sink</td><td>${threeT}°F</td><td>—</td></tr>`);
-      eTemps.forEach(e => equipRows.push(`<tr><td>${esc(e.label)}</td><td>${e.tempF}°F</td><td><span class="${e.pass ? "pill-pass" : "pill-fail"}">${e.pass ? "OK" : "Flag"}</span></td></tr>`));
-      if (!equipRows.length) return "";
-      return `<div class="loc-block"><p class="loc-heading">${locLabel(rec, idx)}</p>
-<table class="data-table"><thead><tr><th>Equipment</th><th>Temp (°F)</th><th>Status</th></tr></thead><tbody>${equipRows.join("")}</tbody></table></div>`;
-    }).filter(Boolean).join("\n");
+    const locShort = (rec) => `${esc(rec.siteName || rec.location || "Inspection")}${rec.siteNumber ? ` #${esc(rec.siteNumber)}` : ""}`;
 
-    // ── Section 2: HACCP Forms ───────────────────────────────────────────────
-    const haccpSection = records.map((rec, idx) => {
-      const ft = rec.foodTemps || {};
-      const fn = rec.foodTempNames || {};
-      const ftItems = HACCP_TEMP_ITEMS.filter(item => (ft[item.key] || []).filter(v => v !== "").length > 0);
-      const subs = haccpMap[rec.id] || [];
-      if (!ftItems.length && !subs.length) return "";
-
-      const foodRows = ftItems.flatMap(item => {
-        const vals = (ft[item.key] || []).filter(v => v !== "");
-        return vals.map((v, vi) => {
-          const pass = tempPass(item, v);
-          const cls = pass === true ? "pill-pass" : pass === false ? "pill-fail" : "";
-          return `<tr><td>${esc(item.label)}</td><td>${esc((fn[item.key] || [])[vi] || "—")}</td><td>${esc(v)}°F</td><td><span class="${cls}">${pass === true ? "Pass" : pass === false ? "Flag" : "—"}</span></td></tr>`;
-        });
-      }).join("");
-
-      const subRows = subs.map(sub => {
-        const allSubItems = [...HACCP_TEMP_ITEMS, ...(sub.customItems || []).filter(ci => !HACCP_TEMP_ITEMS.find(d => d.key === ci.key))];
-        const flagged = allSubItems.filter(item => ((sub.temps || {})[item.key] || []).filter(v => v !== "").some(v => tempPass(item, v) === false));
-        const tempRows = allSubItems.flatMap(item => {
-          const vals = ((sub.temps || {})[item.key] || []).filter(v => v !== "");
-          if (!vals.length) return [];
-          const displayLabel = (sub.itemLabels || {})[item.key] || item.label;
-          return vals.map((v, vi) => {
-            const pass = tempPass(item, v);
-            const foodName = ((sub.foodNames || {})[item.key] || [])[vi] || "";
-            const cls = pass === true ? "pill-pass" : pass === false ? "pill-fail" : "";
-            return `<tr><td>${esc(displayLabel)}</td><td>${esc(foodName) || "—"}</td><td>${esc(v)}°F</td><td><span class="${cls}">${pass === true ? "Pass" : pass === false ? "Flag" : "—"}</span></td></tr>`;
-          });
-        }).join("");
-        const badgeCls = flagged.length > 0 ? "pill-fail" : "pill-pass";
-        const badgeTxt = flagged.length > 0 ? `${flagged.length} Flag${flagged.length !== 1 ? "s" : ""}` : "All OK";
-        const submittedStr = sub.submittedAt ? new Date(sub.submittedAt).toLocaleString() : "—";
-        const problem = sub.problemReport?.text ? `<tr><td colspan="4" style="background:#FFF7ED;color:#92400E;padding:3px 8px;font-size:7.5pt;">Problem: ${esc(sub.problemReport.text)}</td></tr>` : "";
-        return `<tr class="sub-header"><td colspan="4">${esc(sub.supervisorName || "Supervisor")} — ${submittedStr} <span class="${badgeCls}" style="margin-left:4px;">${badgeTxt}</span></td></tr>${tempRows}${problem}`;
-      }).join("");
-
-      return `<div class="loc-block"><p class="loc-heading">${locLabel(rec, idx)}</p>
-${ftItems.length ? `<p class="sub-label">Inspector-Recorded Food Temperatures</p>
-<table class="data-table"><thead><tr><th>Item</th><th>Food Name</th><th>Temp (°F)</th><th>Result</th></tr></thead><tbody>${foodRows}</tbody></table>` : ""}
-${subs.length ? `<p class="sub-label">Supervisor QR Log</p>
-<table class="data-table"><thead><tr><th>Item</th><th>Food Name</th><th>Temp (°F)</th><th>Pass/Flag</th></tr></thead><tbody>${subRows}</tbody></table>` : ""}
-</div>`;
-    }).filter(Boolean).join("\n");
-
-    // ── Section 3: Issues Found ──────────────────────────────────────────────
-    const issuesSection = records.map((rec, idx) => {
+    // ── Section 1: Issues Reported — one flat table with Location column ─────
+    const issueRows = records.flatMap(rec => {
       const issues = rec.actionItems || [];
       const open = issues.filter((_, i) => !(rec.resolvedIssues || {})[i]);
-      if (!open.length) return "";
-      const rows = open.map(a => {
+      return open.map(a => {
         let area = (a.area || "").trim();
         let issueText = (a.issue || "").trim();
         if (!area) {
@@ -8469,12 +8406,66 @@ ${subs.length ? `<p class="sub-label">Supervisor QR Log</p>
           else { area = "General"; }
         }
         const prioClass = a.priority === "Critical" ? "pill-critical" : a.priority === "High" ? "pill-high" : "pill-med";
-        return `<tr><td>${esc(area)}</td><td>${esc(issueText)}</td><td><span class="${prioClass}">${a.priority || "—"}</span></td><td>${esc(a.corrective || "—")}</td></tr>`;
-      }).join("");
-      const badge = `<span class="status-badge ${rec.overallStatus === "Pass" ? "badge-pass" : "badge-fail"}">${rec.overallStatus || ""}</span>`;
-      return `<div class="loc-block"><p class="loc-heading">${locLabel(rec, idx)} ${badge}</p>
-<table class="data-table"><thead><tr><th>Area</th><th>Issue</th><th>Priority</th><th>Corrective Action</th></tr></thead><tbody>${rows}</tbody></table></div>`;
-    }).filter(Boolean).join("\n");
+        return `<tr><td class="loc-cell">${locShort(rec)}</td><td>${esc(area)}</td><td>${esc(issueText)}</td><td><span class="${prioClass}">${esc(a.priority || "—")}</span></td><td>${esc(a.corrective || "—")}</td></tr>`;
+      });
+    });
+    const issuesSection = issueRows.length
+      ? `<table class="data-table"><thead><tr><th>Location</th><th>Area</th><th>Issue</th><th>Priority</th><th>Corrective Action</th></tr></thead><tbody>${issueRows.join("")}</tbody></table>`
+      : "";
+
+    // ── Section 2: Equipment Temperatures — one flat table ───────────────────
+    const equipRows = records.flatMap(rec => {
+      const rows = [];
+      const handT = Number(rec.temps?.handSinkTempF);
+      const threeT = Number(rec.temps?.threeCompSinkTempF);
+      const eTemps = collectEquipTemps(rec.inspection);
+      const loc = locShort(rec);
+      if (!isNaN(handT) && handT > 0) rows.push(`<tr><td class="loc-cell">${loc}</td><td>Hand Sink</td><td>${handT}°F</td><td>—</td></tr>`);
+      if (!isNaN(threeT) && threeT > 0) rows.push(`<tr><td class="loc-cell">${loc}</td><td>3-Comp Sink</td><td>${threeT}°F</td><td>—</td></tr>`);
+      eTemps.forEach(e => rows.push(`<tr><td class="loc-cell">${loc}</td><td>${esc(e.label)}</td><td>${e.tempF}°F</td><td><span class="${e.pass ? "pill-pass" : "pill-fail"}">${e.pass ? "OK" : "Flag"}</span></td></tr>`));
+      return rows;
+    });
+    const equipSection = equipRows.length
+      ? `<table class="data-table"><thead><tr><th>Location</th><th>Equipment</th><th>Temp</th><th>Status</th></tr></thead><tbody>${equipRows.join("")}</tbody></table>`
+      : "";
+
+    // ── Section 3: HACCP Temperatures — one flat table ───────────────────────
+    const haccpRows = records.flatMap(rec => {
+      const rows = [];
+      const loc = locShort(rec);
+      const ft = rec.foodTemps || {};
+      const fn = rec.foodTempNames || {};
+      const ftItems = HACCP_TEMP_ITEMS.filter(item => (ft[item.key] || []).filter(v => v !== "").length > 0);
+      ftItems.forEach(item => {
+        (ft[item.key] || []).filter(v => v !== "").forEach((v, vi) => {
+          const pass = tempPass(item, v);
+          const cls = pass === true ? "pill-pass" : pass === false ? "pill-fail" : "";
+          rows.push(`<tr><td class="loc-cell">${loc}</td><td>${esc(item.label)}</td><td>${esc((fn[item.key] || [])[vi] || "—")}</td><td>${esc(v)}°F</td><td><span class="${cls}">${pass === true ? "Pass" : pass === false ? "Flag" : "—"}</span></td></tr>`);
+        });
+      });
+      const subs = haccpMap[rec.id] || [];
+      subs.forEach(sub => {
+        const allSubItems = [...HACCP_TEMP_ITEMS, ...(sub.customItems || []).filter(ci => !HACCP_TEMP_ITEMS.find(d => d.key === ci.key))];
+        const submittedStr = sub.submittedAt ? new Date(sub.submittedAt).toLocaleString() : "—";
+        const supLabel = `${esc(sub.supervisorName || "Supervisor")} (${submittedStr})`;
+        allSubItems.forEach(item => {
+          ((sub.temps || {})[item.key] || []).filter(v => v !== "").forEach((v, vi) => {
+            const pass = tempPass(item, v);
+            const foodName = ((sub.foodNames || {})[item.key] || [])[vi] || "";
+            const displayLabel = (sub.itemLabels || {})[item.key] || item.label;
+            const cls = pass === true ? "pill-pass" : pass === false ? "pill-fail" : "";
+            rows.push(`<tr><td class="loc-cell">${loc}</td><td>${esc(displayLabel)}</td><td>${esc(foodName) || "—"}</td><td>${esc(v)}°F</td><td><span class="${cls}">${pass === true ? "Pass" : pass === false ? "Flag" : "—"}</span></td></tr>`);
+          });
+        });
+        if (sub.problemReport?.text) {
+          rows.push(`<tr><td class="loc-cell">${loc}</td><td colspan="4" style="background:#FFF7ED;color:#92400E;">${esc(supLabel)} — Problem: ${esc(sub.problemReport.text)}</td></tr>`);
+        }
+      });
+      return rows;
+    });
+    const haccpSection = haccpRows.length
+      ? `<table class="data-table"><thead><tr><th>Location</th><th>Item</th><th>Food Name</th><th>Temp</th><th>Result</th></tr></thead><tbody>${haccpRows.join("")}</tbody></table>`
+      : "";
 
     const pdfHtml = `<!DOCTYPE html>
 <html lang="en">
@@ -8498,6 +8489,7 @@ ${subs.length ? `<p class="sub-label">Supervisor QR Log</p>
   .data-table { width: 100%; border-collapse: collapse; font-size: 7.5pt; margin-bottom: 4px; }
   .data-table th { background: #374151; color: #fff; padding: 3px 6px; text-align: left; }
   .data-table td { padding: 2px 6px; border: 1px solid #e5e7eb; vertical-align: top; }
+  .data-table td.loc-cell { font-weight: 600; color: #1e3a5f; background: #f8faff; white-space: nowrap; }
   .sub-header td { background: #EEF2FF; font-weight: 700; font-size: 7.5pt; padding: 2px 6px; }
   .pill-high     { background: #fee2e2; color: #dc2626; font-weight: 700; padding: 0 4px; border-radius: 3px; }
   .pill-med      { background: #fef9c3; color: #a16207; font-weight: 700; padding: 0 4px; border-radius: 3px; }
