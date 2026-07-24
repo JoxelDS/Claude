@@ -3708,6 +3708,10 @@ datalist {
   0%   { box-shadow: 0 0 0 3px rgba(234, 179, 8, 0.6); border-radius: 8px; }
   100% { box-shadow: 0 0 0 0 transparent; }
 }
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translate(-50%, 16px); }
+  to   { opacity: 1; transform: translate(-50%, 0); }
+}
 
 /* ── New Inspection button ─────────────────────────────── */
 .btnNew {

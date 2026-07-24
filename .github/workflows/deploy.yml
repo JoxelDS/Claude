@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - claude/interview-notes-component-86atl
+      - claude/options-organization-viqgo8
       - main
 
 permissions:
