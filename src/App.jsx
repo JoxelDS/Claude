@@ -2483,7 +2483,6 @@ function validateForm({ inspectionDate, inspectorName, context, noteType, inspec
   const warnings = [];
   if (!inspectionDate) warnings.push({ text: "Inspection Date is missing", fieldId: "field-inspectionDate" });
   if (!inspectorName) warnings.push({ text: "Inspector Name is missing", fieldId: "field-inspectorName" });
-  if (!supervisorName?.trim()) warnings.push({ text: "Supervisor is missing", fieldId: "field-supervisorName" });
   if (!siteName?.trim()) warnings.push({ text: "Restaurant Name is missing", fieldId: "field-siteName" });
   const licenseExempt = locationType === "Bar" || locationType === "Pantry";
   if (!licenseExempt && !restaurantLicense?.trim()) warnings.push({ text: "Restaurant License # is missing — enter the number or tap \"No License on File\"", fieldId: "field-restaurantLicense" });
@@ -19145,6 +19144,7 @@ export default function App() {
   const [warnings, setWarnings] = useState([]);
   const [aiTips, setAiTips] = useState([]);
   const [saved, setSaved] = useState(false);
+  const [saveToast, setSaveToast] = useState(false);
   // Assign a stable reportId immediately on mount so the HACCP QR is always linkable —
   // even before the inspector clicks "Generate". saveToHistory() reuses this same ID.
   // We persist this ID in localStorage so it survives page reloads — without this,
@@ -19877,10 +19877,12 @@ export default function App() {
       clearDraft(); // draft committed — remove auto-save
       reportInProgressRef.current = false; // prevent auto-save from re-saving completed inspection
       setSaved(true);
+      setSaveToast(true);
       savedReportIdRef.current = record.id;
       setSavedReportId(record.id);
       try { localStorage.setItem(REPORT_ID_KEY, record.id); } catch {}
       setTimeout(() => setSaved(false), 2500);
+      setTimeout(() => setSaveToast(false), 3500);
       // Auto-complete the scheduled slot that was used to start this inspection (if any)
       if (activeSlotIdRef.current) {
         const prevCompleted = venueSettings?.completedSlots || [];
@@ -21940,6 +21942,20 @@ export default function App() {
             🌡️ HACCP QR
           </button>
           <button className="btn stickyBtn stickyBtnNew" type="button" onClick={startNewInspection}>+ New</button>
+        </div>
+      )}
+
+      {/* Save confirmation toast */}
+      {saveToast && (
+        <div style={{
+          position: "fixed", bottom: 80, left: "50%", transform: "translateX(-50%)",
+          background: "#16a34a", color: "#fff", borderRadius: 12,
+          padding: "14px 28px", fontWeight: 700, fontSize: "1.05rem",
+          boxShadow: "0 4px 24px rgba(0,0,0,0.25)", zIndex: 9999,
+          display: "flex", alignItems: "center", gap: 10,
+          animation: "fadeInUp 0.25s ease",
+        }}>
+          ✅ Report saved!
         </div>
       )}
 
