@@ -2485,7 +2485,8 @@ function validateForm({ inspectionDate, inspectorName, context, noteType, inspec
   if (!inspectorName) warnings.push({ text: "Inspector Name is missing", fieldId: "field-inspectorName" });
   if (!supervisorName?.trim()) warnings.push({ text: "Supervisor is missing", fieldId: "field-supervisorName" });
   if (!siteName?.trim()) warnings.push({ text: "Restaurant Name is missing", fieldId: "field-siteName" });
-  if (!restaurantLicense?.trim()) warnings.push({ text: "Restaurant License # is missing — enter the number or tap \"No License on File\"", fieldId: "field-restaurantLicense" });
+  const licenseExempt = locationType === "Bar" || locationType === "Pantry";
+  if (!licenseExempt && !restaurantLicense?.trim()) warnings.push({ text: "Restaurant License # is missing — enter the number or tap \"No License on File\"", fieldId: "field-restaurantLicense" });
   if (inspectionType === "Event Day" && !eventName?.trim()) warnings.push({ text: "Event Name is required for Event Day inspections", fieldId: "field-eventName" });
 
   const ctxFields = NOTE_TYPES[noteType].contextFields;
@@ -19797,13 +19798,9 @@ export default function App() {
             sizeMb: p.sizeMb,
             type: p.type,
             tag: p.tag || "",
-            // Prefer HTTPS Storage URLs (no size concern).
-            // If Storage upload failed, previewUrl is a compressed thumbnail base64 (~5-15 KB)
-            // from compressImage(f, 200, 0.3) — small enough to keep in Firestore as a fallback.
-            // Only drop it if it's empty/undefined.
-            previewUrl: p.previewUrl || "",
-            // Keep thumbUrl so exports can fall back to it when Storage URL is unavailable.
-            thumbUrl: p.thumbUrl || "",
+            // Only keep HTTPS Storage URLs — base64 data URLs are too large for Firestore (1MB limit).
+            previewUrl: (p.previewUrl || "").startsWith("http") ? p.previewUrl : "",
+            thumbUrl:   (p.thumbUrl   || "").startsWith("http") ? p.thumbUrl   : "",
           }));
         } else {
           out[k] = stripPhotos(v);
@@ -19838,7 +19835,7 @@ export default function App() {
       inspection: {
         ...stripPhotos(inspection),
         // Notes photos travel with the inspection so buildPhotoIndex can find them
-        _notesPhotos: notesPhotos.map(p => ({ id: p.id, name: p.name, sizeMb: p.sizeMb, type: p.type, tag: p.tag || "", previewUrl: p.previewUrl || "", thumbUrl: p.thumbUrl || "" })),
+        _notesPhotos: notesPhotos.map(p => ({ id: p.id, name: p.name, sizeMb: p.sizeMb, type: p.type, tag: p.tag || "", previewUrl: (p.previewUrl || "").startsWith("http") ? p.previewUrl : "", thumbUrl: (p.thumbUrl || "").startsWith("http") ? p.thumbUrl : "" })),
       },
       photoCount: countPhotos(inspection) + notesPhotos.length,
       // Time-to-complete tracking: seconds from first inspector name keystroke to Save
