@@ -19873,19 +19873,22 @@ export default function App() {
         }
         activeSlotIdRef.current = null;
       }
-      // Tell AI engine about the new save — triggers self-improvement cycle
-      AIEngine.trackAction("saveInspection", {
-        overallStatus: record.overallStatus,
-        inspectionType: record.inspectionType,
-        locationType: record.locationType || "unknown",
-        issueCount: (record.actionItems || []).length,
-        inspectorName: record.inspectorName || "",
-        siteName: record.siteName || record.location || "",
-        reportDurationSeconds: record.reportDurationSeconds,
-      });
-      const { list: allHistory } = await loadHistory(undefined, { pageSize: 2000 });
-      AIEngine.learnFromInspection(record, allHistory);
-      persistAnalyticsSnapshot(VENUE_ID);
+      // Tell AI engine about the new save — in its own try so a query failure
+      // doesn't surface as a "Save failed" error when the record was already written.
+      try {
+        AIEngine.trackAction("saveInspection", {
+          overallStatus: record.overallStatus,
+          inspectionType: record.inspectionType,
+          locationType: record.locationType || "unknown",
+          issueCount: (record.actionItems || []).length,
+          inspectorName: record.inspectorName || "",
+          siteName: record.siteName || record.location || "",
+          reportDurationSeconds: record.reportDurationSeconds,
+        });
+        const { list: allHistory } = await loadHistory(undefined, { pageSize: 2000 });
+        AIEngine.learnFromInspection(record, allHistory);
+        persistAnalyticsSnapshot(VENUE_ID);
+      } catch { /* AI learning is best-effort; don't surface errors to the user */ }
     } catch (e) {
       console.error("Save failed:", e, "doc size:", docSizeKb, "KB");
       const errMsg = (e?.message || "").toLowerCase();
