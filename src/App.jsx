@@ -7383,6 +7383,7 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
   const [filterIssue, setFilterIssue] = useState("");
   const [filterSite, setFilterSite] = useState("");
   const [filterLocType, setFilterLocType] = useState("");
+  const [searchAllLoading, setSearchAllLoading] = useState(false);
   const [expandedId, setExpandedId] = useState(null);
   const [dlPickerId, setDlPickerId] = useState(null);   // which report card has the download picker open
   const [dlScope, setDlScope] = useState(null);          // "full" | "issues"
@@ -7494,6 +7495,40 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
       setHistoryHasMore(hasMore);
       setHistoryLoadingMore(false);
     });
+  }
+
+  // Search ALL Firestore records (no page limit) by location text — for recovery
+  async function searchAllRecords(term) {
+    if (!term.trim() || !FIREBASE_ON) return;
+    setSearchAllLoading(true);
+    try {
+      const col = (managedVenueId && managedVenueId !== "default")
+        ? collection(db, "venues", managedVenueId, "inspections")
+        : legacyCol("inspections");
+      const snap = await getDocs(query(col, orderBy("savedAt", "desc"), limit(2000)));
+      const all = snap.docs.map(d => d.data());
+      const q = term.toLowerCase();
+      const matches = all.filter(r => {
+        const site = `${r.siteName || r.location || ""} ${r.siteNumber || ""}`.toLowerCase();
+        return site.includes(q);
+      });
+      if (matches.length === 0) {
+        alert(`No records found matching "${term}" in all ${all.length} saved reports.`);
+      } else {
+        // Inject matches at top of history list (deduplicated)
+        setHistory(prev => {
+          const existingIds = new Set(prev.map(r => r.id));
+          const fresh = matches.filter(r => !existingIds.has(r.id));
+          return [...matches, ...prev.filter(r => !matches.find(m => m.id === r.id))];
+        });
+        setFilterSite(term);
+        alert(`Found ${matches.length} record(s) matching "${term}" — shown at top.`);
+      }
+    } catch (e) {
+      alert("Search failed: " + (e.message || e));
+    } finally {
+      setSearchAllLoading(false);
+    }
   }
 
   // Patch resolvedIssues on a record (Firestore updateDoc, no full re-save)
@@ -9085,7 +9120,19 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                     </label>
                     <label className="field" style={{ gridColumn: "span 1" }}>
                       <span className="fieldLabel">Location</span>
-                      <input className="input" value={filterSite} onChange={e => setFilterSite(e.target.value)} />
+                      <div style={{ display: "flex", gap: 6 }}>
+                        <input className="input" value={filterSite} onChange={e => setFilterSite(e.target.value)} style={{ flex: 1 }} />
+                        <button
+                          type="button"
+                          className="btn"
+                          style={{ whiteSpace: "nowrap", fontSize: "0.78rem", padding: "0 10px" }}
+                          disabled={!filterSite.trim() || searchAllLoading}
+                          onClick={() => searchAllRecords(filterSite)}
+                          title="Search all saved records in Firestore (ignores page limit)"
+                        >
+                          {searchAllLoading ? "…" : "Search all"}
+                        </button>
+                      </div>
                     </label>
                     <div className="field" style={{ gridColumn: "span 2" }}>
                       <span className="fieldLabel">Search Issues</span>
