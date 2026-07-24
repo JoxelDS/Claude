@@ -19784,12 +19784,10 @@ export default function App() {
   }
 
   async function saveToHistory() {
-    // If there are active warnings, scroll to the first missing field so the
-    // inspector knows what to fix — but still proceed with saving.
-    const currentWarnings = validateForm({ inspectionDate, inspectorName, context, noteType, inspection, restaurantLicense, locationType, supervisorName, siteName, inspectionType, eventName });
-    if (currentWarnings.length > 0) {
-      setWarnings(currentWarnings);
-      const first = currentWarnings[0];
+    // If warnings are already shown, scroll to the first missing field so the
+    // inspector sees what to fix — save still proceeds regardless.
+    if (warnings.length > 0) {
+      const first = warnings[0];
       const el = document.getElementById(first.fieldId);
       if (el) {
         el.scrollIntoView({ behavior: "smooth", block: "center" });
