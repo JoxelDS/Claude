@@ -19991,29 +19991,22 @@ export default function App() {
       }
     }
 
-    // Keep photo data (previewUrl) so saved reports display their pictures.
-    // Only strip previewUrl from photos whose data URL is missing or empty.
-    function stripPhotos(obj) {
-      if (!obj || typeof obj !== "object") return obj;
-      if (Array.isArray(obj)) return obj.map(stripPhotos);
-      const out = {};
-      for (const [k, v] of Object.entries(obj)) {
-        if (k === "photos" && Array.isArray(v)) {
-          out.photos = v.map(p => ({
-            id: p.id,
-            name: p.name,
-            sizeMb: p.sizeMb,
-            type: p.type,
-            tag: p.tag || "",
-            // Only keep HTTPS Storage URLs — base64 data URLs are too large for Firestore (1MB limit).
-            previewUrl: (p.previewUrl || "").startsWith("http") ? p.previewUrl : "",
-            thumbUrl:   (p.thumbUrl   || "").startsWith("http") ? p.thumbUrl   : "",
-          }));
-        } else {
-          out[k] = stripPhotos(v);
-        }
+    // Recursively remove any base64 data URLs from the entire document —
+    // catches photos stored under ANY key name, not just "photos".
+    // Firebase Storage https:// URLs are kept (they are short strings, not image data).
+    function stripBase64(val) {
+      if (typeof val === "string") {
+        // Drop the value if it is a base64 data URL or any very large string (>8 KB)
+        if (val.startsWith("data:") || val.length > 8192) return "";
+        return val;
       }
-      return out;
+      if (Array.isArray(val)) return val.map(stripBase64);
+      if (val && typeof val === "object") {
+        const out = {};
+        for (const [k, v] of Object.entries(val)) out[k] = stripBase64(v);
+        return out;
+      }
+      return val;
     }
 
     const record = {
@@ -20041,9 +20034,9 @@ export default function App() {
       // output is NOT stored — it's regenerated on demand from transformLocally.
       // Storing the full report text was pushing documents over Firestore's 1MB limit.
       inspection: {
-        ...stripPhotos(inspection),
+        ...stripBase64(inspection),
         // Notes photos travel with the inspection so buildPhotoIndex can find them
-        _notesPhotos: notesPhotos.map(p => ({ id: p.id, name: p.name, sizeMb: p.sizeMb, type: p.type, tag: p.tag || "", previewUrl: (p.previewUrl || "").startsWith("http") ? p.previewUrl : "", thumbUrl: (p.thumbUrl || "").startsWith("http") ? p.thumbUrl : "" })),
+        _notesPhotos: notesPhotos.map(p => ({ id: p.id, name: p.name, sizeMb: p.sizeMb, type: p.type, tag: p.tag || "", previewUrl: (p.previewUrl || "").startsWith("http") ? p.previewUrl : "", thumbUrl: "" })),
       },
       photoCount: countPhotos(inspection) + notesPhotos.length,
       // Time-to-complete tracking: seconds from first inspector name keystroke to Save
@@ -20057,15 +20050,18 @@ export default function App() {
       // Only trust duration data from inspections where the timer was explicitly started
       timerConfirmed: onSiteConfirmed,
     };
+    // Final pass: strip any remaining base64 strings from the whole record
+    // (catches edge cases in context, rawNotes, or any field we didn't anticipate)
+    const cleanRecord = stripBase64(record);
     // Log approximate document size to help diagnose size issues
-    const docSizeKb = Math.round(JSON.stringify(record).length / 1024);
+    const docSizeKb = Math.round(JSON.stringify(cleanRecord).length / 1024);
     console.log(`saveToHistory: doc ~${docSizeKb} KB (limit 1024 KB)`);
     if (docSizeKb > 900) {
       console.warn("saveToHistory: document approaching 1MB limit!", docSizeKb, "KB");
     }
     try {
-      await saveOneInspection(record);
-      learnFromSave(record);
+      await saveOneInspection(cleanRecord);
+      learnFromSave(cleanRecord);
       clearDraft(); // draft committed — remove auto-save
       reportInProgressRef.current = false; // prevent auto-save from re-saving completed inspection
       setSaved(true);
