@@ -16506,12 +16506,133 @@ function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVe
             })}
           </div>
         </div>
+
+        {/* \u2500\u2500 Report Recovery Tool \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */}
+        {FIREBASE_ON && (
+          <ReportRecoveryTool managedVenueId={managedVenueId} />
+        )}
+
       </main>
 
       <footer className="footer">
         <img src={LOGO_WHITE} alt="Sodexo" className="footerLogo" />
         <span>{FIREBASE_ON ? "\u2601\uFE0F User accounts synced to cloud database." : "User accounts are stored locally on this device."}</span>
       </footer>
+    </div>
+  );
+}
+
+function ReportRecoveryTool({ managedVenueId }) {
+  const [query, setQuery] = React.useState("");
+  const [field, setField] = React.useState("restaurantLicense");
+  const [results, setResults] = React.useState(null);
+  const [loading, setLoading] = React.useState(false);
+  const [error, setError] = React.useState("");
+
+  async function runSearch() {
+    const term = query.trim();
+    if (!term) return;
+    setLoading(true);
+    setError("");
+    setResults(null);
+    try {
+      // Search both legacy top-level collection and venue-scoped collection
+      const cols = [
+        collection(db, "inspections"),
+      ];
+      if (managedVenueId && managedVenueId !== "default") {
+        cols.push(collection(db, "venues", managedVenueId, "inspections"));
+      }
+      // Also search the default-scoped venue if different
+      const venueId = VENUE_ID !== "default" ? VENUE_ID : null;
+      if (venueId && venueId !== managedVenueId) {
+        cols.push(collection(db, "venues", venueId, "inspections"));
+      }
+
+      let found = [];
+      for (const col of cols) {
+        try {
+          // Fetch up to 2000 records from this collection sorted by newest
+          const { getDocs: gd, query: fq, orderBy: ob, limit: lim } = await import("firebase/firestore");
+          const snap = await getDocs(fq(col, ob("savedAt", "desc"), lim(2000)));
+          const q = term.toLowerCase();
+          const matches = snap.docs.map(d => ({ _path: d.ref.path, ...d.data() })).filter(r => {
+            if (field === "restaurantLicense") return (r.restaurantLicense || "").toLowerCase().includes(q);
+            if (field === "inspectorName") return (r.inspectorName || "").toLowerCase().includes(q);
+            if (field === "siteName") return (`${r.siteName || ""} ${r.siteNumber || ""}`).toLowerCase().includes(q);
+            // "any" \u2014 search all text fields
+            return JSON.stringify(r).toLowerCase().includes(q);
+          });
+          found = [...found, ...matches];
+        } catch (_) {}
+      }
+
+      // Deduplicate by id
+      const seen = new Set();
+      found = found.filter(r => { if (seen.has(r.id)) return false; seen.add(r.id); return true; });
+      setResults(found);
+    } catch (e) {
+      setError(e.message || String(e));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="card adminCard" style={{ marginBottom: 24, borderLeft: "4px solid #f59e0b" }}>
+      <div className="cardHeader">
+        <div className="cardTitle">\uD83D\uDD0D Report Recovery</div>
+      </div>
+      <div className="cardBody">
+        <p style={{ fontSize: "0.85rem", color: "#64748b", marginBottom: 12 }}>
+          Search ALL saved records in Firestore (up to 2,000). Use this to locate a report that doesn&apos;t appear in History.
+        </p>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
+          <select className="select" value={field} onChange={e => setField(e.target.value)} style={{ flex: "0 0 auto" }}>
+            <option value="restaurantLicense">License #</option>
+            <option value="inspectorName">Inspector name</option>
+            <option value="siteName">Location / Unit #</option>
+            <option value="any">Any field</option>
+          </select>
+          <input
+            className="input"
+            placeholder="e.g. FILE# 377155"
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && runSearch()}
+            style={{ flex: 1, minWidth: 180 }}
+          />
+          <button className="btn btnPrimary" type="button" disabled={loading || !query.trim()} onClick={runSearch}>
+            {loading ? "Searching\u2026" : "Search"}
+          </button>
+        </div>
+        {error && <div style={{ color: "#dc2626", fontSize: "0.85rem", marginBottom: 8 }}>{error}</div>}
+        {results !== null && (
+          results.length === 0
+            ? <div style={{ color: "#64748b", fontSize: "0.85rem" }}>No records found matching "{query}".</div>
+            : <div>
+                <div style={{ fontSize: "0.85rem", color: "#15803d", fontWeight: 700, marginBottom: 8 }}>
+                  Found {results.length} record{results.length !== 1 ? "s" : ""}:
+                </div>
+                {results.map((r, i) => (
+                  <div key={r.id || i} style={{
+                    background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 8,
+                    padding: "10px 14px", marginBottom: 8, fontSize: "0.82rem"
+                  }}>
+                    <div style={{ fontWeight: 700 }}>{r.siteName || r.location || "\u2014"} {r.siteNumber ? `#${r.siteNumber}` : ""} \u00B7 {r.locationType || ""}</div>
+                    <div style={{ color: "#64748b" }}>
+                      Inspector: {r.inspectorName || "\u2014"} \u00B7 Date: {r.inspectionDate || r.savedAt?.slice(0,10) || "\u2014"} \u00B7 Status: {r.overallStatus || "\u2014"}
+                    </div>
+                    <div style={{ color: "#64748b" }}>License: {r.restaurantLicense || "\u2014"}</div>
+                    <div style={{ color: "#94a3b8", fontSize: "0.75rem", marginTop: 2 }}>
+                      Saved: {r.savedAt ? new Date(r.savedAt).toLocaleString() : "\u2014"} \u00B7 ID: {r.id || "\u2014"}
+                    </div>
+                    <div style={{ color: "#94a3b8", fontSize: "0.72rem" }}>Path: {r._path || "\u2014"}</div>
+                  </div>
+                ))}
+              </div>
+        )}
+      </div>
     </div>
   );
 }
