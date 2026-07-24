@@ -7433,7 +7433,7 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
     loadHistory(managedVenueId || undefined, {
       dateFrom: filterDateFrom || undefined,
       dateTo: filterDateTo || undefined,
-      pageSize: 50,
+      pageSize: 500,
     }).then(({ list, lastDoc, hasMore }) => {
       setHistory(list);
       setHistoryLastDoc(lastDoc);
@@ -7470,7 +7470,7 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
         loadHistory(managedVenueId || undefined, {
           dateFrom: filterDateFrom || undefined,
           dateTo: filterDateTo || undefined,
-          pageSize: 50,
+          pageSize: 500,
         }).then(({ list, lastDoc, hasMore }) => {
           setHistory(list);
           setHistoryLastDoc(lastDoc);
