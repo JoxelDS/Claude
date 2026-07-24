@@ -19784,6 +19784,22 @@ export default function App() {
   }
 
   async function saveToHistory() {
+    // If there are active warnings, scroll to the first missing field so the
+    // inspector knows what to fix — but still proceed with saving.
+    const currentWarnings = validateForm({ inspectionDate, inspectorName, context, noteType, inspection, restaurantLicense, locationType, supervisorName, siteName, inspectionType, eventName });
+    if (currentWarnings.length > 0) {
+      setWarnings(currentWarnings);
+      const first = currentWarnings[0];
+      const el = document.getElementById(first.fieldId);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        el.classList.add("fieldHighlight");
+        setTimeout(() => el.classList.remove("fieldHighlight"), 2000);
+        const input = el.querySelector("input, select, textarea");
+        if (input) setTimeout(() => input.focus(), 400);
+      }
+    }
+
     // Keep photo data (previewUrl) so saved reports display their pictures.
     // Only strip previewUrl from photos whose data URL is missing or empty.
     function stripPhotos(obj) {
