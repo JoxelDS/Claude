@@ -1788,7 +1788,7 @@ function detectChecklistKey(label) {
   return null;
 }
 // Warning zone upper bounds: above max but not yet critical
-const TEMP_WARN_MAX = { cooler: 45, freezer: 28 };
+const TEMP_WARN_MAX = { cooler: 45, freezer: 25 };
 
 // Collect all equipment temperature readings
 function collectEquipTemps(inspection) {
@@ -2825,9 +2825,11 @@ function buildActionItems({ inspection, rawNotes, foodTemps: ftArg, foodTempName
   // Per-equipment cold temps — 3-zone: good / warn / bad
   for (const et of collectEquipTemps(inspection)) {
     if (et.zone === "bad") {
-      items.push({ issue: `${et.label} temperature too warm: ${et.tempNum}°F (safe limit ${et.max}°F — monitor and recheck)`, owner: "", due: "", priority: "Follow-up", photos: [] });
+      // Above the warning ceiling (>45°F cooler / >25°F freezer) — Fail
+      items.push({ issue: `${et.label} temperature out of range: ${et.tempNum}°F (max ${et.max}°F, critical limit ${et.warnMax}°F)`, owner: "", due: "", priority: "Fail", photos: [] });
     } else if (et.zone === "warn") {
-      items.push({ issue: `${et.label} temperature elevated: ${et.tempNum}°F (above ${et.max}°F — monitor closely and recheck in 30 min)`, owner: "", due: "", priority: "Follow-up", photos: [] });
+      // Between max and warn ceiling (41–45°F cooler / 21–25°F freezer) — Follow-up only
+      items.push({ issue: `${et.label} temperature elevated: ${et.tempNum}°F (above ${et.max}°F limit — monitor and recheck in 30 min)`, owner: "", due: "", priority: "Follow-up", photos: [] });
     }
   }
   for (const a of parseActionLines(rawNotes))
@@ -16985,15 +16987,24 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                             <span className="tempUnit">{"\u00B0F"}</span>
                           </div>
                           {(() => {
-                            const warnMax = coldInfo.type === "cooler" ? 45 : 28;
+                            const warnMax = TEMP_WARN_MAX[coldInfo.type] ?? (coldInfo.type === "cooler" ? 45 : 25);
                             const tempDigits = String(tempVal).replace(/\D/g, "");
-                            if (!tempVal || tempDigits.length < 2) return <span className="hint" style={{ whiteSpace: "nowrap" }}>Max {coldInfo.max}°F</span>;
+                            if (!tempVal || tempDigits.length < 2) return (
+                              <span className="hint" style={{ whiteSpace: "nowrap" }}>
+                                Max {coldInfo.max}°F {coldInfo.type === "cooler" ? "(41–45°F = Follow-up)" : "(21–25°F = Follow-up)"}
+                              </span>
+                            );
                             if (tempNum <= coldInfo.max) return <span className="tempStatusBadge tempStatusGood" style={{ fontSize: "0.74rem", padding: "3px 8px" }}>✅ {tempNum}°F — Good</span>;
-                            if (tempNum <= warnMax) return <span className="tempStatusBadge tempStatusWarn" style={{ fontSize: "0.74rem", padding: "3px 8px" }}>⚠️ {tempNum}°F — Watch it</span>;
+                            if (tempNum <= warnMax) return (
+                              <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                                <span className="tempStatusBadge tempStatusWarn" style={{ fontSize: "0.74rem", padding: "3px 8px" }}>⚠️ {tempNum}°F — Follow-up needed</span>
+                                <span style={{ fontSize: "0.72rem", color: "#b45309", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 5, padding: "3px 7px" }}>📋 Above max but not critical — flagged as follow-up, not fail</span>
+                              </div>
+                            );
                             return (
                               <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-                                <span className="tempStatusBadge tempStatusBad" style={{ fontSize: "0.74rem", padding: "3px 8px" }}>🚨 {tempNum}°F — Too warm!</span>
-                                <span style={{ fontSize: "0.72rem", color: "#b45309", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 5, padding: "3px 7px" }}>📋 Off temp — will be added as a follow-up action item</span>
+                                <span className="tempStatusBadge tempStatusBad" style={{ fontSize: "0.74rem", padding: "3px 8px" }}>🚨 {tempNum}°F — Out of range!</span>
+                                <span style={{ fontSize: "0.72rem", color: "#b45309", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 5, padding: "3px 7px" }}>📋 Critical temp — added as a fail action item</span>
                               </div>
                             );
                           })()}
