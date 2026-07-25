@@ -17172,10 +17172,40 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                           </div>
                         );
                       })()}
-                      {/* ── OTHER — free text for anything not covered above ── */}
+                      {/* ── Status selector — explicit pass/fail per item ── */}
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 6 }}>
+                        {[
+                          { value: "OK",                 label: "✅ OK",          bg: "#f0fdf4", color: "#15803d", border: "#86efac" },
+                          { value: "Needs Attention",    label: "⚠️ Issue",        bg: "#fffbeb", color: "#b45309", border: "#fde68a" },
+                          { value: "Fail",               label: "❌ Fail",         bg: "#fef2f2", color: "#dc2626", border: "#fca5a5" },
+                          { value: "Critical Violation", label: "🚨 Critical",     bg: "#fff0f0", color: "#991b1b", border: "#f87171" },
+                          { value: "Corrected On-Site",  label: "✔ Corrected",    bg: "#f0f9ff", color: "#0369a1", border: "#7dd3fc" },
+                          { value: "Maintenance",        label: "🔧 Maintenance",  bg: "#f5f3ff", color: "#7c3aed", border: "#c4b5fd" },
+                        ].map(opt => {
+                          const active = (current.status || "OK") === opt.value;
+                          return (
+                            <button
+                              key={opt.value}
+                              type="button"
+                              onClick={() => setInspection((prev) => setAtPath(prev, it.path, { ...current, status: opt.value }))}
+                              style={{
+                                fontSize: "0.74rem", fontWeight: active ? 700 : 500,
+                                padding: "4px 10px", borderRadius: 20, cursor: "pointer", border: "1.5px solid",
+                                background: active ? opt.bg : "transparent",
+                                color: active ? opt.color : "#94a3b8",
+                                borderColor: active ? opt.border : "#e2e8f0",
+                                transition: "all 0.15s",
+                              }}
+                            >
+                              {opt.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      {/* ── Notes / issue description ── */}
                       <input className="input inputSmall" value={current.notes}
                         onChange={(e) => setInspection((prev) => setAtPath(prev, it.path, { ...current, notes: e.target.value }))}
-                        placeholder="Other / comments (if issue not listed above)" />
+                        placeholder="Describe the issue or leave a comment…" />
                       <div className="photoRow">
                         <input ref={(el) => (fileRefs.current[key] = el)} className="fileInput" type="file" accept="image/*" multiple
                           onChange={(e) => { addPhotos(key, e.target.files, (current.photos || []).length); e.target.value = ""; }} />
