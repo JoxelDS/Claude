@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,400&family=Playfair+Display:ital,wght@0,700;0,900;1,700;1,900&display=swap" rel="stylesheet" />
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='white'/%3E%3Cdefs%3E%3Cmask id='m'%3E%3Crect width='100' height='100' fill='white'/%3E%3Crect x='0' y='0' width='54' height='72' fill='black'/%3E%3C/mask%3E%3C/defs%3E%3Ctext x='36' y='96' font-family='Georgia,serif' font-size='78' font-weight='900' fill='black' mask='url(%23m)'%3ES%3C/text%3E%3Ctext x='-2' y='70' font-family='Georgia,serif' font-size='78' font-weight='900' fill='black'%3ED%3C/text%3E%3C/svg%3E" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='white'/%3E%3Cdefs%3E%3Cmask id='m'%3E%3Crect width='100' height='100' fill='white'/%3E%3Crect x='0' y='0' width='56' height='100' fill='black'/%3E%3C/mask%3E%3C/defs%3E%3Ctext x='38' y='88' font-family='Georgia,serif' font-size='82' font-weight='900' fill='black' mask='url(%23m)'%3ES%3C/text%3E%3Ctext x='-2' y='88' font-family='Georgia,serif' font-size='82' font-weight='900' fill='black'%3ED%3C/text%3E%3C/svg%3E" />
 
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -77,14 +77,9 @@
       animation: logoIn 1.2s cubic-bezier(.22,1,.36,1) both;
     }
     @keyframes logoIn { from { opacity:0; transform:translateY(-24px) scale(.88); } to { opacity:1; transform:none; } }
-    .dsLogoText {
-      font-family: 'Playfair Display', Georgia, serif;
-      font-size: 3.2rem;
-      font-weight: 900;
-      color: #fff;
-      letter-spacing: -.02em;
-      line-height: 1;
-      filter: drop-shadow(0 4px 40px rgba(255,255,255,.18));
+    .dsLogoMark {
+      width: 260px; height: 190px;
+      filter: drop-shadow(0 4px 40px rgba(255,255,255,.14));
     }
     .dsLogoSub { display: none; }
     .loginDivider {
@@ -405,7 +400,21 @@
   <div class="gridOverlay"></div>
   <div class="loginWrap">
     <div class="dsLogo">
-      <div class="dsLogoText">DS Marketing</div>
+      <svg class="dsLogoMark" viewBox="0 0 220 160" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <mask id="sMaskLogin">
+            <rect width="220" height="160" fill="white"/>
+            <!-- hide S where D sits on top -->
+            <rect x="0" y="0" width="118" height="160" fill="black"/>
+          </mask>
+        </defs>
+        <!-- S: same baseline as D, shifted right so they overlap -->
+        <text x="90" y="138" font-family="'Playfair Display',Georgia,serif" font-size="130" font-weight="900" fill="white" mask="url(#sMaskLogin)">S</text>
+        <!-- D: same baseline -->
+        <text x="-4" y="138" font-family="'Playfair Display',Georgia,serif" font-size="130" font-weight="900" fill="white">D</text>
+        <!-- MARKETING between the letters at midheight -->
+        <text x="130" y="85" font-family="'Inter',Arial,sans-serif" font-size="11" font-weight="700" fill="white" letter-spacing="5" text-anchor="middle">MARKETING</text>
+      </svg>
     </div>
     <div class="loginDivider"></div>
     <h1 class="loginHeading">Owner Portal</h1>
@@ -426,7 +435,11 @@
   <!-- NAV -->
   <nav class="nav">
     <div class="navBrand">
-      
+      <svg style="width:44px;height:32px;flex-shrink:0" viewBox="0 0 110 80" xmlns="http://www.w3.org/2000/svg">
+        <defs><mask id="nm"><rect width="110" height="80" fill="white"/><rect x="0" y="0" width="59" height="80" fill="black"/></mask></defs>
+        <text x="45" y="69" font-family="'Playfair Display',Georgia,serif" font-size="65" font-weight="900" fill="white" mask="url(#nm)">S</text>
+        <text x="-2" y="69" font-family="'Playfair Display',Georgia,serif" font-size="65" font-weight="900" fill="white">D</text>
+      </svg>
       <div class="navBrandText">
         <div class="navBrandName">DS Marketing</div>
         <div class="navBrandSub">Client Management</div>
