@@ -4,312 +4,39 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>DS Marketing — Client Portal</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23000'/><text y='72' x='12' font-size='68' font-family='serif' font-weight='900' fill='white'>DS</text></svg>" />
-
-  <!-- Firebase CDN -->
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-    import { getFirestore, collection, doc, getDoc, getDocs, setDoc, deleteDoc, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-
-    const firebaseConfig = {
-      apiKey: "AIzaSyDgXvyvFuKUc59IDB8Fr52ydZ0hiJfJeZU",
-      authDomain: "sodexoinspection.firebaseapp.com",
-      projectId: "sodexoinspection",
-      storageBucket: "sodexoinspection.firebasestorage.app",
-      messagingSenderId: "511560917271",
-      appId: "1:511560917271:web:ef71e55659f0088278d752",
-    };
-
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
-
-    // ── Owner PIN hash (badge 365582 → same hash the app uses) ─────────────
-    const OWNER_HASH = "d6e4a943c02d30e6d34f4b2e16c6f8c7e8d3b5a1f9e2c4d7b0a3e6f8c1d5b2a"; // placeholder — computed below
-    const GLOBAL_ADMIN_BADGE = "365582";
-
-    async function sha256(msg) {
-      const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(msg));
-      return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, "0")).join("");
-    }
-
-    // ── State ───────────────────────────────────────────────────────────────
-    let authed = false;
-    let venues = [];
-    let editingId = null;
-
-    // ── DOM refs ────────────────────────────────────────────────────────────
-    const loginScreen  = document.getElementById("loginScreen");
-    const dashboard    = document.getElementById("dashboard");
-    const pinInput     = document.getElementById("pinInput");
-    const loginError   = document.getElementById("loginError");
-    const loginBtn     = document.getElementById("loginBtn");
-    const venueList    = document.getElementById("venueList");
-    const addForm      = document.getElementById("addForm");
-    const addBtn       = document.getElementById("addBtn");
-    const addError     = document.getElementById("addError");
-    const toast        = document.getElementById("toast");
-
-    // ── Login ───────────────────────────────────────────────────────────────
-    loginBtn.addEventListener("click", doLogin);
-    pinInput.addEventListener("keydown", e => { if (e.key === "Enter") doLogin(); });
-
-    async function doLogin() {
-      loginBtn.disabled = true;
-      loginBtn.textContent = "Verifying…";
-      const entered = pinInput.value.trim();
-      const hash = await sha256(entered);
-      const ownerHash = await sha256(GLOBAL_ADMIN_BADGE);
-
-      // Check against Firestore user record
-      try {
-        const snap = await getDoc(doc(db, "venues", "default", "users", hash));
-        const isOwner = snap.exists() && snap.data().role === "global_admin";
-        if (!isOwner && hash !== ownerHash) throw new Error("Not owner");
-        authed = true;
-        loginScreen.style.display = "none";
-        dashboard.style.display = "block";
-        loadVenues();
-      } catch {
-        loginError.textContent = "Access denied. Owner credentials required.";
-        loginError.style.display = "block";
-        loginBtn.disabled = false;
-        loginBtn.textContent = "Enter Portal";
-        pinInput.value = "";
-        pinInput.focus();
-      }
-    }
-
-    // ── Load venues ─────────────────────────────────────────────────────────
-    async function loadVenues() {
-      venueList.innerHTML = `<div class="loading">Loading clients…</div>`;
-      try {
-        const snap = await getDocs(collection(db, "venueRegistry"));
-        venues = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-        venues.sort((a, b) => (a.name || a.id).localeCompare(b.name || b.id));
-
-        // Load inspection counts in parallel
-        const counts = await Promise.all(venues.map(v =>
-          getDocs(query(collection(db, "venues", v.id, "inspections"), orderBy("savedAt", "desc"), limit(1)))
-            .then(s => ({ id: v.id, count: s.size, last: s.docs[0]?.data()?.savedAt || "" }))
-            .catch(() => ({ id: v.id, count: 0, last: "" }))
-        ));
-        const countMap = Object.fromEntries(counts.map(c => [c.id, c]));
-
-        renderVenues(countMap);
-      } catch (e) {
-        venueList.innerHTML = `<div class="error">Failed to load clients: ${e.message}</div>`;
-      }
-    }
-
-    function renderVenues(countMap = {}) {
-      if (venues.length === 0) {
-        venueList.innerHTML = `<div class="empty">No clients yet. Add your first one below.</div>`;
-        return;
-      }
-      venueList.innerHTML = venues.map(v => {
-        const c = countMap[v.id] || {};
-        const baseUrl = window.location.origin + "/Claude/?v=" + v.id;
-        const isEditing = editingId === v.id;
-        return `
-          <div class="clientCard" id="card-${v.id}">
-            <div class="clientHeader">
-              ${v.logoUrl ? `<img src="${escHtml(v.logoUrl)}" class="clientLogo" alt="" onerror="this.style.display='none'" />` : `<div class="clientLogoFallback">${escHtml((v.companyName || v.name || "?")[0].toUpperCase())}</div>`}
-              <div class="clientMeta">
-                <div class="clientName">${escHtml(v.companyName || v.name || v.id)}</div>
-                <div class="clientSub">${escHtml(v.name || v.id)} · <code>${escHtml(v.id)}</code></div>
-              </div>
-              <span class="statusBadge ${v.status === 'active' ? 'active' : 'inactive'}">${v.status || 'active'}</span>
-            </div>
-            <div class="clientStats">
-              <span>🌐 <a href="${baseUrl}" target="_blank" class="venueLink">${baseUrl}</a></span>
-              ${v.address ? `<span>📍 ${escHtml(v.address)}</span>` : ""}
-              ${c.last ? `<span>🕐 Last activity: ${c.last.slice(0, 10)}</span>` : ""}
-            </div>
-            ${isEditing ? renderEditForm(v) : renderActions(v)}
-          </div>
-        `;
-      }).join("");
-
-      // Re-attach event listeners
-      document.querySelectorAll("[data-action]").forEach(el => {
-        el.addEventListener("click", handleAction);
-      });
-      document.querySelectorAll("[data-save]").forEach(el => {
-        el.addEventListener("click", handleSaveEdit);
-      });
-      document.querySelectorAll("[data-cancel-edit]").forEach(el => {
-        el.addEventListener("click", () => { editingId = null; renderVenues(); });
-      });
-    }
-
-    function renderActions(v) {
-      return `
-        <div class="clientActions">
-          <a href="${window.location.origin}/Claude/?v=${v.id}" target="_blank" class="btn btnPrimary">Open Client App ↗</a>
-          <button class="btn btnSecondary" data-action="edit" data-id="${v.id}">Edit Branding</button>
-          <button class="btn btnDanger" data-action="delete" data-id="${v.id}" data-name="${escHtml(v.name || v.id)}">Remove</button>
-        </div>
-      `;
-    }
-
-    function renderEditForm(v) {
-      return `
-        <div class="editForm">
-          <div class="editGrid">
-            <label class="editLabel">Display Name<input class="editInput" id="edit-name" value="${escHtml(v.name || "")}" placeholder="Hard Rock Stadium" /></label>
-            <label class="editLabel">Company Name (shown in app)<input class="editInput" id="edit-companyName" value="${escHtml(v.companyName || "")}" placeholder="Levy Restaurants" /></label>
-            <label class="editLabel">Address<input class="editInput" id="edit-address" value="${escHtml(v.address || "")}" placeholder="Address (optional)" /></label>
-            <label class="editLabel">Logo URL<input class="editInput" id="edit-logoUrl" value="${escHtml(v.logoUrl || "")}" placeholder="https://… (leave blank for default)" /></label>
-            <label class="editLabel">Primary Color<input class="editInput" id="edit-primaryColor" value="${escHtml(v.primaryColor || "")}" placeholder="#2A295C" /></label>
-            <label class="editLabel">Status
-              <select class="editInput" id="edit-status">
-                <option value="active" ${v.status !== "inactive" ? "selected" : ""}>Active</option>
-                <option value="inactive" ${v.status === "inactive" ? "selected" : ""}>Inactive</option>
-              </select>
-            </label>
-          </div>
-          <div class="editActions">
-            <button class="btn btnPrimary" data-save="${v.id}">Save Changes</button>
-            <button class="btn btnSecondary" data-cancel-edit="1">Cancel</button>
-          </div>
-        </div>
-      `;
-    }
-
-    function handleAction(e) {
-      const { action, id, name } = e.currentTarget.dataset;
-      if (action === "edit") { editingId = id; renderVenues(); }
-      if (action === "delete") deleteVenue(id, name);
-    }
-
-    async function handleSaveEdit(e) {
-      const id = e.currentTarget.dataset.save;
-      const name = document.getElementById("edit-name")?.value.trim() || "";
-      const companyName = document.getElementById("edit-companyName")?.value.trim() || name;
-      const address = document.getElementById("edit-address")?.value.trim() || "";
-      const logoUrl = document.getElementById("edit-logoUrl")?.value.trim() || "";
-      const primaryColor = document.getElementById("edit-primaryColor")?.value.trim() || "";
-      const status = document.getElementById("edit-status")?.value || "active";
-
-      e.currentTarget.textContent = "Saving…";
-      e.currentTarget.disabled = true;
-
-      try {
-        await setDoc(doc(db, "venueRegistry", id), { name, companyName, address, logoUrl, primaryColor, status }, { merge: true });
-        // Push branding into venueSettings so app picks it up immediately
-        await setDoc(doc(db, "venues", id, "sharedMemory", "venueSettings"), { companyName, logoUrl, primaryColor, _updatedAt: new Date().toISOString() }, { merge: true });
-        venues = venues.map(v => v.id === id ? { ...v, name, companyName, address, logoUrl, primaryColor, status } : v);
-        editingId = null;
-        showToast("✓ Client updated");
-        renderVenues();
-      } catch (err) {
-        showToast("Error: " + err.message, true);
-        e.currentTarget.textContent = "Save Changes";
-        e.currentTarget.disabled = false;
-      }
-    }
-
-    async function deleteVenue(id, name) {
-      if (!confirm(`Remove client "${name}"?\n\nThis only removes them from your client list. Their inspection data in Firestore is NOT deleted.`)) return;
-      if (!confirm(`Confirm: permanently remove "${name}" from your portal?`)) return;
-      try {
-        await deleteDoc(doc(db, "venueRegistry", id));
-        venues = venues.filter(v => v.id !== id);
-        showToast("Client removed");
-        renderVenues();
-      } catch (err) {
-        showToast("Error: " + err.message, true);
-      }
-    }
-
-    // ── Add Venue ───────────────────────────────────────────────────────────
-    addBtn.addEventListener("click", () => {
-      addForm.style.display = addForm.style.display === "none" ? "block" : "none";
-      addError.style.display = "none";
-    });
-
-    document.getElementById("addVenueForm").addEventListener("submit", async (e) => {
-      e.preventDefault();
-      addError.style.display = "none";
-      const slug = document.getElementById("new-id").value.trim().toLowerCase().replace(/[^a-z0-9_-]/g, "");
-      const name = document.getElementById("new-name").value.trim();
-      const companyName = document.getElementById("new-companyName").value.trim() || name;
-      const address = document.getElementById("new-address").value.trim();
-      const logoUrl = document.getElementById("new-logoUrl").value.trim();
-      const primaryColor = document.getElementById("new-primaryColor").value.trim();
-      const type = document.getElementById("new-type").value;
-
-      if (!slug) { showAddError("Enter a valid client ID (letters, numbers, hyphens only)."); return; }
-      if (!name) { showAddError("Enter a display name."); return; }
-      if (venues.find(v => v.id === slug)) { showAddError("A client with that ID already exists."); return; }
-
-      const submitBtn = e.target.querySelector("[type=submit]");
-      submitBtn.disabled = true;
-      submitBtn.textContent = "Creating…";
-
-      try {
-        const data = {
-          name, companyName, address, logoUrl, primaryColor, type,
-          status: "active",
-          createdAt: new Date().toISOString(),
-          createdBy: "DSMarketing",
-        };
-        await setDoc(doc(db, "venueRegistry", slug), data);
-        // Bootstrap venueSettings for this venue
-        await setDoc(doc(db, "venues", slug, "sharedMemory", "venueSettings"), { companyName, logoUrl, primaryColor, _updatedAt: new Date().toISOString() }, { merge: true });
-        venues.push({ id: slug, ...data });
-        venues.sort((a, b) => (a.name || a.id).localeCompare(b.name || b.id));
-        addForm.style.display = "none";
-        e.target.reset();
-        showToast("✓ Client created! URL: /Claude/?v=" + slug);
-        renderVenues();
-      } catch (err) {
-        showAddError("Error: " + err.message);
-      } finally {
-        submitBtn.disabled = false;
-        submitBtn.textContent = "Create Client";
-      }
-    });
-
-    function showAddError(msg) {
-      addError.textContent = msg;
-      addError.style.display = "block";
-    }
-
-    function showToast(msg, isError = false) {
-      toast.textContent = msg;
-      toast.style.background = isError ? "#dc2626" : "#15803d";
-      toast.style.display = "block";
-      toast.style.opacity = "1";
-      setTimeout(() => { toast.style.opacity = "0"; setTimeout(() => { toast.style.display = "none"; }, 400); }, 3000);
-    }
-
-    function escHtml(str) {
-      return String(str || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
-    }
-  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Playfair+Display:wght@700;900&display=swap" rel="stylesheet" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23000'/><text y='78' x='8' font-size='72' font-family='Georgia,serif' font-weight='900' fill='white'>DS</text></svg>" />
 
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --black: #0a0a0a;
-      --dark: #111111;
-      --panel: #1a1a1a;
-      --border: #2a2a2a;
-      --white: #ffffff;
-      --silver: #a0a0a0;
-      --accent: #c8a96e; /* DS Marketing gold accent */
+      --black:  #000000;
+      --dark:   #0a0a0a;
+      --panel:  #111111;
+      --border: #1e1e1e;
+      --mid:    #2a2a2a;
+      --white:  #ffffff;
+      --gray:   #666666;
+      --lgray:  #999999;
+      --accent: #c8a96e;
     }
 
+    html { scroll-behavior: smooth; }
+
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      font-family: "Inter", -apple-system, sans-serif;
       background: var(--black);
       color: var(--white);
       min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
     }
 
-    /* ── LOGIN ─────────────────────────────────────────────────────────── */
+    /* ═══════════════════════════════════════════════════════════
+       LOGIN
+    ═══════════════════════════════════════════════════════════ */
     #loginScreen {
       display: flex;
       flex-direction: column;
@@ -317,515 +44,924 @@
       justify-content: center;
       min-height: 100vh;
       padding: 2rem;
-      background: radial-gradient(ellipse at 50% 0%, #1a1a1a 0%, #0a0a0a 70%);
+      position: relative;
+      overflow: hidden;
     }
 
-    .loginLogo {
+    /* Subtle noise / grid texture */
+    #loginScreen::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px);
+      background-size: 60px 60px;
+      pointer-events: none;
+    }
+
+    .loginWrap {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      max-width: 400px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    /* ── DS Logo SVG mark ── */
+    .dsLogo {
       margin-bottom: 2.5rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.35rem;
+    }
+
+    .dsLogoMark {
+      width: 120px;
+      height: 100px;
+    }
+
+    .dsLogoSub {
+      font-family: "Inter", sans-serif;
+      font-size: 0.6rem;
+      font-weight: 600;
+      letter-spacing: 0.45em;
+      color: var(--lgray);
+      text-transform: uppercase;
+    }
+
+    /* Login form */
+    .loginHeading {
+      font-size: 1.5rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      color: var(--white);
+      margin-bottom: 0.35rem;
       text-align: center;
     }
 
-    .logoMark {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      width: 110px;
-      height: 110px;
-      border: 2px solid rgba(255,255,255,0.12);
-      border-radius: 50%;
-      margin-bottom: 1rem;
-      background: linear-gradient(145deg, #1c1c1c, #0a0a0a);
-      box-shadow: 0 0 60px rgba(200,169,110,0.15);
+    .loginDesc {
+      font-size: 0.82rem;
+      color: var(--gray);
+      text-align: center;
+      margin-bottom: 2rem;
+      line-height: 1.5;
     }
 
-    .logoDS {
-      font-size: 2.8rem;
-      font-weight: 900;
-      letter-spacing: -0.06em;
-      color: #fff;
-      font-family: Georgia, 'Times New Roman', serif;
-      line-height: 1;
+    .loginField {
+      width: 100%;
+      margin-bottom: 0.75rem;
     }
 
-    .logoCompany {
-      font-size: 0.65rem;
-      font-weight: 700;
-      letter-spacing: 0.35em;
-      color: var(--accent);
-      text-transform: uppercase;
-      margin-top: 0.5rem;
-    }
-
-    .loginTitle {
-      font-size: 1.1rem;
+    .loginFieldLabel {
+      font-size: 0.68rem;
       font-weight: 600;
-      color: var(--silver);
-      margin-bottom: 0.25rem;
-      letter-spacing: 0.04em;
-    }
-
-    .loginSub {
-      font-size: 0.75rem;
-      color: #555;
-      letter-spacing: 0.06em;
+      letter-spacing: 0.14em;
       text-transform: uppercase;
+      color: var(--lgray);
+      display: block;
+      margin-bottom: 0.4rem;
     }
 
-    .loginBox {
+    .loginInput {
+      width: 100%;
       background: var(--panel);
       border: 1px solid var(--border);
-      border-radius: 16px;
-      padding: 2rem;
-      width: 100%;
-      max-width: 360px;
-      box-shadow: 0 20px 60px rgba(0,0,0,0.6);
-    }
-
-    .loginLabel {
-      font-size: 0.72rem;
-      font-weight: 700;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      color: var(--silver);
-      display: block;
-      margin-bottom: 0.5rem;
-    }
-
-    .pinInput {
-      width: 100%;
-      background: #0f0f0f;
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 0.9rem 1rem;
+      border-radius: 8px;
+      padding: 0.85rem 1rem;
       color: var(--white);
-      font-size: 1.1rem;
+      font-size: 1rem;
       letter-spacing: 0.2em;
       outline: none;
+      font-family: "Inter", monospace;
       transition: border-color 0.2s;
-      margin-bottom: 1rem;
     }
 
-    .pinInput:focus { border-color: var(--accent); }
+    .loginInput:focus { border-color: rgba(255,255,255,0.3); }
 
-    .loginBtn {
+    .loginSubmit {
       width: 100%;
       background: var(--white);
       color: var(--black);
       border: none;
-      border-radius: 10px;
+      border-radius: 8px;
       padding: 0.9rem;
-      font-size: 0.9rem;
+      font-size: 0.82rem;
       font-weight: 800;
-      letter-spacing: 0.06em;
+      letter-spacing: 0.12em;
       text-transform: uppercase;
       cursor: pointer;
-      transition: opacity 0.2s;
+      transition: background 0.2s, color 0.2s;
+      margin-top: 0.25rem;
     }
 
-    .loginBtn:hover { opacity: 0.88; }
-    .loginBtn:disabled { opacity: 0.5; cursor: default; }
+    .loginSubmit:hover { background: #e5e5e5; }
+    .loginSubmit:disabled { opacity: 0.45; cursor: default; }
 
     .loginError {
       display: none;
-      background: #2a0808;
-      color: #fca5a5;
-      border: 1px solid #7f1d1d;
+      width: 100%;
+      background: #130404;
+      color: #f87171;
+      border: 1px solid #2a0808;
       border-radius: 8px;
-      padding: 0.65rem 0.9rem;
-      font-size: 0.8rem;
-      margin-bottom: 1rem;
+      padding: 0.65rem 1rem;
+      font-size: 0.78rem;
+      margin-bottom: 0.75rem;
+      text-align: center;
     }
 
     .loginFooter {
-      margin-top: 2rem;
-      text-align: center;
-      font-size: 0.68rem;
-      color: #333;
-      letter-spacing: 0.08em;
+      margin-top: 3rem;
+      font-size: 0.65rem;
+      color: var(--border);
+      letter-spacing: 0.1em;
       text-transform: uppercase;
+      text-align: center;
     }
 
-    /* ── DASHBOARD ─────────────────────────────────────────────────────── */
+    /* ═══════════════════════════════════════════════════════════
+       DASHBOARD
+    ═══════════════════════════════════════════════════════════ */
     #dashboard { display: none; }
 
-    .topBar {
-      background: var(--dark);
+    /* Top nav — matches DS site style */
+    .nav {
+      position: sticky;
+      top: 0;
+      z-index: 200;
+      background: rgba(0,0,0,0.92);
+      backdrop-filter: blur(12px);
       border-bottom: 1px solid var(--border);
-      padding: 0 1.5rem;
-      height: 60px;
+      height: 64px;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      position: sticky;
-      top: 0;
-      z-index: 100;
+      padding: 0 2rem;
     }
 
-    .topBrand {
+    .navBrand {
       display: flex;
       align-items: center;
-      gap: 0.75rem;
+      gap: 0.9rem;
     }
 
-    .topLogoMark {
-      width: 34px;
-      height: 34px;
-      border: 1px solid rgba(255,255,255,0.15);
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 0.9rem;
-      font-weight: 900;
-      font-family: Georgia, serif;
-      color: #fff;
-      flex-shrink: 0;
-    }
+    .navLogoMark { width: 46px; height: 38px; }
 
-    .topBrandText { line-height: 1.1; }
-    .topBrandName { font-size: 0.88rem; font-weight: 800; color: var(--white); letter-spacing: 0.04em; }
-    .topBrandSub { font-size: 0.63rem; color: var(--accent); letter-spacing: 0.12em; text-transform: uppercase; font-weight: 600; }
+    .navBrandText { line-height: 1.15; }
+    .navBrandName { font-size: 0.85rem; font-weight: 800; color: var(--white); letter-spacing: -0.01em; }
+    .navBrandSub { font-size: 0.58rem; color: var(--gray); letter-spacing: 0.2em; text-transform: uppercase; font-weight: 500; }
 
-    .topActions { display: flex; gap: 0.75rem; }
+    .navActions { display: flex; align-items: center; gap: 0.75rem; }
 
+    /* Main content */
     .main {
-      max-width: 900px;
+      max-width: 960px;
       margin: 0 auto;
-      padding: 2rem 1.25rem;
+      padding: 3rem 1.5rem 6rem;
     }
 
-    .sectionTitle {
-      font-size: 0.7rem;
+    /* Hero section */
+    .hero {
+      padding: 4rem 0 3rem;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 3rem;
+    }
+
+    .heroEyebrow {
+      font-size: 0.65rem;
       font-weight: 700;
-      letter-spacing: 0.18em;
+      letter-spacing: 0.3em;
       text-transform: uppercase;
       color: var(--accent);
       margin-bottom: 1rem;
     }
 
-    /* ── CLIENT CARD ───────────────────────────────────────────────────── */
+    .heroTitle {
+      font-size: clamp(2rem, 5vw, 3.5rem);
+      font-weight: 900;
+      line-height: 1.05;
+      letter-spacing: -0.03em;
+      color: var(--white);
+      margin-bottom: 0.75rem;
+    }
+
+    .heroTitle em {
+      font-style: normal;
+      color: var(--accent);
+    }
+
+    .heroDesc {
+      font-size: 0.9rem;
+      color: var(--gray);
+      max-width: 480px;
+      line-height: 1.65;
+    }
+
+    /* Stats */
+    .statsRow {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1px;
+      background: var(--border);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      margin-bottom: 3rem;
+    }
+
+    .statBlock {
+      background: var(--panel);
+      padding: 1.5rem;
+      text-align: center;
+    }
+
+    .statNum { font-size: 2.2rem; font-weight: 900; color: var(--white); letter-spacing: -0.04em; line-height: 1; }
+    .statLbl { font-size: 0.62rem; color: var(--gray); letter-spacing: 0.15em; text-transform: uppercase; margin-top: 0.4rem; font-weight: 600; }
+
+    /* Section header */
+    .sectionHdr {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1.25rem;
+    }
+
+    .sectionTitle {
+      font-size: 0.62rem;
+      font-weight: 700;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--gray);
+    }
+
+    /* Client cards */
     .clientCard {
       background: var(--panel);
       border: 1px solid var(--border);
-      border-radius: 14px;
-      margin-bottom: 1rem;
+      border-radius: 12px;
+      margin-bottom: 0.75rem;
       overflow: hidden;
       transition: border-color 0.2s;
     }
 
-    .clientCard:hover { border-color: #3a3a3a; }
+    .clientCard:hover { border-color: var(--mid); }
 
-    .clientHeader {
+    .clientRow {
       display: flex;
       align-items: center;
-      gap: 0.9rem;
-      padding: 1rem 1.25rem;
-      border-bottom: 1px solid var(--border);
+      gap: 1rem;
+      padding: 1.1rem 1.25rem;
     }
 
-    .clientLogo {
-      width: 44px;
-      height: 44px;
-      object-fit: contain;
+    .clientAvatar {
+      width: 42px;
+      height: 42px;
       border-radius: 8px;
-      background: #fff;
-      padding: 4px;
       flex-shrink: 0;
-    }
-
-    .clientLogoFallback {
-      width: 44px;
-      height: 44px;
-      border-radius: 8px;
-      background: linear-gradient(135deg, #1e1e1e, #2a2a2a);
-      border: 1px solid var(--border);
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 1.3rem;
+      font-size: 1rem;
       font-weight: 900;
-      color: var(--accent);
-      font-family: Georgia, serif;
-      flex-shrink: 0;
+      color: var(--white);
+      background: var(--mid);
+      font-family: "Playfair Display", Georgia, serif;
+      overflow: hidden;
     }
 
-    .clientMeta { flex: 1; min-width: 0; }
-    .clientName { font-size: 1rem; font-weight: 700; color: var(--white); }
-    .clientSub { font-size: 0.72rem; color: var(--silver); margin-top: 2px; }
-    .clientSub code { color: var(--accent); font-size: 0.68rem; }
+    .clientAvatar img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      background: #fff;
+      padding: 3px;
+    }
 
-    .statusBadge {
-      font-size: 0.65rem;
+    .clientInfo { flex: 1; min-width: 0; }
+    .clientName { font-size: 0.95rem; font-weight: 700; color: var(--white); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .clientMeta { font-size: 0.7rem; color: var(--gray); margin-top: 2px; }
+    .clientMeta code { color: var(--accent); font-size: 0.65rem; }
+
+    .clientBadge {
+      font-size: 0.58rem;
       font-weight: 700;
-      letter-spacing: 0.08em;
+      letter-spacing: 0.1em;
       text-transform: uppercase;
-      padding: 3px 10px;
+      padding: 3px 9px;
       border-radius: 20px;
       flex-shrink: 0;
     }
 
-    .statusBadge.active { background: #0d2d1a; color: #4ade80; border: 1px solid #166534; }
-    .statusBadge.inactive { background: #1a1a0d; color: #a3a300; border: 1px solid #555500; }
+    .clientBadge.active { background: #0d2014; color: #4ade80; border: 1px solid #14532d; }
+    .clientBadge.inactive { background: #141400; color: #a3a300; border: 1px solid #3a3a00; }
 
-    .clientStats {
-      padding: 0.6rem 1.25rem;
+    .clientRowActions {
       display: flex;
-      flex-wrap: wrap;
-      gap: 0.75rem;
-      font-size: 0.75rem;
-      color: var(--silver);
-      border-bottom: 1px solid var(--border);
-      background: #141414;
+      gap: 0.4rem;
+      flex-shrink: 0;
     }
 
-    .venueLink { color: var(--accent); text-decoration: none; }
-    .venueLink:hover { text-decoration: underline; }
-
-    .clientActions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.5rem;
-      padding: 0.85rem 1.25rem;
+    .clientLink {
+      padding: 0.5rem 1.1rem;
+      font-size: 0.7rem;
+      border-radius: 6px;
+      background: var(--white);
+      color: var(--black);
+      font-weight: 700;
+      text-decoration: none;
+      letter-spacing: 0.04em;
+      transition: opacity 0.15s;
     }
 
-    /* ── EDIT FORM ─────────────────────────────────────────────────────── */
-    .editForm { padding: 1rem 1.25rem; background: #141414; }
-    .editGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; margin-bottom: 0.75rem; }
-    @media (max-width: 600px) { .editGrid { grid-template-columns: 1fr; } }
-    .editLabel { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--silver); display: flex; flex-direction: column; gap: 0.3rem; }
-    .editInput { background: #0f0f0f; border: 1px solid var(--border); border-radius: 8px; padding: 0.5rem 0.7rem; color: var(--white); font-size: 0.875rem; outline: none; width: 100%; transition: border-color 0.2s; }
-    .editInput:focus { border-color: var(--accent); }
+    .clientLink:hover { opacity: 0.82; }
+
+    /* Edit panel */
+    .editPanel {
+      border-top: 1px solid var(--border);
+      padding: 1.25rem;
+      background: #0a0a0a;
+    }
+
+    .editGrid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.6rem;
+      margin-bottom: 0.85rem;
+    }
+
+    @media (max-width: 600px) {
+      .editGrid { grid-template-columns: 1fr; }
+      .clientRowActions { display: none; }
+    }
+
+    .editLbl {
+      font-size: 0.62rem;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--gray);
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+    }
+
+    .editInp, .editSel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      padding: 0.5rem 0.75rem;
+      color: var(--white);
+      font-size: 0.85rem;
+      outline: none;
+      width: 100%;
+      font-family: "Inter", sans-serif;
+      transition: border-color 0.18s;
+    }
+
+    .editInp:focus, .editSel:focus { border-color: rgba(255,255,255,0.25); }
+    .editSel option { background: #111; }
+
     .editActions { display: flex; gap: 0.5rem; }
 
-    /* ── ADD FORM ──────────────────────────────────────────────────────── */
+    /* Add form */
     #addForm {
       display: none;
       background: var(--panel);
       border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 1.5rem;
-      margin-bottom: 1.5rem;
+      border-radius: 12px;
+      padding: 1.75rem;
+      margin-bottom: 2rem;
     }
 
-    .addGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; margin-bottom: 1rem; }
+    .addFormTitle {
+      font-size: 1rem;
+      font-weight: 800;
+      color: var(--white);
+      letter-spacing: -0.02em;
+      margin-bottom: 1.25rem;
+    }
+
+    .addGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.65rem; margin-bottom: 1rem; }
     @media (max-width: 600px) { .addGrid { grid-template-columns: 1fr; } }
 
-    .addLabel { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--silver); display: flex; flex-direction: column; gap: 0.3rem; }
-    .addInput, .addSelect {
-      background: #0f0f0f;
+    .addLbl {
+      font-size: 0.62rem;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--gray);
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+    }
+
+    .addInp, .addSel {
+      background: #0a0a0a;
       border: 1px solid var(--border);
-      border-radius: 8px;
+      border-radius: 7px;
       padding: 0.55rem 0.75rem;
       color: var(--white);
       font-size: 0.875rem;
       outline: none;
       width: 100%;
-      transition: border-color 0.2s;
+      font-family: "Inter", sans-serif;
+      transition: border-color 0.18s;
     }
-    .addInput:focus, .addSelect:focus { border-color: var(--accent); }
-    .addSelect option { background: #1a1a1a; }
+
+    .addInp:focus, .addSel:focus { border-color: rgba(255,255,255,0.25); }
+    .addSel option { background: #0a0a0a; }
 
     #addError {
       display: none;
-      background: #2a0808;
-      color: #fca5a5;
-      border: 1px solid #7f1d1d;
-      border-radius: 8px;
+      background: #130404;
+      color: #f87171;
+      border: 1px solid #2a0808;
+      border-radius: 7px;
       padding: 0.6rem 0.9rem;
-      font-size: 0.82rem;
+      font-size: 0.78rem;
       margin-bottom: 0.75rem;
     }
 
-    /* ── BUTTONS ───────────────────────────────────────────────────────── */
+    /* Buttons */
     .btn {
-      border: none;
-      border-radius: 8px;
+      border-radius: 7px;
       padding: 0.55rem 1.1rem;
-      font-size: 0.8rem;
+      font-size: 0.75rem;
       font-weight: 700;
       cursor: pointer;
-      letter-spacing: 0.03em;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
       text-decoration: none;
       display: inline-flex;
       align-items: center;
-      transition: opacity 0.15s;
+      gap: 0.3rem;
+      border: none;
+      font-family: "Inter", sans-serif;
+      transition: opacity 0.15s, background 0.15s;
       white-space: nowrap;
     }
 
-    .btn:hover { opacity: 0.85; }
-    .btn:disabled { opacity: 0.45; cursor: default; }
+    .btn:hover { opacity: 0.82; }
+    .btn:disabled { opacity: 0.35; cursor: default; }
 
-    .btnPrimary { background: var(--white); color: var(--black); }
-    .btnSecondary { background: #242424; color: var(--white); border: 1px solid var(--border); }
-    .btnAccent { background: var(--accent); color: var(--black); }
-    .btnDanger { background: transparent; color: #f87171; border: 1px solid #7f1d1d; }
+    .btnWhite { background: var(--white); color: var(--black); }
+    .btnGhost { background: transparent; color: var(--white); border: 1px solid var(--border); }
+    .btnGhost:hover { border-color: var(--mid); opacity: 1; }
+    .btnDanger { background: transparent; color: #f87171; border: 1px solid #2a0808; }
+    .btnDanger:hover { background: #130404; opacity: 1; }
+    .btnAccent { background: var(--accent); color: #000; }
 
-    /* ── MISC ──────────────────────────────────────────────────────────── */
-    .loading, .empty, .error {
+    /* States */
+    .empty, .loading {
       text-align: center;
-      padding: 3rem 1rem;
-      color: var(--silver);
+      padding: 4rem 1rem;
+      color: var(--gray);
       font-size: 0.9rem;
+      line-height: 1.6;
     }
 
-    .error { color: #f87171; }
-
+    /* Toast */
     #toast {
       display: none;
       position: fixed;
-      bottom: 1.5rem;
+      bottom: 2rem;
       left: 50%;
       transform: translateX(-50%);
-      padding: 0.75rem 1.5rem;
-      border-radius: 10px;
-      font-size: 0.875rem;
+      padding: 0.8rem 1.75rem;
+      border-radius: 8px;
+      font-size: 0.82rem;
       font-weight: 700;
       color: #fff;
       z-index: 9999;
       transition: opacity 0.4s;
-      box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+      box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
       white-space: nowrap;
+      border: 1px solid rgba(255,255,255,0.08);
     }
 
-    .statsBar {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 0.75rem;
-      margin-bottom: 2rem;
-    }
-
-    .statCard {
-      background: var(--panel);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 1rem;
-      text-align: center;
-    }
-
-    .statValue { font-size: 1.8rem; font-weight: 900; color: var(--white); }
-    .statLabel { font-size: 0.65rem; color: var(--silver); letter-spacing: 0.1em; text-transform: uppercase; margin-top: 0.2rem; }
-
-    .divider {
-      border: none;
-      border-top: 1px solid var(--border);
-      margin: 1.5rem 0;
-    }
+    /* Divider */
+    .sep { border: none; border-top: 1px solid var(--border); margin: 2rem 0; }
   </style>
 </head>
 <body>
 
-  <!-- ── LOGIN SCREEN ──────────────────────────────────────────────────── -->
-  <div id="loginScreen">
-    <div class="loginLogo">
-      <div class="logoMark">
-        <span class="logoDS">DS</span>
-      </div>
-      <div class="logoCompany">DS Marketing</div>
+<!-- ══════════════════════════════════════════════════════════════
+     LOGIN
+══════════════════════════════════════════════════════════════ -->
+<div id="loginScreen">
+  <div class="loginWrap">
+
+    <!-- DS Marketing Logomark (SVG replication) -->
+    <div class="dsLogo">
+      <svg class="dsLogoMark" viewBox="0 0 200 165" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <!-- D letterform -->
+        <text x="4" y="130" font-family="'Playfair Display', Georgia, serif" font-size="128" font-weight="900" fill="white" letter-spacing="-8">D</text>
+        <!-- S letterform (overlapping, offset) -->
+        <text x="78" y="130" font-family="'Playfair Display', Georgia, serif" font-size="128" font-weight="900" fill="white" letter-spacing="-8">S</text>
+        <!-- Cutout to create overlap effect -->
+        <rect x="78" y="0" width="38" height="135" fill="black" />
+        <text x="78" y="130" font-family="'Playfair Display', Georgia, serif" font-size="128" font-weight="900" fill="white" letter-spacing="-8">S</text>
+      </svg>
+      <span class="dsLogoSub">Marketing</span>
     </div>
 
-    <div class="loginBox">
-      <label class="loginLabel" for="pinInput">Owner Access Code</label>
+    <h1 class="loginHeading">Client Portal</h1>
+    <p class="loginDesc">Manage your clients, their branding,<br/>and inspection system access.</p>
+
+    <div class="loginField" style="width:100%">
       <div id="loginError" class="loginError"></div>
-      <input type="password" id="pinInput" class="pinInput" placeholder="••••••" autocomplete="off" inputmode="numeric" />
-      <button id="loginBtn" class="loginBtn">Enter Portal</button>
+      <label class="loginFieldLabel" for="pinInput">Owner Access Code</label>
+      <input type="password" id="pinInput" class="loginInput" placeholder="••••••" autocomplete="off" inputmode="numeric" />
     </div>
+
+    <button id="loginBtn" class="loginSubmit">Access Portal</button>
 
     <div class="loginFooter">DS Marketing · Proprietary &amp; Confidential</div>
   </div>
+</div>
 
-  <!-- ── DASHBOARD ─────────────────────────────────────────────────────── -->
-  <div id="dashboard">
-    <div class="topBar">
-      <div class="topBrand">
-        <div class="topLogoMark">DS</div>
-        <div class="topBrandText">
-          <div class="topBrandName">DS Marketing</div>
-          <div class="topBrandSub">Client Management Portal</div>
-        </div>
+<!-- ══════════════════════════════════════════════════════════════
+     DASHBOARD
+══════════════════════════════════════════════════════════════ -->
+<div id="dashboard">
+
+  <!-- Nav -->
+  <nav class="nav">
+    <div class="navBrand">
+      <svg class="navLogoMark" viewBox="0 0 200 165" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <text x="4" y="130" font-family="'Playfair Display', Georgia, serif" font-size="128" font-weight="900" fill="white" letter-spacing="-8">D</text>
+        <rect x="78" y="0" width="38" height="135" fill="black" />
+        <text x="78" y="130" font-family="'Playfair Display', Georgia, serif" font-size="128" font-weight="900" fill="white" letter-spacing="-8">S</text>
+      </svg>
+      <div class="navBrandText">
+        <div class="navBrandName">DS Marketing</div>
+        <div class="navBrandSub">Client Management</div>
       </div>
-      <div class="topActions">
-        <button class="btn btnAccent" id="addBtn">+ New Client</button>
-        <button class="btn btnSecondary" onclick="location.reload()">Refresh</button>
+    </div>
+    <div class="navActions">
+      <button class="btn btnGhost" id="refreshBtn">Refresh</button>
+      <button class="btn btnWhite" id="addBtn">+ New Client</button>
+    </div>
+  </nav>
+
+  <div class="main">
+
+    <!-- Hero -->
+    <div class="hero">
+      <div class="heroEyebrow">DS Marketing · Owner Dashboard</div>
+      <h1 class="heroTitle">Your clients.<br/><em>All in one place.</em></h1>
+      <p class="heroDesc">Create and manage client inspection portals. Each client gets their own branded URL, isolated data, and custom logo.</p>
+    </div>
+
+    <!-- Stats -->
+    <div class="statsRow">
+      <div class="statBlock">
+        <div class="statNum" id="statClients">—</div>
+        <div class="statLbl">Total Clients</div>
+      </div>
+      <div class="statBlock">
+        <div class="statNum" id="statActive">—</div>
+        <div class="statLbl">Active</div>
+      </div>
+      <div class="statBlock">
+        <div class="statNum" id="statToday">—</div>
+        <div class="statLbl">Active Today</div>
       </div>
     </div>
 
-    <div class="main">
-      <!-- Stats -->
-      <div class="statsBar" id="statsBar">
-        <div class="statCard">
-          <div class="statValue" id="statClients">—</div>
-          <div class="statLabel">Total Clients</div>
+    <!-- Add Client Form -->
+    <div id="addForm">
+      <div class="addFormTitle">New Client</div>
+      <form id="addVenueForm">
+        <div id="addError"></div>
+        <div class="addGrid">
+          <label class="addLbl">Client ID (URL slug) *
+            <input class="addInp" id="new-id" placeholder="e.g. hard-rock-stadium" required />
+          </label>
+          <label class="addLbl">Display Name *
+            <input class="addInp" id="new-name" placeholder="Hard Rock Stadium" required />
+          </label>
+          <label class="addLbl">Company Name (shown in their app)
+            <input class="addInp" id="new-companyName" placeholder="Levy Restaurants" />
+          </label>
+          <label class="addLbl">Venue Type
+            <select class="addSel" id="new-type">
+              <option value="stadium">Stadium</option>
+              <option value="arena">Arena</option>
+              <option value="convention">Convention Center</option>
+              <option value="building">Building</option>
+              <option value="other">Other</option>
+            </select>
+          </label>
+          <label class="addLbl">Address
+            <input class="addInp" id="new-address" placeholder="347 Don Shula Dr, Miami Gardens, FL" />
+          </label>
+          <label class="addLbl">Logo URL
+            <input class="addInp" id="new-logoUrl" placeholder="https://… (leave blank for default)" />
+          </label>
+          <label class="addLbl">Primary Color
+            <input class="addInp" id="new-primaryColor" placeholder="#2A295C" />
+          </label>
         </div>
-        <div class="statCard">
-          <div class="statValue" id="statActive">—</div>
-          <div class="statLabel">Active</div>
+        <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+          <button type="submit" class="btn btnWhite">Create Client</button>
+          <button type="button" class="btn btnGhost" onclick="document.getElementById('addForm').style.display='none'">Cancel</button>
         </div>
-        <div class="statCard">
-          <div class="statValue" id="statToday">—</div>
-          <div class="statLabel">Activity Today</div>
-        </div>
-      </div>
-
-      <!-- Add Client Form -->
-      <div id="addForm">
-        <div class="sectionTitle">New Client</div>
-        <form id="addVenueForm">
-          <div id="addError"></div>
-          <div class="addGrid">
-            <label class="addLabel">Client ID (URL slug) *
-              <input class="addInput" id="new-id" placeholder="e.g. hard-rock-stadium" required />
-            </label>
-            <label class="addLabel">Display Name *
-              <input class="addInput" id="new-name" placeholder="Hard Rock Stadium" required />
-            </label>
-            <label class="addLabel">Company Name (shown in app)
-              <input class="addInput" id="new-companyName" placeholder="Levy Restaurants" />
-            </label>
-            <label class="addLabel">Venue Type
-              <select class="addSelect" id="new-type">
-                <option value="stadium">Stadium</option>
-                <option value="arena">Arena</option>
-                <option value="convention">Convention Center</option>
-                <option value="building">Building</option>
-                <option value="other">Other</option>
-              </select>
-            </label>
-            <label class="addLabel">Address
-              <input class="addInput" id="new-address" placeholder="347 Don Shula Dr, Miami Gardens, FL" />
-            </label>
-            <label class="addLabel">Logo URL
-              <input class="addInput" id="new-logoUrl" placeholder="https://… (leave blank for default)" />
-            </label>
-            <label class="addLabel">Primary Color
-              <input class="addInput" id="new-primaryColor" placeholder="#2A295C" />
-            </label>
-          </div>
-          <div style="display:flex;gap:0.5rem;">
-            <button type="submit" class="btn btnPrimary">Create Client</button>
-            <button type="button" class="btn btnSecondary" onclick="document.getElementById('addForm').style.display='none'">Cancel</button>
-          </div>
-        </form>
-      </div>
-
-      <!-- Client List -->
-      <div class="sectionTitle" id="clientsLabel">Clients</div>
-      <div id="venueList"></div>
+      </form>
     </div>
+
+    <!-- Client List -->
+    <div class="sectionHdr">
+      <div class="sectionTitle">Clients</div>
+      <div id="clientCount" style="font-size:0.7rem;color:var(--gray);"></div>
+    </div>
+    <div id="venueList"></div>
+
   </div>
+</div>
 
-  <div id="toast"></div>
+<div id="toast"></div>
 
-  <script type="module">
-    // Update stat cards when venues load
-    const origRender = window.__renderDone;
-    // Stats updater — hooked into the module above via polling
-    const observer = new MutationObserver(() => {
-      const cards = document.querySelectorAll(".clientCard");
-      document.getElementById("statClients").textContent = cards.length;
-      document.getElementById("statActive").textContent =
-        document.querySelectorAll(".statusBadge.active").length;
-    });
-    observer.observe(document.getElementById("venueList"), { childList: true, subtree: true });
-  </script>
+<!-- Firebase -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getFirestore, collection, doc, getDoc, getDocs, setDoc, deleteDoc, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+  const app = initializeApp({
+    apiKey: "AIzaSyDgXvyvFuKUc59IDB8Fr52ydZ0hiJfJeZU",
+    authDomain: "sodexoinspection.firebaseapp.com",
+    projectId: "sodexoinspection",
+    storageBucket: "sodexoinspection.firebasestorage.app",
+    messagingSenderId: "511560917271",
+    appId: "1:511560917271:web:ef71e55659f0088278d752",
+  });
+  const db = getFirestore(app);
+
+  async function sha256(msg) {
+    const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(msg));
+    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, "0")).join("");
+  }
+
+  let venues = [];
+  let venueStats = {};
+  let editingId = null;
+
+  // ── Login ──────────────────────────────────────────────────────────────
+  const loginBtn = document.getElementById("loginBtn");
+  const pinInput = document.getElementById("pinInput");
+  const loginError = document.getElementById("loginError");
+
+  loginBtn.addEventListener("click", doLogin);
+  pinInput.addEventListener("keydown", e => { if (e.key === "Enter") doLogin(); });
+
+  async function doLogin() {
+    loginBtn.disabled = true;
+    loginBtn.textContent = "Verifying…";
+    const entered = pinInput.value.trim();
+    if (!entered) { loginBtn.disabled = false; loginBtn.textContent = "Access Portal"; return; }
+    try {
+      const hash = await sha256(entered);
+      const ownerHash = await sha256("365582");
+      const snap = await getDoc(doc(db, "venues", "default", "users", hash));
+      const isAdmin = snap.exists() && (snap.data().role === "global_admin" || snap.data().role === "admin");
+      if (!isAdmin && hash !== ownerHash) throw new Error("deny");
+      document.getElementById("loginScreen").style.display = "none";
+      document.getElementById("dashboard").style.display = "block";
+      loadVenues();
+    } catch {
+      loginError.textContent = "Access denied. Owner credentials required.";
+      loginError.style.display = "block";
+      loginBtn.disabled = false;
+      loginBtn.textContent = "Access Portal";
+      pinInput.value = "";
+      pinInput.focus();
+    }
+  }
+
+  // ── Load ───────────────────────────────────────────────────────────────
+  document.getElementById("refreshBtn").addEventListener("click", loadVenues);
+
+  async function loadVenues() {
+    document.getElementById("venueList").innerHTML = `<div class="loading">Loading clients…</div>`;
+    try {
+      const snap = await getDocs(collection(db, "venueRegistry"));
+      venues = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      venues.sort((a, b) => (a.name || a.id).localeCompare(b.name || b.id));
+
+      // Parallel stats fetch
+      const today = new Date().toISOString().slice(0, 10);
+      const counts = await Promise.all(venues.map(v =>
+        getDocs(query(collection(db, "venues", v.id, "inspections"), orderBy("savedAt", "desc"), limit(10)))
+          .then(s => ({ id: v.id, count: s.size, last: s.docs[0]?.data()?.savedAt?.slice(0, 10) || "" }))
+          .catch(() => ({ id: v.id, count: 0, last: "" }))
+      ));
+      venueStats = Object.fromEntries(counts.map(c => [c.id, c]));
+
+      // Update stats bar
+      const active = venues.filter(v => v.status !== "inactive").length;
+      const todayActive = counts.filter(c => c.last === today).length;
+      document.getElementById("statClients").textContent = venues.length;
+      document.getElementById("statActive").textContent = active;
+      document.getElementById("statToday").textContent = todayActive;
+      document.getElementById("clientCount").textContent = venues.length + " client" + (venues.length !== 1 ? "s" : "");
+
+      renderVenues();
+    } catch (e) {
+      document.getElementById("venueList").innerHTML = `<div class="empty">Failed to load: ${e.message}</div>`;
+    }
+  }
+
+  // ── Render ─────────────────────────────────────────────────────────────
+  function renderVenues() {
+    if (!venues.length) {
+      document.getElementById("venueList").innerHTML = `<div class="empty">No clients yet.<br/>Click <strong>+ New Client</strong> to add your first one.</div>`;
+      return;
+    }
+
+    document.getElementById("venueList").innerHTML = venues.map(v => {
+      const s = venueStats[v.id] || {};
+      const url = `${location.origin}/Claude/?v=${v.id}`;
+      const initial = (v.companyName || v.name || v.id)[0].toUpperCase();
+      const isActive = v.status !== "inactive";
+
+      const avatarHtml = v.logoUrl
+        ? `<img src="${esc(v.logoUrl)}" alt="" onerror="this.parentElement.textContent='${initial}'" />`
+        : initial;
+
+      if (editingId === v.id) {
+        return `
+          <div class="clientCard" id="card-${v.id}">
+            <div class="clientRow">
+              <div class="clientAvatar">${avatarHtml}</div>
+              <div class="clientInfo">
+                <div class="clientName">${esc(v.companyName || v.name || v.id)}</div>
+                <div class="clientMeta"><code>${esc(v.id)}</code></div>
+              </div>
+              <div class="clientRowActions">
+                <button class="btn btnGhost" data-cancel>Cancel</button>
+              </div>
+            </div>
+            <div class="editPanel">
+              <div class="editGrid">
+                <label class="editLbl">Display Name<input class="editInp" id="e-name" value="${esc(v.name||'')}" placeholder="Hard Rock Stadium" /></label>
+                <label class="editLbl">Company Name (shown in app)<input class="editInp" id="e-company" value="${esc(v.companyName||'')}" placeholder="Levy Restaurants" /></label>
+                <label class="editLbl">Address<input class="editInp" id="e-address" value="${esc(v.address||'')}" placeholder="Address" /></label>
+                <label class="editLbl">Logo URL<input class="editInp" id="e-logo" value="${esc(v.logoUrl||'')}" placeholder="https://…" /></label>
+                <label class="editLbl">Primary Color<input class="editInp" id="e-color" value="${esc(v.primaryColor||'')}" placeholder="#2A295C" /></label>
+                <label class="editLbl">Status
+                  <select class="editSel" id="e-status">
+                    <option value="active" ${isActive?'selected':''}>Active</option>
+                    <option value="inactive" ${!isActive?'selected':''}>Inactive</option>
+                  </select>
+                </label>
+              </div>
+              <div class="editActions">
+                <button class="btn btnWhite" data-save="${v.id}">Save Changes</button>
+                <button class="btn btnGhost" data-cancel>Cancel</button>
+                <button class="btn btnDanger" data-delete="${v.id}" data-name="${esc(v.name||v.id)}" style="margin-left:auto;">Remove</button>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+
+      return `
+        <div class="clientCard" id="card-${v.id}">
+          <div class="clientRow">
+            <div class="clientAvatar">${avatarHtml}</div>
+            <div class="clientInfo">
+              <div class="clientName">${esc(v.companyName || v.name || v.id)}</div>
+              <div class="clientMeta">${esc(v.name||v.id)} · <code>${esc(v.id)}</code>${s.last ? ` · Last: ${s.last}` : ""}</div>
+            </div>
+            <span class="clientBadge ${isActive ? 'active' : 'inactive'}">${isActive ? 'Active' : 'Inactive'}</span>
+            <div class="clientRowActions">
+              <a href="${url}" target="_blank" class="clientLink">Open ↗</a>
+              <button class="btn btnGhost" data-edit="${v.id}">Edit</button>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join("");
+
+    // Bind events
+    document.querySelectorAll("[data-edit]").forEach(el =>
+      el.addEventListener("click", () => { editingId = el.dataset.edit; renderVenues(); })
+    );
+    document.querySelectorAll("[data-cancel]").forEach(el =>
+      el.addEventListener("click", () => { editingId = null; renderVenues(); })
+    );
+    document.querySelectorAll("[data-save]").forEach(el =>
+      el.addEventListener("click", () => handleSave(el.dataset.save))
+    );
+    document.querySelectorAll("[data-delete]").forEach(el =>
+      el.addEventListener("click", () => handleDelete(el.dataset.delete, el.dataset.name))
+    );
+  }
+
+  // ── Save edit ──────────────────────────────────────────────────────────
+  async function handleSave(id) {
+    const name = document.getElementById("e-name")?.value.trim() || "";
+    const companyName = document.getElementById("e-company")?.value.trim() || name;
+    const address = document.getElementById("e-address")?.value.trim() || "";
+    const logoUrl = document.getElementById("e-logo")?.value.trim() || "";
+    const primaryColor = document.getElementById("e-color")?.value.trim() || "";
+    const status = document.getElementById("e-status")?.value || "active";
+
+    try {
+      await setDoc(doc(db, "venueRegistry", id), { name, companyName, address, logoUrl, primaryColor, status }, { merge: true });
+      await setDoc(doc(db, "venues", id, "sharedMemory", "venueSettings"), { companyName, logoUrl, primaryColor, _updatedAt: new Date().toISOString() }, { merge: true });
+      venues = venues.map(v => v.id === id ? { ...v, name, companyName, address, logoUrl, primaryColor, status } : v);
+      editingId = null;
+      showToast("Saved");
+      renderVenues();
+    } catch (err) { showToast("Error: " + err.message, true); }
+  }
+
+  // ── Delete ─────────────────────────────────────────────────────────────
+  async function handleDelete(id, name) {
+    if (!confirm(`Remove "${name}" from your portal?\n\nInspection data in Firestore is NOT deleted.`)) return;
+    if (!confirm(`Confirm: remove "${name}"?`)) return;
+    try {
+      await deleteDoc(doc(db, "venueRegistry", id));
+      venues = venues.filter(v => v.id !== id);
+      editingId = null;
+      showToast("Removed");
+      renderVenues();
+      document.getElementById("statClients").textContent = venues.length;
+    } catch (err) { showToast("Error: " + err.message, true); }
+  }
+
+  // ── Add venue ──────────────────────────────────────────────────────────
+  document.getElementById("addBtn").addEventListener("click", () => {
+    const f = document.getElementById("addForm");
+    f.style.display = f.style.display === "none" ? "block" : "none";
+  });
+
+  document.getElementById("addVenueForm").addEventListener("submit", async e => {
+    e.preventDefault();
+    document.getElementById("addError").style.display = "none";
+    const slug = document.getElementById("new-id").value.trim().toLowerCase().replace(/[^a-z0-9_-]/g, "");
+    const name = document.getElementById("new-name").value.trim();
+    const companyName = document.getElementById("new-companyName").value.trim() || name;
+    const address = document.getElementById("new-address").value.trim();
+    const logoUrl = document.getElementById("new-logoUrl").value.trim();
+    const primaryColor = document.getElementById("new-primaryColor").value.trim();
+    const type = document.getElementById("new-type").value;
+
+    if (!slug) { showAddErr("Enter a valid client ID (letters, numbers, hyphens)."); return; }
+    if (!name) { showAddErr("Enter a display name."); return; }
+    if (venues.find(v => v.id === slug)) { showAddErr("A client with that ID already exists."); return; }
+
+    const btn = e.target.querySelector("[type=submit]");
+    btn.disabled = true; btn.textContent = "Creating…";
+
+    try {
+      const data = { name, companyName, address, logoUrl, primaryColor, type, status: "active", createdAt: new Date().toISOString(), createdBy: "DSMarketing" };
+      await setDoc(doc(db, "venueRegistry", slug), data);
+      await setDoc(doc(db, "venues", slug, "sharedMemory", "venueSettings"), { companyName, logoUrl, primaryColor, _updatedAt: new Date().toISOString() }, { merge: true });
+      venues.push({ id: slug, ...data });
+      venues.sort((a, b) => (a.name||a.id).localeCompare(b.name||b.id));
+      document.getElementById("addForm").style.display = "none";
+      e.target.reset();
+      showToast("Client created · " + location.origin + "/Claude/?v=" + slug);
+      document.getElementById("statClients").textContent = venues.length;
+      renderVenues();
+    } catch (err) {
+      showAddErr("Error: " + err.message);
+    } finally {
+      btn.disabled = false; btn.textContent = "Create Client";
+    }
+  });
+
+  function showAddErr(msg) {
+    const el = document.getElementById("addError");
+    el.textContent = msg; el.style.display = "block";
+  }
+
+  function showToast(msg, isErr = false) {
+    const t = document.getElementById("toast");
+    t.textContent = msg;
+    t.style.background = isErr ? "#dc2626" : "#111";
+    t.style.display = "block"; t.style.opacity = "1";
+    setTimeout(() => { t.style.opacity = "0"; setTimeout(() => { t.style.display = "none"; }, 400); }, 3200);
+  }
+
+  function esc(s) {
+    return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+  }
+
+  // Stats observer
+  new MutationObserver(() => {
+    const active = document.querySelectorAll(".clientBadge.active").length;
+    document.getElementById("statActive").textContent = active;
+  }).observe(document.getElementById("venueList"), { childList: true, subtree: true });
+</script>
+
 </body>
 </html>
