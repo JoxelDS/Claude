@@ -9224,6 +9224,8 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                   type: "inspection",
                   date: rec.savedAt || rec.inspectionDate || "",
                   label: rec.siteName || rec.location || "Inspection",
+                  siteNumber: rec.siteNumber || "",
+                  locationType: rec.locationType || "",
                   sub: rec.inspectorName || "",
                   status: (() => { try { return calcOverallStatus(rec.inspection, { foodTemps: rec.foodTemps, foodTempNames: rec.foodTempNames }); } catch { return "—"; } })(),
                   id: rec.id,
@@ -9290,8 +9292,13 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                           }}>
                             <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                               <span style={{ fontSize: "0.78rem", fontWeight: 700, color: ev.type === "inspection" ? "#374151" : "#0369a1" }}>
-                                {ev.type === "inspection" ? "📋" : "🌡️"} {ev.label}
+                                {ev.type === "inspection" ? "📋" : "🌡️"} {ev.label}{ev.siteNumber ? ` #${ev.siteNumber}` : ""}
                               </span>
+                              {ev.locationType && (
+                                <span style={{ fontSize: "0.66rem", fontWeight: 600, padding: "1px 6px", borderRadius: 6, background: "#f1f5f9", color: "#475569", border: "1px solid #e2e8f0" }}>
+                                  {ev.locationType}
+                                </span>
+                              )}
                               {ev.type === "inspection" && ev.status && (
                                 <span style={{
                                   fontSize: "0.68rem", fontWeight: 700, padding: "1px 6px", borderRadius: 6,
