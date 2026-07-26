@@ -1506,6 +1506,26 @@ async function setAsLocationManager(badgeHash, assignedLocation) {
   if (u) { u.role = "location_manager"; u.assignedLocation = assignedLocation; await saveOneUser(u); }
 }
 
+async function changeBadgeNumber(oldBadgeHash, newBadge) {
+  const newBadge_ = String(newBadge).trim();
+  if (!newBadge_) return { ok: false, reason: "empty" };
+  const newHash = await hashBadge(newBadge_);
+  if (newHash === oldBadgeHash) return { ok: false, reason: "same" };
+  const users = await getUsers();
+  if (users.find(u => u.badgeHash === newHash)) return { ok: false, reason: "exists" };
+  const u = users.find(x => x.badgeHash === oldBadgeHash);
+  if (!u) return { ok: false, reason: "not_found" };
+  // Delete the old record and save a new one with updated hash + display
+  await deleteOneUser(oldBadgeHash);
+  const updated = {
+    ...u,
+    badgeHash: newHash,
+    badgeDisplay: newBadge_.length > 4 ? "••••" + newBadge_.slice(-4) : newBadge_,
+  };
+  await saveOneUser(updated);
+  return { ok: true };
+}
+
 async function demoteToInspectorFromManager(badgeHash) {
   const users = await getUsers();
   const u = users.find(x => x.badgeHash === badgeHash);
@@ -15889,6 +15909,8 @@ function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVe
   const [addLoading, setAddLoading] = useState(false);
   const [editingManagerLoc, setEditingManagerLoc] = useState(null); // { badgeHash, value }
   const [editingStands, setEditingStands] = useState(null); // { badgeHash, value (comma-sep string) }
+  const [editingBadge, setEditingBadge] = useState(null); // { badgeHash, value }
+  const [badgeChangeError, setBadgeChangeError] = useState("");
   const [removeError, setRemoveError] = useState("");
   const [intervalInput, setIntervalInput] = useState(() => String(venueSettings?.inspectionInterval || ""));
   const [intervalSaved, setIntervalSaved] = useState(false);
@@ -15922,6 +15944,18 @@ function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVe
   async function handleSetManager(badgeHash, location) {
     await setAsLocationManager(badgeHash, location);
     setEditingManagerLoc(null);
+    await refresh();
+  }
+
+  async function handleChangeBadge(oldHash, newBadge) {
+    setBadgeChangeError("");
+    const result = await changeBadgeNumber(oldHash, newBadge);
+    if (!result.ok) {
+      const msgs = { empty: "Please enter a badge number.", same: "That is the same badge number.", exists: "That badge number is already registered.", not_found: "User not found." };
+      setBadgeChangeError(msgs[result.reason] || "Could not change badge.");
+      return;
+    }
+    setEditingBadge(null);
     await refresh();
   }
 
@@ -16486,21 +16520,50 @@ function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVe
                       )}
                     </div>
                   )}
+                  {editingBadge?.badgeHash === u.badgeHash && (
+                    <div style={{ flexBasis: "100%", display: "flex", flexDirection: "column", gap: 6 }}>
+                      <div style={{ fontSize: "0.78rem", color: "#475569", fontWeight: 600 }}>
+                        Enter new badge number for {u.name}
+                      </div>
+                      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                        <input
+                          className="input"
+                          style={{ flex: 1, fontSize: "0.85rem" }}
+                          type="password"
+                          autoComplete="off"
+                          placeholder="New badge number"
+                          value={editingBadge.value}
+                          onChange={e => { setEditingBadge({ ...editingBadge, value: e.target.value }); setBadgeChangeError(""); }}
+                          autoFocus
+                        />
+                        <button className="btn btnPrimary btnSmall" disabled={!editingBadge.value.trim()} onClick={() => handleChangeBadge(u.badgeHash, editingBadge.value)}>Save</button>
+                        <button className="btn btnGhost btnSmall" onClick={() => { setEditingBadge(null); setBadgeChangeError(""); }}>Cancel</button>
+                      </div>
+                      {badgeChangeError && <div style={{ color: "#dc2626", fontSize: "0.8rem" }}>{badgeChangeError}</div>}
+                    </div>
+                  )}
                   <div className="adminUserActions">
-                    {u.role === "inspector" && !isEditingLoc && !isEditingStandsRow && (
+                    {!isEditingLoc && !isEditingStandsRow && !editingBadge && (
                       <>
-                        <button className="btn btnGhost btnSmall" onClick={() => handlePromote(u.badgeHash)}>Make Admin</button>
-                        <button className="btn btnGhost btnSmall" onClick={() => setEditingManagerLoc({ badgeHash: u.badgeHash, value: "" })} title="Make them a location manager">📍 Manager</button>
-                        <button className="btn btnGhost btnSmall" onClick={() => setEditingStands({ badgeHash: u.badgeHash, value: assignedStands.join(", ") })} title="Assign stands/locations to this inspector">
-                          {assignedStands.length > 0 ? `Stands (${assignedStands.length})` : "Assign Stands"}
-                        </button>
+                        {u.role === "inspector" && (
+                          <>
+                            <button className="btn btnGhost btnSmall" onClick={() => handlePromote(u.badgeHash)}>Make Admin</button>
+                            <button className="btn btnGhost btnSmall" onClick={() => setEditingManagerLoc({ badgeHash: u.badgeHash, value: "" })} title="Make them a location manager">📍 Manager</button>
+                            <button className="btn btnGhost btnSmall" onClick={() => setEditingStands({ badgeHash: u.badgeHash, value: assignedStands.join(", ") })} title="Assign stands/locations to this inspector">
+                              {assignedStands.length > 0 ? `Stands (${assignedStands.length})` : "Assign Stands"}
+                            </button>
+                          </>
+                        )}
+                        {u.role === "admin" && !isOnlyAdmin && !isSelf && (
+                          <button className="btn btnGhost btnSmall" onClick={() => handleDemote(u.badgeHash)}>Remove Admin</button>
+                        )}
+                        {!isSelf && (
+                          <button className="btn btnGhost btnSmall" onClick={() => { setEditingBadge({ badgeHash: u.badgeHash, value: "" }); setBadgeChangeError(""); }} title="Change this user's badge number">🔑 Badge</button>
+                        )}
+                        {!isSelf && (
+                          <button className="btn btnGhost btnSmall adminDenyBtn" onClick={() => handleRemove(u.badgeHash)}>Remove</button>
+                        )}
                       </>
-                    )}
-                    {u.role === "admin" && !isOnlyAdmin && !isSelf && (
-                      <button className="btn btnGhost btnSmall" onClick={() => handleDemote(u.badgeHash)}>Remove Admin</button>
-                    )}
-                    {!isSelf && (
-                      <button className="btn btnGhost btnSmall adminDenyBtn" onClick={() => handleRemove(u.badgeHash)}>Remove</button>
                     )}
                   </div>
                 </div>
