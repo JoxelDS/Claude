@@ -401,15 +401,21 @@
   <div class="gridOverlay"></div>
   <div class="loginWrap">
     <div class="dsLogo">
-      <svg class="dsLogoMark" viewBox="0 0 260 280" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <!-- Step 1: S behind D (drawn first, lower) -->
-        <text x="88" y="262" font-family="'Playfair Display', Georgia, serif" font-size="210" font-weight="900" fill="white">S</text>
-        <!-- Step 2: Black mask — hides top of S where D overlaps (makes D appear in front there) -->
-        <rect x="88" y="0" width="44" height="152" fill="black" />
-        <!-- Step 3: D drawn on top -->
-        <text x="-2" y="200" font-family="'Playfair Display', Georgia, serif" font-size="210" font-weight="900" fill="white">D</text>
-        <!-- MARKETING between letters at mid-height -->
-        <text x="156" y="148" font-family="'Inter', Arial, sans-serif" font-size="14" font-weight="700" fill="white" letter-spacing="6" text-anchor="middle">MARKETING</text>
+      <svg class="dsLogoMark" viewBox="0 0 460 400" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <!-- D glyph as clipPath to cut out from S where D sits on top -->
+          <clipPath id="dCut">
+            <rect x="0" y="0" width="215" height="295" />
+          </clipPath>
+        </defs>
+        <!-- S drawn first (behind), clipped so top-left is hidden under D -->
+        <text x="158" y="390" font-family="'Playfair Display', Georgia, serif" font-size="330" font-weight="900" fill="white" clip-path="url(#dCut)" style="clip-path:none">S</text>
+        <!-- Black block hides the part of S that D will cover -->
+        <rect x="155" y="0" width="62" height="200" fill="black" />
+        <!-- D drawn on top (in front) -->
+        <text x="-5" y="282" font-family="'Playfair Display', Georgia, serif" font-size="330" font-weight="900" fill="white">D</text>
+        <!-- MARKETING centered in the overlap zone -->
+        <text x="272" y="192" font-family="'Inter', Arial, sans-serif" font-size="15" font-weight="700" fill="white" letter-spacing="8" text-anchor="middle">MARKETING</text>
       </svg>
     </div>
     <div class="loginDivider"></div>
@@ -431,10 +437,10 @@
   <!-- NAV -->
   <nav class="nav">
     <div class="navBrand">
-      <svg class="navLogoMark" viewBox="0 0 260 280" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <text x="88" y="262" font-family="'Playfair Display', Georgia, serif" font-size="210" font-weight="900" fill="white">S</text>
-        <rect x="88" y="0" width="44" height="152" fill="black" />
-        <text x="-2" y="200" font-family="'Playfair Display', Georgia, serif" font-size="210" font-weight="900" fill="white">D</text>
+      <svg class="navLogoMark" viewBox="0 0 460 400" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <text x="158" y="390" font-family="'Playfair Display', Georgia, serif" font-size="330" font-weight="900" fill="white">S</text>
+        <rect x="155" y="0" width="62" height="200" fill="black" />
+        <text x="-5" y="282" font-family="'Playfair Display', Georgia, serif" font-size="330" font-weight="900" fill="white">D</text>
       </svg>
       <div class="navBrandText">
         <div class="navBrandName">DS Marketing</div>
@@ -758,7 +764,12 @@
   function renderClients() {
     const list = document.getElementById("clientList");
     if(!clients.length) {
-      list.innerHTML=`<div class="empty">No clients yet.<br/>Click <strong>+ New Client</strong> to add your first one.</div>`;
+      list.innerHTML=`<div class="empty" style="padding:3rem 1rem;text-align:center;">
+        <div style="font-size:2.5rem;margin-bottom:1rem;">🏢</div>
+        <div style="font-size:1.1rem;font-weight:700;color:#fff;margin-bottom:.5rem;">No clients yet</div>
+        <div style="color:#888;margin-bottom:1.5rem;">Add your clients (e.g. Sodexo) and then link their venues to each client.</div>
+        <button onclick="document.getElementById('addClientBtn').click()" style="background:#fff;color:#000;border:none;padding:.75rem 2rem;font-weight:700;font-size:.9rem;letter-spacing:.08em;cursor:pointer;border-radius:4px;">+ NEW CLIENT</button>
+      </div>`;
       return;
     }
     list.innerHTML = clients.map(c => {
