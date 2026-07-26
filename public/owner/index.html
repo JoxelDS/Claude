@@ -400,20 +400,20 @@
   <div class="gridOverlay"></div>
   <div class="loginWrap">
     <div class="dsLogo">
-      <svg class="dsLogoMark" viewBox="0 0 220 160" xmlns="http://www.w3.org/2000/svg">
+      <svg class="dsLogoMark" viewBox="0 0 260 180" xmlns="http://www.w3.org/2000/svg">
         <defs>
-          <mask id="sMaskLogin">
-            <rect width="220" height="160" fill="white"/>
-            <!-- hide S where D sits on top -->
-            <rect x="0" y="0" width="118" height="160" fill="black"/>
+          <mask id="sm">
+            <rect width="260" height="180" fill="white"/>
+            <!-- Use the D glyph itself as the cutout — perfect organic overlap -->
+            <text x="-4" y="148" font-family="'Playfair Display',Georgia,serif" font-size="155" font-weight="900" fill="black">D</text>
           </mask>
         </defs>
-        <!-- S: same baseline as D, shifted right so they overlap -->
-        <text x="90" y="138" font-family="'Playfair Display',Georgia,serif" font-size="130" font-weight="900" fill="white" mask="url(#sMaskLogin)">S</text>
-        <!-- D: same baseline -->
-        <text x="-4" y="138" font-family="'Playfair Display',Georgia,serif" font-size="130" font-weight="900" fill="white">D</text>
-        <!-- MARKETING between the letters at midheight -->
-        <text x="130" y="85" font-family="'Inter',Arial,sans-serif" font-size="11" font-weight="700" fill="white" letter-spacing="5" text-anchor="middle">MARKETING</text>
+        <!-- S: same baseline as D -->
+        <text x="68" y="148" font-family="'Playfair Display',Georgia,serif" font-size="155" font-weight="900" fill="white" mask="url(#sm)">S</text>
+        <!-- D: in front -->
+        <text x="-4" y="148" font-family="'Playfair Display',Georgia,serif" font-size="155" font-weight="900" fill="white">D</text>
+        <!-- MARKETING: thin spaced sans, centered between overlap zone and S right edge -->
+        <text x="133" y="92" font-family="'Inter',Arial,sans-serif" font-size="10.5" font-weight="400" fill="white" letter-spacing="5" text-anchor="middle">MARKETING</text>
       </svg>
     </div>
     <div class="loginDivider"></div>
@@ -435,10 +435,15 @@
   <!-- NAV -->
   <nav class="nav">
     <div class="navBrand">
-      <svg style="width:44px;height:32px;flex-shrink:0" viewBox="0 0 110 80" xmlns="http://www.w3.org/2000/svg">
-        <defs><mask id="nm"><rect width="110" height="80" fill="white"/><rect x="0" y="0" width="59" height="80" fill="black"/></mask></defs>
-        <text x="45" y="69" font-family="'Playfair Display',Georgia,serif" font-size="65" font-weight="900" fill="white" mask="url(#nm)">S</text>
-        <text x="-2" y="69" font-family="'Playfair Display',Georgia,serif" font-size="65" font-weight="900" fill="white">D</text>
+      <svg style="width:44px;height:30px;flex-shrink:0" viewBox="0 0 260 180" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <mask id="nm">
+            <rect width="260" height="180" fill="white"/>
+            <text x="-4" y="148" font-family="'Playfair Display',Georgia,serif" font-size="155" font-weight="900" fill="black">D</text>
+          </mask>
+        </defs>
+        <text x="68" y="148" font-family="'Playfair Display',Georgia,serif" font-size="155" font-weight="900" fill="white" mask="url(#nm)">S</text>
+        <text x="-4" y="148" font-family="'Playfair Display',Georgia,serif" font-size="155" font-weight="900" fill="white">D</text>
       </svg>
       <div class="navBrandText">
         <div class="navBrandName">DS Marketing</div>
