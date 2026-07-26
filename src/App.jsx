@@ -1112,7 +1112,9 @@ async function loadVenueRegistry() {
   if (!FIREBASE_ON) return [];
   try {
     const snap = await getDocs(venueRegistryCol());
-    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    return snap.docs
+      .map(d => ({ id: d.id, ...d.data() }))
+      .filter(d => d._type !== "client");
   } catch { return []; }
 }
 
