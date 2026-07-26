@@ -6,22 +6,25 @@
   <title>DS Marketing — Client Portal</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Playfair+Display:wght@700;900&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,300;1,400&family=Playfair+Display:ital,wght@0,700;0,900;1,700;1,900&display=swap" rel="stylesheet" />
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23000'/><text y='78' x='8' font-size='72' font-family='Georgia,serif' font-weight='900' fill='white'>DS</text></svg>" />
 
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --black:  #000000;
-      --dark:   #0a0a0a;
-      --panel:  #111111;
-      --border: #1e1e1e;
-      --mid:    #2a2a2a;
-      --white:  #ffffff;
-      --gray:   #666666;
-      --lgray:  #999999;
-      --accent: #c8a96e;
+      --black:   #000000;
+      --dark:    #080808;
+      --panel:   #0f0f0f;
+      --panel2:  #141414;
+      --border:  #1a1a1a;
+      --mid:     #2a2a2a;
+      --white:   #ffffff;
+      --gray:    #555555;
+      --lgray:   #888888;
+      --accent:  #c8a96e;
+      --accent2: #e8c98e;
+      --glow:    rgba(200,169,110,0.18);
     }
 
     html { scroll-behavior: smooth; }
@@ -32,11 +35,53 @@
       color: var(--white);
       min-height: 100vh;
       -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+      cursor: none;
     }
 
-    /* ═══════════════════════════════════════════════════════════
-       LOGIN
-    ═══════════════════════════════════════════════════════════ */
+    /* ══════════════════════════════════════════════
+       CUSTOM CURSOR
+    ══════════════════════════════════════════════ */
+    #cursor {
+      position: fixed;
+      width: 8px; height: 8px;
+      background: var(--accent);
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 9999;
+      transform: translate(-50%,-50%);
+      transition: width 0.2s, height 0.2s, background 0.2s, opacity 0.2s;
+      mix-blend-mode: normal;
+    }
+    #cursorRing {
+      position: fixed;
+      width: 36px; height: 36px;
+      border: 1px solid rgba(200,169,110,0.5);
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 9998;
+      transform: translate(-50%,-50%);
+      transition: width 0.35s cubic-bezier(.25,.46,.45,.94),
+                  height 0.35s cubic-bezier(.25,.46,.45,.94),
+                  border-color 0.3s, opacity 0.3s;
+    }
+    body:hover #cursor { opacity: 1; }
+    body a:hover ~ #cursor, body button:hover ~ #cursor { width: 14px; height: 14px; }
+
+    /* ══════════════════════════════════════════════
+       PARTICLE CANVAS
+    ══════════════════════════════════════════════ */
+    #particles {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0.55;
+    }
+
+    /* ══════════════════════════════════════════════
+       LOGIN SCREEN
+    ══════════════════════════════════════════════ */
     #loginScreen {
       display: flex;
       flex-direction: column;
@@ -46,17 +91,36 @@
       padding: 2rem;
       position: relative;
       overflow: hidden;
+      background: var(--black);
     }
 
-    /* Subtle noise / grid texture */
-    #loginScreen::before {
+    /* Radial glow behind logo */
+    #loginScreen::after {
       content: "";
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -60%);
+      width: 600px;
+      height: 600px;
+      background: radial-gradient(circle, rgba(200,169,110,0.06) 0%, transparent 70%);
+      pointer-events: none;
+      animation: breathe 6s ease-in-out infinite;
+    }
+
+    @keyframes breathe {
+      0%, 100% { transform: translate(-50%,-60%) scale(1); opacity: 0.6; }
+      50% { transform: translate(-50%,-60%) scale(1.15); opacity: 1; }
+    }
+
+    /* Subtle grid */
+    .gridOverlay {
       position: absolute;
       inset: 0;
       background-image:
-        linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px);
-      background-size: 60px 60px;
+        linear-gradient(rgba(255,255,255,0.018) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.018) 1px, transparent 1px);
+      background-size: 72px 72px;
       pointer-events: none;
     }
 
@@ -64,139 +128,227 @@
       position: relative;
       z-index: 1;
       width: 100%;
-      max-width: 400px;
+      max-width: 380px;
       display: flex;
       flex-direction: column;
       align-items: center;
     }
 
-    /* ── DS Logo SVG mark ── */
+    /* ── DS Logomark ── */
     .dsLogo {
-      margin-bottom: 2.5rem;
+      margin-bottom: 3rem;
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 0.35rem;
+      gap: 0.6rem;
+      animation: logoEntrance 1.2s cubic-bezier(.22,1,.36,1) both;
+    }
+
+    @keyframes logoEntrance {
+      from { opacity: 0; transform: translateY(-20px) scale(0.92); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
     }
 
     .dsLogoMark {
-      width: 120px;
-      height: 100px;
+      width: 110px;
+      height: 90px;
+      filter: drop-shadow(0 0 28px rgba(200,169,110,0.22));
+      transition: filter 0.4s;
+    }
+
+    .dsLogoMark:hover {
+      filter: drop-shadow(0 0 44px rgba(200,169,110,0.42));
     }
 
     .dsLogoSub {
       font-family: "Inter", sans-serif;
-      font-size: 0.6rem;
-      font-weight: 600;
-      letter-spacing: 0.45em;
+      font-size: 0.52rem;
+      font-weight: 700;
+      letter-spacing: 0.55em;
       color: var(--lgray);
       text-transform: uppercase;
     }
 
-    /* Login form */
+    /* Animated divider line */
+    .loginDivider {
+      width: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--accent), transparent);
+      margin-bottom: 2rem;
+      animation: lineExpand 1s cubic-bezier(.22,1,.36,1) 0.5s both;
+    }
+    @keyframes lineExpand {
+      from { width: 0; opacity: 0; }
+      to   { width: 100%; opacity: 1; }
+    }
+
     .loginHeading {
-      font-size: 1.5rem;
+      font-size: 1.35rem;
       font-weight: 800;
-      letter-spacing: -0.02em;
+      letter-spacing: -0.025em;
       color: var(--white);
-      margin-bottom: 0.35rem;
+      margin-bottom: 0.3rem;
       text-align: center;
+      animation: fadeUp 0.9s cubic-bezier(.22,1,.36,1) 0.3s both;
     }
 
     .loginDesc {
-      font-size: 0.82rem;
+      font-size: 0.78rem;
       color: var(--gray);
       text-align: center;
-      margin-bottom: 2rem;
-      line-height: 1.5;
+      margin-bottom: 2.25rem;
+      line-height: 1.6;
+      animation: fadeUp 0.9s cubic-bezier(.22,1,.36,1) 0.4s both;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(14px); }
+      to   { opacity: 1; transform: translateY(0); }
     }
 
     .loginField {
       width: 100%;
       margin-bottom: 0.75rem;
+      animation: fadeUp 0.9s cubic-bezier(.22,1,.36,1) 0.5s both;
     }
 
     .loginFieldLabel {
-      font-size: 0.68rem;
-      font-weight: 600;
-      letter-spacing: 0.14em;
+      font-size: 0.6rem;
+      font-weight: 700;
+      letter-spacing: 0.18em;
       text-transform: uppercase;
       color: var(--lgray);
       display: block;
-      margin-bottom: 0.4rem;
+      margin-bottom: 0.45rem;
     }
 
     .loginInput {
       width: 100%;
-      background: var(--panel);
+      background: rgba(255,255,255,0.03);
       border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 0.85rem 1rem;
+      border-radius: 10px;
+      padding: 0.9rem 1.1rem;
       color: var(--white);
-      font-size: 1rem;
-      letter-spacing: 0.2em;
+      font-size: 1.1rem;
+      letter-spacing: 0.15em;
       outline: none;
       font-family: "Inter", monospace;
-      transition: border-color 0.2s;
+      transition: border-color 0.25s, background 0.25s, box-shadow 0.25s;
     }
 
-    .loginInput:focus { border-color: rgba(255,255,255,0.3); }
+    .loginInput:focus {
+      border-color: rgba(200,169,110,0.4);
+      background: rgba(200,169,110,0.04);
+      box-shadow: 0 0 0 3px rgba(200,169,110,0.08), inset 0 0 0 1px rgba(200,169,110,0.15);
+    }
 
     .loginSubmit {
       width: 100%;
       background: var(--white);
       color: var(--black);
       border: none;
-      border-radius: 8px;
-      padding: 0.9rem;
-      font-size: 0.82rem;
+      border-radius: 10px;
+      padding: 0.95rem;
+      font-size: 0.75rem;
       font-weight: 800;
-      letter-spacing: 0.12em;
+      letter-spacing: 0.18em;
       text-transform: uppercase;
-      cursor: pointer;
-      transition: background 0.2s, color 0.2s;
+      cursor: none;
+      transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
       margin-top: 0.25rem;
+      position: relative;
+      overflow: hidden;
+      animation: fadeUp 0.9s cubic-bezier(.22,1,.36,1) 0.6s both;
     }
 
-    .loginSubmit:hover { background: #e5e5e5; }
-    .loginSubmit:disabled { opacity: 0.45; cursor: default; }
+    .loginSubmit::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.35) 50%, transparent 100%);
+      transform: translateX(-100%);
+      transition: transform 0s;
+    }
+
+    .loginSubmit:hover::after {
+      animation: shimmerBtn 0.7s ease;
+    }
+
+    @keyframes shimmerBtn {
+      from { transform: translateX(-100%); }
+      to   { transform: translateX(100%); }
+    }
+
+    .loginSubmit:hover { background: #f0f0f0; transform: translateY(-1px); box-shadow: 0 8px 30px rgba(255,255,255,0.12); }
+    .loginSubmit:active { transform: translateY(0); }
+    .loginSubmit:disabled { opacity: 0.4; cursor: default; transform: none; box-shadow: none; }
 
     .loginError {
       display: none;
       width: 100%;
-      background: #130404;
+      background: rgba(248,113,113,0.06);
       color: #f87171;
-      border: 1px solid #2a0808;
+      border: 1px solid rgba(248,113,113,0.2);
       border-radius: 8px;
       padding: 0.65rem 1rem;
-      font-size: 0.78rem;
+      font-size: 0.75rem;
       margin-bottom: 0.75rem;
       text-align: center;
+      animation: shake 0.4s cubic-bezier(.36,.07,.19,.97);
+    }
+
+    @keyframes shake {
+      0%,100%{ transform: translateX(0) }
+      20%{ transform: translateX(-8px) }
+      40%{ transform: translateX(8px) }
+      60%{ transform: translateX(-5px) }
+      80%{ transform: translateX(5px) }
     }
 
     .loginFooter {
       margin-top: 3rem;
-      font-size: 0.65rem;
+      font-size: 0.6rem;
       color: var(--border);
-      letter-spacing: 0.1em;
+      letter-spacing: 0.12em;
       text-transform: uppercase;
       text-align: center;
+      animation: fadeUp 0.9s cubic-bezier(.22,1,.36,1) 0.8s both;
     }
 
-    /* ═══════════════════════════════════════════════════════════
+    /* ══════════════════════════════════════════════
+       PAGE TRANSITION
+    ══════════════════════════════════════════════ */
+    .pageTransition {
+      position: fixed;
+      inset: 0;
+      background: var(--black);
+      z-index: 500;
+      pointer-events: none;
+      opacity: 0;
+    }
+    .pageTransition.active {
+      animation: wipe 0.8s cubic-bezier(.77,0,.18,1) forwards;
+    }
+    @keyframes wipe {
+      0%   { opacity: 1; clip-path: inset(0 0 0 0); }
+      100% { opacity: 1; clip-path: inset(0 0 100% 0); }
+    }
+
+    /* ══════════════════════════════════════════════
        DASHBOARD
-    ═══════════════════════════════════════════════════════════ */
+    ══════════════════════════════════════════════ */
     #dashboard { display: none; }
 
-    /* Top nav — matches DS site style */
+    /* NAV */
     .nav {
       position: sticky;
       top: 0;
       z-index: 200;
-      background: rgba(0,0,0,0.92);
-      backdrop-filter: blur(12px);
+      background: rgba(0,0,0,0.85);
+      backdrop-filter: blur(20px) saturate(180%);
+      -webkit-backdrop-filter: blur(20px) saturate(180%);
       border-bottom: 1px solid var(--border);
-      height: 64px;
+      height: 66px;
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -206,121 +358,226 @@
     .navBrand {
       display: flex;
       align-items: center;
-      gap: 0.9rem;
+      gap: 0.85rem;
     }
 
-    .navLogoMark { width: 46px; height: 38px; }
+    .navLogoMark {
+      width: 40px;
+      height: 33px;
+      filter: drop-shadow(0 0 8px rgba(200,169,110,0.25));
+    }
 
-    .navBrandText { line-height: 1.15; }
-    .navBrandName { font-size: 0.85rem; font-weight: 800; color: var(--white); letter-spacing: -0.01em; }
-    .navBrandSub { font-size: 0.58rem; color: var(--gray); letter-spacing: 0.2em; text-transform: uppercase; font-weight: 500; }
+    .navBrandText { line-height: 1.2; }
+    .navBrandName {
+      font-size: 0.82rem;
+      font-weight: 800;
+      color: var(--white);
+      letter-spacing: -0.01em;
+    }
+    .navBrandSub {
+      font-size: 0.52rem;
+      color: var(--gray);
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      font-weight: 500;
+    }
 
-    .navActions { display: flex; align-items: center; gap: 0.75rem; }
+    .navActions { display: flex; align-items: center; gap: 0.65rem; }
 
-    /* Main content */
+    /* MAIN */
     .main {
-      max-width: 960px;
+      max-width: 980px;
       margin: 0 auto;
-      padding: 3rem 1.5rem 6rem;
+      padding: 0 1.5rem 7rem;
     }
 
-    /* Hero section */
+    /* HERO */
     .hero {
-      padding: 4rem 0 3rem;
+      padding: 5rem 0 4rem;
       border-bottom: 1px solid var(--border);
-      margin-bottom: 3rem;
+      margin-bottom: 4rem;
+      position: relative;
+    }
+
+    .hero::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      right: -100px;
+      width: 600px;
+      height: 400px;
+      background: radial-gradient(ellipse at 70% 30%, rgba(200,169,110,0.05) 0%, transparent 65%);
+      pointer-events: none;
     }
 
     .heroEyebrow {
-      font-size: 0.65rem;
+      font-size: 0.58rem;
       font-weight: 700;
-      letter-spacing: 0.3em;
+      letter-spacing: 0.38em;
       text-transform: uppercase;
       color: var(--accent);
-      margin-bottom: 1rem;
+      margin-bottom: 1.25rem;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      opacity: 0;
+      animation: fadeUp 0.9s cubic-bezier(.22,1,.36,1) 0.15s both;
+    }
+
+    .heroEyebrow::before {
+      content: "";
+      display: inline-block;
+      width: 24px;
+      height: 1px;
+      background: var(--accent);
+      flex-shrink: 0;
     }
 
     .heroTitle {
-      font-size: clamp(2rem, 5vw, 3.5rem);
+      font-size: clamp(2.2rem, 5.5vw, 4rem);
       font-weight: 900;
-      line-height: 1.05;
-      letter-spacing: -0.03em;
+      line-height: 1.02;
+      letter-spacing: -0.04em;
       color: var(--white);
-      margin-bottom: 0.75rem;
+      margin-bottom: 1rem;
+      opacity: 0;
+      animation: fadeUp 0.9s cubic-bezier(.22,1,.36,1) 0.25s both;
     }
 
-    .heroTitle em {
-      font-style: normal;
-      color: var(--accent);
+    .heroTitle .accent {
+      font-style: italic;
+      background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 60%, var(--accent) 100%);
+      background-size: 200% 200%;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      animation: gradientShift 5s ease-in-out infinite;
+    }
+
+    @keyframes gradientShift {
+      0%, 100% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
     }
 
     .heroDesc {
-      font-size: 0.9rem;
+      font-size: 0.88rem;
       color: var(--gray);
-      max-width: 480px;
-      line-height: 1.65;
+      max-width: 420px;
+      line-height: 1.7;
+      opacity: 0;
+      animation: fadeUp 0.9s cubic-bezier(.22,1,.36,1) 0.35s both;
     }
 
-    /* Stats */
+    /* STATS */
     .statsRow {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
       gap: 1px;
       background: var(--border);
       border: 1px solid var(--border);
-      border-radius: 12px;
+      border-radius: 14px;
       overflow: hidden;
-      margin-bottom: 3rem;
+      margin-bottom: 4rem;
+      opacity: 0;
+      animation: fadeUp 0.9s cubic-bezier(.22,1,.36,1) 0.45s both;
     }
 
     .statBlock {
       background: var(--panel);
-      padding: 1.5rem;
+      padding: 1.75rem 1.5rem;
       text-align: center;
+      position: relative;
+      overflow: hidden;
+      transition: background 0.3s;
     }
 
-    .statNum { font-size: 2.2rem; font-weight: 900; color: var(--white); letter-spacing: -0.04em; line-height: 1; }
-    .statLbl { font-size: 0.62rem; color: var(--gray); letter-spacing: 0.15em; text-transform: uppercase; margin-top: 0.4rem; font-weight: 600; }
+    .statBlock:hover { background: var(--panel2); }
 
-    /* Section header */
+    .statBlock::before {
+      content: "";
+      position: absolute;
+      bottom: 0; left: 50%;
+      transform: translateX(-50%);
+      width: 0;
+      height: 1px;
+      background: var(--accent);
+      transition: width 0.4s;
+    }
+    .statBlock:hover::before { width: 60%; }
+
+    .statNum {
+      font-size: 2.8rem;
+      font-weight: 900;
+      color: var(--white);
+      letter-spacing: -0.05em;
+      line-height: 1;
+      font-variant-numeric: tabular-nums;
+    }
+    .statLbl {
+      font-size: 0.6rem;
+      color: var(--gray);
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      margin-top: 0.5rem;
+      font-weight: 600;
+    }
+
+    /* SECTION HDR */
     .sectionHdr {
       display: flex;
       align-items: center;
       justify-content: space-between;
       margin-bottom: 1.25rem;
+      opacity: 0;
+      animation: fadeUp 0.9s cubic-bezier(.22,1,.36,1) 0.55s both;
     }
 
     .sectionTitle {
-      font-size: 0.62rem;
+      font-size: 0.6rem;
       font-weight: 700;
-      letter-spacing: 0.22em;
+      letter-spacing: 0.28em;
       text-transform: uppercase;
       color: var(--gray);
     }
 
-    /* Client cards */
+    /* CLIENT CARDS */
     .clientCard {
       background: var(--panel);
       border: 1px solid var(--border);
-      border-radius: 12px;
-      margin-bottom: 0.75rem;
+      border-radius: 14px;
+      margin-bottom: 0.65rem;
       overflow: hidden;
-      transition: border-color 0.2s;
+      transition: border-color 0.25s, transform 0.25s, box-shadow 0.25s;
+      opacity: 0;
+      transform: translateY(16px);
     }
 
-    .clientCard:hover { border-color: var(--mid); }
+    .clientCard.visible {
+      animation: cardIn 0.55s cubic-bezier(.22,1,.36,1) both;
+    }
+
+    @keyframes cardIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .clientCard:hover {
+      border-color: rgba(200,169,110,0.25);
+      transform: translateY(-2px);
+      box-shadow: 0 12px 40px rgba(0,0,0,0.4), 0 0 0 1px rgba(200,169,110,0.1);
+    }
 
     .clientRow {
       display: flex;
       align-items: center;
       gap: 1rem;
-      padding: 1.1rem 1.25rem;
+      padding: 1.15rem 1.3rem;
     }
 
     .clientAvatar {
-      width: 42px;
-      height: 42px;
-      border-radius: 8px;
+      width: 44px;
+      height: 44px;
+      border-radius: 10px;
       flex-shrink: 0;
       display: flex;
       align-items: center;
@@ -331,6 +588,7 @@
       background: var(--mid);
       font-family: "Playfair Display", Georgia, serif;
       overflow: hidden;
+      border: 1px solid var(--border);
     }
 
     .clientAvatar img {
@@ -342,55 +600,68 @@
     }
 
     .clientInfo { flex: 1; min-width: 0; }
-    .clientName { font-size: 0.95rem; font-weight: 700; color: var(--white); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .clientMeta { font-size: 0.7rem; color: var(--gray); margin-top: 2px; }
-    .clientMeta code { color: var(--accent); font-size: 0.65rem; }
+    .clientName {
+      font-size: 0.92rem;
+      font-weight: 700;
+      color: var(--white);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      letter-spacing: -0.01em;
+    }
+    .clientMeta { font-size: 0.68rem; color: var(--gray); margin-top: 3px; }
+    .clientMeta code {
+      color: var(--accent);
+      font-size: 0.63rem;
+      background: rgba(200,169,110,0.08);
+      border-radius: 4px;
+      padding: 1px 5px;
+      font-family: "Inter", monospace;
+    }
 
     .clientBadge {
-      font-size: 0.58rem;
+      font-size: 0.55rem;
       font-weight: 700;
       letter-spacing: 0.1em;
       text-transform: uppercase;
-      padding: 3px 9px;
+      padding: 3px 10px;
       border-radius: 20px;
       flex-shrink: 0;
     }
 
-    .clientBadge.active { background: #0d2014; color: #4ade80; border: 1px solid #14532d; }
-    .clientBadge.inactive { background: #141400; color: #a3a300; border: 1px solid #3a3a00; }
+    .clientBadge.active  { background: rgba(74,222,128,0.07); color: #4ade80; border: 1px solid rgba(74,222,128,0.18); }
+    .clientBadge.inactive { background: rgba(163,163,0,0.07); color: #a3a300; border: 1px solid rgba(163,163,0,0.2); }
 
-    .clientRowActions {
-      display: flex;
-      gap: 0.4rem;
-      flex-shrink: 0;
-    }
+    .clientRowActions { display: flex; gap: 0.4rem; flex-shrink: 0; }
 
     .clientLink {
-      padding: 0.5rem 1.1rem;
-      font-size: 0.7rem;
-      border-radius: 6px;
+      padding: 0.45rem 1rem;
+      font-size: 0.68rem;
+      border-radius: 7px;
       background: var(--white);
       color: var(--black);
-      font-weight: 700;
+      font-weight: 800;
       text-decoration: none;
       letter-spacing: 0.04em;
-      transition: opacity 0.15s;
+      transition: opacity 0.15s, transform 0.15s;
+      white-space: nowrap;
     }
 
-    .clientLink:hover { opacity: 0.82; }
+    .clientLink:hover { opacity: 0.88; transform: translateY(-1px); }
 
-    /* Edit panel */
+    /* EDIT PANEL */
     .editPanel {
       border-top: 1px solid var(--border);
-      padding: 1.25rem;
-      background: #0a0a0a;
+      padding: 1.4rem;
+      background: rgba(255,255,255,0.015);
+      animation: fadeUp 0.35s cubic-bezier(.22,1,.36,1) both;
     }
 
     .editGrid {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 0.6rem;
-      margin-bottom: 0.85rem;
+      gap: 0.65rem;
+      margin-bottom: 0.9rem;
     }
 
     @media (max-width: 600px) {
@@ -399,101 +670,108 @@
     }
 
     .editLbl {
-      font-size: 0.62rem;
+      font-size: 0.6rem;
       font-weight: 700;
-      letter-spacing: 0.14em;
+      letter-spacing: 0.16em;
       text-transform: uppercase;
       color: var(--gray);
       display: flex;
       flex-direction: column;
-      gap: 0.3rem;
+      gap: 0.35rem;
     }
 
     .editInp, .editSel {
       background: var(--panel);
       border: 1px solid var(--border);
-      border-radius: 7px;
-      padding: 0.5rem 0.75rem;
+      border-radius: 8px;
+      padding: 0.5rem 0.8rem;
       color: var(--white);
       font-size: 0.85rem;
       outline: none;
       width: 100%;
       font-family: "Inter", sans-serif;
-      transition: border-color 0.18s;
+      transition: border-color 0.2s, box-shadow 0.2s;
     }
 
-    .editInp:focus, .editSel:focus { border-color: rgba(255,255,255,0.25); }
+    .editInp:focus, .editSel:focus {
+      border-color: rgba(200,169,110,0.35);
+      box-shadow: 0 0 0 2px rgba(200,169,110,0.07);
+    }
     .editSel option { background: #111; }
 
     .editActions { display: flex; gap: 0.5rem; }
 
-    /* Add form */
+    /* ADD FORM */
     #addForm {
       display: none;
       background: var(--panel);
       border: 1px solid var(--border);
-      border-radius: 12px;
+      border-radius: 14px;
       padding: 1.75rem;
       margin-bottom: 2rem;
+      animation: fadeUp 0.4s cubic-bezier(.22,1,.36,1) both;
     }
 
     .addFormTitle {
       font-size: 1rem;
       font-weight: 800;
       color: var(--white);
-      letter-spacing: -0.02em;
-      margin-bottom: 1.25rem;
+      letter-spacing: -0.025em;
+      margin-bottom: 1.4rem;
     }
 
     .addGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.65rem; margin-bottom: 1rem; }
     @media (max-width: 600px) { .addGrid { grid-template-columns: 1fr; } }
 
     .addLbl {
-      font-size: 0.62rem;
+      font-size: 0.6rem;
       font-weight: 700;
-      letter-spacing: 0.14em;
+      letter-spacing: 0.16em;
       text-transform: uppercase;
       color: var(--gray);
       display: flex;
       flex-direction: column;
-      gap: 0.3rem;
+      gap: 0.35rem;
     }
 
     .addInp, .addSel {
-      background: #0a0a0a;
+      background: var(--dark);
       border: 1px solid var(--border);
-      border-radius: 7px;
-      padding: 0.55rem 0.75rem;
+      border-radius: 8px;
+      padding: 0.55rem 0.8rem;
       color: var(--white);
       font-size: 0.875rem;
       outline: none;
       width: 100%;
       font-family: "Inter", sans-serif;
-      transition: border-color 0.18s;
+      transition: border-color 0.2s, box-shadow 0.2s;
     }
 
-    .addInp:focus, .addSel:focus { border-color: rgba(255,255,255,0.25); }
+    .addInp:focus, .addSel:focus {
+      border-color: rgba(200,169,110,0.35);
+      box-shadow: 0 0 0 2px rgba(200,169,110,0.07);
+    }
     .addSel option { background: #0a0a0a; }
 
     #addError {
       display: none;
-      background: #130404;
+      background: rgba(248,113,113,0.06);
       color: #f87171;
-      border: 1px solid #2a0808;
+      border: 1px solid rgba(248,113,113,0.2);
       border-radius: 7px;
       padding: 0.6rem 0.9rem;
-      font-size: 0.78rem;
+      font-size: 0.75rem;
       margin-bottom: 0.75rem;
     }
 
-    /* Buttons */
+    /* BUTTONS */
     .btn {
-      border-radius: 7px;
-      padding: 0.55rem 1.1rem;
-      font-size: 0.75rem;
+      border-radius: 8px;
+      padding: 0.55rem 1.15rem;
+      font-size: 0.72rem;
       font-weight: 700;
-      cursor: pointer;
-      letter-spacing: 0.05em;
+      cursor: none;
+      letter-spacing: 0.06em;
       text-transform: uppercase;
       text-decoration: none;
       display: inline-flex;
@@ -501,75 +779,108 @@
       gap: 0.3rem;
       border: none;
       font-family: "Inter", sans-serif;
-      transition: opacity 0.15s, background 0.15s;
+      transition: opacity 0.18s, transform 0.18s, background 0.18s, box-shadow 0.18s;
       white-space: nowrap;
     }
 
-    .btn:hover { opacity: 0.82; }
-    .btn:disabled { opacity: 0.35; cursor: default; }
+    .btn:hover { opacity: 0.85; transform: translateY(-1px); }
+    .btn:active { transform: translateY(0); opacity: 1; }
+    .btn:disabled { opacity: 0.3; cursor: default; transform: none; }
 
-    .btnWhite { background: var(--white); color: var(--black); }
-    .btnGhost { background: transparent; color: var(--white); border: 1px solid var(--border); }
+    .btnWhite   { background: var(--white); color: var(--black); }
+    .btnWhite:hover { opacity: 1; box-shadow: 0 6px 20px rgba(255,255,255,0.12); }
+    .btnGhost   { background: transparent; color: var(--white); border: 1px solid var(--border); }
     .btnGhost:hover { border-color: var(--mid); opacity: 1; }
-    .btnDanger { background: transparent; color: #f87171; border: 1px solid #2a0808; }
-    .btnDanger:hover { background: #130404; opacity: 1; }
-    .btnAccent { background: var(--accent); color: #000; }
+    .btnDanger  { background: transparent; color: #f87171; border: 1px solid rgba(248,113,113,0.2); }
+    .btnDanger:hover { background: rgba(248,113,113,0.06); opacity: 1; }
+    .btnAccent  { background: var(--accent); color: #000; }
+    .btnAccent:hover { background: var(--accent2); opacity: 1; }
 
-    /* States */
+    /* STATES */
     .empty, .loading {
       text-align: center;
-      padding: 4rem 1rem;
+      padding: 5rem 1rem;
       color: var(--gray);
-      font-size: 0.9rem;
-      line-height: 1.6;
+      font-size: 0.88rem;
+      line-height: 1.7;
     }
 
-    /* Toast */
+    .loading {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .loader {
+      width: 32px; height: 32px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.9s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* TOAST */
     #toast {
       display: none;
       position: fixed;
-      bottom: 2rem;
+      bottom: 2.5rem;
       left: 50%;
-      transform: translateX(-50%);
-      padding: 0.8rem 1.75rem;
-      border-radius: 8px;
-      font-size: 0.82rem;
+      transform: translateX(-50%) translateY(10px);
+      padding: 0.85rem 2rem;
+      border-radius: 50px;
+      font-size: 0.75rem;
       font-weight: 700;
       color: #fff;
       z-index: 9999;
-      transition: opacity 0.4s;
-      box-shadow: 0 8px 40px rgba(0,0,0,0.5);
-      letter-spacing: 0.04em;
+      transition: opacity 0.35s, transform 0.35s;
+      box-shadow: 0 12px 50px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.06);
+      letter-spacing: 0.06em;
       text-transform: uppercase;
       white-space: nowrap;
-      border: 1px solid rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.06);
     }
 
-    /* Divider */
+    #toast.show {
+      display: block;
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+    }
+
     .sep { border: none; border-top: 1px solid var(--border); margin: 2rem 0; }
   </style>
 </head>
 <body>
 
+<!-- Cursor -->
+<div id="cursor"></div>
+<div id="cursorRing"></div>
+
+<!-- Particles -->
+<canvas id="particles"></canvas>
+
+<!-- Page transition overlay -->
+<div class="pageTransition" id="pageTransition"></div>
+
 <!-- ══════════════════════════════════════════════════════════════
      LOGIN
 ══════════════════════════════════════════════════════════════ -->
 <div id="loginScreen">
+  <div class="gridOverlay"></div>
   <div class="loginWrap">
 
-    <!-- DS Marketing Logomark (SVG replication) -->
     <div class="dsLogo">
       <svg class="dsLogoMark" viewBox="0 0 200 165" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <!-- D letterform -->
         <text x="4" y="130" font-family="'Playfair Display', Georgia, serif" font-size="128" font-weight="900" fill="white" letter-spacing="-8">D</text>
-        <!-- S letterform (overlapping, offset) -->
-        <text x="78" y="130" font-family="'Playfair Display', Georgia, serif" font-size="128" font-weight="900" fill="white" letter-spacing="-8">S</text>
-        <!-- Cutout to create overlap effect -->
         <rect x="78" y="0" width="38" height="135" fill="black" />
         <text x="78" y="130" font-family="'Playfair Display', Georgia, serif" font-size="128" font-weight="900" fill="white" letter-spacing="-8">S</text>
       </svg>
       <span class="dsLogoSub">Marketing</span>
     </div>
+
+    <div class="loginDivider"></div>
 
     <h1 class="loginHeading">Client Portal</h1>
     <p class="loginDesc">Manage your clients, their branding,<br/>and inspection system access.</p>
@@ -577,7 +888,7 @@
     <div class="loginField" style="width:100%">
       <div id="loginError" class="loginError"></div>
       <label class="loginFieldLabel" for="pinInput">Owner Access Code</label>
-      <input type="password" id="pinInput" class="loginInput" placeholder="••••••" autocomplete="off" inputmode="numeric" />
+      <input type="password" id="pinInput" class="loginInput" placeholder="••••••••••" autocomplete="off" />
     </div>
 
     <button id="loginBtn" class="loginSubmit">Access Portal</button>
@@ -591,7 +902,6 @@
 ══════════════════════════════════════════════════════════════ -->
 <div id="dashboard">
 
-  <!-- Nav -->
   <nav class="nav">
     <div class="navBrand">
       <svg class="navLogoMark" viewBox="0 0 200 165" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -615,8 +925,8 @@
     <!-- Hero -->
     <div class="hero">
       <div class="heroEyebrow">DS Marketing · Owner Dashboard</div>
-      <h1 class="heroTitle">Your clients.<br/><em>All in one place.</em></h1>
-      <p class="heroDesc">Create and manage client inspection portals. Each client gets their own branded URL, isolated data, and custom logo.</p>
+      <h1 class="heroTitle">Your clients.<br/><span class="accent">All in one place.</span></h1>
+      <p class="heroDesc">Create and manage client inspection portals. Each client gets their own branded URL, isolated data, and custom identity.</p>
     </div>
 
     <!-- Stats -->
@@ -671,7 +981,7 @@
         </div>
         <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
           <button type="submit" class="btn btnWhite">Create Client</button>
-          <button type="button" class="btn btnGhost" onclick="document.getElementById('addForm').style.display='none'">Cancel</button>
+          <button type="button" class="btn btnGhost" id="cancelAddBtn">Cancel</button>
         </div>
       </form>
     </div>
@@ -679,7 +989,7 @@
     <!-- Client List -->
     <div class="sectionHdr">
       <div class="sectionTitle">Clients</div>
-      <div id="clientCount" style="font-size:0.7rem;color:var(--gray);"></div>
+      <div id="clientCount" style="font-size:0.68rem;color:var(--gray);"></div>
     </div>
     <div id="venueList"></div>
 
@@ -703,18 +1013,120 @@
   });
   const db = getFirestore(app);
 
+  // ── Cursor ──────────────────────────────────────────────────────────────────
+  const cursor = document.getElementById("cursor");
+  const ring   = document.getElementById("cursorRing");
+  let mx = -100, my = -100, rx = -100, ry = -100;
+
+  document.addEventListener("mousemove", e => { mx = e.clientX; my = e.clientY; });
+
+  function animCursor() {
+    cursor.style.left = mx + "px";
+    cursor.style.top  = my + "px";
+    rx += (mx - rx) * 0.12;
+    ry += (my - ry) * 0.12;
+    ring.style.left = rx + "px";
+    ring.style.top  = ry + "px";
+    requestAnimationFrame(animCursor);
+  }
+  animCursor();
+
+  document.addEventListener("mousedown", () => {
+    cursor.style.transform = "translate(-50%,-50%) scale(0.7)";
+    ring.style.transform   = "translate(-50%,-50%) scale(0.85)";
+  });
+  document.addEventListener("mouseup", () => {
+    cursor.style.transform = "translate(-50%,-50%) scale(1)";
+    ring.style.transform   = "translate(-50%,-50%) scale(1)";
+  });
+
+  document.querySelectorAll("a,button,input,.clientCard").forEach(el => {
+    el.addEventListener("mouseenter", () => {
+      cursor.style.width = "16px"; cursor.style.height = "16px";
+      ring.style.width = "48px"; ring.style.height = "48px";
+      ring.style.borderColor = "rgba(200,169,110,0.8)";
+    });
+    el.addEventListener("mouseleave", () => {
+      cursor.style.width = "8px"; cursor.style.height = "8px";
+      ring.style.width = "36px"; ring.style.height = "36px";
+      ring.style.borderColor = "rgba(200,169,110,0.5)";
+    });
+  });
+
+  // ── Particle system ──────────────────────────────────────────────────────────
+  const canvas = document.getElementById("particles");
+  const ctx = canvas.getContext("2d");
+  let W, H, particles;
+
+  function resize() {
+    W = canvas.width  = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+  }
+  window.addEventListener("resize", () => { resize(); initParticles(); });
+  resize();
+
+  function initParticles() {
+    const count = Math.min(Math.floor(W * H / 14000), 60);
+    particles = Array.from({ length: count }, () => ({
+      x: Math.random() * W,
+      y: Math.random() * H,
+      r: Math.random() * 1.4 + 0.3,
+      vx: (Math.random() - 0.5) * 0.25,
+      vy: (Math.random() - 0.5) * 0.25,
+      a: Math.random() * 0.5 + 0.1,
+      gold: Math.random() > 0.6,
+    }));
+  }
+  initParticles();
+
+  function drawParticles() {
+    ctx.clearRect(0, 0, W, H);
+    for (const p of particles) {
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.fillStyle = p.gold
+        ? `rgba(200,169,110,${p.a})`
+        : `rgba(255,255,255,${p.a * 0.5})`;
+      ctx.fill();
+      p.x += p.vx; p.y += p.vy;
+      if (p.x < -5) p.x = W + 5;
+      if (p.x > W + 5) p.x = -5;
+      if (p.y < -5) p.y = H + 5;
+      if (p.y > H + 5) p.y = -5;
+    }
+    requestAnimationFrame(drawParticles);
+  }
+  drawParticles();
+
+  // ── Util ─────────────────────────────────────────────────────────────────────
   async function sha256(msg) {
     const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(msg));
     return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, "0")).join("");
+  }
+
+  function esc(s) {
+    return String(s || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+  }
+
+  function animCount(el, target, duration = 900) {
+    const start = performance.now();
+    const from = 0;
+    function step(now) {
+      const t = Math.min((now - start) / duration, 1);
+      const ease = 1 - Math.pow(1 - t, 3);
+      el.textContent = Math.round(from + (target - from) * ease);
+      if (t < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
   }
 
   let venues = [];
   let venueStats = {};
   let editingId = null;
 
-  // ── Login ──────────────────────────────────────────────────────────────
-  const loginBtn = document.getElementById("loginBtn");
-  const pinInput = document.getElementById("pinInput");
+  // ── Login ─────────────────────────────────────────────────────────────────────
+  const loginBtn   = document.getElementById("loginBtn");
+  const pinInput   = document.getElementById("pinInput");
   const loginError = document.getElementById("loginError");
 
   loginBtn.addEventListener("click", doLogin);
@@ -723,20 +1135,30 @@
   async function doLogin() {
     loginBtn.disabled = true;
     loginBtn.textContent = "Verifying…";
+    loginError.style.display = "none";
     const entered = pinInput.value.trim();
     if (!entered) { loginBtn.disabled = false; loginBtn.textContent = "Access Portal"; return; }
     try {
       const hash = await sha256(entered);
-      const ownerHash = await sha256("365582");
-      const snap = await getDoc(doc(db, "venues", "default", "users", hash));
-      const isAdmin = snap.exists() && (snap.data().role === "global_admin" || snap.data().role === "admin");
-      if (!isAdmin && hash !== ownerHash) throw new Error("deny");
+      const ownerHash = await sha256("@Panita30347047");
+      if (hash !== ownerHash) throw new Error("deny");
+      // Transition
+      const overlay = document.getElementById("pageTransition");
+      overlay.style.opacity = "1";
+      overlay.style.background = "var(--black)";
+      await new Promise(r => setTimeout(r, 350));
       document.getElementById("loginScreen").style.display = "none";
       document.getElementById("dashboard").style.display = "block";
-      loadVenues();
+      await loadVenues();
+      overlay.style.opacity = "0";
+      overlay.style.transition = "opacity 0.6s";
+      setTimeout(() => { overlay.style.transition = ""; overlay.style.opacity = ""; }, 700);
     } catch {
       loginError.textContent = "Access denied. Owner credentials required.";
       loginError.style.display = "block";
+      loginError.style.animation = "none";
+      void loginError.offsetWidth;
+      loginError.style.animation = "shake 0.4s cubic-bezier(.36,.07,.19,.97)";
       loginBtn.disabled = false;
       loginBtn.textContent = "Access Portal";
       pinInput.value = "";
@@ -744,40 +1166,46 @@
     }
   }
 
-  // ── Load ───────────────────────────────────────────────────────────────
+  // ── Load ──────────────────────────────────────────────────────────────────────
   document.getElementById("refreshBtn").addEventListener("click", loadVenues);
 
   async function loadVenues() {
-    document.getElementById("venueList").innerHTML = `<div class="loading">Loading clients…</div>`;
+    document.getElementById("venueList").innerHTML = `
+      <div class="loading">
+        <div class="loader"></div>
+        <span>Loading clients…</span>
+      </div>`;
     try {
       const snap = await getDocs(collection(db, "venueRegistry"));
       venues = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       venues.sort((a, b) => (a.name || a.id).localeCompare(b.name || b.id));
 
-      // Parallel stats fetch
       const today = new Date().toISOString().slice(0, 10);
       const counts = await Promise.all(venues.map(v =>
         getDocs(query(collection(db, "venues", v.id, "inspections"), orderBy("savedAt", "desc"), limit(10)))
-          .then(s => ({ id: v.id, count: s.size, last: s.docs[0]?.data()?.savedAt?.slice(0, 10) || "" }))
+          .then(s => ({ id: v.id, count: s.size, last: s.docs[0]?.data()?.savedAt?.slice(0,10) || "" }))
           .catch(() => ({ id: v.id, count: 0, last: "" }))
       ));
       venueStats = Object.fromEntries(counts.map(c => [c.id, c]));
 
-      // Update stats bar
-      const active = venues.filter(v => v.status !== "inactive").length;
-      const todayActive = counts.filter(c => c.last === today).length;
-      document.getElementById("statClients").textContent = venues.length;
-      document.getElementById("statActive").textContent = active;
-      document.getElementById("statToday").textContent = todayActive;
+      const active    = venues.filter(v => v.status !== "inactive").length;
+      const todayAct  = counts.filter(c => c.last === today).length;
+
+      const sc = document.getElementById("statClients");
+      const sa = document.getElementById("statActive");
+      const st = document.getElementById("statToday");
+      animCount(sc, venues.length);
+      animCount(sa, active);
+      animCount(st, todayAct);
       document.getElementById("clientCount").textContent = venues.length + " client" + (venues.length !== 1 ? "s" : "");
 
       renderVenues();
     } catch (e) {
-      document.getElementById("venueList").innerHTML = `<div class="empty">Failed to load: ${e.message}</div>`;
+      document.getElementById("venueList").innerHTML = `<div class="empty">Failed to load: ${esc(e.message)}</div>`;
     }
   }
 
-  // ── Render ─────────────────────────────────────────────────────────────
+  // ── Render ────────────────────────────────────────────────────────────────────
   function renderVenues() {
     if (!venues.length) {
       document.getElementById("venueList").innerHTML = `<div class="empty">No clients yet.<br/>Click <strong>+ New Client</strong> to add your first one.</div>`;
@@ -789,14 +1217,13 @@
       const url = `${location.origin}/Claude/?v=${v.id}`;
       const initial = (v.companyName || v.name || v.id)[0].toUpperCase();
       const isActive = v.status !== "inactive";
-
       const avatarHtml = v.logoUrl
         ? `<img src="${esc(v.logoUrl)}" alt="" onerror="this.parentElement.textContent='${initial}'" />`
         : initial;
 
       if (editingId === v.id) {
         return `
-          <div class="clientCard" id="card-${v.id}">
+          <div class="clientCard visible" id="card-${v.id}">
             <div class="clientRow">
               <div class="clientAvatar">${avatarHtml}</div>
               <div class="clientInfo">
@@ -827,8 +1254,7 @@
                 <button class="btn btnDanger" data-delete="${v.id}" data-name="${esc(v.name||v.id)}" style="margin-left:auto;">Remove</button>
               </div>
             </div>
-          </div>
-        `;
+          </div>`;
       }
 
       return `
@@ -845,9 +1271,29 @@
               <button class="btn btnGhost" data-edit="${v.id}">Edit</button>
             </div>
           </div>
-        </div>
-      `;
+        </div>`;
     }).join("");
+
+    // Staggered card entrance
+    const cards = document.querySelectorAll(".clientCard:not(.visible)");
+    cards.forEach((card, i) => {
+      card.style.animationDelay = (i * 0.06) + "s";
+      card.classList.add("visible");
+    });
+
+    // Cursor hover for new cards
+    document.querySelectorAll(".clientCard").forEach(el => {
+      el.addEventListener("mouseenter", () => {
+        cursor.style.width = "16px"; cursor.style.height = "16px";
+        ring.style.width = "48px"; ring.style.height = "48px";
+        ring.style.borderColor = "rgba(200,169,110,0.8)";
+      });
+      el.addEventListener("mouseleave", () => {
+        cursor.style.width = "8px"; cursor.style.height = "8px";
+        ring.style.width = "36px"; ring.style.height = "36px";
+        ring.style.borderColor = "rgba(200,169,110,0.5)";
+      });
+    });
 
     // Bind events
     document.querySelectorAll("[data-edit]").forEach(el =>
@@ -864,26 +1310,25 @@
     );
   }
 
-  // ── Save edit ──────────────────────────────────────────────────────────
+  // ── Save ──────────────────────────────────────────────────────────────────────
   async function handleSave(id) {
-    const name = document.getElementById("e-name")?.value.trim() || "";
-    const companyName = document.getElementById("e-company")?.value.trim() || name;
-    const address = document.getElementById("e-address")?.value.trim() || "";
-    const logoUrl = document.getElementById("e-logo")?.value.trim() || "";
+    const name         = document.getElementById("e-name")?.value.trim() || "";
+    const companyName  = document.getElementById("e-company")?.value.trim() || name;
+    const address      = document.getElementById("e-address")?.value.trim() || "";
+    const logoUrl      = document.getElementById("e-logo")?.value.trim() || "";
     const primaryColor = document.getElementById("e-color")?.value.trim() || "";
-    const status = document.getElementById("e-status")?.value || "active";
-
+    const status       = document.getElementById("e-status")?.value || "active";
     try {
       await setDoc(doc(db, "venueRegistry", id), { name, companyName, address, logoUrl, primaryColor, status }, { merge: true });
       await setDoc(doc(db, "venues", id, "sharedMemory", "venueSettings"), { companyName, logoUrl, primaryColor, _updatedAt: new Date().toISOString() }, { merge: true });
       venues = venues.map(v => v.id === id ? { ...v, name, companyName, address, logoUrl, primaryColor, status } : v);
       editingId = null;
-      showToast("Saved");
+      showToast("Saved ✓");
       renderVenues();
     } catch (err) { showToast("Error: " + err.message, true); }
   }
 
-  // ── Delete ─────────────────────────────────────────────────────────────
+  // ── Delete ────────────────────────────────────────────────────────────────────
   async function handleDelete(id, name) {
     if (!confirm(`Remove "${name}" from your portal?\n\nInspection data in Firestore is NOT deleted.`)) return;
     if (!confirm(`Confirm: remove "${name}"?`)) return;
@@ -893,26 +1338,31 @@
       editingId = null;
       showToast("Removed");
       renderVenues();
-      document.getElementById("statClients").textContent = venues.length;
+      animCount(document.getElementById("statClients"), venues.length);
     } catch (err) { showToast("Error: " + err.message, true); }
   }
 
-  // ── Add venue ──────────────────────────────────────────────────────────
+  // ── Add venue ─────────────────────────────────────────────────────────────────
   document.getElementById("addBtn").addEventListener("click", () => {
     const f = document.getElementById("addForm");
-    f.style.display = f.style.display === "none" ? "block" : "none";
+    f.style.display = f.style.display === "none" || !f.style.display ? "block" : "none";
+    if (f.style.display === "block") f.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  });
+
+  document.getElementById("cancelAddBtn").addEventListener("click", () => {
+    document.getElementById("addForm").style.display = "none";
   });
 
   document.getElementById("addVenueForm").addEventListener("submit", async e => {
     e.preventDefault();
     document.getElementById("addError").style.display = "none";
-    const slug = document.getElementById("new-id").value.trim().toLowerCase().replace(/[^a-z0-9_-]/g, "");
-    const name = document.getElementById("new-name").value.trim();
-    const companyName = document.getElementById("new-companyName").value.trim() || name;
-    const address = document.getElementById("new-address").value.trim();
-    const logoUrl = document.getElementById("new-logoUrl").value.trim();
+    const slug         = document.getElementById("new-id").value.trim().toLowerCase().replace(/[^a-z0-9_-]/g, "");
+    const name         = document.getElementById("new-name").value.trim();
+    const companyName  = document.getElementById("new-companyName").value.trim() || name;
+    const address      = document.getElementById("new-address").value.trim();
+    const logoUrl      = document.getElementById("new-logoUrl").value.trim();
     const primaryColor = document.getElementById("new-primaryColor").value.trim();
-    const type = document.getElementById("new-type").value;
+    const type         = document.getElementById("new-type").value;
 
     if (!slug) { showAddErr("Enter a valid client ID (letters, numbers, hyphens)."); return; }
     if (!name) { showAddErr("Enter a display name."); return; }
@@ -930,7 +1380,7 @@
       document.getElementById("addForm").style.display = "none";
       e.target.reset();
       showToast("Client created · " + location.origin + "/Claude/?v=" + slug);
-      document.getElementById("statClients").textContent = venues.length;
+      animCount(document.getElementById("statClients"), venues.length);
       renderVenues();
     } catch (err) {
       showAddErr("Error: " + err.message);
@@ -947,20 +1397,19 @@
   function showToast(msg, isErr = false) {
     const t = document.getElementById("toast");
     t.textContent = msg;
-    t.style.background = isErr ? "#dc2626" : "#111";
-    t.style.display = "block"; t.style.opacity = "1";
-    setTimeout(() => { t.style.opacity = "0"; setTimeout(() => { t.style.display = "none"; }, 400); }, 3200);
+    t.style.background = isErr ? "#dc2626" : "#1a1a1a";
+    t.classList.add("show");
+    clearTimeout(t._timer);
+    t._timer = setTimeout(() => {
+      t.style.opacity = "0";
+      t.style.transform = "translateX(-50%) translateY(10px)";
+      setTimeout(() => {
+        t.classList.remove("show");
+        t.style.opacity = "";
+        t.style.transform = "";
+      }, 400);
+    }, 3000);
   }
-
-  function esc(s) {
-    return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
-  }
-
-  // Stats observer
-  new MutationObserver(() => {
-    const active = document.querySelectorAll(".clientBadge.active").length;
-    document.getElementById("statActive").textContent = active;
-  }).observe(document.getElementById("venueList"), { childList: true, subtree: true });
 </script>
 
 </body>
