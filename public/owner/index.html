@@ -17,13 +17,13 @@
       --dark:   #080808;
       --panel:  #0f0f0f;
       --panel2: #141414;
-      --border: #1a1a1a;
+      --border: #1e1e1e;
       --mid:    #2a2a2a;
       --white:  #ffffff;
       --gray:   #555555;
       --lgray:  #888888;
-      --accent: #c8a96e;
-      --accent2:#e8c98e;
+      --accent: #ffffff;
+      --accent2:#cccccc;
     }
 
     html { scroll-behavior: smooth; }
@@ -35,29 +35,10 @@
       min-height: 100vh;
       -webkit-font-smoothing: antialiased;
       overflow-x: hidden;
-      cursor: none;
-    }
-
-    /* ── Cursor ── */
-    #cursor {
-      position: fixed; width: 8px; height: 8px;
-      background: var(--accent); border-radius: 50%;
-      pointer-events: none; z-index: 9999;
-      transform: translate(-50%,-50%);
-      transition: width .2s, height .2s;
-    }
-    #cursorRing {
-      position: fixed; width: 36px; height: 36px;
-      border: 1px solid rgba(200,169,110,.5); border-radius: 50%;
-      pointer-events: none; z-index: 9998;
-      transform: translate(-50%,-50%);
-      transition: width .32s cubic-bezier(.25,.46,.45,.94),
-                  height .32s cubic-bezier(.25,.46,.45,.94),
-                  border-color .25s;
     }
 
     /* ── Particles ── */
-    #particles { position: fixed; inset: 0; pointer-events: none; z-index: 0; opacity: .5; }
+    #particles { position: fixed; inset: 0; pointer-events: none; z-index: 0; opacity: .35; }
 
     /* ── Login ── */
     #loginScreen {
@@ -71,7 +52,7 @@
       top: 50%; left: 50%;
       transform: translate(-50%,-58%);
       width: 600px; height: 600px;
-      background: radial-gradient(circle, rgba(200,169,110,.06) 0%, transparent 70%);
+      background: radial-gradient(circle, rgba(255,255,255,.03) 0%, transparent 70%);
       animation: breathe 6s ease-in-out infinite;
       pointer-events: none;
     }
@@ -97,17 +78,14 @@
     }
     @keyframes logoIn { from { opacity:0; transform:translateY(-18px) scale(.92); } to { opacity:1; transform:none; } }
     .dsLogoMark {
-      width: 110px; height: 90px;
-      filter: drop-shadow(0 0 28px rgba(200,169,110,.22));
+      width: 130px; height: 110px;
+      filter: drop-shadow(0 0 20px rgba(255,255,255,.08));
       transition: filter .4s;
     }
-    .dsLogoSub {
-      font-size: .52rem; font-weight: 700;
-      letter-spacing: .55em; color: var(--lgray); text-transform: uppercase;
-    }
+    .dsLogoSub { display: none; }
     .loginDivider {
       width: 0; height: 1px;
-      background: linear-gradient(90deg, transparent, var(--accent), transparent);
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,.25), transparent);
       margin-bottom: 2rem;
       animation: lineOut 1s cubic-bezier(.22,1,.36,1) .45s both;
     }
@@ -137,15 +115,15 @@
       transition: border-color .25s, background .25s, box-shadow .25s;
     }
     .loginInput:focus {
-      border-color: rgba(200,169,110,.4);
-      background: rgba(200,169,110,.04);
-      box-shadow: 0 0 0 3px rgba(200,169,110,.08), inset 0 0 0 1px rgba(200,169,110,.15);
+      border-color: rgba(255,255,255,.4);
+      background: rgba(255,255,255,.04);
+      box-shadow: 0 0 0 3px rgba(255,255,255,.08), inset 0 0 0 1px rgba(255,255,255,.15);
     }
     .loginSubmit {
       width: 100%; background: var(--white); color: var(--black);
       border: none; border-radius: 10px; padding: .95rem;
       font-size: .75rem; font-weight: 800; letter-spacing: .18em;
-      text-transform: uppercase; cursor: none;
+      text-transform: uppercase; cursor: pointer;
       transition: background .2s, transform .15s, box-shadow .2s;
       margin-top: .25rem; overflow: hidden; position: relative;
       animation: fadeUp .9s cubic-bezier(.22,1,.36,1) .6s both;
@@ -177,7 +155,7 @@
       justify-content: space-between; padding: 0 2rem;
     }
     .navBrand { display: flex; align-items: center; gap: .85rem; }
-    .navLogoMark { width: 38px; height: 31px; filter: drop-shadow(0 0 8px rgba(200,169,110,.25)); }
+    .navLogoMark { width: 38px; height: 31px; filter: drop-shadow(0 0 8px rgba(255,255,255,.25)); }
     .navBrandText { line-height: 1.2; }
     .navBrandName { font-size: .82rem; font-weight: 800; color: var(--white); letter-spacing: -.01em; }
     .navBrandSub  { font-size: .52rem; color: var(--gray); letter-spacing: .22em; text-transform: uppercase; font-weight: 500; }
@@ -194,7 +172,7 @@
     }
     .breadcrumb span { color: var(--lgray); }
     .breadcrumb .crumbLink {
-      color: var(--accent); cursor: none; border: none; background: none;
+      color: var(--accent); cursor: pointer; border: none; background: none;
       font: inherit; letter-spacing: inherit; font-weight: 700;
       text-decoration: none; transition: opacity .15s;
     }
@@ -213,7 +191,7 @@
     .hero::before {
       content: ""; position: absolute; top: 0; right: -100px;
       width: 600px; height: 400px;
-      background: radial-gradient(ellipse at 70% 30%, rgba(200,169,110,.05) 0%, transparent 65%);
+      background: radial-gradient(ellipse at 70% 30%, rgba(255,255,255,.05) 0%, transparent 65%);
       pointer-events: none;
     }
     .heroEyebrow {
@@ -234,12 +212,9 @@
     }
     .heroTitle .accent {
       font-style: italic;
-      background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 60%, var(--accent) 100%);
-      background-size: 200% 200%;
-      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
-      animation: gradShift 5s ease-in-out infinite;
+      color: var(--white);
+      opacity: 0.85;
     }
-    @keyframes gradShift { 0%,100%{background-position:0% 50%} 50%{background-position:100% 50%} }
     .heroDesc {
       font-size: .88rem; color: var(--gray); max-width: 420px; line-height: 1.7;
       opacity: 0; animation: fadeUp .9s cubic-bezier(.22,1,.36,1) .35s both;
@@ -285,9 +260,9 @@
     .card.visible { animation: cardIn .55s cubic-bezier(.22,1,.36,1) both; }
     @keyframes cardIn { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:none} }
     .card:hover {
-      border-color: rgba(200,169,110,.25);
+      border-color: rgba(255,255,255,.25);
       transform: translateY(-2px);
-      box-shadow: 0 12px 40px rgba(0,0,0,.4), 0 0 0 1px rgba(200,169,110,.1);
+      box-shadow: 0 12px 40px rgba(0,0,0,.4), 0 0 0 1px rgba(255,255,255,.1);
     }
 
     .cardRow {
@@ -310,14 +285,14 @@
     .cardMeta { font-size: .68rem; color: var(--gray); margin-top: 3px; }
     .cardMeta code {
       color: var(--accent); font-size: .62rem;
-      background: rgba(200,169,110,.08); border-radius: 4px;
+      background: rgba(255,255,255,.08); border-radius: 4px;
       padding: 1px 5px; font-family: "Inter", monospace;
     }
 
     .badge { font-size: .55rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; padding: 3px 10px; border-radius: 20px; flex-shrink: 0; }
     .badge.active   { background: rgba(74,222,128,.07);  color: #4ade80; border: 1px solid rgba(74,222,128,.18); }
     .badge.inactive { background: rgba(163,163,0,.07);   color: #a3a300; border: 1px solid rgba(163,163,0,.2); }
-    .badge.venues   { background: rgba(200,169,110,.08); color: var(--accent); border: 1px solid rgba(200,169,110,.2); }
+    .badge.venues   { background: rgba(255,255,255,.08); color: var(--accent); border: 1px solid rgba(255,255,255,.2); }
 
     .cardActions { display: flex; gap: .4rem; flex-shrink: 0; }
 
@@ -343,7 +318,7 @@
       padding: .5rem .8rem; color: var(--white); font-size: .85rem; outline: none;
       width: 100%; font-family: "Inter", sans-serif; transition: border-color .2s, box-shadow .2s;
     }
-    .editInp:focus, .editSel:focus { border-color: rgba(200,169,110,.35); box-shadow: 0 0 0 2px rgba(200,169,110,.07); }
+    .editInp:focus, .editSel:focus { border-color: rgba(255,255,255,.35); box-shadow: 0 0 0 2px rgba(255,255,255,.07); }
     .editSel option { background: #111; }
     .editActions { display: flex; gap: .5rem; }
 
@@ -363,7 +338,7 @@
       padding: .55rem .8rem; color: var(--white); font-size: .875rem; outline: none;
       width: 100%; font-family: "Inter", sans-serif; transition: border-color .2s, box-shadow .2s;
     }
-    .addInp:focus, .addSel:focus { border-color: rgba(200,169,110,.35); box-shadow: 0 0 0 2px rgba(200,169,110,.07); }
+    .addInp:focus, .addSel:focus { border-color: rgba(255,255,255,.35); box-shadow: 0 0 0 2px rgba(255,255,255,.07); }
     .addSel option { background: #0a0a0a; }
     .addErr {
       display: none; background: rgba(248,113,113,.06); color: #f87171;
@@ -374,7 +349,7 @@
     /* ── Buttons ── */
     .btn {
       border-radius: 8px; padding: .55rem 1.15rem;
-      font-size: .72rem; font-weight: 700; cursor: none;
+      font-size: .72rem; font-weight: 700; cursor: pointer;
       letter-spacing: .06em; text-transform: uppercase;
       text-decoration: none; display: inline-flex; align-items: center; gap: .3rem;
       border: none; font-family: "Inter", sans-serif;
@@ -390,8 +365,8 @@
     .btnGhost:hover { border-color: var(--mid); opacity: 1; }
     .btnDanger { background: transparent; color: #f87171; border: 1px solid rgba(248,113,113,.2); }
     .btnDanger:hover { background: rgba(248,113,113,.06); opacity: 1; }
-    .btnAccent { background: var(--accent); color: #000; }
-    .btnAccent:hover { background: var(--accent2); opacity: 1; }
+    .btnAccent { background: var(--white); color: var(--black); }
+    .btnAccent:hover { background: #e0e0e0; opacity: 1; }
 
     /* ── States ── */
     .empty { text-align: center; padding: 5rem 1rem; color: var(--gray); font-size: .88rem; line-height: 1.7; }
@@ -420,8 +395,6 @@
 </head>
 <body>
 
-<div id="cursor"></div>
-<div id="cursorRing"></div>
 <canvas id="particles"></canvas>
 
 <!-- LOGIN -->
@@ -429,12 +402,16 @@
   <div class="gridOverlay"></div>
   <div class="loginWrap">
     <div class="dsLogo">
-      <svg class="dsLogoMark" viewBox="0 0 200 165" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <text x="4" y="130" font-family="'Playfair Display', Georgia, serif" font-size="128" font-weight="900" fill="white" letter-spacing="-8">D</text>
-        <rect x="78" y="0" width="38" height="135" fill="black" />
-        <text x="78" y="130" font-family="'Playfair Display', Georgia, serif" font-size="128" font-weight="900" fill="white" letter-spacing="-8">S</text>
+      <svg class="dsLogoMark" viewBox="0 0 240 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <!-- D: upper-left -->
+        <text x="0" y="148" font-family="'Playfair Display', Georgia, serif" font-size="160" font-weight="900" fill="white">D</text>
+        <!-- S: lower-right, overlapping — black mask makes D appear in front on upper overlap -->
+        <text x="80" y="192" font-family="'Playfair Display', Georgia, serif" font-size="160" font-weight="900" fill="white">S</text>
+        <!-- black mask: hides S behind D's right edge on upper zone -->
+        <rect x="80" y="0" width="30" height="120" fill="black" />
+        <!-- MARKETING label between the letters -->
+        <text x="90" y="124" font-family="'Inter', Arial, sans-serif" font-size="14" font-weight="700" fill="white" letter-spacing="5" text-anchor="middle">MARKETING</text>
       </svg>
-      <span class="dsLogoSub">Marketing</span>
     </div>
     <div class="loginDivider"></div>
     <h1 class="loginHeading">Owner Portal</h1>
@@ -455,10 +432,10 @@
   <!-- NAV -->
   <nav class="nav">
     <div class="navBrand">
-      <svg class="navLogoMark" viewBox="0 0 200 165" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <text x="4" y="130" font-family="'Playfair Display', Georgia, serif" font-size="128" font-weight="900" fill="white" letter-spacing="-8">D</text>
-        <rect x="78" y="0" width="38" height="135" fill="black" />
-        <text x="78" y="130" font-family="'Playfair Display', Georgia, serif" font-size="128" font-weight="900" fill="white" letter-spacing="-8">S</text>
+      <svg class="navLogoMark" viewBox="0 0 240 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <text x="0" y="148" font-family="'Playfair Display', Georgia, serif" font-size="160" font-weight="900" fill="white">D</text>
+        <text x="80" y="192" font-family="'Playfair Display', Georgia, serif" font-size="160" font-weight="900" fill="white">S</text>
+        <rect x="80" y="0" width="30" height="120" fill="black" />
       </svg>
       <div class="navBrandText">
         <div class="navBrandName">DS Marketing</div>
@@ -636,25 +613,8 @@
   });
   const db = getFirestore(app);
 
-  // ── Cursor ──────────────────────────────────────────────────────────────────
-  const cursor = document.getElementById("cursor");
-  const ring   = document.getElementById("cursorRing");
-  let mx=-100, my=-100, rx=-100, ry=-100;
-  document.addEventListener("mousemove", e => { mx=e.clientX; my=e.clientY; });
-  (function animCursor() {
-    cursor.style.left=mx+"px"; cursor.style.top=my+"px";
-    rx+=(mx-rx)*.12; ry+=(my-ry)*.12;
-    ring.style.left=rx+"px"; ring.style.top=ry+"px";
-    requestAnimationFrame(animCursor);
-  })();
-  document.addEventListener("mousedown", () => { cursor.style.transform="translate(-50%,-50%) scale(.7)"; ring.style.transform="translate(-50%,-50%) scale(.85)"; });
-  document.addEventListener("mouseup",   () => { cursor.style.transform="translate(-50%,-50%) scale(1)";  ring.style.transform="translate(-50%,-50%) scale(1)"; });
-  function cursorBig()  { cursor.style.width="16px"; cursor.style.height="16px"; ring.style.width="48px"; ring.style.height="48px"; ring.style.borderColor="rgba(200,169,110,.8)"; }
-  function cursorSmall(){ cursor.style.width="8px";  cursor.style.height="8px";  ring.style.width="36px"; ring.style.height="36px"; ring.style.borderColor="rgba(200,169,110,.5)"; }
-  document.querySelectorAll("a,button,input,select,.card").forEach(el => {
-    el.addEventListener("mouseenter", cursorBig);
-    el.addEventListener("mouseleave", cursorSmall);
-  });
+  function cursorBig()  {}
+  function cursorSmall(){}
 
   // ── Particles ───────────────────────────────────────────────────────────────
   const canvas = document.getElementById("particles");
@@ -671,7 +631,7 @@
     ctx.clearRect(0,0,W,H);
     for(const p of pts){
       ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
-      ctx.fillStyle=p.g?`rgba(200,169,110,${p.a})`:`rgba(255,255,255,${p.a*.5})`;
+      ctx.fillStyle=p.g?`rgba(255,255,255,${p.a})`:`rgba(255,255,255,${p.a*.5})`;
       ctx.fill();
       p.x+=p.vx; p.y+=p.vy;
       if(p.x<-5)p.x=W+5; if(p.x>W+5)p.x=-5;
@@ -968,6 +928,48 @@
 
     stagger(".card");
     bindVenueEvents();
+
+    // Show unassigned venues (no clientId) so user can link them
+    const unassigned = allVenues.filter(v => !v.clientId && !myVenues.find(mv=>mv.id===v.id));
+    if(unassigned.length) {
+      const unassignedHtml = `
+        <div style="margin-top:2.5rem">
+          <div style="font-size:.6rem;font-weight:700;letter-spacing:.28em;text-transform:uppercase;color:var(--gray);margin-bottom:.75rem">
+            Unassigned Venues — click to link to this client
+          </div>
+          ${unassigned.map(v=>`
+            <div class="card visible" style="border-color:#2a2a2a;opacity:.7" data-link-venue="${v.id}">
+              <div class="cardRow" style="cursor:pointer">
+                <div class="cardAvatar">${(v.name||v.id)[0].toUpperCase()}</div>
+                <div class="cardInfo">
+                  <div class="cardName">${esc(v.name||v.id)}</div>
+                  <div class="cardMeta"><code>${esc(v.id)}</code>${v.address?` · ${esc(v.address)}`:""}</div>
+                </div>
+                <button class="btn btnGhost" style="font-size:.68rem" data-link-venue="${v.id}">Link here →</button>
+              </div>
+            </div>`).join("")}
+        </div>`;
+      list.insertAdjacentHTML("beforeend", unassignedHtml);
+      document.querySelectorAll("[data-link-venue]").forEach(el=>{
+        el.addEventListener("click", ()=>linkVenue(el.dataset.linkVenue));
+      });
+    }
+  }
+
+  async function linkVenue(venueId) {
+    const v = allVenues.find(x=>x.id===venueId);
+    if(!v) return;
+    const c = clients.find(x=>x.id===currentClientId);
+    const companyName = c?.name || v.companyName || v.name || "";
+    const effectiveLogo = v.logoUrl || c?.logoUrl || "";
+    const effectiveColor = v.primaryColor || c?.primaryColor || "";
+    try {
+      await setDoc(doc(db,"venueRegistry",venueId),{clientId:currentClientId,companyName},{merge:true});
+      await setDoc(doc(db,"venues",venueId,"sharedMemory","venueSettings"),{companyName,logoUrl:effectiveLogo,primaryColor:effectiveColor,_updatedAt:new Date().toISOString()},{merge:true});
+      allVenues=allVenues.map(x=>x.id===venueId?{...x,clientId:currentClientId,companyName}:x);
+      showToast("Linked: "+(v.name||venueId));
+      renderVenues(currentClientId);
+    } catch(err){ showToast("Error: "+err.message,true); }
   }
 
   function bindVenueEvents() {
@@ -1032,7 +1034,7 @@
     const primaryColor=document.getElementById("nv-color").value.trim();
     if(!slug){errEl.textContent="Enter a valid venue ID.";errEl.style.display="block";return;}
     if(!name){errEl.textContent="Enter a display name.";errEl.style.display="block";return;}
-    if(allVenues.find(v=>v.id===slug)){errEl.textContent="A venue with that ID already exists.";errEl.style.display="block";return;}
+    // If venue already exists we link it to this client (merge) instead of erroring
     const btn=e.target.querySelector("[type=submit]"); btn.disabled=true; btn.textContent="Adding…";
     try {
       const c=clients.find(x=>x.id===currentClientId);
@@ -1040,14 +1042,16 @@
       const effectiveLogo=logoUrl||c?.logoUrl||"";
       const effectiveColor=primaryColor||c?.primaryColor||"";
       const data={name,clientId:currentClientId,companyName,type,address,logoUrl,primaryColor,status:"active",createdAt:new Date().toISOString(),createdBy:"DSMarketing"};
-      await setDoc(doc(db,"venueRegistry",slug),data);
+      const exists = allVenues.find(v=>v.id===slug);
+      await setDoc(doc(db,"venueRegistry",slug),data,{merge:true});
       await setDoc(doc(db,"venues",slug,"sharedMemory","venueSettings"),{companyName,logoUrl:effectiveLogo,primaryColor:effectiveColor,_updatedAt:new Date().toISOString()},{merge:true});
-      allVenues.push({id:slug,...data});
+      if(exists){ allVenues=allVenues.map(v=>v.id===slug?{...v,...data}:v); }
+      else { allVenues.push({id:slug,...data}); }
       allVenues.sort((a,b)=>(a.name||a.id).localeCompare(b.name||b.id));
       document.getElementById("addVenueForm").style.display="none";
       e.target.reset();
       animCount(document.getElementById("statVenues"),allVenues.length);
-      showToast("Venue added · "+location.origin+"/Claude/?v="+slug);
+      showToast((exists?"Venue linked":"Venue added")+" · "+location.origin+"/Claude/?v="+slug);
       renderVenues(currentClientId);
     } catch(err){ errEl.textContent="Error: "+err.message; errEl.style.display="block"; }
     finally { btn.disabled=false; btn.textContent="Add Venue"; }
