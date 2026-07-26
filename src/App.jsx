@@ -15494,12 +15494,16 @@ function GlobalAdminPanel({ currentUser, onBack, onManageVenue, onEnterVenue, on
   const [addName, setAddName] = useState("");
   const [addType, setAddType] = useState("stadium");
   const [addAddress, setAddAddress] = useState("");
+  const [addCompanyName, setAddCompanyName] = useState("");
+  const [addLogoUrl, setAddLogoUrl] = useState("");
   const [addError, setAddError] = useState("");
   const [addLoading, setAddLoading] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [editName, setEditName] = useState("");
   const [editType, setEditType] = useState("stadium");
   const [editAddress, setEditAddress] = useState("");
+  const [editCompanyName, setEditCompanyName] = useState("");
+  const [editLogoUrl, setEditLogoUrl] = useState("");
   // Multi-step delete confirmation
   const [deleteTarget, setDeleteTarget] = useState(null); // { id, name } or null
   const [deleteStep, setDeleteStep] = useState(1);        // 1 = initial warning, 2 = type-to-confirm
@@ -15537,18 +15541,25 @@ function GlobalAdminPanel({ currentUser, onBack, onManageVenue, onEnterVenue, on
     if (!addName.trim()) { setAddError("Enter a display name."); return; }
     if (venues.find(v => v.id === slug)) { setAddError("A venue with that ID already exists."); return; }
     setAddLoading(true);
+    const companyNameVal = addCompanyName.trim() || addName.trim();
     await saveVenueRecord(slug, {
       name: addName.trim(),
       type: addType,
       address: addAddress.trim() || "",
+      companyName: companyNameVal,
+      logoUrl: addLogoUrl.trim() || "",
       status: "active",
       createdAt: new Date().toISOString(),
       createdBy: currentUser?.name || "admin",
     });
+    // Push branding into that venue's venueSettings so all users see it on load
+    if (FIREBASE_ON) {
+      setDoc(doc(db, "venues", slug, "sharedMemory", "venueSettings"), { companyName: companyNameVal, logoUrl: addLogoUrl.trim() || "" }, { merge: true }).catch(() => {});
+    }
     const updated = await loadVenueRegistry();
     updated.sort((a, b) => (a.name || a.id).localeCompare(b.name || b.id));
     setVenues(updated);
-    setAddId(""); setAddName(""); setAddType("stadium"); setAddAddress(""); setShowAddForm(false);
+    setAddId(""); setAddName(""); setAddType("stadium"); setAddAddress(""); setAddCompanyName(""); setAddLogoUrl(""); setShowAddForm(false);
     setAddLoading(false);
     // Load stats for the new venue
     const stats = await loadVenueStats(slug);
@@ -15584,8 +15595,12 @@ function GlobalAdminPanel({ currentUser, onBack, onManageVenue, onEnterVenue, on
   }
 
   async function handleSaveEdit(venueId) {
-    await saveVenueRecord(venueId, { name: editName.trim(), type: editType, address: editAddress.trim() });
-    setVenues(prev => prev.map(v => v.id === venueId ? { ...v, name: editName.trim(), type: editType, address: editAddress.trim() } : v));
+    const cName = editCompanyName.trim() || editName.trim();
+    await saveVenueRecord(venueId, { name: editName.trim(), type: editType, address: editAddress.trim(), companyName: cName, logoUrl: editLogoUrl.trim() });
+    if (FIREBASE_ON) {
+      setDoc(doc(db, "venues", venueId, "sharedMemory", "venueSettings"), { companyName: cName, logoUrl: editLogoUrl.trim() }, { merge: true }).catch(() => {});
+    }
+    setVenues(prev => prev.map(v => v.id === venueId ? { ...v, name: editName.trim(), type: editType, address: editAddress.trim(), companyName: cName, logoUrl: editLogoUrl.trim() } : v));
     setEditingId(null);
   }
 
@@ -15724,6 +15739,15 @@ function GlobalAdminPanel({ currentUser, onBack, onManageVenue, onEnterVenue, on
                   <input value={addAddress} onChange={e => setAddAddress(e.target.value)}
                     placeholder="Address (optional)"
                     style={{ padding: "0.55rem 0.75rem", borderRadius: 7, border: "1.5px solid #e2e8f0", fontSize: "0.9rem" }} />
+                  <div style={{ borderTop: "1px solid #e2e8f0", paddingTop: "0.5rem", marginTop: "0.25rem" }}>
+                    <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "#64748b", marginBottom: "0.4rem" }}>🏢 Client Branding</div>
+                    <input value={addCompanyName} onChange={e => setAddCompanyName(e.target.value)}
+                      placeholder="Company name shown in app (e.g. Levy Restaurants)"
+                      style={{ padding: "0.55rem 0.75rem", borderRadius: 7, border: "1.5px solid #e2e8f0", fontSize: "0.9rem", width: "100%", boxSizing: "border-box", marginBottom: "0.4rem" }} />
+                    <input value={addLogoUrl} onChange={e => setAddLogoUrl(e.target.value)}
+                      placeholder="Logo URL (https://… — leave blank for default)"
+                      style={{ padding: "0.55rem 0.75rem", borderRadius: 7, border: "1.5px solid #e2e8f0", fontSize: "0.9rem", width: "100%", boxSizing: "border-box" }} />
+                  </div>
                   <button type="submit" disabled={addLoading}
                     style={{ padding: "0.6rem", borderRadius: 7, border: "none", background: "#2A295C", color: "#fff", fontWeight: 700, cursor: "pointer" }}>
                     {addLoading ? "Adding…" : "Add Venue"}
@@ -15763,6 +15787,15 @@ function GlobalAdminPanel({ currentUser, onBack, onManageVenue, onEnterVenue, on
                         </select>
                         <input value={editAddress} onChange={e => setEditAddress(e.target.value)}
                           placeholder="Address (optional)" style={{ padding: "0.45rem 0.65rem", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: "0.9rem" }} />
+                        <div style={{ borderTop: "1px solid #e2e8f0", paddingTop: "0.4rem", marginTop: "0.1rem" }}>
+                          <div style={{ fontSize: "0.72rem", fontWeight: 700, color: "#64748b", marginBottom: "0.3rem" }}>🏢 Client Branding</div>
+                          <input value={editCompanyName} onChange={e => setEditCompanyName(e.target.value)}
+                            placeholder="Company name shown in app"
+                            style={{ padding: "0.4rem 0.6rem", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: "0.88rem", width: "100%", boxSizing: "border-box", marginBottom: "0.3rem" }} />
+                          <input value={editLogoUrl} onChange={e => setEditLogoUrl(e.target.value)}
+                            placeholder="Logo URL (leave blank for default)"
+                            style={{ padding: "0.4rem 0.6rem", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: "0.88rem", width: "100%", boxSizing: "border-box" }} />
+                        </div>
                         <div style={{ display: "flex", gap: "0.4rem" }}>
                           <button type="button" onClick={() => handleSaveEdit(v.id)}
                             style={{ flex: 1, padding: "0.4rem", borderRadius: 6, border: "none", background: "#2A295C", color: "#fff", fontWeight: 600, cursor: "pointer", fontSize: "0.85rem" }}>Save</button>
@@ -15824,7 +15857,7 @@ function GlobalAdminPanel({ currentUser, onBack, onManageVenue, onEnterVenue, on
                           Open ↗
                         </button>
                         <button type="button"
-                          onClick={() => { setEditingId(v.id); setEditName(v.name || ""); setEditType(v.type || "stadium"); setEditAddress(v.address || ""); }}
+                          onClick={() => { setEditingId(v.id); setEditName(v.name || ""); setEditType(v.type || "stadium"); setEditAddress(v.address || ""); setEditCompanyName(v.companyName || ""); setEditLogoUrl(v.logoUrl || ""); }}
                           style={{ padding: "0.35rem 0.65rem", borderRadius: 6, border: "1.5px solid #e2e8f0", background: "#fff", color: "#64748b", fontWeight: 600, cursor: "pointer", fontSize: "0.78rem" }}>
                           Edit
                         </button>
@@ -15904,59 +15937,6 @@ function GlobalAdminPanel({ currentUser, onBack, onManageVenue, onEnterVenue, on
           </div>
         </div>
       )}
-    </div>
-  );
-}
-
-/* ── Company Branding Card ────────────────────────────────── */
-function BrandingCard({ venueSettings, onSaveVenueSettings }) {
-  const [companyName, setCompanyName] = useState(venueSettings?.companyName || "");
-  const [logoUrl, setLogoUrl] = useState(venueSettings?.logoUrl || "");
-  const [saved, setSaved] = useState(false);
-
-  function handleSave(e) {
-    e.preventDefault();
-    onSaveVenueSettings?.({ companyName: companyName.trim(), logoUrl: logoUrl.trim() });
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2500);
-  }
-
-  return (
-    <div className="card adminCard" style={{ marginBottom: 24 }}>
-      <div className="cardHeader">
-        <div className="cardTitle">🏢 Company Branding</div>
-      </div>
-      <div className="cardBody">
-        <p style={{ margin: "0 0 0.75rem", fontSize: "0.88rem", color: "#64748b" }}>
-          Customize the company name and logo shown throughout the app and in reports.
-        </p>
-        <form onSubmit={handleSave} style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
-          <label className="field">
-            <span className="fieldLabel">Company Name</span>
-            <input className="input" value={companyName} onChange={e => setCompanyName(e.target.value)}
-              placeholder="e.g. Sodexo Live!, Levy Restaurants, Aramark…" />
-          </label>
-          <label className="field">
-            <span className="fieldLabel">Logo URL</span>
-            <input className="input" value={logoUrl} onChange={e => setLogoUrl(e.target.value)}
-              placeholder="https://your-cdn.com/logo.png (leave blank for default)" />
-            <span style={{ fontSize: "0.74rem", color: "#94a3b8", marginTop: 2 }}>
-              Use a publicly accessible image URL. Leave blank to use the built-in logo.
-            </span>
-          </label>
-          {logoUrl.trim() && (
-            <div style={{ display: "flex", alignItems: "center", gap: 10, background: "#1e2b5e", borderRadius: 8, padding: "8px 12px" }}>
-              <img src={logoUrl.trim()} alt="Logo preview" style={{ maxHeight: 36, maxWidth: 120, objectFit: "contain" }}
-                onError={e => { e.target.style.display = "none"; }} />
-              <span style={{ fontSize: "0.75rem", color: "#93c5fd" }}>Preview on dark header</span>
-            </div>
-          )}
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <button type="submit" className="btn btnPrimary" style={{ alignSelf: "flex-start" }}>Save Branding</button>
-            {saved && <span style={{ color: "#15803d", fontSize: "0.85rem", fontWeight: 600 }}>✓ Saved</span>}
-          </div>
-        </form>
-      </div>
     </div>
   );
 }
@@ -16359,9 +16339,6 @@ function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVe
             </div>
           </div>
         </div>
-
-        {/* Company Branding */}
-        <BrandingCard venueSettings={venueSettings} onSaveVenueSettings={onSaveVenueSettings} />
 
         {/* Add User */}
         <div className="card adminCard" style={{ marginBottom: 24 }}>
