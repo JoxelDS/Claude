@@ -403,18 +403,17 @@
     <div class="dsLogo">
       <svg class="dsLogoMark" viewBox="0 0 460 400" fill="none" xmlns="http://www.w3.org/2000/svg">
         <defs>
-          <!-- D glyph as clipPath to cut out from S where D sits on top -->
-          <clipPath id="dCut">
-            <rect x="0" y="0" width="215" height="295" />
-          </clipPath>
+          <!-- Mask hides S in the area where D will sit, so D appears in front -->
+          <mask id="sMask">
+            <rect x="0" y="0" width="460" height="400" fill="white"/>
+            <rect x="0" y="0" width="212" height="290" fill="black"/>
+          </mask>
         </defs>
-        <!-- S drawn first (behind), clipped so top-left is hidden under D -->
-        <text x="158" y="390" font-family="'Playfair Display', Georgia, serif" font-size="330" font-weight="900" fill="white" clip-path="url(#dCut)" style="clip-path:none">S</text>
-        <!-- Black block hides the part of S that D will cover -->
-        <rect x="155" y="0" width="62" height="200" fill="black" />
-        <!-- D drawn on top (in front) -->
+        <!-- S behind — masked so D area is invisible on S -->
+        <text x="158" y="390" font-family="'Playfair Display', Georgia, serif" font-size="330" font-weight="900" fill="white" mask="url(#sMask)">S</text>
+        <!-- D in front -->
         <text x="-5" y="282" font-family="'Playfair Display', Georgia, serif" font-size="330" font-weight="900" fill="white">D</text>
-        <!-- MARKETING centered in the overlap zone -->
+        <!-- MARKETING between the letters -->
         <text x="272" y="192" font-family="'Inter', Arial, sans-serif" font-size="15" font-weight="700" fill="white" letter-spacing="8" text-anchor="middle">MARKETING</text>
       </svg>
     </div>
@@ -438,8 +437,13 @@
   <nav class="nav">
     <div class="navBrand">
       <svg class="navLogoMark" viewBox="0 0 460 400" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <text x="158" y="390" font-family="'Playfair Display', Georgia, serif" font-size="330" font-weight="900" fill="white">S</text>
-        <rect x="155" y="0" width="62" height="200" fill="black" />
+        <defs>
+          <mask id="sMaskNav">
+            <rect x="0" y="0" width="460" height="400" fill="white"/>
+            <rect x="0" y="0" width="212" height="290" fill="black"/>
+          </mask>
+        </defs>
+        <text x="158" y="390" font-family="'Playfair Display', Georgia, serif" font-size="330" font-weight="900" fill="white" mask="url(#sMaskNav)">S</text>
         <text x="-5" y="282" font-family="'Playfair Display', Georgia, serif" font-size="330" font-weight="900" fill="white">D</text>
       </svg>
       <div class="navBrandText">
