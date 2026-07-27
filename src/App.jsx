@@ -7125,12 +7125,16 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
           kitchenMap[key].count++;
           if (k.date) kitchenMap[key].dates.push(k.date);
         }
-        const allKitchens = Object.values(kitchenMap).sort((a, b) => b.count - a.count);
-        // Show only ×2+ locations; fall back to all if none qualify (avoids empty section)
-        const repeatKitchens = allKitchens.filter(k => k.count >= 2);
-        const kitchens = repeatKitchens.length > 0 ? repeatKitchens : allKitchens;
+        const cutoff = Date.now() - 180 * 24 * 60 * 60 * 1000; // 6 months ago
+        const isRecent = (dates) => dates.some(d => d && new Date(d).getTime() >= cutoff);
+        // Only keep locations that still have a recent occurrence (issue not resolved)
+        const activeKitchens = Object.values(kitchenMap).filter(k => isRecent(k.dates)).sort((a, b) => b.count - a.count);
+        // Among active, prefer ×2+; fall back to ×1 if none meet threshold (avoids blank section)
+        const repeatKitchens = activeKitchens.filter(k => k.count >= 2);
+        const kitchens = repeatKitchens.length > 0 ? repeatKitchens : activeKitchens;
         return { category: cat, count, kitchens };
-      });
+      })
+      .filter(r => r.kitchens.length > 0); // hide categories where every location resolved the issue
 
     // 3. Per-location recurring
     const locationRecurring = {};
