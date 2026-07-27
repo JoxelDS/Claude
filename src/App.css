@@ -4000,11 +4000,17 @@ datalist {
 }
 .recurringKitchenClickable {
   cursor: pointer;
-  transition: background 0.15s, transform 0.1s;
+  transition: background var(--transition), transform var(--transition), box-shadow var(--transition);
 }
 .recurringKitchenClickable:hover {
-  background: rgba(239, 68, 68, 0.2);
-  transform: scale(1.03);
+  background: #2A295C;
+  color: #fff;
+  transform: translateY(-1px);
+  box-shadow: 0 3px 10px rgba(42,41,92,0.22);
+}
+.recurringKitchenClickable:hover .recurringKitchenCount {
+  background: rgba(255,255,255,0.2);
+  color: #fff;
 }
 .recurringKitchenTag {
   display: inline-flex;

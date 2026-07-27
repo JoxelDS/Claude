@@ -7202,7 +7202,16 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
                   </div>
                   <div className="recurringKitchens">
                     {kitchens.map((k, i) => (
-                      <span key={i} className="recurringKitchenTag recurringKitchenClickable" onClick={() => onTagClick?.()}>
+                      <span
+                        key={i}
+                        className="recurringKitchenTag recurringKitchenClickable"
+                        title={`View reports for ${k.label} — ${category}`}
+                        onClick={() => {
+                          // Strip " #Unit (Floor)" suffix to get plain location name for filter
+                          const locName = k.label.split(" (")[0];
+                          onIssueDrilldown?.(locName, category);
+                        }}
+                      >
                         {k.label} <span className="recurringKitchenCount">&times;{k.count}</span>
                       </span>
                     ))}
