@@ -7455,7 +7455,7 @@ function ImportReviewModal({ fields: initialFields, imagePreview, saving, onSave
 }
 
 /* ── History Page Component ──────────────────────────────── */
-function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, currentUser, notifItems, onNotifDismiss, onNotifClearAll, onMyTasks, venueSettings }) {
+function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, currentUser, notifItems, onNotifDismiss, onNotifClearAll, onMyTasks, venueSettings, saveVenueSettings }) {
   // Returns true if the current user is allowed to edit the given record.
   // Allowed: the original author (matched by badgeHash), any admin, or global_admin.
   function canEditRec(rec) {
@@ -19992,6 +19992,7 @@ export default function App() {
     onNotifClearAll={() => setNotifItems([])}
     onMyTasks={() => setPage("mylocations")}
     venueSettings={venueSettings}
+    saveVenueSettings={saveVenueSettings}
   />; }
   if (page === "global_admin") {
     return <GlobalAdminPanel
