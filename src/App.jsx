@@ -7075,7 +7075,7 @@ function PredictiveInsightsPanel({ history }) {
 }
 
 /* ── Recurring Issues Analysis ──────────────────────────── */
-function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDrilldown }) {
+function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDrilldown, venueSettings, saveVenueSettings }) {
   const analysis = useMemo(() => {
     if (history.length < 2) return null;
 
@@ -7090,11 +7090,19 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
       const locUnit = rec.siteNumber || "";
       locationInspectionCount[locLabel] = (locationInspectionCount[locLabel] || 0) + 1;
 
+      const recResolvedMap = rec.resolvedIssues || {};
       const seenInThisRec = new Set();
-      for (const item of (rec.actionItems || [])) {
+      const actionItems = rec.actionItems || [];
+      for (let ai = 0; ai < actionItems.length; ai++) {
+        const item = actionItems[ai];
         const cat = item.issue?.split(":")[0]?.trim() || "Other";
         if (seenInThisRec.has(cat)) continue;
         seenInThisRec.add(cat);
+
+        // If every action item in this record for this category is resolved, skip it
+        const catIndices = actionItems.map((a, i) => (a.issue?.split(":")[0]?.trim() || "Other") === cat ? i : -1).filter(i => i >= 0);
+        const allResolved = catIndices.every(i => recResolvedMap[i]);
+        if (allResolved) continue;
 
         issueCounts[cat] = (issueCounts[cat] || 0) + 1;
 
@@ -9301,7 +9309,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
             {analyticsTab === "temp" && <TempTrendChart history={filtered.length > 0 ? filtered : history} />}
             {analyticsTab === "insights" && <AIHealthMonitor history={filtered.length > 0 ? filtered : history} currentUser={currentUser} />}
             {analyticsTab === "predictive" && <PredictiveInsightsPanel history={filtered.length > 0 ? filtered : history} />}
-            {analyticsTab === "recurring" && <RecurringIssuesPanel history={filtered.length > 0 ? filtered : history} onLocationClick={filterByLocation} onTagClick={goToRecurringAnalytics} onIssueDrilldown={filterByLocationAndIssue} />}
+            {analyticsTab === "recurring" && <RecurringIssuesPanel history={filtered.length > 0 ? filtered : history} onLocationClick={filterByLocation} onTagClick={goToRecurringAnalytics} onIssueDrilldown={filterByLocationAndIssue} venueSettings={venueSettings} saveVenueSettings={saveVenueSettings} />}
             {analyticsTab === "timeline" && (() => {
               const src = filtered.length > 0 ? filtered : history;
               // Build merged event list: one entry per inspection + one per HACCP submission linked to it
