@@ -5573,8 +5573,11 @@ function TempTrendChart({ history }) {
                   // Named units (cooler/freezer sub-items)
                   const namedUnits = d.items && d.items.length > 0 ? d.items : [];
                   const rowCount = namedUnits.length > 0 ? namedUnits.length : 1;
-                  // Tooltip sizing — wide enough for "Hand Sink: 112°F"
-                  const tipW = 130;
+                  // Dynamic width — measure longest content row (~6.2px per char), clamp to chart bounds
+                  const longestRow = namedUnits.length > 0
+                    ? namedUnits.reduce((max, u) => Math.max(max, (`${u.label}: ${u.tempF}°F`).length), 0)
+                    : (`${label}: ${d.v}°F`).length;
+                  const tipW = Math.min(Math.max(110, longestRow * 6.2 + 28), SW - SPAD - SPADR - 10);
                   const tipHeaderH = 22;
                   const tipRowH = 16;
                   const tipPadB = 8;
