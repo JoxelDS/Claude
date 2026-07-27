@@ -7125,9 +7125,10 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
           kitchenMap[key].count++;
           if (k.date) kitchenMap[key].dates.push(k.date);
         }
-        const kitchens = Object.values(kitchenMap).sort((a, b) => b.count - a.count);
+        const kitchens = Object.values(kitchenMap).filter(k => k.count >= 2).sort((a, b) => b.count - a.count);
         return { category: cat, count, kitchens };
-      });
+      })
+      .filter(r => r.kitchens.length > 0);
 
     // 3. Per-location recurring
     const locationRecurring = {};
