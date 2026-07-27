@@ -5553,11 +5553,23 @@ function TempTrendChart({ history }) {
                 {/* Line */}
                 {coords.length > 1 && <path d={pathD} fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />}
 
-                {/* Out-of-range dots (always visible) */}
+                {/* (dots + labels rendered below in permanent labels block) */}
+
+                {/* Permanent data labels above each dot */}
                 {vals.map((d, idx) => {
-                  const oor = isMin ? d.v < threshold : d.v > threshold;
-                  if (!oor) return null;
-                  return <circle key={idx} cx={sToX(idx)} cy={sToY(d.v)} r="5" fill="#ef4444" stroke="white" strokeWidth="1.5" />;
+                  const px = sToX(idx);
+                  const py = sToY(d.v);
+                  const ok = isMin ? d.v >= threshold : d.v <= threshold;
+                  const labelY = py - 10;
+                  // Skip label if only 1 reading (always visible anyway)
+                  return (
+                    <g key={`lbl-${idx}`} style={{ pointerEvents: "none" }}>
+                      {/* Dot */}
+                      <circle cx={px} cy={py} r="4" fill={ok ? color : "#ef4444"} stroke="white" strokeWidth="1.5" />
+                      {/* Value label */}
+                      <text x={px} y={labelY} textAnchor="middle" fontSize="9" fontWeight="700" fill={ok ? color : "#ef4444"} style={{ paintOrder: "stroke", stroke: "white", strokeWidth: "3", strokeLinejoin: "round" }}>{d.v}°</text>
+                    </g>
+                  );
                 })}
 
                 {/* Hover crosshair + tooltip */}
@@ -5588,9 +5600,9 @@ function TempTrendChart({ history }) {
                         <g style={{ filter: "drop-shadow(0 4px 12px rgba(0,0,0,0.18))" }}>
                           {/* Crosshair */}
                           <line x1={px} y1={SPADT} x2={px} y2={SH - SPADB} stroke={color} strokeWidth="1.5" strokeDasharray="4,3" opacity="0.45" />
-                          {/* Dot with glow ring */}
-                          <circle cx={px} cy={py} r="8" fill={ok ? color : "#ef4444"} opacity="0.15" />
-                          <circle cx={px} cy={py} r="5" fill="white" stroke={ok ? color : "#ef4444"} strokeWidth="2.5" />
+                          {/* Glow ring on hover */}
+                          <circle cx={px} cy={py} r="9" fill={ok ? color : "#ef4444"} opacity="0.15" />
+                          <circle cx={px} cy={py} r="5" fill={ok ? color : "#ef4444"} stroke="white" strokeWidth="2" />
                           {/* Tooltip card */}
                           <rect x={tipX} y={tipY} width={tipW} height={tipH} rx="9" fill="white" stroke={ok ? color + "40" : "#fca5a540"} strokeWidth="1.5" />
                           <rect x={tipX} y={tipY} width={tipW} height="14" rx="9" fill={ok ? color : "#ef4444"} opacity="0.12" />
