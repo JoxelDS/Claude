@@ -5437,40 +5437,23 @@ function TempTrendChart({ history }) {
         </div>
       </div>
 
-      {/* At-a-glance summary row — average reading per sensor */}
-      <div style={{ display: "flex", alignItems: "stretch", gap: "0.5rem", padding: "0.85rem 1rem", borderBottom: "1px solid #f3f4f6" }}>
-        <div style={{ fontSize: "0.7rem", color: "#9ca3af", display: "flex", alignItems: "center", marginRight: 2, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", flexShrink: 0 }}>Min:</div>
-        {glanceSummary.hand !== null && (
-          <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", background: glanceSummary.handPass ? "#dbeafe" : "#fee2e2", borderRadius: 10, padding: "0.35rem 0.4rem", minWidth: 0, border: glanceSummary.handPass ? "1px solid #93c5fd" : "1px solid #fca5a5" }}>
-            <span style={{ fontSize: "0.6rem", color: glanceSummary.handPass ? "#1d4ed8" : "#dc2626", fontWeight: 600, textTransform: "uppercase", textAlign: "center" }}>Hand Sink</span>
-            <span style={{ fontSize: "1.1rem", fontWeight: 800, color: glanceSummary.handPass ? "#1d4ed8" : "#dc2626", lineHeight: 1.2 }}>{glanceSummary.hand}°F</span>
-            <span style={{ fontSize: "0.55rem", color: glanceSummary.handPass ? "#1d4ed8" : "#dc2626", textAlign: "center" }}>{glanceSummary.handPass ? "✓ min 95°F" : "✗ min 95°F"}</span>
-          </div>
-        )}
-        {glanceSummary.three !== null && (
-          <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", background: glanceSummary.threePass ? "#ede9fe" : "#fee2e2", borderRadius: 10, padding: "0.35rem 0.4rem", minWidth: 0, border: glanceSummary.threePass ? "1px solid #c4b5fd" : "1px solid #fca5a5" }}>
-            <span style={{ fontSize: "0.6rem", color: glanceSummary.threePass ? "#7c3aed" : "#dc2626", fontWeight: 600, textTransform: "uppercase", textAlign: "center" }}>3-Comp</span>
-            <span style={{ fontSize: "1.1rem", fontWeight: 800, color: glanceSummary.threePass ? "#7c3aed" : "#dc2626", lineHeight: 1.2 }}>{glanceSummary.three}°F</span>
-            <span style={{ fontSize: "0.55rem", color: glanceSummary.threePass ? "#7c3aed" : "#dc2626", textAlign: "center" }}>{glanceSummary.threePass ? "✓ min 110°F" : "✗ min 110°F"}</span>
-          </div>
-        )}
-        {glanceSummary.cooler !== null && (
-          <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", background: glanceSummary.coolerPass ? "#d1fae5" : "#fee2e2", borderRadius: 10, padding: "0.35rem 0.4rem", minWidth: 0, border: glanceSummary.coolerPass ? "1px solid #6ee7b7" : "1px solid #fca5a5" }}>
-            <span style={{ fontSize: "0.6rem", color: glanceSummary.coolerPass ? "#059669" : "#dc2626", fontWeight: 600, textTransform: "uppercase", textAlign: "center" }}>Cooler</span>
-            <span style={{ fontSize: "1.1rem", fontWeight: 800, color: glanceSummary.coolerPass ? "#059669" : "#dc2626", lineHeight: 1.2 }}>{glanceSummary.cooler}°F</span>
-            <span style={{ fontSize: "0.55rem", color: glanceSummary.coolerPass ? "#059669" : "#dc2626", textAlign: "center" }}>{glanceSummary.coolerPass ? "✓ max 40°F" : "✗ max 40°F"}</span>
-          </div>
-        )}
-        {glanceSummary.freezer !== null && (
-          <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", background: glanceSummary.freezerPass ? "#cffafe" : "#fee2e2", borderRadius: 10, padding: "0.35rem 0.4rem", minWidth: 0, border: glanceSummary.freezerPass ? "1px solid #67e8f9" : "1px solid #fca5a5" }}>
-            <span style={{ fontSize: "0.6rem", color: glanceSummary.freezerPass ? "#0891b2" : "#dc2626", fontWeight: 600, textTransform: "uppercase", textAlign: "center" }}>Freezer</span>
-            <span style={{ fontSize: "1.1rem", fontWeight: 800, color: glanceSummary.freezerPass ? "#0891b2" : "#dc2626", lineHeight: 1.2 }}>{glanceSummary.freezer}°F</span>
-            <span style={{ fontSize: "0.55rem", color: glanceSummary.freezerPass ? "#0891b2" : "#dc2626", textAlign: "center" }}>{glanceSummary.freezerPass ? "✓ max 20°F" : "✗ max 20°F"}</span>
-          </div>
-        )}
-        {glanceSummary.hand === null && glanceSummary.three === null && glanceSummary.cooler === null && glanceSummary.freezer === null && (
-          <span style={{ fontSize: "0.8rem", color: "#9ca3af" }}>No temperature data in the current filter</span>
-        )}
+      {/* Required temperature standards — instructional reference guide */}
+      <div style={{ padding: "0.75rem 1rem", borderBottom: "1px solid #f3f4f6", background: "#f8fafc" }}>
+        <div style={{ fontSize: "0.62rem", color: "#94a3b8", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.5rem" }}>Required Temperature Standards</div>
+        <div style={{ display: "flex", gap: "0.5rem" }}>
+          {[
+            { label: "Hand Sink",  req: "≥ 95°F",  note: "Minimum",  bg: "#eff6ff", border: "#bfdbfe", color: "#1d4ed8" },
+            { label: "3-Comp Sink",req: "≥ 110°F", note: "Minimum",  bg: "#f5f3ff", border: "#c4b5fd", color: "#6d28d9" },
+            { label: "Cooler",     req: "≤ 40°F",  note: "Maximum",  bg: "#f0fdf4", border: "#86efac", color: "#15803d" },
+            { label: "Freezer",    req: "≤ 20°F",  note: "Maximum",  bg: "#ecfeff", border: "#67e8f9", color: "#0e7490" },
+          ].map(({ label, req, note, bg, border, color }) => (
+            <div key={label} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", background: bg, border: `1px solid ${border}`, borderRadius: 10, padding: "0.4rem 0.3rem", minWidth: 0 }}>
+              <span style={{ fontSize: "0.58rem", fontWeight: 700, color, textTransform: "uppercase", letterSpacing: "0.04em", textAlign: "center", marginBottom: 2 }}>{label}</span>
+              <span style={{ fontSize: "1.05rem", fontWeight: 800, color, lineHeight: 1.15 }}>{req}</span>
+              <span style={{ fontSize: "0.55rem", color, opacity: 0.7, marginTop: 1 }}>{note}</span>
+            </div>
+          ))}
+        </div>
       </div>
 
       <div className="cardBody" style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
