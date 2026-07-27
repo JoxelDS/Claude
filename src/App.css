@@ -3863,6 +3863,7 @@ datalist {
   height: auto;
   max-height: 220px;
   cursor: crosshair;
+  overflow: visible; /* allow dot labels to render above chart top edge */
   transition: opacity var(--transition);
 }
 

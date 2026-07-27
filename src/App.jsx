@@ -5291,15 +5291,14 @@ function TempTrendChart({ history }) {
       if (latest.cooler) coolerTemps.push(latest.cooler);
       if (latest.freezer) freezerTemps.push(latest.freezer);
     }
-    const avg = arr => arr.length ? Math.round(arr.reduce((a,b)=>a+b,0)/arr.length) : null;
     return {
-      hand: avg(handTemps),
+      hand: handTemps.length ? Math.min(...handTemps) : null,
       handPass: handTemps.length ? handTemps.every(t=>t>=95) : null,
-      three: avg(threeTemps),
+      three: threeTemps.length ? Math.min(...threeTemps) : null,
       threePass: threeTemps.length ? threeTemps.every(t=>t>=110) : null,
-      cooler: avg(coolerTemps),
+      cooler: coolerTemps.length ? Math.max(...coolerTemps) : null,
       coolerPass: coolerTemps.length ? coolerTemps.every(t=>t<=40) : null,
-      freezer: avg(freezerTemps),
+      freezer: freezerTemps.length ? Math.max(...freezerTemps) : null,
       freezerPass: freezerTemps.length ? freezerTemps.every(t=>t<=20) : null,
     };
   }, [locations, locationData]);
@@ -5440,7 +5439,7 @@ function TempTrendChart({ history }) {
 
       {/* At-a-glance summary row — average reading per sensor */}
       <div style={{ display: "flex", alignItems: "stretch", gap: "0.5rem", padding: "0.85rem 1rem", borderBottom: "1px solid #f3f4f6" }}>
-        <div style={{ fontSize: "0.7rem", color: "#9ca3af", display: "flex", alignItems: "center", marginRight: 2, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", flexShrink: 0 }}>Avg:</div>
+        <div style={{ fontSize: "0.7rem", color: "#9ca3af", display: "flex", alignItems: "center", marginRight: 2, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", flexShrink: 0 }}>Min:</div>
         {glanceSummary.hand !== null && (
           <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", background: glanceSummary.handPass ? "#dbeafe" : "#fee2e2", borderRadius: 10, padding: "0.35rem 0.4rem", minWidth: 0, border: glanceSummary.handPass ? "1px solid #93c5fd" : "1px solid #fca5a5" }}>
             <span style={{ fontSize: "0.6rem", color: glanceSummary.handPass ? "#1d4ed8" : "#dc2626", fontWeight: 600, textTransform: "uppercase", textAlign: "center" }}>Hand Sink</span>
@@ -5560,19 +5559,23 @@ function TempTrendChart({ history }) {
 
                 {/* (dots + labels rendered below in permanent labels block) */}
 
-                {/* Permanent data labels above each dot */}
+                {/* Permanent data labels — above dot normally, below if near top edge */}
                 {vals.map((d, idx) => {
                   const px = sToX(idx);
                   const py = sToY(d.v);
                   const ok = isMin ? d.v >= threshold : d.v <= threshold;
-                  const labelY = py - 10;
-                  // Skip label if only 1 reading (always visible anyway)
+                  const dotColor = ok ? color : "#ef4444";
+                  // Put label below dot if it would clip above the chart top padding
+                  const aboveY = py - 12;
+                  const labelY = aboveY < SPADT + 8 ? py + 18 : aboveY;
                   return (
                     <g key={`lbl-${idx}`} style={{ pointerEvents: "none" }}>
                       {/* Dot */}
-                      <circle cx={px} cy={py} r="4" fill={ok ? color : "#ef4444"} stroke="white" strokeWidth="1.5" />
+                      <circle cx={px} cy={py} r="4.5" fill={dotColor} stroke="white" strokeWidth="2" />
+                      {/* Pill background for readability */}
+                      <rect x={px - 14} y={labelY - 9} width="28" height="13" rx="6" fill="white" opacity="0.85" />
                       {/* Value label */}
-                      <text x={px} y={labelY} textAnchor="middle" fontSize="9" fontWeight="700" fill={ok ? color : "#ef4444"} style={{ paintOrder: "stroke", stroke: "white", strokeWidth: "3", strokeLinejoin: "round" }}>{d.v}°</text>
+                      <text x={px} y={labelY} textAnchor="middle" fontSize="9.5" fontWeight="800" fill={dotColor}>{d.v}°</text>
                     </g>
                   );
                 })}
@@ -7506,7 +7509,7 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
     loadHistory(managedVenueId || undefined, {
       dateFrom: filterDateFrom || undefined,
       dateTo: filterDateTo || undefined,
-      pageSize: 500,
+      pageSize: 30,
     }).then(({ list, lastDoc, hasMore }) => {
       setHistory(list);
       setHistoryLastDoc(lastDoc);
@@ -7543,7 +7546,7 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
         loadHistory(managedVenueId || undefined, {
           dateFrom: filterDateFrom || undefined,
           dateTo: filterDateTo || undefined,
-          pageSize: 500,
+          pageSize: 30,
         }).then(({ list, lastDoc, hasMore }) => {
           setHistory(list);
           setHistoryLastDoc(lastDoc);
@@ -7562,6 +7565,7 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
       dateFrom: filterDateFrom || undefined,
       dateTo: filterDateTo || undefined,
       lastDoc: historyLastDoc,
+      pageSize: 50,
     }).then(({ list, lastDoc, hasMore }) => {
       setHistory(prev => [...prev, ...list]);
       setHistoryLastDoc(lastDoc);
