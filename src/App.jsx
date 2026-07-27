@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import ReactDOM from "react-dom";
 import "./App.css";
 // QRCode loaded on demand — not needed at startup
 let _QRCode = null;
@@ -3834,11 +3835,12 @@ function RenderedOutput({ noteType, useCase, context, inspection, rawNotes, insp
       </div>
 
       {/* Photo Lightbox */}
-      {lightboxSrc && (
-        <div onClick={() => setLightboxSrc(null)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.9)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",cursor:"zoom-out"}}>
-          <img src={lightboxSrc} alt="Full size photo" style={{maxWidth:"95vw",maxHeight:"95vh",objectFit:"contain",borderRadius:8,boxShadow:"0 4px 32px rgba(0,0,0,0.5)"}} />
+      {lightboxSrc && ReactDOM.createPortal(
+        <div onClick={() => setLightboxSrc(null)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.9)",zIndex:999999,display:"flex",alignItems:"center",justifyContent:"center",cursor:"zoom-out"}}>
+          <img src={lightboxSrc} alt="Full size photo" onClick={e => e.stopPropagation()} style={{maxWidth:"95vw",maxHeight:"90vh",objectFit:"contain",borderRadius:8,boxShadow:"0 4px 32px rgba(0,0,0,0.5)"}} />
           <button onClick={() => setLightboxSrc(null)} style={{position:"absolute",top:16,right:16,background:"rgba(255,255,255,0.15)",border:"none",color:"#fff",fontSize:28,width:44,height:44,borderRadius:"50%",cursor:"pointer",lineHeight:1}}>×</button>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
@@ -16705,11 +16707,12 @@ function PhotoStrip({ photos, onRemove, onTag }) {
   if (!photos?.length) return null;
   return (
     <>
-    {lightboxSrc && (
-      <div onClick={() => setLightboxSrc(null)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.9)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",cursor:"zoom-out"}}>
-        <img src={lightboxSrc} alt="Full size photo" style={{maxWidth:"95vw",maxHeight:"95vh",objectFit:"contain",borderRadius:8,boxShadow:"0 4px 32px rgba(0,0,0,0.5)"}} />
+    {lightboxSrc && ReactDOM.createPortal(
+      <div onClick={() => setLightboxSrc(null)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.9)",zIndex:999999,display:"flex",alignItems:"center",justifyContent:"center",cursor:"zoom-out"}}>
+        <img src={lightboxSrc} alt="Full size photo" onClick={e => e.stopPropagation()} style={{maxWidth:"95vw",maxHeight:"90vh",objectFit:"contain",borderRadius:8,boxShadow:"0 4px 32px rgba(0,0,0,0.5)"}} />
         <button onClick={() => setLightboxSrc(null)} style={{position:"absolute",top:16,right:16,background:"rgba(255,255,255,0.15)",border:"none",color:"#fff",fontSize:28,width:44,height:44,borderRadius:"50%",cursor:"pointer",lineHeight:1}}>×</button>
-      </div>
+      </div>,
+      document.body
     )}
     <div className="photoStrip">
       {photos.map((p) => (
@@ -22560,11 +22563,12 @@ export default function App() {
         <span>{FIREBASE_ON ? "☁️ Cloud database connected — data syncs across all devices." : "🔒 Data stored locally on this device."}</span>
       </footer>
 
-      {appLightboxSrc && (
-        <div onClick={() => setAppLightboxSrc(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.92)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", cursor: "zoom-out" }}>
-          <img src={appLightboxSrc} alt="Full size" style={{ maxWidth: "95vw", maxHeight: "95vh", objectFit: "contain", borderRadius: 8, boxShadow: "0 4px 32px rgba(0,0,0,0.6)" }} />
+      {appLightboxSrc && ReactDOM.createPortal(
+        <div onClick={() => setAppLightboxSrc(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.92)", zIndex: 999999, display: "flex", alignItems: "center", justifyContent: "center", cursor: "zoom-out" }}>
+          <img src={appLightboxSrc} alt="Full size" onClick={e => e.stopPropagation()} style={{ maxWidth: "95vw", maxHeight: "90vh", objectFit: "contain", borderRadius: 8, boxShadow: "0 4px 32px rgba(0,0,0,0.6)" }} />
           <button onClick={() => setAppLightboxSrc(null)} style={{ position: "absolute", top: 16, right: 16, background: "rgba(255,255,255,0.15)", border: "none", color: "#fff", fontSize: 28, width: 44, height: 44, borderRadius: "50%", cursor: "pointer", lineHeight: 1 }}>×</button>
-        </div>
+        </div>,
+        document.body
       )}
       {/* ── Pre-submit Incomplete Sections Modal ── */}
       {modals.preSubmit && (
