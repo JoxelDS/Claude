@@ -17103,18 +17103,45 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                           const existingCount = (current.checklist?.[idx]?.photos || []).length;
                           const remaining = PHOTO_LIMIT - existingCount;
                           if (remaining <= 0 || !files || files.length === 0) return;
-                          const { photos: enriched } = await processPhotoFiles(files, {
-                            limit: remaining, inspId, venueId: activeVenueId,
-                            firebaseOn: FIREBASE_ON, onError,
-                          });
-                          if (enriched.length === 0) return;
+                          const accepted = Array.from(files).slice(0, remaining).filter(f => f.type.startsWith("image/") && bytesToMb(f.size) <= PHOTO_MAX_MB);
+                          if (accepted.length === 0) return;
+                          // Phase 1: add placeholders immediately so inspector sees thumbs right away
+                          const placeholders = await Promise.all(accepted.map(async (f) => {
+                            const thumbUrl = await compressImage(f, 220, 0.55);
+                            if (!thumbUrl) return null;
+                            const photoId = `${Date.now()}_${Math.random().toString(16).slice(2)}`;
+                            return { id: photoId, file: f, thumbUrl, uploading: true, previewUrl: thumbUrl, type: "image/jpeg", sizeMb: bytesToMb(f.size), name: f.name, tag: "" };
+                          }));
+                          const valid = placeholders.filter(Boolean);
+                          if (valid.length === 0) return;
                           setInspection((prev) => {
                             const cur2 = getAtPath(prev, it.path) || withPhotos({ status: "OK", notes: "" });
                             const newChecklist = (cur2.checklist || []).map((c, i) =>
-                              i === idx ? { ...c, photos: [...(c.photos || []), ...enriched].slice(0, PHOTO_LIMIT) } : c
+                              i === idx ? { ...c, photos: [...(c.photos || []), ...valid].slice(0, PHOTO_LIMIT) } : c
                             );
                             return setAtPath(prev, it.path, { ...cur2, checklist: newChecklist });
                           });
+                          // Phase 2: upload each in background and patch state when done
+                          let failCount = 0;
+                          await Promise.all(valid.map(async (ph) => {
+                            const originalDataUrl = await new Promise(resolve => {
+                              const rd = new FileReader(); rd.onload = () => resolve(rd.result); rd.onerror = () => resolve(null); rd.readAsDataURL(ph.file);
+                            });
+                            const exportUrl = originalDataUrl || await compressImage(ph.file, 1200, 0.92);
+                            let finalPreview = exportUrl || ph.thumbUrl;
+                            if (FIREBASE_ON) {
+                              const storageUrl = await uploadPhoto(exportUrl || finalPreview, activeVenueId, inspId, ph.id);
+                              if (storageUrl) { finalPreview = storageUrl; } else { failCount++; }
+                            }
+                            setInspection((prev) => {
+                              const cur2 = getAtPath(prev, it.path) || withPhotos({ status: "OK", notes: "" });
+                              const newChecklist = (cur2.checklist || []).map((c, i) =>
+                                i === idx ? { ...c, photos: (c.photos || []).map(p => p.id === ph.id ? { ...p, previewUrl: finalPreview, exportUrl: exportUrl || ph.thumbUrl, uploading: false } : p) } : c
+                              );
+                              return setAtPath(prev, it.path, { ...cur2, checklist: newChecklist });
+                            });
+                          }));
+                          if (failCount > 0) onError?.(`⚠️ ${failCount} photo${failCount > 1 ? "s" : ""} saved as low-res thumbnail (cloud upload failed). Check your internet connection.`);
                         };
                         const removeCiPhoto = (idx, photoId) => setInspection((prev) => {
                           const cur2 = getAtPath(prev, it.path) || withPhotos({ status: "OK", notes: "" });
@@ -17225,8 +17252,9 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                                       {ciPhotos.length > 0 && (
                                         <div className="ciPhotoStrip">
                                           {ciPhotos.map(p => (
-                                            <div key={p.id} className="ciPhotoThumb">
-                                              <img src={p.previewUrl || p.thumbUrl || p.url || p.dataUrl} alt="item photo" />
+                                            <div key={p.id} className={`ciPhotoThumb${p.uploading ? " ciPhotoUploading" : ""}`}>
+                                              <img src={p.previewUrl || p.thumbUrl || p.url || p.dataUrl} alt="item photo" style={{ cursor: p.uploading ? "default" : "zoom-in" }} onClick={() => !p.uploading && setAppLightboxSrc(p.previewUrl || p.url || p.dataUrl)} />
+                                              {p.uploading && <div className="ciPhotoSpinner"><div className="ciPhotoSpinnerDot" /></div>}
                                               <button
                                                 type="button"
                                                 className="ciPhotoRemove"

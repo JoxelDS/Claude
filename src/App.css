@@ -1494,6 +1494,29 @@ input[type="date"] {
   justify-content: center;
 }
 .ciPhotoRemove:hover { background: rgba(220,38,38,0.85); }
+/* Uploading state overlay */
+.ciPhotoThumb.ciPhotoUploading { border-color: #93c5fd; }
+.ciPhotoThumb.ciPhotoUploading img { opacity: 0.55; }
+.ciPhotoSpinner {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+@keyframes ciSpin {
+  0%   { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+.ciPhotoSpinnerDot {
+  width: 22px;
+  height: 22px;
+  border: 3px solid rgba(255,255,255,0.35);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: ciSpin 0.75s linear infinite;
+}
 /* Per-item comment input */
 .clItemComment {
   width: 100%;
