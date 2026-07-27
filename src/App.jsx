@@ -17238,7 +17238,7 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                                             <input type="file" accept="image/*" multiple className="fileInput" ref={(el) => { fileRefs.current[ciRefKey] = el; }} onChange={(e) => { addCiPhoto(idx, e.target.files); e.target.value = ""; }} />
                                             <input type="file" accept="image/*" capture="environment" className="fileInput" ref={(el) => { cameraRefs.current[ciRefKey] = el; }} onChange={(e) => { addCiPhoto(idx, e.target.files); e.target.value = ""; }} />
                                             <button type="button" className={`clItemPhotoBtn${ciPhotos.length > 0 ? " clItemPhotoBtnHasPhotos" : ""}`} title="Open gallery" disabled={ciPhotos.length >= PHOTO_LIMIT} onClick={() => fileRefs.current[ciRefKey]?.click()} aria-label={`Add photo from gallery for ${ci.label}`}>
-                                              🖼 Gallery{ciPhotos.length > 0 ? ` (${ciPhotos.length})` : ""}
+                                              📂 Gallery{ciPhotos.length > 0 ? ` (${ciPhotos.length})` : ""}
                                             </button>
                                             <button type="button" className="clItemPhotoBtn clItemCameraBtn" title="Take a photo" disabled={ciPhotos.length >= PHOTO_LIMIT} onClick={() => cameraRefs.current[ciRefKey]?.click()} aria-label={`Take photo for ${ci.label}`}>
                                               📷 Camera
@@ -17251,7 +17251,7 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                                           <input type="file" accept="image/*" multiple className="fileInput" ref={(el) => { fileRefs.current[ciRefKey] = el; }} onChange={(e) => { addCiPhoto(idx, e.target.files); e.target.value = ""; }} />
                                           <input type="file" accept="image/*" capture="environment" className="fileInput" ref={(el) => { cameraRefs.current[ciRefKey] = el; }} onChange={(e) => { addCiPhoto(idx, e.target.files); e.target.value = ""; }} />
                                           <button type="button" className={`clItemPhotoBtn${ciPhotos.length > 0 ? " clItemPhotoBtnHasPhotos" : ""}`} title={ciPhotos.length > 0 ? `${ciPhotos.length} photo${ciPhotos.length > 1 ? "s" : ""} attached` : "Gallery"} disabled={ciPhotos.length >= PHOTO_LIMIT} onClick={() => fileRefs.current[ciRefKey]?.click()} aria-label={`Add photo from gallery for ${ci.label}`}>
-                                            🖼{ciPhotos.length > 0 ? ` ${ciPhotos.length}` : ""}
+                                            📂{ciPhotos.length > 0 ? ` ${ciPhotos.length}` : ""}
                                           </button>
                                           <button type="button" className="clItemPhotoBtn clItemCameraBtn" title="Take a photo" disabled={ciPhotos.length >= PHOTO_LIMIT} onClick={() => cameraRefs.current[ciRefKey]?.click()} aria-label={`Take photo for ${ci.label}`}>
                                             📷
