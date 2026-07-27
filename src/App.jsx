@@ -7041,7 +7041,7 @@ function PredictiveInsightsPanel({ history }) {
 }
 
 /* ── Recurring Issues Analysis ──────────────────────────── */
-function RecurringIssuesPanel({ history, onLocationClick }) {
+function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDrilldown }) {
   const analysis = useMemo(() => {
     if (history.length < 2) return null;
 
@@ -7173,7 +7173,7 @@ function RecurringIssuesPanel({ history, onLocationClick }) {
                   </div>
                   <div className="recurringKitchens">
                     {kitchens.map((k, i) => (
-                      <span key={i} className="recurringKitchenTag recurringKitchenClickable" onClick={() => onLocationClick?.(k.label.split(" #")[0].split(" (")[0])}>
+                      <span key={i} className="recurringKitchenTag recurringKitchenClickable" onClick={() => onTagClick?.()}>
                         {k.label} <span className="recurringKitchenCount">&times;{k.count}</span>
                       </span>
                     ))}
@@ -7193,8 +7193,7 @@ function RecurringIssuesPanel({ history, onLocationClick }) {
                 <div key={loc} className="worstLocation worstLocationClickable" onClick={() => onLocationClick?.(loc.split(" #")[0].split(" (")[0])}>
                   <span className="worstRank" style={{ background: i === 0 ? "#EE0000" : i === 1 ? "#f97316" : "#eab308" }}>#{i + 1}</span>
                   <span className="worstName">{loc}</span>
-                  <span className="worstCount">{count} issue{count !== 1 ? "s" : ""}</span>
-                  <span className="worstArrow">&#8594;</span>
+                  <span className="worstCount">{count} issue{count !== 1 ? "s" : ""} →</span>
                 </div>
               ))}
             </div>
@@ -7210,10 +7209,11 @@ function RecurringIssuesPanel({ history, onLocationClick }) {
                 <div className="flaggedLocationName">{loc}</div>
                 <div className="flaggedIssuesList">
                   {issues.map((iss, i) => (
-                    <div key={i} className="flaggedIssue">
+                    <div key={i} className="flaggedIssue" style={{ cursor: "pointer" }}
+                      onClick={() => onIssueDrilldown?.(loc.split(" #")[0].split(" (")[0], iss.category)}>
                       <span className="flaggedIssueCat">{iss.category}</span>
                       <span className="flaggedIssueRate" style={{ color: iss.rate >= 50 ? "#EE0000" : "#b45309" }}>
-                        {iss.count}x ({iss.rate}% of inspections)
+                        {iss.count}x ({iss.rate}% of inspections) →
                       </span>
                     </div>
                   ))}
@@ -7713,6 +7713,30 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
     setFilterFloor("");
     setFilterIssue("");
     setHistoryTab("reports");
+    setTimeout(() => {
+      const el = document.getElementById("history-results");
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 100);
+  }
+
+  // Navigate to reports filtered by both location AND issue category
+  function filterByLocationAndIssue(locLabel, issueCategory) {
+    setFilterSite(locLabel);
+    setFilterIssue(issueCategory);
+    setFilterDate("");
+    setFilterType("");
+    setFilterFloor("");
+    setHistoryTab("reports");
+    setTimeout(() => {
+      const el = document.getElementById("history-results");
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 100);
+  }
+
+  // Navigate to analytics/recurring tab (for tag clicks — stay in analytics, don't jump to reports)
+  function goToRecurringAnalytics() {
+    setHistoryTab("analytics");
+    setAnalyticsTab("recurring");
     setTimeout(() => {
       const el = document.getElementById("history-results");
       if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -9226,7 +9250,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
             {analyticsTab === "temp" && <TempTrendChart history={filtered.length > 0 ? filtered : history} />}
             {analyticsTab === "insights" && <AIHealthMonitor history={filtered.length > 0 ? filtered : history} currentUser={currentUser} />}
             {analyticsTab === "predictive" && <PredictiveInsightsPanel history={filtered.length > 0 ? filtered : history} />}
-            {analyticsTab === "recurring" && <RecurringIssuesPanel history={filtered.length > 0 ? filtered : history} onLocationClick={filterByLocation} />}
+            {analyticsTab === "recurring" && <RecurringIssuesPanel history={filtered.length > 0 ? filtered : history} onLocationClick={filterByLocation} onTagClick={goToRecurringAnalytics} onIssueDrilldown={filterByLocationAndIssue} />}
             {analyticsTab === "timeline" && (() => {
               const src = filtered.length > 0 ? filtered : history;
               // Build merged event list: one entry per inspection + one per HACCP submission linked to it
