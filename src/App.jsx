@@ -5522,7 +5522,7 @@ function TempTrendChart({ history }) {
                   ))}
                 </div>
               )}
-              <svg viewBox={`0 0 ${SW} ${SH}`} className="tempChartSvg" onMouseLeave={() => setHoveredPoint(null)}>
+              <svg viewBox={`0 0 ${SW} ${SH}`} className="tempChartSvg" overflow="visible" onMouseLeave={() => setHoveredPoint(null)}>
                 <defs>
                   <linearGradient id={uid} x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor={color} stopOpacity="0.3" />
@@ -5567,10 +5567,11 @@ function TempTrendChart({ history }) {
                   const namedUnits = d.items && d.items.length > 0 ? d.items : [];
                   // Tooltip height: base 36 + 12 per named unit beyond first (first is shown on main row)
                   const extraUnits = namedUnits.length > 1 ? namedUnits.slice(1) : [];
-                  const tipW = namedUnits.length > 0 ? 110 : 76;
+                  const tipW = namedUnits.length > 0 ? 120 : 90;
                   const tipH = 36 + extraUnits.length * 13;
                   // X: prefer right of dot, flip left if it would overflow right edge (leave room for threshold badge ~40px)
-                  const tipX = px + tipW + 10 > SW - SPADR - 38 ? px - tipW - 6 : px + 6;
+                  const rawTipX = px + tipW + 10 > SW - SPADR - 38 ? px - tipW - 6 : px + 6;
+                  const tipX = Math.max(SPAD, rawTipX);
                   // Y: prefer below dot, flip above if near bottom of chart area
                   const chartBottom = SH - SPADB;
                   const tipY = py + 8 + tipH < chartBottom - 2
@@ -5584,7 +5585,7 @@ function TempTrendChart({ history }) {
                           <line x1={px} y1={SPADT} x2={px} y2={SH - SPADB} stroke="#94a3b8" strokeWidth="1" strokeDasharray="3,3" />
                           <circle cx={px} cy={py} r="4.5" fill="white" stroke={ok ? color : "#ef4444"} strokeWidth="2" />
                           <rect x={tipX} y={tipY} width={tipW} height={tipH} rx="5" fill="#1e293b" opacity="0.93" />
-                          <text x={tipX + tipW / 2} y={tipY + 11} textAnchor="middle" fontSize="9" fill="#94a3b8" fontWeight="600">{d.date.slice(5)}</text>
+                          <text x={tipX + tipW / 2} y={tipY + 11} textAnchor="middle" fontSize="9" fill="#94a3b8" fontWeight="600">{(() => { try { const [,m,dy] = d.date.split("-"); return `${["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][+m-1]} ${+dy}`; } catch(e){ return d.date.slice(5); } })()}</text>
                           {namedUnits.length > 0 ? (
                             namedUnits.map((unit, ui) => {
                               const uOk = isMin ? unit.tempF >= threshold : unit.tempF <= threshold;
@@ -5613,12 +5614,20 @@ function TempTrendChart({ history }) {
                   );
                 })}
 
-                {/* X-axis date labels */}
-                {vals.map((d, idx) => (
-                  <text key={idx} x={sToX(idx)} y={SH - 8} textAnchor="middle" fontSize="9" fill="#6b7280" fontWeight="500">
-                    {d.date.slice(5)}
-                  </text>
-                ))}
+                {/* X-axis date labels — thin out when many points, format as "Jul 18" */}
+                {vals.map((d, idx) => {
+                  const maxLabels = 6;
+                  const step = vals.length <= maxLabels ? 1 : Math.ceil(vals.length / maxLabels);
+                  const show = idx === 0 || idx === vals.length - 1 || (step > 1 ? idx % step === 0 : true);
+                  if (!show) return null;
+                  let fmtDate = d.date.slice(5);
+                  try { const [,m,dy] = d.date.split("-"); fmtDate = `${["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][+m-1]} ${+dy}`; } catch(e){}
+                  return (
+                    <text key={idx} x={sToX(idx)} y={SH - 8} textAnchor="middle" fontSize="9" fill="#6b7280" fontWeight="500">
+                      {fmtDate}
+                    </text>
+                  );
+                })}
               </svg>
             </div>
           );
