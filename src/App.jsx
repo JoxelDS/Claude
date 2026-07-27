@@ -7125,10 +7125,12 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
           kitchenMap[key].count++;
           if (k.date) kitchenMap[key].dates.push(k.date);
         }
-        const kitchens = Object.values(kitchenMap).filter(k => k.count >= 2).sort((a, b) => b.count - a.count);
+        const allKitchens = Object.values(kitchenMap).sort((a, b) => b.count - a.count);
+        // Show only ×2+ locations; fall back to all if none qualify (avoids empty section)
+        const repeatKitchens = allKitchens.filter(k => k.count >= 2);
+        const kitchens = repeatKitchens.length > 0 ? repeatKitchens : allKitchens;
         return { category: cat, count, kitchens };
-      })
-      .filter(r => r.kitchens.length > 0);
+      });
 
     // 3. Per-location recurring
     const locationRecurring = {};
