@@ -5587,60 +5587,64 @@ function TempTrendChart({ history }) {
                   const px = sToX(idx);
                   const py = sToY(d.v);
                   const ok = isMin ? d.v >= threshold : d.v <= threshold;
-                  // Named units for this specific data point (cooler/freezer)
+                  // Named units (cooler/freezer sub-items)
                   const namedUnits = d.items && d.items.length > 0 ? d.items : [];
-                  // Tooltip height: base 36 + 12 per named unit beyond first (first is shown on main row)
-                  const extraUnits = namedUnits.length > 1 ? namedUnits.slice(1) : [];
-                  const tipW = namedUnits.length > 0 ? 120 : 90;
-                  const tipH = 36 + extraUnits.length * 13;
-                  // X: prefer right of dot, flip left if it would overflow right edge (leave room for threshold badge ~40px)
-                  const rawTipX = px + tipW + 10 > SW - SPADR - 38 ? px - tipW - 6 : px + 6;
+                  const rowCount = namedUnits.length > 0 ? namedUnits.length : 1;
+                  // Tooltip sizing — wide enough for "Hand Sink: 112°F"
+                  const tipW = 130;
+                  const tipHeaderH = 22;
+                  const tipRowH = 16;
+                  const tipPadB = 8;
+                  const tipH = tipHeaderH + rowCount * tipRowH + tipPadB;
+                  // X: prefer right, flip left if overflows; clamp to chart left
+                  const rawTipX = px + tipW + 12 > SW - SPADR - 38 ? px - tipW - 8 : px + 8;
                   const tipX = Math.max(SPAD, rawTipX);
-                  // Y: prefer below dot, flip above if near bottom of chart area
-                  const chartBottom = SH - SPADB;
-                  const tipY = py + 8 + tipH < chartBottom - 2
-                    ? py + 8
-                    : Math.max(SPADT + 2, py - tipH - 8);
+                  // Y: prefer above dot, clamp within chart
+                  const rawTipY = py - tipH - 12;
+                  const tipY = rawTipY < SPADT ? py + 12 : rawTipY;
+                  const NAVY = "#2A295C";
+                  const fmtDate = (() => { try { const [,m,dy] = d.date.split("-"); return `${["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][+m-1]} ${+dy}`; } catch(e){ return d.date.slice(5); } })();
                   return (
                     <g key={idx} onMouseEnter={() => setHoveredPoint(hk)} onTouchStart={() => setHoveredPoint(hk)}>
                       <rect x={px - 14} y={SPADT} width="28" height={SH - SPADT - SPADB} fill="transparent" />
                       {isHov && (
-                        <g style={{ filter: "drop-shadow(0 4px 12px rgba(0,0,0,0.18))" }}>
+                        <g style={{ filter: "drop-shadow(0 6px 18px rgba(42,41,92,0.32))" }}>
                           {/* Crosshair */}
-                          <line x1={px} y1={SPADT} x2={px} y2={SH - SPADB} stroke={color} strokeWidth="1.5" strokeDasharray="4,3" opacity="0.45" />
-                          {/* Glow ring on hover */}
-                          <circle cx={px} cy={py} r="9" fill={ok ? color : "#ef4444"} opacity="0.15" />
-                          <circle cx={px} cy={py} r="5" fill={ok ? color : "#ef4444"} stroke="white" strokeWidth="2" />
-                          {/* Tooltip card */}
-                          <rect x={tipX} y={tipY} width={tipW} height={tipH} rx="9" fill="white" stroke={ok ? color + "40" : "#fca5a540"} strokeWidth="1.5" />
-                          <rect x={tipX} y={tipY} width={tipW} height="14" rx="9" fill={ok ? color : "#ef4444"} opacity="0.12" />
-                          <rect x={tipX} y={tipY + 5} width={tipW} height="9" fill={ok ? color : "#ef4444"} opacity="0.12" />
-                          {/* Date label */}
-                          <text x={tipX + tipW / 2} y={tipY + 10} textAnchor="middle" fontSize="8.5" fill={ok ? color : "#ef4444"} fontWeight="700">{(() => { try { const [,m,dy] = d.date.split("-"); return `${["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][+m-1]} ${+dy}`; } catch(e){ return d.date.slice(5); } })()}</text>
+                          <line x1={px} y1={SPADT} x2={px} y2={SH - SPADB} stroke={NAVY} strokeWidth="1.5" strokeDasharray="4,3" opacity="0.3" />
+                          {/* Glow ring + dot */}
+                          <circle cx={px} cy={py} r="10" fill={NAVY} opacity="0.12" />
+                          <circle cx={px} cy={py} r="5.5" fill={ok ? color : "#ef4444"} stroke="white" strokeWidth="2.5" />
+                          {/* Navy card */}
+                          <rect x={tipX} y={tipY} width={tipW} height={tipH} rx="8" fill={NAVY} />
+                          {/* Date header */}
+                          <text x={tipX + tipW / 2} y={tipY + 14} textAnchor="middle" fontSize="9" fill="rgba(255,255,255,0.65)" fontWeight="600" letterSpacing="0.5">{fmtDate}</text>
                           {/* Divider */}
-                          <line x1={tipX + 8} y1={tipY + 15} x2={tipX + tipW - 8} y2={tipY + 15} stroke="#e5e7eb" strokeWidth="1" />
-                          {namedUnits.length > 0 ? (
-                            namedUnits.map((unit, ui) => {
-                              const uOk = isMin ? unit.tempF >= threshold : unit.tempF <= threshold;
-                              return (
-                                <g key={ui}>
-                                  <circle cx={tipX + 10} cy={tipY + 26 + ui * 14} r="3.5" fill={uOk ? color : "#ef4444"} />
-                                  <text x={tipX + 18} y={tipY + 30 + ui * 14} fontSize="9.5" fill="#1e293b">
-                                    <tspan fontWeight="500" fill="#64748b">{unit.label}: </tspan>
-                                    <tspan fontWeight="800" fill={uOk ? color : "#ef4444"}>{unit.tempF}°F</tspan>
-                                  </text>
-                                </g>
-                              );
-                            })
-                          ) : (
-                            <g>
-                              <circle cx={tipX + 10} cy={tipY + 26} r="3.5" fill={ok ? color : "#ef4444"} />
-                              <text x={tipX + 18} y={tipY + 30} fontSize="10" fill="#1e293b">
-                                <tspan fontWeight="500" fill="#64748b">{label}: </tspan>
-                                <tspan fontWeight="800" fill={ok ? color : "#ef4444"}>{d.v}°F</tspan>
-                              </text>
-                            </g>
-                          )}
+                          <line x1={tipX + 10} y1={tipY + tipHeaderH} x2={tipX + tipW - 10} y2={tipY + tipHeaderH} stroke="rgba(255,255,255,0.12)" strokeWidth="1" />
+                          {/* Rows */}
+                          {namedUnits.length > 0 ? namedUnits.map((unit, ui) => {
+                            const uOk = isMin ? unit.tempF >= threshold : unit.tempF <= threshold;
+                            const ry = tipY + tipHeaderH + 12 + ui * tipRowH;
+                            return (
+                              <g key={ui}>
+                                <circle cx={tipX + 11} cy={ry - 3} r="3" fill={uOk ? color : "#ef4444"} />
+                                <text x={tipX + 18} y={ry} fontSize="9.5" fill="rgba(255,255,255,0.75)">
+                                  <tspan>{unit.label}: </tspan>
+                                  <tspan fontWeight="800" fill={uOk ? "#86efac" : "#fca5a5"}>{unit.tempF}°F</tspan>
+                                </text>
+                              </g>
+                            );
+                          }) : (() => {
+                            const ry = tipY + tipHeaderH + 12;
+                            return (
+                              <g>
+                                <circle cx={tipX + 11} cy={ry - 3} r="3" fill={ok ? color : "#ef4444"} />
+                                <text x={tipX + 18} y={ry} fontSize="9.5" fill="rgba(255,255,255,0.75)">
+                                  <tspan>{label}: </tspan>
+                                  <tspan fontWeight="800" fill={ok ? "#86efac" : "#fca5a5"}>{d.v}°F</tspan>
+                                </text>
+                              </g>
+                            );
+                          })()}
                         </g>
                       )}
                     </g>
@@ -19008,7 +19012,56 @@ function FieldCorrectionBanner({ correction }) {
   );
 }
 
+/* ── Photo Lightbox ─────────────────────────────────────────────────────── */
+function PhotoLightbox({ src, onClose }) {
+  if (!src) return null;
+  function download() {
+    const a = document.createElement("a");
+    a.href = src;
+    a.download = `inspection-photo-${Date.now()}.jpg`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed", inset: 0, zIndex: 99999,
+        background: "rgba(0,0,0,0.88)",
+        display: "flex", flexDirection: "column",
+        alignItems: "center", justifyContent: "center",
+        padding: "16px",
+        animation: "fadeSlideIn 0.18s ease",
+      }}
+    >
+      <div onClick={e => e.stopPropagation()} style={{ position: "relative", maxWidth: "90vw", maxHeight: "80vh", display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
+        <img
+          src={src}
+          alt="Inspection photo"
+          style={{ maxWidth: "90vw", maxHeight: "75vh", borderRadius: 12, objectFit: "contain", boxShadow: "0 8px 40px rgba(0,0,0,0.6)" }}
+        />
+        <div style={{ display: "flex", gap: 10 }}>
+          <button
+            onClick={download}
+            style={{ background: "#2A295C", color: "#fff", border: "none", borderRadius: 8, padding: "10px 22px", fontWeight: 700, fontSize: "0.9rem", cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}
+          >
+            ⬇ Download
+          </button>
+          <button
+            onClick={onClose}
+            style={{ background: "rgba(255,255,255,0.12)", color: "#fff", border: "1px solid rgba(255,255,255,0.25)", borderRadius: 8, padding: "10px 22px", fontWeight: 600, fontSize: "0.9rem", cursor: "pointer" }}
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
+  const [lightboxSrc, setLightboxSrc] = useState(null);
   const [locked, setLocked] = useState(true);
   const [lockConfirm, setLockConfirm] = useState(false); // two-step logout confirmation
   const [currentUser, setCurrentUser] = useState(null);
