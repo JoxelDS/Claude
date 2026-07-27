@@ -1,6 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import QRCode from "qrcode";
 import "./App.css";
+// QRCode loaded on demand — not needed at startup
+let _QRCode = null;
+async function getQRCode() {
+  if (!_QRCode) _QRCode = (await import("qrcode")).default;
+  return _QRCode;
+}
 import { db, isConfigured as FIREBASE_ON, setVenue, venueCol, venueRegistryCol, venueRegistryDoc, uploadPhoto, activeVenueId, storage as fbStorage, storageRef, storageGetBlob, saveInspectorNotification, getInspectorNotifications, markNotificationRead } from "./firebase.js";
 import { collection } from "firebase/firestore";
 import AIEngine from "./AIEngine.js";
@@ -15413,13 +15418,13 @@ function PrintLabelsPage({ onBack }) {
     if (equipItems.length === 0) return;
     setGenerating(true);
     const urls = {};
-    Promise.all(
+    getQRCode().then(QR => Promise.all(
       equipItems.map(item =>
-        QRCode.toDataURL(item.assetTag, { width: 200, margin: 1, color: { dark: "#1e293b", light: "#ffffff" } })
+        QR.toDataURL(item.assetTag, { width: 200, margin: 1, color: { dark: "#1e293b", light: "#ffffff" } })
           .then(url => { urls[item.assetTag] = url; })
           .catch(() => {})
       )
-    ).then(() => {
+    )).then(() => {
       setQrDataUrls({ ...urls });
       setGenerating(false);
     });
@@ -17857,11 +17862,9 @@ function ShareModal({ shareUrl, onClose }) {
 
   useEffect(() => {
     if (canvasRef.current) {
-      QRCode.toCanvas(canvasRef.current, shareUrl, {
-        width: 220,
-        margin: 2,
-        color: { dark: "#2A295C", light: "#ffffff" },
-      });
+      getQRCode().then(QR => QR.toCanvas(canvasRef.current, shareUrl, {
+        width: 220, margin: 2, color: { dark: "#2A295C", light: "#ffffff" },
+      }));
     }
   }, [shareUrl]);
 
@@ -17934,10 +17937,9 @@ function HaccpQrModal({ onClose, siteName, siteNumber, floor, locationType, repo
 
   useEffect(() => {
     if (canvasRef.current) {
-      QRCode.toCanvas(canvasRef.current, haccpUrl, {
-        width: 220, margin: 2,
-        color: { dark: "#2A295C", light: "#ffffff" },
-      });
+      getQRCode().then(QR => QR.toCanvas(canvasRef.current, haccpUrl, {
+        width: 220, margin: 2, color: { dark: "#2A295C", light: "#ffffff" },
+      }));
     }
   }, [haccpUrl]);
 

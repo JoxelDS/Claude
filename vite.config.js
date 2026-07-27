@@ -3,27 +3,38 @@ import react from "@vitejs/plugin-react";
 
 export default defineConfig({
   plugins: [
-    react(),
+    react({
+      fastRefresh: process.env.NODE_ENV !== "production",
+    }),
   ],
   base: "/Claude/",
   build: {
     sourcemap: false,
-    minify: "esbuild",
-    esbuildOptions: {
-      drop: ["console", "debugger"],
-      // Aggressive tree-shaking
-      treeShaking: true,
+    // Terser compresses significantly better than esbuild (10-20% smaller JS)
+    minify: "terser",
+    terserOptions: {
+      compress: {
+        passes: 2,           // two-pass for better dead-code elimination
+        drop_console: true,
+        drop_debugger: true,
+        pure_funcs: ["console.log", "console.warn", "console.info"],
+        unsafe_arrows: true,
+        unsafe_methods: true,
+        reduce_vars: true,
+        collapse_vars: true,
+      },
+      mangle: { toplevel: true },
+      format: { comments: false },
     },
 
     rollupOptions: {
       output: {
-        // Split heavy libraries into separate lazy-loaded chunks
         manualChunks(id) {
-          // React core — always needed, load first
+          // React core — tiny, always needed first
           if (id.includes("node_modules/react/") || id.includes("node_modules/react-dom/")) {
             return "react";
           }
-          // Firebase SDK — loaded on auth, split by sub-package
+          // Firebase split by sub-package so only needed modules load
           if (id.includes("node_modules/@firebase/firestore") || id.includes("node_modules/firebase/firestore")) {
             return "firebase-firestore";
           }
@@ -36,16 +47,14 @@ export default defineConfig({
           if (id.includes("node_modules/@firebase/") || id.includes("node_modules/firebase/")) {
             return "firebase-core";
           }
-          // Excel/Word export libraries — only loaded when user exports, keep separate
-          if (id.includes("node_modules/exceljs")) {
-            return "exceljs";
+          // QR code — only used for QR generation, keep out of main bundle
+          if (id.includes("node_modules/qrcode")) {
+            return "qrcode";
           }
-          if (id.includes("node_modules/xlsx")) {
-            return "xlsx";
-          }
-          if (id.includes("node_modules/docx")) {
-            return "docx";
-          }
+          // Export libs — only loaded on demand via dynamic import()
+          if (id.includes("node_modules/exceljs")) return "exceljs";
+          if (id.includes("node_modules/xlsx"))    return "xlsx";
+          if (id.includes("node_modules/docx"))    return "docx";
         },
         entryFileNames: "assets/[hash].js",
         chunkFileNames: "assets/[hash].js",
@@ -55,9 +64,7 @@ export default defineConfig({
 
     target: "es2020",
     cssCodeSplit: true,
-    // Inline small assets (icons, tiny images) directly into CSS/JS
     assetsInlineLimit: 8192,
-    // Raise the warning threshold since we know firebase is large
-    chunkSizeWarningLimit: 600,
+    chunkSizeWarningLimit: 700,
   },
 });

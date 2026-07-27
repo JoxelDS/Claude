@@ -595,6 +595,34 @@ body {
   .grid { grid-template-columns: 1fr; }
 }
 
+/* ── GPU acceleration: promote animated layers ─────────────── */
+/* Anything that moves gets its own compositor layer — no repaints */
+.card,
+.historyCard,
+.btnPrimary,
+.btnSecondary,
+.historyTab,
+.modalOverlay,
+.modalBox,
+.notifDropdown,
+.tempAvgPill,
+.tempAvgPillClickable,
+.worstLocationClickable {
+  will-change: transform;
+  transform: translateZ(0);
+}
+/* Reduce paint scope for heavy list containers */
+.historyList,
+.recurringList,
+.analyticsPanel {
+  contain: layout style;
+}
+/* Skip rendering offscreen inspection cards */
+.historyCard {
+  content-visibility: auto;
+  contain-intrinsic-size: 0 120px;
+}
+
 /* ── Cards ────────────────────────────────────────────────── */
 .card {
   background: var(--sdx-white);
@@ -606,6 +634,7 @@ body {
 }
 .card:hover {
   box-shadow: var(--shadow-lg);
+  transform: translateY(-2px) translateZ(0);
 }
 
 /* Output card stays visible while scrolling the long left form (desktop 2-col only) */
@@ -6215,3 +6244,21 @@ datalist {
 
 /* Cutting board cards — built inline in JSX, no extra class needed */
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Motion preferences ─────────────────────────────────────
+   When user has "Reduce Motion" enabled in OS settings,
+   skip all transitions and animations — saves battery + avoids
+   triggering vestibular disorders. This is the standard for all clients. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .card, .historyCard, .btnPrimary, .btnSecondary,
+  .historyTab, .modalBox, .notifDropdown,
+  .tempAvgPill, .tempAvgPillClickable, .worstLocationClickable {
+    will-change: auto;
+  }
+}
