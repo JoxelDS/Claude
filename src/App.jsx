@@ -5286,14 +5286,15 @@ function TempTrendChart({ history }) {
       if (latest.cooler) coolerTemps.push(latest.cooler);
       if (latest.freezer) freezerTemps.push(latest.freezer);
     }
+    const avg = arr => arr.length ? Math.round(arr.reduce((a,b)=>a+b,0)/arr.length) : null;
     return {
-      hand: handTemps.length ? Math.min(...handTemps) : null,
+      hand: avg(handTemps),
       handPass: handTemps.length ? handTemps.every(t=>t>=95) : null,
-      three: threeTemps.length ? Math.min(...threeTemps) : null,
+      three: avg(threeTemps),
       threePass: threeTemps.length ? threeTemps.every(t=>t>=110) : null,
-      cooler: coolerTemps.length ? Math.max(...coolerTemps) : null,
+      cooler: avg(coolerTemps),
       coolerPass: coolerTemps.length ? coolerTemps.every(t=>t<=40) : null,
-      freezer: freezerTemps.length ? Math.max(...freezerTemps) : null,
+      freezer: avg(freezerTemps),
       freezerPass: freezerTemps.length ? freezerTemps.every(t=>t<=20) : null,
     };
   }, [locations, locationData]);
@@ -5432,9 +5433,9 @@ function TempTrendChart({ history }) {
         </div>
       </div>
 
-      {/* At-a-glance summary row — worst reading per sensor (min for hot, max for cold) */}
+      {/* At-a-glance summary row — average reading per sensor */}
       <div style={{ display: "flex", alignItems: "stretch", gap: "0.5rem", padding: "0.85rem 1rem", borderBottom: "1px solid #f3f4f6" }}>
-        <div style={{ fontSize: "0.7rem", color: "#9ca3af", display: "flex", alignItems: "center", marginRight: 2, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", flexShrink: 0 }}>Worst:</div>
+        <div style={{ fontSize: "0.7rem", color: "#9ca3af", display: "flex", alignItems: "center", marginRight: 2, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", flexShrink: 0 }}>Avg:</div>
         {glanceSummary.hand !== null && (
           <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", background: glanceSummary.handPass ? "#dbeafe" : "#fee2e2", borderRadius: 10, padding: "0.35rem 0.4rem", minWidth: 0, border: glanceSummary.handPass ? "1px solid #93c5fd" : "1px solid #fca5a5" }}>
             <span style={{ fontSize: "0.6rem", color: glanceSummary.handPass ? "#1d4ed8" : "#dc2626", fontWeight: 600, textTransform: "uppercase", textAlign: "center" }}>Hand Sink</span>
@@ -5584,30 +5585,39 @@ function TempTrendChart({ history }) {
                     <g key={idx} onMouseEnter={() => setHoveredPoint(hk)} onTouchStart={() => setHoveredPoint(hk)}>
                       <rect x={px - 14} y={SPADT} width="28" height={SH - SPADT - SPADB} fill="transparent" />
                       {isHov && (
-                        <g>
-                          <line x1={px} y1={SPADT} x2={px} y2={SH - SPADB} stroke="#94a3b8" strokeWidth="1" strokeDasharray="3,3" />
-                          <circle cx={px} cy={py} r="4.5" fill="white" stroke={ok ? color : "#ef4444"} strokeWidth="2" />
-                          <rect x={tipX} y={tipY} width={tipW} height={tipH} rx="5" fill="#1e293b" opacity="0.93" />
-                          <text x={tipX + tipW / 2} y={tipY + 11} textAnchor="middle" fontSize="9" fill="#94a3b8" fontWeight="600">{(() => { try { const [,m,dy] = d.date.split("-"); return `${["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][+m-1]} ${+dy}`; } catch(e){ return d.date.slice(5); } })()}</text>
+                        <g style={{ filter: "drop-shadow(0 4px 12px rgba(0,0,0,0.18))" }}>
+                          {/* Crosshair */}
+                          <line x1={px} y1={SPADT} x2={px} y2={SH - SPADB} stroke={color} strokeWidth="1.5" strokeDasharray="4,3" opacity="0.45" />
+                          {/* Dot with glow ring */}
+                          <circle cx={px} cy={py} r="8" fill={ok ? color : "#ef4444"} opacity="0.15" />
+                          <circle cx={px} cy={py} r="5" fill="white" stroke={ok ? color : "#ef4444"} strokeWidth="2.5" />
+                          {/* Tooltip card */}
+                          <rect x={tipX} y={tipY} width={tipW} height={tipH} rx="9" fill="white" stroke={ok ? color + "40" : "#fca5a540"} strokeWidth="1.5" />
+                          <rect x={tipX} y={tipY} width={tipW} height="14" rx="9" fill={ok ? color : "#ef4444"} opacity="0.12" />
+                          <rect x={tipX} y={tipY + 5} width={tipW} height="9" fill={ok ? color : "#ef4444"} opacity="0.12" />
+                          {/* Date label */}
+                          <text x={tipX + tipW / 2} y={tipY + 10} textAnchor="middle" fontSize="8.5" fill={ok ? color : "#ef4444"} fontWeight="700">{(() => { try { const [,m,dy] = d.date.split("-"); return `${["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][+m-1]} ${+dy}`; } catch(e){ return d.date.slice(5); } })()}</text>
+                          {/* Divider */}
+                          <line x1={tipX + 8} y1={tipY + 15} x2={tipX + tipW - 8} y2={tipY + 15} stroke="#e5e7eb" strokeWidth="1" />
                           {namedUnits.length > 0 ? (
                             namedUnits.map((unit, ui) => {
                               const uOk = isMin ? unit.tempF >= threshold : unit.tempF <= threshold;
                               return (
                                 <g key={ui}>
-                                  <circle cx={tipX + 9} cy={tipY + 24 + ui * 13} r="3" fill={uOk ? color : "#ef4444"} />
-                                  <text x={tipX + 16} y={tipY + 28 + ui * 13} fontSize="9" fill="white">
-                                    <tspan fontWeight="500">{unit.label}: </tspan>
-                                    <tspan fontWeight="700" fill={uOk ? "white" : "#fca5a5"}>{unit.tempF}°F</tspan>
+                                  <circle cx={tipX + 10} cy={tipY + 26 + ui * 14} r="3.5" fill={uOk ? color : "#ef4444"} />
+                                  <text x={tipX + 18} y={tipY + 30 + ui * 14} fontSize="9.5" fill="#1e293b">
+                                    <tspan fontWeight="500" fill="#64748b">{unit.label}: </tspan>
+                                    <tspan fontWeight="800" fill={uOk ? color : "#ef4444"}>{unit.tempF}°F</tspan>
                                   </text>
                                 </g>
                               );
                             })
                           ) : (
                             <g>
-                              <circle cx={tipX + 9} cy={tipY + 24} r="3" fill={ok ? color : "#ef4444"} />
-                              <text x={tipX + 16} y={tipY + 28} fontSize="9.5" fill="white">
-                                <tspan fontWeight="500">{label}: </tspan>
-                                <tspan fontWeight="700" fill={ok ? "white" : "#fca5a5"}>{d.v}°F</tspan>
+                              <circle cx={tipX + 10} cy={tipY + 26} r="3.5" fill={ok ? color : "#ef4444"} />
+                              <text x={tipX + 18} y={tipY + 30} fontSize="10" fill="#1e293b">
+                                <tspan fontWeight="500" fill="#64748b">{label}: </tspan>
+                                <tspan fontWeight="800" fill={ok ? color : "#ef4444"}>{d.v}°F</tspan>
                               </text>
                             </g>
                           )}
