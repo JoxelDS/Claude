@@ -5216,11 +5216,15 @@ function TempTrendChart({ history }) {
   const locationData = useMemo(() => {
     const map = {};
     for (const rec of history) {
-      const unitNum = (rec.siteNumber || "").trim();
+      const unitNum = (rec.siteNumber || "").trim().toUpperCase().replace(/[\s\-]+/g, "");
       const name = (rec.siteName || rec.location || "—").trim();
-      const license = (rec.restaurantLicense || "").trim().replace(/^NO LICENSE$/i, "");
-      // Key: license (if present) takes priority for identity; unit number disambiguates same-name locations
-      const key = [license || name, unitNum, rec.floor].filter(Boolean).join(" | ");
+      const license = (rec.restaurantLicense || "").trim().replace(/^NO LICENSE$/i, "").toUpperCase();
+      // Skip records with no license and no unit number — can't deduplicate reliably
+      if (!license && !unitNum) continue;
+      // Normalize key: license takes priority; fall back to lowercase name + unit
+      const nameKey = name.toLowerCase().replace(/\s+/g, " ");
+      const floorKey = (rec.floor || "").toLowerCase().trim();
+      const key = [license || nameKey, unitNum, floorKey].filter(Boolean).join("|");
       // Human-readable display label shown in UI pills
       const displayLabel = `${name}${unitNum ? ` #${unitNum}` : ""}${rec.floor ? ` - ${rec.floor}` : ""}`;
       if (!map[key]) map[key] = { points: [], unitNum, label: displayLabel, license };
