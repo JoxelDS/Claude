@@ -5274,7 +5274,7 @@ function TempTrendChart({ history }) {
   // Determine which location is active
   const activeLoc = (selectedLoc && locations.includes(selectedLoc)) ? selectedLoc : locations[0];
 
-  // Build a quick "at a glance" summary across all locations (latest reading per location)
+  // Build a quick "at a glance" summary — show WORST reading per sensor (min for hot, max for cold)
   const glanceSummary = useMemo(() => {
     let handTemps = [], threeTemps = [], coolerTemps = [], freezerTemps = [];
     for (const loc of locations) {
@@ -5286,12 +5286,15 @@ function TempTrendChart({ history }) {
       if (latest.cooler) coolerTemps.push(latest.cooler);
       if (latest.freezer) freezerTemps.push(latest.freezer);
     }
-    const avg = arr => arr.length ? Math.round(arr.reduce((a,b)=>a+b,0)/arr.length) : null;
     return {
-      hand: avg(handTemps), handPass: handTemps.length ? handTemps.every(t=>t>=95) : null,
-      three: avg(threeTemps), threePass: threeTemps.length ? threeTemps.every(t=>t>=110) : null,
-      cooler: avg(coolerTemps), coolerPass: coolerTemps.length ? coolerTemps.every(t=>t<=40) : null,
-      freezer: avg(freezerTemps), freezerPass: freezerTemps.length ? freezerTemps.every(t=>t<=20) : null,
+      hand: handTemps.length ? Math.min(...handTemps) : null,
+      handPass: handTemps.length ? handTemps.every(t=>t>=95) : null,
+      three: threeTemps.length ? Math.min(...threeTemps) : null,
+      threePass: threeTemps.length ? threeTemps.every(t=>t>=110) : null,
+      cooler: coolerTemps.length ? Math.max(...coolerTemps) : null,
+      coolerPass: coolerTemps.length ? coolerTemps.every(t=>t<=40) : null,
+      freezer: freezerTemps.length ? Math.max(...freezerTemps) : null,
+      freezerPass: freezerTemps.length ? freezerTemps.every(t=>t<=20) : null,
     };
   }, [locations, locationData]);
 
@@ -5429,9 +5432,9 @@ function TempTrendChart({ history }) {
         </div>
       </div>
 
-      {/* At-a-glance summary row — averages across ALL locations */}
+      {/* At-a-glance summary row — worst reading per sensor (min for hot, max for cold) */}
       <div style={{ display: "flex", alignItems: "stretch", gap: "0.5rem", padding: "0.85rem 1rem", borderBottom: "1px solid #f3f4f6" }}>
-        <div style={{ fontSize: "0.7rem", color: "#9ca3af", display: "flex", alignItems: "center", marginRight: 2, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", flexShrink: 0 }}>All Avgs:</div>
+        <div style={{ fontSize: "0.7rem", color: "#9ca3af", display: "flex", alignItems: "center", marginRight: 2, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", flexShrink: 0 }}>Worst:</div>
         {glanceSummary.hand !== null && (
           <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", background: glanceSummary.handPass ? "#dbeafe" : "#fee2e2", borderRadius: 10, padding: "0.35rem 0.4rem", minWidth: 0, border: glanceSummary.handPass ? "1px solid #93c5fd" : "1px solid #fca5a5" }}>
             <span style={{ fontSize: "0.6rem", color: glanceSummary.handPass ? "#1d4ed8" : "#dc2626", fontWeight: 600, textTransform: "uppercase", textAlign: "center" }}>Hand Sink</span>
