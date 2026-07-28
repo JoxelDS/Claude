@@ -4459,6 +4459,7 @@ async function exportAsCsv({ inspection, notesPhotos, rawNotes, inspectionType, 
 }
 
 async function exportAsHtml({ output, inspection, notesPhotos, rawNotes, inspectionType, inspectionDate, siteName, siteNumber, sitePhone, inspectorName, participantName, supervisorName, eventName, foodTemps, foodTempNames, haccpSubs, locationType, floor, restaurantLicense, licenseMissing }) {
+  const esc = s => String(s || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
   const status = calcOverallStatus(inspection, { foodTemps, foodTempNames });
   const actionItems = buildActionItems({ inspection, rawNotes, foodTemps, foodTempNames });
   const expandedNotes = expandAbbreviations(rawNotes);
@@ -4755,10 +4756,9 @@ function exportAsTxt({ output, inspectionDate, siteName }) {
   downloadBlob(blob, filename);
 }
 
-// Issues-only Excel export (from a saved history record)
+// Issues-only Excel export (from a saved history record) — uses ExcelJS for rich formatting
 async function exportIssuesOnlyExcel({ rec, haccpSubs = [] }) {
-  const XLSX = await import("xlsx");
-  // Recompute action items from raw inspection so old records also get split rows + correct statuses
+  const ExcelJS = (await import("exceljs")).default;
   const actionItems = rec.inspection
     ? buildActionItems({ inspection: rec.inspection, rawNotes: rec.inspection, foodTemps: rec.foodTemps, foodTempNames: rec.foodTempNames, foodTempCorrections: rec.foodTempCorrections, foodTempSubmitted: rec.foodTempSubmitted })
     : (rec.actionItems || []);
@@ -4769,209 +4769,285 @@ async function exportIssuesOnlyExcel({ rec, haccpSubs = [] }) {
   const { index: photoListRaw } = buildPhotoIndex(rec.inspection);
   const str = v => (v == null ? "" : String(v));
 
-  // Pre-fetch all photos as base64 (thumb fallback always works)
   const photoList = await Promise.all(
     photoListRaw.map(async p => ({ ...p, dataUrl: await fetchAsDataUrl(p.previewUrl, p.thumbUrl) }))
   );
 
-  // ── SHEET 1: Issues ──────────────────────────────────────────────────────
-  const metaRows = [
-    [`INSPECTION ISSUES — ${siteName}`],
-    [],
-    ["Date", str(inspectionDate)],
-    ["Inspection Type", str(rec.inspectionType || "—")],
-    ["Inspector", str(inspectorName)],
-    ["Supervisor", str(supervisorName)],
+  // ── Brand colours (same as bulk export) ──────────────────────────────────
+  const NAVY    = "1C2B5E";
+  const RED     = "A8192E";
+  const RED_LT  = "FAEAEC";
+  const SILVER  = "F4F5F7";
+  const PASS_G  = "C6EFCE"; const PASS_GT = "276221";
+  const FAIL_R  = "FFC7CE"; const FAIL_RT = "9C0006";
+  const ATTN_Y  = "FFEB9C"; const ATTN_YT = "9C6500";
+  const WHITE   = "FFFFFF";
+
+  const font = (opts = {}) => ({ name: "Calibri", size: 10, ...opts });
+  const fill = (argb) => ({ type: "pattern", pattern: "solid", fgColor: { argb: "FF" + argb } });
+  const border = () => ({ bottom: { style: "hair", color: { argb: "FFD1D5DB" } } });
+
+  const styleHdr = { font: font({ bold: true, size: 11, color: { argb: "FF" + WHITE } }), fill: fill(NAVY), alignment: { vertical: "middle", wrapText: true }, border: border() };
+  const styleSubHdr = { font: font({ bold: true, color: { argb: "FF" + WHITE } }), fill: fill(RED), alignment: { vertical: "middle" } };
+  const styleMLabel = { font: font({ bold: true, color: { argb: "FF" + NAVY } }), fill: fill(RED_LT), alignment: { vertical: "middle" } };
+  const styleMVal   = { font: font(), fill: fill(RED_LT), alignment: { vertical: "middle", wrapText: true } };
+  const styleBody   = (even) => ({ font: font({ color: { argb: "FF333333" } }), fill: fill(even ? SILVER : WHITE), alignment: { vertical: "top", wrapText: true }, border: border() });
+  const styleStatus = (s) => {
+    const isPass = /pass|ok/i.test(s); const isFail = /fail|not clean|flag/i.test(s); const isAttn = /attn|attention|follow|maint/i.test(s);
+    const bg = isPass ? PASS_G : isFail ? FAIL_R : isAttn ? ATTN_Y : WHITE;
+    const fg = isPass ? PASS_GT : isFail ? FAIL_RT : isAttn ? ATTN_YT : "333333";
+    return { font: font({ bold: true, color: { argb: "FF" + fg } }), fill: fill(bg), alignment: { vertical: "top", horizontal: "center" } };
+  };
+  const applyStyle = (cell, style) => Object.assign(cell, style);
+
+  const wb = new ExcelJS.Workbook();
+  wb.creator = resolveCompanyName() + " Inspection";
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // SHEET 1: Issues
+  // ══════════════════════════════════════════════════════════════════════════
+  const ws1 = wb.addWorksheet("Issues");
+  ws1.columns = [{ width: 4 }, { width: 22 }, { width: 52 }, { width: 28 }, { width: 28 }, { width: 14 }, { width: 18 }, { width: 14 }];
+
+  // Title
+  ws1.addRow([`INSPECTION REPORT — ${siteName.toUpperCase()}`]);
+  ws1.mergeCells(`A1:H1`);
+  applyStyle(ws1.getCell("A1"), { font: font({ bold: true, size: 14, color: { argb: "FF" + WHITE } }), fill: fill(NAVY), alignment: { vertical: "middle", horizontal: "left" } });
+  ws1.getRow(1).height = 28;
+
+  // Metadata
+  const metaFields = [
+    ["Date", str(inspectionDate)], ["Inspection Type", str(rec.inspectionType || "—")],
+    ["Inspector", str(inspectorName)], ["Supervisor", str(supervisorName)],
     ...(rec.participantName ? [["Participant", str(rec.participantName)]] : []),
-    ["Site / Location", str(siteName)],
-    ["Unit #", str(rec.siteNumber || "—")],
+    ["Site / Location", str(siteName)], ["Unit #", str(rec.siteNumber || "—")],
     ...(rec.locationType ? [["Location Type", str(rec.locationType)]] : []),
     ...(rec.floor ? [["Floor", str(rec.floor)]] : []),
     ...(rec.eventName ? [["Event", str(rec.eventName)]] : []),
     ...(rec.restaurantLicense && rec.restaurantLicense !== "NO LICENSE"
-      ? [["License #", str(rec.restaurantLicense)], ["License Missing", rec.licenseMissing ? "Yes" : "No"]]
-      : []),
+      ? [["License #", str(rec.restaurantLicense)], ["License Missing", rec.licenseMissing ? "Yes" : "No"]] : []),
     ["Overall Status", str(rec.overallStatus || "—")],
-    [],
   ];
+  for (let i = 0; i < metaFields.length; i += 2) {
+    const row = ws1.addRow([metaFields[i][0], metaFields[i][1], "", metaFields[i+1]?.[0] || "", metaFields[i+1]?.[1] || ""]);
+    applyStyle(row.getCell(1), styleMLabel);
+    applyStyle(row.getCell(2), styleMVal);
+    if (metaFields[i+1]) { applyStyle(row.getCell(4), styleMLabel); applyStyle(row.getCell(5), styleMVal); }
+    ws1.mergeCells(`B${row.number}:C${row.number}`);
+    ws1.mergeCells(`E${row.number}:H${row.number}`);
+    row.height = 18;
+  }
+  ws1.addRow([]);
 
   // Executive Summary
   const summaryText = buildExportSummary(rec, haccpSubs);
   if (summaryText) {
-    metaRows.push(["EXECUTIVE SUMMARY"]);
-    summaryText.split(/\n+/).filter(l => l.trim()).forEach(line => metaRows.push([line]));
-    metaRows.push([]);
+    const sh = ws1.addRow(["EXECUTIVE SUMMARY"]);
+    ws1.mergeCells(`A${sh.number}:H${sh.number}`);
+    applyStyle(ws1.getCell(`A${sh.number}`), styleSubHdr);
+    sh.height = 20;
+    summaryText.split(/\n+/).filter(l => l.trim()).forEach(line => {
+      const r = ws1.addRow(["", line]);
+      ws1.mergeCells(`B${r.number}:H${r.number}`);
+      applyStyle(r.getCell(2), { font: font({ italic: true, color: { argb: "FF1C2B5E" } }), fill: fill("E8EDF7"), alignment: { wrapText: true } });
+      r.height = 16;
+    });
+    ws1.addRow([]);
   }
 
   // Inspector Notes
   const notesText = formatNotesText(rec.inspection);
   if (notesText) {
-    metaRows.push(["INSPECTOR NOTES"]);
-    notesText.split(/\n/).filter(l => l.trim()).forEach(line => metaRows.push([line]));
-    metaRows.push([]);
+    const nh = ws1.addRow(["INSPECTOR NOTES"]);
+    ws1.mergeCells(`A${nh.number}:H${nh.number}`);
+    applyStyle(ws1.getCell(`A${nh.number}`), styleSubHdr);
+    nh.height = 20;
+    notesText.split(/\n/).filter(l => l.trim()).forEach(line => {
+      const r = ws1.addRow(["", line]);
+      ws1.mergeCells(`B${r.number}:H${r.number}`);
+      applyStyle(r.getCell(2), { font: font(), fill: fill("E8EDF7"), alignment: { wrapText: true } });
+      r.height = 16;
+    });
+    ws1.addRow([]);
   }
+
+  // Issues header
+  const issuesHdrRow = ws1.addRow(["#", "Area", "Issue", "Notes", "Corrective Action", "Status", "Owner", "Due Date"]);
+  issuesHdrRow.eachCell(c => applyStyle(c, styleHdr));
+  issuesHdrRow.height = 22;
 
   function stripEmbCorrective(text) {
     const m = (text || "").match(/^(.*?)\s*\[Corrective action:\s*(.*?)\]\s*$/is);
     return m ? { issueClean: m[1].trim(), embCorrective: m[2].trim() } : { issueClean: (text || "").trim(), embCorrective: "" };
   }
-  const issuesHeader = ["#", "Area", "Issue", "Inspector Notes", "Corrective Action", "Status", "Owner", "Due Date"];
-  const issuesRows = actionItems.length > 0
-    ? actionItems.map((a, i) => {
-        const rawIssue = a.issue || "";
-        const colonIdx = rawIssue.indexOf(":");
-        const area = colonIdx > 0 && colonIdx < 40 ? rawIssue.slice(0, colonIdx).trim() : "General";
-        const { issueClean, embCorrective } = stripEmbCorrective(colonIdx > 0 && colonIdx < 40 ? rawIssue.slice(colonIdx + 1).trim() : rawIssue);
-        const corrective = str(a.corrective || embCorrective || "");
-        const _rawSt = a.status && a.status !== "OK" && a.status !== "High" && a.status !== "Med" ? a.status : "";
-        const st = _rawSt || (a.priority === "Follow-up" || a.priority === "Maintenance" ? a.priority : "Fail");
-        return [i + 1, area, issueClean, str(a.notes || ""), corrective, str(st), str(a.owner || "—"), str(a.due || "—")];
-      })
-    : [["", "", "No issues — all areas passed inspection", "", "", "", "", ""]];
 
-  const ws1Data = [...metaRows, issuesHeader, ...issuesRows];
-  const ws1 = XLSX.utils.aoa_to_sheet(ws1Data);
-
-  const headerRowIdx = metaRows.length;
-  ws1["!autofilter"] = { ref: `A${headerRowIdx + 1}:H${headerRowIdx + 1 + issuesRows.length}` };
-  ws1["!freeze"] = { xSplit: 0, ySplit: headerRowIdx + 1, topLeftCell: `A${headerRowIdx + 2}`, activePane: "bottomLeft" };
-  ws1["!cols"] = [{ wch: 4 }, { wch: 22 }, { wch: 50 }, { wch: 28 }, { wch: 28 }, { wch: 14 }, { wch: 18 }, { wch: 14 }];
-
-  // ── SHEET 2: Photos ──────────────────────────────────────────────────────
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws1, "Issues");
-
-  if (photoList.length > 0) {
-    const ws2Header = ["#", "Section", "Caption", "Photo URL"];
-    const ws2Rows = photoList.map(p => [p.num, str(p.label), str(p.caption), str(p.previewUrl || "")]);
-    const ws2Data = [ws2Header, ...ws2Rows];
-    const ws2 = XLSX.utils.aoa_to_sheet(ws2Data);
-    ws2["!cols"] = [{ wch: 4 }, { wch: 28 }, { wch: 40 }, { wch: 80 }];
-    ws2["!autofilter"] = { ref: `A1:D${ws2Data.length}` };
-    ws2["!freeze"] = { xSplit: 0, ySplit: 1, topLeftCell: "A2", activePane: "bottomLeft" };
-
-    const images = [];
-    const COLS_PER_ROW = 3;
-    const ROW_OFFSET = ws2Data.length + 2;
-    for (let i = 0; i < photoList.length; i++) {
-      const p = photoList[i];
-      if (!p.dataUrl) continue;
-      const base64 = p.dataUrl.replace(/^data:[^;]+;base64,/, "");
-      const imgType = p.dataUrl.startsWith("data:image/png") ? "png" : "jpeg";
-      const col = (i % COLS_PER_ROW) * 2;
-      const row = ROW_OFFSET + Math.floor(i / COLS_PER_ROW) * 12;
-      images.push({ "!pos": { r: row, c: col, x: 0, y: 0, w: 200, h: 150 }, "!datatype": "base64", "!data": base64, "!type": imgType });
-    }
-    if (images.length > 0) ws2["!images"] = images;
-
-    XLSX.utils.book_append_sheet(wb, ws2, "Photos");
+  if (actionItems.length === 0) {
+    const r = ws1.addRow(["", "", "✅ No issues — all areas passed inspection"]);
+    ws1.mergeCells(`C${r.number}:H${r.number}`);
+    applyStyle(r.getCell(3), { font: font({ italic: true, color: { argb: "FF276221" } }), fill: fill(PASS_G), alignment: { wrapText: true } });
+    r.height = 18;
+  } else {
+    actionItems.forEach((a, i) => {
+      const rawIssue = a.issue || "";
+      const colonIdx = rawIssue.indexOf(":");
+      const area = colonIdx > 0 && colonIdx < 40 ? rawIssue.slice(0, colonIdx).trim() : "General";
+      const { issueClean, embCorrective } = stripEmbCorrective(colonIdx > 0 && colonIdx < 40 ? rawIssue.slice(colonIdx + 1).trim() : rawIssue);
+      const corrective = str(a.corrective || embCorrective || "");
+      const _rawSt = a.status && a.status !== "OK" && a.status !== "High" && a.status !== "Med" ? a.status : "";
+      const st = _rawSt || (a.priority === "Follow-up" || a.priority === "Maintenance" ? a.priority : "Fail");
+      const even = i % 2 === 0;
+      const r = ws1.addRow([i + 1, area, issueClean, str(a.notes || ""), corrective, str(st), str(a.owner || "—"), str(a.due || "—")]);
+      r.eachCell((c, col) => applyStyle(c, col === 6 ? styleStatus(st) : styleBody(even)));
+      r.height = 18;
+    });
   }
 
-  // ── SHEET: Checklist Item Photos ─────────────────────────────────────────
-  {
-    const ciPhotoRows = [];
-    const checklistSectionsExcel = [
-      ["facility","ceiling"],["facility","walls"],["facility","floors"],
-      ["facility","threeCompSinks"],["facility","handSink"],["facility","mopArea"],
-      ["equipment","coolers"],["equipment","freezer"],["equipment","warmers"],
-      ["equipment","grill"],["equipment","hood"],["equipment","iceMaker"],["equipment","otherEquip"],
-      ["utensils","cleaningUtensils"],["utensils","cookingUtensils"],
-      ["operations","employeePractices"],["operations","handwashing"],
-      ["operations","labelingDating"],["operations","logs"],
-    ];
-    for (const [sec, key] of checklistSectionsExcel) {
-      const node = rec.inspection?.[sec]?.[key];
-      if (!Array.isArray(node?.checklist)) continue;
-      for (const c of node.checklist) {
-        const photos = (c.photos || []).filter(p => p.url || p.dataUrl);
-        if (!photos.length) continue;
-        const result = c.value === "NO" ? "Fail" : c.value === "YES" ? "Pass" : "—";
-        for (const p of photos) {
-          ciPhotoRows.push([
-            str(c.label || "Item"),
-            result,
-            str(c.comment || ""),
-            str(p.url || p.dataUrl || ""),
-          ]);
-        }
-      }
-    }
-    if (ciPhotoRows.length > 0) {
-      const ciHeader = ["Checklist Item", "Result", "Comment", "Photo URL"];
-      const wsCi = XLSX.utils.aoa_to_sheet([ciHeader, ...ciPhotoRows]);
-      wsCi["!cols"] = [{ wch: 40 }, { wch: 8 }, { wch: 40 }, { wch: 80 }];
-      wsCi["!autofilter"] = { ref: `A1:D${ciPhotoRows.length + 1}` };
-      wsCi["!freeze"] = { xSplit: 0, ySplit: 1, topLeftCell: "A2", activePane: "bottomLeft" };
-      XLSX.utils.book_append_sheet(wb, wsCi, "Item Photos");
+  ws1.autoFilter = { from: { row: ws1.lastRow.number - actionItems.length - (actionItems.length === 0 ? 1 : 0), column: 1 }, to: { row: ws1.lastRow.number, column: 8 } };
+  ws1.views = [{ state: "frozen", ySplit: ws1.lastRow.number - actionItems.length - (actionItems.length === 0 ? 0 : -1) }];
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // SHEET 2: Full Checklist
+  // ══════════════════════════════════════════════════════════════════════════
+  const checklistSections = [
+    ["Facilities", "facility", "ceiling"], ["Facilities", "facility", "walls"],
+    ["Facilities", "facility", "floors"], ["Facilities", "facility", "threeCompSinks"],
+    ["Facilities", "facility", "handSink"], ["Facilities", "facility", "mopArea"],
+    ["Equipment", "equipment", "coolers"], ["Equipment", "equipment", "freezer"],
+    ["Equipment", "equipment", "warmers"], ["Equipment", "equipment", "grill"],
+    ["Equipment", "equipment", "hood"], ["Equipment", "equipment", "iceMaker"],
+    ["Equipment", "equipment", "otherEquip"],
+    ["Utensils", "utensils", "cleaningUtensils"], ["Utensils", "utensils", "cookingUtensils"],
+    ["Operations", "operations", "employeePractices"], ["Operations", "operations", "handwashing"],
+    ["Operations", "operations", "labelingDating"], ["Operations", "operations", "logs"],
+  ];
+  const ws2 = wb.addWorksheet("Checklist");
+  ws2.columns = [{ width: 20 }, { width: 28 }, { width: 48 }, { width: 12 }, { width: 36 }];
+  const ws2Hdr = ws2.addRow(["Section", "Item", "Checklist Details / Label", "Result", "Comment"]);
+  ws2Hdr.eachCell(c => applyStyle(c, styleHdr));
+  ws2Hdr.height = 22;
+
+  let ws2Even = false;
+  for (const [section, sec, key] of checklistSections) {
+    const node = rec.inspection?.[sec]?.[key];
+    const statusRaw = node?.value || "";
+    const comment = node?.comment || "";
+    // Section row for the item
+    const sectionLabel = `${section} — ${key.replace(/([A-Z])/g, " $1").trim()}`;
+    const result = statusRaw === "YES" ? "OK" : statusRaw === "NO" ? "Issue" : statusRaw === "NA" ? "N/A" : str(statusRaw);
+    if (Array.isArray(node?.checklist) && node.checklist.length > 0) {
+      node.checklist.forEach(c => {
+        const cResult = c.value === "NO" ? "Fail" : c.value === "YES" ? "Pass" : c.value || "—";
+        const r = ws2.addRow([section, sectionLabel, str(c.label || ""), cResult, str(c.comment || "")]);
+        r.eachCell((cell, col) => applyStyle(cell, col === 4 ? styleStatus(cResult) : styleBody(ws2Even)));
+        r.height = 16;
+        ws2Even = !ws2Even;
+      });
+    } else if (statusRaw) {
+      const r = ws2.addRow([section, sectionLabel, "", result, comment]);
+      r.eachCell((cell, col) => applyStyle(cell, col === 4 ? styleStatus(result) : styleBody(ws2Even)));
+      r.height = 16;
+      ws2Even = !ws2Even;
     }
   }
+  ws2.autoFilter = { from: { row: 1, column: 1 }, to: { row: ws2.lastRow.number, column: 5 } };
+  ws2.views = [{ state: "frozen", ySplit: 1 }];
 
-  // ── SHEET: Equipment Temps ────────────────────────────────────────────────
-  {
-    const handT = Number(rec.temps?.handSinkTempF);
-    const threeT = Number(rec.temps?.threeCompSinkTempF);
-    const eTemps = collectEquipTemps(rec.inspection);
-    const equipHeader = ["Equipment", "Temp (°F)", "Status"];
-    const equipRows = [];
-    if (!isNaN(handT) && handT > 0) equipRows.push(["Hand Sink", handT, "—"]);
-    if (!isNaN(threeT) && threeT > 0) equipRows.push(["3-Comp Sink", threeT, "—"]);
-    eTemps.forEach(e => equipRows.push([e.label, e.tempF, e.pass ? "OK" : "Flag"]));
-    if (equipRows.length > 0) {
-      const wsEq = XLSX.utils.aoa_to_sheet([equipHeader, ...equipRows]);
-      wsEq["!cols"] = [{ wch: 32 }, { wch: 12 }, { wch: 10 }];
-      wsEq["!autofilter"] = { ref: `A1:C${equipRows.length + 1}` };
-      wsEq["!freeze"] = { xSplit: 0, ySplit: 1, topLeftCell: "A2", activePane: "bottomLeft" };
-      XLSX.utils.book_append_sheet(wb, wsEq, "Equipment Temps");
-    }
+  // ══════════════════════════════════════════════════════════════════════════
+  // SHEET 3: Equipment Temps
+  // ══════════════════════════════════════════════════════════════════════════
+  const handT = Number(rec.temps?.handSinkTempF);
+  const threeT = Number(rec.temps?.threeCompSinkTempF);
+  const eTemps = collectEquipTemps(rec.inspection);
+  if ((!isNaN(handT) && handT > 0) || (!isNaN(threeT) && threeT > 0) || eTemps.length > 0) {
+    const wsEq = wb.addWorksheet("Equipment Temps");
+    wsEq.columns = [{ width: 36 }, { width: 14 }, { width: 12 }];
+    const eHdr = wsEq.addRow(["Equipment", "Temp (°F)", "Status"]);
+    eHdr.eachCell(c => applyStyle(c, styleHdr));
+    eHdr.height = 22;
+    let ei = 0;
+    if (!isNaN(handT) && handT > 0) { const r = wsEq.addRow(["Hand Sink", handT, "—"]); r.eachCell((c, col) => applyStyle(c, col === 3 ? styleBody(false) : styleBody(ei % 2 === 0))); ei++; }
+    if (!isNaN(threeT) && threeT > 0) { const r = wsEq.addRow(["3-Comp Sink", threeT, "—"]); r.eachCell((c, col) => applyStyle(c, col === 3 ? styleBody(false) : styleBody(ei % 2 === 0))); ei++; }
+    eTemps.forEach(e => {
+      const st = e.pass ? "OK" : "Flag";
+      const r = wsEq.addRow([e.label, e.tempF, st]);
+      r.eachCell((c, col) => applyStyle(c, col === 3 ? styleStatus(st) : styleBody(ei % 2 === 0)));
+      ei++;
+    });
+    wsEq.autoFilter = { from: { row: 1, column: 1 }, to: { row: wsEq.lastRow.number, column: 3 } };
+    wsEq.views = [{ state: "frozen", ySplit: 1 }];
   }
 
-  // ── SHEET: Supervisor Log ─────────────────────────────────────────────────
+  // ══════════════════════════════════════════════════════════════════════════
+  // SHEET 4: HACCP / Supervisor Log
+  // ══════════════════════════════════════════════════════════════════════════
   if (haccpSubs.length > 0) {
-    const supHeader = ["Supervisor", "Submitted At", "HACCP Item", "Food Name", "Temp (°F)", "Result", "Problem Report"];
-    const supRows = [];
+    const wsSup = wb.addWorksheet("HACCP - Supervisor Log");
+    wsSup.columns = [{ width: 22 }, { width: 22 }, { width: 26 }, { width: 22 }, { width: 12 }, { width: 10 }, { width: 42 }];
+    const sHdr = wsSup.addRow(["Supervisor", "Submitted At", "HACCP Item", "Food Name", "Temp (°F)", "Result", "Problem Report"]);
+    sHdr.eachCell(c => applyStyle(c, styleHdr));
+    sHdr.height = 22;
+    let si = 0;
     for (const sub of haccpSubs) {
-      const allSubItems = [
-        ...HACCP_TEMP_ITEMS,
-        ...(sub.customItems || []).filter(ci => !HACCP_TEMP_ITEMS.find(d => d.key === ci.key)),
-      ];
+      const allSubItems = [...HACCP_TEMP_ITEMS, ...(sub.customItems || []).filter(ci => !HACCP_TEMP_ITEMS.find(d => d.key === ci.key))];
       const submittedStr = sub.submittedAt ? new Date(sub.submittedAt).toLocaleString() : "—";
       const problemText = sub.problemReport?.text || "";
       for (const item of allSubItems) {
         const vals = ((sub.temps || {})[item.key] || []).filter(v => v !== "");
         const displayLabel = (sub.itemLabels || {})[item.key] || item.label;
         for (let vi = 0; vi < vals.length; vi++) {
-          const v = vals[vi];
-          const pass = tempPass(item, v);
+          const v = vals[vi]; const pass = tempPass(item, v);
           const foodName = ((sub.foodNames || {})[item.key] || [])[vi] || "";
           const result = pass === true ? "OK" : pass === false ? "Flag" : "—";
-          supRows.push([str(sub.supervisorName), submittedStr, displayLabel, foodName, v, result, problemText]);
+          const r = wsSup.addRow([str(sub.supervisorName), submittedStr, displayLabel, foodName, v, result, problemText]);
+          r.eachCell((c, col) => applyStyle(c, col === 6 ? styleStatus(result) : styleBody(si % 2 === 0)));
+          si++;
         }
       }
     }
-    if (supRows.length > 0) {
-      const wsSup = XLSX.utils.aoa_to_sheet([supHeader, ...supRows]);
-      wsSup["!cols"] = [{ wch: 22 }, { wch: 22 }, { wch: 24 }, { wch: 22 }, { wch: 10 }, { wch: 8 }, { wch: 40 }];
-      wsSup["!autofilter"] = { ref: `A1:G${supRows.length + 1}` };
-      wsSup["!freeze"] = { xSplit: 0, ySplit: 1, topLeftCell: "A2", activePane: "bottomLeft" };
-      XLSX.utils.book_append_sheet(wb, wsSup, "HACCP - Supervisor Log");
-    }
+    wsSup.autoFilter = { from: { row: 1, column: 1 }, to: { row: wsSup.lastRow.number, column: 7 } };
+    wsSup.views = [{ state: "frozen", ySplit: 1 }];
   }
 
-  // ── SHEET: Supplies Needed ────────────────────────────────────────────────
+  // ══════════════════════════════════════════════════════════════════════════
+  // SHEET 5: Photos
+  // ══════════════════════════════════════════════════════════════════════════
+  if (photoList.length > 0) {
+    const wsP = wb.addWorksheet("Photos");
+    wsP.columns = [{ width: 5 }, { width: 30 }, { width: 44 }, { width: 80 }];
+    const pH = wsP.addRow(["#", "Section", "Caption", "Photo URL"]);
+    pH.eachCell(c => applyStyle(c, styleHdr));
+    pH.height = 22;
+    photoList.forEach((p, i) => {
+      const r = wsP.addRow([p.num, str(p.label), str(p.caption), str(p.previewUrl || "")]);
+      r.eachCell(c => applyStyle(c, styleBody(i % 2 === 0)));
+      r.height = 16;
+    });
+    wsP.autoFilter = { from: { row: 1, column: 1 }, to: { row: wsP.lastRow.number, column: 4 } };
+    wsP.views = [{ state: "frozen", ySplit: 1 }];
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // SHEET 6: Supplies Needed
+  // ══════════════════════════════════════════════════════════════════════════
   const supplies = (rec.suppliesNeeded || []).filter(s => s.item && s.item.trim());
   if (supplies.length > 0) {
-    const supNeedHeader = ["#", "Supply Item", "Qty", "Urgent"];
-    const supNeedRows = supplies.map((s, i) => [i + 1, str(s.item), str(s.qty || ""), s.urgent ? "🔴 Yes" : "No"]);
-    const wsSupN = XLSX.utils.aoa_to_sheet([supNeedHeader, ...supNeedRows]);
-    wsSupN["!cols"] = [{ wch: 4 }, { wch: 40 }, { wch: 10 }, { wch: 10 }];
-    wsSupN["!autofilter"] = { ref: `A1:D${supNeedRows.length + 1}` };
-    wsSupN["!freeze"] = { xSplit: 0, ySplit: 1, topLeftCell: "A2", activePane: "bottomLeft" };
-    XLSX.utils.book_append_sheet(wb, wsSupN, "Supplies Needed");
+    const wsSupN = wb.addWorksheet("Supplies Needed");
+    wsSupN.columns = [{ width: 4 }, { width: 42 }, { width: 12 }, { width: 10 }];
+    const snH = wsSupN.addRow(["#", "Supply Item", "Qty", "Urgent"]);
+    snH.eachCell(c => applyStyle(c, styleHdr));
+    snH.height = 22;
+    supplies.forEach((s, i) => {
+      const r = wsSupN.addRow([i + 1, str(s.item), str(s.qty || ""), s.urgent ? "Yes" : "No"]);
+      r.eachCell(c => applyStyle(c, styleBody(i % 2 === 0)));
+      r.height = 16;
+    });
+    wsSupN.autoFilter = { from: { row: 1, column: 1 }, to: { row: wsSupN.lastRow.number, column: 4 } };
+    wsSupN.views = [{ state: "frozen", ySplit: 1 }];
   }
 
-  const wbOut = XLSX.write(wb, { bookType: "xlsx", type: "array" });
-  const blob = new Blob([wbOut], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-  const filename = `issues_${inspectionDate || "undated"}_${(rec.siteName || "site").replace(/\s+/g, "_")}.xlsx`;
+  const buffer = await wb.xlsx.writeBuffer();
+  const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+  const filename = `inspection_${inspectionDate || "undated"}_${(rec.siteName || "site").replace(/\s+/g, "_")}.xlsx`;
   return { blob, filename };
 }
 
