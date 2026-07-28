@@ -20558,6 +20558,8 @@ export default function App() {
     }
   }
 
+  const licenseMissing = restaurantLicense?.trim() === "NO LICENSE";
+
   async function onDownloadCsv() {
     try {
       const { blob, filename } = await exportAsCsv({ inspection, notesPhotos, rawNotes, inspectionType, inspectionDate, inspectorName, participantName, siteName, siteNumber, sitePhone, supervisorName, floor, locationType, restaurantLicense, licenseMissing, eventName, foodTemps, foodTempNames, haccpSubs: liveHaccpSubs });
