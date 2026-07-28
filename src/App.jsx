@@ -5053,6 +5053,7 @@ async function exportIssuesOnlyExcel({ rec, haccpSubs = [] }) {
 
 // Issues-only Word export (from a saved history record)
 async function exportIssuesOnlyWord({ rec, haccpSubs = [] }) {
+  const esc = s => String(s || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
   const actionItems = rec.actionItems || [];
   const siteName = rec.siteName || "—";
   const inspectionDate = rec.inspectionDate || "—";
