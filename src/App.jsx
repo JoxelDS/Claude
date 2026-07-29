@@ -5377,8 +5377,8 @@ function TempTrendChart({ history }) {
   const locations = Object.keys(locationData);
   if (locations.length === 0) return null;
 
-  // Determine which location is active
-  const activeLoc = (selectedLoc && locations.includes(selectedLoc)) ? selectedLoc : locations[0];
+  // Determine which location is active — null until user explicitly selects one
+  const activeLoc = (selectedLoc && locations.includes(selectedLoc)) ? selectedLoc : null;
 
   // Build a quick "at a glance" summary — show WORST reading per sensor (min for hot, max for cold)
   const glanceSummary = useMemo(() => {
@@ -5407,8 +5407,8 @@ function TempTrendChart({ history }) {
   const anyAlert = (glanceSummary.handPass === false || glanceSummary.threePass === false || glanceSummary.coolerPass === false || glanceSummary.freezerPass === false);
 
   // Compute per-location data for the active location only
-  const { points: activePoints, unitNum: activeUnitNum } = locationData[activeLoc] || { points: [], unitNum: "" };
-  const locKey = activeLoc.replace(/\W/g, "");
+  const { points: activePoints, unitNum: activeUnitNum } = (activeLoc && locationData[activeLoc]) || { points: [], unitNum: "" };
+  const locKey = activeLoc ? activeLoc.replace(/\W/g, "") : "";
 
   // Helper to build an independent mini-chart for a single sensor series
   // Returns null if there are no readings for that sensor at this location
@@ -5558,8 +5558,14 @@ function TempTrendChart({ history }) {
       </div>
 
       <div className="cardBody" style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+        {!activeLoc && (
+          <div style={{ textAlign: "center", padding: "2rem 1rem", color: "#9ca3af" }}>
+            <div style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>🔍</div>
+            <div style={{ fontSize: "0.85rem", fontWeight: 600 }}>Search or select a location above to view temperature data</div>
+          </div>
+        )}
         {/* Location + unit header */}
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        {activeLoc && <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           {activeUnitNum && (
             <span style={{ background: "#2A295C", color: "#fff", borderRadius: 6, padding: "2px 10px", fontSize: "0.82rem", fontWeight: 800, letterSpacing: "0.03em" }}>
               Unit #{activeUnitNum}
@@ -5571,10 +5577,10 @@ function TempTrendChart({ history }) {
           <span style={{ marginLeft: "auto", fontSize: "0.72rem", color: "#6b7280", background: "#f0fdf4", borderRadius: 6, padding: "2px 8px", fontWeight: 600 }}>
             {activePoints.length} reading{activePoints.length !== 1 ? "s" : ""}
           </span>
-        </div>
+        </div>}
 
         {/* 4 independent mini-charts, one per sensor type */}
-        {[
+        {activeLoc && [
           buildSensorChart("handSink",  "Hand Sink",  "#3b82f6", "handGrad",   95,  "min 95°F",  true),
           buildSensorChart("threeComp", "3-Comp Sink","#8b5cf6", "threeGrad", 110, "min 110°F", true),
           buildSensorChart("cooler",    "Cooler",     "#059669", "coolerGrad",  40,  "max 40°F",  false, "coolerItems"),
