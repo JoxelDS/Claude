@@ -2702,7 +2702,6 @@ function buildActionItems({ inspection, rawNotes, foodTemps: ftArg, foodTempName
       ? node.checklist.filter(c => c.value === "NO")
       : [];
     if (!isFail && failedCheckItems.length === 0) return;
-    if (failedCheckItems.length === 0 && !sanitizeText(node.notes)) return;
 
     if (failedCheckItems.length > 0) {
       // Emit one action item per failed checklist item so each gets its own Excel row
@@ -2739,7 +2738,7 @@ function buildActionItems({ inspection, rawNotes, foodTemps: ftArg, foodTempName
       }
     } else {
       // No checklist failures — section-level issue only
-      const detail = sanitizeText(node.notes);
+      const detail = sanitizeText(node.notes) || node.status || "Issue flagged during inspection";
       items.push({
         issue: `${label}: ${detail}`,
         notes: "",
@@ -2766,6 +2765,16 @@ function buildActionItems({ inspection, rawNotes, foodTemps: ftArg, foodTempName
   pushIfBad("equipment.hood",       "Equipments – Hood",                inspection?.equipment?.hood);
   pushIfBad("equipment.iceMaker",   "Equipments – Ice Maker Machine",   inspection?.equipment?.iceMaker);
   pushIfBad("equipment.otherEquip", "Equipments – Other Equipments",    inspection?.equipment?.otherEquip);
+  // Custom equipment items added by inspector
+  const equipData = inspection?.equipment || {};
+  for (const [k, node] of Object.entries(equipData)) {
+    if (k.startsWith("custom_")) pushIfBad(`equipment.${k}`, node?.label || "Equipment – Custom", node);
+  }
+  // Custom facility items
+  const facilityData = inspection?.facility || {};
+  for (const [k, node] of Object.entries(facilityData)) {
+    if (k.startsWith("custom_")) pushIfBad(`facility.${k}`, node?.label || "Facilities – Custom", node);
+  }
   // ── UTENSILS ──────────────────────────────────────────────────
   pushIfBad("utensils.cleaningUtensils", "Utensils – Cleaning Utensils", inspection?.utensils?.cleaningUtensils);
   pushIfBad("utensils.cookingUtensils",  "Utensils – Cooking Utensils",  inspection?.utensils?.cookingUtensils);
@@ -2787,8 +2796,7 @@ function buildActionItems({ inspection, rawNotes, foodTemps: ftArg, foodTempName
   const pushMaint = (pathKey, label, node) => {
     if (!node?.status) return;
     if (node.status === "Needs Attention" || node.status === "Not Clean" || node.status === "Maintenance") {
-      const detail = sanitizeText(node.notes);
-      if (!detail) return; // skip if no description
+      const detail = sanitizeText(node.notes) || node.status || "Maintenance issue flagged";
       items.push({
         issue: `Maintenance – ${label}: ${detail}`,
         owner: "", due: "",
