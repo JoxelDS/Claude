@@ -5447,7 +5447,7 @@ function TempTrendChart({ history }) {
   }
 
   return (
-    <div className="card" style={{ marginBottom: 24, border: anyAlert ? "2px solid #fca5a5" : undefined }}>
+    <div className="card" style={{ marginBottom: 24, border: (activeLoc && anyAlert) ? "2px solid #fca5a5" : undefined }}>
       {/* Card header — title + optional dropdown */}
       <div className="cardHeader" style={{ borderBottom: "1px solid #f3f4f6", paddingBottom: "0.75rem" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flex: 1, minWidth: 0 }}>
@@ -5465,7 +5465,7 @@ function TempTrendChart({ history }) {
               <input
                 type="text"
                 placeholder="Search location…"
-                value={locSearch || (showLocDropdown ? "" : (locationData[activeLoc]?.label || activeLoc))}
+                value={locSearch || (showLocDropdown ? "" : (activeLoc ? (locationData[activeLoc]?.label || activeLoc) : ""))}
                 onFocus={() => { setLocSearch(""); setShowLocDropdown(true); }}
                 onChange={e => { setLocSearch(e.target.value); setShowLocDropdown(true); }}
                 onBlur={() => { setTimeout(() => setShowLocDropdown(false), 220); }}
@@ -5533,7 +5533,7 @@ function TempTrendChart({ history }) {
               )}
             </div>
           )}
-          {anyAlert && (
+          {activeLoc && anyAlert && (
             <span style={{ background: "#fee2e2", color: "#dc2626", borderRadius: 6, padding: "0.25rem 0.65rem", fontSize: "0.75rem", fontWeight: 700, whiteSpace: "nowrap" }}>⚠️ Temp Alert</span>
           )}
         </div>
