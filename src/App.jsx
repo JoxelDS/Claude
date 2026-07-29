@@ -2750,52 +2750,40 @@ function buildActionItems({ inspection, rawNotes, foodTemps: ftArg, foodTempName
     }
   };
   // ── FACILITIES ────────────────────────────────────────────────
-  pushIfBad("facility.ceiling",        "Facilities – Ceiling",               inspection?.facility?.ceiling);
-  pushIfBad("facility.walls",          "Facilities – Walls",                 inspection?.facility?.walls);
-  pushIfBad("facility.floors",         "Facilities – Floor",                 inspection?.facility?.floors);
-  pushIfBad("facility.threeCompSinks", "Facilities – 3-Compartment Sinks",   inspection?.facility?.threeCompSinks);
-  pushIfBad("facility.handSink",       "Facilities – Hand Sink",             inspection?.facility?.handSink);
-  pushIfBad("facility.mopArea",        "Facilities – Mop Area",              inspection?.facility?.mopArea);
-  // ── EQUIPMENTS ────────────────────────────────────────────────
-  pushIfBad("equipment.coolers",    "Equipments – Coolers",             inspection?.equipment?.coolers);
-  pushIfBad("equipment.freezer",    "Equipments – Freezer",             inspection?.equipment?.freezer);
-  pushIfBad("equipment.warmers",    "Equipments – Warmers",             inspection?.equipment?.warmers);
-  pushIfBad("equipment.grill",      "Equipments – Grill",               inspection?.equipment?.grill);
-  pushIfBad("equipment.fryer",      "Equipments – Fryer",               inspection?.equipment?.fryer);
-  pushIfBad("equipment.hood",       "Equipments – Hood",                inspection?.equipment?.hood);
-  pushIfBad("equipment.iceMaker",   "Equipments – Ice Maker Machine",   inspection?.equipment?.iceMaker);
-  pushIfBad("equipment.otherEquip", "Equipments – Other Equipments",    inspection?.equipment?.otherEquip);
-  // Custom equipment items added by inspector
-  const equipData = inspection?.equipment || {};
-  for (const [k, node] of Object.entries(equipData)) {
-    if (k.startsWith("custom_")) pushIfBad(`equipment.${k}`, node?.label || "Equipment – Custom", node);
+  // ── Dynamic scan — iterate every section in the inspection object so nothing is missed ──
+  // Human-readable labels for known keys
+  const SECTION_LABELS = {
+    facility: "Facilities",
+    equipment: "Equipment",
+    utensils: "Utensils",
+    operations: "Operations",
+  };
+  const KEY_LABELS = {
+    ceiling: "Ceiling", walls: "Walls", floors: "Floor", threeCompSinks: "3-Compartment Sinks",
+    handSink: "Hand Sink", mopArea: "Mop Area", lighting: "Lighting",
+    coolers: "Coolers", freezer: "Freezer", warmers: "Warmers", grill: "Grill", fryer: "Fryer",
+    hood: "Hood", iceMaker: "Ice Maker Machine", otherEquip: "Other Equipment",
+    doubleDoorCooler: "Double-Door Cooler", doubleDoorFreezer: "Double-Door Freezer",
+    walkInCooler: "Walk-In Cooler", walkInFreezer: "Walk-In Freezer",
+    prepCooler: "Prep Cooler", ovens: "Ovens", threeCompSink: "3-Compartment Sink",
+    ecolab: "Ecolab / Chemicals",
+    cleaningUtensils: "Cleaning Utensils", cookingUtensils: "Cooking Utensils",
+    employeePractices: "Employee Practices", handwashing: "Handwashing / Supplies",
+    labelingDating: "Labeling / Dating", logs: "Logs / Documentation",
+  };
+  for (const [section, sectionLabel] of Object.entries(SECTION_LABELS)) {
+    const sectionData = inspection?.[section] || {};
+    for (const [key, node] of Object.entries(sectionData)) {
+      if (!node || typeof node !== "object") continue;
+      const keyLabel = node.label || KEY_LABELS[key] || key.replace(/([A-Z])/g, " $1").trim();
+      const humanLabel = `${sectionLabel} – ${keyLabel}`;
+      pushIfBad(`${section}.${key}`, humanLabel, node);
+    }
   }
-  // Custom facility items
-  const facilityData = inspection?.facility || {};
-  for (const [k, node] of Object.entries(facilityData)) {
-    if (k.startsWith("custom_")) pushIfBad(`facility.${k}`, node?.label || "Facilities – Custom", node);
-  }
-  // ── UTENSILS ──────────────────────────────────────────────────
-  pushIfBad("utensils.cleaningUtensils", "Utensils – Cleaning Utensils", inspection?.utensils?.cleaningUtensils);
-  pushIfBad("utensils.cookingUtensils",  "Utensils – Cooking Utensils",  inspection?.utensils?.cookingUtensils);
-  // ── LEGACY (old saved records) ────────────────────────────────
-  pushIfBad("facility.lighting",              "Lighting",               inspection?.facility?.lighting);
-  pushIfBad("operations.employeePractices",   "Employee practices",     inspection?.operations?.employeePractices);
-  pushIfBad("operations.handwashing",         "Handwashing / supplies", inspection?.operations?.handwashing);
-  pushIfBad("operations.labelingDating",      "Labeling / dating",      inspection?.operations?.labelingDating);
-  pushIfBad("operations.logs",                "Logs / documentation",   inspection?.operations?.logs);
-  pushIfBad("equipment.doubleDoorCooler",     "Double-door cooler",     inspection?.equipment?.doubleDoorCooler);
-  pushIfBad("equipment.doubleDoorFreezer",    "Double-door freezer",    inspection?.equipment?.doubleDoorFreezer);
-  pushIfBad("equipment.walkInCooler",         "Walk-in cooler",         inspection?.equipment?.walkInCooler);
-  pushIfBad("equipment.walkInFreezer",        "Walk-in freezer",        inspection?.equipment?.walkInFreezer);
-  pushIfBad("equipment.prepCooler",           "Prep cooler",            inspection?.equipment?.prepCooler);
-  pushIfBad("equipment.ovens",                "Ovens",                  inspection?.equipment?.ovens);
-  pushIfBad("equipment.threeCompSink",        "3-compartment sink",     inspection?.equipment?.threeCompSink);
-  pushIfBad("equipment.ecolab",               "Ecolab / chemicals",     inspection?.equipment?.ecolab);
-  // Maintenance items — priority pulled from the node itself
+  // ── Maintenance items — same dynamic scan ──────────────────────
   const pushMaint = (pathKey, label, node) => {
     if (!node?.status) return;
-    if (node.status === "Needs Attention" || node.status === "Not Clean" || node.status === "Maintenance") {
+    if (node.status === "Needs Attention" || node.status === "Not Clean" || node.status === "Maintenance" || node.status === "Fail") {
       const detail = sanitizeText(node.notes) || node.status || "Maintenance issue flagged";
       items.push({
         issue: `Maintenance – ${label}: ${detail}`,
@@ -2805,16 +2793,11 @@ function buildActionItems({ inspection, rawNotes, foodTemps: ftArg, foodTempName
       });
     }
   };
-  pushMaint("maintenance.hvac",             "HVAC",               inspection?.maintenance?.hvac);
-  pushMaint("maintenance.plumbing",         "Plumbing",           inspection?.maintenance?.plumbing);
-  pushMaint("maintenance.pestControl",      "Pest control",       inspection?.maintenance?.pestControl);
-  pushMaint("maintenance.electricalSafety", "Electrical safety",  inspection?.maintenance?.electricalSafety);
-  pushMaint("maintenance.dumpsterArea",     "Dumpster / waste area", inspection?.maintenance?.dumpsterArea);
-  pushMaint("maintenance.structuralDamage", "Structural damage",  inspection?.maintenance?.structuralDamage);
-  // Custom maintenance items
   const maintData = inspection?.maintenance || {};
   for (const [k, node] of Object.entries(maintData)) {
-    if (k.startsWith("custom_")) pushMaint(`maintenance.${k}`, node?.label || k, node);
+    if (!node || typeof node !== "object") continue;
+    const label = node.label || KEY_LABELS[k] || k.replace(/([A-Z])/g, " $1").trim();
+    pushMaint(`maintenance.${k}`, label, node);
   }
   // Water temps / out-of-order
   if (inspection?.temps?.handSinkOutOfOrder) {
