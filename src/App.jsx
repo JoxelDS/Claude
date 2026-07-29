@@ -5009,20 +5009,42 @@ async function exportIssuesOnlyExcel({ rec, haccpSubs = [] }) {
   }
 
   // ══════════════════════════════════════════════════════════════════════════
-  // SHEET 5: Photos
+  // SHEET 5: Photos (with embedded images)
   // ══════════════════════════════════════════════════════════════════════════
   if (photoList.length > 0) {
     const wsP = wb.addWorksheet("Photos");
-    wsP.columns = [{ width: 5 }, { width: 30 }, { width: 44 }, { width: 80 }];
-    const pH = wsP.addRow(["#", "Section", "Caption", "Photo URL"]);
+    // Col D is the image column — 28 chars wide ≈ 200px
+    wsP.columns = [{ width: 5 }, { width: 28 }, { width: 44 }, { width: 28 }];
+    const pH = wsP.addRow(["#", "Section", "Caption", "Photo"]);
     pH.eachCell(c => applyStyle(c, styleHdr));
     pH.height = 22;
-    photoList.forEach((p, i) => {
-      const r = wsP.addRow([p.num, str(p.label), str(p.caption), str(p.previewUrl || "")]);
+
+    const IMG_ROW_H = 90; // points (~120px) per photo row
+
+    for (let i = 0; i < photoList.length; i++) {
+      const p = photoList[i];
+      const r = wsP.addRow([p.num, str(p.label), str(p.caption), ""]);
       r.eachCell(c => applyStyle(c, styleBody(i % 2 === 0)));
-      r.height = 16;
-    });
-    wsP.autoFilter = { from: { row: 1, column: 1 }, to: { row: wsP.lastRow.number, column: 4 } };
+      r.height = IMG_ROW_H;
+
+      // Embed the image directly into column D
+      const dataUrl = p.dataUrl || p.previewUrl || "";
+      if (dataUrl && dataUrl.startsWith("data:")) {
+        try {
+          const m = dataUrl.match(/^data:image\/(png|jpe?g|gif|webp);base64,(.+)$/);
+          if (m) {
+            const ext = m[1].replace("jpg", "jpeg");
+            const imgId = wb.addImage({ base64: m[2], extension: ext });
+            // tl/br use 0-based col/row; header is row index 0, first data row is index 1
+            wsP.addImage(imgId, {
+              tl: { col: 3, row: i + 1 },
+              br: { col: 4, row: i + 2 },
+              editAs: "oneCell",
+            });
+          }
+        } catch (_) { /* skip if image can't be embedded */ }
+      }
+    }
     wsP.views = [{ state: "frozen", ySplit: 1 }];
   }
 
