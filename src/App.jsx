@@ -19216,6 +19216,381 @@ function PhotoLightbox({ src, onClose }) {
   );
 }
 
+/* ── Messaging & Communications Panel ──────────────────────── */
+function MessagingPanel({ currentUser, onBack, notifItems, onNotifDismiss, onNotifClearAll }) {
+  const NAVY = "#1C2B5E";
+  const [activeTab, setActiveTab] = useState("messages"); // "messages" | "notifications" | "announcements"
+  const [activeThread, setActiveThread] = useState(null);
+  const [composeOpen, setComposeOpen] = useState(false);
+  const [composeText, setComposeText] = useState("");
+  const [composeTo, setComposeTo] = useState("");
+  const [replyText, setReplyText] = useState("");
+  const [search, setSearch] = useState("");
+  const [msgThreads, setMsgThreads] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("sdx_msg_threads") || "[]"); } catch { return []; }
+  });
+  const [announcements, setAnnouncements] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("sdx_announcements") || "[]"); } catch { return []; }
+  });
+  const [annText, setAnnText] = useState("");
+  const [annTitle, setAnnTitle] = useState("");
+
+  const isAdmin = currentUser?.role === "admin" || currentUser?.role === "global_admin";
+  const myName = currentUser?.name || "Me";
+
+  function saveThreads(t) { setMsgThreads(t); localStorage.setItem("sdx_msg_threads", JSON.stringify(t)); }
+  function saveAnn(a) { setAnnouncements(a); localStorage.setItem("sdx_announcements", JSON.stringify(a)); }
+
+  function sendMessage() {
+    if (!composeText.trim() || !composeTo.trim()) return;
+    const existing = msgThreads.find(t => t.participants.includes(composeTo) && t.participants.includes(myName));
+    const msg = { id: Date.now(), from: myName, text: composeText.trim(), ts: Date.now(), read: false };
+    if (existing) {
+      const updated = msgThreads.map(t => t.id === existing.id ? { ...t, messages: [...t.messages, msg], lastTs: msg.ts, unread: (t.unread || 0) + 1 } : t);
+      saveThreads(updated);
+      setActiveThread({ ...existing, messages: [...existing.messages, msg] });
+    } else {
+      const thread = { id: Date.now(), participants: [myName, composeTo.trim()], messages: [msg], lastTs: msg.ts, unread: 0 };
+      const updated = [thread, ...msgThreads];
+      saveThreads(updated);
+      setActiveThread(thread);
+    }
+    setComposeText(""); setComposeTo(""); setComposeOpen(false);
+  }
+
+  function sendReply() {
+    if (!replyText.trim() || !activeThread) return;
+    const msg = { id: Date.now(), from: myName, text: replyText.trim(), ts: Date.now(), read: false };
+    const updated = msgThreads.map(t => t.id === activeThread.id ? { ...t, messages: [...t.messages, msg], lastTs: msg.ts } : t);
+    saveThreads(updated);
+    setActiveThread(prev => ({ ...prev, messages: [...prev.messages, msg] }));
+    setReplyText("");
+  }
+
+  function openThread(t) {
+    const updated = msgThreads.map(x => x.id === t.id ? { ...x, unread: 0 } : x);
+    saveThreads(updated);
+    setActiveThread({ ...t, unread: 0 });
+  }
+
+  function postAnnouncement() {
+    if (!annText.trim()) return;
+    const a = { id: Date.now(), title: annTitle.trim() || "Announcement", body: annText.trim(), author: myName, ts: Date.now() };
+    const updated = [a, ...announcements];
+    saveAnn(updated);
+    setAnnText(""); setAnnTitle("");
+  }
+
+  function fmtTime(ts) {
+    if (!ts) return "";
+    const d = new Date(ts);
+    const now = new Date();
+    const diffH = (now - d) / 3600000;
+    if (diffH < 24) return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    return d.toLocaleDateString([], { month: "short", day: "numeric" });
+  }
+
+  const filteredThreads = msgThreads.filter(t => {
+    const other = t.participants.find(p => p !== myName) || "";
+    return other.toLowerCase().includes(search.toLowerCase()) || t.messages.some(m => m.text.toLowerCase().includes(search.toLowerCase()));
+  });
+  const totalUnread = msgThreads.reduce((s, t) => s + (t.unread || 0), 0);
+  const notifCount = notifItems?.length || 0;
+
+  const TAB_STYLE = (active) => ({
+    flex: 1, padding: "0.65rem 0", fontSize: "0.8rem", fontWeight: active ? 700 : 500,
+    color: active ? "#fff" : "rgba(255,255,255,0.65)", background: active ? "rgba(255,255,255,0.15)" : "transparent",
+    border: "none", cursor: "pointer", borderRadius: 8, transition: "all 0.15s", position: "relative",
+  });
+
+  return (
+    <div style={{ minHeight: "100vh", background: "#f1f5f9", display: "flex", flexDirection: "column" }}>
+      {/* Header */}
+      <div style={{ background: NAVY, padding: "0.75rem 1rem", display: "flex", alignItems: "center", gap: 12, position: "sticky", top: 0, zIndex: 100, boxShadow: "0 2px 8px rgba(0,0,0,0.2)" }}>
+        <button onClick={onBack} style={{ background: "none", border: "none", color: "#fff", cursor: "pointer", fontSize: "1.3rem", padding: 4, lineHeight: 1 }}>←</button>
+        <div style={{ flex: 1 }}>
+          <div style={{ color: "#fff", fontWeight: 800, fontSize: "1rem", letterSpacing: "0.01em" }}>💬 Messages & Comms</div>
+          <div style={{ color: "rgba(255,255,255,0.6)", fontSize: "0.72rem" }}>Sodexo Inspection Platform</div>
+        </div>
+        {activeTab === "messages" && (
+          <button
+            onClick={() => setComposeOpen(true)}
+            style={{ background: "#fff", color: NAVY, border: "none", borderRadius: 8, padding: "0.4rem 0.9rem", fontWeight: 700, fontSize: "0.8rem", cursor: "pointer" }}
+          >✏️ New</button>
+        )}
+        {isAdmin && activeTab === "announcements" && (
+          <button
+            onClick={() => setAnnText(" ")}
+            style={{ background: "#fff", color: NAVY, border: "none", borderRadius: 8, padding: "0.4rem 0.9rem", fontWeight: 700, fontSize: "0.8rem", cursor: "pointer" }}
+          >📢 Post</button>
+        )}
+      </div>
+
+      {/* Tab bar */}
+      <div style={{ background: NAVY, padding: "0 1rem 0.75rem", display: "flex", gap: 6 }}>
+        {[
+          { key: "messages", label: "Messages", badge: totalUnread },
+          { key: "notifications", label: "Alerts", badge: notifCount },
+          { key: "announcements", label: "Announcements", badge: 0 },
+        ].map(({ key, label, badge }) => (
+          <button key={key} style={TAB_STYLE(activeTab === key)} onClick={() => { setActiveTab(key); setActiveThread(null); }}>
+            {label}
+            {badge > 0 && (
+              <span style={{ position: "absolute", top: 4, right: 4, background: "#ef4444", color: "#fff", borderRadius: "50%", width: 16, height: 16, fontSize: "0.6rem", fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                {badge > 9 ? "9+" : badge}
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+
+      {/* Body */}
+      <div style={{ flex: 1, display: "flex", maxWidth: 900, margin: "0 auto", width: "100%", gap: 0 }}>
+        {/* ── MESSAGES TAB ── */}
+        {activeTab === "messages" && (
+          <div style={{ display: "flex", flex: 1, minHeight: 0 }}>
+            {/* Thread list */}
+            <div style={{ width: activeThread ? "35%" : "100%", borderRight: "1px solid #e2e8f0", background: "#fff", display: "flex", flexDirection: "column", transition: "width 0.2s" }}>
+              <div style={{ padding: "0.65rem 0.85rem", borderBottom: "1px solid #f1f5f9" }}>
+                <input
+                  placeholder="Search messages…"
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  style={{ width: "100%", padding: "0.45rem 0.7rem", border: "1.5px solid #e2e8f0", borderRadius: 8, fontSize: "0.82rem", outline: "none", boxSizing: "border-box" }}
+                />
+              </div>
+              <div style={{ flex: 1, overflowY: "auto" }}>
+                {filteredThreads.length === 0 && (
+                  <div style={{ padding: "2rem 1rem", textAlign: "center", color: "#94a3b8" }}>
+                    <div style={{ fontSize: "2rem", marginBottom: 8 }}>💬</div>
+                    <div style={{ fontWeight: 600, fontSize: "0.85rem" }}>No messages yet</div>
+                    <div style={{ fontSize: "0.75rem", marginTop: 4 }}>Tap "New" to start a conversation</div>
+                  </div>
+                )}
+                {filteredThreads.map(t => {
+                  const other = t.participants.find(p => p !== myName) || t.participants[0];
+                  const last = t.messages[t.messages.length - 1];
+                  const isActive = activeThread?.id === t.id;
+                  return (
+                    <div
+                      key={t.id}
+                      onClick={() => openThread(t)}
+                      style={{
+                        padding: "0.75rem 1rem", borderBottom: "1px solid #f8fafc", cursor: "pointer",
+                        background: isActive ? "#eff6ff" : t.unread > 0 ? "#f0f9ff" : "#fff",
+                        borderLeft: isActive ? `3px solid ${NAVY}` : "3px solid transparent",
+                        display: "flex", gap: 10, alignItems: "center",
+                      }}
+                    >
+                      <div style={{ width: 38, height: 38, borderRadius: "50%", background: NAVY, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: "1rem", flexShrink: 0 }}>
+                        {other.charAt(0).toUpperCase()}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <span style={{ fontWeight: t.unread > 0 ? 800 : 600, fontSize: "0.85rem", color: "#0f172a" }}>{other}</span>
+                          <span style={{ fontSize: "0.7rem", color: "#94a3b8", flexShrink: 0 }}>{fmtTime(t.lastTs)}</span>
+                        </div>
+                        <div style={{ fontSize: "0.75rem", color: "#64748b", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", marginTop: 2 }}>
+                          {last ? (last.from === myName ? "You: " : "") + last.text : ""}
+                        </div>
+                      </div>
+                      {t.unread > 0 && (
+                        <span style={{ background: NAVY, color: "#fff", borderRadius: "50%", width: 18, height: 18, fontSize: "0.65rem", fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                          {t.unread}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Message thread / chat pane */}
+            {activeThread && (
+              <div style={{ flex: 1, display: "flex", flexDirection: "column", background: "#f8fafc" }}>
+                {/* Thread header */}
+                <div style={{ padding: "0.75rem 1rem", background: "#fff", borderBottom: "1px solid #e2e8f0", display: "flex", alignItems: "center", gap: 10 }}>
+                  <button onClick={() => setActiveThread(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "#64748b", fontSize: "1.1rem" }}>←</button>
+                  <div style={{ width: 32, height: 32, borderRadius: "50%", background: NAVY, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: "0.9rem" }}>
+                    {(activeThread.participants.find(p => p !== myName) || "?").charAt(0).toUpperCase()}
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: "0.88rem", color: "#0f172a" }}>{activeThread.participants.find(p => p !== myName) || activeThread.participants[0]}</div>
+                    <div style={{ fontSize: "0.7rem", color: "#94a3b8" }}>{activeThread.messages.length} message{activeThread.messages.length !== 1 ? "s" : ""}</div>
+                  </div>
+                </div>
+                {/* Messages */}
+                <div style={{ flex: 1, overflowY: "auto", padding: "1rem", display: "flex", flexDirection: "column", gap: 10 }}>
+                  {activeThread.messages.map(m => {
+                    const mine = m.from === myName;
+                    return (
+                      <div key={m.id} style={{ display: "flex", flexDirection: "column", alignItems: mine ? "flex-end" : "flex-start" }}>
+                        <div style={{ fontSize: "0.68rem", color: "#94a3b8", marginBottom: 2 }}>{mine ? "You" : m.from} · {fmtTime(m.ts)}</div>
+                        <div style={{
+                          maxWidth: "75%", padding: "0.55rem 0.85rem", borderRadius: mine ? "14px 14px 4px 14px" : "14px 14px 14px 4px",
+                          background: mine ? NAVY : "#fff", color: mine ? "#fff" : "#0f172a",
+                          fontSize: "0.85rem", lineHeight: 1.45, boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
+                          border: mine ? "none" : "1px solid #e2e8f0",
+                        }}>
+                          {m.text}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                {/* Reply box */}
+                <div style={{ padding: "0.75rem 1rem", background: "#fff", borderTop: "1px solid #e2e8f0", display: "flex", gap: 8 }}>
+                  <textarea
+                    placeholder="Type a message…"
+                    value={replyText}
+                    onChange={e => setReplyText(e.target.value)}
+                    onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendReply(); } }}
+                    rows={2}
+                    style={{ flex: 1, border: "1.5px solid #e2e8f0", borderRadius: 10, padding: "0.5rem 0.75rem", fontSize: "0.85rem", resize: "none", outline: "none", fontFamily: "inherit" }}
+                  />
+                  <button
+                    onClick={sendReply}
+                    disabled={!replyText.trim()}
+                    style={{ background: NAVY, color: "#fff", border: "none", borderRadius: 10, padding: "0 1rem", fontWeight: 700, fontSize: "0.82rem", cursor: replyText.trim() ? "pointer" : "default", opacity: replyText.trim() ? 1 : 0.4 }}
+                  >Send</button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── NOTIFICATIONS TAB ── */}
+        {activeTab === "notifications" && (
+          <div style={{ flex: 1, background: "#fff" }}>
+            <div style={{ padding: "0.75rem 1rem", borderBottom: "1px solid #f1f5f9", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span style={{ fontWeight: 700, fontSize: "0.85rem", color: "#0f172a" }}>All Alerts & Notifications</span>
+              {notifCount > 0 && (
+                <button onClick={onNotifClearAll} style={{ background: "none", border: "none", cursor: "pointer", color: "#64748b", fontSize: "0.75rem", fontWeight: 600 }}>Clear all</button>
+              )}
+            </div>
+            {notifCount === 0 ? (
+              <div style={{ padding: "3rem 1rem", textAlign: "center", color: "#94a3b8" }}>
+                <div style={{ fontSize: "2.5rem", marginBottom: 10 }}>🔔</div>
+                <div style={{ fontWeight: 600, fontSize: "0.9rem" }}>You're all caught up!</div>
+                <div style={{ fontSize: "0.78rem", marginTop: 4 }}>No new notifications</div>
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column" }}>
+                {notifItems.map(n => {
+                  const color = n.type === "chat" ? "#3b82f6" : n.type === "problem_report" ? "#ef4444" : n.type === "assignment" ? "#8b5cf6" : "#f59e0b";
+                  const icon = n.type === "chat" ? "💬" : n.type === "problem_report" ? "🚨" : n.type === "assignment" ? "📋" : "⚠️";
+                  return (
+                    <div key={n.id} style={{ display: "flex", borderLeft: `4px solid ${color}`, borderBottom: "1px solid #f8fafc", background: "#fff" }}>
+                      <div style={{ padding: "1rem", flex: 1 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                          <span style={{ fontSize: "1rem" }}>{icon}</span>
+                          <span style={{ fontWeight: 700, fontSize: "0.85rem", color: "#0f172a" }}>{n.title}</span>
+                          <span style={{ marginLeft: "auto", fontSize: "0.7rem", color: "#94a3b8" }}>{fmtTime(n.ts)}</span>
+                        </div>
+                        <div style={{ fontSize: "0.82rem", color: "#334155", lineHeight: 1.45 }}>{n.body}</div>
+                      </div>
+                      <button onClick={() => onNotifDismiss(n.id)} style={{ background: "none", border: "none", cursor: "pointer", padding: "0 0.75rem", color: "#94a3b8", fontSize: "1.1rem", alignSelf: "center", flexShrink: 0 }}>×</button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── ANNOUNCEMENTS TAB ── */}
+        {activeTab === "announcements" && (
+          <div style={{ flex: 1, background: "#fff", display: "flex", flexDirection: "column" }}>
+            {isAdmin && (
+              <div style={{ padding: "0.85rem 1rem", borderBottom: "1px solid #f1f5f9", background: "#f8fafc" }}>
+                <div style={{ fontWeight: 700, fontSize: "0.8rem", color: "#0f172a", marginBottom: 6 }}>📢 Post Announcement</div>
+                <input
+                  placeholder="Title (optional)"
+                  value={annTitle}
+                  onChange={e => setAnnTitle(e.target.value)}
+                  style={{ width: "100%", border: "1.5px solid #e2e8f0", borderRadius: 8, padding: "0.4rem 0.6rem", fontSize: "0.82rem", marginBottom: 6, outline: "none", boxSizing: "border-box", fontFamily: "inherit" }}
+                />
+                <div style={{ display: "flex", gap: 8 }}>
+                  <textarea
+                    placeholder="Write an announcement for all team members…"
+                    value={annText}
+                    onChange={e => setAnnText(e.target.value)}
+                    rows={2}
+                    style={{ flex: 1, border: "1.5px solid #e2e8f0", borderRadius: 8, padding: "0.4rem 0.6rem", fontSize: "0.82rem", resize: "none", outline: "none", fontFamily: "inherit" }}
+                  />
+                  <button
+                    onClick={postAnnouncement}
+                    disabled={!annText.trim()}
+                    style={{ background: NAVY, color: "#fff", border: "none", borderRadius: 8, padding: "0 1rem", fontWeight: 700, fontSize: "0.82rem", cursor: annText.trim() ? "pointer" : "default", opacity: annText.trim() ? 1 : 0.4 }}
+                  >Post</button>
+                </div>
+              </div>
+            )}
+            <div style={{ flex: 1, overflowY: "auto" }}>
+              {announcements.length === 0 ? (
+                <div style={{ padding: "3rem 1rem", textAlign: "center", color: "#94a3b8" }}>
+                  <div style={{ fontSize: "2.5rem", marginBottom: 10 }}>📢</div>
+                  <div style={{ fontWeight: 600, fontSize: "0.9rem" }}>No announcements yet</div>
+                  {isAdmin && <div style={{ fontSize: "0.78rem", marginTop: 4 }}>Post an announcement above to notify your team</div>}
+                </div>
+              ) : (
+                announcements.map(a => (
+                  <div key={a.id} style={{ padding: "1rem", borderBottom: "1px solid #f8fafc", background: "#fff" }}>
+                    <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+                      <div style={{ width: 36, height: 36, borderRadius: "50%", background: "#fef3c7", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.1rem", flexShrink: 0 }}>📢</div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 3 }}>
+                          <span style={{ fontWeight: 700, fontSize: "0.88rem", color: "#0f172a" }}>{a.title}</span>
+                          <span style={{ fontSize: "0.7rem", color: "#94a3b8" }}>{fmtTime(a.ts)}</span>
+                        </div>
+                        <div style={{ fontSize: "0.82rem", color: "#334155", lineHeight: 1.5 }}>{a.body}</div>
+                        <div style={{ fontSize: "0.7rem", color: "#94a3b8", marginTop: 5 }}>Posted by {a.author}</div>
+                      </div>
+                      {isAdmin && (
+                        <button onClick={() => saveAnn(announcements.filter(x => x.id !== a.id))} style={{ background: "none", border: "none", cursor: "pointer", color: "#94a3b8", fontSize: "1rem", flexShrink: 0 }}>×</button>
+                      )}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Compose modal */}
+      {composeOpen && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 9999, display: "flex", alignItems: "flex-end", justifyContent: "center" }} onClick={() => setComposeOpen(false)}>
+          <div style={{ background: "#fff", borderRadius: "16px 16px 0 0", width: "100%", maxWidth: 600, padding: "1.25rem 1rem 2rem", boxShadow: "0 -8px 30px rgba(0,0,0,0.2)" }} onClick={e => e.stopPropagation()}>
+            <div style={{ fontWeight: 800, fontSize: "0.95rem", color: "#0f172a", marginBottom: 12, display: "flex", justifyContent: "space-between" }}>
+              <span>✏️ New Message</span>
+              <button onClick={() => setComposeOpen(false)} style={{ background: "none", border: "none", cursor: "pointer", color: "#94a3b8", fontSize: "1.2rem" }}>×</button>
+            </div>
+            <input
+              placeholder="To: (name or role)"
+              value={composeTo}
+              onChange={e => setComposeTo(e.target.value)}
+              style={{ width: "100%", border: "1.5px solid #e2e8f0", borderRadius: 8, padding: "0.5rem 0.75rem", fontSize: "0.85rem", marginBottom: 8, outline: "none", boxSizing: "border-box", fontFamily: "inherit" }}
+            />
+            <textarea
+              placeholder="Type your message…"
+              value={composeText}
+              onChange={e => setComposeText(e.target.value)}
+              rows={4}
+              style={{ width: "100%", border: "1.5px solid #e2e8f0", borderRadius: 8, padding: "0.5rem 0.75rem", fontSize: "0.85rem", resize: "none", outline: "none", fontFamily: "inherit", boxSizing: "border-box" }}
+            />
+            <button
+              onClick={sendMessage}
+              disabled={!composeText.trim() || !composeTo.trim()}
+              style={{ marginTop: 10, width: "100%", background: NAVY, color: "#fff", border: "none", borderRadius: 10, padding: "0.7rem", fontWeight: 700, fontSize: "0.88rem", cursor: "pointer", opacity: (composeText.trim() && composeTo.trim()) ? 1 : 0.4 }}
+            >Send Message</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function App() {
   const [lightboxSrc, setLightboxSrc] = useState(null);
   const [locked, setLocked] = useState(true);
@@ -20146,6 +20521,15 @@ export default function App() {
       onSaveVenueSettings={saveVenueSettings}
     />;
   }
+  if (page === "messaging") {
+    return <MessagingPanel
+      currentUser={currentUser}
+      onBack={() => setPage("inspector")}
+      notifItems={notifItems}
+      onNotifDismiss={id => setNotifItems(prev => prev.filter(x => x.id !== id))}
+      onNotifClearAll={() => setNotifItems([])}
+    />;
+  }
   if (page === "performance") { AIEngine.trackPage("performance"); return <PerformanceDashboard onBack={() => setPage("admin")} managedVenueId={managedVenueId} managedVenueName={managedVenueName} venueSettings={venueSettings} />; }
   if (page === "myteam")      { return <MyTeamPage currentUser={currentUser} onBack={() => setPage("inspector")} />; }
   if (page === "mylocations") { return <MyLocationsPage currentUser={currentUser} venueSettings={venueSettings} saveVenueSettings={saveVenueSettings} onBack={() => setPage("inspector")} onSelectLocation={(loc, slotId) => { setSiteName(loc); activeSlotIdRef.current = slotId || null; setPage("inspector"); window.scrollTo({ top: 0, behavior: "smooth" }); }} />; }
@@ -20799,6 +21183,19 @@ export default function App() {
           {/* Notification bell — shown for all logged-in users */}
           {currentUser && (
             <button
+              className="hamburgerBtn"
+              onClick={() => { setPage("messaging"); setMenuOpen(false); setNotifOpen(false); }}
+              type="button"
+              aria-label="Messages"
+              title="Messages & Communications"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: "#fff", display: "block" }}>
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+              </svg>
+            </button>
+          )}
+          {currentUser && (
+            <button
               ref={notifBellRef}
               className="hamburgerBtn"
               onClick={() => { setNotifOpen(v => !v); setMenuOpen(false); setShowTranslate(false); }}
@@ -20922,6 +21319,11 @@ export default function App() {
             {currentUser?.role === "location_manager" && (
               <button className="dropdownMenuItem" onClick={() => setPage("mytemps")} type="button">
                 🌡️ Temperature Logs
+              </button>
+            )}
+            {currentUser && (
+              <button className="dropdownMenuItem" onClick={() => { setPage("messaging"); setMenuOpen(false); }} type="button">
+                💬 Messages & Comms
               </button>
             )}
             {currentUser && (
