@@ -4920,7 +4920,7 @@ async function exportIssuesOnlyExcel({ rec, haccpSubs = [] }) {
     ["Operations", "operations", "employeePractices"], ["Operations", "operations", "handwashing"],
     ["Operations", "operations", "labelingDating"], ["Operations", "operations", "logs"],
   ];
-  const ws2 = wb.addWorksheet("Checklist");
+  const ws2 = wb.addWorksheet("Checklist Issues");
   ws2.columns = [{ width: 20 }, { width: 28 }, { width: 48 }, { width: 12 }, { width: 36 }];
   const ws2Hdr = ws2.addRow(["Section", "Item", "Checklist Details / Label", "Result", "Comment"]);
   ws2Hdr.eachCell(c => applyStyle(c, styleHdr));
@@ -4937,12 +4937,13 @@ async function exportIssuesOnlyExcel({ rec, haccpSubs = [] }) {
     if (Array.isArray(node?.checklist) && node.checklist.length > 0) {
       node.checklist.forEach(c => {
         const cResult = c.value === "NO" ? "Fail" : c.value === "YES" ? "Pass" : c.value || "—";
+        if (cResult !== "Fail") return; // only show problems
         const r = ws2.addRow([section, sectionLabel, str(c.label || ""), cResult, str(c.comment || "")]);
         r.eachCell((cell, col) => applyStyle(cell, col === 4 ? styleStatus(cResult) : styleBody(ws2Even)));
         r.height = 16;
         ws2Even = !ws2Even;
       });
-    } else if (statusRaw) {
+    } else if (statusRaw && result === "Issue") {
       const r = ws2.addRow([section, sectionLabel, "", result, comment]);
       r.eachCell((cell, col) => applyStyle(cell, col === 4 ? styleStatus(result) : styleBody(ws2Even)));
       r.height = 16;
