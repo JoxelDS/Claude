@@ -12070,17 +12070,19 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
     if (!history || history.length === 0) return;
     // Group all restaurantLicense values seen per site
     const siteToLicenses = {};
+    const siteDisplayName = {}; // normalised key → canonical display name
     for (const r of history) {
       const site = (r.siteName || r.location || "").trim();
-      const lic  = (r.restaurantLicense || "").trim();
+      const lic  = (r.restaurantLicense || "").trim().toUpperCase();
       if (!site || !lic || lic === "NO LICENSE") continue;
-      if (!siteToLicenses[site]) siteToLicenses[site] = new Set();
-      siteToLicenses[site].add(lic);
+      const normSite = normaliseLocName(site);
+      if (!siteToLicenses[normSite]) { siteToLicenses[normSite] = new Set(); siteDisplayName[normSite] = site; }
+      siteToLicenses[normSite].add(lic);
     }
     const mismatches = [];
-    for (const [site, lics] of Object.entries(siteToLicenses)) {
+    for (const [normSite, lics] of Object.entries(siteToLicenses)) {
       if (lics.size > 1) {
-        mismatches.push({ siteName: site, licenses: [...lics] });
+        mismatches.push({ siteName: siteDisplayName[normSite] || normSite, licenses: [...lics] });
       }
     }
     setInvLicenseMismatches(mismatches);
@@ -21828,7 +21830,7 @@ export default function App() {
                 ) : (
                   <>
                     <input className="input" list="siteNameSuggestions" value={siteName} onBlur={(e) => smartFieldCorrect("field-siteName", e.target.value)} onChange={(e) => {
-                      const val = e.target.value;
+                      const val = e.target.value.toUpperCase();
                       setSiteName(val);
                       const mem = getAutofillMemory();
                       const mapped = mem.siteMap?.[val];
