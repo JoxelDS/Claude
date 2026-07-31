@@ -3589,8 +3589,8 @@ datalist {
 
   /* Admin panel */
   .adminUserRow { flex-direction: column; align-items: flex-start; gap: 10px; }
-  .adminUserActions { width: 100%; flex-wrap: wrap; }
-  .adminUserActions .btn { flex: 0 1 auto; }
+  .adminUserActions { width: 100%; display: flex; flex-wrap: wrap; gap: 8px; }
+  .adminUserActions .btn { flex: 1 1 calc(50% - 4px); min-width: 120px; justify-content: center; }
 
   /* Page mains */
   .pageMain { padding: 16px; }
@@ -3727,9 +3727,22 @@ datalist {
 
   /* Admin */
   .adminUserRow { padding: 14px 0; }
-  .adminUserActions { gap: 6px; flex-wrap: wrap; }
-  /* Buttons wrap into 2-3 rows — no forced stretching */
-  .adminUserActions .btn { padding: 8px 12px; font-size: 0.75rem; flex: 0 1 auto; min-width: 0; }
+  /* 2-column button grid on phone */
+  .adminUserActions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 7px;
+    width: 100%;
+  }
+  .adminUserActions .btn {
+    padding: 10px 8px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    justify-content: center;
+    width: 100%;
+  }
+  /* Remove button spans full width at the end */
+  .adminUserActions .adminDenyBtn { grid-column: 1 / -1; }
   .roleBadge { font-size: 0.62rem; padding: 2px 6px; }
 
   /* Badge screen */
