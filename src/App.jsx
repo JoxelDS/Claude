@@ -7813,28 +7813,48 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
 
   const filtered = useMemo(() => {
     return history.filter(rec => {
+      // Exact date
       if (filterDate && rec.inspectionDate !== filterDate) return false;
+      // Date range (inclusive)
+      if (filterDateFrom && rec.inspectionDate && rec.inspectionDate < filterDateFrom) return false;
+      if (filterDateTo   && rec.inspectionDate && rec.inspectionDate > filterDateTo)   return false;
       if (filterType && rec.inspectionType !== filterType) return false;
-      if (filterFloor && rec.floor !== filterFloor) return false;
-      if (filterLocType && rec.locationType !== filterLocType) return false;
+      if (filterFloor && (rec.floor || "") !== filterFloor) return false;
+      if (filterLocType) {
+        // portable family: "Portable - Stadium", "Portable - Subcontractor", legacy "Portable"
+        if (filterLocType === "Portable") {
+          if (!isPortableType(rec.locationType || "")) return false;
+        } else {
+          if ((rec.locationType || "") !== filterLocType) return false;
+        }
+      }
       if (filterSite) {
-        const recSite = `${rec.siteName || rec.location || ""}${rec.siteNumber ? ` #${rec.siteNumber}` : ""}`;
-        if (!recSite.toLowerCase().includes(filterSite.toLowerCase())) return false;
+        const recSite = `${rec.siteName || rec.location || ""} ${rec.siteNumber || ""}`.toLowerCase();
+        const terms = filterSite.toLowerCase().split(/\s+/).filter(Boolean);
+        if (!terms.every(t => recSite.includes(t))) return false;
       }
       if (filterIssue) {
-        const terms = filterIssue.toLowerCase().split(/\s+/).filter(Boolean);
-        const hasIssue = (rec.actionItems || []).some(a => {
-          const text = a.issue?.toLowerCase() || "";
-          return terms.some(t => text.includes(t));
-        });
-        if (!hasIssue) return false;
+        const q = filterIssue.toLowerCase();
+        // Search across actionItems, rawNotes, and all section notes in the inspection object
+        const inActionItems = (rec.actionItems || []).some(a =>
+          (a.issue || "").toLowerCase().includes(q) || (a.detail || "").toLowerCase().includes(q)
+        );
+        const inNotes = (rec.rawNotes || rec.notes || "").toLowerCase().includes(q);
+        const inSections = (() => {
+          try {
+            const ins = rec.inspection || {};
+            const blob = JSON.stringify(ins).toLowerCase();
+            return blob.includes(q);
+          } catch { return false; }
+        })();
+        if (!inActionItems && !inNotes && !inSections) return false;
       }
       return true;
     });
-  }, [history, filterDate, filterType, filterFloor, filterLocType, filterSite, filterIssue]);
+  }, [history, filterDate, filterDateFrom, filterDateTo, filterType, filterFloor, filterLocType, filterSite, filterIssue]);
 
   // Reset visible window when filters change
-  useEffect(() => { setVisibleCount(50); }, [filterDate, filterType, filterFloor, filterLocType, filterSite, filterIssue]);
+  useEffect(() => { setVisibleCount(50); }, [filterDate, filterDateFrom, filterDateTo, filterType, filterFloor, filterLocType, filterSite, filterIssue]);
 
   // Visible slice — only render what's on screen
   const visibleFiltered = useMemo(() => filtered.slice(0, visibleCount), [filtered, visibleCount]);
@@ -9298,21 +9318,23 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
               <div className={cx("filterBody", !filterOpen && "collapsed")}>
                 <div className="cardBody" style={{ paddingTop: 0 }}>
                   <div className="fieldGrid filterGrid">
+                    {/* Row 1: date exact | date from | date to */}
                     <label className="field">
                       <span className="fieldLabel">Date (exact)</span>
-                      <select className="select" value={filterDate} onChange={e => setFilterDate(e.target.value)}>
+                      <select className="select" value={filterDate} onChange={e => { setFilterDate(e.target.value); if (e.target.value) { setFilterDateFrom(""); setFilterDateTo(""); } }}>
                         <option value="">All dates</option>
                         {uniqueDates.map(d => <option key={d} value={d}>{d}</option>)}
                       </select>
                     </label>
                     <label className="field">
                       <span className="fieldLabel">Date from</span>
-                      <input className="input" type="date" value={filterDateFrom} onChange={e => setFilterDateFrom(e.target.value)} />
+                      <input className="input" type="date" value={filterDateFrom} onChange={e => { setFilterDateFrom(e.target.value); if (e.target.value) setFilterDate(""); }} />
                     </label>
                     <label className="field">
                       <span className="fieldLabel">Date to</span>
-                      <input className="input" type="date" value={filterDateTo} onChange={e => setFilterDateTo(e.target.value)} />
+                      <input className="input" type="date" value={filterDateTo} onChange={e => { setFilterDateTo(e.target.value); if (e.target.value) setFilterDate(""); }} />
                     </label>
+                    {/* Row 2: inspection type | floor | location type */}
                     <label className="field">
                       <span className="fieldLabel">Inspection Type</span>
                       <select className="select" value={filterType} onChange={e => setFilterType(e.target.value)}>
@@ -9331,13 +9353,21 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                       <span className="fieldLabel">Location Type</span>
                       <select className="select" value={filterLocType} onChange={e => setFilterLocType(e.target.value)}>
                         <option value="">All types</option>
-                        {LOCATION_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                        {/* Only show types that actually appear in the loaded history */}
+                        {[...new Set(history.map(r => r.locationType).filter(Boolean))].sort().map(t => <option key={t} value={t}>{t}</option>)}
                       </select>
                     </label>
+                    {/* Row 3: location search | keyword search */}
                     <label className="field" style={{ gridColumn: "span 1" }}>
                       <span className="fieldLabel">Location</span>
                       <div style={{ display: "flex", gap: 6 }}>
-                        <input className="input" value={filterSite} onChange={e => setFilterSite(e.target.value)} style={{ flex: 1 }} />
+                        <input
+                          className="input"
+                          value={filterSite}
+                          onChange={e => setFilterSite(e.target.value)}
+                          placeholder="Name or stand #"
+                          style={{ flex: 1 }}
+                        />
                         <button
                           type="button"
                           className="btn"
@@ -9350,19 +9380,24 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                         </button>
                       </div>
                     </label>
-                    <div className="field" style={{ gridColumn: "span 2" }}>
-                      <span className="fieldLabel">Search Issues</span>
-                      <select className="input" value={filterIssue} onChange={e => setFilterIssue(e.target.value)}>
-                        <option value="">— All categories —</option>
-                        <option value="ceiling walls floors lighting">Facility</option>
-                        <option value="employee handwashing labeling logs">Operations</option>
-                        <option value="cooler freezer prep warmer oven sink">Equipment</option>
-                        <option value="hvac plumbing pest electrical dumpster">Maintenance</option>
-                        <option value="temperature temp">Temps</option>
-                        <option value="critical violation">Critical</option>
-                      </select>
-                    </div>
+                    <label className="field" style={{ gridColumn: "span 2" }}>
+                      <span className="fieldLabel">Search issues / notes</span>
+                      <input
+                        className="input"
+                        value={filterIssue}
+                        onChange={e => setFilterIssue(e.target.value)}
+                        placeholder="e.g. cooler, handwashing, critical…"
+                      />
+                    </label>
                   </div>
+                  {/* Live result count */}
+                  {activeFilterCount > 0 && (
+                    <div style={{ marginTop: "0.5rem", fontSize: "0.78rem", color: filtered.length === 0 ? "#dc2626" : "#64748b", fontWeight: 500 }}>
+                      {filtered.length === 0
+                        ? "No reports match these filters — try adjusting or clearing them."
+                        : `${filtered.length} report${filtered.length !== 1 ? "s" : ""} match${filtered.length === 1 ? "es" : ""} your filters`}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
