@@ -182,6 +182,8 @@ body {
 }
 .genBtnIcon { display: none; }
 .genBtnLabel { display: inline; }
+.genBtnIconMobile { display: none; }
+.genBtnLabelMobile { display: none; }
 .hamburgerBtn {
   position: relative;
   background: rgba(255,255,255,0.1);
@@ -3635,10 +3637,11 @@ datalist {
   .translateTriggerBtn { display: none !important; }
   /* Hide Messages button — accessible via hamburger */
   .headerMessagesBtn { display: none !important; }
-  /* Generate Report: show only ⚡ icon, no text */
-  .btnGenHeader { padding: 8px 10px; font-size: 0.8rem; min-width: 38px; }
+  /* Generate & Save: show 💾 Save on phone */
+  .btnGenHeader { padding: 8px 12px; font-size: 0.8rem; }
   .genBtnLabel { display: none; }
-  .genBtnIcon  { display: inline; }
+  .genBtnIconMobile { display: inline; margin-right: 4px; }
+  .genBtnLabelMobile { display: inline; font-weight: 700; }
   /* Draft-saved strip: icon only, no text */
   .draftSavedText { display: none; }
 

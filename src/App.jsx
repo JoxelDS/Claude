@@ -21201,7 +21201,8 @@ export default function App() {
           </div>
           {/* HACCP QR button moved to sticky action bar after save */}
           <button className={cx("btn", "btnPrimary", "btnGenHeader")} onClick={onTransform} type="button" disabled={loading}>
-            <span className="genBtnIcon" aria-hidden="true">⚡</span>
+            <span className="genBtnIconMobile" aria-hidden="true">{loading ? "⏳" : "💾"}</span>
+            <span className="genBtnLabelMobile">{loading ? "Saving…" : "Save"}</span>
             <span className="genBtnLabel">{loading ? "Saving..." : "Generate & Save"}</span>
           </button>
           <div className="topActionsDivider" aria-hidden="true" />
