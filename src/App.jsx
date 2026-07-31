@@ -9679,14 +9679,9 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                   style={{ marginBottom: 16, outline: selectMode && selectedIds.has(rec.id) ? "2.5px solid #1d4ed8" : "none", outlineOffset: 2, background: selectMode && selectedIds.has(rec.id) ? "#eff6ff" : undefined, transition: "background 0.15s, outline 0.1s" }}
                   onPointerDown={selectMode ? (e) => {
                     if (e.pointerType === "touch") return;
+                    // Only start drag — do NOT toggle here; onClick on cardHeader handles single clicks
                     dragSelecting.current = true;
-                    const adding = !selectedIds.has(rec.id);
-                    dragSelectAction.current = adding ? "add" : "remove";
-                    setSelectedIds(prev => {
-                      const next = new Set(prev);
-                      adding ? next.add(rec.id) : next.delete(rec.id);
-                      return next;
-                    });
+                    dragSelectAction.current = !selectedIds.has(rec.id) ? "add" : "remove";
                   } : undefined}
                   onPointerUp={selectMode ? () => { dragSelecting.current = false; } : undefined}
                 >
@@ -9705,7 +9700,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                       }
                     }}
                   >
-                    <div style={{ display: "flex", alignItems: "center", gap: 16, flex: 1 }}>
+                    <div className="cardHeaderLeft" style={{ display: "flex", alignItems: "center", gap: 16, flex: 1 }}>
                       {selectMode && (
                         <input
                           type="checkbox"
@@ -9745,7 +9740,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                         </div>
                       </div>
                     </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <div className="cardHeaderRight" style={{ display: "flex", alignItems: "center", gap: 10 }}>
                       {score && (
                         <span title={`Score: ${score.passed}/${score.scoredTotal} items passed`} style={{
                           display: "inline-flex", alignItems: "center", gap: 4,
