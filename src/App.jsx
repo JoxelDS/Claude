@@ -21325,6 +21325,11 @@ export default function App() {
             )}
             <button className="dropdownMenuItem" onClick={startNewInspection} type="button">+ New Inspection</button>
             <button className="dropdownMenuItem" onClick={() => setPage("history")} type="button">Past Reports</button>
+            {canShare && (
+              <button className="dropdownMenuItem" onClick={() => { setMenuOpen(false); setShowShareModal(true); }} type="button">
+                📤 Share Form Link
+              </button>
+            )}
             {currentUser?.role === "global_admin" && (
               <button className="dropdownMenuItem" onClick={() => setPage("global_admin")} type="button">
                 🌐 Global Admin

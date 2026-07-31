@@ -3627,12 +3627,20 @@ datalist {
   /* History page: hide inline buttons, show ⋯ menu instead */
   .historyDesktopBtn { display: none !important; }
   .historyMobileMenu { display: block; }
-  .btnGenHeader { padding: 7px 12px; font-size: 0.75rem; }
-  .genBtnLabel { display: inline; }
-  .genBtnIcon { display: none; }
+
+  /* ── Phone header: collapse everything to icon-only ── */
+  /* Hide Share button — accessible via hamburger menu */
+  .btnShare { display: none !important; }
+  /* Generate Report: show only the ⚡ icon, no text */
+  .btnGenHeader { padding: 8px 10px; font-size: 0.8rem; min-width: 38px; }
+  .genBtnLabel { display: none; }
+  .genBtnIcon  { display: inline; }
+  /* Translate: globe icon only, no "Translate" text */
+  .translateBtnLabel { display: none; }
+  .translateTriggerBtn { padding: 8px 10px; min-width: 38px; justify-content: center; }
+
   .btnAdmin { padding: 9px 14px; font-size: 0.78rem; }
   .btnLock { padding: 8px 12px; font-size: 1rem; }
-  .translateTriggerBtn { padding: 8px 10px; }
 
   .grid {
     padding: 12px;
