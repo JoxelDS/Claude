@@ -740,7 +740,7 @@ function learnFromSave(record) {
     };
     // For Portable/Subcontractor: remember all equipment items (built-in + custom) at this site
     // Event / Temporary locations are skipped — their equipment is one-time and won't be there next time
-    if ((record.locationType === "Portable" || record.locationType === "Subcontractor") && record.locationType !== "Event / Temporary") {
+    if ((isPortableType(record.locationType) || record.locationType === "Subcontractor") && record.locationType !== "Event / Temporary") {
       const equip = record.inspection?.equipment || {};
       // Build a list of { key, label, equipSource, brand, kitchenArea } for every equipment item saved at this site
       const equipItems = Object.entries(equip)
@@ -1779,7 +1779,9 @@ const PHOTO_LIMIT = 6;
 const PHOTO_MAX_MB = 8;
 
 const INSPECTION_TYPES = ["Event Day", "Post Event", "Regular Inspection"];
-const LOCATION_TYPES = ["Concession", "Bar", "Subcontractor", "Portable", "Pantry", "Event / Temporary"];
+const LOCATION_TYPES = ["Concession", "Bar", "Subcontractor", "Portable - Stadium", "Portable - Subcontractor", "Portable", "Pantry", "Event / Temporary"];
+// Helper: any portable variant (including legacy "Portable")
+const isPortableType = (lt) => lt === "Portable - Stadium" || lt === "Portable - Subcontractor" || lt === "Portable";
 const FLOOR_OPTIONS = ["Ground Level", "Floor 1", "Floor 2", "Floor 3"];
 
 // Bar-specific cold equipment
@@ -14064,7 +14066,7 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
             // inspectionType "Event Day" or "Post Event" on ANY location type also goes
             // to the event section — keeping permanent baselines clean.
             const isEventInspType = (it) => it === "Event Day" || it === "Post Event";
-            const isEventLocType  = (lt) => ["Portable","Event / Temporary"].includes(lt);
+            const isEventLocType  = (lt) => isPortableType(lt) || lt === "Event / Temporary";
 
             // ── Qualification gate for inventory counts & insights ────────────
             // Bar and Pantry: exempt from the 3-field requirement, but must have
@@ -14520,7 +14522,7 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
                       <TotalsStrip totals={computeTotals(filteredPerm)} color="#3b82f6" />
                     </div>
                     <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
-                      {filteredPerm.map(site => <SiteCard key={site.siteName} site={site} badge={site.locationType || "Concession"} badgeColor={site.locationType === "Subcontractor" ? "#7c3aed" : NAVY} showIceMaker />)}
+                      {filteredPerm.map(site => <SiteCard key={site.siteName} site={site} badge={site.locationType || "Concession"} badgeColor={site.locationType === "Subcontractor" ? "#7c3aed" : site.locationType === "Portable - Subcontractor" ? "#9333ea" : site.locationType === "Portable - Stadium" ? "#0369a1" : NAVY} showIceMaker />)}
                     </div>
                   </div>
                 )}
@@ -21843,7 +21845,7 @@ export default function App() {
                         if (mapped.restaurantLicense && !restaurantLicense) setRestaurantLicense(mapped.restaurantLicense);
                         // Restore remembered equipment for Portable / Subcontractor sites
                         const lt = mapped.locationType || locationType;
-                        if ((lt === "Portable" || lt === "Subcontractor") && mapped.equipmentItems?.length) {
+                        if ((isPortableType(lt) || lt === "Subcontractor") && mapped.equipmentItems?.length) {
                           const restoredEquip = buildEquipFromMemory(mapped.equipmentItems);
                           setInspection(prev => ({ ...prev, equipment: restoredEquip }));
                         }
