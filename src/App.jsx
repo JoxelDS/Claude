@@ -21208,7 +21208,7 @@ export default function App() {
           {/* Notification bell — shown for all logged-in users */}
           {currentUser && (
             <button
-              className="hamburgerBtn"
+              className="hamburgerBtn headerMessagesBtn"
               onClick={() => { setPage("messaging"); setMenuOpen(false); setNotifOpen(false); }}
               type="button"
               aria-label="Messages"
@@ -21414,7 +21414,7 @@ export default function App() {
             ) : (
               <>
                 <span style={{ fontSize: "0.85rem", opacity: 0.8 }}>💾</span>
-                <span style={{ opacity: 0.85 }}>
+                <span className="draftSavedText" style={{ opacity: 0.85 }}>
                   Draft saved {(() => {
                     const diffMs = Date.now() - draftSavedAt.getTime();
                     const mins = Math.floor(diffMs / 60000);

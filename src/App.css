@@ -3587,8 +3587,8 @@ datalist {
 
   /* Admin panel */
   .adminUserRow { flex-direction: column; align-items: flex-start; gap: 10px; }
-  .adminUserActions { width: 100%; }
-  .adminUserActions .btn { flex: 1; justify-content: center; }
+  .adminUserActions { width: 100%; flex-wrap: wrap; }
+  .adminUserActions .btn { flex: 0 1 auto; }
 
   /* Page mains */
   .pageMain { padding: 16px; }
@@ -3628,16 +3628,19 @@ datalist {
   .historyDesktopBtn { display: none !important; }
   .historyMobileMenu { display: block; }
 
-  /* ── Phone header: collapse everything to icon-only ── */
-  /* Hide Share button — accessible via hamburger menu */
+  /* ── Phone header: collapse to essentials only ── */
+  /* Hide Share — accessible via hamburger */
   .btnShare { display: none !important; }
-  /* Generate Report: show only the ⚡ icon, no text */
+  /* Hide Translate button — accessible via hamburger */
+  .translateTriggerBtn { display: none !important; }
+  /* Hide Messages button — accessible via hamburger */
+  .headerMessagesBtn { display: none !important; }
+  /* Generate Report: show only ⚡ icon, no text */
   .btnGenHeader { padding: 8px 10px; font-size: 0.8rem; min-width: 38px; }
   .genBtnLabel { display: none; }
   .genBtnIcon  { display: inline; }
-  /* Translate: globe icon only, no "Translate" text */
-  .translateBtnLabel { display: none; }
-  .translateTriggerBtn { padding: 8px 10px; min-width: 38px; justify-content: center; }
+  /* Draft-saved strip: icon only, no text */
+  .draftSavedText { display: none; }
 
   .btnAdmin { padding: 9px 14px; font-size: 0.78rem; }
   .btnLock { padding: 8px 12px; font-size: 1rem; }
@@ -3722,7 +3725,8 @@ datalist {
   /* Admin */
   .adminUserRow { padding: 14px 0; }
   .adminUserActions { gap: 6px; flex-wrap: wrap; }
-  .adminUserActions .btn { padding: 8px 12px; font-size: 0.75rem; flex: 1; min-width: 0; justify-content: center; }
+  /* Buttons wrap into 2-3 rows — no forced stretching */
+  .adminUserActions .btn { padding: 8px 12px; font-size: 0.75rem; flex: 0 1 auto; min-width: 0; }
   .roleBadge { font-size: 0.62rem; padding: 2px 6px; }
 
   /* Badge screen */
