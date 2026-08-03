@@ -1188,8 +1188,11 @@ async function loadAnalyticsSnapshot(venueId) {
 async function saveHaccpSubmission(record) {
   if (FIREBASE_ON) {
     try {
-      const col = IS_DEFAULT_VENUE() ? legacyCol("haccpSubmissions") : venueCol("haccpSubmissions");
-      await setDoc(doc(col, record.id), record);
+      // Write to both collections so the record is always found by the
+      // dual-collection subscriptions regardless of where it was originally saved.
+      const writes = [setDoc(doc(legacyCol("haccpSubmissions"), record.id), record)];
+      if (!IS_DEFAULT_VENUE()) writes.push(setDoc(doc(venueCol("haccpSubmissions"), record.id), record));
+      await Promise.all(writes);
     } catch (e) { console.error(e); }
     return;
   }
@@ -7594,6 +7597,7 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
   const [haccpByReport, setHaccpByReport] = useState({}); // { [reportId]: [...submissions] }
   const [haccpReportIds, setHaccpReportIds] = useState(new Set()); // reportIds known to have ≥1 HACCP submission
   const [haccpEditState, setHaccpEditState] = useState(null); // { subId, temps, foodNames, itemLabels, customItems }
+  const [haccpSaving, setHaccpSaving] = useState(false);
   const [chatByReport, setChatByReport] = useState({});  // { [reportId]: [...messages] }
   const [showHistoryMenu, setShowHistoryMenu] = useState(false);
   const [analyticsTab, setAnalyticsTab] = useState("temp"); // "temp" | "insights" | "predictive" | "recurring"
@@ -10231,8 +10235,10 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                                       })}
                                       <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
                                         <button
-                                          style={{ fontSize: "0.75rem", padding: "4px 14px", borderRadius: 6, border: "none", background: "#2563eb", color: "#fff", cursor: "pointer", fontWeight: 600 }}
+                                          style={{ fontSize: "0.75rem", padding: "4px 14px", borderRadius: 6, border: "none", background: haccpSaving ? "#93c5fd" : "#2563eb", color: "#fff", cursor: haccpSaving ? "default" : "pointer", fontWeight: 600 }}
+                                          disabled={haccpSaving}
                                           onClick={async () => {
+                                            setHaccpSaving(true);
                                             const updated = {
                                               ...sub,
                                               supervisorName: haccpEditState.supervisorName,
@@ -10249,8 +10255,9 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                                               [rec.id]: (prev[rec.id] || []).map(s => s.id === sub.id ? updated : s),
                                             }));
                                             setHaccpEditState(null);
+                                            setHaccpSaving(false);
                                           }}
-                                        >Save</button>
+                                        >{haccpSaving ? "Saving…" : "Save"}</button>
                                         <button
                                           style={{ fontSize: "0.75rem", padding: "4px 14px", borderRadius: 6, border: "1px solid #d1d5db", background: "#f9fafb", color: "#374151", cursor: "pointer" }}
                                           onClick={() => setHaccpEditState(null)}
@@ -17948,6 +17955,7 @@ function LiveHaccpPanel({ reportId, subsFromParent, foodTemps, foodTempNames, in
   const [expandedPhotos, setExpandedPhotos] = useState(null);
   const [liveEditState, setLiveEditState] = useState(null); // { subId, temps, foodNames }
   const [liveSubs, setLiveSubs] = useState(null); // local edits reflected immediately
+  const [liveSaving, setLiveSaving] = useState(false);
 
   useEffect(() => {
     // When the parent is already subscribed and passes subs down, skip own subscription
@@ -18141,7 +18149,9 @@ function LiveHaccpPanel({ reportId, subsFromParent, foodTemps, foodTempNames, in
                 <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
                   <button
                     style={{ fontSize: "0.75rem", padding: "4px 14px", borderRadius: 6, border: "none", background: "#2563eb", color: "#fff", cursor: "pointer", fontWeight: 600 }}
+                    disabled={liveSaving}
                     onClick={async () => {
+                      setLiveSaving(true);
                       const updated = {
                         ...sub,
                         supervisorName: liveEditState.supervisorName,
@@ -18151,10 +18161,14 @@ function LiveHaccpPanel({ reportId, subsFromParent, foodTemps, foodTempNames, in
                         editedBy: currentUser?.name || "admin",
                       };
                       await saveHaccpSubmission(updated);
-                      setLiveSubs(subs.map(s => s.id === sub.id ? updated : s));
+                      setLiveSubs(prev => {
+                        const base = prev !== null ? prev : rawSubs;
+                        return base.map(s => s.id === sub.id ? updated : s);
+                      });
                       setLiveEditState(null);
+                      setLiveSaving(false);
                     }}
-                  >Save</button>
+                  >{liveSaving ? "Saving…" : "Save"}</button>
                   <button
                     style={{ fontSize: "0.75rem", padding: "4px 14px", borderRadius: 6, border: "1px solid #d1d5db", background: "#f9fafb", color: "#374151", cursor: "pointer" }}
                     onClick={() => setLiveEditState(null)}
