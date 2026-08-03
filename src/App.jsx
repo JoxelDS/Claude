@@ -2791,11 +2791,11 @@ function buildActionItems({ inspection, rawNotes, foodTemps: ftArg, foodTempName
   const pushMaint = (pathKey, label, node) => {
     if (!node?.status) return;
     if (node.status === "Needs Attention" || node.status === "Not Clean" || node.status === "Maintenance" || node.status === "Fail") {
-      const detail = sanitizeText(node.notes) || node.status || "Maintenance issue flagged";
+      const detail = sanitizeText(node.notes) || node.status || "Issue flagged";
       items.push({
-        issue: `Maintenance – ${label}: ${detail}`,
+        issue: `${label}: ${detail}`,
         owner: "", due: "",
-        priority: "Maintenance",
+        priority: label,
         photos: mapByPath[pathKey] || [],
       });
     }
