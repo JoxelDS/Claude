@@ -1250,7 +1250,7 @@ async function loadHaccpForReport(reportId) {
  * the QR's ?rid= didn't match the inspection record's id after a page reload.
  * Matches submissions where site matches and submittedAt starts with the date.
  */
-async function loadHaccpBySite(siteName, inspectionDate) {
+async function loadHaccpBySite(siteName, inspectionDate, reportId = null) {
   if (!siteName || !inspectionDate) return [];
   const siteNorm = siteName.trim().toLowerCase();
   const datePrefix = inspectionDate.slice(0, 10); // "YYYY-MM-DD"
@@ -1268,8 +1268,12 @@ async function loadHaccpBySite(siteName, inspectionDate) {
         .flatMap(snap => snap ? snap.docs.map(d => d.data()) : [])
         .filter(r => {
           if (seen.has(r.id)) return false; seen.add(r.id);
-          return (r.site || "").trim().toLowerCase() === siteNorm &&
-                 (r.submittedAt || "").startsWith(datePrefix);
+          const siteMatch = (r.site || "").trim().toLowerCase() === siteNorm;
+          const dateMatch = (r.submittedAt || "").startsWith(datePrefix);
+          // If a reportId is known, only include logs that either match it or have no reportId
+          // (pre-fix legacy records). This prevents logs from same-named stands bleeding across.
+          const reportMatch = !reportId || !r.reportId || r.reportId === reportId;
+          return siteMatch && dateMatch && reportMatch;
         })
         .sort((a, b) => (a.submittedAt || "").localeCompare(b.submittedAt || ""));
     } catch (e) { console.error("loadHaccpBySite:", e); return []; }
@@ -1277,11 +1281,13 @@ async function loadHaccpBySite(siteName, inspectionDate) {
   try {
     const all = JSON.parse(localStorage.getItem(HACCP_SUBS_KEY) || "[]");
     return all
-      .filter(r =>
-        r.type === "submission" &&
-        (r.site || "").trim().toLowerCase() === siteNorm &&
-        (r.submittedAt || "").startsWith(datePrefix)
-      )
+      .filter(r => {
+        const reportMatch = !reportId || !r.reportId || r.reportId === reportId;
+        return r.type === "submission" &&
+          (r.site || "").trim().toLowerCase() === siteNorm &&
+          (r.submittedAt || "").startsWith(datePrefix) &&
+          reportMatch;
+      })
       .sort((a, b) => (a.submittedAt || "").localeCompare(b.submittedAt || ""));
   } catch { return []; }
 }
@@ -7767,12 +7773,13 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
     });
 
     // Also poll by site+date every 5s to catch submissions linked to old QR ids
-    // (pre-fix records) or submissions where reportId differs
+    // (pre-fix records) or submissions where reportId differs.
+    // Pass expandedId so same-named stands on the same day don't bleed into each other.
     let siteIv = null;
     if (site && date) {
-      loadHaccpBySite(site, date).then(subs => { bySite = subs; mergeAndSet(); });
+      loadHaccpBySite(site, date, expandedId).then(subs => { bySite = subs; mergeAndSet(); });
       siteIv = setInterval(() => {
-        loadHaccpBySite(site, date).then(subs => { bySite = subs; mergeAndSet(); });
+        loadHaccpBySite(site, date, expandedId).then(subs => { bySite = subs; mergeAndSet(); });
       }, 5000);
     }
 
@@ -8079,7 +8086,7 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
       if (haccpMap[rec.id] !== undefined) return; // already loaded
       const byId  = await loadHaccpForReport(rec.id);
       const bySite = (rec.siteName || rec.location) && rec.inspectionDate
-        ? await loadHaccpBySite(rec.siteName || rec.location, rec.inspectionDate)
+        ? await loadHaccpBySite(rec.siteName || rec.location, rec.inspectionDate, rec.id)
         : [];
       // Merge + de-duplicate by submission id / submittedAt
       const seen = new Set();
@@ -8581,7 +8588,7 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
       if (haccpMap[rec.id] !== undefined) return;
       const byId   = await loadHaccpForReport(rec.id);
       const bySite = (rec.siteName || rec.location) && rec.inspectionDate
-        ? await loadHaccpBySite(rec.siteName || rec.location, rec.inspectionDate)
+        ? await loadHaccpBySite(rec.siteName || rec.location, rec.inspectionDate, rec.id)
         : [];
       const seen = new Set();
       haccpMap[rec.id] = [...byId, ...bySite].filter(s => {
@@ -8753,7 +8760,7 @@ ${haccpSectionW}
       if (haccpMap[rec.id] !== undefined) return;
       const byId   = await loadHaccpForReport(rec.id);
       const bySite = (rec.siteName || rec.location) && rec.inspectionDate
-        ? await loadHaccpBySite(rec.siteName || rec.location, rec.inspectionDate)
+        ? await loadHaccpBySite(rec.siteName || rec.location, rec.inspectionDate, rec.id)
         : [];
       const seen = new Set();
       haccpMap[rec.id] = [...byId, ...bySite].filter(s => {
