@@ -7750,14 +7750,19 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
     const site = rec?.siteName || rec?.location || "";
     const date = rec?.inspectionDate || "";
 
-    // Merge results from both the reportId query AND the site+date query so we
-    // never miss submissions — handles pre-fix records (old QR id) AND new ones.
+    // Two-source strategy:
+    //   byId  — strict Firestore query: where reportId == expandedId  (always precise)
+    //   bySite — site+date fallback for legacy records that predate the QR system
+    //
+    // IMPORTANT: if byId returns ANY results, we use ONLY byId and ignore bySite entirely.
+    // This prevents logs from same-named stands on the same day from bleeding in.
+    // bySite is only used when byId is empty (old inspections with no reportId on the logs).
     let byId = [];
     let bySite = [];
     function mergeAndSet() {
-      // Deduplicate by submission id (or submittedAt as fallback)
+      const source = byId.length > 0 ? byId : bySite;
       const seen = new Set();
-      const merged = [...byId, ...bySite].filter(s => {
+      const merged = source.filter(s => {
         const key = s.id || s.submittedAt || JSON.stringify(s);
         if (seen.has(key)) return false;
         seen.add(key);
@@ -7766,15 +7771,14 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
       setHaccpByReport(prev => ({ ...prev, [expandedId]: merged }));
     }
 
-    // Real-time subscription by reportId
+    // Real-time subscription by reportId (strict — always preferred)
     const unsubHaccp = subscribeHaccpForReport(expandedId, subs => {
       byId = subs;
       mergeAndSet();
     });
 
-    // Also poll by site+date every 5s to catch submissions linked to old QR ids
-    // (pre-fix records) or submissions where reportId differs.
-    // Pass expandedId so same-named stands on the same day don't bleed into each other.
+    // Fallback: poll by site+date for legacy records that have no reportId stored.
+    // Only kicks in when byId is empty (handled inside mergeAndSet).
     let siteIv = null;
     if (site && date) {
       loadHaccpBySite(site, date, expandedId).then(subs => { bySite = subs; mergeAndSet(); });
