@@ -7593,6 +7593,7 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
   const [historyTab, setHistoryTab] = useState("reports"); // "reports" | "analytics"
   const [haccpByReport, setHaccpByReport] = useState({}); // { [reportId]: [...submissions] }
   const [haccpReportIds, setHaccpReportIds] = useState(new Set()); // reportIds known to have ≥1 HACCP submission
+  const [haccpEditState, setHaccpEditState] = useState(null); // { subId, temps, foodNames, itemLabels, customItems }
   const [chatByReport, setChatByReport] = useState({});  // { [reportId]: [...messages] }
   const [showHistoryMenu, setShowHistoryMenu] = useState(false);
   const [analyticsTab, setAnalyticsTab] = useState("temp"); // "temp" | "insights" | "predictive" | "recurring"
@@ -10083,22 +10084,72 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                       {/* HACCP Temperature Logs linked to this report */}
                       {(() => {
                         const haccpSubs = haccpByReport[rec.id];
+                        // Build inspector-temps card from the inspection record itself
+                        const inspFT = rec.foodTemps || {};
+                        const inspFN = rec.foodTempNames || {};
+                        const inspItems = HACCP_TEMP_ITEMS.filter(item => {
+                          const vals = inspFT[item.key] || [];
+                          return vals.length > 0 && vals.some(v => v !== "");
+                        });
+                        const hasInspectorTemps = inspItems.length > 0;
+
                         if (haccpSubs === undefined) return (
                           <div style={{ marginTop: 16, fontSize: "0.8rem", color: "#6b7280" }}>Loading HACCP logs…</div>
                         );
-                        if (haccpSubs.length === 0) return (
+                        const totalCount = haccpSubs.length + (hasInspectorTemps ? 1 : 0);
+                        if (totalCount === 0) return (
                           <div className="haccpReportSection haccpReportEmpty">
                             <span>🌡️ No HACCP temperature logs submitted for this report yet.</span>
                           </div>
                         );
                         return (
                           <div className="haccpReportSection" style={{ marginTop: 16, padding: "0 20px" }}>
-                            <div className="rptSectionTitle">🌡️ HACCP Temperature Logs ({haccpSubs.length})</div>
+                            <div className="rptSectionTitle">🌡️ HACCP Temperature Logs ({totalCount})</div>
+
+                            {/* Inspector-recorded temps card */}
+                            {hasInspectorTemps && (
+                              <div className="haccpReportCard" style={{ borderLeft: "3px solid #2563eb" }}>
+                                <div className="haccpReportCardTop">
+                                  <span className="haccpReportCardName">🔍 {rec.inspectorName || "Inspector"} <span style={{ fontSize: "0.7rem", fontWeight: 400, color: "#6b7280" }}>(Inspector record)</span></span>
+                                  <span className="haccpReportCardTime">{rec.inspectionDate || "—"}</span>
+                                  {inspItems.every(item => (inspFT[item.key] || []).filter(v => v !== "").every(v => tempPass(item, v) !== false))
+                                    ? <span className="haccpReportBadge haccpReportBadgePass">✓ All OK</span>
+                                    : <span className="haccpReportBadge haccpReportBadgeFail">⚠️ Flags</span>
+                                  }
+                                </div>
+                                <div className="haccpReportTemps">
+                                  {inspItems.map(item => {
+                                    const vals = (inspFT[item.key] || []).filter(v => v !== "");
+                                    const names = inspFN[item.key] || [];
+                                    return (
+                                      <div className="haccpReportTempRow" key={item.key}>
+                                        <span className="haccpReportTempLabel">{item.label}</span>
+                                        <span className="haccpReportTempVals">
+                                          {vals.map((v, vi) => {
+                                            const ok = tempPass(item, v);
+                                            const foodName = names[vi] || "";
+                                            return (
+                                              <span key={vi} className={`haccpReportTempVal ${ok === false ? "fail" : "pass"}`}>
+                                                {foodName ? <span className="haccpReportFoodName">{foodName} — </span> : null}
+                                                {v}{item.unit}
+                                              </span>
+                                            );
+                                          })}
+                                        </span>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Supervisor submission cards */}
                             {haccpSubs.map((sub, si) => {
                               const allItemsForSub = [
                                 ...HACCP_TEMP_ITEMS,
                                 ...(sub.customItems || []).filter(ci => !HACCP_TEMP_ITEMS.find(d => d.key === ci.key)),
                               ];
+                              const isEditing = haccpEditState?.subId === sub.id;
                               const flagged = Object.entries(sub.temps || {}).filter(([k, vals]) => {
                                 const item = allItemsForSub.find(i => i.key === k);
                                 if (!item) return false;
@@ -10108,55 +10159,138 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                                 <div className="haccpReportCard" key={sub.id || si}>
                                   <div className="haccpReportCardTop">
                                     <span className="haccpReportCardName">👤 {sub.supervisorName}</span>
-                                    {rec.inspectorName && (
-                                      <span style={{ fontSize: "0.75rem", color: "#6b7280", display: "flex", alignItems: "center", gap: 3 }}>
-                                        🔍 Inspector: <strong style={{ color: "#374151" }}>{rec.inspectorName}</strong>
-                                      </span>
-                                    )}
                                     <span className="haccpReportCardTime">{sub.submittedAt ? new Date(sub.submittedAt).toLocaleString() : "—"}</span>
                                     {flagged.length > 0
                                       ? <span className="haccpReportBadge haccpReportBadgeFail">⚠️ {flagged.length} flag{flagged.length !== 1 ? "s" : ""}</span>
                                       : <span className="haccpReportBadge haccpReportBadgePass">✓ All OK</span>
                                     }
+                                    {(currentUser?.role === "admin" || currentUser?.role === "global_admin") && !isEditing && sub.id && (
+                                      <button
+                                        style={{ marginLeft: "auto", fontSize: "0.72rem", padding: "2px 10px", borderRadius: 6, border: "1px solid #d1d5db", background: "#f9fafb", color: "#374151", cursor: "pointer" }}
+                                        onClick={() => setHaccpEditState({
+                                          subId: sub.id,
+                                          temps: JSON.parse(JSON.stringify(sub.temps || {})),
+                                          foodNames: JSON.parse(JSON.stringify(sub.foodNames || {})),
+                                          itemLabels: JSON.parse(JSON.stringify(sub.itemLabels || {})),
+                                          customItems: JSON.parse(JSON.stringify(sub.customItems || [])),
+                                        })}
+                                      >✏️ Edit</button>
+                                    )}
                                   </div>
-                                  <div className="haccpReportTemps">
-                                    {(() => {
-                                      // Merge default items + any custom items saved with this submission
-                                      const customSaved = sub.customItems || [];
-                                      const allItems = [
-                                        ...HACCP_TEMP_ITEMS,
-                                        ...customSaved.filter(ci => !HACCP_TEMP_ITEMS.find(d => d.key === ci.key)),
-                                      ];
-                                      return allItems.map(item => {
-                                        const vals = (sub.temps || {})[item.key] || [];
-                                        if (vals.length === 0 || vals.every(v => v === "")) return null;
-                                        const displayLabel = (sub.itemLabels || {})[item.key] || item.label;
+
+                                  {/* Inline edit form */}
+                                  {isEditing ? (
+                                    <div style={{ padding: "10px 0" }}>
+                                      {allItemsForSub.map(item => {
+                                        const vals = (haccpEditState.temps[item.key] || []).filter((_, i2) => true);
+                                        if (vals.length === 0 && !(sub.temps || {})[item.key]?.some(v => v !== "")) return null;
+                                        const displayLabel = haccpEditState.itemLabels[item.key] || item.label;
                                         return (
-                                          <div className="haccpReportTempRow" key={item.key}>
-                                            <span className="haccpReportTempLabel">{displayLabel}</span>
-                                            <span className="haccpReportTempVals">
-                                              {vals.filter(v => v !== "").map((v, vi) => {
-                                                const ok = tempPass(item, v);
-                                                const foodName = ((sub.foodNames || {})[item.key] || [])[vi] || "";
-                                                return (
-                                                  <span key={vi} className={`haccpReportTempVal ${ok ? "pass" : "fail"}`}>
-                                                    {foodName ? <span className="haccpReportFoodName">{foodName} — </span> : null}
-                                                    {v}{item.unit}
-                                                  </span>
-                                                );
-                                              })}
-                                            </span>
+                                          <div key={item.key} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
+                                            <span style={{ fontSize: "0.75rem", fontWeight: 600, color: "#374151", minWidth: 120 }}>{displayLabel}</span>
+                                            {(haccpEditState.temps[item.key] || []).map((v, vi) => (
+                                              <div key={vi} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                                                <input
+                                                  type="text"
+                                                  value={(haccpEditState.foodNames[item.key] || [])[vi] || ""}
+                                                  placeholder="Food name"
+                                                  style={{ width: 110, fontSize: "0.72rem", padding: "3px 6px", borderRadius: 5, border: "1px solid #d1d5db" }}
+                                                  onChange={e => {
+                                                    const fn = JSON.parse(JSON.stringify(haccpEditState.foodNames));
+                                                    if (!fn[item.key]) fn[item.key] = [];
+                                                    fn[item.key][vi] = e.target.value;
+                                                    setHaccpEditState(s => ({ ...s, foodNames: fn }));
+                                                  }}
+                                                />
+                                                <input
+                                                  type="number"
+                                                  value={v}
+                                                  style={{ width: 64, fontSize: "0.72rem", padding: "3px 6px", borderRadius: 5, border: `1px solid ${tempPass(item, v) === false ? "#ef4444" : "#d1d5db"}` }}
+                                                  onChange={e => {
+                                                    const t = JSON.parse(JSON.stringify(haccpEditState.temps));
+                                                    if (!t[item.key]) t[item.key] = [];
+                                                    t[item.key][vi] = e.target.value;
+                                                    setHaccpEditState(s => ({ ...s, temps: t }));
+                                                  }}
+                                                />
+                                                <span style={{ fontSize: "0.72rem", color: "#6b7280" }}>{item.unit}</span>
+                                              </div>
+                                            ))}
                                           </div>
                                         );
-                                      });
-                                    })()}
-                                  </div>
+                                      })}
+                                      <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                                        <button
+                                          style={{ fontSize: "0.75rem", padding: "4px 14px", borderRadius: 6, border: "none", background: "#2563eb", color: "#fff", cursor: "pointer", fontWeight: 600 }}
+                                          onClick={async () => {
+                                            const updated = {
+                                              ...sub,
+                                              temps: haccpEditState.temps,
+                                              foodNames: haccpEditState.foodNames,
+                                              itemLabels: haccpEditState.itemLabels,
+                                              customItems: haccpEditState.customItems,
+                                              editedAt: new Date().toISOString(),
+                                              editedBy: currentUser?.name || "admin",
+                                            };
+                                            await saveHaccpSubmission(updated);
+                                            setHaccpByReport(prev => ({
+                                              ...prev,
+                                              [rec.id]: (prev[rec.id] || []).map(s => s.id === sub.id ? updated : s),
+                                            }));
+                                            setHaccpEditState(null);
+                                          }}
+                                        >Save</button>
+                                        <button
+                                          style={{ fontSize: "0.75rem", padding: "4px 14px", borderRadius: 6, border: "1px solid #d1d5db", background: "#f9fafb", color: "#374151", cursor: "pointer" }}
+                                          onClick={() => setHaccpEditState(null)}
+                                        >Cancel</button>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <div className="haccpReportTemps">
+                                      {(() => {
+                                        const customSaved = sub.customItems || [];
+                                        const allItems = [
+                                          ...HACCP_TEMP_ITEMS,
+                                          ...customSaved.filter(ci => !HACCP_TEMP_ITEMS.find(d => d.key === ci.key)),
+                                        ];
+                                        return allItems.map(item => {
+                                          const vals = (sub.temps || {})[item.key] || [];
+                                          if (vals.length === 0 || vals.every(v => v === "")) return null;
+                                          const displayLabel = (sub.itemLabels || {})[item.key] || item.label;
+                                          return (
+                                            <div className="haccpReportTempRow" key={item.key}>
+                                              <span className="haccpReportTempLabel">{displayLabel}</span>
+                                              <span className="haccpReportTempVals">
+                                                {vals.filter(v => v !== "").map((v, vi) => {
+                                                  const ok = tempPass(item, v);
+                                                  const foodName = ((sub.foodNames || {})[item.key] || [])[vi] || "";
+                                                  return (
+                                                    <span key={vi} className={`haccpReportTempVal ${ok ? "pass" : "fail"}`}>
+                                                      {foodName ? <span className="haccpReportFoodName">{foodName} — </span> : null}
+                                                      {v}{item.unit}
+                                                    </span>
+                                                  );
+                                                })}
+                                              </span>
+                                            </div>
+                                          );
+                                        });
+                                      })()}
+                                    </div>
+                                  )}
+
                                   {sub.problemReport?.text && (
                                     <div className="haccpReportProblem">
                                       <span className={`haccpReportSeverity sev-${sub.problemReport.severity}`}>
                                         {sub.problemReport.severity === "urgent" ? "🔴" : sub.problemReport.severity === "issue" ? "🟡" : "🔵"}
                                       </span>
                                       {sub.problemReport.text}
+                                    </div>
+                                  )}
+                                  {sub.editedAt && (
+                                    <div style={{ fontSize: "0.68rem", color: "#9ca3af", marginTop: 4 }}>
+                                      Edited {new Date(sub.editedAt).toLocaleString()} by {sub.editedBy}
                                     </div>
                                   )}
                                 </div>
