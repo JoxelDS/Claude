@@ -10169,6 +10169,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                                         style={{ marginLeft: "auto", fontSize: "0.72rem", padding: "2px 10px", borderRadius: 6, border: "1px solid #d1d5db", background: "#f9fafb", color: "#374151", cursor: "pointer" }}
                                         onClick={() => setHaccpEditState({
                                           subId: sub.id,
+                                          supervisorName: sub.supervisorName || "",
                                           temps: JSON.parse(JSON.stringify(sub.temps || {})),
                                           foodNames: JSON.parse(JSON.stringify(sub.foodNames || {})),
                                           itemLabels: JSON.parse(JSON.stringify(sub.itemLabels || {})),
@@ -10181,6 +10182,15 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                                   {/* Inline edit form */}
                                   {isEditing ? (
                                     <div style={{ padding: "10px 0" }}>
+                                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                                        <span style={{ fontSize: "0.75rem", fontWeight: 600, color: "#374151", minWidth: 120 }}>Supervisor Name</span>
+                                        <input
+                                          type="text"
+                                          value={haccpEditState.supervisorName}
+                                          style={{ flex: 1, maxWidth: 220, fontSize: "0.75rem", padding: "3px 8px", borderRadius: 5, border: "1px solid #d1d5db" }}
+                                          onChange={e => setHaccpEditState(s => ({ ...s, supervisorName: e.target.value }))}
+                                        />
+                                      </div>
                                       {allItemsForSub.map(item => {
                                         const vals = (haccpEditState.temps[item.key] || []).filter((_, i2) => true);
                                         if (vals.length === 0 && !(sub.temps || {})[item.key]?.some(v => v !== "")) return null;
@@ -10225,6 +10235,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                                           onClick={async () => {
                                             const updated = {
                                               ...sub,
+                                              supervisorName: haccpEditState.supervisorName,
                                               temps: haccpEditState.temps,
                                               foodNames: haccpEditState.foodNames,
                                               itemLabels: haccpEditState.itemLabels,
@@ -18073,6 +18084,7 @@ function LiveHaccpPanel({ reportId, subsFromParent, foodTemps, foodTempNames, in
                     style={{ fontSize: "0.72rem", padding: "2px 10px", borderRadius: 6, border: "1px solid #d1d5db", background: "#f9fafb", color: "#374151", cursor: "pointer" }}
                     onClick={() => setLiveEditState({
                       subId: sub.id,
+                      supervisorName: sub.supervisorName || "",
                       temps: JSON.parse(JSON.stringify(sub.temps || {})),
                       foodNames: JSON.parse(JSON.stringify(sub.foodNames || {})),
                     })}
@@ -18084,6 +18096,15 @@ function LiveHaccpPanel({ reportId, subsFromParent, foodTemps, foodTempNames, in
             {/* ── Inline edit form ── */}
             {liveEditState?.subId === sub.id ? (
               <div style={{ padding: "12px 14px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                  <span style={{ fontSize: "0.75rem", fontWeight: 600, color: "#374151", minWidth: 130 }}>Supervisor Name</span>
+                  <input
+                    type="text"
+                    value={liveEditState.supervisorName}
+                    style={{ flex: 1, maxWidth: 220, fontSize: "0.75rem", padding: "3px 8px", borderRadius: 5, border: "1px solid #d1d5db" }}
+                    onChange={e => setLiveEditState(s => ({ ...s, supervisorName: e.target.value }))}
+                  />
+                </div>
                 {allItems.filter(item => ((sub.temps || {})[item.key] || []).some(v => v !== "")).map(item => (
                   <div key={item.key} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
                     <span style={{ fontSize: "0.75rem", fontWeight: 600, color: "#374151", minWidth: 130 }}>{sub.itemLabels?.[item.key] || item.label}</span>
@@ -18123,6 +18144,7 @@ function LiveHaccpPanel({ reportId, subsFromParent, foodTemps, foodTempNames, in
                     onClick={async () => {
                       const updated = {
                         ...sub,
+                        supervisorName: liveEditState.supervisorName,
                         temps: liveEditState.temps,
                         foodNames: liveEditState.foodNames,
                         editedAt: new Date().toISOString(),
