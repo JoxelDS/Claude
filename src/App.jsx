@@ -17931,10 +17931,12 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
 /* ── Live HACCP Panel (real-time supervisor temp submissions) ── */
 // subsFromParent: if provided by the parent (already subscribed), use it directly
 // to avoid creating a second Firestore listener for the same document set.
-function LiveHaccpPanel({ reportId, subsFromParent }) {
+function LiveHaccpPanel({ reportId, subsFromParent, foodTemps, foodTempNames, inspectorName, currentUser }) {
   const [ownSubs, setOwnSubs] = useState([]);
   const [loaded, setLoaded] = useState(subsFromParent !== undefined);
-  const [expandedPhotos, setExpandedPhotos] = useState(null); // photo URL being viewed full-screen
+  const [expandedPhotos, setExpandedPhotos] = useState(null);
+  const [liveEditState, setLiveEditState] = useState(null); // { subId, temps, foodNames }
+  const [liveSubs, setLiveSubs] = useState(null); // local edits reflected immediately
 
   useEffect(() => {
     // When the parent is already subscribed and passes subs down, skip own subscription
@@ -17948,10 +17950,18 @@ function LiveHaccpPanel({ reportId, subsFromParent }) {
     return unsub;
   }, [reportId, subsFromParent]);
 
-  const subs = subsFromParent !== undefined ? subsFromParent : ownSubs;
+  const rawSubs = subsFromParent !== undefined ? subsFromParent : ownSubs;
+  const subs = liveSubs !== null ? liveSubs : rawSubs;
+
+  // Inspector-recorded temps from the inspection form
+  const inspItems = HACCP_TEMP_ITEMS.filter(item => {
+    const vals = (foodTemps || {})[item.key] || [];
+    return vals.some(v => v !== "");
+  });
+  const hasInspectorTemps = inspItems.length > 0;
 
   if (!loaded) return null;
-  if (subs.length === 0) return (
+  if (subs.length === 0 && !hasInspectorTemps) return (
     <div style={{ margin: "16px 0 4px", padding: "12px 14px", borderRadius: 10, background: "#f8fafc", border: "1px solid #e2e8f0", fontSize: "0.82rem", color: "#94a3b8" }}>
       🌡️ No HACCP temperature logs yet — supervisor submissions appear here in real time.
     </div>
@@ -17969,8 +17979,47 @@ function LiveHaccpPanel({ reportId, subsFromParent }) {
       {/* Section header */}
       <div style={{ fontWeight: 700, fontSize: "0.88rem", color: "var(--sdx-navy)", marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
         🌡️ HACCP Temperature Logs
-        <span style={{ fontSize: "0.75rem", fontWeight: 400, color: "#6b7280" }}>— {subs.length} submission{subs.length !== 1 ? "s" : ""}</span>
+        <span style={{ fontSize: "0.75rem", fontWeight: 400, color: "#6b7280" }}>— {subs.length + (hasInspectorTemps ? 1 : 0)} submission{subs.length + (hasInspectorTemps ? 1 : 0) !== 1 ? "s" : ""}</span>
       </div>
+
+      {/* Inspector-recorded temps card */}
+      {hasInspectorTemps && (
+        <div style={{ border: "1px solid #93c5fd", borderRadius: 12, marginBottom: 14, background: "#fff", overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
+          <div style={{ padding: "11px 14px 10px", borderBottom: "1px solid #dbeafe", background: "#eff6ff", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+            <div style={{ fontWeight: 700, fontSize: "0.84rem", color: "#1e40af" }}>
+              🔍 {inspectorName || "Inspector"} <span style={{ fontWeight: 400, fontSize: "0.73rem", color: "#6b7280" }}>(Inspector record)</span>
+            </div>
+          </div>
+          <div style={{ padding: "10px 14px 4px" }}>
+            <div style={{ fontSize: "0.72rem", fontWeight: 600, color: "#94a3b8", letterSpacing: "0.05em", textTransform: "uppercase", marginBottom: 6 }}>Temperature Readings</div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: "6px 12px" }}>
+              {inspItems.map(item => {
+                const readings = ((foodTemps || {})[item.key] || []).filter(v => v !== "");
+                const names = (foodTempNames || {})[item.key] || [];
+                const hasFailure = readings.some(v => tempPass(item, parseFloat(v)) === false);
+                return (
+                  <div key={item.key} style={{ display: "flex", flexDirection: "column", gap: 2, padding: "6px 8px", borderRadius: 8, background: hasFailure ? "#fff1f2" : "#f0fdf4", border: `1px solid ${hasFailure ? "#fca5a5" : "#bbf7d0"}` }}>
+                    <div style={{ fontSize: "0.71rem", fontWeight: 600, color: hasFailure ? "#b91c1c" : "#15803d" }}>{item.label}</div>
+                    {readings.map((v, ri) => {
+                      const pass = tempPass(item, parseFloat(v));
+                      return (
+                        <div key={ri} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: "0.8rem" }}>
+                          <span>{pass === false ? "🚨" : "✅"}</span>
+                          <span style={{ fontWeight: 700, color: pass === false ? "#dc2626" : "var(--sdx-navy)" }}>{v}°F</span>
+                          {names[ri] && <span style={{ color: "#6b7280", fontSize: "0.74rem" }}>({names[ri]})</span>}
+                        </div>
+                      );
+                    })}
+                    <div style={{ fontSize: "0.68rem", color: "#9ca3af", marginTop: 1 }}>
+                      {item.type === "hot" ? `Min ${item.min}°F` : `Max ${item.max}°F`}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
 
       {subs.map((sub, si) => {
         const allItems = [
@@ -18015,13 +18064,85 @@ function LiveHaccpPanel({ reportId, subsFromParent }) {
                   </div>
                 )}
               </div>
-              <div style={{ fontSize: "0.73rem", color: "#94a3b8", whiteSpace: "nowrap", paddingTop: 2 }}>
-                {sub.submittedAt ? new Date(sub.submittedAt).toLocaleString() : ""}
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <div style={{ fontSize: "0.73rem", color: "#94a3b8", whiteSpace: "nowrap", paddingTop: 2 }}>
+                  {sub.submittedAt ? new Date(sub.submittedAt).toLocaleString() : ""}
+                </div>
+                {(currentUser?.role === "admin" || currentUser?.role === "global_admin") && sub.id && !liveEditState && (
+                  <button
+                    style={{ fontSize: "0.72rem", padding: "2px 10px", borderRadius: 6, border: "1px solid #d1d5db", background: "#f9fafb", color: "#374151", cursor: "pointer" }}
+                    onClick={() => setLiveEditState({
+                      subId: sub.id,
+                      temps: JSON.parse(JSON.stringify(sub.temps || {})),
+                      foodNames: JSON.parse(JSON.stringify(sub.foodNames || {})),
+                    })}
+                  >✏️ Edit</button>
+                )}
               </div>
             </div>
 
+            {/* ── Inline edit form ── */}
+            {liveEditState?.subId === sub.id ? (
+              <div style={{ padding: "12px 14px" }}>
+                {allItems.filter(item => ((sub.temps || {})[item.key] || []).some(v => v !== "")).map(item => (
+                  <div key={item.key} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
+                    <span style={{ fontSize: "0.75rem", fontWeight: 600, color: "#374151", minWidth: 130 }}>{sub.itemLabels?.[item.key] || item.label}</span>
+                    {(liveEditState.temps[item.key] || []).map((v, vi) => (
+                      <div key={vi} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                        <input
+                          type="text"
+                          value={(liveEditState.foodNames[item.key] || [])[vi] || ""}
+                          placeholder="Food name"
+                          style={{ width: 110, fontSize: "0.72rem", padding: "3px 6px", borderRadius: 5, border: "1px solid #d1d5db" }}
+                          onChange={e => {
+                            const fn = JSON.parse(JSON.stringify(liveEditState.foodNames));
+                            if (!fn[item.key]) fn[item.key] = [];
+                            fn[item.key][vi] = e.target.value;
+                            setLiveEditState(s => ({ ...s, foodNames: fn }));
+                          }}
+                        />
+                        <input
+                          type="number"
+                          value={v}
+                          style={{ width: 64, fontSize: "0.72rem", padding: "3px 6px", borderRadius: 5, border: `1px solid ${tempPass(item, parseFloat(v)) === false ? "#ef4444" : "#d1d5db"}` }}
+                          onChange={e => {
+                            const t = JSON.parse(JSON.stringify(liveEditState.temps));
+                            if (!t[item.key]) t[item.key] = [];
+                            t[item.key][vi] = e.target.value;
+                            setLiveEditState(s => ({ ...s, temps: t }));
+                          }}
+                        />
+                        <span style={{ fontSize: "0.72rem", color: "#6b7280" }}>{item.unit}</span>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+                <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                  <button
+                    style={{ fontSize: "0.75rem", padding: "4px 14px", borderRadius: 6, border: "none", background: "#2563eb", color: "#fff", cursor: "pointer", fontWeight: 600 }}
+                    onClick={async () => {
+                      const updated = {
+                        ...sub,
+                        temps: liveEditState.temps,
+                        foodNames: liveEditState.foodNames,
+                        editedAt: new Date().toISOString(),
+                        editedBy: currentUser?.name || "admin",
+                      };
+                      await saveHaccpSubmission(updated);
+                      setLiveSubs(subs.map(s => s.id === sub.id ? updated : s));
+                      setLiveEditState(null);
+                    }}
+                  >Save</button>
+                  <button
+                    style={{ fontSize: "0.75rem", padding: "4px 14px", borderRadius: 6, border: "1px solid #d1d5db", background: "#f9fafb", color: "#374151", cursor: "pointer" }}
+                    onClick={() => setLiveEditState(null)}
+                  >Cancel</button>
+                </div>
+              </div>
+            ) : null}
+
             {/* ── Temperature readings ── */}
-            {tempRows.length > 0 && (
+            {liveEditState?.subId !== sub.id && tempRows.length > 0 && (
               <div style={{ padding: "10px 14px 4px" }}>
                 <div style={{ fontSize: "0.72rem", fontWeight: 600, color: "#94a3b8", letterSpacing: "0.05em", textTransform: "uppercase", marginBottom: 6 }}>Temperature Readings</div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: "6px 12px" }}>
@@ -18080,6 +18201,11 @@ function LiveHaccpPanel({ reportId, subsFromParent }) {
               </div>
             )}
 
+            {sub.editedAt && (
+              <div style={{ fontSize: "0.68rem", color: "#9ca3af", padding: "0 14px 6px" }}>
+                Edited {new Date(sub.editedAt).toLocaleString()} by {sub.editedBy}
+              </div>
+            )}
             <div style={{ height: 10 }} />
           </div>
         );
@@ -23222,7 +23348,7 @@ export default function App() {
                   <button className="btn btnDownload" type="button" onClick={onDownloadTxt}>Text (.txt)</button>
                 </div>
                 {/* ── Live HACCP Temperature Logs — real-time from supervisor ── */}
-                <LiveHaccpPanel reportId={savedReportId} subsFromParent={liveHaccpSubs} />
+                <LiveHaccpPanel reportId={savedReportId} subsFromParent={liveHaccpSubs} foodTemps={foodTemps} foodTempNames={foodTempNames} inspectorName={inspectorName} currentUser={currentUser} />
                 {/* ── Inline Supervisor Chat — scoped to this report's ID ── */}
                 <InlineChat currentUser={currentUser} sessionId={savedReportId} />
               </>
