@@ -109,7 +109,10 @@ service cloud.firestore {
                     && strField("id",           64)
                     && strField("type",         64)
                     && strField("submittedAt",  32);
-      allow update: if false;  // Immutable
+      allow update: if notTooLarge()
+                    && strField("id",           64)
+                    && strField("type",         64)
+                    && strField("submittedAt",  32);
       allow delete: if false;
     }
 
@@ -185,7 +188,10 @@ service cloud.firestore {
                       && strField("id",           64)
                       && strField("type",         64)
                       && strField("submittedAt",  32);
-        allow update: if false;
+        allow update: if notTooLarge()
+                      && strField("id",           64)
+                      && strField("type",         64)
+                      && strField("submittedAt",  32);
         allow delete: if false;
       }
 
