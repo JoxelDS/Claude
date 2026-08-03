@@ -1187,13 +1187,9 @@ async function loadAnalyticsSnapshot(venueId) {
 /* ── HACCP Supervisor Submissions ────────────────────────── */
 async function saveHaccpSubmission(record) {
   if (FIREBASE_ON) {
-    try {
-      // Write to both collections so the record is always found by the
-      // dual-collection subscriptions regardless of where it was originally saved.
-      const writes = [setDoc(doc(legacyCol("haccpSubmissions"), record.id), record)];
-      if (!IS_DEFAULT_VENUE()) writes.push(setDoc(doc(venueCol("haccpSubmissions"), record.id), record));
-      await Promise.all(writes);
-    } catch (e) { console.error(e); }
+    const writes = [setDoc(doc(legacyCol("haccpSubmissions"), record.id), record)];
+    if (!IS_DEFAULT_VENUE()) writes.push(setDoc(doc(venueCol("haccpSubmissions"), record.id), record));
+    await Promise.all(writes);
     return;
   }
   const list = JSON.parse(localStorage.getItem(HACCP_SUBS_KEY) || "[]");
@@ -10249,13 +10245,18 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                                               editedAt: new Date().toISOString(),
                                               editedBy: currentUser?.name || "admin",
                                             };
-                                            await saveHaccpSubmission(updated);
-                                            setHaccpByReport(prev => ({
-                                              ...prev,
-                                              [rec.id]: (prev[rec.id] || []).map(s => s.id === sub.id ? updated : s),
-                                            }));
-                                            setHaccpEditState(null);
-                                            setHaccpSaving(false);
+                                            try {
+                                              await saveHaccpSubmission(updated);
+                                              setHaccpByReport(prev => ({
+                                                ...prev,
+                                                [rec.id]: (prev[rec.id] || []).map(s => s.id === sub.id ? updated : s),
+                                              }));
+                                              setHaccpEditState(null);
+                                            } catch (e) {
+                                              alert("Save failed: " + (e?.message || e));
+                                            } finally {
+                                              setHaccpSaving(false);
+                                            }
                                           }}
                                         >{haccpSaving ? "Saving…" : "Save"}</button>
                                         <button
@@ -18160,13 +18161,18 @@ function LiveHaccpPanel({ reportId, subsFromParent, foodTemps, foodTempNames, in
                         editedAt: new Date().toISOString(),
                         editedBy: currentUser?.name || "admin",
                       };
-                      await saveHaccpSubmission(updated);
-                      setLiveSubs(prev => {
-                        const base = prev !== null ? prev : rawSubs;
-                        return base.map(s => s.id === sub.id ? updated : s);
-                      });
-                      setLiveEditState(null);
-                      setLiveSaving(false);
+                      try {
+                        await saveHaccpSubmission(updated);
+                        setLiveSubs(prev => {
+                          const base = prev !== null ? prev : rawSubs;
+                          return base.map(s => s.id === sub.id ? updated : s);
+                        });
+                        setLiveEditState(null);
+                      } catch (e) {
+                        alert("Save failed: " + (e?.message || e));
+                      } finally {
+                        setLiveSaving(false);
+                      }
                     }}
                   >{liveSaving ? "Saving…" : "Save"}</button>
                   <button
