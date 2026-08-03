@@ -10108,6 +10108,11 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                                 <div className="haccpReportCard" key={sub.id || si}>
                                   <div className="haccpReportCardTop">
                                     <span className="haccpReportCardName">👤 {sub.supervisorName}</span>
+                                    {rec.inspectorName && (
+                                      <span style={{ fontSize: "0.75rem", color: "#6b7280", display: "flex", alignItems: "center", gap: 3 }}>
+                                        🔍 Inspector: <strong style={{ color: "#374151" }}>{rec.inspectorName}</strong>
+                                      </span>
+                                    )}
                                     <span className="haccpReportCardTime">{sub.submittedAt ? new Date(sub.submittedAt).toLocaleString() : "—"}</span>
                                     {flagged.length > 0
                                       ? <span className="haccpReportBadge haccpReportBadgeFail">⚠️ {flagged.length} flag{flagged.length !== 1 ? "s" : ""}</span>
