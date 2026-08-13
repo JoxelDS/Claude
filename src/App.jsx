@@ -8253,6 +8253,8 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
     }
 
     let rowNum = 0;
+    // Track groups for merging Area + Site cells when multiple issues share the same equipment
+    const areaGroups = []; // { startRow, endRow, area, site }
     records.forEach(rec => {
       // Recompute from raw inspection so old merged rows are split and statuses are correct
       const actionItems = rec.inspection
@@ -8277,7 +8279,34 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
         ]);
         [1,2,3,4,5,6,7,8,9,10,11,12,13].forEach(ci => { row.getCell(ci).style = bBody(bg); });
         row.getCell(14).style = bStatusExt(statusLabel);
+
+        // Track area groups for later merging (data row number = rowNum + 2 for header rows)
+        const sheetRow = ws2.rowCount;
+        const siteKey = str(rec.siteName || rec.location) + "|" + area;
+        const last = areaGroups[areaGroups.length - 1];
+        if (last && last.siteKey === siteKey) {
+          last.endRow = sheetRow;
+        } else {
+          areaGroups.push({ startRow: sheetRow, endRow: sheetRow, siteKey, area });
+        }
       });
+    });
+
+    // Merge Area column (col 8) cells vertically for runs of 2+ rows with same equipment
+    const mergeStyle = (bg) => ({
+      font: { bold: true, size: 10, name: "Calibri" },
+      fill: { type: "pattern", pattern: "solid", fgColor: { argb: "FF" + bg } },
+      alignment: { vertical: "middle", horizontal: "left", wrapText: true },
+      border: { bottom: { style: "thin", color: { argb: "FF" + NAVY } }, top: { style: "thin", color: { argb: "FF" + NAVY } } },
+    });
+    areaGroups.forEach(g => {
+      if (g.endRow <= g.startRow) return; // single row — no merge needed
+      ws2.mergeCells(g.startRow, 8, g.endRow, 8);
+      const cell = ws2.getCell(g.startRow, 8);
+      cell.value = g.area;
+      // Alternate background per group for visual separation
+      const groupIdx = areaGroups.indexOf(g);
+      cell.style = mergeStyle(groupIdx % 2 === 0 ? "EFF6FF" : "DBEAFE");
     });
 
     // ── SHEET 3: Checklist Detail ──────────────────────────────────────────
@@ -8616,23 +8645,42 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
     const inspDate  = records.find(r => r.inspectionDate)?.inspectionDate || "";
 
     // ── Section 1: Issues Reported ───────────────────────────────────────────
-    const issueRowsW = records.flatMap((rec, ri) => {
+    // Build flat list first so we can compute rowspans for the Area column
+    const issueFlat = records.flatMap((rec) => {
       const open = (rec.actionItems || []).filter((_, i) => !(rec.resolvedIssues || {})[i]);
-      return open.map((a, ai) => {
+      return open.map(a => {
         let area = (a.area || "").trim();
         let issue = (a.issue || "").trim();
         if (!area) {
           const ci = issue.indexOf(":");
           if (ci > 0 && ci < 40) { area = issue.slice(0, ci).trim(); issue = issue.slice(ci + 1).trim(); }
-          else { area = "General"; }
+          else { area = issue.split(":")[0].trim() || "General"; }
         }
-        const prioClass = a.priority === "Critical" ? "p-crit" : a.priority === "High" ? "p-high" : a.priority === "Follow-up" ? "p-follow" : "p-med";
-        return `<tr${even(ai)}><td class="lc">${loc(rec)}</td><td>${esc(area)}</td><td>${esc(issue)}</td><td class="${prioClass}">${esc(a.priority || "&mdash;")}</td><td>${esc(a.corrective || "&mdash;")}</td></tr>`;
+        return { loc: loc(rec), area, issue, priority: a.priority, corrective: a.corrective, siteKey: (rec.siteName || rec.location || "") + "|" + area };
       });
+    });
+    // Compute rowspan for each row: how many consecutive rows share the same siteKey
+    const issueRowsW = issueFlat.map((r, i) => {
+      const prioClass = r.priority === "Critical" ? "p-crit" : r.priority === "High" ? "p-high" : r.priority === "Follow-up" ? "p-follow" : "p-med";
+      const even = i % 2 === 0 ? "" : ' style="background:#F9FAFB;"';
+      // Count how many consecutive rows above share this siteKey (if > 0, Area cell was already output)
+      const prevSame = i > 0 && issueFlat[i - 1].siteKey === r.siteKey;
+      if (prevSame) {
+        // Area cell already covered by rowspan above — skip it
+        return `<tr${even}><td class="lc">${r.loc}</td><td>${esc(r.issue)}</td><td class="${prioClass}">${esc(r.priority || "&mdash;")}</td><td>${esc(r.corrective || "&mdash;")}</td></tr>`;
+      }
+      // Count span length
+      let span = 1;
+      while (i + span < issueFlat.length && issueFlat[i + span].siteKey === r.siteKey) span++;
+      const spanAttr = span > 1 ? ` rowspan="${span}"` : "";
+      const areaTd = span > 1
+        ? `<td${spanAttr} style="background:#EFF6FF;font-weight:700;vertical-align:middle;border-left:3px solid #2563eb;">${esc(r.area)}</td>`
+        : `<td>${esc(r.area)}</td>`;
+      return `<tr${even}><td class="lc">${r.loc}</td>${areaTd}<td>${esc(r.issue)}</td><td class="${prioClass}">${esc(r.priority || "&mdash;")}</td><td>${esc(r.corrective || "&mdash;")}</td></tr>`;
     });
     const issuesSectionW = issueRowsW.length
       ? `<table class="t"><colgroup><col style="width:18%"><col style="width:15%"><col style="width:32%"><col style="width:10%"><col style="width:25%"></colgroup>
-<tr class="th"><th>Location</th><th>Area</th><th>Issue</th><th>Priority</th><th>Corrective Action</th></tr>${issueRowsW.join("")}</table>`
+<tr class="th"><th>Location</th><th>Area / Equipment</th><th>Issue</th><th>Priority</th><th>Corrective Action</th></tr>${issueRowsW.join("")}</table>`
       : `<p class="none">No open issues recorded &mdash; all locations passed.</p>`;
 
     // ── Section 2: Equipment Temperatures ───────────────────────────────────
