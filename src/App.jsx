@@ -1846,7 +1846,7 @@ function collectEquipTemps(inspection) {
     const warnMax = TEMP_WARN_MAX[cold.type] ?? cold.max;
     // zone: "good" | "warn" | "bad"
     const zone = t <= cold.max ? "good" : t <= warnMax ? "warn" : "bad";
-    results.push({ key: k, label, tempF: node.tempF, tempNum: t, type: cold.type, max: cold.max, warnMax, zone, pass: zone === "good" });
+    results.push({ key: k, label, tempF: node.tempF, tempNum: t, type: cold.type, max: cold.max, warnMax, zone, pass: zone === "good", kitchenArea: node.kitchenArea || "" });
   }
   return results;
 }
@@ -2783,7 +2783,7 @@ function buildActionItems({ inspection, rawNotes, foodTemps: ftArg, foodTempName
     for (const [key, node] of Object.entries(sectionData)) {
       if (!node || typeof node !== "object") continue;
       const keyLabel = node.label || KEY_LABELS[key] || key.replace(/([A-Z])/g, " $1").trim();
-      const humanLabel = `${sectionLabel} – ${keyLabel}`;
+      const humanLabel = node.kitchenArea ? `${keyLabel} — ${node.kitchenArea}` : `${sectionLabel} – ${keyLabel}`;
       pushIfBad(`${section}.${key}`, humanLabel, node);
     }
   }
@@ -2856,12 +2856,11 @@ function buildActionItems({ inspection, rawNotes, foodTemps: ftArg, foodTempName
   }
   // Per-equipment cold temps — 3-zone: good / warn / bad
   for (const et of collectEquipTemps(inspection)) {
+    const etArea = et.kitchenArea ? `${et.label} — ${et.kitchenArea}` : et.label;
     if (et.zone === "bad") {
-      // Above the warning ceiling (>45°F cooler / >25°F freezer) — Fail
-      items.push({ issue: `${et.label} temperature out of range: ${et.tempNum}°F (max ${et.max}°F, critical limit ${et.warnMax}°F)`, owner: "", due: "", priority: "Fail", photos: [] });
+      items.push({ area: etArea, issue: `Temperature out of range: ${et.tempNum}°F (max ${et.max}°F, critical limit ${et.warnMax}°F)`, owner: "", due: "", priority: "Fail", photos: [] });
     } else if (et.zone === "warn") {
-      // Between max and warn ceiling (41–45°F cooler / 21–25°F freezer) — Follow-up only
-      items.push({ issue: `${et.label} temperature elevated: ${et.tempNum}°F (above ${et.max}°F limit — monitor and recheck in 30 min)`, owner: "", due: "", priority: "Follow-up", photos: [] });
+      items.push({ area: etArea, issue: `Temperature elevated: ${et.tempNum}°F (above ${et.max}°F limit — monitor and recheck in 30 min)`, owner: "", due: "", priority: "Follow-up", photos: [] });
     }
   }
   for (const a of parseActionLines(rawNotes))
@@ -8484,28 +8483,28 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
 
     // ── SHEET: Supplies Needed ─────────────────────────────────────────────
     const allSupplies = records.flatMap(rec =>
-      (rec.suppliesNeeded || []).map(s => ({ ...s, _site: rec.siteName || rec.location || "—", _date: rec.inspectionDate || "—", _inspector: rec.inspectorName || "—" }))
+      (rec.suppliesNeeded || []).map(s => ({ ...s, _site: rec.siteName || rec.location || "—", _unit: rec.siteNumber || "—", _date: rec.inspectionDate || "—", _inspector: rec.inspectorName || "—" }))
     );
     if (allSupplies.length > 0) {
       const wsS = wb.addWorksheet("Supplies Needed");
-      wsS.columns = [{ width: 4 }, { width: 28 }, { width: 14 }, { width: 18 }, { width: 12 }, { width: 12 }];
+      wsS.columns = [{ width: 4 }, { width: 28 }, { width: 10 }, { width: 14 }, { width: 18 }, { width: 28 }, { width: 12 }];
       const sSTitle = wsS.addRow(["SUPPLIES NEEDED — ALL VENUES"]);
       sSTitle.height = 26;
-      wsS.mergeCells(`A${sSTitle.number}:F${sSTitle.number}`);
+      wsS.mergeCells(`A${sSTitle.number}:G${sSTitle.number}`);
       applyB(sSTitle.getCell(1), bHdr(12));
-      const sHeaders = ["#", "Site / Location", "Date", "Inspector", "Supply Item", "Qty / Urgent"];
+      const sHeaders = ["#", "Site / Location", "Unit #", "Date", "Inspector", "Supply Item", "Qty / Urgent"];
       const sHRow = wsS.addRow(sHeaders);
       sHRow.height = 20;
       sHeaders.forEach((_, ci) => applyB(sHRow.getCell(ci + 1), bSubHdr()));
-      wsS.autoFilter = { from: { row: sHRow.number, column: 1 }, to: { row: sHRow.number, column: 6 } };
+      wsS.autoFilter = { from: { row: sHRow.number, column: 1 }, to: { row: sHRow.number, column: 7 } };
       wsS.views = [{ state: "frozen", ySplit: sHRow.number, topLeftCell: `A${sHRow.number + 1}`, activeCell: "A1" }];
       allSupplies.forEach((s, i) => {
         const bg = i % 2 === 0 ? WHITE : SILVER;
         const urgentLabel = s.urgent ? "🔴 Urgent" : s.qty ? str(s.qty) : "—";
-        const row = wsS.addRow([i + 1, str(s._site), str(s._date), str(s._inspector), str(s.item), urgentLabel]);
+        const row = wsS.addRow([i + 1, str(s._site), str(s._unit), str(s._date), str(s._inspector), str(s.item), urgentLabel]);
         row.height = 18;
-        [1,2,3,4,5].forEach(ci => row.getCell(ci).style = bBody(bg));
-        const urgCell = row.getCell(6);
+        [1,2,3,4,5,6].forEach(ci => row.getCell(ci).style = bBody(bg));
+        const urgCell = row.getCell(7);
         urgCell.style = s.urgent
           ? { font: { bold: true, size: 10, color: { argb: "FF" + FAIL_RT }, name: "Calibri" }, fill: { type: "pattern", pattern: "solid", fgColor: { argb: "FF" + FAIL_R } }, alignment: { vertical: "top", wrapText: true }, border: { bottom: { style: "hair", color: { argb: "FFD1D5DB" } } } }
           : bBody(bg);
