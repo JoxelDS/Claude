@@ -17357,6 +17357,37 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                           </div>
                         );
                       })()}
+                      {/* ── Type selector for generic Coolers / Freezer default items ── */}
+                      {sectionKey === "equipment" && (itemKey === "coolers" || itemKey === "freezer") && (() => {
+                        const isCooler = itemKey === "coolers";
+                        const typeOptions = isCooler
+                          ? ["1-Door Cooler","2-Door Cooler","3-Door Cooler","4-Door Cooler","Prep Cooler","Display Cooler","Walk-In Cooler","Undercounter Cooler"]
+                          : ["1-Door Freezer","2-Door Freezer","3-Door Freezer","Chest Freezer","Walk-In Freezer","Undercounter Freezer"];
+                        const currentLabel = current.label || "";
+                        return (
+                          <div style={{ marginBottom: 10 }}>
+                            <div style={{ fontSize: "0.7rem", fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>
+                              {isCooler ? "Cooler Type" : "Freezer Type"}
+                              {!currentLabel && <span style={{ marginLeft: 6, color: "#ef4444", fontWeight: 600 }}>— select one</span>}
+                            </div>
+                            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                              {typeOptions.map(opt => (
+                                <button key={opt} type="button"
+                                  style={{
+                                    fontSize: "0.75rem", padding: "4px 11px", borderRadius: 20,
+                                    border: currentLabel === opt ? "1.5px solid #2563eb" : "1.5px solid #e2e8f0",
+                                    background: currentLabel === opt ? "#dbeafe" : "#f8fafc",
+                                    color: currentLabel === opt ? "#1d4ed8" : "#64748b",
+                                    cursor: "pointer", fontWeight: currentLabel === opt ? 700 : 400,
+                                    transition: "all 0.12s",
+                                  }}
+                                  onClick={() => setInspection(prev => setAtPath(prev, it.path, { ...getAtPath(prev, it.path) || {}, label: currentLabel === opt ? "" : opt }))}
+                                >{opt}</button>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })()}
                       {coldInfo && (
                         <div className="equipTempRow">
                           <div className="tempInputWrap" style={{ flex: "0 0 130px" }}>
@@ -17652,14 +17683,20 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
             // ── EQUIPMENT section: cooler/freezer preset chips ──────────────
             if (sectionKey === "equipment") {
               const EQUIP_PRESETS = [
-                { label: "2-Door Cooler",   cold: { type: "cooler",  max: 40 }, ckKey: "coolers" },
-                { label: "1-Door Cooler",   cold: { type: "cooler",  max: 40 }, ckKey: "coolers" },
-                { label: "Prep Cooler",     cold: { type: "cooler",  max: 40 }, ckKey: "coolers" },
-                { label: "Walk-In Cooler",  cold: { type: "cooler",  max: 40 }, ckKey: "coolers" },
-                { label: "2-Door Freezer",  cold: { type: "freezer", max: 20 }, ckKey: "freezer" },
-                { label: "1-Door Freezer",  cold: { type: "freezer", max: 20 }, ckKey: "freezer" },
-                { label: "Freezer",         cold: { type: "freezer", max: 20 }, ckKey: "freezer" },
-                { label: "Walk-In Freezer", cold: { type: "freezer", max: 20 }, ckKey: "freezer" },
+                { label: "1-Door Cooler",       cold: { type: "cooler",  max: 40 }, ckKey: "coolers" },
+                { label: "2-Door Cooler",       cold: { type: "cooler",  max: 40 }, ckKey: "coolers" },
+                { label: "3-Door Cooler",       cold: { type: "cooler",  max: 40 }, ckKey: "coolers" },
+                { label: "4-Door Cooler",       cold: { type: "cooler",  max: 40 }, ckKey: "coolers" },
+                { label: "Prep Cooler",         cold: { type: "cooler",  max: 40 }, ckKey: "coolers" },
+                { label: "Display Cooler",      cold: { type: "cooler",  max: 40 }, ckKey: "coolers" },
+                { label: "Walk-In Cooler",      cold: { type: "cooler",  max: 40 }, ckKey: "coolers" },
+                { label: "Undercounter Cooler", cold: { type: "cooler",  max: 40 }, ckKey: "coolers" },
+                { label: "1-Door Freezer",      cold: { type: "freezer", max: 20 }, ckKey: "freezer" },
+                { label: "2-Door Freezer",      cold: { type: "freezer", max: 20 }, ckKey: "freezer" },
+                { label: "3-Door Freezer",      cold: { type: "freezer", max: 20 }, ckKey: "freezer" },
+                { label: "Chest Freezer",       cold: { type: "freezer", max: 20 }, ckKey: "freezer" },
+                { label: "Walk-In Freezer",     cold: { type: "freezer", max: 20 }, ckKey: "freezer" },
+                { label: "Undercounter Freezer",cold: { type: "freezer", max: 20 }, ckKey: "freezer" },
               ];
               const CUSTOM_KEY = "__custom__";
               const addEquip = (label) => {
