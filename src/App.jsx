@@ -141,7 +141,6 @@ const THEMES = [
   { id: "ocean",       name: "Sodexo Ocean",    swatch: "linear-gradient(135deg,#0B4EA2 0%,#0A3D80 50%,#1E88D2 100%)", logo: LOGO_WHITE },
   { id: "midnight",    name: "Sodexo Midnight", swatch: "linear-gradient(135deg,#1C1B45 0%,#121130 50%,#34336E 100%)", logo: LOGO_WHITE },
   { id: "noir",        name: "Sodexo Noir",     swatch: "linear-gradient(105deg,#0A0A0B 0%,#161618 55%,#232326 100%)", logo: LOGO_WHITE },
-  { id: "dsmarketing", name: "DS Marketing",    swatch: "linear-gradient(105deg,#0A0A0B 0%,#161618 55%,#232326 100%)", logo: DS_LOGO_WHITE },
 ];
 function applyTheme(themeId) {
   const valid = THEMES.some(t => t.id === themeId) ? themeId : "sodexo";
