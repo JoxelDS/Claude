@@ -6582,3 +6582,43 @@ html[data-theme="dsmarketing"] { --sdx-pin-mid: #1A1A1D; --sdx-pin-end: #2E2E33;
 @media (max-width: 640px) {
   .btnGenHeader, .btnGenHeader.btnPrimary { padding: 8px 14px; }
 }
+
+/* ── Follow-Ups & Rechecks (Insights) ─────────────────────── */
+.fuList { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+.fuItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--sdx-gray-200);
+  background: #fff;
+}
+.fuOverdue  { border-color: #FECACA; background: #FFF7F7; }
+.fuResolved { border-color: #BBE7C9; background: #F4FCF7; }
+.fuWatching { border-color: #FDE9C8; background: #FFFDF6; }
+.fuStatus { font-size: 1.05rem; flex-shrink: 0; }
+.fuBody { flex: 1; min-width: 0; }
+.fuTitle { font-weight: 700; font-size: 0.82rem; color: var(--sdx-gray-800); }
+.fuLoc { font-weight: 600; color: var(--sdx-gray-500); }
+.fuMeta { font-size: 0.72rem; color: var(--sdx-gray-500); margin-top: 1px; line-height: 1.4; }
+.fuActions { display: flex; gap: 6px; flex-shrink: 0; flex-wrap: wrap; justify-content: flex-end; }
+.fuBtn {
+  border: none;
+  border-radius: 999px;
+  padding: 6px 11px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast), background var(--transition-fast);
+}
+.fuBtn:hover { transform: translateY(-1px); }
+.fuBtnRemind { background: var(--sdx-navy); color: #fff; }
+.fuBtnRemind:hover { box-shadow: 0 3px 10px rgba(42,41,92,.3); }
+.fuBtnResolve { background: #E8F7EE; color: #15803D; border: 1px solid #BBE7C9; }
+.fuBtnResolve:hover { background: #D9F2E3; }
+@media (max-width: 560px) {
+  .fuItem { flex-wrap: wrap; }
+  .fuActions { width: 100%; justify-content: flex-start; }
+}

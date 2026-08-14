@@ -7297,11 +7297,75 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
       .sort((a, b) => b[1] - a[1])
       .slice(0, 5);
 
-    return { recurring, locationRecurring, tempComplianceRate, tempChecks, tempFails, totalInspections: history.length, worstLocations };
-  }, [history]);
+    // 6. Follow-ups: open issues that need a recheck or look resolved
+    const recheckDays = Number(venueSettings?.recheckDays) || 7;
+    const cleared = venueSettings?.followupCleared || {};
+    const latestInspByLoc = {};   // locName -> newest inspection timestamp
+    const catLastSeen = {};       // "loc::cat" -> { ts, dateStr, count }
+    for (const rec of history) {
+      const locName = rec.siteName || rec.location || "—";
+      const ts = rec.inspectionDate ? new Date(rec.inspectionDate).getTime() : 0;
+      if (!ts) continue;
+      if (!latestInspByLoc[locName] || ts > latestInspByLoc[locName]) latestInspByLoc[locName] = ts;
+      const recResolvedMap = rec.resolvedIssues || {};
+      const actionItems = rec.actionItems || [];
+      actionItems.forEach((item, i) => {
+        if (recResolvedMap[i]) return;
+        const cat = item.issue?.split(":")[0]?.trim() || "Other";
+        const key = `${locName}::${cat}`;
+        if (!catLastSeen[key]) catLastSeen[key] = { ts: 0, dateStr: "", count: 0 };
+        catLastSeen[key].count++;
+        if (ts > catLastSeen[key].ts) { catLastSeen[key].ts = ts; catLastSeen[key].dateStr = rec.inspectionDate; }
+      });
+    }
+    const now = Date.now();
+    const followups = Object.entries(catLastSeen)
+      .filter(([key, v]) => {
+        const clearedTs = cleared[key];
+        if (clearedTs && clearedTs >= v.ts) return false;            // resolved, and hasn't reappeared since
+        return now - v.ts <= 90 * 24 * 60 * 60 * 1000;               // ignore ancient history
+      })
+      .map(([key, v]) => {
+        const [loc, cat] = key.split("::");
+        const daysSince = Math.floor((now - v.ts) / (24 * 60 * 60 * 1000));
+        const likelyResolved = (latestInspByLoc[loc] || 0) > v.ts;   // a newer inspection had no such issue
+        const overdue = !likelyResolved && daysSince >= recheckDays;
+        return { key, loc, cat, daysSince, count: v.count, dateStr: v.dateStr, likelyResolved, overdue };
+      })
+      .sort((a, b) => (b.overdue - a.overdue) || (a.likelyResolved - b.likelyResolved) || b.daysSince - a.daysSince)
+      .slice(0, 12);
+
+    return { recurring, locationRecurring, tempComplianceRate, tempChecks, tempFails, totalInspections: history.length, worstLocations, followups, recheckDays };
+  }, [history, venueSettings]);
+
+  const [remindedKey, setRemindedKey] = useState(null);
+
+  function markResolved(f) {
+    const prev = venueSettings?.followupCleared || {};
+    saveVenueSettings?.({ followupCleared: { ...prev, [f.key]: Date.now() } });
+  }
+
+  function remindTeam(f) {
+    try {
+      const list = JSON.parse(localStorage.getItem("sdx_announcements") || "[]");
+      const a = {
+        id: Date.now(),
+        title: `🔁 Recheck Needed — ${f.cat}`,
+        body: `${f.cat} at ${f.loc} was flagged ${f.daysSince} day${f.daysSince !== 1 ? "s" : ""} ago (${f.dateStr}) and is still open. Please recheck this item on your next walkthrough and mark it resolved in the report.`,
+        author: "Insights Auto-Reminder",
+        ts: Date.now(),
+        quickCheck: true,
+        checkItems: [`${f.cat} — ${f.loc}`],
+        results: [],
+      };
+      localStorage.setItem("sdx_announcements", JSON.stringify([a, ...list]));
+      setRemindedKey(f.key);
+      setTimeout(() => setRemindedKey(null), 2200);
+    } catch {}
+  }
 
   if (!analysis) return null;
-  if (analysis.recurring.length === 0 && Object.keys(analysis.locationRecurring).length === 0 && analysis.worstLocations.length === 0) return null;
+  if (analysis.recurring.length === 0 && Object.keys(analysis.locationRecurring).length === 0 && analysis.worstLocations.length === 0 && (analysis.followups || []).length === 0) return null;
 
   return (
     <div className="card" style={{ marginBottom: 24 }}>
@@ -7328,6 +7392,61 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
             <div className="analysisStatLabel">Repeat Issues</div>
           </div>
         </div>
+
+        {/* Follow-ups & recheck reminders */}
+        {(analysis.followups || []).length > 0 && (
+          <div style={{ marginTop: 16 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+              <div className="guideSectionTitle" style={{ margin: 0 }}>Follow-Ups &amp; Rechecks</div>
+              <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.72rem", color: "var(--sdx-gray-500)", fontWeight: 600 }}>
+                Recheck window
+                <select
+                  value={analysis.recheckDays}
+                  onChange={e => saveVenueSettings?.({ recheckDays: Number(e.target.value) })}
+                  style={{ padding: "3px 6px", borderRadius: 8, border: "1px solid var(--sdx-gray-200)", fontSize: "0.72rem", fontWeight: 600 }}
+                >
+                  <option value={3}>3 days</option>
+                  <option value={7}>7 days</option>
+                  <option value={14}>14 days</option>
+                  <option value={30}>30 days</option>
+                </select>
+              </label>
+            </div>
+            <div className="fuList">
+              {analysis.followups.map(f => (
+                <div key={f.key} className={`fuItem ${f.overdue ? "fuOverdue" : f.likelyResolved ? "fuResolved" : "fuWatching"}`}>
+                  <div className="fuStatus">
+                    {f.overdue ? "⏰" : f.likelyResolved ? "✅" : "👁"}
+                  </div>
+                  <div className="fuBody" style={{ cursor: "pointer" }} onClick={() => onIssueDrilldown?.(f.loc, f.cat)}>
+                    <div className="fuTitle">{f.cat} <span className="fuLoc">· {f.loc}</span></div>
+                    <div className="fuMeta">
+                      {f.likelyResolved
+                        ? `Not seen in the latest inspection — confirm it's fixed and clear it`
+                        : f.overdue
+                          ? `Open for ${f.daysSince} days (flagged ${f.dateStr}) — recheck is overdue`
+                          : `Flagged ${f.daysSince} day${f.daysSince !== 1 ? "s" : ""} ago — recheck due in ${Math.max(0, analysis.recheckDays - f.daysSince)} day${analysis.recheckDays - f.daysSince !== 1 ? "s" : ""}`}
+                      {f.count > 1 ? ` · seen ×${f.count}` : ""}
+                    </div>
+                  </div>
+                  <div className="fuActions">
+                    {!f.likelyResolved && (
+                      <button type="button" className="fuBtn fuBtnRemind" onClick={() => remindTeam(f)}>
+                        {remindedKey === f.key ? "✓ Posted" : "🔔 Remind Team"}
+                      </button>
+                    )}
+                    <button type="button" className="fuBtn fuBtnResolve" onClick={() => markResolved(f)}>
+                      ✓ Resolved
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div style={{ fontSize: "0.68rem", color: "var(--sdx-gray-400)", marginTop: 6 }}>
+              “Remind Team” posts a Quick Check announcement so inspectors on shift can respond. Resolved items reappear automatically if the issue shows up again.
+            </div>
+          </div>
+        )}
 
         {/* Global recurring issues — now shows which kitchens */}
         {analysis.recurring.length > 0 && (
