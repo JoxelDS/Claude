@@ -2349,9 +2349,9 @@ function buildDefaultInspection() {
       mopArea:         withChecklist("mopArea"),
     },
     // ── EQUIPMENTS ──────────────────────────────────────────────
+    // coolers and freezer are intentionally omitted from defaults —
+    // inspectors add specific units (3-Door Cooler, Walk-In, etc.) via the picker
     equipment: {
-      coolers:      withChecklist("coolers",   { tempF: "", notApplicable: false }),
-      freezer:      withChecklist("freezer",   { tempF: "", notApplicable: false }),
       warmers:      withChecklist("warmers",   { notApplicable: false }),
       grill:        withChecklist("grill",     { notApplicable: false }),
       fryer:        withChecklist("fryer",     { notApplicable: false }),
@@ -17156,6 +17156,7 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
   const cameraRefs = useRef({});
   const [newItemName, setNewItemName] = useState("");
   const [newEquipType, setNewEquipType] = useState(null); // null = no type selected yet
+  const [clSearchMap, setClSearchMap] = useState({}); // keyed by item path string → search query
   const [newMaintName, setNewMaintName] = useState("");
   const [open, setOpen] = useState(defaultOpen);
   const [expandedDetails, setExpandedDetails] = useState({});
@@ -17556,6 +17557,8 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                         const issueCount   = current.checklist.filter(c => c.value === "NO").length;
                         const passCount    = current.checklist.filter(c => c.value === "YES").length;
                         const pendingCount = current.checklist.filter(c => c.value === "").length;
+                        const clPathKey = it.path.join(".");
+                        const clSearch = (clSearchMap[clPathKey] || "").toLowerCase();
                         return (
                           <div className="checklistGroups">
                             {/* Status summary bar */}
@@ -17567,10 +17570,29 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                                 <span className="clStatusChip clStatusChipDone">{issueCount === 0 ? "✓ All passed" : "Complete"}</span>
                               )}
                             </div>
+                            {/* Quick-search bar */}
+                            {current.checklist.length > 4 && (
+                              <div style={{ padding: "6px 10px 2px", position: "relative" }}>
+                                <span style={{ position: "absolute", left: 20, top: "50%", transform: "translateY(-50%)", fontSize: "0.85rem", color: "#94a3b8", pointerEvents: "none", lineHeight: 1 }}>🔍</span>
+                                <input
+                                  type="search"
+                                  className="input inputSmall"
+                                  style={{ paddingLeft: 30, width: "100%", background: "#f8fafc", borderColor: clSearch ? "#93c5fd" : "#e2e8f0", fontSize: "0.82rem" }}
+                                  value={clSearchMap[clPathKey] || ""}
+                                  onChange={e => setClSearchMap(m => ({ ...m, [clPathKey]: e.target.value }))}
+                                  placeholder={`Search ${current.checklist.length} items — gasket, temp, door…`}
+                                />
+                                {clSearch && (
+                                  <button type="button" onClick={() => setClSearchMap(m => ({ ...m, [clPathKey]: "" }))}
+                                    style={{ position: "absolute", right: 18, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "#94a3b8", fontSize: "1rem", lineHeight: 1, padding: 0 }}>✕</button>
+                                )}
+                              </div>
+                            )}
                             {/* Flat list — items stay in original order, never jump */}
                             <div className="checklistGroup">
                               <div className="checklistGrid">
                                 {current.checklist.map((ci, idx) => {
+                                  if (clSearch && !ci.label?.toLowerCase().includes(clSearch) && ci.value !== "NO") return null;
                                   const isPass = ci.value === "YES";
                                   const isFail = ci.value === "NO";
                                   const rowClass = `checklistItem${isPass ? " clItemOK" : isFail ? " clItemFail" : ""}`;
@@ -17707,6 +17729,13 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                                     </div>
                                   );
                                 })}
+                                {clSearch && current.checklist.filter(c => c.label?.toLowerCase().includes(clSearch) || c.value === "NO").length === 0 && (
+                                  <div style={{ padding: "14px 16px", color: "#94a3b8", fontSize: "0.82rem", textAlign: "center" }}>
+                                    No checklist items match "<strong>{clSearchMap[clPathKey]}</strong>" —{" "}
+                                    <button type="button" style={{ background: "none", border: "none", color: "#3b82f6", cursor: "pointer", padding: 0, fontSize: "0.82rem" }}
+                                      onClick={() => setClSearchMap(m => ({ ...m, [clPathKey]: "" }))}>clear search</button>
+                                  </div>
+                                )}
                               </div>
                             </div>
                           </div>
@@ -17793,8 +17822,18 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                 setNewEquipType(null);
               };
               const isCustomMode = newEquipType === CUSTOM_KEY;
+              const existingEquip = inspection?.equipment || {};
+              const hasColdUnit = Object.values(existingEquip).some(n => n?.cold || detectColdType(n?.label || ""));
               return (
                 <div className="guideAddEquip">
+                  {!hasColdUnit && (
+                    <div style={{ background: "#eff6ff", border: "1.5px solid #bfdbfe", borderRadius: 8, padding: "9px 13px", marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ fontSize: "1.1rem" }}>❄️</span>
+                      <span style={{ fontSize: "0.8rem", color: "#1d4ed8", fontWeight: 600 }}>
+                        Select a cooler or freezer type below to add it to this inspection
+                      </span>
+                    </div>
+                  )}
                   <div className="equipTypeGroups">
                     <div className="equipTypeGroup">
                       <span className="equipTypeGroupLabel">❄️ Coolers</span>
