@@ -11679,17 +11679,18 @@ function FoodSafetyRef() {
         {subHeader("Temperature Zones")}
         <div style={{ border: "1.5px solid #e2e8f0", borderTop: "none", borderRadius: "0 0 12px 12px", overflow: "hidden" }}>
           {[
-            { bg: "linear-gradient(90deg,#fef2f2,#fee2e2)", border: "#ef4444", label: "HOT HOLDING — SAFE", temp: "≥ 135°F / 57°C", sub: "Keep hot foods at or above this temperature" },
-            { bg: "repeating-linear-gradient(45deg,#fef9c3,#fef9c3 6px,#fefce8 6px,#fefce8 12px)", border: "#f59e0b", label: "DANGER ZONE — AVOID", temp: "41°F – 135°F / 5–57°C", sub: "Bacteria double every 20 min · limit to 4 hrs max" },
-            { bg: "linear-gradient(90deg,#eff6ff,#dbeafe)", border: "#3b82f6", label: "COLD HOLDING — SAFE", temp: "≤ 41°F / 5°C", sub: "Refrigerate at or below · ideal WIC: 34–38°F" },
-            { bg: "linear-gradient(90deg,#f0f9ff,#e0f2fe)", border: "#0ea5e9", label: "FREEZER", temp: "0°F / -18°C or below", sub: "Stops bacterial growth · check monthly for ice crystals" },
+            { icon: "🔥", bg: "linear-gradient(90deg,#fef2f2,#fee2e2)", border: "#ef4444", label: "HOT HOLDING — SAFE", temp: "≥ 135°F / 57°C", sub: "Keep hot foods at or above this temperature" },
+            { icon: "⚠️", bg: "repeating-linear-gradient(45deg,#fef9c3,#fef9c3 6px,#fefce8 6px,#fefce8 12px)", border: "#f59e0b", label: "DANGER ZONE — AVOID", temp: "41°F – 135°F / 5–57°C", sub: "Bacteria double every 20 min · limit to 4 hrs max" },
+            { icon: "❄️", bg: "linear-gradient(90deg,#eff6ff,#dbeafe)", border: "#3b82f6", label: "COLD HOLDING — SAFE", temp: "≤ 41°F / 5°C", sub: "Refrigerate at or below · ideal WIC: 34–38°F" },
+            { icon: "🧊", bg: "linear-gradient(90deg,#f0f9ff,#e0f2fe)", border: "#0ea5e9", label: "FREEZER", temp: "0°F / -18°C or below", sub: "Stops bacterial growth · check monthly for ice crystals" },
           ].map((z, i, arr) => (
-            <div key={z.label} style={{ background: z.bg, borderBottom: i < arr.length - 1 ? `2px solid ${z.border}` : "none", padding: "11px 14px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-              <div>
+            <div key={z.label} style={{ background: z.bg, borderBottom: i < arr.length - 1 ? `2px solid ${z.border}` : "none", padding: "12px 14px", display: "flex", alignItems: "center", gap: 12 }}>
+              <span style={{ width: 36, height: 36, borderRadius: 11, background: "rgba(255,255,255,.78)", border: `1.5px solid ${z.border}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.05rem", flexShrink: 0, boxShadow: "0 1px 4px rgba(0,0,0,.08)" }}>{z.icon}</span>
+              <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontWeight: 800, fontSize: "0.62rem", textTransform: "uppercase", letterSpacing: "0.07em", color: "#374151", marginBottom: 2 }}>{z.label}</div>
-                <div style={{ fontSize: "0.65rem", color: "var(--ink-600)", lineHeight: 1.4 }}>{z.sub}</div>
+                <div style={{ fontSize: "0.65rem", color: "#475569", lineHeight: 1.4 }}>{z.sub}</div>
               </div>
-              <div style={{ fontWeight: 900, fontSize: "1rem", color: "var(--ink-900)", whiteSpace: "nowrap", textAlign: "right", flexShrink: 0 }}>{z.temp}</div>
+              <div style={{ fontWeight: 900, fontSize: "0.92rem", color: "#1e293b", whiteSpace: "nowrap", textAlign: "right", flexShrink: 0, background: "rgba(255,255,255,.72)", border: `1.5px solid ${z.border}`, borderRadius: 10, padding: "5px 12px" }}>{z.temp}</div>
             </div>
           ))}
         </div>
@@ -11705,15 +11706,23 @@ function FoodSafetyRef() {
             { label: "Beef, Pork, Veal, Lamb (whole)", temp: "145°F", c: "63°C", color: "#ea580c" },
             { label: "Ground Meats, Stuffed Foods",   temp: "155°F", c: "68°C",  color: "#d97706" },
             { label: "Poultry (any form)",             temp: "165°F", c: "74°C",  color: "#dc2626" },
-          ].map((r, i, arr) => (
-            <div key={r.label} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 14px", borderBottom: i < arr.length - 1 ? "1px solid #f1f5f9" : "none", background: i % 2 === 0 ? "#fff" : "#f8fafc" }}>
-              <span style={{ flex: 1, fontSize: "0.7rem", color: "var(--ink-700)", lineHeight: 1.3 }}>{r.label}</span>
+          ].map((r, i, arr) => {
+            const deg = parseInt(r.temp, 10);
+            const pct = Math.round(((deg - 130) / 40) * 100);
+            return (
+            <div key={r.label} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", borderBottom: i < arr.length - 1 ? "1px solid #f1f5f9" : "none", background: i % 2 === 0 ? "#fff" : "#f8fafc" }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: "0.7rem", color: "#334155", lineHeight: 1.3, fontWeight: 600 }}>{r.label}</div>
+                <div style={{ height: 5, borderRadius: 3, background: "#EEF0F6", marginTop: 5, overflow: "hidden" }}>
+                  <div style={{ width: `${pct}%`, height: "100%", borderRadius: 3, background: `linear-gradient(90deg, ${r.color}88, ${r.color})` }} />
+                </div>
+              </div>
               <div style={{ textAlign: "right", flexShrink: 0 }}>
                 <span style={{ fontWeight: 900, fontSize: "1rem", color: r.color }}>{r.temp}</span>
-                <span style={{ fontSize: "0.62rem", color: "var(--ink-400)", fontWeight: 600, marginLeft: 5 }}>{r.c}</span>
+                <span style={{ fontSize: "0.62rem", color: "#94a3b8", fontWeight: 600, marginLeft: 5 }}>{r.c}</span>
               </div>
             </div>
-          ))}
+          );})}
         </div>
       </div>
 
