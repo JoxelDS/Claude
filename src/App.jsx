@@ -19930,7 +19930,7 @@ function PhotoLightbox({ src, onClose }) {
 
 /* ── Messaging & Communications Panel ──────────────────────── */
 function MessagingPanel({ currentUser, onBack, notifItems, onNotifDismiss, onNotifClearAll }) {
-  const NAVY = "#1C2B5E";
+  const NAVY = "var(--sdx-navy)";
   const [activeTab, setActiveTab] = useState("messages"); // "messages" | "notifications" | "announcements"
   const [activeThread, setActiveThread] = useState(null);
   const [composeOpen, setComposeOpen] = useState(false);
@@ -20063,15 +20063,17 @@ function MessagingPanel({ currentUser, onBack, notifItems, onNotifDismiss, onNot
   const pendingQcCount = announcements.filter(a => a.quickCheck && a.checkItems?.length > 0 && !(a.results || []).find(r => r.inspector === myName)).length;
 
   const TAB_STYLE = (active) => ({
-    flex: 1, padding: "0.65rem 0", fontSize: "0.8rem", fontWeight: active ? 700 : 500,
-    color: active ? "#fff" : "rgba(255,255,255,0.65)", background: active ? "rgba(255,255,255,0.15)" : "transparent",
-    border: "none", cursor: "pointer", borderRadius: 8, transition: "all 0.15s", position: "relative",
+    flex: 1, padding: "0.6rem 0", fontSize: "0.8rem", fontWeight: 700,
+    color: active ? "var(--sdx-navy)" : "rgba(255,255,255,0.7)",
+    background: active ? "rgba(255,255,255,0.96)" : "rgba(255,255,255,0.08)",
+    border: "none", cursor: "pointer", borderRadius: 999, transition: "all 0.18s", position: "relative",
+    boxShadow: active ? "0 3px 10px rgba(0,0,0,0.25)" : "none",
   });
 
   return (
     <div style={{ minHeight: "100vh", background: "var(--surface-3)", display: "flex", flexDirection: "column" }}>
       {/* Header */}
-      <div style={{ background: NAVY, padding: "0.75rem 1rem", display: "flex", alignItems: "center", gap: 12, position: "sticky", top: 0, zIndex: 100, boxShadow: "0 2px 8px rgba(0,0,0,0.2)" }}>
+      <div style={{ background: "linear-gradient(160deg, var(--sdx-navy) 0%, var(--sdx-navy-deep) 100%)", padding: "0.75rem 1rem", display: "flex", alignItems: "center", gap: 12, position: "sticky", top: 0, zIndex: 100, boxShadow: "0 2px 8px rgba(0,0,0,0.2)" }}>
         <button onClick={onBack} style={{ background: "none", border: "none", color: "#fff", cursor: "pointer", fontSize: "1.3rem", padding: 4, lineHeight: 1 }}>←</button>
         <div style={{ flex: 1 }}>
           <div style={{ color: "#fff", fontWeight: 800, fontSize: "1rem", letterSpacing: "0.01em" }}>💬 Messages & Comms</div>
@@ -20092,7 +20094,7 @@ function MessagingPanel({ currentUser, onBack, notifItems, onNotifDismiss, onNot
       </div>
 
       {/* Tab bar */}
-      <div style={{ background: NAVY, padding: "0 1rem 0.75rem", display: "flex", gap: 6 }}>
+      <div style={{ background: "linear-gradient(160deg, var(--sdx-navy) 0%, var(--sdx-navy-deep) 100%)", padding: "0 1rem 0.75rem", display: "flex", gap: 8 }}>
         {[
           { key: "messages", label: "Messages", badge: totalUnread },
           { key: "notifications", label: "Alerts", badge: notifCount },
@@ -20267,8 +20269,8 @@ function MessagingPanel({ currentUser, onBack, notifItems, onNotifDismiss, onNot
         {activeTab === "announcements" && (
           <div style={{ flex: 1, background: "var(--surface-1)", display: "flex", flexDirection: "column" }}>
             {isAdmin && (
-              <div style={{ padding: "0.85rem 1rem", borderBottom: "1px solid #f1f5f9", background: "var(--surface-2)" }}>
-                <div style={{ fontWeight: 700, fontSize: "0.8rem", color: "var(--ink-900)", marginBottom: 8 }}>📢 Post Announcement</div>
+              <div style={{ margin: "12px 12px 4px", padding: "0.9rem 1rem", borderRadius: 16, border: "1px solid var(--sdx-gray-200)", background: "var(--surface-1)", boxShadow: "var(--shadow-md)" }}>
+                <div style={{ fontWeight: 800, fontSize: "0.84rem", color: "var(--ink-900)", marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>📢 Post Announcement</div>
                 <input
                   placeholder="Title (optional)"
                   value={annTitle}
@@ -20325,7 +20327,7 @@ function MessagingPanel({ currentUser, onBack, notifItems, onNotifDismiss, onNot
                 <button
                   onClick={postAnnouncement}
                   disabled={!annText.trim()}
-                  style={{ width: "100%", background: annIsQuickCheck ? "#f59e0b" : NAVY, color: "#fff", border: "none", borderRadius: 8, padding: "0.55rem", fontWeight: 700, fontSize: "0.82rem", cursor: annText.trim() ? "pointer" : "default", opacity: annText.trim() ? 1 : 0.4, transition: "all 0.15s" }}
+                  style={{ width: "100%", background: annIsQuickCheck ? "#f59e0b" : "linear-gradient(160deg, var(--sdx-navy), var(--sdx-navy-deep))", color: "#fff", border: "none", borderRadius: 999, padding: "0.6rem", fontWeight: 700, fontSize: "0.84rem", cursor: annText.trim() ? "pointer" : "default", opacity: annText.trim() ? 1 : 0.4, transition: "all 0.15s", boxShadow: annText.trim() ? "0 4px 14px rgba(0,0,0,0.18)" : "none" }}
                 >{annIsQuickCheck ? "⚡ Post Quick Check" : "📢 Post Announcement"}</button>
               </div>
             )}
