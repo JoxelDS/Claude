@@ -6847,3 +6847,96 @@ input, select, textarea { transition: border-color 120ms ease, box-shadow 120ms 
   from { opacity: 0; transform: translateY(12px) scale(.99); }
   to   { opacity: 1; transform: translateY(0) scale(1); }
 }
+
+/* ══════════════════════════════════════════════════════════════
+   SODEXO BLACK — full dark mode. Every surface goes black, text
+   goes light, structure stays identical.
+   ══════════════════════════════════════════════════════════════ */
+:root {
+  /* ink = text colors, surface = panel backgrounds (light defaults) */
+  --ink-900: #0f172a;
+  --ink-700: #334155;
+  --ink-600: #475569;
+  --ink-500: #64748b;
+  --ink-400: #94a3b8;
+  --surface-1: #ffffff;
+  --surface-2: #f8fafc;
+  --surface-3: #f1f5f9;
+}
+
+html[data-theme="black"] {
+  --sdx-navy: #EE0000;              /* accent duty shifts to red on black */
+  --sdx-navy-deep: #000000;
+  --sdx-blue: #1B1B22;
+  --sdx-gray-50: #101014;
+  --sdx-gray-100: #191920;
+  --sdx-gray-200: #2A2A34;
+  --sdx-gray-300: #3A3A46;
+  --sdx-gray-400: #767B90;
+  --sdx-gray-500: #979CB0;
+  --sdx-gray-600: #B9BDCE;
+  --sdx-gray-700: #D8DAE6;
+  --sdx-gray-800: #ECEDF3;
+  --ink-900: #F2F3F8;
+  --ink-700: #C9CDDC;
+  --ink-600: #AEB3C6;
+  --ink-500: #8F95AA;
+  --ink-400: #6E7488;
+  --surface-1: #15151A;
+  --surface-2: #1C1C22;
+  --surface-3: #23232B;
+  --sdx-pin-mid: #101013;
+  --sdx-pin-end: #1B1B20;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,.5);
+  --shadow-md: 0 4px 14px rgba(0,0,0,.55);
+  --shadow-lg: 0 10px 34px rgba(0,0,0,.65);
+}
+html[data-theme="black"] body {
+  background: #0A0A0D;
+  color: var(--sdx-gray-800);
+}
+html[data-theme="black"] .topBar {
+  background: linear-gradient(180deg, #000000 0%, #0C0C10 100%);
+  border-bottom: 1px solid #1E1E26;
+  box-shadow: 0 4px 18px rgba(0,0,0,.7);
+}
+html[data-theme="black"] .card,
+html[data-theme="black"] .historyCard,
+html[data-theme="black"] .modalBox,
+html[data-theme="black"] .notifDropdown,
+html[data-theme="black"] .guide {
+  background: var(--surface-1);
+  color: var(--sdx-gray-800);
+  box-shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 26px rgba(0,0,0,.5), 0 0 0 1px #23232B;
+}
+html[data-theme="black"] .cardHeader { border-bottom-color: #23232B; }
+html[data-theme="black"] .cardTitle { color: var(--sdx-gray-800); }
+html[data-theme="black"] input,
+html[data-theme="black"] select,
+html[data-theme="black"] textarea {
+  background: #101014;
+  color: #ECEDF3;
+  border-color: #2A2A34;
+}
+html[data-theme="black"] input::placeholder,
+html[data-theme="black"] textarea::placeholder { color: #6E7488; }
+html[data-theme="black"] input:focus,
+html[data-theme="black"] select:focus,
+html[data-theme="black"] textarea:focus {
+  border-color: #EE0000;
+  box-shadow: 0 0 0 3px rgba(238,0,0,.22);
+}
+html[data-theme="black"] table th { background: #101014; color: #D8DAE6; }
+html[data-theme="black"] table td { border-color: #23232B; }
+html[data-theme="black"] .fuItem { background: #17171D; border-color: #2A2A34; }
+html[data-theme="black"] .fuOverdue  { background: #201113; border-color: #55232A; }
+html[data-theme="black"] .fuResolved { background: #10201A; border-color: #1F4635; }
+html[data-theme="black"] .fuWatching { background: #201B10; border-color: #4A3A1C; }
+html[data-theme="black"] .fuTitle { color: #ECEDF3; }
+html[data-theme="black"] .themeCard { background: #17171D; border-color: #2A2A34; }
+html[data-theme="black"] .themeName { color: #ECEDF3; }
+html[data-theme="black"] .btnGhost,
+html[data-theme="black"] .card .btnGhost {
+  background: #1C1C22; color: #C9CDDC; border-color: #2F2F3A;
+}
+html[data-theme="black"] ::-webkit-scrollbar-thumb { background: rgba(255,255,255,.18); background-clip: content-box; border: 2px solid transparent; }

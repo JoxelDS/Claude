@@ -141,6 +141,7 @@ const THEMES = [
   { id: "ocean",       name: "Sodexo Ocean",    swatch: "linear-gradient(135deg,#0B4EA2 0%,#0A3D80 50%,#1E88D2 100%)", logo: LOGO_WHITE },
   { id: "midnight",    name: "Sodexo Midnight", swatch: "linear-gradient(135deg,#1C1B45 0%,#121130 50%,#34336E 100%)", logo: LOGO_WHITE },
   { id: "noir",        name: "Sodexo Noir",     swatch: "linear-gradient(105deg,#0A0A0B 0%,#161618 55%,#232326 100%)", logo: LOGO_WHITE },
+  { id: "black",       name: "Sodexo Black",    swatch: "linear-gradient(180deg,#000000 0%,#0E0E12 100%)", logo: LOGO_WHITE },
 ];
 function applyTheme(themeId) {
   const valid = THEMES.some(t => t.id === themeId) ? themeId : "sodexo";
@@ -3726,7 +3727,7 @@ function RenderedOutput({ noteType, useCase, context, inspection, rawNotes, insp
                       {idx === 0 && vals.length === 1 && <td className="rptSectionCell">HACCP</td>}
                       {idx === 0 && vals.length > 1 && <td rowSpan={vals.length} className="rptSectionCell">HACCP</td>}
                       {idx > 0 && null}
-                      <td style={{ fontSize: "0.82rem" }}>{foodName} <span style={{ color: "#94a3b8", fontSize: "0.75rem" }}>({item.label})</span></td>
+                      <td style={{ fontSize: "0.82rem" }}>{foodName} <span style={{ color: "var(--ink-400)", fontSize: "0.75rem" }}>({item.label})</span></td>
                       <td><span className={cx("rptStatusPill", pass === true ? "rptPillPass" : pass === false ? "rptPillFollowup" : "rptPillNa")}>{v}°F</span></td>
                       <td className="rptNoteCell">{pass === true ? "✓ Safe" : pass === false ? `📋 Follow-up (${rangeNote})` : rangeNote}</td>
                     </tr>
@@ -5501,7 +5502,7 @@ function TempTrendChart({ history }) {
                   position: "absolute",
                   top: "110%",
                   right: 0,
-                  background: "#fff",
+                  background: "var(--surface-1)",
                   border: "1.5px solid #c7c9e3",
                   borderRadius: 8,
                   zIndex: 99,
@@ -5555,8 +5556,8 @@ function TempTrendChart({ history }) {
       </div>
 
       {/* Required temperature standards — instructional reference guide */}
-      <div style={{ padding: "0.75rem 1rem", borderBottom: "1px solid #f3f4f6", background: "#f8fafc" }}>
-        <div style={{ fontSize: "0.62rem", color: "#94a3b8", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.5rem" }}>Required Temperature Standards</div>
+      <div style={{ padding: "0.75rem 1rem", borderBottom: "1px solid #f3f4f6", background: "var(--surface-2)" }}>
+        <div style={{ fontSize: "0.62rem", color: "var(--ink-400)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.5rem" }}>Required Temperature Standards</div>
         <div style={{ display: "flex", gap: "0.5rem" }}>
           {[
             { label: "Hand Sink",  req: "≥ 95°F",  note: "Minimum",  bg: "#eff6ff", border: "#bfdbfe", color: "#1d4ed8" },
@@ -5587,7 +5588,7 @@ function TempTrendChart({ history }) {
               Unit #{activeUnitNum}
             </span>
           )}
-          <span style={{ fontWeight: 700, fontSize: "0.85rem", color: "#1e293b" }}>
+          <span style={{ fontWeight: 700, fontSize: "0.85rem", color: "var(--ink-900)" }}>
             {activeUnitNum ? activeLoc.replace(` #${activeUnitNum}`, "") : activeLoc}
           </span>
           <span style={{ marginLeft: "auto", fontSize: "0.72rem", color: "#6b7280", background: "#f0fdf4", borderRadius: 6, padding: "2px 8px", fontWeight: 600 }}>
@@ -5609,7 +5610,7 @@ function TempTrendChart({ history }) {
               {/* Mini-chart header: sensor name + avg + pass badge */}
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: allItemLabels.length > 0 ? 3 : 6 }}>
                 <span style={{ width: 10, height: 10, borderRadius: "50%", background: color, flexShrink: 0, display: "inline-block" }} />
-                <span style={{ fontWeight: 700, fontSize: "0.82rem", color: "#1e293b" }}>{label}</span>
+                <span style={{ fontWeight: 700, fontSize: "0.82rem", color: "var(--ink-900)" }}>{label}</span>
                 <span style={{
                   fontSize: "0.75rem", fontWeight: 700,
                   background: allPass ? (color + "22") : "#fee2e2",
@@ -6049,16 +6050,16 @@ function LocationsPanel({ loc, passColor, trendArrow, MiniBar, EmptyState }) {
         byFloor.length === 0
           ? <EmptyState icon="🏗" msg="No floor data yet. Tag inspections with a floor name." />
           : byFloor.map(f => (
-              <div key={f.floor} style={{ background: "#fff", border: "1.5px solid #e2e8f0", borderRadius: 12, padding: "12px 14px", marginBottom: 8 }}>
+              <div key={f.floor} style={{ background: "var(--surface-1)", border: "1.5px solid #e2e8f0", borderRadius: 12, padding: "12px 14px", marginBottom: 8 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                  <span style={{ fontWeight: 700, fontSize: "0.88rem", color: "#1e293b", flex: 1 }}>{f.floor}</span>
+                  <span style={{ fontWeight: 700, fontSize: "0.88rem", color: "var(--ink-900)", flex: 1 }}>{f.floor}</span>
                   {f.trendLabel && (() => { const a = trendArrow(f.trendLabel); return <span style={{ fontSize: "0.72rem", fontWeight: 600, color: a.color }}>{a.icon} {f.trendLabel}</span>; })()}
                   <span style={{ fontWeight: 800, fontSize: "0.9rem", color: passColor(f.passRate), minWidth: 38, textAlign: "right" }}>{f.passRate}%</span>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <MiniBar pct={f.passRate} color={passColor(f.passRate)} />
                 </div>
-                <div style={{ display: "flex", gap: 12, marginTop: 6, fontSize: "0.72rem", color: "#64748b" }}>
+                <div style={{ display: "flex", gap: 12, marginTop: 6, fontSize: "0.72rem", color: "var(--ink-500)" }}>
                   <span>{f.total} visit{f.total !== 1 ? "s" : ""}</span>
                   {f.topIssue && <span>Top issue: <strong style={{ color: "#374151" }}>{f.topIssue}</strong></span>}
                 </div>
@@ -6071,16 +6072,16 @@ function LocationsPanel({ loc, passColor, trendArrow, MiniBar, EmptyState }) {
         byType.length === 0
           ? <EmptyState icon="🏪" msg="No type data yet. Tag inspections with a site type." />
           : byType.map(t => (
-              <div key={t.type} style={{ background: "#fff", border: "1.5px solid #e2e8f0", borderRadius: 12, padding: "12px 14px", marginBottom: 8 }}>
+              <div key={t.type} style={{ background: "var(--surface-1)", border: "1.5px solid #e2e8f0", borderRadius: 12, padding: "12px 14px", marginBottom: 8 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                  <span style={{ fontWeight: 700, fontSize: "0.88rem", color: "#1e293b", flex: 1 }}>{t.type}</span>
+                  <span style={{ fontWeight: 700, fontSize: "0.88rem", color: "var(--ink-900)", flex: 1 }}>{t.type}</span>
                   {t.trendLabel && (() => { const a = trendArrow(t.trendLabel); return <span style={{ fontSize: "0.72rem", fontWeight: 600, color: a.color }}>{a.icon} {t.trendLabel}</span>; })()}
                   <span style={{ fontWeight: 800, fontSize: "0.9rem", color: passColor(t.passRate), minWidth: 38, textAlign: "right" }}>{t.passRate}%</span>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <MiniBar pct={t.passRate} color={passColor(t.passRate)} />
                 </div>
-                <div style={{ display: "flex", gap: 12, marginTop: 6, fontSize: "0.72rem", color: "#64748b" }}>
+                <div style={{ display: "flex", gap: 12, marginTop: 6, fontSize: "0.72rem", color: "var(--ink-500)" }}>
                   <span>{t.total} visit{t.total !== 1 ? "s" : ""}</span>
                   {t.topIssue && <span>Top issue: <strong style={{ color: "#374151" }}>{t.topIssue}</strong></span>}
                 </div>
@@ -6093,16 +6094,16 @@ function LocationsPanel({ loc, passColor, trendArrow, MiniBar, EmptyState }) {
         bySite.length === 0
           ? <EmptyState icon="📍" msg="No site data yet. Tag inspections with a site name." />
           : bySite.map(s => (
-              <div key={s.site} style={{ background: "#fff", border: "1.5px solid #e2e8f0", borderRadius: 12, padding: "12px 14px", marginBottom: 8 }}>
+              <div key={s.site} style={{ background: "var(--surface-1)", border: "1.5px solid #e2e8f0", borderRadius: 12, padding: "12px 14px", marginBottom: 8 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                  <span style={{ fontWeight: 700, fontSize: "0.88rem", color: "#1e293b", flex: 1 }}>{s.site}</span>
+                  <span style={{ fontWeight: 700, fontSize: "0.88rem", color: "var(--ink-900)", flex: 1 }}>{s.site}</span>
                   {s.trendLabel && (() => { const a = trendArrow(s.trendLabel); return <span style={{ fontSize: "0.72rem", fontWeight: 600, color: a.color }}>{a.icon} {s.trendLabel}</span>; })()}
                   <span style={{ fontWeight: 800, fontSize: "0.9rem", color: passColor(s.passRate), minWidth: 38, textAlign: "right" }}>{s.passRate}%</span>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <MiniBar pct={s.passRate} color={passColor(s.passRate)} />
                 </div>
-                <div style={{ display: "flex", gap: 12, marginTop: 6, fontSize: "0.72rem", color: "#64748b" }}>
+                <div style={{ display: "flex", gap: 12, marginTop: 6, fontSize: "0.72rem", color: "var(--ink-500)" }}>
                   <span>{s.total} visit{s.total !== 1 ? "s" : ""}</span>
                   {s.topIssue && <span>Top issue: <strong style={{ color: "#374151" }}>{s.topIssue}</strong></span>}
                 </div>
@@ -6129,7 +6130,7 @@ const EQUIP_META = [
   { type: "Hand Sink",   icon: "🚿",  color: "#14b8a6", bg: "#f0fdfa" },
   { type: "3-Comp Sink", icon: "🚰",  color: "#8b5cf6", bg: "#f5f3ff" },
   { type: "Ice Maker",   icon: "🧊",  color: "#0284c7", bg: "#e0f2fe" },
-  { type: "Other",       icon: "🔧",  color: "#64748b", bg: "#f8fafc" },
+  { type: "Other",       icon: "🔧",  color: "var(--ink-500)", bg: "#f8fafc" },
 ];
 
 // ── Equipment category buckets (module-level — shared by Inventory + PerformanceDashboard) ──
@@ -6177,7 +6178,7 @@ function EquipLocationCard({ loc, filterEquip, filterSubEquip }) {
     stadium:    { bg: "#1d4ed8", color: "#fff" },
   };
   const typeKey = (loc.locationType || "").toLowerCase();
-  const badgeStyle = typeColors[typeKey] || { bg: "#475569", color: "#fff" };
+  const badgeStyle = typeColors[typeKey] || { bg: "var(--ink-600)", color: "#fff" };
   const displayType = loc.locationType || "Location";
 
   // Bucket icon for each equipment row
@@ -6210,7 +6211,7 @@ function EquipLocationCard({ loc, filterEquip, filterSubEquip }) {
   const bucketIcon = filterEquip ? EQUIP_BUCKET_ICONS[filterEquip] || "📦" : "📦";
 
   return (
-    <div style={{ background: "#fff", border: "1.5px solid #e2e8f0", borderRadius: 14, overflow: "hidden", marginBottom: 10, boxShadow: "0 1px 6px rgba(42,41,92,0.06)" }}>
+    <div style={{ background: "var(--surface-1)", border: "1.5px solid #e2e8f0", borderRadius: 14, overflow: "hidden", marginBottom: 10, boxShadow: "0 1px 6px rgba(42,41,92,0.06)" }}>
       {/* Header row */}
       <button
         type="button"
@@ -6218,9 +6219,9 @@ function EquipLocationCard({ loc, filterEquip, filterSubEquip }) {
         style={{ width: "100%", display: "flex", alignItems: "flex-start", gap: 10, padding: "12px 14px", background: "none", border: "none", cursor: "pointer", textAlign: "left" }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-            <span style={{ fontWeight: 800, fontSize: "1rem", color: "#1e293b" }}>{loc.site}</span>
+            <span style={{ fontWeight: 800, fontSize: "1rem", color: "var(--ink-900)" }}>{loc.site}</span>
             {loc.lastSeen && (
-              <span style={{ fontSize: "0.7rem", color: "#94a3b8", fontWeight: 500 }}>Last inspected: {loc.lastSeen}</span>
+              <span style={{ fontSize: "0.7rem", color: "var(--ink-400)", fontWeight: 500 }}>Last inspected: {loc.lastSeen}</span>
             )}
           </div>
           {/* Equipment count pill */}
@@ -6232,7 +6233,7 @@ function EquipLocationCard({ loc, filterEquip, filterSubEquip }) {
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0, paddingTop: 2 }}>
           <span style={{ background: badgeStyle.bg, color: badgeStyle.color, borderRadius: 6, padding: "3px 9px", fontSize: "0.65rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em" }}>{displayType}</span>
-          <span style={{ fontSize: "0.8rem", color: open ? "var(--sdx-navy)" : "#94a3b8", transform: open ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.15s", display: "inline-block", lineHeight: 1 }}>▼</span>
+          <span style={{ fontSize: "0.8rem", color: open ? "var(--sdx-navy)" : "var(--ink-400)", transform: open ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.15s", display: "inline-block", lineHeight: 1 }}>▼</span>
         </div>
       </button>
 
@@ -6240,7 +6241,7 @@ function EquipLocationCard({ loc, filterEquip, filterSubEquip }) {
       {open && (
         <div style={{ borderTop: "1px solid #f1f5f9" }}>
           {units.length === 0 ? (
-            <div style={{ padding: "12px 16px", fontSize: "0.8rem", color: "#94a3b8" }}>No equipment matches this filter.</div>
+            <div style={{ padding: "12px 16px", fontSize: "0.8rem", color: "var(--ink-400)" }}>No equipment matches this filter.</div>
           ) : units.map((u, i) => {
             const isTemp = u.source === "temp" || u.source === "Subcontractor" || u.source === "Stadium" || u.source === "Event";
             const statusColor = isTemp ? "#d97706" : "#16a34a";
@@ -6251,14 +6252,14 @@ function EquipLocationCard({ loc, filterEquip, filterSubEquip }) {
                 <span style={{ fontSize: "1.1rem", flexShrink: 0 }}>{bucketIconFor(u.label)}</span>
                 {/* Name + category */}
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 700, fontSize: "0.88rem", color: "#1e293b" }}>{u.label}</div>
-                  <div style={{ fontSize: "0.72rem", color: "#94a3b8", marginTop: 1 }}>{bucketLabelFor(u.label)}</div>
+                  <div style={{ fontWeight: 700, fontSize: "0.88rem", color: "var(--ink-900)" }}>{u.label}</div>
+                  <div style={{ fontSize: "0.72rem", color: "var(--ink-400)", marginTop: 1 }}>{bucketLabelFor(u.label)}</div>
                 </div>
                 {/* Status badge */}
                 <span style={{ fontSize: "0.7rem", fontWeight: 800, color: statusColor, background: statusColor + "18", borderRadius: 6, padding: "2px 8px", flexShrink: 0 }}>{statusLabel}</span>
                 {/* Count stepper display (read-only, matches screenshot style) */}
-                <div style={{ display: "flex", alignItems: "center", gap: 0, border: "1.5px solid #e2e8f0", borderRadius: 8, overflow: "hidden", flexShrink: 0, background: "#fff" }}>
-                  <span style={{ padding: "4px 10px", fontWeight: 800, fontSize: "0.88rem", color: "#1e293b", minWidth: 28, textAlign: "center" }}>{u.count}</span>
+                <div style={{ display: "flex", alignItems: "center", gap: 0, border: "1.5px solid #e2e8f0", borderRadius: 8, overflow: "hidden", flexShrink: 0, background: "var(--surface-1)" }}>
+                  <span style={{ padding: "4px 10px", fontWeight: 800, fontSize: "0.88rem", color: "var(--ink-900)", minWidth: 28, textAlign: "center" }}>{u.count}</span>
                 </div>
               </div>
             );
@@ -6330,32 +6331,32 @@ function AIHealthMonitor({ history, currentUser }) {
   function trendArrow(label) {
     if (label === "improving") return { icon: "↑", color: "#16a34a" };
     if (label === "declining" || label === "worsening") return { icon: "↓", color: "#dc2626" };
-    return { icon: "→", color: "#94a3b8" };
+    return { icon: "→", color: "var(--ink-400)" };
   }
   function MiniBar({ pct, color = "#2563EB" }) {
     return (
-      <div style={{ flex: 1, background: "#f1f5f9", borderRadius: 99, overflow: "hidden", height: 8 }}>
+      <div style={{ flex: 1, background: "var(--surface-3)", borderRadius: 99, overflow: "hidden", height: 8 }}>
         <div style={{ height: "100%", background: color, borderRadius: 99, width: `${Math.min(100, pct || 0)}%`, transition: "width .4s ease" }} />
       </div>
     );
   }
   function EmptyState({ icon = "📭", msg }) {
     return (
-      <div style={{ textAlign: "center", padding: "40px 20px", color: "#94a3b8" }}>
+      <div style={{ textAlign: "center", padding: "40px 20px", color: "var(--ink-400)" }}>
         <div style={{ fontSize: "2.8rem", marginBottom: 12 }}>{icon}</div>
-        <div style={{ fontSize: "1rem", lineHeight: 1.6, maxWidth: 280, margin: "0 auto", color: "#64748b" }}>{msg}</div>
+        <div style={{ fontSize: "1rem", lineHeight: 1.6, maxWidth: 280, margin: "0 auto", color: "var(--ink-500)" }}>{msg}</div>
       </div>
     );
   }
   function SectionLabel({ children, style: extraStyle }) {
-    return <div style={{ fontSize: "0.75rem", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "#64748b", marginBottom: 12, marginTop: 4, ...extraStyle }}>{children}</div>;
+    return <div style={{ fontSize: "0.75rem", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--ink-500)", marginBottom: 12, marginTop: 4, ...extraStyle }}>{children}</div>;
   }
   function StatPill({ label, val, color, emoji }) {
     return (
-      <div style={{ background: "#fff", border: "1.5px solid #e2e8f0", borderRadius: 14, padding: "12px 10px", textAlign: "center", flex: "1 1 70px", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
+      <div style={{ background: "var(--surface-1)", border: "1.5px solid #e2e8f0", borderRadius: 14, padding: "12px 10px", textAlign: "center", flex: "1 1 70px", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
         {emoji && <div style={{ fontSize: "1.2rem", marginBottom: 4 }}>{emoji}</div>}
-        <div style={{ fontWeight: 800, fontSize: "1.25rem", color: color || "#1e293b", lineHeight: 1.1 }}>{val}</div>
-        <div style={{ fontSize: "0.72rem", color: "#94a3b8", marginTop: 4, lineHeight: 1.3 }}>{label}</div>
+        <div style={{ fontWeight: 800, fontSize: "1.25rem", color: color || "var(--ink-900)", lineHeight: 1.1 }}>{val}</div>
+        <div style={{ fontSize: "0.72rem", color: "var(--ink-400)", marginTop: 4, lineHeight: 1.3 }}>{label}</div>
       </div>
     );
   }
@@ -6430,7 +6431,7 @@ function AIHealthMonitor({ history, currentUser }) {
                 <div style={{ fontWeight: 700, fontSize: "0.95rem", color: passColor(patterns.passRate) }}>
                   {patterns.passRate >= 80 ? "🎉 Your team is doing great!" : patterns.passRate >= 60 ? "👀 There's room to improve" : "🔴 Needs attention right away"}
                 </div>
-                <div style={{ fontSize: "0.84rem", color: "#475569", marginTop: 4, lineHeight: 1.5 }}>
+                <div style={{ fontSize: "0.84rem", color: "var(--ink-600)", marginTop: 4, lineHeight: 1.5 }}>
                   {patterns.passRate >= 80
                     ? `${patterns.passRate}% of inspections passed. Keep it up!`
                     : patterns.passRate >= 60
@@ -6456,7 +6457,7 @@ function AIHealthMonitor({ history, currentUser }) {
                             <span style={{ background: c.accent, color: "#fff", borderRadius: 20, padding: "2px 10px", fontSize: "0.72rem", fontWeight: 700 }}>
                               {c.label}
                             </span>
-                            <span style={{ fontWeight: 700, fontSize: "0.92rem", color: "#1e293b" }}>{s.title}</span>
+                            <span style={{ fontWeight: 700, fontSize: "0.92rem", color: "var(--ink-900)" }}>{s.title}</span>
                           </div>
                           <div style={{ fontSize: "0.88rem", color: "#374151", lineHeight: 1.6 }}>{s.body}</div>
                           <div style={{ fontSize: "0.82rem", color: c.accent, marginTop: 8, fontWeight: 600, display: "flex", alignItems: "center", gap: 5 }}>
@@ -6464,7 +6465,7 @@ function AIHealthMonitor({ history, currentUser }) {
                           </div>
                         </div>
                         <button type="button" onClick={() => dismiss(s.id)} className="aiSugDismiss"
-                          style={{ flexShrink: 0, fontSize: "1rem", width: 32, height: 32, borderRadius: "50%", border: "none", background: "#00000011", color: "#64748b", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                          style={{ flexShrink: 0, fontSize: "1rem", width: 32, height: 32, borderRadius: "50%", border: "none", background: "#00000011", color: "var(--ink-500)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
                           ✕
                         </button>
                       </div>
@@ -6566,8 +6567,8 @@ function AIHealthMonitor({ history, currentUser }) {
                   <div key={dateKey} style={{ marginBottom: 14 }}>
                     {/* Date header */}
                     <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                      <div style={{ fontWeight: 800, fontSize: "0.87rem", color: "#1e293b" }}>📅 {label}</div>
-                      <div style={{ fontSize: "0.75rem", color: "#64748b" }}>{recs.length} site{recs.length !== 1 ? "s" : ""} · {totalItems} item{totalItems !== 1 ? "s" : ""}</div>
+                      <div style={{ fontWeight: 800, fontSize: "0.87rem", color: "var(--ink-900)" }}>📅 {label}</div>
+                      <div style={{ fontSize: "0.75rem", color: "var(--ink-500)" }}>{recs.length} site{recs.length !== 1 ? "s" : ""} · {totalItems} item{totalItems !== 1 ? "s" : ""}</div>
                       {urgentCount > 0 && (
                         <div style={{ background: "#fee2e2", color: "#dc2626", borderRadius: 10, padding: "1px 8px", fontSize: "0.72rem", fontWeight: 700 }}>🔴 {urgentCount} urgent</div>
                       )}
@@ -6589,9 +6590,9 @@ function AIHealthMonitor({ history, currentUser }) {
                           borderRadius: 10, padding: "10px 12px", marginBottom: 6, marginLeft: 12,
                         }}>
                           <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
-                            <div style={{ fontWeight: 700, fontSize: "0.83rem", color: "#1e293b", flex: 1 }}>🏪 {siteLbl}</div>
-                            {rec.supervisorName && <div style={{ fontSize: "0.72rem", color: "#64748b" }}>Sup: {rec.supervisorName}</div>}
-                            {rec.inspectorName && <div style={{ fontSize: "0.72rem", color: "#94a3b8" }}>· {rec.inspectorName}</div>}
+                            <div style={{ fontWeight: 700, fontSize: "0.83rem", color: "var(--ink-900)", flex: 1 }}>🏪 {siteLbl}</div>
+                            {rec.supervisorName && <div style={{ fontSize: "0.72rem", color: "var(--ink-500)" }}>Sup: {rec.supervisorName}</div>}
+                            {rec.inspectorName && <div style={{ fontSize: "0.72rem", color: "var(--ink-400)" }}>· {rec.inspectorName}</div>}
                           </div>
                           <div style={{ display: "flex", flexWrap: "wrap" }}>
                             {visibleItems.map((s, visIdx) => {
@@ -6747,7 +6748,7 @@ function AIHealthMonitor({ history, currentUser }) {
           ];
 
           const isFiltering = locQuery || equipBucketKey || filterSubEquip;
-          const dropdownStyle = { fontSize: "0.82rem", padding: "7px 28px 7px 11px", border: "1.5px solid #e2e8f0", borderRadius: 10, background: "#fff", color: "#1e293b", fontWeight: 600, outline: "none", cursor: "pointer", appearance: "none", WebkitAppearance: "none", backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%2364748b'/%3E%3C/svg%3E\")", backgroundRepeat: "no-repeat", backgroundPosition: "right 9px center" };
+          const dropdownStyle = { fontSize: "0.82rem", padding: "7px 28px 7px 11px", border: "1.5px solid #e2e8f0", borderRadius: 10, background: "var(--surface-1)", color: "var(--ink-900)", fontWeight: 600, outline: "none", cursor: "pointer", appearance: "none", WebkitAppearance: "none", backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%2364748b'/%3E%3C/svg%3E\")", backgroundRepeat: "no-repeat", backgroundPosition: "right 9px center" };
           const activeBucketObj = equipGroups.find(b => b.key === equipBucketKey);
 
           return (
@@ -6767,8 +6768,8 @@ function AIHealthMonitor({ history, currentUser }) {
                       ))}
                     </div>
                   </div>
-                  <div style={{ background: "#fff", padding: "0.55rem 1.1rem", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-                    <span style={{ fontSize: "0.72rem", color: "#64748b", fontWeight: 600 }}>
+                  <div style={{ background: "var(--surface-1)", padding: "0.55rem 1.1rem", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                    <span style={{ fontSize: "0.72rem", color: "var(--ink-500)", fontWeight: 600 }}>
                       {grandTotalUnits} total units across {locationCount} location{locationCount !== 1 ? "s" : ""}
                     </span>
                     {tempUnits > 0 && (
@@ -6788,7 +6789,7 @@ function AIHealthMonitor({ history, currentUser }) {
                   <button
                     type="button"
                     onClick={() => { setFilterEquip(""); setFilterSubEquip(""); }}
-                    style={{ padding: "6px 13px", borderRadius: 20, border: equipBucketKey ? "1.5px solid #e2e8f0" : "1.5px solid #2A295C", background: equipBucketKey ? "#f8fafc" : "var(--sdx-navy)", color: equipBucketKey ? "#64748b" : "#fff", fontSize: "0.78rem", fontWeight: 700, cursor: "pointer", transition: "all 0.12s" }}>
+                    style={{ padding: "6px 13px", borderRadius: 20, border: equipBucketKey ? "1.5px solid #e2e8f0" : "1.5px solid #2A295C", background: equipBucketKey ? "#f8fafc" : "var(--sdx-navy)", color: equipBucketKey ? "var(--ink-500)" : "#fff", fontSize: "0.78rem", fontWeight: 700, cursor: "pointer", transition: "all 0.12s" }}>
                     All
                   </button>
                   {/* Category pills */}
@@ -6799,7 +6800,7 @@ function AIHealthMonitor({ history, currentUser }) {
                         key={b.key}
                         type="button"
                         onClick={() => { setFilterEquip(isActive ? "" : b.key); setFilterSubEquip(""); }}
-                        style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 13px", borderRadius: 20, border: isActive ? "1.5px solid #2A295C" : "1.5px solid #e2e8f0", background: isActive ? "var(--sdx-navy)" : "#f8fafc", color: isActive ? "#fff" : "#475569", fontSize: "0.78rem", fontWeight: 700, cursor: "pointer", transition: "all 0.12s" }}>
+                        style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 13px", borderRadius: 20, border: isActive ? "1.5px solid #2A295C" : "1.5px solid #e2e8f0", background: isActive ? "var(--sdx-navy)" : "#f8fafc", color: isActive ? "#fff" : "var(--ink-600)", fontSize: "0.78rem", fontWeight: 700, cursor: "pointer", transition: "all 0.12s" }}>
                         <span>{b.label}</span>
                         <span style={{ fontSize: "0.7rem", fontWeight: 600, opacity: 0.75 }}>({b.total})</span>
                       </button>
@@ -6822,13 +6823,13 @@ function AIHealthMonitor({ history, currentUser }) {
                     placeholder="🔍 Search location…"
                     value={filterLoc}
                     onChange={e => setFilterLoc(e.target.value)}
-                    style={{ width: 160, fontSize: "0.82rem", padding: "7px 11px", border: "1.5px solid #e2e8f0", borderRadius: 10, outline: "none", background: "#fff" }}
+                    style={{ width: 160, fontSize: "0.82rem", padding: "7px 11px", border: "1.5px solid #e2e8f0", borderRadius: 10, outline: "none", background: "var(--surface-1)" }}
                   />
                   {isFiltering && (
                     <button
                       type="button"
                       onClick={() => { setFilterLoc(""); setFilterEquip(""); setFilterSubEquip(""); }}
-                      style={{ padding: "7px 12px", borderRadius: 10, border: "1.5px solid #fca5a5", background: "#fff", color: "#dc2626", fontSize: "0.78rem", fontWeight: 700, cursor: "pointer", flexShrink: 0 }}>
+                      style={{ padding: "7px 12px", borderRadius: 10, border: "1.5px solid #fca5a5", background: "var(--surface-1)", color: "#dc2626", fontSize: "0.78rem", fontWeight: 700, cursor: "pointer", flexShrink: 0 }}>
                       ✕ Clear
                     </button>
                   )}
@@ -6837,11 +6838,11 @@ function AIHealthMonitor({ history, currentUser }) {
                 {/* Row 2: Sub-type pills — slides in when a category is active */}
                 {activeBucketObj && activeBucketObj.subs.length > 0 && (
                   <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", marginTop: 8, paddingLeft: 2 }}>
-                    <span style={{ fontSize: "0.68rem", fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.06em", marginRight: 2 }}>Type:</span>
+                    <span style={{ fontSize: "0.68rem", fontWeight: 700, color: "var(--ink-400)", textTransform: "uppercase", letterSpacing: "0.06em", marginRight: 2 }}>Type:</span>
                     <button
                       type="button"
                       onClick={() => setFilterEquip(equipBucketKey)}
-                      style={{ padding: "4px 11px", borderRadius: 20, border: equipSubKey ? "1.5px solid #e2e8f0" : "1.5px solid #2A295C", background: equipSubKey ? "#f8fafc" : "var(--sdx-navy)", color: equipSubKey ? "#64748b" : "#fff", fontSize: "0.75rem", fontWeight: 700, cursor: "pointer" }}>
+                      style={{ padding: "4px 11px", borderRadius: 20, border: equipSubKey ? "1.5px solid #e2e8f0" : "1.5px solid #2A295C", background: equipSubKey ? "#f8fafc" : "var(--sdx-navy)", color: equipSubKey ? "var(--ink-500)" : "#fff", fontSize: "0.75rem", fontWeight: 700, cursor: "pointer" }}>
                       All {activeBucketObj.label}
                     </button>
                     {activeBucketObj.subs.map(sb => {
@@ -6851,7 +6852,7 @@ function AIHealthMonitor({ history, currentUser }) {
                           key={sb.key}
                           type="button"
                           onClick={() => setFilterEquip(isActiveSub ? equipBucketKey : `${equipBucketKey}:${sb.key}`)}
-                          style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 11px", borderRadius: 20, border: isActiveSub ? "1.5px solid #2A295C" : "1.5px solid #e2e8f0", background: isActiveSub ? "var(--sdx-navy)" : "#f8fafc", color: isActiveSub ? "#fff" : "#475569", fontSize: "0.75rem", fontWeight: 700, cursor: "pointer", transition: "all 0.12s" }}>
+                          style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 11px", borderRadius: 20, border: isActiveSub ? "1.5px solid #2A295C" : "1.5px solid #e2e8f0", background: isActiveSub ? "var(--sdx-navy)" : "#f8fafc", color: isActiveSub ? "#fff" : "var(--ink-600)", fontSize: "0.75rem", fontWeight: 700, cursor: "pointer", transition: "all 0.12s" }}>
                           {sb.label}
                           <span style={{ fontSize: "0.68rem", opacity: 0.75 }}>({sb.total})</span>
                         </button>
@@ -6872,10 +6873,10 @@ function AIHealthMonitor({ history, currentUser }) {
                   <div style={{ background: color + "0f", border: `2px solid ${color}44`, borderRadius: 14, padding: "14px 16px", marginBottom: 16, display: "flex", gap: 14, alignItems: "center" }}>
                     <div style={{ fontWeight: 900, fontSize: "2rem", color, lineHeight: 1 }}>{fixRate}%</div>
                     <div>
-                      <div style={{ fontWeight: 700, fontSize: "0.92rem", color: "#1e293b" }}>
+                      <div style={{ fontWeight: 700, fontSize: "0.92rem", color: "var(--ink-900)" }}>
                         {fixRate >= 70 ? "🎉 Problems are getting fixed!" : fixRate >= 50 ? "👀 Some problems keep coming back" : "🔴 Too many problems are not getting fixed"}
                       </div>
-                      <div style={{ fontSize: "0.8rem", color: "#64748b", marginTop: 3 }}>Out of {res.totalFollowUps} follow-up visit{res.totalFollowUps !== 1 ? "s" : ""}</div>
+                      <div style={{ fontSize: "0.8rem", color: "var(--ink-500)", marginTop: 3 }}>Out of {res.totalFollowUps} follow-up visit{res.totalFollowUps !== 1 ? "s" : ""}</div>
                     </div>
                   </div>
                 );
@@ -6911,7 +6912,7 @@ function AIHealthMonitor({ history, currentUser }) {
                         <span style={{ fontSize: "0.72rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.1em", color: "var(--sdx-navy)" }}>
                           {LOC_TYPE_ICONS[locType] || "📍"} {locType} Locations
                         </span>
-                        <span style={{ fontSize: "0.7rem", color: "#64748b", fontWeight: 600 }}>— {locs.length} site{locs.length !== 1 ? "s" : ""} — {groupTotal} {equipLabel}</span>
+                        <span style={{ fontSize: "0.7rem", color: "var(--ink-500)", fontWeight: 600 }}>— {locs.length} site{locs.length !== 1 ? "s" : ""} — {groupTotal} {equipLabel}</span>
                       </div>
                       {/* Location cards */}
                       {locs.map(loc => (
@@ -6948,7 +6949,7 @@ function AIHealthMonitor({ history, currentUser }) {
                   <input type="text" placeholder="🔍 Search a location…" value={filterLoc} onChange={e => setFilterLoc(e.target.value)} style={{ fontSize: "0.95rem", padding: "10px 14px" }} />
                   {filterLoc && (
                     <button type="button" onClick={() => setFilterLoc("")}
-                      style={{ padding: "10px 14px", border: "1px solid #e2e8f0", borderRadius: 10, background: "#fff", fontSize: "0.85rem", color: "#64748b", cursor: "pointer", flexShrink: 0 }}>
+                      style={{ padding: "10px 14px", border: "1px solid #e2e8f0", borderRadius: 10, background: "var(--surface-1)", fontSize: "0.85rem", color: "var(--ink-500)", cursor: "pointer", flexShrink: 0 }}>
                       ✕ Clear
                     </button>
                   )}
@@ -6972,7 +6973,7 @@ function AIHealthMonitor({ history, currentUser }) {
                 <input type="text" placeholder="🔍 Search a location…" value={filterLoc} onChange={e => setFilterLoc(e.target.value)} style={{ fontSize: "0.95rem", padding: "10px 14px" }} />
                 {filterLoc && (
                   <button type="button" onClick={() => setFilterLoc("")}
-                    style={{ padding: "10px 14px", border: "1px solid #e2e8f0", borderRadius: 10, background: "#fff", fontSize: "0.85rem", color: "#64748b", cursor: "pointer", flexShrink: 0 }}>
+                    style={{ padding: "10px 14px", border: "1px solid #e2e8f0", borderRadius: 10, background: "var(--surface-1)", fontSize: "0.85rem", color: "var(--ink-500)", cursor: "pointer", flexShrink: 0 }}>
                     ✕ Clear
                   </button>
                 )}
@@ -6989,13 +6990,13 @@ function AIHealthMonitor({ history, currentUser }) {
                 <StatPill emoji="📋" label="Total Reports" val={b.total || 0} />
                 <StatPill emoji="⚠️" label="Avg Issues" val={b.avgIssues ?? 0} color={b.avgIssues > 3 ? "#dc2626" : b.avgIssues > 1 ? "#d97706" : "#16a34a"} />
                 <StatPill emoji="✅" label="Zero Issues" val={b.zeroIssuePasses || 0} color="#16a34a" />
-                <StatPill emoji="🔴" label="5+ Issues" val={b.highIssueRecords || 0} color={b.highIssueRecords > 0 ? "#dc2626" : "#94a3b8"} />
+                <StatPill emoji="🔴" label="5+ Issues" val={b.highIssueRecords || 0} color={b.highIssueRecords > 0 ? "#dc2626" : "var(--ink-400)"} />
               </div>
 
               {/* Hour of day chart */}
-              <div style={{ background: "#f8fafc", borderRadius: 14, padding: "14px" }}>
-                <div style={{ fontWeight: 700, fontSize: "0.9rem", color: "#1e293b", marginBottom: 4 }}>🕐 What time do inspections happen?</div>
-                {b.peakHourLabel && <div style={{ fontSize: "0.8rem", color: "#64748b", marginBottom: 10 }}>Most happen around <strong>{b.peakHourLabel}</strong></div>}
+              <div style={{ background: "var(--surface-2)", borderRadius: 14, padding: "14px" }}>
+                <div style={{ fontWeight: 700, fontSize: "0.9rem", color: "var(--ink-900)", marginBottom: 4 }}>🕐 What time do inspections happen?</div>
+                {b.peakHourLabel && <div style={{ fontSize: "0.8rem", color: "var(--ink-500)", marginBottom: 10 }}>Most happen around <strong>{b.peakHourLabel}</strong></div>}
                 <div style={{ display: "flex", gap: 2, alignItems: "flex-end", height: 56 }}>
                   {hourBuckets.map((count, h) => {
                     const hgt = Math.max(2, Math.round((count / maxH) * 50));
@@ -7012,9 +7013,9 @@ function AIHealthMonitor({ history, currentUser }) {
               </div>
 
               {/* Day of week chart */}
-              <div style={{ background: "#f8fafc", borderRadius: 14, padding: "14px" }}>
-                <div style={{ fontWeight: 700, fontSize: "0.9rem", color: "#1e293b", marginBottom: 4 }}>📅 Which day is busiest?</div>
-                {b.peakDayLabel && <div style={{ fontSize: "0.8rem", color: "#64748b", marginBottom: 10 }}>Busiest day: <strong>{b.peakDayLabel}</strong></div>}
+              <div style={{ background: "var(--surface-2)", borderRadius: 14, padding: "14px" }}>
+                <div style={{ fontWeight: 700, fontSize: "0.9rem", color: "var(--ink-900)", marginBottom: 4 }}>📅 Which day is busiest?</div>
+                {b.peakDayLabel && <div style={{ fontSize: "0.8rem", color: "var(--ink-500)", marginBottom: 10 }}>Busiest day: <strong>{b.peakDayLabel}</strong></div>}
                 <div style={{ display: "flex", gap: 6, alignItems: "flex-end", height: 64 }}>
                   {dayBuckets.map((count, d) => {
                     const hgt = Math.max(3, Math.round((count / maxD) * 58));
@@ -7022,7 +7023,7 @@ function AIHealthMonitor({ history, currentUser }) {
                     return (
                       <div key={d} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 5 }}>
                         <div title={`${dayNames[d]}: ${count}`} style={{ width: "100%", height: hgt, borderRadius: "4px 4px 0 0", background: isActive ? "var(--sdx-navy)" : "#bfdbfe" }} />
-                        <div style={{ fontSize: "0.7rem", color: isActive ? "var(--sdx-navy)" : "#94a3b8", fontWeight: isActive ? 700 : 400 }}>{dayNames[d].slice(0, 2)}</div>
+                        <div style={{ fontSize: "0.7rem", color: isActive ? "var(--sdx-navy)" : "var(--ink-400)", fontWeight: isActive ? 700 : 400 }}>{dayNames[d].slice(0, 2)}</div>
                       </div>
                     );
                   })}
@@ -7032,14 +7033,14 @@ function AIHealthMonitor({ history, currentUser }) {
               {/* Top types */}
               {b.topTypes?.length > 0 && (
                 <div>
-                  <div style={{ fontWeight: 700, fontSize: "0.9rem", color: "#1e293b", marginBottom: 10 }}>📊 Most common inspection types</div>
+                  <div style={{ fontWeight: 700, fontSize: "0.9rem", color: "var(--ink-900)", marginBottom: 10 }}>📊 Most common inspection types</div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                     {b.topTypes.slice(0, 5).map((t, idx) => (
-                      <div key={t.type} style={{ display: "flex", alignItems: "center", gap: 10, background: "#f8fafc", borderRadius: 10, padding: "10px 12px" }}>
-                        <div style={{ fontWeight: 700, fontSize: "0.8rem", color: "#64748b", width: 20, flexShrink: 0 }}>#{idx + 1}</div>
+                      <div key={t.type} style={{ display: "flex", alignItems: "center", gap: 10, background: "var(--surface-2)", borderRadius: 10, padding: "10px 12px" }}>
+                        <div style={{ fontWeight: 700, fontSize: "0.8rem", color: "var(--ink-500)", width: 20, flexShrink: 0 }}>#{idx + 1}</div>
                         <div style={{ fontSize: "0.85rem", color: "#374151", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.type}</div>
                         <MiniBar pct={Math.round((t.count / b.topTypes[0].count) * 100)} color="var(--sdx-navy)" />
-                        <div style={{ fontSize: "0.8rem", color: "#64748b", fontWeight: 600, minWidth: 28, textAlign: "right" }}>{t.count}</div>
+                        <div style={{ fontSize: "0.8rem", color: "var(--ink-500)", fontWeight: 600, minWidth: 28, textAlign: "right" }}>{t.count}</div>
                       </div>
                     ))}
                   </div>
@@ -7047,9 +7048,9 @@ function AIHealthMonitor({ history, currentUser }) {
               )}
 
               {/* Completeness */}
-              <div style={{ background: "#f8fafc", borderRadius: 14, padding: "14px" }}>
-                <div style={{ fontWeight: 700, fontSize: "0.9rem", color: "#1e293b", marginBottom: 4 }}>📝 How complete are the reports?</div>
-                <div style={{ fontSize: "0.8rem", color: "#64748b", marginBottom: 12 }}>Shows how often each part of the form gets filled in</div>
+              <div style={{ background: "var(--surface-2)", borderRadius: 14, padding: "14px" }}>
+                <div style={{ fontWeight: 700, fontSize: "0.9rem", color: "var(--ink-900)", marginBottom: 4 }}>📝 How complete are the reports?</div>
+                <div style={{ fontSize: "0.8rem", color: "var(--ink-500)", marginBottom: 12 }}>Shows how often each part of the form gets filled in</div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                   {[
                     { key: "inspectorName", label: "Inspector name", emoji: "👷" },
@@ -7091,14 +7092,14 @@ function PredictiveInsightsPanel({ history }) {
         <div className="cardTitle">🤖 Predictive Insights</div>
       </div>
       <div className="cardBody">
-        <div style={{ textAlign: "center", padding: "2rem 1rem", color: "#64748b" }}>
+        <div style={{ textAlign: "center", padding: "2rem 1rem", color: "var(--ink-500)" }}>
           <div style={{ fontSize: "2rem", marginBottom: "0.75rem" }}>📊</div>
-          <div style={{ fontWeight: 600, fontSize: "1rem", marginBottom: "0.5rem", color: "#334155" }}>No predictions yet</div>
+          <div style={{ fontWeight: 600, fontSize: "1rem", marginBottom: "0.5rem", color: "var(--ink-700)" }}>No predictions yet</div>
           <div style={{ fontSize: "0.875rem", lineHeight: 1.6 }}>
             Predictions appear once the same location has <strong>2+ inspections</strong>,
             or any site has open issues after <strong>30+ days</strong> without a follow-up.
           </div>
-          <div style={{ fontSize: "0.8rem", marginTop: "0.75rem", color: "#94a3b8" }}>
+          <div style={{ fontSize: "0.8rem", marginTop: "0.75rem", color: "var(--ink-400)" }}>
             {history.length === 0
               ? "No inspection history found. Complete and save an inspection to get started."
               : `${history.length} inspection record${history.length === 1 ? "" : "s"} found — keep inspecting the same locations to unlock pattern analysis.`}
@@ -7568,13 +7569,13 @@ function ImportReviewModal({ fields: initialFields, imagePreview, saving, onSave
     onSave({ ...fields, actionItems });
   }
 
-  const labelStyle = { display: "block", fontSize: "0.75rem", fontWeight: 700, color: "#64748b", marginBottom: 3, textTransform: "uppercase", letterSpacing: "0.04em" };
-  const inputStyle = { width: "100%", padding: "0.45rem 0.6rem", borderRadius: 7, border: "1px solid #cbd5e1", fontSize: "0.9rem", background: "#fff", boxSizing: "border-box" };
+  const labelStyle = { display: "block", fontSize: "0.75rem", fontWeight: 700, color: "var(--ink-500)", marginBottom: 3, textTransform: "uppercase", letterSpacing: "0.04em" };
+  const inputStyle = { width: "100%", padding: "0.45rem 0.6rem", borderRadius: 7, border: "1px solid #cbd5e1", fontSize: "0.9rem", background: "var(--surface-1)", boxSizing: "border-box" };
   const textareaStyle = { ...inputStyle, minHeight: 80, resize: "vertical", fontFamily: "inherit" };
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 9999, overflowY: "auto", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "1.5rem 1rem" }}>
-      <div style={{ background: "#fff", borderRadius: 14, width: "100%", maxWidth: 820, boxShadow: "0 8px 40px rgba(0,0,0,0.22)" }}>
+      <div style={{ background: "var(--surface-1)", borderRadius: 14, width: "100%", maxWidth: 820, boxShadow: "0 8px 40px rgba(0,0,0,0.22)" }}>
 
         {/* Header */}
         <div style={{ background: "var(--sdx-navy)", color: "#fff", borderRadius: "14px 14px 0 0", padding: "1rem 1.5rem", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -7589,9 +7590,9 @@ function ImportReviewModal({ fields: initialFields, imagePreview, saving, onSave
 
           {/* Image preview strip */}
           {imagePreview && (
-            <div style={{ background: "#f1f5f9", padding: "0.75rem 1.5rem", display: "flex", alignItems: "center", gap: 12, borderBottom: "1px solid #e2e8f0" }}>
-              <img src={imagePreview} alt="Paper report" style={{ height: 90, width: "auto", borderRadius: 6, border: "1px solid #cbd5e1", objectFit: "contain", background: "#fff" }} />
-              <div style={{ fontSize: "0.8rem", color: "#475569" }}>Original paper report — AI extracted the fields below. Scroll down to review all sections.</div>
+            <div style={{ background: "var(--surface-3)", padding: "0.75rem 1.5rem", display: "flex", alignItems: "center", gap: 12, borderBottom: "1px solid #e2e8f0" }}>
+              <img src={imagePreview} alt="Paper report" style={{ height: 90, width: "auto", borderRadius: 6, border: "1px solid #cbd5e1", objectFit: "contain", background: "var(--surface-1)" }} />
+              <div style={{ fontSize: "0.8rem", color: "var(--ink-600)" }}>Original paper report — AI extracted the fields below. Scroll down to review all sections.</div>
             </div>
           )}
 
@@ -7646,10 +7647,10 @@ function ImportReviewModal({ fields: initialFields, imagePreview, saving, onSave
                 <button type="button" onClick={addActionItem} style={{ fontSize: "0.8rem", background: "#eff6ff", border: "1px solid #bfdbfe", color: "#1d4ed8", borderRadius: 6, padding: "0.25rem 0.6rem", cursor: "pointer", fontWeight: 600 }}>+ Add Item</button>
               </div>
               {actionItems.length === 0 && (
-                <div style={{ color: "#94a3b8", fontSize: "0.85rem", fontStyle: "italic", padding: "0.5rem 0" }}>No issues found — or add them manually using the button above.</div>
+                <div style={{ color: "var(--ink-400)", fontSize: "0.85rem", fontStyle: "italic", padding: "0.5rem 0" }}>No issues found — or add them manually using the button above.</div>
               )}
               {actionItems.map((item, idx) => (
-                <div key={idx} style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 9, padding: "0.75rem", marginBottom: 8 }}>
+                <div key={idx} style={{ background: "var(--surface-2)", border: "1px solid #e2e8f0", borderRadius: 9, padding: "0.75rem", marginBottom: 8 }}>
                   <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: "0.5rem 0.75rem", marginBottom: 6 }}>
                     <div>
                       <label style={labelStyle}>Area</label>
@@ -7681,7 +7682,7 @@ function ImportReviewModal({ fields: initialFields, imagePreview, saving, onSave
 
             {/* Save / Cancel */}
             <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", borderTop: "1px solid #e2e8f0", paddingTop: "1rem" }}>
-              <button type="button" onClick={onCancel} style={{ background: "#fff", border: "1px solid #cbd5e1", color: "#374151", borderRadius: 8, padding: "0.55rem 1.2rem", cursor: "pointer", fontWeight: 600, fontSize: "0.9rem" }}>Cancel</button>
+              <button type="button" onClick={onCancel} style={{ background: "var(--surface-1)", border: "1px solid #cbd5e1", color: "#374151", borderRadius: 8, padding: "0.55rem 1.2rem", cursor: "pointer", fontWeight: 600, fontSize: "0.9rem" }}>Cancel</button>
               <button type="button" onClick={handleSave} disabled={saving} style={{ background: "var(--sdx-navy)", color: "#fff", border: "none", borderRadius: 8, padding: "0.55rem 1.4rem", cursor: saving ? "not-allowed" : "pointer", fontWeight: 700, fontSize: "0.9rem", opacity: saving ? 0.7 : 1 }}>
                 {saving ? "Saving…" : "✓ Save Report"}
               </button>
@@ -9306,24 +9307,24 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                 )}
               </button>
               {historyNotifOpen && (
-                <div className="dropdownMenu" style={{ right: 0, left: "auto", minWidth: 300, maxWidth: 380, maxHeight: 420, overflowY: "auto", background: "#fff", padding: 0 }} onClick={e => e.stopPropagation()}>
-                  <div style={{ padding: "0.65rem 1rem", fontWeight: 700, fontSize: "0.85rem", color: "#1e293b", borderBottom: "1px solid #e2e8f0", display: "flex", justifyContent: "space-between", alignItems: "center", background: "#f8fafc" }}>
+                <div className="dropdownMenu" style={{ right: 0, left: "auto", minWidth: 300, maxWidth: 380, maxHeight: 420, overflowY: "auto", background: "var(--surface-1)", padding: 0 }} onClick={e => e.stopPropagation()}>
+                  <div style={{ padding: "0.65rem 1rem", fontWeight: 700, fontSize: "0.85rem", color: "var(--ink-900)", borderBottom: "1px solid #e2e8f0", display: "flex", justifyContent: "space-between", alignItems: "center", background: "var(--surface-2)" }}>
                     <span>🔔 Notifications</span>
                     {notifItems.length > 0 && (
-                      <button type="button" style={{ background: "none", border: "none", cursor: "pointer", color: "#64748b", fontSize: "0.75rem" }} onClick={() => { onNotifClearAll?.(); setHistoryNotifOpen(false); }}>Clear all</button>
+                      <button type="button" style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink-500)", fontSize: "0.75rem" }} onClick={() => { onNotifClearAll?.(); setHistoryNotifOpen(false); }}>Clear all</button>
                     )}
                   </div>
                   {notifItems.length === 0 ? (
-                    <div style={{ padding: "1.5rem 1rem", color: "#64748b", fontSize: "0.85rem", textAlign: "center" }}>No notifications</div>
+                    <div style={{ padding: "1.5rem 1rem", color: "var(--ink-500)", fontSize: "0.85rem", textAlign: "center" }}>No notifications</div>
                   ) : (
                     notifItems.map(n => (
-                      <div key={n.id} style={{ display: "flex", alignItems: "stretch", borderLeft: `4px solid ${n.type === "chat" ? "#3b82f6" : n.type === "problem_report" ? "#ef4444" : "#f59e0b"}`, borderBottom: "1px solid #f1f5f9", background: "#fff" }}>
+                      <div key={n.id} style={{ display: "flex", alignItems: "stretch", borderLeft: `4px solid ${n.type === "chat" ? "#3b82f6" : n.type === "problem_report" ? "#ef4444" : "#f59e0b"}`, borderBottom: "1px solid #f1f5f9", background: "var(--surface-1)" }}>
                         <button type="button" style={{ flex: 1, flexDirection: "column", alignItems: "flex-start", gap: 3, background: "none", border: "none", cursor: "pointer", padding: "0.65rem 0.75rem", textAlign: "left" }}
                           onClick={() => { onNotifDismiss?.(n.id); setHistoryNotifOpen(false); if (n.type === "assignment") onMyTasks?.(); }}>
-                          <span style={{ fontWeight: 700, fontSize: "0.82rem", color: "#0f172a", display: "block" }}>{n.title}</span>
-                          <span style={{ fontSize: "0.78rem", color: "#334155", whiteSpace: "normal", display: "block", marginTop: 2, lineHeight: 1.4 }}>{n.body}</span>
+                          <span style={{ fontWeight: 700, fontSize: "0.82rem", color: "var(--ink-900)", display: "block" }}>{n.title}</span>
+                          <span style={{ fontSize: "0.78rem", color: "var(--ink-700)", whiteSpace: "normal", display: "block", marginTop: 2, lineHeight: 1.4 }}>{n.body}</span>
                         </button>
-                        <button type="button" onClick={() => onNotifDismiss?.(n.id)} style={{ background: "none", border: "none", cursor: "pointer", padding: "0 0.75rem", color: "#94a3b8", fontSize: "1.1rem", flexShrink: 0, alignSelf: "center" }} aria-label="Dismiss">×</button>
+                        <button type="button" onClick={() => onNotifDismiss?.(n.id)} style={{ background: "none", border: "none", cursor: "pointer", padding: "0 0.75rem", color: "var(--ink-400)", fontSize: "1.1rem", flexShrink: 0, alignSelf: "center" }} aria-label="Dismiss">×</button>
                       </div>
                     ))
                   )}
@@ -9384,11 +9385,11 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
           onClick={() => { if (!resolveSaving) { setResolveModal(null); setResolveNote(""); } }}
         >
           <div
-            style={{ background: "#fff", borderRadius: 14, boxShadow: "0 16px 60px rgba(0,0,0,0.3)", width: "min(480px, 100%)", padding: "28px 28px 24px" }}
+            style={{ background: "var(--surface-1)", borderRadius: 14, boxShadow: "0 16px 60px rgba(0,0,0,0.3)", width: "min(480px, 100%)", padding: "28px 28px 24px" }}
             onClick={e => e.stopPropagation()}
           >
-            <div style={{ fontWeight: 700, fontSize: "1.05rem", marginBottom: 4, color: "#0f172a" }}>Mark Issue Resolved</div>
-            <div style={{ fontSize: "0.82rem", color: "#64748b", marginBottom: 16, fontStyle: "italic", lineHeight: 1.4 }}>{resolveModal.issueText}</div>
+            <div style={{ fontWeight: 700, fontSize: "1.05rem", marginBottom: 4, color: "var(--ink-900)" }}>Mark Issue Resolved</div>
+            <div style={{ fontSize: "0.82rem", color: "var(--ink-500)", marginBottom: 16, fontStyle: "italic", lineHeight: 1.4 }}>{resolveModal.issueText}</div>
             <label style={{ display: "block", marginBottom: 14 }}>
               <span style={{ display: "block", fontSize: "0.82rem", fontWeight: 600, color: "#374151", marginBottom: 6 }}>Corrective action note (optional)</span>
               <textarea
@@ -9447,9 +9448,9 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
             onClick={e => e.stopPropagation()}
           >
             <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", background: "#1e293b", borderBottom: "1px solid #334155" }}>
-              <span style={{ color: "#94a3b8", fontSize: "0.8rem", fontWeight: 700 }}>📷 Photo #{lightboxPhoto.num}</span>
-              <span style={{ color: "#64748b", fontSize: "0.8rem", flex: 1 }}>{lightboxPhoto.label}</span>
-              {lightboxPhoto.caption && <span style={{ color: "#94a3b8", fontSize: "0.75rem", fontStyle: "italic" }}>{lightboxPhoto.caption}</span>}
+              <span style={{ color: "var(--ink-400)", fontSize: "0.8rem", fontWeight: 700 }}>📷 Photo #{lightboxPhoto.num}</span>
+              <span style={{ color: "var(--ink-500)", fontSize: "0.8rem", flex: 1 }}>{lightboxPhoto.label}</span>
+              {lightboxPhoto.caption && <span style={{ color: "var(--ink-400)", fontSize: "0.75rem", fontStyle: "italic" }}>{lightboxPhoto.caption}</span>}
               <a
                 href={lightboxPhoto.url}
                 download={`photo-${lightboxPhoto.num}.jpg`}
@@ -9461,7 +9462,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
               <button
                 type="button"
                 onClick={() => setLightboxPhoto(null)}
-                style={{ background: "none", border: "none", color: "#94a3b8", fontSize: "1.4rem", cursor: "pointer", lineHeight: 1, padding: "0 4px", flexShrink: 0 }}
+                style={{ background: "none", border: "none", color: "var(--ink-400)", fontSize: "1.4rem", cursor: "pointer", lineHeight: 1, padding: "0 4px", flexShrink: 0 }}
               >✕</button>
             </div>
             <img
@@ -9588,7 +9589,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                   </div>
                   {/* Live result count */}
                   {activeFilterCount > 0 && (
-                    <div style={{ marginTop: "0.5rem", fontSize: "0.78rem", color: filtered.length === 0 ? "#dc2626" : "#64748b", fontWeight: 500 }}>
+                    <div style={{ marginTop: "0.5rem", fontSize: "0.78rem", color: filtered.length === 0 ? "#dc2626" : "var(--ink-500)", fontWeight: 500 }}>
                       {filtered.length === 0
                         ? "No reports match these filters — try adjusting or clearing them."
                         : `${filtered.length} report${filtered.length !== 1 ? "s" : ""} match${filtered.length === 1 ? "es" : ""} your filters`}
@@ -9720,7 +9721,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                                 {ev.type === "inspection" ? "📋" : "🌡️"} {ev.label}{ev.siteNumber ? ` #${ev.siteNumber}` : ""}
                               </span>
                               {ev.locationType && (
-                                <span style={{ fontSize: "0.66rem", fontWeight: 600, padding: "1px 6px", borderRadius: 6, background: "#f1f5f9", color: "#475569", border: "1px solid #e2e8f0" }}>
+                                <span style={{ fontSize: "0.66rem", fontWeight: 600, padding: "1px 6px", borderRadius: 6, background: "var(--surface-3)", color: "var(--ink-600)", border: "1px solid #e2e8f0" }}>
                                   {ev.locationType}
                                 </span>
                               )}
@@ -10026,7 +10027,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                             <span className="rptInfoLabel">Compliance Score</span>
                             <span className="rptInfoVal" style={{ color: score.color, fontWeight: 700 }}>
                               {score.pct}% — Grade {score.grade}
-                              <span style={{ fontWeight: 400, color: "#64748b", fontSize: "0.8em" }}> ({score.passed}/{score.scoredTotal} items)</span>
+                              <span style={{ fontWeight: 400, color: "var(--ink-500)", fontSize: "0.8em" }}> ({score.passed}/{score.scoredTotal} items)</span>
                               {score.hasTempViolations && (
                                 <span style={{ display: "block", fontSize: "0.75em", fontWeight: 700, color: "#991b1b", marginTop: 2 }}>
                                   🌡️ -{score.tempPenalty} pts temp penalty applied
@@ -10045,7 +10046,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                               ? <span style={{ color: "#dc2626", fontWeight: 700 }}>🚩 OUT OF ORDER</span>
                               : rec.temps?.handSinkTempF ? `${rec.temps.handSinkTempF}°F` : "—"}
                             {!rec.temps?.handSinkOutOfOrder && rec.temps?.handSinkTempF && (Number(rec.temps.handSinkTempF) >= 95 ? " ✅" : " ⚠️")}
-                            {rec.temps?.handSinkNote ? <span style={{ display: "block", fontSize: "0.75rem", color: rec.temps.handSinkOutOfOrder ? "#dc2626" : "#64748b", marginTop: 2 }}>{rec.temps.handSinkNote}</span> : null}
+                            {rec.temps?.handSinkNote ? <span style={{ display: "block", fontSize: "0.75rem", color: rec.temps.handSinkOutOfOrder ? "#dc2626" : "var(--ink-500)", marginTop: 2 }}>{rec.temps.handSinkNote}</span> : null}
                           </span>
                         </div>
                         <div className="rptInfoCell">
@@ -10055,7 +10056,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                               ? <span style={{ color: "#dc2626", fontWeight: 700 }}>🚩 OUT OF ORDER</span>
                               : rec.temps?.threeCompSinkTempF ? `${rec.temps.threeCompSinkTempF}°F` : "—"}
                             {!rec.temps?.threeCompSinkOutOfOrder && rec.temps?.threeCompSinkTempF && (Number(rec.temps.threeCompSinkTempF) >= 110 ? " ✅" : " ⚠️")}
-                            {rec.temps?.threeCompSinkNote ? <span style={{ display: "block", fontSize: "0.75rem", color: rec.temps.threeCompSinkOutOfOrder ? "#dc2626" : "#64748b", marginTop: 2 }}>{rec.temps.threeCompSinkNote}</span> : null}
+                            {rec.temps?.threeCompSinkNote ? <span style={{ display: "block", fontSize: "0.75rem", color: rec.temps.threeCompSinkOutOfOrder ? "#dc2626" : "var(--ink-500)", marginTop: 2 }}>{rec.temps.threeCompSinkNote}</span> : null}
                           </span>
                         </div>
                         {(() => {
@@ -10114,7 +10115,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                                           a.priority === "Follow-up" ? "priorityFollowup" : "priorityMed"
                                         )}>{resolved ? "✓ Resolved" : (() => { const st = a.status && a.status !== "OK" ? a.status : a.priority; return st === "High" ? "Fail" : st === "Med" ? "Needs Attention" : st; })()}</span>
                                         <div style={{ flex: 1 }}>
-                                          <span className="issueRowText" style={resolved ? { textDecoration: "line-through", color: "#64748b" } : undefined}>{a.issue}</span>
+                                          <span className="issueRowText" style={resolved ? { textDecoration: "line-through", color: "var(--ink-500)" } : undefined}>{a.issue}</span>
                                           {resolved && (
                                             <div style={{ fontSize: "0.75rem", color: "#15803d", marginTop: 3 }}>
                                               {resolved.resolvedNote && <span>"{resolved.resolvedNote}" · </span>}
@@ -10129,7 +10130,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                                           type="button"
                                           className="btn btnGhost btnSmall"
                                           style={resolved
-                                            ? { color: "#64748b", borderColor: "rgba(100,116,139,.3)", fontSize: "0.72rem", padding: "2px 8px", flexShrink: 0 }
+                                            ? { color: "var(--ink-500)", borderColor: "rgba(100,116,139,.3)", fontSize: "0.72rem", padding: "2px 8px", flexShrink: 0 }
                                             : { color: "#15803d", borderColor: "rgba(21,128,61,.35)", fontSize: "0.72rem", padding: "2px 8px", flexShrink: 0 }
                                           }
                                           onClick={() => {
@@ -10204,7 +10205,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                                         <td className="rptCellSec">{showSec ? sec : ""}</td>
                                         <td className="rptCellItem">{label}</td>
                                         <td className="rptCellStatus"><span className="rptPill rptPillNa">N/A</span></td>
-                                        <td className="rptCellNotes" style={{ color: "#94a3b8", fontStyle: "italic" }}>Not applicable</td>
+                                        <td className="rptCellNotes" style={{ color: "var(--ink-400)", fontStyle: "italic" }}>Not applicable</td>
                                       </tr>
                                     );
                                   }
@@ -10535,7 +10536,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                               {photoList.map(p => (
                                 <div
                                   key={p.num}
-                                  style={{ width: 130, borderRadius: 8, overflow: "hidden", border: "1px solid #e2e8f0", background: "#f8fafc", flexShrink: 0, cursor: p.previewUrl ? "zoom-in" : "default" }}
+                                  style={{ width: 130, borderRadius: 8, overflow: "hidden", border: "1px solid #e2e8f0", background: "var(--surface-2)", flexShrink: 0, cursor: p.previewUrl ? "zoom-in" : "default" }}
                                   onClick={p.previewUrl ? (e => { e.stopPropagation(); setLightboxPhoto({ url: p.previewUrl, label: p.label, caption: p.caption, num: p.num }); }) : undefined}
                                 >
                                   {p.previewUrl ? (
@@ -10548,16 +10549,16 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                                       <div className="photoThumbOverlay">🔍</div>
                                     </div>
                                   ) : (
-                                    <div style={{ width: "100%", height: 100, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", color: "#94a3b8", fontSize: "0.68rem", background: "#f1f5f9", padding: "0 4px", textAlign: "center", gap: 4 }}>
+                                    <div style={{ width: "100%", height: 100, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", color: "var(--ink-400)", fontSize: "0.68rem", background: "var(--surface-3)", padding: "0 4px", textAlign: "center", gap: 4 }}>
                                       <span style={{ fontSize: "1.2rem" }}>🖼️</span>
                                       <span>Photo saved</span>
                                       <span style={{ color: "#cbd5e1" }}>Click Edit to re-upload</span>
                                     </div>
                                   )}
                                   <div style={{ padding: "4px 6px" }}>
-                                    <div style={{ fontSize: "0.68rem", fontWeight: 700, color: "#64748b" }}>#{p.num}</div>
-                                    <div style={{ fontSize: "0.68rem", color: "#475569", lineHeight: 1.3, marginTop: 1 }}>{p.label}</div>
-                                    {p.caption && <div style={{ fontSize: "0.65rem", color: "#94a3b8", marginTop: 1 }}>{p.caption}</div>}
+                                    <div style={{ fontSize: "0.68rem", fontWeight: 700, color: "var(--ink-500)" }}>#{p.num}</div>
+                                    <div style={{ fontSize: "0.68rem", color: "var(--ink-600)", lineHeight: 1.3, marginTop: 1 }}>{p.label}</div>
+                                    {p.caption && <div style={{ fontSize: "0.65rem", color: "var(--ink-400)", marginTop: 1 }}>{p.caption}</div>}
                                   </div>
                                 </div>
                               ))}
@@ -10597,26 +10598,26 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                             )}
                           </div>
                         ) : (
-                          <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 10, padding: "1.25rem", marginBottom: 4 }}>
+                          <div style={{ background: "var(--surface-2)", border: "1px solid #e2e8f0", borderRadius: 10, padding: "1.25rem", marginBottom: 4 }}>
                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
-                              <span style={{ fontWeight: 700, color: "#1e293b", fontSize: "0.9rem" }}>⬇️ Download Report</span>
+                              <span style={{ fontWeight: 700, color: "var(--ink-900)", fontSize: "0.9rem" }}>⬇️ Download Report</span>
                               <button type="button" onClick={() => { setDlPickerId(null); setDlScope(null); }}
-                                style={{ background: "none", border: "none", fontSize: "1.1rem", cursor: "pointer", color: "#94a3b8", lineHeight: 1 }}>✕</button>
+                                style={{ background: "none", border: "none", fontSize: "1.1rem", cursor: "pointer", color: "var(--ink-400)", lineHeight: 1 }}>✕</button>
                             </div>
 
                             {/* Step 1: What to include */}
                             <div style={{ marginBottom: "1rem" }}>
-                              <div style={{ fontSize: "0.75rem", fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: "0.6rem" }}>What do you want to include?</div>
+                              <div style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--ink-500)", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: "0.6rem" }}>What do you want to include?</div>
                               <div style={{ display: "flex", gap: 12 }}>
                                 <button type="button"
                                   onClick={() => setDlScope("full")}
-                                  style={{ flex: 1, padding: "0.85rem 0.75rem", borderRadius: 8, border: dlScope === "full" ? "2px solid #2A295C" : "1.5px solid #cbd5e1", background: dlScope === "full" ? "var(--sdx-navy)" : "#fff", color: dlScope === "full" ? "#fff" : "#1e293b", fontWeight: 600, fontSize: "0.82rem", cursor: "pointer", transition: "all 0.15s" }}>
+                                  style={{ flex: 1, padding: "0.85rem 0.75rem", borderRadius: 8, border: dlScope === "full" ? "2px solid #2A295C" : "1.5px solid #cbd5e1", background: dlScope === "full" ? "var(--sdx-navy)" : "#fff", color: dlScope === "full" ? "#fff" : "var(--ink-900)", fontWeight: 600, fontSize: "0.82rem", cursor: "pointer", transition: "all 0.15s" }}>
                                   📋 Full Report<br />
                                   <span style={{ fontSize: "0.7rem", fontWeight: 400, opacity: 0.8 }}>All details, temps, notes</span>
                                 </button>
                                 <button type="button"
                                   onClick={() => setDlScope("issues")}
-                                  style={{ flex: 1, padding: "0.85rem 0.75rem", borderRadius: 8, border: dlScope === "issues" ? "2px solid #DC2626" : "1.5px solid #cbd5e1", background: dlScope === "issues" ? "#DC2626" : "#fff", color: dlScope === "issues" ? "#fff" : "#1e293b", fontWeight: 600, fontSize: "0.82rem", cursor: "pointer", transition: "all 0.15s" }}>
+                                  style={{ flex: 1, padding: "0.85rem 0.75rem", borderRadius: 8, border: dlScope === "issues" ? "2px solid #DC2626" : "1.5px solid #cbd5e1", background: dlScope === "issues" ? "#DC2626" : "#fff", color: dlScope === "issues" ? "#fff" : "var(--ink-900)", fontWeight: 600, fontSize: "0.82rem", cursor: "pointer", transition: "all 0.15s" }}>
                                   ⚠️ Issues Only<br />
                                   <span style={{ fontSize: "0.7rem", fontWeight: 400, opacity: 0.8 }}>Just the action items</span>
                                 </button>
@@ -10626,7 +10627,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                             {/* Step 2: Format (shown once scope chosen) */}
                             {dlScope && (
                               <div>
-                                <div style={{ fontSize: "0.75rem", fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: "0.6rem" }}>Choose format:</div>
+                                <div style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--ink-500)", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: "0.6rem" }}>Choose format:</div>
                                 <div style={{ display: "flex", gap: 12 }}>
                                   <button type="button" className="btn"
                                     style={{ flex: 1, background: "#217346", color: "#fff", borderColor: "#217346", fontWeight: 600, padding: "0.7rem 0.5rem", fontSize: "0.88rem" }}
@@ -10859,7 +10860,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
         return (
           <div style={{ position: "fixed", inset: 0, zIndex: 500, background: "rgba(15,23,42,0.6)", display: "flex", alignItems: "flex-end", justifyContent: "center", backdropFilter: "blur(2px)" }}
             onClick={e => { if (e.target === e.currentTarget) { setShowIssueFilter(null); setModalIssueSearch(""); } }}>
-            <div style={{ background: "#fff", borderRadius: "24px 24px 0 0", width: "100%", maxWidth: 660, maxHeight: "90vh", display: "flex", flexDirection: "column", boxShadow: "0 -8px 48px rgba(0,0,0,0.22)" }}>
+            <div style={{ background: "var(--surface-1)", borderRadius: "24px 24px 0 0", width: "100%", maxWidth: 660, maxHeight: "90vh", display: "flex", flexDirection: "column", boxShadow: "0 -8px 48px rgba(0,0,0,0.22)" }}>
 
               {/* Drag handle */}
               <div style={{ display: "flex", justifyContent: "center", padding: "12px 0 0" }}>
@@ -10875,11 +10876,11 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                       {exportIcon}
                     </div>
                     <div>
-                      <div style={{ fontWeight: 700, fontSize: "1.05rem", color: "#0f172a", letterSpacing: "-0.01em" }}>
+                      <div style={{ fontWeight: 700, fontSize: "1.05rem", color: "var(--ink-900)", letterSpacing: "-0.01em" }}>
                         Export to {exportLabel}
                       </div>
-                      <div style={{ fontSize: "0.78rem", color: "#64748b", marginTop: 2, display: "flex", alignItems: "center", gap: 6 }}>
-                        <span style={{ display: "inline-flex", alignItems: "center", gap: 3, background: "#f1f5f9", borderRadius: 6, padding: "1px 7px", fontWeight: 600, color: "#475569" }}>
+                      <div style={{ fontSize: "0.78rem", color: "var(--ink-500)", marginTop: 2, display: "flex", alignItems: "center", gap: 6 }}>
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 3, background: "var(--surface-3)", borderRadius: 6, padding: "1px 7px", fontWeight: 600, color: "var(--ink-600)" }}>
                           {selectedRecords.length} report{selectedRecords.length !== 1 ? "s" : ""}
                         </span>
                         <span>— pick which issues to include</span>
@@ -10888,7 +10889,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                   </div>
                   {/* Close button */}
                   <button type="button" onClick={() => { setShowIssueFilter(null); setModalIssueSearch(""); }}
-                    style={{ background: "#f1f5f9", border: "none", borderRadius: "50%", width: 34, height: 34, cursor: "pointer", color: "#64748b", fontSize: "1rem", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "background 0.15s" }}
+                    style={{ background: "var(--surface-3)", border: "none", borderRadius: "50%", width: 34, height: 34, cursor: "pointer", color: "var(--ink-500)", fontSize: "1rem", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "background 0.15s" }}
                     onMouseEnter={e => e.currentTarget.style.background = "#e2e8f0"}
                     onMouseLeave={e => e.currentTarget.style.background = "#f1f5f9"}>✕</button>
                 </div>
@@ -10897,7 +10898,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                 <div style={{ display: "flex", gap: 8, marginTop: 14, flexWrap: "wrap" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 10px", borderRadius: 8, background: selectedCount > 0 ? exportAccentLight : "#f8fafc", border: `1px solid ${selectedCount > 0 ? exportAccentMid : "#e2e8f0"}` }}>
                     <span style={{ width: 7, height: 7, borderRadius: "50%", background: selectedCount > 0 ? exportAccent : "#cbd5e1", display: "inline-block" }} />
-                    <span style={{ fontSize: "0.78rem", fontWeight: 700, color: selectedCount > 0 ? exportAccent : "#94a3b8" }}>
+                    <span style={{ fontSize: "0.78rem", fontWeight: 700, color: selectedCount > 0 ? exportAccent : "var(--ink-400)" }}>
                       {selectedCount} of {allIssues.length} selected
                     </span>
                   </div>
@@ -10907,16 +10908,16 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                     </div>
                   )}
                   <button type="button"
-                    style={{ marginLeft: "auto", fontSize: "0.75rem", padding: "5px 11px", borderRadius: 8, border: "1px solid #e2e8f0", background: "#f8fafc", cursor: "pointer", fontWeight: 600, color: "#475569" }}
+                    style={{ marginLeft: "auto", fontSize: "0.75rem", padding: "5px 11px", borderRadius: 8, border: "1px solid #e2e8f0", background: "var(--surface-2)", cursor: "pointer", fontWeight: 600, color: "var(--ink-600)" }}
                     onClick={() => setSelectedIssueKeys(new Set(allIssues.map(i => i.key)))}>Select all</button>
                   <button type="button"
-                    style={{ fontSize: "0.75rem", padding: "5px 11px", borderRadius: 8, border: "1px solid #e2e8f0", background: "#f8fafc", cursor: "pointer", fontWeight: 600, color: "#475569" }}
+                    style={{ fontSize: "0.75rem", padding: "5px 11px", borderRadius: 8, border: "1px solid #e2e8f0", background: "var(--surface-2)", cursor: "pointer", fontWeight: 600, color: "var(--ink-600)" }}
                     onClick={() => setSelectedIssueKeys(new Set())}>Clear</button>
                 </div>
 
                 {/* Search bar */}
                 <div style={{ marginTop: 12, position: "relative" }}>
-                  <svg style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: "#94a3b8", pointerEvents: "none" }} width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <svg style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: "var(--ink-400)", pointerEvents: "none" }} width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
                   </svg>
                   <input
@@ -10924,13 +10925,13 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                     placeholder="Search issues or categories…"
                     value={modalIssueSearch}
                     onChange={e => setModalIssueSearch(e.target.value)}
-                    style={{ width: "100%", boxSizing: "border-box", padding: "9px 36px 9px 34px", borderRadius: 10, border: "1.5px solid #e2e8f0", fontSize: "0.85rem", outline: "none", background: "#f8fafc", color: "#0f172a", transition: "border-color 0.15s" }}
+                    style={{ width: "100%", boxSizing: "border-box", padding: "9px 36px 9px 34px", borderRadius: 10, border: "1.5px solid #e2e8f0", fontSize: "0.85rem", outline: "none", background: "var(--surface-2)", color: "var(--ink-900)", transition: "border-color 0.15s" }}
                     onFocus={e => e.target.style.borderColor = exportAccent}
                     onBlur={e => e.target.style.borderColor = "#e2e8f0"}
                   />
                   {modalIssueSearch && (
                     <button type="button" onClick={() => setModalIssueSearch("")}
-                      style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "#e2e8f0", border: "none", borderRadius: "50%", width: 18, height: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.65rem", color: "#64748b" }}>✕</button>
+                      style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "#e2e8f0", border: "none", borderRadius: "50%", width: 18, height: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.65rem", color: "var(--ink-500)" }}>✕</button>
                   )}
                 </div>
 
@@ -10951,15 +10952,15 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
               {/* Issue list */}
               <div style={{ overflowY: "auto", flex: 1, padding: "4px 0" }}>
                 {allIssues.length === 0 ? (
-                  <div style={{ textAlign: "center", padding: "3.5rem 2rem", color: "#94a3b8" }}>
+                  <div style={{ textAlign: "center", padding: "3.5rem 2rem", color: "var(--ink-400)" }}>
                     <div style={{ fontSize: "2rem", marginBottom: 10 }}>📋</div>
-                    <div style={{ fontWeight: 600, fontSize: "0.9rem", color: "#64748b" }}>No action items found</div>
+                    <div style={{ fontWeight: 600, fontSize: "0.9rem", color: "var(--ink-500)" }}>No action items found</div>
                     <div style={{ fontSize: "0.8rem", marginTop: 4 }}>The selected reports have no flagged issues.</div>
                   </div>
                 ) : visibleIssues.length === 0 ? (
-                  <div style={{ textAlign: "center", padding: "3.5rem 2rem", color: "#94a3b8" }}>
+                  <div style={{ textAlign: "center", padding: "3.5rem 2rem", color: "var(--ink-400)" }}>
                     <div style={{ fontSize: "2rem", marginBottom: 10 }}>🔍</div>
-                    <div style={{ fontWeight: 600, fontSize: "0.9rem", color: "#64748b" }}>No issues match</div>
+                    <div style={{ fontWeight: 600, fontSize: "0.9rem", color: "var(--ink-500)" }}>No issues match</div>
                     <div style={{ fontSize: "0.8rem", marginTop: 4 }}>&ldquo;{modalIssueSearch}&rdquo;</div>
                   </div>
                 ) : areas.map((area, aIdx) => {
@@ -10978,14 +10979,14 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                         <input type="checkbox" readOnly checked={allAreaSelected}
                           ref={el => { if (el) el.indeterminate = !allAreaSelected && someAreaSelected; }}
                           style={{ width: 15, height: 15, accentColor: exportAccent, flexShrink: 0, cursor: "pointer" }} />
-                        <svg style={{ color: "#64748b", flexShrink: 0 }} width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <svg style={{ color: "var(--ink-500)", flexShrink: 0 }} width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                           <rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>
                         </svg>
-                        <span style={{ fontWeight: 700, fontSize: "0.8rem", color: "#1e293b", letterSpacing: "0.01em", flex: 1 }}>{area}</span>
+                        <span style={{ fontWeight: 700, fontSize: "0.8rem", color: "var(--ink-900)", letterSpacing: "0.01em", flex: 1 }}>{area}</span>
                         <span style={{
                           fontSize: "0.72rem", fontWeight: 700, padding: "2px 9px", borderRadius: 20,
                           background: areaSelCount === items.length ? exportAccent : areaSelCount > 0 ? exportAccentMid : "#e2e8f0",
-                          color: areaSelCount === items.length ? "#fff" : areaSelCount > 0 ? exportAccent : "#64748b",
+                          color: areaSelCount === items.length ? "#fff" : areaSelCount > 0 ? exportAccent : "var(--ink-500)",
                           transition: "all 0.15s",
                         }}>
                           {areaSelCount}/{items.length}
@@ -11003,7 +11004,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                             onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = "#fff"; }}>
                             <input type="checkbox" readOnly checked={isSelected}
                               style={{ width: 15, height: 15, accentColor: exportAccent, flexShrink: 0, cursor: "pointer", marginTop: 2 }} />
-                            <span style={{ flex: 1, fontSize: "0.84rem", color: isSelected ? "#0f172a" : "#374151", lineHeight: 1.5, fontWeight: isSelected ? 500 : 400 }}>{item.issue || "—"}</span>
+                            <span style={{ flex: 1, fontSize: "0.84rem", color: isSelected ? "var(--ink-900)" : "#374151", lineHeight: 1.5, fontWeight: isSelected ? 500 : 400 }}>{item.issue || "—"}</span>
                             {(() => {
                               // item.status is already normalized (never "High"/"Med") — use it directly
                               const st = item.status || "Fail";
@@ -11016,8 +11017,8 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                                 st === "Follow-up"          ? { bg: "#f0f9ff", color: "#0284c7", border: "#bae6fd" } :
                                 st === "Maintenance"        ? { bg: "#faf5ff", color: "#7c3aed", border: "#e9d5ff" } :
                                 st === "Corrected On-Site"  ? { bg: "#f0fdf4", color: "#15803d", border: "#bbf7d0" } :
-                                st === "Off / Not In Use"   ? { bg: "#f8fafc", color: "#64748b", border: "#e2e8f0" } :
-                                st === "N/A"                ? { bg: "#f8fafc", color: "#94a3b8", border: "#e2e8f0" } :
+                                st === "Off / Not In Use"   ? { bg: "#f8fafc", color: "var(--ink-500)", border: "#e2e8f0" } :
+                                st === "N/A"                ? { bg: "#f8fafc", color: "var(--ink-400)", border: "#e2e8f0" } :
                                 st === "OK"                 ? { bg: "#f0fdf4", color: "#15803d", border: "#bbf7d0" } :
                                                               { bg: "#fefce8", color: "#a16207", border: "#fde68a" };
                               return (
@@ -11037,7 +11038,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
               {/* Footer */}
               <div style={{ padding: "14px 20px 20px", borderTop: "1px solid #f1f5f9", display: "flex", gap: 10, flexShrink: 0, background: "#fafafa", borderRadius: "0 0 0 0" }}>
                 <button type="button" onClick={() => { setShowIssueFilter(null); setModalIssueSearch(""); }}
-                  style={{ flex: 1, padding: "12px", borderRadius: 12, border: "1.5px solid #e2e8f0", background: "#fff", cursor: "pointer", fontWeight: 600, color: "#475569", fontSize: "0.88rem", transition: "background 0.15s" }}
+                  style={{ flex: 1, padding: "12px", borderRadius: 12, border: "1.5px solid #e2e8f0", background: "var(--surface-1)", cursor: "pointer", fontWeight: 600, color: "var(--ink-600)", fontSize: "0.88rem", transition: "background 0.15s" }}
                   onMouseEnter={e => e.currentTarget.style.background = "#f1f5f9"}
                   onMouseLeave={e => e.currentTarget.style.background = "#fff"}>
                   Cancel
@@ -11048,13 +11049,13 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                     cursor: (selectedCount === 0 || issueExporting) ? "not-allowed" : "pointer",
                     fontWeight: 700, fontSize: "0.92rem",
                     background: (selectedCount === 0 || issueExporting) ? "#e2e8f0" : `linear-gradient(135deg, ${exportAccent}, ${showIssueFilter === "excel" ? "#15803d" : showIssueFilter === "pdf" ? "#b91c1c" : "#1d4ed8"})`,
-                    color: (selectedCount === 0 || issueExporting) ? "#94a3b8" : "#fff",
+                    color: (selectedCount === 0 || issueExporting) ? "var(--ink-400)" : "#fff",
                     boxShadow: (selectedCount === 0 || issueExporting) ? "none" : `0 2px 12px ${exportAccent}44`,
                     transition: "all 0.15s",
                     display: "flex", alignItems: "center", justifyContent: "center", gap: 7,
                   }}>
                   {issueExporting
-                    ? <><span style={{ width: 16, height: 16, border: "2px solid #94a3b8", borderTopColor: "#475569", borderRadius: "50%", display: "inline-block", animation: "spin 0.7s linear infinite" }} /><span>Preparing download…</span></>
+                    ? <><span style={{ width: 16, height: 16, border: "2px solid #94a3b8", borderTopColor: "var(--ink-600)", borderRadius: "50%", display: "inline-block", animation: "spin 0.7s linear infinite" }} /><span>Preparing download…</span></>
                     : <><span style={{ fontSize: "1rem" }}>{exportIcon}</span><span>{selectedCount > 0 ? `Export ${selectedCount} Issue${selectedCount !== 1 ? "s" : ""} to ${exportLabel}` : `Select issues to export`}</span></>
                   }
                 </button>
@@ -11134,9 +11135,9 @@ function MyTempsPage({ currentUser, onBack }) {
       <div className="topBarSpacer" />
       <main className="pageMain pageMainNarrow">
         {loading ? (
-          <div style={{ textAlign: "center", padding: "3rem", color: "#94a3b8" }}>Loading…</div>
+          <div style={{ textAlign: "center", padding: "3rem", color: "var(--ink-400)" }}>Loading…</div>
         ) : subs.length === 0 && inspRecords.length === 0 ? (
-          <div style={{ textAlign: "center", padding: "3rem", color: "#64748b" }}>
+          <div style={{ textAlign: "center", padding: "3rem", color: "var(--ink-500)" }}>
             <div style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>🌡️</div>
             <div style={{ fontWeight: 600, marginBottom: "0.25rem" }}>No temperature logs yet</div>
             <div style={{ fontSize: "0.85rem" }}>
@@ -11149,7 +11150,7 @@ function MyTempsPage({ currentUser, onBack }) {
             {/* ── Supervisor HACCP Submissions ── */}
             {subs.length > 0 && (
               <div>
-                <div style={{ fontSize: "0.72rem", fontWeight: 700, color: "#64748b", letterSpacing: "0.05em", textTransform: "uppercase", marginBottom: "0.5rem" }}>
+                <div style={{ fontSize: "0.72rem", fontWeight: 700, color: "var(--ink-500)", letterSpacing: "0.05em", textTransform: "uppercase", marginBottom: "0.5rem" }}>
                   Supervisor HACCP — {subs.length} submission{subs.length !== 1 ? "s" : ""}
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
@@ -11167,7 +11168,7 @@ function MyTempsPage({ currentUser, onBack }) {
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "0.5rem" }}>
                           <div>
                             <div style={{ fontWeight: 600, color: "#f1f5f9" }}>{sub.supervisorName || "Supervisor"}</div>
-                            <div style={{ fontSize: "0.78rem", color: "#94a3b8", marginTop: "0.1rem" }}>{fmtTime(sub.submittedAt)}</div>
+                            <div style={{ fontSize: "0.78rem", color: "var(--ink-400)", marginTop: "0.1rem" }}>{fmtTime(sub.submittedAt)}</div>
                           </div>
                           <div>
                             {flagged.length > 0
@@ -11190,9 +11191,9 @@ function MyTempsPage({ currentUser, onBack }) {
                               const displayLabel = (sub.itemLabels || {})[item.key] || item.label;
                               return (
                                 <span key={item.key} style={{
-                                  background: "#0f172a", border: `1px solid ${allPass ? "#334155" : "#ef4444"}`,
+                                  background: "#0f172a", border: `1px solid ${allPass ? "var(--ink-700)" : "#ef4444"}`,
                                   borderRadius: "6px", padding: "0.2rem 0.55rem", fontSize: "0.72rem",
-                                  color: allPass ? "#94a3b8" : "#ef4444",
+                                  color: allPass ? "var(--ink-400)" : "#ef4444",
                                 }}>
                                   {displayLabel}: {vals.join(", ")}°F
                                 </span>
@@ -11215,7 +11216,7 @@ function MyTempsPage({ currentUser, onBack }) {
             {/* ── Inspector Food Temperatures (from inspection records) ── */}
             {inspRecords.length > 0 && (
               <div>
-                <div style={{ fontSize: "0.72rem", fontWeight: 700, color: "#64748b", letterSpacing: "0.05em", textTransform: "uppercase", marginBottom: "0.5rem" }}>
+                <div style={{ fontSize: "0.72rem", fontWeight: 700, color: "var(--ink-500)", letterSpacing: "0.05em", textTransform: "uppercase", marginBottom: "0.5rem" }}>
                   Inspector Food Temps — {inspRecords.length} report{inspRecords.length !== 1 ? "s" : ""}
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
@@ -11232,7 +11233,7 @@ function MyTempsPage({ currentUser, onBack }) {
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "0.5rem" }}>
                           <div>
                             <div style={{ fontWeight: 600, color: "#f1f5f9" }}>{rec.inspectorName || rec.inspector || "Inspector"}</div>
-                            <div style={{ fontSize: "0.78rem", color: "#94a3b8", marginTop: "0.1rem" }}>{fmtTime(rec.savedAt)}</div>
+                            <div style={{ fontSize: "0.78rem", color: "var(--ink-400)", marginTop: "0.1rem" }}>{fmtTime(rec.savedAt)}</div>
                           </div>
                           <div>
                             {flaggedItems.length > 0
@@ -11248,17 +11249,17 @@ function MyTempsPage({ currentUser, onBack }) {
                             if (!vals.length) return null;
                             return (
                               <div key={item.key} style={{ display: "flex", flexWrap: "wrap", gap: "0.3rem", alignItems: "center" }}>
-                                <span style={{ fontSize: "0.72rem", color: "#64748b", minWidth: 90 }}>{item.label}:</span>
+                                <span style={{ fontSize: "0.72rem", color: "var(--ink-500)", minWidth: 90 }}>{item.label}:</span>
                                 {vals.map((v, vi) => {
                                   const pass = tempPass(item, v);
                                   const name = names[vi];
                                   return (
                                     <span key={vi} style={{
                                       background: "#0f172a",
-                                      border: `1px solid ${pass === false ? "#ef4444" : pass === true ? "#334155" : "#334155"}`,
+                                      border: `1px solid ${pass === false ? "#ef4444" : pass === true ? "var(--ink-700)" : "var(--ink-700)"}`,
                                       borderRadius: "6px", padding: "0.15rem 0.5rem",
                                       fontSize: "0.72rem",
-                                      color: pass === false ? "#ef4444" : pass === true ? "#94a3b8" : "#64748b",
+                                      color: pass === false ? "#ef4444" : pass === true ? "var(--ink-400)" : "var(--ink-500)",
                                     }}>
                                       {name ? `${name} · ` : ""}{v}°F {pass === false ? "⚠" : pass === true ? "✓" : ""}
                                     </span>
@@ -11339,13 +11340,13 @@ function MyLocationsPage({ currentUser, venueSettings, saveVenueSettings, onBack
           {isDone ? "✓" : ""}
         </button>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontWeight: 700, fontSize: "0.88rem", color: isDone ? "#15803d" : "#0f172a", textDecoration: isDone ? "line-through" : "none", marginBottom: 3 }}>
+          <div style={{ fontWeight: 700, fontSize: "0.88rem", color: isDone ? "#15803d" : "var(--ink-900)", textDecoration: isDone ? "line-through" : "none", marginBottom: 3 }}>
             {fmtDate(slot.date)}
             {isToday && !isDone && (
               <span style={{ marginLeft: 8, fontSize: "0.72rem", background: "#3b82f6", color: "#fff", borderRadius: 20, padding: "1px 8px", fontWeight: 600, verticalAlign: "middle" }}>Today</span>
             )}
           </div>
-          <div style={{ fontSize: "0.83rem", color: "#334155", marginBottom: slot.note ? 3 : 0 }}>
+          <div style={{ fontSize: "0.83rem", color: "var(--ink-700)", marginBottom: slot.note ? 3 : 0 }}>
             📍 {slot.location || "No location"}
             {slot.unit && (
               <span style={{ marginLeft: 7, fontSize: "0.74rem", background: "#e0e7ff", color: "#3730a3", borderRadius: 5, padding: "1px 6px", fontWeight: 600 }}>
@@ -11354,7 +11355,7 @@ function MyLocationsPage({ currentUser, venueSettings, saveVenueSettings, onBack
             )}
           </div>
           {slot.note && (
-            <div style={{ fontSize: "0.76rem", color: "#64748b" }}>{slot.note}</div>
+            <div style={{ fontSize: "0.76rem", color: "var(--ink-500)" }}>{slot.note}</div>
           )}
           {isToday && !isDone && slot.location && (
             <button
@@ -11392,11 +11393,11 @@ function MyLocationsPage({ currentUser, venueSettings, saveVenueSettings, onBack
       <main className="pageMain pageMainNarrow">
 
         {pinnedLocation && (
-          <div style={{ background: "#fff", border: "1.5px solid #e2e8f0", borderRadius: 14, padding: "16px 18px", marginBottom: 20 }}>
-            <div style={{ fontSize: "0.68rem", fontWeight: 700, color: "#94a3b8", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 8 }}>
+          <div style={{ background: "var(--surface-1)", border: "1.5px solid #e2e8f0", borderRadius: 14, padding: "16px 18px", marginBottom: 20 }}>
+            <div style={{ fontSize: "0.68rem", fontWeight: 700, color: "var(--ink-400)", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 8 }}>
               Your Assigned Location
             </div>
-            <div style={{ fontWeight: 700, fontSize: "0.95rem", color: "#0f172a", marginBottom: 10 }}>
+            <div style={{ fontWeight: 700, fontSize: "0.95rem", color: "var(--ink-900)", marginBottom: 10 }}>
               📍 {pinnedLocation}
             </div>
             <button
@@ -11410,7 +11411,7 @@ function MyLocationsPage({ currentUser, venueSettings, saveVenueSettings, onBack
 
         {upcomingSlots.length > 0 && (
           <div style={{ marginBottom: 24 }}>
-            <div style={{ fontSize: "0.68rem", fontWeight: 700, color: "#94a3b8", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 10 }}>
+            <div style={{ fontSize: "0.68rem", fontWeight: 700, color: "var(--ink-400)", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 10 }}>
               Upcoming — {upcomingSlots.length} location{upcomingSlots.length !== 1 ? "s" : ""}
             </div>
             {upcomingSlots.map(slot => <SlotCard key={slot.id} slot={slot} />)}
@@ -11423,10 +11424,10 @@ function MyLocationsPage({ currentUser, venueSettings, saveVenueSettings, onBack
               type="button"
               onClick={() => setShowPast(p => !p)}
               style={{ display: "flex", alignItems: "center", gap: 8, background: "none", border: "none", cursor: "pointer", padding: 0, marginBottom: 10 }}>
-              <span style={{ fontSize: "0.68rem", fontWeight: 700, color: "#94a3b8", letterSpacing: "0.08em", textTransform: "uppercase" }}>
+              <span style={{ fontSize: "0.68rem", fontWeight: 700, color: "var(--ink-400)", letterSpacing: "0.08em", textTransform: "uppercase" }}>
                 Past — {pastSlots.length} location{pastSlots.length !== 1 ? "s" : ""}
               </span>
-              <span style={{ fontSize: "0.75rem", color: "#94a3b8" }}>{showPast ? "▲" : "▼"}</span>
+              <span style={{ fontSize: "0.75rem", color: "var(--ink-400)" }}>{showPast ? "▲" : "▼"}</span>
             </button>
             {showPast && pastSlots.map(slot => <SlotCard key={slot.id} slot={slot} />)}
           </div>
@@ -11440,7 +11441,7 @@ function MyLocationsPage({ currentUser, venueSettings, saveVenueSettings, onBack
         )}
 
         {pinnedLocation && allMySlots.length === 0 && (
-          <div style={{ textAlign: "center", fontSize: "0.8rem", color: "#94a3b8", marginTop: 8 }}>
+          <div style={{ textAlign: "center", fontSize: "0.8rem", color: "var(--ink-400)", marginTop: 8 }}>
             No scheduled inspections yet. Check back with your manager for updates.
           </div>
         )}
@@ -11672,9 +11673,9 @@ function FoodSafetyRef() {
             <div key={z.label} style={{ background: z.bg, borderBottom: i < arr.length - 1 ? `2px solid ${z.border}` : "none", padding: "11px 14px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
               <div>
                 <div style={{ fontWeight: 800, fontSize: "0.62rem", textTransform: "uppercase", letterSpacing: "0.07em", color: "#374151", marginBottom: 2 }}>{z.label}</div>
-                <div style={{ fontSize: "0.65rem", color: "#475569", lineHeight: 1.4 }}>{z.sub}</div>
+                <div style={{ fontSize: "0.65rem", color: "var(--ink-600)", lineHeight: 1.4 }}>{z.sub}</div>
               </div>
-              <div style={{ fontWeight: 900, fontSize: "1rem", color: "#1e293b", whiteSpace: "nowrap", textAlign: "right", flexShrink: 0 }}>{z.temp}</div>
+              <div style={{ fontWeight: 900, fontSize: "1rem", color: "var(--ink-900)", whiteSpace: "nowrap", textAlign: "right", flexShrink: 0 }}>{z.temp}</div>
             </div>
           ))}
         </div>
@@ -11692,10 +11693,10 @@ function FoodSafetyRef() {
             { label: "Poultry (any form)",             temp: "165°F", c: "74°C",  color: "#dc2626" },
           ].map((r, i, arr) => (
             <div key={r.label} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 14px", borderBottom: i < arr.length - 1 ? "1px solid #f1f5f9" : "none", background: i % 2 === 0 ? "#fff" : "#f8fafc" }}>
-              <span style={{ flex: 1, fontSize: "0.7rem", color: "#334155", lineHeight: 1.3 }}>{r.label}</span>
+              <span style={{ flex: 1, fontSize: "0.7rem", color: "var(--ink-700)", lineHeight: 1.3 }}>{r.label}</span>
               <div style={{ textAlign: "right", flexShrink: 0 }}>
                 <span style={{ fontWeight: 900, fontSize: "1rem", color: r.color }}>{r.temp}</span>
-                <span style={{ fontSize: "0.62rem", color: "#94a3b8", fontWeight: 600, marginLeft: 5 }}>{r.c}</span>
+                <span style={{ fontSize: "0.62rem", color: "var(--ink-400)", fontWeight: 600, marginLeft: 5 }}>{r.c}</span>
               </div>
             </div>
           ))}
@@ -11709,13 +11710,13 @@ function FoodSafetyRef() {
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr" }}>
             <div style={{ padding: "12px 14px", borderRight: "1px solid #f1f5f9" }}>
               <div style={{ fontWeight: 700, fontSize: "0.68rem", color: "#1d4ed8", marginBottom: 4 }}>Ice-Point Method</div>
-              <div style={{ fontWeight: 900, fontSize: "1.1rem", color: "#1e293b", marginBottom: 4 }}>32°F / 0°C</div>
-              <div style={{ fontSize: "0.63rem", color: "#64748b", lineHeight: 1.5 }}>Crushed ice + water. Submerge 2 in. Wait 30 sec. ±2°F acceptable.</div>
+              <div style={{ fontWeight: 900, fontSize: "1.1rem", color: "var(--ink-900)", marginBottom: 4 }}>32°F / 0°C</div>
+              <div style={{ fontSize: "0.63rem", color: "var(--ink-500)", lineHeight: 1.5 }}>Crushed ice + water. Submerge 2 in. Wait 30 sec. ±2°F acceptable.</div>
             </div>
             <div style={{ padding: "12px 14px" }}>
               <div style={{ fontWeight: 700, fontSize: "0.68rem", color: "#dc2626", marginBottom: 4 }}>Boiling-Point Method</div>
-              <div style={{ fontWeight: 900, fontSize: "1.1rem", color: "#1e293b", marginBottom: 4 }}>212°F / 100°C</div>
-              <div style={{ fontSize: "0.63rem", color: "#64748b", lineHeight: 1.5 }}>Boiling water. Deduct 2°F per 1,000 ft elevation.</div>
+              <div style={{ fontWeight: 900, fontSize: "1.1rem", color: "var(--ink-900)", marginBottom: 4 }}>212°F / 100°C</div>
+              <div style={{ fontSize: "0.63rem", color: "var(--ink-500)", lineHeight: 1.5 }}>Boiling water. Deduct 2°F per 1,000 ft elevation.</div>
             </div>
           </div>
         </div>
@@ -11731,7 +11732,7 @@ function FoodSafetyRef() {
         {sanitizers.map((s, i, arr) => (
           <div key={s.type} style={{ padding: "12px 14px", borderBottom: i < arr.length - 1 ? "1px solid #f1f5f9" : "none", background: i % 2 === 0 ? "#fff" : "#f8fafc" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 6 }}>
-              <span style={{ fontWeight: 700, fontSize: "0.75rem", color: "#1e293b" }}>{s.type}</span>
+              <span style={{ fontWeight: 700, fontSize: "0.75rem", color: "var(--ink-900)" }}>{s.type}</span>
               <span style={{ fontWeight: 900, fontSize: "0.9rem", color: "#16a34a", whiteSpace: "nowrap" }}>{s.ppm}</span>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
@@ -11761,14 +11762,14 @@ function FoodSafetyRef() {
           { color: "#eab308", bg: "#fefce8", border: "#fde047", label: "Yellow", uses: "Raw poultry (chicken, turkey)" },
           { color: "#22c55e", bg: "#f0fdf4", border: "#86efac", label: "Green",  uses: "Fresh fruits & vegetables" },
           { color: "#3b82f6", bg: "#eff6ff", border: "#93c5fd", label: "Blue",   uses: "Raw fish & seafood" },
-          { color: "#94a3b8", bg: "#f9fafb", border: "#d1d5db", label: "White",  uses: "Dairy, deli, bread & bakery" },
+          { color: "var(--ink-400)", bg: "#f9fafb", border: "#d1d5db", label: "White",  uses: "Dairy, deli, bread & bakery" },
           { color: "#8b5cf6", bg: "#f5f3ff", border: "#c4b5fd", label: "Purple", uses: "Allergen-free prep" },
         ].map((b, i, arr) => (
           <div key={b.label} style={{ background: b.bg, borderBottom: i < arr.length - 1 ? `1px solid ${b.border}` : "none", padding: "10px 14px", display: "flex", alignItems: "center", gap: 12 }}>
             <span style={{ display: "inline-block", width: 26, height: 26, borderRadius: 6, background: b.color, border: `2px solid ${b.border}`, flexShrink: 0, boxShadow: "0 1px 3px rgba(0,0,0,.12)" }} />
             <div>
-              <div style={{ fontWeight: 700, fontSize: "0.75rem", color: "#1e293b" }}>{b.label}</div>
-              <div style={{ fontSize: "0.67rem", color: "#475569", marginTop: 1 }}>{b.uses}</div>
+              <div style={{ fontWeight: 700, fontSize: "0.75rem", color: "var(--ink-900)" }}>{b.label}</div>
+              <div style={{ fontSize: "0.67rem", color: "var(--ink-600)", marginTop: 1 }}>{b.uses}</div>
             </div>
           </div>
         ))}
@@ -11779,7 +11780,7 @@ function FoodSafetyRef() {
 
   const panelCooler = (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      <div style={{ fontSize: "0.68rem", color: "#64748b", lineHeight: 1.6, background: "#f8fafc", border: "1.5px solid #e2e8f0", borderRadius: 10, padding: "10px 14px" }}>
+      <div style={{ fontSize: "0.68rem", color: "var(--ink-500)", lineHeight: 1.6, background: "var(--surface-2)", border: "1.5px solid #e2e8f0", borderRadius: 10, padding: "10px 14px" }}>
         Store by <strong>minimum internal cook temperature</strong> — highest-risk proteins on the bottom shelf to prevent cross-contamination drips.
       </div>
       {subHeader("Shelf Order — Top to Bottom")}
@@ -11796,7 +11797,7 @@ function FoodSafetyRef() {
             <div style={{ width: 6, alignSelf: "stretch", background: row.accentColor, borderRadius: 3, flexShrink: 0 }} />
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontWeight: 700, fontSize: "0.74rem", color: row.textColor }}>{row.label}</div>
-              <div style={{ fontSize: "0.64rem", color: "#475569", marginTop: 2 }}>{row.examples}</div>
+              <div style={{ fontSize: "0.64rem", color: "var(--ink-600)", marginTop: 2 }}>{row.examples}</div>
             </div>
             <div style={{ textAlign: "right", flexShrink: 0 }}>
               {row.pos && <div style={{ fontSize: "0.56rem", fontWeight: 800, color: "#fff", background: row.accentColor, borderRadius: 4, padding: "2px 6px", marginBottom: 3, textTransform: "uppercase", letterSpacing: "0.06em" }}>{row.pos}</div>}
@@ -11821,7 +11822,7 @@ function FoodSafetyRef() {
         <div style={{ fontWeight: 700, fontSize: "0.65rem", color: "#1e3a8a", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 8 }}>FIFO Rotation Rule</div>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
           <div style={{ background: "#1d4ed8", color: "#fff", borderRadius: 6, padding: "5px 12px", fontWeight: 900, fontSize: "0.74rem" }}>FIRST IN</div>
-          <span style={{ fontSize: "1rem", color: "#64748b" }}>→</span>
+          <span style={{ fontSize: "1rem", color: "var(--ink-500)" }}>→</span>
           <div style={{ background: "#2563eb", color: "#fff", borderRadius: 6, padding: "5px 12px", fontWeight: 900, fontSize: "0.74rem" }}>FIRST OUT</div>
         </div>
         <div style={{ fontSize: "0.65rem", color: "#1e3a8a", lineHeight: 1.5 }}>New stock goes <strong>behind</strong> existing stock. Pull oldest product from the front first. Rotate every delivery.</div>
@@ -11837,8 +11838,8 @@ function FoodSafetyRef() {
           { field: "Preparer Initials",        note: "Accountability — who made it and when" },
         ].map((r, i, arr) => (
           <div key={r.field} style={{ padding: "10px 14px", borderBottom: i < arr.length - 1 ? "1px solid #f1f5f9" : "none", background: i % 2 === 0 ? "#fff" : "#f8fafc" }}>
-            <div style={{ fontWeight: 700, fontSize: "0.72rem", color: "#1e293b", marginBottom: 2 }}>{r.field}</div>
-            <div style={{ fontSize: "0.65rem", color: "#64748b", lineHeight: 1.4 }}>{r.note}</div>
+            <div style={{ fontWeight: 700, fontSize: "0.72rem", color: "var(--ink-900)", marginBottom: 2 }}>{r.field}</div>
+            <div style={{ fontSize: "0.65rem", color: "var(--ink-500)", lineHeight: 1.4 }}>{r.note}</div>
           </div>
         ))}
       </div>
@@ -11858,11 +11859,11 @@ function FoodSafetyRef() {
           ].map((d, i) => (
             <div key={d.day} style={{ display: "flex", alignItems: "center", gap: 9, padding: "8px 12px", borderBottom: i < 6 ? "1px solid #f1f5f9" : "none", borderRight: i % 2 === 0 ? "1px solid #f1f5f9" : "none" }}>
               <span style={{ display: "inline-block", width: 16, height: 16, borderRadius: "50%", background: d.dot, flexShrink: 0, border: "1.5px solid rgba(0,0,0,.10)" }} />
-              <span style={{ fontSize: "0.7rem", color: "#334155", fontWeight: 600 }}>{d.day}</span>
+              <span style={{ fontSize: "0.7rem", color: "var(--ink-700)", fontWeight: 600 }}>{d.day}</span>
             </div>
           ))}
           <div style={{ padding: "8px 12px", display: "flex", alignItems: "center" }}>
-            <span style={{ fontSize: "0.63rem", color: "#94a3b8", fontStyle: "italic" }}>7-day cycle</span>
+            <span style={{ fontSize: "0.63rem", color: "var(--ink-400)", fontStyle: "italic" }}>7-day cycle</span>
           </div>
         </div>
       </div>
@@ -11892,7 +11893,7 @@ function FoodSafetyRef() {
 
   const panelThawing = (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-      <div style={{ fontSize: "0.68rem", color: "#64748b", lineHeight: 1.6, background: "#f8fafc", border: "1.5px solid #e2e8f0", borderRadius: 10, padding: "10px 14px" }}>
+      <div style={{ fontSize: "0.68rem", color: "var(--ink-500)", lineHeight: 1.6, background: "var(--surface-2)", border: "1.5px solid #e2e8f0", borderRadius: 10, padding: "10px 14px" }}>
         There are <strong>4 FDA-approved thawing methods</strong>. All other methods — especially leaving food on the counter — are unsafe.
       </div>
 
@@ -11902,11 +11903,11 @@ function FoodSafetyRef() {
         { label: "Microwave Thawing",    tag: "APPROVED", tagColor: "#1d4ed8", tagBg: "#dbeafe", accent: "#6366f1", details: ["Use microwave's defrost setting", "MUST cook to proper temperature immediately after", "Partial cooking creates a dangerous bacteria window", "Do not let thawed portions sit at room temperature"] },
         { label: "Cook From Frozen",     tag: "APPROVED", tagColor: "#1d4ed8", tagBg: "#dbeafe", accent: "#0891b2", details: ["Cook food directly from frozen — no pre-thaw needed", "Allow 50% more cook time than for thawed product", "Verify internal temperature with calibrated thermometer", "Common for frozen burgers, fish fillets, breakfast items"] },
       ].map(m => (
-        <div key={m.label} style={{ border: "1.5px solid #e2e8f0", borderRadius: 10, overflow: "hidden", background: "#fff" }}>
-          <div style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0", padding: "9px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+        <div key={m.label} style={{ border: "1.5px solid #e2e8f0", borderRadius: 10, overflow: "hidden", background: "var(--surface-1)" }}>
+          <div style={{ background: "var(--surface-2)", borderBottom: "1px solid #e2e8f0", padding: "9px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <span style={{ display: "inline-block", width: 4, height: 18, background: m.accent, borderRadius: 2, flexShrink: 0 }} />
-              <span style={{ fontWeight: 700, fontSize: "0.74rem", color: "#1e293b" }}>{m.label}</span>
+              <span style={{ fontWeight: 700, fontSize: "0.74rem", color: "var(--ink-900)" }}>{m.label}</span>
             </div>
             <span style={{ background: m.tagBg, color: m.tagColor, fontWeight: 800, fontSize: "0.58rem", padding: "2px 8px", borderRadius: 5, textTransform: "uppercase", letterSpacing: "0.06em", flexShrink: 0 }}>{m.tag}</span>
           </div>
@@ -11914,7 +11915,7 @@ function FoodSafetyRef() {
             {m.details.map(d => (
               <div key={d} style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
                 <span style={{ color: m.accent, fontWeight: 900, fontSize: "0.7rem", flexShrink: 0, marginTop: 1 }}>•</span>
-                <span style={{ fontSize: "0.66rem", color: "#334155", lineHeight: 1.5 }}>{d}</span>
+                <span style={{ fontSize: "0.66rem", color: "var(--ink-700)", lineHeight: 1.5 }}>{d}</span>
               </div>
             ))}
           </div>
@@ -12093,7 +12094,7 @@ function LicensesTab({ history, invLicenseData, setInvLicenseData, invLicenseMis
   };
 
   const groupLabel = { permanent: "Permanent", subcontractor: "Subcontractor", event: "Event" };
-  const groupColor = { permanent: "#0f172a", subcontractor: "#1e40af", event: "#92400e" };
+  const groupColor = { permanent: "var(--ink-900)", subcontractor: "#1e40af", event: "#92400e" };
   const groupBg    = { permanent: "#f1f5f9", subcontractor: "#eff6ff", event: "#fef9c3" };
 
   return (
@@ -12102,19 +12103,19 @@ function LicensesTab({ history, invLicenseData, setInvLicenseData, invLicenseMis
       {/* Summary strip */}
       <div style={{
         display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr",
-        gap: "0.5rem", background: "#fff",
+        gap: "0.5rem", background: "var(--surface-1)",
         borderRadius: 12, padding: "0.7rem 0.9rem",
         border: "1.5px solid #e2e8f0",
       }}>
         {[
-          { label: "Total Sites",  value: totalSites,    color: "#0f172a" },
+          { label: "Total Sites",  value: totalSites,    color: "var(--ink-900)" },
           { label: "Licensed",     value: licensedSites, color: "#16a34a" },
           { label: "Missing",      value: missingSites,  color: missingSites  > 0 ? "#dc2626" : "#16a34a" },
           { label: "Mismatches",   value: mismatchCount, color: mismatchCount > 0 ? "#d97706" : "#16a34a" },
         ].map(({ label, value, color }) => (
           <div key={label} style={{ textAlign: "center" }}>
             <div style={{ fontSize: "1.3rem", fontWeight: 800, color, lineHeight: 1 }}>{value}</div>
-            <div style={{ fontSize: "0.6rem", color: "#94a3b8", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em", marginTop: 2 }}>{label}</div>
+            <div style={{ fontSize: "0.6rem", color: "var(--ink-400)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em", marginTop: 2 }}>{label}</div>
           </div>
         ))}
       </div>
@@ -12133,7 +12134,7 @@ function LicensesTab({ history, invLicenseData, setInvLicenseData, invLicenseMis
               <div style={{ display: "flex", alignItems: "flex-start", gap: "0.5rem" }}>
                 <span style={{ fontSize: "1rem", flexShrink: 0 }}>🔔</span>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 700, fontSize: "0.78rem", color: "#0f172a", marginBottom: 2 }}>{m.siteName}</div>
+                  <div style={{ fontWeight: 700, fontSize: "0.78rem", color: "var(--ink-900)", marginBottom: 2 }}>{m.siteName}</div>
                   <div style={{ fontSize: "0.72rem", color: "#78350f", lineHeight: 1.5 }}>
                     We noticed <strong>{m.licenses.length} different license numbers</strong> in the inspection history for this location. Which one is correct?
                   </div>
@@ -12188,16 +12189,16 @@ function LicensesTab({ history, invLicenseData, setInvLicenseData, invLicenseMis
           </div>
           {nameHints.map(h => (
             <div key={h.eventSite} style={{
-              background: "#f8fafc", border: "1.5px solid #cbd5e1", borderRadius: 11,
+              background: "var(--surface-2)", border: "1.5px solid #cbd5e1", borderRadius: 11,
               padding: "0.65rem 0.85rem",
             }}>
               <div style={{ display: "flex", alignItems: "flex-start", gap: "0.5rem" }}>
                 <span style={{ fontSize: "1rem", flexShrink: 0 }}>💬</span>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 700, fontSize: "0.78rem", color: "#0f172a", marginBottom: 2 }}>
+                  <div style={{ fontWeight: 700, fontSize: "0.78rem", color: "var(--ink-900)", marginBottom: 2 }}>
                     "{h.eventSite}"
                   </div>
-                  <div style={{ fontSize: "0.72rem", color: "#475569", lineHeight: 1.5 }}>
+                  <div style={{ fontSize: "0.72rem", color: "var(--ink-600)", lineHeight: 1.5 }}>
                     This event location looks similar to a location in your inventory. Is this the same place, or a different one?
                   </div>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: "0.35rem", marginTop: "0.45rem" }}>
@@ -12212,8 +12213,8 @@ function LicensesTab({ history, invLicenseData, setInvLicenseData, invLicenseMis
                         }}
                         style={{
                           padding: "0.25rem 0.65rem", borderRadius: 7,
-                          border: "1.5px solid #94a3b8", background: "#fff",
-                          fontWeight: 700, fontSize: "0.71rem", color: "#1e293b",
+                          border: "1.5px solid #94a3b8", background: "var(--surface-1)",
+                          fontWeight: 700, fontSize: "0.71rem", color: "var(--ink-900)",
                           cursor: "pointer",
                         }}>
                         Yes, same as "{c}"
@@ -12247,7 +12248,7 @@ function LicensesTab({ history, invLicenseData, setInvLicenseData, invLicenseMis
           style={{
             flex: 1, minWidth: 160, padding: "0.45rem 0.7rem",
             borderRadius: 9, border: "1.5px solid #e2e8f0",
-            fontSize: "0.78rem", color: "#0f172a", outline: "none", background: "#fff",
+            fontSize: "0.78rem", color: "var(--ink-900)", outline: "none", background: "var(--surface-1)",
           }}
         />
         {[["all","All"],["missing","Missing"],["mismatches","Mismatches"]].map(([id, label]) => (
@@ -12256,7 +12257,7 @@ function LicensesTab({ history, invLicenseData, setInvLicenseData, invLicenseMis
               padding: "0.4rem 0.75rem", borderRadius: 9,
               border: licFilter === id ? "none" : "1.5px solid #e2e8f0",
               background: licFilter === id ? NAVY : "#fff",
-              color: licFilter === id ? "#fff" : "#64748b",
+              color: licFilter === id ? "#fff" : "var(--ink-500)",
               fontWeight: licFilter === id ? 700 : 500,
               fontSize: "0.73rem", cursor: "pointer",
             }}>
@@ -12269,7 +12270,7 @@ function LicensesTab({ history, invLicenseData, setInvLicenseData, invLicenseMis
 
       {/* Site list */}
       {displayedSites.length === 0 ? (
-        <div style={{ textAlign: "center", color: "#94a3b8", fontSize: "0.8rem", padding: "2rem 0" }}>
+        <div style={{ textAlign: "center", color: "var(--ink-400)", fontSize: "0.8rem", padding: "2rem 0" }}>
           No locations found.
         </div>
       ) : (
@@ -12279,7 +12280,7 @@ function LicensesTab({ history, invLicenseData, setInvLicenseData, invLicenseMis
             const isEditing  = editingLicSite === s.siteName;
             return (
               <div key={s.siteName} style={{
-                background: "#fff", borderRadius: 11,
+                background: "var(--surface-1)", borderRadius: 11,
                 border: hasMismatch ? "1.5px solid #fcd34d" : s.licenseNum ? "1.5px solid #e2e8f0" : "1.5px dashed #fca5a5",
                 padding: "0.6rem 0.8rem",
                 display: "flex", alignItems: "center", gap: "0.6rem",
@@ -12288,13 +12289,13 @@ function LicensesTab({ history, invLicenseData, setInvLicenseData, invLicenseMis
                   flexShrink: 0, fontSize: "0.55rem", fontWeight: 800,
                   textTransform: "uppercase", letterSpacing: "0.06em",
                   background: groupBg[s.group] || "#f1f5f9",
-                  color: groupColor[s.group] || "#0f172a",
+                  color: groupColor[s.group] || "var(--ink-900)",
                   borderRadius: 6, padding: "0.15rem 0.4rem",
                 }}>
                   {groupLabel[s.group] || s.group}
                 </span>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 700, fontSize: "0.78rem", color: "#0f172a", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  <div style={{ fontWeight: 700, fontSize: "0.78rem", color: "var(--ink-900)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                     {s.siteName}
                   </div>
                 </div>
@@ -12310,7 +12311,7 @@ function LicensesTab({ history, invLicenseData, setInvLicenseData, invLicenseMis
                       style={{
                         width: 130, padding: "0.28rem 0.45rem",
                         borderRadius: 7, border: "1.5px solid #7c3aed",
-                        fontSize: "0.75rem", fontWeight: 700, color: "#0f172a",
+                        fontSize: "0.75rem", fontWeight: 700, color: "var(--ink-900)",
                         outline: "none", fontFamily: "monospace", background: "#f5f3ff",
                       }}
                     />
@@ -12319,7 +12320,7 @@ function LicensesTab({ history, invLicenseData, setInvLicenseData, invLicenseMis
                       Save
                     </button>
                     <button type="button" onClick={() => setEditingLicSite(null)}
-                      style={{ padding: "0.28rem 0.45rem", borderRadius: 7, border: "none", background: "#f1f5f9", color: "#64748b", fontSize: "0.7rem", fontWeight: 600, cursor: "pointer" }}>
+                      style={{ padding: "0.28rem 0.45rem", borderRadius: 7, border: "none", background: "var(--surface-3)", color: "var(--ink-500)", fontSize: "0.7rem", fontWeight: 600, cursor: "pointer" }}>
                       ✕
                     </button>
                   </div>
@@ -12583,7 +12584,7 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
   const trendLabel = (t) => {
     if (t === "improving") return { label: "↑ Improving", color: "#22c55e" };
     if (t === "declining") return { label: "↓ Declining", color: "#ef4444" };
-    return { label: "→ Stable", color: "#94a3b8" };
+    return { label: "→ Stable", color: "var(--ink-400)" };
   };
 
   // By-location aggregation (enriched with unit number, floor, locationType, issue categories, inspector list)
@@ -12879,8 +12880,8 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
     if (!s || s === "OK") return "#16a34a";
     if (s === "Fail" || s === "Critical Violation") return "#dc2626";
     if (s === "Needs Attention" || s === "Maintenance") return "#d97706";
-    if (s === "N/A" || s === "Off / Not In Use") return "#94a3b8";
-    return "#0f172a";
+    if (s === "N/A" || s === "Off / Not In Use") return "var(--ink-400)";
+    return "var(--ink-900)";
   };
 
   const typeIcon = (t) => {
@@ -12900,14 +12901,14 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
     const isEdited = overrideVal !== undefined && overrideVal !== item.count;
     const specificLabel = item.label && item.label !== item.type ? item.label : null;
     return (
-      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.45rem 0.7rem", borderRadius: 8, background: "#f8fafc", border: `1px solid ${isEdited ? "#fbbf24" : "#e2e8f0"}`, marginBottom: 4 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.45rem 0.7rem", borderRadius: 8, background: "var(--surface-2)", border: `1px solid ${isEdited ? "#fbbf24" : "#e2e8f0"}`, marginBottom: 4 }}>
         <span style={{ fontSize: "1rem", flexShrink: 0 }}>{icon}</span>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontWeight: 700, fontSize: "0.8rem", color: "#0f172a" }}>
+          <div style={{ fontWeight: 700, fontSize: "0.8rem", color: "var(--ink-900)" }}>
             {specificLabel || item.type}
           </div>
           {specificLabel && (
-            <div style={{ fontSize: "0.62rem", color: "#94a3b8" }}>{item.type}</div>
+            <div style={{ fontSize: "0.62rem", color: "var(--ink-400)" }}>{item.type}</div>
           )}
         </div>
         {item.lastTemp && (
@@ -12924,19 +12925,19 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
               const next = Math.max(0, displayCount - 1);
               setInvCountOverrides(prev => ({ ...prev, [overrideKey]: next }));
             }}
-            style={{ background: "none", border: "none", cursor: "pointer", fontWeight: 900, fontSize: "0.9rem", color: "#64748b", padding: "0 2px", lineHeight: 1 }}>−</button>
-          <span style={{ fontWeight: 900, fontSize: "0.85rem", color: isEdited ? "#92400e" : "#0f172a", minWidth: 18, textAlign: "center" }}>{displayCount}</span>
+            style={{ background: "none", border: "none", cursor: "pointer", fontWeight: 900, fontSize: "0.9rem", color: "var(--ink-500)", padding: "0 2px", lineHeight: 1 }}>−</button>
+          <span style={{ fontWeight: 900, fontSize: "0.85rem", color: isEdited ? "#92400e" : "var(--ink-900)", minWidth: 18, textAlign: "center" }}>{displayCount}</span>
           <button type="button"
             onClick={() => {
               const next = displayCount + 1;
               setInvCountOverrides(prev => ({ ...prev, [overrideKey]: next }));
             }}
-            style={{ background: "none", border: "none", cursor: "pointer", fontWeight: 900, fontSize: "0.9rem", color: "#64748b", padding: "0 2px", lineHeight: 1 }}>+</button>
+            style={{ background: "none", border: "none", cursor: "pointer", fontWeight: 900, fontSize: "0.9rem", color: "var(--ink-500)", padding: "0 2px", lineHeight: 1 }}>+</button>
         </div>
         {isEdited && (
           <button type="button"
             onClick={() => setInvCountOverrides(prev => { const n = { ...prev }; delete n[overrideKey]; return n; })}
-            style={{ background: "none", border: "none", cursor: "pointer", fontSize: "0.65rem", color: "#94a3b8", padding: 0, flexShrink: 0 }} title="Reset to report count">↺</button>
+            style={{ background: "none", border: "none", cursor: "pointer", fontSize: "0.65rem", color: "var(--ink-400)", padding: 0, flexShrink: 0 }} title="Reset to report count">↺</button>
         )}
       </div>
     );
@@ -12957,7 +12958,7 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <span style={{ fontSize: "1rem", flexShrink: 0 }}>🧊</span>
           <div style={{ flex: 1, fontWeight: 700, fontSize: "0.8rem", color: "#0c4a6e" }}>Ice Maker</div>
-          <div style={{ display: "flex", alignItems: "center", gap: 4, background: "#fff", border: "1.5px solid #7dd3fc", borderRadius: 8, padding: "2px 6px", flexShrink: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 4, background: "var(--surface-1)", border: "1.5px solid #7dd3fc", borderRadius: 8, padding: "2px 6px", flexShrink: 0 }}>
             <button type="button" onClick={() => setD({ count: Math.max(0, d.count - 1) })}
               style={{ background: "none", border: "none", cursor: "pointer", fontWeight: 900, fontSize: "0.9rem", color: "#0369a1", padding: "0 2px", lineHeight: 1 }}>−</button>
             <span style={{ fontWeight: 900, fontSize: "0.85rem", color: "#0c4a6e", minWidth: 18, textAlign: "center" }}>{d.count}</span>
@@ -12973,7 +12974,7 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
             placeholder="MM/DD/YYYY"
             value={d.lastCleaned || ""}
             onChange={e => handleDate(e.target.value)}
-            style={{ flex: 1, padding: "0.25rem 0.4rem", borderRadius: 6, border: "1.5px solid #7dd3fc", fontSize: "0.8rem", fontWeight: 700, color: "#0c4a6e", background: "#fff" }}
+            style={{ flex: 1, padding: "0.25rem 0.4rem", borderRadius: 6, border: "1.5px solid #7dd3fc", fontSize: "0.8rem", fontWeight: 700, color: "#0c4a6e", background: "var(--surface-1)" }}
           />
         </div>
       </div>
@@ -13009,7 +13010,7 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
               placeholder="MM/DD/YYYY"
               value={entry.lastChanged || ""}
               onChange={e => handleDate(idx, e.target.value)}
-              style={{ flex: 1, padding: "0.22rem 0.4rem", borderRadius: 6, border: "1.5px solid #fcd34d", fontSize: "0.78rem", fontWeight: 700, color: "#78350f", background: "#fff" }}
+              style={{ flex: 1, padding: "0.22rem 0.4rem", borderRadius: 6, border: "1.5px solid #fcd34d", fontSize: "0.78rem", fontWeight: 700, color: "#78350f", background: "var(--surface-1)" }}
             />
             <button type="button"
               onClick={() => setEntries(prev => prev.filter((_, i) => i !== idx))}
@@ -13044,19 +13045,19 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
     const hasPostEvent = site.hasPostEvent;
     const inspCount    = site.inspectionCount || 0;
     return (
-      <div style={{ background: "#fff", borderRadius: 14, border: "1.5px solid #e8edf4", overflow: "hidden", boxShadow: "0 2px 10px rgba(42,41,92,0.08)", transition: "box-shadow 0.15s" }}>
+      <div style={{ background: "var(--surface-1)", borderRadius: 14, border: "1.5px solid #e8edf4", overflow: "hidden", boxShadow: "0 2px 10px rgba(42,41,92,0.08)", transition: "box-shadow 0.15s" }}>
         <button type="button" onClick={toggle}
           style={{ width: "100%", display: "flex", alignItems: "center", gap: "0.6rem", padding: "0.75rem 0.9rem", borderBottom: isOpen ? "1.5px solid #f1f5f9" : "none", background: isOpen ? `linear-gradient(90deg, color-mix(in srgb, ${NAVY} 3%, transparent) 0%, #f8fafc 100%)` : "#f8fafc", border: "none", cursor: "pointer", textAlign: "left" }}>
           <div style={{ width: 3, alignSelf: "stretch", borderRadius: 4, background: badgeColor || NAVY, flexShrink: 0, minHeight: 36 }} />
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontWeight: 800, fontSize: "0.88rem", color: "#0f172a", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+            <div style={{ fontWeight: 800, fontSize: "0.88rem", color: "var(--ink-900)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
               {displayName}
               {invNameOverrides[site.siteName] && (
-                <span style={{ fontSize: "0.58rem", color: "#94a3b8", fontWeight: 400, marginLeft: 5 }}>(renamed)</span>
+                <span style={{ fontSize: "0.58rem", color: "var(--ink-400)", fontWeight: 400, marginLeft: 5 }}>(renamed)</span>
               )}
             </div>
             {site.eventName && site.eventName !== site.siteName && (
-              <div style={{ fontSize: "0.68rem", color: "#64748b", fontWeight: 500 }}>{site.eventName}</div>
+              <div style={{ fontSize: "0.68rem", color: "var(--ink-500)", fontWeight: 500 }}>{site.eventName}</div>
             )}
             {/* Event Day / Post Event status row */}
             {(hasEventDay || hasPostEvent) && (
@@ -13072,15 +13073,15 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
                   </span>
                 )}
                 {inspCount > 0 && (
-                  <span style={{ fontSize: "0.58rem", color: "#94a3b8", fontWeight: 600 }}>{inspCount} inspection{inspCount !== 1 ? "s" : ""}</span>
+                  <span style={{ fontSize: "0.58rem", color: "var(--ink-400)", fontWeight: 600 }}>{inspCount} inspection{inspCount !== 1 ? "s" : ""}</span>
                 )}
               </div>
             )}
             {site.date && !(hasEventDay || hasPostEvent) && (
-              <div style={{ fontSize: "0.62rem", color: "#94a3b8", marginTop: 1 }}>Last inspected: {site.date.slice(0,10)}</div>
+              <div style={{ fontSize: "0.62rem", color: "var(--ink-400)", marginTop: 1 }}>Last inspected: {site.date.slice(0,10)}</div>
             )}
             {site.date && (hasEventDay || hasPostEvent) && (
-              <div style={{ fontSize: "0.6rem", color: "#94a3b8", marginTop: 1 }}>Max count across {inspCount} visit{inspCount !== 1 ? "s" : ""}</div>
+              <div style={{ fontSize: "0.6rem", color: "var(--ink-400)", marginTop: 1 }}>Max count across {inspCount} visit{inspCount !== 1 ? "s" : ""}</div>
             )}
             <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 5 }}>
               {EQUIP_META.filter(m => chipCounts[m.type] > 0).map(m => (
@@ -13094,13 +13095,13 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
             <div style={{ background: badgeColor || NAVY, color: "#fff", borderRadius: 8, padding: "0.22rem 0.6rem", fontSize: "0.63rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em", boxShadow: `0 2px 6px ${(badgeColor || NAVY)}40` }}>
               {badge}
             </div>
-            <span style={{ fontSize: "0.65rem", color: "#94a3b8", fontWeight: 600 }}>{isOpen ? "▲" : "▼"}</span>
+            <span style={{ fontSize: "0.65rem", color: "var(--ink-400)", fontWeight: 600 }}>{isOpen ? "▲" : "▼"}</span>
           </div>
         </button>
         {isOpen && (
           <div style={{ padding: "0.75rem 0.85rem 0.65rem" }}>
-            <div style={{ marginBottom: 12, padding: "0.5rem 0.65rem", background: "#f8fafc", borderRadius: 10, border: "1px solid #e8edf4" }}>
-              <div style={{ fontSize: "0.6rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: "#64748b", marginBottom: 4 }}>
+            <div style={{ marginBottom: 12, padding: "0.5rem 0.65rem", background: "var(--surface-2)", borderRadius: 10, border: "1px solid #e8edf4" }}>
+              <div style={{ fontSize: "0.6rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-500)", marginBottom: 4 }}>
                 Location Name
               </div>
               {isEditingThisName ? (
@@ -13117,7 +13118,7 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
                         setInvEditingName(null);
                       } else if (e.key === "Escape") { setInvEditingName(null); }
                     }}
-                    style={{ flex: 1, padding: "0.3rem 0.5rem", borderRadius: 6, border: "1.5px solid #6366f1", fontSize: "0.8rem", fontWeight: 700, color: "#0f172a", outline: "none" }}
+                    style={{ flex: 1, padding: "0.3rem 0.5rem", borderRadius: 6, border: "1.5px solid #6366f1", fontSize: "0.8rem", fontWeight: 700, color: "var(--ink-900)", outline: "none" }}
                   />
                   <button type="button"
                     onMouseDown={e => {
@@ -13132,18 +13133,18 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
                   {invNameOverrides[site.siteName] && (
                     <button type="button"
                       onClick={() => { setInvNameOverrides(prev => { const n = { ...prev }; delete n[site.siteName]; return n; }); setInvEditingName(null); }}
-                      style={{ padding: "0.3rem 0.6rem", borderRadius: 6, border: "none", background: "#f1f5f9", color: "#dc2626", fontSize: "0.72rem", fontWeight: 700, cursor: "pointer" }}>Reset</button>
+                      style={{ padding: "0.3rem 0.6rem", borderRadius: 6, border: "none", background: "var(--surface-3)", color: "#dc2626", fontSize: "0.72rem", fontWeight: 700, cursor: "pointer" }}>Reset</button>
                   )}
                 </div>
               ) : (
                 <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <span style={{ fontWeight: 700, fontSize: "0.8rem", color: "#0f172a", flex: 1 }}>{displayName}</span>
+                  <span style={{ fontWeight: 700, fontSize: "0.8rem", color: "var(--ink-900)", flex: 1 }}>{displayName}</span>
                   {site.siteName !== displayName && (
-                    <span style={{ fontSize: "0.62rem", color: "#94a3b8" }}>orig: {site.siteName}</span>
+                    <span style={{ fontSize: "0.62rem", color: "var(--ink-400)" }}>orig: {site.siteName}</span>
                   )}
                   <button type="button"
                     onClick={e => { e.stopPropagation(); setInvEditingName(site.siteName); }}
-                    style={{ background: "none", border: "1px solid #cbd5e1", borderRadius: 6, padding: "0.2rem 0.45rem", fontSize: "0.68rem", color: "#64748b", cursor: "pointer", fontWeight: 600 }}>✏ Rename</button>
+                    style={{ background: "none", border: "1px solid #cbd5e1", borderRadius: 6, padding: "0.2rem 0.45rem", fontSize: "0.68rem", color: "var(--ink-500)", cursor: "pointer", fontWeight: 600 }}>✏ Rename</button>
                 </div>
               )}
             </div>
@@ -13171,16 +13172,16 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
                         onChange={e => setLicDraft(e.target.value.toUpperCase())}
                         onKeyDown={e => { if (e.key === "Enter") saveLic(); else if (e.key === "Escape") setEditingLic(false); }}
                         placeholder="e.g. FD-2024-00123"
-                        style={{ flex: 1, padding: "0.3rem 0.5rem", borderRadius: 6, border: "1.5px solid #7c3aed", fontSize: "0.8rem", fontWeight: 700, color: "#0f172a", outline: "none", background: "#fff" }}
+                        style={{ flex: 1, padding: "0.3rem 0.5rem", borderRadius: 6, border: "1.5px solid #7c3aed", fontSize: "0.8rem", fontWeight: 700, color: "var(--ink-900)", outline: "none", background: "var(--surface-1)" }}
                       />
                       <button type="button" onClick={saveLic}
                         style={{ padding: "0.3rem 0.6rem", borderRadius: 6, border: "none", background: "#7c3aed", color: "#fff", fontSize: "0.72rem", fontWeight: 700, cursor: "pointer" }}>Save</button>
                       <button type="button" onClick={() => setEditingLic(false)}
-                        style={{ padding: "0.3rem 0.6rem", borderRadius: 6, border: "none", background: "#f1f5f9", color: "#64748b", fontSize: "0.72rem", fontWeight: 700, cursor: "pointer" }}>Cancel</button>
+                        style={{ padding: "0.3rem 0.6rem", borderRadius: 6, border: "none", background: "var(--surface-3)", color: "var(--ink-500)", fontSize: "0.72rem", fontWeight: 700, cursor: "pointer" }}>Cancel</button>
                     </div>
                   ) : (
                     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                      <span style={{ fontWeight: 700, fontSize: "0.82rem", color: licEntry.licenseNum ? "#6d28d9" : "#94a3b8", flex: 1, fontFamily: "monospace" }}>
+                      <span style={{ fontWeight: 700, fontSize: "0.82rem", color: licEntry.licenseNum ? "#6d28d9" : "var(--ink-400)", flex: 1, fontFamily: "monospace" }}>
                         {licEntry.licenseNum || "— not set —"}
                       </span>
                       <button type="button"
@@ -13193,7 +13194,7 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
                 </div>
               );
             })()}
-            <div style={{ fontSize: "0.6rem", color: "#94a3b8", marginBottom: 6, fontStyle: "italic" }}>
+            <div style={{ fontSize: "0.6rem", color: "var(--ink-400)", marginBottom: 6, fontStyle: "italic" }}>
               Equipment reflects the latest inspection. Use − / + to correct counts if needed.
             </div>
             {items.map((item, idx) => <EquipRow key={`${item.label || item.type}-${idx}`} item={item} siteKey={siteKey} />)}
@@ -13988,14 +13989,14 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
 
       {/* ── STATES ── */}
       {loading ? (
-        <div style={{ textAlign: "center", padding: "4rem 1rem", color: "#94a3b8" }}>
+        <div style={{ textAlign: "center", padding: "4rem 1rem", color: "var(--ink-400)" }}>
           <div style={{ fontSize: "2rem", marginBottom: "0.65rem" }}>⏳</div>
           <div style={{ fontWeight: 600, fontSize: "0.9rem" }}>Loading performance data…</div>
         </div>
       ) : ranking.length === 0 ? (
-        <div style={{ margin: "1rem", textAlign: "center", padding: "2.5rem 1.25rem", color: "#94a3b8", background: "#fff", borderRadius: 18, border: "1.5px dashed #e2e8f0" }}>
+        <div style={{ margin: "1rem", textAlign: "center", padding: "2.5rem 1.25rem", color: "var(--ink-400)", background: "var(--surface-1)", borderRadius: 18, border: "1.5px dashed #e2e8f0" }}>
           <div style={{ fontSize: "2.5rem", marginBottom: "0.65rem" }}>📊</div>
-          <div style={{ fontWeight: 700, color: "#64748b", fontSize: "0.95rem" }}>No data yet</div>
+          <div style={{ fontWeight: 700, color: "var(--ink-500)", fontSize: "0.95rem" }}>No data yet</div>
           <div style={{ fontSize: "0.82rem", marginTop: "0.3rem" }}>Complete inspections to see performance stats.</div>
         </div>
       ) : (
@@ -14023,7 +14024,7 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
                 }}>
                   <div style={{ fontSize: "0.62rem", color: "rgba(255,255,255,0.45)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", flexShrink: 0 }}>Podium</div>
                   {ranking.slice(0, 3).map((p, i) => {
-                    const podiumColors = [RED, "#94a3b8", "#d97706"];
+                    const podiumColors = [RED, "var(--ink-400)", "#d97706"];
                     return (
                       <div key={p.name} style={{ display: "flex", alignItems: "center", gap: "0.3rem", flex: 1, minWidth: 0, justifyContent: "center" }}>
                         <span style={{ fontSize: i === 0 ? "1rem" : "0.85rem" }}>{medals[i]}</span>
@@ -14041,8 +14042,8 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
               {ranking.map((p, i) => {
                 const trend = trendLabel(p.trendLabel);
                 const isTop = i === 0;
-                const rankColors = [RED, "#64748b", "#d97706"];
-                const rankBg = rankColors[i] ?? "#94a3b8";
+                const rankColors = [RED, "var(--ink-500)", "#d97706"];
+                const rankBg = rankColors[i] ?? "var(--ink-400)";
                 const pct = p.performanceScore;
                 // compact stat string — output quality signals only (no time)
                 const statLine = [
@@ -14061,7 +14062,7 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
                       </div>
                     )}
                   <div style={{
-                    background: "#fff", borderRadius: 15, overflow: "hidden",
+                    background: "var(--surface-1)", borderRadius: 15, overflow: "hidden",
                     border: isTop ? `1.5px solid ${RED}30` : "1.5px solid #f1f5f9",
                     boxShadow: isTop ? "0 5px 20px rgba(238,0,0,0.09), 0 1px 3px rgba(0,0,0,0.05)" : "0 1px 5px rgba(0,0,0,0.04)"
                   }}>
@@ -14075,7 +14076,7 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
                         background: i < 3 ? rankBg : "#f1f5f9",
                         display: "flex", alignItems: "center", justifyContent: "center",
                         fontSize: i < 3 ? "1.15rem" : "0.75rem", fontWeight: 900,
-                        color: i < 3 ? "#fff" : "#94a3b8"
+                        color: i < 3 ? "#fff" : "var(--ink-400)"
                       }}>{medals[i] || `#${i+1}`}</div>
 
                       {/* Avatar */}
@@ -14090,7 +14091,7 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
                       <div style={{ flex: 1, minWidth: 0 }}>
                         {/* Row 1: name + trend badge */}
                         <div style={{ display: "flex", alignItems: "center", gap: "0.35rem", marginBottom: "0.08rem" }}>
-                          <span style={{ fontWeight: 800, color: "#0f172a", fontSize: "0.9rem", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", flex: 1, minWidth: 0 }}>{p.name}</span>
+                          <span style={{ fontWeight: 800, color: "var(--ink-900)", fontSize: "0.9rem", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", flex: 1, minWidth: 0 }}>{p.name}</span>
                           <span style={{
                             fontSize: "0.6rem", color: trend.color, fontWeight: 700, flexShrink: 0,
                             background: trend.color + "14", padding: "0.08rem 0.35rem", borderRadius: 20,
@@ -14098,13 +14099,13 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
                           }}>{trend.label}</span>
                         </div>
                         {/* Row 2: stats on one line */}
-                        <div style={{ fontSize: "0.7rem", color: "#94a3b8", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        <div style={{ fontSize: "0.7rem", color: "var(--ink-400)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                           <span style={{ color: passColor(p.passRate), fontWeight: 700 }}>{p.passRate}%</span>
                           <span style={{ margin: "0 0.25rem" }}>·</span>
                           {statLine}
                         </div>
                         {/* Progress bar */}
-                        <div style={{ marginTop: "0.45rem", height: 4, background: "#f1f5f9", borderRadius: 99 }}>
+                        <div style={{ marginTop: "0.45rem", height: 4, background: "var(--surface-3)", borderRadius: 99 }}>
                           <div style={{ height: "100%", width: `${pct}%`, borderRadius: 99, background: i < 3 ? rankBg : scoreColor(pct), transition: "width 0.6s ease" }} />
                         </div>
                         {/* Output quality signal tags */}
@@ -14192,7 +14193,7 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
                 )}
 
                 {/* ── Section 2: Per-Inspector Duration ── */}
-                <div style={{ background: "#fff", borderRadius: 14, padding: "0.85rem 0.9rem", border: "1.5px solid #f1f5f9", boxShadow: "0 1px 6px rgba(0,0,0,0.04)" }}>
+                <div style={{ background: "var(--surface-1)", borderRadius: 14, padding: "0.85rem 0.9rem", border: "1.5px solid #f1f5f9", boxShadow: "0 1px 6px rgba(0,0,0,0.04)" }}>
                   <div style={{ background: "#f0f9ff", border: "1.5px solid #bae6fd", borderRadius: 10, padding: "0.55rem 0.75rem", marginBottom: "0.75rem", display: "flex", alignItems: "flex-start", gap: "0.4rem" }}>
                     <span style={{ fontSize: "0.95rem", flexShrink: 0 }}>ℹ️</span>
                     <div style={{ fontSize: "0.7rem", color: "#0369a1", lineHeight: 1.5 }}>
@@ -14202,18 +14203,18 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
 
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.7rem" }}>
                     <div>
-                      <div style={{ fontSize: "0.82rem", fontWeight: 800, color: "#0f172a" }}>Avg Completion Time per Inspector</div>
-                      <div style={{ fontSize: "0.67rem", color: "#94a3b8", marginTop: 1 }}>Time from form open to save · reference data only</div>
+                      <div style={{ fontSize: "0.82rem", fontWeight: 800, color: "var(--ink-900)" }}>Avg Completion Time per Inspector</div>
+                      <div style={{ fontSize: "0.67rem", color: "var(--ink-400)", marginTop: 1 }}>Time from form open to save · reference data only</div>
                     </div>
                     {teamAvgSec && (
-                      <div style={{ background: "#f1f5f9", borderRadius: 8, padding: "0.2rem 0.5rem", fontSize: "0.65rem", color: "#64748b", fontWeight: 700, flexShrink: 0 }}>
+                      <div style={{ background: "var(--surface-3)", borderRadius: 8, padding: "0.2rem 0.5rem", fontSize: "0.65rem", color: "var(--ink-500)", fontWeight: 700, flexShrink: 0 }}>
                         Team avg: {fmtDur(teamAvgSec)}
                       </div>
                     )}
                   </div>
 
                   {timedRanking.length === 0 ? (
-                    <div style={{ color: "#94a3b8", padding: "1.5rem 0", textAlign: "center", fontSize: "0.8rem" }}>No timing data yet.</div>
+                    <div style={{ color: "var(--ink-400)", padding: "1.5rem 0", textAlign: "center", fontSize: "0.8rem" }}>No timing data yet.</div>
                   ) : (
                     <div style={{ display: "flex", flexDirection: "column", gap: "0.55rem" }}>
                       {timedRanking.map((p, i) => {
@@ -14225,7 +14226,7 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
                         const durationTrendLabel = p.durationTrend !== null
                           ? (p.durationTrend < -60 ? { label: "↓ Getting faster", color: "#f59e0b" }
                             : p.durationTrend > 60 ? { label: "↑ Taking more time", color: "#22c55e" }
-                            : { label: "→ Consistent duration", color: "#94a3b8" })
+                            : { label: "→ Consistent duration", color: "var(--ink-400)" })
                           : null;
                         return (
                           <div key={p.name} style={{ border: isTooFast ? "1.5px solid #fde68a" : "1px solid #f1f5f9", borderRadius: 12, overflow: "hidden", background: isTooFast ? "#fffbeb" : "#fafafa" }}>
@@ -14242,11 +14243,11 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
                                 {/* Name + badges */}
                                 <div style={{ flex: 1, minWidth: 0 }}>
                                   <div style={{ display: "flex", alignItems: "center", gap: "0.3rem", flexWrap: "wrap" }}>
-                                    <span style={{ fontWeight: 800, color: "#0f172a", fontSize: "0.87rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 140 }}>{p.name}</span>
+                                    <span style={{ fontWeight: 800, color: "var(--ink-900)", fontSize: "0.87rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 140 }}>{p.name}</span>
                                     {isTooFast && <span style={{ background: "#f59e0b", color: "#fff", fontSize: "0.55rem", padding: "0.08rem 0.35rem", borderRadius: 20, fontWeight: 800, whiteSpace: "nowrap" }}>⚠️ Very short</span>}
                                     {durationTrendLabel && <span style={{ fontSize: "0.58rem", color: durationTrendLabel.color, fontWeight: 700, whiteSpace: "nowrap" }}>{durationTrendLabel.label}</span>}
                                   </div>
-                                  <div style={{ fontSize: "0.65rem", color: "#94a3b8", marginTop: 1 }}>
+                                  <div style={{ fontSize: "0.65rem", color: "var(--ink-400)", marginTop: 1 }}>
                                     {p.durationCount} timed · shortest {fmtDur(p.minDurationSec)} · longest {fmtDur(p.maxDurationSec)}
                                   </div>
                                 </div>
@@ -14259,11 +14260,11 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
                               {/* Progress bar + vs-team indicator */}
                               <div style={{ marginTop: "0.45rem" }}>
                                 <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
-                                  <div style={{ flex: 1, height: 5, background: "#f1f5f9", borderRadius: 99 }}>
+                                  <div style={{ flex: 1, height: 5, background: "var(--surface-3)", borderRadius: 99 }}>
                                     <div style={{ height: "100%", width: `${barPct}%`, borderRadius: 99, background: durColor, transition: "width 0.6s ease", opacity: 0.85 }} />
                                   </div>
                                   {teamAvgSec && (
-                                    <span style={{ fontSize: "0.6rem", fontWeight: 700, color: "#64748b", whiteSpace: "nowrap", flexShrink: 0 }}>
+                                    <span style={{ fontSize: "0.6rem", fontWeight: 700, color: "var(--ink-500)", whiteSpace: "nowrap", flexShrink: 0 }}>
                                       {vsTeam > 0 ? `+${fmtDur(vsTeam)} vs avg` : vsTeam < 0 ? `${fmtDur(Math.abs(vsTeam))} below avg` : "= avg"}
                                     </span>
                                   )}
@@ -14279,8 +14280,8 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
                                     <div style={{ display: "flex", flexWrap: "wrap", gap: "0.22rem", alignItems: "center" }}>
                                       {shown.map(s => (
                                         <span key={s.site} style={{
-                                          background: "#f1f5f9", border: "1px solid #e2e8f0", borderRadius: 5,
-                                          padding: "0.08rem 0.38rem", fontSize: "0.63rem", color: "#475569",
+                                          background: "var(--surface-3)", border: "1px solid #e2e8f0", borderRadius: 5,
+                                          padding: "0.08rem 0.38rem", fontSize: "0.63rem", color: "var(--ink-600)",
                                           fontWeight: 500, whiteSpace: "nowrap"
                                         }}>
                                           {s.site}: {fmtDur(s.avgSec)} <span style={{ opacity: 0.5 }}>×{s.count}</span>
@@ -14289,14 +14290,14 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
                                       {!expanded && hidden > 0 && (
                                         <button type="button" onClick={() => setExpandedSiteTags(prev => { const n = new Set(prev); n.add(p.name); return n; })} style={{
                                           background: "none", border: "1px solid #e2e8f0", borderRadius: 5,
-                                          padding: "0.08rem 0.38rem", fontSize: "0.62rem", color: "#64748b",
+                                          padding: "0.08rem 0.38rem", fontSize: "0.62rem", color: "var(--ink-500)",
                                           fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap"
                                         }}>+{hidden} more ▾</button>
                                       )}
                                       {expanded && p.timePerSite.length > 2 && (
                                         <button type="button" onClick={() => setExpandedSiteTags(prev => { const n = new Set(prev); n.delete(p.name); return n; })} style={{
                                           background: "none", border: "1px solid #e2e8f0", borderRadius: 5,
-                                          padding: "0.08rem 0.38rem", fontSize: "0.62rem", color: "#64748b",
+                                          padding: "0.08rem 0.38rem", fontSize: "0.62rem", color: "var(--ink-500)",
                                           fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap"
                                         }}>▴ less</button>
                                       )}
@@ -14314,7 +14315,7 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
                   {/* Time zone legend */}
                   <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginTop: "0.7rem", paddingTop: "0.65rem", borderTop: "1px solid #f1f5f9" }}>
                     {[["#22c55e","< 10 min"], ["#3b82f6","10–20 min"], ["#f59e0b","20–30 min"], ["#ef4444","> 30 min"]].map(([c, l]) => (
-                      <span key={l} style={{ display: "flex", alignItems: "center", gap: "0.2rem", fontSize: "0.62rem", color: "#64748b" }}>
+                      <span key={l} style={{ display: "flex", alignItems: "center", gap: "0.2rem", fontSize: "0.62rem", color: "var(--ink-500)" }}>
                         <span style={{ width: 8, height: 8, borderRadius: 99, background: c, display: "inline-block" }} />{l}
                       </span>
                     ))}
@@ -14330,12 +14331,12 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
                   const maxTP = withTP[0].inspPerDay;
                   const teamAvgTP = parseFloat((withTP.reduce((s, p) => s + p.inspPerDay, 0) / withTP.length).toFixed(1));
                   return (
-                    <div style={{ background: "#fff", borderRadius: 14, padding: "0.85rem 0.9rem", border: "1.5px solid #f1f5f9", boxShadow: "0 1px 6px rgba(0,0,0,0.04)" }}>
+                    <div style={{ background: "var(--surface-1)", borderRadius: 14, padding: "0.85rem 0.9rem", border: "1.5px solid #f1f5f9", boxShadow: "0 1px 6px rgba(0,0,0,0.04)" }}>
                       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 2 }}>
-                        <div style={{ fontSize: "0.82rem", fontWeight: 800, color: "#0f172a" }}>Daily Throughput</div>
-                        <div style={{ background: "#f1f5f9", borderRadius: 8, padding: "0.2rem 0.5rem", fontSize: "0.65rem", color: "#64748b", fontWeight: 700 }}>Team avg: {teamAvgTP}/day</div>
+                        <div style={{ fontSize: "0.82rem", fontWeight: 800, color: "var(--ink-900)" }}>Daily Throughput</div>
+                        <div style={{ background: "var(--surface-3)", borderRadius: 8, padding: "0.2rem 0.5rem", fontSize: "0.65rem", color: "var(--ink-500)", fontWeight: 700 }}>Team avg: {teamAvgTP}/day</div>
                       </div>
-                      <div style={{ fontSize: "0.67rem", color: "#94a3b8", marginBottom: "0.7rem" }}>Inspections completed per active working day</div>
+                      <div style={{ fontSize: "0.67rem", color: "var(--ink-400)", marginBottom: "0.7rem" }}>Inspections completed per active working day</div>
                       <div style={{ display: "flex", flexDirection: "column", gap: "0.45rem" }}>
                         {withTP.map((p, i) => {
                           const barPct = maxTP ? Math.round((p.inspPerDay / maxTP) * 100) : 100;
@@ -14349,10 +14350,10 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
                                 <div style={{ width: 32, height: 32, borderRadius: 9, flexShrink: 0, background: avatarBg(p.name), display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.7rem", fontWeight: 900, color: "#fff" }}>{initials(p.name)}</div>
                                 <div style={{ flex: 1, minWidth: 0 }}>
                                   <div style={{ display: "flex", alignItems: "center", gap: "0.3rem" }}>
-                                    <span style={{ fontWeight: 800, color: "#0f172a", fontSize: "0.82rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</span>
+                                    <span style={{ fontWeight: 800, color: "var(--ink-900)", fontSize: "0.82rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</span>
                                     {isTop && <span style={{ background: NAVY, color: "#fff", fontSize: "0.52rem", padding: "0.06rem 0.3rem", borderRadius: 20, fontWeight: 800, flexShrink: 0 }}>TOP</span>}
                                   </div>
-                                  <div style={{ fontSize: "0.63rem", color: "#94a3b8", marginBottom: "0.2rem" }}>
+                                  <div style={{ fontSize: "0.63rem", color: "var(--ink-400)", marginBottom: "0.2rem" }}>
                                     {p.total} total · {p.activeDayCount} active day{p.activeDayCount !== 1 ? "s" : ""}
                                     {Number(vsTeamTP) > 0
                                       ? <span style={{ marginLeft: 4, color: "#22c55e", fontWeight: 700 }}>+{vsTeamTP} vs team</span>
@@ -14361,7 +14362,7 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
                                         : null
                                     }
                                   </div>
-                                  <div style={{ height: 4, background: "#f1f5f9", borderRadius: 99 }}>
+                                  <div style={{ height: 4, background: "var(--surface-3)", borderRadius: 99 }}>
                                     <div style={{ height: "100%", width: `${barPct}%`, borderRadius: 99, background: isTop ? NAVY : tpColor, transition: "width 0.5s ease", opacity: 0.85 }} />
                                   </div>
                                 </div>
@@ -14383,9 +14384,9 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
                   const withRI = [...ranking].filter(p => p.avgReinspDays !== null).sort((a, b) => a.avgReinspDays - b.avgReinspDays);
                   if (withRI.length === 0) return null;
                   return (
-                    <div style={{ background: "#fff", borderRadius: 14, padding: "0.85rem 0.9rem", border: "1.5px solid #f1f5f9", boxShadow: "0 1px 6px rgba(0,0,0,0.04)" }}>
-                      <div style={{ fontSize: "0.82rem", fontWeight: 800, color: "#0f172a", marginBottom: 2 }}>Site Re-Inspection Cycle</div>
-                      <div style={{ fontSize: "0.67rem", color: "#94a3b8", marginBottom: "0.7rem" }}>Average days between revisits to the same location — shorter means more frequent follow-up</div>
+                    <div style={{ background: "var(--surface-1)", borderRadius: 14, padding: "0.85rem 0.9rem", border: "1.5px solid #f1f5f9", boxShadow: "0 1px 6px rgba(0,0,0,0.04)" }}>
+                      <div style={{ fontSize: "0.82rem", fontWeight: 800, color: "var(--ink-900)", marginBottom: 2 }}>Site Re-Inspection Cycle</div>
+                      <div style={{ fontSize: "0.67rem", color: "var(--ink-400)", marginBottom: "0.7rem" }}>Average days between revisits to the same location — shorter means more frequent follow-up</div>
                       <div style={{ display: "flex", flexDirection: "column", gap: "0.45rem" }}>
                         {withRI.map(p => {
                           const days = p.avgReinspDays;
@@ -14395,16 +14396,16 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
                             <div key={p.name + "-ri"} style={{ display: "flex", alignItems: "flex-start", gap: "0.55rem", background: riColor + "0c", borderRadius: 10, padding: "0.65rem 0.7rem", border: `1.5px solid ${riColor}20` }}>
                               <div style={{ width: 32, height: 32, borderRadius: 9, flexShrink: 0, background: avatarBg(p.name), display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.7rem", fontWeight: 900, color: "#fff" }}>{initials(p.name)}</div>
                               <div style={{ flex: 1, minWidth: 0 }}>
-                                <div style={{ fontWeight: 800, color: "#0f172a", fontSize: "0.82rem" }}>{p.name}</div>
-                                <div style={{ fontSize: "0.63rem", color: "#64748b", marginTop: 1, marginBottom: "0.35rem" }}>
+                                <div style={{ fontWeight: 800, color: "var(--ink-900)", fontSize: "0.82rem" }}>{p.name}</div>
+                                <div style={{ fontSize: "0.63rem", color: "var(--ink-500)", marginTop: 1, marginBottom: "0.35rem" }}>
                                   {p.siteReinspDetail.length} site{p.siteReinspDetail.length !== 1 ? "s" : ""} revisited · {riLabel} avg cycle
                                 </div>
                                 {p.siteReinspDetail.length > 0 && (
                                   <div style={{ display: "flex", flexWrap: "wrap", gap: "0.22rem" }}>
                                     {p.siteReinspDetail.map(s => (
                                       <span key={s.site} style={{
-                                        background: "#f1f5f9", border: "1px solid #e2e8f0", borderRadius: 5,
-                                        padding: "0.08rem 0.38rem", fontSize: "0.62rem", color: "#475569",
+                                        background: "var(--surface-3)", border: "1px solid #e2e8f0", borderRadius: 5,
+                                        padding: "0.08rem 0.38rem", fontSize: "0.62rem", color: "var(--ink-600)",
                                         fontWeight: 500, whiteSpace: "nowrap"
                                       }}>
                                         {s.site}: every {s.avgDays}d <span style={{ opacity: 0.5 }}>({s.visits} visits)</span>
@@ -14818,7 +14819,7 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
                       })()}
                     </div>
                     {/* White bottom section — breakdown by group + ice/filter */}
-                    <div style={{ background: "#fff", padding: "0.7rem 1.1rem 0.75rem" }}>
+                    <div style={{ background: "var(--surface-1)", padding: "0.7rem 1.1rem 0.75rem" }}>
                       {/* Breakdown by group */}
                       {[
                         { label: "Concession", totals: totalPerm,  color: "#2563eb", bg: "#eff6ff", show: permList.length > 0 },
@@ -14853,7 +14854,7 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
                       value={invSearch}
                       onChange={e => setInvSearch(e.target.value)}
                       placeholder="Search site or event name…"
-                      style={{ padding: "0.65rem 0.9rem", borderRadius: 11, border: "1.5px solid #e2e8f0", fontSize: "0.85rem", color: "#0f172a", outline: "none", background: "#fff", boxShadow: "0 1px 4px rgba(42,41,92,0.06)" }}
+                      style={{ padding: "0.65rem 0.9rem", borderRadius: 11, border: "1.5px solid #e2e8f0", fontSize: "0.85rem", color: "var(--ink-900)", outline: "none", background: "var(--surface-1)", boxShadow: "0 1px 4px rgba(42,41,92,0.06)" }}
                     />
 
                     {/* ── Row 1: Equipment category pills + Location Type + Clear ── */}
@@ -14861,7 +14862,7 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
                       {/* "All" pill */}
                       <button type="button"
                         onClick={() => { setInvEquipBucket(""); setInvEquipSub(""); }}
-                        style={{ padding: "6px 13px", borderRadius: 20, border: invEquipBucket ? "1.5px solid #e2e8f0" : "1.5px solid #2A295C", background: invEquipBucket ? "#f8fafc" : "var(--sdx-navy)", color: invEquipBucket ? "#64748b" : "#fff", fontSize: "0.78rem", fontWeight: 700, cursor: "pointer" }}>
+                        style={{ padding: "6px 13px", borderRadius: 20, border: invEquipBucket ? "1.5px solid #e2e8f0" : "1.5px solid #2A295C", background: invEquipBucket ? "#f8fafc" : "var(--sdx-navy)", color: invEquipBucket ? "var(--ink-500)" : "#fff", fontSize: "0.78rem", fontWeight: 700, cursor: "pointer" }}>
                         All
                       </button>
                       {invEquipGroups.map(b => {
@@ -14869,7 +14870,7 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
                         return (
                           <button key={b.key} type="button"
                             onClick={() => { setInvEquipBucket(isActive ? "" : b.key); setInvEquipSub(""); }}
-                            style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 13px", borderRadius: 20, border: isActive ? "1.5px solid #2A295C" : "1.5px solid #e2e8f0", background: isActive ? "var(--sdx-navy)" : "#f8fafc", color: isActive ? "#fff" : "#475569", fontSize: "0.78rem", fontWeight: 700, cursor: "pointer", transition: "all 0.12s" }}>
+                            style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 13px", borderRadius: 20, border: isActive ? "1.5px solid #2A295C" : "1.5px solid #e2e8f0", background: isActive ? "var(--sdx-navy)" : "#f8fafc", color: isActive ? "#fff" : "var(--ink-600)", fontSize: "0.78rem", fontWeight: 700, cursor: "pointer", transition: "all 0.12s" }}>
                             <span>{b.label}</span>
                             <span style={{ fontSize: "0.7rem", opacity: 0.75 }}>({b.total})</span>
                           </button>
@@ -14890,7 +14891,7 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
                       {isFiltering && (
                         <button type="button"
                           onClick={() => { setInvSearch(""); setInvEquipBucket(""); setInvEquipSub(""); setInvTypeFilter(""); setInvLocFilter(""); }}
-                          style={{ padding: "6px 12px", borderRadius: 10, border: "1.5px solid #fca5a5", background: "#fff", color: "#dc2626", fontSize: "0.78rem", fontWeight: 700, cursor: "pointer" }}>
+                          style={{ padding: "6px 12px", borderRadius: 10, border: "1.5px solid #fca5a5", background: "var(--surface-1)", color: "#dc2626", fontSize: "0.78rem", fontWeight: 700, cursor: "pointer" }}>
                           ✕ Clear
                         </button>
                       )}
@@ -14899,10 +14900,10 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
                     {/* ── Row 2: Sub-type pills — appears when a category is active ── */}
                     {invActiveBucketObj && invActiveBucketObj.subs.length > 0 && (
                       <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", paddingLeft: 2 }}>
-                        <span style={{ fontSize: "0.68rem", fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.06em", marginRight: 2 }}>Type:</span>
+                        <span style={{ fontSize: "0.68rem", fontWeight: 700, color: "var(--ink-400)", textTransform: "uppercase", letterSpacing: "0.06em", marginRight: 2 }}>Type:</span>
                         <button type="button"
                           onClick={() => setInvEquipSub("")}
-                          style={{ padding: "4px 11px", borderRadius: 20, border: invEquipSub ? "1.5px solid #e2e8f0" : "1.5px solid #2A295C", background: invEquipSub ? "#f8fafc" : "var(--sdx-navy)", color: invEquipSub ? "#64748b" : "#fff", fontSize: "0.75rem", fontWeight: 700, cursor: "pointer" }}>
+                          style={{ padding: "4px 11px", borderRadius: 20, border: invEquipSub ? "1.5px solid #e2e8f0" : "1.5px solid #2A295C", background: invEquipSub ? "#f8fafc" : "var(--sdx-navy)", color: invEquipSub ? "var(--ink-500)" : "#fff", fontSize: "0.75rem", fontWeight: 700, cursor: "pointer" }}>
                           All {invActiveBucketObj.label}
                         </button>
                         {invActiveBucketObj.subs.map(sb => {
@@ -14910,7 +14911,7 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
                           return (
                             <button key={sb.key} type="button"
                               onClick={() => setInvEquipSub(isActiveSub ? "" : sb.key)}
-                              style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 11px", borderRadius: 20, border: isActiveSub ? "1.5px solid #2A295C" : "1.5px solid #e2e8f0", background: isActiveSub ? "var(--sdx-navy)" : "#f8fafc", color: isActiveSub ? "#fff" : "#475569", fontSize: "0.75rem", fontWeight: 700, cursor: "pointer", transition: "all 0.12s" }}>
+                              style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 11px", borderRadius: 20, border: isActiveSub ? "1.5px solid #2A295C" : "1.5px solid #e2e8f0", background: isActiveSub ? "var(--sdx-navy)" : "#f8fafc", color: isActiveSub ? "#fff" : "var(--ink-600)", fontSize: "0.75rem", fontWeight: 700, cursor: "pointer", transition: "all 0.12s" }}>
                               {sb.label}
                               <span style={{ fontSize: "0.68rem", opacity: 0.75 }}>({sb.total})</span>
                             </button>
@@ -14922,13 +14923,13 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
                 )}
 
                 {!hasAny && (
-                  <div style={{ textAlign: "center", padding: "2.5rem 1rem", color: "#94a3b8", fontSize: "0.85rem" }}>
+                  <div style={{ textAlign: "center", padding: "2.5rem 1rem", color: "var(--ink-400)", fontSize: "0.85rem" }}>
                     No equipment found in inspection history yet.
                   </div>
                 )}
 
                 {isFiltering && !hasFiltered && (
-                  <div style={{ textAlign: "center", padding: "1.5rem 1rem", color: "#94a3b8", fontSize: "0.85rem" }}>
+                  <div style={{ textAlign: "center", padding: "1.5rem 1rem", color: "var(--ink-400)", fontSize: "0.85rem" }}>
                     Nothing matched. Try different filters.
                   </div>
                 )}
@@ -15009,11 +15010,11 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
 
               {/* Explainer banner */}
               <div style={{
-                background: "#fff", borderRadius: 12, padding: "0.7rem 0.95rem",
+                background: "var(--surface-1)", borderRadius: 12, padding: "0.7rem 0.95rem",
                 border: "1.5px solid #e2e8f0", display: "flex", alignItems: "flex-start", gap: "0.5rem"
               }}>
-                <div style={{ fontSize: "0.76rem", color: "#475569", lineHeight: 1.55 }}>
-                  <span style={{ fontWeight: 700, color: "#0f172a" }}>Retention Analysis</span> — each inspector is rated on real output signals: pass rate, issue-finding, note quality, rubber-stamp detection, site coverage, and recent trajectory. Use this as a starting point for reviews, not as a final decision.
+                <div style={{ fontSize: "0.76rem", color: "var(--ink-600)", lineHeight: 1.55 }}>
+                  <span style={{ fontWeight: 700, color: "var(--ink-900)" }}>Retention Analysis</span> — each inspector is rated on real output signals: pass rate, issue-finding, note quality, rubber-stamp detection, site coverage, and recent trajectory. Use this as a starting point for reviews, not as a final decision.
                 </div>
               </div>
 
@@ -15040,8 +15041,8 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
 
                       {/* Name + stats */}
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontWeight: 800, color: "#0f172a", fontSize: "0.92rem", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.name}</div>
-                        <div style={{ fontSize: "0.69rem", color: "#64748b", marginTop: "0.08rem" }}>
+                        <div style={{ fontWeight: 800, color: "var(--ink-900)", fontSize: "0.92rem", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.name}</div>
+                        <div style={{ fontSize: "0.69rem", color: "var(--ink-500)", marginTop: "0.08rem" }}>
                           {p.total} insp · {p.passRate}% pass · {p.siteCount} site{p.siteCount !== 1 ? "s" : ""}
                         </div>
                       </div>
@@ -15072,16 +15073,16 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
 
                     {/* ── Signals list ── */}
                     <div style={{ padding: "0.6rem 0.95rem 0.5rem" }}>
-                      <div style={{ fontSize: "0.6rem", fontWeight: 800, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.45rem" }}>Performance signals</div>
+                      <div style={{ fontSize: "0.6rem", fontWeight: 800, color: "var(--ink-400)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.45rem" }}>Performance signals</div>
                       <div style={{ display: "flex", flexDirection: "column", gap: "0.35rem" }}>
                         {v.signals.map((s, si) => {
-                          const dotColor = s.type === "positive" ? "#16a34a" : s.type === "danger" ? "#dc2626" : s.type === "warning" ? "#d97706" : "#94a3b8";
+                          const dotColor = s.type === "positive" ? "#16a34a" : s.type === "danger" ? "#dc2626" : s.type === "warning" ? "#d97706" : "var(--ink-400)";
                           return (
                             <div key={si} style={{ display: "flex", gap: "0.55rem", alignItems: "flex-start" }}>
                               <div style={{ width: 7, height: 7, borderRadius: "50%", background: dotColor, flexShrink: 0, marginTop: "0.32rem" }} />
                               <div style={{ flex: 1, minWidth: 0 }}>
-                                <span style={{ fontWeight: 700, fontSize: "0.76rem", color: "#1e293b" }}>{s.label}</span>
-                                <span style={{ fontSize: "0.73rem", color: "#64748b", marginLeft: "0.35rem" }}>{s.detail}</span>
+                                <span style={{ fontWeight: 700, fontSize: "0.76rem", color: "var(--ink-900)" }}>{s.label}</span>
+                                <span style={{ fontSize: "0.73rem", color: "var(--ink-500)", marginLeft: "0.35rem" }}>{s.detail}</span>
                               </div>
                             </div>
                           );
@@ -15120,7 +15121,7 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
                               width: "100%", background: "none", border: "none", cursor: "pointer",
                               display: "flex", alignItems: "center", gap: "0.45rem",
                               padding: "0.55rem 0.95rem",
-                              color: savedNote ? "#0f172a" : "#64748b",
+                              color: savedNote ? "var(--ink-900)" : "var(--ink-500)",
                               fontSize: "0.71rem", fontWeight: savedNote ? 700 : 500,
                               textAlign: "left"
                             }}
@@ -15132,7 +15133,7 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
                                 ? isOpen ? "Edit admin note" : `Note: ${savedNote.length > 60 ? savedNote.slice(0, 60) + "…" : savedNote}`
                                 : "Add admin note"}
                             </span>
-                            <span style={{ fontSize: "0.65rem", color: "#94a3b8", marginLeft: "auto" }}>{isOpen ? "▲" : "▼"}</span>
+                            <span style={{ fontSize: "0.65rem", color: "var(--ink-400)", marginLeft: "auto" }}>{isOpen ? "▲" : "▼"}</span>
                           </button>
 
                           {/* Expanded feedback form */}
@@ -15148,8 +15149,8 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
                                   resize: "vertical", minHeight: 70,
                                   border: "1.5px solid #cbd5e1", borderRadius: 9,
                                   padding: "0.55rem 0.7rem", fontSize: "0.78rem",
-                                  color: "#1e293b", lineHeight: 1.55,
-                                  fontFamily: "inherit", background: "#f8fafc",
+                                  color: "var(--ink-900)", lineHeight: 1.55,
+                                  fontFamily: "inherit", background: "var(--surface-2)",
                                   outline: "none"
                                 }}
                                 onFocus={e => { e.target.style.borderColor = "#3b82f6"; e.target.style.background = "#fff"; }}
@@ -15183,7 +15184,7 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
                                   type="button"
                                   style={{
                                     background: "none", border: "1.5px solid #e2e8f0", borderRadius: 7,
-                                    color: "#64748b", fontSize: "0.72rem", fontWeight: 600,
+                                    color: "var(--ink-500)", fontSize: "0.72rem", fontWeight: 600,
                                     padding: "0.3rem 0.65rem", cursor: "pointer"
                                   }}
                                 >Cancel</button>
@@ -15210,7 +15211,7 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
               })}
 
               {/* Footer disclaimer */}
-              <div style={{ fontSize: "0.68rem", color: "#94a3b8", textAlign: "center", padding: "0.25rem 1rem 0.5rem", lineHeight: 1.5 }}>
+              <div style={{ fontSize: "0.68rem", color: "var(--ink-400)", textAlign: "center", padding: "0.25rem 1rem 0.5rem", lineHeight: 1.5 }}>
                 Verdicts are based on inspection data only. Always consider context, site conditions, and direct observation before making employment decisions.
               </div>
             </div>
@@ -15319,16 +15320,16 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
 
                 {/* ── Score over time + data table side by side on desktop ── */}
                 <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: "0.75rem", alignItems: "start" }}>
-                <div style={{ background: "#fff", borderRadius: 16, border: "1.5px solid #e2e8f0", overflow: "hidden" }}>
+                <div style={{ background: "var(--surface-1)", borderRadius: 16, border: "1.5px solid #e2e8f0", overflow: "hidden" }}>
                   <div style={{ padding: "0.6rem 0.9rem 0.4rem", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", gap: "0.75rem" }}>
                     <div>
-                      <div style={{ fontWeight: 800, fontSize: "0.85rem", color: "#0f172a" }}>Compliance Score Over Time</div>
-                      <div style={{ fontSize: "0.65rem", color: "#94a3b8" }}>Monthly average compliance % and pass rate</div>
+                      <div style={{ fontWeight: 800, fontSize: "0.85rem", color: "var(--ink-900)" }}>Compliance Score Over Time</div>
+                      <div style={{ fontSize: "0.65rem", color: "var(--ink-400)" }}>Monthly average compliance % and pass rate</div>
                     </div>
                     {/* Legend inline in header */}
                     <div style={{ marginLeft: "auto", display: "flex", gap: "0.75rem", flexShrink: 0 }}>
                       {[["var(--sdx-navy)", "Compliance"], ["#22c55e", "Pass Rate"]].map(([color, label]) => (
-                        <div key={label} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: "0.62rem", color: "#64748b", fontWeight: 600 }}>
+                        <div key={label} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: "0.62rem", color: "var(--ink-500)", fontWeight: 600 }}>
                           <div style={{ width: 16, height: 2.5, background: color, borderRadius: 2 }} />
                           {label}
                         </div>
@@ -15337,7 +15338,7 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
                   </div>
 
                   {!hasChartData ? (
-                    <div style={{ padding: "1.5rem 1rem", textAlign: "center", color: "#94a3b8", fontSize: "0.82rem" }}>
+                    <div style={{ padding: "1.5rem 1rem", textAlign: "center", color: "var(--ink-400)", fontSize: "0.82rem" }}>
                       Not enough data yet — need inspections across at least 2 months.
                     </div>
                   ) : (
@@ -15349,7 +15350,7 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
                             <line x1={PAD.left} y1={toSvgY(v)} x2={W - PAD.right} y2={toSvgY(v)}
                               stroke={v === yMax ? "#cbd5e1" : "#f1f5f9"} strokeWidth={1} />
                             <text x={PAD.left - 4} y={toSvgY(v) + 3.5}
-                              textAnchor="end" fontSize="7" fill="#94a3b8" fontFamily="Inter,sans-serif">{v}</text>
+                              textAnchor="end" fontSize="7" fill="var(--ink-400)" fontFamily="Inter,sans-serif">{v}</text>
                           </g>
                         ))}
 
@@ -15387,7 +15388,7 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
                         {/* X-axis month labels */}
                         {labelIdxs.map(i => (
                           <text key={i} x={toSvgX(i)} y={H - 6}
-                            textAnchor="middle" fontSize="7.5" fill="#94a3b8" fontFamily="Inter,sans-serif">
+                            textAnchor="middle" fontSize="7.5" fill="var(--ink-400)" fontFamily="Inter,sans-serif">
                             {labelMonth(points[i].month)}
                           </text>
                         ))}
@@ -15399,27 +15400,27 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
 
                 {/* Data table — second column on desktop */}
                 {hasChartData && (
-                  <div style={{ background: "#fff", borderRadius: 16, border: "1.5px solid #e2e8f0", overflow: "hidden", minWidth: 200 }}>
+                  <div style={{ background: "var(--surface-1)", borderRadius: 16, border: "1.5px solid #e2e8f0", overflow: "hidden", minWidth: 200 }}>
                     <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.68rem" }}>
                       <thead>
-                        <tr style={{ background: "#f8fafc" }}>
+                        <tr style={{ background: "var(--surface-2)" }}>
                           {["Month","Insp","Score","Pass"].map(h => (
                             <th key={h} style={{ padding: "0.4rem 0.5rem", textAlign: h === "Month" ? "left" : "center",
-                              fontWeight: 700, color: "#64748b", borderBottom: "1.5px solid #e2e8f0", whiteSpace: "nowrap" }}>{h}</th>
+                              fontWeight: 700, color: "var(--ink-500)", borderBottom: "1.5px solid #e2e8f0", whiteSpace: "nowrap" }}>{h}</th>
                           ))}
                         </tr>
                       </thead>
                       <tbody>
                         {[...points].reverse().map(p => (
                           <tr key={p.month} style={{ borderBottom: "1px solid #f8fafc" }}>
-                            <td style={{ padding: "0.3rem 0.5rem", color: "#0f172a", fontWeight: 600 }}>{labelMonth(p.month)}</td>
-                            <td style={{ padding: "0.3rem 0.5rem", textAlign: "center", color: "#475569" }}>{p.total}</td>
+                            <td style={{ padding: "0.3rem 0.5rem", color: "var(--ink-900)", fontWeight: 600 }}>{labelMonth(p.month)}</td>
+                            <td style={{ padding: "0.3rem 0.5rem", textAlign: "center", color: "var(--ink-600)" }}>{p.total}</td>
                             <td style={{ padding: "0.3rem 0.5rem", textAlign: "center", fontWeight: 700,
-                              color: p.avgPct !== null ? (p.avgPct >= 90 ? "#16a34a" : p.avgPct >= 70 ? "#ca8a04" : "#dc2626") : "#94a3b8" }}>
+                              color: p.avgPct !== null ? (p.avgPct >= 90 ? "#16a34a" : p.avgPct >= 70 ? "#ca8a04" : "#dc2626") : "var(--ink-400)" }}>
                               {p.avgPct !== null ? `${p.avgPct}%` : "—"}
                             </td>
                             <td style={{ padding: "0.3rem 0.5rem", textAlign: "center", fontWeight: 700,
-                              color: p.passRate !== null ? passColor(p.passRate) : "#94a3b8" }}>
+                              color: p.passRate !== null ? passColor(p.passRate) : "var(--ink-400)" }}>
                               {p.passRate !== null ? `${p.passRate}%` : "—"}
                             </td>
                           </tr>
@@ -15434,20 +15435,20 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
 
                 {/* ── Recurring Issues Bar Chart ── */}
-                <div style={{ background: "#fff", borderRadius: 16, border: "1.5px solid #e2e8f0", overflow: "hidden" }}>
+                <div style={{ background: "var(--surface-1)", borderRadius: 16, border: "1.5px solid #e2e8f0", overflow: "hidden" }}>
                   <div style={{ padding: "0.75rem 0.9rem 0.5rem", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", gap: "0.5rem" }}>
                     <span style={{ fontSize: "1rem" }}>🔁</span>
                     <div>
-                      <div style={{ fontWeight: 800, fontSize: "0.88rem", color: "#0f172a" }}>Recurring Issues</div>
-                      <div style={{ fontSize: "0.68rem", color: "#94a3b8" }}>Top issue categories across all inspections</div>
+                      <div style={{ fontWeight: 800, fontSize: "0.88rem", color: "var(--ink-900)" }}>Recurring Issues</div>
+                      <div style={{ fontSize: "0.68rem", color: "var(--ink-400)" }}>Top issue categories across all inspections</div>
                     </div>
-                    <div style={{ marginLeft: "auto", fontWeight: 700, fontSize: "0.7rem", color: "#94a3b8" }}>
+                    <div style={{ marginLeft: "auto", fontWeight: 700, fontSize: "0.7rem", color: "var(--ink-400)" }}>
                       {history.length} insp
                     </div>
                   </div>
 
                   {topIssues.length === 0 ? (
-                    <div style={{ padding: "2rem 1rem", textAlign: "center", color: "#94a3b8", fontSize: "0.82rem" }}>
+                    <div style={{ padding: "2rem 1rem", textAlign: "center", color: "var(--ink-400)", fontSize: "0.82rem" }}>
                       No issues recorded yet.
                     </div>
                   ) : (
@@ -15458,20 +15459,20 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
                         return (
                           <div key={cat} style={{ marginBottom: "0.6rem" }}>
                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "0.2rem" }}>
-                              <span style={{ fontSize: "0.76rem", fontWeight: 600, color: "#0f172a", flex: 1, minWidth: 0,
+                              <span style={{ fontSize: "0.76rem", fontWeight: 600, color: "var(--ink-900)", flex: 1, minWidth: 0,
                                 whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", marginRight: 8 }}>
                                 {idx === 0 && "🔴 "}{cat}
                               </span>
                               <span style={{ fontSize: "0.72rem", fontWeight: 800, color: barColor, flexShrink: 0 }}>{count}x</span>
                             </div>
-                            <div style={{ height: 8, background: "#f1f5f9", borderRadius: 6, overflow: "hidden" }}>
+                            <div style={{ height: 8, background: "var(--surface-3)", borderRadius: 6, overflow: "hidden" }}>
                               <div style={{ width: `${pct}%`, height: "100%", background: barColor,
                                 borderRadius: 6, transition: "width 0.4s ease" }} />
                             </div>
                           </div>
                         );
                       })}
-                      <div style={{ fontSize: "0.65rem", color: "#94a3b8", marginTop: "0.25rem" }}>
+                      <div style={{ fontSize: "0.65rem", color: "var(--ink-400)", marginTop: "0.25rem" }}>
                         Bar length relative to most frequent issue. {topIssues.length < Object.keys(issueCounts).length && `Showing top ${topIssues.length} of ${Object.keys(issueCounts).length}.`}
                       </div>
                     </div>
@@ -15480,10 +15481,10 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
 
                 {/* ── Volume by Month (bar chart) ── */}
                 {points.length >= 2 && (
-                  <div style={{ background: "#fff", borderRadius: 16, border: "1.5px solid #e2e8f0", overflow: "hidden" }}>
+                  <div style={{ background: "var(--surface-1)", borderRadius: 16, border: "1.5px solid #e2e8f0", overflow: "hidden" }}>
                     <div style={{ padding: "0.75rem 0.9rem 0.5rem", borderBottom: "1px solid #f1f5f9" }}>
-                      <div style={{ fontWeight: 800, fontSize: "0.88rem", color: "#0f172a" }}>Inspection Volume</div>
-                      <div style={{ fontSize: "0.68rem", color: "#94a3b8" }}>Number of inspections per month</div>
+                      <div style={{ fontWeight: 800, fontSize: "0.88rem", color: "var(--ink-900)" }}>Inspection Volume</div>
+                      <div style={{ fontSize: "0.68rem", color: "var(--ink-400)" }}>Number of inspections per month</div>
                     </div>
                     <div style={{ padding: "0.75rem 0.9rem" }}>
                       {(() => {
@@ -15492,10 +15493,10 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
                           const barPct = maxVol ? Math.max(4, Math.round((p.total / maxVol) * 100)) : 4;
                           return (
                             <div key={p.month} style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.45rem" }}>
-                              <div style={{ width: 44, flexShrink: 0, fontSize: "0.65rem", fontWeight: 600, color: "#64748b", textAlign: "right" }}>
+                              <div style={{ width: 44, flexShrink: 0, fontSize: "0.65rem", fontWeight: 600, color: "var(--ink-500)", textAlign: "right" }}>
                                 {labelMonth(p.month)}
                               </div>
-                              <div style={{ flex: 1, height: 14, background: "#f1f5f9", borderRadius: 6, overflow: "hidden" }}>
+                              <div style={{ flex: 1, height: 14, background: "var(--surface-3)", borderRadius: 6, overflow: "hidden" }}>
                                 <div style={{ width: `${barPct}%`, height: "100%", background: "var(--sdx-navy)", borderRadius: 6 }} />
                               </div>
                               <div style={{ width: 22, flexShrink: 0, fontSize: "0.68rem", fontWeight: 800, color: "var(--sdx-navy)", textAlign: "left" }}>
@@ -15680,8 +15681,8 @@ function EquipmentScannerPage({ onBack, onPrintLabels }) {
     "Critical Violation": "#b91c1c",
     "Corrected On-Site": "#7c3aed",
     "Maintenance": "#0284c7",
-    "Off / Not In Use": "#64748b",
-    "N/A": "#94a3b8",
+    "Off / Not In Use": "var(--ink-500)",
+    "N/A": "var(--ink-400)",
   };
 
   return (
@@ -15737,7 +15738,7 @@ function EquipmentScannerPage({ onBack, onPrintLabels }) {
         )}
 
         {/* Search bar */}
-        <div style={{ background: "#fff", borderRadius: 12, padding: "1rem", boxShadow: "0 1px 4px rgba(0,0,0,0.08)", marginBottom: "1rem" }}>
+        <div style={{ background: "var(--surface-1)", borderRadius: 12, padding: "1rem", boxShadow: "0 1px 4px rgba(0,0,0,0.08)", marginBottom: "1rem" }}>
           <label style={{ display: "block", fontWeight: 600, fontSize: "0.85rem", color: "#374151", marginBottom: 8 }}>
             Equipment ID / Asset Tag
           </label>
@@ -15782,7 +15783,7 @@ function EquipmentScannerPage({ onBack, onPrintLabels }) {
 
         {/* Results */}
         {searching && (
-          <div style={{ textAlign: "center", padding: "2rem", color: "#64748b", fontSize: "0.9rem" }}>
+          <div style={{ textAlign: "center", padding: "2rem", color: "var(--ink-500)", fontSize: "0.9rem" }}>
             Searching inspection history…
           </div>
         )}
@@ -15812,7 +15813,7 @@ function EquipmentScannerPage({ onBack, onPrintLabels }) {
                     </div>
                   )}
                   {Object.entries(statusCounts).filter(([s]) => s !== "OK" && s !== "Fail" && s !== "Critical Violation").map(([s, c]) => (
-                    <div key={s} style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 8, padding: "0.5rem 0.9rem", fontSize: "0.82rem", color: STATUS_COLOR[s] || "#374151", fontWeight: 600 }}>
+                    <div key={s} style={{ background: "var(--surface-2)", border: "1px solid #e2e8f0", borderRadius: 8, padding: "0.5rem 0.9rem", fontSize: "0.82rem", color: STATUS_COLOR[s] || "#374151", fontWeight: 600 }}>
                       {c} {s}
                     </div>
                   ))}
@@ -15844,9 +15845,9 @@ function EquipmentScannerPage({ onBack, onPrintLabels }) {
                       const isLast = i === last3.length - 1;
                       return (
                         <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
-                          <span style={{ fontSize: "0.7rem", fontWeight: 700, color: isLast ? "#0369a1" : "#64748b" }}>{r.tempF}°F</span>
+                          <span style={{ fontSize: "0.7rem", fontWeight: 700, color: isLast ? "#0369a1" : "var(--ink-500)" }}>{r.tempF}°F</span>
                           <div style={{ width: "100%", height: h, borderRadius: 3, background: isLast ? "#0284c7" : "#7dd3fc" }} />
-                          <span style={{ fontSize: "0.65rem", color: "#94a3b8", whiteSpace: "nowrap" }}>
+                          <span style={{ fontSize: "0.65rem", color: "var(--ink-400)", whiteSpace: "nowrap" }}>
                             {r.date ? new Date(r.date).toLocaleDateString([], { month: "short", day: "numeric" }) : "—"}
                           </span>
                         </div>
@@ -15859,17 +15860,17 @@ function EquipmentScannerPage({ onBack, onPrintLabels }) {
 
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {results.map((r, i) => (
-                <div key={i} style={{ background: "#fff", borderRadius: 10, padding: "0.9rem 1rem", boxShadow: "0 1px 3px rgba(0,0,0,0.07)", borderLeft: `4px solid ${STATUS_COLOR[r.status] || "#94a3b8"}` }}>
+                <div key={i} style={{ background: "var(--surface-1)", borderRadius: 10, padding: "0.9rem 1rem", boxShadow: "0 1px 3px rgba(0,0,0,0.07)", borderLeft: `4px solid ${STATUS_COLOR[r.status] || "var(--ink-400)"}` }}>
                   <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
                     <div>
-                      <div style={{ fontWeight: 700, fontSize: "0.88rem", color: "#1e293b" }}>
+                      <div style={{ fontWeight: 700, fontSize: "0.88rem", color: "var(--ink-900)" }}>
                         {r.date ? new Date(r.date).toLocaleDateString([], { year: "numeric", month: "short", day: "numeric" }) : "Date unknown"}
                       </div>
-                      {r.siteName && <div style={{ fontSize: "0.8rem", color: "#64748b", marginTop: 2 }}>{r.siteName}</div>}
-                      {r.inspectorName && <div style={{ fontSize: "0.75rem", color: "#94a3b8" }}>Inspector: {r.inspectorName}</div>}
+                      {r.siteName && <div style={{ fontSize: "0.8rem", color: "var(--ink-500)", marginTop: 2 }}>{r.siteName}</div>}
+                      {r.inspectorName && <div style={{ fontSize: "0.75rem", color: "var(--ink-400)" }}>Inspector: {r.inspectorName}</div>}
                       {r.assetTag && <div style={{ fontSize: "0.72rem", color: "#6366f1", fontFamily: "monospace", marginTop: 2 }}>🏷 {r.assetTag}</div>}
                     </div>
-                    <span style={{ background: STATUS_COLOR[r.status] || "#94a3b8", color: "#fff", borderRadius: 6, padding: "0.2rem 0.6rem", fontSize: "0.75rem", fontWeight: 700, whiteSpace: "nowrap", flexShrink: 0 }}>
+                    <span style={{ background: STATUS_COLOR[r.status] || "var(--ink-400)", color: "#fff", borderRadius: 6, padding: "0.2rem 0.6rem", fontSize: "0.75rem", fontWeight: 700, whiteSpace: "nowrap", flexShrink: 0 }}>
                       {r.status}
                     </span>
                   </div>
@@ -15886,7 +15887,7 @@ function EquipmentScannerPage({ onBack, onPrintLabels }) {
                         </span>
                       )}
                       {r.notes && (
-                        <span style={{ color: "#475569", fontSize: "0.78rem", fontStyle: "italic", alignSelf: "center" }}>
+                        <span style={{ color: "var(--ink-600)", fontSize: "0.78rem", fontStyle: "italic", alignSelf: "center" }}>
                           "{r.notes.slice(0, 80)}{r.notes.length > 80 ? "…" : ""}"
                         </span>
                       )}
@@ -15965,7 +15966,7 @@ function PrintLabelsPage({ onBack }) {
     const urls = {};
     getQRCode().then(QR => Promise.all(
       equipItems.map(item =>
-        QR.toDataURL(item.assetTag, { width: 200, margin: 1, color: { dark: "#1e293b", light: "#ffffff" } })
+        QR.toDataURL(item.assetTag, { width: 200, margin: 1, color: { dark: "var(--ink-900)", light: "#ffffff" } })
           .then(url => { urls[item.assetTag] = url; })
           .catch(() => {})
       )
@@ -15990,7 +15991,7 @@ function PrintLabelsPage({ onBack }) {
           </div>
         </div>
         <button className="btn" type="button" onClick={() => window.print()}
-          style={{ background: "#fff", color: "var(--sdx-navy)", fontWeight: 700, fontSize: "0.85rem", padding: "0.4rem 1.1rem" }}>
+          style={{ background: "var(--surface-1)", color: "var(--sdx-navy)", fontWeight: 700, fontSize: "0.85rem", padding: "0.4rem 1.1rem" }}>
           🖨 Print
         </button>
       </header>
@@ -15999,9 +16000,9 @@ function PrintLabelsPage({ onBack }) {
       <div style={{ maxWidth: 900, margin: "0 auto", padding: "1.25rem 1rem" }}>
 
         {/* Instructions — hidden on print */}
-        <div className="printHide" style={{ background: "#fff", borderRadius: 12, padding: "1rem 1.25rem", marginBottom: "1.25rem", boxShadow: "0 1px 4px rgba(0,0,0,0.07)" }}>
-          <div style={{ fontWeight: 700, fontSize: "0.95rem", color: "#1e293b", marginBottom: 6 }}>How to use equipment QR labels</div>
-          <ol style={{ margin: 0, paddingLeft: "1.25rem", color: "#475569", fontSize: "0.85rem", lineHeight: 1.7 }}>
+        <div className="printHide" style={{ background: "var(--surface-1)", borderRadius: 12, padding: "1rem 1.25rem", marginBottom: "1.25rem", boxShadow: "0 1px 4px rgba(0,0,0,0.07)" }}>
+          <div style={{ fontWeight: 700, fontSize: "0.95rem", color: "var(--ink-900)", marginBottom: 6 }}>How to use equipment QR labels</div>
+          <ol style={{ margin: 0, paddingLeft: "1.25rem", color: "var(--ink-600)", fontSize: "0.85rem", lineHeight: 1.7 }}>
             <li>Save an inspection with equipment filled in — labels are generated from your most recent inspection.</li>
             <li>Click <strong>🖨 Print</strong> and print on label paper or regular paper, then cut and laminate.</li>
             <li>Stick the label on the physical unit. Optionally use "Auto-assign" asset tags so inspectors can scan them for full history.</li>
@@ -16009,11 +16010,11 @@ function PrintLabelsPage({ onBack }) {
         </div>
 
         {loading && (
-          <div style={{ textAlign: "center", padding: "3rem", color: "#64748b" }}>Loading equipment…</div>
+          <div style={{ textAlign: "center", padding: "3rem", color: "var(--ink-500)" }}>Loading equipment…</div>
         )}
 
         {!loading && equipItems.length === 0 && (
-          <div style={{ background: "#fff", borderRadius: 12, padding: "2rem", textAlign: "center", color: "#64748b", boxShadow: "0 1px 4px rgba(0,0,0,0.07)" }}>
+          <div style={{ background: "var(--surface-1)", borderRadius: 12, padding: "2rem", textAlign: "center", color: "var(--ink-500)", boxShadow: "0 1px 4px rgba(0,0,0,0.07)" }}>
             <div style={{ fontSize: "2.5rem", marginBottom: 12 }}>🏷</div>
             <div style={{ fontWeight: 700, fontSize: "1rem", marginBottom: 8, color: "#374151" }}>No equipment found</div>
             <div style={{ fontSize: "0.85rem" }}>Save at least one inspection with equipment filled in, then come back here to print labels.</div>
@@ -16023,7 +16024,7 @@ function PrintLabelsPage({ onBack }) {
         {/* Label grid — visible on screen and in print */}
         {!loading && equipItems.length > 0 && (
           <>
-            <div className="printHide" style={{ color: "#64748b", fontSize: "0.82rem", marginBottom: 12 }}>
+            <div className="printHide" style={{ color: "var(--ink-500)", fontSize: "0.82rem", marginBottom: 12 }}>
               {generating ? "Generating QR codes…" : `${equipItems.length} label${equipItems.length > 1 ? "s" : ""} ready to print`}
             </div>
             <div className="labelGrid">
@@ -16033,7 +16034,7 @@ function PrintLabelsPage({ onBack }) {
                   <div className="labelQR">
                     {qrDataUrls[item.assetTag]
                       ? <img src={qrDataUrls[item.assetTag]} alt={item.assetTag} width={110} height={110} />
-                      : <div style={{ width: 110, height: 110, background: "#f1f5f9", borderRadius: 4, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.7rem", color: "#94a3b8" }}>…</div>
+                      : <div style={{ width: 110, height: 110, background: "var(--surface-3)", borderRadius: 4, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.7rem", color: "var(--ink-400)" }}>…</div>
                     }
                   </div>
                   {/* Label text */}
@@ -16255,7 +16256,7 @@ function GlobalAdminPanel({ currentUser, onBack, onManageVenue, onEnterVenue, on
               style={{
                 flex: 1, padding: "0.6rem 0", borderRadius: 8, border: "none",
                 background: statsTab === t ? "var(--sdx-navy)" : "#e2e8f0",
-                color: statsTab === t ? "#fff" : "#475569",
+                color: statsTab === t ? "#fff" : "var(--ink-600)",
                 fontWeight: 600, fontSize: "0.88rem", cursor: "pointer",
               }}>
               {t === "overview" ? "📊 Overview" : "🗺️ Venue List"}
@@ -16273,18 +16274,18 @@ function GlobalAdminPanel({ currentUser, onBack, onManageVenue, onEnterVenue, on
                 { label: "Active Today", value: loading ? "—" : activeToday, icon: "✅" },
               ].map(({ label, value, icon }) => (
                 <div key={label} style={{
-                  background: "#fff", borderRadius: 10, padding: "1rem", textAlign: "center",
+                  background: "var(--surface-1)", borderRadius: 10, padding: "1rem", textAlign: "center",
                   boxShadow: "0 1px 4px rgba(0,0,0,0.08)"
                 }}>
                   <div style={{ fontSize: "1.5rem", marginBottom: "0.25rem" }}>{icon}</div>
                   <div style={{ fontSize: "1.4rem", fontWeight: 700, color: "#1e1b4b" }}>{value}</div>
-                  <div style={{ fontSize: "0.75rem", color: "#64748b" }}>{label}</div>
+                  <div style={{ fontSize: "0.75rem", color: "var(--ink-500)" }}>{label}</div>
                 </div>
               ))}
             </div>
-            {loading && <div style={{ textAlign: "center", color: "#94a3b8", padding: "1rem" }}>Loading venue stats…</div>}
+            {loading && <div style={{ textAlign: "center", color: "var(--ink-400)", padding: "1rem" }}>Loading venue stats…</div>}
             {!loading && venues.length === 0 && (
-              <div style={{ textAlign: "center", color: "#94a3b8", padding: "2rem" }}>
+              <div style={{ textAlign: "center", color: "var(--ink-400)", padding: "2rem" }}>
                 No venues registered yet.<br />
                 <button type="button" onClick={() => { setStatsTab("list"); setShowAddForm(true); }}
                   style={{ marginTop: "0.75rem", background: "var(--sdx-navy)", color: "#fff", border: "none", borderRadius: 8, padding: "0.6rem 1.25rem", fontWeight: 600, cursor: "pointer" }}>
@@ -16305,8 +16306,8 @@ function GlobalAdminPanel({ currentUser, onBack, onManageVenue, onEnterVenue, on
                       <div key={v.id} style={{ display: "flex", alignItems: "center", gap: "0.75rem", padding: "0.6rem 0", borderBottom: "1px solid #f1f5f9" }}>
                         <span style={{ fontSize: "1.1rem" }}>{typeIcon[v.type] || "📍"}</span>
                         <span style={{ flex: 1, fontWeight: 600, fontSize: "0.9rem", color: "#1e1b4b" }}>{v.name || v.id}</span>
-                        <span style={{ fontSize: "0.82rem", color: "#64748b" }}>📋 {s.inspectionCount || 0}</span>
-                        <span style={{ fontSize: "0.82rem", color: "#64748b" }}>👤 {s.userCount || 0}</span>
+                        <span style={{ fontSize: "0.82rem", color: "var(--ink-500)" }}>📋 {s.inspectionCount || 0}</span>
+                        <span style={{ fontSize: "0.82rem", color: "var(--ink-500)" }}>👤 {s.userCount || 0}</span>
                       </div>
                     );
                   })}
@@ -16332,7 +16333,7 @@ function GlobalAdminPanel({ currentUser, onBack, onManageVenue, onEnterVenue, on
 
             {/* Add Venue Form */}
             {showAddForm && (
-              <form onSubmit={handleAddVenue} style={{ background: "#f8fafc", border: "1.5px solid #e2e8f0", borderRadius: 10, padding: "1rem", marginBottom: "1rem" }}>
+              <form onSubmit={handleAddVenue} style={{ background: "var(--surface-2)", border: "1.5px solid #e2e8f0", borderRadius: 10, padding: "1rem", marginBottom: "1rem" }}>
                 <div style={{ fontWeight: 700, marginBottom: "0.75rem", color: "#1e1b4b" }}>Add New Venue</div>
                 {addError && <div style={{ background: "#fee2e2", color: "#991b1b", borderRadius: 6, padding: "0.5rem 0.75rem", marginBottom: "0.5rem", fontSize: "0.85rem" }}>{addError}</div>}
                 <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
@@ -16343,7 +16344,7 @@ function GlobalAdminPanel({ currentUser, onBack, onManageVenue, onEnterVenue, on
                     placeholder="Display Name (e.g. Hard Rock Stadium)" required
                     style={{ padding: "0.55rem 0.75rem", borderRadius: 7, border: "1.5px solid #e2e8f0", fontSize: "0.9rem" }} />
                   <select value={addType} onChange={e => setAddType(e.target.value)}
-                    style={{ padding: "0.55rem 0.75rem", borderRadius: 7, border: "1.5px solid #e2e8f0", fontSize: "0.9rem", background: "#fff" }}>
+                    style={{ padding: "0.55rem 0.75rem", borderRadius: 7, border: "1.5px solid #e2e8f0", fontSize: "0.9rem", background: "var(--surface-1)" }}>
                     <option value="stadium">🏟️ Stadium</option>
                     <option value="convention">🏛️ Convention Center</option>
                     <option value="arena">🎤 Arena</option>
@@ -16354,7 +16355,7 @@ function GlobalAdminPanel({ currentUser, onBack, onManageVenue, onEnterVenue, on
                     placeholder="Address (optional)"
                     style={{ padding: "0.55rem 0.75rem", borderRadius: 7, border: "1.5px solid #e2e8f0", fontSize: "0.9rem" }} />
                   <div style={{ borderTop: "1px solid #e2e8f0", paddingTop: "0.5rem", marginTop: "0.25rem" }}>
-                    <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "#64748b", marginBottom: "0.4rem" }}>🏢 Client Branding</div>
+                    <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--ink-500)", marginBottom: "0.4rem" }}>🏢 Client Branding</div>
                     <input value={addCompanyName} onChange={e => setAddCompanyName(e.target.value)}
                       placeholder="Company name shown in app (e.g. Levy Restaurants)"
                       style={{ padding: "0.55rem 0.75rem", borderRadius: 7, border: "1.5px solid #e2e8f0", fontSize: "0.9rem", width: "100%", boxSizing: "border-box", marginBottom: "0.4rem" }} />
@@ -16370,9 +16371,9 @@ function GlobalAdminPanel({ currentUser, onBack, onManageVenue, onEnterVenue, on
               </form>
             )}
 
-            {loading && <div style={{ textAlign: "center", color: "#94a3b8", padding: "2rem" }}>Loading venues…</div>}
+            {loading && <div style={{ textAlign: "center", color: "var(--ink-400)", padding: "2rem" }}>Loading venues…</div>}
             {!loading && venues.length === 0 && (
-              <div style={{ textAlign: "center", color: "#94a3b8", padding: "2rem" }}>
+              <div style={{ textAlign: "center", color: "var(--ink-400)", padding: "2rem" }}>
                 No venues yet. Click "+ Add Venue" to create the first one.
               </div>
             )}
@@ -16382,7 +16383,7 @@ function GlobalAdminPanel({ currentUser, onBack, onManageVenue, onEnterVenue, on
               const isEditing = editingId === v.id;
               return (
                 <div key={v.id} style={{
-                  background: "#fff", borderRadius: 10, border: "1.5px solid #e2e8f0",
+                  background: "var(--surface-1)", borderRadius: 10, border: "1.5px solid #e2e8f0",
                   marginBottom: "0.75rem", overflow: "hidden"
                 }}>
                   {/* Header */}
@@ -16392,7 +16393,7 @@ function GlobalAdminPanel({ currentUser, onBack, onManageVenue, onEnterVenue, on
                         <input value={editName} onChange={e => setEditName(e.target.value)}
                           placeholder="Display Name" style={{ padding: "0.45rem 0.65rem", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: "0.9rem" }} />
                         <select value={editType} onChange={e => setEditType(e.target.value)}
-                          style={{ padding: "0.45rem 0.65rem", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: "0.9rem", background: "#fff" }}>
+                          style={{ padding: "0.45rem 0.65rem", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: "0.9rem", background: "var(--surface-1)" }}>
                           <option value="stadium">🏟️ Stadium</option>
                           <option value="convention">🏛️ Convention Center</option>
                           <option value="arena">🎤 Arena</option>
@@ -16402,7 +16403,7 @@ function GlobalAdminPanel({ currentUser, onBack, onManageVenue, onEnterVenue, on
                         <input value={editAddress} onChange={e => setEditAddress(e.target.value)}
                           placeholder="Address (optional)" style={{ padding: "0.45rem 0.65rem", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: "0.9rem" }} />
                         <div style={{ borderTop: "1px solid #e2e8f0", paddingTop: "0.4rem", marginTop: "0.1rem" }}>
-                          <div style={{ fontSize: "0.72rem", fontWeight: 700, color: "#64748b", marginBottom: "0.3rem" }}>🏢 Client Branding</div>
+                          <div style={{ fontSize: "0.72rem", fontWeight: 700, color: "var(--ink-500)", marginBottom: "0.3rem" }}>🏢 Client Branding</div>
                           <input value={editCompanyName} onChange={e => setEditCompanyName(e.target.value)}
                             placeholder="Company name shown in app"
                             style={{ padding: "0.4rem 0.6rem", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: "0.88rem", width: "100%", boxSizing: "border-box", marginBottom: "0.3rem" }} />
@@ -16414,7 +16415,7 @@ function GlobalAdminPanel({ currentUser, onBack, onManageVenue, onEnterVenue, on
                           <button type="button" onClick={() => handleSaveEdit(v.id)}
                             style={{ flex: 1, padding: "0.4rem", borderRadius: 6, border: "none", background: "var(--sdx-navy)", color: "#fff", fontWeight: 600, cursor: "pointer", fontSize: "0.85rem" }}>Save</button>
                           <button type="button" onClick={() => setEditingId(null)}
-                            style={{ flex: 1, padding: "0.4rem", borderRadius: 6, border: "1.5px solid #e2e8f0", background: "#fff", color: "#64748b", fontWeight: 600, cursor: "pointer", fontSize: "0.85rem" }}>Cancel</button>
+                            style={{ flex: 1, padding: "0.4rem", borderRadius: 6, border: "1.5px solid #e2e8f0", background: "var(--surface-1)", color: "var(--ink-500)", fontWeight: 600, cursor: "pointer", fontSize: "0.85rem" }}>Cancel</button>
                         </div>
                       </div>
                     ) : (
@@ -16422,7 +16423,7 @@ function GlobalAdminPanel({ currentUser, onBack, onManageVenue, onEnterVenue, on
                         <span style={{ fontSize: "1.2rem" }}>{typeIcon[v.type] || "📍"}</span>
                         <div style={{ flex: 1 }}>
                           <div style={{ fontWeight: 700, fontSize: "0.95rem", color: "#1e1b4b" }}>{v.name || v.id}</div>
-                          <div style={{ fontSize: "0.75rem", color: "#94a3b8", marginTop: 1 }}>
+                          <div style={{ fontSize: "0.75rem", color: "var(--ink-400)", marginTop: 1 }}>
                             {typeLabel[v.type] || v.type} · <code style={{ fontSize: "0.72rem" }}>{v.id}</code>
                             {v.address && ` · ${v.address}`}
                           </div>
@@ -16430,7 +16431,7 @@ function GlobalAdminPanel({ currentUser, onBack, onManageVenue, onEnterVenue, on
                         <span style={{
                           padding: "0.2rem 0.5rem", borderRadius: 6, fontSize: "0.7rem", fontWeight: 700,
                           background: v.status === "active" ? "#dcfce7" : "#f1f5f9",
-                          color: v.status === "active" ? "#15803d" : "#64748b",
+                          color: v.status === "active" ? "#15803d" : "var(--ink-500)",
                         }}>{v.status || "active"}</span>
                       </div>
                     )}
@@ -16438,11 +16439,11 @@ function GlobalAdminPanel({ currentUser, onBack, onManageVenue, onEnterVenue, on
 
                   {/* Stats */}
                   {!isEditing && (
-                    <div style={{ display: "flex", gap: "1rem", padding: "0.5rem 1rem", background: "#f8fafc", borderBottom: "1px solid #f1f5f9" }}>
-                      <span style={{ fontSize: "0.82rem", color: "#475569" }}>📋 {s.inspectionCount ?? "—"} inspections</span>
-                      <span style={{ fontSize: "0.82rem", color: "#475569" }}>👤 {s.userCount ?? "—"} users</span>
+                    <div style={{ display: "flex", gap: "1rem", padding: "0.5rem 1rem", background: "var(--surface-2)", borderBottom: "1px solid #f1f5f9" }}>
+                      <span style={{ fontSize: "0.82rem", color: "var(--ink-600)" }}>📋 {s.inspectionCount ?? "—"} inspections</span>
+                      <span style={{ fontSize: "0.82rem", color: "var(--ink-600)" }}>👤 {s.userCount ?? "—"} users</span>
                       {s.lastActivity && (
-                        <span style={{ fontSize: "0.78rem", color: "#94a3b8" }}>Last: {s.lastActivity.slice(0, 10)}</span>
+                        <span style={{ fontSize: "0.78rem", color: "var(--ink-400)" }}>Last: {s.lastActivity.slice(0, 10)}</span>
                       )}
                     </div>
                   )}
@@ -16462,22 +16463,22 @@ function GlobalAdminPanel({ currentUser, onBack, onManageVenue, onEnterVenue, on
                       <div style={{ display: "flex", flexWrap: "wrap", gap: "0.4rem" }}>
                         <button type="button"
                           onClick={() => onManageVenue && onManageVenue(v.id, v.name || v.id)}
-                          style={{ padding: "0.35rem 0.65rem", borderRadius: 6, border: "1.5px solid #2A295C", background: "#fff", color: "var(--sdx-navy)", fontWeight: 600, cursor: "pointer", fontSize: "0.78rem" }}>
+                          style={{ padding: "0.35rem 0.65rem", borderRadius: 6, border: "1.5px solid #2A295C", background: "var(--surface-1)", color: "var(--sdx-navy)", fontWeight: 600, cursor: "pointer", fontSize: "0.78rem" }}>
                           👥 Manage Users
                         </button>
                         <button type="button"
                           onClick={() => window.open(window.location.origin + "/Claude/?v=" + v.id + "&vname=" + encodeURIComponent(v.name || v.id), "_blank")}
-                          style={{ padding: "0.35rem 0.65rem", borderRadius: 6, border: "1.5px solid #e2e8f0", background: "#fff", color: "#475569", fontWeight: 600, cursor: "pointer", fontSize: "0.78rem" }}>
+                          style={{ padding: "0.35rem 0.65rem", borderRadius: 6, border: "1.5px solid #e2e8f0", background: "var(--surface-1)", color: "var(--ink-600)", fontWeight: 600, cursor: "pointer", fontSize: "0.78rem" }}>
                           Open ↗
                         </button>
                         <button type="button"
                           onClick={() => { setEditingId(v.id); setEditName(v.name || ""); setEditType(v.type || "stadium"); setEditAddress(v.address || ""); setEditCompanyName(v.companyName || ""); setEditLogoUrl(v.logoUrl || ""); }}
-                          style={{ padding: "0.35rem 0.65rem", borderRadius: 6, border: "1.5px solid #e2e8f0", background: "#fff", color: "#64748b", fontWeight: 600, cursor: "pointer", fontSize: "0.78rem" }}>
+                          style={{ padding: "0.35rem 0.65rem", borderRadius: 6, border: "1.5px solid #e2e8f0", background: "var(--surface-1)", color: "var(--ink-500)", fontWeight: 600, cursor: "pointer", fontSize: "0.78rem" }}>
                           Edit
                         </button>
                         <button type="button"
                           onClick={() => startDeleteVenue(v.id, v.name || v.id)}
-                          style={{ padding: "0.35rem 0.65rem", borderRadius: 6, border: "1.5px solid #fca5a5", background: "#fff", color: "#dc2626", fontWeight: 600, cursor: "pointer", fontSize: "0.78rem" }}>
+                          style={{ padding: "0.35rem 0.65rem", borderRadius: 6, border: "1.5px solid #fca5a5", background: "var(--surface-1)", color: "#dc2626", fontWeight: 600, cursor: "pointer", fontSize: "0.78rem" }}>
                           Remove
                         </button>
                       </div>
@@ -16487,7 +16488,7 @@ function GlobalAdminPanel({ currentUser, onBack, onManageVenue, onEnterVenue, on
               );
             })}
             {!loading && filtered.length === 0 && venues.length > 0 && (
-              <div style={{ textAlign: "center", color: "#94a3b8", padding: "1.5rem" }}>No venues match your search.</div>
+              <div style={{ textAlign: "center", color: "var(--ink-400)", padding: "1.5rem" }}>No venues match your search.</div>
             )}
           </div>
         )}
@@ -16495,20 +16496,20 @@ function GlobalAdminPanel({ currentUser, onBack, onManageVenue, onEnterVenue, on
       {/* ── Delete Confirmation Modal ── */}
       {deleteTarget && (
         <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,0.55)", display: "flex", alignItems: "center", justifyContent: "center", padding: "1rem" }}>
-          <div style={{ background: "#fff", borderRadius: 14, maxWidth: 420, width: "100%", padding: "1.75rem 1.5rem", boxShadow: "0 8px 40px rgba(0,0,0,0.22)" }}>
+          <div style={{ background: "var(--surface-1)", borderRadius: 14, maxWidth: 420, width: "100%", padding: "1.75rem 1.5rem", boxShadow: "0 8px 40px rgba(0,0,0,0.22)" }}>
             {deleteStep === 1 ? (
               <>
                 <div style={{ fontSize: "2rem", textAlign: "center", marginBottom: "0.5rem" }}>⚠️</div>
                 <h3 style={{ textAlign: "center", color: "#dc2626", margin: "0 0 0.75rem", fontSize: "1.1rem" }}>Remove Venue?</h3>
-                <p style={{ color: "#475569", fontSize: "0.9rem", margin: "0 0 0.5rem", textAlign: "center" }}>
+                <p style={{ color: "var(--ink-600)", fontSize: "0.9rem", margin: "0 0 0.5rem", textAlign: "center" }}>
                   You are about to remove <strong>{deleteTarget.name}</strong> from the venue registry.
                 </p>
-                <p style={{ color: "#64748b", fontSize: "0.82rem", margin: "0 0 1.25rem", textAlign: "center", lineHeight: 1.5 }}>
+                <p style={{ color: "var(--ink-500)", fontSize: "0.82rem", margin: "0 0 1.25rem", textAlign: "center", lineHeight: 1.5 }}>
                   This only removes the listing. All inspection data stored under this venue in Firestore <strong>will remain</strong> and is not deleted.
                 </p>
                 <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
                   <button type="button" onClick={() => setDeleteTarget(null)}
-                    style={{ flex: 1, padding: "0.6rem", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#f8fafc", color: "#475569", fontWeight: 600, cursor: "pointer" }}>
+                    style={{ flex: 1, padding: "0.6rem", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "var(--surface-2)", color: "var(--ink-600)", fontWeight: 600, cursor: "pointer" }}>
                     Cancel
                   </button>
                   <button type="button" onClick={() => setDeleteStep(2)}
@@ -16521,7 +16522,7 @@ function GlobalAdminPanel({ currentUser, onBack, onManageVenue, onEnterVenue, on
               <>
                 <div style={{ fontSize: "2rem", textAlign: "center", marginBottom: "0.5rem" }}>🔐</div>
                 <h3 style={{ textAlign: "center", color: "#dc2626", margin: "0 0 0.5rem", fontSize: "1.05rem" }}>Confirm by typing the venue name</h3>
-                <p style={{ color: "#64748b", fontSize: "0.82rem", margin: "0 0 0.75rem", textAlign: "center" }}>
+                <p style={{ color: "var(--ink-500)", fontSize: "0.82rem", margin: "0 0 0.75rem", textAlign: "center" }}>
                   Type <strong>{deleteTarget.name}</strong> exactly to confirm removal:
                 </p>
                 <input
@@ -16536,7 +16537,7 @@ function GlobalAdminPanel({ currentUser, onBack, onManageVenue, onEnterVenue, on
                 {deleteError && <p style={{ color: "#dc2626", fontSize: "0.8rem", margin: "0 0 0.6rem", textAlign: "center" }}>{deleteError}</p>}
                 <div style={{ display: "flex", gap: 10 }}>
                   <button type="button" onClick={() => { setDeleteTarget(null); setDeleteStep(1); setDeleteTyped(""); setDeleteError(""); }}
-                    style={{ flex: 1, padding: "0.6rem", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#f8fafc", color: "#475569", fontWeight: 600, cursor: "pointer" }}
+                    style={{ flex: 1, padding: "0.6rem", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "var(--surface-2)", color: "var(--ink-600)", fontWeight: 600, cursor: "pointer" }}
                     disabled={deleteLoading}>
                     Cancel
                   </button>
@@ -16739,7 +16740,7 @@ function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVe
             <div className="cardTitle">🎨 Appearance &amp; Theme</div>
           </div>
           <div className="cardBody">
-            <p style={{ margin: "0 0 0.75rem", fontSize: "0.88rem", color: "#64748b" }}>
+            <p style={{ margin: "0 0 0.75rem", fontSize: "0.88rem", color: "var(--ink-500)" }}>
               Pick the look of the whole app — header, buttons, and logo. The theme syncs instantly to every device in this venue.
             </p>
             <div className="themeGrid">
@@ -16773,7 +16774,7 @@ function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVe
           </div>
           <div className="cardBody">
             {/* ── Interval control ─────────────────────────────── */}
-            <p style={{ margin: "0 0 0.75rem", fontSize: "0.88rem", color: "#64748b" }}>
+            <p style={{ margin: "0 0 0.75rem", fontSize: "0.88rem", color: "var(--ink-500)" }}>
               Set how often inspections should occur. The dashboard will show an overdue warning when the last inspection is past due.
             </p>
             <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
@@ -16809,7 +16810,7 @@ function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVe
               {intervalSaved && <span style={{ color: "#15803d", fontSize: "0.85rem", fontWeight: 600 }}>✓ Saved</span>}
             </div>
             {(venueSettings?.inspectionInterval > 0) && (
-              <p style={{ margin: "0.5rem 0 0", fontSize: "0.82rem", color: "#475569" }}>
+              <p style={{ margin: "0.5rem 0 0", fontSize: "0.82rem", color: "var(--ink-600)" }}>
                 Current setting: inspections every <strong>{venueSettings.inspectionInterval} day{venueSettings.inspectionInterval !== 1 ? "s" : ""}</strong>
               </p>
             )}
@@ -16822,7 +16823,7 @@ function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVe
 
               {/* Existing slots */}
               {(venueSettings?.scheduleSlots || []).length === 0 ? (
-                <p style={{ fontSize: "0.82rem", color: "#94a3b8", fontStyle: "italic", margin: "0 0 10px" }}>
+                <p style={{ fontSize: "0.82rem", color: "var(--ink-400)", fontStyle: "italic", margin: "0 0 10px" }}>
                   No inspections scheduled yet. Add one below.
                 </p>
               ) : (
@@ -16841,13 +16842,13 @@ function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVe
                         }}>
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                              <span style={{ fontWeight: 700, fontSize: "0.88rem", color: isPast ? "#94a3b8" : "#15803d" }}>
+                              <span style={{ fontWeight: 700, fontSize: "0.88rem", color: isPast ? "var(--ink-400)" : "#15803d" }}>
                                 {slot.date ? new Date(slot.date + "T12:00:00").toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric", year: "numeric" }) : "—"}
                               </span>
-                              {isPast && <span style={{ fontSize: "0.72rem", background: "#e2e8f0", color: "#64748b", borderRadius: 6, padding: "1px 6px", fontWeight: 600 }}>Past</span>}
+                              {isPast && <span style={{ fontSize: "0.72rem", background: "#e2e8f0", color: "var(--ink-500)", borderRadius: 6, padding: "1px 6px", fontWeight: 600 }}>Past</span>}
                             </div>
-                            <div style={{ fontSize: "0.83rem", color: "#1e293b", marginTop: 2 }}>
-                              📍 {slot.location || <em style={{ color: "#94a3b8" }}>No location</em>}
+                            <div style={{ fontSize: "0.83rem", color: "var(--ink-900)", marginTop: 2 }}>
+                              📍 {slot.location || <em style={{ color: "var(--ink-400)" }}>No location</em>}
                               {slot.unit && <span style={{ marginLeft: 6, fontSize: "0.78rem", background: "#e0e7ff", color: "#3730a3", borderRadius: 5, padding: "1px 6px", fontWeight: 600 }}>Unit {slot.unit}</span>}
                             </div>
                             {slot.inspector && (
@@ -16856,7 +16857,7 @@ function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVe
                               </div>
                             )}
                             {slot.note && (
-                              <div style={{ fontSize: "0.78rem", color: "#64748b", marginTop: 2 }}>
+                              <div style={{ fontSize: "0.78rem", color: "var(--ink-500)", marginTop: 2 }}>
                                 {slot.note}
                               </div>
                             )}
@@ -16867,7 +16868,7 @@ function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVe
                               const next = (venueSettings.scheduleSlots || []).filter(s => s.id !== slot.id);
                               onSaveVenueSettings?.({ scheduleSlots: next });
                             }}
-                            style={{ flexShrink: 0, background: "none", border: "none", cursor: "pointer", color: "#94a3b8", fontSize: "1.1rem", lineHeight: 1, padding: "2px 4px" }}
+                            style={{ flexShrink: 0, background: "none", border: "none", cursor: "pointer", color: "var(--ink-400)", fontSize: "1.1rem", lineHeight: 1, padding: "2px 4px" }}
                             title="Remove"
                           >×</button>
                         </div>
@@ -16879,11 +16880,11 @@ function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVe
 
               {/* Add new slot form */}
               <div style={{ background: "#F7F8FA", border: "1.5px solid #DDE1E8", borderRadius: 10, padding: "12px 14px" }}>
-                <div style={{ fontWeight: 600, fontSize: "0.82rem", color: "#475569", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.04em" }}>Add Inspection</div>
+                <div style={{ fontWeight: 600, fontSize: "0.82rem", color: "var(--ink-600)", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.04em" }}>Add Inspection</div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                     <div style={{ flex: "1 1 140px" }}>
-                      <label style={{ fontSize: "0.75rem", fontWeight: 600, color: "#64748b", display: "block", marginBottom: 3 }}>Date</label>
+                      <label style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--ink-500)", display: "block", marginBottom: 3 }}>Date</label>
                       <input
                         type="date"
                         value={scheduleDate}
@@ -16892,7 +16893,7 @@ function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVe
                       />
                     </div>
                     <div style={{ flex: "0 1 90px" }}>
-                      <label style={{ fontSize: "0.75rem", fontWeight: 600, color: "#64748b", display: "block", marginBottom: 3 }}>Unit # <span style={{ fontWeight: 400 }}>(opt.)</span></label>
+                      <label style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--ink-500)", display: "block", marginBottom: 3 }}>Unit # <span style={{ fontWeight: 400 }}>(opt.)</span></label>
                       <input
                         type="text"
                         value={scheduleUnit}
@@ -16902,7 +16903,7 @@ function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVe
                       />
                     </div>
                     <div style={{ flex: "2 1 180px" }}>
-                      <label style={{ fontSize: "0.75rem", fontWeight: 600, color: "#64748b", display: "block", marginBottom: 3 }}>Location / Place</label>
+                      <label style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--ink-500)", display: "block", marginBottom: 3 }}>Location / Place</label>
                       <input
                         type="text"
                         value={scheduleLoc}
@@ -16914,11 +16915,11 @@ function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVe
                   </div>
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                     <div style={{ flex: "1 1 180px" }}>
-                      <label style={{ fontSize: "0.75rem", fontWeight: 600, color: "#64748b", display: "block", marginBottom: 3 }}>Inspector <span style={{ fontWeight: 400 }}>(opt.)</span></label>
+                      <label style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--ink-500)", display: "block", marginBottom: 3 }}>Inspector <span style={{ fontWeight: 400 }}>(opt.)</span></label>
                       <select
                         value={scheduleInspector}
                         onChange={e => setScheduleInspector(e.target.value)}
-                        style={{ width: "100%", boxSizing: "border-box", padding: "0.35rem 0.5rem", border: "1.5px solid #cbd5e1", borderRadius: 6, fontSize: "0.9rem", background: "#fff" }}
+                        style={{ width: "100%", boxSizing: "border-box", padding: "0.35rem 0.5rem", border: "1.5px solid #cbd5e1", borderRadius: 6, fontSize: "0.9rem", background: "var(--surface-1)" }}
                       >
                         <option value="">— Unassigned —</option>
                         {users
@@ -16931,7 +16932,7 @@ function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVe
                       </select>
                     </div>
                     <div style={{ flex: "2 1 200px" }}>
-                      <label style={{ fontSize: "0.75rem", fontWeight: 600, color: "#64748b", display: "block", marginBottom: 3 }}>Note (optional)</label>
+                      <label style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--ink-500)", display: "block", marginBottom: 3 }}>Note (optional)</label>
                       <input
                         type="text"
                         value={scheduleNote}
@@ -17190,7 +17191,7 @@ function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVe
                   )}
                   {isEditingStandsRow && (
                     <div style={{ flexBasis: "100%", display: "flex", flexDirection: "column", gap: 6 }}>
-                      <div style={{ fontSize: "0.78rem", color: "#475569", fontWeight: 600 }}>
+                      <div style={{ fontSize: "0.78rem", color: "var(--ink-600)", fontWeight: 600 }}>
                         Assigned Stands / Locations — separate multiple with commas
                       </div>
                       <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -17215,7 +17216,7 @@ function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVe
                   )}
                   {editingBadge?.badgeHash === u.badgeHash && (
                     <div style={{ flexBasis: "100%", display: "flex", flexDirection: "column", gap: 6 }}>
-                      <div style={{ fontSize: "0.78rem", color: "#475569", fontWeight: 600 }}>
+                      <div style={{ fontSize: "0.78rem", color: "var(--ink-600)", fontWeight: 600 }}>
                         Enter new badge number for {u.name}
                       </div>
                       <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -17498,9 +17499,9 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                       <span style={{ fontSize: "0.7rem", fontWeight: 600, padding: "2px 8px", borderRadius: 6, background: "#f0fdf4", color: "#15803d", border: "1px solid #bbf7d0", whiteSpace: "nowrap" }}>✓ Filled</span>
                     )}
                     {!isItemOpen && !isFilled && (
-                      <span style={{ fontSize: "0.7rem", color: "#94a3b8", fontStyle: "italic", whiteSpace: "nowrap" }}>Tap to fill in</span>
+                      <span style={{ fontSize: "0.7rem", color: "var(--ink-400)", fontStyle: "italic", whiteSpace: "nowrap" }}>Tap to fill in</span>
                     )}
-                    <span style={{ fontSize: "0.75rem", color: "#94a3b8", display: "inline-block", transform: isItemOpen ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s", flexShrink: 0 }}>▼</span>
+                    <span style={{ fontSize: "0.75rem", color: "var(--ink-400)", display: "inline-block", transform: isItemOpen ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s", flexShrink: 0 }}>▼</span>
                   </button>
                   {isNA && (
                     <div style={{ display: "flex", justifyContent: "flex-end", paddingRight: 4, paddingBottom: 4 }}>
@@ -17550,10 +17551,10 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                           }), 0);
                         }
                         return (
-                          <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 8, padding: "0.55rem 0.7rem", marginBottom: 8, display: "flex", flexWrap: "wrap", gap: "0.5rem 1rem", alignItems: "center" }}>
+                          <div style={{ background: "var(--surface-2)", border: "1px solid #e2e8f0", borderRadius: 8, padding: "0.55rem 0.7rem", marginBottom: 8, display: "flex", flexWrap: "wrap", gap: "0.5rem 1rem", alignItems: "center" }}>
                             {/* Brand */}
                             <div style={{ display: "flex", alignItems: "center", gap: 5, flex: "1 1 130px", minWidth: 0 }}>
-                              <span style={{ fontSize: "0.68rem", color: "#64748b", fontWeight: 700, flexShrink: 0, textTransform: "uppercase", letterSpacing: "0.04em" }}>Brand</span>
+                              <span style={{ fontSize: "0.68rem", color: "var(--ink-500)", fontWeight: 700, flexShrink: 0, textTransform: "uppercase", letterSpacing: "0.04em" }}>Brand</span>
                               <input
                                 className="input inputSmall"
                                 style={{ fontSize: "0.8rem", flex: 1, minWidth: 0 }}
@@ -17566,7 +17567,7 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                             <div style={{ width: 1, height: 28, background: "#e2e8f0", flexShrink: 0, display: "none" }} aria-hidden="true" />
                             {/* Location */}
                             <div style={{ display: "flex", alignItems: "center", gap: 5, flex: "1 1 140px", minWidth: 0 }}>
-                              <span style={{ fontSize: "0.68rem", color: "#64748b", fontWeight: 700, flexShrink: 0, textTransform: "uppercase", letterSpacing: "0.04em" }}>Location</span>
+                              <span style={{ fontSize: "0.68rem", color: "var(--ink-500)", fontWeight: 700, flexShrink: 0, textTransform: "uppercase", letterSpacing: "0.04em" }}>Location</span>
                               <input
                                 className="input inputSmall"
                                 style={{ fontSize: "0.8rem", flex: 1, minWidth: 0 }}
@@ -17590,7 +17591,7 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                             </div>
                             {/* Asset Tag */}
                             <div style={{ display: "flex", alignItems: "center", gap: 5, flex: "1 1 150px", minWidth: 0 }}>
-                              <span style={{ fontSize: "0.68rem", color: "#64748b", fontWeight: 700, flexShrink: 0, textTransform: "uppercase", letterSpacing: "0.04em" }}>Asset Tag</span>
+                              <span style={{ fontSize: "0.68rem", color: "var(--ink-500)", fontWeight: 700, flexShrink: 0, textTransform: "uppercase", letterSpacing: "0.04em" }}>Asset Tag</span>
                               <input
                                 className="input inputSmall"
                                 style={{ fontSize: "0.78rem", fontFamily: "monospace", flex: 1, minWidth: 0 }}
@@ -17626,7 +17627,7 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                         const currentLabel = current.label || "";
                         return (
                           <div style={{ marginBottom: 10 }}>
-                            <div style={{ fontSize: "0.7rem", fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>
+                            <div style={{ fontSize: "0.7rem", fontWeight: 700, color: "var(--ink-500)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>
                               {isCooler ? "Cooler Type" : "Freezer Type"}
                               {!currentLabel && <span style={{ marginLeft: 6, color: "#ef4444", fontWeight: 600 }}>— select one</span>}
                             </div>
@@ -17637,7 +17638,7 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                                     fontSize: "0.75rem", padding: "4px 11px", borderRadius: 20,
                                     border: currentLabel === opt ? "1.5px solid #2563eb" : "1.5px solid #e2e8f0",
                                     background: currentLabel === opt ? "#dbeafe" : "#f8fafc",
-                                    color: currentLabel === opt ? "#1d4ed8" : "#64748b",
+                                    color: currentLabel === opt ? "#1d4ed8" : "var(--ink-500)",
                                     cursor: "pointer", fontWeight: currentLabel === opt ? 700 : 400,
                                     transition: "all 0.12s",
                                   }}
@@ -17783,18 +17784,18 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                             {/* Quick-search bar */}
                             {current.checklist.length > 4 && (
                               <div style={{ padding: "6px 10px 2px", position: "relative" }}>
-                                <span style={{ position: "absolute", left: 20, top: "50%", transform: "translateY(-50%)", fontSize: "0.85rem", color: "#94a3b8", pointerEvents: "none", lineHeight: 1 }}>🔍</span>
+                                <span style={{ position: "absolute", left: 20, top: "50%", transform: "translateY(-50%)", fontSize: "0.85rem", color: "var(--ink-400)", pointerEvents: "none", lineHeight: 1 }}>🔍</span>
                                 <input
                                   type="search"
                                   className="input inputSmall"
-                                  style={{ paddingLeft: 30, width: "100%", background: "#f8fafc", borderColor: clSearch ? "#93c5fd" : "#e2e8f0", fontSize: "0.82rem" }}
+                                  style={{ paddingLeft: 30, width: "100%", background: "var(--surface-2)", borderColor: clSearch ? "#93c5fd" : "#e2e8f0", fontSize: "0.82rem" }}
                                   value={clSearchMap[clPathKey] || ""}
                                   onChange={e => setClSearchMap(m => ({ ...m, [clPathKey]: e.target.value }))}
                                   placeholder={`Search ${current.checklist.length} items — gasket, temp, door…`}
                                 />
                                 {clSearch && (
                                   <button type="button" onClick={() => setClSearchMap(m => ({ ...m, [clPathKey]: "" }))}
-                                    style={{ position: "absolute", right: 18, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "#94a3b8", fontSize: "1rem", lineHeight: 1, padding: 0 }}>✕</button>
+                                    style={{ position: "absolute", right: 18, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "var(--ink-400)", fontSize: "1rem", lineHeight: 1, padding: 0 }}>✕</button>
                                 )}
                               </div>
                             )}
@@ -17940,7 +17941,7 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                                   );
                                 })}
                                 {clSearch && current.checklist.filter(c => c.label?.toLowerCase().includes(clSearch) || c.value === "NO").length === 0 && (
-                                  <div style={{ padding: "14px 16px", color: "#94a3b8", fontSize: "0.82rem", textAlign: "center" }}>
+                                  <div style={{ padding: "14px 16px", color: "var(--ink-400)", fontSize: "0.82rem", textAlign: "center" }}>
                                     No checklist items match "<strong>{clSearchMap[clPathKey]}</strong>" —{" "}
                                     <button type="button" style={{ background: "none", border: "none", color: "#3b82f6", cursor: "pointer", padding: 0, fontSize: "0.82rem" }}
                                       onClick={() => setClSearchMap(m => ({ ...m, [clPathKey]: "" }))}>clear search</button>
@@ -17971,7 +17972,7 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                                 fontSize: "0.74rem", fontWeight: active ? 700 : 500,
                                 padding: "4px 10px", borderRadius: 20, cursor: "pointer", border: "1.5px solid",
                                 background: active ? opt.bg : "transparent",
-                                color: active ? opt.color : "#94a3b8",
+                                color: active ? opt.color : "var(--ink-400)",
                                 borderColor: active ? opt.border : "#e2e8f0",
                                 transition: "all 0.15s",
                               }}
@@ -18350,7 +18351,7 @@ function LiveHaccpPanel({ reportId, subsFromParent, foodTemps, foodTempNames, in
 
   if (!loaded) return null;
   if (subs.length === 0 && !hasInspectorTemps) return (
-    <div style={{ margin: "16px 0 4px", padding: "12px 14px", borderRadius: 10, background: "#f8fafc", border: "1px solid #e2e8f0", fontSize: "0.82rem", color: "#94a3b8" }}>
+    <div style={{ margin: "16px 0 4px", padding: "12px 14px", borderRadius: 10, background: "var(--surface-2)", border: "1px solid #e2e8f0", fontSize: "0.82rem", color: "var(--ink-400)" }}>
       🌡️ No HACCP temperature logs yet — supervisor submissions appear here in real time.
     </div>
   );
@@ -18372,14 +18373,14 @@ function LiveHaccpPanel({ reportId, subsFromParent, foodTemps, foodTempNames, in
 
       {/* Inspector-recorded temps card */}
       {hasInspectorTemps && (
-        <div style={{ border: "1px solid #93c5fd", borderRadius: 12, marginBottom: 14, background: "#fff", overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
+        <div style={{ border: "1px solid #93c5fd", borderRadius: 12, marginBottom: 14, background: "var(--surface-1)", overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
           <div style={{ padding: "11px 14px 10px", borderBottom: "1px solid #dbeafe", background: "#eff6ff", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
             <div style={{ fontWeight: 700, fontSize: "0.84rem", color: "#1e40af" }}>
               🔍 {inspectorName || "Inspector"} <span style={{ fontWeight: 400, fontSize: "0.73rem", color: "#6b7280" }}>(Inspector record)</span>
             </div>
           </div>
           <div style={{ padding: "10px 14px 4px" }}>
-            <div style={{ fontSize: "0.72rem", fontWeight: 600, color: "#94a3b8", letterSpacing: "0.05em", textTransform: "uppercase", marginBottom: 6 }}>Temperature Readings</div>
+            <div style={{ fontSize: "0.72rem", fontWeight: 600, color: "var(--ink-400)", letterSpacing: "0.05em", textTransform: "uppercase", marginBottom: 6 }}>Temperature Readings</div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: "6px 12px" }}>
               {inspItems.map(item => {
                 const readings = ((foodTemps || {})[item.key] || []).filter(v => v !== "");
@@ -18433,10 +18434,10 @@ function LiveHaccpPanel({ reportId, subsFromParent, foodTemps, foodTempNames, in
         const locParts = [sub.site, sub.unit && `Unit ${sub.unit}`, sub.floor && `Floor ${sub.floor}`, sub.locationType].filter(Boolean);
 
         return (
-          <div key={sub.id || si} style={{ border: "1px solid #e2e8f0", borderRadius: 12, marginBottom: 14, background: "#fff", overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
+          <div key={sub.id || si} style={{ border: "1px solid #e2e8f0", borderRadius: 12, marginBottom: 14, background: "var(--surface-1)", overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
 
             {/* ── Card header ── */}
-            <div style={{ padding: "11px 14px 10px", borderBottom: "1px solid #f1f5f9", background: "#f8fafc", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
+            <div style={{ padding: "11px 14px 10px", borderBottom: "1px solid #f1f5f9", background: "var(--surface-2)", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
               <div>
                 <div style={{ fontWeight: 700, fontSize: "0.84rem", color: "var(--sdx-navy)" }}>
                   👤 {sub.supervisorName || "Supervisor"}
@@ -18453,7 +18454,7 @@ function LiveHaccpPanel({ reportId, subsFromParent, foodTemps, foodTempNames, in
                 )}
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <div style={{ fontSize: "0.73rem", color: "#94a3b8", whiteSpace: "nowrap", paddingTop: 2 }}>
+                <div style={{ fontSize: "0.73rem", color: "var(--ink-400)", whiteSpace: "nowrap", paddingTop: 2 }}>
                   {sub.submittedAt ? new Date(sub.submittedAt).toLocaleString() : ""}
                 </div>
                 {(currentUser?.role === "admin" || currentUser?.role === "global_admin") && sub.id && !liveEditState && (
@@ -18554,7 +18555,7 @@ function LiveHaccpPanel({ reportId, subsFromParent, foodTemps, foodTempNames, in
             {/* ── Temperature readings ── */}
             {liveEditState?.subId !== sub.id && tempRows.length > 0 && (
               <div style={{ padding: "10px 14px 4px" }}>
-                <div style={{ fontSize: "0.72rem", fontWeight: 600, color: "#94a3b8", letterSpacing: "0.05em", textTransform: "uppercase", marginBottom: 6 }}>Temperature Readings</div>
+                <div style={{ fontSize: "0.72rem", fontWeight: 600, color: "var(--ink-400)", letterSpacing: "0.05em", textTransform: "uppercase", marginBottom: 6 }}>Temperature Readings</div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: "6px 12px" }}>
                   {tempRows.map(({ item, readings, names, label, hasFailure }) => (
                     <div key={item.key} style={{ display: "flex", flexDirection: "column", gap: 2, padding: "6px 8px", borderRadius: 8, background: hasFailure ? "#fff1f2" : "#f0fdf4", border: `1px solid ${hasFailure ? "#fca5a5" : "#bbf7d0"}` }}>
@@ -19433,7 +19434,7 @@ function HaccpPortal() {
                                   arr[idx] = e.target.value;
                                   return { ...p, [item.key]: arr };
                                 })}
-                                style={{ width: 110, fontSize: "0.78rem", borderRadius: 8, border: "1.5px solid #cbd5e1", background: "#fff", color: "#1e293b", padding: "4px 8px", opacity: isSubmitted ? 0.6 : 1, flexShrink: 0 }} />
+                                style={{ width: 110, fontSize: "0.78rem", borderRadius: 8, border: "1.5px solid #cbd5e1", background: "var(--surface-1)", color: "var(--ink-900)", padding: "4px 8px", opacity: isSubmitted ? 0.6 : 1, flexShrink: 0 }} />
                               <input className="haccpFoodNameInput" type="text"
                                 value={foodName}
                                 disabled={isSubmitted}
@@ -19542,7 +19543,7 @@ function HaccpPortal() {
                                 <span style={{ fontSize: "1.1rem", flexShrink: 0 }}>{m.emoji}</span>
                                 <div style={{ flex: 1, minWidth: 0 }}>
                                   <div style={{ fontWeight: 700, fontSize: "0.82rem", color: m.color }}>{item.label}</div>
-                                  <div style={{ fontSize: "0.68rem", color: "#94a3b8", marginTop: 1 }}>{item.hint}</div>
+                                  <div style={{ fontSize: "0.68rem", color: "var(--ink-400)", marginTop: 1 }}>{item.hint}</div>
                                 </div>
                                 <span style={{ background: m.badgeBg, color: "#fff", borderRadius: 6, padding: "2px 8px", fontSize: "0.78rem", fontWeight: 800, flexShrink: 0, minWidth: 68, textAlign: "center" }}>
                                   ≥{item.min}°F
@@ -19570,7 +19571,7 @@ function HaccpPortal() {
                                     <div className="haccpTempRow" style={{ flexWrap: "wrap", gap: 6 }}>
                                       <input type="time" value={readingTime} disabled={isSubmitted}
                                         onChange={e => setTempTimes(p => { const arr=[...(p[item.key]||[""])]; arr[idx]=e.target.value; return {...p,[item.key]:arr}; })}
-                                        style={{ width: 110, fontSize: "0.78rem", borderRadius: 8, border: "1.5px solid #cbd5e1", background: "#fff", color: "#1e293b", padding: "4px 8px", opacity: isSubmitted ? 0.6 : 1, flexShrink: 0 }} />
+                                        style={{ width: 110, fontSize: "0.78rem", borderRadius: 8, border: "1.5px solid #cbd5e1", background: "var(--surface-1)", color: "var(--ink-900)", padding: "4px 8px", opacity: isSubmitted ? 0.6 : 1, flexShrink: 0 }} />
                                       <input className="haccpFoodNameInput" type="text" value={foodName} disabled={isSubmitted}
                                         onChange={e => setFoodNames(p => { const arr=[...(p[item.key]||[""])]; arr[idx]=e.target.value; return {...p,[item.key]:arr}; })}
                                         placeholder="Food item (e.g. Chicken)" style={{ opacity: isSubmitted ? 0.7 : 1 }} />
@@ -20068,7 +20069,7 @@ function MessagingPanel({ currentUser, onBack, notifItems, onNotifDismiss, onNot
   });
 
   return (
-    <div style={{ minHeight: "100vh", background: "#f1f5f9", display: "flex", flexDirection: "column" }}>
+    <div style={{ minHeight: "100vh", background: "var(--surface-3)", display: "flex", flexDirection: "column" }}>
       {/* Header */}
       <div style={{ background: NAVY, padding: "0.75rem 1rem", display: "flex", alignItems: "center", gap: 12, position: "sticky", top: 0, zIndex: 100, boxShadow: "0 2px 8px rgba(0,0,0,0.2)" }}>
         <button onClick={onBack} style={{ background: "none", border: "none", color: "#fff", cursor: "pointer", fontSize: "1.3rem", padding: 4, lineHeight: 1 }}>←</button>
@@ -20079,13 +20080,13 @@ function MessagingPanel({ currentUser, onBack, notifItems, onNotifDismiss, onNot
         {activeTab === "messages" && (
           <button
             onClick={() => setComposeOpen(true)}
-            style={{ background: "#fff", color: NAVY, border: "none", borderRadius: 8, padding: "0.4rem 0.9rem", fontWeight: 700, fontSize: "0.8rem", cursor: "pointer" }}
+            style={{ background: "var(--surface-1)", color: NAVY, border: "none", borderRadius: 8, padding: "0.4rem 0.9rem", fontWeight: 700, fontSize: "0.8rem", cursor: "pointer" }}
           >✏️ New</button>
         )}
         {isAdmin && activeTab === "announcements" && (
           <button
             onClick={() => setAnnText(" ")}
-            style={{ background: "#fff", color: NAVY, border: "none", borderRadius: 8, padding: "0.4rem 0.9rem", fontWeight: 700, fontSize: "0.8rem", cursor: "pointer" }}
+            style={{ background: "var(--surface-1)", color: NAVY, border: "none", borderRadius: 8, padding: "0.4rem 0.9rem", fontWeight: 700, fontSize: "0.8rem", cursor: "pointer" }}
           >📢 Post</button>
         )}
       </div>
@@ -20114,7 +20115,7 @@ function MessagingPanel({ currentUser, onBack, notifItems, onNotifDismiss, onNot
         {activeTab === "messages" && (
           <div style={{ display: "flex", flex: 1, minHeight: 0 }}>
             {/* Thread list */}
-            <div style={{ width: activeThread ? "35%" : "100%", borderRight: "1px solid #e2e8f0", background: "#fff", display: "flex", flexDirection: "column", transition: "width 0.2s" }}>
+            <div style={{ width: activeThread ? "35%" : "100%", borderRight: "1px solid #e2e8f0", background: "var(--surface-1)", display: "flex", flexDirection: "column", transition: "width 0.2s" }}>
               <div style={{ padding: "0.65rem 0.85rem", borderBottom: "1px solid #f1f5f9" }}>
                 <input
                   placeholder="Search messages…"
@@ -20125,7 +20126,7 @@ function MessagingPanel({ currentUser, onBack, notifItems, onNotifDismiss, onNot
               </div>
               <div style={{ flex: 1, overflowY: "auto" }}>
                 {filteredThreads.length === 0 && (
-                  <div style={{ padding: "2rem 1rem", textAlign: "center", color: "#94a3b8" }}>
+                  <div style={{ padding: "2rem 1rem", textAlign: "center", color: "var(--ink-400)" }}>
                     <div style={{ fontSize: "2rem", marginBottom: 8 }}>💬</div>
                     <div style={{ fontWeight: 600, fontSize: "0.85rem" }}>No messages yet</div>
                     <div style={{ fontSize: "0.75rem", marginTop: 4 }}>Tap "New" to start a conversation</div>
@@ -20151,10 +20152,10 @@ function MessagingPanel({ currentUser, onBack, notifItems, onNotifDismiss, onNot
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                          <span style={{ fontWeight: t.unread > 0 ? 800 : 600, fontSize: "0.85rem", color: "#0f172a" }}>{other}</span>
-                          <span style={{ fontSize: "0.7rem", color: "#94a3b8", flexShrink: 0 }}>{fmtTime(t.lastTs)}</span>
+                          <span style={{ fontWeight: t.unread > 0 ? 800 : 600, fontSize: "0.85rem", color: "var(--ink-900)" }}>{other}</span>
+                          <span style={{ fontSize: "0.7rem", color: "var(--ink-400)", flexShrink: 0 }}>{fmtTime(t.lastTs)}</span>
                         </div>
-                        <div style={{ fontSize: "0.75rem", color: "#64748b", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", marginTop: 2 }}>
+                        <div style={{ fontSize: "0.75rem", color: "var(--ink-500)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", marginTop: 2 }}>
                           {last ? (last.from === myName ? "You: " : "") + last.text : ""}
                         </div>
                       </div>
@@ -20171,16 +20172,16 @@ function MessagingPanel({ currentUser, onBack, notifItems, onNotifDismiss, onNot
 
             {/* Message thread / chat pane */}
             {activeThread && (
-              <div style={{ flex: 1, display: "flex", flexDirection: "column", background: "#f8fafc" }}>
+              <div style={{ flex: 1, display: "flex", flexDirection: "column", background: "var(--surface-2)" }}>
                 {/* Thread header */}
-                <div style={{ padding: "0.75rem 1rem", background: "#fff", borderBottom: "1px solid #e2e8f0", display: "flex", alignItems: "center", gap: 10 }}>
-                  <button onClick={() => setActiveThread(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "#64748b", fontSize: "1.1rem" }}>←</button>
+                <div style={{ padding: "0.75rem 1rem", background: "var(--surface-1)", borderBottom: "1px solid #e2e8f0", display: "flex", alignItems: "center", gap: 10 }}>
+                  <button onClick={() => setActiveThread(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink-500)", fontSize: "1.1rem" }}>←</button>
                   <div style={{ width: 32, height: 32, borderRadius: "50%", background: NAVY, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: "0.9rem" }}>
                     {(activeThread.participants.find(p => p !== myName) || "?").charAt(0).toUpperCase()}
                   </div>
                   <div>
-                    <div style={{ fontWeight: 700, fontSize: "0.88rem", color: "#0f172a" }}>{activeThread.participants.find(p => p !== myName) || activeThread.participants[0]}</div>
-                    <div style={{ fontSize: "0.7rem", color: "#94a3b8" }}>{activeThread.messages.length} message{activeThread.messages.length !== 1 ? "s" : ""}</div>
+                    <div style={{ fontWeight: 700, fontSize: "0.88rem", color: "var(--ink-900)" }}>{activeThread.participants.find(p => p !== myName) || activeThread.participants[0]}</div>
+                    <div style={{ fontSize: "0.7rem", color: "var(--ink-400)" }}>{activeThread.messages.length} message{activeThread.messages.length !== 1 ? "s" : ""}</div>
                   </div>
                 </div>
                 {/* Messages */}
@@ -20189,10 +20190,10 @@ function MessagingPanel({ currentUser, onBack, notifItems, onNotifDismiss, onNot
                     const mine = m.from === myName;
                     return (
                       <div key={m.id} style={{ display: "flex", flexDirection: "column", alignItems: mine ? "flex-end" : "flex-start" }}>
-                        <div style={{ fontSize: "0.68rem", color: "#94a3b8", marginBottom: 2 }}>{mine ? "You" : m.from} · {fmtTime(m.ts)}</div>
+                        <div style={{ fontSize: "0.68rem", color: "var(--ink-400)", marginBottom: 2 }}>{mine ? "You" : m.from} · {fmtTime(m.ts)}</div>
                         <div style={{
                           maxWidth: "75%", padding: "0.55rem 0.85rem", borderRadius: mine ? "14px 14px 4px 14px" : "14px 14px 14px 4px",
-                          background: mine ? NAVY : "#fff", color: mine ? "#fff" : "#0f172a",
+                          background: mine ? NAVY : "#fff", color: mine ? "#fff" : "var(--ink-900)",
                           fontSize: "0.85rem", lineHeight: 1.45, boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
                           border: mine ? "none" : "1px solid #e2e8f0",
                         }}>
@@ -20203,7 +20204,7 @@ function MessagingPanel({ currentUser, onBack, notifItems, onNotifDismiss, onNot
                   })}
                 </div>
                 {/* Reply box */}
-                <div style={{ padding: "0.75rem 1rem", background: "#fff", borderTop: "1px solid #e2e8f0", display: "flex", gap: 8 }}>
+                <div style={{ padding: "0.75rem 1rem", background: "var(--surface-1)", borderTop: "1px solid #e2e8f0", display: "flex", gap: 8 }}>
                   <textarea
                     placeholder="Type a message…"
                     value={replyText}
@@ -20225,15 +20226,15 @@ function MessagingPanel({ currentUser, onBack, notifItems, onNotifDismiss, onNot
 
         {/* ── NOTIFICATIONS TAB ── */}
         {activeTab === "notifications" && (
-          <div style={{ flex: 1, background: "#fff" }}>
+          <div style={{ flex: 1, background: "var(--surface-1)" }}>
             <div style={{ padding: "0.75rem 1rem", borderBottom: "1px solid #f1f5f9", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span style={{ fontWeight: 700, fontSize: "0.85rem", color: "#0f172a" }}>All Alerts & Notifications</span>
+              <span style={{ fontWeight: 700, fontSize: "0.85rem", color: "var(--ink-900)" }}>All Alerts & Notifications</span>
               {notifCount > 0 && (
-                <button onClick={onNotifClearAll} style={{ background: "none", border: "none", cursor: "pointer", color: "#64748b", fontSize: "0.75rem", fontWeight: 600 }}>Clear all</button>
+                <button onClick={onNotifClearAll} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink-500)", fontSize: "0.75rem", fontWeight: 600 }}>Clear all</button>
               )}
             </div>
             {notifCount === 0 ? (
-              <div style={{ padding: "3rem 1rem", textAlign: "center", color: "#94a3b8" }}>
+              <div style={{ padding: "3rem 1rem", textAlign: "center", color: "var(--ink-400)" }}>
                 <div style={{ fontSize: "2.5rem", marginBottom: 10 }}>🔔</div>
                 <div style={{ fontWeight: 600, fontSize: "0.9rem" }}>You're all caught up!</div>
                 <div style={{ fontSize: "0.78rem", marginTop: 4 }}>No new notifications</div>
@@ -20244,16 +20245,16 @@ function MessagingPanel({ currentUser, onBack, notifItems, onNotifDismiss, onNot
                   const color = n.type === "chat" ? "#3b82f6" : n.type === "problem_report" ? "#ef4444" : n.type === "assignment" ? "#8b5cf6" : "#f59e0b";
                   const icon = n.type === "chat" ? "💬" : n.type === "problem_report" ? "🚨" : n.type === "assignment" ? "📋" : "⚠️";
                   return (
-                    <div key={n.id} style={{ display: "flex", borderLeft: `4px solid ${color}`, borderBottom: "1px solid #f8fafc", background: "#fff" }}>
+                    <div key={n.id} style={{ display: "flex", borderLeft: `4px solid ${color}`, borderBottom: "1px solid #f8fafc", background: "var(--surface-1)" }}>
                       <div style={{ padding: "1rem", flex: 1 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
                           <span style={{ fontSize: "1rem" }}>{icon}</span>
-                          <span style={{ fontWeight: 700, fontSize: "0.85rem", color: "#0f172a" }}>{n.title}</span>
-                          <span style={{ marginLeft: "auto", fontSize: "0.7rem", color: "#94a3b8" }}>{fmtTime(n.ts)}</span>
+                          <span style={{ fontWeight: 700, fontSize: "0.85rem", color: "var(--ink-900)" }}>{n.title}</span>
+                          <span style={{ marginLeft: "auto", fontSize: "0.7rem", color: "var(--ink-400)" }}>{fmtTime(n.ts)}</span>
                         </div>
-                        <div style={{ fontSize: "0.82rem", color: "#334155", lineHeight: 1.45 }}>{n.body}</div>
+                        <div style={{ fontSize: "0.82rem", color: "var(--ink-700)", lineHeight: 1.45 }}>{n.body}</div>
                       </div>
-                      <button onClick={() => onNotifDismiss(n.id)} style={{ background: "none", border: "none", cursor: "pointer", padding: "0 0.75rem", color: "#94a3b8", fontSize: "1.1rem", alignSelf: "center", flexShrink: 0 }}>×</button>
+                      <button onClick={() => onNotifDismiss(n.id)} style={{ background: "none", border: "none", cursor: "pointer", padding: "0 0.75rem", color: "var(--ink-400)", fontSize: "1.1rem", alignSelf: "center", flexShrink: 0 }}>×</button>
                     </div>
                   );
                 })}
@@ -20264,10 +20265,10 @@ function MessagingPanel({ currentUser, onBack, notifItems, onNotifDismiss, onNot
 
         {/* ── ANNOUNCEMENTS TAB ── */}
         {activeTab === "announcements" && (
-          <div style={{ flex: 1, background: "#fff", display: "flex", flexDirection: "column" }}>
+          <div style={{ flex: 1, background: "var(--surface-1)", display: "flex", flexDirection: "column" }}>
             {isAdmin && (
-              <div style={{ padding: "0.85rem 1rem", borderBottom: "1px solid #f1f5f9", background: "#f8fafc" }}>
-                <div style={{ fontWeight: 700, fontSize: "0.8rem", color: "#0f172a", marginBottom: 8 }}>📢 Post Announcement</div>
+              <div style={{ padding: "0.85rem 1rem", borderBottom: "1px solid #f1f5f9", background: "var(--surface-2)" }}>
+                <div style={{ fontWeight: 700, fontSize: "0.8rem", color: "var(--ink-900)", marginBottom: 8 }}>📢 Post Announcement</div>
                 <input
                   placeholder="Title (optional)"
                   value={annTitle}
@@ -20285,10 +20286,10 @@ function MessagingPanel({ currentUser, onBack, notifItems, onNotifDismiss, onNot
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: annIsQuickCheck ? 10 : 0 }}>
                   <button type="button"
                     onClick={() => setAnnIsQuickCheck(v => !v)}
-                    style={{ display: "flex", alignItems: "center", gap: 6, background: annIsQuickCheck ? "#fef3c7" : "#f1f5f9", border: annIsQuickCheck ? "1.5px solid #f59e0b" : "1.5px solid #e2e8f0", borderRadius: 20, padding: "4px 13px", fontSize: "0.78rem", fontWeight: 700, color: annIsQuickCheck ? "#92400e" : "#64748b", cursor: "pointer", transition: "all 0.15s" }}>
+                    style={{ display: "flex", alignItems: "center", gap: 6, background: annIsQuickCheck ? "#fef3c7" : "#f1f5f9", border: annIsQuickCheck ? "1.5px solid #f59e0b" : "1.5px solid #e2e8f0", borderRadius: 20, padding: "4px 13px", fontSize: "0.78rem", fontWeight: 700, color: annIsQuickCheck ? "#92400e" : "var(--ink-500)", cursor: "pointer", transition: "all 0.15s" }}>
                     ⚡ Quick Check
                     <span style={{ width: 28, height: 16, borderRadius: 99, background: annIsQuickCheck ? "#f59e0b" : "#cbd5e1", position: "relative", display: "inline-block", transition: "background 0.2s", flexShrink: 0 }}>
-                      <span style={{ position: "absolute", top: 2, left: annIsQuickCheck ? 14 : 2, width: 12, height: 12, borderRadius: "50%", background: "#fff", transition: "left 0.18s", boxShadow: "0 1px 3px rgba(0,0,0,0.2)" }} />
+                      <span style={{ position: "absolute", top: 2, left: annIsQuickCheck ? 14 : 2, width: 12, height: 12, borderRadius: "50%", background: "var(--surface-1)", transition: "left 0.18s", boxShadow: "0 1px 3px rgba(0,0,0,0.2)" }} />
                     </span>
                   </button>
                   {annIsQuickCheck && <span style={{ fontSize: "0.72rem", color: "#92400e", fontWeight: 600 }}>Select items inspectors must check:</span>}
@@ -20330,7 +20331,7 @@ function MessagingPanel({ currentUser, onBack, notifItems, onNotifDismiss, onNot
             )}
             <div style={{ flex: 1, overflowY: "auto" }}>
               {announcements.length === 0 ? (
-                <div style={{ padding: "3rem 1rem", textAlign: "center", color: "#94a3b8" }}>
+                <div style={{ padding: "3rem 1rem", textAlign: "center", color: "var(--ink-400)" }}>
                   <div style={{ fontSize: "2.5rem", marginBottom: 10 }}>📢</div>
                   <div style={{ fontWeight: 600, fontSize: "0.9rem" }}>No announcements yet</div>
                   {isAdmin && <div style={{ fontSize: "0.78rem", marginTop: 4 }}>Post an announcement above to notify your team</div>}
@@ -20350,11 +20351,11 @@ function MessagingPanel({ currentUser, onBack, notifItems, onNotifDismiss, onNot
                         </div>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 6 }}>
-                            <span style={{ fontWeight: 700, fontSize: "0.88rem", color: isQC ? "#92400e" : "#0f172a" }}>{a.title}</span>
-                            <span style={{ fontSize: "0.68rem", color: "#94a3b8", flexShrink: 0 }}>{fmtTime(a.ts)}</span>
+                            <span style={{ fontWeight: 700, fontSize: "0.88rem", color: isQC ? "#92400e" : "var(--ink-900)" }}>{a.title}</span>
+                            <span style={{ fontSize: "0.68rem", color: "var(--ink-400)", flexShrink: 0 }}>{fmtTime(a.ts)}</span>
                           </div>
-                          <div style={{ fontSize: "0.82rem", color: "#334155", lineHeight: 1.5, marginTop: 2 }}>{a.body}</div>
-                          <div style={{ fontSize: "0.7rem", color: "#94a3b8", marginTop: 4 }}>Posted by {a.author}</div>
+                          <div style={{ fontSize: "0.82rem", color: "var(--ink-700)", lineHeight: 1.5, marginTop: 2 }}>{a.body}</div>
+                          <div style={{ fontSize: "0.7rem", color: "var(--ink-400)", marginTop: 4 }}>Posted by {a.author}</div>
                         </div>
                         {isAdmin && (
                           <button onClick={() => saveAnn(announcements.filter(x => x.id !== a.id))} style={{ background: "none", border: "none", cursor: "pointer", color: "#cbd5e1", fontSize: "1.1rem", flexShrink: 0, lineHeight: 1 }}>×</button>
@@ -20362,7 +20363,7 @@ function MessagingPanel({ currentUser, onBack, notifItems, onNotifDismiss, onNot
                       </div>
                       {/* Quick Check items & CTA */}
                       {isQC && (
-                        <div style={{ background: "#fff", borderTop: "1px solid #fde68a", padding: "0.75rem 1rem" }}>
+                        <div style={{ background: "var(--surface-1)", borderTop: "1px solid #fde68a", padding: "0.75rem 1rem" }}>
                           <div style={{ fontSize: "0.72rem", fontWeight: 700, color: "#92400e", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>Items to inspect:</div>
                           <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginBottom: 10 }}>
                             {a.checkItems.map(item => (
@@ -20389,7 +20390,7 @@ function MessagingPanel({ currentUser, onBack, notifItems, onNotifDismiss, onNot
                           )}
                           {/* Admin results summary */}
                           {isAdmin && totalResults > 0 && (
-                            <div style={{ marginTop: 8, fontSize: "0.72rem", color: "#64748b" }}>
+                            <div style={{ marginTop: 8, fontSize: "0.72rem", color: "var(--ink-500)" }}>
                               {totalResults} response{totalResults > 1 ? "s" : ""}
                               {failCount > 0 && <span style={{ color: "#dc2626", fontWeight: 700, marginLeft: 8 }}>⚠️ {failCount} reported issues</span>}
                             </div>
@@ -20408,7 +20409,7 @@ function MessagingPanel({ currentUser, onBack, notifItems, onNotifDismiss, onNot
       {/* ── Quick Check Modal ── */}
       {quickCheckAnn && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 9999, display: "flex", alignItems: "flex-end", justifyContent: "center" }} onClick={() => setQuickCheckAnn(null)}>
-          <div style={{ background: "#fff", borderRadius: "18px 18px 0 0", width: "100%", maxWidth: 600, maxHeight: "85vh", display: "flex", flexDirection: "column", boxShadow: "0 -8px 40px rgba(0,0,0,0.25)", animation: "fadeInUp 0.22s ease" }} onClick={e => e.stopPropagation()}>
+          <div style={{ background: "var(--surface-1)", borderRadius: "18px 18px 0 0", width: "100%", maxWidth: 600, maxHeight: "85vh", display: "flex", flexDirection: "column", boxShadow: "0 -8px 40px rgba(0,0,0,0.25)", animation: "fadeInUp 0.22s ease" }} onClick={e => e.stopPropagation()}>
             {/* Header */}
             <div style={{ background: "#f59e0b", padding: "1rem 1.1rem 0.85rem", borderRadius: "18px 18px 0 0", color: "#fff" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
@@ -20424,7 +20425,7 @@ function MessagingPanel({ currentUser, onBack, notifItems, onNotifDismiss, onNot
                 <div style={{ textAlign: "center", padding: "2rem 1rem" }}>
                   <div style={{ fontSize: "3rem", marginBottom: 8 }}>✅</div>
                   <div style={{ fontWeight: 800, fontSize: "1.1rem", color: "#15803d" }}>Quick Check Complete!</div>
-                  <div style={{ fontSize: "0.82rem", color: "#64748b", marginTop: 4 }}>Your results have been recorded.</div>
+                  <div style={{ fontSize: "0.82rem", color: "var(--ink-500)", marginTop: 4 }}>Your results have been recorded.</div>
                 </div>
               ) : (
                 quickCheckAnn.checkItems.map(item => {
@@ -20432,16 +20433,16 @@ function MessagingPanel({ currentUser, onBack, notifItems, onNotifDismiss, onNot
                   const isFail = ans === "FAIL";
                   return (
                     <div key={item} style={{ marginBottom: 12, background: isFail ? "#fef2f2" : ans === "OK" ? "#f0fdf4" : "#f8fafc", borderRadius: 10, border: isFail ? "1.5px solid #fca5a5" : ans === "OK" ? "1.5px solid #86efac" : "1.5px solid #e2e8f0", padding: "0.75rem 0.9rem", transition: "all 0.15s" }}>
-                      <div style={{ fontWeight: 700, fontSize: "0.88rem", color: "#0f172a", marginBottom: 8 }}>{item}</div>
+                      <div style={{ fontWeight: 700, fontSize: "0.88rem", color: "var(--ink-900)", marginBottom: 8 }}>{item}</div>
                       <div style={{ display: "flex", gap: 8, marginBottom: isFail ? 8 : 0 }}>
                         <button type="button"
                           onClick={() => setQcAnswers(a => ({ ...a, [item]: ans === "OK" ? "" : "OK" }))}
-                          style={{ flex: 1, padding: "0.55rem", borderRadius: 8, border: ans === "OK" ? "2px solid #16a34a" : "2px solid #e2e8f0", background: ans === "OK" ? "#16a34a" : "#fff", color: ans === "OK" ? "#fff" : "#475569", fontWeight: 700, fontSize: "0.85rem", cursor: "pointer", transition: "all 0.15s" }}>
+                          style={{ flex: 1, padding: "0.55rem", borderRadius: 8, border: ans === "OK" ? "2px solid #16a34a" : "2px solid #e2e8f0", background: ans === "OK" ? "#16a34a" : "#fff", color: ans === "OK" ? "#fff" : "var(--ink-600)", fontWeight: 700, fontSize: "0.85rem", cursor: "pointer", transition: "all 0.15s" }}>
                           ✓ OK / Pass
                         </button>
                         <button type="button"
                           onClick={() => setQcAnswers(a => ({ ...a, [item]: ans === "FAIL" ? "" : "FAIL" }))}
-                          style={{ flex: 1, padding: "0.55rem", borderRadius: 8, border: isFail ? "2px solid #dc2626" : "2px solid #e2e8f0", background: isFail ? "#dc2626" : "#fff", color: isFail ? "#fff" : "#475569", fontWeight: 700, fontSize: "0.85rem", cursor: "pointer", transition: "all 0.15s" }}>
+                          style={{ flex: 1, padding: "0.55rem", borderRadius: 8, border: isFail ? "2px solid #dc2626" : "2px solid #e2e8f0", background: isFail ? "#dc2626" : "#fff", color: isFail ? "#fff" : "var(--ink-600)", fontWeight: 700, fontSize: "0.85rem", cursor: "pointer", transition: "all 0.15s" }}>
                           ✕ Issue Found
                         </button>
                       </div>
@@ -20461,7 +20462,7 @@ function MessagingPanel({ currentUser, onBack, notifItems, onNotifDismiss, onNot
             {/* Submit */}
             {!qcDoneId && (
               <div style={{ padding: "0.85rem 1rem 1.5rem", borderTop: "1px solid #f1f5f9" }}>
-                <div style={{ fontSize: "0.72rem", color: "#64748b", marginBottom: 8, textAlign: "center" }}>
+                <div style={{ fontSize: "0.72rem", color: "var(--ink-500)", marginBottom: 8, textAlign: "center" }}>
                   {Object.keys(qcAnswers).length} of {quickCheckAnn.checkItems.length} items answered
                 </div>
                 <button type="button"
@@ -20479,10 +20480,10 @@ function MessagingPanel({ currentUser, onBack, notifItems, onNotifDismiss, onNot
       {/* Compose modal */}
       {composeOpen && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 9999, display: "flex", alignItems: "flex-end", justifyContent: "center" }} onClick={() => setComposeOpen(false)}>
-          <div style={{ background: "#fff", borderRadius: "16px 16px 0 0", width: "100%", maxWidth: 600, padding: "1.25rem 1rem 2rem", boxShadow: "0 -8px 30px rgba(0,0,0,0.2)" }} onClick={e => e.stopPropagation()}>
-            <div style={{ fontWeight: 800, fontSize: "0.95rem", color: "#0f172a", marginBottom: 12, display: "flex", justifyContent: "space-between" }}>
+          <div style={{ background: "var(--surface-1)", borderRadius: "16px 16px 0 0", width: "100%", maxWidth: 600, padding: "1.25rem 1rem 2rem", boxShadow: "0 -8px 30px rgba(0,0,0,0.2)" }} onClick={e => e.stopPropagation()}>
+            <div style={{ fontWeight: 800, fontSize: "0.95rem", color: "var(--ink-900)", marginBottom: 12, display: "flex", justifyContent: "space-between" }}>
               <span>✏️ New Message</span>
-              <button onClick={() => setComposeOpen(false)} style={{ background: "none", border: "none", cursor: "pointer", color: "#94a3b8", fontSize: "1.2rem" }}>×</button>
+              <button onClick={() => setComposeOpen(false)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink-400)", fontSize: "1.2rem" }}>×</button>
             </div>
             <input
               placeholder="To: (name or role)"
@@ -22168,22 +22169,22 @@ export default function App() {
 
         {/* Notification dropdown */}
         {notifOpen && (
-          <div ref={notifDropRef} className="dropdownMenu" style={{ minWidth: 300, maxWidth: 380, maxHeight: 420, overflowY: "auto", background: "#fff", padding: 0 }}>
-            <div style={{ padding: "0.65rem 1rem", fontWeight: 700, fontSize: "0.85rem", color: "#1e293b", borderBottom: "1px solid #e2e8f0", display: "flex", justifyContent: "space-between", alignItems: "center", background: "#f8fafc", borderRadius: "0 0 0 0" }}>
+          <div ref={notifDropRef} className="dropdownMenu" style={{ minWidth: 300, maxWidth: 380, maxHeight: 420, overflowY: "auto", background: "var(--surface-1)", padding: 0 }}>
+            <div style={{ padding: "0.65rem 1rem", fontWeight: 700, fontSize: "0.85rem", color: "var(--ink-900)", borderBottom: "1px solid #e2e8f0", display: "flex", justifyContent: "space-between", alignItems: "center", background: "var(--surface-2)", borderRadius: "0 0 0 0" }}>
               <span>🔔 Notifications</span>
               {notifItems.length > 0 && (
-                <button type="button" style={{ background: "none", border: "none", cursor: "pointer", color: "#64748b", fontSize: "0.75rem" }} onClick={() => setNotifItems([])}>
+                <button type="button" style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink-500)", fontSize: "0.75rem" }} onClick={() => setNotifItems([])}>
                   Clear all
                 </button>
               )}
             </div>
             {notifItems.length === 0 ? (
-              <div style={{ padding: "1.5rem 1rem", color: "#64748b", fontSize: "0.85rem", textAlign: "center", background: "#fff" }}>No notifications</div>
+              <div style={{ padding: "1.5rem 1rem", color: "var(--ink-500)", fontSize: "0.85rem", textAlign: "center", background: "var(--surface-1)" }}>No notifications</div>
             ) : (
               notifItems.map(n => (
                 <div
                   key={n.id}
-                  style={{ display: "flex", alignItems: "stretch", borderLeft: `4px solid ${n.type === "chat" ? "#3b82f6" : n.type === "problem_report" ? "#ef4444" : "#f59e0b"}`, borderBottom: "1px solid #f1f5f9", background: "#fff" }}
+                  style={{ display: "flex", alignItems: "stretch", borderLeft: `4px solid ${n.type === "chat" ? "#3b82f6" : n.type === "problem_report" ? "#ef4444" : "#f59e0b"}`, borderBottom: "1px solid #f1f5f9", background: "var(--surface-1)" }}
                 >
                   <button
                     type="button"
@@ -22202,16 +22203,16 @@ export default function App() {
                       }
                     }}
                   >
-                    <span style={{ fontWeight: 700, fontSize: "0.82rem", color: "#0f172a", display: "block" }}>{n.title}</span>
-                    <span style={{ fontSize: "0.78rem", color: "#334155", whiteSpace: "normal", display: "block", marginTop: 2, lineHeight: 1.4 }}>{n.body}</span>
-                    <span style={{ fontSize: "0.72rem", color: "#94a3b8", display: "block", marginTop: 3 }}>
+                    <span style={{ fontWeight: 700, fontSize: "0.82rem", color: "var(--ink-900)", display: "block" }}>{n.title}</span>
+                    <span style={{ fontSize: "0.78rem", color: "var(--ink-700)", whiteSpace: "normal", display: "block", marginTop: 2, lineHeight: 1.4 }}>{n.body}</span>
+                    <span style={{ fontSize: "0.72rem", color: "var(--ink-400)", display: "block", marginTop: 3 }}>
                       {new Date(n.ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                     </span>
                   </button>
                   <button
                     type="button"
                     onClick={e => { e.stopPropagation(); setNotifItems(prev => prev.filter(x => x.id !== n.id)); }}
-                    style={{ background: "none", border: "none", cursor: "pointer", padding: "0 0.75rem", color: "#94a3b8", fontSize: "1.1rem", flexShrink: 0, alignSelf: "center" }}
+                    style={{ background: "none", border: "none", cursor: "pointer", padding: "0 0.75rem", color: "var(--ink-400)", fontSize: "1.1rem", flexShrink: 0, alignSelf: "center" }}
                     aria-label="Dismiss notification"
                   >
                     ×
@@ -22230,10 +22231,10 @@ export default function App() {
                 {currentUser.name}
                 {currentUser.role === "global_admin" ? " (Global Admin)" : currentUser.role === "admin" ? " (Admin)" : currentUser.role === "location_manager" ? " (Manager)" : currentUser.role === "guest" ? " (Guest)" : ""}
                 {currentUser.role === "location_manager" && currentUser.assignedLocation && (
-                  <div style={{ fontSize: "0.72rem", color: "#94a3b8", marginTop: 2 }}>📍 {currentUser.assignedLocation}</div>
+                  <div style={{ fontSize: "0.72rem", color: "var(--ink-400)", marginTop: 2 }}>📍 {currentUser.assignedLocation}</div>
                 )}
                 {currentUser.role === "guest" && currentUser.assignedLocation && (
-                  <div style={{ fontSize: "0.72rem", color: "#94a3b8", marginTop: 2 }}>📍 {currentUser.assignedLocation}</div>
+                  <div style={{ fontSize: "0.72rem", color: "var(--ink-400)", marginTop: 2 }}>📍 {currentUser.assignedLocation}</div>
                 )}
               </div>
             )}
@@ -22377,7 +22378,7 @@ export default function App() {
           }}
         >
           <div style={{
-            background: "#fff",
+            background: "var(--surface-1)",
             borderRadius: 20,
             padding: "2.5rem 2rem",
             maxWidth: 420,
@@ -22391,10 +22392,10 @@ export default function App() {
             cursor: "pointer",
           }}>
             <div style={{ fontSize: "3.5rem", lineHeight: 1 }}>🔒</div>
-            <div style={{ fontWeight: 800, fontSize: "1.15rem", color: "#1e293b", lineHeight: 1.3 }}>
+            <div style={{ fontWeight: 800, fontSize: "1.15rem", color: "var(--ink-900)", lineHeight: 1.3 }}>
               Inspection Locked
             </div>
-            <div style={{ color: "#475569", fontSize: "0.92rem", lineHeight: 1.55 }}>
+            <div style={{ color: "var(--ink-600)", fontSize: "0.92rem", lineHeight: 1.55 }}>
               You must confirm you are on-site before filling out any part of this form.
             </div>
             <div style={{
@@ -22414,7 +22415,7 @@ export default function App() {
             }}>
               🕐 Tap here — I&apos;m on site, Start Timer
             </div>
-            <div style={{ fontSize: "0.75rem", color: "#94a3b8", marginTop: -4 }}>
+            <div style={{ fontSize: "0.75rem", color: "var(--ink-400)", marginTop: -4 }}>
               Or scroll down and click &ldquo;Start Inspection Timer&rdquo;
             </div>
           </div>
@@ -22516,11 +22517,11 @@ export default function App() {
                       <div style={{ fontWeight: 700, fontSize: "0.84rem", color: isDone ? "#15803d" : "#1e3a8a", textDecoration: isDone ? "line-through" : "none" }}>
                         {slot.date ? new Date(slot.date + "T12:00:00").toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }) : "—"}
                       </div>
-                      <div style={{ fontSize: "0.8rem", color: "#334155", marginTop: 2 }}>
+                      <div style={{ fontSize: "0.8rem", color: "var(--ink-700)", marginTop: 2 }}>
                         📍 {slot.location || "No location"}
                         {slot.unit && <span style={{ marginLeft: 6, fontSize: "0.74rem", background: "#e0e7ff", color: "#3730a3", borderRadius: 5, padding: "1px 5px", fontWeight: 600 }}>Unit {slot.unit}</span>}
                       </div>
-                      {slot.note && <div style={{ fontSize: "0.75rem", color: "#64748b", marginTop: 2 }}>{slot.note}</div>}
+                      {slot.note && <div style={{ fontSize: "0.75rem", color: "var(--ink-500)", marginTop: 2 }}>{slot.note}</div>}
                     </div>
                   </div>
                 );
@@ -22540,14 +22541,14 @@ export default function App() {
       {/* ── Assigned Stands banner — shows stands/locations assigned to this inspector ── */}
       {currentUser?.role === "inspector" && (currentUser?.assignedStands?.length > 0) && (
         <div style={{
-          background: "#fff",
+          background: "var(--surface-1)",
           borderBottom: "1px solid #e2e8f0",
           padding: "14px 20px",
         }}>
           <div style={{
             fontSize: "0.7rem",
             fontWeight: 700,
-            color: "#94a3b8",
+            color: "var(--ink-400)",
             letterSpacing: "0.08em",
             textTransform: "uppercase",
             marginBottom: 10,
@@ -22561,8 +22562,8 @@ export default function App() {
                 type="button"
                 onClick={() => { setSiteName(s); window.scrollTo({ top: 0, behavior: "smooth" }); }}
                 style={{
-                  background: "#f8fafc",
-                  color: "#1e293b",
+                  background: "var(--surface-2)",
+                  color: "var(--ink-900)",
                   border: "1.5px solid #e2e8f0",
                   borderRadius: 10,
                   padding: "8px 16px",
@@ -22573,13 +22574,13 @@ export default function App() {
                   letterSpacing: "0.01em",
                 }}
                 onMouseEnter={e => {
-                  e.currentTarget.style.background = "#1e293b";
+                  e.currentTarget.style.background = "var(--ink-900)";
                   e.currentTarget.style.color = "#fff";
-                  e.currentTarget.style.borderColor = "#1e293b";
+                  e.currentTarget.style.borderColor = "var(--ink-900)";
                 }}
                 onMouseLeave={e => {
                   e.currentTarget.style.background = "#f8fafc";
-                  e.currentTarget.style.color = "#1e293b";
+                  e.currentTarget.style.color = "var(--ink-900)";
                   e.currentTarget.style.borderColor = "#e2e8f0";
                 }}
               >
@@ -22657,7 +22658,7 @@ export default function App() {
         const pct = Math.round((completedCount / steps.length) * 100);
         return (
           <div style={{ maxWidth: 1440, margin: "0 auto 14px", padding: "0 32px", boxSizing: "border-box", width: "100%" }}>
-          <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 12, padding: "12px 16px" }}>
+          <div style={{ background: "var(--surface-1)", border: "1px solid #e2e8f0", borderRadius: 12, padding: "12px 16px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
               <span style={{ fontWeight: 700, fontSize: "0.82rem", color: "#374151" }}>Form Progress</span>
               <span style={{ fontSize: "0.78rem", fontWeight: 600, color: pct === 100 ? "#16a34a" : "#6b7280" }}>{completedCount}/{steps.length} sections</span>
@@ -22782,7 +22783,7 @@ export default function App() {
                   {currentUser?.role === "guest" && <span style={{ marginLeft: 6, fontSize: "0.7rem", background: "#fef9c3", color: "#854d0e", padding: "1px 7px", borderRadius: 20, fontWeight: 700 }}>Assigned</span>}
                 </span>
                 {currentUser?.role === "guest" ? (
-                  <input className="input" value={siteName} readOnly style={{ background: "#f8fafc", color: "#475569", cursor: "not-allowed" }} title="Location is set by your manager" />
+                  <input className="input" value={siteName} readOnly style={{ background: "var(--surface-2)", color: "var(--ink-600)", cursor: "not-allowed" }} title="Location is set by your manager" />
                 ) : (
                   <>
                     <input className="input" list="siteNameSuggestions" value={siteName} onBlur={(e) => smartFieldCorrect("field-siteName", e.target.value)} onChange={(e) => {
@@ -22880,7 +22881,7 @@ export default function App() {
                     border: restaurantLicense === "NO LICENSE" ? "1.5px solid #fca5a5" : "1.5px solid #e2e8f0",
                     borderRadius: 8, padding: "0.42rem 0.85rem",
                     fontSize: "0.78rem", fontWeight: 700,
-                    color: restaurantLicense === "NO LICENSE" ? "#991b1b" : "#64748b",
+                    color: restaurantLicense === "NO LICENSE" ? "#991b1b" : "var(--ink-500)",
                     cursor: "pointer", width: "100%", justifyContent: "center",
                     transition: "all 0.15s",
                   }}
@@ -23104,13 +23105,13 @@ export default function App() {
                   <div className="tempsGrid">
                     <div className="field" id="field-handSinkTempF" style={{ marginTop: 0 }}>
                       <span className="fieldLabel">Hand Washing Sink</span>
-                      <div style={{ fontSize: "0.75rem", color: "#64748b", marginBottom: 6 }}>Must be at least 95°F</div>
+                      <div style={{ fontSize: "0.75rem", color: "var(--ink-500)", marginBottom: 6 }}>Must be at least 95°F</div>
                       {/* Out-of-order flag */}
                       <label style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, cursor: "pointer" }}>
                         <input type="checkbox" checked={!!inspection.temps.handSinkOutOfOrder}
                           onChange={(e) => setInspection((prev) => ({ ...prev, temps: { ...prev.temps, handSinkOutOfOrder: e.target.checked, handSinkTempF: e.target.checked ? "" : prev.temps.handSinkTempF } }))}
                           style={{ accentColor: "#dc2626", width: 16, height: 16 }} />
-                        <span style={{ fontSize: "0.82rem", fontWeight: 600, color: inspection.temps.handSinkOutOfOrder ? "#dc2626" : "#475569" }}>
+                        <span style={{ fontSize: "0.82rem", fontWeight: 600, color: inspection.temps.handSinkOutOfOrder ? "#dc2626" : "var(--ink-600)" }}>
                           {inspection.temps.handSinkOutOfOrder ? "🚩 FLAGGED — Sink not working / out of order" : "Flag as not working / out of order"}
                         </span>
                       </label>
@@ -23141,7 +23142,7 @@ export default function App() {
                                       onBlur={(e) => !isSubmitted && smartFieldCorrect("field-handSinkTempF", e.target.value)}
                                       onChange={(e) => setInspection((prev) => ({ ...prev, temps: { ...prev.temps, handSinkTempF: e.target.value } }))}
                                       placeholder="97"
-                                      style={isSubmitted ? { opacity: 0.6, background: "#f8fafc" } : {}} />
+                                      style={isSubmitted ? { opacity: 0.6, background: "var(--surface-2)" } : {}} />
                                     <span className="tempUnit">{String.fromCharCode(176) + "F"}</span>
                                   </div>
                                   {!isSubmitted && (
@@ -23183,13 +23184,13 @@ export default function App() {
                     </div>
                     <div className="field" id="field-threeCompSinkTempF" style={{ marginTop: 0 }}>
                       <span className="fieldLabel">3-Compartment Wash Sink</span>
-                      <div style={{ fontSize: "0.75rem", color: "#64748b", marginBottom: 6 }}>Must be at least 110°F</div>
+                      <div style={{ fontSize: "0.75rem", color: "var(--ink-500)", marginBottom: 6 }}>Must be at least 110°F</div>
                       {/* Out-of-order flag */}
                       <label style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, cursor: "pointer" }}>
                         <input type="checkbox" checked={!!inspection.temps.threeCompSinkOutOfOrder}
                           onChange={(e) => setInspection((prev) => ({ ...prev, temps: { ...prev.temps, threeCompSinkOutOfOrder: e.target.checked, threeCompSinkTempF: e.target.checked ? "" : prev.temps.threeCompSinkTempF } }))}
                           style={{ accentColor: "#dc2626", width: 16, height: 16 }} />
-                        <span style={{ fontSize: "0.82rem", fontWeight: 600, color: inspection.temps.threeCompSinkOutOfOrder ? "#dc2626" : "#475569" }}>
+                        <span style={{ fontSize: "0.82rem", fontWeight: 600, color: inspection.temps.threeCompSinkOutOfOrder ? "#dc2626" : "var(--ink-600)" }}>
                           {inspection.temps.threeCompSinkOutOfOrder ? "🚩 FLAGGED — Sink not working / out of order" : "Flag as not working / out of order"}
                         </span>
                       </label>
@@ -23220,7 +23221,7 @@ export default function App() {
                                       onBlur={(e) => !isSubmitted && smartFieldCorrect("field-threeCompSinkTempF", e.target.value)}
                                       onChange={(e) => setInspection((prev) => ({ ...prev, temps: { ...prev.temps, threeCompSinkTempF: e.target.value } }))}
                                       placeholder="112"
-                                      style={isSubmitted ? { opacity: 0.6, background: "#f8fafc" } : {}} />
+                                      style={isSubmitted ? { opacity: 0.6, background: "var(--surface-2)" } : {}} />
                                     <span className="tempUnit">{String.fromCharCode(176) + "F"}</span>
                                   </div>
                                   {!isSubmitted && (
@@ -23445,7 +23446,7 @@ export default function App() {
               marginBottom: "1.5rem",
             }}>
               <div style={{
-                background: "#f8fafc",
+                background: "var(--surface-2)",
                 color: "var(--sdx-navy)",
                 fontSize: "1.05rem",
                 fontWeight: 700,
@@ -23488,7 +23489,7 @@ export default function App() {
                               value={readingTime}
                               disabled={isSubmitted}
                               onChange={e => setFoodTempTimes(p => { const arr=[...(p[item.key]||[""])]; arr[idx]=e.target.value; return {...p,[item.key]:arr}; })}
-                              style={{ width: 105, fontSize: "0.78rem", borderRadius: 8, border: "1.5px solid #cbd5e1", background: "#fff", color: "#1e293b", padding: "5px 6px", opacity: isSubmitted ? 0.7 : 1, flexShrink: 0 }} />
+                              style={{ width: 105, fontSize: "0.78rem", borderRadius: 8, border: "1.5px solid #cbd5e1", background: "var(--surface-1)", color: "var(--ink-900)", padding: "5px 6px", opacity: isSubmitted ? 0.7 : 1, flexShrink: 0 }} />
                             <input className="input" type="text" placeholder="Food item (e.g. Chicken)"
                               value={name} disabled={isSubmitted}
                               onBlur={e => {
@@ -23551,7 +23552,7 @@ export default function App() {
                                 placeholder="What was done to correct this? (e.g. Discarded food, adjusted equipment, reheated to 165°F…)"
                                 value={correction}
                                 onChange={e => setFoodTempCorrections(p => { const arr=[...(p[item.key]||[""])]; arr[idx]=e.target.value; return {...p,[item.key]:arr}; })}
-                                style={{ width: "100%", fontSize: "0.82rem", resize: "vertical", borderColor: needsCorrection ? "#dc2626" : "#fca5a5", background: "#fff" }} />
+                                style={{ width: "100%", fontSize: "0.82rem", resize: "vertical", borderColor: needsCorrection ? "#dc2626" : "#fca5a5", background: "var(--surface-1)" }} />
                               {needsCorrection && <div style={{ fontSize: "0.72rem", color: "#dc2626", marginTop: 3, fontWeight: 600 }}>Required — enter what corrective action was taken</div>}
                             </div>
                           )}
@@ -23567,7 +23568,7 @@ export default function App() {
                         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4, flexWrap: "nowrap", gap: 4 }}>
                           <span style={{ fontWeight: 700, fontSize: "0.85rem", color: item.type === "hot" ? "#b91c1c" : "#1d4ed8", display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap", minWidth: 0 }}>
                             <span style={{ whiteSpace: "nowrap" }}>{item.type === "hot" ? "🔥" : "❄️"} {item.label}</span>
-                            <span style={{ fontWeight: 400, fontSize: "0.72rem", color: "#64748b", whiteSpace: "nowrap" }}>
+                            <span style={{ fontWeight: 400, fontSize: "0.72rem", color: "var(--ink-500)", whiteSpace: "nowrap" }}>
                               {item.type === "hot" ? `Min ${item.min}°F` : `Max ${item.max}°F`}{item.hint ? ` · ${item.hint}` : ""}
                             </span>
                           </span>
@@ -23599,7 +23600,7 @@ export default function App() {
                           cookingSeafood:    { emoji: "🐟", color: "#0e7490", bg: "#f0fdfa", border: "#99f6e4", badge: "#134e4a" },
                         };
                         return (
-                          <div style={{ border: "1.5px solid #fca5a5", borderRadius: 10, overflow: "hidden", background: "#fff" }}>
+                          <div style={{ border: "1.5px solid #fca5a5", borderRadius: 10, overflow: "hidden", background: "var(--surface-1)" }}>
                             <div style={{ background: "linear-gradient(90deg,#b91c1c,#dc2626)", padding: "7px 12px", display: "flex", alignItems: "center", gap: 6 }}>
                               <span style={{ fontSize: "1rem" }}>🔥</span>
                               <span style={{ fontWeight: 800, fontSize: "0.88rem", color: "#fff", letterSpacing: "0.02em" }}>Cooking Temperatures</span>
@@ -23614,7 +23615,7 @@ export default function App() {
                                       <span style={{ fontSize: "1.1rem", flexShrink: 0 }}>{m.emoji}</span>
                                       <div style={{ flex: 1, minWidth: 0 }}>
                                         <div style={{ fontWeight: 700, fontSize: "0.82rem", color: m.color }}>{item.label}</div>
-                                        <div style={{ fontSize: "0.68rem", color: "#64748b", marginTop: 1 }}>{item.hint}</div>
+                                        <div style={{ fontSize: "0.68rem", color: "var(--ink-500)", marginTop: 1 }}>{item.hint}</div>
                                       </div>
                                       <span style={{ background: m.badge, color: "#fff", borderRadius: 6, padding: "2px 8px", fontSize: "0.78rem", fontWeight: 800, flexShrink: 0, minWidth: 68, textAlign: "center", letterSpacing: "0.02em" }}>
                                         ≥{item.min}°F
@@ -24048,7 +24049,7 @@ export default function App() {
       {/* ── Pre-submit Incomplete Sections Modal ── */}
       {modals.preSubmit && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 9000, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
-          <div style={{ background: "#fff", borderRadius: 16, padding: "28px 28px 22px", maxWidth: 420, width: "100%", boxShadow: "0 8px 48px rgba(0,0,0,0.22)" }}>
+          <div style={{ background: "var(--surface-1)", borderRadius: 16, padding: "28px 28px 22px", maxWidth: 420, width: "100%", boxShadow: "0 8px 48px rgba(0,0,0,0.22)" }}>
             <div style={{ fontWeight: 800, fontSize: "1.1rem", color: "#b45309", marginBottom: 6 }}>⚠️ Incomplete Sections</div>
             <div style={{ fontSize: "0.88rem", color: "#374151", marginBottom: 14, lineHeight: 1.5 }}>
               The following sections appear to be empty. You can still generate the report, but it may be incomplete.
