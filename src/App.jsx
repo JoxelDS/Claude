@@ -12473,10 +12473,35 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
       siteToLicenses[normSite].add(lic);
     }
     const mismatches = [];
+    const autoResolved = {};
     for (const [normSite, lics] of Object.entries(siteToLicenses)) {
       if (lics.size > 1) {
-        mismatches.push({ siteName: siteDisplayName[normSite] || normSite, licenses: [...lics] });
+        const displayName = siteDisplayName[normSite] || normSite;
+        // The official license sheet is the source of truth: if this site (or one of
+        // the license numbers seen) resolves in the seed, silently auto-pick the
+        // official number instead of nagging the user with a mismatch banner.
+        const official = lookupLicenseFromSeed(displayName, null);
+        if (official) {
+          autoResolved[displayName] = { licenseNum: official, notes: "Auto-set from official license sheet" };
+          continue;
+        }
+        const seedMatch = [...lics].find(l => LICENSE_SEED_BY_NUMBER && Object.values(LICENSE_SEED_NORM).includes(l));
+        if (seedMatch) {
+          autoResolved[displayName] = { licenseNum: seedMatch, notes: "Auto-set from official license sheet" };
+          continue;
+        }
+        mismatches.push({ siteName: displayName, licenses: [...lics] });
       }
+    }
+    if (Object.keys(autoResolved).length > 0) {
+      setInvLicenseData(prev => {
+        const next = { ...prev };
+        for (const [site, entry] of Object.entries(autoResolved)) {
+          const cur = (next[site]?.licenseNum || "").trim();
+          if (!cur || cur !== entry.licenseNum) next[site] = { ...next[site], ...entry };
+        }
+        return next;
+      });
     }
     setInvLicenseMismatches(mismatches);
   }, [history]); // eslint-disable-line react-hooks/exhaustive-deps
