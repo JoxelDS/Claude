@@ -6557,3 +6557,28 @@ html[data-theme="ocean"]    { --sdx-pin-mid: #1265B8; --sdx-pin-end: #21A0D2; }
 html[data-theme="midnight"] { --sdx-pin-mid: #24235A; --sdx-pin-end: #3B3A7A; }
 html[data-theme="noir"]     { --sdx-pin-mid: #1A1A1D; --sdx-pin-end: #2E2E33; }
 html[data-theme="dsmarketing"] { --sdx-pin-mid: #1A1A1D; --sdx-pin-end: #2E2E33; }
+
+/* ── Refined header save button ─────────────────────────── */
+.btnGenHeader,
+.btnGenHeader.btnPrimary {
+  border-radius: 999px;
+  padding: 9px 20px;
+  gap: 7px;
+  font-size: 0.84rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  background: var(--sdx-red);
+  box-shadow: 0 2px 8px rgba(238,0,0,.28);
+}
+.btnGenHeader:hover:not(:disabled),
+.btnGenHeader.btnPrimary:hover:not(:disabled) {
+  background: var(--sdx-red-dark);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(238,0,0,.34);
+}
+.btnGenHeader:active:not(:disabled) { transform: translateY(0) scale(0.98); }
+.genBtnSvg { flex-shrink: 0; }
+.genBtnIconMobile { display: none; }
+@media (max-width: 640px) {
+  .btnGenHeader, .btnGenHeader.btnPrimary { padding: 8px 14px; }
+}

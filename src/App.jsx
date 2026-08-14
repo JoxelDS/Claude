@@ -21956,9 +21956,12 @@ export default function App() {
           </div>
           {/* HACCP QR button moved to sticky action bar after save */}
           <button className={cx("btn", "btnPrimary", "btnGenHeader")} onClick={onTransform} type="button" disabled={loading}>
-            <span className="genBtnIconMobile" aria-hidden="true">{loading ? "⏳" : "📋"}</span>
+            <svg className="genBtnSvg" width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+              <path d="M12.5 14H3.5C2.67 14 2 13.33 2 12.5V3.5C2 2.67 2.67 2 3.5 2H10L14 6V12.5C14 13.33 13.33 14 12.5 14Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
+              <path d="M5.5 8.6L7.3 10.4L10.8 6.9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
             <span className="genBtnLabelMobile">{loading ? "Saving…" : "Save Report"}</span>
-            <span className="genBtnLabel">{loading ? "Saving..." : "Generate & Save"}</span>
+            <span className="genBtnLabel">{loading ? "Saving…" : "Save Report"}</span>
           </button>
           <div className="topActionsDivider" aria-hidden="true" />
           {/* Notification bell — shown for all logged-in users */}
@@ -23805,7 +23808,7 @@ export default function App() {
               <div className="emptyState">
                 <div className="emptyIcon">&#9998;</div>
                 <div className="emptyTitle">Ready to generate your report</div>
-                <div className="emptySub">Fill in the inspection details on the left, then click <strong>Generate &amp; Save</strong> — your report is saved automatically.</div>
+                <div className="emptySub">Fill in the inspection details on the left, then click <strong>Save Report</strong> — your report is saved automatically.</div>
               </div>
             ) : (
               <>
