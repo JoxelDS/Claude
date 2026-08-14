@@ -48,6 +48,56 @@ class ErrorBoundary extends React.Component {
   }
 }
 
+/* ── Smooth Engine ──────────────────────────────────────────────
+   A permanent, app-wide smoothness layer. It watches the DOM and
+   gives every card, list row, and panel a soft entrance the first
+   time it appears or scrolls into view — automatically, including
+   screens added in the future. Zero work per feature; honors
+   prefers-reduced-motion; observers detach after animating so
+   there is no lasting cost per element.
+──────────────────────────────────────────────────────────────── */
+(function smoothEngine() {
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+  const SELECTOR = [
+    ".card", ".historyCard", ".fuItem", ".step", ".feat",
+    ".recurringItem", ".worstLocation", ".flaggedLocation",
+    ".themeCard", ".analysisStat", ".modalBox",
+  ].join(",");
+
+  const seen = new WeakSet();
+  const io = new IntersectionObserver((entries) => {
+    for (const en of entries) {
+      if (!en.isIntersecting) continue;
+      const el = en.target;
+      io.unobserve(el);
+      el.classList.add("sv-in");
+      // Clean up the class once the animation finishes so styles stay inert
+      el.addEventListener("animationend", () => el.classList.remove("sv-in"), { once: true });
+    }
+  }, { rootMargin: "0px 0px -8% 0px", threshold: 0.05 });
+
+  function attach(root) {
+    if (!(root instanceof Element)) return;
+    const targets = root.matches?.(SELECTOR) ? [root] : [];
+    targets.push(...root.querySelectorAll?.(SELECTOR) ?? []);
+    for (const el of targets) {
+      if (seen.has(el)) continue;
+      seen.add(el);
+      io.observe(el);
+    }
+  }
+
+  const mo = new MutationObserver((muts) => {
+    for (const m of muts) for (const n of m.addedNodes) attach(n);
+  });
+
+  window.addEventListener("DOMContentLoaded", () => {
+    attach(document.body);
+    mo.observe(document.body, { childList: true, subtree: true });
+  });
+})();
+
 ReactDOM.createRoot(document.getElementById("root")).render(
   <ErrorBoundary>
     <App />

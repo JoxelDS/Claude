@@ -6837,3 +6837,13 @@ input, select, textarea { transition: border-color 120ms ease, box-shadow 120ms 
   border-radius: 8px;
 }
 @keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+
+/* ── Smooth Engine entrance (applied by the observer in main.jsx) ── */
+.card { animation: none; } /* smooth engine handles card entrances now */
+.sv-in {
+  animation: svIn .45s cubic-bezier(0.22, 1, 0.36, 1) backwards !important;
+}
+@keyframes svIn {
+  from { opacity: 0; transform: translateY(12px) scale(.99); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
