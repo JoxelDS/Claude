@@ -143,10 +143,24 @@ const THEMES = [
   { id: "noir",        name: "Sodexo Noir",     swatch: "linear-gradient(105deg,#0A0A0B 0%,#161618 55%,#232326 100%)", logo: LOGO_WHITE },
   { id: "black",       name: "Sodexo Black",    swatch: "linear-gradient(180deg,#000000 0%,#0E0E12 100%)", logo: LOGO_WHITE },
 ];
-function applyTheme(themeId) {
+// Accent colors available for the Black theme — the color that dominates dark mode
+const BLACK_ACCENTS = [
+  { id: "red",    name: "Sodexo Red", c: "#EE0000" },
+  { id: "blue",   name: "Electric Blue", c: "#2E7CF6" },
+  { id: "purple", name: "Purple", c: "#8B5CF6" },
+  { id: "green",  name: "Emerald", c: "#1FA65A" },
+  { id: "gold",   name: "Gold", c: "#D9A62E" },
+  { id: "silver", name: "Silver", c: "#8F95AA" },
+];
+function applyTheme(themeId, accent) {
   const valid = THEMES.some(t => t.id === themeId) ? themeId : "sodexo";
-  if (valid === "sodexo") delete document.documentElement.dataset.theme;
-  else document.documentElement.dataset.theme = valid;
+  const root = document.documentElement;
+  if (valid === "sodexo") delete root.dataset.theme;
+  else root.dataset.theme = valid;
+  // In Black mode the --sdx-navy token carries the accent role
+  const acc = BLACK_ACCENTS.find(a => a.id === accent);
+  if (valid === "black" && acc) root.style.setProperty("--sdx-navy", acc.c);
+  else root.style.removeProperty("--sdx-navy");
 }
 
 // Module-level branding cache — updated by the main App on every venueSettings change
@@ -16764,6 +16778,42 @@ function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVe
                 );
               })}
             </div>
+            {(venueSettings?.theme === "black") && (
+              <div style={{ marginTop: 16, paddingTop: 14, borderTop: "1px solid var(--sdx-gray-200)" }}>
+                <div style={{ fontWeight: 700, fontSize: "0.84rem", color: "var(--ink-900)", marginBottom: 4 }}>Accent Color</div>
+                <p style={{ margin: "0 0 10px", fontSize: "0.78rem", color: "var(--ink-500)" }}>
+                  Pick the color that dominates the dark theme — buttons, highlights, and active tabs.
+                </p>
+                <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                  {BLACK_ACCENTS.map(a => {
+                    const active = (venueSettings?.blackAccent || "red") === a.id;
+                    return (
+                      <button
+                        key={a.id}
+                        type="button"
+                        title={a.name}
+                        onClick={() => onSaveVenueSettings?.({ blackAccent: a.id })}
+                        style={{
+                          display: "flex", flexDirection: "column", alignItems: "center", gap: 5,
+                          background: "none", border: "none", cursor: "pointer", padding: 2,
+                        }}
+                      >
+                        <span style={{
+                          width: 40, height: 40, borderRadius: "50%", background: a.c,
+                          border: active ? "3px solid var(--ink-900)" : "3px solid transparent",
+                          boxShadow: active ? `0 0 0 2px ${a.c}, 0 4px 12px ${a.c}66` : "0 2px 6px rgba(0,0,0,.3)",
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          transition: "transform .15s ease, box-shadow .15s ease",
+                          transform: active ? "scale(1.08)" : "scale(1)",
+                          color: "#fff", fontWeight: 800, fontSize: "0.9rem",
+                        }}>{active ? "✓" : ""}</span>
+                        <span style={{ fontSize: "0.66rem", fontWeight: 600, color: active ? "var(--ink-900)" : "var(--ink-500)" }}>{a.name}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -20267,7 +20317,7 @@ function MessagingPanel({ currentUser, onBack, notifItems, onNotifDismiss, onNot
 
         {/* ── ANNOUNCEMENTS TAB ── */}
         {activeTab === "announcements" && (
-          <div style={{ flex: 1, background: "var(--surface-1)", display: "flex", flexDirection: "column" }}>
+          <div style={{ flex: 1, background: "transparent", display: "flex", flexDirection: "column" }}>
             {isAdmin && (
               <div style={{ margin: "12px 12px 4px", padding: "0.9rem 1rem", borderRadius: 16, border: "1px solid var(--sdx-gray-200)", background: "var(--surface-1)", boxShadow: "var(--shadow-md)" }}>
                 <div style={{ fontWeight: 800, fontSize: "0.84rem", color: "var(--ink-900)", marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>📢 Post Announcement</div>
@@ -20534,7 +20584,7 @@ export default function App() {
 
   // Apply the venue theme (admin-controlled, synced across all devices)
   // Theme applies only once someone is signed in — the badge screen always shows the default look
-  useEffect(() => { applyTheme(currentUser ? venueSettings?.theme : "sodexo"); }, [venueSettings?.theme, currentUser]);
+  useEffect(() => { applyTheme(currentUser ? venueSettings?.theme : "sodexo", venueSettings?.blackAccent); }, [venueSettings?.theme, venueSettings?.blackAccent, currentUser]);
 
   function saveVenueSettings(updates) {
     const next = { ...venueSettings, ...updates };

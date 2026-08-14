@@ -7027,3 +7027,7 @@ html[data-theme="black"] {
   --tint-green-1: #0F2018; --tint-green-2: #163325; --tx-green: #7FD8A5;
   --tint-red-1: #241214;   --tint-red-2: #33191C;   --tx-red-strong: #F5A3A3;
 }
+
+/* Black theme: history tabs + misc leftovers */
+html[data-theme="black"] .historyTab { background: #17171D; color: #C9CDDC; }
+html[data-theme="black"] .historyTab.historyTabActive { color: #fff; }
