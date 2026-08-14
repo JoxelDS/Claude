@@ -5550,7 +5550,7 @@ function TempTrendChart({ history }) {
             </div>
           )}
           {activeLoc && anyAlert && (
-            <span style={{ background: "#fee2e2", color: "#dc2626", borderRadius: 6, padding: "0.25rem 0.65rem", fontSize: "0.75rem", fontWeight: 700, whiteSpace: "nowrap" }}>⚠️ Temp Alert</span>
+            <span style={{ background: "var(--tint-red-2)", color: "#dc2626", borderRadius: 6, padding: "0.25rem 0.65rem", fontSize: "0.75rem", fontWeight: 700, whiteSpace: "nowrap" }}>⚠️ Temp Alert</span>
           )}
         </div>
       </div>
@@ -5560,9 +5560,9 @@ function TempTrendChart({ history }) {
         <div style={{ fontSize: "0.62rem", color: "var(--ink-400)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.5rem" }}>Required Temperature Standards</div>
         <div style={{ display: "flex", gap: "0.5rem" }}>
           {[
-            { label: "Hand Sink",  req: "≥ 95°F",  note: "Minimum",  bg: "#eff6ff", border: "#bfdbfe", color: "#1d4ed8" },
+            { label: "Hand Sink",  req: "≥ 95°F",  note: "Minimum",  bg: "var(--tint-blue-1)", border: "#bfdbfe", color: "#1d4ed8" },
             { label: "3-Comp Sink",req: "≥ 110°F", note: "Minimum",  bg: "#f5f3ff", border: "#c4b5fd", color: "#6d28d9" },
-            { label: "Cooler",     req: "≤ 40°F",  note: "Maximum",  bg: "#f0fdf4", border: "#86efac", color: "#15803d" },
+            { label: "Cooler",     req: "≤ 40°F",  note: "Maximum",  bg: "var(--tint-green-1)", border: "#86efac", color: "#15803d" },
             { label: "Freezer",    req: "≤ 20°F",  note: "Maximum",  bg: "#ecfeff", border: "#67e8f9", color: "#0e7490" },
           ].map(({ label, req, note, bg, border, color }) => (
             <div key={label} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", background: bg, border: `1px solid ${border}`, borderRadius: 10, padding: "0.4rem 0.3rem", minWidth: 0 }}>
@@ -5591,7 +5591,7 @@ function TempTrendChart({ history }) {
           <span style={{ fontWeight: 700, fontSize: "0.85rem", color: "var(--ink-900)" }}>
             {activeUnitNum ? activeLoc.replace(` #${activeUnitNum}`, "") : activeLoc}
           </span>
-          <span style={{ marginLeft: "auto", fontSize: "0.72rem", color: "#6b7280", background: "#f0fdf4", borderRadius: 6, padding: "2px 8px", fontWeight: 600 }}>
+          <span style={{ marginLeft: "auto", fontSize: "0.72rem", color: "#6b7280", background: "var(--tint-green-1)", borderRadius: 6, padding: "2px 8px", fontWeight: 600 }}>
             {activePoints.length} reading{activePoints.length !== 1 ? "s" : ""}
           </span>
         </div>}
@@ -5613,7 +5613,7 @@ function TempTrendChart({ history }) {
                 <span style={{ fontWeight: 700, fontSize: "0.82rem", color: "var(--ink-900)" }}>{label}</span>
                 <span style={{
                   fontSize: "0.75rem", fontWeight: 700,
-                  background: allPass ? (color + "22") : "#fee2e2",
+                  background: allPass ? (color + "22") : "var(--tint-red-2)",
                   color: allPass ? color : "#dc2626",
                   borderRadius: 6, padding: "1px 7px",
                 }}>
@@ -5621,7 +5621,7 @@ function TempTrendChart({ history }) {
                 </span>
                 <span style={{
                   fontSize: "0.7rem", fontWeight: 600,
-                  background: allPass ? "#d1fae5" : "#fee2e2",
+                  background: allPass ? "#d1fae5" : "var(--tint-red-2)",
                   color: allPass ? "#065f46" : "#dc2626",
                   borderRadius: 6, padding: "1px 7px",
                   marginLeft: "auto",
@@ -6035,7 +6035,7 @@ function LocationsPanel({ loc, passColor, trendArrow, MiniBar, EmptyState }) {
         ].map(t => (
           <button key={t.key} type="button" onClick={() => setLocSub(t.key)}
             style={{
-              background: locSub === t.key ? "#eff6ff" : "#f9fafb",
+              background: locSub === t.key ? "var(--tint-blue-1)" : "var(--surface-2)",
               border: locSub === t.key ? "1.5px solid #93c5fd" : "1px solid #e5e7eb",
               borderRadius: 7, padding: "5px 10px", cursor: "pointer",
               fontSize: "0.73rem", fontWeight: locSub === t.key ? 700 : 400,
@@ -6125,8 +6125,8 @@ const EQUIP_BUCKET_ICONS = { coolers: "❄️", freezers: "🧊", sinks: "🚰",
 
 // ── Equipment type display metadata (module-level — shared by SiteCard/TotalsStrip/PerformanceDashboard) ──
 const EQUIP_META = [
-  { type: "Cooler",      icon: "❄️",  color: "#3b82f6", bg: "#eff6ff" },
-  { type: "Freezer",     icon: "🧊",  color: "#0ea5e9", bg: "#f0f9ff" },
+  { type: "Cooler",      icon: "❄️",  color: "#3b82f6", bg: "var(--tint-blue-1)" },
+  { type: "Freezer",     icon: "🧊",  color: "#0ea5e9", bg: "var(--tint-sky-1)" },
   { type: "Hand Sink",   icon: "🚿",  color: "#14b8a6", bg: "#f0fdfa" },
   { type: "3-Comp Sink", icon: "🚰",  color: "#8b5cf6", bg: "#f5f3ff" },
   { type: "Ice Maker",   icon: "🧊",  color: "#0284c7", bg: "#e0f2fe" },
@@ -6173,7 +6173,7 @@ function EquipLocationCard({ loc, filterEquip, filterSubEquip }) {
     concession: { bg: "var(--ink-700)", color: "#fff" },
     permanent:  { bg: "var(--ink-700)", color: "#fff" },
     portable:   { bg: "#7c3aed", color: "#fff" },
-    warehouse:  { bg: "#92400e", color: "#fff" },
+    warehouse:  { bg: "var(--tx-amber)", color: "#fff" },
     event:      { bg: "#065f46", color: "#fff" },
     stadium:    { bg: "#1d4ed8", color: "#fff" },
   };
@@ -6226,7 +6226,7 @@ function EquipLocationCard({ loc, filterEquip, filterSubEquip }) {
           </div>
           {/* Equipment count pill */}
           <div style={{ marginTop: 6 }}>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "#eff6ff", color: "#1d4ed8", borderRadius: 20, padding: "2px 10px", fontSize: "0.72rem", fontWeight: 700, border: "1px solid #bfdbfe" }}>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "var(--tint-blue-1)", color: "#1d4ed8", borderRadius: 20, padding: "2px 10px", fontSize: "0.72rem", fontWeight: 700, border: "1px solid #bfdbfe" }}>
               {bucketIcon} {totalUnits}
             </span>
           </div>
@@ -6366,8 +6366,8 @@ function AIHealthMonitor({ history, currentUser }) {
     critical: { bg: "#fff1f2", border: "#fecdd3", accent: "#e11d48", text: "#9f1239", emoji: "🚨", label: "Urgent!" },
     high:     { bg: "#fff7ed", border: "#fed7aa", accent: "#ea580c", text: "#9a3412", emoji: "⚠️", label: "Important" },
     medium:   { bg: "#fefce8", border: "#fef08a", accent: "#ca8a04", text: "#713f12", emoji: "💛", label: "Watch this" },
-    low:      { bg: "#f0f9ff", border: "#bae6fd", accent: "#0284c7", text: "#0c4a6e", emoji: "💡", label: "Tip" },
-    info:     { bg: "#f0fdf4", border: "#bbf7d0", accent: "#16a34a", text: "#14532d", emoji: "✅", label: "Good news" },
+    low:      { bg: "var(--tint-sky-1)", border: "#bae6fd", accent: "#0284c7", text: "#0c4a6e", emoji: "💡", label: "Tip" },
+    info:     { bg: "var(--tint-green-1)", border: "#bbf7d0", accent: "#16a34a", text: "var(--tx-green)", emoji: "✅", label: "Good news" },
   };
 
   /* ── nav tabs ───────────────────────────────────────────── */
@@ -6427,7 +6427,7 @@ function AIHealthMonitor({ history, currentUser }) {
 
             {/* What the numbers mean */}
             {patterns && (
-              <div style={{ background: patterns.passRate >= 80 ? "#f0fdf4" : patterns.passRate >= 60 ? "#fefce8" : "#fff1f2", border: `1.5px solid ${passColor(patterns.passRate)}44`, borderLeft: `4px solid ${passColor(patterns.passRate)}`, borderRadius: 12, padding: "12px 14px", marginBottom: 16 }}>
+              <div style={{ background: patterns.passRate >= 80 ? "var(--tint-green-1)" : patterns.passRate >= 60 ? "#fefce8" : "#fff1f2", border: `1.5px solid ${passColor(patterns.passRate)}44`, borderLeft: `4px solid ${passColor(patterns.passRate)}`, borderRadius: 12, padding: "12px 14px", marginBottom: 16 }}>
                 <div style={{ fontWeight: 700, fontSize: "0.95rem", color: passColor(patterns.passRate) }}>
                   {patterns.passRate >= 80 ? "🎉 Your team is doing great!" : patterns.passRate >= 60 ? "👀 There's room to improve" : "🔴 Needs attention right away"}
                 </div>
@@ -6530,14 +6530,14 @@ function AIHealthMonitor({ history, currentUser }) {
 
               {/* Most frequently requested items */}
               {topItems.length > 0 && (
-                <div style={{ background: "#fef3c7", border: "1px solid #f59e0b", borderRadius: 12, padding: "12px 14px", marginBottom: 16 }}>
-                  <div style={{ fontWeight: 700, fontSize: "0.85rem", color: "#92400e", marginBottom: 8 }}>🔁 Most frequently requested supplies</div>
+                <div style={{ background: "var(--tint-amber-2)", border: "1px solid #f59e0b", borderRadius: 12, padding: "12px 14px", marginBottom: 16 }}>
+                  <div style={{ fontWeight: 700, fontSize: "0.85rem", color: "var(--tx-amber)", marginBottom: 8 }}>🔁 Most frequently requested supplies</div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                     {topItems.map(([item, count]) => (
                       <div key={item} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <div style={{ flex: 1, fontSize: "0.83rem", color: "#451a03", textTransform: "capitalize", fontWeight: 500 }}>{item}</div>
+                        <div style={{ flex: 1, fontSize: "0.83rem", color: "var(--tx-amber-strong)", textTransform: "capitalize", fontWeight: 500 }}>{item}</div>
                         <MiniBar pct={Math.min(100, Math.round((count / supRecs.length) * 100))} color="#f59e0b" />
-                        <div style={{ fontSize: "0.78rem", fontWeight: 700, color: "#92400e", minWidth: 48, textAlign: "right" }}>{count}× reports</div>
+                        <div style={{ fontSize: "0.78rem", fontWeight: 700, color: "var(--tx-amber)", minWidth: 48, textAlign: "right" }}>{count}× reports</div>
                       </div>
                     ))}
                   </div>
@@ -6570,7 +6570,7 @@ function AIHealthMonitor({ history, currentUser }) {
                       <div style={{ fontWeight: 800, fontSize: "0.87rem", color: "var(--ink-900)" }}>📅 {label}</div>
                       <div style={{ fontSize: "0.75rem", color: "var(--ink-500)" }}>{recs.length} site{recs.length !== 1 ? "s" : ""} · {totalItems} item{totalItems !== 1 ? "s" : ""}</div>
                       {urgentCount > 0 && (
-                        <div style={{ background: "#fee2e2", color: "#dc2626", borderRadius: 10, padding: "1px 8px", fontSize: "0.72rem", fontWeight: 700 }}>🔴 {urgentCount} urgent</div>
+                        <div style={{ background: "var(--tint-red-2)", color: "#dc2626", borderRadius: 10, padding: "1px 8px", fontSize: "0.72rem", fontWeight: 700 }}>🔴 {urgentCount} urgent</div>
                       )}
                     </div>
 
@@ -6585,7 +6585,7 @@ function AIHealthMonitor({ history, currentUser }) {
                       const urgents = visibleItems.filter(s => s.urgent);
                       return (
                         <div key={rec.id} style={{
-                          background: urgents.length > 0 ? "#fff5f5" : "#fafafa",
+                          background: urgents.length > 0 ? "#fff5f5" : "var(--surface-2)",
                           border: `1.5px solid ${urgents.length > 0 ? "#fca5a5" : "#e2e8f0"}`,
                           borderRadius: 10, padding: "10px 12px", marginBottom: 6, marginLeft: 12,
                         }}>
@@ -6602,7 +6602,7 @@ function AIHealthMonitor({ history, currentUser }) {
                               return (
                                 <span key={origIdx} style={{
                                   display: "inline-flex", alignItems: "center", gap: 4,
-                                  background: isUrgent ? "#fee2e2" : "#f1f5f9",
+                                  background: isUrgent ? "var(--tint-red-2)" : "#f1f5f9",
                                   color: isUrgent ? "#b91c1c" : "#374151",
                                   borderRadius: 6, padding: "2px 4px 2px 8px",
                                   fontSize: "0.78rem", fontWeight: isUrgent ? 700 : 500,
@@ -6615,7 +6615,7 @@ function AIHealthMonitor({ history, currentUser }) {
                                     title="Mark as done"
                                     onClick={() => toggleFulfilled(rec.id, origIdx)}
                                     style={{
-                                      border: "none", background: "#dcfce7",
+                                      border: "none", background: "var(--tint-green-2)",
                                       color: "#15803d",
                                       borderRadius: 4, padding: "1px 6px", fontSize: "0.68rem",
                                       fontWeight: 700, cursor: "pointer", lineHeight: 1.4, flexShrink: 0,
@@ -6773,7 +6773,7 @@ function AIHealthMonitor({ history, currentUser }) {
                       {grandTotalUnits} total units across {locationCount} location{locationCount !== 1 ? "s" : ""}
                     </span>
                     {tempUnits > 0 && (
-                      <span style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "#fefce8", border: "1px solid #fde68a", borderRadius: 7, padding: "2px 8px", fontSize: "0.68rem", fontWeight: 700, color: "#92400e" }}>
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "#fefce8", border: "1px solid #fde68a", borderRadius: 7, padding: "2px 8px", fontSize: "0.68rem", fontWeight: 700, color: "var(--tx-amber)" }}>
                         ⚠️ {tempUnits} temporary unit{tempUnits !== 1 ? "s" : ""}
                       </span>
                     )}
@@ -7116,10 +7116,10 @@ function PredictiveInsightsPanel({ history }) {
   const riskLabel = { high: "High Risk", medium: "Medium Risk", watch: "Watch" };
   const riskColor = { high: "#EE0000", medium: "#b45309", watch: "#1d4ed8" };
   const typeBadge = {
-    recurrence: { label: "Recurrence", bg: "#fef2f2", color: "#991b1b", border: "#fecaca" },
+    recurrence: { label: "Recurrence", bg: "var(--tint-red-1)", color: "#991b1b", border: "#fecaca" },
     tempDrift:  { label: "Temp Trend",  bg: "#fff7ed", color: "#9a3412", border: "#fed7aa" },
     escalation: { label: "Escalation", bg: "#fdf4ff", color: "#7e22ce", border: "#e9d5ff" },
-    overdue:    { label: "Overdue",     bg: "#f0f9ff", color: "#0c4a6e", border: "#bae6fd" },
+    overdue:    { label: "Overdue",     bg: "var(--tint-sky-1)", color: "#0c4a6e", border: "#bae6fd" },
   };
 
   const toggle = (i) => setExpanded(prev => ({ ...prev, [i]: !prev[i] }));
@@ -7153,7 +7153,7 @@ function PredictiveInsightsPanel({ history }) {
         {/* Prediction cards */}
         <div className="predictiveList">
           {predictions.map((p, i) => {
-            const bt = typeBadge[p.type] || { label: p.type, bg: "#f9fafb", color: "#374151", border: "#e5e7eb" };
+            const bt = typeBadge[p.type] || { label: p.type, bg: "var(--surface-2)", color: "#374151", border: "#e5e7eb" };
             const isOpen = !!expanded[i];
             return (
               <div
@@ -7644,7 +7644,7 @@ function ImportReviewModal({ fields: initialFields, imagePreview, saving, onSave
             <div style={{ marginBottom: "1rem" }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
                 <label style={{ ...labelStyle, margin: 0 }}>Action Items / Issues ({actionItems.length})</label>
-                <button type="button" onClick={addActionItem} style={{ fontSize: "0.8rem", background: "#eff6ff", border: "1px solid #bfdbfe", color: "#1d4ed8", borderRadius: 6, padding: "0.25rem 0.6rem", cursor: "pointer", fontWeight: 600 }}>+ Add Item</button>
+                <button type="button" onClick={addActionItem} style={{ fontSize: "0.8rem", background: "var(--tint-blue-1)", border: "1px solid #bfdbfe", color: "#1d4ed8", borderRadius: 6, padding: "0.25rem 0.6rem", cursor: "pointer", fontWeight: 600 }}>+ Add Item</button>
               </div>
               {actionItems.length === 0 && (
                 <div style={{ color: "var(--ink-400)", fontSize: "0.85rem", fontStyle: "italic", padding: "0.5rem 0" }}>No issues found — or add them manually using the button above.</div>
@@ -7674,7 +7674,7 @@ function ImportReviewModal({ fields: initialFields, imagePreview, saving, onSave
                       <label style={labelStyle}>Corrective Action</label>
                       <input style={inputStyle} value={item.corrective || ""} onChange={e => setActionItem(idx, "corrective", e.target.value)} placeholder="What was / should be done" />
                     </div>
-                    <button type="button" onClick={() => removeActionItem(idx)} style={{ background: "#fef2f2", border: "1px solid #fca5a5", color: "#dc2626", borderRadius: 6, padding: "0.42rem 0.6rem", cursor: "pointer", fontWeight: 700, fontSize: "0.85rem", flexShrink: 0 }}>Remove</button>
+                    <button type="button" onClick={() => removeActionItem(idx)} style={{ background: "var(--tint-red-1)", border: "1px solid #fca5a5", color: "#dc2626", borderRadius: 6, padding: "0.42rem 0.6rem", cursor: "pointer", fontWeight: 700, fontSize: "0.85rem", flexShrink: 0 }}>Remove</button>
                   </div>
                 </div>
               ))}
@@ -9361,7 +9361,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
 
       {/* OCR error banner */}
       {importOcrError && (
-        <div style={{ background: "#fef2f2", border: "1px solid #fca5a5", padding: "0.65rem 1.25rem", color: "#b91c1c", fontWeight: 600, fontSize: "0.88rem", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+        <div style={{ background: "var(--tint-red-1)", border: "1px solid #fca5a5", padding: "0.65rem 1.25rem", color: "#b91c1c", fontWeight: 600, fontSize: "0.88rem", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
           <span>⚠️ Could not read paper report: {importOcrError}</span>
           <button type="button" onClick={() => setImportOcrError("")} style={{ background: "none", border: "none", color: "#b91c1c", cursor: "pointer", fontWeight: 700, fontSize: "1rem" }}>✕</button>
         </div>
@@ -9475,7 +9475,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
       )}
 
       {managedVenueId && (
-        <div style={{ background: "#fef3c7", border: "1px solid #f59e0b", padding: "0.65rem 1.25rem", color: "#92400e", fontWeight: 600, fontSize: "0.88rem", display: "flex", alignItems: "center", gap: 8 }}>
+        <div style={{ background: "var(--tint-amber-2)", border: "1px solid #f59e0b", padding: "0.65rem 1.25rem", color: "var(--tx-amber)", fontWeight: 600, fontSize: "0.88rem", display: "flex", alignItems: "center", gap: 8 }}>
           ⚠️ Viewing reports for: <strong>{managedVenueName || managedVenueId}</strong>
         </div>
       )}
@@ -9712,7 +9712,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                             boxShadow: "0 0 0 2px #e5e7eb",
                           }} />
                           <div style={{
-                            background: ev.type === "inspection" ? "#f9fafb" : "#f0f9ff",
+                            background: ev.type === "inspection" ? "var(--surface-2)" : "var(--tint-sky-1)",
                             border: `1px solid ${ev.type === "inspection" ? "#e5e7eb" : "#bae6fd"}`,
                             borderRadius: 8, padding: "8px 12px",
                           }}>
@@ -9728,19 +9728,19 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                               {ev.type === "inspection" && ev.status && (
                                 <span style={{
                                   fontSize: "0.68rem", fontWeight: 700, padding: "1px 6px", borderRadius: 6,
-                                  background: ev.status === "Pass" ? "#dcfce7" : ev.status === "Fail" ? "#fee2e2" : "#f3f4f6",
+                                  background: ev.status === "Pass" ? "var(--tint-green-2)" : ev.status === "Fail" ? "var(--tint-red-2)" : "#f3f4f6",
                                   color: ev.status === "Pass" ? "#15803d" : ev.status === "Fail" ? "#dc2626" : "#6b7280",
                                 }}>
                                   {ev.status}
                                 </span>
                               )}
                               {ev.type === "haccp" && ev.flagged > 0 && (
-                                <span style={{ fontSize: "0.68rem", fontWeight: 700, padding: "1px 6px", borderRadius: 6, background: "#fef3c7", color: "#92400e" }}>
+                                <span style={{ fontSize: "0.68rem", fontWeight: 700, padding: "1px 6px", borderRadius: 6, background: "var(--tint-amber-2)", color: "var(--tx-amber)" }}>
                                   ⚠️ {ev.flagged} flag{ev.flagged !== 1 ? "s" : ""}
                                 </span>
                               )}
                               {ev.type === "haccp" && ev.flagged === 0 && (
-                                <span style={{ fontSize: "0.68rem", fontWeight: 700, padding: "1px 6px", borderRadius: 6, background: "#dcfce7", color: "#15803d" }}>✓ OK</span>
+                                <span style={{ fontSize: "0.68rem", fontWeight: 700, padding: "1px 6px", borderRadius: 6, background: "var(--tint-green-2)", color: "#15803d" }}>✓ OK</span>
                               )}
                             </div>
                             <div style={{ fontSize: "0.72rem", color: "#6b7280", marginTop: 3 }}>
@@ -9791,7 +9791,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                     {rows.map((r, i) => (
                       <div key={i} style={{
                         display: "flex", alignItems: "center", gap: 10,
-                        background: r.overdue ? "#fef2f2" : r.warn ? "#fffbeb" : "#f9fafb",
+                        background: r.overdue ? "var(--tint-red-1)" : r.warn ? "var(--tint-amber-1)" : "var(--surface-2)",
                         border: `1px solid ${r.overdue ? "#fca5a5" : r.warn ? "#fde68a" : "#e5e7eb"}`,
                         borderRadius: 10, padding: "10px 14px",
                       }}>
@@ -9819,7 +9819,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                     ))}
                   </div>
                   {rows.filter(r => r.overdue).length > 0 && (
-                    <div style={{ marginTop: 10, padding: "8px 12px", background: "#fee2e2", border: "1px solid #fca5a5", borderRadius: 8, fontSize: "0.78rem", color: "#991b1b", fontWeight: 600 }}>
+                    <div style={{ marginTop: 10, padding: "8px 12px", background: "var(--tint-red-2)", border: "1px solid #fca5a5", borderRadius: 8, fontSize: "0.78rem", color: "#991b1b", fontWeight: 600 }}>
                       ⚠️ {rows.filter(r => r.overdue).length} location{rows.filter(r => r.overdue).length !== 1 ? "s" : ""} overdue (7+ days since last inspection)
                     </div>
                   )}
@@ -9873,7 +9873,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                   className="card historyCard"
                   key={rec.id}
                   data-recid={rec.id}
-                  style={{ marginBottom: 16, outline: selectMode && selectedIds.has(rec.id) ? "2.5px solid #1d4ed8" : "none", outlineOffset: 2, background: selectMode && selectedIds.has(rec.id) ? "#eff6ff" : undefined, transition: "background 0.15s, outline 0.1s" }}
+                  style={{ marginBottom: 16, outline: selectMode && selectedIds.has(rec.id) ? "2.5px solid #1d4ed8" : "none", outlineOffset: 2, background: selectMode && selectedIds.has(rec.id) ? "var(--tint-blue-1)" : undefined, transition: "background 0.15s, outline 0.1s" }}
                   onPointerDown={selectMode ? (e) => {
                     if (e.pointerType === "touch") return;
                     // Only start drag — do NOT toggle here; onClick on cardHeader handles single clicks
@@ -9916,7 +9916,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                           {rec.licenseMissing && (
                             <span style={{
                               display: "inline-flex", alignItems: "center", gap: 3,
-                              background: "#fef2f2", color: "#991b1b",
+                              background: "var(--tint-red-1)", color: "#991b1b",
                               border: "1px solid #fca5a5",
                               borderRadius: 6, padding: "1px 7px",
                               fontSize: "0.72rem", fontWeight: 700,
@@ -9933,7 +9933,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                           {rec.locationType && <>{" "}&middot; <span className={cx("typeBadge", rec.locationType === "Event / Temporary" ? "typeBadgeEventTemp" : "typeBadgeLocType")}>{rec.locationType === "Event / Temporary" ? "🎪 " : ""}{rec.locationType}</span></>}
                           {rec.floor && <>{" "}&middot; <span className="typeBadge typeBadgeFloor">{rec.floor}</span></>}
                           {" "}&middot; {rec.inspectorName || "—"}
-                          {rec.participantName && <>{" "}&middot; <span className="typeBadge" style={{ background: "#f0fdf4", color: "#15803d", border: "1px solid #bbf7d0" }}>👤 {rec.participantName}</span></>}
+                          {rec.participantName && <>{" "}&middot; <span className="typeBadge" style={{ background: "var(--tint-green-1)", color: "#15803d", border: "1px solid #bbf7d0" }}>👤 {rec.participantName}</span></>}
                         </div>
                       </div>
                     </div>
@@ -9951,11 +9951,11 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                       )}
                       {issues.length > 0 && <span className="pill">{issues.length} issue{issues.length !== 1 ? "s" : ""}</span>}
                       {(haccpReportIds.has(rec.id) || haccpByReport[rec.id]?.length > 0) ? (
-                        <span title="HACCP temperature log submitted" style={{ display: "inline-flex", alignItems: "center", gap: 3, background: "#f0fdf4", color: "#15803d", border: "1px solid #bbf7d0", borderRadius: 8, padding: "2px 8px", fontSize: "0.72rem", fontWeight: 700, flexShrink: 0 }}>
+                        <span title="HACCP temperature log submitted" style={{ display: "inline-flex", alignItems: "center", gap: 3, background: "var(--tint-green-1)", color: "#15803d", border: "1px solid #bbf7d0", borderRadius: 8, padding: "2px 8px", fontSize: "0.72rem", fontWeight: 700, flexShrink: 0 }}>
                           🌡️ HACCP
                         </span>
                       ) : (
-                        <span title="HACCP temperature log not yet submitted" style={{ display: "inline-flex", alignItems: "center", gap: 3, background: "#fef2f2", color: "#dc2626", border: "1px solid #fecaca", borderRadius: 8, padding: "2px 8px", fontSize: "0.72rem", fontWeight: 700, flexShrink: 0 }}>
+                        <span title="HACCP temperature log not yet submitted" style={{ display: "inline-flex", alignItems: "center", gap: 3, background: "var(--tint-red-1)", color: "#dc2626", border: "1px solid #fecaca", borderRadius: 8, padding: "2px 8px", fontSize: "0.72rem", fontWeight: 700, flexShrink: 0 }}>
                           🌡️ HACCP
                         </span>
                       )}
@@ -10005,7 +10005,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                                 <span style={{ fontSize: "1rem", fontWeight: 700, color: score.color, opacity: 0.85 }}>Grade {score.grade}</span>
                               </div>
                               {score.hasTempViolations && (
-                                <div style={{ fontSize: "0.72rem", fontWeight: 700, color: "#991b1b", background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: 6, padding: "2px 8px", display: "inline-flex", alignItems: "center", gap: 4 }}>
+                                <div style={{ fontSize: "0.72rem", fontWeight: 700, color: "#991b1b", background: "var(--tint-red-1)", border: "1px solid #fca5a5", borderRadius: 6, padding: "2px 8px", display: "inline-flex", alignItems: "center", gap: 4 }}>
                                   🌡️ -{score.tempPenalty} pts — Critical temp violations
                                 </div>
                               )}
@@ -10082,7 +10082,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                               <span className="issuesBlockIcon">⚠️</span>
                               Action Items
                               <span className="issuesBlockCount">{openCount} open</span>
-                              {resolvedCount > 0 && <span className="issuesBlockCount" style={{ background: "#dcfce7", color: "#15803d" }}>{resolvedCount} resolved</span>}
+                              {resolvedCount > 0 && <span className="issuesBlockCount" style={{ background: "var(--tint-green-2)", color: "#15803d" }}>{resolvedCount} resolved</span>}
                             </div>
                             <div className="issuesList">
                               {[...issues.map((a, origIdx) => ({ ...a, origIdx }))]
@@ -10351,7 +10351,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                                     }
                                     {(currentUser?.role === "admin" || currentUser?.role === "global_admin") && !isEditing && sub.id && (
                                       <button
-                                        style={{ marginLeft: "auto", fontSize: "0.72rem", padding: "2px 10px", borderRadius: 6, border: "1px solid #d1d5db", background: "#f9fafb", color: "#374151", cursor: "pointer" }}
+                                        style={{ marginLeft: "auto", fontSize: "0.72rem", padding: "2px 10px", borderRadius: 6, border: "1px solid #d1d5db", background: "var(--surface-2)", color: "#374151", cursor: "pointer" }}
                                         onClick={() => setHaccpEditState({
                                           subId: sub.id,
                                           supervisorName: sub.supervisorName || "",
@@ -10445,7 +10445,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                                           }}
                                         >{haccpSaving ? "Saving…" : "Save"}</button>
                                         <button
-                                          style={{ fontSize: "0.75rem", padding: "4px 14px", borderRadius: 6, border: "1px solid #d1d5db", background: "#f9fafb", color: "#374151", cursor: "pointer" }}
+                                          style={{ fontSize: "0.75rem", padding: "4px 14px", borderRadius: 6, border: "1px solid #d1d5db", background: "var(--surface-2)", color: "#374151", cursor: "pointer" }}
                                           onClick={() => setHaccpEditState(null)}
                                         >Cancel</button>
                                       </div>
@@ -10849,8 +10849,8 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
         }
 
         const exportAccent = showIssueFilter === "excel" ? "#16a34a" : showIssueFilter === "pdf" ? "#dc2626" : "#2563eb";
-        const exportAccentLight = showIssueFilter === "excel" ? "#f0fdf4" : showIssueFilter === "pdf" ? "#fef2f2" : "#eff6ff";
-        const exportAccentMid = showIssueFilter === "excel" ? "#dcfce7" : showIssueFilter === "pdf" ? "#fee2e2" : "#dbeafe";
+        const exportAccentLight = showIssueFilter === "excel" ? "var(--tint-green-1)" : showIssueFilter === "pdf" ? "var(--tint-red-1)" : "var(--tint-blue-1)";
+        const exportAccentMid = showIssueFilter === "excel" ? "var(--tint-green-2)" : showIssueFilter === "pdf" ? "var(--tint-red-2)" : "var(--tint-blue-2)";
         const exportLabel = showIssueFilter === "excel" ? "Excel" : showIssueFilter === "pdf" ? "PDF" : "Word";
         const exportIcon = showIssueFilter === "excel" ? "📊" : showIssueFilter === "pdf" ? "📄" : "📝";
         const CRITICAL_STATUSES = new Set(["Fail", "Not Clean", "Critical Violation", "Needs Attention"]);
@@ -10998,7 +10998,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                         const isHigh = item.priority === "High";
                         return (
                           <div key={item.key}
-                            style={{ display: "flex", alignItems: "flex-start", gap: 11, padding: "10px 18px 10px 42px", cursor: "pointer", borderBottom: iIdx < items.length - 1 ? "1px solid #f1f5f9" : "none", background: isSelected ? (showIssueFilter === "excel" ? "#f0fdf4" : showIssueFilter === "pdf" ? "#fff5f5" : "#f0f7ff") : "#fff", transition: "background 0.1s", borderLeft: `3px solid ${isSelected ? exportAccent : "transparent"}` }}
+                            style={{ display: "flex", alignItems: "flex-start", gap: 11, padding: "10px 18px 10px 42px", cursor: "pointer", borderBottom: iIdx < items.length - 1 ? "1px solid #f1f5f9" : "none", background: isSelected ? (showIssueFilter === "excel" ? "var(--tint-green-1)" : showIssueFilter === "pdf" ? "#fff5f5" : "#f0f7ff") : "#fff", transition: "background 0.1s", borderLeft: `3px solid ${isSelected ? exportAccent : "transparent"}` }}
                             onClick={() => toggleKey(item.key)}
                             onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = "#f8fafc"; }}
                             onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = "#fff"; }}>
@@ -11010,16 +11010,16 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                               const st = item.status || "Fail";
                               const cfg =
                                 st === "Not Clean"          ? { bg: "#fff7ed", color: "#c2410c", border: "#fed7aa" } :
-                                st === "Fail"               ? { bg: "#fef2f2", color: "#dc2626", border: "#fecaca" } :
-                                st === "Critical Violation" ? { bg: "#fef2f2", color: "#991b1b", border: "#fca5a5" } :
+                                st === "Fail"               ? { bg: "var(--tint-red-1)", color: "#dc2626", border: "#fecaca" } :
+                                st === "Critical Violation" ? { bg: "var(--tint-red-1)", color: "#991b1b", border: "#fca5a5" } :
                                 st === "Needs Attention"    ? { bg: "#fff7ed", color: "#c2410c", border: "#fed7aa" } :
-                                st === "Follow-Up"          ? { bg: "#f0f9ff", color: "#0284c7", border: "#bae6fd" } :
-                                st === "Follow-up"          ? { bg: "#f0f9ff", color: "#0284c7", border: "#bae6fd" } :
+                                st === "Follow-Up"          ? { bg: "var(--tint-sky-1)", color: "#0284c7", border: "#bae6fd" } :
+                                st === "Follow-up"          ? { bg: "var(--tint-sky-1)", color: "#0284c7", border: "#bae6fd" } :
                                 st === "Maintenance"        ? { bg: "#faf5ff", color: "#7c3aed", border: "#e9d5ff" } :
-                                st === "Corrected On-Site"  ? { bg: "#f0fdf4", color: "#15803d", border: "#bbf7d0" } :
+                                st === "Corrected On-Site"  ? { bg: "var(--tint-green-1)", color: "#15803d", border: "#bbf7d0" } :
                                 st === "Off / Not In Use"   ? { bg: "#f8fafc", color: "var(--ink-500)", border: "#e2e8f0" } :
                                 st === "N/A"                ? { bg: "#f8fafc", color: "var(--ink-400)", border: "#e2e8f0" } :
-                                st === "OK"                 ? { bg: "#f0fdf4", color: "#15803d", border: "#bbf7d0" } :
+                                st === "OK"                 ? { bg: "var(--tint-green-1)", color: "#15803d", border: "#bbf7d0" } :
                                                               { bg: "#fefce8", color: "#a16207", border: "#fde68a" };
                               return (
                                 <span style={{ fontSize: "0.68rem", fontWeight: 700, padding: "2px 8px", borderRadius: 6, flexShrink: 0, letterSpacing: "0.03em", marginTop: 2, background: cfg.bg, color: cfg.color, border: `1px solid ${cfg.border}` }}>
@@ -11036,7 +11036,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
               </div>
 
               {/* Footer */}
-              <div style={{ padding: "14px 20px 20px", borderTop: "1px solid #f1f5f9", display: "flex", gap: 10, flexShrink: 0, background: "#fafafa", borderRadius: "0 0 0 0" }}>
+              <div style={{ padding: "14px 20px 20px", borderTop: "1px solid #f1f5f9", display: "flex", gap: 10, flexShrink: 0, background: "var(--surface-2)", borderRadius: "0 0 0 0" }}>
                 <button type="button" onClick={() => { setShowIssueFilter(null); setModalIssueSearch(""); }}
                   style={{ flex: 1, padding: "12px", borderRadius: 12, border: "1.5px solid #e2e8f0", background: "var(--surface-1)", cursor: "pointer", fontWeight: 600, color: "var(--ink-600)", fontSize: "0.88rem", transition: "background 0.15s" }}
                   onMouseEnter={e => e.currentTarget.style.background = "#f1f5f9"}
@@ -11319,7 +11319,7 @@ function MyLocationsPage({ currentUser, venueSettings, saveVenueSettings, onBack
     return (
       <div style={{
         display: "flex", gap: 12, alignItems: "flex-start",
-        background: isDone ? "#f0fdf4" : "#fff",
+        background: isDone ? "var(--tint-green-1)" : "#fff",
         border: `1.5px solid ${isDone ? "#86efac" : isToday ? "#3b82f6" : "#e2e8f0"}`,
         borderRadius: 12, padding: "12px 14px",
         opacity: isDone ? 0.8 : 1, transition: "all 0.15s",
@@ -11534,7 +11534,7 @@ function MyTeamPage({ currentUser, onBack }) {
           </div>
           {showAddForm && (
             <div className="cardBody">
-              <div style={{ background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 10, padding: "10px 14px", marginBottom: 14, fontSize: "0.82rem", color: "#1e40af" }}>
+              <div style={{ background: "var(--tint-blue-1)", border: "1px solid #bfdbfe", borderRadius: 10, padding: "10px 14px", marginBottom: 14, fontSize: "0.82rem", color: "#1e40af" }}>
                 {isLocationManager
                   ? <>Guest inspectors will be assigned to <strong>{myLocation}</strong> and can only inspect that location.</>
                   : <>Guest inspectors will be invited under your name. Their reports will list you as the Inspector and them as the Participant.</>
@@ -11736,13 +11736,13 @@ function FoodSafetyRef() {
               <span style={{ fontWeight: 900, fontSize: "0.9rem", color: "#16a34a", whiteSpace: "nowrap" }}>{s.ppm}</span>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
-              <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 7, padding: "6px 9px" }}>
-                <div style={{ fontSize: "0.58rem", fontWeight: 700, color: "#14532d", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 2 }}>Strip Reading</div>
-                <div style={{ fontSize: "0.65rem", color: "#166534", lineHeight: 1.4 }}>{s.strip}</div>
+              <div style={{ background: "var(--tint-green-1)", border: "1px solid #bbf7d0", borderRadius: 7, padding: "6px 9px" }}>
+                <div style={{ fontSize: "0.58rem", fontWeight: 700, color: "var(--tx-green)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 2 }}>Strip Reading</div>
+                <div style={{ fontSize: "0.65rem", color: "var(--tx-green)", lineHeight: 1.4 }}>{s.strip}</div>
               </div>
-              <div style={{ background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 7, padding: "6px 9px" }}>
-                <div style={{ fontSize: "0.58rem", fontWeight: 700, color: "#92400e", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 2 }}>Caution</div>
-                <div style={{ fontSize: "0.65rem", color: "#78350f", lineHeight: 1.4 }}>{s.caution}</div>
+              <div style={{ background: "var(--tint-amber-1)", border: "1px solid #fde68a", borderRadius: 7, padding: "6px 9px" }}>
+                <div style={{ fontSize: "0.58rem", fontWeight: 700, color: "var(--tx-amber)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 2 }}>Caution</div>
+                <div style={{ fontSize: "0.65rem", color: "var(--tx-amber-strong)", lineHeight: 1.4 }}>{s.caution}</div>
               </div>
             </div>
           </div>
@@ -11757,12 +11757,12 @@ function FoodSafetyRef() {
       {subHeader("Cutting Board Color Code")}
       <div style={{ border: "1.5px solid #e2e8f0", borderTop: "none", borderRadius: "0 0 12px 12px", overflow: "hidden", marginTop: -14 }}>
         {[
-          { color: "#ef4444", bg: "#fef2f2", border: "#fca5a5", label: "Red",    uses: "Raw beef, pork & lamb" },
+          { color: "#ef4444", bg: "var(--tint-red-1)", border: "#fca5a5", label: "Red",    uses: "Raw beef, pork & lamb" },
           { color: "#f97316", bg: "#fff7ed", border: "#fdba74", label: "Orange", uses: "Raw pork (alt. system)" },
           { color: "#eab308", bg: "#fefce8", border: "#fde047", label: "Yellow", uses: "Raw poultry (chicken, turkey)" },
-          { color: "#22c55e", bg: "#f0fdf4", border: "#86efac", label: "Green",  uses: "Fresh fruits & vegetables" },
-          { color: "#3b82f6", bg: "#eff6ff", border: "#93c5fd", label: "Blue",   uses: "Raw fish & seafood" },
-          { color: "var(--ink-400)", bg: "#f9fafb", border: "#d1d5db", label: "White",  uses: "Dairy, deli, bread & bakery" },
+          { color: "#22c55e", bg: "var(--tint-green-1)", border: "#86efac", label: "Green",  uses: "Fresh fruits & vegetables" },
+          { color: "#3b82f6", bg: "var(--tint-blue-1)", border: "#93c5fd", label: "Blue",   uses: "Raw fish & seafood" },
+          { color: "var(--ink-400)", bg: "var(--surface-2)", border: "#d1d5db", label: "White",  uses: "Dairy, deli, bread & bakery" },
           { color: "#8b5cf6", bg: "#f5f3ff", border: "#c4b5fd", label: "Purple", uses: "Allergen-free prep" },
         ].map((b, i, arr) => (
           <div key={b.label} style={{ background: b.bg, borderBottom: i < arr.length - 1 ? `1px solid ${b.border}` : "none", padding: "10px 14px", display: "flex", alignItems: "center", gap: 12 }}>
@@ -11786,12 +11786,12 @@ function FoodSafetyRef() {
       {subHeader("Shelf Order — Top to Bottom")}
       <div style={{ border: "2px solid #cbd5e1", borderTop: "none", borderRadius: "0 0 12px 12px", overflow: "hidden", marginTop: -14 }}>
         {[
-          { pos: "TOP",    label: "Ready-to-Eat Foods",     examples: "Produce, cooked foods, deli meats, dairy",  cookTemp: "No cooking required",  bg: "#f0fdf4", accentColor: "#16a34a", textColor: "#14532d" },
-          { pos: "",       label: "Whole Fish & Seafood",    examples: "Whole fish, shrimp, scallops",              cookTemp: "145°F / 63°C",          bg: "#eff6ff", accentColor: "#2563eb", textColor: "#1e3a8a" },
+          { pos: "TOP",    label: "Ready-to-Eat Foods",     examples: "Produce, cooked foods, deli meats, dairy",  cookTemp: "No cooking required",  bg: "var(--tint-green-1)", accentColor: "#16a34a", textColor: "var(--tx-green)" },
+          { pos: "",       label: "Whole Fish & Seafood",    examples: "Whole fish, shrimp, scallops",              cookTemp: "145°F / 63°C",          bg: "var(--tint-blue-1)", accentColor: "#2563eb", textColor: "var(--tx-blue)" },
           { pos: "",       label: "Whole Beef, Pork & Lamb", examples: "Steaks, chops, roasts",                    cookTemp: "145°F / 63°C",          bg: "#fff7ed", accentColor: "#ea580c", textColor: "#7c2d12" },
           { pos: "",       label: "Shell Eggs (intact)",     examples: "Whole shell eggs for immediate service",   cookTemp: "145°F / 63°C",          bg: "#fefce8", accentColor: "#ca8a04", textColor: "#713f12" },
-          { pos: "",       label: "Ground Meat & Injected",  examples: "Ground beef, pork, lamb, stuffed meats",   cookTemp: "155°F / 68°C",          bg: "#fef3c7", accentColor: "#d97706", textColor: "#78350f" },
-          { pos: "BOTTOM", label: "Whole & Ground Poultry",  examples: "Chicken, turkey, duck — whole or ground",  cookTemp: "165°F / 74°C",          bg: "#fef2f2", accentColor: "#dc2626", textColor: "#7f1d1d" },
+          { pos: "",       label: "Ground Meat & Injected",  examples: "Ground beef, pork, lamb, stuffed meats",   cookTemp: "155°F / 68°C",          bg: "var(--tint-amber-2)", accentColor: "#d97706", textColor: "var(--tx-amber-strong)" },
+          { pos: "BOTTOM", label: "Whole & Ground Poultry",  examples: "Chicken, turkey, duck — whole or ground",  cookTemp: "165°F / 74°C",          bg: "var(--tint-red-1)", accentColor: "#dc2626", textColor: "var(--tx-red-strong)" },
         ].map((row, i, arr) => (
           <div key={row.label} style={{ background: row.bg, borderBottom: i < arr.length - 1 ? "1px solid rgba(0,0,0,.06)" : "none", padding: "10px 14px", display: "flex", alignItems: "center", gap: 12 }}>
             <div style={{ width: 6, alignSelf: "stretch", background: row.accentColor, borderRadius: 3, flexShrink: 0 }} />
@@ -11818,14 +11818,14 @@ function FoodSafetyRef() {
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
 
       {/* FIFO */}
-      <div style={{ background: "#eff6ff", border: "1.5px solid #93c5fd", borderRadius: 10, padding: "12px 14px" }}>
-        <div style={{ fontWeight: 700, fontSize: "0.65rem", color: "#1e3a8a", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 8 }}>FIFO Rotation Rule</div>
+      <div style={{ background: "var(--tint-blue-1)", border: "1.5px solid #93c5fd", borderRadius: 10, padding: "12px 14px" }}>
+        <div style={{ fontWeight: 700, fontSize: "0.65rem", color: "var(--tx-blue)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 8 }}>FIFO Rotation Rule</div>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
           <div style={{ background: "#1d4ed8", color: "#fff", borderRadius: 6, padding: "5px 12px", fontWeight: 900, fontSize: "0.74rem" }}>FIRST IN</div>
           <span style={{ fontSize: "1rem", color: "var(--ink-500)" }}>→</span>
           <div style={{ background: "#2563eb", color: "#fff", borderRadius: 6, padding: "5px 12px", fontWeight: 900, fontSize: "0.74rem" }}>FIRST OUT</div>
         </div>
-        <div style={{ fontSize: "0.65rem", color: "#1e3a8a", lineHeight: 1.5 }}>New stock goes <strong>behind</strong> existing stock. Pull oldest product from the front first. Rotate every delivery.</div>
+        <div style={{ fontSize: "0.65rem", color: "var(--tx-blue)", lineHeight: 1.5 }}>New stock goes <strong>behind</strong> existing stock. Pull oldest product from the front first. Rotate every delivery.</div>
       </div>
 
       {/* Required label fields */}
@@ -11870,7 +11870,7 @@ function FoodSafetyRef() {
 
       {/* Shelf lives */}
       <div style={{ background: "#fefce8", border: "1.5px solid #fde68a", borderRadius: 10, padding: "12px 14px" }}>
-        <div style={{ fontWeight: 700, fontSize: "0.65rem", color: "#78350f", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 8 }}>Common Shelf Lives at 41°F</div>
+        <div style={{ fontWeight: 700, fontSize: "0.65rem", color: "var(--tx-amber-strong)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 8 }}>Common Shelf Lives at 41°F</div>
         {[
           { item: "Prepared salads (chicken, tuna, egg)", days: "3–5 days" },
           { item: "Cooked pasta & rice",                  days: "3–4 days" },
@@ -11881,7 +11881,7 @@ function FoodSafetyRef() {
           { item: "Ready-to-eat TCS foods (general)",     days: "7 days max" },
         ].map((r, i, arr) => (
           <div key={r.item} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, padding: "5px 0", borderBottom: i < arr.length - 1 ? "1px solid #fde68a" : "none" }}>
-            <span style={{ fontSize: "0.65rem", color: "#451a03", lineHeight: 1.4 }}>{r.item}</span>
+            <span style={{ fontSize: "0.65rem", color: "var(--tx-amber-strong)", lineHeight: 1.4 }}>{r.item}</span>
             <span style={{ fontSize: "0.7rem", fontWeight: 800, color: "#d97706", whiteSpace: "nowrap" }}>{r.days}</span>
           </div>
         ))}
@@ -11898,10 +11898,10 @@ function FoodSafetyRef() {
       </div>
 
       {[
-        { label: "Refrigerator Thawing", tag: "SAFEST", tagColor: "#16a34a", tagBg: "#dcfce7", accent: "#22c55e", details: ["Move frozen food to refrigerator (41°F or below)", "Whole poultry or large roasts: 1–3 days", "Ground meat or small items: overnight", "Food stays safe; can be re-frozen without cooking"] },
-        { label: "Cold Running Water",   tag: "APPROVED", tagColor: "#1d4ed8", tagBg: "#dbeafe", accent: "#3b82f6", details: ["Submerge food under cold running water ≤ 70°F", "Water must flow continuously — not a standing soak", "Food must be in a leak-proof package or bag", "Cook immediately after — do not re-freeze"] },
-        { label: "Microwave Thawing",    tag: "APPROVED", tagColor: "#1d4ed8", tagBg: "#dbeafe", accent: "#6366f1", details: ["Use microwave's defrost setting", "MUST cook to proper temperature immediately after", "Partial cooking creates a dangerous bacteria window", "Do not let thawed portions sit at room temperature"] },
-        { label: "Cook From Frozen",     tag: "APPROVED", tagColor: "#1d4ed8", tagBg: "#dbeafe", accent: "#0891b2", details: ["Cook food directly from frozen — no pre-thaw needed", "Allow 50% more cook time than for thawed product", "Verify internal temperature with calibrated thermometer", "Common for frozen burgers, fish fillets, breakfast items"] },
+        { label: "Refrigerator Thawing", tag: "SAFEST", tagColor: "#16a34a", tagBg: "var(--tint-green-2)", accent: "#22c55e", details: ["Move frozen food to refrigerator (41°F or below)", "Whole poultry or large roasts: 1–3 days", "Ground meat or small items: overnight", "Food stays safe; can be re-frozen without cooking"] },
+        { label: "Cold Running Water",   tag: "APPROVED", tagColor: "#1d4ed8", tagBg: "var(--tint-blue-2)", accent: "#3b82f6", details: ["Submerge food under cold running water ≤ 70°F", "Water must flow continuously — not a standing soak", "Food must be in a leak-proof package or bag", "Cook immediately after — do not re-freeze"] },
+        { label: "Microwave Thawing",    tag: "APPROVED", tagColor: "#1d4ed8", tagBg: "var(--tint-blue-2)", accent: "#6366f1", details: ["Use microwave's defrost setting", "MUST cook to proper temperature immediately after", "Partial cooking creates a dangerous bacteria window", "Do not let thawed portions sit at room temperature"] },
+        { label: "Cook From Frozen",     tag: "APPROVED", tagColor: "#1d4ed8", tagBg: "var(--tint-blue-2)", accent: "#0891b2", details: ["Cook food directly from frozen — no pre-thaw needed", "Allow 50% more cook time than for thawed product", "Verify internal temperature with calibrated thermometer", "Common for frozen burgers, fish fillets, breakfast items"] },
       ].map(m => (
         <div key={m.label} style={{ border: "1.5px solid #e2e8f0", borderRadius: 10, overflow: "hidden", background: "var(--surface-1)" }}>
           <div style={{ background: "var(--surface-2)", borderBottom: "1px solid #e2e8f0", padding: "9px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
@@ -11923,8 +11923,8 @@ function FoodSafetyRef() {
       ))}
 
       {/* Never do this */}
-      <div style={{ background: "#fef2f2", border: "2px solid #fca5a5", borderRadius: 10, overflow: "hidden" }}>
-        <div style={{ background: "#fee2e2", padding: "8px 14px", borderBottom: "1px solid #fca5a5" }}>
+      <div style={{ background: "var(--tint-red-1)", border: "2px solid #fca5a5", borderRadius: 10, overflow: "hidden" }}>
+        <div style={{ background: "var(--tint-red-2)", padding: "8px 14px", borderBottom: "1px solid #fca5a5" }}>
           <span style={{ fontWeight: 700, fontSize: "0.65rem", color: "#b91c1c", textTransform: "uppercase", letterSpacing: "0.07em" }}>Never Do This</span>
         </div>
         <div style={{ padding: "4px 0" }}>
@@ -11938,7 +11938,7 @@ function FoodSafetyRef() {
               <span style={{ color: "#dc2626", fontWeight: 900, fontSize: "0.8rem", flexShrink: 0, lineHeight: 1.2 }}>✕</span>
               <div>
                 <div style={{ fontWeight: 700, fontSize: "0.7rem", color: "#b91c1c" }}>{r.x}</div>
-                <div style={{ fontSize: "0.63rem", color: "#7f1d1d", lineHeight: 1.4, marginTop: 2 }}>{r.why}</div>
+                <div style={{ fontSize: "0.63rem", color: "var(--tx-red-strong)", lineHeight: 1.4, marginTop: 2 }}>{r.why}</div>
               </div>
             </div>
           ))}
@@ -12094,8 +12094,8 @@ function LicensesTab({ history, invLicenseData, setInvLicenseData, invLicenseMis
   };
 
   const groupLabel = { permanent: "Permanent", subcontractor: "Subcontractor", event: "Event" };
-  const groupColor = { permanent: "var(--ink-900)", subcontractor: "#1e40af", event: "#92400e" };
-  const groupBg    = { permanent: "#f1f5f9", subcontractor: "#eff6ff", event: "#fef9c3" };
+  const groupColor = { permanent: "var(--ink-900)", subcontractor: "#1e40af", event: "var(--tx-amber)" };
+  const groupBg    = { permanent: "#f1f5f9", subcontractor: "var(--tint-blue-1)", event: "#fef9c3" };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
@@ -12128,14 +12128,14 @@ function LicensesTab({ history, invLicenseData, setInvLicenseData, invLicenseMis
           </div>
           {visibleMismatches.map(m => (
             <div key={m.siteName} style={{
-              background: "#fffbeb", border: "1.5px solid #fcd34d", borderRadius: 11,
+              background: "var(--tint-amber-1)", border: "1.5px solid #fcd34d", borderRadius: 11,
               padding: "0.65rem 0.85rem",
             }}>
               <div style={{ display: "flex", alignItems: "flex-start", gap: "0.5rem" }}>
                 <span style={{ fontSize: "1rem", flexShrink: 0 }}>🔔</span>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 700, fontSize: "0.78rem", color: "var(--ink-900)", marginBottom: 2 }}>{m.siteName}</div>
-                  <div style={{ fontSize: "0.72rem", color: "#78350f", lineHeight: 1.5 }}>
+                  <div style={{ fontSize: "0.72rem", color: "var(--tx-amber-strong)", lineHeight: 1.5 }}>
                     We noticed <strong>{m.licenses.length} different license numbers</strong> in the inspection history for this location. Which one is correct?
                   </div>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: "0.35rem", marginTop: "0.4rem" }}>
@@ -12151,9 +12151,9 @@ function LicensesTab({ history, invLicenseData, setInvLicenseData, invLicenseMis
                           style={{
                             padding: "0.25rem 0.6rem", borderRadius: 7,
                             border: isOfficial ? "2px solid #16a34a" : "1.5px solid #f59e0b",
-                            background: isOfficial ? "#f0fdf4" : "#fff",
+                            background: isOfficial ? "var(--tint-green-1)" : "#fff",
                             fontWeight: 700, fontSize: "0.72rem",
-                            color: isOfficial ? "#15803d" : "#92400e",
+                            color: isOfficial ? "#15803d" : "var(--tx-amber)",
                             cursor: "pointer", fontFamily: "monospace",
                             display: "flex", alignItems: "center", gap: "0.3rem",
                           }}>
@@ -12836,21 +12836,21 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
       verdict = "KEEP — Top Performer";
       emoji = "🟢";
       color = "#15803d";
-      bgColor = "#f0fdf4";
+      bgColor = "var(--tint-green-1)";
       borderColor = "#86efac";
       summary = "This inspector is genuinely doing the work: finding real issues, writing detailed findings, passing sites that deserve to pass, and showing no rubber-stamp patterns. A reliable asset.";
     } else if (score >= 3) {
       verdict = "KEEP — Solid";
       emoji = "✅";
       color = "#16a34a";
-      bgColor = "#f0fdf4";
+      bgColor = "var(--tint-green-1)";
       borderColor = "#bbf7d0";
       summary = "Performing at or above expectations. Output quality is good with some areas to develop. Continue standard oversight.";
     } else if (score >= 0) {
       verdict = "WATCH — Monitor Closely";
       emoji = "🟡";
       color = "#b45309";
-      bgColor = "#fffbeb";
+      bgColor = "var(--tint-amber-1)";
       borderColor = "#fde68a";
       summary = "Performance is marginal — some output quality concerns detected. Requires closer monitoring over the next several inspections before drawing firm conclusions.";
     } else if (score >= -3) {
@@ -12912,21 +12912,21 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
           )}
         </div>
         {item.lastTemp && (
-          <div style={{ fontSize: "0.72rem", fontWeight: 700, color: "#1e3a8a", background: "#eff6ff", borderRadius: 6, padding: "0.2rem 0.45rem", flexShrink: 0 }}>
+          <div style={{ fontSize: "0.72rem", fontWeight: 700, color: "var(--tx-blue)", background: "var(--tint-blue-1)", borderRadius: 6, padding: "0.2rem 0.45rem", flexShrink: 0 }}>
             {item.lastTemp}°F
           </div>
         )}
         <div style={{ fontSize: "0.68rem", fontWeight: 700, color: statusColor(item.lastStatus), flexShrink: 0, marginRight: 4 }}>
           {item.lastStatus || "OK"}
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 4, background: isEdited ? "#fffbeb" : "#fff", border: `1.5px solid ${isEdited ? "#f59e0b" : "#cbd5e1"}`, borderRadius: 8, padding: "2px 6px", flexShrink: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 4, background: isEdited ? "var(--tint-amber-1)" : "#fff", border: `1.5px solid ${isEdited ? "#f59e0b" : "#cbd5e1"}`, borderRadius: 8, padding: "2px 6px", flexShrink: 0 }}>
           <button type="button"
             onClick={() => {
               const next = Math.max(0, displayCount - 1);
               setInvCountOverrides(prev => ({ ...prev, [overrideKey]: next }));
             }}
             style={{ background: "none", border: "none", cursor: "pointer", fontWeight: 900, fontSize: "0.9rem", color: "var(--ink-500)", padding: "0 2px", lineHeight: 1 }}>−</button>
-          <span style={{ fontWeight: 900, fontSize: "0.85rem", color: isEdited ? "#92400e" : "var(--ink-900)", minWidth: 18, textAlign: "center" }}>{displayCount}</span>
+          <span style={{ fontWeight: 900, fontSize: "0.85rem", color: isEdited ? "var(--tx-amber)" : "var(--ink-900)", minWidth: 18, textAlign: "center" }}>{displayCount}</span>
           <button type="button"
             onClick={() => {
               const next = displayCount + 1;
@@ -12954,7 +12954,7 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
       setD({ lastCleaned: v });
     };
     return (
-      <div style={{ background: "#f0f9ff", border: "1.5px solid #bae6fd", borderRadius: 10, padding: "0.5rem 0.7rem", marginBottom: 4 }}>
+      <div style={{ background: "var(--tint-sky-1)", border: "1.5px solid #bae6fd", borderRadius: 10, padding: "0.5rem 0.7rem", marginBottom: 4 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <span style={{ fontSize: "1rem", flexShrink: 0 }}>🧊</span>
           <div style={{ flex: 1, fontWeight: 700, fontSize: "0.8rem", color: "#0c4a6e" }}>Ice Maker</div>
@@ -12995,22 +12995,22 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
       <div style={{ background: "#fefce8", border: "1.5px solid #fde68a", borderRadius: 10, padding: "0.5rem 0.7rem", marginBottom: 4 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: entries.length ? 6 : 0 }}>
           <span style={{ fontSize: "1rem", flexShrink: 0 }}>🔄</span>
-          <div style={{ flex: 1, fontWeight: 700, fontSize: "0.8rem", color: "#78350f" }}>Filters <span style={{ fontWeight: 400, color: "#92400e" }}>({entries.length})</span></div>
+          <div style={{ flex: 1, fontWeight: 700, fontSize: "0.8rem", color: "var(--tx-amber-strong)" }}>Filters <span style={{ fontWeight: 400, color: "var(--tx-amber)" }}>({entries.length})</span></div>
           <button type="button"
             onClick={() => setEntries(prev => [...prev, { lastChanged: "" }])}
-            style={{ background: "#fcd34d", border: "none", borderRadius: 7, padding: "3px 10px", fontSize: "0.72rem", fontWeight: 800, color: "#78350f", cursor: "pointer" }}>+ Add Filter</button>
+            style={{ background: "#fcd34d", border: "none", borderRadius: 7, padding: "3px 10px", fontSize: "0.72rem", fontWeight: 800, color: "var(--tx-amber-strong)", cursor: "pointer" }}>+ Add Filter</button>
         </div>
         {entries.map((entry, idx) => (
           <div key={idx} style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 4 }}>
-            <span style={{ fontSize: "0.65rem", fontWeight: 700, color: "#92400e", minWidth: 58 }}>Filter {idx + 1}</span>
-            <span style={{ fontSize: "0.6rem", color: "#92400e", minWidth: 70 }}>Last Changed</span>
+            <span style={{ fontSize: "0.65rem", fontWeight: 700, color: "var(--tx-amber)", minWidth: 58 }}>Filter {idx + 1}</span>
+            <span style={{ fontSize: "0.6rem", color: "var(--tx-amber)", minWidth: 70 }}>Last Changed</span>
             <input
               type="text"
               inputMode="numeric"
               placeholder="MM/DD/YYYY"
               value={entry.lastChanged || ""}
               onChange={e => handleDate(idx, e.target.value)}
-              style={{ flex: 1, padding: "0.22rem 0.4rem", borderRadius: 6, border: "1.5px solid #fcd34d", fontSize: "0.78rem", fontWeight: 700, color: "#78350f", background: "var(--surface-1)" }}
+              style={{ flex: 1, padding: "0.22rem 0.4rem", borderRadius: 6, border: "1.5px solid #fcd34d", fontSize: "0.78rem", fontWeight: 700, color: "var(--tx-amber-strong)", background: "var(--surface-1)" }}
             />
             <button type="button"
               onClick={() => setEntries(prev => prev.filter((_, i) => i !== idx))}
@@ -13063,12 +13063,12 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
             {(hasEventDay || hasPostEvent) && (
               <div style={{ display: "flex", gap: 4, alignItems: "center", marginTop: 3, flexWrap: "wrap" }}>
                 {hasEventDay && (
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: 3, background: "#fffbeb", border: "1px solid #fbbf24", borderRadius: 6, padding: "1px 6px", fontSize: "0.6rem", fontWeight: 800, color: "#92400e" }}>
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 3, background: "var(--tint-amber-1)", border: "1px solid #fbbf24", borderRadius: 6, padding: "1px 6px", fontSize: "0.6rem", fontWeight: 800, color: "var(--tx-amber)" }}>
                     🎯 Event Day{site.eventDayDate ? ` · ${site.eventDayDate.slice(0,10)}` : ""}
                   </span>
                 )}
                 {hasPostEvent && (
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: 3, background: "#f0fdf4", border: "1px solid #86efac", borderRadius: 6, padding: "1px 6px", fontSize: "0.6rem", fontWeight: 800, color: "#166534" }}>
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 3, background: "var(--tint-green-1)", border: "1px solid #86efac", borderRadius: 6, padding: "1px 6px", fontSize: "0.6rem", fontWeight: 800, color: "var(--tx-green)" }}>
                     ✅ Post Event{site.postEventDate ? ` · ${site.postEventDate.slice(0,10)}` : ""}
                   </span>
                 )}
@@ -13982,7 +13982,7 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
 
       {/* Venue banner */}
       {managedVenueId && (
-        <div style={{ margin: "1rem 1rem 0", background: "#fef3c7", border: "1px solid #f59e0b", borderRadius: 10, padding: "0.65rem 0.9rem", color: "#92400e", fontWeight: 600, fontSize: "0.83rem" }}>
+        <div style={{ margin: "1rem 1rem 0", background: "var(--tint-amber-2)", border: "1px solid #f59e0b", borderRadius: 10, padding: "0.65rem 0.9rem", color: "var(--tx-amber)", fontWeight: 600, fontSize: "0.83rem" }}>
           ⚠️ Viewing: <strong>{managedVenueName || managedVenueId}</strong>
         </div>
       )}
@@ -14112,24 +14112,24 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
                         <div style={{ marginTop: "0.38rem", display: "flex", flexWrap: "wrap", gap: "0.22rem" }}>
                           {/* Note quality */}
                           {p.noteQualityScore >= 25 && (
-                            <span style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 5, padding: "0.08rem 0.38rem", fontSize: "0.63rem", color: "#15803d", fontWeight: 700, whiteSpace: "nowrap" }}>📝 Detailed notes</span>
+                            <span style={{ background: "var(--tint-green-1)", border: "1px solid #bbf7d0", borderRadius: 5, padding: "0.08rem 0.38rem", fontSize: "0.63rem", color: "#15803d", fontWeight: 700, whiteSpace: "nowrap" }}>📝 Detailed notes</span>
                           )}
                           {p.noteQualityScore >= 10 && p.noteQualityScore < 25 && (
-                            <span style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 5, padding: "0.08rem 0.38rem", fontSize: "0.63rem", color: "#15803d", fontWeight: 600, whiteSpace: "nowrap" }}>📝 Adequate notes</span>
+                            <span style={{ background: "var(--tint-green-1)", border: "1px solid #bbf7d0", borderRadius: 5, padding: "0.08rem 0.38rem", fontSize: "0.63rem", color: "#15803d", fontWeight: 600, whiteSpace: "nowrap" }}>📝 Adequate notes</span>
                           )}
                           {p.noteQualityScore === 0 && p.avgIssues > 0 && (
                             <span style={{ background: "#fef9c3", border: "1px solid #fde047", borderRadius: 5, padding: "0.08rem 0.38rem", fontSize: "0.63rem", color: "#713f12", fontWeight: 600, whiteSpace: "nowrap" }}>📝 Vague notes</span>
                           )}
                           {/* Issue detection */}
                           {p.avgIssues >= 2 && (
-                            <span style={{ background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 5, padding: "0.08rem 0.38rem", fontSize: "0.63rem", color: "#1d4ed8", fontWeight: 700, whiteSpace: "nowrap" }}>🔍 {p.avgIssues.toFixed(1)} iss/visit</span>
+                            <span style={{ background: "var(--tint-blue-1)", border: "1px solid #bfdbfe", borderRadius: 5, padding: "0.08rem 0.38rem", fontSize: "0.63rem", color: "#1d4ed8", fontWeight: 700, whiteSpace: "nowrap" }}>🔍 {p.avgIssues.toFixed(1)} iss/visit</span>
                           )}
                           {/* Rubber-stamp flags */}
                           {p.isRubberStampPattern && (
-                            <span style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 5, padding: "0.08rem 0.38rem", fontSize: "0.63rem", color: "#991b1b", fontWeight: 700, whiteSpace: "nowrap" }}>⚠ Rubber-stamp pattern</span>
+                            <span style={{ background: "var(--tint-red-1)", border: "1px solid #fecaca", borderRadius: 5, padding: "0.08rem 0.38rem", fontSize: "0.63rem", color: "#991b1b", fontWeight: 700, whiteSpace: "nowrap" }}>⚠ Rubber-stamp pattern</span>
                           )}
                           {!p.isRubberStampPattern && p.isSuspiciouslyFlat && (
-                            <span style={{ background: "#fff7ed", border: "1px solid #fed7aa", borderRadius: 5, padding: "0.08rem 0.38rem", fontSize: "0.63rem", color: "#92400e", fontWeight: 600, whiteSpace: "nowrap" }}>⚠ Flat results</span>
+                            <span style={{ background: "#fff7ed", border: "1px solid #fed7aa", borderRadius: 5, padding: "0.08rem 0.38rem", fontSize: "0.63rem", color: "var(--tx-amber)", fontWeight: 600, whiteSpace: "nowrap" }}>⚠ Flat results</span>
                           )}
                           {/* Top recurring issue */}
                           {!p.isRubberStampPattern && !p.isSuspiciouslyFlat && p.topIssues && p.topIssues.length > 0 && (
@@ -14194,7 +14194,7 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
 
                 {/* ── Section 2: Per-Inspector Duration ── */}
                 <div style={{ background: "var(--surface-1)", borderRadius: 14, padding: "0.85rem 0.9rem", border: "1.5px solid #f1f5f9", boxShadow: "0 1px 6px rgba(0,0,0,0.04)" }}>
-                  <div style={{ background: "#f0f9ff", border: "1.5px solid #bae6fd", borderRadius: 10, padding: "0.55rem 0.75rem", marginBottom: "0.75rem", display: "flex", alignItems: "flex-start", gap: "0.4rem" }}>
+                  <div style={{ background: "var(--tint-sky-1)", border: "1.5px solid #bae6fd", borderRadius: 10, padding: "0.55rem 0.75rem", marginBottom: "0.75rem", display: "flex", alignItems: "flex-start", gap: "0.4rem" }}>
                     <span style={{ fontSize: "0.95rem", flexShrink: 0 }}>ℹ️</span>
                     <div style={{ fontSize: "0.7rem", color: "#0369a1", lineHeight: 1.5 }}>
                       <strong>Duration is a thoroughness signal, not a speed contest.</strong> Inspections that take longer generally reflect more careful on-site work. Very short completions (&lt;5 min) are flagged in amber as they may indicate the form was filled in without being fully on-site.
@@ -14229,7 +14229,7 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
                             : { label: "→ Consistent duration", color: "var(--ink-400)" })
                           : null;
                         return (
-                          <div key={p.name} style={{ border: isTooFast ? "1.5px solid #fde68a" : "1px solid #f1f5f9", borderRadius: 12, overflow: "hidden", background: isTooFast ? "#fffbeb" : "#fafafa" }}>
+                          <div key={p.name} style={{ border: isTooFast ? "1.5px solid #fde68a" : "1px solid #f1f5f9", borderRadius: 12, overflow: "hidden", background: isTooFast ? "var(--tint-amber-1)" : "var(--surface-2)" }}>
                             {isTooFast && <div style={{ height: 2, background: "linear-gradient(90deg, #f59e0b, #fbbf24)" }} />}
                             <div style={{ padding: "0.65rem 0.75rem" }}>
                               <div style={{ display: "flex", alignItems: "center", gap: "0.55rem" }}>
@@ -14344,7 +14344,7 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
                           const vsTeamTP = (p.inspPerDay - teamAvgTP).toFixed(1);
                           const tpColor = p.inspPerDay >= teamAvgTP * 1.2 ? "#22c55e" : p.inspPerDay >= teamAvgTP * 0.8 ? "#3b82f6" : "#f59e0b";
                           return (
-                            <div key={p.name + "-tp"} style={{ border: isTop ? `1.5px solid color-mix(in srgb, ${NAVY} 12%, transparent)` : "1px solid #f1f5f9", borderRadius: 10, overflow: "hidden", background: isTop ? "#f8f9ff" : "#fafafa" }}>
+                            <div key={p.name + "-tp"} style={{ border: isTop ? `1.5px solid color-mix(in srgb, ${NAVY} 12%, transparent)` : "1px solid #f1f5f9", borderRadius: 10, overflow: "hidden", background: isTop ? "var(--surface-2)" : "var(--surface-2)" }}>
                               {isTop && <div style={{ height: 2, background: NAVY }} />}
                               <div style={{ display: "flex", alignItems: "center", gap: "0.55rem", padding: "0.6rem 0.7rem" }}>
                                 <div style={{ width: 32, height: 32, borderRadius: 9, flexShrink: 0, background: avatarBg(p.name), display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.7rem", fontWeight: 900, color: "#fff" }}>{initials(p.name)}</div>
@@ -14822,9 +14822,9 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
                     <div style={{ background: "var(--surface-1)", padding: "0.7rem 1.1rem 0.75rem" }}>
                       {/* Breakdown by group */}
                       {[
-                        { label: "Concession", totals: totalPerm,  color: "#2563eb", bg: "#eff6ff", show: permList.length > 0 },
+                        { label: "Concession", totals: totalPerm,  color: "#2563eb", bg: "var(--tint-blue-1)", show: permList.length > 0 },
                         { label: "Subcontractor", totals: totalSub,   color: "#7c3aed", bg: "#f5f3ff", show: subList.length > 0 },
-                        { label: "Portables", totals: totalEvent, color: "#d97706", bg: "#fffbeb", show: eventList.length > 0 },
+                        { label: "Portables", totals: totalEvent, color: "#d97706", bg: "var(--tint-amber-1)", show: eventList.length > 0 },
                       ].filter(g => g.show).map((g, gi) => {
                         const cols = EQUIP_META.filter(m => g.totals[m.type] > 0);
                         if (!cols.length) return null;
@@ -14881,7 +14881,7 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
                       <select
                         value={invLocFilter}
                         onChange={e => setInvLocFilter(e.target.value)}
-                        style={{ padding: "0.38rem 0.6rem", borderRadius: 7, border: `1.5px solid ${invLocFilter ? "#d97706" : "#cbd5e1"}`, background: invLocFilter ? "#fffbeb" : "#fff", color: invLocFilter ? "#92400e" : "#374151", fontSize: "0.8rem", fontWeight: 600, cursor: "pointer", outline: "none" }}>
+                        style={{ padding: "0.38rem 0.6rem", borderRadius: 7, border: `1.5px solid ${invLocFilter ? "#d97706" : "#cbd5e1"}`, background: invLocFilter ? "var(--tint-amber-1)" : "#fff", color: invLocFilter ? "var(--tx-amber)" : "#374151", fontSize: "0.8rem", fontWeight: 600, cursor: "pointer", outline: "none" }}>
                         <option value="">All Locations</option>
                         <option value="permanent">Permanent</option>
                         <option value="subcontractor">Subcontractor</option>
@@ -15775,7 +15775,7 @@ function EquipmentScannerPage({ onBack, onPrintLabels }) {
             )}
           </div>
           {cameraError && (
-            <div style={{ marginTop: 8, color: "#b91c1c", fontSize: "0.8rem", background: "#fee2e2", borderRadius: 6, padding: "0.5rem 0.75rem" }}>
+            <div style={{ marginTop: 8, color: "#b91c1c", fontSize: "0.8rem", background: "var(--tint-red-2)", borderRadius: 6, padding: "0.5rem 0.75rem" }}>
               {cameraError}
             </div>
           )}
@@ -15804,11 +15804,11 @@ function EquipmentScannerPage({ onBack, onPrintLabels }) {
               const okCount = statusCounts["OK"] || 0;
               return (
                 <div style={{ display: "flex", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
-                  <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 8, padding: "0.5rem 0.9rem", fontSize: "0.82rem", color: "#16a34a", fontWeight: 600 }}>
+                  <div style={{ background: "var(--tint-green-1)", border: "1px solid #bbf7d0", borderRadius: 8, padding: "0.5rem 0.9rem", fontSize: "0.82rem", color: "#16a34a", fontWeight: 600 }}>
                     ✅ {okCount} OK
                   </div>
                   {failCount > 0 && (
-                    <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8, padding: "0.5rem 0.9rem", fontSize: "0.82rem", color: "#dc2626", fontWeight: 600 }}>
+                    <div style={{ background: "var(--tint-red-1)", border: "1px solid #fecaca", borderRadius: 8, padding: "0.5rem 0.9rem", fontSize: "0.82rem", color: "#dc2626", fontWeight: 600 }}>
                       ❌ {failCount} Fail / Critical
                     </div>
                   )}
@@ -15832,7 +15832,7 @@ function EquipmentScannerPage({ onBack, onPrintLabels }) {
               const trend = vals[0] > vals[vals.length - 1] ? "↑" : vals[0] < vals[vals.length - 1] ? "↓" : "→";
               const trendColor = trend === "↑" ? "#16a34a" : trend === "↓" ? "#dc2626" : "#6b7280";
               return (
-                <div style={{ background: "#f0f9ff", border: "1px solid #bae6fd", borderRadius: 10, padding: "10px 14px", marginBottom: 12 }}>
+                <div style={{ background: "var(--tint-sky-1)", border: "1px solid #bae6fd", borderRadius: 10, padding: "10px 14px", marginBottom: 12 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
                     <span style={{ fontWeight: 700, fontSize: "0.8rem", color: "#0369a1" }}>🌡️ Temp Trend</span>
                     <span style={{ fontSize: "0.75rem", color: "#374151" }}>Last {last3.length} readings</span>
@@ -15877,7 +15877,7 @@ function EquipmentScannerPage({ onBack, onPrintLabels }) {
                   {(r.tempF || r.notes || r.photoCount > 0) && (
                     <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap" }}>
                       {r.tempF && (
-                        <span style={{ background: "#eff6ff", borderRadius: 5, padding: "0.2rem 0.55rem", fontSize: "0.75rem", color: "#1d4ed8", fontWeight: 600 }}>
+                        <span style={{ background: "var(--tint-blue-1)", borderRadius: 5, padding: "0.2rem 0.55rem", fontSize: "0.75rem", color: "#1d4ed8", fontWeight: 600 }}>
                           🌡️ {r.tempF}°F
                         </span>
                       )}
@@ -16335,7 +16335,7 @@ function GlobalAdminPanel({ currentUser, onBack, onManageVenue, onEnterVenue, on
             {showAddForm && (
               <form onSubmit={handleAddVenue} style={{ background: "var(--surface-2)", border: "1.5px solid #e2e8f0", borderRadius: 10, padding: "1rem", marginBottom: "1rem" }}>
                 <div style={{ fontWeight: 700, marginBottom: "0.75rem", color: "#1e1b4b" }}>Add New Venue</div>
-                {addError && <div style={{ background: "#fee2e2", color: "#991b1b", borderRadius: 6, padding: "0.5rem 0.75rem", marginBottom: "0.5rem", fontSize: "0.85rem" }}>{addError}</div>}
+                {addError && <div style={{ background: "var(--tint-red-2)", color: "#991b1b", borderRadius: 6, padding: "0.5rem 0.75rem", marginBottom: "0.5rem", fontSize: "0.85rem" }}>{addError}</div>}
                 <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
                   <input value={addId} onChange={e => setAddId(e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, ""))}
                     placeholder="Venue ID (slug, e.g. hard-rock-stadium)" required
@@ -16430,7 +16430,7 @@ function GlobalAdminPanel({ currentUser, onBack, onManageVenue, onEnterVenue, on
                         </div>
                         <span style={{
                           padding: "0.2rem 0.5rem", borderRadius: 6, fontSize: "0.7rem", fontWeight: 700,
-                          background: v.status === "active" ? "#dcfce7" : "#f1f5f9",
+                          background: v.status === "active" ? "var(--tint-green-2)" : "#f1f5f9",
                           color: v.status === "active" ? "#15803d" : "var(--ink-500)",
                         }}>{v.status || "active"}</span>
                       </div>
@@ -16701,13 +16701,13 @@ function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVe
 
       <main className="pageMain pageMainNarrow">
         {managedVenueId && (
-          <div style={{ background: "#fef3c7", border: "1px solid #f59e0b", borderRadius: 8, padding: "0.75rem 1rem", marginBottom: "1rem", color: "#92400e", fontWeight: 600, fontSize: "0.9rem" }}>
+          <div style={{ background: "var(--tint-amber-2)", border: "1px solid #f59e0b", borderRadius: 8, padding: "0.75rem 1rem", marginBottom: "1rem", color: "var(--tx-amber)", fontWeight: 600, fontSize: "0.9rem" }}>
             ⚠️ Managing venue: <strong>{managedVenueName || managedVenueId}</strong>
             <br /><span style={{ fontWeight: 400, fontSize: "0.8rem" }}>You are viewing data for this venue, not your home venue.</span>
           </div>
         )}
         {removeError && (
-          <div style={{ background: "#fee2e2", border: "1px solid #fca5a5", borderRadius: 8, padding: "0.75rem 1rem", marginBottom: "1rem", color: "#991b1b", fontSize: "0.9rem", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ background: "var(--tint-red-2)", border: "1px solid #fca5a5", borderRadius: 8, padding: "0.75rem 1rem", marginBottom: "1rem", color: "#991b1b", fontSize: "0.9rem", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <span>{removeError}</span>
             <button type="button" onClick={() => setRemoveError("")} style={{ background: "none", border: "none", color: "#991b1b", cursor: "pointer", fontWeight: 700, fontSize: "1.1rem", lineHeight: 1, padding: "0 2px" }}>×</button>
           </div>
@@ -16836,7 +16836,7 @@ function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVe
                       return (
                         <div key={slot.id} style={{
                           display: "flex", alignItems: "flex-start", gap: 10,
-                          background: isPast ? "#f8fafc" : "#f0fdf4",
+                          background: isPast ? "#f8fafc" : "var(--tint-green-1)",
                           border: `1px solid ${isPast ? "#e2e8f0" : "#86efac"}`,
                           borderRadius: 8, padding: "8px 12px",
                         }}>
@@ -17172,7 +17172,7 @@ function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVe
                       <div style={{ marginTop: 4, display: "flex", flexWrap: "wrap", gap: 4 }}>
                         {assignedStands.map(s => (
                           <span key={s} style={{
-                            background: "#eff6ff", color: "#1e40af", border: "1px solid #bfdbfe",
+                            background: "var(--tint-blue-1)", color: "#1e40af", border: "1px solid #bfdbfe",
                             borderRadius: 6, padding: "1px 7px", fontSize: "0.7rem", fontWeight: 700
                           }}>📍 {s}</span>
                         ))}
@@ -17206,7 +17206,7 @@ function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVe
                         <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
                           {editingStands.value.split(",").map(s => s.trim()).filter(Boolean).map(s => (
                             <span key={s} style={{
-                              background: "#eff6ff", color: "#1e40af", border: "1px solid #bfdbfe",
+                              background: "var(--tint-blue-1)", color: "#1e40af", border: "1px solid #bfdbfe",
                               borderRadius: 6, padding: "1px 7px", fontSize: "0.7rem", fontWeight: 700
                             }}>📍 {s}</span>
                           ))}
@@ -17496,7 +17496,7 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                       {isNA && <span className="naBadge">Not at this location</span>}
                     </div>
                     {!isItemOpen && isFilled && !isNA && (
-                      <span style={{ fontSize: "0.7rem", fontWeight: 600, padding: "2px 8px", borderRadius: 6, background: "#f0fdf4", color: "#15803d", border: "1px solid #bbf7d0", whiteSpace: "nowrap" }}>✓ Filled</span>
+                      <span style={{ fontSize: "0.7rem", fontWeight: 600, padding: "2px 8px", borderRadius: 6, background: "var(--tint-green-1)", color: "#15803d", border: "1px solid #bbf7d0", whiteSpace: "nowrap" }}>✓ Filled</span>
                     )}
                     {!isItemOpen && !isFilled && (
                       <span style={{ fontSize: "0.7rem", color: "var(--ink-400)", fontStyle: "italic", whiteSpace: "nowrap" }}>Tap to fill in</span>
@@ -17637,7 +17637,7 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                                   style={{
                                     fontSize: "0.75rem", padding: "4px 11px", borderRadius: 20,
                                     border: currentLabel === opt ? "1.5px solid #2563eb" : "1.5px solid #e2e8f0",
-                                    background: currentLabel === opt ? "#dbeafe" : "#f8fafc",
+                                    background: currentLabel === opt ? "var(--tint-blue-2)" : "#f8fafc",
                                     color: currentLabel === opt ? "#1d4ed8" : "var(--ink-500)",
                                     cursor: "pointer", fontWeight: currentLabel === opt ? 700 : 400,
                                     transition: "all 0.12s",
@@ -17669,13 +17669,13 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                             if (tempNum <= warnMax) return (
                               <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
                                 <span className="tempStatusBadge tempStatusWarn" style={{ fontSize: "0.74rem", padding: "3px 8px" }}>⚠️ {tempNum}°F — Follow-up needed</span>
-                                <span style={{ fontSize: "0.72rem", color: "#b45309", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 5, padding: "3px 7px" }}>📋 Above max but not critical — flagged as follow-up, not fail</span>
+                                <span style={{ fontSize: "0.72rem", color: "#b45309", background: "var(--tint-amber-1)", border: "1px solid #fde68a", borderRadius: 5, padding: "3px 7px" }}>📋 Above max but not critical — flagged as follow-up, not fail</span>
                               </div>
                             );
                             return (
                               <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
                                 <span className="tempStatusBadge tempStatusBad" style={{ fontSize: "0.74rem", padding: "3px 8px" }}>🚨 {tempNum}°F — Out of range!</span>
-                                <span style={{ fontSize: "0.72rem", color: "#b45309", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 5, padding: "3px 7px" }}>📋 Critical temp — added as a fail action item</span>
+                                <span style={{ fontSize: "0.72rem", color: "#b45309", background: "var(--tint-amber-1)", border: "1px solid #fde68a", borderRadius: 5, padding: "3px 7px" }}>📋 Critical temp — added as a fail action item</span>
                               </div>
                             );
                           })()}
@@ -17838,7 +17838,7 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                                       {isFail ? (
                                         <div style={{ background: "#fff7ed", border: "1.5px solid #fed7aa", borderRadius: 8, padding: "10px 12px", marginTop: 6, display: "flex", flexDirection: "column", gap: 8, animation: "clFailPanelIn 0.18s ease" }}>
                                           <div>
-                                            <div style={{ fontSize: "0.7rem", fontWeight: 700, color: "#92400e", letterSpacing: "0.06em", marginBottom: 3 }}>📋 STATUS</div>
+                                            <div style={{ fontSize: "0.7rem", fontWeight: 700, color: "var(--tx-amber)", letterSpacing: "0.06em", marginBottom: 3 }}>📋 STATUS</div>
                                             <select
                                               className="select selectSmall"
                                               value={ci.ciStatus || "Needs Attention"}
@@ -17848,7 +17848,7 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                                             </select>
                                           </div>
                                           <div>
-                                            <div style={{ fontSize: "0.7rem", fontWeight: 700, color: "#92400e", letterSpacing: "0.06em", marginBottom: 3 }}>⚠️ ISSUE DESCRIPTION <span style={{ color: "#dc2626" }}>*</span></div>
+                                            <div style={{ fontSize: "0.7rem", fontWeight: 700, color: "var(--tx-amber)", letterSpacing: "0.06em", marginBottom: 3 }}>⚠️ ISSUE DESCRIPTION <span style={{ color: "#dc2626" }}>*</span></div>
                                             <input
                                               type="text"
                                               className="input inputSmall"
@@ -17859,7 +17859,7 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                                             />
                                           </div>
                                           <div>
-                                            <div style={{ fontSize: "0.7rem", fontWeight: 700, color: "#92400e", letterSpacing: "0.06em", marginBottom: 4 }}>
+                                            <div style={{ fontSize: "0.7rem", fontWeight: 700, color: "var(--tx-amber)", letterSpacing: "0.06em", marginBottom: 4 }}>
                                               📍 SPECIFIC LOCATION <span style={{ color: "#dc2626" }}>*</span>
                                             </div>
                                             <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginBottom: 5 }}>
@@ -17869,8 +17869,8 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                                                   <button key={loc} type="button"
                                                     style={{ fontSize: "0.7rem", padding: "3px 9px", borderRadius: 16,
                                                       border: active ? "1.5px solid #b45309" : "1.5px solid #fed7aa",
-                                                      background: active ? "#92400e" : "#fff7ed",
-                                                      color: active ? "#fff" : "#92400e",
+                                                      background: active ? "var(--tx-amber)" : "#fff7ed",
+                                                      color: active ? "#fff" : "var(--tx-amber)",
                                                       cursor: "pointer", fontWeight: active ? 700 : 400, transition: "all 0.12s" }}
                                                     onClick={() => makeSetCiLocation(idx, active ? "" : loc)}>
                                                     {loc}
@@ -17888,7 +17888,7 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                                             />
                                           </div>
                                           <div>
-                                            <div style={{ fontSize: "0.7rem", fontWeight: 700, color: "#92400e", letterSpacing: "0.06em", marginBottom: 3 }}>🔧 CORRECTIVE ACTION TAKEN</div>
+                                            <div style={{ fontSize: "0.7rem", fontWeight: 700, color: "var(--tx-amber)", letterSpacing: "0.06em", marginBottom: 3 }}>🔧 CORRECTIVE ACTION TAKEN</div>
                                             <input
                                               type="text"
                                               className="input inputSmall"
@@ -17955,11 +17955,11 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                       {/* ── Status selector — explicit pass/fail per item ── */}
                       <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 6 }}>
                         {[
-                          { value: "OK",                 label: "✅ OK",          bg: "#f0fdf4", color: "#15803d", border: "#86efac" },
-                          { value: "Needs Attention",    label: "⚠️ Issue",        bg: "#fffbeb", color: "#b45309", border: "#fde68a" },
-                          { value: "Fail",               label: "❌ Fail",         bg: "#fef2f2", color: "#dc2626", border: "#fca5a5" },
+                          { value: "OK",                 label: "✅ OK",          bg: "var(--tint-green-1)", color: "#15803d", border: "#86efac" },
+                          { value: "Needs Attention",    label: "⚠️ Issue",        bg: "var(--tint-amber-1)", color: "#b45309", border: "#fde68a" },
+                          { value: "Fail",               label: "❌ Fail",         bg: "var(--tint-red-1)", color: "#dc2626", border: "#fca5a5" },
                           { value: "Critical Violation", label: "🚨 Critical",     bg: "#fff0f0", color: "#991b1b", border: "#f87171" },
-                          { value: "Corrected On-Site",  label: "✔ Corrected",    bg: "#f0f9ff", color: "#0369a1", border: "#7dd3fc" },
+                          { value: "Corrected On-Site",  label: "✔ Corrected",    bg: "var(--tint-sky-1)", color: "#0369a1", border: "#7dd3fc" },
                           { value: "Maintenance",        label: "🔧 Maintenance",  bg: "#f5f3ff", color: "#7c3aed", border: "#c4b5fd" },
                         ].map(opt => {
                           const active = (current.status || "OK") === opt.value;
@@ -18038,7 +18038,7 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
               return (
                 <div className="guideAddEquip">
                   {!hasColdUnit && (
-                    <div style={{ background: "#eff6ff", border: "1.5px solid #bfdbfe", borderRadius: 8, padding: "9px 13px", marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>
+                    <div style={{ background: "var(--tint-blue-1)", border: "1.5px solid #bfdbfe", borderRadius: 8, padding: "9px 13px", marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>
                       <span style={{ fontSize: "1.1rem" }}>❄️</span>
                       <span style={{ fontSize: "0.8rem", color: "#1d4ed8", fontWeight: 600 }}>
                         Select a cooler or freezer type below to add it to this inspection
@@ -18358,10 +18358,10 @@ function LiveHaccpPanel({ reportId, subsFromParent, foodTemps, foodTempNames, in
 
   // Severity colour map for problem note banner
   const sevStyle = (sev) => sev === "urgent"
-    ? { bg: "#fef2f2", border: "#fca5a5", icon: "🔴", label: "Urgent" }
+    ? { bg: "var(--tint-red-1)", border: "#fca5a5", icon: "🔴", label: "Urgent" }
     : sev === "issue"
-    ? { bg: "#fffbeb", border: "#fcd34d", icon: "🟡", label: "Issue" }
-    : { bg: "#eff6ff", border: "#93c5fd", icon: "🔵", label: "Note" };
+    ? { bg: "var(--tint-amber-1)", border: "#fcd34d", icon: "🟡", label: "Issue" }
+    : { bg: "var(--tint-blue-1)", border: "#93c5fd", icon: "🔵", label: "Note" };
 
   return (
     <div style={{ margin: "16px 0 4px" }}>
@@ -18374,7 +18374,7 @@ function LiveHaccpPanel({ reportId, subsFromParent, foodTemps, foodTempNames, in
       {/* Inspector-recorded temps card */}
       {hasInspectorTemps && (
         <div style={{ border: "1px solid #93c5fd", borderRadius: 12, marginBottom: 14, background: "var(--surface-1)", overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
-          <div style={{ padding: "11px 14px 10px", borderBottom: "1px solid #dbeafe", background: "#eff6ff", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+          <div style={{ padding: "11px 14px 10px", borderBottom: "1px solid #dbeafe", background: "var(--tint-blue-1)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
             <div style={{ fontWeight: 700, fontSize: "0.84rem", color: "#1e40af" }}>
               🔍 {inspectorName || "Inspector"} <span style={{ fontWeight: 400, fontSize: "0.73rem", color: "#6b7280" }}>(Inspector record)</span>
             </div>
@@ -18387,7 +18387,7 @@ function LiveHaccpPanel({ reportId, subsFromParent, foodTemps, foodTempNames, in
                 const names = (foodTempNames || {})[item.key] || [];
                 const hasFailure = readings.some(v => tempPass(item, parseFloat(v)) === false);
                 return (
-                  <div key={item.key} style={{ display: "flex", flexDirection: "column", gap: 2, padding: "6px 8px", borderRadius: 8, background: hasFailure ? "#fff1f2" : "#f0fdf4", border: `1px solid ${hasFailure ? "#fca5a5" : "#bbf7d0"}` }}>
+                  <div key={item.key} style={{ display: "flex", flexDirection: "column", gap: 2, padding: "6px 8px", borderRadius: 8, background: hasFailure ? "#fff1f2" : "var(--tint-green-1)", border: `1px solid ${hasFailure ? "#fca5a5" : "#bbf7d0"}` }}>
                     <div style={{ fontSize: "0.71rem", fontWeight: 600, color: hasFailure ? "#b91c1c" : "#15803d" }}>{item.label}</div>
                     {readings.map((v, ri) => {
                       const pass = tempPass(item, parseFloat(v));
@@ -18459,7 +18459,7 @@ function LiveHaccpPanel({ reportId, subsFromParent, foodTemps, foodTempNames, in
                 </div>
                 {(currentUser?.role === "admin" || currentUser?.role === "global_admin") && sub.id && !liveEditState && (
                   <button
-                    style={{ fontSize: "0.72rem", padding: "2px 10px", borderRadius: 6, border: "1px solid #d1d5db", background: "#f9fafb", color: "#374151", cursor: "pointer" }}
+                    style={{ fontSize: "0.72rem", padding: "2px 10px", borderRadius: 6, border: "1px solid #d1d5db", background: "var(--surface-2)", color: "#374151", cursor: "pointer" }}
                     onClick={() => setLiveEditState({
                       subId: sub.id,
                       supervisorName: sub.supervisorName || "",
@@ -18545,7 +18545,7 @@ function LiveHaccpPanel({ reportId, subsFromParent, foodTemps, foodTempNames, in
                     }}
                   >{liveSaving ? "Saving…" : "Save"}</button>
                   <button
-                    style={{ fontSize: "0.75rem", padding: "4px 14px", borderRadius: 6, border: "1px solid #d1d5db", background: "#f9fafb", color: "#374151", cursor: "pointer" }}
+                    style={{ fontSize: "0.75rem", padding: "4px 14px", borderRadius: 6, border: "1px solid #d1d5db", background: "var(--surface-2)", color: "#374151", cursor: "pointer" }}
                     onClick={() => setLiveEditState(null)}
                   >Cancel</button>
                 </div>
@@ -18558,7 +18558,7 @@ function LiveHaccpPanel({ reportId, subsFromParent, foodTemps, foodTempNames, in
                 <div style={{ fontSize: "0.72rem", fontWeight: 600, color: "var(--ink-400)", letterSpacing: "0.05em", textTransform: "uppercase", marginBottom: 6 }}>Temperature Readings</div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: "6px 12px" }}>
                   {tempRows.map(({ item, readings, names, label, hasFailure }) => (
-                    <div key={item.key} style={{ display: "flex", flexDirection: "column", gap: 2, padding: "6px 8px", borderRadius: 8, background: hasFailure ? "#fff1f2" : "#f0fdf4", border: `1px solid ${hasFailure ? "#fca5a5" : "#bbf7d0"}` }}>
+                    <div key={item.key} style={{ display: "flex", flexDirection: "column", gap: 2, padding: "6px 8px", borderRadius: 8, background: hasFailure ? "#fff1f2" : "var(--tint-green-1)", border: `1px solid ${hasFailure ? "#fca5a5" : "#bbf7d0"}` }}>
                       <div style={{ fontSize: "0.71rem", fontWeight: 600, color: hasFailure ? "#b91c1c" : "#15803d" }}>{label}</div>
                       {readings.map((v, ri) => {
                         const num = parseFloat(v);
@@ -19328,8 +19328,8 @@ function HaccpPortal() {
               <div className="haccpSectionBody">
                 {(() => {
                   const cookingMeta = {
-                    cookingPoultry:    { emoji: "🐔", color: "#fbbf24", bg: "rgba(251,191,36,0.10)", border: "rgba(251,191,36,0.35)", badgeBg: "#92400e" },
-                    cookingGroundMeat: { emoji: "🥩", color: "#f87171", bg: "rgba(248,113,113,0.10)", border: "rgba(248,113,113,0.35)", badgeBg: "#7f1d1d" },
+                    cookingPoultry:    { emoji: "🐔", color: "#fbbf24", bg: "rgba(251,191,36,0.10)", border: "rgba(251,191,36,0.35)", badgeBg: "var(--tx-amber)" },
+                    cookingGroundMeat: { emoji: "🥩", color: "#f87171", bg: "rgba(248,113,113,0.10)", border: "rgba(248,113,113,0.35)", badgeBg: "var(--tx-red-strong)" },
                     cookingWholeCuts:  { emoji: "🥩", color: "#fb923c", bg: "rgba(251,146,60,0.10)", border: "rgba(251,146,60,0.35)", badgeBg: "#7c2d12" },
                     cookingSeafood:    { emoji: "🐟", color: "#22d3ee", bg: "rgba(34,211,238,0.08)", border: "rgba(34,211,238,0.3)",  badgeBg: "#164e63" },
                   };
@@ -19535,7 +19535,7 @@ function HaccpPortal() {
                           <span style={{ fontSize: "0.7rem", color: "#fca5a5", marginLeft: 2 }}>— required internal temp before serving</span>
                         </div>
                         {cookingItems.map((item, ci) => {
-                          const m = cookingMeta[item.key] || { emoji: "🔥", color: "#f87171", bg: "rgba(248,113,113,0.10)", border: "rgba(248,113,113,0.35)", badgeBg: "#7f1d1d" };
+                          const m = cookingMeta[item.key] || { emoji: "🔥", color: "#f87171", bg: "rgba(248,113,113,0.10)", border: "rgba(248,113,113,0.35)", badgeBg: "var(--tx-red-strong)" };
                           const readings = temps[item.key] || [""];
                           return (
                             <div key={item.key} style={{ background: m.bg, borderBottom: ci < cookingItems.length - 1 ? `1px solid ${m.border}` : "none", padding: "8px 12px" }}>
@@ -19660,7 +19660,7 @@ function HaccpPortal() {
                     onChange={e => { addProblemPhotos(e.target.files); e.target.value = ""; }} />
                 </label>
                 {photoError && (
-                  <div style={{ marginTop: 8, padding: "0.5rem 0.75rem", background: "#fef3c7", border: "1px solid #f59e0b", borderRadius: 6, color: "#92400e", fontSize: "0.82rem" }}>
+                  <div style={{ marginTop: 8, padding: "0.5rem 0.75rem", background: "var(--tint-amber-2)", border: "1px solid #f59e0b", borderRadius: 6, color: "var(--tx-amber)", fontSize: "0.82rem" }}>
                     {photoError}
                   </div>
                 )}
@@ -19847,7 +19847,7 @@ function FieldCorrectionBanner({ correction }) {
   return (
     <div style={{
       marginTop: 5,
-      background: "#fffbeb",
+      background: "var(--tint-amber-1)",
       border: "1px solid #f59e0b",
       borderRadius: 8,
       padding: "8px 12px",
@@ -19856,7 +19856,7 @@ function FieldCorrectionBanner({ correction }) {
       gap: 4,
     }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
-        <span style={{ fontSize: "0.8rem", color: "#92400e", fontWeight: 600 }}>
+        <span style={{ fontSize: "0.8rem", color: "var(--tx-amber)", fontWeight: 600 }}>
           🤔 {correction.message}
         </span>
         <button type="button" onClick={correction.dismiss}
@@ -19864,11 +19864,11 @@ function FieldCorrectionBanner({ correction }) {
           title="Dismiss">✕</button>
       </div>
       {correction.suggestion && (
-        <span style={{ fontSize: "0.78rem", color: "#78350f" }}>{correction.suggestion}</span>
+        <span style={{ fontSize: "0.78rem", color: "var(--tx-amber-strong)" }}>{correction.suggestion}</span>
       )}
       <div style={{ display: "flex", gap: 8, marginTop: 2 }}>
         <button type="button" onClick={() => { correction.fix(); correction.dismiss(); }}
-          style={{ padding: "3px 12px", borderRadius: 6, border: "1px solid #f59e0b", background: "#fef3c7", cursor: "pointer", fontWeight: 700, fontSize: "0.78rem", color: "#92400e" }}>
+          style={{ padding: "3px 12px", borderRadius: 6, border: "1px solid #f59e0b", background: "var(--tint-amber-2)", cursor: "pointer", fontWeight: 700, fontSize: "0.78rem", color: "var(--tx-amber)" }}>
           {correction.fixLabel || "Fix it"}
         </button>
         <button type="button" onClick={correction.dismiss}
@@ -20144,7 +20144,7 @@ function MessagingPanel({ currentUser, onBack, notifItems, onNotifDismiss, onNot
                       onClick={() => openThread(t)}
                       style={{
                         padding: "0.75rem 1rem", borderBottom: "1px solid #f8fafc", cursor: "pointer",
-                        background: isActive ? "#eff6ff" : t.unread > 0 ? "#f0f9ff" : "#fff",
+                        background: isActive ? "var(--tint-blue-1)" : t.unread > 0 ? "var(--tint-sky-1)" : "#fff",
                         borderLeft: isActive ? `3px solid ${NAVY}` : "3px solid transparent",
                         display: "flex", gap: 10, alignItems: "center",
                       }}
@@ -20288,23 +20288,23 @@ function MessagingPanel({ currentUser, onBack, notifItems, onNotifDismiss, onNot
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: annIsQuickCheck ? 10 : 0 }}>
                   <button type="button"
                     onClick={() => setAnnIsQuickCheck(v => !v)}
-                    style={{ display: "flex", alignItems: "center", gap: 6, background: annIsQuickCheck ? "#fef3c7" : "#f1f5f9", border: annIsQuickCheck ? "1.5px solid #f59e0b" : "1.5px solid #e2e8f0", borderRadius: 20, padding: "4px 13px", fontSize: "0.78rem", fontWeight: 700, color: annIsQuickCheck ? "#92400e" : "var(--ink-500)", cursor: "pointer", transition: "all 0.15s" }}>
+                    style={{ display: "flex", alignItems: "center", gap: 6, background: annIsQuickCheck ? "var(--tint-amber-2)" : "#f1f5f9", border: annIsQuickCheck ? "1.5px solid #f59e0b" : "1.5px solid #e2e8f0", borderRadius: 20, padding: "4px 13px", fontSize: "0.78rem", fontWeight: 700, color: annIsQuickCheck ? "var(--tx-amber)" : "var(--ink-500)", cursor: "pointer", transition: "all 0.15s" }}>
                     ⚡ Quick Check
                     <span style={{ width: 28, height: 16, borderRadius: 99, background: annIsQuickCheck ? "#f59e0b" : "#cbd5e1", position: "relative", display: "inline-block", transition: "background 0.2s", flexShrink: 0 }}>
                       <span style={{ position: "absolute", top: 2, left: annIsQuickCheck ? 14 : 2, width: 12, height: 12, borderRadius: "50%", background: "var(--surface-1)", transition: "left 0.18s", boxShadow: "0 1px 3px rgba(0,0,0,0.2)" }} />
                     </span>
                   </button>
-                  {annIsQuickCheck && <span style={{ fontSize: "0.72rem", color: "#92400e", fontWeight: 600 }}>Select items inspectors must check:</span>}
+                  {annIsQuickCheck && <span style={{ fontSize: "0.72rem", color: "var(--tx-amber)", fontWeight: 600 }}>Select items inspectors must check:</span>}
                 </div>
                 {annIsQuickCheck && (
-                  <div style={{ background: "#fffbeb", border: "1.5px solid #fde68a", borderRadius: 10, padding: "10px 12px", marginBottom: 8 }}>
+                  <div style={{ background: "var(--tint-amber-1)", border: "1.5px solid #fde68a", borderRadius: 10, padding: "10px 12px", marginBottom: 8 }}>
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
                       {QC_PRESET_ITEMS.map(item => {
                         const on = annQcItems.includes(item);
                         return (
                           <button key={item} type="button"
                             onClick={() => setAnnQcItems(arr => on ? arr.filter(x => x !== item) : [...arr, item])}
-                            style={{ fontSize: "0.72rem", padding: "4px 10px", borderRadius: 16, border: on ? "1.5px solid #f59e0b" : "1.5px solid #fde68a", background: on ? "#f59e0b" : "#fff", color: on ? "#fff" : "#92400e", cursor: "pointer", fontWeight: on ? 700 : 400, transition: "all 0.12s" }}>
+                            style={{ fontSize: "0.72rem", padding: "4px 10px", borderRadius: 16, border: on ? "1.5px solid #f59e0b" : "1.5px solid #fde68a", background: on ? "#f59e0b" : "#fff", color: on ? "#fff" : "var(--tx-amber)", cursor: "pointer", fontWeight: on ? 700 : 400, transition: "all 0.12s" }}>
                             {on ? "✓ " : ""}{item}
                           </button>
                         );
@@ -20321,7 +20321,7 @@ function MessagingPanel({ currentUser, onBack, notifItems, onNotifDismiss, onNot
                       <button type="button" onClick={() => { if (annQcCustom.trim()) { setAnnQcItems(a => [...a, annQcCustom.trim()]); setAnnQcCustom(""); } }}
                         style={{ background: "#f59e0b", color: "#fff", border: "none", borderRadius: 8, padding: "0 10px", fontWeight: 700, fontSize: "0.78rem", cursor: "pointer" }}>Add</button>
                     </div>
-                    {annQcItems.length > 0 && <div style={{ marginTop: 6, fontSize: "0.7rem", color: "#92400e" }}>⚡ {annQcItems.length} item{annQcItems.length > 1 ? "s" : ""} selected</div>}
+                    {annQcItems.length > 0 && <div style={{ marginTop: 6, fontSize: "0.7rem", color: "var(--tx-amber)" }}>⚡ {annQcItems.length} item{annQcItems.length > 1 ? "s" : ""} selected</div>}
                   </div>
                 )}
                 <button
@@ -20347,13 +20347,13 @@ function MessagingPanel({ currentUser, onBack, notifItems, onNotifDismiss, onNot
                   return (
                     <div key={a.id} style={{ margin: "10px", borderRadius: 12, overflow: "hidden", border: isQC ? "2px solid #f59e0b" : "1px solid #f1f5f9", boxShadow: isQC ? "0 2px 12px rgba(245,158,11,0.15)" : "0 1px 4px rgba(0,0,0,0.05)", animation: "fadeInUp 0.2s ease" }}>
                       {/* Header */}
-                      <div style={{ padding: "0.75rem 1rem", background: isQC ? "#fffbeb" : "#fff", display: "flex", alignItems: "flex-start", gap: 10 }}>
-                        <div style={{ width: 36, height: 36, borderRadius: "50%", background: isQC ? "#fef3c7" : "#f1f5f9", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.1rem", flexShrink: 0 }}>
+                      <div style={{ padding: "0.75rem 1rem", background: isQC ? "var(--tint-amber-1)" : "#fff", display: "flex", alignItems: "flex-start", gap: 10 }}>
+                        <div style={{ width: 36, height: 36, borderRadius: "50%", background: isQC ? "var(--tint-amber-2)" : "#f1f5f9", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.1rem", flexShrink: 0 }}>
                           {isQC ? "⚡" : "📢"}
                         </div>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 6 }}>
-                            <span style={{ fontWeight: 700, fontSize: "0.88rem", color: isQC ? "#92400e" : "var(--ink-900)" }}>{a.title}</span>
+                            <span style={{ fontWeight: 700, fontSize: "0.88rem", color: isQC ? "var(--tx-amber)" : "var(--ink-900)" }}>{a.title}</span>
                             <span style={{ fontSize: "0.68rem", color: "var(--ink-400)", flexShrink: 0 }}>{fmtTime(a.ts)}</span>
                           </div>
                           <div style={{ fontSize: "0.82rem", color: "var(--ink-700)", lineHeight: 1.5, marginTop: 2 }}>{a.body}</div>
@@ -20366,10 +20366,10 @@ function MessagingPanel({ currentUser, onBack, notifItems, onNotifDismiss, onNot
                       {/* Quick Check items & CTA */}
                       {isQC && (
                         <div style={{ background: "var(--surface-1)", borderTop: "1px solid #fde68a", padding: "0.75rem 1rem" }}>
-                          <div style={{ fontSize: "0.72rem", fontWeight: 700, color: "#92400e", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>Items to inspect:</div>
+                          <div style={{ fontSize: "0.72rem", fontWeight: 700, color: "var(--tx-amber)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>Items to inspect:</div>
                           <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginBottom: 10 }}>
                             {a.checkItems.map(item => (
-                              <span key={item} style={{ fontSize: "0.72rem", padding: "3px 9px", borderRadius: 16, background: "#fef3c7", color: "#92400e", border: "1px solid #fde68a", fontWeight: 600 }}>
+                              <span key={item} style={{ fontSize: "0.72rem", padding: "3px 9px", borderRadius: 16, background: "var(--tint-amber-2)", color: "var(--tx-amber)", border: "1px solid #fde68a", fontWeight: 600 }}>
                                 {myResult ? (myResult.answers[item] === "FAIL" ? "❌ " : myResult.answers[item] === "OK" ? "✅ " : "○ ") : ""}
                                 {item}
                               </span>
@@ -20377,7 +20377,7 @@ function MessagingPanel({ currentUser, onBack, notifItems, onNotifDismiss, onNot
                           </div>
                           {/* Response / result area */}
                           {myResult ? (
-                            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", borderRadius: 8, background: myResult.pass ? "#f0fdf4" : "#fef2f2", border: `1px solid ${myResult.pass ? "#86efac" : "#fca5a5"}` }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", borderRadius: 8, background: myResult.pass ? "var(--tint-green-1)" : "var(--tint-red-1)", border: `1px solid ${myResult.pass ? "#86efac" : "#fca5a5"}` }}>
                               <span style={{ fontSize: "1rem" }}>{myResult.pass ? "✅" : "❌"}</span>
                               <span style={{ fontSize: "0.78rem", fontWeight: 700, color: myResult.pass ? "#15803d" : "#dc2626" }}>
                                 {myResult.pass ? "Completed — All clear" : "Completed — Issues found"}
@@ -20434,7 +20434,7 @@ function MessagingPanel({ currentUser, onBack, notifItems, onNotifDismiss, onNot
                   const ans = qcAnswers[item] || "";
                   const isFail = ans === "FAIL";
                   return (
-                    <div key={item} style={{ marginBottom: 12, background: isFail ? "#fef2f2" : ans === "OK" ? "#f0fdf4" : "#f8fafc", borderRadius: 10, border: isFail ? "1.5px solid #fca5a5" : ans === "OK" ? "1.5px solid #86efac" : "1.5px solid #e2e8f0", padding: "0.75rem 0.9rem", transition: "all 0.15s" }}>
+                    <div key={item} style={{ marginBottom: 12, background: isFail ? "var(--tint-red-1)" : ans === "OK" ? "var(--tint-green-1)" : "#f8fafc", borderRadius: 10, border: isFail ? "1.5px solid #fca5a5" : ans === "OK" ? "1.5px solid #86efac" : "1.5px solid #e2e8f0", padding: "0.75rem 0.9rem", transition: "all 0.15s" }}>
                       <div style={{ fontWeight: 700, fontSize: "0.88rem", color: "var(--ink-900)", marginBottom: 8 }}>{item}</div>
                       <div style={{ display: "flex", gap: 8, marginBottom: isFail ? 8 : 0 }}>
                         <button type="button"
@@ -22483,11 +22483,11 @@ export default function App() {
         if (mySlots.length === 0) return null;
         const doneCount = mySlots.filter(s => completedSlots.includes(s.id)).length;
         return (
-          <div style={{ background: "#eff6ff", borderBottom: "2px solid #3b82f6", padding: "0.75rem 1.25rem" }}>
+          <div style={{ background: "var(--tint-blue-1)", borderBottom: "2px solid #3b82f6", padding: "0.75rem 1.25rem" }}>
             <div style={{ fontWeight: 700, fontSize: "0.88rem", color: "#1e40af", marginBottom: 6, display: "flex", alignItems: "center", gap: 8 }}>
               📋 Your Assigned Inspections
               {doneCount > 0 && (
-                <span style={{ fontSize: "0.75rem", fontWeight: 600, background: "#dcfce7", color: "#15803d", borderRadius: 20, padding: "1px 9px", border: "1px solid #86efac" }}>
+                <span style={{ fontSize: "0.75rem", fontWeight: 600, background: "var(--tint-green-2)", color: "#15803d", borderRadius: 20, padding: "1px 9px", border: "1px solid #86efac" }}>
                   {doneCount}/{mySlots.length} done
                 </span>
               )}
@@ -22496,7 +22496,7 @@ export default function App() {
               {mySlots.map(slot => {
                 const isDone = completedSlots.includes(slot.id);
                 return (
-                  <div key={slot.id} style={{ display: "flex", gap: 10, alignItems: "flex-start", background: isDone ? "#f0fdf4" : "#fff", border: `1px solid ${isDone ? "#86efac" : "#bfdbfe"}`, borderRadius: 8, padding: "7px 10px", opacity: isDone ? 0.75 : 1, transition: "all 0.15s" }}>
+                  <div key={slot.id} style={{ display: "flex", gap: 10, alignItems: "flex-start", background: isDone ? "var(--tint-green-1)" : "#fff", border: `1px solid ${isDone ? "#86efac" : "#bfdbfe"}`, borderRadius: 8, padding: "7px 10px", opacity: isDone ? 0.75 : 1, transition: "all 0.15s" }}>
                     {/* Checkbox */}
                     <button
                       type="button"
@@ -22516,7 +22516,7 @@ export default function App() {
                       {isDone ? "✓" : ""}
                     </button>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontWeight: 700, fontSize: "0.84rem", color: isDone ? "#15803d" : "#1e3a8a", textDecoration: isDone ? "line-through" : "none" }}>
+                      <div style={{ fontWeight: 700, fontSize: "0.84rem", color: isDone ? "#15803d" : "var(--tx-blue)", textDecoration: isDone ? "line-through" : "none" }}>
                         {slot.date ? new Date(slot.date + "T12:00:00").toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }) : "—"}
                       </div>
                       <div style={{ fontSize: "0.8rem", color: "var(--ink-700)", marginTop: 2 }}>
@@ -22602,13 +22602,13 @@ export default function App() {
         const overdueDays = daysSince - interval;
         return (
           <div style={{
-            background: overdueDays > 0 ? "#fef2f2" : "#fffbeb",
+            background: overdueDays > 0 ? "var(--tint-red-1)" : "var(--tint-amber-1)",
             borderBottom: `3px solid ${overdueDays > 0 ? "#dc2626" : "#f59e0b"}`,
             padding: "0.7rem 1.25rem",
             display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap",
           }}>
             <span style={{ fontSize: "1.2rem" }}>{overdueDays > 0 ? "🔴" : "🟡"}</span>
-            <span style={{ flex: 1, fontWeight: 700, fontSize: "0.92rem", color: overdueDays > 0 ? "#991b1b" : "#92400e" }}>
+            <span style={{ flex: 1, fontWeight: 700, fontSize: "0.92rem", color: overdueDays > 0 ? "#991b1b" : "var(--tx-amber)" }}>
               {overdueDays > 0
                 ? `Inspection overdue by ${overdueDays} day${overdueDays !== 1 ? "s" : ""}`
                 : "Inspection due today"}
@@ -22716,12 +22716,12 @@ export default function App() {
               ) : (
                 <div style={{
                   width: "100%", padding: "0.55rem 1rem", borderRadius: 10,
-                  background: "#f0fdf4", border: "1.5px solid #86efac",
+                  background: "var(--tint-green-1)", border: "1.5px solid #86efac",
                   display: "flex", alignItems: "center", gap: 8, fontSize: "0.85rem",
                   color: "#15803d", fontWeight: 600,
                 }}>
                   ✅ On-site timer running
-                  <span style={{ fontWeight: 400, fontSize: "0.78rem", color: "#166534" }}>
+                  <span style={{ fontWeight: 400, fontSize: "0.78rem", color: "var(--tx-green)" }}>
                     — started at {new Date(inspectionStartedAt.current).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                   </span>
                   <button
@@ -22866,7 +22866,7 @@ export default function App() {
                   style={{
                     textTransform: "uppercase",
                     opacity: restaurantLicense === "NO LICENSE" ? 0.55 : 1,
-                    background: restaurantLicense === "NO LICENSE" ? "#fef2f2" : undefined,
+                    background: restaurantLicense === "NO LICENSE" ? "var(--tint-red-1)" : undefined,
                     color: restaurantLicense === "NO LICENSE" ? "#991b1b" : undefined,
                   }}
                 />
@@ -22879,7 +22879,7 @@ export default function App() {
                   style={{
                     marginTop: 7,
                     display: "flex", alignItems: "center", gap: 6,
-                    background: restaurantLicense === "NO LICENSE" ? "#fef2f2" : "#f8fafc",
+                    background: restaurantLicense === "NO LICENSE" ? "var(--tint-red-1)" : "#f8fafc",
                     border: restaurantLicense === "NO LICENSE" ? "1.5px solid #fca5a5" : "1.5px solid #e2e8f0",
                     borderRadius: 8, padding: "0.42rem 0.85rem",
                     fontSize: "0.78rem", fontWeight: 700,
@@ -22899,7 +22899,7 @@ export default function App() {
                   <div style={{
                     display: "flex", alignItems: "center", gap: 6,
                     marginTop: 6, padding: "0.45rem 0.75rem",
-                    background: "#fef2f2", border: "1px solid #fca5a5",
+                    background: "var(--tint-red-1)", border: "1px solid #fca5a5",
                     borderRadius: 8, fontSize: "0.78rem", color: "#991b1b", fontWeight: 600,
                   }}>
                     <span style={{ fontSize: "0.85rem" }}>🚩</span>
@@ -22927,7 +22927,7 @@ export default function App() {
                 <label className="field" id="field-eventName" style={{ gridColumn: "1 / -1" }}>
                   <span className="fieldLabel">
                     Event Name <span style={{ color: "#ef4444", fontWeight: 700 }}>*</span>
-                    <span style={{ marginLeft: 6, fontSize: "0.72rem", background: "#eff6ff", color: "#1d4ed8", padding: "1px 7px", borderRadius: 20, fontWeight: 600 }}>Event Day only</span>
+                    <span style={{ marginLeft: 6, fontSize: "0.72rem", background: "var(--tint-blue-1)", color: "#1d4ed8", padding: "1px 7px", borderRadius: 20, fontWeight: 600 }}>Event Day only</span>
                   </span>
                   <input className="input" value={eventName} onChange={(e) => setEventName(e.target.value)} placeholder="e.g., Super Bowl LVIII, UFC 305" autoFocus={false} />
                 </label>
@@ -22999,27 +22999,27 @@ export default function App() {
                 const urgentCount = suppliesNeeded.filter(s => s.urgent && s.item.trim()).length;
                 const insightColors = {
                   warn: { bg: "#fff7ed", border: "#fdba74", text: "#c2410c", icon: "⚠️" },
-                  info: { bg: "#eff6ff", border: "#93c5fd", text: "#1d4ed8", icon: "📋" },
-                  tip:  { bg: "#f0fdf4", border: "#86efac", text: "#15803d", icon: "💡" },
+                  info: { bg: "var(--tint-blue-1)", border: "#93c5fd", text: "#1d4ed8", icon: "📋" },
+                  tip:  { bg: "var(--tint-green-1)", border: "#86efac", text: "#15803d", icon: "💡" },
                 };
                 return (
                   <div id="supplies-section" style={{
                     order: _suppliesOrder,
                     border: `2px solid ${urgentCount > 0 ? "#f97316" : suppliesNeeded.some(s => s.item.trim()) ? "#fbbf24" : "#DDE1E8"}`,
                     borderRadius: 12, padding: "14px 16px",
-                    background: urgentCount > 0 ? "#fff7ed" : suppliesNeeded.some(s => s.item.trim()) ? "#fffbeb" : "#F7F8FA",
+                    background: urgentCount > 0 ? "#fff7ed" : suppliesNeeded.some(s => s.item.trim()) ? "var(--tint-amber-1)" : "#F7F8FA",
                     marginTop: 10,
                     boxShadow: urgentCount > 0 ? "0 0 0 3px rgba(249,115,22,0.12)" : "none",
                   }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
                       <span style={{ fontWeight: 800, fontSize: "1rem", color: urgentCount > 0 ? "#c2410c" : "var(--sdx-navy)" }}>🧴 Supplies Needed</span>
                       {urgentCount > 0 && (
-                        <span style={{ background: "#fee2e2", color: "#dc2626", borderRadius: 10, padding: "1px 8px", fontSize: "0.75rem", fontWeight: 700 }}>
+                        <span style={{ background: "var(--tint-red-2)", color: "#dc2626", borderRadius: 10, padding: "1px 8px", fontSize: "0.75rem", fontWeight: 700 }}>
                           {urgentCount} urgent
                         </span>
                       )}
                       {suppliesNeeded.filter(s => s.item.trim()).length > 0 && urgentCount === 0 && (
-                        <span style={{ background: "#fef3c7", color: "#92400e", borderRadius: 10, padding: "1px 8px", fontSize: "0.75rem", fontWeight: 700 }}>
+                        <span style={{ background: "var(--tint-amber-2)", color: "var(--tx-amber)", borderRadius: 10, padding: "1px 8px", fontSize: "0.75rem", fontWeight: 700 }}>
                           {suppliesNeeded.filter(s => s.item.trim()).length} item{suppliesNeeded.filter(s => s.item.trim()).length !== 1 ? "s" : ""}
                         </span>
                       )}
@@ -23057,14 +23057,14 @@ export default function App() {
                                 type="button"
                                 title={s.urgent ? "Mark as normal" : "Mark as urgent"}
                                 onClick={() => setSuppliesNeeded(prev => prev.map((x, i) => i === idx ? { ...x, urgent: !x.urgent } : x))}
-                                style={{ flex: 1, padding: "6px 10px", borderRadius: 8, border: `1px solid ${s.urgent ? "#fca5a5" : "#e5e7eb"}`, background: s.urgent ? "#fee2e2" : "#f9fafb", cursor: "pointer", fontSize: "0.78rem", fontWeight: 700, color: s.urgent ? "#dc2626" : "#9ca3af" }}
+                                style={{ flex: 1, padding: "6px 10px", borderRadius: 8, border: `1px solid ${s.urgent ? "#fca5a5" : "#e5e7eb"}`, background: s.urgent ? "var(--tint-red-2)" : "var(--surface-2)", cursor: "pointer", fontSize: "0.78rem", fontWeight: 700, color: s.urgent ? "#dc2626" : "#9ca3af" }}
                               >
                                 {s.urgent ? "🔴 Urgent" : "Urgent?"}
                               </button>
                               <button
                                 type="button"
                                 onClick={() => setSuppliesNeeded(prev => prev.filter((_, i) => i !== idx))}
-                                style={{ flexShrink: 0, padding: "6px 9px", borderRadius: 8, border: "1px solid #e5e7eb", background: "#f9fafb", cursor: "pointer", color: "#9ca3af", fontSize: "1rem", lineHeight: 1 }}
+                                style={{ flexShrink: 0, padding: "6px 9px", borderRadius: 8, border: "1px solid #e5e7eb", background: "var(--surface-2)", cursor: "pointer", color: "#9ca3af", fontSize: "1rem", lineHeight: 1 }}
                                 title="Remove"
                               >×</button>
                             </div>
@@ -23085,7 +23085,7 @@ export default function App() {
                         ensureSupplyHistory();
                         setSuppliesNeeded(prev => [...prev, { id: `${Date.now()}_${Math.random().toString(36).slice(2, 6)}`, item: "", qty: "", urgent: false }]);
                       }}
-                      style={{ marginTop: 2, padding: "6px 14px", borderRadius: 8, border: "1px dashed #d1d5db", background: "#fafafa", cursor: "pointer", fontSize: "0.82rem", color: "#6b7280", fontWeight: 600 }}
+                      style={{ marginTop: 2, padding: "6px 14px", borderRadius: 8, border: "1px dashed #d1d5db", background: "var(--surface-2)", cursor: "pointer", fontSize: "0.82rem", color: "#6b7280", fontWeight: 600 }}
                     >
                       + Add Supply Item
                     </button>
@@ -23118,7 +23118,7 @@ export default function App() {
                         </span>
                       </label>
                       {inspection.temps.handSinkOutOfOrder ? (
-                        <div style={{ background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: 8, padding: "10px 12px", marginBottom: 6 }}>
+                        <div style={{ background: "var(--tint-red-1)", border: "1px solid #fca5a5", borderRadius: 8, padding: "10px 12px", marginBottom: 6 }}>
                           <div style={{ fontWeight: 700, color: "#dc2626", fontSize: "0.85rem", marginBottom: 4 }}>⚠️ Hand sink flagged as out of order</div>
                           <textarea className="input" rows={2} placeholder="Describe the issue (required)"
                             value={inspection.temps.handSinkNote || ""}
@@ -23156,7 +23156,7 @@ export default function App() {
                                     </button>
                                   )}
                                   {isSubmitted && canSubmit && (
-                                    <span style={{ fontSize: "0.75rem", fontWeight: 700, padding: "3px 10px", borderRadius: 8, background: !isFlagged ? "#dcfce7" : "#fee2e2", color: !isFlagged ? "#15803d" : "#dc2626" }}>
+                                    <span style={{ fontSize: "0.75rem", fontWeight: 700, padding: "3px 10px", borderRadius: 8, background: !isFlagged ? "var(--tint-green-2)" : "var(--tint-red-2)", color: !isFlagged ? "#15803d" : "#dc2626" }}>
                                       {!isFlagged ? "\u2713 OK" : "\u26a0 Flag"}
                                     </span>
                                   )}
@@ -23197,7 +23197,7 @@ export default function App() {
                         </span>
                       </label>
                       {inspection.temps.threeCompSinkOutOfOrder ? (
-                        <div style={{ background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: 8, padding: "10px 12px", marginBottom: 6 }}>
+                        <div style={{ background: "var(--tint-red-1)", border: "1px solid #fca5a5", borderRadius: 8, padding: "10px 12px", marginBottom: 6 }}>
                           <div style={{ fontWeight: 700, color: "#dc2626", fontSize: "0.85rem", marginBottom: 4 }}>⚠️ 3-Comp sink flagged as out of order</div>
                           <textarea className="input" rows={2} placeholder="Describe the issue (required)"
                             value={inspection.temps.threeCompSinkNote || ""}
@@ -23235,7 +23235,7 @@ export default function App() {
                                     </button>
                                   )}
                                   {isSubmitted && canSubmit && (
-                                    <span style={{ fontSize: "0.75rem", fontWeight: 700, padding: "3px 10px", borderRadius: 8, background: !isFlagged ? "#dcfce7" : "#fee2e2", color: !isFlagged ? "#15803d" : "#dc2626" }}>
+                                    <span style={{ fontSize: "0.75rem", fontWeight: 700, padding: "3px 10px", borderRadius: 8, background: !isFlagged ? "var(--tint-green-2)" : "var(--tint-red-2)", color: !isFlagged ? "#15803d" : "#dc2626" }}>
                                       {!isFlagged ? "\u2713 OK" : "\u26a0 Flag"}
                                     </span>
                                   )}
@@ -23525,7 +23525,7 @@ export default function App() {
                               <span className="tempUnit">°F</span>
                             </div>
                             {isSubmitted && pass !== null && (
-                              <span style={{ fontSize: "0.75rem", fontWeight: 700, minWidth: 56, textAlign: "center", padding: "3px 8px", borderRadius: 6, background: pass ? "#dcfce7" : "#fee2e2", color: pass ? "#15803d" : "#dc2626", flexShrink: 0 }}>
+                              <span style={{ fontSize: "0.75rem", fontWeight: 700, minWidth: 56, textAlign: "center", padding: "3px 8px", borderRadius: 6, background: pass ? "var(--tint-green-2)" : "var(--tint-red-2)", color: pass ? "#15803d" : "#dc2626", flexShrink: 0 }}>
                                 {pass ? "✓ OK" : "⚠ Flag"}
                               </span>
                             )}
@@ -23596,9 +23596,9 @@ export default function App() {
                       {/* All cooking types grouped into one block */}
                       {(() => {
                         const cookingMeta = {
-                          cookingPoultry:    { emoji: "🐔", color: "#d97706", bg: "#fffbeb", border: "#fde68a", badge: "#92400e" },
-                          cookingGroundMeat: { emoji: "🥩", color: "#dc2626", bg: "#fff5f5", border: "#fecaca", badge: "#7f1d1d" },
-                          cookingWholeCuts:  { emoji: "🥩", color: "#b45309", bg: "#fffbeb", border: "#fde68a", badge: "#78350f" },
+                          cookingPoultry:    { emoji: "🐔", color: "#d97706", bg: "var(--tint-amber-1)", border: "#fde68a", badge: "var(--tx-amber)" },
+                          cookingGroundMeat: { emoji: "🥩", color: "#dc2626", bg: "#fff5f5", border: "#fecaca", badge: "var(--tx-red-strong)" },
+                          cookingWholeCuts:  { emoji: "🥩", color: "#b45309", bg: "var(--tint-amber-1)", border: "#fde68a", badge: "var(--tx-amber-strong)" },
                           cookingSeafood:    { emoji: "🐟", color: "#0e7490", bg: "#f0fdfa", border: "#99f6e4", badge: "#134e4a" },
                         };
                         return (
@@ -23610,7 +23610,7 @@ export default function App() {
                             </div>
                             <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
                               {cookingItems.map((item, ci) => {
-                                const m = cookingMeta[item.key] || { emoji: "🔥", color: "#b91c1c", bg: "#fff5f5", border: "#fecaca", badge: "#7f1d1d" };
+                                const m = cookingMeta[item.key] || { emoji: "🔥", color: "#b91c1c", bg: "#fff5f5", border: "#fecaca", badge: "var(--tx-red-strong)" };
                                 return (
                                   <div key={item.key} style={{ background: m.bg, borderBottom: ci < cookingItems.length - 1 ? `1px solid ${m.border}` : "none", padding: "8px 12px" }}>
                                     <div style={{ display: "flex", alignItems: "center", marginBottom: 6, gap: 6 }}>
@@ -23762,9 +23762,9 @@ export default function App() {
 
               {/* ── Smart Field Detection Banner ─────────────────────────── */}
               {notesSuggestions && !suggestionsDismissed && (
-                <div style={{ marginTop: 8, background: "#fffbeb", border: "1px solid #f59e0b", borderRadius: 10, padding: "10px 14px" }}>
+                <div style={{ marginTop: 8, background: "var(--tint-amber-1)", border: "1px solid #f59e0b", borderRadius: 10, padding: "10px 14px" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 700, fontSize: "0.82rem", color: "#92400e" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 700, fontSize: "0.82rem", color: "var(--tx-amber)" }}>
                       <span>🔍</span>
                       <span>Fields detected in your notes — apply them to the form?</span>
                     </div>
@@ -23778,8 +23778,8 @@ export default function App() {
                   <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 6 }}>
                     {notesSuggestions.restaurantLicense && (
                       <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "0.8rem" }}>
-                        <span style={{ color: "#78350f", minWidth: 90, fontWeight: 600 }}>LICENSE:</span>
-                        <span style={{ flex: 1, color: "#451a03", fontFamily: "monospace", background: "#fef3c7", padding: "2px 6px", borderRadius: 4 }}>
+                        <span style={{ color: "var(--tx-amber-strong)", minWidth: 90, fontWeight: 600 }}>LICENSE:</span>
+                        <span style={{ flex: 1, color: "var(--tx-amber-strong)", fontFamily: "monospace", background: "var(--tint-amber-2)", padding: "2px 6px", borderRadius: 4 }}>
                           {notesSuggestions.restaurantLicense.value}
                         </span>
                         <button
@@ -23788,14 +23788,14 @@ export default function App() {
                             setRestaurantLicense(notesSuggestions.restaurantLicense.value);
                             setNotesSuggestions(prev => { const n = { ...prev }; delete n.restaurantLicense; return Object.keys(n).length ? n : null; });
                           }}
-                          style={{ padding: "3px 10px", borderRadius: 6, border: "1px solid #f59e0b", background: "#fef3c7", cursor: "pointer", fontWeight: 700, fontSize: "0.78rem", color: "#92400e", whiteSpace: "nowrap" }}
+                          style={{ padding: "3px 10px", borderRadius: 6, border: "1px solid #f59e0b", background: "var(--tint-amber-2)", cursor: "pointer", fontWeight: 700, fontSize: "0.78rem", color: "var(--tx-amber)", whiteSpace: "nowrap" }}
                         >Apply</button>
                       </div>
                     )}
                     {notesSuggestions.supervisorName && (
                       <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "0.8rem" }}>
-                        <span style={{ color: "#78350f", minWidth: 90, fontWeight: 600 }}>Supervisor:</span>
-                        <span style={{ flex: 1, color: "#451a03", background: "#fef3c7", padding: "2px 6px", borderRadius: 4 }}>
+                        <span style={{ color: "var(--tx-amber-strong)", minWidth: 90, fontWeight: 600 }}>Supervisor:</span>
+                        <span style={{ flex: 1, color: "var(--tx-amber-strong)", background: "var(--tint-amber-2)", padding: "2px 6px", borderRadius: 4 }}>
                           {notesSuggestions.supervisorName.value}
                         </span>
                         <button
@@ -23804,14 +23804,14 @@ export default function App() {
                             setSupervisorName(notesSuggestions.supervisorName.value);
                             setNotesSuggestions(prev => { const n = { ...prev }; delete n.supervisorName; return Object.keys(n).length ? n : null; });
                           }}
-                          style={{ padding: "3px 10px", borderRadius: 6, border: "1px solid #f59e0b", background: "#fef3c7", cursor: "pointer", fontWeight: 700, fontSize: "0.78rem", color: "#92400e", whiteSpace: "nowrap" }}
+                          style={{ padding: "3px 10px", borderRadius: 6, border: "1px solid #f59e0b", background: "var(--tint-amber-2)", cursor: "pointer", fontWeight: 700, fontSize: "0.78rem", color: "var(--tx-amber)", whiteSpace: "nowrap" }}
                         >Apply</button>
                       </div>
                     )}
                     {notesSuggestions.inspectorName && (
                       <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "0.8rem" }}>
-                        <span style={{ color: "#78350f", minWidth: 90, fontWeight: 600 }}>Inspector:</span>
-                        <span style={{ flex: 1, color: "#451a03", background: "#fef3c7", padding: "2px 6px", borderRadius: 4 }}>
+                        <span style={{ color: "var(--tx-amber-strong)", minWidth: 90, fontWeight: 600 }}>Inspector:</span>
+                        <span style={{ flex: 1, color: "var(--tx-amber-strong)", background: "var(--tint-amber-2)", padding: "2px 6px", borderRadius: 4 }}>
                           {notesSuggestions.inspectorName.value}
                         </span>
                         <button
@@ -23820,14 +23820,14 @@ export default function App() {
                             setInspectorName(notesSuggestions.inspectorName.value);
                             setNotesSuggestions(prev => { const n = { ...prev }; delete n.inspectorName; return Object.keys(n).length ? n : null; });
                           }}
-                          style={{ padding: "3px 10px", borderRadius: 6, border: "1px solid #f59e0b", background: "#fef3c7", cursor: "pointer", fontWeight: 700, fontSize: "0.78rem", color: "#92400e", whiteSpace: "nowrap" }}
+                          style={{ padding: "3px 10px", borderRadius: 6, border: "1px solid #f59e0b", background: "var(--tint-amber-2)", cursor: "pointer", fontWeight: 700, fontSize: "0.78rem", color: "var(--tx-amber)", whiteSpace: "nowrap" }}
                         >Apply</button>
                       </div>
                     )}
                     {notesSuggestions.siteName && (
                       <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "0.8rem" }}>
-                        <span style={{ color: "#78350f", minWidth: 90, fontWeight: 600 }}>Site Name:</span>
-                        <span style={{ flex: 1, color: "#451a03", background: "#fef3c7", padding: "2px 6px", borderRadius: 4 }}>
+                        <span style={{ color: "var(--tx-amber-strong)", minWidth: 90, fontWeight: 600 }}>Site Name:</span>
+                        <span style={{ flex: 1, color: "var(--tx-amber-strong)", background: "var(--tint-amber-2)", padding: "2px 6px", borderRadius: 4 }}>
                           {notesSuggestions.siteName.value}
                         </span>
                         <button
@@ -23836,14 +23836,14 @@ export default function App() {
                             setSiteName(notesSuggestions.siteName.value);
                             setNotesSuggestions(prev => { const n = { ...prev }; delete n.siteName; return Object.keys(n).length ? n : null; });
                           }}
-                          style={{ padding: "3px 10px", borderRadius: 6, border: "1px solid #f59e0b", background: "#fef3c7", cursor: "pointer", fontWeight: 700, fontSize: "0.78rem", color: "#92400e", whiteSpace: "nowrap" }}
+                          style={{ padding: "3px 10px", borderRadius: 6, border: "1px solid #f59e0b", background: "var(--tint-amber-2)", cursor: "pointer", fontWeight: 700, fontSize: "0.78rem", color: "var(--tx-amber)", whiteSpace: "nowrap" }}
                         >Apply</button>
                       </div>
                     )}
                     {notesSuggestions.siteNumber && (
                       <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "0.8rem" }}>
-                        <span style={{ color: "#78350f", minWidth: 90, fontWeight: 600 }}>Site #:</span>
-                        <span style={{ flex: 1, color: "#451a03", fontFamily: "monospace", background: "#fef3c7", padding: "2px 6px", borderRadius: 4 }}>
+                        <span style={{ color: "var(--tx-amber-strong)", minWidth: 90, fontWeight: 600 }}>Site #:</span>
+                        <span style={{ flex: 1, color: "var(--tx-amber-strong)", fontFamily: "monospace", background: "var(--tint-amber-2)", padding: "2px 6px", borderRadius: 4 }}>
                           {notesSuggestions.siteNumber.value}
                         </span>
                         <button
@@ -23852,7 +23852,7 @@ export default function App() {
                             setSiteNumber(notesSuggestions.siteNumber.value);
                             setNotesSuggestions(prev => { const n = { ...prev }; delete n.siteNumber; return Object.keys(n).length ? n : null; });
                           }}
-                          style={{ padding: "3px 10px", borderRadius: 6, border: "1px solid #f59e0b", background: "#fef3c7", cursor: "pointer", fontWeight: 700, fontSize: "0.78rem", color: "#92400e", whiteSpace: "nowrap" }}
+                          style={{ padding: "3px 10px", borderRadius: 6, border: "1px solid #f59e0b", background: "var(--tint-amber-2)", cursor: "pointer", fontWeight: 700, fontSize: "0.78rem", color: "var(--tx-amber)", whiteSpace: "nowrap" }}
                         >Apply</button>
                       </div>
                     )}
@@ -24063,7 +24063,7 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => setModals(m => ({ ...m, preSubmit: false }))}
-                style={{ flex: 1, padding: "10px 0", borderRadius: 10, border: "1px solid #e5e7eb", background: "#f9fafb", fontWeight: 700, fontSize: "0.88rem", cursor: "pointer", color: "#374151" }}
+                style={{ flex: 1, padding: "10px 0", borderRadius: 10, border: "1px solid #e5e7eb", background: "var(--surface-2)", fontWeight: 700, fontSize: "0.88rem", cursor: "pointer", color: "#374151" }}
               >
                 Go Back &amp; Complete
               </button>

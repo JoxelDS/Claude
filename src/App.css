@@ -7009,3 +7009,21 @@ html[data-theme="black"] .cardHeader {
 }
 html[data-theme="black"] .adminCard .cardHeader { background: linear-gradient(180deg, #1C1C24 0%, #15151A 100%); }
 html[data-theme="black"] .guideSectionTitle { color: #D8DAE6; }
+
+/* ── Status tint tokens: light defaults, dark-mode equivalents ── */
+:root {
+  --tint-amber-1: #fffbeb; --tint-amber-2: #fef3c7;
+  --tx-amber: #92400e;     --tx-amber-strong: #78350f;
+  --tint-blue-1: #eff6ff;  --tint-blue-2: #dbeafe;  --tint-sky-1: #f0f9ff;
+  --tx-blue: #1e3a8a;
+  --tint-green-1: #f0fdf4; --tint-green-2: #dcfce7; --tx-green: #14532d;
+  --tint-red-1: #fef2f2;   --tint-red-2: #fee2e2;   --tx-red-strong: #7f1d1d;
+}
+html[data-theme="black"] {
+  --tint-amber-1: #211B0E; --tint-amber-2: #2B2313;
+  --tx-amber: #EFC367;     --tx-amber-strong: #F0D08A;
+  --tint-blue-1: #131A28;  --tint-blue-2: #1A2438;  --tint-sky-1: #10202C;
+  --tx-blue: #9DB8F5;
+  --tint-green-1: #0F2018; --tint-green-2: #163325; --tx-green: #7FD8A5;
+  --tint-red-1: #241214;   --tint-red-2: #33191C;   --tx-red-strong: #F5A3A3;
+}
