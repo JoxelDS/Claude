@@ -6940,3 +6940,59 @@ html[data-theme="black"] .card .btnGhost {
   background: #1C1C22; color: #C9CDDC; border-color: #2F2F3A;
 }
 html[data-theme="black"] ::-webkit-scrollbar-thumb { background: rgba(255,255,255,.18); background-clip: content-box; border: 2px solid transparent; }
+
+/* ══════════════════════════════════════════════════════════════
+   MENU REDESIGN — theme-aware dropdown, app-grade
+   ══════════════════════════════════════════════════════════════ */
+.dropdownMenu {
+  min-width: 250px;
+  top: calc(100% + 8px);
+  right: 8px;
+  background: linear-gradient(160deg, var(--sdx-navy) 0%, var(--sdx-navy-deep) 100%);
+  border: 1px solid rgba(255,255,255,.09);
+  border-radius: 18px;
+  padding: 10px;
+  box-shadow: 0 20px 60px rgba(0,0,0,.45), 0 4px 14px rgba(0,0,0,.3);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  animation: menuPop .24s cubic-bezier(0.22, 1, 0.36, 1);
+  transform-origin: top right;
+}
+@keyframes menuPop {
+  from { opacity: 0; transform: translateY(-8px) scale(.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.dropdownMenuUser {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: rgba(255,255,255,.55);
+  padding: 10px 12px 8px;
+  border-bottom: 1px solid rgba(255,255,255,.1);
+  margin-bottom: 6px;
+}
+.dropdownMenuItem {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 11px 12px;
+  border-radius: 11px;
+  font-size: 0.88rem;
+  transition: background .15s ease, transform .15s ease, padding-left .15s ease;
+}
+.dropdownMenuItem:hover {
+  background: rgba(255,255,255,.1);
+  padding-left: 16px;
+}
+.dropdownMenuItem:active { transform: scale(.98); }
+.dropdownMenuDanger {
+  margin-top: 6px;
+  border-top: 1px solid rgba(255,255,255,.1);
+  border-radius: 0 0 11px 11px;
+  color: #FF8A8A;
+  font-weight: 700;
+}
+.dropdownMenuDanger:hover { background: rgba(238,0,0,.18); padding-left: 16px; }
+@media (max-width: 640px) {
+  .dropdownMenu { left: 8px; right: 8px; border-radius: 18px; }
+}
