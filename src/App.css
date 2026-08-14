@@ -7060,3 +7060,10 @@ html[data-theme="black"] .analyticsSubTab {
 }
 html[data-theme="black"] .historyTab { border-color: #2A2A34; }
 html[data-theme="black"] .foodSafetyRefBadge { filter: brightness(1.2); }
+
+/* Black theme: white member names + solid black footer (no color glow) */
+html[data-theme="black"] .adminUserName { color: #FFFFFF; }
+html[data-theme="black"] .footer {
+  background: #000000;
+  border-top: 1px solid #1C1C22;
+}
