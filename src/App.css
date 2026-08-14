@@ -7031,3 +7031,32 @@ html[data-theme="black"] {
 /* Black theme: history tabs + misc leftovers */
 html[data-theme="black"] .historyTab { background: #17171D; color: #C9CDDC; }
 html[data-theme="black"] .historyTab.historyTabActive { color: #fff; }
+
+/* ── Black theme: final white-patch cleanup ── */
+html[data-theme="black"] .foodSafetyRef {
+  background: var(--surface-1);
+  box-shadow: 0 4px 24px rgba(0,0,0,.5), 0 0 0 1px #23232B;
+}
+html[data-theme="black"] .foodSafetyRefToggle {
+  background: linear-gradient(135deg, #1A1A21 0%, #15151A 100%);
+  color: #ECEDF3;
+}
+html[data-theme="black"] .outputCardHeader {
+  background: linear-gradient(180deg, #1C1C24 0%, #15151A 100%);
+  border-bottom-color: #23232B;
+}
+html[data-theme="black"] .filterCard {
+  background: var(--surface-1);
+  border-color: #2A2A34;
+}
+html[data-theme="black"] .filterCard.filterCardOpen {
+  border-color: var(--sdx-navy);
+  box-shadow: 0 2px 14px rgba(0,0,0,.5);
+}
+html[data-theme="black"] .analyticsSubTab {
+  background: #17171D;
+  color: #C9CDDC;
+  border-color: #2A2A34;
+}
+html[data-theme="black"] .historyTab { border-color: #2A2A34; }
+html[data-theme="black"] .foodSafetyRefBadge { filter: brightness(1.2); }
