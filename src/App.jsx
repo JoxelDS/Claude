@@ -19735,6 +19735,29 @@ function MessagingPanel({ currentUser, onBack, notifItems, onNotifDismiss, onNot
   });
   const [annText, setAnnText] = useState("");
   const [annTitle, setAnnTitle] = useState("");
+  const [annIsQuickCheck, setAnnIsQuickCheck] = useState(false);
+  const [annQcItems, setAnnQcItems] = useState([]);
+  const [annQcCustom, setAnnQcCustom] = useState("");
+  const [quickCheckAnn, setQuickCheckAnn] = useState(null); // announcement being acted on
+  const [qcAnswers, setQcAnswers] = useState({}); // { itemLabel: "OK"|"FAIL"|"" }
+  const [qcNotes, setQcNotes] = useState({});    // { itemLabel: string }
+  const [qcSubmitting, setQcSubmitting] = useState(false);
+  const [qcDoneId, setQcDoneId] = useState(null);
+
+  const QC_PRESET_ITEMS = [
+    "Hand Sink Temperature (≥100°F)",
+    "Pest Control — Signs of Activity",
+    "Employee Hygiene & Gloves",
+    "Cold Storage Temperatures",
+    "Hot Holding Temperatures",
+    "Date Labels & FIFO",
+    "Sanitizer Concentration",
+    "Hood & Ventilation",
+    "Floor & Drain Cleanliness",
+    "Restroom Cleanliness",
+    "Waste Area & Dumpsters",
+    "Chemical Storage & Labeling",
+  ];
 
   const isAdmin = currentUser?.role === "admin" || currentUser?.role === "global_admin";
   const myName = currentUser?.name || "Me";
@@ -19776,10 +19799,39 @@ function MessagingPanel({ currentUser, onBack, notifItems, onNotifDismiss, onNot
 
   function postAnnouncement() {
     if (!annText.trim()) return;
-    const a = { id: Date.now(), title: annTitle.trim() || "Announcement", body: annText.trim(), author: myName, ts: Date.now() };
-    const updated = [a, ...announcements];
+    const items = annIsQuickCheck ? [...annQcItems, ...(annQcCustom.trim() ? [annQcCustom.trim()] : [])] : [];
+    const a = {
+      id: Date.now(),
+      title: annTitle.trim() || (annIsQuickCheck ? "⚡ Quick Check Required" : "Announcement"),
+      body: annText.trim(),
+      author: myName,
+      ts: Date.now(),
+      quickCheck: annIsQuickCheck && items.length > 0,
+      checkItems: items,
+      results: [],
+    };
+    saveAnn([a, ...announcements]);
+    setAnnText(""); setAnnTitle(""); setAnnIsQuickCheck(false); setAnnQcItems([]); setAnnQcCustom("");
+  }
+
+  function submitQuickCheck() {
+    if (!quickCheckAnn) return;
+    setQcSubmitting(true);
+    const result = {
+      inspector: myName,
+      ts: Date.now(),
+      answers: qcAnswers,
+      notes: qcNotes,
+      pass: Object.values(qcAnswers).every(v => v === "OK" || v === ""),
+    };
+    const updated = announcements.map(a => a.id === quickCheckAnn.id
+      ? { ...a, results: [...(a.results || []), result] }
+      : a
+    );
     saveAnn(updated);
-    setAnnText(""); setAnnTitle("");
+    setQcDoneId(quickCheckAnn.id);
+    setQcSubmitting(false);
+    setTimeout(() => { setQuickCheckAnn(null); setQcAnswers({}); setQcNotes({}); setQcDoneId(null); }, 1800);
   }
 
   function fmtTime(ts) {
@@ -19797,6 +19849,7 @@ function MessagingPanel({ currentUser, onBack, notifItems, onNotifDismiss, onNot
   });
   const totalUnread = msgThreads.reduce((s, t) => s + (t.unread || 0), 0);
   const notifCount = notifItems?.length || 0;
+  const pendingQcCount = announcements.filter(a => a.quickCheck && a.checkItems?.length > 0 && !(a.results || []).find(r => r.inspector === myName)).length;
 
   const TAB_STYLE = (active) => ({
     flex: 1, padding: "0.65rem 0", fontSize: "0.8rem", fontWeight: active ? 700 : 500,
@@ -19832,7 +19885,7 @@ function MessagingPanel({ currentUser, onBack, notifItems, onNotifDismiss, onNot
         {[
           { key: "messages", label: "Messages", badge: totalUnread },
           { key: "notifications", label: "Alerts", badge: notifCount },
-          { key: "announcements", label: "Announcements", badge: 0 },
+          { key: "announcements", label: "Announcements", badge: pendingQcCount },
         ].map(({ key, label, badge }) => (
           <button key={key} style={TAB_STYLE(activeTab === key)} onClick={() => { setActiveTab(key); setActiveThread(null); }}>
             {label}
@@ -20004,27 +20057,65 @@ function MessagingPanel({ currentUser, onBack, notifItems, onNotifDismiss, onNot
           <div style={{ flex: 1, background: "#fff", display: "flex", flexDirection: "column" }}>
             {isAdmin && (
               <div style={{ padding: "0.85rem 1rem", borderBottom: "1px solid #f1f5f9", background: "#f8fafc" }}>
-                <div style={{ fontWeight: 700, fontSize: "0.8rem", color: "#0f172a", marginBottom: 6 }}>📢 Post Announcement</div>
+                <div style={{ fontWeight: 700, fontSize: "0.8rem", color: "#0f172a", marginBottom: 8 }}>📢 Post Announcement</div>
                 <input
                   placeholder="Title (optional)"
                   value={annTitle}
                   onChange={e => setAnnTitle(e.target.value)}
                   style={{ width: "100%", border: "1.5px solid #e2e8f0", borderRadius: 8, padding: "0.4rem 0.6rem", fontSize: "0.82rem", marginBottom: 6, outline: "none", boxSizing: "border-box", fontFamily: "inherit" }}
                 />
-                <div style={{ display: "flex", gap: 8 }}>
-                  <textarea
-                    placeholder="Write an announcement for all team members…"
-                    value={annText}
-                    onChange={e => setAnnText(e.target.value)}
-                    rows={2}
-                    style={{ flex: 1, border: "1.5px solid #e2e8f0", borderRadius: 8, padding: "0.4rem 0.6rem", fontSize: "0.82rem", resize: "none", outline: "none", fontFamily: "inherit" }}
-                  />
-                  <button
-                    onClick={postAnnouncement}
-                    disabled={!annText.trim()}
-                    style={{ background: NAVY, color: "#fff", border: "none", borderRadius: 8, padding: "0 1rem", fontWeight: 700, fontSize: "0.82rem", cursor: annText.trim() ? "pointer" : "default", opacity: annText.trim() ? 1 : 0.4 }}
-                  >Post</button>
+                <textarea
+                  placeholder="Write your message to the team…"
+                  value={annText}
+                  onChange={e => setAnnText(e.target.value)}
+                  rows={2}
+                  style={{ width: "100%", border: "1.5px solid #e2e8f0", borderRadius: 8, padding: "0.4rem 0.6rem", fontSize: "0.82rem", resize: "none", outline: "none", fontFamily: "inherit", boxSizing: "border-box", marginBottom: 8 }}
+                />
+                {/* Quick Check toggle */}
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: annIsQuickCheck ? 10 : 0 }}>
+                  <button type="button"
+                    onClick={() => setAnnIsQuickCheck(v => !v)}
+                    style={{ display: "flex", alignItems: "center", gap: 6, background: annIsQuickCheck ? "#fef3c7" : "#f1f5f9", border: annIsQuickCheck ? "1.5px solid #f59e0b" : "1.5px solid #e2e8f0", borderRadius: 20, padding: "4px 13px", fontSize: "0.78rem", fontWeight: 700, color: annIsQuickCheck ? "#92400e" : "#64748b", cursor: "pointer", transition: "all 0.15s" }}>
+                    ⚡ Quick Check
+                    <span style={{ width: 28, height: 16, borderRadius: 99, background: annIsQuickCheck ? "#f59e0b" : "#cbd5e1", position: "relative", display: "inline-block", transition: "background 0.2s", flexShrink: 0 }}>
+                      <span style={{ position: "absolute", top: 2, left: annIsQuickCheck ? 14 : 2, width: 12, height: 12, borderRadius: "50%", background: "#fff", transition: "left 0.18s", boxShadow: "0 1px 3px rgba(0,0,0,0.2)" }} />
+                    </span>
+                  </button>
+                  {annIsQuickCheck && <span style={{ fontSize: "0.72rem", color: "#92400e", fontWeight: 600 }}>Select items inspectors must check:</span>}
                 </div>
+                {annIsQuickCheck && (
+                  <div style={{ background: "#fffbeb", border: "1.5px solid #fde68a", borderRadius: 10, padding: "10px 12px", marginBottom: 8 }}>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
+                      {QC_PRESET_ITEMS.map(item => {
+                        const on = annQcItems.includes(item);
+                        return (
+                          <button key={item} type="button"
+                            onClick={() => setAnnQcItems(arr => on ? arr.filter(x => x !== item) : [...arr, item])}
+                            style={{ fontSize: "0.72rem", padding: "4px 10px", borderRadius: 16, border: on ? "1.5px solid #f59e0b" : "1.5px solid #fde68a", background: on ? "#f59e0b" : "#fff", color: on ? "#fff" : "#92400e", cursor: "pointer", fontWeight: on ? 700 : 400, transition: "all 0.12s" }}>
+                            {on ? "✓ " : ""}{item}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <input
+                        value={annQcCustom}
+                        onChange={e => setAnnQcCustom(e.target.value)}
+                        placeholder="+ Custom item to check…"
+                        style={{ flex: 1, border: "1.5px solid #fde68a", borderRadius: 8, padding: "0.35rem 0.6rem", fontSize: "0.78rem", outline: "none", fontFamily: "inherit" }}
+                        onKeyDown={e => { if (e.key === "Enter" && annQcCustom.trim()) { setAnnQcItems(a => [...a, annQcCustom.trim()]); setAnnQcCustom(""); } }}
+                      />
+                      <button type="button" onClick={() => { if (annQcCustom.trim()) { setAnnQcItems(a => [...a, annQcCustom.trim()]); setAnnQcCustom(""); } }}
+                        style={{ background: "#f59e0b", color: "#fff", border: "none", borderRadius: 8, padding: "0 10px", fontWeight: 700, fontSize: "0.78rem", cursor: "pointer" }}>Add</button>
+                    </div>
+                    {annQcItems.length > 0 && <div style={{ marginTop: 6, fontSize: "0.7rem", color: "#92400e" }}>⚡ {annQcItems.length} item{annQcItems.length > 1 ? "s" : ""} selected</div>}
+                  </div>
+                )}
+                <button
+                  onClick={postAnnouncement}
+                  disabled={!annText.trim()}
+                  style={{ width: "100%", background: annIsQuickCheck ? "#f59e0b" : NAVY, color: "#fff", border: "none", borderRadius: 8, padding: "0.55rem", fontWeight: 700, fontSize: "0.82rem", cursor: annText.trim() ? "pointer" : "default", opacity: annText.trim() ? 1 : 0.4, transition: "all 0.15s" }}
+                >{annIsQuickCheck ? "⚡ Post Quick Check" : "📢 Post Announcement"}</button>
               </div>
             )}
             <div style={{ flex: 1, overflowY: "auto" }}>
@@ -20035,29 +20126,145 @@ function MessagingPanel({ currentUser, onBack, notifItems, onNotifDismiss, onNot
                   {isAdmin && <div style={{ fontSize: "0.78rem", marginTop: 4 }}>Post an announcement above to notify your team</div>}
                 </div>
               ) : (
-                announcements.map(a => (
-                  <div key={a.id} style={{ padding: "1rem", borderBottom: "1px solid #f8fafc", background: "#fff" }}>
-                    <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
-                      <div style={{ width: 36, height: 36, borderRadius: "50%", background: "#fef3c7", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.1rem", flexShrink: 0 }}>📢</div>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 3 }}>
-                          <span style={{ fontWeight: 700, fontSize: "0.88rem", color: "#0f172a" }}>{a.title}</span>
-                          <span style={{ fontSize: "0.7rem", color: "#94a3b8" }}>{fmtTime(a.ts)}</span>
+                announcements.map(a => {
+                  const isQC = a.quickCheck && a.checkItems?.length > 0;
+                  const myResult = (a.results || []).find(r => r.inspector === myName);
+                  const totalResults = (a.results || []).length;
+                  const failCount = (a.results || []).filter(r => !r.pass).length;
+                  return (
+                    <div key={a.id} style={{ margin: "10px", borderRadius: 12, overflow: "hidden", border: isQC ? "2px solid #f59e0b" : "1px solid #f1f5f9", boxShadow: isQC ? "0 2px 12px rgba(245,158,11,0.15)" : "0 1px 4px rgba(0,0,0,0.05)", animation: "fadeInUp 0.2s ease" }}>
+                      {/* Header */}
+                      <div style={{ padding: "0.75rem 1rem", background: isQC ? "#fffbeb" : "#fff", display: "flex", alignItems: "flex-start", gap: 10 }}>
+                        <div style={{ width: 36, height: 36, borderRadius: "50%", background: isQC ? "#fef3c7" : "#f1f5f9", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.1rem", flexShrink: 0 }}>
+                          {isQC ? "⚡" : "📢"}
                         </div>
-                        <div style={{ fontSize: "0.82rem", color: "#334155", lineHeight: 1.5 }}>{a.body}</div>
-                        <div style={{ fontSize: "0.7rem", color: "#94a3b8", marginTop: 5 }}>Posted by {a.author}</div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 6 }}>
+                            <span style={{ fontWeight: 700, fontSize: "0.88rem", color: isQC ? "#92400e" : "#0f172a" }}>{a.title}</span>
+                            <span style={{ fontSize: "0.68rem", color: "#94a3b8", flexShrink: 0 }}>{fmtTime(a.ts)}</span>
+                          </div>
+                          <div style={{ fontSize: "0.82rem", color: "#334155", lineHeight: 1.5, marginTop: 2 }}>{a.body}</div>
+                          <div style={{ fontSize: "0.7rem", color: "#94a3b8", marginTop: 4 }}>Posted by {a.author}</div>
+                        </div>
+                        {isAdmin && (
+                          <button onClick={() => saveAnn(announcements.filter(x => x.id !== a.id))} style={{ background: "none", border: "none", cursor: "pointer", color: "#cbd5e1", fontSize: "1.1rem", flexShrink: 0, lineHeight: 1 }}>×</button>
+                        )}
                       </div>
-                      {isAdmin && (
-                        <button onClick={() => saveAnn(announcements.filter(x => x.id !== a.id))} style={{ background: "none", border: "none", cursor: "pointer", color: "#94a3b8", fontSize: "1rem", flexShrink: 0 }}>×</button>
+                      {/* Quick Check items & CTA */}
+                      {isQC && (
+                        <div style={{ background: "#fff", borderTop: "1px solid #fde68a", padding: "0.75rem 1rem" }}>
+                          <div style={{ fontSize: "0.72rem", fontWeight: 700, color: "#92400e", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>Items to inspect:</div>
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginBottom: 10 }}>
+                            {a.checkItems.map(item => (
+                              <span key={item} style={{ fontSize: "0.72rem", padding: "3px 9px", borderRadius: 16, background: "#fef3c7", color: "#92400e", border: "1px solid #fde68a", fontWeight: 600 }}>
+                                {myResult ? (myResult.answers[item] === "FAIL" ? "❌ " : myResult.answers[item] === "OK" ? "✅ " : "○ ") : ""}
+                                {item}
+                              </span>
+                            ))}
+                          </div>
+                          {/* Response / result area */}
+                          {myResult ? (
+                            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", borderRadius: 8, background: myResult.pass ? "#f0fdf4" : "#fef2f2", border: `1px solid ${myResult.pass ? "#86efac" : "#fca5a5"}` }}>
+                              <span style={{ fontSize: "1rem" }}>{myResult.pass ? "✅" : "❌"}</span>
+                              <span style={{ fontSize: "0.78rem", fontWeight: 700, color: myResult.pass ? "#15803d" : "#dc2626" }}>
+                                {myResult.pass ? "Completed — All clear" : "Completed — Issues found"}
+                              </span>
+                            </div>
+                          ) : (
+                            <button type="button"
+                              onClick={() => { setQuickCheckAnn(a); setQcAnswers({}); setQcNotes({}); }}
+                              style={{ width: "100%", background: "#f59e0b", color: "#fff", border: "none", borderRadius: 8, padding: "0.55rem", fontWeight: 700, fontSize: "0.85rem", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, transition: "background 0.15s" }}>
+                              ⚡ Start Quick Check →
+                            </button>
+                          )}
+                          {/* Admin results summary */}
+                          {isAdmin && totalResults > 0 && (
+                            <div style={{ marginTop: 8, fontSize: "0.72rem", color: "#64748b" }}>
+                              {totalResults} response{totalResults > 1 ? "s" : ""}
+                              {failCount > 0 && <span style={{ color: "#dc2626", fontWeight: 700, marginLeft: 8 }}>⚠️ {failCount} reported issues</span>}
+                            </div>
+                          )}
+                        </div>
                       )}
                     </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           </div>
         )}
       </div>
+
+      {/* ── Quick Check Modal ── */}
+      {quickCheckAnn && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 9999, display: "flex", alignItems: "flex-end", justifyContent: "center" }} onClick={() => setQuickCheckAnn(null)}>
+          <div style={{ background: "#fff", borderRadius: "18px 18px 0 0", width: "100%", maxWidth: 600, maxHeight: "85vh", display: "flex", flexDirection: "column", boxShadow: "0 -8px 40px rgba(0,0,0,0.25)", animation: "fadeInUp 0.22s ease" }} onClick={e => e.stopPropagation()}>
+            {/* Header */}
+            <div style={{ background: "#f59e0b", padding: "1rem 1.1rem 0.85rem", borderRadius: "18px 18px 0 0", color: "#fff" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                <span style={{ fontWeight: 800, fontSize: "1rem" }}>⚡ Quick Check</span>
+                <button onClick={() => setQuickCheckAnn(null)} style={{ background: "rgba(255,255,255,0.25)", border: "none", borderRadius: "50%", width: 28, height: 28, cursor: "pointer", color: "#fff", fontSize: "1rem", display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
+              </div>
+              <div style={{ fontSize: "0.82rem", opacity: 0.9, fontWeight: 600 }}>{quickCheckAnn.title}</div>
+              <div style={{ fontSize: "0.75rem", opacity: 0.75, marginTop: 2 }}>{quickCheckAnn.body}</div>
+            </div>
+            {/* Items */}
+            <div style={{ flex: 1, overflowY: "auto", padding: "0.85rem 1rem" }}>
+              {qcDoneId === quickCheckAnn.id ? (
+                <div style={{ textAlign: "center", padding: "2rem 1rem" }}>
+                  <div style={{ fontSize: "3rem", marginBottom: 8 }}>✅</div>
+                  <div style={{ fontWeight: 800, fontSize: "1.1rem", color: "#15803d" }}>Quick Check Complete!</div>
+                  <div style={{ fontSize: "0.82rem", color: "#64748b", marginTop: 4 }}>Your results have been recorded.</div>
+                </div>
+              ) : (
+                quickCheckAnn.checkItems.map(item => {
+                  const ans = qcAnswers[item] || "";
+                  const isFail = ans === "FAIL";
+                  return (
+                    <div key={item} style={{ marginBottom: 12, background: isFail ? "#fef2f2" : ans === "OK" ? "#f0fdf4" : "#f8fafc", borderRadius: 10, border: isFail ? "1.5px solid #fca5a5" : ans === "OK" ? "1.5px solid #86efac" : "1.5px solid #e2e8f0", padding: "0.75rem 0.9rem", transition: "all 0.15s" }}>
+                      <div style={{ fontWeight: 700, fontSize: "0.88rem", color: "#0f172a", marginBottom: 8 }}>{item}</div>
+                      <div style={{ display: "flex", gap: 8, marginBottom: isFail ? 8 : 0 }}>
+                        <button type="button"
+                          onClick={() => setQcAnswers(a => ({ ...a, [item]: ans === "OK" ? "" : "OK" }))}
+                          style={{ flex: 1, padding: "0.55rem", borderRadius: 8, border: ans === "OK" ? "2px solid #16a34a" : "2px solid #e2e8f0", background: ans === "OK" ? "#16a34a" : "#fff", color: ans === "OK" ? "#fff" : "#475569", fontWeight: 700, fontSize: "0.85rem", cursor: "pointer", transition: "all 0.15s" }}>
+                          ✓ OK / Pass
+                        </button>
+                        <button type="button"
+                          onClick={() => setQcAnswers(a => ({ ...a, [item]: ans === "FAIL" ? "" : "FAIL" }))}
+                          style={{ flex: 1, padding: "0.55rem", borderRadius: 8, border: isFail ? "2px solid #dc2626" : "2px solid #e2e8f0", background: isFail ? "#dc2626" : "#fff", color: isFail ? "#fff" : "#475569", fontWeight: 700, fontSize: "0.85rem", cursor: "pointer", transition: "all 0.15s" }}>
+                          ✕ Issue Found
+                        </button>
+                      </div>
+                      {isFail && (
+                        <input type="text"
+                          value={qcNotes[item] || ""}
+                          onChange={e => setQcNotes(n => ({ ...n, [item]: e.target.value }))}
+                          placeholder="Describe the issue briefly…"
+                          style={{ width: "100%", border: "1.5px solid #fca5a5", borderRadius: 8, padding: "0.4rem 0.6rem", fontSize: "0.82rem", outline: "none", fontFamily: "inherit", background: "#fff8f8", boxSizing: "border-box" }}
+                        />
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+            {/* Submit */}
+            {!qcDoneId && (
+              <div style={{ padding: "0.85rem 1rem 1.5rem", borderTop: "1px solid #f1f5f9" }}>
+                <div style={{ fontSize: "0.72rem", color: "#64748b", marginBottom: 8, textAlign: "center" }}>
+                  {Object.keys(qcAnswers).length} of {quickCheckAnn.checkItems.length} items answered
+                </div>
+                <button type="button"
+                  onClick={submitQuickCheck}
+                  disabled={qcSubmitting || quickCheckAnn.checkItems.length === 0}
+                  style={{ width: "100%", background: "#f59e0b", color: "#fff", border: "none", borderRadius: 10, padding: "0.7rem", fontWeight: 800, fontSize: "0.95rem", cursor: "pointer", opacity: qcSubmitting ? 0.6 : 1, transition: "all 0.15s" }}>
+                  {qcSubmitting ? "Saving…" : "✅ Submit Quick Check"}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Compose modal */}
       {composeOpen && (
