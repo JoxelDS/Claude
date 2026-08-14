@@ -3,17 +3,17 @@
   <defs>
     <mask id="dsCutD">
       <rect x="0" y="0" width="480" height="300" fill="white"/>
-      <rect x="60" y="122" width="360" height="56" fill="black"/>
+      <rect x="40" y="126" width="400" height="50" fill="black"/>
     </mask>
   </defs>
 
-  <text x="240" y="235" text-anchor="middle"
-    font-family="Georgia, 'Times New Roman', serif"
-    font-size="240" font-weight="700" letter-spacing="6"
-    fill="#111111" mask="url(#dsCutD)">DS</text>
+  <text x="240" y="242" text-anchor="middle"
+    font-family="Didot, 'Bodoni MT', 'Playfair Display', Georgia, serif"
+    font-size="255" font-weight="700" letter-spacing="2"
+    fill="#101012" mask="url(#dsCutD)">DS</text>
 
-  <text x="240" y="164" text-anchor="middle"
-    font-family="'Segoe UI', 'Inter', Arial, sans-serif"
-    font-size="34" font-weight="600" letter-spacing="16"
-    fill="#111111">MARKETING</text>
+  <text x="240" y="163" text-anchor="middle"
+    font-family="'Segoe UI', 'Inter', 'Helvetica Neue', Arial, sans-serif"
+    font-size="30" font-weight="500" letter-spacing="20"
+    fill="#101012">MARKETING</text>
 </svg>

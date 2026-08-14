@@ -6452,3 +6452,79 @@ html[data-theme="dsmarketing"] .logoMark { background: #FFFFFF; }
   font-weight: 700;
   color: var(--sdx-green);
 }
+
+/* ══════════════════════════════════════════════════════════════
+   MODERN REFRESH — softer radii, layered shadows, richer buttons
+   Appended last so it wins the cascade over the older defaults.
+   ══════════════════════════════════════════════════════════════ */
+:root {
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --shadow-sm: 0 1px 2px rgba(24,24,58,.05), 0 1px 1px rgba(24,24,58,.03);
+  --shadow-md: 0 2px 6px rgba(24,24,58,.05), 0 8px 24px rgba(24,24,58,.08);
+  --shadow-lg: 0 4px 12px rgba(24,24,58,.06), 0 16px 48px rgba(24,24,58,.14);
+}
+
+body {
+  background:
+    radial-gradient(1200px 500px at 50% -10%, rgba(42,41,92,.06), transparent 60%),
+    #f0f2f7;
+}
+
+/* Header: subtle glass edge */
+.topBar {
+  border-bottom: 1px solid rgba(255,255,255,.08);
+  box-shadow: 0 1px 0 rgba(255,255,255,.06) inset, 0 6px 24px rgba(20,19,50,.28);
+}
+
+/* Cards: floatier, friendlier */
+.card {
+  border-radius: var(--radius-lg);
+  box-shadow: 0 1px 2px rgba(42,41,92,.05), 0 6px 20px rgba(42,41,92,.06), 0 0 0 1px rgba(42,41,92,.045);
+}
+.card:hover {
+  box-shadow: 0 2px 4px rgba(42,41,92,.06), 0 12px 32px rgba(42,41,92,.10), 0 0 0 1px rgba(42,41,92,.05);
+}
+
+/* Buttons: rounder, gradient primary, crisper press */
+.btn {
+  border-radius: 10px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+.btnPrimary {
+  background: linear-gradient(180deg, #FF1A1A 0%, var(--sdx-red) 55%, var(--sdx-red-dark) 100%);
+  box-shadow: 0 1px 0 rgba(255,255,255,.25) inset, 0 3px 10px rgba(238,0,0,.28);
+}
+.btnPrimary:hover:not(:disabled) {
+  background: linear-gradient(180deg, #FF3333 0%, var(--sdx-red) 60%, var(--sdx-red-dark) 100%);
+}
+
+/* Inputs: modern focus ring */
+input[type="text"], input[type="number"], input[type="password"],
+input[type="email"], input[type="date"], input[type="time"],
+select, textarea {
+  border-radius: 10px;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+input[type="text"]:focus, input[type="number"]:focus, input[type="password"]:focus,
+input[type="email"]:focus, input[type="date"]:focus, input[type="time"]:focus,
+select:focus, textarea:focus {
+  outline: none;
+  border-color: var(--sdx-navy);
+  box-shadow: 0 0 0 3px rgba(42,41,92,.14);
+}
+html[data-theme="dsmarketing"] input:focus,
+html[data-theme="dsmarketing"] select:focus,
+html[data-theme="dsmarketing"] textarea:focus {
+  box-shadow: 0 0 0 3px rgba(0,0,0,.16);
+}
+
+/* Nice scrollbars on desktop */
+@media (pointer: fine) {
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(42,41,92,.22); border-radius: 8px; border: 2px solid transparent; background-clip: content-box; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(42,41,92,.4); border: 2px solid transparent; background-clip: content-box; }
+}

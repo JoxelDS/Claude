@@ -1,22 +1,20 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 140">
-  <!-- "sodexo" in navy blue for light backgrounds -->
-  <text x="20" y="108"
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 170">
+  <!-- Sodexo wordmark — navy for light backgrounds -->
+  <text x="14" y="128"
     font-family="'Segoe UI', 'Inter', 'Helvetica Neue', Arial, sans-serif"
-    font-size="100" font-weight="700" font-style="italic"
-    fill="#1B1E8A" letter-spacing="-1">sodexo</text>
+    font-size="98" font-weight="700" font-style="italic"
+    fill="#1B2A80" letter-spacing="-3">sodexo</text>
 
-  <!-- Red swoosh rising from the "x" to star -->
   <path d="
-    M 255 116
-    Q 290 80, 330 40
-    Q 348 20, 362 10
-    Q 368 6, 370 8
-    Q 372 12, 360 28
-    Q 342 52, 316 78
-    Q 290 100, 264 112
-    Z
-  " fill="#EE0000"/>
+    M 262 138
+    C 316 108, 366 62, 398 22
+    C 402 17, 406 13, 408 12
+    C 405 18, 399 27, 391 38
+    C 362 76, 318 116, 272 140
+    C 268 142, 264 141, 262 138
+    Z" fill="#EE3124"/>
 
-  <!-- 8-point star -->
-  <polygon points="370,8 373,-4 376,8 388,5 378,14 388,22 376,18 373,30 370,18 358,22 368,14 358,5" fill="#1B1E8A"/>
+  <polygon fill="#1B2A80" points="
+    416,0 420,12 430,5 424,15 436,18 424,21 430,31 420,24
+    416,36 412,24 402,31 408,21 396,18 408,15 402,5 412,12"/>
 </svg>
