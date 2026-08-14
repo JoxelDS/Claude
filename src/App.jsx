@@ -11625,12 +11625,12 @@ function FoodSafetyRef() {
   }, [open]);
 
   const tabs = [
-    { label: "Temperatures" },
-    { label: "Sanitizers" },
-    { label: "Cutting Boards" },
-    { label: "Cooler Storage" },
-    { label: "Labeling" },
-    { label: "Thawing" },
+    { label: "Temperatures",   icon: "🌡" },
+    { label: "Sanitizers",     icon: "🧴" },
+    { label: "Cutting Boards", icon: "🔪" },
+    { label: "Cooler Storage", icon: "❄️" },
+    { label: "Labeling",       icon: "🏷" },
+    { label: "Thawing",        icon: "🧊" },
   ];
 
   const sanitizers = [
@@ -11640,15 +11640,17 @@ function FoodSafetyRef() {
   ];
 
   /* ── shared sub-header style ── */
-  const subHeader = (label, bg = "#1e293b") => (
-    <div style={{ background: bg, padding: "7px 14px", borderRadius: "8px 8px 0 0" }}>
-      <span style={{ fontWeight: 700, fontSize: "0.65rem", color: "#fff", textTransform: "uppercase", letterSpacing: "0.08em" }}>{label}</span>
+  const subHeader = (label, bg) => (
+    <div style={{ background: bg || "linear-gradient(105deg, var(--sdx-navy) 0%, var(--sdx-blue) 100%)", padding: "9px 15px", borderRadius: "12px 12px 0 0", display: "flex", alignItems: "center", gap: 8 }}>
+      <span style={{ width: 5, height: 14, borderRadius: 3, background: "var(--sdx-red)", flexShrink: 0 }} />
+      <span style={{ fontWeight: 800, fontSize: "0.66rem", color: "#fff", textTransform: "uppercase", letterSpacing: "0.1em" }}>{label}</span>
     </div>
   );
 
   const tipBox = (children) => (
-    <div style={{ background: "#f8fafc", border: "1.5px solid #e2e8f0", borderRadius: 10, padding: "10px 13px", fontSize: "0.67rem", color: "#334155", lineHeight: 1.6, marginTop: 12 }}>
-      {children}
+    <div style={{ display: "flex", gap: 10, alignItems: "flex-start", background: "linear-gradient(180deg,#F6F8FF,#EFF3FE)", border: "1px solid #D8E0F5", borderRadius: 12, padding: "11px 14px", marginTop: 12 }}>
+      <span style={{ fontSize: "0.95rem", lineHeight: 1, marginTop: 1 }}>💡</span>
+      <span style={{ fontSize: "0.68rem", color: "#39415E", lineHeight: 1.6 }}>{children}</span>
     </div>
   );
 
@@ -11660,7 +11662,7 @@ function FoodSafetyRef() {
       {/* Temperature zones */}
       <div>
         {subHeader("Temperature Zones")}
-        <div style={{ border: "1.5px solid #e2e8f0", borderTop: "none", borderRadius: "0 0 10px 10px", overflow: "hidden" }}>
+        <div style={{ border: "1.5px solid #e2e8f0", borderTop: "none", borderRadius: "0 0 12px 12px", overflow: "hidden" }}>
           {[
             { bg: "linear-gradient(90deg,#fef2f2,#fee2e2)", border: "#ef4444", label: "HOT HOLDING — SAFE", temp: "≥ 135°F / 57°C", sub: "Keep hot foods at or above this temperature" },
             { bg: "repeating-linear-gradient(45deg,#fef9c3,#fef9c3 6px,#fefce8 6px,#fefce8 12px)", border: "#f59e0b", label: "DANGER ZONE — AVOID", temp: "41°F – 135°F / 5–57°C", sub: "Bacteria double every 20 min · limit to 4 hrs max" },
@@ -11681,7 +11683,7 @@ function FoodSafetyRef() {
       {/* Cook temps */}
       <div>
         {subHeader("Minimum Cook Temperatures")}
-        <div style={{ border: "1.5px solid #e2e8f0", borderTop: "none", borderRadius: "0 0 10px 10px", overflow: "hidden" }}>
+        <div style={{ border: "1.5px solid #e2e8f0", borderTop: "none", borderRadius: "0 0 12px 12px", overflow: "hidden" }}>
           {[
             { label: "Fruits, Vegetables, Grains",   temp: "135°F", c: "57°C",  color: "#16a34a" },
             { label: "Fish, Seafood, Eggs (immediate)", temp: "145°F", c: "63°C", color: "#2563eb" },
@@ -11702,8 +11704,8 @@ function FoodSafetyRef() {
 
       {/* Calibration */}
       <div>
-        {subHeader("Thermometer Calibration", "#374151")}
-        <div style={{ border: "1.5px solid #e2e8f0", borderTop: "none", borderRadius: "0 0 10px 10px", overflow: "hidden" }}>
+        {subHeader("Thermometer Calibration")}
+        <div style={{ border: "1.5px solid #e2e8f0", borderTop: "none", borderRadius: "0 0 12px 12px", overflow: "hidden" }}>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr" }}>
             <div style={{ padding: "12px 14px", borderRight: "1px solid #f1f5f9" }}>
               <div style={{ fontWeight: 700, fontSize: "0.68rem", color: "#1d4ed8", marginBottom: 4 }}>Ice-Point Method</div>
@@ -11725,7 +11727,7 @@ function FoodSafetyRef() {
   const panelSanitizers = (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       {subHeader("Chemical Sanitizer Reference")}
-      <div style={{ border: "1.5px solid #e2e8f0", borderTop: "none", borderRadius: "0 0 10px 10px", overflow: "hidden", marginTop: -14 }}>
+      <div style={{ border: "1.5px solid #e2e8f0", borderTop: "none", borderRadius: "0 0 12px 12px", overflow: "hidden", marginTop: -14 }}>
         {sanitizers.map((s, i, arr) => (
           <div key={s.type} style={{ padding: "12px 14px", borderBottom: i < arr.length - 1 ? "1px solid #f1f5f9" : "none", background: i % 2 === 0 ? "#fff" : "#f8fafc" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 6 }}>
@@ -11752,7 +11754,7 @@ function FoodSafetyRef() {
   const panelBoards = (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       {subHeader("Cutting Board Color Code")}
-      <div style={{ border: "1.5px solid #e2e8f0", borderTop: "none", borderRadius: "0 0 10px 10px", overflow: "hidden", marginTop: -14 }}>
+      <div style={{ border: "1.5px solid #e2e8f0", borderTop: "none", borderRadius: "0 0 12px 12px", overflow: "hidden", marginTop: -14 }}>
         {[
           { color: "#ef4444", bg: "#fef2f2", border: "#fca5a5", label: "Red",    uses: "Raw beef, pork & lamb" },
           { color: "#f97316", bg: "#fff7ed", border: "#fdba74", label: "Orange", uses: "Raw pork (alt. system)" },
@@ -11827,7 +11829,7 @@ function FoodSafetyRef() {
 
       {/* Required label fields */}
       {subHeader("Required Label Information")}
-      <div style={{ border: "1.5px solid #e2e8f0", borderTop: "none", borderRadius: "0 0 10px 10px", overflow: "hidden", marginTop: -14 }}>
+      <div style={{ border: "1.5px solid #e2e8f0", borderTop: "none", borderRadius: "0 0 12px 12px", overflow: "hidden", marginTop: -14 }}>
         {[
           { field: "Item Name / Description", note: "Be specific — e.g., 'Sliced Tomatoes', not just 'Tomatoes'" },
           { field: "Date Prepared / Opened",  note: "The day the item was made or the package was opened" },
@@ -11842,8 +11844,8 @@ function FoodSafetyRef() {
       </div>
 
       {/* Day-dot system */}
-      {subHeader("Day-Dot Color System", "#374151")}
-      <div style={{ border: "1.5px solid #e2e8f0", borderTop: "none", borderRadius: "0 0 10px 10px", overflow: "hidden", marginTop: -14 }}>
+      {subHeader("Day-Dot Color System")}
+      <div style={{ border: "1.5px solid #e2e8f0", borderTop: "none", borderRadius: "0 0 12px 12px", overflow: "hidden", marginTop: -14 }}>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr" }}>
           {[
             { dot: "#ef4444", day: "Sunday" },
@@ -11965,35 +11967,41 @@ function FoodSafetyRef() {
 
       {open && (
         <div style={{ padding: "0" }}>
-          {/* Tab bar */}
-          <div style={{ display: "flex", borderBottom: "2px solid #e2e8f0", background: "#f8fafc", overflowX: "auto" }}>
-            {tabs.map((t, i) => (
-              <button
-                key={t.label}
-                type="button"
-                onClick={() => setActiveTab(i)}
-                style={{
-                  flex: "0 0 auto",
-                  padding: "10px 18px",
-                  fontSize: "0.72rem",
-                  fontWeight: activeTab === i ? 700 : 500,
-                  color: activeTab === i ? "#1e293b" : "#64748b",
-                  background: "transparent",
-                  border: "none",
-                  borderBottom: activeTab === i ? "2px solid #1e293b" : "2px solid transparent",
-                  marginBottom: "-2px",
-                  cursor: "pointer",
-                  transition: "all 0.15s",
-                  whiteSpace: "nowrap",
-                  letterSpacing: "0.01em",
-                }}
-              >
-                {t.label}
-              </button>
-            ))}
+          {/* Tab bar — segmented pills */}
+          <div style={{ display: "flex", gap: 6, padding: "12px 16px", background: "linear-gradient(180deg,#FAFBFF,#F3F5FB)", borderBottom: "1px solid #E4E8F2", overflowX: "auto" }}>
+            {tabs.map((t, i) => {
+              const active = activeTab === i;
+              return (
+                <button
+                  key={t.label}
+                  type="button"
+                  onClick={() => setActiveTab(i)}
+                  style={{
+                    flex: "0 0 auto",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                    padding: "8px 14px",
+                    fontSize: "0.72rem",
+                    fontWeight: 700,
+                    color: active ? "#fff" : "var(--sdx-gray-600)",
+                    background: active ? "linear-gradient(105deg, var(--sdx-navy), var(--sdx-blue))" : "#fff",
+                    border: active ? "1px solid transparent" : "1px solid var(--sdx-gray-200)",
+                    borderRadius: 999,
+                    cursor: "pointer",
+                    transition: "all 0.15s",
+                    whiteSpace: "nowrap",
+                    boxShadow: active ? "0 3px 10px rgba(42,41,92,.28)" : "0 1px 2px rgba(42,41,92,.05)",
+                  }}
+                >
+                  <span aria-hidden="true" style={{ fontSize: "0.85rem", lineHeight: 1 }}>{t.icon}</span>
+                  {t.label}
+                </button>
+              );
+            })}
           </div>
           {/* Active panel */}
-          <div style={{ padding: "18px 20px", maxHeight: 520, overflowY: "auto" }}>
+          <div style={{ padding: "18px 20px", maxHeight: 520, overflowY: "auto", background: "#FDFDFF" }}>
             {panels[activeTab]}
           </div>
         </div>
@@ -12508,8 +12516,16 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
         } catch { return rec; }
       });
       setHistory(enriched);
-      setLoading(false);
-    });
+    }).catch(() => {
+      // Network/Firestore failure — fall back to whatever is cached locally so the page still renders
+      try {
+        const cached = JSON.parse(localStorage.getItem(`sdx_history_cache_${managedVenueId || VENUE_ID}`) || "[]");
+        setHistory(Array.isArray(cached) ? cached : []);
+      } catch { setHistory([]); }
+    }).finally(() => setLoading(false));
+    // Safety net: never show the spinner longer than 12s even if the request hangs
+    const t = setTimeout(() => setLoading(false), 12000);
+    return () => clearTimeout(t);
   }, [managedVenueId]);
 
   const ranking = useMemo(() => AIEngine.getInspectorRanking(history), [history]);
@@ -20489,7 +20505,8 @@ export default function App() {
   const [lastInspectionDate, setLastInspectionDate] = useState(null); // ISO date string (YYYY-MM-DD)
 
   // Apply the venue theme (admin-controlled, synced across all devices)
-  useEffect(() => { applyTheme(venueSettings?.theme); }, [venueSettings?.theme]);
+  // Theme applies only once someone is signed in — the badge screen always shows the default look
+  useEffect(() => { applyTheme(currentUser ? venueSettings?.theme : "sodexo"); }, [venueSettings?.theme, currentUser]);
 
   function saveVenueSettings(updates) {
     const next = { ...venueSettings, ...updates };
