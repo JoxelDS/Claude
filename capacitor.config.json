@@ -3,7 +3,9 @@
   "appName": "SDX Inspect",
   "webDir": "dist",
   "server": {
+    "url": "https://joxelds.github.io/Claude/",
     "allowNavigation": [
+      "joxelds.github.io",
       "*.googleapis.com",
       "*.gstatic.com",
       "*.firebaseapp.com",
