@@ -20356,6 +20356,15 @@ export default function App() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Online / offline indicator ────────────────────────────────────────────
+  const [installPrompt, setInstallPrompt] = useState(null);
+  const [showInstallBanner, setShowInstallBanner] = useState(false);
+
+  useEffect(() => {
+    const handler = (e) => { e.preventDefault(); setInstallPrompt(e); setShowInstallBanner(true); };
+    window.addEventListener("beforeinstallprompt", handler);
+    return () => window.removeEventListener("beforeinstallprompt", handler);
+  }, []);
+
   const [isOnline, setIsOnline] = useState(() => navigator.onLine);
   const [draftSavedAt, setDraftSavedAt] = useState(null); // timestamp of last auto-save
   const [guideStep, setGuideStep] = useState(0); // 0-based index into guide stepper
@@ -21706,6 +21715,15 @@ export default function App() {
 
   return (
     <div className="appShell inspectorPage">
+      {showInstallBanner && (
+        <div style={{ background: "linear-gradient(90deg,#2A295C,#283897)", color: "#fff", padding: "10px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, zIndex: 9998, position: "relative" }}>
+          <span style={{ fontSize: "0.88rem", fontWeight: 600 }}>📱 Install SDX Inspect — use it like a native app!</span>
+          <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+            <button onClick={async () => { if (installPrompt) { installPrompt.prompt(); const { outcome } = await installPrompt.userChoice; if (outcome === "accepted") setShowInstallBanner(false); } }} style={{ background: "#EE0000", color: "#fff", border: "none", borderRadius: 8, padding: "5px 14px", fontWeight: 700, cursor: "pointer", fontSize: "0.82rem" }}>Add to Home Screen</button>
+            <button onClick={() => setShowInstallBanner(false)} style={{ background: "rgba(255,255,255,0.15)", color: "#fff", border: "none", borderRadius: 8, padding: "5px 10px", cursor: "pointer", fontSize: "0.82rem" }}>✕</button>
+          </div>
+        </div>
+      )}
       <header className="topBar" ref={headerRef}>
         <div className="brandLeft brandClickable" onClick={() => {
           setPage("inspector"); window.scrollTo({ top: 0, behavior: "smooth" });
