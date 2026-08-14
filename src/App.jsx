@@ -6170,8 +6170,8 @@ function EquipLocationCard({ loc, filterEquip, filterSubEquip }) {
 
   // Derive location type badge color
   const typeColors = {
-    concession: { bg: "#1e3a5f", color: "#fff" },
-    permanent:  { bg: "#1e3a5f", color: "#fff" },
+    concession: { bg: "var(--ink-700)", color: "#fff" },
+    permanent:  { bg: "var(--ink-700)", color: "#fff" },
     portable:   { bg: "#7c3aed", color: "#fff" },
     warehouse:  { bg: "#92400e", color: "#fff" },
     event:      { bg: "#065f46", color: "#fff" },
@@ -16778,7 +16778,7 @@ function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVe
               Set how often inspections should occur. The dashboard will show an overdue warning when the last inspection is past due.
             </p>
             <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-              <label style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 600, fontSize: "0.9rem", color: "#1e3a5f" }}>
+              <label style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 600, fontSize: "0.9rem", color: "var(--ink-700)" }}>
                 Inspect every
                 <input
                   type="number"

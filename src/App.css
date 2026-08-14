@@ -2192,7 +2192,7 @@ datalist {
 
 /* ── Brand Logo ──────────────────────────────────────────── */
 .brandLogo {
-  height: 40px;
+  height: 54px;
   width: auto;
   flex-shrink: 0;
 }
@@ -3566,7 +3566,7 @@ datalist {
   }
   .topBarSpacer { height: 60px; }
   .brandLeft { gap: 8px; }
-  .brandLogo { height: 28px; }
+  .brandLogo { height: 38px; }
   .brandTitle { font-size: 0.92rem; font-weight: 700; }
   .brandSub { display: none; }
   .topActions { gap: 6px; }
@@ -3640,7 +3640,7 @@ datalist {
     gap: 6px;
   }
   .topBarSpacer { height: 56px; }
-  .brandLogo { height: 22px; }
+  .brandLogo { height: 30px; }
   .brandTitle { display: none; }
   /* History page: hide inline buttons, show ⋯ menu instead */
   .historyDesktopBtn { display: none !important; }
@@ -3798,7 +3798,7 @@ datalist {
   .grid { padding: 8px; gap: 10px; }
   .cardHeader { padding: 10px 12px; }
   .cardBody { padding: 12px; }
-  .brandLogo { height: 22px; }
+  .brandLogo { height: 30px; }
   .brandTitle { font-size: 0.82rem; }
   .guide { padding: 10px; margin: 12px 0; }
   .rptInfoItem { padding: 8px 12px; }
@@ -6996,3 +6996,16 @@ html[data-theme="black"] ::-webkit-scrollbar-thumb { background: rgba(255,255,25
 @media (max-width: 640px) {
   .dropdownMenu { left: 8px; right: 8px; border-radius: 18px; }
 }
+
+/* Header brand: bigger, vertically centered mark */
+.brandLeft { align-items: center; }
+.topBar { min-height: 72px; }
+.topBarSpacer { min-height: 72px; }
+
+/* Black theme: dark card headers (kill the silver gradient) */
+html[data-theme="black"] .cardHeader {
+  background: linear-gradient(180deg, #1A1A21 0%, #15151A 100%);
+  border-bottom-color: #23232B;
+}
+html[data-theme="black"] .adminCard .cardHeader { background: linear-gradient(180deg, #1C1C24 0%, #15151A 100%); }
+html[data-theme="black"] .guideSectionTitle { color: #D8DAE6; }
