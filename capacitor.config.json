@@ -1,0 +1,29 @@
+{
+  "appId": "com.sodexolive.sdxinspect",
+  "appName": "SDX Inspect",
+  "webDir": "dist",
+  "server": {
+    "allowNavigation": [
+      "*.googleapis.com",
+      "*.gstatic.com",
+      "*.firebaseapp.com",
+      "*.firebasestorage.app",
+      "firestore.googleapis.com",
+      "identitytoolkit.googleapis.com",
+      "securetoken.googleapis.com"
+    ]
+  },
+  "ios": {
+    "contentInset": "always",
+    "backgroundColor": "#2A295C",
+    "scheme": "SDXInspect"
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 2000,
+      "backgroundColor": "#2A295C",
+      "androidSplashResourceName": "splash",
+      "showSpinner": false
+    }
+  }
+}
