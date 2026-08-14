@@ -21333,11 +21333,27 @@ export default function App() {
       startX = e.touches[0].clientX;
       startY = e.touches[0].clientY;
     }
+    function insideHorizontalScroller(el) {
+      // Walk up from the touched element — if any ancestor scrolls sideways
+      // (tab rows, chip lists), the swipe belongs to it, not to browser nav.
+      let node = el;
+      while (node && node !== document.body) {
+        if (node.scrollWidth > node.clientWidth + 4) {
+          const ox = getComputedStyle(node).overflowX;
+          if (ox === "auto" || ox === "scroll") return true;
+        }
+        node = node.parentElement;
+      }
+      return false;
+    }
     function onTouchMove(e) {
       const dx = Math.abs(e.touches[0].clientX - startX);
       const dy = Math.abs(e.touches[0].clientY - startY);
-      // Only block clearly horizontal swipes (not vertical scrolling)
-      if (dx > dy && dx > 10) {
+      // Only block clearly horizontal swipes that START at the screen edge
+      // (where iOS back/forward navigation triggers) and are NOT inside a
+      // horizontally scrollable element like the tab pills.
+      const nearEdge = startX < 36 || startX > window.innerWidth - 36;
+      if (dx > dy && dx > 10 && nearEdge && !insideHorizontalScroller(e.target)) {
         e.preventDefault();
       }
     }
