@@ -2715,12 +2715,13 @@ function buildActionItems({ inspection, rawNotes, foodTemps: ftArg, foodTempName
       const otherNote = sanitizeText(node.notes);
       failedCheckItems.forEach(c => {
         const base = c.problem || c.label;
-        // Keep issue text clean — inspector's location note goes in notes column, not embedded in issue
         const itemNote = c.comment?.trim() || "";
+        const itemLoc = c.ciLocation?.trim() || "";
         // Per-item status takes priority; fall back to section status
         const itemStatus = (c.ciStatus && c.ciStatus !== "High" && c.ciStatus !== "Med") ? c.ciStatus : sectionStatus || "Fail";
+        const issueText = itemLoc ? `${label}: ${base} [${itemLoc}]` : `${label}: ${base}`;
         items.push({
-          issue: `${label}: ${base}`,
+          issue: issueText,
           notes: itemNote || otherNote || "",
           corrective: sanitizeText(c.corrective) || "",
           owner: "", due: "",
@@ -17495,6 +17496,11 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                           const newChecklist = (cur2.checklist || []).map((c, i) => i === idx ? { ...c, corrective } : c);
                           return setAtPath(prev, it.path, { ...cur2, checklist: newChecklist });
                         });
+                        const makeSetCiLocation = (idx, ciLocation) => setInspection((prev) => {
+                          const cur2 = getAtPath(prev, it.path) || withPhotos({ status: "OK", notes: "" });
+                          const newChecklist = (cur2.checklist || []).map((c, i) => i === idx ? { ...c, ciLocation } : c);
+                          return setAtPath(prev, it.path, { ...cur2, checklist: newChecklist });
+                        });
                         const addCiPhoto = async (idx, files) => {
                           const inspId = inspectionId || `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
                           const existingCount = (current.checklist?.[idx]?.photos || []).length;
@@ -17597,7 +17603,7 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                                         </button>
                                       </div>
                                       {isFail ? (
-                                        <div style={{ background: "#fff7ed", border: "1.5px solid #fed7aa", borderRadius: 8, padding: "10px 12px", marginTop: 6, display: "flex", flexDirection: "column", gap: 8 }}>
+                                        <div style={{ background: "#fff7ed", border: "1.5px solid #fed7aa", borderRadius: 8, padding: "10px 12px", marginTop: 6, display: "flex", flexDirection: "column", gap: 8, animation: "clFailPanelIn 0.18s ease" }}>
                                           <div>
                                             <div style={{ fontSize: "0.7rem", fontWeight: 700, color: "#92400e", letterSpacing: "0.06em", marginBottom: 3 }}>📋 STATUS</div>
                                             <select
@@ -17617,6 +17623,35 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                                               onChange={(e) => makeSetComment(idx, e.target.value)}
                                               placeholder="Describe the issue (required)..."
                                               style={{ width: "100%", borderColor: !ci.comment?.trim() ? "#fca5a5" : undefined }}
+                                            />
+                                          </div>
+                                          <div>
+                                            <div style={{ fontSize: "0.7rem", fontWeight: 700, color: "#92400e", letterSpacing: "0.06em", marginBottom: 4 }}>
+                                              📍 SPECIFIC LOCATION <span style={{ color: "#dc2626" }}>*</span>
+                                            </div>
+                                            <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginBottom: 5 }}>
+                                              {["Grill Area","Fryer","Counter","3-Comp Sink","Mop Area","Prep Table","Walk-In","Dish Room","Storage","Bar","Expo / Pass","Line"].map(loc => {
+                                                const active = ci.ciLocation === loc;
+                                                return (
+                                                  <button key={loc} type="button"
+                                                    style={{ fontSize: "0.7rem", padding: "3px 9px", borderRadius: 16,
+                                                      border: active ? "1.5px solid #b45309" : "1.5px solid #fed7aa",
+                                                      background: active ? "#92400e" : "#fff7ed",
+                                                      color: active ? "#fff" : "#92400e",
+                                                      cursor: "pointer", fontWeight: active ? 700 : 400, transition: "all 0.12s" }}
+                                                    onClick={() => makeSetCiLocation(idx, active ? "" : loc)}>
+                                                    {loc}
+                                                  </button>
+                                                );
+                                              })}
+                                            </div>
+                                            <input
+                                              type="text"
+                                              className="input inputSmall"
+                                              value={ci.ciLocation || ""}
+                                              onChange={(e) => makeSetCiLocation(idx, e.target.value)}
+                                              placeholder="Or type custom location…"
+                                              style={{ width: "100%", borderColor: !ci.ciLocation?.trim() ? "#fca5a5" : undefined }}
                                             />
                                           </div>
                                           <div>

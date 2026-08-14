@@ -1634,9 +1634,14 @@ input[type="date"] {
 }
 .checklistItem.clItemFail {
   background: #fff5f5;
+  animation: clItemFailIn 0.15s ease;
 }
 .checklistItem.clItemFail:nth-child(even) {
   background: #fef2f2;
+}
+@keyframes clItemFailIn {
+  from { background: #fee2e2; }
+  to   { background: #fff5f5; }
 }
 .checklistLabel {
   font-size: 0.84rem;
@@ -1693,6 +1698,16 @@ input[type="date"] {
   background: #dc2626;
   border-color: #dc2626;
   color: #fff;
+  animation: failBtnPop 0.18s ease;
+}
+@keyframes failBtnPop {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.22); }
+  100% { transform: scale(1); }
+}
+@keyframes clFailPanelIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 /* Legacy classes — kept for backward compat */
