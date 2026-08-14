@@ -7067,3 +7067,56 @@ html[data-theme="black"] .footer {
   background: #000000;
   border-top: 1px solid #1C1C22;
 }
+
+/* ══════════════════════════════════════════════════════════════
+   BLACK THEME — COMPLETE PASS: inspection form, checklist,
+   equipment, translate popover, every remaining light widget
+   ══════════════════════════════════════════════════════════════ */
+html[data-theme="black"] .guide { background: #101014; }
+html[data-theme="black"] .guideItem,
+html[data-theme="black"] .segActive,
+html[data-theme="black"] .equipTypeChip,
+html[data-theme="black"] .clItemComment {
+  background: var(--surface-1);
+  color: var(--sdx-gray-800);
+}
+html[data-theme="black"] .noteTypeRow { background: #17171D; }
+html[data-theme="black"] .guideStepDot { background: #1C1C22; }
+html[data-theme="black"] .guideStepNavPrev { background: #1C1C22; color: #C9CDDC; }
+html[data-theme="black"] .equipTypeGroups { background: #131A22; }
+html[data-theme="black"] .equipTypeChipCustom { background: #10202C; }
+html[data-theme="black"] .iceMakerUnit,
+html[data-theme="black"] .issueCategoryChip,
+html[data-theme="black"] .ciPhotoThumb { background: #17171D; }
+html[data-theme="black"] .issueCategoryChip { color: var(--sdx-gray-700); }
+
+/* Checklist rows keep status color meaning, on dark */
+html[data-theme="black"] .checklistItem { background: #15151A; }
+html[data-theme="black"] .checklistItem:last-child { background: #15151A; }
+html[data-theme="black"] .checklistItem.clItemOK { background: #0F2018; }
+html[data-theme="black"] .checklistItem.clItemFail { background: #241214; }
+html[data-theme="black"] .clItemOK .clItemComment { background: #10261C; color: #BFE8CF; }
+html[data-theme="black"] .clItemFail .clItemComment,
+html[data-theme="black"] .clItemCommentEmpty { background: #2A1518; color: #F0C0C0; }
+html[data-theme="black"] .clItemFailPanel { background: #241214; }
+html[data-theme="black"] .clItemCorrectiveAction { background: #10261C !important; color: #BFE8CF; }
+html[data-theme="black"] .clGroupFail { background: #33191C; color: #F5A3A3; border-bottom-color: #55232A; }
+html[data-theme="black"] .clGroupPending { background: #1C1C22; color: #B9BDCE; border-bottom-color: #2A2A34; }
+html[data-theme="black"] .clBtn { background: #1C1C22; color: #C9CDDC; }
+html[data-theme="black"] .clItemPhotoBtn { background: #1C1C22; }
+html[data-theme="black"] .clItemCameraBtn { background: #10261C; }
+html[data-theme="black"] .naToggleBtn { background: #1C1C22; color: #B9BDCE; }
+html[data-theme="black"] .naToggleBtn:hover { background: #23232B; }
+html[data-theme="black"] .naToggleBtnActive { background: #2B2313; color: #EFC367; }
+html[data-theme="black"] .naToggleBtnActive:hover { background: #332A17; }
+html[data-theme="black"] .naBadge { background: #23232B; color: #B9BDCE; }
+html[data-theme="black"] .guideItemNA { background: #131317; }
+
+/* Translate popover */
+html[data-theme="black"] .translatePopover { background: #15151A; border-color: #2A2A34; }
+html[data-theme="black"] .translateSearchInput { background: #101014; color: #ECEDF3; }
+html[data-theme="black"] .translateSearchInput:focus { background: #15151A; }
+html[data-theme="black"] .translateLangBtn { background: #1C1C22; color: #C9CDDC; }
+
+/* Generic segmented + ghost buttons */
+html[data-theme="black"] .guide .btnGhost { background: #1C1C22; color: #C9CDDC; }
