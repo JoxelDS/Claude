@@ -2,7 +2,7 @@
   <!-- "sodexo" in white for dark backgrounds, with red swoosh + white star -->
   <text x="20" y="108"
     font-family="'Segoe UI', 'Inter', 'Helvetica Neue', Arial, sans-serif"
-    font-size="100" font-weight="700"
+    font-size="100" font-weight="700" font-style="italic"
     fill="#FFFFFF" letter-spacing="-1">sodexo</text>
 
   <!-- Red swoosh rising from the "x" to star -->

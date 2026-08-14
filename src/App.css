@@ -4,6 +4,7 @@
   --sdx-red-dark: #C50000;
   --sdx-red-light: #FFF0F0;
   --sdx-navy: #2A295C;
+  --sdx-navy-deep: #1e1d4a;
   --sdx-blue: #283897;
   --sdx-white: #FFFFFF;
   --sdx-gray-50: #F7F8FA;
@@ -62,7 +63,7 @@ body {
 
 /* ── Top Bar ─────────────────────────────────────────────── */
 .topBar {
-  background: linear-gradient(135deg, var(--sdx-navy) 0%, #1e1d4a 50%, var(--sdx-blue) 100%);
+  background: linear-gradient(135deg, var(--sdx-navy) 0%, var(--sdx-navy-deep) 50%, var(--sdx-blue) 100%);
   color: var(--sdx-white);
   padding: 0 28px;
   min-height: 64px;
@@ -2198,7 +2199,7 @@ datalist {
 
 /* ── Footer ──────────────────────────────────────────────── */
 .footer {
-  background: linear-gradient(135deg, var(--sdx-navy) 0%, #1e1d4a 50%, var(--sdx-blue) 100%);
+  background: linear-gradient(135deg, var(--sdx-navy) 0%, var(--sdx-navy-deep) 50%, var(--sdx-blue) 100%);
   color: rgba(255,255,255,.65);
   text-align: center;
   padding: 16px 28px;
@@ -6366,4 +6367,88 @@ datalist {
   .tempAvgPill, .tempAvgPillClickable, .worstLocationClickable {
     will-change: auto;
   }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   THEMES — set via html[data-theme], chosen in Admin → Appearance
+   Overriding the brand tokens re-skins the whole app chrome.
+   ══════════════════════════════════════════════════════════════ */
+
+/* Sodexo Classic (default) — uses the :root tokens above */
+
+/* Sodexo Ocean — bright blue gradient, matches the blue Sodexo brand tile */
+html[data-theme="ocean"] {
+  --sdx-navy: #0B4EA2;
+  --sdx-navy-deep: #0A3D80;
+  --sdx-blue: #1E88D2;
+  --shadow-sm: 0 1px 2px rgba(11,78,162,.08);
+  --shadow-md: 0 4px 12px rgba(11,78,162,.10);
+  --shadow-lg: 0 8px 30px rgba(11,78,162,.14);
+}
+
+/* Sodexo Midnight — deep dark-navy chrome, like the dark Sodexo tile */
+html[data-theme="midnight"] {
+  --sdx-navy: #1C1B45;
+  --sdx-navy-deep: #121130;
+  --sdx-blue: #34336E;
+}
+html[data-theme="midnight"] body { background: #E9EAF2; }
+
+/* DS Marketing — black & white editorial monochrome (red kept for FAIL/status) */
+html[data-theme="dsmarketing"] {
+  --sdx-navy: #141416;
+  --sdx-navy-deep: #000000;
+  --sdx-blue: #2E2E33;
+  --sdx-red: #E01919;
+  --sdx-gray-50: #F6F6F7;
+  --sdx-gray-100: #ECECEE;
+  --sdx-gray-200: #DCDCE0;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,.10);
+  --shadow-md: 0 4px 12px rgba(0,0,0,.14);
+  --shadow-lg: 0 8px 30px rgba(0,0,0,.20);
+}
+html[data-theme="dsmarketing"] body { background: #EFEFF1; }
+html[data-theme="dsmarketing"] .topBar {
+  background: linear-gradient(105deg, #0A0A0B 0%, #161618 55%, #232326 100%);
+  box-shadow: 0 3px 14px rgba(0,0,0,.4);
+}
+html[data-theme="dsmarketing"] .logoMark { background: #FFFFFF; }
+
+/* Theme picker swatches (Admin panel) */
+.themeGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
+}
+.themeCard {
+  border: 2px solid var(--sdx-gray-200);
+  border-radius: 12px;
+  background: #fff;
+  cursor: pointer;
+  padding: 0;
+  overflow: hidden;
+  text-align: left;
+  transition: border-color var(--transition-fast), transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+.themeCard:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+.themeCard.active { border-color: var(--sdx-navy); box-shadow: 0 0 0 3px rgba(42,41,92,.15); }
+.themeSwatch {
+  height: 58px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.themeSwatch img { height: 26px; max-width: 80%; object-fit: contain; }
+.themeMeta {
+  padding: 8px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+.themeName { font-size: 0.8rem; font-weight: 700; color: var(--sdx-gray-800); }
+.themeCheck {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--sdx-green);
 }

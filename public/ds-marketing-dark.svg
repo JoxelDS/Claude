@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 300">
+  <!-- DS Marketing — black mark for light backgrounds -->
+  <defs>
+    <mask id="dsCutD">
+      <rect x="0" y="0" width="480" height="300" fill="white"/>
+      <rect x="60" y="122" width="360" height="56" fill="black"/>
+    </mask>
+  </defs>
+
+  <text x="240" y="235" text-anchor="middle"
+    font-family="Georgia, 'Times New Roman', serif"
+    font-size="240" font-weight="700" letter-spacing="6"
+    fill="#111111" mask="url(#dsCutD)">DS</text>
+
+  <text x="240" y="164" text-anchor="middle"
+    font-family="'Segoe UI', 'Inter', Arial, sans-serif"
+    font-size="34" font-weight="600" letter-spacing="16"
+    fill="#111111">MARKETING</text>
+</svg>

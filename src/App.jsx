@@ -132,12 +132,29 @@ if (import.meta.env.PROD) {
 const BASE = import.meta.env.BASE_URL;
 const LOGO_WHITE = `${BASE}sodexo-live-logo.svg`;
 const LOGO_DARK = `${BASE}sodexo-dark.svg`;
+const DS_LOGO_WHITE = `${BASE}ds-marketing.svg`;
+const DS_LOGO_DARK = `${BASE}ds-marketing-dark.svg`;
+
+/* ── Themes — admin-selectable, synced to every device via venueSettings ── */
+const THEMES = [
+  { id: "sodexo",      name: "Sodexo Classic",  swatch: "linear-gradient(135deg,#2A295C 0%,#1e1d4a 50%,#283897 100%)", logo: LOGO_WHITE },
+  { id: "ocean",       name: "Sodexo Ocean",    swatch: "linear-gradient(135deg,#0B4EA2 0%,#0A3D80 50%,#1E88D2 100%)", logo: LOGO_WHITE },
+  { id: "midnight",    name: "Sodexo Midnight", swatch: "linear-gradient(135deg,#1C1B45 0%,#121130 50%,#34336E 100%)", logo: LOGO_WHITE },
+  { id: "dsmarketing", name: "DS Marketing",    swatch: "linear-gradient(105deg,#0A0A0B 0%,#161618 55%,#232326 100%)", logo: DS_LOGO_WHITE },
+];
+function applyTheme(themeId) {
+  const valid = THEMES.some(t => t.id === themeId) ? themeId : "sodexo";
+  if (valid === "sodexo") delete document.documentElement.dataset.theme;
+  else document.documentElement.dataset.theme = valid;
+}
+
 // Module-level branding cache — updated by the main App on every venueSettings change
 let _vs = {};
-function resolveLogoWhite() { return _vs.logoUrl || LOGO_WHITE; }
-function resolveLogoDark() { return _vs.logoDarkUrl || _vs.logoUrl || LOGO_DARK; }
-function resolveCompanyName() { return _vs.companyName || "Sodexo Live!"; }
-function resolveSystemName() { return _vs.companyName ? `${_vs.companyName} Inspection System` : "Sodexo Kitchen Inspection System"; }
+const isDsTheme = () => _vs.theme === "dsmarketing";
+function resolveLogoWhite() { return _vs.logoUrl || (isDsTheme() ? DS_LOGO_WHITE : LOGO_WHITE); }
+function resolveLogoDark() { return _vs.logoDarkUrl || _vs.logoUrl || (isDsTheme() ? DS_LOGO_DARK : LOGO_DARK); }
+function resolveCompanyName() { return _vs.companyName || (isDsTheme() ? "DS Marketing" : "Sodexo Live!"); }
+function resolveSystemName() { return _vs.companyName ? `${_vs.companyName} Inspection System` : (isDsTheme() ? "DS Marketing Inspection System" : "Sodexo Kitchen Inspection System"); }
 
 /* ── Multi-venue: detect ?v=venueSlug from URL ───────────────────
    Each venue gets completely isolated data (localStorage + Firestore).
@@ -16556,6 +16573,39 @@ function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVe
           <span style={{ marginLeft: "auto", color: "#93c5fd", fontSize: "1.1rem" }}>→</span>
         </button>
 
+        {/* Appearance / Theme */}
+        <div className="card adminCard" style={{ marginBottom: 24 }}>
+          <div className="cardHeader">
+            <div className="cardTitle">🎨 Appearance &amp; Theme</div>
+          </div>
+          <div className="cardBody">
+            <p style={{ margin: "0 0 0.75rem", fontSize: "0.88rem", color: "#64748b" }}>
+              Pick the look of the whole app — header, buttons, and logo. The theme syncs instantly to every device in this venue.
+            </p>
+            <div className="themeGrid">
+              {THEMES.map(t => {
+                const active = (venueSettings?.theme || "sodexo") === t.id;
+                return (
+                  <button
+                    key={t.id}
+                    type="button"
+                    className={`themeCard${active ? " active" : ""}`}
+                    onClick={() => onSaveVenueSettings?.({ theme: t.id })}
+                  >
+                    <div className="themeSwatch" style={{ background: t.swatch }}>
+                      <img src={t.logo} alt={t.name} />
+                    </div>
+                    <div className="themeMeta">
+                      <span className="themeName">{t.name}</span>
+                      {active && <span className="themeCheck">✓ Active</span>}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
         {/* Inspection Schedule Settings */}
         <div className="card adminCard" style={{ marginBottom: 24 }}>
           <div className="cardHeader">
@@ -20318,6 +20368,9 @@ export default function App() {
     try { const v = JSON.parse(localStorage.getItem(VENUE_SETTINGS_KEY) || "{}"); _vs = v; return v; } catch { return {}; }
   });
   const [lastInspectionDate, setLastInspectionDate] = useState(null); // ISO date string (YYYY-MM-DD)
+
+  // Apply the venue theme (admin-controlled, synced across all devices)
+  useEffect(() => { applyTheme(venueSettings?.theme); }, [venueSettings?.theme]);
 
   function saveVenueSettings(updates) {
     const next = { ...venueSettings, ...updates };
