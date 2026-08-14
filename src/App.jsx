@@ -140,6 +140,7 @@ const THEMES = [
   { id: "sodexo",      name: "Sodexo Classic",  swatch: "linear-gradient(135deg,#2A295C 0%,#1e1d4a 50%,#283897 100%)", logo: LOGO_WHITE },
   { id: "ocean",       name: "Sodexo Ocean",    swatch: "linear-gradient(135deg,#0B4EA2 0%,#0A3D80 50%,#1E88D2 100%)", logo: LOGO_WHITE },
   { id: "midnight",    name: "Sodexo Midnight", swatch: "linear-gradient(135deg,#1C1B45 0%,#121130 50%,#34336E 100%)", logo: LOGO_WHITE },
+  { id: "noir",        name: "Sodexo Noir",     swatch: "linear-gradient(105deg,#0A0A0B 0%,#161618 55%,#232326 100%)", logo: LOGO_WHITE },
   { id: "dsmarketing", name: "DS Marketing",    swatch: "linear-gradient(105deg,#0A0A0B 0%,#161618 55%,#232326 100%)", logo: DS_LOGO_WHITE },
 ];
 function applyTheme(themeId) {
@@ -5487,7 +5488,7 @@ function TempTrendChart({ history }) {
                 style={{
                   fontSize: "0.78rem",
                   fontWeight: 600,
-                  color: "#2A295C",
+                  color: "var(--sdx-navy)",
                   background: "#f0f1f8",
                   border: "1.5px solid #c7c9e3",
                   borderRadius: 8,
@@ -5526,14 +5527,14 @@ function TempTrendChart({ history }) {
                             alignItems: "center",
                             gap: 6,
                             fontWeight: loc === activeLoc ? 700 : 500,
-                            color: loc === activeLoc ? "#2A295C" : "#374151",
+                            color: loc === activeLoc ? "var(--sdx-navy)" : "#374151",
                             background: loc === activeLoc ? "#f0f1f8" : "transparent",
                             cursor: "pointer",
                             borderBottom: "1px solid #f3f4f6",
                           }}
                         >
                           {uNum && (
-                            <span style={{ background: "#2A295C", color: "#fff", borderRadius: 5, padding: "1px 6px", fontSize: "0.72rem", fontWeight: 800, flexShrink: 0 }}>
+                            <span style={{ background: "var(--sdx-navy)", color: "#fff", borderRadius: 5, padding: "1px 6px", fontSize: "0.72rem", fontWeight: 800, flexShrink: 0 }}>
                               #{uNum}
                             </span>
                           )}
@@ -5583,7 +5584,7 @@ function TempTrendChart({ history }) {
         {/* Location + unit header */}
         {activeLoc && <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           {activeUnitNum && (
-            <span style={{ background: "#2A295C", color: "#fff", borderRadius: 6, padding: "2px 10px", fontSize: "0.82rem", fontWeight: 800, letterSpacing: "0.03em" }}>
+            <span style={{ background: "var(--sdx-navy)", color: "#fff", borderRadius: 6, padding: "2px 10px", fontSize: "0.82rem", fontWeight: 800, letterSpacing: "0.03em" }}>
               Unit #{activeUnitNum}
             </span>
           )}
@@ -5711,7 +5712,7 @@ function TempTrendChart({ history }) {
                   // Y: prefer above dot, clamp within chart
                   const rawTipY = py - tipH - 12;
                   const tipY = rawTipY < SPADT ? py + 12 : rawTipY;
-                  const NAVY = "#2A295C";
+                  const NAVY = "var(--sdx-navy)";
                   const fmtDate = (() => { try { const [,m,dy] = d.date.split("-"); return `${["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][+m-1]} ${+dy}`; } catch(e){ return d.date.slice(5); } })();
                   return (
                     <g key={idx} onMouseEnter={() => setHoveredPoint(hk)} onTouchStart={() => setHoveredPoint(hk)}>
@@ -6232,7 +6233,7 @@ function EquipLocationCard({ loc, filterEquip, filterSubEquip }) {
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0, paddingTop: 2 }}>
           <span style={{ background: badgeStyle.bg, color: badgeStyle.color, borderRadius: 6, padding: "3px 9px", fontSize: "0.65rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em" }}>{displayType}</span>
-          <span style={{ fontSize: "0.8rem", color: open ? "#2A295C" : "#94a3b8", transform: open ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.15s", display: "inline-block", lineHeight: 1 }}>▼</span>
+          <span style={{ fontSize: "0.8rem", color: open ? "var(--sdx-navy)" : "#94a3b8", transform: open ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.15s", display: "inline-block", lineHeight: 1 }}>▼</span>
         </div>
       </button>
 
@@ -6755,7 +6756,7 @@ function AIHealthMonitor({ history, currentUser }) {
               {/* ── Navy KPI summary header ── */}
               {inv.length > 0 && (
                 <div style={{ borderRadius: 16, overflow: "hidden", boxShadow: "0 8px 28px rgba(42,41,92,0.22)", marginBottom: 16 }}>
-                  <div style={{ background: "linear-gradient(160deg, #2A295C 0%, #1d1c50 60%, #283897 100%)", position: "relative", padding: "1rem 1.1rem 0.9rem" }}>
+                  <div style={{ background: "linear-gradient(160deg, var(--sdx-navy) 0%, var(--sdx-navy-deep) 60%, var(--sdx-blue) 100%)", position: "relative", padding: "1rem 1.1rem 0.9rem" }}>
                     <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 3, background: "linear-gradient(90deg, #EE0000, #ff5555, #EE0000)" }} />
                     <div style={{ fontSize: "0.58rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.12em", color: "rgba(255,255,255,0.55)", marginBottom: 10 }}>Equipment Inventory — Analytics</div>
                     <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.min(bucketTotals.length, 4)}, 1fr)`, gap: 8 }}>
@@ -6788,7 +6789,7 @@ function AIHealthMonitor({ history, currentUser }) {
                   <button
                     type="button"
                     onClick={() => { setFilterEquip(""); setFilterSubEquip(""); }}
-                    style={{ padding: "6px 13px", borderRadius: 20, border: equipBucketKey ? "1.5px solid #e2e8f0" : "1.5px solid #2A295C", background: equipBucketKey ? "#f8fafc" : "#2A295C", color: equipBucketKey ? "#64748b" : "#fff", fontSize: "0.78rem", fontWeight: 700, cursor: "pointer", transition: "all 0.12s" }}>
+                    style={{ padding: "6px 13px", borderRadius: 20, border: equipBucketKey ? "1.5px solid #e2e8f0" : "1.5px solid #2A295C", background: equipBucketKey ? "#f8fafc" : "var(--sdx-navy)", color: equipBucketKey ? "#64748b" : "#fff", fontSize: "0.78rem", fontWeight: 700, cursor: "pointer", transition: "all 0.12s" }}>
                     All
                   </button>
                   {/* Category pills */}
@@ -6799,7 +6800,7 @@ function AIHealthMonitor({ history, currentUser }) {
                         key={b.key}
                         type="button"
                         onClick={() => { setFilterEquip(isActive ? "" : b.key); setFilterSubEquip(""); }}
-                        style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 13px", borderRadius: 20, border: isActive ? "1.5px solid #2A295C" : "1.5px solid #e2e8f0", background: isActive ? "#2A295C" : "#f8fafc", color: isActive ? "#fff" : "#475569", fontSize: "0.78rem", fontWeight: 700, cursor: "pointer", transition: "all 0.12s" }}>
+                        style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 13px", borderRadius: 20, border: isActive ? "1.5px solid #2A295C" : "1.5px solid #e2e8f0", background: isActive ? "var(--sdx-navy)" : "#f8fafc", color: isActive ? "#fff" : "#475569", fontSize: "0.78rem", fontWeight: 700, cursor: "pointer", transition: "all 0.12s" }}>
                         <span>{b.label}</span>
                         <span style={{ fontSize: "0.7rem", fontWeight: 600, opacity: 0.75 }}>({b.total})</span>
                       </button>
@@ -6841,7 +6842,7 @@ function AIHealthMonitor({ history, currentUser }) {
                     <button
                       type="button"
                       onClick={() => setFilterEquip(equipBucketKey)}
-                      style={{ padding: "4px 11px", borderRadius: 20, border: equipSubKey ? "1.5px solid #e2e8f0" : "1.5px solid #2A295C", background: equipSubKey ? "#f8fafc" : "#2A295C", color: equipSubKey ? "#64748b" : "#fff", fontSize: "0.75rem", fontWeight: 700, cursor: "pointer" }}>
+                      style={{ padding: "4px 11px", borderRadius: 20, border: equipSubKey ? "1.5px solid #e2e8f0" : "1.5px solid #2A295C", background: equipSubKey ? "#f8fafc" : "var(--sdx-navy)", color: equipSubKey ? "#64748b" : "#fff", fontSize: "0.75rem", fontWeight: 700, cursor: "pointer" }}>
                       All {activeBucketObj.label}
                     </button>
                     {activeBucketObj.subs.map(sb => {
@@ -6851,7 +6852,7 @@ function AIHealthMonitor({ history, currentUser }) {
                           key={sb.key}
                           type="button"
                           onClick={() => setFilterEquip(isActiveSub ? equipBucketKey : `${equipBucketKey}:${sb.key}`)}
-                          style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 11px", borderRadius: 20, border: isActiveSub ? "1.5px solid #2A295C" : "1.5px solid #e2e8f0", background: isActiveSub ? "#2A295C" : "#f8fafc", color: isActiveSub ? "#fff" : "#475569", fontSize: "0.75rem", fontWeight: 700, cursor: "pointer", transition: "all 0.12s" }}>
+                          style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 11px", borderRadius: 20, border: isActiveSub ? "1.5px solid #2A295C" : "1.5px solid #e2e8f0", background: isActiveSub ? "var(--sdx-navy)" : "#f8fafc", color: isActiveSub ? "#fff" : "#475569", fontSize: "0.75rem", fontWeight: 700, cursor: "pointer", transition: "all 0.12s" }}>
                           {sb.label}
                           <span style={{ fontSize: "0.68rem", opacity: 0.75 }}>({sb.total})</span>
                         </button>
@@ -6908,7 +6909,7 @@ function AIHealthMonitor({ history, currentUser }) {
                     <div key={locType} style={{ marginBottom: 24 }}>
                       {/* Section header */}
                       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10, paddingLeft: 4, borderLeft: "4px solid #2A295C" }}>
-                        <span style={{ fontSize: "0.72rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.1em", color: "#2A295C" }}>
+                        <span style={{ fontSize: "0.72rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.1em", color: "var(--sdx-navy)" }}>
                           {LOC_TYPE_ICONS[locType] || "📍"} {locType} Locations
                         </span>
                         <span style={{ fontSize: "0.7rem", color: "#64748b", fontWeight: 600 }}>— {locs.length} site{locs.length !== 1 ? "s" : ""} — {groupTotal} {equipLabel}</span>
@@ -7003,7 +7004,7 @@ function AIHealthMonitor({ history, currentUser }) {
                     return (
                       <div key={h} title={`${h}:00 — ${count} inspection${count !== 1 ? "s" : ""}`}
                         style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center" }}>
-                        <div style={{ width: "100%", height: hgt, borderRadius: "3px 3px 0 0", background: count > 0 ? (isActive ? "#2A295C" : "#93c5fd") : "#f1f5f9" }} />
+                        <div style={{ width: "100%", height: hgt, borderRadius: "3px 3px 0 0", background: count > 0 ? (isActive ? "var(--sdx-navy)" : "#93c5fd") : "#f1f5f9" }} />
                         {h % 6 === 0 && <div style={{ fontSize: "0.52rem", color: "#cbd5e1", marginTop: 2 }}>{h}h</div>}
                       </div>
                     );
@@ -7021,8 +7022,8 @@ function AIHealthMonitor({ history, currentUser }) {
                     const isActive = d === b.peakDay && count > 0;
                     return (
                       <div key={d} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 5 }}>
-                        <div title={`${dayNames[d]}: ${count}`} style={{ width: "100%", height: hgt, borderRadius: "4px 4px 0 0", background: isActive ? "#2A295C" : "#bfdbfe" }} />
-                        <div style={{ fontSize: "0.7rem", color: isActive ? "#2A295C" : "#94a3b8", fontWeight: isActive ? 700 : 400 }}>{dayNames[d].slice(0, 2)}</div>
+                        <div title={`${dayNames[d]}: ${count}`} style={{ width: "100%", height: hgt, borderRadius: "4px 4px 0 0", background: isActive ? "var(--sdx-navy)" : "#bfdbfe" }} />
+                        <div style={{ fontSize: "0.7rem", color: isActive ? "var(--sdx-navy)" : "#94a3b8", fontWeight: isActive ? 700 : 400 }}>{dayNames[d].slice(0, 2)}</div>
                       </div>
                     );
                   })}
@@ -7038,7 +7039,7 @@ function AIHealthMonitor({ history, currentUser }) {
                       <div key={t.type} style={{ display: "flex", alignItems: "center", gap: 10, background: "#f8fafc", borderRadius: 10, padding: "10px 12px" }}>
                         <div style={{ fontWeight: 700, fontSize: "0.8rem", color: "#64748b", width: 20, flexShrink: 0 }}>#{idx + 1}</div>
                         <div style={{ fontSize: "0.85rem", color: "#374151", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.type}</div>
-                        <MiniBar pct={Math.round((t.count / b.topTypes[0].count) * 100)} color="#2A295C" />
+                        <MiniBar pct={Math.round((t.count / b.topTypes[0].count) * 100)} color="var(--sdx-navy)" />
                         <div style={{ fontSize: "0.8rem", color: "#64748b", fontWeight: 600, minWidth: 28, textAlign: "right" }}>{t.count}</div>
                       </div>
                     ))}
@@ -7458,7 +7459,7 @@ function ImportReviewModal({ fields: initialFields, imagePreview, saving, onSave
       <div style={{ background: "#fff", borderRadius: 14, width: "100%", maxWidth: 820, boxShadow: "0 8px 40px rgba(0,0,0,0.22)" }}>
 
         {/* Header */}
-        <div style={{ background: "#2A295C", color: "#fff", borderRadius: "14px 14px 0 0", padding: "1rem 1.5rem", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ background: "var(--sdx-navy)", color: "#fff", borderRadius: "14px 14px 0 0", padding: "1rem 1.5rem", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div>
             <div style={{ fontWeight: 700, fontSize: "1.05rem" }}>📋 Review Imported Report</div>
             <div style={{ fontSize: "0.8rem", opacity: 0.75, marginTop: 2 }}>AI read this paper report. Verify each field before saving — you can edit anything below.</div>
@@ -7563,7 +7564,7 @@ function ImportReviewModal({ fields: initialFields, imagePreview, saving, onSave
             {/* Save / Cancel */}
             <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", borderTop: "1px solid #e2e8f0", paddingTop: "1rem" }}>
               <button type="button" onClick={onCancel} style={{ background: "#fff", border: "1px solid #cbd5e1", color: "#374151", borderRadius: 8, padding: "0.55rem 1.2rem", cursor: "pointer", fontWeight: 600, fontSize: "0.9rem" }}>Cancel</button>
-              <button type="button" onClick={handleSave} disabled={saving} style={{ background: "#2A295C", color: "#fff", border: "none", borderRadius: 8, padding: "0.55rem 1.4rem", cursor: saving ? "not-allowed" : "pointer", fontWeight: 700, fontSize: "0.9rem", opacity: saving ? 0.7 : 1 }}>
+              <button type="button" onClick={handleSave} disabled={saving} style={{ background: "var(--sdx-navy)", color: "#fff", border: "none", borderRadius: 8, padding: "0.55rem 1.4rem", cursor: saving ? "not-allowed" : "pointer", fontWeight: 700, fontSize: "0.9rem", opacity: saving ? 0.7 : 1 }}>
                 {saving ? "Saving…" : "✓ Save Report"}
               </button>
             </div>
@@ -10452,7 +10453,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                         {dlPickerId !== rec.id ? (
                           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
                             <button className="btn" type="button"
-                              style={{ background: "#2A295C", color: "#fff", borderColor: "#2A295C", fontWeight: 600, padding: "0.6rem 1rem" }}
+                              style={{ background: "var(--sdx-navy)", color: "#fff", borderColor: "var(--sdx-navy)", fontWeight: 600, padding: "0.6rem 1rem" }}
                               onClick={() => { setDlPickerId(rec.id); setDlScope(null); import("exceljs").catch(() => {}); }}>
                               ⬇️ Download Report
                             </button>
@@ -10491,7 +10492,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                               <div style={{ display: "flex", gap: 12 }}>
                                 <button type="button"
                                   onClick={() => setDlScope("full")}
-                                  style={{ flex: 1, padding: "0.85rem 0.75rem", borderRadius: 8, border: dlScope === "full" ? "2px solid #2A295C" : "1.5px solid #cbd5e1", background: dlScope === "full" ? "#2A295C" : "#fff", color: dlScope === "full" ? "#fff" : "#1e293b", fontWeight: 600, fontSize: "0.82rem", cursor: "pointer", transition: "all 0.15s" }}>
+                                  style={{ flex: 1, padding: "0.85rem 0.75rem", borderRadius: 8, border: dlScope === "full" ? "2px solid #2A295C" : "1.5px solid #cbd5e1", background: dlScope === "full" ? "var(--sdx-navy)" : "#fff", color: dlScope === "full" ? "#fff" : "#1e293b", fontWeight: 600, fontSize: "0.82rem", cursor: "pointer", transition: "all 0.15s" }}>
                                   📋 Full Report<br />
                                   <span style={{ fontSize: "0.7rem", fontWeight: 400, opacity: 0.8 }}>All details, temps, notes</span>
                                 </button>
@@ -11888,7 +11889,7 @@ function FoodSafetyRef() {
    React Rules of Hooks (no hooks inside conditional IIFEs)
 ══════════════════════════════════════════════════════════════ */
 function LicensesTab({ history, invLicenseData, setInvLicenseData, invLicenseMismatches, dismissedMismatches, setDismissedMismatches }) {
-  const NAVY = "#2A295C";
+  const NAVY = "var(--sdx-navy)";
   const [dismissedNameHints, setDismissedNameHints] = React.useState(new Set());
   const [licFilter, setLicFilter] = React.useState("all");
   const [licSearch, setLicSearch] = React.useState("");
@@ -12489,7 +12490,7 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
     : null;
 
   // Sodexo brand tokens
-  const NAVY  = "#2A295C";
+  const NAVY  = "var(--sdx-navy)";
   const RED   = "#EE0000";
   const BG    = "#f0f2f7";
 
@@ -12886,7 +12887,7 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
     return (
       <div style={{ background: "#fff", borderRadius: 14, border: "1.5px solid #e8edf4", overflow: "hidden", boxShadow: "0 2px 10px rgba(42,41,92,0.08)", transition: "box-shadow 0.15s" }}>
         <button type="button" onClick={toggle}
-          style={{ width: "100%", display: "flex", alignItems: "center", gap: "0.6rem", padding: "0.75rem 0.9rem", borderBottom: isOpen ? "1.5px solid #f1f5f9" : "none", background: isOpen ? `linear-gradient(90deg, ${NAVY}08 0%, #f8fafc 100%)` : "#f8fafc", border: "none", cursor: "pointer", textAlign: "left" }}>
+          style={{ width: "100%", display: "flex", alignItems: "center", gap: "0.6rem", padding: "0.75rem 0.9rem", borderBottom: isOpen ? "1.5px solid #f1f5f9" : "none", background: isOpen ? `linear-gradient(90deg, color-mix(in srgb, ${NAVY} 3%, transparent) 0%, #f8fafc 100%)` : "#f8fafc", border: "none", cursor: "pointer", textAlign: "left" }}>
           <div style={{ width: 3, alignSelf: "stretch", borderRadius: 4, background: badgeColor || NAVY, flexShrink: 0, minHeight: 36 }} />
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontWeight: 800, fontSize: "0.88rem", color: "#0f172a", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
@@ -14183,7 +14184,7 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
                           const vsTeamTP = (p.inspPerDay - teamAvgTP).toFixed(1);
                           const tpColor = p.inspPerDay >= teamAvgTP * 1.2 ? "#22c55e" : p.inspPerDay >= teamAvgTP * 0.8 ? "#3b82f6" : "#f59e0b";
                           return (
-                            <div key={p.name + "-tp"} style={{ border: isTop ? `1.5px solid ${NAVY}20` : "1px solid #f1f5f9", borderRadius: 10, overflow: "hidden", background: isTop ? "#f8f9ff" : "#fafafa" }}>
+                            <div key={p.name + "-tp"} style={{ border: isTop ? `1.5px solid color-mix(in srgb, ${NAVY} 12%, transparent)` : "1px solid #f1f5f9", borderRadius: 10, overflow: "hidden", background: isTop ? "#f8f9ff" : "#fafafa" }}>
                               {isTop && <div style={{ height: 2, background: NAVY }} />}
                               <div style={{ display: "flex", alignItems: "center", gap: "0.55rem", padding: "0.6rem 0.7rem" }}>
                                 <div style={{ width: 32, height: 32, borderRadius: 9, flexShrink: 0, background: avatarBg(p.name), display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.7rem", fontWeight: 900, color: "#fff" }}>{initials(p.name)}</div>
@@ -14701,7 +14702,7 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
                       {/* "All" pill */}
                       <button type="button"
                         onClick={() => { setInvEquipBucket(""); setInvEquipSub(""); }}
-                        style={{ padding: "6px 13px", borderRadius: 20, border: invEquipBucket ? "1.5px solid #e2e8f0" : "1.5px solid #2A295C", background: invEquipBucket ? "#f8fafc" : "#2A295C", color: invEquipBucket ? "#64748b" : "#fff", fontSize: "0.78rem", fontWeight: 700, cursor: "pointer" }}>
+                        style={{ padding: "6px 13px", borderRadius: 20, border: invEquipBucket ? "1.5px solid #e2e8f0" : "1.5px solid #2A295C", background: invEquipBucket ? "#f8fafc" : "var(--sdx-navy)", color: invEquipBucket ? "#64748b" : "#fff", fontSize: "0.78rem", fontWeight: 700, cursor: "pointer" }}>
                         All
                       </button>
                       {invEquipGroups.map(b => {
@@ -14709,7 +14710,7 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
                         return (
                           <button key={b.key} type="button"
                             onClick={() => { setInvEquipBucket(isActive ? "" : b.key); setInvEquipSub(""); }}
-                            style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 13px", borderRadius: 20, border: isActive ? "1.5px solid #2A295C" : "1.5px solid #e2e8f0", background: isActive ? "#2A295C" : "#f8fafc", color: isActive ? "#fff" : "#475569", fontSize: "0.78rem", fontWeight: 700, cursor: "pointer", transition: "all 0.12s" }}>
+                            style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 13px", borderRadius: 20, border: isActive ? "1.5px solid #2A295C" : "1.5px solid #e2e8f0", background: isActive ? "var(--sdx-navy)" : "#f8fafc", color: isActive ? "#fff" : "#475569", fontSize: "0.78rem", fontWeight: 700, cursor: "pointer", transition: "all 0.12s" }}>
                             <span>{b.label}</span>
                             <span style={{ fontSize: "0.7rem", opacity: 0.75 }}>({b.total})</span>
                           </button>
@@ -14742,7 +14743,7 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
                         <span style={{ fontSize: "0.68rem", fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.06em", marginRight: 2 }}>Type:</span>
                         <button type="button"
                           onClick={() => setInvEquipSub("")}
-                          style={{ padding: "4px 11px", borderRadius: 20, border: invEquipSub ? "1.5px solid #e2e8f0" : "1.5px solid #2A295C", background: invEquipSub ? "#f8fafc" : "#2A295C", color: invEquipSub ? "#64748b" : "#fff", fontSize: "0.75rem", fontWeight: 700, cursor: "pointer" }}>
+                          style={{ padding: "4px 11px", borderRadius: 20, border: invEquipSub ? "1.5px solid #e2e8f0" : "1.5px solid #2A295C", background: invEquipSub ? "#f8fafc" : "var(--sdx-navy)", color: invEquipSub ? "#64748b" : "#fff", fontSize: "0.75rem", fontWeight: 700, cursor: "pointer" }}>
                           All {invActiveBucketObj.label}
                         </button>
                         {invActiveBucketObj.subs.map(sb => {
@@ -14750,7 +14751,7 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
                           return (
                             <button key={sb.key} type="button"
                               onClick={() => setInvEquipSub(isActiveSub ? "" : sb.key)}
-                              style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 11px", borderRadius: 20, border: isActiveSub ? "1.5px solid #2A295C" : "1.5px solid #e2e8f0", background: isActiveSub ? "#2A295C" : "#f8fafc", color: isActiveSub ? "#fff" : "#475569", fontSize: "0.75rem", fontWeight: 700, cursor: "pointer", transition: "all 0.12s" }}>
+                              style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 11px", borderRadius: 20, border: isActiveSub ? "1.5px solid #2A295C" : "1.5px solid #e2e8f0", background: isActiveSub ? "var(--sdx-navy)" : "#f8fafc", color: isActiveSub ? "#fff" : "#475569", fontSize: "0.75rem", fontWeight: 700, cursor: "pointer", transition: "all 0.12s" }}>
                               {sb.label}
                               <span style={{ fontSize: "0.68rem", opacity: 0.75 }}>({sb.total})</span>
                             </button>
@@ -15167,7 +15168,7 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
                     </div>
                     {/* Legend inline in header */}
                     <div style={{ marginLeft: "auto", display: "flex", gap: "0.75rem", flexShrink: 0 }}>
-                      {[["#2A295C", "Compliance"], ["#22c55e", "Pass Rate"]].map(([color, label]) => (
+                      {[["var(--sdx-navy)", "Compliance"], ["#22c55e", "Pass Rate"]].map(([color, label]) => (
                         <div key={label} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: "0.62rem", color: "#64748b", fontWeight: 600 }}>
                           <div style={{ width: 16, height: 2.5, background: color, borderRadius: 2 }} />
                           {label}
@@ -15195,7 +15196,7 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
 
                         {/* Area under score line */}
                         {scoreArea && (
-                          <polygon points={scoreArea} fill="#2A295C" fillOpacity="0.06" />
+                          <polygon points={scoreArea} fill="var(--sdx-navy)" fillOpacity="0.06" />
                         )}
 
                         {/* Pass rate line */}
@@ -15206,7 +15207,7 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
 
                         {/* Score line */}
                         {scoreLinePoints && (
-                          <polyline points={scoreLinePoints} fill="none" stroke="#2A295C" strokeWidth="2"
+                          <polyline points={scoreLinePoints} fill="none" stroke="var(--sdx-navy)" strokeWidth="2"
                             strokeLinejoin="round" strokeLinecap="round" />
                         )}
 
@@ -15214,12 +15215,12 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
                         {points.map((p, i) => p.avgPct !== null && (
                           <g key={i}>
                             <circle cx={toSvgX(i)} cy={toSvgY(p.avgPct)} r="3.5"
-                              fill="#fff" stroke="#2A295C" strokeWidth="1.5" />
+                              fill="#fff" stroke="var(--sdx-navy)" strokeWidth="1.5" />
                             {/* Value label above dot — only if not too crowded */}
                             {(points.length <= 8) && (
                               <text x={toSvgX(i)} y={toSvgY(p.avgPct) - 6}
                                 textAnchor="middle" fontSize="7" fontWeight="700"
-                                fill="#2A295C" fontFamily="Inter,sans-serif">{p.avgPct}%</text>
+                                fill="var(--sdx-navy)" fontFamily="Inter,sans-serif">{p.avgPct}%</text>
                             )}
                           </g>
                         ))}
@@ -15294,7 +15295,7 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
                     <div style={{ padding: "0.75rem 0.9rem" }}>
                       {topIssues.map(({ cat, count }, idx) => {
                         const pct = Math.round((count / maxIssueCount) * 100);
-                        const barColor = idx === 0 ? "#EE0000" : idx < 3 ? "#f97316" : "#2A295C";
+                        const barColor = idx === 0 ? "#EE0000" : idx < 3 ? "#f97316" : "var(--sdx-navy)";
                         return (
                           <div key={cat} style={{ marginBottom: "0.6rem" }}>
                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "0.2rem" }}>
@@ -15336,9 +15337,9 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
                                 {labelMonth(p.month)}
                               </div>
                               <div style={{ flex: 1, height: 14, background: "#f1f5f9", borderRadius: 6, overflow: "hidden" }}>
-                                <div style={{ width: `${barPct}%`, height: "100%", background: "#2A295C", borderRadius: 6 }} />
+                                <div style={{ width: `${barPct}%`, height: "100%", background: "var(--sdx-navy)", borderRadius: 6 }} />
                               </div>
-                              <div style={{ width: 22, flexShrink: 0, fontSize: "0.68rem", fontWeight: 800, color: "#2A295C", textAlign: "left" }}>
+                              <div style={{ width: 22, flexShrink: 0, fontSize: "0.68rem", fontWeight: 800, color: "var(--sdx-navy)", textAlign: "left" }}>
                                 {p.total}
                               </div>
                             </div>
@@ -15607,7 +15608,7 @@ function EquipmentScannerPage({ onBack, onPrintLabels }) {
             </button>
             {!cameraActive && (
               <button type="button" className="btn"
-                style={{ flex: 1, fontSize: "0.8rem", background: "#2A295C", color: "#fff", border: "none", gap: 6, display: "flex", alignItems: "center", justifyContent: "center" }}
+                style={{ flex: 1, fontSize: "0.8rem", background: "var(--sdx-navy)", color: "#fff", border: "none", gap: 6, display: "flex", alignItems: "center", justifyContent: "center" }}
                 onClick={startCamera}>
                 📷 Scan with Camera
               </button>
@@ -15830,7 +15831,7 @@ function PrintLabelsPage({ onBack }) {
           </div>
         </div>
         <button className="btn" type="button" onClick={() => window.print()}
-          style={{ background: "#fff", color: "#2A295C", fontWeight: 700, fontSize: "0.85rem", padding: "0.4rem 1.1rem" }}>
+          style={{ background: "#fff", color: "var(--sdx-navy)", fontWeight: 700, fontSize: "0.85rem", padding: "0.4rem 1.1rem" }}>
           🖨 Print
         </button>
       </header>
@@ -16094,7 +16095,7 @@ function GlobalAdminPanel({ currentUser, onBack, onManageVenue, onEnterVenue, on
             <button key={t} type="button" onClick={() => setStatsTab(t)}
               style={{
                 flex: 1, padding: "0.6rem 0", borderRadius: 8, border: "none",
-                background: statsTab === t ? "#2A295C" : "#e2e8f0",
+                background: statsTab === t ? "var(--sdx-navy)" : "#e2e8f0",
                 color: statsTab === t ? "#fff" : "#475569",
                 fontWeight: 600, fontSize: "0.88rem", cursor: "pointer",
               }}>
@@ -16127,7 +16128,7 @@ function GlobalAdminPanel({ currentUser, onBack, onManageVenue, onEnterVenue, on
               <div style={{ textAlign: "center", color: "#94a3b8", padding: "2rem" }}>
                 No venues registered yet.<br />
                 <button type="button" onClick={() => { setStatsTab("list"); setShowAddForm(true); }}
-                  style={{ marginTop: "0.75rem", background: "#2A295C", color: "#fff", border: "none", borderRadius: 8, padding: "0.6rem 1.25rem", fontWeight: 600, cursor: "pointer" }}>
+                  style={{ marginTop: "0.75rem", background: "var(--sdx-navy)", color: "#fff", border: "none", borderRadius: 8, padding: "0.6rem 1.25rem", fontWeight: 600, cursor: "pointer" }}>
                   + Add First Venue
                 </button>
               </div>
@@ -16165,7 +16166,7 @@ function GlobalAdminPanel({ currentUser, onBack, onManageVenue, onEnterVenue, on
                 style={{ flex: 1, padding: "0.6rem 0.75rem", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: "0.9rem" }}
               />
               <button type="button" onClick={() => setShowAddForm(v => !v)}
-                style={{ padding: "0.6rem 1rem", borderRadius: 8, border: "none", background: "#2A295C", color: "#fff", fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>
+                style={{ padding: "0.6rem 1rem", borderRadius: 8, border: "none", background: "var(--sdx-navy)", color: "#fff", fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>
                 {showAddForm ? "✕ Cancel" : "+ Add Venue"}
               </button>
             </div>
@@ -16203,7 +16204,7 @@ function GlobalAdminPanel({ currentUser, onBack, onManageVenue, onEnterVenue, on
                       style={{ padding: "0.55rem 0.75rem", borderRadius: 7, border: "1.5px solid #e2e8f0", fontSize: "0.9rem", width: "100%", boxSizing: "border-box" }} />
                   </div>
                   <button type="submit" disabled={addLoading}
-                    style={{ padding: "0.6rem", borderRadius: 7, border: "none", background: "#2A295C", color: "#fff", fontWeight: 700, cursor: "pointer" }}>
+                    style={{ padding: "0.6rem", borderRadius: 7, border: "none", background: "var(--sdx-navy)", color: "#fff", fontWeight: 700, cursor: "pointer" }}>
                     {addLoading ? "Adding…" : "Add Venue"}
                   </button>
                 </div>
@@ -16252,7 +16253,7 @@ function GlobalAdminPanel({ currentUser, onBack, onManageVenue, onEnterVenue, on
                         </div>
                         <div style={{ display: "flex", gap: "0.4rem" }}>
                           <button type="button" onClick={() => handleSaveEdit(v.id)}
-                            style={{ flex: 1, padding: "0.4rem", borderRadius: 6, border: "none", background: "#2A295C", color: "#fff", fontWeight: 600, cursor: "pointer", fontSize: "0.85rem" }}>Save</button>
+                            style={{ flex: 1, padding: "0.4rem", borderRadius: 6, border: "none", background: "var(--sdx-navy)", color: "#fff", fontWeight: 600, cursor: "pointer", fontSize: "0.85rem" }}>Save</button>
                           <button type="button" onClick={() => setEditingId(null)}
                             style={{ flex: 1, padding: "0.4rem", borderRadius: 6, border: "1.5px solid #e2e8f0", background: "#fff", color: "#64748b", fontWeight: 600, cursor: "pointer", fontSize: "0.85rem" }}>Cancel</button>
                         </div>
@@ -16294,7 +16295,7 @@ function GlobalAdminPanel({ currentUser, onBack, onManageVenue, onEnterVenue, on
                       <div style={{ display: "flex", gap: "0.4rem" }}>
                         <button type="button"
                           onClick={() => onEnterVenue && onEnterVenue(v.id, v.name || v.id)}
-                          style={{ flex: 1, padding: "0.5rem 0.75rem", borderRadius: 6, border: "none", background: "#2A295C", color: "#fff", fontWeight: 700, cursor: "pointer", fontSize: "0.85rem" }}>
+                          style={{ flex: 1, padding: "0.5rem 0.75rem", borderRadius: 6, border: "none", background: "var(--sdx-navy)", color: "#fff", fontWeight: 700, cursor: "pointer", fontSize: "0.85rem" }}>
                           🏠 Enter Venue
                         </button>
                       </div>
@@ -16302,7 +16303,7 @@ function GlobalAdminPanel({ currentUser, onBack, onManageVenue, onEnterVenue, on
                       <div style={{ display: "flex", flexWrap: "wrap", gap: "0.4rem" }}>
                         <button type="button"
                           onClick={() => onManageVenue && onManageVenue(v.id, v.name || v.id)}
-                          style={{ padding: "0.35rem 0.65rem", borderRadius: 6, border: "1.5px solid #2A295C", background: "#fff", color: "#2A295C", fontWeight: 600, cursor: "pointer", fontSize: "0.78rem" }}>
+                          style={{ padding: "0.35rem 0.65rem", borderRadius: 6, border: "1.5px solid #2A295C", background: "#fff", color: "var(--sdx-navy)", fontWeight: 600, cursor: "pointer", fontSize: "0.78rem" }}>
                           👥 Manage Users
                         </button>
                         <button type="button"
@@ -16656,7 +16657,7 @@ function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVe
 
             {/* ── Scheduled Inspections list ───────────────────── */}
             <div style={{ marginTop: 20, borderTop: "1px solid #e2e8f0", paddingTop: 16 }}>
-              <div style={{ fontWeight: 700, fontSize: "0.9rem", color: "#2A295C", marginBottom: 10 }}>
+              <div style={{ fontWeight: 700, fontSize: "0.9rem", color: "var(--sdx-navy)", marginBottom: 10 }}>
                 📅 Scheduled Inspections
               </div>
 
@@ -19751,7 +19752,7 @@ function PhotoLightbox({ src, onClose }) {
         <div style={{ display: "flex", gap: 10 }}>
           <button
             onClick={download}
-            style={{ background: "#2A295C", color: "#fff", border: "none", borderRadius: 8, padding: "10px 22px", fontWeight: 700, fontSize: "0.9rem", cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}
+            style={{ background: "var(--sdx-navy)", color: "#fff", border: "none", borderRadius: 8, padding: "10px 22px", fontWeight: 700, fontSize: "0.9rem", cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}
           >
             ⬇ Download
           </button>
@@ -21769,7 +21770,7 @@ export default function App() {
   return (
     <div className="appShell inspectorPage">
       {showInstallBanner && (
-        <div style={{ background: "linear-gradient(90deg,#2A295C,#283897)", color: "#fff", padding: "10px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, zIndex: 9998, position: "relative" }}>
+        <div style={{ background: "linear-gradient(90deg,var(--sdx-navy),var(--sdx-blue))", color: "#fff", padding: "10px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, zIndex: 9998, position: "relative" }}>
           <span style={{ fontSize: "0.88rem", fontWeight: 600 }}>📱 Install SDX Inspect — use it like a native app!</span>
           <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
             <button onClick={async () => { if (installPrompt) { installPrompt.prompt(); const { outcome } = await installPrompt.userChoice; if (outcome === "accepted") setShowInstallBanner(false); } }} style={{ background: "#EE0000", color: "#fff", border: "none", borderRadius: 8, padding: "5px 14px", fontWeight: 700, cursor: "pointer", fontSize: "0.82rem" }}>Add to Home Screen</button>
@@ -22264,7 +22265,7 @@ export default function App() {
           <span style={{ flex: 1, color: "#854d0e", fontWeight: 600, fontSize: "0.9rem" }}>
             Unsaved draft found from {(() => { try { return new Date(draftBanner.draftSavedAt).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }); } catch { return draftBanner.draftSavedAt; } })()} — restore it?
           </span>
-          <button type="button" className="btn" style={{ background: "#2A295C", color: "#fff", borderColor: "#2A295C", fontSize: "0.85rem", padding: "0.4rem 1rem" }}
+          <button type="button" className="btn" style={{ background: "var(--sdx-navy)", color: "#fff", borderColor: "var(--sdx-navy)", fontSize: "0.85rem", padding: "0.4rem 1rem" }}
             onClick={() => {
               const d = draftBanner;
               restoreFormState(d);
@@ -22283,7 +22284,7 @@ export default function App() {
       {/* Venue context banner — shown when global admin is working inside a specific venue */}
       {managedVenueId && (
         <div style={{
-          background: "linear-gradient(135deg, #2A295C 0%, #283897 100%)",
+          background: "linear-gradient(135deg, var(--sdx-navy) 0%, var(--sdx-blue) 100%)",
           color: "#fff",
           padding: "0.65rem 1.25rem",
           display: "flex",
@@ -22845,7 +22846,7 @@ export default function App() {
                     boxShadow: urgentCount > 0 ? "0 0 0 3px rgba(249,115,22,0.12)" : "none",
                   }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-                      <span style={{ fontWeight: 800, fontSize: "1rem", color: urgentCount > 0 ? "#c2410c" : "#2A295C" }}>🧴 Supplies Needed</span>
+                      <span style={{ fontWeight: 800, fontSize: "1rem", color: urgentCount > 0 ? "#c2410c" : "var(--sdx-navy)" }}>🧴 Supplies Needed</span>
                       {urgentCount > 0 && (
                         <span style={{ background: "#fee2e2", color: "#dc2626", borderRadius: 10, padding: "1px 8px", fontSize: "0.75rem", fontWeight: 700 }}>
                           {urgentCount} urgent

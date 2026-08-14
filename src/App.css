@@ -3145,7 +3145,7 @@ datalist {
 .pinOverlay {
   position: fixed;
   inset: 0;
-  background: linear-gradient(135deg, var(--sdx-navy) 0%, #3a3980 40%, #6B3FA0 100%);
+  background: linear-gradient(135deg, var(--sdx-navy) 0%, var(--sdx-pin-mid, #3a3980) 40%, var(--sdx-pin-end, #6B3FA0) 100%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -6528,3 +6528,32 @@ html[data-theme="dsmarketing"] textarea:focus {
   ::-webkit-scrollbar-thumb { background: rgba(42,41,92,.22); border-radius: 8px; border: 2px solid transparent; background-clip: content-box; }
   ::-webkit-scrollbar-thumb:hover { background: rgba(42,41,92,.4); border: 2px solid transparent; background-clip: content-box; }
 }
+
+/* Sodexo Noir — black chrome with the Sodexo mark, red accent kept */
+html[data-theme="noir"] {
+  --sdx-navy: #141416;
+  --sdx-navy-deep: #000000;
+  --sdx-blue: #2E2E33;
+  --sdx-gray-50: #F6F6F7;
+  --sdx-gray-100: #ECECEE;
+  --sdx-gray-200: #DCDCE0;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,.10);
+  --shadow-md: 0 4px 12px rgba(0,0,0,.14);
+  --shadow-lg: 0 8px 30px rgba(0,0,0,.20);
+}
+html[data-theme="noir"] body { background: #EFEFF1; }
+html[data-theme="noir"] .topBar {
+  background: linear-gradient(105deg, #0A0A0B 0%, #161618 55%, #232326 100%);
+  box-shadow: 0 3px 14px rgba(0,0,0,.4);
+}
+html[data-theme="noir"] input:focus,
+html[data-theme="noir"] select:focus,
+html[data-theme="noir"] textarea:focus {
+  box-shadow: 0 0 0 3px rgba(0,0,0,.16);
+}
+
+/* Sign-in backdrop per theme */
+html[data-theme="ocean"]    { --sdx-pin-mid: #1265B8; --sdx-pin-end: #21A0D2; }
+html[data-theme="midnight"] { --sdx-pin-mid: #24235A; --sdx-pin-end: #3B3A7A; }
+html[data-theme="noir"]     { --sdx-pin-mid: #1A1A1D; --sdx-pin-end: #2E2E33; }
+html[data-theme="dsmarketing"] { --sdx-pin-mid: #1A1A1D; --sdx-pin-end: #2E2E33; }
