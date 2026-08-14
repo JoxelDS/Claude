@@ -2,7 +2,7 @@
 // v119: Restored to July 13 state
 
 
-const CACHE_NAME = "sdx-inspect-v205";
+const CACHE_NAME = "sdx-inspect-v206";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
@@ -83,18 +83,23 @@ self.addEventListener("fetch", (e) => {
   // Skip non-GET
   if (e.request.method !== "GET") return;
 
-  // Network-first for navigation (index.html) — ensures fresh app shell
+  // Stale-while-revalidate for navigation (index.html):
+  // serve the cached shell INSTANTLY for app-like startup, refresh it in the
+  // background so the next launch picks up new deploys.
   if (e.request.mode === "navigate") {
     e.respondWith(
-      fetch(e.request)
-        .then((res) => {
-          if (res.ok) {
-            const clone = res.clone();
-            caches.open(CACHE_NAME).then((c) => c.put(e.request, clone));
-          }
-          return res;
-        })
-        .catch(() => caches.match(e.request))
+      caches.match(e.request).then((cached) => {
+        const fetchPromise = fetch(e.request)
+          .then((res) => {
+            if (res.ok) {
+              const clone = res.clone();
+              caches.open(CACHE_NAME).then((c) => c.put(e.request, clone));
+            }
+            return res;
+          })
+          .catch(() => cached);
+        return cached || fetchPromise;
+      })
     );
     return;
   }

@@ -6783,3 +6783,57 @@ input, select, textarea { transition: border-color 120ms ease, box-shadow 120ms 
   background: var(--sdx-red-dark);
   transform: translateY(-1px);
 }
+
+/* ══════════════════════════════════════════════════════════════
+   CUTE PASS — playful micro-touches, all reduced-motion aware
+   ══════════════════════════════════════════════════════════════ */
+@media (prefers-reduced-motion: no-preference) {
+  /* Notification bell gives a little ring on hover */
+  .headerMessagesBtn:hover, .hamburgerBtn:hover { animation: bellWiggle .5s ease; }
+  @keyframes bellWiggle {
+    0%,100% { transform: rotate(0); }
+    25% { transform: rotate(-8deg); }
+    50% { transform: rotate(7deg); }
+    75% { transform: rotate(-4deg); }
+  }
+
+  /* Empty-state icons bob gently */
+  .emptyIcon, .pendingIcon { display: inline-block; animation: bob 2.6s ease-in-out infinite; }
+  @keyframes bob {
+    0%,100% { transform: translateY(0); }
+    50% { transform: translateY(-6px); }
+  }
+
+  /* Checkmarks & success text pop in */
+  .themeCheck, .pinError, .fuBtnResolve:active { animation: popIn .28s cubic-bezier(0.34, 1.56, 0.64, 1); }
+  @keyframes popIn {
+    from { opacity: 0; transform: scale(.7); }
+    to   { opacity: 1; transform: scale(1); }
+  }
+
+  /* Logo gives a tiny happy tilt on hover */
+  .brandLogo:hover, .pinLogo:hover { transform: rotate(-2deg) scale(1.04); }
+  .brandLogo, .pinLogo { transition: transform 200ms cubic-bezier(0.34, 1.56, 0.64, 1); }
+
+  /* Theme cards wiggle-lift on hover */
+  .themeCard:hover { transform: translateY(-3px) rotate(-0.4deg); }
+
+  /* Follow-up status icons breathe */
+  .fuOverdue .fuStatus { animation: pulseSoft 1.8s ease-in-out infinite; }
+  @keyframes pulseSoft {
+    0%,100% { transform: scale(1); }
+    50% { transform: scale(1.15); }
+  }
+
+  /* Save button success-ish shimmer on hover */
+  .btnGenHeader:hover:not(:disabled) { animation: none; }
+}
+
+/* Skeleton shimmer utility for anything that loads */
+.shimmer {
+  background: linear-gradient(90deg, var(--sdx-gray-100) 25%, #fff 50%, var(--sdx-gray-100) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s linear infinite;
+  border-radius: 8px;
+}
+@keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
