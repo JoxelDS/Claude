@@ -7604,7 +7604,7 @@ function ImportReviewModal({ fields: initialFields, imagePreview, saving, onSave
 
           {/* Image preview strip */}
           {imagePreview && (
-            <div style={{ background: "var(--surface-3)", padding: "0.75rem 1.5rem", display: "flex", alignItems: "center", gap: 12, borderBottom: "1px solid #e2e8f0" }}>
+            <div style={{ background: "var(--surface-3)", padding: "0.75rem 1.5rem", display: "flex", alignItems: "center", gap: 12, borderBottom: "1px solid var(--sdx-gray-200)" }}>
               <img src={imagePreview} alt="Paper report" style={{ height: 90, width: "auto", borderRadius: 6, border: "1px solid #cbd5e1", objectFit: "contain", background: "var(--surface-1)" }} />
               <div style={{ fontSize: "0.8rem", color: "var(--ink-600)" }}>Original paper report — AI extracted the fields below. Scroll down to review all sections.</div>
             </div>
@@ -9322,7 +9322,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
               </button>
               {historyNotifOpen && (
                 <div className="dropdownMenu" style={{ right: 0, left: "auto", minWidth: 300, maxWidth: 380, maxHeight: 420, overflowY: "auto", background: "var(--surface-1)", padding: 0 }} onClick={e => e.stopPropagation()}>
-                  <div style={{ padding: "0.65rem 1rem", fontWeight: 700, fontSize: "0.85rem", color: "var(--ink-900)", borderBottom: "1px solid #e2e8f0", display: "flex", justifyContent: "space-between", alignItems: "center", background: "var(--surface-2)" }}>
+                  <div style={{ padding: "0.65rem 1rem", fontWeight: 700, fontSize: "0.85rem", color: "var(--ink-900)", borderBottom: "1px solid var(--sdx-gray-200)", display: "flex", justifyContent: "space-between", alignItems: "center", background: "var(--surface-2)" }}>
                     <span>🔔 Notifications</span>
                     {notifItems.length > 0 && (
                       <button type="button" style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink-500)", fontSize: "0.75rem" }} onClick={() => { onNotifClearAll?.(); setHistoryNotifOpen(false); }}>Clear all</button>
@@ -20235,7 +20235,7 @@ function MessagingPanel({ currentUser, onBack, notifItems, onNotifDismiss, onNot
             {activeThread && (
               <div style={{ flex: 1, display: "flex", flexDirection: "column", background: "var(--surface-2)" }}>
                 {/* Thread header */}
-                <div style={{ padding: "0.75rem 1rem", background: "var(--surface-1)", borderBottom: "1px solid #e2e8f0", display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{ padding: "0.75rem 1rem", background: "var(--surface-1)", borderBottom: "1px solid var(--sdx-gray-200)", display: "flex", alignItems: "center", gap: 10 }}>
                   <button onClick={() => setActiveThread(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink-500)", fontSize: "1.1rem" }}>←</button>
                   <div style={{ width: 32, height: 32, borderRadius: "50%", background: NAVY, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: "0.9rem" }}>
                     {(activeThread.participants.find(p => p !== myName) || "?").charAt(0).toUpperCase()}
@@ -22247,7 +22247,7 @@ export default function App() {
         {/* Notification dropdown */}
         {notifOpen && (
           <div ref={notifDropRef} className="dropdownMenu" style={{ minWidth: 300, maxWidth: 380, maxHeight: 420, overflowY: "auto", background: "var(--surface-1)", padding: 0 }}>
-            <div style={{ padding: "0.65rem 1rem", fontWeight: 700, fontSize: "0.85rem", color: "var(--ink-900)", borderBottom: "1px solid #e2e8f0", display: "flex", justifyContent: "space-between", alignItems: "center", background: "var(--surface-2)", borderRadius: "0 0 0 0" }}>
+            <div style={{ padding: "0.65rem 1rem", fontWeight: 700, fontSize: "0.85rem", color: "var(--ink-900)", borderBottom: "1px solid var(--sdx-gray-200)", display: "flex", justifyContent: "space-between", alignItems: "center", background: "var(--surface-2)", borderRadius: "0 0 0 0" }}>
               <span>🔔 Notifications</span>
               {notifItems.length > 0 && (
                 <button type="button" style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink-500)", fontSize: "0.75rem" }} onClick={() => setNotifItems([])}>
@@ -22619,7 +22619,7 @@ export default function App() {
       {currentUser?.role === "inspector" && (currentUser?.assignedStands?.length > 0) && (
         <div style={{
           background: "var(--surface-1)",
-          borderBottom: "1px solid #e2e8f0",
+          borderBottom: "1px solid var(--sdx-gray-200)",
           padding: "14px 20px",
         }}>
           <div style={{
@@ -23177,7 +23177,7 @@ export default function App() {
                 </div>
 
                 {/* ── Key Temperatures: Sinks ── */}
-                <div style={{ padding: "14px 16px 16px", borderBottom: "1px solid #e2e8f0" }}>
+                <div style={{ padding: "14px 16px 16px", borderBottom: "1px solid var(--sdx-gray-200)" }}>
                   <div style={{ fontWeight: 700, fontSize: "0.88rem", color: "var(--sdx-navy)", marginBottom: 10 }}>Key Temperatures</div>
                   <div className="tempsGrid">
                     <div className="field" id="field-handSinkTempF" style={{ marginTop: 0 }}>
@@ -23532,7 +23532,7 @@ export default function App() {
                 flexDirection: "column",
                 gap: 4,
                 letterSpacing: "0.01em",
-                borderBottom: "1px solid #e2e8f0",
+                borderBottom: "1px solid var(--sdx-gray-200)",
               }}>
                 🌡️ HACCP Food Temperatures
                 <span style={{ fontSize: "0.8rem", fontWeight: 400, color: "var(--sdx-gray-500)" }}>
@@ -23641,7 +23641,7 @@ export default function App() {
                   function renderItemBlock(item) {
                     const readings = foodTemps[item.key] || [""];
                     return (
-                      <div key={item.key} style={{ borderBottom: "1px solid #e2e8f0", paddingBottom: 6, paddingTop: 4, borderLeft: item.type === "hot" ? "3px solid #ef4444" : "3px solid #3b82f6", paddingLeft: 8, borderRadius: 2, background: item.type === "hot" ? "rgba(254,242,242,0.5)" : "rgba(239,246,255,0.5)" }}>
+                      <div key={item.key} style={{ borderBottom: "1px solid var(--sdx-gray-200)", paddingBottom: 6, paddingTop: 4, borderLeft: item.type === "hot" ? "3px solid #ef4444" : "3px solid #3b82f6", paddingLeft: 8, borderRadius: 2, background: item.type === "hot" ? "var(--tint-red-1)" : "var(--tint-blue-1)" }}>
                         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4, flexWrap: "nowrap", gap: 4 }}>
                           <span style={{ fontWeight: 700, fontSize: "0.85rem", color: item.type === "hot" ? "#b91c1c" : "#1d4ed8", display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap", minWidth: 0 }}>
                             <span style={{ whiteSpace: "nowrap" }}>{item.type === "hot" ? "🔥" : "❄️"} {item.label}</span>
