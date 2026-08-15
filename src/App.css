@@ -7233,3 +7233,9 @@ html[data-theme="black"] .perfTabsWrapper { background: #17171D; border-color: #
 html[data-theme="black"] .perfTab { color: #979CB0; }
 html[data-theme="black"] .perfTab:hover { background: rgba(255,255,255,.06); color: #ECEDF3; }
 html[data-theme="black"] .perfTab.perfTabActive { background: #26262E; color: #FFFFFF; box-shadow: 0 2px 8px rgba(0,0,0,.4); }
+
+/* Black theme: Smart Insights brain tile */
+html[data-theme="black"] .aiMonitorBrain {
+  background: #26262E;
+  box-shadow: 0 0 0 1px #33333E inset;
+}
