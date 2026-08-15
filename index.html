@@ -101,6 +101,16 @@
       <div class="sp-bar"><div class="sp-fill"></div></div>
     </div>
     <div id="root"></div>
+    <!-- Capture early JS errors so the splash can display them instead of looping -->
+    <script>
+      window.__earlyErrors = [];
+      window.addEventListener("error", function (e) {
+        window.__earlyErrors.push((e.message || "Unknown error") + (e.filename ? " @ " + e.filename.split("/").pop() + ":" + e.lineno : ""));
+      });
+      window.addEventListener("unhandledrejection", function (e) {
+        window.__earlyErrors.push("Promise: " + (e.reason && e.reason.message ? e.reason.message : String(e.reason)));
+      });
+    </script>
     <script type="module" src="/src/main.jsx"></script>
     <!-- Splash watchdog: if React hasn't dismissed the splash in 6s, the JS
          bundle likely failed to load (stale SW cache). Clear all caches and reload. -->
@@ -110,7 +120,28 @@
         var t = setTimeout(function () {
           var splash = document.getElementById("splash");
           if (!splash || splash.classList.contains("hide")) return; // React mounted fine
-          // React never mounted — nuke SW caches and reload fresh
+          // Count attempts — reload once, then STOP and show the real error
+          var attempts = 0;
+          try { attempts = parseInt(sessionStorage.getItem("sdx_boot_attempts") || "0", 10); } catch (e) {}
+          if (attempts >= 1) {
+            try { sessionStorage.removeItem("sdx_boot_attempts"); } catch (e) {}
+            var errs = (window.__earlyErrors || []).slice(0, 4).join("\n");
+            splash.innerHTML =
+              '<div style="max-width:340px;text-align:center;font-family:sans-serif;color:#fff;padding:20px">' +
+              '<div style="font-size:2rem;margin-bottom:10px">⚠️</div>' +
+              '<div style="font-weight:700;margin-bottom:8px">The app could not start</div>' +
+              '<div style="font-size:0.72rem;color:rgba(255,255,255,.7);white-space:pre-wrap;word-break:break-word;text-align:left;background:rgba(0,0,0,.35);border-radius:8px;padding:10px;margin-bottom:12px">' +
+              (errs ? errs.replace(/</g, "&lt;") : "No error captured — likely a network problem reaching the server.") +
+              '</div>' +
+              '<button onclick="sessionStorage.clear();location.reload()" style="background:#EE0000;color:#fff;border:none;border-radius:8px;padding:10px 24px;font-weight:700">Try Again</button>' +
+              '</div>';
+            splash.style.display = "flex";
+            splash.style.alignItems = "center";
+            splash.style.justifyContent = "center";
+            return;
+          }
+          try { sessionStorage.setItem("sdx_boot_attempts", String(attempts + 1)); } catch (e) {}
+          // React never mounted — nuke SW caches and reload fresh (one time only)
           if ("serviceWorker" in navigator && navigator.serviceWorker.controller) {
             navigator.serviceWorker.controller.postMessage("CLEAN_CACHE");
           }
@@ -128,6 +159,7 @@
           if (!splash || splash.classList.contains("hide")) {
             clearTimeout(t);
             observer.disconnect();
+            try { sessionStorage.removeItem("sdx_boot_attempts"); } catch (e) {}
           }
         });
         observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["class"] });
