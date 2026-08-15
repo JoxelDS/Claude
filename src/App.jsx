@@ -20141,14 +20141,14 @@ function MessagingPanel({ currentUser, onBack, notifItems, onNotifDismiss, onNot
         {activeTab === "messages" && (
           <button
             onClick={() => setComposeOpen(true)}
-            style={{ background: "var(--surface-1)", color: NAVY, border: "none", borderRadius: 8, padding: "0.4rem 0.9rem", fontWeight: 700, fontSize: "0.8rem", cursor: "pointer" }}
-          >✏️ New</button>
+            style={{ background: "var(--sdx-red)", color: "#fff", border: "none", borderRadius: 999, padding: "0.55rem 1.2rem", fontWeight: 800, fontSize: "0.85rem", cursor: "pointer", boxShadow: "0 3px 12px rgba(238,0,0,.35)", whiteSpace: "nowrap" }}
+          >✏️ New Message</button>
         )}
         {isAdmin && activeTab === "announcements" && (
           <button
             onClick={() => setAnnText(" ")}
-            style={{ background: "var(--surface-1)", color: NAVY, border: "none", borderRadius: 8, padding: "0.4rem 0.9rem", fontWeight: 700, fontSize: "0.8rem", cursor: "pointer" }}
-          >📢 Post</button>
+            style={{ background: "var(--sdx-red)", color: "#fff", border: "none", borderRadius: 999, padding: "0.55rem 1.2rem", fontWeight: 800, fontSize: "0.85rem", cursor: "pointer", boxShadow: "0 3px 12px rgba(238,0,0,.35)", whiteSpace: "nowrap" }}
+          >📢 Post Announcement</button>
         )}
       </div>
 
