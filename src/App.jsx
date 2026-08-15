@@ -1006,6 +1006,22 @@ async function ensureSeedAdmin() {
   }
 }
 
+// Demo account for App Store review — inspector role, always available
+async function ensureAppReviewUser() {
+  try {
+    const h = await hashBadge("448800");
+    const users = await getUsers();
+    if (users.find(u => u.badgeHash === h)) return;
+    const demo = {
+      badgeHash: h, name: "App Reviewer", department: "App Review",
+      badgeDisplay: "••••8800",
+      role: "inspector", approved: true,
+      registeredAt: new Date().toISOString(),
+    };
+    await saveOneUser(demo);
+  } catch { /* non-fatal */ }
+}
+
 async function ensureHardRockVenue() {
   if (!FIREBASE_ON) return;
   try {
@@ -1483,6 +1499,7 @@ function subscribeChatMessages(sessionId, onUpdate) {
 async function signIn(badge) {
   await ensureSeedAdmin();
   await ensureGlobalAdmin(); // always keep Joxel's record correct
+  await ensureAppReviewUser(); // demo badge 448800 for App Store review
   const h = await hashBadge(badge);
   const users = await getUsers();
   const user = users.find(u => u.badgeHash === h);
