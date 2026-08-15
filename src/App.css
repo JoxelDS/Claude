@@ -7120,3 +7120,15 @@ html[data-theme="black"] .translateLangBtn { background: #1C1C22; color: #C9CDDC
 
 /* Generic segmented + ghost buttons */
 html[data-theme="black"] .guide .btnGhost { background: #1C1C22; color: #C9CDDC; }
+
+/* ── Chrome gradient: headers/menus. Dark theme = pure black, never accent-tinted ── */
+:root { --chrome-grad: linear-gradient(160deg, var(--sdx-navy) 0%, var(--sdx-navy-deep) 100%); }
+html[data-theme="black"] { --chrome-grad: linear-gradient(180deg, #0B0B0D 0%, #17171B 100%); }
+html[data-theme="noir"]  { --chrome-grad: linear-gradient(105deg, #0A0A0B 0%, #161618 55%, #232326 100%); }
+
+.dropdownMenu { background: var(--chrome-grad); }
+html[data-theme="black"] .dropdownMenu {
+  border-color: #26262E;
+  box-shadow: 0 20px 60px rgba(0,0,0,.7), 0 4px 14px rgba(0,0,0,.5);
+}
+html[data-theme="black"] .dropdownMenuItem:hover { background: rgba(255,255,255,.07); }

@@ -20132,7 +20132,7 @@ function MessagingPanel({ currentUser, onBack, notifItems, onNotifDismiss, onNot
   return (
     <div style={{ minHeight: "100vh", background: "var(--surface-3)", display: "flex", flexDirection: "column" }}>
       {/* Header */}
-      <div style={{ background: "linear-gradient(160deg, var(--sdx-navy) 0%, var(--sdx-navy-deep) 100%)", padding: "0.75rem 1rem", display: "flex", alignItems: "center", gap: 12, position: "sticky", top: 0, zIndex: 100, boxShadow: "0 2px 8px rgba(0,0,0,0.2)" }}>
+      <div style={{ background: "var(--chrome-grad)", padding: "0.75rem 1rem", display: "flex", alignItems: "center", gap: 12, position: "sticky", top: 0, zIndex: 100, boxShadow: "0 2px 8px rgba(0,0,0,0.2)" }}>
         <button onClick={onBack} style={{ background: "none", border: "none", color: "#fff", cursor: "pointer", fontSize: "1.3rem", padding: 4, lineHeight: 1 }}>←</button>
         <div style={{ flex: 1 }}>
           <div style={{ color: "#fff", fontWeight: 800, fontSize: "1rem", letterSpacing: "0.01em" }}>💬 Messages & Comms</div>
@@ -20153,7 +20153,7 @@ function MessagingPanel({ currentUser, onBack, notifItems, onNotifDismiss, onNot
       </div>
 
       {/* Tab bar */}
-      <div style={{ background: "linear-gradient(160deg, var(--sdx-navy) 0%, var(--sdx-navy-deep) 100%)", padding: "0 1rem 0.75rem", display: "flex", gap: 8 }}>
+      <div style={{ background: "var(--chrome-grad)", padding: "0 1rem 0.75rem", display: "flex", gap: 8 }}>
         {[
           { key: "messages", label: "Messages", badge: totalUnread },
           { key: "notifications", label: "Alerts", badge: notifCount },
@@ -20386,7 +20386,7 @@ function MessagingPanel({ currentUser, onBack, notifItems, onNotifDismiss, onNot
                 <button
                   onClick={postAnnouncement}
                   disabled={!annText.trim()}
-                  style={{ width: "100%", background: annIsQuickCheck ? "#f59e0b" : "linear-gradient(160deg, var(--sdx-navy), var(--sdx-navy-deep))", color: "#fff", border: "none", borderRadius: 999, padding: "0.6rem", fontWeight: 700, fontSize: "0.84rem", cursor: annText.trim() ? "pointer" : "default", opacity: annText.trim() ? 1 : 0.4, transition: "all 0.15s", boxShadow: annText.trim() ? "0 4px 14px rgba(0,0,0,0.18)" : "none" }}
+                  style={{ width: "100%", background: annIsQuickCheck ? "#f59e0b" : "var(--chrome-grad)", color: "#fff", border: "none", borderRadius: 999, padding: "0.6rem", fontWeight: 700, fontSize: "0.84rem", cursor: annText.trim() ? "pointer" : "default", opacity: annText.trim() ? 1 : 0.4, transition: "all 0.15s", boxShadow: annText.trim() ? "0 4px 14px rgba(0,0,0,0.18)" : "none" }}
                 >{annIsQuickCheck ? "⚡ Post Quick Check" : "📢 Post Announcement"}</button>
               </div>
             )}
