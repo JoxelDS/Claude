@@ -155,6 +155,13 @@ const BLACK_ACCENTS = [
 function applyTheme(themeId, accent) {
   const valid = THEMES.some(t => t.id === themeId) ? themeId : "sodexo";
   const root = document.documentElement;
+  // Cross-fade the whole UI while the theme swaps (login, logout, picker)
+  const changing = (root.dataset.theme || "sodexo") !== valid;
+  if (changing) {
+    root.classList.add("theme-fade");
+    clearTimeout(window.__themeFadeT);
+    window.__themeFadeT = setTimeout(() => root.classList.remove("theme-fade"), 650);
+  }
   if (valid === "sodexo") delete root.dataset.theme;
   else root.dataset.theme = valid;
   // In Black mode the --sdx-navy token carries the accent role

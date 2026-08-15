@@ -7239,3 +7239,13 @@ html[data-theme="black"] .aiMonitorBrain {
   background: #26262E;
   box-shadow: 0 0 0 1px #33333E inset;
 }
+
+/* Theme cross-fade: applied briefly around a theme switch so the whole
+   UI glides between light and dark instead of snapping. */
+html.theme-fade, html.theme-fade *, html.theme-fade *::before, html.theme-fade *::after {
+  transition: background-color .45s ease, background .45s ease, color .45s ease,
+              border-color .45s ease, box-shadow .45s ease, fill .45s ease !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  html.theme-fade, html.theme-fade * { transition: none !important; }
+}
