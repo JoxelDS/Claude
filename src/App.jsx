@@ -16938,7 +16938,7 @@ function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVe
               )}
 
               {/* Add new slot form */}
-              <div style={{ background: "#F7F8FA", border: "1.5px solid #DDE1E8", borderRadius: 10, padding: "12px 14px" }}>
+              <div style={{ background: "var(--sdx-gray-50)", border: "1.5px solid #DDE1E8", borderRadius: 10, padding: "12px 14px" }}>
                 <div style={{ fontWeight: 600, fontSize: "0.82rem", color: "var(--ink-600)", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.04em" }}>Add Inspection</div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -23080,9 +23080,9 @@ export default function App() {
                 return (
                   <div id="supplies-section" style={{
                     order: _suppliesOrder,
-                    border: `2px solid ${urgentCount > 0 ? "#f97316" : suppliesNeeded.some(s => s.item.trim()) ? "#fbbf24" : "#DDE1E8"}`,
+                    border: `2px solid ${urgentCount > 0 ? "#f97316" : suppliesNeeded.some(s => s.item.trim()) ? "#fbbf24" : "var(--sdx-gray-200)"}`,
                     borderRadius: 12, padding: "14px 16px",
-                    background: urgentCount > 0 ? "var(--tint-amber-1)" : suppliesNeeded.some(s => s.item.trim()) ? "var(--tint-amber-1)" : "#F7F8FA",
+                    background: urgentCount > 0 ? "var(--tint-amber-1)" : suppliesNeeded.some(s => s.item.trim()) ? "var(--tint-amber-1)" : "var(--sdx-gray-50)",
                     marginTop: 10,
                     boxShadow: urgentCount > 0 ? "0 0 0 3px rgba(249,115,22,0.12)" : "none",
                   }}>
