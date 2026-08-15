@@ -20796,8 +20796,21 @@ export default function App() {
     // Play alert sound
     playBeep();
 
-    // Browser push notification (if permission granted)
-    if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+    // Native notification (iOS/Android app via Capacitor) — the web
+    // Notification API does not exist inside the native WebView, so use
+    // the LocalNotifications plugin there.
+    const LN = window.Capacitor?.Plugins?.LocalNotifications;
+    if (LN) {
+      LN.schedule({
+        notifications: [{
+          id: Math.abs(Date.now() % 2147483647),
+          title,
+          body,
+          schedule: { at: new Date(Date.now() + 100) },
+        }],
+      }).catch(() => {});
+    } else if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+      // Browser push notification (if permission granted)
       try {
         new Notification(title, {
           body,
@@ -21517,8 +21530,12 @@ export default function App() {
     resetActivity();
     // Merge shared site map from Firestore into local autofill memory (non-blocking)
     syncSharedSiteMap();
-    // Request browser notification permission
-    if (typeof Notification !== "undefined" && Notification.permission === "default") {
+    // Request notification permission — native plugin in the iOS/Android
+    // app, browser API on the web
+    const LN = window.Capacitor?.Plugins?.LocalNotifications;
+    if (LN) {
+      LN.requestPermissions().catch(() => {});
+    } else if (typeof Notification !== "undefined" && Notification.permission === "default") {
       Notification.requestPermission().catch(() => {});
     }
     // Load unread assignment notifications for inspectors/location managers
