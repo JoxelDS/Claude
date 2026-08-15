@@ -5484,7 +5484,7 @@ function TempTrendChart({ history }) {
           <span style={{ fontSize: "1.3rem" }}>🌡️</span>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div className="cardTitle" style={{ fontSize: "1.05rem" }}>Temperature Monitoring</div>
-            <div style={{ fontSize: "0.72rem", color: "#6b7280", marginTop: 2 }}>
+            <div style={{ fontSize: "0.72rem", color: "var(--ink-500)", marginTop: 2 }}>
               {locations.length} location{locations.length !== 1 ? "s" : ""} — tap a pill to highlight a line
             </div>
           </div>
@@ -5541,7 +5541,7 @@ function TempTrendChart({ history }) {
                             alignItems: "center",
                             gap: 6,
                             fontWeight: loc === activeLoc ? 700 : 500,
-                            color: loc === activeLoc ? "var(--sdx-navy)" : "#374151",
+                            color: loc === activeLoc ? "var(--sdx-navy)" : "var(--ink-700)",
                             background: loc === activeLoc ? "#f0f1f8" : "transparent",
                             cursor: "pointer",
                             borderBottom: "1px solid #f3f4f6",
@@ -5557,7 +5557,7 @@ function TempTrendChart({ history }) {
                       );
                     })}
                   {locations.filter(loc => (locationData[loc]?.label || loc).toLowerCase().includes((locSearch || "").toLowerCase())).length === 0 && (
-                    <div style={{ padding: "0.5rem 0.75rem", fontSize: "0.75rem", color: "#9ca3af" }}>No matches</div>
+                    <div style={{ padding: "0.5rem 0.75rem", fontSize: "0.75rem", color: "var(--ink-400)" }}>No matches</div>
                   )}
                 </div>
               )}
@@ -5590,7 +5590,7 @@ function TempTrendChart({ history }) {
 
       <div className="cardBody" style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
         {!activeLoc && (
-          <div style={{ textAlign: "center", padding: "2rem 1rem", color: "#9ca3af" }}>
+          <div style={{ textAlign: "center", padding: "2rem 1rem", color: "var(--ink-400)" }}>
             <div style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>🔍</div>
             <div style={{ fontSize: "0.85rem", fontWeight: 600 }}>Search or select a location above to view temperature data</div>
           </div>
@@ -5605,7 +5605,7 @@ function TempTrendChart({ history }) {
           <span style={{ fontWeight: 700, fontSize: "0.85rem", color: "var(--ink-900)" }}>
             {activeUnitNum ? activeLoc.replace(` #${activeUnitNum}`, "") : activeLoc}
           </span>
-          <span style={{ marginLeft: "auto", fontSize: "0.72rem", color: "#6b7280", background: "var(--tint-green-1)", borderRadius: 6, padding: "2px 8px", fontWeight: 600 }}>
+          <span style={{ marginLeft: "auto", fontSize: "0.72rem", color: "var(--ink-500)", background: "var(--tint-green-1)", borderRadius: 6, padding: "2px 8px", fontWeight: 600 }}>
             {activePoints.length} reading{activePoints.length !== 1 ? "s" : ""}
           </span>
         </div>}
@@ -5663,7 +5663,7 @@ function TempTrendChart({ history }) {
                 {gridSteps.map(t => (
                   <g key={t}>
                     <line x1={SPAD} y1={sToY(t)} x2={SW - SPADR} y2={sToY(t)} stroke="var(--sdx-gray-200)" strokeWidth="1" />
-                    <text x={SPAD - 5} y={sToY(t) + 4} textAnchor="end" fontSize="9" fill="#9ca3af">{t}°</text>
+                    <text x={SPAD - 5} y={sToY(t) + 4} textAnchor="end" fontSize="9" fill="var(--ink-400)">{t}°</text>
                   </g>
                 ))}
 
@@ -5784,7 +5784,7 @@ function TempTrendChart({ history }) {
                   let fmtDate = d.date.slice(5);
                   try { const [,m,dy] = d.date.split("-"); fmtDate = `${["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][+m-1]} ${+dy}`; } catch(e){}
                   return (
-                    <text key={idx} x={sToX(idx)} y={SH - 8} textAnchor="middle" fontSize="9" fill="#6b7280" fontWeight="500">
+                    <text key={idx} x={sToX(idx)} y={SH - 8} textAnchor="middle" fontSize="9" fill="var(--ink-500)" fontWeight="500">
                       {fmtDate}
                     </text>
                   );
@@ -6053,7 +6053,7 @@ function LocationsPanel({ loc, passColor, trendArrow, MiniBar, EmptyState }) {
               border: locSub === t.key ? "1.5px solid #93c5fd" : "1px solid #e5e7eb",
               borderRadius: 7, padding: "5px 10px", cursor: "pointer",
               fontSize: "0.73rem", fontWeight: locSub === t.key ? 700 : 400,
-              color: locSub === t.key ? "#1d4ed8" : "#6b7280",
+              color: locSub === t.key ? "#1d4ed8" : "var(--ink-500)",
             }}
           >{t.label}</button>
         ))}
@@ -6075,7 +6075,7 @@ function LocationsPanel({ loc, passColor, trendArrow, MiniBar, EmptyState }) {
                 </div>
                 <div style={{ display: "flex", gap: 12, marginTop: 6, fontSize: "0.72rem", color: "var(--ink-500)" }}>
                   <span>{f.total} visit{f.total !== 1 ? "s" : ""}</span>
-                  {f.topIssue && <span>Top issue: <strong style={{ color: "#374151" }}>{f.topIssue}</strong></span>}
+                  {f.topIssue && <span>Top issue: <strong style={{ color: "var(--ink-700)" }}>{f.topIssue}</strong></span>}
                 </div>
               </div>
             ))
@@ -6097,7 +6097,7 @@ function LocationsPanel({ loc, passColor, trendArrow, MiniBar, EmptyState }) {
                 </div>
                 <div style={{ display: "flex", gap: 12, marginTop: 6, fontSize: "0.72rem", color: "var(--ink-500)" }}>
                   <span>{t.total} visit{t.total !== 1 ? "s" : ""}</span>
-                  {t.topIssue && <span>Top issue: <strong style={{ color: "#374151" }}>{t.topIssue}</strong></span>}
+                  {t.topIssue && <span>Top issue: <strong style={{ color: "var(--ink-700)" }}>{t.topIssue}</strong></span>}
                 </div>
               </div>
             ))
@@ -6119,7 +6119,7 @@ function LocationsPanel({ loc, passColor, trendArrow, MiniBar, EmptyState }) {
                 </div>
                 <div style={{ display: "flex", gap: 12, marginTop: 6, fontSize: "0.72rem", color: "var(--ink-500)" }}>
                   <span>{s.total} visit{s.total !== 1 ? "s" : ""}</span>
-                  {s.topIssue && <span>Top issue: <strong style={{ color: "#374151" }}>{s.topIssue}</strong></span>}
+                  {s.topIssue && <span>Top issue: <strong style={{ color: "var(--ink-700)" }}>{s.topIssue}</strong></span>}
                 </div>
               </div>
             ))
@@ -6378,9 +6378,9 @@ function AIHealthMonitor({ history, currentUser }) {
   /* ── priority config ─────────────────────────────────────── */
   const pColor = {
     critical: { bg: "var(--tint-red-1)", border: "#fecdd3", accent: "#e11d48", text: "var(--tx-red-strong)", emoji: "🚨", label: "Urgent!" },
-    high:     { bg: "var(--tint-amber-1)", border: "#fed7aa", accent: "#ea580c", text: "#9a3412", emoji: "⚠️", label: "Important" },
-    medium:   { bg: "var(--tint-amber-1)", border: "#fef08a", accent: "#ca8a04", text: "#713f12", emoji: "💛", label: "Watch this" },
-    low:      { bg: "var(--tint-sky-1)", border: "#bae6fd", accent: "#0284c7", text: "#0c4a6e", emoji: "💡", label: "Tip" },
+    high:     { bg: "var(--tint-amber-1)", border: "#fed7aa", accent: "#ea580c", text: "var(--tx-amber)", emoji: "⚠️", label: "Important" },
+    medium:   { bg: "var(--tint-amber-1)", border: "#fef08a", accent: "#ca8a04", text: "var(--tx-amber-strong)", emoji: "💛", label: "Watch this" },
+    low:      { bg: "var(--tint-sky-1)", border: "#bae6fd", accent: "#0284c7", text: "var(--tx-cyan)", emoji: "💡", label: "Tip" },
     info:     { bg: "var(--tint-green-1)", border: "#bbf7d0", accent: "#16a34a", text: "var(--tx-green)", emoji: "✅", label: "Good news" },
   };
 
@@ -6473,7 +6473,7 @@ function AIHealthMonitor({ history, currentUser }) {
                             </span>
                             <span style={{ fontWeight: 700, fontSize: "0.92rem", color: "var(--ink-900)" }}>{s.title}</span>
                           </div>
-                          <div style={{ fontSize: "0.88rem", color: "#374151", lineHeight: 1.6 }}>{s.body}</div>
+                          <div style={{ fontSize: "0.88rem", color: "var(--ink-700)", lineHeight: 1.6 }}>{s.body}</div>
                           <div style={{ fontSize: "0.82rem", color: c.accent, marginTop: 8, fontWeight: 600, display: "flex", alignItems: "center", gap: 5 }}>
                             <span>👉</span> {s.action}
                           </div>
@@ -6617,7 +6617,7 @@ function AIHealthMonitor({ history, currentUser }) {
                                 <span key={origIdx} style={{
                                   display: "inline-flex", alignItems: "center", gap: 4,
                                   background: isUrgent ? "var(--tint-red-2)" : "var(--surface-3)",
-                                  color: isUrgent ? "#b91c1c" : "#374151",
+                                  color: isUrgent ? "#b91c1c" : "var(--ink-700)",
                                   borderRadius: 6, padding: "2px 4px 2px 8px",
                                   fontSize: "0.78rem", fontWeight: isUrgent ? 700 : 500,
                                   marginRight: 4, marginBottom: 4,
@@ -7052,7 +7052,7 @@ function AIHealthMonitor({ history, currentUser }) {
                     {b.topTypes.slice(0, 5).map((t, idx) => (
                       <div key={t.type} style={{ display: "flex", alignItems: "center", gap: 10, background: "var(--surface-2)", borderRadius: 10, padding: "10px 12px" }}>
                         <div style={{ fontWeight: 700, fontSize: "0.8rem", color: "var(--ink-500)", width: 20, flexShrink: 0 }}>#{idx + 1}</div>
-                        <div style={{ fontSize: "0.85rem", color: "#374151", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.type}</div>
+                        <div style={{ fontSize: "0.85rem", color: "var(--ink-700)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.type}</div>
                         <MiniBar pct={Math.round((t.count / b.topTypes[0].count) * 100)} color="var(--sdx-navy)" />
                         <div style={{ fontSize: "0.8rem", color: "var(--ink-500)", fontWeight: 600, minWidth: 28, textAlign: "right" }}>{t.count}</div>
                       </div>
@@ -7077,7 +7077,7 @@ function AIHealthMonitor({ history, currentUser }) {
                     return (
                       <div key={f.key} style={{ display: "flex", alignItems: "center", gap: 10 }}>
                         <div style={{ fontSize: "1rem", flexShrink: 0 }}>{f.emoji}</div>
-                        <div style={{ fontSize: "0.83rem", color: "#374151", width: 110, flexShrink: 0 }}>{f.label}</div>
+                        <div style={{ fontSize: "0.83rem", color: "var(--ink-700)", width: 110, flexShrink: 0 }}>{f.label}</div>
                         <MiniBar pct={pct} color={color} />
                         <div style={{ fontSize: "0.8rem", color, fontWeight: 800, minWidth: 36, textAlign: "right" }}>{pct}%</div>
                       </div>
@@ -7167,7 +7167,7 @@ function PredictiveInsightsPanel({ history }) {
         {/* Prediction cards */}
         <div className="predictiveList">
           {predictions.map((p, i) => {
-            const bt = typeBadge[p.type] || { label: p.type, bg: "var(--surface-2)", color: "#374151", border: "var(--sdx-gray-200)" };
+            const bt = typeBadge[p.type] || { label: p.type, bg: "var(--surface-2)", color: "var(--ink-700)", border: "var(--sdx-gray-200)" };
             const isOpen = !!expanded[i];
             return (
               <div
@@ -7696,7 +7696,7 @@ function ImportReviewModal({ fields: initialFields, imagePreview, saving, onSave
 
             {/* Save / Cancel */}
             <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", borderTop: "1px solid #e2e8f0", paddingTop: "1rem" }}>
-              <button type="button" onClick={onCancel} style={{ background: "var(--surface-1)", border: "1px solid #cbd5e1", color: "#374151", borderRadius: 8, padding: "0.55rem 1.2rem", cursor: "pointer", fontWeight: 600, fontSize: "0.9rem" }}>Cancel</button>
+              <button type="button" onClick={onCancel} style={{ background: "var(--surface-1)", border: "1px solid #cbd5e1", color: "var(--ink-700)", borderRadius: 8, padding: "0.55rem 1.2rem", cursor: "pointer", fontWeight: 600, fontSize: "0.9rem" }}>Cancel</button>
               <button type="button" onClick={handleSave} disabled={saving} style={{ background: "var(--sdx-navy)", color: "#fff", border: "none", borderRadius: 8, padding: "0.55rem 1.4rem", cursor: saving ? "not-allowed" : "pointer", fontWeight: 700, fontSize: "0.9rem", opacity: saving ? 0.7 : 1 }}>
                 {saving ? "Saving…" : "✓ Save Report"}
               </button>
@@ -9405,7 +9405,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
             <div style={{ fontWeight: 700, fontSize: "1.05rem", marginBottom: 4, color: "var(--ink-900)" }}>Mark Issue Resolved</div>
             <div style={{ fontSize: "0.82rem", color: "var(--ink-500)", marginBottom: 16, fontStyle: "italic", lineHeight: 1.4 }}>{resolveModal.issueText}</div>
             <label style={{ display: "block", marginBottom: 14 }}>
-              <span style={{ display: "block", fontSize: "0.82rem", fontWeight: 600, color: "#374151", marginBottom: 6 }}>Corrective action note (optional)</span>
+              <span style={{ display: "block", fontSize: "0.82rem", fontWeight: 600, color: "var(--ink-700)", marginBottom: 6 }}>Corrective action note (optional)</span>
               <textarea
                 className="input"
                 rows={3}
@@ -9703,12 +9703,12 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
 
               return (
                 <div style={{ marginTop: 12 }}>
-                  <div style={{ fontWeight: 700, fontSize: "0.82rem", color: "#374151", marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
+                  <div style={{ fontWeight: 700, fontSize: "0.82rem", color: "var(--ink-700)", marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
                     📅 Activity Timeline
-                    <span style={{ fontWeight: 400, fontSize: "0.76rem", color: "#6b7280" }}>{events.length} events</span>
+                    <span style={{ fontWeight: 400, fontSize: "0.76rem", color: "var(--ink-500)" }}>{events.length} events</span>
                   </div>
                   {events.length === 0 ? (
-                    <div style={{ color: "#9ca3af", fontSize: "0.85rem", padding: "12px 0" }}>No events to display.</div>
+                    <div style={{ color: "var(--ink-400)", fontSize: "0.85rem", padding: "12px 0" }}>No events to display.</div>
                   ) : (
                     <div style={{ position: "relative", paddingLeft: 24 }}>
                       {/* vertical line */}
@@ -9720,7 +9720,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                             position: "absolute", left: -20, top: 4,
                             width: 12, height: 12, borderRadius: "50%",
                             background: ev.type === "inspection"
-                              ? (ev.status === "Pass" ? "#16a34a" : ev.status === "Fail" ? "#dc2626" : "#6b7280")
+                              ? (ev.status === "Pass" ? "#16a34a" : ev.status === "Fail" ? "#dc2626" : "var(--ink-500)")
                               : (ev.flagged > 0 ? "#f59e0b" : "#0284c7"),
                             border: "2px solid #fff",
                             boxShadow: "0 0 0 2px #e5e7eb",
@@ -9731,7 +9731,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                             borderRadius: 8, padding: "8px 12px",
                           }}>
                             <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                              <span style={{ fontSize: "0.78rem", fontWeight: 700, color: ev.type === "inspection" ? "#374151" : "#0369a1" }}>
+                              <span style={{ fontSize: "0.78rem", fontWeight: 700, color: ev.type === "inspection" ? "var(--ink-700)" : "#0369a1" }}>
                                 {ev.type === "inspection" ? "📋" : "🌡️"} {ev.label}{ev.siteNumber ? ` #${ev.siteNumber}` : ""}
                               </span>
                               {ev.locationType && (
@@ -9743,7 +9743,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                                 <span style={{
                                   fontSize: "0.68rem", fontWeight: 700, padding: "1px 6px", borderRadius: 6,
                                   background: ev.status === "Pass" ? "var(--tint-green-2)" : ev.status === "Fail" ? "var(--tint-red-2)" : "var(--surface-3)",
-                                  color: ev.status === "Pass" ? "#15803d" : ev.status === "Fail" ? "#dc2626" : "#6b7280",
+                                  color: ev.status === "Pass" ? "#15803d" : ev.status === "Fail" ? "#dc2626" : "var(--ink-500)",
                                 }}>
                                   {ev.status}
                                 </span>
@@ -9757,7 +9757,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                                 <span style={{ fontSize: "0.68rem", fontWeight: 700, padding: "1px 6px", borderRadius: 6, background: "var(--tint-green-2)", color: "#15803d" }}>✓ OK</span>
                               )}
                             </div>
-                            <div style={{ fontSize: "0.72rem", color: "#6b7280", marginTop: 3 }}>
+                            <div style={{ fontSize: "0.72rem", color: "var(--ink-500)", marginTop: 3 }}>
                               {ev.sub && <span>{ev.sub} · </span>}
                               {fmtDate(ev.date)}
                             </div>
@@ -9797,9 +9797,9 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
 
               return (
                 <div style={{ marginTop: 12 }}>
-                  <div style={{ fontWeight: 700, fontSize: "0.82rem", color: "#374151", marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>
+                  <div style={{ fontWeight: 700, fontSize: "0.82rem", color: "var(--ink-700)", marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>
                     📍 Inspection Completion by Location
-                    <span style={{ fontWeight: 400, fontSize: "0.76rem", color: "#6b7280" }}>{rows.length} locations · {src.length} total inspections</span>
+                    <span style={{ fontWeight: 400, fontSize: "0.76rem", color: "var(--ink-500)" }}>{rows.length} locations · {src.length} total inspections</span>
                   </div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                     {rows.map((r, i) => (
@@ -9810,19 +9810,19 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                         borderRadius: 10, padding: "10px 14px",
                       }}>
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontWeight: 700, fontSize: "0.85rem", color: "#111827", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.name}</div>
-                          <div style={{ fontSize: "0.75rem", color: "#6b7280", marginTop: 2 }}>
+                          <div style={{ fontWeight: 700, fontSize: "0.85rem", color: "var(--ink-900)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.name}</div>
+                          <div style={{ fontSize: "0.75rem", color: "var(--ink-500)", marginTop: 2 }}>
                             {r.count} inspection{r.count !== 1 ? "s" : ""}
                             {r.lastDateStr ? ` · Last: ${r.lastDateStr}` : " · No date recorded"}
                           </div>
                         </div>
                         <div style={{ textAlign: "right", flexShrink: 0 }}>
                           {r.daysSince === null ? (
-                            <span style={{ fontSize: "0.75rem", color: "#9ca3af" }}>—</span>
+                            <span style={{ fontSize: "0.75rem", color: "var(--ink-400)" }}>—</span>
                           ) : r.daysSince === 0 ? (
                             <span style={{ fontSize: "0.78rem", fontWeight: 700, color: "#16a34a" }}>Today</span>
                           ) : (
-                            <span style={{ fontSize: "0.78rem", fontWeight: 700, color: r.overdue ? "#dc2626" : r.warn ? "#d97706" : "#374151" }}>
+                            <span style={{ fontSize: "0.78rem", fontWeight: 700, color: r.overdue ? "#dc2626" : r.warn ? "#d97706" : "var(--ink-700)" }}>
                               {r.daysSince}d ago
                             </span>
                           )}
@@ -10293,7 +10293,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                         const hasInspectorTemps = inspItems.length > 0;
 
                         if (haccpSubs === undefined) return (
-                          <div style={{ marginTop: 16, fontSize: "0.8rem", color: "#6b7280" }}>Loading HACCP logs…</div>
+                          <div style={{ marginTop: 16, fontSize: "0.8rem", color: "var(--ink-500)" }}>Loading HACCP logs…</div>
                         );
                         const totalCount = haccpSubs.length + (hasInspectorTemps ? 1 : 0);
                         if (totalCount === 0) return (
@@ -10309,7 +10309,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                             {hasInspectorTemps && (
                               <div className="haccpReportCard" style={{ borderLeft: "3px solid #2563eb" }}>
                                 <div className="haccpReportCardTop">
-                                  <span className="haccpReportCardName">🔍 {rec.inspectorName || "Inspector"} <span style={{ fontSize: "0.7rem", fontWeight: 400, color: "#6b7280" }}>(Inspector record)</span></span>
+                                  <span className="haccpReportCardName">🔍 {rec.inspectorName || "Inspector"} <span style={{ fontSize: "0.7rem", fontWeight: 400, color: "var(--ink-500)" }}>(Inspector record)</span></span>
                                   <span className="haccpReportCardTime">{rec.inspectionDate || "—"}</span>
                                   {inspItems.every(item => (inspFT[item.key] || []).filter(v => v !== "").every(v => tempPass(item, v) !== false))
                                     ? <span className="haccpReportBadge haccpReportBadgePass">✓ All OK</span>
@@ -10365,7 +10365,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                                     }
                                     {(currentUser?.role === "admin" || currentUser?.role === "global_admin") && !isEditing && sub.id && (
                                       <button
-                                        style={{ marginLeft: "auto", fontSize: "0.72rem", padding: "2px 10px", borderRadius: 6, border: "1px solid #d1d5db", background: "var(--surface-2)", color: "#374151", cursor: "pointer" }}
+                                        style={{ marginLeft: "auto", fontSize: "0.72rem", padding: "2px 10px", borderRadius: 6, border: "1px solid #d1d5db", background: "var(--surface-2)", color: "var(--ink-700)", cursor: "pointer" }}
                                         onClick={() => setHaccpEditState({
                                           subId: sub.id,
                                           supervisorName: sub.supervisorName || "",
@@ -10382,7 +10382,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                                   {isEditing ? (
                                     <div style={{ padding: "10px 0" }}>
                                       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-                                        <span style={{ fontSize: "0.75rem", fontWeight: 600, color: "#374151", minWidth: 120 }}>Supervisor Name</span>
+                                        <span style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--ink-700)", minWidth: 120 }}>Supervisor Name</span>
                                         <input
                                           type="text"
                                           value={haccpEditState.supervisorName}
@@ -10396,7 +10396,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                                         const displayLabel = haccpEditState.itemLabels[item.key] || item.label;
                                         return (
                                           <div key={item.key} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
-                                            <span style={{ fontSize: "0.75rem", fontWeight: 600, color: "#374151", minWidth: 120 }}>{displayLabel}</span>
+                                            <span style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--ink-700)", minWidth: 120 }}>{displayLabel}</span>
                                             {(haccpEditState.temps[item.key] || []).map((v, vi) => (
                                               <div key={vi} style={{ display: "flex", alignItems: "center", gap: 4 }}>
                                                 <input
@@ -10422,7 +10422,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                                                     setHaccpEditState(s => ({ ...s, temps: t }));
                                                   }}
                                                 />
-                                                <span style={{ fontSize: "0.72rem", color: "#6b7280" }}>{item.unit}</span>
+                                                <span style={{ fontSize: "0.72rem", color: "var(--ink-500)" }}>{item.unit}</span>
                                               </div>
                                             ))}
                                           </div>
@@ -10459,7 +10459,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                                           }}
                                         >{haccpSaving ? "Saving…" : "Save"}</button>
                                         <button
-                                          style={{ fontSize: "0.75rem", padding: "4px 14px", borderRadius: 6, border: "1px solid #d1d5db", background: "var(--surface-2)", color: "#374151", cursor: "pointer" }}
+                                          style={{ fontSize: "0.75rem", padding: "4px 14px", borderRadius: 6, border: "1px solid #d1d5db", background: "var(--surface-2)", color: "var(--ink-700)", cursor: "pointer" }}
                                           onClick={() => setHaccpEditState(null)}
                                         >Cancel</button>
                                       </div>
@@ -10507,7 +10507,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                                     </div>
                                   )}
                                   {sub.editedAt && (
-                                    <div style={{ fontSize: "0.68rem", color: "#9ca3af", marginTop: 4 }}>
+                                    <div style={{ fontSize: "0.68rem", color: "var(--ink-400)", marginTop: 4 }}>
                                       Edited {new Date(sub.editedAt).toLocaleString()} by {sub.editedBy}
                                     </div>
                                   )}
@@ -10690,7 +10690,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
             {/* Sentinel: auto-loads more records or expands visible window as user scrolls */}
             <div ref={sentinelRef} style={{ height: 1 }} />
             {(historyLoadingMore || visibleCount < filtered.length) && (
-              <div style={{ textAlign: "center", padding: "20px 0", color: "#6b7280", fontSize: "0.82rem" }}>
+              <div style={{ textAlign: "center", padding: "20px 0", color: "var(--ink-500)", fontSize: "0.82rem" }}>
                 Loading more…
               </div>
             )}
@@ -11018,7 +11018,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                             onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = "#fff"; }}>
                             <input type="checkbox" readOnly checked={isSelected}
                               style={{ width: 15, height: 15, accentColor: exportAccent, flexShrink: 0, cursor: "pointer", marginTop: 2 }} />
-                            <span style={{ flex: 1, fontSize: "0.84rem", color: isSelected ? "var(--ink-900)" : "#374151", lineHeight: 1.5, fontWeight: isSelected ? 500 : 400 }}>{item.issue || "—"}</span>
+                            <span style={{ flex: 1, fontSize: "0.84rem", color: isSelected ? "var(--ink-900)" : "var(--ink-700)", lineHeight: 1.5, fontWeight: isSelected ? 500 : 400 }}>{item.issue || "—"}</span>
                             {(() => {
                               // item.status is already normalized (never "High"/"Med") — use it directly
                               const st = item.status || "Fail";
@@ -11878,7 +11878,7 @@ function FoodSafetyRef() {
             { dot: "#22c55e", day: "Wednesday" },
             { dot: "#3b82f6", day: "Thursday" },
             { dot: "#8b5cf6", day: "Friday" },
-            { dot: "#6b7280", day: "Saturday" },
+            { dot: "var(--ink-500)", day: "Saturday" },
           ].map((d, i) => (
             <div key={d.day} style={{ display: "flex", alignItems: "center", gap: 9, padding: "8px 12px", borderBottom: i < 6 ? "1px solid var(--surface-3)" : "none", borderRight: i % 2 === 0 ? "1px solid var(--surface-3)" : "none" }}>
               <span style={{ display: "inline-block", width: 16, height: 16, borderRadius: "50%", background: d.dot, flexShrink: 0, border: "1.5px solid rgba(0,0,0,.10)" }} />
@@ -12191,7 +12191,7 @@ function LicensesTab({ history, invLicenseData, setInvLicenseData, invLicenseMis
                       style={{
                         padding: "0.25rem 0.6rem", borderRadius: 7,
                         border: "1px solid #d1d5db", background: "transparent",
-                        fontWeight: 600, fontSize: "0.68rem", color: "#6b7280",
+                        fontWeight: 600, fontSize: "0.68rem", color: "var(--ink-500)",
                         cursor: "pointer",
                       }}>
                       Dismiss
@@ -12207,7 +12207,7 @@ function LicensesTab({ history, invLicenseData, setInvLicenseData, invLicenseMis
       {/* Event site name hints */}
       {nameHints.length > 0 && (
         <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-          <div style={{ fontSize: "0.65rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: "#6b7280" }}>
+          <div style={{ fontSize: "0.65rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-500)" }}>
             Event Location Questions
           </div>
           {nameHints.map(h => (
@@ -12248,7 +12248,7 @@ function LicensesTab({ history, invLicenseData, setInvLicenseData, invLicenseMis
                       style={{
                         padding: "0.25rem 0.65rem", borderRadius: 7,
                         border: "1px solid #d1d5db", background: "transparent",
-                        fontWeight: 600, fontSize: "0.68rem", color: "#6b7280",
+                        fontWeight: 600, fontSize: "0.68rem", color: "var(--ink-500)",
                         cursor: "pointer",
                       }}>
                       No, different location
@@ -14904,7 +14904,7 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
                       <select
                         value={invLocFilter}
                         onChange={e => setInvLocFilter(e.target.value)}
-                        style={{ padding: "0.38rem 0.6rem", borderRadius: 7, border: `1.5px solid ${invLocFilter ? "#d97706" : "var(--sdx-gray-300)"}`, background: invLocFilter ? "var(--tint-amber-1)" : "#fff", color: invLocFilter ? "var(--tx-amber)" : "#374151", fontSize: "0.8rem", fontWeight: 600, cursor: "pointer", outline: "none" }}>
+                        style={{ padding: "0.38rem 0.6rem", borderRadius: 7, border: `1.5px solid ${invLocFilter ? "#d97706" : "var(--sdx-gray-300)"}`, background: invLocFilter ? "var(--tint-amber-1)" : "#fff", color: invLocFilter ? "var(--tx-amber)" : "var(--ink-700)", fontSize: "0.8rem", fontWeight: 600, cursor: "pointer", outline: "none" }}>
                         <option value="">All Locations</option>
                         <option value="permanent">Permanent</option>
                         <option value="subcontractor">Subcontractor</option>
@@ -15123,7 +15123,7 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
                       }}>
                         <div style={{ fontSize: "0.6rem", fontWeight: 800, color: v.color, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.3rem" }}>Recommended actions</div>
                         {v.recommendations.map((r, ri) => (
-                          <div key={ri} style={{ fontSize: "0.74rem", color: "#374151", lineHeight: 1.5, marginBottom: ri < v.recommendations.length - 1 ? "0.3rem" : 0 }}>
+                          <div key={ri} style={{ fontSize: "0.74rem", color: "var(--ink-700)", lineHeight: 1.5, marginBottom: ri < v.recommendations.length - 1 ? "0.3rem" : 0 }}>
                             → {r}
                           </div>
                         ))}
@@ -15762,7 +15762,7 @@ function EquipmentScannerPage({ onBack, onPrintLabels }) {
 
         {/* Search bar */}
         <div style={{ background: "var(--surface-1)", borderRadius: 12, padding: "1rem", boxShadow: "0 1px 4px rgba(0,0,0,0.08)", marginBottom: "1rem" }}>
-          <label style={{ display: "block", fontWeight: 600, fontSize: "0.85rem", color: "#374151", marginBottom: 8 }}>
+          <label style={{ display: "block", fontWeight: 600, fontSize: "0.85rem", color: "var(--ink-700)", marginBottom: 8 }}>
             Equipment ID / Asset Tag
           </label>
           <div style={{ display: "flex", gap: 8 }}>
@@ -15813,7 +15813,7 @@ function EquipmentScannerPage({ onBack, onPrintLabels }) {
 
         {!searching && results !== null && (
           <>
-            <div style={{ fontWeight: 700, fontSize: "0.9rem", color: "#374151", marginBottom: 10 }}>
+            <div style={{ fontWeight: 700, fontSize: "0.9rem", color: "var(--ink-700)", marginBottom: 10 }}>
               {results.length === 0
                 ? `No records found for "${scanInput}"`
                 : `${results.length} inspection${results.length > 1 ? "s" : ""} found for "${results[0]?.equipLabel || scanInput}"`}
@@ -15836,7 +15836,7 @@ function EquipmentScannerPage({ onBack, onPrintLabels }) {
                     </div>
                   )}
                   {Object.entries(statusCounts).filter(([s]) => s !== "OK" && s !== "Fail" && s !== "Critical Violation").map(([s, c]) => (
-                    <div key={s} style={{ background: "var(--surface-2)", border: "1px solid #e2e8f0", borderRadius: 8, padding: "0.5rem 0.9rem", fontSize: "0.82rem", color: STATUS_COLOR[s] || "#374151", fontWeight: 600 }}>
+                    <div key={s} style={{ background: "var(--surface-2)", border: "1px solid #e2e8f0", borderRadius: 8, padding: "0.5rem 0.9rem", fontSize: "0.82rem", color: STATUS_COLOR[s] || "var(--ink-700)", fontWeight: 600 }}>
                       {c} {s}
                     </div>
                   ))}
@@ -15853,12 +15853,12 @@ function EquipmentScannerPage({ onBack, onPrintLabels }) {
               const min = Math.min(...vals), max = Math.max(...vals);
               const range = max - min || 1;
               const trend = vals[0] > vals[vals.length - 1] ? "↑" : vals[0] < vals[vals.length - 1] ? "↓" : "→";
-              const trendColor = trend === "↑" ? "#16a34a" : trend === "↓" ? "#dc2626" : "#6b7280";
+              const trendColor = trend === "↑" ? "#16a34a" : trend === "↓" ? "#dc2626" : "var(--ink-500)";
               return (
                 <div style={{ background: "var(--tint-sky-1)", border: "1px solid #bae6fd", borderRadius: 10, padding: "10px 14px", marginBottom: 12 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
                     <span style={{ fontWeight: 700, fontSize: "0.8rem", color: "#0369a1" }}>🌡️ Temp Trend</span>
-                    <span style={{ fontSize: "0.75rem", color: "#374151" }}>Last {last3.length} readings</span>
+                    <span style={{ fontSize: "0.75rem", color: "var(--ink-700)" }}>Last {last3.length} readings</span>
                     <span style={{ marginLeft: "auto", fontWeight: 800, fontSize: "1rem", color: trendColor }}>{trend}</span>
                   </div>
                   <div style={{ display: "flex", alignItems: "flex-end", gap: 6, height: 40 }}>
@@ -16039,7 +16039,7 @@ function PrintLabelsPage({ onBack }) {
         {!loading && equipItems.length === 0 && (
           <div style={{ background: "var(--surface-1)", borderRadius: 12, padding: "2rem", textAlign: "center", color: "var(--ink-500)", boxShadow: "0 1px 4px rgba(0,0,0,0.07)" }}>
             <div style={{ fontSize: "2.5rem", marginBottom: 12 }}>🏷</div>
-            <div style={{ fontWeight: 700, fontSize: "1rem", marginBottom: 8, color: "#374151" }}>No equipment found</div>
+            <div style={{ fontWeight: 700, fontSize: "1rem", marginBottom: 8, color: "var(--ink-700)" }}>No equipment found</div>
             <div style={{ fontSize: "0.85rem" }}>Save at least one inspection with equipment filled in, then come back here to print labels.</div>
           </div>
         )}
@@ -18427,7 +18427,7 @@ function LiveHaccpPanel({ reportId, subsFromParent, foodTemps, foodTempNames, in
       {/* Section header */}
       <div style={{ fontWeight: 700, fontSize: "0.88rem", color: "var(--sdx-navy)", marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
         🌡️ HACCP Temperature Logs
-        <span style={{ fontSize: "0.75rem", fontWeight: 400, color: "#6b7280" }}>— {subs.length + (hasInspectorTemps ? 1 : 0)} submission{subs.length + (hasInspectorTemps ? 1 : 0) !== 1 ? "s" : ""}</span>
+        <span style={{ fontSize: "0.75rem", fontWeight: 400, color: "var(--ink-500)" }}>— {subs.length + (hasInspectorTemps ? 1 : 0)} submission{subs.length + (hasInspectorTemps ? 1 : 0) !== 1 ? "s" : ""}</span>
       </div>
 
       {/* Inspector-recorded temps card */}
@@ -18435,7 +18435,7 @@ function LiveHaccpPanel({ reportId, subsFromParent, foodTemps, foodTempNames, in
         <div style={{ border: "1px solid #93c5fd", borderRadius: 12, marginBottom: 14, background: "var(--surface-1)", overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
           <div style={{ padding: "11px 14px 10px", borderBottom: "1px solid #dbeafe", background: "var(--tint-blue-1)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
             <div style={{ fontWeight: 700, fontSize: "0.84rem", color: "#1e40af" }}>
-              🔍 {inspectorName || "Inspector"} <span style={{ fontWeight: 400, fontSize: "0.73rem", color: "#6b7280" }}>(Inspector record)</span>
+              🔍 {inspectorName || "Inspector"} <span style={{ fontWeight: 400, fontSize: "0.73rem", color: "var(--ink-500)" }}>(Inspector record)</span>
             </div>
           </div>
           <div style={{ padding: "10px 14px 4px" }}>
@@ -18454,11 +18454,11 @@ function LiveHaccpPanel({ reportId, subsFromParent, foodTemps, foodTempNames, in
                         <div key={ri} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: "0.8rem" }}>
                           <span>{pass === false ? "🚨" : "✅"}</span>
                           <span style={{ fontWeight: 700, color: pass === false ? "#dc2626" : "var(--sdx-navy)" }}>{v}°F</span>
-                          {names[ri] && <span style={{ color: "#6b7280", fontSize: "0.74rem" }}>({names[ri]})</span>}
+                          {names[ri] && <span style={{ color: "var(--ink-500)", fontSize: "0.74rem" }}>({names[ri]})</span>}
                         </div>
                       );
                     })}
-                    <div style={{ fontSize: "0.68rem", color: "#9ca3af", marginTop: 1 }}>
+                    <div style={{ fontSize: "0.68rem", color: "var(--ink-400)", marginTop: 1 }}>
                       {item.type === "hot" ? `Min ${item.min}°F` : `Max ${item.max}°F`}
                     </div>
                   </div>
@@ -18501,7 +18501,7 @@ function LiveHaccpPanel({ reportId, subsFromParent, foodTemps, foodTempNames, in
                 <div style={{ fontWeight: 700, fontSize: "0.84rem", color: "var(--sdx-navy)" }}>
                   👤 {sub.supervisorName || "Supervisor"}
                   {sub.supervisorPhone && (
-                    <span style={{ fontWeight: 400, fontSize: "0.75rem", color: "#6b7280", marginLeft: 8 }}>📞 {sub.supervisorPhone}</span>
+                    <span style={{ fontWeight: 400, fontSize: "0.75rem", color: "var(--ink-500)", marginLeft: 8 }}>📞 {sub.supervisorPhone}</span>
                   )}
                 </div>
                 {locParts.length > 0 && (
@@ -18518,7 +18518,7 @@ function LiveHaccpPanel({ reportId, subsFromParent, foodTemps, foodTempNames, in
                 </div>
                 {(currentUser?.role === "admin" || currentUser?.role === "global_admin") && sub.id && !liveEditState && (
                   <button
-                    style={{ fontSize: "0.72rem", padding: "2px 10px", borderRadius: 6, border: "1px solid #d1d5db", background: "var(--surface-2)", color: "#374151", cursor: "pointer" }}
+                    style={{ fontSize: "0.72rem", padding: "2px 10px", borderRadius: 6, border: "1px solid #d1d5db", background: "var(--surface-2)", color: "var(--ink-700)", cursor: "pointer" }}
                     onClick={() => setLiveEditState({
                       subId: sub.id,
                       supervisorName: sub.supervisorName || "",
@@ -18534,7 +18534,7 @@ function LiveHaccpPanel({ reportId, subsFromParent, foodTemps, foodTempNames, in
             {liveEditState?.subId === sub.id ? (
               <div style={{ padding: "12px 14px" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-                  <span style={{ fontSize: "0.75rem", fontWeight: 600, color: "#374151", minWidth: 130 }}>Supervisor Name</span>
+                  <span style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--ink-700)", minWidth: 130 }}>Supervisor Name</span>
                   <input
                     type="text"
                     value={liveEditState.supervisorName}
@@ -18544,7 +18544,7 @@ function LiveHaccpPanel({ reportId, subsFromParent, foodTemps, foodTempNames, in
                 </div>
                 {allItems.filter(item => ((sub.temps || {})[item.key] || []).some(v => v !== "")).map(item => (
                   <div key={item.key} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
-                    <span style={{ fontSize: "0.75rem", fontWeight: 600, color: "#374151", minWidth: 130 }}>{sub.itemLabels?.[item.key] || item.label}</span>
+                    <span style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--ink-700)", minWidth: 130 }}>{sub.itemLabels?.[item.key] || item.label}</span>
                     {(liveEditState.temps[item.key] || []).map((v, vi) => (
                       <div key={vi} style={{ display: "flex", alignItems: "center", gap: 4 }}>
                         <input
@@ -18570,7 +18570,7 @@ function LiveHaccpPanel({ reportId, subsFromParent, foodTemps, foodTempNames, in
                             setLiveEditState(s => ({ ...s, temps: t }));
                           }}
                         />
-                        <span style={{ fontSize: "0.72rem", color: "#6b7280" }}>{item.unit}</span>
+                        <span style={{ fontSize: "0.72rem", color: "var(--ink-500)" }}>{item.unit}</span>
                       </div>
                     ))}
                   </div>
@@ -18604,7 +18604,7 @@ function LiveHaccpPanel({ reportId, subsFromParent, foodTemps, foodTempNames, in
                     }}
                   >{liveSaving ? "Saving…" : "Save"}</button>
                   <button
-                    style={{ fontSize: "0.75rem", padding: "4px 14px", borderRadius: 6, border: "1px solid #d1d5db", background: "var(--surface-2)", color: "#374151", cursor: "pointer" }}
+                    style={{ fontSize: "0.75rem", padding: "4px 14px", borderRadius: 6, border: "1px solid #d1d5db", background: "var(--surface-2)", color: "var(--ink-700)", cursor: "pointer" }}
                     onClick={() => setLiveEditState(null)}
                   >Cancel</button>
                 </div>
@@ -18628,11 +18628,11 @@ function LiveHaccpPanel({ reportId, subsFromParent, foodTemps, foodTempNames, in
                           <div key={ri} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: "0.8rem" }}>
                             <span>{statusIcon}</span>
                             <span style={{ fontWeight: 700, color: pass === false ? "#dc2626" : "var(--sdx-navy)" }}>{v}°F</span>
-                            {foodName && <span style={{ color: "#6b7280", fontSize: "0.74rem" }}>({foodName})</span>}
+                            {foodName && <span style={{ color: "var(--ink-500)", fontSize: "0.74rem" }}>({foodName})</span>}
                           </div>
                         );
                       })}
-                      <div style={{ fontSize: "0.68rem", color: "#9ca3af", marginTop: 1 }}>
+                      <div style={{ fontSize: "0.68rem", color: "var(--ink-400)", marginTop: 1 }}>
                         {item.type === "hot" ? `Min ${item.min}°F` : item.type === "cold" ? `Max ${item.max}°F` : ""}
                       </div>
                     </div>
@@ -18644,15 +18644,15 @@ function LiveHaccpPanel({ reportId, subsFromParent, foodTemps, foodTempNames, in
             {/* ── Problem / Note section ── */}
             {prob?.text && ss && (
               <div style={{ margin: "10px 14px 0", padding: "10px 12px", borderRadius: 8, background: ss.bg, border: `1px solid ${ss.border}` }}>
-                <div style={{ fontSize: "0.72rem", fontWeight: 700, color: "#374151", marginBottom: 4, display: "flex", alignItems: "center", gap: 5 }}>
+                <div style={{ fontSize: "0.72rem", fontWeight: 700, color: "var(--ink-700)", marginBottom: 4, display: "flex", alignItems: "center", gap: 5 }}>
                   {ss.icon} {ss.label}
                 </div>
-                <div style={{ fontSize: "0.81rem", color: "#374151", lineHeight: 1.5 }}>{prob.text}</div>
+                <div style={{ fontSize: "0.81rem", color: "var(--ink-700)", lineHeight: 1.5 }}>{prob.text}</div>
 
                 {/* Photos grid */}
                 {probPhotos.length > 0 && (
                   <div style={{ marginTop: 8 }}>
-                    <div style={{ fontSize: "0.7rem", fontWeight: 600, color: "#6b7280", marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.04em" }}>📷 Photos ({probPhotos.length})</div>
+                    <div style={{ fontSize: "0.7rem", fontWeight: 600, color: "var(--ink-500)", marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.04em" }}>📷 Photos ({probPhotos.length})</div>
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(90px, 1fr))", gap: 6 }}>
                       {probPhotos.map((ph, pi) => (
                         <div key={ph.id || pi}
@@ -18661,7 +18661,7 @@ function LiveHaccpPanel({ reportId, subsFromParent, foodTemps, foodTempNames, in
                           <img src={ph.previewUrl} alt={ph.tag || ph.name || "photo"}
                             style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
                           {ph.tag && (
-                            <div style={{ fontSize: "0.65rem", textAlign: "center", color: "#6b7280", padding: "2px 4px", background: "rgba(255,255,255,0.85)" }}>{ph.tag}</div>
+                            <div style={{ fontSize: "0.65rem", textAlign: "center", color: "var(--ink-500)", padding: "2px 4px", background: "rgba(255,255,255,0.85)" }}>{ph.tag}</div>
                           )}
                         </div>
                       ))}
@@ -18672,7 +18672,7 @@ function LiveHaccpPanel({ reportId, subsFromParent, foodTemps, foodTempNames, in
             )}
 
             {sub.editedAt && (
-              <div style={{ fontSize: "0.68rem", color: "#9ca3af", padding: "0 14px 6px" }}>
+              <div style={{ fontSize: "0.68rem", color: "var(--ink-400)", padding: "0 14px 6px" }}>
                 Edited {new Date(sub.editedAt).toLocaleString()} by {sub.editedBy}
               </div>
             )}
@@ -18831,10 +18831,10 @@ function ShareModal({ shareUrl, onClose }) {
           <a href={shareUrl} target="_blank" rel="noopener noreferrer" className="qrWrap" title="Open link">
             <canvas ref={canvasRef} className="qrImg" />
           </a>
-          <p style={{ textAlign: "center", margin: "10px 0 4px", fontSize: "0.82rem", color: "#6b7280" }}>
+          <p style={{ textAlign: "center", margin: "10px 0 4px", fontSize: "0.82rem", color: "var(--ink-500)" }}>
             Staff scan this QR to open the pre-filled form
           </p>
-          <p style={{ textAlign: "center", margin: "0 0 14px", fontSize: "0.75rem", color: "#9ca3af" }}>
+          <p style={{ textAlign: "center", margin: "0 0 14px", fontSize: "0.75rem", color: "var(--ink-400)" }}>
             Or tap the QR / use the link below
           </p>
           <div className="shareUrlRow">
@@ -18901,10 +18901,10 @@ function HaccpQrModal({ onClose, siteName, siteNumber, floor, locationType, repo
           <a href={haccpUrl} target="_blank" rel="noopener noreferrer" className="qrWrap" title="Open HACCP portal">
             <canvas ref={canvasRef} className="qrImg" />
           </a>
-          <p style={{ textAlign:"center", margin:"10px 0 4px", fontSize:"0.82rem", color:"#6b7280" }}>
+          <p style={{ textAlign:"center", margin:"10px 0 4px", fontSize:"0.82rem", color:"var(--ink-500)" }}>
             Supervisor scans this QR to open the HACCP form
           </p>
-          <p style={{ textAlign:"center", margin:"0 0 14px", fontSize:"0.75rem", color:"#9ca3af" }}>
+          <p style={{ textAlign:"center", margin:"0 0 14px", fontSize:"0.75rem", color:"var(--ink-400)" }}>
             They will only see temperatures, problem report &amp; chat — not the full app
           </p>
           <div className="shareUrlRow">
@@ -19435,7 +19435,7 @@ function HaccpPortal() {
                               }}
                               style={{ flex: 1 }}
                             />
-                            <span style={{ fontSize: "0.68rem", color: "#9ca3af" }}>↵ to save</span>
+                            <span style={{ fontSize: "0.68rem", color: "var(--ink-400)" }}>↵ to save</span>
                           </span>
                         ) : (
                           <span className="haccpTempLabel"
@@ -19443,11 +19443,11 @@ function HaccpPortal() {
                             onClick={() => { setEditingLabel(item.key); setEditingLabelVal(displayLabel); }}
                             style={{ cursor: "pointer", color: item.type === "hot" ? "#ef4444" : item.type === "cold" ? "#3b82f6" : undefined, fontWeight: 700 }}>
                             {item.type === "hot" ? "🔥 " : item.type === "cold" ? "❄️ " : ""}{displayLabel}
-                            <span style={{ fontSize: "0.68rem", color: "#9ca3af", fontWeight: 400, marginLeft: 6 }}>
+                            <span style={{ fontSize: "0.68rem", color: "var(--ink-400)", fontWeight: 400, marginLeft: 6 }}>
                               {item.type === "hot" ? `Min ${item.min}${item.unit}` : `Max ${item.max}${item.unit}`}
                             </span>
-                            {item.hint && <span style={{ fontSize: "0.64rem", color: "#6b7280", fontWeight: 400, marginLeft: 5, fontStyle: "italic" }}>({item.hint})</span>}
-                            <span style={{ fontSize: "0.65rem", color: "#6b7280", marginLeft: 5 }}>✏️</span>
+                            {item.hint && <span style={{ fontSize: "0.64rem", color: "var(--ink-500)", fontWeight: 400, marginLeft: 5, fontStyle: "italic" }}>({item.hint})</span>}
+                            <span style={{ fontSize: "0.65rem", color: "var(--ink-500)", marginLeft: 5 }}>✏️</span>
                           </span>
                         )}
                         <div style={{ display: "flex", gap: 4 }}>
@@ -19526,7 +19526,7 @@ function HaccpPortal() {
                               {/* Submit button — before confirming */}
                               {!isSubmitted && (
                                 <button type="button"
-                                  style={{ background: canSubmit ? "#2563eb" : "#fff", color: canSubmit ? "#fff" : "#9ca3af", fontWeight: 700, fontSize: "0.75rem", padding: "5px 12px", borderRadius: 8, flexShrink: 0, cursor: canSubmit ? "pointer" : "default", border: canSubmit ? "none" : "1.5px solid #cbd5e1", whiteSpace: "nowrap" }}
+                                  style={{ background: canSubmit ? "#2563eb" : "#fff", color: canSubmit ? "#fff" : "var(--ink-400)", fontWeight: 700, fontSize: "0.75rem", padding: "5px 12px", borderRadius: 8, flexShrink: 0, cursor: canSubmit ? "pointer" : "default", border: canSubmit ? "none" : "1.5px solid #cbd5e1", whiteSpace: "nowrap" }}
                                   disabled={!canSubmit}
                                   onClick={() => setTempSubmitted(p => {
                                     const arr = [...(p[item.key] || [false])];
@@ -19645,7 +19645,7 @@ function HaccpPortal() {
                                       )}
                                       {!isSubmitted && (
                                         <button type="button"
-                                          style={{ background: canSubmit ? "#2563eb" : "#fff", color: canSubmit ? "#fff" : "#9ca3af", fontWeight: 700, fontSize: "0.75rem", padding: "5px 12px", borderRadius: 8, flexShrink: 0, cursor: canSubmit ? "pointer" : "default", border: canSubmit ? "none" : "1.5px solid #cbd5e1", whiteSpace: "nowrap" }}
+                                          style={{ background: canSubmit ? "#2563eb" : "#fff", color: canSubmit ? "#fff" : "var(--ink-400)", fontWeight: 700, fontSize: "0.75rem", padding: "5px 12px", borderRadius: 8, flexShrink: 0, cursor: canSubmit ? "pointer" : "default", border: canSubmit ? "none" : "1.5px solid #cbd5e1", whiteSpace: "nowrap" }}
                                           disabled={!canSubmit}
                                           onClick={() => setTempSubmitted(p => { const arr=[...(p[item.key]||[false])]; arr[idx]=true; return {...p,[item.key]:arr}; })}>
                                           Submit
@@ -19707,7 +19707,7 @@ function HaccpPortal() {
                   value={problem} onChange={e => setProblem(e.target.value)}
                   placeholder="Describe any issue, equipment problem, or safety concern..." />
                 <div className="haccpProblemSeverity">
-                  <span style={{ fontSize: "0.75rem", color: "#6b7280", alignSelf: "center" }}>Severity:</span>
+                  <span style={{ fontSize: "0.75rem", color: "var(--ink-500)", alignSelf: "center" }}>Severity:</span>
                   {[["urgent","🔴 Urgent"],["issue","🟡 Issue"],["info","🔵 Info"]].map(([val, label]) => (
                     <button key={val} className={`haccpSeverityBtn ${severity === val ? `sel-${val}` : ""}`}
                       type="button" onClick={() => setSeverity(val)}>{label}</button>
@@ -19919,7 +19919,7 @@ function FieldCorrectionBanner({ correction }) {
           🤔 {correction.message}
         </span>
         <button type="button" onClick={correction.dismiss}
-          style={{ background: "none", border: "none", cursor: "pointer", color: "#9ca3af", fontSize: "1rem", lineHeight: 1, padding: 0, flexShrink: 0 }}
+          style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink-400)", fontSize: "1rem", lineHeight: 1, padding: 0, flexShrink: 0 }}
           title="Dismiss">✕</button>
       </div>
       {correction.suggestion && (
@@ -19931,7 +19931,7 @@ function FieldCorrectionBanner({ correction }) {
           {correction.fixLabel || "Fix it"}
         </button>
         <button type="button" onClick={correction.dismiss}
-          style={{ padding: "3px 12px", borderRadius: 6, border: "1px solid #d1d5db", background: "none", cursor: "pointer", fontSize: "0.78rem", color: "#6b7280" }}>
+          style={{ padding: "3px 12px", borderRadius: 6, border: "1px solid #d1d5db", background: "none", cursor: "pointer", fontSize: "0.78rem", color: "var(--ink-500)" }}>
           Keep as-is
         </button>
       </div>
@@ -22737,8 +22737,8 @@ export default function App() {
           <div style={{ maxWidth: 1440, margin: "0 auto 14px", padding: "0 32px", boxSizing: "border-box", width: "100%" }}>
           <div style={{ background: "var(--surface-1)", border: "1px solid #e2e8f0", borderRadius: 12, padding: "12px 16px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-              <span style={{ fontWeight: 700, fontSize: "0.82rem", color: "#374151" }}>Form Progress</span>
-              <span style={{ fontSize: "0.78rem", fontWeight: 600, color: pct === 100 ? "#16a34a" : "#6b7280" }}>{completedCount}/{steps.length} sections</span>
+              <span style={{ fontWeight: 700, fontSize: "0.82rem", color: "var(--ink-700)" }}>Form Progress</span>
+              <span style={{ fontSize: "0.78rem", fontWeight: 600, color: pct === 100 ? "#16a34a" : "var(--ink-500)" }}>{completedCount}/{steps.length} sections</span>
             </div>
             <div style={{ display: "flex", gap: 4, marginBottom: 8 }}>
               {steps.map((s, i) => (
@@ -22747,7 +22747,7 @@ export default function App() {
             </div>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
               {steps.map((s, i) => (
-                <span key={i} style={{ fontSize: "0.73rem", fontWeight: 600, color: s.done ? "#16a34a" : "#9ca3af", display: "flex", alignItems: "center", gap: 3 }}>
+                <span key={i} style={{ fontSize: "0.73rem", fontWeight: 600, color: s.done ? "#16a34a" : "var(--ink-400)", display: "flex", alignItems: "center", gap: 3 }}>
                   <span style={{ fontSize: "0.7rem" }}>{s.done ? "✓" : `${i + 1}`}</span>
                   {s.label}
                 </span>
@@ -22835,7 +22835,7 @@ export default function App() {
                 {fieldCorrections["field-inspectorName"] && <FieldCorrectionBanner correction={fieldCorrections["field-inspectorName"]} />}
               </label>
               <label className="field" id="field-participantName">
-                <span className="fieldLabel">Participants <span style={{ fontWeight: 400, color: "#9ca3af", fontSize: "0.8rem" }}>(optional)</span></span>
+                <span className="fieldLabel">Participants <span style={{ fontWeight: 400, color: "var(--ink-400)", fontSize: "0.8rem" }}>(optional)</span></span>
                 <input className="input" value={participantName} onBlur={(e) => smartFieldCorrect("field-participantName", e.target.value)} onChange={(e) => setParticipantName(e.target.value)} placeholder="e.g., Chef Rodriguez, GM Martinez" />
                 {fieldCorrections["field-participantName"] && <FieldCorrectionBanner correction={fieldCorrections["field-participantName"]} />}
               </label>
@@ -23102,7 +23102,7 @@ export default function App() {
                     </div>
 
                     {suppliesNeeded.length === 0 && (
-                      <div style={{ fontSize: "0.82rem", color: "#9ca3af", marginBottom: 8, fontStyle: "italic" }}>
+                      <div style={{ fontSize: "0.82rem", color: "var(--ink-400)", marginBottom: 8, fontStyle: "italic" }}>
                         No supplies added yet.
                       </div>
                     )}
@@ -23132,14 +23132,14 @@ export default function App() {
                                 type="button"
                                 title={s.urgent ? "Mark as normal" : "Mark as urgent"}
                                 onClick={() => setSuppliesNeeded(prev => prev.map((x, i) => i === idx ? { ...x, urgent: !x.urgent } : x))}
-                                style={{ flex: 1, padding: "6px 10px", borderRadius: 8, border: `1px solid ${s.urgent ? "#fca5a5" : "var(--sdx-gray-200)"}`, background: s.urgent ? "var(--tint-red-2)" : "var(--surface-2)", cursor: "pointer", fontSize: "0.78rem", fontWeight: 700, color: s.urgent ? "#dc2626" : "#9ca3af" }}
+                                style={{ flex: 1, padding: "6px 10px", borderRadius: 8, border: `1px solid ${s.urgent ? "#fca5a5" : "var(--sdx-gray-200)"}`, background: s.urgent ? "var(--tint-red-2)" : "var(--surface-2)", cursor: "pointer", fontSize: "0.78rem", fontWeight: 700, color: s.urgent ? "#dc2626" : "var(--ink-400)" }}
                               >
                                 {s.urgent ? "🔴 Urgent" : "Urgent?"}
                               </button>
                               <button
                                 type="button"
                                 onClick={() => setSuppliesNeeded(prev => prev.filter((_, i) => i !== idx))}
-                                style={{ flexShrink: 0, padding: "6px 9px", borderRadius: 8, border: "1px solid #e5e7eb", background: "var(--surface-2)", cursor: "pointer", color: "#9ca3af", fontSize: "1rem", lineHeight: 1 }}
+                                style={{ flexShrink: 0, padding: "6px 9px", borderRadius: 8, border: "1px solid #e5e7eb", background: "var(--surface-2)", cursor: "pointer", color: "var(--ink-400)", fontSize: "1rem", lineHeight: 1 }}
                                 title="Remove"
                               >×</button>
                             </div>
@@ -23160,7 +23160,7 @@ export default function App() {
                         ensureSupplyHistory();
                         setSuppliesNeeded(prev => [...prev, { id: `${Date.now()}_${Math.random().toString(36).slice(2, 6)}`, item: "", qty: "", urgent: false }]);
                       }}
-                      style={{ marginTop: 2, padding: "6px 14px", borderRadius: 8, border: "1px dashed #d1d5db", background: "var(--surface-2)", cursor: "pointer", fontSize: "0.82rem", color: "#6b7280", fontWeight: 600 }}
+                      style={{ marginTop: 2, padding: "6px 14px", borderRadius: 8, border: "1px dashed #d1d5db", background: "var(--surface-2)", cursor: "pointer", fontSize: "0.82rem", color: "var(--ink-500)", fontWeight: 600 }}
                     >
                       + Add Supply Item
                     </button>
@@ -23224,7 +23224,7 @@ export default function App() {
                                   </div>
                                   {!isSubmitted && (
                                     <button type="button"
-                                      style={{ background: canSubmit ? "#2563eb" : "var(--sdx-gray-200)", color: canSubmit ? "#fff" : "#9ca3af", fontWeight: 700, fontSize: "0.75rem", padding: "4px 12px", borderRadius: 8, flexShrink: 0, cursor: canSubmit ? "pointer" : "default", border: "none" }}
+                                      style={{ background: canSubmit ? "#2563eb" : "var(--sdx-gray-200)", color: canSubmit ? "#fff" : "var(--ink-400)", fontWeight: 700, fontSize: "0.75rem", padding: "4px 12px", borderRadius: 8, flexShrink: 0, cursor: canSubmit ? "pointer" : "default", border: "none" }}
                                       disabled={!canSubmit}
                                       onClick={() => setInspection(prev => ({ ...prev, temps: { ...prev.temps, handSinkSubmitted: true } }))}>
                                       Submit
@@ -23303,7 +23303,7 @@ export default function App() {
                                   </div>
                                   {!isSubmitted && (
                                     <button type="button"
-                                      style={{ background: canSubmit ? "#2563eb" : "var(--sdx-gray-200)", color: canSubmit ? "#fff" : "#9ca3af", fontWeight: 700, fontSize: "0.75rem", padding: "4px 12px", borderRadius: 8, flexShrink: 0, cursor: canSubmit ? "pointer" : "default", border: "none" }}
+                                      style={{ background: canSubmit ? "#2563eb" : "var(--sdx-gray-200)", color: canSubmit ? "#fff" : "var(--ink-400)", fontWeight: 700, fontSize: "0.75rem", padding: "4px 12px", borderRadius: 8, flexShrink: 0, cursor: canSubmit ? "pointer" : "default", border: "none" }}
                                       disabled={!canSubmit}
                                       onClick={() => setInspection(prev => ({ ...prev, temps: { ...prev.temps, threeCompSinkSubmitted: true } }))}>
                                       Submit
@@ -23606,7 +23606,7 @@ export default function App() {
                             )}
                             {!isSubmitted && (
                               <button type="button" className="btn btnSmall"
-                                style={{ background: canSubmit ? "#2563eb" : "var(--sdx-gray-200)", color: canSubmit ? "#fff" : "#9ca3af", fontWeight: 700, fontSize: "0.75rem", padding: "4px 12px", borderRadius: 8, flexShrink: 0, cursor: canSubmit ? "pointer" : "default", border: "none" }}
+                                style={{ background: canSubmit ? "#2563eb" : "var(--sdx-gray-200)", color: canSubmit ? "#fff" : "var(--ink-400)", fontWeight: 700, fontSize: "0.75rem", padding: "4px 12px", borderRadius: 8, flexShrink: 0, cursor: canSubmit ? "pointer" : "default", border: "none" }}
                                 disabled={!canSubmit}
                                 onClick={() => setFoodTempSubmitted(p => { const arr=[...(p[item.key]||[false])]; arr[idx]=true; return {...p,[item.key]:arr}; })}>
                                 Submit
@@ -23614,7 +23614,7 @@ export default function App() {
                             )}
                             {readings.length > 1 && (
                               <button type="button" className="btn btnGhost btnSmall"
-                                style={{ color: "#9ca3af", padding: "2px 6px", fontSize: "0.8rem", flexShrink: 0 }}
+                                style={{ color: "var(--ink-400)", padding: "2px 6px", fontSize: "0.8rem", flexShrink: 0 }}
                                 onClick={() => {
                                   const f = (p, def) => { const arr=(p[item.key]||[def]).filter((_,i)=>i!==idx); return {...p,[item.key]:arr.length?arr:[def]}; };
                                   setFoodTemps(p=>f(p,"")); setFoodTempNames(p=>f(p,"")); setFoodTempCorrections(p=>f(p,"")); setFoodTempSubmitted(p=>f(p,false)); setFoodTempTimes(p=>f(p,""));
@@ -23791,7 +23791,7 @@ export default function App() {
                               onChange={e => updateUnit(unit.id, "cleanedDate", e.target.value)}
                             />
                             {unit.cleanedDate && (
-                              <button type="button" className="btn btnGhost btnSmall" style={{ color: "#6b7280" }} onClick={() => updateUnit(unit.id, "cleanedDate", "")}>Clear</button>
+                              <button type="button" className="btn btnGhost btnSmall" style={{ color: "var(--ink-500)" }} onClick={() => updateUnit(unit.id, "cleanedDate", "")}>Clear</button>
                             )}
                           </div>
                         </label>
@@ -23803,7 +23803,7 @@ export default function App() {
                           {(unit.filterDates || [""]).map((fd, fi) => (
                             <div key={fi} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
                               {(unit.filterDates || []).length > 1 && (
-                                <span style={{ fontSize: "0.65rem", color: "#6b7280", minWidth: 52 }}>Filter {fi + 1}</span>
+                                <span style={{ fontSize: "0.65rem", color: "var(--ink-500)", minWidth: 52 }}>Filter {fi + 1}</span>
                               )}
                               <input
                                 type="date"
@@ -23830,7 +23830,7 @@ export default function App() {
 
             <div className="field">
               <div className="fieldLabelRow">
-                <span className="fieldLabel">Raw notes <span style={{ fontWeight: 400, color: "#9ca3af", fontSize: "0.8rem" }}>(optional)</span></span>
+                <span className="fieldLabel">Raw notes <span style={{ fontWeight: 400, color: "var(--ink-400)", fontSize: "0.8rem" }}>(optional)</span></span>
                 <span className="hint">Abbreviations are expanded while preserving meaning</span>
               </div>
               <textarea ref={rawNotesRef} className="textarea" value={rawNotes} onChange={(e) => setRawNotes(e.target.value)} placeholder="Paste quick inspection notes here..." rows={10} />
@@ -23846,7 +23846,7 @@ export default function App() {
                     <button
                       type="button"
                       onClick={() => setSuggestionsDismissed(true)}
-                      style={{ background: "none", border: "none", cursor: "pointer", color: "#9ca3af", fontSize: "1rem", lineHeight: 1, padding: 0, flexShrink: 0 }}
+                      style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink-400)", fontSize: "1rem", lineHeight: 1, padding: 0, flexShrink: 0 }}
                       title="Dismiss"
                     >✕</button>
                   </div>
@@ -24128,7 +24128,7 @@ export default function App() {
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 9000, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
           <div style={{ background: "var(--surface-1)", borderRadius: 16, padding: "28px 28px 22px", maxWidth: 420, width: "100%", boxShadow: "0 8px 48px rgba(0,0,0,0.22)" }}>
             <div style={{ fontWeight: 800, fontSize: "1.1rem", color: "#b45309", marginBottom: 6 }}>⚠️ Incomplete Sections</div>
-            <div style={{ fontSize: "0.88rem", color: "#374151", marginBottom: 14, lineHeight: 1.5 }}>
+            <div style={{ fontSize: "0.88rem", color: "var(--ink-700)", marginBottom: 14, lineHeight: 1.5 }}>
               The following sections appear to be empty. You can still generate the report, but it may be incomplete.
             </div>
             <ul style={{ margin: "0 0 18px 0", padding: "0 0 0 18px", color: "#dc2626", fontSize: "0.85rem", lineHeight: 2 }}>
@@ -24138,7 +24138,7 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => setModals(m => ({ ...m, preSubmit: false }))}
-                style={{ flex: 1, padding: "10px 0", borderRadius: 10, border: "1px solid #e5e7eb", background: "var(--surface-2)", fontWeight: 700, fontSize: "0.88rem", cursor: "pointer", color: "#374151" }}
+                style={{ flex: 1, padding: "10px 0", borderRadius: 10, border: "1px solid #e5e7eb", background: "var(--surface-2)", fontWeight: 700, fontSize: "0.88rem", cursor: "pointer", color: "var(--ink-700)" }}
               >
                 Go Back &amp; Complete
               </button>
