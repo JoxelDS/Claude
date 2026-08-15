@@ -12008,14 +12008,14 @@ function FoodSafetyRef() {
                     padding: "8px 14px",
                     fontSize: "0.72rem",
                     fontWeight: 700,
-                    color: active ? "var(--surface-1)" : "var(--sdx-gray-600)",
-                    background: active ? "linear-gradient(105deg, var(--sdx-navy), var(--sdx-blue))" : "var(--surface-1)",
+                    color: active ? "#fff" : "var(--sdx-gray-600)",
+                    background: active ? "var(--chrome-grad)" : "var(--surface-1)",
                     border: active ? "1px solid transparent" : "1px solid var(--sdx-gray-200)",
                     borderRadius: 999,
                     cursor: "pointer",
                     transition: "all 0.15s",
                     whiteSpace: "nowrap",
-                    boxShadow: active ? "0 3px 10px rgba(42,41,92,.28)" : "0 1px 2px rgba(42,41,92,.05)",
+                    boxShadow: active ? "0 3px 10px rgba(0,0,0,.35)" : "0 1px 2px rgba(0,0,0,.08)",
                   }}
                 >
                   <span aria-hidden="true" style={{ fontSize: "0.85rem", lineHeight: 1 }}>{t.icon}</span>

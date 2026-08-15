@@ -7207,3 +7207,12 @@ html[data-theme="black"] .rpt {
   border-radius: 12px;
   box-shadow: 0 8px 32px rgba(0,0,0,.5);
 }
+
+/* Black theme: Smart Insights panel goes dark */
+html[data-theme="black"] .aiMonitorCard { background: var(--surface-1); border-color: #23232B; }
+html[data-theme="black"] .aiMonitorHeader { border-bottom-color: #23232B; }
+html[data-theme="black"] .aiMonitorTitle { color: #F2F3F8; }
+html[data-theme="black"] .aiMonitorNav { background: #101014; border-color: #23232B; }
+html[data-theme="black"] .aiMonitorNavBtn { color: #979CB0; }
+html[data-theme="black"] .aiMonitorNavBtn.active { color: #F2F3F8; background: #1C1C22; }
+html[data-theme="black"] .aiMonitorNavBtn:hover { background: #17171D; }
