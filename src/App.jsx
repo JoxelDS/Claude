@@ -5575,7 +5575,7 @@ function TempTrendChart({ history }) {
         <div style={{ display: "flex", gap: "0.5rem" }}>
           {[
             { label: "Hand Sink",  req: "≥ 95°F",  note: "Minimum",  bg: "var(--tint-blue-1)", border: "#bfdbfe", color: "#1d4ed8" },
-            { label: "3-Comp Sink",req: "≥ 110°F", note: "Minimum",  bg: "#f5f3ff", border: "#c4b5fd", color: "#6d28d9" },
+            { label: "3-Comp Sink",req: "≥ 110°F", note: "Minimum",  bg: "var(--tint-indigo-1)", border: "#c4b5fd", color: "#6d28d9" },
             { label: "Cooler",     req: "≤ 40°F",  note: "Maximum",  bg: "var(--tint-green-1)", border: "#86efac", color: "#15803d" },
             { label: "Freezer",    req: "≤ 20°F",  note: "Maximum",  bg: "var(--tint-cyan-1)", border: "#67e8f9", color: "var(--tx-cyan)" },
           ].map(({ label, req, note, bg, border, color }) => (
@@ -5620,7 +5620,7 @@ function TempTrendChart({ history }) {
           if (!chart) return null;
           const { vals, avg, allPass, allItemLabels, SW, SH, SPAD, SPADR, SPADT, SPADB, sToX, sToY, coords, pathD, areaD, gridSteps, threshY, uid, label, color, threshold, thresholdLabel, isMin } = chart;
           return (
-            <div key={uid} style={{ borderRadius: 10, border: `1.5px solid ${allPass ? "#e5e7eb" : "#fca5a5"}`, background: allPass ? "#fff" : "#fff9f9", padding: "0.6rem 0.75rem 0.4rem" }}>
+            <div key={uid} style={{ borderRadius: 10, border: `1.5px solid ${allPass ? "var(--sdx-gray-200)" : "#fca5a5"}`, background: allPass ? "#fff" : "#fff9f9", padding: "0.6rem 0.75rem 0.4rem" }}>
               {/* Mini-chart header: sensor name + avg + pass badge */}
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: allItemLabels.length > 0 ? 3 : 6 }}>
                 <span style={{ width: 10, height: 10, borderRadius: "50%", background: color, flexShrink: 0, display: "inline-block" }} />
@@ -5662,7 +5662,7 @@ function TempTrendChart({ history }) {
                 {/* Grid lines */}
                 {gridSteps.map(t => (
                   <g key={t}>
-                    <line x1={SPAD} y1={sToY(t)} x2={SW - SPADR} y2={sToY(t)} stroke="#e5e7eb" strokeWidth="1" />
+                    <line x1={SPAD} y1={sToY(t)} x2={SW - SPADR} y2={sToY(t)} stroke="var(--sdx-gray-200)" strokeWidth="1" />
                     <text x={SPAD - 5} y={sToY(t) + 4} textAnchor="end" fontSize="9" fill="#9ca3af">{t}°</text>
                   </g>
                 ))}
@@ -6141,10 +6141,10 @@ const EQUIP_BUCKET_ICONS = { coolers: "❄️", freezers: "🧊", sinks: "🚰",
 const EQUIP_META = [
   { type: "Cooler",      icon: "❄️",  color: "#3b82f6", bg: "var(--tint-blue-1)" },
   { type: "Freezer",     icon: "🧊",  color: "#0ea5e9", bg: "var(--tint-sky-1)" },
-  { type: "Hand Sink",   icon: "🚿",  color: "#14b8a6", bg: "#f0fdfa" },
-  { type: "3-Comp Sink", icon: "🚰",  color: "#8b5cf6", bg: "#f5f3ff" },
-  { type: "Ice Maker",   icon: "🧊",  color: "#0284c7", bg: "#e0f2fe" },
-  { type: "Other",       icon: "🔧",  color: "var(--ink-500)", bg: "#f8fafc" },
+  { type: "Hand Sink",   icon: "🚿",  color: "#14b8a6", bg: "var(--tint-green-1)" },
+  { type: "3-Comp Sink", icon: "🚰",  color: "#8b5cf6", bg: "var(--tint-indigo-1)" },
+  { type: "Ice Maker",   icon: "🧊",  color: "#0284c7", bg: "var(--tint-blue-2)" },
+  { type: "Other",       icon: "🔧",  color: "var(--ink-500)", bg: "var(--surface-2)" },
 ];
 
 // ── Equipment category buckets (module-level — shared by Inventory + PerformanceDashboard) ──
@@ -6378,7 +6378,7 @@ function AIHealthMonitor({ history, currentUser }) {
   /* ── priority config ─────────────────────────────────────── */
   const pColor = {
     critical: { bg: "var(--tint-red-1)", border: "#fecdd3", accent: "#e11d48", text: "var(--tx-red-strong)", emoji: "🚨", label: "Urgent!" },
-    high:     { bg: "#fff7ed", border: "#fed7aa", accent: "#ea580c", text: "#9a3412", emoji: "⚠️", label: "Important" },
+    high:     { bg: "var(--tint-amber-1)", border: "#fed7aa", accent: "#ea580c", text: "#9a3412", emoji: "⚠️", label: "Important" },
     medium:   { bg: "var(--tint-amber-1)", border: "#fef08a", accent: "#ca8a04", text: "#713f12", emoji: "💛", label: "Watch this" },
     low:      { bg: "var(--tint-sky-1)", border: "#bae6fd", accent: "#0284c7", text: "#0c4a6e", emoji: "💡", label: "Tip" },
     info:     { bg: "var(--tint-green-1)", border: "#bbf7d0", accent: "#16a34a", text: "var(--tx-green)", emoji: "✅", label: "Good news" },
@@ -6599,8 +6599,8 @@ function AIHealthMonitor({ history, currentUser }) {
                       const urgents = visibleItems.filter(s => s.urgent);
                       return (
                         <div key={rec.id} style={{
-                          background: urgents.length > 0 ? "#fff5f5" : "var(--surface-2)",
-                          border: `1.5px solid ${urgents.length > 0 ? "#fca5a5" : "#e2e8f0"}`,
+                          background: urgents.length > 0 ? "var(--tint-red-1)" : "var(--surface-2)",
+                          border: `1.5px solid ${urgents.length > 0 ? "#fca5a5" : "var(--sdx-gray-200)"}`,
                           borderRadius: 10, padding: "10px 12px", marginBottom: 6, marginLeft: 12,
                         }}>
                           <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
@@ -6616,12 +6616,12 @@ function AIHealthMonitor({ history, currentUser }) {
                               return (
                                 <span key={origIdx} style={{
                                   display: "inline-flex", alignItems: "center", gap: 4,
-                                  background: isUrgent ? "var(--tint-red-2)" : "#f1f5f9",
+                                  background: isUrgent ? "var(--tint-red-2)" : "var(--surface-3)",
                                   color: isUrgent ? "#b91c1c" : "#374151",
                                   borderRadius: 6, padding: "2px 4px 2px 8px",
                                   fontSize: "0.78rem", fontWeight: isUrgent ? 700 : 500,
                                   marginRight: 4, marginBottom: 4,
-                                  border: `1px solid ${isUrgent ? "#fca5a5" : "#e2e8f0"}`,
+                                  border: `1px solid ${isUrgent ? "#fca5a5" : "var(--sdx-gray-200)"}`,
                                 }}>
                                   {isUrgent && "🔴 "}{s.item}{s.qty ? ` ×${s.qty}` : ""}
                                   <button
@@ -6803,7 +6803,7 @@ function AIHealthMonitor({ history, currentUser }) {
                   <button
                     type="button"
                     onClick={() => { setFilterEquip(""); setFilterSubEquip(""); }}
-                    style={{ padding: "6px 13px", borderRadius: 20, border: equipBucketKey ? "1.5px solid #e2e8f0" : "1.5px solid #2A295C", background: equipBucketKey ? "#f8fafc" : "var(--sdx-navy)", color: equipBucketKey ? "var(--ink-500)" : "#fff", fontSize: "0.78rem", fontWeight: 700, cursor: "pointer", transition: "all 0.12s" }}>
+                    style={{ padding: "6px 13px", borderRadius: 20, border: equipBucketKey ? "1.5px solid #e2e8f0" : "1.5px solid #2A295C", background: equipBucketKey ? "var(--surface-2)" : "var(--sdx-navy)", color: equipBucketKey ? "var(--ink-500)" : "#fff", fontSize: "0.78rem", fontWeight: 700, cursor: "pointer", transition: "all 0.12s" }}>
                     All
                   </button>
                   {/* Category pills */}
@@ -6814,7 +6814,7 @@ function AIHealthMonitor({ history, currentUser }) {
                         key={b.key}
                         type="button"
                         onClick={() => { setFilterEquip(isActive ? "" : b.key); setFilterSubEquip(""); }}
-                        style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 13px", borderRadius: 20, border: isActive ? "1.5px solid #2A295C" : "1.5px solid #e2e8f0", background: isActive ? "var(--sdx-navy)" : "#f8fafc", color: isActive ? "#fff" : "var(--ink-600)", fontSize: "0.78rem", fontWeight: 700, cursor: "pointer", transition: "all 0.12s" }}>
+                        style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 13px", borderRadius: 20, border: isActive ? "1.5px solid #2A295C" : "1.5px solid #e2e8f0", background: isActive ? "var(--sdx-navy)" : "var(--surface-2)", color: isActive ? "#fff" : "var(--ink-600)", fontSize: "0.78rem", fontWeight: 700, cursor: "pointer", transition: "all 0.12s" }}>
                         <span>{b.label}</span>
                         <span style={{ fontSize: "0.7rem", fontWeight: 600, opacity: 0.75 }}>({b.total})</span>
                       </button>
@@ -6856,7 +6856,7 @@ function AIHealthMonitor({ history, currentUser }) {
                     <button
                       type="button"
                       onClick={() => setFilterEquip(equipBucketKey)}
-                      style={{ padding: "4px 11px", borderRadius: 20, border: equipSubKey ? "1.5px solid #e2e8f0" : "1.5px solid #2A295C", background: equipSubKey ? "#f8fafc" : "var(--sdx-navy)", color: equipSubKey ? "var(--ink-500)" : "#fff", fontSize: "0.75rem", fontWeight: 700, cursor: "pointer" }}>
+                      style={{ padding: "4px 11px", borderRadius: 20, border: equipSubKey ? "1.5px solid #e2e8f0" : "1.5px solid #2A295C", background: equipSubKey ? "var(--surface-2)" : "var(--sdx-navy)", color: equipSubKey ? "var(--ink-500)" : "#fff", fontSize: "0.75rem", fontWeight: 700, cursor: "pointer" }}>
                       All {activeBucketObj.label}
                     </button>
                     {activeBucketObj.subs.map(sb => {
@@ -6866,7 +6866,7 @@ function AIHealthMonitor({ history, currentUser }) {
                           key={sb.key}
                           type="button"
                           onClick={() => setFilterEquip(isActiveSub ? equipBucketKey : `${equipBucketKey}:${sb.key}`)}
-                          style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 11px", borderRadius: 20, border: isActiveSub ? "1.5px solid #2A295C" : "1.5px solid #e2e8f0", background: isActiveSub ? "var(--sdx-navy)" : "#f8fafc", color: isActiveSub ? "#fff" : "var(--ink-600)", fontSize: "0.75rem", fontWeight: 700, cursor: "pointer", transition: "all 0.12s" }}>
+                          style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 11px", borderRadius: 20, border: isActiveSub ? "1.5px solid #2A295C" : "1.5px solid #e2e8f0", background: isActiveSub ? "var(--sdx-navy)" : "var(--surface-2)", color: isActiveSub ? "#fff" : "var(--ink-600)", fontSize: "0.75rem", fontWeight: 700, cursor: "pointer", transition: "all 0.12s" }}>
                           {sb.label}
                           <span style={{ fontSize: "0.68rem", opacity: 0.75 }}>({sb.total})</span>
                         </button>
@@ -7018,8 +7018,8 @@ function AIHealthMonitor({ history, currentUser }) {
                     return (
                       <div key={h} title={`${h}:00 — ${count} inspection${count !== 1 ? "s" : ""}`}
                         style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center" }}>
-                        <div style={{ width: "100%", height: hgt, borderRadius: "3px 3px 0 0", background: count > 0 ? (isActive ? "var(--sdx-navy)" : "#93c5fd") : "#f1f5f9" }} />
-                        {h % 6 === 0 && <div style={{ fontSize: "0.52rem", color: "#cbd5e1", marginTop: 2 }}>{h}h</div>}
+                        <div style={{ width: "100%", height: hgt, borderRadius: "3px 3px 0 0", background: count > 0 ? (isActive ? "var(--sdx-navy)" : "#93c5fd") : "var(--surface-3)" }} />
+                        {h % 6 === 0 && <div style={{ fontSize: "0.52rem", color: "var(--sdx-gray-300)", marginTop: 2 }}>{h}h</div>}
                       </div>
                     );
                   })}
@@ -7131,8 +7131,8 @@ function PredictiveInsightsPanel({ history }) {
   const riskColor = { high: "#EE0000", medium: "#b45309", watch: "#1d4ed8" };
   const typeBadge = {
     recurrence: { label: "Recurrence", bg: "var(--tint-red-1)", color: "#991b1b", border: "#fecaca" },
-    tempDrift:  { label: "Temp Trend",  bg: "#fff7ed", color: "#9a3412", border: "#fed7aa" },
-    escalation: { label: "Escalation", bg: "#fdf4ff", color: "#7e22ce", border: "#e9d5ff" },
+    tempDrift:  { label: "Temp Trend",  bg: "var(--tint-amber-1)", color: "#9a3412", border: "#fed7aa" },
+    escalation: { label: "Escalation", bg: "#fdf4ff", color: "#7e22ce", border: "var(--tint-indigo-1)" },
     overdue:    { label: "Overdue",     bg: "var(--tint-sky-1)", color: "#0c4a6e", border: "#bae6fd" },
   };
 
@@ -7167,7 +7167,7 @@ function PredictiveInsightsPanel({ history }) {
         {/* Prediction cards */}
         <div className="predictiveList">
           {predictions.map((p, i) => {
-            const bt = typeBadge[p.type] || { label: p.type, bg: "var(--surface-2)", color: "#374151", border: "#e5e7eb" };
+            const bt = typeBadge[p.type] || { label: p.type, bg: "var(--surface-2)", color: "#374151", border: "var(--sdx-gray-200)" };
             const isOpen = !!expanded[i];
             return (
               <div
@@ -9712,7 +9712,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                   ) : (
                     <div style={{ position: "relative", paddingLeft: 24 }}>
                       {/* vertical line */}
-                      <div style={{ position: "absolute", left: 8, top: 0, bottom: 0, width: 2, background: "#e5e7eb" }} />
+                      <div style={{ position: "absolute", left: 8, top: 0, bottom: 0, width: 2, background: "var(--sdx-gray-200)" }} />
                       {events.map((ev, i) => (
                         <div key={ev.id || i} style={{ position: "relative", marginBottom: 14 }}>
                           {/* dot */}
@@ -9727,7 +9727,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                           }} />
                           <div style={{
                             background: ev.type === "inspection" ? "var(--surface-2)" : "var(--tint-sky-1)",
-                            border: `1px solid ${ev.type === "inspection" ? "#e5e7eb" : "#bae6fd"}`,
+                            border: `1px solid ${ev.type === "inspection" ? "var(--sdx-gray-200)" : "#bae6fd"}`,
                             borderRadius: 8, padding: "8px 12px",
                           }}>
                             <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
@@ -9742,7 +9742,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                               {ev.type === "inspection" && ev.status && (
                                 <span style={{
                                   fontSize: "0.68rem", fontWeight: 700, padding: "1px 6px", borderRadius: 6,
-                                  background: ev.status === "Pass" ? "var(--tint-green-2)" : ev.status === "Fail" ? "var(--tint-red-2)" : "#f3f4f6",
+                                  background: ev.status === "Pass" ? "var(--tint-green-2)" : ev.status === "Fail" ? "var(--tint-red-2)" : "var(--surface-3)",
                                   color: ev.status === "Pass" ? "#15803d" : ev.status === "Fail" ? "#dc2626" : "#6b7280",
                                 }}>
                                   {ev.status}
@@ -9806,7 +9806,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                       <div key={i} style={{
                         display: "flex", alignItems: "center", gap: 10,
                         background: r.overdue ? "var(--tint-red-1)" : r.warn ? "var(--tint-amber-1)" : "var(--surface-2)",
-                        border: `1px solid ${r.overdue ? "#fca5a5" : r.warn ? "#fde68a" : "#e5e7eb"}`,
+                        border: `1px solid ${r.overdue ? "#fca5a5" : r.warn ? "#fde68a" : "var(--sdx-gray-200)"}`,
                         borderRadius: 10, padding: "10px 14px",
                       }}>
                         <div style={{ flex: 1, minWidth: 0 }}>
@@ -10566,7 +10566,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                                     <div style={{ width: "100%", height: 100, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", color: "var(--ink-400)", fontSize: "0.68rem", background: "var(--surface-3)", padding: "0 4px", textAlign: "center", gap: 4 }}>
                                       <span style={{ fontSize: "1.2rem" }}>🖼️</span>
                                       <span>Photo saved</span>
-                                      <span style={{ color: "#cbd5e1" }}>Click Edit to re-upload</span>
+                                      <span style={{ color: "var(--sdx-gray-300)" }}>Click Edit to re-upload</span>
                                     </div>
                                   )}
                                   <div style={{ padding: "4px 6px" }}>
@@ -10878,7 +10878,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
 
               {/* Drag handle */}
               <div style={{ display: "flex", justifyContent: "center", padding: "12px 0 0" }}>
-                <div style={{ width: 40, height: 4, borderRadius: 2, background: "#e5e7eb" }} />
+                <div style={{ width: 40, height: 4, borderRadius: 2, background: "var(--sdx-gray-200)" }} />
               </div>
 
               {/* Colored accent header band */}
@@ -10904,20 +10904,20 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                   {/* Close button */}
                   <button type="button" onClick={() => { setShowIssueFilter(null); setModalIssueSearch(""); }}
                     style={{ background: "var(--surface-3)", border: "none", borderRadius: "50%", width: 34, height: 34, cursor: "pointer", color: "var(--ink-500)", fontSize: "1rem", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "background 0.15s" }}
-                    onMouseEnter={e => e.currentTarget.style.background = "#e2e8f0"}
-                    onMouseLeave={e => e.currentTarget.style.background = "#f1f5f9"}>✕</button>
+                    onMouseEnter={e => e.currentTarget.style.background = "var(--sdx-gray-200)"}
+                    onMouseLeave={e => e.currentTarget.style.background = "var(--surface-3)"}>✕</button>
                 </div>
 
                 {/* Stats chips row */}
                 <div style={{ display: "flex", gap: 8, marginTop: 14, flexWrap: "wrap" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 10px", borderRadius: 8, background: selectedCount > 0 ? exportAccentLight : "#f8fafc", border: `1px solid ${selectedCount > 0 ? exportAccentMid : "#e2e8f0"}` }}>
-                    <span style={{ width: 7, height: 7, borderRadius: "50%", background: selectedCount > 0 ? exportAccent : "#cbd5e1", display: "inline-block" }} />
+                  <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 10px", borderRadius: 8, background: selectedCount > 0 ? exportAccentLight : "var(--surface-2)", border: `1px solid ${selectedCount > 0 ? exportAccentMid : "var(--sdx-gray-200)"}` }}>
+                    <span style={{ width: 7, height: 7, borderRadius: "50%", background: selectedCount > 0 ? exportAccent : "var(--sdx-gray-300)", display: "inline-block" }} />
                     <span style={{ fontSize: "0.78rem", fontWeight: 700, color: selectedCount > 0 ? exportAccent : "var(--ink-400)" }}>
                       {selectedCount} of {allIssues.length} selected
                     </span>
                   </div>
                   {highCount > 0 && (
-                    <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 10px", borderRadius: 8, background: "#fff7ed", border: "1px solid #fed7aa" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 10px", borderRadius: 8, background: "var(--tint-amber-1)", border: "1px solid #fed7aa" }}>
                       <span style={{ fontSize: "0.78rem", fontWeight: 700, color: "#c2410c" }}>⚠ {highCount} critical status</span>
                     </div>
                   )}
@@ -10941,11 +10941,11 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                     onChange={e => setModalIssueSearch(e.target.value)}
                     style={{ width: "100%", boxSizing: "border-box", padding: "9px 36px 9px 34px", borderRadius: 10, border: "1.5px solid #e2e8f0", fontSize: "0.85rem", outline: "none", background: "var(--surface-2)", color: "var(--ink-900)", transition: "border-color 0.15s" }}
                     onFocus={e => e.target.style.borderColor = exportAccent}
-                    onBlur={e => e.target.style.borderColor = "#e2e8f0"}
+                    onBlur={e => e.target.style.borderColor = "var(--sdx-gray-200)"}
                   />
                   {modalIssueSearch && (
                     <button type="button" onClick={() => setModalIssueSearch("")}
-                      style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "#e2e8f0", border: "none", borderRadius: "50%", width: 18, height: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.65rem", color: "var(--ink-500)" }}>✕</button>
+                      style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "var(--sdx-gray-200)", border: "none", borderRadius: "50%", width: 18, height: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.65rem", color: "var(--ink-500)" }}>✕</button>
                   )}
                 </div>
 
@@ -10986,10 +10986,10 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                   return (
                     <div key={area} style={{ marginBottom: 2 }}>
                       {/* Area header */}
-                      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 20px", cursor: "pointer", background: allAreaSelected ? exportAccentLight : "#f8fafc", borderLeft: `3px solid ${allAreaSelected ? exportAccent : someAreaSelected ? exportAccentMid : "#e2e8f0"}`, transition: "background 0.1s" }}
+                      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 20px", cursor: "pointer", background: allAreaSelected ? exportAccentLight : "var(--surface-2)", borderLeft: `3px solid ${allAreaSelected ? exportAccent : someAreaSelected ? exportAccentMid : "var(--sdx-gray-200)"}`, transition: "background 0.1s" }}
                         onClick={() => toggleArea(area)}
-                        onMouseEnter={e => e.currentTarget.style.background = allAreaSelected ? exportAccentLight : "#f1f5f9"}
-                        onMouseLeave={e => e.currentTarget.style.background = allAreaSelected ? exportAccentLight : "#f8fafc"}>
+                        onMouseEnter={e => e.currentTarget.style.background = allAreaSelected ? exportAccentLight : "var(--surface-3)"}
+                        onMouseLeave={e => e.currentTarget.style.background = allAreaSelected ? exportAccentLight : "var(--surface-2)"}>
                         <input type="checkbox" readOnly checked={allAreaSelected}
                           ref={el => { if (el) el.indeterminate = !allAreaSelected && someAreaSelected; }}
                           style={{ width: 15, height: 15, accentColor: exportAccent, flexShrink: 0, cursor: "pointer" }} />
@@ -10999,7 +10999,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                         <span style={{ fontWeight: 700, fontSize: "0.8rem", color: "var(--ink-900)", letterSpacing: "0.01em", flex: 1 }}>{area}</span>
                         <span style={{
                           fontSize: "0.72rem", fontWeight: 700, padding: "2px 9px", borderRadius: 20,
-                          background: areaSelCount === items.length ? exportAccent : areaSelCount > 0 ? exportAccentMid : "#e2e8f0",
+                          background: areaSelCount === items.length ? exportAccent : areaSelCount > 0 ? exportAccentMid : "var(--sdx-gray-200)",
                           color: areaSelCount === items.length ? "#fff" : areaSelCount > 0 ? exportAccent : "var(--ink-500)",
                           transition: "all 0.15s",
                         }}>
@@ -11012,9 +11012,9 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                         const isHigh = item.priority === "High";
                         return (
                           <div key={item.key}
-                            style={{ display: "flex", alignItems: "flex-start", gap: 11, padding: "10px 18px 10px 42px", cursor: "pointer", borderBottom: iIdx < items.length - 1 ? "1px solid #f1f5f9" : "none", background: isSelected ? (showIssueFilter === "excel" ? "var(--tint-green-1)" : showIssueFilter === "pdf" ? "#fff5f5" : "#f0f7ff") : "#fff", transition: "background 0.1s", borderLeft: `3px solid ${isSelected ? exportAccent : "transparent"}` }}
+                            style={{ display: "flex", alignItems: "flex-start", gap: 11, padding: "10px 18px 10px 42px", cursor: "pointer", borderBottom: iIdx < items.length - 1 ? "1px solid #f1f5f9" : "none", background: isSelected ? (showIssueFilter === "excel" ? "var(--tint-green-1)" : showIssueFilter === "pdf" ? "var(--tint-red-1)" : "#f0f7ff") : "#fff", transition: "background 0.1s", borderLeft: `3px solid ${isSelected ? exportAccent : "transparent"}` }}
                             onClick={() => toggleKey(item.key)}
-                            onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = "#f8fafc"; }}
+                            onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = "var(--surface-2)"; }}
                             onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = "#fff"; }}>
                             <input type="checkbox" readOnly checked={isSelected}
                               style={{ width: 15, height: 15, accentColor: exportAccent, flexShrink: 0, cursor: "pointer", marginTop: 2 }} />
@@ -11023,16 +11023,16 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                               // item.status is already normalized (never "High"/"Med") — use it directly
                               const st = item.status || "Fail";
                               const cfg =
-                                st === "Not Clean"          ? { bg: "#fff7ed", color: "#c2410c", border: "#fed7aa" } :
+                                st === "Not Clean"          ? { bg: "var(--tint-amber-1)", color: "#c2410c", border: "#fed7aa" } :
                                 st === "Fail"               ? { bg: "var(--tint-red-1)", color: "#dc2626", border: "#fecaca" } :
                                 st === "Critical Violation" ? { bg: "var(--tint-red-1)", color: "#991b1b", border: "#fca5a5" } :
-                                st === "Needs Attention"    ? { bg: "#fff7ed", color: "#c2410c", border: "#fed7aa" } :
+                                st === "Needs Attention"    ? { bg: "var(--tint-amber-1)", color: "#c2410c", border: "#fed7aa" } :
                                 st === "Follow-Up"          ? { bg: "var(--tint-sky-1)", color: "#0284c7", border: "#bae6fd" } :
                                 st === "Follow-up"          ? { bg: "var(--tint-sky-1)", color: "#0284c7", border: "#bae6fd" } :
-                                st === "Maintenance"        ? { bg: "#faf5ff", color: "#7c3aed", border: "#e9d5ff" } :
+                                st === "Maintenance"        ? { bg: "#faf5ff", color: "#7c3aed", border: "var(--tint-indigo-1)" } :
                                 st === "Corrected On-Site"  ? { bg: "var(--tint-green-1)", color: "#15803d", border: "#bbf7d0" } :
-                                st === "Off / Not In Use"   ? { bg: "#f8fafc", color: "var(--ink-500)", border: "#e2e8f0" } :
-                                st === "N/A"                ? { bg: "#f8fafc", color: "var(--ink-400)", border: "#e2e8f0" } :
+                                st === "Off / Not In Use"   ? { bg: "var(--surface-2)", color: "var(--ink-500)", border: "var(--sdx-gray-200)" } :
+                                st === "N/A"                ? { bg: "var(--surface-2)", color: "var(--ink-400)", border: "var(--sdx-gray-200)" } :
                                 st === "OK"                 ? { bg: "var(--tint-green-1)", color: "#15803d", border: "#bbf7d0" } :
                                                               { bg: "var(--tint-amber-1)", color: "#a16207", border: "#fde68a" };
                               return (
@@ -11053,7 +11053,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
               <div style={{ padding: "14px 20px 20px", borderTop: "1px solid #f1f5f9", display: "flex", gap: 10, flexShrink: 0, background: "var(--surface-2)", borderRadius: "0 0 0 0" }}>
                 <button type="button" onClick={() => { setShowIssueFilter(null); setModalIssueSearch(""); }}
                   style={{ flex: 1, padding: "12px", borderRadius: 12, border: "1.5px solid #e2e8f0", background: "var(--surface-1)", cursor: "pointer", fontWeight: 600, color: "var(--ink-600)", fontSize: "0.88rem", transition: "background 0.15s" }}
-                  onMouseEnter={e => e.currentTarget.style.background = "#f1f5f9"}
+                  onMouseEnter={e => e.currentTarget.style.background = "var(--surface-3)"}
                   onMouseLeave={e => e.currentTarget.style.background = "#fff"}>
                   Cancel
                 </button>
@@ -11062,7 +11062,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                     flex: 2, padding: "12px", borderRadius: 12, border: "none",
                     cursor: (selectedCount === 0 || issueExporting) ? "not-allowed" : "pointer",
                     fontWeight: 700, fontSize: "0.92rem",
-                    background: (selectedCount === 0 || issueExporting) ? "#e2e8f0" : `linear-gradient(135deg, ${exportAccent}, ${showIssueFilter === "excel" ? "#15803d" : showIssueFilter === "pdf" ? "#b91c1c" : "#1d4ed8"})`,
+                    background: (selectedCount === 0 || issueExporting) ? "var(--sdx-gray-200)" : `linear-gradient(135deg, ${exportAccent}, ${showIssueFilter === "excel" ? "#15803d" : showIssueFilter === "pdf" ? "#b91c1c" : "#1d4ed8"})`,
                     color: (selectedCount === 0 || issueExporting) ? "var(--ink-400)" : "#fff",
                     boxShadow: (selectedCount === 0 || issueExporting) ? "none" : `0 2px 12px ${exportAccent}44`,
                     transition: "all 0.15s",
@@ -11334,7 +11334,7 @@ function MyLocationsPage({ currentUser, venueSettings, saveVenueSettings, onBack
       <div style={{
         display: "flex", gap: 12, alignItems: "flex-start",
         background: isDone ? "var(--tint-green-1)" : "#fff",
-        border: `1.5px solid ${isDone ? "#86efac" : isToday ? "#3b82f6" : "#e2e8f0"}`,
+        border: `1.5px solid ${isDone ? "#86efac" : isToday ? "#3b82f6" : "var(--sdx-gray-200)"}`,
         borderRadius: 12, padding: "12px 14px",
         opacity: isDone ? 0.8 : 1, transition: "all 0.15s",
         marginBottom: 10,
@@ -11345,7 +11345,7 @@ function MyLocationsPage({ currentUser, venueSettings, saveVenueSettings, onBack
           title={isDone ? "Mark as not done" : "Mark as done"}
           style={{
             width: 26, height: 26, borderRadius: 7, flexShrink: 0, marginTop: 1,
-            border: `2px solid ${isDone ? "#22c55e" : "#cbd5e1"}`,
+            border: `2px solid ${isDone ? "#22c55e" : "var(--sdx-gray-300)"}`,
             background: isDone ? "#22c55e" : "#fff",
             color: "#fff", fontSize: "0.9rem", fontWeight: 700,
             display: "flex", alignItems: "center", justifyContent: "center",
@@ -12118,7 +12118,7 @@ function LicensesTab({ history, invLicenseData, setInvLicenseData, invLicenseMis
 
   const groupLabel = { permanent: "Permanent", subcontractor: "Subcontractor", event: "Event" };
   const groupColor = { permanent: "var(--ink-900)", subcontractor: "#1e40af", event: "var(--tx-amber)" };
-  const groupBg    = { permanent: "#f1f5f9", subcontractor: "var(--tint-blue-1)", event: "#fef9c3" };
+  const groupBg    = { permanent: "var(--surface-3)", subcontractor: "var(--tint-blue-1)", event: "var(--tint-amber-2)" };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
@@ -12311,7 +12311,7 @@ function LicensesTab({ history, invLicenseData, setInvLicenseData, invLicenseMis
                 <span style={{
                   flexShrink: 0, fontSize: "0.55rem", fontWeight: 800,
                   textTransform: "uppercase", letterSpacing: "0.06em",
-                  background: groupBg[s.group] || "#f1f5f9",
+                  background: groupBg[s.group] || "var(--surface-3)",
                   color: groupColor[s.group] || "var(--ink-900)",
                   borderRadius: 6, padding: "0.15rem 0.4rem",
                 }}>
@@ -12335,7 +12335,7 @@ function LicensesTab({ history, invLicenseData, setInvLicenseData, invLicenseMis
                         width: 130, padding: "0.28rem 0.45rem",
                         borderRadius: 7, border: "1.5px solid #7c3aed",
                         fontSize: "0.75rem", fontWeight: 700, color: "var(--ink-900)",
-                        outline: "none", fontFamily: "monospace", background: "#f5f3ff",
+                        outline: "none", fontFamily: "monospace", background: "var(--tint-indigo-1)",
                       }}
                     />
                     <button type="button" onClick={() => saveLicInline(s.siteName)}
@@ -12361,7 +12361,7 @@ function LicensesTab({ history, invLicenseData, setInvLicenseData, invLicenseMis
                       onClick={() => { setEditingLicSite(s.siteName); setEditingLicDraft(s.licenseNum); }}
                       style={{
                         padding: "0.2rem 0.45rem", borderRadius: 7,
-                        border: "1px solid #c4b5fd", background: "#f5f3ff",
+                        border: "1px solid #c4b5fd", background: "var(--tint-indigo-1)",
                         fontSize: "0.66rem", color: "#7c3aed", cursor: "pointer", fontWeight: 600,
                       }}>
                       {s.licenseNum ? "✏ Edit" : "+ Add"}
@@ -12675,7 +12675,7 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
   // Sodexo brand tokens
   const NAVY  = "var(--sdx-navy)";
   const RED   = "#EE0000";
-  const BG    = "#f0f2f7";
+  const BG    = "var(--surface-2)";
 
   // Aggregate summary stats
   const totalInspections = history.length;
@@ -12924,7 +12924,7 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
     const isEdited = overrideVal !== undefined && overrideVal !== item.count;
     const specificLabel = item.label && item.label !== item.type ? item.label : null;
     return (
-      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.45rem 0.7rem", borderRadius: 8, background: "var(--surface-2)", border: `1px solid ${isEdited ? "#fbbf24" : "#e2e8f0"}`, marginBottom: 4 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.45rem 0.7rem", borderRadius: 8, background: "var(--surface-2)", border: `1px solid ${isEdited ? "#fbbf24" : "var(--sdx-gray-200)"}`, marginBottom: 4 }}>
         <span style={{ fontSize: "1rem", flexShrink: 0 }}>{icon}</span>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontWeight: 700, fontSize: "0.8rem", color: "var(--ink-900)" }}>
@@ -12942,7 +12942,7 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
         <div style={{ fontSize: "0.68rem", fontWeight: 700, color: statusColor(item.lastStatus), flexShrink: 0, marginRight: 4 }}>
           {item.lastStatus || "OK"}
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 4, background: isEdited ? "var(--tint-amber-1)" : "#fff", border: `1.5px solid ${isEdited ? "#f59e0b" : "#cbd5e1"}`, borderRadius: 8, padding: "2px 6px", flexShrink: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 4, background: isEdited ? "var(--tint-amber-1)" : "#fff", border: `1.5px solid ${isEdited ? "#f59e0b" : "var(--sdx-gray-300)"}`, borderRadius: 8, padding: "2px 6px", flexShrink: 0 }}>
           <button type="button"
             onClick={() => {
               const next = Math.max(0, displayCount - 1);
@@ -13070,7 +13070,7 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
     return (
       <div style={{ background: "var(--surface-1)", borderRadius: 14, border: "1.5px solid #e8edf4", overflow: "hidden", boxShadow: "0 2px 10px rgba(42,41,92,0.08)", transition: "box-shadow 0.15s" }}>
         <button type="button" onClick={toggle}
-          style={{ width: "100%", display: "flex", alignItems: "center", gap: "0.6rem", padding: "0.75rem 0.9rem", borderBottom: isOpen ? "1.5px solid #f1f5f9" : "none", background: isOpen ? `linear-gradient(90deg, color-mix(in srgb, ${NAVY} 3%, transparent) 0%, #f8fafc 100%)` : "#f8fafc", border: "none", cursor: "pointer", textAlign: "left" }}>
+          style={{ width: "100%", display: "flex", alignItems: "center", gap: "0.6rem", padding: "0.75rem 0.9rem", borderBottom: isOpen ? "1.5px solid #f1f5f9" : "none", background: isOpen ? `linear-gradient(90deg, color-mix(in srgb, ${NAVY} 3%, transparent) 0%, #f8fafc 100%)` : "var(--surface-2)", border: "none", cursor: "pointer", textAlign: "left" }}>
           <div style={{ width: 3, alignSelf: "stretch", borderRadius: 4, background: badgeColor || NAVY, flexShrink: 0, minHeight: 36 }} />
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontWeight: 800, fontSize: "0.88rem", color: "var(--ink-900)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
@@ -13182,7 +13182,7 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
                 setEditingLic(false);
               };
               return (
-                <div style={{ marginBottom: 8, padding: "0.5rem 0.65rem", background: "#f5f3ff", borderRadius: 10, border: "1px solid #c4b5fd" }}>
+                <div style={{ marginBottom: 8, padding: "0.5rem 0.65rem", background: "var(--tint-indigo-1)", borderRadius: 10, border: "1px solid #c4b5fd" }}>
                   <div style={{ fontSize: "0.6rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: "#7c3aed", marginBottom: 4 }}>
                     License #
                   </div>
@@ -14079,9 +14079,9 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
                     {/* Section label before rank 4+ */}
                     {i === 3 && (
                       <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", margin: "0.1rem 0 -0.15rem" }}>
-                        <div style={{ flex: 1, height: 1, background: "#e8ecf0" }} />
+                        <div style={{ flex: 1, height: 1, background: "var(--sdx-gray-200)" }} />
                         <span style={{ fontSize: "0.6rem", color: "#b0bec5", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em", flexShrink: 0 }}>Others</span>
-                        <div style={{ flex: 1, height: 1, background: "#e8ecf0" }} />
+                        <div style={{ flex: 1, height: 1, background: "var(--sdx-gray-200)" }} />
                       </div>
                     )}
                   <div style={{
@@ -14096,7 +14096,7 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
                       {/* Rank badge */}
                       <div style={{
                         width: 36, height: 36, borderRadius: 11, flexShrink: 0,
-                        background: i < 3 ? rankBg : "#f1f5f9",
+                        background: i < 3 ? rankBg : "var(--surface-3)",
                         display: "flex", alignItems: "center", justifyContent: "center",
                         fontSize: i < 3 ? "1.15rem" : "0.75rem", fontWeight: 900,
                         color: i < 3 ? "#fff" : "var(--ink-400)"
@@ -14141,7 +14141,7 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
                             <span style={{ background: "var(--tint-green-1)", border: "1px solid #bbf7d0", borderRadius: 5, padding: "0.08rem 0.38rem", fontSize: "0.63rem", color: "#15803d", fontWeight: 600, whiteSpace: "nowrap" }}>📝 Adequate notes</span>
                           )}
                           {p.noteQualityScore === 0 && p.avgIssues > 0 && (
-                            <span style={{ background: "#fef9c3", border: "1px solid #fde047", borderRadius: 5, padding: "0.08rem 0.38rem", fontSize: "0.63rem", color: "#713f12", fontWeight: 600, whiteSpace: "nowrap" }}>📝 Vague notes</span>
+                            <span style={{ background: "var(--tint-amber-2)", border: "1px solid #fde047", borderRadius: 5, padding: "0.08rem 0.38rem", fontSize: "0.63rem", color: "#713f12", fontWeight: 600, whiteSpace: "nowrap" }}>📝 Vague notes</span>
                           )}
                           {/* Issue detection */}
                           {p.avgIssues >= 2 && (
@@ -14152,7 +14152,7 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
                             <span style={{ background: "var(--tint-red-1)", border: "1px solid #fecaca", borderRadius: 5, padding: "0.08rem 0.38rem", fontSize: "0.63rem", color: "#991b1b", fontWeight: 700, whiteSpace: "nowrap" }}>⚠ Rubber-stamp pattern</span>
                           )}
                           {!p.isRubberStampPattern && p.isSuspiciouslyFlat && (
-                            <span style={{ background: "#fff7ed", border: "1px solid #fed7aa", borderRadius: 5, padding: "0.08rem 0.38rem", fontSize: "0.63rem", color: "var(--tx-amber)", fontWeight: 600, whiteSpace: "nowrap" }}>⚠ Flat results</span>
+                            <span style={{ background: "var(--tint-amber-1)", border: "1px solid #fed7aa", borderRadius: 5, padding: "0.08rem 0.38rem", fontSize: "0.63rem", color: "var(--tx-amber)", fontWeight: 600, whiteSpace: "nowrap" }}>⚠ Flat results</span>
                           )}
                           {/* Top recurring issue */}
                           {!p.isRubberStampPattern && !p.isSuspiciouslyFlat && p.topIssues && p.topIssues.length > 0 && (
@@ -14164,7 +14164,7 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
                       {/* Score chip — colored for top 3, neutral for rest */}
                       <div style={{
                         flexShrink: 0, width: 46, textAlign: "center",
-                        background: i < 3 ? rankBg : "#f8fafc",
+                        background: i < 3 ? rankBg : "var(--surface-2)",
                         borderRadius: 11, padding: "0.38rem 0.3rem",
                         border: i < 3 ? "none" : "1.5px solid #e8ecf0"
                       }}>
@@ -14846,7 +14846,7 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
                       {/* Breakdown by group */}
                       {[
                         { label: "Concession", totals: totalPerm,  color: "#2563eb", bg: "var(--tint-blue-1)", show: permList.length > 0 },
-                        { label: "Subcontractor", totals: totalSub,   color: "#7c3aed", bg: "#f5f3ff", show: subList.length > 0 },
+                        { label: "Subcontractor", totals: totalSub,   color: "#7c3aed", bg: "var(--tint-indigo-1)", show: subList.length > 0 },
                         { label: "Portables", totals: totalEvent, color: "#d97706", bg: "var(--tint-amber-1)", show: eventList.length > 0 },
                       ].filter(g => g.show).map((g, gi) => {
                         const cols = EQUIP_META.filter(m => g.totals[m.type] > 0);
@@ -14885,7 +14885,7 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
                       {/* "All" pill */}
                       <button type="button"
                         onClick={() => { setInvEquipBucket(""); setInvEquipSub(""); }}
-                        style={{ padding: "6px 13px", borderRadius: 20, border: invEquipBucket ? "1.5px solid #e2e8f0" : "1.5px solid #2A295C", background: invEquipBucket ? "#f8fafc" : "var(--sdx-navy)", color: invEquipBucket ? "var(--ink-500)" : "#fff", fontSize: "0.78rem", fontWeight: 700, cursor: "pointer" }}>
+                        style={{ padding: "6px 13px", borderRadius: 20, border: invEquipBucket ? "1.5px solid #e2e8f0" : "1.5px solid #2A295C", background: invEquipBucket ? "var(--surface-2)" : "var(--sdx-navy)", color: invEquipBucket ? "var(--ink-500)" : "#fff", fontSize: "0.78rem", fontWeight: 700, cursor: "pointer" }}>
                         All
                       </button>
                       {invEquipGroups.map(b => {
@@ -14893,7 +14893,7 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
                         return (
                           <button key={b.key} type="button"
                             onClick={() => { setInvEquipBucket(isActive ? "" : b.key); setInvEquipSub(""); }}
-                            style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 13px", borderRadius: 20, border: isActive ? "1.5px solid #2A295C" : "1.5px solid #e2e8f0", background: isActive ? "var(--sdx-navy)" : "#f8fafc", color: isActive ? "#fff" : "var(--ink-600)", fontSize: "0.78rem", fontWeight: 700, cursor: "pointer", transition: "all 0.12s" }}>
+                            style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 13px", borderRadius: 20, border: isActive ? "1.5px solid #2A295C" : "1.5px solid #e2e8f0", background: isActive ? "var(--sdx-navy)" : "var(--surface-2)", color: isActive ? "#fff" : "var(--ink-600)", fontSize: "0.78rem", fontWeight: 700, cursor: "pointer", transition: "all 0.12s" }}>
                             <span>{b.label}</span>
                             <span style={{ fontSize: "0.7rem", opacity: 0.75 }}>({b.total})</span>
                           </button>
@@ -14904,7 +14904,7 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
                       <select
                         value={invLocFilter}
                         onChange={e => setInvLocFilter(e.target.value)}
-                        style={{ padding: "0.38rem 0.6rem", borderRadius: 7, border: `1.5px solid ${invLocFilter ? "#d97706" : "#cbd5e1"}`, background: invLocFilter ? "var(--tint-amber-1)" : "#fff", color: invLocFilter ? "var(--tx-amber)" : "#374151", fontSize: "0.8rem", fontWeight: 600, cursor: "pointer", outline: "none" }}>
+                        style={{ padding: "0.38rem 0.6rem", borderRadius: 7, border: `1.5px solid ${invLocFilter ? "#d97706" : "var(--sdx-gray-300)"}`, background: invLocFilter ? "var(--tint-amber-1)" : "#fff", color: invLocFilter ? "var(--tx-amber)" : "#374151", fontSize: "0.8rem", fontWeight: 600, cursor: "pointer", outline: "none" }}>
                         <option value="">All Locations</option>
                         <option value="permanent">Permanent</option>
                         <option value="subcontractor">Subcontractor</option>
@@ -14926,7 +14926,7 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
                         <span style={{ fontSize: "0.68rem", fontWeight: 700, color: "var(--ink-400)", textTransform: "uppercase", letterSpacing: "0.06em", marginRight: 2 }}>Type:</span>
                         <button type="button"
                           onClick={() => setInvEquipSub("")}
-                          style={{ padding: "4px 11px", borderRadius: 20, border: invEquipSub ? "1.5px solid #e2e8f0" : "1.5px solid #2A295C", background: invEquipSub ? "#f8fafc" : "var(--sdx-navy)", color: invEquipSub ? "var(--ink-500)" : "#fff", fontSize: "0.75rem", fontWeight: 700, cursor: "pointer" }}>
+                          style={{ padding: "4px 11px", borderRadius: 20, border: invEquipSub ? "1.5px solid #e2e8f0" : "1.5px solid #2A295C", background: invEquipSub ? "var(--surface-2)" : "var(--sdx-navy)", color: invEquipSub ? "var(--ink-500)" : "#fff", fontSize: "0.75rem", fontWeight: 700, cursor: "pointer" }}>
                           All {invActiveBucketObj.label}
                         </button>
                         {invActiveBucketObj.subs.map(sb => {
@@ -14934,7 +14934,7 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
                           return (
                             <button key={sb.key} type="button"
                               onClick={() => setInvEquipSub(isActiveSub ? "" : sb.key)}
-                              style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 11px", borderRadius: 20, border: isActiveSub ? "1.5px solid #2A295C" : "1.5px solid #e2e8f0", background: isActiveSub ? "var(--sdx-navy)" : "#f8fafc", color: isActiveSub ? "#fff" : "var(--ink-600)", fontSize: "0.75rem", fontWeight: 700, cursor: "pointer", transition: "all 0.12s" }}>
+                              style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 11px", borderRadius: 20, border: isActiveSub ? "1.5px solid #2A295C" : "1.5px solid #e2e8f0", background: isActiveSub ? "var(--sdx-navy)" : "var(--surface-2)", color: isActiveSub ? "#fff" : "var(--ink-600)", fontSize: "0.75rem", fontWeight: 700, cursor: "pointer", transition: "all 0.12s" }}>
                               {sb.label}
                               <span style={{ fontSize: "0.68rem", opacity: 0.75 }}>({sb.total})</span>
                             </button>
@@ -15177,7 +15177,7 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
                                   outline: "none"
                                 }}
                                 onFocus={e => { e.target.style.borderColor = "#3b82f6"; e.target.style.background = "#fff"; }}
-                                onBlur={e => { e.target.style.borderColor = "#cbd5e1"; e.target.style.background = "#f8fafc"; }}
+                                onBlur={e => { e.target.style.borderColor = "var(--sdx-gray-300)"; e.target.style.background = "var(--surface-2)"; }}
                               />
                               <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.45rem", justifyContent: "flex-end" }}>
                                 {savedNote && (
@@ -15371,7 +15371,7 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
                         {yTicks.map(v => (
                           <g key={v}>
                             <line x1={PAD.left} y1={toSvgY(v)} x2={W - PAD.right} y2={toSvgY(v)}
-                              stroke={v === yMax ? "#cbd5e1" : "#f1f5f9"} strokeWidth={1} />
+                              stroke={v === yMax ? "var(--sdx-gray-300)" : "var(--surface-3)"} strokeWidth={1} />
                             <text x={PAD.left - 4} y={toSvgY(v) + 3.5}
                               textAnchor="end" fontSize="7" fill="var(--ink-400)" fontFamily="Inter,sans-serif">{v}</text>
                           </g>
@@ -15709,7 +15709,7 @@ function EquipmentScannerPage({ onBack, onPrintLabels }) {
   };
 
   return (
-    <div className="appShell" style={{ background: "#f0f2f7", minHeight: "100vh" }}>
+    <div className="appShell" style={{ background: "var(--surface-2)", minHeight: "100vh" }}>
       <header className="topBar">
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <button className="btn btnGhost" onClick={onBack} type="button"
@@ -15905,7 +15905,7 @@ function EquipmentScannerPage({ onBack, onPrintLabels }) {
                         </span>
                       )}
                       {r.photoCount > 0 && (
-                        <span style={{ background: "#f5f3ff", borderRadius: 5, padding: "0.2rem 0.55rem", fontSize: "0.75rem", color: "#7c3aed", fontWeight: 600 }}>
+                        <span style={{ background: "var(--tint-indigo-1)", borderRadius: 5, padding: "0.2rem 0.55rem", fontSize: "0.75rem", color: "#7c3aed", fontWeight: 600 }}>
                           📷 {r.photoCount} photo{r.photoCount > 1 ? "s" : ""}
                         </span>
                       )}
@@ -16000,7 +16000,7 @@ function PrintLabelsPage({ onBack }) {
   }, [equipItems]);
 
   return (
-    <div className="appShell" style={{ background: "#f0f2f7", minHeight: "100vh" }}>
+    <div className="appShell" style={{ background: "var(--surface-2)", minHeight: "100vh" }}>
       {/* Top bar — hidden on print */}
       <header className="topBar printHide">
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -16278,7 +16278,7 @@ function GlobalAdminPanel({ currentUser, onBack, onManageVenue, onEnterVenue, on
             <button key={t} type="button" onClick={() => setStatsTab(t)}
               style={{
                 flex: 1, padding: "0.6rem 0", borderRadius: 8, border: "none",
-                background: statsTab === t ? "var(--sdx-navy)" : "#e2e8f0",
+                background: statsTab === t ? "var(--sdx-navy)" : "var(--sdx-gray-200)",
                 color: statsTab === t ? "#fff" : "var(--ink-600)",
                 fontWeight: 600, fontSize: "0.88rem", cursor: "pointer",
               }}>
@@ -16453,7 +16453,7 @@ function GlobalAdminPanel({ currentUser, onBack, onManageVenue, onEnterVenue, on
                         </div>
                         <span style={{
                           padding: "0.2rem 0.5rem", borderRadius: 6, fontSize: "0.7rem", fontWeight: 700,
-                          background: v.status === "active" ? "var(--tint-green-2)" : "#f1f5f9",
+                          background: v.status === "active" ? "var(--tint-green-2)" : "var(--surface-3)",
                           color: v.status === "active" ? "#15803d" : "var(--ink-500)",
                         }}>{v.status || "active"}</span>
                       </div>
@@ -16895,8 +16895,8 @@ function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVe
                       return (
                         <div key={slot.id} style={{
                           display: "flex", alignItems: "flex-start", gap: 10,
-                          background: isPast ? "#f8fafc" : "var(--tint-green-1)",
-                          border: `1px solid ${isPast ? "#e2e8f0" : "#86efac"}`,
+                          background: isPast ? "var(--surface-2)" : "var(--tint-green-1)",
+                          border: `1px solid ${isPast ? "var(--sdx-gray-200)" : "#86efac"}`,
                           borderRadius: 8, padding: "8px 12px",
                         }}>
                           <div style={{ flex: 1, minWidth: 0 }}>
@@ -16904,7 +16904,7 @@ function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVe
                               <span style={{ fontWeight: 700, fontSize: "0.88rem", color: isPast ? "var(--ink-400)" : "#15803d" }}>
                                 {slot.date ? new Date(slot.date + "T12:00:00").toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric", year: "numeric" }) : "—"}
                               </span>
-                              {isPast && <span style={{ fontSize: "0.72rem", background: "#e2e8f0", color: "var(--ink-500)", borderRadius: 6, padding: "1px 6px", fontWeight: 600 }}>Past</span>}
+                              {isPast && <span style={{ fontSize: "0.72rem", background: "var(--sdx-gray-200)", color: "var(--ink-500)", borderRadius: 6, padding: "1px 6px", fontWeight: 600 }}>Past</span>}
                             </div>
                             <div style={{ fontSize: "0.83rem", color: "var(--ink-900)", marginTop: 2 }}>
                               📍 {slot.location || <em style={{ color: "var(--ink-400)" }}>No location</em>}
@@ -17623,7 +17623,7 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                               />
                             </div>
                             {/* Divider */}
-                            <div style={{ width: 1, height: 28, background: "#e2e8f0", flexShrink: 0, display: "none" }} aria-hidden="true" />
+                            <div style={{ width: 1, height: 28, background: "var(--sdx-gray-200)", flexShrink: 0, display: "none" }} aria-hidden="true" />
                             {/* Location */}
                             <div style={{ display: "flex", alignItems: "center", gap: 5, flex: "1 1 140px", minWidth: 0 }}>
                               <span style={{ fontSize: "0.68rem", color: "var(--ink-500)", fontWeight: 700, flexShrink: 0, textTransform: "uppercase", letterSpacing: "0.04em" }}>Location</span>
@@ -17696,7 +17696,7 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                                   style={{
                                     fontSize: "0.75rem", padding: "4px 11px", borderRadius: 20,
                                     border: currentLabel === opt ? "1.5px solid #2563eb" : "1.5px solid #e2e8f0",
-                                    background: currentLabel === opt ? "var(--tint-blue-2)" : "#f8fafc",
+                                    background: currentLabel === opt ? "var(--tint-blue-2)" : "var(--surface-2)",
                                     color: currentLabel === opt ? "#1d4ed8" : "var(--ink-500)",
                                     cursor: "pointer", fontWeight: currentLabel === opt ? 700 : 400,
                                     transition: "all 0.12s",
@@ -17847,7 +17847,7 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                                 <input
                                   type="search"
                                   className="input inputSmall"
-                                  style={{ paddingLeft: 30, width: "100%", background: "var(--surface-2)", borderColor: clSearch ? "#93c5fd" : "#e2e8f0", fontSize: "0.82rem" }}
+                                  style={{ paddingLeft: 30, width: "100%", background: "var(--surface-2)", borderColor: clSearch ? "#93c5fd" : "var(--sdx-gray-200)", fontSize: "0.82rem" }}
                                   value={clSearchMap[clPathKey] || ""}
                                   onChange={e => setClSearchMap(m => ({ ...m, [clPathKey]: e.target.value }))}
                                   placeholder={`Search ${current.checklist.length} items — gasket, temp, door…`}
@@ -17895,7 +17895,7 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                                         </button>
                                       </div>
                                       {isFail ? (
-                                        <div style={{ background: "#fff7ed", border: "1.5px solid #fed7aa", borderRadius: 8, padding: "10px 12px", marginTop: 6, display: "flex", flexDirection: "column", gap: 8, animation: "clFailPanelIn 0.18s ease" }}>
+                                        <div style={{ background: "var(--tint-amber-1)", border: "1.5px solid #fed7aa", borderRadius: 8, padding: "10px 12px", marginTop: 6, display: "flex", flexDirection: "column", gap: 8, animation: "clFailPanelIn 0.18s ease" }}>
                                           <div>
                                             <div style={{ fontSize: "0.7rem", fontWeight: 700, color: "var(--tx-amber)", letterSpacing: "0.06em", marginBottom: 3 }}>📋 STATUS</div>
                                             <select
@@ -17928,7 +17928,7 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                                                   <button key={loc} type="button"
                                                     style={{ fontSize: "0.7rem", padding: "3px 9px", borderRadius: 16,
                                                       border: active ? "1.5px solid #b45309" : "1.5px solid #fed7aa",
-                                                      background: active ? "var(--tx-amber)" : "#fff7ed",
+                                                      background: active ? "var(--tx-amber)" : "var(--tint-amber-1)",
                                                       color: active ? "#fff" : "var(--tx-amber)",
                                                       cursor: "pointer", fontWeight: active ? 700 : 400, transition: "all 0.12s" }}
                                                     onClick={() => makeSetCiLocation(idx, active ? "" : loc)}>
@@ -18019,7 +18019,7 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                           { value: "Fail",               label: "❌ Fail",         bg: "var(--tint-red-1)", color: "#dc2626", border: "#fca5a5" },
                           { value: "Critical Violation", label: "🚨 Critical",     bg: "#fff0f0", color: "#991b1b", border: "#f87171" },
                           { value: "Corrected On-Site",  label: "✔ Corrected",    bg: "var(--tint-sky-1)", color: "#0369a1", border: "#7dd3fc" },
-                          { value: "Maintenance",        label: "🔧 Maintenance",  bg: "#f5f3ff", color: "#7c3aed", border: "#c4b5fd" },
+                          { value: "Maintenance",        label: "🔧 Maintenance",  bg: "var(--tint-indigo-1)", color: "#7c3aed", border: "#c4b5fd" },
                         ].map(opt => {
                           const active = (current.status || "OK") === opt.value;
                           return (
@@ -18032,7 +18032,7 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                                 padding: "4px 10px", borderRadius: 20, cursor: "pointer", border: "1.5px solid",
                                 background: active ? opt.bg : "transparent",
                                 color: active ? opt.color : "var(--ink-400)",
-                                borderColor: active ? opt.border : "#e2e8f0",
+                                borderColor: active ? opt.border : "var(--sdx-gray-200)",
                                 transition: "all 0.15s",
                               }}
                             >
@@ -18657,7 +18657,7 @@ function LiveHaccpPanel({ reportId, subsFromParent, foodTemps, foodTempNames, in
                       {probPhotos.map((ph, pi) => (
                         <div key={ph.id || pi}
                           onClick={() => setExpandedPhotos(ph.previewUrl)}
-                          style={{ cursor: "pointer", borderRadius: 7, overflow: "hidden", border: "1px solid #e5e7eb", aspectRatio: "1", background: "#f3f4f6" }}>
+                          style={{ cursor: "pointer", borderRadius: 7, overflow: "hidden", border: "1px solid #e5e7eb", aspectRatio: "1", background: "var(--surface-3)" }}>
                           <img src={ph.previewUrl} alt={ph.tag || ph.name || "photo"}
                             style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
                           {ph.tag && (
@@ -19548,7 +19548,7 @@ function HaccpPortal() {
                             </div>
                             {/* Corrective action — only shown after submit when flagged */}
                             {isSubmitted && pass === false && (
-                              <div style={{ background: "#fff5f5", border: `1px solid ${needsCorrection ? "#dc2626" : "#fca5a5"}`, borderRadius: 8, padding: "8px 10px", marginTop: 4 }}>
+                              <div style={{ background: "var(--tint-red-1)", border: `1px solid ${needsCorrection ? "#dc2626" : "#fca5a5"}`, borderRadius: 8, padding: "8px 10px", marginTop: 4 }}>
                                 <label style={{ display: "block", fontSize: "0.72rem", fontWeight: 700, color: "#dc2626", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>
                                   🔧 CORRECTIVE ACTION TAKEN *
                                 </label>
@@ -20347,9 +20347,9 @@ function MessagingPanel({ currentUser, onBack, notifItems, onNotifDismiss, onNot
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: annIsQuickCheck ? 10 : 0 }}>
                   <button type="button"
                     onClick={() => setAnnIsQuickCheck(v => !v)}
-                    style={{ display: "flex", alignItems: "center", gap: 6, background: annIsQuickCheck ? "var(--tint-amber-2)" : "#f1f5f9", border: annIsQuickCheck ? "1.5px solid #f59e0b" : "1.5px solid #e2e8f0", borderRadius: 20, padding: "4px 13px", fontSize: "0.78rem", fontWeight: 700, color: annIsQuickCheck ? "var(--tx-amber)" : "var(--ink-500)", cursor: "pointer", transition: "all 0.15s" }}>
+                    style={{ display: "flex", alignItems: "center", gap: 6, background: annIsQuickCheck ? "var(--tint-amber-2)" : "var(--surface-3)", border: annIsQuickCheck ? "1.5px solid #f59e0b" : "1.5px solid #e2e8f0", borderRadius: 20, padding: "4px 13px", fontSize: "0.78rem", fontWeight: 700, color: annIsQuickCheck ? "var(--tx-amber)" : "var(--ink-500)", cursor: "pointer", transition: "all 0.15s" }}>
                     ⚡ Quick Check
-                    <span style={{ width: 28, height: 16, borderRadius: 99, background: annIsQuickCheck ? "#f59e0b" : "#cbd5e1", position: "relative", display: "inline-block", transition: "background 0.2s", flexShrink: 0 }}>
+                    <span style={{ width: 28, height: 16, borderRadius: 99, background: annIsQuickCheck ? "#f59e0b" : "var(--sdx-gray-300)", position: "relative", display: "inline-block", transition: "background 0.2s", flexShrink: 0 }}>
                       <span style={{ position: "absolute", top: 2, left: annIsQuickCheck ? 14 : 2, width: 12, height: 12, borderRadius: "50%", background: "var(--surface-1)", transition: "left 0.18s", boxShadow: "0 1px 3px rgba(0,0,0,0.2)" }} />
                     </span>
                   </button>
@@ -20407,7 +20407,7 @@ function MessagingPanel({ currentUser, onBack, notifItems, onNotifDismiss, onNot
                     <div key={a.id} style={{ margin: "10px", borderRadius: 12, overflow: "hidden", border: isQC ? "2px solid #f59e0b" : "1px solid #f1f5f9", boxShadow: isQC ? "0 2px 12px rgba(245,158,11,0.15)" : "0 1px 4px rgba(0,0,0,0.05)", animation: "fadeInUp 0.2s ease" }}>
                       {/* Header */}
                       <div style={{ padding: "0.75rem 1rem", background: isQC ? "var(--tint-amber-1)" : "#fff", display: "flex", alignItems: "flex-start", gap: 10 }}>
-                        <div style={{ width: 36, height: 36, borderRadius: "50%", background: isQC ? "var(--tint-amber-2)" : "#f1f5f9", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.1rem", flexShrink: 0 }}>
+                        <div style={{ width: 36, height: 36, borderRadius: "50%", background: isQC ? "var(--tint-amber-2)" : "var(--surface-3)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.1rem", flexShrink: 0 }}>
                           {isQC ? "⚡" : "📢"}
                         </div>
                         <div style={{ flex: 1, minWidth: 0 }}>
@@ -20419,7 +20419,7 @@ function MessagingPanel({ currentUser, onBack, notifItems, onNotifDismiss, onNot
                           <div style={{ fontSize: "0.7rem", color: "var(--ink-400)", marginTop: 4 }}>Posted by {a.author}</div>
                         </div>
                         {isAdmin && (
-                          <button onClick={() => saveAnn(announcements.filter(x => x.id !== a.id))} style={{ background: "none", border: "none", cursor: "pointer", color: "#cbd5e1", fontSize: "1.1rem", flexShrink: 0, lineHeight: 1 }}>×</button>
+                          <button onClick={() => saveAnn(announcements.filter(x => x.id !== a.id))} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--sdx-gray-300)", fontSize: "1.1rem", flexShrink: 0, lineHeight: 1 }}>×</button>
                         )}
                       </div>
                       {/* Quick Check items & CTA */}
@@ -20493,7 +20493,7 @@ function MessagingPanel({ currentUser, onBack, notifItems, onNotifDismiss, onNot
                   const ans = qcAnswers[item] || "";
                   const isFail = ans === "FAIL";
                   return (
-                    <div key={item} style={{ marginBottom: 12, background: isFail ? "var(--tint-red-1)" : ans === "OK" ? "var(--tint-green-1)" : "#f8fafc", borderRadius: 10, border: isFail ? "1.5px solid #fca5a5" : ans === "OK" ? "1.5px solid #86efac" : "1.5px solid #e2e8f0", padding: "0.75rem 0.9rem", transition: "all 0.15s" }}>
+                    <div key={item} style={{ marginBottom: 12, background: isFail ? "var(--tint-red-1)" : ans === "OK" ? "var(--tint-green-1)" : "var(--surface-2)", borderRadius: 10, border: isFail ? "1.5px solid #fca5a5" : ans === "OK" ? "1.5px solid #86efac" : "1.5px solid #e2e8f0", padding: "0.75rem 0.9rem", transition: "all 0.15s" }}>
                       <div style={{ fontWeight: 700, fontSize: "0.88rem", color: "var(--ink-900)", marginBottom: 8 }}>{item}</div>
                       <div style={{ display: "flex", gap: 8, marginBottom: isFail ? 8 : 0 }}>
                         <button type="button"
@@ -22364,7 +22364,7 @@ export default function App() {
               </button>
             )}
             {lockConfirm ? (
-              <div style={{ padding: "0.5rem 1rem", display: "flex", flexDirection: "column", gap: 6, borderTop: "1px solid #fee2e2", background: "#fff5f5" }} onClick={e => e.stopPropagation()}>
+              <div style={{ padding: "0.5rem 1rem", display: "flex", flexDirection: "column", gap: 6, borderTop: "1px solid #fee2e2", background: "var(--tint-red-1)" }} onClick={e => e.stopPropagation()}>
                 <span style={{ fontSize: "0.82rem", color: "#b91c1c", fontWeight: 600 }}>Lock the app?</span>
                 <div style={{ display: "flex", gap: 6 }}>
                   <button className="btn" style={{ flex: 1, background: "#dc2626", color: "#fff", border: "none", fontSize: "0.8rem", padding: "0.3rem 0" }}
@@ -22656,9 +22656,9 @@ export default function App() {
                   e.currentTarget.style.borderColor = "var(--ink-900)";
                 }}
                 onMouseLeave={e => {
-                  e.currentTarget.style.background = "#f8fafc";
+                  e.currentTarget.style.background = "var(--surface-2)";
                   e.currentTarget.style.color = "var(--ink-900)";
-                  e.currentTarget.style.borderColor = "#e2e8f0";
+                  e.currentTarget.style.borderColor = "var(--sdx-gray-200)";
                 }}
               >
                 {s}
@@ -22742,7 +22742,7 @@ export default function App() {
             </div>
             <div style={{ display: "flex", gap: 4, marginBottom: 8 }}>
               {steps.map((s, i) => (
-                <div key={i} style={{ flex: 1, height: 5, borderRadius: 3, background: s.done ? "#16a34a" : "#e5e7eb", transition: "background 0.3s" }} title={s.label + (s.done ? " ✓" : "")} />
+                <div key={i} style={{ flex: 1, height: 5, borderRadius: 3, background: s.done ? "#16a34a" : "var(--sdx-gray-200)", transition: "background 0.3s" }} title={s.label + (s.done ? " ✓" : "")} />
               ))}
             </div>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
@@ -22857,7 +22857,7 @@ export default function App() {
               <label className="field" id="field-siteName">
                 <span className="fieldLabel">
                   Restaurant Name <span style={{ color: "#ef4444", fontWeight: 700 }}>*</span>
-                  {currentUser?.role === "guest" && <span style={{ marginLeft: 6, fontSize: "0.7rem", background: "#fef9c3", color: "#854d0e", padding: "1px 7px", borderRadius: 20, fontWeight: 700 }}>Assigned</span>}
+                  {currentUser?.role === "guest" && <span style={{ marginLeft: 6, fontSize: "0.7rem", background: "var(--tint-amber-2)", color: "#854d0e", padding: "1px 7px", borderRadius: 20, fontWeight: 700 }}>Assigned</span>}
                 </span>
                 {currentUser?.role === "guest" ? (
                   <input className="input" value={siteName} readOnly style={{ background: "var(--surface-2)", color: "var(--ink-600)", cursor: "not-allowed" }} title="Location is set by your manager" />
@@ -22954,7 +22954,7 @@ export default function App() {
                   style={{
                     marginTop: 7,
                     display: "flex", alignItems: "center", gap: 6,
-                    background: restaurantLicense === "NO LICENSE" ? "var(--tint-red-1)" : "#f8fafc",
+                    background: restaurantLicense === "NO LICENSE" ? "var(--tint-red-1)" : "var(--surface-2)",
                     border: restaurantLicense === "NO LICENSE" ? "1.5px solid #fca5a5" : "1.5px solid #e2e8f0",
                     borderRadius: 8, padding: "0.42rem 0.85rem",
                     fontSize: "0.78rem", fontWeight: 700,
@@ -23073,7 +23073,7 @@ export default function App() {
                 const _suppliesOrder = inspectionType === "Event Day" ? 2 : 1;
                 const urgentCount = suppliesNeeded.filter(s => s.urgent && s.item.trim()).length;
                 const insightColors = {
-                  warn: { bg: "#fff7ed", border: "#fdba74", text: "#c2410c", icon: "⚠️" },
+                  warn: { bg: "var(--tint-amber-1)", border: "#fdba74", text: "#c2410c", icon: "⚠️" },
                   info: { bg: "var(--tint-blue-1)", border: "#93c5fd", text: "#1d4ed8", icon: "📋" },
                   tip:  { bg: "var(--tint-green-1)", border: "#86efac", text: "#15803d", icon: "💡" },
                 };
@@ -23082,7 +23082,7 @@ export default function App() {
                     order: _suppliesOrder,
                     border: `2px solid ${urgentCount > 0 ? "#f97316" : suppliesNeeded.some(s => s.item.trim()) ? "#fbbf24" : "#DDE1E8"}`,
                     borderRadius: 12, padding: "14px 16px",
-                    background: urgentCount > 0 ? "#fff7ed" : suppliesNeeded.some(s => s.item.trim()) ? "var(--tint-amber-1)" : "#F7F8FA",
+                    background: urgentCount > 0 ? "var(--tint-amber-1)" : suppliesNeeded.some(s => s.item.trim()) ? "var(--tint-amber-1)" : "#F7F8FA",
                     marginTop: 10,
                     boxShadow: urgentCount > 0 ? "0 0 0 3px rgba(249,115,22,0.12)" : "none",
                   }}>
@@ -23132,7 +23132,7 @@ export default function App() {
                                 type="button"
                                 title={s.urgent ? "Mark as normal" : "Mark as urgent"}
                                 onClick={() => setSuppliesNeeded(prev => prev.map((x, i) => i === idx ? { ...x, urgent: !x.urgent } : x))}
-                                style={{ flex: 1, padding: "6px 10px", borderRadius: 8, border: `1px solid ${s.urgent ? "#fca5a5" : "#e5e7eb"}`, background: s.urgent ? "var(--tint-red-2)" : "var(--surface-2)", cursor: "pointer", fontSize: "0.78rem", fontWeight: 700, color: s.urgent ? "#dc2626" : "#9ca3af" }}
+                                style={{ flex: 1, padding: "6px 10px", borderRadius: 8, border: `1px solid ${s.urgent ? "#fca5a5" : "var(--sdx-gray-200)"}`, background: s.urgent ? "var(--tint-red-2)" : "var(--surface-2)", cursor: "pointer", fontSize: "0.78rem", fontWeight: 700, color: s.urgent ? "#dc2626" : "#9ca3af" }}
                               >
                                 {s.urgent ? "🔴 Urgent" : "Urgent?"}
                               </button>
@@ -23224,7 +23224,7 @@ export default function App() {
                                   </div>
                                   {!isSubmitted && (
                                     <button type="button"
-                                      style={{ background: canSubmit ? "#2563eb" : "#e2e8f0", color: canSubmit ? "#fff" : "#9ca3af", fontWeight: 700, fontSize: "0.75rem", padding: "4px 12px", borderRadius: 8, flexShrink: 0, cursor: canSubmit ? "pointer" : "default", border: "none" }}
+                                      style={{ background: canSubmit ? "#2563eb" : "var(--sdx-gray-200)", color: canSubmit ? "#fff" : "#9ca3af", fontWeight: 700, fontSize: "0.75rem", padding: "4px 12px", borderRadius: 8, flexShrink: 0, cursor: canSubmit ? "pointer" : "default", border: "none" }}
                                       disabled={!canSubmit}
                                       onClick={() => setInspection(prev => ({ ...prev, temps: { ...prev.temps, handSinkSubmitted: true } }))}>
                                       Submit
@@ -23238,7 +23238,7 @@ export default function App() {
                                 </div>
                                 {fieldCorrections["field-handSinkTempF"] && <FieldCorrectionBanner correction={fieldCorrections["field-handSinkTempF"]} />}
                                 {isFlagged && (
-                                  <div style={{ width: "100%", background: "#fff5f5", border: `1px solid ${needsCorrection ? "#dc2626" : "#fca5a5"}`, borderRadius: 8, padding: "8px 10px", marginTop: 6 }}>
+                                  <div style={{ width: "100%", background: "var(--tint-red-1)", border: `1px solid ${needsCorrection ? "#dc2626" : "#fca5a5"}`, borderRadius: 8, padding: "8px 10px", marginTop: 6 }}>
                                     <label style={{ display: "block", fontSize: "0.72rem", fontWeight: 700, color: "#dc2626", marginBottom: 4 }}>{String.fromCharCode(0x1F527)} CORRECTIVE ACTION TAKEN *</label>
                                     <textarea className="input" rows={2} placeholder="What was done to correct this?..."
                                       value={inspection.temps.handSinkCorrection || ""}
@@ -23303,7 +23303,7 @@ export default function App() {
                                   </div>
                                   {!isSubmitted && (
                                     <button type="button"
-                                      style={{ background: canSubmit ? "#2563eb" : "#e2e8f0", color: canSubmit ? "#fff" : "#9ca3af", fontWeight: 700, fontSize: "0.75rem", padding: "4px 12px", borderRadius: 8, flexShrink: 0, cursor: canSubmit ? "pointer" : "default", border: "none" }}
+                                      style={{ background: canSubmit ? "#2563eb" : "var(--sdx-gray-200)", color: canSubmit ? "#fff" : "#9ca3af", fontWeight: 700, fontSize: "0.75rem", padding: "4px 12px", borderRadius: 8, flexShrink: 0, cursor: canSubmit ? "pointer" : "default", border: "none" }}
                                       disabled={!canSubmit}
                                       onClick={() => setInspection(prev => ({ ...prev, temps: { ...prev.temps, threeCompSinkSubmitted: true } }))}>
                                       Submit
@@ -23317,7 +23317,7 @@ export default function App() {
                                 </div>
                                 {fieldCorrections["field-threeCompSinkTempF"] && <FieldCorrectionBanner correction={fieldCorrections["field-threeCompSinkTempF"]} />}
                                 {isFlagged && (
-                                  <div style={{ width: "100%", background: "#fff5f5", border: `1px solid ${needsCorrection ? "#dc2626" : "#fca5a5"}`, borderRadius: 8, padding: "8px 10px", marginTop: 6 }}>
+                                  <div style={{ width: "100%", background: "var(--tint-red-1)", border: `1px solid ${needsCorrection ? "#dc2626" : "#fca5a5"}`, borderRadius: 8, padding: "8px 10px", marginTop: 6 }}>
                                     <label style={{ display: "block", fontSize: "0.72rem", fontWeight: 700, color: "#dc2626", marginBottom: 4 }}>{String.fromCharCode(0x1F527)} CORRECTIVE ACTION TAKEN *</label>
                                     <textarea className="input" rows={2} placeholder="What was done to correct this?..."
                                       value={inspection.temps.threeCompSinkCorrection || ""}
@@ -23442,7 +23442,7 @@ export default function App() {
                   <div className="guideStepPanel" style={{ display: (inspectionType==="Event Day"?[4,0,1,2,3]:[0,1,2,3,4])[guideStep]===4?"block":"none" }}>
 
                 {inspectionType === "Event Day" && (
-                  <div style={{ background: "#fff7ed", border: "1.5px solid #fb923c", borderRadius: 10, padding: "10px 14px", marginBottom: 12, display: "flex", gap: 10, alignItems: "flex-start" }}>
+                  <div style={{ background: "var(--tint-amber-1)", border: "1.5px solid #fb923c", borderRadius: 10, padding: "10px 14px", marginBottom: 12, display: "flex", gap: 10, alignItems: "flex-start" }}>
                     <span style={{ fontSize: "1.2rem", flexShrink: 0 }}>🎟️</span>
                     <div>
                       <div style={{ fontWeight: 700, color: "#c2410c", fontSize: "0.88rem", marginBottom: 2 }}>Event Day — Operations Priority</div>
@@ -23606,7 +23606,7 @@ export default function App() {
                             )}
                             {!isSubmitted && (
                               <button type="button" className="btn btnSmall"
-                                style={{ background: canSubmit ? "#2563eb" : "#e2e8f0", color: canSubmit ? "#fff" : "#9ca3af", fontWeight: 700, fontSize: "0.75rem", padding: "4px 12px", borderRadius: 8, flexShrink: 0, cursor: canSubmit ? "pointer" : "default", border: "none" }}
+                                style={{ background: canSubmit ? "#2563eb" : "var(--sdx-gray-200)", color: canSubmit ? "#fff" : "#9ca3af", fontWeight: 700, fontSize: "0.75rem", padding: "4px 12px", borderRadius: 8, flexShrink: 0, cursor: canSubmit ? "pointer" : "default", border: "none" }}
                                 disabled={!canSubmit}
                                 onClick={() => setFoodTempSubmitted(p => { const arr=[...(p[item.key]||[false])]; arr[idx]=true; return {...p,[item.key]:arr}; })}>
                                 Submit
@@ -23623,7 +23623,7 @@ export default function App() {
                           </div>
                           {fieldCorrections[haccpFoodNameFieldId] && <FieldCorrectionBanner correction={fieldCorrections[haccpFoodNameFieldId]} />}
                           {isSubmitted && pass === false && (
-                            <div style={{ width: "100%", background: "#fff5f5", border: `1px solid ${needsCorrection ? "#dc2626" : "#fca5a5"}`, borderRadius: 8, padding: "8px 10px", marginTop: 2 }}>
+                            <div style={{ width: "100%", background: "var(--tint-red-1)", border: `1px solid ${needsCorrection ? "#dc2626" : "#fca5a5"}`, borderRadius: 8, padding: "8px 10px", marginTop: 2 }}>
                               <label style={{ display: "block", fontSize: "0.72rem", fontWeight: 700, color: "#dc2626", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>🔧 CORRECTIVE ACTION TAKEN *</label>
                               <textarea className="input" rows={2}
                                 placeholder="What was done to correct this? (e.g. Discarded food, adjusted equipment, reheated to 165°F…)"
@@ -23672,9 +23672,9 @@ export default function App() {
                       {(() => {
                         const cookingMeta = {
                           cookingPoultry:    { emoji: "🐔", color: "#d97706", bg: "var(--tint-amber-1)", border: "#fde68a", badge: "var(--tx-amber)" },
-                          cookingGroundMeat: { emoji: "🥩", color: "#dc2626", bg: "#fff5f5", border: "#fecaca", badge: "var(--tx-red-strong)" },
+                          cookingGroundMeat: { emoji: "🥩", color: "#dc2626", bg: "var(--tint-red-1)", border: "#fecaca", badge: "var(--tx-red-strong)" },
                           cookingWholeCuts:  { emoji: "🥩", color: "#b45309", bg: "var(--tint-amber-1)", border: "#fde68a", badge: "var(--tx-amber-strong)" },
-                          cookingSeafood:    { emoji: "🐟", color: "var(--tx-cyan)", bg: "#f0fdfa", border: "#99f6e4", badge: "#134e4a" },
+                          cookingSeafood:    { emoji: "🐟", color: "var(--tx-cyan)", bg: "var(--tint-green-1)", border: "#99f6e4", badge: "#134e4a" },
                         };
                         return (
                           <div style={{ border: "1.5px solid #fca5a5", borderRadius: 10, overflow: "hidden", background: "var(--surface-1)" }}>
@@ -23685,7 +23685,7 @@ export default function App() {
                             </div>
                             <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
                               {cookingItems.map((item, ci) => {
-                                const m = cookingMeta[item.key] || { emoji: "🔥", color: "#b91c1c", bg: "#fff5f5", border: "#fecaca", badge: "var(--tx-red-strong)" };
+                                const m = cookingMeta[item.key] || { emoji: "🔥", color: "#b91c1c", bg: "var(--tint-red-1)", border: "#fecaca", badge: "var(--tx-red-strong)" };
                                 return (
                                   <div key={item.key} style={{ background: m.bg, borderBottom: ci < cookingItems.length - 1 ? `1px solid ${m.border}` : "none", padding: "8px 12px" }}>
                                     <div style={{ display: "flex", alignItems: "center", marginBottom: 6, gap: 6 }}>

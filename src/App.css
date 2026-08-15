@@ -7142,3 +7142,48 @@ html[data-theme="black"] {
   --tint-cyan-1: #0E2226;  --tx-cyan: #7DD6E8;
   --tint-indigo-1: #1B2038; --tx-indigo: #B4BCF5;
 }
+
+/* ══════════════════════════════════════════════════════════════
+   DARK APPEAL PASS — depth, glow, premium feel for Sodexo Black
+   ══════════════════════════════════════════════════════════════ */
+/* Page gets a subtle top glow in the accent color, like OLED ambient light */
+html[data-theme="black"] body {
+  background:
+    radial-gradient(900px 360px at 50% -8%, color-mix(in srgb, var(--sdx-navy) 9%, transparent), transparent 65%),
+    #0A0A0D;
+}
+
+/* Cards float with layered depth + hairline edge */
+html[data-theme="black"] .card,
+html[data-theme="black"] .historyCard {
+  border: 1px solid #1F1F27;
+  box-shadow: 0 1px 0 rgba(255,255,255,.03) inset, 0 8px 28px rgba(0,0,0,.55);
+}
+html[data-theme="black"] .card:hover {
+  border-color: color-mix(in srgb, var(--sdx-navy) 35%, #1F1F27);
+  box-shadow: 0 1px 0 rgba(255,255,255,.04) inset, 0 14px 40px rgba(0,0,0,.65);
+}
+
+/* Primary buttons glow softly in the accent */
+html[data-theme="black"] .btnPrimary,
+html[data-theme="black"] .btnGenHeader {
+  box-shadow: 0 4px 18px color-mix(in srgb, var(--sdx-red) 35%, transparent);
+}
+
+/* Accent-colored links/titles get slight luminosity for contrast */
+html[data-theme="black"] a { color: color-mix(in srgb, var(--sdx-navy) 75%, #fff); }
+
+/* Section titles: light, never dim accent */
+html[data-theme="black"] .guideSectionTitle,
+html[data-theme="black"] .cardTitle { color: #F2F3F8; }
+
+/* Selection + focus feel intentional */
+html[data-theme="black"] ::selection { background: color-mix(in srgb, var(--sdx-navy) 40%, transparent); color: #fff; }
+
+/* Smooth theme + accent switching (no flash) */
+body, .card, .topBar, .historyCard, input, select, textarea, .fuItem {
+  transition: background-color .25s ease, border-color .25s ease, color .25s ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  body, .card, .topBar, .historyCard, input, select, textarea, .fuItem { transition: none; }
+}
