@@ -20002,6 +20002,12 @@ function MessagingPanel({ currentUser, onBack, notifItems, onNotifDismiss, onNot
   const [composeOpen, setComposeOpen] = useState(false);
   const [composeText, setComposeText] = useState("");
   const [composeTo, setComposeTo] = useState("");
+  const [teamUsers, setTeamUsers] = useState([]);   // approved venue users for the people picker
+  useEffect(() => {
+    getUsers().then(list => {
+      setTeamUsers((list || []).filter(u => u.approved && u.name));
+    }).catch(() => setTeamUsers([]));
+  }, []);
   const [replyText, setReplyText] = useState("");
   const [search, setSearch] = useState("");
   const [msgThreads, setMsgThreads] = useState(() => {
@@ -20554,11 +20560,40 @@ function MessagingPanel({ currentUser, onBack, notifItems, onNotifDismiss, onNot
               <button onClick={() => setComposeOpen(false)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink-400)", fontSize: "1.2rem" }}>×</button>
             </div>
             <input
-              placeholder="To: (name or role)"
+              placeholder="To: type a name to search your team…"
               value={composeTo}
               onChange={e => setComposeTo(e.target.value)}
-              style={{ width: "100%", border: "1.5px solid #e2e8f0", borderRadius: 8, padding: "0.5rem 0.75rem", fontSize: "0.85rem", marginBottom: 8, outline: "none", boxSizing: "border-box", fontFamily: "inherit" }}
+              style={{ width: "100%", border: "1.5px solid var(--sdx-gray-200)", borderRadius: 8, padding: "0.5rem 0.75rem", fontSize: "0.85rem", marginBottom: 8, outline: "none", boxSizing: "border-box", fontFamily: "inherit" }}
             />
+            {/* People picker — filters registered venue users as you type */}
+            {(() => {
+              const q = composeTo.trim().toLowerCase();
+              const exact = teamUsers.some(u => u.name === composeTo);
+              const matches = teamUsers
+                .filter(u => u.name !== myName)
+                .filter(u => !q || u.name.toLowerCase().includes(q) || (u.dept || "").toLowerCase().includes(q))
+                .slice(0, 6);
+              if (exact || matches.length === 0) return null;
+              return (
+                <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 8, maxHeight: 180, overflowY: "auto" }}>
+                  {matches.map(u => (
+                    <button key={u.badgeHash || u.name} type="button"
+                      onClick={() => setComposeTo(u.name)}
+                      style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 10, border: "1px solid var(--sdx-gray-200)", background: "var(--surface-2)", cursor: "pointer", textAlign: "left" }}>
+                      <span style={{ width: 30, height: 30, borderRadius: "50%", background: "var(--sdx-navy)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: "0.85rem", flexShrink: 0 }}>
+                        {u.name.charAt(0).toUpperCase()}
+                      </span>
+                      <span style={{ minWidth: 0 }}>
+                        <span style={{ display: "block", fontWeight: 700, fontSize: "0.84rem", color: "var(--ink-900)" }}>{u.name}</span>
+                        <span style={{ display: "block", fontSize: "0.7rem", color: "var(--ink-500)" }}>
+                          {(u.role === "admin" || u.role === "global_admin") ? "Admin" : "Inspector"}{u.dept ? ` · ${u.dept}` : ""}
+                        </span>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              );
+            })()}
             <textarea
               placeholder="Type your message…"
               value={composeText}
