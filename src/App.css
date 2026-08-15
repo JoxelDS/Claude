@@ -7319,3 +7319,6 @@ html[data-theme="black"] .typeBadgePost { background: var(--tint-blue-1); color:
 html[data-theme="black"] .typeBadgeLocType { background: var(--tint-blue-1); color: var(--tx-blue); border-color: #253355; }
 html[data-theme="black"] .typeBadgeFloor { background: var(--tint-amber-1); color: var(--tx-amber); border-color: #4A3A1C; }
 html[data-theme="black"] .typeBadgeEventTemp { background: var(--tint-amber-1); color: var(--tx-amber); border-color: #4A3A1C; }
+
+/* Bottom sticky action bar clears the iPhone home indicator */
+.stickyActionBar { padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px)); }

@@ -13826,7 +13826,7 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
         <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 3, background: `linear-gradient(90deg, ${RED}, #ff5555, ${RED})` }} />
 
         {/* top bar — safe area aware */}
-        <div style={{ display: "flex", alignItems: "center", gap: "0.65rem", padding: "0.9rem 1rem 0.75rem" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.65rem", padding: "calc(0.9rem + env(safe-area-inset-top, 0px)) 1rem 0.75rem" }}>
           <button onClick={onBack} style={{
             background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.18)",
             borderRadius: 9, color: "#fff", fontWeight: 700, fontSize: "0.82rem",
@@ -20145,7 +20145,7 @@ function MessagingPanel({ currentUser, onBack, notifItems, onNotifDismiss, onNot
   return (
     <div style={{ minHeight: "100vh", background: "var(--surface-3)", display: "flex", flexDirection: "column" }}>
       {/* Header */}
-      <div style={{ background: "var(--chrome-grad)", padding: "0.75rem 1rem", display: "flex", alignItems: "center", gap: 12, position: "sticky", top: 0, zIndex: 100, boxShadow: "0 2px 8px rgba(0,0,0,0.2)" }}>
+      <div style={{ background: "var(--chrome-grad)", padding: "calc(0.75rem + env(safe-area-inset-top, 0px)) 1rem 0.75rem", display: "flex", alignItems: "center", gap: 12, position: "sticky", top: 0, zIndex: 100, boxShadow: "0 2px 8px rgba(0,0,0,0.2)" }}>
         <button onClick={onBack} style={{ background: "none", border: "none", color: "#fff", cursor: "pointer", fontSize: "1.3rem", padding: 4, lineHeight: 1 }}>←</button>
         <div style={{ flex: 1 }}>
           <div style={{ color: "#fff", fontWeight: 800, fontSize: "1rem", letterSpacing: "0.01em" }}>💬 Messages & Comms</div>
