@@ -9731,7 +9731,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                             borderRadius: 8, padding: "8px 12px",
                           }}>
                             <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                              <span style={{ fontSize: "0.78rem", fontWeight: 700, color: ev.type === "inspection" ? "var(--ink-700)" : "#0369a1" }}>
+                              <span style={{ fontSize: "0.78rem", fontWeight: 700, color: ev.type === "inspection" ? "var(--ink-900)" : "#7DC4F0" }}>
                                 {ev.type === "inspection" ? "📋" : "🌡️"} {ev.label}{ev.siteNumber ? ` #${ev.siteNumber}` : ""}
                               </span>
                               {ev.locationType && (

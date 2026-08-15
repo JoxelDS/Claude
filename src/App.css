@@ -7216,3 +7216,14 @@ html[data-theme="black"] .aiMonitorNav { background: #101014; border-color: #232
 html[data-theme="black"] .aiMonitorNavBtn { color: #979CB0; }
 html[data-theme="black"] .aiMonitorNavBtn.active { color: #F2F3F8; background: #1C1C22; }
 html[data-theme="black"] .aiMonitorNavBtn:hover { background: #17171D; }
+
+/* Black theme: analytics stat tiles, Smart Insights header, Predictive cards */
+html[data-theme="black"] .aiMonitorHeader { background: #17171D; }
+html[data-theme="black"] .aiMonitorSub { color: #979CB0; }
+html[data-theme="black"] .analysisStat { background: #17171D; border-color: #2A2A34; }
+html[data-theme="black"] .analysisStatLabel { color: #979CB0; }
+html[data-theme="black"] .predictiveItem { background: #17171D; border-color: #2A2A34; }
+html[data-theme="black"] .predictiveItem:hover { box-shadow: 0 4px 14px rgba(0,0,0,.5); }
+html[data-theme="black"] .predictiveItemMsg { color: #ECEDF3; }
+html[data-theme="black"] .predictiveIntro { color: #979CB0; }
+html[data-theme="black"] .predictiveFooter { color: #6E7488; }
