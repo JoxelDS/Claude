@@ -52,7 +52,7 @@ const firebaseConfig = {
 };
 
 // Check if Firebase is configured
-const isConfigured = Boolean(firebaseConfig.apiKey && firebaseConfig.projectId);
+const isConfigured = Boolean(firebaseConfig.apiKey && firebaseConfig.projectId) && !(typeof localStorage !== "undefined" && localStorage.getItem("sdx_force_local") === "1");
 
 let app = null;
 let db = null;
