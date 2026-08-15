@@ -5577,7 +5577,7 @@ function TempTrendChart({ history }) {
             { label: "Hand Sink",  req: "≥ 95°F",  note: "Minimum",  bg: "var(--tint-blue-1)", border: "#bfdbfe", color: "#1d4ed8" },
             { label: "3-Comp Sink",req: "≥ 110°F", note: "Minimum",  bg: "#f5f3ff", border: "#c4b5fd", color: "#6d28d9" },
             { label: "Cooler",     req: "≤ 40°F",  note: "Maximum",  bg: "var(--tint-green-1)", border: "#86efac", color: "#15803d" },
-            { label: "Freezer",    req: "≤ 20°F",  note: "Maximum",  bg: "#ecfeff", border: "#67e8f9", color: "#0e7490" },
+            { label: "Freezer",    req: "≤ 20°F",  note: "Maximum",  bg: "var(--tint-cyan-1)", border: "#67e8f9", color: "var(--tx-cyan)" },
           ].map(({ label, req, note, bg, border, color }) => (
             <div key={label} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", background: bg, border: `1px solid ${border}`, borderRadius: 10, padding: "0.4rem 0.3rem", minWidth: 0 }}>
               <span style={{ fontSize: "0.58rem", fontWeight: 700, color, textTransform: "uppercase", letterSpacing: "0.04em", textAlign: "center", marginBottom: 2 }}>{label}</span>
@@ -6377,9 +6377,9 @@ function AIHealthMonitor({ history, currentUser }) {
 
   /* ── priority config ─────────────────────────────────────── */
   const pColor = {
-    critical: { bg: "#fff1f2", border: "#fecdd3", accent: "#e11d48", text: "#9f1239", emoji: "🚨", label: "Urgent!" },
+    critical: { bg: "var(--tint-red-1)", border: "#fecdd3", accent: "#e11d48", text: "var(--tx-red-strong)", emoji: "🚨", label: "Urgent!" },
     high:     { bg: "#fff7ed", border: "#fed7aa", accent: "#ea580c", text: "#9a3412", emoji: "⚠️", label: "Important" },
-    medium:   { bg: "#fefce8", border: "#fef08a", accent: "#ca8a04", text: "#713f12", emoji: "💛", label: "Watch this" },
+    medium:   { bg: "var(--tint-amber-1)", border: "#fef08a", accent: "#ca8a04", text: "#713f12", emoji: "💛", label: "Watch this" },
     low:      { bg: "var(--tint-sky-1)", border: "#bae6fd", accent: "#0284c7", text: "#0c4a6e", emoji: "💡", label: "Tip" },
     info:     { bg: "var(--tint-green-1)", border: "#bbf7d0", accent: "#16a34a", text: "var(--tx-green)", emoji: "✅", label: "Good news" },
   };
@@ -6441,7 +6441,7 @@ function AIHealthMonitor({ history, currentUser }) {
 
             {/* What the numbers mean */}
             {patterns && (
-              <div style={{ background: patterns.passRate >= 80 ? "var(--tint-green-1)" : patterns.passRate >= 60 ? "#fefce8" : "#fff1f2", border: `1.5px solid ${passColor(patterns.passRate)}44`, borderLeft: `4px solid ${passColor(patterns.passRate)}`, borderRadius: 12, padding: "12px 14px", marginBottom: 16 }}>
+              <div style={{ background: patterns.passRate >= 80 ? "var(--tint-green-1)" : patterns.passRate >= 60 ? "var(--tint-amber-1)" : "var(--tint-red-1)", border: `1.5px solid ${passColor(patterns.passRate)}44`, borderLeft: `4px solid ${passColor(patterns.passRate)}`, borderRadius: 12, padding: "12px 14px", marginBottom: 16 }}>
                 <div style={{ fontWeight: 700, fontSize: "0.95rem", color: passColor(patterns.passRate) }}>
                   {patterns.passRate >= 80 ? "🎉 Your team is doing great!" : patterns.passRate >= 60 ? "👀 There's room to improve" : "🔴 Needs attention right away"}
                 </div>
@@ -6787,7 +6787,7 @@ function AIHealthMonitor({ history, currentUser }) {
                       {grandTotalUnits} total units across {locationCount} location{locationCount !== 1 ? "s" : ""}
                     </span>
                     {tempUnits > 0 && (
-                      <span style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "#fefce8", border: "1px solid #fde68a", borderRadius: 7, padding: "2px 8px", fontSize: "0.68rem", fontWeight: 700, color: "var(--tx-amber)" }}>
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "var(--tint-amber-1)", border: "1px solid #fde68a", borderRadius: 7, padding: "2px 8px", fontSize: "0.68rem", fontWeight: 700, color: "var(--tx-amber)" }}>
                         ⚠️ {tempUnits} temporary unit{tempUnits !== 1 ? "s" : ""}
                       </span>
                     )}
@@ -11034,7 +11034,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                                 st === "Off / Not In Use"   ? { bg: "#f8fafc", color: "var(--ink-500)", border: "#e2e8f0" } :
                                 st === "N/A"                ? { bg: "#f8fafc", color: "var(--ink-400)", border: "#e2e8f0" } :
                                 st === "OK"                 ? { bg: "var(--tint-green-1)", color: "#15803d", border: "#bbf7d0" } :
-                                                              { bg: "#fefce8", color: "#a16207", border: "#fde68a" };
+                                                              { bg: "var(--tint-amber-1)", color: "#a16207", border: "#fde68a" };
                               return (
                                 <span style={{ fontSize: "0.68rem", fontWeight: 700, padding: "2px 8px", borderRadius: 6, flexShrink: 0, letterSpacing: "0.03em", marginTop: 2, background: cfg.bg, color: cfg.color, border: `1px solid ${cfg.border}` }}>
                                   {st}
@@ -11363,7 +11363,7 @@ function MyLocationsPage({ currentUser, venueSettings, saveVenueSettings, onBack
           <div style={{ fontSize: "0.83rem", color: "var(--ink-700)", marginBottom: slot.note ? 3 : 0 }}>
             📍 {slot.location || "No location"}
             {slot.unit && (
-              <span style={{ marginLeft: 7, fontSize: "0.74rem", background: "#e0e7ff", color: "#3730a3", borderRadius: 5, padding: "1px 6px", fontWeight: 600 }}>
+              <span style={{ marginLeft: 7, fontSize: "0.74rem", background: "var(--tint-indigo-1)", color: "var(--tx-indigo)", borderRadius: 5, padding: "1px 6px", fontWeight: 600 }}>
                 Unit {slot.unit}
               </span>
             )}
@@ -12880,14 +12880,14 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
       verdict = "CONCERN — Action Required";
       emoji = "🔴";
       color = "#dc2626";
-      bgColor = "#fff1f2";
+      bgColor = "var(--tint-red-1)";
       borderColor = "#fca5a5";
       summary = "Multiple output quality issues detected. This inspector needs a formal review and coaching before concerns become a liability.";
     } else {
       verdict = "CONCERN — Urgent Review";
       emoji = "🚨";
-      color = "#9f1239";
-      bgColor = "#fff1f2";
+      color = "var(--tx-red-strong)";
+      bgColor = "var(--tint-red-1)";
       borderColor = "#fda4af";
       summary = "Significant red flags across output quality, issue detection, or rubber-stamp patterns. Continued unsupervised work at this level is not recommended without immediate intervention.";
     }
@@ -13015,7 +13015,7 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
       setEntries(prev => prev.map((e, i) => i === idx ? { ...e, lastChanged: v } : e));
     };
     return (
-      <div style={{ background: "#fefce8", border: "1.5px solid #fde68a", borderRadius: 10, padding: "0.5rem 0.7rem", marginBottom: 4 }}>
+      <div style={{ background: "var(--tint-amber-1)", border: "1.5px solid #fde68a", borderRadius: 10, padding: "0.5rem 0.7rem", marginBottom: 4 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: entries.length ? 6 : 0 }}>
           <span style={{ fontSize: "1rem", flexShrink: 0 }}>🔄</span>
           <div style={{ flex: 1, fontWeight: 700, fontSize: "0.8rem", color: "var(--tx-amber-strong)" }}>Filters <span style={{ fontWeight: 400, color: "var(--tx-amber)" }}>({entries.length})</span></div>
@@ -16301,7 +16301,7 @@ function GlobalAdminPanel({ currentUser, onBack, onManageVenue, onEnterVenue, on
                   boxShadow: "0 1px 4px rgba(0,0,0,0.08)"
                 }}>
                   <div style={{ fontSize: "1.5rem", marginBottom: "0.25rem" }}>{icon}</div>
-                  <div style={{ fontSize: "1.4rem", fontWeight: 700, color: "#1e1b4b" }}>{value}</div>
+                  <div style={{ fontSize: "1.4rem", fontWeight: 700, color: "var(--ink-900)" }}>{value}</div>
                   <div style={{ fontSize: "0.75rem", color: "var(--ink-500)" }}>{label}</div>
                 </div>
               ))}
@@ -16319,7 +16319,7 @@ function GlobalAdminPanel({ currentUser, onBack, onManageVenue, onEnterVenue, on
             {/* Top venues by activity */}
             {!loading && venues.length > 0 && (
               <div>
-                <div style={{ fontWeight: 700, fontSize: "0.9rem", color: "#1e1b4b", marginBottom: "0.5rem" }}>Top Venues by Inspections</div>
+                <div style={{ fontWeight: 700, fontSize: "0.9rem", color: "var(--ink-900)", marginBottom: "0.5rem" }}>Top Venues by Inspections</div>
                 {[...venues]
                   .sort((a, b) => ((venueStats[b.id]?.inspectionCount || 0) - (venueStats[a.id]?.inspectionCount || 0)))
                   .slice(0, 5)
@@ -16328,7 +16328,7 @@ function GlobalAdminPanel({ currentUser, onBack, onManageVenue, onEnterVenue, on
                     return (
                       <div key={v.id} style={{ display: "flex", alignItems: "center", gap: "0.75rem", padding: "0.6rem 0", borderBottom: "1px solid #f1f5f9" }}>
                         <span style={{ fontSize: "1.1rem" }}>{typeIcon[v.type] || "📍"}</span>
-                        <span style={{ flex: 1, fontWeight: 600, fontSize: "0.9rem", color: "#1e1b4b" }}>{v.name || v.id}</span>
+                        <span style={{ flex: 1, fontWeight: 600, fontSize: "0.9rem", color: "var(--ink-900)" }}>{v.name || v.id}</span>
                         <span style={{ fontSize: "0.82rem", color: "var(--ink-500)" }}>📋 {s.inspectionCount || 0}</span>
                         <span style={{ fontSize: "0.82rem", color: "var(--ink-500)" }}>👤 {s.userCount || 0}</span>
                       </div>
@@ -16357,7 +16357,7 @@ function GlobalAdminPanel({ currentUser, onBack, onManageVenue, onEnterVenue, on
             {/* Add Venue Form */}
             {showAddForm && (
               <form onSubmit={handleAddVenue} style={{ background: "var(--surface-2)", border: "1.5px solid #e2e8f0", borderRadius: 10, padding: "1rem", marginBottom: "1rem" }}>
-                <div style={{ fontWeight: 700, marginBottom: "0.75rem", color: "#1e1b4b" }}>Add New Venue</div>
+                <div style={{ fontWeight: 700, marginBottom: "0.75rem", color: "var(--ink-900)" }}>Add New Venue</div>
                 {addError && <div style={{ background: "var(--tint-red-2)", color: "#991b1b", borderRadius: 6, padding: "0.5rem 0.75rem", marginBottom: "0.5rem", fontSize: "0.85rem" }}>{addError}</div>}
                 <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
                   <input value={addId} onChange={e => setAddId(e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, ""))}
@@ -16445,7 +16445,7 @@ function GlobalAdminPanel({ currentUser, onBack, onManageVenue, onEnterVenue, on
                       <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
                         <span style={{ fontSize: "1.2rem" }}>{typeIcon[v.type] || "📍"}</span>
                         <div style={{ flex: 1 }}>
-                          <div style={{ fontWeight: 700, fontSize: "0.95rem", color: "#1e1b4b" }}>{v.name || v.id}</div>
+                          <div style={{ fontWeight: 700, fontSize: "0.95rem", color: "var(--ink-900)" }}>{v.name || v.id}</div>
                           <div style={{ fontSize: "0.75rem", color: "var(--ink-400)", marginTop: 1 }}>
                             {typeLabel[v.type] || v.type} · <code style={{ fontSize: "0.72rem" }}>{v.id}</code>
                             {v.address && ` · ${v.address}`}
@@ -16536,7 +16536,7 @@ function GlobalAdminPanel({ currentUser, onBack, onManageVenue, onEnterVenue, on
                     Cancel
                   </button>
                   <button type="button" onClick={() => setDeleteStep(2)}
-                    style={{ flex: 1, padding: "0.6rem", borderRadius: 8, border: "1.5px solid #fca5a5", background: "#fff1f2", color: "#dc2626", fontWeight: 700, cursor: "pointer" }}>
+                    style={{ flex: 1, padding: "0.6rem", borderRadius: 8, border: "1.5px solid #fca5a5", background: "var(--tint-red-1)", color: "#dc2626", fontWeight: 700, cursor: "pointer" }}>
                     Continue →
                   </button>
                 </div>
@@ -16908,7 +16908,7 @@ function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVe
                             </div>
                             <div style={{ fontSize: "0.83rem", color: "var(--ink-900)", marginTop: 2 }}>
                               📍 {slot.location || <em style={{ color: "var(--ink-400)" }}>No location</em>}
-                              {slot.unit && <span style={{ marginLeft: 6, fontSize: "0.78rem", background: "#e0e7ff", color: "#3730a3", borderRadius: 5, padding: "1px 6px", fontWeight: 600 }}>Unit {slot.unit}</span>}
+                              {slot.unit && <span style={{ marginLeft: 6, fontSize: "0.78rem", background: "var(--tint-indigo-1)", color: "var(--tx-indigo)", borderRadius: 5, padding: "1px 6px", fontWeight: 600 }}>Unit {slot.unit}</span>}
                             </div>
                             {slot.inspector && (
                               <div style={{ fontSize: "0.78rem", color: "#1d4ed8", marginTop: 2, fontWeight: 600 }}>
@@ -18446,7 +18446,7 @@ function LiveHaccpPanel({ reportId, subsFromParent, foodTemps, foodTempNames, in
                 const names = (foodTempNames || {})[item.key] || [];
                 const hasFailure = readings.some(v => tempPass(item, parseFloat(v)) === false);
                 return (
-                  <div key={item.key} style={{ display: "flex", flexDirection: "column", gap: 2, padding: "6px 8px", borderRadius: 8, background: hasFailure ? "#fff1f2" : "var(--tint-green-1)", border: `1px solid ${hasFailure ? "#fca5a5" : "#bbf7d0"}` }}>
+                  <div key={item.key} style={{ display: "flex", flexDirection: "column", gap: 2, padding: "6px 8px", borderRadius: 8, background: hasFailure ? "var(--tint-red-1)" : "var(--tint-green-1)", border: `1px solid ${hasFailure ? "#fca5a5" : "#bbf7d0"}` }}>
                     <div style={{ fontSize: "0.71rem", fontWeight: 600, color: hasFailure ? "#b91c1c" : "#15803d" }}>{item.label}</div>
                     {readings.map((v, ri) => {
                       const pass = tempPass(item, parseFloat(v));
@@ -18507,7 +18507,7 @@ function LiveHaccpPanel({ reportId, subsFromParent, foodTemps, foodTempNames, in
                 {locParts.length > 0 && (
                   <div style={{ marginTop: 4, display: "flex", flexWrap: "wrap", gap: 4 }}>
                     {locParts.map((p, i) => (
-                      <span key={i} style={{ fontSize: "0.71rem", fontWeight: 500, background: "#e0e7ff", color: "#3730a3", borderRadius: 5, padding: "1px 7px" }}>{p}</span>
+                      <span key={i} style={{ fontSize: "0.71rem", fontWeight: 500, background: "var(--tint-indigo-1)", color: "var(--tx-indigo)", borderRadius: 5, padding: "1px 7px" }}>{p}</span>
                     ))}
                   </div>
                 )}
@@ -18617,7 +18617,7 @@ function LiveHaccpPanel({ reportId, subsFromParent, foodTemps, foodTempNames, in
                 <div style={{ fontSize: "0.72rem", fontWeight: 600, color: "var(--ink-400)", letterSpacing: "0.05em", textTransform: "uppercase", marginBottom: 6 }}>Temperature Readings</div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: "6px 12px" }}>
                   {tempRows.map(({ item, readings, names, label, hasFailure }) => (
-                    <div key={item.key} style={{ display: "flex", flexDirection: "column", gap: 2, padding: "6px 8px", borderRadius: 8, background: hasFailure ? "#fff1f2" : "var(--tint-green-1)", border: `1px solid ${hasFailure ? "#fca5a5" : "#bbf7d0"}` }}>
+                    <div key={item.key} style={{ display: "flex", flexDirection: "column", gap: 2, padding: "6px 8px", borderRadius: 8, background: hasFailure ? "var(--tint-red-1)" : "var(--tint-green-1)", border: `1px solid ${hasFailure ? "#fca5a5" : "#bbf7d0"}` }}>
                       <div style={{ fontSize: "0.71rem", fontWeight: 600, color: hasFailure ? "#b91c1c" : "#15803d" }}>{label}</div>
                       {readings.map((v, ri) => {
                         const num = parseFloat(v);
@@ -22501,7 +22501,7 @@ export default function App() {
 
       {/* Draft restore banner — shown after login when an unsaved draft exists */}
       {draftBanner && (
-        <div style={{ background: "#fefce8", border: "1px solid #fde047", padding: "0.75rem 1.25rem", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+        <div style={{ background: "var(--tint-amber-1)", border: "1px solid #fde047", padding: "0.75rem 1.25rem", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
           <span style={{ fontSize: "1.1rem" }}>📋</span>
           <span style={{ flex: 1, color: "#854d0e", fontWeight: 600, fontSize: "0.9rem" }}>
             Unsaved draft found from {(() => { try { return new Date(draftBanner.draftSavedAt).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }); } catch { return draftBanner.draftSavedAt; } })()} — restore it?
@@ -22596,7 +22596,7 @@ export default function App() {
                       </div>
                       <div style={{ fontSize: "0.8rem", color: "var(--ink-700)", marginTop: 2 }}>
                         📍 {slot.location || "No location"}
-                        {slot.unit && <span style={{ marginLeft: 6, fontSize: "0.74rem", background: "#e0e7ff", color: "#3730a3", borderRadius: 5, padding: "1px 5px", fontWeight: 600 }}>Unit {slot.unit}</span>}
+                        {slot.unit && <span style={{ marginLeft: 6, fontSize: "0.74rem", background: "var(--tint-indigo-1)", color: "var(--tx-indigo)", borderRadius: 5, padding: "1px 5px", fontWeight: 600 }}>Unit {slot.unit}</span>}
                       </div>
                       {slot.note && <div style={{ fontSize: "0.75rem", color: "var(--ink-500)", marginTop: 2 }}>{slot.note}</div>}
                     </div>
@@ -23674,7 +23674,7 @@ export default function App() {
                           cookingPoultry:    { emoji: "🐔", color: "#d97706", bg: "var(--tint-amber-1)", border: "#fde68a", badge: "var(--tx-amber)" },
                           cookingGroundMeat: { emoji: "🥩", color: "#dc2626", bg: "#fff5f5", border: "#fecaca", badge: "var(--tx-red-strong)" },
                           cookingWholeCuts:  { emoji: "🥩", color: "#b45309", bg: "var(--tint-amber-1)", border: "#fde68a", badge: "var(--tx-amber-strong)" },
-                          cookingSeafood:    { emoji: "🐟", color: "#0e7490", bg: "#f0fdfa", border: "#99f6e4", badge: "#134e4a" },
+                          cookingSeafood:    { emoji: "🐟", color: "var(--tx-cyan)", bg: "#f0fdfa", border: "#99f6e4", badge: "#134e4a" },
                         };
                         return (
                           <div style={{ border: "1.5px solid #fca5a5", borderRadius: 10, overflow: "hidden", background: "var(--surface-1)" }}>

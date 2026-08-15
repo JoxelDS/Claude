@@ -7132,3 +7132,13 @@ html[data-theme="black"] .dropdownMenu {
   box-shadow: 0 20px 60px rgba(0,0,0,.7), 0 4px 14px rgba(0,0,0,.5);
 }
 html[data-theme="black"] .dropdownMenuItem:hover { background: rgba(255,255,255,.07); }
+
+/* extra tint tokens */
+:root {
+  --tint-cyan-1: #ecfeff;  --tx-cyan: #0e7490;
+  --tint-indigo-1: #e0e7ff; --tx-indigo: #3730a3;
+}
+html[data-theme="black"] {
+  --tint-cyan-1: #0E2226;  --tx-cyan: #7DD6E8;
+  --tint-indigo-1: #1B2038; --tx-indigo: #B4BCF5;
+}
