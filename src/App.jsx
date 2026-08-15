@@ -11677,20 +11677,20 @@ function FoodSafetyRef() {
       {/* Temperature zones */}
       <div>
         {subHeader("Temperature Zones")}
-        <div style={{ border: "1.5px solid #e2e8f0", borderTop: "none", borderRadius: "0 0 12px 12px", overflow: "hidden" }}>
+        <div style={{ border: "1.5px solid var(--sdx-gray-200)", borderTop: "none", borderRadius: "0 0 12px 12px", overflow: "hidden" }}>
           {[
-            { icon: "🔥", bg: "linear-gradient(90deg,#fef2f2,#fee2e2)", border: "#ef4444", label: "HOT HOLDING — SAFE", temp: "≥ 135°F / 57°C", sub: "Keep hot foods at or above this temperature" },
-            { icon: "⚠️", bg: "repeating-linear-gradient(45deg,#fef9c3,#fef9c3 6px,#fefce8 6px,#fefce8 12px)", border: "#f59e0b", label: "DANGER ZONE — AVOID", temp: "41°F – 135°F / 5–57°C", sub: "Bacteria double every 20 min · limit to 4 hrs max" },
-            { icon: "❄️", bg: "linear-gradient(90deg,#eff6ff,#dbeafe)", border: "#3b82f6", label: "COLD HOLDING — SAFE", temp: "≤ 41°F / 5°C", sub: "Refrigerate at or below · ideal WIC: 34–38°F" },
-            { icon: "🧊", bg: "linear-gradient(90deg,#f0f9ff,#e0f2fe)", border: "#0ea5e9", label: "FREEZER", temp: "0°F / -18°C or below", sub: "Stops bacterial growth · check monthly for ice crystals" },
+            { icon: "🔥", bg: "linear-gradient(90deg,var(--tint-red-1),var(--tint-red-2))", border: "#ef4444", label: "HOT HOLDING — SAFE", temp: "≥ 135°F / 57°C", sub: "Keep hot foods at or above this temperature" },
+            { icon: "⚠️", bg: "repeating-linear-gradient(45deg,var(--tint-amber-2),var(--tint-amber-2) 6px,var(--tint-amber-1) 6px,var(--tint-amber-1) 12px)", border: "#f59e0b", label: "DANGER ZONE — AVOID", temp: "41°F – 135°F / 5–57°C", sub: "Bacteria double every 20 min · limit to 4 hrs max" },
+            { icon: "❄️", bg: "linear-gradient(90deg,var(--tint-blue-1),var(--tint-blue-2))", border: "#3b82f6", label: "COLD HOLDING — SAFE", temp: "≤ 41°F / 5°C", sub: "Refrigerate at or below · ideal WIC: 34–38°F" },
+            { icon: "🧊", bg: "linear-gradient(90deg,var(--tint-sky-1),var(--tint-blue-2))", border: "#0ea5e9", label: "FREEZER", temp: "0°F / -18°C or below", sub: "Stops bacterial growth · check monthly for ice crystals" },
           ].map((z, i, arr) => (
             <div key={z.label} style={{ background: z.bg, borderBottom: i < arr.length - 1 ? `2px solid ${z.border}` : "none", padding: "12px 14px", display: "flex", alignItems: "center", gap: 12 }}>
-              <span style={{ width: 36, height: 36, borderRadius: 11, background: "rgba(255,255,255,.78)", border: `1.5px solid ${z.border}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.05rem", flexShrink: 0, boxShadow: "0 1px 4px rgba(0,0,0,.08)" }}>{z.icon}</span>
+              <span style={{ width: 36, height: 36, borderRadius: 11, background: "var(--surface-1)", border: `1.5px solid ${z.border}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.05rem", flexShrink: 0, boxShadow: "0 1px 4px rgba(0,0,0,.08)" }}>{z.icon}</span>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 800, fontSize: "0.62rem", textTransform: "uppercase", letterSpacing: "0.07em", color: "#374151", marginBottom: 2 }}>{z.label}</div>
-                <div style={{ fontSize: "0.65rem", color: "#475569", lineHeight: 1.4 }}>{z.sub}</div>
+                <div style={{ fontWeight: 800, fontSize: "0.62rem", textTransform: "uppercase", letterSpacing: "0.07em", color: "var(--ink-700)", marginBottom: 2 }}>{z.label}</div>
+                <div style={{ fontSize: "0.65rem", color: "var(--ink-600)", lineHeight: 1.4 }}>{z.sub}</div>
               </div>
-              <div style={{ fontWeight: 900, fontSize: "0.92rem", color: "#1e293b", whiteSpace: "nowrap", textAlign: "right", flexShrink: 0, background: "rgba(255,255,255,.72)", border: `1.5px solid ${z.border}`, borderRadius: 10, padding: "5px 12px" }}>{z.temp}</div>
+              <div style={{ fontWeight: 900, fontSize: "0.92rem", color: "var(--ink-900)", whiteSpace: "nowrap", textAlign: "right", flexShrink: 0, background: "var(--surface-1)", border: `1.5px solid ${z.border}`, borderRadius: 10, padding: "5px 12px" }}>{z.temp}</div>
             </div>
           ))}
         </div>
@@ -11699,7 +11699,7 @@ function FoodSafetyRef() {
       {/* Cook temps */}
       <div>
         {subHeader("Minimum Cook Temperatures")}
-        <div style={{ border: "1.5px solid #e2e8f0", borderTop: "none", borderRadius: "0 0 12px 12px", overflow: "hidden" }}>
+        <div style={{ border: "1.5px solid var(--sdx-gray-200)", borderTop: "none", borderRadius: "0 0 12px 12px", overflow: "hidden" }}>
           {[
             { label: "Fruits, Vegetables, Grains",   temp: "135°F", c: "57°C",  color: "#16a34a" },
             { label: "Fish, Seafood, Eggs (immediate)", temp: "145°F", c: "63°C", color: "#2563eb" },
@@ -11710,16 +11710,16 @@ function FoodSafetyRef() {
             const deg = parseInt(r.temp, 10);
             const pct = Math.round(((deg - 130) / 40) * 100);
             return (
-            <div key={r.label} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", borderBottom: i < arr.length - 1 ? "1px solid #f1f5f9" : "none", background: i % 2 === 0 ? "#fff" : "#f8fafc" }}>
+            <div key={r.label} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", borderBottom: i < arr.length - 1 ? "1px solid var(--surface-3)" : "none", background: i % 2 === 0 ? "var(--surface-1)" : "var(--surface-2)" }}>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: "0.7rem", color: "#334155", lineHeight: 1.3, fontWeight: 600 }}>{r.label}</div>
-                <div style={{ height: 5, borderRadius: 3, background: "#EEF0F6", marginTop: 5, overflow: "hidden" }}>
+                <div style={{ fontSize: "0.7rem", color: "var(--ink-700)", lineHeight: 1.3, fontWeight: 600 }}>{r.label}</div>
+                <div style={{ height: 5, borderRadius: 3, background: "var(--surface-3)", marginTop: 5, overflow: "hidden" }}>
                   <div style={{ width: `${pct}%`, height: "100%", borderRadius: 3, background: `linear-gradient(90deg, ${r.color}88, ${r.color})` }} />
                 </div>
               </div>
               <div style={{ textAlign: "right", flexShrink: 0 }}>
                 <span style={{ fontWeight: 900, fontSize: "1rem", color: r.color }}>{r.temp}</span>
-                <span style={{ fontSize: "0.62rem", color: "#94a3b8", fontWeight: 600, marginLeft: 5 }}>{r.c}</span>
+                <span style={{ fontSize: "0.62rem", color: "var(--ink-400)", fontWeight: 600, marginLeft: 5 }}>{r.c}</span>
               </div>
             </div>
           );})}
@@ -11729,9 +11729,9 @@ function FoodSafetyRef() {
       {/* Calibration */}
       <div>
         {subHeader("Thermometer Calibration")}
-        <div style={{ border: "1.5px solid #e2e8f0", borderTop: "none", borderRadius: "0 0 12px 12px", overflow: "hidden" }}>
+        <div style={{ border: "1.5px solid var(--sdx-gray-200)", borderTop: "none", borderRadius: "0 0 12px 12px", overflow: "hidden" }}>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr" }}>
-            <div style={{ padding: "12px 14px", borderRight: "1px solid #f1f5f9" }}>
+            <div style={{ padding: "12px 14px", borderRight: "1px solid var(--surface-3)" }}>
               <div style={{ fontWeight: 700, fontSize: "0.68rem", color: "#1d4ed8", marginBottom: 4 }}>Ice-Point Method</div>
               <div style={{ fontWeight: 900, fontSize: "1.1rem", color: "var(--ink-900)", marginBottom: 4 }}>32°F / 0°C</div>
               <div style={{ fontSize: "0.63rem", color: "var(--ink-500)", lineHeight: 1.5 }}>Crushed ice + water. Submerge 2 in. Wait 30 sec. ±2°F acceptable.</div>
@@ -11751,9 +11751,9 @@ function FoodSafetyRef() {
   const panelSanitizers = (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       {subHeader("Chemical Sanitizer Reference")}
-      <div style={{ border: "1.5px solid #e2e8f0", borderTop: "none", borderRadius: "0 0 12px 12px", overflow: "hidden", marginTop: -14 }}>
+      <div style={{ border: "1.5px solid var(--sdx-gray-200)", borderTop: "none", borderRadius: "0 0 12px 12px", overflow: "hidden", marginTop: -14 }}>
         {sanitizers.map((s, i, arr) => (
-          <div key={s.type} style={{ padding: "12px 14px", borderBottom: i < arr.length - 1 ? "1px solid #f1f5f9" : "none", background: i % 2 === 0 ? "#fff" : "#f8fafc" }}>
+          <div key={s.type} style={{ padding: "12px 14px", borderBottom: i < arr.length - 1 ? "1px solid var(--surface-3)" : "none", background: i % 2 === 0 ? "var(--surface-1)" : "var(--surface-2)" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 6 }}>
               <span style={{ fontWeight: 700, fontSize: "0.75rem", color: "var(--ink-900)" }}>{s.type}</span>
               <span style={{ fontWeight: 900, fontSize: "0.9rem", color: "#16a34a", whiteSpace: "nowrap" }}>{s.ppm}</span>
@@ -11778,15 +11778,15 @@ function FoodSafetyRef() {
   const panelBoards = (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       {subHeader("Cutting Board Color Code")}
-      <div style={{ border: "1.5px solid #e2e8f0", borderTop: "none", borderRadius: "0 0 12px 12px", overflow: "hidden", marginTop: -14 }}>
+      <div style={{ border: "1.5px solid var(--sdx-gray-200)", borderTop: "none", borderRadius: "0 0 12px 12px", overflow: "hidden", marginTop: -14 }}>
         {[
           { color: "#ef4444", bg: "var(--tint-red-1)", border: "#fca5a5", label: "Red",    uses: "Raw beef, pork & lamb" },
-          { color: "#f97316", bg: "#fff7ed", border: "#fdba74", label: "Orange", uses: "Raw pork (alt. system)" },
-          { color: "#eab308", bg: "#fefce8", border: "#fde047", label: "Yellow", uses: "Raw poultry (chicken, turkey)" },
+          { color: "#f97316", bg: "var(--tint-amber-1)", border: "#fdba74", label: "Orange", uses: "Raw pork (alt. system)" },
+          { color: "#eab308", bg: "var(--tint-amber-1)", border: "#fde047", label: "Yellow", uses: "Raw poultry (chicken, turkey)" },
           { color: "#22c55e", bg: "var(--tint-green-1)", border: "#86efac", label: "Green",  uses: "Fresh fruits & vegetables" },
           { color: "#3b82f6", bg: "var(--tint-blue-1)", border: "#93c5fd", label: "Blue",   uses: "Raw fish & seafood" },
           { color: "var(--ink-400)", bg: "var(--surface-2)", border: "#d1d5db", label: "White",  uses: "Dairy, deli, bread & bakery" },
-          { color: "#8b5cf6", bg: "#f5f3ff", border: "#c4b5fd", label: "Purple", uses: "Allergen-free prep" },
+          { color: "#8b5cf6", bg: "var(--tint-blue-1)", border: "#c4b5fd", label: "Purple", uses: "Allergen-free prep" },
         ].map((b, i, arr) => (
           <div key={b.label} style={{ background: b.bg, borderBottom: i < arr.length - 1 ? `1px solid ${b.border}` : "none", padding: "10px 14px", display: "flex", alignItems: "center", gap: 12 }}>
             <span style={{ display: "inline-block", width: 26, height: 26, borderRadius: 6, background: b.color, border: `2px solid ${b.border}`, flexShrink: 0, boxShadow: "0 1px 3px rgba(0,0,0,.12)" }} />
@@ -11803,16 +11803,16 @@ function FoodSafetyRef() {
 
   const panelCooler = (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      <div style={{ fontSize: "0.68rem", color: "var(--ink-500)", lineHeight: 1.6, background: "var(--surface-2)", border: "1.5px solid #e2e8f0", borderRadius: 10, padding: "10px 14px" }}>
+      <div style={{ fontSize: "0.68rem", color: "var(--ink-500)", lineHeight: 1.6, background: "var(--surface-2)", border: "1.5px solid var(--sdx-gray-200)", borderRadius: 10, padding: "10px 14px" }}>
         Store by <strong>minimum internal cook temperature</strong> — highest-risk proteins on the bottom shelf to prevent cross-contamination drips.
       </div>
       {subHeader("Shelf Order — Top to Bottom")}
-      <div style={{ border: "2px solid #cbd5e1", borderTop: "none", borderRadius: "0 0 12px 12px", overflow: "hidden", marginTop: -14 }}>
+      <div style={{ border: "2px solid var(--sdx-gray-300)", borderTop: "none", borderRadius: "0 0 12px 12px", overflow: "hidden", marginTop: -14 }}>
         {[
           { pos: "TOP",    label: "Ready-to-Eat Foods",     examples: "Produce, cooked foods, deli meats, dairy",  cookTemp: "No cooking required",  bg: "var(--tint-green-1)", accentColor: "#16a34a", textColor: "var(--tx-green)" },
           { pos: "",       label: "Whole Fish & Seafood",    examples: "Whole fish, shrimp, scallops",              cookTemp: "145°F / 63°C",          bg: "var(--tint-blue-1)", accentColor: "#2563eb", textColor: "var(--tx-blue)" },
-          { pos: "",       label: "Whole Beef, Pork & Lamb", examples: "Steaks, chops, roasts",                    cookTemp: "145°F / 63°C",          bg: "#fff7ed", accentColor: "#ea580c", textColor: "#7c2d12" },
-          { pos: "",       label: "Shell Eggs (intact)",     examples: "Whole shell eggs for immediate service",   cookTemp: "145°F / 63°C",          bg: "#fefce8", accentColor: "#ca8a04", textColor: "#713f12" },
+          { pos: "",       label: "Whole Beef, Pork & Lamb", examples: "Steaks, chops, roasts",                    cookTemp: "145°F / 63°C",          bg: "var(--tint-amber-1)", accentColor: "#ea580c", textColor: "var(--tx-amber-strong)" },
+          { pos: "",       label: "Shell Eggs (intact)",     examples: "Whole shell eggs for immediate service",   cookTemp: "145°F / 63°C",          bg: "var(--tint-amber-1)", accentColor: "#ca8a04", textColor: "var(--tx-amber-strong)" },
           { pos: "",       label: "Ground Meat & Injected",  examples: "Ground beef, pork, lamb, stuffed meats",   cookTemp: "155°F / 68°C",          bg: "var(--tint-amber-2)", accentColor: "#d97706", textColor: "var(--tx-amber-strong)" },
           { pos: "BOTTOM", label: "Whole & Ground Poultry",  examples: "Chicken, turkey, duck — whole or ground",  cookTemp: "165°F / 74°C",          bg: "var(--tint-red-1)", accentColor: "#dc2626", textColor: "var(--tx-red-strong)" },
         ].map((row, i, arr) => (
@@ -11853,14 +11853,14 @@ function FoodSafetyRef() {
 
       {/* Required label fields */}
       {subHeader("Required Label Information")}
-      <div style={{ border: "1.5px solid #e2e8f0", borderTop: "none", borderRadius: "0 0 12px 12px", overflow: "hidden", marginTop: -14 }}>
+      <div style={{ border: "1.5px solid var(--sdx-gray-200)", borderTop: "none", borderRadius: "0 0 12px 12px", overflow: "hidden", marginTop: -14 }}>
         {[
           { field: "Item Name / Description", note: "Be specific — e.g., 'Sliced Tomatoes', not just 'Tomatoes'" },
           { field: "Date Prepared / Opened",  note: "The day the item was made or the package was opened" },
           { field: "Use-By / Discard Date",   note: "Most prepared foods: 7 days max at 41°F or below" },
           { field: "Preparer Initials",        note: "Accountability — who made it and when" },
         ].map((r, i, arr) => (
-          <div key={r.field} style={{ padding: "10px 14px", borderBottom: i < arr.length - 1 ? "1px solid #f1f5f9" : "none", background: i % 2 === 0 ? "#fff" : "#f8fafc" }}>
+          <div key={r.field} style={{ padding: "10px 14px", borderBottom: i < arr.length - 1 ? "1px solid var(--surface-3)" : "none", background: i % 2 === 0 ? "var(--surface-1)" : "var(--surface-2)" }}>
             <div style={{ fontWeight: 700, fontSize: "0.72rem", color: "var(--ink-900)", marginBottom: 2 }}>{r.field}</div>
             <div style={{ fontSize: "0.65rem", color: "var(--ink-500)", lineHeight: 1.4 }}>{r.note}</div>
           </div>
@@ -11869,7 +11869,7 @@ function FoodSafetyRef() {
 
       {/* Day-dot system */}
       {subHeader("Day-Dot Color System")}
-      <div style={{ border: "1.5px solid #e2e8f0", borderTop: "none", borderRadius: "0 0 12px 12px", overflow: "hidden", marginTop: -14 }}>
+      <div style={{ border: "1.5px solid var(--sdx-gray-200)", borderTop: "none", borderRadius: "0 0 12px 12px", overflow: "hidden", marginTop: -14 }}>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr" }}>
           {[
             { dot: "#ef4444", day: "Sunday" },
@@ -11880,7 +11880,7 @@ function FoodSafetyRef() {
             { dot: "#8b5cf6", day: "Friday" },
             { dot: "#6b7280", day: "Saturday" },
           ].map((d, i) => (
-            <div key={d.day} style={{ display: "flex", alignItems: "center", gap: 9, padding: "8px 12px", borderBottom: i < 6 ? "1px solid #f1f5f9" : "none", borderRight: i % 2 === 0 ? "1px solid #f1f5f9" : "none" }}>
+            <div key={d.day} style={{ display: "flex", alignItems: "center", gap: 9, padding: "8px 12px", borderBottom: i < 6 ? "1px solid var(--surface-3)" : "none", borderRight: i % 2 === 0 ? "1px solid var(--surface-3)" : "none" }}>
               <span style={{ display: "inline-block", width: 16, height: 16, borderRadius: "50%", background: d.dot, flexShrink: 0, border: "1.5px solid rgba(0,0,0,.10)" }} />
               <span style={{ fontSize: "0.7rem", color: "var(--ink-700)", fontWeight: 600 }}>{d.day}</span>
             </div>
@@ -11892,7 +11892,7 @@ function FoodSafetyRef() {
       </div>
 
       {/* Shelf lives */}
-      <div style={{ background: "#fefce8", border: "1.5px solid #fde68a", borderRadius: 10, padding: "12px 14px" }}>
+      <div style={{ background: "var(--tint-amber-1)", border: "1.5px solid #fde68a", borderRadius: 10, padding: "12px 14px" }}>
         <div style={{ fontWeight: 700, fontSize: "0.65rem", color: "var(--tx-amber-strong)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 8 }}>Common Shelf Lives at 41°F</div>
         {[
           { item: "Prepared salads (chicken, tuna, egg)", days: "3–5 days" },
@@ -11916,7 +11916,7 @@ function FoodSafetyRef() {
 
   const panelThawing = (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-      <div style={{ fontSize: "0.68rem", color: "var(--ink-500)", lineHeight: 1.6, background: "var(--surface-2)", border: "1.5px solid #e2e8f0", borderRadius: 10, padding: "10px 14px" }}>
+      <div style={{ fontSize: "0.68rem", color: "var(--ink-500)", lineHeight: 1.6, background: "var(--surface-2)", border: "1.5px solid var(--sdx-gray-200)", borderRadius: 10, padding: "10px 14px" }}>
         There are <strong>4 FDA-approved thawing methods</strong>. All other methods — especially leaving food on the counter — are unsafe.
       </div>
 
@@ -11926,8 +11926,8 @@ function FoodSafetyRef() {
         { label: "Microwave Thawing",    tag: "APPROVED", tagColor: "#1d4ed8", tagBg: "var(--tint-blue-2)", accent: "#6366f1", details: ["Use microwave's defrost setting", "MUST cook to proper temperature immediately after", "Partial cooking creates a dangerous bacteria window", "Do not let thawed portions sit at room temperature"] },
         { label: "Cook From Frozen",     tag: "APPROVED", tagColor: "#1d4ed8", tagBg: "var(--tint-blue-2)", accent: "#0891b2", details: ["Cook food directly from frozen — no pre-thaw needed", "Allow 50% more cook time than for thawed product", "Verify internal temperature with calibrated thermometer", "Common for frozen burgers, fish fillets, breakfast items"] },
       ].map(m => (
-        <div key={m.label} style={{ border: "1.5px solid #e2e8f0", borderRadius: 10, overflow: "hidden", background: "var(--surface-1)" }}>
-          <div style={{ background: "var(--surface-2)", borderBottom: "1px solid #e2e8f0", padding: "9px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+        <div key={m.label} style={{ border: "1.5px solid var(--sdx-gray-200)", borderRadius: 10, overflow: "hidden", background: "var(--surface-1)" }}>
+          <div style={{ background: "var(--surface-2)", borderBottom: "1px solid var(--sdx-gray-200)", padding: "9px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <span style={{ display: "inline-block", width: 4, height: 18, background: m.accent, borderRadius: 2, flexShrink: 0 }} />
               <span style={{ fontWeight: 700, fontSize: "0.74rem", color: "var(--ink-900)" }}>{m.label}</span>
@@ -11992,7 +11992,7 @@ function FoodSafetyRef() {
       {open && (
         <div style={{ padding: "0" }}>
           {/* Tab bar — segmented pills */}
-          <div style={{ display: "flex", gap: 6, padding: "12px 16px", background: "linear-gradient(180deg,#FAFBFF,#F3F5FB)", borderBottom: "1px solid #E4E8F2", overflowX: "auto" }}>
+          <div style={{ display: "flex", gap: 6, padding: "12px 16px", background: "linear-gradient(180deg,var(--surface-2),var(--surface-3))", borderBottom: "1px solid #E4E8F2", overflowX: "auto" }}>
             {tabs.map((t, i) => {
               const active = activeTab === i;
               return (
@@ -12008,8 +12008,8 @@ function FoodSafetyRef() {
                     padding: "8px 14px",
                     fontSize: "0.72rem",
                     fontWeight: 700,
-                    color: active ? "#fff" : "var(--sdx-gray-600)",
-                    background: active ? "linear-gradient(105deg, var(--sdx-navy), var(--sdx-blue))" : "#fff",
+                    color: active ? "var(--surface-1)" : "var(--sdx-gray-600)",
+                    background: active ? "linear-gradient(105deg, var(--sdx-navy), var(--sdx-blue))" : "var(--surface-1)",
                     border: active ? "1px solid transparent" : "1px solid var(--sdx-gray-200)",
                     borderRadius: 999,
                     cursor: "pointer",
@@ -12025,7 +12025,7 @@ function FoodSafetyRef() {
             })}
           </div>
           {/* Active panel */}
-          <div style={{ padding: "18px 20px", maxHeight: 520, overflowY: "auto", background: "#FDFDFF" }}>
+          <div style={{ padding: "18px 20px", maxHeight: 520, overflowY: "auto", background: "var(--surface-2)" }}>
             {panels[activeTab]}
           </div>
         </div>
