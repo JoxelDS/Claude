@@ -7266,3 +7266,11 @@ html.theme-fade, html.theme-fade *, html.theme-fade *::before, html.theme-fade *
 .dropdownMenu { top: calc(100% + 8px); }
 /* Modals and bottom sheets clear the home indicator */
 .modalBox { margin-bottom: env(safe-area-inset-bottom, 0px); }
+
+/* Phone header: logo never clips, actions stay on one row */
+@media (max-width: 640px) {
+  .topBar { padding-left: 14px; padding-right: 14px; }
+  .brandLeft { flex: 0 1 auto; min-width: 0; }
+  .brandLogo { height: 30px; max-width: 34vw; object-fit: contain; object-position: left center; }
+  .btnGenHeader, .btnGenHeader.btnPrimary { padding: 8px 12px; font-size: 0.78rem; }
+}

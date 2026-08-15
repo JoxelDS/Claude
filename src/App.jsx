@@ -22433,6 +22433,8 @@ export default function App() {
             width: "calc(100% + 56px)",   /* break out of parent's 28px padding on each side */
             marginLeft: -28,
             marginRight: -28,
+            flexBasis: "100%",            /* always its own full-width row below the header */
+            order: 99,
             background: isOnline ? "rgba(255,255,255,0.12)" : "rgba(220,38,38,0.85)",
             borderTop: isOnline ? "1px solid rgba(255,255,255,0.18)" : "1px solid rgba(239,68,68,0.5)",
             padding: "0.3rem 28px",
