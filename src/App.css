@@ -7297,3 +7297,25 @@ html.theme-fade, html.theme-fade *, html.theme-fade *::before, html.theme-fade *
   .topBar { min-height: calc(60px + env(safe-area-inset-top, 0px)); }
   .brandLogo { height: 26px; }
 }
+
+/* ── History card meta: tidy chip rows on phones ── */
+@media (max-width: 640px) {
+  .historyCard .cardSub {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 6px;
+    line-height: 1.5;
+  }
+  .historyCard .cardHeaderLeft { gap: 10px; }
+  .historyCard .cardTitle { font-size: 0.95rem; }
+  .typeBadge, .typeBadgeFloor, .typeBadgeLocType { padding: 2px 9px; font-size: 0.7rem; }
+}
+
+/* Black theme: history meta chips go dark-tinted (no pastel islands) */
+html[data-theme="black"] .typeBadgeRegular { background: var(--tint-green-1); color: var(--tx-green); border-color: #1F4635; }
+html[data-theme="black"] .typeBadgeEvent { background: var(--tint-amber-1); color: var(--tx-amber); border-color: #4A3A1C; }
+html[data-theme="black"] .typeBadgePost { background: var(--tint-blue-1); color: var(--tx-blue); border-color: #253355; }
+html[data-theme="black"] .typeBadgeLocType { background: var(--tint-blue-1); color: var(--tx-blue); border-color: #253355; }
+html[data-theme="black"] .typeBadgeFloor { background: var(--tint-amber-1); color: var(--tx-amber); border-color: #4A3A1C; }
+html[data-theme="black"] .typeBadgeEventTemp { background: var(--tint-amber-1); color: var(--tx-amber); border-color: #4A3A1C; }
