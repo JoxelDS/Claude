@@ -7249,3 +7249,20 @@ html.theme-fade, html.theme-fade *, html.theme-fade *::before, html.theme-fade *
 @media (prefers-reduced-motion: reduce) {
   html.theme-fade, html.theme-fade * { transition: none !important; }
 }
+
+/* ══════════════════════════════════════════════════════════════
+   iOS SAFE AREAS — respect the notch / Dynamic Island and home bar
+   ══════════════════════════════════════════════════════════════ */
+.topBar {
+  padding-top: env(safe-area-inset-top, 0px);
+  min-height: calc(72px + env(safe-area-inset-top, 0px));
+}
+.topBarSpacer {
+  min-height: calc(72px + env(safe-area-inset-top, 0px));
+}
+/* Sticky page headers (Messages, Performance, Admin) clear the notch too */
+.pinOverlay { padding-top: env(safe-area-inset-top, 0px); }
+.footer { padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px)); }
+.dropdownMenu { top: calc(100% + 8px); }
+/* Modals and bottom sheets clear the home indicator */
+.modalBox { margin-bottom: env(safe-area-inset-bottom, 0px); }
