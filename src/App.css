@@ -7322,3 +7322,15 @@ html[data-theme="black"] .typeBadgeEventTemp { background: var(--tint-amber-1); 
 
 /* Bottom sticky action bar clears the iPhone home indicator */
 .stickyActionBar { padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px)); }
+
+/* ── Performance Dashboard: Trends tab stacks to one column on phones ── */
+@media (max-width: 700px) {
+  .trendsTopGrid,
+  .trendsBottomGrid {
+    grid-template-columns: 1fr !important;
+  }
+  .trendsTopGrid > div,
+  .trendsBottomGrid > div {
+    min-width: 0 !important;
+  }
+}

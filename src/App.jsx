@@ -12153,35 +12153,66 @@ function LicensesTab({ history, invLicenseData, setInvLicenseData, invLicenseMis
       {/* Mismatch alerts */}
       {visibleMismatches.length > 0 && (
         <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-          <div style={{ fontSize: "0.65rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: "#b45309" }}>
-            License Mismatches Detected
+          <div style={{ display: "flex", alignItems: "baseline", gap: "0.5rem", flexWrap: "wrap" }}>
+            <div style={{ fontSize: "0.68rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: "#b45309" }}>
+              Fix These License Entries
+            </div>
+            <div style={{ fontSize: "0.64rem", color: "var(--ink-400)", fontWeight: 500 }}>
+              Tap the correct option — it applies to the whole site history
+            </div>
           </div>
-          {visibleMismatches.map(m => (
+          {visibleMismatches.map(m => {
+            // Split entries into real license numbers vs "no license" typed in
+            // different ways (NO, NO LICENCE, NO LISENCE, NO LICENSE …)
+            const isNoLic = (t) => /^no(\s*li[sc]+[ei]?n[sc]+e?)?$/i.test((t || "").trim());
+            const realLics = m.licenses.filter(l => !isNoLic(l));
+            const noLicVariants = m.licenses.filter(l => isNoLic(l));
+            const officialLic = lookupLicenseFromSeed(m.siteName, null);
+            const onlyTypos = realLics.length === 0;
+
+            const pick = (value) => {
+              setInvLicenseData(prev => ({ ...prev, [m.siteName]: { ...(prev[m.siteName] || {}), licenseNum: value, notes: value === "" ? "Confirmed: no license required / none on file" : (prev[m.siteName]?.notes || "") } }));
+              setDismissedMismatches(prev => new Set([...prev, m.siteName]));
+            };
+
+            return (
             <div key={m.siteName} style={{
-              background: "var(--tint-amber-1)", border: "1.5px solid #fcd34d", borderRadius: 11,
-              padding: "0.65rem 0.85rem",
+              background: "var(--tint-amber-1)", border: "1.5px solid #fcd34d", borderRadius: 12,
+              padding: "0.7rem 0.85rem",
             }}>
-              <div style={{ display: "flex", alignItems: "flex-start", gap: "0.5rem" }}>
-                <span style={{ fontSize: "1rem", flexShrink: 0 }}>🔔</span>
+              <div style={{ display: "flex", alignItems: "flex-start", gap: "0.55rem" }}>
+                <span style={{ fontSize: "1rem", flexShrink: 0 }}>{onlyTypos ? "✏️" : "🔔"}</span>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 700, fontSize: "0.78rem", color: "var(--ink-900)", marginBottom: 2 }}>{m.siteName}</div>
-                  <div style={{ fontSize: "0.72rem", color: "var(--tx-amber-strong)", lineHeight: 1.5 }}>
-                    We noticed <strong>{m.licenses.length} different license numbers</strong> in the inspection history for this location. Which one is correct?
-                  </div>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: "0.35rem", marginTop: "0.4rem" }}>
-                    {m.licenses.map(lic => {
-                      const officialLic = lookupLicenseFromSeed(m.siteName, null);
+                  <div style={{ fontWeight: 800, fontSize: "0.8rem", color: "var(--ink-900)", marginBottom: 2 }}>{m.siteName}</div>
+
+                  {onlyTypos ? (
+                    <div style={{ fontSize: "0.72rem", color: "var(--tx-amber-strong)", lineHeight: 1.5 }}>
+                      Inspectors wrote <strong>“No License”</strong> in {noLicVariants.length} different spellings
+                      ({noLicVariants.map(v => `“${v}”`).join(", ")}). This is just a typo — not a real conflict.
+                      Confirm below to clean it up.
+                    </div>
+                  ) : realLics.length === 1 && noLicVariants.length > 0 ? (
+                    <div style={{ fontSize: "0.72rem", color: "var(--tx-amber-strong)", lineHeight: 1.5 }}>
+                      Some inspections have the license <strong style={{ fontFamily: "monospace" }}>{realLics[0]}</strong>,
+                      while others say “No License”. Pick which is correct:
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: "0.72rem", color: "var(--tx-amber-strong)", lineHeight: 1.5 }}>
+                      <strong>{realLics.length} different license numbers</strong> were recorded for this location.
+                      Tap the correct one{officialLic ? " — the green one matches the official license sheet" : ""}:
+                    </div>
+                  )}
+
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "0.35rem", marginTop: "0.45rem", alignItems: "center" }}>
+                    {realLics.map(lic => {
                       const isOfficial = officialLic && lic === officialLic;
                       return (
                         <button key={lic} type="button"
-                          onClick={() => {
-                            setInvLicenseData(prev => ({ ...prev, [m.siteName]: { ...(prev[m.siteName] || {}), licenseNum: lic } }));
-                            setDismissedMismatches(prev => new Set([...prev, m.siteName]));
-                          }}
+                          onClick={() => pick(lic)}
                           style={{
-                            padding: "0.25rem 0.6rem", borderRadius: 7,
+                            padding: "0.3rem 0.65rem", borderRadius: 8,
                             border: isOfficial ? "2px solid #16a34a" : "1.5px solid #f59e0b",
-                            background: isOfficial ? "var(--tint-green-1)" : "#fff",
+                            background: isOfficial ? "var(--tint-green-1)" : "var(--surface-1)",
                             fontWeight: 700, fontSize: "0.72rem",
                             color: isOfficial ? "#15803d" : "var(--tx-amber)",
                             cursor: "pointer", fontFamily: "monospace",
@@ -12193,21 +12224,37 @@ function LicensesTab({ history, invLicenseData, setInvLicenseData, invLicenseMis
                         </button>
                       );
                     })}
+                    {noLicVariants.length > 0 && (
+                      <button type="button"
+                        onClick={() => pick("")}
+                        style={{
+                          padding: "0.3rem 0.65rem", borderRadius: 8,
+                          border: onlyTypos ? "2px solid var(--sdx-navy)" : "1.5px solid #cbd5e1",
+                          background: onlyTypos ? "var(--tint-blue-1)" : "var(--surface-1)",
+                          fontWeight: 700, fontSize: "0.72rem",
+                          color: onlyTypos ? "var(--sdx-navy)" : "var(--ink-600)",
+                          cursor: "pointer",
+                          display: "flex", alignItems: "center", gap: "0.3rem",
+                        }}>
+                        {onlyTypos ? "✓ Confirm — No License" : "No License"}
+                      </button>
+                    )}
                     <button type="button"
                       onClick={() => setDismissedMismatches(prev => new Set([...prev, m.siteName]))}
                       style={{
-                        padding: "0.25rem 0.6rem", borderRadius: 7,
-                        border: "1px solid #d1d5db", background: "transparent",
+                        padding: "0.3rem 0.6rem", borderRadius: 8,
+                        border: "1px solid transparent", background: "transparent",
                         fontWeight: 600, fontSize: "0.68rem", color: "var(--ink-500)",
-                        cursor: "pointer",
+                        cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2,
                       }}>
-                      Dismiss
+                      Skip for now
                     </button>
                   </div>
                 </div>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -15349,14 +15396,14 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
               <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
 
                 {/* ── Score over time + data table side by side on desktop ── */}
-                <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: "0.75rem", alignItems: "start" }}>
+                <div className="trendsTopGrid" style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: "0.75rem", alignItems: "start" }}>
                 <div style={{ background: "var(--surface-1)", borderRadius: 16, border: "1.5px solid #e2e8f0", overflow: "hidden" }}>
-                  <div style={{ padding: "0.6rem 0.9rem 0.4rem", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", gap: "0.75rem" }}>
-                    <div>
-                      <div style={{ fontWeight: 800, fontSize: "0.85rem", color: "var(--ink-900)" }}>Compliance Score Over Time</div>
+                  <div style={{ padding: "0.6rem 0.9rem 0.4rem", borderBottom: "1px solid #f1f5f9", display: "flex", flexWrap: "wrap", alignItems: "center", gap: "0.35rem 0.75rem" }}>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontWeight: 800, fontSize: "0.85rem", color: "var(--ink-900)", whiteSpace: "nowrap" }}>Compliance Score Over Time</div>
                       <div style={{ fontSize: "0.65rem", color: "var(--ink-400)" }}>Monthly average compliance % and pass rate</div>
                     </div>
-                    {/* Legend inline in header */}
+                    {/* Legend inline in header — wraps below the title on narrow screens */}
                     <div style={{ marginLeft: "auto", display: "flex", gap: "0.75rem", flexShrink: 0 }}>
                       {[["var(--sdx-navy)", "Compliance"], ["#22c55e", "Pass Rate"]].map(([color, label]) => (
                         <div key={label} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: "0.62rem", color: "var(--ink-500)", fontWeight: 600 }}>
@@ -15462,18 +15509,18 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
                 </div>{/* end top grid */}
 
                 {/* ── Bottom row: Recurring Issues + Volume side by side ── */}
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
+                <div className="trendsBottomGrid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
 
                 {/* ── Recurring Issues Bar Chart ── */}
                 <div style={{ background: "var(--surface-1)", borderRadius: 16, border: "1.5px solid #e2e8f0", overflow: "hidden" }}>
                   <div style={{ padding: "0.75rem 0.9rem 0.5rem", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", gap: "0.5rem" }}>
                     <span style={{ fontSize: "1rem" }}>🔁</span>
-                    <div>
-                      <div style={{ fontWeight: 800, fontSize: "0.88rem", color: "var(--ink-900)" }}>Recurring Issues</div>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontWeight: 800, fontSize: "0.88rem", color: "var(--ink-900)", whiteSpace: "nowrap" }}>Recurring Issues</div>
                       <div style={{ fontSize: "0.68rem", color: "var(--ink-400)" }}>Top issue categories across all inspections</div>
                     </div>
-                    <div style={{ marginLeft: "auto", fontWeight: 700, fontSize: "0.7rem", color: "var(--ink-400)" }}>
-                      {history.length} insp
+                    <div style={{ marginLeft: "auto", fontWeight: 700, fontSize: "0.68rem", color: "var(--ink-500)", background: "var(--surface-3)", borderRadius: 999, padding: "0.15rem 0.55rem", whiteSpace: "nowrap" }}>
+                      {history.length} inspections
                     </div>
                   </div>
 
