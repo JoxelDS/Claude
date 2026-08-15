@@ -13814,7 +13814,7 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
       </div>
 
       {/* ── HEADER ── */}
-      <div className="perfPrintHide" style={{ background: `linear-gradient(160deg, ${NAVY} 0%, #1d1c50 60%, #283897 100%)`, position: "relative" }}>
+      <div className="perfPrintHide" style={{ background: "var(--chrome-grad)", position: "relative" }}>
         {/* decorative red bottom line */}
         <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 3, background: `linear-gradient(90deg, ${RED}, #ff5555, ${RED})` }} />
 
@@ -14041,7 +14041,7 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
               {/* Quick podium summary — only if 3+ inspectors */}
               {ranking.length >= 3 && (
                 <div style={{
-                  background: `linear-gradient(135deg, ${NAVY} 0%, #1e1d4a 100%)`,
+                  background: "var(--chrome-grad)",
                   borderRadius: 14, padding: "0.75rem 1rem",
                   display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.5rem"
                 }}>
@@ -14193,7 +14193,7 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
                 {/* ── Section 1: Duration Overview ── */}
                 {timedRanking.length >= 1 && teamAvgSec && (
                   <div style={{
-                    background: `linear-gradient(135deg, ${NAVY} 0%, #1e1d4a 100%)`,
+                    background: "var(--chrome-grad)",
                     borderRadius: 16, padding: "1rem 1.1rem", color: "#fff",
                     boxShadow: "0 6px 24px rgba(42,41,92,0.25)"
                   }}>
@@ -14821,7 +14821,7 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
                 {hasAny && (
                   <div style={{ borderRadius: 16, overflow: "hidden", boxShadow: "0 8px 28px rgba(42,41,92,0.22)" }}>
                     {/* Dark navy header */}
-                    <div style={{ background: `linear-gradient(160deg, ${NAVY} 0%, #1d1c50 60%, #283897 100%)`, position: "relative", padding: "1rem 1.1rem 0.9rem" }}>
+                    <div style={{ background: "var(--chrome-grad)", position: "relative", padding: "1rem 1.1rem 0.9rem" }}>
                       {/* Red accent strip */}
                       <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 3, background: "linear-gradient(90deg, #EE0000, #ff5555, #EE0000)" }} />
                       <div style={{ fontSize: "0.58rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.12em", color: "rgba(255,255,255,0.55)", marginBottom: 10 }}>Equipment Inventory — All Locations</div>

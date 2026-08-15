@@ -7227,3 +7227,9 @@ html[data-theme="black"] .predictiveItem:hover { box-shadow: 0 4px 14px rgba(0,0
 html[data-theme="black"] .predictiveItemMsg { color: #ECEDF3; }
 html[data-theme="black"] .predictiveIntro { color: #979CB0; }
 html[data-theme="black"] .predictiveFooter { color: #6E7488; }
+
+/* Black theme: Performance Dashboard tab bar */
+html[data-theme="black"] .perfTabsWrapper { background: #17171D; border-color: #2A2A34; }
+html[data-theme="black"] .perfTab { color: #979CB0; }
+html[data-theme="black"] .perfTab:hover { background: rgba(255,255,255,.06); color: #ECEDF3; }
+html[data-theme="black"] .perfTab.perfTabActive { background: #26262E; color: #FFFFFF; box-shadow: 0 2px 8px rgba(0,0,0,.4); }
