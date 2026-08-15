@@ -7274,3 +7274,26 @@ html.theme-fade, html.theme-fade *, html.theme-fade *::before, html.theme-fade *
   .brandLogo { height: 30px; max-width: 34vw; object-fit: contain; object-position: left center; }
   .btnGenHeader, .btnGenHeader.btnPrimary { padding: 8px 12px; font-size: 0.78rem; }
 }
+
+/* ══════════════════════════════════════════════════════════════
+   PHONE SPACING PASS — tighter cards, no wasted bands
+   ══════════════════════════════════════════════════════════════ */
+@media (max-width: 640px) {
+  /* Report cards: compact, tidy wrapping */
+  .historyCard { padding: 12px 12px; }
+  .historyCard .card, .historyCardInner { padding: 10px; }
+  .historyMeta, .historyBadges { gap: 5px; row-gap: 5px; }
+  .grid { padding: 12px; gap: 12px; }
+  .cardBody { padding: 14px; }
+  .cardHeader { padding: 13px 14px; }
+  /* History tabs (Reports/Analytics tiles): shorter */
+  .historyTab { padding: 10px 8px; }
+  .historyTab .tabIcon { font-size: 1.1rem; }
+  /* Analytics sub-tab pills: tighter */
+  .analyticsSubTab { padding: 7px 10px; font-size: 0.68rem; }
+  /* Page headers built into pages: less vertical padding */
+  .topBar { min-height: 60px; }
+  .topBarSpacer { min-height: calc(60px + env(safe-area-inset-top, 0px)); }
+  .topBar { min-height: calc(60px + env(safe-area-inset-top, 0px)); }
+  .brandLogo { height: 26px; }
+}

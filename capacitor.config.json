@@ -16,8 +16,8 @@
     ]
   },
   "ios": {
-    "contentInset": "always",
-    "backgroundColor": "#2A295C",
+    "contentInset": "never",
+    "backgroundColor": "#0A0A0D",
     "scheme": "SDXInspect"
   },
   "plugins": {
