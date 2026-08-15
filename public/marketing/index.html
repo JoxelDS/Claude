@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SDX Inspect — Kitchen Inspection & Food Safety</title>
+<meta name="description" content="SDX Inspect is the all-in-one kitchen inspection and food safety compliance app for venue culinary teams. Digital checklists, instant PDF reports, smart insights.">
+<style>
+  :root {
+    --navy: #2A295C; --navy2: #283897; --red: #EE0000;
+    --ink: #1F2937; --muted: #6B7280; --bg: #F7F8FA; --card: #ffffff;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, 'Segoe UI', 'Inter', Arial, sans-serif; background: var(--bg); color: var(--ink); line-height: 1.65; }
+  .hero { background: linear-gradient(135deg, #2A295C 0%, #1e1d4a 45%, #283897 100%); color: #fff; padding: 72px 24px 88px; text-align: center; }
+  .hero h1 { font-size: clamp(2rem, 5vw, 3.2rem); font-weight: 800; letter-spacing: -0.5px; }
+  .hero .sub { max-width: 640px; margin: 18px auto 0; font-size: 1.1rem; color: rgba(255,255,255,.85); }
+  .badge { display: inline-block; background: var(--red); color: #fff; font-weight: 700; font-size: .75rem; letter-spacing: .12em; text-transform: uppercase; border-radius: 999px; padding: 6px 16px; margin-bottom: 20px; }
+  .cta { display: inline-block; margin-top: 28px; background: var(--red); color: #fff; font-weight: 700; padding: 14px 34px; border-radius: 12px; text-decoration: none; font-size: 1.05rem; box-shadow: 0 8px 24px rgba(238,0,0,.35); }
+  .cta:hover { filter: brightness(1.08); }
+  .cta.ghost { background: rgba(255,255,255,.12); box-shadow: none; margin-left: 10px; }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
+  section { padding: 64px 0; }
+  h2 { font-size: 1.7rem; color: var(--navy); text-align: center; margin-bottom: 8px; letter-spacing: -0.3px; }
+  .lead { text-align: center; color: var(--muted); max-width: 620px; margin: 0 auto 40px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; }
+  .card { background: var(--card); border: 1px solid #E5E7EB; border-radius: 16px; padding: 26px 24px; }
+  .card .ico { font-size: 1.8rem; }
+  .card h3 { font-size: 1.05rem; color: var(--navy); margin: 10px 0 6px; }
+  .card p { font-size: .92rem; color: var(--muted); }
+  .shots { display: flex; gap: 22px; justify-content: center; flex-wrap: wrap; }
+  .shots figure { width: min(240px, 42vw); }
+  .shots img { width: 100%; border-radius: 22px; border: 1px solid #E5E7EB; box-shadow: 0 18px 44px rgba(42,41,92,.18); display: block; }
+  .shots figcaption { text-align: center; font-size: .8rem; color: var(--muted); margin-top: 10px; font-weight: 600; }
+  .steps { counter-reset: step; max-width: 660px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+  .step { background: var(--card); border: 1px solid #E5E7EB; border-radius: 14px; padding: 18px 22px; display: flex; gap: 16px; align-items: flex-start; }
+  .step::before { counter-increment: step; content: counter(step); flex-shrink: 0; width: 34px; height: 34px; border-radius: 50%; background: var(--navy); color: #fff; font-weight: 800; display: flex; align-items: center; justify-content: center; }
+  .step b { color: var(--navy); }
+  .step p { font-size: .92rem; color: var(--muted); }
+  .dark-band { background: #0A0A0D; color: #fff; }
+  .dark-band h2 { color: #fff; }
+  .dark-band .lead { color: rgba(255,255,255,.65); }
+  footer { background: var(--navy); color: rgba(255,255,255,.8); padding: 36px 24px; text-align: center; font-size: .85rem; }
+  footer a { color: #fff; }
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <div class="badge">For Venue Culinary Teams</div>
+  <h1>SDX Inspect</h1>
+  <p class="sub">The all-in-one kitchen inspection &amp; food safety compliance app. From walk-through to signed report in minutes — on iPhone, iPad, and the web.</p>
+  <a class="cta" href="https://joxelds.github.io/Claude/">Open the App</a>
+  <a class="cta ghost" href="#guide">How it works</a>
+</div>
+
+<section>
+  <div class="wrap">
+    <h2>Everything your kitchen team needs</h2>
+    <p class="lead">Replace paper checklists and scattered spreadsheets with one fast, modern tool.</p>
+    <div class="grid">
+      <div class="card"><div class="ico">📋</div><h3>Guided Digital Checklists</h3><p>Facilities, equipment, utensils, hygiene, and operational compliance — every section guided, nothing missed.</p></div>
+      <div class="card"><div class="ico">🌡️</div><h3>Temperatures &amp; HACCP</h3><p>Log cooler and freezer readings on the spot, with ServSafe reference temps always one tap away.</p></div>
+      <div class="card"><div class="ico">📄</div><h3>Instant PDF Reports</h3><p>Generate clean, signature-ready reports the moment the walk-through ends.</p></div>
+      <div class="card"><div class="ico">📈</div><h3>Performance Dashboard</h3><p>Compliance scores, pass-rate trends, recurring issues, and follow-up reminders across every location.</p></div>
+      <div class="card"><div class="ico">🪪</div><h3>License Tracking</h3><p>Automatic checks against your official license list — mismatches surface themselves.</p></div>
+      <div class="card"><div class="ico">🔒</div><h3>Secure Badge Sign-In</h3><p>Every team member signs in with their work badge. Works offline; syncs when you reconnect.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="dark-band">
+  <div class="wrap">
+    <h2>Beautiful in light and dark</h2>
+    <p class="lead">Themes your team will actually enjoy using — including a full dark mode with customizable accent colors.</p>
+    <div class="shots">
+      <figure><img src="img/signin.png" alt="Badge sign-in screen"><figcaption>Badge Sign-In</figcaption></figure>
+      <figure><img src="img/inspection.png" alt="Inspection form"><figcaption>Guided Inspection</figcaption></figure>
+      <figure><img src="img/foodsafety.png" alt="Food safety quick reference"><figcaption>Food Safety Reference</figcaption></figure>
+      <figure><img src="img/dark.png" alt="Dark mode"><figcaption>Dark Mode</figcaption></figure>
+    </div>
+  </div>
+</section>
+
+<section id="guide">
+  <div class="wrap">
+    <h2>The inspection guide</h2>
+    <p class="lead">How a walk-through works in SDX Inspect — five steps, start to finish.</p>
+    <div class="steps">
+      <div class="step"><div><b>Sign in with your badge.</b><p>Tap in your work badge number — your name, role, and venue load instantly.</p></div></div>
+      <div class="step"><div><b>Confirm you're on site.</b><p>Start the inspection timer so floor time is tracked automatically for the report.</p></div></div>
+      <div class="step"><div><b>Walk the kitchen with the guided checklist.</b><p>Facilities, equipment, temperatures, hygiene, operations — mark items, note violations, attach photos as you go.</p></div></div>
+      <div class="step"><div><b>Save the report.</b><p>A clean, professional PDF is generated on the spot, ready for signatures and filing.</p></div></div>
+      <div class="step"><div><b>Track what matters.</b><p>The Performance Dashboard turns every inspection into trends, insights, recurring-issue alerts, and follow-up reminders.</p></div></div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <p>SDX Inspect · A kitchen inspection tool for authorized venue staff</p>
+  <p style="margin-top:8px"><a href="https://joxelds.github.io/Claude/">Open the App</a> · <a href="https://joxelds.github.io/Claude/privacy.html">Privacy Policy</a> · <a href="mailto:joxelpanita@gmail.com">Contact</a></p>
+</footer>
+
+</body>
+</html>
