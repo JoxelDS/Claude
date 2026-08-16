@@ -22630,51 +22630,9 @@ export default function App() {
               </button>
             )}
             {currentUser && (
-              <button className="dropdownMenuItem" onClick={e => { e.stopPropagation(); setAppearanceOpen(o => !o); }} type="button">
-                🎨 App Color {appearanceOpen ? "▲" : "▼"}
+              <button className="dropdownMenuItem" onClick={() => { setAppearanceOpen(true); setMenuOpen(false); }} type="button">
+                🎨 App Color
               </button>
-            )}
-            {currentUser && appearanceOpen && (
-              <div style={{ padding: "0.4rem 1rem 0.7rem", display: "flex", flexDirection: "column", gap: 8 }} onClick={e => e.stopPropagation()}>
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  {THEMES.map(t => {
-                    const activeId = personalTheme || venueSettings?.theme || "sodexo";
-                    const isActive = activeId === t.id;
-                    return (
-                      <button key={t.id} type="button" title={t.name}
-                        onClick={() => savePersonalTheme(t.id, personalAccent)}
-                        style={{
-                          width: 34, height: 34, borderRadius: "50%", background: t.swatch,
-                          border: isActive ? "2.5px solid var(--sdx-red)" : "2px solid rgba(148,163,184,.4)",
-                          cursor: "pointer", boxShadow: isActive ? "0 0 0 2px rgba(238,0,0,.25)" : "none",
-                        }} />
-                    );
-                  })}
-                </div>
-                {(personalTheme || venueSettings?.theme) === "black" && (
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-                    <span style={{ fontSize: "0.68rem", color: "var(--ink-500)", fontWeight: 700 }}>Accent:</span>
-                    {BLACK_ACCENTS.map(a => {
-                      const isActive = (personalAccent || venueSettings?.blackAccent || "red") === a.id;
-                      return (
-                        <button key={a.id} type="button" title={a.name}
-                          onClick={() => savePersonalTheme(personalTheme || venueSettings?.theme || "black", a.id)}
-                          style={{
-                            width: 24, height: 24, borderRadius: "50%", background: a.c,
-                            border: isActive ? "2.5px solid #fff" : "2px solid rgba(148,163,184,.4)",
-                            cursor: "pointer", boxShadow: isActive ? `0 0 0 2px ${a.c}` : "none",
-                          }} />
-                      );
-                    })}
-                  </div>
-                )}
-                {personalTheme && (
-                  <button type="button" onClick={() => savePersonalTheme("", "")}
-                    style={{ alignSelf: "flex-start", background: "none", border: "none", color: "var(--ink-500)", fontSize: "0.72rem", fontWeight: 600, cursor: "pointer", textDecoration: "underline", padding: 0 }}>
-                    Reset to venue default
-                  </button>
-                )}
-              </div>
             )}
             {lockConfirm ? (
               <div style={{ padding: "0.5rem 1rem 0.7rem", display: "flex", flexDirection: "column", gap: 6, borderTop: "1px solid rgba(239,68,68,.35)", background: "rgba(220,38,38,.14)", borderRadius: "0 0 12px 12px" }} onClick={e => e.stopPropagation()}>
@@ -24470,6 +24428,78 @@ export default function App() {
       {showShareModal && (
         <ShareModal shareUrl={shareUrl} onClose={() => setShowShareModal(false)} />
       )}
+      {/* ── Personal App Color modal — same design as the admin theme picker ── */}
+      {appearanceOpen && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 10000, background: "rgba(0,0,0,.55)", backdropFilter: "blur(3px)", WebkitBackdropFilter: "blur(3px)", overflowY: "auto", padding: "6vh 16px" }}
+          onClick={() => setAppearanceOpen(false)}>
+          <div className="card" style={{ maxWidth: 560, margin: "0 auto" }} onClick={e => e.stopPropagation()}>
+            <div className="cardHeader" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div className="cardTitle">🎨 App Color</div>
+              <button type="button" onClick={() => setAppearanceOpen(false)}
+                style={{ background: "none", border: "none", fontSize: "1.2rem", cursor: "pointer", color: "var(--ink-400)", lineHeight: 1, padding: 4 }}>✕</button>
+            </div>
+            <div className="cardBody">
+              <p style={{ margin: "0 0 0.75rem", fontSize: "0.88rem", color: "var(--ink-500)" }}>
+                Pick the look of the app on this device. This is your personal choice — it doesn't change the theme for anyone else.
+              </p>
+              <div className="themeGrid">
+                {THEMES.map(t => {
+                  const active = (personalTheme || venueSettings?.theme || "sodexo") === t.id;
+                  return (
+                    <button key={t.id} type="button"
+                      className={`themeCard${active ? " active" : ""}`}
+                      onClick={() => savePersonalTheme(t.id, personalAccent)}>
+                      <div className="themeSwatch" style={{ background: t.swatch }}>
+                        <img src={t.logo} alt={t.name} />
+                      </div>
+                      <div className="themeMeta">
+                        <span className="themeName">{t.name}</span>
+                        {active && <span className="themeCheck">✓ Active</span>}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+              {((personalTheme || venueSettings?.theme) === "black") && (
+                <div style={{ marginTop: 16, paddingTop: 14, borderTop: "1px solid var(--sdx-gray-200)" }}>
+                  <div style={{ fontWeight: 700, fontSize: "0.84rem", color: "var(--ink-900)", marginBottom: 4 }}>Accent Color</div>
+                  <p style={{ margin: "0 0 10px", fontSize: "0.78rem", color: "var(--ink-500)" }}>
+                    Pick the color that dominates the dark theme — buttons, highlights, and active tabs.
+                  </p>
+                  <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                    {BLACK_ACCENTS.map(a => {
+                      const active = (personalAccent || venueSettings?.blackAccent || "red") === a.id;
+                      return (
+                        <button key={a.id} type="button" title={a.name}
+                          onClick={() => savePersonalTheme(personalTheme || venueSettings?.theme || "black", a.id)}
+                          style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 5, background: "none", border: "none", cursor: "pointer", padding: 2 }}>
+                          <span style={{
+                            width: 40, height: 40, borderRadius: "50%", background: a.c,
+                            border: active ? "3px solid var(--ink-900)" : "3px solid transparent",
+                            boxShadow: active ? `0 0 0 2px ${a.c}, 0 4px 12px ${a.c}66` : "0 2px 6px rgba(0,0,0,.3)",
+                            display: "flex", alignItems: "center", justifyContent: "center",
+                            transition: "transform .15s ease, box-shadow .15s ease",
+                            transform: active ? "scale(1.08)" : "scale(1)",
+                            color: "#fff", fontWeight: 800, fontSize: "0.9rem",
+                          }}>{active ? "✓" : ""}</span>
+                          <span style={{ fontSize: "0.66rem", fontWeight: 600, color: active ? "var(--ink-900)" : "var(--ink-500)" }}>{a.name}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+              {personalTheme && (
+                <button type="button" onClick={() => savePersonalTheme("", "")}
+                  className="btn btnGhost" style={{ marginTop: 16, fontSize: "0.8rem" }}>
+                  ↩︎ Reset to venue default
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {showHaccpModal && (
         <HaccpQrModal onClose={() => setShowHaccpModal(false)} siteName={siteName} siteNumber={siteNumber} floor={floor} locationType={locationType} reportId={savedReportId} />
       )}
