@@ -7334,3 +7334,12 @@ html[data-theme="black"] .typeBadgeEventTemp { background: var(--tint-amber-1); 
     min-width: 0 !important;
   }
 }
+
+/* ── Login card vertically centered on phones ── */
+@media (max-width: 768px) and (min-height: 501px) {
+  .pinOverlay {
+    align-items: center !important;
+    padding-top: max(16px, env(safe-area-inset-top)) !important;
+    padding-bottom: max(16px, env(safe-area-inset-bottom)) !important;
+  }
+}
