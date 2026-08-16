@@ -7343,3 +7343,11 @@ html[data-theme="black"] .typeBadgeEventTemp { background: var(--tint-amber-1); 
     padding-bottom: max(16px, env(safe-area-inset-bottom)) !important;
   }
 }
+
+/* ── Action Items rows readable on phone: badge + Resolve on top, description full width below ── */
+@media (max-width: 640px) {
+  .issueRow { flex-wrap: wrap; }
+  .issueRow > div:first-child { flex-wrap: wrap; row-gap: 6px; align-items: center; }
+  .issueRow > div:first-child > div { flex: 1 1 100%; }
+  .issueRow .issueRowText { display: block; line-height: 1.5; }
+}

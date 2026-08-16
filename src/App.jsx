@@ -7303,6 +7303,8 @@ function PredictiveInsightsPanel({ history }) {
 
 /* ── Recurring Issues Analysis ──────────────────────────── */
 function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDrilldown, venueSettings, saveVenueSettings }) {
+  // Locally cleared follow-ups — instant feedback independent of settings sync
+  const [clearedLocal, setClearedLocal] = useState({});
   const analysis = useMemo(() => {
     if (history.length < 2) return null;
 
@@ -7405,7 +7407,7 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
 
     // 6. Follow-ups: open issues that need a recheck or look resolved
     const recheckDays = Number(venueSettings?.recheckDays) || 7;
-    const cleared = venueSettings?.followupCleared || {};
+    const cleared = { ...(venueSettings?.followupCleared || {}), ...clearedLocal };
     const latestInspByLoc = {};   // locName -> newest inspection timestamp
     const catLastSeen = {};       // "loc::cat" -> { ts, dateStr, count }
     for (const rec of history) {
@@ -7419,9 +7421,9 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
         if (recResolvedMap[i]) return;
         const cat = item.issue?.split(":")[0]?.trim() || "Other";
         const key = `${locName}::${cat}`;
-        if (!catLastSeen[key]) catLastSeen[key] = { ts: 0, dateStr: "", count: 0 };
+        if (!catLastSeen[key]) catLastSeen[key] = { ts: 0, dateStr: "", count: 0, unit: "" };
         catLastSeen[key].count++;
-        if (ts > catLastSeen[key].ts) { catLastSeen[key].ts = ts; catLastSeen[key].dateStr = rec.inspectionDate; }
+        if (ts > catLastSeen[key].ts) { catLastSeen[key].ts = ts; catLastSeen[key].dateStr = rec.inspectionDate; catLastSeen[key].unit = (rec.siteNumber || "").trim(); }
       });
     }
     const now = Date.now();
@@ -7436,17 +7438,19 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
         const daysSince = Math.floor((now - v.ts) / (24 * 60 * 60 * 1000));
         const likelyResolved = (latestInspByLoc[loc] || 0) > v.ts;   // a newer inspection had no such issue
         const overdue = !likelyResolved && daysSince >= recheckDays;
-        return { key, loc, cat, daysSince, count: v.count, dateStr: v.dateStr, likelyResolved, overdue };
+        return { key, loc, cat, unit: v.unit || "", daysSince, count: v.count, dateStr: v.dateStr, likelyResolved, overdue };
       })
       .sort((a, b) => (b.overdue - a.overdue) || (a.likelyResolved - b.likelyResolved) || b.daysSince - a.daysSince)
       .slice(0, 12);
 
     return { recurring, locationRecurring, tempComplianceRate, tempChecks, tempFails, totalInspections: history.length, worstLocations, followups, recheckDays };
-  }, [history, venueSettings]);
+  }, [history, venueSettings, clearedLocal]);
 
   const [remindedKey, setRemindedKey] = useState(null);
 
   function markResolved(f) {
+    // Instant local removal — works even if the shared-settings sync is slow
+    setClearedLocal(prev => ({ ...prev, [f.key]: Date.now() }));
     const prev = venueSettings?.followupCleared || {};
     saveVenueSettings?.({ followupCleared: { ...prev, [f.key]: Date.now() } });
   }
@@ -7457,7 +7461,7 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
       const a = {
         id: Date.now(),
         title: `🔁 Recheck Needed — ${f.cat}`,
-        body: `${f.cat} at ${f.loc} was flagged ${f.daysSince} day${f.daysSince !== 1 ? "s" : ""} ago (${f.dateStr}) and is still open. Please recheck this item on your next walkthrough and mark it resolved in the report.`,
+        body: `${f.cat} at ${f.loc}${f.unit ? ` (Unit #${f.unit})` : ""} was flagged ${f.daysSince} day${f.daysSince !== 1 ? "s" : ""} ago (${f.dateStr}) and is still open. Please recheck this item on your next walkthrough and mark it resolved in the report.`,
         author: "Insights Auto-Reminder",
         ts: Date.now(),
         quickCheck: true,
@@ -7525,7 +7529,7 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
                     {f.overdue ? "⏰" : f.likelyResolved ? "✅" : "👁"}
                   </div>
                   <div className="fuBody" style={{ cursor: "pointer" }} onClick={() => onIssueDrilldown?.(f.loc, f.cat)}>
-                    <div className="fuTitle">{f.cat} <span className="fuLoc">· {f.loc}</span></div>
+                    <div className="fuTitle">{f.cat} <span className="fuLoc">· {f.loc}{f.unit ? ` · Unit #${f.unit}` : ""}</span></div>
                     <div className="fuMeta">
                       {f.likelyResolved
                         ? `Not seen in the latest inspection — confirm it's fixed and clear it`
