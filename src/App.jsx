@@ -20536,7 +20536,7 @@ function MessagingPanel({ currentUser, onBack, notifItems, onNotifDismiss, onNot
                   style={{ width: "100%", border: "1.5px solid #e2e8f0", borderRadius: 8, padding: "0.4rem 0.6rem", fontSize: "0.82rem", resize: "none", outline: "none", fontFamily: "inherit", boxSizing: "border-box", marginBottom: 8 }}
                 />
                 {/* Quick Check toggle */}
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: annIsQuickCheck ? 10 : 0 }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", flexWrap: "wrap", gap: 8, marginBottom: annIsQuickCheck ? 10 : 12 }}>
                   <button type="button"
                     onClick={() => setAnnIsQuickCheck(v => !v)}
                     style={{ display: "flex", alignItems: "center", gap: 6, background: annIsQuickCheck ? "var(--tint-amber-2)" : "var(--surface-3)", border: annIsQuickCheck ? "1.5px solid #f59e0b" : "1.5px solid #e2e8f0", borderRadius: 20, padding: "4px 13px", fontSize: "0.78rem", fontWeight: 700, color: annIsQuickCheck ? "var(--tx-amber)" : "var(--ink-500)", cursor: "pointer", transition: "all 0.15s" }}>
