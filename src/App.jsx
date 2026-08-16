@@ -10703,13 +10703,13 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                         {dlPickerId !== rec.id ? (
                           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
                             <button className="btn" type="button"
-                              style={{ background: "var(--sdx-navy)", color: "#fff", borderColor: "var(--sdx-navy)", fontWeight: 600, padding: "0.6rem 1rem" }}
+                              style={{ background: "var(--sdx-navy)", color: "#fff", borderColor: "var(--sdx-navy)", fontWeight: 600, padding: "0.6rem 1rem", flex: "2 1 auto", justifyContent: "center" }}
                               onClick={() => { setDlPickerId(rec.id); setDlScope(null); import("exceljs").catch(() => {}); }}>
                               ⬇️ Download Report
                             </button>
                             {onEdit && canEditRec(rec) && (
                               <button className="btn btnGhost" type="button"
-                                style={{ color: "#2563EB", borderColor: "rgba(37,99,235,.3)", padding: "0.6rem 1rem" }}
+                                style={{ color: "#2563EB", borderColor: "rgba(37,99,235,.3)", padding: "0.6rem 1rem", flex: "1 1 auto", justifyContent: "center" }}
                                 onClick={() => onEdit(rec)}>✏️ Edit</button>
                             )}
                             {confirmDeleteId === rec.id ? (
@@ -10724,7 +10724,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                               </div>
                             ) : (
                               <button className="btn btnGhost" type="button"
-                                style={{ color: "#EE0000", borderColor: "rgba(238,0,0,.3)", padding: "0.6rem 1rem" }}
+                                style={{ color: "#EE0000", borderColor: "rgba(238,0,0,.3)", padding: "0.6rem 1rem", flex: "1 1 auto", justifyContent: "center" }}
                                 onClick={() => setConfirmDeleteId(rec.id)}>🗑 Delete</button>
                             )}
                           </div>
