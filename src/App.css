@@ -7431,3 +7431,4 @@ html[data-theme="black"] .rptStatusPass { background: rgba(22,163,74,.22); color
 html[data-theme="black"] .rptStatusBadge.rptStatusFail,
 html[data-theme="black"] .rptStatusFail { background: rgba(220,38,38,.22); color: #fca5a5; border-color: rgba(252,165,165,.45); }
 html[data-theme="black"] .historyCard .cardBody { background: var(--surface-1); }
+html[data-theme="black"] .rptFullReport > div:last-child { background: var(--surface-2); border-top-color: var(--surface-3); }
