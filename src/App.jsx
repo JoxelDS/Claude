@@ -11200,6 +11200,18 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
         <img src={resolveLogoWhite()} alt={resolveCompanyName()} className="footerLogo" />
         <span>{FIREBASE_ON ? "\u2601\uFE0F Inspection history synced to cloud database." : "Inspection history is stored locally in your browser."}</span>
       </footer>
+
+      {/* HACCP QR opened from a history card */}
+      {historyQrRec && (
+        <HaccpQrModal
+          onClose={() => setHistoryQrRec(null)}
+          siteName={historyQrRec.siteName || historyQrRec.location || ""}
+          siteNumber={historyQrRec.siteNumber || ""}
+          floor={historyQrRec.floor || ""}
+          locationType={historyQrRec.locationType || ""}
+          reportId={historyQrRec.id || ""}
+        />
+      )}
     </div>
   );
 }
@@ -24391,18 +24403,6 @@ export default function App() {
       )}
       {showHaccpModal && (
         <HaccpQrModal onClose={() => setShowHaccpModal(false)} siteName={siteName} siteNumber={siteNumber} floor={floor} locationType={locationType} reportId={savedReportId} />
-      )}
-
-      {/* HACCP QR opened from a history card */}
-      {historyQrRec && (
-        <HaccpQrModal
-          onClose={() => setHistoryQrRec(null)}
-          siteName={historyQrRec.siteName || historyQrRec.location || ""}
-          siteNumber={historyQrRec.siteNumber || ""}
-          floor={historyQrRec.floor || ""}
-          locationType={historyQrRec.locationType || ""}
-          reportId={historyQrRec.id || ""}
-        />
       )}
       {/* Chat is now embedded inline in the report output section */}
 
