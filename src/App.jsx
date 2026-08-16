@@ -932,17 +932,48 @@ function legacyCol(name) {
 // (updated by setVenue()) rather than the frozen URL param captured at module load.
 function IS_DEFAULT_VENUE() { return activeVenueId === "default"; }
 
+/* ── Speed layer ──────────────────────────────────────────────
+   Memory + localStorage caches so screens render instantly and
+   refresh silently in the background. Mutations invalidate.    */
+const _speedCache = { users: null, usersTs: 0, history: {} };
+
 /* ── User Registry ────────────────────────────────────────── */
-async function getUsers() {
+async function _fetchUsersFresh() {
+  // Default venue: read from legacy flat collection (existing data lives there)
+  const col = IS_DEFAULT_VENUE() ? legacyCol("users") : venueCol("users");
+  const timeout = new Promise((_, reject) =>
+    setTimeout(() => reject(new Error("Firestore timeout after 8s")), 8000)
+  );
+  const snap = await Promise.race([getDocs(col), timeout]);
+  const users = snap.docs.map(d => d.data());
+  _speedCache.users = users;
+  _speedCache.usersTs = Date.now();
+  try { localStorage.setItem(`sdx_users_cache_${activeVenueId}`, JSON.stringify(users)); } catch {}
+  return users;
+}
+
+async function getUsers(opts = {}) {
   if (FIREBASE_ON) {
     try {
-      // Default venue: read from legacy flat collection (existing data lives there)
-      const col = IS_DEFAULT_VENUE() ? legacyCol("users") : venueCol("users");
-      const timeout = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error("Firestore timeout after 8s")), 8000)
-      );
-      const snap = await Promise.race([getDocs(col), timeout]);
-      return snap.docs.map(d => d.data());
+      const now = Date.now();
+      // 1) In-memory cache — instant, refreshed every 60s
+      if (!opts.fresh && _speedCache.users && now - _speedCache.usersTs < 60000) {
+        return _speedCache.users;
+      }
+      // 2) localStorage warm copy — instant, refresh fired in background
+      if (!opts.fresh) {
+        try {
+          const cached = JSON.parse(localStorage.getItem(`sdx_users_cache_${activeVenueId}`) || "null");
+          if (Array.isArray(cached) && cached.length > 0) {
+            _speedCache.users = cached;
+            _speedCache.usersTs = now;
+            _fetchUsersFresh().catch(() => {});
+            return cached;
+          }
+        } catch { /* fall through to fresh fetch */ }
+      }
+      // 3) Fresh fetch
+      return await _fetchUsersFresh();
     } catch (e) {
       console.error("Firestore getUsers error:", e);
       throw e; // surface so sign-in shows a real error instead of "badge not recognized"
@@ -950,6 +981,12 @@ async function getUsers() {
   }
   try { return JSON.parse(localStorage.getItem(USERS_KEY) || "[]"); }
   catch { return []; }
+}
+
+function _invalidateUserCache() {
+  _speedCache.users = null;
+  _speedCache.usersTs = 0;
+  try { localStorage.removeItem(`sdx_users_cache_${activeVenueId}`); } catch {}
 }
 
 async function saveUsers(users) {
@@ -960,6 +997,7 @@ async function saveUsers(users) {
         await setDoc(doc(col, u.badgeHash), u);
       }
     } catch (e) { console.error("Firestore saveUsers error:", e); }
+    _invalidateUserCache();
     return;
   }
   localStorage.setItem(USERS_KEY, JSON.stringify(users));
@@ -971,6 +1009,7 @@ async function saveOneUser(user) {
       const col = IS_DEFAULT_VENUE() ? legacyCol("users") : venueCol("users");
       await setDoc(doc(col, user.badgeHash), user);
     } catch {}
+    _invalidateUserCache();
     return;
   }
   const users = await getUsers();
@@ -983,6 +1022,7 @@ async function deleteOneUser(badgeHash) {
   if (FIREBASE_ON) {
     const col = IS_DEFAULT_VENUE() ? legacyCol("users") : venueCol("users");
     await deleteDoc(doc(col, badgeHash));
+    _invalidateUserCache();
     return;
   }
   const users = await getUsers();
@@ -1083,6 +1123,17 @@ async function loadHistory(forVenueId, opts = {}) {
     try {
       const { dateFrom, dateTo, lastDoc: cursor, pageSize = 50 } = opts;
       const targetVenue = forVenueId || VENUE_ID;
+
+      // Full unfiltered loads (dashboards) — serve the 60s in-memory copy
+      // instantly instead of re-downloading the entire history every visit.
+      const isFullLoad = !dateFrom && !dateTo && !cursor && pageSize >= 1000;
+      if (isFullLoad && !opts.fresh) {
+        const c = _speedCache.history[targetVenue];
+        if (c && Date.now() - c.ts < 60000) {
+          return { list: c.list, lastDoc: null, hasMore: false };
+        }
+      }
+
       const col = targetVenue === "default" ? legacyCol("inspections") : collection(db, "venues", targetVenue, "inspections");
 
       const constraints = [orderBy("savedAt", "desc")];
@@ -1095,6 +1146,9 @@ async function loadHistory(forVenueId, opts = {}) {
       const hasMore = snap.docs.length > pageSize;
       const docs = hasMore ? snap.docs.slice(0, pageSize) : snap.docs;
       const list = docs.map(d => d.data());
+      if (isFullLoad) {
+        _speedCache.history[targetVenue] = { list, ts: Date.now() };
+      }
       return { list, lastDoc: docs[docs.length - 1] ?? null, hasMore };
     } catch { return { list: [], lastDoc: null, hasMore: false }; }
   }
@@ -1113,6 +1167,7 @@ async function saveHistory(records) {
         await setDoc(doc(col, rec.id), rec);
       }
     } catch (e) { console.error("Firestore saveHistory error:", e); }
+    _speedCache.history = {}; // new report — invalidate cached lists
     return;
   }
   if (!_cryptoKey) return;
@@ -1497,12 +1552,24 @@ function subscribeChatMessages(sessionId, onUpdate) {
 
 /* ── Auth functions ───────────────────────────────────────── */
 async function signIn(badge) {
-  await ensureSeedAdmin();
-  await ensureGlobalAdmin(); // always keep Joxel's record correct
-  await ensureAppReviewUser(); // demo badge 448800 for App Store review
+  // FAST PATH: check the badge against the cached user list first —
+  // the maintenance checks (seed admin / global admin / review user)
+  // only need to run when the badge isn't found.
   const h = await hashBadge(badge);
-  const users = await getUsers();
-  const user = users.find(u => u.badgeHash === h);
+  let users = await getUsers();
+  let user = users.find(u => u.badgeHash === h);
+  if (!user || !user.approved) {
+    // Cache miss or stale approval — run maintenance, then retry live
+    await ensureSeedAdmin();
+    await ensureGlobalAdmin(); // always keep Joxel's record correct
+    await ensureAppReviewUser(); // demo badge 448800 for App Store review
+    users = await getUsers({ fresh: true });
+    user = users.find(u => u.badgeHash === h);
+  } else {
+    // Known user — keep the maintenance records correct in the background
+    ensureGlobalAdmin().catch(() => {});
+    ensureAppReviewUser().catch(() => {});
+  }
   if (!user) return { ok: false, reason: "not_found" };
   if (!user.approved) return { ok: false, reason: "pending" };
   if (!FIREBASE_ON) _cryptoKey = await getMasterKey();
@@ -7803,6 +7870,18 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
     setHistoryLastDoc(null);
     setHistoryHasMore(false);
     setHistoryLoaded(false);
+    // INSTANT RENDER: unfiltered view shows the locally cached copy right away
+    // while the fresh page downloads behind it.
+    if (!filterDateFrom && !filterDateTo) {
+      try {
+        const cached = JSON.parse(localStorage.getItem(`sdx_history_cache_${managedVenueId || VENUE_ID}`) || "[]");
+        if (Array.isArray(cached) && cached.length > 0) {
+          setHistory(cached.slice(0, 30));
+          setHistoryHasMore(cached.length > 30);
+          setHistoryLoaded(true);
+        }
+      } catch { /* no cache yet */ }
+    }
     loadHistory(managedVenueId || undefined, {
       dateFrom: filterDateFrom || undefined,
       dateTo: filterDateTo || undefined,
@@ -21553,6 +21632,15 @@ export default function App() {
     resetActivity();
     // Merge shared site map from Firestore into local autofill memory (non-blocking)
     syncSharedSiteMap();
+    // Warm the history cache in the background so History and the
+    // Performance Dashboard open instantly this session
+    loadHistory(undefined, { pageSize: 2000 }).then(({ list }) => {
+      try {
+        const slim = (list || []).map(r => { const { photos, itemPhotos, ...rest } = r; return rest; });
+        const json = JSON.stringify(slim);
+        if (json.length < 4_000_000) localStorage.setItem(`sdx_history_cache_${VENUE_ID}`, json);
+      } catch { /* quota — not critical */ }
+    }).catch(() => {});
     // Request notification permission — native plugin in the iOS/Android
     // app, browser API on the web
     const LN = window.Capacitor?.Plugins?.LocalNotifications;
