@@ -22677,15 +22677,15 @@ export default function App() {
               </div>
             )}
             {lockConfirm ? (
-              <div style={{ padding: "0.5rem 1rem", display: "flex", flexDirection: "column", gap: 6, borderTop: "1px solid #fee2e2", background: "var(--tint-red-1)" }} onClick={e => e.stopPropagation()}>
-                <span style={{ fontSize: "0.82rem", color: "#b91c1c", fontWeight: 600 }}>Lock the app?</span>
+              <div style={{ padding: "0.5rem 1rem 0.7rem", display: "flex", flexDirection: "column", gap: 6, borderTop: "1px solid rgba(239,68,68,.35)", background: "rgba(220,38,38,.14)", borderRadius: "0 0 12px 12px" }} onClick={e => e.stopPropagation()}>
+                <span style={{ fontSize: "0.82rem", color: "#fca5a5", fontWeight: 700 }}>Lock the app?</span>
                 <div style={{ display: "flex", gap: 6 }}>
-                  <button className="btn" style={{ flex: 1, background: "#dc2626", color: "#fff", border: "none", fontSize: "0.8rem", padding: "0.3rem 0" }}
+                  <button className="btn" style={{ flex: 1, background: "#dc2626", color: "#fff", border: "none", fontSize: "0.8rem", padding: "0.35rem 0", fontWeight: 700 }}
                     type="button"
                     onClick={() => { setLockConfirm(false); lockApp(); setCurrentUser(null); setLocked(true); }}>
                     Yes, Lock
                   </button>
-                  <button className="btn btnGhost" style={{ flex: 1, fontSize: "0.8rem", padding: "0.3rem 0" }}
+                  <button className="btn" style={{ flex: 1, fontSize: "0.8rem", padding: "0.35rem 0", background: "rgba(255,255,255,.1)", color: "#fff", border: "1px solid rgba(255,255,255,.35)", fontWeight: 600 }}
                     type="button"
                     onClick={() => setLockConfirm(false)}>
                     Cancel
