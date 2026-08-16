@@ -7390,3 +7390,27 @@ html[data-theme="black"] .priorityFollowup { background: rgba(129,140,248,.2); c
   .issueRow .issueRowText { display: block; line-height: 1.55; }
   .issueRow > .btn { margin-left: auto; }
 }
+
+/* ── Dark theme: report preview internals (hardcoded light colors) ── */
+html[data-theme="black"] .rptInfoGrid { border-color: var(--surface-3); }
+html[data-theme="black"] .rptInfoCell { background: var(--surface-1); border-color: var(--surface-3); }
+html[data-theme="black"] .rptInfoCell:nth-child(even) { background: var(--surface-2); }
+html[data-theme="black"] .rptInfoLabel { color: var(--ink-500); }
+html[data-theme="black"] .rptInfoVal,
+html[data-theme="black"] .rptInfoValue { color: var(--ink-900); }
+html[data-theme="black"] .rptCellItem { color: var(--ink-900); }
+html[data-theme="black"] .rptCellNotes { color: var(--ink-600); }
+html[data-theme="black"] .rptRowOk { background: var(--surface-1); }
+html[data-theme="black"] .rptRowFail { background: rgba(239,68,68,.08); }
+html[data-theme="black"] .rptRowNa { background: var(--surface-2); color: var(--ink-400); }
+html[data-theme="black"] .rptRowMaint { background: rgba(245,158,11,.08); }
+html[data-theme="black"] .rptSectionTitle { color: var(--ink-900); border-bottom-color: var(--sdx-navy); }
+html[data-theme="black"] .rpt [class*="rptRow"],
+html[data-theme="black"] .rpt td, html[data-theme="black"] .rpt th { border-color: var(--surface-3); }
+html[data-theme="black"] .rptPillPass { background: rgba(22,163,74,.2); color: #86efac; }
+html[data-theme="black"] .rptPillFail { background: rgba(220,38,38,.2); color: #fca5a5; }
+html[data-theme="black"] .rptStatusPass { background: rgba(22,163,74,.2); color: #86efac; border-color: rgba(134,239,172,.4); }
+html[data-theme="black"] .rptStatusFail { background: rgba(220,38,38,.2); color: #fca5a5; border-color: rgba(252,165,165,.4); }
+
+/* Issue description text readable in dark */
+html[data-theme="black"] .issueRowText { color: var(--ink-900); }
