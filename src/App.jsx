@@ -20345,7 +20345,7 @@ function MessagingPanel({ currentUser, onBack, notifItems, onNotifDismiss, onNot
       </div>
 
       {/* Tab bar */}
-      <div style={{ background: "var(--chrome-grad)", padding: "0 1rem 0.75rem", display: "flex", gap: 8 }}>
+      <div style={{ background: "var(--chrome-grad)", padding: "0.15rem 1rem 0.9rem", display: "flex", gap: 10 }}>
         {[
           { key: "messages", label: "Messages", badge: totalUnread },
           { key: "notifications", label: "Alerts", badge: notifCount },
@@ -20369,12 +20369,12 @@ function MessagingPanel({ currentUser, onBack, notifItems, onNotifDismiss, onNot
           <div style={{ display: "flex", flex: 1, minHeight: 0 }}>
             {/* Thread list */}
             <div style={{ width: activeThread ? "35%" : "100%", borderRight: "1px solid #e2e8f0", background: "var(--surface-1)", display: "flex", flexDirection: "column", transition: "width 0.2s" }}>
-              <div style={{ padding: "0.65rem 0.85rem", borderBottom: "1px solid #f1f5f9" }}>
+              <div style={{ padding: "0.9rem 1rem", borderBottom: "1px solid var(--surface-3)" }}>
                 <input
                   placeholder="Search messages…"
                   value={search}
                   onChange={e => setSearch(e.target.value)}
-                  style={{ width: "100%", padding: "0.45rem 0.7rem", border: "1.5px solid #e2e8f0", borderRadius: 8, fontSize: "0.82rem", outline: "none", boxSizing: "border-box" }}
+                  style={{ width: "100%", padding: "0.6rem 0.9rem", border: "1.5px solid var(--sdx-gray-200)", borderRadius: 10, fontSize: "0.85rem", outline: "none", boxSizing: "border-box", background: "var(--surface-2)", color: "var(--ink-900)" }}
                 />
               </div>
               <div style={{ flex: 1, overflowY: "auto" }}>
@@ -20796,6 +20796,7 @@ export default function App() {
   const [lightboxSrc, setLightboxSrc] = useState(null);
   const [locked, setLocked] = useState(true);
   const [lockConfirm, setLockConfirm] = useState(false); // two-step logout confirmation
+  const [appearanceOpen, setAppearanceOpen] = useState(false); // personal theme picker in menu
   const [currentUser, setCurrentUser] = useState(null);
   const [page, setPage] = useState("inspector"); // "inspector" | "history" | "admin" | "global_admin"
   const [pendingCount, setPendingCount] = useState(0);
@@ -20812,9 +20813,27 @@ export default function App() {
   });
   const [lastInspectionDate, setLastInspectionDate] = useState(null); // ISO date string (YYYY-MM-DD)
 
-  // Apply the venue theme (admin-controlled, synced across all devices)
+  // Personal theme override — any user can pick their own look for THIS device;
+  // falls back to the venue-wide theme chosen by the admin.
+  const [personalTheme, setPersonalTheme] = useState(() => { try { return localStorage.getItem("sdx_personal_theme") || ""; } catch { return ""; } });
+  const [personalAccent, setPersonalAccent] = useState(() => { try { return localStorage.getItem("sdx_personal_accent") || ""; } catch { return ""; } });
+  function savePersonalTheme(themeId, accentId) {
+    setPersonalTheme(themeId);
+    setPersonalAccent(accentId || "");
+    try {
+      if (themeId) localStorage.setItem("sdx_personal_theme", themeId); else localStorage.removeItem("sdx_personal_theme");
+      if (accentId) localStorage.setItem("sdx_personal_accent", accentId); else localStorage.removeItem("sdx_personal_accent");
+    } catch {}
+  }
+
+  // Apply the theme (personal override → venue setting → default)
   // Theme applies only once someone is signed in — the badge screen always shows the default look
-  useEffect(() => { applyTheme(currentUser ? venueSettings?.theme : "sodexo", venueSettings?.blackAccent); }, [venueSettings?.theme, venueSettings?.blackAccent, currentUser]);
+  useEffect(() => {
+    applyTheme(
+      currentUser ? (personalTheme || venueSettings?.theme) : "sodexo",
+      personalAccent || venueSettings?.blackAccent
+    );
+  }, [venueSettings?.theme, venueSettings?.blackAccent, currentUser, personalTheme, personalAccent]);
 
   function saveVenueSettings(updates) {
     const next = { ...venueSettings, ...updates };
@@ -22610,6 +22629,53 @@ export default function App() {
                 🏷 Print Equipment Labels
               </button>
             )}
+            {currentUser && (
+              <button className="dropdownMenuItem" onClick={e => { e.stopPropagation(); setAppearanceOpen(o => !o); }} type="button">
+                🎨 App Color {appearanceOpen ? "▲" : "▼"}
+              </button>
+            )}
+            {currentUser && appearanceOpen && (
+              <div style={{ padding: "0.4rem 1rem 0.7rem", display: "flex", flexDirection: "column", gap: 8 }} onClick={e => e.stopPropagation()}>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  {THEMES.map(t => {
+                    const activeId = personalTheme || venueSettings?.theme || "sodexo";
+                    const isActive = activeId === t.id;
+                    return (
+                      <button key={t.id} type="button" title={t.name}
+                        onClick={() => savePersonalTheme(t.id, personalAccent)}
+                        style={{
+                          width: 34, height: 34, borderRadius: "50%", background: t.swatch,
+                          border: isActive ? "2.5px solid var(--sdx-red)" : "2px solid rgba(148,163,184,.4)",
+                          cursor: "pointer", boxShadow: isActive ? "0 0 0 2px rgba(238,0,0,.25)" : "none",
+                        }} />
+                    );
+                  })}
+                </div>
+                {(personalTheme || venueSettings?.theme) === "black" && (
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                    <span style={{ fontSize: "0.68rem", color: "var(--ink-500)", fontWeight: 700 }}>Accent:</span>
+                    {BLACK_ACCENTS.map(a => {
+                      const isActive = (personalAccent || venueSettings?.blackAccent || "red") === a.id;
+                      return (
+                        <button key={a.id} type="button" title={a.name}
+                          onClick={() => savePersonalTheme(personalTheme || venueSettings?.theme || "black", a.id)}
+                          style={{
+                            width: 24, height: 24, borderRadius: "50%", background: a.c,
+                            border: isActive ? "2.5px solid #fff" : "2px solid rgba(148,163,184,.4)",
+                            cursor: "pointer", boxShadow: isActive ? `0 0 0 2px ${a.c}` : "none",
+                          }} />
+                      );
+                    })}
+                  </div>
+                )}
+                {personalTheme && (
+                  <button type="button" onClick={() => savePersonalTheme("", "")}
+                    style={{ alignSelf: "flex-start", background: "none", border: "none", color: "var(--ink-500)", fontSize: "0.72rem", fontWeight: 600, cursor: "pointer", textDecoration: "underline", padding: 0 }}>
+                    Reset to venue default
+                  </button>
+                )}
+              </div>
+            )}
             {lockConfirm ? (
               <div style={{ padding: "0.5rem 1rem", display: "flex", flexDirection: "column", gap: 6, borderTop: "1px solid #fee2e2", background: "var(--tint-red-1)" }} onClick={e => e.stopPropagation()}>
                 <span style={{ fontSize: "0.82rem", color: "#b91c1c", fontWeight: 600 }}>Lock the app?</span>
@@ -22635,9 +22701,8 @@ export default function App() {
         {/* ── Offline / draft-sync status strip ──────────────────────────────── */}
         {(!isOnline || (draftSavedAt && reportInProgressRef.current)) && (
           <div style={{
-            width: "calc(100% + 56px)",   /* break out of parent's 28px padding on each side */
-            marginLeft: -28,
-            marginRight: -28,
+            width: "100vw",               /* full-bleed row regardless of header padding */
+            marginLeft: "calc(50% - 50vw)",
             flexBasis: "100%",            /* always its own full-width row below the header */
             order: 99,
             background: isOnline ? "rgba(255,255,255,0.12)" : "rgba(220,38,38,0.85)",
