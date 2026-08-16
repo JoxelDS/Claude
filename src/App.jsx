@@ -12455,7 +12455,7 @@ function LicensesTab({ history, invLicenseData, setInvLicenseData, invLicenseMis
 function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueSettings }) {
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("licenses");
+  const [activeTab, setActiveTab] = useState("time");
   const [expandedSiteTags, setExpandedSiteTags] = useState(new Set()); // inspector names with expanded site tags
   const [invSearch,       setInvSearch]       = useState("");
   const [invTypeFilter,   setInvTypeFilter]   = useState(""); // Cooler|Freezer|Hand Sink|3-Comp Sink|""
@@ -12621,6 +12621,17 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
   }
 
   useEffect(() => {
+    // INSTANT RENDER: show the locally cached history right away (if any)
+    // while the fresh data loads in the background. The dashboard becomes
+    // usable immediately and silently updates when the network returns.
+    try {
+      const cached = JSON.parse(localStorage.getItem(`sdx_history_cache_${managedVenueId || VENUE_ID}`) || "[]");
+      if (Array.isArray(cached) && cached.length > 0) {
+        setHistory(cached);
+        setLoading(false);
+      }
+    } catch { /* no cache — keep spinner until fetch resolves */ }
+
     loadHistory(managedVenueId || undefined, { pageSize: 2000 }).then(({ list }) => {
       // Re-derive overallStatus from the score for every record so that historical
       // records (saved with the old item-scan logic) also reflect the current
@@ -12636,6 +12647,13 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
         } catch { return rec; }
       });
       setHistory(enriched);
+      // Refresh the cache so the NEXT open renders instantly (skip photo blobs
+      // and cap the payload so localStorage never overflows)
+      try {
+        const slim = enriched.map(r => { const { photos, itemPhotos, ...rest } = r; return rest; });
+        const json = JSON.stringify(slim);
+        if (json.length < 4_000_000) localStorage.setItem(`sdx_history_cache_${managedVenueId || VENUE_ID}`, json);
+      } catch { /* quota exceeded — not critical */ }
     }).catch(() => {
       // Network/Firestore failure — fall back to whatever is cached locally so the page still renders
       try {
@@ -14099,7 +14117,7 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
 
           {/* ── TAB NAV ── */}
           <div className="perfPrintHide perfTabsWrapper">
-            {[["licenses","Licenses"],["time","Duration"],["trends","Trends"]].map(([id, label]) => (
+            {[["time","Duration"],["trends","Trends"]].map(([id, label]) => (
               <button key={id} onClick={() => setActiveTab(id)} className={cx("perfTab", activeTab === id && "perfTabActive")}>
                 <span>{label}</span>
               </button>
@@ -15086,18 +15104,6 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
             );
           })()}
 
-
-          {/* ── LICENSES TAB ── */}
-          {activeTab === "licenses" && (
-            <LicensesTab
-              history={history}
-              invLicenseData={invLicenseData}
-              setInvLicenseData={setInvLicenseData}
-              invLicenseMismatches={invLicenseMismatches}
-              dismissedMismatches={dismissedMismatches}
-              setDismissedMismatches={setDismissedMismatches}
-            />
-          )}
 
           {activeTab === "verdict" && (
             <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
