@@ -7414,3 +7414,19 @@ html[data-theme="black"] .rptStatusFail { background: rgba(220,38,38,.2); color:
 
 /* Issue description text readable in dark */
 html[data-theme="black"] .issueRowText { color: var(--ink-900); }
+
+/* ── Dark theme: expanded full-report view (history cards) ── */
+html[data-theme="black"] .rptFullReport { background: var(--surface-1); }
+html[data-theme="black"] .rptReportHeader { background: var(--surface-1); }
+html[data-theme="black"] .rptBrandText { color: var(--ink-900); }
+html[data-theme="black"] .rptBrandSub { color: var(--ink-500); }
+html[data-theme="black"] .rptSiteName { color: var(--ink-900); }
+html[data-theme="black"] .rptInspType { color: var(--ink-500); }
+html[data-theme="black"] .rptInspDate { color: var(--ink-400); }
+/* Section labels in the scorecard — brighter blue that reads on dark */
+html[data-theme="black"] .rptCellSec { color: #8fa2ff; }
+/* Score/grade + status badges keep their hue but glow on dark */
+html[data-theme="black"] .rptStatusBadge.rptStatusPass,
+html[data-theme="black"] .rptStatusPass { background: rgba(22,163,74,.22); color: #6ee7a0; border-color: rgba(134,239,172,.45); }
+html[data-theme="black"] .rptStatusBadge.rptStatusFail,
+html[data-theme="black"] .rptStatusFail { background: rgba(220,38,38,.22); color: #fca5a5; border-color: rgba(252,165,165,.45); }
