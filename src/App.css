@@ -7188,25 +7188,16 @@ body, .card, .topBar, .historyCard, input, select, textarea, .fuItem {
   body, .card, .topBar, .historyCard, input, select, textarea, .fuItem { transition: none; }
 }
 
-/* ── Rendered report = printed paper: always light, even in dark mode ──
-   The .rpt block re-scopes every theme token back to its light value, so
-   the on-screen preview matches the exported PDF exactly. ── */
+/* ── Rendered report follows the app theme on screen; the exported
+   PDF is generated in its own print window and always stays white. ── */
 html[data-theme="black"] .rpt {
-  --surface-1: #ffffff; --surface-2: #f8fafc; --surface-3: #f1f5f9;
-  --ink-900: #0f172a; --ink-700: #334155; --ink-600: #475569; --ink-500: #64748b; --ink-400: #94a3b8;
-  --sdx-gray-50: #F7F8FA; --sdx-gray-100: #EEF0F4; --sdx-gray-200: #DDE1E8; --sdx-gray-300: #B8BFCC;
-  --sdx-gray-500: #6B7280; --sdx-gray-600: #4B5563; --sdx-gray-700: #374151; --sdx-gray-800: #1F2937;
-  --tint-amber-1: #fffbeb; --tint-amber-2: #fef3c7; --tx-amber: #92400e; --tx-amber-strong: #78350f;
-  --tint-blue-1: #eff6ff; --tint-blue-2: #dbeafe; --tint-sky-1: #f0f9ff; --tx-blue: #1e3a8a;
-  --tint-green-1: #f0fdf4; --tint-green-2: #dcfce7; --tx-green: #14532d;
-  --tint-red-1: #fef2f2; --tint-red-2: #fee2e2; --tx-red-strong: #7f1d1d;
-  --tint-cyan-1: #ecfeff; --tx-cyan: #0e7490; --tint-indigo-1: #e0e7ff; --tx-indigo: #3730a3;
-  --sdx-navy: #2A295C; /* report brand color is fixed navy, never the accent */
-  background: #ffffff;
-  color: #1F2937;
+  background: var(--surface-1);
+  color: var(--ink-700);
+  border-color: var(--surface-3);
   border-radius: 12px;
   box-shadow: 0 8px 32px rgba(0,0,0,.5);
 }
+html[data-theme="black"] .rptPillWarn { background: rgba(217,119,6,.18); color: #fcd34d; }
 
 /* Black theme: Smart Insights panel goes dark */
 html[data-theme="black"] .aiMonitorCard { background: var(--surface-1); border-color: #23232B; }
