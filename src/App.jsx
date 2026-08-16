@@ -160,7 +160,7 @@ function applyTheme(themeId, accent) {
   if (changing) {
     root.classList.add("theme-fade");
     clearTimeout(window.__themeFadeT);
-    window.__themeFadeT = setTimeout(() => root.classList.remove("theme-fade"), 650);
+    window.__themeFadeT = setTimeout(() => root.classList.remove("theme-fade"), 1100);
   }
   if (valid === "sodexo") delete root.dataset.theme;
   else root.dataset.theme = valid;

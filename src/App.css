@@ -7234,8 +7234,9 @@ html[data-theme="black"] .aiMonitorBrain {
 /* Theme cross-fade: applied briefly around a theme switch so the whole
    UI glides between light and dark instead of snapping. */
 html.theme-fade, html.theme-fade *, html.theme-fade *::before, html.theme-fade *::after {
-  transition: background-color .45s ease, background .45s ease, color .45s ease,
-              border-color .45s ease, box-shadow .45s ease, fill .45s ease !important;
+  transition: background-color .9s cubic-bezier(.4,0,.2,1), background .9s cubic-bezier(.4,0,.2,1),
+              color .9s cubic-bezier(.4,0,.2,1), border-color .9s cubic-bezier(.4,0,.2,1),
+              box-shadow .9s cubic-bezier(.4,0,.2,1), fill .9s cubic-bezier(.4,0,.2,1) !important;
 }
 @media (prefers-reduced-motion: reduce) {
   html.theme-fade, html.theme-fade * { transition: none !important; }
