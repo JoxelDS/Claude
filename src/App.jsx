@@ -7823,6 +7823,7 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
   const [filterLocType, setFilterLocType] = useState("");
   const [searchAllLoading, setSearchAllLoading] = useState(false);
   const [expandedId, setExpandedId] = useState(null);
+  const [historyQrRec, setHistoryQrRec] = useState(null); // report whose HACCP QR is open
   const [dlPickerId, setDlPickerId] = useState(null);   // which report card has the download picker open
   const [dlScope, setDlScope] = useState(null);          // "full" | "issues"
   const [lightboxPhoto, setLightboxPhoto] = useState(null); // { url, label, caption, num }
@@ -10030,6 +10031,19 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                           {rec.siteName || rec.location || "Inspection"}
                           {rec.siteNumber && <span style={{ fontWeight: 600 }}>#{rec.siteNumber}</span>}
                           {rec.restaurantLicense && <span style={{ fontWeight: 600 }}>🪪 {rec.restaurantLicense}</span>}
+                          <button
+                            type="button"
+                            title="Show HACCP QR code for this report"
+                            onClick={e => { e.stopPropagation(); setHistoryQrRec(rec); }}
+                            style={{
+                              display: "inline-flex", alignItems: "center", gap: 4,
+                              background: "var(--tint-blue-1)", color: "var(--sdx-navy)",
+                              border: "1.5px solid var(--sdx-navy)", borderRadius: 8,
+                              padding: "2px 9px", fontSize: "0.72rem", fontWeight: 800,
+                              cursor: "pointer", lineHeight: 1.4,
+                            }}>
+                            ▦ QR
+                          </button>
                           {rec.licenseMissing && (
                             <span style={{
                               display: "inline-flex", alignItems: "center", gap: 3,
@@ -24377,6 +24391,18 @@ export default function App() {
       )}
       {showHaccpModal && (
         <HaccpQrModal onClose={() => setShowHaccpModal(false)} siteName={siteName} siteNumber={siteNumber} floor={floor} locationType={locationType} reportId={savedReportId} />
+      )}
+
+      {/* HACCP QR opened from a history card */}
+      {historyQrRec && (
+        <HaccpQrModal
+          onClose={() => setHistoryQrRec(null)}
+          siteName={historyQrRec.siteName || historyQrRec.location || ""}
+          siteNumber={historyQrRec.siteNumber || ""}
+          floor={historyQrRec.floor || ""}
+          locationType={historyQrRec.locationType || ""}
+          reportId={historyQrRec.id || ""}
+        />
       )}
       {/* Chat is now embedded inline in the report output section */}
 
