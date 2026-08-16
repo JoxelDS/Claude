@@ -10701,7 +10701,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                       <div style={{ marginTop: 20 }}>
                         {/* Download picker */}
                         {dlPickerId !== rec.id ? (
-                          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
                             <button className="btn" type="button"
                               style={{ background: "var(--sdx-navy)", color: "#fff", borderColor: "var(--sdx-navy)", fontWeight: 600, padding: "0.6rem 1rem" }}
                               onClick={() => { setDlPickerId(rec.id); setDlScope(null); import("exceljs").catch(() => {}); }}>
@@ -10724,7 +10724,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                               </div>
                             ) : (
                               <button className="btn btnGhost" type="button"
-                                style={{ color: "#EE0000", borderColor: "rgba(238,0,0,.3)", marginLeft: "auto", padding: "0.6rem 1rem" }}
+                                style={{ color: "#EE0000", borderColor: "rgba(238,0,0,.3)", padding: "0.6rem 1rem" }}
                                 onClick={() => setConfirmDeleteId(rec.id)}>🗑 Delete</button>
                             )}
                           </div>
