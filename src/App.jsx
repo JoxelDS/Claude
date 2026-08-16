@@ -10236,7 +10236,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                                       a.priority === "High" ? "issueRowHigh" :
                                       a.priority === "Follow-up" ? "issueRowFollowup" : "issueRowMed"
                                     )} style={resolved ? { opacity: 0.7 } : undefined}>
-                                      <div style={{ display: "flex", alignItems: "flex-start", gap: 8, flex: 1 }}>
+                                      <div className="issueRowInner" style={{ display: "flex", alignItems: "flex-start", gap: 8, flex: 1 }}>
                                         <span className={cx("priorityBadge",
                                           resolved ? "priorityResolved" :
                                           (a.status === "Critical Violation" || a.status === "Fail" || a.status === "Not Clean") ? "priorityCritical" :
@@ -10249,7 +10249,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                                           a.priority === "High" ? "priorityHigh" :
                                           a.priority === "Follow-up" ? "priorityFollowup" : "priorityMed"
                                         )}>{resolved ? "✓ Resolved" : (() => { const st = a.status && a.status !== "OK" ? a.status : a.priority; return st === "High" ? "Fail" : st === "Med" ? "Needs Attention" : st; })()}</span>
-                                        <div style={{ flex: 1 }}>
+                                        <div className="issueRowTextWrap" style={{ flex: 1 }}>
                                           <span className="issueRowText" style={resolved ? { textDecoration: "line-through", color: "var(--ink-500)" } : undefined}>{a.issue}</span>
                                           {resolved && (
                                             <div style={{ fontSize: "0.75rem", color: "#15803d", marginTop: 3 }}>
@@ -11796,9 +11796,9 @@ function FoodSafetyRef() {
   );
 
   const tipBox = (children) => (
-    <div style={{ display: "flex", gap: 10, alignItems: "flex-start", background: "linear-gradient(180deg,#F6F8FF,#EFF3FE)", border: "1px solid #D8E0F5", borderRadius: 12, padding: "11px 14px", marginTop: 12 }}>
+    <div className="fsTipBox" style={{ display: "flex", gap: 10, alignItems: "flex-start", borderRadius: 12, padding: "11px 14px", marginTop: 12 }}>
       <span style={{ fontSize: "0.95rem", lineHeight: 1, marginTop: 1 }}>💡</span>
-      <span style={{ fontSize: "0.68rem", color: "#39415E", lineHeight: 1.6 }}>{children}</span>
+      <span className="fsTipText" style={{ fontSize: "0.68rem", lineHeight: 1.6 }}>{children}</span>
     </div>
   );
 

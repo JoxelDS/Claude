@@ -7351,3 +7351,51 @@ html[data-theme="black"] .typeBadgeEventTemp { background: var(--tint-amber-1); 
   .issueRow > div:first-child > div { flex: 1 1 100%; }
   .issueRow .issueRowText { display: block; line-height: 1.5; }
 }
+
+/* ── fsTipBox (Food Safety tips) — light default + dark override ── */
+.fsTipBox { background: linear-gradient(180deg,#F6F8FF,#EFF3FE); border: 1px solid #D8E0F5; }
+.fsTipText { color: #39415E; }
+html[data-theme="black"] .fsTipBox { background: var(--surface-2); border-color: var(--surface-3); }
+html[data-theme="black"] .fsTipText { color: var(--ink-600); }
+html[data-theme="black"] .fsTipText strong { color: var(--ink-900); }
+
+/* ── Guide section toggle (equipment/checklist headers) in dark ── */
+html[data-theme="black"] .guideSectionToggle {
+  background: var(--surface-2);
+  border-color: var(--surface-3);
+  border-left-color: var(--sdx-red);
+  box-shadow: 0 1px 4px rgba(0,0,0,.5);
+}
+html[data-theme="black"] .guideSectionToggle:hover {
+  background: var(--surface-3);
+  box-shadow: 0 3px 10px rgba(0,0,0,.6);
+}
+
+/* ── Action Items block in dark mode ── */
+html[data-theme="black"] .issuesBlock { background: var(--surface-2); border-color: rgba(239,68,68,.45); }
+html[data-theme="black"] .issuesBlockTitle { background: rgba(153,27,27,.35); color: #fca5a5; border-bottom-color: rgba(239,68,68,.4); }
+html[data-theme="black"] .issueRow { border-bottom-color: var(--surface-3); }
+html[data-theme="black"] .issueRowHigh { background: rgba(239,68,68,.08); }
+html[data-theme="black"] .issueRowHigh:hover { background: rgba(239,68,68,.14); }
+html[data-theme="black"] .issueRowMed { background: rgba(245,158,11,.07); }
+html[data-theme="black"] .issueRowMed:hover { background: rgba(245,158,11,.13); }
+html[data-theme="black"] .issueRowFollowup { background: rgba(129,140,248,.08); }
+html[data-theme="black"] .issueRowFollowup:hover { background: rgba(129,140,248,.14); }
+html[data-theme="black"] .issueRowMaint { background: rgba(180,83,9,.1); }
+html[data-theme="black"] .issueRowMaint:hover { background: rgba(180,83,9,.16); }
+html[data-theme="black"] .issueRowCritical { background: rgba(153,27,27,.14); }
+html[data-theme="black"] .issueRowCritical:hover { background: rgba(153,27,27,.2); }
+html[data-theme="black"] .issueRowResolved { background: rgba(22,163,74,.08); }
+html[data-theme="black"] .issueRowResolved:hover { background: rgba(22,163,74,.14); }
+html[data-theme="black"] .priorityHigh { background: rgba(239,68,68,.2); color: #fca5a5; }
+html[data-theme="black"] .priorityMed { background: rgba(245,158,11,.2); color: #fcd34d; }
+html[data-theme="black"] .priorityFollowup { background: rgba(129,140,248,.2); color: #a5b4fc; }
+
+/* ── Action Item rows on phone: badge + Resolve on top, description below ── */
+@media (max-width: 640px) {
+  .issueRow { flex-wrap: wrap; row-gap: 6px; }
+  .issueRow .issueRowInner { flex-wrap: wrap; row-gap: 6px; align-items: center; }
+  .issueRow .issueRowTextWrap { flex: 1 1 100% !important; }
+  .issueRow .issueRowText { display: block; line-height: 1.55; }
+  .issueRow > .btn { margin-left: auto; }
+}
