@@ -7433,3 +7433,12 @@ html[data-theme="black"] .rptStatusBadge.rptStatusFail,
 html[data-theme="black"] .rptStatusFail { background: rgba(220,38,38,.22); color: #fca5a5; border-color: rgba(252,165,165,.45); }
 html[data-theme="black"] .historyCard .cardBody { background: var(--surface-1); }
 html[data-theme="black"] .rptFullReport > div:last-child { background: var(--surface-2); border-top-color: var(--surface-3); }
+
+/* DS Marketing login gradient — monochrome black instead of Sodexo purple */
+html[data-theme="dsmarketing"] { --sdx-pin-mid: #1B1B1E; --sdx-pin-end: #2E2E33; }
+html[data-theme="dsmarketing"] .pinOverlay {
+  background:
+    radial-gradient(900px 600px at 15% -10%, rgba(224,25,25,.16), transparent 55%),
+    radial-gradient(1100px 700px at 110% 110%, rgba(46,46,51,.7), transparent 60%),
+    linear-gradient(150deg, #0C0C0E 0%, #141416 45%, #2E2E33 100%);
+}

@@ -153,7 +153,7 @@ const BLACK_ACCENTS = [
   { id: "silver", name: "Silver", c: "#8F95AA" },
 ];
 function applyTheme(themeId, accent) {
-  const valid = THEMES.some(t => t.id === themeId) ? themeId : "sodexo";
+  const valid = (THEMES.some(t => t.id === themeId) || themeId === "dsmarketing") ? themeId : "sodexo";
   const root = document.documentElement;
   // Cross-fade the whole UI while the theme swaps (login, logout, picker)
   const changing = (root.dataset.theme || "sodexo") !== valid;
@@ -20837,8 +20837,10 @@ export default function App() {
   // Apply the theme (personal override → venue setting → default)
   // Theme applies only once someone is signed in — the badge screen always shows the default look
   useEffect(() => {
+    // DS Marketing instances default to the DS theme everywhere, login included
+    const dsDefault = IS_DEMO_BRAND ? "dsmarketing" : "sodexo";
     applyTheme(
-      currentUser ? (personalTheme || venueSettings?.theme) : "sodexo",
+      currentUser ? (personalTheme || venueSettings?.theme || dsDefault) : dsDefault,
       personalAccent || venueSettings?.blackAccent
     );
   }, [venueSettings?.theme, venueSettings?.blackAccent, currentUser, personalTheme, personalAccent]);
