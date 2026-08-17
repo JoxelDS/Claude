@@ -8113,8 +8113,9 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
         }
       }
       if (filterSite) {
-        const recSite = `${rec.siteName || rec.location || ""} ${rec.siteNumber || ""}`.toLowerCase();
-        const terms = filterSite.toLowerCase().split(/\s+/).filter(Boolean);
+        // "#" is decoration — "Magic City Dogs #114" must match siteName "Magic City Dogs" + unit "114"
+        const recSite = `${rec.siteName || rec.location || ""} ${rec.siteNumber || ""}`.toLowerCase().replace(/#/g, "");
+        const terms = filterSite.toLowerCase().replace(/#/g, " ").split(/\s+/).filter(Boolean);
         if (!terms.every(t => recSite.includes(t))) return false;
       }
       if (filterIssue) {
