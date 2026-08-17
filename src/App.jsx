@@ -20911,6 +20911,53 @@ export default function App() {
     }
   }
 
+  // SELF-HEALING BRANDING: on white-label venues, if the venue's settings are
+  // missing logo/color/name, pull them from the venue registry record — and if
+  // that record belongs to a client, inherit the client's branding. This makes
+  // every client instance branded no matter how or when it was created.
+  useEffect(() => {
+    if (!FIREBASE_ON || VENUE_ID === "default") return;
+    (async () => {
+      try {
+        const regSnap = await getDoc(venueRegistryDoc(VENUE_ID));
+        if (!regSnap.exists()) return;
+        const reg = regSnap.data();
+        let brand = {
+          logoUrl: reg.logoUrl || "",
+          primaryColor: reg.primaryColor || "",
+          companyName: reg.companyName || reg.name || "",
+        };
+        // Inherit missing pieces from the parent client record
+        if (reg.clientId && (!brand.logoUrl || !brand.primaryColor)) {
+          const cSnap = await getDoc(venueRegistryDoc(reg.clientId));
+          if (cSnap.exists()) {
+            const c = cSnap.data();
+            brand = {
+              logoUrl: brand.logoUrl || c.logoUrl || "",
+              primaryColor: brand.primaryColor || c.primaryColor || "",
+              companyName: brand.companyName || c.name || "",
+            };
+          }
+        }
+        setVenueSettings(prev => {
+          const merged = { ...prev };
+          let changed = false;
+          for (const k of ["logoUrl", "primaryColor", "companyName"]) {
+            if (brand[k] && !merged[k]) { merged[k] = brand[k]; changed = true; }
+          }
+          if (!changed) return prev;
+          _vs = merged;
+          try { localStorage.setItem(VENUE_SETTINGS_KEY, JSON.stringify(merged)); } catch {}
+          // Persist so every device gets it without re-deriving
+          setDoc(doc(db, "venues", VENUE_ID, "sharedMemory", "venueSettings"),
+            { logoUrl: merged.logoUrl || "", primaryColor: merged.primaryColor || "", companyName: merged.companyName || "" },
+            { merge: true }).catch(() => {});
+          return merged;
+        });
+      } catch { /* registry unreachable — keep defaults */ }
+    })();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Real-time listener: keep venueSettings in sync across devices
   useEffect(() => {
     if (!FIREBASE_ON) return;
