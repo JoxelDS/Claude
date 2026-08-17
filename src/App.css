@@ -7461,3 +7461,12 @@ html[data-theme="black"] .labelCardPro { background: #fff; }
   /* On phones hide the passive draft-saved note (Save state lives in the bottom bar) */
   .topStripDraft { display: none !important; }
 }
+
+/* ── Label printing: compact sheets, no blank pages ── */
+@media print {
+  @page { margin: 10mm; }
+  .appShell { min-height: 0 !important; display: block !important; }
+  .labelGrid { display: grid !important; grid-template-columns: repeat(3, 1fr) !important; gap: 6mm !important; }
+  .labelCardPro { break-inside: avoid; page-break-inside: avoid; margin: 0 !important; }
+  .labelHead { background: #1F2937 !important; color: #fff !important; }
+}

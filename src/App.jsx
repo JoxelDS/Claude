@@ -17689,6 +17689,7 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
   const fileRefs = useRef({});
   const cameraRefs = useRef({});
   const [newItemName, setNewItemName] = useState("");
+  const [scanPath, setScanPath] = useState(null); // item path being filled via QR scan
   const [newEquipType, setNewEquipType] = useState(null); // null = no type selected yet
   const [clSearchMap, setClSearchMap] = useState({}); // keyed by item path string → search query
   const [newMaintName, setNewMaintName] = useState("");
@@ -17929,6 +17930,12 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                                   Auto
                                 </button>
                               )}
+                              <button type="button" className="btn btnGhost btnSmall"
+                                title="Scan the unit's QR label — fills its info and shows past readings"
+                                style={{ fontSize: "0.68rem", padding: "0.15rem 0.45rem", flexShrink: 0, whiteSpace: "nowrap" }}
+                                onClick={() => setScanPath(it.path)}>
+                                📷 Scan
+                              </button>
                               {existingTag && onOpenPrintLabels && (
                                 <button type="button" className="btn btnGhost btnSmall"
                                   title="View QR label"
@@ -18626,6 +18633,25 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
           })()}
         </>
       )}
+
+      {/* Equipment QR scan modal — fills the item and shows reading history */}
+      {scanPath && (
+        <EquipScanModal
+          onClose={() => setScanPath(null)}
+          onApply={(meta) => {
+            setInspection((prev) => {
+              const cur = getAtPath(prev, scanPath) || {};
+              return setAtPath(prev, scanPath, {
+                ...cur,
+                assetTag: meta.assetTag || cur.assetTag || "",
+                brand: cur.brand || meta.brand || "",
+                kitchenArea: cur.kitchenArea || meta.kitchenArea || "",
+                label: cur.label || meta.label || "",
+              });
+            });
+          }}
+        />
+      )}
     </div>
   );
 }, (prev, next) => {
@@ -19118,6 +19144,167 @@ function ShareModal({ shareUrl, onClose }) {
 }
 
 /* ── HACCP QR Modal (inspector side) ─────────────────────── */
+/* ── EquipScanModal — scan an equipment QR inside the report; fills the
+   item's info and shows the unit's reading history (dates, temps, notes) ── */
+function EquipScanModal({ onClose, onApply }) {
+  const videoRef = useRef(null);
+  const streamRef = useRef(null);
+  const [cameraOn, setCameraOn] = useState(false);
+  const [cameraErr, setCameraErr] = useState("");
+  const [manualTag, setManualTag] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState(null); // { tag, meta, matches } | { tag, notFound }
+  const hasDetector = typeof window !== "undefined" && "BarcodeDetector" in window;
+
+  useEffect(() => () => { // stop camera on unmount
+    try { streamRef.current?.getTracks().forEach(t => t.stop()); } catch {}
+  }, []);
+
+  async function lookup(rawTag) {
+    const tag = (rawTag || "").trim();
+    if (!tag) return;
+    setBusy(true);
+    try {
+      const { list } = await loadHistory(undefined, { pageSize: 200 });
+      const matches = [];
+      let meta = null;
+      for (const rec of (list || [])) {
+        const equip = rec.inspection?.equipment || {};
+        for (const [k, v] of Object.entries(equip)) {
+          if ((v?.assetTag || "").trim().toUpperCase() !== tag.toUpperCase()) continue;
+          if (!meta) meta = { assetTag: v.assetTag, brand: v.brand || "", kitchenArea: v.kitchenArea || "", label: v.label || k };
+          matches.push({
+            date: rec.inspectionDate || (rec.savedAt || "").slice(0, 10),
+            site: rec.siteName || "",
+            tempF: v.tempF || "",
+            status: v.status || "",
+            notes: (v.notes || "").trim(),
+          });
+        }
+      }
+      setResult(meta ? { tag, meta, matches } : { tag, notFound: true });
+    } catch { setResult({ tag, notFound: true }); }
+    setBusy(false);
+  }
+
+  async function startCamera() {
+    setCameraErr("");
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+      streamRef.current = stream;
+      setCameraOn(true);
+      requestAnimationFrame(() => {
+        if (videoRef.current) { videoRef.current.srcObject = stream; videoRef.current.play().catch(() => {}); }
+      });
+      if (hasDetector) {
+        const detector = new window.BarcodeDetector({ formats: ["qr_code", "code_128", "code_39"] });
+        const tick = async () => {
+          if (!streamRef.current) return;
+          try {
+            if (videoRef.current && videoRef.current.readyState >= 2) {
+              const codes = await detector.detect(videoRef.current);
+              if (codes.length > 0) {
+                const value = codes[0].rawValue || "";
+                try { streamRef.current?.getTracks().forEach(t => t.stop()); } catch {}
+                streamRef.current = null;
+                setCameraOn(false);
+                setManualTag(value);
+                lookup(value);
+                return;
+              }
+            }
+          } catch { /* keep scanning */ }
+          setTimeout(tick, 250);
+        };
+        tick();
+      }
+    } catch {
+      setCameraErr("Camera unavailable — type the tag from the label instead.");
+    }
+  }
+
+  const inputStyle = { flex: 1, minWidth: 0, padding: "0.55rem 0.75rem", borderRadius: 8, border: "1.5px solid var(--sdx-gray-200)", fontSize: "0.85rem", fontFamily: "monospace", background: "var(--surface-2)", color: "var(--ink-900)" };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 10000, background: "rgba(0,0,0,.6)", backdropFilter: "blur(3px)", overflowY: "auto", padding: "5vh 14px" }} onClick={onClose}>
+      <div className="card" style={{ maxWidth: 480, margin: "0 auto" }} onClick={e => e.stopPropagation()}>
+        <div className="cardHeader" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div className="cardTitle">📷 Scan Equipment</div>
+          <button type="button" onClick={onClose} style={{ background: "none", border: "none", fontSize: "1.2rem", cursor: "pointer", color: "var(--ink-400)", lineHeight: 1, padding: 4 }}>✕</button>
+        </div>
+        <div className="cardBody" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+
+          {/* Camera area */}
+          {cameraOn ? (
+            <video ref={videoRef} playsInline muted style={{ width: "100%", borderRadius: 12, background: "#000", maxHeight: 260, objectFit: "cover" }} />
+          ) : (
+            <button type="button" onClick={startCamera}
+              style={{ width: "100%", padding: "0.85rem", borderRadius: 12, border: "1.5px dashed var(--sdx-gray-300)", background: "var(--surface-2)", color: "var(--ink-600)", fontWeight: 700, fontSize: "0.9rem", cursor: "pointer" }}>
+              📷 Open Camera & Scan Label
+            </button>
+          )}
+          {cameraErr && <div style={{ fontSize: "0.78rem", color: "var(--tx-amber)", fontWeight: 600 }}>{cameraErr}</div>}
+          {!hasDetector && cameraOn && <div style={{ fontSize: "0.75rem", color: "var(--ink-500)" }}>Live scanning isn't supported in this browser — type the tag below.</div>}
+
+          {/* Manual entry */}
+          <div style={{ display: "flex", gap: 8 }}>
+            <input value={manualTag} onChange={e => setManualTag(e.target.value)} placeholder="SDX-COOL-A97D"
+              style={inputStyle} onKeyDown={e => { if (e.key === "Enter") lookup(manualTag); }} />
+            <button type="button" className="btn" disabled={busy || !manualTag.trim()} onClick={() => lookup(manualTag)}
+              style={{ background: "var(--sdx-navy)", color: "#fff", border: "none", borderRadius: 8, padding: "0 1rem", fontWeight: 700, opacity: busy || !manualTag.trim() ? 0.5 : 1 }}>
+              {busy ? "…" : "Find"}
+            </button>
+          </div>
+
+          {/* Result */}
+          {result?.notFound && (
+            <div style={{ background: "var(--tint-amber-1)", border: "1px solid #f59e0b", borderRadius: 10, padding: "0.6rem 0.8rem", fontSize: "0.8rem", color: "var(--tx-amber)", fontWeight: 600 }}>
+              No history found for tag "{result.tag}". Check the tag or fill the unit manually.
+            </div>
+          )}
+          {result?.meta && (
+            <>
+              <div style={{ background: "var(--tint-green-1)", border: "1.5px solid #86efac", borderRadius: 12, padding: "0.7rem 0.9rem" }}>
+                <div style={{ fontWeight: 800, fontSize: "0.9rem", color: "var(--ink-900)" }}>{result.meta.label}</div>
+                <div style={{ fontSize: "0.76rem", color: "var(--ink-600)", marginTop: 2 }}>
+                  {result.meta.brand && <>Brand: <b>{result.meta.brand}</b> · </>}
+                  {result.meta.kitchenArea && <>Location: <b>{result.meta.kitchenArea}</b> · </>}
+                  Tag: <b style={{ fontFamily: "monospace" }}>{result.meta.assetTag}</b>
+                </div>
+                <button type="button" onClick={() => { onApply(result.meta); onClose(); }}
+                  style={{ marginTop: 8, width: "100%", background: "#16a34a", color: "#fff", border: "none", borderRadius: 9, padding: "0.6rem", fontWeight: 800, fontSize: "0.88rem", cursor: "pointer" }}>
+                  ✓ Fill This Into the Report
+                </button>
+              </div>
+              {result.matches.length > 0 && (
+                <div>
+                  <div style={{ fontSize: "0.7rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.07em", color: "var(--ink-500)", marginBottom: 6 }}>
+                    Reading History ({result.matches.length})
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 220, overflowY: "auto" }}>
+                    {result.matches.slice(0, 10).map((m, i) => (
+                      <div key={i} style={{ background: "var(--surface-2)", border: "1px solid var(--sdx-gray-200)", borderRadius: 9, padding: "0.5rem 0.7rem" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", gap: 8, fontSize: "0.76rem" }}>
+                          <b style={{ color: "var(--ink-900)" }}>{m.date}</b>
+                          <span style={{ color: m.tempF ? "var(--sdx-navy)" : "var(--ink-400)", fontWeight: 800 }}>{m.tempF ? `${m.tempF}°F` : "no temp"}</span>
+                        </div>
+                        <div style={{ fontSize: "0.7rem", color: "var(--ink-500)", marginTop: 1 }}>
+                          {m.site}{m.status ? ` · ${m.status}` : ""}
+                        </div>
+                        {m.notes && <div style={{ fontSize: "0.72rem", color: "var(--ink-600)", marginTop: 3, lineHeight: 1.4 }}>“{m.notes}”</div>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function HaccpQrModal({ onClose, siteName, siteNumber, floor, locationType, reportId }) {
   const canvasRef = useRef(null);
   const [copied, setCopied] = useState(false);
