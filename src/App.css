@@ -7470,3 +7470,4 @@ html[data-theme="black"] .labelCardPro { background: #fff; }
   .labelCardPro { break-inside: avoid; page-break-inside: avoid; margin: 0 !important; }
   .labelHead { background: #1F2937 !important; color: #fff !important; }
 }
+.labelHead { display: flex; align-items: center; gap: 8px; }

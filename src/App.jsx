@@ -16128,10 +16128,68 @@ function EquipmentScannerPage({ onBack, onPrintLabels }) {
 /* ── Print Equipment Labels Page ──────────────────────────── */
 function PrintLabelsPage({ onBack }) {
   const [loading, setLoading] = useState(true);
-  const [equipItems, setEquipItems] = useState([]); // { assetTag, label, venueName, inspectionDate }
-  const [qrDataUrls, setQrDataUrls] = useState({}); // { assetTag: dataUrl }
+  const [equipItems, setEquipItems] = useState([]); // { uid, assetTag, label, venueName, ... }
+  const [qrDataUrls, setQrDataUrls] = useState({}); // { uid: dataUrl }
   const [siteName, setSiteName] = useState("");
   const [generating, setGenerating] = useState(false);
+  const [selected, setSelected] = useState(null); // Set of uids; null = all selected (default)
+
+  const isSelected = (uid) => selected === null || selected.has(uid);
+  const selectedCount = selected === null ? equipItems.length : selected.size;
+  function toggleSelect(uid) {
+    setSelected(prev => {
+      const base = prev === null ? new Set(equipItems.map(i => i.uid)) : new Set(prev);
+      base.has(uid) ? base.delete(uid) : base.add(uid);
+      return base;
+    });
+  }
+
+  // Print via a dedicated clean window — immune to app theme/layout (fixes blank pages)
+  function printSelected() {
+    const items = equipItems.filter(i => isSelected(i.uid));
+    if (items.length === 0) return;
+    const logoUrl = window.location.origin + LOGO_DARK;
+    const esc = (s) => String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;");
+    const cards = items.map(item => `
+      <div class="lc">
+        <div class="lh"><span>${esc(item.label)}</span><img class="lhlogo" src="${logoUrl}" alt="" /></div>
+        <div class="lb">
+          <img class="lqr" src="${qrDataUrls[item.uid] || ""}" width="96" height="96" />
+          <div class="li">
+            ${item.venueName ? `<div class="lr"><span class="lk">Restaurant</span><span class="lv">${esc(item.venueName)}</span></div>` : ""}
+            ${item.unit ? `<div class="lr"><span class="lk">Unit #</span><span class="lv">${esc(item.unit)}</span></div>` : ""}
+            ${item.floor ? `<div class="lr"><span class="lk">Floor</span><span class="lv">${esc(item.floor)}</span></div>` : ""}
+            ${item.location ? `<div class="lr"><span class="lk">Location</span><span class="lv">${esc(item.location)}</span></div>` : ""}
+            ${item.brandName ? `<div class="lr"><span class="lk">Brand</span><span class="lv">${esc(item.brandName)}</span></div>` : ""}
+          </div>
+        </div>
+        <div class="lt"><span class="ltc">${esc(item.assetTag)}</span><span class="lto">${esc(resolveCompanyName())}</span></div>
+      </div>`).join("\n");
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Equipment Labels</title><style>
+      * { margin:0; padding:0; box-sizing:border-box; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+      body { font-family:-apple-system,'Segoe UI',Arial,sans-serif; padding:8mm; background:#fff; }
+      .grid { display:grid; grid-template-columns:repeat(3,1fr); gap:5mm; }
+      .lc { border:1.5px solid #9ca3af; border-radius:8px; overflow:hidden; break-inside:avoid; page-break-inside:avoid; background:#fff; }
+      .lh { background:#2A295C; color:#fff; padding:6px 10px; display:flex; align-items:center; justify-content:space-between; gap:6px; }
+      .lh span { font-weight:800; font-size:11px; }
+      .lhlogo { height:14px; filter:brightness(0) invert(1); }
+      .lb { display:flex; gap:8px; padding:8px 10px; align-items:flex-start; }
+      .lqr { display:block; }
+      .li { flex:1; min-width:0; }
+      .lr { margin-bottom:3px; line-height:1.2; }
+      .lk { display:block; font-size:6.5px; font-weight:800; text-transform:uppercase; letter-spacing:.09em; color:#6b7280; }
+      .lv { display:block; font-size:10px; font-weight:700; color:#111827; word-break:break-word; }
+      .lt { display:flex; align-items:center; justify-content:space-between; background:#f3f4f6; border-top:1.5px dashed #d1d5db; padding:4px 10px; }
+      .ltc { font-family:monospace; font-weight:800; font-size:10.5px; color:#111827; }
+      .lto { font-size:7px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:#9ca3af; }
+      @page { margin:8mm; }
+    </style></head><body><div class="grid">${cards}</div>
+    <script>window.onload=function(){setTimeout(function(){window.print()},400)}<\/script></body></html>`;
+    const win = window.open("", "_blank");
+    if (!win) { alert("Allow pop-ups to print labels."); return; }
+    win.document.write(html);
+    win.document.close();
+  }
 
   // Load most recent inspection and extract all equipment items (with or without asset tags)
   useEffect(() => {
@@ -16224,9 +16282,9 @@ function PrintLabelsPage({ onBack }) {
             <div style={{ color: "rgba(255,255,255,0.7)", fontSize: "0.75rem" }}>QR code labels for physical equipment</div>
           </div>
         </div>
-        <button className="btn" type="button" onClick={() => window.print()}
-          style={{ background: "var(--surface-1)", color: "var(--sdx-navy)", fontWeight: 700, fontSize: "0.85rem", padding: "0.4rem 1.1rem" }}>
-          🖨 Print
+        <button className="btn" type="button" onClick={printSelected} disabled={selectedCount === 0}
+          style={{ background: "var(--surface-1)", color: "var(--sdx-navy)", fontWeight: 700, fontSize: "0.85rem", padding: "0.4rem 1.1rem", opacity: selectedCount === 0 ? 0.5 : 1 }}>
+          🖨 Print {selectedCount > 0 ? `(${selectedCount})` : ""}
         </button>
       </header>
       <div className="printHide" style={{ height: 64, flexShrink: 0 }} />
@@ -16258,15 +16316,25 @@ function PrintLabelsPage({ onBack }) {
         {/* Label grid — visible on screen and in print */}
         {!loading && equipItems.length > 0 && (
           <>
-            <div className="printHide" style={{ color: "var(--ink-500)", fontSize: "0.82rem", marginBottom: 12 }}>
-              {generating ? "Generating QR codes…" : `${equipItems.length} label${equipItems.length > 1 ? "s" : ""} ready to print`}
+            <div className="printHide" style={{ display: "flex", alignItems: "center", gap: 12, color: "var(--ink-500)", fontSize: "0.82rem", marginBottom: 12, flexWrap: "wrap" }}>
+              <span>{generating ? "Generating QR codes…" : `${selectedCount} of ${equipItems.length} selected — tap a label to include or exclude it`}</span>
+              <button type="button" className="btn btnGhost btnSmall" style={{ fontSize: "0.75rem" }}
+                onClick={() => setSelected(selectedCount === equipItems.length ? new Set() : null)}>
+                {selectedCount === equipItems.length ? "Deselect All" : "Select All"}
+              </button>
             </div>
             <div className="labelGrid">
               {equipItems.map((item) => (
-                <div key={item.uid} className="labelCard labelCardPro">
+                <div key={item.uid} className="labelCard labelCardPro"
+                  onClick={() => toggleSelect(item.uid)}
+                  style={{ cursor: "pointer", outline: isSelected(item.uid) ? "2.5px solid #2563eb" : "2px solid transparent", outlineOffset: 2, opacity: isSelected(item.uid) ? 1 : 0.45, transition: "opacity .15s, outline-color .15s", position: "relative" }}>
+                  <span style={{ position: "absolute", top: 6, right: 8, zIndex: 2, width: 20, height: 20, borderRadius: "50%", background: isSelected(item.uid) ? "#2563eb" : "rgba(255,255,255,.85)", border: "2px solid " + (isSelected(item.uid) ? "#2563eb" : "#cbd5e1"), color: "#fff", fontSize: "0.7rem", fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    {isSelected(item.uid) ? "✓" : ""}
+                  </span>
                   {/* Header band: equipment name */}
                   <div className="labelHead">
                     <span className="labelHeadName">{item.label}</span>
+                    <img src={resolveLogoWhite()} alt="" style={{ height: 14, marginLeft: "auto" }} />
                   </div>
                   <div className="labelBody">
                     {/* QR code */}
