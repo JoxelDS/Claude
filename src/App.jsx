@@ -16978,10 +16978,11 @@ function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVe
   const [scheduleNote, setScheduleNote] = useState("");
   const [scheduleAdded, setScheduleAdded] = useState(false);
 
-  // Load users on mount + auto-refresh every 10s
+  // Instant first paint from cache, then live refresh in the background
   useEffect(() => {
-    getUsers().then(setUsers);
-    const iv = setInterval(() => { getUsers().then(setUsers); }, 10000);
+    getUsers().then(setUsers);                                  // cached — instant
+    getUsers({ fresh: true }).then(setUsers).catch(() => {});   // live — replaces silently
+    const iv = setInterval(() => { getUsers({ fresh: true }).then(setUsers).catch(() => {}); }, 30000);
     return () => clearInterval(iv);
   }, []);
 
@@ -17129,75 +17130,6 @@ function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVe
           </div>
           <span style={{ marginLeft: "auto", color: "#93c5fd", fontSize: "1.1rem" }}>→</span>
         </button>
-
-        {/* Appearance / Theme */}
-        <div className="card adminCard" style={{ marginBottom: 24 }}>
-          <div className="cardHeader">
-            <div className="cardTitle">🎨 Appearance &amp; Theme</div>
-          </div>
-          <div className="cardBody">
-            <p style={{ margin: "0 0 0.75rem", fontSize: "0.88rem", color: "var(--ink-500)" }}>
-              Pick the look of the whole app — header, buttons, and logo. The theme syncs instantly to every device in this venue.
-            </p>
-            <div className="themeGrid">
-              {THEMES.map(t => {
-                const active = (venueSettings?.theme || "sodexo") === t.id;
-                return (
-                  <button
-                    key={t.id}
-                    type="button"
-                    className={`themeCard${active ? " active" : ""}`}
-                    onClick={() => onSaveVenueSettings?.({ theme: t.id })}
-                  >
-                    <div className="themeSwatch" style={{ background: t.swatch }}>
-                      <img src={t.logo} alt={t.name} />
-                    </div>
-                    <div className="themeMeta">
-                      <span className="themeName">{t.name}</span>
-                      {active && <span className="themeCheck">✓ Active</span>}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-            {(venueSettings?.theme === "black") && (
-              <div style={{ marginTop: 16, paddingTop: 14, borderTop: "1px solid var(--sdx-gray-200)" }}>
-                <div style={{ fontWeight: 700, fontSize: "0.84rem", color: "var(--ink-900)", marginBottom: 4 }}>Accent Color</div>
-                <p style={{ margin: "0 0 10px", fontSize: "0.78rem", color: "var(--ink-500)" }}>
-                  Pick the color that dominates the dark theme — buttons, highlights, and active tabs.
-                </p>
-                <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                  {BLACK_ACCENTS.map(a => {
-                    const active = (venueSettings?.blackAccent || "red") === a.id;
-                    return (
-                      <button
-                        key={a.id}
-                        type="button"
-                        title={a.name}
-                        onClick={() => onSaveVenueSettings?.({ blackAccent: a.id })}
-                        style={{
-                          display: "flex", flexDirection: "column", alignItems: "center", gap: 5,
-                          background: "none", border: "none", cursor: "pointer", padding: 2,
-                        }}
-                      >
-                        <span style={{
-                          width: 40, height: 40, borderRadius: "50%", background: a.c,
-                          border: active ? "3px solid var(--ink-900)" : "3px solid transparent",
-                          boxShadow: active ? `0 0 0 2px ${a.c}, 0 4px 12px ${a.c}66` : "0 2px 6px rgba(0,0,0,.3)",
-                          display: "flex", alignItems: "center", justifyContent: "center",
-                          transition: "transform .15s ease, box-shadow .15s ease",
-                          transform: active ? "scale(1.08)" : "scale(1)",
-                          color: "#fff", fontWeight: 800, fontSize: "0.9rem",
-                        }}>{active ? "✓" : ""}</span>
-                        <span style={{ fontSize: "0.66rem", fontWeight: 600, color: active ? "var(--ink-900)" : "var(--ink-500)" }}>{a.name}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
 
         {/* Inspection Schedule Settings */}
         <div className="card adminCard" style={{ marginBottom: 24 }}>
