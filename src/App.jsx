@@ -16332,11 +16332,36 @@ function PrintLabelsPage({ onBack }) {
           <>
             <div className="printHide" style={{ display: "flex", alignItems: "center", gap: 12, color: "var(--ink-500)", fontSize: "0.82rem", marginBottom: 12, flexWrap: "wrap" }}>
               <span>{generating ? "Generating QR codes…" : selectedCount === 0 ? "Tap the labels you want to print — or select a whole restaurant" : `${selectedCount} selected`}</span>
-              <button type="button" className="btn btnGhost btnSmall" style={{ fontSize: "0.75rem" }}
+              <button type="button"
+                style={{ fontSize: "0.75rem", fontWeight: 700, padding: "0.35rem 0.9rem", borderRadius: 999, border: "1.5px solid var(--sdx-navy)", background: "var(--sdx-navy)", color: "#fff", cursor: "pointer" }}
                 onClick={() => setSelected(selectedCount === equipItems.length ? new Set() : new Set(equipItems.map(i => i.uid)))}>
                 {selectedCount === equipItems.length ? "Deselect All" : "Select All"}
               </button>
             </div>
+            {/* Bottom selection bar — matches the reports select-mode bar */}
+            <div className="printHide" style={{
+              position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 200,
+              background: "#1d4ed8", color: "#fff",
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              padding: "14px 20px calc(14px + env(safe-area-inset-bottom, 0px))", gap: 12,
+              boxShadow: "0 -4px 16px rgba(0,0,0,0.18)",
+            }}>
+              <div style={{ fontWeight: 600, fontSize: "0.95rem" }}>
+                {selectedCount === 0 ? "Tap labels to select" : `${selectedCount} label${selectedCount !== 1 ? "s" : ""} selected`}
+              </div>
+              <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                <button type="button"
+                  onClick={() => setSelected(selectedCount === equipItems.length ? new Set() : new Set(equipItems.map(i => i.uid)))}
+                  style={{ background: "rgba(255,255,255,0.15)", border: "1.5px solid rgba(255,255,255,0.5)", color: "#fff", borderRadius: 9, padding: "0.5rem 1rem", fontWeight: 700, fontSize: "0.85rem", cursor: "pointer", whiteSpace: "nowrap" }}>
+                  {selectedCount === equipItems.length ? "Deselect All" : "Select All"}
+                </button>
+                <button type="button" onClick={printSelected} disabled={selectedCount === 0}
+                  style={{ background: selectedCount === 0 ? "rgba(255,255,255,0.3)" : "#fff", color: selectedCount === 0 ? "rgba(255,255,255,0.7)" : "#1d4ed8", border: "none", borderRadius: 9, padding: "0.5rem 1.2rem", fontWeight: 800, fontSize: "0.85rem", cursor: selectedCount === 0 ? "default" : "pointer", whiteSpace: "nowrap" }}>
+                  🖨 Print{selectedCount > 0 ? ` (${selectedCount})` : ""}
+                </button>
+              </div>
+            </div>
+            <div className="printHide" style={{ height: 74 }} />
             {(() => {
               // Group by restaurant so a whole location can be selected at once
               const groups = [];
@@ -16355,7 +16380,11 @@ function PrintLabelsPage({ onBack }) {
                     <div className="printHide" style={{ display: "flex", alignItems: "center", gap: 10, margin: "1.1rem 0 0.6rem" }}>
                       <span style={{ fontSize: "0.78rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.07em", color: "var(--ink-600)" }}>🍽 {g}</span>
                       <span style={{ flex: 1, height: 1, background: "var(--sdx-gray-200)" }} />
-                      <button type="button" className="btn btnGhost btnSmall" style={{ fontSize: "0.72rem" }}
+                      <button type="button"
+                        style={{ fontSize: "0.72rem", fontWeight: 700, padding: "0.3rem 0.85rem", borderRadius: 999, cursor: "pointer",
+                          border: allIn ? "1.5px solid var(--sdx-gray-300)" : "1.5px solid #2563eb",
+                          background: allIn ? "transparent" : "#2563eb",
+                          color: allIn ? "var(--ink-500)" : "#fff" }}
                         onClick={() => toggleGroup(uids)}>
                         {allIn ? "✕ Deselect" : `✓ Select all ${uids.length}`}
                       </button>
