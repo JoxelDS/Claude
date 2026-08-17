@@ -718,8 +718,8 @@
       // Load everything from venueRegistry (clients have _type:"client", venues have _type:"venue" or no type)
       const vSnap = await getDocs(collection(db, "venueRegistry"));
       const allDocs = vSnap.docs.map(d=>({id:d.id,...d.data()}));
-      clients = allDocs.filter(d=>d._type==="client").sort((a,b)=>(a.name||a.id).localeCompare(b.name||b.id));
-      allVenues = allDocs.filter(d=>d._type!=="client").sort((a,b)=>(a.name||a.id).localeCompare(b.name||b.id));
+      clients = allDocs.filter(d=>d._type==="client"&&d.status!=="deleted").sort((a,b)=>(a.name||a.id).localeCompare(b.name||b.id));
+      allVenues = allDocs.filter(d=>d._type!=="client"&&d.status!=="deleted").sort((a,b)=>(a.name||a.id).localeCompare(b.name||b.id));
 
       // Stats for each venue
       const today = new Date().toISOString().slice(0,10);
@@ -1141,7 +1141,8 @@
     if(!confirm(`Remove client "${name}"?\n\nThis will NOT delete their venues or inspection data.`)) return;
     if(!confirm(`Confirm: remove "${name}"?`)) return;
     try {
-      await deleteDoc(doc(db,"venueRegistry",id));
+      // Deletes are blocked by security rules — mark as deleted instead (data preserved)
+      await setDoc(doc(db,"venueRegistry",id),{status:"deleted",name:name||id},{merge:true});
       clients=clients.filter(c=>c.id!==id);
       editingClientId=null;
       animCount(document.getElementById("statClients"),clients.length);
@@ -1155,7 +1156,8 @@
     if(!confirm(`Remove venue "${name}" from this client?\n\nInspection data is NOT deleted.`)) return;
     if(!confirm(`Confirm: remove "${name}"?`)) return;
     try {
-      await deleteDoc(doc(db,"venueRegistry",id));
+      // Deletes are blocked by security rules — mark as deleted instead (data preserved)
+      await setDoc(doc(db,"venueRegistry",id),{status:"deleted",name:name||id},{merge:true});
       allVenues=allVenues.filter(v=>v.id!==id);
       editingVenueId=null;
       animCount(document.getElementById("statVenues"),allVenues.length);

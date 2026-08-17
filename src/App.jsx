@@ -1230,7 +1230,7 @@ async function loadVenueRegistry() {
     const snap = await getDocs(venueRegistryCol());
     return snap.docs
       .map(d => ({ id: d.id, ...d.data() }))
-      .filter(d => d._type !== "client");
+      .filter(d => d._type !== "client" && d.status !== "deleted");
   } catch { return []; }
 }
 
@@ -1241,7 +1241,7 @@ async function loadClientRegistry() {
     const snap = await getDocs(venueRegistryCol());
     return snap.docs
       .map(d => ({ id: d.id, ...d.data() }))
-      .filter(d => d._type === "client");
+      .filter(d => d._type === "client" && d.status !== "deleted");
   } catch { return []; }
 }
 
@@ -1254,7 +1254,9 @@ async function saveVenueRecord(venueId, data) {
 
 async function deleteVenueRecord(venueId) {
   if (!FIREBASE_ON) return;
-  await deleteDoc(venueRegistryDoc(venueId));
+  // Hard deletes are blocked by security rules — soft-delete instead so the
+  // record disappears from every list while inspection data stays intact.
+  await setDoc(venueRegistryDoc(venueId), { status: "deleted" }, { merge: true });
 }
 
 async function loadVenueStats(venueId) {
