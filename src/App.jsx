@@ -16382,13 +16382,18 @@ function GlobalAdminPanel({ currentUser, onBack, onManageVenue, onEnterVenue, on
     if (!addName.trim()) { setAddError("Enter a display name."); return; }
     if (venues.find(v => v.id === slug)) { setAddError("A venue with that ID already exists."); return; }
     setAddLoading(true);
-    const companyNameVal = addCompanyName.trim() || addName.trim();
+    // Inherit branding from the selected client (logo, company name, color)
+    const client = clients.find(c => c.id === addClientId);
+    const companyNameVal = addCompanyName.trim() || client?.name || addName.trim();
+    const logoVal = addLogoUrl.trim() || client?.logoUrl || "";
+    const colorVal = client?.primaryColor || "";
     await saveVenueRecord(slug, {
       name: addName.trim(),
       type: addType,
       address: addAddress.trim() || "",
       companyName: companyNameVal,
-      logoUrl: addLogoUrl.trim() || "",
+      logoUrl: logoVal,
+      primaryColor: colorVal,
       clientId: addClientId || "",
       status: "active",
       createdAt: new Date().toISOString(),
@@ -16396,7 +16401,7 @@ function GlobalAdminPanel({ currentUser, onBack, onManageVenue, onEnterVenue, on
     });
     // Push branding into that venue's venueSettings so all users see it on load
     if (FIREBASE_ON) {
-      setDoc(doc(db, "venues", slug, "sharedMemory", "venueSettings"), { companyName: companyNameVal, logoUrl: addLogoUrl.trim() || "" }, { merge: true }).catch(() => {});
+      setDoc(doc(db, "venues", slug, "sharedMemory", "venueSettings"), { companyName: companyNameVal, logoUrl: logoVal, primaryColor: colorVal }, { merge: true }).catch(() => {});
     }
     const updated = await loadVenueRegistry();
     updated.sort((a, b) => (a.name || a.id).localeCompare(b.name || b.id));
@@ -20882,7 +20887,14 @@ export default function App() {
       currentUser ? (personalTheme || venueSettings?.theme) : "sodexo",
       personalAccent || venueSettings?.blackAccent
     );
-  }, [venueSettings?.theme, venueSettings?.blackAccent, currentUser, personalTheme, personalAccent]);
+    // Client brand color: on white-label venues the client's primary color
+    // becomes the chrome/brand color everywhere, login screen included.
+    const brand = (venueSettings?.primaryColor || "").trim();
+    const activeTheme = currentUser ? (personalTheme || venueSettings?.theme) : "sodexo";
+    if (VENUE_ID !== "default" && /^#[0-9a-fA-F]{6}$/.test(brand) && activeTheme !== "black") {
+      document.documentElement.style.setProperty("--sdx-navy", brand);
+    }
+  }, [venueSettings?.theme, venueSettings?.blackAccent, venueSettings?.primaryColor, currentUser, personalTheme, personalAccent]);
 
   function saveVenueSettings(updates) {
     const next = { ...venueSettings, ...updates };
