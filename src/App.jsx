@@ -17869,7 +17869,17 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
       .map(k => ({ path: [sectionKey, k], label: sectionData[k]?.label || "Custom item", isCustom: true, customKey: k }));
   }, [allowCustom, sectionKey, inspection]);
 
-  const allItems = [...items, ...customItems];
+  const allItems = [...items, ...customItems].filter(it => {
+    // Hide the legacy generic "Coolers"/"Freezer" placeholders — inspectors add
+    // specific typed units (or scan a QR) via the picker instead. Keep them only
+    // if they already carry real data (label/temp/tag) from an older report.
+    const k = it.path[it.path.length - 1];
+    if (sectionKey === "equipment" && (k === "coolers" || k === "freezer")) {
+      const d = getAtPath(inspection, it.path) || {};
+      return !!(d.label || d.tempF || d.assetTag || (d.status && d.status !== "OK") || (d.notes || "").trim());
+    }
+    return true;
+  });
 
   return (
     <div className="guideSection">
@@ -18476,11 +18486,16 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
               const hasColdUnit = Object.values(existingEquip).some(n => n?.cold || detectColdType(n?.label || ""));
               return (
                 <div className="guideAddEquip">
+                  {/* Scan a printed QR label — creates the unit with its saved info */}
+                  <button type="button" onClick={() => setScanPath("__add__")}
+                    style={{ width: "100%", marginBottom: 10, padding: "0.8rem", borderRadius: 10, border: "none", background: "var(--sdx-navy)", color: "#fff", fontWeight: 800, fontSize: "0.9rem", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, boxShadow: "0 3px 12px rgba(0,0,0,.2)" }}>
+                    📷 Scan QR — add the unit from its label
+                  </button>
                   {!hasColdUnit && (
                     <div style={{ background: "var(--tint-blue-1)", border: "1.5px solid #bfdbfe", borderRadius: 8, padding: "9px 13px", marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>
                       <span style={{ fontSize: "1.1rem" }}>❄️</span>
                       <span style={{ fontSize: "0.8rem", color: "#1d4ed8", fontWeight: 600 }}>
-                        Select a cooler or freezer type below to add it to this inspection
+                        Or select a cooler / freezer type below to add it manually
                       </span>
                     </div>
                   )}
@@ -18748,6 +18763,16 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
         <EquipScanModal
           onClose={() => setScanPath(null)}
           onApply={(meta) => {
+            if (scanPath === "__add__") {
+              // Create a new unit in this section from the scanned label
+              const key = `custom_${Date.now()}`;
+              setInspection((prev) => setAtPath(prev, [sectionKey, key], {
+                status: "OK", notes: "", photos: [], count: "", equipSource: "Facility",
+                label: meta.label || "Scanned Unit", tempF: "",
+                assetTag: meta.assetTag || "", brand: meta.brand || "", kitchenArea: meta.kitchenArea || "",
+              }));
+              return;
+            }
             setInspection((prev) => {
               const cur = getAtPath(prev, scanPath) || {};
               return setAtPath(prev, scanPath, {
