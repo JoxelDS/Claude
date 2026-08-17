@@ -16146,10 +16146,17 @@ function PrintLabelsPage({ onBack }) {
           const equip = rec.inspection?.equipment || {};
           if (!siteName && rec.siteName) setSiteName(rec.siteName);
           for (const [key, val] of Object.entries(equip)) {
-            // Use assetTag if present, otherwise fall back to equipment key as unique ID
+            // Labels are for cold equipment (coolers/freezers) — the units that
+            // carry brand/location details — plus anything explicitly tagged.
+            const isCold = !!(COLD_EQUIPMENT[key] || BAR_COLD_EQUIPMENT[key] || detectColdType(val?.label));
+            const hasTag = !!(val?.assetTag && String(val.assetTag).trim());
+            if (!isCold && !hasTag) continue;
+            // Dedupe by asset tag, or key+site for untagged units so the same
+            // cooler type at two locations still gets its own label
+            const dedupeId = val?.assetTag || `${key}@@${rec.siteName || ""}`;
+            if (seen.has(dedupeId)) continue;
+            seen.add(dedupeId);
             const id = val?.assetTag || key;
-            if (seen.has(id)) continue;
-            seen.add(id);
             // Resolve a human-readable label:
             //   1. val.label (custom items always store their label)
             //   2. COLD_EQUIPMENT or BAR_COLD_EQUIPMENT map label (standard built-in items)
@@ -16163,6 +16170,7 @@ function PrintLabelsPage({ onBack }) {
             const coldBadge = coldType === "cooler" ? " ❄ Cooler" : coldType === "freezer" ? " 🧊 Freezer" : "";
             const displayLabel = resolvedLabel + coldBadge;
             items.push({
+              uid: dedupeId,
               assetTag: id,
               label: displayLabel,
               venueName: rec.siteName || activeVenueId,
@@ -16173,8 +16181,8 @@ function PrintLabelsPage({ onBack }) {
               inspectionDate: rec.savedAt ? new Date(rec.savedAt).toLocaleDateString([], { year: "numeric", month: "short", day: "numeric" }) : "",
             });
           }
-          // Only use the most recent inspection for the label set
-          if (items.length > 0) break;
+          // Keep scanning recent inspections so every location's cold
+          // equipment is available (deduped by asset tag / key+site)
         }
         setEquipItems(items);
       } catch {
@@ -16193,7 +16201,7 @@ function PrintLabelsPage({ onBack }) {
     getQRCode().then(QR => Promise.all(
       equipItems.map(item =>
         QR.toDataURL(item.assetTag, { width: 240, margin: 1, color: { dark: "#111827", light: "#ffffff" } })
-          .then(url => { urls[item.assetTag] = url; })
+          .then(url => { urls[item.uid] = url; })
           .catch(() => {})
       )
     )).then(() => {
@@ -16255,7 +16263,7 @@ function PrintLabelsPage({ onBack }) {
             </div>
             <div className="labelGrid">
               {equipItems.map((item) => (
-                <div key={item.assetTag} className="labelCard labelCardPro">
+                <div key={item.uid} className="labelCard labelCardPro">
                   {/* Header band: equipment name */}
                   <div className="labelHead">
                     <span className="labelHeadName">{item.label}</span>
@@ -16263,8 +16271,8 @@ function PrintLabelsPage({ onBack }) {
                   <div className="labelBody">
                     {/* QR code */}
                     <div className="labelQR">
-                      {qrDataUrls[item.assetTag]
-                        ? <img src={qrDataUrls[item.assetTag]} alt={item.assetTag} width={104} height={104} />
+                      {qrDataUrls[item.uid]
+                        ? <img src={qrDataUrls[item.uid]} alt={item.assetTag} width={104} height={104} />
                         : <div style={{ width: 104, height: 104, background: "#f1f5f9", borderRadius: 4, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.7rem", color: "#94a3b8" }}>…</div>
                       }
                     </div>
