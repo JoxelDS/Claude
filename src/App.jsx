@@ -1234,6 +1234,17 @@ async function loadVenueRegistry() {
   } catch { return []; }
 }
 
+// Clients (created in the DS Marketing owner portal) — used to group venues
+async function loadClientRegistry() {
+  if (!FIREBASE_ON) return [];
+  try {
+    const snap = await getDocs(venueRegistryCol());
+    return snap.docs
+      .map(d => ({ id: d.id, ...d.data() }))
+      .filter(d => d._type === "client");
+  } catch { return []; }
+}
+
 async function saveVenueRecord(venueId, data) {
   if (!FIREBASE_ON) return;
   try {
@@ -16335,12 +16346,16 @@ function GlobalAdminPanel({ currentUser, onBack, onManageVenue, onEnterVenue, on
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState("");
 
+  const [clients, setClients] = useState([]);
+  const [addClientId, setAddClientId] = useState("");
+
   useEffect(() => {
     async function load() {
       setLoading(true);
       const list = await loadVenueRegistry();
       list.sort((a, b) => (a.name || a.id).localeCompare(b.name || b.id));
       setVenues(list);
+      loadClientRegistry().then(setClients).catch(() => {});
       setLoading(false);
       // Load stats in parallel (batched to avoid Firestore limits)
       const BATCH = 20;
@@ -16372,6 +16387,7 @@ function GlobalAdminPanel({ currentUser, onBack, onManageVenue, onEnterVenue, on
       address: addAddress.trim() || "",
       companyName: companyNameVal,
       logoUrl: addLogoUrl.trim() || "",
+      clientId: addClientId || "",
       status: "active",
       createdAt: new Date().toISOString(),
       createdBy: currentUser?.name || "admin",
@@ -16552,6 +16568,13 @@ function GlobalAdminPanel({ currentUser, onBack, onManageVenue, onEnterVenue, on
                   <input value={addName} onChange={e => setAddName(e.target.value)}
                     placeholder="Display Name (e.g. Hard Rock Stadium)" required
                     style={{ padding: "0.55rem 0.75rem", borderRadius: 7, border: "1.5px solid #e2e8f0", fontSize: "0.9rem" }} />
+                  {clients.length > 0 && (
+                    <select value={addClientId} onChange={e => setAddClientId(e.target.value)}
+                      style={{ padding: "0.55rem 0.75rem", borderRadius: 7, border: "1.5px solid #e2e8f0", fontSize: "0.9rem", background: "var(--surface-1)" }}>
+                      <option value="">🏢 Client: Sodexo Live! (direct)</option>
+                      {clients.map(c => <option key={c.id} value={c.id}>🏢 Client: {c.name || c.id}</option>)}
+                    </select>
+                  )}
                   <select value={addType} onChange={e => setAddType(e.target.value)}
                     style={{ padding: "0.55rem 0.75rem", borderRadius: 7, border: "1.5px solid #e2e8f0", fontSize: "0.9rem", background: "var(--surface-1)" }}>
                     <option value="stadium">🏟️ Stadium</option>
@@ -16587,7 +16610,28 @@ function GlobalAdminPanel({ currentUser, onBack, onManageVenue, onEnterVenue, on
               </div>
             )}
 
-            {filtered.map(v => {
+            {(() => {
+              // Group venues by client so each client's sites stay together
+              const clientName = (cid) => (clients.find(c => c.id === cid)?.name) || cid;
+              const groups = [];
+              const byClient = {};
+              for (const v of filtered) {
+                const key = v.clientId || "";
+                if (!byClient[key]) { byClient[key] = []; groups.push(key); }
+                byClient[key].push(v);
+              }
+              // Direct (no client) venues first, then clients alphabetically
+              groups.sort((a, b) => (a === "") - (b === "") ? (a === "" ? -1 : 1) : clientName(a).localeCompare(clientName(b)));
+              return groups.map(gid => (
+                <div key={gid || "direct"}>
+                  {groups.length > 1 && (
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "1.1rem 0 0.5rem", fontSize: "0.72rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-500)" }}>
+                      <span>🏢 {gid ? clientName(gid) : "Sodexo Live! (direct)"}</span>
+                      <span style={{ flex: 1, height: 1, background: "var(--sdx-gray-200)" }} />
+                      <span style={{ fontWeight: 600, textTransform: "none", letterSpacing: 0 }}>{byClient[gid].length} venue{byClient[gid].length !== 1 ? "s" : ""}</span>
+                    </div>
+                  )}
+                  {byClient[gid].map(v => {
               const s = venueStats[v.id] || {};
               const isEditing = editingId === v.id;
               return (
@@ -16695,7 +16739,10 @@ function GlobalAdminPanel({ currentUser, onBack, onManageVenue, onEnterVenue, on
                   )}
                 </div>
               );
-            })}
+                  })}
+                </div>
+              ));
+            })()}
             {!loading && filtered.length === 0 && venues.length > 0 && (
               <div style={{ textAlign: "center", color: "var(--ink-400)", padding: "1.5rem" }}>No venues match your search.</div>
             )}
