@@ -173,9 +173,10 @@ function applyTheme(themeId, accent) {
 // Module-level branding cache — updated by the main App on every venueSettings change
 let _vs = {};
 const isDsTheme = () => _vs.theme === "dsmarketing";
-// White-label demo mode — neutral "InspectOS" branding for sales demos (?v=demo)
+// White-label / DS Marketing branded instances — sales demos and the
+// owner's own business instance (?v=demo, ?v=ds, ?v=dsmarketing)
 const IS_DEMO_BRAND = (() => {
-  try { return (new URLSearchParams(window.location.search).get("v") || "").toLowerCase() === "demo"; }
+  try { return ["demo", "ds", "dsmarketing"].includes((new URLSearchParams(window.location.search).get("v") || "").toLowerCase()); }
   catch { return false; }
 })();
 function resolveLogoWhite() { if (IS_DEMO_BRAND) return _vs.logoUrl || DS_LOGO_WHITE; return _vs.logoUrl || (isDsTheme() ? DS_LOGO_WHITE : LOGO_WHITE); }
