@@ -1751,7 +1751,9 @@ function BadgeScreen({ onUnlock }) {
   // Derive a display label for the venue shown on the login card.
   // Priority: ?vname= param → prettified ?v= slug → nothing (default venue)
   const venueDisplayName = VENUE_NAME ||
-    (VENUE_ID !== "default"
+    (["ds", "dsmarketing"].includes(VENUE_ID) ? "DS Marketing"
+      : VENUE_ID === "demo" ? "Client Demo"
+      : VENUE_ID !== "default"
       ? VENUE_ID.replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase())
       : null);
 
