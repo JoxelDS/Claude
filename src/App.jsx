@@ -17943,9 +17943,9 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                           }), 0);
                         }
                         return (
-                          <div style={{ background: "var(--surface-2)", border: "1px solid #e2e8f0", borderRadius: 8, padding: "0.55rem 0.7rem", marginBottom: 8, display: "flex", flexWrap: "wrap", gap: "0.5rem 1rem", alignItems: "center" }}>
+                          <div style={{ background: "var(--surface-2)", border: "1px solid #e2e8f0", borderRadius: 8, padding: "0.6rem 0.75rem", marginBottom: 8, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: "0.55rem 1rem", alignItems: "center" }}>
                             {/* Brand */}
-                            <div style={{ display: "flex", alignItems: "center", gap: 5, flex: "1 1 130px", minWidth: 0 }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
                               <span style={{ fontSize: "0.68rem", color: "var(--ink-500)", fontWeight: 700, flexShrink: 0, textTransform: "uppercase", letterSpacing: "0.04em" }}>Brand</span>
                               <input
                                 className="input inputSmall"
@@ -17958,7 +17958,7 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                             {/* Divider */}
                             <div style={{ width: 1, height: 28, background: "var(--sdx-gray-200)", flexShrink: 0, display: "none" }} aria-hidden="true" />
                             {/* Location */}
-                            <div style={{ display: "flex", alignItems: "center", gap: 5, flex: "1 1 140px", minWidth: 0 }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
                               <span style={{ fontSize: "0.68rem", color: "var(--ink-500)", fontWeight: 700, flexShrink: 0, textTransform: "uppercase", letterSpacing: "0.04em" }}>Location</span>
                               <input
                                 className="input inputSmall"
@@ -17982,11 +17982,11 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                               </datalist>
                             </div>
                             {/* Asset Tag */}
-                            <div style={{ display: "flex", alignItems: "center", gap: 5, flex: "1 1 150px", minWidth: 0 }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
                               <span style={{ fontSize: "0.68rem", color: "var(--ink-500)", fontWeight: 700, flexShrink: 0, textTransform: "uppercase", letterSpacing: "0.04em" }}>Asset Tag</span>
                               <input
                                 className="input inputSmall"
-                                style={{ fontSize: "0.78rem", fontFamily: "monospace", flex: 1, minWidth: 0 }}
+                                style={{ fontSize: "0.78rem", fontFamily: "monospace", flex: 1, minWidth: 70 }}
                                 value={existingTag}
                                 placeholder={autoTag}
                                 onChange={(e) => setInspection((prev) => setAtPath(prev, it.path, { ...current, assetTag: e.target.value }))}
