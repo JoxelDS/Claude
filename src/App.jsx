@@ -178,12 +178,10 @@ const IS_DEMO_BRAND = (() => {
   try { return (new URLSearchParams(window.location.search).get("v") || "").toLowerCase() === "demo"; }
   catch { return false; }
 })();
-const INSPECTOS_WHITE = `${BASE}inspectos-logo.svg`;
-const INSPECTOS_DARK = `${BASE}inspectos-dark.svg`;
-function resolveLogoWhite() { if (IS_DEMO_BRAND) return _vs.logoUrl || INSPECTOS_WHITE; return _vs.logoUrl || (isDsTheme() ? DS_LOGO_WHITE : LOGO_WHITE); }
-function resolveLogoDark() { if (IS_DEMO_BRAND) return _vs.logoDarkUrl || _vs.logoUrl || INSPECTOS_DARK; return _vs.logoDarkUrl || _vs.logoUrl || (isDsTheme() ? DS_LOGO_DARK : LOGO_DARK); }
-function resolveCompanyName() { if (IS_DEMO_BRAND && !_vs.companyName) return "InspectOS"; return _vs.companyName || (isDsTheme() ? "DS Marketing" : "Sodexo Live!"); }
-function resolveSystemName() { if (IS_DEMO_BRAND && !_vs.companyName) return "InspectOS — Food Safety & Inspection Platform"; return _vs.companyName ? `${_vs.companyName} Inspection System` : (isDsTheme() ? "DS Marketing Inspection System" : "Sodexo Kitchen Inspection System"); }
+function resolveLogoWhite() { if (IS_DEMO_BRAND) return _vs.logoUrl || DS_LOGO_WHITE; return _vs.logoUrl || (isDsTheme() ? DS_LOGO_WHITE : LOGO_WHITE); }
+function resolveLogoDark() { if (IS_DEMO_BRAND) return _vs.logoDarkUrl || _vs.logoUrl || DS_LOGO_DARK; return _vs.logoDarkUrl || _vs.logoUrl || (isDsTheme() ? DS_LOGO_DARK : LOGO_DARK); }
+function resolveCompanyName() { if (IS_DEMO_BRAND && !_vs.companyName) return "DS Marketing"; return _vs.companyName || (isDsTheme() ? "DS Marketing" : "Sodexo Live!"); }
+function resolveSystemName() { if (IS_DEMO_BRAND && !_vs.companyName) return "DS Marketing — Food Safety & Inspection Platform"; return _vs.companyName ? `${_vs.companyName} Inspection System` : (isDsTheme() ? "DS Marketing Inspection System" : "Sodexo Kitchen Inspection System"); }
 
 /* ── Multi-venue: detect ?v=venueSlug from URL ───────────────────
    Each venue gets completely isolated data (localStorage + Firestore).
