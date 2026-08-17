@@ -1,7 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="340" height="64" viewBox="0 0 340 64">
-  <g fill="none" fill-rule="evenodd">
-    <rect x="2" y="8" width="48" height="48" rx="12" fill="#1FA65A"/>
-    <path d="M14 32.5l9 9 15-17" stroke="#fff" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round"/>
-    <text x="62" y="46" font-family="Inter, -apple-system, Arial, sans-serif" font-size="34" font-weight="800" fill="#1F2937" letter-spacing="-0.5">Inspect<tspan fill="#1FA65A">OS</tspan></text>
-  </g>
-</svg>

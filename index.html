@@ -98,10 +98,6 @@
     <!-- Instant splash screen while JS loads -->
     <div id="splash">
       <div class="sp-logo">Sodexo Live!</div>
-      <script>
-        // White-label demo: neutral splash branding at ?v=demo
-        try { if (["demo","ds","dsmarketing"].includes((new URLSearchParams(location.search).get("v") || "").toLowerCase())) document.querySelector(".sp-logo").textContent = "DS Marketing"; } catch (e) {}
-      </script>
       <div class="sp-bar"><div class="sp-fill"></div></div>
     </div>
     <div id="root"></div>

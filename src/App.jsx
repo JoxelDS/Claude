@@ -173,16 +173,10 @@ function applyTheme(themeId, accent) {
 // Module-level branding cache — updated by the main App on every venueSettings change
 let _vs = {};
 const isDsTheme = () => _vs.theme === "dsmarketing";
-// White-label / DS Marketing branded instances — sales demos and the
-// owner's own business instance (?v=demo, ?v=ds, ?v=dsmarketing)
-const IS_DEMO_BRAND = (() => {
-  try { return ["demo", "ds", "dsmarketing"].includes((new URLSearchParams(window.location.search).get("v") || "").toLowerCase()); }
-  catch { return false; }
-})();
-function resolveLogoWhite() { if (IS_DEMO_BRAND) return _vs.logoUrl || DS_LOGO_WHITE; return _vs.logoUrl || (isDsTheme() ? DS_LOGO_WHITE : LOGO_WHITE); }
-function resolveLogoDark() { if (IS_DEMO_BRAND) return _vs.logoDarkUrl || _vs.logoUrl || DS_LOGO_DARK; return _vs.logoDarkUrl || _vs.logoUrl || (isDsTheme() ? DS_LOGO_DARK : LOGO_DARK); }
-function resolveCompanyName() { if (IS_DEMO_BRAND && !_vs.companyName) return "DS Marketing"; return _vs.companyName || (isDsTheme() ? "DS Marketing" : "Sodexo Live!"); }
-function resolveSystemName() { if (IS_DEMO_BRAND && !_vs.companyName) return "DS Marketing — Food Safety & Inspection Platform"; return _vs.companyName ? `${_vs.companyName} Inspection System` : (isDsTheme() ? "DS Marketing Inspection System" : "Sodexo Kitchen Inspection System"); }
+function resolveLogoWhite() { return _vs.logoUrl || (isDsTheme() ? DS_LOGO_WHITE : LOGO_WHITE); }
+function resolveLogoDark() { return _vs.logoDarkUrl || _vs.logoUrl || (isDsTheme() ? DS_LOGO_DARK : LOGO_DARK); }
+function resolveCompanyName() { return _vs.companyName || (isDsTheme() ? "DS Marketing" : "Sodexo Live!"); }
+function resolveSystemName() { return _vs.companyName ? `${_vs.companyName} Inspection System` : (isDsTheme() ? "DS Marketing Inspection System" : "Sodexo Kitchen Inspection System"); }
 
 /* ── Multi-venue: detect ?v=venueSlug from URL ───────────────────
    Each venue gets completely isolated data (localStorage + Firestore).
@@ -1751,9 +1745,7 @@ function BadgeScreen({ onUnlock }) {
   // Derive a display label for the venue shown on the login card.
   // Priority: ?vname= param → prettified ?v= slug → nothing (default venue)
   const venueDisplayName = VENUE_NAME ||
-    (["ds", "dsmarketing"].includes(VENUE_ID) ? "DS Marketing"
-      : VENUE_ID === "demo" ? "Client Demo"
-      : VENUE_ID !== "default"
+    (VENUE_ID !== "default"
       ? VENUE_ID.replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase())
       : null);
 
@@ -20837,10 +20829,8 @@ export default function App() {
   // Apply the theme (personal override → venue setting → default)
   // Theme applies only once someone is signed in — the badge screen always shows the default look
   useEffect(() => {
-    // DS Marketing instances default to the DS theme everywhere, login included
-    const dsDefault = IS_DEMO_BRAND ? "dsmarketing" : "sodexo";
     applyTheme(
-      currentUser ? (personalTheme || venueSettings?.theme || dsDefault) : dsDefault,
+      currentUser ? (personalTheme || venueSettings?.theme) : "sodexo",
       personalAccent || venueSettings?.blackAccent
     );
   }, [venueSettings?.theme, venueSettings?.blackAccent, currentUser, personalTheme, personalAccent]);
