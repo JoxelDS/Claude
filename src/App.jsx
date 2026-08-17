@@ -16138,11 +16138,11 @@ function PrintLabelsPage({ onBack }) {
     async function load() {
       setLoading(true);
       try {
-        const snap = await getDocs(query(venueCol("inspections"), orderBy("savedAt", "desc")));
+        // loadHistory handles the default-venue legacy collection correctly
+        const { list } = await loadHistory(undefined, { pageSize: 50 });
         const seen = new Set();
         const items = [];
-        for (const d of snap.docs) {
-          const rec = d.data();
+        for (const rec of (list || [])) {
           const equip = rec.inspection?.equipment || {};
           if (!siteName && rec.siteName) setSiteName(rec.siteName);
           for (const [key, val] of Object.entries(equip)) {
@@ -16166,6 +16166,10 @@ function PrintLabelsPage({ onBack }) {
               assetTag: id,
               label: displayLabel,
               venueName: rec.siteName || activeVenueId,
+              unit: (rec.siteNumber || "").trim(),
+              floor: (rec.floor || "").trim(),
+              location: (val?.location || "").trim(),
+              brandName: (val?.brand || "").trim(),
               inspectionDate: rec.savedAt ? new Date(rec.savedAt).toLocaleDateString([], { year: "numeric", month: "short", day: "numeric" }) : "",
             });
           }
@@ -16188,7 +16192,7 @@ function PrintLabelsPage({ onBack }) {
     const urls = {};
     getQRCode().then(QR => Promise.all(
       equipItems.map(item =>
-        QR.toDataURL(item.assetTag, { width: 200, margin: 1, color: { dark: "var(--ink-900)", light: "#ffffff" } })
+        QR.toDataURL(item.assetTag, { width: 240, margin: 1, color: { dark: "#111827", light: "#ffffff" } })
           .then(url => { urls[item.assetTag] = url; })
           .catch(() => {})
       )
@@ -16251,20 +16255,32 @@ function PrintLabelsPage({ onBack }) {
             </div>
             <div className="labelGrid">
               {equipItems.map((item) => (
-                <div key={item.assetTag} className="labelCard">
-                  {/* QR code */}
-                  <div className="labelQR">
-                    {qrDataUrls[item.assetTag]
-                      ? <img src={qrDataUrls[item.assetTag]} alt={item.assetTag} width={110} height={110} />
-                      : <div style={{ width: 110, height: 110, background: "var(--surface-3)", borderRadius: 4, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.7rem", color: "var(--ink-400)" }}>…</div>
-                    }
+                <div key={item.assetTag} className="labelCard labelCardPro">
+                  {/* Header band: equipment name */}
+                  <div className="labelHead">
+                    <span className="labelHeadName">{item.label}</span>
                   </div>
-                  {/* Label text */}
-                  <div className="labelText">
-                    <div className="labelEquipName">{item.label}</div>
-                    <div className="labelAssetTag">{item.assetTag}</div>
-                    {item.venueName && <div className="labelVenueName">{item.venueName}</div>}
-                    <div className="labelBrand">{resolveCompanyName()} Inspection</div>
+                  <div className="labelBody">
+                    {/* QR code */}
+                    <div className="labelQR">
+                      {qrDataUrls[item.assetTag]
+                        ? <img src={qrDataUrls[item.assetTag]} alt={item.assetTag} width={104} height={104} />
+                        : <div style={{ width: 104, height: 104, background: "#f1f5f9", borderRadius: 4, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.7rem", color: "#94a3b8" }}>…</div>
+                      }
+                    </div>
+                    {/* Info rows */}
+                    <div className="labelInfo">
+                      {item.venueName && <div className="labelRow"><span className="labelKey">Restaurant</span><span className="labelVal">{item.venueName}</span></div>}
+                      {item.unit && <div className="labelRow"><span className="labelKey">Unit #</span><span className="labelVal">{item.unit}</span></div>}
+                      {item.floor && <div className="labelRow"><span className="labelKey">Floor</span><span className="labelVal">{item.floor}</span></div>}
+                      {item.location && <div className="labelRow"><span className="labelKey">Location</span><span className="labelVal">{item.location}</span></div>}
+                      {item.brandName && <div className="labelRow"><span className="labelKey">Brand</span><span className="labelVal">{item.brandName}</span></div>}
+                    </div>
+                  </div>
+                  {/* Tag strip */}
+                  <div className="labelTagStrip">
+                    <span className="labelTagCode">{item.assetTag}</span>
+                    <span className="labelTagOrg">{resolveCompanyName()}</span>
                   </div>
                 </div>
               ))}
@@ -22766,7 +22782,7 @@ export default function App() {
 
         {/* ── Offline / draft-sync status strip ──────────────────────────────── */}
         {(!isOnline || (draftSavedAt && reportInProgressRef.current)) && (
-          <div style={{
+          <div className={isOnline ? "topStrip topStripDraft" : "topStrip topStripOffline"} style={{
             width: "100vw",               /* full-bleed row regardless of header padding */
             marginLeft: "calc(50% - 50vw)",
             flexBasis: "100%",            /* always its own full-width row below the header */
