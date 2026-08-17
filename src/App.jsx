@@ -16132,14 +16132,22 @@ function PrintLabelsPage({ onBack }) {
   const [qrDataUrls, setQrDataUrls] = useState({}); // { uid: dataUrl }
   const [siteName, setSiteName] = useState("");
   const [generating, setGenerating] = useState(false);
-  const [selected, setSelected] = useState(null); // Set of uids; null = all selected (default)
+  const [selected, setSelected] = useState(() => new Set()); // start with NONE selected
 
-  const isSelected = (uid) => selected === null || selected.has(uid);
-  const selectedCount = selected === null ? equipItems.length : selected.size;
+  const isSelected = (uid) => selected.has(uid);
+  const selectedCount = selected.size;
   function toggleSelect(uid) {
     setSelected(prev => {
-      const base = prev === null ? new Set(equipItems.map(i => i.uid)) : new Set(prev);
+      const base = new Set(prev);
       base.has(uid) ? base.delete(uid) : base.add(uid);
+      return base;
+    });
+  }
+  function toggleGroup(uids) {
+    setSelected(prev => {
+      const base = new Set(prev);
+      const allIn = uids.every(u => base.has(u));
+      uids.forEach(u => allIn ? base.delete(u) : base.add(u));
       return base;
     });
   }
@@ -16317,14 +16325,37 @@ function PrintLabelsPage({ onBack }) {
         {!loading && equipItems.length > 0 && (
           <>
             <div className="printHide" style={{ display: "flex", alignItems: "center", gap: 12, color: "var(--ink-500)", fontSize: "0.82rem", marginBottom: 12, flexWrap: "wrap" }}>
-              <span>{generating ? "Generating QR codes…" : `${selectedCount} of ${equipItems.length} selected — tap a label to include or exclude it`}</span>
+              <span>{generating ? "Generating QR codes…" : selectedCount === 0 ? "Tap the labels you want to print — or select a whole restaurant" : `${selectedCount} selected`}</span>
               <button type="button" className="btn btnGhost btnSmall" style={{ fontSize: "0.75rem" }}
-                onClick={() => setSelected(selectedCount === equipItems.length ? new Set() : null)}>
+                onClick={() => setSelected(selectedCount === equipItems.length ? new Set() : new Set(equipItems.map(i => i.uid)))}>
                 {selectedCount === equipItems.length ? "Deselect All" : "Select All"}
               </button>
             </div>
-            <div className="labelGrid">
-              {equipItems.map((item) => (
+            {(() => {
+              // Group by restaurant so a whole location can be selected at once
+              const groups = [];
+              const byVenue = {};
+              for (const it of equipItems) {
+                const g = it.venueName || "—";
+                if (!byVenue[g]) { byVenue[g] = []; groups.push(g); }
+                byVenue[g].push(it);
+              }
+              return groups.map(g => {
+                const groupItems = byVenue[g];
+                const uids = groupItems.map(i => i.uid);
+                const allIn = uids.every(u => selected.has(u));
+                return (
+                  <div key={g}>
+                    <div className="printHide" style={{ display: "flex", alignItems: "center", gap: 10, margin: "1.1rem 0 0.6rem" }}>
+                      <span style={{ fontSize: "0.78rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.07em", color: "var(--ink-600)" }}>🍽 {g}</span>
+                      <span style={{ flex: 1, height: 1, background: "var(--sdx-gray-200)" }} />
+                      <button type="button" className="btn btnGhost btnSmall" style={{ fontSize: "0.72rem" }}
+                        onClick={() => toggleGroup(uids)}>
+                        {allIn ? "✕ Deselect" : `✓ Select all ${uids.length}`}
+                      </button>
+                    </div>
+                    <div className="labelGrid">
+              {groupItems.map((item) => (
                 <div key={item.uid} className="labelCard labelCardPro"
                   onClick={() => toggleSelect(item.uid)}
                   style={{ cursor: "pointer", outline: isSelected(item.uid) ? "2.5px solid #2563eb" : "2px solid transparent", outlineOffset: 2, opacity: isSelected(item.uid) ? 1 : 0.45, transition: "opacity .15s, outline-color .15s", position: "relative" }}>
@@ -16360,7 +16391,11 @@ function PrintLabelsPage({ onBack }) {
                   </div>
                 </div>
               ))}
-            </div>
+                    </div>
+                  </div>
+                );
+              });
+            })()}
           </>
         )}
       </div>
