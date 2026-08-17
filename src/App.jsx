@@ -16708,13 +16708,6 @@ function GlobalAdminPanel({ currentUser, onBack, onManageVenue, onEnterVenue, on
                   <input value={addName} onChange={e => setAddName(e.target.value)}
                     placeholder="Display Name (e.g. Hard Rock Stadium)" required
                     style={{ padding: "0.55rem 0.75rem", borderRadius: 7, border: "1.5px solid #e2e8f0", fontSize: "0.9rem" }} />
-                  {clients.length > 0 && (
-                    <select value={addClientId} onChange={e => setAddClientId(e.target.value)}
-                      style={{ padding: "0.55rem 0.75rem", borderRadius: 7, border: "1.5px solid #e2e8f0", fontSize: "0.9rem", background: "var(--surface-1)" }}>
-                      <option value="">🏢 Client: Sodexo Live! (direct)</option>
-                      {clients.map(c => <option key={c.id} value={c.id}>🏢 Client: {c.name || c.id}</option>)}
-                    </select>
-                  )}
                   <select value={addType} onChange={e => setAddType(e.target.value)}
                     style={{ padding: "0.55rem 0.75rem", borderRadius: 7, border: "1.5px solid #e2e8f0", fontSize: "0.9rem", background: "var(--surface-1)" }}>
                     <option value="stadium">🏟️ Stadium</option>
@@ -16726,15 +16719,6 @@ function GlobalAdminPanel({ currentUser, onBack, onManageVenue, onEnterVenue, on
                   <input value={addAddress} onChange={e => setAddAddress(e.target.value)}
                     placeholder="Address (optional)"
                     style={{ padding: "0.55rem 0.75rem", borderRadius: 7, border: "1.5px solid #e2e8f0", fontSize: "0.9rem" }} />
-                  <div style={{ borderTop: "1px solid #e2e8f0", paddingTop: "0.5rem", marginTop: "0.25rem" }}>
-                    <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--ink-500)", marginBottom: "0.4rem" }}>🏢 Client Branding</div>
-                    <input value={addCompanyName} onChange={e => setAddCompanyName(e.target.value)}
-                      placeholder="Company name shown in app (e.g. Levy Restaurants)"
-                      style={{ padding: "0.55rem 0.75rem", borderRadius: 7, border: "1.5px solid #e2e8f0", fontSize: "0.9rem", width: "100%", boxSizing: "border-box", marginBottom: "0.4rem" }} />
-                    <input value={addLogoUrl} onChange={e => setAddLogoUrl(e.target.value)}
-                      placeholder="Logo URL (https://… — leave blank for default)"
-                      style={{ padding: "0.55rem 0.75rem", borderRadius: 7, border: "1.5px solid #e2e8f0", fontSize: "0.9rem", width: "100%", boxSizing: "border-box" }} />
-                  </div>
                   <button type="submit" disabled={addLoading}
                     style={{ padding: "0.6rem", borderRadius: 7, border: "none", background: "var(--sdx-navy)", color: "#fff", fontWeight: 700, cursor: "pointer" }}>
                     {addLoading ? "Adding…" : "Add Venue"}
