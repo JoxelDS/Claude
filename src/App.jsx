@@ -17799,6 +17799,7 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
   const cameraRefs = useRef({});
   const [newItemName, setNewItemName] = useState("");
   const [scanPath, setScanPath] = useState(null); // item path being filled via QR scan
+  const [scanInitTag, setScanInitTag] = useState(null); // tag to auto-lookup (history mode)
   const [newEquipType, setNewEquipType] = useState(null); // null = no type selected yet
   const [clSearchMap, setClSearchMap] = useState({}); // keyed by item path string → search query
   const [newMaintName, setNewMaintName] = useState("");
@@ -18052,9 +18053,17 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                               <button type="button" className="btn btnGhost btnSmall"
                                 title="Scan the unit's QR label — fills its info and shows past readings"
                                 style={{ fontSize: "0.68rem", padding: "0.15rem 0.45rem", flexShrink: 0, whiteSpace: "nowrap" }}
-                                onClick={() => setScanPath(it.path)}>
+                                onClick={() => { setScanInitTag(null); setScanPath(it.path); }}>
                                 📷 Scan
                               </button>
+                              {existingTag && (
+                                <button type="button" className="btn btnGhost btnSmall"
+                                  title="See this unit's past temperatures and notes"
+                                  style={{ fontSize: "0.68rem", padding: "0.15rem 0.45rem", flexShrink: 0, whiteSpace: "nowrap", color: "var(--sdx-navy)", fontWeight: 700 }}
+                                  onClick={() => { setScanInitTag(existingTag); setScanPath(it.path); }}>
+                                  📈 History
+                                </button>
+                              )}
                               {existingTag && onOpenPrintLabels && (
                                 <button type="button" className="btn btnGhost btnSmall"
                                   title="View QR label"
@@ -18761,7 +18770,8 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
       {/* Equipment QR scan modal — fills the item and shows reading history */}
       {scanPath && (
         <EquipScanModal
-          onClose={() => setScanPath(null)}
+          initialTag={scanInitTag}
+          onClose={() => { setScanPath(null); setScanInitTag(null); }}
           onApply={(meta) => {
             if (scanPath === "__add__") {
               // Create a new unit in this section from the scanned label
@@ -19280,7 +19290,7 @@ function ShareModal({ shareUrl, onClose }) {
 /* ── HACCP QR Modal (inspector side) ─────────────────────── */
 /* ── EquipScanModal — scan an equipment QR inside the report; fills the
    item's info and shows the unit's reading history (dates, temps, notes) ── */
-function EquipScanModal({ onClose, onApply }) {
+function EquipScanModal({ onClose, onApply, initialTag }) {
   const videoRef = useRef(null);
   const streamRef = useRef(null);
   const [cameraOn, setCameraOn] = useState(false);
@@ -19293,6 +19303,11 @@ function EquipScanModal({ onClose, onApply }) {
   useEffect(() => () => { // stop camera on unmount
     try { streamRef.current?.getTracks().forEach(t => t.stop()); } catch {}
   }, []);
+
+  // History mode: opened from a unit that already has a tag — look it up immediately
+  useEffect(() => {
+    if (initialTag) { setManualTag(initialTag); lookup(initialTag); }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function lookup(rawTag) {
     const tag = (rawTag || "").trim();
@@ -19359,17 +19374,19 @@ function EquipScanModal({ onClose, onApply }) {
 
   const inputStyle = { flex: 1, minWidth: 0, padding: "0.55rem 0.75rem", borderRadius: 8, border: "1.5px solid var(--sdx-gray-200)", fontSize: "0.85rem", fontFamily: "monospace", background: "var(--surface-2)", color: "var(--ink-900)" };
 
-  return (
+  // Portal to <body> — ancestors with CSS transforms (entrance animations)
+  // would otherwise trap position:fixed and hide the modal
+  return ReactDOM.createPortal(
     <div style={{ position: "fixed", inset: 0, zIndex: 10000, background: "rgba(0,0,0,.6)", backdropFilter: "blur(3px)", overflowY: "auto", padding: "5vh 14px" }} onClick={onClose}>
       <div className="card" style={{ maxWidth: 480, margin: "0 auto" }} onClick={e => e.stopPropagation()}>
         <div className="cardHeader" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <div className="cardTitle">📷 Scan Equipment</div>
+          <div className="cardTitle">{initialTag ? "📈 Equipment History" : "📷 Scan Equipment"}</div>
           <button type="button" onClick={onClose} style={{ background: "none", border: "none", fontSize: "1.2rem", cursor: "pointer", color: "var(--ink-400)", lineHeight: 1, padding: 4 }}>✕</button>
         </div>
         <div className="cardBody" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
 
-          {/* Camera area */}
-          {cameraOn ? (
+          {/* Camera area — hidden in history mode */}
+          {initialTag ? null : cameraOn ? (
             <video ref={videoRef} playsInline muted style={{ width: "100%", borderRadius: 12, background: "#000", maxHeight: 260, objectFit: "cover" }} />
           ) : (
             <button type="button" onClick={startCamera}
@@ -19435,11 +19452,10 @@ function EquipScanModal({ onClose, onApply }) {
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
-}
-
-function HaccpQrModal({ onClose, siteName, siteNumber, floor, locationType, reportId }) {
+}function HaccpQrModal({ onClose, siteName, siteNumber, floor, locationType, reportId }) {
   const canvasRef = useRef(null);
   const [copied, setCopied] = useState(false);
   const haccpUrl = (() => {
