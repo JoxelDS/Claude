@@ -16290,9 +16290,15 @@ function PrintLabelsPage({ onBack }) {
             <div style={{ color: "rgba(255,255,255,0.7)", fontSize: "0.75rem" }}>QR code labels for physical equipment</div>
           </div>
         </div>
-        <button className="btn" type="button" onClick={printSelected} disabled={selectedCount === 0}
-          style={{ background: "var(--surface-1)", color: "var(--sdx-navy)", fontWeight: 700, fontSize: "0.85rem", padding: "0.4rem 1.1rem", opacity: selectedCount === 0 ? 0.5 : 1 }}>
-          🖨 Print {selectedCount > 0 ? `(${selectedCount})` : ""}
+        <button type="button" onClick={printSelected} disabled={selectedCount === 0}
+          style={{
+            background: selectedCount === 0 ? "rgba(255,255,255,0.18)" : "#fff",
+            color: selectedCount === 0 ? "rgba(255,255,255,0.75)" : "var(--sdx-navy)",
+            border: "none", borderRadius: 10, cursor: selectedCount === 0 ? "default" : "pointer",
+            fontWeight: 700, fontSize: "0.85rem", padding: "0.5rem 1.1rem",
+            display: "inline-flex", alignItems: "center", gap: 6, whiteSpace: "nowrap",
+          }}>
+          🖨 Print{selectedCount > 0 ? ` (${selectedCount})` : ""}
         </button>
       </header>
       <div className="printHide" style={{ height: 64, flexShrink: 0 }} />
