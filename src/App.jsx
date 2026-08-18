@@ -16238,6 +16238,20 @@ function PrintLabelsPage({ onBack }) {
     setAddSaving(false);
   }
 
+  // Bulk delete — hide every selected label at once (for starting over from zero)
+  async function deleteSelected() {
+    const items = equipItems.filter(i => selected.has(i.uid));
+    if (items.length === 0) return;
+    if (!confirm(`Delete ${items.length} label${items.length !== 1 ? "s" : ""}?\n\nThey disappear from this page — past inspection reports are not affected.`)) return;
+    try {
+      const hidden = {};
+      items.forEach(i => { hidden[i.uid] = true; });
+      await setDoc(registryRef(), { hidden }, { merge: true });
+      setEquipItems(prev => prev.filter(i => !selected.has(i.uid)));
+      setSelected(new Set());
+    } catch { alert("Could not delete — check your connection."); }
+  }
+
   // Remove a label — hides it here permanently (report history is untouched)
   async function deleteEquipment(item) {
     if (!confirm(`Remove the label for "${item.label}" (${item.assetTag})?\n\nIt disappears from this page — past inspection reports are not affected.`)) return;
@@ -16474,6 +16488,13 @@ function PrintLabelsPage({ onBack }) {
                 onClick={() => setShowAdd(true)}>
                 ➕ Add Equipment
               </button>
+              {selectedCount > 0 && (
+                <button type="button"
+                  style={{ fontSize: "0.75rem", fontWeight: 700, padding: "0.35rem 0.9rem", borderRadius: 999, border: "1.5px solid #dc2626", background: "#dc2626", color: "#fff", cursor: "pointer" }}
+                  onClick={deleteSelected}>
+                  🗑 Delete ({selectedCount})
+                </button>
+              )}
             </div>
             {/* Bottom selection bar — matches the reports select-mode bar */}
             <div className="printHide" style={{
@@ -16492,6 +16513,12 @@ function PrintLabelsPage({ onBack }) {
                   style={{ background: "rgba(255,255,255,0.15)", border: "1.5px solid rgba(255,255,255,0.5)", color: "#fff", borderRadius: 9, padding: "0.5rem 1rem", fontWeight: 700, fontSize: "0.85rem", cursor: "pointer", whiteSpace: "nowrap" }}>
                   {selectedCount === equipItems.length ? "Deselect All" : "Select All"}
                 </button>
+                {selectedCount > 0 && (
+                  <button type="button" onClick={deleteSelected}
+                    style={{ background: "#dc2626", border: "none", color: "#fff", borderRadius: 9, padding: "0.5rem 1rem", fontWeight: 800, fontSize: "0.85rem", cursor: "pointer", whiteSpace: "nowrap" }}>
+                    🗑 Delete
+                  </button>
+                )}
                 <button type="button" onClick={printSelected} disabled={selectedCount === 0}
                   style={{ background: selectedCount === 0 ? "rgba(255,255,255,0.3)" : "#fff", color: selectedCount === 0 ? "rgba(255,255,255,0.7)" : "#1d4ed8", border: "none", borderRadius: 9, padding: "0.5rem 1.2rem", fontWeight: 800, fontSize: "0.85rem", cursor: selectedCount === 0 ? "default" : "pointer", whiteSpace: "nowrap" }}>
                   🖨 Print{selectedCount > 0 ? ` (${selectedCount})` : ""}
@@ -18205,12 +18232,12 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                                 <option value="Loading Dock" />
                               </datalist>
                             </div>
-                            {/* Asset Tag */}
-                            <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+                            {/* Asset Tag — full row so the input and buttons never crush */}
+                            <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, flexWrap: "wrap", gridColumn: "1 / -1" }}>
                               <span style={{ fontSize: "0.68rem", color: "var(--ink-500)", fontWeight: 700, flexShrink: 0, textTransform: "uppercase", letterSpacing: "0.04em" }}>Asset Tag</span>
                               <input
                                 className="input inputSmall"
-                                style={{ fontSize: "0.78rem", fontFamily: "monospace", flex: 1, minWidth: 70 }}
+                                style={{ fontSize: "0.78rem", fontFamily: "monospace", flex: "1 1 150px", minWidth: 130 }}
                                 value={existingTag}
                                 placeholder={autoTag}
                                 onChange={(e) => setInspection((prev) => setAtPath(prev, it.path, { ...current, assetTag: e.target.value }))}
