@@ -16332,11 +16332,31 @@ function PrintLabelsPage({ onBack }) {
     async function load() {
       setLoading(true);
       try {
+        // Registry first: hidden labels + the fresh-start cutoff date.
+        // Labels only come from inspections ON or AFTER the cutoff — old
+        // pre-cutoff equipment is dead weight and never resurfaces.
+        let hidden = {};
+        let regItems = {};
+        let cutoffMs = 0;
+        try {
+          const snap = await getDoc(doc(db, "venues", VENUE_ID, "sharedMemory", "equipmentRegistry"));
+          const reg = snap.exists() ? (snap.data() || {}) : {};
+          hidden = reg.hidden || {};
+          regItems = reg.items || {};
+          cutoffMs = reg.cutoffMs || 0;
+          if (!cutoffMs) {
+            const d = new Date(); d.setHours(0, 0, 0, 0);
+            cutoffMs = d.getTime();
+            setDoc(doc(db, "venues", VENUE_ID, "sharedMemory", "equipmentRegistry"), { cutoffMs }, { merge: true }).catch(() => {});
+          }
+        } catch {}
         // loadHistory handles the default-venue legacy collection correctly
-        const { list } = await loadHistory(undefined, { pageSize: 50 });
+        const { list } = await loadHistory(undefined, { pageSize: 100 });
         const seen = new Set();
         const items = [];
         for (const rec of (list || [])) {
+          const recMs = Date.parse(rec.savedAt || rec.inspectionDate || "") || 0;
+          if (cutoffMs && recMs < cutoffMs) continue; // before the fresh start — skip
           const equip = rec.inspection?.equipment || {};
           if (!siteName && rec.siteName) setSiteName(rec.siteName);
           for (const [key, val] of Object.entries(equip)) {
@@ -16378,20 +16398,14 @@ function PrintLabelsPage({ onBack }) {
           // Keep scanning recent inspections so every location's cold
           // equipment is available (deduped by asset tag / key+site)
         }
-        // Merge manually-created equipment and apply removals
-        let hidden = {};
-        try {
-          const snap = await getDoc(doc(db, "venues", VENUE_ID, "sharedMemory", "equipmentRegistry"));
-          const reg = snap.exists() ? (snap.data() || {}) : {};
-          hidden = reg.hidden || {};
-          for (const [tag, it] of Object.entries(reg.items || {})) {
-            const uid = `reg_${tag}`;
-            if (hidden[uid]) continue;
-            if (seen.has(tag)) continue; // already present from an inspection
-            seen.add(tag);
-            items.unshift({ ...it, uid });
-          }
-        } catch {}
+        // Merge manually-created equipment (always shown) and apply removals
+        for (const [tag, it] of Object.entries(regItems)) {
+          const uid = `reg_${tag}`;
+          if (hidden[uid]) continue;
+          if (seen.has(tag)) continue; // already present from an inspection
+          seen.add(tag);
+          items.unshift({ ...it, uid });
+        }
         setEquipItems(items.filter(i => !hidden[i.uid]));
       } catch {
         setEquipItems([]);
