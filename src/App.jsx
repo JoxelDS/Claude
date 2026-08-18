@@ -205,6 +205,25 @@ setVenue(VENUE_ID);
 // Captured once at module load from the original URL — never changes even after replaceState cleans the URL.
 // This is the authoritative source for whether this page load is the supervisor HACCP portal.
 const IS_HACCP_PORTAL = new URLSearchParams(window.location.search).has("haccp");
+// Equipment QR portal — printed labels encode ?equip=<TAG> so scanning with any
+// phone camera opens a quick temp-check form for that exact unit.
+const EQUIP_PORTAL_TAG = new URLSearchParams(window.location.search).get("equip") || "";
+// Value encoded into printed equipment QR labels
+function equipQrValue(tag) {
+  const base = window.location.origin + "/Claude/";
+  const p = new URLSearchParams({ equip: tag });
+  if (VENUE_ID && VENUE_ID !== "default") p.set("v", VENUE_ID);
+  return base + "?" + p.toString();
+}
+// A scanned QR may be the raw tag (old labels) or the URL (new labels) — always resolve to the tag
+function extractEquipTag(raw) {
+  const s = String(raw || "").trim();
+  if (/[?&]equip=/.test(s)) {
+    try { return new URL(s).searchParams.get("equip") || s; } catch {}
+    const m = s.match(/[?&]equip=([^&]+)/); if (m) return decodeURIComponent(m[1]);
+  }
+  return s;
+}
 
 /* ── AES-256-GCM Encryption (localStorage fallback only) ── */
 const SALT_KEY           = `sdx_salt_${VENUE_ID}`;
@@ -16328,7 +16347,7 @@ function PrintLabelsPage({ onBack }) {
     const urls = {};
     getQRCode().then(QR => Promise.all(
       equipItems.map(item =>
-        QR.toDataURL(item.assetTag, { width: 240, margin: 1, color: { dark: "#111827", light: "#ffffff" } })
+        QR.toDataURL(equipQrValue(item.assetTag), { width: 240, margin: 1, color: { dark: "#111827", light: "#ffffff" } })
           .then(url => { urls[item.uid] = url; })
           .catch(() => {})
       )
@@ -19416,7 +19435,7 @@ function EquipScanModal({ onClose, onApply, initialTag }) {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function lookup(rawTag) {
-    const tag = (rawTag || "").trim();
+    const tag = extractEquipTag(rawTag);
     if (!tag) return;
     setBusy(true);
     try {
@@ -19738,6 +19757,175 @@ function HaccpChatBlock({ chatMessages, chatInput, setChatInput, chatSending, se
 
 /* ── HACCP Supervisor Portal ─────────────────────────────── */
 // Default HACCP temperature items supervisors can fill out
+/* ── Equipment QR Check Portal ─────────────────────────────
+   Opens when a printed equipment label QR is scanned with any phone camera
+   (?equip=<TAG>). Shows the unit's info and a quick temp-check form; each
+   submission is saved to history so the unit's monitoring builds over time. */
+function EquipCheckPortal({ tag }) {
+  const [meta, setMeta] = useState(null);   // { label, venueName, unit, floor, location, brandName }
+  const [recent, setRecent] = useState([]); // last readings
+  const [loading, setLoading] = useState(true);
+  const [name, setName] = useState(() => localStorage.getItem("sdx_equip_checker") || "");
+  const [temp, setTemp] = useState("");
+  const [notes, setNotes] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [done, setDone] = useState(false);
+
+  const isFreezer = /freezer|🧊/i.test(meta?.label || "") || /FRZ/i.test(tag);
+  const limit = isFreezer ? 10 : 41;
+  const tempNum = parseFloat(temp);
+  const tempOk = temp.trim() === "" ? null : !isNaN(tempNum) && tempNum <= limit;
+
+  useEffect(() => {
+    (async () => {
+      let m = null;
+      try { // manually-created equipment
+        const snap = await getDoc(doc(db, "venues", VENUE_ID, "sharedMemory", "equipmentRegistry"));
+        const it = snap.exists() ? snap.data()?.items?.[tag.toUpperCase()] || snap.data()?.items?.[tag] : null;
+        if (it) m = { label: it.label, venueName: it.venueName, unit: it.unit, floor: it.floor, location: it.location, brandName: it.brandName };
+      } catch {}
+      try { // inspection history — also collect recent readings
+        const { list } = await loadHistory(undefined, { pageSize: 500 });
+        const reads = [];
+        for (const rec of (list || [])) {
+          const equip = rec.inspection?.equipment || {};
+          for (const [k, v] of Object.entries(equip)) {
+            if ((v?.assetTag || "").trim().toUpperCase() !== tag.toUpperCase()) continue;
+            if (!m) m = { label: v.label || k, venueName: rec.siteName || "", unit: rec.siteNumber || "", floor: rec.floor || "", location: v.kitchenArea || "", brandName: v.brand || "" };
+            if (v.tempF) reads.push({ date: rec.inspectionDate || (rec.savedAt || "").slice(0, 10), tempF: v.tempF, status: v.status || "" });
+          }
+        }
+        setRecent(reads.slice(0, 8));
+      } catch {}
+      setMeta(m || { label: "Equipment", venueName: "", unit: "", floor: "", location: "", brandName: "" });
+      setLoading(false);
+    })();
+  }, [tag]);
+
+  async function submit() {
+    if (!name.trim() || temp.trim() === "" || isNaN(tempNum)) return;
+    setSubmitting(true);
+    try { localStorage.setItem("sdx_equip_checker", name.trim()); } catch {}
+    const now = new Date();
+    const id = `equipcheck_${Date.now()}_${Math.random().toString(16).slice(2, 8)}`;
+    await saveHistory([{
+      id,
+      inspectionType: "Equipment Check",
+      inspectionDate: now.toISOString().slice(0, 10),
+      savedAt: now.toISOString(),
+      inspectorName: name.trim(),
+      siteName: meta?.venueName || "",
+      siteNumber: meta?.unit || "",
+      floor: meta?.floor || "",
+      quickEquipCheck: true,
+      inspection: {
+        equipment: {
+          [`equip_${tag}`]: {
+            assetTag: tag,
+            label: (meta?.label || "Equipment").replace(/ ❄ Cooler| 🧊 Freezer/g, ""),
+            brand: meta?.brandName || "",
+            kitchenArea: meta?.location || "",
+            tempF: String(tempNum),
+            status: tempOk ? "OK" : "FAIL",
+            notes: notes.trim(),
+          },
+        },
+      },
+    }]);
+    setSubmitting(false);
+    setDone(true);
+  }
+
+  const wrap = { minHeight: "100vh", background: "linear-gradient(160deg,#2A295C 0%,#1e1d4a 60%,#283897 100%)", padding: "24px 14px 40px", fontFamily: "'Inter',-apple-system,sans-serif" };
+  const card = { maxWidth: 440, margin: "0 auto", background: "#fff", borderRadius: 18, padding: "1.3rem 1.2rem", boxShadow: "0 14px 44px rgba(0,0,0,.35)" };
+  const inp = { width: "100%", padding: "0.7rem 0.85rem", borderRadius: 10, border: "1.5px solid #d7dbeb", fontSize: "1rem", boxSizing: "border-box" };
+  const lbl = { fontSize: "0.68rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.07em", color: "#6b7280", marginBottom: 4, display: "block" };
+
+  if (done) return (
+    <div style={wrap}>
+      <div style={{ ...card, textAlign: "center" }}>
+        <div style={{ fontSize: "3rem", marginBottom: 8 }}>✅</div>
+        <div style={{ fontWeight: 800, fontSize: "1.15rem", color: "#111827", marginBottom: 6 }}>Reading Saved</div>
+        <div style={{ fontSize: "0.9rem", color: "#555", lineHeight: 1.55 }}>
+          {tempNum}°F logged for <b>{meta?.label}</b>{meta?.venueName ? <> at <b>{meta.venueName}</b></> : null}.<br />
+          {tempOk ? "Temperature is in range. 👍" : <b style={{ color: "#dc2626" }}>Out of range — report it to your supervisor now.</b>}
+        </div>
+        <button type="button" onClick={() => { setDone(false); setTemp(""); setNotes(""); }}
+          style={{ marginTop: 16, width: "100%", background: "#2A295C", color: "#fff", border: "none", borderRadius: 10, padding: "0.75rem", fontWeight: 800, fontSize: "0.95rem", cursor: "pointer" }}>
+          Log Another Reading
+        </button>
+      </div>
+    </div>
+  );
+
+  return (
+    <div style={wrap}>
+      <div style={{ textAlign: "center", color: "#fff", marginBottom: 16 }}>
+        <div style={{ fontWeight: 800, fontSize: "1.15rem" }}>🌡 Equipment Temp Check</div>
+        <div style={{ fontSize: "0.78rem", opacity: 0.7, fontFamily: "monospace", marginTop: 3 }}>{tag}</div>
+      </div>
+      <div style={card}>
+        {loading ? (
+          <div style={{ textAlign: "center", color: "#888", padding: "1.5rem 0" }}>Loading equipment…</div>
+        ) : (
+          <>
+            <div style={{ background: "#f4f6ff", border: "1.5px solid #dbe2ff", borderRadius: 12, padding: "0.8rem 0.9rem", marginBottom: 14 }}>
+              <div style={{ fontWeight: 800, fontSize: "1rem", color: "#1e1d4a" }}>{meta.label}</div>
+              <div style={{ fontSize: "0.8rem", color: "#555", marginTop: 3, lineHeight: 1.5 }}>
+                {meta.venueName && <><b>{meta.venueName}</b></>}{meta.unit && <> · Unit #{meta.unit}</>}{meta.floor && <> · {meta.floor}</>}
+                {meta.brandName && <><br />Brand: {meta.brandName}</>}{meta.location && <> · {meta.location}</>}
+              </div>
+              <div style={{ fontSize: "0.72rem", color: "#6b7280", marginTop: 5 }}>
+                Target: <b>{isFreezer ? "10°F or below" : "41°F or below"}</b>
+              </div>
+            </div>
+
+            <div style={{ marginBottom: 12 }}>
+              <span style={lbl}>Your Name</span>
+              <input style={inp} value={name} onChange={e => setName(e.target.value)} placeholder="First and last name" />
+            </div>
+            <div style={{ marginBottom: 12 }}>
+              <span style={lbl}>Temperature (°F)</span>
+              <input style={{ ...inp, fontSize: "1.3rem", fontWeight: 800, textAlign: "center",
+                borderColor: tempOk === null ? "#d7dbeb" : tempOk ? "#16a34a" : "#dc2626",
+                background: tempOk === null ? "#fff" : tempOk ? "#f0fdf4" : "#fef2f2" }}
+                value={temp} onChange={e => setTemp(e.target.value)} inputMode="decimal" placeholder="38" />
+              {tempOk !== null && (
+                <div style={{ marginTop: 5, fontSize: "0.8rem", fontWeight: 800, color: tempOk ? "#16a34a" : "#dc2626" }}>
+                  {tempOk ? "✓ In range" : `✗ Out of range — must be ${limit}°F or below`}
+                </div>
+              )}
+            </div>
+            <div style={{ marginBottom: 14 }}>
+              <span style={lbl}>Notes (optional)</span>
+              <textarea style={{ ...inp, minHeight: 64, resize: "vertical" }} value={notes} onChange={e => setNotes(e.target.value)} placeholder="Door seal loose, ice buildup…" />
+            </div>
+            <button type="button" disabled={submitting || !name.trim() || temp.trim() === "" || isNaN(tempNum)} onClick={submit}
+              style={{ width: "100%", background: "#EE0000", color: "#fff", border: "none", borderRadius: 12, padding: "0.85rem", fontWeight: 800, fontSize: "1rem", cursor: "pointer",
+                opacity: submitting || !name.trim() || temp.trim() === "" || isNaN(tempNum) ? 0.5 : 1 }}>
+              {submitting ? "Saving…" : "✓ Save Reading"}
+            </button>
+
+            {recent.length > 0 && (
+              <div style={{ marginTop: 16 }}>
+                <div style={{ ...lbl, marginBottom: 6 }}>Recent Readings</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                  {recent.map((r, i) => (
+                    <div key={i} style={{ display: "flex", justifyContent: "space-between", background: "#f8f9fc", border: "1px solid #e5e8f2", borderRadius: 8, padding: "0.4rem 0.7rem", fontSize: "0.8rem" }}>
+                      <span style={{ color: "#555" }}>{r.date}</span>
+                      <b style={{ color: r.status === "FAIL" ? "#dc2626" : "#1e1d4a" }}>{r.tempF}°F{r.status ? ` · ${r.status}` : ""}</b>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function HaccpPortal() {
   // Read location info embedded in the QR URL
   const urlParams = new URLSearchParams(window.location.search);
@@ -22251,6 +22439,7 @@ export default function App() {
   // Supervisor HACCP portal — IS_HACCP_PORTAL is captured at module load from the original URL,
   // so replaceState() cleaning the URL after mount never causes this check to flip to false.
   if (IS_HACCP_PORTAL) return <HaccpPortal />;
+  if (EQUIP_PORTAL_TAG) return <EquipCheckPortal tag={EQUIP_PORTAL_TAG} />;
 
   if (locked) return <BadgeScreen onUnlock={(user) => {
     setCurrentUser(user);
