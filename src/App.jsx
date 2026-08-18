@@ -15788,8 +15788,16 @@ function EquipmentScannerPage({ onBack, onPrintLabels }) {
 
   const fileInputRef = useRef(null);
   const hasBarcodeDetector = "BarcodeDetector" in window;
+  const [checkTag, setCheckTag] = useState(null); // opens the pre-filled temp-check form
 
-  // Decode a barcode/QR from an image file (Safari fallback via jsQR-free canvas trick)
+  function handleScannedCode(code) {
+    const tag = extractEquipTag(code);
+    setScanInput(tag);
+    stopCamera();
+    runSearch(tag);
+  }
+
+  // Decode a barcode/QR from an image file
   async function decodeImageFile(file) {
     setCameraError("");
     try {
@@ -15797,17 +15805,17 @@ function EquipmentScannerPage({ onBack, onPrintLabels }) {
       const canvas = document.createElement("canvas");
       canvas.width = bitmap.width;
       canvas.height = bitmap.height;
-      const ctx = canvas.getContext("2d");
+      const ctx = canvas.getContext("2d", { willReadFrequently: true });
       ctx.drawImage(bitmap, 0, 0);
       if (hasBarcodeDetector) {
         const detector = new window.BarcodeDetector({ formats: ["qr_code", "code_128", "code_39", "ean_13", "ean_8", "upc_a", "upc_e", "data_matrix", "aztec"] });
         const barcodes = await detector.detect(bitmap);
-        if (barcodes.length > 0) {
-          const code = barcodes[0].rawValue;
-          setScanInput(code);
-          runSearch(code);
-          return;
-        }
+        if (barcodes.length > 0) { handleScannedCode(barcodes[0].rawValue); return; }
+      } else {
+        const { default: jsQR } = await import("jsqr");
+        const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const code = jsQR(img.data, img.width, img.height);
+        if (code && code.data) { handleScannedCode(code.data); return; }
       }
       // No barcode found in image
       setCameraError("No barcode or QR code found in the photo. Try a clearer image or type the ID manually.");
@@ -15816,14 +15824,9 @@ function EquipmentScannerPage({ onBack, onPrintLabels }) {
     }
   }
 
-  // Start camera and BarcodeDetector
+  // Start camera — BarcodeDetector when available, jsQR frame-decoding on iOS
   async function startCamera() {
     setCameraError("");
-    if (!hasBarcodeDetector) {
-      // Safari/iOS fallback: trigger file picker with camera capture
-      fileInputRef.current?.click();
-      return;
-    }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 } },
@@ -15833,26 +15836,46 @@ function EquipmentScannerPage({ onBack, onPrintLabels }) {
         videoRef.current.srcObject = stream;
         await videoRef.current.play();
       }
-      detectorRef.current = new window.BarcodeDetector({
-        formats: ["qr_code", "code_128", "code_39", "ean_13", "ean_8", "upc_a", "upc_e", "data_matrix", "aztec"],
-      });
       setCameraActive(true);
       setScanning(true);
-      scanLoop();
+      if (hasBarcodeDetector) {
+        detectorRef.current = new window.BarcodeDetector({
+          formats: ["qr_code", "code_128", "code_39", "ean_13", "ean_8", "upc_a", "upc_e", "data_matrix", "aztec"],
+        });
+        scanLoop();
+      } else {
+        const { default: jsQR } = await import("jsqr");
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d", { willReadFrequently: true });
+        const tick = () => {
+          if (!streamRef.current) return;
+          try {
+            const v = videoRef.current;
+            if (v && v.readyState >= 2 && v.videoWidth > 0) {
+              const scale = Math.min(1, 640 / v.videoWidth);
+              canvas.width = Math.round(v.videoWidth * scale);
+              canvas.height = Math.round(v.videoHeight * scale);
+              ctx.drawImage(v, 0, 0, canvas.width, canvas.height);
+              const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+              const code = jsQR(img.data, img.width, img.height, { inversionAttempts: "dontInvert" });
+              if (code && code.data) { handleScannedCode(code.data); return; }
+            }
+          } catch { /* keep scanning */ }
+          rafRef.current = requestAnimationFrame(() => setTimeout(tick, 150));
+        };
+        tick();
+      }
     } catch (err) {
       setCameraError("Camera access denied. Please type the equipment ID manually.");
     }
   }
 
-  // Frame-by-frame scan loop
+  // Frame-by-frame scan loop (BarcodeDetector)
   function scanLoop() {
     if (!videoRef.current || !detectorRef.current) return;
     detectorRef.current.detect(videoRef.current).then(barcodes => {
       if (barcodes.length > 0) {
-        const code = barcodes[0].rawValue;
-        setScanInput(code);
-        stopCamera();
-        runSearch(code);
+        handleScannedCode(barcodes[0].rawValue);
       } else {
         rafRef.current = requestAnimationFrame(scanLoop);
       }
@@ -15865,7 +15888,7 @@ function EquipmentScannerPage({ onBack, onPrintLabels }) {
 
   // Search inspection history for equipment matching the scanned/typed ID
   async function runSearch(rawQuery) {
-    const q = (rawQuery || scanInput).trim().toLowerCase();
+    const q = extractEquipTag(rawQuery || scanInput).trim().toLowerCase();
     if (!q) return;
     setSearching(true);
     setResults(null);
@@ -15950,6 +15973,18 @@ function EquipmentScannerPage({ onBack, onPrintLabels }) {
       <div style={{ height: 64, flexShrink: 0 }} />
 
       <div style={{ maxWidth: 560, margin: "0 auto", padding: "1.25rem 1rem" }}>
+
+        {/* Pre-filled temp-check overlay (same form the printed QR opens) */}
+        {checkTag && ReactDOM.createPortal(
+          <div style={{ position: "fixed", inset: 0, zIndex: 10000, overflowY: "auto", background: "#1e1d4a" }}>
+            <button type="button" onClick={() => setCheckTag(null)}
+              style={{ position: "fixed", top: 14, right: 14, zIndex: 10001, background: "rgba(255,255,255,0.15)", border: "1.5px solid rgba(255,255,255,0.4)", color: "#fff", borderRadius: 999, padding: "0.45rem 1rem", fontWeight: 700, fontSize: "0.85rem", cursor: "pointer" }}>
+              ✕ Close
+            </button>
+            <EquipCheckPortal tag={checkTag} />
+          </div>,
+          document.body
+        )}
 
         {/* Hidden file input for Safari/iOS camera fallback */}
         <input
@@ -16037,6 +16072,18 @@ function EquipmentScannerPage({ onBack, onPrintLabels }) {
                 ? `No records found for "${scanInput}"`
                 : `${results.length} inspection${results.length > 1 ? "s" : ""} found for "${results[0]?.equipLabel || scanInput}"`}
             </div>
+
+            {/* Log a reading for this unit — the whole point of the QR */}
+            {(() => {
+              const tag = results[0]?.assetTag || (/^SDX-|-/.test(scanInput.trim().toUpperCase()) ? scanInput.trim().toUpperCase() : "");
+              if (!tag) return null;
+              return (
+                <button type="button" onClick={() => setCheckTag(tag)}
+                  style={{ width: "100%", marginBottom: 14, background: "#16a34a", color: "#fff", border: "none", borderRadius: 12, padding: "0.8rem", fontWeight: 800, fontSize: "0.95rem", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                  🌡 Log a Temp Check — info pre-filled
+                </button>
+              );
+            })()}
 
             {/* Summary row */}
             {results.length > 0 && (() => {
@@ -19813,10 +19860,10 @@ function EquipCheckPortal({ tag }) {
           for (const [k, v] of Object.entries(equip)) {
             if ((v?.assetTag || "").trim().toUpperCase() !== tag.toUpperCase()) continue;
             if (!m) m = { label: v.label || k, venueName: rec.siteName || "", unit: rec.siteNumber || "", floor: rec.floor || "", location: v.kitchenArea || "", brandName: v.brand || "" };
-            if (v.tempF) reads.push({ date: rec.inspectionDate || (rec.savedAt || "").slice(0, 10), tempF: v.tempF, status: v.status || "" });
+            if (v.tempF) reads.push({ date: rec.inspectionDate || (rec.savedAt || "").slice(0, 10), tempF: v.tempF, status: v.status || "", notes: (v.notes || "").trim(), by: rec.inspectorName || "" });
           }
         }
-        setRecent(reads.slice(0, 8));
+        setRecent(reads);
       } catch {}
       setMeta(m || { label: "Equipment", venueName: "", unit: "", floor: "", location: "", brandName: "" });
       setLoading(false);
@@ -19929,12 +19976,15 @@ function EquipCheckPortal({ tag }) {
 
             {recent.length > 0 && (
               <div style={{ marginTop: 16 }}>
-                <div style={{ ...lbl, marginBottom: 6 }}>Recent Readings</div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                <div style={{ ...lbl, marginBottom: 6 }}>Temperature History ({recent.length})</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 5, maxHeight: 280, overflowY: "auto" }}>
                   {recent.map((r, i) => (
-                    <div key={i} style={{ display: "flex", justifyContent: "space-between", background: "#f8f9fc", border: "1px solid #e5e8f2", borderRadius: 8, padding: "0.4rem 0.7rem", fontSize: "0.8rem" }}>
-                      <span style={{ color: "#555" }}>{r.date}</span>
-                      <b style={{ color: r.status === "FAIL" ? "#dc2626" : "#1e1d4a" }}>{r.tempF}°F{r.status ? ` · ${r.status}` : ""}</b>
+                    <div key={i} style={{ background: "#f8f9fc", border: "1px solid #e5e8f2", borderRadius: 8, padding: "0.45rem 0.7rem", fontSize: "0.8rem" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between" }}>
+                        <span style={{ color: "#555" }}>{r.date}{r.by ? ` · ${r.by}` : ""}</span>
+                        <b style={{ color: r.status === "FAIL" || r.status === "Fail" ? "#dc2626" : "#1e1d4a" }}>{r.tempF}°F{r.status ? ` · ${r.status}` : ""}</b>
+                      </div>
+                      {r.notes && <div style={{ fontSize: "0.72rem", color: "#777", marginTop: 2 }}>“{r.notes}”</div>}
                     </div>
                   ))}
                 </div>
