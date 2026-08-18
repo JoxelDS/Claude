@@ -19470,6 +19470,13 @@ function EquipScanModal({ onClose, onApply, initialTag }) {
       requestAnimationFrame(() => {
         if (videoRef.current) { videoRef.current.srcObject = stream; videoRef.current.play().catch(() => {}); }
       });
+      const onFound = (value) => {
+        try { streamRef.current?.getTracks().forEach(t => t.stop()); } catch {}
+        streamRef.current = null;
+        setCameraOn(false);
+        setManualTag(extractEquipTag(value));
+        lookup(value);
+      };
       if (hasDetector) {
         const detector = new window.BarcodeDetector({ formats: ["qr_code", "code_128", "code_39"] });
         const tick = async () => {
@@ -19477,18 +19484,32 @@ function EquipScanModal({ onClose, onApply, initialTag }) {
           try {
             if (videoRef.current && videoRef.current.readyState >= 2) {
               const codes = await detector.detect(videoRef.current);
-              if (codes.length > 0) {
-                const value = codes[0].rawValue || "";
-                try { streamRef.current?.getTracks().forEach(t => t.stop()); } catch {}
-                streamRef.current = null;
-                setCameraOn(false);
-                setManualTag(value);
-                lookup(value);
-                return;
-              }
+              if (codes.length > 0) { onFound(codes[0].rawValue || ""); return; }
             }
           } catch { /* keep scanning */ }
           setTimeout(tick, 250);
+        };
+        tick();
+      } else {
+        // iOS Safari has no BarcodeDetector — decode frames with jsQR instead
+        const { default: jsQR } = await import("jsqr");
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d", { willReadFrequently: true });
+        const tick = () => {
+          if (!streamRef.current) return;
+          try {
+            const v = videoRef.current;
+            if (v && v.readyState >= 2 && v.videoWidth > 0) {
+              const scale = Math.min(1, 640 / v.videoWidth);
+              canvas.width = Math.round(v.videoWidth * scale);
+              canvas.height = Math.round(v.videoHeight * scale);
+              ctx.drawImage(v, 0, 0, canvas.width, canvas.height);
+              const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+              const code = jsQR(img.data, img.width, img.height, { inversionAttempts: "dontInvert" });
+              if (code && code.data) { onFound(code.data); return; }
+            }
+          } catch { /* keep scanning */ }
+          setTimeout(tick, 200);
         };
         tick();
       }
@@ -19520,7 +19541,7 @@ function EquipScanModal({ onClose, onApply, initialTag }) {
             </button>
           )}
           {cameraErr && <div style={{ fontSize: "0.78rem", color: "var(--tx-amber)", fontWeight: 600 }}>{cameraErr}</div>}
-          {!hasDetector && cameraOn && <div style={{ fontSize: "0.75rem", color: "var(--ink-500)" }}>Live scanning isn't supported in this browser — type the tag below.</div>}
+          {cameraOn && <div style={{ fontSize: "0.75rem", color: "var(--ink-500)" }}>Point the camera at the label's QR code — it fills in automatically.</div>}
 
           {/* Manual entry */}
           <div style={{ display: "flex", gap: 8 }}>
