@@ -16134,6 +16134,53 @@ function PrintLabelsPage({ onBack }) {
   const [siteName, setSiteName] = useState("");
   const [generating, setGenerating] = useState(false);
   const [selected, setSelected] = useState(() => new Set()); // start with NONE selected
+  const [showAdd, setShowAdd] = useState(false);
+  const [addForm, setAddForm] = useState({ venueName: "", unit: "", floor: "", label: "", type: "cooler", brand: "", location: "", assetTag: "" });
+  const [addSaving, setAddSaving] = useState(false);
+  const [historyTag, setHistoryTag] = useState(null); // assetTag for the 📈 history modal
+
+  const registryRef = () => doc(db, "venues", VENUE_ID, "sharedMemory", "equipmentRegistry");
+
+  // Create equipment manually — stored in the venue registry, no inspection needed
+  async function addEquipment() {
+    const f = addForm;
+    if (!f.venueName.trim() || !f.label.trim()) { alert("Restaurant name and equipment name are required."); return; }
+    setAddSaving(true);
+    const prefix = f.type === "freezer" ? "SDX-FRZ" : "SDX-COOL";
+    const tag = (f.assetTag.trim() || `${prefix}-${Math.random().toString(16).slice(2, 6).toUpperCase()}`).toUpperCase();
+    const badge = f.type === "freezer" ? " 🧊 Freezer" : " ❄ Cooler";
+    const item = {
+      assetTag: tag,
+      label: f.label.trim() + badge,
+      venueName: f.venueName.trim(),
+      unit: f.unit.trim(),
+      floor: f.floor.trim(),
+      location: f.location.trim(),
+      brandName: f.brand.trim(),
+      createdAt: Date.now(),
+    };
+    try {
+      await setDoc(registryRef(), { items: { [tag]: item } }, { merge: true });
+      setEquipItems(prev => {
+        if (prev.some(i => i.assetTag === tag)) return prev;
+        return [{ ...item, uid: `reg_${tag}` }, ...prev];
+      });
+      setSelected(prev => new Set(prev).add(`reg_${tag}`));
+      setShowAdd(false);
+      setAddForm({ venueName: f.venueName, unit: "", floor: f.floor, label: "", type: "cooler", brand: "", location: "", assetTag: "" });
+    } catch { alert("Could not save — check your connection."); }
+    setAddSaving(false);
+  }
+
+  // Remove a label — hides it here permanently (report history is untouched)
+  async function deleteEquipment(item) {
+    if (!confirm(`Remove the label for "${item.label}" (${item.assetTag})?\n\nIt disappears from this page — past inspection reports are not affected.`)) return;
+    try {
+      await setDoc(registryRef(), { hidden: { [item.uid]: true } }, { merge: true });
+      setEquipItems(prev => prev.filter(i => i.uid !== item.uid));
+      setSelected(prev => { const s = new Set(prev); s.delete(item.uid); return s; });
+    } catch { alert("Could not remove — check your connection."); }
+  }
 
   const isSelected = (uid) => selected.has(uid);
   const selectedCount = selected.size;
@@ -16251,7 +16298,21 @@ function PrintLabelsPage({ onBack }) {
           // Keep scanning recent inspections so every location's cold
           // equipment is available (deduped by asset tag / key+site)
         }
-        setEquipItems(items);
+        // Merge manually-created equipment and apply removals
+        let hidden = {};
+        try {
+          const snap = await getDoc(doc(db, "venues", VENUE_ID, "sharedMemory", "equipmentRegistry"));
+          const reg = snap.exists() ? (snap.data() || {}) : {};
+          hidden = reg.hidden || {};
+          for (const [tag, it] of Object.entries(reg.items || {})) {
+            const uid = `reg_${tag}`;
+            if (hidden[uid]) continue;
+            if (seen.has(tag)) continue; // already present from an inspection
+            seen.add(tag);
+            items.unshift({ ...it, uid });
+          }
+        } catch {}
+        setEquipItems(items.filter(i => !hidden[i.uid]));
       } catch {
         setEquipItems([]);
       }
@@ -16324,7 +16385,11 @@ function PrintLabelsPage({ onBack }) {
           <div style={{ background: "var(--surface-1)", borderRadius: 12, padding: "2rem", textAlign: "center", color: "var(--ink-500)", boxShadow: "0 1px 4px rgba(0,0,0,0.07)" }}>
             <div style={{ fontSize: "2.5rem", marginBottom: 12 }}>🏷</div>
             <div style={{ fontWeight: 700, fontSize: "1rem", marginBottom: 8, color: "var(--ink-700)" }}>No equipment found</div>
-            <div style={{ fontSize: "0.85rem" }}>Save at least one inspection with equipment filled in, then come back here to print labels.</div>
+            <div style={{ fontSize: "0.85rem", marginBottom: 14 }}>Save at least one inspection with equipment filled in — or create the unit right here.</div>
+            <button type="button" onClick={() => setShowAdd(true)}
+              style={{ background: "var(--sdx-navy)", color: "#fff", border: "none", borderRadius: 10, padding: "0.6rem 1.3rem", fontWeight: 800, fontSize: "0.9rem", cursor: "pointer" }}>
+              ➕ Add Equipment
+            </button>
           </div>
         )}
 
@@ -16337,6 +16402,11 @@ function PrintLabelsPage({ onBack }) {
                 style={{ fontSize: "0.75rem", fontWeight: 700, padding: "0.35rem 0.9rem", borderRadius: 999, border: "1.5px solid var(--sdx-navy)", background: "var(--sdx-navy)", color: "#fff", cursor: "pointer" }}
                 onClick={() => setSelected(selectedCount === equipItems.length ? new Set() : new Set(equipItems.map(i => i.uid)))}>
                 {selectedCount === equipItems.length ? "Deselect All" : "Select All"}
+              </button>
+              <button type="button"
+                style={{ fontSize: "0.75rem", fontWeight: 700, padding: "0.35rem 0.9rem", borderRadius: 999, border: "1.5px solid #16a34a", background: "#16a34a", color: "#fff", cursor: "pointer" }}
+                onClick={() => setShowAdd(true)}>
+                ➕ Add Equipment
               </button>
             </div>
             {/* Bottom selection bar — matches the reports select-mode bar */}
@@ -16425,6 +16495,19 @@ function PrintLabelsPage({ onBack }) {
                     <span className="labelTagCode">{item.assetTag}</span>
                     <span className="labelTagOrg">{resolveCompanyName()}</span>
                   </div>
+                  {/* Card actions — screen only */}
+                  <div className="printHide" style={{ display: "flex", gap: 6, width: "100%", marginTop: 8 }}>
+                    <button type="button"
+                      onClick={e => { e.stopPropagation(); setHistoryTag(item.assetTag); }}
+                      style={{ flex: 1, background: "var(--surface-2)", border: "1.5px solid var(--sdx-gray-200)", borderRadius: 8, padding: "0.4rem", fontWeight: 700, fontSize: "0.74rem", color: "var(--ink-700)", cursor: "pointer" }}>
+                      📈 Temps
+                    </button>
+                    <button type="button"
+                      onClick={e => { e.stopPropagation(); deleteEquipment(item); }}
+                      style={{ background: "rgba(220,38,38,0.08)", border: "1.5px solid rgba(220,38,38,0.4)", borderRadius: 8, padding: "0.4rem 0.7rem", fontWeight: 700, fontSize: "0.74rem", color: "#dc2626", cursor: "pointer" }}>
+                      🗑
+                    </button>
+                  </div>
                 </div>
               ))}
                     </div>
@@ -16435,6 +16518,83 @@ function PrintLabelsPage({ onBack }) {
           </>
         )}
       </div>
+
+      {/* Equipment temp / reading history */}
+      {historyTag && <EquipScanModal initialTag={historyTag} onClose={() => setHistoryTag(null)} />}
+
+      {/* Add Equipment modal */}
+      {showAdd && ReactDOM.createPortal(
+        <div style={{ position: "fixed", inset: 0, zIndex: 10000, background: "rgba(0,0,0,.6)", backdropFilter: "blur(3px)", overflowY: "auto", padding: "5vh 14px" }} onClick={() => setShowAdd(false)}>
+          <div className="card" style={{ maxWidth: 440, margin: "0 auto" }} onClick={e => e.stopPropagation()}>
+            <div className="cardHeader" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div className="cardTitle">➕ Add Equipment</div>
+              <button type="button" onClick={() => setShowAdd(false)} style={{ background: "none", border: "none", fontSize: "1.2rem", cursor: "pointer", color: "var(--ink-400)", lineHeight: 1, padding: 4 }}>✕</button>
+            </div>
+            <div className="cardBody" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {(() => {
+                const inp = { width: "100%", padding: "0.55rem 0.75rem", borderRadius: 8, border: "1.5px solid var(--sdx-gray-200)", fontSize: "0.88rem", background: "var(--surface-2)", color: "var(--ink-900)" };
+                const lbl = { fontSize: "0.68rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--ink-500)", marginBottom: 3, display: "block" };
+                const set = (k) => (e) => setAddForm(f => ({ ...f, [k]: e.target.value }));
+                return (
+                  <>
+                    <div>
+                      <span style={lbl}>Restaurant / Stand *</span>
+                      <input style={inp} value={addForm.venueName} onChange={set("venueName")} placeholder="Magic City Dogs" />
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                      <div>
+                        <span style={lbl}>Unit #</span>
+                        <input style={inp} value={addForm.unit} onChange={set("unit")} placeholder="114" />
+                      </div>
+                      <div>
+                        <span style={lbl}>Floor</span>
+                        <input style={inp} value={addForm.floor} onChange={set("floor")} placeholder="Floor 1" />
+                      </div>
+                    </div>
+                    <div>
+                      <span style={lbl}>Equipment Name *</span>
+                      <input style={inp} value={addForm.label} onChange={set("label")} placeholder="Walk-In Cooler" />
+                    </div>
+                    <div>
+                      <span style={lbl}>Type</span>
+                      <div style={{ display: "flex", gap: 8 }}>
+                        {["cooler", "freezer"].map(t => (
+                          <button key={t} type="button" onClick={() => setAddForm(f => ({ ...f, type: t }))}
+                            style={{ flex: 1, padding: "0.5rem", borderRadius: 9, fontWeight: 800, fontSize: "0.85rem", cursor: "pointer",
+                              border: addForm.type === t ? "2px solid var(--sdx-navy)" : "1.5px solid var(--sdx-gray-200)",
+                              background: addForm.type === t ? "var(--sdx-navy)" : "var(--surface-2)",
+                              color: addForm.type === t ? "#fff" : "var(--ink-600)" }}>
+                            {t === "cooler" ? "❄ Cooler" : "🧊 Freezer"}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                      <div>
+                        <span style={lbl}>Brand</span>
+                        <input style={inp} value={addForm.brand} onChange={set("brand")} placeholder="Delfield" />
+                      </div>
+                      <div>
+                        <span style={lbl}>Location</span>
+                        <input style={inp} value={addForm.location} onChange={set("location")} placeholder="Back kitchen" />
+                      </div>
+                    </div>
+                    <div>
+                      <span style={lbl}>Asset Tag (blank = auto)</span>
+                      <input style={{ ...inp, fontFamily: "monospace" }} value={addForm.assetTag} onChange={set("assetTag")} placeholder="SDX-COOL-A1B2" />
+                    </div>
+                    <button type="button" disabled={addSaving} onClick={addEquipment}
+                      style={{ width: "100%", background: "#16a34a", color: "#fff", border: "none", borderRadius: 10, padding: "0.7rem", fontWeight: 800, fontSize: "0.92rem", cursor: "pointer", opacity: addSaving ? 0.6 : 1 }}>
+                      {addSaving ? "Saving…" : "✓ Create Equipment & Label"}
+                    </button>
+                  </>
+                );
+              })()}
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
 
       {/* Print-only styles */}
       <style>{`
@@ -19260,7 +19420,7 @@ function EquipScanModal({ onClose, onApply, initialTag }) {
     if (!tag) return;
     setBusy(true);
     try {
-      const { list } = await loadHistory(undefined, { pageSize: 200 });
+      const { list } = await loadHistory(undefined, { pageSize: 1000 });
       const matches = [];
       let meta = null;
       for (const rec of (list || [])) {
@@ -19368,10 +19528,12 @@ function EquipScanModal({ onClose, onApply, initialTag }) {
                   {result.meta.kitchenArea && <>Location: <b>{result.meta.kitchenArea}</b> · </>}
                   Tag: <b style={{ fontFamily: "monospace" }}>{result.meta.assetTag}</b>
                 </div>
-                <button type="button" onClick={() => { onApply(result.meta); onClose(); }}
-                  style={{ marginTop: 8, width: "100%", background: "#16a34a", color: "#fff", border: "none", borderRadius: 9, padding: "0.6rem", fontWeight: 800, fontSize: "0.88rem", cursor: "pointer" }}>
-                  ✓ Fill This Into the Report
-                </button>
+                {onApply && (
+                  <button type="button" onClick={() => { onApply(result.meta); onClose(); }}
+                    style={{ marginTop: 8, width: "100%", background: "#16a34a", color: "#fff", border: "none", borderRadius: 9, padding: "0.6rem", fontWeight: 800, fontSize: "0.88rem", cursor: "pointer" }}>
+                    ✓ Fill This Into the Report
+                  </button>
+                )}
               </div>
               {result.matches.length > 0 && (
                 <div>
@@ -19379,7 +19541,7 @@ function EquipScanModal({ onClose, onApply, initialTag }) {
                     Reading History ({result.matches.length})
                   </div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 220, overflowY: "auto" }}>
-                    {result.matches.slice(0, 10).map((m, i) => (
+                    {result.matches.slice(0, 30).map((m, i) => (
                       <div key={i} style={{ background: "var(--surface-2)", border: "1px solid var(--sdx-gray-200)", borderRadius: 9, padding: "0.5rem 0.7rem" }}>
                         <div style={{ display: "flex", justifyContent: "space-between", gap: 8, fontSize: "0.76rem" }}>
                           <b style={{ color: "var(--ink-900)" }}>{m.date}</b>
