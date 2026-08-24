@@ -21707,7 +21707,14 @@ export default function App() {
       const rgb = [1, 3, 5].map(i => parseInt(brand.slice(i, i + 2), 16));
       r.setProperty("--sdx-pin-rad", `rgba(${rgb[0]},${rgb[1]},${rgb[2]},0.55)`);
     }
-  }, [venueSettings?.theme, venueSettings?.blackAccent, venueSettings?.primaryColor, currentUser, personalTheme, personalAccent]);
+    // Brand accent (buttons, highlights) — replaces the Sodexo red on client systems
+    const accent = (venueSettings?.accentColor || "").trim();
+    if (VENUE_ID !== "default" && /^#[0-9a-fA-F]{6}$/.test(accent) && activeTheme !== "black") {
+      const shadeA = (hex, f) => "#" + [1, 3, 5].map(i => Math.min(255, Math.round(parseInt(hex.slice(i, i + 2), 16) * f)).toString(16).padStart(2, "0")).join("");
+      document.documentElement.style.setProperty("--sdx-red", accent);
+      document.documentElement.style.setProperty("--sdx-red-dark", shadeA(accent, 0.8));
+    }
+  }, [venueSettings?.theme, venueSettings?.blackAccent, venueSettings?.primaryColor, venueSettings?.accentColor, currentUser, personalTheme, personalAccent]);
 
   function saveVenueSettings(updates) {
     const next = { ...venueSettings, ...updates };
@@ -21737,7 +21744,9 @@ export default function App() {
         const reg = regSnap.data();
         let brand = {
           logoUrl: reg.logoUrl || "",
+          logoDarkUrl: reg.logoDarkUrl || "",
           primaryColor: reg.primaryColor || "",
+          accentColor: reg.accentColor || "",
           companyName: reg.companyName || reg.name || "",
         };
         // Inherit missing pieces from the parent client record
@@ -21747,7 +21756,9 @@ export default function App() {
             const c = cSnap.data();
             brand = {
               logoUrl: brand.logoUrl || c.logoUrl || "",
+              logoDarkUrl: brand.logoDarkUrl || c.logoDarkUrl || "",
               primaryColor: brand.primaryColor || c.primaryColor || "",
+              accentColor: brand.accentColor || c.accentColor || "",
               companyName: brand.companyName || c.name || "",
             };
           }
@@ -21755,7 +21766,7 @@ export default function App() {
         setVenueSettings(prev => {
           const merged = { ...prev };
           let changed = false;
-          for (const k of ["logoUrl", "primaryColor", "companyName"]) {
+          for (const k of ["logoUrl", "logoDarkUrl", "primaryColor", "accentColor", "companyName"]) {
             if (brand[k] && !merged[k]) { merged[k] = brand[k]; changed = true; }
           }
           if (!changed) return prev;
@@ -21763,7 +21774,7 @@ export default function App() {
           try { localStorage.setItem(VENUE_SETTINGS_KEY, JSON.stringify(merged)); } catch {}
           // Persist so every device gets it without re-deriving
           setDoc(doc(db, "venues", VENUE_ID, "sharedMemory", "venueSettings"),
-            { logoUrl: merged.logoUrl || "", primaryColor: merged.primaryColor || "", companyName: merged.companyName || "" },
+            { logoUrl: merged.logoUrl || "", logoDarkUrl: merged.logoDarkUrl || "", primaryColor: merged.primaryColor || "", accentColor: merged.accentColor || "", companyName: merged.companyName || "" },
             { merge: true }).catch(() => {});
           return merged;
         });
@@ -25367,15 +25378,22 @@ export default function App() {
               <div className="themeGrid">
                 {THEMES.map(t => {
                   const active = (personalTheme || venueSettings?.theme || "sodexo") === t.id;
+                  // Branded venues: the Classic card wears the brand's own color and name
+                  const brandHex = VENUE_ID !== "default" && /^#[0-9a-fA-F]{6}$/.test(_vs.primaryColor || "") ? _vs.primaryColor : "";
+                  const shade = (hex, f) => "#" + [1, 3, 5].map(i => Math.min(255, Math.round(parseInt(hex.slice(i, i + 2), 16) * f)).toString(16).padStart(2, "0")).join("");
+                  const swatch = t.id === "sodexo" && brandHex
+                    ? `linear-gradient(135deg, ${brandHex} 0%, ${shade(brandHex, 0.55)} 100%)`
+                    : t.swatch;
+                  const cardName = t.id === "sodexo" && brandHex && _vs.companyName ? _vs.companyName : t.name;
                   return (
                     <button key={t.id} type="button"
                       className={`themeCard${active ? " active" : ""}`}
                       onClick={() => savePersonalTheme(t.id, personalAccent)}>
-                      <div className="themeSwatch" style={{ background: t.swatch }}>
-                        <img src={t.logo} alt={t.name} />
+                      <div className="themeSwatch" style={{ background: swatch }}>
+                        <img src={resolveLogoWhite()} alt={cardName} />
                       </div>
                       <div className="themeMeta">
-                        <span className="themeName">{t.name}</span>
+                        <span className="themeName">{cardName}</span>
                         {active && <span className="themeCheck">✓ Active</span>}
                       </div>
                     </button>

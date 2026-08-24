@@ -498,6 +498,20 @@
                 <input class="addInp" id="nc-color" placeholder="#005596" style="flex:1;" />
               </div>
             </label>
+            <label class="addLbl">Accent Color (buttons — optional)
+              <div style="display:flex;gap:10px;align-items:center;">
+                <input type="color" id="nc-accent-pick" value="#EE0000" style="width:46px;height:34px;border:none;border-radius:8px;background:none;cursor:pointer;padding:0;" />
+                <input class="addInp" id="nc-accent" placeholder="#EE0000 (leave empty for default)" style="flex:1;" />
+              </div>
+            </label>
+            <label class="addLbl">Dark Logo (for white cards / labels — optional)
+              <div style="display:flex;gap:8px;align-items:center;">
+                <input type="file" id="nc-logodark-file" accept="image/png,image/jpeg,image/svg+xml,image/webp" style="display:none" />
+                <button type="button" class="btn btnGhost" id="nc-logodark-btn" style="white-space:nowrap;">⬆︎ Upload Dark Logo</button>
+                <span id="nc-logodark-preview" style="display:none;height:34px;max-width:120px;overflow:hidden;border-radius:6px;background:#fff;padding:3px 8px;align-items:center;"><img id="nc-logodark-img" style="height:28px;max-width:104px;object-fit:contain;" /></span>
+              </div>
+              <input type="hidden" id="nc-logodark" />
+            </label>
             <label class="addLbl">Contact / Notes
               <input class="addInp" id="nc-notes" placeholder="Account manager, contract notes…" />
             </label>
@@ -784,6 +798,8 @@
               <label class="editLbl">Company Name<input class="editInp" id="ec-name" value="${esc(c.name||'')}" placeholder="Sodexo Live!" /></label>
               <label class="editLbl">Logo<span style="display:flex;gap:6px"><input class="editInp" id="ec-logo" value="${esc(c.logoUrl||'')}" placeholder="https://… or upload →" style="flex:1;min-width:0" /><button type="button" class="btn btnGhost" data-ec-logo-upload style="padding:6px 10px;white-space:nowrap">⬆︎ Upload</button></span></label>
               <label class="editLbl">Primary Color<input class="editInp" id="ec-color" value="${esc(c.primaryColor||'')}" placeholder="#005596" /></label>
+              <label class="editLbl">Accent Color<input class="editInp" id="ec-accent" value="${esc(c.accentColor||'')}" placeholder="#EE0000 (optional)" /></label>
+              <label class="editLbl">Dark Logo<span style="display:flex;gap:6px"><input class="editInp" id="ec-logodark" value="${esc(c.logoDarkUrl||'')}" placeholder="for white cards — or upload →" style="flex:1;min-width:0" /><button type="button" class="btn btnGhost" data-ec-logodark-upload style="padding:6px 10px;white-space:nowrap">⬆︎ Upload</button></span></label>
               <label class="editLbl">Notes<input class="editInp" id="ec-notes" value="${esc(c.notes||'')}" placeholder="Notes" /></label>
               <label class="editLbl">Status
                 <select class="editSel" id="ec-status">
@@ -966,7 +982,7 @@
     const effectiveColor = v.primaryColor || c?.primaryColor || "";
     try {
       await setDoc(doc(db,"venueRegistry",venueId),{clientId:currentClientId,companyName},{merge:true});
-      await setDoc(doc(db,"venues",venueId,"sharedMemory","venueSettings"),{companyName,logoUrl:effectiveLogo,primaryColor:effectiveColor,_updatedAt:new Date().toISOString()},{merge:true});
+      await setDoc(doc(db,"venues",venueId,"sharedMemory","venueSettings"),{companyName,logoUrl:effectiveLogo,primaryColor:effectiveColor,accentColor:(c?.accentColor||""),logoDarkUrl:(c?.logoDarkUrl||""),_updatedAt:new Date().toISOString()},{merge:true});
       allVenues=allVenues.map(x=>x.id===venueId?{...x,clientId:currentClientId,companyName}:x);
       showToast("Linked: "+(v.name||venueId));
       renderVenues(currentClientId);
@@ -1042,6 +1058,37 @@
     });
     ecLogoFile.value = "";
   });
+  const ecLogoDarkFile = document.createElement("input");
+  ecLogoDarkFile.type = "file"; ecLogoDarkFile.accept = "image/*"; ecLogoDarkFile.style.display = "none";
+  document.body.appendChild(ecLogoDarkFile);
+  document.addEventListener("click", e => {
+    if (e.target.closest("[data-ec-logodark-upload]")) { e.preventDefault(); ecLogoDarkFile.click(); }
+  });
+  ecLogoDarkFile.addEventListener("change", () => {
+    const f = ecLogoDarkFile.files[0]; if (!f) return;
+    fileToDataUrl(f, url => {
+      const inp = document.getElementById("ec-logodark");
+      if (inp) { inp.value = url; showToast("Dark logo attached — press Save"); }
+    });
+    ecLogoDarkFile.value = "";
+  });
+
+  // ── Accent picker + dark logo upload wiring ──
+  const accPick = document.getElementById("nc-accent-pick");
+  const accHex = document.getElementById("nc-accent");
+  accPick.addEventListener("input", ()=>{ accHex.value = accPick.value; });
+  accHex.addEventListener("input", ()=>{ if(/^#[0-9a-fA-F]{6}$/.test(accHex.value.trim())) accPick.value = accHex.value.trim(); });
+  const logoDarkFile = document.getElementById("nc-logodark-file");
+  document.getElementById("nc-logodark-btn").addEventListener("click", ()=> logoDarkFile.click());
+  logoDarkFile.addEventListener("change", ()=>{
+    const f = logoDarkFile.files[0]; if (!f) return;
+    fileToDataUrl(f, url => {
+      document.getElementById("nc-logodark").value = url;
+      document.getElementById("nc-logodark-img").src = url;
+      document.getElementById("nc-logodark-preview").style.display = "inline-flex";
+      document.getElementById("nc-logodark-btn").textContent = "↺ Replace Dark Logo";
+    });
+  });
 
   // ── Color picker ↔ hex field stay in sync ──
   const colorPick = document.getElementById("nc-color-pick");
@@ -1056,13 +1103,15 @@
     const name=document.getElementById("nc-name").value.trim();
     const logoUrl=document.getElementById("nc-logo").value.trim();
     const primaryColor=document.getElementById("nc-color").value.trim();
+    const accentColor=document.getElementById("nc-accent").value.trim();
+    const logoDarkUrl=document.getElementById("nc-logodark").value.trim();
     const notes=document.getElementById("nc-notes").value.trim();
     if(!slug){errEl.textContent="Enter a valid client ID.";errEl.style.display="block";return;}
     if(!name){errEl.textContent="Enter a company name.";errEl.style.display="block";return;}
     if(clients.find(c=>c.id===slug)){errEl.textContent="A client with that ID already exists.";errEl.style.display="block";return;}
     const btn=e.target.querySelector("[type=submit]"); btn.disabled=true; btn.textContent="Creating…";
     try {
-      const data={name,logoUrl,primaryColor,notes,status:"active",_type:"client",createdAt:new Date().toISOString(),createdBy:"DSMarketing"};
+      const data={name,logoUrl,logoDarkUrl,primaryColor,accentColor,notes,status:"active",_type:"client",createdAt:new Date().toISOString(),createdBy:"DSMarketing"};
       await setDoc(doc(db,"venueRegistry",slug),data);
       clients.push({id:slug,...data});
       clients.sort((a,b)=>(a.name||a.id).localeCompare(b.name||b.id));
@@ -1105,7 +1154,7 @@
       const data={name,clientId:currentClientId,companyName,type,address,logoUrl,primaryColor,status:"active",createdAt:new Date().toISOString(),createdBy:"DSMarketing"};
       const exists = allVenues.find(v=>v.id===slug);
       await setDoc(doc(db,"venueRegistry",slug),data,{merge:true});
-      await setDoc(doc(db,"venues",slug,"sharedMemory","venueSettings"),{companyName,logoUrl:effectiveLogo,primaryColor:effectiveColor,_updatedAt:new Date().toISOString()},{merge:true});
+      await setDoc(doc(db,"venues",slug,"sharedMemory","venueSettings"),{companyName,logoUrl:effectiveLogo,primaryColor:effectiveColor,accentColor:(c?.accentColor||""),logoDarkUrl:(c?.logoDarkUrl||""),_updatedAt:new Date().toISOString()},{merge:true});
       if(exists){ allVenues=allVenues.map(v=>v.id===slug?{...v,...data}:v); }
       else { allVenues.push({id:slug,...data}); }
       allVenues.sort((a,b)=>(a.name||a.id).localeCompare(b.name||b.id));
@@ -1123,18 +1172,20 @@
     const name=document.getElementById("ec-name")?.value.trim()||"";
     const logoUrl=document.getElementById("ec-logo")?.value.trim()||"";
     const primaryColor=document.getElementById("ec-color")?.value.trim()||"";
+    const accentColor=document.getElementById("ec-accent")?.value.trim()||"";
+    const logoDarkUrl=document.getElementById("ec-logodark")?.value.trim()||"";
     const notes=document.getElementById("ec-notes")?.value.trim()||"";
     const status=document.getElementById("ec-status")?.value||"active";
     try {
-      await setDoc(doc(db,"venueRegistry",id),{name,logoUrl,primaryColor,notes,status,_type:"client"},{merge:true});
+      await setDoc(doc(db,"venueRegistry",id),{name,logoUrl,logoDarkUrl,primaryColor,accentColor,notes,status,_type:"client"},{merge:true});
       // Push the updated branding into every venue that belongs to this brand,
       // so their live systems pick it up without re-creating anything
       const brandVenues = allVenues.filter(v=>v.clientId===id && v.status!=="deleted");
       await Promise.all(brandVenues.map(v=>
         setDoc(doc(db,"venues",v.id,"sharedMemory","venueSettings"),
-          { companyName:name, logoUrl, primaryColor }, { merge:true }).catch(()=>{})
+          { companyName:name, logoUrl, logoDarkUrl, primaryColor, accentColor }, { merge:true }).catch(()=>{})
       ));
-      clients=clients.map(c=>c.id===id?{...c,name,logoUrl,primaryColor,notes,status}:c);
+      clients=clients.map(c=>c.id===id?{...c,name,logoUrl,logoDarkUrl,primaryColor,accentColor,notes,status}:c);
       editingClientId=null;
       showToast(brandVenues.length ? `Saved ✓ — branding updated on ${brandVenues.length} venue(s)` : "Saved ✓");
       renderClients();
@@ -1155,7 +1206,7 @@
     const effectiveColor=primaryColor||c?.primaryColor||"";
     try {
       await setDoc(doc(db,"venueRegistry",id),{name,address,logoUrl,primaryColor,type,status,clientId:currentClientId,companyName},{merge:true});
-      await setDoc(doc(db,"venues",id,"sharedMemory","venueSettings"),{companyName,logoUrl:effectiveLogo,primaryColor:effectiveColor,_updatedAt:new Date().toISOString()},{merge:true});
+      await setDoc(doc(db,"venues",id,"sharedMemory","venueSettings"),{companyName,logoUrl:effectiveLogo,primaryColor:effectiveColor,accentColor:(c?.accentColor||""),logoDarkUrl:(c?.logoDarkUrl||""),_updatedAt:new Date().toISOString()},{merge:true});
       allVenues=allVenues.map(v=>v.id===id?{...v,name,address,logoUrl,primaryColor,type,status,companyName}:v);
       editingVenueId=null; showToast("Saved ✓"); renderVenues(currentClientId);
     } catch(err){ showToast("Error: "+err.message,true); }
