@@ -2,7 +2,7 @@
 // v119: Restored to July 13 state
 
 
-const CACHE_NAME = "sdx-inspect-v293";
+const CACHE_NAME = "sdx-inspect-v294";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
@@ -43,9 +43,9 @@ self.addEventListener("message", (e) => {
 // (true VAPID server-sent push would also hit this handler)
 self.addEventListener("push", (e) => {
   let data = {};
-  try { data = e.data?.json() || {}; } catch { data = { title: e.data?.text() || "Sodexo Inspection" }; }
+  try { data = e.data?.json() || {}; } catch { data = { title: e.data?.text() || "SDX Inspect" }; }
   e.waitUntil(
-    self.registration.showNotification(data.title || "Sodexo Inspection", {
+    self.registration.showNotification(data.title || "SDX Inspect", {
       body: data.body || "",
       icon: "/Claude/favicon.svg",
       badge: "/Claude/favicon.svg",

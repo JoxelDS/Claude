@@ -137,15 +137,15 @@ const DS_LOGO_DARK = `${BASE}ds-marketing-dark.svg`;
 
 /* ── Themes — admin-selectable, synced to every device via venueSettings ── */
 const THEMES = [
-  { id: "sodexo",      name: "Sodexo Classic",  swatch: "linear-gradient(135deg,#2A295C 0%,#1e1d4a 50%,#283897 100%)", logo: LOGO_WHITE },
-  { id: "ocean",       name: "Sodexo Ocean",    swatch: "linear-gradient(135deg,#0B4EA2 0%,#0A3D80 50%,#1E88D2 100%)", logo: LOGO_WHITE },
-  { id: "midnight",    name: "Sodexo Midnight", swatch: "linear-gradient(135deg,#1C1B45 0%,#121130 50%,#34336E 100%)", logo: LOGO_WHITE },
-  { id: "noir",        name: "Sodexo Noir",     swatch: "linear-gradient(105deg,#0A0A0B 0%,#161618 55%,#232326 100%)", logo: LOGO_WHITE },
-  { id: "black",       name: "Sodexo Black",    swatch: "linear-gradient(180deg,#000000 0%,#0E0E12 100%)", logo: LOGO_WHITE },
+  { id: "sodexo",      name: "Classic",  swatch: "linear-gradient(135deg,#2A295C 0%,#1e1d4a 50%,#283897 100%)", logo: LOGO_WHITE },
+  { id: "ocean",       name: "Ocean",    swatch: "linear-gradient(135deg,#0B4EA2 0%,#0A3D80 50%,#1E88D2 100%)", logo: LOGO_WHITE },
+  { id: "midnight",    name: "Midnight", swatch: "linear-gradient(135deg,#1C1B45 0%,#121130 50%,#34336E 100%)", logo: LOGO_WHITE },
+  { id: "noir",        name: "Noir",     swatch: "linear-gradient(105deg,#0A0A0B 0%,#161618 55%,#232326 100%)", logo: LOGO_WHITE },
+  { id: "black",       name: "Black",    swatch: "linear-gradient(180deg,#000000 0%,#0E0E12 100%)", logo: LOGO_WHITE },
 ];
 // Accent colors available for the Black theme — the color that dominates dark mode
 const BLACK_ACCENTS = [
-  { id: "red",    name: "Sodexo Red", c: "#EE0000" },
+  { id: "red",    name: "Brand Red", c: "#EE0000" },
   { id: "blue",   name: "Electric Blue", c: "#2E7CF6" },
   { id: "purple", name: "Purple", c: "#8B5CF6" },
   { id: "green",  name: "Emerald", c: "#1FA65A" },
@@ -4160,8 +4160,8 @@ async function exportAsCsv({ inspection, notesPhotos, rawNotes, inspectionType, 
   const str = v => (v == null ? "" : String(v));
 
   // ── Sodexo Brand colours ─────────────────────────────────────────────────
-  const NAVY    = "1C2B5E"; // Sodexo deep blue — primary brand color
-  const RED     = "A8192E"; // Sodexo red — muted crimson accent, section dividers
+  const NAVY    = (/^#[0-9a-fA-F]{6}$/.test(_vs.primaryColor || "") ? _vs.primaryColor.slice(1).toUpperCase() : "1C2B5E"); // brand primary (Sodexo deep blue default)
+  const RED     = "A8192E"; // accent — muted crimson, section dividers
   const BLUE_LT = "E8EDF7"; // light tint of navy — Executive Summary / Notes rows
   const RED_LT  = "FAEAEC"; // light tint of red — metadata block background
   const SILVER  = "F4F5F7"; // alternating row fill (light gray)
@@ -4227,7 +4227,7 @@ async function exportAsCsv({ inspection, notesPhotos, rawNotes, inspectionType, 
   ];
 
   // Title row
-  const titleRow = ws1.addRow(["SODEXO KITCHEN INSPECTION REPORT"]);
+  const titleRow = ws1.addRow([`${resolveCompanyName().toUpperCase()} KITCHEN INSPECTION REPORT`]);
   titleRow.height = 28;
   const titleCell = titleRow.getCell(1);
   applyStyle(titleCell, hdr(true, 14, WHITE, NAVY));
@@ -4927,7 +4927,7 @@ async function exportIssuesOnlyExcel({ rec, haccpSubs = [] }) {
   );
 
   // ── Brand colours (same as bulk export) ──────────────────────────────────
-  const NAVY    = "1C2B5E";
+  const NAVY    = (/^#[0-9a-fA-F]{6}$/.test(_vs.primaryColor || "") ? _vs.primaryColor.slice(1).toUpperCase() : "1C2B5E");
   const RED     = "A8192E";
   const RED_LT  = "FAEAEC";
   const SILVER  = "F4F5F7";
@@ -8492,7 +8492,7 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
       { width: 12 }, { width: 18 }, { width: 20 }, { width: 20 }, { width: 20 },
       { width: 18 }, { width: 14 }, { width: 13 }, { width: 14 },
     ];
-    const s1Title = ws1.addRow(["SODEXO KITCHEN INSPECTION — BULK SUMMARY"]);
+    const s1Title = ws1.addRow([`${resolveCompanyName().toUpperCase()} KITCHEN INSPECTION — BULK SUMMARY`]);
     s1Title.height = 26;
     ws1.mergeCells(`A${s1Title.number}:N${s1Title.number}`);
     applyB(s1Title.getCell(1), bHdr(14));
@@ -10147,7 +10147,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                       <div className="rptReportHeader">
                         <div className="rptReportHeaderLeft">
                           <div className="rptBrandLogo">
-                            <span className="rptBrandText">SODEXO</span>
+                            <span className="rptBrandText">{resolveCompanyName().toUpperCase()}</span>
                             <span className="rptBrandSub">Kitchen Inspection Report</span>
                           </div>
                           <div className="rptSiteName">{rec.siteName || "—"}</div>
@@ -13509,7 +13509,7 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
       // ── Sheet 1: Summary ──────────────────────────────────────────────
       const ws1 = wb.addWorksheet("Summary");
       ws1.columns = [{ width: 4 }, { width: 26 }, { width: 12 }, { width: 12 }, { width: 12 }, { width: 12 }, { width: 14 }, { width: 14 }, { width: 12 }, { width: 18 }];
-      const t1 = ws1.addRow([`SODEXO LIVE! — PERFORMANCE REPORT: ${venue.toUpperCase()}`]);
+      const t1 = ws1.addRow([`${resolveCompanyName().toUpperCase()} — PERFORMANCE REPORT: ${venue.toUpperCase()}`]);
       t1.height = 26; ws1.mergeCells(`A${t1.number}:J${t1.number}`); apply(t1.getCell(1), hdr(12));
       const m1 = ws1.addRow([`Generated: ${new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })} · ${totalInspections} inspections · ${ranking.length} inspectors · Overall Pass Rate: ${overallPassRate}%`]);
       m1.height = 16; ws1.mergeCells(`A${m1.number}:J${m1.number}`);
@@ -16284,7 +16284,7 @@ function PrintLabelsPage({ onBack }) {
   function printSelected() {
     const items = equipItems.filter(i => isSelected(i.uid));
     if (items.length === 0) return;
-    const logoUrl = window.location.origin + LOGO_DARK;
+    const logoUrl = resolveLogoDark().startsWith("data:") ? resolveLogoDark() : window.location.origin + resolveLogoDark().replace(window.location.origin, "");
     const esc = (s) => String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;");
     const cards = items.map(item => `
       <div class="lc">
@@ -16306,7 +16306,7 @@ function PrintLabelsPage({ onBack }) {
       body { font-family:-apple-system,'Segoe UI',Arial,sans-serif; padding:8mm; background:#fff; }
       .grid { display:grid; grid-template-columns:repeat(3,1fr); gap:5mm; }
       .lc { border:1.5px solid #9ca3af; border-radius:8px; overflow:hidden; break-inside:avoid; page-break-inside:avoid; background:#fff; }
-      .lh { background:#2A295C; color:#fff; padding:6px 10px; display:flex; align-items:center; justify-content:space-between; gap:6px; }
+      .lh { background:${(/^#[0-9a-fA-F]{6}$/.test(_vs.primaryColor || "") ? _vs.primaryColor : "#2A295C")}; color:#fff; padding:6px 10px; display:flex; align-items:center; justify-content:space-between; gap:6px; }
       .lh span { font-weight:800; font-size:11px; }
       .lhlogo { height:14px; filter:brightness(0) invert(1); }
       .lb { display:flex; gap:8px; padding:8px 10px; align-items:flex-start; }
@@ -16780,6 +16780,76 @@ function GlobalAdminPanel({ currentUser, onBack, onManageVenue, onEnterVenue, on
 
   const [clients, setClients] = useState([]);
   const [addClientId, setAddClientId] = useState("");
+  // Brand (white-label company) creation / editing
+  const [showBrandForm, setShowBrandForm] = useState(false);
+  const [brandEditId, setBrandEditId] = useState(null); // null = creating
+  const [brandForm, setBrandForm] = useState({ name: "", logoUrl: "", logoDarkUrl: "", primaryColor: "#2A295C" });
+  const [brandSaving, setBrandSaving] = useState(false);
+
+  // File → downscaled data URL (same approach as the owner portal logo upload)
+  function brandFileToDataUrl(file, cb) {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const MAX = 480;
+        const scale = Math.min(1, MAX / Math.max(img.width, img.height));
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.round(img.width * scale);
+        canvas.height = Math.round(img.height * scale);
+        canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+        cb(file.type === "image/png" || file.type === "image/svg+xml"
+          ? canvas.toDataURL("image/png")
+          : canvas.toDataURL("image/jpeg", 0.85));
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function openBrandForm(client) {
+    if (client) {
+      setBrandEditId(client.id);
+      setBrandForm({ name: client.name || "", logoUrl: client.logoUrl || "", logoDarkUrl: client.logoDarkUrl || "", primaryColor: client.primaryColor || "#2A295C" });
+    } else {
+      setBrandEditId(null);
+      setBrandForm({ name: "", logoUrl: "", logoDarkUrl: "", primaryColor: "#2A295C" });
+    }
+    setShowBrandForm(true);
+  }
+
+  async function saveBrand() {
+    const name = brandForm.name.trim();
+    if (!name) { alert("Enter the company / brand name."); return; }
+    setBrandSaving(true);
+    const id = brandEditId || name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || `brand-${Date.now()}`;
+    await saveVenueRecord(id, {
+      _type: "client",
+      name,
+      logoUrl: brandForm.logoUrl || "",
+      logoDarkUrl: brandForm.logoDarkUrl || "",
+      primaryColor: brandForm.primaryColor || "",
+      status: "active",
+      ...(brandEditId ? {} : { createdAt: new Date().toISOString(), createdBy: currentUser?.name || "admin" }),
+    });
+    // Push updated branding into every venue already under this brand
+    if (brandEditId && FIREBASE_ON) {
+      venues.filter(v => v.clientId === brandEditId).forEach(v => {
+        setDoc(doc(db, "venues", v.id, "sharedMemory", "venueSettings"),
+          { companyName: name, logoUrl: brandForm.logoUrl || "", primaryColor: brandForm.primaryColor || "" }, { merge: true }).catch(() => {});
+      });
+    }
+    setClients(await loadClientRegistry());
+    setBrandSaving(false);
+    setShowBrandForm(false);
+  }
+
+  async function deleteBrand(client) {
+    const inUse = venues.filter(v => v.clientId === client.id).length;
+    if (!confirm(`Remove the brand "${client.name}"?${inUse ? `\n\n${inUse} venue(s) currently use it — they keep their branding but lose the grouping.` : ""}`)) return;
+    await deleteVenueRecord(client.id);
+    setClients(prev => prev.filter(c => c.id !== client.id));
+  }
 
   useEffect(() => {
     async function load() {
@@ -16873,9 +16943,10 @@ function GlobalAdminPanel({ currentUser, onBack, onManageVenue, onEnterVenue, on
 
   async function handleSaveEdit(venueId) {
     const cName = editCompanyName.trim() || editName.trim();
+    const existingColor = venues.find(v => v.id === venueId)?.primaryColor || "";
     await saveVenueRecord(venueId, { name: editName.trim(), type: editType, address: editAddress.trim(), companyName: cName, logoUrl: editLogoUrl.trim() });
     if (FIREBASE_ON) {
-      setDoc(doc(db, "venues", venueId, "sharedMemory", "venueSettings"), { companyName: cName, logoUrl: editLogoUrl.trim() }, { merge: true }).catch(() => {});
+      setDoc(doc(db, "venues", venueId, "sharedMemory", "venueSettings"), { companyName: cName, logoUrl: editLogoUrl.trim(), ...(existingColor ? { primaryColor: existingColor } : {}) }, { merge: true }).catch(() => {});
     }
     setVenues(prev => prev.map(v => v.id === venueId ? { ...v, name: editName.trim(), type: editType, address: editAddress.trim(), companyName: cName, logoUrl: editLogoUrl.trim() } : v));
     setEditingId(null);
@@ -16980,6 +17051,98 @@ function GlobalAdminPanel({ currentUser, onBack, onManageVenue, onEnterVenue, on
 
         {statsTab === "list" && (
           <div>
+            {/* Brands (white-label companies) */}
+            <div style={{ background: "var(--surface-1)", border: "1.5px solid #e2e8f0", borderRadius: 10, padding: "0.75rem 1rem", marginBottom: "1rem" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: clients.length > 0 ? 8 : 0 }}>
+                <span style={{ fontSize: "0.78rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.07em", color: "var(--ink-600)" }}>🏢 Brands</span>
+                <span style={{ flex: 1 }} />
+                <button type="button" onClick={() => openBrandForm(null)}
+                  style={{ padding: "0.35rem 0.9rem", borderRadius: 999, border: "none", background: "#16a34a", color: "#fff", fontWeight: 700, fontSize: "0.78rem", cursor: "pointer" }}>
+                  ＋ New Brand
+                </button>
+              </div>
+              {clients.length === 0 && (
+                <div style={{ fontSize: "0.78rem", color: "var(--ink-500)" }}>No brands yet — the system runs as Sodexo Live!. Create a brand to sell this system to another company with its own logo and colors.</div>
+              )}
+              {clients.length > 0 && (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                  {clients.map(c => (
+                    <div key={c.id} style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--surface-2)", border: "1.5px solid var(--sdx-gray-200)", borderRadius: 999, padding: "0.3rem 0.5rem 0.3rem 0.75rem" }}>
+                      <span style={{ width: 12, height: 12, borderRadius: "50%", background: c.primaryColor || "#2A295C", border: "1px solid rgba(0,0,0,0.15)" }} />
+                      {c.logoUrl && <img src={c.logoUrl} alt="" style={{ height: 18, maxWidth: 70, objectFit: "contain" }} />}
+                      <span style={{ fontSize: "0.8rem", fontWeight: 700, color: "var(--ink-800)" }}>{c.name}</span>
+                      <button type="button" onClick={() => openBrandForm(c)} title="Edit brand"
+                        style={{ background: "none", border: "none", cursor: "pointer", fontSize: "0.78rem", padding: 2 }}>✏️</button>
+                      <button type="button" onClick={() => deleteBrand(c)} title="Remove brand"
+                        style={{ background: "none", border: "none", cursor: "pointer", fontSize: "0.78rem", padding: 2 }}>🗑</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Brand create/edit modal */}
+            {showBrandForm && ReactDOM.createPortal(
+              <div style={{ position: "fixed", inset: 0, zIndex: 10000, background: "rgba(0,0,0,.6)", backdropFilter: "blur(3px)", overflowY: "auto", padding: "5vh 14px" }} onClick={() => setShowBrandForm(false)}>
+                <div className="card" style={{ maxWidth: 440, margin: "0 auto" }} onClick={e => e.stopPropagation()}>
+                  <div className="cardHeader" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <div className="cardTitle">{brandEditId ? "✏️ Edit Brand" : "🏢 New Brand"}</div>
+                    <button type="button" onClick={() => setShowBrandForm(false)} style={{ background: "none", border: "none", fontSize: "1.2rem", cursor: "pointer", color: "var(--ink-400)", lineHeight: 1, padding: 4 }}>✕</button>
+                  </div>
+                  <div className="cardBody" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                    <div>
+                      <span style={{ fontSize: "0.68rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--ink-500)", display: "block", marginBottom: 3 }}>Company / Brand Name *</span>
+                      <input value={brandForm.name} onChange={e => setBrandForm(f => ({ ...f, name: e.target.value }))} placeholder="Aramark, Levy, Compass Group…"
+                        style={{ width: "100%", padding: "0.55rem 0.75rem", borderRadius: 8, border: "1.5px solid var(--sdx-gray-200)", fontSize: "0.9rem", background: "var(--surface-2)", color: "var(--ink-900)" }} />
+                    </div>
+                    <div>
+                      <span style={{ fontSize: "0.68rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--ink-500)", display: "block", marginBottom: 3 }}>Logo (shown on dark headers)</span>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <label style={{ padding: "0.5rem 0.9rem", borderRadius: 8, border: "1.5px dashed var(--sdx-gray-300)", fontSize: "0.8rem", fontWeight: 700, cursor: "pointer", color: "var(--ink-600)" }}>
+                          📁 Upload Logo
+                          <input type="file" accept="image/*" style={{ display: "none" }}
+                            onChange={e => { const f = e.target.files?.[0]; if (f) brandFileToDataUrl(f, url => setBrandForm(fm => ({ ...fm, logoUrl: url }))); e.target.value = ""; }} />
+                        </label>
+                        {brandForm.logoUrl && <img src={brandForm.logoUrl} alt="" style={{ height: 28, maxWidth: 120, objectFit: "contain", background: "#2A295C", borderRadius: 6, padding: "3px 8px" }} />}
+                        {brandForm.logoUrl && <button type="button" onClick={() => setBrandForm(f => ({ ...f, logoUrl: "" }))} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink-400)" }}>✕</button>}
+                      </div>
+                    </div>
+                    <div>
+                      <span style={{ fontSize: "0.68rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--ink-500)", display: "block", marginBottom: 3 }}>Dark Logo (for white paper / labels — optional)</span>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <label style={{ padding: "0.5rem 0.9rem", borderRadius: 8, border: "1.5px dashed var(--sdx-gray-300)", fontSize: "0.8rem", fontWeight: 700, cursor: "pointer", color: "var(--ink-600)" }}>
+                          📁 Upload
+                          <input type="file" accept="image/*" style={{ display: "none" }}
+                            onChange={e => { const f = e.target.files?.[0]; if (f) brandFileToDataUrl(f, url => setBrandForm(fm => ({ ...fm, logoDarkUrl: url }))); e.target.value = ""; }} />
+                        </label>
+                        {brandForm.logoDarkUrl && <img src={brandForm.logoDarkUrl} alt="" style={{ height: 28, maxWidth: 120, objectFit: "contain", background: "#fff", border: "1px solid #e2e8f0", borderRadius: 6, padding: "3px 8px" }} />}
+                        {brandForm.logoDarkUrl && <button type="button" onClick={() => setBrandForm(f => ({ ...f, logoDarkUrl: "" }))} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink-400)" }}>✕</button>}
+                      </div>
+                    </div>
+                    <div>
+                      <span style={{ fontSize: "0.68rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--ink-500)", display: "block", marginBottom: 3 }}>Brand Color</span>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <input type="color" value={/^#[0-9a-fA-F]{6}$/.test(brandForm.primaryColor) ? brandForm.primaryColor : "#2A295C"}
+                          onChange={e => setBrandForm(f => ({ ...f, primaryColor: e.target.value }))}
+                          style={{ width: 46, height: 34, border: "1.5px solid var(--sdx-gray-200)", borderRadius: 8, padding: 2, cursor: "pointer", background: "var(--surface-2)" }} />
+                        <input value={brandForm.primaryColor} onChange={e => setBrandForm(f => ({ ...f, primaryColor: e.target.value }))} placeholder="#2A295C"
+                          style={{ width: 110, padding: "0.5rem 0.7rem", borderRadius: 8, border: "1.5px solid var(--sdx-gray-200)", fontSize: "0.85rem", fontFamily: "monospace", background: "var(--surface-2)", color: "var(--ink-900)" }} />
+                        <span style={{ fontSize: "0.72rem", color: "var(--ink-500)" }}>Used for headers &amp; buttons</span>
+                      </div>
+                    </div>
+                    <button type="button" disabled={brandSaving} onClick={saveBrand}
+                      style={{ width: "100%", background: "#16a34a", color: "#fff", border: "none", borderRadius: 10, padding: "0.7rem", fontWeight: 800, fontSize: "0.92rem", cursor: "pointer", opacity: brandSaving ? 0.6 : 1 }}>
+                      {brandSaving ? "Saving…" : brandEditId ? "✓ Save Brand" : "✓ Create Brand"}
+                    </button>
+                    <div style={{ fontSize: "0.72rem", color: "var(--ink-500)", lineHeight: 1.5 }}>
+                      After creating the brand, add a venue and pick this brand — the venue's login, reports, exports, and labels all take its name, logo, and color.
+                    </div>
+                  </div>
+                </div>
+              </div>,
+              document.body
+            )}
+
             {/* Search + Add */}
             <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem" }}>
               <input
@@ -17016,6 +17179,11 @@ function GlobalAdminPanel({ currentUser, onBack, onManageVenue, onEnterVenue, on
                   <input value={addAddress} onChange={e => setAddAddress(e.target.value)}
                     placeholder="Address (optional)"
                     style={{ padding: "0.55rem 0.75rem", borderRadius: 7, border: "1.5px solid #e2e8f0", fontSize: "0.9rem" }} />
+                  <select value={addClientId} onChange={e => setAddClientId(e.target.value)}
+                    style={{ padding: "0.55rem 0.75rem", borderRadius: 7, border: "1.5px solid #e2e8f0", fontSize: "0.9rem", background: "var(--surface-1)" }}>
+                    <option value="">🏢 Brand: Sodexo Live! (default)</option>
+                    {clients.map(c => <option key={c.id} value={c.id}>🏢 Brand: {c.name}</option>)}
+                  </select>
                   <button type="submit" disabled={addLoading}
                     style={{ padding: "0.6rem", borderRadius: 7, border: "none", background: "var(--sdx-navy)", color: "#fff", fontWeight: 700, cursor: "pointer" }}>
                     {addLoading ? "Adding…" : "Add Venue"}
@@ -19945,7 +20113,8 @@ function EquipCheckPortal({ tag }) {
     setDone(true);
   }
 
-  const wrap = { minHeight: "100vh", background: "linear-gradient(160deg,#2A295C 0%,#1e1d4a 60%,#283897 100%)", padding: "24px 14px 40px", fontFamily: "'Inter',-apple-system,sans-serif" };
+  const brandColor = (/^#[0-9a-fA-F]{6}$/.test(_vs.primaryColor || "") ? _vs.primaryColor : "");
+  const wrap = { minHeight: "100vh", background: brandColor ? `linear-gradient(160deg,${brandColor} 0%,#16152e 100%)` : "linear-gradient(160deg,#2A295C 0%,#1e1d4a 60%,#283897 100%)", padding: "24px 14px 40px", fontFamily: "'Inter',-apple-system,sans-serif" };
   const card = { maxWidth: 440, margin: "0 auto", background: "#fff", borderRadius: 18, padding: "1.3rem 1.2rem", boxShadow: "0 14px 44px rgba(0,0,0,.35)" };
   const inp = { width: "100%", padding: "0.7rem 0.85rem", borderRadius: 10, border: "1.5px solid #d7dbeb", fontSize: "1rem", boxSizing: "border-box" };
   const lbl = { fontSize: "0.68rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.07em", color: "#6b7280", marginBottom: 4, display: "block" };
@@ -19970,7 +20139,9 @@ function EquipCheckPortal({ tag }) {
   return (
     <div style={wrap}>
       <div style={{ textAlign: "center", color: "#fff", marginBottom: 16 }}>
+        <img src={resolveLogoWhite()} alt={resolveCompanyName()} style={{ height: 30, marginBottom: 8 }} />
         <div style={{ fontWeight: 800, fontSize: "1.15rem" }}>🌡 Equipment Temp Check</div>
+        <div style={{ fontSize: "0.72rem", opacity: 0.75, marginTop: 2 }}>{resolveCompanyName()}</div>
         <div style={{ fontSize: "0.78rem", opacity: 0.7, fontFamily: "monospace", marginTop: 3 }}>{tag}</div>
       </div>
       <div style={card}>
@@ -20359,7 +20530,7 @@ function HaccpPortal() {
                 <label className="field" style={{ margin: 0 }}>
                   <span className="fieldLabel">Restaurant Name <span style={{ color: "#ef4444" }}>*</span></span>
                   <input className="input" value={locSite} onChange={e => setLocSite(e.target.value)}
-                    placeholder="e.g. Sodexo Live – Yankee Stadium" autoFocus />
+                    placeholder="e.g. Main Kitchen – Yankee Stadium" autoFocus />
                 </label>
                 <label className="field" style={{ margin: 0, marginTop: 10 }}>
                   <span className="fieldLabel">Unit / Store Number <span className="hint" style={{ fontWeight: 400 }}>(optional)</span></span>
@@ -21151,7 +21322,7 @@ function MessagingPanel({ currentUser, onBack, notifItems, onNotifDismiss, onNot
         <button onClick={onBack} style={{ background: "none", border: "none", color: "#fff", cursor: "pointer", fontSize: "1.3rem", padding: 4, lineHeight: 1 }}>←</button>
         <div style={{ flex: 1 }}>
           <div style={{ color: "#fff", fontWeight: 800, fontSize: "1rem", letterSpacing: "0.01em" }}>💬 Messages & Comms</div>
-          <div style={{ color: "rgba(255,255,255,0.6)", fontSize: "0.72rem" }}>Sodexo Inspection Platform</div>
+          <div style={{ color: "rgba(255,255,255,0.6)", fontSize: "0.72rem" }}>{resolveCompanyName()} Inspection Platform</div>
         </div>
         {activeTab === "messages" && (
           <button

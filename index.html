@@ -97,9 +97,22 @@
     <div id="google_translate_element" style="position:fixed;top:-9999px;left:-9999px;"></div>
     <!-- Instant splash screen while JS loads -->
     <div id="splash">
-      <div class="sp-logo">Sodexo Live!</div>
+      <div class="sp-logo" id="sp-logo-text">Sodexo Live!</div>
       <div class="sp-bar"><div class="sp-fill"></div></div>
     </div>
+    <script>
+      // White-label splash: show the venue's own company name if we've cached it
+      (function () {
+        try {
+          var v = new URLSearchParams(location.search).get("v") || "default";
+          var vs = JSON.parse(localStorage.getItem("sdx_venue_settings_" + v) || "{}");
+          if (vs.companyName) document.getElementById("sp-logo-text").textContent = vs.companyName;
+          if (vs.primaryColor && /^#[0-9a-fA-F]{6}$/.test(vs.primaryColor)) {
+            document.getElementById("splash").style.background = "linear-gradient(135deg," + vs.primaryColor + " 0%,#16152e 100%)";
+          }
+        } catch (e) {}
+      })();
+    </script>
     <div id="root"></div>
     <!-- Capture early JS errors so the splash can display them instead of looping -->
     <script>
