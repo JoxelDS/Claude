@@ -21731,6 +21731,20 @@ export default function App() {
     }
   }
 
+  // Branded browser tab — title and favicon follow the venue's brand
+  useEffect(() => {
+    if (VENUE_ID === "default") return;
+    if (venueSettings?.companyName) {
+      document.title = `${venueSettings.companyName} — Kitchen Inspection`;
+    }
+    const logo = venueSettings?.logoDarkUrl || venueSettings?.logoUrl || "";
+    if (logo) {
+      document.querySelectorAll('link[rel="icon"]').forEach(l => { l.href = logo; });
+      const apple = document.querySelector('link[rel="apple-touch-icon"]');
+      if (apple) apple.href = logo;
+    }
+  }, [venueSettings?.companyName, venueSettings?.logoUrl, venueSettings?.logoDarkUrl]);
+
   // SELF-HEALING BRANDING: on white-label venues, if the venue's settings are
   // missing logo/color/name, pull them from the venue registry record — and if
   // that record belongs to a client, inherit the client's branding. This makes
@@ -23230,8 +23244,8 @@ export default function App() {
         }} title="Home">
           <img src={resolveLogoWhite()} alt={resolveCompanyName()} className="brandLogo" />
           <div>
-            <div className="brandTitle">Kitchen Inspection</div>
-            <div className="brandSub">Turn sit-down inspection notes into organized documents</div>
+            <div className="brandTitle">{VENUE_ID !== "default" && _vs.companyName ? _vs.companyName : "Kitchen Inspection"}</div>
+            <div className="brandSub">{VENUE_ID !== "default" && _vs.companyName ? "Kitchen Inspection System" : "Turn sit-down inspection notes into organized documents"}</div>
           </div>
         </div>
 

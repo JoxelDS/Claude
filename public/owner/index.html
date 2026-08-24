@@ -826,7 +826,7 @@
             </div>
             <span class="badge ${isActive?"active":"inactive"}">${isActive?"Active":"Inactive"}</span>
             <div class="cardActions">
-              <a href="${location.origin}/Claude/?v=${c.id}" target="_blank" class="openLink">Open ↗</a>
+              <a href="${location.origin}/Claude/${c.id}" target="_blank" class="openLink">Open ↗</a>
               <button class="btn btnAccent" data-open-client="${c.id}">Manage →</button>
               <button class="btn btnGhost" data-edit-client="${c.id}">Edit</button>
             </div>
@@ -881,7 +881,7 @@
     const c = clients.find(x=>x.id===clientId);
     list.innerHTML = myVenues.map(v => {
       const s = venueStats[v.id]||{};
-      const url = `${location.origin}/Claude/?v=${v.id}`;
+      const url = `${location.origin}/Claude/${v.id}`;
       const initial = (v.name||v.id)[0].toUpperCase();
       const isActive = v.status!=="inactive";
       const logoSrc = v.logoUrl || c?.logoUrl || "";
