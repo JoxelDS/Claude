@@ -16778,86 +16778,36 @@ function GlobalAdminPanel({ currentUser, onBack, onManageVenue, onEnterVenue, on
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState("");
 
-  const [clients, setClients] = useState([]);
-  const [addClientId, setAddClientId] = useState("");
-  // Brand (white-label company) creation / editing
-  const [showBrandForm, setShowBrandForm] = useState(false);
-  const [brandEditId, setBrandEditId] = useState(null); // null = creating
-  const [brandForm, setBrandForm] = useState({ name: "", logoUrl: "", logoDarkUrl: "", primaryColor: "#2A295C" });
-  const [brandSaving, setBrandSaving] = useState(false);
-
-  // File → downscaled data URL (same approach as the owner portal logo upload)
-  function brandFileToDataUrl(file, cb) {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const img = new Image();
-      img.onload = () => {
-        const MAX = 480;
-        const scale = Math.min(1, MAX / Math.max(img.width, img.height));
-        const canvas = document.createElement("canvas");
-        canvas.width = Math.round(img.width * scale);
-        canvas.height = Math.round(img.height * scale);
-        canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
-        cb(file.type === "image/png" || file.type === "image/svg+xml"
-          ? canvas.toDataURL("image/png")
-          : canvas.toDataURL("image/jpeg", 0.85));
-      };
-      img.src = reader.result;
-    };
-    reader.readAsDataURL(file);
-  }
-
-  function openBrandForm(client) {
-    if (client) {
-      setBrandEditId(client.id);
-      setBrandForm({ name: client.name || "", logoUrl: client.logoUrl || "", logoDarkUrl: client.logoDarkUrl || "", primaryColor: client.primaryColor || "#2A295C" });
-    } else {
-      setBrandEditId(null);
-      setBrandForm({ name: "", logoUrl: "", logoDarkUrl: "", primaryColor: "#2A295C" });
-    }
-    setShowBrandForm(true);
-  }
-
-  async function saveBrand() {
-    const name = brandForm.name.trim();
-    if (!name) { alert("Enter the company / brand name."); return; }
-    setBrandSaving(true);
-    const id = brandEditId || name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || `brand-${Date.now()}`;
-    await saveVenueRecord(id, {
-      _type: "client",
-      name,
-      logoUrl: brandForm.logoUrl || "",
-      logoDarkUrl: brandForm.logoDarkUrl || "",
-      primaryColor: brandForm.primaryColor || "",
-      status: "active",
-      ...(brandEditId ? {} : { createdAt: new Date().toISOString(), createdBy: currentUser?.name || "admin" }),
-    });
-    // Push updated branding into every venue already under this brand
-    if (brandEditId && FIREBASE_ON) {
-      venues.filter(v => v.clientId === brandEditId).forEach(v => {
-        setDoc(doc(db, "venues", v.id, "sharedMemory", "venueSettings"),
-          { companyName: name, logoUrl: brandForm.logoUrl || "", primaryColor: brandForm.primaryColor || "" }, { merge: true }).catch(() => {});
-      });
-    }
-    setClients(await loadClientRegistry());
-    setBrandSaving(false);
-    setShowBrandForm(false);
-  }
-
-  async function deleteBrand(client) {
-    const inUse = venues.filter(v => v.clientId === client.id).length;
-    if (!confirm(`Remove the brand "${client.name}"?${inUse ? `\n\n${inUse} venue(s) currently use it — they keep their branding but lose the grouping.` : ""}`)) return;
-    await deleteVenueRecord(client.id);
-    setClients(prev => prev.filter(c => c.id !== client.id));
-  }
+  // Brand scope: each company's Global Admin only sees its own venues.
+  // Brands themselves are created/managed in the DS owner portal, never here.
+  const [scopeClientId, setScopeClientId] = useState(null); // null = resolving
+  const [scopeClient, setScopeClient] = useState(null);     // the brand's registry record
 
   useEffect(() => {
     async function load() {
       setLoading(true);
-      const list = await loadVenueRegistry();
+      // Which brand does this admin belong to? default venue → no brand (clientless only)
+      let cid = "";
+      let cRec = null;
+      if (FIREBASE_ON && VENUE_ID !== "default") {
+        try {
+          const regSnap = await getDoc(venueRegistryDoc(VENUE_ID));
+          if (regSnap.exists()) {
+            const reg = regSnap.data();
+            cid = reg._type === "client" ? VENUE_ID : (reg.clientId || "");
+          }
+          if (cid) {
+            const cSnap = await getDoc(venueRegistryDoc(cid));
+            if (cSnap.exists()) cRec = { id: cid, ...cSnap.data() };
+          }
+        } catch {}
+      }
+      setScopeClientId(cid);
+      setScopeClient(cRec);
+      const all = await loadVenueRegistry();
+      const list = all.filter(v => (v.clientId || "") === cid);
       list.sort((a, b) => (a.name || a.id).localeCompare(b.name || b.id));
       setVenues(list);
-      loadClientRegistry().then(setClients).catch(() => {});
       setLoading(false);
       // Load stats in parallel (batched to avoid Firestore limits)
       const BATCH = 20;
@@ -16882,8 +16832,8 @@ function GlobalAdminPanel({ currentUser, onBack, onManageVenue, onEnterVenue, on
     if (!addName.trim()) { setAddError("Enter a display name."); return; }
     if (venues.find(v => v.id === slug)) { setAddError("A venue with that ID already exists."); return; }
     setAddLoading(true);
-    // Inherit branding from the selected client (logo, company name, color)
-    const client = clients.find(c => c.id === addClientId);
+    // Inherit branding from this admin's own brand (set in the DS owner portal)
+    const client = scopeClient;
     const companyNameVal = addCompanyName.trim() || client?.name || addName.trim();
     const logoVal = addLogoUrl.trim() || client?.logoUrl || "";
     const colorVal = client?.primaryColor || "";
@@ -16894,7 +16844,7 @@ function GlobalAdminPanel({ currentUser, onBack, onManageVenue, onEnterVenue, on
       companyName: companyNameVal,
       logoUrl: logoVal,
       primaryColor: colorVal,
-      clientId: addClientId || "",
+      clientId: scopeClientId || "",
       status: "active",
       createdAt: new Date().toISOString(),
       createdBy: currentUser?.name || "admin",
@@ -16903,7 +16853,8 @@ function GlobalAdminPanel({ currentUser, onBack, onManageVenue, onEnterVenue, on
     if (FIREBASE_ON) {
       setDoc(doc(db, "venues", slug, "sharedMemory", "venueSettings"), { companyName: companyNameVal, logoUrl: logoVal, primaryColor: colorVal }, { merge: true }).catch(() => {});
     }
-    const updated = await loadVenueRegistry();
+    const updatedAll = await loadVenueRegistry();
+    const updated = updatedAll.filter(v => (v.clientId || "") === (scopeClientId || ""));
     updated.sort((a, b) => (a.name || a.id).localeCompare(b.name || b.id));
     setVenues(updated);
     setAddId(""); setAddName(""); setAddType("stadium"); setAddAddress(""); setAddCompanyName(""); setAddLogoUrl(""); setShowAddForm(false);
@@ -17051,98 +17002,6 @@ function GlobalAdminPanel({ currentUser, onBack, onManageVenue, onEnterVenue, on
 
         {statsTab === "list" && (
           <div>
-            {/* Brands (white-label companies) */}
-            <div style={{ background: "var(--surface-1)", border: "1.5px solid #e2e8f0", borderRadius: 10, padding: "0.75rem 1rem", marginBottom: "1rem" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: clients.length > 0 ? 8 : 0 }}>
-                <span style={{ fontSize: "0.78rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.07em", color: "var(--ink-600)" }}>🏢 Brands</span>
-                <span style={{ flex: 1 }} />
-                <button type="button" onClick={() => openBrandForm(null)}
-                  style={{ padding: "0.35rem 0.9rem", borderRadius: 999, border: "none", background: "#16a34a", color: "#fff", fontWeight: 700, fontSize: "0.78rem", cursor: "pointer" }}>
-                  ＋ New Brand
-                </button>
-              </div>
-              {clients.length === 0 && (
-                <div style={{ fontSize: "0.78rem", color: "var(--ink-500)" }}>No brands yet — the system runs as Sodexo Live!. Create a brand to sell this system to another company with its own logo and colors.</div>
-              )}
-              {clients.length > 0 && (
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                  {clients.map(c => (
-                    <div key={c.id} style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--surface-2)", border: "1.5px solid var(--sdx-gray-200)", borderRadius: 999, padding: "0.3rem 0.5rem 0.3rem 0.75rem" }}>
-                      <span style={{ width: 12, height: 12, borderRadius: "50%", background: c.primaryColor || "#2A295C", border: "1px solid rgba(0,0,0,0.15)" }} />
-                      {c.logoUrl && <img src={c.logoUrl} alt="" style={{ height: 18, maxWidth: 70, objectFit: "contain" }} />}
-                      <span style={{ fontSize: "0.8rem", fontWeight: 700, color: "var(--ink-800)" }}>{c.name}</span>
-                      <button type="button" onClick={() => openBrandForm(c)} title="Edit brand"
-                        style={{ background: "none", border: "none", cursor: "pointer", fontSize: "0.78rem", padding: 2 }}>✏️</button>
-                      <button type="button" onClick={() => deleteBrand(c)} title="Remove brand"
-                        style={{ background: "none", border: "none", cursor: "pointer", fontSize: "0.78rem", padding: 2 }}>🗑</button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Brand create/edit modal */}
-            {showBrandForm && ReactDOM.createPortal(
-              <div style={{ position: "fixed", inset: 0, zIndex: 10000, background: "rgba(0,0,0,.6)", backdropFilter: "blur(3px)", overflowY: "auto", padding: "5vh 14px" }} onClick={() => setShowBrandForm(false)}>
-                <div className="card" style={{ maxWidth: 440, margin: "0 auto" }} onClick={e => e.stopPropagation()}>
-                  <div className="cardHeader" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                    <div className="cardTitle">{brandEditId ? "✏️ Edit Brand" : "🏢 New Brand"}</div>
-                    <button type="button" onClick={() => setShowBrandForm(false)} style={{ background: "none", border: "none", fontSize: "1.2rem", cursor: "pointer", color: "var(--ink-400)", lineHeight: 1, padding: 4 }}>✕</button>
-                  </div>
-                  <div className="cardBody" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                    <div>
-                      <span style={{ fontSize: "0.68rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--ink-500)", display: "block", marginBottom: 3 }}>Company / Brand Name *</span>
-                      <input value={brandForm.name} onChange={e => setBrandForm(f => ({ ...f, name: e.target.value }))} placeholder="Aramark, Levy, Compass Group…"
-                        style={{ width: "100%", padding: "0.55rem 0.75rem", borderRadius: 8, border: "1.5px solid var(--sdx-gray-200)", fontSize: "0.9rem", background: "var(--surface-2)", color: "var(--ink-900)" }} />
-                    </div>
-                    <div>
-                      <span style={{ fontSize: "0.68rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--ink-500)", display: "block", marginBottom: 3 }}>Logo (shown on dark headers)</span>
-                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                        <label style={{ padding: "0.5rem 0.9rem", borderRadius: 8, border: "1.5px dashed var(--sdx-gray-300)", fontSize: "0.8rem", fontWeight: 700, cursor: "pointer", color: "var(--ink-600)" }}>
-                          📁 Upload Logo
-                          <input type="file" accept="image/*" style={{ display: "none" }}
-                            onChange={e => { const f = e.target.files?.[0]; if (f) brandFileToDataUrl(f, url => setBrandForm(fm => ({ ...fm, logoUrl: url }))); e.target.value = ""; }} />
-                        </label>
-                        {brandForm.logoUrl && <img src={brandForm.logoUrl} alt="" style={{ height: 28, maxWidth: 120, objectFit: "contain", background: "#2A295C", borderRadius: 6, padding: "3px 8px" }} />}
-                        {brandForm.logoUrl && <button type="button" onClick={() => setBrandForm(f => ({ ...f, logoUrl: "" }))} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink-400)" }}>✕</button>}
-                      </div>
-                    </div>
-                    <div>
-                      <span style={{ fontSize: "0.68rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--ink-500)", display: "block", marginBottom: 3 }}>Dark Logo (for white paper / labels — optional)</span>
-                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                        <label style={{ padding: "0.5rem 0.9rem", borderRadius: 8, border: "1.5px dashed var(--sdx-gray-300)", fontSize: "0.8rem", fontWeight: 700, cursor: "pointer", color: "var(--ink-600)" }}>
-                          📁 Upload
-                          <input type="file" accept="image/*" style={{ display: "none" }}
-                            onChange={e => { const f = e.target.files?.[0]; if (f) brandFileToDataUrl(f, url => setBrandForm(fm => ({ ...fm, logoDarkUrl: url }))); e.target.value = ""; }} />
-                        </label>
-                        {brandForm.logoDarkUrl && <img src={brandForm.logoDarkUrl} alt="" style={{ height: 28, maxWidth: 120, objectFit: "contain", background: "#fff", border: "1px solid #e2e8f0", borderRadius: 6, padding: "3px 8px" }} />}
-                        {brandForm.logoDarkUrl && <button type="button" onClick={() => setBrandForm(f => ({ ...f, logoDarkUrl: "" }))} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink-400)" }}>✕</button>}
-                      </div>
-                    </div>
-                    <div>
-                      <span style={{ fontSize: "0.68rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--ink-500)", display: "block", marginBottom: 3 }}>Brand Color</span>
-                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                        <input type="color" value={/^#[0-9a-fA-F]{6}$/.test(brandForm.primaryColor) ? brandForm.primaryColor : "#2A295C"}
-                          onChange={e => setBrandForm(f => ({ ...f, primaryColor: e.target.value }))}
-                          style={{ width: 46, height: 34, border: "1.5px solid var(--sdx-gray-200)", borderRadius: 8, padding: 2, cursor: "pointer", background: "var(--surface-2)" }} />
-                        <input value={brandForm.primaryColor} onChange={e => setBrandForm(f => ({ ...f, primaryColor: e.target.value }))} placeholder="#2A295C"
-                          style={{ width: 110, padding: "0.5rem 0.7rem", borderRadius: 8, border: "1.5px solid var(--sdx-gray-200)", fontSize: "0.85rem", fontFamily: "monospace", background: "var(--surface-2)", color: "var(--ink-900)" }} />
-                        <span style={{ fontSize: "0.72rem", color: "var(--ink-500)" }}>Used for headers &amp; buttons</span>
-                      </div>
-                    </div>
-                    <button type="button" disabled={brandSaving} onClick={saveBrand}
-                      style={{ width: "100%", background: "#16a34a", color: "#fff", border: "none", borderRadius: 10, padding: "0.7rem", fontWeight: 800, fontSize: "0.92rem", cursor: "pointer", opacity: brandSaving ? 0.6 : 1 }}>
-                      {brandSaving ? "Saving…" : brandEditId ? "✓ Save Brand" : "✓ Create Brand"}
-                    </button>
-                    <div style={{ fontSize: "0.72rem", color: "var(--ink-500)", lineHeight: 1.5 }}>
-                      After creating the brand, add a venue and pick this brand — the venue's login, reports, exports, and labels all take its name, logo, and color.
-                    </div>
-                  </div>
-                </div>
-              </div>,
-              document.body
-            )}
-
             {/* Search + Add */}
             <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem" }}>
               <input
@@ -17179,11 +17038,6 @@ function GlobalAdminPanel({ currentUser, onBack, onManageVenue, onEnterVenue, on
                   <input value={addAddress} onChange={e => setAddAddress(e.target.value)}
                     placeholder="Address (optional)"
                     style={{ padding: "0.55rem 0.75rem", borderRadius: 7, border: "1.5px solid #e2e8f0", fontSize: "0.9rem" }} />
-                  <select value={addClientId} onChange={e => setAddClientId(e.target.value)}
-                    style={{ padding: "0.55rem 0.75rem", borderRadius: 7, border: "1.5px solid #e2e8f0", fontSize: "0.9rem", background: "var(--surface-1)" }}>
-                    <option value="">🏢 Brand: Sodexo Live! (default)</option>
-                    {clients.map(c => <option key={c.id} value={c.id}>🏢 Brand: {c.name}</option>)}
-                  </select>
                   <button type="submit" disabled={addLoading}
                     style={{ padding: "0.6rem", borderRadius: 7, border: "none", background: "var(--sdx-navy)", color: "#fff", fontWeight: 700, cursor: "pointer" }}>
                     {addLoading ? "Adding…" : "Add Venue"}
@@ -17200,8 +17054,8 @@ function GlobalAdminPanel({ currentUser, onBack, onManageVenue, onEnterVenue, on
             )}
 
             {(() => {
-              // Group venues by client so each client's sites stay together
-              const clientName = (cid) => (clients.find(c => c.id === cid)?.name) || cid;
+              // All venues here share one brand scope; header only shows for mixed lists
+              const clientName = (cid) => (scopeClient?.id === cid ? (scopeClient?.name || cid) : cid);
               const groups = [];
               const byClient = {};
               for (const v of filtered) {

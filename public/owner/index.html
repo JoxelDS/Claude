@@ -782,7 +782,7 @@
           <div class="editPanel">
             <div class="editGrid">
               <label class="editLbl">Company Name<input class="editInp" id="ec-name" value="${esc(c.name||'')}" placeholder="Sodexo Live!" /></label>
-              <label class="editLbl">Logo URL<input class="editInp" id="ec-logo" value="${esc(c.logoUrl||'')}" placeholder="https://…" /></label>
+              <label class="editLbl">Logo<span style="display:flex;gap:6px"><input class="editInp" id="ec-logo" value="${esc(c.logoUrl||'')}" placeholder="https://… or upload →" style="flex:1;min-width:0" /><button type="button" class="btn btnGhost" data-ec-logo-upload style="padding:6px 10px;white-space:nowrap">⬆︎ Upload</button></span></label>
               <label class="editLbl">Primary Color<input class="editInp" id="ec-color" value="${esc(c.primaryColor||'')}" placeholder="#005596" /></label>
               <label class="editLbl">Notes<input class="editInp" id="ec-notes" value="${esc(c.notes||'')}" placeholder="Notes" /></label>
               <label class="editLbl">Status
@@ -1027,6 +1027,22 @@
     document.getElementById("nc-logo-btn").textContent = "⬆︎ Upload Logo";
   });
 
+  // ── Edit-panel logo upload (shared hidden input, delegated click) ──
+  const ecLogoFile = document.createElement("input");
+  ecLogoFile.type = "file"; ecLogoFile.accept = "image/*"; ecLogoFile.style.display = "none";
+  document.body.appendChild(ecLogoFile);
+  document.addEventListener("click", e => {
+    if (e.target.closest("[data-ec-logo-upload]")) { e.preventDefault(); ecLogoFile.click(); }
+  });
+  ecLogoFile.addEventListener("change", () => {
+    const f = ecLogoFile.files[0]; if (!f) return;
+    fileToDataUrl(f, url => {
+      const inp = document.getElementById("ec-logo");
+      if (inp) { inp.value = url; showToast("Logo attached — press Save"); }
+    });
+    ecLogoFile.value = "";
+  });
+
   // ── Color picker ↔ hex field stay in sync ──
   const colorPick = document.getElementById("nc-color-pick");
   const colorHex  = document.getElementById("nc-color");
@@ -1111,8 +1127,17 @@
     const status=document.getElementById("ec-status")?.value||"active";
     try {
       await setDoc(doc(db,"venueRegistry",id),{name,logoUrl,primaryColor,notes,status,_type:"client"},{merge:true});
+      // Push the updated branding into every venue that belongs to this brand,
+      // so their live systems pick it up without re-creating anything
+      const brandVenues = allVenues.filter(v=>v.clientId===id && v.status!=="deleted");
+      await Promise.all(brandVenues.map(v=>
+        setDoc(doc(db,"venues",v.id,"sharedMemory","venueSettings"),
+          { companyName:name, logoUrl, primaryColor }, { merge:true }).catch(()=>{})
+      ));
       clients=clients.map(c=>c.id===id?{...c,name,logoUrl,primaryColor,notes,status}:c);
-      editingClientId=null; showToast("Saved ✓"); renderClients();
+      editingClientId=null;
+      showToast(brandVenues.length ? `Saved ✓ — branding updated on ${brandVenues.length} venue(s)` : "Saved ✓");
+      renderClients();
     } catch(err){ showToast("Error: "+err.message,true); }
   }
 

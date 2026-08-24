@@ -2,7 +2,7 @@
 // v119: Restored to July 13 state
 
 
-const CACHE_NAME = "sdx-inspect-v294";
+const CACHE_NAME = "sdx-inspect-v295";
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
