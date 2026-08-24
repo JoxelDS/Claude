@@ -7471,3 +7471,16 @@ html[data-theme="black"] .labelCardPro { background: #fff; }
   .labelHead { background: #1F2937 !important; color: #fff !important; }
 }
 .labelHead { display: flex; align-items: center; gap: 8px; }
+
+
+/* ── HACCP portal on phones: 16px inputs stop iOS Safari's zoom-jump while typing ── */
+@media (max-width: 768px) {
+  .haccpCard input,
+  .haccpCard textarea,
+  .haccpCard select,
+  .haccpFoodNameInput,
+  .haccpTempInput,
+  .haccpLabelEditInput {
+    font-size: 16px !important;
+  }
+}

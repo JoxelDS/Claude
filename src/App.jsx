@@ -15767,7 +15767,7 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
 }
 
 /* ── Equipment Scanner Page ───────────────────────────────── */
-function EquipmentScannerPage({ onBack, onPrintLabels }) {
+function EquipmentScannerPage({ onBack, onPrintLabels, onKitchenQr }) {
   const [scanInput, setScanInput] = useState("");
   const [searching, setSearching] = useState(false);
   const [results, setResults] = useState(null); // null = not searched yet
@@ -15792,6 +15792,30 @@ function EquipmentScannerPage({ onBack, onPrintLabels }) {
   const fileInputRef = useRef(null);
   const hasBarcodeDetector = "BarcodeDetector" in window;
   const [checkTag, setCheckTag] = useState(null); // opens the pre-filled temp-check form
+  const [suggestions, setSuggestions] = useState([]); // known equipment for instant search
+
+  // Build a lightweight index once so typing gives instant suggestions
+  useEffect(() => {
+    (async () => {
+      try {
+        const { list } = await loadHistory(undefined, { pageSize: 200 });
+        const seen = new Set();
+        const idx = [];
+        for (const rec of (list || [])) {
+          const equip = rec.inspection?.equipment || {};
+          for (const [k, v] of Object.entries(equip)) {
+            const label = v?.label || k;
+            const tag = (v?.assetTag || "").trim();
+            const id = tag || `${label}@@${rec.siteName || ""}`;
+            if (seen.has(id)) continue;
+            seen.add(id);
+            idx.push({ label, tag, brand: v?.brand || "", site: rec.siteName || "" });
+          }
+        }
+        setSuggestions(idx);
+      } catch {}
+    })();
+  }, []);
 
   function handleScannedCode(code) {
     const tag = extractEquipTag(code);
@@ -15904,12 +15928,18 @@ function EquipmentScannerPage({ onBack, onPrintLabels }) {
         for (const [key, val] of Object.entries(equip)) {
           const label = (val?.label || key || "").toLowerCase();
           const assetTag = (val?.assetTag || "").toLowerCase();
+          const brand = (val?.brand || "").toLowerCase();
+          const notes = (val?.notes || "").toLowerCase();
+          const site = (rec.siteName || "").toLowerCase();
           // Priority 1: exact asset tag match (scanned QR label)
           const exactTagMatch = assetTag && (assetTag === q);
           // Priority 2: exact key/label match
           const exactMatch = key.toLowerCase() === q || label === q;
-          // Priority 3: partial match on key, label, or asset tag
-          const partialMatch = key.toLowerCase().includes(q) || label.includes(q) || (assetTag && assetTag.includes(q));
+          // Priority 3: partial match — every word of the query must appear in
+          // label, tag, brand, notes, or restaurant ("true cooler tacotomia" works)
+          const hay = `${key.toLowerCase()} ${label} ${assetTag} ${brand} ${notes} ${site}`;
+          const terms = q.split(/\s+/).filter(Boolean);
+          const partialMatch = terms.length > 0 && terms.every(t => hay.includes(t));
           if (exactTagMatch || exactMatch || partialMatch) {
             matches.push({
               inspectionId: d.id,
@@ -15966,12 +15996,20 @@ function EquipmentScannerPage({ onBack, onPrintLabels }) {
             <div style={{ color: "rgba(255,255,255,0.7)", fontSize: "0.75rem" }}>Scan or search by asset ID / label</div>
           </div>
         </div>
-        {onPrintLabels && (
-          <button className="btn btnGhost" type="button" onClick={onPrintLabels}
-            style={{ color: "#fff", borderColor: "rgba(255,255,255,0.4)", padding: "0.3rem 0.75rem", fontSize: "0.82rem" }}>
-            🖨 Print Labels
-          </button>
-        )}
+        <div style={{ display: "flex", gap: 8 }}>
+          {onKitchenQr && (
+            <button className="btn btnGhost" type="button" onClick={onKitchenQr}
+              style={{ color: "#fff", borderColor: "rgba(255,255,255,0.4)", padding: "0.3rem 0.75rem", fontSize: "0.82rem" }}>
+              🍳 Kitchen QRs
+            </button>
+          )}
+          {onPrintLabels && (
+            <button className="btn btnGhost" type="button" onClick={onPrintLabels}
+              style={{ color: "#fff", borderColor: "rgba(255,255,255,0.4)", padding: "0.3rem 0.75rem", fontSize: "0.82rem" }}>
+              🖨 Print Labels
+            </button>
+          )}
+        </div>
       </header>
       <div style={{ height: 64, flexShrink: 0 }} />
 
@@ -16059,6 +16097,29 @@ function EquipmentScannerPage({ onBack, onPrintLabels }) {
               {cameraError}
             </div>
           )}
+          {/* Instant suggestions while typing */}
+          {scanInput.trim().length >= 2 && results === null && (() => {
+            const q = scanInput.trim().toLowerCase();
+            const hits = suggestions.filter(sug =>
+              `${sug.label} ${sug.tag} ${sug.brand} ${sug.site}`.toLowerCase().includes(q)).slice(0, 6);
+            if (hits.length === 0) return null;
+            return (
+              <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 5 }}>
+                {hits.map((h, i) => (
+                  <button key={i} type="button"
+                    onClick={() => { setScanInput(h.tag || h.label); runSearch(h.tag || h.label); }}
+                    style={{ textAlign: "left", background: "var(--surface-2)", border: "1.5px solid var(--sdx-gray-200)", borderRadius: 8, padding: "0.5rem 0.75rem", cursor: "pointer", display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}>
+                    <span style={{ fontSize: "0.83rem", fontWeight: 700, color: "var(--ink-800)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {h.label}{h.brand ? ` · ${h.brand}` : ""}
+                    </span>
+                    <span style={{ fontSize: "0.7rem", color: "var(--ink-500)", flexShrink: 0 }}>
+                      {h.site}{h.tag ? ` · ${h.tag}` : ""}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            );
+          })()}
         </div>
 
         {/* Results */}
@@ -16748,6 +16809,193 @@ function PrintLabelsPage({ onBack }) {
         .labelVenueName { font-size: 0.72rem; color: #64748b; margin-bottom: 2px; }
         .labelBrand { font-size: 0.65rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; }
       `}</style>
+    </div>
+  );
+}
+
+
+/* ── Kitchen QR Posters: one QR per kitchen/stand — scanning opens the HACCP
+   temp log prefilled for that exact location, so every kitchen can self-report
+   and the inspectors see it live ─────────────────────────────────────────── */
+function KitchenQrPage({ onBack }) {
+  const [kitchens, setKitchens] = useState([]); // { id, site, unit, floor }
+  const [qrUrls, setQrUrls] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [addSite, setAddSite] = useState("");
+  const [addUnit, setAddUnit] = useState("");
+  const [addFloor, setAddFloor] = useState("");
+  const [search, setSearch] = useState("");
+
+  function haccpUrl(k) {
+    const base = window.location.origin + "/Claude/";
+    const params = new URLSearchParams({ haccp: "1" });
+    if (k.site) params.set("site", k.site);
+    if (k.unit) params.set("unit", k.unit);
+    if (k.floor) params.set("floor", k.floor);
+    if (VENUE_ID && VENUE_ID !== "default") params.set("v", VENUE_ID);
+    return base + "?" + params.toString();
+  }
+
+  useEffect(() => {
+    (async () => {
+      setLoading(true);
+      const seen = new Set();
+      const list = [];
+      try {
+        const { list: hist } = await loadHistory(undefined, { pageSize: 300 });
+        for (const rec of (hist || [])) {
+          const site = (rec.siteName || "").trim();
+          if (!site) continue;
+          const unit = (rec.siteNumber || "").trim();
+          const floor = (rec.floor || "").trim();
+          const id = `${site.toLowerCase()}|${unit.toLowerCase()}`;
+          if (seen.has(id)) continue;
+          seen.add(id);
+          list.push({ id, site, unit, floor });
+        }
+      } catch {}
+      list.sort((a, b) => a.site.localeCompare(b.site) || a.unit.localeCompare(b.unit, undefined, { numeric: true }));
+      setKitchens(list);
+      setLoading(false);
+    })();
+  }, []);
+
+  useEffect(() => {
+    if (kitchens.length === 0) return;
+    const urls = {};
+    getQRCode().then(QR => Promise.all(
+      kitchens.map(k => QR.toDataURL(haccpUrl(k), { width: 280, margin: 1, color: { dark: "#111827", light: "#ffffff" } })
+        .then(u => { urls[k.id] = u; }).catch(() => {}))
+    )).then(() => setQrUrls({ ...urls }));
+  }, [kitchens]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function addKitchen() {
+    const site = addSite.trim();
+    if (!site) return;
+    const unit = addUnit.trim(), floor = addFloor.trim();
+    const id = `${site.toLowerCase()}|${unit.toLowerCase()}`;
+    setKitchens(prev => prev.some(k => k.id === id) ? prev : [{ id, site, unit, floor }, ...prev]);
+    setAddSite(""); setAddUnit("");
+  }
+
+  const brandColor = (/^#[0-9a-fA-F]{6}$/.test(_vs.primaryColor || "") ? _vs.primaryColor : "#2A295C");
+  const shown = search.trim()
+    ? kitchens.filter(k => `${k.site} ${k.unit} ${k.floor}`.toLowerCase().includes(search.trim().toLowerCase()))
+    : kitchens;
+
+  function printPosters() {
+    const items = shown;
+    if (items.length === 0) return;
+    const esc = (t) => String(t || "").replace(/&/g, "&amp;").replace(/</g, "&lt;");
+    const logoUrl = resolveLogoDark().startsWith("data:") ? resolveLogoDark() : window.location.origin + resolveLogoDark().replace(window.location.origin, "");
+    const cards = items.map(k => `
+      <div class="poster">
+        <div class="ph" style="background:${brandColor}">
+          <img class="phl" src="${logoUrl}" alt="" />
+          <div class="pht">${esc(resolveCompanyName())} · Kitchen Check</div>
+        </div>
+        <div class="pb">
+          <div class="pn">${esc(k.site)}${k.unit ? ` <span class="pu">#${esc(k.unit)}</span>` : ""}</div>
+          ${k.floor ? `<div class="pf">${esc(k.floor)}</div>` : ""}
+          <img class="pq" src="${qrUrls[k.id] || ""}" />
+          <div class="pi">📱 <b>Scan with your phone camera</b><br/>Log temperatures &amp; report problems for this kitchen — no app needed.<br/><span class="es">Escanee para registrar temperaturas y reportar problemas.</span></div>
+        </div>
+      </div>`).join("\n");
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Kitchen QR Posters</title><style>
+      * { margin:0; padding:0; box-sizing:border-box; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+      body { font-family:-apple-system,'Segoe UI',Arial,sans-serif; background:#fff; }
+      .poster { width:100%; height:49vh; border:2px dashed #cbd5e1; border-radius:14px; overflow:hidden; display:flex; flex-direction:column; page-break-inside:avoid; break-inside:avoid; margin-bottom:1vh; }
+      .ph { color:#fff; padding:12px 18px; display:flex; align-items:center; gap:10px; }
+      .phl { height:22px; filter:brightness(0) invert(1); }
+      .pht { font-weight:800; font-size:13px; letter-spacing:.04em; text-transform:uppercase; }
+      .pb { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:10px 16px; text-align:center; }
+      .pn { font-size:26px; font-weight:900; color:#111827; }
+      .pu { color:${brandColor}; }
+      .pf { font-size:13px; color:#6b7280; font-weight:700; margin-top:2px; }
+      .pq { width:200px; height:200px; margin:10px 0; }
+      .pi { font-size:12px; color:#374151; line-height:1.5; }
+      .pi .es { color:#6b7280; font-style:italic; }
+      @page { margin:8mm; }
+    </style></head><body>${cards}
+    <script>window.onload=function(){setTimeout(function(){window.print()},400)}<\/script></body></html>`;
+    const win = window.open("", "_blank");
+    if (!win) { alert("Allow pop-ups to print posters."); return; }
+    win.document.write(html);
+    win.document.close();
+  }
+
+  return (
+    <div className="appShell" style={{ background: "var(--surface-2)", minHeight: "100vh" }}>
+      <header className="topBar">
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <button className="btn btnGhost" onClick={onBack} type="button"
+            style={{ color: "#fff", borderColor: "rgba(255,255,255,0.4)", padding: "0.3rem 0.75rem", fontSize: "0.85rem" }}>
+            ← Back
+          </button>
+          <div>
+            <div style={{ fontWeight: 700, color: "#fff", fontSize: "1rem" }}>Kitchen QR Posters</div>
+            <div style={{ color: "rgba(255,255,255,0.7)", fontSize: "0.75rem" }}>One QR per kitchen — teams self-report temps &amp; problems</div>
+          </div>
+        </div>
+        <button type="button" onClick={printPosters} disabled={shown.length === 0}
+          style={{ background: shown.length === 0 ? "rgba(255,255,255,0.18)" : "#fff", color: shown.length === 0 ? "rgba(255,255,255,0.75)" : "var(--sdx-navy)", border: "none", borderRadius: 10, cursor: "pointer", fontWeight: 700, fontSize: "0.85rem", padding: "0.5rem 1.1rem", whiteSpace: "nowrap" }}>
+          🖨 Print ({shown.length})
+        </button>
+      </header>
+      <div style={{ height: 64, flexShrink: 0 }} />
+
+      <div style={{ maxWidth: 900, margin: "0 auto", padding: "1.25rem 1rem" }}>
+        <div style={{ background: "var(--surface-1)", borderRadius: 12, padding: "1rem 1.25rem", marginBottom: "1rem", boxShadow: "0 1px 4px rgba(0,0,0,0.07)" }}>
+          <div style={{ fontWeight: 700, fontSize: "0.95rem", color: "var(--ink-900)", marginBottom: 6 }}>How kitchen QRs work</div>
+          <ol style={{ margin: 0, paddingLeft: "1.25rem", color: "var(--ink-600)", fontSize: "0.85rem", lineHeight: 1.7 }}>
+            <li>Print a poster for each kitchen below and tape it up where the team can see it.</li>
+            <li>Anyone scans it with their phone camera — the temp log opens already set to that kitchen. No app, no login.</li>
+            <li>Every submission and problem report lands in your reports and notifications instantly.</li>
+          </ol>
+        </div>
+
+        {/* Add + search */}
+        <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="🔍 Search kitchens…"
+            style={{ flex: "1 1 200px", padding: "0.6rem 0.75rem", borderRadius: 8, border: "1.5px solid var(--sdx-gray-200)", fontSize: "0.9rem", background: "var(--surface-1)", color: "var(--ink-900)" }} />
+        </div>
+        <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
+          <input value={addSite} onChange={e => setAddSite(e.target.value)} placeholder="Add kitchen: name (e.g. Tacotomia)"
+            style={{ flex: "2 1 180px", padding: "0.55rem 0.75rem", borderRadius: 8, border: "1.5px solid var(--sdx-gray-200)", fontSize: "0.88rem", background: "var(--surface-1)", color: "var(--ink-900)" }} />
+          <input value={addUnit} onChange={e => setAddUnit(e.target.value)} placeholder="Unit #"
+            style={{ flex: "1 1 80px", padding: "0.55rem 0.75rem", borderRadius: 8, border: "1.5px solid var(--sdx-gray-200)", fontSize: "0.88rem", background: "var(--surface-1)", color: "var(--ink-900)" }} />
+          <input value={addFloor} onChange={e => setAddFloor(e.target.value)} placeholder="Floor"
+            style={{ flex: "1 1 80px", padding: "0.55rem 0.75rem", borderRadius: 8, border: "1.5px solid var(--sdx-gray-200)", fontSize: "0.88rem", background: "var(--surface-1)", color: "var(--ink-900)" }} />
+          <button type="button" onClick={addKitchen} disabled={!addSite.trim()}
+            style={{ background: "#16a34a", color: "#fff", border: "none", borderRadius: 8, padding: "0.55rem 1rem", fontWeight: 800, fontSize: "0.85rem", cursor: "pointer", opacity: addSite.trim() ? 1 : 0.5 }}>
+            ＋ Add
+          </button>
+        </div>
+
+        {loading && <div style={{ textAlign: "center", padding: "2.5rem", color: "var(--ink-500)" }}>Loading kitchens…</div>}
+        {!loading && shown.length === 0 && (
+          <div style={{ background: "var(--surface-1)", borderRadius: 12, padding: "2rem", textAlign: "center", color: "var(--ink-500)" }}>
+            No kitchens yet — add one above, or save an inspection first.
+          </div>
+        )}
+
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(230px, 1fr))", gap: 14 }}>
+          {shown.map(k => (
+            <div key={k.id} style={{ background: "var(--surface-1)", borderRadius: 12, overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,0.08)", border: "1.5px solid var(--sdx-gray-200)" }}>
+              <div style={{ background: brandColor, color: "#fff", padding: "8px 12px", fontWeight: 800, fontSize: "0.82rem", display: "flex", justifyContent: "space-between", gap: 6 }}>
+                <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>🍳 {k.site}</span>
+                {k.unit && <span style={{ flexShrink: 0 }}>#{k.unit}</span>}
+              </div>
+              <div style={{ padding: 12, textAlign: "center" }}>
+                {qrUrls[k.id]
+                  ? <img src={qrUrls[k.id]} alt="" width={150} height={150} />
+                  : <div style={{ width: 150, height: 150, margin: "0 auto", background: "var(--surface-2)", borderRadius: 6 }} />}
+                <div style={{ fontSize: "0.72rem", color: "var(--ink-500)", marginTop: 6 }}>{k.floor || "Scan to log temps & problems"}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
@@ -19414,6 +19662,24 @@ function InlineChat({ currentUser, sessionId }) {
 
   const unread = messages.filter(m => m.fromSupervisor).length;
 
+  async function sendAlert() {
+    if (sending) return;
+    setSending(true);
+    const msg = {
+      id: `chat_${Date.now()}_${Math.random().toString(16).slice(2)}`,
+      sessionId: sessionId || "",
+      sender: currentUser?.name || "Inspector",
+      text: "🔔 [ALERT] The inspector needs you — please check the temp log and respond now.",
+      sentAt: new Date().toISOString(),
+      fromSupervisor: false,
+      alert: true,
+    };
+    await saveChatMessage(msg);
+    const updated = await loadChatMessages(sessionId);
+    setMessages(updated);
+    setSending(false);
+  }
+
   return (
     <div className="inlineChatCard">
       <button className="inlineChatToggle" type="button" onClick={() => setOpen(o => !o)}>
@@ -19423,6 +19689,10 @@ function InlineChat({ currentUser, sessionId }) {
       </button>
       {open && (
         <div className="inlineChatBody">
+          <button type="button" onClick={sendAlert} disabled={sending}
+            style={{ width: "100%", marginBottom: 8, background: "#dc2626", color: "#fff", border: "none", borderRadius: 9, padding: "0.55rem", fontWeight: 800, fontSize: "0.82rem", cursor: "pointer", opacity: sending ? 0.6 : 1 }}>
+            🔔 Alert Supervisor Now — sound + banner on their phone
+          </button>
           <div className="inlineChatList" ref={listRef}>
             {messages.length === 0
               ? <div className="haccpEmptyChat">No messages yet — supervisor messages appear here in real time.</div>
@@ -20089,8 +20359,8 @@ function HaccpPortal() {
   // "done" → confirmation
 
   const [step, setStep] = useState("ident"); // "ident" | "location" | "form" | "done"
-  const [supName, setSupName] = useState("");
-  const [supPhone, setSupPhone] = useState("");
+  const [supName, setSupName] = useState(() => { try { return localStorage.getItem("sdx_sup_name") || ""; } catch { return ""; } });
+  const [supPhone, setSupPhone] = useState(() => { try { return localStorage.getItem("sdx_sup_phone") || ""; } catch { return ""; } });
   const [sessionId, setSessionId] = useState(null);
 
   // Location state — seeded from URL params (QR-encoded)
@@ -20167,6 +20437,28 @@ function HaccpPortal() {
     return subscribeChatMessages(chatKey, setChatMessages);
   }, [urlReportId, sessionId]);
 
+  // ATTENTION: when the inspector sends a message (especially an alert), make it
+  // impossible to miss — banner + vibration + beep on the supervisor's phone
+  const [inspectorPing, setInspectorPing] = useState(null); // last unseen inspector message
+  const prevInspectorCountRef = useRef(-1); // -1 = first snapshot not seen yet
+  useEffect(() => {
+    const fromInspector = chatMessages.filter(m => !m.fromSupervisor);
+    if (prevInspectorCountRef.current === -1) { prevInspectorCountRef.current = fromInspector.length; return; }
+    if (fromInspector.length > prevInspectorCountRef.current) {
+      const last = fromInspector[fromInspector.length - 1];
+      setInspectorPing(last);
+      try { navigator.vibrate && navigator.vibrate([220, 90, 220]); } catch {}
+      try {
+        const ac = new (window.AudioContext || window.webkitAudioContext)();
+        const o = ac.createOscillator(); const g = ac.createGain();
+        o.connect(g); g.connect(ac.destination);
+        o.frequency.value = 880; g.gain.value = 0.08;
+        o.start(); o.stop(ac.currentTime + 0.28);
+      } catch {}
+    }
+    prevInspectorCountRef.current = fromInspector.length;
+  }, [chatMessages, step]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Only scroll the chat list container when new messages arrive — never the whole page
   useEffect(() => {
     if (chatMessages.length > chatPrevCountRef.current && chatListRef.current) {
@@ -20178,6 +20470,7 @@ function HaccpPortal() {
   // Step 1: supervisor enters name + phone → go to location confirmation step
   async function handleIdentSubmit() {
     if (!supName.trim() || !supPhone.trim()) return;
+    try { localStorage.setItem("sdx_sup_name", supName.trim()); localStorage.setItem("sdx_sup_phone", supPhone.trim()); } catch {}
     // Generate the session ID now so we can link ident record to the whole session
     const newSessionId = `session_${Date.now()}_${Math.random().toString(16).slice(2)}`;
     setSessionId(newSessionId);
@@ -20332,6 +20625,19 @@ function HaccpPortal() {
 
   return (
     <div className="haccpOverlay">
+      {inspectorPing && (
+        <div style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 10000, background: "#dc2626", color: "#fff", padding: "14px 16px calc(14px + env(safe-area-inset-top, 0px))", paddingTop: "calc(14px + env(safe-area-inset-top, 0px))", boxShadow: "0 4px 18px rgba(0,0,0,.35)", display: "flex", alignItems: "center", gap: 12 }}>
+          <span style={{ fontSize: "1.4rem" }}>🔔</span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontWeight: 800, fontSize: "0.85rem" }}>Message from {inspectorPing.sender || "the inspector"}</div>
+            <div style={{ fontSize: "0.8rem", opacity: 0.92, lineHeight: 1.4 }}>{(inspectorPing.text || "").replace("[ALERT] ", "")}</div>
+          </div>
+          <button type="button" onClick={() => setInspectorPing(null)}
+            style={{ background: "rgba(255,255,255,0.2)", border: "1.5px solid rgba(255,255,255,0.5)", color: "#fff", borderRadius: 8, padding: "0.4rem 0.9rem", fontWeight: 800, fontSize: "0.8rem", cursor: "pointer", flexShrink: 0 }}>
+            OK
+          </button>
+        </div>
+      )}
       <img src={resolveLogoDark()} alt={resolveCompanyName()} className="haccpLogo" />
 
       {step === "ident" && (
@@ -20345,12 +20651,12 @@ function HaccpPortal() {
             <label className="field" style={{ margin: 0 }}>
               <span className="fieldLabel">Your Name <span style={{ color: "#ef4444" }}>*</span></span>
               <input className="input" value={supName} onChange={e => setSupName(e.target.value)}
-                placeholder="Full name" autoFocus />
+                placeholder="Full name" autoComplete="name" autoCapitalize="words" autoCorrect="off" spellCheck={false} />
             </label>
             <label className="field" style={{ margin: 0, marginTop: 10 }}>
               <span className="fieldLabel">Phone Number <span style={{ color: "#ef4444" }}>*</span></span>
               <input className="input" type="tel" value={supPhone} onChange={e => setSupPhone(e.target.value)}
-                placeholder="e.g. 787-555-1234" inputMode="tel" />
+                placeholder="e.g. 787-555-1234" inputMode="tel" autoComplete="tel" />
               <span className="hint">So the inspector can reach you if needed</span>
             </label>
             <button className="haccpSubmitBtn" onClick={handleIdentSubmit}
@@ -22756,8 +23062,9 @@ export default function App() {
   if (page === "myteam")      { return <MyTeamPage currentUser={currentUser} onBack={() => setPage("inspector")} />; }
   if (page === "mylocations") { return <MyLocationsPage currentUser={currentUser} venueSettings={venueSettings} saveVenueSettings={saveVenueSettings} onBack={() => setPage("inspector")} onSelectLocation={(loc, slotId) => { setSiteName(loc); activeSlotIdRef.current = slotId || null; setPage("inspector"); window.scrollTo({ top: 0, behavior: "smooth" }); }} />; }
   if (page === "mytemps")           { return <MyTempsPage currentUser={currentUser} onBack={() => setPage("inspector")} />; }
-  if (page === "equipment_scanner") { return <EquipmentScannerPage onBack={() => setPage("inspector")} onPrintLabels={() => setPage("print_labels")} />; }
+  if (page === "equipment_scanner") { return <EquipmentScannerPage onBack={() => setPage("inspector")} onPrintLabels={() => setPage("print_labels")} onKitchenQr={() => setPage("kitchen_qr")} />; }
   if (page === "print_labels")      { return <PrintLabelsPage onBack={() => setPage("equipment_scanner")} />; }
+  if (page === "kitchen_qr")        { return <KitchenQrPage onBack={() => setPage("equipment_scanner")} />; }
 
   const spec = NOTE_TYPES[noteType];
 
