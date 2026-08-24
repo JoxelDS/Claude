@@ -20016,6 +20016,42 @@ function EquipScanModal({ onClose, onApply, initialTag }) {
     }
   }, [haccpUrl]);
 
+  // Supervisor directory — everyone who has ever identified on the HACCP portal
+  // for this venue, with whether they already submitted today
+  const [supers, setSupers] = useState(null); // null = loading
+  useEffect(() => {
+    (async () => {
+      try {
+        const subs = await loadHaccpSubmissions();
+        const today = new Date().toISOString().slice(0, 10);
+        const byPhone = {};
+        for (const r of subs) {
+          const phone = (r.supervisorPhone || "").replace(/[^0-9+]/g, "");
+          if (!phone) continue;
+          const cur = byPhone[phone] || { phone, name: "", lastAt: "", site: "", submittedToday: false };
+          if ((r.submittedAt || "") > cur.lastAt) {
+            cur.lastAt = r.submittedAt || "";
+            cur.name = r.supervisorName || cur.name;
+            cur.site = r.site || cur.site;
+          }
+          if (r.type === "submission" && (r.submittedAt || "").slice(0, 10) === today) cur.submittedToday = true;
+          byPhone[phone] = cur;
+        }
+        setSupers(Object.values(byPhone).sort((a, b) => (a.submittedToday === b.submittedToday ? (b.lastAt || "").localeCompare(a.lastAt || "") : a.submittedToday ? 1 : -1)));
+      } catch { setSupers([]); }
+    })();
+  }, []);
+
+  const remindMsg = `⏰ HACCP Reminder — please log your temperatures${siteName?.trim() ? ` for ${siteName.trim()}` : ""} now. Open this link on your phone: ${haccpUrl}`;
+  function smsHref(phone) {
+    // ?& body form works on both iOS and Android
+    return `sms:${phone}?&body=${encodeURIComponent(remindMsg)}`;
+  }
+  const [msgCopied, setMsgCopied] = useState(false);
+  function copyRemindMsg() {
+    navigator.clipboard.writeText(remindMsg).then(() => { setMsgCopied(true); setTimeout(() => setMsgCopied(false), 2000); }).catch(() => {});
+  }
+
   function copyLink() {
     navigator.clipboard.writeText(haccpUrl).then(() => {
       setCopied(true); setTimeout(() => setCopied(false), 2000);
@@ -20055,6 +20091,45 @@ function EquipScanModal({ onClose, onApply, initialTag }) {
             style={{ display:"block", textAlign:"center", marginTop:10, fontSize:"0.8rem", color:"var(--sdx-blue)", textDecoration:"underline" }}>
             Open HACCP portal in browser →
           </a>
+
+          {/* ── Remind the HACCP team ── */}
+          <div style={{ marginTop: 16, paddingTop: 14, borderTop: "1px solid var(--sdx-gray-200)" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+              <span style={{ fontWeight: 800, fontSize: "0.88rem", color: "var(--ink-900)" }}>📣 Remind the HACCP Team</span>
+              <button type="button" onClick={copyRemindMsg}
+                style={{ marginLeft: "auto", background: "var(--surface-2)", border: "1.5px solid var(--sdx-gray-200)", borderRadius: 8, padding: "0.3rem 0.7rem", fontSize: "0.72rem", fontWeight: 700, color: "var(--ink-600)", cursor: "pointer" }}>
+                {msgCopied ? "✓ Copied" : "📋 Copy message"}
+              </button>
+            </div>
+            <div style={{ fontSize: "0.74rem", color: "var(--ink-500)", marginBottom: 10, lineHeight: 1.5 }}>
+              Everyone who has signed the temp log before. <b>💬 Text</b> opens your Messages app with the reminder and link ready to send.
+            </div>
+            {supers === null && <div style={{ fontSize: "0.8rem", color: "var(--ink-400)" }}>Loading team…</div>}
+            {supers !== null && supers.length === 0 && (
+              <div style={{ fontSize: "0.8rem", color: "var(--ink-400)" }}>No supervisors yet — they appear here after their first temp log.</div>
+            )}
+            {supers !== null && supers.length > 0 && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 220, overflowY: "auto" }}>
+                {supers.map(sp => (
+                  <div key={sp.phone} style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--surface-2)", border: "1.5px solid var(--sdx-gray-200)", borderRadius: 10, padding: "0.5rem 0.7rem" }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 700, fontSize: "0.82rem", color: "var(--ink-900)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{sp.name || sp.phone}</div>
+                      <div style={{ fontSize: "0.7rem", color: "var(--ink-500)" }}>{sp.phone}{sp.site ? ` · ${sp.site}` : ""}</div>
+                    </div>
+                    <span style={{ fontSize: "0.66rem", fontWeight: 800, padding: "0.2rem 0.55rem", borderRadius: 999, flexShrink: 0,
+                      background: sp.submittedToday ? "var(--tint-green-1)" : "#FEF3C7",
+                      color: sp.submittedToday ? "#16a34a" : "#B45309" }}>
+                      {sp.submittedToday ? "✓ Today" : "⏰ Pending"}
+                    </span>
+                    <a href={smsHref(sp.phone)}
+                      style={{ background: "#2563eb", color: "#fff", borderRadius: 8, padding: "0.4rem 0.8rem", fontWeight: 800, fontSize: "0.76rem", textDecoration: "none", flexShrink: 0 }}>
+                      💬 Text
+                    </a>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
