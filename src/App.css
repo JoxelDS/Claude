@@ -6631,8 +6631,8 @@ html[data-theme="dsmarketing"] { --sdx-pin-mid: #1A1A1D; --sdx-pin-end: #2E2E33;
 .pinOverlay {
   background:
     radial-gradient(900px 600px at 15% -10%, rgba(238,0,0,.14), transparent 55%),
-    radial-gradient(1100px 700px at 110% 110%, rgba(40,56,151,.55), transparent 60%),
-    linear-gradient(150deg, #201F4E 0%, #2A295C 45%, #283897 100%);
+    radial-gradient(1100px 700px at 110% 110%, var(--sdx-pin-rad, rgba(40,56,151,.55)), transparent 60%),
+    linear-gradient(150deg, var(--sdx-pin-deep, #201F4E) 0%, var(--sdx-navy, #2A295C) 45%, var(--sdx-pin-glow, #283897) 100%);
   overflow: hidden;
 }
 .pinOverlay::before,
@@ -6645,7 +6645,7 @@ html[data-theme="dsmarketing"] { --sdx-pin-mid: #1A1A1D; --sdx-pin-end: #2E2E33;
   pointer-events: none;
   animation: pinFloat 14s ease-in-out infinite alternate;
 }
-.pinOverlay::before { width: 420px; height: 420px; background: #3B4DC9; top: -140px; left: -120px; }
+.pinOverlay::before { width: 420px; height: 420px; background: var(--sdx-pin-blob, #3B4DC9); top: -140px; left: -120px; }
 .pinOverlay::after  { width: 360px; height: 360px; background: #EE0000; bottom: -160px; right: -110px; opacity: .18; animation-delay: -7s; }
 @keyframes pinFloat {
   from { transform: translate(0, 0) scale(1); }

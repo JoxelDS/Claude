@@ -1785,6 +1785,9 @@ function BadgeScreen({ onUnlock }) {
     <div className="pinOverlay">
       <div className="pinCard">
         <img src={resolveLogoDark()} alt={resolveCompanyName()} className="pinLogo" />
+        {VENUE_ID !== "default" && _vs.companyName && (
+          <div style={{ fontWeight: 800, color: "var(--sdx-navy)", fontSize: "1.1rem", marginBottom: 6, letterSpacing: "-0.01em" }}>{_vs.companyName}</div>
+        )}
         {venueDisplayName && (
           <div className="venueBadge">
             <span className="venueBadgeIcon">🏟️</span>
@@ -16778,18 +16781,23 @@ function GlobalAdminPanel({ currentUser, onBack, onManageVenue, onEnterVenue, on
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState("");
 
-  // Brand scope: each company's Global Admin only sees its own venues.
-  // Brands themselves are created/managed in the DS owner portal, never here.
+  // Brand scope: a client's Global Admin only sees its own venues. The MASTER
+  // admin (default venue) sees everything, grouped by client. Brands themselves
+  // are created/managed in the DS owner portal, never here.
   const [scopeClientId, setScopeClientId] = useState(null); // null = resolving
   const [scopeClient, setScopeClient] = useState(null);     // the brand's registry record
+  const [clients, setClients] = useState([]);               // master admin: for group headers
 
   useEffect(() => {
     async function load() {
       setLoading(true);
-      // Which brand does this admin belong to? default venue → no brand (clientless only)
+      // Which brand does this admin belong to?
+      //   default venue → MASTER admin: sees every venue, grouped by client
+      //   client venue  → scoped: only that client's venues
+      const isMaster = VENUE_ID === "default";
       let cid = "";
       let cRec = null;
-      if (FIREBASE_ON && VENUE_ID !== "default") {
+      if (FIREBASE_ON && !isMaster) {
         try {
           const regSnap = await getDoc(venueRegistryDoc(VENUE_ID));
           if (regSnap.exists()) {
@@ -16804,8 +16812,9 @@ function GlobalAdminPanel({ currentUser, onBack, onManageVenue, onEnterVenue, on
       }
       setScopeClientId(cid);
       setScopeClient(cRec);
+      if (isMaster) loadClientRegistry().then(setClients).catch(() => {});
       const all = await loadVenueRegistry();
-      const list = all.filter(v => (v.clientId || "") === cid);
+      const list = isMaster ? all : all.filter(v => (v.clientId || "") === cid);
       list.sort((a, b) => (a.name || a.id).localeCompare(b.name || b.id));
       setVenues(list);
       setLoading(false);
@@ -16854,7 +16863,7 @@ function GlobalAdminPanel({ currentUser, onBack, onManageVenue, onEnterVenue, on
       setDoc(doc(db, "venues", slug, "sharedMemory", "venueSettings"), { companyName: companyNameVal, logoUrl: logoVal, primaryColor: colorVal }, { merge: true }).catch(() => {});
     }
     const updatedAll = await loadVenueRegistry();
-    const updated = updatedAll.filter(v => (v.clientId || "") === (scopeClientId || ""));
+    const updated = VENUE_ID === "default" ? updatedAll : updatedAll.filter(v => (v.clientId || "") === (scopeClientId || ""));
     updated.sort((a, b) => (a.name || a.id).localeCompare(b.name || b.id));
     setVenues(updated);
     setAddId(""); setAddName(""); setAddType("stadium"); setAddAddress(""); setAddCompanyName(""); setAddLogoUrl(""); setShowAddForm(false);
@@ -17054,8 +17063,8 @@ function GlobalAdminPanel({ currentUser, onBack, onManageVenue, onEnterVenue, on
             )}
 
             {(() => {
-              // All venues here share one brand scope; header only shows for mixed lists
-              const clientName = (cid) => (scopeClient?.id === cid ? (scopeClient?.name || cid) : cid);
+              // Master admin: group venues under their client brands
+              const clientName = (cid) => (clients.find(c => c.id === cid)?.name) || (scopeClient?.id === cid ? (scopeClient?.name || cid) : cid);
               const groups = [];
               const byClient = {};
               for (const v of filtered) {
@@ -21687,6 +21696,16 @@ export default function App() {
     const activeTheme = currentUser ? (personalTheme || venueSettings?.theme) : "sodexo";
     if (VENUE_ID !== "default" && /^#[0-9a-fA-F]{6}$/.test(brand) && activeTheme !== "black") {
       document.documentElement.style.setProperty("--sdx-navy", brand);
+      // Derive darker companions so the login gradient is fully the brand's world
+      const shade = (hex, f) => "#" + [1, 3, 5].map(i => Math.min(255, Math.round(parseInt(hex.slice(i, i + 2), 16) * f)).toString(16).padStart(2, "0")).join("");
+      const r = document.documentElement.style;
+      r.setProperty("--sdx-pin-mid", shade(brand, 0.72));
+      r.setProperty("--sdx-pin-end", shade(brand, 0.45));
+      r.setProperty("--sdx-pin-deep", shade(brand, 0.55));
+      r.setProperty("--sdx-pin-glow", shade(brand, 1.25));
+      r.setProperty("--sdx-pin-blob", shade(brand, 1.4));
+      const rgb = [1, 3, 5].map(i => parseInt(brand.slice(i, i + 2), 16));
+      r.setProperty("--sdx-pin-rad", `rgba(${rgb[0]},${rgb[1]},${rgb[2]},0.55)`);
     }
   }, [venueSettings?.theme, venueSettings?.blackAccent, venueSettings?.primaryColor, currentUser, personalTheme, personalAccent]);
 
