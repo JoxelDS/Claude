@@ -4990,11 +4990,11 @@ async function exportIssuesOnlyExcel({ rec, haccpSubs = [] }) {
   // SHEET 1: Issues
   // ══════════════════════════════════════════════════════════════════════════
   const ws1 = wb.addWorksheet("Issues");
-  ws1.columns = [{ width: 4 }, { width: 14 }, { width: 24 }, { width: 52 }, { width: 28 }, { width: 28 }, { width: 50 }, { width: 14 }, { width: 18 }, { width: 14 }];
+  ws1.columns = [{ width: 4 }, { width: 24 }, { width: 52 }, { width: 28 }, { width: 28 }, { width: 50 }, { width: 14 }, { width: 18 }, { width: 14 }];
 
   // Title
   ws1.addRow([`INSPECTION REPORT — ${siteName.toUpperCase()}`]);
-  ws1.mergeCells(`A1:J1`);
+  ws1.mergeCells(`A1:I1`);
   applyStyle(ws1.getCell("A1"), { font: font({ bold: true, size: 14, color: { argb: "FF" + WHITE } }), fill: fill(NAVY), alignment: { vertical: "middle", horizontal: "left" } });
   ws1.getRow(1).height = 28;
 
@@ -5017,7 +5017,7 @@ async function exportIssuesOnlyExcel({ rec, haccpSubs = [] }) {
     applyStyle(row.getCell(2), styleMVal);
     if (metaFields[i+1]) { applyStyle(row.getCell(4), styleMLabel); applyStyle(row.getCell(5), styleMVal); }
     ws1.mergeCells(`B${row.number}:C${row.number}`);
-    ws1.mergeCells(`E${row.number}:J${row.number}`);
+    ws1.mergeCells(`E${row.number}:I${row.number}`);
     row.height = 18;
   }
   ws1.addRow([]);
@@ -5026,12 +5026,12 @@ async function exportIssuesOnlyExcel({ rec, haccpSubs = [] }) {
   const summaryText = buildExportSummary(rec, haccpSubs);
   if (summaryText) {
     const sh = ws1.addRow(["EXECUTIVE SUMMARY"]);
-    ws1.mergeCells(`A${sh.number}:J${sh.number}`);
+    ws1.mergeCells(`A${sh.number}:I${sh.number}`);
     applyStyle(ws1.getCell(`A${sh.number}`), styleSubHdr);
     sh.height = 20;
     summaryText.split(/\n+/).filter(l => l.trim()).forEach(line => {
       const r = ws1.addRow(["", line]);
-      ws1.mergeCells(`B${r.number}:J${r.number}`);
+      ws1.mergeCells(`B${r.number}:I${r.number}`);
       applyStyle(r.getCell(2), { font: font({ italic: true, color: { argb: "FF1C2B5E" } }), fill: fill("E8EDF7"), alignment: { wrapText: true } });
       r.height = 16;
     });
@@ -5042,12 +5042,12 @@ async function exportIssuesOnlyExcel({ rec, haccpSubs = [] }) {
   const notesText = formatNotesText(rec.inspection);
   if (notesText) {
     const nh = ws1.addRow(["INSPECTOR NOTES"]);
-    ws1.mergeCells(`A${nh.number}:J${nh.number}`);
+    ws1.mergeCells(`A${nh.number}:I${nh.number}`);
     applyStyle(ws1.getCell(`A${nh.number}`), styleSubHdr);
     nh.height = 20;
     notesText.split(/\n/).filter(l => l.trim()).forEach(line => {
       const r = ws1.addRow(["", line]);
-      ws1.mergeCells(`B${r.number}:J${r.number}`);
+      ws1.mergeCells(`B${r.number}:I${r.number}`);
       applyStyle(r.getCell(2), { font: font(), fill: fill("E8EDF7"), alignment: { wrapText: true } });
       r.height = 16;
     });
@@ -5055,7 +5055,7 @@ async function exportIssuesOnlyExcel({ rec, haccpSubs = [] }) {
   }
 
   // Issues header
-  const issuesHdrRow = ws1.addRow(["#", "Category", "Item / Area", "Issue", "Notes", "Corrective Action", "Photos", "Status", "Owner", "Due Date"]);
+  const issuesHdrRow = ws1.addRow(["#", "Area", "Issue", "Notes", "Corrective Action", "Photos", "Status", "Owner", "Due Date"]);
   issuesHdrRow.eachCell(c => applyStyle(c, styleHdr));
   issuesHdrRow.height = 22;
 
@@ -5065,9 +5065,9 @@ async function exportIssuesOnlyExcel({ rec, haccpSubs = [] }) {
   }
 
   if (actionItems.length === 0) {
-    const r = ws1.addRow(["", "", "", "✅ No issues — all areas passed inspection"]);
-    ws1.mergeCells(`D${r.number}:J${r.number}`);
-    applyStyle(r.getCell(4),{ font: font({ italic: true, color: { argb: "FF276221" } }), fill: fill(PASS_G), alignment: { wrapText: true } });
+    const r = ws1.addRow(["", "", "✅ No issues — all areas passed inspection"]);
+    ws1.mergeCells(`C${r.number}:I${r.number}`);
+    applyStyle(r.getCell(3),{ font: font({ italic: true, color: { argb: "FF276221" } }), fill: fill(PASS_G), alignment: { wrapText: true } });
     r.height = 18;
   } else {
     actionItems.forEach((a, i) => {
@@ -5079,12 +5079,11 @@ async function exportIssuesOnlyExcel({ rec, haccpSubs = [] }) {
       const _rawSt = a.status && a.status !== "OK" && a.status !== "High" && a.status !== "Med" ? a.status : "";
       const st = _rawSt || (a.priority === "Follow-up" || a.priority === "Maintenance" ? a.priority : "Fail");
       const even = i % 2 === 0;
-      const { category, item } = splitAreaCategory(area);
       // Photos for this issue — embed thumbnails right next to the issue row
       const rowPhotos = (a.photos || []).map(num => photoList.find(p => p.num === num)).filter(p => p && p.dataUrl && p.dataUrl.startsWith("data:"));
-      const r = ws1.addRow([i + 1, category, item, issueClean, str(a.notes || ""), corrective, "", str(st), str(a.owner || "—"), str(a.due || "—")]);
-      r.eachCell((c, col) => applyStyle(c, col === 8 ? styleStatus(st) : styleBody(even)));
-      r.getCell(7).style = styleBody(even);
+      const r = ws1.addRow([i + 1, area, issueClean, str(a.notes || ""), corrective, "", str(st), str(a.owner || "—"), str(a.due || "—")]);
+      r.eachCell((c, col) => applyStyle(c, col === 7 ? styleStatus(st) : styleBody(even)));
+      r.getCell(6).style = styleBody(even);
       if (rowPhotos.length === 0) { r.height = 18; } else {
         const perLine = 4;
         const nLines = Math.ceil(rowPhotos.length / perLine);
@@ -5095,14 +5094,14 @@ async function exportIssuesOnlyExcel({ rec, haccpSubs = [] }) {
             if (!m) return;
             const imgId = wb.addImage({ base64: m[2], extension: m[1].replace("jpg", "jpeg") });
             // Column G is index 6 (0-based); grid of up to 4 thumbs per line
-            ws1.addImage(imgId, { tl: { col: 6 + (k % perLine) * 0.24, row: r.number - 1 + Math.floor(k / perLine) / nLines }, ext: { width: 80, height: 84 }, editAs: "oneCell" });
+            ws1.addImage(imgId, { tl: { col: 5 + (k % perLine) * 0.24, row: r.number - 1 + Math.floor(k / perLine) / nLines }, ext: { width: 80, height: 84 }, editAs: "oneCell" });
           } catch (_) { /* skip broken image */ }
         });
       }
     });
   }
 
-  ws1.autoFilter = { from: { row: ws1.lastRow.number - actionItems.length - (actionItems.length === 0 ? 1 : 0), column: 1 }, to: { row: ws1.lastRow.number, column: 10 } };
+  ws1.autoFilter = { from: { row: ws1.lastRow.number - actionItems.length - (actionItems.length === 0 ? 1 : 0), column: 1 }, to: { row: ws1.lastRow.number, column: 9 } };
   ws1.views = [{ state: "frozen", ySplit: ws1.lastRow.number - actionItems.length - (actionItems.length === 0 ? 0 : -1) }];
 
   // ══════════════════════════════════════════════════════════════════════════
@@ -8571,19 +8570,19 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
     const ws2 = wb.addWorksheet("Inspection Findings");
     ws2.columns = [
       { width: 4 }, { width: 28 }, { width: 10 }, { width: 16 },
-      { width: 12 }, { width: 18 }, { width: 20 }, { width: 14 }, { width: 20 }, { width: 40 }, { width: 30 },
+      { width: 12 }, { width: 18 }, { width: 20 }, { width: 22 }, { width: 40 }, { width: 30 },
       { width: 30 }, { width: 50 }, { width: 20 }, { width: 14 }, { width: 14 },
     ];
     const s2Title = ws2.addRow(["ACTION ITEMS — ALL VENUES"]);
     s2Title.height = 26;
-    ws2.mergeCells(`A${s2Title.number}:P${s2Title.number}`);
+    ws2.mergeCells(`A${s2Title.number}:O${s2Title.number}`);
     applyB(s2Title.getCell(1), bHdr(10));
 
-    const s2Headers = ["#", "Site / Location", "Unit #", "Location Type", "Date", "Inspection Type", "Inspector", "Category", "Item / Area", "Issue", "Inspector Notes", "Corrective Action", "Photos", "Owner", "Due Date", "Status"];
+    const s2Headers = ["#", "Site / Location", "Unit #", "Location Type", "Date", "Inspection Type", "Inspector", "Area", "Issue", "Inspector Notes", "Corrective Action", "Photos", "Owner", "Due Date", "Status"];
     const s2HRow = ws2.addRow(s2Headers);
     s2HRow.height = 20;
     s2Headers.forEach((_, ci) => applyB(s2HRow.getCell(ci + 1), bSubHdr()));
-    ws2.autoFilter = { from: { row: s2HRow.number, column: 1 }, to: { row: s2HRow.number, column: 16 } };
+    ws2.autoFilter = { from: { row: s2HRow.number, column: 1 }, to: { row: s2HRow.number, column: 15 } };
     ws2.views = [{ state: "frozen", xSplit: 2, ySplit: s2HRow.number, topLeftCell: `C${s2HRow.number + 1}`, activeCell: "A1" }];
 
     // Strip "[Corrective action: ...]" embedded in old issue text, return { issueClean, embeddedCorrectve }
@@ -8622,18 +8621,10 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
 
     let rowNum = 0;
     records.forEach(rec => {
-      // Sort each venue's findings by Category then Item so the sheet reads
-      // grouped and the column filters produce tidy runs.
-      const sortKey = a => {
-        const { area } = splitIssue(a);
-        const { category, item } = splitAreaCategory(area);
-        return `${category}|${item}`;
-      };
-      const actionItems = (rowsByRec.get(rec) || []).slice().sort((a, b) => sortKey(a).localeCompare(sortKey(b)));
+      const actionItems = rowsByRec.get(rec) || [];
       actionItems.forEach(a => {
         rowNum++;
         const { area } = splitIssue(a);
-        const { category, item } = splitAreaCategory(area);
         const { issueClean, embeddedCorrective } = stripEmbeddedCorrectve(a.issue);
         // Strip area prefix from issue text (it's already in its own column)
         const issueText = issueClean.replace(/^[^:]{1,40}:\s*/, "");
@@ -8646,10 +8637,10 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
         const row = ws2.addRow([
           rowNum, str(rec.siteName || rec.location), str(rec.siteNumber), str(rec.locationType),
           str(rec.inspectionDate), str(rec.inspectionType), str(rec.inspectorName),
-          category, item, issueText, inspNotes, corrective, "", str(a.owner || "—"), str(a.due || "—"), statusLabel,
+          area, issueText, inspNotes, corrective, "", str(a.owner || "—"), str(a.due || "—"), statusLabel,
         ]);
-        [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15].forEach(ci => { row.getCell(ci).style = bBody(bg); });
-        row.getCell(16).style = bStatusExt(statusLabel);
+        [1,2,3,4,5,6,7,8,9,10,11,12,13,14].forEach(ci => { row.getCell(ci).style = bBody(bg); });
+        row.getCell(15).style = bStatusExt(statusLabel);
         // Embed ALL of this issue's photos right in the row (col P), 4 per line
         const urls = a._photoDataUrls || [];
         if (urls.length) {
@@ -8662,7 +8653,7 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
               const base64 = commaIdx >= 0 ? u.slice(commaIdx + 1) : u;
               const ext = u.includes("image/png") ? "png" : "jpeg";
               const imgId = wb.addImage({ base64, extension: ext });
-              ws2.addImage(imgId, { tl: { col: 12 + (k % perLine) * 0.24, row: row.number - 1 + Math.floor(k / perLine) / nLines }, ext: { width: 80, height: 84 }, editAs: "oneCell" });
+              ws2.addImage(imgId, { tl: { col: 11 + (k % perLine) * 0.24, row: row.number - 1 + Math.floor(k / perLine) / nLines }, ext: { width: 80, height: 84 }, editAs: "oneCell" });
             } catch (_) { /* skip broken image */ }
           });
         }
