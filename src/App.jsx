@@ -4990,11 +4990,11 @@ async function exportIssuesOnlyExcel({ rec, haccpSubs = [] }) {
   // SHEET 1: Issues
   // ══════════════════════════════════════════════════════════════════════════
   const ws1 = wb.addWorksheet("Issues");
-  ws1.columns = [{ width: 4 }, { width: 14 }, { width: 24 }, { width: 52 }, { width: 28 }, { width: 28 }, { width: 14 }, { width: 18 }, { width: 14 }];
+  ws1.columns = [{ width: 4 }, { width: 14 }, { width: 24 }, { width: 52 }, { width: 28 }, { width: 28 }, { width: 14 }, { width: 18 }, { width: 14 }, { width: 34 }];
 
   // Title
   ws1.addRow([`INSPECTION REPORT — ${siteName.toUpperCase()}`]);
-  ws1.mergeCells(`A1:I1`);
+  ws1.mergeCells(`A1:J1`);
   applyStyle(ws1.getCell("A1"), { font: font({ bold: true, size: 14, color: { argb: "FF" + WHITE } }), fill: fill(NAVY), alignment: { vertical: "middle", horizontal: "left" } });
   ws1.getRow(1).height = 28;
 
@@ -5017,7 +5017,7 @@ async function exportIssuesOnlyExcel({ rec, haccpSubs = [] }) {
     applyStyle(row.getCell(2), styleMVal);
     if (metaFields[i+1]) { applyStyle(row.getCell(4), styleMLabel); applyStyle(row.getCell(5), styleMVal); }
     ws1.mergeCells(`B${row.number}:C${row.number}`);
-    ws1.mergeCells(`E${row.number}:I${row.number}`);
+    ws1.mergeCells(`E${row.number}:J${row.number}`);
     row.height = 18;
   }
   ws1.addRow([]);
@@ -5026,12 +5026,12 @@ async function exportIssuesOnlyExcel({ rec, haccpSubs = [] }) {
   const summaryText = buildExportSummary(rec, haccpSubs);
   if (summaryText) {
     const sh = ws1.addRow(["EXECUTIVE SUMMARY"]);
-    ws1.mergeCells(`A${sh.number}:I${sh.number}`);
+    ws1.mergeCells(`A${sh.number}:J${sh.number}`);
     applyStyle(ws1.getCell(`A${sh.number}`), styleSubHdr);
     sh.height = 20;
     summaryText.split(/\n+/).filter(l => l.trim()).forEach(line => {
       const r = ws1.addRow(["", line]);
-      ws1.mergeCells(`B${r.number}:I${r.number}`);
+      ws1.mergeCells(`B${r.number}:J${r.number}`);
       applyStyle(r.getCell(2), { font: font({ italic: true, color: { argb: "FF1C2B5E" } }), fill: fill("E8EDF7"), alignment: { wrapText: true } });
       r.height = 16;
     });
@@ -5042,12 +5042,12 @@ async function exportIssuesOnlyExcel({ rec, haccpSubs = [] }) {
   const notesText = formatNotesText(rec.inspection);
   if (notesText) {
     const nh = ws1.addRow(["INSPECTOR NOTES"]);
-    ws1.mergeCells(`A${nh.number}:I${nh.number}`);
+    ws1.mergeCells(`A${nh.number}:J${nh.number}`);
     applyStyle(ws1.getCell(`A${nh.number}`), styleSubHdr);
     nh.height = 20;
     notesText.split(/\n/).filter(l => l.trim()).forEach(line => {
       const r = ws1.addRow(["", line]);
-      ws1.mergeCells(`B${r.number}:I${r.number}`);
+      ws1.mergeCells(`B${r.number}:J${r.number}`);
       applyStyle(r.getCell(2), { font: font(), fill: fill("E8EDF7"), alignment: { wrapText: true } });
       r.height = 16;
     });
@@ -5055,7 +5055,7 @@ async function exportIssuesOnlyExcel({ rec, haccpSubs = [] }) {
   }
 
   // Issues header
-  const issuesHdrRow = ws1.addRow(["#", "Category", "Item / Area", "Issue", "Notes", "Corrective Action", "Status", "Owner", "Due Date"]);
+  const issuesHdrRow = ws1.addRow(["#", "Category", "Item / Area", "Issue", "Notes", "Corrective Action", "Status", "Owner", "Due Date", "Photos"]);
   issuesHdrRow.eachCell(c => applyStyle(c, styleHdr));
   issuesHdrRow.height = 22;
 
@@ -5066,7 +5066,7 @@ async function exportIssuesOnlyExcel({ rec, haccpSubs = [] }) {
 
   if (actionItems.length === 0) {
     const r = ws1.addRow(["", "", "", "✅ No issues — all areas passed inspection"]);
-    ws1.mergeCells(`D${r.number}:I${r.number}`);
+    ws1.mergeCells(`D${r.number}:J${r.number}`);
     applyStyle(r.getCell(4),{ font: font({ italic: true, color: { argb: "FF276221" } }), fill: fill(PASS_G), alignment: { wrapText: true } });
     r.height = 18;
   } else {
@@ -5080,13 +5080,28 @@ async function exportIssuesOnlyExcel({ rec, haccpSubs = [] }) {
       const st = _rawSt || (a.priority === "Follow-up" || a.priority === "Maintenance" ? a.priority : "Fail");
       const even = i % 2 === 0;
       const { category, item } = splitAreaCategory(area);
-      const r = ws1.addRow([i + 1, category, item, issueClean, str(a.notes || ""), corrective, str(st), str(a.owner || "—"), str(a.due || "—")]);
+      // Photos for this issue — embed thumbnails right next to the issue row
+      const rowPhotos = (a.photos || []).map(num => photoList.find(p => p.num === num)).filter(p => p && p.dataUrl && p.dataUrl.startsWith("data:"));
+      const r = ws1.addRow([i + 1, category, item, issueClean, str(a.notes || ""), corrective, str(st), str(a.owner || "—"), str(a.due || "—"), rowPhotos.length ? "" : (a.photos || []).length ? `See Photos sheet: #${(a.photos || []).join(", #")}` : ""]);
       r.eachCell((c, col) => applyStyle(c, col === 7 ? styleStatus(st) : styleBody(even)));
-      r.height = 18;
+      r.getCell(10).style = styleBody(even);
+      if (rowPhotos.length === 0) { r.height = 18; } else {
+        r.height = 66; // tall row so embedded thumbnails are visible
+        rowPhotos.slice(0, 3).forEach((p, k) => {
+          try {
+            const m = p.dataUrl.match(/^data:image\/(png|jpe?g|gif|webp);base64,(.+)$/);
+            if (!m) return;
+            const imgId = wb.addImage({ base64: m[2], extension: m[1].replace("jpg", "jpeg") });
+            // Column J is index 9 (0-based); place up to 3 thumbs side by side inside it
+            ws1.addImage(imgId, { tl: { col: 9 + k * 0.34, row: r.number - 1 }, ext: { width: 80, height: 84 }, editAs: "oneCell" });
+          } catch (_) { /* skip broken image */ }
+        });
+        if (rowPhotos.length > 3) r.getCell(10).value = `+${rowPhotos.length - 3} more — see Photos sheet`;
+      }
     });
   }
 
-  ws1.autoFilter = { from: { row: ws1.lastRow.number - actionItems.length - (actionItems.length === 0 ? 1 : 0), column: 1 }, to: { row: ws1.lastRow.number, column: 9 } };
+  ws1.autoFilter = { from: { row: ws1.lastRow.number - actionItems.length - (actionItems.length === 0 ? 1 : 0), column: 1 }, to: { row: ws1.lastRow.number, column: 10 } };
   ws1.views = [{ state: "frozen", ySplit: ws1.lastRow.number - actionItems.length - (actionItems.length === 0 ? 0 : -1) }];
 
   // ══════════════════════════════════════════════════════════════════════════
