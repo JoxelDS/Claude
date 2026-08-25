@@ -18299,6 +18299,18 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
   const [expandedDetails, setExpandedDetails] = useState({});
   const toggleDetails = (key) => setExpandedDetails(p => ({ ...p, [key]: !p[key] }));
 
+  // Guide Finder: when the search jumps to an item, make sure it's expanded and open the section
+  useEffect(() => {
+    function onOpen(e) {
+      const k = e.detail?.key;
+      if (!k) return;
+      setExpandedDetails(p => (p[k] === true ? p : { ...p, [k]: true }));
+      setOpen(true);
+    }
+    window.addEventListener("sdx-open-guide-item", onOpen);
+    return () => window.removeEventListener("sdx-open-guide-item", onOpen);
+  }, []);
+
   // Build a map of { [itemKey]: { brand, kitchenArea } } from autofill memory for this site
   const siteEquipMeta = useMemo(() => {
     if (!siteName) return {};
@@ -18410,7 +18422,7 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                 !!(current.tempF);
               const isItemOpen = expandedDetails[key] !== undefined ? expandedDetails[key] : isFilled;
               return (
-                <div className={`guideItem${isNA ? " guideItemNA" : ""}`} key={key}>
+                <div className={`guideItem${isNA ? " guideItemNA" : ""}`} key={key} data-guide-item={it.label} data-guide-key={key}>
                   <button type="button" className="guideItemHead guideItemToggle"
                     onClick={() => toggleDetails(key)}
                     style={{ width: "100%", textAlign: "left", background: "none", border: "none", cursor: "pointer", padding: 0, display: "flex", alignItems: "center", gap: 8 }}>
@@ -22211,6 +22223,44 @@ export default function App() {
   const [isOnline, setIsOnline] = useState(() => navigator.onLine);
   const [draftSavedAt, setDraftSavedAt] = useState(null); // timestamp of last auto-save
   const [guideStep, setGuideStep] = useState(0); // 0-based index into guide stepper
+  const [guideFindQ, setGuideFindQ] = useState("");
+  const [guideFindHits, setGuideFindHits] = useState([]);
+
+  // Guide Finder: search every item across all 5 steps (panels stay mounted)
+  function runGuideFind(q) {
+    setGuideFindQ(q);
+    const query = q.trim().toLowerCase();
+    if (query.length < 2) { setGuideFindHits([]); return; }
+    const terms = query.split(/\s+/).filter(Boolean);
+    const stepNames = ["Temps & Supplies", "Facilities", "Equipment", "Utensils & Checklist", "Hygiene & Compliance"];
+    const hits = [];
+    document.querySelectorAll("[data-guide-panel] [data-guide-item]").forEach(el => {
+      const label = el.getAttribute("data-guide-item") || "";
+      if (!terms.every(t => label.toLowerCase().includes(t))) return;
+      const panel = el.closest("[data-guide-panel]");
+      const pid = Number(panel?.getAttribute("data-guide-panel") || 0);
+      hits.push({ label: label.split(" — ")[0], full: label, key: el.getAttribute("data-guide-key") || "", pid, stepName: stepNames[pid] || "" });
+    });
+    setGuideFindHits(hits.slice(0, 8));
+  }
+
+  function jumpToGuideItem(hit) {
+    const order = inspectionType === "Event Day" ? [4, 0, 1, 2, 3] : [0, 1, 2, 3, 4];
+    const stepIdx = order.indexOf(hit.pid);
+    if (stepIdx >= 0) setGuideStep(stepIdx);
+    window.dispatchEvent(new CustomEvent("sdx-open-guide-item", { detail: { key: hit.key } }));
+    setGuideFindQ("");
+    setGuideFindHits([]);
+    setTimeout(() => {
+      const el = document.querySelector(`[data-guide-panel="${hit.pid}"] [data-guide-key="${CSS.escape(hit.key)}"]`)
+        || [...document.querySelectorAll(`[data-guide-panel="${hit.pid}"] [data-guide-item]`)].find(e => e.getAttribute("data-guide-item") === hit.full);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        el.classList.add("guideFindFlash");
+        setTimeout(() => el.classList.remove("guideFindFlash"), 2400);
+      }
+    }, 380);
+  }
 
   useEffect(() => {
     const goOnline  = () => setIsOnline(true);
@@ -24652,6 +24702,31 @@ export default function App() {
                         </button>
                       ))}
                     </div>
+                    {/* Guide Finder — jump to any item in any step */}
+                    <div style={{ position: "relative", margin: "10px 0 4px" }}>
+                      <input
+                        value={guideFindQ}
+                        onChange={e => runGuideFind(e.target.value)}
+                        placeholder="🔍 Find anything — hand sink, freezer, gloves, mop area…"
+                        style={{ width: "100%", padding: "0.55rem 0.8rem", borderRadius: 10, border: "1.5px solid var(--sdx-gray-200)", fontSize: "16px", background: "var(--surface-1)", color: "var(--ink-900)", boxSizing: "border-box" }}
+                      />
+                      {guideFindHits.length > 0 && (
+                        <div style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, zIndex: 60, background: "var(--surface-1)", border: "1.5px solid var(--sdx-gray-200)", borderRadius: 12, boxShadow: "0 10px 30px rgba(0,0,0,0.18)", overflow: "hidden" }}>
+                          {guideFindHits.map((h, i) => (
+                            <button key={i} type="button" onClick={() => jumpToGuideItem(h)}
+                              style={{ display: "flex", width: "100%", alignItems: "center", gap: 8, padding: "0.6rem 0.85rem", background: "none", border: "none", borderBottom: i < guideFindHits.length - 1 ? "1px solid var(--sdx-gray-200)" : "none", cursor: "pointer", textAlign: "left" }}>
+                              <span style={{ fontWeight: 700, fontSize: "0.88rem", color: "var(--ink-900)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{h.label}</span>
+                              <span style={{ fontSize: "0.7rem", fontWeight: 700, color: "#2563eb", background: "var(--tint-blue-1)", borderRadius: 999, padding: "0.15rem 0.6rem", flexShrink: 0 }}>{h.stepName} →</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      {guideFindQ.trim().length >= 2 && guideFindHits.length === 0 && (
+                        <div style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, zIndex: 60, background: "var(--surface-1)", border: "1.5px solid var(--sdx-gray-200)", borderRadius: 12, padding: "0.6rem 0.85rem", fontSize: "0.8rem", color: "var(--ink-500)" }}>
+                          Nothing matches "{guideFindQ.trim()}" — try another word.
+                        </div>
+                      )}
+                    </div>
                     {/* Progress bar */}
                     <div className="guideProgressTrack">
                       <div className="guideProgressBar" style={{ width: `${pct}%` }} />
@@ -24665,7 +24740,7 @@ export default function App() {
                 <div className="guideStepTrack">
 
                   {/* ══ Step 0: Temps & Supplies ══════════════════════════ */}
-                  <div className="guideStepPanel">
+                  <div className="guideStepPanel" data-guide-panel="0">
                   <div style={{ display: (inspectionType==="Event Day"?[4,0,1,2,3]:[0,1,2,3,4])[guideStep]===0?"flex":"none", flexDirection: "column" }}>
 
               {/* ── Supplies Needed ─────────────────────────────────────── */}
@@ -24946,7 +25021,7 @@ export default function App() {
                   </div>{/* end step-0 content */}
 
                   {/* ══ Step 1: Facilities ════════════════════════════════ */}
-                  <div className="guideStepPanel" style={{ display: (inspectionType==="Event Day"?[4,0,1,2,3]:[0,1,2,3,4])[guideStep]===1?"block":"none" }}>
+                  <div className="guideStepPanel" data-guide-panel="1" style={{ display: (inspectionType==="Event Day"?[4,0,1,2,3]:[0,1,2,3,4])[guideStep]===1?"block":"none" }}>
 
                 <GuideSection title="🏢 Facilities"
                   items={[
@@ -24971,7 +25046,7 @@ export default function App() {
                   </div>{/* end Step 1 panel */}
 
                   {/* ══ Step 2: Equipment ═════════════════════════════════ */}
-                  <div className="guideStepPanel" style={{ display: (inspectionType==="Event Day"?[4,0,1,2,3]:[0,1,2,3,4])[guideStep]===2?"block":"none" }}>
+                  <div className="guideStepPanel" data-guide-panel="2" style={{ display: (inspectionType==="Event Day"?[4,0,1,2,3]:[0,1,2,3,4])[guideStep]===2?"block":"none" }}>
 
                 {/* Equipment only — Utensils is Step 3 */}
                 {locationType === "Concession" ? (
@@ -25028,7 +25103,7 @@ export default function App() {
                   </div>{/* end Step 2 panel */}
 
                   {/* ══ Step 3: Utensils ══════════════════════════════════ */}
-                  <div className="guideStepPanel" style={{ display: (inspectionType==="Event Day"?[4,0,1,2,3]:[0,1,2,3,4])[guideStep]===3?"block":"none" }}>
+                  <div className="guideStepPanel" data-guide-panel="3" style={{ display: (inspectionType==="Event Day"?[4,0,1,2,3]:[0,1,2,3,4])[guideStep]===3?"block":"none" }}>
 
                 <GuideSection title="🧹 Utensils"
                   items={[
@@ -25040,7 +25115,7 @@ export default function App() {
                   </div>{/* end Step 3 panel */}
 
                   {/* ══ Step 4: Operations ════════════════════════════════ */}
-                  <div className="guideStepPanel" style={{ display: (inspectionType==="Event Day"?[4,0,1,2,3]:[0,1,2,3,4])[guideStep]===4?"block":"none" }}>
+                  <div className="guideStepPanel" data-guide-panel="4" style={{ display: (inspectionType==="Event Day"?[4,0,1,2,3]:[0,1,2,3,4])[guideStep]===4?"block":"none" }}>
 
                 {inspectionType === "Event Day" && (
                   <div style={{ background: "var(--tint-amber-1)", border: "1.5px solid #fb923c", borderRadius: 10, padding: "10px 14px", marginBottom: 12, display: "flex", gap: 10, alignItems: "flex-start" }}>
