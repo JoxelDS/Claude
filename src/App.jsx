@@ -4990,7 +4990,7 @@ async function exportIssuesOnlyExcel({ rec, haccpSubs = [] }) {
   // SHEET 1: Issues
   // ══════════════════════════════════════════════════════════════════════════
   const ws1 = wb.addWorksheet("Issues");
-  ws1.columns = [{ width: 4 }, { width: 14 }, { width: 24 }, { width: 52 }, { width: 28 }, { width: 28 }, { width: 14 }, { width: 18 }, { width: 14 }, { width: 50 }];
+  ws1.columns = [{ width: 4 }, { width: 14 }, { width: 24 }, { width: 52 }, { width: 28 }, { width: 28 }, { width: 50 }, { width: 14 }, { width: 18 }, { width: 14 }];
 
   // Title
   ws1.addRow([`INSPECTION REPORT — ${siteName.toUpperCase()}`]);
@@ -5055,7 +5055,7 @@ async function exportIssuesOnlyExcel({ rec, haccpSubs = [] }) {
   }
 
   // Issues header
-  const issuesHdrRow = ws1.addRow(["#", "Category", "Item / Area", "Issue", "Notes", "Corrective Action", "Status", "Owner", "Due Date", "Photos"]);
+  const issuesHdrRow = ws1.addRow(["#", "Category", "Item / Area", "Issue", "Notes", "Corrective Action", "Photos", "Status", "Owner", "Due Date"]);
   issuesHdrRow.eachCell(c => applyStyle(c, styleHdr));
   issuesHdrRow.height = 22;
 
@@ -5082,9 +5082,9 @@ async function exportIssuesOnlyExcel({ rec, haccpSubs = [] }) {
       const { category, item } = splitAreaCategory(area);
       // Photos for this issue — embed thumbnails right next to the issue row
       const rowPhotos = (a.photos || []).map(num => photoList.find(p => p.num === num)).filter(p => p && p.dataUrl && p.dataUrl.startsWith("data:"));
-      const r = ws1.addRow([i + 1, category, item, issueClean, str(a.notes || ""), corrective, str(st), str(a.owner || "—"), str(a.due || "—"), rowPhotos.length ? "" : (a.photos || []).length ? `See Photos sheet: #${(a.photos || []).join(", #")}` : ""]);
-      r.eachCell((c, col) => applyStyle(c, col === 7 ? styleStatus(st) : styleBody(even)));
-      r.getCell(10).style = styleBody(even);
+      const r = ws1.addRow([i + 1, category, item, issueClean, str(a.notes || ""), corrective, "", str(st), str(a.owner || "—"), str(a.due || "—")]);
+      r.eachCell((c, col) => applyStyle(c, col === 8 ? styleStatus(st) : styleBody(even)));
+      r.getCell(7).style = styleBody(even);
       if (rowPhotos.length === 0) { r.height = 18; } else {
         const perLine = 4;
         const nLines = Math.ceil(rowPhotos.length / perLine);
@@ -5094,8 +5094,8 @@ async function exportIssuesOnlyExcel({ rec, haccpSubs = [] }) {
             const m = p.dataUrl.match(/^data:image\/(png|jpe?g|gif|webp);base64,(.+)$/);
             if (!m) return;
             const imgId = wb.addImage({ base64: m[2], extension: m[1].replace("jpg", "jpeg") });
-            // Column J is index 9 (0-based); grid of up to 4 thumbs per line
-            ws1.addImage(imgId, { tl: { col: 9 + (k % perLine) * 0.24, row: r.number - 1 + Math.floor(k / perLine) / nLines }, ext: { width: 80, height: 84 }, editAs: "oneCell" });
+            // Column G is index 6 (0-based); grid of up to 4 thumbs per line
+            ws1.addImage(imgId, { tl: { col: 6 + (k % perLine) * 0.24, row: r.number - 1 + Math.floor(k / perLine) / nLines }, ext: { width: 80, height: 84 }, editAs: "oneCell" });
           } catch (_) { /* skip broken image */ }
         });
       }
@@ -8572,14 +8572,14 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
     ws2.columns = [
       { width: 4 }, { width: 28 }, { width: 10 }, { width: 16 },
       { width: 12 }, { width: 18 }, { width: 20 }, { width: 14 }, { width: 20 }, { width: 40 }, { width: 30 },
-      { width: 30 }, { width: 20 }, { width: 14 }, { width: 14 }, { width: 50 },
+      { width: 30 }, { width: 50 }, { width: 20 }, { width: 14 }, { width: 14 },
     ];
     const s2Title = ws2.addRow(["ACTION ITEMS — ALL VENUES"]);
     s2Title.height = 26;
     ws2.mergeCells(`A${s2Title.number}:P${s2Title.number}`);
     applyB(s2Title.getCell(1), bHdr(10));
 
-    const s2Headers = ["#", "Site / Location", "Unit #", "Location Type", "Date", "Inspection Type", "Inspector", "Category", "Item / Area", "Issue", "Inspector Notes", "Corrective Action", "Owner", "Due Date", "Status", "Photos"];
+    const s2Headers = ["#", "Site / Location", "Unit #", "Location Type", "Date", "Inspection Type", "Inspector", "Category", "Item / Area", "Issue", "Inspector Notes", "Corrective Action", "Photos", "Owner", "Due Date", "Status"];
     const s2HRow = ws2.addRow(s2Headers);
     s2HRow.height = 20;
     s2Headers.forEach((_, ci) => applyB(s2HRow.getCell(ci + 1), bSubHdr()));
@@ -8641,10 +8641,10 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
         const row = ws2.addRow([
           rowNum, str(rec.siteName || rec.location), str(rec.siteNumber), str(rec.locationType),
           str(rec.inspectionDate), str(rec.inspectionType), str(rec.inspectorName),
-          category, item, issueText, inspNotes, corrective, str(a.owner || "—"), str(a.due || "—"), statusLabel,
+          category, item, issueText, inspNotes, corrective, "", str(a.owner || "—"), str(a.due || "—"), statusLabel,
         ]);
-        [1,2,3,4,5,6,7,8,9,10,11,12,13,14,16].forEach(ci => { row.getCell(ci).style = bBody(bg); });
-        row.getCell(15).style = bStatusExt(statusLabel);
+        [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15].forEach(ci => { row.getCell(ci).style = bBody(bg); });
+        row.getCell(16).style = bStatusExt(statusLabel);
         // Embed ALL of this issue's photos right in the row (col P), 4 per line
         const urls = a._photoDataUrls || [];
         if (urls.length) {
@@ -8657,7 +8657,7 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
               const base64 = commaIdx >= 0 ? u.slice(commaIdx + 1) : u;
               const ext = u.includes("image/png") ? "png" : "jpeg";
               const imgId = wb.addImage({ base64, extension: ext });
-              ws2.addImage(imgId, { tl: { col: 15 + (k % perLine) * 0.24, row: row.number - 1 + Math.floor(k / perLine) / nLines }, ext: { width: 80, height: 84 }, editAs: "oneCell" });
+              ws2.addImage(imgId, { tl: { col: 12 + (k % perLine) * 0.24, row: row.number - 1 + Math.floor(k / perLine) / nLines }, ext: { width: 80, height: 84 }, editAs: "oneCell" });
             } catch (_) { /* skip broken image */ }
           });
         }
