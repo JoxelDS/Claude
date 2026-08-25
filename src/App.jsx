@@ -8584,7 +8584,7 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
     s2HRow.height = 20;
     s2Headers.forEach((_, ci) => applyB(s2HRow.getCell(ci + 1), bSubHdr()));
     ws2.autoFilter = { from: { row: s2HRow.number, column: 1 }, to: { row: s2HRow.number, column: 16 } };
-    ws2.views = [{ state: "frozen", ySplit: s2HRow.number, topLeftCell: `A${s2HRow.number + 1}`, activeCell: "A1" }];
+    ws2.views = [{ state: "frozen", xSplit: 2, ySplit: s2HRow.number, topLeftCell: `C${s2HRow.number + 1}`, activeCell: "A1" }];
 
     // Strip "[Corrective action: ...]" embedded in old issue text, return { issueClean, embeddedCorrectve }
     function stripEmbeddedCorrectve(text) {
@@ -8621,10 +8621,15 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
     }));
 
     let rowNum = 0;
-    // Track groups for merging Area + Site cells when multiple issues share the same equipment
-    const areaGroups = []; // { startRow, endRow, area, site }
     records.forEach(rec => {
-      const actionItems = rowsByRec.get(rec) || [];
+      // Sort each venue's findings by Category then Item so the sheet reads
+      // grouped and the column filters produce tidy runs.
+      const sortKey = a => {
+        const { area } = splitIssue(a);
+        const { category, item } = splitAreaCategory(area);
+        return `${category}|${item}`;
+      };
+      const actionItems = (rowsByRec.get(rec) || []).slice().sort((a, b) => sortKey(a).localeCompare(sortKey(b)));
       actionItems.forEach(a => {
         rowNum++;
         const { area } = splitIssue(a);
@@ -8662,33 +8667,7 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
           });
         }
 
-        // Track area groups for later merging (data row number = rowNum + 2 for header rows)
-        const sheetRow = ws2.rowCount;
-        const siteKey = str(rec.siteName || rec.location) + "|" + area;
-        const last = areaGroups[areaGroups.length - 1];
-        if (last && last.siteKey === siteKey) {
-          last.endRow = sheetRow;
-        } else {
-          areaGroups.push({ startRow: sheetRow, endRow: sheetRow, siteKey, area: item });
-        }
       });
-    });
-
-    // Merge Area column (col 8) cells vertically for runs of 2+ rows with same equipment
-    const mergeStyle = (bg) => ({
-      font: { bold: true, size: 10, name: "Calibri" },
-      fill: { type: "pattern", pattern: "solid", fgColor: { argb: "FF" + bg } },
-      alignment: { vertical: "middle", horizontal: "left", wrapText: true },
-      border: { bottom: { style: "thin", color: { argb: "FF" + NAVY } }, top: { style: "thin", color: { argb: "FF" + NAVY } } },
-    });
-    areaGroups.forEach(g => {
-      if (g.endRow <= g.startRow) return; // single row — no merge needed
-      ws2.mergeCells(g.startRow, 9, g.endRow, 9);
-      const cell = ws2.getCell(g.startRow, 9);
-      cell.value = g.area;
-      // Alternate background per group for visual separation
-      const groupIdx = areaGroups.indexOf(g);
-      cell.style = mergeStyle(groupIdx % 2 === 0 ? "EFF6FF" : "DBEAFE");
     });
 
     // ── SHEET 3: Checklist Detail ──────────────────────────────────────────
