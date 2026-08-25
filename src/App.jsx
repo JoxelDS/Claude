@@ -4990,7 +4990,7 @@ async function exportIssuesOnlyExcel({ rec, haccpSubs = [] }) {
   // SHEET 1: Issues
   // ══════════════════════════════════════════════════════════════════════════
   const ws1 = wb.addWorksheet("Issues");
-  ws1.columns = [{ width: 4 }, { width: 14 }, { width: 24 }, { width: 52 }, { width: 28 }, { width: 28 }, { width: 14 }, { width: 18 }, { width: 14 }, { width: 34 }];
+  ws1.columns = [{ width: 4 }, { width: 14 }, { width: 24 }, { width: 52 }, { width: 28 }, { width: 28 }, { width: 14 }, { width: 18 }, { width: 14 }, { width: 50 }];
 
   // Title
   ws1.addRow([`INSPECTION REPORT — ${siteName.toUpperCase()}`]);
@@ -5086,17 +5086,18 @@ async function exportIssuesOnlyExcel({ rec, haccpSubs = [] }) {
       r.eachCell((c, col) => applyStyle(c, col === 7 ? styleStatus(st) : styleBody(even)));
       r.getCell(10).style = styleBody(even);
       if (rowPhotos.length === 0) { r.height = 18; } else {
-        r.height = 66; // tall row so embedded thumbnails are visible
-        rowPhotos.slice(0, 3).forEach((p, k) => {
+        const perLine = 4;
+        const nLines = Math.ceil(rowPhotos.length / perLine);
+        r.height = 66 * nLines; // tall rows so embedded thumbnails are visible
+        rowPhotos.forEach((p, k) => {
           try {
             const m = p.dataUrl.match(/^data:image\/(png|jpe?g|gif|webp);base64,(.+)$/);
             if (!m) return;
             const imgId = wb.addImage({ base64: m[2], extension: m[1].replace("jpg", "jpeg") });
-            // Column J is index 9 (0-based); place up to 3 thumbs side by side inside it
-            ws1.addImage(imgId, { tl: { col: 9 + k * 0.34, row: r.number - 1 }, ext: { width: 80, height: 84 }, editAs: "oneCell" });
+            // Column J is index 9 (0-based); grid of up to 4 thumbs per line
+            ws1.addImage(imgId, { tl: { col: 9 + (k % perLine) * 0.24, row: r.number - 1 + Math.floor(k / perLine) / nLines }, ext: { width: 80, height: 84 }, editAs: "oneCell" });
           } catch (_) { /* skip broken image */ }
         });
-        if (rowPhotos.length > 3) r.getCell(10).value = `+${rowPhotos.length - 3} more — see Photos sheet`;
       }
     });
   }
@@ -8571,7 +8572,7 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
     ws2.columns = [
       { width: 4 }, { width: 28 }, { width: 10 }, { width: 16 },
       { width: 12 }, { width: 18 }, { width: 20 }, { width: 14 }, { width: 20 }, { width: 40 }, { width: 30 },
-      { width: 30 }, { width: 20 }, { width: 14 }, { width: 14 }, { width: 34 },
+      { width: 30 }, { width: 20 }, { width: 14 }, { width: 14 }, { width: 50 },
     ];
     const s2Title = ws2.addRow(["ACTION ITEMS — ALL VENUES"]);
     s2Title.height = 26;
@@ -8591,26 +8592,39 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
       return m ? { issueClean: m[1].trim(), embeddedCorrective: m[2].trim() } : { issueClean: (text || "").trim(), embeddedCorrective: "" };
     }
 
-    // Prefetch each record's photos as data URLs so thumbnails can be embedded
-    // right next to their issue rows (also reused by the per-venue Photos sheets).
-    const photoListByRec = new Map();
+    // Prefetch each record's action items with their photos resolved to data
+    // URLs, so every picture can be embedded right next to its issue row.
+    // Photo refs can be index numbers (new records) or photo objects (old ones).
+    const rowsByRec = new Map();
     await Promise.all(records.map(async rec => {
+      const actionItems = rec.inspection
+        ? buildActionItems({ inspection: rec.inspection, rawNotes: rec.inspection, foodTemps: rec.foodTemps, foodTempNames: rec.foodTempNames, foodTempCorrections: rec.foodTempCorrections, foodTempSubmitted: rec.foodTempSubmitted })
+        : (rec.actionItems || []);
       const { index } = buildPhotoIndex(rec.inspection, rec.notesPhotos || rec.inspection?._notesPhotos);
-      if (!index.length) { photoListByRec.set(rec, []); return; }
-      photoListByRec.set(rec, await Promise.all(
+      const list = await Promise.all(
         index.map(async p => ({ ...p, dataUrl: await fetchAsDataUrl(p.previewUrl, p.thumbUrl) }))
-      ));
+      );
+      const resolved = await Promise.all(actionItems.map(async a => {
+        const refs = Array.isArray(a.photos) ? a.photos : [];
+        const dataUrls = (await Promise.all(refs.map(async ph => {
+          if (typeof ph === "number") return (list.find(p => p.num === ph) || {}).dataUrl || null;
+          if (ph && typeof ph === "object") {
+            const direct = ph.dataUrl || "";
+            if (direct.startsWith("data:image")) return direct;
+            return await fetchAsDataUrl(ph.previewUrl || ph.url || ph.exportUrl, ph.thumbUrl);
+          }
+          return null;
+        }))).filter(u => u && u.startsWith("data:image"));
+        return { ...a, _photoDataUrls: dataUrls };
+      }));
+      rowsByRec.set(rec, resolved);
     }));
 
     let rowNum = 0;
     // Track groups for merging Area + Site cells when multiple issues share the same equipment
     const areaGroups = []; // { startRow, endRow, area, site }
     records.forEach(rec => {
-      const recPhotos = photoListByRec.get(rec) || [];
-      // Recompute from raw inspection so old merged rows are split and statuses are correct
-      const actionItems = rec.inspection
-        ? buildActionItems({ inspection: rec.inspection, rawNotes: rec.inspection, foodTemps: rec.foodTemps, foodTempNames: rec.foodTempNames, foodTempCorrections: rec.foodTempCorrections, foodTempSubmitted: rec.foodTempSubmitted })
-        : (rec.actionItems || []);
+      const actionItems = rowsByRec.get(rec) || [];
       actionItems.forEach(a => {
         rowNum++;
         const { area } = splitIssue(a);
@@ -8631,22 +8645,21 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
         ]);
         [1,2,3,4,5,6,7,8,9,10,11,12,13,14,16].forEach(ci => { row.getCell(ci).style = bBody(bg); });
         row.getCell(15).style = bStatusExt(statusLabel);
-        // Embed this issue's photo thumbnails right in the row (col P)
-        const rowPhotos = (a.photos || []).map(num => recPhotos.find(p => p.num === num)).filter(p => p && p.dataUrl && p.dataUrl.startsWith("data:image"));
-        if (rowPhotos.length) {
-          row.height = 66;
-          rowPhotos.slice(0, 3).forEach((p, k) => {
+        // Embed ALL of this issue's photos right in the row (col P), 4 per line
+        const urls = a._photoDataUrls || [];
+        if (urls.length) {
+          const perLine = 4;
+          const nLines = Math.ceil(urls.length / perLine);
+          row.height = 66 * nLines;
+          urls.forEach((u, k) => {
             try {
-              const commaIdx = p.dataUrl.indexOf(",");
-              const base64 = commaIdx >= 0 ? p.dataUrl.slice(commaIdx + 1) : p.dataUrl;
-              const ext = p.dataUrl.includes("image/png") ? "png" : "jpeg";
+              const commaIdx = u.indexOf(",");
+              const base64 = commaIdx >= 0 ? u.slice(commaIdx + 1) : u;
+              const ext = u.includes("image/png") ? "png" : "jpeg";
               const imgId = wb.addImage({ base64, extension: ext });
-              ws2.addImage(imgId, { tl: { col: 15 + k * 0.34, row: row.number - 1 }, ext: { width: 80, height: 84 }, editAs: "oneCell" });
+              ws2.addImage(imgId, { tl: { col: 15 + (k % perLine) * 0.24, row: row.number - 1 + Math.floor(k / perLine) / nLines }, ext: { width: 80, height: 84 }, editAs: "oneCell" });
             } catch (_) { /* skip broken image */ }
           });
-          if (rowPhotos.length > 3) row.getCell(16).value = `+${rowPhotos.length - 3} more`;
-        } else if ((a.photos || []).length) {
-          row.getCell(16).value = `See photos sheet: #${(a.photos || []).join(", #")}`;
         }
 
         // Track area groups for later merging (data row number = rowNum + 2 for header rows)
@@ -8907,69 +8920,6 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
           ? { font: { bold: true, size: 10, color: { argb: "FF" + FAIL_RT }, name: "Calibri" }, fill: { type: "pattern", pattern: "solid", fgColor: { argb: "FF" + FAIL_R } }, alignment: { vertical: "top", wrapText: true }, border: { bottom: { style: "hair", color: { argb: "FFD1D5DB" } } } }
           : bBody(bg);
       });
-    }
-
-    // ── PHOTO SHEETS: one sheet per venue that has photos ─────────────────
-    // Store lowercase so comparison is case-insensitive — ExcelJS enforces case-insensitive uniqueness
-    const usedSheetNames = new Set(["inspection summary", "inspection findings", "equipment temps", "haccp - supervisor log", "supplies needed"]);
-    function safeSheetName(site, num, idx) {
-      const base = ((site || "Venue") + (num ? ` #${num}` : ""))
-        .replace(/[\\/?*[\]:]/g, "").slice(0, 28).trim() || `Venue ${idx + 1}`;
-      let name = base; let n = 2;
-      while (usedSheetNames.has(name.toLowerCase())) { name = `${base.slice(0, 25)} (${n++})`; }
-      usedSheetNames.add(name.toLowerCase());
-      return name;
-    }
-    const IMG_HEIGHT_PT = 220; // ~3 inches — large enough to see clearly
-
-    for (let ri = 0; ri < records.length; ri++) {
-      const rec = records[ri];
-      const photoList = photoListByRec.get(rec) || [];
-      if (photoList.length === 0) continue;
-      const withImg = photoList.filter(p => p.dataUrl && p.dataUrl.startsWith("data:image"));
-      if (withImg.length === 0) continue;
-
-      let _shName = safeSheetName(rec.siteName || rec.location, rec.siteNumber, ri);
-      let _shAttempt = 0;
-      while (true) { try { var wsPh = wb.addWorksheet(_shName); break; } catch (_) { _shName = `${_shName.slice(0,24)} (${++_shAttempt})`; } }
-      wsPh.columns = [{ width: 6 }, { width: 32 }, { width: 38 }, { width: 58 }];
-
-      const phTitle = wsPh.addRow([`PHOTOS — ${(rec.siteName || rec.location || "Venue").toUpperCase()}${rec.siteNumber ? ` #${rec.siteNumber}` : ""}  |  ${rec.inspectionDate || ""}`]);
-      phTitle.height = 26;
-      wsPh.mergeCells(`A${phTitle.number}:D${phTitle.number}`);
-      applyB(phTitle.getCell(1), bHdr(12));
-
-      const phHRow = wsPh.addRow(["#", "Area / Label", "Caption / Notes", "Photo"]);
-      phHRow.height = 20;
-      ["#", "Area / Label", "Caption / Notes", "Photo"].forEach((_, ci) => applyB(phHRow.getCell(ci + 1), bSubHdr()));
-      wsPh.views = [{ state: "frozen", ySplit: phHRow.number, topLeftCell: `A${phHRow.number + 1}`, activeCell: "A1" }];
-
-      for (let i = 0; i < withImg.length; i++) {
-        const p = withImg[i];
-        const bg = i % 2 === 0 ? WHITE : SILVER;
-        const row = wsPh.addRow([p.num, str(p.label), str(p.caption), ""]);
-        row.height = IMG_HEIGHT_PT;
-        [1, 2, 3].forEach(ci => { row.getCell(ci).style = bBody(bg); });
-        // Style the photo cell with a subtle border so the cell boundary is visible
-        row.getCell(4).style = {
-          fill: { type: "pattern", pattern: "solid", fgColor: { argb: "FF" + bg } },
-          border: { bottom: { style: "hair", color: { argb: "FFD1D5DB" } } },
-          alignment: { vertical: "middle", horizontal: "center" },
-        };
-        try {
-          const commaIdx = p.dataUrl.indexOf(",");
-          const base64 = commaIdx >= 0 ? p.dataUrl.slice(commaIdx + 1) : p.dataUrl;
-          const ext = p.dataUrl.includes("image/png") ? "png" : "jpeg";
-          const imageId = wb.addImage({ base64, extension: ext });
-          wsPh.addImage(imageId, {
-            tl: { col: 3, row: row.number - 1 },
-            br: { col: 4, row: row.number },
-            editAs: "oneCell",
-          });
-        } catch (_) {
-          row.getCell(4).value = str(p.previewUrl || "");
-        }
-      }
     }
 
     // ── Write & download ───────────────────────────────────────────────────
