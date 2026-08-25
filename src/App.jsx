@@ -8571,18 +8571,18 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
     ws2.columns = [
       { width: 4 }, { width: 28 }, { width: 10 }, { width: 16 },
       { width: 12 }, { width: 18 }, { width: 20 }, { width: 14 }, { width: 20 }, { width: 40 }, { width: 30 },
-      { width: 30 }, { width: 20 }, { width: 14 }, { width: 14 },
+      { width: 30 }, { width: 20 }, { width: 14 }, { width: 14 }, { width: 34 },
     ];
     const s2Title = ws2.addRow(["ACTION ITEMS — ALL VENUES"]);
     s2Title.height = 26;
-    ws2.mergeCells(`A${s2Title.number}:O${s2Title.number}`);
+    ws2.mergeCells(`A${s2Title.number}:P${s2Title.number}`);
     applyB(s2Title.getCell(1), bHdr(10));
 
-    const s2Headers = ["#", "Site / Location", "Unit #", "Location Type", "Date", "Inspection Type", "Inspector", "Category", "Item / Area", "Issue", "Inspector Notes", "Corrective Action", "Owner", "Due Date", "Status"];
+    const s2Headers = ["#", "Site / Location", "Unit #", "Location Type", "Date", "Inspection Type", "Inspector", "Category", "Item / Area", "Issue", "Inspector Notes", "Corrective Action", "Owner", "Due Date", "Status", "Photos"];
     const s2HRow = ws2.addRow(s2Headers);
     s2HRow.height = 20;
     s2Headers.forEach((_, ci) => applyB(s2HRow.getCell(ci + 1), bSubHdr()));
-    ws2.autoFilter = { from: { row: s2HRow.number, column: 1 }, to: { row: s2HRow.number, column: 15 } };
+    ws2.autoFilter = { from: { row: s2HRow.number, column: 1 }, to: { row: s2HRow.number, column: 16 } };
     ws2.views = [{ state: "frozen", ySplit: s2HRow.number, topLeftCell: `A${s2HRow.number + 1}`, activeCell: "A1" }];
 
     // Strip "[Corrective action: ...]" embedded in old issue text, return { issueClean, embeddedCorrectve }
@@ -8591,10 +8591,22 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
       return m ? { issueClean: m[1].trim(), embeddedCorrective: m[2].trim() } : { issueClean: (text || "").trim(), embeddedCorrective: "" };
     }
 
+    // Prefetch each record's photos as data URLs so thumbnails can be embedded
+    // right next to their issue rows (also reused by the per-venue Photos sheets).
+    const photoListByRec = new Map();
+    await Promise.all(records.map(async rec => {
+      const { index } = buildPhotoIndex(rec.inspection, rec.notesPhotos || rec.inspection?._notesPhotos);
+      if (!index.length) { photoListByRec.set(rec, []); return; }
+      photoListByRec.set(rec, await Promise.all(
+        index.map(async p => ({ ...p, dataUrl: await fetchAsDataUrl(p.previewUrl, p.thumbUrl) }))
+      ));
+    }));
+
     let rowNum = 0;
     // Track groups for merging Area + Site cells when multiple issues share the same equipment
     const areaGroups = []; // { startRow, endRow, area, site }
     records.forEach(rec => {
+      const recPhotos = photoListByRec.get(rec) || [];
       // Recompute from raw inspection so old merged rows are split and statuses are correct
       const actionItems = rec.inspection
         ? buildActionItems({ inspection: rec.inspection, rawNotes: rec.inspection, foodTemps: rec.foodTemps, foodTempNames: rec.foodTempNames, foodTempCorrections: rec.foodTempCorrections, foodTempSubmitted: rec.foodTempSubmitted })
@@ -8617,8 +8629,25 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
           str(rec.inspectionDate), str(rec.inspectionType), str(rec.inspectorName),
           category, item, issueText, inspNotes, corrective, str(a.owner || "—"), str(a.due || "—"), statusLabel,
         ]);
-        [1,2,3,4,5,6,7,8,9,10,11,12,13,14].forEach(ci => { row.getCell(ci).style = bBody(bg); });
+        [1,2,3,4,5,6,7,8,9,10,11,12,13,14,16].forEach(ci => { row.getCell(ci).style = bBody(bg); });
         row.getCell(15).style = bStatusExt(statusLabel);
+        // Embed this issue's photo thumbnails right in the row (col P)
+        const rowPhotos = (a.photos || []).map(num => recPhotos.find(p => p.num === num)).filter(p => p && p.dataUrl && p.dataUrl.startsWith("data:image"));
+        if (rowPhotos.length) {
+          row.height = 66;
+          rowPhotos.slice(0, 3).forEach((p, k) => {
+            try {
+              const commaIdx = p.dataUrl.indexOf(",");
+              const base64 = commaIdx >= 0 ? p.dataUrl.slice(commaIdx + 1) : p.dataUrl;
+              const ext = p.dataUrl.includes("image/png") ? "png" : "jpeg";
+              const imgId = wb.addImage({ base64, extension: ext });
+              ws2.addImage(imgId, { tl: { col: 15 + k * 0.34, row: row.number - 1 }, ext: { width: 80, height: 84 }, editAs: "oneCell" });
+            } catch (_) { /* skip broken image */ }
+          });
+          if (rowPhotos.length > 3) row.getCell(16).value = `+${rowPhotos.length - 3} more`;
+        } else if ((a.photos || []).length) {
+          row.getCell(16).value = `See photos sheet: #${(a.photos || []).join(", #")}`;
+        }
 
         // Track area groups for later merging (data row number = rowNum + 2 for header rows)
         const sheetRow = ws2.rowCount;
@@ -8895,12 +8924,8 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
 
     for (let ri = 0; ri < records.length; ri++) {
       const rec = records[ri];
-      const { index: photoListRaw } = buildPhotoIndex(rec.inspection, rec.notesPhotos || rec.inspection?._notesPhotos);
-      if (!photoListRaw || photoListRaw.length === 0) continue;
-
-      const photoList = await Promise.all(
-        photoListRaw.map(async p => ({ ...p, dataUrl: await fetchAsDataUrl(p.previewUrl, p.thumbUrl) }))
-      );
+      const photoList = photoListByRec.get(rec) || [];
+      if (photoList.length === 0) continue;
       const withImg = photoList.filter(p => p.dataUrl && p.dataUrl.startsWith("data:image"));
       if (withImg.length === 0) continue;
 
