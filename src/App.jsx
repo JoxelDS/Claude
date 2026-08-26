@@ -17069,7 +17069,7 @@ function KitchenQrPage({ onBack }) {
       for (const [id, k] of Object.entries(regItems)) {
         if (regHidden[id] || seen.has(id)) continue;
         seen.add(id);
-        list.push({ id, site: k.site || "", unit: k.unit || "", floor: k.floor || "", locType: k.locType || "" });
+        list.push({ id, site: k.site || "", unit: k.unit || "", floor: k.floor || "", locType: k.locType || "", license: k.license || "" });
       }
       try {
         const { list: hist } = await loadHistory(undefined, { pageSize: 300 });
@@ -17079,9 +17079,15 @@ function KitchenQrPage({ onBack }) {
           const unit = (rec.siteNumber || "").trim();
           const floor = (rec.floor || "").trim();
           const id = `${site.toLowerCase()}|${unit.toLowerCase()}`;
-          if (seen.has(id) || regHidden[id]) continue;
+          const license = rec.restaurantLicense && rec.restaurantLicense !== "NO LICENSE" ? String(rec.restaurantLicense) : "";
+          if (regHidden[id]) continue;
+          if (seen.has(id)) {
+            // Backfill a license onto an already-listed stand (seed/registry entry)
+            if (license) { const ex = list.find(x => x.id === id); if (ex && !ex.license) ex.license = license; }
+            continue;
+          }
           seen.add(id);
-          list.push({ id, site, unit, floor });
+          list.push({ id, site, unit, floor, license });
         }
       } catch {}
       list.sort((a, b) => a.site.localeCompare(b.site) || a.unit.localeCompare(b.unit, undefined, { numeric: true }));
@@ -17115,6 +17121,31 @@ function KitchenQrPage({ onBack }) {
     try { setDoc(doc(db, "venues", VENUE_ID, "sharedMemory", "kitchenRegistry"), { hidden: { [id]: true } }, { merge: true }).catch(() => {}); } catch {}
   }
 
+  // Inline per-card editing (name / unit / floor / license) — persisted to the
+  // shared registry so the fix shows on every device.
+  const [editKitchenId, setEditKitchenId] = useState(null);
+  const [editForm, setEditForm] = useState({ site: "", unit: "", floor: "", license: "" });
+
+  function startEditKitchen(k) {
+    setEditKitchenId(k.id);
+    setEditForm({ site: k.site || "", unit: k.unit || "", floor: k.floor || "", license: k.license || "" });
+  }
+
+  function saveKitchenEdit(oldK) {
+    const site = editForm.site.trim();
+    if (!site) return;
+    const unit = editForm.unit.trim(), floor = editForm.floor.trim(), license = editForm.license.trim();
+    const newId = `${site.toLowerCase()}|${unit.toLowerCase()}`;
+    const updated = { id: newId, site, unit, floor, license, locType: oldK.locType || "" };
+    setKitchens(prev => prev.map(k => k.id === oldK.id ? updated : k));
+    setEditKitchenId(null);
+    try {
+      const patch = { items: { [newId]: { site, unit, floor, license, locType: oldK.locType || "" } }, hidden: { [newId]: false } };
+      if (newId !== oldK.id) patch.hidden[oldK.id] = true; // renamed — retire the old entry everywhere
+      setDoc(doc(db, "venues", VENUE_ID, "sharedMemory", "kitchenRegistry"), patch, { merge: true }).catch(() => {});
+    } catch {}
+  }
+
   const brandColor = (/^#[0-9a-fA-F]{6}$/.test(_vs.primaryColor || "") ? _vs.primaryColor : "#2A295C");
   const shown = search.trim()
     ? kitchens.filter(k => `${k.site} ${k.unit} ${k.floor}`.toLowerCase().includes(search.trim().toLowerCase()))
@@ -17133,7 +17164,7 @@ function KitchenQrPage({ onBack }) {
         </div>
         <div class="pb">
           <div class="pn">${esc(k.site)}${k.unit ? ` <span class="pu">#${esc(k.unit)}</span>` : ""}</div>
-          ${k.floor ? `<div class="pf">${esc(k.floor)}</div>` : ""}
+          ${[k.floor, k.license ? `License #${k.license}` : ""].filter(Boolean).length ? `<div class="pf">${esc([k.floor, k.license ? `License #${k.license}` : ""].filter(Boolean).join(" · "))}</div>` : ""}
           <img class="pq" src="${qrUrls[k.id] || ""}" />
           <div class="pi">📱 <b>Scan with your phone camera</b><br/>Log temperatures &amp; report problems for this kitchen — no app needed.<br/><span class="es">Escanee para registrar temperaturas y reportar problemas.</span></div>
         </div>
@@ -17223,6 +17254,11 @@ function KitchenQrPage({ onBack }) {
                 <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>🍳 {k.site}</span>
                 <span style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 6 }}>
                   {k.unit && <span>#{k.unit}</span>}
+                  <button type="button" aria-label={`Edit ${k.site}`}
+                    onClick={() => startEditKitchen(k)}
+                    style={{ background: "rgba(255,255,255,0.22)", border: "none", color: "#fff", borderRadius: 6, width: 20, height: 20, lineHeight: 1, cursor: "pointer", fontSize: "0.68rem" }}>
+                    ✎
+                  </button>
                   <button type="button" aria-label={`Remove ${k.site}`}
                     onClick={() => { if (window.confirm(`Remove ${k.site}${k.unit ? ` #${k.unit}` : ""} from the QR list?`)) removeKitchen(k.id); }}
                     style={{ background: "rgba(255,255,255,0.22)", border: "none", color: "#fff", borderRadius: 6, width: 20, height: 20, lineHeight: 1, cursor: "pointer", fontSize: "0.7rem", fontWeight: 800 }}>
@@ -17230,12 +17266,33 @@ function KitchenQrPage({ onBack }) {
                   </button>
                 </span>
               </div>
-              <div style={{ padding: 12, textAlign: "center" }}>
-                {qrUrls[k.id]
-                  ? <img src={qrUrls[k.id]} alt="" width={150} height={150} />
-                  : <div style={{ width: 150, height: 150, margin: "0 auto", background: "var(--surface-2)", borderRadius: 6 }} />}
-                <div style={{ fontSize: "0.72rem", color: "var(--ink-500)", marginTop: 6 }}>{[k.locType, k.floor].filter(Boolean).join(" · ") || "Scan to log temps & problems"}</div>
-              </div>
+              {editKitchenId === k.id ? (
+                <div style={{ padding: 12, display: "flex", flexDirection: "column", gap: 8 }}>
+                  <input className="input" placeholder="Stand name" value={editForm.site} onChange={e => setEditForm(f => ({ ...f, site: e.target.value }))} />
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <input className="input" placeholder="Unit #" value={editForm.unit} onChange={e => setEditForm(f => ({ ...f, unit: e.target.value }))} style={{ flex: 1, minWidth: 0 }} />
+                    <input className="input" placeholder="Floor" value={editForm.floor} onChange={e => setEditForm(f => ({ ...f, floor: e.target.value }))} style={{ flex: 1, minWidth: 0 }} />
+                  </div>
+                  <input className="input" placeholder="License #" value={editForm.license} onChange={e => setEditForm(f => ({ ...f, license: e.target.value }))} />
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button type="button" onClick={() => saveKitchenEdit(k)} disabled={!editForm.site.trim()}
+                      style={{ flex: 1, background: "#16a34a", color: "#fff", border: "none", borderRadius: 8, padding: "0.5rem", fontWeight: 800, cursor: "pointer" }}>
+                      ✓ Save
+                    </button>
+                    <button type="button" onClick={() => setEditKitchenId(null)}
+                      style={{ flex: 1, background: "var(--surface-2)", color: "var(--ink-600)", border: "1px solid var(--sdx-gray-200)", borderRadius: 8, padding: "0.5rem", fontWeight: 700, cursor: "pointer" }}>
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ padding: 12, textAlign: "center" }}>
+                  {qrUrls[k.id]
+                    ? <img src={qrUrls[k.id]} alt="" width={150} height={150} />
+                    : <div style={{ width: 150, height: 150, margin: "0 auto", background: "var(--surface-2)", borderRadius: 6 }} />}
+                  <div style={{ fontSize: "0.72rem", color: "var(--ink-500)", marginTop: 6 }}>{[k.locType, k.floor, k.license ? `Lic. ${k.license}` : ""].filter(Boolean).join(" · ") || "Scan to log temps & problems"}</div>
+                </div>
+              )}
             </div>
           ))}
         </div>
