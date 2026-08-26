@@ -7518,10 +7518,27 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
         const overdue = !likelyResolved && daysSince >= recheckDays;
         return { key, loc, cat, unit: v.unit || "", daysSince, count: v.count, dateStr: v.dateStr, likelyResolved, overdue };
       })
-      .sort((a, b) => (b.overdue - a.overdue) || (a.likelyResolved - b.likelyResolved) || b.daysSince - a.daysSince)
-      .slice(0, 12);
+      .sort((a, b) => (b.overdue - a.overdue) || (a.likelyResolved - b.likelyResolved) || b.daysSince - a.daysSince);
 
-    return { recurring, locationRecurring, tempComplianceRate, tempChecks, tempFails, totalInspections: history.length, worstLocations, followups, recheckDays };
+    // Group follow-ups by venue so one site with many issues is one card,
+    // with bulk actions, instead of a wall of individual cards.
+    const fuByLoc = {};
+    const followupGroups = [];
+    for (const f of followups) {
+      if (!fuByLoc[f.loc]) {
+        fuByLoc[f.loc] = { loc: f.loc, unit: f.unit, items: [], overdueCount: 0, dueSoonCount: 0, resolvedCount: 0, minDue: Infinity };
+        followupGroups.push(fuByLoc[f.loc]);
+      }
+      const g = fuByLoc[f.loc];
+      g.items.push(f);
+      if (f.unit && !g.unit) g.unit = f.unit;
+      if (f.overdue) g.overdueCount++;
+      else if (f.likelyResolved) g.resolvedCount++;
+      else { g.dueSoonCount++; g.minDue = Math.min(g.minDue, Math.max(0, recheckDays - f.daysSince)); }
+    }
+    followupGroups.sort((a, b) => (b.overdueCount > 0) - (a.overdueCount > 0) || (a.minDue - b.minDue) || b.items.length - a.items.length);
+
+    return { recurring, locationRecurring, tempComplianceRate, tempChecks, tempFails, totalInspections: history.length, worstLocations, followups, followupGroups, recheckDays };
   }, [history, venueSettings, clearedLocal]);
 
   const [remindedKey, setRemindedKey] = useState(null);
@@ -7551,6 +7568,41 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
       setTimeout(() => setRemindedKey(null), 2200);
     } catch {}
   }
+
+  // Bulk actions — one click covers every open follow-up at a venue
+  function resolveVenue(g) {
+    const stamp = Date.now();
+    const patch = {};
+    g.items.forEach(f => { patch[f.key] = stamp; });
+    setClearedLocal(prev => ({ ...prev, ...patch }));
+    const prev = venueSettings?.followupCleared || {};
+    saveVenueSettings?.({ followupCleared: { ...prev, ...patch } });
+  }
+
+  function remindVenue(g) {
+    try {
+      const open = g.items.filter(f => !f.likelyResolved);
+      if (open.length === 0) return;
+      const list = JSON.parse(localStorage.getItem("sdx_announcements") || "[]");
+      const a = {
+        id: Date.now(),
+        title: `🔁 Rechecks Needed — ${g.loc}${g.unit ? ` (Unit #${g.unit})` : ""}`,
+        body: `${open.length} item${open.length !== 1 ? "s" : ""} still open at ${g.loc}:\n` +
+          open.map(f => `• ${f.cat} — flagged ${f.daysSince} day${f.daysSince !== 1 ? "s" : ""} ago (${f.dateStr})`).join("\n") +
+          `\nPlease recheck these on your next walkthrough and mark them resolved in the report.`,
+        author: "Insights Auto-Reminder",
+        ts: Date.now(),
+        quickCheck: true,
+        checkItems: open.map(f => `${f.cat} — ${g.loc}`),
+        results: [],
+      };
+      localStorage.setItem("sdx_announcements", JSON.stringify([a, ...list]));
+      setRemindedKey(`grp::${g.loc}`);
+      setTimeout(() => setRemindedKey(null), 2200);
+    } catch {}
+  }
+
+  const [fuOpen, setFuOpen] = useState({});
 
   if (!analysis) return null;
   if (analysis.recurring.length === 0 && Object.keys(analysis.locationRecurring).length === 0 && analysis.worstLocations.length === 0 && (analysis.followups || []).length === 0) return null;
@@ -7600,35 +7652,82 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
                 </select>
               </label>
             </div>
+            {/* Summary bar */}
+            <div className="fuSummary">
+              {analysis.followups.filter(f => f.overdue).length > 0 && (
+                <span className="fuSumChip fuSumOverdue">⏰ {analysis.followups.filter(f => f.overdue).length} overdue</span>
+              )}
+              {analysis.followups.filter(f => !f.overdue && !f.likelyResolved).length > 0 && (
+                <span className="fuSumChip fuSumSoon">👁 {analysis.followups.filter(f => !f.overdue && !f.likelyResolved).length} due soon</span>
+              )}
+              {analysis.followups.filter(f => f.likelyResolved).length > 0 && (
+                <span className="fuSumChip fuSumOk">✅ {analysis.followups.filter(f => f.likelyResolved).length} likely fixed</span>
+              )}
+              <span className="fuSumChip">📍 {analysis.followupGroups.length} venue{analysis.followupGroups.length !== 1 ? "s" : ""}</span>
+            </div>
             <div className="fuList">
-              {analysis.followups.map(f => (
-                <div key={f.key} className={`fuItem ${f.overdue ? "fuOverdue" : f.likelyResolved ? "fuResolved" : "fuWatching"}`}>
-                  <div className="fuStatus">
-                    {f.overdue ? "⏰" : f.likelyResolved ? "✅" : "👁"}
-                  </div>
-                  <div className="fuBody" style={{ cursor: "pointer" }} onClick={() => onIssueDrilldown?.(f.loc, f.cat)}>
-                    <div className="fuTitle">{f.cat} <span className="fuLoc">· {f.loc}{f.unit ? ` · Unit #${f.unit}` : ""}</span></div>
-                    <div className="fuMeta">
-                      {f.likelyResolved
-                        ? `Not seen in the latest inspection — confirm it's fixed and clear it`
-                        : f.overdue
-                          ? `Open for ${f.daysSince} days (flagged ${f.dateStr}) — recheck is overdue`
-                          : `Flagged ${f.daysSince} day${f.daysSince !== 1 ? "s" : ""} ago — recheck due in ${Math.max(0, analysis.recheckDays - f.daysSince)} day${analysis.recheckDays - f.daysSince !== 1 ? "s" : ""}`}
-                      {f.count > 1 ? ` · seen ×${f.count}` : ""}
+              {analysis.followupGroups.map(g => {
+                const isOpen = fuOpen[g.loc] !== undefined ? fuOpen[g.loc] : g.overdueCount > 0;
+                const openItems = g.items.filter(f => !f.likelyResolved);
+                return (
+                  <div key={g.loc} className={`fuGroup ${g.overdueCount > 0 ? "fuGroupOverdue" : g.dueSoonCount > 0 ? "fuGroupWatching" : "fuGroupResolved"}`}>
+                    <div className="fuGroupHead" onClick={() => setFuOpen(m => ({ ...m, [g.loc]: !isOpen }))}>
+                      <span className="fuGroupChevron">{isOpen ? "▾" : "▸"}</span>
+                      <div className="fuGroupName">
+                        {g.loc}{g.unit ? <span className="fuLoc"> · Unit #{g.unit}</span> : null}
+                        <span className="fuGroupBadge">{g.items.length}</span>
+                      </div>
+                      <div className="fuGroupChips">
+                        {g.overdueCount > 0 && <span className="fuSumChip fuSumOverdue">⏰ {g.overdueCount} overdue</span>}
+                        {g.overdueCount === 0 && g.dueSoonCount > 0 && <span className="fuSumChip fuSumSoon">due in {g.minDue}d</span>}
+                        {g.overdueCount === 0 && g.dueSoonCount === 0 && <span className="fuSumChip fuSumOk">✅ confirm fixed</span>}
+                      </div>
+                      <div className="fuActions" onClick={e => e.stopPropagation()}>
+                        {openItems.length > 0 && (
+                          <button type="button" className="fuBtn fuBtnRemind" onClick={() => remindVenue(g)}>
+                            {remindedKey === `grp::${g.loc}` ? "✓ Posted" : `🔔 Remind Team (${openItems.length})`}
+                          </button>
+                        )}
+                        <button type="button" className="fuBtn fuBtnResolve" onClick={() => resolveVenue(g)}>
+                          ✓ Resolve all
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                  <div className="fuActions">
-                    {!f.likelyResolved && (
-                      <button type="button" className="fuBtn fuBtnRemind" onClick={() => remindTeam(f)}>
-                        {remindedKey === f.key ? "✓ Posted" : "🔔 Remind Team"}
-                      </button>
+                    {isOpen && (
+                      <div className="fuGroupBody">
+                        {g.items.map(f => (
+                          <div key={f.key} className={`fuItem ${f.overdue ? "fuOverdue" : f.likelyResolved ? "fuResolved" : "fuWatching"}`}>
+                            <div className="fuStatus">
+                              {f.overdue ? "⏰" : f.likelyResolved ? "✅" : "👁"}
+                            </div>
+                            <div className="fuBody" style={{ cursor: "pointer" }} onClick={() => onIssueDrilldown?.(f.loc, f.cat)}>
+                              <div className="fuTitle">{f.cat}</div>
+                              <div className="fuMeta">
+                                {f.likelyResolved
+                                  ? `Not seen in the latest inspection — confirm it's fixed and clear it`
+                                  : f.overdue
+                                    ? `Open for ${f.daysSince} days (flagged ${f.dateStr}) — recheck is overdue`
+                                    : `Flagged ${f.daysSince} day${f.daysSince !== 1 ? "s" : ""} ago — recheck due in ${Math.max(0, analysis.recheckDays - f.daysSince)} day${analysis.recheckDays - f.daysSince !== 1 ? "s" : ""}`}
+                                {f.count > 1 ? ` · seen ×${f.count}` : ""}
+                              </div>
+                            </div>
+                            <div className="fuActions">
+                              {!f.likelyResolved && (
+                                <button type="button" className="fuBtn fuBtnRemind" onClick={() => remindTeam(f)}>
+                                  {remindedKey === f.key ? "✓ Posted" : "🔔 Remind"}
+                                </button>
+                              )}
+                              <button type="button" className="fuBtn fuBtnResolve" onClick={() => markResolved(f)}>
+                                ✓ Resolved
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     )}
-                    <button type="button" className="fuBtn fuBtnResolve" onClick={() => markResolved(f)}>
-                      ✓ Resolved
-                    </button>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
             <div style={{ fontSize: "0.68rem", color: "var(--sdx-gray-400)", marginTop: 6 }}>
               “Remind Team” posts a Quick Check announcement so inspectors on shift can respond. Resolved items reappear automatically if the issue shows up again.

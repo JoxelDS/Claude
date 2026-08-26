@@ -7493,3 +7493,44 @@ html[data-theme="black"] .labelCardPro { background: #fff; }
   100% { box-shadow: 0 0 0 0 rgba(37,99,235,0); background: transparent; }
 }
 .guideFindFlash { animation: guideFindPulse 2.2s ease-out; border-radius: 10px; }
+
+/* ── Follow-Ups: venue groups + summary ─────────────────────────── */
+.fuSummary { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 8px; }
+.fuSumChip {
+  font-size: 0.7rem; font-weight: 700; padding: 3px 9px; border-radius: 999px;
+  background: var(--surface-2, #f3f4f6); color: var(--ink-500, #6b7280);
+  border: 1px solid var(--sdx-gray-200, #e5e7eb);
+}
+.fuSumOverdue { background: #FEE2E2; color: #B91C1C; border-color: #fecaca; }
+.fuSumSoon    { background: #FEF3C7; color: #92400E; border-color: #fde68a; }
+.fuSumOk      { background: #DCFCE7; color: #15803D; border-color: #bbf7d0; }
+.fuGroup {
+  border: 1px solid var(--sdx-gray-200, #e5e7eb); border-radius: 12px;
+  overflow: hidden; background: var(--surface-1, #fff);
+}
+.fuGroupOverdue  { border-color: #fecaca; }
+.fuGroupWatching { border-color: #fde68a; }
+.fuGroupResolved { border-color: #bbf7d0; }
+.fuGroupHead {
+  display: flex; align-items: center; gap: 10px; padding: 10px 12px;
+  cursor: pointer; flex-wrap: wrap; user-select: none;
+}
+.fuGroupOverdue  > .fuGroupHead { background: #FEF2F2; }
+.fuGroupWatching > .fuGroupHead { background: #FFFBEB; }
+.fuGroupResolved > .fuGroupHead { background: #F0FDF4; }
+.fuGroupChevron { font-size: 0.8rem; color: var(--ink-400, #9ca3af); width: 14px; }
+.fuGroupName { font-weight: 800; font-size: 0.85rem; display: flex; align-items: center; gap: 8px; flex: 1; min-width: 140px; }
+.fuGroupBadge {
+  font-size: 0.68rem; font-weight: 800; background: var(--sdx-navy, #1C2B5E); color: #fff;
+  border-radius: 999px; padding: 1px 8px;
+}
+.fuGroupChips { display: flex; gap: 6px; }
+.fuGroupBody { display: flex; flex-direction: column; gap: 6px; padding: 8px 10px 10px; border-top: 1px solid var(--sdx-gray-200, #e5e7eb); }
+@media (max-width: 640px) {
+  .fuGroupHead { padding: 10px; }
+  .fuGroupHead .fuActions { width: 100%; justify-content: flex-end; }
+}
+[data-theme="dark"] .fuGroup { background: var(--surface-1, #1f2430); }
+[data-theme="dark"] .fuGroupOverdue  > .fuGroupHead { background: rgba(220, 38, 38, 0.12); }
+[data-theme="dark"] .fuGroupWatching > .fuGroupHead { background: rgba(217, 119, 6, 0.12); }
+[data-theme="dark"] .fuGroupResolved > .fuGroupHead { background: rgba(21, 128, 61, 0.12); }
