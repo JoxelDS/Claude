@@ -7534,3 +7534,14 @@ html[data-theme="black"] .labelCardPro { background: #fff; }
 [data-theme="dark"] .fuGroupOverdue  > .fuGroupHead { background: rgba(220, 38, 38, 0.12); }
 [data-theme="dark"] .fuGroupWatching > .fuGroupHead { background: rgba(217, 119, 6, 0.12); }
 [data-theme="dark"] .fuGroupResolved > .fuGroupHead { background: rgba(21, 128, 61, 0.12); }
+
+/* Follow-Ups group-by toggle */
+.fuToggle { display: inline-flex; margin-left: auto; border: 1px solid var(--sdx-gray-200, #e5e7eb); border-radius: 999px; overflow: hidden; }
+.fuToggleBtn {
+  font-size: 0.7rem; font-weight: 700; padding: 4px 11px; border: none; cursor: pointer;
+  background: var(--surface-1, #fff); color: var(--ink-500, #6b7280);
+}
+.fuToggleBtn + .fuToggleBtn { border-left: 1px solid var(--sdx-gray-200, #e5e7eb); }
+.fuToggleActive { background: var(--sdx-navy, #1C2B5E); color: #fff; }
+[data-theme="dark"] .fuToggleBtn { background: var(--surface-2, #262b38); color: var(--ink-400, #9ca3af); }
+[data-theme="dark"] .fuToggleActive { background: var(--sdx-navy, #1C2B5E); color: #fff; }

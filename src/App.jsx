@@ -7538,7 +7538,26 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
     }
     followupGroups.sort((a, b) => (b.overdueCount > 0) - (a.overdueCount > 0) || (a.minDue - b.minDue) || b.items.length - a.items.length);
 
-    return { recurring, locationRecurring, tempComplianceRate, tempChecks, tempFails, totalInspections: history.length, worstLocations, followups, followupGroups, recheckDays };
+    // Same follow-ups grouped by problem type, so every kind of issue
+    // (temps, floors, ceilings, utensils…) can be browsed across venues.
+    const fuByCat = {};
+    const followupCatGroups = [];
+    for (const f of followups) {
+      if (!fuByCat[f.cat]) {
+        fuByCat[f.cat] = { cat: f.cat, items: [], overdueCount: 0, dueSoonCount: 0, resolvedCount: 0, minDue: Infinity, venues: new Set() };
+        followupCatGroups.push(fuByCat[f.cat]);
+      }
+      const g = fuByCat[f.cat];
+      g.items.push(f);
+      g.venues.add(f.loc);
+      if (f.overdue) g.overdueCount++;
+      else if (f.likelyResolved) g.resolvedCount++;
+      else { g.dueSoonCount++; g.minDue = Math.min(g.minDue, Math.max(0, recheckDays - f.daysSince)); }
+    }
+    followupCatGroups.forEach(g => { g.venueCount = g.venues.size; delete g.venues; });
+    followupCatGroups.sort((a, b) => (b.overdueCount > 0) - (a.overdueCount > 0) || (a.minDue - b.minDue) || b.items.length - a.items.length);
+
+    return { recurring, locationRecurring, tempComplianceRate, tempChecks, tempFails, totalInspections: history.length, worstLocations, followups, followupGroups, followupCatGroups, recheckDays };
   }, [history, venueSettings, clearedLocal]);
 
   const [remindedKey, setRemindedKey] = useState(null);
@@ -7579,30 +7598,37 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
     saveVenueSettings?.({ followupCleared: { ...prev, ...patch } });
   }
 
-  function remindVenue(g) {
+  function remindGroup(g, mode) {
     try {
       const open = g.items.filter(f => !f.likelyResolved);
       if (open.length === 0) return;
       const list = JSON.parse(localStorage.getItem("sdx_announcements") || "[]");
+      const byCat = mode === "cat";
       const a = {
         id: Date.now(),
-        title: `🔁 Rechecks Needed — ${g.loc}${g.unit ? ` (Unit #${g.unit})` : ""}`,
-        body: `${open.length} item${open.length !== 1 ? "s" : ""} still open at ${g.loc}:\n` +
-          open.map(f => `• ${f.cat} — flagged ${f.daysSince} day${f.daysSince !== 1 ? "s" : ""} ago (${f.dateStr})`).join("\n") +
+        title: byCat
+          ? `🔁 Rechecks Needed — ${g.cat}`
+          : `🔁 Rechecks Needed — ${g.loc}${g.unit ? ` (Unit #${g.unit})` : ""}`,
+        body: (byCat
+          ? `${open.length} venue${open.length !== 1 ? "s" : ""} still open for "${g.cat}":\n` +
+            open.map(f => `• ${f.loc}${f.unit ? ` (Unit #${f.unit})` : ""} — flagged ${f.daysSince} day${f.daysSince !== 1 ? "s" : ""} ago (${f.dateStr})`).join("\n")
+          : `${open.length} item${open.length !== 1 ? "s" : ""} still open at ${g.loc}:\n` +
+            open.map(f => `• ${f.cat} — flagged ${f.daysSince} day${f.daysSince !== 1 ? "s" : ""} ago (${f.dateStr})`).join("\n")) +
           `\nPlease recheck these on your next walkthrough and mark them resolved in the report.`,
         author: "Insights Auto-Reminder",
         ts: Date.now(),
         quickCheck: true,
-        checkItems: open.map(f => `${f.cat} — ${g.loc}`),
+        checkItems: open.map(f => `${f.cat} — ${f.loc}`),
         results: [],
       };
       localStorage.setItem("sdx_announcements", JSON.stringify([a, ...list]));
-      setRemindedKey(`grp::${g.loc}`);
+      setRemindedKey(`grp::${byCat ? g.cat : g.loc}`);
       setTimeout(() => setRemindedKey(null), 2200);
     } catch {}
   }
 
   const [fuOpen, setFuOpen] = useState({});
+  const [fuGroupBy, setFuGroupBy] = useState("loc"); // "loc" | "cat"
 
   if (!analysis) return null;
   if (analysis.recurring.length === 0 && Object.keys(analysis.locationRecurring).length === 0 && analysis.worstLocations.length === 0 && (analysis.followups || []).length === 0) return null;
@@ -7664,17 +7690,24 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
                 <span className="fuSumChip fuSumOk">✅ {analysis.followups.filter(f => f.likelyResolved).length} likely fixed</span>
               )}
               <span className="fuSumChip">📍 {analysis.followupGroups.length} venue{analysis.followupGroups.length !== 1 ? "s" : ""}</span>
+              <span className="fuToggle">
+                <button type="button" className={`fuToggleBtn${fuGroupBy === "loc" ? " fuToggleActive" : ""}`} onClick={() => setFuGroupBy("loc")}>📍 By Venue</button>
+                <button type="button" className={`fuToggleBtn${fuGroupBy === "cat" ? " fuToggleActive" : ""}`} onClick={() => setFuGroupBy("cat")}>🗂 By Problem</button>
+              </span>
             </div>
             <div className="fuList">
-              {analysis.followupGroups.map(g => {
-                const isOpen = fuOpen[g.loc] !== undefined ? fuOpen[g.loc] : g.overdueCount > 0;
+              {(fuGroupBy === "cat" ? analysis.followupCatGroups : analysis.followupGroups).map(g => {
+                const gKey = `${fuGroupBy}::${fuGroupBy === "cat" ? g.cat : g.loc}`;
+                const isOpen = fuOpen[gKey] !== undefined ? fuOpen[gKey] : g.overdueCount > 0;
                 const openItems = g.items.filter(f => !f.likelyResolved);
                 return (
-                  <div key={g.loc} className={`fuGroup ${g.overdueCount > 0 ? "fuGroupOverdue" : g.dueSoonCount > 0 ? "fuGroupWatching" : "fuGroupResolved"}`}>
-                    <div className="fuGroupHead" onClick={() => setFuOpen(m => ({ ...m, [g.loc]: !isOpen }))}>
+                  <div key={gKey} className={`fuGroup ${g.overdueCount > 0 ? "fuGroupOverdue" : g.dueSoonCount > 0 ? "fuGroupWatching" : "fuGroupResolved"}`}>
+                    <div className="fuGroupHead" onClick={() => setFuOpen(m => ({ ...m, [gKey]: !isOpen }))}>
                       <span className="fuGroupChevron">{isOpen ? "▾" : "▸"}</span>
                       <div className="fuGroupName">
-                        {g.loc}{g.unit ? <span className="fuLoc"> · Unit #{g.unit}</span> : null}
+                        {fuGroupBy === "cat"
+                          ? <>{g.cat}<span className="fuLoc"> · {g.venueCount} venue{g.venueCount !== 1 ? "s" : ""}</span></>
+                          : <>{g.loc}{g.unit ? <span className="fuLoc"> · Unit #{g.unit}</span> : null}</>}
                         <span className="fuGroupBadge">{g.items.length}</span>
                       </div>
                       <div className="fuGroupChips">
@@ -7684,8 +7717,8 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
                       </div>
                       <div className="fuActions" onClick={e => e.stopPropagation()}>
                         {openItems.length > 0 && (
-                          <button type="button" className="fuBtn fuBtnRemind" onClick={() => remindVenue(g)}>
-                            {remindedKey === `grp::${g.loc}` ? "✓ Posted" : `🔔 Remind Team (${openItems.length})`}
+                          <button type="button" className="fuBtn fuBtnRemind" onClick={() => remindGroup(g, fuGroupBy)}>
+                            {remindedKey === `grp::${fuGroupBy === "cat" ? g.cat : g.loc}` ? "✓ Posted" : `🔔 Remind Team (${openItems.length})`}
                           </button>
                         )}
                         <button type="button" className="fuBtn fuBtnResolve" onClick={() => resolveVenue(g)}>
@@ -7701,7 +7734,11 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
                               {f.overdue ? "⏰" : f.likelyResolved ? "✅" : "👁"}
                             </div>
                             <div className="fuBody" style={{ cursor: "pointer" }} onClick={() => onIssueDrilldown?.(f.loc, f.cat)}>
-                              <div className="fuTitle">{f.cat}</div>
+                              <div className="fuTitle">
+                                {fuGroupBy === "cat"
+                                  ? <>{f.loc}{f.unit ? <span className="fuLoc"> · Unit #{f.unit}</span> : null}</>
+                                  : f.cat}
+                              </div>
                               <div className="fuMeta">
                                 {f.likelyResolved
                                   ? `Not seen in the latest inspection — confirm it's fixed and clear it`
