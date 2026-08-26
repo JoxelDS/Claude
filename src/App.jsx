@@ -16475,7 +16475,7 @@ function PrintLabelsPage({ onBack }) {
     if (items.length === 0) return;
     const logoUrl = resolveLogoDark().startsWith("data:") ? resolveLogoDark() : window.location.origin + resolveLogoDark().replace(window.location.origin, "");
     const esc = (s) => String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;");
-    const cards = items.map(item => `
+    const cardHtml = item => `
       <div class="lc">
         <div class="lh"><span>${esc(item.label)}</span><img class="lhlogo" src="${logoUrl}" alt="" /></div>
         <div class="lb">
@@ -16489,12 +16489,19 @@ function PrintLabelsPage({ onBack }) {
           </div>
         </div>
         <div class="lt"><span class="ltc">${esc(item.assetTag)}</span><span class="lto">${esc(resolveCompanyName())}</span></div>
-      </div>`).join("\n");
+      </div>`;
+    // Rows of 3 in plain block flow — page-break-inside works reliably on
+    // block rows, unlike grid items which browsers happily slice in half.
+    const rows = [];
+    for (let i = 0; i < items.length; i += 3) rows.push(items.slice(i, i + 3));
+    const cards = rows.map(row => `
+      <div class="row">${row.map(cardHtml).join("\n")}${'<div class="lc-spacer"></div>'.repeat(3 - row.length)}</div>`).join("\n");
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Equipment Labels</title><style>
       * { margin:0; padding:0; box-sizing:border-box; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
       body { font-family:-apple-system,'Segoe UI',Arial,sans-serif; padding:8mm; background:#fff; }
-      .grid { display:grid; grid-template-columns:repeat(3,1fr); gap:5mm; }
-      .lc { border:1.5px solid #9ca3af; border-radius:8px; overflow:hidden; break-inside:avoid; page-break-inside:avoid; background:#fff; }
+      .row { display:flex; gap:5mm; margin-bottom:5mm; page-break-inside:avoid; break-inside:avoid; }
+      .lc { flex:1 1 0; min-width:0; border:1.5px solid #9ca3af; border-radius:8px; overflow:hidden; break-inside:avoid; page-break-inside:avoid; background:#fff; }
+      .lc-spacer { flex:1 1 0; }
       .lh { background:${(/^#[0-9a-fA-F]{6}$/.test(_vs.primaryColor || "") ? _vs.primaryColor : "#2A295C")}; color:#fff; padding:6px 10px; display:flex; align-items:center; justify-content:space-between; gap:6px; }
       .lh span { font-weight:800; font-size:11px; }
       .lhlogo { height:14px; filter:brightness(0) invert(1); }
@@ -16508,7 +16515,7 @@ function PrintLabelsPage({ onBack }) {
       .ltc { font-family:monospace; font-weight:800; font-size:10.5px; color:#111827; }
       .lto { font-size:7px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:#9ca3af; }
       @page { margin:8mm; }
-    </style></head><body><div class="grid">${cards}</div>
+    </style></head><body>${cards}
     <script>window.onload=function(){setTimeout(function(){window.print()},400)}<\/script></body></html>`;
     const win = window.open("", "_blank");
     if (!win) { alert("Allow pop-ups to print labels."); return; }
