@@ -1391,9 +1391,13 @@ async function loadHaccpForReport(reportId) {
  * the QR's ?rid= didn't match the inspection record's id after a page reload.
  * Matches submissions where site matches and submittedAt starts with the date.
  */
-async function loadHaccpBySite(siteName, inspectionDate, reportId = null) {
+async function loadHaccpBySite(siteName, inspectionDate, reportId = null, unit = null) {
   if (!siteName || !inspectionDate) return [];
   const siteNorm = siteName.trim().toLowerCase();
+  const unitNorm = (unit || "").trim().toLowerCase();
+  // When both sides have a unit, require equality — stops same-named stands
+  // (e.g. two "LEMONADE CART"s) from bleeding into each other's logs.
+  const unitMatch = r => !unitNorm || !(r.unit || "").trim() || (r.unit || "").trim().toLowerCase() === unitNorm;
   const datePrefix = inspectionDate.slice(0, 10); // "YYYY-MM-DD"
   if (FIREBASE_ON) {
     try {
@@ -1414,7 +1418,7 @@ async function loadHaccpBySite(siteName, inspectionDate, reportId = null) {
           // If a reportId is known, only include logs that either match it or have no reportId
           // (pre-fix legacy records). This prevents logs from same-named stands bleeding across.
           const reportMatch = !reportId || !r.reportId || r.reportId === reportId;
-          return siteMatch && dateMatch && reportMatch;
+          return siteMatch && dateMatch && reportMatch && unitMatch(r);
         })
         .sort((a, b) => (a.submittedAt || "").localeCompare(b.submittedAt || ""));
     } catch (e) { console.error("loadHaccpBySite:", e); return []; }
@@ -1427,7 +1431,7 @@ async function loadHaccpBySite(siteName, inspectionDate, reportId = null) {
         return r.type === "submission" &&
           (r.site || "").trim().toLowerCase() === siteNorm &&
           (r.submittedAt || "").startsWith(datePrefix) &&
-          reportMatch;
+          reportMatch && unitMatch(r);
       })
       .sort((a, b) => (a.submittedAt || "").localeCompare(b.submittedAt || ""));
   } catch { return []; }
@@ -8565,7 +8569,7 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
       if (haccpMap[rec.id] !== undefined) return; // already loaded
       const byId  = await loadHaccpForReport(rec.id);
       const bySite = (rec.siteName || rec.location) && rec.inspectionDate
-        ? await loadHaccpBySite(rec.siteName || rec.location, rec.inspectionDate, rec.id)
+        ? await loadHaccpBySite(rec.siteName || rec.location, rec.inspectionDate, rec.id, rec.siteNumber)
         : [];
       // Merge + de-duplicate by submission id / submittedAt
       const seen = new Set();
@@ -9042,7 +9046,7 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
       if (haccpMap[rec.id] !== undefined) return;
       const byId   = await loadHaccpForReport(rec.id);
       const bySite = (rec.siteName || rec.location) && rec.inspectionDate
-        ? await loadHaccpBySite(rec.siteName || rec.location, rec.inspectionDate, rec.id)
+        ? await loadHaccpBySite(rec.siteName || rec.location, rec.inspectionDate, rec.id, rec.siteNumber)
         : [];
       const seen = new Set();
       haccpMap[rec.id] = [...byId, ...bySite].filter(s => {
@@ -9233,7 +9237,7 @@ ${haccpSectionW}
       if (haccpMap[rec.id] !== undefined) return;
       const byId   = await loadHaccpForReport(rec.id);
       const bySite = (rec.siteName || rec.location) && rec.inspectionDate
-        ? await loadHaccpBySite(rec.siteName || rec.location, rec.inspectionDate, rec.id)
+        ? await loadHaccpBySite(rec.siteName || rec.location, rec.inspectionDate, rec.id, rec.siteNumber)
         : [];
       const seen = new Set();
       haccpMap[rec.id] = [...byId, ...bySite].filter(s => {
@@ -17025,6 +17029,19 @@ function KitchenQrPage({ onBack }) {
       setLoading(true);
       const seen = new Set();
       const list = [];
+      // Kitchen registry: manually added stands + hidden ones (shared across devices)
+      let regItems = {}, regHidden = {};
+      try {
+        const snap = await getDoc(doc(db, "venues", VENUE_ID, "sharedMemory", "kitchenRegistry"));
+        const reg = snap.exists() ? (snap.data() || {}) : {};
+        regItems = reg.items || {};
+        regHidden = reg.hidden || {};
+      } catch {}
+      for (const [id, k] of Object.entries(regItems)) {
+        if (regHidden[id] || seen.has(id)) continue;
+        seen.add(id);
+        list.push({ id, site: k.site || "", unit: k.unit || "", floor: k.floor || "" });
+      }
       try {
         const { list: hist } = await loadHistory(undefined, { pageSize: 300 });
         for (const rec of (hist || [])) {
@@ -17033,7 +17050,7 @@ function KitchenQrPage({ onBack }) {
           const unit = (rec.siteNumber || "").trim();
           const floor = (rec.floor || "").trim();
           const id = `${site.toLowerCase()}|${unit.toLowerCase()}`;
-          if (seen.has(id)) continue;
+          if (seen.has(id) || regHidden[id]) continue;
           seen.add(id);
           list.push({ id, site, unit, floor });
         }
@@ -17060,6 +17077,13 @@ function KitchenQrPage({ onBack }) {
     const id = `${site.toLowerCase()}|${unit.toLowerCase()}`;
     setKitchens(prev => prev.some(k => k.id === id) ? prev : [{ id, site, unit, floor }, ...prev]);
     setAddSite(""); setAddUnit("");
+    // Persist so the stand survives reloads and shows on every device
+    try { setDoc(doc(db, "venues", VENUE_ID, "sharedMemory", "kitchenRegistry"), { items: { [id]: { site, unit, floor } }, hidden: { [id]: false } }, { merge: true }).catch(() => {}); } catch {}
+  }
+
+  function removeKitchen(id) {
+    setKitchens(prev => prev.filter(k => k.id !== id));
+    try { setDoc(doc(db, "venues", VENUE_ID, "sharedMemory", "kitchenRegistry"), { hidden: { [id]: true } }, { merge: true }).catch(() => {}); } catch {}
   }
 
   const brandColor = (/^#[0-9a-fA-F]{6}$/.test(_vs.primaryColor || "") ? _vs.primaryColor : "#2A295C");
@@ -17168,7 +17192,14 @@ function KitchenQrPage({ onBack }) {
             <div key={k.id} style={{ background: "var(--surface-1)", borderRadius: 12, overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,0.08)", border: "1.5px solid var(--sdx-gray-200)" }}>
               <div style={{ background: brandColor, color: "#fff", padding: "8px 12px", fontWeight: 800, fontSize: "0.82rem", display: "flex", justifyContent: "space-between", gap: 6 }}>
                 <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>🍳 {k.site}</span>
-                {k.unit && <span style={{ flexShrink: 0 }}>#{k.unit}</span>}
+                <span style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 6 }}>
+                  {k.unit && <span>#{k.unit}</span>}
+                  <button type="button" aria-label={`Remove ${k.site}`}
+                    onClick={() => { if (window.confirm(`Remove ${k.site}${k.unit ? ` #${k.unit}` : ""} from the QR list?`)) removeKitchen(k.id); }}
+                    style={{ background: "rgba(255,255,255,0.22)", border: "none", color: "#fff", borderRadius: 6, width: 20, height: 20, lineHeight: 1, cursor: "pointer", fontSize: "0.7rem", fontWeight: 800 }}>
+                    ✕
+                  </button>
+                </span>
               </div>
               <div style={{ padding: 12, textAlign: "center" }}>
                 {qrUrls[k.id]
@@ -20909,6 +20940,55 @@ function HaccpPortal() {
     </div>
   ) : null;
 
+  // ── Today's report status for this stand (daily HACCP report) ──
+  const [todayChecks, setTodayChecks] = useState(null); // null = loading, [] = none yet
+  useEffect(() => {
+    if (!urlSite) { setTodayChecks([]); return; }
+    let dead = false;
+    (async () => {
+      try {
+        const all = await loadHaccpSubmissions();
+        const today = new Date().toISOString().slice(0, 10);
+        const siteNorm = urlSite.trim().toLowerCase();
+        const unitNorm = (urlUnit || "").trim().toLowerCase();
+        const list = (all || []).filter(r =>
+          r.type === "submission" &&
+          (r.submittedAt || "").slice(0, 10) === today &&
+          (r.site || "").trim().toLowerCase() === siteNorm &&
+          (!unitNorm || !(r.unit || "").trim() || (r.unit || "").trim().toLowerCase() === unitNorm)
+        ).sort((a, b) => (a.submittedAt || "").localeCompare(b.submittedAt || ""));
+        if (!dead) setTodayChecks(list);
+      } catch { if (!dead) setTodayChecks([]); }
+    })();
+    return () => { dead = true; };
+    // Refresh whenever a submission completes (step flips to "done")
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [urlSite, urlUnit, step === "done"]);
+
+  const flaggedCount = r => {
+    let n = 0;
+    try {
+      for (const [k, arr] of Object.entries(r.temps || {})) {
+        const item = HACCP_TEMP_ITEMS.find(it => it.key === k);
+        (arr || []).forEach(v => { if (v !== "" && item && tempPass(item, v) === false) n++; });
+      }
+    } catch {}
+    return n;
+  };
+
+  const TodayStatus = urlSite ? (
+    todayChecks === null ? null :
+    todayChecks.length === 0 ? (
+      <div style={{ background: "var(--tint-amber-1, #fffbeb)", border: "1px solid #fde68a", color: "#92400E", borderRadius: 10, padding: "9px 12px", fontSize: "0.8rem", fontWeight: 700, marginBottom: 10 }}>
+        📋 Today's temp log for {locSite || urlSite}{(locUnit || urlUnit) ? ` #${locUnit || urlUnit}` : ""} — not submitted yet
+      </div>
+    ) : (
+      <div style={{ background: "#F0FDF4", border: "1px solid #bbf7d0", color: "#15803D", borderRadius: 10, padding: "9px 12px", fontSize: "0.8rem", fontWeight: 700, marginBottom: 10 }}>
+        ✅ Today's log: {todayChecks.length} check{todayChecks.length !== 1 ? "s" : ""} — last at {new Date(todayChecks[todayChecks.length - 1].submittedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })} by {todayChecks[todayChecks.length - 1].supervisorName || "—"}. You can add another check.
+      </div>
+    )
+  ) : null;
+
   return (
     <div className="haccpOverlay">
       {inspectorPing && (
@@ -20934,6 +21014,7 @@ function HaccpPortal() {
           </div>
           <div className="haccpCardBody">
             {LocationBanner}
+            {TodayStatus}
             <label className="field" style={{ margin: 0 }}>
               <span className="fieldLabel">Your Name <span style={{ color: "#ef4444" }}>*</span></span>
               <input className="input" value={supName} onChange={e => setSupName(e.target.value)}
@@ -21406,10 +21487,25 @@ function HaccpPortal() {
           </div>
           <div className="haccpCardBody">
             {LocationBanner}
+            {TodayStatus}
             <div className="haccpSuccessBox">
               Your temperature log has been submitted and will appear in the inspection report.
               {problem.trim() && " Your problem report has also been received."}
             </div>
+            {urlSite && (todayChecks || []).length > 0 && (
+              <div style={{ marginTop: 10 }}>
+                <div style={{ fontWeight: 800, fontSize: "0.78rem", color: "var(--ink-600)", marginBottom: 6 }}>Today's checks at this stand</div>
+                {todayChecks.map((r, i) => {
+                  const fl = flaggedCount(r);
+                  return (
+                    <div key={r.id || i} style={{ display: "flex", justifyContent: "space-between", gap: 8, fontSize: "0.78rem", padding: "6px 10px", background: "var(--surface-2)", borderRadius: 8, marginBottom: 4 }}>
+                      <span>🕐 {new Date(r.submittedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })} — {r.supervisorName || "—"}</span>
+                      <span style={{ fontWeight: 800, color: fl > 0 ? "#B91C1C" : "#15803D" }}>{fl > 0 ? `⚠ ${fl} flagged` : "✓ all good"}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
             <HaccpChatBlock
               chatMessages={chatMessages}
               chatInput={chatInput}
