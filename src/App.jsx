@@ -16519,11 +16519,14 @@ function PrintLabelsPage({ onBack }) {
   // Which inspections feed the label list: "" = all dates, "YYYY-MM-DD" = chosen
   // cutoff, null = not loaded yet (use the shared stored value).
   const [cutoffDate, setCutoffDate] = useState(null);
+  const [cutoffMode, setCutoffMode] = useState("since"); // "since" | "on" (only that exact date)
 
-  function saveCutoffDate(v) {
+  function saveCutoffDate(v, mode) {
+    const m = mode || cutoffMode;
     setCutoffDate(v);
+    setCutoffMode(m);
     const ms = v ? new Date(v + "T00:00:00").getTime() : 0;
-    try { setDoc(doc(db, "venues", VENUE_ID, "sharedMemory", "equipmentRegistry"), { cutoffMs: ms }, { merge: true }).catch(() => {}); } catch {}
+    try { setDoc(doc(db, "venues", VENUE_ID, "sharedMemory", "equipmentRegistry"), { cutoffMs: ms, cutoffMode: m }, { merge: true }).catch(() => {}); } catch {}
   }
 
   // Load most recent inspection and extract all equipment items (with or without asset tags)
@@ -16544,6 +16547,7 @@ function PrintLabelsPage({ onBack }) {
           regItems = reg.items || {};
           cutoffMs = reg.cutoffMs || 0;
           if (cutoffDate === null) {
+            setCutoffMode(reg.cutoffMode === "on" ? "on" : "since");
             if (!cutoffMs) {
               const d = new Date(); d.setHours(0, 0, 0, 0);
               cutoffMs = d.getTime();
@@ -16564,7 +16568,8 @@ function PrintLabelsPage({ onBack }) {
         const items = [];
         for (const rec of (list || [])) {
           const recMs = Date.parse(rec.savedAt || rec.inspectionDate || "") || 0;
-          if (cutoffMs && recMs < cutoffMs) continue; // before the fresh start — skip
+          if (cutoffMs && recMs < cutoffMs) continue; // before the cutoff — skip
+          if (cutoffMs && cutoffMode === "on" && recMs >= cutoffMs + 86400000) continue; // only-that-date mode
           const equip = rec.inspection?.equipment || {};
           if (!siteName && rec.siteName) setSiteName(rec.siteName);
           for (const [key, val] of Object.entries(equip)) {
@@ -16622,7 +16627,7 @@ function PrintLabelsPage({ onBack }) {
     }
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cutoffDate]);
+  }, [cutoffDate, cutoffMode]);
 
   // Generate QR code data URLs for all items
   useEffect(() => {
@@ -16682,7 +16687,11 @@ function PrintLabelsPage({ onBack }) {
 
         {/* Cutoff date picker — choose which inspections feed the QR list */}
         <div className="printHide" style={{ background: "var(--surface-1)", borderRadius: 12, padding: "0.8rem 1.25rem", marginBottom: "1.25rem", boxShadow: "0 1px 4px rgba(0,0,0,0.07)", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-          <span style={{ fontWeight: 700, fontSize: "0.85rem", color: "var(--ink-700)" }}>📅 Show equipment since</span>
+          <span style={{ fontWeight: 700, fontSize: "0.85rem", color: "var(--ink-700)" }}>📅 Show equipment</span>
+          <span className="fuToggle">
+            <button type="button" className={`fuToggleBtn${cutoffMode === "since" ? " fuToggleActive" : ""}`} onClick={() => saveCutoffDate(cutoffDate, "since")}>Since date</button>
+            <button type="button" className={`fuToggleBtn${cutoffMode === "on" ? " fuToggleActive" : ""}`} onClick={() => saveCutoffDate(cutoffDate, "on")}>Only that date</button>
+          </span>
           <input
             type="date"
             className="input"
@@ -16697,7 +16706,9 @@ function PrintLabelsPage({ onBack }) {
             </button>
           )}
           <span style={{ fontSize: "0.72rem", color: "var(--ink-400)", flexBasis: "100%" }}>
-            Only equipment from inspections on or after this date appears here. Leave empty to include everything.
+            {cutoffMode === "on"
+              ? "Only equipment from inspections on exactly this date appears here."
+              : "Only equipment from inspections on or after this date appears here. Leave empty to include everything."}
           </span>
         </div>
 
