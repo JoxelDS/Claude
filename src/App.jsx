@@ -16516,6 +16516,16 @@ function PrintLabelsPage({ onBack }) {
     win.document.close();
   }
 
+  // Which inspections feed the label list: "" = all dates, "YYYY-MM-DD" = chosen
+  // cutoff, null = not loaded yet (use the shared stored value).
+  const [cutoffDate, setCutoffDate] = useState(null);
+
+  function saveCutoffDate(v) {
+    setCutoffDate(v);
+    const ms = v ? new Date(v + "T00:00:00").getTime() : 0;
+    try { setDoc(doc(db, "venues", VENUE_ID, "sharedMemory", "equipmentRegistry"), { cutoffMs: ms }, { merge: true }).catch(() => {}); } catch {}
+  }
+
   // Load most recent inspection and extract all equipment items (with or without asset tags)
   useEffect(() => {
     async function load() {
@@ -16533,10 +16543,19 @@ function PrintLabelsPage({ onBack }) {
           hidden = reg.hidden || {};
           regItems = reg.items || {};
           cutoffMs = reg.cutoffMs || 0;
-          if (!cutoffMs) {
-            const d = new Date(); d.setHours(0, 0, 0, 0);
-            cutoffMs = d.getTime();
-            setDoc(doc(db, "venues", VENUE_ID, "sharedMemory", "equipmentRegistry"), { cutoffMs }, { merge: true }).catch(() => {});
+          if (cutoffDate === null) {
+            if (!cutoffMs) {
+              const d = new Date(); d.setHours(0, 0, 0, 0);
+              cutoffMs = d.getTime();
+              setDoc(doc(db, "venues", VENUE_ID, "sharedMemory", "equipmentRegistry"), { cutoffMs }, { merge: true }).catch(() => {});
+            }
+            // Reflect the stored cutoff in the date picker (runs once)
+            const dt = new Date(cutoffMs);
+            const pad = n => String(n).padStart(2, "0");
+            setCutoffDate(dt.getFullYear() + "-" + pad(dt.getMonth() + 1) + "-" + pad(dt.getDate()));
+          } else {
+            // The user picked a date (or all dates) — that wins
+            cutoffMs = cutoffDate ? new Date(cutoffDate + "T00:00:00").getTime() : 0;
           }
         } catch {}
         // loadHistory handles the default-venue legacy collection correctly
@@ -16602,7 +16621,8 @@ function PrintLabelsPage({ onBack }) {
       setLoading(false);
     }
     load();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cutoffDate]);
 
   // Generate QR code data URLs for all items
   useEffect(() => {
@@ -16658,6 +16678,27 @@ function PrintLabelsPage({ onBack }) {
             <li>Click <strong>🖨 Print</strong> and print on label paper or regular paper, then cut and laminate.</li>
             <li>Stick the label on the physical unit. Optionally use "Auto-assign" asset tags so inspectors can scan them for full history.</li>
           </ol>
+        </div>
+
+        {/* Cutoff date picker — choose which inspections feed the QR list */}
+        <div className="printHide" style={{ background: "var(--surface-1)", borderRadius: 12, padding: "0.8rem 1.25rem", marginBottom: "1.25rem", boxShadow: "0 1px 4px rgba(0,0,0,0.07)", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+          <span style={{ fontWeight: 700, fontSize: "0.85rem", color: "var(--ink-700)" }}>📅 Show equipment since</span>
+          <input
+            type="date"
+            className="input"
+            style={{ maxWidth: 175 }}
+            value={cutoffDate || ""}
+            onChange={e => saveCutoffDate(e.target.value)}
+          />
+          {cutoffDate && (
+            <button type="button" onClick={() => saveCutoffDate("")}
+              style={{ fontSize: "0.75rem", fontWeight: 700, padding: "0.35rem 0.9rem", borderRadius: 999, border: "1.5px solid var(--sdx-gray-200)", background: "var(--surface-2)", color: "var(--ink-600)", cursor: "pointer" }}>
+              All dates
+            </button>
+          )}
+          <span style={{ fontSize: "0.72rem", color: "var(--ink-400)", flexBasis: "100%" }}>
+            Only equipment from inspections on or after this date appears here. Leave empty to include everything.
+          </span>
         </div>
 
         {loading && (
