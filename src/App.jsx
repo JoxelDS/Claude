@@ -17020,13 +17020,36 @@ function KitchenQrPage({ onBack }) {
     if (k.site) params.set("site", k.site);
     if (k.unit) params.set("unit", k.unit);
     if (k.floor) params.set("floor", k.floor);
+    if (k.locType) params.set("loctype", k.locType);
     if (VENUE_ID && VENUE_ID !== "default") params.set("v", VENUE_ID);
     return base + "?" + params.toString();
   }
 
+  // Known stands for the home venue — render instantly so QRs are ready even
+  // before (or without) the history fetch. Users can ✕-hide any of these.
+  const SEED_KITCHENS = VENUE_ID === "default" ? [
+    // [site, unit, location type] — from this venue's own inspection data
+    ["Magic City Dogs", "101"], ["Golden Coop", "102"], ["Sobe Q", "104"], ["Fatboy Smashburger", "106"],
+    ["Magic City Dogs", "114"], ["Tostitos", "119"], ["Wynwood Walkthrough", "122 A"], ["Magic City Dogs", "129"],
+    ["Magic City Dogs", "135"], ["Italianvice", "139"], ["Wynwood Walkthrough", "142"], ["Little Caesar", "142"],
+    ["Fatboy Smashburger", "150", "Portable - Stadium"], ["Wynwood Walkthrough", "150"], ["M Club Live Kitchen", "204"],
+    ["Farmstead/Avoeats", "214"], ["Donuts & Ice Cream", "217"], ["Shula Burger", "222"], ["Edgewater Grill", "242"],
+    ["Sushi Maki / Sea Food Republic", "243"], ["Shula Burger / Farmstead / Pizza", "250"],
+    ["Granny Beez", "304", "Subcontractor"], ["Arepa Cart", "307", "Portable - Subcontractor"],
+    ["Lemonade Cart", "308", "Portable - Subcontractor"], ["Milanation", "313"],
+    ["Puffles", "318", "Subcontractor"], ["Fuku", "319", "Subcontractor"],
+    ["Aifi", "317"], ["Aifi", "319 a"], ["Shawarma", "322", "Portable - Subcontractor"],
+    ["Lemonade Cart", "322", "Portable - Subcontractor"], ["Chef Creole", "329", "Portable - Stadium"],
+    ["Seed", "332", "Subcontractor"], ["Cantaloupe", "336"], ["Bar", "342"], ["Little Caesar", "345"],
+    ["Aifi", "347 A"], ["Sol Cubano", "350"], ["Shawarma Gyros / Sub", "350", "Portable - Subcontractor"],
+    ["Crisppi Chicken", ""],
+  ].map(([site, unit, locType]) => ({ id: `${site.toLowerCase()}|${unit.toLowerCase()}`, site, unit, floor: "", locType: locType || "Concession" })) : [];
+
   useEffect(() => {
     (async () => {
       setLoading(true);
+      // Show the built-in stand list immediately — QRs generate right away
+      if (SEED_KITCHENS.length) { setKitchens(SEED_KITCHENS); setLoading(false); }
       const seen = new Set();
       const list = [];
       // Kitchen registry: manually added stands + hidden ones (shared across devices)
@@ -17037,10 +17060,16 @@ function KitchenQrPage({ onBack }) {
         regItems = reg.items || {};
         regHidden = reg.hidden || {};
       } catch {}
+      // Seeds first (respect hidden), then registry adds, then history-derived
+      for (const k of SEED_KITCHENS) {
+        if (regHidden[k.id] || seen.has(k.id)) continue;
+        seen.add(k.id);
+        list.push(k);
+      }
       for (const [id, k] of Object.entries(regItems)) {
         if (regHidden[id] || seen.has(id)) continue;
         seen.add(id);
-        list.push({ id, site: k.site || "", unit: k.unit || "", floor: k.floor || "" });
+        list.push({ id, site: k.site || "", unit: k.unit || "", floor: k.floor || "", locType: k.locType || "" });
       }
       try {
         const { list: hist } = await loadHistory(undefined, { pageSize: 300 });
@@ -17205,7 +17234,7 @@ function KitchenQrPage({ onBack }) {
                 {qrUrls[k.id]
                   ? <img src={qrUrls[k.id]} alt="" width={150} height={150} />
                   : <div style={{ width: 150, height: 150, margin: "0 auto", background: "var(--surface-2)", borderRadius: 6 }} />}
-                <div style={{ fontSize: "0.72rem", color: "var(--ink-500)", marginTop: 6 }}>{k.floor || "Scan to log temps & problems"}</div>
+                <div style={{ fontSize: "0.72rem", color: "var(--ink-500)", marginTop: 6 }}>{[k.locType, k.floor].filter(Boolean).join(" · ") || "Scan to log temps & problems"}</div>
               </div>
             </div>
           ))}
