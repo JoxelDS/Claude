@@ -1394,10 +1394,12 @@ async function loadHaccpForReport(reportId) {
 async function loadHaccpBySite(siteName, inspectionDate, reportId = null, unit = null) {
   if (!siteName || !inspectionDate) return [];
   const siteNorm = siteName.trim().toLowerCase();
-  const unitNorm = (unit || "").trim().toLowerCase();
-  // When both sides have a unit, require equality — stops same-named stands
-  // (e.g. two "LEMONADE CART"s) from bleeding into each other's logs.
-  const unitMatch = r => !unitNorm || !(r.unit || "").trim() || (r.unit || "").trim().toLowerCase() === unitNorm;
+  const unitNorm = normUnit(unit);
+  // Numbers don't lie: when both sides have a unit, the unit IS the match —
+  // the stand name may have changed between records. Site name only matters
+  // when one side has no unit.
+  const bothUnits = r => unitNorm && normUnit(r.unit);
+  const unitMatch = r => !unitNorm || !normUnit(r.unit) || normUnit(r.unit) === unitNorm;
   const datePrefix = inspectionDate.slice(0, 10); // "YYYY-MM-DD"
   if (FIREBASE_ON) {
     try {
@@ -1413,7 +1415,7 @@ async function loadHaccpBySite(siteName, inspectionDate, reportId = null, unit =
         .flatMap(snap => snap ? snap.docs.map(d => d.data()) : [])
         .filter(r => {
           if (seen.has(r.id)) return false; seen.add(r.id);
-          const siteMatch = (r.site || "").trim().toLowerCase() === siteNorm;
+          const siteMatch = bothUnits(r) ? normUnit(r.unit) === unitNorm : (r.site || "").trim().toLowerCase() === siteNorm;
           const dateMatch = (r.submittedAt || "").startsWith(datePrefix);
           // If a reportId is known, only include logs that either match it or have no reportId
           // (pre-fix legacy records). This prevents logs from same-named stands bleeding across.
@@ -1428,8 +1430,9 @@ async function loadHaccpBySite(siteName, inspectionDate, reportId = null, unit =
     return all
       .filter(r => {
         const reportMatch = !reportId || !r.reportId || r.reportId === reportId;
+        const siteOk = bothUnits(r) ? normUnit(r.unit) === unitNorm : (r.site || "").trim().toLowerCase() === siteNorm;
         return r.type === "submission" &&
-          (r.site || "").trim().toLowerCase() === siteNorm &&
+          siteOk &&
           (r.submittedAt || "").startsWith(datePrefix) &&
           reportMatch && unitMatch(r);
       })
@@ -2876,6 +2879,13 @@ function splitAreaCategory(area) {
   if (/haccp/.test(s)) return { category: "HACCP", item: raw };
   if (/temp/.test(s)) return { category: "Temps", item: raw };
   return { category: "General", item: raw };
+}
+
+// Unit numbers are the true identity of a stand — names drift between
+// inspections, numbers don't. "142 a" and "142 A" are the same unit; "142"
+// is a different one.
+function normUnit(u) {
+  return String(u ?? "").trim().toUpperCase().replace(/\s+/g, "");
 }
 
 function buildActionItems({ inspection, rawNotes, foodTemps: ftArg, foodTempNames: fnArg, foodTempCorrections: fcArg, foodTempSubmitted: fsArg }) {
@@ -17043,7 +17053,7 @@ function KitchenQrPage({ onBack }) {
     ["Seed", "332", "Subcontractor"], ["Cantaloupe", "336"], ["Bar", "342"], ["Little Caesar", "345"],
     ["Aifi", "347 A"], ["Sol Cubano", "350"], ["Shawarma Gyros / Sub", "350", "Portable - Subcontractor"],
     ["Crisppi Chicken", ""],
-  ].map(([site, unit, locType]) => ({ id: `${site.toLowerCase()}|${unit.toLowerCase()}`, site, unit, floor: "", locType: locType || "Concession" })) : [];
+  ].map(([site, unit, locType]) => ({ id: unit ? `u:${normUnit(unit)}` : `s:${site.toLowerCase()}`, site, unit, floor: "", locType: locType || "Concession" })) : [];
 
   useEffect(() => {
     (async () => {
@@ -17060,34 +17070,43 @@ function KitchenQrPage({ onBack }) {
         regItems = reg.items || {};
         regHidden = reg.hidden || {};
       } catch {}
-      // Seeds first (respect hidden), then registry adds, then history-derived
-      for (const k of SEED_KITCHENS) {
-        if (regHidden[k.id] || seen.has(k.id)) continue;
-        seen.add(k.id);
-        list.push(k);
-      }
-      for (const [id, k] of Object.entries(regItems)) {
-        if (regHidden[id] || seen.has(id)) continue;
+      // Identity is the UNIT NUMBER (u:142A); names are display only, so name
+      // variants of the same unit collapse into one card. Registry (user
+      // edits) wins over seeds, seeds over history-derived names.
+      const kidOf = (site, unit) => unit ? `u:${normUnit(unit)}` : `s:${(site || "").toLowerCase()}`;
+      const legacyHidden = (site, unit) => regHidden[`${(site || "").toLowerCase()}|${(unit || "").toLowerCase()}`];
+      const isHidden = (k) => regHidden[k.id] || legacyHidden(k.site, k.unit);
+      for (const [rid, k] of Object.entries(regItems)) {
+        const id = kidOf(k.site, k.unit);
+        if (regHidden[rid] || regHidden[id] || seen.has(id)) continue;
         seen.add(id);
         list.push({ id, site: k.site || "", unit: k.unit || "", floor: k.floor || "", locType: k.locType || "", license: k.license || "" });
       }
+      for (const k of SEED_KITCHENS) {
+        if (isHidden(k) || seen.has(k.id)) continue;
+        seen.add(k.id);
+        list.push(k);
+      }
       try {
         const { list: hist } = await loadHistory(undefined, { pageSize: 300 });
+        // Licenses belong to units: newest license seen for a unit wins.
+        const licenseByUnit = {};
         for (const rec of (hist || [])) {
           const site = (rec.siteName || "").trim();
           if (!site) continue;
           const unit = (rec.siteNumber || "").trim();
           const floor = (rec.floor || "").trim();
-          const id = `${site.toLowerCase()}|${unit.toLowerCase()}`;
+          const id = kidOf(site, unit);
           const license = rec.restaurantLicense && rec.restaurantLicense !== "NO LICENSE" ? String(rec.restaurantLicense) : "";
-          if (regHidden[id]) continue;
-          if (seen.has(id)) {
-            // Backfill a license onto an already-listed stand (seed/registry entry)
-            if (license) { const ex = list.find(x => x.id === id); if (ex && !ex.license) ex.license = license; }
-            continue;
-          }
+          if (license && unit && !licenseByUnit[normUnit(unit)]) licenseByUnit[normUnit(unit)] = license;
+          if (regHidden[id] || legacyHidden(site, unit)) continue;
+          if (seen.has(id)) continue;
           seen.add(id);
           list.push({ id, site, unit, floor, license });
+        }
+        // Sync licenses onto every card by unit number (registry edit still wins)
+        for (const k of list) {
+          if (!k.license && k.unit && licenseByUnit[normUnit(k.unit)]) k.license = licenseByUnit[normUnit(k.unit)];
         }
       } catch {}
       list.sort((a, b) => a.site.localeCompare(b.site) || a.unit.localeCompare(b.unit, undefined, { numeric: true }));
@@ -17109,7 +17128,7 @@ function KitchenQrPage({ onBack }) {
     const site = addSite.trim();
     if (!site) return;
     const unit = addUnit.trim(), floor = addFloor.trim();
-    const id = `${site.toLowerCase()}|${unit.toLowerCase()}`;
+    const id = unit ? `u:${normUnit(unit)}` : `s:${site.toLowerCase()}`;
     setKitchens(prev => prev.some(k => k.id === id) ? prev : [{ id, site, unit, floor }, ...prev]);
     setAddSite(""); setAddUnit("");
     // Persist so the stand survives reloads and shows on every device
@@ -17135,7 +17154,7 @@ function KitchenQrPage({ onBack }) {
     const site = editForm.site.trim();
     if (!site) return;
     const unit = editForm.unit.trim(), floor = editForm.floor.trim(), license = editForm.license.trim();
-    const newId = `${site.toLowerCase()}|${unit.toLowerCase()}`;
+    const newId = unit ? `u:${normUnit(unit)}` : `s:${site.toLowerCase()}`;
     const updated = { id: newId, site, unit, floor, license, locType: oldK.locType || "" };
     setKitchens(prev => prev.map(k => k.id === oldK.id ? updated : k));
     setEditKitchenId(null);
@@ -21048,13 +21067,14 @@ function HaccpPortal() {
         const all = await loadHaccpSubmissions();
         const today = new Date().toISOString().slice(0, 10);
         const siteNorm = urlSite.trim().toLowerCase();
-        const unitNorm = (urlUnit || "").trim().toLowerCase();
-        const list = (all || []).filter(r =>
-          r.type === "submission" &&
-          (r.submittedAt || "").slice(0, 10) === today &&
-          (r.site || "").trim().toLowerCase() === siteNorm &&
-          (!unitNorm || !(r.unit || "").trim() || (r.unit || "").trim().toLowerCase() === unitNorm)
-        ).sort((a, b) => (a.submittedAt || "").localeCompare(b.submittedAt || ""));
+        const unitNorm = normUnit(urlUnit);
+        const list = (all || []).filter(r => {
+          if (r.type !== "submission" || (r.submittedAt || "").slice(0, 10) !== today) return false;
+          // Unit number is the identity when both sides have one; otherwise
+          // fall back to the site name.
+          if (unitNorm && normUnit(r.unit)) return normUnit(r.unit) === unitNorm;
+          return (r.site || "").trim().toLowerCase() === siteNorm;
+        }).sort((a, b) => (a.submittedAt || "").localeCompare(b.submittedAt || ""));
         if (!dead) setTodayChecks(list);
       } catch { if (!dead) setTodayChecks([]); }
     })();
