@@ -17303,9 +17303,11 @@ function KitchenQrPage({ onBack }) {
 
 /* ── Global Admin Panel ───────────────────────────────────── */
 function GlobalAdminPanel({ currentUser, onBack, onManageVenue, onEnterVenue, onCreateReport }) {
-  const [venues, setVenues] = useState([]);
-  const [venueStats, setVenueStats] = useState({});
-  const [loading, setLoading] = useState(true);
+  // Warm-start from cache so the list paints instantly on repeat visits;
+  // fresh data streams in behind it.
+  const [venues, setVenues] = useState(() => { try { return JSON.parse(localStorage.getItem("sdx_venue_registry_cache") || "[]"); } catch { return []; } });
+  const [venueStats, setVenueStats] = useState(() => { try { return JSON.parse(localStorage.getItem("sdx_venue_stats_cache") || "{}"); } catch { return {}; } });
+  const [loading, setLoading] = useState(() => { try { return JSON.parse(localStorage.getItem("sdx_venue_registry_cache") || "[]").length === 0; } catch { return true; } });
   const [filter, setFilter] = useState("");
   const [statsTab, setStatsTab] = useState("list"); // "overview" | "list"
   const [showAddForm, setShowAddForm] = useState(false);
@@ -17339,45 +17341,55 @@ function GlobalAdminPanel({ currentUser, onBack, onManageVenue, onEnterVenue, on
 
   useEffect(() => {
     async function load() {
-      setLoading(true);
-      // Which brand does this admin belong to?
-      //   default venue → MASTER admin: sees every venue, grouped by client
-      //   client venue  → scoped: only that client's venues
+      // ONE registry collection read serves everything: venues, clients, and
+      // this admin's scope record (they all live in venueRegistry docs).
       const isMaster = VENUE_ID === "default";
+      let docs = [];
+      try {
+        const snap = await getDocs(venueRegistryCol());
+        docs = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(d => d.status !== "deleted");
+      } catch {}
       let cid = "";
       let cRec = null;
-      if (FIREBASE_ON && !isMaster) {
-        try {
-          const regSnap = await getDoc(venueRegistryDoc(VENUE_ID));
-          if (regSnap.exists()) {
-            const reg = regSnap.data();
-            cid = reg._type === "client" ? VENUE_ID : (reg.clientId || "");
-          }
-          if (cid) {
-            const cSnap = await getDoc(venueRegistryDoc(cid));
-            if (cSnap.exists()) cRec = { id: cid, ...cSnap.data() };
-          }
-        } catch {}
+      if (!isMaster) {
+        const own = docs.find(d => d.id === VENUE_ID);
+        if (own) cid = own._type === "client" ? VENUE_ID : (own.clientId || "");
+        if (cid) { const c = docs.find(d => d.id === cid); if (c) cRec = c; }
       }
       setScopeClientId(cid);
       setScopeClient(cRec);
-      if (isMaster) loadClientRegistry().then(setClients).catch(() => {});
-      const all = await loadVenueRegistry();
+      if (isMaster) setClients(docs.filter(d => d._type === "client"));
+      const all = docs.filter(d => d._type !== "client");
       const list = isMaster ? all : all.filter(v => (v.clientId || "") === cid);
       list.sort((a, b) => (a.name || a.id).localeCompare(b.name || b.id));
       setVenues(list);
       setLoading(false);
-      // Load stats in parallel (batched to avoid Firestore limits)
-      const BATCH = 20;
-      for (let i = 0; i < list.length; i += BATCH) {
-        const batch = list.slice(i, i + BATCH);
-        const results = await Promise.all(batch.map(v => loadVenueStats(v.id).then(s => [v.id, s])));
-        setVenueStats(prev => {
-          const next = { ...prev };
-          results.forEach(([id, s]) => { next[id] = s; });
-          return next;
-        });
-      }
+      try { localStorage.setItem("sdx_venue_registry_cache", JSON.stringify(list)); } catch {}
+      // Stream stats in the background so they never block the list; skip the
+      // refetch entirely when the cached stats are under 5 minutes old.
+      (async () => {
+        let cachedAt = 0;
+        try { cachedAt = Number(localStorage.getItem("sdx_venue_stats_cache_at") || 0); } catch {}
+        const need = Date.now() - cachedAt < 5 * 60 * 1000 ? [] : list;
+        const BATCH = 20;
+        const collected = {};
+        for (let i = 0; i < need.length; i += BATCH) {
+          const batch = need.slice(i, i + BATCH);
+          const results = await Promise.all(batch.map(v => loadVenueStats(v.id).then(st => [v.id, st])));
+          setVenueStats(prev => {
+            const next = { ...prev };
+            results.forEach(([id, st]) => { next[id] = st; collected[id] = st; });
+            return next;
+          });
+        }
+        if (need.length) {
+          try {
+            const prevStats = JSON.parse(localStorage.getItem("sdx_venue_stats_cache") || "{}");
+            localStorage.setItem("sdx_venue_stats_cache", JSON.stringify({ ...prevStats, ...collected }));
+            localStorage.setItem("sdx_venue_stats_cache_at", String(Date.now()));
+          } catch {}
+        }
+      })();
     }
     load();
   }, []);
