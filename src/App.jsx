@@ -17015,7 +17015,7 @@ function PrintLabelsPage({ onBack }) {
 /* ── Kitchen QR Posters: one QR per kitchen/stand — scanning opens the HACCP
    temp log prefilled for that exact location, so every kitchen can self-report
    and the inspectors see it live ─────────────────────────────────────────── */
-function KitchenQrPage({ onBack }) {
+function KitchenQrPage({ onBack, onPrintLabels }) {
   const [kitchens, setKitchens] = useState([]); // { id, site, unit, floor }
   const [qrUrls, setQrUrls] = useState({});
   const [loading, setLoading] = useState(true);
@@ -17170,6 +17170,9 @@ function KitchenQrPage({ onBack }) {
   // only complete stands show (and print) by default.
   const isComplete = k => !!(k.site && k.site.trim() && normUnit(k.unit) && (k.license || "").trim());
   const [showIncomplete, setShowIncomplete] = useState(false);
+  // Tap-to-select which posters to print (empty selection = print all shown)
+  const [selectedIds, setSelectedIds] = useState(new Set());
+  const toggleSelect = id => setSelectedIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
   const searched = search.trim()
     ? kitchens.filter(k => `${k.site} ${k.unit} ${k.floor} ${k.license || ""}`.toLowerCase().includes(search.trim().toLowerCase()))
     : kitchens;
@@ -17177,7 +17180,7 @@ function KitchenQrPage({ onBack }) {
   const shown = showIncomplete ? searched : searched.filter(isComplete);
 
   function printPosters() {
-    const items = shown;
+    const items = selectedIds.size ? shown.filter(k => selectedIds.has(k.id)) : shown;
     if (items.length === 0) return;
     const esc = (t) => String(t || "").replace(/&/g, "&amp;").replace(/</g, "&lt;");
     const logoUrl = resolveLogoDark().startsWith("data:") ? resolveLogoDark() : window.location.origin + resolveLogoDark().replace(window.location.origin, "");
@@ -17230,10 +17233,18 @@ function KitchenQrPage({ onBack }) {
             <div style={{ color: "rgba(255,255,255,0.7)", fontSize: "0.75rem" }}>One QR per kitchen — teams self-report temps &amp; problems</div>
           </div>
         </div>
-        <button type="button" onClick={printPosters} disabled={shown.length === 0}
-          style={{ background: shown.length === 0 ? "rgba(255,255,255,0.18)" : "#fff", color: shown.length === 0 ? "rgba(255,255,255,0.75)" : "var(--sdx-navy)", border: "none", borderRadius: 10, cursor: "pointer", fontWeight: 700, fontSize: "0.85rem", padding: "0.5rem 1.1rem", whiteSpace: "nowrap" }}>
-          🖨 Print ({shown.length})
-        </button>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          {onPrintLabels && (
+            <button className="btn btnGhost" type="button" onClick={onPrintLabels}
+              style={{ color: "#fff", borderColor: "rgba(255,255,255,0.4)", padding: "0.3rem 0.75rem", fontSize: "0.8rem", whiteSpace: "nowrap" }}>
+              🏷 Equipment Labels
+            </button>
+          )}
+          <button type="button" onClick={printPosters} disabled={shown.length === 0}
+            style={{ background: shown.length === 0 ? "rgba(255,255,255,0.18)" : "#fff", color: shown.length === 0 ? "rgba(255,255,255,0.75)" : "var(--sdx-navy)", border: "none", borderRadius: 10, cursor: "pointer", fontWeight: 700, fontSize: "0.85rem", padding: "0.5rem 1.1rem", whiteSpace: "nowrap" }}>
+            🖨 Print ({selectedIds.size || shown.length})
+          </button>
+        </div>
       </header>
       <div style={{ height: 64, flexShrink: 0 }} />
 
@@ -17285,9 +17296,30 @@ function KitchenQrPage({ onBack }) {
             </button>
           </div>
         )}
+        {shown.length > 0 && (
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
+            <span style={{ fontSize: "0.78rem", color: "var(--ink-500)", fontWeight: 600 }}>
+              {selectedIds.size === 0 ? "Tap posters to choose which ones to print — or just hit Print for all" : `${selectedIds.size} selected for printing`}
+            </span>
+            <button type="button"
+              onClick={() => setSelectedIds(selectedIds.size === shown.length ? new Set() : new Set(shown.map(k => k.id)))}
+              style={{ fontSize: "0.75rem", fontWeight: 700, padding: "0.3rem 0.85rem", borderRadius: 999, border: "1.5px solid var(--sdx-navy)", background: "var(--sdx-navy)", color: "#fff", cursor: "pointer" }}>
+              {selectedIds.size === shown.length ? "Deselect All" : "Select All"}
+            </button>
+            {selectedIds.size > 0 && (
+              <button type="button" onClick={() => setSelectedIds(new Set())}
+                style={{ fontSize: "0.75rem", fontWeight: 700, padding: "0.3rem 0.85rem", borderRadius: 999, border: "1.5px solid var(--sdx-gray-200)", background: "var(--surface-2)", color: "var(--ink-600)", cursor: "pointer" }}>
+                Clear
+              </button>
+            )}
+          </div>
+        )}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(230px, 1fr))", gap: 14 }}>
           {shown.map(k => (
-            <div key={k.id} style={{ background: "var(--surface-1)", borderRadius: 12, overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,0.08)", border: "1.5px solid var(--sdx-gray-200)" }}>
+            <div key={k.id} style={{ background: "var(--surface-1)", borderRadius: 12, overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,0.08)", border: selectedIds.has(k.id) ? `2.5px solid ${brandColor}` : "1.5px solid var(--sdx-gray-200)", position: "relative" }}>
+              {selectedIds.has(k.id) && (
+                <div style={{ position: "absolute", top: 42, right: 8, background: brandColor, color: "#fff", borderRadius: 999, width: 26, height: 26, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: "0.85rem", zIndex: 2, boxShadow: "0 1px 4px rgba(0,0,0,0.3)" }}>✓</div>
+              )}
               <div style={{ background: brandColor, color: "#fff", padding: "8px 12px", fontWeight: 800, fontSize: "0.82rem", display: "flex", justifyContent: "space-between", gap: 6 }}>
                 <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>🍳 {k.site}</span>
                 <span style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 6 }}>
@@ -17324,7 +17356,7 @@ function KitchenQrPage({ onBack }) {
                   </div>
                 </div>
               ) : (
-                <div style={{ padding: 12, textAlign: "center" }}>
+                <div style={{ padding: 12, textAlign: "center", cursor: "pointer" }} onClick={() => toggleSelect(k.id)}>
                   {qrUrls[k.id]
                     ? <img src={qrUrls[k.id]} alt="" width={150} height={150} />
                     : <div style={{ width: 150, height: 150, margin: "0 auto", background: "var(--surface-2)", borderRadius: 6 }} />}
@@ -23625,8 +23657,8 @@ export default function App() {
   if (page === "mylocations") { return <MyLocationsPage currentUser={currentUser} venueSettings={venueSettings} saveVenueSettings={saveVenueSettings} onBack={() => setPage("inspector")} onSelectLocation={(loc, slotId) => { setSiteName(loc); activeSlotIdRef.current = slotId || null; setPage("inspector"); window.scrollTo({ top: 0, behavior: "smooth" }); }} />; }
   if (page === "mytemps")           { return <MyTempsPage currentUser={currentUser} onBack={() => setPage("inspector")} />; }
   if (page === "equipment_scanner") { return <EquipmentScannerPage onBack={() => setPage("inspector")} onPrintLabels={() => setPage("print_labels")} onKitchenQr={() => setPage("kitchen_qr")} />; }
-  if (page === "print_labels")      { return <PrintLabelsPage onBack={() => setPage("equipment_scanner")} />; }
-  if (page === "kitchen_qr")        { return <KitchenQrPage onBack={() => setPage("equipment_scanner")} />; }
+  if (page === "print_labels")      { return <PrintLabelsPage onBack={() => setPage("equipment_scanner")} onKitchenQr={() => setPage("kitchen_qr")} />; }
+  if (page === "kitchen_qr")        { return <KitchenQrPage onBack={() => setPage("inspector")} onPrintLabels={() => setPage("print_labels")} />; }
 
   const spec = NOTE_TYPES[noteType];
 
@@ -24443,6 +24475,11 @@ export default function App() {
             {currentUser && (
               <button className="dropdownMenuItem" onClick={() => { setPage("print_labels"); setMenuOpen(false); }} type="button">
                 🏷 Print Equipment Labels
+              </button>
+            )}
+            {currentUser && (
+              <button className="dropdownMenuItem" onClick={() => { setPage("kitchen_qr"); setMenuOpen(false); }} type="button">
+                🍳 Kitchen QR Posters
               </button>
             )}
             {currentUser && (
