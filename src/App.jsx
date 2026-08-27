@@ -17166,9 +17166,15 @@ function KitchenQrPage({ onBack }) {
   }
 
   const brandColor = (/^#[0-9a-fA-F]{6}$/.test(_vs.primaryColor || "") ? _vs.primaryColor : "#2A295C");
-  const shown = search.trim()
-    ? kitchens.filter(k => `${k.site} ${k.unit} ${k.floor}`.toLowerCase().includes(search.trim().toLowerCase()))
+  // A stand is "complete" when it has a name, a unit number, and a license —
+  // only complete stands show (and print) by default.
+  const isComplete = k => !!(k.site && k.site.trim() && normUnit(k.unit) && (k.license || "").trim());
+  const [showIncomplete, setShowIncomplete] = useState(false);
+  const searched = search.trim()
+    ? kitchens.filter(k => `${k.site} ${k.unit} ${k.floor} ${k.license || ""}`.toLowerCase().includes(search.trim().toLowerCase()))
     : kitchens;
+  const incompleteCount = searched.filter(k => !isComplete(k)).length;
+  const shown = showIncomplete ? searched : searched.filter(isComplete);
 
   function printPosters() {
     const items = shown;
@@ -17266,6 +17272,19 @@ function KitchenQrPage({ onBack }) {
           </div>
         )}
 
+        {incompleteCount > 0 && (
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
+            <span style={{ fontSize: "0.78rem", color: "var(--ink-500)", fontWeight: 600 }}>
+              {showIncomplete
+                ? `Showing all stands — ${incompleteCount} missing info (unit or license)`
+                : `⚠ ${incompleteCount} stand${incompleteCount !== 1 ? "s" : ""} hidden — missing unit # or license`}
+            </span>
+            <button type="button" onClick={() => setShowIncomplete(v => !v)}
+              style={{ fontSize: "0.75rem", fontWeight: 700, padding: "0.3rem 0.85rem", borderRadius: 999, border: "1.5px solid var(--sdx-gray-200)", background: "var(--surface-2)", color: "var(--ink-600)", cursor: "pointer" }}>
+              {showIncomplete ? "Hide incomplete" : "Show them to finish"}
+            </button>
+          </div>
+        )}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(230px, 1fr))", gap: 14 }}>
           {shown.map(k => (
             <div key={k.id} style={{ background: "var(--surface-1)", borderRadius: 12, overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,0.08)", border: "1.5px solid var(--sdx-gray-200)" }}>
@@ -17310,6 +17329,11 @@ function KitchenQrPage({ onBack }) {
                     ? <img src={qrUrls[k.id]} alt="" width={150} height={150} />
                     : <div style={{ width: 150, height: 150, margin: "0 auto", background: "var(--surface-2)", borderRadius: 6 }} />}
                   <div style={{ fontSize: "0.72rem", color: "var(--ink-500)", marginTop: 6 }}>{[k.locType, k.floor, k.license ? `Lic. ${k.license}` : ""].filter(Boolean).join(" · ") || "Scan to log temps & problems"}</div>
+                  {!isComplete(k) && (
+                    <div style={{ fontSize: "0.7rem", color: "#92400E", background: "var(--tint-amber-1, #fffbeb)", border: "1px solid #fde68a", borderRadius: 6, padding: "3px 8px", marginTop: 6, display: "inline-block", fontWeight: 700 }}>
+                      Missing: {[!normUnit(k.unit) && "unit #", !(k.license || "").trim() && "license"].filter(Boolean).join(", ")} — tap ✎
+                    </div>
+                  )}
                 </div>
               )}
             </div>
