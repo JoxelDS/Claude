@@ -24021,6 +24021,26 @@ export default function App() {
         !hasEquip    && "At least one equipment status (Equipment)",
         !hasChecklist && "At least one checklist item (Checklist)",
       ].filter(Boolean);
+      // Detailed report check: unanswered checklist items and failed items
+      // with no photo, each with a jump link straight to the spot.
+      const SECTION_PANEL = { facility: 1, equipment: 2, utensils: 3 };
+      const SECTION_NAME = { facility: "Facilities", equipment: "Equipment", utensils: "Utensils" };
+      for (const sec of ["facility", "equipment", "utensils"]) {
+        for (const [key, node] of Object.entries(inspection[sec] || {})) {
+          const cl = node?.checklist;
+          if (!Array.isArray(cl) || cl.length === 0) continue;
+          const label = node.label || key.replace(/([A-Z])/g, " $1").replace(/^./, c => c.toUpperCase()).trim();
+          const pending = cl.filter(c => c.value === "").length;
+          const answered = cl.length - pending;
+          if (pending > 0 && answered > 0) {
+            incomplete.push({ text: `${SECTION_NAME[sec]} – ${label}: ${pending} checklist item${pending !== 1 ? "s" : ""} unanswered`, jump: { pid: SECTION_PANEL[sec], key, full: "" } });
+          }
+          const noPhoto = cl.filter(c => c.value === "NO" && !(c.photos || []).length).length;
+          if (noPhoto > 0) {
+            incomplete.push({ text: `${SECTION_NAME[sec]} – ${label}: ${noPhoto} issue${noPhoto !== 1 ? "s" : ""} without a photo`, jump: { pid: SECTION_PANEL[sec], key, full: "" } });
+          }
+        }
+      }
       if (incomplete.length > 0) {
         setModals(m => ({ ...m, preSubmit: { incomplete } }));
         return;
@@ -26370,7 +26390,20 @@ export default function App() {
               The following sections appear to be empty. You can still generate the report, but it may be incomplete.
             </div>
             <ul style={{ margin: "0 0 18px 0", padding: "0 0 0 18px", color: "#dc2626", fontSize: "0.85rem", lineHeight: 2 }}>
-              {modals.preSubmit.incomplete.map((item, i) => <li key={i}>{item}</li>)}
+              {modals.preSubmit.incomplete.map((item, i) => typeof item === "string"
+                ? <li key={i}>{item}</li>
+                : (
+                  <li key={i}>
+                    {item.text}
+                    {item.jump && (
+                      <button type="button"
+                        onClick={() => { setModals(m => ({ ...m, preSubmit: false })); jumpToGuideItem({ pid: item.jump.pid, key: item.jump.key, full: item.jump.full }); }}
+                        style={{ marginLeft: 8, fontSize: "0.72rem", fontWeight: 800, padding: "2px 10px", borderRadius: 999, border: "1px solid #2563eb", background: "#eff6ff", color: "#2563eb", cursor: "pointer" }}>
+                        Go fix →
+                      </button>
+                    )}
+                  </li>
+                ))}
             </ul>
             <div style={{ display: "flex", gap: 10 }}>
               <button
