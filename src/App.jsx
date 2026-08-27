@@ -11621,7 +11621,32 @@ function MyLocationsPage({ currentUser, venueSettings, saveVenueSettings, onBack
   const pastSlots     = allMySlots.filter(s => s.date < today).reverse();
 
   const pinnedLocation = currentUser?.assignedLocation || null;
-  const hasAnything = pinnedLocation || allMySlots.length > 0;
+  const assignedStands = currentUser?.assignedStands || [];
+  const hasAnything = pinnedLocation || allMySlots.length > 0 || assignedStands.length > 0;
+
+  // Which assigned stands already have an inspection saved today (by me)?
+  const [standsDoneToday, setStandsDoneToday] = useState({});
+  useEffect(() => {
+    if (!assignedStands.length) return;
+    let dead = false;
+    (async () => {
+      try {
+        const { list } = await loadHistory(undefined, { pageSize: 60 });
+        const done = {};
+        for (const rec of (list || [])) {
+          const d = (rec.savedAt || rec.inspectionDate || "").slice(0, 10);
+          if (d !== today) continue;
+          const nm = (rec.siteName || "").trim().toUpperCase();
+          for (const st of assignedStands) {
+            if (nm === st.trim().toUpperCase()) done[st] = rec.inspectorName || true;
+          }
+        }
+        if (!dead) setStandsDoneToday(done);
+      } catch {}
+    })();
+    return () => { dead = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [assignedStands.join("|")]);
 
   function toggleDone(slotId) {
     const prev = venueSettings?.completedSlots || [];
@@ -11752,6 +11777,40 @@ function MyLocationsPage({ currentUser, venueSettings, saveVenueSettings, onBack
               <span style={{ fontSize: "0.75rem", color: "var(--ink-400)" }}>{showPast ? "▲" : "▼"}</span>
             </button>
             {showPast && pastSlots.map(slot => <SlotCard key={slot.id} slot={slot} />)}
+          </div>
+        )}
+
+        {/* ── Assigned stands (standing assignments — inspect these regularly) ── */}
+        {assignedStands.length > 0 && (
+          <div style={{ marginBottom: 20 }}>
+            <div style={{ fontSize: "0.68rem", fontWeight: 700, color: "var(--ink-400)", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 10 }}>
+              My Stands — {assignedStands.length}
+            </div>
+            {assignedStands.map(st => {
+              const done = !!standsDoneToday[st];
+              return (
+                <div key={st} style={{
+                  display: "flex", gap: 12, alignItems: "center",
+                  background: done ? "var(--tint-green-1, #f0fdf4)" : "var(--surface-1)",
+                  border: `1.5px solid ${done ? "#86efac" : "var(--sdx-gray-200)"}`,
+                  borderRadius: 12, padding: "12px 14px", marginBottom: 10,
+                }}>
+                  <span style={{ fontSize: "1.2rem" }}>{done ? "✅" : "📍"}</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 800, fontSize: "0.9rem" }}>{st}</div>
+                    <div style={{ fontSize: "0.74rem", color: done ? "#15803D" : "var(--ink-500)" }}>
+                      {done ? "Inspected today ✓" : "Not inspected today yet"}
+                    </div>
+                  </div>
+                  {!done && (
+                    <button type="button" onClick={() => onSelectLocation?.(st)}
+                      style={{ background: "var(--sdx-navy)", color: "#fff", border: "none", borderRadius: 9, padding: "0.5rem 0.9rem", fontWeight: 800, fontSize: "0.78rem", cursor: "pointer", whiteSpace: "nowrap" }}>
+                      Start Inspection →
+                    </button>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
 
@@ -17966,12 +18025,24 @@ function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVe
   }
 
   async function handleSetStands(badgeHash, standsStr) {
-    const stands = standsStr.split(",").map(s => s.trim()).filter(Boolean);
+    // Uppercase to match the Location field / siteMap keys, so autofill and
+    // report matching work no matter how the admin typed the stand name.
+    const stands = standsStr.split(",").map(s => s.trim().toUpperCase()).filter(Boolean);
     const users = await getUsers();
     const u = users.find(x => x.badgeHash === badgeHash);
     if (u) {
       u.assignedStands = stands;
       await saveOneUser(u);
+      // Tell the inspector — same channel as schedule-slot assignments
+      if (stands.length && u.name) {
+        try {
+          saveInspectorNotification({
+            inspectorName: u.name.trim().toLowerCase(),
+            title: "📍 New stand assignment",
+            message: `You've been assigned: ${stands.join(", ")}. Open the app and tap the stand under "Your Assigned Locations" to start the inspection.`,
+          });
+        } catch {}
+      }
     }
     setEditingStands(null);
     await refresh();
@@ -23047,7 +23118,41 @@ export default function App() {
   const notesPhotoRef = useRef(null);
   const [notesSuggestions, setNotesSuggestions] = useState(null); // detected fields from rawNotes
   const [suggestionsDismissed, setSuggestionsDismissed] = useState(false);
-  const [fieldCorrections, setFieldCorrections] = useState({}); // { fieldId: { message, fix: fn } }
+  const [fieldCorrections, setFieldCorrections] = useState({});
+
+  // Set the Location field with full autofill (unit, phone, supervisor, type,
+  // floor, license, remembered equipment) — used by typing AND by the
+  // assigned-stands quick buttons so both paths behave identically.
+  function applySiteAutofill(raw) {
+    const val = String(raw || "").toUpperCase();
+    setSiteName(val);
+    const mem = getAutofillMemory();
+    const mapped = mem.siteMap?.[val];
+    if (mapped) {
+      if (mapped.siteNumber && !siteNumber) setSiteNumber(mapped.siteNumber);
+      if (mapped.sitePhone && !sitePhone) setSitePhone(mapped.sitePhone);
+      if (mapped.supervisorName && !supervisorName) setSupervisorName(mapped.supervisorName);
+      if (mapped.locationType) setLocationType(mapped.locationType);
+      if (mapped.floor) setFloor(mapped.floor);
+      if (mapped.restaurantLicense && !restaurantLicense) setRestaurantLicense(mapped.restaurantLicense);
+      // Restore remembered equipment for Portable / Subcontractor sites
+      const lt = mapped.locationType || locationType;
+      if ((isPortableType(lt) || lt === "Subcontractor") && mapped.equipmentItems?.length) {
+        const restoredEquip = buildEquipFromMemory(mapped.equipmentItems);
+        setInspection(prev => ({ ...prev, equipment: restoredEquip }));
+      }
+    }
+    // License auto-fill (Hard Rock Stadium only for seed lookup)
+    if (!restaurantLicense) {
+      const licEntry = invLicenseData[val];
+      if (licEntry?.licenseNum && licEntry.licenseNum !== "NO LICENSE") {
+        setRestaurantLicense(licEntry.licenseNum);
+      } else if (IS_DEFAULT_VENUE()) {
+        const seedLic = lookupLicenseFromSeed(val, siteNumber);
+        if (seedLic) setRestaurantLicense(seedLic);
+      }
+    }
+  } // { fieldId: { message, fix: fn } }
 
   // ── Smart Field Correction ───────────────────────────────────────────────
   // Detects when a user types data into the wrong field and suggests moving it.
@@ -24762,7 +24867,7 @@ export default function App() {
               <button
                 key={s}
                 type="button"
-                onClick={() => { setSiteName(s); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+                onClick={() => { applySiteAutofill(s); window.scrollTo({ top: 0, behavior: "smooth" }); }}
                 style={{
                   background: "var(--surface-2)",
                   color: "var(--ink-900)",
@@ -24988,36 +25093,7 @@ export default function App() {
                   <input className="input" value={siteName} readOnly style={{ background: "var(--surface-2)", color: "var(--ink-600)", cursor: "not-allowed" }} title="Location is set by your manager" />
                 ) : (
                   <>
-                    <input className="input" list="siteNameSuggestions" value={siteName} onBlur={(e) => smartFieldCorrect("field-siteName", e.target.value)} onChange={(e) => {
-                      const val = e.target.value.toUpperCase();
-                      setSiteName(val);
-                      const mem = getAutofillMemory();
-                      const mapped = mem.siteMap?.[val];
-                      if (mapped) {
-                        if (mapped.siteNumber && !siteNumber) setSiteNumber(mapped.siteNumber);
-                        if (mapped.sitePhone && !sitePhone) setSitePhone(mapped.sitePhone);
-                        if (mapped.supervisorName && !supervisorName) setSupervisorName(mapped.supervisorName);
-                        if (mapped.locationType) setLocationType(mapped.locationType);
-                        if (mapped.floor) setFloor(mapped.floor);
-                        if (mapped.restaurantLicense && !restaurantLicense) setRestaurantLicense(mapped.restaurantLicense);
-                        // Restore remembered equipment for Portable / Subcontractor sites
-                        const lt = mapped.locationType || locationType;
-                        if ((isPortableType(lt) || lt === "Subcontractor") && mapped.equipmentItems?.length) {
-                          const restoredEquip = buildEquipFromMemory(mapped.equipmentItems);
-                          setInspection(prev => ({ ...prev, equipment: restoredEquip }));
-                        }
-                      }
-                      // License auto-fill (Hard Rock Stadium only for seed lookup)
-                      if (!restaurantLicense) {
-                        const licEntry = invLicenseData[val];
-                        if (licEntry?.licenseNum && licEntry.licenseNum !== "NO LICENSE") {
-                          setRestaurantLicense(licEntry.licenseNum);
-                        } else if (IS_DEFAULT_VENUE()) {
-                          const seedLic = lookupLicenseFromSeed(val, siteNumber);
-                          if (seedLic) setRestaurantLicense(seedLic);
-                        }
-                      }
-                    }} placeholder="e.g., North Stand Kitchen" />
+                    <input className="input" list="siteNameSuggestions" value={siteName} onBlur={(e) => smartFieldCorrect("field-siteName", e.target.value)} onChange={(e) => applySiteAutofill(e.target.value)} placeholder="e.g., North Stand Kitchen" />
                     <datalist id="siteNameSuggestions">
                       {(getAutofillMemory().siteName || []).map((s, i) => <option key={i} value={s} />)}
                     </datalist>
