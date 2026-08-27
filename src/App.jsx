@@ -7515,7 +7515,14 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
         const key = `${locName}::${cat}`;
         if (!catLastSeen[key]) catLastSeen[key] = { ts: 0, dateStr: "", count: 0, unit: "" };
         catLastSeen[key].count++;
-        if (ts > catLastSeen[key].ts) { catLastSeen[key].ts = ts; catLastSeen[key].dateStr = rec.inspectionDate; catLastSeen[key].unit = (rec.siteNumber || "").trim(); }
+        if (ts > catLastSeen[key].ts) {
+          catLastSeen[key].ts = ts; catLastSeen[key].dateStr = rec.inspectionDate; catLastSeen[key].unit = (rec.siteNumber || "").trim();
+          // Keep the latest issue description + inspector notes so the
+          // follow-up card can show WHAT the problem actually is.
+          const afterColon = (item.issue || "").split(":").slice(1).join(":").trim();
+          catLastSeen[key].detail = afterColon || (item.issue || "").trim();
+          catLastSeen[key].notes = (item.notes || "").trim();
+        }
       });
     }
     const now = Date.now();
@@ -7530,7 +7537,7 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
         const daysSince = Math.floor((now - v.ts) / (24 * 60 * 60 * 1000));
         const likelyResolved = (latestInspByLoc[loc] || 0) > v.ts;   // a newer inspection had no such issue
         const overdue = !likelyResolved && daysSince >= recheckDays;
-        return { key, loc, cat, unit: v.unit || "", daysSince, count: v.count, dateStr: v.dateStr, likelyResolved, overdue };
+        return { key, loc, cat, unit: v.unit || "", daysSince, count: v.count, dateStr: v.dateStr, likelyResolved, overdue, detail: v.detail || "", notes: v.notes || "" };
       })
       .sort((a, b) => (b.overdue - a.overdue) || (a.likelyResolved - b.likelyResolved) || b.daysSince - a.daysSince);
 
@@ -7761,6 +7768,11 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
                                     : `Flagged ${f.daysSince} day${f.daysSince !== 1 ? "s" : ""} ago — recheck due in ${Math.max(0, analysis.recheckDays - f.daysSince)} day${analysis.recheckDays - f.daysSince !== 1 ? "s" : ""}`}
                                 {f.count > 1 ? ` · seen ×${f.count}` : ""}
                               </div>
+                              {(f.detail || f.notes) && (
+                                <div style={{ fontSize: "0.76rem", color: "var(--ink-700)", marginTop: 3, lineHeight: 1.35 }}>
+                                  {f.detail}{f.notes && f.detail !== f.notes ? <span style={{ color: "var(--ink-500)" }}> — {f.notes}</span> : null}
+                                </div>
+                              )}
                             </div>
                             <div className="fuActions">
                               {!f.likelyResolved && (
