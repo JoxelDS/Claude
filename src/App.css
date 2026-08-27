@@ -7545,3 +7545,9 @@ html[data-theme="black"] .labelCardPro { background: #fff; }
 .fuToggleActive { background: var(--sdx-navy, #1C2B5E); color: #fff; }
 [data-theme="dark"] .fuToggleBtn { background: var(--surface-2, #262b38); color: var(--ink-400, #9ca3af); }
 [data-theme="dark"] .fuToggleActive { background: var(--sdx-navy, #1C2B5E); color: #fff; }
+
+/* Kitchen QR page — mobile header */
+@media (max-width: 640px) {
+  .kqrSub { display: none; }
+  .kqrBtnLabel { display: none; }
+}

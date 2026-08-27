@@ -17293,26 +17293,26 @@ function KitchenQrPage({ onBack, onPrintLabels }) {
 
   return (
     <div className="appShell" style={{ background: "var(--surface-2)", minHeight: "100vh" }}>
-      <header className="topBar">
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+      <header className="topBar" style={{ flexWrap: "nowrap", gap: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0, flex: 1 }}>
           <button className="btn btnGhost" onClick={onBack} type="button"
-            style={{ color: "#fff", borderColor: "rgba(255,255,255,0.4)", padding: "0.3rem 0.75rem", fontSize: "0.85rem" }}>
+            style={{ color: "#fff", borderColor: "rgba(255,255,255,0.4)", padding: "0.3rem 0.7rem", fontSize: "0.85rem", flexShrink: 0 }}>
             ← Back
           </button>
-          <div>
-            <div style={{ fontWeight: 700, color: "#fff", fontSize: "1rem" }}>Kitchen QR Posters</div>
-            <div style={{ color: "rgba(255,255,255,0.7)", fontSize: "0.75rem" }}>One QR per kitchen — teams self-report temps &amp; problems</div>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontWeight: 700, color: "#fff", fontSize: "0.95rem", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>Kitchen QR Posters</div>
+            <div className="kqrSub" style={{ color: "rgba(255,255,255,0.7)", fontSize: "0.72rem", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>One QR per kitchen — teams self-report temps &amp; problems</div>
           </div>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
           {onPrintLabels && (
-            <button className="btn btnGhost" type="button" onClick={onPrintLabels}
-              style={{ color: "#fff", borderColor: "rgba(255,255,255,0.4)", padding: "0.3rem 0.75rem", fontSize: "0.8rem", whiteSpace: "nowrap" }}>
-              🏷 Equipment Labels
+            <button className="btn btnGhost" type="button" onClick={onPrintLabels} title="Equipment Labels"
+              style={{ color: "#fff", borderColor: "rgba(255,255,255,0.4)", padding: "0.3rem 0.6rem", fontSize: "0.8rem", whiteSpace: "nowrap" }}>
+              🏷<span className="kqrBtnLabel"> Equipment Labels</span>
             </button>
           )}
           <button type="button" onClick={printPosters} disabled={shown.length === 0}
-            style={{ background: shown.length === 0 ? "rgba(255,255,255,0.18)" : "#fff", color: shown.length === 0 ? "rgba(255,255,255,0.75)" : "var(--sdx-navy)", border: "none", borderRadius: 10, cursor: "pointer", fontWeight: 700, fontSize: "0.85rem", padding: "0.5rem 1.1rem", whiteSpace: "nowrap" }}>
+            style={{ background: shown.length === 0 ? "rgba(255,255,255,0.18)" : "#fff", color: shown.length === 0 ? "rgba(255,255,255,0.75)" : "var(--sdx-navy)", border: "none", borderRadius: 10, cursor: "pointer", fontWeight: 700, fontSize: "0.85rem", padding: "0.45rem 0.9rem", whiteSpace: "nowrap" }}>
             🖨 Print ({selectedIds.size || shown.length})
           </button>
         </div>
@@ -17348,13 +17348,28 @@ function KitchenQrPage({ onBack, onPrintLabels }) {
         </div>
 
         {loading && <div style={{ textAlign: "center", padding: "2.5rem", color: "var(--ink-500)" }}>Loading kitchens…</div>}
-        {!loading && shown.length === 0 && (
+        {!loading && searched.length === 0 && (
           <div style={{ background: "var(--surface-1)", borderRadius: 12, padding: "2rem", textAlign: "center", color: "var(--ink-500)" }}>
             No kitchens yet — add one above, or save an inspection first.
           </div>
         )}
+        {!loading && searched.length > 0 && shown.length === 0 && (
+          <div style={{ background: "var(--surface-1)", borderRadius: 12, padding: "2rem 1.25rem", textAlign: "center", marginBottom: 14 }}>
+            <div style={{ fontSize: "2rem", marginBottom: 8 }}>🏷</div>
+            <div style={{ fontWeight: 800, fontSize: "0.95rem", color: "var(--ink-800)", marginBottom: 6 }}>
+              {incompleteCount} stand{incompleteCount !== 1 ? "s are" : " is"} waiting for a unit # or license
+            </div>
+            <div style={{ fontSize: "0.8rem", color: "var(--ink-500)", marginBottom: 14 }}>
+              Complete stands show here automatically. Tap below, then use ✎ on each card to fill in what's missing.
+            </div>
+            <button type="button" onClick={() => setShowIncomplete(true)}
+              style={{ background: "var(--sdx-navy)", color: "#fff", border: "none", borderRadius: 10, padding: "0.65rem 1.4rem", fontWeight: 800, fontSize: "0.9rem", cursor: "pointer" }}>
+              Show them to finish
+            </button>
+          </div>
+        )}
 
-        {incompleteCount > 0 && (
+        {incompleteCount > 0 && shown.length > 0 && (
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
             <span style={{ fontSize: "0.78rem", color: "var(--ink-500)", fontWeight: 600 }}>
               {showIncomplete
