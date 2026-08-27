@@ -7551,3 +7551,24 @@ html[data-theme="black"] .labelCardPro { background: #fff; }
   .kqrSub { display: none; }
   .kqrBtnLabel { display: none; }
 }
+
+/* ── Guide step chips (labeled, with live remaining counts) ─────── */
+.guideStepDots { flex-wrap: wrap; }
+.guideStepChip {
+  width: auto !important; height: auto !important; border-radius: 999px !important;
+  padding: 5px 10px; display: inline-flex; align-items: center; gap: 6px;
+}
+.guideStepChip.guideStepDotActive { transform: none !important; }
+.guideChipNum { font-weight: 800; font-size: 0.72rem; opacity: 0.75; }
+.guideChipLabel { font-weight: 700; font-size: 0.76rem; white-space: nowrap; }
+.guideChipBadge {
+  font-size: 0.66rem; font-weight: 800; min-width: 18px; text-align: center;
+  background: #FEE2E2; color: #B91C1C; border-radius: 999px; padding: 1px 6px;
+}
+.guideStepDotActive .guideChipBadge { background: rgba(255,255,255,0.25); color: #fff; }
+.guideChipBadgeDone { background: #DCFCE7 !important; color: #15803D !important; }
+.guideStepDotActive .guideChipBadgeDone { background: rgba(255,255,255,0.25) !important; color: #fff !important; }
+@media (max-width: 480px) {
+  .guideChipLabel { font-size: 0.7rem; }
+  .guideStepChip { padding: 4px 8px; gap: 4px; }
+}

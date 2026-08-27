@@ -25267,7 +25267,26 @@ export default function App() {
                 const STEP_ORDER = isEventDay ? [4, 0, 1, 2, 3] : [0, 1, 2, 3, 4];
                 const activePanel = STEP_ORDER[guideStep];
                 const totalSteps = STEP_LABELS.length;
-                const pct = ((guideStep + 1) / totalSteps) * 100;
+                // Real progress: unanswered checklist items per panel, straight
+                // from inspection data (names drift, data doesn't).
+                const PANEL_SECTIONS = { 1: ["facility", "maintenance"], 2: ["equipment"], 3: ["utensils"], 4: ["operations"] };
+                const panelCounts = {}; // pid -> { remaining, total }
+                for (const [pid, secs] of Object.entries(PANEL_SECTIONS)) {
+                  let remaining = 0, total = 0;
+                  for (const sec of secs) {
+                    for (const node of Object.values(inspection[sec] || {})) {
+                      const cl = node?.checklist;
+                      if (!Array.isArray(cl)) continue;
+                      total += cl.length;
+                      remaining += cl.filter(c => c.value === "").length;
+                    }
+                  }
+                  panelCounts[pid] = { remaining, total };
+                }
+                const allTotal = Object.values(panelCounts).reduce((a, c) => a + c.total, 0);
+                const allRemaining = Object.values(panelCounts).reduce((a, c) => a + c.remaining, 0);
+                const pct = allTotal > 0 ? ((allTotal - allRemaining) / allTotal) * 100 : ((guideStep + 1) / totalSteps) * 100;
+                const SHORT_LABELS = STEP_LABELS.map(l => l.replace("Temps & Supplies", "Temps").replace(" ⭐", ""));
                 return (
                   <div className="guideStepperHeader">
                     <div className="guideStepperTop">
@@ -25284,20 +25303,29 @@ export default function App() {
                         <span className="pill">Freezer {"\u2264"} 20 F</span>
                       </div>
                     </div>
-                    {/* Step dots */}
+                    {/* Step chips — label + live remaining count */}
                     <div className="guideStepDots">
-                      {STEP_LABELS.map((label, i) => (
-                        <button
-                          key={i}
-                          type="button"
-                          className={`guideStepDot${i === guideStep ? " guideStepDotActive" : i < guideStep ? " guideStepDotDone" : ""}`}
-                          onClick={() => setGuideStep(i)}
-                          aria-label={`Go to step ${i + 1}: ${label}`}
-                          title={label}
-                        >
-                          {i < guideStep ? "✓" : i + 1}
-                        </button>
-                      ))}
+                      {STEP_LABELS.map((label, i) => {
+                        const pid = STEP_ORDER[i];
+                        const c = panelCounts[pid];
+                        const done = c && c.total > 0 && c.remaining === 0;
+                        return (
+                          <button
+                            key={i}
+                            type="button"
+                            className={`guideStepDot guideStepChip${i === guideStep ? " guideStepDotActive" : done ? " guideStepDotDone" : ""}`}
+                            onClick={() => setGuideStep(i)}
+                            aria-label={`Go to step ${i + 1}: ${label}`}
+                            title={label}
+                          >
+                            <span className="guideChipNum">{i + 1}</span>
+                            <span className="guideChipLabel">{SHORT_LABELS[i]}</span>
+                            {c && c.total > 0 && (
+                              <span className={`guideChipBadge${done ? " guideChipBadgeDone" : ""}`}>{done ? "✓" : c.remaining}</span>
+                            )}
+                          </button>
+                        );
+                      })}
                     </div>
                     {/* Guide Finder — jump to any item in any step */}
                     <div style={{ position: "relative", margin: "10px 0 4px" }}>
@@ -25324,9 +25352,16 @@ export default function App() {
                         </div>
                       )}
                     </div>
-                    {/* Progress bar */}
-                    <div className="guideProgressTrack">
-                      <div className="guideProgressBar" style={{ width: `${pct}%` }} />
+                    {/* Progress bar — driven by answered checklist items */}
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <div className="guideProgressTrack" style={{ flex: 1 }}>
+                        <div className="guideProgressBar" style={{ width: `${pct}%` }} />
+                      </div>
+                      {allTotal > 0 && (
+                        <span style={{ fontSize: "0.68rem", fontWeight: 700, color: "var(--ink-400)", whiteSpace: "nowrap" }}>
+                          {allTotal - allRemaining}/{allTotal} items
+                        </span>
+                      )}
                     </div>
                   </div>
                 );
@@ -25752,39 +25787,48 @@ export default function App() {
               </div>{/* end guideStepViewport */}
 
               {/* ── Stepper navigation buttons ──────────────────────────── */}
-              <div className="guideStepNav">
-                <button
-                  type="button"
-                  className="guideStepNavBtn guideStepNavPrev"
-                  onClick={() => setGuideStep(s => Math.max(0, s - 1))}
-                  disabled={guideStep === 0}
-                  aria-label="Previous step"
-                >
-                  ← Previous
-                </button>
-                <span className="guideStepNavLabel">
-                  {["Temps & Supplies", "Facilities", "Equipment", "Utensils"][guideStep]}
-                </span>
-                {guideStep < 3 ? (
-                  <button
-                    type="button"
-                    className="guideStepNavBtn guideStepNavNext"
-                    onClick={() => setGuideStep(s => Math.min(3, s + 1))}
-                    aria-label="Next step"
-                  >
-                    Next →
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    className="guideStepNavBtn guideStepNavDone"
-                    onClick={() => setGuideStep(0)}
-                    aria-label="Return to first step"
-                  >
-                    ✓ Done
-                  </button>
-                )}
-              </div>
+              {(() => {
+                const isEventDay = inspectionType === "Event Day";
+                const NAV_LABELS = isEventDay
+                  ? ["Operations ⭐", "Temps & Supplies", "Facilities", "Equipment", "Utensils"]
+                  : ["Temps & Supplies", "Facilities", "Equipment", "Utensils", "Operations"];
+                const last = NAV_LABELS.length - 1;
+                return (
+                  <div className="guideStepNav">
+                    <button
+                      type="button"
+                      className="guideStepNavBtn guideStepNavPrev"
+                      onClick={() => setGuideStep(s => Math.max(0, s - 1))}
+                      disabled={guideStep === 0}
+                      aria-label="Previous step"
+                    >
+                      {guideStep === 0 ? "← Previous" : `← ${NAV_LABELS[guideStep - 1]}`}
+                    </button>
+                    <span className="guideStepNavLabel">
+                      {guideStep + 1}/{NAV_LABELS.length} · {NAV_LABELS[guideStep]}
+                    </span>
+                    {guideStep < last ? (
+                      <button
+                        type="button"
+                        className="guideStepNavBtn guideStepNavNext"
+                        onClick={() => { setGuideStep(s => Math.min(last, s + 1)); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+                        aria-label="Next step"
+                      >
+                        {NAV_LABELS[guideStep + 1]} →
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className="guideStepNavBtn guideStepNavDone"
+                        onClick={() => setGuideStep(0)}
+                        aria-label="Return to first step"
+                      >
+                        ✓ Done
+                      </button>
+                    )}
+                  </div>
+                );
+              })()}
 
             </div>{/* end .guide */}
 
