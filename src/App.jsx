@@ -20808,6 +20808,14 @@ function EquipCheckPortal({ tag }) {
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
+  const [photoDataUrl, setPhotoDataUrl] = useState("");
+  const [photoView, setPhotoView] = useState(""); // full-size overlay
+
+  async function onPickPhoto(file) {
+    if (!file || !file.type?.startsWith("image/")) return;
+    const url = await compressImage(file, 900, 0.8);
+    if (url) setPhotoDataUrl(url);
+  }
 
   const isFreezer = /freezer|🧊/i.test(meta?.label || "") || /FRZ/i.test(tag);
   const limit = isFreezer ? 10 : 41;
@@ -20830,9 +20838,19 @@ function EquipCheckPortal({ tag }) {
           for (const [k, v] of Object.entries(equip)) {
             if ((v?.assetTag || "").trim().toUpperCase() !== tag.toUpperCase()) continue;
             if (!m) m = { label: v.label || k, venueName: rec.siteName || "", unit: rec.siteNumber || "", floor: rec.floor || "", location: v.kitchenArea || "", brandName: v.brand || "" };
-            if (v.tempF) reads.push({ date: rec.inspectionDate || (rec.savedAt || "").slice(0, 10), tempF: v.tempF, status: v.status || "", notes: (v.notes || "").trim(), by: rec.inspectorName || "" });
+            if (v.tempF) reads.push({
+              date: rec.inspectionDate || (rec.savedAt || "").slice(0, 10),
+              time: rec.savedAt ? new Date(rec.savedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "",
+              savedAt: rec.savedAt || "",
+              tempF: v.tempF,
+              status: v.status || "",
+              notes: (v.notes || "").trim(),
+              by: rec.inspectorName || "",
+              photo: v.photos?.[0]?.previewUrl || v.photos?.[0]?.exportUrl || v.photos?.[0]?.thumbUrl || "",
+            });
           }
         }
+        reads.sort((a, b) => (b.savedAt || b.date || "").localeCompare(a.savedAt || a.date || ""));
         setRecent(reads);
       } catch {}
       setMeta(m || { label: "Equipment", venueName: "", unit: "", floor: "", location: "", brandName: "" });
@@ -20866,11 +20884,22 @@ function EquipCheckPortal({ tag }) {
             tempF: String(tempNum),
             status: tempOk ? "OK" : "FAIL",
             notes: notes.trim(),
+            photos: await (async () => {
+              if (!photoDataUrl) return [];
+              const photoId = `${Date.now()}_${Math.random().toString(16).slice(2)}`;
+              let previewUrl = photoDataUrl;
+              if (FIREBASE_ON) {
+                try { const u = await uploadPhoto(photoDataUrl, activeVenueId, id, photoId); if (u) previewUrl = u; } catch {}
+              }
+              const thumbUrl = await compressImage(await (await fetch(photoDataUrl)).blob(), 220, 0.55).catch(() => "") || "";
+              return [{ id: photoId, previewUrl, exportUrl: photoDataUrl, thumbUrl, type: "image/jpeg", name: "equip-check.jpg" }];
+            })(),
           },
         },
       },
     }]);
     setSubmitting(false);
+    setPhotoDataUrl("");
     setDone(true);
   }
 
@@ -20937,9 +20966,27 @@ function EquipCheckPortal({ tag }) {
                 </div>
               )}
             </div>
-            <div style={{ marginBottom: 14 }}>
+            <div style={{ marginBottom: 12 }}>
               <span style={lbl}>Notes (optional)</span>
               <textarea style={{ ...inp, minHeight: 64, resize: "vertical" }} value={notes} onChange={e => setNotes(e.target.value)} placeholder="Door seal loose, ice buildup…" />
+            </div>
+            <div style={{ marginBottom: 14 }}>
+              <span style={lbl}>Picture (optional)</span>
+              {photoDataUrl ? (
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <img src={photoDataUrl} alt="" style={{ width: 64, height: 64, objectFit: "cover", borderRadius: 8, border: "1.5px solid #d7dbeb" }} />
+                  <button type="button" onClick={() => setPhotoDataUrl("")}
+                    style={{ background: "#fef2f2", color: "#dc2626", border: "1.5px solid #fecaca", borderRadius: 8, padding: "0.45rem 0.8rem", fontWeight: 800, fontSize: "0.78rem", cursor: "pointer" }}>
+                    ✕ Remove
+                  </button>
+                </div>
+              ) : (
+                <label style={{ display: "block", border: "1.5px dashed #c3c9dd", borderRadius: 10, padding: "0.7rem", textAlign: "center", fontSize: "0.85rem", fontWeight: 700, color: "#4b5563", cursor: "pointer", background: "#fafbff" }}>
+                  📷 Add Photo
+                  <input type="file" accept="image/*" capture="environment" style={{ display: "none" }}
+                    onChange={e => { onPickPhoto(e.target.files?.[0]); e.target.value = ""; }} />
+                </label>
+              )}
             </div>
             <button type="button" disabled={submitting || !name.trim() || temp.trim() === "" || isNaN(tempNum)} onClick={submit}
               style={{ width: "100%", background: "#EE0000", color: "#fff", border: "none", borderRadius: 12, padding: "0.85rem", fontWeight: 800, fontSize: "1rem", cursor: "pointer",
@@ -20947,20 +20994,54 @@ function EquipCheckPortal({ tag }) {
               {submitting ? "Saving…" : "✓ Save Reading"}
             </button>
 
-            {recent.length > 0 && (
-              <div style={{ marginTop: 16 }}>
-                <div style={{ ...lbl, marginBottom: 6 }}>Temperature History ({recent.length})</div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 5, maxHeight: 280, overflowY: "auto" }}>
-                  {recent.map((r, i) => (
-                    <div key={i} style={{ background: "#f8f9fc", border: "1px solid #e5e8f2", borderRadius: 8, padding: "0.45rem 0.7rem", fontSize: "0.8rem" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between" }}>
-                        <span style={{ color: "#555" }}>{r.date}{r.by ? ` · ${r.by}` : ""}</span>
-                        <b style={{ color: r.status === "FAIL" || r.status === "Fail" ? "#dc2626" : "#1e1d4a" }}>{r.tempF}°F{r.status ? ` · ${r.status}` : ""}</b>
-                      </div>
-                      {r.notes && <div style={{ fontSize: "0.72rem", color: "#777", marginTop: 2 }}>“{r.notes}”</div>}
-                    </div>
-                  ))}
+            {recent.length > 0 && (() => {
+              const th = { padding: "6px 6px", fontSize: "0.62rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.05em", color: "#4b5563", background: "#eef1f8", border: "1px solid #d0d5e2", textAlign: "left", position: "sticky", top: 0 };
+              const td = { padding: "6px 6px", fontSize: "0.76rem", border: "1px solid #e0e4ef", verticalAlign: "top" };
+              return (
+                <div style={{ marginTop: 16 }}>
+                  <div style={{ ...lbl, marginBottom: 6 }}>Temperature History ({recent.length})</div>
+                  <div style={{ maxHeight: 330, overflowY: "auto", border: "1.5px solid #d0d5e2", borderRadius: 8 }}>
+                    <table style={{ width: "100%", borderCollapse: "collapse", fontVariantNumeric: "tabular-nums" }}>
+                      <thead>
+                        <tr>
+                          <th style={{ ...th, width: 72 }}>Date</th>
+                          <th style={{ ...th, width: 58 }}>Time</th>
+                          <th style={{ ...th, width: 46 }}>°F</th>
+                          <th style={th}>Comments</th>
+                          <th style={{ ...th, width: 42 }}>📷</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {recent.map((r, i) => {
+                          const fail = r.status === "FAIL" || r.status === "Fail";
+                          return (
+                            <tr key={i} style={{ background: i % 2 === 0 ? "#fff" : "#f7f8fc" }}>
+                              <td style={td}>{r.date}</td>
+                              <td style={td}>{r.time || "—"}</td>
+                              <td style={{ ...td, fontWeight: 800, color: fail ? "#dc2626" : "#15803d", whiteSpace: "nowrap" }}>{r.tempF}°</td>
+                              <td style={td}>
+                                {r.notes || <span style={{ color: "#b3b9c9" }}>—</span>}
+                                {r.by && <div style={{ fontSize: "0.64rem", color: "#8a90a3", marginTop: 1 }}>{r.by}</div>}
+                              </td>
+                              <td style={{ ...td, textAlign: "center" }}>
+                                {r.photo
+                                  ? <img src={r.photo} alt="" onClick={() => setPhotoView(r.photo)}
+                                      style={{ width: 32, height: 32, objectFit: "cover", borderRadius: 5, cursor: "pointer", border: "1px solid #d0d5e2" }} />
+                                  : <span style={{ color: "#c8cddb" }}>—</span>}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
+              );
+            })()}
+            {photoView && (
+              <div onClick={() => setPhotoView("")}
+                style={{ position: "fixed", inset: 0, zIndex: 10000, background: "rgba(0,0,0,0.85)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, cursor: "zoom-out" }}>
+                <img src={photoView} alt="" style={{ maxWidth: "100%", maxHeight: "90vh", borderRadius: 10 }} />
               </div>
             )}
           </>
