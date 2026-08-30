@@ -7880,15 +7880,33 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
 
 /* ── HACCP temp items + pass/fail helper (used by HaccpPortal AND HistoryPage) ── */
 const HACCP_TEMP_ITEMS = [
-  { key: "hotHolding",        label: "Hot Holding",                  unit: "°F", min: 135, type: "hot",  hint: "All hot foods" },
-  { key: "cookingPoultry",    label: "Poultry",        unit: "°F", min: 165, type: "hot",  hint: "Chicken, turkey, duck",               group: "cooking" },
-  { key: "cookingGroundMeat", label: "Ground Meat",    unit: "°F", min: 155, type: "hot",  hint: "Beef, pork, veal, lamb",              group: "cooking" },
-  { key: "cookingWholeCuts",  label: "Whole Cuts",     unit: "°F", min: 145, type: "hot",  hint: "Beef, pork, veal, lamb steaks/roasts",group: "cooking" },
-  { key: "cookingSeafood",    label: "Seafood & Eggs", unit: "°F", min: 145, type: "hot",  hint: "Fish, shellfish, shell eggs",          group: "cooking" },
-  { key: "reheating",         label: "Reheating Temp",               unit: "°F", min: 165, type: "hot",  hint: "All reheated foods" },
-  { key: "coldHolding",       label: "Cold Holding",                 unit: "°F", max: 41,  type: "cold", hint: "All cold foods" },
-  { key: "walkInCooler",      label: "Walk-in Cooler",               unit: "°F", max: 41,  type: "cold", hint: "Ambient air temp" },
-  { key: "walkInFreezer",     label: "Walk-in Freezer",              unit: "°F", max: 20,  type: "cold", hint: "Max 20 °F" },
+  { key: "hotHolding",        label: "Hot Holding",                  unit: "°F", min: 135, type: "hot",  hint: "All hot foods",
+    how: "Probe food sitting in warmers/alto-shaam — must stay 135°F or hotter · Mide la comida en los warmers: 135°F o más",
+    example: "e.g. Mac & cheese in warmer" },
+  { key: "cookingPoultry",    label: "Poultry",        unit: "°F", min: 165, type: "hot",  hint: "Chicken, turkey, duck",               group: "cooking",
+    how: "Probe the thickest part right off the grill/fryer · Mide la parte más gruesa al salir",
+    example: "e.g. Chicken tenders" },
+  { key: "cookingGroundMeat", label: "Ground Meat",    unit: "°F", min: 155, type: "hot",  hint: "Beef, pork, veal, lamb",              group: "cooking",
+    how: "Probe the center of the patty · Mide el centro de la carne",
+    example: "e.g. Burger patty" },
+  { key: "cookingWholeCuts",  label: "Whole Cuts",     unit: "°F", min: 145, type: "hot",  hint: "Beef, pork, veal, lamb steaks/roasts",group: "cooking",
+    how: "Probe the thickest part of the cut · Mide la parte más gruesa",
+    example: "e.g. Steak" },
+  { key: "cookingSeafood",    label: "Seafood & Eggs", unit: "°F", min: 145, type: "hot",  hint: "Fish, shellfish, shell eggs",          group: "cooking",
+    how: "Probe the thickest part of the fish / center of eggs · Mide la parte más gruesa",
+    example: "e.g. Salmon" },
+  { key: "reheating",         label: "Reheating Temp",               unit: "°F", min: 165, type: "hot",  hint: "All reheated foods",
+    how: "Reheated food must hit 165°F before it goes in the warmer · Recalentado: 165°F antes del warmer",
+    example: "e.g. Reheated rice" },
+  { key: "coldHolding",       label: "Cold Holding",                 unit: "°F", max: 41,  type: "cold", hint: "All cold foods",
+    how: "Probe cold food on the line/display — 41°F or colder · Comida fría en línea: 41°F o menos",
+    example: "e.g. Pico de gallo on line" },
+  { key: "walkInCooler",      label: "Walk-in Cooler",               unit: "°F", max: 41,  type: "cold", hint: "Ambient air temp",
+    how: "Read the door thermometer (air temp) — 41°F or colder · Termómetro de la puerta: 41°F o menos",
+    example: "e.g. Walk-in #1" },
+  { key: "walkInFreezer",     label: "Walk-in Freezer",              unit: "°F", max: 20,  type: "cold", hint: "Max 20 °F",
+    how: "Read the door thermometer (air temp) — 20°F or colder · Termómetro de la puerta: 20°F o menos",
+    example: "e.g. Walk-in freezer #1" },
 ];
 
 function tempPass(item, val) {
@@ -21593,6 +21611,11 @@ function HaccpPortal() {
                         const needsCorrection = pass === false && !correction.trim();
                         return (
                           <div key={idx} style={{ marginBottom: 6 }}>
+                            {idx === 0 && item.how && (
+                              <div style={{ fontSize: "0.72rem", color: "var(--ink-500)", background: "var(--surface-2)", borderRadius: 7, padding: "5px 9px", marginBottom: 6, lineHeight: 1.45 }}>
+                                📌 {item.how}
+                              </div>
+                            )}
                             <div className="haccpTempRow" style={{ flexWrap: "wrap", gap: 6 }}>
                               <input type="time"
                                 value={readingTime}
@@ -21611,17 +21634,29 @@ function HaccpPortal() {
                                   arr[idx] = e.target.value;
                                   return { ...p, [item.key]: arr };
                                 })}
-                                placeholder="Food item (e.g. Chicken)"
+                                placeholder={item.example || "Food item (e.g. Chicken)"}
                                 style={{ opacity: isSubmitted ? 0.7 : 1 }} />
                               <div className="haccpTempInputWrap">
                                 <input className="haccpTempInput" type="number" inputMode="decimal"
                                   value={val}
                                   disabled={isSubmitted}
-                                  onChange={e => setTemps(p => {
-                                    const arr = [...(p[item.key] || [""])];
-                                    arr[idx] = e.target.value;
-                                    return { ...p, [item.key]: arr };
-                                  })}
+                                  onChange={e => {
+                                    setTemps(p => {
+                                      const arr = [...(p[item.key] || [""])];
+                                      arr[idx] = e.target.value;
+                                      return { ...p, [item.key]: arr };
+                                    });
+                                    // Auto-stamp the time with "now" so supervisors skip a step
+                                    if (!readingTime) {
+                                      const d = new Date();
+                                      const hm = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+                                      setTempTimes(p => {
+                                        const arr = [...(p[item.key] || [""])];
+                                        if (!arr[idx]) arr[idx] = hm;
+                                        return { ...p, [item.key]: arr };
+                                      });
+                                    }
+                                  }}
                                   placeholder="—"
                                   style={{ opacity: isSubmitted ? 0.7 : 1 }} />
                                 <span className="haccpTempUnit">{item.unit}</span>
@@ -21736,16 +21771,28 @@ function HaccpPortal() {
                                 const needsCorrection = pass === false && !correction.trim();
                                 return (
                                   <div key={idx} style={{ marginBottom: 6 }}>
+                                    {idx === 0 && item.how && (
+                                      <div style={{ fontSize: "0.72rem", color: "var(--ink-500)", background: "var(--surface-2)", borderRadius: 7, padding: "5px 9px", marginBottom: 6, lineHeight: 1.45 }}>
+                                        📌 {item.how}
+                                      </div>
+                                    )}
                                     <div className="haccpTempRow" style={{ flexWrap: "wrap", gap: 6 }}>
                                       <input type="time" value={readingTime} disabled={isSubmitted}
                                         onChange={e => setTempTimes(p => { const arr=[...(p[item.key]||[""])]; arr[idx]=e.target.value; return {...p,[item.key]:arr}; })}
                                         style={{ width: 110, fontSize: "0.78rem", borderRadius: 8, border: "1.5px solid #cbd5e1", background: "var(--surface-1)", color: "var(--ink-900)", padding: "4px 8px", opacity: isSubmitted ? 0.6 : 1, flexShrink: 0 }} />
                                       <input className="haccpFoodNameInput" type="text" value={foodName} disabled={isSubmitted}
                                         onChange={e => setFoodNames(p => { const arr=[...(p[item.key]||[""])]; arr[idx]=e.target.value; return {...p,[item.key]:arr}; })}
-                                        placeholder="Food item (e.g. Chicken)" style={{ opacity: isSubmitted ? 0.7 : 1 }} />
+                                        placeholder={item.example || "Food item (e.g. Chicken)"} style={{ opacity: isSubmitted ? 0.7 : 1 }} />
                                       <div className="haccpTempInputWrap">
                                         <input className="haccpTempInput" type="number" inputMode="decimal" value={val} disabled={isSubmitted}
-                                          onChange={e => setTemps(p => { const arr=[...(p[item.key]||[""])]; arr[idx]=e.target.value; return {...p,[item.key]:arr}; })}
+                                          onChange={e => {
+                                            setTemps(p => { const arr=[...(p[item.key]||[""])]; arr[idx]=e.target.value; return {...p,[item.key]:arr}; });
+                                            if (!readingTime) {
+                                              const d = new Date();
+                                              const hm = String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+                                              setTempTimes(p => { const arr=[...(p[item.key]||[""])]; if (!arr[idx]) arr[idx] = hm; return {...p,[item.key]:arr}; });
+                                            }
+                                          }}
                                           placeholder="—" style={{ opacity: isSubmitted ? 0.7 : 1 }} />
                                         <span className="haccpTempUnit">{item.unit}</span>
                                       </div>
