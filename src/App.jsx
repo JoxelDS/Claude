@@ -17330,12 +17330,22 @@ function KitchenQrPage({ onBack, onPrintLabels }) {
           list.push({ id, site, unit, floor, license });
         }
         // Sync licenses onto every card: official registry (unit + type)
-        // first, then anything recorded in inspection history.
+        // first, then anything recorded in inspection history. The registry
+        // also CORRECTS a card whose stored license belongs to a different
+        // unit — numbers don't lie, licenses follow their unit.
+        const unitByLicense = {};
+        for (const r of LICENSE_REGISTRY) { if (r.license) unitByLicense[r.license] = normUnit(r.unit); }
         for (const k of list) {
-          if (!k.license && k.unit) {
-            const reg = lookupLicenseByUnitType(k.unit, k.locType);
+          if (!k.unit) continue;
+          const reg = lookupLicenseByUnitType(k.unit, k.locType);
+          if (!k.license) {
             if (reg?.status === "ACTIVE" && reg.license) { k.license = reg.license; if (!k.officialName) k.officialName = reg.name; }
             else if (licenseByUnit[normUnit(k.unit)]) k.license = licenseByUnit[normUnit(k.unit)];
+          } else if (reg?.status === "ACTIVE" && reg.license && k.license !== reg.license &&
+                     unitByLicense[k.license] && unitByLicense[k.license] !== normUnit(k.unit)) {
+            // Stored license is registered to another unit — swap in this
+            // unit's own license.
+            k.license = reg.license;
           }
         }
       } catch {}
