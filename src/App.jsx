@@ -21547,6 +21547,38 @@ function HaccpPortal() {
         </div>
       )}
       <img src={resolveLogoDark()} alt={resolveCompanyName()} className="haccpLogo" />
+      {/* Language toggle — Google Translate cookie + reload translates the whole page */}
+      <div style={{ display: "flex", justifyContent: "center", gap: 0, margin: "2px 0 10px" }}>
+        {[["en", "English"], ["es", "Español"]].map(([code, label], i) => {
+          const active = (typeof document !== "undefined" && /googtrans=[^;]*\/es/.test(document.cookie)) ? code === "es" : code === "en";
+          return (
+            <button key={code} type="button"
+              onClick={() => {
+                try {
+                  const host = window.location.hostname;
+                  if (code === "es") {
+                    document.cookie = "googtrans=/en/es; path=/";
+                    document.cookie = `googtrans=/en/es; path=/; domain=.${host}`;
+                  } else {
+                    document.cookie = "googtrans=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+                    document.cookie = `googtrans=; path=/; domain=.${host}; expires=Thu, 01 Jan 1970 00:00:00 GMT`;
+                  }
+                  window.location.reload();
+                } catch {}
+              }}
+              style={{
+                padding: "5px 16px", fontSize: "0.78rem", fontWeight: 800, cursor: "pointer",
+                border: "1.5px solid rgba(255,255,255,0.45)",
+                borderRadius: i === 0 ? "999px 0 0 999px" : "0 999px 999px 0",
+                background: active ? "#fff" : "rgba(255,255,255,0.12)",
+                color: active ? "#1e1d4a" : "#fff",
+                borderLeftWidth: i === 0 ? "1.5px" : 0,
+              }}>
+              🌐 {label}
+            </button>
+          );
+        })}
+      </div>
 
       {step === "ident" && (
         <div className="haccpCard">
