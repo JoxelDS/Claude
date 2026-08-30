@@ -18008,6 +18008,8 @@ function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVe
   const [removeError, setRemoveError] = useState("");
   const [intervalInput, setIntervalInput] = useState(() => String(venueSettings?.inspectionInterval || ""));
   const [intervalSaved, setIntervalSaved] = useState(false);
+  const [newEventDate, setNewEventDate] = useState("");
+  const [newEventName2, setNewEventName2] = useState("");
   const [scheduleDate, setScheduleDate] = useState("");
   const [scheduleLoc, setScheduleLoc] = useState("");
   const [scheduleUnit, setScheduleUnit] = useState("");
@@ -18227,6 +18229,41 @@ function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVe
                 Current setting: inspections every <strong>{venueSettings.inspectionInterval} day{venueSettings.inspectionInterval !== 1 ? "s" : ""}</strong>
               </p>
             )}
+
+            {/* ── Event Days calendar ─────────────────────────── */}
+            <div style={{ marginTop: 20, borderTop: "1px solid #e2e8f0", paddingTop: 16 }}>
+              <div style={{ fontWeight: 700, fontSize: "0.9rem", color: "var(--sdx-navy)", marginBottom: 4 }}>
+                🎪 Event Days
+              </div>
+              <p style={{ fontSize: "0.78rem", color: "var(--ink-500)", margin: "0 0 10px" }}>
+                Mark event dates with the event name. Inspections on these dates automatically become
+                “Event Day” with the name filled in — no more accidental Regular Inspections.
+              </p>
+              {Object.entries(venueSettings?.eventDays || {}).sort(([a], [b]) => a.localeCompare(b)).map(([d, name]) => {
+                const isPast = d < new Date().toISOString().slice(0, 10);
+                return (
+                  <div key={d} style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 10px", background: isPast ? "var(--surface-2)" : "var(--tint-amber-1, #fffbeb)", border: `1px solid ${isPast ? "var(--sdx-gray-200)" : "#fde68a"}`, borderRadius: 9, marginBottom: 6, opacity: isPast ? 0.65 : 1 }}>
+                    <span style={{ fontWeight: 800, fontSize: "0.8rem", whiteSpace: "nowrap" }}>{d}</span>
+                    <span style={{ flex: 1, fontSize: "0.82rem", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>🎪 {name}</span>
+                    <button type="button"
+                      onClick={() => { const next = { ...(venueSettings?.eventDays || {}) }; delete next[d]; onSaveVenueSettings?.({ eventDays: next }); }}
+                      style={{ background: "none", border: "none", color: "#dc2626", fontWeight: 800, cursor: "pointer", fontSize: "0.85rem" }}>✕</button>
+                  </div>
+                );
+              })}
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 4 }}>
+                <input type="date" className="input" value={newEventDate} onChange={e => setNewEventDate(e.target.value)} style={{ maxWidth: 165 }} />
+                <input className="input" placeholder="Event name (e.g. Dolphins vs Jets)" value={newEventName2} onChange={e => setNewEventName2(e.target.value)} style={{ flex: "1 1 180px" }} />
+                <button type="button" disabled={!newEventDate || !newEventName2.trim()}
+                  onClick={() => {
+                    onSaveVenueSettings?.({ eventDays: { ...(venueSettings?.eventDays || {}), [newEventDate]: newEventName2.trim() } });
+                    setNewEventDate(""); setNewEventName2("");
+                  }}
+                  style={{ background: "var(--sdx-navy)", color: "#fff", border: "none", borderRadius: 8, padding: "0.5rem 1rem", fontWeight: 800, fontSize: "0.82rem", cursor: "pointer", opacity: newEventDate && newEventName2.trim() ? 1 : 0.5 }}>
+                  ＋ Add Event
+                </button>
+              </div>
+            </div>
 
             {/* ── Scheduled Inspections list ───────────────────── */}
             <div style={{ marginTop: 20, borderTop: "1px solid #e2e8f0", paddingTop: 16 }}>
@@ -23396,6 +23433,18 @@ export default function App() {
   const [floor, setFloor] = useState("Floor 1");
   const [eventName, setEventName] = useState("");
 
+  // Event-day calendar: if the admin marked this date as an event, force the
+  // type to Event Day and prefill the event name — catches reports that were
+  // started (or saved) as Regular Inspection by mistake. Editing a wrong
+  // saved report re-runs this too, since editing restores into this form.
+  const eventDayName = venueSettings?.eventDays?.[inspectionDate] || "";
+  useEffect(() => {
+    if (!eventDayName) return;
+    if (inspectionType === "Regular Inspection") setInspectionType("Event Day");
+    setEventName(prev => prev && prev.trim() ? prev : eventDayName);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [eventDayName, inspectionDate]);
+
   const [modals, setModals] = useState({ menuOpen: false, shareModal: false, haccpModal: false, chatPanel: false, lightboxSrc: null, preSubmit: false });
   // Convenience aliases so all existing call-sites keep working without change
   const menuOpen = modals.menuOpen;
@@ -25103,6 +25152,17 @@ export default function App() {
                 }}>
                   {INSPECTION_TYPES.map((t) => (<option key={t} value={t}>{t}</option>))}
                 </select>
+                {eventDayName && (
+                  <span style={{ marginTop: 6, display: "inline-flex", alignItems: "center", gap: 8, fontSize: "0.76rem", fontWeight: 700, color: "#92400E", background: "var(--tint-amber-1, #fffbeb)", border: "1px solid #fde68a", borderRadius: 8, padding: "5px 10px" }}>
+                    🎪 {inspectionDate} is an event day: {eventDayName}
+                    {inspectionType === "Regular Inspection" && (
+                      <button type="button" onClick={() => { setInspectionType("Event Day"); setEventName(prev => prev.trim() ? prev : eventDayName); }}
+                        style={{ background: "#92400E", color: "#fff", border: "none", borderRadius: 999, padding: "2px 10px", fontWeight: 800, fontSize: "0.72rem", cursor: "pointer" }}>
+                        Switch to Event Day
+                      </button>
+                    )}
+                  </span>
+                )}
               </label>
               <label className="field" id="field-inspectionDate">
                 <span className="fieldLabel">Date <span style={{ color: "#ef4444", fontWeight: 700 }}>*</span></span>
