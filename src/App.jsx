@@ -721,7 +721,18 @@ const LICENSE_REGISTRY = [
   { unit: "G", type: "K", license: "NOS2334853", name: "Lexus North Club & Main Warehouse", status: "ACTIVE" },
   { unit: "G", type: "K", license: "NOS2334854", name: "72 Club South/East", status: "ACTIVE" },
   { unit: "G", type: "C", license: "NOS2336936", name: "Training Facility Batist.", status: "ACTIVE" },
-  { unit: "G", type: "External", license: "", name: "Portable Kitchen Grand Slam", status: "IN PROCESS" }
+  { unit: "G", type: "External", license: "", name: "Portable Kitchen Grand Slam", status: "IN PROCESS" },
+  // Recovered from saved inspection reports (fold-gap units 138-230)
+  { unit: "139", type: "C", license: "NOS2319787", name: "Italianvice", status: "ACTIVE" },
+  { unit: "142", type: "C", license: "NOS2319788", name: "Little Caesar", status: "ACTIVE" },
+  { unit: "148", type: "P", license: "NOS2334423", name: "Kosher Korner", status: "ACTIVE" },
+  { unit: "148", type: "S", license: "NOS2334818", name: "Benihana", status: "ACTIVE" },
+  { unit: "150", type: "C", license: "NOS2319781", name: "Cantaloupe", status: "ACTIVE" },
+  { unit: "150", type: "P", license: "NOS2334420", name: "Chef Creole", status: "ACTIVE" },
+  { unit: "154", type: "S", license: "NOS2326512", name: "Sweet Spot", status: "ACTIVE" },
+  { unit: "204", type: "C", license: "NOS2321413", name: "M Club Live Kitchen", status: "ACTIVE" },
+  { unit: "214", type: "C", license: "NOS2324070", name: "Farmstead / Avoeats", status: "ACTIVE" },
+  { unit: "217", type: "C", license: "NOS2331747", name: "Donuts & Ice Cream", status: "ACTIVE" }
 ];
 
 function licTypeForLocationType(lt) {
