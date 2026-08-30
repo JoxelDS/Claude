@@ -7537,7 +7537,7 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
         const daysSince = Math.floor((now - v.ts) / (24 * 60 * 60 * 1000));
         const likelyResolved = (latestInspByLoc[loc] || 0) > v.ts;   // a newer inspection had no such issue
         const overdue = !likelyResolved && daysSince >= recheckDays;
-        return { key, loc, cat, unit: v.unit || "", daysSince, count: v.count, dateStr: v.dateStr, likelyResolved, overdue, detail: v.detail || "", notes: v.notes || "" };
+        return { key, loc, cat, unit: v.unit || "", daysSince, count: v.count, dateStr: v.dateStr, likelyResolved, overdue, detail: v.detail || "", notes: v.notes || "", ts: v.ts || 0 };
       })
       .sort((a, b) => (b.overdue - a.overdue) || (a.likelyResolved - b.likelyResolved) || b.daysSince - a.daysSince);
 
@@ -7584,10 +7584,14 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
   const [remindedKey, setRemindedKey] = useState(null);
 
   function markResolved(f) {
-    // Instant local removal — works even if the shared-settings sync is slow
-    setClearedLocal(prev => ({ ...prev, [f.key]: Date.now() }));
+    // Stamp must be >= the record timestamp it clears — date-only inspection
+    // dates parse as UTC midnight, which can sit AHEAD of local Date.now().
+    const stamp = Math.max(Date.now(), (f.ts || 0) + 1);
+    setClearedLocal(prev => ({ ...prev, [f.key]: stamp }));
+    setRemindedKey(`res::${f.key}`);
+    setTimeout(() => setRemindedKey(null), 1500);
     const prev = venueSettings?.followupCleared || {};
-    saveVenueSettings?.({ followupCleared: { ...prev, [f.key]: Date.now() } });
+    saveVenueSettings?.({ followupCleared: { ...prev, [f.key]: stamp } });
   }
 
   function remindTeam(f) {
@@ -7611,9 +7615,8 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
 
   // Bulk actions — one click covers every open follow-up at a venue
   function resolveVenue(g) {
-    const stamp = Date.now();
     const patch = {};
-    g.items.forEach(f => { patch[f.key] = stamp; });
+    g.items.forEach(f => { patch[f.key] = Math.max(Date.now(), (f.ts || 0) + 1); });
     setClearedLocal(prev => ({ ...prev, ...patch }));
     const prev = venueSettings?.followupCleared || {};
     saveVenueSettings?.({ followupCleared: { ...prev, ...patch } });
@@ -7781,7 +7784,7 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
                                 </button>
                               )}
                               <button type="button" className="fuBtn fuBtnResolve" onClick={() => markResolved(f)}>
-                                ✓ Resolved
+                                {remindedKey === `res::${f.key}` ? "✓ Cleared" : "✓ Resolved"}
                               </button>
                             </div>
                           </div>
@@ -22677,16 +22680,21 @@ export default function App() {
   }, [venueSettings?.theme, venueSettings?.blackAccent, venueSettings?.primaryColor, venueSettings?.accentColor, currentUser, personalTheme, personalAccent]);
 
   function saveVenueSettings(updates) {
-    const next = { ...venueSettings, ...updates };
-    _vs = next;
-    setVenueSettings(next);
-    localStorage.setItem(VENUE_SETTINGS_KEY, JSON.stringify(next));
-    // Persist to Firestore so all devices stay in sync
+    // Functional update + merge:true so two near-simultaneous saves (or a
+    // snapshot arriving mid-save) can't clobber each other's fields — this
+    // was silently losing followupCleared entries.
+    let next;
+    setVenueSettings(prev => {
+      next = { ...prev, ...updates };
+      _vs = next;
+      try { localStorage.setItem(VENUE_SETTINGS_KEY, JSON.stringify(next)); } catch {}
+      return next;
+    });
     if (FIREBASE_ON) {
       setDoc(
         doc(db, "venues", VENUE_ID, "sharedMemory", "venueSettings"),
-        { ...next, _updatedAt: new Date().toISOString() },
-        { merge: false }
+        { ...updates, _updatedAt: new Date().toISOString() },
+        { merge: true }
       ).catch(() => {});
     }
   }
