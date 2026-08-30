@@ -7572,3 +7572,41 @@ html[data-theme="black"] .labelCardPro { background: #fff; }
   .guideChipLabel { font-size: 0.7rem; }
   .guideStepChip { padding: 4px 8px; gap: 4px; }
 }
+
+/* ── HACCP temp form redesign: food-first reading cards ──────────── */
+.htReading {
+  background: var(--surface-1, #fff);
+  border: 1.5px solid rgba(0,0,0,0.08);
+  border-radius: 12px;
+  padding: 9px 10px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+.htReadingDone { opacity: 0.82; background: var(--tint-green-1, #f0fdf4); border-color: #bbf7d0; }
+.htFood {
+  width: 100%; box-sizing: border-box;
+  border: 1.5px solid #cbd5e1; border-radius: 9px;
+  padding: 9px 11px; font-size: 16px; margin-bottom: 7px;
+  background: var(--surface-1, #fff); color: var(--ink-900, #111827);
+}
+.htFood:disabled { background: transparent; border-color: transparent; padding-left: 2px; font-weight: 700; }
+.htRowB { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.htTempWrap { flex: 0 0 auto; }
+.htTempWrap .haccpTempInput {
+  width: 92px !important; font-size: 1.35rem !important; font-weight: 800;
+  text-align: center; padding: 7px 6px !important;
+}
+.htTime {
+  width: 96px; font-size: 0.82rem; border-radius: 9px;
+  border: 1.5px solid #cbd5e1; background: var(--surface-1, #fff);
+  color: var(--ink-900, #111827); padding: 8px 6px; flex-shrink: 0;
+}
+.htReadingDone .htTime { border-color: transparent; background: transparent; }
+.htSubmit {
+  flex: 1; min-width: 96px;
+  background: var(--surface-2, #f3f4f6); color: var(--ink-400, #9ca3af);
+  border: 1.5px solid #cbd5e1; border-radius: 10px;
+  padding: 10px 12px; font-weight: 800; font-size: 0.9rem; cursor: default;
+  white-space: nowrap;
+}
+.htSubmitReady { background: #16a34a; color: #fff; border-color: #16a34a; cursor: pointer; }
+.htSubmitReady:active { transform: scale(0.98); }

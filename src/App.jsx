@@ -21616,17 +21616,8 @@ function HaccpPortal() {
                                 📌 {item.how}
                               </div>
                             )}
-                            <div className="haccpTempRow" style={{ flexWrap: "wrap", gap: 6 }}>
-                              <input type="time"
-                                value={readingTime}
-                                disabled={isSubmitted}
-                                onChange={e => setTempTimes(p => {
-                                  const arr = [...(p[item.key] || [""])];
-                                  arr[idx] = e.target.value;
-                                  return { ...p, [item.key]: arr };
-                                })}
-                                style={{ width: 110, fontSize: "0.78rem", borderRadius: 8, border: "1.5px solid #cbd5e1", background: "var(--surface-1)", color: "var(--ink-900)", padding: "4px 8px", opacity: isSubmitted ? 0.6 : 1, flexShrink: 0 }} />
-                              <input className="haccpFoodNameInput" type="text"
+                            <div className={`htReading${isSubmitted ? " htReadingDone" : ""}`}>
+                              <input className="htFood" type="text"
                                 value={foodName}
                                 disabled={isSubmitted}
                                 onChange={e => setFoodNames(p => {
@@ -21634,9 +21625,9 @@ function HaccpPortal() {
                                   arr[idx] = e.target.value;
                                   return { ...p, [item.key]: arr };
                                 })}
-                                placeholder={item.example || "Food item (e.g. Chicken)"}
-                                style={{ opacity: isSubmitted ? 0.7 : 1 }} />
-                              <div className="haccpTempInputWrap">
+                                placeholder={item.example || "Food item (e.g. Chicken)"} />
+                              <div className="htRowB">
+                              <div className="haccpTempInputWrap htTempWrap">
                                 <input className="haccpTempInput" type="number" inputMode="decimal"
                                   value={val}
                                   disabled={isSubmitted}
@@ -21661,6 +21652,14 @@ function HaccpPortal() {
                                   style={{ opacity: isSubmitted ? 0.7 : 1 }} />
                                 <span className="haccpTempUnit">{item.unit}</span>
                               </div>
+                              <input type="time" className="htTime"
+                                value={readingTime}
+                                disabled={isSubmitted}
+                                onChange={e => setTempTimes(p => {
+                                  const arr = [...(p[item.key] || [""])];
+                                  arr[idx] = e.target.value;
+                                  return { ...p, [item.key]: arr };
+                                })} />
                               {/* Pass/flag badge — only after submit */}
                               {isSubmitted && pass !== null && (
                                 <span className={`haccpTempStatus ${pass ? "pass" : "fail"}`}>
@@ -21669,17 +21668,17 @@ function HaccpPortal() {
                               )}
                               {/* Submit button — before confirming */}
                               {!isSubmitted && (
-                                <button type="button"
-                                  style={{ background: canSubmit ? "#2563eb" : "#fff", color: canSubmit ? "#fff" : "var(--ink-400)", fontWeight: 700, fontSize: "0.75rem", padding: "5px 12px", borderRadius: 8, flexShrink: 0, cursor: canSubmit ? "pointer" : "default", border: canSubmit ? "none" : "1.5px solid #cbd5e1", whiteSpace: "nowrap" }}
+                                <button type="button" className={`htSubmit${canSubmit ? " htSubmitReady" : ""}`}
                                   disabled={!canSubmit}
                                   onClick={() => setTempSubmitted(p => {
                                     const arr = [...(p[item.key] || [false])];
                                     arr[idx] = true;
                                     return { ...p, [item.key]: arr };
                                   })}>
-                                  Submit
+                                  ✓ Log it
                                 </button>
                               )}
+                              </div>
                               {readings.length > 1 && (
                                 <button type="button" className="haccpRemoveReadingBtn"
                                   onClick={() => {
@@ -21776,14 +21775,12 @@ function HaccpPortal() {
                                         📌 {item.how}
                                       </div>
                                     )}
-                                    <div className="haccpTempRow" style={{ flexWrap: "wrap", gap: 6 }}>
-                                      <input type="time" value={readingTime} disabled={isSubmitted}
-                                        onChange={e => setTempTimes(p => { const arr=[...(p[item.key]||[""])]; arr[idx]=e.target.value; return {...p,[item.key]:arr}; })}
-                                        style={{ width: 110, fontSize: "0.78rem", borderRadius: 8, border: "1.5px solid #cbd5e1", background: "var(--surface-1)", color: "var(--ink-900)", padding: "4px 8px", opacity: isSubmitted ? 0.6 : 1, flexShrink: 0 }} />
-                                      <input className="haccpFoodNameInput" type="text" value={foodName} disabled={isSubmitted}
+                                    <div className={`htReading${isSubmitted ? " htReadingDone" : ""}`}>
+                                      <input className="htFood" type="text" value={foodName} disabled={isSubmitted}
                                         onChange={e => setFoodNames(p => { const arr=[...(p[item.key]||[""])]; arr[idx]=e.target.value; return {...p,[item.key]:arr}; })}
-                                        placeholder={item.example || "Food item (e.g. Chicken)"} style={{ opacity: isSubmitted ? 0.7 : 1 }} />
-                                      <div className="haccpTempInputWrap">
+                                        placeholder={item.example || "Food item (e.g. Chicken)"} />
+                                      <div className="htRowB">
+                                      <div className="haccpTempInputWrap htTempWrap">
                                         <input className="haccpTempInput" type="number" inputMode="decimal" value={val} disabled={isSubmitted}
                                           onChange={e => {
                                             setTemps(p => { const arr=[...(p[item.key]||[""])]; arr[idx]=e.target.value; return {...p,[item.key]:arr}; });
@@ -21796,17 +21793,19 @@ function HaccpPortal() {
                                           placeholder="—" style={{ opacity: isSubmitted ? 0.7 : 1 }} />
                                         <span className="haccpTempUnit">{item.unit}</span>
                                       </div>
+                                      <input type="time" className="htTime" value={readingTime} disabled={isSubmitted}
+                                        onChange={e => setTempTimes(p => { const arr=[...(p[item.key]||[""])]; arr[idx]=e.target.value; return {...p,[item.key]:arr}; })} />
                                       {isSubmitted && pass !== null && (
                                         <span className={`haccpTempStatus ${pass ? "pass" : "fail"}`}>{pass ? "✓ OK" : "⚠ Flag"}</span>
                                       )}
                                       {!isSubmitted && (
-                                        <button type="button"
-                                          style={{ background: canSubmit ? "#2563eb" : "#fff", color: canSubmit ? "#fff" : "var(--ink-400)", fontWeight: 700, fontSize: "0.75rem", padding: "5px 12px", borderRadius: 8, flexShrink: 0, cursor: canSubmit ? "pointer" : "default", border: canSubmit ? "none" : "1.5px solid #cbd5e1", whiteSpace: "nowrap" }}
+                                        <button type="button" className={`htSubmit${canSubmit ? " htSubmitReady" : ""}`}
                                           disabled={!canSubmit}
                                           onClick={() => setTempSubmitted(p => { const arr=[...(p[item.key]||[false])]; arr[idx]=true; return {...p,[item.key]:arr}; })}>
-                                          Submit
+                                          ✓ Log it
                                         </button>
                                       )}
+                                      </div>
                                       {readings.length > 1 && (
                                         <button type="button" className="haccpRemoveReadingBtn"
                                           onClick={() => {
