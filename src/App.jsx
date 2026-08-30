@@ -8008,25 +8008,32 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
 const HACCP_TEMP_ITEMS = [
   { key: "hotHolding",        label: "Hot Holding",                  unit: "°F", min: 135, type: "hot",  hint: "All hot foods",
     how: "Probe food sitting in warmers/alto-shaam — must stay 135°F or hotter · Mide la comida en los warmers: 135°F o más",
-    example: "e.g. Mac & cheese in warmer" },
+    example: "e.g. Mac & cheese in warmer",
+    foods: ["Mac & cheese", "Rice", "Beans", "Nacho cheese", "Fries"] },
   { key: "cookingPoultry",    label: "Poultry",        unit: "°F", min: 165, type: "hot",  hint: "Chicken, turkey, duck",               group: "cooking",
     how: "Probe the thickest part right off the grill/fryer · Mide la parte más gruesa al salir",
-    example: "e.g. Chicken tenders" },
+    example: "e.g. Chicken tenders",
+    foods: ["Chicken tenders", "Wings", "Grilled chicken", "Nuggets"] },
   { key: "cookingGroundMeat", label: "Ground Meat",    unit: "°F", min: 155, type: "hot",  hint: "Beef, pork, veal, lamb",              group: "cooking",
     how: "Probe the center of the patty · Mide el centro de la carne",
-    example: "e.g. Burger patty" },
+    example: "e.g. Burger patty",
+    foods: ["Burger patty", "Hot dog", "Sausage", "Taco meat"] },
   { key: "cookingWholeCuts",  label: "Whole Cuts",     unit: "°F", min: 145, type: "hot",  hint: "Beef, pork, veal, lamb steaks/roasts",group: "cooking",
     how: "Probe the thickest part of the cut · Mide la parte más gruesa",
-    example: "e.g. Steak" },
+    example: "e.g. Steak",
+    foods: ["Steak", "Pork ribs", "Brisket", "Carnitas"] },
   { key: "cookingSeafood",    label: "Seafood & Eggs", unit: "°F", min: 145, type: "hot",  hint: "Fish, shellfish, shell eggs",          group: "cooking",
     how: "Probe the thickest part of the fish / center of eggs · Mide la parte más gruesa",
-    example: "e.g. Salmon" },
+    example: "e.g. Salmon",
+    foods: ["Salmon", "Shrimp", "Fish sandwich", "Eggs"] },
   { key: "reheating",         label: "Reheating Temp",               unit: "°F", min: 165, type: "hot",  hint: "All reheated foods",
     how: "Reheated food must hit 165°F before it goes in the warmer · Recalentado: 165°F antes del warmer",
-    example: "e.g. Reheated rice" },
+    example: "e.g. Reheated rice",
+    foods: ["Reheated rice", "Reheated chicken", "Reheated beans"] },
   { key: "coldHolding",       label: "Cold Holding",                 unit: "°F", max: 41,  type: "cold", hint: "All cold foods",
     how: "Probe cold food on the line/display — 41°F or colder · Comida fría en línea: 41°F o menos",
-    example: "e.g. Pico de gallo on line" },
+    example: "e.g. Pico de gallo on line",
+    foods: ["Pico de gallo", "Lettuce / produce", "Cut fruit", "Cold sauces", "Deli meat"] },
   { key: "walkInCooler",      label: "Walk-in Cooler",               unit: "°F", max: 41,  type: "cold", hint: "Ambient air temp",
     how: "Read the door thermometer (air temp) — 41°F or colder · Termómetro de la puerta: 41°F o menos",
     example: "e.g. Walk-in #1" },
@@ -21789,6 +21796,17 @@ function HaccpPortal() {
                                   return { ...p, [item.key]: arr };
                                 })}
                                 placeholder={item.example || "Food item (e.g. Chicken)"} />
+                              {!isSubmitted && item.foods && (
+                                <div className="htFoodChips">
+                                  {item.foods.map(f => (
+                                    <button key={f} type="button"
+                                      className={`htChip${foodName === f ? " htChipActive" : ""}`}
+                                      onClick={() => setFoodNames(p => { const arr = [...(p[item.key] || [""])]; arr[idx] = f; return { ...p, [item.key]: arr }; })}>
+                                      {f}
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
                               <div className="htRowB">
                               <div className="haccpTempInputWrap htTempWrap">
                                 <input className="haccpTempInput" type="number" inputMode="decimal"
@@ -21942,6 +21960,17 @@ function HaccpPortal() {
                                       <input className="htFood" type="text" value={foodName} disabled={isSubmitted}
                                         onChange={e => setFoodNames(p => { const arr=[...(p[item.key]||[""])]; arr[idx]=e.target.value; return {...p,[item.key]:arr}; })}
                                         placeholder={item.example || "Food item (e.g. Chicken)"} />
+                                      {!isSubmitted && item.foods && (
+                                        <div className="htFoodChips">
+                                          {item.foods.map(f => (
+                                            <button key={f} type="button"
+                                              className={`htChip${foodName === f ? " htChipActive" : ""}`}
+                                              onClick={() => setFoodNames(p => { const arr = [...(p[item.key] || [""])]; arr[idx] = f; return { ...p, [item.key]: arr }; })}>
+                                              {f}
+                                            </button>
+                                          ))}
+                                        </div>
+                                      )}
                                       <div className="htRowB">
                                       <div className="haccpTempInputWrap htTempWrap">
                                         <input className="haccpTempInput" type="number" inputMode="decimal" value={val} disabled={isSubmitted}

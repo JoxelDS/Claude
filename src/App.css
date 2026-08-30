@@ -7610,3 +7610,13 @@ html[data-theme="black"] .labelCardPro { background: #fff; }
 }
 .htSubmitReady { background: #16a34a; color: #fff; border-color: #16a34a; cursor: pointer; }
 .htSubmitReady:active { transform: scale(0.98); }
+
+/* HACCP food quick-pick chips (v338) */
+.htFoodChips { display: flex; flex-wrap: wrap; gap: 6px; margin: -2px 0 7px; }
+.htChip {
+  min-height: 32px; padding: 5px 12px; border-radius: 999px;
+  border: 1.5px solid #cbd5e1; background: var(--surface-2, #f1f5f9);
+  color: var(--ink-700, #334155); font-size: 0.74rem; font-weight: 600;
+  cursor: pointer; line-height: 1.2;
+}
+.htChipActive { background: #1e3a8a; border-color: #1e3a8a; color: #fff; }
