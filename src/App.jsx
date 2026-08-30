@@ -18415,18 +18415,22 @@ function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVe
                             setEditingEventDate("");
                             // Sync already-saved reports on that date: they snapshot
                             // eventName, so renaming the calendar alone leaves old
-                            // chips behind.
+                            // chips behind. Marking a date as an event day means every
+                            // report that day WAS an event-day inspection — convert
+                            // Regular ones too (Post Event is left alone).
                             let n = 0;
                             try {
                               const { list } = await loadHistory(undefined, { pageSize: 300 });
                               for (const rec of (list || [])) {
                                 const recDate = (rec.inspectionDate || rec.savedAt || "").slice(0, 10);
-                                if (recDate === d && rec.eventName && rec.eventName !== newName) {
-                                  try { await saveOneInspection({ ...rec, eventName: newName }); n++; } catch {}
-                                }
+                                if (recDate !== d) continue;
+                                const isPostEvent = /post/i.test(rec.inspectionType || "");
+                                const nextType = isPostEvent ? rec.inspectionType : "Event Day";
+                                if (rec.eventName === newName && rec.inspectionType === nextType) continue;
+                                try { await saveOneInspection({ ...rec, eventName: newName, inspectionType: nextType }); n++; } catch {}
                               }
                             } catch {}
-                            setEventRenameFlash(`✓ Renamed${n ? ` — updated ${n} saved report${n === 1 ? "" : "s"}` : ""}`);
+                            setEventRenameFlash(`✓ Saved${n ? ` — updated ${n} report${n === 1 ? "" : "s"} to Event Day` : ""}`);
                             setTimeout(() => setEventRenameFlash(""), 4000);
                           }}
                           style={{ background: "var(--sdx-navy)", color: "#fff", border: "none", borderRadius: 7, padding: "4px 12px", fontWeight: 800, fontSize: "0.78rem", cursor: "pointer", opacity: editingEventName.trim() ? 1 : 0.5 }}>Save</button>
