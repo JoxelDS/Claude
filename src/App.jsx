@@ -18166,6 +18166,9 @@ function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVe
   const [intervalSaved, setIntervalSaved] = useState(false);
   const [newEventDate, setNewEventDate] = useState("");
   const [newEventName2, setNewEventName2] = useState("");
+  const [editingEventDate, setEditingEventDate] = useState("");
+  const [editingEventName, setEditingEventName] = useState("");
+  const [eventRenameFlash, setEventRenameFlash] = useState("");
   const [scheduleDate, setScheduleDate] = useState("");
   const [scheduleLoc, setScheduleLoc] = useState("");
   const [scheduleUnit, setScheduleUnit] = useState("");
@@ -18398,15 +18401,55 @@ function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVe
               {Object.entries(venueSettings?.eventDays || {}).sort(([a], [b]) => a.localeCompare(b)).map(([d, name]) => {
                 const isPast = d < new Date().toISOString().slice(0, 10);
                 return (
-                  <div key={d} style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 10px", background: isPast ? "var(--surface-2)" : "var(--tint-amber-1, #fffbeb)", border: `1px solid ${isPast ? "var(--sdx-gray-200)" : "#fde68a"}`, borderRadius: 9, marginBottom: 6, opacity: isPast ? 0.65 : 1 }}>
+                  <div key={d} style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 10px", background: isPast ? "var(--surface-2)" : "var(--tint-amber-1, #fffbeb)", border: `1px solid ${isPast ? "var(--sdx-gray-200)" : "#fde68a"}`, borderRadius: 9, marginBottom: 6, opacity: isPast ? 0.85 : 1 }}>
                     <span style={{ fontWeight: 800, fontSize: "0.8rem", whiteSpace: "nowrap" }}>{d}</span>
-                    <span style={{ flex: 1, fontSize: "0.82rem", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>🎪 {name}</span>
-                    <button type="button"
-                      onClick={() => { const next = { ...(venueSettings?.eventDays || {}) }; delete next[d]; onSaveVenueSettings?.({ eventDays: next }); }}
-                      style={{ background: "none", border: "none", color: "#dc2626", fontWeight: 800, cursor: "pointer", fontSize: "0.85rem" }}>✕</button>
+                    {editingEventDate === d ? (
+                      <>
+                        <input className="input" value={editingEventName} autoFocus
+                          onChange={e => setEditingEventName(e.target.value)}
+                          style={{ flex: 1, fontSize: "0.82rem", padding: "4px 8px" }} />
+                        <button type="button" disabled={!editingEventName.trim()}
+                          onClick={async () => {
+                            const newName = editingEventName.trim();
+                            onSaveVenueSettings?.({ eventDays: { ...(venueSettings?.eventDays || {}), [d]: newName } });
+                            setEditingEventDate("");
+                            // Sync already-saved reports on that date: they snapshot
+                            // eventName, so renaming the calendar alone leaves old
+                            // chips behind.
+                            let n = 0;
+                            try {
+                              const { list } = await loadHistory(undefined, { pageSize: 300 });
+                              for (const rec of (list || [])) {
+                                const recDate = (rec.inspectionDate || rec.savedAt || "").slice(0, 10);
+                                if (recDate === d && rec.eventName && rec.eventName !== newName) {
+                                  try { await saveOneInspection({ ...rec, eventName: newName }); n++; } catch {}
+                                }
+                              }
+                            } catch {}
+                            setEventRenameFlash(`✓ Renamed${n ? ` — updated ${n} saved report${n === 1 ? "" : "s"}` : ""}`);
+                            setTimeout(() => setEventRenameFlash(""), 4000);
+                          }}
+                          style={{ background: "var(--sdx-navy)", color: "#fff", border: "none", borderRadius: 7, padding: "4px 12px", fontWeight: 800, fontSize: "0.78rem", cursor: "pointer", opacity: editingEventName.trim() ? 1 : 0.5 }}>Save</button>
+                        <button type="button" onClick={() => setEditingEventDate("")}
+                          style={{ background: "none", border: "none", color: "var(--ink-500)", fontWeight: 700, cursor: "pointer", fontSize: "0.78rem" }}>Cancel</button>
+                      </>
+                    ) : (
+                      <>
+                        <span style={{ flex: 1, fontSize: "0.82rem", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>🎪 {name}</span>
+                        <button type="button"
+                          onClick={() => { setEditingEventDate(d); setEditingEventName(name); }}
+                          style={{ background: "none", border: "none", cursor: "pointer", fontSize: "0.85rem" }}>✎</button>
+                        <button type="button"
+                          onClick={() => { const next = { ...(venueSettings?.eventDays || {}) }; delete next[d]; onSaveVenueSettings?.({ eventDays: next }); }}
+                          style={{ background: "none", border: "none", color: "#dc2626", fontWeight: 800, cursor: "pointer", fontSize: "0.85rem" }}>✕</button>
+                      </>
+                    )}
                   </div>
                 );
               })}
+              {eventRenameFlash && (
+                <div style={{ fontSize: "0.78rem", fontWeight: 700, color: "#16a34a", marginBottom: 6 }}>{eventRenameFlash}</div>
+              )}
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 4 }}>
                 <input type="date" className="input" value={newEventDate} onChange={e => setNewEventDate(e.target.value)} style={{ maxWidth: 165 }} />
                 <input className="input" placeholder="Event name (e.g. Dolphins vs Jets)" value={newEventName2} onChange={e => setNewEventName2(e.target.value)} style={{ flex: "1 1 180px" }} />
