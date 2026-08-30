@@ -485,8 +485,8 @@ const HARD_ROCK_LICENSE_SEED = {
   "304 - Granny Beez":                  "NOS2319783",
   "304 Granny Beez":                    "NOS2319783",
   // Stand 307
-  "P307 - Kosher Hot Dog / Arepa Cart": "NOS2338661",
-  "P307 Kosher Hot Dog":                "NOS2338661",
+  "P307 - Kosher Hot Dog / Arepa Cart": "NOS2338681",
+  "P307 Kosher Hot Dog":                "NOS2338681",
   // Stand 308
   "308 - Cantaloupe":                   "NOS2319806",
   "308 Cantaloupe":                     "NOS2319806",
@@ -507,8 +507,8 @@ const HARD_ROCK_LICENSE_SEED = {
   "317A - AIFI Smashed Burger":         "NOS2334859",
   "317A AIFI Smashed Burger":           "NOS2334859",
   // Stand 318
-  "318 - Sweet Cream":                  "NOS2319800",
-  "318 Sweet Cream":                    "NOS2319800",
+  "318 - Sweet Cream":                  "NOS2326971",
+  "318 Sweet Cream":                    "NOS2326971",
   // Stand 319A
   "319A - AIFI Edgewater Grill":        "NOS2334858",
   "319A AIFI Edgewater Grill":          "NOS2334858",
@@ -531,8 +531,8 @@ const HARD_ROCK_LICENSE_SEED = {
   "332 - Seed":                         "NOS2324673",
   "332 Seed":                           "NOS2324673",
   // Stand 336
-  "336 - Cantaloupe":                   "NOS2319782",
-  "336 Cantaloupe":                     "NOS2319782",
+  "336 - Cantaloupe":                   "NOS2319792",
+  "336 Cantaloupe":                     "NOS2319792",
   // Stand 338
   "P338 - Sizzle & Dippin Dots / Sub":  "NOS2334407",
   "P338 Sizzle Dippin Dots":            "NOS2334407",
@@ -540,8 +540,8 @@ const HARD_ROCK_LICENSE_SEED = {
   "340 - Talkin Tacos":                 "NOS2319791",
   "340 Talkin Tacos":                   "NOS2319791",
   // Stand 342
-  "P342 - Mr Chory":                    "NOS2334403",
-  "P342 Mr Chory":                      "NOS2334403",
+  "P342 - Mr Chory":                    "NOS2334409",
+  "P342 Mr Chory":                      "NOS2334409",
   // Stand 345
   "345 - Little Caesar":                "NOS2319790",
   "345 Little Caesar":                  "NOS2319790",
@@ -555,8 +555,8 @@ const HARD_ROCK_LICENSE_SEED = {
   "347A - AIFI Edgewater Grill":        "NOS2334856",
   "347A AIFI Edgewater Grill":          "NOS2334856",
   // Stand 350
-  "350 - Shawarma Gyros / Sub":         "NOS2326620",
-  "350 Shawarma Gyros":                 "NOS2326620",
+  "350 - Benihanas":                    "NOS2326620",
+  "350 Benihanas":                      "NOS2326620",
   "P350 - Dip N Dots / Sub":            "NOS2338678",
   "P350 Dip N Dots":                    "NOS2338678",
   // Stand 354
@@ -637,6 +637,121 @@ const LICENSE_SEED_BY_NAME = (() => {
    unambiguous number becomes the canonical name for that unit.
    Used to auto-fill siteName when an inspector enters a unit number.
 ──────────────────────────────────────────────────────────────────────── */
+
+/* ── OFFICIAL LICENSE REGISTRY (from the venue's license master list) ──
+   Identity = unit number + license TYPE (C=Concession, P=Portable,
+   S=Subcontractor, K=Kitchen). One unit can hold several licenses of
+   different types; names drift between seasons — the license number is
+   the stable anchor. Partial: pages covering ~139-230 were not
+   photographed; those units fall back to the older name-keyed seed. */
+const LICENSE_REGISTRY = [
+  { unit: "101", type: "C", license: "NOS2319780", name: "Magic City Dogs", status: "ACTIVE" },
+  { unit: "101", type: "P", license: "NOS2334411", name: "Arepa Cart / Sub", status: "ACTIVE" },
+  { unit: "102", type: "S", license: "NOS2325799", name: "Crisppis Chicken", status: "ACTIVE" },
+  { unit: "104", type: "C", license: "NOS2319779", name: "Sobe Q", status: "ACTIVE" },
+  { unit: "104", type: "P", license: "NOS2334424", name: "Arepa Cart / Sub", status: "ACTIVE" },
+  { unit: "106", type: "C", license: "NOS2325797", name: "Fatboy Smashburger", status: "ACTIVE" },
+  { unit: "107", type: "C", license: "NOS2319803", name: "Fan Favorites", status: "ACTIVE" },
+  { unit: "107", type: "P", license: "NOS2334421", name: "Dip N Dots / Sub", status: "ACTIVE" },
+  { unit: "111", type: "S", license: "NOS2326513", name: "Ella Cafe", status: "ACTIVE" },
+  { unit: "114", type: "P", license: "NOS2334412", name: "Shawarma Gyros / Sub", status: "ACTIVE" },
+  { unit: "114", type: "C", license: "NOS2319802", name: "Magic City Dogs", status: "ACTIVE" },
+  { unit: "114", type: "P", license: "NOS2334416", name: "Talkin Tacos / Sub", status: "ACTIVE" },
+  { unit: "117", type: "S", license: "NOS2319801", name: "Seed", status: "ACTIVE" },
+  { unit: "119", type: "C", license: "NOS2319796", name: "Tostitos", status: "ACTIVE" },
+  { unit: "122", type: "C", license: "NOS2319795", name: "Cantaloupe", status: "ACTIVE" },
+  { unit: "122", type: "P", license: "NOS2334408", name: "Fat Boy Smashed Cart", status: "ACTIVE" },
+  { unit: "122", type: "P", license: "NOS2334419", name: "Arepa Cart / Sub", status: "ACTIVE" },
+  { unit: "129", type: "C", license: "NOS2319794", name: "Magic City Dogs", status: "ACTIVE" },
+  { unit: "129", type: "P", license: "NOS2334417", name: "Kosher Burger & Dogs / Sub", status: "ACTIVE" },
+  { unit: "132", type: "C", license: "NOS2319793", name: "Sobe Q", status: "ACTIVE" },
+  { unit: "134", type: "S", license: "NOS2325137", name: "Novecento", status: "ACTIVE" },
+  { unit: "135", type: "P", license: "", name: "Shawarma Gyros / Sub", status: "IN PROCESS" },
+  { unit: "135", type: "C", license: "NOS2319789", name: "Magic City Dogs", status: "ACTIVE" },
+  { unit: "137", type: "P", license: "NOS2338680", name: "Dip N Dots / Sub", status: "ACTIVE" },
+  { unit: "231", type: "S", license: "NOS2332692", name: "Talkin Tacos", status: "ACTIVE" },
+  { unit: "232", type: "K", license: "NOS2324071", name: "Suite Kitchen", status: "ACTIVE" },
+  { unit: "233", type: "S", license: "NOS2332693", name: "Cheeseburger Baby", status: "ACTIVE" },
+  { unit: "242", type: "C", license: "NOS2319786", name: "Edgewater Grill", status: "ACTIVE" },
+  { unit: "243", type: "S", license: "NOS2331745", name: "Sushi Maki / Sea Food Republic", status: "ACTIVE" },
+  { unit: "245", type: "S", license: "NOS2331744", name: "Puffles", status: "ACTIVE" },
+  { unit: "246", type: "S", license: "NOS2331743", name: "La Carreta", status: "ACTIVE" },
+  { unit: "247", type: "C", license: "File# 377155", name: "Sobe Q", status: "FILE_REF" },
+  { unit: "248", type: "P", license: "", name: "Bubba Ice", status: "IN PROCESS" },
+  { unit: "250", type: "C", license: "NOS2324069", name: "Shula Burguer / Farmstead / Pizza", status: "ACTIVE" },
+  { unit: "304", type: "S", license: "NOS2319783", name: "Granny Beez", status: "ACTIVE" },
+  { unit: "307", type: "P", license: "NOS2338681", name: "Kosher Hot Dog / Arepa Cart", status: "ACTIVE" },
+  { unit: "308", type: "C", license: "NOS2319806", name: "Cantaloupe", status: "ACTIVE" },
+  { unit: "310", type: "P", license: "NOS2338679", name: "Sizzle & Dippin Dots / Sub", status: "ACTIVE" },
+  { unit: "312", type: "S", license: "NOS2319805", name: "La MilaNation", status: "ACTIVE" },
+  { unit: "315", type: "P", license: "NOS2334415", name: "Arepa Cart / Sub", status: "ACTIVE" },
+  { unit: "317", type: "C", license: "NOS2319804", name: "Sol Cubano", status: "ACTIVE" },
+  { unit: "318", type: "C", license: "NOS2326971", name: "Sweet Cream", status: "ACTIVE" },
+  { unit: "319", type: "S", license: "NOS2319800", name: "Fuku", status: "ACTIVE" },
+  { unit: "322", type: "P", license: "NOS2334405", name: "Shawarma Gyros / Sub", status: "ACTIVE" },
+  { unit: "323", type: "P", license: "NOS2338677", name: "Dip N Dots / Sub", status: "ACTIVE" },
+  { unit: "325", type: "P", license: "NOS2334414", name: "Arepa Cart / Sub", status: "ACTIVE" },
+  { unit: "327", type: "C", license: "NOS2319798", name: "Fan Favorites", status: "ACTIVE" },
+  { unit: "329", type: "S", license: "NOS2321412", name: "Crisppis Chicken", status: "ACTIVE" },
+  { unit: "332", type: "S", license: "NOS2324673", name: "Seed", status: "ACTIVE" },
+  { unit: "336", type: "C", license: "NOS2319792", name: "Cantaloupe", status: "ACTIVE" },
+  { unit: "338", type: "P", license: "NOS2334407", name: "Sizzle & Dippin Dots / Sub", status: "ACTIVE" },
+  { unit: "340", type: "S", license: "NOS2319791", name: "Talkin Tacos", status: "ACTIVE" },
+  { unit: "342", type: "P", license: "NOS2334409", name: "Mr Chory", status: "ACTIVE" },
+  { unit: "345", type: "C", license: "NOS2319790", name: "Litle Caesar", status: "ACTIVE" },
+  { unit: "347", type: "S", license: "NOS2326622", name: "Lucky Chicken", status: "ACTIVE" },
+  { unit: "350", type: "S", license: "NOS2326620", name: "Benihanas", status: "ACTIVE" },
+  { unit: "350", type: "P", license: "", name: "Shawarma Gyros / Sub", status: "IN PROCESS" },
+  { unit: "350", type: "P", license: "NOS2338678", name: "Dip N Dots / Sub", status: "ACTIVE" },
+  { unit: "354", type: "P", license: "NOS2334404", name: "Arepa Cart (Sub)", status: "ACTIVE" },
+  { unit: "355", type: "C", license: "NOS2326624", name: "Fan Favorite", status: "ACTIVE" },
+  { unit: "114A", type: "S", license: "NOS2334824", name: "Cheeseburger Baby", status: "ACTIVE" },
+  { unit: "117A", type: "C", license: "NOS2334823", name: "AIFI Wynwood Walkthrough", status: "ACTIVE" },
+  { unit: "120A", type: "C", license: "NOS2334822", name: "Sol Cubano", status: "ACTIVE" },
+  { unit: "122A", type: "C", license: "NOS2334821", name: "AIFI Wynwood Walkthrough", status: "ACTIVE" },
+  { unit: "130A", type: "C", license: "NOS2321406", name: "Avoeats", status: "ACTIVE" },
+  { unit: "142A", type: "C", license: "NOS2334820", name: "AIFI Smashed Burger", status: "ACTIVE" },
+  { unit: "144A", type: "S", license: "NOS2334819", name: "Fuku", status: "ACTIVE" },
+  { unit: "150A", type: "C", license: "NOS2334817", name: "AIFI Edgewater Grill", status: "ACTIVE" },
+  { unit: "317A", type: "C", license: "NOS2334859", name: "AIFI Smashed Burger", status: "ACTIVE" },
+  { unit: "319A", type: "C", license: "NOS2334858", name: "AIFI Edgewater Grill", status: "ACTIVE" },
+  { unit: "345A", type: "C", license: "NOS2334857", name: "AIFI Smashed Burger", status: "ACTIVE" },
+  { unit: "347A", type: "C", license: "NOS2334856", name: "AIFI Edgewater Grill", status: "ACTIVE" },
+  { unit: "G", type: "K", license: "NOS2324068", name: "Main Kitchen", status: "ACTIVE" },
+  { unit: "G", type: "K", license: "NOS2334853", name: "Lexus North Club & Main Warehouse", status: "ACTIVE" },
+  { unit: "G", type: "K", license: "NOS2334854", name: "72 Club South/East", status: "ACTIVE" },
+  { unit: "G", type: "C", license: "NOS2336936", name: "Training Facility Batist.", status: "ACTIVE" },
+  { unit: "G", type: "External", license: "", name: "Portable Kitchen Grand Slam", status: "IN PROCESS" }
+];
+
+function licTypeForLocationType(lt) {
+  if (!lt) return "";
+  if (lt === "Concession") return "C";
+  if (lt === "Subcontractor") return "S";
+  if (/portable/i.test(lt)) return "P";
+  if (/kitchen/i.test(lt)) return "K";
+  return "";
+}
+
+// Resolve a unit (+ optional location type) to its official license entry.
+// Returns { unit, type, license, name, status } or null. When several
+// licenses share the unit, the location type picks the right one.
+function lookupLicenseByUnitType(unitVal, locationType) {
+  const u = normUnit(unitVal);
+  if (!u) return null;
+  const rows = LICENSE_REGISTRY.filter(r => normUnit(r.unit) === u);
+  if (rows.length === 0) return null;
+  const t = licTypeForLocationType(locationType);
+  const pick = list => list.find(r => r.status === "ACTIVE" && r.license) || list.find(r => r.license) || list[0] || null;
+  if (t) {
+    const typed = rows.filter(r => r.type === t);
+    if (typed.length) return pick(typed);
+  }
+  if (rows.length === 1) return rows[0];
+  const active = rows.filter(r => r.status === "ACTIVE" && r.license);
+  return active.length === 1 ? active[0] : null; // ambiguous without a type — do not guess
+}
+
 const LICENSE_NAME_BY_NUMBER = (() => {
   const byNum = {};
   for (const key of Object.keys(HARD_ROCK_LICENSE_SEED)) {
@@ -17196,9 +17311,14 @@ function KitchenQrPage({ onBack, onPrintLabels }) {
           seen.add(id);
           list.push({ id, site, unit, floor, license });
         }
-        // Sync licenses onto every card by unit number (registry edit still wins)
+        // Sync licenses onto every card: official registry (unit + type)
+        // first, then anything recorded in inspection history.
         for (const k of list) {
-          if (!k.license && k.unit && licenseByUnit[normUnit(k.unit)]) k.license = licenseByUnit[normUnit(k.unit)];
+          if (!k.license && k.unit) {
+            const reg = lookupLicenseByUnitType(k.unit, k.locType);
+            if (reg?.status === "ACTIVE" && reg.license) { k.license = reg.license; if (!k.officialName) k.officialName = reg.name; }
+            else if (licenseByUnit[normUnit(k.unit)]) k.license = licenseByUnit[normUnit(k.unit)];
+          }
         }
       } catch {}
       list.sort((a, b) => a.site.localeCompare(b.site) || a.unit.localeCompare(b.unit, undefined, { numeric: true }));
@@ -23347,7 +23467,8 @@ export default function App() {
       if (licEntry?.licenseNum && licEntry.licenseNum !== "NO LICENSE") {
         setRestaurantLicense(licEntry.licenseNum);
       } else if (IS_DEFAULT_VENUE()) {
-        const seedLic = lookupLicenseFromSeed(val, siteNumber);
+        const regEntry = lookupLicenseByUnitType(siteNumber, locationType);
+        const seedLic = (regEntry?.status === "ACTIVE" && regEntry.license) || lookupLicenseFromSeed(val, siteNumber);
         if (seedLic) setRestaurantLicense(seedLic);
       }
     }
@@ -25350,10 +25471,17 @@ export default function App() {
                   setSiteNumber(val);
                   // Auto-fill site name + license from unit number (Hard Rock Stadium only)
                   if (IS_DEFAULT_VENUE()) {
+                    // Official registry first: unit + location type picks the right
+                    // license even when a unit holds several (101 C vs 101 P).
+                    const regEntry = lookupLicenseByUnitType(val, locationType);
+                    if (regEntry) {
+                      if (regEntry.license && !restaurantLicense && regEntry.status === "ACTIVE") setRestaurantLicense(regEntry.license);
+                      if (regEntry.name && !siteName) setSiteName(regEntry.name.toUpperCase());
+                    }
                     const numKey = val.toUpperCase().trim();
                     const seedName = LICENSE_NAME_BY_NUMBER[numKey];
-                    if (seedName && !siteName) setSiteName(seedName);
-                    if (!restaurantLicense) {
+                    if (seedName && !siteName && !regEntry?.name) setSiteName(seedName);
+                    if (!restaurantLicense && !regEntry?.license) {
                       const seedLic = lookupLicenseFromSeed(siteName || seedName || "", val);
                       if (seedLic) setRestaurantLicense(seedLic);
                     }
