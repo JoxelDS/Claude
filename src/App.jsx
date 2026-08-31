@@ -7830,6 +7830,29 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
 
   const [fuOpen, setFuOpen] = useState({});
   const [fuGroupBy, setFuGroupBy] = useState("loc"); // "loc" | "cat"
+  const [fuSearch, setFuSearch] = useState("");
+
+  // Search: match unit number (normalized — "142a" hits "142 A"), venue name,
+  // problem category, issue text, or notes.
+  const fuMatches = f => {
+    const q = fuSearch.trim().toLowerCase();
+    if (!q) return true;
+    const qUnit = normUnit(q);
+    if (qUnit && normUnit(f.unit).includes(qUnit)) return true;
+    return [f.loc, f.cat, f.detail, f.notes].some(v => (v || "").toLowerCase().includes(q));
+  };
+  const fuFilterGroups = groups => !fuSearch.trim() ? groups
+    : groups.map(g => {
+        const items = g.items.filter(fuMatches);
+        if (!items.length) return null;
+        const rec = { ...g, items, overdueCount: 0, dueSoonCount: 0, resolvedCount: 0 };
+        for (const f of items) {
+          if (f.overdue) rec.overdueCount++;
+          else if (f.likelyResolved) rec.resolvedCount++;
+          else rec.dueSoonCount++;
+        }
+        return rec;
+      }).filter(Boolean);
 
   // Shared status map (remote) + this device's optimistic writes on top.
   const stMap = { ...(venueSettings?.followupStatus || {}), ...statusLocal };
@@ -7844,6 +7867,10 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
 
   if (!analysis) return null;
   if (analysis.recurring.length === 0 && Object.keys(analysis.locationRecurring).length === 0 && analysis.worstLocations.length === 0 && (analysis.followups || []).length === 0) return null;
+
+  const fuVisible = (analysis.followups || []).filter(fuMatches);
+  const fuGroupsShown = fuFilterGroups(analysis.followupGroups || []);
+  const fuCatGroupsShown = fuFilterGroups(analysis.followupCatGroups || []);
 
   return (
     <div className="card" style={{ marginBottom: 24 }}>
@@ -7890,33 +7917,48 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
                 </select>
               </label>
             </div>
+            <div style={{ position: "relative", margin: "8px 0 2px", maxWidth: 420 }}>
+              <input
+                value={fuSearch}
+                onChange={e => setFuSearch(e.target.value)}
+                placeholder="🔎 Search unit #, stand, or issue…"
+                style={{ width: "100%", boxSizing: "border-box", padding: "8px 34px 8px 12px", borderRadius: 10, border: "1.5px solid var(--sdx-gray-200)", fontSize: "16px", background: "var(--surface-1)" }}
+              />
+              {fuSearch && (
+                <button type="button" onClick={() => setFuSearch("")}
+                  style={{ position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)", background: "var(--surface-2)", border: "none", borderRadius: 999, width: 24, height: 24, cursor: "pointer", fontWeight: 800, color: "var(--ink-500)", lineHeight: 1 }}>×</button>
+              )}
+            </div>
             {/* Summary bar */}
             <div className="fuSummary">
-              {analysis.followups.filter(f => f.overdue).length > 0 && (
-                <span className="fuSumChip fuSumOverdue">⏰ {analysis.followups.filter(f => f.overdue).length} overdue</span>
+              {fuVisible.filter(f => f.overdue).length > 0 && (
+                <span className="fuSumChip fuSumOverdue">⏰ {fuVisible.filter(f => f.overdue).length} overdue</span>
               )}
-              {analysis.followups.filter(f => !f.overdue && !f.likelyResolved).length > 0 && (
-                <span className="fuSumChip fuSumSoon">👁 {analysis.followups.filter(f => !f.overdue && !f.likelyResolved).length} due soon</span>
+              {fuVisible.filter(f => !f.overdue && !f.likelyResolved).length > 0 && (
+                <span className="fuSumChip fuSumSoon">👁 {fuVisible.filter(f => !f.overdue && !f.likelyResolved).length} due soon</span>
               )}
-              {analysis.followups.filter(f => f.likelyResolved).length > 0 && (
-                <span className="fuSumChip fuSumOk">✅ {analysis.followups.filter(f => f.likelyResolved).length} likely fixed</span>
+              {fuVisible.filter(f => f.likelyResolved).length > 0 && (
+                <span className="fuSumChip fuSumOk">✅ {fuVisible.filter(f => f.likelyResolved).length} likely fixed</span>
               )}
-              {analysis.followups.filter(f => effStatus(f) === "in_progress").length > 0 && (
-                <span className="fuSumChip fuSumProg">🔧 {analysis.followups.filter(f => effStatus(f) === "in_progress").length} in process</span>
+              {fuVisible.filter(f => effStatus(f) === "in_progress").length > 0 && (
+                <span className="fuSumChip fuSumProg">🔧 {fuVisible.filter(f => effStatus(f) === "in_progress").length} in process</span>
               )}
-              {analysis.followups.filter(f => effStatus(f) === "waiting").length > 0 && (
-                <span className="fuSumChip fuSumWait">⏳ {analysis.followups.filter(f => effStatus(f) === "waiting").length} waiting</span>
+              {fuVisible.filter(f => effStatus(f) === "waiting").length > 0 && (
+                <span className="fuSumChip fuSumWait">⏳ {fuVisible.filter(f => effStatus(f) === "waiting").length} waiting</span>
               )}
-              <span className="fuSumChip">📍 {analysis.followupGroups.length} venue{analysis.followupGroups.length !== 1 ? "s" : ""}</span>
+              <span className="fuSumChip">📍 {fuGroupsShown.length} venue{fuGroupsShown.length !== 1 ? "s" : ""}</span>
               <span className="fuToggle">
                 <button type="button" className={`fuToggleBtn${fuGroupBy === "loc" ? " fuToggleActive" : ""}`} onClick={() => setFuGroupBy("loc")}>📍 By Venue</button>
                 <button type="button" className={`fuToggleBtn${fuGroupBy === "cat" ? " fuToggleActive" : ""}`} onClick={() => setFuGroupBy("cat")}>🗂 By Problem</button>
               </span>
             </div>
             <div className="fuList">
-              {(fuGroupBy === "cat" ? analysis.followupCatGroups : analysis.followupGroups).map(g => {
+              {fuSearch.trim() && fuVisible.length === 0 && (
+                <div style={{ fontSize: "0.82rem", color: "var(--ink-400)", fontStyle: "italic", padding: "10px 4px" }}>No follow-ups match “{fuSearch.trim()}”.</div>
+              )}
+              {(fuGroupBy === "cat" ? fuCatGroupsShown : fuGroupsShown).map(g => {
                 const gKey = `${fuGroupBy}::${fuGroupBy === "cat" ? g.cat : g.loc}`;
-                const isOpen = fuOpen[gKey] !== undefined ? fuOpen[gKey] : g.overdueCount > 0;
+                const isOpen = fuSearch.trim() ? true : (fuOpen[gKey] !== undefined ? fuOpen[gKey] : g.overdueCount > 0);
                 const openItems = g.items.filter(f => !f.likelyResolved);
                 return (
                   <div key={gKey} className={`fuGroup ${g.overdueCount > 0 ? "fuGroupOverdue" : g.dueSoonCount > 0 ? "fuGroupWatching" : "fuGroupResolved"}`}>
