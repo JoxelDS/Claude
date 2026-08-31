@@ -7520,7 +7520,93 @@ function PredictiveInsightsPanel({ history }) {
 }
 
 /* ── Recurring Issues Analysis ──────────────────────────── */
-function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDrilldown, venueSettings, saveVenueSettings }) {
+// Follow-up derivation, shared by the panel and the App-level overdue badge.
+function computeFollowups(history, venueSettings, clearedLocal = {}) {
+  const recheckDays = Number(venueSettings?.recheckDays) || 7;
+  if (!Array.isArray(history) || history.length < 2) return { followups: [], followupGroups: [], followupCatGroups: [], recheckDays };
+  const cleared = { ...(venueSettings?.followupCleared || {}), ...clearedLocal };
+  const latestInspByLoc = {};   // locName -> newest inspection timestamp
+  const catLastSeen = {};       // "loc::cat" -> { ts, dateStr, count }
+  for (const rec of history) {
+    const locName = rec.siteName || rec.location || "—";
+    const ts = rec.inspectionDate ? new Date(rec.inspectionDate).getTime() : 0;
+    if (!ts) continue;
+    if (!latestInspByLoc[locName] || ts > latestInspByLoc[locName]) latestInspByLoc[locName] = ts;
+    const recResolvedMap = rec.resolvedIssues || {};
+    const actionItems = rec.actionItems || [];
+    actionItems.forEach((item, i) => {
+      if (recResolvedMap[i]) return;
+      const cat = item.issue?.split(":")[0]?.trim() || "Other";
+      const key = `${locName}::${cat}`;
+      if (!catLastSeen[key]) catLastSeen[key] = { ts: 0, dateStr: "", count: 0, unit: "" };
+      catLastSeen[key].count++;
+      if (ts > catLastSeen[key].ts) {
+        catLastSeen[key].ts = ts; catLastSeen[key].dateStr = rec.inspectionDate; catLastSeen[key].unit = (rec.siteNumber || "").trim();
+        // Keep the latest issue description + inspector notes so the
+        // follow-up card can show WHAT the problem actually is.
+        const afterColon = (item.issue || "").split(":").slice(1).join(":").trim();
+        catLastSeen[key].detail = afterColon || (item.issue || "").trim();
+        catLastSeen[key].notes = (item.notes || "").trim();
+      }
+    });
+  }
+  const now = Date.now();
+  const followups = Object.entries(catLastSeen)
+    .filter(([key, v]) => {
+      const clearedTs = cleared[key];
+      if (clearedTs && clearedTs >= v.ts) return false;            // resolved, and hasn't reappeared since
+      return now - v.ts <= 90 * 24 * 60 * 60 * 1000;               // ignore ancient history
+    })
+    .map(([key, v]) => {
+      const [loc, cat] = key.split("::");
+      const daysSince = Math.floor((now - v.ts) / (24 * 60 * 60 * 1000));
+      const likelyResolved = (latestInspByLoc[loc] || 0) > v.ts;   // a newer inspection had no such issue
+      const overdue = !likelyResolved && daysSince >= recheckDays;
+      return { key, loc, cat, unit: v.unit || "", daysSince, count: v.count, dateStr: v.dateStr, likelyResolved, overdue, detail: v.detail || "", notes: v.notes || "", ts: v.ts || 0 };
+    })
+    .sort((a, b) => (b.overdue - a.overdue) || (a.likelyResolved - b.likelyResolved) || b.daysSince - a.daysSince);
+
+  // Group follow-ups by venue so one site with many issues is one card,
+  // with bulk actions, instead of a wall of individual cards.
+  const fuByLoc = {};
+  const followupGroups = [];
+  for (const f of followups) {
+    if (!fuByLoc[f.loc]) {
+      fuByLoc[f.loc] = { loc: f.loc, unit: f.unit, items: [], overdueCount: 0, dueSoonCount: 0, resolvedCount: 0, minDue: Infinity };
+      followupGroups.push(fuByLoc[f.loc]);
+    }
+    const g = fuByLoc[f.loc];
+    g.items.push(f);
+    if (f.unit && !g.unit) g.unit = f.unit;
+    if (f.overdue) g.overdueCount++;
+    else if (f.likelyResolved) g.resolvedCount++;
+    else { g.dueSoonCount++; g.minDue = Math.min(g.minDue, Math.max(0, recheckDays - f.daysSince)); }
+  }
+  followupGroups.sort((a, b) => (b.overdueCount > 0) - (a.overdueCount > 0) || (a.minDue - b.minDue) || b.items.length - a.items.length);
+
+  // Same follow-ups grouped by problem type, so every kind of issue
+  // (temps, floors, ceilings, utensils…) can be browsed across venues.
+  const fuByCat = {};
+  const followupCatGroups = [];
+  for (const f of followups) {
+    if (!fuByCat[f.cat]) {
+      fuByCat[f.cat] = { cat: f.cat, items: [], overdueCount: 0, dueSoonCount: 0, resolvedCount: 0, minDue: Infinity, venues: new Set() };
+      followupCatGroups.push(fuByCat[f.cat]);
+    }
+    const g = fuByCat[f.cat];
+    g.items.push(f);
+    g.venues.add(f.loc);
+    if (f.overdue) g.overdueCount++;
+    else if (f.likelyResolved) g.resolvedCount++;
+    else { g.dueSoonCount++; g.minDue = Math.min(g.minDue, Math.max(0, recheckDays - f.daysSince)); }
+  }
+  followupCatGroups.forEach(g => { g.venueCount = g.venues.size; delete g.venues; });
+  followupCatGroups.sort((a, b) => (b.overdueCount > 0) - (a.overdueCount > 0) || (a.minDue - b.minDue) || b.items.length - a.items.length);
+
+  return { followups, followupGroups, followupCatGroups, recheckDays };
+}
+
+function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDrilldown, venueSettings, saveVenueSettings, saveVenueSettingsMap, currentUser }) {
   // Locally cleared follow-ups — instant feedback independent of settings sync
   const [clearedLocal, setClearedLocal] = useState({});
   const analysis = useMemo(() => {
@@ -7624,90 +7710,31 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
       .slice(0, 5);
 
     // 6. Follow-ups: open issues that need a recheck or look resolved
-    const recheckDays = Number(venueSettings?.recheckDays) || 7;
-    const cleared = { ...(venueSettings?.followupCleared || {}), ...clearedLocal };
-    const latestInspByLoc = {};   // locName -> newest inspection timestamp
-    const catLastSeen = {};       // "loc::cat" -> { ts, dateStr, count }
-    for (const rec of history) {
-      const locName = rec.siteName || rec.location || "—";
-      const ts = rec.inspectionDate ? new Date(rec.inspectionDate).getTime() : 0;
-      if (!ts) continue;
-      if (!latestInspByLoc[locName] || ts > latestInspByLoc[locName]) latestInspByLoc[locName] = ts;
-      const recResolvedMap = rec.resolvedIssues || {};
-      const actionItems = rec.actionItems || [];
-      actionItems.forEach((item, i) => {
-        if (recResolvedMap[i]) return;
-        const cat = item.issue?.split(":")[0]?.trim() || "Other";
-        const key = `${locName}::${cat}`;
-        if (!catLastSeen[key]) catLastSeen[key] = { ts: 0, dateStr: "", count: 0, unit: "" };
-        catLastSeen[key].count++;
-        if (ts > catLastSeen[key].ts) {
-          catLastSeen[key].ts = ts; catLastSeen[key].dateStr = rec.inspectionDate; catLastSeen[key].unit = (rec.siteNumber || "").trim();
-          // Keep the latest issue description + inspector notes so the
-          // follow-up card can show WHAT the problem actually is.
-          const afterColon = (item.issue || "").split(":").slice(1).join(":").trim();
-          catLastSeen[key].detail = afterColon || (item.issue || "").trim();
-          catLastSeen[key].notes = (item.notes || "").trim();
-        }
-      });
-    }
-    const now = Date.now();
-    const followups = Object.entries(catLastSeen)
-      .filter(([key, v]) => {
-        const clearedTs = cleared[key];
-        if (clearedTs && clearedTs >= v.ts) return false;            // resolved, and hasn't reappeared since
-        return now - v.ts <= 90 * 24 * 60 * 60 * 1000;               // ignore ancient history
-      })
-      .map(([key, v]) => {
-        const [loc, cat] = key.split("::");
-        const daysSince = Math.floor((now - v.ts) / (24 * 60 * 60 * 1000));
-        const likelyResolved = (latestInspByLoc[loc] || 0) > v.ts;   // a newer inspection had no such issue
-        const overdue = !likelyResolved && daysSince >= recheckDays;
-        return { key, loc, cat, unit: v.unit || "", daysSince, count: v.count, dateStr: v.dateStr, likelyResolved, overdue, detail: v.detail || "", notes: v.notes || "", ts: v.ts || 0 };
-      })
-      .sort((a, b) => (b.overdue - a.overdue) || (a.likelyResolved - b.likelyResolved) || b.daysSince - a.daysSince);
-
-    // Group follow-ups by venue so one site with many issues is one card,
-    // with bulk actions, instead of a wall of individual cards.
-    const fuByLoc = {};
-    const followupGroups = [];
-    for (const f of followups) {
-      if (!fuByLoc[f.loc]) {
-        fuByLoc[f.loc] = { loc: f.loc, unit: f.unit, items: [], overdueCount: 0, dueSoonCount: 0, resolvedCount: 0, minDue: Infinity };
-        followupGroups.push(fuByLoc[f.loc]);
-      }
-      const g = fuByLoc[f.loc];
-      g.items.push(f);
-      if (f.unit && !g.unit) g.unit = f.unit;
-      if (f.overdue) g.overdueCount++;
-      else if (f.likelyResolved) g.resolvedCount++;
-      else { g.dueSoonCount++; g.minDue = Math.min(g.minDue, Math.max(0, recheckDays - f.daysSince)); }
-    }
-    followupGroups.sort((a, b) => (b.overdueCount > 0) - (a.overdueCount > 0) || (a.minDue - b.minDue) || b.items.length - a.items.length);
-
-    // Same follow-ups grouped by problem type, so every kind of issue
-    // (temps, floors, ceilings, utensils…) can be browsed across venues.
-    const fuByCat = {};
-    const followupCatGroups = [];
-    for (const f of followups) {
-      if (!fuByCat[f.cat]) {
-        fuByCat[f.cat] = { cat: f.cat, items: [], overdueCount: 0, dueSoonCount: 0, resolvedCount: 0, minDue: Infinity, venues: new Set() };
-        followupCatGroups.push(fuByCat[f.cat]);
-      }
-      const g = fuByCat[f.cat];
-      g.items.push(f);
-      g.venues.add(f.loc);
-      if (f.overdue) g.overdueCount++;
-      else if (f.likelyResolved) g.resolvedCount++;
-      else { g.dueSoonCount++; g.minDue = Math.min(g.minDue, Math.max(0, recheckDays - f.daysSince)); }
-    }
-    followupCatGroups.forEach(g => { g.venueCount = g.venues.size; delete g.venues; });
-    followupCatGroups.sort((a, b) => (b.overdueCount > 0) - (a.overdueCount > 0) || (a.minDue - b.minDue) || b.items.length - a.items.length);
+    const { followups, followupGroups, followupCatGroups, recheckDays } = computeFollowups(history, venueSettings, clearedLocal);
 
     return { recurring, locationRecurring, tempComplianceRate, tempChecks, tempFails, totalInspections: history.length, worstLocations, followups, followupGroups, followupCatGroups, recheckDays };
   }, [history, venueSettings, clearedLocal]);
 
   const [remindedKey, setRemindedKey] = useState(null);
+  // Status lifecycle — optimistic overlay + shared per-key writes
+  const [statusLocal, setStatusLocal] = useState({});
+  const [waitingKey, setWaitingKey] = useState(null);
+  const [waitingNote, setWaitingNote] = useState("");
+
+  function writeMap(field, patch) {
+    // Per-key Firestore patch (no stale whole-map spread); falls back to the
+    // legacy whole-map save when the new helper isn't threaded through yet.
+    if (saveVenueSettingsMap) return saveVenueSettingsMap(field, patch);
+    const prev = venueSettings?.[field] || {};
+    saveVenueSettings?.({ [field]: { ...prev, ...patch } });
+  }
+
+  function setStatus(f, status, note = "") {
+    const entry = { status, note: note.trim().slice(0, 80), by: currentUser?.name || "Unknown", ts: Date.now() };
+    setStatusLocal(prev => ({ ...prev, [f.key]: entry }));
+    writeMap("followupStatus", { [f.key]: entry });
+    setWaitingKey(null); setWaitingNote("");
+  }
 
   function markResolved(f) {
     // Stamp must be >= the record timestamp it clears — date-only inspection
@@ -7716,8 +7743,24 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
     setClearedLocal(prev => ({ ...prev, [f.key]: stamp }));
     setRemindedKey(`res::${f.key}`);
     setTimeout(() => setRemindedKey(null), 1500);
+    writeMap("followupStatus", { [f.key]: { status: "resolved", note: "", by: currentUser?.name || "Unknown", ts: stamp } });
     const prev = venueSettings?.followupCleared || {};
-    saveVenueSettings?.({ followupCleared: { ...prev, [f.key]: stamp } });
+    writeMap("followupCleared", { [f.key]: stamp });
+  }
+
+  // Cross-device reach: notify approved users assigned to this stand so the
+  // reminder isn't just a local announcement on THIS device.
+  async function notifyAssignedUsers(fs, title, message) {
+    if (!FIREBASE_ON) return;
+    try {
+      const users = await getUsers();
+      const locs = new Set((Array.isArray(fs) ? fs : [fs]).map(f => (f.loc || "").trim().toUpperCase()));
+      (users || [])
+        .filter(u => u.approved && u.name && u.badgeHash !== currentUser?.badgeHash &&
+          (u.assignedStands || []).some(s => locs.has((s || "").trim().toUpperCase())))
+        .slice(0, 10)
+        .forEach(u => saveInspectorNotification({ inspectorName: u.name.trim().toLowerCase(), kind: "followup", title, message }).catch(() => {}));
+    } catch {}
   }
 
   function remindTeam(f) {
@@ -7734,6 +7777,7 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
         results: [],
       };
       localStorage.setItem("sdx_announcements", JSON.stringify([a, ...list]));
+      notifyAssignedUsers(f, a.title, a.body);
       setRemindedKey(f.key);
       setTimeout(() => setRemindedKey(null), 2200);
     } catch {}
@@ -7742,10 +7786,16 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
   // Bulk actions — one click covers every open follow-up at a venue
   function resolveVenue(g) {
     const patch = {};
-    g.items.forEach(f => { patch[f.key] = Math.max(Date.now(), (f.ts || 0) + 1); });
+    const stPatch = {};
+    const by = currentUser?.name || "Unknown";
+    g.items.forEach(f => {
+      const stamp = Math.max(Date.now(), (f.ts || 0) + 1);
+      patch[f.key] = stamp;
+      stPatch[f.key] = { status: "resolved", note: "", by, ts: stamp };
+    });
     setClearedLocal(prev => ({ ...prev, ...patch }));
-    const prev = venueSettings?.followupCleared || {};
-    saveVenueSettings?.({ followupCleared: { ...prev, ...patch } });
+    writeMap("followupCleared", patch);
+    writeMap("followupStatus", stPatch);
   }
 
   function remindGroup(g, mode) {
@@ -7772,6 +7822,7 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
         results: [],
       };
       localStorage.setItem("sdx_announcements", JSON.stringify([a, ...list]));
+      notifyAssignedUsers(open, a.title, a.body);
       setRemindedKey(`grp::${byCat ? g.cat : g.loc}`);
       setTimeout(() => setRemindedKey(null), 2200);
     } catch {}
@@ -7779,6 +7830,17 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
 
   const [fuOpen, setFuOpen] = useState({});
   const [fuGroupBy, setFuGroupBy] = useState("loc"); // "loc" | "cat"
+
+  // Shared status map (remote) + this device's optimistic writes on top.
+  const stMap = { ...(venueSettings?.followupStatus || {}), ...statusLocal };
+  // Effective working status of a VISIBLE follow-up. A lingering "resolved"
+  // entry means the issue reappeared after a clear — treat as reopened.
+  const effStatus = f => { const st = stMap[f.key]; return !st || st.status === "resolved" ? null : st.status; };
+  const STATUS_META = {
+    reported: { icon: "📣", label: "Reported", cls: "fuStOnReported" },
+    in_progress: { icon: "🔧", label: "In process", cls: "fuStOnProgress" },
+    waiting: { icon: "⏳", label: "Waiting", cls: "fuStOnWaiting" },
+  };
 
   if (!analysis) return null;
   if (analysis.recurring.length === 0 && Object.keys(analysis.locationRecurring).length === 0 && analysis.worstLocations.length === 0 && (analysis.followups || []).length === 0) return null;
@@ -7838,6 +7900,12 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
               )}
               {analysis.followups.filter(f => f.likelyResolved).length > 0 && (
                 <span className="fuSumChip fuSumOk">✅ {analysis.followups.filter(f => f.likelyResolved).length} likely fixed</span>
+              )}
+              {analysis.followups.filter(f => effStatus(f) === "in_progress").length > 0 && (
+                <span className="fuSumChip fuSumProg">🔧 {analysis.followups.filter(f => effStatus(f) === "in_progress").length} in process</span>
+              )}
+              {analysis.followups.filter(f => effStatus(f) === "waiting").length > 0 && (
+                <span className="fuSumChip fuSumWait">⏳ {analysis.followups.filter(f => effStatus(f) === "waiting").length} waiting</span>
               )}
               <span className="fuSumChip">📍 {analysis.followupGroups.length} venue{analysis.followupGroups.length !== 1 ? "s" : ""}</span>
               <span className="fuToggle">
@@ -7902,6 +7970,43 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
                                   {f.detail}{f.notes && f.detail !== f.notes ? <span style={{ color: "var(--ink-500)" }}> — {f.notes}</span> : null}
                                 </div>
                               )}
+                              {/* Status lifecycle — tap to tell the team where this stands */}
+                              <div onClick={e => e.stopPropagation()}>
+                                <div className="fuStRow">
+                                  {Object.entries(STATUS_META).map(([sk, m]) => {
+                                    return (
+                                      <button key={sk} type="button"
+                                        className={`fuStChip${effStatus(f) === sk ? ` ${m.cls}` : ""}`}
+                                        onClick={() => {
+                                          if (effStatus(f) === sk) return;
+                                          if (sk === "waiting") { setWaitingKey(f.key); setWaitingNote(stMap[f.key]?.note || ""); }
+                                          else setStatus(f, sk);
+                                        }}>
+                                        {m.icon} {m.label}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                                {waitingKey === f.key && (
+                                  <div className="fuNoteRow">
+                                    <input value={waitingNote} autoFocus placeholder="waiting for… (e.g. Ecolab tech, parts)"
+                                      onChange={e => setWaitingNote(e.target.value)} maxLength={80} />
+                                    <button type="button" className="fuBtn fuBtnResolve" disabled={!waitingNote.trim()}
+                                      style={{ opacity: waitingNote.trim() ? 1 : 0.5 }}
+                                      onClick={() => setStatus(f, "waiting", waitingNote)}>Save</button>
+                                    <button type="button" className="fuBtn" onClick={() => { setWaitingKey(null); setWaitingNote(""); }}>✕</button>
+                                  </div>
+                                )}
+                                {(() => {
+                                  const st = stMap[f.key];
+                                  if (!st || !st.by) return null;
+                                  const m = STATUS_META[st.status];
+                                  const when = st.ts ? new Date(st.ts).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "";
+                                  if (st.status === "resolved") return <div className="fuStStamp">↩ Reopened — last resolved by {st.by}{when ? ` · ${when}` : ""}</div>;
+                                  if (!m) return null;
+                                  return <div className="fuStStamp">{m.icon} {m.label} — {st.by}{when ? ` · ${when}` : ""}{st.status === "waiting" && st.note ? ` — waiting for ${st.note}` : ""}</div>;
+                                })()}
+                              </div>
                             </div>
                             <div className="fuActions">
                               {!f.likelyResolved && (
@@ -8199,7 +8304,7 @@ function ImportReviewModal({ fields: initialFields, imagePreview, saving, onSave
 }
 
 /* ── History Page Component ──────────────────────────────── */
-function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, currentUser, notifItems, onNotifDismiss, onNotifClearAll, onMyTasks, venueSettings, saveVenueSettings }) {
+function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, currentUser, notifItems, onNotifDismiss, onNotifClearAll, onMyTasks, venueSettings, saveVenueSettings, saveVenueSettingsMap, initialTab, initialAnalyticsTab }) {
   // Returns true if the current user is allowed to edit the given record.
   // Allowed: the original author (matched by badgeHash), any admin, or global_admin.
   function canEditRec(rec) {
@@ -8230,14 +8335,14 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
   const [importOcrLoading, setImportOcrLoading] = useState(false);
   const [importOcrError, setImportOcrError] = useState("");
   const [historyLoaded, setHistoryLoaded] = useState(false);
-  const [historyTab, setHistoryTab] = useState("reports"); // "reports" | "analytics"
+  const [historyTab, setHistoryTab] = useState(initialTab || "reports"); // "reports" | "analytics"
   const [haccpByReport, setHaccpByReport] = useState({}); // { [reportId]: [...submissions] }
   const [haccpReportIds, setHaccpReportIds] = useState(new Set()); // reportIds known to have ≥1 HACCP submission
   const [haccpEditState, setHaccpEditState] = useState(null); // { subId, temps, foodNames, itemLabels, customItems }
   const [haccpSaving, setHaccpSaving] = useState(false);
   const [chatByReport, setChatByReport] = useState({});  // { [reportId]: [...messages] }
   const [showHistoryMenu, setShowHistoryMenu] = useState(false);
-  const [analyticsTab, setAnalyticsTab] = useState("temp"); // "temp" | "insights" | "predictive" | "recurring"
+  const [analyticsTab, setAnalyticsTab] = useState(initialAnalyticsTab || "temp"); // "temp" | "insights" | "predictive" | "recurring"
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [confirmDeleteId, setConfirmDeleteId] = useState(null); // two-step delete: first click sets ID, second confirms
@@ -8286,9 +8391,13 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
       dateTo: filterDateTo || undefined,
       pageSize: 30,
     }).then(({ list, lastDoc, hasMore }) => {
-      setHistory(list);
-      setHistoryLastDoc(lastDoc);
-      setHistoryHasMore(hasMore);
+      // Local mode with an empty store: keep the warm cache seed instead of
+      // flashing the page empty (cloud mode always trusts the fetch).
+      if (list.length > 0 || FIREBASE_ON) {
+        setHistory(list);
+        setHistoryLastDoc(lastDoc);
+        setHistoryHasMore(hasMore);
+      }
       setHistoryLoaded(true);
       // Eagerly load which reportIds have HACCP submissions so badges show correct color immediately
       if (FIREBASE_ON && list.length > 0) {
@@ -10103,7 +10212,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
             {analyticsTab === "temp" && <TempTrendChart history={filtered.length > 0 ? filtered : history} />}
             {analyticsTab === "insights" && <AIHealthMonitor history={filtered.length > 0 ? filtered : history} currentUser={currentUser} />}
             {analyticsTab === "predictive" && <PredictiveInsightsPanel history={filtered.length > 0 ? filtered : history} />}
-            {analyticsTab === "recurring" && <RecurringIssuesPanel history={filtered.length > 0 ? filtered : history} onLocationClick={filterByLocation} onTagClick={goToRecurringAnalytics} onIssueDrilldown={filterByLocationAndIssue} venueSettings={venueSettings} saveVenueSettings={saveVenueSettings} />}
+            {analyticsTab === "recurring" && <RecurringIssuesPanel history={filtered.length > 0 ? filtered : history} onLocationClick={filterByLocation} onTagClick={goToRecurringAnalytics} onIssueDrilldown={filterByLocationAndIssue} venueSettings={venueSettings} saveVenueSettings={saveVenueSettings} saveVenueSettingsMap={saveVenueSettingsMap} currentUser={currentUser} />}
             {analyticsTab === "timeline" && (() => {
               const src = filtered.length > 0 ? filtered : history;
               // Build merged event list: one entry per inspection + one per HACCP submission linked to it
@@ -23032,6 +23141,8 @@ export default function App() {
   const [appearanceOpen, setAppearanceOpen] = useState(false); // personal theme picker in menu
   const [currentUser, setCurrentUser] = useState(null);
   const [page, setPage] = useState("inspector"); // "inspector" | "history" | "admin" | "global_admin"
+  const [historyEntry, setHistoryEntry] = useState(null); // { tab, sub } — deep link into HistoryPage tabs
+  const [fuHistoryTick, setFuHistoryTick] = useState(0);  // bumped when the warm history cache lands
   const [pendingCount, setPendingCount] = useState(0);
   const [notifItems, setNotifItems] = useState([]);   // { id, type, title, body, url, ts }
   const [notifOpen, setNotifOpen] = useState(false);
@@ -23111,6 +23222,38 @@ export default function App() {
       ).catch(() => {});
     }
   }
+
+  // Patch keys INSIDE one map field (followupStatus, followupCleared…).
+  // Firestore merge:true deep-merges nested maps, so writing only the changed
+  // keys means a device with a stale copy can't clobber everyone else's keys.
+  function saveVenueSettingsMap(field, patch) {
+    setVenueSettings(prev => {
+      const next = { ...prev, [field]: { ...(prev[field] || {}), ...patch } };
+      _vs = next;
+      try { localStorage.setItem(VENUE_SETTINGS_KEY, JSON.stringify(next)); } catch {}
+      return next;
+    });
+    if (FIREBASE_ON) {
+      setDoc(
+        doc(db, "venues", VENUE_ID, "sharedMemory", "venueSettings"),
+        { [field]: patch, _updatedAt: new Date().toISOString() },
+        { merge: true }
+      ).catch(() => {});
+    }
+  }
+
+  // Overdue follow-up count for the menu badge + home banner. Reads the
+  // already-warmed history cache (no network); stays live because status and
+  // cleared changes arrive through the venueSettings snapshot.
+  const fuOverdueCount = useMemo(() => {
+    if (!currentUser) return 0;
+    try {
+      const cached = JSON.parse(localStorage.getItem(`sdx_history_cache_${VENUE_ID}`) || "[]");
+      return computeFollowups(cached, venueSettings).followups.filter(f => f.overdue).length;
+    } catch { return 0; }
+  }, [currentUser, venueSettings?.followupCleared, venueSettings?.followupStatus, venueSettings?.recheckDays, fuHistoryTick]);
+
+  const openFollowups = () => { setHistoryEntry({ tab: "analytics", sub: "recurring" }); setPage("history"); };
 
   // Branded browser tab — title and favicon follow the venue's brand
   useEffect(() => {
@@ -24098,10 +24241,14 @@ export default function App() {
     // Performance Dashboard open instantly this session
     loadHistory(undefined, { pageSize: 2000 }).then(({ list }) => {
       try {
-        const slim = (list || []).map(r => { const { photos, itemPhotos, ...rest } = r; return rest; });
-        const json = JSON.stringify(slim);
-        if (json.length < 4_000_000) localStorage.setItem(`sdx_history_cache_${VENUE_ID}`, json);
+        // Never wipe a good cache with an empty fetch (flaky network, cold store)
+        if ((list || []).length > 0) {
+          const slim = list.map(r => { const { photos, itemPhotos, ...rest } = r; return rest; });
+          const json = JSON.stringify(slim);
+          if (json.length < 4_000_000) localStorage.setItem(`sdx_history_cache_${VENUE_ID}`, json);
+        }
       } catch { /* quota — not critical */ }
+      setFuHistoryTick(t => t + 1);
     }).catch(() => {});
     // Request notification permission — native plugin in the iOS/Android
     // app, browser API on the web
@@ -24118,11 +24265,13 @@ export default function App() {
           const dateStr = n.date ? ` · ${n.date}` : "";
           const unitStr = n.unit ? ` · Unit ${n.unit}` : "";
           const supStr = n.supervisor ? ` · Supervisor: ${n.supervisor}` : "";
+          // Honor the payload's own title/message when present (follow-up
+          // reminders, stand assignments) instead of the generic template.
           fireNotification(
             `assignment_${n.id}`,
-            "assignment",
-            "📋 New Inspection Assigned",
-            `${n.location || "Location TBD"}${unitStr}${dateStr}${supStr}${n.note ? ` · ${n.note}` : ""}`,
+            n.kind === "followup" ? "followup" : "assignment",
+            n.title || "📋 New Inspection Assigned",
+            n.message || `${n.location || "Location TBD"}${unitStr}${dateStr}${supStr}${n.note ? ` · ${n.note}` : ""}`,
             null
           );
           markNotificationRead(n.id);
@@ -24162,6 +24311,9 @@ export default function App() {
     onMyTasks={() => setPage("mylocations")}
     venueSettings={venueSettings}
     saveVenueSettings={saveVenueSettings}
+    saveVenueSettingsMap={saveVenueSettingsMap}
+    initialTab={historyEntry?.tab}
+    initialAnalyticsTab={historyEntry?.sub}
   />; }
   if (page === "global_admin") {
     return <GlobalAdminPanel
@@ -24940,7 +25092,7 @@ export default function App() {
             <span className={cx("hamburgerIcon", menuOpen && "hamburgerOpen")}>
               <span /><span /><span />
             </span>
-            {pendingCount > 0 && <span className="hamburgerBadge">{pendingCount}</span>}
+            {(pendingCount + fuOverdueCount) > 0 && <span className="hamburgerBadge">{pendingCount + fuOverdueCount}</span>}
           </button>
         </div>
 
@@ -24969,7 +25121,9 @@ export default function App() {
                     onClick={() => {
                       setNotifItems(prev => prev.filter(x => x.id !== n.id));
                       setNotifOpen(false);
-                      if (n.type === "assignment") {
+                      if (n.type === "followup") {
+                        openFollowups();
+                      } else if (n.type === "assignment") {
                         setPage("mylocations");
                       } else if (n.url && n.url.startsWith("record:")) {
                         const recId = n.url.replace("record:", "");
@@ -25016,7 +25170,11 @@ export default function App() {
               </div>
             )}
             <button className="dropdownMenuItem" onClick={startNewInspection} type="button">+ New Inspection</button>
-            <button className="dropdownMenuItem" onClick={() => setPage("history")} type="button">Past Reports</button>
+            <button className="dropdownMenuItem" onClick={() => { setHistoryEntry(null); setPage("history"); }} type="button">Past Reports</button>
+            <button className="dropdownMenuItem" onClick={() => { setMenuOpen(false); openFollowups(); }} type="button">
+              🔁 Follow-ups
+              {fuOverdueCount > 0 && <span className="menuBadge" style={{ background: "#ef4444", color: "#fff" }}>{fuOverdueCount} overdue</span>}
+            </button>
             {canShare && (
               <button className="dropdownMenuItem" onClick={() => { setMenuOpen(false); setShowShareModal(true); }} type="button">
                 📤 Share Form Link
@@ -25410,6 +25568,20 @@ export default function App() {
           </div>
         );
       })()}
+
+      {/* ── Follow-ups overdue banner ─────────────────────────── */}
+      {currentUser && fuOverdueCount > 0 && (
+        <div style={{ background: "#ede9fe", borderBottom: "3px solid #6366f1", padding: "0.7rem 1.25rem", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+          <span style={{ fontSize: "1.2rem" }}>🔁</span>
+          <span style={{ flex: 1, fontWeight: 700, fontSize: "0.92rem", color: "#4338ca" }}>
+            {fuOverdueCount} follow-up{fuOverdueCount !== 1 ? "s" : ""} overdue for recheck
+          </span>
+          <button type="button" onClick={openFollowups}
+            style={{ background: "#6366f1", color: "#fff", border: "none", borderRadius: 6, padding: "0.3rem 0.85rem", fontWeight: 600, fontSize: "0.82rem", cursor: "pointer", whiteSpace: "nowrap" }}>
+            Review →
+          </button>
+        </div>
+      )}
 
       {/* ── Food Safety Quick Reference ─────────────────────── */}
       <div className="foodSafetyRefWrap">

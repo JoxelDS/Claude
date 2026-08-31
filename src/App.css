@@ -7620,3 +7620,23 @@ html[data-theme="black"] .labelCardPro { background: #fff; }
   cursor: pointer; line-height: 1.2;
 }
 .htChipActive { background: #1e3a8a; border-color: #1e3a8a; color: #fff; }
+
+/* Follow-Ups: status lifecycle chips (v343) */
+.fuStRow { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+.fuStChip {
+  font-size: 0.72rem; font-weight: 700; padding: 5px 11px; min-height: 30px; border-radius: 999px;
+  border: 1px solid var(--sdx-gray-200, #e5e7eb); background: var(--surface-1, #fff);
+  color: var(--ink-500, #6b7280); cursor: pointer; line-height: 1.2;
+}
+.fuStOnReported { background: #ede9fe; color: #6366f1; border-color: #c7d2fe; }
+.fuStOnProgress { background: #dbeafe; color: #1d4ed8; border-color: #bfdbfe; }
+.fuStOnWaiting  { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+.fuSumProg { background: #dbeafe; color: #1d4ed8; border-color: #bfdbfe; }
+.fuSumWait { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+.fuStStamp { font-size: 0.68rem; color: var(--ink-400, #9ca3af); margin-top: 3px; font-weight: 600; }
+.fuNoteRow { display: flex; gap: 6px; margin-top: 5px; }
+.fuNoteRow input { flex: 1; min-width: 0; padding: 6px 9px; border-radius: 8px; border: 1px solid var(--sdx-gray-200, #e5e7eb); font-size: 16px; }
+html[data-theme="dark"] .fuStChip, html[data-theme="black"] .fuStChip { background: var(--surface-2, #262b38); color: var(--ink-400, #9ca3af); }
+html[data-theme="dark"] .fuStOnReported, html[data-theme="black"] .fuStOnReported { background: rgba(129,140,248,.2); color: #a5b4fc; border-color: rgba(129,140,248,.4); }
+html[data-theme="dark"] .fuStOnProgress, html[data-theme="black"] .fuStOnProgress { background: rgba(59,130,246,.2); color: #93c5fd; border-color: rgba(59,130,246,.4); }
+html[data-theme="dark"] .fuStOnWaiting, html[data-theme="black"] .fuStOnWaiting { background: rgba(245,158,11,.18); color: #fcd34d; border-color: rgba(245,158,11,.4); }
