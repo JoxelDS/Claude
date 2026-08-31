@@ -18288,6 +18288,7 @@ function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVe
   const [editingEventDate, setEditingEventDate] = useState("");
   const [editingEventName, setEditingEventName] = useState("");
   const [eventRenameFlash, setEventRenameFlash] = useState("");
+  const [calMonth, setCalMonth] = useState(() => new Date().toISOString().slice(0, 7)); // "YYYY-MM"
   const [scheduleDate, setScheduleDate] = useState("");
   const [scheduleLoc, setScheduleLoc] = useState("");
   const [scheduleUnit, setScheduleUnit] = useState("");
@@ -18517,23 +18518,78 @@ function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVe
                 Mark event dates with the event name. Inspections on these dates automatically become
                 “Event Day” with the name filled in — no more accidental Regular Inspections.
               </p>
-              {Object.entries(venueSettings?.eventDays || {}).sort(([a], [b]) => a.localeCompare(b)).map(([d, name]) => {
-                const isPast = d < new Date().toISOString().slice(0, 10);
+              {(() => {
+                const eventDays = venueSettings?.eventDays || {};
+                const today = new Date().toISOString().slice(0, 10);
+                const [cy, cm] = calMonth.split("-").map(Number);
+                const first = new Date(cy, cm - 1, 1);
+                const daysInMonth = new Date(cy, cm, 0).getDate();
+                const startDow = first.getDay(); // 0 = Sunday
+                const monthLabel = first.toLocaleDateString([], { month: "long", year: "numeric" });
+                const shift = delta => {
+                  const d = new Date(cy, cm - 1 + delta, 1);
+                  setCalMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
+                };
+                const cells = [];
+                for (let i = 0; i < startDow; i++) cells.push(null);
+                for (let day = 1; day <= daysInMonth; day++) cells.push(`${calMonth}-${String(day).padStart(2, "0")}`);
                 return (
-                  <div key={d} style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 10px", background: isPast ? "var(--surface-2)" : "var(--tint-amber-1, #fffbeb)", border: `1px solid ${isPast ? "var(--sdx-gray-200)" : "#fde68a"}`, borderRadius: 9, marginBottom: 6, opacity: isPast ? 0.85 : 1 }}>
-                    <span style={{ fontWeight: 800, fontSize: "0.8rem", whiteSpace: "nowrap" }}>{d}</span>
-                    {editingEventDate === d ? (
-                      <>
+                  <div style={{ background: "var(--surface-1)", border: "1px solid var(--sdx-gray-200)", borderRadius: 12, padding: 12, maxWidth: 560 }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                      <button type="button" onClick={() => shift(-1)} style={{ background: "var(--surface-2)", border: "none", borderRadius: 8, padding: "4px 12px", fontWeight: 800, cursor: "pointer", fontSize: "0.9rem" }}>◀</button>
+                      <div style={{ fontWeight: 800, fontSize: "0.92rem", color: "var(--sdx-navy)" }}>
+                        {monthLabel}
+                        {calMonth !== today.slice(0, 7) && (
+                          <button type="button" onClick={() => { setCalMonth(today.slice(0, 7)); }}
+                            style={{ marginLeft: 8, background: "none", border: "1px solid var(--sdx-gray-200)", borderRadius: 999, padding: "1px 9px", fontSize: "0.68rem", fontWeight: 700, color: "var(--ink-500)", cursor: "pointer" }}>Today</button>
+                        )}
+                      </div>
+                      <button type="button" onClick={() => shift(1)} style={{ background: "var(--surface-2)", border: "none", borderRadius: 8, padding: "4px 12px", fontWeight: 800, cursor: "pointer", fontSize: "0.9rem" }}>▶</button>
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 3 }}>
+                      {["S", "M", "T", "W", "T", "F", "S"].map((w, i) => (
+                        <div key={i} style={{ textAlign: "center", fontSize: "0.62rem", fontWeight: 800, color: "var(--ink-400)", textTransform: "uppercase", padding: "2px 0" }}>{w}</div>
+                      ))}
+                      {cells.map((d, i) => {
+                        if (!d) return <div key={`e${i}`} />;
+                        const name = eventDays[d];
+                        const isToday = d === today;
+                        const isSel = editingEventDate === d;
+                        const isPast = d < today;
+                        return (
+                          <button key={d} type="button"
+                            onClick={() => { setEditingEventDate(isSel ? "" : d); setEditingEventName(name || ""); }}
+                            style={{
+                              minHeight: 46, borderRadius: 8, cursor: "pointer", padding: "3px 2px 2px",
+                              display: "flex", flexDirection: "column", alignItems: "center", gap: 1,
+                              background: name ? "var(--tint-amber-1, #fffbeb)" : "var(--surface-2)",
+                              border: isSel ? "2px solid var(--sdx-navy)" : name ? "1px solid #fde68a" : "1px solid transparent",
+                              outline: isToday && !isSel ? "2px solid var(--sdx-navy)" : "none", outlineOffset: -2,
+                              opacity: isPast && !name ? 0.55 : 1,
+                            }}>
+                            <span style={{ fontSize: "0.74rem", fontWeight: isToday || name ? 800 : 600, color: "var(--ink-700)" }}>{Number(d.slice(8))}</span>
+                            {name && <span style={{ fontSize: "0.55rem", fontWeight: 700, color: "#92400e", lineHeight: 1.1, maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>🎪 {name}</span>}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {editingEventDate && (
+                      <div style={{ marginTop: 10, padding: "10px 12px", background: "var(--surface-2)", borderRadius: 10, display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
+                        <span style={{ fontWeight: 800, fontSize: "0.8rem", whiteSpace: "nowrap" }}>
+                          🎪 {new Date(editingEventDate + "T12:00:00").toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" })}
+                        </span>
                         <input className="input" value={editingEventName} autoFocus
+                          placeholder="Event name (e.g. Dolphins vs Jets)"
                           onChange={e => setEditingEventName(e.target.value)}
-                          style={{ flex: 1, fontSize: "0.82rem", padding: "4px 8px" }} />
+                          style={{ flex: "1 1 170px", fontSize: "16px", padding: "6px 9px" }} />
                         <button type="button" disabled={!editingEventName.trim()}
                           onClick={async () => {
+                            const d = editingEventDate;
                             const newName = editingEventName.trim();
                             onSaveVenueSettings?.({ eventDays: { ...(venueSettings?.eventDays || {}), [d]: newName } });
                             setEditingEventDate("");
                             // Sync already-saved reports on that date: they snapshot
-                            // eventName, so renaming the calendar alone leaves old
+                            // eventName, so saving the calendar alone leaves old
                             // chips behind. Marking a date as an event day means every
                             // report that day WAS an event-day inspection — convert
                             // Regular ones too (Post Event is left alone).
@@ -18552,39 +18608,27 @@ function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVe
                             setEventRenameFlash(`✓ Saved${n ? ` — updated ${n} report${n === 1 ? "" : "s"} to Event Day` : ""}`);
                             setTimeout(() => setEventRenameFlash(""), 4000);
                           }}
-                          style={{ background: "var(--sdx-navy)", color: "#fff", border: "none", borderRadius: 7, padding: "4px 12px", fontWeight: 800, fontSize: "0.78rem", cursor: "pointer", opacity: editingEventName.trim() ? 1 : 0.5 }}>Save</button>
+                          style={{ background: "var(--sdx-navy)", color: "#fff", border: "none", borderRadius: 7, padding: "6px 14px", fontWeight: 800, fontSize: "0.78rem", cursor: "pointer", opacity: editingEventName.trim() ? 1 : 0.5 }}>Save</button>
+                        {(venueSettings?.eventDays || {})[editingEventDate] && (
+                          <button type="button"
+                            onClick={() => { const next = { ...(venueSettings?.eventDays || {}) }; delete next[editingEventDate]; onSaveVenueSettings?.({ eventDays: next }); setEditingEventDate(""); }}
+                            style={{ background: "none", border: "1px solid #fca5a5", color: "#dc2626", borderRadius: 7, padding: "6px 12px", fontWeight: 800, cursor: "pointer", fontSize: "0.78rem" }}>Remove</button>
+                        )}
                         <button type="button" onClick={() => setEditingEventDate("")}
                           style={{ background: "none", border: "none", color: "var(--ink-500)", fontWeight: 700, cursor: "pointer", fontSize: "0.78rem" }}>Cancel</button>
-                      </>
-                    ) : (
-                      <>
-                        <span style={{ flex: 1, fontSize: "0.82rem", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>🎪 {name}</span>
-                        <button type="button"
-                          onClick={() => { setEditingEventDate(d); setEditingEventName(name); }}
-                          style={{ background: "none", border: "none", cursor: "pointer", fontSize: "0.85rem" }}>✎</button>
-                        <button type="button"
-                          onClick={() => { const next = { ...(venueSettings?.eventDays || {}) }; delete next[d]; onSaveVenueSettings?.({ eventDays: next }); }}
-                          style={{ background: "none", border: "none", color: "#dc2626", fontWeight: 800, cursor: "pointer", fontSize: "0.85rem" }}>✕</button>
-                      </>
+                      </div>
+                    )}
+                    {eventRenameFlash && (
+                      <div style={{ fontSize: "0.78rem", fontWeight: 700, color: "#16a34a", marginTop: 8 }}>{eventRenameFlash}</div>
+                    )}
+                    {!editingEventDate && (
+                      <div style={{ fontSize: "0.7rem", color: "var(--ink-400)", marginTop: 8 }}>
+                        Tap any day to add, rename, or remove its event.
+                      </div>
                     )}
                   </div>
                 );
-              })}
-              {eventRenameFlash && (
-                <div style={{ fontSize: "0.78rem", fontWeight: 700, color: "#16a34a", marginBottom: 6 }}>{eventRenameFlash}</div>
-              )}
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 4 }}>
-                <input type="date" className="input" value={newEventDate} onChange={e => setNewEventDate(e.target.value)} style={{ maxWidth: 165 }} />
-                <input className="input" placeholder="Event name (e.g. Dolphins vs Jets)" value={newEventName2} onChange={e => setNewEventName2(e.target.value)} style={{ flex: "1 1 180px" }} />
-                <button type="button" disabled={!newEventDate || !newEventName2.trim()}
-                  onClick={() => {
-                    onSaveVenueSettings?.({ eventDays: { ...(venueSettings?.eventDays || {}), [newEventDate]: newEventName2.trim() } });
-                    setNewEventDate(""); setNewEventName2("");
-                  }}
-                  style={{ background: "var(--sdx-navy)", color: "#fff", border: "none", borderRadius: 8, padding: "0.5rem 1rem", fontWeight: 800, fontSize: "0.82rem", cursor: "pointer", opacity: newEventDate && newEventName2.trim() ? 1 : 0.5 }}>
-                  ＋ Add Event
-                </button>
-              </div>
+              })()}
             </div>
 
             {/* ── Scheduled Inspections list ───────────────────── */}
