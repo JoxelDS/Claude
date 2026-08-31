@@ -8449,7 +8449,7 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
       dateFrom: filterDateFrom || undefined,
       dateTo: filterDateTo || undefined,
       lastDoc: historyLastDoc,
-      pageSize: 50,
+      pageSize: 100,
     }).then(({ list, lastDoc, hasMore }) => {
       setHistory(prev => [...prev, ...list]);
       setHistoryLastDoc(lastDoc);
@@ -8457,6 +8457,15 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
       setHistoryLoadingMore(false);
     });
   }
+  // Prefetch the second page as soon as the first lands, so scrolling never
+  // waits on the network for the first "load more".
+  const prefetchedRef = useRef(false);
+  useEffect(() => {
+    if (historyHasMore && historyLastDoc && !historyLoadingMore && !prefetchedRef.current) {
+      prefetchedRef.current = true;
+      loadMoreHistory();
+    }
+  }, [historyHasMore, historyLastDoc]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Search ALL Firestore records (no page limit) by location text — for recovery
   async function searchAllRecords(term) {
@@ -8649,11 +8658,11 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
     const obs = new IntersectionObserver(entries => {
       if (!entries[0].isIntersecting) return;
       if (visibleCount < filtered.length) {
-        setVisibleCount(c => Math.min(c + 50, filtered.length));
+        setVisibleCount(c => Math.min(c + 100, filtered.length));
       } else if (historyHasMore && !historyLoadingMore) {
         loadMoreHistory();
       }
-    }, { rootMargin: "300px" });
+    }, { rootMargin: "1400px" });
     obs.observe(sentinel);
     return () => obs.disconnect();
   }, [visibleCount, filtered.length, historyHasMore, historyLoadingMore]);
@@ -16917,14 +16926,23 @@ function PrintLabelsPage({ onBack }) {
             cutoffMs = cutoffDate ? new Date(cutoffDate + "T00:00:00").getTime() : 0;
           }
         } catch {}
-        // loadHistory handles the default-venue legacy collection correctly
-        const { list } = await loadHistory(undefined, { pageSize: 100 });
+        // loadHistory handles the default-venue legacy collection correctly.
+        // When a date is picked, query THAT date range from Firestore directly —
+        // a fixed newest-100 scan never reaches older dates at all.
+        const cutoffDay = cutoffMs ? (() => { const d = new Date(cutoffMs); const pad = n => String(n).padStart(2, "0"); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; })() : "";
+        const plusDays = (day, n) => { const d = new Date(day + "T12:00:00"); d.setDate(d.getDate() + n); const pad = x => String(x).padStart(2, "0"); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
+        const { list } = await loadHistory(undefined, cutoffDay
+          ? { dateFrom: cutoffDay, dateTo: cutoffMode === "on" ? plusDays(cutoffDay, 1) : undefined, pageSize: 300 }
+          : { pageSize: 100 });
         const seen = new Set();
         const items = [];
         for (const rec of (list || [])) {
-          const recMs = Date.parse(rec.savedAt || rec.inspectionDate || "") || 0;
+          // The inspection date is the day the walk happened; savedAt is only
+          // when the record was written (edits move it) — prefer the former.
+          const recDay = (rec.inspectionDate || rec.savedAt || "").slice(0, 10);
+          const recMs = Date.parse(recDay ? recDay + "T12:00:00" : "") || 0;
           if (cutoffMs && recMs < cutoffMs) continue; // before the cutoff — skip
-          if (cutoffMs && cutoffMode === "on" && recMs >= cutoffMs + 86400000) continue; // only-that-date mode
+          if (cutoffDay && cutoffMode === "on" && recDay !== cutoffDay) continue; // only-that-date mode
           const equip = rec.inspection?.equipment || {};
           if (!siteName && rec.siteName) setSiteName(rec.siteName);
           for (const [key, val] of Object.entries(equip)) {
