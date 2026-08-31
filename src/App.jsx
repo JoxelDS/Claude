@@ -7542,6 +7542,7 @@ function computeFollowups(history, venueSettings, clearedLocal = {}) {
       catLastSeen[key].count++;
       if (ts > catLastSeen[key].ts) {
         catLastSeen[key].ts = ts; catLastSeen[key].dateStr = rec.inspectionDate; catLastSeen[key].unit = (rec.siteNumber || "").trim();
+        catLastSeen[key].floor = (rec.floor || "").trim();
         // Keep the latest issue description + inspector notes so the
         // follow-up card can show WHAT the problem actually is.
         const afterColon = (item.issue || "").split(":").slice(1).join(":").trim();
@@ -7562,7 +7563,7 @@ function computeFollowups(history, venueSettings, clearedLocal = {}) {
       const daysSince = Math.floor((now - v.ts) / (24 * 60 * 60 * 1000));
       const likelyResolved = (latestInspByLoc[loc] || 0) > v.ts;   // a newer inspection had no such issue
       const overdue = !likelyResolved && daysSince >= recheckDays;
-      return { key, loc, cat, unit: v.unit || "", daysSince, count: v.count, dateStr: v.dateStr, likelyResolved, overdue, detail: v.detail || "", notes: v.notes || "", ts: v.ts || 0 };
+      return { key, loc, cat, unit: v.unit || "", floor: v.floor || "", daysSince, count: v.count, dateStr: v.dateStr, likelyResolved, overdue, detail: v.detail || "", notes: v.notes || "", ts: v.ts || 0 };
     })
     .sort((a, b) => (b.overdue - a.overdue) || (a.likelyResolved - b.likelyResolved) || b.daysSince - a.daysSince);
 
@@ -7606,7 +7607,13 @@ function computeFollowups(history, venueSettings, clearedLocal = {}) {
   return { followups, followupGroups, followupCatGroups, recheckDays };
 }
 
-function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDrilldown, venueSettings, saveVenueSettings, saveVenueSettingsMap, currentUser }) {
+const QUICK_PROBLEM_CATS = [
+  "Facilities – Floor", "Facilities – Ceiling", "Facilities – Walls", "Facilities – Hand Sink",
+  "Facilities – 3-Compartment Sinks", "Equipment", "Utensils", "Cleaning", "Temperature",
+  "Pest Control", "Lights", "Plumbing", "Other",
+];
+
+function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDrilldown, venueSettings, saveVenueSettings, saveVenueSettingsMap, currentUser, onAddRecord }) {
   // Locally cleared follow-ups — instant feedback independent of settings sync
   const [clearedLocal, setClearedLocal] = useState({});
   const analysis = useMemo(() => {
@@ -7831,6 +7838,43 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
   const [fuOpen, setFuOpen] = useState({});
   const [fuGroupBy, setFuGroupBy] = useState("loc"); // "loc" | "cat"
   const [fuSearch, setFuSearch] = useState("");
+  // Quick problem report — file a follow-up without opening an inspection
+  const [qpOpen, setQpOpen] = useState(false);
+  const [qpSite, setQpSite] = useState("");
+  const [qpUnit, setQpUnit] = useState("");
+  const [qpFloor, setQpFloor] = useState("");
+  const [qpCat, setQpCat] = useState(QUICK_PROBLEM_CATS[0]);
+  const [qpCatOther, setQpCatOther] = useState("");
+  const [qpDesc, setQpDesc] = useState("");
+  const [qpFlash, setQpFlash] = useState("");
+
+  async function submitQuickProblem() {
+    const site = qpSite.trim().toUpperCase();
+    const desc = qpDesc.trim();
+    const cat = qpCat === "Other" ? (qpCatOther.trim() || "Other") : qpCat;
+    if (!site || !desc) return;
+    const now = new Date();
+    const rec = {
+      id: `${Date.now()}_qp${Math.floor(Math.random() * 1e4)}`,
+      siteName: site,
+      siteNumber: qpUnit.trim(),
+      floor: qpFloor.trim(),
+      inspectionDate: now.toISOString().slice(0, 10),
+      savedAt: now.toISOString(),
+      inspectionType: "Quick Report",
+      quickProblem: true,
+      inspectorName: currentUser?.name || "",
+      savedByHash: currentUser?.badgeHash || "",
+      overallStatus: "PASS",
+      actionItems: [{ issue: `${cat}: ${desc}`, notes: "" }],
+      inspection: {},
+    };
+    try { await saveOneInspection(rec); } catch {}
+    onAddRecord?.(rec); // surfaces the new follow-up immediately
+    setQpFlash(`✓ Problem filed for ${site}${qpUnit.trim() ? ` #${qpUnit.trim()}` : ""} — it's now a follow-up`);
+    setTimeout(() => setQpFlash(""), 4000);
+    setQpOpen(false); setQpSite(""); setQpUnit(""); setQpFloor(""); setQpDesc(""); setQpCatOther("");
+  }
 
   // Search: match unit number (normalized — "142a" hits "142 A"), venue name,
   // problem category, issue text, or notes.
@@ -7839,7 +7883,7 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
     if (!q) return true;
     const qUnit = normUnit(q);
     if (qUnit && normUnit(f.unit).includes(qUnit)) return true;
-    return [f.loc, f.cat, f.detail, f.notes].some(v => (v || "").toLowerCase().includes(q));
+    return [f.loc, f.cat, f.detail, f.notes, f.floor].some(v => (v || "").toLowerCase().includes(q));
   };
   const fuFilterGroups = groups => !fuSearch.trim() ? groups
     : groups.map(g => {
@@ -7898,8 +7942,9 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
           </div>
         </div>
 
-        {/* Follow-ups & recheck reminders */}
-        {(analysis.followups || []).length > 0 && (
+        {/* Follow-ups & recheck reminders — always visible so problems can be
+            filed here even before any follow-up exists */}
+        {true && (
           <div style={{ marginTop: 16 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
               <div className="guideSectionTitle" style={{ margin: 0 }}>Follow-Ups &amp; Rechecks</div>
@@ -7917,11 +7962,53 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
                 </select>
               </label>
             </div>
+            <div style={{ margin: "8px 0 2px" }}>
+              {!qpOpen ? (
+                <button type="button" onClick={() => setQpOpen(true)}
+                  style={{ background: "var(--sdx-navy)", color: "#fff", border: "none", borderRadius: 10, padding: "8px 16px", fontWeight: 800, fontSize: "0.84rem", cursor: "pointer" }}>
+                  ＋ Report a problem
+                </button>
+              ) : (
+                <div style={{ background: "var(--surface-2)", border: "1px solid var(--sdx-gray-200)", borderRadius: 12, padding: "10px 12px", display: "flex", flexDirection: "column", gap: 8, maxWidth: 460 }}>
+                  <div style={{ fontWeight: 800, fontSize: "0.84rem", color: "var(--sdx-navy)" }}>＋ Report a problem — no inspection needed</div>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    <input value={qpSite} onChange={e => setQpSite(e.target.value)} placeholder="Stand / kitchen name"
+                      style={{ flex: "2 1 150px", padding: "7px 10px", borderRadius: 9, border: "1.5px solid var(--sdx-gray-200)", fontSize: "16px" }} />
+                    <input value={qpUnit} onChange={e => setQpUnit(e.target.value)} placeholder="Unit #"
+                      style={{ flex: "1 1 70px", maxWidth: 110, padding: "7px 10px", borderRadius: 9, border: "1.5px solid var(--sdx-gray-200)", fontSize: "16px" }} />
+                    <input value={qpFloor} onChange={e => setQpFloor(e.target.value)} placeholder="Floor"
+                      style={{ flex: "1 1 70px", maxWidth: 110, padding: "7px 10px", borderRadius: 9, border: "1.5px solid var(--sdx-gray-200)", fontSize: "16px" }} />
+                  </div>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    <select value={qpCat} onChange={e => setQpCat(e.target.value)}
+                      style={{ flex: "1 1 160px", padding: "7px 10px", borderRadius: 9, border: "1.5px solid var(--sdx-gray-200)", fontSize: "0.86rem", fontWeight: 600 }}>
+                      {QUICK_PROBLEM_CATS.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                    {qpCat === "Other" && (
+                      <input value={qpCatOther} onChange={e => setQpCatOther(e.target.value)} placeholder="Problem type"
+                        style={{ flex: "1 1 130px", padding: "7px 10px", borderRadius: 9, border: "1.5px solid var(--sdx-gray-200)", fontSize: "16px" }} />
+                    )}
+                  </div>
+                  <textarea value={qpDesc} onChange={e => setQpDesc(e.target.value)} rows={2}
+                    placeholder="What's wrong? (e.g. sanitizer dispenser has no pressure)"
+                    style={{ padding: "7px 10px", borderRadius: 9, border: "1.5px solid var(--sdx-gray-200)", fontSize: "16px", resize: "vertical", fontFamily: "inherit" }} />
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button type="button" disabled={!qpSite.trim() || !qpDesc.trim()} onClick={submitQuickProblem}
+                      style={{ background: "var(--sdx-navy)", color: "#fff", border: "none", borderRadius: 9, padding: "8px 18px", fontWeight: 800, fontSize: "0.84rem", cursor: "pointer", opacity: qpSite.trim() && qpDesc.trim() ? 1 : 0.5 }}>
+                      File problem
+                    </button>
+                    <button type="button" onClick={() => setQpOpen(false)}
+                      style={{ background: "none", border: "none", color: "var(--ink-500)", fontWeight: 700, cursor: "pointer", fontSize: "0.82rem" }}>Cancel</button>
+                  </div>
+                </div>
+              )}
+              {qpFlash && <div style={{ fontSize: "0.8rem", fontWeight: 700, color: "#16a34a", marginTop: 6 }}>{qpFlash}</div>}
+            </div>
             <div style={{ position: "relative", margin: "8px 0 2px", maxWidth: 420 }}>
               <input
                 value={fuSearch}
                 onChange={e => setFuSearch(e.target.value)}
-                placeholder="🔎 Search unit #, stand, or issue…"
+                placeholder="🔎 Search unit #, stand, floor, or issue…"
                 style={{ width: "100%", boxSizing: "border-box", padding: "8px 34px 8px 12px", borderRadius: 10, border: "1.5px solid var(--sdx-gray-200)", fontSize: "16px", background: "var(--surface-1)" }}
               />
               {fuSearch && (
@@ -8006,6 +8093,7 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
                                     ? `Open for ${f.daysSince} days (flagged ${f.dateStr}) — recheck is overdue`
                                     : `Flagged ${f.daysSince} day${f.daysSince !== 1 ? "s" : ""} ago — recheck due in ${Math.max(0, analysis.recheckDays - f.daysSince)} day${analysis.recheckDays - f.daysSince !== 1 ? "s" : ""}`}
                                 {f.count > 1 ? ` · seen ×${f.count}` : ""}
+                                {f.floor ? ` · 📍 ${f.floor}` : ""}
                               </div>
                               {(f.detail || f.notes) && (
                                 <div style={{ fontSize: "0.76rem", color: "var(--ink-700)", marginTop: 3, lineHeight: 1.35 }}>
@@ -10263,7 +10351,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
             {analyticsTab === "temp" && <TempTrendChart history={filtered.length > 0 ? filtered : history} />}
             {analyticsTab === "insights" && <AIHealthMonitor history={filtered.length > 0 ? filtered : history} currentUser={currentUser} />}
             {analyticsTab === "predictive" && <PredictiveInsightsPanel history={filtered.length > 0 ? filtered : history} />}
-            {analyticsTab === "recurring" && <RecurringIssuesPanel history={filtered.length > 0 ? filtered : history} onLocationClick={filterByLocation} onTagClick={goToRecurringAnalytics} onIssueDrilldown={filterByLocationAndIssue} venueSettings={venueSettings} saveVenueSettings={saveVenueSettings} saveVenueSettingsMap={saveVenueSettingsMap} currentUser={currentUser} />}
+            {analyticsTab === "recurring" && <RecurringIssuesPanel history={filtered.length > 0 ? filtered : history} onLocationClick={filterByLocation} onTagClick={goToRecurringAnalytics} onIssueDrilldown={filterByLocationAndIssue} venueSettings={venueSettings} saveVenueSettings={saveVenueSettings} saveVenueSettingsMap={saveVenueSettingsMap} currentUser={currentUser} onAddRecord={rec => setHistory(prev => [rec, ...prev])} />}
             {analyticsTab === "timeline" && (() => {
               const src = filtered.length > 0 ? filtered : history;
               // Build merged event list: one entry per inspection + one per HACCP submission linked to it
