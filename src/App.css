@@ -7648,3 +7648,6 @@ html[data-theme="dark"] .fuStOnWaiting, html[data-theme="black"] .fuStOnWaiting 
   border-top: 1px solid rgba(255,255,255,0.08);
 }
 .menuSection:first-of-type { border-top: none; padding-top: 0; margin-top: 6px; }
+
+/* Menu rows: aligned icons, consistent rhythm (v346) */
+.dropdownMenuItem { display: flex; align-items: center; gap: 10px; padding-top: 10px; padding-bottom: 10px; }

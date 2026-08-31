@@ -18265,6 +18265,171 @@ function GlobalAdminPanel({ currentUser, onBack, onManageVenue, onEnterVenue, on
 }
 
 /* ── Admin Panel ──────────────────────────────────────────── */
+/* ── Month calendar (event days + scheduled inspections) ─────────────── */
+function MonthCalendar({ month, onMonth, eventDays = {}, slotsByDate = {}, selectedDay, onSelectDay }) {
+  const today = new Date().toISOString().slice(0, 10);
+  const [cy, cm] = month.split("-").map(Number);
+  const first = new Date(cy, cm - 1, 1);
+  const daysInMonth = new Date(cy, cm, 0).getDate();
+  const startDow = first.getDay(); // 0 = Sunday
+  const monthLabel = first.toLocaleDateString([], { month: "long", year: "numeric" });
+  const shift = delta => {
+    const d = new Date(cy, cm - 1 + delta, 1);
+    onMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
+  };
+  const cells = [];
+  for (let i = 0; i < startDow; i++) cells.push(null);
+  for (let day = 1; day <= daysInMonth; day++) cells.push(`${month}-${String(day).padStart(2, "0")}`);
+  return (
+    <div style={{ background: "var(--surface-1)", border: "1px solid var(--sdx-gray-200)", borderRadius: 12, padding: 12 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+        <button type="button" onClick={() => shift(-1)} style={{ background: "var(--surface-2)", border: "none", borderRadius: 8, padding: "4px 12px", fontWeight: 800, cursor: "pointer", fontSize: "0.9rem" }}>◀</button>
+        <div style={{ fontWeight: 800, fontSize: "0.92rem", color: "var(--sdx-navy)" }}>
+          {monthLabel}
+          {month !== today.slice(0, 7) && (
+            <button type="button" onClick={() => onMonth(today.slice(0, 7))}
+              style={{ marginLeft: 8, background: "none", border: "1px solid var(--sdx-gray-200)", borderRadius: 999, padding: "1px 9px", fontSize: "0.68rem", fontWeight: 700, color: "var(--ink-500)", cursor: "pointer" }}>Today</button>
+          )}
+        </div>
+        <button type="button" onClick={() => shift(1)} style={{ background: "var(--surface-2)", border: "none", borderRadius: 8, padding: "4px 12px", fontWeight: 800, cursor: "pointer", fontSize: "0.9rem" }}>▶</button>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 3 }}>
+        {["S", "M", "T", "W", "T", "F", "S"].map((w, i) => (
+          <div key={i} style={{ textAlign: "center", fontSize: "0.62rem", fontWeight: 800, color: "var(--ink-400)", textTransform: "uppercase", padding: "2px 0" }}>{w}</div>
+        ))}
+        {cells.map((d, i) => {
+          if (!d) return <div key={`e${i}`} />;
+          const name = eventDays[d];
+          const slots = slotsByDate[d] || [];
+          const isToday = d === today;
+          const isSel = selectedDay === d;
+          const isPast = d < today;
+          return (
+            <button key={d} type="button"
+              onClick={() => onSelectDay?.(isSel ? "" : d, name)}
+              style={{
+                minHeight: 52, borderRadius: 8, cursor: "pointer", padding: "3px 2px 2px",
+                display: "flex", flexDirection: "column", alignItems: "center", gap: 1,
+                background: name ? "var(--tint-amber-1, #fffbeb)" : "var(--surface-2)",
+                border: isSel ? "2px solid var(--sdx-navy)" : name ? "1px solid #fde68a" : "1px solid transparent",
+                outline: isToday && !isSel ? "2px solid var(--sdx-navy)" : "none", outlineOffset: -2,
+                opacity: isPast && !name && slots.length === 0 ? 0.55 : 1,
+              }}>
+              <span style={{ fontSize: "0.74rem", fontWeight: isToday || name ? 800 : 600, color: "var(--ink-700)" }}>{Number(d.slice(8))}</span>
+              {name && <span style={{ fontSize: "0.55rem", fontWeight: 700, color: "#92400e", lineHeight: 1.1, maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>🎪 {name}</span>}
+              {slots.slice(0, 2).map((s, si) => (
+                <span key={si} style={{ fontSize: "0.53rem", fontWeight: 700, color: "#1e3a8a", background: "#dbeafe", borderRadius: 4, padding: "0 3px", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", lineHeight: 1.35 }}>
+                  📋 {(s.inspector || s.location || "?").split(" ")[0]}
+                </span>
+              ))}
+              {slots.length > 2 && <span style={{ fontSize: "0.52rem", fontWeight: 700, color: "var(--ink-400)" }}>+{slots.length - 2}</span>}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// Group venueSettings.scheduleSlots by date for calendar rendering.
+function slotsByDateOf(venueSettings) {
+  const map = {};
+  for (const s of (venueSettings?.scheduleSlots || [])) {
+    if (!s?.date) continue;
+    (map[s.date] = map[s.date] || []).push(s);
+  }
+  return map;
+}
+
+/* ── Schedule page — every user can check the calendar ────────────────── */
+function SchedulePage({ onBack, currentUser, venueSettings }) {
+  const [month, setMonth] = useState(() => new Date().toISOString().slice(0, 7));
+  const [selDay, setSelDay] = useState(() => new Date().toISOString().slice(0, 10));
+  const eventDays = venueSettings?.eventDays || {};
+  const slotsByDate = slotsByDateOf(venueSettings);
+  const completedIds = venueSettings?.completedSlots || [];
+  const isDone = id => Array.isArray(completedIds) && completedIds.includes(id);
+  const myName = (currentUser?.name || "").trim().toLowerCase();
+  const monthEvents = Object.entries(eventDays).filter(([d]) => d.startsWith(month)).sort(([a], [b]) => a.localeCompare(b));
+  const monthSlots = Object.entries(slotsByDate).filter(([d]) => d.startsWith(month)).sort(([a], [b]) => a.localeCompare(b));
+  const dayLabel = d => new Date(d + "T12:00:00").toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" });
+  const slotRow = (s, d) => {
+    const mine = (s.inspector || "").trim().toLowerCase() === myName && myName;
+    const done = isDone(s.id);
+    return (
+      <div key={s.id || `${d}${s.location}`} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", background: mine ? "#dbeafe" : "var(--surface-2)", border: `1px solid ${mine ? "#93c5fd" : "var(--sdx-gray-200)"}`, borderRadius: 9 }}>
+        <span style={{ fontSize: "1rem" }}>{done ? "✅" : "📋"}</span>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontWeight: 700, fontSize: "0.84rem" }}>
+            {s.location || "Location TBD"}{s.unit ? ` · #${s.unit}` : ""}
+          </div>
+          <div style={{ fontSize: "0.74rem", color: "var(--ink-500)" }}>
+            {s.inspector ? <>Inspector: <b>{s.inspector}</b>{mine ? " (you)" : ""}</> : "Unassigned"}
+            {s.note ? ` — ${s.note}` : ""}{done ? " · done" : ""}
+          </div>
+        </div>
+      </div>
+    );
+  };
+  return (
+    <div className="appShell">
+      <header className="topBar">
+        <div className="brandLeft brandClickable" onClick={onBack} title="Back">
+          <img src={resolveLogoWhite()} alt={resolveCompanyName()} className="brandLogo" />
+          <div>
+            <div className="brandTitle">📅 Schedule</div>
+            <div className="brandSub">Events & assigned inspections</div>
+          </div>
+        </div>
+        <button className="btn btnGhost" onClick={onBack} type="button">Back</button>
+      </header>
+      <main style={{ maxWidth: 640, margin: "0 auto", padding: "16px 14px 40px" }}>
+        <MonthCalendar month={month} onMonth={m => { setMonth(m); }} eventDays={eventDays} slotsByDate={slotsByDate}
+          selectedDay={selDay} onSelectDay={d => setSelDay(d)} />
+        {selDay && (
+          <div className="card" style={{ marginTop: 12 }}>
+            <div className="cardBody">
+              <div style={{ fontWeight: 800, fontSize: "0.92rem", color: "var(--sdx-navy)", marginBottom: 6 }}>{dayLabel(selDay)}</div>
+              {eventDays[selDay] && (
+                <div style={{ padding: "7px 10px", background: "var(--tint-amber-1, #fffbeb)", border: "1px solid #fde68a", borderRadius: 9, fontWeight: 700, fontSize: "0.84rem", marginBottom: 8 }}>
+                  🎪 {eventDays[selDay]} — Event Day
+                </div>
+              )}
+              {(slotsByDate[selDay] || []).length > 0 ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {(slotsByDate[selDay] || []).map(s => slotRow(s, selDay))}
+                </div>
+              ) : !eventDays[selDay] ? (
+                <div style={{ fontSize: "0.8rem", color: "var(--ink-400)", fontStyle: "italic" }}>Nothing scheduled this day.</div>
+              ) : null}
+            </div>
+          </div>
+        )}
+        <div className="card" style={{ marginTop: 12 }}>
+          <div className="cardBody">
+            <div style={{ fontWeight: 800, fontSize: "0.88rem", color: "var(--sdx-navy)", marginBottom: 6 }}>This month</div>
+            {monthEvents.length === 0 && monthSlots.length === 0 && (
+              <div style={{ fontSize: "0.8rem", color: "var(--ink-400)", fontStyle: "italic" }}>No events or assigned inspections yet.</div>
+            )}
+            {monthEvents.map(([d, name]) => (
+              <div key={d} style={{ display: "flex", gap: 8, fontSize: "0.8rem", padding: "3px 0", cursor: "pointer" }} onClick={() => setSelDay(d)}>
+                <b style={{ whiteSpace: "nowrap" }}>{d.slice(8)} {new Date(d + "T12:00:00").toLocaleDateString([], { month: "short" })}</b>
+                <span>🎪 {name}</span>
+              </div>
+            ))}
+            {monthSlots.flatMap(([d, ss]) => ss.map(s => (
+              <div key={s.id || d + (s.location || "")} style={{ display: "flex", gap: 8, fontSize: "0.8rem", padding: "3px 0", cursor: "pointer" }} onClick={() => setSelDay(d)}>
+                <b style={{ whiteSpace: "nowrap" }}>{d.slice(8)} {new Date(d + "T12:00:00").toLocaleDateString([], { month: "short" })}</b>
+                <span>{isDone(s.id) ? "✅" : "📋"} {s.location || "Location TBD"}{s.inspector ? ` — ${s.inspector}` : ""}</span>
+              </div>
+            )))}
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+}
+
 function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVenueName, venueSettings, onSaveVenueSettings }) {
   const [users, setUsers] = useState([]);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -18519,60 +18684,13 @@ function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVe
                 “Event Day” with the name filled in — no more accidental Regular Inspections.
               </p>
               {(() => {
-                const eventDays = venueSettings?.eventDays || {};
-                const today = new Date().toISOString().slice(0, 10);
-                const [cy, cm] = calMonth.split("-").map(Number);
-                const first = new Date(cy, cm - 1, 1);
-                const daysInMonth = new Date(cy, cm, 0).getDate();
-                const startDow = first.getDay(); // 0 = Sunday
-                const monthLabel = first.toLocaleDateString([], { month: "long", year: "numeric" });
-                const shift = delta => {
-                  const d = new Date(cy, cm - 1 + delta, 1);
-                  setCalMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
-                };
-                const cells = [];
-                for (let i = 0; i < startDow; i++) cells.push(null);
-                for (let day = 1; day <= daysInMonth; day++) cells.push(`${calMonth}-${String(day).padStart(2, "0")}`);
                 return (
-                  <div style={{ background: "var(--surface-1)", border: "1px solid var(--sdx-gray-200)", borderRadius: 12, padding: 12, maxWidth: 560 }}>
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-                      <button type="button" onClick={() => shift(-1)} style={{ background: "var(--surface-2)", border: "none", borderRadius: 8, padding: "4px 12px", fontWeight: 800, cursor: "pointer", fontSize: "0.9rem" }}>◀</button>
-                      <div style={{ fontWeight: 800, fontSize: "0.92rem", color: "var(--sdx-navy)" }}>
-                        {monthLabel}
-                        {calMonth !== today.slice(0, 7) && (
-                          <button type="button" onClick={() => { setCalMonth(today.slice(0, 7)); }}
-                            style={{ marginLeft: 8, background: "none", border: "1px solid var(--sdx-gray-200)", borderRadius: 999, padding: "1px 9px", fontSize: "0.68rem", fontWeight: 700, color: "var(--ink-500)", cursor: "pointer" }}>Today</button>
-                        )}
-                      </div>
-                      <button type="button" onClick={() => shift(1)} style={{ background: "var(--surface-2)", border: "none", borderRadius: 8, padding: "4px 12px", fontWeight: 800, cursor: "pointer", fontSize: "0.9rem" }}>▶</button>
-                    </div>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 3 }}>
-                      {["S", "M", "T", "W", "T", "F", "S"].map((w, i) => (
-                        <div key={i} style={{ textAlign: "center", fontSize: "0.62rem", fontWeight: 800, color: "var(--ink-400)", textTransform: "uppercase", padding: "2px 0" }}>{w}</div>
-                      ))}
-                      {cells.map((d, i) => {
-                        if (!d) return <div key={`e${i}`} />;
-                        const name = eventDays[d];
-                        const isToday = d === today;
-                        const isSel = editingEventDate === d;
-                        const isPast = d < today;
-                        return (
-                          <button key={d} type="button"
-                            onClick={() => { setEditingEventDate(isSel ? "" : d); setEditingEventName(name || ""); }}
-                            style={{
-                              minHeight: 46, borderRadius: 8, cursor: "pointer", padding: "3px 2px 2px",
-                              display: "flex", flexDirection: "column", alignItems: "center", gap: 1,
-                              background: name ? "var(--tint-amber-1, #fffbeb)" : "var(--surface-2)",
-                              border: isSel ? "2px solid var(--sdx-navy)" : name ? "1px solid #fde68a" : "1px solid transparent",
-                              outline: isToday && !isSel ? "2px solid var(--sdx-navy)" : "none", outlineOffset: -2,
-                              opacity: isPast && !name ? 0.55 : 1,
-                            }}>
-                            <span style={{ fontSize: "0.74rem", fontWeight: isToday || name ? 800 : 600, color: "var(--ink-700)" }}>{Number(d.slice(8))}</span>
-                            {name && <span style={{ fontSize: "0.55rem", fontWeight: 700, color: "#92400e", lineHeight: 1.1, maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>🎪 {name}</span>}
-                          </button>
-                        );
-                      })}
-                    </div>
+                  <div style={{ maxWidth: 560 }}>
+                    <MonthCalendar month={calMonth} onMonth={setCalMonth}
+                      eventDays={venueSettings?.eventDays || {}}
+                      slotsByDate={slotsByDateOf(venueSettings)}
+                      selectedDay={editingEventDate}
+                      onSelectDay={(d, name) => { setEditingEventDate(d); setEditingEventName(name || ""); }} />
                     {editingEventDate && (
                       <div style={{ marginTop: 10, padding: "10px 12px", background: "var(--surface-2)", borderRadius: 10, display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
                         <span style={{ fontWeight: 800, fontSize: "0.8rem", whiteSpace: "nowrap" }}>
@@ -18614,6 +18732,14 @@ function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVe
                             onClick={() => { const next = { ...(venueSettings?.eventDays || {}) }; delete next[editingEventDate]; onSaveVenueSettings?.({ eventDays: next }); setEditingEventDate(""); }}
                             style={{ background: "none", border: "1px solid #fca5a5", color: "#dc2626", borderRadius: 7, padding: "6px 12px", fontWeight: 800, cursor: "pointer", fontSize: "0.78rem" }}>Remove</button>
                         )}
+                        <button type="button"
+                          onClick={() => {
+                            setScheduleDate(editingEventDate);
+                            // Jump to the ADD INSPECTION form just below so the
+                            // admin picks location + inspector for this day.
+                            setTimeout(() => { try { [...document.querySelectorAll("div")].find(el => el.textContent.trim() === "ADD INSPECTION")?.scrollIntoView({ behavior: "smooth", block: "center" }); } catch {} }, 50);
+                          }}
+                          style={{ background: "#dbeafe", border: "1px solid #93c5fd", color: "#1e3a8a", borderRadius: 7, padding: "6px 12px", fontWeight: 800, cursor: "pointer", fontSize: "0.78rem" }}>📋 Assign inspection</button>
                         <button type="button" onClick={() => setEditingEventDate("")}
                           style={{ background: "none", border: "none", color: "var(--ink-500)", fontWeight: 700, cursor: "pointer", fontSize: "0.78rem" }}>Cancel</button>
                       </div>
@@ -18623,7 +18749,7 @@ function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVe
                     )}
                     {!editingEventDate && (
                       <div style={{ fontSize: "0.7rem", color: "var(--ink-400)", marginTop: 8 }}>
-                        Tap any day to add, rename, or remove its event.
+                        Tap any day to name its event or assign an inspection. 📋 chips show scheduled inspections.
                       </div>
                     )}
                   </div>
@@ -24359,6 +24485,7 @@ export default function App() {
     initialTab={historyEntry?.tab}
     initialAnalyticsTab={historyEntry?.sub}
   />; }
+  if (page === "schedule") { return <SchedulePage onBack={() => setPage("inspector")} currentUser={currentUser} venueSettings={venueSettings} />; }
   if (page === "global_admin") {
     return <GlobalAdminPanel
       currentUser={currentUser}
@@ -25220,6 +25347,7 @@ export default function App() {
               🔁 Follow-ups
               {fuOverdueCount > 0 && <span className="menuBadge" style={{ background: "#ef4444", color: "#fff" }}>{fuOverdueCount} overdue</span>}
             </button>
+            <button className="dropdownMenuItem" onClick={() => { setPage("schedule"); setMenuOpen(false); }} type="button">📅 Schedule</button>
             {currentUser && <div className="menuSection">Manage</div>}
             {currentUser?.role === "global_admin" && (
               <button className="dropdownMenuItem" onClick={() => setPage("global_admin")} type="button">
