@@ -7640,3 +7640,11 @@ html[data-theme="dark"] .fuStChip, html[data-theme="black"] .fuStChip { backgrou
 html[data-theme="dark"] .fuStOnReported, html[data-theme="black"] .fuStOnReported { background: rgba(129,140,248,.2); color: #a5b4fc; border-color: rgba(129,140,248,.4); }
 html[data-theme="dark"] .fuStOnProgress, html[data-theme="black"] .fuStOnProgress { background: rgba(59,130,246,.2); color: #93c5fd; border-color: rgba(59,130,246,.4); }
 html[data-theme="dark"] .fuStOnWaiting, html[data-theme="black"] .fuStOnWaiting { background: rgba(245,158,11,.18); color: #fcd34d; border-color: rgba(245,158,11,.4); }
+
+/* Hamburger menu section labels (v344) */
+.menuSection {
+  font-size: 0.62rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em;
+  color: rgba(255,255,255,0.45); margin: 10px 16px 3px; padding-top: 8px;
+  border-top: 1px solid rgba(255,255,255,0.08);
+}
+.menuSection:first-of-type { border-top: none; padding-top: 0; margin-top: 6px; }

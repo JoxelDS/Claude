@@ -25169,17 +25169,14 @@ export default function App() {
                 )}
               </div>
             )}
-            <button className="dropdownMenuItem" onClick={startNewInspection} type="button">+ New Inspection</button>
-            <button className="dropdownMenuItem" onClick={() => { setHistoryEntry(null); setPage("history"); }} type="button">Past Reports</button>
+            <div className="menuSection">Inspect</div>
+            <button className="dropdownMenuItem" onClick={startNewInspection} type="button">➕ New Inspection</button>
+            <button className="dropdownMenuItem" onClick={() => { setHistoryEntry(null); setPage("history"); }} type="button">📄 Past Reports</button>
             <button className="dropdownMenuItem" onClick={() => { setMenuOpen(false); openFollowups(); }} type="button">
               🔁 Follow-ups
               {fuOverdueCount > 0 && <span className="menuBadge" style={{ background: "#ef4444", color: "#fff" }}>{fuOverdueCount} overdue</span>}
             </button>
-            {canShare && (
-              <button className="dropdownMenuItem" onClick={() => { setMenuOpen(false); setShowShareModal(true); }} type="button">
-                📤 Share Form Link
-              </button>
-            )}
+            {currentUser && <div className="menuSection">Manage</div>}
             {currentUser?.role === "global_admin" && (
               <button className="dropdownMenuItem" onClick={() => setPage("global_admin")} type="button">
                 🌐 Global Admin
@@ -25187,7 +25184,7 @@ export default function App() {
             )}
             {(currentUser?.role === "admin" || currentUser?.role === "global_admin") && (
               <button className="dropdownMenuItem" onClick={() => setPage("admin")} type="button">
-                Admin Panel
+                ⚙️ Admin Panel
                 {pendingCount > 0 && <span className="menuBadge">{pendingCount} pending</span>}
               </button>
             )}
@@ -25214,6 +25211,12 @@ export default function App() {
             {currentUser && (
               <button className="dropdownMenuItem" onClick={() => { setPage("mylocations"); setMenuOpen(false); }} type="button">
                 📍 My Locations
+              </button>
+            )}
+            {currentUser && <div className="menuSection">Tools</div>}
+            {canShare && (
+              <button className="dropdownMenuItem" onClick={() => { setMenuOpen(false); setShowShareModal(true); }} type="button">
+                📤 Share Form Link
               </button>
             )}
             {currentUser && (
