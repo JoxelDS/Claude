@@ -1476,13 +1476,16 @@ function buildHaccpDirectory(subs, forDate, overrides) {
   for (const r of (subs || [])) {
     const phone = (r.supervisorPhone || "").replace(/[^0-9+]/g, "");
     if (phone) {
-      const cur = byPhone[phone] || { phone, name: "", lastAt: "", site: "", submittedToday: false };
+      const cur = byPhone[phone] || { phone, name: "", lastAt: "", site: "", submittedToday: false, activeOnDate: false };
       if ((r.submittedAt || "") > cur.lastAt) {
         cur.lastAt = r.submittedAt || "";
         cur.name = r.supervisorName || cur.name;
         cur.site = r.site || cur.site;
       }
-      if (r.type === "submission" && (r.submittedAt || "").slice(0, 10) === day) cur.submittedToday = true;
+      if ((r.submittedAt || "").slice(0, 10) === day) {
+        cur.activeOnDate = true; // opened the portal that day — they're on shift
+        if (r.type === "submission") cur.submittedToday = true;
+      }
       byPhone[phone] = cur;
     }
     const site = (r.site || "").trim();
@@ -8130,7 +8133,7 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
             </div>
             <div style={{ margin: "8px 0 2px" }}>
               {!qpOpen ? (
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                <div className="fuActionsRow" style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
                   <button type="button" onClick={() => setQpOpen(true)}
                     style={{ background: "var(--sdx-navy)", color: "#fff", border: "none", borderRadius: 10, padding: "8px 16px", fontWeight: 800, fontSize: "0.84rem", cursor: "pointer" }}>
                     ＋ Report a problem
@@ -18777,7 +18780,7 @@ function SchedulePage({ onBack, currentUser, venueSettings, onManage }) {
             <div className="cardBody">
               <div style={{ fontWeight: 800, fontSize: "0.92rem", color: "var(--sdx-navy)", marginBottom: 6 }}>{dayLabel(selDay)}</div>
               {eventDays[selDay] && (
-                <div style={{ padding: "7px 10px", background: "var(--tint-amber-1, #fffbeb)", border: "1px solid #fde68a", borderRadius: 9, fontWeight: 700, fontSize: "0.84rem", marginBottom: 8 }}>
+                <div className="evtBanner" style={{ padding: "7px 10px", borderRadius: 9, fontWeight: 700, fontSize: "0.84rem", marginBottom: 8 }}>
                   🎪 {eventDays[selDay]} — Event Day
                 </div>
               )}
@@ -21601,6 +21604,11 @@ function HaccpTodayTracker({ venueSettings, saveVenueSettingsMap, history }) {
   const [view, setView] = useState("stand"); // "stand" | "person"
   const [standFilter, setStandFilter] = useState("done"); // "done" | "missed" | "all"
   const [day, setDay] = useState(() => new Date().toISOString().slice(0, 10));
+  // Event days are mandatory-compliance days: land on the missed list (the
+  // action list); regular days land on who actually logged.
+  useEffect(() => {
+    setStandFilter(venueSettings?.eventDays?.[day] ? "missed" : "done");
+  }, [day]); // eslint-disable-line react-hooks/exhaustive-deps
   const [editPhone, setEditPhone] = useState(null);
   const [editName, setEditName] = useState("");
   const [editSite, setEditSite] = useState("");
@@ -21632,6 +21640,7 @@ function HaccpTodayTracker({ venueSettings, saveVenueSettingsMap, history }) {
   if (dir.people.length === 0 && dir.stands.length === 0 && dir.hiddenPeople.length === 0) return null;
   const today = new Date().toISOString().slice(0, 10);
   const eventName = venueSettings?.eventDays?.[day];
+  const mandatory = !!eventName; // event day → every stand MUST fill the HACCP log
   const shiftDay = n => { const d = new Date(day + "T12:00:00"); d.setDate(d.getDate() + n); setDay(d.toISOString().slice(0, 10)); };
   const portalUrl = `${window.location.origin}${BASE}?haccp=1${VENUE_ID !== "default" ? `&v=${VENUE_ID}` : ""}`;
   const msg = `⏰ HACCP Reminder — please log your temperatures now. Open this link on your phone: ${portalUrl}`;
@@ -21647,7 +21656,7 @@ function HaccpTodayTracker({ venueSettings, saveVenueSettingsMap, history }) {
   }
   const inspectedCount = dir.stands.filter(s => inspByStand[s.id]).length;
   const standsPending = dir.stands.filter(s => !s.submittedToday).length;
-  const peoplePending = dir.people.filter(s => !s.submittedToday).length;
+  const peoplePending = dir.people.filter(s => !s.submittedToday && s.activeOnDate).length;
   const allRows = view === "stand" ? dir.stands : dir.people;
   // Day filter applies to stands; the people view always shows everyone
   // (pending first) so the Text list stays complete.
@@ -21675,22 +21684,32 @@ function HaccpTodayTracker({ venueSettings, saveVenueSettingsMap, history }) {
               style={{ background: "none", border: "1px solid var(--sdx-gray-200)", borderRadius: 999, padding: "3px 11px", fontSize: "0.72rem", fontWeight: 700, color: "var(--ink-500)", cursor: "pointer" }}>Today</button>
           )}
         </div>
-        {eventName && (
-          <div style={{ background: "var(--tint-amber-1, #fffbeb)", border: "1px solid #fde68a", borderRadius: 9, padding: "6px 10px", fontWeight: 700, fontSize: "0.82rem", marginBottom: 8 }}>
-            🎪 {eventName} — Event Day
+        {mandatory ? (
+          <div className="evtBanner" style={{ borderRadius: 9, padding: "6px 10px", fontWeight: 700, fontSize: "0.82rem", marginBottom: 8 }}>
+            🎪 {eventName} — HACCP log is mandatory at every stand today (the inspector can help fill it)
+          </div>
+        ) : (
+          <div style={{ fontSize: "0.74rem", color: "var(--ink-400)", marginBottom: 8 }}>
+            Regular day — HACCP logs are optional unless requested.
           </div>
         )}
         <div className="fuSummary" style={{ marginBottom: 10 }}>
           <span className="fuSumChip fuSumOk" style={chipRing(standFilter === "done")} onClick={() => setStandFilter("done")}>
             ✓ {dir.stands.filter(s => s.submittedToday).length} logged {dayWord}
           </span>
-          <span className="fuSumChip fuSumOverdue" style={chipRing(standFilter === "missed")} onClick={() => setStandFilter("missed")}>
-            ⏰ {standsPending} missed
-          </span>
+          {mandatory ? (
+            <span className="fuSumChip fuSumOverdue" style={chipRing(standFilter === "missed")} onClick={() => setStandFilter("missed")}>
+              ⏰ {standsPending} missed
+            </span>
+          ) : (
+            <span className="fuSumChip pillGray" style={chipRing(standFilter === "missed")} onClick={() => setStandFilter("missed")}>
+              {standsPending} not logged
+            </span>
+          )}
           <span className="fuSumChip" style={{ ...chipRing(standFilter === "all") }} onClick={() => setStandFilter("all")}>
             All ({allRows.length})
           </span>
-          {peoplePending > 0 && <span className="fuSumChip fuSumSoon">👤 {peoplePending} pending</span>}
+          {mandatory && peoplePending > 0 && <span className="fuSumChip fuSumSoon">👤 {peoplePending} on shift, pending</span>}
           {inspectedCount > 0 && <span className="fuSumChip" style={{ background: "#dbeafe", color: "#1d4ed8", borderColor: "#bfdbfe" }}>🕵 {inspectedCount} inspected</span>}
           <span className="fuToggle" style={{ marginLeft: "auto" }}>
             <button type="button" className={`fuToggleBtn${view === "stand" ? " fuToggleActive" : ""}`} onClick={() => setView("stand")}>🍳 By Stand</button>
@@ -21714,8 +21733,9 @@ function HaccpTodayTracker({ venueSettings, saveVenueSettingsMap, history }) {
                 </>
               ) : (
                 <>
-                  <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ flex: 1, minWidth: 0, opacity: view === "person" && !r.activeOnDate ? 0.55 : 1 }}>
                     <div style={{ fontWeight: 700, fontSize: "0.82rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {view === "person" && r.activeOnDate && <span style={{ color: "#16a34a", marginRight: 4 }}>●</span>}
                       {view === "stand" ? `${r.site || "—"}${r.unit ? ` · #${r.unit}` : ""}` : (r.name || r.phone)}
                     </div>
                     <div style={{ fontSize: "0.7rem", color: "var(--ink-500)" }}>
@@ -21723,7 +21743,7 @@ function HaccpTodayTracker({ venueSettings, saveVenueSettingsMap, history }) {
                         ? (r.submittedToday
                             ? `${r.checksOnDate || 1} check${(r.checksOnDate || 1) !== 1 ? "s" : ""} this day`
                             : r.lastAt ? `last log ${new Date(r.lastAt).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}` : "never logged")
-                        : `${r.phone}${r.site ? ` · ${r.site}` : ""}`}
+                        : `${r.phone}${r.site ? ` · ${r.site}` : ""}${r.activeOnDate ? "" : " · not on shift this day"}`}
                     </div>
                   </div>
                   {view === "stand" ? (
@@ -21751,7 +21771,7 @@ function HaccpTodayTracker({ venueSettings, saveVenueSettingsMap, history }) {
                   )}
                   {view === "person" && (
                     <>
-                      {!r.submittedToday && day === today && (
+                      {!r.submittedToday && r.activeOnDate && day === today && (
                         <a href={smsHref(r.phone)}
                           style={{ background: "#2563eb", color: "#fff", borderRadius: 8, padding: "0.35rem 0.7rem", fontWeight: 800, fontSize: "0.74rem", textDecoration: "none", flexShrink: 0 }}>
                           💬 Text

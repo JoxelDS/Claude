@@ -7658,3 +7658,23 @@ html[data-theme="dark"] .fuStOnWaiting, html[data-theme="black"] .fuStOnWaiting 
 .fuGroup { border-radius: 12px !important; box-shadow: 0 1px 3px rgba(0,0,0,.06); margin-bottom: 10px !important; }
 .fuGroupHead { padding: 10px 12px !important; }
 .fuItem { padding: 10px !important; border-radius: 10px !important; }
+
+/* Theme-safe pills + event banner (v357) */
+.evtBanner { background: #fffbeb; border: 1px solid #fde68a; color: #92400e; }
+.pillGray { background: var(--surface-2, #f1f5f9); color: var(--ink-500, #6b7280); border-color: var(--sdx-gray-200, #e5e7eb); }
+html[data-theme="dark"] .evtBanner, html[data-theme="black"] .evtBanner, html[data-theme="noir"] .evtBanner {
+  background: rgba(245,158,11,.15); border-color: rgba(245,158,11,.4); color: #fcd34d;
+}
+html[data-theme="dark"] .fuSumOk, html[data-theme="black"] .fuSumOk, html[data-theme="noir"] .fuSumOk { background: rgba(34,197,94,.16); color: #86efac; border-color: rgba(34,197,94,.35); }
+html[data-theme="dark"] .fuSumOverdue, html[data-theme="black"] .fuSumOverdue, html[data-theme="noir"] .fuSumOverdue { background: rgba(239,68,68,.16); color: #fca5a5; border-color: rgba(239,68,68,.35); }
+html[data-theme="dark"] .fuSumSoon, html[data-theme="black"] .fuSumSoon, html[data-theme="noir"] .fuSumSoon { background: rgba(245,158,11,.15); color: #fcd34d; border-color: rgba(245,158,11,.35); }
+html[data-theme="dark"] .fuSumProg, html[data-theme="black"] .fuSumProg, html[data-theme="noir"] .fuSumProg { background: rgba(59,130,246,.18); color: #93c5fd; border-color: rgba(59,130,246,.4); }
+html[data-theme="dark"] .fuSumWait, html[data-theme="black"] .fuSumWait, html[data-theme="noir"] .fuSumWait { background: rgba(245,158,11,.15); color: #fcd34d; border-color: rgba(245,158,11,.35); }
+html[data-theme="dark"] .fuStOnWaiting, html[data-theme="black"] .fuStOnWaiting { background: rgba(245,158,11,.15); color: #fcd34d; border-color: rgba(245,158,11,.4); }
+
+/* Follow-ups: centered controls on phones (v357) */
+@media (max-width: 640px) {
+  .fuSummary { justify-content: center; }
+  .fuActionsRow { justify-content: center !important; }
+  .fuToggle { margin-left: auto; margin-right: auto; }
+}
