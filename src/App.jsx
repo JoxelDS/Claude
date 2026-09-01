@@ -1465,6 +1465,42 @@ async function saveHaccpSubmission(record) {
   localStorage.setItem(HACCP_SUBS_KEY, JSON.stringify(list.slice(0, 200)));
 }
 
+// Who has (and hasn't) done today's HACCP log — by person and by stand.
+// Built from the raw submissions list; used by the QR modal remind list and
+// the HACCP Today tracker.
+function buildHaccpDirectory(subs) {
+  const today = new Date().toISOString().slice(0, 10);
+  const byPhone = {};
+  const byStand = {};
+  for (const r of (subs || [])) {
+    const phone = (r.supervisorPhone || "").replace(/[^0-9+]/g, "");
+    if (phone) {
+      const cur = byPhone[phone] || { phone, name: "", lastAt: "", site: "", submittedToday: false };
+      if ((r.submittedAt || "") > cur.lastAt) {
+        cur.lastAt = r.submittedAt || "";
+        cur.name = r.supervisorName || cur.name;
+        cur.site = r.site || cur.site;
+      }
+      if (r.type === "submission" && (r.submittedAt || "").slice(0, 10) === today) cur.submittedToday = true;
+      byPhone[phone] = cur;
+    }
+    const site = (r.site || "").trim();
+    const unit = (r.unit || "").trim();
+    if (site || unit) {
+      const id = unit ? `u:${normUnit(unit)}` : `s:${site.toLowerCase()}`;
+      const st = byStand[id] || { id, site, unit, lastAt: "", submittedToday: false };
+      if ((r.submittedAt || "") > st.lastAt) { st.lastAt = r.submittedAt || ""; if (site) st.site = site; if (unit) st.unit = unit; }
+      if (r.type === "submission" && (r.submittedAt || "").slice(0, 10) === today) st.submittedToday = true;
+      byStand[id] = st;
+    }
+  }
+  const pendingFirst = (a, b) => (a.submittedToday === b.submittedToday ? (b.lastAt || "").localeCompare(a.lastAt || "") : a.submittedToday ? 1 : -1);
+  return {
+    people: Object.values(byPhone).sort(pendingFirst),
+    stands: Object.values(byStand).sort(pendingFirst),
+  };
+}
+
 async function loadHaccpSubmissions() {
   if (FIREBASE_ON) {
     try {
@@ -10535,7 +10571,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                 </button>
               ))}
             </div>
-            {analyticsTab === "temp" && <TempTrendChart history={filtered.length > 0 ? filtered : history} />}
+            {analyticsTab === "temp" && <><HaccpTodayTracker /><TempTrendChart history={filtered.length > 0 ? filtered : history} /></>}
             {analyticsTab === "insights" && <AIHealthMonitor history={filtered.length > 0 ? filtered : history} currentUser={currentUser} />}
             {analyticsTab === "predictive" && <PredictiveInsightsPanel history={filtered.length > 0 ? filtered : history} />}
             {analyticsTab === "recurring" && <RecurringIssuesPanel history={filtered.length > 0 ? filtered : history} onLocationClick={filterByLocation} onTagClick={goToRecurringAnalytics} onIssueDrilldown={filterByLocationAndIssue} venueSettings={venueSettings} saveVenueSettings={saveVenueSettings} saveVenueSettingsMap={saveVenueSettingsMap} currentUser={currentUser} onAddRecord={rec => setHistory(prev => [rec, ...prev])} />}
@@ -21428,25 +21464,12 @@ function EquipScanModal({ onClose, onApply, initialTag }) {
   // Supervisor directory — everyone who has ever identified on the HACCP portal
   // for this venue, with whether they already submitted today
   const [supers, setSupers] = useState(null); // null = loading
+  const [remindOpen, setRemindOpen] = useState(false);
   useEffect(() => {
     (async () => {
       try {
         const subs = await loadHaccpSubmissions();
-        const today = new Date().toISOString().slice(0, 10);
-        const byPhone = {};
-        for (const r of subs) {
-          const phone = (r.supervisorPhone || "").replace(/[^0-9+]/g, "");
-          if (!phone) continue;
-          const cur = byPhone[phone] || { phone, name: "", lastAt: "", site: "", submittedToday: false };
-          if ((r.submittedAt || "") > cur.lastAt) {
-            cur.lastAt = r.submittedAt || "";
-            cur.name = r.supervisorName || cur.name;
-            cur.site = r.site || cur.site;
-          }
-          if (r.type === "submission" && (r.submittedAt || "").slice(0, 10) === today) cur.submittedToday = true;
-          byPhone[phone] = cur;
-        }
-        setSupers(Object.values(byPhone).sort((a, b) => (a.submittedToday === b.submittedToday ? (b.lastAt || "").localeCompare(a.lastAt || "") : a.submittedToday ? 1 : -1)));
+        setSupers(buildHaccpDirectory(subs).people);
       } catch { setSupers([]); }
     })();
   }, []);
@@ -21501,15 +21524,26 @@ function EquipScanModal({ onClose, onApply, initialTag }) {
             Open HACCP portal in browser →
           </a>
 
-          {/* ── Remind the HACCP team ── */}
+          {/* ── Remind the HACCP team — collapsed by default ── */}
           <div style={{ marginTop: 16, paddingTop: 14, borderTop: "1px solid var(--sdx-gray-200)" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-              <span style={{ fontWeight: 800, fontSize: "0.88rem", color: "var(--ink-900)" }}>📣 Remind the HACCP Team</span>
-              <button type="button" onClick={copyRemindMsg}
-                style={{ marginLeft: "auto", background: "var(--surface-2)", border: "1.5px solid var(--sdx-gray-200)", borderRadius: 8, padding: "0.3rem 0.7rem", fontSize: "0.72rem", fontWeight: 700, color: "var(--ink-600)", cursor: "pointer" }}>
-                {msgCopied ? "✓ Copied" : "📋 Copy message"}
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: remindOpen ? 6 : 0 }}>
+              <button type="button" onClick={() => setRemindOpen(o => !o)}
+                style={{ background: "none", border: "none", cursor: "pointer", fontWeight: 800, fontSize: "0.88rem", color: "var(--ink-900)", padding: 0, display: "flex", alignItems: "center", gap: 6 }}>
+                <span>{remindOpen ? "▾" : "▸"}</span> 📣 Remind the HACCP Team
+                {supers !== null && supers.filter(s => !s.submittedToday).length > 0 && (
+                  <span style={{ fontSize: "0.68rem", fontWeight: 800, padding: "0.15rem 0.5rem", borderRadius: 999, background: "#FEF3C7", color: "#B45309" }}>
+                    {supers.filter(s => !s.submittedToday).length} pending
+                  </span>
+                )}
               </button>
+              {remindOpen && (
+                <button type="button" onClick={copyRemindMsg}
+                  style={{ marginLeft: "auto", background: "var(--surface-2)", border: "1.5px solid var(--sdx-gray-200)", borderRadius: 8, padding: "0.3rem 0.7rem", fontSize: "0.72rem", fontWeight: 700, color: "var(--ink-600)", cursor: "pointer" }}>
+                  {msgCopied ? "✓ Copied" : "📋 Copy message"}
+                </button>
+              )}
             </div>
+            {remindOpen && <>
             <div style={{ fontSize: "0.74rem", color: "var(--ink-500)", marginBottom: 10, lineHeight: 1.5 }}>
               Everyone who has signed the temp log before. <b>💬 Text</b> opens your Messages app with the reminder and link ready to send.
             </div>
@@ -21538,7 +21572,71 @@ function EquipScanModal({ onClose, onApply, initialTag }) {
                 ))}
               </div>
             )}
+            </>}
           </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── HACCP Today — who did (and didn't do) the temp log ─────── */
+function HaccpTodayTracker() {
+  const [dir, setDir] = useState(null); // { people, stands } | null loading
+  const [view, setView] = useState("stand"); // "stand" | "person"
+  useEffect(() => {
+    (async () => {
+      try { setDir(buildHaccpDirectory(await loadHaccpSubmissions())); }
+      catch { setDir({ people: [], stands: [] }); }
+    })();
+  }, []);
+  if (dir === null) return null;
+  if (dir.people.length === 0 && dir.stands.length === 0) return null;
+  const portalUrl = `${window.location.origin}${BASE}?haccp=1${VENUE_ID !== "default" ? `&v=${VENUE_ID}` : ""}`;
+  const msg = `⏰ HACCP Reminder — please log your temperatures now. Open this link on your phone: ${portalUrl}`;
+  const smsHref = phone => `sms:${phone}${/iphone|ipad|ipod|mac/i.test(navigator.userAgent) ? "&" : "?"}body=${encodeURIComponent(msg)}`;
+  const standsPending = dir.stands.filter(s => !s.submittedToday).length;
+  const peoplePending = dir.people.filter(s => !s.submittedToday).length;
+  const rows = view === "stand" ? dir.stands : dir.people;
+  return (
+    <div className="card" style={{ marginBottom: 18 }}>
+      <div className="cardHeader"><div className="cardTitle">🌡 HACCP Today — temp log tracker</div></div>
+      <div className="cardBody">
+        <div className="fuSummary" style={{ marginBottom: 10 }}>
+          {dir.stands.filter(s => s.submittedToday).length > 0 && <span className="fuSumChip fuSumOk">✓ {dir.stands.filter(s => s.submittedToday).length} stand{dir.stands.filter(s => s.submittedToday).length !== 1 ? "s" : ""} logged today</span>}
+          {standsPending > 0 && <span className="fuSumChip fuSumOverdue">⏰ {standsPending} stand{standsPending !== 1 ? "s" : ""} pending</span>}
+          {peoplePending > 0 && <span className="fuSumChip fuSumSoon">👤 {peoplePending} supervisor{peoplePending !== 1 ? "s" : ""} pending</span>}
+          <span className="fuToggle" style={{ marginLeft: "auto" }}>
+            <button type="button" className={`fuToggleBtn${view === "stand" ? " fuToggleActive" : ""}`} onClick={() => setView("stand")}>🍳 By Stand</button>
+            <button type="button" className={`fuToggleBtn${view === "person" ? " fuToggleActive" : ""}`} onClick={() => setView("person")}>👤 By Person</button>
+          </span>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 320, overflowY: "auto" }}>
+          {rows.map(r => (
+            <div key={r.id || r.phone} style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--surface-2)", border: "1.5px solid var(--sdx-gray-200)", borderRadius: 10, padding: "0.45rem 0.7rem" }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 700, fontSize: "0.82rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {view === "stand" ? `${r.site || "—"}${r.unit ? ` · #${r.unit}` : ""}` : (r.name || r.phone)}
+                </div>
+                <div style={{ fontSize: "0.7rem", color: "var(--ink-500)" }}>
+                  {view === "stand"
+                    ? (r.lastAt ? `last log ${new Date(r.lastAt).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}` : "never logged")
+                    : `${r.phone}${r.site ? ` · ${r.site}` : ""}`}
+                </div>
+              </div>
+              <span style={{ fontSize: "0.66rem", fontWeight: 800, padding: "0.2rem 0.55rem", borderRadius: 999, flexShrink: 0,
+                background: r.submittedToday ? "var(--tint-green-1)" : "#FEF3C7",
+                color: r.submittedToday ? "#16a34a" : "#B45309" }}>
+                {r.submittedToday ? "✓ Today" : "⏰ Pending"}
+              </span>
+              {view === "person" && !r.submittedToday && (
+                <a href={smsHref(r.phone)}
+                  style={{ background: "#2563eb", color: "#fff", borderRadius: 8, padding: "0.35rem 0.7rem", fontWeight: 800, fontSize: "0.74rem", textDecoration: "none", flexShrink: 0 }}>
+                  💬 Text
+                </a>
+              )}
+            </div>
+          ))}
         </div>
       </div>
     </div>
