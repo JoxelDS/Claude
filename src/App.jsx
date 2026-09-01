@@ -1489,9 +1489,13 @@ function buildHaccpDirectory(subs, forDate, overrides) {
     const unit = (r.unit || "").trim();
     if (site || unit) {
       const id = unit ? `u:${normUnit(unit)}` : `s:${site.toLowerCase()}`;
-      const st = byStand[id] || { id, site, unit, lastAt: "", submittedToday: false };
+      const st = byStand[id] || { id, site, unit, lastAt: "", submittedToday: false, doneBy: null, checksOnDate: 0 };
       if ((r.submittedAt || "") > st.lastAt) { st.lastAt = r.submittedAt || ""; if (site) st.site = site; if (unit) st.unit = unit; }
-      if (r.type === "submission" && (r.submittedAt || "").slice(0, 10) === day) st.submittedToday = true;
+      if (r.type === "submission" && (r.submittedAt || "").slice(0, 10) === day) {
+        st.submittedToday = true;
+        st.checksOnDate++;
+        if (!st.doneBy || (r.submittedAt || "") > (st.doneBy.at || "")) st.doneBy = { name: r.supervisorName || "", at: r.submittedAt || "" };
+      }
       byStand[id] = st;
     }
   }
@@ -10581,7 +10585,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                 </button>
               ))}
             </div>
-            {analyticsTab === "temp" && <><HaccpTodayTracker venueSettings={venueSettings} saveVenueSettingsMap={saveVenueSettingsMap} /><TempTrendChart history={filtered.length > 0 ? filtered : history} /></>}
+            {analyticsTab === "temp" && <><HaccpTodayTracker venueSettings={venueSettings} saveVenueSettingsMap={saveVenueSettingsMap} history={history} /><TempTrendChart history={filtered.length > 0 ? filtered : history} /></>}
             {analyticsTab === "insights" && <AIHealthMonitor history={filtered.length > 0 ? filtered : history} currentUser={currentUser} />}
             {analyticsTab === "predictive" && <PredictiveInsightsPanel history={filtered.length > 0 ? filtered : history} />}
             {analyticsTab === "recurring" && <RecurringIssuesPanel history={filtered.length > 0 ? filtered : history} onLocationClick={filterByLocation} onTagClick={goToRecurringAnalytics} onIssueDrilldown={filterByLocationAndIssue} venueSettings={venueSettings} saveVenueSettings={saveVenueSettings} saveVenueSettingsMap={saveVenueSettingsMap} currentUser={currentUser} onAddRecord={rec => setHistory(prev => [rec, ...prev])} />}
@@ -21591,7 +21595,7 @@ function EquipScanModal({ onClose, onApply, initialTag }) {
 }
 
 /* ── HACCP Today — who did (and didn't do) the temp log ─────── */
-function HaccpTodayTracker({ venueSettings, saveVenueSettingsMap }) {
+function HaccpTodayTracker({ venueSettings, saveVenueSettingsMap, history }) {
   const [subs, setSubs] = useState(null);
   const [regStands, setRegStands] = useState([]); // stands with QR posters (expected universe)
   const [view, setView] = useState("stand"); // "stand" | "person"
@@ -21632,6 +21636,15 @@ function HaccpTodayTracker({ venueSettings, saveVenueSettingsMap }) {
   const msg = `⏰ HACCP Reminder — please log your temperatures now. Open this link on your phone: ${portalUrl}`;
   const smsHref = phone => `sms:${phone}${/iphone|ipad|ipod|mac/i.test(navigator.userAgent) ? "&" : "?"}body=${encodeURIComponent(msg)}`;
   const dayWord = day === today ? "today" : "this day";
+  // Inspector coverage for the same day — did WE also inspect this stand?
+  const inspByStand = {};
+  for (const rec of (history || [])) {
+    const d = (rec.inspectionDate || rec.savedAt || "").slice(0, 10);
+    if (d !== day) continue;
+    const id = (rec.siteNumber || "").trim() ? `u:${normUnit(rec.siteNumber)}` : `s:${(rec.siteName || "").trim().toLowerCase()}`;
+    if (!inspByStand[id]) inspByStand[id] = { inspector: rec.inspectorName || "", type: rec.inspectionType || "" };
+  }
+  const inspectedCount = dir.stands.filter(s => inspByStand[s.id]).length;
   const standsPending = dir.stands.filter(s => !s.submittedToday).length;
   const peoplePending = dir.people.filter(s => !s.submittedToday).length;
   const rows = view === "stand" ? dir.stands : dir.people;
@@ -21664,6 +21677,7 @@ function HaccpTodayTracker({ venueSettings, saveVenueSettingsMap }) {
           {dir.stands.filter(s => s.submittedToday).length > 0 && <span className="fuSumChip fuSumOk">✓ {dir.stands.filter(s => s.submittedToday).length} stand{dir.stands.filter(s => s.submittedToday).length !== 1 ? "s" : ""} logged {dayWord}</span>}
           {standsPending > 0 && <span className="fuSumChip fuSumOverdue">⏰ {standsPending} stand{standsPending !== 1 ? "s" : ""} missed</span>}
           {peoplePending > 0 && <span className="fuSumChip fuSumSoon">👤 {peoplePending} supervisor{peoplePending !== 1 ? "s" : ""} pending</span>}
+          {inspectedCount > 0 && <span className="fuSumChip" style={{ background: "#dbeafe", color: "#1d4ed8", borderColor: "#bfdbfe" }}>🕵 {inspectedCount} inspected</span>}
           <span className="fuToggle" style={{ marginLeft: "auto" }}>
             <button type="button" className={`fuToggleBtn${view === "stand" ? " fuToggleActive" : ""}`} onClick={() => setView("stand")}>🍳 By Stand</button>
             <button type="button" className={`fuToggleBtn${view === "person" ? " fuToggleActive" : ""}`} onClick={() => setView("person")}>👤 By Person</button>
@@ -21691,11 +21705,29 @@ function HaccpTodayTracker({ venueSettings, saveVenueSettingsMap }) {
                         : `${r.phone}${r.site ? ` · ${r.site}` : ""}`}
                     </div>
                   </div>
+                  {view === "stand" ? (
+                    <div style={{ display: "flex", gap: 5, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                      <span style={{ fontSize: "0.66rem", fontWeight: 800, padding: "0.2rem 0.55rem", borderRadius: 999, flexShrink: 0,
+                        background: r.submittedToday ? "var(--tint-green-1)" : "#FEF3C7",
+                        color: r.submittedToday ? "#16a34a" : "#B45309" }}>
+                        {r.submittedToday
+                          ? `👷 ${(r.doneBy?.name || "done").split(" ")[0]}${r.doneBy?.at ? ` · ${new Date(r.doneBy.at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}` : ""}${r.checksOnDate > 1 ? ` ×${r.checksOnDate}` : ""}`
+                          : "👷 no HACCP"}
+                      </span>
+                      <span style={{ fontSize: "0.66rem", fontWeight: 800, padding: "0.2rem 0.55rem", borderRadius: 999, flexShrink: 0,
+                        background: inspByStand[r.id] ? "#dbeafe" : "var(--surface-1)",
+                        color: inspByStand[r.id] ? "#1d4ed8" : "var(--ink-400)",
+                        border: inspByStand[r.id] ? "1px solid #bfdbfe" : "1px solid var(--sdx-gray-200)" }}>
+                        {inspByStand[r.id] ? `🕵 ${(inspByStand[r.id].inspector || "inspected").split(" ")[0]}` : "🕵 —"}
+                      </span>
+                    </div>
+                  ) : (
                   <span style={{ fontSize: "0.66rem", fontWeight: 800, padding: "0.2rem 0.55rem", borderRadius: 999, flexShrink: 0,
                     background: r.submittedToday ? "var(--tint-green-1)" : "#FEF3C7",
                     color: r.submittedToday ? "#16a34a" : "#B45309" }}>
                     {r.submittedToday ? "✓ Logged" : "⏰ Missed"}
                   </span>
+                  )}
                   {view === "person" && (
                     <>
                       {!r.submittedToday && day === today && (
