@@ -1468,8 +1468,9 @@ async function saveHaccpSubmission(record) {
 // Who has (and hasn't) done today's HACCP log — by person and by stand.
 // Built from the raw submissions list; used by the QR modal remind list and
 // the HACCP Today tracker.
-function buildHaccpDirectory(subs) {
-  const today = new Date().toISOString().slice(0, 10);
+function buildHaccpDirectory(subs, forDate, overrides) {
+  const day = forDate || new Date().toISOString().slice(0, 10);
+  const ov = overrides || {};
   const byPhone = {};
   const byStand = {};
   for (const r of (subs || [])) {
@@ -1481,7 +1482,7 @@ function buildHaccpDirectory(subs) {
         cur.name = r.supervisorName || cur.name;
         cur.site = r.site || cur.site;
       }
-      if (r.type === "submission" && (r.submittedAt || "").slice(0, 10) === today) cur.submittedToday = true;
+      if (r.type === "submission" && (r.submittedAt || "").slice(0, 10) === day) cur.submittedToday = true;
       byPhone[phone] = cur;
     }
     const site = (r.site || "").trim();
@@ -1490,13 +1491,22 @@ function buildHaccpDirectory(subs) {
       const id = unit ? `u:${normUnit(unit)}` : `s:${site.toLowerCase()}`;
       const st = byStand[id] || { id, site, unit, lastAt: "", submittedToday: false };
       if ((r.submittedAt || "") > st.lastAt) { st.lastAt = r.submittedAt || ""; if (site) st.site = site; if (unit) st.unit = unit; }
-      if (r.type === "submission" && (r.submittedAt || "").slice(0, 10) === today) st.submittedToday = true;
+      if (r.type === "submission" && (r.submittedAt || "").slice(0, 10) === day) st.submittedToday = true;
       byStand[id] = st;
     }
   }
+  // Admin corrections: rename, reassign, or hide supervisors
+  const people = [];
+  const hidden = [];
+  for (const p of Object.values(byPhone)) {
+    const o = ov[p.phone];
+    const merged = o ? { ...p, name: o.name || p.name, site: o.site !== undefined ? o.site : p.site } : p;
+    if (o?.hidden) hidden.push(merged); else people.push(merged);
+  }
   const pendingFirst = (a, b) => (a.submittedToday === b.submittedToday ? (b.lastAt || "").localeCompare(a.lastAt || "") : a.submittedToday ? 1 : -1);
   return {
-    people: Object.values(byPhone).sort(pendingFirst),
+    people: people.sort(pendingFirst),
+    hiddenPeople: hidden,
     stands: Object.values(byStand).sort(pendingFirst),
   };
 }
@@ -10571,7 +10581,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                 </button>
               ))}
             </div>
-            {analyticsTab === "temp" && <><HaccpTodayTracker /><TempTrendChart history={filtered.length > 0 ? filtered : history} /></>}
+            {analyticsTab === "temp" && <><HaccpTodayTracker venueSettings={venueSettings} saveVenueSettingsMap={saveVenueSettingsMap} /><TempTrendChart history={filtered.length > 0 ? filtered : history} /></>}
             {analyticsTab === "insights" && <AIHealthMonitor history={filtered.length > 0 ? filtered : history} currentUser={currentUser} />}
             {analyticsTab === "predictive" && <PredictiveInsightsPanel history={filtered.length > 0 ? filtered : history} />}
             {analyticsTab === "recurring" && <RecurringIssuesPanel history={filtered.length > 0 ? filtered : history} onLocationClick={filterByLocation} onTagClick={goToRecurringAnalytics} onIssueDrilldown={filterByLocationAndIssue} venueSettings={venueSettings} saveVenueSettings={saveVenueSettings} saveVenueSettingsMap={saveVenueSettingsMap} currentUser={currentUser} onAddRecord={rec => setHistory(prev => [rec, ...prev])} />}
@@ -21469,7 +21479,7 @@ function EquipScanModal({ onClose, onApply, initialTag }) {
     (async () => {
       try {
         const subs = await loadHaccpSubmissions();
-        setSupers(buildHaccpDirectory(subs).people);
+        setSupers(buildHaccpDirectory(subs, undefined, _vs?.haccpTeam).people);
       } catch { setSupers([]); }
     })();
   }, []);
@@ -21581,63 +21591,144 @@ function EquipScanModal({ onClose, onApply, initialTag }) {
 }
 
 /* ── HACCP Today — who did (and didn't do) the temp log ─────── */
-function HaccpTodayTracker() {
-  const [dir, setDir] = useState(null); // { people, stands } | null loading
+function HaccpTodayTracker({ venueSettings, saveVenueSettingsMap }) {
+  const [subs, setSubs] = useState(null);
+  const [regStands, setRegStands] = useState([]); // stands with QR posters (expected universe)
   const [view, setView] = useState("stand"); // "stand" | "person"
+  const [day, setDay] = useState(() => new Date().toISOString().slice(0, 10));
+  const [editPhone, setEditPhone] = useState(null);
+  const [editName, setEditName] = useState("");
+  const [editSite, setEditSite] = useState("");
+  const [showRemoved, setShowRemoved] = useState(false);
+  const [teamLocal, setTeamLocal] = useState({}); // optimistic overrides
+
   useEffect(() => {
     (async () => {
-      try { setDir(buildHaccpDirectory(await loadHaccpSubmissions())); }
-      catch { setDir({ people: [], stands: [] }); }
+      try { setSubs(await loadHaccpSubmissions()); } catch { setSubs([]); }
+      // Best-effort: stands registered for QR posters count as "expected"
+      try {
+        if (FIREBASE_ON) {
+          const snap = await getDoc(doc(db, "venues", VENUE_ID, "sharedMemory", "kitchenRegistry"));
+          const items = snap.exists() ? (snap.data()?.items || {}) : {};
+          setRegStands(Object.values(items).filter(k => k?.site || k?.unit).map(k => ({ site: k.site || "", unit: k.unit || "" })));
+        }
+      } catch {}
     })();
   }, []);
-  if (dir === null) return null;
-  if (dir.people.length === 0 && dir.stands.length === 0) return null;
+  if (subs === null) return null;
+  const overrides = { ...(venueSettings?.haccpTeam || {}), ...teamLocal };
+  const dir = buildHaccpDirectory(subs, day, overrides);
+  // Expected stands that never logged at all → Pending ("never logged")
+  const seenIds = new Set(dir.stands.map(s => s.id));
+  for (const k of regStands) {
+    const id = k.unit ? `u:${normUnit(k.unit)}` : `s:${(k.site || "").toLowerCase()}`;
+    if (!seenIds.has(id)) { seenIds.add(id); dir.stands.push({ id, site: k.site, unit: k.unit, lastAt: "", submittedToday: false }); }
+  }
+  if (dir.people.length === 0 && dir.stands.length === 0 && dir.hiddenPeople.length === 0) return null;
+  const today = new Date().toISOString().slice(0, 10);
+  const eventName = venueSettings?.eventDays?.[day];
+  const shiftDay = n => { const d = new Date(day + "T12:00:00"); d.setDate(d.getDate() + n); setDay(d.toISOString().slice(0, 10)); };
   const portalUrl = `${window.location.origin}${BASE}?haccp=1${VENUE_ID !== "default" ? `&v=${VENUE_ID}` : ""}`;
   const msg = `⏰ HACCP Reminder — please log your temperatures now. Open this link on your phone: ${portalUrl}`;
   const smsHref = phone => `sms:${phone}${/iphone|ipad|ipod|mac/i.test(navigator.userAgent) ? "&" : "?"}body=${encodeURIComponent(msg)}`;
+  const dayWord = day === today ? "today" : "this day";
   const standsPending = dir.stands.filter(s => !s.submittedToday).length;
   const peoplePending = dir.people.filter(s => !s.submittedToday).length;
   const rows = view === "stand" ? dir.stands : dir.people;
+  const saveTeam = (phone, patch) => {
+    const prev = overrides[phone] || {};
+    const entry = { ...prev, ...patch };
+    setTeamLocal(p => ({ ...p, [phone]: entry }));
+    saveVenueSettingsMap?.("haccpTeam", { [phone]: entry });
+  };
   return (
     <div className="card" style={{ marginBottom: 18 }}>
-      <div className="cardHeader"><div className="cardTitle">🌡 HACCP Today — temp log tracker</div></div>
+      <div className="cardHeader"><div className="cardTitle">🌡 HACCP — temp log tracker</div></div>
       <div className="cardBody">
+        {/* Day picker — on game day, pick the date and see exactly who missed */}
+        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
+          <button type="button" onClick={() => shiftDay(-1)} style={{ background: "var(--surface-2)", border: "none", borderRadius: 8, padding: "5px 11px", fontWeight: 800, cursor: "pointer" }}>◀</button>
+          <input type="date" className="input" value={day} onChange={e => e.target.value && setDay(e.target.value)} style={{ maxWidth: 160, padding: "5px 8px" }} />
+          <button type="button" onClick={() => shiftDay(1)} style={{ background: "var(--surface-2)", border: "none", borderRadius: 8, padding: "5px 11px", fontWeight: 800, cursor: "pointer" }}>▶</button>
+          {day !== today && (
+            <button type="button" onClick={() => setDay(today)}
+              style={{ background: "none", border: "1px solid var(--sdx-gray-200)", borderRadius: 999, padding: "3px 11px", fontSize: "0.72rem", fontWeight: 700, color: "var(--ink-500)", cursor: "pointer" }}>Today</button>
+          )}
+        </div>
+        {eventName && (
+          <div style={{ background: "var(--tint-amber-1, #fffbeb)", border: "1px solid #fde68a", borderRadius: 9, padding: "6px 10px", fontWeight: 700, fontSize: "0.82rem", marginBottom: 8 }}>
+            🎪 {eventName} — Event Day
+          </div>
+        )}
         <div className="fuSummary" style={{ marginBottom: 10 }}>
-          {dir.stands.filter(s => s.submittedToday).length > 0 && <span className="fuSumChip fuSumOk">✓ {dir.stands.filter(s => s.submittedToday).length} stand{dir.stands.filter(s => s.submittedToday).length !== 1 ? "s" : ""} logged today</span>}
-          {standsPending > 0 && <span className="fuSumChip fuSumOverdue">⏰ {standsPending} stand{standsPending !== 1 ? "s" : ""} pending</span>}
+          {dir.stands.filter(s => s.submittedToday).length > 0 && <span className="fuSumChip fuSumOk">✓ {dir.stands.filter(s => s.submittedToday).length} stand{dir.stands.filter(s => s.submittedToday).length !== 1 ? "s" : ""} logged {dayWord}</span>}
+          {standsPending > 0 && <span className="fuSumChip fuSumOverdue">⏰ {standsPending} stand{standsPending !== 1 ? "s" : ""} missed</span>}
           {peoplePending > 0 && <span className="fuSumChip fuSumSoon">👤 {peoplePending} supervisor{peoplePending !== 1 ? "s" : ""} pending</span>}
           <span className="fuToggle" style={{ marginLeft: "auto" }}>
             <button type="button" className={`fuToggleBtn${view === "stand" ? " fuToggleActive" : ""}`} onClick={() => setView("stand")}>🍳 By Stand</button>
             <button type="button" className={`fuToggleBtn${view === "person" ? " fuToggleActive" : ""}`} onClick={() => setView("person")}>👤 By Person</button>
           </span>
         </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 320, overflowY: "auto" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 340, overflowY: "auto" }}>
           {rows.map(r => (
-            <div key={r.id || r.phone} style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--surface-2)", border: "1.5px solid var(--sdx-gray-200)", borderRadius: 10, padding: "0.45rem 0.7rem" }}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 700, fontSize: "0.82rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {view === "stand" ? `${r.site || "—"}${r.unit ? ` · #${r.unit}` : ""}` : (r.name || r.phone)}
-                </div>
-                <div style={{ fontSize: "0.7rem", color: "var(--ink-500)" }}>
-                  {view === "stand"
-                    ? (r.lastAt ? `last log ${new Date(r.lastAt).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}` : "never logged")
-                    : `${r.phone}${r.site ? ` · ${r.site}` : ""}`}
-                </div>
-              </div>
-              <span style={{ fontSize: "0.66rem", fontWeight: 800, padding: "0.2rem 0.55rem", borderRadius: 999, flexShrink: 0,
-                background: r.submittedToday ? "var(--tint-green-1)" : "#FEF3C7",
-                color: r.submittedToday ? "#16a34a" : "#B45309" }}>
-                {r.submittedToday ? "✓ Today" : "⏰ Pending"}
-              </span>
-              {view === "person" && !r.submittedToday && (
-                <a href={smsHref(r.phone)}
-                  style={{ background: "#2563eb", color: "#fff", borderRadius: 8, padding: "0.35rem 0.7rem", fontWeight: 800, fontSize: "0.74rem", textDecoration: "none", flexShrink: 0 }}>
-                  💬 Text
-                </a>
+            <div key={r.id || r.phone} style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--surface-2)", border: "1.5px solid var(--sdx-gray-200)", borderRadius: 10, padding: "0.45rem 0.7rem", flexWrap: "wrap" }}>
+              {view === "person" && editPhone === r.phone ? (
+                <>
+                  <input className="input" value={editName} placeholder="Name" onChange={e => setEditName(e.target.value)} style={{ flex: "1 1 120px", fontSize: "16px", padding: "5px 8px" }} />
+                  <input className="input" value={editSite} placeholder="Stand" onChange={e => setEditSite(e.target.value)} style={{ flex: "1 1 100px", fontSize: "16px", padding: "5px 8px" }} />
+                  <button type="button" className="fuBtn fuBtnResolve" onClick={() => { saveTeam(r.phone, { name: editName.trim(), site: editSite.trim() }); setEditPhone(null); }}>Save</button>
+                  <button type="button" className="fuBtn" onClick={() => setEditPhone(null)}>✕</button>
+                </>
+              ) : (
+                <>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 700, fontSize: "0.82rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {view === "stand" ? `${r.site || "—"}${r.unit ? ` · #${r.unit}` : ""}` : (r.name || r.phone)}
+                    </div>
+                    <div style={{ fontSize: "0.7rem", color: "var(--ink-500)" }}>
+                      {view === "stand"
+                        ? (r.lastAt ? `last log ${new Date(r.lastAt).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}` : "never logged")
+                        : `${r.phone}${r.site ? ` · ${r.site}` : ""}`}
+                    </div>
+                  </div>
+                  <span style={{ fontSize: "0.66rem", fontWeight: 800, padding: "0.2rem 0.55rem", borderRadius: 999, flexShrink: 0,
+                    background: r.submittedToday ? "var(--tint-green-1)" : "#FEF3C7",
+                    color: r.submittedToday ? "#16a34a" : "#B45309" }}>
+                    {r.submittedToday ? "✓ Logged" : "⏰ Missed"}
+                  </span>
+                  {view === "person" && (
+                    <>
+                      {!r.submittedToday && day === today && (
+                        <a href={smsHref(r.phone)}
+                          style={{ background: "#2563eb", color: "#fff", borderRadius: 8, padding: "0.35rem 0.7rem", fontWeight: 800, fontSize: "0.74rem", textDecoration: "none", flexShrink: 0 }}>
+                          💬 Text
+                        </a>
+                      )}
+                      <button type="button" onClick={() => { setEditPhone(r.phone); setEditName(r.name || ""); setEditSite(r.site || ""); }}
+                        style={{ background: "none", border: "none", cursor: "pointer", fontSize: "0.85rem" }}>✎</button>
+                      <button type="button" onClick={() => saveTeam(r.phone, { hidden: true })}
+                        style={{ background: "none", border: "none", color: "#dc2626", fontWeight: 800, cursor: "pointer", fontSize: "0.85rem" }}>✕</button>
+                    </>
+                  )}
+                </>
               )}
             </div>
           ))}
         </div>
+        {view === "person" && dir.hiddenPeople.length > 0 && (
+          <div style={{ marginTop: 8 }}>
+            <button type="button" onClick={() => setShowRemoved(s => !s)}
+              style={{ background: "none", border: "none", color: "var(--ink-500)", fontWeight: 700, fontSize: "0.74rem", cursor: "pointer", padding: 0 }}>
+              {showRemoved ? "▾" : "▸"} Removed ({dir.hiddenPeople.length})
+            </button>
+            {showRemoved && dir.hiddenPeople.map(r => (
+              <div key={r.phone} style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 8px", fontSize: "0.76rem", color: "var(--ink-500)" }}>
+                <span style={{ flex: 1 }}>{r.name || r.phone} · {r.phone}</span>
+                <button type="button" className="fuBtn" onClick={() => saveTeam(r.phone, { hidden: false })}>Restore</button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
