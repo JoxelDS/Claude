@@ -3007,6 +3007,38 @@ function splitAreaCategory(area) {
   return { category: "General", item: raw };
 }
 
+// Classify WHO fixes an issue: the cleaning crew, maintenance, pest control…
+// This is the "Issue Type" column in Excel exports, so cleaning problems can
+// be filtered apart from maintenance work orders.
+function classifyIssueType(issue, notes = "", priority = "") {
+  const p = (priority || "").toLowerCase();
+  const t = `${issue || ""} ${notes || ""}`.toLowerCase();
+  if (/pest|roach|flies|fly |fruit fl|rodent|mice|mouse|rat |droppings|gnat/.test(t) || p === "pest control") return "Pest Control";
+  if (p === "maintenance" || /^(hvac|plumbing|electrical|refrigeration)$/.test(p)) return "Maintenance";
+  if (/broken|leak|not working|doesn'?t work|does not work|no power|repair|missing (tile|panel|cover|handle|knob)|peeling|damag|loose|replace|cracked|torn|burnt|burned out|light (is )?out|bulb out|gasket|drain(ing)? (slow|clog|back)|clogged|no pressure|low pressure|not delivering|rust|hinge|won'?t close|not closing|stuck/.test(t)) return "Maintenance";
+  if (/haccp|°f|\bout[- ]of[- ]range\b|too warm|too cold|not cold|not hot enough|\btemp\b|temperature/.test(t)) return "Temperature";
+  if (/dirty|not clean|unclean|needs? (a )?clean|grease|build[- ]?up|debris|residue|stain|mold|mildew|dust|sweep|swept|mop+ed|not mopped|saniti|trash|garbage|sticky|spill|food (debris|residue)|grimy|filthy/.test(t)) return "Cleaning";
+  return "Other";
+}
+
+// ExcelJS cell style for the Issue Type column — colored so the filter reads
+// at a glance: Cleaning green, Maintenance amber, Temperature blue, Pest red.
+function issueTypeStyle(itype) {
+  const map = {
+    "Cleaning":     { bg: "E2EFDA", text: "375623" },
+    "Maintenance":  { bg: "FCE4D6", text: "843C0C" },
+    "Temperature":  { bg: "D6E4F7", text: "1C4A7A" },
+    "Pest Control": { bg: "F8CBAD", text: "833C00" },
+    "Other":        { bg: "EDEDED", text: "555555" },
+  };
+  const c = map[itype] || map.Other;
+  return {
+    font: { bold: true, size: 10, name: "Calibri", color: { argb: "FF" + c.text } },
+    fill: { type: "pattern", pattern: "solid", fgColor: { argb: "FF" + c.bg } },
+    alignment: { vertical: "top", horizontal: "center", wrapText: true },
+  };
+}
+
 // Unit numbers are the true identity of a stand — names drift between
 // inspections, numbers don't. "142 a" and "142 A" are the same unit; "142"
 // is a different one.
@@ -4550,18 +4582,18 @@ async function exportAsCsv({ inspection, notesPhotos, rawNotes, inspectionType, 
   // ══════════════════════════════════════════════════════════════════════════
   if (actionItems.length > 0) {
     const ws2 = wb.addWorksheet("Inspection Findings");
-    ws2.columns = [{ width: 5 }, { width: 22 }, { width: 50 }, { width: 38 }, { width: 14 }];
+    ws2.columns = [{ width: 5 }, { width: 22 }, { width: 50 }, { width: 14 }, { width: 38 }, { width: 14 }];
 
     const ws2TitleRow = ws2.addRow(["ACTION ITEMS"]);
     ws2TitleRow.height = 24;
-    ws2.mergeCells(`A${ws2TitleRow.number}:E${ws2TitleRow.number}`);
+    ws2.mergeCells(`A${ws2TitleRow.number}:F${ws2TitleRow.number}`);
     applyStyle(ws2TitleRow.getCell(1), hdr(true, 13, WHITE, NAVY));
 
-    const ws2Header = ["#", "Area / Section", "Issue", "Inspector Notes", "Priority"];
+    const ws2Header = ["#", "Area / Section", "Issue", "Issue Type", "Inspector Notes", "Priority"];
     const ws2HRow = ws2.addRow(ws2Header);
     ws2HRow.height = 20;
     ws2Header.forEach((_, ci) => applyStyle(ws2HRow.getCell(ci + 1), subHdr(RED)));
-    ws2.autoFilter = { from: { row: ws2HRow.number, column: 1 }, to: { row: ws2HRow.number, column: 5 } };
+    ws2.autoFilter = { from: { row: ws2HRow.number, column: 1 }, to: { row: ws2HRow.number, column: 6 } };
     ws2.views = [{ state: "frozen", ySplit: ws2HRow.number, topLeftCell: `A${ws2HRow.number + 1}`, activeCell: "A1" }];
 
     const priStyle = (p) => {
@@ -4585,14 +4617,16 @@ async function exportAsCsv({ inspection, notesPhotos, rawNotes, inspectionType, 
       const issue = colonIdx > 0 && colonIdx < 40 ? raw.slice(colonIdx + 1).trim() : raw;
       const pri = str(a.priority);
       const notes = str(a.notes || a.corrective || "");
+      const itype = classifyIssueType(raw, notes, pri);
       const bg = i % 2 === 0 ? WHITE : SILVER;
-      const row = ws2.addRow([i + 1, area, issue, notes, pri]);
+      const row = ws2.addRow([i + 1, area, issue, itype, notes, pri]);
       row.height = 18;
       row.getCell(1).style = { ...bodyCell(bg), alignment: { horizontal: "center", vertical: "top" } };
       row.getCell(2).style = bodyCell(bg);
       row.getCell(3).style = bodyCell(bg);
-      row.getCell(4).style = { ...bodyCell(bg), font: { size: 10, name: "Calibri", color: { argb: "FF555555" }, italic: true } };
-      row.getCell(5).style = priStyle(pri);
+      row.getCell(4).style = issueTypeStyle(itype);
+      row.getCell(5).style = { ...bodyCell(bg), font: { size: 10, name: "Calibri", color: { argb: "FF555555" }, italic: true } };
+      row.getCell(6).style = priStyle(pri);
     });
   }
 
@@ -5130,7 +5164,7 @@ async function exportIssuesOnlyExcel({ rec, haccpSubs = [] }) {
   // SHEET 1: Issues
   // ══════════════════════════════════════════════════════════════════════════
   const ws1 = wb.addWorksheet("Issues");
-  ws1.columns = [{ width: 4 }, { width: 24 }, { width: 52 }, { width: 28 }, { width: 28 }, { width: 50 }, { width: 14 }, { width: 18 }, { width: 14 }];
+  ws1.columns = [{ width: 4 }, { width: 24 }, { width: 52 }, { width: 14 }, { width: 28 }, { width: 28 }, { width: 50 }, { width: 14 }, { width: 18 }, { width: 14 }];
 
   // Title
   ws1.addRow([`INSPECTION REPORT — ${siteName.toUpperCase()}`]);
@@ -5195,7 +5229,7 @@ async function exportIssuesOnlyExcel({ rec, haccpSubs = [] }) {
   }
 
   // Issues header
-  const issuesHdrRow = ws1.addRow(["#", "Area", "Issue", "Notes", "Corrective Action", "Photos", "Status", "Owner", "Due Date"]);
+  const issuesHdrRow = ws1.addRow(["#", "Area", "Issue", "Type", "Notes", "Corrective Action", "Photos", "Status", "Owner", "Due Date"]);
   issuesHdrRow.eachCell(c => applyStyle(c, styleHdr));
   issuesHdrRow.height = 22;
 
@@ -5206,7 +5240,7 @@ async function exportIssuesOnlyExcel({ rec, haccpSubs = [] }) {
 
   if (actionItems.length === 0) {
     const r = ws1.addRow(["", "", "✅ No issues — all areas passed inspection"]);
-    ws1.mergeCells(`C${r.number}:I${r.number}`);
+    ws1.mergeCells(`C${r.number}:J${r.number}`);
     applyStyle(r.getCell(3),{ font: font({ italic: true, color: { argb: "FF276221" } }), fill: fill(PASS_G), alignment: { wrapText: true } });
     r.height = 18;
   } else {
@@ -5221,9 +5255,11 @@ async function exportIssuesOnlyExcel({ rec, haccpSubs = [] }) {
       const even = i % 2 === 0;
       // Photos for this issue — embed thumbnails right next to the issue row
       const rowPhotos = (a.photos || []).map(num => photoList.find(p => p.num === num)).filter(p => p && p.dataUrl && p.dataUrl.startsWith("data:"));
-      const r = ws1.addRow([i + 1, area, issueClean, str(a.notes || ""), corrective, "", str(st), str(a.owner || "—"), str(a.due || "—")]);
-      r.eachCell((c, col) => applyStyle(c, col === 7 ? styleStatus(st) : styleBody(even)));
-      r.getCell(6).style = styleBody(even);
+      const itype = classifyIssueType(rawIssue, a.notes, a.priority);
+      const r = ws1.addRow([i + 1, area, issueClean, itype, str(a.notes || ""), corrective, "", str(st), str(a.owner || "—"), str(a.due || "—")]);
+      r.eachCell((c, col) => applyStyle(c, col === 8 ? styleStatus(st) : styleBody(even)));
+      r.getCell(4).style = issueTypeStyle(itype);
+      r.getCell(7).style = styleBody(even);
       if (rowPhotos.length === 0) { r.height = 18; } else {
         const perLine = 4;
         const nLines = Math.ceil(rowPhotos.length / perLine);
@@ -5234,14 +5270,14 @@ async function exportIssuesOnlyExcel({ rec, haccpSubs = [] }) {
             if (!m) return;
             const imgId = wb.addImage({ base64: m[2], extension: m[1].replace("jpg", "jpeg") });
             // Column G is index 6 (0-based); grid of up to 4 thumbs per line
-            ws1.addImage(imgId, { tl: { col: 5 + (k % perLine) * 0.24, row: r.number - 1 + Math.floor(k / perLine) / nLines }, ext: { width: 80, height: 84 }, editAs: "oneCell" });
+            ws1.addImage(imgId, { tl: { col: 6 + (k % perLine) * 0.24, row: r.number - 1 + Math.floor(k / perLine) / nLines }, ext: { width: 80, height: 84 }, editAs: "oneCell" });
           } catch (_) { /* skip broken image */ }
         });
       }
     });
   }
 
-  ws1.autoFilter = { from: { row: ws1.lastRow.number - actionItems.length - (actionItems.length === 0 ? 1 : 0), column: 1 }, to: { row: ws1.lastRow.number, column: 9 } };
+  ws1.autoFilter = { from: { row: ws1.lastRow.number - actionItems.length - (actionItems.length === 0 ? 1 : 0), column: 1 }, to: { row: ws1.lastRow.number, column: 10 } };
   ws1.views = [{ state: "frozen", ySplit: ws1.lastRow.number - actionItems.length - (actionItems.length === 0 ? 0 : -1) }];
 
   // ══════════════════════════════════════════════════════════════════════════
@@ -9134,19 +9170,19 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
     const ws2 = wb.addWorksheet("Inspection Findings");
     ws2.columns = [
       { width: 4 }, { width: 28 }, { width: 10 }, { width: 16 },
-      { width: 12 }, { width: 18 }, { width: 20 }, { width: 22 }, { width: 40 }, { width: 30 },
+      { width: 12 }, { width: 18 }, { width: 20 }, { width: 22 }, { width: 40 }, { width: 14 }, { width: 30 },
       { width: 30 }, { width: 50 }, { width: 20 }, { width: 14 }, { width: 14 },
     ];
     const s2Title = ws2.addRow(["ACTION ITEMS — ALL VENUES"]);
     s2Title.height = 26;
-    ws2.mergeCells(`A${s2Title.number}:O${s2Title.number}`);
+    ws2.mergeCells(`A${s2Title.number}:P${s2Title.number}`);
     applyB(s2Title.getCell(1), bHdr(10));
 
-    const s2Headers = ["#", "Site / Location", "Unit #", "Location Type", "Date", "Inspection Type", "Inspector", "Area", "Issue", "Inspector Notes", "Corrective Action", "Photos", "Owner", "Due Date", "Status"];
+    const s2Headers = ["#", "Site / Location", "Unit #", "Location Type", "Date", "Inspection Type", "Inspector", "Area", "Issue", "Issue Type", "Inspector Notes", "Corrective Action", "Photos", "Owner", "Due Date", "Status"];
     const s2HRow = ws2.addRow(s2Headers);
     s2HRow.height = 20;
     s2Headers.forEach((_, ci) => applyB(s2HRow.getCell(ci + 1), bSubHdr()));
-    ws2.autoFilter = { from: { row: s2HRow.number, column: 1 }, to: { row: s2HRow.number, column: 15 } };
+    ws2.autoFilter = { from: { row: s2HRow.number, column: 1 }, to: { row: s2HRow.number, column: 16 } };
     ws2.views = [{ state: "frozen", xSplit: 2, ySplit: s2HRow.number, topLeftCell: `C${s2HRow.number + 1}`, activeCell: "A1" }];
 
     // Strip "[Corrective action: ...]" embedded in old issue text, return { issueClean, embeddedCorrectve }
@@ -9198,13 +9234,15 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
         const _rawSt = a.status && a.status !== "OK" && a.status !== "High" && a.status !== "Med" ? a.status : "";
         const statusLabel = str(_rawSt || (a.priority === "Follow-up" || a.priority === "Maintenance" ? a.priority : "Fail"));
         const bg = rowNum % 2 === 0 ? SILVER : WHITE;
+        const itype = classifyIssueType(a.issue, a.notes, a.priority);
         const row = ws2.addRow([
           rowNum, str(rec.siteName || rec.location), str(rec.siteNumber), str(rec.locationType),
           str(rec.inspectionDate), str(rec.inspectionType), str(rec.inspectorName),
-          area, issueText, inspNotes, corrective, "", str(a.owner || "—"), str(a.due || "—"), statusLabel,
+          area, issueText, itype, inspNotes, corrective, "", str(a.owner || "—"), str(a.due || "—"), statusLabel,
         ]);
-        [1,2,3,4,5,6,7,8,9,10,11,12,13,14].forEach(ci => { row.getCell(ci).style = bBody(bg); });
-        row.getCell(15).style = bStatusExt(statusLabel);
+        [1,2,3,4,5,6,7,8,9,11,12,13,14,15].forEach(ci => { row.getCell(ci).style = bBody(bg); });
+        row.getCell(10).style = issueTypeStyle(itype);
+        row.getCell(16).style = bStatusExt(statusLabel);
         // Embed ALL of this issue's photos right in the row (col P), 4 per line
         const urls = a._photoDataUrls || [];
         if (urls.length) {
@@ -9217,7 +9255,7 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
               const base64 = commaIdx >= 0 ? u.slice(commaIdx + 1) : u;
               const ext = u.includes("image/png") ? "png" : "jpeg";
               const imgId = wb.addImage({ base64, extension: ext });
-              ws2.addImage(imgId, { tl: { col: 11 + (k % perLine) * 0.24, row: row.number - 1 + Math.floor(k / perLine) / nLines }, ext: { width: 80, height: 84 }, editAs: "oneCell" });
+              ws2.addImage(imgId, { tl: { col: 12 + (k % perLine) * 0.24, row: row.number - 1 + Math.floor(k / perLine) / nLines }, ext: { width: 80, height: 84 }, editAs: "oneCell" });
             } catch (_) { /* skip broken image */ }
           });
         }
@@ -18490,7 +18528,7 @@ function slotsByDateOf(venueSettings) {
 }
 
 /* ── Schedule page — every user can check the calendar ────────────────── */
-function SchedulePage({ onBack, currentUser, venueSettings }) {
+function SchedulePage({ onBack, currentUser, venueSettings, onManage }) {
   const [month, setMonth] = useState(() => new Date().toISOString().slice(0, 7));
   const [selDay, setSelDay] = useState(() => new Date().toISOString().slice(0, 10));
   const eventDays = venueSettings?.eventDays || {};
@@ -18555,22 +18593,50 @@ function SchedulePage({ onBack, currentUser, venueSettings }) {
         )}
         <div className="card" style={{ marginTop: 12 }}>
           <div className="cardBody">
-            <div style={{ fontWeight: 800, fontSize: "0.88rem", color: "var(--sdx-navy)", marginBottom: 6 }}>This month</div>
-            {monthEvents.length === 0 && monthSlots.length === 0 && (
-              <div style={{ fontSize: "0.8rem", color: "var(--ink-400)", fontStyle: "italic" }}>No events or assigned inspections yet.</div>
-            )}
-            {monthEvents.map(([d, name]) => (
-              <div key={d} style={{ display: "flex", gap: 8, fontSize: "0.8rem", padding: "3px 0", cursor: "pointer" }} onClick={() => setSelDay(d)}>
-                <b style={{ whiteSpace: "nowrap" }}>{d.slice(8)} {new Date(d + "T12:00:00").toLocaleDateString([], { month: "short" })}</b>
-                <span>🎪 {name}</span>
-              </div>
-            ))}
-            {monthSlots.flatMap(([d, ss]) => ss.map(s => (
-              <div key={s.id || d + (s.location || "")} style={{ display: "flex", gap: 8, fontSize: "0.8rem", padding: "3px 0", cursor: "pointer" }} onClick={() => setSelDay(d)}>
-                <b style={{ whiteSpace: "nowrap" }}>{d.slice(8)} {new Date(d + "T12:00:00").toLocaleDateString([], { month: "short" })}</b>
-                <span>{isDone(s.id) ? "✅" : "📋"} {s.location || "Location TBD"}{s.inspector ? ` — ${s.inspector}` : ""}</span>
-              </div>
-            )))}
+            {(() => {
+              const today = new Date().toISOString().slice(0, 10);
+              const limit = (() => { const d = new Date(); d.setDate(d.getDate() + 60); return d.toISOString().slice(0, 10); })();
+              const rows = [];
+              for (const [d, name] of Object.entries(eventDays)) {
+                if (d >= today && d <= limit) rows.push({ d, kind: "event", label: `🎪 ${name}`, mine: false });
+              }
+              for (const [d, ss] of Object.entries(slotsByDate)) {
+                if (d < today || d > limit) continue;
+                for (const s of ss) {
+                  const mine = myName && (s.inspector || "").trim().toLowerCase() === myName;
+                  rows.push({ d, kind: "slot", label: `${isDone(s.id) ? "✅" : "📋"} ${s.location || "Location TBD"}${s.unit ? ` #${s.unit}` : ""}${s.inspector ? ` — ${s.inspector}${mine ? " (you)" : ""}` : ""}`, mine });
+                }
+              }
+              rows.sort((a, b) => a.d.localeCompare(b.d) || (a.kind === "event" ? -1 : 1));
+              return (
+                <>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 6 }}>
+                    <div style={{ fontWeight: 800, fontSize: "0.88rem", color: "var(--sdx-navy)" }}>📆 Upcoming — next 60 days</div>
+                    {onManage && (
+                      <button type="button" onClick={onManage}
+                        style={{ background: "var(--surface-2)", border: "1px solid var(--sdx-gray-200)", borderRadius: 8, padding: "5px 11px", fontWeight: 700, fontSize: "0.74rem", cursor: "pointer", color: "var(--sdx-navy)" }}>
+                        🎪 Manage events & assignments
+                      </button>
+                    )}
+                  </div>
+                  {rows.length === 0 && (
+                    <div style={{ fontSize: "0.8rem", color: "var(--ink-400)", fontStyle: "italic" }}>
+                      Nothing coming up yet.{onManage ? " Use “Manage events & assignments” to add event days and assign inspections." : " Event days and your assigned inspections will appear here."}
+                    </div>
+                  )}
+                  {rows.map((r, i) => (
+                    <div key={i}
+                      style={{ display: "flex", gap: 8, fontSize: "0.8rem", padding: "4px 6px", cursor: "pointer", borderRadius: 7, background: r.mine ? "#dbeafe" : "transparent" }}
+                      onClick={() => { setMonth(r.d.slice(0, 7)); setSelDay(r.d); }}>
+                      <b style={{ whiteSpace: "nowrap", minWidth: 52 }}>
+                        {new Date(r.d + "T12:00:00").toLocaleDateString([], { month: "short", day: "numeric" })}
+                      </b>
+                      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.label}</span>
+                    </div>
+                  ))}
+                </>
+              );
+            })()}
           </div>
         </div>
       </main>
@@ -24633,7 +24699,7 @@ export default function App() {
     initialTab={historyEntry?.tab}
     initialAnalyticsTab={historyEntry?.sub}
   />; }
-  if (page === "schedule") { return <SchedulePage onBack={() => setPage("inspector")} currentUser={currentUser} venueSettings={venueSettings} />; }
+  if (page === "schedule") { return <SchedulePage onBack={() => setPage("inspector")} currentUser={currentUser} venueSettings={venueSettings} onManage={(currentUser?.role === "admin" || currentUser?.role === "global_admin") ? () => setPage("admin") : null} />; }
   if (page === "global_admin") {
     return <GlobalAdminPanel
       currentUser={currentUser}
