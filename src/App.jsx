@@ -8116,6 +8116,18 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
                 </select>
               </label>
             </div>
+            <div style={{ position: "relative", margin: "8px 0 2px", maxWidth: "none" }}>
+              <input
+                value={fuSearch}
+                onChange={e => setFuSearch(e.target.value)}
+                placeholder="🔎 Search unit #, stand, floor, or issue…"
+                style={{ width: "100%", boxSizing: "border-box", padding: "8px 34px 8px 12px", borderRadius: 10, border: "1.5px solid var(--sdx-gray-200)", fontSize: "16px", background: "var(--surface-1)" }}
+              />
+              {fuSearch && (
+                <button type="button" onClick={() => setFuSearch("")}
+                  style={{ position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)", background: "var(--surface-2)", border: "none", borderRadius: 999, width: 24, height: 24, cursor: "pointer", fontWeight: 800, color: "var(--ink-500)", lineHeight: 1 }}>×</button>
+              )}
+            </div>
             <div style={{ margin: "8px 0 2px" }}>
               {!qpOpen ? (
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
@@ -8180,18 +8192,6 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
                 </div>
               )}
               {qpFlash && <div style={{ fontSize: "0.8rem", fontWeight: 700, color: "#16a34a", marginTop: 6 }}>{qpFlash}</div>}
-            </div>
-            <div style={{ position: "relative", margin: "8px 0 2px", maxWidth: 420 }}>
-              <input
-                value={fuSearch}
-                onChange={e => setFuSearch(e.target.value)}
-                placeholder="🔎 Search unit #, stand, floor, or issue…"
-                style={{ width: "100%", boxSizing: "border-box", padding: "8px 34px 8px 12px", borderRadius: 10, border: "1.5px solid var(--sdx-gray-200)", fontSize: "16px", background: "var(--surface-1)" }}
-              />
-              {fuSearch && (
-                <button type="button" onClick={() => setFuSearch("")}
-                  style={{ position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)", background: "var(--surface-2)", border: "none", borderRadius: 999, width: 24, height: 24, cursor: "pointer", fontWeight: 800, color: "var(--ink-500)", lineHeight: 1 }}>×</button>
-              )}
             </div>
             {/* Summary bar */}
             <div className="fuSummary">
@@ -21599,6 +21599,7 @@ function HaccpTodayTracker({ venueSettings, saveVenueSettingsMap, history }) {
   const [subs, setSubs] = useState(null);
   const [regStands, setRegStands] = useState([]); // stands with QR posters (expected universe)
   const [view, setView] = useState("stand"); // "stand" | "person"
+  const [standFilter, setStandFilter] = useState("done"); // "done" | "missed" | "all"
   const [day, setDay] = useState(() => new Date().toISOString().slice(0, 10));
   const [editPhone, setEditPhone] = useState(null);
   const [editName, setEditName] = useState("");
@@ -21647,7 +21648,13 @@ function HaccpTodayTracker({ venueSettings, saveVenueSettingsMap, history }) {
   const inspectedCount = dir.stands.filter(s => inspByStand[s.id]).length;
   const standsPending = dir.stands.filter(s => !s.submittedToday).length;
   const peoplePending = dir.people.filter(s => !s.submittedToday).length;
-  const rows = view === "stand" ? dir.stands : dir.people;
+  const allRows = view === "stand" ? dir.stands : dir.people;
+  // Day filter applies to stands; the people view always shows everyone
+  // (pending first) so the Text list stays complete.
+  const rows = view !== "stand" || standFilter === "all" ? allRows
+    : standFilter === "done" ? allRows.filter(r => r.submittedToday)
+    : allRows.filter(r => !r.submittedToday);
+  const chipRing = active => active ? { outline: "2px solid var(--sdx-navy)", outlineOffset: 1, cursor: "pointer" } : { cursor: "pointer", opacity: 0.85 };
   const saveTeam = (phone, patch) => {
     const prev = overrides[phone] || {};
     const entry = { ...prev, ...patch };
@@ -21674,9 +21681,16 @@ function HaccpTodayTracker({ venueSettings, saveVenueSettingsMap, history }) {
           </div>
         )}
         <div className="fuSummary" style={{ marginBottom: 10 }}>
-          {dir.stands.filter(s => s.submittedToday).length > 0 && <span className="fuSumChip fuSumOk">✓ {dir.stands.filter(s => s.submittedToday).length} stand{dir.stands.filter(s => s.submittedToday).length !== 1 ? "s" : ""} logged {dayWord}</span>}
-          {standsPending > 0 && <span className="fuSumChip fuSumOverdue">⏰ {standsPending} stand{standsPending !== 1 ? "s" : ""} missed</span>}
-          {peoplePending > 0 && <span className="fuSumChip fuSumSoon">👤 {peoplePending} supervisor{peoplePending !== 1 ? "s" : ""} pending</span>}
+          <span className="fuSumChip fuSumOk" style={chipRing(standFilter === "done")} onClick={() => setStandFilter("done")}>
+            ✓ {dir.stands.filter(s => s.submittedToday).length} logged {dayWord}
+          </span>
+          <span className="fuSumChip fuSumOverdue" style={chipRing(standFilter === "missed")} onClick={() => setStandFilter("missed")}>
+            ⏰ {standsPending} missed
+          </span>
+          <span className="fuSumChip" style={{ ...chipRing(standFilter === "all") }} onClick={() => setStandFilter("all")}>
+            All ({allRows.length})
+          </span>
+          {peoplePending > 0 && <span className="fuSumChip fuSumSoon">👤 {peoplePending} pending</span>}
           {inspectedCount > 0 && <span className="fuSumChip" style={{ background: "#dbeafe", color: "#1d4ed8", borderColor: "#bfdbfe" }}>🕵 {inspectedCount} inspected</span>}
           <span className="fuToggle" style={{ marginLeft: "auto" }}>
             <button type="button" className={`fuToggleBtn${view === "stand" ? " fuToggleActive" : ""}`} onClick={() => setView("stand")}>🍳 By Stand</button>
@@ -21684,6 +21698,11 @@ function HaccpTodayTracker({ venueSettings, saveVenueSettingsMap, history }) {
           </span>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 340, overflowY: "auto" }}>
+          {rows.length === 0 && (
+            <div style={{ fontSize: "0.8rem", color: "var(--ink-400)", fontStyle: "italic", padding: "8px 2px" }}>
+              {standFilter === "done" ? "Nobody has logged the HACCP form this day yet." : standFilter === "missed" ? "No misses this day 🎉" : "Nothing here."}
+            </div>
+          )}
           {rows.map(r => (
             <div key={r.id || r.phone} style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--surface-2)", border: "1.5px solid var(--sdx-gray-200)", borderRadius: 10, padding: "0.45rem 0.7rem", flexWrap: "wrap" }}>
               {view === "person" && editPhone === r.phone ? (
@@ -21701,7 +21720,9 @@ function HaccpTodayTracker({ venueSettings, saveVenueSettingsMap, history }) {
                     </div>
                     <div style={{ fontSize: "0.7rem", color: "var(--ink-500)" }}>
                       {view === "stand"
-                        ? (r.lastAt ? `last log ${new Date(r.lastAt).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}` : "never logged")
+                        ? (r.submittedToday
+                            ? `${r.checksOnDate || 1} check${(r.checksOnDate || 1) !== 1 ? "s" : ""} this day`
+                            : r.lastAt ? `last log ${new Date(r.lastAt).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}` : "never logged")
                         : `${r.phone}${r.site ? ` · ${r.site}` : ""}`}
                     </div>
                   </div>

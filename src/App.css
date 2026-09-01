@@ -7651,3 +7651,10 @@ html[data-theme="dark"] .fuStOnWaiting, html[data-theme="black"] .fuStOnWaiting 
 
 /* Menu rows: aligned icons, consistent rhythm (v346) */
 .dropdownMenuItem { display: flex; align-items: center; gap: 10px; padding-top: 10px; padding-bottom: 10px; }
+
+/* Follow-ups: calmer header + card rhythm (v356) */
+.fuSummary { gap: 6px !important; margin: 10px 0 12px !important; }
+.fuSummary .fuSumChip { padding: 4px 11px; font-size: 0.72rem; border-radius: 999px; border-width: 1px; border-style: solid; }
+.fuGroup { border-radius: 12px !important; box-shadow: 0 1px 3px rgba(0,0,0,.06); margin-bottom: 10px !important; }
+.fuGroupHead { padding: 10px 12px !important; }
+.fuItem { padding: 10px !important; border-radius: 10px !important; }
