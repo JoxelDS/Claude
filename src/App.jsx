@@ -7779,6 +7779,23 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
     saveVenueSettings?.({ [field]: { ...prev, ...patch } });
   }
 
+  // Comment thread per follow-up — "can't repair, waiting on part" and the
+  // like. Shared via venueSettings.followupComments (last 10 per issue).
+  const [commentsLocal, setCommentsLocal] = useState({});
+  const [commentKey, setCommentKey] = useState(null);
+  const [commentText, setCommentText] = useState("");
+  const commentsOf = f => (commentsLocal[f.key] || venueSettings?.followupComments?.[f.key] || []);
+
+  function addComment(f) {
+    const text = commentText.trim().slice(0, 200);
+    if (!text) return;
+    const entry = { text, by: currentUser?.name || "Unknown", ts: Date.now() };
+    const arr = [...commentsOf(f), entry].slice(-10);
+    setCommentsLocal(prev => ({ ...prev, [f.key]: arr }));
+    writeMap("followupComments", { [f.key]: arr });
+    setCommentText(""); setCommentKey(null);
+  }
+
   function setStatus(f, status, note = "") {
     const entry = { status, note: note.trim().slice(0, 80), by: currentUser?.name || "Unknown", ts: Date.now() };
     setStatusLocal(prev => ({ ...prev, [f.key]: entry }));
@@ -7881,6 +7898,50 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
   const [fuOpen, setFuOpen] = useState({});
   const [fuGroupBy, setFuGroupBy] = useState("loc"); // "loc" | "cat"
   const [fuSearch, setFuSearch] = useState("");
+  // Selection → Excel export of chosen follow-ups
+  const [fuSelectMode, setFuSelectMode] = useState(false);
+  const [fuSelected, setFuSelected] = useState({}); // { [f.key]: true }
+  const fuSelCount = Object.values(fuSelected).filter(Boolean).length;
+
+  async function exportSelectedFollowups(items) {
+    if (!items.length) return;
+    const ExcelJS = (await import("exceljs")).default;
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet("Follow-ups");
+    ws.columns = [
+      { width: 4 }, { width: 26 }, { width: 9 }, { width: 12 }, { width: 24 },
+      { width: 16 }, { width: 46 }, { width: 30 }, { width: 14 }, { width: 12 }, { width: 12 }, { width: 20 }, { width: 50 },
+    ];
+    const title = ws.addRow(["FOLLOW-UPS EXPORT — " + new Date().toLocaleDateString()]);
+    title.height = 24;
+    ws.mergeCells(`A${title.number}:M${title.number}`);
+    title.getCell(1).style = { font: { bold: true, size: 13, color: { argb: "FFFFFFFF" } }, fill: { type: "pattern", pattern: "solid", fgColor: { argb: "FF2A295C" } }, alignment: { vertical: "middle", horizontal: "left" } };
+    const hdrRow = ws.addRow(["#", "Venue / Stand", "Unit #", "Floor", "Problem", "Issue Type", "Latest Detail", "Inspector Notes", "Status", "Days Open", "Flagged", "Status By", "Comments"]);
+    hdrRow.height = 20;
+    hdrRow.eachCell(c => { c.style = { font: { bold: true, size: 10, color: { argb: "FFFFFFFF" } }, fill: { type: "pattern", pattern: "solid", fgColor: { argb: "FFDC2626" } }, alignment: { vertical: "middle", horizontal: "center", wrapText: true } }; });
+    ws.autoFilter = { from: { row: hdrRow.number, column: 1 }, to: { row: hdrRow.number, column: 13 } };
+    ws.views = [{ state: "frozen", ySplit: hdrRow.number }];
+    const stMapX = { ...(venueSettings?.followupStatus || {}), ...statusLocal };
+    items.forEach((f, i) => {
+      const st = stMapX[f.key];
+      const stLabel = f.likelyResolved ? "Likely fixed"
+        : st && st.status === "in_progress" ? "In process"
+        : st && st.status === "waiting" ? `Waiting${st.note ? ` — ${st.note}` : ""}`
+        : f.overdue ? "Overdue" : "Open";
+      const bg = i % 2 === 0 ? "FFFFFFFF" : "FFF4F5F7";
+      const cmts = ((commentsLocal[f.key] || venueSettings?.followupComments?.[f.key] || []))
+        .map(c => `${c.by}: ${c.text}`).join("  |  ");
+      const row = ws.addRow([i + 1, f.loc, f.unit || "", f.floor || "", f.cat, f.itype || "Other", f.detail || "", f.notes || "", stLabel, f.daysSince, f.dateStr || "", st?.by || "", cmts]);
+      row.height = 18;
+      row.eachCell((c, col) => {
+        c.style = { font: { size: 10, name: "Calibri" }, fill: { type: "pattern", pattern: "solid", fgColor: { argb: bg } }, alignment: { vertical: "top", wrapText: col === 7 || col === 8 || col === 13 } };
+        if (col === 6) c.style = issueTypeStyle(f.itype || "Other");
+        if (col === 9) c.style = { ...c.style, font: { size: 10, bold: true, color: { argb: f.overdue && !f.likelyResolved ? "FFDC2626" : "FF166534" } } };
+      });
+    });
+    const buf = await wb.xlsx.writeBuffer();
+    downloadBlob(new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }), `Follow-ups_${new Date().toISOString().slice(0, 10)}.xlsx`);
+  }
   // Quick problem report — file a follow-up without opening an inspection
   const [qpOpen, setQpOpen] = useState(false);
   const [qpSite, setQpSite] = useState("");
@@ -8007,10 +8068,33 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
             </div>
             <div style={{ margin: "8px 0 2px" }}>
               {!qpOpen ? (
-                <button type="button" onClick={() => setQpOpen(true)}
-                  style={{ background: "var(--sdx-navy)", color: "#fff", border: "none", borderRadius: 10, padding: "8px 16px", fontWeight: 800, fontSize: "0.84rem", cursor: "pointer" }}>
-                  ＋ Report a problem
-                </button>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                  <button type="button" onClick={() => setQpOpen(true)}
+                    style={{ background: "var(--sdx-navy)", color: "#fff", border: "none", borderRadius: 10, padding: "8px 16px", fontWeight: 800, fontSize: "0.84rem", cursor: "pointer" }}>
+                    ＋ Report a problem
+                  </button>
+                  {!fuSelectMode ? (
+                    <button type="button" onClick={() => { setFuSelectMode(true); setFuSelected({}); }}
+                      style={{ background: "var(--surface-2)", color: "var(--sdx-navy)", border: "1.5px solid var(--sdx-gray-200)", borderRadius: 10, padding: "8px 16px", fontWeight: 800, fontSize: "0.84rem", cursor: "pointer" }}>
+                      ☑ Select for Excel
+                    </button>
+                  ) : (
+                    <>
+                      <button type="button" disabled={fuSelCount === 0}
+                        onClick={() => exportSelectedFollowups(fuVisible.filter(f => fuSelected[f.key]))}
+                        style={{ background: "#166534", color: "#fff", border: "none", borderRadius: 10, padding: "8px 16px", fontWeight: 800, fontSize: "0.84rem", cursor: "pointer", opacity: fuSelCount ? 1 : 0.5 }}>
+                        📊 Export Excel ({fuSelCount})
+                      </button>
+                      <button type="button"
+                        onClick={() => { const all = {}; fuVisible.forEach(f => { all[f.key] = true; }); setFuSelected(all); }}
+                        style={{ background: "var(--surface-2)", border: "1px solid var(--sdx-gray-200)", borderRadius: 10, padding: "8px 12px", fontWeight: 700, fontSize: "0.78rem", cursor: "pointer", color: "var(--sdx-navy)" }}>
+                        Select all{fuSearch.trim() ? " (filtered)" : ""}
+                      </button>
+                      <button type="button" onClick={() => { setFuSelectMode(false); setFuSelected({}); }}
+                        style={{ background: "none", border: "none", color: "var(--ink-500)", fontWeight: 700, cursor: "pointer", fontSize: "0.8rem" }}>Cancel</button>
+                    </>
+                  )}
+                </div>
               ) : (
                 <div style={{ background: "var(--surface-2)", border: "1px solid var(--sdx-gray-200)", borderRadius: 12, padding: "10px 12px", display: "flex", flexDirection: "column", gap: 8, maxWidth: 460 }}>
                   <div style={{ fontWeight: 800, fontSize: "0.84rem", color: "var(--sdx-navy)" }}>＋ Report a problem — no inspection needed</div>
@@ -8132,6 +8216,16 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
                       <div className="fuGroupBody">
                         {g.items.map(f => (
                           <div key={f.key} className={`fuItem ${f.overdue ? "fuOverdue" : f.likelyResolved ? "fuResolved" : "fuWatching"}`}>
+                            {fuSelectMode && (
+                              <div onClick={e => { e.stopPropagation(); setFuSelected(p => ({ ...p, [f.key]: !p[f.key] })); }}
+                                style={{ display: "flex", alignItems: "center", paddingRight: 4, cursor: "pointer" }}>
+                                <span style={{
+                                  width: 24, height: 24, borderRadius: 7, border: fuSelected[f.key] ? "none" : "2px solid var(--sdx-gray-200)",
+                                  background: fuSelected[f.key] ? "#166534" : "var(--surface-1)", color: "#fff",
+                                  display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: "0.9rem",
+                                }}>{fuSelected[f.key] ? "✓" : ""}</span>
+                              </div>
+                            )}
                             <div className="fuStatus">
                               {f.overdue ? "⏰" : f.likelyResolved ? "✅" : "👁"}
                             </div>
@@ -8200,6 +8294,33 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
                                   if (!m) return null;
                                   return <div className="fuStStamp">{m.icon} {m.label} — {st.by}{when ? ` · ${when}` : ""}{st.status === "waiting" && st.note ? ` — waiting for ${st.note}` : ""}</div>;
                                 })()}
+                                {/* Comments — the running conversation on this problem */}
+                                {commentsOf(f).length > 0 && (
+                                  <div style={{ marginTop: 5, display: "flex", flexDirection: "column", gap: 3 }}>
+                                    {commentsOf(f).slice(-3).map((c, ci) => (
+                                      <div key={ci} style={{ fontSize: "0.72rem", background: "var(--surface-2)", borderRadius: 7, padding: "4px 8px", lineHeight: 1.35 }}>
+                                        💬 <b>{c.by}</b>: {c.text}
+                                        <span style={{ color: "var(--ink-400)", marginLeft: 5 }}>{c.ts ? new Date(c.ts).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : ""}</span>
+                                      </div>
+                                    ))}
+                                    {commentsOf(f).length > 3 && <div style={{ fontSize: "0.66rem", color: "var(--ink-400)" }}>+{commentsOf(f).length - 3} earlier comment{commentsOf(f).length - 3 !== 1 ? "s" : ""}</div>}
+                                  </div>
+                                )}
+                                {commentKey === f.key ? (
+                                  <div className="fuNoteRow">
+                                    <input value={commentText} autoFocus placeholder="e.g. can't repair — missing gasket, ordered"
+                                      onChange={e => setCommentText(e.target.value)} maxLength={200}
+                                      onKeyDown={e => { if (e.key === "Enter") addComment(f); }} />
+                                    <button type="button" className="fuBtn fuBtnResolve" disabled={!commentText.trim()}
+                                      style={{ opacity: commentText.trim() ? 1 : 0.5 }} onClick={() => addComment(f)}>Post</button>
+                                    <button type="button" className="fuBtn" onClick={() => { setCommentKey(null); setCommentText(""); }}>✕</button>
+                                  </div>
+                                ) : (
+                                  <button type="button" onClick={() => { setCommentKey(f.key); setCommentText(""); }}
+                                    style={{ background: "none", border: "none", color: "var(--sdx-navy)", fontWeight: 700, fontSize: "0.72rem", cursor: "pointer", padding: "3px 0", textAlign: "left" }}>
+                                    💬 Add comment
+                                  </button>
+                                )}
                               </div>
                             </div>
                             <div className="fuActions">
