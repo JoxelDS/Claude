@@ -2406,6 +2406,8 @@ const CHECKLIST_DEFAULTS = {
     { label: "Sanitizer compartment correct ppm",    problem: "Sanitizer compartment has incorrect ppm level",    value: "" },
     { label: "Soap dispenser stocked and working",   problem: "Soap dispenser is empty or not working",           value: "" },
     { label: "Sanitizer dispenser stocked",          problem: "Sanitizer dispenser is empty",                     value: "" },
+    { label: "Ecolab products stocked (detergent & sanitizer)", problem: "Ecolab products missing or empty (detergent / sanitizer)", value: "" },
+    { label: "Ecolab dispenser working (good pressure)", problem: "Ecolab dispenser not reaching good pressure — needs Ecolab service", value: "" },
     { label: "Test strips available and in holder",  problem: "Test strips are missing or not in holder",         value: "" },
     { label: "Stoppers working (no leaks)",          problem: "Stoppers are not working or have leaks",           value: "" },
     { label: "Faucet delivers hot water",            problem: "Faucet is not delivering hot water",               value: "" },
@@ -3014,10 +3016,13 @@ function classifyIssueType(issue, notes = "", priority = "") {
   const p = (priority || "").toLowerCase();
   const t = `${issue || ""} ${notes || ""}`.toLowerCase();
   if (/pest|roach|flies|fly |fruit fl|rodent|mice|mouse|rat |droppings|gnat/.test(t) || p === "pest control") return "Pest Control";
+  // Ecolab-supplied chemical systems (3-comp detergent/sanitizer, dispensers):
+  // repairs go through Ecolab service, so they're their own bucket.
+  if (/ecolab/.test(t)) return "Ecolab / Maintenance";
   if (p === "maintenance" || /^(hvac|plumbing|electrical|refrigeration)$/.test(p)) return "Maintenance";
-  if (/broken|leak|not working|doesn'?t work|does not work|no power|repair|missing (tile|panel|cover|handle|knob)|peeling|damag|loose|replace|cracked|torn|burnt|burned out|light (is )?out|bulb out|gasket|drain(ing)? (slow|clog|back)|clogged|no pressure|low pressure|not delivering|rust|hinge|won'?t close|not closing|stuck/.test(t)) return "Maintenance";
+  if (/broken|leak|not working|doesn'?t work|does not work|no power|repair|missing (tile|panel|cover|handle|knob)|peeling|damag|loose|replace|cracked|torn|burnt|burned out|light (is )?out|bulb out|gasket|drain(ing)? (slow|clog|back)|clogged|no pressure|low pressure|not delivering|no hot water|not delivering hot|rust|hinge|won'?t close|not closing|stuck|unstable|needs? adjust|wobbl|it moves/.test(t)) return "Maintenance";
   if (/haccp|°f|\bout[- ]of[- ]range\b|too warm|too cold|not cold|not hot enough|\btemp\b|temperature/.test(t)) return "Temperature";
-  if (/dirty|not clean|unclean|needs? (a )?clean|grease|build[- ]?up|debris|residue|stain|mold|mildew|dust|sweep|swept|mop+ed|not mopped|saniti|trash|garbage|sticky|spill|food (debris|residue)|grimy|filthy/.test(t)) return "Cleaning";
+  if (/dirty|not clean|unclean|needs? (a )?clean|grease|build[- ]?up|debris|residue|stain|mold|mildew|dust|sweep|swept|mop+ed|not (mopped|swept)|saniti|trash|garbage|sticky|spill|slippery|food (debris|residue)|grimy|filthy/.test(t)) return "Cleaning";
   return "Other";
 }
 
@@ -3029,6 +3034,7 @@ function issueTypeStyle(itype) {
     "Maintenance":  { bg: "FCE4D6", text: "843C0C" },
     "Temperature":  { bg: "D6E4F7", text: "1C4A7A" },
     "Pest Control": { bg: "F8CBAD", text: "833C00" },
+    "Ecolab / Maintenance": { bg: "D5F0EC", text: "0F5A50" },
     "Other":        { bg: "EDEDED", text: "555555" },
   };
   const c = map[itype] || map.Other;
@@ -7599,7 +7605,8 @@ function computeFollowups(history, venueSettings, clearedLocal = {}) {
       const daysSince = Math.floor((now - v.ts) / (24 * 60 * 60 * 1000));
       const likelyResolved = (latestInspByLoc[loc] || 0) > v.ts;   // a newer inspection had no such issue
       const overdue = !likelyResolved && daysSince >= recheckDays;
-      return { key, loc, cat, unit: v.unit || "", floor: v.floor || "", daysSince, count: v.count, dateStr: v.dateStr, likelyResolved, overdue, detail: v.detail || "", notes: v.notes || "", ts: v.ts || 0 };
+      const itype = classifyIssueType(`${cat}: ${v.detail || ""}`, v.notes || "");
+      return { key, loc, cat, unit: v.unit || "", floor: v.floor || "", itype, daysSince, count: v.count, dateStr: v.dateStr, likelyResolved, overdue, detail: v.detail || "", notes: v.notes || "", ts: v.ts || 0 };
     })
     .sort((a, b) => (b.overdue - a.overdue) || (a.likelyResolved - b.likelyResolved) || b.daysSince - a.daysSince);
 
@@ -7646,7 +7653,7 @@ function computeFollowups(history, venueSettings, clearedLocal = {}) {
 const QUICK_PROBLEM_CATS = [
   "Facilities – Floor", "Facilities – Ceiling", "Facilities – Walls", "Facilities – Hand Sink",
   "Facilities – 3-Compartment Sinks", "Equipment", "Utensils", "Cleaning", "Temperature",
-  "Pest Control", "Lights", "Plumbing", "Other",
+  "Pest Control", "Lights", "Plumbing", "Ecolab / Chemicals", "Other",
 ];
 
 function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDrilldown, venueSettings, saveVenueSettings, saveVenueSettingsMap, currentUser, onAddRecord }) {
@@ -7919,7 +7926,7 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
     if (!q) return true;
     const qUnit = normUnit(q);
     if (qUnit && normUnit(f.unit).includes(qUnit)) return true;
-    return [f.loc, f.cat, f.detail, f.notes, f.floor].some(v => (v || "").toLowerCase().includes(q));
+    return [f.loc, f.cat, f.detail, f.notes, f.floor, f.itype].some(v => (v || "").toLowerCase().includes(q));
   };
   const fuFilterGroups = groups => !fuSearch.trim() ? groups
     : groups.map(g => {
@@ -8069,6 +8076,18 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
               {fuVisible.filter(f => effStatus(f) === "waiting").length > 0 && (
                 <span className="fuSumChip fuSumWait">⏳ {fuVisible.filter(f => effStatus(f) === "waiting").length} waiting</span>
               )}
+              {fuVisible.filter(f => f.itype === "Cleaning").length > 0 && (
+                <span className="fuSumChip" style={{ background: "#dcfce7", color: "#166534", borderColor: "#bbf7d0", cursor: "pointer" }}
+                  onClick={() => setFuSearch(fuSearch.trim().toLowerCase() === "cleaning" ? "" : "cleaning")}>
+                  🧹 {fuVisible.filter(f => f.itype === "Cleaning").length} cleaning
+                </span>
+              )}
+              {fuVisible.filter(f => f.itype === "Maintenance" || f.itype === "Ecolab / Maintenance").length > 0 && (
+                <span className="fuSumChip" style={{ background: "#ffedd5", color: "#9a3412", borderColor: "#fed7aa", cursor: "pointer" }}
+                  onClick={() => setFuSearch(fuSearch.trim().toLowerCase() === "maintenance" ? "" : "maintenance")}>
+                  🔧 {fuVisible.filter(f => f.itype === "Maintenance" || f.itype === "Ecolab / Maintenance").length} maintenance
+                </span>
+              )}
               <span className="fuSumChip">📍 {fuGroupsShown.length} venue{fuGroupsShown.length !== 1 ? "s" : ""}</span>
               <span className="fuToggle">
                 <button type="button" className={`fuToggleBtn${fuGroupBy === "loc" ? " fuToggleActive" : ""}`} onClick={() => setFuGroupBy("loc")}>📍 By Venue</button>
@@ -8130,6 +8149,15 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
                                     : `Flagged ${f.daysSince} day${f.daysSince !== 1 ? "s" : ""} ago — recheck due in ${Math.max(0, analysis.recheckDays - f.daysSince)} day${analysis.recheckDays - f.daysSince !== 1 ? "s" : ""}`}
                                 {f.count > 1 ? ` · seen ×${f.count}` : ""}
                                 {f.floor ? ` · 📍 ${f.floor}` : ""}
+                                {f.itype && f.itype !== "Other" && (
+                                  <span style={{
+                                    marginLeft: 6, fontWeight: 800, fontSize: "0.66rem", padding: "1px 8px", borderRadius: 999,
+                                    background: f.itype === "Cleaning" ? "#dcfce7" : f.itype === "Maintenance" ? "#ffedd5" : f.itype === "Temperature" ? "#dbeafe" : f.itype === "Pest Control" ? "#fee2e2" : "#ccfbf1",
+                                    color: f.itype === "Cleaning" ? "#166534" : f.itype === "Maintenance" ? "#9a3412" : f.itype === "Temperature" ? "#1d4ed8" : f.itype === "Pest Control" ? "#991b1b" : "#0f766e",
+                                  }}>
+                                    {f.itype === "Cleaning" ? "🧹" : f.itype === "Maintenance" ? "🔧" : f.itype === "Temperature" ? "🌡" : f.itype === "Pest Control" ? "🐜" : "🧪"} {f.itype}
+                                  </span>
+                                )}
                               </div>
                               {(f.detail || f.notes) && (
                                 <div style={{ fontSize: "0.76rem", color: "var(--ink-700)", marginTop: 3, lineHeight: 1.35 }}>
@@ -18569,7 +18597,8 @@ function SchedulePage({ onBack, currentUser, venueSettings, onManage }) {
         </div>
         <button className="btn btnGhost" onClick={onBack} type="button">Back</button>
       </header>
-      <main style={{ maxWidth: 640, margin: "0 auto", padding: "16px 14px 40px" }}>
+      <div className="topBarSpacer" />
+      <main style={{ maxWidth: 640, margin: "0 auto", padding: "16px 14px 40px", width: "100%", boxSizing: "border-box" }}>
         <MonthCalendar month={month} onMonth={m => { setMonth(m); }} eventDays={eventDays} slotsByDate={slotsByDate}
           selectedDay={selDay} onSelectDay={d => setSelDay(d)} />
         {selDay && (
