@@ -17120,6 +17120,7 @@ function PrintLabelsPage({ onBack }) {
   const [addForm, setAddForm] = useState({ venueName: "", unit: "", floor: "", label: "", type: "cooler", brand: "", location: "", assetTag: "" });
   const [addSaving, setAddSaving] = useState(false);
   const [historyTag, setHistoryTag] = useState(null); // assetTag for the 📈 history modal
+  const [labelSearch, setLabelSearch] = useState("");
 
   const registryRef = () => doc(db, "venues", VENUE_ID, "sharedMemory", "equipmentRegistry");
 
@@ -17304,9 +17305,15 @@ function PrintLabelsPage({ onBack }) {
         const { list } = await loadHistory(undefined, cutoffDay
           ? { dateFrom: cutoffDay, dateTo: cutoffMode === "on" ? plusDays(cutoffDay, 1) : undefined, pageSize: 300 }
           : { pageSize: 100 });
+        // Offline / warm-start fallback: if the cloud fetch came back empty,
+        // fall back to the local history cache so labels still render.
+        let recList = list || [];
+        if (recList.length === 0) {
+          try { recList = JSON.parse(localStorage.getItem(`sdx_history_cache_${VENUE_ID}`) || "[]"); } catch {}
+        }
         const seen = new Set();
         const items = [];
-        for (const rec of (list || [])) {
+        for (const rec of recList) {
           // The inspection date is the day the walk happened; savedAt is only
           // when the record was written (edits move it) — prefer the former.
           const recDay = (rec.inspectionDate || rec.savedAt || "").slice(0, 10);
@@ -17524,23 +17531,60 @@ function PrintLabelsPage({ onBack }) {
               </div>
             </div>
             <div className="printHide" style={{ height: 74 }} />
+            <div className="printHide" style={{ position: "relative", margin: "10px 0 2px", maxWidth: 440 }}>
+              <input value={labelSearch} onChange={e => setLabelSearch(e.target.value)}
+                placeholder="🔎 Search stand, unit #, equipment, or tag…"
+                style={{ width: "100%", boxSizing: "border-box", padding: "8px 34px 8px 12px", borderRadius: 10, border: "1.5px solid var(--sdx-gray-200)", fontSize: "16px", background: "var(--surface-1)" }} />
+              {labelSearch && (
+                <button type="button" onClick={() => setLabelSearch("")}
+                  style={{ position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)", background: "var(--surface-2)", border: "none", borderRadius: 999, width: 24, height: 24, cursor: "pointer", fontWeight: 800, color: "var(--ink-500)", lineHeight: 1 }}>×</button>
+              )}
+            </div>
             {(() => {
-              // Group by restaurant so a whole location can be selected at once
-              const groups = [];
-              const byVenue = {};
-              for (const it of equipItems) {
-                const g = it.venueName || "—";
-                if (!byVenue[g]) { byVenue[g] = []; groups.push(g); }
-                byVenue[g].push(it);
+              // Group by STAND — the unit number is the identity ("numbers
+              // don't lie"): name drift can't split one stand's equipment.
+              const q = (labelSearch || "").trim().toLowerCase();
+              const qUnit = normUnit(q);
+              const visible = !q ? equipItems : equipItems.filter(it =>
+                (qUnit && normUnit(it.unit).includes(qUnit)) ||
+                [it.venueName, it.label, it.assetTag, it.floor].some(v => (v || "").toLowerCase().includes(q)));
+              const byKey = {};
+              for (const it of visible) {
+                const key = (it.unit || "").trim() ? `u:${normUnit(it.unit)}` : `s:${(it.venueName || "—").toLowerCase()}`;
+                if (!byKey[key]) byKey[key] = { key, unit: (it.unit || "").trim(), items: [] };
+                const g = byKey[key];
+                g.items.push(it);
+                // Latest non-empty name/floor wins for the header
+                if (it.venueName) g.site = it.venueName;
+                if (it.floor && !g.floor) g.floor = it.floor;
               }
-              return groups.map(g => {
-                const groupItems = byVenue[g];
+              const groups = Object.values(byKey).sort((a, b) => {
+                if (a.unit && b.unit) return a.unit.localeCompare(b.unit, undefined, { numeric: true });
+                if (a.unit) return -1;
+                if (b.unit) return 1;
+                return (a.site || "").localeCompare(b.site || "");
+              });
+              groups.forEach(g => g.items.sort((x, y) => (x.label || "").localeCompare(y.label || "")));
+              if (groups.length === 0 && q) {
+                return <div style={{ fontSize: "0.84rem", color: "var(--ink-400)", fontStyle: "italic", padding: "14px 4px" }}>No equipment matches “{q}”.</div>;
+              }
+              return groups.map(grp => {
+                const groupItems = grp.items;
                 const uids = groupItems.map(i => i.uid);
                 const allIn = uids.every(u => selected.has(u));
+                const reg = grp.unit ? lookupLicenseByUnitType(grp.unit, "") : null;
                 return (
-                  <div key={g}>
-                    <div className="printHide" style={{ display: "flex", alignItems: "center", gap: 10, margin: "1.1rem 0 0.6rem" }}>
-                      <span style={{ fontSize: "0.78rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.07em", color: "var(--ink-600)" }}>🍽 {g}</span>
+                  <div key={grp.key}>
+                    <div className="printHide" style={{ display: "flex", alignItems: "center", gap: 10, margin: "1.1rem 0 0.6rem", flexWrap: "wrap" }}>
+                      <span style={{ fontSize: "0.78rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.07em", color: "var(--ink-600)" }}>
+                        🍳 {grp.site || "—"}{grp.unit ? ` · Unit #${grp.unit}` : ""}{grp.floor ? ` · ${grp.floor}` : ""}
+                      </span>
+                      <span style={{ fontSize: "0.68rem", fontWeight: 800, background: "var(--surface-2)", border: "1px solid var(--sdx-gray-200)", borderRadius: 999, padding: "1px 9px", color: "var(--ink-500)" }}>
+                        {groupItems.length} unit{groupItems.length !== 1 ? "s" : ""}
+                      </span>
+                      {reg?.license && (
+                        <span style={{ fontSize: "0.68rem", fontWeight: 700, color: "var(--ink-400)" }}>🪪 {reg.license}</span>
+                      )}
                       <span style={{ flex: 1, height: 1, background: "var(--sdx-gray-200)" }} />
                       <button type="button"
                         style={{ fontSize: "0.72rem", fontWeight: 700, padding: "0.3rem 0.85rem", borderRadius: 999, cursor: "pointer",
