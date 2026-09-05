@@ -7678,3 +7678,33 @@ html[data-theme="dark"] .fuStOnWaiting, html[data-theme="black"] .fuStOnWaiting 
   .fuActionsRow { justify-content: center !important; }
   .fuToggle { margin-left: auto; margin-right: auto; }
 }
+
+/* ── Supervisor problem reports from the stand QR (v359) ── */
+.haccpProblemOnlyBtn {
+  width: 100%; margin-top: 8px; padding: 0.7rem 1rem; border-radius: 10px; cursor: pointer;
+  font-weight: 800; font-size: 0.9rem; line-height: 1.25;
+  background: #fff7ed; color: #9a3412; border: 1.5px solid #fdba74;
+}
+.haccpProblemOnlyBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+.haccpCatLabel { font-size: 0.8rem; font-weight: 800; color: var(--ink-600); margin-bottom: 6px; }
+.supCatChips { margin-bottom: 10px; }
+.supCatChip { font-size: 0.86rem; padding: 7px 12px; }
+.supCatChip .supCatEs { font-weight: 500; opacity: 0.75; }
+.supCatChip.supCatOn { background: #2A295C; color: #fff; border-color: #2A295C; }
+.supCatChip.supCatOn .supCatEs { opacity: 0.9; }
+.haccpProblemErr {
+  margin-top: 6px; padding: 6px 10px; border-radius: 8px; font-size: 0.82rem; font-weight: 700;
+  background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca;
+}
+.haccpCatChip {
+  display: inline-block; margin: 0 6px 0 4px; padding: 1px 8px; border-radius: 999px;
+  font-size: 0.68rem; font-weight: 800; background: #e0e7ff; color: #3730a3; vertical-align: middle;
+}
+.fuSupBadge {
+  margin-left: 6px; font-weight: 800; font-size: 0.66rem; padding: 1px 8px; border-radius: 999px;
+  background: #fef3c7; color: #92400e;
+}
+[data-theme="black"] .haccpProblemOnlyBtn, [data-theme="dark"] .haccpProblemOnlyBtn, [data-theme="noir"] .haccpProblemOnlyBtn { background: rgba(251,146,60,0.14); color: #fdba74; border-color: rgba(251,146,60,0.45); }
+[data-theme="black"] .haccpCatChip, [data-theme="dark"] .haccpCatChip, [data-theme="noir"] .haccpCatChip { background: rgba(99,102,241,0.22); color: #c7d2fe; }
+[data-theme="black"] .fuSupBadge, [data-theme="dark"] .fuSupBadge, [data-theme="noir"] .fuSupBadge { background: rgba(245,158,11,0.2); color: #fcd34d; }
+[data-theme="black"] .haccpProblemErr, [data-theme="dark"] .haccpProblemErr, [data-theme="noir"] .haccpProblemErr { background: rgba(239,68,68,0.15); color: #fca5a5; border-color: rgba(239,68,68,0.4); }

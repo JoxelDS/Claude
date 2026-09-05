@@ -4781,7 +4781,7 @@ async function exportAsCsv({ inspection, notesPhotos, rawNotes, inspectionType, 
         ...(sub.customItems || []).filter(ci => !HACCP_TEMP_ITEMS.find(d => d.key === ci.key)),
       ];
       const submittedAt = sub.submittedAt ? new Date(sub.submittedAt).toLocaleString() : "";
-      const problemText = sub.problemReport?.text ? `${sub.problemReport.severity === "urgent" ? "🔴" : sub.problemReport.severity === "issue" ? "🟡" : "🔵"} ${sub.problemReport.text}` : "";
+      const problemText = sub.problemReport?.text ? `${sub.problemReport.severity === "urgent" ? "🔴" : sub.problemReport.severity === "issue" ? "🟡" : "🔵"} ${haccpProblemText(sub.problemReport)}` : "";
 
       // Collect all readings for this submission
       const readings = [];
@@ -5100,7 +5100,7 @@ ${(() => {
     const submittedStr = sub.submittedAt ? new Date(sub.submittedAt).toLocaleString() : "—";
     return `<tr style="background:#F0F4FF;"><td colspan="4" style="font-weight:bold;padding:6px 8px;">👤 ${esc(sub.supervisorName || "Supervisor")} &nbsp; <span style="font-weight:400;font-size:9pt;color:#6B7280;">${esc(sub.site || "")}${sub.unit ? " · Unit " + esc(sub.unit) : ""} · ${submittedStr}</span> &nbsp; <span class="${badgeCls}">${badgeTxt}</span></td></tr>
     ${tempRows}
-    ${sub.problemReport?.text ? `<tr><td colspan="4" style="background:#FFF7ED;color:#92400E;padding:5px 8px;font-size:9pt;">⚠️ Problem: ${esc(sub.problemReport.text)}</td></tr>` : ""}`;
+    ${sub.problemReport?.text ? `<tr><td colspan="4" style="background:#FFF7ED;color:#92400E;padding:5px 8px;font-size:9pt;">⚠️ Problem: ${esc(haccpProblemText(sub.problemReport))}</td></tr>` : ""}`;
   }).join("\n  ");
   return `<h2>🌡️ HACCP Supervisor Submissions (${haccpSubs.length})</h2>
 <table class="scorecard">
@@ -5425,7 +5425,7 @@ async function exportIssuesOnlyExcel({ rec, haccpSubs = [] }) {
     for (const sub of haccpSubs) {
       const allSubItems = [...HACCP_TEMP_ITEMS, ...(sub.customItems || []).filter(ci => !HACCP_TEMP_ITEMS.find(d => d.key === ci.key))];
       const submittedStr = sub.submittedAt ? new Date(sub.submittedAt).toLocaleString() : "—";
-      const problemText = sub.problemReport?.text || "";
+      const problemText = haccpProblemText(sub.problemReport);
       for (const item of allSubItems) {
         const vals = ((sub.temps || {})[item.key] || []).filter(v => v !== "");
         const displayLabel = (sub.itemLabels || {})[item.key] || item.label;
@@ -5680,7 +5680,7 @@ ${(() => {
     const submittedStr = sub.submittedAt ? new Date(sub.submittedAt).toLocaleString() : "—";
     return `<tr style="background:#F0F4FF;"><td colspan="4" style="font-weight:bold;padding:6px 8px;">👤 ${esc(sub.supervisorName || "Supervisor")} &nbsp; <span style="font-weight:400;font-size:9pt;color:#6B7280;">${esc(sub.site || "")}${sub.unit ? " · Unit " + esc(sub.unit) : ""} · ${submittedStr}</span> &nbsp; <span class="${badgeCls}">${badgeTxt}</span></td></tr>
     ${tempRows}
-    ${sub.problemReport?.text ? `<tr><td colspan="4" style="background:#FFF7ED;color:#92400E;padding:5px 8px;font-size:9pt;">⚠️ Problem: ${esc(sub.problemReport.text)}</td></tr>` : ""}`;
+    ${sub.problemReport?.text ? `<tr><td colspan="4" style="background:#FFF7ED;color:#92400E;padding:5px 8px;font-size:9pt;">⚠️ Problem: ${esc(haccpProblemText(sub.problemReport))}</td></tr>` : ""}`;
   }).join("\n  ");
   return `<h2>🌡️ HACCP Supervisor Submissions (${haccpSubs.length})</h2>
 <table class="scorecard">
@@ -7643,6 +7643,8 @@ function computeFollowups(history, venueSettings, clearedLocal = {}) {
         const afterColon = (item.issue || "").split(":").slice(1).join(":").trim();
         catLastSeen[key].detail = afterColon || (item.issue || "").trim();
         catLastSeen[key].notes = (item.notes || "").trim();
+        catLastSeen[key].source = rec.source || "";
+        catLastSeen[key].reportedBy = rec.reportedBy?.name || "";
       }
     });
   }
@@ -7659,7 +7661,7 @@ function computeFollowups(history, venueSettings, clearedLocal = {}) {
       const likelyResolved = (latestInspByLoc[loc] || 0) > v.ts;   // a newer inspection had no such issue
       const overdue = !likelyResolved && daysSince >= recheckDays;
       const itype = classifyIssueType(`${cat}: ${v.detail || ""}`, v.notes || "");
-      return { key, loc, cat, unit: v.unit || "", floor: v.floor || "", itype, daysSince, count: v.count, dateStr: v.dateStr, likelyResolved, overdue, detail: v.detail || "", notes: v.notes || "", ts: v.ts || 0 };
+      return { key, loc, cat, unit: v.unit || "", floor: v.floor || "", itype, daysSince, count: v.count, dateStr: v.dateStr, likelyResolved, overdue, detail: v.detail || "", notes: v.notes || "", ts: v.ts || 0, source: v.source || "", reportedBy: v.reportedBy || "" };
     })
     .sort((a, b) => (b.overdue - a.overdue) || (a.likelyResolved - b.likelyResolved) || b.daysSince - a.daysSince);
 
@@ -7708,6 +7710,23 @@ const QUICK_PROBLEM_CATS = [
   "Facilities – 3-Compartment Sinks", "Equipment", "Utensils", "Cleaning", "Temperature",
   "Pest Control", "Lights", "Plumbing", "Ecolab / Chemicals", "Other",
 ];
+
+// Categories a supervisor can pick when reporting a problem from the stand QR.
+// `cat` is the follow-up category string (same vocabulary as QUICK_PROBLEM_CATS)
+// so classifyIssueType / computeFollowups bucket supervisor reports identically.
+const SUP_PROBLEM_CATS = [
+  { cat: "Cleaning",           emoji: "🧹", en: "Cleaning",           es: "Limpieza" },
+  { cat: "Maintenance",        emoji: "🔧", en: "Maintenance",        es: "Mantenimiento" },
+  { cat: "Ecolab / Chemicals", emoji: "🧪", en: "Ecolab / Chemicals", es: "Químicos" },
+  { cat: "Equipment",          emoji: "❄️", en: "Equipment",          es: "Equipo" },
+  { cat: "Plumbing",           emoji: "🚰", en: "Plumbing",           es: "Plomería" },
+  { cat: "Pest Control",       emoji: "🐜", en: "Pest Control",       es: "Plagas" },
+  { cat: "Temperature",        emoji: "🌡️", en: "Temperature",        es: "Temperatura" },
+  { cat: "Other",              emoji: "📝", en: "Other",              es: "Otro" },
+];
+const supCatEmoji = (cat) => SUP_PROBLEM_CATS.find(c => c.cat === cat)?.emoji || "📝";
+// "[Category] text" for exports; plain text when the report has no category
+const haccpProblemText = (pr) => pr?.text ? (pr.category ? `[${pr.category}] ${pr.text}` : pr.text) : "";
 
 function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDrilldown, venueSettings, saveVenueSettings, saveVenueSettingsMap, currentUser, onAddRecord }) {
   // Locally cleared follow-ups — instant feedback independent of settings sync
@@ -8303,6 +8322,11 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
                                     color: f.itype === "Cleaning" ? "#166534" : f.itype === "Maintenance" ? "#9a3412" : f.itype === "Temperature" ? "#1d4ed8" : f.itype === "Pest Control" ? "#991b1b" : "#0f766e",
                                   }}>
                                     {f.itype === "Cleaning" ? "🧹" : f.itype === "Maintenance" ? "🔧" : f.itype === "Temperature" ? "🌡" : f.itype === "Pest Control" ? "🐜" : "🧪"} {f.itype}
+                                  </span>
+                                )}
+                                {f.source === "haccp_portal" && (
+                                  <span className="fuSupBadge" title={f.reportedBy ? `Reported by ${f.reportedBy} from the stand QR` : "Reported from the stand QR"}>
+                                    👷 Supervisor{f.reportedBy ? `: ${f.reportedBy}` : ""}
                                   </span>
                                 )}
                               </div>
@@ -9589,7 +9613,7 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
         const photoCount = sub.problemReport?.photos?.length || 0;
         const photoNote = photoCount > 0 ? ` [${photoCount} photo${photoCount > 1 ? "s" : ""} attached]` : "";
         const problemText = sub.problemReport?.text
-          ? `${sevEmoji}${sevEmoji ? ": " : ""}${sub.problemReport.text}${photoNote}`
+          ? `${sevEmoji}${sevEmoji ? ": " : ""}${haccpProblemText(sub.problemReport)}${photoNote}`
           : photoCount > 0 ? `${photoNote.trim()}` : "—";
 
         const readings = [];
@@ -9817,7 +9841,7 @@ ${equipRowsW.map(([l, eq, t, st, hasSt, pass], i) => `<tr${even(i)}><td class="l
           });
         });
         if (sub.problemReport?.text) {
-          rows.push(`<tr><td class="lc">${l}</td><td class="sup-col prob-col" colspan="5">&#9888; Problem Report (${supName}): ${esc(sub.problemReport.text)}</td></tr>`);
+          rows.push(`<tr><td class="lc">${l}</td><td class="sup-col prob-col" colspan="5">&#9888; Problem Report (${supName}): ${esc(haccpProblemText(sub.problemReport))}</td></tr>`);
         }
       });
       return rows;
@@ -9986,7 +10010,7 @@ ${equipRowsP.map(([l, eq, t, st, hasSt, pass], i) => `<tr${even(i)}><td class="l
           });
         });
         if (sub.problemReport?.text) {
-          rows.push(`<tr><td class="lc">${l}</td><td class="prob" colspan="5">⚠ Problem (${supName}): ${esc(sub.problemReport.text)}</td></tr>`);
+          rows.push(`<tr><td class="lc">${l}</td><td class="prob" colspan="5">⚠ Problem (${supName}): ${esc(haccpProblemText(sub.problemReport))}</td></tr>`);
         }
       });
       return rows;
@@ -11453,6 +11477,9 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                                       <span className={`haccpReportSeverity sev-${sub.problemReport.severity}`}>
                                         {sub.problemReport.severity === "urgent" ? "🔴" : sub.problemReport.severity === "issue" ? "🟡" : "🔵"}
                                       </span>
+                                      {sub.problemReport.category && (
+                                        <span className="haccpCatChip">{supCatEmoji(sub.problemReport.category)} {sub.problemReport.category}</span>
+                                      )}
                                       {sub.problemReport.text}
                                     </div>
                                   )}
@@ -12135,7 +12162,7 @@ function MyTempsPage({ currentUser, onBack }) {
                       const vals = (sub.temps || {})[item.key] || [];
                       return vals.some(v => tempPass(item, v) === false);
                     });
-                    const hasProblem = sub.problem || sub.problemReport?.description;
+                    const hasProblem = sub.problem || sub.problemReport?.text;
                     return (
                       <div key={sub.id || i} style={{
                         background: "#1e293b", borderRadius: "10px", padding: "1rem 1.25rem",
@@ -12179,7 +12206,7 @@ function MyTempsPage({ currentUser, onBack }) {
                         </div>
                         {hasProblem && (
                           <div style={{ marginTop: "0.5rem", background: "#1e0a0a", border: "1px solid #7f1d1d", borderRadius: "6px", padding: "0.4rem 0.7rem", fontSize: "0.78rem", color: "#fca5a5" }}>
-                            ⚠️ {sub.problemReport?.description || sub.problem}
+                            ⚠️ {haccpProblemText(sub.problemReport) || sub.problem}
                           </div>
                         )}
                       </div>
@@ -21078,6 +21105,7 @@ function LiveHaccpPanel({ reportId, subsFromParent, foodTemps, foodTempNames, in
               <div style={{ margin: "10px 14px 0", padding: "10px 12px", borderRadius: 8, background: ss.bg, border: `1px solid ${ss.border}` }}>
                 <div style={{ fontSize: "0.72rem", fontWeight: 700, color: "var(--ink-700)", marginBottom: 4, display: "flex", alignItems: "center", gap: 5 }}>
                   {ss.icon} {ss.label}
+                  {prob.category && <span className="haccpCatChip">{supCatEmoji(prob.category)} {prob.category}</span>}
                 </div>
                 <div style={{ fontSize: "0.81rem", color: "var(--ink-700)", lineHeight: 1.5 }}>{prob.text}</div>
 
@@ -22268,8 +22296,12 @@ function HaccpPortal() {
   // Custom item labels overrides for default items
   const [labelOverrides, setLabelOverrides] = useState({});
   const [problem, setProblem] = useState("");
+  const [problemCat, setProblemCat] = useState("");
   const [severity, setSeverity] = useState("issue");
   const [problemPhotos, setProblemPhotos] = useState([]);
+  // "Report a problem only" — skips the temperature log entirely
+  const [problemOnly, setProblemOnly] = useState(false);
+  const [problemError, setProblemError] = useState("");
   const problemPhotoRef = useRef(null);
   const [submitting, setSubmitting] = useState(false);
   const [photoError, setPhotoError] = useState("");
@@ -22363,8 +22395,9 @@ function HaccpPortal() {
   }
 
   // Step 2: supervisor confirms or fills in the location → go to HACCP form
-  function handleLocationSubmit() {
+  function handleLocationSubmit(onlyProblem = false) {
     if (!locSite.trim()) return; // restaurant name is required
+    setProblemOnly(onlyProblem === true);
     setStep("form");
   }
 
@@ -22401,6 +22434,11 @@ function HaccpPortal() {
   }
 
   async function handleSubmit() {
+    // A problem needs a category so the inspector's follow-ups can route it
+    // (cleaning crew vs maintenance vs Ecolab); problem-only mode needs the text too.
+    if (problemOnly && !problem.trim()) { setProblemError("Describe the problem · Describe el problema"); return; }
+    if (problem.trim() && !problemCat) { setProblemError("Pick a category · Elige una categoría"); return; }
+    setProblemError("");
     setSubmitting(true);
     // Build flat temps map for storage (collect all readings per item)
     const tempsFlat = {};
@@ -22435,12 +22473,14 @@ function HaccpPortal() {
       tempTimes: Object.fromEntries(Object.entries(tempTimes).map(([k, arr]) => [k, arr.map(v => (v || "").trim())])),
       itemLabels,
       customItems,
-      problemReport: problem.trim() ? { text: problem.trim(), severity, photos: problemPhotos.map(p => ({ id: p.id, name: p.name, sizeMb: p.sizeMb, type: p.type, tag: p.tag || "", previewUrl: (p.previewUrl && !p.previewUrl.startsWith("data:")) ? p.previewUrl : "" })) } : null,
+      problemOnly,
+      problemReport: problem.trim() ? { text: problem.trim(), category: problemCat, severity, photos: problemPhotos.map(p => ({ id: p.id, name: p.name, sizeMb: p.sizeMb, type: p.type, tag: p.tag || "", previewUrl: (p.previewUrl && !p.previewUrl.startsWith("data:")) ? p.previewUrl : "" })) } : null,
       submittedAt: new Date().toISOString(),
     };
     await saveHaccpSubmission(record);
     if (problem.trim()) {
       const prId = `prob_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+      const photosOut = problemPhotos.map(p => ({ id: p.id, name: p.name, sizeMb: p.sizeMb, type: p.type, tag: p.tag || "", previewUrl: (p.previewUrl && !p.previewUrl.startsWith("data:")) ? p.previewUrl : "" }));
       await saveProblemReport({
         id: prId,
         reportId: urlReportId,
@@ -22451,11 +22491,39 @@ function HaccpPortal() {
         floor: locFloor.trim(),
         locationType: locType.trim(),
         text: problem.trim(),
+        category: problemCat,
         severity,
-        photos: problemPhotos.map(p => ({ id: p.id, name: p.name, sizeMb: p.sizeMb, type: p.type, tag: p.tag || "", previewUrl: (p.previewUrl && !p.previewUrl.startsWith("data:")) ? p.previewUrl : "" })),
+        photos: photosOut,
         reportedAt: new Date().toISOString(),
         status: "open",
       });
+      // Also file it as a Quick Report inspection record — that is what
+      // computeFollowups reads, so the inspector sees it in Follow-ups,
+      // the overdue banner, Past Reports and Excel work orders. Never let a
+      // rules/network failure here block the HACCP submission itself.
+      try {
+        const now = new Date();
+        await saveOneInspection({
+          id: `${Date.now()}_sp${Math.floor(Math.random() * 1e4)}`,
+          siteName: locSite.trim().toUpperCase(),
+          siteNumber: locUnit.trim(),
+          floor: locFloor.trim(),
+          locationType: locType.trim(),
+          inspectionDate: now.toISOString().slice(0, 10),
+          savedAt: now.toISOString(),
+          inspectionType: "Quick Report",
+          quickProblem: true,
+          source: "haccp_portal",
+          haccpSubmissionId: id,
+          problemReportId: prId,
+          reportedBy: { name: supName.trim(), phone: supPhone.trim() },
+          inspectorName: supName.trim() || "Supervisor",
+          overallStatus: "PASS",
+          photos: photosOut,
+          actionItems: [{ issue: `${problemCat}: ${problem.trim()}`, notes: `Reported by supervisor ${supName.trim() || "—"} via stand QR (${severity})`, photos: photosOut.map(p => p.id) }],
+          inspection: {},
+        });
+      } catch {}
     }
     setSubmitting(false);
     setStep("done");
@@ -22641,6 +22709,9 @@ function HaccpPortal() {
                 <button className="haccpSubmitBtn" onClick={handleLocationSubmit}>
                   ✓ This is my location
                 </button>
+                <button className="haccpProblemOnlyBtn" type="button" onClick={() => handleLocationSubmit(true)}>
+                  ⚠️ Report a problem only · Solo reportar un problema
+                </button>
                 <button className="haccpTextBtn" onClick={() => {
                   setLocSite(""); setLocUnit(""); setLocFloor(""); setLocType("");
                 }}>
@@ -22669,6 +22740,9 @@ function HaccpPortal() {
                   disabled={!locSite.trim()}>
                   Continue →
                 </button>
+                <button className="haccpProblemOnlyBtn" type="button" disabled={!locSite.trim()} onClick={() => handleLocationSubmit(true)}>
+                  ⚠️ Report a problem only · Solo reportar un problema
+                </button>
               </div>
             )}
           </div>
@@ -22678,14 +22752,14 @@ function HaccpPortal() {
       {step === "form" && (
         <div className="haccpCard">
           <div className="haccpCardHeader">
-            <div className="haccpCardTitle">🌡️ HACCP Temperature Log</div>
+            <div className="haccpCardTitle">{problemOnly ? "⚠️ Report a Problem" : "🌡️ HACCP Temperature Log"}</div>
             <div className="haccpCardSub">Hi {supName} · {supPhone}</div>
           </div>
           <div className="haccpCardBody">
             {LocationBanner}
 
-            {/* Temperature section — multiple readings per item */}
-            <div className="haccpSection">
+            {/* Temperature section — multiple readings per item (hidden in problem-only mode) */}
+            <div className="haccpSection" hidden={problemOnly}>
               <div className="haccpSectionHead">Temperature Readings</div>
               <div className="haccpSectionBody">
                 {(() => {
@@ -23054,11 +23128,22 @@ function HaccpPortal() {
 
             {/* Problem report section with photo upload */}
             <div className="haccpSection">
-              <div className="haccpSectionHead">Report a Problem (optional)</div>
+              <div className="haccpSectionHead">{problemOnly ? "Report a Problem · Reportar un problema" : "Report a Problem (optional)"}</div>
               <div className="haccpSectionBody">
+                <div className="haccpCatLabel">What kind of problem? · ¿Qué tipo de problema?</div>
+                <div className="htFoodChips supCatChips">
+                  {SUP_PROBLEM_CATS.map(c => (
+                    <button key={c.cat} type="button"
+                      className={`htChip supCatChip${problemCat === c.cat ? " supCatOn" : ""}`}
+                      onClick={() => { setProblemCat(problemCat === c.cat ? "" : c.cat); setProblemError(""); }}>
+                      {c.emoji} {c.en} <span className="supCatEs">· {c.es}</span>
+                    </button>
+                  ))}
+                </div>
                 <textarea className="haccpProblemTextarea"
-                  value={problem} onChange={e => setProblem(e.target.value)}
-                  placeholder="Describe any issue, equipment problem, or safety concern..." />
+                  value={problem} onChange={e => { setProblem(e.target.value); if (problemError) setProblemError(""); }}
+                  placeholder={problemOnly ? "What is wrong and where? · ¿Qué está mal y dónde?" : "Describe any issue, equipment problem, or safety concern..."} />
+                {problemError && <div className="haccpProblemErr">⚠️ {problemError}</div>}
                 <div className="haccpProblemSeverity">
                   <span style={{ fontSize: "0.75rem", color: "var(--ink-500)", alignSelf: "center" }}>Severity:</span>
                   {[["urgent","🔴 Urgent"],["issue","🟡 Issue"],["info","🔵 Info"]].map(([val, label]) => (
@@ -23110,8 +23195,13 @@ function HaccpPortal() {
             />
 
             <button className="haccpSubmitBtn" onClick={handleSubmit} disabled={submitting}>
-              {submitting ? "Submitting…" : "Submit Temperature Log"}
+              {submitting ? "Submitting…" : problemOnly ? "Send Problem Report · Enviar reporte" : "Submit Temperature Log"}
             </button>
+            {problemOnly && (
+              <button className="haccpTextBtn" type="button" onClick={() => setProblemOnly(false)}>
+                I also want to log temperatures · También registrar temperaturas
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -23126,8 +23216,10 @@ function HaccpPortal() {
             {LocationBanner}
             {TodayStatus}
             <div className="haccpSuccessBox">
-              Your temperature log has been submitted and will appear in the inspection report.
-              {problem.trim() && " Your problem report has also been received."}
+              {problemOnly
+                ? <>Your problem report was sent to the inspection team as <b>{supCatEmoji(problemCat)} {problemCat}</b> — it is now on their follow-up list. · Tu reporte fue enviado al equipo de inspección.</>
+                : <>Your temperature log has been submitted and will appear in the inspection report.
+                    {problem.trim() && <> Your <b>{supCatEmoji(problemCat)} {problemCat}</b> problem report is now on the inspector's follow-up list.</>}</>}
             </div>
             {urlSite && (todayChecks || []).length > 0 && (
               <div style={{ marginTop: 10 }}>
@@ -23158,6 +23250,9 @@ function HaccpPortal() {
               setSupPhone("");
               setSessionId(null);
               setProblem("");
+              setProblemCat("");
+              setProblemOnly(false);
+              setProblemError("");
               setProblemPhotos([]);
               setTemps(Object.fromEntries(HACCP_TEMP_ITEMS.map(it => [it.key, [""]])));
               setFoodNames(Object.fromEntries(HACCP_TEMP_ITEMS.map(it => [it.key, [""]])));
