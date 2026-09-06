@@ -205,6 +205,34 @@ setVenue(VENUE_ID);
 // Captured once at module load from the original URL — never changes even after replaceState cleans the URL.
 // This is the authoritative source for whether this page load is the supervisor HACCP portal.
 const IS_HACCP_PORTAL = new URLSearchParams(window.location.search).has("haccp");
+// One stand QR, two audiences. A phone that has signed in as an inspector
+// (remembered on this device for 30 days) opens the inspection form for that
+// stand; any other phone gets the supervisor HACCP log. `as=inspector` /
+// `as=supervisor` on the URL overrides the guess (the switch links use it).
+const DEVICE_INSPECTOR_KEY = "sdx_device_inspector";
+const QR_STAND = IS_HACCP_PORTAL ? (() => {
+  const p = new URLSearchParams(window.location.search);
+  return { site: p.get("site") || "", unit: p.get("unit") || "", floor: p.get("floor") || "", loctype: p.get("loctype") || "", as: p.get("as") || "" };
+})() : null;
+const QR_OPEN_AS_INSPECTOR = (() => {
+  if (!IS_HACCP_PORTAL) return false;
+  if (QR_STAND.as === "inspector") return true;
+  if (QR_STAND.as === "supervisor") return false;
+  try {
+    const d = JSON.parse(localStorage.getItem(DEVICE_INSPECTOR_KEY) || "null");
+    return !!(d && d.ts && Date.now() - d.ts < 30 * 24 * 60 * 60 * 1000);
+  } catch { return false; }
+})();
+// Build the "other audience" link for the same stand
+function qrStandUrl(as) {
+  const p = new URLSearchParams({ haccp: "1" });
+  if (QR_STAND?.site) p.set("site", QR_STAND.site);
+  if (QR_STAND?.unit) p.set("unit", QR_STAND.unit);
+  if (QR_STAND?.floor) p.set("floor", QR_STAND.floor);
+  if (QR_STAND?.loctype) p.set("loctype", QR_STAND.loctype);
+  p.set("as", as);
+  return `${window.location.pathname}?${p.toString()}`;
+}
 // Equipment QR portal — printed labels encode ?equip=<TAG> so scanning with any
 // phone camera opens a quick temp-check form for that exact unit.
 const EQUIP_PORTAL_TAG = new URLSearchParams(window.location.search).get("equip") || "";
@@ -22828,6 +22856,9 @@ function HaccpPortal() {
           <div className="haccpCardBody">
             {LocationBanner}
             {TodayStatus}
+            <a href={qrStandUrl("inspector")} className="haccpInspectorLink">
+              🕵 Inspector? Open the inspection form for this stand →
+            </a>
             <label className="field" style={{ margin: 0 }}>
               <span className="fieldLabel">Your Name <span style={{ color: "#ef4444" }}>*</span></span>
               <input className="input" value={supName} onChange={e => setSupName(e.target.value)}
@@ -25153,8 +25184,18 @@ export default function App() {
     if (p.has("phone"))     setSitePhone(p.get("phone"));
     if (p.has("type"))      setInspectionType(p.get("type"));
     if (p.has("date"))      setInspectionDate(p.get("date"));
+    // Stand QR opened by an inspector: floor + location type come from the poster too
+    if (QR_OPEN_AS_INSPECTOR) {
+      if (p.get("floor")) setFloor(p.get("floor"));
+      if (p.get("loctype")) { try { setLocationType(p.get("loctype")); } catch {} }
+      // License from the official registry, same as typing the unit by hand
+      try {
+        const reg = p.get("unit") && IS_DEFAULT_VENUE() ? lookupLicenseByUnitType(p.get("unit"), p.get("loctype") || "Concession") : null;
+        if (reg?.license && reg.status === "ACTIVE") setRestaurantLicense(reg.license);
+      } catch {}
+    }
     // Clean URL without reloading — skip if this is the HACCP portal (params needed for HaccpPortal)
-    if (p.toString() && !IS_HACCP_PORTAL) window.history.replaceState({}, "", window.location.pathname);
+    if (p.toString() && !(IS_HACCP_PORTAL && !QR_OPEN_AS_INSPECTOR)) window.history.replaceState({}, "", window.location.pathname);
   }, []);
 
   // Warn before leaving with unsaved work
@@ -25321,13 +25362,16 @@ export default function App() {
 
   // Supervisor HACCP portal — IS_HACCP_PORTAL is captured at module load from the original URL,
   // so replaceState() cleaning the URL after mount never causes this check to flip to false.
-  if (IS_HACCP_PORTAL) return <HaccpPortal />;
+  if (IS_HACCP_PORTAL && !QR_OPEN_AS_INSPECTOR) return <HaccpPortal />;
   if (EQUIP_PORTAL_TAG) return <EquipCheckPortal tag={EQUIP_PORTAL_TAG} />;
 
   if (locked) return <BadgeScreen onUnlock={(user) => {
     setCurrentUser(user);
     setLocked(false);
     resetActivity();
+    // Remember that an inspector uses this phone — a scanned stand QR then
+    // opens the inspection form instead of the supervisor log.
+    try { localStorage.setItem(DEVICE_INSPECTOR_KEY, JSON.stringify({ name: user?.name || "", ts: Date.now() })); } catch {}
     // Merge shared site map from Firestore into local autofill memory (non-blocking)
     syncSharedSiteMap();
     // Warm the history cache in the background so History and the
@@ -26666,6 +26710,17 @@ export default function App() {
           </div>
         );
       })()}
+
+      {/* ── Opened from a stand QR as the inspector ───────────── */}
+      {currentUser && QR_OPEN_AS_INSPECTOR && (
+        <div className="qrStandBanner">
+          <span style={{ fontSize: "1.15rem" }}>📍</span>
+          <span style={{ flex: 1, fontWeight: 700, fontSize: "0.9rem" }}>
+            Stand QR — inspecting <b>{QR_STAND.site || "this stand"}{QR_STAND.unit ? ` · #${QR_STAND.unit}` : ""}</b>{QR_STAND.floor ? ` · ${QR_STAND.floor}` : ""} (details pre-filled)
+          </span>
+          <a href={qrStandUrl("supervisor")} className="qrStandSwitch">Not inspecting? Open the supervisor log →</a>
+        </div>
+      )}
 
       {/* ── Follow-ups overdue banner ─────────────────────────── */}
       {currentUser && fuOverdueCount > 0 && (

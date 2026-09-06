@@ -7724,3 +7724,22 @@ html[data-theme="dark"] .fuStOnWaiting, html[data-theme="black"] .fuStOnWaiting 
 [data-theme="black"] .haccpReqBtn.haccpReqSent, [data-theme="dark"] .haccpReqBtn.haccpReqSent, [data-theme="noir"] .haccpReqBtn.haccpReqSent { background: rgba(245,158,11,0.2); color: #fcd34d; border-color: rgba(245,158,11,0.4); }
 [data-theme="black"] .haccpReqFlash, [data-theme="dark"] .haccpReqFlash, [data-theme="noir"] .haccpReqFlash { background: rgba(16,185,129,0.15); color: #6ee7b7; border-color: rgba(16,185,129,0.4); }
 [data-theme="black"] .haccpPillPartial, [data-theme="dark"] .haccpPillPartial, [data-theme="noir"] .haccpPillPartial { background: rgba(245,158,11,0.18) !important; color: #fcd34d !important; border-color: rgba(245,158,11,0.4) !important; }
+
+/* ── Stand QR: inspector vs supervisor routing (v361) ── */
+.qrStandBanner {
+  background: #ecfdf5; border-bottom: 3px solid #10b981; padding: 0.7rem 1.25rem;
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap; color: #065f46;
+}
+.qrStandSwitch {
+  background: #fff; color: #065f46; border: 1.5px solid #6ee7b7; border-radius: 6px; padding: 0.3rem 0.85rem;
+  font-weight: 700; font-size: 0.8rem; text-decoration: none; white-space: nowrap;
+}
+.haccpInspectorLink {
+  display: block; margin: 0 0 12px; padding: 8px 12px; border-radius: 10px; text-align: center;
+  background: #eef2ff; color: #3730a3; border: 1.5px solid #c7d2fe; font-weight: 800; font-size: 0.82rem; text-decoration: none;
+}
+[data-theme="black"] .qrStandBanner, [data-theme="dark"] .qrStandBanner, [data-theme="noir"] .qrStandBanner { background: rgba(16,185,129,0.14); color: #6ee7b7; }
+[data-theme="black"] .qrStandSwitch, [data-theme="dark"] .qrStandSwitch, [data-theme="noir"] .qrStandSwitch { background: rgba(255,255,255,0.06); color: #6ee7b7; border-color: rgba(110,231,183,0.5); }
+.qrStandBanner > span:nth-child(2) { flex: 1 1 220px; min-width: 0; }
+.qrStandSwitch { white-space: normal; text-align: center; }
+@media (max-width: 640px) { .qrStandSwitch { flex-basis: 100%; } }
