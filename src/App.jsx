@@ -1484,7 +1484,9 @@ function buildHaccpDirectory(subs, forDate, overrides) {
       }
       if ((r.submittedAt || "").slice(0, 10) === day) {
         cur.activeOnDate = true; // opened the portal that day — they're on shift
-        if (r.type === "submission") cur.submittedToday = true;
+        // "Logged" means at least one real temperature — a problem-only
+        // submission keeps the stand on the missed list.
+        if (r.type === "submission" && haccpTempCount(r) > 0) cur.submittedToday = true;
       }
       byPhone[phone] = cur;
     }
@@ -1494,7 +1496,7 @@ function buildHaccpDirectory(subs, forDate, overrides) {
       const id = unit ? `u:${normUnit(unit)}` : `s:${site.toLowerCase()}`;
       const st = byStand[id] || { id, site, unit, lastAt: "", submittedToday: false, doneBy: null, checksOnDate: 0 };
       if ((r.submittedAt || "") > st.lastAt) { st.lastAt = r.submittedAt || ""; if (site) st.site = site; if (unit) st.unit = unit; }
-      if (r.type === "submission" && (r.submittedAt || "").slice(0, 10) === day) {
+      if (r.type === "submission" && (r.submittedAt || "").slice(0, 10) === day && haccpTempCount(r) > 0) {
         st.submittedToday = true;
         st.checksOnDate++;
         if (!st.doneBy || (r.submittedAt || "") > (st.doneBy.at || "")) st.doneBy = { name: r.supervisorName || "", at: r.submittedAt || "" };
@@ -1516,6 +1518,45 @@ function buildHaccpDirectory(subs, forDate, overrides) {
     hiddenPeople: hidden,
     stands: Object.values(byStand).sort(pendingFirst),
   };
+}
+
+// How many real temperature readings a HACCP submission carries (problem-only
+// submissions and empty forms count as zero).
+function haccpTempCount(sub) {
+  let n = 0;
+  for (const arr of Object.values(sub?.temps || {})) (arr || []).forEach(v => { if (String(v ?? "").trim() !== "") n++; });
+  return n;
+}
+// Inspector-recorded inline food temps on a report
+function recordTempCount(rec) {
+  let n = 0;
+  for (const arr of Object.values(rec?.foodTemps || {})) (Array.isArray(arr) ? arr : [arr]).forEach(v => { if (String(v ?? "").trim() !== "") n++; });
+  return n;
+}
+// HACCP status of one inspection report. Supervisor submissions match by
+// report id OR by the same stand (unit number, else site name) on the same
+// day — a QR scanned from the stand poster carries no report id.
+//   { level: "done" | "partial" | "none", temps, subs, by }
+function haccpStatusForRecord(rec, allSubs, expandedSubs) {
+  const day = (rec.inspectionDate || rec.savedAt || "").slice(0, 10);
+  const unitN = normUnit(rec.siteNumber);
+  const siteN = (rec.siteName || "").trim().toLowerCase();
+  const seen = new Set();
+  const matched = [];
+  for (const s of [...(expandedSubs || []), ...(allSubs || [])]) {
+    if (!s || s.type !== "submission" || seen.has(s.id)) continue;
+    const byId = !!rec.id && s.reportId === rec.id;
+    const sameDay = (s.submittedAt || "").slice(0, 10) === day;
+    const sameStand = unitN && normUnit(s.unit) ? normUnit(s.unit) === unitN : (siteN && (s.site || "").trim().toLowerCase() === siteN);
+    if (byId || (sameDay && sameStand)) { seen.add(s.id); matched.push(s); }
+  }
+  const supTemps = matched.reduce((n, s) => n + haccpTempCount(s), 0);
+  const temps = supTemps + recordTempCount(rec);
+  const last = matched.slice().sort((a, b) => (b.submittedAt || "").localeCompare(a.submittedAt || ""))[0];
+  const by = last?.supervisorName || "";
+  if (temps > 0) return { level: "done", temps, subs: matched.length, by };
+  if (matched.length > 0) return { level: "partial", temps: 0, subs: matched.length, by };
+  return { level: "none", temps: 0, subs: 0, by: "" };
 }
 
 async function loadHaccpSubmissions() {
@@ -8730,6 +8771,7 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
   const [historyTab, setHistoryTab] = useState(initialTab || "reports"); // "reports" | "analytics"
   const [haccpByReport, setHaccpByReport] = useState({}); // { [reportId]: [...submissions] }
   const [haccpReportIds, setHaccpReportIds] = useState(new Set()); // reportIds known to have ≥1 HACCP submission
+  const [haccpAllSubs, setHaccpAllSubs] = useState([]); // every submission — lets badges match by stand+day, not just report id
   const [haccpEditState, setHaccpEditState] = useState(null); // { subId, temps, foodNames, itemLabels, customItems }
   const [haccpSaving, setHaccpSaving] = useState(false);
   const [chatByReport, setChatByReport] = useState({});  // { [reportId]: [...messages] }
@@ -8796,11 +8838,13 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
         loadHaccpSubmissions().then(subs => {
           const ids = new Set(subs.filter(s => s.reportId && s.type === "submission").map(s => s.reportId));
           setHaccpReportIds(ids);
+          setHaccpAllSubs(subs || []);
         }).catch(() => {});
       } else if (!FIREBASE_ON) {
         try {
           const subs = JSON.parse(localStorage.getItem(HACCP_SUBS_KEY) || "[]");
           setHaccpReportIds(new Set(subs.filter(s => s.reportId && s.type === "submission").map(s => s.reportId)));
+          setHaccpAllSubs(subs);
         } catch (_) {}
       }
       if (list.length > 0) {
@@ -10612,7 +10656,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                 </button>
               ))}
             </div>
-            {analyticsTab === "temp" && <><HaccpTodayTracker venueSettings={venueSettings} saveVenueSettingsMap={saveVenueSettingsMap} history={history} /><TempTrendChart history={filtered.length > 0 ? filtered : history} /></>}
+            {analyticsTab === "temp" && <><HaccpTodayTracker venueSettings={venueSettings} saveVenueSettingsMap={saveVenueSettingsMap} history={history} currentUser={currentUser} /><TempTrendChart history={filtered.length > 0 ? filtered : history} /></>}
             {analyticsTab === "insights" && <AIHealthMonitor history={filtered.length > 0 ? filtered : history} currentUser={currentUser} />}
             {analyticsTab === "predictive" && <PredictiveInsightsPanel history={filtered.length > 0 ? filtered : history} />}
             {analyticsTab === "recurring" && <RecurringIssuesPanel history={filtered.length > 0 ? filtered : history} onLocationClick={filterByLocation} onTagClick={goToRecurringAnalytics} onIssueDrilldown={filterByLocationAndIssue} venueSettings={venueSettings} saveVenueSettings={saveVenueSettings} saveVenueSettingsMap={saveVenueSettingsMap} currentUser={currentUser} onAddRecord={rec => setHistory(prev => [rec, ...prev])} />}
@@ -10938,15 +10982,29 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                         </span>
                       )}
                       {issues.length > 0 && <span className="pill">{issues.length} issue{issues.length !== 1 ? "s" : ""}</span>}
-                      {(haccpReportIds.has(rec.id) || haccpByReport[rec.id]?.length > 0) ? (
-                        <span title="HACCP temperature log submitted" style={{ display: "inline-flex", alignItems: "center", gap: 3, background: "var(--tint-green-1)", color: "#15803d", border: "1px solid #bbf7d0", borderRadius: 8, padding: "2px 8px", fontSize: "0.72rem", fontWeight: 700, flexShrink: 0 }}>
-                          🌡️ HACCP
-                        </span>
-                      ) : (
-                        <span title="HACCP temperature log not yet submitted" style={{ display: "inline-flex", alignItems: "center", gap: 3, background: "var(--tint-red-1)", color: "#dc2626", border: "1px solid #fecaca", borderRadius: 8, padding: "2px 8px", fontSize: "0.72rem", fontWeight: 700, flexShrink: 0 }}>
-                          🌡️ HACCP
-                        </span>
-                      )}
+                      {(() => {
+                        // Green only when at least one real temperature was
+                        // logged (supervisor QR log for this stand/day, or the
+                        // inspector's own inline temps). A submission with no
+                        // temps (problem-only) is amber; nothing at all is red.
+                        const hs = haccpStatusForRecord(rec, haccpAllSubs, haccpByReport[rec.id]);
+                        const base = { display: "inline-flex", alignItems: "center", gap: 3, borderRadius: 8, padding: "2px 8px", fontSize: "0.72rem", fontWeight: 700, flexShrink: 0 };
+                        if (hs.level === "done") return (
+                          <span className="haccpPill haccpPillDone" title={`${hs.temps} temperature${hs.temps !== 1 ? "s" : ""} logged${hs.by ? ` · last by ${hs.by}` : ""}`} style={{ ...base, background: "var(--tint-green-1)", color: "#15803d", border: "1px solid #bbf7d0" }}>
+                            🌡️ HACCP ✓ {hs.temps} temp{hs.temps !== 1 ? "s" : ""}
+                          </span>
+                        );
+                        if (hs.level === "partial") return (
+                          <span className="haccpPill haccpPillPartial" title="A HACCP form was submitted for this stand, but it has no temperature readings" style={{ ...base, background: "#fef3c7", color: "#b45309", border: "1px solid #fde68a" }}>
+                            🌡️ HACCP · no temps
+                          </span>
+                        );
+                        return (
+                          <span className="haccpPill haccpPillNone" title="No HACCP temperature log for this stand on this date" style={{ ...base, background: "var(--tint-red-1)", color: "#dc2626", border: "1px solid #fecaca" }}>
+                            🌡️ No HACCP
+                          </span>
+                        );
+                      })()}
                       {onEdit && canEditRec(rec) && (
                         <button
                           className="btn btnGhost btnSmall"
@@ -21670,7 +21728,7 @@ function EquipScanModal({ onClose, onApply, initialTag }) {
 }
 
 /* ── HACCP Today — who did (and didn't do) the temp log ─────── */
-function HaccpTodayTracker({ venueSettings, saveVenueSettingsMap, history }) {
+function HaccpTodayTracker({ venueSettings, saveVenueSettingsMap, history, currentUser }) {
   const [subs, setSubs] = useState(null);
   const [regStands, setRegStands] = useState([]); // stands with QR posters (expected universe)
   const [view, setView] = useState("stand"); // "stand" | "person"
@@ -21681,6 +21739,7 @@ function HaccpTodayTracker({ venueSettings, saveVenueSettingsMap, history }) {
   useEffect(() => {
     setStandFilter(venueSettings?.eventDays?.[day] ? "missed" : "done");
   }, [day]); // eslint-disable-line react-hooks/exhaustive-deps
+  const [reqFlash, setReqFlash] = useState(""); // "reminder sent" toast
   const [editPhone, setEditPhone] = useState(null);
   const [editName, setEditName] = useState("");
   const [editSite, setEditSite] = useState("");
@@ -21742,6 +21801,25 @@ function HaccpTodayTracker({ venueSettings, saveVenueSettingsMap, history }) {
     setTeamLocal(p => ({ ...p, [phone]: entry }));
     saveVenueSettingsMap?.("haccpTeam", { [phone]: entry });
   };
+  // ── Request temps: a shared "ping" per stand. The supervisor portal watches
+  // venueSettings.haccpRequests and fires its red banner + vibration + beep
+  // the moment someone at that stand opens the QR page (or is already in it).
+  const requests = venueSettings?.haccpRequests || {};
+  const requestedToday = id => { const r = requests[id]; return r && (r.ts || "").slice(0, 10) === today ? r : null; };
+  const requesterName = (currentUser?.name || "The inspector").split(" ")[0];
+  function requestTemps(stands) {
+    const list = (stands || []).filter(Boolean);
+    if (list.length === 0) return;
+    const ts = new Date().toISOString();
+    const patch = {};
+    for (const s of list) patch[s.id] = { ts, by: currentUser?.name || "Inspector", site: s.site || "", unit: s.unit || "", msg: `${requesterName} is asking for the temperature log at ${s.site || "your stand"}${s.unit ? ` #${s.unit}` : ""} — please log it now.` };
+    saveVenueSettingsMap?.("haccpRequests", patch);
+    setReqFlash(`📣 Reminder sent to ${list.length} stand${list.length !== 1 ? "s" : ""} — it pops up on their phone when they open the stand QR`);
+    setTimeout(() => setReqFlash(""), 5000);
+  }
+  // People on shift at those stands get a text too (their own phone, no app needed)
+  const phoneForStand = s => (dir.people.find(p => p.activeOnDate && !p.submittedToday && p.site && s.site && p.site.trim().toLowerCase() === s.site.trim().toLowerCase()) || {}).phone || "";
+  const missedStands = dir.stands.filter(s => !s.submittedToday);
   return (
     <div className="card" style={{ marginBottom: 18 }}>
       <div className="cardHeader"><div className="cardTitle">🌡 HACCP — temp log tracker</div></div>
@@ -21783,11 +21861,18 @@ function HaccpTodayTracker({ venueSettings, saveVenueSettingsMap, history }) {
           </span>
           {mandatory && peoplePending > 0 && <span className="fuSumChip fuSumSoon">👤 {peoplePending} on shift, pending</span>}
           {inspectedCount > 0 && <span className="fuSumChip" style={{ background: "#dbeafe", color: "#1d4ed8", borderColor: "#bfdbfe" }}>🕵 {inspectedCount} inspected</span>}
+          {day === today && missedStands.length > 0 && (
+            <button type="button" className="haccpReqBtn haccpReqAll" onClick={() => requestTemps(missedStands)}
+              title="Send a temperature-log reminder to every stand that hasn't logged today">
+              📣 Request temps · all {missedStands.length} missed
+            </button>
+          )}
           <span className="fuToggle" style={{ marginLeft: "auto" }}>
             <button type="button" className={`fuToggleBtn${view === "stand" ? " fuToggleActive" : ""}`} onClick={() => setView("stand")}>🍳 By Stand</button>
             <button type="button" className={`fuToggleBtn${view === "person" ? " fuToggleActive" : ""}`} onClick={() => setView("person")}>👤 By Person</button>
           </span>
         </div>
+        {reqFlash && <div className="haccpReqFlash">{reqFlash}</div>}
         <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 340, overflowY: "auto" }}>
           {rows.length === 0 && (
             <div style={{ fontSize: "0.8rem", color: "var(--ink-400)", fontStyle: "italic", padding: "8px 2px" }}>
@@ -21833,6 +21918,21 @@ function HaccpTodayTracker({ venueSettings, saveVenueSettingsMap, history }) {
                         border: inspByStand[r.id] ? "1px solid #bfdbfe" : "1px solid var(--sdx-gray-200)" }}>
                         {inspByStand[r.id] ? `🕵 ${(inspByStand[r.id].inspector || "inspected").split(" ")[0]}` : "🕵 —"}
                       </span>
+                      {!r.submittedToday && day === today && (
+                        requestedToday(r.id) ? (
+                          <button type="button" className="haccpReqBtn haccpReqSent" onClick={() => requestTemps([r])}
+                            title={`Requested at ${new Date(requestedToday(r.id).ts).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })} by ${requestedToday(r.id).by} — tap to send again`}>
+                            📣 sent {new Date(requestedToday(r.id).ts).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
+                          </button>
+                        ) : (
+                          <button type="button" className="haccpReqBtn" onClick={() => requestTemps([r])} title="Ask this stand to log temperatures now — alert on their phone">
+                            📣 Request temps
+                          </button>
+                        )
+                      )}
+                      {!r.submittedToday && day === today && phoneForStand(r) && (
+                        <a href={smsHref(phoneForStand(r))} className="haccpReqBtn haccpReqSms" title="Text the supervisor on shift at this stand">💬 Text</a>
+                      )}
                     </div>
                   ) : (
                   <span style={{ fontSize: "0.66rem", fontWeight: 800, padding: "0.2rem 0.55rem", borderRadius: 999, flexShrink: 0,
@@ -22362,6 +22462,64 @@ function HaccpPortal() {
     prevInspectorCountRef.current = fromInspector.length;
   }, [chatMessages, step]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // TEMP REQUEST: the inspector can tap "📣 Request temps" on a stand. That
+  // writes venueSettings.haccpRequests[standId]; we watch it here and raise
+  // the same can't-miss banner (vibration + beep) for THIS stand — even if the
+  // supervisor opens the QR page a minute later. Dismissed requests are
+  // remembered per phone so the banner doesn't nag on every reload.
+  const REQ_SEEN_KEY = "sdx_haccp_req_seen";
+  useEffect(() => {
+    const standIds = [];
+    if (normUnit(locUnit || urlUnit)) standIds.push(`u:${normUnit(locUnit || urlUnit)}`);
+    if ((locSite || urlSite).trim()) standIds.push(`s:${(locSite || urlSite).trim().toLowerCase()}`);
+    if (standIds.length === 0) return;
+    const today = new Date().toISOString().slice(0, 10);
+    const alertFn = () => {
+      try { navigator.vibrate && navigator.vibrate([220, 90, 220, 90, 320]); } catch {}
+      try {
+        const ac = new (window.AudioContext || window.webkitAudioContext)();
+        const o = ac.createOscillator(); const g = ac.createGain();
+        o.connect(g); g.connect(ac.destination);
+        o.frequency.value = 880; g.gain.value = 0.08;
+        o.start(); o.stop(ac.currentTime + 0.28);
+      } catch {}
+    };
+    const handle = (settings) => {
+      const reqs = settings?.haccpRequests || {};
+      let seen = {};
+      try { seen = JSON.parse(localStorage.getItem(REQ_SEEN_KEY) || "{}"); } catch {}
+      for (const id of standIds) {
+        const r = reqs[id];
+        if (!r || (r.ts || "").slice(0, 10) !== today) continue;
+        if (seen[id] === r.ts) continue;                       // already dismissed this exact request
+        if (step === "done") continue;                          // they just submitted — nothing to nag about
+        setInspectorPing({ sender: r.by || "the inspector", text: r.msg || "Please log your temperatures now.", _reqId: id, _reqTs: r.ts });
+        alertFn();
+        break;
+      }
+    };
+    if (FIREBASE_ON) {
+      try {
+        return onSnapshot(doc(db, "venues", VENUE_ID, "sharedMemory", "venueSettings"), snap => handle(snap.exists() ? snap.data() : {}), () => {});
+      } catch {}
+    }
+    // Local fallback: poll the cached copy (same-device testing)
+    const tick = () => { try { handle(JSON.parse(localStorage.getItem(VENUE_SETTINGS_KEY) || "{}")); } catch {} };
+    tick();
+    const iv = setInterval(tick, 3000);
+    return () => clearInterval(iv);
+  }, [locUnit, locSite, urlUnit, urlSite, step]); // eslint-disable-line react-hooks/exhaustive-deps
+  const dismissPing = () => {
+    if (inspectorPing?._reqId) {
+      try {
+        const seen = JSON.parse(localStorage.getItem(REQ_SEEN_KEY) || "{}");
+        seen[inspectorPing._reqId] = inspectorPing._reqTs;
+        localStorage.setItem(REQ_SEEN_KEY, JSON.stringify(seen));
+      } catch {}
+    }
+    setInspectorPing(null);
+  };
+
   // Only scroll the chat list container when new messages arrive — never the whole page
   useEffect(() => {
     if (chatMessages.length > chatPrevCountRef.current && chatListRef.current) {
@@ -22621,7 +22779,7 @@ function HaccpPortal() {
             <div style={{ fontWeight: 800, fontSize: "0.85rem" }}>Message from {inspectorPing.sender || "the inspector"}</div>
             <div style={{ fontSize: "0.8rem", opacity: 0.92, lineHeight: 1.4 }}>{(inspectorPing.text || "").replace("[ALERT] ", "")}</div>
           </div>
-          <button type="button" onClick={() => setInspectorPing(null)}
+          <button type="button" onClick={dismissPing}
             style={{ background: "rgba(255,255,255,0.2)", border: "1.5px solid rgba(255,255,255,0.5)", color: "#fff", borderRadius: 8, padding: "0.4rem 0.9rem", fontWeight: 800, fontSize: "0.8rem", cursor: "pointer", flexShrink: 0 }}>
             OK
           </button>
