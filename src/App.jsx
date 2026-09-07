@@ -25193,6 +25193,45 @@ export default function App() {
         const reg = p.get("unit") && IS_DEFAULT_VENUE() ? lookupLicenseByUnitType(p.get("unit"), p.get("loctype") || "Concession") : null;
         if (reg?.license && reg.status === "ACTIVE") setRestaurantLicense(reg.license);
       } catch {}
+      // Remembered details for this stand (supervisor, phone, equipment…)
+      try { if (p.get("site")) applySiteAutofill(p.get("site")); } catch {}
+      // The stand's LAST report fills the rest: supervisor, phone, license,
+      // location type, and its equipment list (labels, brands, asset tags —
+      // readings/photos cleared) so the inspector walks in with a full form.
+      try {
+        const unitN = normUnit(p.get("unit"));
+        const siteN = (p.get("site") || "").trim().toUpperCase();
+        const cached = JSON.parse(localStorage.getItem(`sdx_history_cache_${VENUE_ID}`) || "[]");
+        const last = cached
+          .filter(r => !r.quickProblem && (unitN ? normUnit(r.siteNumber) === unitN : (r.siteName || "").trim().toUpperCase() === siteN))
+          .sort((a, b) => (b.savedAt || "").localeCompare(a.savedAt || ""))[0];
+        if (last) {
+          if (last.supervisorName) setSupervisorName(prev => prev || last.supervisorName);
+          if (last.sitePhone) setSitePhone(prev => prev || last.sitePhone);
+          if (last.restaurantLicense) setRestaurantLicense(prev => prev || last.restaurantLicense);
+          if (last.locationType && !p.get("loctype")) setLocationType(last.locationType);
+          if (last.floor && !p.get("floor")) setFloor(last.floor);
+          const eq = last.inspection?.equipment;
+          if (eq && typeof eq === "object" && Object.keys(eq).length > 0) {
+            const carried = {};
+            for (const [k, v] of Object.entries(eq)) {
+              if (!v || v.notApplicable) continue;
+              carried[k] = {
+                status: "OK", notes: "", photos: [],
+                count: v.count ?? "",
+                equipSource: v.equipSource || "Facility",
+                ...(v.label ? { label: v.label } : {}),
+                ...(v.brand ? { brand: v.brand } : {}),
+                ...(v.assetTag ? { assetTag: v.assetTag } : {}),
+                ...(v.location ? { location: v.location } : {}),
+                ...(v.kitchenArea ? { kitchenArea: v.kitchenArea } : {}),
+                ...(("tempF" in v) || detectColdType(v.label || k) ? { tempF: "" } : {}),
+              };
+            }
+            if (Object.keys(carried).length > 0) setInspection(prev => ({ ...prev, equipment: { ...(prev.equipment || {}), ...carried } }));
+          }
+        }
+      } catch {}
     }
     // Clean URL without reloading — skip if this is the HACCP portal (params needed for HaccpPortal)
     if (p.toString() && !(IS_HACCP_PORTAL && !QR_OPEN_AS_INSPECTOR)) window.history.replaceState({}, "", window.location.pathname);
