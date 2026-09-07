@@ -673,6 +673,7 @@ const LICENSE_SEED_BY_NAME = (() => {
    the stable anchor. Partial: pages covering ~139-230 were not
    photographed; those units fall back to the older name-keyed seed. */
 const LICENSE_REGISTRY = [
+  // Source: INDEX_LICENSES_HR_STADIUM_2026.xlsx — sheet "NEW 2026" (89 active, 14 requested/needed)
   { unit: "101", type: "C", license: "NOS2319780", name: "Magic City Dogs", status: "ACTIVE" },
   { unit: "101", type: "P", license: "NOS2334411", name: "Arepa Cart / Sub", status: "ACTIVE" },
   { unit: "102", type: "S", license: "NOS2325799", name: "Crisppis Chicken", status: "ACTIVE" },
@@ -680,87 +681,105 @@ const LICENSE_REGISTRY = [
   { unit: "104", type: "P", license: "NOS2334424", name: "Arepa Cart / Sub", status: "ACTIVE" },
   { unit: "106", type: "C", license: "NOS2325797", name: "Fatboy Smashburger", status: "ACTIVE" },
   { unit: "107", type: "C", license: "NOS2319803", name: "Fan Favorites", status: "ACTIVE" },
-  { unit: "107", type: "P", license: "NOS2334421", name: "Dip N Dots / Sub", status: "ACTIVE" },
-  { unit: "111", type: "S", license: "NOS2326513", name: "Ella Cafe", status: "ACTIVE" },
+  { unit: "107", type: "P", license: "NOS2334421", name: "Dip N Dots/ Sub", status: "ACTIVE" },
+  { unit: "111", type: "S", license: "NOS2326513", name: "Amazonica", status: "ACTIVE" },
   { unit: "114", type: "P", license: "NOS2334412", name: "Shawarma Gyros / Sub", status: "ACTIVE" },
   { unit: "114", type: "C", license: "NOS2319802", name: "Magic City Dogs", status: "ACTIVE" },
-  { unit: "114", type: "P", license: "NOS2334416", name: "Talkin Tacos / Sub", status: "ACTIVE" },
+  { unit: "114", type: "P", license: "NOS2334416", name: "La Placita", status: "ACTIVE" },
+  { unit: "114A", type: "S", license: "NOS2334824", name: "Cheeseburger Baby", status: "ACTIVE" },
   { unit: "117", type: "S", license: "NOS2319801", name: "Seed", status: "ACTIVE" },
+  { unit: "117A", type: "C", license: "NOS2334823", name: "AIFI Wynwood Walkthrough", status: "ACTIVE" },
   { unit: "119", type: "C", license: "NOS2319796", name: "Tostitos", status: "ACTIVE" },
+  { unit: "120A", type: "C", license: "NOS2334822", name: "Sol Cubano", status: "ACTIVE" },
   { unit: "122", type: "C", license: "NOS2319795", name: "Cantaloupe", status: "ACTIVE" },
-  { unit: "122", type: "P", license: "NOS2334408", name: "Fat Boy Smashed Cart", status: "ACTIVE" },
-  { unit: "122", type: "P", license: "NOS2334419", name: "Arepa Cart / Sub", status: "ACTIVE" },
+  { unit: "122", type: "P", license: "NOS2334408", name: "Joe Smashed Burger Cart", status: "ACTIVE" },
+  { unit: "122", type: "P", license: "NOS2334419", name: "Arepa Cart / Sub", status: "ACTIVE", note: "Now in 119" },
+  { unit: "122", type: "P", license: "", name: "Tostitos Nacho Cart", status: "NEEDED" },
+  { unit: "122A", type: "C", license: "NOS2334821", name: "AIFI Wynwood Walkthrough", status: "ACTIVE" },
   { unit: "129", type: "C", license: "NOS2319794", name: "Magic City Dogs", status: "ACTIVE" },
   { unit: "129", type: "P", license: "NOS2334417", name: "Kosher Burger & Dogs / Sub", status: "ACTIVE" },
+  { unit: "129", type: "P", license: "", name: "Shawarma", status: "REQUESTED" },
   { unit: "132", type: "C", license: "NOS2319793", name: "Sobe Q", status: "ACTIVE" },
+  { unit: "130A", type: "C", license: "NOS2321406", name: "Avoeats", status: "ACTIVE" },
   { unit: "134", type: "S", license: "NOS2325137", name: "Novecento", status: "ACTIVE" },
-  { unit: "135", type: "P", license: "", name: "Shawarma Gyros / Sub", status: "IN PROCESS" },
   { unit: "135", type: "C", license: "NOS2319789", name: "Magic City Dogs", status: "ACTIVE" },
-  { unit: "137", type: "P", license: "NOS2338680", name: "Dip N Dots / Sub", status: "ACTIVE" },
-  { unit: "231", type: "S", license: "NOS2332692", name: "Talkin Tacos", status: "ACTIVE" },
-  { unit: "232", type: "K", license: "NOS2324071", name: "Suite Kitchen", status: "ACTIVE" },
+  { unit: "135", type: "P", license: "", name: "Shawarma", status: "REQUESTED" },
+  { unit: "137", type: "P", license: "NOS2338680", name: "Dip N Dots/ Sub", status: "ACTIVE" },
+  { unit: "139", type: "S", license: "NOS2319787", name: "Italian Vice", status: "ACTIVE" },
+  { unit: "142", type: "C", license: "NOS2319788", name: "Little Caesar", status: "ACTIVE" },
+  { unit: "142", type: "P", license: "NOS2334406", name: "Mr Chory", status: "ACTIVE" },
+  { unit: "142A", type: "C", license: "NOS2334820", name: "AIFI Smashed Burger", status: "ACTIVE" },
+  { unit: "144A", type: "S", license: "NOS2334819", name: "Fuku", status: "ACTIVE" },
+  { unit: "148", type: "P", license: "NOS2334422", name: "Dip N Dots/ Sub", status: "ACTIVE" },
+  { unit: "148", type: "P", license: "NOS2334423", name: "Kosher Burger & Hot Dogs / Sub", status: "ACTIVE" },
+  { unit: "148", type: "P", license: "", name: "Cortadito", status: "REQUESTED" },
+  { unit: "148", type: "S", license: "NOS2334818", name: "Benihana", status: "ACTIVE" },
+  { unit: "150", type: "P", license: "NOS2334420", name: "Chef Creole", status: "ACTIVE" },
+  { unit: "150", type: "P", license: "", name: "Tostitos Nacho Cart", status: "NEEDED" },
+  { unit: "150", type: "C", license: "NOS2319781", name: "Cantaloupe", status: "ACTIVE" },
+  { unit: "150A", type: "C", license: "NOS2334817", name: "AIFI Edgewater Grill", status: "ACTIVE" },
+  { unit: "154", type: "C", license: "NOS2326512", name: "Sweet Cream", status: "ACTIVE" },
+  { unit: "203", type: "C", license: "NOS2319797", name: "Section 203 & Bar", status: "ACTIVE" },
+  { unit: "214", type: "C", license: "NOS2324070", name: "Farmstead / Shawarma", status: "ACTIVE" },
+  { unit: "217", type: "C", license: "NOS2331747", name: "Donuts & Ice Cream", status: "ACTIVE" },
+  { unit: "219", type: "C", license: "NOS2331746", name: "Stacked Shorty's / Sobe Q", status: "ACTIVE" },
+  { unit: "220", type: "P", license: "NOS2338676", name: "Bubba Ice", status: "ACTIVE" },
+  { unit: "222", type: "C", license: "NOS2325643", name: "Shula Burger / Farmstead / Pizza", status: "ACTIVE" },
+  { unit: "231", type: "S", license: "NOS2332692", name: "Tacotomia", status: "ACTIVE" },
   { unit: "233", type: "S", license: "NOS2332693", name: "Cheeseburger Baby", status: "ACTIVE" },
   { unit: "242", type: "C", license: "NOS2319786", name: "Edgewater Grill", status: "ACTIVE" },
-  { unit: "243", type: "S", license: "NOS2331745", name: "Sushi Maki / Sea Food Republic", status: "ACTIVE" },
+  { unit: "243", type: "S", license: "NOS2331745", name: "Sushi Maki / Asia Bites", status: "ACTIVE" },
   { unit: "245", type: "S", license: "NOS2331744", name: "Puffles", status: "ACTIVE" },
-  { unit: "246", type: "S", license: "NOS2331743", name: "La Carreta", status: "ACTIVE" },
+  { unit: "246", type: "S", license: "NOS2331743", name: "Ella Cafe", status: "ACTIVE" },
   { unit: "247", type: "C", license: "File# 377155", name: "Sobe Q", status: "FILE_REF" },
-  { unit: "248", type: "P", license: "", name: "Bubba Ice", status: "IN PROCESS" },
-  { unit: "250", type: "C", license: "NOS2324069", name: "Shula Burguer / Farmstead / Pizza", status: "ACTIVE" },
+  { unit: "250", type: "C", license: "NOS2324069", name: "Shula Burger / Farmstead / Pizza", status: "ACTIVE" },
   { unit: "304", type: "S", license: "NOS2319783", name: "Granny Beez", status: "ACTIVE" },
   { unit: "307", type: "P", license: "NOS2338681", name: "Kosher Hot Dog / Arepa Cart", status: "ACTIVE" },
   { unit: "308", type: "C", license: "NOS2319806", name: "Cantaloupe", status: "ACTIVE" },
   { unit: "310", type: "P", license: "NOS2338679", name: "Sizzle & Dippin Dots / Sub", status: "ACTIVE" },
+  { unit: "311", type: "P", license: "", name: "Fuku", status: "NEEDED", note: "Check if can be combined with current DippNDots / Sizzle carts in 310" },
+  { unit: "311", type: "P", license: "", name: "Walking Tacos", status: "NEEDED" },
   { unit: "312", type: "S", license: "NOS2319805", name: "La MilaNation", status: "ACTIVE" },
+  { unit: "314", type: "P", license: "", name: "Cheese Burger Baby", status: "NEEDED" },
   { unit: "315", type: "P", license: "NOS2334415", name: "Arepa Cart / Sub", status: "ACTIVE" },
-  { unit: "317", type: "C", license: "NOS2319804", name: "Sol Cubano", status: "ACTIVE" },
+  { unit: "317", type: "C", license: "NOS2319804", name: "Mr. Chory", status: "ACTIVE" },
+  { unit: "317A", type: "C", license: "NOS2334859", name: "AIFI Smashed Burger", status: "ACTIVE" },
   { unit: "318", type: "C", license: "NOS2326971", name: "Sweet Cream", status: "ACTIVE" },
   { unit: "319", type: "S", license: "NOS2319800", name: "Fuku", status: "ACTIVE" },
+  { unit: "319A", type: "C", license: "NOS2334858", name: "AIFI Edgewater Grill", status: "ACTIVE" },
   { unit: "322", type: "P", license: "NOS2334405", name: "Shawarma Gyros / Sub", status: "ACTIVE" },
-  { unit: "323", type: "P", license: "NOS2338677", name: "Dip N Dots / Sub", status: "ACTIVE" },
+  { unit: "323", type: "P", license: "NOS2338677", name: "Dip N Dots/ Sub", status: "ACTIVE" },
+  { unit: "325", type: "P", license: "", name: "Tostitos Nacho Cart", status: "NEEDED" },
   { unit: "325", type: "P", license: "NOS2334414", name: "Arepa Cart / Sub", status: "ACTIVE" },
+  { unit: "325", type: "P", license: "", name: "Hot Dog", status: "NEEDED", note: "Check if can be combined with current Arepa cart in 325" },
   { unit: "327", type: "C", license: "NOS2319798", name: "Fan Favorites", status: "ACTIVE" },
   { unit: "329", type: "S", license: "NOS2321412", name: "Crisppis Chicken", status: "ACTIVE" },
   { unit: "332", type: "S", license: "NOS2324673", name: "Seed", status: "ACTIVE" },
   { unit: "336", type: "C", license: "NOS2319792", name: "Cantaloupe", status: "ACTIVE" },
   { unit: "338", type: "P", license: "NOS2334407", name: "Sizzle & Dippin Dots / Sub", status: "ACTIVE" },
-  { unit: "340", type: "S", license: "NOS2319791", name: "Talkin Tacos", status: "ACTIVE" },
+  { unit: "338", type: "P", license: "", name: "Fuku", status: "NEEDED", note: "Check if can be combined with current DippNDots / Sizzle carts in 338" },
+  { unit: "338", type: "P", license: "", name: "Walking Tacos", status: "NEEDED" },
+  { unit: "338", type: "P", license: "", name: "Arepas Lemonade", status: "NEEDED" },
+  { unit: "340", type: "S", license: "NOS2319791", name: "Tacotomia", status: "ACTIVE" },
   { unit: "342", type: "P", license: "NOS2334409", name: "Mr Chory", status: "ACTIVE" },
-  { unit: "345", type: "C", license: "NOS2319790", name: "Litle Caesar", status: "ACTIVE" },
-  { unit: "347", type: "S", license: "NOS2326622", name: "Lucky Chicken", status: "ACTIVE" },
-  { unit: "350", type: "S", license: "NOS2326620", name: "Benihanas", status: "ACTIVE" },
-  { unit: "350", type: "P", license: "", name: "Shawarma Gyros / Sub", status: "IN PROCESS" },
-  { unit: "350", type: "P", license: "NOS2338678", name: "Dip N Dots / Sub", status: "ACTIVE" },
-  { unit: "354", type: "P", license: "NOS2334404", name: "Arepa Cart (Sub)", status: "ACTIVE" },
-  { unit: "355", type: "C", license: "NOS2326624", name: "Fan Favorite", status: "ACTIVE" },
-  { unit: "114A", type: "S", license: "NOS2334824", name: "Cheeseburger Baby", status: "ACTIVE" },
-  { unit: "117A", type: "C", license: "NOS2334823", name: "AIFI Wynwood Walkthrough", status: "ACTIVE" },
-  { unit: "120A", type: "C", license: "NOS2334822", name: "Sol Cubano", status: "ACTIVE" },
-  { unit: "122A", type: "C", license: "NOS2334821", name: "AIFI Wynwood Walkthrough", status: "ACTIVE" },
-  { unit: "130A", type: "C", license: "NOS2321406", name: "Avoeats", status: "ACTIVE" },
-  { unit: "142A", type: "C", license: "NOS2334820", name: "AIFI Smashed Burger", status: "ACTIVE" },
-  { unit: "144A", type: "S", license: "NOS2334819", name: "Fuku", status: "ACTIVE" },
-  { unit: "150A", type: "C", license: "NOS2334817", name: "AIFI Edgewater Grill", status: "ACTIVE" },
-  { unit: "317A", type: "C", license: "NOS2334859", name: "AIFI Smashed Burger", status: "ACTIVE" },
-  { unit: "319A", type: "C", license: "NOS2334858", name: "AIFI Edgewater Grill", status: "ACTIVE" },
+  { unit: "345", type: "C", license: "NOS2319790", name: "Little Caesar", status: "ACTIVE" },
   { unit: "345A", type: "C", license: "NOS2334857", name: "AIFI Smashed Burger", status: "ACTIVE" },
+  { unit: "347", type: "S", license: "NOS2326622", name: "Lucky Chicken", status: "ACTIVE" },
   { unit: "347A", type: "C", license: "NOS2334856", name: "AIFI Edgewater Grill", status: "ACTIVE" },
+  { unit: "350", type: "S", license: "NOS2326620", name: "Sol Cubano", status: "ACTIVE" },
+  { unit: "351", type: "P", license: "", name: "Tostitos Nacho Cart", status: "NEEDED" },
+  { unit: "350", type: "P", license: "NOS2338678", name: "Dip N Dots/ Sub", status: "ACTIVE" },
+  { unit: "350", type: "P", license: "", name: "SHAWARMA", status: "REQUESTED" },
+  { unit: "354", type: "P", license: "NOS2334404", name: "Arepa Cart (Sub)", status: "ACTIVE" },
+  { unit: "354", type: "P", license: "", name: "Hot Dog", status: "NEEDED", note: "Check if can be combined with current Arepa cart in 325" },
+  { unit: "355", type: "C", license: "NOS2326624", name: "Fan Favorite", status: "ACTIVE" },
+  { unit: "External", type: "C", license: "NOS2336936", name: "Training Facility Batist.", status: "ACTIVE" },
   { unit: "G", type: "K", license: "NOS2324068", name: "Main Kitchen", status: "ACTIVE" },
   { unit: "G", type: "K", license: "NOS2334853", name: "Lexus North Club & Main Warehouse", status: "ACTIVE" },
-  { unit: "G", type: "K", license: "NOS2334854", name: "72 Club South/East", status: "ACTIVE" },
-  { unit: "G", type: "C", license: "NOS2336936", name: "Training Facility Batist.", status: "ACTIVE" },
-  { unit: "G", type: "External", license: "", name: "Portable Kitchen Grand Slam", status: "IN PROCESS" },
-  // Recovered from saved inspection reports (fold-gap units 138-230)
-  { unit: "139", type: "C", license: "NOS2319787", name: "Italianvice", status: "ACTIVE" },
-  { unit: "142", type: "C", license: "NOS2319788", name: "Little Caesar", status: "ACTIVE" },
-  { unit: "148", type: "P", license: "NOS2334423", name: "Kosher Korner", status: "ACTIVE" },
-  { unit: "148", type: "S", license: "NOS2334818", name: "Benihana", status: "ACTIVE" },
-  { unit: "150", type: "C", license: "NOS2319781", name: "Cantaloupe", status: "ACTIVE" },
-  { unit: "150", type: "P", license: "NOS2334420", name: "Chef Creole", status: "ACTIVE" },
-  { unit: "154", type: "S", license: "NOS2326512", name: "Sweet Spot", status: "ACTIVE" },
-  { unit: "204", type: "C", license: "NOS2321413", name: "M Club Live Kitchen", status: "ACTIVE" },
-  { unit: "214", type: "C", license: "NOS2324070", name: "Farmstead / Avoeats", status: "ACTIVE" },
-  { unit: "217", type: "C", license: "NOS2331747", name: "Donuts & Ice Cream", status: "ACTIVE" }
+  { unit: "G", type: "K", license: "NOS2334854", name: "Club South/East", status: "ACTIVE" },
+  { unit: "147", type: "K", license: "SEA2338350", name: "Nine", status: "ACTIVE" },
+  { unit: "204", type: "K", license: "NOS2321413", name: "M Club Liv Kitchen", status: "ACTIVE" },
+  { unit: "232", type: "K", license: "NOS2324071", name: "Suite Kitchen", status: "ACTIVE" },
 ];
 
 function licTypeForLocationType(lt) {
@@ -784,6 +803,9 @@ function lookupLicenseByUnitType(unitVal, locationType) {
   const pick = list => list.find(r => r.status === "ACTIVE" && r.license) || list.find(r => r.license) || list[0] || null;
   if (t) {
     const typed = rows.filter(r => r.type === t);
+    // Two live licenses of the same type at one unit (e.g. two portable carts
+    // at 122) — ambiguous, the inspector must pick; never guess a license.
+    if (typed.filter(r => r.status === "ACTIVE" && r.license).length > 1) return null;
     if (typed.length) return pick(typed);
   }
   if (rows.length === 1) return rows[0];
@@ -1576,7 +1598,8 @@ function haccpStatusForRecord(rec, allSubs, expandedSubs) {
     const byId = !!rec.id && s.reportId === rec.id;
     const sameDay = (s.submittedAt || "").slice(0, 10) === day;
     const sameStand = unitN && normUnit(s.unit) ? normUnit(s.unit) === unitN : (siteN && (s.site || "").trim().toLowerCase() === siteN);
-    if (byId || (sameDay && sameStand)) { seen.add(s.id); matched.push(s); }
+    // A log linked to a DIFFERENT report never counts for this one
+    if (byId || (sameDay && sameStand && !s.reportId)) { seen.add(s.id); matched.push(s); }
   }
   const supTemps = matched.reduce((n, s) => n + haccpTempCount(s), 0);
   const temps = supTemps + recordTempCount(rec);
@@ -1585,6 +1608,28 @@ function haccpStatusForRecord(rec, allSubs, expandedSubs) {
   if (temps > 0) return { level: "done", temps, subs: matched.length, by };
   if (matched.length > 0) return { level: "partial", temps: 0, subs: matched.length, by };
   return { level: "none", temps: 0, subs: 0, by: "" };
+}
+
+// Every supervisor submission that belongs to a report: linked by report id,
+// or scanned from the stand poster (no report id) on the same day. Deduped,
+// oldest first — this is what the report card and exports render.
+function haccpSubsForRecord(rec, allSubs, extra) {
+  const day = (rec?.inspectionDate || rec?.savedAt || "").slice(0, 10);
+  const unitN = normUnit(rec?.siteNumber);
+  const siteN = (rec?.siteName || rec?.location || "").trim().toLowerCase();
+  const seen = new Set();
+  const out = [];
+  for (const s of [...(extra || []), ...(allSubs || [])]) {
+    if (!s || s.type !== "submission") continue;
+    const key = s.id || s.submittedAt || JSON.stringify(s);
+    if (seen.has(key)) continue;
+    const byId = !!rec?.id && s.reportId === rec.id;
+    const sameDay = (s.submittedAt || "").slice(0, 10) === day;
+    const sameStand = unitN && normUnit(s.unit) ? normUnit(s.unit) === unitN : (!!siteN && (s.site || "").trim().toLowerCase() === siteN);
+    // A log linked to a DIFFERENT report never bleeds in
+    if (byId || (sameDay && sameStand && !s.reportId)) { seen.add(key); out.push(s); }
+  }
+  return out.sort((a, b) => (a.submittedAt || "").localeCompare(b.submittedAt || ""));
 }
 
 async function loadHaccpSubmissions() {
@@ -8990,20 +9035,13 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
     //   byId  — strict Firestore query: where reportId == expandedId  (always precise)
     //   bySite — site+date fallback for legacy records that predate the QR system
     //
-    // IMPORTANT: if byId returns ANY results, we use ONLY byId and ignore bySite entirely.
-    // This prevents logs from same-named stands on the same day from bleeding in.
-    // bySite is only used when byId is empty (old inspections with no reportId on the logs).
+    // UNION of both: a supervisor who scanned the stand poster (no reportId)
+    // and one who used the report's own QR both belong to this report.
+    // haccpSubsForRecord keeps logs linked to OTHER reports out.
     let byId = [];
     let bySite = [];
     function mergeAndSet() {
-      const source = byId.length > 0 ? byId : bySite;
-      const seen = new Set();
-      const merged = source.filter(s => {
-        const key = s.id || s.submittedAt || JSON.stringify(s);
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      }).sort((a, b) => (a.submittedAt || "").localeCompare(b.submittedAt || ""));
+      const merged = haccpSubsForRecord(rec || { id: expandedId, siteName: site, inspectionDate: date }, bySite, byId);
       setHaccpByReport(prev => ({ ...prev, [expandedId]: merged }));
     }
 
@@ -9017,9 +9055,10 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
     // Only kicks in when byId is empty (handled inside mergeAndSet).
     let siteIv = null;
     if (site && date) {
-      loadHaccpBySite(site, date, expandedId).then(subs => { bySite = subs; mergeAndSet(); });
+      const unit = rec?.siteNumber || null;
+      loadHaccpBySite(site, date, expandedId, unit).then(subs => { bySite = subs; mergeAndSet(); });
       siteIv = setInterval(() => {
-        loadHaccpBySite(site, date, expandedId).then(subs => { bySite = subs; mergeAndSet(); });
+        loadHaccpBySite(site, date, expandedId, unit).then(subs => { bySite = subs; mergeAndSet(); });
       }, 5000);
     }
 
@@ -9034,6 +9073,23 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
       if (siteIv) clearInterval(siteIv);
     };
   }, [expandedId, history]);
+
+  // Pre-fill every visible report's HACCP list from the global submissions
+  // list (stand-poster logs included) so the section and single-report
+  // exports are complete without expanding the card first.
+  useEffect(() => {
+    if (!haccpAllSubs.length || !history.length) return;
+    setHaccpByReport(prev => {
+      let changed = false;
+      const next = { ...prev };
+      for (const rec of history) {
+        if (next[rec.id] !== undefined) continue;
+        const m = haccpSubsForRecord(rec, haccpAllSubs);
+        if (m.length > 0) { next[rec.id] = m; changed = true; }
+      }
+      return changed ? next : prev;
+    });
+  }, [haccpAllSubs, history]);
 
   // Keep haccpReportIds in sync whenever haccpByReport gains new data from expanded cards
   useEffect(() => {
@@ -11419,6 +11475,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                                   <div className="haccpReportCardTop">
                                     <span className="haccpReportCardName">👤 {sub.supervisorName}</span>
                                     <span className="haccpReportCardTime">{sub.submittedAt ? new Date(sub.submittedAt).toLocaleString() : "—"}</span>
+                                    {!sub.reportId && <span className="haccpReportBadge haccpViaQr" title="Logged by scanning the stand poster — attached to this report automatically">👷 via stand QR</span>}
                                     {flagged.length > 0
                                       ? <span className="haccpReportBadge haccpReportBadgeFail">⚠️ {flagged.length} flag{flagged.length !== 1 ? "s" : ""}</span>
                                       : <span className="haccpReportBadge haccpReportBadgePass">✓ All OK</span>
@@ -11710,8 +11767,8 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                                     style={{ flex: 1, background: "#217346", color: "#fff", borderColor: "#217346", fontWeight: 600, padding: "0.7rem 0.5rem", fontSize: "0.88rem" }}
                                     onClick={() => {
                                       const fn = dlScope === "full"
-                                        ? exportAsCsv({ inspection: rec.inspection, rawNotes: rec.rawNotes, inspectionType: rec.inspectionType, inspectionDate: rec.inspectionDate, inspectorName: rec.inspectorName, participantName: rec.participantName, siteName: rec.siteName, siteNumber: rec.siteNumber, sitePhone: rec.sitePhone, supervisorName: rec.supervisorName, floor: rec.floor, locationType: rec.locationType, restaurantLicense: rec.restaurantLicense, licenseMissing: rec.licenseMissing, eventName: rec.eventName, foodTemps: rec.foodTemps, foodTempNames: rec.foodTempNames, haccpSubs: haccpByReport[rec.id] || [] })
-                                        : exportIssuesOnlyExcel({ rec, haccpSubs: haccpByReport[rec.id] || [] });
+                                        ? exportAsCsv({ inspection: rec.inspection, rawNotes: rec.rawNotes, inspectionType: rec.inspectionType, inspectionDate: rec.inspectionDate, inspectorName: rec.inspectorName, participantName: rec.participantName, siteName: rec.siteName, siteNumber: rec.siteNumber, sitePhone: rec.sitePhone, supervisorName: rec.supervisorName, floor: rec.floor, locationType: rec.locationType, restaurantLicense: rec.restaurantLicense, licenseMissing: rec.licenseMissing, eventName: rec.eventName, foodTemps: rec.foodTemps, foodTempNames: rec.foodTempNames, haccpSubs: haccpByReport[rec.id] || haccpSubsForRecord(rec, haccpAllSubs) })
+                                        : exportIssuesOnlyExcel({ rec, haccpSubs: haccpByReport[rec.id] || haccpSubsForRecord(rec, haccpAllSubs) });
                                       setDlPickerId(null); setDlScope(null);
                                       fn.then(({ blob, filename }) => downloadBlob(blob, filename))
                                         .catch(err => alert("Excel download failed: " + (err?.message || String(err))));
@@ -11722,8 +11779,8 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                                     style={{ flex: 1, background: "#2B5797", color: "#fff", borderColor: "#2B5797", fontWeight: 600, padding: "0.7rem 0.5rem", fontSize: "0.88rem" }}
                                     onClick={() => {
                                       const fn = dlScope === "full"
-                                        ? exportAsHtml({ output: rec.output || rec.rawNotes || "", inspection: rec.inspection, rawNotes: rec.rawNotes, inspectionType: rec.inspectionType, inspectionDate: rec.inspectionDate, siteName: rec.siteName, siteNumber: rec.siteNumber, sitePhone: rec.sitePhone, inspectorName: rec.inspectorName, participantName: rec.participantName, supervisorName: rec.supervisorName, eventName: rec.eventName, foodTemps: rec.foodTemps, foodTempNames: rec.foodTempNames, haccpSubs: haccpByReport[rec.id] || [], locationType: rec.locationType, floor: rec.floor, restaurantLicense: rec.restaurantLicense, licenseMissing: rec.licenseMissing })
-                                        : exportIssuesOnlyWord({ rec, haccpSubs: haccpByReport[rec.id] || [] });
+                                        ? exportAsHtml({ output: rec.output || rec.rawNotes || "", inspection: rec.inspection, rawNotes: rec.rawNotes, inspectionType: rec.inspectionType, inspectionDate: rec.inspectionDate, siteName: rec.siteName, siteNumber: rec.siteNumber, sitePhone: rec.sitePhone, inspectorName: rec.inspectorName, participantName: rec.participantName, supervisorName: rec.supervisorName, eventName: rec.eventName, foodTemps: rec.foodTemps, foodTempNames: rec.foodTempNames, haccpSubs: haccpByReport[rec.id] || haccpSubsForRecord(rec, haccpAllSubs), locationType: rec.locationType, floor: rec.floor, restaurantLicense: rec.restaurantLicense, licenseMissing: rec.licenseMissing })
+                                        : exportIssuesOnlyWord({ rec, haccpSubs: haccpByReport[rec.id] || haccpSubsForRecord(rec, haccpAllSubs) });
                                       setDlPickerId(null); setDlScope(null);
                                       fn.then(({ blob, filename }) => downloadBlob(blob, filename))
                                         .catch(err => alert("Word download failed: " + (err?.message || String(err))));
@@ -17895,6 +17952,7 @@ function PrintLabelsPage({ onBack }) {
    temp log prefilled for that exact location, so every kitchen can self-report
    and the inspectors see it live ─────────────────────────────────────────── */
 function KitchenQrPage({ onBack, onPrintLabels }) {
+  const [showLicList, setShowLicList] = useState(false);
   const [kitchens, setKitchens] = useState([]); // { id, site, unit, floor }
   const [qrUrls, setQrUrls] = useState({});
   const [loading, setLoading] = useState(true);
@@ -18152,6 +18210,37 @@ function KitchenQrPage({ onBack, onPrintLabels }) {
           </ol>
         </div>
 
+        {/* License health — is every stand good to operate? (INDEX 2026) */}
+        {IS_DEFAULT_VENUE() && (() => {
+          const active = LICENSE_REGISTRY.filter(r => r.status === "ACTIVE" && r.license);
+          const pending = LICENSE_REGISTRY.filter(r => r.status === "REQUESTED" || r.status === "NEEDED");
+          const fileRef = LICENSE_REGISTRY.filter(r => r.status === "FILE_REF");
+          return (
+            <div className="licHealth">
+              <div className="licHealthHead">
+                <span style={{ fontWeight: 800, fontSize: "0.95rem" }}>🪪 License health</span>
+                <span className="licChip licChipOk">✓ {active.length} active</span>
+                <span className="licChip licChipReq">⏳ {pending.filter(r => r.status === "REQUESTED").length} requested</span>
+                <span className="licChip licChipNeed">⚠ {pending.filter(r => r.status === "NEEDED").length} need license</span>
+                {fileRef.length > 0 && <span className="licChip licChipRef">📄 {fileRef.length} file ref</span>}
+                <button type="button" className="licToggle" onClick={() => setShowLicList(v => !v)}>{showLicList ? "Hide" : "Show"} stands without a license</button>
+              </div>
+              {showLicList && (
+                <div className="licList">
+                  {pending.map((r, i) => (
+                    <div key={i} className="licRow">
+                      <span className={`licChip ${r.status === "REQUESTED" ? "licChipReq" : "licChipNeed"}`}>{r.status === "REQUESTED" ? "⏳ requested" : "⚠ need"}</span>
+                      <span style={{ fontWeight: 700 }}>{r.type === "P" ? "P" : ""}{r.unit} · {r.name}</span>
+                      {r.note && <span style={{ fontSize: "0.72rem", color: "var(--ink-500)" }}>— {r.note}</span>}
+                    </div>
+                  ))}
+                  <div style={{ fontSize: "0.72rem", color: "var(--ink-400)", marginTop: 6 }}>Source: INDEX_LICENSES_HR_STADIUM_2026 · NEW 2026 sheet. These stands cannot auto-fill a license on the inspection form until one is issued.</div>
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
         {/* Add + search */}
         <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="🔍 Search kitchens…"
@@ -18269,7 +18358,7 @@ function KitchenQrPage({ onBack, onPrintLabels }) {
                   {qrUrls[k.id]
                     ? <img src={qrUrls[k.id]} alt="" width={150} height={150} />
                     : <div style={{ width: 150, height: 150, margin: "0 auto", background: "var(--surface-2)", borderRadius: 6 }} />}
-                  <div style={{ fontSize: "0.72rem", color: "var(--ink-500)", marginTop: 6 }}>{[k.locType, k.floor, k.license ? `Lic. ${k.license}` : ""].filter(Boolean).join(" · ") || "Scan to log temps & problems"}</div>
+                  <div style={{ fontSize: "0.72rem", color: "var(--ink-500)", marginTop: 6 }}>{[k.locType, k.floor, k.license ? `Lic. ${k.license}` : ""].filter(Boolean).join(" · ") || "Scan to log temps & problems"}{!k.license && LICENSE_REGISTRY.some(r => normUnit(r.unit) === normUnit(k.unit) && (r.status === "NEEDED" || r.status === "REQUESTED")) && <span className="licChip licChipNeed" style={{ marginLeft: 6 }}>⚠ no license yet</span>}</div>
                   {!isComplete(k) && (
                     <div style={{ fontSize: "0.7rem", color: "#92400E", background: "var(--tint-amber-1, #fffbeb)", border: "1px solid #fde68a", borderRadius: 6, padding: "3px 8px", marginTop: 6, display: "inline-block", fontWeight: 700 }}>
                       Missing: {[!normUnit(k.unit) && "unit #", !(k.license || "").trim() && "license"].filter(Boolean).join(", ")} — tap ✎
@@ -25129,9 +25218,19 @@ export default function App() {
   const [liveHaccpSubs, setLiveHaccpSubs] = useState([]);
   useEffect(() => {
     if (!savedReportId) return;
-    const unsub = subscribeHaccpForReport(savedReportId, setLiveHaccpSubs);
-    return unsub;
-  }, [savedReportId]);
+    // Logs linked to this report (live) + logs scanned from the stand poster
+    // today for the same unit/site (polled) — the inspector sees the
+    // supervisor's entry inside the open inspection either way.
+    let byId = [];
+    let byStand = [];
+    const rec = { id: savedReportId, siteNumber, siteName, inspectionDate };
+    const merge = () => setLiveHaccpSubs(haccpSubsForRecord(rec, byStand, byId));
+    const unsub = subscribeHaccpForReport(savedReportId, subs => { byId = subs; merge(); });
+    const poll = () => loadHaccpSubmissions().then(all => { byStand = all || []; merge(); }).catch(() => {});
+    poll();
+    const iv = setInterval(poll, 8000);
+    return () => { unsub(); clearInterval(iv); };
+  }, [savedReportId, siteNumber, siteName, inspectionDate]);
   const [reportLang, setReportLangState] = useState(() => localStorage.getItem(LANG_KEY) || "en");
   const [showEodPrompt, setShowEodPrompt] = useState(false);
   const rawNotesRef = useRef(null);
@@ -26990,8 +27089,14 @@ export default function App() {
                   Restaurant License # <span style={{ color: "#ef4444", fontWeight: 700 }}>*</span>
                   {(() => {
                     const mem = getAutofillMemory();
-                    return siteName && mem.siteMap?.[siteName]?.restaurantLicense && restaurantLicense !== "NO LICENSE"
-                      ? <span style={{ marginLeft: 6, fontSize: "0.7rem", background: "#d1fae5", color: "#065f46", padding: "1px 7px", borderRadius: 20, fontWeight: 700 }}>Remembered</span>
+                    if (siteName && mem.siteMap?.[siteName]?.restaurantLicense && restaurantLicense !== "NO LICENSE")
+                      return <span style={{ marginLeft: 6, fontSize: "0.7rem", background: "#d1fae5", color: "#065f46", padding: "1px 7px", borderRadius: 20, fontWeight: 700 }}>Remembered</span>;
+                    // INDEX 2026: this unit is still waiting on a license
+                    const pend = !restaurantLicense && IS_DEFAULT_VENUE() && normUnit(siteNumber)
+                      ? LICENSE_REGISTRY.find(r => normUnit(r.unit) === normUnit(siteNumber) && (r.status === "REQUESTED" || r.status === "NEEDED") && r.type === (licTypeForLocationType(locationType) || r.type))
+                      : null;
+                    return pend
+                      ? <span className="licChip licChipNeed" style={{ marginLeft: 6 }}>{pend.status === "REQUESTED" ? "⏳ License requested — not issued yet" : "⚠ No license on file for this stand"}</span>
                       : null;
                   })()}
                 </span>
