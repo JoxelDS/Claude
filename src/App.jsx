@@ -3221,8 +3221,12 @@ function normUnit(u) {
 // Stadium stands encode their floor in the first digit: 1xx = Floor 1,
 // 2xx = Floor 2, 3xx = Floor 3 ("345 A" → Floor 3). Kitchens like "M17" and
 // non-stand units return "" so the manual floor is left alone.
+// Kitchens that don't follow the digit rule — explicit floors
+const UNIT_FLOOR_OVERRIDES = { M47: "Floor 2" };
 function floorFromUnit(u) {
-  const m = normUnit(u).match(/^([123])\d{2}(?!\d)/);
+  const n = normUnit(u);
+  if (UNIT_FLOOR_OVERRIDES[n]) return UNIT_FLOOR_OVERRIDES[n];
+  const m = n.match(/^([123])\d{2}(?!\d)/);
   return m ? `Floor ${m[1]}` : "";
 }
 
