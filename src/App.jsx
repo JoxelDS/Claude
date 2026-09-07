@@ -3218,6 +3218,13 @@ function issueTypeStyle(itype) {
 function normUnit(u) {
   return String(u ?? "").trim().toUpperCase().replace(/\s+/g, "");
 }
+// Stadium stands encode their floor in the first digit: 1xx = Floor 1,
+// 2xx = Floor 2, 3xx = Floor 3 ("345 A" → Floor 3). Kitchens like "M17" and
+// non-stand units return "" so the manual floor is left alone.
+function floorFromUnit(u) {
+  const m = normUnit(u).match(/^([123])\d{2}(?!\d)/);
+  return m ? `Floor ${m[1]}` : "";
+}
 
 function buildActionItems({ inspection, rawNotes, foodTemps: ftArg, foodTempNames: fnArg, foodTempCorrections: fcArg, foodTempSubmitted: fsArg }) {
   const items = [];
@@ -7751,7 +7758,7 @@ function computeFollowups(history, venueSettings, clearedLocal = {}) {
       catLastSeen[key].count++;
       if (ts > catLastSeen[key].ts) {
         catLastSeen[key].ts = ts; catLastSeen[key].dateStr = rec.inspectionDate; catLastSeen[key].unit = (rec.siteNumber || "").trim();
-        catLastSeen[key].floor = (rec.floor || "").trim();
+        catLastSeen[key].floor = floorFromUnit(rec.siteNumber) || (rec.floor || "").trim();
         // Keep the latest issue description + inspector notes so the
         // follow-up card can show WHAT the problem actually is.
         const afterColon = (item.issue || "").split(":").slice(1).join(":").trim();
@@ -8299,7 +8306,7 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                     <input value={qpSite} onChange={e => setQpSite(e.target.value)} placeholder="Stand / kitchen name"
                       style={{ flex: "2 1 150px", padding: "7px 10px", borderRadius: 9, border: "1.5px solid var(--sdx-gray-200)", fontSize: "16px" }} />
-                    <input value={qpUnit} onChange={e => setQpUnit(e.target.value)} placeholder="Unit #"
+                    <input value={qpUnit} onChange={e => { setQpUnit(e.target.value); const fl = floorFromUnit(e.target.value); if (fl) setQpFloor(fl); }} placeholder="Unit #"
                       style={{ flex: "1 1 70px", maxWidth: 110, padding: "7px 10px", borderRadius: 9, border: "1.5px solid var(--sdx-gray-200)", fontSize: "16px" }} />
                     <input value={qpFloor} onChange={e => setQpFloor(e.target.value)} placeholder="Floor"
                       style={{ flex: "1 1 70px", maxWidth: 110, padding: "7px 10px", borderRadius: 9, border: "1.5px solid var(--sdx-gray-200)", fontSize: "16px" }} />
@@ -17726,7 +17733,7 @@ function PrintLabelsPage({ onBack }) {
                 g.items.push(it);
                 // Latest non-empty name/floor wins for the header
                 if (it.venueName) g.site = it.venueName;
-                if (it.floor && !g.floor) g.floor = it.floor;
+                const fl = floorFromUnit(it.unit) || it.floor; if (fl && !g.floor) g.floor = fl;
               }
               const groups = Object.values(byKey).sort((a, b) => {
                 if (a.unit && b.unit) return a.unit.localeCompare(b.unit, undefined, { numeric: true });
@@ -17849,7 +17856,7 @@ function PrintLabelsPage({ onBack }) {
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                       <div>
                         <span style={lbl}>Unit #</span>
-                        <input style={inp} value={addForm.unit} onChange={set("unit")} placeholder="114" />
+                        <input style={inp} value={addForm.unit} onChange={e => { const v = e.target.value; const fl = floorFromUnit(v); setAddForm(f => ({ ...f, unit: v, ...(fl ? { floor: fl } : {}) })); }} placeholder="114" />
                       </div>
                       <div>
                         <span style={lbl}>Floor</span>
@@ -17990,7 +17997,7 @@ function KitchenQrPage({ onBack, onPrintLabels }) {
     ["Seed", "332", "Subcontractor"], ["Cantaloupe", "336"], ["Bar", "342"], ["Little Caesar", "345"],
     ["Aifi", "347 A"], ["Sol Cubano", "350"], ["Shawarma Gyros / Sub", "350", "Portable - Subcontractor"],
     ["Crisppi Chicken", ""],
-  ].map(([site, unit, locType]) => ({ id: unit ? `u:${normUnit(unit)}` : `s:${site.toLowerCase()}`, site, unit, floor: "", locType: locType || "Concession" })) : [];
+  ].map(([site, unit, locType]) => ({ id: unit ? `u:${normUnit(unit)}` : `s:${site.toLowerCase()}`, site, unit, floor: floorFromUnit(unit), locType: locType || "Concession" })) : [];
 
   useEffect(() => {
     (async () => {
@@ -18017,7 +18024,7 @@ function KitchenQrPage({ onBack, onPrintLabels }) {
         const id = kidOf(k.site, k.unit);
         if (regHidden[rid] || regHidden[id] || seen.has(id)) continue;
         seen.add(id);
-        list.push({ id, site: k.site || "", unit: k.unit || "", floor: k.floor || "", locType: k.locType || "", license: k.license || "" });
+        list.push({ id, site: k.site || "", unit: k.unit || "", floor: floorFromUnit(k.unit) || k.floor || "", locType: k.locType || "", license: k.license || "" });
       }
       for (const k of SEED_KITCHENS) {
         if (isHidden(k) || seen.has(k.id)) continue;
@@ -18062,7 +18069,7 @@ function KitchenQrPage({ onBack, onPrintLabels }) {
         }
       } catch {}
       list.sort((a, b) => a.site.localeCompare(b.site) || a.unit.localeCompare(b.unit, undefined, { numeric: true }));
-      setKitchens(list);
+      setKitchens(((l) => l.map(x => ({ ...x, floor: floorFromUnit(x.unit) || x.floor || "" })))(list));
       setLoading(false);
     })();
   }, []);
@@ -18105,7 +18112,7 @@ function KitchenQrPage({ onBack, onPrintLabels }) {
   function saveKitchenEdit(oldK) {
     const site = editForm.site.trim();
     if (!site) return;
-    const unit = editForm.unit.trim(), floor = editForm.floor.trim(), license = editForm.license.trim();
+    const unit = editForm.unit.trim(), floor = floorFromUnit(unit) || editForm.floor.trim(), license = editForm.license.trim();
     const newId = unit ? `u:${normUnit(unit)}` : `s:${site.toLowerCase()}`;
     const updated = { id: newId, site, unit, floor, license, locType: oldK.locType || "" };
     setKitchens(prev => prev.map(k => k.id === oldK.id ? updated : k));
@@ -18249,7 +18256,7 @@ function KitchenQrPage({ onBack, onPrintLabels }) {
         <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
           <input value={addSite} onChange={e => setAddSite(e.target.value)} placeholder="Add kitchen: name (e.g. Tacotomia)"
             style={{ flex: "2 1 180px", padding: "0.55rem 0.75rem", borderRadius: 8, border: "1.5px solid var(--sdx-gray-200)", fontSize: "0.88rem", background: "var(--surface-1)", color: "var(--ink-900)" }} />
-          <input value={addUnit} onChange={e => setAddUnit(e.target.value)} placeholder="Unit #"
+          <input value={addUnit} onChange={e => { setAddUnit(e.target.value); const fl = floorFromUnit(e.target.value); if (fl) setAddFloor(fl); }} placeholder="Unit #"
             style={{ flex: "1 1 80px", padding: "0.55rem 0.75rem", borderRadius: 8, border: "1.5px solid var(--sdx-gray-200)", fontSize: "0.88rem", background: "var(--surface-1)", color: "var(--ink-900)" }} />
           <input value={addFloor} onChange={e => setAddFloor(e.target.value)} placeholder="Floor"
             style={{ flex: "1 1 80px", padding: "0.55rem 0.75rem", borderRadius: 8, border: "1.5px solid var(--sdx-gray-200)", fontSize: "0.88rem", background: "var(--surface-1)", color: "var(--ink-900)" }} />
@@ -23006,7 +23013,7 @@ function HaccpPortal() {
                 </label>
                 <label className="field" style={{ margin: 0, marginTop: 10 }}>
                   <span className="fieldLabel">Unit / Store Number <span className="hint" style={{ fontWeight: 400 }}>(optional)</span></span>
-                  <input className="input" value={locUnit} onChange={e => setLocUnit(e.target.value)}
+                  <input className="input" value={locUnit} onChange={e => { setLocUnit(e.target.value); const fl = floorFromUnit(e.target.value); if (fl) setLocFloor(fl); }}
                     placeholder="e.g. Unit 4" />
                 </label>
                 <label className="field" style={{ margin: 0, marginTop: 10 }}>
@@ -25285,7 +25292,7 @@ export default function App() {
     if (p.has("date"))      setInspectionDate(p.get("date"));
     // Stand QR opened by an inspector: floor + location type come from the poster too
     if (QR_OPEN_AS_INSPECTOR) {
-      if (p.get("floor")) setFloor(p.get("floor"));
+      { const fl = floorFromUnit(p.get("unit")) || p.get("floor"); if (fl) setFloor(fl); }
       if (p.get("loctype")) { try { setLocationType(p.get("loctype")); } catch {} }
       // License from the official registry, same as typing the unit by hand
       try {
@@ -27061,6 +27068,8 @@ export default function App() {
                 <input className="input" list="siteNumberSuggestions" value={siteNumber} onBlur={(e) => smartFieldCorrect("field-siteNumber", e.target.value)} onChange={(e) => {
                   const val = e.target.value;
                   setSiteNumber(val);
+                  // Floor from the unit number (345 → Floor 3)
+                  { const fl = floorFromUnit(val); if (fl) setFloor(fl); }
                   // Auto-fill site name + license from unit number (Hard Rock Stadium only)
                   if (IS_DEFAULT_VENUE()) {
                     // Official registry first: unit + location type picks the right
