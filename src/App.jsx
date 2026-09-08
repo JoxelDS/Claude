@@ -17605,11 +17605,11 @@ function PrintLabelsPage({ onBack }) {
   function printSelected(itemsOverride) {
     const items = Array.isArray(itemsOverride) ? itemsOverride : equipItems.filter(i => isSelected(i.uid));
     if (items.length === 0) return;
-    const logoUrl = resolveLogoDark().startsWith("data:") ? resolveLogoDark() : window.location.origin + resolveLogoDark().replace(window.location.origin, "");
+    const logoUrl = resolveLogoWhite().startsWith("data:") ? resolveLogoWhite() : window.location.origin + resolveLogoWhite().replace(window.location.origin, "");
     const esc = (s) => String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;");
     const cardHtml = item => `
       <div class="lc">
-        <div class="lh"><span>${esc(item.label)}</span><img class="lhlogo" src="${logoUrl}" alt="" /></div>
+        <div class="lh"><span class="lhn">${esc(item.label)}</span><img class="lhlogo" src="${logoUrl}" alt="Sodexo Live!" /></div>
         <div class="lb">
           <img class="lqr" src="${qrDataUrls[item.uid] || ""}" width="96" height="96" />
           <div class="li">
@@ -17635,8 +17635,10 @@ function PrintLabelsPage({ onBack }) {
       .lc { flex:1 1 0; min-width:0; border:1.5px solid #9ca3af; border-radius:8px; overflow:hidden; break-inside:avoid; page-break-inside:avoid; background:#fff; }
       .lc-spacer { flex:1 1 0; }
       .lh { background:${(/^#[0-9a-fA-F]{6}$/.test(_vs.primaryColor || "") ? _vs.primaryColor : "#2A295C")}; color:#fff; padding:6px 10px; display:flex; align-items:center; justify-content:space-between; gap:6px; }
-      .lh span { font-weight:800; font-size:11px; }
-      .lhlogo { height:14px; filter:brightness(0) invert(1); }
+      .lh { min-height:34px; gap:10px; }
+      .lhn { font-weight:800; font-size:10.5px; line-height:1.2; flex:1; min-width:0; }
+      .lhlogo { height:22px; width:auto; flex-shrink:0; display:block; }
+      .ltc { white-space:nowrap; flex-shrink:0; }
       .lb { display:flex; gap:8px; padding:8px 10px; align-items:flex-start; }
       .lqr { display:block; }
       .li { flex:1; min-width:0; }
@@ -18051,7 +18053,7 @@ function PrintLabelsPage({ onBack }) {
                   {/* Header band: equipment name */}
                   <div className="labelHead">
                     <span className="labelHeadName">{item.label}</span>
-                    <img src={resolveLogoWhite()} alt="" style={{ height: 14, marginLeft: "auto" }} />
+                    <img src={resolveLogoWhite()} alt="Sodexo Live!" style={{ height: 22, width: "auto", marginLeft: "auto", flexShrink: 0 }} />
                   </div>
                   <div className="labelBody">
                     {/* QR code */}
