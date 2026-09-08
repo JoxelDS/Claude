@@ -17517,6 +17517,8 @@ function PrintLabelsPage({ onBack }) {
   const [addSaving, setAddSaving] = useState(false);
   const [historyTag, setHistoryTag] = useState(null); // assetTag for the 📈 history modal
   const [labelSearch, setLabelSearch] = useState("");
+  const [standsNoEquip, setStandsNoEquip] = useState([]); // stands whose latest report has no cold unit → add tomorrow
+  const [showToAdd, setShowToAdd] = useState(false);
 
   const registryRef = () => doc(db, "venues", VENUE_ID, "sharedMemory", "equipmentRegistry");
 
@@ -17594,8 +17596,14 @@ function PrintLabelsPage({ onBack }) {
   }
 
   // Print via a dedicated clean window — immune to app theme/layout (fixes blank pages)
-  function printSelected() {
-    const items = equipItems.filter(i => isSelected(i.uid));
+  // QR images are generated async — refuse to print blanks
+  function qrReady(items) {
+    const missing = items.filter(i => !qrDataUrls[i.uid]);
+    if (missing.length) { alert(`Still generating ${missing.length} QR code${missing.length !== 1 ? "s" : ""} — try again in a moment.`); return false; }
+    return true;
+  }
+  function printSelected(itemsOverride) {
+    const items = Array.isArray(itemsOverride) ? itemsOverride : equipItems.filter(i => isSelected(i.uid));
     if (items.length === 0) return;
     const logoUrl = resolveLogoDark().startsWith("data:") ? resolveLogoDark() : window.location.origin + resolveLogoDark().replace(window.location.origin, "");
     const esc = (s) => String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;");
@@ -17709,27 +17717,52 @@ function PrintLabelsPage({ onBack }) {
         }
         const seen = new Set();
         const items = [];
-        for (const rec of recList) {
+        // The LATEST report of each stand is the truth for its equipment
+        // (numbers don't lie: identity = unit number). Empty template rows
+        // (never filled in) get no label. Units without a real asset tag get a
+        // stable one: SDX-CL-<UNIT>-<n> / SDX-FZ-<UNIT>-<n>, numbered by label
+        // — the same rule the inventory export uses, so every QR is unique.
+        const sortedRecs = [...recList].filter(r => !r.quickProblem).sort((a, b) => (b.savedAt || "").localeCompare(a.savedAt || ""));
+        const standDone = new Set();
+        const standsNoEquip = [];
+        const noEquipSeen = new Set();
+        const isRealUnit = v => !!(v && !v.notApplicable && (String(v.tempF ?? "").trim() || v.brand || (v.assetTag && String(v.assetTag).trim()) || v.count || v.label || (v.status && v.status !== "OK") || (v.notes || "").trim() || (v.photos || []).length));
+        const validTag = t => { const x = String(t || "").trim().toUpperCase(); return x && !/^CUSTOM_/.test(x) && !COLD_EQUIPMENT[x.toLowerCase()] && !BAR_COLD_EQUIPMENT[x.toLowerCase()] && x !== "COOLERS" && x !== "FREEZER" ? x : ""; };
+        for (const rec of sortedRecs) {
           // The inspection date is the day the walk happened; savedAt is only
           // when the record was written (edits move it) — prefer the former.
           const recDay = (rec.inspectionDate || rec.savedAt || "").slice(0, 10);
           const recMs = Date.parse(recDay ? recDay + "T12:00:00" : "") || 0;
           if (cutoffMs && recMs < cutoffMs) continue; // before the cutoff — skip
           if (cutoffDay && cutoffMode === "on" && recDay !== cutoffDay) continue; // only-that-date mode
+          const standKey = (rec.siteNumber || "").trim() ? `u:${normUnit(rec.siteNumber)}` : `s:${(rec.siteName || "").trim().toLowerCase()}`;
+          if (standDone.has(standKey)) continue; // older report of a stand we already have
+          standDone.add(standKey);
           const equip = rec.inspection?.equipment || {};
           if (!siteName && rec.siteName) setSiteName(rec.siteName);
-          for (const [key, val] of Object.entries(equip)) {
-            // Labels are for cold equipment (coolers/freezers) — the units that
-            // carry brand/location details — plus anything explicitly tagged.
+          const realEntries = Object.entries(equip).filter(([key, val]) => {
             const isCold = !!(COLD_EQUIPMENT[key] || BAR_COLD_EQUIPMENT[key] || detectColdType(val?.label));
-            const hasTag = !!(val?.assetTag && String(val.assetTag).trim());
-            if (!isCold && !hasTag) continue;
-            // Dedupe by asset tag, or key+site for untagged units so the same
-            // cooler type at two locations still gets its own label
-            const dedupeId = val?.assetTag || `${key}@@${rec.siteName || ""}`;
+            const hasTag = !!validTag(val?.assetTag);
+            return (isCold || hasTag) && isRealUnit(val);
+          });
+          if (realEntries.length === 0) {
+            const nk = standKey;
+            if (!noEquipSeen.has(nk) && (rec.siteName || rec.siteNumber)) { noEquipSeen.add(nk); standsNoEquip.push({ venueName: rec.siteName || "", unit: (rec.siteNumber || "").trim(), floor: floorFromUnit(rec.siteNumber) || (rec.floor || "").trim(), locType: rec.locationType || "", last: recDay }); }
+            continue;
+          }
+          const cleanLbl = (key, val) => String(val?.label || COLD_EQUIPMENT[key]?.label || BAR_COLD_EQUIPMENT[key]?.label || key).replace(/\s*(❄|🧊)\s*(Cooler|Freezer)\s*$/u, "").trim();
+          realEntries.sort((a, b) => cleanLbl(a[0], a[1]).localeCompare(cleanLbl(b[0], b[1])));
+          const counters = { CL: 0, FZ: 0 };
+          const unitN = normUnit(rec.siteNumber) || (rec.siteName || "").replace(/[^A-Z0-9]/gi, "").toUpperCase().slice(0, 8) || "X";
+          for (const [key, val] of realEntries) {
+            const lbl = cleanLbl(key, val);
+            const typ = (/freez|frz/i.test(lbl) || ["freezer", "walkInFreezer", "doubleDoorFreezer"].includes(key)) ? "FZ" : "CL";
+            let tag = validTag(val?.assetTag);
+            if (!tag) { counters[typ]++; tag = `SDX-${typ}-${unitN}-${counters[typ]}`; }
+            const dedupeId = tag;
             if (seen.has(dedupeId)) continue;
             seen.add(dedupeId);
-            const id = val?.assetTag || key;
+            const id = tag;
             // Resolve a human-readable label:
             //   1. val.label (custom items always store their label)
             //   2. COLD_EQUIPMENT or BAR_COLD_EQUIPMENT map label (standard built-in items)
@@ -17755,9 +17788,8 @@ function PrintLabelsPage({ onBack }) {
               inspectionDate: rec.savedAt ? new Date(rec.savedAt).toLocaleDateString([], { year: "numeric", month: "short", day: "numeric" }) : "",
             });
           }
-          // Keep scanning recent inspections so every location's cold
-          // equipment is available (deduped by asset tag / key+site)
         }
+        setStandsNoEquip(standsNoEquip.sort((a, b) => (a.unit || "").localeCompare(b.unit || "", undefined, { numeric: true })));
         // Merge manually-created equipment (always shown) and apply removals
         for (const [tag, it] of Object.entries(regItems)) {
           const uid = `reg_${tag}`;
@@ -17765,6 +17797,12 @@ function PrintLabelsPage({ onBack }) {
           if (seen.has(tag)) continue; // already present from an inspection
           seen.add(tag);
           items.unshift({ ...it, uid, floor: floorFromUnit(it.unit) || it.floor || "" });
+        }
+        if (items.length === 0 && cutoffMs && recList.length > 0 && cutoffDate !== "") {
+          // Every stand's latest report is older than the cutoff — showing
+          // nothing helps nobody. Fall back to all dates (the picker shows it).
+          setCutoffDate("");
+          return;
         }
         setEquipItems(items.filter(i => !hidden[i.uid]));
         // Every label we can print is remembered by tag → old tag-only labels resolve everywhere
@@ -17967,7 +18005,15 @@ function PrintLabelsPage({ onBack }) {
               if (groups.length === 0 && q) {
                 return <div style={{ fontSize: "0.84rem", color: "var(--ink-400)", fontStyle: "italic", padding: "14px 4px" }}>No equipment matches “{q}”.</div>;
               }
-              return groups.map(grp => {
+              // Floors: 1 → 2 → 3 → Ground → others
+              const FLOOR_ORDER = ["Floor 1", "Floor 2", "Floor 3", "Ground Level"];
+              const floorOf = g => g.floor || (g.items.find(i => i.floor)?.floor) || "";
+              const floorRank = f => { const i = FLOOR_ORDER.indexOf(f); return i === -1 ? 99 : i; };
+              const floorsMap = {};
+              for (const g of groups) { const f = floorOf(g) || "No floor"; (floorsMap[f] = floorsMap[f] || []).push(g); }
+              const floors = Object.keys(floorsMap).sort((a, b) => floorRank(a) - floorRank(b) || a.localeCompare(b));
+              const totalUnits = visible.length;
+              const renderGroup = grp => {
                 const groupItems = grp.items;
                 const uids = groupItems.map(i => i.uid);
                 const allIn = uids.every(u => selected.has(u));
@@ -18047,7 +18093,54 @@ function PrintLabelsPage({ onBack }) {
                     </div>
                   </div>
                 );
-              });
+              };
+              return (
+                <>
+                  {/* Floor summary — how many labels per floor, print a whole floor at once */}
+                  <div className="printHide lblFloorBar">
+                    <span className="lblFloorTotal">🏷 {totalUnits} label{totalUnits !== 1 ? "s" : ""} · {groups.length} stand{groups.length !== 1 ? "s" : ""}</span>
+                    {floors.map(f => {
+                      const its = floorsMap[f].flatMap(g => g.items);
+                      return (
+                        <button key={f} type="button" className="lblFloorChip" title={`Print all ${its.length} labels on ${f}`}
+                          onClick={() => { if (qrReady(its)) printSelected(its); }}>
+                          🖨 {f}: {its.length}
+                        </button>
+                      );
+                    })}
+                    {standsNoEquip.length > 0 && (
+                      <button type="button" className="lblFloorChip lblToAdd" onClick={() => setShowToAdd(v => !v)}>
+                        ⚠ {standsNoEquip.length} stands with no cooler/freezer yet {showToAdd ? "▾" : "▸"}
+                      </button>
+                    )}
+                  </div>
+                  {showToAdd && standsNoEquip.length > 0 && (
+                    <div className="printHide lblToAddPanel">
+                      <div style={{ fontWeight: 800, fontSize: "0.82rem", marginBottom: 6 }}>Stands to add tomorrow — tap ＋ to register their coolers/freezers (name, unit and floor pre-filled)</div>
+                      {standsNoEquip.map((st, i) => (
+                        <div key={i} className="lblToAddRow">
+                          <span style={{ fontWeight: 700 }}>{st.venueName || "—"}{st.unit ? ` · #${st.unit}` : ""}</span>
+                          <span style={{ color: "var(--ink-500)", fontSize: "0.74rem" }}>{[st.floor, st.locType, st.last ? `last report ${st.last}` : ""].filter(Boolean).join(" · ")}</span>
+                          <button type="button" className="lblFloorChip" style={{ marginLeft: "auto" }}
+                            onClick={() => { setAddForm(f => ({ ...f, venueName: st.venueName || "", unit: st.unit || "", floor: st.floor || "", label: "", assetTag: "" })); setShowAdd(true); window.scrollTo({ top: 0, behavior: "smooth" }); }}>
+                            ＋ Add cooler / freezer
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {floors.map(f => (
+                    <div key={f}>
+                      <div className="printHide lblFloorHead">
+                        <span>🏢 {f}</span>
+                        <span className="lblFloorCount">{floorsMap[f].flatMap(g => g.items).length} labels · {floorsMap[f].length} stands</span>
+                        <button type="button" className="lblFloorChip" onClick={() => { const its = floorsMap[f].flatMap(g => g.items); if (qrReady(its)) printSelected(its); }}>🖨 Print {f}</button>
+                      </div>
+                      {floorsMap[f].map(renderGroup)}
+                    </div>
+                  ))}
+                </>
+              );
             })()}
           </>
         )}
@@ -20244,6 +20337,15 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
     const lastTxt = last ? `${last.tempF}°F · ${last.date ? new Date(last.date + "T12:00:00").toLocaleDateString([], { month: "short", day: "numeric" }) : ""}`.trim() : "";
     if (lastTxt) setLastByTag(p => ({ ...p, [tag]: lastTxt }));
     let key = inForm;
+    // Carried-over unit with the same name but no tag yet → same physical
+    // cooler: adopt the tag instead of creating a duplicate.
+    if (!key && meta?.label) {
+      const want = String(meta.label).replace(/\s*(❄|🧊)\s*(Cooler|Freezer)\s*$/u, "").trim().toLowerCase();
+      for (const [k, v] of Object.entries(inspection?.[sectionKey] || {})) {
+        const have = String(v?.label || COLD_EQUIPMENT[k]?.label || "").replace(/\s*(❄|🧊)\s*(Cooler|Freezer)\s*$/u, "").trim().toLowerCase();
+        if (v && !v.notApplicable && !String(v.assetTag || "").trim() && have && have === want) { key = k; setInspection(prev => setAtPath(prev, [sectionKey, k], { ...(getAtPath(prev, [sectionKey, k]) || {}), assetTag: tag })); break; }
+      }
+    }
     // Name: from the label's QR / registry / history; else typed from the tag
     // prefix so a freezer is never called a cooler.
     const tagType = coldTypeFromTag(tag);
