@@ -17750,8 +17750,8 @@ function PrintLabelsPage({ onBack }) {
               unit: (rec.siteNumber || "").trim(),
               floor: floorFromUnit(rec.siteNumber) || (rec.floor || "").trim(),
               locType: (rec.locationType || "").trim(),
-              location: (val?.location || "").trim(),
-              brandName: (val?.brand || "").trim(),
+              location: (val?.location || val?.kitchenArea || "").trim(),
+              brandName: (val?.brand || val?.brandName || "").trim(),
               inspectionDate: rec.savedAt ? new Date(rec.savedAt).toLocaleDateString([], { year: "numeric", month: "short", day: "numeric" }) : "",
             });
           }
