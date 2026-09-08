@@ -16888,7 +16888,7 @@ function QrScanModal({ title, hint, onCode, onClose }) {
         {hint && <div className="qrScanHint">{hint}</div>}
         {err && <div className="qrScanErr">{err}</div>}
         <div className="qrScanActions">
-          <label className="btn btnGhost btnSmall" style={{ cursor: "pointer" }}>
+          <label className="qrScanPhotoBtn">
             📸 Take a photo of the QR
             <input type="file" accept="image/*" capture="environment" className="fileInput" onChange={e => { if (e.target.files?.[0]) fromFile(e.target.files[0]); e.target.value = ""; }} />
           </label>
