@@ -7779,3 +7779,4 @@ html[data-theme="dark"] .fuStOnWaiting, html[data-theme="black"] .fuStOnWaiting 
 .qrScanFlash { background: #ecfdf5; border-bottom: 3px solid #10b981; padding: 0.6rem 1.25rem; font-weight: 700; font-size: 0.88rem; color: #065f46; }
 [data-theme="black"] .qrScanFlash, [data-theme="dark"] .qrScanFlash, [data-theme="noir"] .qrScanFlash { background: rgba(16,185,129,0.14); color: #6ee7b7; }
 .qrScanPhotoBtn { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; padding: 0.5rem 0.9rem; border-radius: 10px; border: 1.5px solid var(--sdx-gray-300, #cbd5e1); background: var(--surface-2); color: var(--ink-700); font-weight: 700; font-size: 0.84rem; }
+.equipScanNote { position: sticky; bottom: 12px; z-index: 5; margin: 8px 0; padding: 9px 12px; border-radius: 10px; background: #2A295C; color: #fff; font-weight: 800; font-size: 0.84rem; box-shadow: 0 6px 18px rgba(0,0,0,0.25); }

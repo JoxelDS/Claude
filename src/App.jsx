@@ -247,6 +247,49 @@ function extractEquipTag(raw) {
   }
   return s;
 }
+// Instant equipment lookup by asset tag — current form first, then the shared
+// equipment registry (warmed once), then the local history cache. Never waits
+// on the network, so a scan can open the unit immediately.
+let _equipRegCache = null; // { [TAG]: { label, brandName, location, venueName, unit } }
+async function warmEquipRegistry() {
+  if (_equipRegCache) return _equipRegCache;
+  try {
+    const snap = await getDoc(doc(db, "venues", VENUE_ID, "sharedMemory", "equipmentRegistry"));
+    _equipRegCache = (snap.exists() ? (snap.data() || {}).items : null) || {};
+  } catch { _equipRegCache = _equipRegCache || {}; }
+  return _equipRegCache;
+}
+function lookupEquipByTag(rawTag, inspection) {
+  const tag = extractEquipTag(rawTag).trim().toUpperCase();
+  if (!tag) return null;
+  const same = t => String(t || "").trim().toUpperCase() === tag;
+  // 1) already on this form
+  let inForm = null, meta = null, last = null;
+  for (const [k, v] of Object.entries(inspection?.equipment || {})) {
+    if (same(v?.assetTag)) { inForm = k; meta = { assetTag: v.assetTag, label: v.label || k, brand: v.brand || "", kitchenArea: v.kitchenArea || "" }; break; }
+  }
+  // 2) shared registry (manually created labels)
+  const reg = _equipRegCache || {};
+  for (const [t, it] of Object.entries(reg)) {
+    if (meta) break;
+    if (same(t) || same(it?.assetTag)) { meta = { assetTag: it.assetTag || t, label: it.label || "", brand: it.brandName || it.brand || "", kitchenArea: it.location || "" }; break; }
+  }
+  // 3) local history cache — newest first for the last reading
+  try {
+    const cached = JSON.parse(localStorage.getItem(`sdx_history_cache_${VENUE_ID}`) || "[]")
+      .slice().sort((a, b) => (b.savedAt || "").localeCompare(a.savedAt || ""));
+    for (const rec of cached) {
+      for (const [k, v] of Object.entries(rec.inspection?.equipment || {})) {
+        if (!same(v?.assetTag)) continue;
+        if (!meta) meta = { assetTag: v.assetTag, label: v.label || k, brand: v.brand || "", kitchenArea: v.kitchenArea || "" };
+        if (!last && String(v.tempF ?? "").trim() !== "") last = { tempF: v.tempF, date: rec.inspectionDate || (rec.savedAt || "").slice(0, 10), site: rec.siteName || "" };
+        if (meta && last) break;
+      }
+      if (meta && last) break;
+    }
+  } catch {}
+  return { tag, inForm, meta, last };
+}
 
 /* ── AES-256-GCM Encryption (localStorage fallback only) ── */
 const SALT_KEY           = `sdx_salt_${VENUE_ID}`;
@@ -20103,6 +20146,63 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
   const [newItemName, setNewItemName] = useState("");
   const [scanPath, setScanPath] = useState(null); // item path being filled via QR scan
   const [scanInitTag, setScanInitTag] = useState(null); // tag to auto-lookup (history mode)
+  const [fastScan, setFastScan] = useState(false);       // one-step label scanner (QrScanModal)
+  const [scanNote, setScanNote] = useState("");          // "❄ 2-Door Cooler — enter temp" flash
+  const [lastByTag, setLastByTag] = useState({});        // { TAG: "38°F · Aug 28" } → temp placeholder
+  useEffect(() => { if (sectionKey === "equipment") warmEquipRegistry().catch(() => {}); }, [sectionKey]);
+  // Open an item, scroll to it and put the cursor in its temperature box
+  function focusEquipItem(key) {
+    setOpen(true);
+    setExpandedDetails(p => ({ ...p, [key]: true }));
+    // The form is a stepper — make sure this section's panel is the visible one
+    try {
+      const panel = document.querySelector(`[data-guide-key="${key}"]`)?.closest("[data-guide-panel]");
+      const pid = panel ? Number(panel.getAttribute("data-guide-panel")) : (sectionKey === "equipment" ? 2 : NaN);
+      if (Number.isFinite(pid)) window.dispatchEvent(new CustomEvent("sdx-goto-guide-panel", { detail: { pid } }));
+    } catch {}
+    // Keep claiming focus for ~2.5 s — other effects (form autofocus) can
+    // steal it right after the scanner closes.
+    let tries = 0, scrolled = false;
+    const attempt = () => {
+      tries++;
+      try {
+        const el = document.querySelector(`[data-guide-key="${key}"]`);
+        const inp = el?.querySelector("input.tempInput") || el?.querySelector("input");
+        if (inp) {
+          if (!scrolled) { el.scrollIntoView({ behavior: "smooth", block: "center" }); scrolled = true; }
+          if (document.activeElement !== inp) inp.focus({ preventScroll: true });
+        }
+      } catch {}
+      if (tries < 12) setTimeout(attempt, 200);
+    };
+    setTimeout(attempt, 150);
+  }
+  // Scan → the unit is open with the temp field focused. No duplicates: a tag
+  // already on the form (carried over from the stand QR / last report) reuses
+  // that item; an unknown tag becomes a new cooler named after its tag.
+  function handleFastScan(raw) {
+    setFastScan(false);
+    const found = lookupEquipByTag(raw, inspection);
+    if (!found) return;
+    const { tag, inForm, meta, last } = found;
+    const lastTxt = last ? `${last.tempF}°F · ${last.date ? new Date(last.date + "T12:00:00").toLocaleDateString([], { month: "short", day: "numeric" }) : ""}`.trim() : "";
+    if (lastTxt) setLastByTag(p => ({ ...p, [tag]: lastTxt }));
+    let key = inForm;
+    if (!key) {
+      key = `custom_${Date.now()}`;
+      const label = meta?.label || `Scanned Cooler ${tag}`;
+      const cold = detectColdType(label) || { type: "cooler" };
+      setInspection(prev => setAtPath(prev, [sectionKey, key], {
+        status: "OK", notes: "", photos: [], count: "", equipSource: "Facility",
+        label, tempF: "", assetTag: meta?.assetTag || tag, brand: meta?.brand || "", kitchenArea: meta?.kitchenArea || "",
+        ...(cold ? {} : {}),
+      }));
+    }
+    const label = meta?.label || (inForm ? (inspection?.[sectionKey]?.[inForm]?.label || inForm) : `Scanned Cooler ${tag}`);
+    setScanNote(`${inForm ? "❄" : "＋"} ${label} · ${tag}${lastTxt ? ` — last ${lastTxt}` : ""} — enter the temperature`);
+    setTimeout(() => setScanNote(""), 6000);
+    focusEquipItem(`${sectionKey}.${key}`);
+  }
   const [newEquipType, setNewEquipType] = useState(null); // null = no type selected yet
   const [clSearchMap, setClSearchMap] = useState({}); // keyed by item path string → search query
   const [newMaintName, setNewMaintName] = useState("");
@@ -20366,10 +20466,10 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                                 </button>
                               )}
                               <button type="button" className="btn btnGhost btnSmall"
-                                title="Scan the unit's QR label — fills its info and shows past readings"
+                                title={existingTag ? "Scan the next cooler/freezer label" : "Scan this unit's QR label — fills its info and opens the temp box"}
                                 style={{ fontSize: "0.68rem", padding: "0.15rem 0.45rem", flexShrink: 0, whiteSpace: "nowrap" }}
-                                onClick={() => { setScanInitTag(null); setScanPath(it.path); }}>
-                                📷 Scan
+                                onClick={() => setFastScan(true)}>
+                                {existingTag ? "📷 Scan next unit" : "📷 Scan"}
                               </button>
                               {existingTag && (
                                 <button type="button" className="btn btnGhost btnSmall"
@@ -20427,7 +20527,7 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                           <div className="tempInputWrap" style={{ flex: "0 0 130px" }}>
                             <input className="input inputSmall tempInput" inputMode="numeric" value={tempVal}
                               onChange={(e) => setInspection((prev) => setAtPath(prev, it.path, { ...current, tempF: e.target.value }))}
-                              placeholder={coldInfo.type === "cooler" ? "38" : "10"} />
+                              placeholder={lastByTag[String(current.assetTag || "").toUpperCase()] ? `last ${lastByTag[String(current.assetTag || "").toUpperCase()]}` : (coldInfo.type === "cooler" ? "38" : "10")} />
                             <span className="tempUnit">{"\u00B0F"}</span>
                           </div>
                           {(() => {
@@ -20826,9 +20926,9 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
               return (
                 <div className="guideAddEquip">
                   {/* Scan a printed QR label — creates the unit with its saved info */}
-                  <button type="button" onClick={() => setScanPath("__add__")}
+                  <button type="button" onClick={() => setFastScan(true)}
                     style={{ width: "100%", marginBottom: 10, padding: "0.8rem", borderRadius: 10, border: "none", background: "var(--sdx-navy)", color: "#fff", fontWeight: 800, fontSize: "0.9rem", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, boxShadow: "0 3px 12px rgba(0,0,0,.2)" }}>
-                    📷 Scan QR — add the unit from its label
+                    📷 Scan a cooler / freezer label — opens it with the temp box ready
                   </button>
                   {!hasColdUnit && (
                     <div style={{ background: "var(--tint-blue-1)", border: "1.5px solid #bfdbfe", borderRadius: 8, padding: "9px 13px", marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>
@@ -21098,6 +21198,11 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
       )}
 
       {/* Equipment QR scan modal — fills the item and shows reading history */}
+      {scanNote && <div className="equipScanNote">{scanNote}</div>}
+      {fastScan && (
+        <QrScanModal title="📷 Scan cooler / freezer label" hint="Point at the QR label on the unit — it opens with the temperature box ready."
+          onCode={handleFastScan} onClose={() => setFastScan(false)} />
+      )}
       {scanPath && (
         <EquipScanModal
           initialTag={scanInitTag}
@@ -25475,6 +25580,19 @@ export default function App() {
     setTimeout(() => setScanFlash(""), 5000);
     setTimeout(() => { try { document.getElementById("field-siteNumber")?.scrollIntoView({ behavior: "smooth", block: "center" }); } catch {} }, 150);
   }
+
+  // GuideSection asks to reveal its stepper panel (e.g. after a label scan)
+  useEffect(() => {
+    const onGoto = (e) => {
+      const pid = Number(e.detail?.pid);
+      if (!Number.isFinite(pid)) return;
+      const order = inspectionType === "Event Day" ? [4, 0, 1, 2, 3] : [0, 1, 2, 3, 4];
+      const idx = order.indexOf(pid);
+      if (idx >= 0) setGuideStep(idx);
+    };
+    window.addEventListener("sdx-goto-guide-panel", onGoto);
+    return () => window.removeEventListener("sdx-goto-guide-panel", onGoto);
+  }, [inspectionType]);
 
   // Pre-fill form from share URL params (runs once on mount)
   useEffect(() => {
