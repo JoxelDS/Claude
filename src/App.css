@@ -7759,3 +7759,22 @@ html[data-theme="dark"] .fuStOnWaiting, html[data-theme="black"] .fuStOnWaiting 
 [data-theme="black"] .licChipOk, [data-theme="dark"] .licChipOk, [data-theme="noir"] .licChipOk { background: rgba(34,197,94,0.18); color: #86efac; border-color: rgba(34,197,94,0.35); }
 [data-theme="black"] .licChipReq, [data-theme="dark"] .licChipReq, [data-theme="noir"] .licChipReq, [data-theme="black"] .haccpViaQr, [data-theme="dark"] .haccpViaQr, [data-theme="noir"] .haccpViaQr { background: rgba(245,158,11,0.2) !important; color: #fcd34d !important; border-color: rgba(245,158,11,0.4); }
 [data-theme="black"] .licChipNeed, [data-theme="dark"] .licChipNeed, [data-theme="noir"] .licChipNeed { background: rgba(239,68,68,0.18); color: #fca5a5; border-color: rgba(239,68,68,0.4); }
+
+/* ── In-app stand QR scanner (v366) ── */
+.qrScanOverlay { position: fixed; inset: 0; z-index: 10050; background: rgba(0,0,0,0.72); display: flex; align-items: center; justify-content: center; padding: 16px; }
+.qrScanModal { width: 100%; max-width: 440px; background: var(--surface-1); border-radius: 16px; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.45); }
+.qrScanHead { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; background: #2A295C; color: #fff; font-weight: 800; }
+.qrScanX { background: rgba(255,255,255,0.18); border: none; color: #fff; border-radius: 8px; width: 32px; height: 32px; font-weight: 800; cursor: pointer; }
+.qrScanVideoWrap { position: relative; background: #000; aspect-ratio: 1 / 1; }
+.qrScanVideo { width: 100%; height: 100%; object-fit: cover; display: block; }
+.qrScanFrame { position: absolute; inset: 14%; border: 3px solid rgba(255,255,255,0.85); border-radius: 14px; box-shadow: 0 0 0 9999px rgba(0,0,0,0.35); pointer-events: none; }
+.qrScanWait { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 700; }
+.qrScanHint { padding: 8px 14px 0; font-size: 0.8rem; color: var(--ink-500); }
+.qrScanErr { margin: 8px 14px 0; padding: 7px 10px; border-radius: 8px; background: #fef3c7; color: #92400e; font-size: 0.8rem; font-weight: 700; }
+.qrScanActions { padding: 10px 14px 0; display: flex; gap: 8px; }
+.qrScanPaste { display: flex; gap: 8px; padding: 10px 14px 14px; }
+.qrScanPaste .input { flex: 1; font-size: 16px; }
+.scanStandBtn { background: #2A295C; color: #fff; border: none; border-radius: 999px; padding: 0.3rem 0.8rem; font-weight: 800; font-size: 0.76rem; cursor: pointer; white-space: nowrap; margin-left: 8px; }
+.scanStandBtnWide { display: block; width: 100%; margin: 10px 0 0; padding: 0.7rem 1rem; border-radius: 12px; font-size: 0.9rem; white-space: normal; }
+.qrScanFlash { background: #ecfdf5; border-bottom: 3px solid #10b981; padding: 0.6rem 1.25rem; font-weight: 700; font-size: 0.88rem; color: #065f46; }
+[data-theme="black"] .qrScanFlash, [data-theme="dark"] .qrScanFlash, [data-theme="noir"] .qrScanFlash { background: rgba(16,185,129,0.14); color: #6ee7b7; }

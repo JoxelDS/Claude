@@ -214,15 +214,10 @@ const QR_STAND = IS_HACCP_PORTAL ? (() => {
   const p = new URLSearchParams(window.location.search);
   return { site: p.get("site") || "", unit: p.get("unit") || "", floor: p.get("floor") || "", loctype: p.get("loctype") || "", as: p.get("as") || "" };
 })() : null;
-const QR_OPEN_AS_INSPECTOR = (() => {
-  if (!IS_HACCP_PORTAL) return false;
-  if (QR_STAND.as === "inspector") return true;
-  if (QR_STAND.as === "supervisor") return false;
-  try {
-    const d = JSON.parse(localStorage.getItem(DEVICE_INSPECTOR_KEY) || "null");
-    return !!(d && d.ts && Date.now() - d.ts < 30 * 24 * 60 * 60 * 1000);
-  } catch { return false; }
-})();
+// Outside the app (phone camera) a stand QR ALWAYS opens the supervisor log;
+// only the explicit "Inspector? open the inspection form" link (as=inspector)
+// opens the inspection. Inside the app, use the 📷 Scan stand QR button.
+const QR_OPEN_AS_INSPECTOR = IS_HACCP_PORTAL && QR_STAND.as === "inspector";
 // Build the "other audience" link for the same stand
 function qrStandUrl(as) {
   const p = new URLSearchParams({ haccp: "1" });
@@ -16799,6 +16794,130 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
   );
 }
 
+/* ── Reusable QR scanner (camera → BarcodeDetector / jsQR, photo, or paste) ── */
+function QrScanModal({ title, hint, onCode, onClose }) {
+  const [err, setErr] = useState("");
+  const [pasted, setPasted] = useState("");
+  const [camOn, setCamOn] = useState(false);
+  const videoRef = useRef(null);
+  const streamRef = useRef(null);
+  const rafRef = useRef(null);
+  const doneRef = useRef(false);
+  const hasBD = typeof window !== "undefined" && "BarcodeDetector" in window;
+  function stop() {
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop());
+    streamRef.current = null;
+    setCamOn(false);
+  }
+  function found(code) {
+    if (doneRef.current || !code) return;
+    doneRef.current = true;
+    stop();
+    onCode(String(code));
+  }
+  async function start() {
+    setErr("");
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 } } });
+      streamRef.current = stream;
+      if (videoRef.current) { videoRef.current.srcObject = stream; await videoRef.current.play(); }
+      setCamOn(true);
+      if (hasBD) {
+        const det = new window.BarcodeDetector({ formats: ["qr_code"] });
+        const loop = () => {
+          if (!streamRef.current || !videoRef.current) return;
+          det.detect(videoRef.current).then(bc => { if (bc.length > 0) found(bc[0].rawValue); else rafRef.current = requestAnimationFrame(loop); })
+            .catch(() => { rafRef.current = requestAnimationFrame(loop); });
+        };
+        loop();
+      } else {
+        const { default: jsQR } = await import("jsqr");
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d", { willReadFrequently: true });
+        const tick = () => {
+          if (!streamRef.current) return;
+          try {
+            const v = videoRef.current;
+            if (v && v.readyState >= 2 && v.videoWidth > 0) {
+              const scale = Math.min(1, 640 / v.videoWidth);
+              canvas.width = Math.round(v.videoWidth * scale); canvas.height = Math.round(v.videoHeight * scale);
+              ctx.drawImage(v, 0, 0, canvas.width, canvas.height);
+              const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+              const code = jsQR(img.data, img.width, img.height, { inversionAttempts: "dontInvert" });
+              if (code && code.data) { found(code.data); return; }
+            }
+          } catch {}
+          rafRef.current = requestAnimationFrame(() => setTimeout(tick, 150));
+        };
+        tick();
+      }
+    } catch { setErr("Camera not available — take a photo of the QR or paste its link below."); }
+  }
+  async function fromFile(file) {
+    setErr("");
+    try {
+      const bmp = await createImageBitmap(file);
+      const canvas = document.createElement("canvas"); canvas.width = bmp.width; canvas.height = bmp.height;
+      const ctx = canvas.getContext("2d", { willReadFrequently: true }); ctx.drawImage(bmp, 0, 0);
+      if (hasBD) {
+        const bc = await new window.BarcodeDetector({ formats: ["qr_code"] }).detect(bmp);
+        if (bc.length > 0) return found(bc[0].rawValue);
+      } else {
+        const { default: jsQR } = await import("jsqr");
+        const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const code = jsQR(img.data, img.width, img.height);
+        if (code && code.data) return found(code.data);
+      }
+      setErr("No QR code found in that photo — try again closer.");
+    } catch { setErr("Could not read that photo."); }
+  }
+  useEffect(() => { start(); return stop; }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  return (
+    <div className="qrScanOverlay" onClick={() => { stop(); onClose(); }}>
+      <div className="qrScanModal" onClick={e => e.stopPropagation()}>
+        <div className="qrScanHead">
+          <span>{title || "📷 Scan QR"}</span>
+          <button type="button" className="qrScanX" onClick={() => { stop(); onClose(); }}>✕</button>
+        </div>
+        <div className="qrScanVideoWrap">
+          <video ref={videoRef} playsInline muted className="qrScanVideo" />
+          {camOn && <div className="qrScanFrame" />}
+          {!camOn && !err && <div className="qrScanWait">Starting camera…</div>}
+        </div>
+        {hint && <div className="qrScanHint">{hint}</div>}
+        {err && <div className="qrScanErr">{err}</div>}
+        <div className="qrScanActions">
+          <label className="btn btnGhost btnSmall" style={{ cursor: "pointer" }}>
+            📸 Take a photo of the QR
+            <input type="file" accept="image/*" capture="environment" className="fileInput" onChange={e => { if (e.target.files?.[0]) fromFile(e.target.files[0]); e.target.value = ""; }} />
+          </label>
+        </div>
+        <div className="qrScanPaste">
+          <input className="input" value={pasted} onChange={e => setPasted(e.target.value)} placeholder="…or paste the QR link / type the unit #"
+            onKeyDown={e => { if (e.key === "Enter" && pasted.trim()) found(pasted.trim()); }} />
+          <button type="button" className="btn btnPrimary btnSmall" disabled={!pasted.trim()} onClick={() => found(pasted.trim())}>Go</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+// Parse a scanned stand QR (…?haccp=1&site=…&unit=…&floor=…) — or a bare unit number
+function parseStandQr(raw) {
+  const t = String(raw || "").trim();
+  if (!t) return null;
+  try {
+    const u = new URL(t, window.location.origin);
+    const p = u.searchParams;
+    if (p.has("equip")) return { equip: p.get("equip") };
+    if (p.has("haccp") || p.has("site") || p.has("unit")) {
+      return { site: p.get("site") || "", unit: p.get("unit") || "", floor: p.get("floor") || "", loctype: p.get("loctype") || "" };
+    }
+  } catch {}
+  if (/^[A-Z]?\d{1,4}\s?[A-Z]?$/i.test(t)) return { site: "", unit: t, floor: "", loctype: "" };
+  return null;
+}
+
 /* ── Equipment Scanner Page ───────────────────────────────── */
 function EquipmentScannerPage({ onBack, onPrintLabels, onKitchenQr }) {
   const [scanInput, setScanInput] = useState("");
@@ -25284,6 +25403,79 @@ export default function App() {
     };
   }, [locked, resetActivity]);
 
+  // ── Stand QR → full inspection prefill (used by the as=inspector link AND
+  // the in-app 📷 Scan stand QR button) ─────────────────────────────────────
+  const [qrStand, setQrStand] = useState(QR_OPEN_AS_INSPECTOR ? QR_STAND : null);
+  const [scanStandOpen, setScanStandOpen] = useState(false);
+  const [scanFlash, setScanFlash] = useState("");
+  function applyStandFromQr(st) {
+    const g = k => (st?.[k] || "").trim();
+    if (g("site")) setSiteName(g("site").toUpperCase());
+    if (g("unit")) setSiteNumber(g("unit"));
+    { const fl = floorFromUnit(g("unit")) || g("floor"); if (fl) setFloor(fl); }
+    if (g("loctype")) { try { setLocationType(g("loctype")); } catch {} }
+    // License from the official registry, same as typing the unit by hand
+    try {
+      const reg = g("unit") && IS_DEFAULT_VENUE() ? lookupLicenseByUnitType(g("unit"), g("loctype") || "Concession") : null;
+      if (reg?.license && reg.status === "ACTIVE") setRestaurantLicense(reg.license);
+      else if (g("unit") && IS_DEFAULT_VENUE()) {
+        const nm = LICENSE_NAME_BY_NUMBER[g("unit").toUpperCase()];
+        if (nm && !g("site")) setSiteName(nm.toUpperCase());
+      }
+    } catch {}
+    // Remembered details for this stand (supervisor, phone, equipment…)
+    try { if (g("site")) applySiteAutofill(g("site")); } catch {}
+    // The stand's LAST report fills the rest: supervisor, phone, license,
+    // location type, and its equipment list (labels, brands, asset tags —
+    // readings/photos cleared) so the inspector walks in with a full form.
+    try {
+      const unitN = normUnit(g("unit"));
+      const siteN = g("site").toUpperCase();
+      const cached = JSON.parse(localStorage.getItem(`sdx_history_cache_${VENUE_ID}`) || "[]");
+      const last = cached
+        .filter(r => !r.quickProblem && (unitN ? normUnit(r.siteNumber) === unitN : (r.siteName || "").trim().toUpperCase() === siteN))
+        .sort((a, b) => (b.savedAt || "").localeCompare(a.savedAt || ""))[0];
+      if (last) {
+        if (!g("site") && last.siteName) setSiteName(last.siteName);
+        if (last.supervisorName) setSupervisorName(prev => prev || last.supervisorName);
+        if (last.sitePhone) setSitePhone(prev => prev || last.sitePhone);
+        if (last.restaurantLicense) setRestaurantLicense(prev => prev || last.restaurantLicense);
+        if (last.locationType && !g("loctype")) setLocationType(last.locationType);
+        if (last.floor && !g("floor") && !floorFromUnit(g("unit"))) setFloor(last.floor);
+        const eq = last.inspection?.equipment;
+        if (eq && typeof eq === "object" && Object.keys(eq).length > 0) {
+          const carried = {};
+          for (const [k, v] of Object.entries(eq)) {
+            if (!v || v.notApplicable) continue;
+            carried[k] = {
+              status: "OK", notes: "", photos: [],
+              count: v.count ?? "",
+              equipSource: v.equipSource || "Facility",
+              ...(v.label ? { label: v.label } : {}),
+              ...(v.brand ? { brand: v.brand } : {}),
+              ...(v.assetTag ? { assetTag: v.assetTag } : {}),
+              ...(v.location ? { location: v.location } : {}),
+              ...(v.kitchenArea ? { kitchenArea: v.kitchenArea } : {}),
+              ...(("tempF" in v) || detectColdType(v.label || k) ? { tempF: "" } : {}),
+            };
+          }
+          if (Object.keys(carried).length > 0) setInspection(prev => ({ ...prev, equipment: { ...(prev.equipment || {}), ...carried } }));
+        }
+      }
+    } catch {}
+    setQrStand({ site: g("site"), unit: g("unit"), floor: floorFromUnit(g("unit")) || g("floor"), loctype: g("loctype") });
+  }
+  function handleStandScan(raw) {
+    setScanStandOpen(false);
+    const st = parseStandQr(raw);
+    if (!st) { setScanFlash("⚠️ That code isn't a stand QR. Scan the poster on the stand, or type the unit #."); setTimeout(() => setScanFlash(""), 5000); return; }
+    if (st.equip) { setScanFlash("🏷 That's an equipment label — open Menu → Equipment Scanner for temp checks."); setTimeout(() => setScanFlash(""), 6000); return; }
+    applyStandFromQr(st);
+    setScanFlash(`✅ Stand loaded — ${st.site || ""}${st.unit ? ` #${st.unit}` : ""}. Details pre-filled, start the checklist.`);
+    setTimeout(() => setScanFlash(""), 5000);
+    setTimeout(() => { try { document.getElementById("field-siteNumber")?.scrollIntoView({ behavior: "smooth", block: "center" }); } catch {} }, 150);
+  }
+
   // Pre-fill form from share URL params (runs once on mount)
   useEffect(() => {
     const p = new URLSearchParams(window.location.search);
@@ -25294,55 +25486,7 @@ export default function App() {
     if (p.has("phone"))     setSitePhone(p.get("phone"));
     if (p.has("type"))      setInspectionType(p.get("type"));
     if (p.has("date"))      setInspectionDate(p.get("date"));
-    // Stand QR opened by an inspector: floor + location type come from the poster too
-    if (QR_OPEN_AS_INSPECTOR) {
-      { const fl = floorFromUnit(p.get("unit")) || p.get("floor"); if (fl) setFloor(fl); }
-      if (p.get("loctype")) { try { setLocationType(p.get("loctype")); } catch {} }
-      // License from the official registry, same as typing the unit by hand
-      try {
-        const reg = p.get("unit") && IS_DEFAULT_VENUE() ? lookupLicenseByUnitType(p.get("unit"), p.get("loctype") || "Concession") : null;
-        if (reg?.license && reg.status === "ACTIVE") setRestaurantLicense(reg.license);
-      } catch {}
-      // Remembered details for this stand (supervisor, phone, equipment…)
-      try { if (p.get("site")) applySiteAutofill(p.get("site")); } catch {}
-      // The stand's LAST report fills the rest: supervisor, phone, license,
-      // location type, and its equipment list (labels, brands, asset tags —
-      // readings/photos cleared) so the inspector walks in with a full form.
-      try {
-        const unitN = normUnit(p.get("unit"));
-        const siteN = (p.get("site") || "").trim().toUpperCase();
-        const cached = JSON.parse(localStorage.getItem(`sdx_history_cache_${VENUE_ID}`) || "[]");
-        const last = cached
-          .filter(r => !r.quickProblem && (unitN ? normUnit(r.siteNumber) === unitN : (r.siteName || "").trim().toUpperCase() === siteN))
-          .sort((a, b) => (b.savedAt || "").localeCompare(a.savedAt || ""))[0];
-        if (last) {
-          if (last.supervisorName) setSupervisorName(prev => prev || last.supervisorName);
-          if (last.sitePhone) setSitePhone(prev => prev || last.sitePhone);
-          if (last.restaurantLicense) setRestaurantLicense(prev => prev || last.restaurantLicense);
-          if (last.locationType && !p.get("loctype")) setLocationType(last.locationType);
-          if (last.floor && !p.get("floor")) setFloor(last.floor);
-          const eq = last.inspection?.equipment;
-          if (eq && typeof eq === "object" && Object.keys(eq).length > 0) {
-            const carried = {};
-            for (const [k, v] of Object.entries(eq)) {
-              if (!v || v.notApplicable) continue;
-              carried[k] = {
-                status: "OK", notes: "", photos: [],
-                count: v.count ?? "",
-                equipSource: v.equipSource || "Facility",
-                ...(v.label ? { label: v.label } : {}),
-                ...(v.brand ? { brand: v.brand } : {}),
-                ...(v.assetTag ? { assetTag: v.assetTag } : {}),
-                ...(v.location ? { location: v.location } : {}),
-                ...(v.kitchenArea ? { kitchenArea: v.kitchenArea } : {}),
-                ...(("tempF" in v) || detectColdType(v.label || k) ? { tempF: "" } : {}),
-              };
-            }
-            if (Object.keys(carried).length > 0) setInspection(prev => ({ ...prev, equipment: { ...(prev.equipment || {}), ...carried } }));
-          }
-        }
-      } catch {}
-    }
+    if (QR_OPEN_AS_INSPECTOR) applyStandFromQr(QR_STAND);
     // Clean URL without reloading — skip if this is the HACCP portal (params needed for HaccpPortal)
     if (p.toString() && !(IS_HACCP_PORTAL && !QR_OPEN_AS_INSPECTOR)) window.history.replaceState({}, "", window.location.pathname);
   }, []);
@@ -25518,9 +25662,6 @@ export default function App() {
     setCurrentUser(user);
     setLocked(false);
     resetActivity();
-    // Remember that an inspector uses this phone — a scanned stand QR then
-    // opens the inspection form instead of the supervisor log.
-    try { localStorage.setItem(DEVICE_INSPECTOR_KEY, JSON.stringify({ name: user?.name || "", ts: Date.now() })); } catch {}
     // Merge shared site map from Firestore into local autofill memory (non-blocking)
     syncSharedSiteMap();
     // Warm the history cache in the background so History and the
@@ -26458,6 +26599,7 @@ export default function App() {
             )}
             <div className="menuSection">Inspect</div>
             <button className="dropdownMenuItem" onClick={startNewInspection} type="button">➕ New Inspection</button>
+            <button className="dropdownMenuItem" onClick={() => { setModals(m => ({ ...m, menuOpen: false })); setPage("inspector"); setScanStandOpen(true); }} type="button">📷 Scan stand QR</button>
             <button className="dropdownMenuItem" onClick={() => { setHistoryEntry(null); setPage("history"); }} type="button">📄 Past Reports</button>
             <button className="dropdownMenuItem" onClick={() => { setMenuOpen(false); openFollowups(); }} type="button">
               🔁 Follow-ups
@@ -26861,14 +27003,19 @@ export default function App() {
       })()}
 
       {/* ── Opened from a stand QR as the inspector ───────────── */}
-      {currentUser && QR_OPEN_AS_INSPECTOR && (
+      {currentUser && qrStand && (
         <div className="qrStandBanner">
           <span style={{ fontSize: "1.15rem" }}>📍</span>
           <span style={{ flex: 1, fontWeight: 700, fontSize: "0.9rem" }}>
-            Stand QR — inspecting <b>{QR_STAND.site || "this stand"}{QR_STAND.unit ? ` · #${QR_STAND.unit}` : ""}</b>{QR_STAND.floor ? ` · ${QR_STAND.floor}` : ""} (details pre-filled)
+            Stand QR — inspecting <b>{qrStand.site || "this stand"}{qrStand.unit ? ` · #${qrStand.unit}` : ""}</b>{qrStand.floor ? ` · ${qrStand.floor}` : ""} (details pre-filled)
           </span>
-          <a href={qrStandUrl("supervisor")} className="qrStandSwitch">Not inspecting? Open the supervisor log →</a>
+          {QR_OPEN_AS_INSPECTOR && <a href={qrStandUrl("supervisor")} className="qrStandSwitch">Not inspecting? Open the supervisor log →</a>}
         </div>
+      )}
+      {currentUser && scanFlash && <div className="qrScanFlash">{scanFlash}</div>}
+      {scanStandOpen && (
+        <QrScanModal title="📷 Scan stand QR" hint="Point at the QR poster on the stand — the inspection fills itself in."
+          onCode={handleStandScan} onClose={() => setScanStandOpen(false)} />
       )}
 
       {/* ── Follow-ups overdue banner ─────────────────────────── */}
@@ -26888,6 +27035,9 @@ export default function App() {
       {/* ── Food Safety Quick Reference ─────────────────────── */}
       <div className="foodSafetyRefWrap">
         <FoodSafetyRef />
+        <button type="button" className="scanStandBtn scanStandBtnWide" onClick={() => setScanStandOpen(true)}>
+          📷 Scan stand QR — start an inspection with everything pre-filled
+        </button>
       </div>
 
       {/* ── Form Progress Indicator (5-step bar) ─────────────── */}
@@ -26984,6 +27134,7 @@ export default function App() {
                   <span style={{ fontWeight: 400, fontSize: "0.78rem", color: "var(--tx-green)" }}>
                     — started at {new Date(inspectionStartedAt.current).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                   </span>
+                  <button type="button" className="scanStandBtn" onClick={() => setScanStandOpen(true)} title="Scan the stand's QR poster to fill this inspection">📷 Scan stand QR</button>
                   <button
                     type="button"
                     onClick={() => { inspectionStartedAt.current = null; setOnSiteConfirmed(false); }}
