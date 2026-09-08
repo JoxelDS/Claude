@@ -17505,7 +17505,7 @@ function EquipmentScannerPage({ onBack, onPrintLabels, onKitchenQr }) {
 }
 
 /* ── Print Equipment Labels Page ──────────────────────────── */
-function PrintLabelsPage({ onBack }) {
+function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
   const [loading, setLoading] = useState(true);
   const [equipItems, setEquipItems] = useState([]); // { uid, assetTag, label, venueName, ... }
   const [qrDataUrls, setQrDataUrls] = useState({}); // { uid: dataUrl }
@@ -17521,6 +17521,180 @@ function PrintLabelsPage({ onBack }) {
   const [showToAdd, setShowToAdd] = useState(false);
 
   const registryRef = () => doc(db, "venues", VENUE_ID, "sharedMemory", "equipmentRegistry");
+
+  // ── Setup walk + stand focus (v373) ─────────────────────────────────────
+  // Walk the building with the printed labels: every unit is a row → tap →
+  // fill brand + location → "Label stuck". Stands with no cold unit get ➕.
+  // Opening a stand (stand QR / poster card / inspection form) focuses that
+  // stand: its equipment QRs, add more, print — all in one place.
+  const [walkMode, setWalkMode] = useState(false);
+  const [regSetup, setRegSetup] = useState({});         // { TAG: { doneAt, by } } — label stuck on the unit
+  const [regItemsState, setRegItemsState] = useState({}); // registry items (identity written by the walk)
+  const [fill, setFill] = useState(null);               // the unit being filled in
+  const [fillSaving, setFillSaving] = useState(false);
+  const [walkScanOpen, setWalkScanOpen] = useState(false);
+  const [walkFlash, setWalkFlash] = useState("");
+  const [addAt, setAddAt] = useState(null);             // { venueName, unit, floor, locType } — add units here
+  const [standFocus, setStandFocus] = useState(null);   // { unit, site, floor, locType } — one stand open
+  const focusAppliedRef = useRef(false);
+  const EQUIP_SETUP_LS = `sdx_equip_setup_${VENUE_ID}`;
+  const WALK_NAMES = ["1-Door Cooler", "2-Door Cooler", "3-Door Cooler", "4-Door Cooler", "Prep Cooler", "Display Cooler", "Walk-In Cooler", "Undercounter Cooler", "Beer Cooler", "Ice Cream Freezer", "1-Door Freezer", "2-Door Freezer", "Chest Freezer", "Walk-In Freezer", "Undercounter Freezer"];
+  const WALK_LOCS = ["Front line", "Back of house", "Bar", "Prep area", "Walk-in", "Storage", "Under counter", "Beer room", "Left side", "Right side"];
+  const WALK_BRANDS = ["True", "Turbo Air", "Beverage-Air", "Traulsen", "Delfield", "Continental", "Hoshizaki", "Arctic Air", "Atosa", "Victory", "Perlick", "Frigidaire", "Avantco", "Coca-Cola", "Pepsi"];
+  const cleanName = l => String(l || "").replace(/\s*(❄|🧊)\s*(Cooler|Freezer)\s*$/u, "").trim();
+  const typeOf = it => (/freez|🧊/i.test(it?.label || "") || coldTypeFromTag(it?.assetTag) === "freezer") ? "freezer" : "cooler";
+  const walkStatus = it => {
+    const missing = [];
+    if (!cleanName(it.label)) missing.push("name");
+    if (!(it.brandName || "").trim()) missing.push("brand");
+    if (!(it.location || "").trim()) missing.push("location");
+    const stuck = !!regSetup[String(it.assetTag || "").toUpperCase()];
+    return { missing, stuck, complete: missing.length === 0 && stuck };
+  };
+  const sameStand = (it, st) => {
+    const unitN = normUnit(st?.unit);
+    if (unitN) return normUnit(it.unit) === unitN;
+    const siteU = (st?.site || st?.venueName || "").trim().toUpperCase();
+    return !!siteU && (it.venueName || "").trim().toUpperCase() === siteU;
+  };
+  function persistSetupLocal(next) {
+    try { localStorage.setItem(EQUIP_SETUP_LS, JSON.stringify(next)); } catch {}
+  }
+  function cacheRegItem(tag, rec) {
+    try {
+      _equipRegCache = { ...(_equipRegCache || {}), [tag]: { ...((_equipRegCache || {})[tag] || {}), ...rec } };
+      localStorage.setItem(EQUIP_REG_LS, JSON.stringify(_equipRegCache));
+    } catch {}
+  }
+  function openFill(it) {
+    const tag = String(it.assetTag || "").toUpperCase();
+    setFill({ uid: it.uid, tag, type: typeOf(it), name: cleanName(it.label), brand: it.brandName || "", location: it.location || "",
+      venueName: it.venueName || "", unit: (it.unit || "").trim(), floor: floorFromUnit(it.unit) || it.floor || "", locType: it.locType || "", stuck: !!regSetup[tag] });
+  }
+  async function saveFill(markDone) {
+    if (!fill) return;
+    const f = fill;
+    const name = f.name.trim() || (f.type === "freezer" ? "Freezer" : "Cooler");
+    const label = name + (f.type === "freezer" ? " 🧊 Freezer" : " ❄ Cooler");
+    const rec = { assetTag: f.tag, label, venueName: f.venueName, unit: f.unit, floor: f.floor, locType: f.locType, location: f.location.trim(), brandName: f.brand.trim(), updatedAt: Date.now() };
+    const idx = { name: label, brand: rec.brandName, location: rec.location, venueName: f.venueName, unit: f.unit, floor: f.floor, locType: f.locType, ts: Date.now() };
+    const stuck = markDone || f.stuck;
+    const setup = stuck ? { [f.tag]: { doneAt: regSetup[f.tag]?.doneAt || Date.now(), by: "Inspector" } } : null;
+    setFillSaving(true);
+    try {
+      if (FIREBASE_ON) {
+        const payload = { items: { [f.tag]: rec }, labelIndex: { [f.tag]: idx } };
+        if (setup) payload.setup = setup;
+        await setDoc(registryRef(), payload, { merge: true });
+      }
+    } catch { /* offline — the local copy below keeps the walk going */ }
+    cacheRegItem(f.tag, rec);
+    setRegItemsState(prev => ({ ...prev, [f.tag]: rec }));
+    if (setup) setRegSetup(prev => { const next = { ...prev, ...setup }; persistSetupLocal(next); return next; });
+    setEquipItems(prev => {
+      const merged = { ...rec, uid: f.uid };
+      return prev.some(i => i.uid === f.uid) ? prev.map(i => i.uid === f.uid ? { ...i, ...merged } : i) : [merged, ...prev];
+    });
+    setFillSaving(false);
+    setFill(null);
+    setWalkFlash(stuck ? `✅ ${name} · ${f.tag} — label stuck, done.` : `💾 ${name} · ${f.tag} saved.`);
+    setTimeout(() => setWalkFlash(""), 3500);
+  }
+  function nextTagFor(unit, venueName, type) {
+    const unitN = normUnit(unit) || (venueName || "").replace(/[^A-Z0-9]/gi, "").toUpperCase().slice(0, 8) || "X";
+    const pre = `SDX-${type === "freezer" ? "FZ" : "CL"}-${unitN}-`;
+    const used = new Set([...equipItems.map(i => String(i.assetTag || "").toUpperCase()), ...Object.keys(regItemsState).map(t => String(t).toUpperCase())]);
+    let n = 1; while (used.has(pre + n)) n++;
+    return pre + n;
+  }
+  function addUnitAtStand(stand, name, type) {
+    const tag = nextTagFor(stand.unit, stand.venueName, type);
+    const floor = floorFromUnit(stand.unit) || stand.floor || "";
+    const rec = { assetTag: tag, label: name + (type === "freezer" ? " 🧊 Freezer" : " ❄ Cooler"), venueName: (stand.venueName || "").trim(), unit: (stand.unit || "").trim(), floor, locType: stand.locType || "", location: "", brandName: "", createdAt: Date.now() };
+    const item = { ...rec, uid: `reg_${tag}` };
+    setEquipItems(prev => prev.some(i => String(i.assetTag || "").toUpperCase() === tag) ? prev : [item, ...prev]);
+    setRegItemsState(prev => ({ ...prev, [tag]: rec }));
+    setStandsNoEquip(prev => prev.filter(sn => !sameStand({ unit: sn.unit, venueName: sn.venueName }, stand)));
+    setSelected(prev => new Set(prev).add(item.uid));
+    try {
+      if (FIREBASE_ON) setDoc(registryRef(), { items: { [tag]: rec }, labelIndex: { [tag]: { name: rec.label, brand: "", location: "", venueName: rec.venueName, unit: rec.unit, floor, locType: rec.locType, ts: Date.now() } } }, { merge: true }).catch(() => {});
+    } catch {}
+    cacheRegItem(tag, rec);
+    setAddAt(null);
+    openFill(item); // brand + location right away, then "Label stuck"
+  }
+  function focusOnStand(st) {
+    const unitN = normUnit(st?.unit);
+    const siteU = (st?.site || st?.venueName || "").trim().toUpperCase();
+    const known = equipItems.filter(i => sameStand(i, st));
+    const site = siteU || known.find(i => i.venueName)?.venueName || "";
+    const fs = { unit: (st?.unit || "").trim(), site, floor: floorFromUnit(st?.unit) || st?.floor || known.find(i => i.floor)?.floor || "", locType: st?.locType || st?.loctype || known.find(i => i.locType)?.locType || "" };
+    setStandFocus(fs);
+    setLabelSearch("");
+    setSelected(new Set(known.map(i => i.uid))); // its labels are bright + ready to print
+    setWalkFlash(known.length
+      ? `📍 ${site || "Stand"}${unitN ? ` #${fs.unit}` : ""} — ${known.length} unit${known.length !== 1 ? "s" : ""}. Tap one to fill it, ➕ to add.`
+      : `📍 ${site || "Stand"}${unitN ? ` #${fs.unit}` : ""} has no equipment QR yet — add its coolers / freezers.`);
+    setTimeout(() => setWalkFlash(""), 6000);
+    if (!known.length) setAddAt({ venueName: site, unit: fs.unit, floor: fs.floor, locType: fs.locType });
+    try { window.scrollTo({ top: 0, behavior: "smooth" }); } catch {}
+  }
+  function walkScanCode(raw) {
+    setWalkScanOpen(false);
+    const st = parseStandQr(raw);
+    const tag = String(/[?&]equip=/.test(String(raw || "")) ? extractEquipTag(raw) : (st?.equip || (/^SDX-/i.test(String(raw || "").trim()) ? String(raw).trim() : ""))).toUpperCase();
+    if (tag) {
+      const it = equipItems.find(i => String(i.assetTag || "").toUpperCase() === tag);
+      if (it) { openFill(it); return; }
+      // A label we don't know yet (printed elsewhere) — register it from the QR's own details
+      const meta = metaFromEquipQr(raw) || {};
+      const item = { uid: `reg_${tag}`, assetTag: tag, label: meta.label || (coldTypeFromTag(tag) === "freezer" ? "Freezer 🧊 Freezer" : "Cooler ❄ Cooler"), venueName: meta.venueName || "", unit: meta.unit || "", floor: floorFromUnit(meta.unit) || meta.floor || "", locType: meta.locType || "", location: meta.kitchenArea || "", brandName: meta.brand || "" };
+      setEquipItems(prev => [item, ...prev]);
+      openFill(item);
+      return;
+    }
+    if (st && (st.unit || st.site)) { focusOnStand({ unit: st.unit, site: st.site, floor: st.floor, locType: st.loctype }); return; }
+    setWalkFlash("⚠️ That code isn't an equipment label or a stand QR."); setTimeout(() => setWalkFlash(""), 4000);
+  }
+  async function exportWalkSheet() {
+    try {
+      const ExcelJS = (await import("exceljs")).default;
+      const wb = new ExcelJS.Workbook();
+      const ws = wb.addWorksheet("Setup walk");
+      ws.columns = [
+        { header: "Floor", key: "floor", width: 12 }, { header: "Stand", key: "site", width: 26 }, { header: "Unit #", key: "unit", width: 9 },
+        { header: "Equipment", key: "name", width: 24 }, { header: "Type", key: "type", width: 9 }, { header: "Tag", key: "tag", width: 18 },
+        { header: "Brand", key: "brand", width: 16 }, { header: "Location", key: "loc", width: 20 }, { header: "Label stuck", key: "stuck", width: 12 }, { header: "Missing", key: "missing", width: 18 },
+      ];
+      ws.getRow(1).font = { bold: true };
+      const sorted = [...equipItems].sort((a, b) => (floorFromUnit(a.unit) || a.floor || "").localeCompare(floorFromUnit(b.unit) || b.floor || "") || (a.unit || "").localeCompare(b.unit || "", undefined, { numeric: true }) || (a.label || "").localeCompare(b.label || ""));
+      for (const it of sorted) { const st = walkStatus(it); ws.addRow({ floor: floorFromUnit(it.unit) || it.floor || "", site: it.venueName || "", unit: it.unit || "", name: cleanName(it.label), type: typeOf(it) === "freezer" ? "Freezer" : "Cooler", tag: it.assetTag, brand: it.brandName || "", loc: it.location || "", stuck: st.stuck ? "YES" : "", missing: st.missing.join(", ") }); }
+      for (const sn of standsNoEquip) ws.addRow({ floor: sn.floor || "", site: sn.venueName || "", unit: sn.unit || "", name: "(no cooler / freezer yet)", missing: "add units" });
+      const buf = await wb.xlsx.writeBuffer();
+      downloadBlob(new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }), `Equipment-Setup-Walk-${new Date().toISOString().slice(0, 10)}.xlsx`);
+    } catch { alert("Could not build the sheet."); }
+  }
+  const renderWalkRow = it => {
+    const st = walkStatus(it);
+    const typ = typeOf(it);
+    return (
+      <button key={it.uid} type="button" className={"walkRow" + (st.complete ? " done" : "")} onClick={() => openFill(it)}>
+        <span className="walkRowIcon">{st.complete ? "✅" : st.stuck ? "🏷" : "⬜"}</span>
+        <span className="walkRowName">{cleanName(it.label) || (typ === "freezer" ? "Freezer" : "Cooler")}</span>
+        <span className="walkRowType">{typ === "freezer" ? "🧊" : "❄"}</span>
+        <span className="walkRowMeta">{[it.brandName, it.location].filter(Boolean).join(" · ") || "—"}</span>
+        {st.missing.length > 0 && <span className="walkMissing">needs {st.missing.join(", ")}</span>}
+        <span className="walkRowTag">{it.assetTag}</span>
+      </button>
+    );
+  };
+  // Opened from a stand (QR / poster / form) → focus it once the list is loaded
+  useEffect(() => {
+    if (loading || !focusStand || focusAppliedRef.current) return;
+    focusAppliedRef.current = true;
+    focusOnStand(focusStand);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, focusStand]);
 
   // Create equipment manually — stored in the venue registry, no inspection needed
   async function addEquipment() {
@@ -17681,12 +17855,16 @@ function PrintLabelsPage({ onBack }) {
         let hidden = {};
         let regItems = {};
         let cutoffMs = 0;
+        let regLoaded = false;
         try {
           const snap = await getDoc(doc(db, "venues", VENUE_ID, "sharedMemory", "equipmentRegistry"));
           const reg = snap.exists() ? (snap.data() || {}) : {};
           hidden = reg.hidden || {};
           regItems = reg.items || {};
           cutoffMs = reg.cutoffMs || 0;
+          regLoaded = true;
+          setRegItemsState(regItems);
+          { const su = reg.setup || {}; setRegSetup(su); persistSetupLocal(su); }
           if (cutoffDate === null) {
             setCutoffMode(reg.cutoffMode === "on" ? "on" : "since");
             if (!cutoffMs) {
@@ -17703,6 +17881,11 @@ function PrintLabelsPage({ onBack }) {
             cutoffMs = cutoffDate ? new Date(cutoffDate + "T00:00:00").getTime() : 0;
           }
         } catch {}
+        if (!regLoaded) {
+          // Offline / local: the last synced registry + setup marks keep the walk usable
+          try { const c = _equipRegCache || {}; regItems = {}; for (const [t, it] of Object.entries(c)) if (it && it.assetTag) regItems[t] = it; setRegItemsState(regItems); } catch {}
+          try { setRegSetup(JSON.parse(localStorage.getItem(EQUIP_SETUP_LS) || "{}")); } catch {}
+        }
         // loadHistory handles the default-venue legacy collection correctly.
         // When a date is picked, query THAT date range from Firestore directly —
         // a fixed newest-100 scan never reaches older dates at all.
@@ -17796,6 +17979,16 @@ function PrintLabelsPage({ onBack }) {
         for (const [tag, it] of Object.entries(regItems)) {
           const uid = `reg_${tag}`;
           if (hidden[uid]) continue;
+          const T = String(tag).toUpperCase();
+          const existing = items.find(i => String(i.assetTag || "").toUpperCase() === T);
+          if (existing) {
+            // The setup walk wrote this unit's identity — registry details win
+            if (it.label) existing.label = it.label;
+            if (it.brandName) existing.brandName = it.brandName;
+            if (it.location) existing.location = it.location;
+            if (it.venueName && !existing.venueName) existing.venueName = it.venueName;
+            continue;
+          }
           if (seen.has(tag)) continue; // already present from an inspection
           seen.add(tag);
           items.unshift({ ...it, uid, floor: floorFromUnit(it.unit) || it.floor || "" });
@@ -17835,186 +18028,7 @@ function PrintLabelsPage({ onBack }) {
     });
   }, [equipItems]);
 
-  return (
-    <div className="appShell" style={{ background: "var(--surface-2)", minHeight: "100vh" }}>
-      {/* Top bar — hidden on print */}
-      <header className="topBar printHide">
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <button className="btn btnGhost" onClick={onBack} type="button"
-            style={{ color: "#fff", borderColor: "rgba(255,255,255,0.4)", padding: "0.3rem 0.75rem", fontSize: "0.85rem" }}>
-            ← Back
-          </button>
-          <div>
-            <div style={{ fontWeight: 700, color: "#fff", fontSize: "1rem" }}>Print Equipment Labels</div>
-            <div style={{ color: "rgba(255,255,255,0.7)", fontSize: "0.75rem" }}>QR code labels for physical equipment</div>
-          </div>
-        </div>
-        <button type="button" onClick={printSelected} disabled={selectedCount === 0}
-          style={{
-            background: selectedCount === 0 ? "rgba(255,255,255,0.18)" : "#fff",
-            color: selectedCount === 0 ? "rgba(255,255,255,0.75)" : "var(--sdx-navy)",
-            border: "none", borderRadius: 10, cursor: selectedCount === 0 ? "default" : "pointer",
-            fontWeight: 700, fontSize: "0.85rem", padding: "0.5rem 1.1rem",
-            display: "inline-flex", alignItems: "center", gap: 6, whiteSpace: "nowrap",
-          }}>
-          🖨 Print{selectedCount > 0 ? ` (${selectedCount})` : ""}
-        </button>
-      </header>
-      <div className="printHide" style={{ height: 64, flexShrink: 0 }} />
-
-      <div style={{ maxWidth: 900, margin: "0 auto", padding: "1.25rem 1rem" }}>
-
-        {/* Instructions — hidden on print */}
-        <div className="printHide" style={{ background: "var(--surface-1)", borderRadius: 12, padding: "1rem 1.25rem", marginBottom: "1.25rem", boxShadow: "0 1px 4px rgba(0,0,0,0.07)" }}>
-          <div style={{ fontWeight: 700, fontSize: "0.95rem", color: "var(--ink-900)", marginBottom: 6 }}>How to use equipment QR labels</div>
-          <ol style={{ margin: 0, paddingLeft: "1.25rem", color: "var(--ink-600)", fontSize: "0.85rem", lineHeight: 1.7 }}>
-            <li>Save an inspection with equipment filled in — labels are generated from your most recent inspection.</li>
-            <li>Click <strong>🖨 Print</strong> and print on label paper or regular paper, then cut and laminate.</li>
-            <li>Stick the label on the physical unit. Optionally use "Auto-assign" asset tags so inspectors can scan them for full history.</li>
-          </ol>
-        </div>
-
-        {/* Cutoff date picker — choose which inspections feed the QR list */}
-        <div className="printHide" style={{ background: "var(--surface-1)", borderRadius: 12, padding: "0.8rem 1.25rem", marginBottom: "1.25rem", boxShadow: "0 1px 4px rgba(0,0,0,0.07)", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-          <span style={{ fontWeight: 700, fontSize: "0.85rem", color: "var(--ink-700)" }}>📅 Show equipment</span>
-          <span className="fuToggle">
-            <button type="button" className={`fuToggleBtn${cutoffMode === "since" ? " fuToggleActive" : ""}`} onClick={() => saveCutoffDate(cutoffDate, "since")}>Since date</button>
-            <button type="button" className={`fuToggleBtn${cutoffMode === "on" ? " fuToggleActive" : ""}`} onClick={() => saveCutoffDate(cutoffDate, "on")}>Only that date</button>
-          </span>
-          <input
-            type="date"
-            className="input"
-            style={{ maxWidth: 175 }}
-            value={cutoffDate || ""}
-            onChange={e => saveCutoffDate(e.target.value)}
-          />
-          {cutoffDate && (
-            <button type="button" onClick={() => saveCutoffDate("")}
-              style={{ fontSize: "0.75rem", fontWeight: 700, padding: "0.35rem 0.9rem", borderRadius: 999, border: "1.5px solid var(--sdx-gray-200)", background: "var(--surface-2)", color: "var(--ink-600)", cursor: "pointer" }}>
-              All dates
-            </button>
-          )}
-          <span style={{ fontSize: "0.72rem", color: "var(--ink-400)", flexBasis: "100%" }}>
-            {cutoffMode === "on"
-              ? "Only equipment from inspections on exactly this date appears here."
-              : "Only equipment from inspections on or after this date appears here. Leave empty to include everything."}
-          </span>
-        </div>
-
-        {loading && (
-          <div style={{ textAlign: "center", padding: "3rem", color: "var(--ink-500)" }}>Loading equipment…</div>
-        )}
-
-        {!loading && equipItems.length === 0 && (
-          <div style={{ background: "var(--surface-1)", borderRadius: 12, padding: "2rem", textAlign: "center", color: "var(--ink-500)", boxShadow: "0 1px 4px rgba(0,0,0,0.07)" }}>
-            <div style={{ fontSize: "2.5rem", marginBottom: 12 }}>🏷</div>
-            <div style={{ fontWeight: 700, fontSize: "1rem", marginBottom: 8, color: "var(--ink-700)" }}>No equipment found</div>
-            <div style={{ fontSize: "0.85rem", marginBottom: 14 }}>Save at least one inspection with equipment filled in — or create the unit right here.</div>
-            <button type="button" onClick={() => setShowAdd(true)}
-              style={{ background: "var(--sdx-navy)", color: "#fff", border: "none", borderRadius: 10, padding: "0.6rem 1.3rem", fontWeight: 800, fontSize: "0.9rem", cursor: "pointer" }}>
-              ➕ Add Equipment
-            </button>
-          </div>
-        )}
-
-        {/* Label grid — visible on screen and in print */}
-        {!loading && equipItems.length > 0 && (
-          <>
-            <div className="printHide" style={{ display: "flex", alignItems: "center", gap: 12, color: "var(--ink-500)", fontSize: "0.82rem", marginBottom: 12, flexWrap: "wrap" }}>
-              <span>{generating ? "Generating QR codes…" : selectedCount === 0 ? "Tap the labels you want to print — or select a whole restaurant" : `${selectedCount} selected`}</span>
-              <button type="button"
-                style={{ fontSize: "0.75rem", fontWeight: 700, padding: "0.35rem 0.9rem", borderRadius: 999, border: "1.5px solid var(--sdx-navy)", background: "var(--sdx-navy)", color: "#fff", cursor: "pointer" }}
-                onClick={() => setSelected(selectedCount === equipItems.length ? new Set() : new Set(equipItems.map(i => i.uid)))}>
-                {selectedCount === equipItems.length ? "Deselect All" : "Select All"}
-              </button>
-              <button type="button"
-                style={{ fontSize: "0.75rem", fontWeight: 700, padding: "0.35rem 0.9rem", borderRadius: 999, border: "1.5px solid #16a34a", background: "#16a34a", color: "#fff", cursor: "pointer" }}
-                onClick={() => setShowAdd(true)}>
-                ➕ Add Equipment
-              </button>
-              {selectedCount > 0 && (
-                <button type="button"
-                  style={{ fontSize: "0.75rem", fontWeight: 700, padding: "0.35rem 0.9rem", borderRadius: 999, border: "1.5px solid #dc2626", background: "#dc2626", color: "#fff", cursor: "pointer" }}
-                  onClick={deleteSelected}>
-                  🗑 Delete ({selectedCount})
-                </button>
-              )}
-            </div>
-            {/* Bottom selection bar — matches the reports select-mode bar */}
-            <div className="printHide" style={{
-              position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 200,
-              background: "#1d4ed8", color: "#fff",
-              display: "flex", alignItems: "center", justifyContent: "space-between",
-              padding: "14px 20px calc(14px + env(safe-area-inset-bottom, 0px))", gap: 12,
-              boxShadow: "0 -4px 16px rgba(0,0,0,0.18)",
-            }}>
-              <div style={{ fontWeight: 600, fontSize: "0.95rem" }}>
-                {selectedCount === 0 ? "Tap labels to select" : `${selectedCount} label${selectedCount !== 1 ? "s" : ""} selected`}
-              </div>
-              <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                <button type="button"
-                  onClick={() => setSelected(selectedCount === equipItems.length ? new Set() : new Set(equipItems.map(i => i.uid)))}
-                  style={{ background: "rgba(255,255,255,0.15)", border: "1.5px solid rgba(255,255,255,0.5)", color: "#fff", borderRadius: 9, padding: "0.5rem 1rem", fontWeight: 700, fontSize: "0.85rem", cursor: "pointer", whiteSpace: "nowrap" }}>
-                  {selectedCount === equipItems.length ? "Deselect All" : "Select All"}
-                </button>
-                {selectedCount > 0 && (
-                  <button type="button" onClick={deleteSelected}
-                    style={{ background: "#dc2626", border: "none", color: "#fff", borderRadius: 9, padding: "0.5rem 1rem", fontWeight: 800, fontSize: "0.85rem", cursor: "pointer", whiteSpace: "nowrap" }}>
-                    🗑 Delete
-                  </button>
-                )}
-                <button type="button" onClick={printSelected} disabled={selectedCount === 0}
-                  style={{ background: selectedCount === 0 ? "rgba(255,255,255,0.3)" : "#fff", color: selectedCount === 0 ? "rgba(255,255,255,0.7)" : "#1d4ed8", border: "none", borderRadius: 9, padding: "0.5rem 1.2rem", fontWeight: 800, fontSize: "0.85rem", cursor: selectedCount === 0 ? "default" : "pointer", whiteSpace: "nowrap" }}>
-                  🖨 Print{selectedCount > 0 ? ` (${selectedCount})` : ""}
-                </button>
-              </div>
-            </div>
-            <div className="printHide" style={{ height: 74 }} />
-            <div className="printHide" style={{ position: "relative", margin: "10px 0 2px", maxWidth: 440 }}>
-              <input value={labelSearch} onChange={e => setLabelSearch(e.target.value)}
-                placeholder="🔎 Search stand, unit #, equipment, or tag…"
-                style={{ width: "100%", boxSizing: "border-box", padding: "8px 34px 8px 12px", borderRadius: 10, border: "1.5px solid var(--sdx-gray-200)", fontSize: "16px", background: "var(--surface-1)" }} />
-              {labelSearch && (
-                <button type="button" onClick={() => setLabelSearch("")}
-                  style={{ position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)", background: "var(--surface-2)", border: "none", borderRadius: 999, width: 24, height: 24, cursor: "pointer", fontWeight: 800, color: "var(--ink-500)", lineHeight: 1 }}>×</button>
-              )}
-            </div>
-            {(() => {
-              // Group by STAND — the unit number is the identity ("numbers
-              // don't lie"): name drift can't split one stand's equipment.
-              const q = (labelSearch || "").trim().toLowerCase();
-              const qUnit = normUnit(q);
-              const visible = !q ? equipItems : equipItems.filter(it =>
-                (qUnit && normUnit(it.unit).includes(qUnit)) ||
-                [it.venueName, it.label, it.assetTag, it.floor].some(v => (v || "").toLowerCase().includes(q)));
-              const byKey = {};
-              for (const it of visible) {
-                const key = (it.unit || "").trim() ? `u:${normUnit(it.unit)}` : `s:${(it.venueName || "—").toLowerCase()}`;
-                if (!byKey[key]) byKey[key] = { key, unit: (it.unit || "").trim(), items: [] };
-                const g = byKey[key];
-                g.items.push(it);
-                // Latest non-empty name/floor wins for the header
-                if (it.venueName) g.site = it.venueName;
-                const fl = floorFromUnit(it.unit) || it.floor; if (fl && !g.floor) g.floor = fl;
-              }
-              const groups = Object.values(byKey).sort((a, b) => {
-                if (a.unit && b.unit) return a.unit.localeCompare(b.unit, undefined, { numeric: true });
-                if (a.unit) return -1;
-                if (b.unit) return 1;
-                return (a.site || "").localeCompare(b.site || "");
-              });
-              groups.forEach(g => g.items.sort((x, y) => (x.label || "").localeCompare(y.label || "")));
-              if (groups.length === 0 && q) {
-                return <div style={{ fontSize: "0.84rem", color: "var(--ink-400)", fontStyle: "italic", padding: "14px 4px" }}>No equipment matches “{q}”.</div>;
-              }
-              // Floors: 1 → 2 → 3 → Ground → others
-              const FLOOR_ORDER = ["Floor 1", "Floor 2", "Floor 3", "Ground Level"];
-              const floorOf = g => g.floor || (g.items.find(i => i.floor)?.floor) || "";
-              const floorRank = f => { const i = FLOOR_ORDER.indexOf(f); return i === -1 ? 99 : i; };
-              const floorsMap = {};
-              for (const g of groups) { const f = floorOf(g) || "No floor"; (floorsMap[f] = floorsMap[f] || []).push(g); }
-              const floors = Object.keys(floorsMap).sort((a, b) => floorRank(a) - floorRank(b) || a.localeCompare(b));
-              const totalUnits = visible.length;
+  // One stand's label cards (used by the floor list and by the stand focus panel)
               const renderGroup = grp => {
                 const groupItems = grp.items;
                 const uids = groupItems.map(i => i.uid);
@@ -18096,11 +18110,294 @@ function PrintLabelsPage({ onBack }) {
                   </div>
                 );
               };
+
+  return (
+    <div className="appShell" style={{ background: "var(--surface-2)", minHeight: "100vh" }}>
+      {/* Top bar — hidden on print */}
+      <header className="topBar printHide">
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <button className="btn btnGhost" onClick={onBack} type="button"
+            style={{ color: "#fff", borderColor: "rgba(255,255,255,0.4)", padding: "0.3rem 0.75rem", fontSize: "0.85rem" }}>
+            ← Back
+          </button>
+          <div>
+            <div style={{ fontWeight: 700, color: "#fff", fontSize: "1rem" }}>Print Equipment Labels</div>
+            <div style={{ color: "rgba(255,255,255,0.7)", fontSize: "0.75rem" }}>QR code labels for physical equipment</div>
+          </div>
+        </div>
+        <button type="button" onClick={printSelected} disabled={selectedCount === 0}
+          style={{
+            background: selectedCount === 0 ? "rgba(255,255,255,0.18)" : "#fff",
+            color: selectedCount === 0 ? "rgba(255,255,255,0.75)" : "var(--sdx-navy)",
+            border: "none", borderRadius: 10, cursor: selectedCount === 0 ? "default" : "pointer",
+            fontWeight: 700, fontSize: "0.85rem", padding: "0.5rem 1.1rem",
+            display: "inline-flex", alignItems: "center", gap: 6, whiteSpace: "nowrap",
+          }}>
+          🖨 Print{selectedCount > 0 ? ` (${selectedCount})` : ""}
+        </button>
+      </header>
+      <div className="printHide" style={{ height: 64, flexShrink: 0 }} />
+
+      <div style={{ maxWidth: 900, margin: "0 auto", padding: "1.25rem 1rem" }}>
+
+        {/* Instructions — hidden on print (and while one stand is open) */}
+        <div className="printHide" style={{ background: "var(--surface-1)", borderRadius: 12, padding: "1rem 1.25rem", marginBottom: "1.25rem", boxShadow: "0 1px 4px rgba(0,0,0,0.07)", ...(standFocus ? { display: "none" } : {}) }}>
+          <div style={{ fontWeight: 700, fontSize: "0.95rem", color: "var(--ink-900)", marginBottom: 6 }}>How to use equipment QR labels</div>
+          <ol style={{ margin: 0, paddingLeft: "1.25rem", color: "var(--ink-600)", fontSize: "0.85rem", lineHeight: 1.7 }}>
+            <li>Save an inspection with equipment filled in — labels are generated from your most recent inspection.</li>
+            <li>Click <strong>🖨 Print</strong> and print on label paper or regular paper, then cut and laminate.</li>
+            <li>Stick the label on the physical unit. Optionally use "Auto-assign" asset tags so inspectors can scan them for full history.</li>
+          </ol>
+        </div>
+
+        {/* Cutoff date picker — choose which inspections feed the QR list */}
+        <div className="printHide" style={{ background: "var(--surface-1)", borderRadius: 12, padding: "0.8rem 1.25rem", marginBottom: "1.25rem", boxShadow: "0 1px 4px rgba(0,0,0,0.07)", display: standFocus ? "none" : "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+          <span style={{ fontWeight: 700, fontSize: "0.85rem", color: "var(--ink-700)" }}>📅 Show equipment</span>
+          <span className="fuToggle">
+            <button type="button" className={`fuToggleBtn${cutoffMode === "since" ? " fuToggleActive" : ""}`} onClick={() => saveCutoffDate(cutoffDate, "since")}>Since date</button>
+            <button type="button" className={`fuToggleBtn${cutoffMode === "on" ? " fuToggleActive" : ""}`} onClick={() => saveCutoffDate(cutoffDate, "on")}>Only that date</button>
+          </span>
+          <input
+            type="date"
+            className="input"
+            style={{ maxWidth: 175 }}
+            value={cutoffDate || ""}
+            onChange={e => saveCutoffDate(e.target.value)}
+          />
+          {cutoffDate && (
+            <button type="button" onClick={() => saveCutoffDate("")}
+              style={{ fontSize: "0.75rem", fontWeight: 700, padding: "0.35rem 0.9rem", borderRadius: 999, border: "1.5px solid var(--sdx-gray-200)", background: "var(--surface-2)", color: "var(--ink-600)", cursor: "pointer" }}>
+              All dates
+            </button>
+          )}
+          <span style={{ fontSize: "0.72rem", color: "var(--ink-400)", flexBasis: "100%" }}>
+            {cutoffMode === "on"
+              ? "Only equipment from inspections on exactly this date appears here."
+              : "Only equipment from inspections on or after this date appears here. Leave empty to include everything."}
+          </span>
+        </div>
+
+        {loading && (
+          <div style={{ textAlign: "center", padding: "3rem", color: "var(--ink-500)" }}>Loading equipment…</div>
+        )}
+
+        {/* ── One stand open: its equipment QRs, add more, print ── */}
+        {!loading && standFocus && (() => {
+          const sf = standFocus;
+          const its = equipItems.filter(i => sameStand(i, sf)).sort((a, b) => (a.label || "").localeCompare(b.label || ""));
+          const site = sf.site || its.find(i => i.venueName)?.venueName || "";
+          const floorF = floorFromUnit(sf.unit) || sf.floor || its.find(i => i.floor)?.floor || "";
+          const grp = { key: `focus:${normUnit(sf.unit) || site.toLowerCase()}`, unit: sf.unit, site, floor: floorF, items: its };
+          const doneN = its.filter(i => walkStatus(i).complete).length;
+          const standObj = { venueName: site, unit: sf.unit, floor: floorF, locType: sf.locType || "" };
+          const lic = sf.unit ? lookupLicenseByUnitType(sf.unit, sf.locType || "") : null;
+          return (
+            <div className="printHide standFocus">
+              <div className="standFocusHead">
+                <span style={{ fontSize: "1.4rem" }}>📍</span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div className="standFocusTitle">{site || "Stand"}{sf.unit ? ` · Unit #${sf.unit}` : ""}</div>
+                  <div className="standFocusSub">{[floorF, sf.locType, lic?.license ? `🪪 ${lic.license}` : ""].filter(Boolean).join(" · ")}{its.length ? ` · ${its.length} unit${its.length !== 1 ? "s" : ""} · ${doneN} done` : " · no equipment QR yet"}</div>
+                </div>
+                <button type="button" className="walkMini" onClick={() => { setStandFocus(null); onClearFocus && onClearFocus(); }}>✕ All stands</button>
+              </div>
+              <div className="standFocusActions">
+                <button type="button" className="lblFloorChip standFocusAdd" onClick={() => setAddAt(standObj)}>➕ Add cooler / freezer</button>
+                <button type="button" className="lblFloorChip" onClick={() => setWalkScanOpen(true)}>📷 Scan label</button>
+                {its.length > 0 && <button type="button" className="lblFloorChip" onClick={() => { if (qrReady(its)) printSelected(its); }}>🖨 Print {its.length} label{its.length !== 1 ? "s" : ""}</button>}
+              </div>
+              {its.length === 0 ? (
+                <div className="standFocusEmpty">This stand has no cooler / freezer QR yet. Tap <b>➕ Add cooler / freezer</b>, pick the unit type, fill brand + location — its label is ready to print.</div>
+              ) : (
+                <div className="standFocusRows">{its.map(renderWalkRow)}</div>
+              )}
+              {its.length > 0 && renderGroup(grp)}
+            </div>
+          );
+        })()}
+
+        {!loading && !standFocus && equipItems.length === 0 && (
+          <div style={{ background: "var(--surface-1)", borderRadius: 12, padding: "2rem", textAlign: "center", color: "var(--ink-500)", boxShadow: "0 1px 4px rgba(0,0,0,0.07)" }}>
+            <div style={{ fontSize: "2.5rem", marginBottom: 12 }}>🏷</div>
+            <div style={{ fontWeight: 700, fontSize: "1rem", marginBottom: 8, color: "var(--ink-700)" }}>No equipment found</div>
+            <div style={{ fontSize: "0.85rem", marginBottom: 14 }}>Save at least one inspection with equipment filled in — or create the unit right here.</div>
+            <button type="button" onClick={() => setShowAdd(true)}
+              style={{ background: "var(--sdx-navy)", color: "#fff", border: "none", borderRadius: 10, padding: "0.6rem 1.3rem", fontWeight: 800, fontSize: "0.9rem", cursor: "pointer" }}>
+              ➕ Add Equipment
+            </button>
+          </div>
+        )}
+
+        {/* Label grid — visible on screen and in print */}
+        {!loading && !standFocus && equipItems.length > 0 && (
+          <>
+            <div className="printHide" style={{ display: "flex", alignItems: "center", gap: 12, color: "var(--ink-500)", fontSize: "0.82rem", marginBottom: 12, flexWrap: "wrap" }}>
+              <span>{generating ? "Generating QR codes…" : selectedCount === 0 ? "Tap the labels you want to print — or select a whole restaurant" : `${selectedCount} selected`}</span>
+              <button type="button"
+                style={{ fontSize: "0.75rem", fontWeight: 700, padding: "0.35rem 0.9rem", borderRadius: 999, border: "1.5px solid var(--sdx-navy)", background: "var(--sdx-navy)", color: "#fff", cursor: "pointer" }}
+                onClick={() => setSelected(selectedCount === equipItems.length ? new Set() : new Set(equipItems.map(i => i.uid)))}>
+                {selectedCount === equipItems.length ? "Deselect All" : "Select All"}
+              </button>
+              <button type="button"
+                style={{ fontSize: "0.75rem", fontWeight: 700, padding: "0.35rem 0.9rem", borderRadius: 999, border: "1.5px solid #16a34a", background: "#16a34a", color: "#fff", cursor: "pointer" }}
+                onClick={() => setShowAdd(true)}>
+                ➕ Add Equipment
+              </button>
+              {selectedCount > 0 && (
+                <button type="button"
+                  style={{ fontSize: "0.75rem", fontWeight: 700, padding: "0.35rem 0.9rem", borderRadius: 999, border: "1.5px solid #dc2626", background: "#dc2626", color: "#fff", cursor: "pointer" }}
+                  onClick={deleteSelected}>
+                  🗑 Delete ({selectedCount})
+                </button>
+              )}
+            </div>
+            {/* Bottom selection bar — matches the reports select-mode bar */}
+            <div className="printHide" style={{
+              position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 200,
+              background: "#1d4ed8", color: "#fff",
+              display: (walkMode || standFocus) ? "none" : "flex", alignItems: "center", justifyContent: "space-between",
+              padding: "14px 20px calc(14px + env(safe-area-inset-bottom, 0px))", gap: 12,
+              boxShadow: "0 -4px 16px rgba(0,0,0,0.18)",
+            }}>
+              <div style={{ fontWeight: 600, fontSize: "0.95rem" }}>
+                {selectedCount === 0 ? "Tap labels to select" : `${selectedCount} label${selectedCount !== 1 ? "s" : ""} selected`}
+              </div>
+              <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                <button type="button"
+                  onClick={() => setSelected(selectedCount === equipItems.length ? new Set() : new Set(equipItems.map(i => i.uid)))}
+                  style={{ background: "rgba(255,255,255,0.15)", border: "1.5px solid rgba(255,255,255,0.5)", color: "#fff", borderRadius: 9, padding: "0.5rem 1rem", fontWeight: 700, fontSize: "0.85rem", cursor: "pointer", whiteSpace: "nowrap" }}>
+                  {selectedCount === equipItems.length ? "Deselect All" : "Select All"}
+                </button>
+                {selectedCount > 0 && (
+                  <button type="button" onClick={deleteSelected}
+                    style={{ background: "#dc2626", border: "none", color: "#fff", borderRadius: 9, padding: "0.5rem 1rem", fontWeight: 800, fontSize: "0.85rem", cursor: "pointer", whiteSpace: "nowrap" }}>
+                    🗑 Delete
+                  </button>
+                )}
+                <button type="button" onClick={printSelected} disabled={selectedCount === 0}
+                  style={{ background: selectedCount === 0 ? "rgba(255,255,255,0.3)" : "#fff", color: selectedCount === 0 ? "rgba(255,255,255,0.7)" : "#1d4ed8", border: "none", borderRadius: 9, padding: "0.5rem 1.2rem", fontWeight: 800, fontSize: "0.85rem", cursor: selectedCount === 0 ? "default" : "pointer", whiteSpace: "nowrap" }}>
+                  🖨 Print{selectedCount > 0 ? ` (${selectedCount})` : ""}
+                </button>
+              </div>
+            </div>
+            <div className="printHide" style={{ height: 74 }} />
+            <div className="printHide" style={{ position: "relative", margin: "10px 0 2px", maxWidth: 440 }}>
+              <input value={labelSearch} onChange={e => setLabelSearch(e.target.value)}
+                placeholder="🔎 Search stand, unit #, equipment, or tag…"
+                style={{ width: "100%", boxSizing: "border-box", padding: "8px 34px 8px 12px", borderRadius: 10, border: "1.5px solid var(--sdx-gray-200)", fontSize: "16px", background: "var(--surface-1)" }} />
+              {labelSearch && (
+                <button type="button" onClick={() => setLabelSearch("")}
+                  style={{ position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)", background: "var(--surface-2)", border: "none", borderRadius: 999, width: 24, height: 24, cursor: "pointer", fontWeight: 800, color: "var(--ink-500)", lineHeight: 1 }}>×</button>
+              )}
+            </div>
+            {(() => {
+              // Group by STAND — the unit number is the identity ("numbers
+              // don't lie"): name drift can't split one stand's equipment.
+              const q = (labelSearch || "").trim().toLowerCase();
+              const qUnit = normUnit(q);
+              const visible = !q ? equipItems : equipItems.filter(it =>
+                (qUnit && normUnit(it.unit).includes(qUnit)) ||
+                [it.venueName, it.label, it.assetTag, it.floor].some(v => (v || "").toLowerCase().includes(q)));
+              const byKey = {};
+              for (const it of visible) {
+                const key = (it.unit || "").trim() ? `u:${normUnit(it.unit)}` : `s:${(it.venueName || "—").toLowerCase()}`;
+                if (!byKey[key]) byKey[key] = { key, unit: (it.unit || "").trim(), items: [] };
+                const g = byKey[key];
+                g.items.push(it);
+                // Latest non-empty name/floor wins for the header
+                if (it.venueName) g.site = it.venueName;
+                const fl = floorFromUnit(it.unit) || it.floor; if (fl && !g.floor) g.floor = fl;
+              }
+              const groups = Object.values(byKey).sort((a, b) => {
+                if (a.unit && b.unit) return a.unit.localeCompare(b.unit, undefined, { numeric: true });
+                if (a.unit) return -1;
+                if (b.unit) return 1;
+                return (a.site || "").localeCompare(b.site || "");
+              });
+              groups.forEach(g => g.items.sort((x, y) => (x.label || "").localeCompare(y.label || "")));
+              if (groups.length === 0 && q) {
+                return <div style={{ fontSize: "0.84rem", color: "var(--ink-400)", fontStyle: "italic", padding: "14px 4px" }}>No equipment matches “{q}”.</div>;
+              }
+              // Floors: 1 → 2 → 3 → Ground → others
+              const FLOOR_ORDER = ["Floor 1", "Floor 2", "Floor 3", "Ground Level"];
+              const floorOf = g => g.floor || (g.items.find(i => i.floor)?.floor) || "";
+              const floorRank = f => { const i = FLOOR_ORDER.indexOf(f); return i === -1 ? 99 : i; };
+              const floorsMap = {};
+              for (const g of groups) { const f = floorOf(g) || "No floor"; (floorsMap[f] = floorsMap[f] || []).push(g); }
+              const floors = Object.keys(floorsMap).sort((a, b) => floorRank(a) - floorRank(b) || a.localeCompare(b));
+              const totalUnits = visible.length;
+              const renderWalk = () => {
+                const all = equipItems;
+                const doneAll = all.filter(i => walkStatus(i).complete).length;
+                const noEq = standsNoEquip;
+                const walkFloors = [...new Set([...floors, ...noEq.map(sn => sn.floor || "No floor")])].sort((a, b) => floorRank(a) - floorRank(b) || a.localeCompare(b));
+                const inFloors = new Set(walkFloors);
+                const other = noEq.filter(sn => !inFloors.has(sn.floor || "No floor"));
+                const emptyStand = (sn, i) => (
+                  <div key={"ne" + i} className="walkStand walkStandEmpty">
+                    <div className="walkStandHead">
+                      <span>🍳 {sn.venueName || "—"}{sn.unit ? ` · #${sn.unit}` : ""}</span>
+                      <span style={{ fontWeight: 500, color: "var(--ink-500)", fontSize: "0.76rem" }}>{[sn.locType, "no cooler / freezer yet"].filter(Boolean).join(" · ")}</span>
+                      <button type="button" className="walkMini" onClick={() => setAddAt(sn)}>➕ add units</button>
+                    </div>
+                  </div>
+                );
+                return (
+                  <div className="walkWrap">
+                    <div className="walkHead">
+                      <div className="walkHeadRow">
+                        <span style={{ fontWeight: 800 }}>🚶 Setup walk</span>
+                        <span className="walkHeadCount">{doneAll}/{all.length} units done · {groups.length} stands · {noEq.length} to add</span>
+                        <button type="button" className="walkMini" onClick={() => setWalkScanOpen(true)}>📷 Scan label / stand</button>
+                        <button type="button" className="walkMini" onClick={exportWalkSheet}>📥 Sheet</button>
+                      </div>
+                      <div className="walkProg"><div className="walkProgBar" style={{ width: `${all.length ? Math.round(doneAll / all.length * 100) : 0}%` }} /></div>
+                      <div style={{ fontSize: "0.76rem", color: "var(--ink-500)" }}>Tap a unit → brand + location → <b>✅ Label stuck</b>. ⬜ not started · 🏷 stuck, details missing · ✅ complete.</div>
+                    </div>
+                    {walkFloors.map(f => {
+                      const gs = floorsMap[f] || [];
+                      const fItems = gs.flatMap(g => g.items);
+                      const fDone = fItems.filter(i => walkStatus(i).complete).length;
+                      const fNoEq = noEq.filter(sn => (sn.floor || "No floor") === f);
+                      return (
+                        <div key={f}>
+                          <div className="printHide lblFloorHead">
+                            <span>🏢 {f}</span>
+                            <span className="lblFloorCount">{fDone}/{fItems.length} done · {gs.length} stands{fNoEq.length ? ` · ${fNoEq.length} to add` : ""}</span>
+                          </div>
+                          {gs.map(g => (
+                            <div key={g.key} className="walkStand">
+                              <div className="walkStandHead">
+                                <span>🍳 {g.site || "—"}{g.unit ? ` · #${g.unit}` : ""}</span>
+                                <span style={{ fontWeight: 500, color: "var(--ink-500)", fontSize: "0.76rem" }}>{g.items.filter(i => walkStatus(i).complete).length}/{g.items.length}</span>
+                                <button type="button" className="walkMini" onClick={() => setAddAt({ venueName: g.site || "", unit: g.unit, floor: g.floor || f, locType: g.items[0]?.locType || "" })}>➕ unit</button>
+                                <button type="button" className="walkMini" style={{ marginLeft: 0 }} onClick={() => focusOnStand({ unit: g.unit, site: g.site || "", floor: g.floor || "", locType: g.items[0]?.locType || "" })}>📍 open</button>
+                              </div>
+                              {g.items.map(renderWalkRow)}
+                            </div>
+                          ))}
+                          {fNoEq.map(emptyStand)}
+                        </div>
+                      );
+                    })}
+                    {other.length > 0 && (
+                      <div>
+                        <div className="printHide lblFloorHead"><span>🏢 Other</span><span className="lblFloorCount">{other.length} stands to add</span></div>
+                        {other.map(emptyStand)}
+                      </div>
+                    )}
+                  </div>
+                );
+              };
               return (
                 <>
                   {/* Floor summary — how many labels per floor, print a whole floor at once */}
                   <div className="printHide lblFloorBar">
                     <span className="lblFloorTotal">🏷 {totalUnits} label{totalUnits !== 1 ? "s" : ""} · {groups.length} stand{groups.length !== 1 ? "s" : ""}</span>
+                    <button type="button" className={"lblFloorChip lblWalkToggle" + (walkMode ? " on" : "")} onClick={() => setWalkMode(v => !v)} title="Walk the building: fill brand + location for every label and mark it stuck">
+                      🚶 Setup walk{walkMode ? " ✓" : ""}
+                    </button>
+                    <button type="button" className="lblFloorChip" onClick={() => setWalkScanOpen(true)} title="Scan an equipment label or a stand QR">📷 Scan</button>
                     {floors.map(f => {
                       const its = floorsMap[f].flatMap(g => g.items);
                       return (
@@ -18131,7 +18428,8 @@ function PrintLabelsPage({ onBack }) {
                       ))}
                     </div>
                   )}
-                  {floors.map(f => (
+                  {walkMode && renderWalk()}
+                  {!walkMode && floors.map(f => (
                     <div key={f}>
                       <div className="printHide lblFloorHead">
                         <span>🏢 {f}</span>
@@ -18150,6 +18448,67 @@ function PrintLabelsPage({ onBack }) {
 
       {/* Equipment temp / reading history */}
       {historyTag && <EquipScanModal initialTag={historyTag} onClose={() => setHistoryTag(null)} />}
+
+      {/* Setup walk — fill one unit */}
+      {fill && ReactDOM.createPortal(
+        <div style={{ position: "fixed", inset: 0, zIndex: 10000, background: "rgba(0,0,0,.6)", backdropFilter: "blur(3px)", overflowY: "auto", padding: "4vh 12px" }} onClick={() => setFill(null)}>
+          <div className="card walkFill" style={{ maxWidth: 470, margin: "0 auto" }} onClick={e => e.stopPropagation()}>
+            <div className="cardHeader" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+              <div className="cardTitle" style={{ minWidth: 0 }}>
+                🏷 {fill.tag}
+                <div style={{ fontSize: "0.74rem", fontWeight: 600, color: "var(--ink-500)" }}>{fill.venueName || "—"}{fill.unit ? ` · #${fill.unit}` : ""}{fill.floor ? ` · ${fill.floor}` : ""}</div>
+              </div>
+              <button type="button" onClick={() => setFill(null)} style={{ background: "none", border: "none", fontSize: "1.2rem", cursor: "pointer", color: "var(--ink-400)", lineHeight: 1, padding: 4 }}>✕</button>
+            </div>
+            <div className="walkFillBody">
+              <div className="walkChips">
+                <button type="button" className={"walkChip" + (fill.type === "cooler" ? " on" : "")} onClick={() => setFill(f => ({ ...f, type: "cooler" }))}>❄ Cooler</button>
+                <button type="button" className={"walkChip" + (fill.type === "freezer" ? " on" : "")} onClick={() => setFill(f => ({ ...f, type: "freezer" }))}>🧊 Freezer</button>
+              </div>
+              <label className="walkLbl">Equipment name</label>
+              <input className="input walkFillName" value={fill.name} placeholder="e.g. 2-Door Cooler" onChange={e => setFill(f => ({ ...f, name: e.target.value }))} />
+              <div className="walkChips">{WALK_NAMES.filter(n => (fill.type === "freezer") === /freezer/i.test(n)).map(n => <button key={n} type="button" className={"walkChip" + (fill.name === n ? " on" : "")} onClick={() => setFill(f => ({ ...f, name: n }))}>{n}</button>)}</div>
+              <label className="walkLbl">Brand</label>
+              <input className="input walkFillBrand" value={fill.brand} placeholder="e.g. True" onChange={e => setFill(f => ({ ...f, brand: e.target.value }))} />
+              <div className="walkChips">{WALK_BRANDS.map(n => <button key={n} type="button" className={"walkChip" + (fill.brand === n ? " on" : "")} onClick={() => setFill(f => ({ ...f, brand: n }))}>{n}</button>)}</div>
+              <label className="walkLbl">Location in the stand</label>
+              <input className="input walkFillLoc" value={fill.location} placeholder="e.g. Front line, left of register" onChange={e => setFill(f => ({ ...f, location: e.target.value }))} />
+              <div className="walkChips">{WALK_LOCS.map(n => <button key={n} type="button" className={"walkChip" + (fill.location === n ? " on" : "")} onClick={() => setFill(f => ({ ...f, location: n }))}>{n}</button>)}</div>
+              <div className="walkFillActions">
+                <button type="button" className="btn btnGhost" disabled={fillSaving} onClick={() => saveFill(false)}>💾 Save</button>
+                <button type="button" className="btn btnPrimary walkDoneBtn" disabled={fillSaving} onClick={() => saveFill(true)}>✅ Label stuck — done</button>
+              </div>
+              {fill.stuck && <div style={{ fontSize: "0.74rem", color: "#16a34a", fontWeight: 700, marginTop: 4 }}>✅ Label already marked as stuck on this unit</div>}
+            </div>
+          </div>
+        </div>, document.body)}
+
+      {/* Setup walk — add units at a stand */}
+      {addAt && ReactDOM.createPortal(
+        <div style={{ position: "fixed", inset: 0, zIndex: 10000, background: "rgba(0,0,0,.6)", backdropFilter: "blur(3px)", overflowY: "auto", padding: "4vh 12px" }} onClick={() => setAddAt(null)}>
+          <div className="card walkFill walkAddAt" style={{ maxWidth: 470, margin: "0 auto" }} onClick={e => e.stopPropagation()}>
+            <div className="cardHeader" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+              <div className="cardTitle" style={{ minWidth: 0 }}>
+                ➕ {addAt.venueName || "Stand"}{addAt.unit ? ` · #${addAt.unit}` : ""}
+                <div style={{ fontSize: "0.74rem", fontWeight: 600, color: "var(--ink-500)" }}>{[floorFromUnit(addAt.unit) || addAt.floor, addAt.locType].filter(Boolean).join(" · ") || "Pick what this stand has"} — each tap creates a unit with its QR</div>
+              </div>
+              <button type="button" onClick={() => setAddAt(null)} style={{ background: "none", border: "none", fontSize: "1.2rem", cursor: "pointer", color: "var(--ink-400)", lineHeight: 1, padding: 4 }}>✕</button>
+            </div>
+            <div className="walkFillBody">
+              <label className="walkLbl">❄ Coolers</label>
+              <div className="walkChips">{WALK_NAMES.filter(n => !/freezer/i.test(n)).map(n => <button key={n} type="button" className="walkChip" onClick={() => addUnitAtStand(addAt, n, "cooler")}>{n}</button>)}</div>
+              <label className="walkLbl">🧊 Freezers</label>
+              <div className="walkChips">{WALK_NAMES.filter(n => /freezer/i.test(n)).map(n => <button key={n} type="button" className="walkChip" onClick={() => addUnitAtStand(addAt, n, "freezer")}>{n}</button>)}</div>
+              <div style={{ fontSize: "0.74rem", color: "var(--ink-500)", marginTop: 6 }}>Tags are automatic: SDX-CL-{normUnit(addAt.unit) || "UNIT"}-n for coolers · SDX-FZ-{normUnit(addAt.unit) || "UNIT"}-n for freezers.</div>
+            </div>
+          </div>
+        </div>, document.body)}
+
+      {walkScanOpen && (
+        <QrScanModal title="📷 Scan a label or a stand QR" hint="Scan the equipment label to fill it in — or the stand poster to open that stand."
+          onCode={walkScanCode} onClose={() => setWalkScanOpen(false)} />
+      )}
+      {walkFlash && <div className="walkFlash">{walkFlash}</div>}
 
       {/* Add Equipment modal */}
       {showAdd && ReactDOM.createPortal(
@@ -18275,7 +18634,7 @@ function PrintLabelsPage({ onBack }) {
 /* ── Kitchen QR Posters: one QR per kitchen/stand — scanning opens the HACCP
    temp log prefilled for that exact location, so every kitchen can self-report
    and the inspectors see it live ─────────────────────────────────────────── */
-function KitchenQrPage({ onBack, onPrintLabels }) {
+function KitchenQrPage({ onBack, onPrintLabels, onStandEquipment }) {
   const [showLicList, setShowLicList] = useState(false);
   const [kitchens, setKitchens] = useState([]); // { id, site, unit, floor }
   const [qrUrls, setQrUrls] = useState({});
@@ -18683,6 +19042,9 @@ function KitchenQrPage({ onBack, onPrintLabels }) {
                     ? <img src={qrUrls[k.id]} alt="" width={150} height={150} />
                     : <div style={{ width: 150, height: 150, margin: "0 auto", background: "var(--surface-2)", borderRadius: 6 }} />}
                   <div style={{ fontSize: "0.72rem", color: "var(--ink-500)", marginTop: 6 }}>{[k.locType, k.floor, k.license ? `Lic. ${k.license}` : ""].filter(Boolean).join(" · ") || "Scan to log temps & problems"}{!k.license && LICENSE_REGISTRY.some(r => normUnit(r.unit) === normUnit(k.unit) && (r.status === "NEEDED" || r.status === "REQUESTED")) && <span className="licChip licChipNeed" style={{ marginLeft: 6 }}>⚠ no license yet</span>}</div>
+                  {onStandEquipment && (
+                    <button type="button" className="kqrEquipBtn" onClick={e => { e.stopPropagation(); onStandEquipment(k); }}>🏷 Equipment QR labels →</button>
+                  )}
                   {!isComplete(k) && (
                     <div style={{ fontSize: "0.7rem", color: "#92400E", background: "var(--tint-amber-1, #fffbeb)", border: "1px solid #fde68a", borderRadius: 6, padding: "3px 8px", marginTop: 6, display: "inline-block", fontWeight: 700 }}>
                       Missing: {[!normUnit(k.unit) && "unit #", !(k.license || "").trim() && "license"].filter(Boolean).join(", ")} — tap ✎
@@ -21094,6 +21456,9 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                   <button type="button" onClick={() => setFastScan(true)}
                     style={{ width: "100%", marginBottom: 10, padding: "0.8rem", borderRadius: 10, border: "none", background: "var(--sdx-navy)", color: "#fff", fontWeight: 800, fontSize: "0.9rem", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, boxShadow: "0 3px 12px rgba(0,0,0,.2)" }}>
                     📷 Scan a cooler / freezer label — opens it with the temp box ready
+                  </button>
+                  <button type="button" className="guideStandEquipLink" onClick={() => window.dispatchEvent(new CustomEvent("sdx-open-stand-equipment"))}>
+                    🏷 This stand's equipment QR labels — view, add, print
                   </button>
                   {!hasColdUnit && (
                     <div style={{ background: "var(--tint-blue-1)", border: "1.5px solid #bfdbfe", borderRadius: 8, padding: "9px 13px", marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>
@@ -24774,6 +25139,7 @@ export default function App() {
   const [appearanceOpen, setAppearanceOpen] = useState(false); // personal theme picker in menu
   const [currentUser, setCurrentUser] = useState(null);
   const [page, setPage] = useState("inspector"); // "inspector" | "history" | "admin" | "global_admin"
+  const [labelsFocus, setLabelsFocus] = useState(null); // { unit, site, floor, locType, from } — open Equipment Labels on one stand
   const [historyEntry, setHistoryEntry] = useState(null); // { tab, sub } — deep link into HistoryPage tabs
   const [fuHistoryTick, setFuHistoryTick] = useState(0);  // bumped when the warm history cache lands
   const [pendingCount, setPendingCount] = useState(0);
@@ -25787,6 +26153,18 @@ export default function App() {
     return () => window.removeEventListener("sdx-goto-guide-panel", onGoto);
   }, [inspectionType]);
 
+  // Inspection form → "this stand's equipment QR labels" (view / add / print)
+  useEffect(() => {
+    const onOpen = (e) => {
+      const d = e.detail || {};
+      setLabelsFocus({ unit: d.unit ?? siteNumber ?? "", site: d.site ?? siteName ?? "", floor: floorFromUnit(d.unit ?? siteNumber) || d.floor || floor || "", locType: d.locType ?? locationType ?? "", from: "inspector" });
+      setPage("print_labels");
+      window.scrollTo({ top: 0 });
+    };
+    window.addEventListener("sdx-open-stand-equipment", onOpen);
+    return () => window.removeEventListener("sdx-open-stand-equipment", onOpen);
+  }, [siteNumber, siteName, floor, locationType]);
+
   // Pre-fill form from share URL params (runs once on mount)
   useEffect(() => {
     const p = new URLSearchParams(window.location.search);
@@ -26114,8 +26492,8 @@ export default function App() {
   if (page === "mylocations") { return <MyLocationsPage currentUser={currentUser} venueSettings={venueSettings} saveVenueSettings={saveVenueSettings} onBack={() => setPage("inspector")} onSelectLocation={(loc, slotId) => { setSiteName(loc); activeSlotIdRef.current = slotId || null; setPage("inspector"); window.scrollTo({ top: 0, behavior: "smooth" }); }} />; }
   if (page === "mytemps")           { return <MyTempsPage currentUser={currentUser} onBack={() => setPage("inspector")} />; }
   if (page === "equipment_scanner") { return <EquipmentScannerPage onBack={() => setPage("inspector")} onPrintLabels={() => setPage("print_labels")} onKitchenQr={() => setPage("kitchen_qr")} />; }
-  if (page === "print_labels")      { return <PrintLabelsPage onBack={() => setPage("equipment_scanner")} onKitchenQr={() => setPage("kitchen_qr")} />; }
-  if (page === "kitchen_qr")        { return <KitchenQrPage onBack={() => setPage("inspector")} onPrintLabels={() => setPage("print_labels")} />; }
+  if (page === "print_labels")      { return <PrintLabelsPage onBack={() => { setPage(labelsFocus?.from || "equipment_scanner"); setLabelsFocus(null); }} onKitchenQr={() => setPage("kitchen_qr")} focusStand={labelsFocus} onClearFocus={() => setLabelsFocus(null)} />; }
+  if (page === "kitchen_qr")        { return <KitchenQrPage onBack={() => setPage("inspector")} onPrintLabels={() => setPage("print_labels")} onStandEquipment={(k) => { setLabelsFocus({ unit: k.unit || "", site: k.site || "", floor: floorFromUnit(k.unit) || k.floor || "", locType: k.locType || "", from: "kitchen_qr" }); setPage("print_labels"); }} />; }
 
   const spec = NOTE_TYPES[noteType];
 
@@ -27320,6 +27698,10 @@ export default function App() {
           <span style={{ flex: 1, fontWeight: 700, fontSize: "0.9rem" }}>
             Stand QR — inspecting <b>{qrStand.site || "this stand"}{qrStand.unit ? ` · #${qrStand.unit}` : ""}</b>{qrStand.floor ? ` · ${qrStand.floor}` : ""} (details pre-filled)
           </span>
+          <button type="button" className="qrStandEquipBtn" title="This stand's equipment QR labels — view, add, print"
+            onClick={() => { setLabelsFocus({ unit: qrStand.unit || "", site: qrStand.site || "", floor: qrStand.floor || "", locType: qrStand.loctype || "", from: "inspector" }); setPage("print_labels"); }}>
+            🏷 Equipment QR
+          </button>
           {QR_OPEN_AS_INSPECTOR && <a href={qrStandUrl("supervisor")} className="qrStandSwitch">Not inspecting? Open the supervisor log →</a>}
         </div>
       )}

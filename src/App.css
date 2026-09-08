@@ -7791,3 +7791,49 @@ html[data-theme="dark"] .fuStOnWaiting, html[data-theme="black"] .fuStOnWaiting 
 .lblToAddPanel { background: var(--surface-1); border: 1.5px solid #fde68a; border-radius: 12px; padding: 10px 12px; margin: 6px 0 10px; }
 .lblToAddRow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 6px 8px; border-radius: 8px; background: var(--surface-2); margin-bottom: 5px; font-size: 0.82rem; }
 [data-theme="black"] .lblFloorChip.lblToAdd, [data-theme="dark"] .lblFloorChip.lblToAdd, [data-theme="noir"] .lblFloorChip.lblToAdd { background: rgba(245,158,11,0.2); color: #fcd34d; border-color: rgba(245,158,11,0.4); }
+
+/* ── Equipment setup walk (v373) ── */
+.lblWalkToggle.on { background: #16a34a; }
+.walkWrap { margin-top: 8px; }
+.walkHead { background: var(--surface-1); border: 1.5px solid var(--sdx-gray-200); border-radius: 12px; padding: 10px 12px; margin-bottom: 8px; display: flex; flex-direction: column; gap: 6px; }
+.walkHeadRow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.walkProg { height: 8px; background: var(--surface-2); border-radius: 999px; overflow: hidden; }
+.walkProgBar { height: 100%; background: #16a34a; transition: width .3s; }
+.walkStand { background: var(--surface-1); border: 1.5px solid var(--sdx-gray-200); border-radius: 12px; padding: 8px 10px; margin: 8px 0; }
+.walkStandEmpty { border-color: #fde68a; }
+.walkStandHead { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-weight: 800; font-size: 0.86rem; margin-bottom: 4px; }
+.walkMini { margin-left: auto; background: var(--surface-2); border: 1px solid var(--sdx-gray-200); border-radius: 999px; padding: 2px 10px; font-size: 0.72rem; font-weight: 800; cursor: pointer; color: var(--ink-700); }
+.walkRow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; width: 100%; text-align: left; background: var(--surface-2); border: 1.5px solid var(--sdx-gray-200); border-radius: 10px; padding: 8px 10px; margin: 5px 0; cursor: pointer; font-size: 0.82rem; color: var(--ink-900); }
+.walkRow.done { border-color: #86efac; background: var(--tint-green-1, #f0fdf4); }
+.walkRowIcon { font-size: 1rem; }
+.walkRowName { font-weight: 800; }
+.walkRowType { font-weight: 500; }
+.walkRowMeta { color: var(--ink-500); font-size: 0.76rem; }
+.walkRowTag { margin-left: auto; font-family: ui-monospace, Menlo, monospace; font-size: 0.72rem; font-weight: 800; color: var(--ink-600); }
+.walkFill .walkFillBody { padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 6px; max-height: 70vh; overflow: auto; }
+.walkFill .input { font-size: 16px; }
+.walkFillActions { display: flex; gap: 8px; margin-top: 10px; }
+.walkFillActions .btn { flex: 1; }
+.walkDoneBtn { background: #16a34a !important; border-color: #16a34a !important; }
+.walkHeadCount { color: var(--ink-500); font-size: 0.8rem; font-weight: 600; }
+.walkMissing { font-size: 0.68rem; font-weight: 800; color: #92400e; background: var(--tint-amber-1, #fffbeb); border: 1px solid #fde68a; border-radius: 999px; padding: 1px 8px; }
+.walkChips { display: flex; flex-wrap: wrap; gap: 6px; margin: 2px 0 6px; }
+.walkChip { background: var(--surface-2); border: 1.5px solid var(--sdx-gray-200); border-radius: 999px; padding: 5px 11px; font-size: 0.78rem; font-weight: 700; color: var(--ink-700); cursor: pointer; line-height: 1.2; }
+.walkChip.on { background: var(--sdx-navy); border-color: var(--sdx-navy); color: #fff; }
+.walkLbl { display: block; font-size: 0.68rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.07em; color: var(--ink-500); margin-top: 6px; }
+.walkFlash { position: fixed; left: 12px; right: 12px; bottom: 18px; z-index: 10001; background: #ecfdf5; border: 2px solid #10b981; border-radius: 12px; padding: 0.7rem 1rem; font-weight: 700; font-size: 0.88rem; color: #065f46; box-shadow: 0 8px 24px rgba(0,0,0,.18); }
+/* ── One stand open (stand QR / poster / form → its equipment QRs) ── */
+.standFocus { background: var(--surface-1); border: 2px solid var(--sdx-navy); border-radius: 14px; padding: 12px 14px 14px; margin: 4px 0 14px; }
+.standFocusHead { display: flex; align-items: center; gap: 10px; }
+.standFocusTitle { font-weight: 900; font-size: 1.05rem; color: var(--ink-900); overflow: hidden; text-overflow: ellipsis; }
+.standFocusSub { font-size: 0.78rem; color: var(--ink-500); font-weight: 600; }
+.standFocusActions { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 6px; }
+.standFocusAdd { background: #16a34a !important; color: #fff !important; border-color: #16a34a !important; }
+.standFocusEmpty { background: var(--tint-amber-1, #fffbeb); border: 1.5px solid #fde68a; border-radius: 10px; padding: 10px 12px; font-size: 0.84rem; color: #92400e; margin-top: 6px; }
+.standFocusRows { margin-top: 4px; }
+.qrStandEquipBtn { background: #fff; color: var(--sdx-navy); border: none; border-radius: 8px; padding: 0.35rem 0.8rem; font-weight: 800; font-size: 0.8rem; cursor: pointer; white-space: nowrap; }
+.kqrEquipBtn { display: block; width: 100%; margin-top: 8px; background: var(--surface-2); border: 1.5px solid var(--sdx-gray-200); border-radius: 8px; padding: 6px 8px; font-size: 0.76rem; font-weight: 800; color: var(--ink-700); cursor: pointer; }
+.guideStandEquipLink { width: 100%; margin-bottom: 10px; padding: 0.55rem 0.8rem; border-radius: 10px; border: 1.5px solid var(--sdx-gray-200); background: var(--surface-1); color: var(--ink-700); font-weight: 700; font-size: 0.82rem; cursor: pointer; }
+.walkFill .cardHeader { flex-direction: row !important; align-items: center; text-align: left; padding: 14px 16px; }
+.walkFill .walkFillBody { max-height: none; overflow: visible; }
+.walkFillActions { position: sticky; bottom: 0; background: var(--surface-1); padding: 10px 0 2px; margin-top: 8px; }
