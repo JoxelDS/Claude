@@ -232,11 +232,39 @@ function qrStandUrl(as) {
 // phone camera opens a quick temp-check form for that exact unit.
 const EQUIP_PORTAL_TAG = new URLSearchParams(window.location.search).get("equip") || "";
 // Value encoded into printed equipment QR labels
-function equipQrValue(tag) {
+function equipQrValue(tag, meta) {
   const base = window.location.origin + "/Claude/";
   const p = new URLSearchParams({ equip: tag });
   if (VENUE_ID && VENUE_ID !== "default") p.set("v", VENUE_ID);
+  // The label's full identity rides inside the QR, so a scan shows the real
+  // name on any phone, offline, with no lookup: n=name b=brand l=location
+  // s=restaurant u=unit
+  if (meta) {
+    const clean = v => String(v || "").replace(/\s*(❄|🧊)\s*(Cooler|Freezer)\s*$/u, "").trim().slice(0, 60);
+    if (meta.label) p.set("n", clean(meta.label));
+    if (meta.brandName || meta.brand) p.set("b", String(meta.brandName || meta.brand).slice(0, 40));
+    if (meta.location || meta.kitchenArea) p.set("l", String(meta.location || meta.kitchenArea).slice(0, 40));
+    if (meta.venueName) p.set("s", String(meta.venueName).slice(0, 40));
+    if (meta.unit) p.set("u", String(meta.unit).slice(0, 12));
+  }
   return base + "?" + p.toString();
+}
+// Type from the tag itself when nothing else knows it (SDX-FRZ / SDX-FREE / FZ → freezer)
+function coldTypeFromTag(tag) {
+  const t = String(tag || "").toUpperCase();
+  if (/^(SDX-)?(FRZ|FREE|FREEZ|FZ)\b|-FRZ-|-FREE-|-FZ-/.test(t)) return "freezer";
+  if (/^(SDX-)?(COOL|CLR|CL)\b|-COOL-|-CLR-|-CL-/.test(t)) return "cooler";
+  return "";
+}
+// Meta encoded in a scanned label URL (v369+ labels); null for old tag-only labels
+function metaFromEquipQr(raw) {
+  const str = String(raw || "").trim();
+  if (!/[?&]equip=/.test(str)) return null;
+  try {
+    const p = new URL(str, window.location.origin).searchParams;
+    if (!p.get("n") && !p.get("b") && !p.get("s")) return null;
+    return { assetTag: p.get("equip") || "", label: p.get("n") || "", brand: p.get("b") || "", kitchenArea: p.get("l") || "", venueName: p.get("s") || "", unit: p.get("u") || "" };
+  } catch { return null; }
 }
 // A scanned QR may be the raw tag (old labels) or the URL (new labels) — always resolve to the tag
 function extractEquipTag(raw) {
@@ -250,29 +278,50 @@ function extractEquipTag(raw) {
 // Instant equipment lookup by asset tag — current form first, then the shared
 // equipment registry (warmed once), then the local history cache. Never waits
 // on the network, so a scan can open the unit immediately.
-let _equipRegCache = null; // { [TAG]: { label, brandName, location, venueName, unit } }
+let _equipRegCache = null; // { [TAG]: { label, brandName, location, venueName, unit } } — items + labelIndex merged
+const EQUIP_REG_LS = `sdx_equip_registry_${VENUE_ID}`;
+try { _equipRegCache = JSON.parse(localStorage.getItem(EQUIP_REG_LS) || "null"); } catch {}
 async function warmEquipRegistry() {
-  if (_equipRegCache) return _equipRegCache;
   try {
     const snap = await getDoc(doc(db, "venues", VENUE_ID, "sharedMemory", "equipmentRegistry"));
-    _equipRegCache = (snap.exists() ? (snap.data() || {}).items : null) || {};
+    const d = snap.exists() ? (snap.data() || {}) : {};
+    _equipRegCache = { ...(d.labelIndex || {}), ...(d.items || {}) };
+    try { localStorage.setItem(EQUIP_REG_LS, JSON.stringify(_equipRegCache)); } catch {}
   } catch { _equipRegCache = _equipRegCache || {}; }
   return _equipRegCache;
+}
+// Remember every generated label's identity so old tag-only labels resolve on any device
+function indexEquipLabels(items) {
+  try {
+    const cur = _equipRegCache || {};
+    const patch = {};
+    for (const it of items || []) {
+      const t = String(it.assetTag || "").trim().toUpperCase();
+      if (!t || cur[t]) continue;
+      patch[t] = { label: it.label || "", brandName: it.brandName || it.brand || "", location: it.location || it.kitchenArea || "", venueName: it.venueName || "", unit: it.unit || "" };
+    }
+    if (Object.keys(patch).length === 0) return;
+    _equipRegCache = { ...cur, ...patch };
+    try { localStorage.setItem(EQUIP_REG_LS, JSON.stringify(_equipRegCache)); } catch {}
+    if (FIREBASE_ON) setDoc(doc(db, "venues", VENUE_ID, "sharedMemory", "equipmentRegistry"), { labelIndex: patch }, { merge: true }).catch(() => {});
+  } catch {}
 }
 function lookupEquipByTag(rawTag, inspection) {
   const tag = extractEquipTag(rawTag).trim().toUpperCase();
   if (!tag) return null;
   const same = t => String(t || "").trim().toUpperCase() === tag;
+  // 0) the label itself may carry its full identity (v369+ labels)
+  const fromQr = metaFromEquipQr(rawTag);
   // 1) already on this form
-  let inForm = null, meta = null, last = null;
+  let inForm = null, meta = fromQr ? { assetTag: tag, label: fromQr.label, brand: fromQr.brand, kitchenArea: fromQr.kitchenArea, venueName: fromQr.venueName, unit: fromQr.unit } : null, last = null;
   for (const [k, v] of Object.entries(inspection?.equipment || {})) {
-    if (same(v?.assetTag)) { inForm = k; meta = { assetTag: v.assetTag, label: v.label || k, brand: v.brand || "", kitchenArea: v.kitchenArea || "" }; break; }
+    if (same(v?.assetTag)) { inForm = k; if (!meta || !meta.label) meta = { assetTag: v.assetTag, label: v.label || k, brand: v.brand || "", kitchenArea: v.kitchenArea || "" }; break; }
   }
   // 2) shared registry (manually created labels)
   const reg = _equipRegCache || {};
   for (const [t, it] of Object.entries(reg)) {
     if (meta) break;
-    if (same(t) || same(it?.assetTag)) { meta = { assetTag: it.assetTag || t, label: it.label || "", brand: it.brandName || it.brand || "", kitchenArea: it.location || "" }; break; }
+    if (same(t) || same(it?.assetTag)) { meta = { assetTag: it.assetTag || t, label: it.label || "", brand: it.brandName || it.brand || "", kitchenArea: it.location || "", venueName: it.venueName || "", unit: it.unit || "" }; break; }
   }
   // 3) local history cache — newest first for the last reading
   try {
@@ -17713,6 +17762,8 @@ function PrintLabelsPage({ onBack }) {
           items.unshift({ ...it, uid });
         }
         setEquipItems(items.filter(i => !hidden[i.uid]));
+        // Every label we can print is remembered by tag → old tag-only labels resolve everywhere
+        warmEquipRegistry().then(() => indexEquipLabels(items.filter(i => !hidden[i.uid]))).catch(() => {});
       } catch {
         setEquipItems([]);
       }
@@ -17729,7 +17780,7 @@ function PrintLabelsPage({ onBack }) {
     const urls = {};
     getQRCode().then(QR => Promise.all(
       equipItems.map(item =>
-        QR.toDataURL(equipQrValue(item.assetTag), { width: 240, margin: 1, color: { dark: "#111827", light: "#ffffff" } })
+        QR.toDataURL(equipQrValue(item.assetTag, item), { width: 240, margin: 1, color: { dark: "#111827", light: "#ffffff" } })
           .then(url => { urls[item.uid] = url; })
           .catch(() => {})
       )
@@ -20188,18 +20239,23 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
     const lastTxt = last ? `${last.tempF}°F · ${last.date ? new Date(last.date + "T12:00:00").toLocaleDateString([], { month: "short", day: "numeric" }) : ""}`.trim() : "";
     if (lastTxt) setLastByTag(p => ({ ...p, [tag]: lastTxt }));
     let key = inForm;
+    // Name: from the label's QR / registry / history; else typed from the tag
+    // prefix so a freezer is never called a cooler.
+    const tagType = coldTypeFromTag(tag);
+    const fallbackName = tagType === "freezer" ? `Freezer ${tag}` : tagType === "cooler" ? `Cooler ${tag}` : `Scanned Unit ${tag}`;
+    const label = meta?.label || (inForm ? (inspection?.[sectionKey]?.[inForm]?.label || inForm) : fallbackName);
     if (!key) {
       key = `custom_${Date.now()}`;
-      const label = meta?.label || `Scanned Cooler ${tag}`;
-      const cold = detectColdType(label) || { type: "cooler" };
       setInspection(prev => setAtPath(prev, [sectionKey, key], {
         status: "OK", notes: "", photos: [], count: "", equipSource: "Facility",
         label, tempF: "", assetTag: meta?.assetTag || tag, brand: meta?.brand || "", kitchenArea: meta?.kitchenArea || "",
-        ...(cold ? {} : {}),
       }));
+    } else if (meta?.label && !inspection?.[sectionKey]?.[inForm]?.label) {
+      setInspection(prev => setAtPath(prev, [sectionKey, inForm], { ...(getAtPath(prev, [sectionKey, inForm]) || {}), label: meta.label, brand: (getAtPath(prev, [sectionKey, inForm]) || {}).brand || meta.brand || "" }));
     }
-    const label = meta?.label || (inForm ? (inspection?.[sectionKey]?.[inForm]?.label || inForm) : `Scanned Cooler ${tag}`);
-    setScanNote(`${inForm ? "❄" : "＋"} ${label} · ${tag}${lastTxt ? ` — last ${lastTxt}` : ""} — enter the temperature`);
+    const kind = (detectColdType(label) || { type: tagType })?.type;
+    const where = [meta?.venueName, meta?.unit ? `#${meta.unit}` : ""].filter(Boolean).join(" ");
+    setScanNote(`${kind === "freezer" ? "🧊" : "❄"} ${label}${where ? ` · ${where}` : ""} · ${tag}${lastTxt ? ` — last ${lastTxt}` : ""} — enter the temperature`);
     setTimeout(() => setScanNote(""), 6000);
     focusEquipItem(`${sectionKey}.${key}`);
   }
