@@ -25162,18 +25162,23 @@ export default function App() {
   // Set the Location field with full autofill (unit, phone, supervisor, type,
   // floor, license, remembered equipment) — used by typing AND by the
   // assigned-stands quick buttons so both paths behave identically.
-  function applySiteAutofill(raw) {
+  // opts.lockIdentity: the unit number is already known (scanned QR, or typed
+  // first) — name-keyed memory may fill PEOPLE fields only. Several stands
+  // share one name (four "Wynwood Walkthrough"s), so memory must never swap
+  // the unit, license, floor or location type. Numbers don't lie.
+  function applySiteAutofill(raw, opts = {}) {
     const val = String(raw || "").toUpperCase();
     setSiteName(val);
     const mem = getAutofillMemory();
     const mapped = mem.siteMap?.[val];
+    const lock = !!opts.lockIdentity;
     if (mapped) {
-      if (mapped.siteNumber && !siteNumber) setSiteNumber(mapped.siteNumber);
-      if (mapped.sitePhone && !sitePhone) setSitePhone(mapped.sitePhone);
-      if (mapped.supervisorName && !supervisorName) setSupervisorName(mapped.supervisorName);
-      if (mapped.locationType) setLocationType(mapped.locationType);
-      if (mapped.floor) setFloor(mapped.floor);
-      if (mapped.restaurantLicense && !restaurantLicense) setRestaurantLicense(mapped.restaurantLicense);
+      if (!lock && mapped.siteNumber && !siteNumber) setSiteNumber(mapped.siteNumber);
+      if (mapped.sitePhone) setSitePhone(prev => prev || mapped.sitePhone);
+      if (mapped.supervisorName) setSupervisorName(prev => prev || mapped.supervisorName);
+      if (!lock && mapped.locationType) setLocationType(mapped.locationType);
+      if (!lock && mapped.floor) setFloor(mapped.floor);
+      if (!lock && mapped.restaurantLicense && !restaurantLicense) setRestaurantLicense(mapped.restaurantLicense);
       // Restore remembered equipment for Portable / Subcontractor sites
       const lt = mapped.locationType || locationType;
       if ((isPortableType(lt) || lt === "Subcontractor") && mapped.equipmentItems?.length) {
@@ -25182,7 +25187,7 @@ export default function App() {
       }
     }
     // License auto-fill (Hard Rock Stadium only for seed lookup)
-    if (!restaurantLicense) {
+    if (!lock && !restaurantLicense) {
       const licEntry = invLicenseData[val];
       if (licEntry?.licenseNum && licEntry.licenseNum !== "NO LICENSE") {
         setRestaurantLicense(licEntry.licenseNum);
@@ -25519,17 +25524,20 @@ export default function App() {
     if (g("unit")) setSiteNumber(g("unit"));
     { const fl = floorFromUnit(g("unit")) || g("floor"); if (fl) setFloor(fl); }
     if (g("loctype")) { try { setLocationType(g("loctype")); } catch {} }
-    // License from the official registry, same as typing the unit by hand
+    // Remembered details for this stand — people only when the unit is known
+    try { if (g("site")) applySiteAutofill(g("site"), { lockIdentity: !!g("unit") }); } catch {}
+    // License (and official name) from the registry BY UNIT — this wins over
+    // anything name-keyed memory may have remembered for a same-named stand.
     try {
       const reg = g("unit") && IS_DEFAULT_VENUE() ? lookupLicenseByUnitType(g("unit"), g("loctype") || "Concession") : null;
-      if (reg?.license && reg.status === "ACTIVE") setRestaurantLicense(reg.license);
-      else if (g("unit") && IS_DEFAULT_VENUE()) {
+      if (reg?.license && reg.status === "ACTIVE") {
+        setRestaurantLicense(reg.license);
+        if (reg.name && (!g("site") || reg.name.toUpperCase().includes(g("site").toUpperCase()))) setSiteName(reg.name.toUpperCase());
+      } else if (g("unit") && IS_DEFAULT_VENUE()) {
         const nm = LICENSE_NAME_BY_NUMBER[g("unit").toUpperCase()];
         if (nm && !g("site")) setSiteName(nm.toUpperCase());
       }
     } catch {}
-    // Remembered details for this stand (supervisor, phone, equipment…)
-    try { if (g("site")) applySiteAutofill(g("site")); } catch {}
     // The stand's LAST report fills the rest: supervisor, phone, license,
     // location type, and its equipment list (labels, brands, asset tags —
     // readings/photos cleared) so the inspector walks in with a full form.
@@ -27328,7 +27336,7 @@ export default function App() {
                   <input className="input" value={siteName} readOnly style={{ background: "var(--surface-2)", color: "var(--ink-600)", cursor: "not-allowed" }} title="Location is set by your manager" />
                 ) : (
                   <>
-                    <input className="input" list="siteNameSuggestions" value={siteName} onBlur={(e) => smartFieldCorrect("field-siteName", e.target.value)} onChange={(e) => applySiteAutofill(e.target.value)} placeholder="e.g., North Stand Kitchen" />
+                    <input className="input" list="siteNameSuggestions" value={siteName} onBlur={(e) => smartFieldCorrect("field-siteName", e.target.value)} onChange={(e) => applySiteAutofill(e.target.value, { lockIdentity: !!siteNumber.trim() })} placeholder="e.g., North Stand Kitchen" />
                     <datalist id="siteNameSuggestions">
                       {(getAutofillMemory().siteName || []).map((s, i) => <option key={i} value={s} />)}
                     </datalist>
