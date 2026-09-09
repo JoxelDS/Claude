@@ -8026,7 +8026,7 @@ function PredictiveInsightsPanel({ history }) {
 // Follow-up derivation, shared by the panel and the App-level overdue badge.
 function computeFollowups(history, venueSettings, clearedLocal = {}) {
   const recheckDays = Number(venueSettings?.recheckDays) || 7;
-  if (!Array.isArray(history) || history.length < 2) return { followups: [], followupGroups: [], followupCatGroups: [], recheckDays };
+  if (!Array.isArray(history) || history.length < 1) return { followups: [], followupGroups: [], followupCatGroups: [], recheckDays };
   const cleared = { ...(venueSettings?.followupCleared || {}), ...clearedLocal };
   const latestInspByLoc = {};   // locName -> newest inspection timestamp
   const catLastSeen = {};       // "loc::cat" -> { ts, dateStr, count }
@@ -8458,19 +8458,24 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
   const [fuPhotoBusy, setFuPhotoBusy] = useState(null);
   const [lightboxSrc, setLightboxSrc] = useState(null);
   const fuPhotosOf = f => (fuPhotosLocal[f.key] || venueSettings?.followupPhotos?.[f.key] || []);
-  async function addFuPhotos(f, files) {
+  async function addFuPhotos(f, files, tag = "before") {
     if (!files || !files.length) return;
     setFuPhotoBusy(f.key);
     try {
       const got = await makeFollowupPhotos(files, `fu_${f.key.replace(/[^A-Za-z0-9]+/g, "_").slice(0, 60)}`, 4);
       if (got.length) {
-        const entries = got.map(p => ({ id: p.id, thumbUrl: p.thumbUrl, previewUrl: p.previewUrl, by: currentUser?.name || "Unknown", ts: Date.now() }));
+        const entries = got.map(p => ({ id: p.id, thumbUrl: p.thumbUrl, previewUrl: p.previewUrl, by: currentUser?.name || "Unknown", ts: Date.now(), tag }));
         const arr = [...fuPhotosOf(f), ...entries].slice(-8);
         setFuPhotosLocal(prev => ({ ...prev, [f.key]: arr }));
         writeMap("followupPhotos", { [f.key]: arr });
       }
     } catch {}
     setFuPhotoBusy(null);
+  }
+  function setFuPhotoTag(f, id, tag) {
+    const arr = fuPhotosOf(f).map(p => p.id === id ? { ...p, tag } : p);
+    setFuPhotosLocal(prev => ({ ...prev, [f.key]: arr }));
+    writeMap("followupPhotos", { [f.key]: arr });
   }
   function removeFuPhoto(f, id) {
     const arr = fuPhotosOf(f).filter(p => p.id !== id);
@@ -8861,26 +8866,36 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
                                   return <div className="fuStStamp">{m.icon} {m.label} — {st.by}{when ? ` · ${when}` : ""}{st.status === "waiting" && st.note ? ` — waiting for ${st.note}` : ""}</div>;
                                 })()}
                                 {/* Pictures — from the report, plus what the team adds while fixing it */}
-                                {((f.photos || []).length > 0 || fuPhotosOf(f).length > 0) && (
-                                  <div className="fuThumbs" style={{ marginTop: 6 }}>
-                                    {(f.photos || []).map(p => (
-                                      <div key={"r" + p.id} className="fuThumb fuThumbReport" title="From the report">
-                                        <img src={p.thumbUrl} alt="" onClick={() => setLightboxSrc(p.previewUrl || p.thumbUrl)} />
-                                        <span className="fuThumbTag">report</span>
+                                {(() => {
+                                  const mine = fuPhotosOf(f);
+                                  const before = [...(f.photos || []).map(p => ({ ...p, report: true })), ...mine.filter(p => (p.tag || "before") !== "after")];
+                                  const after = mine.filter(p => p.tag === "after");
+                                  if (!before.length && !after.length) return null;
+                                  const thumb = (p, side) => (
+                                    <div key={(p.report ? "r" : "") + p.id} className={"fuThumb" + (p.report ? " fuThumbReport" : side === "after" ? " fuThumbAfter" : "")} title={p.report ? "From the report" : `${p.by || ""}${p.ts ? " · " + new Date(p.ts).toLocaleDateString([], { month: "short", day: "numeric" }) : ""}`}>
+                                      <img src={p.thumbUrl} alt="" onClick={() => setLightboxSrc(p.previewUrl || p.thumbUrl)} />
+                                      <span className="fuThumbTag">{p.report ? "report" : (p.by || "").split(" ")[0] || side}</span>
+                                      {!p.report && <button type="button" className="fuThumbX" onClick={() => removeFuPhoto(f, p.id)}>✕</button>}
+                                      {!p.report && <button type="button" className="fuThumbSwap" title={side === "after" ? "Move to Before" : "Move to After"} onClick={() => setFuPhotoTag(f, p.id, side === "after" ? "before" : "after")}>⇄</button>}
+                                    </div>
+                                  );
+                                  return (
+                                    <div className="fuBA">
+                                      <div className="fuBACol">
+                                        <div className="fuBAHead fuBABefore">🔴 Before</div>
+                                        <div className="fuThumbs">{before.length ? before.map(p => thumb(p, "before")) : <span className="fuPhotoHint">no photo yet</span>}</div>
                                       </div>
-                                    ))}
-                                    {fuPhotosOf(f).map(p => (
-                                      <div key={p.id} className="fuThumb" title={`${p.by || ""}${p.ts ? " · " + new Date(p.ts).toLocaleDateString([], { month: "short", day: "numeric" }) : ""}`}>
-                                        <img src={p.thumbUrl} alt="" onClick={() => setLightboxSrc(p.previewUrl || p.thumbUrl)} />
-                                        <span className="fuThumbTag">{(p.by || "").split(" ")[0] || "photo"}</span>
-                                        <button type="button" className="fuThumbX" onClick={() => removeFuPhoto(f, p.id)}>✕</button>
+                                      <div className="fuBACol">
+                                        <div className="fuBAHead fuBAAfter">🟢 After</div>
+                                        <div className="fuThumbs">{after.length ? after.map(p => thumb(p, "after")) : <span className="fuPhotoHint">add the fixed photo</span>}</div>
                                       </div>
-                                    ))}
-                                  </div>
-                                )}
+                                    </div>
+                                  );
+                                })()}
                                 <div className="fuPhotoRow" style={{ marginTop: 4 }}>
-                                  <label className="fuPhotoBtn fuCardPhotoBtn">📷 Photo<input type="file" accept="image/*" capture="environment" hidden onChange={e => { addFuPhotos(f, e.target.files); e.target.value = ""; }} /></label>
-                                  <label className="fuPhotoBtn fuCardPhotoPick">🖼 Upload<input type="file" accept="image/*" multiple hidden onChange={e => { addFuPhotos(f, e.target.files); e.target.value = ""; }} /></label>
+                                  <label className="fuPhotoBtn fuCardPhotoBtn fuPhotoBefore">📷 Before<input type="file" accept="image/*" capture="environment" hidden onChange={e => { addFuPhotos(f, e.target.files, "before"); e.target.value = ""; }} /></label>
+                                  <label className="fuPhotoBtn fuCardPhotoAfter fuPhotoAfter">📷 After<input type="file" accept="image/*" capture="environment" hidden onChange={e => { addFuPhotos(f, e.target.files, "after"); e.target.value = ""; }} /></label>
+                                  <label className="fuPhotoBtn fuCardPhotoPick">🖼 Upload<input type="file" accept="image/*" multiple hidden onChange={e => { addFuPhotos(f, e.target.files, "before"); e.target.value = ""; }} /></label>
                                   {fuPhotoBusy === f.key && <span className="fuPhotoHint">Adding…</span>}
                                 </div>
                                 {/* Comments — the running conversation on this problem */}
@@ -20957,7 +20972,7 @@ async function processPhotoFiles(files, { limit, inspId, venueId, firebaseOn, on
   return { photos, failCount };
 }
 
-const GuideSection = React.memo(function GuideSection({ title, items, inspection, setInspection, allowCustom, sectionKey, coldEquipmentMap, maintenanceItems, emptyHint, inspectionId, onError, siteName, onOpenPrintLabels, defaultOpen = false }) {
+const GuideSection = React.memo(function GuideSection({ title, items, inspection, setInspection, allowCustom, sectionKey, coldEquipmentMap, maintenanceItems, emptyHint, inspectionId, onError, siteName, siteNumber, siteFloor, siteLocType, onOpenPrintLabels, defaultOpen = false }) {
 
   const fileRefs = useRef({});
   const cameraRefs = useRef({});
@@ -21748,9 +21763,31 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                 const cold = detectColdType(label);
                 const ckKey = detectChecklistKey(label);
                 const checklist = ckKey ? (CHECKLIST_DEFAULTS[ckKey] || []).map(i => ({ ...i })) : [];
-                setInspection((prev) => setAtPath(prev, [sectionKey, key], { status: "OK", notes: "", photos: [], label: label.trim(), count: "", equipSource: "Facility", ...(cold ? { tempF: "" } : {}), ...(checklist.length ? { checklist } : {}) }));
+                // Cold unit at a known stand → it gets its QR tag right now
+                // (SDX-CL/FZ-<UNIT>-n, same rule as the labels page) and is
+                // registered so the label can be printed and scanned today.
+                let assetTag = "";
+                if (cold && sectionKey === "equipment" && (normUnit(siteNumber) || (siteName || "").trim())) {
+                  try {
+                    const unitN = normUnit(siteNumber) || (siteName || "").replace(/[^A-Z0-9]/gi, "").toUpperCase().slice(0, 8) || "X";
+                    const pre = `SDX-${cold.type === "freezer" ? "FZ" : "CL"}-${unitN}-`;
+                    const used = new Set();
+                    for (const v of Object.values(inspection?.equipment || {})) if (v?.assetTag) used.add(String(v.assetTag).toUpperCase());
+                    for (const t of Object.keys(_equipRegCache || {})) used.add(String(t).toUpperCase());
+                    try { for (const r of JSON.parse(localStorage.getItem(`sdx_history_cache_${VENUE_ID}`) || "[]")) for (const v of Object.values(r?.inspection?.equipment || {})) if (v?.assetTag) used.add(String(v.assetTag).toUpperCase()); } catch {}
+                    let n = 1; while (used.has(pre + n)) n++;
+                    assetTag = pre + n;
+                    const floor = floorFromUnit(siteNumber) || siteFloor || "";
+                    const rec = { assetTag, label: label.trim() + (cold.type === "freezer" ? " 🧊 Freezer" : " ❄ Cooler"), venueName: (siteName || "").trim().toUpperCase(), unit: (siteNumber || "").trim(), floor, locType: siteLocType || "", location: "", brandName: "", createdAt: Date.now() };
+                    _equipRegCache = { ...(_equipRegCache || {}), [assetTag]: rec };
+                    try { localStorage.setItem(EQUIP_REG_LS, JSON.stringify(_equipRegCache)); } catch {}
+                    if (FIREBASE_ON) setDoc(doc(db, "venues", VENUE_ID, "sharedMemory", "equipmentRegistry"), { items: { [assetTag]: rec }, labelIndex: { [assetTag]: { name: rec.label, brand: "", location: "", venueName: rec.venueName, unit: rec.unit, floor, locType: rec.locType, ts: Date.now() } } }, { merge: true }).catch(() => {});
+                  } catch { assetTag = ""; }
+                }
+                setInspection((prev) => setAtPath(prev, [sectionKey, key], { status: "OK", notes: "", photos: [], label: label.trim(), count: "", equipSource: "Facility", ...(assetTag ? { assetTag } : {}), ...(cold ? { tempF: "" } : {}), ...(checklist.length ? { checklist } : {}) }));
                 setNewItemName("");
                 setNewEquipType(null);
+                if (assetTag) { setScanNote(`🏷 ${label.trim()} registered as ${assetTag} — print its label from “This stand's equipment QR labels”.`); setTimeout(() => setScanNote(""), 6000); }
               };
               const isCustomMode = newEquipType === CUSTOM_KEY;
               const existingEquip = inspection?.equipment || {};
@@ -26255,6 +26292,23 @@ export default function App() {
 
   const [siteName, setSiteName] = useState("");
   const [siteNumber, setSiteNumber] = useState("");
+  // Open problems at this stand → corrective action is mandatory before saving
+  // { [fuKey]: { action, status: "fixed"|"in_progress"|"waiting", photos: [] } }
+  const [correctives, setCorrectives] = useState({});
+  const [caBusy, setCaBusy] = useState(null);
+  // Open follow-ups for the stand being inspected (by unit #, else by name)
+  const standOpenProblems = useMemo(() => {
+    try {
+      const unitN = normUnit(siteNumber); const siteU = (siteName || "").trim().toUpperCase();
+      if (!unitN && !siteU) return [];
+      const cached = JSON.parse(localStorage.getItem(`sdx_history_cache_${VENUE_ID}`) || "[]");
+      return computeFollowups(cached, venueSettings).followups
+        .filter(f => !f.likelyResolved)
+        .filter(f => unitN ? normUnit(f.unit) === unitN : (f.loc || "").toUpperCase() === siteU)
+        .filter(f => (venueSettings?.followupStatus?.[f.key]?.status) !== "resolved");
+    } catch { return []; }
+  }, [siteNumber, siteName, venueSettings?.followupCleared, venueSettings?.followupStatus, venueSettings?.recheckDays, fuHistoryTick]);
+  const caMissing = standOpenProblems.filter(f => !(correctives[f.key]?.action || "").trim());
   const [restaurantLicense, setRestaurantLicense] = useState("");
   const [supervisorName, setSupervisorName] = useState("");
   const [sitePhone, setSitePhone] = useState("");
@@ -27025,6 +27079,29 @@ export default function App() {
     localStorage.setItem(LANG_KEY, code);
   }
 
+  async function addCorrectivePhoto(f, files) {
+    if (!files || !files.length) return;
+    setCaBusy(f.key);
+    try { const got = await makeFollowupPhotos(files, `ca_${(savedReportIdRef.current || savedReportId || Date.now())}`, 3); setCorrectives(prev => ({ ...prev, [f.key]: { ...(prev[f.key] || { action: "", status: "fixed" }), photos: [...((prev[f.key] || {}).photos || []), ...got].slice(0, 3) } })); } catch {}
+    setCaBusy(null);
+  }
+  // Write the corrective actions to the shared follow-up maps (status, comment, after-photos)
+  function commitCorrectives(reportId) {
+    const by = inspectorName || currentUser?.name || "Inspector"; const ts = Date.now();
+    for (const f of standOpenProblems) {
+      const c = correctives[f.key]; if (!c || !(c.action || "").trim()) continue;
+      const st = c.status || "fixed";
+      const entry = { status: st === "fixed" ? "resolved" : st, note: st === "waiting" ? c.action.trim().slice(0, 80) : "", by, ts };
+      saveVenueSettingsMap("followupStatus", { [f.key]: entry });
+      if (st === "fixed") saveVenueSettingsMap("followupCleared", { [f.key]: ts });
+      const prevC = venueSettings?.followupComments?.[f.key] || [];
+      saveVenueSettingsMap("followupComments", { [f.key]: [...prevC, { text: `Corrective action: ${c.action.trim().slice(0, 200)}`, by, ts, reportId }].slice(-10) });
+      if ((c.photos || []).length) {
+        const prevP = venueSettings?.followupPhotos?.[f.key] || [];
+        saveVenueSettingsMap("followupPhotos", { [f.key]: [...prevP, ...c.photos.map(p => ({ id: p.id, thumbUrl: p.thumbUrl, previewUrl: p.previewUrl, by, ts, tag: "after" }))].slice(-8) });
+      }
+    }
+  }
   async function onTransform(skipPreSubmitCheck = false) {
     setError("");
     setWarnings([]);
@@ -27068,6 +27145,11 @@ export default function App() {
         setModals(m => ({ ...m, preSubmit: { incomplete } }));
         return;
       }
+    }
+    // Corrective actions are mandatory: every open problem at this stand needs one
+    if (caMissing.length > 0) {
+      setModals(m => ({ ...m, preSubmit: { hard: true, incomplete: caMissing.map(f => ({ text: `Corrective action needed — ${f.cat}${f.detail ? `: ${f.detail}` : ""}`, jump: { ca: f.key } })) } }));
+      return;
     }
 
     // Validate
@@ -27178,6 +27260,7 @@ export default function App() {
       foodTempTimes: { ...foodTempTimes },
       overallStatus: calcOverallStatus(inspection, { foodTemps, foodTempNames }),
       actionItems: buildActionItems({ inspection, rawNotes, foodTemps, foodTempNames, foodTempCorrections, foodTempSubmitted }),
+      correctiveActions: standOpenProblems.filter(f => (correctives[f.key]?.action || "").trim()).map(f => ({ key: f.key, cat: f.cat, detail: f.detail || "", flagged: f.dateStr || "", action: correctives[f.key].action.trim(), status: correctives[f.key].status || "fixed", photos: (correctives[f.key].photos || []).map(p => ({ id: p.id, thumbUrl: p.thumbUrl, previewUrl: (p.previewUrl || "").startsWith("http") ? p.previewUrl : "", tag: "after" })) })),
       rawNotes,
       // output is NOT stored — it's regenerated on demand from transformLocally.
       // Storing the full report text was pushing documents over Firestore's 1MB limit.
@@ -27209,6 +27292,7 @@ export default function App() {
     }
     try {
       await saveOneInspection(cleanRecord);
+      try { commitCorrectives(record.id); } catch {}
       learnFromSave(cleanRecord);
       clearDraft(); // draft committed — remove auto-save
       reportInProgressRef.current = false; // prevent auto-save from re-saving completed inspection
@@ -28450,6 +28534,46 @@ export default function App() {
                 );
               })()}
 
+              {/* ── Open problems at this stand → corrective action (mandatory) ── */}
+              {standOpenProblems.length > 0 && (
+                <div className="caPanel">
+                  <div className="caHead">
+                    <span className="caTitle">🛠 Open problems at this stand — corrective action required</span>
+                    <span className={"caCount" + (caMissing.length ? " caCountMissing" : " caCountDone")}>{standOpenProblems.length - caMissing.length}/{standOpenProblems.length} answered</span>
+                  </div>
+                  <div className="caSub">Say what was done about each one. The report can't be saved until every problem has an answer.</div>
+                  {standOpenProblems.map(f => {
+                    const c = correctives[f.key] || { action: "", status: "fixed", photos: [] };
+                    const set = patch => setCorrectives(prev => ({ ...prev, [f.key]: { ...(prev[f.key] || { action: "", status: "fixed", photos: [] }), ...patch } }));
+                    const done = !!(c.action || "").trim();
+                    return (
+                      <div key={f.key} id={"ca-" + f.key.replace(/[^A-Za-z0-9]+/g, "_")} className={"caItem" + (done ? " caItemDone" : "")}>
+                        <div className="caItemHead">
+                          <span className="caItemIcon">{done ? "✅" : f.overdue ? "⏰" : "⚠️"}</span>
+                          <span className="caItemTitle">{f.cat}</span>
+                          <span className="caItemMeta">{[f.detail, f.dateStr ? `flagged ${f.dateStr}` : "", f.daysSince != null ? `${f.daysSince}d open` : "", f.reportedBy ? `by ${f.reportedBy}` : ""].filter(Boolean).join(" · ")}</span>
+                        </div>
+                        {(f.photos || []).length > 0 && (
+                          <div className="fuThumbs" style={{ margin: "4px 0" }}>{f.photos.map(p => <div key={p.id} className="fuThumb fuThumbReport"><img src={p.thumbUrl} alt="" onClick={() => setAppLightboxSrc(p.previewUrl || p.thumbUrl)} /><span className="fuThumbTag">before</span></div>)}</div>
+                        )}
+                        <div className="caChips">
+                          {[["fixed", "✅ Fixed"], ["in_progress", "🔧 In progress"], ["waiting", "⏳ Waiting on…"]].map(([v, l]) => (
+                            <button key={v} type="button" className={"caChip" + ((c.status || "fixed") === v ? " on" : "")} onClick={() => set({ status: v })}>{l}</button>
+                          ))}
+                        </div>
+                        <textarea className="caText" rows={2} value={c.action} onChange={e => set({ action: e.target.value })}
+                          placeholder={(c.status || "fixed") === "waiting" ? "Waiting on what? (e.g. Ecolab tech, part on order)" : (c.status === "in_progress" ? "What's being done and by whom" : "What was done to fix it")} />
+                        <div className="fuPhotoRow">
+                          <label className="fuPhotoBtn fuPhotoAfter">📷 After photo<input type="file" accept="image/*" capture="environment" hidden onChange={e => { addCorrectivePhoto(f, e.target.files); e.target.value = ""; }} /></label>
+                          {caBusy === f.key && <span className="fuPhotoHint">Adding…</span>}
+                          {(c.photos || []).map(p => <div key={p.id} className="fuThumb fuThumbAfter" style={{ width: 44, height: 44 }}><img src={p.thumbUrl} alt="" onClick={() => setAppLightboxSrc(p.previewUrl || p.thumbUrl)} /><button type="button" className="fuThumbX" onClick={() => set({ photos: (c.photos || []).filter(x => x.id !== p.id) })}>✕</button></div>)}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
               {/* ── Step viewport: show only active step ───────────────── */}
               <div className="guideStepViewport">
                 <div className="guideStepTrack">
@@ -28776,7 +28900,7 @@ export default function App() {
                       { path: ["equipment", "iceMaker"],   label: "Ice Maker Machine — clean, door works, scoop/holder, ice bucket, filter OK, no leakage?" },
                       { path: ["equipment", "otherEquip"], label: "Other Equipments — clean and in good condition?" },
                     ]} inspection={inspection} setInspection={setInspection}
-                    allowCustom sectionKey="equipment" coldEquipmentMap={COLD_EQUIPMENT} inspectionId={savedReportId} venueId={activeVenueId} siteName={siteName} onError={msg => { setError(msg); setTimeout(() => setError(""), 8000); }} onOpenPrintLabels={({ tag, label }) => setPage("print_labels")} defaultOpen={true} />
+                    allowCustom sectionKey="equipment" coldEquipmentMap={COLD_EQUIPMENT} inspectionId={savedReportId} venueId={activeVenueId} siteName={siteName} siteNumber={siteNumber} siteFloor={floor} siteLocType={locationType} onError={msg => { setError(msg); setTimeout(() => setError(""), 8000); }} onOpenPrintLabels={({ tag, label }) => setPage("print_labels")} defaultOpen={true} />
                 ) : locationType === "Bar" ? (
                   <GuideSection title="🔧 Equipments — Bar"
                     items={[
@@ -28790,14 +28914,14 @@ export default function App() {
                       { path: ["equipment", "beerLines"], label: "Beer Lines / Taps — cleaned recently, no buildup or off smell?" },
                       { path: ["equipment", "ecolab"], label: "Chemicals (Ecolab) — correct concentration, properly labeled, stored away from food?" },
                     ]} inspection={inspection} setInspection={setInspection}
-                    allowCustom sectionKey="equipment" coldEquipmentMap={BAR_COLD_EQUIPMENT} inspectionId={savedReportId} venueId={activeVenueId} siteName={siteName} onError={msg => { setError(msg); setTimeout(() => setError(""), 8000); }} onOpenPrintLabels={({ tag, label }) => setPage("print_labels")} defaultOpen={true} />
+                    allowCustom sectionKey="equipment" coldEquipmentMap={BAR_COLD_EQUIPMENT} inspectionId={savedReportId} venueId={activeVenueId} siteName={siteName} siteNumber={siteNumber} siteFloor={floor} siteLocType={locationType} onError={msg => { setError(msg); setTimeout(() => setError(""), 8000); }} onOpenPrintLabels={({ tag, label }) => setPage("print_labels")} defaultOpen={true} />
                 ) : locationType === "Event / Temporary" ? (
                   <GuideSection
                     title="🔧 Equipments — Event / Temporary"
                     items={[]}
                     inspection={inspection} setInspection={setInspection}
                     allowCustom sectionKey="equipment" coldEquipmentMap={COLD_EQUIPMENT}
-                    inspectionId={savedReportId} venueId={activeVenueId} siteName={siteName} onError={msg => { setError(msg); setTimeout(() => setError(""), 8000); }}
+                    inspectionId={savedReportId} venueId={activeVenueId} siteName={siteName} siteNumber={siteNumber} siteFloor={floor} siteLocType={locationType} onError={msg => { setError(msg); setTimeout(() => setError(""), 8000); }}
                     emptyHint="Event-only location. Tap + Add Item to add each piece of equipment here. This list will NOT be saved for future inspections because the equipment is temporary."
                     onOpenPrintLabels={({ tag, label }) => setPage("print_labels")}
                     defaultOpen={true}
@@ -28808,7 +28932,7 @@ export default function App() {
                     items={[]}
                     inspection={inspection} setInspection={setInspection}
                     allowCustom sectionKey="equipment" coldEquipmentMap={COLD_EQUIPMENT}
-                    inspectionId={savedReportId} venueId={activeVenueId} siteName={siteName} onError={msg => { setError(msg); setTimeout(() => setError(""), 8000); }}
+                    inspectionId={savedReportId} venueId={activeVenueId} siteName={siteName} siteNumber={siteNumber} siteFloor={floor} siteLocType={locationType} onError={msg => { setError(msg); setTimeout(() => setError(""), 8000); }}
                     emptyHint={`Tap + Add Item to add each piece of equipment at this ${locationType} location. Your list will be remembered for next time.`}
                     onOpenPrintLabels={({ tag, label }) => setPage("print_labels")}
                     defaultOpen={true}
@@ -29527,9 +29651,11 @@ export default function App() {
       {modals.preSubmit && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 9000, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
           <div style={{ background: "var(--surface-1)", borderRadius: 16, padding: "28px 28px 22px", maxWidth: 420, width: "100%", boxShadow: "0 8px 48px rgba(0,0,0,0.22)" }}>
-            <div style={{ fontWeight: 800, fontSize: "1.1rem", color: "#b45309", marginBottom: 6 }}>⚠️ Incomplete Sections</div>
+            <div style={{ fontWeight: 800, fontSize: "1.1rem", color: modals.preSubmit.hard ? "#b91c1c" : "#b45309", marginBottom: 6 }}>{modals.preSubmit.hard ? "🛠 Corrective action required" : "⚠️ Incomplete Sections"}</div>
             <div style={{ fontSize: "0.88rem", color: "var(--ink-700)", marginBottom: 14, lineHeight: 1.5 }}>
-              The following sections appear to be empty. You can still generate the report, but it may be incomplete.
+              {modals.preSubmit.hard
+                ? "This stand has open problems. Write what was done about each one (fixed, in progress, or waiting on what) before saving the report."
+                : "The following sections appear to be empty. You can still generate the report, but it may be incomplete."}
             </div>
             <ul style={{ margin: "0 0 18px 0", padding: "0 0 0 18px", color: "#dc2626", fontSize: "0.85rem", lineHeight: 2 }}>
               {modals.preSubmit.incomplete.map((item, i) => typeof item === "string"
@@ -29539,7 +29665,7 @@ export default function App() {
                     {item.text}
                     {item.jump && (
                       <button type="button"
-                        onClick={() => { setModals(m => ({ ...m, preSubmit: false })); jumpToGuideItem({ pid: item.jump.pid, key: item.jump.key, full: item.jump.full }); }}
+                        onClick={() => { setModals(m => ({ ...m, preSubmit: false })); if (item.jump.ca) { try { document.getElementById("ca-" + item.jump.ca.replace(/[^A-Za-z0-9]+/g, "_"))?.scrollIntoView({ behavior: "smooth", block: "center" }); } catch {} } else jumpToGuideItem({ pid: item.jump.pid, key: item.jump.key, full: item.jump.full }); }}
                         style={{ marginLeft: 8, fontSize: "0.72rem", fontWeight: 800, padding: "2px 10px", borderRadius: 999, border: "1px solid #2563eb", background: "#eff6ff", color: "#2563eb", cursor: "pointer" }}>
                         Go fix →
                       </button>
@@ -29555,13 +29681,13 @@ export default function App() {
               >
                 Go Back &amp; Complete
               </button>
-              <button
+              {!modals.preSubmit.hard && <button
                 type="button"
                 onClick={() => { setModals(m => ({ ...m, preSubmit: false })); onTransform(true); }}
                 style={{ flex: 1, padding: "10px 0", borderRadius: 10, border: "none", background: "#2563eb", color: "#fff", fontWeight: 700, fontSize: "0.88rem", cursor: "pointer" }}
               >
                 Generate Anyway
-              </button>
+              </button>}
             </div>
           </div>
         </div>

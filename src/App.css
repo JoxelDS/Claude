@@ -7896,3 +7896,29 @@ html[data-theme="dark"] .fuStOnWaiting, html[data-theme="black"] .fuStOnWaiting 
 .fuHeadCount { font-size: 0.76rem; font-weight: 800; background: var(--surface-2); border: 1.5px solid var(--sdx-gray-200); border-radius: 999px; padding: 4px 11px; color: var(--ink-700); }
 .fuHeadCountAlert { background: #fef2f2; border-color: #fca5a5; color: #b91c1c; }
 .fuStatsBottom { margin-top: 18px; padding-top: 14px; border-top: 1.5px solid var(--sdx-gray-200); }
+/* ── Before / after on follow-ups + corrective actions (v375) ── */
+.fuBA { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 6px; }
+@media (max-width: 480px) { .fuBA { grid-template-columns: 1fr; } }
+.fuBACol { background: var(--surface-2); border-radius: 10px; padding: 6px 8px 8px; }
+.fuBAHead { font-size: 0.64rem; font-weight: 900; text-transform: uppercase; letter-spacing: .07em; margin-bottom: 5px; }
+.fuBABefore { color: #b91c1c; } .fuBAAfter { color: #15803d; }
+.fuThumbAfter { border-color: #86efac; }
+.fuThumbSwap { position: absolute; bottom: 14px; right: 2px; width: 18px; height: 18px; border-radius: 50%; border: none; background: rgba(17,24,39,.75); color: #fff; font-size: 0.62rem; cursor: pointer; line-height: 1; padding: 0; }
+.fuPhotoBefore { border-color: #fca5a5; color: #b91c1c; }
+.fuPhotoAfter { border-color: #86efac; color: #15803d; }
+.caPanel { background: var(--surface-1); border: 2px solid #f59e0b; border-radius: 14px; padding: 12px 14px; margin: 0 0 14px; }
+.caHead { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.caTitle { font-weight: 900; font-size: 0.95rem; color: var(--ink-900); flex: 1; }
+.caCount { font-size: 0.72rem; font-weight: 900; border-radius: 999px; padding: 3px 10px; }
+.caCountMissing { background: #fef3c7; color: #92400e; } .caCountDone { background: #dcfce7; color: #166534; }
+.caSub { font-size: 0.78rem; color: var(--ink-500); margin: 4px 0 8px; }
+.caItem { background: var(--surface-2); border: 1.5px solid #fde68a; border-radius: 12px; padding: 10px 12px; margin-top: 8px; display: flex; flex-direction: column; gap: 6px; }
+.caItemDone { border-color: #86efac; }
+.caItemHead { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.caItemIcon { font-size: 1rem; }
+.caItemTitle { font-weight: 800; font-size: 0.88rem; }
+.caItemMeta { font-size: 0.74rem; color: var(--ink-500); }
+.caChips { display: flex; gap: 6px; flex-wrap: wrap; }
+.caChip { background: var(--surface-1); border: 1.5px solid var(--sdx-gray-200); border-radius: 999px; padding: 4px 11px; font-size: 0.76rem; font-weight: 800; cursor: pointer; color: var(--ink-700); }
+.caChip.on { background: var(--sdx-navy); border-color: var(--sdx-navy); color: #fff; }
+.caText { width: 100%; box-sizing: border-box; padding: 8px 10px; border-radius: 9px; border: 1.5px solid var(--sdx-gray-200); font-size: 16px; font-family: inherit; resize: vertical; background: var(--surface-1); }
