@@ -2996,6 +2996,24 @@ function compressImage(file, maxDim = 200, quality = 0.3) {
   });
 }
 
+// Photos for follow-ups / quick problems: small thumb (always a data URL) +
+// a bigger copy in Storage when online — same recipe as the supervisor portal.
+async function makeFollowupPhotos(files, ownerId, limit = 4) {
+  const out = [];
+  const accepted = Array.from(files || []).filter(f => f && f.type && f.type.startsWith("image/") && bytesToMb(f.size) <= PHOTO_MAX_MB).slice(0, limit);
+  for (const f of accepted) {
+    const thumbUrl = await compressImage(f, 220, 0.55);
+    if (!thumbUrl) continue;
+    const id = `${Date.now()}_${Math.random().toString(16).slice(2, 8)}`;
+    let previewUrl = (await compressImage(f, 1024, 0.78)) || thumbUrl;
+    if (FIREBASE_ON) {
+      try { const url = await uploadPhoto(previewUrl, activeVenueId, ownerId, id); if (url) previewUrl = url; } catch {}
+    }
+    out.push({ id, name: f.name || "photo.jpg", thumbUrl, previewUrl, tag: "" });
+  }
+  return out;
+}
+
 function countPhotos(inspection) {
   let n = 0;
   const walk = (obj) => {
@@ -5963,6 +5981,180 @@ ${(() => {
 }
 
 /* ── Temperature Trend Chart (pure SVG) ─────────────────── */
+/* ── Equipment temps by stand — driven by the QR label registry ─────────────
+   Every cooler/freezer with a printed label lives in the equipment registry
+   (items + setup = "label stuck"). Readings arrive as Equipment Check /
+   inspection records carrying the unit's assetTag. This board joins the two:
+   stand → units → last read, so the day the labels go up the reads start
+   showing here, linked to the stand. ─────────────────────────────────────── */
+function EquipTempBoard({ history, onOpenStand }) {
+  const [reg, setReg] = useState(null);      // { items, setup, hidden }
+  const [filter, setFilter] = useState("all"); // all | alert | await | today | stale
+  const [floorPick, setFloorPick] = useState("");
+  const [q, setQ] = useState("");
+  const [openTag, setOpenTag] = useState(null);
+  const [collapsed, setCollapsed] = useState({});
+  const STALE_DAYS = 7;
+  const cleanName = l => String(l || "").replace(/\s*(❄|🧊)\s*(Cooler|Freezer)\s*$/u, "").trim();
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      let items = {}, setup = {}, hidden = {};
+      try {
+        const snap = await getDoc(doc(db, "venues", VENUE_ID, "sharedMemory", "equipmentRegistry"));
+        const d = snap.exists() ? (snap.data() || {}) : {};
+        items = { ...(d.labelIndex || {}), ...(d.items || {}) }; setup = d.setup || {}; hidden = d.hidden || {};
+        try { localStorage.setItem(`sdx_equip_setup_${VENUE_ID}`, JSON.stringify(setup)); } catch {}
+      } catch {
+        try { items = JSON.parse(localStorage.getItem(EQUIP_REG_LS) || "{}") || {}; } catch {}
+        try { setup = JSON.parse(localStorage.getItem(`sdx_equip_setup_${VENUE_ID}`) || "{}") || {}; } catch {}
+      }
+      if (alive) setReg({ items, setup, hidden });
+    })();
+    return () => { alive = false; };
+  }, []);
+
+  const model = useMemo(() => {
+    if (!reg) return null;
+    // Last read per tag — the only place readings live is inspection records
+    const lastByTag = {};
+    let recs = history || [];
+    try { const c = JSON.parse(localStorage.getItem(`sdx_history_cache_${VENUE_ID}`) || "[]"); if (c.length > recs.length) recs = [...recs, ...c]; } catch {}
+    for (const rec of recs) {
+      const eq = rec?.inspection?.equipment; if (!eq) continue;
+      const at = rec.savedAt || (rec.inspectionDate ? rec.inspectionDate + "T12:00:00" : "");
+      for (const [k, v] of Object.entries(eq)) {
+        const tag = String(v?.assetTag || (k.startsWith("equip_") ? k.slice(6) : "")).trim().toUpperCase();
+        if (!tag) continue;
+        const t = parseFloat(v?.tempF);
+        if (!Number.isFinite(t)) continue;
+        const cur = lastByTag[tag];
+        if (!cur || (at || "") > (cur.at || "")) lastByTag[tag] = { tempF: t, at, by: rec.inspectorName || "", status: v.status || "", site: rec.siteName || "", notes: v.notes || "", n: (cur?.n || 0) + 1 };
+        else cur.n++;
+      }
+    }
+    const today = new Date().toISOString().slice(0, 10);
+    const now = Date.now();
+    const units = [];
+    for (const [tagRaw, it] of Object.entries(reg.items || {})) {
+      const tag = String(it?.assetTag || tagRaw).trim().toUpperCase();
+      if (!tag || /^CUSTOM_/.test(tag)) continue;
+      if (reg.hidden?.[`reg_${tagRaw}`] || reg.hidden?.[tag]) continue;
+      if (!/^SDX-(CL|FZ|COOL|FRZ)-/.test(tag) && !it?.assetTag) continue;
+      const label = it.label || it.name || "";
+      const type = (/freez|🧊/i.test(label) || coldTypeFromTag(tag) === "freezer") ? "freezer" : "cooler";
+      const unit = (it.unit || "").trim();
+      const installed = !!reg.setup?.[tag] || !!reg.setup?.[tagRaw];
+      const last = lastByTag[tag] || null;
+      const limit = type === "freezer" ? 20 : 40;
+      const ageDays = last?.at ? (now - Date.parse(last.at)) / 86400000 : null;
+      let state = "nolabel";
+      if (last) state = last.tempF > limit ? "alert" : (ageDays !== null && ageDays > STALE_DAYS) ? "stale" : "ok";
+      else if (installed) state = "await";
+      const readToday = !!last?.at && String(last.at).slice(0, 10) === today;
+      units.push({ tag, type, name: cleanName(label) || (type === "freezer" ? "Freezer" : "Cooler"), brand: it.brandName || it.brand || "", location: it.location || "", unit, site: (it.venueName || "").trim(), floor: floorFromUnit(unit) || it.floor || "", locType: it.locType || "", installed, last, limit, ageDays, state, readToday });
+    }
+    // Stands: from registry units + any stand in history with a cold read but no registry unit
+    const stands = {};
+    const standKey = (unit, site) => normUnit(unit) ? `u:${normUnit(unit)}` : `s:${(site || "").toUpperCase()}`;
+    for (const u of units) {
+      const k = standKey(u.unit, u.site);
+      if (!stands[k]) stands[k] = { key: k, unit: u.unit, site: u.site, floor: u.floor, locType: u.locType, units: [] };
+      const st = stands[k]; st.units.push(u);
+      if (!st.site && u.site) st.site = u.site; if (!st.floor && u.floor) st.floor = u.floor;
+    }
+    const FLOOR_ORDER = ["Floor 1", "Floor 2", "Floor 3", "Ground Level"];
+    const rank = f => { const i = FLOOR_ORDER.indexOf(f); return i === -1 ? 99 : i; };
+    const standList = Object.values(stands).sort((a, b) => rank(a.floor || "No floor") - rank(b.floor || "No floor") || (a.unit || "").localeCompare(b.unit || "", undefined, { numeric: true }) || (a.site || "").localeCompare(b.site || ""));
+    for (const st of standList) st.units.sort((a, b) => (a.state === "alert" ? -1 : b.state === "alert" ? 1 : 0) || a.name.localeCompare(b.name));
+    const floors = [...new Set(standList.map(st => st.floor || "No floor"))].sort((a, b) => rank(a) - rank(b) || a.localeCompare(b));
+    const tot = { units: units.length, installed: units.filter(u => u.installed || u.last).length, today: units.filter(u => u.readToday).length, alert: units.filter(u => u.state === "alert").length, await: units.filter(u => u.state === "await").length, stale: units.filter(u => u.state === "stale").length, nolabel: units.filter(u => u.state === "nolabel").length };
+    return { standList, floors, tot };
+  }, [reg, history]);
+
+  if (!model) return null;
+  const { standList, floors, tot } = model;
+  const qq = q.trim().toLowerCase(); const qUnit = normUnit(qq);
+  const unitMatch = u => filter === "all" ? true : filter === "alert" ? u.state === "alert" : filter === "await" ? u.state === "await" : filter === "today" ? u.readToday : filter === "stale" ? (u.state === "stale" || u.state === "nolabel") : true;
+  const shown = standList
+    .filter(st => !floorPick || (st.floor || "No floor") === floorPick)
+    .filter(st => !qq || (qUnit && normUnit(st.unit).includes(qUnit)) || (st.site || "").toLowerCase().includes(qq) || st.units.some(u => u.tag.toLowerCase().includes(qq) || u.name.toLowerCase().includes(qq)))
+    .map(st => ({ ...st, units: st.units.filter(unitMatch) }))
+    .filter(st => st.units.length > 0);
+  const ago = at => { if (!at) return ""; const ms = Date.now() - Date.parse(at); if (!Number.isFinite(ms)) return ""; const m = Math.round(ms / 60000); if (m < 60) return `${Math.max(1, m)}m ago`; const h = Math.round(m / 60); if (h < 36) return `${h}h ago`; return `${Math.round(h / 24)}d ago`; };
+  const STATE = { alert: { cls: "etAlert", text: "over limit" }, ok: { cls: "etOk", text: "ok" }, stale: { cls: "etStale", text: `no read ${STALE_DAYS}d+` }, await: { cls: "etAwait", text: "awaiting first scan" }, nolabel: { cls: "etNoLabel", text: "label not stuck yet" } };
+  const chip = (id, label, n, cls) => (
+    <button key={id} type="button" className={"etChip" + (filter === id ? " on" : "") + (cls ? " " + cls : "")} onClick={() => setFilter(filter === id ? "all" : id)}>{label} {n}</button>
+  );
+  return (
+    <div className="card equipTempBoard" style={{ marginBottom: 24 }}>
+      {openTag && <EquipScanModal initialTag={openTag} onClose={() => setOpenTag(null)} />}
+      <div className="cardHeader" style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+        <div>
+          <div className="cardTitle">❄ Equipment temps — by stand</div>
+          <div style={{ fontSize: "0.76rem", color: "var(--ink-500)", fontWeight: 600 }}>Every cooler / freezer with a QR label, linked to its stand. Scan a label to log a read — it lands here.</div>
+        </div>
+        <input value={q} onChange={e => setQ(e.target.value)} placeholder="🔎 stand, unit #, tag…" className="etSearch" />
+      </div>
+      <div className="cardBody" style={{ paddingTop: 10 }}>
+        <div className="etChips">
+          {chip("all", "🏷", `${tot.units} units`, "")}
+          {chip("today", "📅 read today", tot.today, "")}
+          {chip("alert", "🔥 over limit", tot.alert, tot.alert ? "etChipAlert" : "")}
+          {chip("await", "⏳ awaiting first scan", tot.await, "")}
+          {chip("stale", "💤 no recent read", tot.stale + tot.nolabel, "")}
+          <span style={{ flex: 1 }} />
+          {floors.length > 1 && floors.map(f => (
+            <button key={f} type="button" className={"etChip etFloor" + (floorPick === f ? " on" : "")} onClick={() => setFloorPick(floorPick === f ? "" : f)}>{f}</button>
+          ))}
+        </div>
+        {tot.units === 0 && (
+          <div className="etEmpty">No equipment QR labels yet. Print the labels (Menu → Print Equipment Labels) and stick them on — every unit shows up here the moment its label is registered, and its reads start with the first scan.</div>
+        )}
+        {tot.units > 0 && shown.length === 0 && <div className="etEmpty">Nothing matches.</div>}
+        {floors.filter(f => shown.some(st => (st.floor || "No floor") === f)).map(f => (
+          <div key={f}>
+            <div className="etFloorHead"><span>🏢 {f}</span><span>{shown.filter(st => (st.floor || "No floor") === f).length} stands</span></div>
+            {shown.filter(st => (st.floor || "No floor") === f).map(st => {
+              const alerts = st.units.filter(u => u.state === "alert").length;
+              const isCollapsed = !!collapsed[st.key];
+              const lic = st.unit ? lookupLicenseByUnitType(st.unit, st.locType || "") : null;
+              return (
+                <div key={st.key} className={"etStand" + (alerts ? " etStandAlert" : "")}>
+                  <button type="button" className="etStandHead" onClick={() => setCollapsed(c => ({ ...c, [st.key]: !c[st.key] }))}>
+                    <span className="etStandName">🍳 {st.site || "—"}{st.unit ? ` · #${st.unit}` : ""}</span>
+                    <span className="etStandMeta">{[st.locType, lic?.license ? `🪪 ${lic.license}` : ""].filter(Boolean).join(" · ")}</span>
+                    <span className="etStandCount">{st.units.filter(u => u.readToday).length}/{st.units.length} today</span>
+                    {alerts > 0 && <span className="etStandAlertPill">🔥 {alerts}</span>}
+                    <span className="etCaret">{isCollapsed ? "▸" : "▾"}</span>
+                  </button>
+                  {!isCollapsed && st.units.map(u => {
+                    const sm = STATE[u.state];
+                    return (
+                      <button key={u.tag} type="button" className={"etUnit " + sm.cls} onClick={() => setOpenTag(u.tag)} title="Tap for this unit's reading history">
+                        <span className="etUnitIcon">{u.type === "freezer" ? "🧊" : "❄"}</span>
+                        <span className="etUnitName">{u.name}<span className="etUnitSub">{[u.brand, u.location].filter(Boolean).join(" · ")}</span></span>
+                        <span className="etUnitTemp">{u.last ? `${u.last.tempF}°F` : "—"}<span className="etUnitLimit">≤ {u.limit}°F</span></span>
+                        <span className="etUnitWhen">{u.last ? `${ago(u.last.at)}${u.last.by ? ` · ${u.last.by.split(" ")[0]}` : ""}` : sm.text}</span>
+                        <span className={"etPill " + sm.cls}>{u.last ? sm.text : (u.installed ? "⏳ first scan" : "🏷 stick label")}</span>
+                        <span className="etUnitTag">{u.tag}</span>
+                      </button>
+                    );
+                  })}
+                  {!isCollapsed && onOpenStand && (
+                    <button type="button" className="etStandLink" onClick={() => onOpenStand({ unit: st.unit, site: st.site, floor: st.floor, locType: st.locType })}>🏷 This stand's labels — add a unit</button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function TempTrendChart({ history }) {
   const [hoveredPoint, setHoveredPoint] = useState(null);
   const [selectedLoc, setSelectedLoc] = useState(null); // active location (null = use first)
@@ -5996,7 +6188,7 @@ function TempTrendChart({ history }) {
         if (!node?.tempF) continue;
         const t = Number(node.tempF);
         if (!t) continue;
-        const cold = COLD_EQUIPMENT[ek] || (ek.startsWith("custom_") ? detectColdType(node.label) : null);
+        const cold = COLD_EQUIPMENT[ek] || ((ek.startsWith("custom_") || ek.startsWith("equip_")) ? (detectColdType(node.label) || (coldTypeFromTag(node.assetTag) ? { type: coldTypeFromTag(node.assetTag) } : null)) : null);
         if (cold?.type === "cooler") { coolTemps.push(t); if (node.label) coolItems.push({ label: node.label, tempF: t }); }
         else if (cold?.type === "freezer") { frzTemps.push(t); if (node.label) frzItems.push({ label: node.label, tempF: t }); }
       }
@@ -7842,7 +8034,9 @@ function computeFollowups(history, venueSettings, clearedLocal = {}) {
     const locName = rec.siteName || rec.location || "—";
     const ts = rec.inspectionDate ? new Date(rec.inspectionDate).getTime() : 0;
     if (!ts) continue;
-    if (!latestInspByLoc[locName] || ts > latestInspByLoc[locName]) latestInspByLoc[locName] = ts;
+    // Only a real inspection can make an issue "likely fixed" — an equipment
+    // temp scan or a filed problem is not a walk-through of the stand.
+    if (!rec.quickEquipCheck && !rec.quickProblem && (!latestInspByLoc[locName] || ts > latestInspByLoc[locName])) latestInspByLoc[locName] = ts;
     const recResolvedMap = rec.resolvedIssues || {};
     const actionItems = rec.actionItems || [];
     actionItems.forEach((item, i) => {
@@ -7861,6 +8055,16 @@ function computeFollowups(history, venueSettings, clearedLocal = {}) {
         catLastSeen[key].notes = (item.notes || "").trim();
         catLastSeen[key].source = rec.source || "";
         catLastSeen[key].reportedBy = rec.reportedBy?.name || "";
+        // Pictures of the problem: checklist items carry photo objects;
+        // quick / supervisor reports keep objects on rec.photos + ids on the item.
+        try {
+          const ph = Array.isArray(item.photos) ? item.photos : [];
+          const objs = ph.filter(p => p && typeof p === "object" && (p.thumbUrl || p.previewUrl));
+          const ids = ph.filter(p => typeof p === "string");
+          const fromRec = (rec.photos || []).filter(p => p && (ids.length === 0 ? true : ids.includes(p.id)) && (p.thumbUrl || p.previewUrl));
+          catLastSeen[key].photos = (objs.length ? objs : (ph.length || rec.quickProblem) ? fromRec : []).slice(0, 6)
+            .map(p => ({ id: p.id, thumbUrl: p.thumbUrl || p.previewUrl || "", previewUrl: (p.previewUrl && !String(p.previewUrl).startsWith("data:")) ? p.previewUrl : (p.exportUrl || p.previewUrl || p.thumbUrl || "") }));
+        } catch { catLastSeen[key].photos = []; }
       }
     });
   }
@@ -7877,7 +8081,7 @@ function computeFollowups(history, venueSettings, clearedLocal = {}) {
       const likelyResolved = (latestInspByLoc[loc] || 0) > v.ts;   // a newer inspection had no such issue
       const overdue = !likelyResolved && daysSince >= recheckDays;
       const itype = classifyIssueType(`${cat}: ${v.detail || ""}`, v.notes || "");
-      return { key, loc, cat, unit: v.unit || "", floor: v.floor || "", itype, daysSince, count: v.count, dateStr: v.dateStr, likelyResolved, overdue, detail: v.detail || "", notes: v.notes || "", ts: v.ts || 0, source: v.source || "", reportedBy: v.reportedBy || "" };
+      return { key, loc, cat, unit: v.unit || "", floor: v.floor || "", itype, daysSince, count: v.count, dateStr: v.dateStr, likelyResolved, overdue, detail: v.detail || "", notes: v.notes || "", ts: v.ts || 0, source: v.source || "", reportedBy: v.reportedBy || "", photos: v.photos || [] };
     })
     .sort((a, b) => (b.overdue - a.overdue) || (a.likelyResolved - b.likelyResolved) || b.daysSince - a.daysSince);
 
@@ -8204,7 +8408,7 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
     title.height = 24;
     ws.mergeCells(`A${title.number}:M${title.number}`);
     title.getCell(1).style = { font: { bold: true, size: 13, color: { argb: "FFFFFFFF" } }, fill: { type: "pattern", pattern: "solid", fgColor: { argb: "FF2A295C" } }, alignment: { vertical: "middle", horizontal: "left" } };
-    const hdrRow = ws.addRow(["#", "Venue / Stand", "Unit #", "Floor", "Problem", "Issue Type", "Latest Detail", "Inspector Notes", "Status", "Days Open", "Flagged", "Status By", "Comments"]);
+    const hdrRow = ws.addRow(["#", "Venue / Stand", "Unit #", "Floor", "Problem", "Issue Type", "Latest Detail", "Inspector Notes", "Status", "Days Open", "Flagged", "Status By", "Comments", "Photos"]);
     hdrRow.height = 20;
     hdrRow.eachCell(c => { c.style = { font: { bold: true, size: 10, color: { argb: "FFFFFFFF" } }, fill: { type: "pattern", pattern: "solid", fgColor: { argb: "FFDC2626" } }, alignment: { vertical: "middle", horizontal: "center", wrapText: true } }; });
     ws.autoFilter = { from: { row: hdrRow.number, column: 1 }, to: { row: hdrRow.number, column: 13 } };
@@ -8219,7 +8423,8 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
       const bg = i % 2 === 0 ? "FFFFFFFF" : "FFF4F5F7";
       const cmts = ((commentsLocal[f.key] || venueSettings?.followupComments?.[f.key] || []))
         .map(c => `${c.by}: ${c.text}`).join("  |  ");
-      const row = ws.addRow([i + 1, f.loc, f.unit || "", f.floor || "", f.cat, f.itype || "Other", f.detail || "", f.notes || "", stLabel, f.daysSince, f.dateStr || "", st?.by || "", cmts]);
+      const nPhotos = (f.photos || []).length + ((fuPhotosLocal[f.key] || venueSettings?.followupPhotos?.[f.key] || []).length);
+      const row = ws.addRow([i + 1, f.loc, f.unit || "", f.floor || "", f.cat, f.itype || "Other", f.detail || "", f.notes || "", stLabel, f.daysSince, f.dateStr || "", st?.by || "", cmts, nPhotos]);
       row.height = 18;
       row.eachCell((c, col) => {
         c.style = { font: { size: 10, name: "Calibri" }, fill: { type: "pattern", pattern: "solid", fgColor: { argb: bg } }, alignment: { vertical: "top", wrapText: col === 7 || col === 8 || col === 13 } };
@@ -8239,6 +8444,39 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
   const [qpCatOther, setQpCatOther] = useState("");
   const [qpDesc, setQpDesc] = useState("");
   const [qpFlash, setQpFlash] = useState("");
+  const [qpPhotos, setQpPhotos] = useState([]);
+  const [qpPhotoBusy, setQpPhotoBusy] = useState(false);
+  const qpIdRef = useRef(`${Date.now()}_qp${Math.floor(Math.random() * 1e4)}`);
+  async function addQpPhotos(files) {
+    if (!files || !files.length) return;
+    setQpPhotoBusy(true);
+    try { const got = await makeFollowupPhotos(files, qpIdRef.current, 4 - qpPhotos.length); setQpPhotos(prev => [...prev, ...got].slice(0, 4)); } catch {}
+    setQpPhotoBusy(false);
+  }
+  // Follow-up photos (problem / fix pictures on a card) — venueSettings.followupPhotos[key]
+  const [fuPhotosLocal, setFuPhotosLocal] = useState({});
+  const [fuPhotoBusy, setFuPhotoBusy] = useState(null);
+  const [lightboxSrc, setLightboxSrc] = useState(null);
+  const fuPhotosOf = f => (fuPhotosLocal[f.key] || venueSettings?.followupPhotos?.[f.key] || []);
+  async function addFuPhotos(f, files) {
+    if (!files || !files.length) return;
+    setFuPhotoBusy(f.key);
+    try {
+      const got = await makeFollowupPhotos(files, `fu_${f.key.replace(/[^A-Za-z0-9]+/g, "_").slice(0, 60)}`, 4);
+      if (got.length) {
+        const entries = got.map(p => ({ id: p.id, thumbUrl: p.thumbUrl, previewUrl: p.previewUrl, by: currentUser?.name || "Unknown", ts: Date.now() }));
+        const arr = [...fuPhotosOf(f), ...entries].slice(-8);
+        setFuPhotosLocal(prev => ({ ...prev, [f.key]: arr }));
+        writeMap("followupPhotos", { [f.key]: arr });
+      }
+    } catch {}
+    setFuPhotoBusy(null);
+  }
+  function removeFuPhoto(f, id) {
+    const arr = fuPhotosOf(f).filter(p => p.id !== id);
+    setFuPhotosLocal(prev => ({ ...prev, [f.key]: arr }));
+    writeMap("followupPhotos", { [f.key]: arr });
+  }
 
   async function submitQuickProblem() {
     const site = qpSite.trim().toUpperCase();
@@ -8246,8 +8484,9 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
     const cat = qpCat === "Other" ? (qpCatOther.trim() || "Other") : qpCat;
     if (!site || !desc) return;
     const now = new Date();
+    const photos = qpPhotos.map(p => ({ id: p.id, name: p.name, thumbUrl: p.thumbUrl, previewUrl: p.previewUrl, tag: "" }));
     const rec = {
-      id: `${Date.now()}_qp${Math.floor(Math.random() * 1e4)}`,
+      id: qpIdRef.current,
       siteName: site,
       siteNumber: qpUnit.trim(),
       floor: qpFloor.trim(),
@@ -8258,14 +8497,16 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
       inspectorName: currentUser?.name || "",
       savedByHash: currentUser?.badgeHash || "",
       overallStatus: "PASS",
-      actionItems: [{ issue: `${cat}: ${desc}`, notes: "" }],
+      actionItems: [{ issue: `${cat}: ${desc}`, notes: "", photos: photos.map(p => p.id) }],
+      photos,
       inspection: {},
     };
     try { await saveOneInspection(rec); } catch {}
     onAddRecord?.(rec); // surfaces the new follow-up immediately
     setQpFlash(`✓ Problem filed for ${site}${qpUnit.trim() ? ` #${qpUnit.trim()}` : ""} — it's now a follow-up`);
     setTimeout(() => setQpFlash(""), 4000);
-    setQpOpen(false); setQpSite(""); setQpUnit(""); setQpFloor(""); setQpDesc(""); setQpCatOther("");
+    setQpOpen(false); setQpSite(""); setQpUnit(""); setQpFloor(""); setQpDesc(""); setQpCatOther(""); setQpPhotos([]);
+    qpIdRef.current = `${Date.now()}_qp${Math.floor(Math.random() * 1e4)}`;
   }
 
   // Search: match unit number (normalized — "142a" hits "142 A"), venue name,
@@ -8310,10 +8551,25 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
 
   return (
     <div className="card" style={{ marginBottom: 24 }}>
-      <div className="cardHeader"><div className="cardTitle">Recurring Issues Tracker</div></div>
+      {lightboxSrc && ReactDOM.createPortal(
+        <div onClick={() => setLightboxSrc(null)} style={{ position: "fixed", inset: 0, zIndex: 10050, background: "rgba(0,0,0,.88)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+          <img src={lightboxSrc} alt="" onClick={e => e.stopPropagation()} style={{ maxWidth: "95vw", maxHeight: "90vh", borderRadius: 10, boxShadow: "0 10px 40px rgba(0,0,0,.6)" }} />
+        </div>, document.body)}
+      <div className="cardHeader fuCardHead">
+        <div>
+          <div className="cardTitle">🔁 Follow-ups &amp; Rechecks</div>
+          <div className="fuHeadSub">Problems reported by inspectors and supervisors — track the fix, add photos and comments, recheck.</div>
+        </div>
+        {(() => { const all = analysis.followups || []; const od = all.filter(f => f.overdue && !f.likelyResolved).length; const open = all.filter(f => !f.likelyResolved).length; return (
+          <div className="fuHeadCounts">
+            <span className={"fuHeadCount" + (od ? " fuHeadCountAlert" : "")}>⏰ {od} overdue</span>
+            <span className="fuHeadCount">📋 {open} open</span>
+          </div>
+        ); })()}
+      </div>
       <div className="cardBody">
-        {/* Overall stats */}
-        <div className="analysisStatsRow">
+        {/* Overall stats — moved below the follow-ups (see end of card) */}
+        <div className="analysisStatsRow" style={{ display: "none" }}>
           <div className="analysisStat">
             <div className="analysisStatNum">{analysis.totalInspections}</div>
             <div className="analysisStatLabel">Total Inspections</div>
@@ -8339,7 +8595,7 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
         {true && (
           <div style={{ marginTop: 16 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
-              <div className="guideSectionTitle" style={{ margin: 0 }}>Follow-Ups &amp; Rechecks</div>
+              <div style={{ fontSize: "0.78rem", fontWeight: 800, color: "var(--ink-500)", textTransform: "uppercase", letterSpacing: ".06em" }}>Open items</div>
               <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.72rem", color: "var(--sdx-gray-500)", fontWeight: 600 }}>
                 Recheck window
                 <select
@@ -8419,6 +8675,23 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
                   <textarea value={qpDesc} onChange={e => setQpDesc(e.target.value)} rows={2}
                     placeholder="What's wrong? (e.g. sanitizer dispenser has no pressure)"
                     style={{ padding: "7px 10px", borderRadius: 9, border: "1.5px solid var(--sdx-gray-200)", fontSize: "16px", resize: "vertical", fontFamily: "inherit" }} />
+                  {/* Pictures of the problem */}
+                  <div className="fuPhotoRow">
+                    <label className="fuPhotoBtn qpPhotoBtn">📷 Take photo<input type="file" accept="image/*" capture="environment" hidden onChange={e => { addQpPhotos(e.target.files); e.target.value = ""; }} /></label>
+                    <label className="fuPhotoBtn qpPhotoPick">🖼 Add photos<input type="file" accept="image/*" multiple hidden onChange={e => { addQpPhotos(e.target.files); e.target.value = ""; }} /></label>
+                    {qpPhotoBusy && <span className="fuPhotoHint">Adding…</span>}
+                    {!qpPhotoBusy && qpPhotos.length === 0 && <span className="fuPhotoHint">optional · up to 4</span>}
+                  </div>
+                  {qpPhotos.length > 0 && (
+                    <div className="fuThumbs">
+                      {qpPhotos.map(p => (
+                        <div key={p.id} className="fuThumb">
+                          <img src={p.thumbUrl} alt="" onClick={() => setLightboxSrc(p.previewUrl || p.thumbUrl)} />
+                          <button type="button" className="fuThumbX" onClick={() => setQpPhotos(prev => prev.filter(x => x.id !== p.id))}>✕</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   <div style={{ display: "flex", gap: 8 }}>
                     <button type="button" disabled={!qpSite.trim() || !qpDesc.trim()} onClick={submitQuickProblem}
                       style={{ background: "var(--sdx-navy)", color: "#fff", border: "none", borderRadius: 9, padding: "8px 18px", fontWeight: 800, fontSize: "0.84rem", cursor: "pointer", opacity: qpSite.trim() && qpDesc.trim() ? 1 : 0.5 }}>
@@ -8587,6 +8860,29 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
                                   if (!m) return null;
                                   return <div className="fuStStamp">{m.icon} {m.label} — {st.by}{when ? ` · ${when}` : ""}{st.status === "waiting" && st.note ? ` — waiting for ${st.note}` : ""}</div>;
                                 })()}
+                                {/* Pictures — from the report, plus what the team adds while fixing it */}
+                                {((f.photos || []).length > 0 || fuPhotosOf(f).length > 0) && (
+                                  <div className="fuThumbs" style={{ marginTop: 6 }}>
+                                    {(f.photos || []).map(p => (
+                                      <div key={"r" + p.id} className="fuThumb fuThumbReport" title="From the report">
+                                        <img src={p.thumbUrl} alt="" onClick={() => setLightboxSrc(p.previewUrl || p.thumbUrl)} />
+                                        <span className="fuThumbTag">report</span>
+                                      </div>
+                                    ))}
+                                    {fuPhotosOf(f).map(p => (
+                                      <div key={p.id} className="fuThumb" title={`${p.by || ""}${p.ts ? " · " + new Date(p.ts).toLocaleDateString([], { month: "short", day: "numeric" }) : ""}`}>
+                                        <img src={p.thumbUrl} alt="" onClick={() => setLightboxSrc(p.previewUrl || p.thumbUrl)} />
+                                        <span className="fuThumbTag">{(p.by || "").split(" ")[0] || "photo"}</span>
+                                        <button type="button" className="fuThumbX" onClick={() => removeFuPhoto(f, p.id)}>✕</button>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                                <div className="fuPhotoRow" style={{ marginTop: 4 }}>
+                                  <label className="fuPhotoBtn fuCardPhotoBtn">📷 Photo<input type="file" accept="image/*" capture="environment" hidden onChange={e => { addFuPhotos(f, e.target.files); e.target.value = ""; }} /></label>
+                                  <label className="fuPhotoBtn fuCardPhotoPick">🖼 Upload<input type="file" accept="image/*" multiple hidden onChange={e => { addFuPhotos(f, e.target.files); e.target.value = ""; }} /></label>
+                                  {fuPhotoBusy === f.key && <span className="fuPhotoHint">Adding…</span>}
+                                </div>
                                 {/* Comments — the running conversation on this problem */}
                                 {commentsOf(f).length > 0 && (
                                   <div style={{ marginTop: 5, display: "flex", flexDirection: "column", gap: 3 }}>
@@ -8712,6 +9008,14 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
             ))}
           </div>
         )}
+        {/* Overall stats — the bigger picture, after the work list */}
+        <div className="analysisStatsRow fuStatsBottom">
+          <div className="analysisStat"><div className="analysisStatNum">{analysis.totalInspections}</div><div className="analysisStatLabel">Total Inspections</div></div>
+          {analysis.tempComplianceRate !== null && (
+            <div className="analysisStat"><div className="analysisStatNum" style={{ color: analysis.tempComplianceRate >= 90 ? "#15803D" : "#EE0000" }}>{analysis.tempComplianceRate}%</div><div className="analysisStatLabel">Temp Compliance</div></div>
+          )}
+          <div className="analysisStat"><div className="analysisStatNum" style={{ color: analysis.recurring.length > 0 ? "#EE0000" : "#15803D" }}>{analysis.recurring.length}</div><div className="analysisStatLabel">Repeat Issues</div></div>
+        </div>
       </div>
     </div>
   );
@@ -8951,7 +9255,8 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
   const [haccpSaving, setHaccpSaving] = useState(false);
   const [chatByReport, setChatByReport] = useState({});  // { [reportId]: [...messages] }
   const [showHistoryMenu, setShowHistoryMenu] = useState(false);
-  const [analyticsTab, setAnalyticsTab] = useState(initialAnalyticsTab || "temp"); // "temp" | "insights" | "predictive" | "recurring"
+  const [analyticsTab, setAnalyticsTab] = useState(initialAnalyticsTab || "recurring"); // "recurring" (Follow-ups) | "temp" | "insights" | "predictive" | "timeline"
+  const fuTabOverdue = useMemo(() => { try { return computeFollowups(history, venueSettings).followups.filter(f => f.overdue && !f.likelyResolved).length; } catch { return 0; } }, [history, venueSettings?.followupCleared, venueSettings?.followupStatus, venueSettings?.recheckDays]);
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [confirmDeleteId, setConfirmDeleteId] = useState(null); // two-step delete: first click sets ID, second confirms
@@ -10826,23 +11131,23 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
             {/* Analytics sub-tab nav */}
             <div className="analyticsSubNav">
               {[
+                { key: "recurring",  label: "🔁 Follow-ups", badge: fuTabOverdue },
                 { key: "temp",       label: "Temps"      },
                 { key: "insights",   label: "Insights"   },
                 { key: "predictive", label: "Predictive" },
-                { key: "recurring",  label: "Recurring"  },
                 { key: "timeline",   label: "Timeline"   },
-              ].map(({ key, label }) => (
+              ].map(({ key, label, badge }) => (
                 <button
                   key={key}
                   type="button"
-                  className={cx("analyticsSubTab", analyticsTab === key && "analyticsSubTabActive")}
+                  className={cx("analyticsSubTab", analyticsTab === key && "analyticsSubTabActive", key === "recurring" && "analyticsSubTabLead")}
                   onClick={() => setAnalyticsTab(key)}
                 >
-                  {label}
+                  {label}{badge > 0 && <span className="analyticsTabBadge">{badge}</span>}
                 </button>
               ))}
             </div>
-            {analyticsTab === "temp" && <><HaccpTodayTracker venueSettings={venueSettings} saveVenueSettingsMap={saveVenueSettingsMap} history={history} currentUser={currentUser} /><TempTrendChart history={filtered.length > 0 ? filtered : history} /></>}
+            {analyticsTab === "temp" && <><HaccpTodayTracker venueSettings={venueSettings} saveVenueSettingsMap={saveVenueSettingsMap} history={history} currentUser={currentUser} /><EquipTempBoard history={history} onOpenStand={st => window.dispatchEvent(new CustomEvent("sdx-open-stand-equipment", { detail: st }))} /><TempTrendChart history={filtered.length > 0 ? filtered : history} /></>}
             {analyticsTab === "insights" && <AIHealthMonitor history={filtered.length > 0 ? filtered : history} currentUser={currentUser} />}
             {analyticsTab === "predictive" && <PredictiveInsightsPanel history={filtered.length > 0 ? filtered : history} />}
             {analyticsTab === "recurring" && <RecurringIssuesPanel history={filtered.length > 0 ? filtered : history} onLocationClick={filterByLocation} onTagClick={goToRecurringAnalytics} onIssueDrilldown={filterByLocationAndIssue} venueSettings={venueSettings} saveVenueSettings={saveVenueSettings} saveVenueSettingsMap={saveVenueSettingsMap} currentUser={currentUser} onAddRecord={rec => setHistory(prev => [rec, ...prev])} />}
@@ -22994,7 +23299,7 @@ function EquipCheckPortal({ tag }) {
   }
 
   const isFreezer = /freezer|🧊/i.test(meta?.label || "") || coldTypeFromTag(tag) === "freezer";
-  const limit = isFreezer ? 10 : 41;
+  const limit = isFreezer ? 20 : 40; // same standards as the Temps tab
   const tempNum = parseFloat(temp);
   const tempOk = temp.trim() === "" ? null : !isNaN(tempNum) && tempNum <= limit;
 
