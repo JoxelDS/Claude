@@ -302,7 +302,7 @@ function indexEquipLabels(items) {
     for (const it of items || []) {
       const t = String(it.assetTag || "").trim().toUpperCase();
       if (!t || cur[t]) continue;
-      patch[t] = { label: it.label || "", brandName: it.brandName || it.brand || "", location: it.location || it.kitchenArea || "", venueName: it.venueName || "", unit: it.unit || "", floor: floorFromUnit(it.unit) || it.floor || "", locType: it.locType || it.locationType || "" };
+      patch[t] = { label: it.label || "", brandName: it.brandName || it.brand || "", location: it.location || it.kitchenArea || "", venueName: it.venueName || "", unit: it.unit || "", floor: floorForStand(it.unit, it.venueName, it.floor), locType: it.locType || it.locationType || "" };
     }
     if (Object.keys(patch).length === 0) return;
     _equipRegCache = { ...cur, ...patch };
@@ -325,7 +325,7 @@ function lookupEquipByTag(rawTag, inspection) {
   const reg = _equipRegCache || {};
   for (const [t, it] of Object.entries(reg)) {
     if (meta) break;
-    if (same(t) || same(it?.assetTag)) { meta = { assetTag: it.assetTag || t, label: it.label || "", brand: it.brandName || it.brand || "", kitchenArea: it.location || "", venueName: it.venueName || "", unit: it.unit || "", floor: floorFromUnit(it.unit) || it.floor || "" }; break; }
+    if (same(t) || same(it?.assetTag)) { meta = { assetTag: it.assetTag || t, label: it.label || "", brand: it.brandName || it.brand || "", kitchenArea: it.location || "", venueName: it.venueName || "", unit: it.unit || "", floor: floorForStand(it.unit, it.venueName, it.floor) }; break; }
   }
   // 3) local history cache — newest first for the last reading
   try {
@@ -3338,6 +3338,11 @@ function floorFromUnit(u) {
   const m = n.match(/^([123])\d{2}(?!\d)/);
   return m ? `Floor ${m[1]}` : "";
 }
+// Stands whose floor is known by name (no unit-number rule applies)
+const STAND_FLOOR_BY_NAME = [[/lexus/i, "Ground Level"], [/main\s*kitchen/i, "Ground Level"], [/nine\s*club/i, "Floor 1"]];
+function floorByName(name) { const n = String(name || ""); for (const [re, f] of STAND_FLOOR_BY_NAME) if (re.test(n)) return f; return ""; }
+// Floor for a stand: unit-number rule → known stand names → whatever was saved
+function floorForStand(unit, name, saved) { return floorFromUnit(unit) || floorByName(name) || String(saved || "").trim(); }
 
 function buildActionItems({ inspection, rawNotes, foodTemps: ftArg, foodTempNames: fnArg, foodTempCorrections: fcArg, foodTempSubmitted: fsArg }) {
   const items = [];
@@ -6053,7 +6058,7 @@ function EquipTempBoard({ history, onOpenStand }) {
       if (last) state = last.tempF > limit ? "alert" : (ageDays !== null && ageDays > STALE_DAYS) ? "stale" : "ok";
       else if (installed) state = "await";
       const readToday = !!last?.at && String(last.at).slice(0, 10) === today;
-      units.push({ tag, type, name: cleanName(label) || (type === "freezer" ? "Freezer" : "Cooler"), brand: it.brandName || it.brand || "", location: it.location || "", unit, site: (it.venueName || "").trim(), floor: floorFromUnit(unit) || it.floor || "", locType: it.locType || "", installed, last, limit, ageDays, state, readToday });
+      units.push({ tag, type, name: cleanName(label) || (type === "freezer" ? "Freezer" : "Cooler"), brand: it.brandName || it.brand || "", location: it.location || "", unit, site: (it.venueName || "").trim(), floor: floorForStand(unit, it.venueName, it.floor), locType: it.locType || "", installed, last, limit, ageDays, state, readToday });
     }
     // Stands: from registry units + any stand in history with a cold read but no registry unit
     const stands = {};
@@ -8047,7 +8052,7 @@ function computeFollowups(history, venueSettings, clearedLocal = {}) {
       catLastSeen[key].count++;
       if (ts > catLastSeen[key].ts) {
         catLastSeen[key].ts = ts; catLastSeen[key].dateStr = rec.inspectionDate; catLastSeen[key].unit = (rec.siteNumber || "").trim();
-        catLastSeen[key].floor = floorFromUnit(rec.siteNumber) || (rec.floor || "").trim();
+        catLastSeen[key].floor = floorForStand(rec.siteNumber, rec.siteName, rec.floor);
         // Keep the latest issue description + inspector notes so the
         // follow-up card can show WHAT the problem actually is.
         const afterColon = (item.issue || "").split(":").slice(1).join(":").trim();
@@ -17889,7 +17894,7 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
   function openFill(it) {
     const tag = String(it.assetTag || "").toUpperCase();
     setFill({ uid: it.uid, tag, type: typeOf(it), name: cleanName(it.label), brand: it.brandName || "", location: it.location || "",
-      venueName: it.venueName || "", unit: (it.unit || "").trim(), floor: floorFromUnit(it.unit) || it.floor || "", locType: it.locType || "", stuck: !!regSetup[tag] });
+      venueName: it.venueName || "", unit: (it.unit || "").trim(), floor: floorForStand(it.unit, it.venueName, it.floor), locType: it.locType || "", stuck: !!regSetup[tag] });
   }
   async function saveFill(markDone) {
     if (!fill) return;
@@ -17929,7 +17934,7 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
   }
   function addUnitAtStand(stand, name, type) {
     const tag = nextTagFor(stand.unit, stand.venueName, type);
-    const floor = floorFromUnit(stand.unit) || stand.floor || "";
+    const floor = floorForStand(stand.unit, stand.venueName, stand.floor);
     const rec = { assetTag: tag, label: name + (type === "freezer" ? " 🧊 Freezer" : " ❄ Cooler"), venueName: (stand.venueName || "").trim(), unit: (stand.unit || "").trim(), floor, locType: stand.locType || "", location: "", brandName: "", createdAt: Date.now() };
     const item = { ...rec, uid: `reg_${tag}` };
     setEquipItems(prev => prev.some(i => String(i.assetTag || "").toUpperCase() === tag) ? prev : [item, ...prev]);
@@ -17948,7 +17953,7 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
     const siteU = (st?.site || st?.venueName || "").trim().toUpperCase();
     const known = equipItems.filter(i => sameStand(i, st));
     const site = siteU || known.find(i => i.venueName)?.venueName || "";
-    const fs = { unit: (st?.unit || "").trim(), site, floor: floorFromUnit(st?.unit) || st?.floor || known.find(i => i.floor)?.floor || "", locType: st?.locType || st?.loctype || known.find(i => i.locType)?.locType || "" };
+    const fs = { unit: (st?.unit || "").trim(), site, floor: floorForStand(st?.unit, st?.site || st?.venueName, st?.floor) || known.find(i => i.floor)?.floor || "", locType: st?.locType || st?.loctype || known.find(i => i.locType)?.locType || "" };
     setStandFocus(fs);
     setLabelSearch("");
     setSelected(new Set(known.map(i => i.uid))); // its labels are bright + ready to print
@@ -17988,7 +17993,7 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
       ];
       ws.getRow(1).font = { bold: true };
       const sorted = [...equipItems].sort((a, b) => (floorFromUnit(a.unit) || a.floor || "").localeCompare(floorFromUnit(b.unit) || b.floor || "") || (a.unit || "").localeCompare(b.unit || "", undefined, { numeric: true }) || (a.label || "").localeCompare(b.label || ""));
-      for (const it of sorted) { const st = walkStatus(it); ws.addRow({ floor: floorFromUnit(it.unit) || it.floor || "", site: it.venueName || "", unit: it.unit || "", name: cleanName(it.label), type: typeOf(it) === "freezer" ? "Freezer" : "Cooler", tag: it.assetTag, brand: it.brandName || "", loc: it.location || "", stuck: st.stuck ? "YES" : "", missing: st.missing.join(", ") }); }
+      for (const it of sorted) { const st = walkStatus(it); ws.addRow({ floor: floorForStand(it.unit, it.venueName, it.floor), site: it.venueName || "", unit: it.unit || "", name: cleanName(it.label), type: typeOf(it) === "freezer" ? "Freezer" : "Cooler", tag: it.assetTag, brand: it.brandName || "", loc: it.location || "", stuck: st.stuck ? "YES" : "", missing: st.missing.join(", ") }); }
       for (const sn of standsNoEquip) ws.addRow({ floor: sn.floor || "", site: sn.venueName || "", unit: sn.unit || "", name: "(no cooler / freezer yet)", missing: "add units" });
       const buf = await wb.xlsx.writeBuffer();
       downloadBlob(new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }), `Equipment-Setup-Walk-${new Date().toISOString().slice(0, 10)}.xlsx`);
@@ -18233,13 +18238,14 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
         const noEquipSeen = new Set();
         const isRealUnit = v => !!(v && !v.notApplicable && (String(v.tempF ?? "").trim() || v.brand || (v.assetTag && String(v.assetTag).trim()) || v.count || v.label || (v.status && v.status !== "OK") || (v.notes || "").trim() || (v.photos || []).length));
         const validTag = t => { const x = String(t || "").trim().toUpperCase(); return x && !/^CUSTOM_/.test(x) && !COLD_EQUIPMENT[x.toLowerCase()] && !BAR_COLD_EQUIPMENT[x.toLowerCase()] && x !== "COOLERS" && x !== "FREEZER" ? x : ""; };
-        for (const rec of sortedRecs) {
+        for (let rec of sortedRecs) {
           // The inspection date is the day the walk happened; savedAt is only
           // when the record was written (edits move it) — prefer the former.
           const recDay = (rec.inspectionDate || rec.savedAt || "").slice(0, 10);
           const recMs = Date.parse(recDay ? recDay + "T12:00:00" : "") || 0;
           if (cutoffMs && recMs < cutoffMs) continue; // before the cutoff — skip
           if (cutoffDay && cutoffMode === "on" && recDay !== cutoffDay) continue; // only-that-date mode
+          if (!/\d/.test(normUnit(rec.siteNumber))) rec = { ...rec, siteNumber: "" }; // "Ground" / "Lexus Bar Left" are not unit numbers
           const standKey = (rec.siteNumber || "").trim() ? `u:${normUnit(rec.siteNumber)}` : `s:${(rec.siteName || "").trim().toLowerCase()}`;
           if (standDone.has(standKey)) continue; // older report of a stand we already have
           const equip = rec.inspection?.equipment || {};
@@ -18253,7 +18259,7 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
             // No equipment in this report — keep looking at older reports of
             // the same stand; only if none has equipment is it "to add".
             const nk = standKey;
-            if (!noEquipSeen.has(nk) && (rec.siteName || rec.siteNumber)) { noEquipSeen.add(nk); standsNoEquip.push({ key: nk, venueName: rec.siteName || "", unit: (rec.siteNumber || "").trim(), floor: floorFromUnit(rec.siteNumber) || (rec.floor || "").trim(), locType: rec.locationType || "", last: recDay }); }
+            if (!noEquipSeen.has(nk) && (rec.siteName || rec.siteNumber)) { noEquipSeen.add(nk); standsNoEquip.push({ key: nk, venueName: rec.siteName || "", unit: (rec.siteNumber || "").trim(), floor: floorForStand(rec.siteNumber, rec.siteName, rec.floor), locType: rec.locationType || "", last: recDay }); }
             continue;
           }
           standDone.add(standKey);
@@ -18288,7 +18294,7 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
               label: displayLabel,
               venueName: rec.siteName || activeVenueId,
               unit: (rec.siteNumber || "").trim(),
-              floor: floorFromUnit(rec.siteNumber) || (rec.floor || "").trim(),
+              floor: floorForStand(rec.siteNumber, rec.siteName, rec.floor),
               locType: (rec.locationType || "").trim(),
               location: (val?.location || val?.kitchenArea || "").trim(),
               brandName: (val?.brand || val?.brandName || "").trim(),
@@ -18324,7 +18330,7 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
           }
           if (seen.has(tag)) continue; // already present from an inspection
           seen.add(tag);
-          items.unshift({ ...it, uid, floor: floorFromUnit(it.unit) || it.floor || "" });
+          items.unshift({ ...it, uid, floor: floorForStand(it.unit, it.venueName, it.floor) });
         }
         if (items.length === 0 && cutoffMs && recList.length > 0 && cutoffDate !== "") {
           // Every stand's latest report is older than the cutoff — showing
@@ -18519,7 +18525,7 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
           const sf = standFocus;
           const its = equipItems.filter(i => sameStand(i, sf)).sort((a, b) => (a.label || "").localeCompare(b.label || ""));
           const site = sf.site || its.find(i => i.venueName)?.venueName || "";
-          const floorF = floorFromUnit(sf.unit) || sf.floor || its.find(i => i.floor)?.floor || "";
+          const floorF = floorForStand(sf.unit, sf.site, sf.floor) || its.find(i => i.floor)?.floor || "";
           const grp = { key: `focus:${normUnit(sf.unit) || site.toLowerCase()}`, unit: sf.unit, site, floor: floorF, items: its };
           const doneN = its.filter(i => walkStatus(i).complete).length;
           const standObj = { venueName: site, unit: sf.unit, floor: floorF, locType: sf.locType || "" };
@@ -19033,7 +19039,7 @@ function KitchenQrPage({ onBack, onPrintLabels, onStandEquipment }) {
         const id = kidOf(k.site, k.unit);
         if (regHidden[rid] || regHidden[id] || seen.has(id)) continue;
         seen.add(id);
-        list.push({ id, site: k.site || "", unit: k.unit || "", floor: floorFromUnit(k.unit) || k.floor || "", locType: k.locType || "", license: k.license || "" });
+        list.push({ id, site: k.site || "", unit: k.unit || "", floor: floorForStand(k.unit, k.site, k.floor), locType: k.locType || "", license: k.license || "" });
       }
       for (const k of SEED_KITCHENS) {
         if (isHidden(k) || seen.has(k.id)) continue;
@@ -19078,7 +19084,7 @@ function KitchenQrPage({ onBack, onPrintLabels, onStandEquipment }) {
         }
       } catch {}
       list.sort((a, b) => a.site.localeCompare(b.site) || a.unit.localeCompare(b.unit, undefined, { numeric: true }));
-      setKitchens(((l) => l.map(x => ({ ...x, floor: floorFromUnit(x.unit) || x.floor || "" })))(list));
+      setKitchens(((l) => l.map(x => ({ ...x, floor: floorForStand(x.unit, x.site, x.floor) })))(list));
       setLoading(false);
     })();
   }, []);
@@ -21790,7 +21796,7 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                     try { for (const r of JSON.parse(localStorage.getItem(`sdx_history_cache_${VENUE_ID}`) || "[]")) for (const v of Object.values(r?.inspection?.equipment || {})) if (v?.assetTag) used.add(String(v.assetTag).toUpperCase()); } catch {}
                     let n = 1; while (used.has(pre + n)) n++;
                     assetTag = pre + n;
-                    const floor = floorFromUnit(siteNumber) || siteFloor || "";
+                    const floor = floorForStand(siteNumber, siteName, siteFloor);
                     const rec = { assetTag, label: label.trim() + (cold.type === "freezer" ? " 🧊 Freezer" : " ❄ Cooler"), venueName: (siteName || "").trim().toUpperCase(), unit: (siteNumber || "").trim(), floor, locType: siteLocType || "", location: "", brandName: "", createdAt: Date.now() };
                     _equipRegCache = { ...(_equipRegCache || {}), [assetTag]: rec };
                     try { localStorage.setItem(EQUIP_REG_LS, JSON.stringify(_equipRegCache)); } catch {}
@@ -26445,7 +26451,7 @@ export default function App() {
     const g = k => (st?.[k] || "").trim();
     if (g("site")) setSiteName(g("site").toUpperCase());
     if (g("unit")) setSiteNumber(g("unit"));
-    { const fl = floorFromUnit(g("unit")) || g("floor"); if (fl) setFloor(fl); }
+    { const fl = floorForStand(g("unit"), g("site"), g("floor")); if (fl) setFloor(fl); }
     if (g("loctype")) { try { setLocationType(g("loctype")); } catch {} }
     // Remembered details for this stand — people only when the unit is known
     try { if (g("site")) applySiteAutofill(g("site"), { lockIdentity: !!g("unit") }); } catch {}
@@ -26499,7 +26505,7 @@ export default function App() {
         }
       }
     } catch {}
-    setQrStand({ site: g("site"), unit: g("unit"), floor: floorFromUnit(g("unit")) || g("floor"), loctype: g("loctype") });
+    setQrStand({ site: g("site"), unit: g("unit"), floor: floorForStand(g("unit"), g("site"), g("floor")), loctype: g("loctype") });
   }
   function handleStandScan(raw) {
     setScanStandOpen(false);
@@ -26865,7 +26871,7 @@ export default function App() {
   if (page === "mytemps")           { return <MyTempsPage currentUser={currentUser} onBack={() => setPage("inspector")} />; }
   if (page === "equipment_scanner") { return <EquipmentScannerPage onBack={() => setPage("inspector")} onPrintLabels={() => setPage("print_labels")} onKitchenQr={() => setPage("kitchen_qr")} />; }
   if (page === "print_labels")      { return <PrintLabelsPage onBack={() => { setPage(labelsFocus?.from || "equipment_scanner"); setLabelsFocus(null); }} onKitchenQr={() => setPage("kitchen_qr")} focusStand={labelsFocus} onClearFocus={() => setLabelsFocus(null)} />; }
-  if (page === "kitchen_qr")        { return <KitchenQrPage onBack={() => setPage("inspector")} onPrintLabels={() => setPage("print_labels")} onStandEquipment={(k) => { setLabelsFocus({ unit: k.unit || "", site: k.site || "", floor: floorFromUnit(k.unit) || k.floor || "", locType: k.locType || "", from: "kitchen_qr" }); setPage("print_labels"); }} />; }
+  if (page === "kitchen_qr")        { return <KitchenQrPage onBack={() => setPage("inspector")} onPrintLabels={() => setPage("print_labels")} onStandEquipment={(k) => { setLabelsFocus({ unit: k.unit || "", site: k.site || "", floor: floorForStand(k.unit, k.site, k.floor), locType: k.locType || "", from: "kitchen_qr" }); setPage("print_labels"); }} />; }
 
   const spec = NOTE_TYPES[noteType];
 
