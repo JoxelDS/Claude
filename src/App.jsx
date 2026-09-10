@@ -23631,6 +23631,7 @@ function HaccpPortal() {
   const [locFloor, setLocFloor]     = useState(urlFloor);
   const [locType, setLocType]       = useState(urlLocType);
   // temps: { [itemKey]: string[] }  — array of readings per item
+  const [openTemp, setOpenTemp] = useState(() => new Set()); // which temp categories are expanded (compact rows otherwise)
   const [temps, setTemps] = useState(() =>
     Object.fromEntries(HACCP_TEMP_ITEMS.map(it => [it.key, [""]]))
   );
@@ -24196,10 +24197,24 @@ function HaccpPortal() {
                   const standardItems = [...HACCP_TEMP_ITEMS.filter(i => !i.group), ...customItems];
                   const cookingItems  = HACCP_TEMP_ITEMS.filter(i => i.group === "cooking");
 
+                  // Compact rows: every category is one line until you tap it — less
+                  // scrolling, and the row itself tells you if it's logged.
+                  const summaryOf = (item) => { const rs = temps[item.key] || [""]; const subs = tempSubmitted[item.key] || []; const done = rs.map((v, i) => ({ v, i })).filter(x => subs[x.i] && String(x.v).replace(/\D/g, "").length); const fails = done.filter(x => !tempPass(item, x.v)).length; return { n: done.length, fails, last: done.length ? done[done.length - 1].v : "" }; };
+                  const isOpen = k => openTemp.has(k);
+                  const toggleOpen = k => setOpenTemp(p => { const n = new Set(p); n.has(k) ? n.delete(k) : n.add(k); return n; });
+                  const closeIfPass = (item, val) => { if (tempPass(item, val)) setOpenTemp(p => { const n = new Set(p); n.delete(item.key); return n; }); };
+                  const compactRow = (item, emoji, color, badge) => { const sm = summaryOf(item); return (
+                    <button type="button" key={item.key} className={"htRow" + (sm.n ? (sm.fails ? " htRowFail" : " htRowDone") : "")} onClick={() => toggleOpen(item.key)}>
+                      <span className="htRowEmoji">{emoji}</span>
+                      <span className="htRowMain"><span className="htRowName" style={{ color }}>{labelOverrides[item.key] ?? item.label}</span><span className="htRowHint">{item.hint || ""}</span></span>
+                      <span className="htRowBadge" style={badge ? { background: badge } : {}}>{item.max ? `≤${item.max}°F` : `≥${item.min}°F`}</span>
+                      <span className="htRowState">{sm.n ? (sm.fails ? `⚠ ${sm.fails} flagged` : `✓ ${sm.last}°F`) : "Log it ›"}</span>
+                    </button>); };
                   function renderReadingBlock(item) {
                     const isCustom = !HACCP_TEMP_ITEMS.find(d => d.key === item.key);
                     const displayLabel = labelOverrides[item.key] ?? item.label;
                     const readings = temps[item.key] || [""];
+                    if (!isOpen(item.key)) return compactRow(item, item.type === "cold" ? "🧊" : "🔥", item.type === "cold" ? "#60a5fa" : "#f87171", null);
                     return (
                     <div className="haccpTempBlock" key={item.key} style={item.type === "hot" ? { borderLeft: "3px solid #ef4444", background: "rgba(254,242,242,0.08)" } : item.type === "cold" ? { borderLeft: "3px solid #3b82f6", background: "rgba(239,246,255,0.08)" } : {}}>
                       <div className="haccpTempBlockHead">
@@ -24272,6 +24287,7 @@ function HaccpPortal() {
                             }}>
                             + Reading
                           </button>
+                          <button type="button" className="haccpAddReadingBtn htCollapse" onClick={() => toggleOpen(item.key)}>Done ▴</button>
                         </div>
                       </div>
                       {readings.map((val, idx) => {
@@ -24355,11 +24371,11 @@ function HaccpPortal() {
                               {!isSubmitted && (
                                 <button type="button" className={`htSubmit${canSubmit ? " htSubmitReady" : ""}`}
                                   disabled={!canSubmit}
-                                  onClick={() => setTempSubmitted(p => {
+                                  onClick={() => { setTempSubmitted(p => {
                                     const arr = [...(p[item.key] || [false])];
                                     arr[idx] = true;
                                     return { ...p, [item.key]: arr };
-                                  })}>
+                                  }); closeIfPass(item, val); }}>
                                   ✓ Log it
                                 </button>
                               )}
@@ -24412,6 +24428,12 @@ function HaccpPortal() {
 
                   return (
                     <>
+                      {(() => { const all = [...beforeCooking, ...cookingItems, ...afterCooking]; const done = all.filter(i => summaryOf(i).n > 0).length; return (
+                        <div className="htHowTo">
+                          <div className="htHowToSteps"><span>1️⃣ Tap the food<br/><i>Toca la comida</i></span><span>2️⃣ Type the temp<br/><i>Escribe la temperatura</i></span><span>3️⃣ ✓ Log it<br/><i>Regístralo</i></span></div>
+                          <div className="htHowToProg"><span className="htHowToBar"><span style={{ width: `${all.length ? Math.round(done / all.length * 100) : 0}%` }} /></span><span>{done}/{all.length} logged · Green ✓ = good · Red ⚠ = tell us what you did</span></div>
+                        </div>
+                      ); })()}
                       {beforeCooking.map(item => renderReadingBlock(item))}
 
                       {/* Cooking temps — grouped visual block */}
@@ -24424,6 +24446,7 @@ function HaccpPortal() {
                         {cookingItems.map((item, ci) => {
                           const m = cookingMeta[item.key] || { emoji: "🔥", color: "#f87171", bg: "rgba(248,113,113,0.10)", border: "rgba(248,113,113,0.35)", badgeBg: "var(--tx-red-strong)" };
                           const readings = temps[item.key] || [""];
+                          if (!isOpen(item.key)) return compactRow(item, m.emoji, m.color, m.badgeBg);
                           return (
                             <div key={item.key} style={{ background: m.bg, borderBottom: ci < cookingItems.length - 1 ? `1px solid ${m.border}` : "none", padding: "8px 12px" }}>
                               <div style={{ display: "flex", alignItems: "center", marginBottom: 6, gap: 6 }}>
@@ -24443,6 +24466,7 @@ function HaccpPortal() {
                                     setTempCorrections(p => ({ ...p, [item.key]: [...(p[item.key] || [""]), ""] }));
                                     setTempTimes(p => ({ ...p, [item.key]: [...(p[item.key] || [""]), ""] }));
                                   }}>+ Reading</button>
+                                <button type="button" className="haccpAddReadingBtn htCollapse" style={{ fontSize: "0.7rem", padding: "2px 8px", flexShrink: 0 }} onClick={() => toggleOpen(item.key)}>Done ▴</button>
                               </div>
                               {readings.map((val, idx) => {
                                 const isSubmitted = (tempSubmitted[item.key] || [])[idx] === true;
@@ -24497,7 +24521,7 @@ function HaccpPortal() {
                                       {!isSubmitted && (
                                         <button type="button" className={`htSubmit${canSubmit ? " htSubmitReady" : ""}`}
                                           disabled={!canSubmit}
-                                          onClick={() => setTempSubmitted(p => { const arr=[...(p[item.key]||[false])]; arr[idx]=true; return {...p,[item.key]:arr}; })}>
+                                          onClick={() => { setTempSubmitted(p => { const arr=[...(p[item.key]||[false])]; arr[idx]=true; return {...p,[item.key]:arr}; }); closeIfPass(item, val); }}>
                                           ✓ Log it
                                         </button>
                                       )}

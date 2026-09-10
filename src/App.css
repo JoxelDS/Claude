@@ -7922,3 +7922,24 @@ html[data-theme="dark"] .fuStOnWaiting, html[data-theme="black"] .fuStOnWaiting 
 .caChip { background: var(--surface-1); border: 1.5px solid var(--sdx-gray-200); border-radius: 999px; padding: 4px 11px; font-size: 0.76rem; font-weight: 800; cursor: pointer; color: var(--ink-700); }
 .caChip.on { background: var(--sdx-navy); border-color: var(--sdx-navy); color: #fff; }
 .caText { width: 100%; box-sizing: border-box; padding: 8px 10px; border-radius: 9px; border: 1.5px solid var(--sdx-gray-200); font-size: 16px; font-family: inherit; resize: vertical; background: var(--surface-1); }
+/* ── HACCP portal: compact temperature rows (v378) ── */
+.htHowTo { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); border-radius: 12px; padding: 10px 12px; margin-bottom: 10px; }
+.htHowToSteps { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; font-size: 0.8rem; font-weight: 800; line-height: 1.25; }
+.htHowToSteps i { font-weight: 600; font-size: 0.7rem; opacity: .75; }
+.htHowToProg { display: flex; align-items: center; gap: 10px; margin-top: 8px; font-size: 0.7rem; font-weight: 700; opacity: .85; }
+.htHowToBar { flex: 0 0 90px; height: 7px; border-radius: 999px; background: rgba(255,255,255,0.15); overflow: hidden; display: block; }
+.htHowToBar span { display: block; height: 100%; background: #22c55e; transition: width .3s; }
+.htRow { width: 100%; display: flex; align-items: center; gap: 10px; text-align: left; background: rgba(255,255,255,0.05); border: 1.5px solid rgba(255,255,255,0.14); border-radius: 12px; padding: 12px 12px; margin-bottom: 8px; cursor: pointer; color: inherit; min-height: 58px; }
+.htRow:active { transform: scale(.99); }
+.htRowDone { border-color: rgba(34,197,94,0.6); background: rgba(34,197,94,0.10); }
+.htRowFail { border-color: rgba(239,68,68,0.7); background: rgba(239,68,68,0.12); }
+.htRowEmoji { font-size: 1.35rem; flex-shrink: 0; }
+.htRowMain { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.htRowName { font-weight: 800; font-size: 0.95rem; }
+.htRowHint { font-size: 0.7rem; opacity: .7; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.htRowBadge { background: #b91c1c; color: #fff; border-radius: 6px; padding: 3px 8px; font-size: 0.78rem; font-weight: 800; flex-shrink: 0; }
+.htRowState { flex-shrink: 0; font-size: 0.8rem; font-weight: 800; color: #93c5fd; min-width: 64px; text-align: right; }
+.htRowDone .htRowState { color: #86efac; } .htRowFail .htRowState { color: #fca5a5; }
+.htCollapse { opacity: .85; }
+.htHowToProg > span:last-child { flex: 1; text-align: left; }
+.htHowToSteps span { text-align: left; }
