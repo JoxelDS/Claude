@@ -18242,7 +18242,6 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
           if (cutoffDay && cutoffMode === "on" && recDay !== cutoffDay) continue; // only-that-date mode
           const standKey = (rec.siteNumber || "").trim() ? `u:${normUnit(rec.siteNumber)}` : `s:${(rec.siteName || "").trim().toLowerCase()}`;
           if (standDone.has(standKey)) continue; // older report of a stand we already have
-          standDone.add(standKey);
           const equip = rec.inspection?.equipment || {};
           if (!siteName && rec.siteName) setSiteName(rec.siteName);
           const realEntries = Object.entries(equip).filter(([key, val]) => {
@@ -18251,10 +18250,13 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
             return (isCold || hasTag) && isRealUnit(val);
           });
           if (realEntries.length === 0) {
+            // No equipment in this report — keep looking at older reports of
+            // the same stand; only if none has equipment is it "to add".
             const nk = standKey;
-            if (!noEquipSeen.has(nk) && (rec.siteName || rec.siteNumber)) { noEquipSeen.add(nk); standsNoEquip.push({ venueName: rec.siteName || "", unit: (rec.siteNumber || "").trim(), floor: floorFromUnit(rec.siteNumber) || (rec.floor || "").trim(), locType: rec.locationType || "", last: recDay }); }
+            if (!noEquipSeen.has(nk) && (rec.siteName || rec.siteNumber)) { noEquipSeen.add(nk); standsNoEquip.push({ key: nk, venueName: rec.siteName || "", unit: (rec.siteNumber || "").trim(), floor: floorFromUnit(rec.siteNumber) || (rec.floor || "").trim(), locType: rec.locationType || "", last: recDay }); }
             continue;
           }
+          standDone.add(standKey);
           const cleanLbl = (key, val) => String(val?.label || COLD_EQUIPMENT[key]?.label || BAR_COLD_EQUIPMENT[key]?.label || key).replace(/\s*(❄|🧊)\s*(Cooler|Freezer)\s*$/u, "").trim();
           realEntries.sort((a, b) => cleanLbl(a[0], a[1]).localeCompare(cleanLbl(b[0], b[1])));
           const counters = { CL: 0, FZ: 0 };
@@ -18294,7 +18296,18 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
             });
           }
         }
-        setStandsNoEquip(standsNoEquip.sort((a, b) => (a.unit || "").localeCompare(b.unit || "", undefined, { numeric: true })));
+        // Registry (manual entries on this page) is the truth for a stand: a
+        // report's generic "Coolers"/"2-Door Cooler" rows at that stand are the
+        // same physical units under another name — don't print them twice.
+        const regStands = new Set();
+        for (const [tag, it] of Object.entries(regItems)) { if (hidden[`reg_${tag}`]) continue; const k = normUnit(it.unit) ? `u:${normUnit(it.unit)}` : `s:${(it.venueName || "").trim().toLowerCase()}`; regStands.add(k); }
+        const isGenerated = t => /^SDX-(CL|FZ)-[A-Z0-9]+-\d+$/.test(String(t || "").toUpperCase());
+        for (let i = items.length - 1; i >= 0; i--) {
+          const it = items[i];
+          const k = normUnit(it.unit) ? `u:${normUnit(it.unit)}` : `s:${(it.venueName || "").trim().toLowerCase()}`;
+          if (regStands.has(k) && isGenerated(it.assetTag)) { seen.delete(it.assetTag); items.splice(i, 1); }
+        }
+        setStandsNoEquip(standsNoEquip.filter(sn => !standDone.has(sn.key) && !regStands.has(sn.key)).sort((a, b) => (a.unit || "").localeCompare(b.unit || "", undefined, { numeric: true })));
         // Merge manually-created equipment (always shown) and apply removals
         for (const [tag, it] of Object.entries(regItems)) {
           const uid = `reg_${tag}`;
