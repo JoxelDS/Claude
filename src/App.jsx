@@ -8155,7 +8155,7 @@ const supCatEmoji = (cat) => SUP_PROBLEM_CATS.find(c => c.cat === cat)?.emoji ||
 const haccpProblemText = (pr) => pr?.text ? (pr.category ? `[${pr.category}] ${pr.text}` : pr.text) : "";
 
 /* ── Crew roles: maintenance / cleaning ─────────────────────────────────── */
-const CREW_TYPES = { maintenance: ["Maintenance", "Ecolab / Maintenance", "Pest Control"], cleaning: ["Cleaning"] };
+const CREW_TYPES = { maintenance: ["Maintenance", "Ecolab / Maintenance"], cleaning: ["Cleaning"] };
 const CREW_META = { maintenance: { icon: "🔧", title: "Maintenance board", noun: "maintenance" }, cleaning: { icon: "🧹", title: "Cleaning board", noun: "cleaning" } };
 const isCrewRole = r => r === "maintenance" || r === "cleaning";
 // New problem saved (report / quick report / supervisor QR) → ping the crew that owns it
