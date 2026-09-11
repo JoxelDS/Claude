@@ -7993,3 +7993,6 @@ html[data-theme="dark"] .fuStOnWaiting, html[data-theme="black"] .fuStOnWaiting 
 .htProgN { color: #111827; }
 .htLegOk { color: #15803d; } .htLegBad { color: #b91c1c; }
 @media (max-width: 380px) { .htStepT { white-space: normal; font-size: 0.76rem; } }
+.htStepArrow { display: none; }
+.htSteps { gap: 10px; }
+.htStepT { white-space: normal; line-height: 1.1; }
