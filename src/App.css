@@ -8003,3 +8003,18 @@ html[data-theme="dark"] .fuStOnWaiting, html[data-theme="black"] .fuStOnWaiting 
 .qpReportedText { margin-top: 6px; font-size: 1rem; font-weight: 700; color: var(--ink-900); line-height: 1.35; }
 .qpReportedNotes { margin-top: 4px; font-size: 0.86rem; color: var(--ink-700); }
 .qpReportedMeta { margin-top: 6px; font-size: 0.76rem; color: var(--ink-500); font-weight: 600; }
+/* ── Maintenance step (v382) ── */
+.maintIntro { background: linear-gradient(135deg, #7c2d12, #ea580c); color: #fff; border-radius: 14px; padding: 14px 16px; margin-bottom: 12px; }
+.maintIntroTitle { font-weight: 900; font-size: 1.15rem; }
+.maintIntroSub { font-size: 0.82rem; opacity: .92; margin-top: 3px; }
+.maintChips { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 8px; }
+.maintChip { background: var(--surface-2); border: 1.5px solid var(--sdx-gray-200); border-radius: 999px; padding: 7px 13px; font-size: 0.82rem; font-weight: 800; color: var(--ink-700); cursor: pointer; }
+.maintChip.on.maintChipOk { background: #16a34a; border-color: #16a34a; color: #fff; }
+.maintChip.on.maintChipIssue { background: #f59e0b; border-color: #f59e0b; color: #fff; }
+.maintChip.on.maintChipUrgent { background: #dc2626; border-color: #dc2626; color: #fff; }
+.maintChip.on.maintChipFixed { background: #2563eb; border-color: #2563eb; color: #fff; }
+.maintJump { width: 100%; margin: 8px 0 2px; background: #fff7ed; border: 1.5px solid #fdba74; color: #9a3412; border-radius: 10px; padding: 9px 12px; font-weight: 800; font-size: 0.82rem; cursor: pointer; text-align: left; }
+.guideStepChipMaint.guideStepDotActive { background: #ea580c !important; border-color: #ea580c !important; }
+.guideChipBadgeWarn { background: #dc2626 !important; color: #fff !important; }
+.eodActions { display: flex; }
+.eodBtnDone { flex: 1; width: 100%; }

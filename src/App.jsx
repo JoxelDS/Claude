@@ -22063,7 +22063,6 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
             const allMaintItems = [...maintenanceItems, ...customMaintItems];
             return (
               <>
-                <div className="maintSubHeader">🔧 Maintenance items</div>
                 <div className="guideItems">
                   {allMaintItems.map(it => {
                     const pathKey = it.path.join(".");
@@ -22089,15 +22088,17 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                               })}>🗑️</button>
                           )}
                         </div>
-                        <div className="maintControlBar">
-                          <select className="select selectSmall" value={cur.status}
-                            onChange={e => setInspection(prev => setAtPath(prev, it.path, { ...cur, status: e.target.value }))}>
-                            {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
-                          </select>
+                        <div className="maintChips">
+                          {[["OK", "✅ OK", "maintChipOk"], ["Needs Attention", "⚠️ Issue", "maintChipIssue"], ["Critical Violation", "🚨 Urgent", "maintChipUrgent"], ["Corrected On-Site", "🛠 Fixed on site", "maintChipFixed"]].map(([val, lbl, cls]) => (
+                            <button key={val} type="button" className={`maintChip ${cls}${cur.status === val ? " on" : ""}`}
+                              onClick={() => setInspection(prev => setAtPath(prev, it.path, { ...cur, status: val, priority: val === "Critical Violation" ? "High" : val === "OK" ? "Low" : (cur.priority === "Low" ? "Med" : cur.priority) }))}>{lbl}</button>
+                          ))}
+                          {!["OK", "Needs Attention", "Critical Violation", "Corrected On-Site"].includes(cur.status) && <span className="maintChip on">{cur.status}</span>}
                         </div>
+                        {cur.status !== "OK" && (<>
                         <input className="input inputSmall" value={cur.notes}
                           onChange={e => setInspection(prev => setAtPath(prev, it.path, { ...cur, notes: e.target.value }))}
-                          placeholder="Notes / description (optional)" />
+                          placeholder="What did you find? Where?" />
                         <div className="photoRow">
                           <input ref={el => (fileRefs.current[pathKey] = el)} className="fileInput" type="file" accept="image/*" multiple
                             onChange={e => { addPhotos(pathKey, e.target.files, (cur.photos || []).length); e.target.value = ""; }} />
@@ -22120,6 +22121,7 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                               return setAtPath(prev, it.path, { ...cur2, photos: (cur2.photos || []).map(p => p.id === id ? { ...p, tag } : p) });
                             });
                           }} />
+                        </>)}
                       </div>
                     );
                   })}
@@ -24812,7 +24814,6 @@ function EodCorrectivePrompt({ inspection, rawNotes, onDismiss, onAddNotes }) {
     <div className="eodOverlay" onClick={(e) => { if (e.target === e.currentTarget) onDismiss(); }}>
       <div className="eodModal">
         <div className="eodHeader">
-          <span className="eodIcon">🌆</span>
           <div>
             <div className="eodTitle">End-of-Day Check</div>
             <div className="eodSub">Did you document all corrective actions taken today?</div>
@@ -24860,9 +24861,6 @@ function EodCorrectivePrompt({ inspection, rawNotes, onDismiss, onAddNotes }) {
         )}
 
         <div className="eodActions">
-          <button className="btn btnSecondary eodBtnNotes" onClick={onAddNotes}>
-            ✏️ Add notes
-          </button>
           <button className="btn btnPrimary eodBtnDone" onClick={onDismiss}>
             ✓ All done for today
           </button>
@@ -25822,7 +25820,7 @@ export default function App() {
   }
 
   function jumpToGuideItem(hit) {
-    const order = inspectionType === "Event Day" ? [4, 0, 1, 2, 3] : [0, 1, 2, 3, 4];
+    const order = inspectionType === "Event Day" ? [4, 0, 1, 5, 2, 3] : [0, 1, 5, 2, 3, 4];
     const stepIdx = order.indexOf(hit.pid);
     if (stepIdx >= 0) setGuideStep(stepIdx);
     window.dispatchEvent(new CustomEvent("sdx-open-guide-item", { detail: { key: hit.key } }));
@@ -26609,7 +26607,7 @@ export default function App() {
     const onGoto = (e) => {
       const pid = Number(e.detail?.pid);
       if (!Number.isFinite(pid)) return;
-      const order = inspectionType === "Event Day" ? [4, 0, 1, 2, 3] : [0, 1, 2, 3, 4];
+      const order = inspectionType === "Event Day" ? [4, 0, 1, 5, 2, 3] : [0, 1, 5, 2, 3, 4];
       const idx = order.indexOf(pid);
       if (idx >= 0) setGuideStep(idx);
     };
@@ -27243,7 +27241,7 @@ export default function App() {
       ].filter(Boolean);
       // Detailed report check: unanswered checklist items and failed items
       // with no photo, each with a jump link straight to the spot.
-      const SECTION_PANEL = { facility: 1, equipment: 2, utensils: 3 };
+      const SECTION_PANEL = { facility: 1, maintenance: 5, equipment: 2, utensils: 3 };
       const SECTION_NAME = { facility: "Facilities", equipment: "Equipment", utensils: "Utensils" };
       for (const sec of ["facility", "equipment", "utensils"]) {
         for (const [key, node] of Object.entries(inspection[sec] || {})) {
@@ -28525,14 +28523,14 @@ export default function App() {
               {(() => {
                 const isEventDay = inspectionType === "Event Day";
                 const STEP_LABELS = isEventDay
-                  ? ["Operations ⭐", "Temps & Supplies", "Facilities", "Equipment", "Utensils"]
-                  : ["Temps & Supplies", "Facilities", "Equipment", "Utensils", "Operations"];
-                const STEP_ORDER = isEventDay ? [4, 0, 1, 2, 3] : [0, 1, 2, 3, 4];
+                  ? ["Operations ⭐", "Temps & Supplies", "Facilities", "Maintenance", "Equipment", "Utensils"]
+                  : ["Temps & Supplies", "Facilities", "Maintenance", "Equipment", "Utensils", "Operations"];
+                const STEP_ORDER = isEventDay ? [4, 0, 1, 5, 2, 3] : [0, 1, 5, 2, 3, 4];
                 const activePanel = STEP_ORDER[guideStep];
                 const totalSteps = STEP_LABELS.length;
                 // Real progress: unanswered checklist items per panel, straight
                 // from inspection data (names drift, data doesn't).
-                const PANEL_SECTIONS = { 1: ["facility", "maintenance"], 2: ["equipment"], 3: ["utensils"], 4: ["operations"] };
+                const PANEL_SECTIONS = { 1: ["facility"], 5: ["maintenance"], 2: ["equipment"], 3: ["utensils"], 4: ["operations"] };
                 const panelCounts = {}; // pid -> { remaining, total }
                 for (const [pid, secs] of Object.entries(PANEL_SECTIONS)) {
                   let remaining = 0, total = 0;
@@ -28576,13 +28574,14 @@ export default function App() {
                           <button
                             key={i}
                             type="button"
-                            className={`guideStepDot guideStepChip${i === guideStep ? " guideStepDotActive" : done ? " guideStepDotDone" : ""}`}
+                            className={`guideStepDot guideStepChip${i === guideStep ? " guideStepDotActive" : done ? " guideStepDotDone" : ""}${pid === 5 ? " guideStepChipMaint" : ""}`}
                             onClick={() => setGuideStep(i)}
                             aria-label={`Go to step ${i + 1}: ${label}`}
                             title={label}
                           >
                             <span className="guideChipNum">{i + 1}</span>
                             <span className="guideChipLabel">{SHORT_LABELS[i]}</span>
+                            {pid === 5 && (() => { const bad = Object.values(inspection.maintenance || {}).filter(m => m && m.status && m.status !== "OK" && m.status !== "N/A").length; return bad > 0 ? <span className="guideChipBadge guideChipBadgeWarn">{bad}</span> : null; })()}
                             {c && c.total > 0 && (
                               <span className={`guideChipBadge${done ? " guideChipBadgeDone" : ""}`}>{done ? "✓" : c.remaining}</span>
                             )}
@@ -28590,6 +28589,9 @@ export default function App() {
                         );
                       })}
                     </div>
+                    {activePanel !== 5 && (
+                      <button type="button" className="maintJump" onClick={() => setGuideStep(STEP_ORDER.indexOf(5))}>🔧 Maintenance — pest, AC, plumbing, electrical →</button>
+                    )}
                     {/* Guide Finder — jump to any item in any step */}
                     <div style={{ position: "relative", margin: "10px 0 4px" }}>
                       <input
@@ -28676,7 +28678,7 @@ export default function App() {
 
                   {/* ══ Step 0: Temps & Supplies ══════════════════════════ */}
                   <div className="guideStepPanel" data-guide-panel="0">
-                  <div style={{ display: (inspectionType==="Event Day"?[4,0,1,2,3]:[0,1,2,3,4])[guideStep]===0?"flex":"none", flexDirection: "column" }}>
+                  <div style={{ display: (inspectionType==="Event Day"?[4,0,1,5,2,3]:[0,1,5,2,3,4])[guideStep]===0?"flex":"none", flexDirection: "column" }}>
 
               {/* ── Supplies Needed ─────────────────────────────────────── */}
               {/* Event Day: show supplies AFTER temps (order 2); all other types: order 1 */}
@@ -28956,7 +28958,7 @@ export default function App() {
                   </div>{/* end step-0 content */}
 
                   {/* ══ Step 1: Facilities ════════════════════════════════ */}
-                  <div className="guideStepPanel" data-guide-panel="1" style={{ display: (inspectionType==="Event Day"?[4,0,1,2,3]:[0,1,2,3,4])[guideStep]===1?"block":"none" }}>
+                  <div className="guideStepPanel" data-guide-panel="1" style={{ display: (inspectionType==="Event Day"?[4,0,1,5,2,3]:[0,1,5,2,3,4])[guideStep]===1?"block":"none" }}>
 
                 <GuideSection title="🏢 Facilities"
                   items={[
@@ -28969,19 +28971,30 @@ export default function App() {
                   ]} inspection={inspection} setInspection={setInspection}
                   allowCustom sectionKey="facility"
                   inspectionId={savedReportId} venueId={activeVenueId} onError={msg => { setError(msg); setTimeout(() => setError(""), 8000); }}
-                  maintenanceItems={[
-                    { path: ["maintenance", "pestControl"],      label: "Pest Control — any signs of bugs, insects, or rodents?", hasPriority: true },
-                    { path: ["maintenance", "hvac"],             label: "AC / Ventilation — working properly, no bad smells?", hasPriority: true },
-                    { path: ["maintenance", "plumbing"],         label: "Plumbing / Drains — no leaks, clogs, or slow drains?", hasPriority: true },
-                    { path: ["maintenance", "electricalSafety"], label: "Electrical — no exposed wires, outlets work safely?", hasPriority: true },
-                    { path: ["maintenance", "dumpsterArea"],     label: "Trash / Dumpster — clean, lids closed, no odor?", hasPriority: true },
-                    { path: ["maintenance", "structuralDamage"], label: "Building — any cracks, broken fixtures, or hazards?", hasPriority: true },
-                  ]} defaultOpen={true} />
+                  defaultOpen={true} />
 
                   </div>{/* end Step 1 panel */}
 
                   {/* ══ Step 2: Equipment ═════════════════════════════════ */}
-                  <div className="guideStepPanel" data-guide-panel="2" style={{ display: (inspectionType==="Event Day"?[4,0,1,2,3]:[0,1,2,3,4])[guideStep]===2?"block":"none" }}>
+                  {/* ══ Step: Maintenance — pest, AC, plumbing, electrical, trash, building ══ */}
+                  <div className="guideStepPanel" data-guide-panel="5" style={{ display: (inspectionType==="Event Day"?[4,0,1,5,2,3]:[0,1,5,2,3,4])[guideStep]===5?"block":"none" }}>
+                    <div className="maintIntro">
+                      <div className="maintIntroTitle">🔧 Maintenance</div>
+                      <div className="maintIntroSub">One tap per item. Anything not OK goes straight to the follow-up list for the maintenance team.</div>
+                    </div>
+                    <GuideSection title="🔧 Maintenance" items={[]} inspection={inspection} setInspection={setInspection}
+                      sectionKey="maintenance" inspectionId={savedReportId} venueId={activeVenueId} onError={msg => { setError(msg); setTimeout(() => setError(""), 8000); }}
+                  maintenanceItems={[
+                        { path: ["maintenance", "pestControl"],      label: "Pest Control — any signs of bugs, insects, or rodents?", hasPriority: true },
+                        { path: ["maintenance", "hvac"],             label: "AC / Ventilation — working properly, no bad smells?", hasPriority: true },
+                        { path: ["maintenance", "plumbing"],         label: "Plumbing / Drains — no leaks, clogs, or slow drains?", hasPriority: true },
+                        { path: ["maintenance", "electricalSafety"], label: "Electrical — no exposed wires, outlets work safely?", hasPriority: true },
+                        { path: ["maintenance", "dumpsterArea"],     label: "Trash / Dumpster — clean, lids closed, no odor?", hasPriority: true },
+                        { path: ["maintenance", "structuralDamage"], label: "Building — any cracks, broken fixtures, or hazards?", hasPriority: true },
+                      ]} defaultOpen={true} />
+                  </div>
+
+                  <div className="guideStepPanel" data-guide-panel="2" style={{ display: (inspectionType==="Event Day"?[4,0,1,5,2,3]:[0,1,5,2,3,4])[guideStep]===2?"block":"none" }}>
 
                 {/* Equipment only — Utensils is Step 3 */}
                 {locationType === "Concession" ? (
@@ -29038,7 +29051,7 @@ export default function App() {
                   </div>{/* end Step 2 panel */}
 
                   {/* ══ Step 3: Utensils ══════════════════════════════════ */}
-                  <div className="guideStepPanel" data-guide-panel="3" style={{ display: (inspectionType==="Event Day"?[4,0,1,2,3]:[0,1,2,3,4])[guideStep]===3?"block":"none" }}>
+                  <div className="guideStepPanel" data-guide-panel="3" style={{ display: (inspectionType==="Event Day"?[4,0,1,5,2,3]:[0,1,5,2,3,4])[guideStep]===3?"block":"none" }}>
 
                 <GuideSection title="🧹 Utensils"
                   items={[
@@ -29050,7 +29063,7 @@ export default function App() {
                   </div>{/* end Step 3 panel */}
 
                   {/* ══ Step 4: Operations ════════════════════════════════ */}
-                  <div className="guideStepPanel" data-guide-panel="4" style={{ display: (inspectionType==="Event Day"?[4,0,1,2,3]:[0,1,2,3,4])[guideStep]===4?"block":"none" }}>
+                  <div className="guideStepPanel" data-guide-panel="4" style={{ display: (inspectionType==="Event Day"?[4,0,1,5,2,3]:[0,1,5,2,3,4])[guideStep]===4?"block":"none" }}>
 
                 {inspectionType === "Event Day" && (
                   <div style={{ background: "var(--tint-amber-1)", border: "1.5px solid #fb923c", borderRadius: 10, padding: "10px 14px", marginBottom: 12, display: "flex", gap: 10, alignItems: "flex-start" }}>
@@ -29093,8 +29106,8 @@ export default function App() {
               {(() => {
                 const isEventDay = inspectionType === "Event Day";
                 const NAV_LABELS = isEventDay
-                  ? ["Operations ⭐", "Temps & Supplies", "Facilities", "Equipment", "Utensils"]
-                  : ["Temps & Supplies", "Facilities", "Equipment", "Utensils", "Operations"];
+                  ? ["Operations ⭐", "Temps & Supplies", "Facilities", "Maintenance", "Equipment", "Utensils"]
+                  : ["Temps & Supplies", "Facilities", "Maintenance", "Equipment", "Utensils", "Operations"];
                 const last = NAV_LABELS.length - 1;
                 return (
                   <div className="guideStepNav">
