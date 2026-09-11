@@ -8060,6 +8060,7 @@ function computeFollowups(history, venueSettings, clearedLocal = {}) {
         catLastSeen[key].notes = (item.notes || "").trim();
         catLastSeen[key].source = rec.source || "";
         catLastSeen[key].reportedBy = rec.reportedBy?.name || "";
+        catLastSeen[key].inspector = rec.quickProblem && rec.source === "haccp_portal" ? "" : (rec.inspectorName || "");
         // Pictures of the problem: checklist items carry photo objects;
         // quick / supervisor reports keep objects on rec.photos + ids on the item.
         try {
@@ -8086,7 +8087,7 @@ function computeFollowups(history, venueSettings, clearedLocal = {}) {
       const likelyResolved = (latestInspByLoc[loc] || 0) > v.ts;   // a newer inspection had no such issue
       const overdue = !likelyResolved && daysSince >= recheckDays;
       const itype = classifyIssueType(`${cat}: ${v.detail || ""}`, v.notes || "");
-      return { key, loc, cat, unit: v.unit || "", floor: v.floor || "", itype, daysSince, count: v.count, dateStr: v.dateStr, likelyResolved, overdue, detail: v.detail || "", notes: v.notes || "", ts: v.ts || 0, source: v.source || "", reportedBy: v.reportedBy || "", photos: v.photos || [] };
+      return { key, loc, cat, unit: v.unit || "", floor: v.floor || "", itype, daysSince, count: v.count, dateStr: v.dateStr, likelyResolved, overdue, detail: v.detail || "", notes: v.notes || "", ts: v.ts || 0, source: v.source || "", reportedBy: v.reportedBy || "", photos: v.photos || [], inspector: v.inspector || "" };
     })
     .sort((a, b) => (b.overdue - a.overdue) || (a.likelyResolved - b.likelyResolved) || b.daysSince - a.daysSince);
 
@@ -8152,6 +8153,269 @@ const SUP_PROBLEM_CATS = [
 const supCatEmoji = (cat) => SUP_PROBLEM_CATS.find(c => c.cat === cat)?.emoji || "📝";
 // "[Category] text" for exports; plain text when the report has no category
 const haccpProblemText = (pr) => pr?.text ? (pr.category ? `[${pr.category}] ${pr.text}` : pr.text) : "";
+
+/* ── Crew roles: maintenance / cleaning ─────────────────────────────────── */
+const CREW_TYPES = { maintenance: ["Maintenance", "Ecolab / Maintenance", "Pest Control"], cleaning: ["Cleaning"] };
+const CREW_META = { maintenance: { icon: "🔧", title: "Maintenance board", noun: "maintenance" }, cleaning: { icon: "🧹", title: "Cleaning board", noun: "cleaning" } };
+const isCrewRole = r => r === "maintenance" || r === "cleaning";
+// New problem saved (report / quick report / supervisor QR) → ping the crew that owns it
+async function notifyCrewsForItems(items, site, unit, by) {
+  try {
+    if (!FIREBASE_ON) return;
+    const users = await getUsers();
+    for (const [role, types] of Object.entries(CREW_TYPES)) {
+      const hits = (items || []).filter(a => a && types.includes(classifyIssueType(a.issue || "", a.notes || "")));
+      if (!hits.length) continue;
+      const crew = (users || []).filter(u => u.role === role && u.approved !== false && u.name).slice(0, 10);
+      const m = CREW_META[role];
+      for (const u of crew) {
+        saveInspectorNotification({ inspectorName: u.name, kind: "followup", title: `${m.icon} New ${m.noun} problem — ${site || "stand"}${unit ? ` #${unit}` : ""}`, message: hits.map(a => a.issue).join(" · ").slice(0, 300) + (by ? ` — ${by}` : "") });
+      }
+    }
+  } catch {}
+}
+
+function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLock, onMessages, onAppearance }) {
+  const role = currentUser?.role;
+  const meta = CREW_META[role] || CREW_META.maintenance;
+  const types = CREW_TYPES[role] || CREW_TYPES.maintenance;
+  const [history, setHistory] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [tab, setTab] = useState("open"); // open | reports
+  const [q, setQ] = useState("");
+  const [floorPick, setFloorPick] = useState("");
+  const [showOther, setShowOther] = useState(false);
+  const [showDone, setShowDone] = useState(false);
+  const [local, setLocal] = useState({ status: {}, comments: {}, photos: {}, cleared: {} });
+  const [action, setAction] = useState(null); // { key, kind: "in_progress"|"waiting"|"fixed", note }
+  const [busy, setBusy] = useState(null);
+  const [flash, setFlash] = useState("");
+  const [lightboxSrc, setLightboxSrc] = useState(null);
+  const [openReport, setOpenReport] = useState(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const me = currentUser?.name || "Crew";
+
+  async function load() {
+    setLoading(true);
+    let list = [];
+    try { const r = await loadHistory(undefined, { pageSize: 300 }); list = r?.list || []; } catch {}
+    if (!list.length) { try { list = JSON.parse(localStorage.getItem(`sdx_history_cache_${VENUE_ID}`) || "[]"); } catch {} }
+    setHistory(list); setLoading(false);
+  }
+  useEffect(() => { load(); const t = setInterval(load, 120000); return () => clearInterval(t); }, []);
+
+  const vs = venueSettings || {};
+  const statusOf = k => local.status[k] || vs.followupStatus?.[k];
+  const commentsOf = k => local.comments[k] || vs.followupComments?.[k] || [];
+  const photosOf = k => local.photos[k] || vs.followupPhotos?.[k] || [];
+  const clearedLocal = local.cleared;
+
+  const all = useMemo(() => { try { return computeFollowups(history, vs, clearedLocal).followups; } catch { return []; } }, [history, vs.followupCleared, vs.followupStatus, vs.recheckDays, clearedLocal]);
+  const mine = all.filter(f => types.includes(f.itype) || (showOther && f.itype === "Other"));
+  const isDone = f => { const st = statusOf(f.key); return !!(st && st.status === "resolved") || f.likelyResolved; };
+  const qq = q.trim().toLowerCase(); const qUnit = normUnit(qq);
+  const shown = mine
+    .filter(f => showDone ? true : !isDone(f))
+    .filter(f => !floorPick || (floorForStand(f.unit, f.loc, f.floor) || "No floor") === floorPick)
+    .filter(f => !qq || (qUnit && normUnit(f.unit).includes(qUnit)) || [f.loc, f.cat, f.detail, f.notes].some(v => (v || "").toLowerCase().includes(qq)));
+  const FLOOR_ORDER = ["Floor 1", "Floor 2", "Floor 3", "Ground Level"];
+  const rank = f => { const i = FLOOR_ORDER.indexOf(f); return i === -1 ? 99 : i; };
+  const floors = [...new Set(mine.map(f => floorForStand(f.unit, f.loc, f.floor) || "No floor"))].sort((a, b) => rank(a) - rank(b) || a.localeCompare(b));
+  const byFloor = {};
+  for (const f of shown) { const fl = floorForStand(f.unit, f.loc, f.floor) || "No floor"; const sk = normUnit(f.unit) ? `u:${normUnit(f.unit)}` : `s:${(f.loc || "").toUpperCase()}`; ((byFloor[fl] = byFloor[fl] || {})[sk] = byFloor[fl][sk] || { unit: f.unit, loc: f.loc, items: [] }).items.push(f); }
+  const openN = mine.filter(f => !isDone(f)).length, overdueN = mine.filter(f => !isDone(f) && f.overdue).length;
+  const today = new Date().toISOString().slice(0, 10);
+  const doneTodayN = mine.filter(f => { const st = statusOf(f.key); return st && st.status === "resolved" && st.ts && new Date(st.ts).toISOString().slice(0, 10) === today; }).length;
+
+  function notifyInspector(f, title, message) {
+    try {
+      const names = new Set(); if (f.inspector) names.add(f.inspector);
+      for (const n of names) saveInspectorNotification({ inspectorName: n, kind: "followup", title, message });
+    } catch {}
+  }
+  async function commit(f, kind, note) {
+    const ts = Date.now(); const prefix = `${meta.icon} ${me}`;
+    const entry = kind === "fixed" ? { status: "resolved", note: "", by: me, ts } : kind === "waiting" ? { status: "waiting", note: (note || "").slice(0, 80), by: me, ts } : { status: "in_progress", note: "", by: me, ts };
+    const text = `${kind === "fixed" ? "Fixed" : kind === "waiting" ? "Waiting on" : "In process"}${note ? `: ${note.trim().slice(0, 200)}` : ""}`;
+    const arr = [...commentsOf(f.key), { text: `${prefix} — ${text}`, by: me, ts }].slice(-10);
+    setLocal(p => ({ ...p, status: { ...p.status, [f.key]: entry }, comments: { ...p.comments, [f.key]: arr }, cleared: kind === "fixed" ? { ...p.cleared, [f.key]: ts } : p.cleared }));
+    saveVenueSettingsMap?.("followupStatus", { [f.key]: entry });
+    saveVenueSettingsMap?.("followupComments", { [f.key]: arr });
+    if (kind === "fixed") saveVenueSettingsMap?.("followupCleared", { [f.key]: ts });
+    notifyInspector(f, `${meta.icon} ${meta.title.replace(" board", "")} update — ${f.loc}${f.unit ? ` #${f.unit}` : ""}`, `${f.cat}: ${text} — ${me}`);
+    setAction(null);
+    setFlash(`${kind === "fixed" ? "✅" : "📨"} Sent to the inspector — ${f.loc}${f.unit ? ` #${f.unit}` : ""}`); setTimeout(() => setFlash(""), 3500);
+  }
+  async function addAfterPhotos(f, files) {
+    if (!files || !files.length) return;
+    setBusy(f.key);
+    try {
+      const got = await makeFollowupPhotos(files, `crew_${f.key.replace(/[^A-Za-z0-9]+/g, "_").slice(0, 60)}`, 4);
+      if (got.length) {
+        const arr = [...photosOf(f.key), ...got.map(p => ({ id: p.id, thumbUrl: p.thumbUrl, previewUrl: p.previewUrl, by: me, ts: Date.now(), tag: "after" }))].slice(-8);
+        setLocal(p => ({ ...p, photos: { ...p.photos, [f.key]: arr } }));
+        saveVenueSettingsMap?.("followupPhotos", { [f.key]: arr });
+        notifyInspector(f, `${meta.icon} After photo — ${f.loc}${f.unit ? ` #${f.unit}` : ""}`, `${f.cat}: ${got.length} photo${got.length !== 1 ? "s" : ""} added by ${me}`);
+        setFlash("📷 Photo sent to the inspector"); setTimeout(() => setFlash(""), 3000);
+      }
+    } catch {}
+    setBusy(null);
+  }
+  // Reports that carry this crew's kind of problem (last 60 days)
+  const reports = useMemo(() => {
+    const cutoff = Date.now() - 60 * 86400000;
+    return history.filter(r => Date.parse(r.savedAt || r.inspectionDate || "") >= cutoff)
+      .map(r => ({ r, hits: (r.actionItems || []).filter(a => a && types.includes(classifyIssueType(a.issue || "", a.notes || ""))) }))
+      .filter(x => x.hits.length).sort((a, b) => (b.r.savedAt || "").localeCompare(a.r.savedAt || ""));
+  }, [history, role]);
+
+  const thumb = (p, side, key) => (
+    <div key={(p.report ? "r" : "") + p.id} className={"fuThumb" + (side === "after" ? " fuThumbAfter" : " fuThumbReport")}>
+      <img src={p.thumbUrl} alt="" onClick={() => setLightboxSrc(p.previewUrl || p.thumbUrl)} />
+      <span className="fuThumbTag">{side}</span>
+    </div>
+  );
+  return (
+    <div className="appShell crewPage" style={{ background: "var(--surface-2)", minHeight: "100vh" }}>
+      {lightboxSrc && ReactDOM.createPortal(
+        <div onClick={() => setLightboxSrc(null)} style={{ position: "fixed", inset: 0, zIndex: 10050, background: "rgba(0,0,0,.88)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+          <img src={lightboxSrc} alt="" onClick={e => e.stopPropagation()} style={{ maxWidth: "95vw", maxHeight: "90vh", borderRadius: 10 }} />
+        </div>, document.body)}
+      <header className="topBar">
+        <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+          <span style={{ fontSize: "1.4rem" }}>{meta.icon}</span>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontWeight: 800, color: "#fff", fontSize: "1rem" }}>{meta.title}</div>
+            <div style={{ color: "rgba(255,255,255,0.75)", fontSize: "0.74rem", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{me} · {resolveCompanyName()}</div>
+          </div>
+        </div>
+        <div style={{ position: "relative" }}>
+          <button type="button" className="btn btnGhost" style={{ color: "#fff", borderColor: "rgba(255,255,255,0.4)", padding: "6px 12px" }} onClick={() => setMenuOpen(v => !v)}>☰</button>
+          {menuOpen && (
+            <div className="dropdownMenu" onClick={() => setMenuOpen(false)}>
+              <div className="dropdownMenuUser">{me} ({role === "cleaning" ? "Cleaning" : "Maintenance"})</div>
+              <button className="dropdownMenuItem" type="button" onClick={() => { setTab("open"); }}>{meta.icon} My board</button>
+              <button className="dropdownMenuItem" type="button" onClick={() => { setTab("reports"); }}>📄 Reports with {meta.noun} issues</button>
+              <button className="dropdownMenuItem" type="button" onClick={load}>🔄 Refresh</button>
+              {onMessages && <button className="dropdownMenuItem" type="button" onClick={onMessages}>💬 Messages</button>}
+              {onAppearance && <button className="dropdownMenuItem" type="button" onClick={onAppearance}>🎨 App Color</button>}
+              <button className="dropdownMenuItem dropdownMenuDanger" type="button" onClick={onLock}>Lock App</button>
+            </div>
+          )}
+        </div>
+      </header>
+      <div className="topBarSpacer" />
+      {flash && <div className="walkFlash">{flash}</div>}
+      <div style={{ maxWidth: 900, margin: "0 auto", padding: "1rem" }}>
+        <div className="crewTabs">
+          <button type="button" className={"crewTab" + (tab === "open" ? " on" : "")} onClick={() => setTab("open")}>{meta.icon} To do <b>{openN}</b></button>
+          <button type="button" className={"crewTab" + (tab === "reports" ? " on" : "")} onClick={() => setTab("reports")}>📄 Reports <b>{reports.length}</b></button>
+        </div>
+        {tab === "open" && (
+          <>
+            <div className="crewStats">
+              <span className={"crewStat" + (overdueN ? " crewStatBad" : "")}>⏰ {overdueN} overdue</span>
+              <span className="crewStat">📋 {openN} open</span>
+              <span className="crewStat crewStatOk">✅ {doneTodayN} fixed today</span>
+            </div>
+            <input value={q} onChange={e => setQ(e.target.value)} placeholder="🔎 unit #, stand, problem…" className="crewSearch" />
+            <div className="crewChips">
+              {floors.length > 1 && floors.map(f => <button key={f} type="button" className={"etChip" + (floorPick === f ? " on" : "")} onClick={() => setFloorPick(floorPick === f ? "" : f)}>{f}</button>)}
+              <span style={{ flex: 1 }} />
+              <button type="button" className={"etChip" + (showDone ? " on" : "")} onClick={() => setShowDone(v => !v)}>show fixed</button>
+              <button type="button" className={"etChip" + (showOther ? " on" : "")} onClick={() => setShowOther(v => !v)}>+ other problems</button>
+            </div>
+            {loading && !history.length && <div className="etEmpty">Loading…</div>}
+            {!loading && shown.length === 0 && <div className="etEmpty">{openN === 0 ? `Nothing open for ${meta.noun} right now. 🎉` : "Nothing matches."}</div>}
+            {floors.filter(fl => byFloor[fl]).map(fl => (
+              <div key={fl}>
+                <div className="etFloorHead"><span>🏢 {fl}</span><span>{Object.keys(byFloor[fl]).length} stands</span></div>
+                {Object.values(byFloor[fl]).sort((a, b) => (a.unit || "").localeCompare(b.unit || "", undefined, { numeric: true })).map(st => (
+                  <div key={st.loc + st.unit} className="crewStand">
+                    <div className="crewStandHead">🍳 {st.loc}{st.unit ? ` · #${st.unit}` : ""}</div>
+                    {st.items.map(f => {
+                      const stt = statusOf(f.key); const done = isDone(f);
+                      const before = [...(f.photos || []).map(p => ({ ...p, report: true })), ...photosOf(f.key).filter(p => (p.tag || "before") !== "after")];
+                      const after = photosOf(f.key).filter(p => p.tag === "after");
+                      const cm = commentsOf(f.key);
+                      return (
+                        <div key={f.key} className={"crewItem" + (done ? " crewItemDone" : f.overdue ? " crewItemOverdue" : "")}>
+                          <div className="crewItemHead">
+                            <span className="crewItemIcon">{done ? "✅" : f.itype === "Pest Control" ? "🐜" : f.itype === "Cleaning" ? "🧹" : "🔧"}</span>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div className="crewItemTitle">{f.cat}</div>
+                              <div className="crewItemDetail">{f.detail || "—"}{f.notes ? <span className="crewItemNotes"> — {f.notes}</span> : null}</div>
+                              <div className="crewItemMeta">{[f.dateStr ? `flagged ${f.dateStr}` : "", f.daysSince != null ? `${f.daysSince}d open` : "", f.reportedBy ? `by supervisor ${f.reportedBy}` : f.inspector ? `by ${f.inspector}` : "", f.overdue && !done ? "⏰ overdue" : ""].filter(Boolean).join(" · ")}</div>
+                            </div>
+                          </div>
+                          {(before.length > 0 || after.length > 0) && (
+                            <div className="fuBA">
+                              <div className="fuBACol"><div className="fuBAHead fuBABefore">🔴 Before</div><div className="fuThumbs">{before.length ? before.map(p => thumb(p, "before", f.key)) : <span className="fuPhotoHint">no photo</span>}</div></div>
+                              <div className="fuBACol"><div className="fuBAHead fuBAAfter">🟢 After</div><div className="fuThumbs">{after.length ? after.map(p => thumb(p, "after", f.key)) : <span className="fuPhotoHint">add yours</span>}</div></div>
+                            </div>
+                          )}
+                          {stt && <div className="fuStStamp">{stt.status === "resolved" ? "✅ Fixed" : stt.status === "waiting" ? `⏳ Waiting${stt.note ? ` for ${stt.note}` : ""}` : "🔧 In process"} — {stt.by}{stt.ts ? ` · ${new Date(stt.ts).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}` : ""}</div>}
+                          {cm.length > 0 && <div className="crewComments">{cm.slice(-3).map((c, i) => <div key={i}>💬 <b>{c.by}</b>: {c.text}</div>)}</div>}
+                          {action?.key === f.key ? (
+                            <div className="crewActionBox">
+                              <div className="crewActionTitle">{action.kind === "fixed" ? "✅ What did you do?" : action.kind === "waiting" ? "⏳ Waiting on what?" : "🔧 In process"}</div>
+                              <textarea rows={2} className="caText" value={action.note} autoFocus onChange={e => setAction(a => ({ ...a, note: e.target.value }))}
+                                placeholder={action.kind === "fixed" ? "e.g. Replaced gasket, tested — holding 36°F" : action.kind === "waiting" ? "e.g. part on order, vendor Thursday" : "optional note"} />
+                              <div className="crewActionBtns">
+                                <button type="button" className="btn btnGhost" onClick={() => setAction(null)}>Cancel</button>
+                                <button type="button" className="btn btnPrimary" disabled={action.kind !== "in_progress" && !action.note.trim()} onClick={() => commit(f, action.kind, action.note)}>📨 Send to inspector</button>
+                              </div>
+                            </div>
+                          ) : !done ? (
+                            <div className="crewActions">
+                              <button type="button" className="crewBtn" onClick={() => setAction({ key: f.key, kind: "in_progress", note: "" })}>🔧 In process</button>
+                              <button type="button" className="crewBtn" onClick={() => setAction({ key: f.key, kind: "waiting", note: "" })}>⏳ Waiting on…</button>
+                              <button type="button" className="crewBtn crewBtnFix" onClick={() => setAction({ key: f.key, kind: "fixed", note: "" })}>✅ Fixed</button>
+                              <label className="crewBtn crewBtnPhoto">📷 After photo<input type="file" accept="image/*" capture="environment" multiple hidden onChange={e => { addAfterPhotos(f, e.target.files); e.target.value = ""; }} /></label>
+                              {busy === f.key && <span className="fuPhotoHint">Sending…</span>}
+                            </div>
+                          ) : (
+                            <div className="crewActions"><label className="crewBtn crewBtnPhoto">📷 Add after photo<input type="file" accept="image/*" capture="environment" multiple hidden onChange={e => { addAfterPhotos(f, e.target.files); e.target.value = ""; }} /></label></div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
+            ))}
+          </>
+        )}
+        {tab === "reports" && (
+          <>
+            <div className="etEmpty" style={{ textAlign: "left", marginBottom: 10 }}>Reports from the last 60 days that mention a {meta.noun} problem. Tap one to read it.</div>
+            {reports.length === 0 && <div className="etEmpty">No reports with {meta.noun} problems.</div>}
+            {reports.map(({ r, hits }) => (
+              <div key={r.id} className="crewReport" onClick={() => setOpenReport(openReport === r.id ? null : r.id)}>
+                <div className="crewReportHead">
+                  <span className="crewReportSite">{r.siteName || "—"}{r.siteNumber ? ` · #${r.siteNumber}` : ""}</span>
+                  <span className="crewReportMeta">{(r.inspectionDate || r.savedAt || "").slice(0, 10)} · {r.inspectionType || "Inspection"} · {r.inspectorName || r.reportedBy?.name || ""}</span>
+                  <span className="crewReportCount">{hits.length}</span>
+                </div>
+                {openReport === r.id && (
+                  <div className="crewReportBody" onClick={e => e.stopPropagation()}>
+                    {hits.map((a, i) => (
+                      <div key={i} className="crewReportIssue">
+                        <div><b>{a.issue}</b></div>
+                        {a.notes && <div className="crewItemNotes">{a.notes}</div>}
+                        {(() => { const objs = Array.isArray(a.photos) ? a.photos.filter(p => p && typeof p === "object" && (p.thumbUrl || p.previewUrl)) : []; const ids = Array.isArray(a.photos) ? a.photos.filter(p => typeof p === "string") : []; const ph = objs.length ? objs : (r.photos || []).filter(p => p && (ids.length ? ids.includes(p.id) : r.quickProblem)); return ph.length ? <div className="fuThumbs" style={{ marginTop: 6 }}>{ph.map(p => <div key={p.id} className="fuThumb fuThumbReport"><img src={p.thumbUrl || p.previewUrl} alt="" onClick={() => setLightboxSrc(p.previewUrl || p.thumbUrl)} /></div>)}</div> : null; })()}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
 
 function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDrilldown, venueSettings, saveVenueSettings, saveVenueSettingsMap, currentUser, onAddRecord }) {
   // Locally cleared follow-ups — instant feedback independent of settings sync
@@ -8513,6 +8777,7 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
     };
     try { await saveOneInspection(rec); } catch {}
     onAddRecord?.(rec); // surfaces the new follow-up immediately
+    try { notifyCrewsForItems(rec.actionItems, rec.siteName, rec.siteNumber, rec.inspectorName); } catch {}
     setQpFlash(`✓ Problem filed for ${site}${qpUnit.trim() ? ` #${qpUnit.trim()}` : ""} — it's now a follow-up`);
     setTimeout(() => setQpFlash(""), 4000);
     setQpOpen(false); setQpSite(""); setQpUnit(""); setQpFloor(""); setQpDesc(""); setQpCatOther(""); setQpPhotos([]);
@@ -20707,6 +20972,8 @@ function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVe
                       <option value="admin">Admin</option>
                       <option value="location_manager">Location Manager</option>
                       <option value="guest">Guest Inspector</option>
+                      <option value="maintenance">🔧 Maintenance crew</option>
+                      <option value="cleaning">🧹 Cleaning crew</option>
                     </select>
                   </label>
                   {(addRole === "location_manager" || addRole === "guest") && (
@@ -24011,6 +24278,7 @@ function HaccpPortal() {
           actionItems: [{ issue: `${problemCat}: ${problem.trim()}`, notes: `Reported by supervisor ${supName.trim() || "—"} via stand QR (${severity})`, photos: photosOut.map(p => p.id) }],
           inspection: {},
         });
+        try { notifyCrewsForItems([{ issue: `${problemCat}: ${problem.trim()}`, notes: "" }], locSite.trim().toUpperCase(), locUnit.trim(), supName.trim()); } catch {}
       } catch {}
     }
     setSubmitting(false);
@@ -26852,7 +27120,7 @@ export default function App() {
       Notification.requestPermission().catch(() => {});
     }
     // Load unread assignment notifications for inspectors/location managers
-    if (user?.name && FIREBASE_ON && (user?.role === "inspector" || user?.role === "location_manager" || user?.role === "admin" || user?.role === "global_admin")) {
+    if (user?.name && FIREBASE_ON && (user?.role === "inspector" || user?.role === "location_manager" || user?.role === "admin" || user?.role === "global_admin" || isCrewRole(user?.role))) {
       getInspectorNotifications(user.name).then(notifs => {
         notifs.forEach(n => {
           const dateStr = n.date ? ` · ${n.date}` : "";
@@ -26876,6 +27144,7 @@ export default function App() {
       setPage("global_admin");
       return;
     }
+    if (isCrewRole(user?.role)) { setPage("crew"); return; }
     if (user?.role === "guest" && user?.sponsoredByName) {
       // Guest reports: inspector = sponsor, participant = guest
       setInspectorName(user.sponsoredByName);
@@ -26967,6 +27236,7 @@ export default function App() {
   if (page === "performance") { AIEngine.trackPage("performance"); return <PerformanceDashboard onBack={() => setPage("admin")} managedVenueId={managedVenueId} managedVenueName={managedVenueName} venueSettings={venueSettings} />; }
   if (page === "myteam")      { return <MyTeamPage currentUser={currentUser} onBack={() => setPage("inspector")} />; }
   if (page === "mylocations") { return <MyLocationsPage currentUser={currentUser} venueSettings={venueSettings} saveVenueSettings={saveVenueSettings} onBack={() => setPage("inspector")} onSelectLocation={(loc, slotId) => { setSiteName(loc); activeSlotIdRef.current = slotId || null; setPage("inspector"); window.scrollTo({ top: 0, behavior: "smooth" }); }} />; }
+  if (page === "crew")              { return <CrewBoardPage currentUser={currentUser} venueSettings={venueSettings} saveVenueSettingsMap={saveVenueSettingsMap} onLock={() => { lockApp(); setCurrentUser(null); setLocked(true); }} onMessages={() => setPage("messaging")} onAppearance={() => setAppearanceOpen(true)} />; }
   if (page === "mytemps")           { return <MyTempsPage currentUser={currentUser} onBack={() => setPage("inspector")} />; }
   if (page === "equipment_scanner") { return <EquipmentScannerPage onBack={() => setPage("inspector")} onPrintLabels={() => setPage("print_labels")} onKitchenQr={() => setPage("kitchen_qr")} />; }
   if (page === "print_labels")      { return <PrintLabelsPage onBack={() => { setPage(labelsFocus?.from || "equipment_scanner"); setLabelsFocus(null); }} onKitchenQr={() => setPage("kitchen_qr")} focusStand={labelsFocus} onClearFocus={() => setLabelsFocus(null)} />; }
@@ -27411,6 +27681,7 @@ export default function App() {
     try {
       await saveOneInspection(cleanRecord);
       try { commitCorrectives(record.id); } catch {}
+      try { notifyCrewsForItems(record.actionItems, record.siteName, record.siteNumber, record.inspectorName); } catch {}
       learnFromSave(cleanRecord);
       clearDraft(); // draft committed — remove auto-save
       reportInProgressRef.current = false; // prevent auto-save from re-saving completed inspection
@@ -27784,7 +28055,7 @@ export default function App() {
             {currentUser && (
               <div className="dropdownMenuUser">
                 {currentUser.name}
-                {currentUser.role === "global_admin" ? " (Global Admin)" : currentUser.role === "admin" ? " (Admin)" : currentUser.role === "location_manager" ? " (Manager)" : currentUser.role === "guest" ? " (Guest)" : ""}
+                {currentUser.role === "global_admin" ? " (Global Admin)" : currentUser.role === "admin" ? " (Admin)" : currentUser.role === "location_manager" ? " (Manager)" : currentUser.role === "guest" ? " (Guest)" : currentUser.role === "maintenance" ? " (Maintenance)" : currentUser.role === "cleaning" ? " (Cleaning)" : ""}
                 {currentUser.role === "location_manager" && currentUser.assignedLocation && (
                   <div style={{ fontSize: "0.72rem", color: "var(--ink-400)", marginTop: 2 }}>📍 {currentUser.assignedLocation}</div>
                 )}

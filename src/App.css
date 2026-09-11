@@ -8018,3 +8018,38 @@ html[data-theme="dark"] .fuStOnWaiting, html[data-theme="black"] .fuStOnWaiting 
 .guideChipBadgeWarn { background: #dc2626 !important; color: #fff !important; }
 .eodActions { display: flex; }
 .eodBtnDone { flex: 1; width: 100%; }
+/* ── Crew board (v383) ── */
+.crewTabs { display: flex; gap: 8px; margin-bottom: 10px; }
+.crewTab { flex: 1; background: var(--surface-1); border: 1.5px solid var(--sdx-gray-200); border-radius: 12px; padding: 12px; font-weight: 800; font-size: 0.95rem; color: var(--ink-700); cursor: pointer; }
+.crewTab b { margin-left: 6px; background: var(--surface-2); border-radius: 999px; padding: 1px 9px; }
+.crewTab.on { background: var(--sdx-navy); border-color: var(--sdx-navy); color: #fff; } .crewTab.on b { background: rgba(255,255,255,0.2); }
+.crewStats { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+.crewStat { font-size: 0.78rem; font-weight: 800; background: var(--surface-1); border: 1.5px solid var(--sdx-gray-200); border-radius: 999px; padding: 4px 11px; color: var(--ink-700); }
+.crewStatBad { background: #fef2f2; border-color: #fca5a5; color: #b91c1c; } .crewStatOk { background: #f0fdf4; border-color: #86efac; color: #15803d; }
+.crewSearch { width: 100%; box-sizing: border-box; padding: 10px 12px; border-radius: 12px; border: 1.5px solid var(--sdx-gray-200); font-size: 16px; background: var(--surface-1); margin-bottom: 8px; }
+.crewChips { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-bottom: 6px; }
+.crewStand { background: var(--surface-1); border: 1.5px solid var(--sdx-gray-200); border-radius: 14px; padding: 8px 10px 10px; margin: 8px 0; }
+.crewStandHead { font-weight: 900; font-size: 0.95rem; margin: 2px 0 6px; }
+.crewItem { background: var(--surface-2); border: 1.5px solid var(--sdx-gray-200); border-left-width: 5px; border-radius: 12px; padding: 10px 12px; margin-top: 8px; }
+.crewItemOverdue { border-left-color: #dc2626; } .crewItemDone { border-left-color: #16a34a; opacity: .85; }
+.crewItemHead { display: flex; gap: 10px; align-items: flex-start; }
+.crewItemIcon { font-size: 1.4rem; }
+.crewItemTitle { font-weight: 900; font-size: 1rem; }
+.crewItemDetail { font-size: 0.92rem; color: var(--ink-900); margin-top: 2px; line-height: 1.35; }
+.crewItemNotes { color: var(--ink-500); }
+.crewItemMeta { font-size: 0.74rem; color: var(--ink-500); font-weight: 600; margin-top: 4px; }
+.crewComments { margin-top: 6px; font-size: 0.78rem; background: var(--surface-1); border-radius: 8px; padding: 6px 9px; display: flex; flex-direction: column; gap: 3px; }
+.crewActions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; align-items: center; }
+.crewBtn { background: var(--surface-1); border: 1.5px solid var(--sdx-gray-200); border-radius: 999px; padding: 9px 14px; font-weight: 800; font-size: 0.86rem; color: var(--ink-700); cursor: pointer; display: inline-flex; align-items: center; gap: 4px; }
+.crewBtnFix { background: #16a34a; border-color: #16a34a; color: #fff; }
+.crewBtnPhoto { border-color: #86efac; color: #15803d; }
+.crewActionBox { margin-top: 10px; background: var(--surface-1); border: 1.5px solid var(--sdx-gray-200); border-radius: 12px; padding: 10px 12px; }
+.crewActionTitle { font-weight: 800; margin-bottom: 6px; }
+.crewActionBtns { display: flex; gap: 8px; margin-top: 8px; } .crewActionBtns .btn { flex: 1; }
+.crewReport { background: var(--surface-1); border: 1.5px solid var(--sdx-gray-200); border-radius: 12px; padding: 10px 12px; margin-bottom: 8px; cursor: pointer; }
+.crewReportHead { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.crewReportSite { font-weight: 900; }
+.crewReportMeta { font-size: 0.74rem; color: var(--ink-500); flex: 1; }
+.crewReportCount { background: #fef3c7; color: #92400e; border-radius: 999px; padding: 1px 9px; font-size: 0.74rem; font-weight: 900; }
+.crewReportBody { margin-top: 8px; display: flex; flex-direction: column; gap: 8px; }
+.crewReportIssue { background: var(--surface-2); border-radius: 10px; padding: 8px 10px; font-size: 0.88rem; }
