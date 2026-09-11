@@ -9042,6 +9042,9 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
 }
 
 /* ── HACCP temp items + pass/fail helper (used by HaccpPortal AND HistoryPage) ── */
+// Spanish names/hints for the supervisor portal (keyed like HACCP_TEMP_ITEMS)
+const HACCP_ES = { hotHolding: ["Comida caliente", "Toda la comida caliente"], cookingPoultry: ["Aves", "Pollo, pavo, pato"], cookingGroundMeat: ["Carne molida", "Res, cerdo, ternera, cordero"], cookingWholeCuts: ["Cortes enteros", "Bistec, costillas, asados"], cookingSeafood: ["Mariscos y huevos", "Pescado, mariscos, huevos"], reheating: ["Recalentado", "Toda la comida recalentada"], coldHolding: ["Comida fría", "Toda la comida fría"], walkInCooler: ["Cámara fría (walk-in)", "Refrigerador walk-in"], walkInFreezer: ["Congelador walk-in", "Congelador walk-in"] };
+const HACCP_FOODS_ES = { "Chicken tenders": "Tiras de pollo", "Wings": "Alitas", "Grilled chicken": "Pollo a la parrilla", "Nuggets": "Nuggets", "Burger patty": "Hamburguesa", "Hot dog": "Hot dog", "Sausage": "Salchicha", "Taco meat": "Carne de taco", "Steak": "Bistec", "Pork ribs": "Costillas", "Brisket": "Brisket", "Carnitas": "Carnitas", "Salmon": "Salmón", "Shrimp": "Camarones", "Fish sandwich": "Sándwich de pescado", "Eggs": "Huevos", "Mac & cheese": "Mac & cheese", "Rice": "Arroz", "Beans": "Frijoles", "Nacho cheese": "Queso nacho", "Fries": "Papas", "Reheated rice": "Arroz recalentado", "Reheated chicken": "Pollo recalentado", "Reheated beans": "Frijoles recalentados" };
 const HACCP_TEMP_ITEMS = [
   { key: "hotHolding",        label: "Hot Holding",                  unit: "°F", min: 135, type: "hot",  hint: "All hot foods",
     how: "Probe food sitting in warmers/alto-shaam — must stay 135°F or hotter · Mide la comida en los warmers: 135°F o más",
@@ -9276,6 +9279,8 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
   const [chatByReport, setChatByReport] = useState({});  // { [reportId]: [...messages] }
   const [showHistoryMenu, setShowHistoryMenu] = useState(false);
   const [analyticsTab, setAnalyticsTab] = useState(initialAnalyticsTab || "recurring"); // "recurring" (Follow-ups) | "temp" | "insights" | "predictive" | "timeline"
+  // Navigating to this page while it's already open (⋯ menu, notifications) → follow the requested tab
+  useEffect(() => { if (initialTab) setHistoryTab(initialTab); if (initialAnalyticsTab) setAnalyticsTab(initialAnalyticsTab); }, [initialTab, initialAnalyticsTab]);
   const fuTabOverdue = useMemo(() => { try { return computeFollowups(history, venueSettings).followups.filter(f => f.overdue && !f.likelyResolved).length; } catch { return 0; } }, [history, venueSettings?.followupCleared, venueSettings?.followupStatus, venueSettings?.recheckDays]);
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState(new Set());
@@ -10868,6 +10873,18 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
             {showHistoryMenu && (
               <div className="dropdownMenu" style={{ right: 0, left: "auto", minWidth: 230, padding: "14px 10px 18px", gap: 4 }} onClick={() => setShowHistoryMenu(false)}>
                 <button className="dropdownMenuItem" onClick={onBack} type="button" style={{ padding: "15px 20px", fontSize: "0.97rem" }}>← Back to Inspector</button>
+                <div className="menuQuick" style={{ padding: "6px 4px 8px" }}>
+                  {[["➕", "New Inspection", { page: "inspector", newInspection: true }], ["📷", "Scan stand QR", { page: "inspector", scanStand: true }], ["🔁", "Follow-ups", { page: "history", entry: { tab: "analytics", sub: "recurring" } }], ["🌡", "Equipment temps", { page: "history", entry: { tab: "analytics", sub: "temp" } }]].map(([ic, lb, nav]) => (
+                    <button key={lb} type="button" className={cx("menuQuickTile", lb === "Follow-ups" && historyTab === "analytics" && analyticsTab === "recurring" && "on", lb === "Equipment temps" && historyTab === "analytics" && analyticsTab === "temp" && "on")}
+                      onClick={() => { setShowHistoryMenu(false); window.dispatchEvent(new CustomEvent("sdx-nav", { detail: nav })); }}>
+                      <span className="menuQuickIcon">{ic}</span><span>{lb}</span>
+                    </button>
+                  ))}
+                </div>
+                <div className="menuSection">Go to</div>
+                {[["📅 Schedule", "schedule"], ["🏷 Equipment Labels", "print_labels"], ["🍳 Kitchen QR Posters", "kitchen_qr"], ["📍 My Locations", "mylocations"], ["💬 Messages & Comms", "messaging"]].map(([lb, pg]) => (
+                  <button key={pg} className="dropdownMenuItem" type="button" onClick={() => { setShowHistoryMenu(false); window.dispatchEvent(new CustomEvent("sdx-nav", { detail: { page: pg } })); }}>{lb}</button>
+                ))}
                 {onMyTasks && (currentUser?.role === "inspector" || currentUser?.role === "location_manager") && (
                   <>
                     <div style={{ height: 1, background: "rgba(255,255,255,0.12)", margin: "8px 10px" }} />
@@ -23662,6 +23679,12 @@ function HaccpPortal() {
   const [problem, setProblem] = useState("");
   const [problemCat, setProblemCat] = useState("");
   const [severity, setSeverity] = useState("issue");
+  // Portal language — native strings, no page reload
+  const [pl, setPl] = useState(() => { try { return localStorage.getItem("sdx_portal_lang") || (/googtrans=[^;]*\/es/.test(document.cookie) ? "es" : "en"); } catch { return "en"; } });
+  const L = (en, es) => (pl === "es" ? es : en);
+  const itemName = it => (pl === "es" && HACCP_ES[it.key]) ? HACCP_ES[it.key][0] : (labelOverrides[it.key] ?? it.label);
+  const itemHint = it => (pl === "es" && HACCP_ES[it.key]) ? HACCP_ES[it.key][1] : (it.hint || "");
+  const foodName_ = f => (pl === "es" && HACCP_FOODS_ES[f]) ? HACCP_FOODS_ES[f] : f;
   const [problemPhotos, setProblemPhotos] = useState([]);
   // "Report a problem only" — skips the temperature log entirely
   const [problemOnly, setProblemOnly] = useState(false);
@@ -24050,25 +24073,13 @@ function HaccpPortal() {
         </div>
       )}
       <img src={resolveLogoDark()} alt={resolveCompanyName()} className="haccpLogo" />
-      {/* Language toggle — Google Translate cookie + reload translates the whole page */}
+      {/* Language toggle — native English / Spanish strings */}
       <div style={{ display: "flex", justifyContent: "center", gap: 0, margin: "2px 0 10px" }}>
         {[["en", "English"], ["es", "Español"]].map(([code, label], i) => {
-          const active = (typeof document !== "undefined" && /googtrans=[^;]*\/es/.test(document.cookie)) ? code === "es" : code === "en";
+          const active = pl === code;
           return (
             <button key={code} type="button"
-              onClick={() => {
-                try {
-                  const host = window.location.hostname;
-                  if (code === "es") {
-                    document.cookie = "googtrans=/en/es; path=/";
-                    document.cookie = `googtrans=/en/es; path=/; domain=.${host}`;
-                  } else {
-                    document.cookie = "googtrans=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
-                    document.cookie = `googtrans=; path=/; domain=.${host}; expires=Thu, 01 Jan 1970 00:00:00 GMT`;
-                  }
-                  window.location.reload();
-                } catch {}
-              }}
+              onClick={() => { setPl(code); try { localStorage.setItem("sdx_portal_lang", code); document.cookie = "googtrans=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"; } catch {} }}
               style={{
                 padding: "5px 16px", fontSize: "0.78rem", fontWeight: 800, cursor: "pointer",
                 border: "1.5px solid rgba(255,255,255,0.45)",
@@ -24086,29 +24097,29 @@ function HaccpPortal() {
       {step === "ident" && (
         <div className="haccpCard">
           <div className="haccpCardHeader">
-            <div className="haccpCardTitle">🌡️ HACCP Temperature Log</div>
-            <div className="haccpCardSub">Please identify yourself before submitting temperatures</div>
+            <div className="haccpCardTitle">{L("🌡️ HACCP Temperature Log", "🌡️ Registro de temperaturas HACCP")}</div>
+            <div className="haccpCardSub">{L("Please identify yourself before submitting temperatures", "Identifícate antes de registrar temperaturas")}</div>
           </div>
           <div className="haccpCardBody">
             {LocationBanner}
             {TodayStatus}
             <a href={qrStandUrl("inspector")} className="haccpInspectorLink">
-              🕵 Inspector? Open the inspection form for this stand →
+              {L("🕵 Inspector? Open the inspection form for this stand →", "🕵 ¿Inspector? Abre el formulario de inspección de este puesto →")}
             </a>
             <label className="field" style={{ margin: 0 }}>
-              <span className="fieldLabel">Your Name <span style={{ color: "#ef4444" }}>*</span></span>
+              <span className="fieldLabel">{L("Your Name", "Tu nombre")} <span style={{ color: "#ef4444" }}>*</span></span>
               <input className="input" value={supName} onChange={e => setSupName(e.target.value)}
-                placeholder="Full name" autoComplete="name" autoCapitalize="words" autoCorrect="off" spellCheck={false} />
+                placeholder={L("Full name", "Nombre completo")} autoComplete="name" autoCapitalize="words" autoCorrect="off" spellCheck={false} />
             </label>
             <label className="field" style={{ margin: 0, marginTop: 10 }}>
-              <span className="fieldLabel">Phone Number <span style={{ color: "#ef4444" }}>*</span></span>
+              <span className="fieldLabel">{L("Phone Number", "Teléfono")} <span style={{ color: "#ef4444" }}>*</span></span>
               <input className="input" type="tel" value={supPhone} onChange={e => setSupPhone(e.target.value)}
                 placeholder="e.g. 787-555-1234" inputMode="tel" autoComplete="tel" />
-              <span className="hint">So the inspector can reach you if needed</span>
+              <span className="hint">{L("So the inspector can reach you if needed", "Para que el inspector pueda contactarte")}</span>
             </label>
             <button className="haccpSubmitBtn" onClick={handleIdentSubmit}
               disabled={!supName.trim() || !supPhone.trim()}>
-              Continue →
+              {L("Continue →", "Continuar →")}
             </button>
           </div>
         </div>
@@ -24117,14 +24128,14 @@ function HaccpPortal() {
       {step === "location" && (
         <div className="haccpCard">
           <div className="haccpCardHeader">
-            <div className="haccpCardTitle">📍 Confirm Location</div>
-            <div className="haccpCardSub">Verify this log is for the correct restaurant</div>
+            <div className="haccpCardTitle">{L("📍 Confirm Location", "📍 Confirma la ubicación")}</div>
+            <div className="haccpCardSub">{L("Verify this log is for the correct restaurant", "Verifica que este registro es del puesto correcto")}</div>
           </div>
           <div className="haccpCardBody">
             {urlSite && locSite ? (
               /* QR had location embedded — show confirmation card */
               <div className="haccpLocConfirm">
-                <div className="haccpLocConfirmLabel">Location from QR code:</div>
+                <div className="haccpLocConfirmLabel">{L("Location from QR code:", "Ubicación del código QR:")}</div>
                 <div className="haccpLocConfirmBox">
                   <div className="haccpLocConfirmName">{locSite}</div>
                   {locUnit  && <div className="haccpLocConfirmMeta">Unit #{locUnit}</div>}
@@ -24132,41 +24143,41 @@ function HaccpPortal() {
                   {locType  && <div className="haccpLocConfirmMeta">{locType}</div>}
                 </div>
                 <button className="haccpSubmitBtn" onClick={handleLocationSubmit}>
-                  ✓ This is my location
+                  {L("✓ This is my location", "✓ Esta es mi ubicación")}
                 </button>
                 <button className="haccpProblemOnlyBtn" type="button" onClick={() => handleLocationSubmit(true)}>
-                  ⚠️ Report a problem only · Solo reportar un problema
+                  {L("⚠️ Report a problem only", "⚠️ Solo reportar un problema")}
                 </button>
                 <button className="haccpTextBtn" onClick={() => {
                   setLocSite(""); setLocUnit(""); setLocFloor(""); setLocType("");
                 }}>
-                  Edit location manually
+                  {L("Edit location manually", "Editar la ubicación")}
                 </button>
               </div>
             ) : (
               /* No QR location — manual entry form */
               <div className="haccpLocEntry">
                 <label className="field" style={{ margin: 0 }}>
-                  <span className="fieldLabel">Restaurant Name <span style={{ color: "#ef4444" }}>*</span></span>
+                  <span className="fieldLabel">{L("Restaurant Name", "Nombre del puesto")} <span style={{ color: "#ef4444" }}>*</span></span>
                   <input className="input" value={locSite} onChange={e => setLocSite(e.target.value)}
                     placeholder="e.g. Main Kitchen – Yankee Stadium" autoFocus />
                 </label>
                 <label className="field" style={{ margin: 0, marginTop: 10 }}>
-                  <span className="fieldLabel">Unit / Store Number <span className="hint" style={{ fontWeight: 400 }}>(optional)</span></span>
+                  <span className="fieldLabel">{L("Unit / Store Number", "Número de unidad")} <span className="hint" style={{ fontWeight: 400 }}>{L("(optional)", "(opcional)")}</span></span>
                   <input className="input" value={locUnit} onChange={e => { setLocUnit(e.target.value); const fl = floorFromUnit(e.target.value); if (fl) setLocFloor(fl); }}
                     placeholder="e.g. Unit 4" />
                 </label>
                 <label className="field" style={{ margin: 0, marginTop: 10 }}>
-                  <span className="fieldLabel">Floor / Area <span className="hint" style={{ fontWeight: 400 }}>(optional)</span></span>
+                  <span className="fieldLabel">{L("Floor / Area", "Piso / Área")} <span className="hint" style={{ fontWeight: 400 }}>{L("(optional)", "(opcional)")}</span></span>
                   <input className="input" value={locFloor} onChange={e => setLocFloor(e.target.value)}
                     placeholder="e.g. Floor 2, Concourse A" />
                 </label>
                 <button className="haccpSubmitBtn" onClick={handleLocationSubmit}
                   disabled={!locSite.trim()}>
-                  Continue →
+                  {L("Continue →", "Continuar →")}
                 </button>
                 <button className="haccpProblemOnlyBtn" type="button" disabled={!locSite.trim()} onClick={() => handleLocationSubmit(true)}>
-                  ⚠️ Report a problem only · Solo reportar un problema
+                  {L("⚠️ Report a problem only", "⚠️ Solo reportar un problema")}
                 </button>
               </div>
             )}
@@ -24177,7 +24188,7 @@ function HaccpPortal() {
       {step === "form" && (
         <div className="haccpCard">
           <div className="haccpCardHeader">
-            <div className="haccpCardTitle">{problemOnly ? "⚠️ Report a Problem" : "🌡️ HACCP Temperature Log"}</div>
+            <div className="haccpCardTitle">{problemOnly ? L("⚠️ Report a Problem", "⚠️ Reportar un problema") : L("🌡️ HACCP Temperature Log", "🌡️ Registro de temperaturas HACCP")}</div>
             <div className="haccpCardSub">Hi {supName} · {supPhone}</div>
           </div>
           <div className="haccpCardBody">
@@ -24185,7 +24196,7 @@ function HaccpPortal() {
 
             {/* Temperature section — multiple readings per item (hidden in problem-only mode) */}
             <div className="haccpSection" hidden={problemOnly}>
-              <div className="haccpSectionHead">Temperature Readings</div>
+              <div className="haccpSectionHead">{L("Temperature Readings", "Temperaturas")}</div>
               <div className="haccpSectionBody">
                 {(() => {
                   const cookingMeta = {
@@ -24206,13 +24217,13 @@ function HaccpPortal() {
                   const compactRow = (item, emoji, color, badge) => { const sm = summaryOf(item); return (
                     <button type="button" key={item.key} className={"htRow" + (sm.n ? (sm.fails ? " htRowFail" : " htRowDone") : "")} onClick={() => toggleOpen(item.key)}>
                       <span className="htRowEmoji">{emoji}</span>
-                      <span className="htRowMain"><span className="htRowName" style={{ color }}>{labelOverrides[item.key] ?? item.label}</span><span className="htRowHint">{item.hint || ""}</span></span>
+                      <span className="htRowMain"><span className="htRowName" style={{ color }}>{itemName(item)}</span><span className="htRowHint">{itemHint(item)}</span></span>
                       <span className="htRowBadge" style={badge ? { background: badge } : {}}>{item.max ? `≤${item.max}°F` : `≥${item.min}°F`}</span>
-                      <span className="htRowState">{sm.n ? (sm.fails ? `⚠ ${sm.fails} flagged` : `✓ ${sm.last}°F`) : "Log it ›"}</span>
+                      <span className="htRowState">{sm.n ? (sm.fails ? `⚠ ${sm.fails} ${L("flagged", "con alerta")}` : `✓ ${sm.last}°F`) : L("Log it ›", "Registrar ›")}</span>
                     </button>); };
                   function renderReadingBlock(item) {
                     const isCustom = !HACCP_TEMP_ITEMS.find(d => d.key === item.key);
-                    const displayLabel = labelOverrides[item.key] ?? item.label;
+                    const displayLabel = itemName(item);
                     const readings = temps[item.key] || [""];
                     if (!isOpen(item.key)) return compactRow(item, item.type === "cold" ? "🧊" : "🔥", item.type === "cold" ? "#60a5fa" : "#f87171", null);
                     return (
@@ -24285,9 +24296,9 @@ function HaccpPortal() {
                               setTempCorrections(p => ({ ...p, [item.key]: [...(p[item.key] || [""]), ""] }));
                               setTempTimes(p => ({ ...p, [item.key]: [...(p[item.key] || [""]), ""] }));
                             }}>
-                            + Reading
+                            {L("+ Reading", "+ Lectura")}
                           </button>
-                          <button type="button" className="haccpAddReadingBtn htCollapse" onClick={() => toggleOpen(item.key)}>Done ▴</button>
+                          <button type="button" className="haccpAddReadingBtn htCollapse" onClick={() => toggleOpen(item.key)}>{L("Done ▴", "Listo ▴")}</button>
                         </div>
                       </div>
                       {readings.map((val, idx) => {
@@ -24315,14 +24326,14 @@ function HaccpPortal() {
                                   arr[idx] = e.target.value;
                                   return { ...p, [item.key]: arr };
                                 })}
-                                placeholder={item.example || "Food item (e.g. Chicken)"} />
+                                placeholder={pl === "es" ? "Comida (ej. Pollo)" : (item.example || "Food item (e.g. Chicken)")} />
                               {!isSubmitted && item.foods && (
                                 <div className="htFoodChips">
                                   {item.foods.map(f => (
                                     <button key={f} type="button"
                                       className={`htChip${foodName === f ? " htChipActive" : ""}`}
                                       onClick={() => setFoodNames(p => { const arr = [...(p[item.key] || [""])]; arr[idx] = f; return { ...p, [item.key]: arr }; })}>
-                                      {f}
+                                      {foodName_(f)}
                                     </button>
                                   ))}
                                 </div>
@@ -24376,7 +24387,7 @@ function HaccpPortal() {
                                     arr[idx] = true;
                                     return { ...p, [item.key]: arr };
                                   }); closeIfPass(item, val); }}>
-                                  ✓ Log it
+                                  {L("✓ Log it", "✓ Registrar")}
                                 </button>
                               )}
                               </div>
@@ -24394,11 +24405,11 @@ function HaccpPortal() {
                             {isSubmitted && pass === false && (
                               <div style={{ background: "var(--tint-red-1)", border: `1px solid ${needsCorrection ? "#dc2626" : "#fca5a5"}`, borderRadius: 8, padding: "8px 10px", marginTop: 4 }}>
                                 <label style={{ display: "block", fontSize: "0.72rem", fontWeight: 700, color: "#dc2626", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                                  🔧 CORRECTIVE ACTION TAKEN *
+                                  {L("🔧 CORRECTIVE ACTION TAKEN *", "🔧 ACCIÓN CORRECTIVA *")}
                                 </label>
                                 <textarea
                                   rows={2}
-                                  placeholder="What was done to correct this? (e.g. Discarded food, adjusted equipment…)"
+                                  placeholder={L("What was done to correct this? (e.g. Discarded food, adjusted equipment…)", "¿Qué se hizo para corregirlo? (ej. se desechó la comida, se ajustó el equipo…)")}
                                   value={correction}
                                   onChange={e => setTempCorrections(p => {
                                     const arr = [...(p[item.key] || [""])];
@@ -24409,7 +24420,7 @@ function HaccpPortal() {
                                 />
                                 {needsCorrection && (
                                   <div style={{ fontSize: "0.72rem", color: "#dc2626", marginTop: 3, fontWeight: 600 }}>
-                                    Required — enter corrective action for out-of-range temperatures
+                                    {L("Required — enter corrective action for out-of-range temperatures", "Obligatorio — escribe la acción correctiva para temperaturas fuera de rango")}
                                   </div>
                                 )}
                               </div>
@@ -24430,8 +24441,8 @@ function HaccpPortal() {
                     <>
                       {(() => { const all = [...beforeCooking, ...cookingItems, ...afterCooking]; const done = all.filter(i => summaryOf(i).n > 0).length; return (
                         <div className="htHowTo">
-                          <div className="htHowToSteps"><span>1️⃣ Tap the food<br/><i>Toca la comida</i></span><span>2️⃣ Type the temp<br/><i>Escribe la temperatura</i></span><span>3️⃣ ✓ Log it<br/><i>Regístralo</i></span></div>
-                          <div className="htHowToProg"><span className="htHowToBar"><span style={{ width: `${all.length ? Math.round(done / all.length * 100) : 0}%` }} /></span><span>{done}/{all.length} logged · Green ✓ = good · Red ⚠ = tell us what you did</span></div>
+                          <div className="htHowToSteps"><span>1️⃣ {L("Tap the food", "Toca la comida")}<br/><i>{L("Toca la comida", "Tap the food")}</i></span><span>2️⃣ {L("Type the temp", "Escribe la temperatura")}<br/><i>{L("Escribe la temperatura", "Type the temp")}</i></span><span>3️⃣ ✓ {L("Log it", "Regístralo")}<br/><i>{L("Regístralo", "Log it")}</i></span></div>
+                          <div className="htHowToProg"><span className="htHowToBar"><span style={{ width: `${all.length ? Math.round(done / all.length * 100) : 0}%` }} /></span><span>{done}/{all.length} {L("logged · Green ✓ = good · Red ⚠ = tell us what you did", "registradas · Verde ✓ = bien · Rojo ⚠ = dinos qué hiciste")}</span></div>
                         </div>
                       ); })()}
                       {beforeCooking.map(item => renderReadingBlock(item))}
@@ -24440,8 +24451,8 @@ function HaccpPortal() {
                       <div style={{ border: "1.5px solid rgba(239,68,68,0.4)", borderRadius: 10, overflow: "hidden", marginBottom: 2 }}>
                         <div style={{ background: "linear-gradient(90deg,#7f1d1d,#b91c1c)", padding: "7px 12px", display: "flex", alignItems: "center", gap: 6 }}>
                           <span style={{ fontSize: "1rem" }}>🔥</span>
-                          <span style={{ fontWeight: 800, fontSize: "0.88rem", color: "#fff", letterSpacing: "0.02em" }}>Cooking Temperatures</span>
-                          <span style={{ fontSize: "0.7rem", color: "#fca5a5", marginLeft: 2 }}>— required internal temp before serving</span>
+                          <span style={{ fontWeight: 800, fontSize: "0.88rem", color: "#fff", letterSpacing: "0.02em" }}>{L("Cooking Temperatures", "Temperaturas de cocción")}</span>
+                          <span style={{ fontSize: "0.7rem", color: "#fca5a5", marginLeft: 2 }}>{L("— required internal temp before serving", "— temperatura interna mínima antes de servir")}</span>
                         </div>
                         {cookingItems.map((item, ci) => {
                           const m = cookingMeta[item.key] || { emoji: "🔥", color: "#f87171", bg: "rgba(248,113,113,0.10)", border: "rgba(248,113,113,0.35)", badgeBg: "var(--tx-red-strong)" };
@@ -24452,8 +24463,8 @@ function HaccpPortal() {
                               <div style={{ display: "flex", alignItems: "center", marginBottom: 6, gap: 6 }}>
                                 <span style={{ fontSize: "1.1rem", flexShrink: 0 }}>{m.emoji}</span>
                                 <div style={{ flex: 1, minWidth: 0 }}>
-                                  <div style={{ fontWeight: 700, fontSize: "0.82rem", color: m.color }}>{item.label}</div>
-                                  <div style={{ fontSize: "0.68rem", color: "var(--ink-400)", marginTop: 1 }}>{item.hint}</div>
+                                  <div style={{ fontWeight: 700, fontSize: "0.82rem", color: m.color }}>{itemName(item)}</div>
+                                  <div style={{ fontSize: "0.68rem", color: "var(--ink-400)", marginTop: 1 }}>{itemHint(item)}</div>
                                 </div>
                                 <span style={{ background: m.badgeBg, color: "#fff", borderRadius: 6, padding: "2px 8px", fontSize: "0.78rem", fontWeight: 800, flexShrink: 0, minWidth: 68, textAlign: "center" }}>
                                   ≥{item.min}°F
@@ -24465,8 +24476,8 @@ function HaccpPortal() {
                                     setTempSubmitted(p => ({ ...p, [item.key]: [...(p[item.key] || [false]), false] }));
                                     setTempCorrections(p => ({ ...p, [item.key]: [...(p[item.key] || [""]), ""] }));
                                     setTempTimes(p => ({ ...p, [item.key]: [...(p[item.key] || [""]), ""] }));
-                                  }}>+ Reading</button>
-                                <button type="button" className="haccpAddReadingBtn htCollapse" style={{ fontSize: "0.7rem", padding: "2px 8px", flexShrink: 0 }} onClick={() => toggleOpen(item.key)}>Done ▴</button>
+                                  }}>{L("+ Reading", "+ Lectura")}</button>
+                                <button type="button" className="haccpAddReadingBtn htCollapse" style={{ fontSize: "0.7rem", padding: "2px 8px", flexShrink: 0 }} onClick={() => toggleOpen(item.key)}>{L("Done ▴", "Listo ▴")}</button>
                               </div>
                               {readings.map((val, idx) => {
                                 const isSubmitted = (tempSubmitted[item.key] || [])[idx] === true;
@@ -24487,14 +24498,14 @@ function HaccpPortal() {
                                     <div className={`htReading${isSubmitted ? " htReadingDone" : ""}`}>
                                       <input className="htFood" type="text" value={foodName} disabled={isSubmitted}
                                         onChange={e => setFoodNames(p => { const arr=[...(p[item.key]||[""])]; arr[idx]=e.target.value; return {...p,[item.key]:arr}; })}
-                                        placeholder={item.example || "Food item (e.g. Chicken)"} />
+                                        placeholder={pl === "es" ? "Comida (ej. Pollo)" : (item.example || "Food item (e.g. Chicken)")} />
                                       {!isSubmitted && item.foods && (
                                         <div className="htFoodChips">
                                           {item.foods.map(f => (
                                             <button key={f} type="button"
                                               className={`htChip${foodName === f ? " htChipActive" : ""}`}
                                               onClick={() => setFoodNames(p => { const arr = [...(p[item.key] || [""])]; arr[idx] = f; return { ...p, [item.key]: arr }; })}>
-                                              {f}
+                                              {foodName_(f)}
                                             </button>
                                           ))}
                                         </div>
@@ -24522,7 +24533,7 @@ function HaccpPortal() {
                                         <button type="button" className={`htSubmit${canSubmit ? " htSubmitReady" : ""}`}
                                           disabled={!canSubmit}
                                           onClick={() => { setTempSubmitted(p => { const arr=[...(p[item.key]||[false])]; arr[idx]=true; return {...p,[item.key]:arr}; }); closeIfPass(item, val); }}>
-                                          ✓ Log it
+                                          {L("✓ Log it", "✓ Registrar")}
                                         </button>
                                       )}
                                       </div>
@@ -24538,11 +24549,11 @@ function HaccpPortal() {
                                     </div>
                                     {isSubmitted && pass === false && (
                                       <div style={{ background: "rgba(127,29,29,0.25)", border: `1px solid ${needsCorrection ? "#dc2626" : "#fca5a5"}`, borderRadius: 8, padding: "8px 10px", marginTop: 4 }}>
-                                        <label style={{ display: "block", fontSize: "0.72rem", fontWeight: 700, color: "#fca5a5", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>🔧 CORRECTIVE ACTION TAKEN *</label>
-                                        <textarea rows={2} placeholder="What was done? (e.g. Discarded food, reheated to 165°F…)" value={correction}
+                                        <label style={{ display: "block", fontSize: "0.72rem", fontWeight: 700, color: "#fca5a5", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>{L("🔧 CORRECTIVE ACTION TAKEN *", "🔧 ACCIÓN CORRECTIVA *")}</label>
+                                        <textarea rows={2} placeholder={L("What was done? (e.g. Discarded food, reheated to 165°F…)", "¿Qué se hizo? (ej. se desechó, se recalentó a 165°F…)")} value={correction}
                                           onChange={e => setTempCorrections(p => { const arr=[...(p[item.key]||[""])]; arr[idx]=e.target.value; return {...p,[item.key]:arr}; })}
                                           style={{ width: "100%", fontSize: "0.82rem", resize: "vertical", border: `1px solid ${needsCorrection ? "#dc2626" : "#fca5a5"}`, borderRadius: 6, padding: "6px 8px", outline: "none", background: "#1e293b", color: "#e2e8f0" }} />
-                                        {needsCorrection && <div style={{ fontSize: "0.72rem", color: "#f87171", marginTop: 3, fontWeight: 600 }}>Required — enter corrective action</div>}
+                                        {needsCorrection && <div style={{ fontSize: "0.72rem", color: "#f87171", marginTop: 3, fontWeight: 600 }}>{L("Required — enter corrective action", "Obligatorio — escribe la acción correctiva")}</div>}
                                       </div>
                                     )}
                                   </div>
@@ -24569,16 +24580,16 @@ function HaccpPortal() {
                     setEditingLabel(key);
                     setEditingLabelVal("New Item");
                   }}>
-                  + Add Temperature Item
+                  {L("+ Add Temperature Item", "+ Agregar otra temperatura")}
                 </button>
               </div>
             </div>
 
             {/* Problem report section with photo upload */}
             <div className="haccpSection">
-              <div className="haccpSectionHead">{problemOnly ? "Report a Problem · Reportar un problema" : "Report a Problem (optional)"}</div>
+              <div className="haccpSectionHead">{problemOnly ? L("Report a Problem", "Reportar un problema") : L("Report a Problem (optional)", "Reportar un problema (opcional)")}</div>
               <div className="haccpSectionBody">
-                <div className="haccpCatLabel">What kind of problem? · ¿Qué tipo de problema?</div>
+                <div className="haccpCatLabel">{L("What kind of problem?", "¿Qué tipo de problema?")}</div>
                 <div className="htFoodChips supCatChips">
                   {SUP_PROBLEM_CATS.map(c => (
                     <button key={c.cat} type="button"
@@ -24590,17 +24601,17 @@ function HaccpPortal() {
                 </div>
                 <textarea className="haccpProblemTextarea"
                   value={problem} onChange={e => { setProblem(e.target.value); if (problemError) setProblemError(""); }}
-                  placeholder={problemOnly ? "What is wrong and where? · ¿Qué está mal y dónde?" : "Describe any issue, equipment problem, or safety concern..."} />
+                  placeholder={problemOnly ? L("What is wrong and where?", "¿Qué está mal y dónde?") : L("Describe any issue, equipment problem, or safety concern...", "Describe cualquier problema, falla de equipo o riesgo...")} />
                 {problemError && <div className="haccpProblemErr">⚠️ {problemError}</div>}
                 <div className="haccpProblemSeverity">
-                  <span style={{ fontSize: "0.75rem", color: "var(--ink-500)", alignSelf: "center" }}>Severity:</span>
+                  <span style={{ fontSize: "0.75rem", color: "var(--ink-500)", alignSelf: "center" }}>{L("Severity:", "Gravedad:")}</span>
                   {[["urgent","🔴 Urgent"],["issue","🟡 Issue"],["info","🔵 Info"]].map(([val, label]) => (
                     <button key={val} className={`haccpSeverityBtn ${severity === val ? `sel-${val}` : ""}`}
                       type="button" onClick={() => setSeverity(val)}>{label}</button>
                   ))}
                 </div>
                 <label className="btn btnGhost btnSmall photoBtn" style={{ marginTop: 8, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}>
-                  📷 Add photos to report
+                  {L("📷 Add photos to report", "📷 Agregar fotos")}
                   <input ref={problemPhotoRef} type="file" accept="image/*" multiple className="fileInput"
                     onChange={e => { addProblemPhotos(e.target.files); e.target.value = ""; }} />
                 </label>
@@ -24643,7 +24654,7 @@ function HaccpPortal() {
             />
 
             <button className="haccpSubmitBtn" onClick={handleSubmit} disabled={submitting}>
-              {submitting ? "Submitting…" : problemOnly ? "Send Problem Report · Enviar reporte" : "Submit Temperature Log"}
+              {submitting ? L("Submitting…", "Enviando…") : problemOnly ? L("Send Problem Report", "Enviar reporte") : L("Submit Temperature Log", "Enviar registro de temperaturas")}
             </button>
             {problemOnly && (
               <button className="haccpTextBtn" type="button" onClick={() => setProblemOnly(false)}>
@@ -24657,8 +24668,8 @@ function HaccpPortal() {
       {step === "done" && (
         <div className="haccpCard">
           <div className="haccpCardHeader">
-            <div className="haccpCardTitle">✅ Submitted!</div>
-            <div className="haccpCardSub">Thank you, {supName}</div>
+            <div className="haccpCardTitle">{L("✅ Submitted!", "✅ ¡Enviado!")}</div>
+            <div className="haccpCardSub">{L("Thank you", "Gracias")}, {supName}</div>
           </div>
           <div className="haccpCardBody">
             {LocationBanner}
@@ -24671,7 +24682,7 @@ function HaccpPortal() {
             </div>
             {urlSite && (todayChecks || []).length > 0 && (
               <div style={{ marginTop: 10 }}>
-                <div style={{ fontWeight: 800, fontSize: "0.78rem", color: "var(--ink-600)", marginBottom: 6 }}>Today's checks at this stand</div>
+                <div style={{ fontWeight: 800, fontSize: "0.78rem", color: "var(--ink-600)", marginBottom: 6 }}>{L("Today's checks at this stand", "Registros de hoy en este puesto")}</div>
                 {todayChecks.map((r, i) => {
                   const fl = flaggedCount(r);
                   return (
@@ -24712,7 +24723,7 @@ function HaccpPortal() {
               setEditingLabelVal("");
               setLabelOverrides({});
             }}>
-              Submit Another Log
+              {L("Submit Another Log", "Enviar otro registro")}
             </button>
           </div>
         </div>
@@ -26555,6 +26566,21 @@ export default function App() {
     return () => window.removeEventListener("sdx-goto-guide-panel", onGoto);
   }, [inspectionType]);
 
+  // Any page → navigate (used by the History page's ⋯ menu)
+  useEffect(() => {
+    const onNav = (e) => {
+      const d = e.detail || {};
+      if (d.entry !== undefined) setHistoryEntry(d.entry);
+      if (d.page === "history" && d.entry === undefined) setHistoryEntry(null);
+      if (d.page) setPage(d.page);
+      if (d.scanStand) setTimeout(() => setScanStandOpen(true), 50);
+      if (d.newInspection) { try { startNewInspection(); } catch {} }
+      window.scrollTo({ top: 0 });
+    };
+    window.addEventListener("sdx-nav", onNav);
+    return () => window.removeEventListener("sdx-nav", onNav);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   // Inspection form → "this stand's equipment QR labels" (view / add / print)
   useEffect(() => {
     const onOpen = (e) => {
@@ -27718,73 +27744,49 @@ export default function App() {
                 )}
               </div>
             )}
-            <div className="menuSection">Inspect</div>
-            <button className="dropdownMenuItem" onClick={startNewInspection} type="button">➕ New Inspection</button>
-            <button className="dropdownMenuItem" onClick={() => { setModals(m => ({ ...m, menuOpen: false })); setPage("inspector"); setScanStandOpen(true); }} type="button">📷 Scan stand QR</button>
-            <button className="dropdownMenuItem" onClick={() => { setHistoryEntry(null); setPage("history"); }} type="button">📄 Past Reports</button>
-            <button className="dropdownMenuItem" onClick={() => { setMenuOpen(false); openFollowups(); }} type="button">
-              🔁 Follow-ups
-              {fuOverdueCount > 0 && <span className="menuBadge" style={{ background: "#ef4444", color: "#fff" }}>{fuOverdueCount} overdue</span>}
+            {/* Daily actions — the four things done all day */}
+            <div className="menuQuick">
+              <button type="button" className={cx("menuQuickTile", page === "inspector" && "on")} onClick={startNewInspection}><span className="menuQuickIcon">➕</span><span>New Inspection</span></button>
+              <button type="button" className="menuQuickTile" onClick={() => { setModals(m => ({ ...m, menuOpen: false })); setPage("inspector"); setScanStandOpen(true); }}><span className="menuQuickIcon">📷</span><span>Scan stand QR</span></button>
+              <button type="button" className={cx("menuQuickTile", page === "history" && historyEntry?.sub === "recurring" && "on")} onClick={() => { setMenuOpen(false); openFollowups(); }}><span className="menuQuickIcon">🔁</span><span>Follow-ups</span>{fuOverdueCount > 0 && <b className="menuQuickBadge">{fuOverdueCount}</b>}</button>
+              <button type="button" className={cx("menuQuickTile", page === "history" && historyEntry?.sub !== "recurring" && "on")} onClick={() => { setHistoryEntry(null); setPage("history"); }}><span className="menuQuickIcon">📄</span><span>Past Reports</span></button>
+            </div>
+            <div className="menuSection">Work</div>
+            <button className={cx("dropdownMenuItem", page === "schedule" && "dropdownMenuItemActive")} onClick={() => { setPage("schedule"); setMenuOpen(false); }} type="button">📅 Schedule</button>
+            <button className="dropdownMenuItem" onClick={() => { setHistoryEntry({ tab: "analytics", sub: "temp" }); setPage("history"); setMenuOpen(false); }} type="button">🌡 Equipment temps</button>
+            <button className={cx("dropdownMenuItem", page === "mylocations" && "dropdownMenuItemActive")} onClick={() => { setPage("mylocations"); setMenuOpen(false); }} type="button">📍 My Locations</button>
+            <button className={cx("dropdownMenuItem", page === "messaging" && "dropdownMenuItemActive")} onClick={() => { setPage("messaging"); setMenuOpen(false); }} type="button">
+              💬 Messages &amp; Comms
+              {notifItems.filter(n => n.type === "chat").length > 0 && <span className="menuBadge menuBadgeSoft">{notifItems.filter(n => n.type === "chat").length} new</span>}
             </button>
-            <button className="dropdownMenuItem" onClick={() => { setPage("schedule"); setMenuOpen(false); }} type="button">📅 Schedule</button>
-            {currentUser && <div className="menuSection">Manage</div>}
+            <div className="menuSection">Equipment &amp; QR</div>
+            <button className={cx("dropdownMenuItem", page === "print_labels" && "dropdownMenuItemActive")} onClick={() => { setPage("print_labels"); setMenuOpen(false); }} type="button">🏷 Equipment Labels &amp; Setup walk</button>
+            <button className={cx("dropdownMenuItem", page === "equipment_scanner" && "dropdownMenuItemActive")} onClick={() => { setPage("equipment_scanner"); setMenuOpen(false); }} type="button">📡 Equipment Scanner</button>
+            <button className={cx("dropdownMenuItem", page === "kitchen_qr" && "dropdownMenuItemActive")} onClick={() => { setPage("kitchen_qr"); setMenuOpen(false); }} type="button">🍳 Kitchen QR Posters</button>
+            {(currentUser?.role === "global_admin" || currentUser?.role === "admin" || currentUser?.role === "location_manager" || currentUser?.role === "inspector") && <div className="menuSection">Manage</div>}
             {currentUser?.role === "global_admin" && (
-              <button className="dropdownMenuItem" onClick={() => setPage("global_admin")} type="button">
-                🌐 Global Admin
-              </button>
+              <button className={cx("dropdownMenuItem", page === "global_admin" && "dropdownMenuItemActive")} onClick={() => setPage("global_admin")} type="button">🌐 Global Admin</button>
             )}
             {(currentUser?.role === "admin" || currentUser?.role === "global_admin") && (
-              <button className="dropdownMenuItem" onClick={() => setPage("admin")} type="button">
+              <button className={cx("dropdownMenuItem", page === "admin" && "dropdownMenuItemActive")} onClick={() => setPage("admin")} type="button">
                 ⚙️ Admin Panel
                 {pendingCount > 0 && <span className="menuBadge">{pendingCount} pending</span>}
               </button>
             )}
             {(currentUser?.role === "admin" || currentUser?.role === "global_admin") && (
-              <button className="dropdownMenuItem" onClick={() => { setPage("performance"); setMenuOpen(false); }} type="button">
-                📊 Performance Dashboard
-              </button>
+              <button className={cx("dropdownMenuItem", page === "performance" && "dropdownMenuItemActive")} onClick={() => { setPage("performance"); setMenuOpen(false); }} type="button">📊 Performance Dashboard</button>
             )}
             {(currentUser?.role === "location_manager" || currentUser?.role === "inspector") && (
-              <button className="dropdownMenuItem" onClick={() => setPage("myteam")} type="button">
-                👥 My Team
-              </button>
+              <button className={cx("dropdownMenuItem", page === "myteam" && "dropdownMenuItemActive")} onClick={() => setPage("myteam")} type="button">👥 My Team</button>
             )}
             {currentUser?.role === "location_manager" && (
-              <button className="dropdownMenuItem" onClick={() => setPage("mytemps")} type="button">
-                🌡️ Temperature Logs
-              </button>
+              <button className={cx("dropdownMenuItem", page === "mytemps" && "dropdownMenuItemActive")} onClick={() => setPage("mytemps")} type="button">🌡️ Temperature Logs</button>
             )}
-            {currentUser && (
-              <button className="dropdownMenuItem" onClick={() => { setPage("messaging"); setMenuOpen(false); }} type="button">
-                💬 Messages & Comms
-              </button>
-            )}
-            {currentUser && (
-              <button className="dropdownMenuItem" onClick={() => { setPage("mylocations"); setMenuOpen(false); }} type="button">
-                📍 My Locations
-              </button>
-            )}
-            {currentUser && <div className="menuSection">Tools</div>}
+            <div className="menuSection">Settings</div>
             {canShare && (
-              <button className="dropdownMenuItem" onClick={() => { setMenuOpen(false); setShowShareModal(true); }} type="button">
-                📤 Share Form Link
-              </button>
+              <button className="dropdownMenuItem" onClick={() => { setShowShareModal(true); setMenuOpen(false); }} type="button">📤 Share Form Link</button>
             )}
-            {currentUser && (
-              <button className="dropdownMenuItem" onClick={() => { setPage("print_labels"); setMenuOpen(false); }} type="button">
-                🏷 Print Equipment Labels
-              </button>
-            )}
-            {currentUser && (
-              <button className="dropdownMenuItem" onClick={() => { setPage("kitchen_qr"); setMenuOpen(false); }} type="button">
-                🍳 Kitchen QR Posters
-              </button>
-            )}
-            {currentUser && (
-              <button className="dropdownMenuItem" onClick={() => { setAppearanceOpen(true); setMenuOpen(false); }} type="button">
-                🎨 App Color
-              </button>
-            )}
+            <button className="dropdownMenuItem" onClick={() => { setAppearanceOpen(true); setMenuOpen(false); }} type="button">🎨 App Color</button>
             {lockConfirm ? (
               <div style={{ padding: "0.5rem 1rem 0.7rem", display: "flex", flexDirection: "column", gap: 6, borderTop: "1px solid rgba(239,68,68,.35)", background: "rgba(220,38,38,.14)", borderRadius: "0 0 12px 12px" }} onClick={e => e.stopPropagation()}>
                 <span style={{ fontSize: "0.82rem", color: "#fca5a5", fontWeight: 700 }}>Lock the app?</span>

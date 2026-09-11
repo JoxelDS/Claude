@@ -7943,3 +7943,27 @@ html[data-theme="dark"] .fuStOnWaiting, html[data-theme="black"] .fuStOnWaiting 
 .htCollapse { opacity: .85; }
 .htHowToProg > span:last-child { flex: 1; text-align: left; }
 .htHowToSteps span { text-align: left; }
+/* ── v379: tabs, follow-ups padding, menu ── */
+.analyticsSubNav { justify-content: flex-start; padding: 2px 4px 6px; scroll-padding: 0 8px; }
+.analyticsSubTab { flex: 0 0 auto; min-width: max-content; padding: 10px 16px; }
+.analyticsTabBadge { margin-left: 6px; }
+@media (max-width: 640px) {
+  .fuGroupHead { padding: 10px; gap: 8px; }
+  .fuGroupName { flex-basis: calc(100% - 110px); font-size: 0.84rem; }
+  .fuGroupChips { margin-left: auto; }
+  .fuGroupHead .fuActions { width: 100%; display: flex; gap: 6px; }
+  .fuGroupHead .fuActions .fuBtn { flex: 1; text-align: center; }
+  .fuCardHead .cardTitle { font-size: 1rem; }
+  .fuHeadCounts { width: 100%; }
+  .fuSumChip { font-size: 0.72rem; }
+}
+.menuQuick { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 4px 4px 8px; }
+.menuQuickTile { position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; background: rgba(255,255,255,0.08); border: 1.5px solid rgba(255,255,255,0.14); border-radius: 14px; padding: 12px 12px 10px; color: #fff; font-weight: 800; font-size: 0.82rem; cursor: pointer; text-align: left; min-height: 66px; }
+.menuQuickTile:active { transform: scale(.98); }
+.menuQuickTile.on { background: rgba(255,255,255,0.18); border-color: rgba(255,255,255,0.45); }
+.menuQuickIcon { font-size: 1.35rem; line-height: 1; }
+.menuQuickBadge { position: absolute; top: 8px; right: 8px; background: #ef4444; color: #fff; border-radius: 999px; padding: 1px 7px; font-size: 0.66rem; font-weight: 900; }
+.dropdownMenuItemActive { background: rgba(255,255,255,0.14) !important; box-shadow: inset 3px 0 0 #fff; }
+.menuBadgeSoft { background: rgba(255,255,255,0.22) !important; color: #fff !important; }
+.dropdownMenu { max-height: calc(100vh - 90px); overflow-y: auto; -webkit-overflow-scrolling: touch; }
+.menuSection { color: rgba(255,255,255,0.62); }
