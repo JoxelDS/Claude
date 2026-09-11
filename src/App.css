@@ -7967,3 +7967,29 @@ html[data-theme="dark"] .fuStOnWaiting, html[data-theme="black"] .fuStOnWaiting 
 .menuBadgeSoft { background: rgba(255,255,255,0.22) !important; color: #fff !important; }
 .dropdownMenu { max-height: calc(100vh - 90px); overflow-y: auto; -webkit-overflow-scrolling: touch; }
 .menuSection { color: rgba(255,255,255,0.62); }
+/* ── HACCP portal how-to strip (v380) ── */
+.htHowTo { padding: 12px 12px 10px; }
+.htSteps { display: flex; align-items: center; justify-content: space-between; gap: 4px; }
+.htStep { display: flex; align-items: center; gap: 7px; min-width: 0; }
+.htStepN { flex-shrink: 0; width: 26px; height: 26px; border-radius: 50%; background: #fff; color: #1e1b4b; font-weight: 900; font-size: 0.85rem; display: inline-flex; align-items: center; justify-content: center; }
+.htStepNOk { background: #22c55e; color: #fff; }
+.htStepT { font-weight: 800; font-size: 0.8rem; line-height: 1.15; }
+.htStepArrow { color: rgba(255,255,255,0.45); font-weight: 900; font-size: 1.1rem; flex-shrink: 0; }
+.htProg { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+.htProgBar { flex: 1; height: 9px; border-radius: 999px; background: rgba(255,255,255,0.15); overflow: hidden; display: block; }
+.htProgBar span { display: block; height: 100%; background: #22c55e; transition: width .3s; }
+.htProgN { font-weight: 900; font-size: 1rem; font-variant-numeric: tabular-nums; }
+.htProgN small { font-weight: 700; font-size: 0.7rem; opacity: .7; }
+.htLegend { display: flex; gap: 14px; margin-top: 6px; font-size: 0.7rem; font-weight: 700; }
+.htLegOk { color: #86efac; } .htLegBad { color: #fca5a5; }
+.htHowTo { background: #f3f4f6; border: 1.5px solid #e5e7eb; border-radius: 12px; color: #111827; }
+.htSteps { gap: 6px; }
+.htStep { flex: 1 1 0; }
+.htStepN { background: var(--sdx-navy, #2A295C); color: #fff; width: 28px; height: 28px; }
+.htStepNOk { background: #16a34a; color: #fff; }
+.htStepT { font-size: 0.82rem; color: #111827; white-space: nowrap; }
+.htStepArrow { color: #9ca3af; }
+.htProgBar { background: #e5e7eb; }
+.htProgN { color: #111827; }
+.htLegOk { color: #15803d; } .htLegBad { color: #b91c1c; }
+@media (max-width: 380px) { .htStepT { white-space: normal; font-size: 0.76rem; } }

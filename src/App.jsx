@@ -24441,8 +24441,18 @@ function HaccpPortal() {
                     <>
                       {(() => { const all = [...beforeCooking, ...cookingItems, ...afterCooking]; const done = all.filter(i => summaryOf(i).n > 0).length; return (
                         <div className="htHowTo">
-                          <div className="htHowToSteps"><span>1️⃣ {L("Tap the food", "Toca la comida")}<br/><i>{L("Toca la comida", "Tap the food")}</i></span><span>2️⃣ {L("Type the temp", "Escribe la temperatura")}<br/><i>{L("Escribe la temperatura", "Type the temp")}</i></span><span>3️⃣ ✓ {L("Log it", "Regístralo")}<br/><i>{L("Regístralo", "Log it")}</i></span></div>
-                          <div className="htHowToProg"><span className="htHowToBar"><span style={{ width: `${all.length ? Math.round(done / all.length * 100) : 0}%` }} /></span><span>{done}/{all.length} {L("logged · Green ✓ = good · Red ⚠ = tell us what you did", "registradas · Verde ✓ = bien · Rojo ⚠ = dinos qué hiciste")}</span></div>
+                          <div className="htSteps">
+                            <div className="htStep"><span className="htStepN">1</span><span className="htStepT">{L("Tap the food", "Toca la comida")}</span></div>
+                            <span className="htStepArrow">›</span>
+                            <div className="htStep"><span className="htStepN">2</span><span className="htStepT">{L("Type the temp", "Escribe la temp.")}</span></div>
+                            <span className="htStepArrow">›</span>
+                            <div className="htStep"><span className="htStepN htStepNOk">✓</span><span className="htStepT">{L("Log it", "Regístralo")}</span></div>
+                          </div>
+                          <div className="htProg">
+                            <span className="htProgBar"><span style={{ width: `${all.length ? Math.round(done / all.length * 100) : 0}%` }} /></span>
+                            <span className="htProgN">{done}<small>/{all.length}</small></span>
+                          </div>
+                          <div className="htLegend"><span className="htLegOk">✓ {L("green = good", "verde = bien")}</span><span className="htLegBad">⚠ {L("red = write what you did", "rojo = escribe qué hiciste")}</span></div>
                         </div>
                       ); })()}
                       {beforeCooking.map(item => renderReadingBlock(item))}
