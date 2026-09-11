@@ -9271,6 +9271,7 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
   const [importOcrError, setImportOcrError] = useState("");
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const [historyTab, setHistoryTab] = useState(initialTab || "reports"); // "reports" | "analytics"
+  const [lightboxSrc, setLightboxSrc] = useState(null); // full-size photo viewer for report cards
   const [haccpByReport, setHaccpByReport] = useState({}); // { [reportId]: [...submissions] }
   const [haccpReportIds, setHaccpReportIds] = useState(new Set()); // reportIds known to have ≥1 HACCP submission
   const [haccpAllSubs, setHaccpAllSubs] = useState([]); // every submission — lets badges match by stand+day, not just report id
@@ -9598,7 +9599,10 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
   // Pre-compute expensive per-record values only for visible records
   const filteredMeta = useMemo(() => {
     return visibleFiltered.map(rec => ({
-      issues: buildActionItems({ inspection: rec.inspection, rawNotes: rec.rawNotes, foodTemps: rec.foodTemps, foodTempNames: rec.foodTempNames }),
+      // Quick / supervisor reports carry the problem in actionItems (no checklist to rebuild from)
+      issues: (rec.quickProblem || (!Object.keys(rec.inspection || {}).length && (rec.actionItems || []).length))
+        ? (rec.actionItems || []).map(a => ({ issue: a.issue || "", notes: a.notes || "", priority: /^(critical|maintenance)/i.test(a.issue || "") ? (/^maintenance/i.test(a.issue) ? "Maintenance" : "Critical") : "High", status: "Follow-Up", photos: a.photos }))
+        : buildActionItems({ inspection: rec.inspection, rawNotes: rec.rawNotes, foodTemps: rec.foodTemps, foodTempNames: rec.foodTempNames }),
       score: calcInspectionScore(rec.inspection, { foodTemps: rec.foodTemps, foodTempNames: rec.foodTempNames }),
     }));
   }, [visibleFiltered]);
@@ -10905,6 +10909,10 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
         </div>
       </header>
       <div className="topBarSpacer" />
+      {lightboxSrc && ReactDOM.createPortal(
+        <div onClick={() => setLightboxSrc(null)} style={{ position: "fixed", inset: 0, zIndex: 10050, background: "rgba(0,0,0,.88)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+          <img src={lightboxSrc} alt="" onClick={e => e.stopPropagation()} style={{ maxWidth: "95vw", maxHeight: "90vh", borderRadius: 10, boxShadow: "0 10px 40px rgba(0,0,0,.6)" }} />
+        </div>, document.body)}
 
       {/* OCR error banner */}
       {importOcrError && (
@@ -11644,6 +11652,39 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                         })()}
                         {rec.temps?.iceMakerCleanedDate && <div className="rptInfoCell"><span className="rptInfoLabel">Ice Maker Cleaned</span><span className="rptInfoVal">{rec.temps.iceMakerCleanedDate}</span></div>}
                       </div>
+
+                      {/* ── QUICK REPORT: the problem as reported ── */}
+                      {rec.quickProblem && (() => {
+                        const a0 = (rec.actionItems || [])[0] || {};
+                        const [catPart, ...restParts] = String(a0.issue || "").split(":");
+                        const cat = restParts.length ? catPart.trim() : "";
+                        const text = restParts.length ? restParts.join(":").trim() : String(a0.issue || "");
+                        const photos = (rec.photos || []).filter(p => p && (p.thumbUrl || p.previewUrl));
+                        return (
+                          <div className="qpReported">
+                            <div className="qpReportedHead">
+                              <span>⚠️ Problem reported{rec.source === "haccp_portal" ? " by supervisor" : ""}</span>
+                              {cat && <span className="qpReportedCat">{supCatEmoji ? supCatEmoji(cat) + " " : ""}{cat}</span>}
+                            </div>
+                            <div className="qpReportedText">{text || "—"}</div>
+                            {a0.notes && <div className="qpReportedNotes">{a0.notes}</div>}
+                            <div className="qpReportedMeta">
+                              {rec.reportedBy?.name ? `👷 ${rec.reportedBy.name}${rec.reportedBy.phone ? " · " + rec.reportedBy.phone : ""}` : `🕵 ${rec.inspectorName || "—"}`}
+                              {rec.savedAt ? ` · ${new Date(rec.savedAt).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}` : ""}
+                            </div>
+                            {photos.length > 0 && (
+                              <div className="fuThumbs" style={{ marginTop: 8 }}>
+                                {photos.map(p => (
+                                  <div key={p.id} className="fuThumb fuThumbReport" style={{ width: 84, height: 84 }}>
+                                    <img src={p.thumbUrl || p.previewUrl} alt="" onClick={() => setLightboxSrc(p.previewUrl || p.thumbUrl)} />
+                                    <span className="fuThumbTag">before</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
 
                       {/* ── ACTION ITEMS (Corrective action tracking) ── */}
                       {issues.length > 0 && (() => {
