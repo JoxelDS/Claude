@@ -8053,3 +8053,18 @@ html[data-theme="dark"] .fuStOnWaiting, html[data-theme="black"] .fuStOnWaiting 
 .crewReportCount { background: #fef3c7; color: #92400e; border-radius: 999px; padding: 1px 9px; font-size: 0.74rem; font-weight: 900; }
 .crewReportBody { margin-top: 8px; display: flex; flex-direction: column; gap: 8px; }
 .crewReportIssue { background: var(--surface-2); border-radius: 10px; padding: 8px 10px; font-size: 0.88rem; }
+/* ── Request Access: department + role (v385) ── */
+.regLabel { font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-500); margin: 10px 0 6px; text-align: left; }
+.regChips { display: flex; flex-wrap: wrap; gap: 6px; }
+.regChip { background: var(--surface-2); border: 1.5px solid var(--sdx-gray-200); border-radius: 999px; padding: 7px 12px; font-size: 0.8rem; font-weight: 700; color: var(--ink-700); cursor: pointer; }
+.regChip.on { background: var(--sdx-navy); border-color: var(--sdx-navy); color: #fff; }
+.regRoles { display: flex; flex-direction: column; gap: 6px; }
+.regRole { display: flex; align-items: center; gap: 10px; text-align: left; background: var(--surface-1); border: 1.5px solid var(--sdx-gray-200); border-radius: 12px; padding: 9px 12px; cursor: pointer; color: var(--ink-900); }
+.regRole.on { border-color: var(--sdx-navy); background: var(--tint-blue-1, #eef2ff); box-shadow: inset 4px 0 0 var(--sdx-navy); }
+.regRoleIcon { font-size: 1.3rem; }
+.regRoleText { display: flex; flex-direction: column; line-height: 1.2; }
+.regRoleText b { font-size: 0.88rem; } .regRoleText small { font-size: 0.72rem; color: var(--ink-500); }
+.adminRoleChip { background: var(--surface-2); border: 1px solid var(--sdx-gray-200); border-radius: 999px; padding: 2px 9px; font-size: 0.72rem; font-weight: 800; color: var(--ink-700); }
+.inviteRow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 8px 0; border-bottom: 1px solid var(--sdx-gray-100); }
+.inviteRole { font-weight: 800; flex: 1; min-width: 160px; }
+.regInviteHelp { font-size: 0.8rem; color: var(--ink-500); text-align: left; margin: 2px 0 6px; }

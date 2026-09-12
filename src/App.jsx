@@ -2003,14 +2003,31 @@ async function signIn(badge) {
   return { ok: true, user: _currentUser };
 }
 
-async function registerNewUser(badge, name, department) {
+// Request Access: departments and what the person does (drives the role)
+const INVITE_TOKEN = (() => { try { return new URLSearchParams(window.location.search).get("invite") || ""; } catch { return ""; } })();
+const inviteUrlFor = token => `${window.location.origin}${window.location.pathname}?invite=${encodeURIComponent(token)}`;
+const DEPARTMENTS = ["Food Safety / QA", "Culinary", "Concessions", "Maintenance / Facilities", "Cleaning / Sanitation", "Management", "Other"];
+const REQUEST_ROLES = [
+  { value: "inspector", icon: "🕵", label: "Inspector", help: "Does inspections, sees reports and follow-ups" },
+  { value: "maintenance", icon: "🔧", label: "Maintenance crew", help: "Sees maintenance problems and reports, sends fixes back" },
+  { value: "cleaning", icon: "🧹", label: "Cleaning crew", help: "Sees cleaning follow-ups, sends updates back" },
+  { value: "location_manager", icon: "📍", label: "Location manager / supervisor", help: "Runs a stand: temps, follow-ups, team" },
+  { value: "guest", icon: "👤", label: "Guest inspector", help: "Inspects with a sponsor at one location" },
+];
+const DEPT_DEFAULT_ROLE = { "Maintenance / Facilities": "maintenance", "Cleaning / Sanitation": "cleaning", "Management": "location_manager", "Food Safety / QA": "inspector" };
+const ROLE_LABEL = { global_admin: "Global Admin", admin: "Admin", inspector: "Inspector", location_manager: "Location manager", guest: "Guest inspector", maintenance: "Maintenance crew", cleaning: "Cleaning crew" };
+const roleChip = r => { const m = REQUEST_ROLES.find(x => x.value === r); return m ? `${m.icon} ${m.label}` : (ROLE_LABEL[r] || r || ""); };
+async function registerNewUser(badge, name, department, extra = {}) {
   const h = await hashBadge(badge);
   const users = await getUsers();
   if (users.find(u => u.badgeHash === h)) return { ok: false, reason: "exists" };
+  const role = REQUEST_ROLES.some(r => r.value === extra.requestedRole) ? extra.requestedRole : "inspector";
   const newUser = {
     badgeHash: h, name, department,
     badgeDisplay: badge.length > 4 ? "\u2022\u2022\u2022\u2022" + badge.slice(-4) : badge,
-    role: "inspector", approved: false,
+    role, requestedRole: role, approved: !!extra.approved,
+    ...(extra.approved ? { invitedVia: role, invitedAt: new Date().toISOString() } : {}),
+    ...(extra.assignedLocation ? { assignedLocation: extra.assignedLocation } : {}),
     registeredAt: new Date().toISOString()
   };
   await saveOneUser(newUser);
@@ -2043,10 +2060,15 @@ async function adminAddUser(badge, name, department, role, assignedLocation) {
   return { ok: true };
 }
 
-async function approveUser(badgeHash) {
+async function approveUser(badgeHash, role, assignedLocation) {
   const users = await getUsers();
   const u = users.find(x => x.badgeHash === badgeHash);
-  if (u) { u.approved = true; await saveOneUser(u); }
+  if (u) {
+    u.approved = true;
+    if (role) u.role = role;
+    if (assignedLocation !== undefined && assignedLocation !== null) u.assignedLocation = assignedLocation;
+    await saveOneUser(u);
+  }
 }
 
 async function denyUser(badgeHash) {
@@ -2120,11 +2142,15 @@ async function removeGuestInspector(badgeHash) {
 }
 
 /* ── Badge Sign-In Screen ─────────────────────────────────── */
-function BadgeScreen({ onUnlock }) {
+function BadgeScreen({ onUnlock, inviteRole }) {
   const [badge, setBadge] = useState("");
-  const [mode, setMode] = useState("signin"); // signin | register | pending
+  const [mode, setMode] = useState(inviteRole ? "invite" : "signin"); // signin | register | pending | invite
+  useEffect(() => { if (inviteRole) setMode("invite"); }, [inviteRole]);
   const [regName, setRegName] = useState("");
   const [regDept, setRegDept] = useState("");
+  const [regDeptOther, setRegDeptOther] = useState("");
+  const [regRole, setRegRole] = useState("inspector");
+  const [regLoc, setRegLoc] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState("");
@@ -2150,13 +2176,29 @@ function BadgeScreen({ onUnlock }) {
     finally { setLoading(false); }
   }
 
+  // Opened from an invite link: create the account with that role, approved, and sign in
+  async function handleInvite(e) {
+    e.preventDefault();
+    setError(""); setLoading(true);
+    try {
+      const meta = REQUEST_ROLES.find(r => r.value === inviteRole);
+      const dept = meta?.value === "maintenance" ? "Maintenance / Facilities" : meta?.value === "cleaning" ? "Cleaning / Sanitation" : meta?.value === "location_manager" ? "Management" : "Food Safety / QA";
+      const r = await registerNewUser(badge.trim(), regName.trim(), dept, { requestedRole: inviteRole, assignedLocation: regLoc.trim(), approved: true });
+      if (!r.ok && r.reason !== "exists") { setError("Could not create your access. Try again."); return; }
+      const result = await signIn(badge.trim());
+      if (result.ok) { try { window.history.replaceState({}, "", window.location.pathname); } catch {} onUnlock(result.user); return; }
+      if (result.reason === "pending") setMode("pending"); else setError("Badge not recognized. Try again.");
+    } catch { setError("Could not reach the database. Check your connection and try again."); }
+    finally { setLoading(false); }
+  }
   async function handleRegister(e) {
     e.preventDefault();
     setError(""); setLoading(true);
     try {
-      const result = await registerNewUser(badge.trim(), regName.trim(), regDept.trim());
+      const dept = regDept === "Other" ? (regDeptOther.trim() || "Other") : regDept;
+      const result = await registerNewUser(badge.trim(), regName.trim(), dept, { requestedRole: regRole, assignedLocation: regLoc.trim() });
       if (result.ok) {
-        setSuccess("Registration submitted! Ask an administrator to approve your badge.");
+        setSuccess(`Request sent as ${roleChip(regRole)} · ${dept}. An administrator will approve your badge.`);
         setMode("pending");
       } else if (result.reason === "exists") {
         setError("This badge is already registered. Try signing in.");
@@ -2202,6 +2244,25 @@ function BadgeScreen({ onUnlock }) {
           </button>
         </>)}
 
+        {mode === "invite" && (() => { const meta = REQUEST_ROLES.find(r => r.value === inviteRole); return (<>
+          <div className="pinTitle">You're invited</div>
+          <div className="pinSub">Joining <b>{resolveCompanyName()}</b> as <b>{meta ? `${meta.icon} ${meta.label}` : inviteRole}</b>. Pick a badge number you'll remember — it's your sign-in.</div>
+          <form onSubmit={handleInvite} className="pinForm">
+            <input ref={inputRef} className="pinInput badgeInput" type="password" maxLength={20}
+              value={badge} onChange={e => setBadge(e.target.value)} placeholder="Badge # (your sign-in)" autoComplete="off" />
+            <input className="input regInput" value={regName} onChange={e => setRegName(e.target.value)} placeholder="Full name" autoComplete="name" />
+            {(inviteRole === "location_manager" || inviteRole === "guest") && (
+              <input className="input regInput" value={regLoc} onChange={e => setRegLoc(e.target.value)} placeholder="Your stand / location (e.g. SOL CUBANO #350)" />
+            )}
+            {meta && <div className="regInviteHelp">{meta.icon} {meta.help}</div>}
+            {error && <div className="pinError">{error}</div>}
+            <button className="btn btnPrimary pinBtn" type="submit" disabled={loading || badge.trim().length < 3 || !regName.trim()}>
+              {loading ? "Joining…" : "Join"}
+            </button>
+          </form>
+          <button className="btnLink" type="button" onClick={() => { setMode("signin"); setError(""); }}>Already have a badge? Sign in</button>
+        </>); })()}
+
         {mode === "register" && (<>
           <div className="pinTitle">Request Access</div>
           <div className="pinSub">Fill in your details. An administrator will review your request.</div>
@@ -2210,11 +2271,31 @@ function BadgeScreen({ onUnlock }) {
               value={badge} onChange={e => setBadge(e.target.value)} placeholder="Badge #" autoComplete="off" />
             <input className="input regInput" value={regName} onChange={e => setRegName(e.target.value)}
               placeholder="Full name" autoComplete="name" />
-            <input className="input regInput" value={regDept} onChange={e => setRegDept(e.target.value)}
-              placeholder="Department" />
+            <div className="regLabel">Department</div>
+            <div className="regChips">
+              {DEPARTMENTS.map(d => (
+                <button key={d} type="button" className={"regChip" + (regDept === d ? " on" : "")}
+                  onClick={() => { setRegDept(d); if (DEPT_DEFAULT_ROLE[d]) setRegRole(DEPT_DEFAULT_ROLE[d]); }}>{d}</button>
+              ))}
+            </div>
+            {regDept === "Other" && (
+              <input className="input regInput" value={regDeptOther} onChange={e => setRegDeptOther(e.target.value)} placeholder="Which department?" />
+            )}
+            <div className="regLabel">What do you do?</div>
+            <div className="regRoles">
+              {REQUEST_ROLES.map(r => (
+                <button key={r.value} type="button" className={"regRole" + (regRole === r.value ? " on" : "")} onClick={() => setRegRole(r.value)}>
+                  <span className="regRoleIcon">{r.icon}</span>
+                  <span className="regRoleText"><b>{r.label}</b><small>{r.help}</small></span>
+                </button>
+              ))}
+            </div>
+            {(regRole === "location_manager" || regRole === "guest") && (
+              <input className="input regInput" value={regLoc} onChange={e => setRegLoc(e.target.value)} placeholder="Your stand / location (e.g. SOL CUBANO #350)" />
+            )}
             {error && <div className="pinError">{error}</div>}
             <button className="btn btnPrimary pinBtn" type="submit"
-              disabled={loading || badge.trim().length < 3 || !regName.trim() || !regDept.trim()}>
+              disabled={loading || badge.trim().length < 3 || !regName.trim() || !regDept || (regDept === "Other" && !regDeptOther.trim())}>
               {loading ? "Submitting..." : "Request Access"}
             </button>
           </form>
@@ -20482,7 +20563,9 @@ function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVe
 
   async function refresh() { setUsers(await getUsers()); }
 
-  async function handleApprove(badgeHash) { await approveUser(badgeHash); await refresh(); }
+  const [approveRole, setApproveRole] = useState({}); // badgeHash -> role chosen before approving
+  const [inviteFlash, setInviteFlash] = useState("");
+  async function handleApprove(badgeHash, role) { await approveUser(badgeHash, role); await refresh(); }
 
   async function handleDeny(badgeHash) {
     if (!confirm("Remove this access request?")) return;
@@ -20995,6 +21078,34 @@ function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVe
         </div>
 
         {/* Pending approvals */}
+        {/* Invite links — send one and the person gets in with that role, no approval needed */}
+        <div className="card adminCard" style={{ marginBottom: 24 }}>
+          <div className="cardHeader"><div className="cardTitle">🔗 Invite links</div></div>
+          <div className="cardBody">
+            <div style={{ fontSize: "0.84rem", color: "var(--ink-500)", marginBottom: 10 }}>Send a link by text or WhatsApp. Whoever opens it picks a badge number and a name and is in right away with that role. Regenerate a link to cut off anyone who still has the old one.</div>
+            {REQUEST_ROLES.map(r => {
+              const tok = venueSettings?.inviteTokens?.[r.value] || "";
+              const url = tok ? inviteUrlFor(tok) : "";
+              const gen = () => onSaveVenueSettings?.({ inviteTokens: { ...(venueSettings?.inviteTokens || {}), [r.value]: Math.random().toString(36).slice(2, 10) + Math.random().toString(36).slice(2, 6) } });
+              return (
+                <div key={r.value} className="inviteRow">
+                  <span className="inviteRole">{r.icon} {r.label}</span>
+                  {url ? (
+                    <>
+                      <button type="button" className="btn btnPrimary btnSmall" onClick={async () => { try { if (navigator.share) await navigator.share({ title: `${resolveCompanyName()} — ${r.label}`, text: `Join ${resolveCompanyName()} as ${r.label}`, url }); else { await navigator.clipboard.writeText(url); setInviteFlash(`Copied — ${r.label}`); setTimeout(() => setInviteFlash(""), 2500); } } catch {} }}>📤 Share</button>
+                      <button type="button" className="btn btnGhost btnSmall" onClick={async () => { try { await navigator.clipboard.writeText(url); setInviteFlash(`Copied — ${r.label}`); setTimeout(() => setInviteFlash(""), 2500); } catch {} }}>Copy</button>
+                      <button type="button" className="btn btnGhost btnSmall" onClick={() => { if (window.confirm(`Make a new ${r.label} link? The old one stops working.`)) gen(); }}>↻</button>
+                    </>
+                  ) : (
+                    <button type="button" className="btn btnGhost btnSmall" onClick={gen}>Create link</button>
+                  )}
+                </div>
+              );
+            })}
+            {inviteFlash && <div style={{ fontSize: "0.8rem", fontWeight: 700, color: "#16a34a", marginTop: 6 }}>✓ {inviteFlash}</div>}
+          </div>
+        </div>
+
         {pending.length > 0 && (
           <div className="card adminCard" style={{ marginBottom: 24 }}>
             <div className="cardHeader">
@@ -21009,9 +21120,17 @@ function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVe
                   <div className="adminUserInfo">
                     <div className="adminUserName">{u.name} {u.badgeDisplay && <span className="badgeNumDisplay">Badge: {u.badgeDisplay}</span>}</div>
                     <div className="adminUserMeta">{u.department} &middot; Requested {new Date(u.registeredAt).toLocaleDateString()}</div>
+                    <div className="adminUserMeta" style={{ marginTop: 4, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                      <span className="adminRoleChip">{roleChip(u.requestedRole || u.role)}</span>
+                      {u.assignedLocation && <span>📍 {u.assignedLocation}</span>}
+                      <select className="select selectSmall" value={approveRole[u.badgeHash] || u.requestedRole || u.role || "inspector"} onChange={e => setApproveRole(p => ({ ...p, [u.badgeHash]: e.target.value }))} title="Approve as">
+                        {REQUEST_ROLES.map(r => <option key={r.value} value={r.value}>{r.icon} {r.label}</option>)}
+                        <option value="admin">⚙️ Admin</option>
+                      </select>
+                    </div>
                   </div>
                   <div className="adminUserActions">
-                    <button className="btn btnPrimary btnSmall" onClick={() => handleApprove(u.badgeHash)}>Approve</button>
+                    <button className="btn btnPrimary btnSmall" onClick={() => handleApprove(u.badgeHash, approveRole[u.badgeHash] || u.requestedRole || u.role || "inspector")}>Approve</button>
                     <button className="btn btnGhost btnSmall adminDenyBtn" onClick={() => handleDeny(u.badgeHash)}>Deny</button>
                   </div>
                 </div>
@@ -27092,7 +27211,8 @@ export default function App() {
   if (IS_HACCP_PORTAL && !QR_OPEN_AS_INSPECTOR) return <HaccpPortal />;
   if (EQUIP_PORTAL_TAG) return <EquipCheckPortal tag={EQUIP_PORTAL_TAG} />;
 
-  if (locked) return <BadgeScreen onUnlock={(user) => {
+  const inviteRole = INVITE_TOKEN ? (Object.entries(venueSettings?.inviteTokens || {}).find(([, t]) => t === INVITE_TOKEN)?.[0] || "") : "";
+  if (locked) return <BadgeScreen inviteRole={inviteRole} onUnlock={(user) => {
     setCurrentUser(user);
     setLocked(false);
     resetActivity();
