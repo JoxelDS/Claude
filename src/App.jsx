@@ -18459,7 +18459,7 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
   const [verifyOnly, setVerifyOnly] = useState(false);  // labels / print / sheet: verified stands only
   const WALK_NAMES = ["1-Door Cooler", "2-Door Cooler", "3-Door Cooler", "4-Door Cooler", "Prep Cooler", "Display Cooler", "Walk-In Cooler", "Undercounter Cooler", "Beer Cooler", "Ice Cream Freezer", "1-Door Freezer", "2-Door Freezer", "Chest Freezer", "Walk-In Freezer", "Undercounter Freezer"];
   const WALK_LOCS = ["Front line", "Back of house", "Bar", "Prep area", "Walk-in", "Storage", "Under counter", "Beer room", "Left side", "Right side"];
-  const WALK_BRANDS = ["True", "Turbo Air", "Beverage-Air", "Traulsen", "Delfield", "Continental", "Hoshizaki", "Arctic Air", "Atosa", "Victory", "Perlick", "Frigidaire", "Avantco", "Coca-Cola", "Pepsi"];
+  const WALK_BRANDS = ["True", "Turbo Air", "Beverage-Air", "Traulsen", "Delfield", "Continental", "Hoshizaki", "Arctic Air", "Atosa", "Victory", "Perlick", "Frigidaire", "Avantco", "Coca-Cola", "Pepsi", "American Panel", "Kolpak", "Nor-Lake"];
   const cleanName = l => String(l || "").replace(/\s*(❄|🧊)\s*(Cooler|Freezer)\s*$/u, "").trim();
   const typeOf = it => (/freez|🧊/i.test(it?.label || "") || coldTypeFromTag(it?.assetTag) === "freezer") ? "freezer" : "cooler";
   const walkStatus = it => {
