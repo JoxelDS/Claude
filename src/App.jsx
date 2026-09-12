@@ -23,7 +23,7 @@ AIEngine.boot((() => {
 })());
 import {
   doc, getDocs, getDoc, setDoc, deleteDoc, updateDoc, query, orderBy, where, onSnapshot,
-  limit, startAfter, getCountFromServer, collectionGroup
+  limit, startAfter, getCountFromServer, collectionGroup, deleteField
 } from "firebase/firestore";
 
 /* ── Runtime Security Shield ─────────────────────────────────────────────────
@@ -18361,6 +18361,13 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
   const [standFocus, setStandFocus] = useState(null);   // { unit, site, floor, locType } — one stand open
   const focusAppliedRef = useRef(false);
   const EQUIP_SETUP_LS = `sdx_equip_setup_${VENUE_ID}`;
+  // ── Verify walk (v392): confirm every unit stand by stand ───────────────
+  const EQUIP_VERIFIED_LS = `sdx_equip_verified_${VENUE_ID}`;
+  const EQUIP_CONFIRMED_LS = `sdx_equip_confirmed_${VENUE_ID}`;
+  const [verifyMode, setVerifyMode] = useState(false);
+  const [regVerified, setRegVerified] = useState({});   // { standKey: { at, by, units } }
+  const [regConfirmed, setRegConfirmed] = useState({}); // { TAG: { at, by } }
+  const [verifyOnly, setVerifyOnly] = useState(false);  // labels / print / sheet: verified stands only
   const WALK_NAMES = ["1-Door Cooler", "2-Door Cooler", "3-Door Cooler", "4-Door Cooler", "Prep Cooler", "Display Cooler", "Walk-In Cooler", "Undercounter Cooler", "Beer Cooler", "Ice Cream Freezer", "1-Door Freezer", "2-Door Freezer", "Chest Freezer", "Walk-In Freezer", "Undercounter Freezer"];
   const WALK_LOCS = ["Front line", "Back of house", "Bar", "Prep area", "Walk-in", "Storage", "Under counter", "Beer room", "Left side", "Right side"];
   const WALK_BRANDS = ["True", "Turbo Air", "Beverage-Air", "Traulsen", "Delfield", "Continental", "Hoshizaki", "Arctic Air", "Atosa", "Victory", "Perlick", "Frigidaire", "Avantco", "Coca-Cola", "Pepsi"];
@@ -18382,6 +18389,73 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
   };
   function persistSetupLocal(next) {
     try { localStorage.setItem(EQUIP_SETUP_LS, JSON.stringify(next)); } catch {}
+  }
+  // The stand's identity — same key the label list uses: unit number wins, else the name
+  const standKeyOf = (unit, venueName) => normUnit(unit) ? `u:${normUnit(unit)}` : `s:${(venueName || "").trim().toLowerCase()}`;
+  const tagOf = it => String(it?.assetTag || "").toUpperCase();
+  const unitConfirmed = it => !!regConfirmed[tagOf(it)];
+  const persistVerified = next => { try { localStorage.setItem(EQUIP_VERIFIED_LS, JSON.stringify(next)); } catch {} };
+  const persistConfirmed = next => { try { localStorage.setItem(EQUIP_CONFIRMED_LS, JSON.stringify(next)); } catch {} };
+  function writeReg(payload) {
+    try { if (FIREBASE_ON) setDoc(registryRef(), payload, { merge: true }).catch(() => {}); } catch {}
+  }
+  const standUnits = key => equipItems.filter(i => standKeyOf(i.unit, i.venueName) === key);
+  const standVerifiable = key => standUnits(key).every(unitConfirmed);
+  // Any change at a verified stand puts it back in the "to verify" pile
+  function invalidateStand(key) {
+    if (!key || !regVerified[key]) return;
+    setRegVerified(prev => { const n = { ...prev }; delete n[key]; persistVerified(n); return n; });
+    writeReg({ verified: { [key]: deleteField() } });
+  }
+  function confirmTag(tag, key) {
+    const T = String(tag || "").toUpperCase(); if (!T) return;
+    const rec = { at: Date.now(), by: "Inspector" };
+    setRegConfirmed(prev => { const n = { ...prev, [T]: rec }; persistConfirmed(n); return n; });
+    writeReg({ confirmed: { [T]: rec } });
+    if (key) invalidateStand(key);
+  }
+  function unconfirmTag(tag, key) {
+    const T = String(tag || "").toUpperCase(); if (!T) return;
+    setRegConfirmed(prev => { const n = { ...prev }; delete n[T]; persistConfirmed(n); return n; });
+    writeReg({ confirmed: { [T]: deleteField() } });
+    if (key) invalidateStand(key);
+  }
+  function confirmUnit(it) { confirmTag(it.assetTag, standKeyOf(it.unit, it.venueName)); }
+  function unconfirmUnit(it) { unconfirmTag(it.assetTag, standKeyOf(it.unit, it.venueName)); }
+  // Remove during the verify walk — no dialog, hides the label (reports untouched)
+  function removeUnitVerify(it) {
+    const key = standKeyOf(it.unit, it.venueName);
+    writeReg({ hidden: { [it.uid]: true }, confirmed: { [tagOf(it)]: deleteField() } });
+    setRegConfirmed(prev => { const n = { ...prev }; delete n[tagOf(it)]; persistConfirmed(n); return n; });
+    setEquipItems(prev => prev.filter(i => i.uid !== it.uid));
+    setSelected(prev => { const s2 = new Set(prev); s2.delete(it.uid); return s2; });
+    invalidateStand(key);
+    setWalkFlash(`🗑 ${cleanName(it.label) || "Unit"} · ${it.assetTag} removed from this stand.`); setTimeout(() => setWalkFlash(""), 3500);
+  }
+  function markStandVerified(key, label) {
+    if (!standVerifiable(key)) return;
+    const units = standUnits(key).length;
+    const rec = { at: Date.now(), by: "Inspector", units };
+    setRegVerified(prev => { const n = { ...prev, [key]: rec }; persistVerified(n); return n; });
+    writeReg({ verified: { [key]: rec } });
+    setWalkFlash(`✅ ${label || "Stand"} verified — ${units ? `${units} unit${units !== 1 ? "s" : ""} confirmed` : "no cold equipment"}.`); setTimeout(() => setWalkFlash(""), 4000);
+  }
+  function unverifyStand(key) {
+    setRegVerified(prev => { const n = { ...prev }; delete n[key]; persistVerified(n); return n; });
+    writeReg({ verified: { [key]: deleteField() } });
+  }
+  // Start this stand from zero: hide every unit here, then add what is really there
+  function startOverStand(key, standObj) {
+    const its = standUnits(key);
+    if (!confirm(`Start over at ${standObj.venueName || "this stand"}${standObj.unit ? ` #${standObj.unit}` : ""}?\n\n${its.length} unit${its.length !== 1 ? "s" : ""} will be removed from the labels list (reports are not affected). You then add what is really there.`)) return;
+    const hidden = {}; const confirmed = {};
+    its.forEach(i => { hidden[i.uid] = true; confirmed[tagOf(i)] = deleteField(); });
+    writeReg({ hidden, confirmed, verified: { [key]: deleteField() } });
+    setRegConfirmed(prev => { const n = { ...prev }; its.forEach(i => delete n[tagOf(i)]); persistConfirmed(n); return n; });
+    setRegVerified(prev => { const n = { ...prev }; delete n[key]; persistVerified(n); return n; });
+    setEquipItems(prev => prev.filter(i => standKeyOf(i.unit, i.venueName) !== key));
+    setSelected(new Set());
+    setAddAt(standObj);
   }
   function cacheRegItem(tag, rec) {
     try {
@@ -18420,6 +18494,7 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
     });
     setFillSaving(false);
     setFill(null);
+    if (verifyMode) confirmTag(f.tag, standKeyOf(f.unit, f.venueName)); // a fix means the unit is really there
     setWalkFlash(stuck ? `✅ ${name} · ${f.tag} — label stuck, done.` : `💾 ${name} · ${f.tag} saved.`);
     setTimeout(() => setWalkFlash(""), 3500);
   }
@@ -18443,6 +18518,7 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
       if (FIREBASE_ON) setDoc(registryRef(), { items: { [tag]: rec }, labelIndex: { [tag]: { name: rec.label, brand: "", location: "", venueName: rec.venueName, unit: rec.unit, floor, locType: rec.locType, ts: Date.now() } } }, { merge: true }).catch(() => {});
     } catch {}
     cacheRegItem(tag, rec);
+    invalidateStand(standKeyOf(stand.unit, stand.venueName));
     setAddAt(null);
     openFill(item); // brand + location right away, then "Label stuck"
   }
@@ -18483,16 +18559,19 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
     try {
       const ExcelJS = (await import("exceljs")).default;
       const wb = new ExcelJS.Workbook();
-      const ws = wb.addWorksheet("Setup walk");
+      const ws = wb.addWorksheet(verifyMode ? "Verify walk" : "Setup walk");
       ws.columns = [
         { header: "Floor", key: "floor", width: 12 }, { header: "Stand", key: "site", width: 26 }, { header: "Unit #", key: "unit", width: 9 },
         { header: "Equipment", key: "name", width: 24 }, { header: "Type", key: "type", width: 9 }, { header: "Tag", key: "tag", width: 18 },
         { header: "Brand", key: "brand", width: 16 }, { header: "Location", key: "loc", width: 20 }, { header: "Label stuck", key: "stuck", width: 12 }, { header: "Missing", key: "missing", width: 18 },
+        { header: "Confirmed", key: "confirmed", width: 12 }, { header: "Stand verified", key: "verified", width: 16 },
       ];
       ws.getRow(1).font = { bold: true };
-      const sorted = [...equipItems].sort((a, b) => (floorFromUnit(a.unit) || a.floor || "").localeCompare(floorFromUnit(b.unit) || b.floor || "") || (a.unit || "").localeCompare(b.unit || "", undefined, { numeric: true }) || (a.label || "").localeCompare(b.label || ""));
-      for (const it of sorted) { const st = walkStatus(it); ws.addRow({ floor: floorForStand(it.unit, it.venueName, it.floor), site: it.venueName || "", unit: it.unit || "", name: cleanName(it.label), type: typeOf(it) === "freezer" ? "Freezer" : "Cooler", tag: it.assetTag, brand: it.brandName || "", loc: it.location || "", stuck: st.stuck ? "YES" : "", missing: st.missing.join(", ") }); }
-      for (const sn of standsNoEquip) ws.addRow({ floor: sn.floor || "", site: sn.venueName || "", unit: sn.unit || "", name: "(no cooler / freezer yet)", missing: "add units" });
+      const vOf = it => regVerified[standKeyOf(it.unit, it.venueName)];
+      const fmtAt = ms => ms ? new Date(ms).toLocaleDateString() : "";
+      const sorted = [...equipItems].filter(it => !verifyOnly || vOf(it)).sort((a, b) => (floorFromUnit(a.unit) || a.floor || "").localeCompare(floorFromUnit(b.unit) || b.floor || "") || (a.unit || "").localeCompare(b.unit || "", undefined, { numeric: true }) || (a.label || "").localeCompare(b.label || ""));
+      for (const it of sorted) { const st = walkStatus(it); ws.addRow({ floor: floorForStand(it.unit, it.venueName, it.floor), site: it.venueName || "", unit: it.unit || "", name: cleanName(it.label), type: typeOf(it) === "freezer" ? "Freezer" : "Cooler", tag: it.assetTag, brand: it.brandName || "", loc: it.location || "", stuck: st.stuck ? "YES" : "", missing: st.missing.join(", "), confirmed: unitConfirmed(it) ? "YES" : "", verified: vOf(it) ? `YES · ${fmtAt(vOf(it).at)}` : "" }); }
+      for (const sn of standsNoEquip) { const v = regVerified[sn.key]; if (verifyOnly && !v) continue; ws.addRow({ floor: sn.floor || "", site: sn.venueName || "", unit: sn.unit || "", name: v ? "(verified — no cold equipment)" : "(no cooler / freezer yet)", missing: v ? "" : "add units", verified: v ? `YES · ${fmtAt(v.at)}` : "" }); }
       const buf = await wb.xlsx.writeBuffer();
       downloadBlob(new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }), `Equipment-Setup-Walk-${new Date().toISOString().slice(0, 10)}.xlsx`);
     } catch { alert("Could not build the sheet."); }
@@ -18509,6 +18588,26 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
         {st.missing.length > 0 && <span className="walkMissing">needs {st.missing.join(", ")}</span>}
         <span className="walkRowTag">{it.assetTag}</span>
       </button>
+    );
+  };
+  const renderVerifyRow = it => {
+    const ok = unitConfirmed(it);
+    const typ = typeOf(it);
+    return (
+      <div key={it.uid} className={"walkRow verifyRow" + (ok ? " ok" : "")}>
+        <span className="walkRowIcon">{ok ? "✅" : "⬜"}</span>
+        <span className="walkRowName">{cleanName(it.label) || (typ === "freezer" ? "Freezer" : "Cooler")}</span>
+        <span className="walkRowType">{typ === "freezer" ? "🧊 Freezer" : "❄ Cooler"}</span>
+        <span className="walkRowMeta">{[it.brandName, it.location].filter(Boolean).join(" · ") || "no brand / location"}</span>
+        <span className="walkRowTag" style={{ marginLeft: 0 }}>{it.assetTag}</span>
+        <span className="verifyActs">
+          {ok
+            ? <button type="button" className="verifyAct" onClick={() => unconfirmUnit(it)}>↩ Undo</button>
+            : <button type="button" className="verifyAct ok" onClick={() => confirmUnit(it)}>✔ It's here</button>}
+          <button type="button" className="verifyAct" onClick={() => openFill(it)}>✏ Fix</button>
+          <button type="button" className="verifyAct danger" onClick={() => removeUnitVerify(it)}>🗑 Not here</button>
+        </span>
+      </div>
     );
   };
   // Opened from a stand (QR / poster / form) → focus it once the list is loaded
@@ -18688,6 +18787,7 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
           regLoaded = true;
           setRegItemsState(regItems);
           { const su = reg.setup || {}; setRegSetup(su); persistSetupLocal(su); }
+          { const v = reg.verified || {}; setRegVerified(v); persistVerified(v); const c = reg.confirmed || {}; setRegConfirmed(c); persistConfirmed(c); }
           if (cutoffDate === null) {
             setCutoffMode(reg.cutoffMode === "on" ? "on" : "since");
             if (!cutoffMs) {
@@ -18708,6 +18808,7 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
           // Offline / local: the last synced registry + setup marks keep the walk usable
           try { const c = _equipRegCache || {}; regItems = {}; for (const [t, it] of Object.entries(c)) if (it && it.assetTag) regItems[t] = it; setRegItemsState(regItems); } catch {}
           try { setRegSetup(JSON.parse(localStorage.getItem(EQUIP_SETUP_LS) || "{}")); } catch {}
+          try { setRegVerified(JSON.parse(localStorage.getItem(EQUIP_VERIFIED_LS) || "{}")); setRegConfirmed(JSON.parse(localStorage.getItem(EQUIP_CONFIRMED_LS) || "{}")); } catch {}
         }
         // loadHistory handles the default-venue legacy collection correctly.
         // When a date is picked, query THAT date range from Firestore directly —
@@ -18877,6 +18978,7 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
                       <span style={{ fontSize: "0.78rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.07em", color: "var(--ink-600)" }}>
                         🍳 {grp.site || "—"}{grp.unit ? ` · Unit #${grp.unit}` : ""}{grp.floor ? ` · ${grp.floor}` : ""}
                       </span>
+                      {regVerified[standKeyOf(grp.unit, grp.site)] && <span className="verifyPill">✅ Verified</span>}
                       <span style={{ fontSize: "0.68rem", fontWeight: 800, background: "var(--surface-2)", border: "1px solid var(--sdx-gray-200)", borderRadius: 999, padding: "1px 9px", color: "var(--ink-500)" }}>
                         {groupItems.length} unit{groupItems.length !== 1 ? "s" : ""}
                       </span>
@@ -19043,12 +19145,42 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
                 <button type="button" className="lblFloorChip" onClick={() => setWalkScanOpen(true)}>📷 Scan label</button>
                 {its.length > 0 && <button type="button" className="lblFloorChip" onClick={() => { if (qrReady(its)) printSelected(its); }}>🖨 Print {its.length} label{its.length !== 1 ? "s" : ""}</button>}
               </div>
+              {verifyMode && (() => {
+                const key = standKeyOf(sf.unit, site);
+                const v = regVerified[key];
+                const okN = its.filter(unitConfirmed).length;
+                const can = its.every(unitConfirmed);
+                const title = `${site || "Stand"}${sf.unit ? ` #${sf.unit}` : ""}`;
+                return (
+                  <div className="verifyCard">
+                    <div className="verifyCardHead">
+                      <span>🔍 Verify this stand</span>
+                      <span className="walkHeadCount">{its.length ? `${okN}/${its.length} confirmed` : "no cold equipment listed"}</span>
+                    </div>
+                    <div className="verifyHint">For each unit: <b>✔ It's here</b> if it is really there, <b>✏ Fix</b> the name/brand/location, <b>🗑 Not here</b> if it is gone. Missing one? <b>➕ Add</b> it. Then mark the stand verified.</div>
+                    {its.length > 0 && <div className="standFocusRows">{its.map(renderVerifyRow)}</div>}
+                    <div className="verifyFoot">
+                      {v ? (
+                        <>
+                          <span className="verifyDone">✅ Verified {new Date(v.at).toLocaleDateString()} · {v.units ? `${v.units} unit${v.units !== 1 ? "s" : ""}` : "no cold equipment"}</span>
+                          <button type="button" className="walkMini" onClick={() => unverifyStand(key)}>↩ Re-verify</button>
+                        </>
+                      ) : (
+                        <button type="button" className="verifyMarkBtn" disabled={!can} onClick={() => markStandVerified(key, title)}>
+                          {its.length === 0 ? "✅ Verified — no cold equipment here" : can ? "✅ Mark stand verified" : `Confirm every unit first (${its.length - okN} left)`}
+                        </button>
+                      )}
+                      <button type="button" className="walkMini verifyStartOver" onClick={() => startOverStand(key, standObj)}>♻ Start over</button>
+                    </div>
+                  </div>
+                );
+              })()}
               {its.length === 0 ? (
-                <div className="standFocusEmpty">This stand has no cooler / freezer QR yet. Tap <b>➕ Add cooler / freezer</b>, pick the unit type, fill brand + location — its label is ready to print.</div>
+                !verifyMode && <div className="standFocusEmpty">This stand has no cooler / freezer QR yet. Tap <b>➕ Add cooler / freezer</b>, pick the unit type, fill brand + location — its label is ready to print.</div>
               ) : (
-                <div className="standFocusRows">{its.map(renderWalkRow)}</div>
+                !verifyMode && <div className="standFocusRows">{its.map(renderWalkRow)}</div>
               )}
-              {its.length > 0 && renderGroup(grp)}
+              {its.length > 0 && !verifyMode && renderGroup(grp)}
             </div>
           );
         })()}
@@ -19092,7 +19224,7 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
             <div className="printHide" style={{
               position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 200,
               background: "#1d4ed8", color: "#fff",
-              display: (walkMode || standFocus) ? "none" : "flex", alignItems: "center", justifyContent: "space-between",
+              display: (walkMode || verifyMode || standFocus) ? "none" : "flex", alignItems: "center", justifyContent: "space-between",
               padding: "14px 20px calc(14px + env(safe-area-inset-bottom, 0px))", gap: 12,
               boxShadow: "0 -4px 16px rgba(0,0,0,0.18)",
             }}>
@@ -19132,9 +19264,10 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
               // don't lie"): name drift can't split one stand's equipment.
               const q = (labelSearch || "").trim().toLowerCase();
               const qUnit = normUnit(q);
-              const visible = !q ? equipItems : equipItems.filter(it =>
+              const visible = (!q ? equipItems : equipItems.filter(it =>
                 (qUnit && normUnit(it.unit).includes(qUnit)) ||
-                [it.venueName, it.label, it.assetTag, it.floor].some(v => (v || "").toLowerCase().includes(q)));
+                [it.venueName, it.label, it.assetTag, it.floor].some(v => (v || "").toLowerCase().includes(q))))
+                .filter(it => !verifyOnly || regVerified[standKeyOf(it.unit, it.venueName)]);
               const byKey = {};
               for (const it of visible) {
                 const key = (it.unit || "").trim() ? `u:${normUnit(it.unit)}` : `s:${(it.venueName || "—").toLowerCase()}`;
@@ -19226,12 +19359,77 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
                   </div>
                 );
               };
+              const renderVerify = () => {
+                // Every stand we know: label groups + stands whose reports had no cold unit
+                const byK = {};
+                for (const it of equipItems) {
+                  const key = standKeyOf(it.unit, it.venueName);
+                  if (!byK[key]) byK[key] = { key, unit: (it.unit || "").trim(), site: it.venueName || "", floor: floorForStand(it.unit, it.venueName, it.floor), locType: it.locType || "", items: [] };
+                  byK[key].items.push(it);
+                  if (!byK[key].site && it.venueName) byK[key].site = it.venueName;
+                }
+                for (const sn of standsNoEquip) if (!byK[sn.key]) byK[sn.key] = { key: sn.key, unit: sn.unit || "", site: sn.venueName || "", floor: sn.floor || "", locType: sn.locType || "", items: [] };
+                const stands = Object.values(byK).sort((a, b) => (a.unit && b.unit) ? a.unit.localeCompare(b.unit, undefined, { numeric: true }) : a.unit ? -1 : b.unit ? 1 : a.site.localeCompare(b.site));
+                const vFloors = {};
+                for (const st of stands) { const f = st.floor || "No floor"; (vFloors[f] = vFloors[f] || []).push(st); }
+                const fl = Object.keys(vFloors).sort((a, b) => floorRank(a) - floorRank(b) || a.localeCompare(b));
+                const isV = st => !!regVerified[st.key];
+                const doneN = stands.filter(isV).length;
+                const okUnits = equipItems.filter(unitConfirmed).length;
+                const pct = stands.length ? Math.round(doneN / stands.length * 100) : 0;
+                const next = fl.flatMap(f => vFloors[f]).find(st => !isV(st));
+                const openStand = st => focusOnStand({ unit: st.unit, site: st.site, floor: st.floor, locType: st.locType });
+                return (
+                  <div className="walkWrap verifyWrap">
+                    <div className="walkHead">
+                      <div className="walkHeadRow">
+                        <span style={{ fontWeight: 800 }}>🔍 Verify walk</span>
+                        <span className="walkHeadCount">{doneN}/{stands.length} stands verified · {okUnits}/{equipItems.length} units confirmed · {pct}%</span>
+                      </div>
+                      <div className="walkProg"><div className="walkProgBar" style={{ width: `${pct}%` }} /></div>
+                      <div className="walkHeadRow">
+                        {fl.map(f => { const n = vFloors[f].filter(isV).length; return <span key={f} className={"verifyFloorChip" + (n === vFloors[f].length ? " done" : "")}>{f}: {n}/{vFloors[f].length}</span>; })}
+                      </div>
+                      <div className="walkHeadRow">
+                        {next && <button type="button" className="lblFloorChip verifyNext" onClick={() => openStand(next)}>➡ Next: {next.site || "Stand"}{next.unit ? ` #${next.unit}` : ""}</button>}
+                        {!next && stands.length > 0 && <span className="verifyDone">🎉 Every stand is verified.</span>}
+                        <button type="button" className="lblFloorChip" onClick={() => setWalkScanOpen(true)}>📷 Scan stand QR</button>
+                        <button type="button" className="lblFloorChip" onClick={exportWalkSheet}>📥 Sheet</button>
+                        <button type="button" className={"lblFloorChip" + (verifyOnly ? " lblWalkToggle on" : "")} onClick={() => setVerifyOnly(v => !v)} title="Labels, floor prints and the sheet only include verified stands">{verifyOnly ? "✓ " : ""}Verified only</button>
+                      </div>
+                      <div style={{ fontSize: "0.76rem", color: "var(--ink-500)" }}>Go stand by stand: open it (or scan its QR), confirm / fix / remove each unit, add what is missing, then <b>Mark stand verified</b>.</div>
+                    </div>
+                    {fl.map(f => (
+                      <div key={f}>
+                        <div className="printHide lblFloorHead">
+                          <span>🏢 {f}</span>
+                          <span className="lblFloorCount">{vFloors[f].filter(isV).length}/{vFloors[f].length} stands verified</span>
+                        </div>
+                        {vFloors[f].map(st => {
+                          const okN = st.items.filter(unitConfirmed).length;
+                          return (
+                            <button key={st.key} type="button" className={"walkStand verifyStand" + (isV(st) ? " verified" : "")} onClick={() => openStand(st)}>
+                              <span className="walkRowIcon">{isV(st) ? "✅" : "⬜"}</span>
+                              <span style={{ fontWeight: 800 }}>{st.site || "—"}{st.unit ? ` · #${st.unit}` : ""}</span>
+                              <span className="walkRowMeta">{st.items.length ? `${st.items.length} unit${st.items.length !== 1 ? "s" : ""} · ${okN} confirmed` : (isV(st) ? "no cold equipment" : "no cooler / freezer listed")}</span>
+                              <span className="walkRowTag">📍 open</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ))}
+                  </div>
+                );
+              };
               return (
                 <>
                   {/* Floor summary — how many labels per floor, print a whole floor at once */}
                   <div className="printHide lblFloorBar">
                     <span className="lblFloorTotal">🏷 {totalUnits} label{totalUnits !== 1 ? "s" : ""} · {groups.length} stand{groups.length !== 1 ? "s" : ""}</span>
-                    <button type="button" className={"lblFloorChip lblWalkToggle" + (walkMode ? " on" : "")} onClick={() => setWalkMode(v => !v)} title="Walk the building: fill brand + location for every label and mark it stuck">
+                    <button type="button" className={"lblFloorChip lblVerifyToggle" + (verifyMode ? " on" : "")} onClick={() => { setVerifyMode(v => !v); setWalkMode(false); }} title="Verify every stand: confirm, fix or remove each unit, then mark the stand verified">
+                      🔍 Verify walk{verifyMode ? " ✓" : ""}
+                    </button>
+                    <button type="button" className={"lblFloorChip lblWalkToggle" + (walkMode ? " on" : "")} onClick={() => { setWalkMode(v => !v); setVerifyMode(false); }} title="Walk the building: fill brand + location for every label and mark it stuck">
                       🚶 Setup walk{walkMode ? " ✓" : ""}
                     </button>
                     <button type="button" className="lblFloorChip" onClick={() => setWalkScanOpen(true)} title="Scan an equipment label or a stand QR">📷 Scan</button>
@@ -19265,8 +19463,9 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
                       ))}
                     </div>
                   )}
+                  {verifyMode && renderVerify()}
                   {walkMode && renderWalk()}
-                  {!walkMode && floors.map(f => (
+                  {!walkMode && !verifyMode && floors.map(f => (
                     <div key={f}>
                       <div className="printHide lblFloorHead">
                         <span>🏢 {f}</span>
