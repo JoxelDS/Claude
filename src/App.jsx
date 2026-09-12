@@ -19976,6 +19976,7 @@ function standSeeds() {
 }
 // Every stand we know (kitchen registry → seeds → inspection history), licenses synced.
 // Shared by the QR posters page and the equipment labels page so both see the same stands.
+let _standRemoved = []; // stands hidden with ✕ — restorable
 async function loadStandList() {
   const SEED_KITCHENS = standSeeds();
 
@@ -19988,6 +19989,11 @@ async function loadStandList() {
     const reg = snap.exists() ? (snap.data() || {}) : {};
     regItems = reg.items || {};
     regHidden = reg.hidden || {};
+    // Removed stands we can bring back (hidden, but their record is still here)
+    const rem = [];
+    for (const [rid, k] of Object.entries(regItems)) { const id = k.unit ? `u:${normUnit(k.unit)}` : `s:${(k.site || "").toLowerCase()}`; if ((regHidden[rid] || regHidden[id]) && !rem.some(r => r.id === id)) rem.push({ id, rid, site: k.site || "", unit: k.unit || "", floor: k.floor || "", license: k.license || "", locType: k.locType || "" }); }
+    for (const k of SEED_KITCHENS) { if ((regHidden[k.id] || regHidden[`${(k.site || "").toLowerCase()}|${(k.unit || "").toLowerCase()}`]) && !rem.some(r => r.id === k.id)) rem.push({ ...k, rid: k.id }); }
+    _standRemoved = rem;
   } catch {}
   // Identity is the UNIT NUMBER (u:142A); names are display only, so name
   // variants of the same unit collapse into one card. Registry (user
@@ -20201,12 +20207,24 @@ function KitchenQrPage({ onBack, onPrintLabels, onStandEquipment }) {
     setAddSite(""); setAddUnit(""); setAddLicense(""); setAddLicHint(""); setAddType("Concession");
     setAddFlash({ k: newK }); setTimeout(() => setAddFlash(f => (f && f.k.id === id ? null : f)), 12000);
     // Persist so the stand survives reloads and shows on every device
-    try { setDoc(doc(db, "venues", VENUE_ID, "sharedMemory", "kitchenRegistry"), { items: { [id]: { site, unit, floor, license, locType: addType } }, hidden: { [id]: false } }, { merge: true }).catch(() => {}); } catch {}
+    setNewId(id); setTimeout(() => setNewId(n => (n === id ? null : n)), 4000);
+    setTimeout(() => { try { document.getElementById(`kqr_${id}`)?.scrollIntoView({ behavior: "smooth", block: "center" }); } catch {} }, 150);
+    try { setDoc(doc(db, "venues", VENUE_ID, "sharedMemory", "kitchenRegistry"), { items: { [id]: { site, unit, floor, license, locType: addType } }, hidden: { [id]: false, [`${site.toLowerCase()}|${unit.toLowerCase()}`]: false } }, { merge: true }).catch(() => {}); } catch {}
   }
 
   function removeKitchen(id) {
-    setKitchens(prev => prev.filter(k => k.id !== id));
+    const k = kitchens.find(x => x.id === id);
+    setKitchens(prev => prev.filter(x => x.id !== id));
+    if (k && !_standRemoved.some(r => r.id === id)) { _standRemoved = [{ ...k, rid: id }, ..._standRemoved]; setRemovedTick(t => t + 1); }
     try { setDoc(doc(db, "venues", VENUE_ID, "sharedMemory", "kitchenRegistry"), { hidden: { [id]: true } }, { merge: true }).catch(() => {}); } catch {}
+  }
+  function restoreKitchen(r) {
+    const k = { id: r.id, site: r.site || "", unit: r.unit || "", floor: floorForStand(r.unit, r.site, r.floor), license: r.license || "", locType: r.locType || "" };
+    _standRemoved = _standRemoved.filter(x => x.id !== r.id); setRemovedTick(t => t + 1);
+    setKitchens(prev => prev.some(x => x.id === k.id) ? prev : [k, ...prev]);
+    setNewId(k.id); setTimeout(() => setNewId(n => (n === k.id ? null : n)), 4000);
+    const hidden = { [r.id]: false, [`${(r.site || "").toLowerCase()}|${(r.unit || "").toLowerCase()}`]: false }; if (r.rid && r.rid !== r.id) hidden[r.rid] = false;
+    try { setDoc(doc(db, "venues", VENUE_ID, "sharedMemory", "kitchenRegistry"), { items: { [r.id]: { site: k.site, unit: k.unit, floor: k.floor, license: k.license, locType: k.locType } }, hidden }, { merge: true }).catch(() => {}); } catch {}
   }
 
   // Inline per-card editing (name / unit / floor / license) — persisted to the
@@ -20242,7 +20260,10 @@ function KitchenQrPage({ onBack, onPrintLabels, onStandEquipment }) {
   // A stand is "complete" when it has a name, a unit number, and a license —
   // only complete stands show (and print) by default.
   const isComplete = k => !!(k.site && k.site.trim() && normUnit(k.unit) && (k.license || "").trim());
-  const [showIncomplete, setShowIncomplete] = useState(true); // v404: QR posters go up even before the license is issued
+  const [missingPick, setMissingPick] = useState(false); // filter: stands missing unit # or license
+  const [showRemoved, setShowRemoved] = useState(false);
+  const [removedTick, setRemovedTick] = useState(0);
+  const [newId, setNewId] = useState(null); // just-added card gets a highlight
   // Tap-to-select which posters to print (empty selection = print all shown)
   const [selectedIds, setSelectedIds] = useState(new Set());
   const toggleSelect = id => setSelectedIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
@@ -20250,7 +20271,7 @@ function KitchenQrPage({ onBack, onPrintLabels, onStandEquipment }) {
     ? kitchens.filter(k => `${k.site} ${k.unit} ${k.floor} ${k.license || ""}`.toLowerCase().includes(search.trim().toLowerCase()))
     : kitchens;
   const incompleteCount = searched.filter(k => !isComplete(k)).length;
-  const shown = (showIncomplete ? searched : searched.filter(isComplete)).filter(k => !kTypePick || kTypeGroup(k.locType) === kTypePick);
+  const shown = searched.filter(k => !missingPick || !isComplete(k)).filter(k => !kTypePick || kTypeGroup(k.locType) === kTypePick);
   const kTypeCounts = (() => { const c = {}; for (const k of kitchens) { const g = kTypeGroup(k.locType); c[g] = (c[g] || 0) + 1; } return c; })();
 
   function printPosters() {
@@ -20368,6 +20389,7 @@ function KitchenQrPage({ onBack, onPrintLabels, onStandEquipment }) {
           {[["con", "CONCESSION"], ["port", "PORTABLE"], ["sub", "SUBCONTRACTOR"], ["psub", "PORTABLE · SUB"], ["other", "OTHER"], ["none", "TYPE?"]].filter(([g]) => kTypeCounts[g]).map(([g, lb]) => (
             <button key={g} type="button" className={"lblFloorChip stTypeChip " + (kTypePick === g ? "on" : "")} onClick={() => setKTypePick(kTypePick === g ? "" : g)}>{lb} {kTypeCounts[g]}</button>
           ))}
+          {incompleteCount > 0 && <button type="button" className={"lblFloorChip stTypeChip lblToAdd " + (missingPick ? "on" : "")} onClick={() => setMissingPick(v => !v)} title="Stands still missing a unit # or license — they show like every other stand">⚠ MISSING INFO {incompleteCount}</button>}
         </div>
         {/* Search — separate from adding */}
         <div className="kqrSearch">
@@ -20414,33 +20436,7 @@ function KitchenQrPage({ onBack, onPrintLabels, onStandEquipment }) {
           </div>
         )}
         {!loading && searched.length > 0 && shown.length === 0 && (
-          <div style={{ background: "var(--surface-1)", borderRadius: 12, padding: "2rem 1.25rem", textAlign: "center", marginBottom: 14 }}>
-            <div style={{ fontSize: "2rem", marginBottom: 8 }}>🏷</div>
-            <div style={{ fontWeight: 800, fontSize: "0.95rem", color: "var(--ink-800)", marginBottom: 6 }}>
-              {incompleteCount} stand{incompleteCount !== 1 ? "s are" : " is"} waiting for a unit # or license
-            </div>
-            <div style={{ fontSize: "0.8rem", color: "var(--ink-500)", marginBottom: 14 }}>
-              Complete stands show here automatically. Tap below, then use ✎ on each card to fill in what's missing.
-            </div>
-            <button type="button" onClick={() => setShowIncomplete(true)}
-              style={{ background: "var(--sdx-navy)", color: "#fff", border: "none", borderRadius: 10, padding: "0.65rem 1.4rem", fontWeight: 800, fontSize: "0.9rem", cursor: "pointer" }}>
-              Show them to finish
-            </button>
-          </div>
-        )}
-
-        {incompleteCount > 0 && shown.length > 0 && (
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
-            <span style={{ fontSize: "0.78rem", color: "var(--ink-500)", fontWeight: 600 }}>
-              {showIncomplete
-                ? `Showing all stands — ${incompleteCount} missing info (unit or license)`
-                : `⚠ ${incompleteCount} stand${incompleteCount !== 1 ? "s" : ""} hidden — missing unit # or license`}
-            </span>
-            <button type="button" onClick={() => setShowIncomplete(v => !v)}
-              style={{ fontSize: "0.75rem", fontWeight: 700, padding: "0.3rem 0.85rem", borderRadius: 999, border: "1.5px solid var(--sdx-gray-200)", background: "var(--surface-2)", color: "var(--ink-600)", cursor: "pointer" }}>
-              {showIncomplete ? "Hide incomplete" : "Show them to finish"}
-            </button>
-          </div>
+          <div style={{ background: "var(--surface-1)", borderRadius: 12, padding: "1.5rem", textAlign: "center", color: "var(--ink-500)", marginBottom: 14 }}>Nothing matches this filter.</div>
         )}
         {shown.length > 0 && (
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
@@ -20462,7 +20458,7 @@ function KitchenQrPage({ onBack, onPrintLabels, onStandEquipment }) {
         )}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(230px, 1fr))", gap: 14 }}>
           {shown.map(k => (
-            <div key={k.id} style={{ background: "var(--surface-1)", borderRadius: 12, overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,0.08)", border: selectedIds.has(k.id) ? `2.5px solid ${brandColor}` : "1.5px solid var(--sdx-gray-200)", position: "relative" }}>
+            <div key={k.id} id={`kqr_${k.id}`} className={newId === k.id ? "kqrNew" : ""} style={{ background: "var(--surface-1)", borderRadius: 12, overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,0.08)", border: selectedIds.has(k.id) ? `2.5px solid ${brandColor}` : "1.5px solid var(--sdx-gray-200)", position: "relative" }}>
               {selectedIds.has(k.id) && (
                 <div style={{ position: "absolute", top: 42, right: 8, background: brandColor, color: "#fff", borderRadius: 999, width: 26, height: 26, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: "0.85rem", zIndex: 2, boxShadow: "0 1px 4px rgba(0,0,0,0.3)" }}>✓</div>
               )}
@@ -20535,6 +20531,18 @@ function KitchenQrPage({ onBack, onPrintLabels, onStandEquipment }) {
             </div>
           ))}
         </div>
+        {(() => { void removedTick; const rem = _standRemoved; return rem.length > 0 ? (
+          <div className="kqrRemoved">
+            <button type="button" className="licToggle" onClick={() => setShowRemoved(v => !v)}>♻ Removed stands ({rem.length}) {showRemoved ? "▾" : "▸"}</button>
+            {showRemoved && rem.map(r => (
+              <div key={r.id} className="lblToAddRow">
+                <span style={{ fontWeight: 700, textTransform: "uppercase" }}>{r.site || "—"}{r.unit ? ` · #${r.unit}` : ""}</span>
+                <span style={{ color: "var(--ink-500)", fontSize: "0.74rem" }}>{[r.floor, r.locType, r.license ? `🪪 ${r.license}` : ""].filter(Boolean).join(" · ")}</span>
+                <button type="button" className="lblFloorChip" style={{ marginLeft: "auto" }} onClick={() => restoreKitchen(r)}>↩ Restore</button>
+              </div>
+            ))}
+          </div>
+        ) : null; })()}
       </div>
     </div>
   );

@@ -8246,3 +8246,8 @@ html[data-theme="dark"] .fuStOnWaiting, html[data-theme="black"] .fuStOnWaiting 
 .kqrAddHead { font-weight: 900; font-size: 0.9rem; color: var(--ink-900); margin-bottom: 8px; display: flex; gap: 8px; flex-wrap: wrap; align-items: baseline; }
 .kqrAddHint { font-weight: 600; font-size: 0.74rem; color: var(--ink-500); }
 .kqrAddRow { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+
+/* ── v406: new stands never vanish; removed stands restorable ── */
+.kqrNew { outline: 3px solid #16a34a !important; animation: kqrPulse 1.2s ease-in-out 3; }
+@keyframes kqrPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(22,163,74,0.5); } 50% { box-shadow: 0 0 0 10px rgba(22,163,74,0); } }
+.kqrRemoved { margin-top: 18px; padding-top: 10px; border-top: 1px dashed var(--sdx-gray-200); }
