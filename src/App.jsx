@@ -1231,7 +1231,7 @@ async function _fetchUsersFresh() {
     setTimeout(() => reject(new Error("Firestore timeout after 8s")), 8000)
   );
   const snap = await Promise.race([getDocs(col), timeout]);
-  const users = snap.docs.map(d => d.data());
+  const users = snap.docs.map(d => d.data()).filter(u => !u.removed);
   _speedCache.users = users;
   _speedCache.usersTs = Date.now();
   try { localStorage.setItem(`sdx_users_cache_${activeVenueId}`, JSON.stringify(users)); } catch {}
@@ -1265,7 +1265,7 @@ async function getUsers(opts = {}) {
       throw e; // surface so sign-in shows a real error instead of "badge not recognized"
     }
   }
-  try { return JSON.parse(localStorage.getItem(USERS_KEY) || "[]"); }
+  try { return JSON.parse(localStorage.getItem(USERS_KEY) || "[]").filter(u => !u.removed); }
   catch { return []; }
 }
 
@@ -1307,7 +1307,15 @@ async function saveOneUser(user) {
 async function deleteOneUser(badgeHash) {
   if (FIREBASE_ON) {
     const col = IS_DEFAULT_VENUE() ? legacyCol("users") : venueCol("users");
-    await deleteDoc(doc(col, badgeHash));
+    try {
+      await deleteDoc(doc(col, badgeHash));
+    } catch (e) {
+      // The database rules don't allow hard deletes — retire the record
+      // instead (approved off + removed flag); every reader skips it.
+      const users = await getUsers();
+      const u = users.find(x => x.badgeHash === badgeHash) || { badgeHash, name: "", role: "inspector" };
+      await setDoc(doc(col, badgeHash), { ...u, approved: false, removed: true, removedAt: new Date().toISOString() }, { merge: true });
+    }
     _invalidateUserCache();
     return;
   }
@@ -20733,6 +20741,7 @@ function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVe
       // Restore original list if the delete failed
       setUsers(prevUsers);
       setRemoveError("Failed to remove user: " + (e?.message || "Unknown error. Check your internet connection."));
+      try { alert("Could not remove this user: " + (e?.message || "check your connection and try again.")); } catch {}
     }
   }
 
