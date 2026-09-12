@@ -904,10 +904,39 @@ function licTypeForLocationType(lt) {
 // Resolve a unit (+ optional location type) to its official license entry.
 // Returns { unit, type, license, name, status } or null. When several
 // licenses share the unit, the location type picks the right one.
+// ── Live license registry (v404): INDEX sheet + the inspector's own updates ──
+// venues/{VENUE_ID}/sharedMemory/licenseRegistry → { items: { rowKey: { unit, type, name, license, status, note } } }
+const LIC_OVERLAY_LS = `sdx_license_overlay_${VENUE_ID}`;
+let _licenseOverlay = {};
+try { _licenseOverlay = JSON.parse(localStorage.getItem(LIC_OVERLAY_LS) || "{}"); } catch {}
+const licRowKey = r => `${normUnit(r.unit)}|${r.type || ""}|${String(r.name || "").trim().toLowerCase()}`;
+function licenseRows() {
+  const seen = new Set();
+  const out = LICENSE_REGISTRY.map(r => { const k = licRowKey(r); seen.add(k); const o = _licenseOverlay[k]; return o && !o.removed ? { ...r, ...o, key: k } : o?.removed ? null : { ...r, key: k }; }).filter(Boolean);
+  for (const [k, o] of Object.entries(_licenseOverlay)) { if (seen.has(k) || !o || o.removed) continue; out.push({ ...o, key: k }); }
+  return out;
+}
+async function loadLicenseOverlay() {
+  try {
+    const snap = await getDoc(doc(db, "venues", VENUE_ID, "sharedMemory", "licenseRegistry"));
+    const d = snap.exists() ? (snap.data() || {}) : {};
+    _licenseOverlay = d.items || {};
+    try { localStorage.setItem(LIC_OVERLAY_LS, JSON.stringify(_licenseOverlay)); } catch {}
+    window.dispatchEvent(new CustomEvent("sdx-licenses-changed"));
+  } catch {}
+  return _licenseOverlay;
+}
+async function saveLicenseRow(key, patch) {
+  const rec = { ...(_licenseOverlay[key] || {}), ...patch, updatedAt: Date.now(), by: "Inspector" };
+  _licenseOverlay = { ..._licenseOverlay, [key]: rec };
+  try { localStorage.setItem(LIC_OVERLAY_LS, JSON.stringify(_licenseOverlay)); } catch {}
+  window.dispatchEvent(new CustomEvent("sdx-licenses-changed"));
+  try { if (FIREBASE_ON) await setDoc(doc(db, "venues", VENUE_ID, "sharedMemory", "licenseRegistry"), { items: { [key]: rec } }, { merge: true }); } catch {}
+}
 function lookupLicenseByUnitType(unitVal, locationType) {
   const u = normUnit(unitVal);
   if (!u) return null;
-  const rows = LICENSE_REGISTRY.filter(r => normUnit(r.unit) === u);
+  const rows = licenseRows().filter(r => normUnit(r.unit) === u);
   if (rows.length === 0) return null;
   const t = licTypeForLocationType(locationType);
   const pick = list => list.find(r => r.status === "ACTIVE" && r.license) || list.find(r => r.license) || list[0] || null;
@@ -19999,7 +20028,7 @@ async function loadStandList() {
     // also CORRECTS a card whose stored license belongs to a different
     // unit — numbers don't lie, licenses follow their unit.
     const unitByLicense = {};
-    for (const r of LICENSE_REGISTRY) { if (r.license) unitByLicense[r.license] = normUnit(r.unit); }
+    for (const r of licenseRows()) { if (r.license) unitByLicense[r.license] = normUnit(r.unit); }
     for (const k of list) {
       if (!k.unit) continue;
       const reg = lookupLicenseByUnitType(k.unit, k.locType);
@@ -20102,6 +20131,25 @@ function KitchenQrPage({ onBack, onPrintLabels, onStandEquipment }) {
   // Equipment at each stand comes from the shared registry mirror
   const [equipTick, setEquipTick] = useState(0);
   useEffect(() => { warmEquipRegistry().then(() => setEquipTick(t => t + 1)).catch(() => {}); }, []);
+  // License registry: live rows (INDEX + edits), editable here
+  const [licTick, setLicTick] = useState(0);
+  useEffect(() => { loadLicenseOverlay().then(() => setLicTick(t => t + 1)); const on = () => setLicTick(t => t + 1); window.addEventListener("sdx-licenses-changed", on); return () => window.removeEventListener("sdx-licenses-changed", on); }, []);
+  const [licEdit, setLicEdit] = useState(null); // { key, unit, type, name, license, status, note, isNew }
+  const [showAllLic, setShowAllLic] = useState(false);
+  async function saveLicEdit() {
+    const e = licEdit; if (!e) return;
+    const unit = e.unit.trim().toUpperCase(), name = e.name.trim(), license = e.license.trim().toUpperCase();
+    if (!unit || !name) { alert("Unit and stand name are required."); return; }
+    if (e.status === "ACTIVE" && !license) { alert("Enter the license number to mark it ACTIVE."); return; }
+    const key = e.isNew ? `new_${Date.now().toString(36)}` : e.key;
+    await saveLicenseRow(key, { unit, type: e.type || "C", name, license, status: e.status, note: e.note.trim() });
+    // A live license belongs on the stand card too, so posters / panel show it
+    if (e.status === "ACTIVE" && license) {
+      const k = kitchens.find(x => normUnit(x.unit) === normUnit(unit) && !(x.license || "").trim());
+      if (k) { setKitchens(prev => prev.map(x => x.id === k.id ? { ...x, license } : x)); try { setDoc(doc(db, "venues", VENUE_ID, "sharedMemory", "kitchenRegistry"), { items: { [k.id]: { license } } }, { merge: true }).catch(() => {}); } catch {} }
+    }
+    setLicEdit(null);
+  }
 
   useEffect(() => {
     if (kitchens.length === 0) return;
@@ -20162,7 +20210,7 @@ function KitchenQrPage({ onBack, onPrintLabels, onStandEquipment }) {
   // A stand is "complete" when it has a name, a unit number, and a license —
   // only complete stands show (and print) by default.
   const isComplete = k => !!(k.site && k.site.trim() && normUnit(k.unit) && (k.license || "").trim());
-  const [showIncomplete, setShowIncomplete] = useState(false);
+  const [showIncomplete, setShowIncomplete] = useState(true); // v404: QR posters go up even before the license is issued
   // Tap-to-select which posters to print (empty selection = print all shown)
   const [selectedIds, setSelectedIds] = useState(new Set());
   const toggleSelect = id => setSelectedIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
@@ -20225,9 +20273,21 @@ function KitchenQrPage({ onBack, onPrintLabels, onStandEquipment }) {
         {IS_DEFAULT_VENUE() && (() => {
           // A license typed on the stand's card counts — the INDEX sheet may lag behind
           const hasLic = r => kitchens.some(k => (k.license || "").trim() && normUnit(k.unit) && normUnit(k.unit) === normUnit(r.unit));
-          const active = LICENSE_REGISTRY.filter(r => (r.status === "ACTIVE" && r.license) || ((r.status === "REQUESTED" || r.status === "NEEDED") && hasLic(r)));
-          const pending = LICENSE_REGISTRY.filter(r => (r.status === "REQUESTED" || r.status === "NEEDED") && !hasLic(r));
-          const fileRef = LICENSE_REGISTRY.filter(r => r.status === "FILE_REF");
+          const rowsAll = licenseRows(); void licTick;
+          const active = rowsAll.filter(r => (r.status === "ACTIVE" && r.license) || ((r.status === "REQUESTED" || r.status === "NEEDED") && hasLic(r)));
+          const pending = rowsAll.filter(r => (r.status === "REQUESTED" || r.status === "NEEDED") && !hasLic(r));
+          const fileRef = rowsAll.filter(r => r.status === "FILE_REF");
+          const edited = Object.keys(_licenseOverlay).length;
+          const openEdit = r => setLicEdit({ key: r.key, unit: r.unit || "", type: r.type || "C", name: r.name || "", license: r.license || "", status: r.status || "NEEDED", note: r.note || "", isNew: false });
+          const licRow = (r, i) => (
+            <div key={r.key || i} className="licRow">
+              <span className={`licChip ${r.status === "ACTIVE" ? "licChipOk" : r.status === "REQUESTED" ? "licChipReq" : r.status === "FILE_REF" ? "licChipRef" : "licChipNeed"}`}>{r.status === "ACTIVE" ? "✓ active" : r.status === "REQUESTED" ? "⏳ requested" : r.status === "FILE_REF" ? "📄 file ref" : "⚠ need"}</span>
+              <span style={{ fontWeight: 700 }}>{r.type === "P" ? "P" : ""}{r.unit} · {r.name}</span>
+              {r.license && <span style={{ fontFamily: "ui-monospace, monospace", fontSize: "0.76rem", fontWeight: 800 }}>{r.license}</span>}
+              {r.note && <span style={{ fontSize: "0.72rem", color: "var(--ink-500)" }}>— {r.note}</span>}
+              <button type="button" className="walkMini" onClick={() => openEdit(r)}>✎ Update</button>
+            </div>
+          );
           return (
             <div className="licHealth">
               <div className="licHealthHead">
@@ -20237,17 +20297,34 @@ function KitchenQrPage({ onBack, onPrintLabels, onStandEquipment }) {
                 <span className="licChip licChipNeed">⚠ {pending.filter(r => r.status === "NEEDED").length} need license</span>
                 {fileRef.length > 0 && <span className="licChip licChipRef">📄 {fileRef.length} file ref</span>}
                 <button type="button" className="licToggle" onClick={() => setShowLicList(v => !v)}>{showLicList ? "Hide" : "Show"} stands without a license</button>
+                <button type="button" className="licToggle" onClick={() => setLicEdit({ key: "", unit: "", type: "C", name: "", license: "", status: "NEEDED", note: "", isNew: true })}>➕ Add license row</button>
               </div>
+              {licEdit && (
+                <div className="licEdit">
+                  <div style={{ fontWeight: 800, fontSize: "0.86rem" }}>{licEdit.isNew ? "➕ New license row" : `✎ ${licEdit.type === "P" ? "P" : ""}${licEdit.unit} · ${licEdit.name}`}</div>
+                  <div className="licEditGrid">
+                    <input className="input" placeholder="Unit #" value={licEdit.unit} onChange={e => setLicEdit(f => ({ ...f, unit: e.target.value }))} />
+                    <input className="input" placeholder="Stand name" value={licEdit.name} onChange={e => setLicEdit(f => ({ ...f, name: e.target.value }))} />
+                    <input className="input" placeholder="License # (e.g. NOS2319780)" value={licEdit.license} onChange={e => setLicEdit(f => ({ ...f, license: e.target.value }))} />
+                    <input className="input" placeholder="Note (optional)" value={licEdit.note} onChange={e => setLicEdit(f => ({ ...f, note: e.target.value }))} />
+                  </div>
+                  <div className="walkLbl">Type</div>
+                  <div className="walkChips">{[["C", "Concession"], ["P", "Portable"], ["S", "Subcontractor"], ["K", "Kitchen"]].map(([t, lb]) => <button key={t} type="button" className={"walkChip" + (licEdit.type === t ? " on" : "")} onClick={() => setLicEdit(f => ({ ...f, type: t }))}>{lb}</button>)}</div>
+                  <div className="walkLbl">Status</div>
+                  <div className="walkChips">{[["NEEDED", "⚠ Need license"], ["REQUESTED", "⏳ Requested"], ["ACTIVE", "✓ Active"], ["FILE_REF", "📄 File ref"]].map(([st, lb]) => <button key={st} type="button" className={"walkChip" + (licEdit.status === st ? " on" : "")} onClick={() => setLicEdit(f => ({ ...f, status: st }))}>{lb}</button>)}</div>
+                  <div className="walkFillActions">
+                    <button type="button" className="btn btnGhost" onClick={() => setLicEdit(null)}>Cancel</button>
+                    <button type="button" className="btn btnPrimary" onClick={saveLicEdit}>💾 Save</button>
+                  </div>
+                </div>
+              )}
               {showLicList && (
                 <div className="licList">
-                  {pending.map((r, i) => (
-                    <div key={i} className="licRow">
-                      <span className={`licChip ${r.status === "REQUESTED" ? "licChipReq" : "licChipNeed"}`}>{r.status === "REQUESTED" ? "⏳ requested" : "⚠ need"}</span>
-                      <span style={{ fontWeight: 700 }}>{r.type === "P" ? "P" : ""}{r.unit} · {r.name}</span>
-                      {r.note && <span style={{ fontSize: "0.72rem", color: "var(--ink-500)" }}>— {r.note}</span>}
-                    </div>
-                  ))}
-                  <div style={{ fontSize: "0.72rem", color: "var(--ink-400)", marginTop: 6 }}>Source: INDEX_LICENSES_HR_STADIUM_2026 · NEW 2026 sheet. These stands cannot auto-fill a license on the inspection form until one is issued.</div>
+                  {pending.map(licRow)}
+                  {pending.length === 0 && <div style={{ fontSize: "0.8rem", color: "var(--ink-500)" }}>Every stand has a license. 🎉</div>}
+                  <button type="button" className="licToggle" style={{ marginTop: 6 }} onClick={() => setShowAllLic(v => !v)}>{showAllLic ? "Hide" : "Show"} all {rowsAll.length} rows (fix a number)</button>
+                  {showAllLic && [...active, ...fileRef].map(licRow)}
+                  <div style={{ fontSize: "0.72rem", color: "var(--ink-400)", marginTop: 6 }}>Source: INDEX_LICENSES_HR_STADIUM_2026 · NEW 2026 sheet{edited ? ` + your updates (${edited} row${edited !== 1 ? "s" : ""})` : ""}. Tap ✎ Update when a license is requested or issued.</div>
                 </div>
               )}
             </div>
@@ -20388,7 +20465,7 @@ function KitchenQrPage({ onBack, onPrintLabels, onStandEquipment }) {
                   {qrUrls[k.id]
                     ? <img src={qrUrls[k.id]} alt="" width={150} height={150} />
                     : <div style={{ width: 150, height: 150, margin: "0 auto", background: "var(--surface-2)", borderRadius: 6 }} />}
-                  <div style={{ fontSize: "0.72rem", color: "var(--ink-500)", marginTop: 6 }}>{[k.locType, k.floor, k.license ? `Lic. ${k.license}` : ""].filter(Boolean).join(" · ") || "Scan to log temps & problems"}{!k.license && LICENSE_REGISTRY.some(r => normUnit(r.unit) === normUnit(k.unit) && (r.status === "NEEDED" || r.status === "REQUESTED")) && <span className="licChip licChipNeed" style={{ marginLeft: 6 }}>⚠ no license yet</span>}</div>
+                  <div style={{ fontSize: "0.72rem", color: "var(--ink-500)", marginTop: 6 }}>{[k.locType, k.floor, k.license ? `Lic. ${k.license}` : ""].filter(Boolean).join(" · ") || "Scan to log temps & problems"}{!k.license && licenseRows().some(r => normUnit(r.unit) === normUnit(k.unit) && (r.status === "NEEDED" || r.status === "REQUESTED")) && <span className="licChip licChipNeed" style={{ marginLeft: 6 }}>⚠ no license yet</span>}</div>
                   {(() => {
                     const eq = equipUnitsAtStand(k.unit, k.site);
                     const nC = eq.filter(x => !x.freezer).length, nF = eq.length - nC;
@@ -22135,7 +22212,7 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
   const [fastScan, setFastScan] = useState(false);       // one-step label scanner (QrScanModal)
   const [scanNote, setScanNote] = useState("");          // "❄ 2-Door Cooler — enter temp" flash
   const [lastByTag, setLastByTag] = useState({});        // { TAG: "38°F · Aug 28" } → temp placeholder
-  useEffect(() => { if (sectionKey === "equipment") warmEquipRegistry().catch(() => {}); }, [sectionKey]);
+  useEffect(() => { if (sectionKey === "equipment") { warmEquipRegistry().catch(() => {}); loadLicenseOverlay(); } }, [sectionKey]);
   // Open an item, scroll to it and put the cursor in its temperature box
   function focusEquipItem(key) {
     setOpen(true);
@@ -29397,7 +29474,7 @@ export default function App() {
                       return <span style={{ marginLeft: 6, fontSize: "0.7rem", background: "#d1fae5", color: "#065f46", padding: "1px 7px", borderRadius: 20, fontWeight: 700 }}>Remembered</span>;
                     // INDEX 2026: this unit is still waiting on a license
                     const pend = !restaurantLicense && IS_DEFAULT_VENUE() && normUnit(siteNumber)
-                      ? LICENSE_REGISTRY.find(r => normUnit(r.unit) === normUnit(siteNumber) && (r.status === "REQUESTED" || r.status === "NEEDED") && r.type === (licTypeForLocationType(locationType) || r.type))
+                      ? licenseRows().find(r => normUnit(r.unit) === normUnit(siteNumber) && (r.status === "REQUESTED" || r.status === "NEEDED") && r.type === (licTypeForLocationType(locationType) || r.type))
                       : null;
                     return pend
                       ? <span className="licChip licChipNeed" style={{ marginLeft: 6 }}>{pend.status === "REQUESTED" ? "⏳ License requested — not issued yet" : "⚠ No license on file for this stand"}</span>
