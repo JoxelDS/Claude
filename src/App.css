@@ -8095,3 +8095,51 @@ html[data-theme="dark"] .fuStOnWaiting, html[data-theme="black"] .fuStOnWaiting 
 .crewNotMine { background: none; border: none; color: var(--ink-500); font-size: 0.72rem; font-weight: 700; cursor: pointer; padding: 4px 0 0; text-decoration: underline; }
 .crewMove { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 6px; font-size: 0.74rem; font-weight: 700; color: var(--ink-600); }
 .profileFlash { background: #f0fdf4; border: 1.5px solid #86efac; color: #166534; border-radius: 10px; padding: 8px 12px; font-weight: 700; font-size: 0.84rem; margin-bottom: 12px; }
+
+/* ── v391: global language switch (floating, every screen) ─────────── */
+.langFabWrap {
+  position: fixed;
+  right: max(12px, env(safe-area-inset-right));
+  bottom: calc(max(14px, env(safe-area-inset-bottom)) + 64px);
+  z-index: 10000;
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: flex-end;
+  gap: 10px;
+  pointer-events: none;
+}
+.langFabWrap > * { pointer-events: auto; }
+.langFab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 38px;
+  padding: 0 12px 0 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(42, 41, 92, 0.18);
+  background: rgba(255, 255, 255, 0.96);
+  color: #2A295C;
+  font-weight: 700;
+  font-size: 0.8rem;
+  box-shadow: 0 6px 20px rgba(20, 20, 60, 0.18);
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: transform .15s ease, box-shadow .15s ease;
+}
+.langFab:hover, .langFabActive { transform: translateY(-1px); box-shadow: 0 10px 26px rgba(20, 20, 60, 0.24); }
+.langFabSet { background: #2A295C; color: #fff; border-color: #2A295C; }
+.langFabFlag { font-size: 1.15rem; line-height: 1; }
+.langFabCode { white-space: nowrap; }
+.langPop {
+  position: static !important;
+  transform-origin: bottom right;
+  width: min(320px, calc(100vw - 24px)) !important;
+  max-height: min(70vh, 520px);
+  overflow: auto;
+}
+@media (max-width: 500px) {
+  .langFabCode { display: none; }
+  .langFab { width: 44px; height: 44px; padding: 0; justify-content: center; }
+}
+@media print { .langFabWrap { display: none !important; } }

@@ -26414,13 +26414,7 @@ export default function App() {
 
   const [headerH, setHeaderH] = useState(64);
   const headerRef = useRef(null);
-  const translatePopoverRef = useRef(null);
-  const translateBtnRef = useRef(null);
-  const [translatePos, setTranslatePos] = useState(null); // { top, right } for fixed positioning
   const lastActivity = useRef(Date.now());
-  const [showTranslate, setShowTranslate] = useState(false);
-  const [translateSearch, setTranslateSearch] = useState("");
-  const [activeLang, setActiveLang] = useState("en");
   const logoTapCount = useRef(0);
   const logoTapTimer = useRef(null);
 
@@ -26506,22 +26500,6 @@ export default function App() {
       setTimeout(() => splash.remove(), 350);
     }
   }, []);
-
-  // Close translate popover when clicking outside it
-  useEffect(() => {
-    if (!showTranslate) return;
-    function handleOutside(e) {
-      if (
-        translatePopoverRef.current && !translatePopoverRef.current.contains(e.target) &&
-        translateBtnRef.current && !translateBtnRef.current.contains(e.target)
-      ) {
-        setShowTranslate(false);
-        setTranslateSearch("");
-      }
-    }
-    document.addEventListener("pointerdown", handleOutside, true);
-    return () => document.removeEventListener("pointerdown", handleOutside, true);
-  }, [showTranslate]);
 
   // Keep the Google Translate hidden widget off-screen at all times;
   // translation is triggered programmatically via doGTranslate (see custom picker below).
@@ -28080,155 +28058,16 @@ export default function App() {
               📤 Share
             </button>
           )}
-          {/* Page translate button */}
-          <div style={{ position: "relative" }}>
-            <button
-              ref={translateBtnRef}
-              className={`translateTriggerBtn${showTranslate ? " translateTriggerActive" : ""}`}
-              type="button"
-              title="Translate this page"
-              onClick={() => {
-                if (!showTranslate && translateBtnRef.current) {
-                  const r = translateBtnRef.current.getBoundingClientRect();
-                  setTranslatePos({
-                    top: r.bottom + 10,
-                    right: window.innerWidth - r.right,
-                  });
-                }
-                setShowTranslate(v => !v);
-              }}
-            >
-              <span className="translateGlobe">🌐</span>
-              <span className="translateBtnLabel">Translate</span>
-            </button>
-            {showTranslate && (() => {
-              const LANGS = [
-                { code: "en",    flag: "🇺🇸", name: "English"    },
-                { code: "es",    flag: "🇪🇸", name: "Spanish"    },
-                { code: "fr",    flag: "🇫🇷", name: "French"     },
-                { code: "pt",    flag: "🇧🇷", name: "Portuguese" },
-                { code: "ht",    flag: "🇭🇹", name: "Haitian Creole" },
-                { code: "zh-CN", flag: "🇨🇳", name: "Chinese"    },
-                { code: "ar",    flag: "🇸🇦", name: "Arabic"     },
-                { code: "hi",    flag: "🇮🇳", name: "Hindi"      },
-                { code: "de",    flag: "🇩🇪", name: "German"     },
-                { code: "it",    flag: "🇮🇹", name: "Italian"    },
-                { code: "ja",    flag: "🇯🇵", name: "Japanese"   },
-                { code: "ko",    flag: "🇰🇷", name: "Korean"     },
-                { code: "ru",    flag: "🇷🇺", name: "Russian"    },
-                { code: "pl",    flag: "🇵🇱", name: "Polish"     },
-                { code: "vi",    flag: "🇻🇳", name: "Vietnamese" },
-                { code: "tl",    flag: "🇵🇭", name: "Filipino"   },
-                { code: "uk",    flag: "🇺🇦", name: "Ukrainian"  },
-                { code: "nl",    flag: "🇳🇱", name: "Dutch"      },
-                { code: "tr",    flag: "🇹🇷", name: "Turkish"    },
-                { code: "th",    flag: "🇹🇭", name: "Thai"       },
-              ];
-              const q = translateSearch.trim().toLowerCase();
-              const filtered = q
-                ? LANGS.filter(l => l.name.toLowerCase().includes(q) || l.code.includes(q))
-                : LANGS;
-              const isMobile = window.innerWidth <= 500;
-              return (
-                <div
-                  ref={translatePopoverRef}
-                  className="translatePopover"
-                  onClick={e => e.stopPropagation()}
-                  style={translatePos ? (isMobile ? {
-                    // On mobile: stretch edge-to-edge with 8px margins,
-                    // anchored just below the header button
-                    position: "fixed",
-                    top: translatePos.top,
-                    left: 8,
-                    right: 8,
-                    width: "auto",
-                  } : {
-                    position: "fixed",
-                    top: translatePos.top,
-                    right: translatePos.right,
-                    left: "auto",
-                    width: 300,
-                  }) : undefined}
-                >
-                  <div className="translatePopoverHeader">
-                    <span className="translatePopoverIcon">🌐</span>
-                    <div>
-                      <div className="translatePopoverTitle">Page Translation</div>
-                      <div className="translatePopoverSub">
-                        {activeLang === "en" ? "Select a language" : `Active: ${LANGS.find(l => l.code === activeLang)?.name ?? activeLang}`}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="translatePopoverDivider" />
-                  <div className="translateSearchWrap">
-                    <input
-                      className="translateSearchInput"
-                      type="text"
-                      placeholder="Search language…"
-                      value={translateSearch}
-                      onChange={e => setTranslateSearch(e.target.value)}
-                      autoFocus
-                    />
-                  </div>
-                  <div className="translateLangGrid">
-                    {filtered.map(lang => (
-                      <button
-                        key={lang.code}
-                        className={`translateLangBtn${activeLang === lang.code ? " translateLangActive" : ""}`}
-                        type="button"
-                        onClick={() => {
-                          setActiveLang(lang.code);
-                          setShowTranslate(false);
-                          setTranslateSearch("");
-                          const targetCode = lang.code;
-                          // Try doGTranslate (Google's internal API) first — instant.
-                          // Fall back to select manipulation with retry loop.
-                          function applyViaSelect(remaining) {
-                            const sel = document.querySelector("#google_translate_element select");
-                            if (sel) {
-                              const nativeSetter = Object.getOwnPropertyDescriptor(
-                                window.HTMLSelectElement.prototype, "value"
-                              )?.set;
-                              if (nativeSetter) nativeSetter.call(sel, targetCode);
-                              else sel.value = targetCode;
-                              sel.dispatchEvent(new Event("change", { bubbles: true }));
-                              setTimeout(() => {
-                                if (sel.value !== targetCode && remaining > 0) {
-                                  applyViaSelect(remaining - 1);
-                                }
-                              }, 200);
-                            } else if (remaining > 0) {
-                              setTimeout(() => applyViaSelect(remaining - 1), 200);
-                            }
-                          }
-                          function applyTranslation() {
-                            // Method 1: doGTranslate internal API (fastest, no flash)
-                            if (typeof window.doGTranslate === "function") {
-                              window.doGTranslate(`en|${targetCode}`);
-                              return;
-                            }
-                            // Method 2: select element manipulation with retry
-                            applyViaSelect(10);
-                          }
-                          applyTranslation();
-                        }}
-                      >
-                        <span className="translateLangFlag">{lang.flag}</span>
-                        <span className="translateLangName">{lang.name}</span>
-                      </button>
-                    ))}
-                    {filtered.length === 0 && (
-                      <div className="translateNoResults">No languages found</div>
-                    )}
-                  </div>
-                  <div className="translatePopoverFooter">
-                    <span className="translatePoweredLogo">G</span>
-                    Powered by Google Translate
-                  </div>
-                </div>
-              );
-            })()}
-          </div>
+          {/* Page translate button — opens the shared language switch */}
+          <button
+            className="translateTriggerBtn"
+            type="button"
+            title="Change language"
+            onClick={() => window.dispatchEvent(new CustomEvent("sdx-open-lang"))}
+          >
+            <span className="translateGlobe">🌐</span>
+            <span className="translateBtnLabel">Language</span>
+          </button>
           {/* HACCP QR button moved to sticky action bar after save */}
           <button className={cx("btn", "btnPrimary", "btnGenHeader")} onClick={onTransform} type="button" disabled={loading}>
             <svg className="genBtnSvg" width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true">
