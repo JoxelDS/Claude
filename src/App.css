@@ -8094,3 +8094,4 @@ html[data-theme="dark"] .fuStOnWaiting, html[data-theme="black"] .fuStOnWaiting 
 .fuTypeAuto { color: var(--ink-500); border-top: 1px solid var(--sdx-gray-100); border-radius: 0; }
 .crewNotMine { background: none; border: none; color: var(--ink-500); font-size: 0.72rem; font-weight: 700; cursor: pointer; padding: 4px 0 0; text-decoration: underline; }
 .crewMove { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 6px; font-size: 0.74rem; font-weight: 700; color: var(--ink-600); }
+.profileFlash { background: #f0fdf4; border: 1.5px solid #86efac; color: #166534; border-radius: 10px; padding: 8px 12px; font-weight: 700; font-size: 0.84rem; margin-bottom: 12px; }

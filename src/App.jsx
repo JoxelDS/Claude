@@ -2124,6 +2124,19 @@ async function changeBadgeNumber(oldBadgeHash, newBadge) {
   return { ok: true };
 }
 
+const ALL_ROLES = ["inspector", "admin", "location_manager", "guest", "maintenance", "cleaning", "ecolab"];
+// Move a person to another role / department / stand in place
+async function updateUserProfile(badgeHash, { role, department, assignedLocation } = {}) {
+  const users = await getUsers();
+  const u = users.find(x => x.badgeHash === badgeHash);
+  if (!u) return { ok: false, reason: "not_found" };
+  if (role && ALL_ROLES.includes(role)) u.role = role;
+  if (department !== undefined) u.department = department;
+  if (assignedLocation !== undefined) { if (assignedLocation) u.assignedLocation = assignedLocation; else delete u.assignedLocation; }
+  u.profileUpdatedAt = new Date().toISOString();
+  await saveOneUser(u);
+  return { ok: true };
+}
 async function demoteToInspectorFromManager(badgeHash) {
   const users = await getUsers();
   const u = users.find(x => x.badgeHash === badgeHash);
@@ -20609,6 +20622,16 @@ function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVe
   const [editingManagerLoc, setEditingManagerLoc] = useState(null); // { badgeHash, value }
   const [editingStands, setEditingStands] = useState(null); // { badgeHash, value (comma-sep string) }
   const [editingBadge, setEditingBadge] = useState(null); // { badgeHash, value }
+  const [editProfile, setEditProfile] = useState(null); // { badgeHash, name, role, department, deptOther, assignedLocation }
+  const [profileFlash, setProfileFlash] = useState("");
+  const openProfile = u => setEditProfile({ badgeHash: u.badgeHash, name: u.name, role: u.role || "inspector", department: DEPARTMENTS.includes(u.department) ? u.department : (u.department ? "Other" : ""), deptOther: DEPARTMENTS.includes(u.department) ? "" : (u.department || ""), assignedLocation: u.assignedLocation || "" });
+  async function saveProfile() {
+    const e = editProfile; if (!e) return;
+    const dept = e.department === "Other" ? (e.deptOther.trim() || "Other") : e.department;
+    await updateUserProfile(e.badgeHash, { role: e.role, department: dept, assignedLocation: (e.role === "location_manager" || e.role === "guest") ? e.assignedLocation.trim() : "" });
+    setEditProfile(null); await refresh();
+    setProfileFlash(`Moved ${e.name} to ${roleChip(e.role)} · ${dept}`); setTimeout(() => setProfileFlash(""), 4000);
+  }
   const [badgeChangeError, setBadgeChangeError] = useState("");
   const [removeError, setRemoveError] = useState("");
   const [intervalInput, setIntervalInput] = useState(() => String(venueSettings?.inspectionInterval || ""));
@@ -21152,6 +21175,43 @@ function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVe
         </div>
 
         {/* Pending approvals */}
+        {profileFlash && <div className="profileFlash">✓ {profileFlash}</div>}
+        {editProfile && ReactDOM.createPortal(
+          <div style={{ position: "fixed", inset: 0, zIndex: 10000, background: "rgba(0,0,0,.6)", backdropFilter: "blur(3px)", overflowY: "auto", padding: "6vh 14px" }} onClick={() => setEditProfile(null)}>
+            <div className="card" style={{ maxWidth: 440, margin: "0 auto" }} onClick={e => e.stopPropagation()}>
+              <div className="cardHeader" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <div className="cardTitle">✎ {editProfile.name}</div>
+                <button type="button" onClick={() => setEditProfile(null)} style={{ background: "none", border: "none", fontSize: "1.2rem", cursor: "pointer", color: "var(--ink-400)", lineHeight: 1, padding: 4 }}>✕</button>
+              </div>
+              <div className="cardBody" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                <label className="field"><span className="fieldLabel">Role</span>
+                  <select className="select" value={editProfile.role} onChange={e => { const role = e.target.value; setEditProfile(p => ({ ...p, role, department: ROLE_DEFAULT_DEPT[role] || p.department })); }}>
+                    {REQUEST_ROLES.map(r => <option key={r.value} value={r.value}>{r.icon} {r.label}</option>)}
+                    <option value="admin">⚙️ Admin</option>
+                  </select>
+                </label>
+                <label className="field"><span className="fieldLabel">Department</span>
+                  <select className="select" value={editProfile.department} onChange={e => setEditProfile(p => ({ ...p, department: e.target.value }))}>
+                    <option value="">Choose…</option>
+                    {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
+                  </select>
+                </label>
+                {editProfile.department === "Other" && (
+                  <input className="input" value={editProfile.deptOther} placeholder="Which department?" onChange={e => setEditProfile(p => ({ ...p, deptOther: e.target.value }))} />
+                )}
+                {(editProfile.role === "location_manager" || editProfile.role === "guest") && (
+                  <label className="field"><span className="fieldLabel">Assigned stand / location</span>
+                    <input className="input" value={editProfile.assignedLocation} placeholder="e.g. SOL CUBANO #350" onChange={e => setEditProfile(p => ({ ...p, assignedLocation: e.target.value }))} />
+                  </label>
+                )}
+                <div style={{ fontSize: "0.76rem", color: "var(--ink-500)" }}>{REQUEST_ROLES.find(r => r.value === editProfile.role)?.help || "Full access to reports, settings and users."} Takes effect at their next sign-in.</div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button type="button" className="btn btnGhost" style={{ flex: 1 }} onClick={() => setEditProfile(null)}>Cancel</button>
+                  <button type="button" className="btn btnPrimary" style={{ flex: 1 }} disabled={!editProfile.department} onClick={saveProfile}>Save</button>
+                </div>
+              </div>
+            </div>
+          </div>, document.body)}
         {/* Invite links — send one and the person gets in with that role, no approval needed */}
         <div className="card adminCard" style={{ marginBottom: 24 }}>
           <div className="cardHeader"><div className="cardTitle">🔗 Invite links</div></div>
@@ -21241,6 +21301,7 @@ function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVe
                       </div>
                     </div>
                     <div className="adminUserActions">
+                      {!isSelf && <button className="btn btnGhost btnSmall" onClick={() => openProfile(u)}>✎ Change</button>}
                       <button className="btn btnGhost btnSmall" onClick={() => handleDemoteManager(u.badgeHash)}>Remove Manager</button>
                       {!isSelf && <button className="btn btnGhost btnSmall adminDenyBtn" onClick={() => handleRemove(u.badgeHash)}>Remove</button>}
                     </div>
@@ -21277,6 +21338,7 @@ function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVe
                       </div>
                     </div>
                     <div className="adminUserActions">
+                      <button className="btn btnGhost btnSmall" onClick={() => openProfile(u)}>✎ Change</button>
                       <button className="btn btnGhost btnSmall adminDenyBtn" onClick={() => handleRemove(u.badgeHash)}>Remove</button>
                     </div>
                   </div>
@@ -21287,6 +21349,28 @@ function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVe
         )}
 
         {/* Approved users */}
+        {/* Crew — maintenance, cleaning, Ecolab */}
+        {approved.some(u => isCrewRole(u.role)) && (
+          <div className="card adminCard" style={{ marginBottom: 24 }}>
+            <div className="cardHeader"><div className="cardTitle">🔧🧹🧪 Crew <span className="adminCount">{approved.filter(u => isCrewRole(u.role)).length}</span></div></div>
+            <div className="cardBody">
+              {approved.filter(u => isCrewRole(u.role)).map(u => (
+                <div className="adminUserRow" key={u.badgeHash}>
+                  <div className="adminUserInfo">
+                    <div className="adminUserName">{u.name} <span className="adminRoleChip">{roleChip(u.role)}</span> {u.badgeDisplay && <span className="badgeNumDisplay">Badge: {u.badgeDisplay}</span>}</div>
+                    <div className="adminUserMeta">{u.department || "—"}{u.invitedVia ? " · joined by invite link" : ""}{u.registeredAt ? ` · Since ${new Date(u.registeredAt).toLocaleDateString()}` : ""}</div>
+                  </div>
+                  <div className="adminUserActions">
+                    <button className="btn btnGhost btnSmall" onClick={() => openProfile(u)}>✎ Change</button>
+                    <button className="btn btnGhost btnSmall" onClick={() => { setEditingBadge({ badgeHash: u.badgeHash, value: "" }); setBadgeChangeError(""); }}>🔑 Badge</button>
+                    <button className="btn btnGhost btnSmall adminDenyBtn" onClick={() => handleRemove(u.badgeHash)}>Remove</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="card adminCard">
           <div className="cardHeader">
             <div className="cardTitle">
@@ -21395,6 +21479,9 @@ function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVe
                               {assignedStands.length > 0 ? `Stands (${assignedStands.length})` : "Assign Stands"}
                             </button>
                           </>
+                        )}
+                        {!(isSelf || isOnlyAdmin) && (
+                          <button className="btn btnGhost btnSmall" onClick={() => openProfile(u)} title="Move to another department or role">✎ Change</button>
                         )}
                         {u.role === "admin" && !isOnlyAdmin && !isSelf && (
                           <button className="btn btnGhost btnSmall" onClick={() => handleDemote(u.badgeHash)}>Remove Admin</button>
