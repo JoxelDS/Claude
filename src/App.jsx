@@ -283,6 +283,24 @@ function extractEquipTag(raw) {
 // equipment registry (warmed once), then the local history cache. Never waits
 // on the network, so a scan can open the unit immediately.
 let _equipRegCache = null; // { [TAG]: { label, brandName, location, venueName, unit } } — items + labelIndex merged
+let _equipHiddenCache = {}; // { uid: true } — labels removed on the labels page
+try { _equipHiddenCache = JSON.parse(localStorage.getItem(`sdx_equip_hidden_${VENUE_ID}`) || "{}"); } catch {}
+// Coolers / freezers known at one stand (from the shared registry mirror)
+function equipUnitsAtStand(unit, site) {
+  const c = _equipRegCache || {};
+  const u = normUnit(unit), sU = (site || "").trim().toUpperCase();
+  const out = [];
+  for (const [tag, it] of Object.entries(c)) {
+    if (!it) continue;
+    if (_equipHiddenCache[`reg_${tag}`] || _equipHiddenCache[tag]) continue;
+    const match = u ? normUnit(it.unit) === u : (!!sU && (it.venueName || "").trim().toUpperCase() === sU);
+    if (!match) continue;
+    const name = String(it.label || it.name || "").replace(/\s*(❄|🧊)\s*(Cooler|Freezer)\s*$/u, "").trim();
+    const freezer = /freez|🧊/i.test(it.label || it.name || "") || /^SDX-(FZ|FRZ)/i.test(tag);
+    out.push({ tag, name: name || (freezer ? "Freezer" : "Cooler"), freezer, brand: it.brandName || it.brand || "", location: it.location || "" });
+  }
+  return out.sort((a, b) => a.name.localeCompare(b.name));
+}
 const EQUIP_REG_LS = `sdx_equip_registry_${VENUE_ID}`;
 try { _equipRegCache = JSON.parse(localStorage.getItem(EQUIP_REG_LS) || "null"); } catch {}
 async function warmEquipRegistry() {
@@ -290,7 +308,8 @@ async function warmEquipRegistry() {
     const snap = await getDoc(doc(db, "venues", VENUE_ID, "sharedMemory", "equipmentRegistry"));
     const d = snap.exists() ? (snap.data() || {}) : {};
     _equipRegCache = { ...(d.labelIndex || {}), ...(d.items || {}) };
-    try { localStorage.setItem(EQUIP_REG_LS, JSON.stringify(_equipRegCache)); } catch {}
+    _equipHiddenCache = d.hidden || {};
+    try { localStorage.setItem(EQUIP_REG_LS, JSON.stringify(_equipRegCache)); localStorage.setItem(`sdx_equip_hidden_${VENUE_ID}`, JSON.stringify(_equipHiddenCache)); } catch {}
   } catch { _equipRegCache = _equipRegCache || {}; }
   return _equipRegCache;
 }
@@ -11353,7 +11372,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                   ))}
                 </div>
                 <div className="menuSection">Go to</div>
-                {[["📅 Schedule", "schedule"], ["🏷 Equipment Labels", "print_labels"], ["🍳 Kitchen QR Posters", "kitchen_qr"], ["📍 My Locations", "mylocations"], ["💬 Messages & Comms", "messaging"]].map(([lb, pg]) => (
+                {[["📅 Schedule", "schedule"], ["🏷 Stands & Equipment", "print_labels"], ["🍳 Stand QR Posters", "kitchen_qr"], ["📍 My Locations", "mylocations"], ["💬 Messages & Comms", "messaging"]].map(([lb, pg]) => (
                   <button key={pg} className="dropdownMenuItem" type="button" onClick={() => { setShowHistoryMenu(false); window.dispatchEvent(new CustomEvent("sdx-nav", { detail: { page: pg } })); }}>{lb}</button>
                 ))}
                 {onMyTasks && (currentUser?.role === "inspector" || currentUser?.role === "location_manager") && (
@@ -18386,6 +18405,22 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
   const [walkFlash, setWalkFlash] = useState("");
   const [addAt, setAddAt] = useState(null);             // { venueName, unit, floor, locType } — add units here
   const [standFocus, setStandFocus] = useState(null);   // { unit, site, floor, locType } — one stand open
+  const [standQr, setStandQr] = useState("");           // poster QR of the open stand
+  const [standList, setStandList] = useState([]);       // every stand (posters page list) — same universe here
+  useEffect(() => {
+    if (!standFocus) { setStandQr(""); return; }
+    let live = true;
+    getQRCode().then(QR => QR.toDataURL(standHaccpUrl({ site: standFocus.site, unit: standFocus.unit, floor: standFocus.floor, locType: standFocus.locType }), { width: 240, margin: 1, color: { dark: "#111827", light: "#ffffff" } })).then(u => { if (live) setStandQr(u); }).catch(() => {});
+    return () => { live = false; };
+  }, [standFocus]);
+  function printStandPoster(sf, license) {
+    const k = { id: "x", site: sf.site, unit: sf.unit, floor: sf.floor, license: license || "" };
+    const brand = (/^#[0-9a-fA-F]{6}$/.test(_vs.primaryColor || "") ? _vs.primaryColor : "#2A295C");
+    const win = window.open("", "_blank");
+    if (!win) { alert("Allow pop-ups to print the poster."); return; }
+    win.document.write(standPosterHtml([k], { x: standQr }, brand));
+    win.document.close();
+  }
   const focusAppliedRef = useRef(false);
   const EQUIP_SETUP_LS = `sdx_equip_setup_${VENUE_ID}`;
   // ── Verify walk (v392): confirm every unit stand by stand ───────────────
@@ -18939,6 +18974,18 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
           const k = normUnit(it.unit) ? `u:${normUnit(it.unit)}` : `s:${(it.venueName || "").trim().toLowerCase()}`;
           if (regStands.has(k) && isGenerated(it.assetTag)) { seen.delete(it.assetTag); items.splice(i, 1); }
         }
+        // Every stand from the posters list belongs here too — a stand with no
+        // cooler / freezer yet still shows up, ready to add its units.
+        let stands = [];
+        try { stands = await loadStandList(); } catch {}
+        setStandList(stands);
+        const noEqKeys = new Set(standsNoEquip.map(sn => sn.key));
+        for (const k of stands) {
+          const key = normUnit(k.unit) ? `u:${normUnit(k.unit)}` : `s:${(k.site || "").trim().toLowerCase()}`;
+          if (standDone.has(key) || regStands.has(key) || noEqKeys.has(key)) continue;
+          noEqKeys.add(key);
+          standsNoEquip.push({ key, venueName: k.site || "", unit: (k.unit || "").trim(), floor: floorForStand(k.unit, k.site, k.floor), locType: k.locType || "", last: "" });
+        }
         setStandsNoEquip(standsNoEquip.filter(sn => !standDone.has(sn.key) && !regStands.has(sn.key)).sort((a, b) => (a.unit || "").localeCompare(b.unit || "", undefined, { numeric: true })));
         // Merge manually-created equipment (always shown) and apply removals
         for (const [tag, it] of Object.entries(regItems)) {
@@ -19087,8 +19134,8 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
             ← Back
           </button>
           <div>
-            <div style={{ fontWeight: 700, color: "#fff", fontSize: "1rem" }}>Print Equipment Labels</div>
-            <div style={{ color: "rgba(255,255,255,0.7)", fontSize: "0.75rem" }}>QR code labels for physical equipment</div>
+            <div style={{ fontWeight: 700, color: "#fff", fontSize: "1rem" }}>Stands &amp; Equipment</div>
+            <div style={{ color: "rgba(255,255,255,0.7)", fontSize: "0.75rem" }}>Each stand: its QR poster + its cooler / freezer labels</div>
           </div>
         </div>
         <button type="button" onClick={printSelected} disabled={selectedCount === 0}
@@ -19166,6 +19213,17 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
                   <div className="standFocusSub">{[floorF, sf.locType, lic?.license ? `🪪 ${lic.license}` : ""].filter(Boolean).join(" · ")}{its.length ? ` · ${its.length} unit${its.length !== 1 ? "s" : ""} · ${doneN} done` : " · no equipment QR yet"}</div>
                 </div>
                 <button type="button" className="walkMini" onClick={() => { setStandFocus(null); onClearFocus && onClearFocus(); }}>✕ All stands</button>
+              </div>
+              <div className="standPoster">
+                {standQr ? <img src={standQr} alt="" width={96} height={96} /> : <div style={{ width: 96, height: 96, background: "var(--surface-2)", borderRadius: 8 }} />}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 800, fontSize: "0.86rem" }}>🍳 Stand QR poster</div>
+                  <div style={{ fontSize: "0.76rem", color: "var(--ink-500)" }}>Teams scan it to log temps &amp; report problems. Its coolers / freezers are the labels below — one place for the whole stand.</div>
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
+                    <button type="button" className="lblFloorChip" disabled={!standQr} onClick={() => printStandPoster(sf, lic?.license || standList.find(k => normUnit(k.unit) && normUnit(k.unit) === normUnit(sf.unit))?.license)}>🖨 Print poster</button>
+                    {onKitchenQr && <button type="button" className="lblFloorChip" onClick={onKitchenQr}>All posters →</button>}
+                  </div>
+                </div>
               </div>
               <div className="standFocusActions">
                 <button type="button" className="lblFloorChip standFocusAdd" onClick={() => setAddAt(standObj)}>➕ Add cooler / freezer</button>
@@ -19694,22 +19752,7 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
 }
 
 
-/* ── Kitchen QR Posters: one QR per kitchen/stand — scanning opens the HACCP
-   temp log prefilled for that exact location, so every kitchen can self-report
-   and the inspectors see it live ─────────────────────────────────────────── */
-function KitchenQrPage({ onBack, onPrintLabels, onStandEquipment }) {
-  const [showLicList, setShowLicList] = useState(false);
-  const [kitchens, setKitchens] = useState([]); // { id, site, unit, floor }
-  const [qrUrls, setQrUrls] = useState({});
-  const [loading, setLoading] = useState(true);
-  const [addSite, setAddSite] = useState("");
-  const [addUnit, setAddUnit] = useState("");
-  const [addFloor, setAddFloor] = useState("");
-  const [addLicense, setAddLicense] = useState("");
-  const [addLicHint, setAddLicHint] = useState(""); // license already on file for the typed unit
-  const [search, setSearch] = useState("");
-
-  function haccpUrl(k) {
+function standHaccpUrl(k) {
     const base = window.location.origin + "/Claude/";
     const params = new URLSearchParams({ haccp: "1" });
     if (k.site) params.set("site", k.site);
@@ -19722,7 +19765,8 @@ function KitchenQrPage({ onBack, onPrintLabels, onStandEquipment }) {
 
   // Known stands for the home venue — render instantly so QRs are ready even
   // before (or without) the history fetch. Users can ✕-hide any of these.
-  const SEED_KITCHENS = VENUE_ID === "default" ? [
+function standSeeds() {
+  return VENUE_ID === "default" ? [
     // [site, unit, location type] — from this venue's own inspection data
     ["Magic City Dogs", "101"], ["Golden Coop", "102"], ["Sobe Q", "104"], ["Fatboy Smashburger", "106"],
     ["Magic City Dogs", "114"], ["Tostitos", "119"], ["Wynwood Walkthrough", "122 A"], ["Magic City Dogs", "129"],
@@ -19739,81 +19783,145 @@ function KitchenQrPage({ onBack, onPrintLabels, onStandEquipment }) {
     ["Aifi", "347 A"], ["Sol Cubano", "350"], ["Shawarma Gyros / Sub", "350", "Portable - Subcontractor"],
     ["Crisppi Chicken", ""],
   ].map(([site, unit, locType]) => ({ id: unit ? `u:${normUnit(unit)}` : `s:${site.toLowerCase()}`, site, unit, floor: floorFromUnit(unit), locType: locType || "Concession" })) : [];
+}
+// Every stand we know (kitchen registry → seeds → inspection history), licenses synced.
+// Shared by the QR posters page and the equipment labels page so both see the same stands.
+async function loadStandList() {
+  const SEED_KITCHENS = standSeeds();
 
+  const seen = new Set();
+  const list = [];
+  // Kitchen registry: manually added stands + hidden ones (shared across devices)
+  let regItems = {}, regHidden = {};
+  try {
+    const snap = await getDoc(doc(db, "venues", VENUE_ID, "sharedMemory", "kitchenRegistry"));
+    const reg = snap.exists() ? (snap.data() || {}) : {};
+    regItems = reg.items || {};
+    regHidden = reg.hidden || {};
+  } catch {}
+  // Identity is the UNIT NUMBER (u:142A); names are display only, so name
+  // variants of the same unit collapse into one card. Registry (user
+  // edits) wins over seeds, seeds over history-derived names.
+  const kidOf = (site, unit) => unit ? `u:${normUnit(unit)}` : `s:${(site || "").toLowerCase()}`;
+  const legacyHidden = (site, unit) => regHidden[`${(site || "").toLowerCase()}|${(unit || "").toLowerCase()}`];
+  const isHidden = (k) => regHidden[k.id] || legacyHidden(k.site, k.unit);
+  for (const [rid, k] of Object.entries(regItems)) {
+    const id = kidOf(k.site, k.unit);
+    if (regHidden[rid] || regHidden[id] || seen.has(id)) continue;
+    seen.add(id);
+    list.push({ id, site: k.site || "", unit: k.unit || "", floor: floorForStand(k.unit, k.site, k.floor), locType: k.locType || "", license: k.license || "" });
+  }
+  for (const k of SEED_KITCHENS) {
+    if (isHidden(k) || seen.has(k.id)) continue;
+    seen.add(k.id);
+    list.push(k);
+  }
+  try {
+    const { list: hist } = await loadHistory(undefined, { pageSize: 300 });
+    // Licenses belong to units: newest license seen for a unit wins.
+    const licenseByUnit = {};
+    for (const rec of (hist || [])) {
+      const site = (rec.siteName || "").trim();
+      if (!site) continue;
+      const unit = (rec.siteNumber || "").trim();
+      const floor = (rec.floor || "").trim();
+      const id = kidOf(site, unit);
+      const license = rec.restaurantLicense && rec.restaurantLicense !== "NO LICENSE" ? String(rec.restaurantLicense) : "";
+      if (license && unit && !licenseByUnit[normUnit(unit)]) licenseByUnit[normUnit(unit)] = license;
+      if (regHidden[id] || legacyHidden(site, unit)) continue;
+      if (seen.has(id)) continue;
+      seen.add(id);
+      list.push({ id, site, unit, floor, license });
+    }
+    // Sync licenses onto every card: official registry (unit + type)
+    // first, then anything recorded in inspection history. The registry
+    // also CORRECTS a card whose stored license belongs to a different
+    // unit — numbers don't lie, licenses follow their unit.
+    const unitByLicense = {};
+    for (const r of LICENSE_REGISTRY) { if (r.license) unitByLicense[r.license] = normUnit(r.unit); }
+    for (const k of list) {
+      if (!k.unit) continue;
+      const reg = lookupLicenseByUnitType(k.unit, k.locType);
+      if (!k.license) {
+        if (reg?.status === "ACTIVE" && reg.license) { k.license = reg.license; if (!k.officialName) k.officialName = reg.name; }
+        else if (licenseByUnit[normUnit(k.unit)]) k.license = licenseByUnit[normUnit(k.unit)];
+      } else if (reg?.status === "ACTIVE" && reg.license && k.license !== reg.license &&
+                 unitByLicense[k.license] && unitByLicense[k.license] !== normUnit(k.unit)) {
+        // Stored license is registered to another unit — swap in this
+        // unit's own license.
+        k.license = reg.license;
+      }
+    }
+  } catch {}
+  list.sort((a, b) => a.site.localeCompare(b.site) || a.unit.localeCompare(b.unit, undefined, { numeric: true }));
+  return list.map(x => ({ ...x, floor: floorForStand(x.unit, x.site, x.floor) }));
+}
+
+
+function standPosterHtml(items, qrUrls, brandColor) {
+  const esc = (t) => String(t || "").replace(/&/g, "&amp;").replace(/</g, "&lt;");
+  const logoUrl = resolveLogoDark().startsWith("data:") ? resolveLogoDark() : window.location.origin + resolveLogoDark().replace(window.location.origin, "");
+  const cards = items.map(k => `
+    <div class="poster">
+      <div class="ph" style="background:${brandColor}">
+        <img class="phl" src="${logoUrl}" alt="" />
+        <div class="pht">${esc(resolveCompanyName())} · Kitchen Check</div>
+      </div>
+      <div class="pb">
+        <div class="pn">${esc(k.site)}${k.unit ? ` <span class="pu">#${esc(k.unit)}</span>` : ""}</div>
+        ${[k.floor, k.license ? `License #${k.license}` : ""].filter(Boolean).length ? `<div class="pf">${esc([k.floor, k.license ? `License #${k.license}` : ""].filter(Boolean).join(" · "))}</div>` : ""}
+        <img class="pq" src="${qrUrls[k.id] || ""}" />
+        <div class="pi">📱 <b>Scan with your phone camera</b><br/>Log temperatures &amp; report problems for this kitchen — no app needed.<br/><span class="es">Escanee para registrar temperaturas y reportar problemas.</span></div>
+      </div>
+    </div>`).join("\n");
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Kitchen QR Posters</title><style>
+    * { margin:0; padding:0; box-sizing:border-box; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+    body { font-family:-apple-system,'Segoe UI',Arial,sans-serif; background:#fff; }
+    .poster { width:100%; height:49vh; border:2px dashed #cbd5e1; border-radius:14px; overflow:hidden; display:flex; flex-direction:column; page-break-inside:avoid; break-inside:avoid; margin-bottom:1vh; }
+    .ph { color:#fff; padding:12px 18px; display:flex; align-items:center; gap:10px; }
+    .phl { height:22px; filter:brightness(0) invert(1); }
+    .pht { font-weight:800; font-size:13px; letter-spacing:.04em; text-transform:uppercase; }
+    .pb { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:10px 16px; text-align:center; }
+    .pn { font-size:26px; font-weight:900; color:#111827; }
+    .pu { color:${brandColor}; }
+    .pf { font-size:13px; color:#6b7280; font-weight:700; margin-top:2px; }
+    .pq { width:200px; height:200px; margin:10px 0; }
+    .pi { font-size:12px; color:#374151; line-height:1.5; }
+    .pi .es { color:#6b7280; font-style:italic; }
+    @page { margin:8mm; }
+  </style></head><body>${cards}
+  <script>window.onload=function(){setTimeout(function(){window.print()},400)}<\/script></body></html>`;
+  return html;
+}
+
+/* ── Kitchen QR Posters: one QR per kitchen/stand — scanning opens the HACCP
+   temp log prefilled for that exact location, so every kitchen can self-report
+   and the inspectors see it live ─────────────────────────────────────────── */
+function KitchenQrPage({ onBack, onPrintLabels, onStandEquipment }) {
+  const [showLicList, setShowLicList] = useState(false);
+  const [kitchens, setKitchens] = useState([]); // { id, site, unit, floor }
+  const [qrUrls, setQrUrls] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [addSite, setAddSite] = useState("");
+  const [addUnit, setAddUnit] = useState("");
+  const [addFloor, setAddFloor] = useState("");
+  const [addLicense, setAddLicense] = useState("");
+  const [addLicHint, setAddLicHint] = useState(""); // license already on file for the typed unit
+  const [search, setSearch] = useState("");
+
+  const haccpUrl = standHaccpUrl;
   useEffect(() => {
     (async () => {
       setLoading(true);
-      // Show the built-in stand list immediately — QRs generate right away
-      if (SEED_KITCHENS.length) { setKitchens(SEED_KITCHENS); setLoading(false); }
-      const seen = new Set();
-      const list = [];
-      // Kitchen registry: manually added stands + hidden ones (shared across devices)
-      let regItems = {}, regHidden = {};
-      try {
-        const snap = await getDoc(doc(db, "venues", VENUE_ID, "sharedMemory", "kitchenRegistry"));
-        const reg = snap.exists() ? (snap.data() || {}) : {};
-        regItems = reg.items || {};
-        regHidden = reg.hidden || {};
-      } catch {}
-      // Identity is the UNIT NUMBER (u:142A); names are display only, so name
-      // variants of the same unit collapse into one card. Registry (user
-      // edits) wins over seeds, seeds over history-derived names.
-      const kidOf = (site, unit) => unit ? `u:${normUnit(unit)}` : `s:${(site || "").toLowerCase()}`;
-      const legacyHidden = (site, unit) => regHidden[`${(site || "").toLowerCase()}|${(unit || "").toLowerCase()}`];
-      const isHidden = (k) => regHidden[k.id] || legacyHidden(k.site, k.unit);
-      for (const [rid, k] of Object.entries(regItems)) {
-        const id = kidOf(k.site, k.unit);
-        if (regHidden[rid] || regHidden[id] || seen.has(id)) continue;
-        seen.add(id);
-        list.push({ id, site: k.site || "", unit: k.unit || "", floor: floorForStand(k.unit, k.site, k.floor), locType: k.locType || "", license: k.license || "" });
-      }
-      for (const k of SEED_KITCHENS) {
-        if (isHidden(k) || seen.has(k.id)) continue;
-        seen.add(k.id);
-        list.push(k);
-      }
-      try {
-        const { list: hist } = await loadHistory(undefined, { pageSize: 300 });
-        // Licenses belong to units: newest license seen for a unit wins.
-        const licenseByUnit = {};
-        for (const rec of (hist || [])) {
-          const site = (rec.siteName || "").trim();
-          if (!site) continue;
-          const unit = (rec.siteNumber || "").trim();
-          const floor = (rec.floor || "").trim();
-          const id = kidOf(site, unit);
-          const license = rec.restaurantLicense && rec.restaurantLicense !== "NO LICENSE" ? String(rec.restaurantLicense) : "";
-          if (license && unit && !licenseByUnit[normUnit(unit)]) licenseByUnit[normUnit(unit)] = license;
-          if (regHidden[id] || legacyHidden(site, unit)) continue;
-          if (seen.has(id)) continue;
-          seen.add(id);
-          list.push({ id, site, unit, floor, license });
-        }
-        // Sync licenses onto every card: official registry (unit + type)
-        // first, then anything recorded in inspection history. The registry
-        // also CORRECTS a card whose stored license belongs to a different
-        // unit — numbers don't lie, licenses follow their unit.
-        const unitByLicense = {};
-        for (const r of LICENSE_REGISTRY) { if (r.license) unitByLicense[r.license] = normUnit(r.unit); }
-        for (const k of list) {
-          if (!k.unit) continue;
-          const reg = lookupLicenseByUnitType(k.unit, k.locType);
-          if (!k.license) {
-            if (reg?.status === "ACTIVE" && reg.license) { k.license = reg.license; if (!k.officialName) k.officialName = reg.name; }
-            else if (licenseByUnit[normUnit(k.unit)]) k.license = licenseByUnit[normUnit(k.unit)];
-          } else if (reg?.status === "ACTIVE" && reg.license && k.license !== reg.license &&
-                     unitByLicense[k.license] && unitByLicense[k.license] !== normUnit(k.unit)) {
-            // Stored license is registered to another unit — swap in this
-            // unit's own license.
-            k.license = reg.license;
-          }
-        }
-      } catch {}
-      list.sort((a, b) => a.site.localeCompare(b.site) || a.unit.localeCompare(b.unit, undefined, { numeric: true }));
-      setKitchens(((l) => l.map(x => ({ ...x, floor: floorForStand(x.unit, x.site, x.floor) })))(list));
+      const seeds = standSeeds();
+      if (seeds.length) { setKitchens(seeds); setLoading(false); }
+      try { setKitchens(await loadStandList()); } catch {}
       setLoading(false);
     })();
   }, []);
+  // Equipment at each stand comes from the shared registry mirror
+  const [equipTick, setEquipTick] = useState(0);
+  useEffect(() => { warmEquipRegistry().then(() => setEquipTick(t => t + 1)).catch(() => {}); }, []);
 
   useEffect(() => {
     if (kitchens.length === 0) return;
@@ -19882,38 +19990,7 @@ function KitchenQrPage({ onBack, onPrintLabels, onStandEquipment }) {
   function printPosters() {
     const items = selectedIds.size ? shown.filter(k => selectedIds.has(k.id)) : shown;
     if (items.length === 0) return;
-    const esc = (t) => String(t || "").replace(/&/g, "&amp;").replace(/</g, "&lt;");
-    const logoUrl = resolveLogoDark().startsWith("data:") ? resolveLogoDark() : window.location.origin + resolveLogoDark().replace(window.location.origin, "");
-    const cards = items.map(k => `
-      <div class="poster">
-        <div class="ph" style="background:${brandColor}">
-          <img class="phl" src="${logoUrl}" alt="" />
-          <div class="pht">${esc(resolveCompanyName())} · Kitchen Check</div>
-        </div>
-        <div class="pb">
-          <div class="pn">${esc(k.site)}${k.unit ? ` <span class="pu">#${esc(k.unit)}</span>` : ""}</div>
-          ${[k.floor, k.license ? `License #${k.license}` : ""].filter(Boolean).length ? `<div class="pf">${esc([k.floor, k.license ? `License #${k.license}` : ""].filter(Boolean).join(" · "))}</div>` : ""}
-          <img class="pq" src="${qrUrls[k.id] || ""}" />
-          <div class="pi">📱 <b>Scan with your phone camera</b><br/>Log temperatures &amp; report problems for this kitchen — no app needed.<br/><span class="es">Escanee para registrar temperaturas y reportar problemas.</span></div>
-        </div>
-      </div>`).join("\n");
-    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Kitchen QR Posters</title><style>
-      * { margin:0; padding:0; box-sizing:border-box; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
-      body { font-family:-apple-system,'Segoe UI',Arial,sans-serif; background:#fff; }
-      .poster { width:100%; height:49vh; border:2px dashed #cbd5e1; border-radius:14px; overflow:hidden; display:flex; flex-direction:column; page-break-inside:avoid; break-inside:avoid; margin-bottom:1vh; }
-      .ph { color:#fff; padding:12px 18px; display:flex; align-items:center; gap:10px; }
-      .phl { height:22px; filter:brightness(0) invert(1); }
-      .pht { font-weight:800; font-size:13px; letter-spacing:.04em; text-transform:uppercase; }
-      .pb { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:10px 16px; text-align:center; }
-      .pn { font-size:26px; font-weight:900; color:#111827; }
-      .pu { color:${brandColor}; }
-      .pf { font-size:13px; color:#6b7280; font-weight:700; margin-top:2px; }
-      .pq { width:200px; height:200px; margin:10px 0; }
-      .pi { font-size:12px; color:#374151; line-height:1.5; }
-      .pi .es { color:#6b7280; font-style:italic; }
-      @page { margin:8mm; }
-    </style></head><body>${cards}
-    <script>window.onload=function(){setTimeout(function(){window.print()},400)}<\/script></body></html>`;
+    const html = standPosterHtml(items, qrUrls, brandColor);
     const win = window.open("", "_blank");
     if (!win) { alert("Allow pop-ups to print posters."); return; }
     win.document.write(html);
@@ -20111,9 +20188,19 @@ function KitchenQrPage({ onBack, onPrintLabels, onStandEquipment }) {
                     ? <img src={qrUrls[k.id]} alt="" width={150} height={150} />
                     : <div style={{ width: 150, height: 150, margin: "0 auto", background: "var(--surface-2)", borderRadius: 6 }} />}
                   <div style={{ fontSize: "0.72rem", color: "var(--ink-500)", marginTop: 6 }}>{[k.locType, k.floor, k.license ? `Lic. ${k.license}` : ""].filter(Boolean).join(" · ") || "Scan to log temps & problems"}{!k.license && LICENSE_REGISTRY.some(r => normUnit(r.unit) === normUnit(k.unit) && (r.status === "NEEDED" || r.status === "REQUESTED")) && <span className="licChip licChipNeed" style={{ marginLeft: 6 }}>⚠ no license yet</span>}</div>
-                  {onStandEquipment && (
-                    <button type="button" className="kqrEquipBtn" onClick={e => { e.stopPropagation(); onStandEquipment(k); }}>🏷 Equipment QR labels →</button>
-                  )}
+                  {(() => {
+                    const eq = equipUnitsAtStand(k.unit, k.site);
+                    const nC = eq.filter(x => !x.freezer).length, nF = eq.length - nC;
+                    return (
+                      <div className="kqrEquip" data-tick={equipTick}>
+                        <div className="kqrEquipSum">{eq.length ? `${nC ? `❄ ${nC} cooler${nC !== 1 ? "s" : ""}` : ""}${nC && nF ? " · " : ""}${nF ? `🧊 ${nF} freezer${nF !== 1 ? "s" : ""}` : ""}` : "⚠ no cooler / freezer registered"}</div>
+                        {eq.length > 0 && <div className="kqrEquipList">{eq.slice(0, 4).map(x => <span key={x.tag} className="kqrEquipItem">{x.freezer ? "🧊" : "❄"} {x.name}{x.brand ? ` · ${x.brand}` : ""}</span>)}{eq.length > 4 && <span className="kqrEquipItem">+{eq.length - 4} more</span>}</div>}
+                        {onStandEquipment && (
+                          <button type="button" className="kqrEquipBtn" onClick={e => { e.stopPropagation(); onStandEquipment(k); }}>{eq.length ? `🏷 Open stand · ${eq.length} label${eq.length !== 1 ? "s" : ""} →` : "➕ Add its coolers / freezers →"}</button>
+                        )}
+                      </div>
+                    );
+                  })()}
                   {!isComplete(k) && (
                     <div style={{ fontSize: "0.7rem", color: "#92400E", background: "var(--tint-amber-1, #fffbeb)", border: "1px solid #fde68a", borderRadius: 6, padding: "3px 8px", marginTop: 6, display: "inline-block", fontWeight: 700 }}>
                       Missing: {[!normUnit(k.unit) && "unit #", !(k.license || "").trim() && "license"].filter(Boolean).join(", ")} — tap ✎
@@ -28441,9 +28528,9 @@ export default function App() {
               {notifItems.filter(n => n.type === "chat").length > 0 && <span className="menuBadge menuBadgeSoft">{notifItems.filter(n => n.type === "chat").length} new</span>}
             </button>
             <div className="menuSection">Equipment &amp; QR</div>
-            <button className={cx("dropdownMenuItem", page === "print_labels" && "dropdownMenuItemActive")} onClick={() => { setPage("print_labels"); setMenuOpen(false); }} type="button">🏷 Equipment Labels &amp; Setup walk</button>
+            <button className={cx("dropdownMenuItem", page === "print_labels" && "dropdownMenuItemActive")} onClick={() => { setPage("print_labels"); setMenuOpen(false); }} type="button">🏷 Stands &amp; Equipment (labels, verify walk)</button>
             <button className={cx("dropdownMenuItem", page === "equipment_scanner" && "dropdownMenuItemActive")} onClick={() => { setPage("equipment_scanner"); setMenuOpen(false); }} type="button">📡 Equipment Scanner</button>
-            <button className={cx("dropdownMenuItem", page === "kitchen_qr" && "dropdownMenuItemActive")} onClick={() => { setPage("kitchen_qr"); setMenuOpen(false); }} type="button">🍳 Kitchen QR Posters</button>
+            <button className={cx("dropdownMenuItem", page === "kitchen_qr" && "dropdownMenuItemActive")} onClick={() => { setPage("kitchen_qr"); setMenuOpen(false); }} type="button">🍳 Stand QR Posters</button>
             {(currentUser?.role === "global_admin" || currentUser?.role === "admin" || currentUser?.role === "location_manager" || currentUser?.role === "inspector") && <div className="menuSection">Manage</div>}
             {currentUser?.role === "global_admin" && (
               <button className={cx("dropdownMenuItem", page === "global_admin" && "dropdownMenuItemActive")} onClick={() => setPage("global_admin")} type="button">🌐 Global Admin</button>

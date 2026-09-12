@@ -8173,3 +8173,11 @@ html[data-theme="dark"] .fuStOnWaiting, html[data-theme="black"] .fuStOnWaiting 
 .crewProblem { border-color: #c7d2fe; }
 .crewProblemMeta { margin-left: auto; font-weight: 600; font-size: 0.76rem; color: var(--ink-500); }
 .crewItemStand { color: var(--sdx-navy); }
+
+/* ── v395: stand QR ↔ equipment, one place ── */
+.standPoster { display: flex; gap: 12px; align-items: center; background: var(--surface-2); border: 1.5px solid var(--sdx-gray-200); border-radius: 12px; padding: 10px 12px; margin-top: 10px; }
+.standPoster img { border-radius: 8px; background: #fff; flex-shrink: 0; }
+.kqrEquip { margin-top: 8px; text-align: left; }
+.kqrEquipSum { font-size: 0.76rem; font-weight: 800; color: var(--ink-700); }
+.kqrEquipList { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.kqrEquipItem { font-size: 0.68rem; font-weight: 700; background: var(--surface-2); border: 1px solid var(--sdx-gray-200); border-radius: 999px; padding: 1px 8px; color: var(--ink-600); }
