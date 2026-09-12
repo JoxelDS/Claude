@@ -8228,3 +8228,4 @@ html[data-theme="dark"] .fuStOnWaiting, html[data-theme="black"] .fuStOnWaiting 
 .haccpHowN { flex: 0 0 20px; height: 20px; border-radius: 50%; background: var(--sdx-navy); color: #fff; font-weight: 900; font-size: 0.72rem; display: flex; align-items: center; justify-content: center; }
 .haccpSectionHint { font-size: 0.76rem; color: var(--ink-500); line-height: 1.4; padding: 4px 2px 8px; }
 .haccpHowCount { font-weight: 800; font-size: 0.88rem; color: var(--ink-900); background: rgba(96,165,250,0.15); border: 1px solid rgba(96,165,250,0.4); border-radius: 8px; padding: 6px 10px; }
+.haccpHowEvery { font-weight: 900; font-size: 0.86rem; color: #991b1b; background: #fee2e2; border: 1.5px solid #fca5a5; border-radius: 8px; padding: 6px 10px; text-align: center; }
