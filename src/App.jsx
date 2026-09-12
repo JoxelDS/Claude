@@ -8315,6 +8315,8 @@ function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLoc
   const [tab, setTab] = useState("open"); // open | reports
   const [q, setQ] = useState("");
   const [floorPick, setFloorPick] = useState("");
+  const [standPick, setStandPick] = useState("");   // one stand only (key "u:114" / "s:NAME")
+  const [groupBy, setGroupBy] = useState("stand");  // stand | problem
   const [showOther, setShowOther] = useState(false);
   const [showDone, setShowDone] = useState(false);
   const [local, setLocal] = useState({ status: {}, comments: {}, photos: {}, cleared: {}, types: {} });
@@ -8356,15 +8358,22 @@ function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLoc
   const mine = all.filter(f => types.includes(f.itype) || (showOther && f.itype === "Other"));
   const isDone = f => { const st = statusOf(f.key); return !!(st && st.status === "resolved") || f.likelyResolved; };
   const qq = q.trim().toLowerCase(); const qUnit = normUnit(qq);
+  const standKeyF = f => normUnit(f.unit) ? `u:${normUnit(f.unit)}` : `s:${(f.loc || "").toUpperCase()}`;
+  const standList = (() => { const m = {}; for (const f of mine) { const k = standKeyF(f); if (!m[k]) m[k] = { key: k, unit: (f.unit || "").trim(), loc: f.loc || "", open: 0 }; if (!isDone(f)) m[k].open++; } return Object.values(m).sort((a, b) => (a.unit && b.unit) ? a.unit.localeCompare(b.unit, undefined, { numeric: true }) : a.unit ? -1 : b.unit ? 1 : a.loc.localeCompare(b.loc)); })();
   const shown = mine
     .filter(f => showDone ? true : !isDone(f))
+    .filter(f => !standPick || standKeyF(f) === standPick)
     .filter(f => !floorPick || (floorForStand(f.unit, f.loc, f.floor) || "No floor") === floorPick)
     .filter(f => !qq || (qUnit && normUnit(f.unit).includes(qUnit)) || [f.loc, f.cat, f.detail, f.notes].some(v => (v || "").toLowerCase().includes(qq)));
   const FLOOR_ORDER = ["Floor 1", "Floor 2", "Floor 3", "Ground Level"];
   const rank = f => { const i = FLOOR_ORDER.indexOf(f); return i === -1 ? 99 : i; };
   const floors = [...new Set(mine.map(f => floorForStand(f.unit, f.loc, f.floor) || "No floor"))].sort((a, b) => rank(a) - rank(b) || a.localeCompare(b));
   const byFloor = {};
-  for (const f of shown) { const fl = floorForStand(f.unit, f.loc, f.floor) || "No floor"; const sk = normUnit(f.unit) ? `u:${normUnit(f.unit)}` : `s:${(f.loc || "").toUpperCase()}`; ((byFloor[fl] = byFloor[fl] || {})[sk] = byFloor[fl][sk] || { unit: f.unit, loc: f.loc, items: [] }).items.push(f); }
+  for (const f of shown) { const fl = floorForStand(f.unit, f.loc, f.floor) || "No floor"; const sk = standKeyF(f); ((byFloor[fl] = byFloor[fl] || {})[sk] = byFloor[fl][sk] || { unit: f.unit, loc: f.loc, items: [] }).items.push(f); }
+  // By problem: same category across stands (e.g. every "3-Compartment Sinks" issue together)
+  const byProblem = {};
+  for (const f of shown) { const c = f.cat || "Other"; (byProblem[c] = byProblem[c] || { cat: c, icon: ISSUE_TYPE_ICON[f.itype] || "🔧", items: [], overdue: 0, stands: new Set() }); byProblem[c].items.push(f); if (f.overdue && !isDone(f)) byProblem[c].overdue++; byProblem[c].stands.add(standKeyF(f)); }
+  const problemGroups = Object.values(byProblem).sort((a, b) => b.items.length - a.items.length || a.cat.localeCompare(b.cat));
   const openN = mine.filter(f => !isDone(f)).length, overdueN = mine.filter(f => !isDone(f) && f.overdue).length;
   const today = new Date().toISOString().slice(0, 10);
   const doneTodayN = mine.filter(f => { const st = statusOf(f.key); return st && st.status === "resolved" && st.ts && new Date(st.ts).toISOString().slice(0, 10) === today; }).length;
@@ -8417,6 +8426,62 @@ function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLoc
       <span className="fuThumbTag">{side}</span>
     </div>
   );
+  const renderCrewItem = (f, withStand) => {
+    const stt = statusOf(f.key); const done = isDone(f);
+    const before = [...(f.photos || []).map(p => ({ ...p, report: true })), ...photosOf(f.key).filter(p => (p.tag || "before") !== "after")];
+    const after = photosOf(f.key).filter(p => p.tag === "after");
+    const cm = commentsOf(f.key);
+    return (
+      <div key={f.key} className={"crewItem" + (done ? " crewItemDone" : f.overdue ? " crewItemOverdue" : "")}>
+        <div className="crewItemHead">
+          <span className="crewItemIcon">{done ? "✅" : ISSUE_TYPE_ICON[f.itype] || "🔧"}</span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="crewItemTitle">{withStand ? <span className="crewItemStand">🍳 {f.loc}{f.unit ? ` · #${f.unit}` : ""} — </span> : null}{f.cat}</div>
+            <div className="crewItemDetail">{f.detail || "—"}{f.notes ? <span className="crewItemNotes"> — {f.notes}</span> : null}</div>
+            <div className="crewItemMeta">{[f.dateStr ? `flagged ${f.dateStr}` : "", f.daysSince != null ? `${f.daysSince}d open` : "", f.reportedBy ? `by supervisor ${f.reportedBy}` : f.inspector ? `by ${f.inspector}` : "", f.overdue && !done ? "⏰ overdue" : "", f.typeManual ? `✋ ${f.itype} by ${f.typeBy}` : ""].filter(Boolean).join(" · ")}</div>
+            {!done && (moveKey === f.key ? (
+              <div className="crewMove">
+                <span>This belongs to:</span>
+                {ISSUE_TYPES.filter(t => t !== f.itype && t !== "Temperature").map(t => <button key={t} type="button" className="etChip" onClick={() => moveTo(f, t)}>{ISSUE_TYPE_ICON[t]} {issueTypeLabel(t)}</button>)}
+                <button type="button" className="etChip" onClick={() => setMoveKey(null)}>Cancel</button>
+              </div>
+            ) : (
+              <button type="button" className="crewNotMine" onClick={() => setMoveKey(f.key)}>Not mine → move</button>
+            ))}
+          </div>
+        </div>
+        {(before.length > 0 || after.length > 0) && (
+          <div className="fuBA">
+            <div className="fuBACol"><div className="fuBAHead fuBABefore">🔴 Before</div><div className="fuThumbs">{before.length ? before.map(p => thumb(p, "before", f.key)) : <span className="fuPhotoHint">no photo</span>}</div></div>
+            <div className="fuBACol"><div className="fuBAHead fuBAAfter">🟢 After</div><div className="fuThumbs">{after.length ? after.map(p => thumb(p, "after", f.key)) : <span className="fuPhotoHint">add yours</span>}</div></div>
+          </div>
+        )}
+        {stt && <div className="fuStStamp">{stt.status === "resolved" ? "✅ Fixed" : stt.status === "waiting" ? `⏳ Waiting${stt.note ? ` for ${stt.note}` : ""}` : "🔧 In process"} — {stt.by}{stt.ts ? ` · ${new Date(stt.ts).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}` : ""}</div>}
+        {cm.length > 0 && <div className="crewComments">{cm.slice(-3).map((c, i) => <div key={i}>💬 <b>{c.by}</b>: {c.text}</div>)}</div>}
+        {action?.key === f.key ? (
+          <div className="crewActionBox">
+            <div className="crewActionTitle">{action.kind === "fixed" ? "✅ What did you do?" : action.kind === "waiting" ? "⏳ Waiting on what?" : "🔧 In process"}</div>
+            <textarea rows={2} className="caText" value={action.note} autoFocus onChange={e => setAction(a => ({ ...a, note: e.target.value }))}
+              placeholder={action.kind === "fixed" ? "e.g. Replaced gasket, tested — holding 36°F" : action.kind === "waiting" ? "e.g. part on order, vendor Thursday" : "optional note"} />
+            <div className="crewActionBtns">
+              <button type="button" className="btn btnGhost" onClick={() => setAction(null)}>Cancel</button>
+              <button type="button" className="btn btnPrimary" disabled={action.kind !== "in_progress" && !action.note.trim()} onClick={() => commit(f, action.kind, action.note)}>📨 Send to inspector</button>
+            </div>
+          </div>
+        ) : !done ? (
+          <div className="crewActions">
+            <button type="button" className="crewBtn" onClick={() => setAction({ key: f.key, kind: "in_progress", note: "" })}>🔧 In process</button>
+            <button type="button" className="crewBtn" onClick={() => setAction({ key: f.key, kind: "waiting", note: "" })}>⏳ Waiting on…</button>
+            <button type="button" className="crewBtn crewBtnFix" onClick={() => setAction({ key: f.key, kind: "fixed", note: "" })}>✅ Fixed</button>
+            <label className="crewBtn crewBtnPhoto">📷 After photo<input type="file" accept="image/*" capture="environment" multiple hidden onChange={e => { addAfterPhotos(f, e.target.files); e.target.value = ""; }} /></label>
+            {busy === f.key && <span className="fuPhotoHint">Sending…</span>}
+          </div>
+        ) : (
+          <div className="crewActions"><label className="crewBtn crewBtnPhoto">📷 Add after photo<input type="file" accept="image/*" capture="environment" multiple hidden onChange={e => { addAfterPhotos(f, e.target.files); e.target.value = ""; }} /></label></div>
+        )}
+      </div>
+    );
+  };
   return (
     <div className="appShell crewPage" style={{ background: "var(--surface-2)", minHeight: "100vh" }}>
       {lightboxSrc && ReactDOM.createPortal(
@@ -8461,6 +8526,17 @@ function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLoc
               <span className="crewStat crewStatOk">✅ {doneTodayN} fixed today</span>
             </div>
             <input value={q} onChange={e => setQ(e.target.value)} placeholder="🔎 unit #, stand, problem…" className="crewSearch" />
+            <div className="crewPickRow">
+              <select className="crewStandSel" value={standPick} onChange={e => setStandPick(e.target.value)} aria-label="Pick a stand">
+                <option value="">🍳 All stands ({standList.length})</option>
+                {standList.map(st => <option key={st.key} value={st.key}>{st.loc || "—"}{st.unit ? ` · #${st.unit}` : ""}{st.open ? ` · ${st.open} open` : ""}</option>)}
+              </select>
+              {standPick && <button type="button" className="etChip on" onClick={() => setStandPick("")}>✕ clear</button>}
+              <span className="fuToggle">
+                <button type="button" className={`fuToggleBtn${groupBy === "stand" ? " fuToggleActive" : ""}`} onClick={() => setGroupBy("stand")}>📍 By Stand</button>
+                <button type="button" className={`fuToggleBtn${groupBy === "problem" ? " fuToggleActive" : ""}`} onClick={() => setGroupBy("problem")}>🗂 By Problem</button>
+              </span>
+            </div>
             <div className="crewChips">
               {floors.length > 1 && floors.map(f => <button key={f} type="button" className={"etChip" + (floorPick === f ? " on" : "")} onClick={() => setFloorPick(floorPick === f ? "" : f)}>{f}</button>)}
               <span style={{ flex: 1 }} />
@@ -8469,68 +8545,19 @@ function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLoc
             </div>
             {loading && !history.length && <div className="etEmpty">Loading…</div>}
             {!loading && shown.length === 0 && <div className="etEmpty">{openN === 0 ? `Nothing open for ${meta.noun} right now. 🎉` : "Nothing matches."}</div>}
-            {floors.filter(fl => byFloor[fl]).map(fl => (
+            {groupBy === "problem" && problemGroups.map(g => (
+              <div key={g.cat} className="crewStand crewProblem">
+                <div className="crewStandHead">{g.icon} {g.cat}<span className="crewProblemMeta">{g.items.length} item{g.items.length !== 1 ? "s" : ""} · {g.stands.size} stand{g.stands.size !== 1 ? "s" : ""}{g.overdue ? ` · ⏰ ${g.overdue} overdue` : ""}</span></div>
+                {g.items.map(f => renderCrewItem(f, true))}
+              </div>
+            ))}
+            {groupBy === "stand" && floors.filter(fl => byFloor[fl]).map(fl => (
               <div key={fl}>
                 <div className="etFloorHead"><span>🏢 {fl}</span><span>{Object.keys(byFloor[fl]).length} stands</span></div>
                 {Object.values(byFloor[fl]).sort((a, b) => (a.unit || "").localeCompare(b.unit || "", undefined, { numeric: true })).map(st => (
                   <div key={st.loc + st.unit} className="crewStand">
                     <div className="crewStandHead">🍳 {st.loc}{st.unit ? ` · #${st.unit}` : ""}</div>
-                    {st.items.map(f => {
-                      const stt = statusOf(f.key); const done = isDone(f);
-                      const before = [...(f.photos || []).map(p => ({ ...p, report: true })), ...photosOf(f.key).filter(p => (p.tag || "before") !== "after")];
-                      const after = photosOf(f.key).filter(p => p.tag === "after");
-                      const cm = commentsOf(f.key);
-                      return (
-                        <div key={f.key} className={"crewItem" + (done ? " crewItemDone" : f.overdue ? " crewItemOverdue" : "")}>
-                          <div className="crewItemHead">
-                            <span className="crewItemIcon">{done ? "✅" : ISSUE_TYPE_ICON[f.itype] || "🔧"}</span>
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                              <div className="crewItemTitle">{f.cat}</div>
-                              <div className="crewItemDetail">{f.detail || "—"}{f.notes ? <span className="crewItemNotes"> — {f.notes}</span> : null}</div>
-                              <div className="crewItemMeta">{[f.dateStr ? `flagged ${f.dateStr}` : "", f.daysSince != null ? `${f.daysSince}d open` : "", f.reportedBy ? `by supervisor ${f.reportedBy}` : f.inspector ? `by ${f.inspector}` : "", f.overdue && !done ? "⏰ overdue" : "", f.typeManual ? `✋ ${f.itype} by ${f.typeBy}` : ""].filter(Boolean).join(" · ")}</div>
-                              {!done && (moveKey === f.key ? (
-                                <div className="crewMove">
-                                  <span>This belongs to:</span>
-                                  {ISSUE_TYPES.filter(t => t !== f.itype && t !== "Temperature").map(t => <button key={t} type="button" className="etChip" onClick={() => moveTo(f, t)}>{ISSUE_TYPE_ICON[t]} {issueTypeLabel(t)}</button>)}
-                                  <button type="button" className="etChip" onClick={() => setMoveKey(null)}>Cancel</button>
-                                </div>
-                              ) : (
-                                <button type="button" className="crewNotMine" onClick={() => setMoveKey(f.key)}>Not mine → move</button>
-                              ))}
-                            </div>
-                          </div>
-                          {(before.length > 0 || after.length > 0) && (
-                            <div className="fuBA">
-                              <div className="fuBACol"><div className="fuBAHead fuBABefore">🔴 Before</div><div className="fuThumbs">{before.length ? before.map(p => thumb(p, "before", f.key)) : <span className="fuPhotoHint">no photo</span>}</div></div>
-                              <div className="fuBACol"><div className="fuBAHead fuBAAfter">🟢 After</div><div className="fuThumbs">{after.length ? after.map(p => thumb(p, "after", f.key)) : <span className="fuPhotoHint">add yours</span>}</div></div>
-                            </div>
-                          )}
-                          {stt && <div className="fuStStamp">{stt.status === "resolved" ? "✅ Fixed" : stt.status === "waiting" ? `⏳ Waiting${stt.note ? ` for ${stt.note}` : ""}` : "🔧 In process"} — {stt.by}{stt.ts ? ` · ${new Date(stt.ts).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}` : ""}</div>}
-                          {cm.length > 0 && <div className="crewComments">{cm.slice(-3).map((c, i) => <div key={i}>💬 <b>{c.by}</b>: {c.text}</div>)}</div>}
-                          {action?.key === f.key ? (
-                            <div className="crewActionBox">
-                              <div className="crewActionTitle">{action.kind === "fixed" ? "✅ What did you do?" : action.kind === "waiting" ? "⏳ Waiting on what?" : "🔧 In process"}</div>
-                              <textarea rows={2} className="caText" value={action.note} autoFocus onChange={e => setAction(a => ({ ...a, note: e.target.value }))}
-                                placeholder={action.kind === "fixed" ? "e.g. Replaced gasket, tested — holding 36°F" : action.kind === "waiting" ? "e.g. part on order, vendor Thursday" : "optional note"} />
-                              <div className="crewActionBtns">
-                                <button type="button" className="btn btnGhost" onClick={() => setAction(null)}>Cancel</button>
-                                <button type="button" className="btn btnPrimary" disabled={action.kind !== "in_progress" && !action.note.trim()} onClick={() => commit(f, action.kind, action.note)}>📨 Send to inspector</button>
-                              </div>
-                            </div>
-                          ) : !done ? (
-                            <div className="crewActions">
-                              <button type="button" className="crewBtn" onClick={() => setAction({ key: f.key, kind: "in_progress", note: "" })}>🔧 In process</button>
-                              <button type="button" className="crewBtn" onClick={() => setAction({ key: f.key, kind: "waiting", note: "" })}>⏳ Waiting on…</button>
-                              <button type="button" className="crewBtn crewBtnFix" onClick={() => setAction({ key: f.key, kind: "fixed", note: "" })}>✅ Fixed</button>
-                              <label className="crewBtn crewBtnPhoto">📷 After photo<input type="file" accept="image/*" capture="environment" multiple hidden onChange={e => { addAfterPhotos(f, e.target.files); e.target.value = ""; }} /></label>
-                              {busy === f.key && <span className="fuPhotoHint">Sending…</span>}
-                            </div>
-                          ) : (
-                            <div className="crewActions"><label className="crewBtn crewBtnPhoto">📷 Add after photo<input type="file" accept="image/*" capture="environment" multiple hidden onChange={e => { addAfterPhotos(f, e.target.files); e.target.value = ""; }} /></label></div>
-                          )}
-                        </div>
-                      );
-                    })}
+                    {st.items.map(f => renderCrewItem(f, false))}
                   </div>
                 ))}
               </div>
