@@ -336,7 +336,7 @@ function lookupEquipByTag(rawTag, inspection) {
   // 0) the label itself may carry its full identity (v369+ labels)
   const fromQr = metaFromEquipQr(rawTag);
   // 1) already on this form
-  let inForm = null, meta = fromQr ? { assetTag: tag, label: fromQr.label, brand: fromQr.brand, kitchenArea: fromQr.kitchenArea, venueName: fromQr.venueName, unit: fromQr.unit } : null, last = null;
+  let inForm = null, meta = fromQr ? { assetTag: tag, label: fromQr.label, brand: fromQr.brand, kitchenArea: fromQr.kitchenArea, venueName: fromQr.venueName, unit: fromQr.unit, locType: fromQr.locType || "" } : null, last = null;
   for (const [k, v] of Object.entries(inspection?.equipment || {})) {
     if (same(v?.assetTag)) { inForm = k; if (!meta || !meta.label) meta = { assetTag: v.assetTag, label: v.label || k, brand: v.brand || "", kitchenArea: v.kitchenArea || "" }; break; }
   }
@@ -18458,9 +18458,9 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
   useEffect(() => {
     if (!standFocus) { setStandQr(""); return; }
     let live = true;
-    getQRCode().then(QR => QR.toDataURL(standHaccpUrl({ site: standFocus.site, unit: standFocus.unit, floor: standFocus.floor, locType: standFocus.locType }), { width: 240, margin: 1, color: { dark: "#111827", light: "#ffffff" } })).then(u => { if (live) setStandQr(u); }).catch(() => {});
+    getQRCode().then(QR => QR.toDataURL(standHaccpUrl({ site: standFocus.site, unit: standFocus.unit, floor: standFocus.floor, locType: standFocus.locType || storedStand(standFocus)?.locType || "" }), { width: 240, margin: 1, color: { dark: "#111827", light: "#ffffff" } })).then(u => { if (live) setStandQr(u); }).catch(() => {});
     return () => { live = false; };
-  }, [standFocus]);
+  }, [standFocus, standList]);
   function printStandPoster(sf, license) {
     const k = { id: "x", site: sf.site, unit: sf.unit, floor: sf.floor, license: license || "", locType: sf.locType || storedStand(sf)?.locType || "" };
     const brand = (/^#[0-9a-fA-F]{6}$/.test(_vs.primaryColor || "") ? _vs.primaryColor : "#2A295C");
@@ -19079,7 +19079,7 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
     const urls = {};
     getQRCode().then(QR => Promise.all(
       equipItems.map(item =>
-        QR.toDataURL(equipQrValue(item.assetTag, item), { width: 240, margin: 1, color: { dark: "#111827", light: "#ffffff" } })
+        QR.toDataURL(equipQrValue(item.assetTag, { ...item, locType: item.locType || typeAt(item.unit, item.venueName, "") }), { width: 240, margin: 1, color: { dark: "#111827", light: "#ffffff" } })
           .then(url => { urls[item.uid] = url; })
           .catch(() => {})
       )
@@ -19087,7 +19087,7 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
       setQrDataUrls({ ...urls });
       setGenerating(false);
     });
-  }, [equipItems]);
+  }, [equipItems, standList]);
 
   // One stand's label cards (used by the floor list and by the stand focus panel)
               const renderGroup = grp => {
@@ -23831,6 +23831,7 @@ function EquipScanModal({ onClose, onApply, initialTag }) {
               <div style={{ background: "var(--tint-green-1)", border: "1.5px solid #86efac", borderRadius: 12, padding: "0.7rem 0.9rem" }}>
                 <div style={{ fontWeight: 800, fontSize: "0.9rem", color: "var(--ink-900)" }}>{result.meta.label}</div>
                 <div style={{ fontSize: "0.76rem", color: "var(--ink-600)", marginTop: 2 }}>
+                  {result.meta.locType && <><StandType lt={result.meta.locType} /> · </>}
                   {result.meta.brand && <>Brand: <b>{result.meta.brand}</b> · </>}
                   {result.meta.kitchenArea && <>Location: <b>{result.meta.kitchenArea}</b> · </>}
                   Tag: <b style={{ fontFamily: "monospace" }}>{result.meta.assetTag}</b>
@@ -24405,13 +24406,13 @@ function EquipCheckPortal({ tag }) {
       // cached registry / label index — no network needed to show the name.
       try {
         const q = metaFromEquipQr(window.location.href);
-        if (q && q.label) m = { label: q.label, venueName: q.venueName, unit: q.unit, floor: floorFromUnit(q.unit) || q.floor, location: q.kitchenArea, brandName: q.brand };
+        if (q && q.label) m = { label: q.label, venueName: q.venueName, unit: q.unit, floor: floorFromUnit(q.unit) || q.floor, location: q.kitchenArea, brandName: q.brand, locType: q.locType || "" };
       } catch {}
       if (!m) {
         try {
           const cache = _equipRegCache || {};
           const it = cache[tag.toUpperCase()] || cache[tag];
-          if (it) m = { label: it.label, venueName: it.venueName, unit: it.unit, floor: floorFromUnit(it.unit) || it.floor, location: it.location, brandName: it.brandName };
+          if (it) m = { label: it.label, venueName: it.venueName, unit: it.unit, floor: floorFromUnit(it.unit) || it.floor, location: it.location, brandName: it.brandName, locType: it.locType || "" };
         } catch {}
       }
       if (m) { setMeta(m); setLoading(false); }
@@ -24534,7 +24535,7 @@ function EquipCheckPortal({ tag }) {
             <div style={{ background: "#f4f6ff", border: "1.5px solid #dbe2ff", borderRadius: 12, padding: "0.8rem 0.9rem", marginBottom: 14 }}>
               <div style={{ fontWeight: 800, fontSize: "1rem", color: "#1e1d4a" }}>{meta.label}</div>
               <div style={{ fontSize: "0.8rem", color: "#555", marginTop: 3, lineHeight: 1.5 }}>
-                {meta.venueName && <><b>{meta.venueName}</b></>}{meta.unit && <> · Unit #{meta.unit}</>}{meta.floor && <> · {meta.floor}</>}
+                {meta.venueName && <><b>{meta.venueName}</b></>}{meta.unit && <> · Unit #{meta.unit}</>}{meta.floor && <> · {meta.floor}</>}{meta.locType && <> <StandType lt={meta.locType} /></>}
                 {meta.brandName && <><br />Brand: {meta.brandName}</>}{meta.location && <> · {meta.location}</>}
               </div>
               <div style={{ fontSize: "0.72rem", color: "#6b7280", marginTop: 5 }}>
@@ -25026,7 +25027,7 @@ function HaccpPortal() {
       🏢 <strong>{locSite}</strong>
       {locUnit  ? <span className="haccpLocationUnit"> · Unit #{locUnit}</span>  : null}
       {locFloor ? <span className="haccpLocationUnit"> · {locFloor}</span>       : null}
-      {locType  ? <span className="haccpLocationUnit"> · {locType}</span>        : null}
+      {locType  ? <span className="haccpLocationUnit"> <StandType lt={locType} /></span> : null}
     </div>
   ) : null;
 
@@ -25163,7 +25164,7 @@ function HaccpPortal() {
                   <div className="haccpLocConfirmName">{locSite}</div>
                   {locUnit  && <div className="haccpLocConfirmMeta">Unit #{locUnit}</div>}
                   {locFloor && <div className="haccpLocConfirmMeta">{locFloor}</div>}
-                  {locType  && <div className="haccpLocConfirmMeta">{locType}</div>}
+                  {locType  && <div className="haccpLocConfirmMeta"><StandType lt={locType} /></div>}
                 </div>
                 <button className="haccpSubmitBtn" onClick={handleLocationSubmit}>
                   {L("✓ This is my location", "✓ Esta es mi ubicación")}
