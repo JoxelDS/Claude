@@ -8181,3 +8181,14 @@ html[data-theme="dark"] .fuStOnWaiting, html[data-theme="black"] .fuStOnWaiting 
 .kqrEquipSum { font-size: 0.76rem; font-weight: 800; color: var(--ink-700); }
 .kqrEquipList { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
 .kqrEquipItem { font-size: 0.68rem; font-weight: 700; background: var(--surface-2); border: 1px solid var(--sdx-gray-200); border-radius: 999px; padding: 1px 8px; color: var(--ink-600); }
+
+/* ── v396: edit stand name + license on the stand panel ── */
+.standLicChip { font-size: 0.72rem; font-weight: 800; background: var(--tint-green-1, #f0fdf4); border: 1px solid #86efac; border-radius: 999px; padding: 2px 9px; color: #166534; }
+.standLicChip.none { background: var(--tint-amber-1, #fffbeb); border-color: #fde68a; color: #92400e; }
+.standEditForm { background: var(--surface-2); border: 1.5px solid var(--sdx-gray-200); border-radius: 12px; padding: 10px 12px; margin-top: 10px; display: flex; flex-direction: column; gap: 4px; }
+.standEditForm .input { font-size: 16px; }
+
+/* ── v396: stand names & details read in UPPER CASE everywhere ── */
+.standFocusTitle, .walkStandHead > span:first-child, .verifyStand > span:nth-child(2), .crewStandHead, .crewItemStand,
+.crewReportSite, .standFocusRows .walkRowName, .walkRowMeta, .lblFloorHead > span:first-child, .fuGroupHead .fuGroupTitle,
+.kqrEquipItem, .lblToAddRow > span:first-child, .crewStandSel { text-transform: uppercase; }

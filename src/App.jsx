@@ -18406,6 +18406,33 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
   const [addAt, setAddAt] = useState(null);             // { venueName, unit, floor, locType } — add units here
   const [standFocus, setStandFocus] = useState(null);   // { unit, site, floor, locType } — one stand open
   const [standQr, setStandQr] = useState("");           // poster QR of the open stand
+  const [standEdit, setStandEdit] = useState(null);     // { site, license } — editing the open stand
+  const standIdOf = (unit, site) => normUnit(unit) ? `u:${normUnit(unit)}` : `s:${(site || "").trim().toLowerCase()}`;
+  const storedStand = sf => sf ? standList.find(k => standIdOf(k.unit, k.site) === standIdOf(sf.unit, sf.site)) : null;
+  function saveStandEdit(sf) {
+    if (!standEdit) return;
+    const site = standEdit.site.trim().toUpperCase(); if (!site) return;
+    const license = standEdit.license.trim().toUpperCase();
+    const id = standIdOf(sf.unit, site);
+    const floor = floorForStand(sf.unit, site, sf.floor) || "";
+    const rec = { site, unit: (sf.unit || "").trim(), floor, license, locType: sf.locType || "" };
+    try { if (FIREBASE_ON) setDoc(doc(db, "venues", VENUE_ID, "sharedMemory", "kitchenRegistry"), { items: { [id]: rec }, hidden: { [id]: false } }, { merge: true }).catch(() => {}); } catch {}
+    setStandList(prev => prev.some(k => standIdOf(k.unit, k.site) === id) ? prev.map(k => standIdOf(k.unit, k.site) === id ? { ...k, ...rec } : k) : [...prev, { id, ...rec }]);
+    const renamed = site !== (sf.site || "");
+    if (renamed) {
+      // The stand's equipment carries the stand name on every label — keep them in step
+      const key = standKeyOf(sf.unit, sf.site);
+      const its = standUnits(key);
+      const items = {}, labelIndex = {};
+      its.forEach(i => { const T = tagOf(i); if (!T) return; items[T] = { venueName: site }; labelIndex[T] = { venueName: site }; cacheRegItem(T, { venueName: site }); });
+      if (its.length) writeReg({ items, labelIndex });
+      setEquipItems(prev => prev.map(i => its.some(x => x.uid === i.uid) ? { ...i, venueName: site } : i));
+      setRegItemsState(prev => { const n = { ...prev }; for (const T of Object.keys(items)) if (n[T]) n[T] = { ...n[T], venueName: site }; return n; });
+    }
+    setStandFocus(prev => prev ? { ...prev, site } : prev);
+    setStandEdit(null);
+    setWalkFlash(`✅ ${site}${sf.unit ? ` #${sf.unit}` : ""} updated${license ? ` · 🪪 ${license}` : ""}.`); setTimeout(() => setWalkFlash(""), 3500);
+  }
   const [standList, setStandList] = useState([]);       // every stand (posters page list) — same universe here
   useEffect(() => {
     if (!standFocus) { setStandQr(""); return; }
@@ -18535,7 +18562,7 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
     const f = fill;
     const name = f.name.trim() || (f.type === "freezer" ? "Freezer" : "Cooler");
     const label = name + (f.type === "freezer" ? " 🧊 Freezer" : " ❄ Cooler");
-    const rec = { assetTag: f.tag, label, venueName: f.venueName, unit: f.unit, floor: f.floor, locType: f.locType, location: f.location.trim(), brandName: f.brand.trim(), updatedAt: Date.now() };
+    const rec = { assetTag: f.tag, label, venueName: (f.venueName || "").toUpperCase(), unit: f.unit, floor: f.floor, locType: f.locType, location: f.location.trim().toUpperCase(), brandName: f.brand.trim().toUpperCase(), updatedAt: Date.now() };
     const idx = { name: label, brand: rec.brandName, location: rec.location, venueName: f.venueName, unit: f.unit, floor: f.floor, locType: f.locType, ts: Date.now() };
     const stuck = markDone || f.stuck;
     const setup = stuck ? { [f.tag]: { doneAt: regSetup[f.tag]?.doneAt || Date.now(), by: "Inspector" } } : null;
@@ -18570,7 +18597,7 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
   function addUnitAtStand(stand, name, type) {
     const tag = nextTagFor(stand.unit, stand.venueName, type);
     const floor = floorForStand(stand.unit, stand.venueName, stand.floor);
-    const rec = { assetTag: tag, label: name + (type === "freezer" ? " 🧊 Freezer" : " ❄ Cooler"), venueName: (stand.venueName || "").trim(), unit: (stand.unit || "").trim(), floor, locType: stand.locType || "", location: "", brandName: "", createdAt: Date.now() };
+    const rec = { assetTag: tag, label: name + (type === "freezer" ? " 🧊 Freezer" : " ❄ Cooler"), venueName: (stand.venueName || "").trim().toUpperCase(), unit: (stand.unit || "").trim(), floor, locType: stand.locType || "", location: "", brandName: "", createdAt: Date.now() };
     const item = { ...rec, uid: `reg_${tag}` };
     setEquipItems(prev => prev.some(i => String(i.assetTag || "").toUpperCase() === tag) ? prev : [item, ...prev]);
     setRegItemsState(prev => ({ ...prev, [tag]: rec }));
@@ -18764,7 +18791,7 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
     const items = Array.isArray(itemsOverride) ? itemsOverride : equipItems.filter(i => isSelected(i.uid));
     if (items.length === 0) return;
     const logoUrl = resolveLogoWhite().startsWith("data:") ? resolveLogoWhite() : window.location.origin + resolveLogoWhite().replace(window.location.origin, "");
-    const esc = (s) => String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;");
+    const esc = (s) => String(s || "").toUpperCase().replace(/&/g, "&amp;").replace(/</g, "&lt;");
     const cardHtml = item => `
       <div class="lc">
         <div class="lh"><span class="lhn">${esc(item.label)}</span><img class="lhlogo" src="${logoUrl}" alt="Sodexo Live!" /></div>
@@ -19210,10 +19237,28 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
                 <span style={{ fontSize: "1.4rem" }}>📍</span>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div className="standFocusTitle">{site || "Stand"}{sf.unit ? ` · Unit #${sf.unit}` : ""}</div>
-                  <div className="standFocusSub">{[floorF, sf.locType, lic?.license ? `🪪 ${lic.license}` : ""].filter(Boolean).join(" · ")}{its.length ? ` · ${its.length} unit${its.length !== 1 ? "s" : ""} · ${doneN} done` : " · no equipment QR yet"}</div>
+                  <div className="standFocusSub">{[floorF, sf.locType].filter(Boolean).join(" · ")}{its.length ? ` · ${its.length} unit${its.length !== 1 ? "s" : ""} · ${doneN} done` : " · no equipment QR yet"}</div>
+                  {(() => { const st = storedStand(sf); const L = (st?.license || "").trim() || lic?.license || ""; return (
+                    <div style={{ marginTop: 4, display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+                      <span className={"standLicChip" + (L ? "" : " none")}>{L ? `🪪 License ${L}` : "⚠ no license on file"}</span>
+                      <button type="button" className="walkMini" style={{ marginLeft: 0 }} onClick={() => setStandEdit({ site: site || "", license: L })}>✎ Edit name / license</button>
+                    </div>
+                  ); })()}
                 </div>
                 <button type="button" className="walkMini" onClick={() => { setStandFocus(null); onClearFocus && onClearFocus(); }}>✕ All stands</button>
               </div>
+              {standEdit && (
+                <div className="standEditForm">
+                  <label className="walkLbl">Stand name</label>
+                  <input className="input" value={standEdit.site} onChange={e => setStandEdit(f => ({ ...f, site: e.target.value }))} placeholder="Stand name" autoFocus />
+                  <label className="walkLbl">License #</label>
+                  <input className="input" value={standEdit.license} onChange={e => setStandEdit(f => ({ ...f, license: e.target.value }))} placeholder={lic?.license ? `On the INDEX sheet: ${lic.license}` : "e.g. NOS2319802"} />
+                  <div className="walkFillActions">
+                    <button type="button" className="btn btnGhost" onClick={() => setStandEdit(null)}>Cancel</button>
+                    <button type="button" className="btn btnPrimary" disabled={!standEdit.site.trim()} onClick={() => saveStandEdit(sf)}>💾 Save stand</button>
+                  </div>
+                </div>
+              )}
               <div className="standPoster">
                 {standQr ? <img src={standQr} alt="" width={96} height={96} /> : <div style={{ width: 96, height: 96, background: "var(--surface-2)", borderRadius: 8 }} />}
                 <div style={{ flex: 1, minWidth: 0 }}>
@@ -19868,7 +19913,7 @@ function standPosterHtml(items, qrUrls, brandColor) {
         <div class="pht">${esc(resolveCompanyName())} · Kitchen Check</div>
       </div>
       <div class="pb">
-        <div class="pn">${esc(k.site)}${k.unit ? ` <span class="pu">#${esc(k.unit)}</span>` : ""}</div>
+        <div class="pn">${esc(String(k.site || "").toUpperCase())}${k.unit ? ` <span class="pu">#${esc(String(k.unit).toUpperCase())}</span>` : ""}</div>
         ${[k.floor, k.license ? `License #${k.license}` : ""].filter(Boolean).length ? `<div class="pf">${esc([k.floor, k.license ? `License #${k.license}` : ""].filter(Boolean).join(" · "))}</div>` : ""}
         <img class="pq" src="${qrUrls[k.id] || ""}" />
         <div class="pi">📱 <b>Scan with your phone camera</b><br/>Log temperatures &amp; report problems for this kitchen — no app needed.<br/><span class="es">Escanee para registrar temperaturas y reportar problemas.</span></div>
@@ -19933,9 +19978,9 @@ function KitchenQrPage({ onBack, onPrintLabels, onStandEquipment }) {
   }, [kitchens]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function addKitchen() {
-    const site = addSite.trim();
+    const site = addSite.trim().toUpperCase();
     if (!site) return;
-    const unit = addUnit.trim(), floor = addFloor.trim(), license = (addLicense.trim() || addLicHint).trim();
+    const unit = addUnit.trim().toUpperCase(), floor = addFloor.trim(), license = (addLicense.trim() || addLicHint).trim().toUpperCase();
     const id = unit ? `u:${normUnit(unit)}` : `s:${site.toLowerCase()}`;
     setKitchens(prev => prev.some(k => k.id === id) ? prev : [{ id, site, unit, floor, license }, ...prev]);
     setAddSite(""); setAddUnit(""); setAddLicense(""); setAddLicHint("");
@@ -19959,9 +20004,9 @@ function KitchenQrPage({ onBack, onPrintLabels, onStandEquipment }) {
   }
 
   function saveKitchenEdit(oldK) {
-    const site = editForm.site.trim();
+    const site = editForm.site.trim().toUpperCase();
     if (!site) return;
-    const unit = editForm.unit.trim(), floor = floorFromUnit(unit) || editForm.floor.trim(), license = editForm.license.trim();
+    const unit = editForm.unit.trim().toUpperCase(), floor = floorFromUnit(unit) || editForm.floor.trim(), license = editForm.license.trim().toUpperCase();
     const newId = unit ? `u:${normUnit(unit)}` : `s:${site.toLowerCase()}`;
     const updated = { id: newId, site, unit, floor, license, locType: oldK.locType || "" };
     setKitchens(prev => prev.map(k => k.id === oldK.id ? updated : k));
@@ -20148,7 +20193,7 @@ function KitchenQrPage({ onBack, onPrintLabels, onStandEquipment }) {
                 <div style={{ position: "absolute", top: 42, right: 8, background: brandColor, color: "#fff", borderRadius: 999, width: 26, height: 26, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: "0.85rem", zIndex: 2, boxShadow: "0 1px 4px rgba(0,0,0,0.3)" }}>✓</div>
               )}
               <div style={{ background: brandColor, color: "#fff", padding: "8px 12px", fontWeight: 800, fontSize: "0.82rem", display: "flex", justifyContent: "space-between", gap: 6 }}>
-                <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>🍳 {k.site}</span>
+                <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textTransform: "uppercase" }}>🍳 {k.site}</span>
                 <span style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 6 }}>
                   {k.unit && <span>#{k.unit}</span>}
                   <button type="button" aria-label={`Edit ${k.site}`}
