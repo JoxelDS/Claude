@@ -8192,3 +8192,16 @@ html[data-theme="dark"] .fuStOnWaiting, html[data-theme="black"] .fuStOnWaiting 
 .standFocusTitle, .walkStandHead > span:first-child, .verifyStand > span:nth-child(2), .crewStandHead, .crewItemStand,
 .crewReportSite, .standFocusRows .walkRowName, .walkRowMeta, .lblFloorHead > span:first-child, .fuGroupHead .fuGroupTitle,
 .kqrEquipItem, .lblToAddRow > span:first-child, .crewStandSel { text-transform: uppercase; }
+
+/* ── v398: stand type badges (Concession / Portable / Subcontractor) ── */
+.stType { display: inline-block; font-size: 0.62rem; font-weight: 900; letter-spacing: 0.06em; border-radius: 6px; padding: 2px 7px; line-height: 1.2; white-space: nowrap; border: 1px solid transparent; vertical-align: middle; }
+.stType.stCon { background: #e0e7ff; color: #1e3a8a; border-color: #c7d2fe; }
+.stType.stPort { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+.stType.stSub { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
+.stType.stPortSub { background: #ccfbf1; color: #115e59; border-color: #99f6e4; }
+.stType.stBar { background: #fce7f3; color: #9d174d; border-color: #fbcfe8; }
+.stType.stOther { background: var(--surface-2); color: var(--ink-600); border-color: var(--sdx-gray-200); }
+.stType.stNone { background: var(--surface-2); color: var(--ink-400); border-color: var(--sdx-gray-200); border-style: dashed; }
+.lblFloorChip.stTypeChip { font-size: 0.7rem; letter-spacing: 0.04em; }
+.lblFloorChip.stTypeChip.on { background: var(--sdx-navy); color: #fff; border-color: var(--sdx-navy); }
+.stType.stNoLic { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
