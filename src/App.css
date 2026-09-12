@@ -8205,3 +8205,8 @@ html[data-theme="dark"] .fuStOnWaiting, html[data-theme="black"] .fuStOnWaiting 
 .lblFloorChip.stTypeChip { font-size: 0.7rem; letter-spacing: 0.04em; }
 .lblFloorChip.stTypeChip.on { background: var(--sdx-navy); color: #fff; border-color: var(--sdx-navy); }
 .stType.stNoLic { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+
+/* ── v400: one QR per stand — unit rows replace label cards ── */
+.unitRowWrap { display: flex; align-items: stretch; gap: 6px; }
+.unitRowWrap .walkRow { flex: 1; }
+.unitRowTemps { background: var(--surface-2); border: 1.5px solid var(--sdx-gray-200); border-radius: 10px; padding: 0 10px; cursor: pointer; font-size: 0.95rem; margin: 5px 0; }

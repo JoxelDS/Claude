@@ -11384,7 +11384,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                   ))}
                 </div>
                 <div className="menuSection">Go to</div>
-                {[["📅 Schedule", "schedule"], ["🏷 Stands & Equipment", "print_labels"], ["🍳 Stand QR Posters", "kitchen_qr"], ["📍 My Locations", "mylocations"], ["💬 Messages & Comms", "messaging"]].map(([lb, pg]) => (
+                {[["📅 Schedule", "schedule"], ["🍳 Stands & Equipment", "print_labels"], ["🖨 Stand QR Posters", "kitchen_qr"], ["📍 My Locations", "mylocations"], ["💬 Messages & Comms", "messaging"]].map(([lb, pg]) => (
                   <button key={pg} className="dropdownMenuItem" type="button" onClick={() => { setShowHistoryMenu(false); window.dispatchEvent(new CustomEvent("sdx-nav", { detail: { page: pg } })); }}>{lb}</button>
                 ))}
                 {onMyTasks && (currentUser?.role === "inspector" || currentUser?.role === "location_manager") && (
@@ -18462,7 +18462,8 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
     return () => { live = false; };
   }, [standFocus, standList]);
   function printStandPoster(sf, license) {
-    const k = { id: "x", site: sf.site, unit: sf.unit, floor: sf.floor, license: license || "", locType: sf.locType || storedStand(sf)?.locType || "" };
+    const k = { id: "x", site: sf.site, unit: sf.unit, floor: sf.floor, license: license || "", locType: sf.locType || storedStand(sf)?.locType || "",
+      equip: standUnits(standKeyOf(sf.unit, sf.site)).map(i => ({ name: cleanName(i.label) || (typeOf(i) === "freezer" ? "Freezer" : "Cooler"), freezer: typeOf(i) === "freezer", brand: i.brandName || "", location: i.location || "" })) };
     const brand = (/^#[0-9a-fA-F]{6}$/.test(_vs.primaryColor || "") ? _vs.primaryColor : "#2A295C");
     const win = window.open("", "_blank");
     if (!win) { alert("Allow pop-ups to print the poster."); return; }
@@ -18489,7 +18490,7 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
     if (!(it.brandName || "").trim()) missing.push("brand");
     if (!(it.location || "").trim()) missing.push("location");
     const stuck = !!regSetup[String(it.assetTag || "").toUpperCase()];
-    return { missing, stuck, complete: missing.length === 0 && stuck };
+    return { missing, stuck, complete: missing.length === 0 };
   };
   const sameStand = (it, st) => {
     const unitN = normUnit(st?.unit);
@@ -18690,7 +18691,8 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
     const st = walkStatus(it);
     const typ = typeOf(it);
     return (
-      <button key={it.uid} type="button" className={"walkRow" + (st.complete ? " done" : "")} onClick={() => openFill(it)}>
+      <div key={it.uid} className="unitRowWrap">
+      <button type="button" className={"walkRow" + (st.complete ? " done" : "")} onClick={() => openFill(it)}>
         <span className="walkRowIcon">{st.complete ? "✅" : st.stuck ? "🏷" : "⬜"}</span>
         <span className="walkRowName">{cleanName(it.label) || (typ === "freezer" ? "Freezer" : "Cooler")}</span>
         <span className="walkRowType">{typ === "freezer" ? "🧊" : "❄"}</span>
@@ -18698,6 +18700,8 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
         {st.missing.length > 0 && <span className="walkMissing">needs {st.missing.join(", ")}</span>}
         <span className="walkRowTag">{it.assetTag}</span>
       </button>
+      <button type="button" className="unitRowTemps" title="Temperature history" onClick={() => setHistoryTag(it.assetTag)}>📈</button>
+      </div>
     );
   };
   const renderVerifyRow = it => {
@@ -19075,6 +19079,7 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
   // Generate QR code data URLs for all items
   useEffect(() => {
     if (equipItems.length === 0) return;
+    if (!qrDataUrls.__enabled) { setGenerating(false); return; } // v400: no per-unit stickers — the stand poster is the QR
     setGenerating(true);
     const urls = {};
     getQRCode().then(QR => Promise.all(
@@ -19185,19 +19190,13 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
             ← Back
           </button>
           <div>
-            <div style={{ fontWeight: 700, color: "#fff", fontSize: "1rem" }}>Stands &amp; Equipment</div>
-            <div style={{ color: "rgba(255,255,255,0.7)", fontSize: "0.75rem" }}>Each stand: its QR poster + its cooler / freezer labels</div>
+            <div style={{ fontWeight: 700, color: "#fff", fontSize: "1rem" }}>Stands</div>
+            <div style={{ color: "rgba(255,255,255,0.7)", fontSize: "0.75rem" }}>One QR per stand — its coolers / freezers listed on the poster</div>
           </div>
         </div>
-        <button type="button" onClick={printSelected} disabled={selectedCount === 0}
-          style={{
-            background: selectedCount === 0 ? "rgba(255,255,255,0.18)" : "#fff",
-            color: selectedCount === 0 ? "rgba(255,255,255,0.75)" : "var(--sdx-navy)",
-            border: "none", borderRadius: 10, cursor: selectedCount === 0 ? "default" : "pointer",
-            fontWeight: 700, fontSize: "0.85rem", padding: "0.5rem 1.1rem",
-            display: "inline-flex", alignItems: "center", gap: 6, whiteSpace: "nowrap",
-          }}>
-          🖨 Print{selectedCount > 0 ? ` (${selectedCount})` : ""}
+        <button type="button" onClick={onKitchenQr}
+          style={{ background: "#fff", color: "var(--sdx-navy)", border: "none", borderRadius: 10, cursor: "pointer", fontWeight: 700, fontSize: "0.85rem", padding: "0.5rem 1.1rem", display: "inline-flex", alignItems: "center", gap: 6, whiteSpace: "nowrap" }}>
+          🖨 Posters
         </button>
       </header>
       <div className="printHide" style={{ height: 64, flexShrink: 0 }} />
@@ -19206,11 +19205,11 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
 
         {/* Instructions — hidden on print (and while one stand is open) */}
         <div className="printHide" style={{ background: "var(--surface-1)", borderRadius: 12, padding: "1rem 1.25rem", marginBottom: "1.25rem", boxShadow: "0 1px 4px rgba(0,0,0,0.07)", ...(standFocus ? { display: "none" } : {}) }}>
-          <div style={{ fontWeight: 700, fontSize: "0.95rem", color: "var(--ink-900)", marginBottom: 6 }}>How to use equipment QR labels</div>
+          <div style={{ fontWeight: 700, fontSize: "0.95rem", color: "var(--ink-900)", marginBottom: 6 }}>How stands work</div>
           <ol style={{ margin: 0, paddingLeft: "1.25rem", color: "var(--ink-600)", fontSize: "0.85rem", lineHeight: 1.7 }}>
-            <li>Save an inspection with equipment filled in — labels are generated from your most recent inspection.</li>
-            <li>Click <strong>🖨 Print</strong> and print on label paper or regular paper, then cut and laminate.</li>
-            <li>Stick the label on the physical unit. Optionally use "Auto-assign" asset tags so inspectors can scan them for full history.</li>
+            <li><strong>One QR per stand.</strong> The poster on the wall lists every cooler / freezer with its brand and where it is — no stickers on the units.</li>
+            <li>Open a stand here (or scan its QR) to keep its equipment right: name, brand, location, type, license. Then <strong>🔍 Verify walk</strong> stand by stand.</li>
+            <li>Teams scan the poster to log temps for each unit and report problems — it lands in your reports instantly.</li>
           </ol>
         </div>
 
@@ -19299,8 +19298,7 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
               </div>
               <div className="standFocusActions">
                 <button type="button" className="lblFloorChip standFocusAdd" onClick={() => setAddAt(standObj)}>➕ Add cooler / freezer</button>
-                <button type="button" className="lblFloorChip" onClick={() => setWalkScanOpen(true)}>📷 Scan label</button>
-                {its.length > 0 && <button type="button" className="lblFloorChip" onClick={() => { if (qrReady(its)) printSelected(its); }}>🖨 Print {its.length} label{its.length !== 1 ? "s" : ""}</button>}
+                <button type="button" className="lblFloorChip" onClick={() => setWalkScanOpen(true)}>📷 Scan stand QR</button>
               </div>
               {verifyMode && (() => {
                 const key = standKeyOf(sf.unit, site);
@@ -19337,7 +19335,7 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
               ) : (
                 !verifyMode && <div className="standFocusRows">{its.map(renderWalkRow)}</div>
               )}
-              {its.length > 0 && !verifyMode && renderGroup(grp)}
+
             </div>
           );
         })()}
@@ -19358,12 +19356,7 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
         {!loading && !standFocus && equipItems.length > 0 && (
           <>
             <div className="printHide" style={{ display: "flex", alignItems: "center", gap: 12, color: "var(--ink-500)", fontSize: "0.82rem", marginBottom: 12, flexWrap: "wrap" }}>
-              <span>{generating ? "Generating QR codes…" : selectedCount === 0 ? "Tap the labels you want to print — or select a whole restaurant" : `${selectedCount} selected`}</span>
-              <button type="button"
-                style={{ fontSize: "0.75rem", fontWeight: 700, padding: "0.35rem 0.9rem", borderRadius: 999, border: "1.5px solid var(--sdx-navy)", background: "var(--sdx-navy)", color: "#fff", cursor: "pointer" }}
-                onClick={() => setSelected(selectedCount === equipItems.length ? new Set() : new Set(equipItems.map(i => i.uid)))}>
-                {selectedCount === equipItems.length ? "Deselect All" : "Select All"}
-              </button>
+              <span>Every cooler / freezer per stand — open a stand to fix or verify its units</span>
               <button type="button"
                 style={{ fontSize: "0.75rem", fontWeight: 700, padding: "0.35rem 0.9rem", borderRadius: 999, border: "1.5px solid #16a34a", background: "#16a34a", color: "#fff", cursor: "pointer" }}
                 onClick={() => setShowAdd(true)}>
@@ -19381,7 +19374,7 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
             <div className="printHide" style={{
               position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 200,
               background: "#1d4ed8", color: "#fff",
-              display: (walkMode || verifyMode || standFocus) ? "none" : "flex", alignItems: "center", justifyContent: "space-between",
+              display: "none", alignItems: "center", justifyContent: "space-between",
               padding: "14px 20px calc(14px + env(safe-area-inset-bottom, 0px))", gap: 12,
               boxShadow: "0 -4px 16px rgba(0,0,0,0.18)",
             }}>
@@ -19406,7 +19399,7 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
                 </button>
               </div>
             </div>
-            <div className="printHide" style={{ height: 74 }} />
+
             <div className="printHide" style={{ position: "relative", margin: "10px 0 2px", maxWidth: 440 }}>
               <input value={labelSearch} onChange={e => setLabelSearch(e.target.value)}
                 placeholder="🔎 Search stand, unit #, equipment, or tag…"
@@ -19589,7 +19582,7 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
                 <>
                   {/* Floor summary — how many labels per floor, print a whole floor at once */}
                   <div className="printHide lblFloorBar">
-                    <span className="lblFloorTotal">🏷 {totalUnits} label{totalUnits !== 1 ? "s" : ""} · {groups.length} stand{groups.length !== 1 ? "s" : ""}</span>
+                    <span className="lblFloorTotal">❄ {totalUnits} unit{totalUnits !== 1 ? "s" : ""} · {groups.length} stand{groups.length !== 1 ? "s" : ""}</span>
                     {(() => { const cnt = {}; const seenK = new Set(); for (const it of equipItems) { const k = standKeyOf(it.unit, it.venueName); if (seenK.has(k)) continue; seenK.add(k); const g = typeGroup(typeAt(it.unit, it.venueName, it.locType)); cnt[g] = (cnt[g] || 0) + 1; } for (const sn of standsNoEquip) { if (seenK.has(sn.key)) continue; seenK.add(sn.key); const g = typeGroup(typeAt(sn.unit, sn.venueName, sn.locType)); cnt[g] = (cnt[g] || 0) + 1; }
                       let noLic = 0; const seen2 = new Set(); for (const it of equipItems) { const k = standKeyOf(it.unit, it.venueName); if (seen2.has(k)) continue; seen2.add(k); if (!licenseAt(it.unit, it.venueName, it.locType)) noLic++; } for (const sn of standsNoEquip) { if (seen2.has(sn.key)) continue; seen2.add(sn.key); if (!licenseAt(sn.unit, sn.venueName, sn.locType)) noLic++; }
                       return [...TYPE_CHIPS.filter(([g]) => cnt[g]).map(([g, lb]) => <button key={g} type="button" className={"lblFloorChip stTypeChip " + (typePick === g ? "on" : "")} onClick={() => setTypePick(typePick === g ? "" : g)}>{lb} {cnt[g]}</button>),
@@ -19597,19 +19590,8 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
                     <button type="button" className={"lblFloorChip lblVerifyToggle" + (verifyMode ? " on" : "")} onClick={() => { setVerifyMode(v => !v); setWalkMode(false); }} title="Verify every stand: confirm, fix or remove each unit, then mark the stand verified">
                       🔍 Verify walk{verifyMode ? " ✓" : ""}
                     </button>
-                    <button type="button" className={"lblFloorChip lblWalkToggle" + (walkMode ? " on" : "")} onClick={() => { setWalkMode(v => !v); setVerifyMode(false); }} title="Walk the building: fill brand + location for every label and mark it stuck">
-                      🚶 Setup walk{walkMode ? " ✓" : ""}
-                    </button>
-                    <button type="button" className="lblFloorChip" onClick={() => setWalkScanOpen(true)} title="Scan an equipment label or a stand QR">📷 Scan</button>
-                    {floors.map(f => {
-                      const its = floorsMap[f].flatMap(g => g.items);
-                      return (
-                        <button key={f} type="button" className="lblFloorChip" title={`Print all ${its.length} labels on ${f}`}
-                          onClick={() => { if (qrReady(its)) printSelected(its); }}>
-                          🖨 {f}: {its.length}
-                        </button>
-                      );
-                    })}
+                    <button type="button" className="lblFloorChip" onClick={() => setWalkScanOpen(true)} title="Scan a stand QR">📷 Scan stand</button>
+                    <button type="button" className="lblFloorChip" onClick={onKitchenQr} title="Print the stand posters">🖨 Posters</button>
                     {standsNoEquip.length > 0 && (
                       <button type="button" className="lblFloorChip lblToAdd" onClick={() => setShowToAdd(v => !v)}>
                         ⚠ {standsNoEquip.length} stands with no cooler/freezer yet {showToAdd ? "▾" : "▸"}
@@ -19637,10 +19619,21 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
                     <div key={f}>
                       <div className="printHide lblFloorHead">
                         <span>🏢 {f}</span>
-                        <span className="lblFloorCount">{floorsMap[f].flatMap(g => g.items).length} labels · {floorsMap[f].length} stands</span>
-                        <button type="button" className="lblFloorChip" onClick={() => { const its = floorsMap[f].flatMap(g => g.items); if (qrReady(its)) printSelected(its); }}>🖨 Print {f}</button>
+                        <span className="lblFloorCount">{floorsMap[f].flatMap(g => g.items).length} units · {floorsMap[f].length} stands</span>
                       </div>
-                      {floorsMap[f].map(renderGroup)}
+                      {floorsMap[f].map(g => (
+                        <div key={g.key} className="walkStand">
+                          <div className="walkStandHead">
+                            <span>🍳 {g.site || "—"}{g.unit ? ` · #${g.unit}` : ""}</span>
+                            <StandType lt={typeAt(g.unit, g.site, g.items[0]?.locType)} />
+                            {!licenseAt(g.unit, g.site, g.items[0]?.locType) && <NoLic />}
+                            {regVerified[standKeyOf(g.unit, g.site)] && <span className="verifyPill">✅ Verified</span>}
+                            <span style={{ fontWeight: 500, color: "var(--ink-500)", fontSize: "0.76rem" }}>{g.items.length} unit{g.items.length !== 1 ? "s" : ""}</span>
+                            <button type="button" className="walkMini" onClick={() => focusOnStand({ unit: g.unit, site: g.site || "", floor: g.floor || "", locType: g.items[0]?.locType || "" })}>📍 open</button>
+                          </div>
+                          {g.items.map(renderWalkRow)}
+                        </div>
+                      ))}
                     </div>
                   ))}
                 </>
@@ -19953,7 +19946,8 @@ function standPosterHtml(items, qrUrls, brandColor) {
       <div class="pb">
         <div class="pn">${esc(String(k.site || "").toUpperCase())}${k.unit ? ` <span class="pu">#${esc(String(k.unit).toUpperCase())}</span>` : ""}</div>
         ${[k.floor, k.locType ? standTypeBadge(k.locType).short : "", k.license ? `License #${k.license}` : ""].filter(Boolean).length ? `<div class="pf">${esc([k.floor, k.locType ? standTypeBadge(k.locType).short : "", k.license ? `License #${k.license}` : ""].filter(Boolean).join(" · "))}</div>` : ""}
-        <img class="pq" src="${qrUrls[k.id] || ""}" />
+        <img class="pq${(k.equip || []).length ? " pqs" : ""}" src="${qrUrls[k.id] || ""}" />
+        ${(k.equip || []).length ? `<div class="pe"><div class="peh">COOLERS &amp; FREEZERS IN THIS STAND</div>${k.equip.slice(0, 10).map(e => `<div class="per"><span class="pei">${e.freezer ? "🧊" : "❄"}</span><span class="pen">${esc(String(e.name || "").toUpperCase())}</span><span class="pem">${esc([e.brand, e.location].filter(Boolean).join(" · ").toUpperCase() || "—")}</span></div>`).join("")}${k.equip.length > 10 ? `<div class="per"><span class="pem">+${k.equip.length - 10} MORE</span></div>` : ""}</div>` : ""}
         <div class="pi">📱 <b>Scan with your phone camera</b><br/>Log temperatures &amp; report problems for this kitchen — no app needed.<br/><span class="es">Escanee para registrar temperaturas y reportar problemas.</span></div>
       </div>
     </div>`).join("\n");
@@ -19969,6 +19963,14 @@ function standPosterHtml(items, qrUrls, brandColor) {
     .pu { color:${brandColor}; }
     .pf { font-size:13px; color:#6b7280; font-weight:700; margin-top:2px; }
     .pq { width:200px; height:200px; margin:10px 0; }
+    .pq.pqs { width:150px; height:150px; margin:6px 0; }
+    .pe { width:100%; max-width:560px; margin:4px auto 6px; text-align:left; border:1.5px solid #e5e7eb; border-radius:10px; padding:6px 10px; }
+    .peh { font-size:9px; font-weight:900; letter-spacing:.08em; color:#6b7280; margin-bottom:3px; }
+    .per { display:flex; align-items:center; gap:8px; font-size:11px; line-height:1.35; border-top:1px dashed #e5e7eb; padding:2px 0; }
+    .per:first-of-type { border-top:none; }
+    .pei { width:14px; }
+    .pen { font-weight:900; color:#111827; flex:0 0 auto; }
+    .pem { color:#374151; font-weight:700; margin-left:auto; text-align:right; }
     .pi { font-size:12px; color:#374151; line-height:1.5; }
     .pi .es { color:#6b7280; font-style:italic; }
     @page { margin:8mm; }
@@ -20079,7 +20081,7 @@ function KitchenQrPage({ onBack, onPrintLabels, onStandEquipment }) {
   function printPosters() {
     const items = selectedIds.size ? shown.filter(k => selectedIds.has(k.id)) : shown;
     if (items.length === 0) return;
-    const html = standPosterHtml(items, qrUrls, brandColor);
+    const html = standPosterHtml(items.map(k => ({ ...k, equip: equipUnitsAtStand(k.unit, k.site) })), qrUrls, brandColor);
     const win = window.open("", "_blank");
     if (!win) { alert("Allow pop-ups to print posters."); return; }
     win.document.write(html);
@@ -20103,7 +20105,7 @@ function KitchenQrPage({ onBack, onPrintLabels, onStandEquipment }) {
           {onPrintLabels && (
             <button className="btn btnGhost" type="button" onClick={onPrintLabels} title="Equipment Labels"
               style={{ color: "#fff", borderColor: "rgba(255,255,255,0.4)", padding: "0.3rem 0.6rem", fontSize: "0.8rem", whiteSpace: "nowrap" }}>
-              🏷<span className="kqrBtnLabel"> Equipment Labels</span>
+              🍳<span className="kqrBtnLabel"> Stands &amp; Equipment</span>
             </button>
           )}
           <button type="button" onClick={printPosters} disabled={shown.length === 0}
@@ -24694,6 +24696,24 @@ function HaccpPortal() {
   // Custom temperature items added by the supervisor (beyond the 6 defaults)
   const [customItems, setCustomItems] = useState([]);
   // { key: string, label: string, unit: "°F", type: "hot"|"cold", min?: number, max?: number }
+  // v400: the stand poster is the only QR — its coolers / freezers become the
+  // temp rows automatically (name · brand · where it is), one line each.
+  useEffect(() => {
+    if (!locUnit && !locSite) return;
+    let live = true;
+    warmEquipRegistry().catch(() => {}).then(() => {
+      if (!live) return;
+      const eq = equipUnitsAtStand(locUnit, locSite);
+      if (!eq.length) return;
+      setCustomItems(prev => {
+        const have = new Set(prev.map(i => i.key));
+        const add = eq.filter(e => !have.has(`eq:${e.tag}`)).map(e => ({ key: `eq:${e.tag}`, label: `${e.name}${e.brand ? ` · ${e.brand}` : ""}`.toUpperCase(), hint: (e.location || "").toUpperCase(), unit: "°F", type: "cold", max: e.freezer ? 0 : 41, tag: e.tag }));
+        return add.length ? [...prev, ...add] : prev;
+      });
+    });
+    return () => { live = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [locUnit, locSite]);
   // Inline label editing: which item key is currently being edited
   const [editingLabel, setEditingLabel] = useState(null); // null | itemKey
   const [editingLabelVal, setEditingLabelVal] = useState("");
@@ -25242,7 +25262,7 @@ function HaccpPortal() {
                     <button type="button" key={item.key} className={"htRow" + (sm.n ? (sm.fails ? " htRowFail" : " htRowDone") : "")} onClick={() => toggleOpen(item.key)}>
                       <span className="htRowEmoji">{emoji}</span>
                       <span className="htRowMain"><span className="htRowName" style={{ color }}>{itemName(item)}</span><span className="htRowHint">{itemHint(item)}</span></span>
-                      <span className="htRowBadge" style={badge ? { background: badge } : {}}>{item.max ? `≤${item.max}°F` : `≥${item.min}°F`}</span>
+                      <span className="htRowBadge" style={badge ? { background: badge } : {}}>{item.max != null ? `≤${item.max}°F` : `≥${item.min}°F`}</span>
                       <span className="htRowState">{sm.n ? (sm.fails ? `⚠ ${sm.fails} ${L("flagged", "con alerta")}` : `✓ ${sm.last}°F`) : L("Log it ›", "Registrar ›")}</span>
                     </button>); };
                   function renderReadingBlock(item) {
@@ -28633,7 +28653,7 @@ export default function App() {
               {notifItems.filter(n => n.type === "chat").length > 0 && <span className="menuBadge menuBadgeSoft">{notifItems.filter(n => n.type === "chat").length} new</span>}
             </button>
             <div className="menuSection">Equipment &amp; QR</div>
-            <button className={cx("dropdownMenuItem", page === "print_labels" && "dropdownMenuItemActive")} onClick={() => { setPage("print_labels"); setMenuOpen(false); }} type="button">🏷 Stands &amp; Equipment (labels, verify walk)</button>
+            <button className={cx("dropdownMenuItem", page === "print_labels" && "dropdownMenuItemActive")} onClick={() => { setPage("print_labels"); setMenuOpen(false); }} type="button">🍳 Stands &amp; Equipment (verify walk)</button>
             <button className={cx("dropdownMenuItem", page === "equipment_scanner" && "dropdownMenuItemActive")} onClick={() => { setPage("equipment_scanner"); setMenuOpen(false); }} type="button">📡 Equipment Scanner</button>
             <button className={cx("dropdownMenuItem", page === "kitchen_qr" && "dropdownMenuItemActive")} onClick={() => { setPage("kitchen_qr"); setMenuOpen(false); }} type="button">🍳 Stand QR Posters</button>
             {(currentUser?.role === "global_admin" || currentUser?.role === "admin" || currentUser?.role === "location_manager" || currentUser?.role === "inspector") && <div className="menuSection">Manage</div>}
