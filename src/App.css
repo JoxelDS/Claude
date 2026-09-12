@@ -8210,3 +8210,14 @@ html[data-theme="dark"] .fuStOnWaiting, html[data-theme="black"] .fuStOnWaiting 
 .unitRowWrap { display: flex; align-items: stretch; gap: 6px; }
 .unitRowWrap .walkRow { flex: 1; }
 .unitRowTemps { background: var(--surface-2); border: 1.5px solid var(--sdx-gray-200); border-radius: 10px; padding: 0 10px; cursor: pointer; font-size: 0.95rem; margin: 5px 0; }
+
+/* ── v401: announcements to stands ── */
+.lblAnnounce { background: #7c3aed !important; color: #fff !important; border-color: #7c3aed !important; }
+.annStandList { max-height: 200px; overflow: auto; border: 1.5px solid var(--sdx-gray-200); border-radius: 10px; padding: 4px; display: flex; flex-direction: column; gap: 3px; }
+.annStand { text-align: left; background: var(--surface-2); border: 1px solid transparent; border-radius: 8px; padding: 6px 8px; font-size: 0.8rem; font-weight: 700; color: var(--ink-800); cursor: pointer; display: flex; align-items: center; gap: 6px; }
+.annStand.on { background: #ede9fe; border-color: #c4b5fd; color: #4c1d95; }
+.annRow { display: flex; align-items: center; gap: 8px; background: var(--surface-2); border: 1px solid var(--sdx-gray-200); border-radius: 10px; padding: 8px 10px; margin-top: 6px; font-size: 0.82rem; }
+.haccpNotices { max-width: 520px; margin: 0 auto 12px; display: flex; flex-direction: column; gap: 8px; }
+.haccpNotice { background: #fef3c7; border: 2px solid #f59e0b; border-radius: 14px; padding: 10px 14px; color: #78350f; box-shadow: 0 6px 18px rgba(0,0,0,.18); }
+.haccpNoticeHead { font-size: 0.72rem; font-weight: 900; letter-spacing: .05em; text-transform: uppercase; margin-bottom: 3px; }
+.haccpNoticeText { font-size: 0.95rem; font-weight: 700; line-height: 1.45; white-space: pre-wrap; }

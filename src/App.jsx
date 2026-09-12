@@ -2473,6 +2473,23 @@ const LOCATION_TYPES = ["Concession", "Bar", "Subcontractor", "Portable - Stadiu
 // Helper: any portable variant (including legacy "Portable")
 const isPortableType = (lt) => lt === "Portable - Stadium" || lt === "Portable - Subcontractor" || lt === "Portable";
 const FLOOR_OPTIONS = ["Ground Level", "Floor 1", "Floor 2", "Floor 3"];
+// ── Stand announcements (v401): a message shown to whoever scans the stand QR ──
+// venues/{VENUE_ID}/sharedMemory/standNotices → { items: { id: { text, by, ts, until, all, floors, types, stands } } }
+const noticesRef = () => doc(db, "venues", VENUE_ID, "sharedMemory", "standNotices");
+async function loadStandNotices() {
+  try { const snap = await getDoc(noticesRef()); const d = snap.exists() ? (snap.data() || {}) : {}; const now = Date.now();
+    return Object.entries(d.items || {}).map(([id, n]) => ({ id, ...n })).filter(n => n && n.text && !n.removed && (!n.until || n.until > now)).sort((a, b) => (b.ts || 0) - (a.ts || 0)); } catch { return []; }
+}
+function noticeMatches(n, st) {
+  if (n.all) return true;
+  const key = normUnit(st.unit) ? `u:${normUnit(st.unit)}` : `s:${(st.site || "").trim().toLowerCase()}`;
+  if ((n.stands || []).includes(key)) return true;
+  const fl = floorForStand(st.unit, st.site, st.floor) || "";
+  if (fl && (n.floors || []).includes(fl)) return true;
+  const tg = standTypeBadge(st.locType || "").short;
+  if (tg && (n.types || []).includes(tg)) return true;
+  return false;
+}
 // Stand type at a glance — Concession / Portable / Subcontractor / Portable-Sub
 function standTypeBadge(lt) {
   const t = String(lt || "").trim();
@@ -18479,6 +18496,26 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
   const [regVerified, setRegVerified] = useState({});   // { standKey: { at, by, units } }
   const [regConfirmed, setRegConfirmed] = useState({}); // { TAG: { at, by } }
   const [verifyOnly, setVerifyOnly] = useState(false);  // labels / print / sheet: verified stands only
+  // ── Announcements to stands (v401) ──
+  const [notices, setNotices] = useState([]);
+  const [announce, setAnnounce] = useState(null); // { text, days, all, floors:[], types:[], stands:[], q }
+  useEffect(() => { loadStandNotices().then(setNotices); }, []);
+  const TYPE_SHORTS = ["CONCESSION", "PORTABLE", "SUBCONTRACTOR", "PORTABLE · SUB", "BAR"];
+  const noticeTargetLabel = n => n.all ? "Every stand" : [...(n.floors || []), ...(n.types || []), ...((n.stands || []).map(k => { const st = standList.find(x => standIdOf(x.unit, x.site) === k); return st ? `${st.site}${st.unit ? ` #${st.unit}` : ""}` : k; }))].join(", ") || "—";
+  async function sendAnnouncement() {
+    const a = announce; if (!a || !a.text.trim()) return;
+    if (!a.all && !a.floors.length && !a.types.length && !a.stands.length) { alert("Pick who gets it: every stand, floors, types, or specific stands."); return; }
+    const id = `n_${Date.now().toString(36)}`;
+    const rec = { text: a.text.trim(), by: "Inspector", ts: Date.now(), until: a.days ? Date.now() + a.days * 864e5 : 0, all: !!a.all, floors: a.floors, types: a.types, stands: a.stands };
+    try { if (FIREBASE_ON) await setDoc(noticesRef(), { items: { [id]: rec } }, { merge: true }); } catch { alert("Could not send — check your connection."); return; }
+    setNotices(prev => [{ id, ...rec }, ...prev]);
+    setAnnounce(null);
+    setWalkFlash(`📣 Announcement sent to ${a.all ? "every stand" : "the selected stands"}.`); setTimeout(() => setWalkFlash(""), 3500);
+  }
+  async function removeAnnouncement(id) {
+    try { if (FIREBASE_ON) await setDoc(noticesRef(), { items: { [id]: { removed: true } } }, { merge: true }); } catch {}
+    setNotices(prev => prev.filter(n => n.id !== id));
+  }
   const WALK_NAMES = ["1-Door Cooler", "2-Door Cooler", "3-Door Cooler", "4-Door Cooler", "Prep Cooler", "Display Cooler", "Walk-In Cooler", "Undercounter Cooler", "Beer Cooler", "Ice Cream Freezer", "1-Door Freezer", "2-Door Freezer", "Chest Freezer", "Walk-In Freezer", "Undercounter Freezer"];
   const WALK_LOCS = ["Front line", "Back of house", "Bar", "Prep area", "Walk-in", "Storage", "Under counter", "Beer room", "Left side", "Right side"];
   const WALK_BRANDS = ["True", "Turbo Air", "Beverage-Air", "Traulsen", "Delfield", "Continental", "Hoshizaki", "Arctic Air", "Atosa", "Victory", "Perlick", "Frigidaire", "Avantco", "Coca-Cola", "Pepsi", "American Panel", "Kolpak", "Nor-Lake"];
@@ -19592,6 +19629,7 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
                     </button>
                     <button type="button" className="lblFloorChip" onClick={() => setWalkScanOpen(true)} title="Scan a stand QR">📷 Scan stand</button>
                     <button type="button" className="lblFloorChip" onClick={onKitchenQr} title="Print the stand posters">🖨 Posters</button>
+                    <button type="button" className="lblFloorChip lblAnnounce" onClick={() => setAnnounce({ text: "", days: 3, all: false, floors: [], types: [], stands: [], q: "" })} title="Send a message to whoever scans these stands">📣 Announce{notices.length ? ` (${notices.length})` : ""}</button>
                     {standsNoEquip.length > 0 && (
                       <button type="button" className="lblFloorChip lblToAdd" onClick={() => setShowToAdd(v => !v)}>
                         ⚠ {standsNoEquip.length} stands with no cooler/freezer yet {showToAdd ? "▾" : "▸"}
@@ -19706,6 +19744,53 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
           onCode={walkScanCode} onClose={() => setWalkScanOpen(false)} />
       )}
       {walkFlash && <div className="walkFlash">{walkFlash}</div>}
+      {announce && ReactDOM.createPortal(
+        <div style={{ position: "fixed", inset: 0, zIndex: 10000, background: "rgba(0,0,0,.6)", backdropFilter: "blur(3px)", overflowY: "auto", padding: "4vh 12px" }} onClick={() => setAnnounce(null)}>
+          <div className="card walkFill" style={{ maxWidth: 520, margin: "0 auto" }} onClick={e => e.stopPropagation()}>
+            <div className="cardHeader" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+              <div className="cardTitle">📣 Announce to stands<div style={{ fontSize: "0.74rem", fontWeight: 600, color: "var(--ink-500)" }}>Shows to whoever scans the stand QR — teams, supervisors, crews.</div></div>
+              <button type="button" onClick={() => setAnnounce(null)} style={{ background: "none", border: "none", fontSize: "1.2rem", cursor: "pointer", color: "var(--ink-400)", lineHeight: 1, padding: 4 }}>✕</button>
+            </div>
+            <div className="walkFillBody">
+              <label className="walkLbl">Message</label>
+              <textarea className="input" rows={3} autoFocus value={announce.text} onChange={e => setAnnounce(a => ({ ...a, text: e.target.value }))} placeholder="e.g. Health inspector on site today — keep sanitizer buckets at 200 ppm and log temps before 4 PM." />
+              <label className="walkLbl">Show for</label>
+              <div className="walkChips">{[[1, "1 day"], [3, "3 days"], [7, "1 week"], [0, "Until I remove it"]].map(([d, lb]) => <button key={d} type="button" className={"walkChip" + (announce.days === d ? " on" : "")} onClick={() => setAnnounce(a => ({ ...a, days: d }))}>{lb}</button>)}</div>
+              <label className="walkLbl">Who gets it</label>
+              <div className="walkChips"><button type="button" className={"walkChip" + (announce.all ? " on" : "")} onClick={() => setAnnounce(a => ({ ...a, all: !a.all }))}>📢 Every stand</button></div>
+              {!announce.all && (
+                <>
+                  <div className="walkLbl" style={{ marginTop: 2 }}>Floors</div>
+                  <div className="walkChips">{FLOOR_OPTIONS.map(f => <button key={f} type="button" className={"walkChip" + (announce.floors.includes(f) ? " on" : "")} onClick={() => setAnnounce(a => ({ ...a, floors: a.floors.includes(f) ? a.floors.filter(x => x !== f) : [...a.floors, f] }))}>{f}</button>)}</div>
+                  <div className="walkLbl" style={{ marginTop: 2 }}>Stand types</div>
+                  <div className="walkChips">{TYPE_SHORTS.map(t => <button key={t} type="button" className={"walkChip" + (announce.types.includes(t) ? " on" : "")} onClick={() => setAnnounce(a => ({ ...a, types: a.types.includes(t) ? a.types.filter(x => x !== t) : [...a.types, t] }))}>{t}</button>)}</div>
+                  <div className="walkLbl" style={{ marginTop: 2 }}>Specific stands {announce.stands.length ? `· ${announce.stands.length} picked` : ""}</div>
+                  <input className="input" value={announce.q} onChange={e => setAnnounce(a => ({ ...a, q: e.target.value }))} placeholder="🔎 search stand or unit #" />
+                  <div className="annStandList">
+                    {standList.filter(k => { const q = announce.q.trim().toLowerCase(); return !q || `${k.site} ${k.unit}`.toLowerCase().includes(q); }).slice(0, 40).map(k => { const id = standIdOf(k.unit, k.site); const on = announce.stands.includes(id); return (
+                      <button key={id} type="button" className={"annStand" + (on ? " on" : "")} onClick={() => setAnnounce(a => ({ ...a, stands: on ? a.stands.filter(x => x !== id) : [...a.stands, id] }))}>{on ? "☑" : "☐"} {k.site}{k.unit ? ` · #${k.unit}` : ""} <StandType lt={k.locType} /></button>
+                    ); })}
+                  </div>
+                </>
+              )}
+              <div className="walkFillActions">
+                <button type="button" className="btn btnGhost" onClick={() => setAnnounce(null)}>Cancel</button>
+                <button type="button" className="btn btnPrimary" disabled={!announce.text.trim()} onClick={sendAnnouncement}>📣 Send</button>
+              </div>
+              {notices.length > 0 && (
+                <div style={{ marginTop: 10 }}>
+                  <div className="walkLbl">Active announcements</div>
+                  {notices.map(n => (
+                    <div key={n.id} className="annRow">
+                      <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontWeight: 700 }}>{n.text}</div><div style={{ fontSize: "0.72rem", color: "var(--ink-500)" }}>To: {noticeTargetLabel(n)} · {new Date(n.ts).toLocaleDateString()}{n.until ? ` → ${new Date(n.until).toLocaleDateString()}` : " · until removed"}</div></div>
+                      <button type="button" className="walkMini" onClick={() => removeAnnouncement(n.id)}>✕ Remove</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>, document.body)}
 
       {/* Add Equipment modal */}
       {showAdd && ReactDOM.createPortal(
@@ -24725,6 +24810,9 @@ function HaccpPortal() {
   // Portal language — native strings, no page reload
   const [pl, setPl] = useState(() => { try { return localStorage.getItem("sdx_portal_lang") || (/googtrans=[^;]*\/es/.test(document.cookie) ? "es" : "en"); } catch { return "en"; } });
   const L = (en, es) => (pl === "es" ? es : en);
+  // v401: announcements from the inspector for this stand
+  const [standNotices, setStandNotices] = useState([]);
+  useEffect(() => { loadStandNotices().then(all => setStandNotices(all.filter(n => noticeMatches(n, { unit: locUnit, site: locSite, floor: locFloor, locType })))).catch(() => {}); }, [locUnit, locSite, locFloor, locType]);
   const itemName = it => (pl === "es" && HACCP_ES[it.key]) ? HACCP_ES[it.key][0] : (labelOverrides[it.key] ?? it.label);
   const itemHint = it => (pl === "es" && HACCP_ES[it.key]) ? HACCP_ES[it.key][1] : (it.hint || "");
   const foodName_ = f => (pl === "es" && HACCP_FOODS_ES[f]) ? HACCP_FOODS_ES[f] : f;
@@ -25229,6 +25317,16 @@ function HaccpPortal() {
         </div>
       )}
 
+      {step === "form" && standNotices.length > 0 && (
+        <div className="haccpNotices">
+          {standNotices.map(n => (
+            <div key={n.id} className="haccpNotice">
+              <div className="haccpNoticeHead">📣 {L("Message from the inspector", "Mensaje del inspector")} · {new Date(n.ts).toLocaleDateString()}</div>
+              <div className="haccpNoticeText">{n.text}</div>
+            </div>
+          ))}
+        </div>
+      )}
       {step === "form" && (
         <div className="haccpCard">
           <div className="haccpCardHeader">
