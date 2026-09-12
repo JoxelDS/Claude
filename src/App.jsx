@@ -20044,6 +20044,16 @@ async function loadStandList() {
     }
   } catch {}
   list.sort((a, b) => a.site.localeCompare(b.site) || a.unit.localeCompare(b.unit, undefined, { numeric: true }));
+  // Stand type: the license registry knows the letter (C/P/S/K) for most units
+  const typeFromLetter = t => t === "P" ? "Portable - Stadium" : t === "S" ? "Subcontractor" : (t === "C" || t === "K") ? "Concession" : "";
+  for (const k of list) {
+    if (k.locType) continue;
+    const u = normUnit(k.unit);
+    if (!u) continue;
+    const letters = [...new Set(licenseRows().filter(r => normUnit(r.unit) === u).map(r => r.type).filter(Boolean))];
+    k.locType = letters.length === 1 ? typeFromLetter(letters[0]) : (letters.includes("C") ? "Concession" : letters.includes("S") ? "Subcontractor" : "");
+    if (!k.locType && /\d/.test(u)) k.locType = "Concession";
+  }
   return list.map(x => ({ ...x, floor: floorForStand(x.unit, x.site, x.floor) }));
 }
 
@@ -20160,14 +20170,36 @@ function KitchenQrPage({ onBack, onPrintLabels, onStandEquipment }) {
     )).then(() => setQrUrls({ ...urls }));
   }, [kitchens]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const [addFlash, setAddFlash] = useState(null); // { k } — just added, offer to add its equipment
+  const addRef = useRef(null);
+  const nameForUnit = u => { const rows = licenseRows().filter(r => normUnit(r.unit) === normUnit(u)); const a = rows.find(r => r.status === "ACTIVE") || rows[0]; return a?.name ? String(a.name).toUpperCase() : ""; };
+  function onAddUnitChange(v) {
+    setAddUnit(v);
+    const fl = floorFromUnit(v); if (fl) setAddFloor(fl);
+    const lic = lookupLicenseByUnitType(v, ""); setAddLicHint(lic?.license && lic.status === "ACTIVE" ? lic.license : "");
+    const rows = licenseRows().filter(r => normUnit(r.unit) === normUnit(v));
+    const letters = [...new Set(rows.map(r => r.type))];
+    if (letters.length === 1) setAddType(letters[0] === "P" ? "Portable - Stadium" : letters[0] === "S" ? "Subcontractor" : "Concession");
+    if (!addSite.trim()) { const n = nameForUnit(v); if (n) setAddSite(n); }
+  }
+  function addFromSearch() {
+    const q = search.trim(); if (!q) return;
+    if (/^[A-Z]?\d{1,4}\s?[A-Z]?$/i.test(q)) { onAddUnitChange(q.toUpperCase()); } else { setAddSite(q.toUpperCase()); }
+    setSearch("");
+    setTimeout(() => { try { addRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }); addRef.current?.querySelector("input")?.focus(); } catch {} }, 50);
+  }
   function addKitchen() {
-    const site = addSite.trim().toUpperCase();
+    const unitRaw = addUnit.trim().toUpperCase();
+    const site = (addSite.trim() || nameForUnit(unitRaw) || (unitRaw ? `STAND ${unitRaw}` : "")).toUpperCase();
     if (!site) return;
-    const unit = addUnit.trim().toUpperCase(), floor = addFloor.trim(), license = (addLicense.trim() || addLicHint).trim().toUpperCase();
+    const unit = unitRaw, floor = addFloor.trim(), license = (addLicense.trim() || addLicHint).trim().toUpperCase();
     if (!license && !window.confirm(`${site}${unit ? ` #${unit}` : ""} has no license.\n\nAdd it anyway? It will be flagged ⚠ NO LICENSE until you enter one.`)) return;
     const id = unit ? `u:${normUnit(unit)}` : `s:${site.toLowerCase()}`;
-    setKitchens(prev => prev.some(k => k.id === id) ? prev : [{ id, site, unit, floor, license, locType: addType }, ...prev]);
-    setAddSite(""); setAddUnit(""); setAddLicense(""); setAddLicHint("");
+    const newK = { id, site, unit, floor, license, locType: addType };
+    if (kitchens.some(k => k.id === id)) { alert(`${unit ? `Unit #${unit}` : site} is already on the list.`); setSearch(unit || site); return; }
+    setKitchens(prev => prev.some(k => k.id === id) ? prev : [newK, ...prev]);
+    setAddSite(""); setAddUnit(""); setAddLicense(""); setAddLicHint(""); setAddType("Concession");
+    setAddFlash({ k: newK }); setTimeout(() => setAddFlash(f => (f && f.k.id === id ? null : f)), 12000);
     // Persist so the stand survives reloads and shows on every device
     try { setDoc(doc(db, "venues", VENUE_ID, "sharedMemory", "kitchenRegistry"), { items: { [id]: { site, unit, floor, license, locType: addType } }, hidden: { [id]: false } }, { merge: true }).catch(() => {}); } catch {}
   }
@@ -20337,34 +20369,48 @@ function KitchenQrPage({ onBack, onPrintLabels, onStandEquipment }) {
             <button key={g} type="button" className={"lblFloorChip stTypeChip " + (kTypePick === g ? "on" : "")} onClick={() => setKTypePick(kTypePick === g ? "" : g)}>{lb} {kTypeCounts[g]}</button>
           ))}
         </div>
-        {/* Add + search */}
-        <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="🔍 Search kitchens…"
-            style={{ flex: "1 1 200px", padding: "0.6rem 0.75rem", borderRadius: 8, border: "1.5px solid var(--sdx-gray-200)", fontSize: "0.9rem", background: "var(--surface-1)", color: "var(--ink-900)" }} />
+        {/* Search — separate from adding */}
+        <div className="kqrSearch">
+          <span>🔍</span>
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search stands by name or unit #…" />
+          {search && <button type="button" className="walkMini" onClick={() => setSearch("")}>✕</button>}
         </div>
-        <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
-          <input value={addSite} onChange={e => setAddSite(e.target.value)} placeholder="Add kitchen: name (e.g. Tacotomia)"
-            style={{ flex: "2 1 180px", padding: "0.55rem 0.75rem", borderRadius: 8, border: "1.5px solid var(--sdx-gray-200)", fontSize: "0.88rem", background: "var(--surface-1)", color: "var(--ink-900)" }} />
-          <input value={addUnit} onChange={e => { setAddUnit(e.target.value); const fl = floorFromUnit(e.target.value); if (fl) setAddFloor(fl); const lic = lookupLicenseByUnitType(e.target.value, ""); setAddLicHint(lic?.license && lic.status === "ACTIVE" ? lic.license : ""); }} placeholder="Unit #"
-            style={{ flex: "1 1 80px", padding: "0.55rem 0.75rem", borderRadius: 8, border: "1.5px solid var(--sdx-gray-200)", fontSize: "0.88rem", background: "var(--surface-1)", color: "var(--ink-900)" }} />
-          <input value={addFloor} onChange={e => setAddFloor(e.target.value)} placeholder="Floor"
-            style={{ flex: "1 1 80px", padding: "0.55rem 0.75rem", borderRadius: 8, border: "1.5px solid var(--sdx-gray-200)", fontSize: "0.88rem", background: "var(--surface-1)", color: "var(--ink-900)" }} />
-          <select value={addType} onChange={e => setAddType(e.target.value)} title="Stand type"
-            style={{ flex: "1 1 150px", padding: "0.55rem 0.75rem", borderRadius: 8, border: "1.5px solid var(--sdx-gray-200)", fontSize: "0.88rem", background: "var(--surface-1)", color: "var(--ink-900)" }}>
-            {LOCATION_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-          </select>
-          <input value={addLicense} onChange={e => setAddLicense(e.target.value)} placeholder={addLicHint ? `🪪 License (on file: ${addLicHint})` : "🪪 License #"} title="Business / food service license number for this stand"
-            style={{ flex: "1 1 150px", padding: "0.55rem 0.75rem", borderRadius: 8, border: `1.5px solid ${addLicHint && !addLicense ? "#86efac" : "var(--sdx-gray-200)"}`, fontSize: "0.88rem", background: "var(--surface-1)", color: "var(--ink-900)" }} />
-          <button type="button" onClick={addKitchen} disabled={!addSite.trim()}
-            style={{ background: "#16a34a", color: "#fff", border: "none", borderRadius: 8, padding: "0.55rem 1rem", fontWeight: 800, fontSize: "0.85rem", cursor: "pointer", opacity: addSite.trim() ? 1 : 0.5 }}>
-            ＋ Add
-          </button>
+        {!loading && search.trim() && searched.length === 0 && (
+          <div className="kqrNoMatch">
+            <span>No stand matches “{search.trim()}”.</span>
+            <button type="button" className="lblFloorChip standFocusAdd" onClick={addFromSearch}>➕ Add “{search.trim().toUpperCase()}” as a new stand</button>
+          </div>
+        )}
+        {addFlash && (
+          <div className="kqrAdded">
+            <span>✅ <b>{addFlash.k.site}{addFlash.k.unit ? ` #${addFlash.k.unit}` : ""}</b> added{addFlash.k.license ? ` · 🪪 ${addFlash.k.license}` : " · ⚠ no license yet"}.</span>
+            {onStandEquipment && <button type="button" className="lblFloorChip standFocusAdd" onClick={() => { const k = addFlash.k; setAddFlash(null); onStandEquipment(k); }}>❄ Add its coolers / freezers →</button>}
+            <button type="button" className="walkMini" onClick={() => setAddFlash(null)}>✕</button>
+          </div>
+        )}
+        {/* Add a stand — its own card */}
+        <div className="kqrAddCard" ref={addRef} onKeyDown={e => { if (e.key === "Enter" && (addUnit.trim() || addSite.trim())) { e.preventDefault(); addKitchen(); } }}>
+          <div className="kqrAddHead">➕ Add a stand <span className="kqrAddHint">Unit # first — name, floor, type and license fill in when we know them.</span></div>
+          <div className="kqrAddRow">
+            <input value={addUnit} onChange={e => onAddUnitChange(e.target.value)} placeholder="Unit #" style={{ flex: "0 1 110px", minWidth: 0, padding: "0.55rem 0.75rem", borderRadius: 8, border: "1.5px solid var(--sdx-gray-200)", fontSize: "16px", background: "var(--surface-1)", color: "var(--ink-900)" }} />
+            <input value={addSite} onChange={e => setAddSite(e.target.value)} placeholder="Stand name (e.g. TACOTOMIA)" style={{ flex: "2 1 200px", minWidth: 0, padding: "0.55rem 0.75rem", borderRadius: 8, border: "1.5px solid var(--sdx-gray-200)", fontSize: "16px", background: "var(--surface-1)", color: "var(--ink-900)" }} />
+            <input value={addFloor} onChange={e => setAddFloor(e.target.value)} placeholder="Floor" style={{ flex: "0 1 110px", minWidth: 0, padding: "0.55rem 0.75rem", borderRadius: 8, border: "1.5px solid var(--sdx-gray-200)", fontSize: "16px", background: "var(--surface-1)", color: "var(--ink-900)" }} />
+            <select value={addType} onChange={e => setAddType(e.target.value)} title="Stand type" style={{ flex: "1 1 170px", minWidth: 0, padding: "0.55rem 0.75rem", borderRadius: 8, border: "1.5px solid var(--sdx-gray-200)", fontSize: "16px", background: "var(--surface-1)", color: "var(--ink-900)" }}>
+              {LOCATION_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+            </select>
+            <input value={addLicense} onChange={e => setAddLicense(e.target.value)} placeholder={addLicHint ? `🪪 License (on file: ${addLicHint})` : "🪪 License #"} title="Business / food service license number for this stand"
+              style={{ flex: "1 1 170px", minWidth: 0, padding: "0.55rem 0.75rem", borderRadius: 8, border: `1.5px solid ${addLicHint && !addLicense ? "#86efac" : "var(--sdx-gray-200)"}`, fontSize: "16px", background: "var(--surface-1)", color: "var(--ink-900)" }} />
+            <button type="button" onClick={addKitchen} disabled={!(addUnit.trim() || addSite.trim())}
+              style={{ background: "#16a34a", color: "#fff", border: "none", borderRadius: 8, padding: "0.6rem 1.1rem", fontWeight: 800, fontSize: "0.9rem", cursor: "pointer", opacity: (addUnit.trim() || addSite.trim()) ? 1 : 0.5, whiteSpace: "nowrap" }}>
+              ＋ Add stand
+            </button>
+          </div>
         </div>
 
         {loading && <div style={{ textAlign: "center", padding: "2.5rem", color: "var(--ink-500)" }}>Loading kitchens…</div>}
         {!loading && searched.length === 0 && (
           <div style={{ background: "var(--surface-1)", borderRadius: 12, padding: "2rem", textAlign: "center", color: "var(--ink-500)" }}>
-            No kitchens yet — add one above, or save an inspection first.
+            {search.trim() ? "Nothing matches your search." : "No stands yet — add one above, or save an inspection first."}
           </div>
         )}
         {!loading && searched.length > 0 && shown.length === 0 && (

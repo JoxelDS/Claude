@@ -8236,3 +8236,13 @@ html[data-theme="dark"] .fuStOnWaiting, html[data-theme="black"] .fuStOnWaiting 
 .licEditGrid .input { font-size: 16px; }
 @media (max-width: 520px) { .licEditGrid { grid-template-columns: 1fr; } }
 .licRow .walkMini { margin-left: auto; }
+
+/* ── v405: posters page — search vs add, clearly ── */
+.kqrSearch { display: flex; align-items: center; gap: 8px; background: var(--surface-1); border: 1.5px solid var(--sdx-gray-200); border-radius: 999px; padding: 4px 8px 4px 12px; margin-bottom: 10px; }
+.kqrSearch input { flex: 1; min-width: 0; border: none; background: transparent; font-size: 16px; padding: 6px 0; color: var(--ink-900); outline: none; }
+.kqrNoMatch { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; background: var(--tint-amber-1, #fffbeb); border: 1.5px solid #fde68a; border-radius: 12px; padding: 8px 12px; margin-bottom: 10px; font-size: 0.86rem; font-weight: 700; color: #92400e; }
+.kqrAdded { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; background: var(--tint-green-1, #f0fdf4); border: 2px solid #86efac; border-radius: 12px; padding: 8px 12px; margin-bottom: 10px; font-size: 0.86rem; color: #166534; }
+.kqrAddCard { background: var(--surface-1); border: 2px dashed #16a34a; border-radius: 14px; padding: 10px 12px; margin-bottom: 16px; }
+.kqrAddHead { font-weight: 900; font-size: 0.9rem; color: var(--ink-900); margin-bottom: 8px; display: flex; gap: 8px; flex-wrap: wrap; align-items: baseline; }
+.kqrAddHint { font-weight: 600; font-size: 0.74rem; color: var(--ink-500); }
+.kqrAddRow { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
