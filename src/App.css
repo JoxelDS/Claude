@@ -8221,3 +8221,10 @@ html[data-theme="dark"] .fuStOnWaiting, html[data-theme="black"] .fuStOnWaiting 
 .haccpNotice { background: #fef3c7; border: 2px solid #f59e0b; border-radius: 14px; padding: 10px 14px; color: #78350f; box-shadow: 0 6px 18px rgba(0,0,0,.18); }
 .haccpNoticeHead { font-size: 0.72rem; font-weight: 900; letter-spacing: .05em; text-transform: uppercase; margin-bottom: 3px; }
 .haccpNoticeText { font-size: 0.95rem; font-weight: 700; line-height: 1.45; white-space: pre-wrap; }
+
+/* ── v402: brief how-to on the poster and in the portal ── */
+.haccpHow { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.18); border-radius: 12px; padding: 10px 12px; margin-bottom: 12px; display: flex; flex-direction: column; gap: 6px; font-size: 0.82rem; line-height: 1.4; color: var(--ink-800); }
+.haccpHowRow { display: flex; gap: 8px; align-items: flex-start; }
+.haccpHowN { flex: 0 0 20px; height: 20px; border-radius: 50%; background: var(--sdx-navy); color: #fff; font-weight: 900; font-size: 0.72rem; display: flex; align-items: center; justify-content: center; }
+.haccpSectionHint { font-size: 0.76rem; color: var(--ink-500); line-height: 1.4; padding: 4px 2px 8px; }
+.haccpHowCount { font-weight: 800; font-size: 0.88rem; color: var(--ink-900); background: rgba(96,165,250,0.15); border: 1px solid rgba(96,165,250,0.4); border-radius: 8px; padding: 6px 10px; }

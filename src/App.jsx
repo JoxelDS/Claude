@@ -20032,8 +20032,13 @@ function standPosterHtml(items, qrUrls, brandColor) {
         <div class="pn">${esc(String(k.site || "").toUpperCase())}${k.unit ? ` <span class="pu">#${esc(String(k.unit).toUpperCase())}</span>` : ""}</div>
         ${[k.floor, k.locType ? standTypeBadge(k.locType).short : "", k.license ? `License #${k.license}` : ""].filter(Boolean).length ? `<div class="pf">${esc([k.floor, k.locType ? standTypeBadge(k.locType).short : "", k.license ? `License #${k.license}` : ""].filter(Boolean).join(" · "))}</div>` : ""}
         <img class="pq${(k.equip || []).length ? " pqs" : ""}" src="${qrUrls[k.id] || ""}" />
-        ${(k.equip || []).length ? `<div class="pe"><div class="peh">COOLERS &amp; FREEZERS IN THIS STAND</div>${k.equip.slice(0, 10).map(e => `<div class="per"><span class="pei">${e.freezer ? "🧊" : "❄"}</span><span class="pen">${esc(String(e.name || "").toUpperCase())}</span><span class="pem">${esc([e.brand, e.location].filter(Boolean).join(" · ").toUpperCase() || "—")}</span></div>`).join("")}${k.equip.length > 10 ? `<div class="per"><span class="pem">+${k.equip.length - 10} MORE</span></div>` : ""}</div>` : ""}
-        <div class="pi">📱 <b>Scan with your phone camera</b><br/>Log temperatures &amp; report problems for this kitchen — no app needed.<br/><span class="es">Escanee para registrar temperaturas y reportar problemas.</span></div>
+        ${(k.equip || []).length ? `<div class="pe"><div class="peh">${k.equip.length} COOLER${k.equip.length !== 1 ? "S" : ""} / FREEZER${k.equip.length !== 1 ? "S" : ""} IN THIS STAND — CHECK EACH ONE</div>${k.equip.slice(0, 10).map(e => `<div class="per"><span class="pei">${e.freezer ? "🧊" : "❄"}</span><span class="pen">${esc(String(e.name || "").toUpperCase())}</span><span class="pem">${esc([e.brand, e.location].filter(Boolean).join(" · ").toUpperCase() || "—")}</span></div>`).join("")}${k.equip.length > 10 ? `<div class="per"><span class="pem">+${k.equip.length - 10} MORE</span></div>` : ""}</div>` : ""}
+        <div class="pi">
+          <div class="pih">HOW TO USE THIS QR · CÓMO USAR ESTE QR</div>
+          <div class="pis"><span class="pisn">1</span><span><b>Scan with your phone camera</b> — no app, no login.<br/><span class="es">Escanee con la cámara del teléfono — sin app, sin usuario.</span></span></div>
+          <div class="pis"><span class="pisn">2</span><span><b>Log temps:</b> tap each cooler / freezer and food item, type the temperature, save. Cold ≤ 41°F · Freezer ≤ 0°F · Hot ≥ 135°F.<br/><span class="es">Registre temperaturas: toque cada equipo o comida, escriba la temperatura y guarde.</span></span></div>
+          <div class="pis"><span class="pisn">!</span><span><b>Any problem?</b> Tap <b>⚠ Report a problem</b> — broken unit, leak, pest, cleaning, chemicals — add a photo. The inspector and the right crew get it right away.<br/><span class="es">¿Algún problema? Toque <b>⚠ Reportar un problema</b> y agregue una foto. El inspector y el equipo correcto lo reciben al momento.</span></span></div>
+        </div>
       </div>
     </div>`).join("\n");
   const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Kitchen QR Posters</title><style>
@@ -20056,7 +20061,10 @@ function standPosterHtml(items, qrUrls, brandColor) {
     .pei { width:14px; }
     .pen { font-weight:900; color:#111827; flex:0 0 auto; }
     .pem { color:#374151; font-weight:700; margin-left:auto; text-align:right; }
-    .pi { font-size:12px; color:#374151; line-height:1.5; }
+    .pi { font-size:11px; color:#374151; line-height:1.4; text-align:left; width:100%; max-width:560px; margin:0 auto; }
+    .pih { font-size:9px; font-weight:900; letter-spacing:.08em; color:#6b7280; margin-bottom:4px; text-align:center; }
+    .pis { display:flex; gap:8px; align-items:flex-start; margin-top:4px; }
+    .pisn { flex:0 0 18px; height:18px; border-radius:50%; background:#111827; color:#fff; font-weight:900; font-size:10px; display:flex; align-items:center; justify-content:center; }
     .pi .es { color:#6b7280; font-style:italic; }
     @page { margin:8mm; }
   </style></head><body>${cards}
@@ -25335,10 +25343,21 @@ function HaccpPortal() {
           </div>
           <div className="haccpCardBody">
             {LocationBanner}
+            <div className="haccpHow">
+              {(() => { const eq = customItems.filter(i => i.tag); const done = eq.filter(i => (tempSubmitted[i.key] || []).some(Boolean)).length; return eq.length ? (
+                <div className="haccpHowCount">❄ {eq.length} {L(eq.length === 1 ? "cooler / freezer in this stand to check" : "coolers / freezers in this stand to check", eq.length === 1 ? "equipo en este puesto por revisar" : "equipos en este puesto por revisar")} · <b>{done}/{eq.length}</b> {L("done", "listos")}</div>
+              ) : (
+                <div className="haccpHowCount">{L("No coolers / freezers registered for this stand yet — tell the inspector.", "Aún no hay equipos registrados para este puesto — avise al inspector.")}</div>
+              ); })()}
+              <div className="haccpHowRow"><span className="haccpHowN">1</span><span>{L("Tap a cooler, freezer or food below → type the temperature → save. Green = good, red = write what you did.", "Toque un equipo o comida abajo → escriba la temperatura → guarde. Verde = bien, rojo = escriba qué hizo.")}</span></div>
+              <div className="haccpHowRow"><span className="haccpHowN">2</span><span>{L("Something broken, leaking, dirty, pests or no chemicals? Use ⚠ Report a problem below and add a photo — the inspector and the right crew see it right away.", "¿Algo roto, con fuga, sucio, plagas o sin químicos? Use ⚠ Reportar un problema abajo y agregue una foto — el inspector y el equipo lo ven al momento.")}</span></div>
+              <div className="haccpHowRow"><span className="haccpHowN">✓</span><span>{L("Done? Tap Submit at the bottom. Takes 2 minutes.", "¿Listo? Toque Enviar al final. Toma 2 minutos.")}</span></div>
+            </div>
 
             {/* Temperature section — multiple readings per item (hidden in problem-only mode) */}
             <div className="haccpSection" hidden={problemOnly}>
               <div className="haccpSectionHead">{L("Temperature Readings", "Temperaturas")}</div>
+              <div className="haccpSectionHint">{L("Your coolers and freezers are listed first with their brand and where they are. Coolers must read 41°F or below, freezers 0°F or below, hot food 135°F or above. One reading per unit is enough; if it's out of range, write what you did (adjusted, moved product, called maintenance).", "Sus equipos aparecen primero con marca y ubicación. Neveras a 41°F o menos, congeladores a 0°F o menos, comida caliente a 135°F o más. Una lectura por equipo basta; si está fuera de rango, escriba qué hizo.")}</div>
               <div className="haccpSectionBody">
                 {(() => {
                   const cookingMeta = {
