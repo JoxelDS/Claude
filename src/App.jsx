@@ -2015,6 +2015,15 @@ const REQUEST_ROLES = [
   { value: "guest", icon: "👤", label: "Guest inspector", help: "Inspects with a sponsor at one location" },
 ];
 const DEPT_DEFAULT_ROLE = { "Maintenance / Facilities": "maintenance", "Cleaning / Sanitation": "cleaning", "Management": "location_manager", "Food Safety / QA": "inspector" };
+const ROLE_DEFAULT_DEPT = { inspector: "Food Safety / QA", maintenance: "Maintenance / Facilities", cleaning: "Cleaning / Sanitation", location_manager: "Management", guest: "Concessions", office: "Other" };
+const REQUEST_TILES = [
+  { value: "inspector", icon: "🕵", label: "Inspector", help: "Inspections, reports, follow-ups" },
+  { value: "maintenance", icon: "🔧", label: "Maintenance", help: "Fix what inspectors flag" },
+  { value: "cleaning", icon: "🧹", label: "Cleaning", help: "Cleaning follow-ups" },
+  { value: "location_manager", icon: "📍", label: "Manager / supervisor", help: "Runs a stand" },
+  { value: "guest", icon: "👤", label: "Guest inspector", help: "Inspects with a sponsor" },
+  { value: "office", icon: "⚙️", label: "Office / other", help: "Admin decides access" },
+];
 const ROLE_LABEL = { global_admin: "Global Admin", admin: "Admin", inspector: "Inspector", location_manager: "Location manager", guest: "Guest inspector", maintenance: "Maintenance crew", cleaning: "Cleaning crew" };
 const roleChip = r => { const m = REQUEST_ROLES.find(x => x.value === r); return m ? `${m.icon} ${m.label}` : (ROLE_LABEL[r] || r || ""); };
 async function registerNewUser(badge, name, department, extra = {}) {
@@ -2150,6 +2159,7 @@ function BadgeScreen({ onUnlock, inviteRole }) {
   const [regDept, setRegDept] = useState("");
   const [regDeptOther, setRegDeptOther] = useState("");
   const [regRole, setRegRole] = useState("inspector");
+  useEffect(() => { if (mode === "register" && !regDept) setRegDept(ROLE_DEFAULT_DEPT.inspector); }, [mode]);
   const [regLoc, setRegLoc] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -2198,7 +2208,7 @@ function BadgeScreen({ onUnlock, inviteRole }) {
       const dept = regDept === "Other" ? (regDeptOther.trim() || "Other") : regDept;
       const result = await registerNewUser(badge.trim(), regName.trim(), dept, { requestedRole: regRole, assignedLocation: regLoc.trim() });
       if (result.ok) {
-        setSuccess(`Request sent as ${roleChip(regRole)} · ${dept}. An administrator will approve your badge.`);
+        setSuccess(`Request sent as ${REQUEST_TILES.find(t => t.value === regRole)?.label || regRole} · ${dept}. An administrator will approve your badge.`);
         setMode("pending");
       } else if (result.reason === "exists") {
         setError("This badge is already registered. Try signing in.");
@@ -2271,32 +2281,35 @@ function BadgeScreen({ onUnlock, inviteRole }) {
               value={badge} onChange={e => setBadge(e.target.value)} placeholder="Badge #" autoComplete="off" />
             <input className="input regInput" value={regName} onChange={e => setRegName(e.target.value)}
               placeholder="Full name" autoComplete="name" />
-            <div className="regLabel">Department</div>
-            <div className="regChips">
-              {DEPARTMENTS.map(d => (
-                <button key={d} type="button" className={"regChip" + (regDept === d ? " on" : "")}
-                  onClick={() => { setRegDept(d); if (DEPT_DEFAULT_ROLE[d]) setRegRole(DEPT_DEFAULT_ROLE[d]); }}>{d}</button>
+            <div className="regLabel">What do you do?</div>
+            <div className="regTiles">
+              {REQUEST_TILES.map(t => (
+                <button key={t.value} type="button" className={"regTile" + (regRole === t.value ? " on" : "")}
+                  onClick={() => { setRegRole(t.value); setRegDept(ROLE_DEFAULT_DEPT[t.value] || ""); }}>
+                  <span className="regTileIcon">{t.icon}</span>
+                  <span className="regTileName">{t.label}</span>
+                  <span className="regTileHelp">{t.help}</span>
+                </button>
               ))}
+            </div>
+            <div className="regDeptRow">
+              <span className="regDeptLabel">Department</span>
+              <select className="select regDeptSelect" value={regDept} onChange={e => setRegDept(e.target.value)}>
+                <option value="">Choose…</option>
+                {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
+              </select>
             </div>
             {regDept === "Other" && (
               <input className="input regInput" value={regDeptOther} onChange={e => setRegDeptOther(e.target.value)} placeholder="Which department?" />
             )}
-            <div className="regLabel">What do you do?</div>
-            <div className="regRoles">
-              {REQUEST_ROLES.map(r => (
-                <button key={r.value} type="button" className={"regRole" + (regRole === r.value ? " on" : "")} onClick={() => setRegRole(r.value)}>
-                  <span className="regRoleIcon">{r.icon}</span>
-                  <span className="regRoleText"><b>{r.label}</b><small>{r.help}</small></span>
-                </button>
-              ))}
-            </div>
             {(regRole === "location_manager" || regRole === "guest") && (
-              <input className="input regInput" value={regLoc} onChange={e => setRegLoc(e.target.value)} placeholder="Your stand / location (e.g. SOL CUBANO #350)" />
+              <input className="input regInput" value={regLoc} onChange={e => setRegLoc(e.target.value)} placeholder="The stand you run (e.g. SOL CUBANO #350)" />
             )}
+            <div className="regHint">Your badge # is your sign-in — pick one you'll remember.</div>
             {error && <div className="pinError">{error}</div>}
             <button className="btn btnPrimary pinBtn" type="submit"
               disabled={loading || badge.trim().length < 3 || !regName.trim() || !regDept || (regDept === "Other" && !regDeptOther.trim())}>
-              {loading ? "Submitting..." : "Request Access"}
+              {loading ? "Sending…" : "Send request"}
             </button>
           </form>
           <button className="btnLink" type="button" onClick={() => { setMode("signin"); setError(""); setBadge(""); }}>

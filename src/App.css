@@ -8068,3 +8068,15 @@ html[data-theme="dark"] .fuStOnWaiting, html[data-theme="black"] .fuStOnWaiting 
 .inviteRow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 8px 0; border-bottom: 1px solid var(--sdx-gray-100); }
 .inviteRole { font-weight: 800; flex: 1; min-width: 160px; }
 .regInviteHelp { font-size: 0.8rem; color: var(--ink-500); text-align: left; margin: 2px 0 6px; }
+/* ── Request Access tiles (v386) ── */
+.regTiles { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.regTile { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; background: var(--surface-1); border: 1.5px solid var(--sdx-gray-200); border-radius: 12px; padding: 10px 12px; cursor: pointer; color: var(--ink-900); min-height: 78px; }
+.regTile.on { background: var(--sdx-navy); border-color: var(--sdx-navy); color: #fff; }
+.regTileIcon { font-size: 1.5rem; line-height: 1.1; }
+.regTileName { font-weight: 800; font-size: 0.86rem; }
+.regTileHelp { font-size: 0.7rem; opacity: .7; line-height: 1.15; }
+.regDeptRow { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+.regDeptLabel { font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-500); white-space: nowrap; }
+.regDeptSelect { flex: 1; font-size: 16px; }
+.regHint { font-size: 0.74rem; color: var(--ink-500); text-align: left; margin-top: 8px; }
+.regChips, .regRoles { display: none; }
