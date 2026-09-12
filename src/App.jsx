@@ -19678,6 +19678,8 @@ function KitchenQrPage({ onBack, onPrintLabels, onStandEquipment }) {
   const [addSite, setAddSite] = useState("");
   const [addUnit, setAddUnit] = useState("");
   const [addFloor, setAddFloor] = useState("");
+  const [addLicense, setAddLicense] = useState("");
+  const [addLicHint, setAddLicHint] = useState(""); // license already on file for the typed unit
   const [search, setSearch] = useState("");
 
   function haccpUrl(k) {
@@ -19798,12 +19800,12 @@ function KitchenQrPage({ onBack, onPrintLabels, onStandEquipment }) {
   function addKitchen() {
     const site = addSite.trim();
     if (!site) return;
-    const unit = addUnit.trim(), floor = addFloor.trim();
+    const unit = addUnit.trim(), floor = addFloor.trim(), license = (addLicense.trim() || addLicHint).trim();
     const id = unit ? `u:${normUnit(unit)}` : `s:${site.toLowerCase()}`;
-    setKitchens(prev => prev.some(k => k.id === id) ? prev : [{ id, site, unit, floor }, ...prev]);
-    setAddSite(""); setAddUnit("");
+    setKitchens(prev => prev.some(k => k.id === id) ? prev : [{ id, site, unit, floor, license }, ...prev]);
+    setAddSite(""); setAddUnit(""); setAddLicense(""); setAddLicHint("");
     // Persist so the stand survives reloads and shows on every device
-    try { setDoc(doc(db, "venues", VENUE_ID, "sharedMemory", "kitchenRegistry"), { items: { [id]: { site, unit, floor } }, hidden: { [id]: false } }, { merge: true }).catch(() => {}); } catch {}
+    try { setDoc(doc(db, "venues", VENUE_ID, "sharedMemory", "kitchenRegistry"), { items: { [id]: { site, unit, floor, license } }, hidden: { [id]: false } }, { merge: true }).catch(() => {}); } catch {}
   }
 
   function removeKitchen(id) {
@@ -19931,8 +19933,10 @@ function KitchenQrPage({ onBack, onPrintLabels, onStandEquipment }) {
 
         {/* License health — is every stand good to operate? (INDEX 2026) */}
         {IS_DEFAULT_VENUE() && (() => {
-          const active = LICENSE_REGISTRY.filter(r => r.status === "ACTIVE" && r.license);
-          const pending = LICENSE_REGISTRY.filter(r => r.status === "REQUESTED" || r.status === "NEEDED");
+          // A license typed on the stand's card counts — the INDEX sheet may lag behind
+          const hasLic = r => kitchens.some(k => (k.license || "").trim() && normUnit(k.unit) && normUnit(k.unit) === normUnit(r.unit));
+          const active = LICENSE_REGISTRY.filter(r => (r.status === "ACTIVE" && r.license) || ((r.status === "REQUESTED" || r.status === "NEEDED") && hasLic(r)));
+          const pending = LICENSE_REGISTRY.filter(r => (r.status === "REQUESTED" || r.status === "NEEDED") && !hasLic(r));
           const fileRef = LICENSE_REGISTRY.filter(r => r.status === "FILE_REF");
           return (
             <div className="licHealth">
@@ -19968,10 +19972,12 @@ function KitchenQrPage({ onBack, onPrintLabels, onStandEquipment }) {
         <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
           <input value={addSite} onChange={e => setAddSite(e.target.value)} placeholder="Add kitchen: name (e.g. Tacotomia)"
             style={{ flex: "2 1 180px", padding: "0.55rem 0.75rem", borderRadius: 8, border: "1.5px solid var(--sdx-gray-200)", fontSize: "0.88rem", background: "var(--surface-1)", color: "var(--ink-900)" }} />
-          <input value={addUnit} onChange={e => { setAddUnit(e.target.value); const fl = floorFromUnit(e.target.value); if (fl) setAddFloor(fl); }} placeholder="Unit #"
+          <input value={addUnit} onChange={e => { setAddUnit(e.target.value); const fl = floorFromUnit(e.target.value); if (fl) setAddFloor(fl); const lic = lookupLicenseByUnitType(e.target.value, ""); setAddLicHint(lic?.license && lic.status === "ACTIVE" ? lic.license : ""); }} placeholder="Unit #"
             style={{ flex: "1 1 80px", padding: "0.55rem 0.75rem", borderRadius: 8, border: "1.5px solid var(--sdx-gray-200)", fontSize: "0.88rem", background: "var(--surface-1)", color: "var(--ink-900)" }} />
           <input value={addFloor} onChange={e => setAddFloor(e.target.value)} placeholder="Floor"
             style={{ flex: "1 1 80px", padding: "0.55rem 0.75rem", borderRadius: 8, border: "1.5px solid var(--sdx-gray-200)", fontSize: "0.88rem", background: "var(--surface-1)", color: "var(--ink-900)" }} />
+          <input value={addLicense} onChange={e => setAddLicense(e.target.value)} placeholder={addLicHint ? `🪪 License (on file: ${addLicHint})` : "🪪 License #"} title="Business / food service license number for this stand"
+            style={{ flex: "1 1 150px", padding: "0.55rem 0.75rem", borderRadius: 8, border: `1.5px solid ${addLicHint && !addLicense ? "#86efac" : "var(--sdx-gray-200)"}`, fontSize: "0.88rem", background: "var(--surface-1)", color: "var(--ink-900)" }} />
           <button type="button" onClick={addKitchen} disabled={!addSite.trim()}
             style={{ background: "#16a34a", color: "#fff", border: "none", borderRadius: 8, padding: "0.55rem 1rem", fontWeight: 800, fontSize: "0.85rem", cursor: "pointer", opacity: addSite.trim() ? 1 : 0.5 }}>
             ＋ Add
