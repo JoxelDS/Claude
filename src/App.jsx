@@ -2006,25 +2006,27 @@ async function signIn(badge) {
 // Request Access: departments and what the person does (drives the role)
 const INVITE_TOKEN = (() => { try { return new URLSearchParams(window.location.search).get("invite") || ""; } catch { return ""; } })();
 const inviteUrlFor = token => `${window.location.origin}${window.location.pathname}?invite=${encodeURIComponent(token)}`;
-const DEPARTMENTS = ["Food Safety / QA", "Culinary", "Concessions", "Maintenance / Facilities", "Cleaning / Sanitation", "Management", "Other"];
+const DEPARTMENTS = ["Food Safety / QA", "Culinary", "Concessions", "Maintenance / Facilities", "Cleaning / Sanitation", "Ecolab", "Management", "Other"];
 const REQUEST_ROLES = [
   { value: "inspector", icon: "🕵", label: "Inspector", help: "Does inspections, sees reports and follow-ups" },
   { value: "maintenance", icon: "🔧", label: "Maintenance crew", help: "Sees maintenance problems and reports, sends fixes back" },
   { value: "cleaning", icon: "🧹", label: "Cleaning crew", help: "Sees cleaning follow-ups, sends updates back" },
+  { value: "ecolab", icon: "🧪", label: "Ecolab rep", help: "Dispensers, chemicals and sanitizer problems only" },
   { value: "location_manager", icon: "📍", label: "Location manager / supervisor", help: "Runs a stand: temps, follow-ups, team" },
   { value: "guest", icon: "👤", label: "Guest inspector", help: "Inspects with a sponsor at one location" },
 ];
-const DEPT_DEFAULT_ROLE = { "Maintenance / Facilities": "maintenance", "Cleaning / Sanitation": "cleaning", "Management": "location_manager", "Food Safety / QA": "inspector" };
-const ROLE_DEFAULT_DEPT = { inspector: "Food Safety / QA", maintenance: "Maintenance / Facilities", cleaning: "Cleaning / Sanitation", location_manager: "Management", guest: "Concessions", office: "Other" };
+const DEPT_DEFAULT_ROLE = { "Maintenance / Facilities": "maintenance", "Cleaning / Sanitation": "cleaning", "Ecolab": "ecolab", "Management": "location_manager", "Food Safety / QA": "inspector" };
+const ROLE_DEFAULT_DEPT = { inspector: "Food Safety / QA", maintenance: "Maintenance / Facilities", cleaning: "Cleaning / Sanitation", ecolab: "Ecolab", location_manager: "Management", guest: "Concessions", office: "Other" };
 const REQUEST_TILES = [
   { value: "inspector", icon: "🕵", label: "Inspector", help: "Inspections, reports, follow-ups" },
   { value: "maintenance", icon: "🔧", label: "Maintenance", help: "Fix what inspectors flag" },
   { value: "cleaning", icon: "🧹", label: "Cleaning", help: "Cleaning follow-ups" },
+  { value: "ecolab", icon: "🧪", label: "Ecolab", help: "Dispensers & chemicals" },
   { value: "location_manager", icon: "📍", label: "Manager / supervisor", help: "Runs a stand" },
   { value: "guest", icon: "👤", label: "Guest inspector", help: "Inspects with a sponsor" },
   { value: "office", icon: "⚙️", label: "Office / other", help: "Admin decides access" },
 ];
-const ROLE_LABEL = { global_admin: "Global Admin", admin: "Admin", inspector: "Inspector", location_manager: "Location manager", guest: "Guest inspector", maintenance: "Maintenance crew", cleaning: "Cleaning crew" };
+const ROLE_LABEL = { global_admin: "Global Admin", admin: "Admin", inspector: "Inspector", location_manager: "Location manager", guest: "Guest inspector", maintenance: "Maintenance crew", cleaning: "Cleaning crew", ecolab: "Ecolab rep" };
 const roleChip = r => { const m = REQUEST_ROLES.find(x => x.value === r); return m ? `${m.icon} ${m.label}` : (ROLE_LABEL[r] || r || ""); };
 async function registerNewUser(badge, name, department, extra = {}) {
   const h = await hashBadge(badge);
@@ -3386,6 +3388,7 @@ function splitAreaCategory(area) {
 const EXPLICIT_TYPE = { "cleaning": "Cleaning", "maintenance": "Maintenance", "plumbing": "Maintenance", "lights": "Maintenance", "ecolab / chemicals": "Ecolab / Maintenance", "pest control": "Pest Control", "temperature": "Temperature" };
 const ISSUE_TYPES = ["Cleaning", "Maintenance", "Ecolab / Maintenance", "Pest Control", "Temperature", "Other"];
 const ISSUE_TYPE_ICON = { "Cleaning": "🧹", "Maintenance": "🔧", "Ecolab / Maintenance": "🧪", "Pest Control": "🐜", "Temperature": "🌡", "Other": "⚪" };
+const issueTypeLabel = t => t === "Ecolab / Maintenance" ? "Ecolab" : (t || "Other");
 // Samples: "Interior has food debris and is not clean — a little rusted" → Cleaning
 //          "Leakage detected (water or refrigerant)" → Maintenance
 //          "Floors not swept or mopped" → Cleaning · "Handle loose" → Maintenance
@@ -8262,9 +8265,9 @@ const supCatEmoji = (cat) => SUP_PROBLEM_CATS.find(c => c.cat === cat)?.emoji ||
 const haccpProblemText = (pr) => pr?.text ? (pr.category ? `[${pr.category}] ${pr.text}` : pr.text) : "";
 
 /* ── Crew roles: maintenance / cleaning ─────────────────────────────────── */
-const CREW_TYPES = { maintenance: ["Maintenance", "Ecolab / Maintenance"], cleaning: ["Cleaning"] };
-const CREW_META = { maintenance: { icon: "🔧", title: "Maintenance board", noun: "maintenance" }, cleaning: { icon: "🧹", title: "Cleaning board", noun: "cleaning" } };
-const isCrewRole = r => r === "maintenance" || r === "cleaning";
+const CREW_TYPES = { maintenance: ["Maintenance"], ecolab: ["Ecolab / Maintenance"], cleaning: ["Cleaning"] };
+const CREW_META = { maintenance: { icon: "🔧", title: "Maintenance board", noun: "maintenance" }, ecolab: { icon: "🧪", title: "Ecolab board", noun: "Ecolab" }, cleaning: { icon: "🧹", title: "Cleaning board", noun: "cleaning" } };
+const isCrewRole = r => r === "maintenance" || r === "cleaning" || r === "ecolab";
 // New problem saved (report / quick report / supervisor QR) → ping the crew that owns it
 async function notifyCrewsForItems(items, site, unit, by, forceType) {
   try {
@@ -8411,7 +8414,7 @@ function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLoc
           <button type="button" className="btn btnGhost" style={{ color: "#fff", borderColor: "rgba(255,255,255,0.4)", padding: "6px 12px" }} onClick={() => setMenuOpen(v => !v)}>☰</button>
           {menuOpen && (
             <div className="dropdownMenu" onClick={() => setMenuOpen(false)}>
-              <div className="dropdownMenuUser">{me} ({role === "cleaning" ? "Cleaning" : "Maintenance"})</div>
+              <div className="dropdownMenuUser">{me} ({role === "cleaning" ? "Cleaning" : role === "ecolab" ? "Ecolab" : "Maintenance"})</div>
               <button className="dropdownMenuItem" type="button" onClick={() => { setTab("open"); }}>{meta.icon} My board</button>
               <button className="dropdownMenuItem" type="button" onClick={() => { setTab("reports"); }}>📄 Reports with {meta.noun} issues</button>
               <button className="dropdownMenuItem" type="button" onClick={load}>🔄 Refresh</button>
@@ -8459,7 +8462,7 @@ function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLoc
                       return (
                         <div key={f.key} className={"crewItem" + (done ? " crewItemDone" : f.overdue ? " crewItemOverdue" : "")}>
                           <div className="crewItemHead">
-                            <span className="crewItemIcon">{done ? "✅" : f.itype === "Pest Control" ? "🐜" : f.itype === "Cleaning" ? "🧹" : "🔧"}</span>
+                            <span className="crewItemIcon">{done ? "✅" : ISSUE_TYPE_ICON[f.itype] || "🔧"}</span>
                             <div style={{ flex: 1, minWidth: 0 }}>
                               <div className="crewItemTitle">{f.cat}</div>
                               <div className="crewItemDetail">{f.detail || "—"}{f.notes ? <span className="crewItemNotes"> — {f.notes}</span> : null}</div>
@@ -8467,7 +8470,7 @@ function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLoc
                               {!done && (moveKey === f.key ? (
                                 <div className="crewMove">
                                   <span>This belongs to:</span>
-                                  {ISSUE_TYPES.filter(t => t !== f.itype && t !== "Temperature").map(t => <button key={t} type="button" className="etChip" onClick={() => moveTo(f, t)}>{ISSUE_TYPE_ICON[t]} {t}</button>)}
+                                  {ISSUE_TYPES.filter(t => t !== f.itype && t !== "Temperature").map(t => <button key={t} type="button" className="etChip" onClick={() => moveTo(f, t)}>{ISSUE_TYPE_ICON[t]} {issueTypeLabel(t)}</button>)}
                                   <button type="button" className="etChip" onClick={() => setMoveKey(null)}>Cancel</button>
                                 </div>
                               ) : (
@@ -8668,7 +8671,7 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
     setTypeLocal(p => ({ ...p, [f.key]: entry }));
     writeMap("followupType", { [f.key]: entry });
     setTypeMenuKey(null);
-    if (itype && (CREW_TYPES.maintenance.includes(itype) || CREW_TYPES.cleaning.includes(itype))) {
+    if (itype && Object.values(CREW_TYPES).some(ts => ts.includes(itype))) {
       try { notifyCrewsForItems([{ issue: `${f.cat}: ${f.detail || ""}`, notes: f.notes || "" }], f.loc, f.unit, currentUser?.name || "Inspector", itype); } catch {}
     }
   }
@@ -9142,10 +9145,16 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
                   🧹 {fuVisible.filter(f => f.itype === "Cleaning").length} cleaning
                 </span>
               )}
-              {fuVisible.filter(f => f.itype === "Maintenance" || f.itype === "Ecolab / Maintenance").length > 0 && (
+              {fuVisible.filter(f => f.itype === "Maintenance").length > 0 && (
                 <span className="fuSumChip" style={{ background: "#ffedd5", color: "#9a3412", borderColor: "#fed7aa", cursor: "pointer" }}
                   onClick={() => setFuSearch(fuSearch.trim().toLowerCase() === "maintenance" ? "" : "maintenance")}>
-                  🔧 {fuVisible.filter(f => f.itype === "Maintenance" || f.itype === "Ecolab / Maintenance").length} maintenance
+                  🔧 {fuVisible.filter(f => f.itype === "Maintenance").length} maintenance
+                </span>
+              )}
+              {fuVisible.filter(f => f.itype === "Ecolab / Maintenance").length > 0 && (
+                <span className="fuSumChip" style={{ background: "#ccfbf1", color: "#0f766e", borderColor: "#99f6e4", cursor: "pointer" }}
+                  onClick={() => setFuSearch(fuSearch.trim().toLowerCase() === "ecolab" ? "" : "ecolab")}>
+                  🧪 {fuVisible.filter(f => f.itype === "Ecolab / Maintenance").length} Ecolab
                 </span>
               )}
               <span className="fuSumChip">📍 {fuGroupsShown.length} venue{fuGroupsShown.length !== 1 ? "s" : ""}</span>
@@ -9222,12 +9231,12 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
                                 <span className="fuTypeWrap" onClick={e => e.stopPropagation()}>
                                   <button type="button" className={"fuTypeChip fuType-" + (f.itype || "Other").replace(/[^A-Za-z]/g, "")} title={f.typeManual ? `Set by ${f.typeBy}` : "Auto-sorted — tap to change"}
                                     onClick={() => setTypeMenuKey(typeMenuKey === f.key ? null : f.key)}>
-                                    {ISSUE_TYPE_ICON[f.itype] || "⚪"} {f.itype || "Other"}{f.typeManual ? " ✋" : ""} ▾
+                                    {ISSUE_TYPE_ICON[f.itype] || "⚪"} {issueTypeLabel(f.itype)}{f.typeManual ? " ✋" : ""} ▾
                                   </button>
                                   {typeMenuKey === f.key && (
                                     <div className="fuTypeMenu">
                                       {ISSUE_TYPES.map(t => (
-                                        <button key={t} type="button" className={"fuTypeOpt" + (f.itype === t ? " on" : "")} onClick={() => setFollowupType(f, t)}>{ISSUE_TYPE_ICON[t]} {t}</button>
+                                        <button key={t} type="button" className={"fuTypeOpt" + (f.itype === t ? " on" : "")} onClick={() => setFollowupType(f, t)}>{ISSUE_TYPE_ICON[t]} {issueTypeLabel(t)}</button>
                                       ))}
                                       {f.typeManual && <button type="button" className="fuTypeOpt fuTypeAuto" onClick={() => setFollowupType(f, null)}>↺ Auto</button>}
                                     </div>
@@ -21121,6 +21130,7 @@ function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVe
                       <option value="guest">Guest Inspector</option>
                       <option value="maintenance">🔧 Maintenance crew</option>
                       <option value="cleaning">🧹 Cleaning crew</option>
+                      <option value="ecolab">🧪 Ecolab rep</option>
                     </select>
                   </label>
                   {(addRole === "location_manager" || addRole === "guest") && (
@@ -28239,7 +28249,7 @@ export default function App() {
             {currentUser && (
               <div className="dropdownMenuUser">
                 {currentUser.name}
-                {currentUser.role === "global_admin" ? " (Global Admin)" : currentUser.role === "admin" ? " (Admin)" : currentUser.role === "location_manager" ? " (Manager)" : currentUser.role === "guest" ? " (Guest)" : currentUser.role === "maintenance" ? " (Maintenance)" : currentUser.role === "cleaning" ? " (Cleaning)" : ""}
+                {currentUser.role === "global_admin" ? " (Global Admin)" : currentUser.role === "admin" ? " (Admin)" : currentUser.role === "location_manager" ? " (Manager)" : currentUser.role === "guest" ? " (Guest)" : currentUser.role === "maintenance" ? " (Maintenance)" : currentUser.role === "cleaning" ? " (Cleaning)" : currentUser.role === "ecolab" ? " (Ecolab)" : ""}
                 {currentUser.role === "location_manager" && currentUser.assignedLocation && (
                   <div style={{ fontSize: "0.72rem", color: "var(--ink-400)", marginTop: 2 }}>📍 {currentUser.assignedLocation}</div>
                 )}
