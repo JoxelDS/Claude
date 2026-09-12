@@ -3382,17 +3382,29 @@ function splitAreaCategory(area) {
 // Classify WHO fixes an issue: the cleaning crew, maintenance, pest control…
 // This is the "Issue Type" column in Excel exports, so cleaning problems can
 // be filtered apart from maintenance work orders.
+// Explicit categories chosen on a form win outright (quick problem / supervisor QR chips)
+const EXPLICIT_TYPE = { "cleaning": "Cleaning", "maintenance": "Maintenance", "plumbing": "Maintenance", "lights": "Maintenance", "ecolab / chemicals": "Ecolab / Maintenance", "pest control": "Pest Control", "temperature": "Temperature" };
+const ISSUE_TYPES = ["Cleaning", "Maintenance", "Ecolab / Maintenance", "Pest Control", "Temperature", "Other"];
+const ISSUE_TYPE_ICON = { "Cleaning": "🧹", "Maintenance": "🔧", "Ecolab / Maintenance": "🧪", "Pest Control": "🐜", "Temperature": "🌡", "Other": "⚪" };
+// Samples: "Interior has food debris and is not clean — a little rusted" → Cleaning
+//          "Leakage detected (water or refrigerant)" → Maintenance
+//          "Floors not swept or mopped" → Cleaning · "Handle loose" → Maintenance
+//          "Roach activity by the beverage station" → Pest Control · "Cooler at 44°F" → Temperature
 function classifyIssueType(issue, notes = "", priority = "") {
   const p = (priority || "").toLowerCase();
   const t = `${issue || ""} ${notes || ""}`.toLowerCase();
+  const lead = String(issue || "").split(":")[0].trim().toLowerCase();
+  if (EXPLICIT_TYPE[lead]) return EXPLICIT_TYPE[lead];
   if (/pest|roach|flies|fly |fruit fl|rodent|mice|mouse|rat |droppings|gnat/.test(t) || p === "pest control") return "Pest Control";
-  // Ecolab-supplied chemical systems (3-comp detergent/sanitizer, dispensers):
-  // repairs go through Ecolab service, so they're their own bucket.
   if (/ecolab/.test(t)) return "Ecolab / Maintenance";
   if (p === "maintenance" || /^(hvac|plumbing|electrical|refrigeration)$/.test(p)) return "Maintenance";
-  if (/broken|leak|not working|doesn'?t work|does not work|no power|repair|missing (tile|panel|cover|handle|knob)|peeling|damag|loose|replace|cracked|torn|burnt|burned out|light (is )?out|bulb out|gasket|drain(ing)? (slow|clog|back)|clogged|no pressure|low pressure|not delivering|no hot water|not delivering hot|rust|hinge|won'?t close|not closing|stuck|unstable|needs? adjust|wobbl|it moves/.test(t)) return "Maintenance";
+  // Hard maintenance: something is broken or not working — the crew with tools
+  if (/broken|leak|not working|doesn'?t work|does not work|no power|repair|missing (tile|panel|cover|handle|knob)|cracked|torn|burnt|burned out|light (is )?out|bulb out|drain(ing)? (slow|clog|back)|clogged|no pressure|low pressure|not delivering|no hot water|won'?t close|not closing|unstable|wobbl/.test(t)) return "Maintenance";
+  // Cleaning beats "a little rusted" — dirt is the problem being reported
+  if (/dirty|not clean|unclean|needs? (a )?clean|grease|build[- ]?up|debris|residue|stain|mold|mildew|dust|sweep|swept|mop+ed|not (mopped|swept)|saniti|trash|garbage|sticky|spill|slippery|food (debris|residue)|grimy|filthy|crumbs|grime|soiled|scale|odor|smell|splatter|wipe/.test(t)) return "Cleaning";
   if (/haccp|°f|\bout[- ]of[- ]range\b|too warm|too cold|not cold|not hot enough|\btemp\b|temperature/.test(t)) return "Temperature";
-  if (/dirty|not clean|unclean|needs? (a )?clean|grease|build[- ]?up|debris|residue|stain|mold|mildew|dust|sweep|swept|mop+ed|not (mopped|swept)|saniti|trash|garbage|sticky|spill|slippery|food (debris|residue)|grimy|filthy/.test(t)) return "Cleaning";
+  // Soft maintenance: wear that can wait for the next visit
+  if (/rust|peeling|damag|loose|replace|gasket|hinge|stuck|needs? adjust|it moves/.test(t)) return "Maintenance";
   return "Other";
 }
 
@@ -8180,8 +8192,9 @@ function computeFollowups(history, venueSettings, clearedLocal = {}) {
       const daysSince = Math.floor((now - v.ts) / (24 * 60 * 60 * 1000));
       const likelyResolved = (latestInspByLoc[loc] || 0) > v.ts;   // a newer inspection had no such issue
       const overdue = !likelyResolved && daysSince >= recheckDays;
-      const itype = classifyIssueType(`${cat}: ${v.detail || ""}`, v.notes || "");
-      return { key, loc, cat, unit: v.unit || "", floor: v.floor || "", itype, daysSince, count: v.count, dateStr: v.dateStr, likelyResolved, overdue, detail: v.detail || "", notes: v.notes || "", ts: v.ts || 0, source: v.source || "", reportedBy: v.reportedBy || "", photos: v.photos || [], inspector: v.inspector || "" };
+      const manual = venueSettings?.followupType?.[key];
+      const itype = (manual && ISSUE_TYPES.includes(manual.itype)) ? manual.itype : classifyIssueType(`${cat}: ${v.detail || ""}`, v.notes || "");
+      return { key, loc, cat, unit: v.unit || "", floor: v.floor || "", itype, daysSince, count: v.count, dateStr: v.dateStr, likelyResolved, overdue, detail: v.detail || "", notes: v.notes || "", ts: v.ts || 0, source: v.source || "", reportedBy: v.reportedBy || "", photos: v.photos || [], inspector: v.inspector || "", typeManual: !!(manual && ISSUE_TYPES.includes(manual.itype)), typeBy: manual?.by || "" };
     })
     .sort((a, b) => (b.overdue - a.overdue) || (a.likelyResolved - b.likelyResolved) || b.daysSince - a.daysSince);
 
@@ -8253,12 +8266,12 @@ const CREW_TYPES = { maintenance: ["Maintenance", "Ecolab / Maintenance"], clean
 const CREW_META = { maintenance: { icon: "🔧", title: "Maintenance board", noun: "maintenance" }, cleaning: { icon: "🧹", title: "Cleaning board", noun: "cleaning" } };
 const isCrewRole = r => r === "maintenance" || r === "cleaning";
 // New problem saved (report / quick report / supervisor QR) → ping the crew that owns it
-async function notifyCrewsForItems(items, site, unit, by) {
+async function notifyCrewsForItems(items, site, unit, by, forceType) {
   try {
     if (!FIREBASE_ON) return;
     const users = await getUsers();
     for (const [role, types] of Object.entries(CREW_TYPES)) {
-      const hits = (items || []).filter(a => a && types.includes(classifyIssueType(a.issue || "", a.notes || "")));
+      const hits = (items || []).filter(a => a && types.includes(forceType || classifyIssueType(a.issue || "", a.notes || "")));
       if (!hits.length) continue;
       const crew = (users || []).filter(u => u.role === role && u.approved !== false && u.name).slice(0, 10);
       const m = CREW_META[role];
@@ -8280,7 +8293,8 @@ function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLoc
   const [floorPick, setFloorPick] = useState("");
   const [showOther, setShowOther] = useState(false);
   const [showDone, setShowDone] = useState(false);
-  const [local, setLocal] = useState({ status: {}, comments: {}, photos: {}, cleared: {} });
+  const [local, setLocal] = useState({ status: {}, comments: {}, photos: {}, cleared: {}, types: {} });
+  const [moveKey, setMoveKey] = useState(null);
   const [action, setAction] = useState(null); // { key, kind: "in_progress"|"waiting"|"fixed", note }
   const [busy, setBusy] = useState(null);
   const [flash, setFlash] = useState("");
@@ -8304,7 +8318,17 @@ function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLoc
   const photosOf = k => local.photos[k] || vs.followupPhotos?.[k] || [];
   const clearedLocal = local.cleared;
 
-  const all = useMemo(() => { try { return computeFollowups(history, vs, clearedLocal).followups; } catch { return []; } }, [history, vs.followupCleared, vs.followupStatus, vs.recheckDays, clearedLocal]);
+  const vsT = Object.keys(local.types).length ? { ...vs, followupType: { ...(vs.followupType || {}), ...local.types } } : vs;
+  const all = useMemo(() => { try { return computeFollowups(history, vsT, clearedLocal).followups; } catch { return []; } }, [history, vs.followupCleared, vs.followupStatus, vs.followupType, vs.recheckDays, clearedLocal, local.types]);
+  function moveTo(f, itype) {
+    const entry = { itype, by: me, ts: Date.now() };
+    setLocal(p => ({ ...p, types: { ...p.types, [f.key]: entry } }));
+    saveVenueSettingsMap?.("followupType", { [f.key]: entry });
+    setMoveKey(null);
+    notifyInspector(f, `${meta.icon} Moved to ${itype} — ${f.loc}${f.unit ? ` #${f.unit}` : ""}`, `${f.cat}: ${f.detail || ""} — ${me} says this is ${itype.toLowerCase()}`);
+    try { notifyCrewsForItems([{ issue: `${f.cat}: ${f.detail || ""}`, notes: f.notes || "" }], f.loc, f.unit, me, itype); } catch {}
+    setFlash(`↪ Sent to ${itype}`); setTimeout(() => setFlash(""), 3000);
+  }
   const mine = all.filter(f => types.includes(f.itype) || (showOther && f.itype === "Other"));
   const isDone = f => { const st = statusOf(f.key); return !!(st && st.status === "resolved") || f.likelyResolved; };
   const qq = q.trim().toLowerCase(); const qUnit = normUnit(qq);
@@ -8439,7 +8463,16 @@ function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLoc
                             <div style={{ flex: 1, minWidth: 0 }}>
                               <div className="crewItemTitle">{f.cat}</div>
                               <div className="crewItemDetail">{f.detail || "—"}{f.notes ? <span className="crewItemNotes"> — {f.notes}</span> : null}</div>
-                              <div className="crewItemMeta">{[f.dateStr ? `flagged ${f.dateStr}` : "", f.daysSince != null ? `${f.daysSince}d open` : "", f.reportedBy ? `by supervisor ${f.reportedBy}` : f.inspector ? `by ${f.inspector}` : "", f.overdue && !done ? "⏰ overdue" : ""].filter(Boolean).join(" · ")}</div>
+                              <div className="crewItemMeta">{[f.dateStr ? `flagged ${f.dateStr}` : "", f.daysSince != null ? `${f.daysSince}d open` : "", f.reportedBy ? `by supervisor ${f.reportedBy}` : f.inspector ? `by ${f.inspector}` : "", f.overdue && !done ? "⏰ overdue" : "", f.typeManual ? `✋ ${f.itype} by ${f.typeBy}` : ""].filter(Boolean).join(" · ")}</div>
+                              {!done && (moveKey === f.key ? (
+                                <div className="crewMove">
+                                  <span>This belongs to:</span>
+                                  {ISSUE_TYPES.filter(t => t !== f.itype && t !== "Temperature").map(t => <button key={t} type="button" className="etChip" onClick={() => moveTo(f, t)}>{ISSUE_TYPE_ICON[t]} {t}</button>)}
+                                  <button type="button" className="etChip" onClick={() => setMoveKey(null)}>Cancel</button>
+                                </div>
+                              ) : (
+                                <button type="button" className="crewNotMine" onClick={() => setMoveKey(f.key)}>Not mine → move</button>
+                              ))}
                             </div>
                           </div>
                           {(before.length > 0 || after.length > 0) && (
@@ -8514,6 +8547,8 @@ function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLoc
 function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDrilldown, venueSettings, saveVenueSettings, saveVenueSettingsMap, currentUser, onAddRecord }) {
   // Locally cleared follow-ups — instant feedback independent of settings sync
   const [clearedLocal, setClearedLocal] = useState({});
+  const [typeMenuKey, setTypeMenuKey] = useState(null);
+  const [typeLocal, setTypeLocal] = useState({});
   const analysis = useMemo(() => {
     if (history.length < 2) return null;
 
@@ -8615,7 +8650,8 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
       .slice(0, 5);
 
     // 6. Follow-ups: open issues that need a recheck or look resolved
-    const { followups, followupGroups, followupCatGroups, recheckDays } = computeFollowups(history, venueSettings, clearedLocal);
+    const vsWithTypes = Object.keys(typeLocal).length ? { ...venueSettings, followupType: { ...(venueSettings?.followupType || {}), ...typeLocal } } : venueSettings;
+    const { followups, followupGroups, followupCatGroups, recheckDays } = computeFollowups(history, vsWithTypes, clearedLocal);
 
     return { recurring, locationRecurring, tempComplianceRate, tempChecks, tempFails, totalInspections: history.length, worstLocations, followups, followupGroups, followupCatGroups, recheckDays };
   }, [history, venueSettings, clearedLocal]);
@@ -8626,6 +8662,16 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
   const [waitingKey, setWaitingKey] = useState(null);
   const [waitingNote, setWaitingNote] = useState("");
 
+  // Category by hand: 🧹 / 🔧 / 🧪 / 🐜 / 🌡 / ⚪ — moves the item between the crew boards
+  function setFollowupType(f, itype) {
+    const entry = itype ? { itype, by: currentUser?.name || "Inspector", ts: Date.now() } : null;
+    setTypeLocal(p => ({ ...p, [f.key]: entry }));
+    writeMap("followupType", { [f.key]: entry });
+    setTypeMenuKey(null);
+    if (itype && (CREW_TYPES.maintenance.includes(itype) || CREW_TYPES.cleaning.includes(itype))) {
+      try { notifyCrewsForItems([{ issue: `${f.cat}: ${f.detail || ""}`, notes: f.notes || "" }], f.loc, f.unit, currentUser?.name || "Inspector", itype); } catch {}
+    }
+  }
   function writeMap(field, patch) {
     // Per-key Firestore patch (no stale whole-map spread); falls back to the
     // legacy whole-map save when the new helper isn't threaded through yet.
@@ -9173,15 +9219,20 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
                                     : `Flagged ${f.daysSince} day${f.daysSince !== 1 ? "s" : ""} ago — recheck due in ${Math.max(0, analysis.recheckDays - f.daysSince)} day${analysis.recheckDays - f.daysSince !== 1 ? "s" : ""}`}
                                 {f.count > 1 ? ` · seen ×${f.count}` : ""}
                                 {f.floor ? ` · 📍 ${f.floor}` : ""}
-                                {f.itype && f.itype !== "Other" && (
-                                  <span style={{
-                                    marginLeft: 6, fontWeight: 800, fontSize: "0.66rem", padding: "1px 8px", borderRadius: 999,
-                                    background: f.itype === "Cleaning" ? "#dcfce7" : f.itype === "Maintenance" ? "#ffedd5" : f.itype === "Temperature" ? "#dbeafe" : f.itype === "Pest Control" ? "#fee2e2" : "#ccfbf1",
-                                    color: f.itype === "Cleaning" ? "#166534" : f.itype === "Maintenance" ? "#9a3412" : f.itype === "Temperature" ? "#1d4ed8" : f.itype === "Pest Control" ? "#991b1b" : "#0f766e",
-                                  }}>
-                                    {f.itype === "Cleaning" ? "🧹" : f.itype === "Maintenance" ? "🔧" : f.itype === "Temperature" ? "🌡" : f.itype === "Pest Control" ? "🐜" : "🧪"} {f.itype}
-                                  </span>
-                                )}
+                                <span className="fuTypeWrap" onClick={e => e.stopPropagation()}>
+                                  <button type="button" className={"fuTypeChip fuType-" + (f.itype || "Other").replace(/[^A-Za-z]/g, "")} title={f.typeManual ? `Set by ${f.typeBy}` : "Auto-sorted — tap to change"}
+                                    onClick={() => setTypeMenuKey(typeMenuKey === f.key ? null : f.key)}>
+                                    {ISSUE_TYPE_ICON[f.itype] || "⚪"} {f.itype || "Other"}{f.typeManual ? " ✋" : ""} ▾
+                                  </button>
+                                  {typeMenuKey === f.key && (
+                                    <div className="fuTypeMenu">
+                                      {ISSUE_TYPES.map(t => (
+                                        <button key={t} type="button" className={"fuTypeOpt" + (f.itype === t ? " on" : "")} onClick={() => setFollowupType(f, t)}>{ISSUE_TYPE_ICON[t]} {t}</button>
+                                      ))}
+                                      {f.typeManual && <button type="button" className="fuTypeOpt fuTypeAuto" onClick={() => setFollowupType(f, null)}>↺ Auto</button>}
+                                    </div>
+                                  )}
+                                </span>
                                 {f.source === "haccp_portal" && (
                                   <span className="fuSupBadge" title={f.reportedBy ? `Reported by ${f.reportedBy} from the stand QR` : "Reported from the stand QR"}>
                                     👷 Supervisor{f.reportedBy ? `: ${f.reportedBy}` : ""}

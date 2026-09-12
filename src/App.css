@@ -8080,3 +8080,17 @@ html[data-theme="dark"] .fuStOnWaiting, html[data-theme="black"] .fuStOnWaiting 
 .regDeptSelect { flex: 1; font-size: 16px; }
 .regHint { font-size: 0.74rem; color: var(--ink-500); text-align: left; margin-top: 8px; }
 .regChips, .regRoles { display: none; }
+/* ── Follow-up category by hand (v387) ── */
+.fuTypeWrap { position: relative; display: inline-block; margin-left: 6px; }
+.fuTypeChip { border: none; cursor: pointer; font-weight: 800; font-size: 0.66rem; padding: 2px 8px; border-radius: 999px; background: #ededed; color: #555; }
+.fuTypeChip.fuType-Cleaning { background: #dcfce7; color: #166534; }
+.fuTypeChip.fuType-Maintenance { background: #ffedd5; color: #9a3412; }
+.fuTypeChip.fuType-EcolabMaintenance { background: #ccfbf1; color: #0f766e; }
+.fuTypeChip.fuType-PestControl { background: #fee2e2; color: #991b1b; }
+.fuTypeChip.fuType-Temperature { background: #dbeafe; color: #1d4ed8; }
+.fuTypeMenu { position: absolute; top: 110%; left: 0; z-index: 50; background: var(--surface-1); border: 1.5px solid var(--sdx-gray-200); border-radius: 12px; padding: 6px; display: flex; flex-direction: column; gap: 3px; min-width: 190px; box-shadow: 0 8px 24px rgba(0,0,0,.18); }
+.fuTypeOpt { background: none; border: none; text-align: left; padding: 7px 10px; border-radius: 8px; font-size: 0.8rem; font-weight: 700; color: var(--ink-800); cursor: pointer; }
+.fuTypeOpt:hover, .fuTypeOpt.on { background: var(--surface-2); }
+.fuTypeAuto { color: var(--ink-500); border-top: 1px solid var(--sdx-gray-100); border-radius: 0; }
+.crewNotMine { background: none; border: none; color: var(--ink-500); font-size: 0.72rem; font-weight: 700; cursor: pointer; padding: 4px 0 0; text-decoration: underline; }
+.crewMove { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 6px; font-size: 0.74rem; font-weight: 700; color: var(--ink-600); }
