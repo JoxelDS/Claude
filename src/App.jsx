@@ -19327,6 +19327,7 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div className="standFocusTitle">{site || "Stand"}{sf.unit ? ` · Unit #${sf.unit}` : ""}</div>
                   <div className="standFocusSub">{[floorF, sf.locType].filter(Boolean).join(" · ")}{its.length ? ` · ${its.length} unit${its.length !== 1 ? "s" : ""} · ${doneN} done` : " · no equipment QR yet"}</div>
+                  {(() => { const others = normUnit(sf.unit) ? standList.filter(k => normUnit(k.unit) === normUnit(sf.unit) && !sameStandName(k.site, site)) : []; return others.length ? <div className="standFocusSub" style={{ color: "#92400e" }}>🔗 Unit #{sf.unit} is shared with {others.map(o => o.site.toUpperCase()).join(", ")} — same location, same equipment list.</div> : null; })()}
                   {(() => { const st = storedStand(sf); const L = (st?.license || "").trim() || lic?.license || ""; return (
                     <div style={{ marginTop: 4, display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
                       <StandType lt={sf.locType || storedStand(sf)?.locType} />
@@ -19972,11 +19973,24 @@ function standSeeds() {
     ["Seed", "332", "Subcontractor"], ["Cantaloupe", "336"], ["Bar", "342"], ["Little Caesar", "345"],
     ["Aifi", "347 A"], ["Sol Cubano", "350"], ["Shawarma Gyros / Sub", "350", "Portable - Subcontractor"],
     ["Crisppi Chicken", ""],
-  ].map(([site, unit, locType]) => ({ id: unit ? `u:${normUnit(unit)}` : `s:${site.toLowerCase()}`, site, unit, floor: floorFromUnit(unit), locType: locType || "Concession" })) : [];
+  ].map(([site, unit, locType]) => ({ site, unit, floor: floorFromUnit(unit), locType: locType || "Concession" })).reduce((out, k) => { out.push({ ...k, id: standIdIn(out, k.site, k.unit) }); return out; }, []) : [];
 }
 // Every stand we know (kitchen registry → seeds → inspection history), licenses synced.
 // Shared by the QR posters page and the equipment labels page so both see the same stands.
 let _standRemoved = []; // stands hidden with ✕ — restorable
+// Two stands can share a unit number (308 = LEMONADE CART cart + CANTALOUPE stand).
+// The first keeps the plain u:<unit> id; another name at the same unit gets u:<unit>~<slug>.
+const standSlug = s => String(s || "").toLowerCase().replace(/[^a-z0-9]+/g, "").slice(0, 18);
+const sameStandName = (a, b) => { const x = standSlug(a), y = standSlug(b); if (!x || !y) return true; return x === y || x.startsWith(y) || y.startsWith(x); };
+function standIdIn(existing, site, unit) {
+  if (!normUnit(unit)) return `s:${(site || "").trim().toLowerCase()}`;
+  const base = `u:${normUnit(unit)}`;
+  const atUnit = existing.filter(k => normUnit(k.unit) === normUnit(unit));
+  if (!atUnit.length) return base;
+  const same = atUnit.find(k => sameStandName(k.site, site));
+  if (same) return same.id;
+  return `${base}~${standSlug(site) || "b"}`;
+}
 async function loadStandList() {
   const SEED_KITCHENS = standSeeds();
 
@@ -19998,18 +20012,20 @@ async function loadStandList() {
   // Identity is the UNIT NUMBER (u:142A); names are display only, so name
   // variants of the same unit collapse into one card. Registry (user
   // edits) wins over seeds, seeds over history-derived names.
-  const kidOf = (site, unit) => unit ? `u:${normUnit(unit)}` : `s:${(site || "").toLowerCase()}`;
+  const kidOf = (site, unit) => standIdIn(list, site, unit);
   const legacyHidden = (site, unit) => regHidden[`${(site || "").toLowerCase()}|${(unit || "").toLowerCase()}`];
   const isHidden = (k) => regHidden[k.id] || legacyHidden(k.site, k.unit);
   for (const [rid, k] of Object.entries(regItems)) {
-    const id = kidOf(k.site, k.unit);
+    const id = /^u:[^~]+~/.test(rid) ? rid : kidOf(k.site, k.unit); // stands saved with a ~slug id keep it
     if (regHidden[rid] || regHidden[id] || seen.has(id)) continue;
     seen.add(id);
     list.push({ id, site: k.site || "", unit: k.unit || "", floor: floorForStand(k.unit, k.site, k.floor), locType: k.locType || "", license: k.license || "" });
   }
-  for (const k of SEED_KITCHENS) {
-    if (isHidden(k) || seen.has(k.id)) continue;
-    seen.add(k.id);
+  for (const k0 of SEED_KITCHENS) {
+    const id = kidOf(k0.site, k0.unit);
+    const k = { ...k0, id };
+    if (isHidden(k) || regHidden[k0.id] || seen.has(id)) continue;
+    seen.add(id);
     list.push(k);
   }
   try {
@@ -20026,6 +20042,7 @@ async function loadStandList() {
       if (license && unit && !licenseByUnit[normUnit(unit)]) licenseByUnit[normUnit(unit)] = license;
       if (regHidden[id] || legacyHidden(site, unit)) continue;
       if (seen.has(id)) continue;
+      if (id.includes("~") && !rec.inspectionType) continue; // a stray name at a known unit needs a real inspection behind it
       seen.add(id);
       list.push({ id, site, unit, floor, license });
     }
@@ -20178,7 +20195,14 @@ function KitchenQrPage({ onBack, onPrintLabels, onStandEquipment }) {
 
   const [addFlash, setAddFlash] = useState(null); // { k } — just added, offer to add its equipment
   const addRef = useRef(null);
-  const nameForUnit = u => { const rows = licenseRows().filter(r => normUnit(r.unit) === normUnit(u)); const a = rows.find(r => r.status === "ACTIVE") || rows[0]; return a?.name ? String(a.name).toUpperCase() : ""; };
+  const nameForUnit = u => { const rows = licenseRows().filter(r => normUnit(r.unit) === normUnit(u)); const a = rows.find(r => r.status === "ACTIVE") || rows[0]; const n = String(a?.name || "").replace(/^\s*[A-Z]?\d{1,4}\s?[A-Z]?\s*[-·:]?\s*/i, "").trim().toUpperCase(); return n && normUnit(n) !== normUnit(u) ? n : ""; };
+  const [addHint, setAddHint] = useState("");
+  function showExisting(k) {
+    setSearch(""); setKTypePick(""); setMissingPick(false);
+    setNewId(k.id); setTimeout(() => setNewId(n => (n === k.id ? null : n)), 4000);
+    setAddHint(`👉 ${k.site}${k.unit ? ` · #${k.unit}` : ""} is already on the list — it's highlighted below.`); setTimeout(() => setAddHint(""), 6000);
+    setTimeout(() => { try { document.getElementById(`kqr_${k.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" }); } catch {} }, 150);
+  }
   function onAddUnitChange(v) {
     setAddUnit(v);
     const fl = floorFromUnit(v); if (fl) setAddFloor(fl);
@@ -20195,14 +20219,24 @@ function KitchenQrPage({ onBack, onPrintLabels, onStandEquipment }) {
     setTimeout(() => { try { addRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }); addRef.current?.querySelector("input")?.focus(); } catch {} }, 50);
   }
   function addKitchen() {
-    const unitRaw = addUnit.trim().toUpperCase();
+    let unitRaw = addUnit.trim().toUpperCase();
+    // A unit number has a number in it. "GROUND" is a floor; "TACOTOMIA" is a name.
+    if (unitRaw && !/\d/.test(unitRaw)) {
+      if (/GROUND|LEVEL|FLOOR/.test(unitRaw)) { setAddFloor(/GROUND/.test(unitRaw) ? "Ground Level" : unitRaw); setAddHint(`“${unitRaw}” is a floor, not a unit # — moved it to Floor.`); }
+      else { if (!addSite.trim()) setAddSite(unitRaw); setAddHint(`“${unitRaw}” looks like a name, not a unit # — moved it to the name field. Type the unit number (e.g. 308, 319A).`); }
+      setAddUnit(""); setTimeout(() => setAddHint(""), 7000); return;
+    }
     const site = (addSite.trim() || nameForUnit(unitRaw) || (unitRaw ? `STAND ${unitRaw}` : "")).toUpperCase();
     if (!site) return;
+    if (unitRaw && normUnit(site) === normUnit(unitRaw)) { setAddHint("Name and unit # can't be the same — give the stand a name."); setTimeout(() => setAddHint(""), 6000); return; }
     const unit = unitRaw, floor = addFloor.trim(), license = (addLicense.trim() || addLicHint).trim().toUpperCase();
+    // Same unit already here? Same name or same type → that's this stand: show it. Different → a second stand at the unit.
+    const atUnit = unit ? kitchens.filter(k => normUnit(k.unit) === normUnit(unit)) : kitchens.filter(k => !normUnit(k.unit) && sameStandName(k.site, site));
+    const dup = atUnit.find(k => sameStandName(k.site, site) || (k.locType && k.locType === addType));
+    if (dup) { showExisting(dup); return; }
     if (!license && !window.confirm(`${site}${unit ? ` #${unit}` : ""} has no license.\n\nAdd it anyway? It will be flagged ⚠ NO LICENSE until you enter one.`)) return;
-    const id = unit ? `u:${normUnit(unit)}` : `s:${site.toLowerCase()}`;
+    const id = standIdIn(kitchens, site, unit);
     const newK = { id, site, unit, floor, license, locType: addType };
-    if (kitchens.some(k => k.id === id)) { alert(`${unit ? `Unit #${unit}` : site} is already on the list.`); setSearch(unit || site); return; }
     setKitchens(prev => prev.some(k => k.id === id) ? prev : [newK, ...prev]);
     setAddSite(""); setAddUnit(""); setAddLicense(""); setAddLicHint(""); setAddType("Concession");
     setAddFlash({ k: newK }); setTimeout(() => setAddFlash(f => (f && f.k.id === id ? null : f)), 12000);
@@ -20271,7 +20305,9 @@ function KitchenQrPage({ onBack, onPrintLabels, onStandEquipment }) {
     ? kitchens.filter(k => `${k.site} ${k.unit} ${k.floor} ${k.license || ""}`.toLowerCase().includes(search.trim().toLowerCase()))
     : kitchens;
   const incompleteCount = searched.filter(k => !isComplete(k)).length;
-  const shown = searched.filter(k => !missingPick || !isComplete(k)).filter(k => !kTypePick || kTypeGroup(k.locType) === kTypePick);
+  const searching = !!search.trim(); // while searching, the chips don't hide anything
+  const shown = searching ? searched : searched.filter(k => !missingPick || !isComplete(k)).filter(k => !kTypePick || kTypeGroup(k.locType) === kTypePick);
+  const activeFilters = searching ? [] : [kTypePick ? ({ con: "CONCESSION", port: "PORTABLE", sub: "SUBCONTRACTOR", psub: "PORTABLE · SUB", other: "OTHER", none: "TYPE?" })[kTypePick] : "", missingPick ? "MISSING INFO" : ""].filter(Boolean);
   const kTypeCounts = (() => { const c = {}; for (const k of kitchens) { const g = kTypeGroup(k.locType); c[g] = (c[g] || 0) + 1; } return c; })();
 
   function printPosters() {
@@ -20391,6 +20427,10 @@ function KitchenQrPage({ onBack, onPrintLabels, onStandEquipment }) {
           ))}
           {incompleteCount > 0 && <button type="button" className={"lblFloorChip stTypeChip lblToAdd " + (missingPick ? "on" : "")} onClick={() => setMissingPick(v => !v)} title="Stands still missing a unit # or license — they show like every other stand">⚠ MISSING INFO {incompleteCount}</button>}
         </div>
+        {activeFilters.length > 0 && (
+          <div className="kqrFilterBar">Showing only: <b>{activeFilters.join(" + ")}</b> · {shown.length} of {kitchens.length} stands <button type="button" className="walkMini" onClick={() => { setKTypePick(""); setMissingPick(false); }}>✕ clear filters</button></div>
+        )}
+        {addHint && <div className="kqrHint">{addHint}</div>}
         {/* Search — separate from adding */}
         <div className="kqrSearch">
           <span>🔍</span>

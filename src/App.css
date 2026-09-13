@@ -8202,8 +8202,11 @@ html[data-theme="dark"] .fuStOnWaiting, html[data-theme="black"] .fuStOnWaiting 
 .stType.stBar { background: #fce7f3; color: #9d174d; border-color: #fbcfe8; }
 .stType.stOther { background: var(--surface-2); color: var(--ink-600); border-color: var(--sdx-gray-200); }
 .stType.stNone { background: var(--surface-2); color: var(--ink-400); border-color: var(--sdx-gray-200); border-style: dashed; }
-.lblFloorChip.stTypeChip { font-size: 0.7rem; letter-spacing: 0.04em; }
+.lblFloorChip.stTypeChip { font-size: 0.7rem; letter-spacing: 0.04em; background: var(--surface-1); color: var(--sdx-navy); border: 1.5px solid var(--sdx-navy); }
 .lblFloorChip.stTypeChip.on { background: var(--sdx-navy); color: #fff; border-color: var(--sdx-navy); }
+.lblFloorChip.stTypeChip.on::before { content: "✓ "; }
+.lblFloorChip.stTypeChip.lblToAdd { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+.lblFloorChip.stTypeChip.lblToAdd.on { background: #92400e; color: #fff; border-color: #92400e; }
 .stType.stNoLic { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
 
 /* ── v400: one QR per stand — unit rows replace label cards ── */
@@ -8251,3 +8254,7 @@ html[data-theme="dark"] .fuStOnWaiting, html[data-theme="black"] .fuStOnWaiting 
 .kqrNew { outline: 3px solid #16a34a !important; animation: kqrPulse 1.2s ease-in-out 3; }
 @keyframes kqrPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(22,163,74,0.5); } 50% { box-shadow: 0 0 0 10px rgba(22,163,74,0); } }
 .kqrRemoved { margin-top: 18px; padding-top: 10px; border-top: 1px dashed var(--sdx-gray-200); }
+
+/* ── v407: filters visible; add hints ── */
+.kqrFilterBar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; background: #e0e7ff; border: 1.5px solid #c7d2fe; border-radius: 10px; padding: 6px 10px; margin-bottom: 10px; font-size: 0.8rem; color: #1e3a8a; }
+.kqrHint { background: var(--tint-amber-1, #fffbeb); border: 1.5px solid #fde68a; border-radius: 10px; padding: 8px 12px; margin-bottom: 10px; font-size: 0.84rem; font-weight: 700; color: #92400e; }
