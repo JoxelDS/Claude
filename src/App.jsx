@@ -11460,7 +11460,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                   ))}
                 </div>
                 <div className="menuSection">Go to</div>
-                {[["📅 Schedule", "schedule"], ["🍳 Stands & Equipment", "print_labels"], ["🖨 Stand QR Posters", "kitchen_qr"], ["📍 My Locations", "mylocations"], ["💬 Messages & Comms", "messaging"]].map(([lb, pg]) => (
+                {[["📅 Schedule", "schedule"], ["🍳 Stands", "print_labels"], ["📍 My Locations", "mylocations"], ["💬 Messages & Comms", "messaging"]].map(([lb, pg]) => (
                   <button key={pg} className="dropdownMenuItem" type="button" onClick={() => { setShowHistoryMenu(false); window.dispatchEvent(new CustomEvent("sdx-nav", { detail: { page: pg } })); }}>{lb}</button>
                 ))}
                 {onMyTasks && (currentUser?.role === "inspector" || currentUser?.role === "location_manager") && (
@@ -18461,6 +18461,16 @@ function EquipmentScannerPage({ onBack, onPrintLabels, onKitchenQr }) {
   );
 }
 
+/* ── Stands: one place, two tabs (posters & licenses / equipment & verify walk) ── */
+function StandsTabs({ active }) {
+  const go = page => window.dispatchEvent(new CustomEvent("sdx-nav", { detail: { page, clearFocus: true } }));
+  return (
+    <div className="standsTabs printHide">
+      <button type="button" className={"standsTab" + (active === "print_labels" ? " on" : "")} onClick={() => go("print_labels")}>❄ Equipment &amp; verify walk</button>
+      <button type="button" className={"standsTab" + (active === "kitchen_qr" ? " on" : "")} onClick={() => go("kitchen_qr")}>🖨 Posters &amp; licenses</button>
+    </div>
+  );
+}
 /* ── Print Equipment Labels Page ──────────────────────────── */
 function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
   const [loading, setLoading] = useState(true);
@@ -19324,15 +19334,12 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
           </button>
           <div>
             <div style={{ fontWeight: 700, color: "#fff", fontSize: "1rem" }}>Stands</div>
-            <div style={{ color: "rgba(255,255,255,0.7)", fontSize: "0.75rem" }}>One QR per stand — its coolers / freezers listed on the poster</div>
+            <div style={{ color: "rgba(255,255,255,0.7)", fontSize: "0.75rem" }}>Equipment per stand · verify walk</div>
           </div>
         </div>
-        <button type="button" onClick={onKitchenQr}
-          style={{ background: "#fff", color: "var(--sdx-navy)", border: "none", borderRadius: 10, cursor: "pointer", fontWeight: 700, fontSize: "0.85rem", padding: "0.5rem 1.1rem", display: "inline-flex", alignItems: "center", gap: 6, whiteSpace: "nowrap" }}>
-          🖨 Posters
-        </button>
       </header>
       <div className="printHide" style={{ height: 64, flexShrink: 0 }} />
+      <StandsTabs active="print_labels" />
 
       <div style={{ maxWidth: 900, margin: "0 auto", padding: "1.25rem 1rem" }}>
 
@@ -19725,7 +19732,7 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
                       🔍 Verify walk{verifyMode ? " ✓" : ""}
                     </button>
                     <button type="button" className="lblFloorChip" onClick={() => setWalkScanOpen(true)} title="Scan a stand QR">📷 Scan stand</button>
-                    <button type="button" className="lblFloorChip" onClick={onKitchenQr} title="Print the stand posters">🖨 Posters</button>
+
                     <button type="button" className="lblFloorChip lblAnnounce" onClick={() => setAnnounce({ text: "", days: 3, all: false, floors: [], types: [], stands: [], q: "" })} title="Send a message to whoever scans these stands">📣 Announce{notices.length ? ` (${notices.length})` : ""}</button>
                     {standsNoEquip.length > 0 && (
                       <button type="button" className="lblFloorChip lblToAdd" onClick={() => setShowToAdd(v => !v)}>
@@ -20405,17 +20412,11 @@ function KitchenQrPage({ onBack, onPrintLabels, onStandEquipment }) {
             ← Back
           </button>
           <div style={{ minWidth: 0 }}>
-            <div style={{ fontWeight: 700, color: "#fff", fontSize: "0.95rem", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>Kitchen QR Posters</div>
+            <div style={{ fontWeight: 700, color: "#fff", fontSize: "0.95rem", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>Stands</div>
             <div className="kqrSub" style={{ color: "rgba(255,255,255,0.7)", fontSize: "0.72rem", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>One QR per kitchen — teams self-report temps &amp; problems</div>
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-          {onPrintLabels && (
-            <button className="btn btnGhost" type="button" onClick={onPrintLabels} title="Equipment Labels"
-              style={{ color: "#fff", borderColor: "rgba(255,255,255,0.4)", padding: "0.3rem 0.6rem", fontSize: "0.8rem", whiteSpace: "nowrap" }}>
-              🍳<span className="kqrBtnLabel"> Stands &amp; Equipment</span>
-            </button>
-          )}
           <button type="button" onClick={printPosters} disabled={shown.length === 0}
             style={{ background: shown.length === 0 ? "rgba(255,255,255,0.18)" : "#fff", color: shown.length === 0 ? "rgba(255,255,255,0.75)" : "var(--sdx-navy)", border: "none", borderRadius: 10, cursor: "pointer", fontWeight: 700, fontSize: "0.85rem", padding: "0.45rem 0.9rem", whiteSpace: "nowrap" }}>
             🖨 Print ({selectedIds.size || shown.length})
@@ -20423,6 +20424,7 @@ function KitchenQrPage({ onBack, onPrintLabels, onStandEquipment }) {
         </div>
       </header>
       <div style={{ height: 64, flexShrink: 0 }} />
+      <StandsTabs active="kitchen_qr" />
 
       <div style={{ maxWidth: 900, margin: "0 auto", padding: "1.25rem 1rem" }}>
         <div style={{ background: "var(--surface-1)", borderRadius: 12, padding: "1rem 1.25rem", marginBottom: "1rem", boxShadow: "0 1px 4px rgba(0,0,0,0.07)" }}>
@@ -27967,6 +27969,7 @@ export default function App() {
       const d = e.detail || {};
       if (d.entry !== undefined) setHistoryEntry(d.entry);
       if (d.page === "history" && d.entry === undefined) setHistoryEntry(null);
+      if (d.clearFocus) { try { setLabelsFocus(null); } catch {} }
       if (d.page) setPage(d.page);
       if (d.scanStand) setTimeout(() => setScanStandOpen(true), 50);
       if (d.newInspection) { try { startNewInspection(); } catch {} }
@@ -28907,7 +28910,7 @@ export default function App() {
             <button
               ref={notifBellRef}
               className="hamburgerBtn"
-              onClick={() => { setNotifOpen(v => !v); setMenuOpen(false); setShowTranslate(false); }}
+              onClick={() => { setNotifOpen(v => !v); setMenuOpen(false); }}
               type="button"
               aria-label="Notifications"
             >
@@ -28923,7 +28926,7 @@ export default function App() {
             </button>
           )}
 
-          <button className="hamburgerBtn" onClick={() => { setMenuOpen(v => !v); setShowTranslate(false); setNotifOpen(false); }} type="button" aria-label="Menu">
+          <button className="hamburgerBtn" onClick={() => { setMenuOpen(v => !v); setNotifOpen(false); }} type="button" aria-label="Menu">
             <span className={cx("hamburgerIcon", menuOpen && "hamburgerOpen")}>
               <span /><span /><span />
             </span>
@@ -29020,9 +29023,8 @@ export default function App() {
               {notifItems.filter(n => n.type === "chat").length > 0 && <span className="menuBadge menuBadgeSoft">{notifItems.filter(n => n.type === "chat").length} new</span>}
             </button>
             <div className="menuSection">Equipment &amp; QR</div>
-            <button className={cx("dropdownMenuItem", page === "print_labels" && "dropdownMenuItemActive")} onClick={() => { setPage("print_labels"); setMenuOpen(false); }} type="button">🍳 Stands &amp; Equipment (verify walk)</button>
+            <button className={cx("dropdownMenuItem", (page === "print_labels" || page === "kitchen_qr") && "dropdownMenuItemActive")} onClick={() => { setLabelsFocus(null); setPage("print_labels"); setMenuOpen(false); }} type="button">🍳 Stands (posters · equipment · verify walk)</button>
             <button className={cx("dropdownMenuItem", page === "equipment_scanner" && "dropdownMenuItemActive")} onClick={() => { setPage("equipment_scanner"); setMenuOpen(false); }} type="button">📡 Equipment Scanner</button>
-            <button className={cx("dropdownMenuItem", page === "kitchen_qr" && "dropdownMenuItemActive")} onClick={() => { setPage("kitchen_qr"); setMenuOpen(false); }} type="button">🍳 Stand QR Posters</button>
             {(currentUser?.role === "global_admin" || currentUser?.role === "admin" || currentUser?.role === "location_manager" || currentUser?.role === "inspector") && <div className="menuSection">Manage</div>}
             {currentUser?.role === "global_admin" && (
               <button className={cx("dropdownMenuItem", page === "global_admin" && "dropdownMenuItemActive")} onClick={() => setPage("global_admin")} type="button">🌐 Global Admin</button>

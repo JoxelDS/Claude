@@ -8258,3 +8258,8 @@ html[data-theme="dark"] .fuStOnWaiting, html[data-theme="black"] .fuStOnWaiting 
 /* ── v407: filters visible; add hints ── */
 .kqrFilterBar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; background: #e0e7ff; border: 1.5px solid #c7d2fe; border-radius: 10px; padding: 6px 10px; margin-bottom: 10px; font-size: 0.8rem; color: #1e3a8a; }
 .kqrHint { background: var(--tint-amber-1, #fffbeb); border: 1.5px solid #fde68a; border-radius: 10px; padding: 8px 12px; margin-bottom: 10px; font-size: 0.84rem; font-weight: 700; color: #92400e; }
+
+/* ── v410: Stands tabs ── */
+.standsTabs { position: sticky; top: 0; z-index: 150; display: flex; gap: 6px; padding: 8px 12px; background: var(--surface-2); border-bottom: 1px solid var(--sdx-gray-200); }
+.standsTab { flex: 1; background: var(--surface-1); border: 1.5px solid var(--sdx-gray-200); border-radius: 999px; padding: 8px 10px; font-weight: 800; font-size: 0.82rem; color: var(--ink-700); cursor: pointer; }
+.standsTab.on { background: var(--sdx-navy); color: #fff; border-color: var(--sdx-navy); }
