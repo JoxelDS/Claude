@@ -2557,7 +2557,7 @@ const PHOTO_LIMIT = 6;
 const PHOTO_MAX_MB = 8;
 
 const INSPECTION_TYPES = ["Event Day", "Post Event", "Regular Inspection"];
-const LOCATION_TYPES = ["Concession", "Bar", "Subcontractor", "Portable - Stadium", "Portable - Subcontractor", "Portable", "Pantry", "Event / Temporary"];
+const LOCATION_TYPES = ["Concession", "Bar", "Subcontractor", "Portable - Stadium", "Portable - Subcontractor", "Portable", "Kitchen", "Pantry", "Event / Temporary"];
 // Helper: any portable variant (including legacy "Portable")
 const isPortableType = (lt) => lt === "Portable - Stadium" || lt === "Portable - Subcontractor" || lt === "Portable";
 const FLOOR_OPTIONS = ["Ground Level", "Floor 1", "Floor 2", "Floor 3"];
@@ -2587,6 +2587,7 @@ function standTypeBadge(lt) {
   if (isPortableType(t)) return { short: "PORTABLE", cls: "stPort", full: t };
   if (t === "Concession") return { short: "CONCESSION", cls: "stCon", full: t };
   if (t === "Bar") return { short: "BAR", cls: "stBar", full: t };
+  if (t === "Kitchen") return { short: "KITCHEN", cls: "stKit", full: t };
   return { short: t.toUpperCase(), cls: "stOther", full: t };
 }
 const StandType = ({ lt, style }) => { const b = standTypeBadge(lt); return <span className={"stType " + b.cls} title={b.full || "Stand type not set"} style={style}>{b.short}</span>; };
@@ -18535,14 +18536,15 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
   const [standQr, setStandQr] = useState("");           // poster QR of the open stand
   const [standEdit, setStandEdit] = useState(null);     // { site, license, locType } — editing the open stand
   const [typePick, setTypePick] = useState("");         // filter stands by type (Concession / Portable / …)
-  const typeGroup = lt => { const t = String(lt || ""); return t === "Portable - Subcontractor" ? "psub" : t === "Subcontractor" ? "sub" : isPortableType(t) ? "port" : t === "Concession" ? "con" : t ? "other" : "none"; };
-  const TYPE_CHIPS = [["con", "CONCESSION"], ["port", "PORTABLE"], ["sub", "SUBCONTRACTOR"], ["psub", "PORTABLE · SUB"], ["other", "OTHER"], ["none", "TYPE?"]];
+  const typeGroup = lt => { const t = String(lt || ""); return t === "Portable - Subcontractor" ? "psub" : t === "Subcontractor" ? "sub" : isPortableType(t) ? "port" : t === "Concession" ? "con" : t === "Kitchen" ? "kit" : t ? "other" : "none"; };
+  const TYPE_CHIPS = [["con", "CONCESSION"], ["port", "PORTABLE"], ["sub", "SUBCONTRACTOR"], ["psub", "PORTABLE · SUB"], ["kit", "KITCHEN"], ["other", "OTHER"], ["none", "TYPE?"]];
   const standIdOf = (unit, site) => normUnit(unit) ? `u:${normUnit(unit)}` : `s:${(site || "").trim().toLowerCase()}`;
   const storedStand = sf => { if (!sf) return null; const st = standFor(sf.unit, sf.site || sf.venueName); return standList.find(k => k.id === st.id) || null; };
   const typeAt = (unit, site, fallback) => storedStand({ unit, site })?.locType || fallback || "";
   const licenseAt = (unit, site, lt) => { const st = storedStand({ unit, site }); if ((st?.license || "").trim()) return st.license.trim(); const r = normUnit(unit) ? lookupLicenseByUnitType(unit, lt || st?.locType || "") : null; return r?.status === "ACTIVE" && r.license ? r.license : ""; };
   const [noLicPick, setNoLicPick] = useState(false);    // show only stands without a license
-  const NoLic = () => <span className="stType stNoLic">⚠ NO LICENSE</span>;
+  const licStatusAt = (unit, site) => { const st = storedStand({ unit, site }); if (st?.licStatus) return st.licStatus; const r = licenseRows().find(x => normUnit(x.unit) === normUnit(unit) && sameStandName(x.name, site) && (x.name || "").trim()); return r?.status || ""; };
+  const NoLic = ({ unit, site }) => licStatusAt(unit, site) === "REQUESTED" ? <span className="stType stReq">⏳ LICENSE REQUESTED</span> : <span className="stType stNoLic">⚠ NO LICENSE</span>;
   function saveStandEdit(sf, override) {
     const ed = override || standEdit; if (!ed) return;
     const site = ed.site.trim().toUpperCase(); if (!site) return;
@@ -19300,7 +19302,7 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
                         🍳 {grp.site || "—"}{grp.unit ? ` · Unit #${grp.unit}` : ""}{grp.floor ? ` · ${grp.floor}` : ""}
                       </span>
                       <StandType lt={typeAt(grp.unit, grp.site, grp.items?.[0]?.locType)} />
-                      {!licenseAt(grp.unit, grp.site, grp.items?.[0]?.locType) && <NoLic />}
+                      {!licenseAt(grp.unit, grp.site, grp.items?.[0]?.locType) && <NoLic unit={grp.unit} site={grp.site} />}
                       {regVerified[standKeyOf(grp.unit, grp.site)] && <span className="verifyPill">✅ Verified</span>}
                       <span style={{ fontSize: "0.68rem", fontWeight: 800, background: "var(--surface-2)", border: "1px solid var(--sdx-gray-200)", borderRadius: 999, padding: "1px 9px", color: "var(--ink-500)" }}>
                         {groupItems.length} unit{groupItems.length !== 1 ? "s" : ""}
@@ -19693,7 +19695,7 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
                               <div className="walkStandHead">
                                 <span>🍳 {g.site || "—"}{g.unit ? ` · #${g.unit}` : ""}</span>
                                 <StandType lt={typeAt(g.unit, g.site, g.items[0]?.locType)} />
-                                {!licenseAt(g.unit, g.site, g.items[0]?.locType) && <NoLic />}
+                                {!licenseAt(g.unit, g.site, g.items[0]?.locType) && <NoLic unit={g.unit} site={g.site} />}
                                 <span style={{ fontWeight: 500, color: "var(--ink-500)", fontSize: "0.76rem" }}>{g.items.filter(i => walkStatus(i).complete).length}/{g.items.length}</span>
                                 <button type="button" className="walkMini" onClick={() => setAddAt({ venueName: g.site || "", unit: g.unit, floor: g.floor || f, locType: g.items[0]?.locType || "" })}>➕ unit</button>
                                 <button type="button" className="walkMini" style={{ marginLeft: 0 }} onClick={() => focusOnStand({ unit: g.unit, site: g.site || "", floor: g.floor || "", locType: g.items[0]?.locType || "" })}>📍 open</button>
@@ -19768,7 +19770,7 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
                               <span className="walkRowIcon">{isV(st) ? "✅" : "⬜"}</span>
                               <span style={{ fontWeight: 800 }}>{st.site || "—"}{st.unit ? ` · #${st.unit}` : ""}</span>
                               <StandType lt={st.locType} />
-                              {!licenseAt(st.unit, st.site, st.locType) && <NoLic />}
+                              {!licenseAt(st.unit, st.site, st.locType) && <NoLic unit={st.unit} site={st.site} />}
                               <span className="walkRowMeta">{st.items.length ? `${st.items.length} unit${st.items.length !== 1 ? "s" : ""} · ${okN} confirmed` : (isV(st) ? "no cold equipment" : "no cooler / freezer listed")}</span>
                               <span className="walkRowTag">📍 open</span>
                             </button>
@@ -19828,7 +19830,7 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
                           <div className="walkStandHead">
                             <span>🍳 {g.site || "—"}{g.unit ? ` · #${g.unit}` : ""}</span>
                             <StandType lt={typeAt(g.unit, g.site, g.items[0]?.locType)} />
-                            {!licenseAt(g.unit, g.site, g.items[0]?.locType) && <NoLic />}
+                            {!licenseAt(g.unit, g.site, g.items[0]?.locType) && <NoLic unit={g.unit} site={g.site} />}
                             {regVerified[standKeyOf(g.unit, g.site)] && <span className="verifyPill">✅ Verified</span>}
                             <span style={{ fontWeight: 500, color: "var(--ink-500)", fontSize: "0.76rem" }}>{g.items.length} unit{g.items.length !== 1 ? "s" : ""}</span>
                             <button type="button" className="walkMini" onClick={() => focusOnStand({ unit: g.unit, site: g.site || "", floor: g.floor || "", locType: g.items[0]?.locType || "" })}>📍 open</button>
@@ -20107,24 +20109,30 @@ function standHaccpUrl(k) {
 
   // Known stands for the home venue — render instantly so QRs are ready even
   // before (or without) the history fetch. Users can ✕-hide any of these.
+// The licensed places ARE the stands: one stand per license-registry row (INDEX 2026 + Joxel's edits)
+const cleanStandName = (n, unit) => {
+  const str = String(n || "").trim();
+  const m = str.match(/^(P-?\s*)?([A-Z]?\d{1,4}[A-Z]?)\s*-?\s*(.*)$/i);
+  if (m && (!unit || normUnit(m[2]) === normUnit(unit) || m[1])) return (m[3] || "").replace(/^\s*-\s*/, "").trim() || str;
+  return str;
+};
+function standTypeFromRow(r) {
+  const n = String(r.name || "");
+  if (r.type === "K") return "Kitchen";
+  if (r.type === "S") return "Subcontractor";
+  if (r.type === "P") return /\/\s*sub\b|\(sub\)/i.test(n) ? "Portable - Subcontractor" : "Portable - Stadium";
+  return "Concession";
+}
 function standSeeds() {
-  return VENUE_ID === "default" ? [
-    // [site, unit, location type] — from this venue's own inspection data
-    ["Magic City Dogs", "101"], ["Golden Coop", "102"], ["Sobe Q", "104"], ["Fatboy Smashburger", "106"],
-    ["Magic City Dogs", "114"], ["Tostitos", "119"], ["Wynwood Walkthrough", "122 A"], ["Magic City Dogs", "129"],
-    ["Magic City Dogs", "135"], ["Italianvice", "139"], ["Wynwood Walkthrough", "142"], ["Little Caesar", "142"],
-    ["Fatboy Smashburger", "150", "Portable - Stadium"], ["Wynwood Walkthrough", "150"], ["M Club Live Kitchen", "204"],
-    ["Farmstead/Avoeats", "214"], ["Donuts & Ice Cream", "217"], ["Shula Burger", "222"], ["Edgewater Grill", "242"],
-    ["Sushi Maki / Sea Food Republic", "243"], ["Shula Burger / Farmstead / Pizza", "250"],
-    ["Granny Beez", "304", "Subcontractor"], ["Arepa Cart", "307", "Portable - Subcontractor"],
-    ["Lemonade Cart", "308", "Portable - Subcontractor"], ["Milanation", "313"],
-    ["Puffles", "318", "Subcontractor"], ["Fuku", "319", "Subcontractor"],
-    ["Aifi", "317"], ["Aifi", "319 a"], ["Shawarma", "322", "Portable - Subcontractor"],
-    ["Lemonade Cart", "322", "Portable - Subcontractor"], ["Chef Creole", "329", "Portable - Stadium"],
-    ["Seed", "332", "Subcontractor"], ["Cantaloupe", "336"], ["Bar", "342"], ["Little Caesar", "345"],
-    ["Aifi", "347 A"], ["Sol Cubano", "350"], ["Shawarma Gyros / Sub", "350", "Portable - Subcontractor"],
-    ["Crisppi Chicken", ""],
-  ].map(([site, unit, locType]) => ({ site, unit, floor: floorFromUnit(unit), locType: locType || "Concession" })).reduce((out, k) => { out.push({ ...k, id: standIdIn(out, k.site, k.unit) }); return out; }, []) : [];
+  if (VENUE_ID !== "default") return [];
+  const rows = licenseRows();
+  return rows.map(r => {
+    const site = cleanStandName(r.name, r.unit).toUpperCase() || `STAND ${r.unit}`;
+    const unitRaw = String(r.unit || "").trim();
+    const unit = /^(G|EXTERNAL)$/i.test(unitRaw) ? "" : unitRaw;
+    const floor = /^G$/i.test(unitRaw) ? "Ground Level" : (floorFromUnit(unit) || floorByName(site) || "");
+    return { site, unit, floor, locType: standTypeFromRow(r), license: r.status === "ACTIVE" ? (r.license || "") : "", licStatus: r.status || "" };
+  }).reduce((out, k) => { if (out.some(o => normUnit(o.unit) === normUnit(k.unit) && (normUnit(k.unit) || !k.unit) && sameStandName(o.site, k.site) && (o.locType === k.locType))) return out; out.push({ ...k, id: standIdIn(out, k.site, k.unit) }); return out; }, []);
 }
 // Every stand we know (kitchen registry → seeds → inspection history), licenses synced.
 // Shared by the QR posters page and the equipment labels page so both see the same stands.
@@ -20207,6 +20215,7 @@ async function loadStandList() {
     for (const r of licenseRows()) { if (r.license) unitByLicense[r.license] = normUnit(r.unit); }
     for (const k of list) {
       if (!k.unit) continue;
+      if (k.licStatus === "NEEDED" || k.licStatus === "REQUESTED") { k.license = ""; continue; } // the registry says: not licensed yet
       const reg = lookupLicenseByUnitType(k.unit, k.locType);
       if (!k.license) {
         if (reg?.status === "ACTIVE" && reg.license) { k.license = reg.license; if (!k.officialName) k.officialName = reg.name; }
@@ -20428,7 +20437,7 @@ function KitchenQrPage({ onBack, onPrintLabels, onStandEquipment }) {
   const [editForm, setEditForm] = useState({ site: "", unit: "", floor: "", license: "", locType: "" });
   const [addType, setAddType] = useState("Concession");
   const [kTypePick, setKTypePick] = useState("");
-  const kTypeGroup = lt => { const t = String(lt || ""); return t === "Portable - Subcontractor" ? "psub" : t === "Subcontractor" ? "sub" : isPortableType(t) ? "port" : t === "Concession" ? "con" : t ? "other" : "none"; };
+  const kTypeGroup = lt => { const t = String(lt || ""); return t === "Portable - Subcontractor" ? "psub" : t === "Subcontractor" ? "sub" : isPortableType(t) ? "port" : t === "Concession" ? "con" : t === "Kitchen" ? "kit" : t ? "other" : "none"; };
 
   function startEditKitchen(k) {
     setEditKitchenId(k.id);
@@ -20583,7 +20592,7 @@ function KitchenQrPage({ onBack, onPrintLabels, onStandEquipment }) {
 
         {/* Stand type filter */}
         <div style={{ display: "flex", gap: 6, marginBottom: 10, flexWrap: "wrap" }}>
-          {[["con", "CONCESSION"], ["port", "PORTABLE"], ["sub", "SUBCONTRACTOR"], ["psub", "PORTABLE · SUB"], ["other", "OTHER"], ["none", "TYPE?"]].filter(([g]) => kTypeCounts[g]).map(([g, lb]) => (
+          {[["con", "CONCESSION"], ["port", "PORTABLE"], ["sub", "SUBCONTRACTOR"], ["psub", "PORTABLE · SUB"], ["kit", "KITCHEN"], ["other", "OTHER"], ["none", "TYPE?"]].filter(([g]) => kTypeCounts[g]).map(([g, lb]) => (
             <button key={g} type="button" className={"lblFloorChip stTypeChip " + (kTypePick === g ? "on" : "")} onClick={() => setKTypePick(kTypePick === g ? "" : g)}>{lb} {kTypeCounts[g]}</button>
           ))}
           {incompleteCount > 0 && <button type="button" className={"lblFloorChip stTypeChip lblToAdd " + (missingPick ? "on" : "")} onClick={() => setMissingPick(v => !v)} title="Stands still missing a unit # or license — they show like every other stand">⚠ MISSING INFO {incompleteCount}</button>}
@@ -20666,7 +20675,7 @@ function KitchenQrPage({ onBack, onPrintLabels, onStandEquipment }) {
               <div style={{ background: brandColor, color: "#fff", padding: "8px 12px", fontWeight: 800, fontSize: "0.82rem", display: "flex", justifyContent: "space-between", gap: 6 }}>
                 <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textTransform: "uppercase" }}>🍳 {k.site}</span>
                 <StandType lt={k.locType} style={{ marginLeft: 6 }} />
-                {!(k.license || "").trim() && <span className="stType stNoLic" style={{ marginLeft: 4 }}>⚠ NO LICENSE</span>}
+                {!(k.license || "").trim() && (k.licStatus === "REQUESTED" ? <span className="stType stReq" style={{ marginLeft: 4 }}>⏳ REQUESTED</span> : <span className="stType stNoLic" style={{ marginLeft: 4 }}>⚠ NO LICENSE</span>)}
                 <span style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 6 }}>
                   {k.unit && <span>#{k.unit}</span>}
                   <button type="button" aria-label={`Edit ${k.site}`}

@@ -8265,3 +8265,5 @@ html[data-theme="dark"] .fuStOnWaiting, html[data-theme="black"] .fuStOnWaiting 
 .standsTab.on { background: var(--sdx-navy); color: #fff; border-color: var(--sdx-navy); }
 .unitRowDel { color: #dc2626; border-color: #fecaca; }
 .standUnitHint { margin-top: 6px; font-size: 0.8rem; background: var(--tint-amber-1, #fffbeb); border: 1.5px solid #fde68a; border-radius: 10px; padding: 6px 10px; color: #92400e; display: flex; align-items: center; flex-wrap: wrap; gap: 4px; }
+.stType.stKit { background: #fef9c3; color: #713f12; border-color: #fde68a; }
+.stType.stReq { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
