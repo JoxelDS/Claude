@@ -18664,6 +18664,7 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
   function removeUnitVerify(it) {
     const key = standKeyOf(it.unit, it.venueName, it);
     writeReg({ hidden: { [it.uid]: true }, confirmed: { [tagOf(it)]: deleteField() } });
+    try { _equipHiddenCache = { ...(_equipHiddenCache || {}), [it.uid]: true }; localStorage.setItem(`sdx_equip_hidden_${VENUE_ID}`, JSON.stringify(_equipHiddenCache)); } catch {}
     setRegConfirmed(prev => { const n = { ...prev }; delete n[tagOf(it)]; persistConfirmed(n); return n; });
     setEquipItems(prev => prev.filter(i => i.uid !== it.uid));
     setSelected(prev => { const s2 = new Set(prev); s2.delete(it.uid); return s2; });
@@ -18828,6 +18829,7 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
         <span className="walkRowTag">{it.assetTag}</span>
       </button>
       <button type="button" className="unitRowTemps" title="Temperature history" onClick={() => setHistoryTag(it.assetTag)}>📈</button>
+      <button type="button" className="unitRowTemps unitRowDel" title="Delete this unit" onClick={() => { if (window.confirm(`Delete ${cleanName(it.label) || "this unit"} (${it.assetTag}) from ${(it.venueName || "this stand").toUpperCase()}?\n\nIt disappears from the stand, the poster and the temp log. Past reports are not affected.`)) removeUnitVerify(it); }}>🗑</button>
       {siblingsOf(it).map(t => <button key={t.id} type="button" className="unitRowTemps" title={`Move to ${t.site}`} onClick={() => moveUnitToStand(it, t)}>↔ {String(t.site || "").toUpperCase().slice(0, 12)}</button>)}
       </div>
     );
