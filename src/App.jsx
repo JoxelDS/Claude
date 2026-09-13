@@ -306,6 +306,35 @@ function equipBelongsTo(it, stand, siblings) {
   const base = sib.find(k => !String(k.id).includes("~")) || sib[0];
   return base.id === stand.id;
 }
+// Move every unit of a stand to a new unit # / id / name (registry patch + mirror)
+function retagStandUnitsInRegistry(oldStand, newId, unit, site, locType) {
+  const c = _equipRegCache || {};
+  const sib = standsAtUnit(oldStand.unit);
+  const items = {}, labelIndex = {};
+  for (const [tag, it] of Object.entries(c)) {
+    if (!it || _equipHiddenCache[`reg_${tag}`]) continue;
+    if (!equipBelongsTo({ ...it }, oldStand, sib)) continue;
+    const patch = { unit: (unit || "").trim(), venueName: (site || "").toUpperCase(), locType: locType || "", standId: newId };
+    items[tag] = patch; labelIndex[tag] = patch;
+    _equipRegCache[tag] = { ...it, ...patch };
+  }
+  try { localStorage.setItem(EQUIP_REG_LS, JSON.stringify(_equipRegCache)); } catch {}
+  if (Object.keys(items).length) { try { if (FIREBASE_ON) setDoc(doc(db, "venues", VENUE_ID, "sharedMemory", "equipmentRegistry"), { items, labelIndex }, { merge: true }).catch(() => {}); } catch {} }
+  return Object.keys(items).length;
+}
+// Units registered twice at a stand (same name + type): keep the best, mark the rest
+function findDuplicateUnits(units, cleanName, typeOf) {
+  const groups = {};
+  for (const it of units) { const k = `${(cleanName(it.label) || "").toLowerCase().replace(/[^a-z0-9]+/g, "")}|${typeOf(it)}`; (groups[k] = groups[k] || []).push(it); }
+  const extras = [];
+  for (const g of Object.values(groups)) {
+    if (g.length < 2) continue;
+    const score = it => (/^CUSTOM_/i.test(it.assetTag || "") ? 0 : 10) + ((it.brandName || "").trim() ? 2 : 0) + ((it.location || "").trim() ? 2 : 0) + (it.standId ? 1 : 0);
+    const sorted = [...g].sort((a, b) => score(b) - score(a) || String(a.assetTag).localeCompare(String(b.assetTag)));
+    extras.push(...sorted.slice(1));
+  }
+  return extras;
+}
 // The stand a (unit, name) pair refers to — from the stand list, else a synthetic one
 function standFor(unit, site) {
   const sib = standsAtUnit(unit);
@@ -18514,32 +18543,47 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
   const licenseAt = (unit, site, lt) => { const st = storedStand({ unit, site }); if ((st?.license || "").trim()) return st.license.trim(); const r = normUnit(unit) ? lookupLicenseByUnitType(unit, lt || st?.locType || "") : null; return r?.status === "ACTIVE" && r.license ? r.license : ""; };
   const [noLicPick, setNoLicPick] = useState(false);    // show only stands without a license
   const NoLic = () => <span className="stType stNoLic">⚠ NO LICENSE</span>;
-  function saveStandEdit(sf) {
-    if (!standEdit) return;
-    const site = standEdit.site.trim().toUpperCase(); if (!site) return;
-    const license = standEdit.license.trim().toUpperCase();
-    const id = standIdOf(sf.unit, site);
-    const floor = floorForStand(sf.unit, site, sf.floor) || "";
-    const locType = standEdit.locType || sf.locType || "";
-    const rec = { site, unit: (sf.unit || "").trim(), floor, license, locType };
-    try { if (FIREBASE_ON) setDoc(doc(db, "venues", VENUE_ID, "sharedMemory", "kitchenRegistry"), { items: { [id]: rec }, hidden: { [id]: false } }, { merge: true }).catch(() => {}); } catch {}
-    setStandList(prev => prev.some(k => standIdOf(k.unit, k.site) === id) ? prev.map(k => standIdOf(k.unit, k.site) === id ? { ...k, ...rec } : k) : [...prev, { id, ...rec }]);
-    const renamed = site !== (sf.site || "") || locType !== (sf.locType || "");
-    if (renamed) {
-      // The stand's equipment carries the stand name + type on every label — keep them in step
-      const key = standKeyOf(sf.unit, sf.site);
-      const its = standUnits(key);
+  function saveStandEdit(sf, override) {
+    const ed = override || standEdit; if (!ed) return;
+    const site = ed.site.trim().toUpperCase(); if (!site) return;
+    const license = (ed.license || "").trim().toUpperCase();
+    const unit = (ed.unit !== undefined ? ed.unit : (sf.unit || "")).trim().toUpperCase();
+    if (unit && !/\d/.test(unit)) { alert("A unit number needs a number in it (e.g. 314, 319A)."); return; }
+    const oldStand = storedStand(sf) || { id: standIdOf(sf.unit, sf.site), unit: sf.unit, site: sf.site, locType: sf.locType || "" };
+    const unitChanged = normUnit(unit) !== normUnit(sf.unit);
+    const locType = ed.locType || sf.locType || "";
+    // Target id: same stand, or (unit changed) the stand with this name at the new unit, or a fresh one there
+    const others = standList.filter(k => k.id !== oldStand.id);
+    const id = unitChanged ? standIdIn(others, site, unit) : oldStand.id;
+    const floor = floorForStand(unit, site, sf.floor) || "";
+    const rec = { site, unit, floor, license, locType };
+    const hidden = { [id]: false }; if (unitChanged && oldStand.id !== id) hidden[oldStand.id] = true;
+    try { if (FIREBASE_ON) setDoc(doc(db, "venues", VENUE_ID, "sharedMemory", "kitchenRegistry"), { items: { [id]: rec }, hidden }, { merge: true }).catch(() => {}); } catch {}
+    setStandList(prev => { const rest = prev.filter(k => k.id !== oldStand.id && k.id !== id); const merged = { ...(prev.find(k => k.id === id) || {}), id, ...rec }; const next = [...rest, merged]; _standListCache = next; return next; });
+    // The stand's equipment carries unit + name + type on every label / poster — keep them in step
+    const its = equipItems.filter(i => equipBelongsTo(i, oldStand));
+    const changed = unitChanged || site !== (sf.site || "") || locType !== (sf.locType || "");
+    if (changed && its.length) {
       const items = {}, labelIndex = {};
-      const patch = { venueName: site, locType, standId: id };
+      const patch = { unit, venueName: site, locType, standId: id };
       its.forEach(i => { const T = tagOf(i); if (!T) return; items[T] = patch; labelIndex[T] = patch; cacheRegItem(T, patch); });
-      if (its.length) writeReg({ items, labelIndex });
-      setEquipItems(prev => prev.map(i => its.some(x => x.uid === i.uid) ? { ...i, ...patch } : i));
+      writeReg({ items, labelIndex });
+      setEquipItems(prev => prev.map(i => its.some(x => x.uid === i.uid) ? { ...i, ...patch, floor: floorForStand(unit, site, i.floor) } : i));
       setRegItemsState(prev => { const n = { ...prev }; for (const T of Object.keys(items)) if (n[T]) n[T] = { ...n[T], ...patch }; return n; });
     }
-    setStandFocus(prev => prev ? { ...prev, site, locType } : prev);
+    if (unitChanged) { const v = regVerified[oldStand.id]; if (v) { setRegVerified(prev => { const n = { ...prev, [id]: v }; delete n[oldStand.id]; persistVerified(n); return n; }); writeReg({ verified: { [id]: v, [oldStand.id]: deleteField() } }); } }
+    setStandFocus(prev => prev ? { ...prev, site, unit, locType, floor } : prev);
     setStandEdit(null);
-    setWalkFlash(`✅ ${site}${sf.unit ? ` #${sf.unit}` : ""} updated${license ? ` · 🪪 ${license}` : ""}.`); setTimeout(() => setWalkFlash(""), 3500);
+    setWalkFlash(`✅ ${site}${unit ? ` #${unit}` : ""} updated${unitChanged ? ` · ${its.length} unit${its.length !== 1 ? "s" : ""} moved to #${unit}` : ""}${license ? ` · 🪪 ${license}` : ""}.`); setTimeout(() => setWalkFlash(""), 4500);
   }
+  // Wrong unit on a stand? The license registry knows the stand by name → offer the fix
+  const registryUnitHint = (sf, site) => {
+    if (!site) return null;
+    const all = licenseRows().filter(r => (r.name || "").trim() && normUnit(r.unit));
+    if (all.some(r => normUnit(r.unit) === normUnit(sf.unit) && sameStandName(r.name, site))) return null; // registry agrees with this unit
+    const rows = all.filter(r => sameStandName(r.name, site) && normUnit(r.unit) !== normUnit(sf.unit));
+    return rows.find(r => r.status === "ACTIVE") || rows[0] || null;
+  };
   const [standList, setStandList] = useState([]);       // every stand (posters page list) — same universe here
   useEffect(() => {
     if (!standFocus) { setStandQr(""); return; }
@@ -18626,16 +18670,18 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
   const standUnits = key => equipItems.filter(i => standKeyOf(i.unit, i.venueName, i) === key);
   const standById = key => standList.find(k => k.id === key) || null;
   // Move a unit to the other stand at the same unit number
+  const [movePick, setMovePick] = useState(null); // { it, q } — move a unit to any stand
   function moveUnitToStand(it, target) {
     const fromKey = standKeyOf(it.unit, it.venueName, it);
     const T = tagOf(it); if (!T) return;
-    const patch = { venueName: (target.site || "").toUpperCase(), locType: target.locType || "", standId: target.id };
+    const patch = { venueName: (target.site || "").toUpperCase(), locType: target.locType || "", standId: target.id, unit: (target.unit || "").trim(), floor: floorForStand(target.unit, target.site, target.floor) || it.floor || "" };
     writeReg({ items: { [T]: patch }, labelIndex: { [T]: patch } });
     cacheRegItem(T, patch);
     setEquipItems(prev => prev.map(i => i.uid === it.uid ? { ...i, ...patch } : i));
     setRegItemsState(prev => prev[T] ? { ...prev, [T]: { ...prev[T], ...patch } } : prev);
     invalidateStand(fromKey); invalidateStand(target.id);
-    setWalkFlash(`↔ ${cleanName(it.label) || "Unit"} moved to ${patch.venueName}.`); setTimeout(() => setWalkFlash(""), 3000);
+    setMovePick(null);
+    setWalkFlash(`↔ ${cleanName(it.label) || "Unit"} moved to ${patch.venueName}${patch.unit ? ` #${patch.unit}` : ""}.`); setTimeout(() => setWalkFlash(""), 3000);
   }
   const siblingsOf = it => { const sib = standsAtUnit(it.unit); if (sib.length < 2) return []; const mine = standKeyOf(it.unit, it.venueName, it); return sib.filter(k => k.id !== mine); };
   const standVerifiable = key => standUnits(key).every(unitConfirmed);
@@ -18831,6 +18877,7 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
       <button type="button" className="unitRowTemps" title="Temperature history" onClick={() => setHistoryTag(it.assetTag)}>📈</button>
       <button type="button" className="unitRowTemps unitRowDel" title="Delete this unit" onClick={() => { if (window.confirm(`Delete ${cleanName(it.label) || "this unit"} (${it.assetTag}) from ${(it.venueName || "this stand").toUpperCase()}?\n\nIt disappears from the stand, the poster and the temp log. Past reports are not affected.`)) removeUnitVerify(it); }}>🗑</button>
       {siblingsOf(it).map(t => <button key={t.id} type="button" className="unitRowTemps" title={`Move to ${t.site}`} onClick={() => moveUnitToStand(it, t)}>↔ {String(t.site || "").toUpperCase().slice(0, 12)}</button>)}
+      <button type="button" className="unitRowTemps" title="Move this unit to another stand" onClick={() => setMovePick({ it, q: "" })}>↔</button>
       </div>
     );
   };
@@ -18851,6 +18898,7 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
           <button type="button" className="verifyAct" onClick={() => openFill(it)}>✏ Fix</button>
           <button type="button" className="verifyAct danger" onClick={() => removeUnitVerify(it)}>🗑 Not here</button>
           {siblingsOf(it).map(t => <button key={t.id} type="button" className="verifyAct" onClick={() => moveUnitToStand(it, t)}>↔ To {String(t.site || "").toUpperCase()}</button>)}
+          <button type="button" className="verifyAct" title="Move this unit to another stand" onClick={() => setMovePick({ it, q: "" })}>↔ Move…</button>
         </span>
       </div>
     );
@@ -19149,6 +19197,8 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
             });
           }
         }
+        // Stand list first so shared units resolve to the right stand
+        try { await loadStandList(); } catch {}
         // Registry (manual entries on this page) is the truth for a stand: a
         // report's generic "Coolers"/"2-Door Cooler" rows at that stand are the
         // same physical units under another name — don't print them twice.
@@ -19201,8 +19251,6 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
           if (!ix || !(ix.unit || ix.venueName)) continue;
           items.push({ assetTag: T, label: ix.name || ix.label || "", brandName: ix.brand || ix.brandName || "", location: ix.location || "", venueName: ix.venueName || "", unit: ix.unit || "", locType: ix.locType || "", standId: ix.standId || "", uid, floor: floorForStand(ix.unit, ix.venueName, ix.floor), fromIndex: true });
         }
-        // Stand list first so shared units resolve to the right stand
-        try { await loadStandList(); } catch {}
         if (items.length === 0 && cutoffMs && recList.length > 0 && cutoffDate !== "") {
           // Every stand's latest report is older than the cutoff — showing
           // nothing helps nobody. Fall back to all dates (the picker shows it).
@@ -19404,18 +19452,25 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
                   <div className="standFocusTitle">{site || "Stand"}{sf.unit ? ` · Unit #${sf.unit}` : ""}</div>
                   <div className="standFocusSub">{[floorF, sf.locType].filter(Boolean).join(" · ")}{its.length ? ` · ${its.length} unit${its.length !== 1 ? "s" : ""} · ${doneN} done` : " · no equipment QR yet"}</div>
                   {(() => { const others = normUnit(sf.unit) ? standList.filter(k => normUnit(k.unit) === normUnit(sf.unit) && !sameStandName(k.site, site)) : []; return others.length ? <div className="standFocusSub" style={{ color: "#92400e" }}>🔗 Unit #{sf.unit} is also used by {others.map(o => o.site.toUpperCase()).join(", ")} — each stand has its own equipment. Use ↔ on a unit to move it.</div> : null; })()}
-                  {(() => { const st = storedStand(sf); const L = (st?.license || "").trim() || lic?.license || ""; return (
+                  {(() => { const st = storedStand(sf); const L = (st?.license || "").trim() || lic?.license || ""; return (<>
                     <div style={{ marginTop: 4, display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
                       <StandType lt={sf.locType || storedStand(sf)?.locType} />
                       <span className={"standLicChip" + (L ? "" : " none")}>{L ? `🪪 License ${L}` : "⚠ no license on file"}</span>
-                      <button type="button" className="walkMini" style={{ marginLeft: 0 }} onClick={() => setStandEdit({ site: site || "", license: L, locType: sf.locType || storedStand(sf)?.locType || "" })}>✎ Edit name / license / type</button>
+                      <button type="button" className="walkMini" style={{ marginLeft: 0 }} onClick={() => setStandEdit({ site: site || "", unit: sf.unit || "", license: L, locType: sf.locType || storedStand(sf)?.locType || "" })}>✎ Edit unit / name / license / type</button>
                     </div>
-                  ); })()}
+                    {(() => { const h = registryUnitHint(sf, site); return h ? (
+                      <div className="standUnitHint">🪪 The license registry has <b>{h.type === "P" ? "P" : ""}{h.unit} · {String(h.name).toUpperCase()}</b>{h.license ? ` (${h.license})` : h.status === "REQUESTED" ? " (requested)" : " (needs license)"} — is this stand really unit #{h.unit}?
+                        <button type="button" className="walkMini" style={{ marginLeft: 8 }} onClick={() => { if (window.confirm(`Change ${site} from #${sf.unit || "—"} to #${h.unit}?\n\nAll its coolers / freezers move with it.`)) saveStandEdit(sf, { site, unit: h.unit, license: h.status === "ACTIVE" ? (h.license || "") : "", locType: sf.locType || storedStand(sf)?.locType || (h.type === "P" ? "Portable - Stadium" : h.type === "S" ? "Subcontractor" : "Concession") }); }}>Set unit to #{h.unit}</button>
+                      </div>
+                    ) : null; })()}
+                  </>); })()}
                 </div>
                 <button type="button" className="walkMini" onClick={() => { setStandFocus(null); onClearFocus && onClearFocus(); }}>✕ All stands</button>
               </div>
               {standEdit && (
                 <div className="standEditForm">
+                  <label className="walkLbl">Unit #</label>
+                  <input className="input" value={standEdit.unit} onChange={e => setStandEdit(f => ({ ...f, unit: e.target.value }))} placeholder="e.g. 314, 319A" />
                   <label className="walkLbl">Stand name</label>
                   <input className="input" value={standEdit.site} onChange={e => setStandEdit(f => ({ ...f, site: e.target.value }))} placeholder="Stand name" autoFocus />
                   <label className="walkLbl">Stand type</label>
@@ -19441,6 +19496,9 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
               </div>
               <div className="standFocusActions">
                 <button type="button" className="lblFloorChip standFocusAdd" onClick={() => setAddAt(standObj)}>➕ Add cooler / freezer</button>
+                {(() => { const dups = findDuplicateUnits(its, cleanName, typeOf); return dups.length ? (
+                  <button type="button" className="lblFloorChip lblToAdd" onClick={() => { if (window.confirm(`Remove ${dups.length} duplicate unit${dups.length !== 1 ? "s" : ""}?\n\n${dups.map(d => `• ${cleanName(d.label)} (${d.assetTag})`).join("\n")}\n\nThe best copy of each stays.`)) dups.forEach(d => removeUnitVerify(d)); }}>🧹 Clean {dups.length} duplicate{dups.length !== 1 ? "s" : ""}</button>
+                ) : null; })()}
                 <button type="button" className="lblFloorChip" onClick={() => setWalkScanOpen(true)}>📷 Scan stand QR</button>
               </div>
               {verifyMode && (() => {
@@ -19850,6 +19908,23 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
           onCode={walkScanCode} onClose={() => setWalkScanOpen(false)} />
       )}
       {walkFlash && <div className="walkFlash">{walkFlash}</div>}
+      {movePick && ReactDOM.createPortal(
+        <div style={{ position: "fixed", inset: 0, zIndex: 10000, background: "rgba(0,0,0,.6)", backdropFilter: "blur(3px)", overflowY: "auto", padding: "4vh 12px" }} onClick={() => setMovePick(null)}>
+          <div className="card walkFill" style={{ maxWidth: 470, margin: "0 auto" }} onClick={e => e.stopPropagation()}>
+            <div className="cardHeader" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+              <div className="cardTitle">↔ Move {cleanName(movePick.it.label) || "unit"}<div style={{ fontSize: "0.74rem", fontWeight: 600, color: "var(--ink-500)" }}>{movePick.it.assetTag} · now at {(movePick.it.venueName || "—").toUpperCase()}{movePick.it.unit ? ` #${movePick.it.unit}` : ""}</div></div>
+              <button type="button" onClick={() => setMovePick(null)} style={{ background: "none", border: "none", fontSize: "1.2rem", cursor: "pointer", color: "var(--ink-400)", lineHeight: 1, padding: 4 }}>✕</button>
+            </div>
+            <div className="walkFillBody">
+              <input className="input" autoFocus value={movePick.q} onChange={e => setMovePick(m => ({ ...m, q: e.target.value }))} placeholder="🔎 stand name or unit #" />
+              <div className="annStandList">
+                {standList.filter(k => { const q = movePick.q.trim().toLowerCase(); return !q || `${k.site} ${k.unit}`.toLowerCase().includes(q); }).slice(0, 40).map(k => (
+                  <button key={k.id} type="button" className="annStand" onClick={() => moveUnitToStand(movePick.it, k)}>{String(k.site || "").toUpperCase()}{k.unit ? ` · #${k.unit}` : ""} <StandType lt={k.locType} /></button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>, document.body)}
       {announce && ReactDOM.createPortal(
         <div style={{ position: "fixed", inset: 0, zIndex: 10000, background: "rgba(0,0,0,.6)", backdropFilter: "blur(3px)", overflowY: "auto", padding: "4vh 12px" }} onClick={() => setAnnounce(null)}>
           <div className="card walkFill" style={{ maxWidth: 520, margin: "0 auto" }} onClick={e => e.stopPropagation()}>
@@ -20120,7 +20195,7 @@ async function loadStandList() {
       if (license && unit && !licenseByUnit[normUnit(unit)]) licenseByUnit[normUnit(unit)] = license;
       if (regHidden[id] || legacyHidden(site, unit)) continue;
       if (seen.has(id)) continue;
-      if (id.includes("~") && !rec.inspectionType) continue; // a stray name at a known unit needs a real inspection behind it
+      if (id.includes("~")) continue; // old report names never create a second stand at a known unit — only the inspector can
       seen.add(id);
       list.push({ id, site, unit, floor, license });
     }
@@ -20156,6 +20231,7 @@ async function loadStandList() {
     if (!k.locType && /\d/.test(u)) k.locType = "Concession";
   }
   _standListCache = list.map(x => ({ ...x, floor: floorForStand(x.unit, x.site, x.floor) }));
+  try { window.__sdxStands = _standListCache; } catch {}
   return _standListCache;
 }
 
@@ -20368,6 +20444,11 @@ function KitchenQrPage({ onBack, onPrintLabels, onStandEquipment }) {
     const updated = { id: newId, site, unit, floor, license, locType };
     setKitchens(prev => prev.map(k => k.id === oldK.id ? updated : k));
     setEditKitchenId(null);
+    if (normUnit(unit) !== normUnit(oldK.unit) || site !== (oldK.site || "").toUpperCase() || locType !== (oldK.locType || "")) {
+      const n = retagStandUnitsInRegistry(oldK, newId, unit, site, locType);
+      _standListCache = _standListCache.map(k => k.id === oldK.id ? updated : k);
+      if (n) setEquipTick(t => t + 1);
+    }
     try {
       const patch = { items: { [newId]: { site, unit, floor, license, locType } }, hidden: { [newId]: false } };
       if (newId !== oldK.id) patch.hidden[oldK.id] = true; // renamed — retire the old entry everywhere

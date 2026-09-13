@@ -8264,3 +8264,4 @@ html[data-theme="dark"] .fuStOnWaiting, html[data-theme="black"] .fuStOnWaiting 
 .standsTab { flex: 1; background: var(--surface-1); border: 1.5px solid var(--sdx-gray-200); border-radius: 999px; padding: 8px 10px; font-weight: 800; font-size: 0.82rem; color: var(--ink-700); cursor: pointer; }
 .standsTab.on { background: var(--sdx-navy); color: #fff; border-color: var(--sdx-navy); }
 .unitRowDel { color: #dc2626; border-color: #fecaca; }
+.standUnitHint { margin-top: 6px; font-size: 0.8rem; background: var(--tint-amber-1, #fffbeb); border: 1.5px solid #fde68a; border-radius: 10px; padding: 6px 10px; color: #92400e; display: flex; align-items: center; flex-wrap: wrap; gap: 4px; }
