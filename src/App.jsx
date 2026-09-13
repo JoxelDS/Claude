@@ -20085,7 +20085,7 @@ function standPosterHtml(items, qrUrls, brandColor) {
   const esc = (t) => String(t || "").replace(/&/g, "&amp;").replace(/</g, "&lt;");
   const logoUrl = resolveLogoDark().startsWith("data:") ? resolveLogoDark() : window.location.origin + resolveLogoDark().replace(window.location.origin, "");
   const cards = items.map(k => `
-    <div class="poster">
+    <div class="poster${(k.equip || []).length > 4 ? " tall" : ""}">
       <div class="ph" style="background:${brandColor}">
         <img class="phl" src="${logoUrl}" alt="" />
         <div class="pht">${esc(resolveCompanyName())} · Kitchen Check</div>
@@ -20094,7 +20094,7 @@ function standPosterHtml(items, qrUrls, brandColor) {
         <div class="pn">${esc(String(k.site || "").toUpperCase())}${k.unit ? ` <span class="pu">#${esc(String(k.unit).toUpperCase())}</span>` : ""}</div>
         ${[k.floor, k.locType ? standTypeBadge(k.locType).short : "", k.license ? `License #${k.license}` : ""].filter(Boolean).length ? `<div class="pf">${esc([k.floor, k.locType ? standTypeBadge(k.locType).short : "", k.license ? `License #${k.license}` : ""].filter(Boolean).join(" · "))}</div>` : ""}
         <img class="pq${(k.equip || []).length ? " pqs" : ""}" src="${qrUrls[k.id] || ""}" />
-        ${(k.equip || []).length ? `<div class="pe"><div class="peh">${k.equip.length} COOLER${k.equip.length !== 1 ? "S" : ""} / FREEZER${k.equip.length !== 1 ? "S" : ""} IN THIS STAND — CHECK EACH ONE</div>${k.equip.slice(0, 10).map(e => `<div class="per"><span class="pei">${e.freezer ? "🧊" : "❄"}</span><span class="pen">${esc(String(e.name || "").toUpperCase())}</span><span class="pem">${esc([e.brand, e.location].filter(Boolean).join(" · ").toUpperCase() || "—")}</span></div>`).join("")}${k.equip.length > 10 ? `<div class="per"><span class="pem">+${k.equip.length - 10} MORE</span></div>` : ""}</div>` : ""}
+        ${(k.equip || []).length ? `<div class="pe${k.equip.length > 8 ? " cols" : ""}"><div class="peh">${k.equip.length} COOLER${k.equip.length !== 1 ? "S" : ""} / FREEZER${k.equip.length !== 1 ? "S" : ""} IN THIS STAND — CHECK EACH ONE</div>${k.equip.map(e => `<div class="per"><span class="pei">${e.freezer ? "🧊" : "❄"}</span><span class="pen">${esc(String(e.name || "").toUpperCase())}</span><span class="pem">${esc([e.brand, e.location].filter(Boolean).join(" · ").toUpperCase() || "—")}</span></div>`).join("")}</div>` : ""}
         <div class="pi">
           <div class="pih">HOW TO USE THIS QR · CÓMO USAR ESTE QR</div>
           <div class="pi2h">⏰ CHECK FOOD &amp; EQUIPMENT TEMPS EVERY 2 HOURS · REVISE TEMPERATURAS CADA 2 HORAS</div>
@@ -20107,7 +20107,13 @@ function standPosterHtml(items, qrUrls, brandColor) {
   const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Kitchen QR Posters</title><style>
     * { margin:0; padding:0; box-sizing:border-box; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
     body { font-family:-apple-system,'Segoe UI',Arial,sans-serif; background:#fff; }
-    .poster { width:100%; height:49vh; border:2px dashed #cbd5e1; border-radius:14px; overflow:hidden; display:flex; flex-direction:column; page-break-inside:avoid; break-inside:avoid; margin-bottom:1vh; }
+    .poster { width:100%; height:auto; min-height:47vh; border:2px dashed #cbd5e1; border-radius:14px; overflow:visible; display:flex; flex-direction:column; page-break-inside:avoid; break-inside:avoid; margin-bottom:1vh; }
+    .poster.tall { break-before:page; page-break-before:always; min-height:0; }
+    .poster.tall .pq { width:130px; height:130px; margin:4px 0; }
+    .poster.tall .pi { font-size:10.5px; }
+    .pe.cols { column-count:2; column-gap:14px; }
+    .pe.cols .peh { column-span:all; }
+    .pe.cols .per { break-inside:avoid; }
     .ph { color:#fff; padding:12px 18px; display:flex; align-items:center; gap:10px; }
     .phl { height:22px; filter:brightness(0) invert(1); }
     .pht { font-weight:800; font-size:13px; letter-spacing:.04em; text-transform:uppercase; }
