@@ -335,7 +335,7 @@ function retagStandUnitsInRegistry(oldStand, newId, unit, site, locType) {
   const sib = standsAtUnit(oldStand.unit);
   const items = {}, labelIndex = {};
   for (const [tag, it] of Object.entries(c)) {
-    if (!it || _equipHiddenCache[`reg_${tag}`]) continue;
+    if (!it || isHiddenTag(_equipHiddenCache, `reg_${tag}`, tag)) continue;
     if (!equipBelongsTo({ ...it }, oldStand, sib)) continue;
     const patch = { unit: (unit || "").trim(), venueName: (site || "").toUpperCase(), locType: locType || "", standId: newId };
     items[tag] = patch; labelIndex[tag] = patch;
@@ -374,7 +374,7 @@ function equipUnitsAtStand(unit, site) {
   const stand = standFor(unit, site); const sib = standsAtUnit(unit);
   for (const [tag, it] of Object.entries(c)) {
     if (!it) continue;
-    if (_equipHiddenCache[`reg_${tag}`] || _equipHiddenCache[tag]) continue;
+    if (isHiddenTag(_equipHiddenCache, `reg_${tag}`, tag)) continue;
     const match = u ? equipBelongsTo({ ...it, unit: it.unit }, stand, sib) : (!!sU && (it.venueName || "").trim().toUpperCase() === sU);
     if (!match) continue;
     const name = String(it.label || it.name || "").replace(/\s*(❄|🧊)\s*(Cooler|Freezer)\s*$/u, "").trim();
@@ -385,8 +385,47 @@ function equipUnitsAtStand(unit, site) {
 }
 const EQUIP_REG_LS = `sdx_equip_registry_${VENUE_ID}`;
 try { _equipRegCache = JSON.parse(localStorage.getItem(EQUIP_REG_LS) || "null"); } catch {}
+// ── Confirmed registry writes (v418): every change is queued locally first, sent,
+// and replayed on the next load if it failed (offline, rules, flaky network).
+const OUTBOX_LS = `sdx_reg_outbox_${VENUE_ID}`;
+let _outbox = []; try { _outbox = JSON.parse(localStorage.getItem(OUTBOX_LS) || "[]"); } catch {}
+const saveOutbox = () => { try { localStorage.setItem(OUTBOX_LS, JSON.stringify(_outbox)); } catch {} };
+// deleteField() sentinels can't be JSON'd — encode as a marker and restore on replay
+const encodeDel = v => (v && typeof v === "object" && !Array.isArray(v)) ? (v._methodName === "deleteField" || String(v?.constructor?.name || "").includes("FieldValue") ? { __del: true } : Object.fromEntries(Object.entries(v).map(([k, x]) => [k, encodeDel(x)]))) : v;
+const decodeDel = v => (v && typeof v === "object" && !Array.isArray(v)) ? (v.__del ? deleteField() : Object.fromEntries(Object.entries(v).map(([k, x]) => [k, decodeDel(x)]))) : v;
+function notifySave(ok, msg) { try { window.dispatchEvent(new CustomEvent("sdx-save-status", { detail: { ok, msg } })); } catch {} }
+async function writeSharedDoc(docName, payload) {
+  const entry = { id: `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`, doc: docName, payload: encodeDel(payload), ts: Date.now() };
+  _outbox.push(entry); saveOutbox();
+  if (!FIREBASE_ON) { _outbox = _outbox.filter(e => e.id !== entry.id); saveOutbox(); return true; }
+  try {
+    await setDoc(doc(db, "venues", VENUE_ID, "sharedMemory", docName), payload, { merge: true });
+    _outbox = _outbox.filter(e => e.id !== entry.id); saveOutbox();
+    return true;
+  } catch (e) {
+    notifySave(false, `⚠ Not saved yet — will retry when online (${_outbox.length} pending)`);
+    return false;
+  }
+}
+async function flushOutbox() {
+  if (!FIREBASE_ON || !_outbox.length) return 0;
+  let sent = 0;
+  for (const entry of [..._outbox]) {
+    try { await setDoc(doc(db, "venues", VENUE_ID, "sharedMemory", entry.doc), decodeDel(entry.payload), { merge: true }); _outbox = _outbox.filter(e => e.id !== entry.id); sent++; }
+    catch { break; } // keep order — stop at the first failure
+  }
+  saveOutbox();
+  if (sent) notifySave(true, `✅ ${sent} pending change${sent !== 1 ? "s" : ""} saved`);
+  return sent;
+}
+const writeEquipReg = payload => writeSharedDoc("equipmentRegistry", payload);
+const writeKitchenReg = payload => writeSharedDoc("kitchenRegistry", payload);
+// A unit may be known under two ids (report row = TAG, registry row = reg_TAG) — hidden means hidden under both
+const isHiddenTag = (hidden, uid, tag) => { const T = String(tag || "").toUpperCase(); return !!(hidden && (hidden[uid] || hidden[T] || hidden[`reg_${T}`] || (tag && (hidden[tag] || hidden[`reg_${tag}`])))); };
+const hiddenKeysFor = (uid, tag) => { const T = String(tag || "").toUpperCase(); const o = {}; if (uid) o[uid] = true; if (T) { o[T] = true; o[`reg_${T}`] = true; } return o; };
 async function warmEquipRegistry() {
   try {
+    await flushOutbox();
     const snap = await getDoc(doc(db, "venues", VENUE_ID, "sharedMemory", "equipmentRegistry"));
     const d = snap.exists() ? (snap.data() || {}) : {};
     _equipRegCache = { ...(d.labelIndex || {}), ...(d.items || {}) };
@@ -1013,7 +1052,7 @@ async function saveLicenseRow(key, patch) {
   _licenseOverlay = { ..._licenseOverlay, [key]: rec };
   try { localStorage.setItem(LIC_OVERLAY_LS, JSON.stringify(_licenseOverlay)); } catch {}
   window.dispatchEvent(new CustomEvent("sdx-licenses-changed"));
-  try { if (FIREBASE_ON) await setDoc(doc(db, "venues", VENUE_ID, "sharedMemory", "licenseRegistry"), { items: { [key]: rec } }, { merge: true }); } catch {}
+  await writeSharedDoc("licenseRegistry", { items: { [key]: rec } });
 }
 function lookupLicenseByUnitType(unitVal, locationType) {
   const u = normUnit(unitVal);
@@ -18678,7 +18717,7 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
     const floor = floorForStand(unit, site, sf.floor) || "";
     const rec = { site, unit, floor, license, locType };
     const hidden = { [id]: false }; if (unitChanged && oldStand.id !== id) hidden[oldStand.id] = true;
-    try { if (FIREBASE_ON) setDoc(doc(db, "venues", VENUE_ID, "sharedMemory", "kitchenRegistry"), { items: { [id]: rec }, hidden }, { merge: true }).catch(() => {}); } catch {}
+    try { if (FIREBASE_ON) writeKitchenReg({ items: { [id]: rec }, hidden }); } catch {}
     setStandList(prev => { const rest = prev.filter(k => k.id !== oldStand.id && k.id !== id); const merged = { ...(prev.find(k => k.id === id) || {}), id, ...rec }; const next = [...rest, merged]; _standListCache = next; return next; });
     // The stand's equipment carries unit + name + type on every label / poster — keep them in step
     const its = equipItems.filter(i => equipBelongsTo(i, oldStand));
@@ -18736,6 +18775,8 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
   const [regVerified, setRegVerified] = useState({});   // { standKey: { at, by, units } }
   const [regConfirmed, setRegConfirmed] = useState({}); // { TAG: { at, by } }
   const [verifyOnly, setVerifyOnly] = useState(false);  // labels / print / sheet: verified stands only
+  const [reloadTick, setReloadTick] = useState(0);      // re-read when the tab comes back (another device may have changed things)
+  useEffect(() => { const on = () => { if (document.visibilityState === "visible") setReloadTick(t => t + 1); }; document.addEventListener("visibilitychange", on); return () => document.removeEventListener("visibilitychange", on); }, []);
   // ── Announcements to stands (v401) ──
   const [notices, setNotices] = useState([]);
   const [announce, setAnnounce] = useState(null); // { text, days, all, floors:[], types:[], stands:[], q }
@@ -18747,13 +18788,13 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
     if (!a.all && !a.floors.length && !a.types.length && !a.stands.length) { alert("Pick who gets it: every stand, floors, types, or specific stands."); return; }
     const id = `n_${Date.now().toString(36)}`;
     const rec = { text: a.text.trim(), by: "Inspector", ts: Date.now(), until: a.days ? Date.now() + a.days * 864e5 : 0, all: !!a.all, floors: a.floors, types: a.types, stands: a.stands };
-    try { if (FIREBASE_ON) await setDoc(noticesRef(), { items: { [id]: rec } }, { merge: true }); } catch { alert("Could not send — check your connection."); return; }
+    try { if (FIREBASE_ON) if (!(await writeSharedDoc("standNotices", { items: { [id]: rec } }))) throw new Error("x"); } catch { alert("Could not send — check your connection."); return; }
     setNotices(prev => [{ id, ...rec }, ...prev]);
     setAnnounce(null);
     setWalkFlash(`📣 Announcement sent to ${a.all ? "every stand" : "the selected stands"}.`); setTimeout(() => setWalkFlash(""), 3500);
   }
   async function removeAnnouncement(id) {
-    try { if (FIREBASE_ON) await setDoc(noticesRef(), { items: { [id]: { removed: true } } }, { merge: true }); } catch {}
+    try { if (FIREBASE_ON) await writeSharedDoc("standNotices", { items: { [id]: { removed: true } } }); } catch {}
     setNotices(prev => prev.filter(n => n.id !== id));
   }
   const WALK_NAMES = ["1-Door Cooler", "2-Door Cooler", "3-Door Cooler", "4-Door Cooler", "Prep Cooler", "Display Cooler", "Walk-In Cooler", "Undercounter Cooler", "Beer Cooler", "Ice Cream Freezer", "1-Door Freezer", "2-Door Freezer", "Chest Freezer", "Walk-In Freezer", "Undercounter Freezer"];
@@ -18794,9 +18835,11 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
   const unitConfirmed = it => !!regConfirmed[tagOf(it)];
   const persistVerified = next => { try { localStorage.setItem(EQUIP_VERIFIED_LS, JSON.stringify(next)); } catch {} };
   const persistConfirmed = next => { try { localStorage.setItem(EQUIP_CONFIRMED_LS, JSON.stringify(next)); } catch {} };
-  function writeReg(payload) {
-    try { if (FIREBASE_ON) setDoc(registryRef(), payload, { merge: true }).catch(() => {}); } catch {}
-  }
+  function writeReg(payload) { return writeEquipReg(payload); }
+  useEffect(() => {
+    const on = e => { const d = e.detail || {}; setWalkFlash(d.msg || ""); setTimeout(() => setWalkFlash(""), d.ok ? 3000 : 6000); };
+    window.addEventListener("sdx-save-status", on); return () => window.removeEventListener("sdx-save-status", on);
+  }, []);
   const standUnits = key => equipItems.filter(i => standKeyOf(i.unit, i.venueName, i) === key);
   const standById = key => standList.find(k => k.id === key) || null;
   // Move a unit to the other stand at the same unit number
@@ -18839,8 +18882,9 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
   // Remove during the verify walk — no dialog, hides the label (reports untouched)
   function removeUnitVerify(it) {
     const key = standKeyOf(it.unit, it.venueName, it);
-    writeReg({ hidden: { [it.uid]: true }, confirmed: { [tagOf(it)]: deleteField() } });
-    try { _equipHiddenCache = { ...(_equipHiddenCache || {}), [it.uid]: true }; localStorage.setItem(`sdx_equip_hidden_${VENUE_ID}`, JSON.stringify(_equipHiddenCache)); } catch {}
+    const hk = hiddenKeysFor(it.uid, tagOf(it));
+    writeReg({ hidden: hk, confirmed: { [tagOf(it)]: deleteField() } });
+    try { _equipHiddenCache = { ...(_equipHiddenCache || {}), ...hk }; localStorage.setItem(`sdx_equip_hidden_${VENUE_ID}`, JSON.stringify(_equipHiddenCache)); } catch {}
     setRegConfirmed(prev => { const n = { ...prev }; delete n[tagOf(it)]; persistConfirmed(n); return n; });
     setEquipItems(prev => prev.filter(i => i.uid !== it.uid));
     setSelected(prev => { const s2 = new Set(prev); s2.delete(it.uid); return s2; });
@@ -18864,8 +18908,9 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
     const its = standUnits(key);
     if (!confirm(`Start over at ${standObj.venueName || "this stand"}${standObj.unit ? ` #${standObj.unit}` : ""}?\n\n${its.length} unit${its.length !== 1 ? "s" : ""} will be removed from the labels list (reports are not affected). You then add what is really there.`)) return;
     const hidden = {}; const confirmed = {};
-    its.forEach(i => { hidden[i.uid] = true; confirmed[tagOf(i)] = deleteField(); });
+    its.forEach(i => { Object.assign(hidden, hiddenKeysFor(i.uid, tagOf(i))); confirmed[tagOf(i)] = deleteField(); });
     writeReg({ hidden, confirmed, verified: { [key]: deleteField() } });
+    try { _equipHiddenCache = { ...(_equipHiddenCache || {}), ...hidden }; localStorage.setItem(`sdx_equip_hidden_${VENUE_ID}`, JSON.stringify(_equipHiddenCache)); } catch {}
     setRegConfirmed(prev => { const n = { ...prev }; its.forEach(i => delete n[tagOf(i)]); persistConfirmed(n); return n; });
     setRegVerified(prev => { const n = { ...prev }; delete n[key]; persistVerified(n); return n; });
     setEquipItems(prev => prev.filter(i => standKeyOf(i.unit, i.venueName, i) !== key));
@@ -19079,8 +19124,9 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
     if (!confirm(`Delete ${items.length} label${items.length !== 1 ? "s" : ""}?\n\nThey disappear from this page — past inspection reports are not affected.`)) return;
     try {
       const hidden = {};
-      items.forEach(i => { hidden[i.uid] = true; });
-      await setDoc(registryRef(), { hidden }, { merge: true });
+      items.forEach(i => { Object.assign(hidden, hiddenKeysFor(i.uid, tagOf(i))); });
+      if (!(await writeReg({ hidden }))) throw new Error("save failed");
+      try { _equipHiddenCache = { ...(_equipHiddenCache || {}), ...hidden }; localStorage.setItem(`sdx_equip_hidden_${VENUE_ID}`, JSON.stringify(_equipHiddenCache)); } catch {}
       setEquipItems(prev => prev.filter(i => !selected.has(i.uid)));
       setSelected(new Set());
     } catch { alert("Could not delete — check your connection."); }
@@ -19090,7 +19136,9 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
   async function deleteEquipment(item) {
     if (!confirm(`Remove the label for "${item.label}" (${item.assetTag})?\n\nIt disappears from this page — past inspection reports are not affected.`)) return;
     try {
-      await setDoc(registryRef(), { hidden: { [item.uid]: true } }, { merge: true });
+      const hk = hiddenKeysFor(item.uid, tagOf(item));
+      if (!(await writeReg({ hidden: hk }))) throw new Error("save failed");
+      try { _equipHiddenCache = { ...(_equipHiddenCache || {}), ...hk }; localStorage.setItem(`sdx_equip_hidden_${VENUE_ID}`, JSON.stringify(_equipHiddenCache)); } catch {}
       setEquipItems(prev => prev.filter(i => i.uid !== item.uid));
       setSelected(prev => { const s = new Set(prev); s.delete(item.uid); return s; });
     } catch { alert("Could not remove — check your connection."); }
@@ -19204,9 +19252,11 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
         let cutoffMs = 0;
         let regLoaded = false;
         try {
+          await flushOutbox();
           const snap = await getDoc(doc(db, "venues", VENUE_ID, "sharedMemory", "equipmentRegistry"));
           const reg = snap.exists() ? (snap.data() || {}) : {};
           hidden = reg.hidden || {};
+          _equipHiddenCache = hidden;
           regItems = reg.items || {};
           regIndex = reg.labelIndex || {};
           cutoffMs = reg.cutoffMs || 0;
@@ -19232,6 +19282,7 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
         } catch {}
         if (!regLoaded) {
           // Offline / local: the last synced registry + setup marks keep the walk usable
+          hidden = { ...(_equipHiddenCache || {}) }; // removals made offline still count
           try { const c = _equipRegCache || {}; regItems = {}; regIndex = {}; for (const [t, it] of Object.entries(c)) { if (!it) continue; if (it.assetTag) regItems[t] = it; else regIndex[t] = it; } setRegItemsState(regItems); } catch {}
           try { setRegSetup(JSON.parse(localStorage.getItem(EQUIP_SETUP_LS) || "{}")); } catch {}
           try { setRegVerified(JSON.parse(localStorage.getItem(EQUIP_VERIFIED_LS) || "{}")); setRegConfirmed(JSON.parse(localStorage.getItem(EQUIP_CONFIRMED_LS) || "{}")); } catch {}
@@ -19333,7 +19384,7 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
         // report's generic "Coolers"/"2-Door Cooler" rows at that stand are the
         // same physical units under another name — don't print them twice.
         const regStands = new Set();
-        for (const [tag, it] of Object.entries(regItems)) { if (hidden[`reg_${tag}`]) continue; const k = normUnit(it.unit) ? `u:${normUnit(it.unit)}` : `s:${(it.venueName || "").trim().toLowerCase()}`; regStands.add(k); }
+        for (const [tag, it] of Object.entries(regItems)) { if (isHiddenTag(hidden, `reg_${tag}`, tag)) continue; const k = normUnit(it.unit) ? `u:${normUnit(it.unit)}` : `s:${(it.venueName || "").trim().toLowerCase()}`; regStands.add(k); }
         const isGenerated = t => /^SDX-(CL|FZ)-[A-Z0-9]+-\d+$/.test(String(t || "").toUpperCase());
         for (let i = items.length - 1; i >= 0; i--) {
           const it = items[i];
@@ -19356,15 +19407,19 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
         // Merge manually-created equipment (always shown) and apply removals
         for (const [tag, it] of Object.entries(regItems)) {
           const uid = `reg_${tag}`;
-          if (hidden[uid]) continue;
+          if (isHiddenTag(hidden, uid, tag)) continue;
           const T = String(tag).toUpperCase();
           const existing = items.find(i => String(i.assetTag || "").toUpperCase() === T);
           if (existing) {
-            // The setup walk wrote this unit's identity — registry details win
+            // The registry is always newer than a report's snapshot — it wins for identity AND placement
             if (it.label) existing.label = it.label;
             if (it.brandName) existing.brandName = it.brandName;
             if (it.location) existing.location = it.location;
-            if (it.venueName && !existing.venueName) existing.venueName = it.venueName;
+            if (it.venueName) existing.venueName = it.venueName;
+            if (it.unit !== undefined && String(it.unit).trim()) existing.unit = String(it.unit).trim();
+            if (it.locType) existing.locType = it.locType;
+            if (it.standId) existing.standId = it.standId;
+            if (it.unit || it.venueName) existing.floor = floorForStand(existing.unit, existing.venueName, it.floor || existing.floor);
             continue;
           }
           if (seen.has(tag)) continue; // already present from an inspection
@@ -19375,9 +19430,10 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
         // portal count these, so this page must too, cutoff or not.
         for (const [tag, ix] of Object.entries(regIndex)) {
           const uid = `reg_${tag}`;
-          if (hidden[uid] || hidden[tag]) continue;
+          if (isHiddenTag(hidden, uid, tag)) continue;
           const T = String(tag).toUpperCase();
-          if (items.some(i => String(i.assetTag || "").toUpperCase() === T)) continue;
+          const ex = items.find(i => String(i.assetTag || "").toUpperCase() === T);
+          if (ex) { if (ix?.standId && !ex.standId) { ex.standId = ix.standId; if (ix.unit) ex.unit = ix.unit; if (ix.venueName) ex.venueName = ix.venueName; } continue; }
           if (!ix || !(ix.unit || ix.venueName)) continue;
           items.push({ assetTag: T, label: ix.name || ix.label || "", brandName: ix.brand || ix.brandName || "", location: ix.location || "", venueName: ix.venueName || "", unit: ix.unit || "", locType: ix.locType || "", standId: ix.standId || "", uid, floor: floorForStand(ix.unit, ix.venueName, ix.floor), fromIndex: true });
         }
@@ -19387,9 +19443,9 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
           setCutoffDate("");
           return;
         }
-        setEquipItems(items.filter(i => !hidden[i.uid]));
+        setEquipItems(items.filter(i => !isHiddenTag(hidden, i.uid, i.assetTag)));
         // Every label we can print is remembered by tag → old tag-only labels resolve everywhere
-        warmEquipRegistry().then(() => indexEquipLabels(items.filter(i => !hidden[i.uid]))).catch(() => {});
+        warmEquipRegistry().then(() => indexEquipLabels(items.filter(i => !isHiddenTag(hidden, i.uid, i.assetTag)))).catch(() => {});
       } catch {
         setEquipItems([]);
       }
@@ -19397,7 +19453,7 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
     }
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cutoffDate, cutoffMode]);
+  }, [cutoffDate, cutoffMode, reloadTick]);
 
   // Generate QR code data URLs for all items
   useEffect(() => {
@@ -20473,9 +20529,12 @@ function KitchenQrPage({ onBack, onPrintLabels, onStandEquipment }) {
   const [search, setSearch] = useState("");
 
   const haccpUrl = standHaccpUrl;
+  const [kFlash, setKFlash] = useState("");
+  useEffect(() => { const on = e => { const d = e.detail || {}; setKFlash(d.msg || ""); setTimeout(() => setKFlash(""), d.ok ? 3000 : 6000); }; window.addEventListener("sdx-save-status", on); return () => window.removeEventListener("sdx-save-status", on); }, []);
   useEffect(() => {
     (async () => {
       setLoading(true);
+      await flushOutbox().catch(() => {});
       const seeds = standSeeds();
       if (seeds.length) { setKitchens(seeds); setLoading(false); }
       try { setKitchens(await loadStandList()); } catch {}
@@ -20500,7 +20559,7 @@ function KitchenQrPage({ onBack, onPrintLabels, onStandEquipment }) {
     // A live license belongs on the stand card too, so posters / panel show it
     if (e.status === "ACTIVE" && license) {
       const k = kitchens.find(x => normUnit(x.unit) === normUnit(unit) && !(x.license || "").trim());
-      if (k) { setKitchens(prev => prev.map(x => x.id === k.id ? { ...x, license } : x)); try { setDoc(doc(db, "venues", VENUE_ID, "sharedMemory", "kitchenRegistry"), { items: { [k.id]: { license } } }, { merge: true }).catch(() => {}); } catch {} }
+      if (k) { setKitchens(prev => prev.map(x => x.id === k.id ? { ...x, license } : x)); try { writeKitchenReg({ items: { [k.id]: { license } } }); } catch {} }
     }
     setLicEdit(null);
   }
@@ -20564,14 +20623,14 @@ function KitchenQrPage({ onBack, onPrintLabels, onStandEquipment }) {
     // Persist so the stand survives reloads and shows on every device
     setNewId(id); setTimeout(() => setNewId(n => (n === id ? null : n)), 4000);
     setTimeout(() => { try { document.getElementById(`kqr_${id}`)?.scrollIntoView({ behavior: "smooth", block: "center" }); } catch {} }, 150);
-    try { setDoc(doc(db, "venues", VENUE_ID, "sharedMemory", "kitchenRegistry"), { items: { [id]: { site, unit, floor, license, locType: addType } }, hidden: { [id]: false, [`${site.toLowerCase()}|${unit.toLowerCase()}`]: false } }, { merge: true }).catch(() => {}); } catch {}
+    try { writeKitchenReg({ items: { [id]: { site, unit, floor, license, locType: addType } }, hidden: { [id]: false, [`${site.toLowerCase()}|${unit.toLowerCase()}`]: false } }); } catch {}
   }
 
   function removeKitchen(id) {
     const k = kitchens.find(x => x.id === id);
     setKitchens(prev => prev.filter(x => x.id !== id));
     if (k && !_standRemoved.some(r => r.id === id)) { _standRemoved = [{ ...k, rid: id }, ..._standRemoved]; setRemovedTick(t => t + 1); }
-    try { setDoc(doc(db, "venues", VENUE_ID, "sharedMemory", "kitchenRegistry"), { hidden: { [id]: true } }, { merge: true }).catch(() => {}); } catch {}
+    try { writeKitchenReg({ hidden: { [id]: true } }); } catch {}
   }
   function restoreKitchen(r) {
     const k = { id: r.id, site: r.site || "", unit: r.unit || "", floor: floorForStand(r.unit, r.site, r.floor), license: r.license || "", locType: r.locType || "" };
@@ -20579,7 +20638,7 @@ function KitchenQrPage({ onBack, onPrintLabels, onStandEquipment }) {
     setKitchens(prev => prev.some(x => x.id === k.id) ? prev : [k, ...prev]);
     setNewId(k.id); setTimeout(() => setNewId(n => (n === k.id ? null : n)), 4000);
     const hidden = { [r.id]: false, [`${(r.site || "").toLowerCase()}|${(r.unit || "").toLowerCase()}`]: false }; if (r.rid && r.rid !== r.id) hidden[r.rid] = false;
-    try { setDoc(doc(db, "venues", VENUE_ID, "sharedMemory", "kitchenRegistry"), { items: { [r.id]: { site: k.site, unit: k.unit, floor: k.floor, license: k.license, locType: k.locType } }, hidden }, { merge: true }).catch(() => {}); } catch {}
+    try { writeKitchenReg({ items: { [r.id]: { site: k.site, unit: k.unit, floor: k.floor, license: k.license, locType: k.locType } }, hidden }); } catch {}
   }
 
   // Inline per-card editing (name / unit / floor / license) — persisted to the
@@ -20612,7 +20671,7 @@ function KitchenQrPage({ onBack, onPrintLabels, onStandEquipment }) {
     try {
       const patch = { items: { [newId]: { site, unit, floor, license, locType } }, hidden: { [newId]: false } };
       if (newId !== oldK.id) patch.hidden[oldK.id] = true; // renamed — retire the old entry everywhere
-      setDoc(doc(db, "venues", VENUE_ID, "sharedMemory", "kitchenRegistry"), patch, { merge: true }).catch(() => {});
+      writeKitchenReg(patch);
     } catch {}
   }
 
@@ -20668,6 +20727,7 @@ function KitchenQrPage({ onBack, onPrintLabels, onStandEquipment }) {
       </header>
       <div style={{ height: 64, flexShrink: 0 }} />
       <StandsTabs active="kitchen_qr" />
+      {kFlash && <div className="walkFlash">{kFlash}</div>}
 
       <div style={{ maxWidth: 900, margin: "0 auto", padding: "1.25rem 1rem" }}>
         <div style={{ background: "var(--surface-1)", borderRadius: 12, padding: "1rem 1.25rem", marginBottom: "1rem", boxShadow: "0 1px 4px rgba(0,0,0,0.07)" }}>
