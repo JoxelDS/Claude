@@ -20456,7 +20456,7 @@ function standPosterHtml(items, qrUrls, brandColor) {
   const esc = (t) => String(t || "").replace(/&/g, "&amp;").replace(/</g, "&lt;");
   const logoUrl = resolveLogoDark().startsWith("data:") ? resolveLogoDark() : window.location.origin + resolveLogoDark().replace(window.location.origin, "");
   const cards = items.map(k => `
-    <div class="poster${(k.equip || []).length > 4 ? " tall" : ""}">
+    <div class="poster">
       <div class="ph" style="background:${brandColor}">
         <img class="phl" src="${logoUrl}" alt="" />
         <div class="pht">${esc(resolveCompanyName())} · Kitchen Check</div>
@@ -20464,8 +20464,8 @@ function standPosterHtml(items, qrUrls, brandColor) {
       <div class="pb">
         <div class="pn">${esc(String(k.site || "").toUpperCase())}${k.unit ? ` <span class="pu">#${esc(String(k.unit).toUpperCase())}</span>` : ""}</div>
         ${[k.floor, k.locType ? standTypeBadge(k.locType).short : "", k.license ? `License #${k.license}` : ""].filter(Boolean).length ? `<div class="pf">${esc([k.floor, k.locType ? standTypeBadge(k.locType).short : "", k.license ? `License #${k.license}` : ""].filter(Boolean).join(" · "))}</div>` : ""}
-        <img class="pq${(k.equip || []).length ? " pqs" : ""}" src="${qrUrls[k.id] || ""}" />
-        ${(k.equip || []).length ? `<div class="pe${k.equip.length > 8 ? " cols" : ""}"><div class="peh">${k.equip.length} COOLER${k.equip.length !== 1 ? "S" : ""} / FREEZER${k.equip.length !== 1 ? "S" : ""} IN THIS STAND — CHECK EACH ONE</div>${k.equip.map(e => `<div class="per"><span class="pei">${e.freezer ? "🧊" : "❄"}</span><span class="pen">${esc(String(e.name || "").toUpperCase())}</span><span class="pem">${esc([e.brand, e.location].filter(Boolean).join(" · ").toUpperCase() || "—")}</span></div>`).join("")}</div>` : ""}
+        <img class="pq" src="${qrUrls[k.id] || ""}" />
+        <div class="pscan">📱 <b>Scan to see this stand's coolers &amp; freezers and log each one.</b><br/><span class="es">Escanee para ver los equipos de este puesto y registrar cada uno.</span></div>
         <div class="pi">
           <div class="pih">HOW TO USE THIS QR · CÓMO USAR ESTE QR</div>
           <div class="pi2h">⏰ CHECK FOOD &amp; EQUIPMENT TEMPS EVERY 2 HOURS · REVISE TEMPERATURAS CADA 2 HORAS</div>
@@ -20493,7 +20493,8 @@ function standPosterHtml(items, qrUrls, brandColor) {
     .pu { color:${brandColor}; }
     .pf { font-size:13px; color:#6b7280; font-weight:700; margin-top:2px; }
     .pq { width:200px; height:200px; margin:10px 0; }
-    .pq.pqs { width:150px; height:150px; margin:6px 0; }
+    .pscan { font-size:11.5px; color:#111827; text-align:center; margin:2px 0 8px; line-height:1.4; }
+    .pscan .es { color:#6b7280; font-style:italic; }
     .pe { width:100%; max-width:560px; margin:4px auto 6px; text-align:left; border:1.5px solid #e5e7eb; border-radius:10px; padding:6px 10px; }
     .peh { font-size:9px; font-weight:900; letter-spacing:.08em; color:#6b7280; margin-bottom:3px; }
     .per { display:flex; align-items:center; gap:8px; font-size:11px; line-height:1.35; border-top:1px dashed #e5e7eb; padding:2px 0; }
