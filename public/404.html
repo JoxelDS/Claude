@@ -4,14 +4,15 @@
 <meta charset="utf-8">
 <title>Loading…</title>
 <script>
-// Clean per-client links: joxelds.github.io/Claude/<venue-or-client-id>
+  var BASE = "/Claude/"; // change with vite base when the repository is renamed
+// Clean per-client links: <site>/<venue-or-client-id>  (BASE below must match vite base)
 // GitHub Pages serves this 404 for unknown paths — turn the path into ?v=
 (function () {
   var m = location.pathname.match(/^\/Claude\/([a-z0-9_-]+)\/?$/i);
   if (m && !["owner", "review", "marketing", "icons", "assets"].includes(m[1].toLowerCase())) {
-    location.replace("/Claude/?v=" + encodeURIComponent(m[1].toLowerCase()) + location.hash);
+    location.replace(BASE + "?v=" + encodeURIComponent(m[1].toLowerCase()) + location.hash);
   } else {
-    location.replace("/Claude/");
+    location.replace(BASE);
   }
 })();
 </script>

@@ -2,7 +2,8 @@
 // v119: Restored to July 13 state
 
 
-const CACHE_NAME = "sdx-inspect-v419";
+const CACHE_NAME = "sdx-inspect-v420";
+const BASE = (() => { try { return new URL(self.registration.scope).pathname; } catch { return "/"; } })();
 const PRECACHE = [
   "./favicon.svg",
   "./sodexo-live-logo.svg",
@@ -47,11 +48,11 @@ self.addEventListener("push", (e) => {
   e.waitUntil(
     self.registration.showNotification(data.title || "SDX Inspect", {
       body: data.body || "",
-      icon: "/Claude/favicon.svg",
-      badge: "/Claude/favicon.svg",
+      icon: BASE + "favicon.svg",
+      badge: BASE + "favicon.svg",
       tag: data.tag || "sdx-notif",
       requireInteraction: false,
-      data: { url: data.url || "/Claude/" },
+      data: { url: data.url || BASE },
     })
   );
 });
@@ -59,11 +60,11 @@ self.addEventListener("push", (e) => {
 // Open/focus the app when a notification is clicked
 self.addEventListener("notificationclick", (e) => {
   e.notification.close();
-  const target = e.notification.data?.url || "/Claude/";
+  const target = e.notification.data?.url || BASE;
   e.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
       for (const client of clientList) {
-        if (client.url.includes("/Claude/") && "focus" in client) {
+        if (client.url.includes(BASE) && "focus" in client) {
           return client.focus();
         }
       }

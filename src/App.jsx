@@ -233,7 +233,7 @@ function qrStandUrl(as) {
 const EQUIP_PORTAL_TAG = new URLSearchParams(window.location.search).get("equip") || "";
 // Value encoded into printed equipment QR labels
 function equipQrValue(tag, meta) {
-  const base = window.location.origin + "/Claude/";
+  const base = window.location.origin + import.meta.env.BASE_URL;
   const p = new URLSearchParams({ equip: tag });
   if (VENUE_ID && VENUE_ID !== "default") p.set("v", VENUE_ID);
   // The label's full identity rides inside the QR, so a scan shows the real
@@ -20303,7 +20303,7 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
 
 
 function standHaccpUrl(k) {
-    const base = window.location.origin + "/Claude/";
+    const base = window.location.origin + import.meta.env.BASE_URL;
     const params = new URLSearchParams({ haccp: "1" });
     if (k.site) params.set("site", k.site);
     if (k.unit) params.set("unit", k.unit);
@@ -21402,7 +21402,7 @@ function GlobalAdminPanel({ currentUser, onBack, onManageVenue, onEnterVenue, on
                           👥 Manage Users
                         </button>
                         <button type="button"
-                          onClick={() => window.open(window.location.origin + "/Claude/?v=" + v.id + "&vname=" + encodeURIComponent(v.name || v.id), "_blank")}
+                          onClick={() => window.open(window.location.origin + import.meta.env.BASE_URL + "?v=" + v.id + "&vname=" + encodeURIComponent(v.name || v.id), "_blank")}
                           style={{ padding: "0.35rem 0.65rem", borderRadius: 6, border: "1.5px solid #e2e8f0", background: "var(--surface-1)", color: "var(--ink-600)", fontWeight: 600, cursor: "pointer", fontSize: "0.78rem" }}>
                           Open ↗
                         </button>
@@ -24274,7 +24274,7 @@ function InlineChat({ currentUser, sessionId }) {
 /* ── Share / QR helpers ─────────────────────────────────── */
 function buildShareUrl({ inspectorName, siteName, siteNumber, supervisorName, sitePhone, inspectionType, inspectionDate }) {
   // Always use the canonical app root so QR links work from any page/path
-  const base = window.location.origin + "/Claude/";
+  const base = window.location.origin + import.meta.env.BASE_URL;
   const params = new URLSearchParams();
   if (inspectorName)  params.set("inspector", inspectorName);
   if (siteName)       params.set("site", siteName);
@@ -24547,7 +24547,7 @@ function EquipScanModal({ onClose, onApply, initialTag }) {
   const canvasRef = useRef(null);
   const [copied, setCopied] = useState(false);
   const haccpUrl = (() => {
-    const base = window.location.origin + "/Claude/";
+    const base = window.location.origin + import.meta.env.BASE_URL;
     const p = new URLSearchParams({ haccp: "1" });
     if (siteName?.trim())     p.set("site", siteName.trim());
     if (siteNumber?.trim())   p.set("unit", siteNumber.trim());
@@ -27634,7 +27634,7 @@ export default function App() {
       try {
         new Notification(title, {
           body,
-          icon: window.location.origin + "/Claude/favicon.svg",
+          icon: window.location.origin + import.meta.env.BASE_URL + "favicon.svg",
           tag: id,
           requireInteraction: false,
         });

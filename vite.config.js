@@ -7,7 +7,7 @@ export default defineConfig({
       fastRefresh: process.env.NODE_ENV !== "production",
     }),
   ],
-  base: "/Claude/",
+  base: process.env.SDX_BASE || "/Claude/",
   build: {
     sourcemap: false,
     // Terser compresses significantly better than esbuild (10-20% smaller JS)
