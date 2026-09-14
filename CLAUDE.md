@@ -47,6 +47,9 @@ Read this first. It is the memory between sessions.
 - Language switch (Google Translate) on every screen via `LanguageFab`; portal has native EN/ES strings.
 - Crew boards (maintenance / Ecolab / cleaning) with per-stand picker and By Problem grouping; announcements to stands; invite links for roles.
 
+## Training assets
+- `docs/training/`: crew training deck (pptx) + EN/ES script. Video (3:44, silent, captions) built by scratchpad `train/record.mjs` (stage.html + phone iframe, Playwright recordVideo, ffmpeg-static → mp4); not in the repo. Crew roles are maintenance / cleaning / ecolab only — Pest Control is an issue type moved with "Not mine → move". The app's DevTools guard fires in small iframes: spoof `hasTouch` + `maxTouchPoints` in harnesses. Portal quick reports don't reach the crew board in local mode (Firestore only).
+
 ## Open items
 - Compact `equipmentRegistry` (size risk). Audit workbook was delivered 2026-09-14 (29 orphan units, 28 duplicate copies, 41 units missing brand/location, 43 stands without equipment, 22 stands without license, verify walk 0/116).
 - Domain change: waiting for the domain name (needs CNAME, vite `base`, SW scope, Firebase authorized domains).
