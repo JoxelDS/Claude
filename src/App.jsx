@@ -25891,7 +25891,8 @@ function HaccpPortal() {
                     cookingWholeCuts:  { emoji: "🥩", color: "#fb923c", bg: "rgba(251,146,60,0.10)", border: "rgba(251,146,60,0.35)", badgeBg: "#7c2d12" },
                     cookingSeafood:    { emoji: "🐟", color: "#22d3ee", bg: "rgba(34,211,238,0.08)", border: "rgba(34,211,238,0.3)",  badgeBg: "#164e63" },
                   };
-                  const standardItems = [...HACCP_TEMP_ITEMS.filter(i => !i.group), ...customItems];
+                  const equipRows = customItems.filter(i => i.tag); // the stand's coolers / freezers — their own card
+                  const standardItems = [...HACCP_TEMP_ITEMS.filter(i => !i.group), ...customItems.filter(i => !i.tag)];
                   const cookingItems  = HACCP_TEMP_ITEMS.filter(i => i.group === "cooking");
 
                   // Compact rows: every category is one line until you tap it — less
@@ -26127,6 +26128,18 @@ function HaccpPortal() {
 
                   return (
                     <>
+                      {(() => { const done = equipRows.filter(i => summaryOf(i).n > 0).length; return (
+                        <div className="htEquipCard">
+                          <div className="htEquipHead">
+                            <span className="htEquipTitle">❄ {L("YOUR COOLERS & FREEZERS", "SUS NEVERAS Y CONGELADORES")}</span>
+                            <span className="htEquipCount">{done}<small>/{equipRows.length} {L("logged", "listos")}</small></span>
+                          </div>
+                          <div className="htEquipHint">{L("One reading per unit · coolers ≤ 41°F · freezers ≤ 0°F · every 2 hours", "Una lectura por equipo · neveras ≤ 41°F · congeladores ≤ 0°F · cada 2 horas")}</div>
+                          {equipRows.length === 0 && <div className="htEquipEmpty">{L("No coolers / freezers registered for this stand — tell the inspector.", "No hay equipos registrados para este puesto — avise al inspector.")}</div>}
+                          {equipRows.map(item => renderReadingBlock(item))}
+                        </div>
+                      ); })()}
+                      <div className="htFoodHead">🍽 {L("FOOD TEMPERATURES", "TEMPERATURAS DE COMIDA")}</div>
                       {(() => { const all = [...beforeCooking, ...cookingItems, ...afterCooking]; const done = all.filter(i => summaryOf(i).n > 0).length; return (
                         <div className="htHowTo">
                           <div className="htSteps">

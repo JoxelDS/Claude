@@ -8286,3 +8286,14 @@ html[data-theme="dark"] .fuStOnWaiting, html[data-theme="black"] .fuStOnWaiting 
 .specHint { font-size: 0.72rem; font-weight: 700; color: #b45309; margin: 2px 0 4px; }
 .haccpCard .specPicker { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.18); }
 .haccpCard .specHead, .haccpCard .specLbl { color: inherit; opacity: 0.9; }
+
+/* ── v417: equipment temps in their own card, apart from food ── */
+.htEquipCard { background: rgba(96,165,250,0.10); border: 2px solid rgba(96,165,250,0.55); border-radius: 14px; padding: 10px 12px 6px; margin-bottom: 16px; }
+.htEquipHead { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 2px; }
+.htEquipTitle { font-weight: 900; font-size: 0.86rem; letter-spacing: 0.05em; color: #93c5fd; }
+.htEquipCount { font-weight: 900; font-size: 1rem; color: #bfdbfe; }
+.htEquipCount small { font-weight: 700; font-size: 0.7rem; color: #93c5fd; margin-left: 2px; }
+.htEquipHint { font-size: 0.72rem; color: #bfdbfe; opacity: 0.9; margin-bottom: 8px; }
+.htEquipEmpty { font-size: 0.8rem; color: #fde68a; background: rgba(245,158,11,0.15); border: 1px solid rgba(245,158,11,0.4); border-radius: 10px; padding: 8px 10px; margin-bottom: 6px; }
+.htEquipCard .htRow { background: rgba(255,255,255,0.08); border-color: rgba(147,197,253,0.35); }
+.htFoodHead { font-weight: 900; font-size: 0.86rem; letter-spacing: 0.05em; color: #fca5a5; margin: 4px 0 8px; padding-top: 10px; border-top: 1px dashed rgba(255,255,255,0.18); }
