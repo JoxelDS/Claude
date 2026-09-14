@@ -1,7 +1,10 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import { readFileSync } from "node:fs";
+const SDX_VERSION = (readFileSync("public/sw.js", "utf8").match(/sdx-inspect-(v\d+)/) || [, "dev"])[1];
 
 export default defineConfig({
+  define: { __SDX_VERSION__: JSON.stringify(SDX_VERSION) },
   plugins: [
     react({
       fastRefresh: process.env.NODE_ENV !== "production",

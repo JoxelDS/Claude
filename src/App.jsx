@@ -2619,6 +2619,7 @@ const PHOTO_LIMIT = 6;
 const PHOTO_MAX_MB = 8;
 
 const INSPECTION_TYPES = ["Event Day", "Post Event", "Regular Inspection"];
+const SDX_VERSION = typeof __SDX_VERSION__ !== "undefined" ? __SDX_VERSION__ : "dev";
 const LOCATION_TYPES = ["Concession", "Bar", "Subcontractor", "Portable - Stadium", "Portable - Subcontractor", "Portable", "Kitchen", "Pantry", "Event / Temporary"];
 // Helper: any portable variant (including legacy "Portable")
 const isPortableType = (lt) => lt === "Portable - Stadium" || lt === "Portable - Subcontractor" || lt === "Portable";
@@ -8795,6 +8796,7 @@ function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLoc
               {onMessages && <button className="dropdownMenuItem" type="button" onClick={onMessages}>💬 Messages</button>}
               {onAppearance && <button className="dropdownMenuItem" type="button" onClick={onAppearance}>🎨 App Color</button>}
               <button className="dropdownMenuItem dropdownMenuDanger" type="button" onClick={onLock}>Lock App</button>
+              <div className="menuVersion">SDX Inspect · {SDX_VERSION}</div>
             </div>
           )}
         </div>
@@ -19218,7 +19220,8 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
       .lto { font-size:7px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:#9ca3af; }
       @page { margin:8mm; }
     </style></head><body>${cards}
-    <script>window.onload=function(){setTimeout(function(){window.print()},400)}<\/script></body></html>`;
+    <div style="text-align:center;font-size:8px;color:#9ca3af;margin:2px 0 6px">printed with SDX Inspect ${SDX_VERSION}</div>
+  <script>window.onload=function(){setTimeout(function(){window.print()},400)}<\/script></body></html>`;
     const win = window.open("", "_blank");
     if (!win) { alert("Allow pop-ups to print labels."); return; }
     win.document.write(html);
@@ -29421,6 +29424,7 @@ export default function App() {
             ) : (
               <button className="dropdownMenuItem dropdownMenuDanger" onClick={e => { e.stopPropagation(); setLockConfirm(true); }} type="button">Lock App</button>
             )}
+            <div className="menuVersion">SDX Inspect · {SDX_VERSION} · close &amp; reopen twice to update</div>
           </div>
         )}
 

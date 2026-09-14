@@ -121,13 +121,13 @@ if ("serviceWorker" in navigator) {
               const banner = document.createElement("div");
               banner.id = "sw-update-banner";
               banner.style.cssText = [
-                "position:fixed;bottom:0;left:0;right:0;z-index:99999",
+                "position:fixed;top:0;left:0;right:0;z-index:99999",
                 "background:#2A295C;color:#fff;padding:0.75rem 1.25rem",
                 "display:flex;align-items:center;justify-content:space-between;gap:12px",
                 "font-family:sans-serif;font-size:0.9rem;box-shadow:0 -2px 12px rgba(0,0,0,0.3)",
               ].join(";");
               banner.innerHTML = `
-                <span>A new version of the app is ready.</span>
+                <span>⬆ A new version is ready — reload before printing posters.</span>
                 <button id="sw-reload-btn" style="background:#EE0000;color:#fff;border:none;border-radius:6px;padding:0.4rem 1rem;font-size:0.85rem;cursor:pointer;font-weight:600;">
                   Reload
                 </button>

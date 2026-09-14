@@ -8297,3 +8297,4 @@ html[data-theme="dark"] .fuStOnWaiting, html[data-theme="black"] .fuStOnWaiting 
 .htEquipEmpty { font-size: 0.8rem; color: #fde68a; background: rgba(245,158,11,0.15); border: 1px solid rgba(245,158,11,0.4); border-radius: 10px; padding: 8px 10px; margin-bottom: 6px; }
 .htEquipCard .htRow { background: rgba(255,255,255,0.08); border-color: rgba(147,197,253,0.35); }
 .htFoodHead { font-weight: 900; font-size: 0.86rem; letter-spacing: 0.05em; color: #fca5a5; margin: 4px 0 8px; padding-top: 10px; border-top: 1px dashed rgba(255,255,255,0.18); }
+.menuVersion { font-size: 0.68rem; color: rgba(255,255,255,0.55); padding: 8px 14px 4px; text-align: center; letter-spacing: 0.04em; }
