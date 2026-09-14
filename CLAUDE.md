@@ -21,6 +21,7 @@ Read this first. It is the memory between sessions.
 - After sign-in click "on site". Navigate with `sdx-nav` (pages: `print_labels` = Stands & equipment, `kitchen_qr` = posters & licenses, `history`, `admin`, `crew`, `equipment_scanner`). `window.__sdxStands` exposes the loaded stand list.
 - Portal (what teams see when scanning a stand QR): `?haccp=1&site=NAME&unit=114&loctype=Concession`. Ident → "This is my location" → form.
 - In local mode `loadHistory` returns nothing; `loadStandList()` falls back to `sdx_history_cache_default`.
+- `sdx_equip_reg_doc_default` = `{items, labelIndex, hidden}` seeds the registry in the online shape (used by v422-test.mjs).
 
 ## Data model (Firestore `venues/default/sharedMemory/*`, all writes `setDoc merge`)
 - `equipmentRegistry`: `items{TAG}` (manual/walk units: assetTag,label,venueName,unit,floor,locType,location,brandName,standId), `labelIndex{TAG}` (units indexed from reports: name,brand,location,venueName,unit,standId), `hidden{uid}` (soft deletes; a unit is hidden if `hidden[uid] || hidden[TAG] || hidden["reg_"+TAG]`), `verified{standId}`, `confirmed{TAG}`, `setup{TAG}`, `cutoffMs/cutoffMode`. Doc was ~798 KB on 2026-09-14 (limit 1 MB) — needs compaction (drop index entries for hidden tags).
@@ -35,9 +36,10 @@ Read this first. It is the memory between sessions.
 - Stand id: `u:<normUnit>`; a second stand with a different name at the same unit gets `u:<unit>~<slug>` (`standIdIn`). Old report names never create stands. `sameStandName` (slug prefix) is identity; `looseStandName` (token overlap) is only for matching equipment → stand.
 - `equipBelongsTo(item, stand)`: standId wins, then unit, then name (exact, then loose), then type, else the base stand. Unit-less items resolve by name (`standForUnitless`). Units that fit nothing show in "Unassigned equipment" with bulk assign.
 - Registry record beats a report snapshot for label, brand, location, unit, venueName, locType, standId.
+- Every `items[TAG]` write MUST carry `assetTag` (v422). Bare placement patches (move/retag) created tag-less records → ghost "Cooler" rows sharing a uid with the real unit → deleting the ghost deleted the real one. Load now fills tag/name from the index and dedupes by uid; `removeUnitVerify` matches uid+tag and offers ↩ Undo.
 
 ## Product decisions already made (don't relitigate)
-- One QR per stand (poster). Equipment stickers were dropped in v400; posters stopped listing equipment in v419 (scan shows the live list). Per-unit QR was recommended against.
+- One QR per stand (poster). Equipment stickers were dropped in v400; posters stopped listing equipment in v419 (scan shows the live list). App version shown in menu footer + poster footer (v421); update banner at top. Per-unit QR was recommended against.
 - Stands & equipment are one menu entry with two tabs (posters & licenses / equipment & verify walk).
 - Verify walk (v392+): confirm / fix / remove / add per unit, mark stand verified; keep it working.
 - Problem reports must be specific (v415/416): guided chips (which unit, what's wrong, which part, where) in portal, quick report and inspection form; out-of-range temps need a reason + action.

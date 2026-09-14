@@ -338,7 +338,7 @@ function retagStandUnitsInRegistry(oldStand, newId, unit, site, locType) {
     if (!it || isHiddenTag(_equipHiddenCache, `reg_${tag}`, tag)) continue;
     if (!equipBelongsTo({ ...it }, oldStand, sib)) continue;
     const patch = { unit: (unit || "").trim(), venueName: (site || "").toUpperCase(), locType: locType || "", standId: newId };
-    items[tag] = patch; labelIndex[tag] = patch;
+    items[tag] = { ...patch, assetTag: String(tag).toUpperCase() }; labelIndex[tag] = patch;
     _equipRegCache[tag] = { ...it, ...patch };
   }
   try { localStorage.setItem(EQUIP_REG_LS, JSON.stringify(_equipRegCache)); } catch {}
@@ -18727,7 +18727,7 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
     if (changed && its.length) {
       const items = {}, labelIndex = {};
       const patch = { unit, venueName: site, locType, standId: id };
-      its.forEach(i => { const T = tagOf(i); if (!T) return; items[T] = patch; labelIndex[T] = patch; cacheRegItem(T, patch); });
+      its.forEach(i => { const T = tagOf(i); if (!T) return; items[T] = { ...patch, assetTag: T }; labelIndex[T] = patch; cacheRegItem(T, items[T]); });
       writeReg({ items, labelIndex });
       setEquipItems(prev => prev.map(i => its.some(x => x.uid === i.uid) ? { ...i, ...patch, floor: floorForStand(unit, site, i.floor) } : i));
       setRegItemsState(prev => { const n = { ...prev }; for (const T of Object.keys(items)) if (n[T]) n[T] = { ...n[T], ...patch }; return n; });
@@ -18850,8 +18850,10 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
     const fromKey = standKeyOf(it.unit, it.venueName, it);
     const T = tagOf(it); if (!T) return;
     const patch = { venueName: (target.site || "").toUpperCase(), locType: target.locType || "", standId: target.id, unit: (target.unit || "").trim(), floor: floorForStand(target.unit, target.site, target.floor) || it.floor || "" };
-    writeReg({ items: { [T]: patch }, labelIndex: { [T]: patch } });
-    cacheRegItem(T, patch);
+    // A registry record must always be self-describing: tag + name, never a bare placement patch
+    const rec = regItemsState[T] ? { ...patch, assetTag: T } : { ...patch, assetTag: T, label: it.label || "", brandName: it.brandName || "", location: it.location || "" };
+    writeReg({ items: { [T]: rec }, labelIndex: { [T]: patch } });
+    cacheRegItem(T, rec);
     setEquipItems(prev => prev.map(i => i.uid === it.uid ? { ...i, ...patch } : i));
     setRegItemsState(prev => prev[T] ? { ...prev, [T]: { ...prev[T], ...patch } } : prev);
     invalidateStand(fromKey); invalidateStand(target.id);
@@ -18882,16 +18884,29 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
   function confirmUnit(it) { confirmTag(it.assetTag, standKeyOf(it.unit, it.venueName, it)); }
   function unconfirmUnit(it) { unconfirmTag(it.assetTag, standKeyOf(it.unit, it.venueName, it)); }
   // Remove during the verify walk — no dialog, hides the label (reports untouched)
+  const [lastRemoved, setLastRemoved] = useState(null); // { it, hk } — one-tap undo after 🗑
   function removeUnitVerify(it) {
     const key = standKeyOf(it.unit, it.venueName, it);
-    const hk = hiddenKeysFor(it.uid, tagOf(it));
-    writeReg({ hidden: hk, confirmed: { [tagOf(it)]: deleteField() } });
+    const T = tagOf(it) || String(it.uid || "").replace(/^reg_/, "").toUpperCase();
+    const hk = hiddenKeysFor(it.uid, T);
+    writeReg(T ? { hidden: hk, confirmed: { [T]: deleteField() } } : { hidden: hk });
     try { _equipHiddenCache = { ...(_equipHiddenCache || {}), ...hk }; localStorage.setItem(`sdx_equip_hidden_${VENUE_ID}`, JSON.stringify(_equipHiddenCache)); } catch {}
-    setRegConfirmed(prev => { const n = { ...prev }; delete n[tagOf(it)]; persistConfirmed(n); return n; });
-    setEquipItems(prev => prev.filter(i => i.uid !== it.uid));
+    if (T) setRegConfirmed(prev => { const n = { ...prev }; delete n[T]; persistConfirmed(n); return n; });
+    // Exactly this row — never a neighbour that happens to share an id
+    setEquipItems(prev => prev.filter(i => !(i.uid === it.uid && String(i.assetTag || "") === String(it.assetTag || ""))));
     setSelected(prev => { const s2 = new Set(prev); s2.delete(it.uid); return s2; });
     invalidateStand(key);
-    setWalkFlash(`🗑 ${cleanName(it.label) || "Unit"} · ${it.assetTag} removed from this stand.`); setTimeout(() => setWalkFlash(""), 3500);
+    setLastRemoved({ it, hk });
+    setWalkFlash(`🗑 ${cleanName(it.label) || "Unit"} · ${T || it.assetTag || ""} removed from this stand.`); setTimeout(() => setWalkFlash(""), 6000);
+  }
+  function undoRemove() {
+    const lr = lastRemoved; if (!lr) return;
+    const del = {}; Object.keys(lr.hk).forEach(k => { del[k] = deleteField(); });
+    writeReg({ hidden: del });
+    try { _equipHiddenCache = { ...(_equipHiddenCache || {}) }; Object.keys(lr.hk).forEach(k => delete _equipHiddenCache[k]); localStorage.setItem(`sdx_equip_hidden_${VENUE_ID}`, JSON.stringify(_equipHiddenCache)); } catch {}
+    setEquipItems(prev => prev.some(i => i.uid === lr.it.uid) ? prev : [lr.it, ...prev]);
+    setLastRemoved(null);
+    setWalkFlash(`↩ ${cleanName(lr.it.label) || "Unit"} is back.`); setTimeout(() => setWalkFlash(""), 3000);
   }
   function markStandVerified(key, label) {
     if (!standVerifiable(key)) return;
@@ -19141,7 +19156,7 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
       const hk = hiddenKeysFor(item.uid, tagOf(item));
       if (!(await writeReg({ hidden: hk }))) throw new Error("save failed");
       try { _equipHiddenCache = { ...(_equipHiddenCache || {}), ...hk }; localStorage.setItem(`sdx_equip_hidden_${VENUE_ID}`, JSON.stringify(_equipHiddenCache)); } catch {}
-      setEquipItems(prev => prev.filter(i => i.uid !== item.uid));
+      setEquipItems(prev => prev.filter(i => !(i.uid === item.uid && String(i.assetTag || "") === String(item.assetTag || ""))));
       setSelected(prev => { const s = new Set(prev); s.delete(item.uid); return s; });
     } catch { alert("Could not remove — check your connection."); }
   }
@@ -19286,7 +19301,9 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
         if (!regLoaded) {
           // Offline / local: the last synced registry + setup marks keep the walk usable
           hidden = { ...(_equipHiddenCache || {}) }; // removals made offline still count
-          try { const c = _equipRegCache || {}; regItems = {}; regIndex = {}; for (const [t, it] of Object.entries(c)) { if (!it) continue; if (it.assetTag) regItems[t] = it; else regIndex[t] = it; } setRegItemsState(regItems); } catch {}
+          let seeded = false;
+          try { const d = JSON.parse(localStorage.getItem(`sdx_equip_reg_doc_${VENUE_ID}`) || "null"); if (d && typeof d === "object") { regItems = d.items || {}; regIndex = d.labelIndex || {}; hidden = { ...hidden, ...(d.hidden || {}) }; setRegItemsState(regItems); seeded = true; } } catch {}
+          if (!seeded) try { const c = _equipRegCache || {}; regItems = {}; regIndex = {}; for (const [t, it] of Object.entries(c)) { if (!it) continue; if (it.assetTag) regItems[t] = it; else regIndex[t] = it; } setRegItemsState(regItems); } catch {}
           try { setRegSetup(JSON.parse(localStorage.getItem(EQUIP_SETUP_LS) || "{}")); } catch {}
           try { setRegVerified(JSON.parse(localStorage.getItem(EQUIP_VERIFIED_LS) || "{}")); setRegConfirmed(JSON.parse(localStorage.getItem(EQUIP_CONFIRMED_LS) || "{}")); } catch {}
         }
@@ -19427,7 +19444,7 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
           }
           if (seen.has(tag)) continue; // already present from an inspection
           seen.add(tag);
-          items.unshift({ ...it, uid, floor: floorForStand(it.unit, it.venueName, it.floor) });
+          items.unshift({ ...it, assetTag: String(it.assetTag || tag).toUpperCase(), uid, floor: floorForStand(it.unit, it.venueName, it.floor) });
         }
         // Units the registry indexed from reports (labelIndex) — the poster cards and the
         // portal count these, so this page must too, cutoff or not.
@@ -19436,9 +19453,30 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
           if (isHiddenTag(hidden, uid, tag)) continue;
           const T = String(tag).toUpperCase();
           const ex = items.find(i => String(i.assetTag || "").toUpperCase() === T);
-          if (ex) { if (ix?.standId && !ex.standId) { ex.standId = ix.standId; if (ix.unit) ex.unit = ix.unit; if (ix.venueName) ex.venueName = ix.venueName; } continue; }
+          if (ex) {
+            if (ix?.standId && !ex.standId) { ex.standId = ix.standId; if (ix.unit) ex.unit = ix.unit; if (ix.venueName) ex.venueName = ix.venueName; }
+            // A bare registry record (placement only) takes its name / brand / location from the index
+            if (ix && !ex.label && (ix.name || ix.label)) ex.label = ix.name || ix.label;
+            if (ix && !ex.brandName && (ix.brand || ix.brandName)) ex.brandName = ix.brand || ix.brandName;
+            if (ix && !ex.location && ix.location) ex.location = ix.location;
+            continue;
+          }
           if (!ix || !(ix.unit || ix.venueName)) continue;
           items.push({ assetTag: T, label: ix.name || ix.label || "", brandName: ix.brand || ix.brandName || "", location: ix.location || "", venueName: ix.venueName || "", unit: ix.unit || "", locType: ix.locType || "", standId: ix.standId || "", uid, floor: floorForStand(ix.unit, ix.venueName, ix.floor), fromIndex: true });
+        }
+        // Last guard: one row per uid (the fuller row wins), and never a row without a tag —
+        // two rows sharing a uid made "delete the empty one" delete the real one too.
+        {
+          const byUid = new Map();
+          for (const it of items) {
+            if (!String(it.assetTag || "").trim()) continue;
+            const prev = byUid.get(it.uid);
+            if (!prev) { byUid.set(it.uid, it); continue; }
+            const merged = { ...prev };
+            for (const [k, v] of Object.entries(it)) if (v !== undefined && v !== "" && (merged[k] === undefined || merged[k] === "")) merged[k] = v;
+            byUid.set(it.uid, merged);
+          }
+          items.length = 0; items.push(...byUid.values());
         }
         if (items.length === 0 && cutoffMs && recList.length > 0 && cutoffDate !== "") {
           // Every stand's latest report is older than the cutoff — showing
@@ -20118,7 +20156,7 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
         <QrScanModal title="📷 Scan a label or a stand QR" hint="Scan the equipment label to fill it in — or the stand poster to open that stand."
           onCode={walkScanCode} onClose={() => setWalkScanOpen(false)} />
       )}
-      {walkFlash && <div className="walkFlash">{walkFlash}</div>}
+      {walkFlash && <div className="walkFlash">{walkFlash}{lastRemoved && /removed from this stand/.test(walkFlash) && <button type="button" className="walkMini" style={{ marginLeft: 8 }} onClick={undoRemove}>↩ Undo</button>}</div>}
       {movePick && ReactDOM.createPortal(
         <div style={{ position: "fixed", inset: 0, zIndex: 10000, background: "rgba(0,0,0,.6)", backdropFilter: "blur(3px)", overflowY: "auto", padding: "4vh 12px" }} onClick={() => setMovePick(null)}>
           <div className="card walkFill" style={{ maxWidth: 470, margin: "0 auto" }} onClick={e => e.stopPropagation()}>
