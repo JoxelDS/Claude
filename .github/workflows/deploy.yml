@@ -30,6 +30,9 @@ jobs:
 
       - run: npm ci
       - run: npm run build
+        env:
+          # The app lives at joxelds.github.io/<repository name>/ — rename the repo and the address follows
+          SDX_BASE: /${{ github.event.repository.name }}/
 
       - uses: actions/configure-pages@v4
       - uses: actions/upload-pages-artifact@v3

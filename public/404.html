@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <title>Loading…</title>
 <script>
-  var BASE = "/Claude/"; // change with vite base when the repository is renamed
+  var BASE = "/" + (location.pathname.split("/")[1] || "") + "/"; // project pages: first segment is the repository name
 // Clean per-client links: <site>/<venue-or-client-id>  (BASE below must match vite base)
 // GitHub Pages serves this 404 for unknown paths — turn the path into ?v=
 (function () {
