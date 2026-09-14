@@ -23066,6 +23066,12 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                           const newChecklist = (cur2.checklist || []).map((c, i) => i === idx ? { ...c, comment } : c);
                           return setAtPath(prev, it.path, { ...cur2, checklist: newChecklist });
                         });
+                        // Be specific (v416): chip taps write structured details and rebuild the description
+                        const makeSetSpec = (idx, d) => setInspection((prev) => {
+                          const cur2 = getAtPath(prev, it.path) || withPhotos({ status: "OK", notes: "" });
+                          const newChecklist = (cur2.checklist || []).map((c, i) => { if (i !== idx) return c; const specDetails = { ...(c.specDetails || {}), ...d }; return { ...c, specDetails, comment: appendSpec(c.comment, specDetails) }; });
+                          return setAtPath(prev, it.path, { ...cur2, checklist: newChecklist });
+                        });
                         const makeSetCiStatus = (idx, ciStatus) => setInspection((prev) => {
                           const cur2 = getAtPath(prev, it.path) || withPhotos({ status: "OK", notes: "" });
                           const newChecklist = (cur2.checklist || []).map((c, i) => i === idx ? { ...c, ciStatus } : c);
@@ -23237,9 +23243,11 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                                               className="input inputSmall"
                                               value={ci.comment || ""}
                                               onChange={(e) => makeSetComment(idx, e.target.value)}
-                                              placeholder="Describe the issue (required)..."
-                                              style={{ width: "100%", borderColor: !ci.comment?.trim() ? "#fca5a5" : undefined }}
+                                              placeholder="What exactly, which part, where? (required)"
+                                              style={{ width: "100%", borderColor: !isSpecific(ci.comment, ci.specDetails, specCatForSection()).ok ? "#fca5a5" : undefined }}
                                             />
+                                            {!isSpecific(ci.comment, ci.specDetails, specCatForSection()).ok && <div className="specHint">⚠ Say what, which part, where — tap the chips</div>}
+                                            <SpecificsPicker cat={specCatForSection()} units={equipUnitsAtStand(siteNumber, siteName)} value={ci.specDetails || {}} onChange={d => makeSetSpec(idx, d)} lang="en" compact />
                                           </div>
                                           <div>
                                             <div style={{ fontSize: "0.7rem", fontWeight: 700, color: "var(--tx-amber)", letterSpacing: "0.06em", marginBottom: 4 }}>
@@ -23372,7 +23380,7 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                           placeholder={current.status && current.status !== "OK" ? "What exactly, which part, where? (required)" : "Describe the issue or leave a comment…"} />
                         {current.status && current.status !== "OK" && <button type="button" className={"specToggle" + (specOpen === it.path ? " on" : "")} onClick={() => setSpecOpen(specOpen === it.path ? null : it.path)}>🎯</button>}
                       </div>
-                      {current.status && current.status !== "OK" && !isSpecific(current.notes, {}, specCatForSection()).ok && <div className="specHint">⚠ Be specific: what, which part, where — tap 🎯</div>}
+                      {current.status && current.status !== "OK" && !(current.checklist || []).some(c => (c.comment || "").trim()) && !isSpecific(current.notes, {}, specCatForSection()).ok && <div className="specHint">⚠ Be specific: what, which part, where — tap 🎯</div>}
                       {specOpen === it.path && <SpecificsPicker cat={specCatForSection()} units={equipUnitsAtStand(siteNumber, siteName)} value={{}} onChange={d => setInspection(prev => { const cur = getAtPath(prev, it.path) || {}; return setAtPath(prev, it.path, { ...cur, notes: appendSpec(cur.notes, { ...(cur.specDetails || {}), ...d }), specDetails: { ...(cur.specDetails || {}), ...d } }); })} lang="en" compact />}
                       <div className="photoRow">
                         <input ref={(el) => (fileRefs.current[key] = el)} className="fileInput" type="file" accept="image/*" multiple
