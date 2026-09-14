@@ -8442,6 +8442,95 @@ const SUP_PROBLEM_CATS = [
   { cat: "Other",              emoji: "📝", en: "Other",              es: "Otro" },
 ];
 const supCatEmoji = (cat) => SUP_PROBLEM_CATS.find(c => c.cat === cat)?.emoji || "📝";
+
+/* ── Be specific (v415): guided chips so every problem says what, which part, where ── */
+const T2 = (en, es) => [en, es];
+const SPEC_ROWS = {
+  Equipment: [
+    { key: "problem", en: "What's wrong", es: "Qué pasa", req: true, opts: [T2("Not cooling", "No enfría"), T2("Ice build-up", "Acumulación de hielo"), T2("Door won't close", "Puerta no cierra"), T2("Door / gasket broken", "Puerta / empaque roto"), T2("Leaking water", "Gotea agua"), T2("Not turning on", "No enciende"), T2("Loud noise", "Ruido fuerte"), T2("Light out", "Luz apagada"), T2("Temp too high", "Temp. muy alta")] },
+    { key: "part", en: "Which part", es: "Qué parte", req: true, opts: [T2("Door", "Puerta"), T2("Gasket", "Empaque"), T2("Handle", "Manija"), T2("Hinge", "Bisagra"), T2("Shelf", "Repisa"), T2("Compressor", "Compresor"), T2("Fan", "Ventilador"), T2("Thermostat", "Termostato"), T2("Drain", "Desagüe"), T2("Cord / plug", "Cable / enchufe"), T2("Whole unit", "Todo el equipo")] },
+    { key: "where", en: "Where on the unit", es: "Dónde en el equipo", req: true, opts: [T2("Left", "Izquierda"), T2("Right", "Derecha"), T2("Top", "Arriba"), T2("Bottom", "Abajo"), T2("Back", "Atrás"), T2("Inside", "Adentro"), T2("Front", "Frente")] },
+  ],
+  Cleaning: [
+    { key: "what", en: "What", es: "Qué", req: true, opts: [T2("Floor", "Piso"), T2("Wall", "Pared"), T2("Ceiling", "Techo"), T2("Drain", "Desagüe"), T2("Hood", "Campana"), T2("Sink", "Fregadero"), T2("Table", "Mesa"), T2("Shelf", "Repisa"), T2("Trash area", "Área de basura"), T2("Equipment outside", "Equipo por fuera")] },
+    { key: "condition", en: "Condition", es: "Condición", req: true, opts: [T2("Dirty", "Sucio"), T2("Grease", "Grasa"), T2("Mold", "Moho"), T2("Standing water", "Agua estancada"), T2("Trash overflow", "Basura desbordada"), T2("Sticky", "Pegajoso"), T2("Food debris", "Restos de comida")] },
+    { key: "where", en: "Where", es: "Dónde", req: true, opts: [T2("Front line", "Línea de frente"), T2("Back of house", "Parte de atrás"), T2("Under equipment", "Debajo del equipo"), T2("Behind equipment", "Detrás del equipo"), T2("Walk-in", "Cuarto frío"), T2("Bar", "Bar"), T2("Prep area", "Área de prep"), T2("Hand sink", "Lavamanos")] },
+  ],
+  Maintenance: [
+    { key: "what", en: "What", es: "Qué", req: true, opts: [T2("Sink", "Fregadero"), T2("Faucet", "Llave"), T2("Drain", "Desagüe"), T2("Hand sink", "Lavamanos"), T2("Light", "Luz"), T2("Outlet", "Enchufe"), T2("Door", "Puerta"), T2("Floor tile", "Loseta"), T2("Ceiling tile", "Techo"), T2("Hood", "Campana"), T2("Water heater", "Calentador"), T2("Wall", "Pared")] },
+    { key: "problem", en: "What's wrong", es: "Qué pasa", req: true, opts: [T2("Broken", "Roto"), T2("Leaking", "Gotea"), T2("Clogged", "Tapado"), T2("Not working", "No funciona"), T2("Loose", "Suelto"), T2("Missing", "Falta"), T2("No hot water", "Sin agua caliente"), T2("Low pressure", "Poca presión")] },
+    { key: "where", en: "Where", es: "Dónde", req: true, opts: [T2("Front line", "Línea de frente"), T2("Back of house", "Parte de atrás"), T2("Left side", "Lado izquierdo"), T2("Right side", "Lado derecho"), T2("Prep area", "Área de prep"), T2("Walk-in", "Cuarto frío"), T2("Bar", "Bar"), T2("Storage", "Almacén")] },
+  ],
+  Ecolab: [
+    { key: "what", en: "What", es: "Qué", req: true, opts: [T2("Sanitizer", "Sanitizante"), T2("Detergent", "Detergente"), T2("Dispenser", "Dispensador"), T2("Test strips", "Tiras de prueba"), T2("Hand soap", "Jabón de manos"), T2("Sanitizer bucket", "Cubeta")] },
+    { key: "problem", en: "What's wrong", es: "Qué pasa", req: true, opts: [T2("Empty", "Vacío"), T2("Low pressure", "Poca presión"), T2("Wrong ppm", "PPM incorrecto"), T2("Missing", "Falta"), T2("Leaking", "Gotea"), T2("Not dispensing", "No dispensa")] },
+    { key: "where", en: "Which sink / station", es: "Qué fregadero / estación", req: true, opts: [T2("3-compartment sink", "Fregadero 3 compartimientos"), T2("Hand sink", "Lavamanos"), T2("Prep sink", "Fregadero de prep"), T2("Bar", "Bar"), T2("Dish area", "Área de platos"), T2("Front line", "Línea de frente")] },
+  ],
+  Pest: [
+    { key: "what", en: "What did you see", es: "Qué viste", req: true, opts: [T2("Roach", "Cucaracha"), T2("Fly", "Mosca"), T2("Rodent", "Roedor"), T2("Droppings", "Excremento"), T2("Ants", "Hormigas"), T2("Gnats", "Mosquitos")] },
+    { key: "howmany", en: "How many", es: "Cuántos", req: false, opts: [T2("One", "Uno"), T2("Several", "Varios"), T2("Many", "Muchos")] },
+    { key: "where", en: "Where", es: "Dónde", req: true, opts: [T2("Front line", "Línea de frente"), T2("Back of house", "Parte de atrás"), T2("Under equipment", "Debajo del equipo"), T2("Drain", "Desagüe"), T2("Trash area", "Área de basura"), T2("Storage", "Almacén"), T2("Walk-in", "Cuarto frío")] },
+  ],
+  Temperature: [
+    { key: "problem", en: "Why is it out of range", es: "Por qué está fuera de rango", req: true, opts: [T2("Ice build-up", "Acumulación de hielo"), T2("Door left open", "Puerta quedó abierta"), T2("Just restocked", "Recién cargado"), T2("Compressor not running", "Compresor no corre"), T2("Unit turned off", "Equipo apagado"), T2("Thermostat set wrong", "Termostato mal puesto"), T2("Food still cooling", "Comida aún enfriando"), T2("Reheated below temp", "Recalentado sin llegar")] },
+    { key: "where", en: "Which unit / where", es: "Qué equipo / dónde", req: true, opts: [T2("Front line", "Línea de frente"), T2("Back of house", "Parte de atrás"), T2("Walk-in", "Cuarto frío"), T2("Bar", "Bar"), T2("Prep cooler", "Prep cooler"), T2("Hot holding", "Mesa caliente")] },
+  ],
+  Other: [
+    { key: "what", en: "What", es: "Qué", req: true, opts: [T2("Equipment", "Equipo"), T2("Sink", "Fregadero"), T2("Floor", "Piso"), T2("Door", "Puerta"), T2("Light", "Luz"), T2("Supplies", "Insumos"), T2("Safety", "Seguridad")] },
+    { key: "where", en: "Where", es: "Dónde", req: true, opts: [T2("Front line", "Línea de frente"), T2("Back of house", "Parte de atrás"), T2("Left side", "Lado izquierdo"), T2("Right side", "Lado derecho"), T2("Walk-in", "Cuarto frío"), T2("Bar", "Bar"), T2("Storage", "Almacén")] },
+  ],
+};
+// Temperature failure reasons (portal + inspector form)
+const TEMP_FAIL_REASONS = SPEC_ROWS.Temperature[0].opts;
+function specCatKey(cat) {
+  const c = String(cat || "").toLowerCase();
+  if (/equip|cooler|freez/.test(c)) return "Equipment";
+  if (/clean/.test(c)) return "Cleaning";
+  if (/ecolab|chem/.test(c)) return "Ecolab";
+  if (/pest/.test(c)) return "Pest";
+  if (/temp/.test(c)) return "Temperature";
+  if (/plumb|sink|facil|light|maint|floor|ceiling|wall/.test(c)) return "Maintenance";
+  return "Other";
+}
+const SPEC_ROW_LABEL = { unit: T2("Unit", "Equipo"), problem: T2("Problem", "Problema"), part: T2("Part", "Parte"), where: T2("Where", "Dónde"), what: T2("What", "Qué"), condition: T2("Condition", "Condición"), howmany: T2("How many", "Cuántos") };
+function specToText(details, lang) {
+  const i = lang === "es" ? 1 : 0;
+  return Object.entries(details || {}).filter(([, v]) => v).map(([k, v]) => `${(SPEC_ROW_LABEL[k] || T2(k, k))[i]}: ${v}`).join(" · ");
+}
+const LOCATION_WORDS = /\b(left|right|front|back|under|behind|inside|top|bottom|line|house|walk[- ]?in|bar|sink|door|prep|storage|shelf|drain|hood|izq|der|frente|atr[aá]s|debajo|adentro|arriba|abajo|l[ií]nea|cuarto|fregadero|puerta)\b/i;
+// Specific enough = every required row answered, or a long free text with a location word
+function isSpecific(text, details, catKey, opts) {
+  const rows = SPEC_ROWS[catKey] || SPEC_ROWS.Other;
+  const d = details || {};
+  const missing = rows.filter(r => r.req && !d[r.key]).map(r => r.key);
+  if (opts?.needUnit && !d.unit) missing.unshift("unit");
+  if (!missing.length) return { ok: true, missing: [] };
+  const t = String(text || "").trim();
+  const words = t.split(/\s+/).filter(Boolean).length;
+  if (words >= 8 && LOCATION_WORDS.test(t)) return { ok: true, missing: [] };
+  return { ok: false, missing };
+}
+function SpecificsPicker({ cat, units, value, onChange, lang, missing, compact }) {
+  const key = specCatKey(cat);
+  const rows = SPEC_ROWS[key] || SPEC_ROWS.Other;
+  const i = lang === "es" ? 1 : 0;
+  const d = value || {};
+  const set = (k, v) => onChange({ ...d, [k]: d[k] === v ? "" : v });
+  const miss = new Set(missing || []);
+  const rowEl = (k, label, opts) => (
+    <div key={k} className={"specRow" + (miss.has(k) ? " specMissing" : "")}>
+      <div className="specLbl">{label}{rows.find(r => r.key === k)?.req !== false && k !== "howmany" ? " *" : ""}</div>
+      <div className="specChips">{opts.map(o => { const v = Array.isArray(o) ? o[i] : o; const en = Array.isArray(o) ? o[0] : o; return <button key={en} type="button" className={"specChip" + (d[k] === en || d[k] === v ? " on" : "")} onClick={() => set(k, en)}>{v}</button>; })}</div>
+    </div>
+  );
+  return (
+    <div className={"specPicker" + (compact ? " specCompact" : "")}>
+      <div className="specHead">🎯 {lang === "es" ? "Sé específico — toca lo que aplica" : "Be specific — tap what applies"}</div>
+      {key === "Equipment" && units && units.length > 0 && rowEl("unit", lang === "es" ? "Qué equipo" : "Which unit", units.map(u => `${u.name}${u.brand ? ` · ${u.brand}` : ""}${u.location ? ` · ${u.location}` : ""}`.toUpperCase()))}
+      {rows.map(r => rowEl(r.key, r[lang === "es" ? "es" : "en"], r.opts))}
+    </div>
+  );
+}
 // "[Category] text" for exports; plain text when the report has no category
 const haccpProblemText = (pr) => pr?.text ? (pr.category ? `[${pr.category}] ${pr.text}` : pr.text) : "";
 
@@ -9065,6 +9154,8 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
   const [qpDesc, setQpDesc] = useState("");
   const [qpFlash, setQpFlash] = useState("");
   const [qpPhotos, setQpPhotos] = useState([]);
+  const [qpDetails, setQpDetails] = useState({});
+  const [qpMissing, setQpMissing] = useState([]);
   const [qpPhotoBusy, setQpPhotoBusy] = useState(false);
   const qpIdRef = useRef(`${Date.now()}_qp${Math.floor(Math.random() * 1e4)}`);
   async function addQpPhotos(files) {
@@ -9105,8 +9196,10 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
 
   async function submitQuickProblem() {
     const site = qpSite.trim().toUpperCase();
-    const desc = qpDesc.trim();
     const cat = qpCat === "Other" ? (qpCatOther.trim() || "Other") : qpCat;
+    const sp = isSpecific(qpDesc, qpDetails, specCatKey(qpCat));
+    if (!sp.ok) { setQpMissing(sp.missing); return; }
+    const desc = [specToText(qpDetails, "en"), qpDesc.trim()].filter(Boolean).join(" — ");
     if (!site || !desc) return;
     const now = new Date();
     const photos = qpPhotos.map(p => ({ id: p.id, name: p.name, thumbUrl: p.thumbUrl, previewUrl: p.previewUrl, tag: "" }));
@@ -9298,8 +9391,10 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
                         style={{ flex: "1 1 130px", padding: "7px 10px", borderRadius: 9, border: "1.5px solid var(--sdx-gray-200)", fontSize: "16px" }} />
                     )}
                   </div>
+                  <SpecificsPicker cat={qpCat} units={equipUnitsAtStand(qpUnit, qpSite)} value={qpDetails} onChange={d => { setQpDetails(d); setQpMissing([]); }} lang="en" missing={qpMissing} compact />
+                  {qpMissing.length > 0 && <div className="haccpProblemErr">⚠️ Be specific — tap the missing chips (what, which part, where)</div>}
                   <textarea value={qpDesc} onChange={e => setQpDesc(e.target.value)} rows={2}
-                    placeholder="What's wrong? (e.g. sanitizer dispenser has no pressure)"
+                    placeholder="Anything else? (free text — the chips above already say what and where)"
                     style={{ padding: "7px 10px", borderRadius: 9, border: "1.5px solid var(--sdx-gray-200)", fontSize: "16px", resize: "vertical", fontFamily: "inherit" }} />
                   {/* Pictures of the problem */}
                   <div className="fuPhotoRow">
@@ -9319,7 +9414,7 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
                     </div>
                   )}
                   <div style={{ display: "flex", gap: 8 }}>
-                    <button type="button" disabled={!qpSite.trim() || !qpDesc.trim()} onClick={submitQuickProblem}
+                    <button type="button" disabled={!qpSite.trim() || (!qpDesc.trim() && !Object.values(qpDetails).some(Boolean))} onClick={submitQuickProblem}
                       style={{ background: "var(--sdx-navy)", color: "#fff", border: "none", borderRadius: 9, padding: "8px 18px", fontWeight: 800, fontSize: "0.84rem", cursor: "pointer", opacity: qpSite.trim() && qpDesc.trim() ? 1 : 0.5 }}>
                       File problem
                     </button>
@@ -22526,6 +22621,9 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
 
   const fileRefs = useRef({});
   const cameraRefs = useRef({});
+  const [specOpen, setSpecOpen] = useState(null); // path of the item whose "Be specific" chips are open
+  const specCatForSection = () => sectionKey === "equipment" ? "Equipment" : sectionKey === "operations" ? "Cleaning" : sectionKey === "utensils" ? "Other" : "Maintenance";
+  const appendSpec = (notes, d) => { const t = specToText(d, "en"); const base = String(notes || "").replace(/^(Unit|Problem|Part|Where|What|Condition|How many):[^\n]*?(\s—\s|$)/, "").trim(); return t ? (base ? `${t} — ${base}` : t) : base; };
   const [newItemName, setNewItemName] = useState("");
   const [scanPath, setScanPath] = useState(null); // item path being filled via QR scan
   const [scanInitTag, setScanInitTag] = useState(null); // tag to auto-lookup (history mode)
@@ -23268,9 +23366,14 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                         })}
                       </div>
                       {/* ── Notes / issue description ── */}
-                      <input className="input inputSmall" value={current.notes}
-                        onChange={(e) => setInspection((prev) => setAtPath(prev, it.path, { ...current, notes: e.target.value }))}
-                        placeholder="Describe the issue or leave a comment…" />
+                      <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                        <input className="input inputSmall" value={current.notes} style={{ flex: 1 }}
+                          onChange={(e) => setInspection((prev) => setAtPath(prev, it.path, { ...current, notes: e.target.value }))}
+                          placeholder={current.status && current.status !== "OK" ? "What exactly, which part, where? (required)" : "Describe the issue or leave a comment…"} />
+                        {current.status && current.status !== "OK" && <button type="button" className={"specToggle" + (specOpen === it.path ? " on" : "")} onClick={() => setSpecOpen(specOpen === it.path ? null : it.path)}>🎯</button>}
+                      </div>
+                      {current.status && current.status !== "OK" && !isSpecific(current.notes, {}, specCatForSection()).ok && <div className="specHint">⚠ Be specific: what, which part, where — tap 🎯</div>}
+                      {specOpen === it.path && <SpecificsPicker cat={specCatForSection()} units={equipUnitsAtStand(siteNumber, siteName)} value={{}} onChange={d => setInspection(prev => { const cur = getAtPath(prev, it.path) || {}; return setAtPath(prev, it.path, { ...cur, notes: appendSpec(cur.notes, { ...(cur.specDetails || {}), ...d }), specDetails: { ...(cur.specDetails || {}), ...d } }); })} lang="en" compact />}
                       <div className="photoRow">
                         <input ref={(el) => (fileRefs.current[key] = el)} className="fileInput" type="file" accept="image/*" multiple
                           onChange={(e) => { addPhotos(key, e.target.files, (current.photos || []).length); e.target.value = ""; }} />
@@ -23570,9 +23673,14 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                           {!["OK", "Needs Attention", "Critical Violation", "Corrected On-Site"].includes(cur.status) && <span className="maintChip on">{cur.status}</span>}
                         </div>
                         {cur.status !== "OK" && (<>
-                        <input className="input inputSmall" value={cur.notes}
-                          onChange={e => setInspection(prev => setAtPath(prev, it.path, { ...cur, notes: e.target.value }))}
-                          placeholder="What did you find? Where?" />
+                        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                          <input className="input inputSmall" value={cur.notes} style={{ flex: 1 }}
+                            onChange={e => setInspection(prev => setAtPath(prev, it.path, { ...cur, notes: e.target.value }))}
+                            placeholder="What exactly, what's wrong, where? (required)" />
+                          <button type="button" className={"specToggle" + (specOpen === it.path ? " on" : "")} onClick={() => setSpecOpen(specOpen === it.path ? null : it.path)}>🎯</button>
+                        </div>
+                        {!isSpecific(cur.notes, {}, "Maintenance").ok && <div className="specHint">⚠ Be specific: what, what's wrong, where — tap 🎯</div>}
+                        {specOpen === it.path && <SpecificsPicker cat="Maintenance" value={{}} onChange={d => setInspection(prev => { const c = getAtPath(prev, it.path) || {}; return setAtPath(prev, it.path, { ...c, notes: appendSpec(c.notes, { ...(c.specDetails || {}), ...d }), specDetails: { ...(c.specDetails || {}), ...d } }); })} lang="en" compact />}
                         <div className="photoRow">
                           <input ref={el => (fileRefs.current[pathKey] = el)} className="fileInput" type="file" accept="image/*" multiple
                             onChange={e => { addPhotos(pathKey, e.target.files, (cur.photos || []).length); e.target.value = ""; }} />
@@ -25228,6 +25336,8 @@ function HaccpPortal() {
   // "Report a problem only" — skips the temperature log entirely
   const [problemOnly, setProblemOnly] = useState(false);
   const [problemError, setProblemError] = useState("");
+  const [problemDetails, setProblemDetails] = useState({}); // v415: which unit / part / where
+  const [problemMissing, setProblemMissing] = useState([]);
   const problemPhotoRef = useRef(null);
   const [submitting, setSubmitting] = useState(false);
   const [photoError, setPhotoError] = useState("");
@@ -25420,8 +25530,14 @@ function HaccpPortal() {
   async function handleSubmit() {
     // A problem needs a category so the inspector's follow-ups can route it
     // (cleaning crew vs maintenance vs Ecolab); problem-only mode needs the text too.
-    if (problemOnly && !problem.trim()) { setProblemError("Describe the problem · Describe el problema"); return; }
-    if (problem.trim() && !problemCat) { setProblemError("Pick a category · Elige una categoría"); return; }
+    const hasProblem = problemOnly || problem.trim() || Object.values(problemDetails).some(Boolean);
+    if (problemOnly && !problem.trim() && !Object.values(problemDetails).some(Boolean)) { setProblemError("Describe the problem · Describe el problema"); return; }
+    if (hasProblem && !problemCat) { setProblemError("Pick a category · Elige una categoría"); return; }
+    if (hasProblem) {
+      const sp = isSpecific(problem, problemDetails, specCatKey(problemCat), { needUnit: specCatKey(problemCat) === "Equipment" && customItems.some(i => i.tag) });
+      if (!sp.ok) { setProblemMissing(sp.missing); setProblemError(L("Be specific: tap the missing chips (what, which part, where)", "Sé específico: toca lo que falta (qué, qué parte, dónde)")); return; }
+    }
+    setProblemMissing([]);
     setProblemError("");
     setSubmitting(true);
     // Build flat temps map for storage (collect all readings per item)
@@ -25458,7 +25574,7 @@ function HaccpPortal() {
       itemLabels,
       customItems,
       problemOnly,
-      problemReport: problem.trim() ? { text: problem.trim(), category: problemCat, severity, photos: problemPhotos.map(p => ({ id: p.id, name: p.name, sizeMb: p.sizeMb, type: p.type, tag: p.tag || "", previewUrl: (p.previewUrl && !p.previewUrl.startsWith("data:")) ? p.previewUrl : "" })) } : null,
+      problemReport: (problem.trim() || Object.values(problemDetails).some(Boolean)) ? { text: [specToText(problemDetails, "en"), problem.trim()].filter(Boolean).join(" — "), details: problemDetails, category: problemCat, severity, photos: problemPhotos.map(p => ({ id: p.id, name: p.name, sizeMb: p.sizeMb, type: p.type, tag: p.tag || "", previewUrl: (p.previewUrl && !p.previewUrl.startsWith("data:")) ? p.previewUrl : "" })) } : null,
       submittedAt: new Date().toISOString(),
     };
     await saveHaccpSubmission(record);
@@ -25871,7 +25987,8 @@ function HaccpPortal() {
                         const correction = (tempCorrections[item.key] || [""])[idx] ?? "";
                         const readingTime = (tempTimes[item.key] || [""])[idx] ?? "";
                         const canSubmit = rawDigits.length >= 1 && foodName.trim().length > 0 && readingTime.trim().length > 0;
-                        const needsCorrection = pass === false && !correction.trim();
+                        const hasReason = /^Reason:|^Motivo:/i.test(correction.trim());
+                        const needsCorrection = pass === false && (!hasReason || !correction.replace(/^(Reason|Motivo):[^—]*—?/i, "").trim());
                         return (
                           <div key={idx} style={{ marginBottom: 6 }}>
                             {idx === 0 && item.how && (
@@ -25967,8 +26084,9 @@ function HaccpPortal() {
                             {isSubmitted && pass === false && (
                               <div style={{ background: "var(--tint-red-1)", border: `1px solid ${needsCorrection ? "#dc2626" : "#fca5a5"}`, borderRadius: 8, padding: "8px 10px", marginTop: 4 }}>
                                 <label style={{ display: "block", fontSize: "0.72rem", fontWeight: 700, color: "#dc2626", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                                  {L("🔧 CORRECTIVE ACTION TAKEN *", "🔧 ACCIÓN CORRECTIVA *")}
+                                  {L("🔧 WHY? + CORRECTIVE ACTION *", "🔧 ¿POR QUÉ? + ACCIÓN CORRECTIVA *")}
                                 </label>
+                                <div className="specChips" style={{ marginBottom: 6 }}>{TEMP_FAIL_REASONS.map(o => { const lbl = pl === "es" ? o[1] : o[0]; const on = correction.startsWith(`${pl === "es" ? "Motivo" : "Reason"}: ${lbl}`); return <button key={o[0]} type="button" className={"specChip" + (on ? " on" : "")} onClick={() => setTempCorrections(p => { const arr = [...(p[item.key] || [""])]; const rest = String(arr[idx] || "").replace(/^(Reason|Motivo):[^—]*—?\s*/i, ""); arr[idx] = `${pl === "es" ? "Motivo" : "Reason"}: ${lbl} — ${rest}`; return { ...p, [item.key]: arr }; })}>{lbl}</button>; })}</div>
                                 <textarea
                                   rows={2}
                                   placeholder={L("What was done to correct this? (e.g. Discarded food, adjusted equipment…)", "¿Qué se hizo para corregirlo? (ej. se desechó la comida, se ajustó el equipo…)")}
@@ -25982,7 +26100,7 @@ function HaccpPortal() {
                                 />
                                 {needsCorrection && (
                                   <div style={{ fontSize: "0.72rem", color: "#dc2626", marginTop: 3, fontWeight: 600 }}>
-                                    {L("Required — enter corrective action for out-of-range temperatures", "Obligatorio — escribe la acción correctiva para temperaturas fuera de rango")}
+                                    {L("Required — tap why it's out of range, then what you did", "Obligatorio — toca por qué está fuera de rango y qué hiciste")}
                                   </div>
                                 )}
                               </div>
@@ -26059,7 +26177,8 @@ function HaccpPortal() {
                                 const correction = (tempCorrections[item.key] || [""])[idx] ?? "";
                                 const readingTime = (tempTimes[item.key] || [""])[idx] ?? "";
                                 const canSubmit = rawDigits.length >= 1 && foodName.trim().length > 0 && readingTime.trim().length > 0;
-                                const needsCorrection = pass === false && !correction.trim();
+                                const hasReason = /^Reason:|^Motivo:/i.test(correction.trim());
+                        const needsCorrection = pass === false && (!hasReason || !correction.replace(/^(Reason|Motivo):[^—]*—?/i, "").trim());
                                 return (
                                   <div key={idx} style={{ marginBottom: 6 }}>
                                     {idx === 0 && item.how && (
@@ -26122,6 +26241,7 @@ function HaccpPortal() {
                                     {isSubmitted && pass === false && (
                                       <div style={{ background: "rgba(127,29,29,0.25)", border: `1px solid ${needsCorrection ? "#dc2626" : "#fca5a5"}`, borderRadius: 8, padding: "8px 10px", marginTop: 4 }}>
                                         <label style={{ display: "block", fontSize: "0.72rem", fontWeight: 700, color: "#fca5a5", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>{L("🔧 CORRECTIVE ACTION TAKEN *", "🔧 ACCIÓN CORRECTIVA *")}</label>
+                                        <div className="specChips" style={{ marginBottom: 6 }}>{TEMP_FAIL_REASONS.map(o => { const lbl = pl === "es" ? o[1] : o[0]; const on = correction.startsWith(`${pl === "es" ? "Motivo" : "Reason"}: ${lbl}`); return <button key={o[0]} type="button" className={"specChip" + (on ? " on" : "")} onClick={() => setTempCorrections(p => { const arr = [...(p[item.key] || [""])]; const rest = String(arr[idx] || "").replace(/^(Reason|Motivo):[^—]*—?\s*/i, ""); arr[idx] = `${pl === "es" ? "Motivo" : "Reason"}: ${lbl} — ${rest}`; return { ...p, [item.key]: arr }; })}>{lbl}</button>; })}</div>
                                         <textarea rows={2} placeholder={L("What was done? (e.g. Discarded food, reheated to 165°F…)", "¿Qué se hizo? (ej. se desechó, se recalentó a 165°F…)")} value={correction}
                                           onChange={e => setTempCorrections(p => { const arr=[...(p[item.key]||[""])]; arr[idx]=e.target.value; return {...p,[item.key]:arr}; })}
                                           style={{ width: "100%", fontSize: "0.82rem", resize: "vertical", border: `1px solid ${needsCorrection ? "#dc2626" : "#fca5a5"}`, borderRadius: 6, padding: "6px 8px", outline: "none", background: "#1e293b", color: "#e2e8f0" }} />
@@ -26171,6 +26291,7 @@ function HaccpPortal() {
                     </button>
                   ))}
                 </div>
+                {problemCat && <SpecificsPicker cat={problemCat} units={customItems.filter(i => i.tag).map(i => ({ name: i.label, location: i.hint }))} value={problemDetails} onChange={d => { setProblemDetails(d); setProblemMissing([]); if (problemError) setProblemError(""); }} lang={pl} missing={problemMissing} />}
                 <textarea className="haccpProblemTextarea"
                   value={problem} onChange={e => { setProblem(e.target.value); if (problemError) setProblemError(""); }}
                   placeholder={problemOnly ? L("What is wrong and where?", "¿Qué está mal y dónde?") : L("Describe any issue, equipment problem, or safety concern...", "Describe cualquier problema, falla de equipo o riesgo...")} />
@@ -26282,6 +26403,7 @@ function HaccpPortal() {
               setSessionId(null);
               setProblem("");
               setProblemCat("");
+              setProblemDetails({}); setProblemMissing([]);
               setProblemOnly(false);
               setProblemError("");
               setProblemPhotos([]);
