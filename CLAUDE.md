@@ -49,6 +49,7 @@ Read this first. It is the memory between sessions.
 
 ## Training assets
 - `docs/training/`: crew training deck (pptx) + EN/ES script. Video (3:44, silent, captions) built by scratchpad `train/record.mjs` (stage.html + phone iframe, Playwright recordVideo, ffmpeg-static → mp4); not in the repo. Crew roles are maintenance / cleaning / ecolab only — Pest Control is an issue type moved with "Not mine → move". The app's DevTools guard fires in small iframes: spoof `hasTouch` + `maxTouchPoints` in harnesses. Portal quick reports don't reach the crew board in local mode (Firestore only).
+- Narrated build (v3): Higgsfield MCP (`higgfield`) — 16 narration clips `seed_audio` voice Holden `3c9d6053-6334-592c-8997-4e325286af3f`, 5 `seedance_2_5` clips (intro/outro/3 ambient). Egress here blocks `*.cloudfront.net` (result downloads) but allows PUT to the S3 presigned `media_upload` URLs; so the recording (`train/record.mjs`, chroma-green cards, `out/timeline.json`) is uploaded and the mix (colorkey + overlays + adelay/amix) runs in `sandbox_exec` (`train/gen_mix.py` builds the command), result confirmed as media `4bbef9a3-9ca2-4022-99ac-2e4884772901`, delivered as a Higgsfield link. Sandbox stdout truncates ~20 KB: check frames as tiny base64 JPEGs.
 
 ## Open items
 - Compact `equipmentRegistry` (size risk). Audit workbook was delivered 2026-09-14 (29 orphan units, 28 duplicate copies, 41 units missing brand/location, 43 stands without equipment, 22 stands without license, verify walk 0/116).
