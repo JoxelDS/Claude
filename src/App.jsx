@@ -291,16 +291,39 @@ try { _equipHiddenCache = JSON.parse(localStorage.getItem(`sdx_equip_hidden_${VE
 // the single rule used by the posters page, the Stands page and the portal.
 let _standListCache = []; // filled by loadStandList()
 const standsAtUnit = unit => normUnit(unit) ? _standListCache.filter(k => normUnit(k.unit) === normUnit(unit)) : [];
+// Looser name match for equipment → stand only (never for stand identity):
+// "KOSHER BURGER ANDS DOGS" ≈ "KOSHER BURGER & DOGS / SUB", "AREPA CART" ≈ "AREPA CART / SUB"
+const looseTokens = s => new Set(String(s || "").toLowerCase().replace(/&/g, " and ").replace(/\/\s*sub\b|\(sub\)|\bsub\b/g, " ").replace(/[^a-z0-9]+/g, " ").split(" ").filter(Boolean).map(t => t.replace(/s$/, "")).filter(t => t !== "the" && t !== "cart" && t !== "and"));
+function looseStandName(a, b) {
+  const A = looseTokens(a), B = looseTokens(b);
+  if (!A.size || !B.size) return false;
+  let inter = 0; for (const t of A) if (B.has(t)) inter++;
+  const sub = inter === A.size || inter === B.size;
+  return sub || inter / (A.size + B.size - inter) >= 0.6;
+}
+// A unit with no unit number: the stand whose name it loosely matches (must be unambiguous)
+function standForUnitless(venueName) {
+  const n = (venueName || "").trim(); if (!n) return null;
+  const exact = _standListCache.filter(k => sameStandName(k.site, n));
+  if (exact.length === 1) return exact[0];
+  const loose = _standListCache.filter(k => looseStandName(k.site, n));
+  if (loose.length === 1) return loose[0];
+  if (loose.length > 1) { const eq = t => [...looseTokens(t)].sort().join(" "); const same = loose.filter(k => eq(k.site) === eq(n)); if (same.length === 1) return same[0]; }
+  return exact[0] || null;
+}
 function equipBelongsTo(it, stand, siblings) {
   if (!it || !stand) return false;
   if (it.standId) return it.standId === stand.id;
   const u = normUnit(stand.unit);
-  if (!u) return !normUnit(it.unit) && sameStandName(it.venueName, stand.site) && !!(it.venueName || "").trim();
+  if (!normUnit(it.unit)) { const s = standForUnitless(it.venueName); return s ? s.id === stand.id : (!u && sameStandName(it.venueName, stand.site) && !!(it.venueName || "").trim()); }
+  if (!u) return false;
   if (normUnit(it.unit) !== u) return false;
   const sib = siblings || standsAtUnit(stand.unit);
   if (sib.length <= 1) return true;
   const named = (it.venueName || "").trim() ? sib.filter(k => sameStandName(it.venueName, k.site)) : [];
   if (named.length) return named.some(k => k.id === stand.id);
+  const loose = (it.venueName || "").trim() ? sib.filter(k => looseStandName(it.venueName, k.site)) : [];
+  if (loose.length) return loose.some(k => k.id === stand.id);
   const typed = it.locType ? sib.filter(k => k.locType === it.locType) : [];
   if (typed.length) return typed.some(k => k.id === stand.id);
   const base = sib.find(k => !String(k.id).includes("~")) || sib[0];
@@ -18579,6 +18602,13 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
     setWalkFlash(`✅ ${site}${unit ? ` #${unit}` : ""} updated${unitChanged ? ` · ${its.length} unit${its.length !== 1 ? "s" : ""} moved to #${unit}` : ""}${license ? ` · 🪪 ${license}` : ""}.`); setTimeout(() => setWalkFlash(""), 4500);
   }
   // Wrong unit on a stand? The license registry knows the stand by name → offer the fix
+  const registryTypeHint = (sf, site) => {
+    const cur = sf.locType || storedStand(sf)?.locType || "";
+    const r = licenseRows().find(x => normUnit(x.unit) === normUnit(sf.unit) && normUnit(x.unit) && sameStandName(x.name, site) && (x.name || "").trim());
+    if (!r) return null;
+    const want = standTypeFromRow(r);
+    return want && want !== cur ? { row: r, want } : null;
+  };
   const registryUnitHint = (sf, site) => {
     if (!site) return null;
     const all = licenseRows().filter(r => (r.name || "").trim() && normUnit(r.unit));
@@ -18660,8 +18690,11 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
     const sib = standsAtUnit(unit);
     if (sib.length > 1) { const probe = it ? it : { unit, venueName }; const st = sib.find(k => equipBelongsTo(probe, k, sib)) || standFor(unit, venueName); return st.id; }
     if (sib.length === 1) return sib[0].id;
+    if (!normUnit(unit)) { const st = standForUnitless(venueName); if (st) return st.id; }
     return normUnit(unit) ? `u:${normUnit(unit)}` : `s:${(venueName || "").trim().toLowerCase()}`;
   };
+  // Units that resolve to no registry stand (no unit #, or unknown unit) — shown in "Unassigned"
+  const isUnassigned = it => { const k = standKeyOf(it.unit, it.venueName, it); return !standList.some(st => st.id === k); };
   const tagOf = it => String(it?.assetTag || "").toUpperCase();
   const unitConfirmed = it => !!regConfirmed[tagOf(it)];
   const persistVerified = next => { try { localStorage.setItem(EQUIP_VERIFIED_LS, JSON.stringify(next)); } catch {} };
@@ -19465,6 +19498,11 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
                         <button type="button" className="walkMini" style={{ marginLeft: 8 }} onClick={() => { if (window.confirm(`Change ${site} from #${sf.unit || "—"} to #${h.unit}?\n\nAll its coolers / freezers move with it.`)) saveStandEdit(sf, { site, unit: h.unit, license: h.status === "ACTIVE" ? (h.license || "") : "", locType: sf.locType || storedStand(sf)?.locType || (h.type === "P" ? "Portable - Stadium" : h.type === "S" ? "Subcontractor" : "Concession") }); }}>Set unit to #{h.unit}</button>
                       </div>
                     ) : null; })()}
+                    {(() => { const h = registryTypeHint(sf, site); return h ? (
+                      <div className="standUnitHint">🪪 The license registry lists <b>{String(h.row.name).toUpperCase()}</b> as <b>{standTypeBadge(h.want).short}</b>{h.row.license ? ` (${h.row.license})` : ""}.
+                        <button type="button" className="walkMini" style={{ marginLeft: 8 }} onClick={() => saveStandEdit(sf, { site, unit: sf.unit || "", license: (storedStand(sf)?.license || lic?.license || ""), locType: h.want })}>Use registry type</button>
+                      </div>
+                    ) : null; })()}
                   </>); })()}
                 </div>
                 <button type="button" className="walkMini" onClick={() => { setStandFocus(null); onClearFocus && onClearFocus(); }}>✕ All stands</button>
@@ -19625,8 +19663,9 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
                 .filter(it => !noLicPick || !licenseAt(it.unit, it.venueName, it.locType));
               const byKey = {};
               for (const it of visible) {
+                if (isUnassigned(it)) continue;
                 const key = standKeyOf(it.unit, it.venueName, it);
-                if (!byKey[key]) byKey[key] = { key, unit: (it.unit || "").trim(), site: standById(key)?.site || "", items: [] };
+                if (!byKey[key]) byKey[key] = { key, unit: standById(key)?.unit || (it.unit || "").trim(), site: standById(key)?.site || "", items: [] };
                 const g = byKey[key];
                 g.items.push(it);
                 // Latest non-empty name/floor wins for the header
@@ -19720,8 +19759,9 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
                 // Every stand we know: label groups + stands whose reports had no cold unit
                 const byK = {};
                 for (const it of equipItems) {
+                  if (isUnassigned(it)) continue;
                   const key = standKeyOf(it.unit, it.venueName, it);
-                  if (!byK[key]) { const st = standById(key); byK[key] = { key, unit: (it.unit || "").trim(), site: st?.site || it.venueName || "", floor: floorForStand(it.unit, it.venueName, it.floor), locType: st?.locType || it.locType || "", items: [] }; }
+                  if (!byK[key]) { const st = standById(key); byK[key] = { key, unit: st?.unit || (it.unit || "").trim(), site: st?.site || it.venueName || "", floor: floorForStand(it.unit, it.venueName, it.floor), locType: st?.locType || it.locType || "", items: [] }; }
                   byK[key].items.push(it);
                   if (!byK[key].site && it.venueName) byK[key].site = it.venueName;
                 }
@@ -19817,6 +19857,21 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
                       ))}
                     </div>
                   )}
+                  {(() => { const orphans = equipItems.filter(isUnassigned); if (!orphans.length) return null; const groups = {}; for (const it of orphans) { const k = (it.venueName || "—").toUpperCase(); (groups[k] = groups[k] || []).push(it); } return (
+                    <div className="unassignedWrap">
+                      <div className="lblFloorHead"><span>🧩 Unassigned equipment</span><span className="lblFloorCount">{orphans.length} unit{orphans.length !== 1 ? "s" : ""} not on any stand — saved without a unit # or with a name the registry doesn't know</span></div>
+                      {Object.entries(groups).map(([name, its]) => (
+                        <div key={name} className="walkStand unassignedStand">
+                          <div className="walkStandHead">
+                            <span>❓ {name}{its[0].unit ? ` · #${its[0].unit}` : ""}</span>
+                            <span style={{ fontWeight: 500, color: "var(--ink-500)", fontSize: "0.76rem" }}>{its.length} unit{its.length !== 1 ? "s" : ""}</span>
+                            <button type="button" className="walkMini" style={{ background: "var(--sdx-navy)", color: "#fff", borderColor: "var(--sdx-navy)" }} onClick={() => setMovePick({ it: its[0], all: its, q: name.replace(/[^A-Z0-9 ]/g, " ").split(" ")[0] || "" })}>→ Assign all {its.length} to a stand…</button>
+                          </div>
+                          {its.map(renderWalkRow)}
+                        </div>
+                      ))}
+                    </div>
+                  ); })()}
                   {verifyMode && renderVerify()}
                   {walkMode && renderWalk()}
                   {!walkMode && !verifyMode && floors.map(f => (
@@ -19914,14 +19969,14 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
         <div style={{ position: "fixed", inset: 0, zIndex: 10000, background: "rgba(0,0,0,.6)", backdropFilter: "blur(3px)", overflowY: "auto", padding: "4vh 12px" }} onClick={() => setMovePick(null)}>
           <div className="card walkFill" style={{ maxWidth: 470, margin: "0 auto" }} onClick={e => e.stopPropagation()}>
             <div className="cardHeader" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-              <div className="cardTitle">↔ Move {cleanName(movePick.it.label) || "unit"}<div style={{ fontSize: "0.74rem", fontWeight: 600, color: "var(--ink-500)" }}>{movePick.it.assetTag} · now at {(movePick.it.venueName || "—").toUpperCase()}{movePick.it.unit ? ` #${movePick.it.unit}` : ""}</div></div>
+              <div className="cardTitle">↔ Move {movePick.all ? `${movePick.all.length} units` : (cleanName(movePick.it.label) || "unit")}<div style={{ fontSize: "0.74rem", fontWeight: 600, color: "var(--ink-500)" }}>{movePick.it.assetTag} · now at {(movePick.it.venueName || "—").toUpperCase()}{movePick.it.unit ? ` #${movePick.it.unit}` : ""}</div></div>
               <button type="button" onClick={() => setMovePick(null)} style={{ background: "none", border: "none", fontSize: "1.2rem", cursor: "pointer", color: "var(--ink-400)", lineHeight: 1, padding: 4 }}>✕</button>
             </div>
             <div className="walkFillBody">
               <input className="input" autoFocus value={movePick.q} onChange={e => setMovePick(m => ({ ...m, q: e.target.value }))} placeholder="🔎 stand name or unit #" />
               <div className="annStandList">
                 {standList.filter(k => { const q = movePick.q.trim().toLowerCase(); return !q || `${k.site} ${k.unit}`.toLowerCase().includes(q); }).slice(0, 40).map(k => (
-                  <button key={k.id} type="button" className="annStand" onClick={() => moveUnitToStand(movePick.it, k)}>{String(k.site || "").toUpperCase()}{k.unit ? ` · #${k.unit}` : ""} <StandType lt={k.locType} /></button>
+                  <button key={k.id} type="button" className="annStand" onClick={() => { const list = movePick.all || [movePick.it]; list.forEach(it => moveUnitToStand(it, k)); setMovePick(null); }}>{String(k.site || "").toUpperCase()}{k.unit ? ` · #${k.unit}` : ""} <StandType lt={k.locType} /></button>
                 ))}
               </div>
             </div>
@@ -20125,7 +20180,8 @@ function standTypeFromRow(r) {
 }
 function standSeeds() {
   if (VENUE_ID !== "default") return [];
-  const rows = licenseRows();
+  const order = { C: 0, K: 1, S: 2, P: 3 };
+  const rows = [...licenseRows()].sort((a, b) => (order[a.type] ?? 9) - (order[b.type] ?? 9)); // concession gets the plain unit id
   return rows.map(r => {
     const site = cleanStandName(r.name, r.unit).toUpperCase() || `STAND ${r.unit}`;
     const unitRaw = String(r.unit || "").trim();
@@ -23272,7 +23328,8 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                     let n = 1; while (used.has(pre + n)) n++;
                     assetTag = pre + n;
                     const floor = floorForStand(siteNumber, siteName, siteFloor);
-                    const rec = { assetTag, label: label.trim() + (cold.type === "freezer" ? " 🧊 Freezer" : " ❄ Cooler"), venueName: (siteName || "").trim().toUpperCase(), unit: (siteNumber || "").trim(), floor, locType: siteLocType || "", location: "", brandName: "", createdAt: Date.now() };
+                    const known = !normUnit(siteNumber) ? standForUnitless(siteName) : null;
+                    const rec = { assetTag, label: label.trim() + (cold.type === "freezer" ? " 🧊 Freezer" : " ❄ Cooler"), venueName: (siteName || "").trim().toUpperCase(), unit: (siteNumber || "").trim() || (known?.unit || ""), floor: floor || known?.floor || "", locType: siteLocType || known?.locType || "", standId: known?.id || "", location: "", brandName: "", createdAt: Date.now() };
                     _equipRegCache = { ...(_equipRegCache || {}), [assetTag]: rec };
                     try { localStorage.setItem(EQUIP_REG_LS, JSON.stringify(_equipRegCache)); } catch {}
                     if (FIREBASE_ON) setDoc(doc(db, "venues", VENUE_ID, "sharedMemory", "equipmentRegistry"), { items: { [assetTag]: rec }, labelIndex: { [assetTag]: { name: rec.label, brand: "", location: "", venueName: rec.venueName, unit: rec.unit, floor, locType: rec.locType, ts: Date.now() } } }, { merge: true }).catch(() => {});
