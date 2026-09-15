@@ -8339,3 +8339,35 @@ html[data-theme="dark"] .fuStOnWaiting, html[data-theme="black"] .fuStOnWaiting 
 .crewHowRow { display: flex; gap: 6px; flex-wrap: wrap; margin: 2px 0 8px; }
 .crewHowBtn { flex: 1 1 auto; background: var(--surface-1); border: 1.5px solid var(--sdx-gray-200); border-radius: 999px; padding: 8px 12px; font-weight: 700; font-size: 0.82rem; color: var(--ink-700); cursor: pointer; }
 .crewHowBtn.on { background: var(--sdx-navy); border-color: var(--sdx-navy); color: #fff; }
+
+/* Remind basket — tapped items go out as one Quick Check (v436) */
+.fuBtnRemind.on {
+  background: #166534;
+  border-color: #166534;
+  color: #fff;
+  box-shadow: inset 0 0 0 2px rgba(255,255,255,.35);
+}
+.fuRemindBar {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  margin: 8px 0 2px; padding: 9px 12px;
+  border: 1.5px solid var(--sdx-navy); border-radius: 12px;
+  background: var(--surface-2);
+}
+.fuRemindInfo { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 200px; }
+.fuRemindInfo b { font-size: 0.82rem; color: var(--sdx-navy); }
+.fuRemindInfo span {
+  font-size: 0.68rem; color: var(--ink-500);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.fuRemindSend {
+  background: var(--sdx-navy); color: #fff; border: none; border-radius: 10px;
+  padding: 8px 16px; font-weight: 800; font-size: 0.82rem; cursor: pointer;
+}
+.fuRemindClear {
+  background: none; border: none; color: var(--ink-500);
+  font-weight: 700; font-size: 0.78rem; cursor: pointer;
+}
+@media (max-width: 640px) {
+  .fuRemindBar { align-items: stretch; }
+  .fuRemindSend { flex: 1 1 100%; }
+}

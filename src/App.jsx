@@ -9156,22 +9156,33 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
     } catch {}
   }
 
-  function remindTeam(f) {
+  // One reminder for however many items were tapped — a single Quick Check
+  // announcement instead of one card per problem (v436).
+  function remindMany(items, flashKey) {
     try {
-      const list = JSON.parse(localStorage.getItem("sdx_announcements") || "[]");
+      const list0 = (Array.isArray(items) ? items : [items]).filter(Boolean);
+      if (list0.length === 0) return;
+      const list = list0.slice().sort((a, b) =>
+        (a.loc || "").localeCompare(b.loc || "") || (a.cat || "").localeCompare(b.cat || ""));
+      const one = list.length === 1 ? list[0] : null;
+      const line = f => `• ${f.loc}${f.unit ? ` (Unit #${f.unit})` : ""} — ${f.cat}, flagged ${f.daysSince} day${f.daysSince !== 1 ? "s" : ""} ago (${f.dateStr})`;
       const a = {
         id: Date.now(),
-        title: `🔁 Recheck Needed — ${f.cat}`,
-        body: `${f.cat} at ${f.loc}${f.unit ? ` (Unit #${f.unit})` : ""} was flagged ${f.daysSince} day${f.daysSince !== 1 ? "s" : ""} ago (${f.dateStr}) and is still open. Please recheck this item on your next walkthrough and mark it resolved in the report.`,
+        title: one ? `🔁 Recheck Needed — ${one.cat}` : `🔁 Rechecks Needed — ${list.length} items`,
+        body: (one
+          ? `${one.cat} at ${one.loc}${one.unit ? ` (Unit #${one.unit})` : ""} was flagged ${one.daysSince} day${one.daysSince !== 1 ? "s" : ""} ago (${one.dateStr}) and is still open.`
+          : `${list.length} items are still open:\n` + list.map(line).join("\n")) +
+          `\nPlease recheck ${one ? "this item" : "these"} on your next walkthrough and mark ${one ? "it" : "them"} resolved in the report.`,
         author: "Insights Auto-Reminder",
         ts: Date.now(),
         quickCheck: true,
-        checkItems: [`${f.cat} — ${f.loc}`],
+        checkItems: list.map(f => `${f.cat} — ${f.loc}`),
         results: [],
       };
-      localStorage.setItem("sdx_announcements", JSON.stringify([a, ...list]));
-      notifyAssignedUsers(f, a.title, a.body);
-      setRemindedKey(f.key);
+      const prevAnn = JSON.parse(localStorage.getItem("sdx_announcements") || "[]");
+      localStorage.setItem("sdx_announcements", JSON.stringify([a, ...prevAnn]));
+      notifyAssignedUsers(list, a.title, a.body);
+      setRemindedKey(flashKey || (one ? one.key : "many"));
       setTimeout(() => setRemindedKey(null), 2200);
     } catch {}
   }
@@ -9228,6 +9239,13 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
   const [fuSelectMode, setFuSelectMode] = useState(false);
   const [fuSelected, setFuSelected] = useState({}); // { [f.key]: true }
   const fuSelCount = Object.values(fuSelected).filter(Boolean).length;
+  // Remind basket — taps collect items, one announcement covers them all (v436)
+  const [remindPick, setRemindPick] = useState({}); // { [f.key]: true }
+  const toggleRemind = f => setRemindPick(prev => {
+    const n = { ...prev };
+    if (n[f.key]) delete n[f.key]; else n[f.key] = true;
+    return n;
+  });
 
   async function exportSelectedFollowups(items) {
     if (!items.length) return;
@@ -9434,6 +9452,7 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
   const startOfToday = new Date(); startOfToday.setHours(0, 0, 0, 0);
   const fixedTodayN = fixedList.filter(f => f.fixedTs >= startOfToday.getTime()).length;
   const fuVisible = (analysis.followups || []).filter(fuMatches);
+  const remindList = (analysis.followups || []).filter(f => remindPick[f.key]);
   const fuGroupsShown = fuFilterGroups(analysis.followupGroups || []);
   const fuCatGroupsShown = fuFilterGroups(analysis.followupCatGroups || []);
 
@@ -9513,6 +9532,19 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
                   style={{ position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)", background: "var(--surface-2)", border: "none", borderRadius: 999, width: 24, height: 24, cursor: "pointer", fontWeight: 800, color: "var(--ink-500)", lineHeight: 1 }}>×</button>
               )}
             </div>
+            {remindList.length > 0 && (
+              <div className="fuRemindBar">
+                <div className="fuRemindInfo">
+                  <b>🔔 {remindList.length} item{remindList.length !== 1 ? "s" : ""} picked</b>
+                  <span>{remindList.map(f => `${f.loc}${f.unit ? ` #${f.unit}` : ""} — ${f.cat}`).join(" · ")}</span>
+                </div>
+                <button type="button" className="fuRemindSend"
+                  onClick={() => { remindMany(remindList, "many"); setRemindPick({}); }}>
+                  {remindedKey === "many" ? "✓ Posted" : `Send one reminder (${remindList.length})`}
+                </button>
+                <button type="button" className="fuRemindClear" onClick={() => setRemindPick({})}>Clear</button>
+              </div>
+            )}
             <div style={{ margin: "8px 0 2px" }}>
               {!qpOpen ? (
                 <div className="fuActionsRow" style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
@@ -9869,8 +9901,8 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
                             </div>
                             <div className="fuActions">
                               {!f.likelyResolved && (
-                                <button type="button" className="fuBtn fuBtnRemind" onClick={() => remindTeam(f)}>
-                                  {remindedKey === f.key ? "✓ Posted" : "🔔 Remind"}
+                                <button type="button" className={"fuBtn fuBtnRemind" + (remindPick[f.key] ? " on" : "")} onClick={() => toggleRemind(f)}>
+                                  {remindedKey === f.key ? "✓ Posted" : remindPick[f.key] ? "✓ Added" : "🔔 Remind"}
                                 </button>
                               )}
                               <button type="button" className="fuBtn fuBtnResolve" onClick={() => markResolved(f)}>
@@ -9886,7 +9918,7 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
               })}
             </div>
             <div style={{ fontSize: "0.68rem", color: "var(--sdx-gray-400)", marginTop: 6 }}>
-              “Remind Team” posts a Quick Check announcement so inspectors on shift can respond. Resolved items reappear automatically if the issue shows up again.
+              “Remind” collects the items you tap — hit “Send one reminder” and they all go out as one Quick Check announcement. “Remind Team” does the same for a whole stand. Resolved items reappear automatically if the issue shows up again.
             </div>
           </div>
         )}
