@@ -21783,6 +21783,11 @@ function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVe
 
   const [approveRole, setApproveRole] = useState({}); // badgeHash -> role chosen before approving
   const [inviteFlash, setInviteFlash] = useState("");
+  const [inviteQr, setInviteQr] = useState(null); // { label, url, img } — QR code for an invite link
+  const showInviteQr = async (label, url) => {
+    try { const QR = await getQRCode(); const img = await QR.toDataURL(url, { width: 320, margin: 1, color: { dark: "#111827", light: "#ffffff" } }); setInviteQr({ label, url, img }); }
+    catch { setInviteFlash("Could not build the QR code"); setTimeout(() => setInviteFlash(""), 2500); }
+  };
   async function handleApprove(badgeHash, role) { await approveUser(badgeHash, role); await refresh(); }
 
   async function handleDeny(badgeHash) {
@@ -22351,6 +22356,7 @@ function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVe
                     <>
                       <button type="button" className="btn btnPrimary btnSmall" onClick={async () => { try { if (navigator.share) await navigator.share({ title: `${resolveCompanyName()} — ${r.label}`, text: `Join ${resolveCompanyName()} as ${r.label}`, url }); else { await navigator.clipboard.writeText(url); setInviteFlash(`Copied — ${r.label}`); setTimeout(() => setInviteFlash(""), 2500); } } catch {} }}>📤 Share</button>
                       <button type="button" className="btn btnGhost btnSmall" onClick={async () => { try { await navigator.clipboard.writeText(url); setInviteFlash(`Copied — ${r.label}`); setTimeout(() => setInviteFlash(""), 2500); } catch {} }}>Copy</button>
+                      <button type="button" className="btn btnGhost btnSmall" onClick={() => showInviteQr(r.label, url)} title="Show a QR code for this link">QR</button>
                       <button type="button" className="btn btnGhost btnSmall" onClick={() => { if (window.confirm(`Make a new ${r.label} link? The old one stops working.`)) gen(); }}>↻</button>
                     </>
                   ) : (
@@ -22362,6 +22368,26 @@ function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVe
             {inviteFlash && <div style={{ fontSize: "0.8rem", fontWeight: 700, color: "#16a34a", marginTop: 6 }}>✓ {inviteFlash}</div>}
           </div>
         </div>
+        {inviteQr && (
+          <div className="modalOverlay" onClick={() => setInviteQr(null)}>
+            <div className="modalBox" onClick={(e) => e.stopPropagation()}>
+              <div className="modalHeader">
+                <span>Invite QR — {inviteQr.label}</span>
+                <button className="modalClose" onClick={() => setInviteQr(null)} type="button">✕</button>
+              </div>
+              <div className="modalBody" style={{ textAlign: "center" }}>
+                <img src={inviteQr.img} alt={`QR code — ${inviteQr.label} invite`} style={{ width: 260, height: 260, borderRadius: 12, border: "1px solid var(--sdx-gray-100)", background: "#fff" }} />
+                <div style={{ fontSize: "0.86rem", color: "var(--ink-500)", margin: "10px 0 4px" }}>Scan with the phone camera → pick a badge number and a name → in as <b>{inviteQr.label}</b>.</div>
+                <div style={{ fontSize: "0.74rem", color: "var(--ink-500)", wordBreak: "break-all" }}>{inviteQr.url}</div>
+                <div style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 12, flexWrap: "wrap" }}>
+                  <a className="btn btnPrimary btnSmall" href={inviteQr.img} download={`invite-qr-${inviteQr.label.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}.png`}>⬇ Save PNG</a>
+                  <button type="button" className="btn btnGhost btnSmall" onClick={() => { const w = window.open("", "_blank"); if (!w) return; w.document.write(`<title>Invite QR — ${inviteQr.label}</title><body style="font-family:Arial;text-align:center;padding:40px"><h2>${resolveCompanyName()} — ${inviteQr.label}</h2><img src="${inviteQr.img}" style="width:320px"><p>Scan to join as ${inviteQr.label}</p><p style="font-size:12px;color:#666;word-break:break-all">${inviteQr.url}</p></body>`); w.document.close(); setTimeout(() => w.print(), 300); }}>🖨 Print</button>
+                  <button type="button" className="btn btnGhost btnSmall" onClick={async () => { try { await navigator.clipboard.writeText(inviteQr.url); setInviteFlash(`Copied — ${inviteQr.label}`); setTimeout(() => setInviteFlash(""), 2500); } catch {} }}>Copy link</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {pending.length > 0 && (
           <div className="card adminCard" style={{ marginBottom: 24 }}>
