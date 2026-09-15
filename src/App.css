@@ -8302,3 +8302,11 @@ html[data-theme="dark"] .fuStOnWaiting, html[data-theme="black"] .fuStOnWaiting 
 .htEquipCard .htRow { background: rgba(255,255,255,0.08); border-color: rgba(147,197,253,0.35); }
 .htFoodHead { font-weight: 900; font-size: 0.86rem; letter-spacing: 0.05em; color: #fca5a5; margin: 4px 0 8px; padding-top: 10px; border-top: 1px dashed rgba(255,255,255,0.18); }
 .menuVersion { font-size: 0.68rem; color: rgba(255,255,255,0.55); padding: 8px 14px 4px; text-align: center; letter-spacing: 0.04em; }
+
+/* v429: bulk export bar fits a phone (label on its own line, buttons never clipped) */
+@media (max-width: 640px) {
+  .bulkBar { flex-wrap: wrap; padding: 10px 12px !important; gap: 8px !important; }
+  .bulkBar > div:first-child { width: 100%; font-size: 0.82rem !important; }
+  .bulkBar > div:last-child { width: 100%; justify-content: space-between; flex-wrap: wrap; gap: 6px !important; }
+  .bulkBar > div:last-child button { padding: 7px 10px !important; font-size: 0.8rem !important; }
+}

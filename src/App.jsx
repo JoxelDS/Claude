@@ -2531,6 +2531,29 @@ function BadgeScreen({ onUnlock, inviteRole }) {
 }
 
 /* ── File download helper ────────────────────────────────── */
+// Print-ready HTML → the browser's print sheet (Save as PDF) via a hidden
+// iframe. No pop-up window, so Safari never blocks it even after async work.
+function printHtml(html, filename = "document.html") {
+  try {
+    const f = document.createElement("iframe");
+    f.setAttribute("aria-hidden", "true");
+    f.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;opacity:0;pointer-events:none";
+    document.body.appendChild(f);
+    const cleanup = () => { try { f.remove(); } catch {} };
+    f.onload = () => {
+      try {
+        const w = f.contentWindow;
+        w.addEventListener("afterprint", () => setTimeout(cleanup, 500));
+        setTimeout(() => { try { w.focus(); w.print(); } catch { cleanup(); downloadBlob(new Blob([html], { type: "text/html" }), filename); } }, 400);
+        setTimeout(cleanup, 120000);
+      } catch { cleanup(); downloadBlob(new Blob([html], { type: "text/html" }), filename); }
+    };
+    f.srcdoc = html;
+  } catch {
+    downloadBlob(new Blob([html], { type: "text/html" }), filename);
+  }
+}
+
 function downloadBlob(blob, filename) {
   try {
     // IE/Edge legacy
@@ -9185,6 +9208,37 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
     const buf = await wb.xlsx.writeBuffer();
     downloadBlob(new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }), `Follow-ups_${new Date().toISOString().slice(0, 10)}.xlsx`);
   }
+  // Follow-ups → PDF (print sheet) or Word (.doc) — same rows as the Excel export (v429)
+  function exportFollowupsDoc(items, fmt) {
+    if (!items.length) return;
+    const esc = v => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const stMapX = { ...(venueSettings?.followupStatus || {}), ...statusLocal };
+    const dateStr = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+    const rows = items.map((f, i) => {
+      const st = stMapX[f.key];
+      const stLabel = f.likelyResolved ? "Likely fixed"
+        : st && st.status === "in_progress" ? "In process"
+        : st && st.status === "waiting" ? `Waiting${st.note ? ` — ${st.note}` : ""}`
+        : f.overdue ? "Overdue" : "Open";
+      const cmts = ((commentsLocal[f.key] || venueSettings?.followupComments?.[f.key] || [])).map(c => `${c.by}: ${c.text}`).join(" | ");
+      const photos = [...(f.photos || []), ...((fuPhotosLocal[f.key] || venueSettings?.followupPhotos?.[f.key] || []))].map(p => p.thumbUrl || p.previewUrl || p.url || "").filter(u => u && !fmt.startsWith("word")).slice(0, 3);
+      const cls = f.overdue && !f.likelyResolved ? "bad" : (f.likelyResolved ? "ok" : "");
+      return `<tr class="${i % 2 ? "alt" : ""}"><td>${i + 1}</td><td><b>${esc(f.loc)}</b>${f.unit ? `<br>#${esc(f.unit)}` : ""}${f.floor ? `<br><small>${esc(f.floor)}</small>` : ""}</td><td><b>${esc(f.cat)}</b><br><small>${esc(f.itype || "Other")}</small></td><td>${esc(f.detail || "")}${f.notes ? `<br><small><i>${esc(f.notes)}</i></small>` : ""}${cmts ? `<br><small>${esc(cmts)}</small>` : ""}</td><td class="${cls}">${esc(stLabel)}${st?.by ? `<br><small>${esc(st.by)}</small>` : ""}</td><td>${esc(f.daysSince)}</td><td>${esc(f.dateStr || "")}</td>${fmt === "pdf" ? `<td>${photos.map(u => `<img src="${u}">`).join("")}</td>` : ""}</tr>`;
+    }).join("");
+    const overdue = items.filter(f => f.overdue && !f.likelyResolved).length;
+    const body = `<h1>Follow-ups &amp; Rechecks</h1><div class="brand-line"></div>
+<p class="meta">${dateStr} &bull; ${resolveCompanyName()} &bull; ${items.length} follow-up${items.length !== 1 ? "s" : ""} &bull; ${overdue} overdue</p>
+<table><thead><tr><th>#</th><th>Venue / Stand</th><th>Problem</th><th>Detail &amp; notes</th><th>Status</th><th>Days open</th><th>Flagged</th>${fmt === "pdf" ? "<th>Photos</th>" : ""}</tr></thead><tbody>${rows}</tbody></table>
+<div class="footer">Generated ${dateStr} &bull; ${resolveSystemName()}</div>`;
+    const css = `body{font-family:Arial,Helvetica,sans-serif;color:#111827;margin:0;padding:14px;font-size:9pt}h1{font-size:16pt;margin:0 0 4px;color:#1e2761}.brand-line{height:3px;background:#EE0000;width:90px;margin:0 0 8px}.meta{color:#6b7280;font-size:8pt;margin:0 0 10px}table{width:100%;border-collapse:collapse}th{background:#DC2626;color:#fff;text-align:left;padding:5px 6px;font-size:8pt}td{padding:5px 6px;border-bottom:1px solid #e5e7eb;vertical-align:top;font-size:8.5pt}tr.alt td{background:#f4f5f7}td.bad{color:#b91c1c;font-weight:700}td.ok{color:#166534;font-weight:700}small{color:#6b7280;font-size:7.5pt}td img{height:56px;width:auto;margin:0 3px 3px 0;border-radius:4px;border:1px solid #e5e7eb}.footer{margin-top:10px;padding-top:5px;border-top:1px solid #e5e7eb;font-size:6.5pt;color:#9ca3af;text-align:center}@page{size:landscape;margin:10mm}@media print{tr{page-break-inside:avoid}}`;
+    const stamp = new Date().toISOString().slice(0, 10);
+    if (fmt === "pdf") {
+      printHtml(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Follow-ups ${stamp}</title><style>${css}</style></head><body>${body}</body></html>`, `Follow-ups_${stamp}.html`);
+    } else {
+      const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><title>Follow-ups ${stamp}</title><!--[if gte mso 9]><xml><w:WordDocument><w:View>Print</w:View><w:Zoom>100</w:Zoom></w:WordDocument></xml><![endif]--><style>${css}</style></head><body>${body}</body></html>`;
+      downloadBlob(new Blob([html], { type: "application/msword" }), `Follow-ups_${stamp}.doc`);
+    }
+  }
   // Quick problem report — file a follow-up without opening an inspection
   const [qpOpen, setQpOpen] = useState(false);
   const [qpSite, setQpSite] = useState("");
@@ -9392,14 +9446,24 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
                   {!fuSelectMode ? (
                     <button type="button" onClick={() => { setFuSelectMode(true); setFuSelected({}); }}
                       style={{ background: "var(--surface-2)", color: "var(--sdx-navy)", border: "1.5px solid var(--sdx-gray-200)", borderRadius: 10, padding: "8px 16px", fontWeight: 800, fontSize: "0.84rem", cursor: "pointer" }}>
-                      ☑ Select for Excel
+                      ☑ Select to export
                     </button>
                   ) : (
                     <>
                       <button type="button" disabled={fuSelCount === 0}
                         onClick={() => exportSelectedFollowups(fuVisible.filter(f => fuSelected[f.key]))}
                         style={{ background: "#166534", color: "#fff", border: "none", borderRadius: 10, padding: "8px 16px", fontWeight: 800, fontSize: "0.84rem", cursor: "pointer", opacity: fuSelCount ? 1 : 0.5 }}>
-                        📊 Export Excel ({fuSelCount})
+                        📊 Excel ({fuSelCount})
+                      </button>
+                      <button type="button" disabled={fuSelCount === 0}
+                        onClick={() => exportFollowupsDoc(fuVisible.filter(f => fuSelected[f.key]), "pdf")}
+                        style={{ background: "#b91c1c", color: "#fff", border: "none", borderRadius: 10, padding: "8px 16px", fontWeight: 800, fontSize: "0.84rem", cursor: "pointer", opacity: fuSelCount ? 1 : 0.5 }}>
+                        📄 PDF
+                      </button>
+                      <button type="button" disabled={fuSelCount === 0}
+                        onClick={() => exportFollowupsDoc(fuVisible.filter(f => fuSelected[f.key]), "word")}
+                        style={{ background: "#1e40af", color: "#fff", border: "none", borderRadius: 10, padding: "8px 16px", fontWeight: 800, fontSize: "0.84rem", cursor: "pointer", opacity: fuSelCount ? 1 : 0.5 }}>
+                        📝 Word
                       </button>
                       <button type="button"
                         onClick={() => { const all = {}; fuVisible.forEach(f => { all[f.key] = true; }); setFuSelected(all); }}
@@ -11419,13 +11483,7 @@ ${haccpSectionP}
 <div class="footer">Generated ${dateStr} &bull; ${resolveSystemName()}</div>
 </body></html>`;
 
-    const win = window.open("", "_blank");
-    if (!win) { alert("Please allow pop-ups for this site to open the PDF preview."); return; }
-    win.document.write(pdfHtml);
-    win.document.close();
-    win.addEventListener("load", () => {
-      setTimeout(() => win.print(), 800);
-    });
+    printHtml(pdfHtml, `bulk-inspection-${new Date().toISOString().slice(0, 10)}.html`);
   }
 
 
@@ -13068,7 +13126,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
 
       {/* Sticky bulk-select action bar */}
       {selectMode && (
-        <div style={{
+        <div className="bulkBar" style={{
           position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 200,
           background: "#1d4ed8", color: "#fff",
           display: "flex", alignItems: "center", justifyContent: "space-between",
