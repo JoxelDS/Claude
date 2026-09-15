@@ -8275,21 +8275,23 @@ html[data-theme="dark"] .fuStOnWaiting, html[data-theme="black"] .fuStOnWaiting 
 .unassignedStand { border-color: #fca5a5; background: #fff7f7; }
 
 /* ── v415: be specific — guided problem chips ── */
-.specPicker { background: var(--surface-2); border: 1.5px solid var(--sdx-gray-200); border-radius: 12px; padding: 8px 10px; margin: 6px 0 8px; }
-.specHead { font-size: 0.74rem; font-weight: 900; letter-spacing: 0.04em; color: var(--ink-700); margin-bottom: 4px; }
-.specRow { margin-top: 4px; }
-.specLbl { font-size: 0.68rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-500); margin-bottom: 3px; }
-.specMissing .specLbl { color: #dc2626; }
-.specMissing { background: #fee2e2; border-radius: 8px; padding: 4px 6px; }
+/* v433: a quiet helper, not a wall of required-looking buttons */
+.specPicker { background: var(--surface-2); border: 1px solid var(--sdx-gray-100, #eef0f4); border-radius: 10px; padding: 7px 9px 8px; margin: 6px 0 8px; max-width: 620px; }
+.specHead { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.01em; color: var(--ink-500); margin-bottom: 3px; }
+.specRow { margin-top: 5px; }
+.specLbl { font-size: 0.66rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ink-400, #9ca3af); margin-bottom: 3px; }
+.specMissing .specLbl { color: #b45309; }
+.specMissing { background: #fff7ed; border-radius: 8px; padding: 4px 6px; }
 .specChips { display: flex; flex-wrap: wrap; gap: 5px; }
-.specChip { background: var(--surface-1); border: 1.5px solid var(--sdx-gray-200); border-radius: 999px; padding: 5px 10px; font-size: 0.78rem; font-weight: 700; color: var(--ink-800); cursor: pointer; line-height: 1.2; }
-.specChip.on { background: var(--sdx-navy); border-color: var(--sdx-navy); color: #fff; }
-.specCompact .specChip { padding: 4px 8px; font-size: 0.74rem; }
-.specToggle { background: var(--surface-2); border: 1.5px solid var(--sdx-gray-200); border-radius: 8px; padding: 0 10px; height: 34px; cursor: pointer; font-size: 1rem; }
+.specChip { background: var(--surface-1); border: 1px solid var(--sdx-gray-200); border-radius: 999px; padding: 5px 11px; font-size: 0.75rem; font-weight: 600; color: var(--ink-700); cursor: pointer; line-height: 1.2; }
+.specChip:hover { border-color: var(--ink-400, #9ca3af); }
+.specChip.on { background: var(--sdx-navy); border-color: var(--sdx-navy); color: #fff; font-weight: 700; }
+.specCompact .specChip { padding: 4px 9px; font-size: 0.73rem; }
+.specToggle { background: var(--surface-2); border: 1px solid var(--sdx-gray-200); border-radius: 8px; padding: 0 10px; height: 34px; cursor: pointer; font-size: 1rem; }
 .specToggle.on { background: var(--sdx-navy); border-color: var(--sdx-navy); }
-.specHint { font-size: 0.72rem; font-weight: 700; color: #b45309; margin: 2px 0 4px; }
-.haccpCard .specPicker { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.18); }
-.haccpCard .specHead, .haccpCard .specLbl { color: inherit; opacity: 0.9; }
+.specHint { font-size: 0.72rem; font-weight: 500; color: #b45309; margin: 2px 0 4px; }
+.haccpCard .specPicker { background: #f7f8fa; border-color: #eceef3; }
+.haccpCard .specHead, .haccpCard .specLbl { color: #8a93a5; }
 
 /* ── v417: equipment temps in their own card, apart from food ── */
 .htEquipCard { background: rgba(96,165,250,0.10); border: 2px solid rgba(96,165,250,0.55); border-radius: 14px; padding: 10px 12px 6px; margin-bottom: 16px; }

@@ -8591,7 +8591,7 @@ function SpecificsPicker({ cat, units, value, onChange, lang, missing, compact }
   );
   return (
     <div className={"specPicker" + (compact ? " specCompact" : "")}>
-      <div className="specHead">🎯 {lang === "es" ? "Sé específico — toca lo que aplica" : "Be specific — tap what applies"}</div>
+      <div className="specHead">{lang === "es" ? "Toca lo que aplica" : "Tap what applies"}</div>
       {key === "Equipment" && units && units.length > 0 && rowEl("unit", lang === "es" ? "Qué equipo" : "Which unit", units.map(u => `${u.name}${u.brand ? ` · ${u.brand}` : ""}${u.location ? ` · ${u.location}` : ""}`.toUpperCase()))}
       {rows.map(r => rowEl(r.key, r[lang === "es" ? "es" : "en"], r.opts))}
     </div>
