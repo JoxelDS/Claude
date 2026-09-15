@@ -8371,3 +8371,36 @@ html[data-theme="dark"] .fuStOnWaiting, html[data-theme="black"] .fuStOnWaiting 
   .fuRemindBar { align-items: stretch; }
   .fuRemindSend { flex: 1 1 100%; }
 }
+
+/* Cleaning log — crew hours + what to bill back to the stand (v437) */
+.crewHowLbl { font-size: 0.72rem; font-weight: 800; color: var(--ink-500); margin: 6px 0 2px; }
+.crewHowBill.on { background: #b45309; border-color: #b45309; }
+.crewHowMin { min-width: 62px; }
+.fuHeadCountClean.on { background: var(--sdx-navy); color: #fff; border-color: var(--sdx-navy); }
+.fuCleanTotals {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding: 8px 10px; border-bottom: 1px solid var(--sdx-gray-200);
+}
+.fuCleanTotal { font-size: 0.78rem; color: var(--ink-500); }
+.fuCleanTotal b { color: var(--sdx-navy); font-size: 0.92rem; }
+.fuCleanFilter {
+  background: var(--surface-1); border: 1.5px solid var(--sdx-gray-200); border-radius: 999px;
+  padding: 5px 12px; font-weight: 700; font-size: 0.74rem; cursor: pointer; color: var(--sdx-navy);
+}
+.fuCleanFilter.on { background: #b45309; border-color: #b45309; color: #fff; }
+.fuCleanExport {
+  margin-left: auto; background: #b91c1c; color: #fff; border: none; border-radius: 10px;
+  padding: 7px 14px; font-weight: 800; font-size: 0.76rem; cursor: pointer;
+}
+.fuCleanExport:disabled { opacity: .5; cursor: default; }
+.fuCleanPeople { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 10px 0; }
+.fuCleanPerson {
+  font-size: 0.7rem; font-weight: 700; color: var(--sdx-navy);
+  background: var(--surface-2); border-radius: 999px; padding: 4px 10px;
+}
+.fuCleanBill {
+  display: inline-block; margin-top: 3px; font-size: 0.62rem; font-weight: 900; letter-spacing: .04em;
+  color: #fff; background: #b45309; border-radius: 5px; padding: 2px 6px;
+}
+.fuThumbAfterMark { outline: 2px solid #166534; outline-offset: -2px; }
+@media (max-width: 640px) { .fuCleanExport { margin-left: 0; flex: 1 1 100%; } }

@@ -8736,14 +8736,17 @@ function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLoc
       for (const n of names) saveInspectorNotification({ inspectorName: n, kind: "followup", title, message });
     } catch {}
   }
-  async function commit(f, kind, note, how) {
+  async function commit(f, kind, note, how, whose, mins) {
     const ts = Date.now(); const prefix = `${meta.icon} ${me}`;
-    const entry = kind === "fixed" ? { status: "resolved", note: "", by: me, ts, ...(how ? { how } : {}) } : kind === "waiting" ? { status: "waiting", note: (note || "").slice(0, 80), by: me, ts } : { status: "in_progress", note: "", by: me, ts };
+    const entry = kind === "fixed" ? { status: "resolved", note: "", by: me, ts, ...(how ? { how } : {}), ...(whose ? { whose } : {}), ...(mins ? { mins } : {}) } : kind === "waiting" ? { status: "waiting", note: (note || "").slice(0, 80), by: me, ts } : { status: "in_progress", note: "", by: me, ts };
     // v434: cleaning crews say whether they cleaned it or found it already done
     const howText = how === "crew" ? T("we cleaned it", "lo limpiamos nosotros", "nou netwaye l")
       : how === "already" ? T("it was already clean", "ya estaba limpio", "li te deja pwop")
       : "";
-    const text = `${kind === "fixed" ? "Fixed" : kind === "waiting" ? "Waiting on" : "In process"}${howText ? ` (${howText})` : ""}${note ? `: ${note.trim().slice(0, 200)}` : ""}`;
+    const whoseText = whose === "sub" ? T("stand's mess", "desorden del stand", "mess stand la") : whose === "ours" ? T("our mess", "desorden nuestro", "mess pa nou") : "";
+    const timeText = mins ? `${mins} min` : "";
+    const tags = [howText, whoseText, timeText].filter(Boolean).join(", ");
+    const text = `${kind === "fixed" ? "Fixed" : kind === "waiting" ? "Waiting on" : "In process"}${tags ? ` (${tags})` : ""}${note ? `: ${note.trim().slice(0, 200)}` : ""}`;
     const arr = [...commentsOf(f.key), { text: `${prefix} — ${text}`, by: me, ts }].slice(-10);
     setLocal(p => ({ ...p, status: { ...p.status, [f.key]: entry }, comments: { ...p.comments, [f.key]: arr }, cleared: kind === "fixed" ? { ...p.cleared, [f.key]: ts } : p.cleared }));
     saveVenueSettingsMap?.("followupStatus", { [f.key]: entry });
@@ -8825,13 +8828,33 @@ function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLoc
                   onClick={() => setAction(a2 => ({ ...a2, how: "already" }))}>👍 {T("It was already clean", "Ya estaba limpio", "Li te deja pwop")}</button>
               </div>
             )}
+            {/* v437: whose mess was it, and how long did it take — so the
+                stadium can bill the subcontractor and track crew hours. */}
+            {action.kind === "fixed" && role === "cleaning" && action.how === "crew" && (
+              <>
+                <div className="crewHowLbl">{T("Whose mess was it?", "¿De quién era el desorden?", "Se mess ki moun?")}</div>
+                <div className="crewHowRow">
+                  <button type="button" className={"crewHowBtn" + (action.whose === "ours" ? " on" : "")}
+                    onClick={() => setAction(a2 => ({ ...a2, whose: "ours" }))}>🏟️ {T("Ours", "Nuestro", "Pa nou")}</button>
+                  <button type="button" className={"crewHowBtn crewHowBill" + (action.whose === "sub" ? " on" : "")}
+                    onClick={() => setAction(a2 => ({ ...a2, whose: "sub" }))}>🧾 {T("The stand's / subcontractor", "Del stand / subcontratista", "Pa stand la / soutretan")}</button>
+                </div>
+                <div className="crewHowLbl">{T("How long did it take?", "¿Cuánto tiempo tomó?", "Konbyen tan sa pran?")}</div>
+                <div className="crewHowRow">
+                  {[15, 30, 45, 60, 90, 120].map(m => (
+                    <button key={m} type="button" className={"crewHowBtn crewHowMin" + (action.mins === m ? " on" : "")}
+                      onClick={() => setAction(a2 => ({ ...a2, mins: m }))}>{m < 60 ? `${m} min` : `${m / 60} h`}</button>
+                  ))}
+                </div>
+              </>
+            )}
             <textarea rows={2} className="caText" value={action.note} autoFocus onChange={e => setAction(a => ({ ...a, note: e.target.value }))}
               placeholder={action.kind === "fixed" ? T("e.g. Replaced gasket, tested — holding 36°F", "ej. Cambié el empaque, probado — se mantiene a 36°F", "egz. Mwen chanje gasket la, teste — li kenbe 36°F") : action.kind === "waiting" ? T("e.g. part on order, vendor Thursday", "ej. pieza pedida, proveedor el jueves", "egz. pyès la kòmande, vandè a jedi") : T("optional note", "nota opcional", "not opsyonel")} />
             <div className="crewActionBtns">
               <button type="button" className="btn btnGhost" onClick={() => setAction(null)}>{T("Cancel", "Cancelar", "Anile")}</button>
               <button type="button" className="btn btnPrimary"
-                disabled={(action.kind !== "in_progress" && !action.note.trim()) || (action.kind === "fixed" && role === "cleaning" && !action.how)}
-                onClick={() => commit(f, action.kind, action.note, action.how)}>📨 {T("Send to inspector", "Enviar al inspector", "Voye bay enspekte a")}</button>
+                disabled={(action.kind !== "in_progress" && !action.note.trim()) || (action.kind === "fixed" && role === "cleaning" && (!action.how || (action.how === "crew" && (!action.whose || !action.mins))))}
+                onClick={() => commit(f, action.kind, action.note, action.how, action.whose, action.mins)}>📨 {T("Send to inspector", "Enviar al inspector", "Voye bay enspekte a")}</button>
             </div>
           </div>
         ) : !done ? (
@@ -8972,6 +8995,8 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
   // Locally cleared follow-ups — instant feedback independent of settings sync
   const [clearedLocal, setClearedLocal] = useState({});
   const [showFixed, setShowFixed] = useState(false); // v434 — "everything fixed" view
+  const [showClean, setShowClean] = useState(false);     // v437 — cleaning log
+  const [cleanBillOnly, setCleanBillOnly] = useState(false);
   const [typeMenuKey, setTypeMenuKey] = useState(null);
   const [typeLocal, setTypeLocal] = useState({});
   const analysis = useMemo(() => {
@@ -9288,6 +9313,49 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
     downloadBlob(new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }), `Follow-ups_${new Date().toISOString().slice(0, 10)}.xlsx`);
   }
   // Follow-ups → PDF (print sheet) or Word (.doc) — same rows as the Excel export (v429)
+  // v437 — a cleaning report to send the subcontractor: what our crew
+  // cleaned at their stand, before and after, who did it and how long.
+  function exportCleaningReport(items) {
+    if (!items.length) return;
+    const esc = v => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const dateStr = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+    const lic = (() => { const m = {}; try { licenseRows().forEach(r => { const u = normUnit(r.unit); if (u && !m[u]) m[u] = r; }); } catch {} return m; })();
+    const stands = {};
+    items.forEach(f => {
+      const k = `${normUnit(f.unit) || ""}|${(f.loc || "").toUpperCase()}`;
+      (stands[k] = stands[k] || { loc: f.loc, unit: f.unit, rows: [] }).rows.push(f);
+    });
+    const hrs = n => n >= 60 ? `${(n / 60).toFixed(n % 60 ? 1 : 0)} h` : `${n} min`;
+    const sections = Object.values(stands).map(g => {
+      const r = lic[normUnit(g.unit)] || {};
+      const mins = g.rows.reduce((n, f) => n + (f.fixedMins || 0), 0);
+      const bill = g.rows.filter(f => f.fixedWhose === "sub");
+      const rows = g.rows.map(f => {
+        const ph = [...(f.photos || []), ...((fuPhotosLocal[f.key] || venueSettings?.followupPhotos?.[f.key] || []))];
+        const before = ph.filter(x => (x.tag || "before") !== "after").slice(0, 2);
+        const after = ph.filter(x => x.tag === "after").slice(0, 2);
+        const img = arr => arr.length ? arr.map(x => `<img src="${x.thumbUrl || x.previewUrl || ""}">`).join("") : `<span class="none">no photo</span>`;
+        return `<tr><td>${esc(new Date(f.fixedTs).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }))}</td>` +
+          `<td><b>${esc(f.cat)}</b>${f.detail ? `<br><small>${esc(f.detail)}</small>` : ""}</td>` +
+          `<td>${esc(f.fixedBy || "")}</td><td>${f.fixedMins ? esc(hrs(f.fixedMins)) : "\u2014"}</td>` +
+          `<td class="${f.fixedWhose === "sub" ? "bill" : ""}">${f.fixedWhose === "sub" ? "STAND / SUBCONTRACTOR" : f.fixedWhose === "ours" ? "Stadium" : "\u2014"}${f.fixedHow === "already" ? "<br><small>found already clean</small>" : ""}</td>` +
+          `<td>${img(before)}</td><td>${img(after)}</td></tr>`;
+      }).join("");
+      return `<h2>${esc(g.loc)}${g.unit ? ` \u2014 Unit #${esc(g.unit)}` : ""}</h2>` +
+        `<p class="meta">${r.license ? `License ${esc(r.license)}` : "No license on file"}${r.name ? ` \u00b7 ${esc(r.name)}` : ""} \u2022 ${g.rows.length} clean${g.rows.length !== 1 ? "s" : ""} \u2022 ${hrs(mins)} of crew time \u2022 ${bill.length} billable to the stand</p>` +
+        `<table><thead><tr><th>When</th><th>What was cleaned</th><th>Cleaned by</th><th>Time</th><th>Whose mess</th><th>Before</th><th>After</th></tr></thead><tbody>${rows}</tbody></table>`;
+    }).join("");
+    const totalMins = items.reduce((n, f) => n + (f.fixedMins || 0), 0);
+    const billN = items.filter(f => f.fixedWhose === "sub").length;
+    const body = `<h1>Cleaning Report</h1><div class="brand-line"></div>
+<p class="meta">${dateStr} &bull; ${resolveCompanyName()} &bull; ${items.length} clean${items.length !== 1 ? "s" : ""} &bull; ${hrs(totalMins)} of crew time &bull; ${billN} billable to the stand / subcontractor</p>
+${sections}
+<div class="footer">Generated ${dateStr} &bull; ${resolveSystemName()}</div>`;
+    const css = `body{font-family:Arial,Helvetica,sans-serif;color:#111827;margin:0;padding:14px;font-size:9pt}h1{font-size:16pt;margin:0 0 4px;color:#1e2761}h2{font-size:11pt;margin:14px 0 2px;color:#1e2761}.brand-line{height:3px;background:#EE0000;width:90px;margin:0 0 8px}.meta{color:#6b7280;font-size:8pt;margin:0 0 8px}table{width:100%;border-collapse:collapse;margin-bottom:6px}th{background:#DC2626;color:#fff;text-align:left;padding:5px 6px;font-size:8pt}td{padding:5px 6px;border-bottom:1px solid #e5e7eb;vertical-align:top;font-size:8.5pt}td.bill{color:#b91c1c;font-weight:700}small{color:#6b7280;font-size:7.5pt}.none{color:#9ca3af;font-size:7.5pt}td img{height:62px;width:auto;margin:0 3px 3px 0;border-radius:4px;border:1px solid #e5e7eb}.footer{margin-top:10px;padding-top:5px;border-top:1px solid #e5e7eb;font-size:6.5pt;color:#9ca3af;text-align:center}@page{size:landscape;margin:10mm}@media print{tr,h2{page-break-inside:avoid}}`;
+    const stamp = new Date().toISOString().slice(0, 10);
+    printHtml(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Cleaning report ${stamp}</title><style>${css}</style></head><body>${body}</body></html>`, `Cleaning-report_${stamp}.html`);
+  }
+
   function exportFollowupsDoc(items, fmt) {
     if (!items.length) return;
     const esc = v => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -9444,10 +9512,21 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
     const clearedMap = { ...(venueSettings?.followupCleared || {}), ...clearedLocal };
     const all = computeFollowups(history, { ...(venueSettings || {}), followupCleared: {} }, {}).followups || [];
     return all
-      .map(f => { const st = stMap[f.key]; const when = Number(st?.ts || clearedMap[f.key] || 0); return { ...f, fixedBy: st?.by || "", fixedHow: st?.how || "", fixedTs: when }; })
+      .map(f => { const st = stMap[f.key]; const when = Number(st?.ts || clearedMap[f.key] || 0); return { ...f, fixedBy: st?.by || "", fixedHow: st?.how || "", fixedWhose: st?.whose || "", fixedMins: Number(st?.mins || 0), fixedTs: when }; })
       .filter(f => (stMap[f.key]?.status === "resolved" || clearedMap[f.key]) && f.fixedTs)
       .filter(fuMatches)
       .sort((a2, b2) => b2.fixedTs - a2.fixedTs);
+  })();
+  // v437 — cleaning log: every job a cleaning crew logged, with whose mess
+  // it was and how long it took, so hours are tracked and the stand's own
+  // messes can be billed back to the subcontractor.
+  const cleanAll = fixedList.filter(f => f.fixedHow);
+  const cleanList = cleanBillOnly ? cleanAll.filter(f => f.fixedWhose === "sub") : cleanAll;
+  const cleanMins = cleanList.reduce((n, f) => n + (f.fixedMins || 0), 0);
+  const cleanByPerson = (() => {
+    const m = {};
+    cleanList.forEach(f => { const k = f.fixedBy || "Unknown"; (m[k] = m[k] || { by: k, jobs: 0, mins: 0 }); m[k].jobs++; m[k].mins += f.fixedMins || 0; });
+    return Object.values(m).sort((a2, b2) => b2.mins - a2.mins || b2.jobs - a2.jobs);
   })();
   const startOfToday = new Date(); startOfToday.setHours(0, 0, 0, 0);
   const fixedTodayN = fixedList.filter(f => f.fixedTs >= startOfToday.getTime()).length;
@@ -9474,6 +9553,11 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
             <button type="button" className={"fuHeadCount fuHeadCountFixed" + (showFixed ? " on" : "")}
               title="Everything the crews marked fixed"
               onClick={() => setShowFixed(v => !v)}>✅ {fixedTodayN} fixed today{fixedList.length > fixedTodayN ? ` · ${fixedList.length} total` : ""}</button>
+            {cleanAll.length > 0 && (
+              <button type="button" className={"fuHeadCount fuHeadCountClean" + (showClean ? " on" : "")}
+                title="Every clean your crew logged — hours and what to bill back"
+                onClick={() => { setShowClean(v => !v); setShowFixed(false); }}>🧹 {cleanAll.length} clean{cleanAll.length !== 1 ? "s" : ""}{cleanAll.filter(f => f.fixedWhose === "sub").length ? ` · ${cleanAll.filter(f => f.fixedWhose === "sub").length} to bill` : ""}</button>
+            )}
           </div>
         ); })()}
       </div>
@@ -9680,6 +9764,57 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
                 <button type="button" className={`fuToggleBtn${fuGroupBy === "cat" ? " fuToggleActive" : ""}`} onClick={() => setFuGroupBy("cat")}>🗂 By Problem</button>
               </span>
             </div>
+            {showClean && (
+              <div className="fuFixedPanel fuCleanPanel">
+                <div className="fuFixedHead">
+                  <span>🧹 Cleaning log</span>
+                  <button type="button" className="fuFixedClose" onClick={() => setShowClean(false)}>✕ close</button>
+                </div>
+                <div className="fuCleanTotals">
+                  <span className="fuCleanTotal"><b>{cleanList.length}</b> clean{cleanList.length !== 1 ? "s" : ""}</span>
+                  <span className="fuCleanTotal"><b>{cleanMins >= 60 ? `${(cleanMins / 60).toFixed(cleanMins % 60 ? 1 : 0)} h` : `${cleanMins} min`}</b> of crew time</span>
+                  <button type="button" className={"fuCleanFilter" + (cleanBillOnly ? " on" : "")}
+                    onClick={() => setCleanBillOnly(v => !v)}>🧾 {cleanBillOnly ? "Billable only" : "Show billable only"}</button>
+                  <button type="button" className="fuCleanExport" disabled={cleanList.length === 0}
+                    onClick={() => exportCleaningReport(cleanList)}>📄 Report to send (PDF)</button>
+                </div>
+                {cleanByPerson.length > 0 && (
+                  <div className="fuCleanPeople">
+                    {cleanByPerson.map(pp => (
+                      <span key={pp.by} className="fuCleanPerson">🧑‍🔧 {pp.by} · {pp.jobs} job{pp.jobs !== 1 ? "s" : ""} · {pp.mins >= 60 ? `${(pp.mins / 60).toFixed(pp.mins % 60 ? 1 : 0)} h` : `${pp.mins} min`}</span>
+                    ))}
+                  </div>
+                )}
+                {cleanList.length === 0 ? (
+                  <div className="fuFixedEmpty">{cleanBillOnly ? "Nothing billable in this range yet." : "No cleans logged yet. Cleaning crews tap ✅ Fixed, say whose mess it was and how long it took — it lands here."}</div>
+                ) : cleanList.slice(0, 60).map(f => {
+                  const ph = [...(f.photos || []), ...((fuPhotosLocal[f.key] || venueSettings?.followupPhotos?.[f.key] || []))];
+                  const before = ph.filter(x => (x.tag || "before") !== "after").slice(-2);
+                  const after = ph.filter(x => x.tag === "after").slice(-2);
+                  return (
+                    <div key={f.key} className="fuFixedRow">
+                      <span className="fuFixedIcon">{f.fixedWhose === "sub" ? "🧾" : "🧹"}</span>
+                      <div className="fuFixedBody">
+                        <div className="fuFixedTitle">{f.loc}{f.unit ? ` · #${f.unit}` : ""} — {f.cat}</div>
+                        <div className="fuFixedMeta">
+                          {new Date(f.fixedTs).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+                          {f.fixedBy ? ` · ${f.fixedBy}` : ""}
+                          {f.fixedMins ? ` · ${f.fixedMins} min` : ""}
+                          {f.fixedHow === "already" ? " · was already clean" : ""}
+                        </div>
+                        {f.fixedWhose === "sub" && <span className="fuCleanBill">BILL THE STAND</span>}
+                      </div>
+                      {(before.length > 0 || after.length > 0) && (
+                        <div className="fuFixedThumbs">
+                          {before.map((x, i) => <img key={"b" + i} src={x.thumbUrl || x.previewUrl} alt="" title="before" onClick={() => setLightboxSrc(x.previewUrl || x.thumbUrl)} />)}
+                          {after.map((x, i) => <img key={"a" + i} className="fuThumbAfterMark" src={x.thumbUrl || x.previewUrl} alt="" title="after" onClick={() => setLightboxSrc(x.previewUrl || x.thumbUrl)} />)}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
             {showFixed && (
               <div className="fuFixedPanel">
                 <div className="fuFixedHead">
