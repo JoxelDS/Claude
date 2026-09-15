@@ -22353,12 +22353,12 @@ function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVe
                 <div key={r.value} className="inviteRow">
                   <span className="inviteRole">{r.icon} {r.label}</span>
                   {url ? (
-                    <>
+                    <div className="inviteActions">
                       <button type="button" className="btn btnPrimary btnSmall" onClick={async () => { try { if (navigator.share) await navigator.share({ title: `${resolveCompanyName()} — ${r.label}`, text: `Join ${resolveCompanyName()} as ${r.label}`, url }); else { await navigator.clipboard.writeText(url); setInviteFlash(`Copied — ${r.label}`); setTimeout(() => setInviteFlash(""), 2500); } } catch {} }}>📤 Share</button>
                       <button type="button" className="btn btnGhost btnSmall" onClick={async () => { try { await navigator.clipboard.writeText(url); setInviteFlash(`Copied — ${r.label}`); setTimeout(() => setInviteFlash(""), 2500); } catch {} }}>Copy</button>
                       <button type="button" className="btn btnGhost btnSmall" onClick={() => showInviteQr(r.label, url)} title="Show a QR code for this link">QR</button>
-                      <button type="button" className="btn btnGhost btnSmall" onClick={() => { if (window.confirm(`Make a new ${r.label} link? The old one stops working.`)) gen(); }}>↻</button>
-                    </>
+                      <button type="button" className="btn btnGhost btnSmall" onClick={() => { if (window.confirm(`Make a new ${r.label} link? The old one stops working.`)) gen(); }} title="New link (the old one stops working)">↻ New</button>
+                    </div>
                   ) : (
                     <button type="button" className="btn btnGhost btnSmall" onClick={gen}>Create link</button>
                   )}
@@ -22379,7 +22379,7 @@ function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVe
                 <img src={inviteQr.img} alt={`QR code — ${inviteQr.label} invite`} style={{ width: 260, height: 260, borderRadius: 12, border: "1px solid var(--sdx-gray-100)", background: "#fff" }} />
                 <div style={{ fontSize: "0.86rem", color: "var(--ink-500)", margin: "10px 0 4px" }}>Scan with the phone camera → pick a badge number and a name → in as <b>{inviteQr.label}</b>.</div>
                 <div style={{ fontSize: "0.74rem", color: "var(--ink-500)", wordBreak: "break-all" }}>{inviteQr.url}</div>
-                <div style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 12, flexWrap: "wrap" }}>
+                <div className="inviteActions" style={{ gridTemplateColumns: "repeat(3, minmax(0, 1fr))", marginTop: 12 }}>
                   <a className="btn btnPrimary btnSmall" href={inviteQr.img} download={`invite-qr-${inviteQr.label.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}.png`}>⬇ Save PNG</a>
                   <button type="button" className="btn btnGhost btnSmall" onClick={() => { const w = window.open("", "_blank"); if (!w) return; w.document.write(`<title>Invite QR — ${inviteQr.label}</title><body style="font-family:Arial;text-align:center;padding:40px"><h2>${resolveCompanyName()} — ${inviteQr.label}</h2><img src="${inviteQr.img}" style="width:320px"><p>Scan to join as ${inviteQr.label}</p><p style="font-size:12px;color:#666;word-break:break-all">${inviteQr.url}</p></body>`); w.document.close(); setTimeout(() => w.print(), 300); }}>🖨 Print</button>
                   <button type="button" className="btn btnGhost btnSmall" onClick={async () => { try { await navigator.clipboard.writeText(inviteQr.url); setInviteFlash(`Copied — ${inviteQr.label}`); setTimeout(() => setInviteFlash(""), 2500); } catch {} }}>Copy link</button>
