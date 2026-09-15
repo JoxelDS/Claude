@@ -8623,6 +8623,32 @@ async function notifyCrewsForItems(items, site, unit, by, forceType) {
 function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLock, onMessages, onAppearance }) {
   const role = currentUser?.role;
   const meta = CREW_META[role] || CREW_META.maintenance;
+  // Crew language (v431) — native English / Espanol / Kreyol, no page reload.
+  // Falls back to whatever the person picked in the stand portal or the globe.
+  const [cl, setCl] = useState(() => {
+    try {
+      const saved = localStorage.getItem("sdx_crew_lang");
+      if (saved) return saved;
+      const portal = localStorage.getItem("sdx_portal_lang");
+      if (portal === "es") return "es";
+      const m = /googtrans=[^;]*\/(es|ht)/.exec(document.cookie);
+      return m ? m[1] : "en";
+    } catch { return "en"; }
+  });
+  const T = (en, es, ht) => (cl === "es" ? es : cl === "ht" ? (ht ?? es) : en);
+  const pickLang = code => {
+    setCl(code);
+    try {
+      localStorage.setItem("sdx_crew_lang", code);
+      document.cookie = "googtrans=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+    } catch {}
+  };
+  const boardTitle = role === "cleaning" ? T("Cleaning board", "Tablero de limpieza", "Tablo pwopte")
+    : role === "ecolab" ? T("Ecolab board", "Tablero de Ecolab", "Tablo Ecolab")
+    : T("Maintenance board", "Tablero de mantenimiento", "Tablo antretyen");
+  const boardNoun = role === "cleaning" ? T("cleaning", "limpieza", "pwopte")
+    : role === "ecolab" ? T("Ecolab", "Ecolab", "Ecolab")
+    : T("maintenance", "mantenimiento", "antretyen");
   const types = CREW_TYPES[role] || CREW_TYPES.maintenance;
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -8667,7 +8693,7 @@ function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLoc
     setMoveKey(null);
     notifyInspector(f, `${meta.icon} Moved to ${itype} — ${f.loc}${f.unit ? ` #${f.unit}` : ""}`, `${f.cat}: ${f.detail || ""} — ${me} says this is ${itype.toLowerCase()}`);
     try { notifyCrewsForItems([{ issue: `${f.cat}: ${f.detail || ""}`, notes: f.notes || "" }], f.loc, f.unit, me, itype); } catch {}
-    setFlash(`↪ Sent to ${itype}`); setTimeout(() => setFlash(""), 3000);
+    setFlash(`↪ ${T("Sent to", "Enviado a", "Voye bay")} ${itype}`); setTimeout(() => setFlash(""), 3000);
   }
   const mine = all.filter(f => types.includes(f.itype) || (showOther && f.itype === "Other"));
   const isDone = f => { const st = statusOf(f.key); return !!(st && st.status === "resolved") || f.likelyResolved; };
@@ -8709,7 +8735,7 @@ function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLoc
     if (kind === "fixed") saveVenueSettingsMap?.("followupCleared", { [f.key]: ts });
     notifyInspector(f, `${meta.icon} ${meta.title.replace(" board", "")} update — ${f.loc}${f.unit ? ` #${f.unit}` : ""}`, `${f.cat}: ${text} — ${me}`);
     setAction(null);
-    setFlash(`${kind === "fixed" ? "✅" : "📨"} Sent to the inspector — ${f.loc}${f.unit ? ` #${f.unit}` : ""}`); setTimeout(() => setFlash(""), 3500);
+    setFlash(`${kind === "fixed" ? "✅" : "📨"} ${T("Sent to the inspector", "Enviado al inspector", "Voye bay enspekte a")} — ${f.loc}${f.unit ? ` #${f.unit}` : ""}`); setTimeout(() => setFlash(""), 3500);
   }
   async function addAfterPhotos(f, files) {
     if (!files || !files.length) return;
@@ -8721,7 +8747,7 @@ function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLoc
         setLocal(p => ({ ...p, photos: { ...p.photos, [f.key]: arr } }));
         saveVenueSettingsMap?.("followupPhotos", { [f.key]: arr });
         notifyInspector(f, `${meta.icon} After photo — ${f.loc}${f.unit ? ` #${f.unit}` : ""}`, `${f.cat}: ${got.length} photo${got.length !== 1 ? "s" : ""} added by ${me}`);
-        setFlash("📷 Photo sent to the inspector"); setTimeout(() => setFlash(""), 3000);
+        setFlash(T("📷 Photo sent to the inspector", "📷 Foto enviada al inspector", "📷 Foto voye bay enspekte a")); setTimeout(() => setFlash(""), 3000);
       }
     } catch {}
     setBusy(null);
@@ -8752,46 +8778,46 @@ function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLoc
           <div style={{ flex: 1, minWidth: 0 }}>
             <div className="crewItemTitle">{withStand ? <span className="crewItemStand">🍳 {f.loc}{f.unit ? ` · #${f.unit}` : ""} — </span> : null}{f.cat}</div>
             <div className="crewItemDetail">{f.detail || "—"}{f.notes ? <span className="crewItemNotes"> — {f.notes}</span> : null}</div>
-            <div className="crewItemMeta">{[f.dateStr ? `flagged ${f.dateStr}` : "", f.daysSince != null ? `${f.daysSince}d open` : "", f.reportedBy ? `by supervisor ${f.reportedBy}` : f.inspector ? `by ${f.inspector}` : "", f.overdue && !done ? "⏰ overdue" : "", f.typeManual ? `✋ ${f.itype} by ${f.typeBy}` : ""].filter(Boolean).join(" · ")}</div>
+            <div className="crewItemMeta">{[f.dateStr ? `${T("flagged", "reportado", "siyale")} ${f.dateStr}` : "", f.daysSince != null ? `${f.daysSince}${T("d open", "d abierto", "j ouve")}` : "", f.reportedBy ? `${T("by supervisor", "por supervisor", "pa sipevize")} ${f.reportedBy}` : f.inspector ? `${T("by", "por", "pa")} ${f.inspector}` : "", f.overdue && !done ? "⏰ overdue" : "", f.typeManual ? `✋ ${f.itype} by ${f.typeBy}` : ""].filter(Boolean).join(" · ")}</div>
             {!done && (moveKey === f.key ? (
               <div className="crewMove">
-                <span>This belongs to:</span>
+                <span>{T("This belongs to:", "Esto es de:", "Sa se pou:")}</span>
                 {ISSUE_TYPES.filter(t => t !== f.itype && t !== "Temperature").map(t => <button key={t} type="button" className="etChip" onClick={() => moveTo(f, t)}>{ISSUE_TYPE_ICON[t]} {issueTypeLabel(t)}</button>)}
-                <button type="button" className="etChip" onClick={() => setMoveKey(null)}>Cancel</button>
+                <button type="button" className="etChip" onClick={() => setMoveKey(null)}>{T("Cancel", "Cancelar", "Anile")}</button>
               </div>
             ) : (
-              <button type="button" className="crewNotMine" onClick={() => setMoveKey(f.key)}>Not mine → move</button>
+              <button type="button" className="crewNotMine" onClick={() => setMoveKey(f.key)}>{T("Not mine → move", "No es mío → mover", "Se pa pa m → voye l")}</button>
             ))}
           </div>
         </div>
         {(before.length > 0 || after.length > 0) && (
           <div className="fuBA">
-            <div className="fuBACol"><div className="fuBAHead fuBABefore">🔴 Before</div><div className="fuThumbs">{before.length ? before.map(p => thumb(p, "before", f.key)) : <span className="fuPhotoHint">no photo</span>}</div></div>
-            <div className="fuBACol"><div className="fuBAHead fuBAAfter">🟢 After</div><div className="fuThumbs">{after.length ? after.map(p => thumb(p, "after", f.key)) : <span className="fuPhotoHint">add yours</span>}</div></div>
+            <div className="fuBACol"><div className="fuBAHead fuBABefore">🔴 {T("Before", "Antes", "Anvan")}</div><div className="fuThumbs">{before.length ? before.map(p => thumb(p, "before", f.key)) : <span className="fuPhotoHint">{T("no photo", "sin foto", "pa gen foto")}</span>}</div></div>
+            <div className="fuBACol"><div className="fuBAHead fuBAAfter">🟢 {T("After", "Después", "Apre")}</div><div className="fuThumbs">{after.length ? after.map(p => thumb(p, "after", f.key)) : <span className="fuPhotoHint">{T("add yours", "agrega la tuya", "mete pa w")}</span>}</div></div>
           </div>
         )}
-        {stt && <div className="fuStStamp">{stt.status === "resolved" ? "✅ Fixed" : stt.status === "waiting" ? `⏳ Waiting${stt.note ? ` for ${stt.note}` : ""}` : "🔧 In process"} — {stt.by}{stt.ts ? ` · ${new Date(stt.ts).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}` : ""}</div>}
+        {stt && <div className="fuStStamp">{stt.status === "resolved" ? T("✅ Fixed", "✅ Arreglado", "✅ Ranje") : stt.status === "waiting" ? `${T("⏳ Waiting", "⏳ Esperando", "⏳ Ap tann")}${stt.note ? ` ${T("for", "por", "pou")} ${stt.note}` : ""}` : T("🔧 In process", "🔧 En proceso", "🔧 Nan pwosesis")} — {stt.by}{stt.ts ? ` · ${new Date(stt.ts).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}` : ""}</div>}
         {cm.length > 0 && <div className="crewComments">{cm.slice(-3).map((c, i) => <div key={i}>💬 <b>{c.by}</b>: {c.text}</div>)}</div>}
         {action?.key === f.key ? (
           <div className="crewActionBox">
-            <div className="crewActionTitle">{action.kind === "fixed" ? "✅ What did you do?" : action.kind === "waiting" ? "⏳ Waiting on what?" : "🔧 In process"}</div>
+            <div className="crewActionTitle">{action.kind === "fixed" ? T("✅ What did you do?", "✅ ¿Qué hiciste?", "✅ Kisa ou fè?") : action.kind === "waiting" ? T("⏳ Waiting on what?", "⏳ ¿Esperando qué?", "⏳ W ap tann kisa?") : T("🔧 In process", "🔧 En proceso", "🔧 Nan pwosesis")}</div>
             <textarea rows={2} className="caText" value={action.note} autoFocus onChange={e => setAction(a => ({ ...a, note: e.target.value }))}
-              placeholder={action.kind === "fixed" ? "e.g. Replaced gasket, tested — holding 36°F" : action.kind === "waiting" ? "e.g. part on order, vendor Thursday" : "optional note"} />
+              placeholder={action.kind === "fixed" ? T("e.g. Replaced gasket, tested — holding 36°F", "ej. Cambié el empaque, probado — se mantiene a 36°F", "egz. Mwen chanje gasket la, teste — li kenbe 36°F") : action.kind === "waiting" ? T("e.g. part on order, vendor Thursday", "ej. pieza pedida, proveedor el jueves", "egz. pyès la kòmande, vandè a jedi") : T("optional note", "nota opcional", "not opsyonel")} />
             <div className="crewActionBtns">
-              <button type="button" className="btn btnGhost" onClick={() => setAction(null)}>Cancel</button>
-              <button type="button" className="btn btnPrimary" disabled={action.kind !== "in_progress" && !action.note.trim()} onClick={() => commit(f, action.kind, action.note)}>📨 Send to inspector</button>
+              <button type="button" className="btn btnGhost" onClick={() => setAction(null)}>{T("Cancel", "Cancelar", "Anile")}</button>
+              <button type="button" className="btn btnPrimary" disabled={action.kind !== "in_progress" && !action.note.trim()} onClick={() => commit(f, action.kind, action.note)}>📨 {T("Send to inspector", "Enviar al inspector", "Voye bay enspekte a")}</button>
             </div>
           </div>
         ) : !done ? (
           <div className="crewActions">
-            <button type="button" className="crewBtn" onClick={() => setAction({ key: f.key, kind: "in_progress", note: "" })}>🔧 In process</button>
-            <button type="button" className="crewBtn" onClick={() => setAction({ key: f.key, kind: "waiting", note: "" })}>⏳ Waiting on…</button>
-            <button type="button" className="crewBtn crewBtnFix" onClick={() => setAction({ key: f.key, kind: "fixed", note: "" })}>✅ Fixed</button>
-            <label className="crewBtn crewBtnPhoto">📷 After photo<input type="file" accept="image/*" capture="environment" multiple hidden onChange={e => { addAfterPhotos(f, e.target.files); e.target.value = ""; }} /></label>
-            {busy === f.key && <span className="fuPhotoHint">Sending…</span>}
+            <button type="button" className="crewBtn" onClick={() => setAction({ key: f.key, kind: "in_progress", note: "" })}>{T("🔧 In process", "🔧 En proceso", "🔧 Nan pwosesis")}</button>
+            <button type="button" className="crewBtn" onClick={() => setAction({ key: f.key, kind: "waiting", note: "" })}>{T("⏳ Waiting on…", "⏳ Esperando…", "⏳ Ap tann…")}</button>
+            <button type="button" className="crewBtn crewBtnFix" onClick={() => setAction({ key: f.key, kind: "fixed", note: "" })}>{T("✅ Fixed", "✅ Arreglado", "✅ Ranje")}</button>
+            <label className="crewBtn crewBtnPhoto">📷 {T("After photo", "Foto después", "Foto apre")}<input type="file" accept="image/*" capture="environment" multiple hidden onChange={e => { addAfterPhotos(f, e.target.files); e.target.value = ""; }} /></label>
+            {busy === f.key && <span className="fuPhotoHint">{T("Sending…", "Enviando…", "Ap voye…")}</span>}
           </div>
         ) : (
-          <div className="crewActions"><label className="crewBtn crewBtnPhoto">📷 Add after photo<input type="file" accept="image/*" capture="environment" multiple hidden onChange={e => { addAfterPhotos(f, e.target.files); e.target.value = ""; }} /></label></div>
+          <div className="crewActions"><label className="crewBtn crewBtnPhoto">📷 {T("Add after photo", "Agregar foto después", "Mete foto apre")}<input type="file" accept="image/*" capture="environment" multiple hidden onChange={e => { addAfterPhotos(f, e.target.files); e.target.value = ""; }} /></label></div>
         )}
       </div>
     );
@@ -8806,7 +8832,7 @@ function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLoc
         <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
           <span style={{ fontSize: "1.4rem" }}>{meta.icon}</span>
           <div style={{ minWidth: 0 }}>
-            <div style={{ fontWeight: 800, color: "#fff", fontSize: "1rem" }}>{meta.title}</div>
+            <div style={{ fontWeight: 800, color: "#fff", fontSize: "1rem" }}>{boardTitle}</div>
             <div style={{ color: "rgba(255,255,255,0.75)", fontSize: "0.74rem", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{me} · {resolveCompanyName()}</div>
           </div>
         </div>
@@ -8814,13 +8840,13 @@ function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLoc
           <button type="button" className="btn btnGhost" style={{ color: "#fff", borderColor: "rgba(255,255,255,0.4)", padding: "6px 12px" }} onClick={() => setMenuOpen(v => !v)}>☰</button>
           {menuOpen && (
             <div className="dropdownMenu" onClick={() => setMenuOpen(false)}>
-              <div className="dropdownMenuUser">{me} ({role === "cleaning" ? "Cleaning" : role === "ecolab" ? "Ecolab" : "Maintenance"})</div>
-              <button className="dropdownMenuItem" type="button" onClick={() => { setTab("open"); }}>{meta.icon} My board</button>
-              <button className="dropdownMenuItem" type="button" onClick={() => { setTab("reports"); }}>📄 Reports with {meta.noun} issues</button>
-              <button className="dropdownMenuItem" type="button" onClick={load}>🔄 Refresh</button>
-              {onMessages && <button className="dropdownMenuItem" type="button" onClick={onMessages}>💬 Messages</button>}
-              {onAppearance && <button className="dropdownMenuItem" type="button" onClick={onAppearance}>🎨 App Color</button>}
-              <button className="dropdownMenuItem dropdownMenuDanger" type="button" onClick={onLock}>Lock App</button>
+              <div className="dropdownMenuUser">{me} ({role === "cleaning" ? T("Cleaning", "Limpieza", "Pwopte") : role === "ecolab" ? "Ecolab" : T("Maintenance", "Mantenimiento", "Antretyen")})</div>
+              <button className="dropdownMenuItem" type="button" onClick={() => { setTab("open"); }}>{meta.icon} {T("My board", "Mi tablero", "Tablo mwen")}</button>
+              <button className="dropdownMenuItem" type="button" onClick={() => { setTab("reports"); }}>📄 {T(`Reports with ${boardNoun} issues`, `Reportes con problemas de ${boardNoun}`, `Rapo ak pwoblem ${boardNoun}`)}</button>
+              <button className="dropdownMenuItem" type="button" onClick={load}>🔄 {T("Refresh", "Actualizar", "Aktyalize")}</button>
+              {onMessages && <button className="dropdownMenuItem" type="button" onClick={onMessages}>💬 {T("Messages", "Mensajes", "Mesaj")}</button>}
+              {onAppearance && <button className="dropdownMenuItem" type="button" onClick={onAppearance}>🎨 {T("App Color", "Color de la app", "Koule app la")}</button>}
+              <button className="dropdownMenuItem dropdownMenuDanger" type="button" onClick={onLock}>{T("Lock App", "Bloquear la app", "Bloke app la")}</button>
               <div className="menuVersion">SDX Inspect · {SDX_VERSION}</div>
             </div>
           )}
@@ -8829,46 +8855,52 @@ function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLoc
       <div className="topBarSpacer" />
       {flash && <div className="walkFlash">{flash}</div>}
       <div style={{ maxWidth: 900, margin: "0 auto", padding: "1rem" }}>
+        <div className="crewLangRow">
+          {[["en", "English"], ["es", "Español"], ["ht", "Kreyòl"]].map(([code, label]) => (
+            <button key={code} type="button" className={"crewLangBtn" + (cl === code ? " on" : "")} onClick={() => pickLang(code)}>{label}</button>
+          ))}
+          <button type="button" className="crewLangBtn crewLangMore" onClick={() => window.dispatchEvent(new CustomEvent("sdx-open-lang"))}>🌐 +</button>
+        </div>
         <div className="crewTabs">
-          <button type="button" className={"crewTab" + (tab === "open" ? " on" : "")} onClick={() => setTab("open")}>{meta.icon} To do <b>{openN}</b></button>
-          <button type="button" className={"crewTab" + (tab === "reports" ? " on" : "")} onClick={() => setTab("reports")}>📄 Reports <b>{reports.length}</b></button>
+          <button type="button" className={"crewTab" + (tab === "open" ? " on" : "")} onClick={() => setTab("open")}>{meta.icon} {T("To do", "Por hacer", "Pou fè")} <b>{openN}</b></button>
+          <button type="button" className={"crewTab" + (tab === "reports" ? " on" : "")} onClick={() => setTab("reports")}>📄 {T("Reports", "Reportes", "Rapò")} <b>{reports.length}</b></button>
         </div>
         {tab === "open" && (
           <>
             <div className="crewStats">
-              <span className={"crewStat" + (overdueN ? " crewStatBad" : "")}>⏰ {overdueN} overdue</span>
-              <span className="crewStat">📋 {openN} open</span>
-              <span className="crewStat crewStatOk">✅ {doneTodayN} fixed today</span>
+              <span className={"crewStat" + (overdueN ? " crewStatBad" : "")}>⏰ {overdueN} {T("overdue", "atrasados", "an reta")}</span>
+              <span className="crewStat">📋 {openN} {T("open", "abiertos", "ouvè")}</span>
+              <span className="crewStat crewStatOk">✅ {doneTodayN} {T("fixed today", "arreglados hoy", "ranje jodi a")}</span>
             </div>
-            <input value={q} onChange={e => setQ(e.target.value)} placeholder="🔎 unit #, stand, problem…" className="crewSearch" />
+            <input value={q} onChange={e => setQ(e.target.value)} placeholder={T("🔎 unit #, stand, problem…", "🔎 # de unidad, puesto, problema…", "🔎 nimewo inite, pwen, pwoblèm…")} className="crewSearch" />
             <div className="crewPickRow">
-              <select className="crewStandSel" value={standPick} onChange={e => setStandPick(e.target.value)} aria-label="Pick a stand">
-                <option value="">🍳 All stands ({standList.length})</option>
-                {standList.map(st => <option key={st.key} value={st.key}>{st.loc || "—"}{st.unit ? ` · #${st.unit}` : ""}{st.open ? ` · ${st.open} open` : ""}</option>)}
+              <select className="crewStandSel" value={standPick} onChange={e => setStandPick(e.target.value)} aria-label={T("Pick a stand", "Elige un puesto", "Chwazi yon pwen")}>
+                <option value="">🍳 {T("All stands", "Todos los puestos", "Tout pwen yo")} ({standList.length})</option>
+                {standList.map(st => <option key={st.key} value={st.key}>{st.loc || "—"}{st.unit ? ` · #${st.unit}` : ""}{st.open ? ` · ${st.open} ${T("open", "abiertos", "ouvè")}` : ""}</option>)}
               </select>
-              {standPick && <button type="button" className="etChip on" onClick={() => setStandPick("")}>✕ clear</button>}
+              {standPick && <button type="button" className="etChip on" onClick={() => setStandPick("")}>✕ {T("clear", "quitar", "efase")}</button>}
               <span className="fuToggle">
-                <button type="button" className={`fuToggleBtn${groupBy === "stand" ? " fuToggleActive" : ""}`} onClick={() => setGroupBy("stand")}>📍 By Stand</button>
-                <button type="button" className={`fuToggleBtn${groupBy === "problem" ? " fuToggleActive" : ""}`} onClick={() => setGroupBy("problem")}>🗂 By Problem</button>
+                <button type="button" className={`fuToggleBtn${groupBy === "stand" ? " fuToggleActive" : ""}`} onClick={() => setGroupBy("stand")}>📍 {T("By Stand", "Por puesto", "Pa pwen")}</button>
+                <button type="button" className={`fuToggleBtn${groupBy === "problem" ? " fuToggleActive" : ""}`} onClick={() => setGroupBy("problem")}>🗂 {T("By Problem", "Por problema", "Pa pwoblèm")}</button>
               </span>
             </div>
             <div className="crewChips">
               {floors.length > 1 && floors.map(f => <button key={f} type="button" className={"etChip" + (floorPick === f ? " on" : "")} onClick={() => setFloorPick(floorPick === f ? "" : f)}>{f}</button>)}
               <span style={{ flex: 1 }} />
-              <button type="button" className={"etChip" + (showDone ? " on" : "")} onClick={() => setShowDone(v => !v)}>show fixed</button>
-              <button type="button" className={"etChip" + (showOther ? " on" : "")} onClick={() => setShowOther(v => !v)}>+ other problems</button>
+              <button type="button" className={"etChip" + (showDone ? " on" : "")} onClick={() => setShowDone(v => !v)}>{T("show fixed", "ver arreglados", "montre sa ki ranje")}</button>
+              <button type="button" className={"etChip" + (showOther ? " on" : "")} onClick={() => setShowOther(v => !v)}>{T("+ other problems", "+ otros problemas", "+ lòt pwoblèm")}</button>
             </div>
-            {loading && !history.length && <div className="etEmpty">Loading…</div>}
-            {!loading && shown.length === 0 && <div className="etEmpty">{openN === 0 ? `Nothing open for ${meta.noun} right now. 🎉` : "Nothing matches."}</div>}
+            {loading && !history.length && <div className="etEmpty">{T("Loading…", "Cargando…", "Ap chaje…")}</div>}
+            {!loading && shown.length === 0 && <div className="etEmpty">{openN === 0 ? T(`Nothing open for ${boardNoun} right now. 🎉`, `Nada abierto para ${boardNoun} ahora. 🎉`, `Pa gen anyen ouvè pou ${boardNoun} kounye a. 🎉`) : T("Nothing matches.", "No hay coincidencias.", "Anyen pa koresponn.")}</div>}
             {groupBy === "problem" && problemGroups.map(g => (
               <div key={g.cat} className="crewStand crewProblem">
-                <div className="crewStandHead">{g.icon} {g.cat}<span className="crewProblemMeta">{g.items.length} item{g.items.length !== 1 ? "s" : ""} · {g.stands.size} stand{g.stands.size !== 1 ? "s" : ""}{g.overdue ? ` · ⏰ ${g.overdue} overdue` : ""}</span></div>
+                <div className="crewStandHead">{g.icon} {g.cat}<span className="crewProblemMeta">{g.items.length} {T(g.items.length !== 1 ? "items" : "item", g.items.length !== 1 ? "problemas" : "problema", g.items.length !== 1 ? "pwoblèm" : "pwoblèm")} · {g.stands.size} {T(g.stands.size !== 1 ? "stands" : "stand", g.stands.size !== 1 ? "puestos" : "puesto", "pwen")}{g.overdue ? ` · ⏰ ${g.overdue} ${T("overdue", "atrasados", "an reta")}` : ""}</span></div>
                 {g.items.map(f => renderCrewItem(f, true))}
               </div>
             ))}
             {groupBy === "stand" && floors.filter(fl => byFloor[fl]).map(fl => (
               <div key={fl}>
-                <div className="etFloorHead"><span>🏢 {fl}</span><span>{Object.keys(byFloor[fl]).length} stands</span></div>
+                <div className="etFloorHead"><span>🏢 {fl}</span><span>{Object.keys(byFloor[fl]).length} {T("stands", "puestos", "pwen")}</span></div>
                 {Object.values(byFloor[fl]).sort((a, b) => (a.unit || "").localeCompare(b.unit || "", undefined, { numeric: true })).map(st => (
                   <div key={st.loc + st.unit} className="crewStand">
                     <div className="crewStandHead">🍳 {st.loc}{st.unit ? ` · #${st.unit}` : ""}</div>
@@ -8881,13 +8913,13 @@ function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLoc
         )}
         {tab === "reports" && (
           <>
-            <div className="etEmpty" style={{ textAlign: "left", marginBottom: 10 }}>Reports from the last 60 days that mention a {meta.noun} problem. Tap one to read it.</div>
-            {reports.length === 0 && <div className="etEmpty">No reports with {meta.noun} problems.</div>}
+            <div className="etEmpty" style={{ textAlign: "left", marginBottom: 10 }}>{T(`Reports from the last 60 days that mention a ${boardNoun} problem. Tap one to read it.`, `Reportes de los últimos 60 días que mencionan un problema de ${boardNoun}. Toca uno para leerlo.`, `Rapò 60 dènye jou yo ki pale de yon pwoblèm ${boardNoun}. Tape youn pou li li.`)}</div>
+            {reports.length === 0 && <div className="etEmpty">{T(`No reports with ${boardNoun} problems.`, `No hay reportes con problemas de ${boardNoun}.`, `Pa gen rapò ak pwoblèm ${boardNoun}.`)}</div>}
             {reports.map(({ r, hits }) => (
               <div key={r.id} className="crewReport" onClick={() => setOpenReport(openReport === r.id ? null : r.id)}>
                 <div className="crewReportHead">
                   <span className="crewReportSite">{r.siteName || "—"}{r.siteNumber ? ` · #${r.siteNumber}` : ""}</span>
-                  <span className="crewReportMeta">{(r.inspectionDate || r.savedAt || "").slice(0, 10)} · {r.inspectionType || "Inspection"} · {r.inspectorName || r.reportedBy?.name || ""}</span>
+                  <span className="crewReportMeta">{(r.inspectionDate || r.savedAt || "").slice(0, 10)} · {r.inspectionType || T("Inspection", "Inspección", "Enspeksyon")} · {r.inspectorName || r.reportedBy?.name || ""}</span>
                   <span className="crewReportCount">{hits.length}</span>
                 </div>
                 {openReport === r.id && (
