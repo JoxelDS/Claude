@@ -2490,13 +2490,7 @@ function BadgeScreen({ onUnlock, inviteRole }) {
                 </button>
               ))}
             </div>
-            <div className="regDeptRow">
-              <span className="regDeptLabel">Department</span>
-              <select className="select regDeptSelect" value={regDept} onChange={e => setRegDept(e.target.value)}>
-                <option value="">Choose…</option>
-                {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
-              </select>
-            </div>
+            {/* Department follows the role tile (v428) — only "Office / other" asks which one */}
             {regDept === "Other" && (
               <input className="input regInput" value={regDeptOther} onChange={e => setRegDeptOther(e.target.value)} placeholder="Which department?" />
             )}

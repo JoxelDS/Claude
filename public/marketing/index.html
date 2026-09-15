@@ -40,6 +40,9 @@
   .dark-band { background: #0A0A0D; color: #fff; }
   .dark-band h2 { color: #fff; }
   .dark-band .lead { color: rgba(255,255,255,.65); }
+  .video-wrap { max-width: 960px; margin: 0 auto; border-radius: 18px; overflow: hidden; background: #0b1a36; box-shadow: 0 24px 60px rgba(42,41,92,.28); border: 1px solid #E5E7EB; }
+  .video-wrap video { display: block; width: 100%; aspect-ratio: 16 / 9; background: #0b1a36; }
+  .video-note { text-align: center; font-size: .85rem; color: var(--muted); margin-top: 14px; }
   footer { background: var(--navy); color: rgba(255,255,255,.8); padding: 36px 24px; text-align: center; font-size: .85rem; }
   footer a { color: #fff; }
 </style>
@@ -51,8 +54,22 @@
   <h1>SDX Inspect</h1>
   <p class="sub">The all-in-one kitchen inspection &amp; food safety compliance app. From walk-through to signed report in minutes — on iPhone, iPad, and the web.</p>
   <a class="cta" href="https://joxelds.github.io/Claude/">Open the App</a>
-  <a class="cta ghost" href="#guide">How it works</a>
+  <a class="cta ghost" href="#video">▶ Watch the video</a>
 </div>
+
+<section id="video">
+  <div class="wrap">
+    <h2>A game day with SDX Inspect</h2>
+    <p class="lead">Two minutes and forty-five seconds, no sound needed: the inspector's walk, the QR poster every stand scans, the crew boards, and the proof that closes each problem. Captions in English and Spanish.</p>
+    <div class="video-wrap">
+      <video controls playsinline preload="metadata" poster="video/sdx-explainer.jpg">
+        <source src="video/sdx-explainer.mp4" type="video/mp4">
+        Your browser can't play this video. <a href="video/sdx-explainer.mp4">Download it</a> instead.
+      </video>
+    </div>
+    <p class="video-note">Silent by design — watch it anywhere, with or without headphones.</p>
+  </div>
+</section>
 
 <section>
   <div class="wrap">
