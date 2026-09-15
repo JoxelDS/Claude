@@ -2384,9 +2384,15 @@ function BadgeScreen({ onUnlock, inviteRole }) {
     setError(""); setLoading(true);
     try {
       const meta = REQUEST_ROLES.find(r => r.value === inviteRole);
-      const dept = meta?.value === "maintenance" ? "Maintenance / Facilities" : meta?.value === "cleaning" ? "Cleaning / Sanitation" : meta?.value === "location_manager" ? "Management" : "Food Safety / QA";
+      const dept = ROLE_DEFAULT_DEPT[meta?.value] || "Food Safety / QA";
       const r = await registerNewUser(badge.trim(), regName.trim(), dept, { requestedRole: inviteRole, assignedLocation: regLoc.trim(), approved: true });
-      if (!r.ok && r.reason !== "exists") { setError("Could not create your access. Try again."); return; }
+      if (!r.ok && r.reason === "exists") {
+        // Joining with a badge that already exists would silently sign into the
+        // OLD account with its OLD role (e.g. an inspector opening a crew link).
+        // Say so instead of quietly landing on the wrong screen.
+        const h = await hashBadge(badge.trim()); const u = (await getUsers()).find(x => x.badgeHash === h);
+        if (u && u.role !== inviteRole) { setError(`That badge number already exists as ${roleChip(u.role)}. Pick a different badge number for the ${meta?.label || inviteRole} account, or use "Already have a badge? Sign in".`); return; }
+      } else if (!r.ok) { setError("Could not create your access. Try again."); return; }
       const result = await signIn(badge.trim());
       if (result.ok) { try { window.history.replaceState({}, "", window.location.pathname); } catch {} onUnlock(result.user); return; }
       if (result.reason === "pending") setMode("pending"); else setError("Badge not recognized. Try again.");
@@ -8785,7 +8791,7 @@ function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLoc
             <div style={{ color: "rgba(255,255,255,0.75)", fontSize: "0.74rem", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{me} · {resolveCompanyName()}</div>
           </div>
         </div>
-        <div style={{ position: "relative" }}>
+        <div>
           <button type="button" className="btn btnGhost" style={{ color: "#fff", borderColor: "rgba(255,255,255,0.4)", padding: "6px 12px" }} onClick={() => setMenuOpen(v => !v)}>☰</button>
           {menuOpen && (
             <div className="dropdownMenu" onClick={() => setMenuOpen(false)}>
@@ -11591,7 +11597,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
           )}
           {/* Notification bell for all users */}
           {currentUser && notifItems && (
-            <div style={{ position: "relative" }}>
+            <div>
               <button
                 className="hamburgerBtn"
                 onClick={() => setHistoryNotifOpen(v => !v)}
@@ -11635,7 +11641,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
             </div>
           )}
           {/* Mobile: single ⋯ menu button */}
-          <div className="historyMobileMenu" style={{ position: "relative" }}>
+          <div className="historyMobileMenu">
             <button className="btn btnGhost" onClick={() => setShowHistoryMenu(m => !m)} type="button" style={{ fontSize: "1.2rem", padding: "6px 12px", letterSpacing: "0.05em" }}>⋯</button>
             {showHistoryMenu && (
               <div className="dropdownMenu" style={{ right: 0, left: "auto", minWidth: 230, padding: "14px 10px 18px", gap: 4 }} onClick={() => setShowHistoryMenu(false)}>
