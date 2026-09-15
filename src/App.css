@@ -8404,3 +8404,22 @@ html[data-theme="dark"] .fuStOnWaiting, html[data-theme="black"] .fuStOnWaiting 
 }
 .fuThumbAfterMark { outline: 2px solid #166534; outline-offset: -2px; }
 @media (max-width: 640px) { .fuCleanExport { margin-left: 0; flex: 1 1 100%; } }
+
+/* Timeline on a cleaning-log row — flagged → started → solved (v438) */
+.fuTimeline { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 4px; }
+.fuTlStep {
+  font-size: 0.64rem; font-weight: 700; color: var(--ink-500);
+  background: var(--surface-2); border-radius: 5px; padding: 2px 6px;
+}
+.fuTlDone { color: #166534; background: #dcfce7; }
+.fuTlLen { font-size: 0.64rem; font-weight: 800; color: var(--sdx-navy); padding: 2px 0; }
+
+/* Cleaning log grouped by day — what the crew did today and where (v438) */
+.fuCleanDay { border-top: 1px solid var(--sdx-gray-200); }
+.fuCleanDayHead {
+  display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+  padding: 8px 10px 2px;
+}
+.fuCleanDayHead b { font-size: 0.8rem; color: var(--sdx-navy); letter-spacing: .03em; }
+.fuCleanDayHead span { font-size: 0.7rem; color: var(--ink-500); font-weight: 700; }
+.fuCleanDayStands { padding: 0 10px 6px; font-size: 0.68rem; color: var(--ink-400); }

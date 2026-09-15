@@ -8736,15 +8736,20 @@ function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLoc
       for (const n of names) saveInspectorNotification({ inspectorName: n, kind: "followup", title, message });
     } catch {}
   }
-  async function commit(f, kind, note, how, whose, mins) {
+  async function commit(f, kind, note, how, whose) {
     const ts = Date.now(); const prefix = `${meta.icon} ${me}`;
-    const entry = kind === "fixed" ? { status: "resolved", note: "", by: me, ts, ...(how ? { how } : {}), ...(whose ? { whose } : {}), ...(mins ? { mins } : {}) } : kind === "waiting" ? { status: "waiting", note: (note || "").slice(0, 80), by: me, ts } : { status: "in_progress", note: "", by: me, ts };
+    // v438: the app keeps the clock — the "In process" tap is the start, this
+    // tap is the finish, so the inspector sees a real timeline, not a guess.
+    const prevSt = statusOf(f.key);
+    const startTs = prevSt && prevSt.status === "in_progress" && prevSt.ts ? prevSt.ts : 0;
+    const mins = startTs ? Math.max(1, Math.round((ts - startTs) / 60000)) : 0;
+    const entry = kind === "fixed" ? { status: "resolved", note: "", by: me, ts, ...(how ? { how } : {}), ...(whose ? { whose } : {}), ...(startTs ? { startTs, mins } : {}) } : kind === "waiting" ? { status: "waiting", note: (note || "").slice(0, 80), by: me, ts } : { status: "in_progress", note: "", by: me, ts };
     // v434: cleaning crews say whether they cleaned it or found it already done
     const howText = how === "crew" ? T("we cleaned it", "lo limpiamos nosotros", "nou netwaye l")
       : how === "already" ? T("it was already clean", "ya estaba limpio", "li te deja pwop")
       : "";
     const whoseText = whose === "sub" ? T("stand's mess", "desorden del stand", "mess stand la") : whose === "ours" ? T("our mess", "desorden nuestro", "mess pa nou") : "";
-    const timeText = mins ? `${mins} min` : "";
+    const timeText = mins ? `${mins} min, ${new Date(startTs).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}\u2013${new Date(ts).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}` : "";
     const tags = [howText, whoseText, timeText].filter(Boolean).join(", ");
     const text = `${kind === "fixed" ? "Fixed" : kind === "waiting" ? "Waiting on" : "In process"}${tags ? ` (${tags})` : ""}${note ? `: ${note.trim().slice(0, 200)}` : ""}`;
     const arr = [...commentsOf(f.key), { text: `${prefix} — ${text}`, by: me, ts }].slice(-10);
@@ -8839,13 +8844,6 @@ function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLoc
                   <button type="button" className={"crewHowBtn crewHowBill" + (action.whose === "sub" ? " on" : "")}
                     onClick={() => setAction(a2 => ({ ...a2, whose: "sub" }))}>🧾 {T("The stand's / subcontractor", "Del stand / subcontratista", "Pa stand la / soutretan")}</button>
                 </div>
-                <div className="crewHowLbl">{T("How long did it take?", "¿Cuánto tiempo tomó?", "Konbyen tan sa pran?")}</div>
-                <div className="crewHowRow">
-                  {[15, 30, 45, 60, 90, 120].map(m => (
-                    <button key={m} type="button" className={"crewHowBtn crewHowMin" + (action.mins === m ? " on" : "")}
-                      onClick={() => setAction(a2 => ({ ...a2, mins: m }))}>{m < 60 ? `${m} min` : `${m / 60} h`}</button>
-                  ))}
-                </div>
               </>
             )}
             <textarea rows={2} className="caText" value={action.note} autoFocus onChange={e => setAction(a => ({ ...a, note: e.target.value }))}
@@ -8853,8 +8851,8 @@ function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLoc
             <div className="crewActionBtns">
               <button type="button" className="btn btnGhost" onClick={() => setAction(null)}>{T("Cancel", "Cancelar", "Anile")}</button>
               <button type="button" className="btn btnPrimary"
-                disabled={(action.kind !== "in_progress" && !action.note.trim()) || (action.kind === "fixed" && role === "cleaning" && (!action.how || (action.how === "crew" && (!action.whose || !action.mins))))}
-                onClick={() => commit(f, action.kind, action.note, action.how, action.whose, action.mins)}>📨 {T("Send to inspector", "Enviar al inspector", "Voye bay enspekte a")}</button>
+                disabled={(action.kind !== "in_progress" && !action.note.trim()) || (action.kind === "fixed" && role === "cleaning" && (!action.how || (action.how === "crew" && !action.whose)))}
+                onClick={() => commit(f, action.kind, action.note, action.how, action.whose)}>📨 {T("Send to inspector", "Enviar al inspector", "Voye bay enspekte a")}</button>
             </div>
           </div>
         ) : !done ? (
@@ -8997,6 +8995,7 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
   const [showFixed, setShowFixed] = useState(false); // v434 — "everything fixed" view
   const [showClean, setShowClean] = useState(false);     // v437 — cleaning log
   const [cleanBillOnly, setCleanBillOnly] = useState(false);
+  const [cleanRange, setCleanRange] = useState("today"); // today | 7d | all
   const [typeMenuKey, setTypeMenuKey] = useState(null);
   const [typeLocal, setTypeLocal] = useState({});
   const analysis = useMemo(() => {
@@ -9335,7 +9334,9 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
         const before = ph.filter(x => (x.tag || "before") !== "after").slice(0, 2);
         const after = ph.filter(x => x.tag === "after").slice(0, 2);
         const img = arr => arr.length ? arr.map(x => `<img src="${x.thumbUrl || x.previewUrl || ""}">`).join("") : `<span class="none">no photo</span>`;
-        return `<tr><td>${esc(new Date(f.fixedTs).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }))}</td>` +
+        const clk = t => new Date(t).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+        return `<tr><td>${esc(new Date(f.fixedTs).toLocaleDateString([], { month: "short", day: "numeric" }))}</td>` +
+          `<td>${f.fixedStart ? esc(clk(f.fixedStart)) : "\u2014"}</td><td><b>${esc(clk(f.fixedTs))}</b></td>` +
           `<td><b>${esc(f.cat)}</b>${f.detail ? `<br><small>${esc(f.detail)}</small>` : ""}</td>` +
           `<td>${esc(f.fixedBy || "")}</td><td>${f.fixedMins ? esc(hrs(f.fixedMins)) : "\u2014"}</td>` +
           `<td class="${f.fixedWhose === "sub" ? "bill" : ""}">${f.fixedWhose === "sub" ? "STAND / SUBCONTRACTOR" : f.fixedWhose === "ours" ? "Stadium" : "\u2014"}${f.fixedHow === "already" ? "<br><small>found already clean</small>" : ""}</td>` +
@@ -9343,7 +9344,7 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
       }).join("");
       return `<h2>${esc(g.loc)}${g.unit ? ` \u2014 Unit #${esc(g.unit)}` : ""}</h2>` +
         `<p class="meta">${r.license ? `License ${esc(r.license)}` : "No license on file"}${r.name ? ` \u00b7 ${esc(r.name)}` : ""} \u2022 ${g.rows.length} clean${g.rows.length !== 1 ? "s" : ""} \u2022 ${hrs(mins)} of crew time \u2022 ${bill.length} billable to the stand</p>` +
-        `<table><thead><tr><th>When</th><th>What was cleaned</th><th>Cleaned by</th><th>Time</th><th>Whose mess</th><th>Before</th><th>After</th></tr></thead><tbody>${rows}</tbody></table>`;
+        `<table><thead><tr><th>Date</th><th>Started</th><th>Solved</th><th>What was cleaned</th><th>Cleaned by</th><th>Time on job</th><th>Whose mess</th><th>Before</th><th>After</th></tr></thead><tbody>${rows}</tbody></table>`;
     }).join("");
     const totalMins = items.reduce((n, f) => n + (f.fixedMins || 0), 0);
     const billN = items.filter(f => f.fixedWhose === "sub").length;
@@ -9512,7 +9513,7 @@ ${sections}
     const clearedMap = { ...(venueSettings?.followupCleared || {}), ...clearedLocal };
     const all = computeFollowups(history, { ...(venueSettings || {}), followupCleared: {} }, {}).followups || [];
     return all
-      .map(f => { const st = stMap[f.key]; const when = Number(st?.ts || clearedMap[f.key] || 0); return { ...f, fixedBy: st?.by || "", fixedHow: st?.how || "", fixedWhose: st?.whose || "", fixedMins: Number(st?.mins || 0), fixedTs: when }; })
+      .map(f => { const st = stMap[f.key]; const when = Number(st?.ts || clearedMap[f.key] || 0); return { ...f, fixedBy: st?.by || "", fixedHow: st?.how || "", fixedWhose: st?.whose || "", fixedMins: Number(st?.mins || 0), fixedStart: Number(st?.startTs || 0), fixedTs: when }; })
       .filter(f => (stMap[f.key]?.status === "resolved" || clearedMap[f.key]) && f.fixedTs)
       .filter(fuMatches)
       .sort((a2, b2) => b2.fixedTs - a2.fixedTs);
@@ -9520,8 +9521,26 @@ ${sections}
   // v437 — cleaning log: every job a cleaning crew logged, with whose mess
   // it was and how long it took, so hours are tracked and the stand's own
   // messes can be billed back to the subcontractor.
+  const clockT = t => new Date(t).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  const clockD = t => new Date(t).toLocaleDateString([], { month: "short", day: "numeric" });
   const cleanAll = fixedList.filter(f => f.fixedHow);
-  const cleanList = cleanBillOnly ? cleanAll.filter(f => f.fixedWhose === "sub") : cleanAll;
+  const cleanCut = (() => { const d = new Date(); d.setHours(0, 0, 0, 0); return cleanRange === "today" ? d.getTime() : cleanRange === "7d" ? d.getTime() - 6 * 86400000 : 0; })();
+  const cleanList = cleanAll
+    .filter(f => !cleanBillOnly || f.fixedWhose === "sub")
+    .filter(f => f.fixedTs >= cleanCut);
+  // v438: grouped by day so "what did my crew do today, and where" is one look
+  const cleanDays = (() => {
+    const m = {};
+    cleanList.forEach(f => {
+      const d = new Date(f.fixedTs); d.setHours(0, 0, 0, 0);
+      const k = d.getTime();
+      (m[k] = m[k] || { key: k, rows: [], mins: 0, stands: new Set(), people: new Set() });
+      m[k].rows.push(f); m[k].mins += f.fixedMins || 0;
+      m[k].stands.add(`${f.loc}${f.unit ? ` #${f.unit}` : ""}`);
+      if (f.fixedBy) m[k].people.add(f.fixedBy);
+    });
+    return Object.values(m).sort((a2, b2) => b2.key - a2.key);
+  })();
   const cleanMins = cleanList.reduce((n, f) => n + (f.fixedMins || 0), 0);
   const cleanByPerson = (() => {
     const m = {};
@@ -9773,6 +9792,10 @@ ${sections}
                 <div className="fuCleanTotals">
                   <span className="fuCleanTotal"><b>{cleanList.length}</b> clean{cleanList.length !== 1 ? "s" : ""}</span>
                   <span className="fuCleanTotal"><b>{cleanMins >= 60 ? `${(cleanMins / 60).toFixed(cleanMins % 60 ? 1 : 0)} h` : `${cleanMins} min`}</b> of crew time</span>
+                  {[["today", "Today"], ["7d", "Last 7 days"], ["all", "All"]].map(([k, lbl]) => (
+                    <button key={k} type="button" className={"fuCleanFilter" + (cleanRange === k ? " on" : "")}
+                      onClick={() => setCleanRange(k)}>{lbl}</button>
+                  ))}
                   <button type="button" className={"fuCleanFilter" + (cleanBillOnly ? " on" : "")}
                     onClick={() => setCleanBillOnly(v => !v)}>🧾 {cleanBillOnly ? "Billable only" : "Show billable only"}</button>
                   <button type="button" className="fuCleanExport" disabled={cleanList.length === 0}
@@ -9786,8 +9809,15 @@ ${sections}
                   </div>
                 )}
                 {cleanList.length === 0 ? (
-                  <div className="fuFixedEmpty">{cleanBillOnly ? "Nothing billable in this range yet." : "No cleans logged yet. Cleaning crews tap ✅ Fixed, say whose mess it was and how long it took — it lands here."}</div>
-                ) : cleanList.slice(0, 60).map(f => {
+                  <div className="fuFixedEmpty">{cleanBillOnly || cleanRange !== "all" ? `No cleans logged ${cleanRange === "today" ? "today" : cleanRange === "7d" ? "in the last 7 days" : "yet"}${cleanBillOnly ? " that are billable" : ""}.` : "No cleans logged yet. Cleaning crews tap ✅ Fixed, say whose mess it was and how long it took — it lands here."}</div>
+                ) : cleanDays.map(day => (
+                  <div key={day.key} className="fuCleanDay">
+                    <div className="fuCleanDayHead">
+                      <b>{day.key === new Date(new Date().setHours(0, 0, 0, 0)).getTime() ? "TODAY" : new Date(day.key).toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" })}</b>
+                      <span>{day.rows.length} clean{day.rows.length !== 1 ? "s" : ""} · {day.stands.size} stand{day.stands.size !== 1 ? "s" : ""}{day.mins ? ` · ${day.mins >= 60 ? `${(day.mins / 60).toFixed(day.mins % 60 ? 1 : 0)} h` : `${day.mins} min`}` : ""}{day.people.size ? ` · ${[...day.people].join(", ")}` : ""}</span>
+                    </div>
+                    <div className="fuCleanDayStands">{[...day.stands].join(" · ")}</div>
+                    {day.rows.map(f => {
                   const ph = [...(f.photos || []), ...((fuPhotosLocal[f.key] || venueSettings?.followupPhotos?.[f.key] || []))];
                   const before = ph.filter(x => (x.tag || "before") !== "after").slice(-2);
                   const after = ph.filter(x => x.tag === "after").slice(-2);
@@ -9797,10 +9827,13 @@ ${sections}
                       <div className="fuFixedBody">
                         <div className="fuFixedTitle">{f.loc}{f.unit ? ` · #${f.unit}` : ""} — {f.cat}</div>
                         <div className="fuFixedMeta">
-                          {new Date(f.fixedTs).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
-                          {f.fixedBy ? ` · ${f.fixedBy}` : ""}
-                          {f.fixedMins ? ` · ${f.fixedMins} min` : ""}
-                          {f.fixedHow === "already" ? " · was already clean" : ""}
+                          {clockD(f.fixedTs)}{f.fixedBy ? ` · ${f.fixedBy}` : ""}{f.fixedHow === "already" ? " · was already clean" : ""}
+                        </div>
+                        <div className="fuTimeline">
+                          {f.dateStr && <span className="fuTlStep">🚩 flagged {f.dateStr}</span>}
+                          {f.fixedStart ? <span className="fuTlStep">🔧 started {clockT(f.fixedStart)}</span> : null}
+                          <span className="fuTlStep fuTlDone">✅ solved {clockT(f.fixedTs)}</span>
+                          {f.fixedMins ? <span className="fuTlLen">{f.fixedMins >= 60 ? `${(f.fixedMins / 60).toFixed(f.fixedMins % 60 ? 1 : 0)} h` : `${f.fixedMins} min`} on the job</span> : null}
                         </div>
                         {f.fixedWhose === "sub" && <span className="fuCleanBill">BILL THE STAND</span>}
                       </div>
@@ -9812,7 +9845,9 @@ ${sections}
                       )}
                     </div>
                   );
-                })}
+                    })}
+                  </div>
+                ))}
               </div>
             )}
             {showFixed && (
@@ -9834,7 +9869,7 @@ ${sections}
                       <div className="fuFixedBody">
                         <div className="fuFixedTitle">{f.loc}{f.unit ? ` · #${f.unit}` : ""} — {f.cat}</div>
                         {f.detail && <div className="fuFixedDetail">{f.detail}</div>}
-                        <div className="fuFixedMeta">{ago}{f.fixedBy ? ` · by ${f.fixedBy}` : ""}{f.fixedHow === "already" ? " · was already clean" : f.fixedHow === "crew" ? " · cleaned by the crew" : ""}{f.dateStr ? ` · flagged ${f.dateStr}` : ""}</div>
+                        <div className="fuFixedMeta">{ago} ({clockT(f.fixedTs)}){f.fixedBy ? ` · by ${f.fixedBy}` : ""}{f.fixedHow === "already" ? " · was already clean" : f.fixedHow === "crew" ? " · cleaned by the crew" : ""}{f.dateStr ? ` · flagged ${f.dateStr}` : ""}</div>
                       </div>
                       {ph.length > 0 && (
                         <div className="fuFixedThumbs">
