@@ -27926,7 +27926,8 @@ export default function App() {
     }
     // License auto-fill (Hard Rock Stadium only for seed lookup)
     if (!lock && !restaurantLicense) {
-      const licEntry = invLicenseData[val];
+      // invLicenseData lives in the analytics panel, not here — never let a missing map throw mid-typing
+      const licEntry = (typeof invLicenseData === "object" && invLicenseData) ? invLicenseData[val] : null;
       if (licEntry?.licenseNum && licEntry.licenseNum !== "NO LICENSE") {
         setRestaurantLicense(licEntry.licenseNum);
       } else if (IS_DEFAULT_VENUE()) {
