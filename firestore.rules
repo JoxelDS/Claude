@@ -150,6 +150,8 @@ service cloud.firestore {
       allow delete: if false;
 
       // Shared memory (site name autocomplete map)
+      // pushTokens lives under sharedMemory and is covered by that rule;
+      // it holds FCM device tokens: { tokens: { <token>: {name, role, ts} } }.
       match /sharedMemory/{docId} {
         allow read: if true;
         allow create, update: if notTooLarge();

@@ -1,0 +1,11 @@
+{
+  "name": "sdx-inspect-functions",
+  "description": "Push notifications for SDX Inspect — watches venueSettings for crew fixes",
+  "main": "index.js",
+  "engines": { "node": "20" },
+  "dependencies": {
+    "firebase-admin": "^12.6.0",
+    "firebase-functions": "^6.1.0"
+  },
+  "private": true
+}

@@ -11,6 +11,7 @@ import { db, isConfigured as FIREBASE_ON, setVenue, venueCol, venueRegistryCol, 
 import { collection } from "firebase/firestore";
 import AIEngine from "./AIEngine.js";
 import { applyLanguage } from "./LanguageFab.jsx";
+import { registerPushToken, onPushMessage } from "./firebase.js";
 
 /* ── Boot AI Engine once at module load (venue-scoped) ──────────────────── */
 // VENUE_ID is defined later in this file but JS hoisting means the IIFE
@@ -27982,6 +27983,18 @@ export default function App() {
     return () => clearInterval(timer);
   }, []);
 
+  // ── Push arriving while the app is open → the same bell card (v435) ──
+  useEffect(() => {
+    if (!currentUser || locked) return;
+    const stop = onPushMessage(payload => {
+      const n = payload?.notification || {};
+      const d = payload?.data || {};
+      if (!n.title) return;
+      fireNotification(d.key ? `fixed_${d.key}_${d.ts || Date.now()}` : `push_${Date.now()}`, "fixed", n.title, n.body || "", null);
+    });
+    return () => { try { stop && stop(); } catch {} };
+  }, [currentUser, locked]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── Fixed alerts (v434) — a crew marking a problem Fixed writes it into
   // venueSettings.followupStatus, and venueSettings already has a live
   // onSnapshot, so the fix lands on this device the moment it happens.
@@ -28822,6 +28835,12 @@ export default function App() {
       LN.requestPermissions().catch(() => {});
     } else if (typeof Notification !== "undefined" && Notification.permission === "default") {
       Notification.requestPermission().catch(() => {});
+    }
+    // v435: register this device for push so fixes reach it with the app closed
+    if (user?.role && ["inspector", "admin", "global_admin", "location_manager"].includes(user.role)) {
+      registerPushToken({ venueId: VENUE_ID, name: user.name || "", role: user.role })
+        .then(r => { if (!r.ok && r.reason !== "not-configured") console.info("push:", r.reason); })
+        .catch(() => {});
     }
     // Load unread assignment notifications for inspectors/location managers
     if (user?.name && FIREBASE_ON && (user?.role === "inspector" || user?.role === "location_manager" || user?.role === "admin" || user?.role === "global_admin" || isCrewRole(user?.role))) {

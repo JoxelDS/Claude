@@ -38,8 +38,9 @@
  */
 
 import { initializeApp } from "firebase/app";
-import { getFirestore, collection, doc, addDoc, getDocs, query, where, updateDoc } from "firebase/firestore";
+import { getFirestore, collection, doc, addDoc, getDocs, query, where, updateDoc, setDoc } from "firebase/firestore";
 import { getStorage, ref, uploadString, getDownloadURL, getBlob, deleteObject } from "firebase/storage";
+import { getMessaging, getToken, onMessage, isSupported as messagingSupported } from "firebase/messaging";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDgXvyvFuKUc59IDB8Fr52ydZ0hiJfJeZU",
@@ -175,3 +176,47 @@ export async function markNotificationRead(notifId) {
 }
 
 export { db, storage, ref as storageRef, getBlob as storageGetBlob, isConfigured };
+
+
+/* ── Push notifications (v435) ──────────────────────────────────────────
+   Registers this device with Firebase Cloud Messaging and stores the token
+   in venues/<venue>/sharedMemory/pushTokens so the notifyOnFix function can
+   reach it. Safe to call on every sign-in: the token is stable per device.
+
+   VAPID key: Firebase console → Project settings → Cloud Messaging →
+   Web Push certificates → "Key pair". Paste it below (it is a PUBLIC key).   */
+export const VAPID_PUBLIC_KEY = "";
+
+export async function registerPushToken({ venueId, name, role }) {
+  try {
+    if (!app || !VAPID_PUBLIC_KEY) return { ok: false, reason: "not-configured" };
+    if (!(await messagingSupported().catch(() => false))) return { ok: false, reason: "unsupported" };
+    if (typeof Notification === "undefined") return { ok: false, reason: "unsupported" };
+    if (Notification.permission === "denied") return { ok: false, reason: "denied" };
+    if (Notification.permission !== "granted") {
+      const p = await Notification.requestPermission();
+      if (p !== "granted") return { ok: false, reason: "denied" };
+    }
+    const base = (import.meta.env.BASE_URL || "/").replace(/\/$/, "");
+    const reg = await navigator.serviceWorker.register(`${base}/firebase-messaging-sw.js`, { scope: `${base}/` });
+    const token = await getToken(getMessaging(app), { vapidKey: VAPID_PUBLIC_KEY, serviceWorkerRegistration: reg });
+    if (!token) return { ok: false, reason: "no-token" };
+    await setDoc(
+      doc(db, "venues", venueId || "default", "sharedMemory", "pushTokens"),
+      { tokens: { [token]: { name: name || "", role: role || "", ts: Date.now() } } },
+      { merge: true }
+    );
+    return { ok: true, token };
+  } catch (e) {
+    console.warn("registerPushToken:", e?.message || e);
+    return { ok: false, reason: "error" };
+  }
+}
+
+/** Foreground messages — the app is open, so hand it to the in-app bell. */
+export function onPushMessage(handler) {
+  try {
+    if (!app) return () => {};
+    return onMessage(getMessaging(app), handler);
+  } catch { return () => {}; }
+}
