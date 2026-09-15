@@ -668,6 +668,8 @@ const HARD_ROCK_LICENSE_SEED = {
   "122 Cantaloupe":                     "NOS2319795",
   "P122 - Fat Boy Smashed Cart":        "NOS2334408",
   "P122 Fat Boy Smashed Cart":          "NOS2334408",
+  "P119 - Arepa Cart / Sub":            "NOS2334419",
+  "P119 Arepa Cart":                    "NOS2334419",
   "P122 - Arepa Cart / Sub":            "NOS2334419",
   "P122 Arepa Cart":                    "NOS2334419",
   // Stand 129
@@ -924,7 +926,7 @@ const LICENSE_REGISTRY = [
   { unit: "120A", type: "C", license: "NOS2334822", name: "Sol Cubano", status: "ACTIVE" },
   { unit: "122", type: "C", license: "NOS2319795", name: "Cantaloupe", status: "ACTIVE" },
   { unit: "122", type: "P", license: "NOS2334408", name: "Joe Smashed Burger Cart", status: "ACTIVE" },
-  { unit: "122", type: "P", license: "NOS2334419", name: "Arepa Cart / Sub", status: "ACTIVE", note: "Now in 119" },
+  { unit: "119", type: "P", license: "NOS2334419", name: "Arepa Cart / Sub", status: "ACTIVE", note: "Moved from 122" },
   { unit: "122", type: "P", license: "", name: "Tostitos Nacho Cart", status: "NEEDED" },
   { unit: "122A", type: "C", license: "NOS2334821", name: "AIFI Wynwood Walkthrough", status: "ACTIVE" },
   { unit: "129", type: "C", license: "NOS2319794", name: "Magic City Dogs", status: "ACTIVE" },
