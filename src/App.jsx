@@ -1371,6 +1371,7 @@ const HACCP_SUBS_KEY  = `sdx_haccp_subs_${VENUE_ID}`;
 const PROBLEMS_KEY    = `sdx_problems_${VENUE_ID}`;
 const CHAT_KEY        = `sdx_chat_${VENUE_ID}`;
 const NOTIF_SEEN_KEY  = `sdx_notif_seen_${VENUE_ID}`; // tracks IDs already notified
+const FIXED_SEEN_KEY  = `sdx_fixed_seen_${VENUE_ID}`; // newest crew-fix timestamp already announced (v434)
 
 /* ── Legacy Firestore collection helper ──────────────────────
    Before multi-venue support all data lived in flat top-level
@@ -8615,7 +8616,7 @@ async function notifyCrewsForItems(items, site, unit, by, forceType) {
       const crew = (users || []).filter(u => u.role === role && u.approved !== false && u.name).slice(0, 10);
       const m = CREW_META[role];
       for (const u of crew) {
-        saveInspectorNotification({ inspectorName: u.name, kind: "followup", title: `${m.icon} New ${m.noun} problem — ${site || "stand"}${unit ? ` #${unit}` : ""}`, message: hits.map(a => a.issue).join(" · ").slice(0, 300) + (by ? ` — ${by}` : "") });
+        saveInspectorNotification({ inspectorName: (u.name || "").trim().toLowerCase(), kind: "followup", title: `${m.icon} New ${m.noun} problem — ${site || "stand"}${unit ? ` #${unit}` : ""}`, message: hits.map(a => a.issue).join(" · ").slice(0, 300) + (by ? ` — ${by}` : "") });
       }
     }
   } catch {}
@@ -8719,16 +8720,29 @@ function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLoc
   const today = new Date().toISOString().slice(0, 10);
   const doneTodayN = mine.filter(f => { const st = statusOf(f.key); return st && st.status === "resolved" && st.ts && new Date(st.ts).toISOString().slice(0, 10) === today; }).length;
 
-  function notifyInspector(f, title, message) {
+  async function notifyInspector(f, title, message) {
     try {
-      const names = new Set(); if (f.inspector) names.add(f.inspector);
+      // The reader queries by lowercase name, so always write lowercase (v434).
+      const names = new Set();
+      if (f.inspector) names.add(f.inspector.trim().toLowerCase());
+      // Every admin hears about it too — the inspector on the report may not
+      // be the person watching the boards, and portal reports have no name.
+      try {
+        for (const u of await getUsers()) {
+          if ((u.role === "admin" || u.role === "global_admin") && u.name) names.add(u.name.trim().toLowerCase());
+        }
+      } catch {}
       for (const n of names) saveInspectorNotification({ inspectorName: n, kind: "followup", title, message });
     } catch {}
   }
-  async function commit(f, kind, note) {
+  async function commit(f, kind, note, how) {
     const ts = Date.now(); const prefix = `${meta.icon} ${me}`;
-    const entry = kind === "fixed" ? { status: "resolved", note: "", by: me, ts } : kind === "waiting" ? { status: "waiting", note: (note || "").slice(0, 80), by: me, ts } : { status: "in_progress", note: "", by: me, ts };
-    const text = `${kind === "fixed" ? "Fixed" : kind === "waiting" ? "Waiting on" : "In process"}${note ? `: ${note.trim().slice(0, 200)}` : ""}`;
+    const entry = kind === "fixed" ? { status: "resolved", note: "", by: me, ts, ...(how ? { how } : {}) } : kind === "waiting" ? { status: "waiting", note: (note || "").slice(0, 80), by: me, ts } : { status: "in_progress", note: "", by: me, ts };
+    // v434: cleaning crews say whether they cleaned it or found it already done
+    const howText = how === "crew" ? T("we cleaned it", "lo limpiamos nosotros", "nou netwaye l")
+      : how === "already" ? T("it was already clean", "ya estaba limpio", "li te deja pwop")
+      : "";
+    const text = `${kind === "fixed" ? "Fixed" : kind === "waiting" ? "Waiting on" : "In process"}${howText ? ` (${howText})` : ""}${note ? `: ${note.trim().slice(0, 200)}` : ""}`;
     const arr = [...commentsOf(f.key), { text: `${prefix} — ${text}`, by: me, ts }].slice(-10);
     setLocal(p => ({ ...p, status: { ...p.status, [f.key]: entry }, comments: { ...p.comments, [f.key]: arr }, cleared: kind === "fixed" ? { ...p.cleared, [f.key]: ts } : p.cleared }));
     saveVenueSettingsMap?.("followupStatus", { [f.key]: entry });
@@ -8802,11 +8816,21 @@ function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLoc
         {action?.key === f.key ? (
           <div className="crewActionBox notranslate" translate="no">
             <div className="crewActionTitle">{action.kind === "fixed" ? T("✅ What did you do?", "✅ ¿Qué hiciste?", "✅ Kisa ou fè?") : action.kind === "waiting" ? T("⏳ Waiting on what?", "⏳ ¿Esperando qué?", "⏳ W ap tann kisa?") : T("🔧 In process", "🔧 En proceso", "🔧 Nan pwosesis")}</div>
+            {action.kind === "fixed" && role === "cleaning" && (
+              <div className="crewHowRow">
+                <button type="button" className={"crewHowBtn" + (action.how === "crew" ? " on" : "")}
+                  onClick={() => setAction(a2 => ({ ...a2, how: "crew" }))}>🧹 {T("We cleaned it", "Lo limpiamos", "Nou netwaye l")}</button>
+                <button type="button" className={"crewHowBtn" + (action.how === "already" ? " on" : "")}
+                  onClick={() => setAction(a2 => ({ ...a2, how: "already" }))}>👍 {T("It was already clean", "Ya estaba limpio", "Li te deja pwop")}</button>
+              </div>
+            )}
             <textarea rows={2} className="caText" value={action.note} autoFocus onChange={e => setAction(a => ({ ...a, note: e.target.value }))}
               placeholder={action.kind === "fixed" ? T("e.g. Replaced gasket, tested — holding 36°F", "ej. Cambié el empaque, probado — se mantiene a 36°F", "egz. Mwen chanje gasket la, teste — li kenbe 36°F") : action.kind === "waiting" ? T("e.g. part on order, vendor Thursday", "ej. pieza pedida, proveedor el jueves", "egz. pyès la kòmande, vandè a jedi") : T("optional note", "nota opcional", "not opsyonel")} />
             <div className="crewActionBtns">
               <button type="button" className="btn btnGhost" onClick={() => setAction(null)}>{T("Cancel", "Cancelar", "Anile")}</button>
-              <button type="button" className="btn btnPrimary" disabled={action.kind !== "in_progress" && !action.note.trim()} onClick={() => commit(f, action.kind, action.note)}>📨 {T("Send to inspector", "Enviar al inspector", "Voye bay enspekte a")}</button>
+              <button type="button" className="btn btnPrimary"
+                disabled={(action.kind !== "in_progress" && !action.note.trim()) || (action.kind === "fixed" && role === "cleaning" && !action.how)}
+                onClick={() => commit(f, action.kind, action.note, action.how)}>📨 {T("Send to inspector", "Enviar al inspector", "Voye bay enspekte a")}</button>
             </div>
           </div>
         ) : !done ? (
@@ -8946,6 +8970,7 @@ function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLoc
 function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDrilldown, venueSettings, saveVenueSettings, saveVenueSettingsMap, currentUser, onAddRecord }) {
   // Locally cleared follow-ups — instant feedback independent of settings sync
   const [clearedLocal, setClearedLocal] = useState({});
+  const [showFixed, setShowFixed] = useState(false); // v434 — "everything fixed" view
   const [typeMenuKey, setTypeMenuKey] = useState(null);
   const [typeLocal, setTypeLocal] = useState({});
   const analysis = useMemo(() => {
@@ -9394,6 +9419,19 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
   if (!analysis) return null;
   if (analysis.recurring.length === 0 && Object.keys(analysis.locationRecurring).length === 0 && analysis.worstLocations.length === 0 && (analysis.followups || []).length === 0) return null;
 
+  // v434 — everything the crews fixed. computeFollowups drops cleared items,
+  // so recompute with an empty cleared map and keep only the resolved ones.
+  const fixedList = (() => {
+    const clearedMap = { ...(venueSettings?.followupCleared || {}), ...clearedLocal };
+    const all = computeFollowups(history, { ...(venueSettings || {}), followupCleared: {} }, {}).followups || [];
+    return all
+      .map(f => { const st = stMap[f.key]; const when = Number(st?.ts || clearedMap[f.key] || 0); return { ...f, fixedBy: st?.by || "", fixedHow: st?.how || "", fixedTs: when }; })
+      .filter(f => (stMap[f.key]?.status === "resolved" || clearedMap[f.key]) && f.fixedTs)
+      .filter(fuMatches)
+      .sort((a2, b2) => b2.fixedTs - a2.fixedTs);
+  })();
+  const startOfToday = new Date(); startOfToday.setHours(0, 0, 0, 0);
+  const fixedTodayN = fixedList.filter(f => f.fixedTs >= startOfToday.getTime()).length;
   const fuVisible = (analysis.followups || []).filter(fuMatches);
   const fuGroupsShown = fuFilterGroups(analysis.followupGroups || []);
   const fuCatGroupsShown = fuFilterGroups(analysis.followupCatGroups || []);
@@ -9413,6 +9451,9 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
           <div className="fuHeadCounts">
             <span className={"fuHeadCount" + (od ? " fuHeadCountAlert" : "")}>⏰ {od} overdue</span>
             <span className="fuHeadCount">📋 {open} open</span>
+            <button type="button" className={"fuHeadCount fuHeadCountFixed" + (showFixed ? " on" : "")}
+              title="Everything the crews marked fixed"
+              onClick={() => setShowFixed(v => !v)}>✅ {fixedTodayN} fixed today{fixedList.length > fixedTodayN ? ` · ${fixedList.length} total` : ""}</button>
           </div>
         ); })()}
       </div>
@@ -9606,6 +9647,37 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
                 <button type="button" className={`fuToggleBtn${fuGroupBy === "cat" ? " fuToggleActive" : ""}`} onClick={() => setFuGroupBy("cat")}>🗂 By Problem</button>
               </span>
             </div>
+            {showFixed && (
+              <div className="fuFixedPanel">
+                <div className="fuFixedHead">
+                  <span>✅ Fixed{fuSearch.trim() ? " · matching your search" : ""}</span>
+                  <button type="button" className="fuFixedClose" onClick={() => setShowFixed(false)}>✕ close</button>
+                </div>
+                {fixedList.length === 0 ? (
+                  <div className="fuFixedEmpty">Nothing marked fixed yet. Crews tap ✅ Fixed on their board and it lands here right away.</div>
+                ) : fixedList.slice(0, 40).map(f => {
+                  const when = new Date(f.fixedTs);
+                  const mins = Math.round((Date.now() - f.fixedTs) / 60000);
+                  const ago = mins < 1 ? "just now" : mins < 60 ? `${mins} min ago` : mins < 1440 ? `${Math.round(mins / 60)} h ago` : when.toLocaleDateString();
+                  const ph = [...(f.photos || []), ...((fuPhotosLocal[f.key] || venueSettings?.followupPhotos?.[f.key] || []))];
+                  return (
+                    <div key={f.key} className="fuFixedRow">
+                      <span className="fuFixedIcon">{ISSUE_TYPE_ICON[f.itype] || "🔧"}</span>
+                      <div className="fuFixedBody">
+                        <div className="fuFixedTitle">{f.loc}{f.unit ? ` · #${f.unit}` : ""} — {f.cat}</div>
+                        {f.detail && <div className="fuFixedDetail">{f.detail}</div>}
+                        <div className="fuFixedMeta">{ago}{f.fixedBy ? ` · by ${f.fixedBy}` : ""}{f.fixedHow === "already" ? " · was already clean" : f.fixedHow === "crew" ? " · cleaned by the crew" : ""}{f.dateStr ? ` · flagged ${f.dateStr}` : ""}</div>
+                      </div>
+                      {ph.length > 0 && (
+                        <div className="fuFixedThumbs">
+                          {ph.slice(-2).map((p, i) => <img key={i} src={p.thumbUrl || p.previewUrl} alt="" onClick={() => setLightboxSrc(p.previewUrl || p.thumbUrl)} />)}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
             <div className="fuList">
               {fuSearch.trim() && fuVisible.length === 0 && (
                 <div style={{ fontSize: "0.82rem", color: "var(--ink-400)", fontStyle: "italic", padding: "10px 4px" }}>No follow-ups match “{fuSearch.trim()}”.</div>
@@ -27909,6 +27981,42 @@ export default function App() {
     const timer = setInterval(cleanIfNewDay, 60 * 60 * 1000); // check every hour
     return () => clearInterval(timer);
   }, []);
+
+  // ── Fixed alerts (v434) — a crew marking a problem Fixed writes it into
+  // venueSettings.followupStatus, and venueSettings already has a live
+  // onSnapshot, so the fix lands on this device the moment it happens.
+  // Baseline: on the first pass after sign-in we only remember the newest
+  // timestamp, so old fixes never flood the bell.
+  useEffect(() => {
+    const role = currentUser?.role;
+    const watches = role === "inspector" || role === "admin" || role === "global_admin" || role === "location_manager";
+    if (!currentUser || locked || !watches) return;
+    let seenTs = 0;
+    try { seenTs = Number(localStorage.getItem(FIXED_SEEN_KEY) || 0) || 0; } catch {}
+    // First run on this device: start the clock now, so the very next fix is
+    // announced and the backlog stays in the Fixed list instead of the bell.
+    if (!seenTs) { try { localStorage.setItem(FIXED_SEEN_KEY, String(Date.now())); } catch {} return; }
+    const map = venueSettings?.followupStatus || {};
+    const entries = Object.entries(map).filter(([, v]) => v && v.status === "resolved" && v.ts);
+    if (!entries.length) return;
+    const newest = entries.reduce((m, [, v]) => Math.max(m, Number(v.ts) || 0), 0);
+    const fresh = entries.filter(([, v]) => Number(v.ts) > seenTs).sort((x, y) => Number(x[1].ts) - Number(y[1].ts));
+    if (!fresh.length) return;
+    let byKey = {};
+    try {
+      const cached = JSON.parse(localStorage.getItem(`sdx_history_cache_${VENUE_ID}`) || "[]");
+      for (const f of (computeFollowups(cached, venueSettings).followups || [])) byKey[f.key] = f;
+    } catch {}
+    for (const [key, v] of fresh) {
+      const f = byKey[key];
+      const loc = f?.loc || key.split("::")[0] || "a stand";
+      const cat = f?.cat || key.split("::")[1] || "problem";
+      const unit = f?.unit ? ` #${f.unit}` : "";
+      fireNotification(`fixed_${key}_${v.ts}`, "fixed", `✅ Fixed — ${loc}${unit}`,
+        `${cat}${v.how === "already" ? " · was already OK" : v.how === "crew" ? " · cleaned by the crew" : ""}${v.by ? ` · by ${v.by}` : ""}`, null);
+    }
+    try { localStorage.setItem(FIXED_SEEN_KEY, String(Math.max(newest, seenTs))); } catch {}
+  }, [currentUser, locked, venueSettings?.followupStatus]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Inspector assignment notifications — notifies inspector of newly assigned inspections ──
   useEffect(() => {

@@ -8318,3 +8318,24 @@ html[data-theme="dark"] .fuStOnWaiting, html[data-theme="black"] .fuStOnWaiting 
 .crewLangBtn { flex: 1 1 auto; min-width: 84px; background: var(--surface-1); border: 1.5px solid var(--sdx-gray-200); border-radius: 999px; padding: 7px 14px; font-weight: 800; font-size: 0.82rem; color: var(--ink-700); cursor: pointer; }
 .crewLangBtn.on { background: var(--sdx-navy); border-color: var(--sdx-navy); color: #fff; }
 .crewLangMore { flex: 0 0 auto; min-width: 0; }
+
+/* v434: "everything fixed" panel in Follow-ups */
+.fuHeadCountFixed { cursor: pointer; border: 1.5px solid #86efac; background: #f0fdf4; color: #15803d; font: inherit; }
+.fuHeadCountFixed.on { background: #16a34a; border-color: #16a34a; color: #fff; }
+.fuFixedPanel { border: 1.5px solid #86efac; background: #f0fdf4; border-radius: 14px; padding: 10px 12px; margin: 0 0 12px; }
+.fuFixedHead { display: flex; align-items: center; justify-content: space-between; font-weight: 800; font-size: 0.86rem; color: #15803d; margin-bottom: 6px; }
+.fuFixedClose { background: none; border: none; color: #15803d; font-weight: 700; font-size: 0.78rem; cursor: pointer; }
+.fuFixedEmpty { font-size: 0.82rem; color: var(--ink-500); font-style: italic; padding: 4px 2px; }
+.fuFixedRow { display: flex; gap: 10px; align-items: flex-start; background: var(--surface-1); border: 1px solid #d1fae5; border-radius: 12px; padding: 8px 10px; margin-top: 6px; }
+.fuFixedIcon { font-size: 1.2rem; }
+.fuFixedBody { flex: 1; min-width: 0; }
+.fuFixedTitle { font-weight: 800; font-size: 0.9rem; color: var(--ink-900); }
+.fuFixedDetail { font-size: 0.84rem; color: var(--ink-700); margin-top: 1px; }
+.fuFixedMeta { font-size: 0.74rem; color: var(--ink-500); font-weight: 600; margin-top: 3px; }
+.fuFixedThumbs { display: flex; gap: 4px; }
+.fuFixedThumbs img { width: 44px; height: 44px; object-fit: cover; border-radius: 8px; border: 1px solid #d1fae5; cursor: pointer; }
+
+/* v434: cleaning crews say how it got resolved */
+.crewHowRow { display: flex; gap: 6px; flex-wrap: wrap; margin: 2px 0 8px; }
+.crewHowBtn { flex: 1 1 auto; background: var(--surface-1); border: 1.5px solid var(--sdx-gray-200); border-radius: 999px; padding: 8px 12px; font-weight: 700; font-size: 0.82rem; color: var(--ink-700); cursor: pointer; }
+.crewHowBtn.on { background: var(--sdx-navy); border-color: var(--sdx-navy); color: #fff; }

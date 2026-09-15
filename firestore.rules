@@ -226,6 +226,18 @@ service cloud.firestore {
       }
     }
 
+    // ── Inspector notifications (assignments, crew updates) ───────────
+    //  Was missing entirely, so every write fell through to the deny-all
+    //  below and no notification ever reached an inspector (v434).
+    match /inspectorNotifications/{notifId} {
+      allow read:   if true;
+      allow create: if notTooLarge()
+                    && strField("inspectorName", 120)
+                    && strField("title",         200);
+      allow update: if notTooLarge();   // only used to flip read:true
+      allow delete: if false;
+    }
+
     // ── Deny everything else ──────────────────────────────────────────
     // Any path not explicitly listed above is fully blocked.
     match /{document=**} {
