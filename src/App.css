@@ -8483,3 +8483,11 @@ html[data-theme="dark"] .fuStOnWaiting, html[data-theme="black"] .fuStOnWaiting 
   border-radius: 999px; padding: 5px 14px; font-weight: 800; font-size: 0.74rem; cursor: pointer;
 }
 .histLoadAll:disabled { opacity: .55; cursor: default; }
+
+/* Which unit a temperature problem belongs to (v445) */
+.fuEquipChip {
+  display: inline-block; margin: 3px 0 2px;
+  font-size: 0.68rem; font-weight: 700; color: var(--sdx-navy);
+  background: var(--surface-2); border: 1px solid var(--sdx-gray-200);
+  border-radius: 6px; padding: 2px 7px;
+}

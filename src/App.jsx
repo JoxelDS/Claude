@@ -2740,7 +2740,7 @@ function collectEquipTemps(inspection) {
     const warnMax = TEMP_WARN_MAX[cold.type] ?? cold.max;
     // zone: "good" | "warn" | "bad"
     const zone = t <= cold.max ? "good" : t <= warnMax ? "warn" : "bad";
-    results.push({ key: k, label, tempF: node.tempF, tempNum: t, type: cold.type, max: cold.max, warnMax, zone, pass: zone === "good", kitchenArea: node.kitchenArea || "" });
+    results.push({ key: k, label, tempF: node.tempF, tempNum: t, type: cold.type, max: cold.max, warnMax, zone, pass: zone === "good", kitchenArea: node.kitchenArea || "", assetTag: node.assetTag || "", brand: node.brand || node.brandName || "" });
   }
   return results;
 }
@@ -3871,10 +3871,14 @@ function buildActionItems({ inspection, rawNotes, foodTemps: ftArg, foodTempName
   // Per-equipment cold temps — 3-zone: good / warn / bad
   for (const et of collectEquipTemps(inspection)) {
     const etArea = et.kitchenArea ? `${et.label} — ${et.kitchenArea}` : et.label;
+    // v445: name the unit IN the issue, so the follow-up says which cooler and
+    // each unit gets its own card instead of every temp merging into one.
+    const bits = [et.brand, et.kitchenArea, et.assetTag].map(x => String(x || "").trim()).filter(Boolean);
+    const who = `${et.label}${bits.length ? ` (${bits.join(" · ")})` : ""}`.toUpperCase();
     if (et.zone === "bad") {
-      items.push({ area: etArea, issue: `Temperature out of range: ${et.tempNum}°F (max ${et.max}°F, critical limit ${et.warnMax}°F)`, owner: "", due: "", priority: "Fail", photos: [] });
+      items.push({ area: etArea, issue: `Temperature out of range — ${who}: ${et.tempNum}°F (max ${et.max}°F, critical limit ${et.warnMax}°F)`, owner: "", due: "", priority: "Fail", photos: [] });
     } else if (et.zone === "warn") {
-      items.push({ area: etArea, issue: `Temperature elevated: ${et.tempNum}°F (above ${et.max}°F limit — monitor and recheck in 30 min)`, owner: "", due: "", priority: "Follow-up", photos: [] });
+      items.push({ area: etArea, issue: `Temperature elevated — ${who}: ${et.tempNum}°F (above ${et.max}°F limit — monitor and recheck in 30 min)`, owner: "", due: "", priority: "Follow-up", photos: [] });
     }
   }
   for (const a of parseActionLines(rawNotes))
@@ -8416,6 +8420,7 @@ function computeFollowups(history, venueSettings, clearedLocal = {}) {
         const afterColon = (item.issue || "").split(":").slice(1).join(":").trim();
         catLastSeen[key].detail = afterColon || (item.issue || "").trim();
         catLastSeen[key].notes = (item.notes || "").trim();
+        catLastSeen[key].area = (item.area || "").trim(); // v445: which unit (older reports)
         catLastSeen[key].source = rec.source || "";
         catLastSeen[key].reportedBy = rec.reportedBy?.name || "";
         catLastSeen[key].inspector = rec.quickProblem && rec.source === "haccp_portal" ? "" : (rec.inspectorName || "");
@@ -8446,7 +8451,7 @@ function computeFollowups(history, venueSettings, clearedLocal = {}) {
       const overdue = !likelyResolved && daysSince >= recheckDays;
       const manual = venueSettings?.followupType?.[key];
       const itype = (manual && ISSUE_TYPES.includes(manual.itype)) ? manual.itype : classifyIssueType(`${cat}: ${v.detail || ""}`, v.notes || "");
-      return { key, loc, cat, unit: v.unit || "", floor: v.floor || "", itype, daysSince, count: v.count, dateStr: v.dateStr, likelyResolved, overdue, detail: v.detail || "", notes: v.notes || "", ts: v.ts || 0, source: v.source || "", reportedBy: v.reportedBy || "", photos: v.photos || [], inspector: v.inspector || "", typeManual: !!(manual && ISSUE_TYPES.includes(manual.itype)), typeBy: manual?.by || "" };
+      return { key, loc, cat, unit: v.unit || "", floor: v.floor || "", itype, daysSince, count: v.count, dateStr: v.dateStr, likelyResolved, overdue, detail: v.detail || "", notes: v.notes || "", area: v.area || "", ts: v.ts || 0, source: v.source || "", reportedBy: v.reportedBy || "", photos: v.photos || [], inspector: v.inspector || "", typeManual: !!(manual && ISSUE_TYPES.includes(manual.itype)), typeBy: manual?.by || "" };
     })
     .sort((a, b) => (b.overdue - a.overdue) || (a.likelyResolved - b.likelyResolved) || b.daysSince - a.daysSince);
 
@@ -8815,6 +8820,9 @@ function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLoc
           <div style={{ flex: 1, minWidth: 0 }}>
             <div className="crewItemTitle">{withStand ? <span className="crewItemStand notranslate" translate="no">🍳 {f.loc}{f.unit ? ` · #${f.unit}` : ""} — </span> : null}{f.cat}</div>
             <div className="crewItemDetail">{f.detail || "—"}{f.notes ? <span className="crewItemNotes"> — {f.notes}</span> : null}</div>
+            {f.area && !(f.cat || "").toUpperCase().includes(String(f.area).split(" — ")[0].toUpperCase()) && (
+              <div className="fuEquipChip">🧊 {f.area}</div>
+            )}
             <div className="crewItemMeta notranslate" translate="no">{[f.dateStr ? `${T("flagged", "reportado", "siyale")} ${f.dateStr}` : "", f.daysSince != null ? `${f.daysSince}${T("d open", "d abierto", "j ouve")}` : "", f.reportedBy ? `${T("by supervisor", "por supervisor", "pa sipevize")} ${f.reportedBy}` : f.inspector ? `${T("by", "por", "pa")} ${f.inspector}` : "", f.overdue && !done ? T("⏰ overdue", "⏰ atrasado", "⏰ an reta") : "", f.typeManual ? `✋ ${f.itype} ${T("by", "por", "pa")} ${f.typeBy}` : ""].filter(Boolean).join(" · ")}</div>
             {!done && (moveKey === f.key ? (
               <div className="crewMove notranslate" translate="no">
@@ -10122,6 +10130,10 @@ ${sections}
                                   ? <>{f.loc}{f.unit ? <span className="fuLoc"> · Unit #{f.unit}</span> : null}</>
                                   : f.cat}
                               </div>
+                              {/* v445: which unit — for older reports the name only lives in area */}
+                              {f.area && !(f.cat || "").toUpperCase().includes(String(f.area).split(" — ")[0].toUpperCase()) && (
+                                <div className="fuEquipChip">🧊 {f.area}</div>
+                              )}
                               <div className="fuMeta">
                                 {f.likelyResolved
                                   ? `Not seen in the latest inspection — confirm it's fixed and clear it`
