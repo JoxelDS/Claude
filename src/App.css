@@ -8470,3 +8470,16 @@ html[data-theme="dark"] .fuStOnWaiting, html[data-theme="black"] .fuStOnWaiting 
 .fuBaBtn:disabled { opacity: .5; cursor: default; }
 .fuFixedHead .fuBaBtn, .fuCleanTotals .fuBaBtn { padding: 6px 12px; font-size: 0.74rem; }
 @media (max-width: 640px) { .fuBaBtn { flex: 1 1 100%; } }
+
+/* How many reports are actually loaded (v444) */
+.histDepthBar {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 6px 4px 10px; font-size: 0.76rem; color: var(--ink-500);
+}
+.histDepthBar b { color: var(--sdx-navy); }
+.histDepthStamp { color: var(--sdx-gray-400); font-size: 0.7rem; }
+.histLoadAll {
+  margin-left: auto; background: var(--sdx-navy); color: #fff; border: none;
+  border-radius: 999px; padding: 5px 14px; font-weight: 800; font-size: 0.74rem; cursor: pointer;
+}
+.histLoadAll:disabled { opacity: .55; cursor: default; }

@@ -10573,6 +10573,25 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
     return false;
   }
   const [history, setHistory] = useState([]);
+  // v444: the tab-focus refresh used to REPLACE the list with a fresh 30, so
+  // everything loaded (and anything only in memory, like Search-all results)
+  // disappeared while he was working. Keep a live mirror + a merge helper.
+  const historyRef = useRef([]);
+  useEffect(() => { historyRef.current = history; }, [history]);
+  const lastHistoryLoadRef = useRef(0);
+  const [historyStamp, setHistoryStamp] = useState(0);
+  const [analyticsHistory, setAnalyticsHistory] = useState([]);
+  const [deepLoading, setDeepLoading] = useState(false);
+  function mergeHistory(prev, incoming) {
+    const byId = new Map();
+    (prev || []).forEach(r => { if (r && r.id) byId.set(r.id, r); });
+    (incoming || []).forEach(r => {
+      if (!r || !r.id) return;
+      const old = byId.get(r.id);
+      byId.set(r.id, old && old._pinned ? { ...r, _pinned: true } : r);
+    });
+    return [...byId.values()].sort((a, b) => (b.savedAt || "").localeCompare(a.savedAt || ""));
+  }
   const [historyNotifOpen, setHistoryNotifOpen] = useState(false);
   const [filterDate, setFilterDate] = useState("");
   const [filterType, setFilterType] = useState("");
@@ -10641,8 +10660,8 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
       try {
         const cached = JSON.parse(localStorage.getItem(`sdx_history_cache_${managedVenueId || VENUE_ID}`) || "[]");
         if (Array.isArray(cached) && cached.length > 0) {
-          setHistory(cached.slice(0, 30));
-          setHistoryHasMore(cached.length > 30);
+          setHistory(cached);
+          setHistoryHasMore(cached.length > 100);
           setHistoryLoaded(true);
         }
       } catch { /* no cache yet */ }
@@ -10650,14 +10669,17 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
     loadHistory(managedVenueId || undefined, {
       dateFrom: filterDateFrom || undefined,
       dateTo: filterDateTo || undefined,
-      pageSize: 30,
+      pageSize: 100,
     }).then(({ list, lastDoc, hasMore }) => {
       // Local mode with an empty store: keep the warm cache seed instead of
       // flashing the page empty (cloud mode always trusts the fetch).
       if (list.length > 0 || FIREBASE_ON) {
-        setHistory(list);
+        setHistory(prev => mergeHistory(prev, list));
         setHistoryLastDoc(lastDoc);
         setHistoryHasMore(hasMore);
+        lastHistoryLoadRef.current = Date.now();
+        setHistoryStamp(Date.now());
+        prefetchedRef.current = false; // v444: keep the auto second page alive
       }
       setHistoryLoaded(true);
       // Eagerly load which reportIds have HACCP submissions so badges show correct color immediately
@@ -10689,17 +10711,26 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
   // Refresh history when the user returns to this tab (covers stale Smart Insights data)
   useEffect(() => {
     function onVisible() {
-      if (document.visibilityState === "visible") {
-        loadHistory(managedVenueId || undefined, {
-          dateFrom: filterDateFrom || undefined,
-          dateTo: filterDateTo || undefined,
-          pageSize: 30,
-        }).then(({ list, lastDoc, hasMore }) => {
-          setHistory(list);
+      if (document.visibilityState !== "visible") return;
+      // v444: coming back from the camera must not cost him his list.
+      if (Date.now() - lastHistoryLoadRef.current < 60000) return;
+      const depth = Math.max(100, historyRef.current.length);
+      loadHistory(managedVenueId || undefined, {
+        dateFrom: filterDateFrom || undefined,
+        dateTo: filterDateTo || undefined,
+        pageSize: depth,
+      }).then(({ list, lastDoc, hasMore }) => {
+        if (!list.length) return;
+        setHistory(prev => mergeHistory(prev, list));
+        // Only move the cursor when the refetch went at least as deep as what
+        // is on screen, or "load more" would start paging from the wrong place.
+        if (list.length >= historyRef.current.length) {
           setHistoryLastDoc(lastDoc);
           setHistoryHasMore(hasMore);
-        }).catch(() => {});
-      }
+        }
+        lastHistoryLoadRef.current = Date.now();
+        setHistoryStamp(Date.now());
+      }).catch(() => {});
     }
     document.addEventListener("visibilitychange", onVisible);
     return () => document.removeEventListener("visibilitychange", onVisible);
@@ -10712,14 +10743,40 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
       dateFrom: filterDateFrom || undefined,
       dateTo: filterDateTo || undefined,
       lastDoc: historyLastDoc,
-      pageSize: 100,
+      pageSize: 200,
     }).then(({ list, lastDoc, hasMore }) => {
-      setHistory(prev => [...prev, ...list]);
+      setHistory(prev => mergeHistory(prev, list));
       setHistoryLastDoc(lastDoc);
       setHistoryHasMore(hasMore);
       setHistoryLoadingMore(false);
     });
   }
+  // v444: pull the whole history in one go — for the "Load all" button and
+  // for the analytics tabs, which must see every stand, not the first page.
+  function loadAllHistory(into) {
+    if (deepLoading) return Promise.resolve([]);
+    setDeepLoading(true);
+    return loadHistory(managedVenueId || undefined, { pageSize: 2000 })
+      .then(({ list }) => {
+        if (into === "analytics") setAnalyticsHistory(list || []);
+        else {
+          setHistory(prev => mergeHistory(prev, list || []));
+          setHistoryHasMore(false);
+          lastHistoryLoadRef.current = Date.now();
+          setHistoryStamp(Date.now());
+        }
+        return list || [];
+      })
+      .catch(() => [])
+      .finally(() => setDeepLoading(false));
+  }
+  // Analytics reads every report, once per visit (loadHistory serves full
+  // loads from a 60s cache, so re-entering the tab is free).
+  useEffect(() => {
+    if (historyTab !== "analytics" || analyticsHistory.length > 0) return;
+    loadAllHistory("analytics");
+  }, [historyTab]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Prefetch the second page as soon as the first lands, so scrolling never
   // waits on the network for the first "load more".
   const prefetchedRef = useRef(false);
@@ -10749,11 +10806,10 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
         alert(`No records found matching "${term}" in all ${all.length} saved reports.`);
       } else {
         // Inject matches at top of history list (deduplicated)
-        setHistory(prev => {
-          const existingIds = new Set(prev.map(r => r.id));
-          const fresh = matches.filter(r => !existingIds.has(r.id));
-          return [...matches, ...prev.filter(r => !matches.find(m => m.id === r.id))];
-        });
+        // v444: pinned so a background refresh or a filter change cannot
+        // silently drop what he searched for.
+        const pinned = matches.map(r => ({ ...r, _pinned: true }));
+        setHistory(prev => [...pinned, ...prev.filter(r => !matches.find(m => m.id === r.id))]);
         setFilterSite(term);
         alert(`Found ${matches.length} record(s) matching "${term}" — shown at top.`);
       }
@@ -12507,12 +12563,13 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                 </button>
               ))}
             </div>
-            {analyticsTab === "temp" && <><HaccpTodayTracker venueSettings={venueSettings} saveVenueSettingsMap={saveVenueSettingsMap} history={history} currentUser={currentUser} /><EquipTempBoard history={history} onOpenStand={st => window.dispatchEvent(new CustomEvent("sdx-open-stand-equipment", { detail: st }))} /><TempTrendChart history={filtered.length > 0 ? filtered : history} /></>}
-            {analyticsTab === "insights" && <AIHealthMonitor history={filtered.length > 0 ? filtered : history} currentUser={currentUser} />}
-            {analyticsTab === "predictive" && <PredictiveInsightsPanel history={filtered.length > 0 ? filtered : history} />}
-            {analyticsTab === "recurring" && <RecurringIssuesPanel history={filtered.length > 0 ? filtered : history} onLocationClick={filterByLocation} onTagClick={goToRecurringAnalytics} onIssueDrilldown={filterByLocationAndIssue} venueSettings={venueSettings} saveVenueSettings={saveVenueSettings} saveVenueSettingsMap={saveVenueSettingsMap} currentUser={currentUser} onAddRecord={rec => setHistory(prev => [rec, ...prev])} />}
+            {/* v444: analytics reads the deep list, not the loaded page */}
+            {analyticsTab === "temp" && <><HaccpTodayTracker venueSettings={venueSettings} saveVenueSettingsMap={saveVenueSettingsMap} history={history} currentUser={currentUser} /><EquipTempBoard history={history} onOpenStand={st => window.dispatchEvent(new CustomEvent("sdx-open-stand-equipment", { detail: st }))} /><TempTrendChart history={filtered.length > 0 ? filtered : (analyticsHistory.length ? analyticsHistory : history)} /></>}
+            {analyticsTab === "insights" && <AIHealthMonitor history={filtered.length > 0 ? filtered : (analyticsHistory.length ? analyticsHistory : history)} currentUser={currentUser} />}
+            {analyticsTab === "predictive" && <PredictiveInsightsPanel history={filtered.length > 0 ? filtered : (analyticsHistory.length ? analyticsHistory : history)} />}
+            {analyticsTab === "recurring" && <RecurringIssuesPanel history={filtered.length > 0 ? filtered : (analyticsHistory.length ? analyticsHistory : history)} onLocationClick={filterByLocation} onTagClick={goToRecurringAnalytics} onIssueDrilldown={filterByLocationAndIssue} venueSettings={venueSettings} saveVenueSettings={saveVenueSettings} saveVenueSettingsMap={saveVenueSettingsMap} currentUser={currentUser} onAddRecord={rec => setHistory(prev => [rec, ...prev])} />}
             {analyticsTab === "timeline" && (() => {
-              const src = filtered.length > 0 ? filtered : history;
+              const src = filtered.length > 0 ? filtered : (analyticsHistory.length ? analyticsHistory : history);
               // Build merged event list: one entry per inspection + one per HACCP submission linked to it
               const events = [];
               src.forEach(rec => {
@@ -12668,7 +12725,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
               );
             })()}
             {analyticsTab === "locations" && (() => {
-              const src = filtered.length > 0 ? filtered : history;
+              const src = filtered.length > 0 ? filtered : (analyticsHistory.length ? analyticsHistory : history);
               // Group by siteName
               const byLocation = {};
               src.forEach(rec => {
@@ -12753,6 +12810,18 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
             </div>
           </div>
         ) : (
+          <>
+          {/* v444: how deep the list actually is, and a way to get it all */}
+          <div className="histDepthBar">
+            <span>Showing <b>{Math.min(visibleCount, filtered.length)}</b> of <b>{filtered.length}</b> report{filtered.length !== 1 ? "s" : ""} loaded{historyHasMore ? " · more on the server" : ""}</span>
+            {historyStamp > 0 && <span className="histDepthStamp">updated {new Date(historyStamp).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</span>}
+            {(historyHasMore || historyLoadingMore || deepLoading) && (
+              <button type="button" className="histLoadAll" disabled={deepLoading || historyLoadingMore}
+                onClick={() => { setVisibleCount(5000); loadAllHistory(); }}>
+                {deepLoading ? "Loading…" : "⬇ Load all"}
+              </button>
+            )}
+          </div>
           <div
             className="historyList"
             id="history-results"
@@ -13657,6 +13726,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
               </div>
             )}
           </div>
+          </>
         ))}
       </main>
 
