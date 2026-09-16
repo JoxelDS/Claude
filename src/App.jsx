@@ -21377,6 +21377,27 @@ function KitchenQrPage({ onBack, onPrintLabels, onStandEquipment }) {
               style={{ fontSize: "0.75rem", fontWeight: 700, padding: "0.3rem 0.85rem", borderRadius: 999, border: "1.5px solid var(--sdx-navy)", background: "var(--sdx-navy)", color: "#fff", cursor: "pointer" }}>
               {selectedIds.size === shown.length ? "Deselect All" : "Select All"}
             </button>
+            {/* v441: print one whole floor at a time */}
+            {(() => {
+              const byFloor = {};
+              shown.forEach(k => { const fl = (k.floor || "").trim() || "No floor"; (byFloor[fl] = byFloor[fl] || []).push(k); });
+              const rank = f => { const m = /(\d+)/.exec(f); return m ? Number(m[1]) : f === "No floor" ? 99 : 90; };
+              const floors = Object.keys(byFloor).sort((a, b) => rank(a) - rank(b) || a.localeCompare(b));
+              if (floors.length < 2) return null;
+              return floors.map(fl => {
+                const ids = byFloor[fl].map(k => k.id);
+                const allOn = ids.every(id => selectedIds.has(id));
+                return (
+                  <button key={fl} type="button"
+                    onClick={() => setSelectedIds(prev => { const n = new Set(prev); ids.forEach(id => allOn ? n.delete(id) : n.add(id)); return n; })}
+                    style={{ fontSize: "0.75rem", fontWeight: 700, padding: "0.3rem 0.85rem", borderRadius: 999, cursor: "pointer",
+                      border: allOn ? "1.5px solid #166534" : "1.5px solid var(--sdx-gray-200)",
+                      background: allOn ? "#166534" : "var(--surface-2)", color: allOn ? "#fff" : "var(--ink-600)" }}>
+                    {allOn ? "✓ " : "🏢 "}{fl} ({ids.length})
+                  </button>
+                );
+              });
+            })()}
             {selectedIds.size > 0 && (
               <button type="button" onClick={() => setSelectedIds(new Set())}
                 style={{ fontSize: "0.75rem", fontWeight: 700, padding: "0.3rem 0.85rem", borderRadius: 999, border: "1.5px solid var(--sdx-gray-200)", background: "var(--surface-2)", color: "var(--ink-600)", cursor: "pointer" }}>
