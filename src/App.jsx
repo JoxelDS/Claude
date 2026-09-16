@@ -12461,6 +12461,33 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                   });
                 }
               });
+              // v442: every fix lands on the timeline too — who closed it, when,
+              // how long it took and whose mess it was.
+              try {
+                const fuAll = computeFollowups(src, { ...(venueSettings || {}), followupCleared: {} }, {}).followups || [];
+                const byKey = {};
+                fuAll.forEach(f => { byKey[f.key] = f; });
+                Object.entries(venueSettings?.followupStatus || {}).forEach(([key, st]) => {
+                  if (!st || st.status !== "resolved" || !st.ts) return;
+                  const f = byKey[key] || {};
+                  const [loc, cat] = key.split("::");
+                  events.push({
+                    type: "fixed",
+                    date: new Date(Number(st.ts)).toISOString(),
+                    label: f.loc || loc || "Stand",
+                    siteNumber: f.unit || "",
+                    locationType: "",
+                    sub: st.by || "",
+                    cat: f.cat || cat || "",
+                    detail: f.detail || "",
+                    mins: Number(st.mins || 0),
+                    startTs: Number(st.startTs || 0),
+                    whose: st.whose || "",
+                    how: st.how || "",
+                    id: `fix_${key}_${st.ts}`,
+                  });
+                });
+              } catch {}
               events.sort((a, b) => b.date.localeCompare(a.date));
 
               const fmtDate = (d) => {
@@ -12489,20 +12516,21 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                           <div style={{
                             position: "absolute", left: -20, top: 4,
                             width: 12, height: 12, borderRadius: "50%",
-                            background: ev.type === "inspection"
+                            background: ev.type === "fixed" ? "#166534"
+                              : ev.type === "inspection"
                               ? (ev.status === "Pass" ? "#16a34a" : ev.status === "Fail" ? "#dc2626" : "var(--ink-500)")
                               : (ev.flagged > 0 ? "#f59e0b" : "#0284c7"),
                             border: "2px solid #fff",
                             boxShadow: "0 0 0 2px #e5e7eb",
                           }} />
                           <div style={{
-                            background: ev.type === "inspection" ? "var(--surface-2)" : "var(--tint-sky-1)",
-                            border: `1px solid ${ev.type === "inspection" ? "var(--sdx-gray-200)" : "#bae6fd"}`,
+                            background: ev.type === "fixed" ? "#dcfce7" : ev.type === "inspection" ? "var(--surface-2)" : "var(--tint-sky-1)",
+                            border: `1px solid ${ev.type === "fixed" ? "#86efac" : ev.type === "inspection" ? "var(--sdx-gray-200)" : "#bae6fd"}`,
                             borderRadius: 8, padding: "8px 12px",
                           }}>
                             <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                               <span style={{ fontSize: "0.78rem", fontWeight: 700, color: ev.type === "inspection" ? "var(--ink-900)" : "#7DC4F0" }}>
-                                {ev.type === "inspection" ? "📋" : "🌡️"} {ev.label}{ev.siteNumber ? ` #${ev.siteNumber}` : ""}
+                                {ev.type === "fixed" ? "✅" : ev.type === "inspection" ? "📋" : "🌡️"} {ev.label}{ev.siteNumber ? ` #${ev.siteNumber}` : ""}{ev.type === "fixed" && ev.cat ? ` — ${ev.cat}` : ""}
                               </span>
                               {ev.locationType && (
                                 <span style={{ fontSize: "0.66rem", fontWeight: 600, padding: "1px 6px", borderRadius: 6, background: "var(--surface-3)", color: "var(--ink-600)", border: "1px solid #e2e8f0" }}>
@@ -12523,6 +12551,17 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                                   ⚠️ {ev.flagged} flag{ev.flagged !== 1 ? "s" : ""}
                                 </span>
                               )}
+                              {ev.type === "fixed" && (
+                                <span style={{ fontSize: "0.68rem", fontWeight: 700, padding: "1px 6px", borderRadius: 6, background: "var(--tint-green-2)", color: "#15803d" }}>FIXED</span>
+                              )}
+                              {ev.type === "fixed" && ev.mins > 0 && (
+                                <span style={{ fontSize: "0.68rem", fontWeight: 700, padding: "1px 6px", borderRadius: 6, background: "var(--surface-3)", color: "var(--ink-600)" }}>
+                                  {ev.mins >= 60 ? `${(ev.mins / 60).toFixed(ev.mins % 60 ? 1 : 0)} h` : `${ev.mins} min`} on the job
+                                </span>
+                              )}
+                              {ev.type === "fixed" && ev.whose === "sub" && (
+                                <span style={{ fontSize: "0.68rem", fontWeight: 800, padding: "1px 6px", borderRadius: 6, background: "#b45309", color: "#fff" }}>BILL THE STAND</span>
+                              )}
                               {ev.type === "haccp" && ev.flagged === 0 && (
                                 <span style={{ fontSize: "0.68rem", fontWeight: 700, padding: "1px 6px", borderRadius: 6, background: "var(--tint-green-2)", color: "#15803d" }}>✓ OK</span>
                               )}
@@ -12530,6 +12569,9 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                             <div style={{ fontSize: "0.72rem", color: "var(--ink-500)", marginTop: 3 }}>
                               {ev.sub && <span>{ev.sub} · </span>}
                               {fmtDate(ev.date)}
+                              {ev.type === "fixed" && ev.startTs ? <span> · started {new Date(ev.startTs).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</span> : null}
+                              {ev.type === "fixed" && ev.how === "already" ? <span> · was already clean</span> : null}
+                              {ev.type === "fixed" && ev.detail ? <div style={{ marginTop: 2 }}>{ev.detail}</div> : null}
                             </div>
                           </div>
                         </div>
