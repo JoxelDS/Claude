@@ -9317,6 +9317,84 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
     return n;
   });
 
+  // v443 — the sheet Joxel sends: every picked job with its before and after
+  // pictures embedded, not just a photo count.
+  const [baBusy, setBaBusy] = useState("");
+  async function exportBeforeAfter(items) {
+    if (!items.length || baBusy) return;
+    setBaBusy(`0/${items.length}`);
+    try {
+      const ExcelJS = (await import("exceljs")).default;
+      const wb = new ExcelJS.Workbook();
+      const ws = wb.addWorksheet("Before & After");
+      ws.columns = [
+        { width: 4 }, { width: 26 }, { width: 9 }, { width: 11 }, { width: 16 }, { width: 24 },
+        { width: 40 }, { width: 12 }, { width: 18 }, { width: 12 }, { width: 11 }, { width: 11 },
+        { width: 22 }, { width: 38 }, { width: 24 }, { width: 24 },
+      ];
+      const title = ws.addRow(["BEFORE & AFTER — " + new Date().toLocaleDateString()]);
+      title.height = 24;
+      ws.mergeCells(`A${title.number}:P${title.number}`);
+      title.getCell(1).style = { font: { bold: true, size: 13, color: { argb: "FFFFFFFF" } }, fill: { type: "pattern", pattern: "solid", fgColor: { argb: "FF2A295C" } }, alignment: { vertical: "middle", horizontal: "left" } };
+      const hdr = ws.addRow(["#", "Stand", "Unit #", "Floor", "License", "Problem", "What was wrong", "Flagged",
+        "Fixed by", "Date solved", "Time solved", "Min on job", "Whose mess", "Corrective action / notes", "BEFORE", "AFTER"]);
+      hdr.height = 20;
+      hdr.eachCell(c => { c.style = { font: { bold: true, size: 10, color: { argb: "FFFFFFFF" } }, fill: { type: "pattern", pattern: "solid", fgColor: { argb: "FFDC2626" } }, alignment: { vertical: "middle", horizontal: "center", wrapText: true } }; });
+      ws.views = [{ state: "frozen", ySplit: hdr.number }];
+      const lic = (() => { const m = {}; try { licenseRows().forEach(r => { const u = normUnit(r.unit); if (u && !m[u]) m[u] = r; }); } catch {} return m; })();
+      const stMapX = { ...(venueSettings?.followupStatus || {}), ...statusLocal };
+      const clk = t => t ? new Date(t).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "";
+      for (let i = 0; i < items.length; i++) {
+        const f = items[i];
+        setBaBusy(`${i + 1}/${items.length}`);
+        const st = stMapX[f.key] || {};
+        const all = [...(f.photos || []), ...((fuPhotosLocal[f.key] || venueSettings?.followupPhotos?.[f.key] || []))];
+        const before = all.filter(x => (x.tag || "before") !== "after").slice(0, 3);
+        const after = all.filter(x => x.tag === "after").slice(0, 3);
+        const solved = Number(f.fixedTs || (st.status === "resolved" ? st.ts : 0) || 0);
+        const mins = Number(f.fixedMins || st.mins || 0);
+        const whose = (f.fixedWhose || st.whose) === "sub" ? "STAND / SUBCONTRACTOR" : (f.fixedWhose || st.whose) === "ours" ? "Stadium" : "";
+        const notes = [f.notes, ...((commentsLocal[f.key] || venueSettings?.followupComments?.[f.key] || []).map(c => `${c.by}: ${c.text}`))].filter(Boolean).join("  |  ");
+        const r = lic[normUnit(f.unit)] || {};
+        const row = ws.addRow([i + 1, f.loc, f.unit || "", f.floor || "", r.license || "", f.cat, f.detail || "", f.dateStr || "",
+          f.fixedBy || (st.status === "resolved" ? st.by || "" : ""), solved ? new Date(solved).toLocaleDateString() : "", clk(solved),
+          mins || "", whose, notes, before.length ? "" : "no before photo", after.length ? "" : "no after photo"]);
+        const bg = i % 2 === 0 ? "FFFFFFFF" : "FFF4F5F7";
+        row.eachCell((c, col) => {
+          c.style = { font: { size: 10, name: "Calibri" }, fill: { type: "pattern", pattern: "solid", fgColor: { argb: bg } }, alignment: { vertical: "top", wrapText: col === 7 || col === 14 } };
+          if (col === 13 && whose === "STAND / SUBCONTRACTOR") c.style = { ...c.style, font: { size: 10, bold: true, color: { argb: "FFB45309" } } };
+          if (col === 15 || col === 16) c.style = { ...c.style, font: { size: 9, italic: true, color: { argb: "FF9CA3AF" } }, alignment: { vertical: "middle", horizontal: "center" } };
+        });
+        const place = async (list, startCol) => {
+          for (let k = 0; k < list.length; k++) {
+            const pic = list[k];
+            const src = pic.previewUrl || pic.thumbUrl || pic.url || "";
+            let dataUrl = null;
+            try { dataUrl = await fetchAsDataUrl(src, pic.thumbUrl); } catch {}
+            if (!dataUrl) { // never lose the picture silently — leave a link
+              const cell = row.getCell(startCol);
+              if (src) { cell.value = { text: `photo ${k + 1}`, hyperlink: src }; cell.style = { ...cell.style, font: { size: 9, color: { argb: "FF1D4ED8" }, underline: true } }; }
+              continue;
+            }
+            const comma = dataUrl.indexOf(",");
+            const base64 = comma >= 0 ? dataUrl.slice(comma + 1) : dataUrl;
+            const ext = dataUrl.includes("image/png") ? "png" : "jpeg";
+            try {
+              const id = wb.addImage({ base64, extension: ext });
+              ws.addImage(id, { tl: { col: startCol - 1 + k * 0.32, row: row.number - 1 }, ext: { width: 108, height: 116 }, editAs: "oneCell" });
+            } catch {}
+          }
+        };
+        row.height = 92;
+        await place(before, 15);
+        await place(after, 16);
+      }
+      const buf = await wb.xlsx.writeBuffer();
+      downloadBlob(new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }), `Before-After_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    } catch {}
+    setBaBusy("");
+  }
+
   async function exportSelectedFollowups(items) {
     if (!items.length) return;
     const ExcelJS = (await import("exceljs")).default;
@@ -9757,6 +9835,10 @@ ${sections}
                         style={{ background: "#1e40af", color: "#fff", border: "none", borderRadius: 10, padding: "8px 16px", fontWeight: 800, fontSize: "0.84rem", cursor: "pointer", opacity: fuSelCount ? 1 : 0.5 }}>
                         📝 Word
                       </button>
+                      <button type="button" className="fuBaBtn" disabled={fuSelCount === 0 || !!baBusy}
+                        onClick={() => exportBeforeAfter(selPicked())}>
+                        {baBusy ? `Preparing… ${baBusy}` : "📸 Before & After"}
+                      </button>
                       <button type="button"
                         onClick={() => { const all = { ...fuSelected }; (showClean ? cleanList : showFixed ? fixedList : fuVisible).forEach(f => { all[f.key] = true; }); setFuSelected(all); }}
                         style={{ background: "var(--surface-2)", border: "1px solid var(--sdx-gray-200)", borderRadius: 10, padding: "8px 12px", fontWeight: 700, fontSize: "0.78rem", cursor: "pointer", color: "var(--sdx-navy)" }}>
@@ -9904,6 +9986,8 @@ ${sections}
                     onClick={() => setCleanBillOnly(v => !v)}>🧾 {cleanBillOnly ? "Billable only" : "Show billable only"}</button>
                   <button type="button" className="fuCleanExport" disabled={cleanList.length === 0}
                     onClick={() => exportCleaningReport(cleanList)}>📄 Report to send (PDF)</button>
+                  <button type="button" className="fuBaBtn" disabled={cleanList.length === 0 || !!baBusy}
+                    onClick={() => exportBeforeAfter(cleanList)}>{baBusy ? `Preparing… ${baBusy}` : "📸 Before & After (Excel)"}</button>
                 </div>
                 {cleanByPerson.length > 0 && (
                   <div className="fuCleanPeople">
@@ -9959,6 +10043,8 @@ ${sections}
               <div className="fuFixedPanel">
                 <div className="fuFixedHead">
                   <span>✅ Fixed{fuSearch.trim() ? " · matching your search" : ""}</span>
+                  <button type="button" className="fuBaBtn" disabled={fixedList.length === 0 || !!baBusy}
+                    onClick={() => exportBeforeAfter(fixedList)}>{baBusy ? `Preparing… ${baBusy}` : "📸 Before & After"}</button>
                   <button type="button" className="fuFixedClose" onClick={() => setShowFixed(false)}>✕ close</button>
                 </div>
                 {fixedList.length === 0 ? (

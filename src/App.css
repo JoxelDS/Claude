@@ -8461,3 +8461,12 @@ html[data-theme="dark"] .fuStOnWaiting, html[data-theme="black"] .fuStOnWaiting 
   display: inline-block; margin-bottom: 3px; font-size: 0.62rem; font-weight: 900;
   letter-spacing: .04em; color: #fff; background: #b91c1c; border-radius: 5px; padding: 2px 6px;
 }
+
+/* Before & After export — the sheet that gets emailed (v443) */
+.fuBaBtn {
+  background: #7c3aed; color: #fff; border: none; border-radius: 10px;
+  padding: 8px 16px; font-weight: 800; font-size: 0.82rem; cursor: pointer;
+}
+.fuBaBtn:disabled { opacity: .5; cursor: default; }
+.fuFixedHead .fuBaBtn, .fuCleanTotals .fuBaBtn { padding: 6px 12px; font-size: 0.74rem; }
+@media (max-width: 640px) { .fuBaBtn { flex: 1 1 100%; } }
