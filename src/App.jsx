@@ -8767,7 +8767,9 @@ function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLoc
     setLocal(p => ({ ...p, status: { ...p.status, [f.key]: entry }, comments: { ...p.comments, [f.key]: arr }, cleared: kind === "fixed" ? { ...p.cleared, [f.key]: ts } : p.cleared }));
     saveVenueSettingsMap?.("followupStatus", { [f.key]: entry });
     saveVenueSettingsMap?.("followupComments", { [f.key]: arr });
-    if (kind === "fixed") saveVenueSettingsMap?.("followupCleared", { [f.key]: ts });
+    // v440: the clear must beat the report's own timestamp or the item never
+    // leaves the inspector's list (date-only dates can parse ahead of now).
+    if (kind === "fixed") saveVenueSettingsMap?.("followupCleared", { [f.key]: Math.max(ts, (f.ts || 0) + 1) });
     notifyInspector(f, `${meta.icon} ${meta.title.replace(" board", "")} update — ${f.loc}${f.unit ? ` #${f.unit}` : ""}`, `${f.cat}: ${text} — ${me}`);
     setAction(null);
     setFlash(`${kind === "fixed" ? "✅" : "📨"} ${T("Sent to the inspector", "Enviado al inspector", "Voye bay enspekte a")} — ${f.loc}${f.unit ? ` #${f.unit}` : ""}`); setTimeout(() => setFlash(""), 3500);
@@ -9010,7 +9012,21 @@ function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLoc
 
 function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDrilldown, venueSettings, saveVenueSettings, saveVenueSettingsMap, currentUser, onAddRecord }) {
   // Locally cleared follow-ups — instant feedback independent of settings sync
-  const [clearedLocal, setClearedLocal] = useState({});
+  const FU_CLEARED_KEY = `sdx_fu_cleared_${VENUE_ID}`;
+  // v440: the panel unmounts whenever the Analytics tab changes, which used to
+  // throw away an optimistic clear whose write had not landed — the item came
+  // back and the tap looked ignored. Keep it on the device instead.
+  const [clearedLocal, setClearedLocal] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(FU_CLEARED_KEY) || "{}") || {}; } catch { return {}; }
+  });
+  useEffect(() => { try { localStorage.setItem(FU_CLEARED_KEY, JSON.stringify(clearedLocal)); } catch {} }, [clearedLocal]);
+  const [saveWarn, setSaveWarn] = useState("");
+  useEffect(() => {
+    const on = () => { setSaveWarn("⚠ Not saved to the cloud yet — it is kept on this phone and will retry."); setTimeout(() => setSaveWarn(""), 8000); };
+    window.addEventListener("sdx-save-failed", on);
+    return () => window.removeEventListener("sdx-save-failed", on);
+  }, []);
+  const [undoRes, setUndoRes] = useState(null); // { key, prevStamp, ts }
   const [showFixed, setShowFixed] = useState(false); // v434 — "everything fixed" view
   const [showClean, setShowClean] = useState(false);     // v437 — cleaning log
   const [cleanBillOnly, setCleanBillOnly] = useState(false);
@@ -9172,6 +9188,14 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
     setWaitingKey(null); setWaitingNote("");
   }
 
+  function undoResolve() {
+    if (!undoRes) return;
+    const { key, prevStamp } = undoRes;
+    setClearedLocal(prev => { const n = { ...prev }; if (prevStamp) n[key] = prevStamp; else delete n[key]; return n; });
+    writeMap("followupCleared", { [key]: prevStamp || 0 });
+    writeMap("followupStatus", { [key]: { status: "open", note: "", by: currentUser?.name || "Unknown", ts: Date.now() } });
+    setUndoRes(null);
+  }
   function markResolved(f) {
     // Stamp must be >= the record timestamp it clears — date-only inspection
     // dates parse as UTC midnight, which can sit AHEAD of local Date.now().
@@ -9180,8 +9204,11 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
     setRemindedKey(`res::${f.key}`);
     setTimeout(() => setRemindedKey(null), 1500);
     writeMap("followupStatus", { [f.key]: { status: "resolved", note: "", by: currentUser?.name || "Unknown", ts: stamp } });
-    const prev = venueSettings?.followupCleared || {};
     writeMap("followupCleared", { [f.key]: stamp });
+    // v440: proof it stuck, with a way back
+    const prevStamp = (venueSettings?.followupCleared || {})[f.key] || clearedLocal[f.key] || 0;
+    setUndoRes({ key: f.key, prevStamp, ts: stamp, label: `${f.loc}${f.unit ? ` #${f.unit}` : ""} — ${f.cat}` });
+    setTimeout(() => setUndoRes(u => (u && u.key === f.key ? null : u)), 9000);
   }
 
   // Cross-device reach: notify approved users assigned to this stand so the
@@ -9297,21 +9324,25 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
     const ws = wb.addWorksheet("Follow-ups");
     ws.columns = [
       { width: 4 }, { width: 26 }, { width: 9 }, { width: 12 }, { width: 24 },
-      { width: 16 }, { width: 46 }, { width: 30 }, { width: 14 }, { width: 12 }, { width: 12 }, { width: 20 }, { width: 50 },
+      { width: 16 }, { width: 46 }, { width: 30 }, { width: 14 }, { width: 12 }, { width: 12 }, { width: 20 }, { width: 50 }, { width: 8 },
+      // v440 — what the team actually did
+      { width: 20 }, { width: 12 }, { width: 11 }, { width: 11 }, { width: 12 }, { width: 22 },
     ];
     const title = ws.addRow(["FOLLOW-UPS EXPORT — " + new Date().toLocaleDateString()]);
     title.height = 24;
-    ws.mergeCells(`A${title.number}:M${title.number}`);
+    ws.mergeCells(`A${title.number}:T${title.number}`);
     title.getCell(1).style = { font: { bold: true, size: 13, color: { argb: "FFFFFFFF" } }, fill: { type: "pattern", pattern: "solid", fgColor: { argb: "FF2A295C" } }, alignment: { vertical: "middle", horizontal: "left" } };
-    const hdrRow = ws.addRow(["#", "Venue / Stand", "Unit #", "Floor", "Problem", "Issue Type", "Latest Detail", "Inspector Notes", "Status", "Days Open", "Flagged", "Status By", "Comments", "Photos"]);
+    const hdrRow = ws.addRow(["#", "Venue / Stand", "Unit #", "Floor", "Problem", "Issue Type", "Latest Detail", "Inspector Notes", "Status", "Days Open", "Flagged", "Status By", "Comments", "Photos",
+      "Fixed by", "Date solved", "Time solved", "Started", "Min on job", "Whose mess"]);
     hdrRow.height = 20;
     hdrRow.eachCell(c => { c.style = { font: { bold: true, size: 10, color: { argb: "FFFFFFFF" } }, fill: { type: "pattern", pattern: "solid", fgColor: { argb: "FFDC2626" } }, alignment: { vertical: "middle", horizontal: "center", wrapText: true } }; });
-    ws.autoFilter = { from: { row: hdrRow.number, column: 1 }, to: { row: hdrRow.number, column: 13 } };
+    ws.autoFilter = { from: { row: hdrRow.number, column: 1 }, to: { row: hdrRow.number, column: 20 } };
     ws.views = [{ state: "frozen", ySplit: hdrRow.number }];
     const stMapX = { ...(venueSettings?.followupStatus || {}), ...statusLocal };
     items.forEach((f, i) => {
       const st = stMapX[f.key];
-      const stLabel = f.likelyResolved ? "Likely fixed"
+      const stLabel = st && st.status === "resolved" ? (f.reopened ? "Fixed — then flagged again" : "Fixed")
+        : f.likelyResolved ? "Likely fixed"
         : st && st.status === "in_progress" ? "In process"
         : st && st.status === "waiting" ? `Waiting${st.note ? ` — ${st.note}` : ""}`
         : f.overdue ? "Overdue" : "Open";
@@ -9319,12 +9350,17 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
       const cmts = ((commentsLocal[f.key] || venueSettings?.followupComments?.[f.key] || []))
         .map(c => `${c.by}: ${c.text}`).join("  |  ");
       const nPhotos = (f.photos || []).length + ((fuPhotosLocal[f.key] || venueSettings?.followupPhotos?.[f.key] || []).length);
-      const row = ws.addRow([i + 1, f.loc, f.unit || "", f.floor || "", f.cat, f.itype || "Other", f.detail || "", f.notes || "", stLabel, f.daysSince, f.dateStr || "", st?.by || "", cmts, nPhotos]);
+      const solved = Number(f.fixedTs || (st?.status === "resolved" ? st?.ts : 0) || 0);
+      const clk = t => t ? new Date(t).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "";
+      const whose = f.fixedWhose === "sub" ? "STAND / SUBCONTRACTOR" : f.fixedWhose === "ours" ? "Stadium" : "";
+      const row = ws.addRow([i + 1, f.loc, f.unit || "", f.floor || "", f.cat, f.itype || "Other", f.detail || "", f.notes || "", stLabel, f.daysSince, f.dateStr || "", st?.by || "", cmts, nPhotos,
+        f.fixedBy || (st?.status === "resolved" ? st?.by || "" : ""), solved ? new Date(solved).toLocaleDateString() : "", clk(solved), clk(f.fixedStart), f.fixedMins || "", whose]);
       row.height = 18;
       row.eachCell((c, col) => {
         c.style = { font: { size: 10, name: "Calibri" }, fill: { type: "pattern", pattern: "solid", fgColor: { argb: bg } }, alignment: { vertical: "top", wrapText: col === 7 || col === 8 || col === 13 } };
         if (col === 6) c.style = issueTypeStyle(f.itype || "Other");
         if (col === 9) c.style = { ...c.style, font: { size: 10, bold: true, color: { argb: f.overdue && !f.likelyResolved ? "FFDC2626" : "FF166534" } } };
+        if (col === 20 && f.fixedWhose === "sub") c.style = { ...c.style, font: { size: 10, bold: true, color: { argb: "FFB45309" } } };
       });
     });
     const buf = await wb.xlsx.writeBuffer();
@@ -9383,19 +9419,20 @@ ${sections}
     const dateStr = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
     const rows = items.map((f, i) => {
       const st = stMapX[f.key];
-      const stLabel = f.likelyResolved ? "Likely fixed"
+      const stLabel = st && st.status === "resolved" ? (f.reopened ? "Fixed — then flagged again" : "Fixed")
+        : f.likelyResolved ? "Likely fixed"
         : st && st.status === "in_progress" ? "In process"
         : st && st.status === "waiting" ? `Waiting${st.note ? ` — ${st.note}` : ""}`
         : f.overdue ? "Overdue" : "Open";
       const cmts = ((commentsLocal[f.key] || venueSettings?.followupComments?.[f.key] || [])).map(c => `${c.by}: ${c.text}`).join(" | ");
       const photos = [...(f.photos || []), ...((fuPhotosLocal[f.key] || venueSettings?.followupPhotos?.[f.key] || []))].map(p => p.thumbUrl || p.previewUrl || p.url || "").filter(u => u && !fmt.startsWith("word")).slice(0, 3);
       const cls = f.overdue && !f.likelyResolved ? "bad" : (f.likelyResolved ? "ok" : "");
-      return `<tr class="${i % 2 ? "alt" : ""}"><td>${i + 1}</td><td><b>${esc(f.loc)}</b>${f.unit ? `<br>#${esc(f.unit)}` : ""}${f.floor ? `<br><small>${esc(f.floor)}</small>` : ""}</td><td><b>${esc(f.cat)}</b><br><small>${esc(f.itype || "Other")}</small></td><td>${esc(f.detail || "")}${f.notes ? `<br><small><i>${esc(f.notes)}</i></small>` : ""}${cmts ? `<br><small>${esc(cmts)}</small>` : ""}</td><td class="${cls}">${esc(stLabel)}${st?.by ? `<br><small>${esc(st.by)}</small>` : ""}</td><td>${esc(f.daysSince)}</td><td>${esc(f.dateStr || "")}</td>${fmt === "pdf" ? `<td>${photos.map(u => `<img src="${u}">`).join("")}</td>` : ""}</tr>`;
+      return `<tr class="${i % 2 ? "alt" : ""}"><td>${i + 1}</td><td><b>${esc(f.loc)}</b>${f.unit ? `<br>#${esc(f.unit)}` : ""}${f.floor ? `<br><small>${esc(f.floor)}</small>` : ""}</td><td><b>${esc(f.cat)}</b><br><small>${esc(f.itype || "Other")}</small></td><td>${esc(f.detail || "")}${f.notes ? `<br><small><i>${esc(f.notes)}</i></small>` : ""}${cmts ? `<br><small>${esc(cmts)}</small>` : ""}</td><td class="${cls}">${esc(stLabel)}${st?.by ? `<br><small>${esc(st.by)}</small>` : ""}</td><td>${esc(f.daysSince)}</td><td>${esc(f.dateStr || "")}</td><td>${f.fixedTs ? `${esc(new Date(f.fixedTs).toLocaleDateString())}<br><small>${esc(new Date(f.fixedTs).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }))}${f.fixedBy ? ` · ${esc(f.fixedBy)}` : ""}${f.fixedMins ? ` · ${f.fixedMins} min` : ""}</small>` : ""}</td>${fmt === "pdf" ? `<td>${photos.map(u => `<img src="${u}">`).join("")}</td>` : ""}</tr>`;
     }).join("");
     const overdue = items.filter(f => f.overdue && !f.likelyResolved).length;
     const body = `<h1>Follow-ups &amp; Rechecks</h1><div class="brand-line"></div>
 <p class="meta">${dateStr} &bull; ${resolveCompanyName()} &bull; ${items.length} follow-up${items.length !== 1 ? "s" : ""} &bull; ${overdue} overdue</p>
-<table><thead><tr><th>#</th><th>Venue / Stand</th><th>Problem</th><th>Detail &amp; notes</th><th>Status</th><th>Days open</th><th>Flagged</th>${fmt === "pdf" ? "<th>Photos</th>" : ""}</tr></thead><tbody>${rows}</tbody></table>
+<table><thead><tr><th>#</th><th>Venue / Stand</th><th>Problem</th><th>Detail &amp; notes</th><th>Status</th><th>Days open</th><th>Flagged</th><th>Solved</th>${fmt === "pdf" ? "<th>Photos</th>" : ""}</tr></thead><tbody>${rows}</tbody></table>
 <div class="footer">Generated ${dateStr} &bull; ${resolveSystemName()}</div>`;
     const css = `body{font-family:Arial,Helvetica,sans-serif;color:#111827;margin:0;padding:14px;font-size:9pt}h1{font-size:16pt;margin:0 0 4px;color:#1e2761}.brand-line{height:3px;background:#EE0000;width:90px;margin:0 0 8px}.meta{color:#6b7280;font-size:8pt;margin:0 0 10px}table{width:100%;border-collapse:collapse}th{background:#DC2626;color:#fff;text-align:left;padding:5px 6px;font-size:8pt}td{padding:5px 6px;border-bottom:1px solid #e5e7eb;vertical-align:top;font-size:8.5pt}tr.alt td{background:#f4f5f7}td.bad{color:#b91c1c;font-weight:700}td.ok{color:#166534;font-weight:700}small{color:#6b7280;font-size:7.5pt}td img{height:56px;width:auto;margin:0 3px 3px 0;border-radius:4px;border:1px solid #e5e7eb}.footer{margin-top:10px;padding-top:5px;border-top:1px solid #e5e7eb;font-size:6.5pt;color:#9ca3af;text-align:center}@page{size:landscape;margin:10mm}@media print{tr{page-break-inside:avoid}}`;
     const stamp = new Date().toISOString().slice(0, 10);
@@ -9541,6 +9578,7 @@ ${sections}
     const all = computeFollowups(history, { ...(venueSettings || {}), followupCleared: {} }, {}).followups || [];
     return all
       .map(f => { const st = stMap[f.key]; const when = Number(st?.ts || clearedMap[f.key] || 0); return { ...f, fixedBy: st?.by || "", fixedHow: st?.how || "", fixedWhose: st?.whose || "", fixedMins: Number(st?.mins || 0), fixedStart: Number(st?.startTs || 0), fixedTs: when }; })
+      .map(f => ({ ...f, reopened: !!(clearedMap[f.key] && f.ts && clearedMap[f.key] < f.ts) }))
       .filter(f => (stMap[f.key]?.status === "resolved" || clearedMap[f.key]) && f.fixedTs)
       .filter(fuMatches)
       .sort((a2, b2) => b2.fixedTs - a2.fixedTs);
@@ -9577,6 +9615,21 @@ ${sections}
   const startOfToday = new Date(); startOfToday.setHours(0, 0, 0, 0);
   const fixedTodayN = fixedList.filter(f => f.fixedTs >= startOfToday.getTime()).length;
   const fuVisible = (analysis.followups || []).filter(fuMatches);
+  // v440 — one pool to pick from: open items, everything fixed and every
+  // clean. Deduped by key, the fixed copy wins because it carries the fix
+  // fields (who, when, how long, whose mess).
+  const selPool = (() => {
+    const m = new Map();
+    fuVisible.forEach(f => m.set(f.key, f));
+    [...fixedList, ...cleanAll].forEach(f => m.set(f.key, f));
+    return [...m.values()];
+  })();
+  const selPicked = () => selPool.filter(f => fuSelected[f.key]);
+  const selBox = f => (
+    <div className="fuSelBox" onClick={e => { e.stopPropagation(); setFuSelected(p => ({ ...p, [f.key]: !p[f.key] })); }}>
+      <span className={"fuSelMark" + (fuSelected[f.key] ? " on" : "")}>{fuSelected[f.key] ? "✓" : ""}</span>
+    </div>
+  );
   const remindList = (analysis.followups || []).filter(f => remindPick[f.key]);
   const fuGroupsShown = fuFilterGroups(analysis.followupGroups || []);
   const fuCatGroupsShown = fuFilterGroups(analysis.followupCatGroups || []);
@@ -9690,24 +9743,24 @@ ${sections}
                   ) : (
                     <>
                       <button type="button" disabled={fuSelCount === 0}
-                        onClick={() => exportSelectedFollowups(fuVisible.filter(f => fuSelected[f.key]))}
+                        onClick={() => exportSelectedFollowups(selPicked())}
                         style={{ background: "#166534", color: "#fff", border: "none", borderRadius: 10, padding: "8px 16px", fontWeight: 800, fontSize: "0.84rem", cursor: "pointer", opacity: fuSelCount ? 1 : 0.5 }}>
                         📊 Excel ({fuSelCount})
                       </button>
                       <button type="button" disabled={fuSelCount === 0}
-                        onClick={() => exportFollowupsDoc(fuVisible.filter(f => fuSelected[f.key]), "pdf")}
+                        onClick={() => exportFollowupsDoc(selPicked(), "pdf")}
                         style={{ background: "#b91c1c", color: "#fff", border: "none", borderRadius: 10, padding: "8px 16px", fontWeight: 800, fontSize: "0.84rem", cursor: "pointer", opacity: fuSelCount ? 1 : 0.5 }}>
                         📄 PDF
                       </button>
                       <button type="button" disabled={fuSelCount === 0}
-                        onClick={() => exportFollowupsDoc(fuVisible.filter(f => fuSelected[f.key]), "word")}
+                        onClick={() => exportFollowupsDoc(selPicked(), "word")}
                         style={{ background: "#1e40af", color: "#fff", border: "none", borderRadius: 10, padding: "8px 16px", fontWeight: 800, fontSize: "0.84rem", cursor: "pointer", opacity: fuSelCount ? 1 : 0.5 }}>
                         📝 Word
                       </button>
                       <button type="button"
-                        onClick={() => { const all = {}; fuVisible.forEach(f => { all[f.key] = true; }); setFuSelected(all); }}
+                        onClick={() => { const all = { ...fuSelected }; (showClean ? cleanList : showFixed ? fixedList : fuVisible).forEach(f => { all[f.key] = true; }); setFuSelected(all); }}
                         style={{ background: "var(--surface-2)", border: "1px solid var(--sdx-gray-200)", borderRadius: 10, padding: "8px 12px", fontWeight: 700, fontSize: "0.78rem", cursor: "pointer", color: "var(--sdx-navy)" }}>
-                        Select all{fuSearch.trim() ? " (filtered)" : ""}
+                        Select all {showClean ? "cleans" : showFixed ? "fixed" : "open"}{fuSearch.trim() ? " (filtered)" : ""}
                       </button>
                       <button type="button" onClick={() => { setFuSelectMode(false); setFuSelected({}); }}
                         style={{ background: "none", border: "none", color: "var(--ink-500)", fontWeight: 700, cursor: "pointer", fontSize: "0.8rem" }}>Cancel</button>
@@ -9827,6 +9880,13 @@ ${sections}
                 <button type="button" className={`fuToggleBtn${fuGroupBy === "cat" ? " fuToggleActive" : ""}`} onClick={() => setFuGroupBy("cat")}>🗂 By Problem</button>
               </span>
             </div>
+            {saveWarn && <div className="fuSaveWarn">{saveWarn}</div>}
+            {undoRes && (
+              <div className="fuUndoStrip">
+                <span>✓ Resolved {new Date(undoRes.ts).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })} · {undoRes.label}</span>
+                <button type="button" onClick={undoResolve}>↩ Undo</button>
+              </div>
+            )}
             {showClean && (
               <div className="fuFixedPanel fuCleanPanel">
                 <div className="fuFixedHead">
@@ -9867,6 +9927,7 @@ ${sections}
                   const after = ph.filter(x => x.tag === "after").slice(-2);
                   return (
                     <div key={f.key} className="fuFixedRow">
+                      {fuSelectMode && selBox(f)}
                       <span className="fuFixedIcon">{f.fixedWhose === "sub" ? "🧾" : "🧹"}</span>
                       <div className="fuFixedBody">
                         <div className="fuFixedTitle">{f.loc}{f.unit ? ` · #${f.unit}` : ""} — {f.cat}</div>
@@ -9909,10 +9970,12 @@ ${sections}
                   const ph = [...(f.photos || []), ...((fuPhotosLocal[f.key] || venueSettings?.followupPhotos?.[f.key] || []))];
                   return (
                     <div key={f.key} className="fuFixedRow">
+                      {fuSelectMode && selBox(f)}
                       <span className="fuFixedIcon">{ISSUE_TYPE_ICON[f.itype] || "🔧"}</span>
                       <div className="fuFixedBody">
                         <div className="fuFixedTitle">{f.loc}{f.unit ? ` · #${f.unit}` : ""} — {f.cat}</div>
                         {f.detail && <div className="fuFixedDetail">{f.detail}</div>}
+                        {f.reopened && <span className="fuReopened">↻ REOPENED — flagged again {f.dateStr}</span>}
                         <div className="fuFixedMeta">{ago} ({clockT(f.fixedTs)}){f.fixedBy ? ` · by ${f.fixedBy}` : ""}{f.fixedHow === "already" ? " · was already clean" : f.fixedHow === "crew" ? " · cleaned by the crew" : ""}{f.dateStr ? ` · flagged ${f.dateStr}` : ""}</div>
                       </div>
                       {ph.length > 0 && (
@@ -9963,16 +10026,7 @@ ${sections}
                       <div className="fuGroupBody">
                         {g.items.map(f => (
                           <div key={f.key} className={`fuItem ${f.overdue ? "fuOverdue" : f.likelyResolved ? "fuResolved" : "fuWatching"}`}>
-                            {fuSelectMode && (
-                              <div onClick={e => { e.stopPropagation(); setFuSelected(p => ({ ...p, [f.key]: !p[f.key] })); }}
-                                style={{ display: "flex", alignItems: "center", paddingRight: 4, cursor: "pointer" }}>
-                                <span style={{
-                                  width: 24, height: 24, borderRadius: 7, border: fuSelected[f.key] ? "none" : "2px solid var(--sdx-gray-200)",
-                                  background: fuSelected[f.key] ? "#166534" : "var(--surface-1)", color: "#fff",
-                                  display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: "0.9rem",
-                                }}>{fuSelected[f.key] ? "✓" : ""}</span>
-                              </div>
-                            )}
+                            {fuSelectMode && selBox(f)}
                             <div className="fuStatus">
                               {f.overdue ? "⏰" : f.likelyResolved ? "✅" : "👁"}
                             </div>
@@ -27935,7 +27989,19 @@ export default function App() {
         doc(db, "venues", VENUE_ID, "sharedMemory", "venueSettings"),
         { [field]: patch, _updatedAt: new Date().toISOString() },
         { merge: true }
-      ).catch(() => {});
+      ).catch(() => {
+        // v440: one retry, then say it out loud — a silent failure is why
+        // "Resolved" sometimes looked like it did nothing.
+        setTimeout(() => {
+          setDoc(
+            doc(db, "venues", VENUE_ID, "sharedMemory", "venueSettings"),
+            { [field]: patch, _updatedAt: new Date().toISOString() },
+            { merge: true }
+          ).catch(() => {
+            try { window.dispatchEvent(new CustomEvent("sdx-save-failed", { detail: { field } })); } catch {}
+          });
+        }, 4000);
+      });
     }
   }
 
@@ -29501,7 +29567,7 @@ export default function App() {
       const st = c.status || "fixed";
       const entry = { status: st === "fixed" ? "resolved" : st, note: st === "waiting" ? c.action.trim().slice(0, 80) : "", by, ts };
       saveVenueSettingsMap("followupStatus", { [f.key]: entry });
-      if (st === "fixed") saveVenueSettingsMap("followupCleared", { [f.key]: ts });
+      if (st === "fixed") saveVenueSettingsMap("followupCleared", { [f.key]: Math.max(ts, (f.ts || 0) + 1) });
       const prevC = venueSettings?.followupComments?.[f.key] || [];
       saveVenueSettingsMap("followupComments", { [f.key]: [...prevC, { text: `Corrective action: ${c.action.trim().slice(0, 200)}`, by, ts, reportId }].slice(-10) });
       if ((c.photos || []).length) {

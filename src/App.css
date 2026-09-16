@@ -8432,3 +8432,32 @@ html[data-theme="dark"] .fuStOnWaiting, html[data-theme="black"] .fuStOnWaiting 
   border-radius: 9px; padding: 7px 9px;
 }
 .haccpCard .proofMissing { background: #fff7ed; border-color: #fdba74; }
+
+/* Select anything the team did + proof that Resolve stuck (v440) */
+.fuSelBox { display: flex; align-items: center; padding-right: 6px; cursor: pointer; }
+.fuSelMark {
+  width: 24px; height: 24px; border-radius: 7px; border: 2px solid var(--sdx-gray-200);
+  background: var(--surface-1); color: #fff; display: flex; align-items: center;
+  justify-content: center; font-weight: 900; font-size: 0.9rem; flex-shrink: 0;
+}
+.fuSelMark.on { border: none; background: #166534; }
+.fuSaveWarn {
+  margin: 6px 0; padding: 8px 12px; border-radius: 10px;
+  background: var(--tint-amber-1); border: 1px solid #f59e0b;
+  color: var(--tx-amber); font-size: 0.78rem; font-weight: 700;
+}
+.fuUndoStrip {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  margin: 6px 0; padding: 8px 12px; border-radius: 10px;
+  background: #dcfce7; border: 1px solid #86efac;
+  color: #166534; font-size: 0.78rem; font-weight: 700;
+}
+.fuUndoStrip button {
+  margin-left: auto; background: var(--surface-1); border: 1px solid #86efac;
+  border-radius: 8px; padding: 5px 12px; font-weight: 800; font-size: 0.75rem;
+  color: #166534; cursor: pointer;
+}
+.fuReopened {
+  display: inline-block; margin-bottom: 3px; font-size: 0.62rem; font-weight: 900;
+  letter-spacing: .04em; color: #fff; background: #b91c1c; border-radius: 5px; padding: 2px 6px;
+}
