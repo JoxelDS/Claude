@@ -9147,7 +9147,29 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
 
     // 6. Follow-ups: open issues that need a recheck or look resolved
     const vsWithTypes = Object.keys(typeLocal).length ? { ...venueSettings, followupType: { ...(venueSettings?.followupType || {}), ...typeLocal } } : venueSettings;
-    const { followups, followupGroups, followupCatGroups, recheckDays } = computeFollowups(history, vsWithTypes, clearedLocal);
+    const r0 = computeFollowups(history, vsWithTypes, clearedLocal);
+    // v447: what kind of stand is this? The license registry IS the stand list,
+    // so resolve unit+name against standSeeds(), then fall back to the report.
+    const seeds = (() => { try { return standSeeds(); } catch { return []; } })();
+    const byUnit = {};
+    seeds.forEach(k => { const u = normUnit(k.unit); if (!u) return; (byUnit[u] = byUnit[u] || []).push(k); });
+    const fromReport = {};
+    history.forEach(rec => {
+      const u = normUnit(rec.siteNumber);
+      const lt = (rec.locationType || "").trim();
+      if (u && lt && !fromReport[u]) fromReport[u] = lt;
+    });
+    const typeOf = f => {
+      const u = normUnit(f.unit);
+      const at = byUnit[u] || [];
+      const exact = at.find(k => sameStandName(k.site, f.loc));
+      return (exact?.locType || at[0]?.locType || fromReport[u] || "").trim();
+    };
+    const followups = (r0.followups || []).map(f => ({ ...f, locType: typeOf(f) }));
+    const withType = g => ({ ...g, items: (g.items || []).map(f => ({ ...f, locType: typeOf(f) })) });
+    const followupGroups = (r0.followupGroups || []).map(withType);
+    const followupCatGroups = (r0.followupCatGroups || []).map(withType);
+    const recheckDays = r0.recheckDays;
 
     return { recurring, locationRecurring, tempComplianceRate, tempChecks, tempFails, totalInspections: history.length, worstLocations, followups, followupGroups, followupCatGroups, recheckDays };
   }, [history, venueSettings, clearedLocal]);
@@ -9315,7 +9337,8 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
   }
 
   const [fuOpen, setFuOpen] = useState({});
-  const [fuGroupBy, setFuGroupBy] = useState("loc"); // "loc" | "cat"
+  const [fuGroupBy, setFuGroupBy] = useState("loc"); // "loc" | "cat" | "type"
+  const [fuTypePick, setFuTypePick] = useState(""); // v447 — Subcontractor / Concession / …
   const [fuSearch, setFuSearch] = useState("");
   // Selection → Excel export of chosen follow-ups
   const [fuSelectMode, setFuSelectMode] = useState(false);
@@ -9340,15 +9363,15 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
       const wb = new ExcelJS.Workbook();
       const ws = wb.addWorksheet("Before & After");
       ws.columns = [
-        { width: 4 }, { width: 26 }, { width: 9 }, { width: 11 }, { width: 16 }, { width: 24 },
+        { width: 4 }, { width: 26 }, { width: 9 }, { width: 11 }, { width: 18 }, { width: 16 }, { width: 24 },
         { width: 40 }, { width: 12 }, { width: 18 }, { width: 12 }, { width: 11 }, { width: 11 },
         { width: 22 }, { width: 38 }, { width: 24 }, { width: 24 },
       ];
       const title = ws.addRow(["BEFORE & AFTER — " + new Date().toLocaleDateString()]);
       title.height = 24;
-      ws.mergeCells(`A${title.number}:P${title.number}`);
+      ws.mergeCells(`A${title.number}:Q${title.number}`);
       title.getCell(1).style = { font: { bold: true, size: 13, color: { argb: "FFFFFFFF" } }, fill: { type: "pattern", pattern: "solid", fgColor: { argb: "FF2A295C" } }, alignment: { vertical: "middle", horizontal: "left" } };
-      const hdr = ws.addRow(["#", "Stand", "Unit #", "Floor", "License", "Problem", "What was wrong", "Flagged",
+      const hdr = ws.addRow(["#", "Stand", "Unit #", "Floor", "Stand Type", "License", "Problem", "What was wrong", "Flagged",
         "Fixed by", "Date solved", "Time solved", "Min on job", "Whose mess", "Corrective action / notes", "BEFORE", "AFTER"]);
       hdr.height = 20;
       hdr.eachCell(c => { c.style = { font: { bold: true, size: 10, color: { argb: "FFFFFFFF" } }, fill: { type: "pattern", pattern: "solid", fgColor: { argb: "FFDC2626" } }, alignment: { vertical: "middle", horizontal: "center", wrapText: true } }; });
@@ -9368,14 +9391,14 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
         const whose = (f.fixedWhose || st.whose) === "sub" ? "STAND / SUBCONTRACTOR" : (f.fixedWhose || st.whose) === "ours" ? "Stadium" : "";
         const notes = [f.notes, ...((commentsLocal[f.key] || venueSettings?.followupComments?.[f.key] || []).map(c => `${c.by}: ${c.text}`))].filter(Boolean).join("  |  ");
         const r = lic[normUnit(f.unit)] || {};
-        const row = ws.addRow([i + 1, f.loc, f.unit || "", f.floor || "", r.license || "", f.cat, f.detail || "", f.dateStr || "",
+        const row = ws.addRow([i + 1, f.loc, f.unit || "", f.floor || "", standTypeBadge(f.locType || "").short || "—", r.license || "", f.cat, f.detail || "", f.dateStr || "",
           f.fixedBy || (st.status === "resolved" ? st.by || "" : ""), solved ? new Date(solved).toLocaleDateString() : "", clk(solved),
           mins || "", whose, notes, before.length ? "" : "no before photo", after.length ? "" : "no after photo"]);
         const bg = i % 2 === 0 ? "FFFFFFFF" : "FFF4F5F7";
         row.eachCell((c, col) => {
-          c.style = { font: { size: 10, name: "Calibri" }, fill: { type: "pattern", pattern: "solid", fgColor: { argb: bg } }, alignment: { vertical: "top", wrapText: col === 7 || col === 14 } };
-          if (col === 13 && whose === "STAND / SUBCONTRACTOR") c.style = { ...c.style, font: { size: 10, bold: true, color: { argb: "FFB45309" } } };
-          if (col === 15 || col === 16) c.style = { ...c.style, font: { size: 9, italic: true, color: { argb: "FF9CA3AF" } }, alignment: { vertical: "middle", horizontal: "center" } };
+          c.style = { font: { size: 10, name: "Calibri" }, fill: { type: "pattern", pattern: "solid", fgColor: { argb: bg } }, alignment: { vertical: "top", wrapText: col === 8 || col === 15 } };
+          if (col === 14 && whose === "STAND / SUBCONTRACTOR") c.style = { ...c.style, font: { size: 10, bold: true, color: { argb: "FFB45309" } } };
+          if (col === 16 || col === 17) c.style = { ...c.style, font: { size: 9, italic: true, color: { argb: "FF9CA3AF" } }, alignment: { vertical: "middle", horizontal: "center" } };
         });
         const place = async (list, startCol) => {
           for (let k = 0; k < list.length; k++) {
@@ -9398,8 +9421,8 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
           }
         };
         row.height = 92;
-        await place(before, 15);
-        await place(after, 16);
+        await place(before, 16);
+        await place(after, 17);
       }
       const buf = await wb.xlsx.writeBuffer();
       downloadBlob(new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }), `Before-After_${new Date().toISOString().slice(0, 10)}.xlsx`);
@@ -9413,20 +9436,20 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet("Follow-ups");
     ws.columns = [
-      { width: 4 }, { width: 26 }, { width: 9 }, { width: 12 }, { width: 24 },
+      { width: 4 }, { width: 26 }, { width: 9 }, { width: 12 }, { width: 20 }, { width: 24 },
       { width: 16 }, { width: 46 }, { width: 30 }, { width: 14 }, { width: 12 }, { width: 12 }, { width: 20 }, { width: 50 }, { width: 8 },
       // v440 — what the team actually did
       { width: 20 }, { width: 12 }, { width: 11 }, { width: 11 }, { width: 12 }, { width: 22 },
     ];
     const title = ws.addRow(["FOLLOW-UPS EXPORT — " + new Date().toLocaleDateString()]);
     title.height = 24;
-    ws.mergeCells(`A${title.number}:T${title.number}`);
+    ws.mergeCells(`A${title.number}:U${title.number}`);
     title.getCell(1).style = { font: { bold: true, size: 13, color: { argb: "FFFFFFFF" } }, fill: { type: "pattern", pattern: "solid", fgColor: { argb: "FF2A295C" } }, alignment: { vertical: "middle", horizontal: "left" } };
-    const hdrRow = ws.addRow(["#", "Venue / Stand", "Unit #", "Floor", "Problem", "Issue Type", "Latest Detail", "Inspector Notes", "Status", "Days Open", "Flagged", "Status By", "Comments", "Photos",
+    const hdrRow = ws.addRow(["#", "Venue / Stand", "Unit #", "Floor", "Stand Type", "Problem", "Issue Type", "Latest Detail", "Inspector Notes", "Status", "Days Open", "Flagged", "Status By", "Comments", "Photos",
       "Fixed by", "Date solved", "Time solved", "Started", "Min on job", "Whose mess"]);
     hdrRow.height = 20;
     hdrRow.eachCell(c => { c.style = { font: { bold: true, size: 10, color: { argb: "FFFFFFFF" } }, fill: { type: "pattern", pattern: "solid", fgColor: { argb: "FFDC2626" } }, alignment: { vertical: "middle", horizontal: "center", wrapText: true } }; });
-    ws.autoFilter = { from: { row: hdrRow.number, column: 1 }, to: { row: hdrRow.number, column: 20 } };
+    ws.autoFilter = { from: { row: hdrRow.number, column: 1 }, to: { row: hdrRow.number, column: 21 } };
     ws.views = [{ state: "frozen", ySplit: hdrRow.number }];
     const stMapX = { ...(venueSettings?.followupStatus || {}), ...statusLocal };
     items.forEach((f, i) => {
@@ -9443,14 +9466,14 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
       const solved = Number(f.fixedTs || (st?.status === "resolved" ? st?.ts : 0) || 0);
       const clk = t => t ? new Date(t).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "";
       const whose = f.fixedWhose === "sub" ? "STAND / SUBCONTRACTOR" : f.fixedWhose === "ours" ? "Stadium" : "";
-      const row = ws.addRow([i + 1, f.loc, f.unit || "", f.floor || "", f.cat, f.itype || "Other", f.detail || "", f.notes || "", stLabel, f.daysSince, f.dateStr || "", st?.by || "", cmts, nPhotos,
+      const row = ws.addRow([i + 1, f.loc, f.unit || "", f.floor || "", standTypeBadge(f.locType || "").short || "—", f.cat, f.itype || "Other", f.detail || "", f.notes || "", stLabel, f.daysSince, f.dateStr || "", st?.by || "", cmts, nPhotos,
         f.fixedBy || (st?.status === "resolved" ? st?.by || "" : ""), solved ? new Date(solved).toLocaleDateString() : "", clk(solved), clk(f.fixedStart), f.fixedMins || "", whose]);
       row.height = 18;
       row.eachCell((c, col) => {
-        c.style = { font: { size: 10, name: "Calibri" }, fill: { type: "pattern", pattern: "solid", fgColor: { argb: bg } }, alignment: { vertical: "top", wrapText: col === 7 || col === 8 || col === 13 } };
-        if (col === 6) c.style = issueTypeStyle(f.itype || "Other");
-        if (col === 9) c.style = { ...c.style, font: { size: 10, bold: true, color: { argb: f.overdue && !f.likelyResolved ? "FFDC2626" : "FF166534" } } };
-        if (col === 20 && f.fixedWhose === "sub") c.style = { ...c.style, font: { size: 10, bold: true, color: { argb: "FFB45309" } } };
+        c.style = { font: { size: 10, name: "Calibri" }, fill: { type: "pattern", pattern: "solid", fgColor: { argb: bg } }, alignment: { vertical: "top", wrapText: col === 8 || col === 9 || col === 14 } };
+        if (col === 7) c.style = issueTypeStyle(f.itype || "Other");
+        if (col === 10) c.style = { ...c.style, font: { size: 10, bold: true, color: { argb: f.overdue && !f.likelyResolved ? "FFDC2626" : "FF166534" } } };
+        if (col === 21 && f.fixedWhose === "sub") c.style = { ...c.style, font: { size: 10, bold: true, color: { argb: "FFB45309" } } };
       });
     });
     const buf = await wb.xlsx.writeBuffer();
@@ -9517,7 +9540,7 @@ ${sections}
       const cmts = ((commentsLocal[f.key] || venueSettings?.followupComments?.[f.key] || [])).map(c => `${c.by}: ${c.text}`).join(" | ");
       const photos = [...(f.photos || []), ...((fuPhotosLocal[f.key] || venueSettings?.followupPhotos?.[f.key] || []))].map(p => p.thumbUrl || p.previewUrl || p.url || "").filter(u => u && !fmt.startsWith("word")).slice(0, 3);
       const cls = f.overdue && !f.likelyResolved ? "bad" : (f.likelyResolved ? "ok" : "");
-      return `<tr class="${i % 2 ? "alt" : ""}"><td>${i + 1}</td><td><b>${esc(f.loc)}</b>${f.unit ? `<br>#${esc(f.unit)}` : ""}${f.floor ? `<br><small>${esc(f.floor)}</small>` : ""}</td><td><b>${esc(f.cat)}</b><br><small>${esc(f.itype || "Other")}</small></td><td>${esc(f.detail || "")}${f.notes ? `<br><small><i>${esc(f.notes)}</i></small>` : ""}${cmts ? `<br><small>${esc(cmts)}</small>` : ""}</td><td class="${cls}">${esc(stLabel)}${st?.by ? `<br><small>${esc(st.by)}</small>` : ""}</td><td>${esc(f.daysSince)}</td><td>${esc(f.dateStr || "")}</td><td>${f.fixedTs ? `${esc(new Date(f.fixedTs).toLocaleDateString())}<br><small>${esc(new Date(f.fixedTs).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }))}${f.fixedBy ? ` · ${esc(f.fixedBy)}` : ""}${f.fixedMins ? ` · ${f.fixedMins} min` : ""}</small>` : ""}</td>${fmt === "pdf" ? `<td>${photos.map(u => `<img src="${u}">`).join("")}</td>` : ""}</tr>`;
+      return `<tr class="${i % 2 ? "alt" : ""}"><td>${i + 1}</td><td><b>${esc(f.loc)}</b>${f.unit ? `<br>#${esc(f.unit)}` : ""}${f.floor ? `<br><small>${esc(f.floor)}</small>` : ""}${f.locType ? `<br><small>${esc(standTypeBadge(f.locType).short)}</small>` : ""}</td><td><b>${esc(f.cat)}</b><br><small>${esc(f.itype || "Other")}</small></td><td>${esc(f.detail || "")}${f.notes ? `<br><small><i>${esc(f.notes)}</i></small>` : ""}${cmts ? `<br><small>${esc(cmts)}</small>` : ""}</td><td class="${cls}">${esc(stLabel)}${st?.by ? `<br><small>${esc(st.by)}</small>` : ""}</td><td>${esc(f.daysSince)}</td><td>${esc(f.dateStr || "")}</td><td>${f.fixedTs ? `${esc(new Date(f.fixedTs).toLocaleDateString())}<br><small>${esc(new Date(f.fixedTs).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }))}${f.fixedBy ? ` · ${esc(f.fixedBy)}` : ""}${f.fixedMins ? ` · ${f.fixedMins} min` : ""}</small>` : ""}</td>${fmt === "pdf" ? `<td>${photos.map(u => `<img src="${u}">`).join("")}</td>` : ""}</tr>`;
     }).join("");
     const overdue = items.filter(f => f.overdue && !f.likelyResolved).length;
     const body = `<h1>Follow-ups &amp; Rechecks</h1><div class="brand-line"></div>
@@ -9704,7 +9727,32 @@ ${sections}
   })();
   const startOfToday = new Date(); startOfToday.setHours(0, 0, 0, 0);
   const fixedTodayN = fixedList.filter(f => f.fixedTs >= startOfToday.getTime()).length;
-  const fuVisible = (analysis.followups || []).filter(fuMatches);
+  // v447 — group and filter by what kind of stand it is
+  const TYPE_ORDER = ["Subcontractor", "Portable - Subcontractor", "Portable", "Concession", "Kitchen", "Bar"];
+  const typeRank = t => { const i = TYPE_ORDER.indexOf(t); return i === -1 ? (t ? 90 : 99) : i; };
+  const typeKey = f => (f.locType || "").trim();
+  const fuTypeCounts = (() => {
+    const m = {};
+    (analysis.followups || []).filter(fuMatches).forEach(f => { const t = typeKey(f) || "Unknown"; m[t] = (m[t] || 0) + 1; });
+    return Object.entries(m).sort((a, b) => typeRank(a[0] === "Unknown" ? "" : a[0]) - typeRank(b[0] === "Unknown" ? "" : b[0]));
+  })();
+  const matchesTypePick = f => !fuTypePick || (typeKey(f) || "Unknown") === fuTypePick;
+  const fuTypeGroups = (() => {
+    const m = {};
+    (analysis.followups || []).filter(fuMatches).forEach(f => {
+      const t = typeKey(f) || "Unknown";
+      if (!m[t]) m[t] = { type: t, cat: t, items: [], overdueCount: 0, dueSoonCount: 0, resolvedCount: 0, minDue: Infinity, stands: new Set() };
+      const g = m[t];
+      g.items.push(f); g.stands.add(`${f.loc}#${f.unit || ""}`);
+      if (f.overdue) g.overdueCount++;
+      else if (f.likelyResolved) g.resolvedCount++;
+      else { g.dueSoonCount++; g.minDue = Math.min(g.minDue, Math.max(0, analysis.recheckDays - f.daysSince)); }
+    });
+    return Object.values(m)
+      .map(g => ({ ...g, standCount: g.stands.size, stands: undefined }))
+      .sort((a, b) => typeRank(a.type === "Unknown" ? "" : a.type) - typeRank(b.type === "Unknown" ? "" : b.type));
+  })();
+  const fuVisible = (analysis.followups || []).filter(fuMatches).filter(matchesTypePick);
   // v440 — one pool to pick from: open items, everything fixed and every
   // clean. Deduped by key, the fixed copy wins because it carries the fix
   // fields (who, when, how long, whose mess).
@@ -9968,10 +10016,17 @@ ${sections}
                   🧪 {fuVisible.filter(f => f.itype === "Ecolab / Maintenance").length} Ecolab
                 </span>
               )}
+              {fuTypeCounts.map(([t, n]) => (
+                <span key={t} className={"fuSumChip fuTypeFilter" + (fuTypePick === t ? " on" : "")}
+                  onClick={() => setFuTypePick(fuTypePick === t ? "" : t)}>
+                  {standTypeBadge(t === "Unknown" ? "" : t).short} {n}{fuTypePick === t ? " ✕" : ""}
+                </span>
+              ))}
               <span className="fuSumChip">📍 {fuGroupsShown.length} venue{fuGroupsShown.length !== 1 ? "s" : ""}</span>
               <span className="fuToggle">
                 <button type="button" className={`fuToggleBtn${fuGroupBy === "loc" ? " fuToggleActive" : ""}`} onClick={() => setFuGroupBy("loc")}>📍 By Venue</button>
                 <button type="button" className={`fuToggleBtn${fuGroupBy === "cat" ? " fuToggleActive" : ""}`} onClick={() => setFuGroupBy("cat")}>🗂 By Problem</button>
+                <button type="button" className={`fuToggleBtn${fuGroupBy === "type" ? " fuToggleActive" : ""}`} onClick={() => setFuGroupBy("type")}>🏷 By Type</button>
               </span>
             </div>
             {saveWarn && <div className="fuSaveWarn">{saveWarn}</div>}
@@ -10090,8 +10145,8 @@ ${sections}
               {fuSearch.trim() && fuVisible.length === 0 && (
                 <div style={{ fontSize: "0.82rem", color: "var(--ink-400)", fontStyle: "italic", padding: "10px 4px" }}>No follow-ups match “{fuSearch.trim()}”.</div>
               )}
-              {(fuGroupBy === "cat" ? fuCatGroupsShown : fuGroupsShown).map(g => {
-                const gKey = `${fuGroupBy}::${fuGroupBy === "cat" ? g.cat : g.loc}`;
+              {(fuGroupBy === "cat" ? fuCatGroupsShown : fuGroupBy === "type" ? fuTypeGroups.filter(g => !fuTypePick || g.type === fuTypePick) : fuGroupsShown).map(g => {
+                const gKey = `${fuGroupBy}::${fuGroupBy === "cat" ? g.cat : fuGroupBy === "type" ? g.type : g.loc}`;
                 const isOpen = fuSearch.trim() ? true : (fuOpen[gKey] !== undefined ? fuOpen[gKey] : g.overdueCount > 0);
                 const openItems = g.items.filter(f => !f.likelyResolved);
                 return (
@@ -10101,6 +10156,8 @@ ${sections}
                       <div className="fuGroupName">
                         {fuGroupBy === "cat"
                           ? <>{g.cat}<span className="fuLoc"> · {g.venueCount} venue{g.venueCount !== 1 ? "s" : ""}</span></>
+                          : fuGroupBy === "type"
+                          ? <><StandType lt={g.type === "Unknown" ? "" : g.type} /><span className="fuLoc"> · {g.standCount} stand{g.standCount !== 1 ? "s" : ""}</span></>
                           : <>{g.loc}{g.unit ? <span className="fuLoc"> · Unit #{g.unit}</span> : null}</>}
                         <span className="fuGroupBadge">{g.items.length}</span>
                       </div>
@@ -10112,7 +10169,7 @@ ${sections}
                       <div className="fuActions" onClick={e => e.stopPropagation()}>
                         {openItems.length > 0 && (
                           <button type="button" className="fuBtn fuBtnRemind" onClick={() => remindGroup(g, fuGroupBy)}>
-                            {remindedKey === `grp::${fuGroupBy === "cat" ? g.cat : g.loc}` ? "✓ Posted" : `🔔 Remind Team (${openItems.length})`}
+                            {remindedKey === `grp::${fuGroupBy === "cat" ? g.cat : fuGroupBy === "type" ? g.type : g.loc}` ? "✓ Posted" : `🔔 Remind Team (${openItems.length})`}
                           </button>
                         )}
                         <button type="button" className="fuBtn fuBtnResolve" onClick={() => resolveVenue(g)}>
@@ -10130,9 +10187,10 @@ ${sections}
                             </div>
                             <div className="fuBody" style={{ cursor: "pointer" }} onClick={() => onIssueDrilldown?.(f.loc, f.cat)}>
                               <div className="fuTitle">
-                                {fuGroupBy === "cat"
-                                  ? <>{f.loc}{f.unit ? <span className="fuLoc"> · Unit #{f.unit}</span> : null}</>
-                                  : f.cat}
+                                {fuGroupBy === "loc"
+                                  ? f.cat
+                                  : <>{f.loc}{f.unit ? <span className="fuLoc"> · Unit #{f.unit}</span> : null}{fuGroupBy === "type" ? <span className="fuLoc"> — {f.cat}</span> : null}</>}
+                                {f.locType ? <StandType lt={f.locType} style={{ marginLeft: 6 }} /> : null}
                               </div>
                               {/* v445: which unit — for older reports the name only lives in area */}
                               {f.area && !(f.cat || "").toUpperCase().includes(String(f.area).split(" — ")[0].toUpperCase()) && (
