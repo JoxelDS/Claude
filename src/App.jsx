@@ -8578,6 +8578,17 @@ function isSpecific(text, details, catKey, opts) {
   if (words >= 8 && LOCATION_WORDS.test(t)) return { ok: true, missing: [] };
   return { ok: false, missing };
 }
+// v439: proof of the problem — a photo (or a written reason there is none)
+// and what was done about it, required everywhere a problem is flagged.
+function proofGate({ photos, action, noPhotoReason }) {
+  const missing = [];
+  const nPhotos = Array.isArray(photos) ? photos.length : Number(photos || 0);
+  const why = String(noPhotoReason || "").trim();
+  if (!nPhotos && why.length < 8) missing.push("photo");
+  if (String(action || "").trim().length < 5) missing.push("action");
+  return { ok: missing.length === 0, missing };
+}
+const noPhotoLine = reason => (String(reason || "").trim() ? ` — NO PHOTO: ${String(reason).trim()}` : "");
 function SpecificsPicker({ cat, units, value, onChange, lang, missing, compact }) {
   const key = specCatKey(cat);
   const rows = SPEC_ROWS[key] || SPEC_ROWS.Other;
@@ -8736,14 +8747,14 @@ function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLoc
       for (const n of names) saveInspectorNotification({ inspectorName: n, kind: "followup", title, message });
     } catch {}
   }
-  async function commit(f, kind, note, how, whose) {
+  async function commit(f, kind, note, how, whose, noPhoto) {
     const ts = Date.now(); const prefix = `${meta.icon} ${me}`;
     // v438: the app keeps the clock — the "In process" tap is the start, this
     // tap is the finish, so the inspector sees a real timeline, not a guess.
     const prevSt = statusOf(f.key);
     const startTs = prevSt && prevSt.status === "in_progress" && prevSt.ts ? prevSt.ts : 0;
     const mins = startTs ? Math.max(1, Math.round((ts - startTs) / 60000)) : 0;
-    const entry = kind === "fixed" ? { status: "resolved", note: "", by: me, ts, ...(how ? { how } : {}), ...(whose ? { whose } : {}), ...(startTs ? { startTs, mins } : {}) } : kind === "waiting" ? { status: "waiting", note: (note || "").slice(0, 80), by: me, ts } : { status: "in_progress", note: "", by: me, ts };
+    const entry = kind === "fixed" ? { status: "resolved", note: "", by: me, ts, ...(how ? { how } : {}), ...(whose ? { whose } : {}), ...(startTs ? { startTs, mins } : {}), ...(noPhoto ? { noPhoto: String(noPhoto).trim().slice(0, 80) } : {}) } : kind === "waiting" ? { status: "waiting", note: (note || "").slice(0, 80), by: me, ts } : { status: "in_progress", note: "", by: me, ts };
     // v434: cleaning crews say whether they cleaned it or found it already done
     const howText = how === "crew" ? T("we cleaned it", "lo limpiamos nosotros", "nou netwaye l")
       : how === "already" ? T("it was already clean", "ya estaba limpio", "li te deja pwop")
@@ -8846,13 +8857,21 @@ function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLoc
                 </div>
               </>
             )}
+            {/* v439: an after photo proves the fix — or say why there is none */}
+            {action.kind === "fixed" && after.length === 0 && (
+              <>
+                <div className="crewHowLbl">📷 {T("After photo required — or say why there is none", "Foto después obligatoria — o di por qué no hay", "Foto apre obligatwa — oswa di poukisa pa gen")}</div>
+                <input className="caText" value={action.noPhoto || ""} onChange={e => setAction(a => ({ ...a, noPhoto: e.target.value }))}
+                  placeholder={T("e.g. camera not working", "ej. la cámara no sirve", "egz. kamera a pa mache")} />
+              </>
+            )}
             <textarea rows={2} className="caText" value={action.note} autoFocus onChange={e => setAction(a => ({ ...a, note: e.target.value }))}
               placeholder={action.kind === "fixed" ? T("e.g. Replaced gasket, tested — holding 36°F", "ej. Cambié el empaque, probado — se mantiene a 36°F", "egz. Mwen chanje gasket la, teste — li kenbe 36°F") : action.kind === "waiting" ? T("e.g. part on order, vendor Thursday", "ej. pieza pedida, proveedor el jueves", "egz. pyès la kòmande, vandè a jedi") : T("optional note", "nota opcional", "not opsyonel")} />
             <div className="crewActionBtns">
               <button type="button" className="btn btnGhost" onClick={() => setAction(null)}>{T("Cancel", "Cancelar", "Anile")}</button>
               <button type="button" className="btn btnPrimary"
-                disabled={(action.kind !== "in_progress" && !action.note.trim()) || (action.kind === "fixed" && role === "cleaning" && (!action.how || (action.how === "crew" && !action.whose)))}
-                onClick={() => commit(f, action.kind, action.note, action.how, action.whose)}>📨 {T("Send to inspector", "Enviar al inspector", "Voye bay enspekte a")}</button>
+                disabled={(action.kind !== "in_progress" && !action.note.trim()) || (action.kind === "fixed" && role === "cleaning" && (!action.how || (action.how === "crew" && !action.whose))) || (action.kind === "fixed" && after.length === 0 && (action.noPhoto || "").trim().length < 8)}
+                onClick={() => commit(f, action.kind, action.note, action.how, action.whose, action.noPhoto)}>📨 {T("Send to inspector", "Enviar al inspector", "Voye bay enspekte a")}</button>
             </div>
           </div>
         ) : !done ? (
@@ -9399,6 +9418,9 @@ ${sections}
   const [qpPhotos, setQpPhotos] = useState([]);
   const [qpDetails, setQpDetails] = useState({});
   const [qpMissing, setQpMissing] = useState([]);
+  const [qpAction, setQpAction] = useState("");       // v439 — what did you do about it
+  const [qpNoPhoto, setQpNoPhoto] = useState("");     // v439 — why there is no photo
+  const [qpProof, setQpProof] = useState([]);
   const [qpPhotoBusy, setQpPhotoBusy] = useState(false);
   const qpIdRef = useRef(`${Date.now()}_qp${Math.floor(Math.random() * 1e4)}`);
   async function addQpPhotos(files) {
@@ -9442,6 +9464,11 @@ ${sections}
     const cat = qpCat === "Other" ? (qpCatOther.trim() || "Other") : qpCat;
     const sp = isSpecific(qpDesc, qpDetails, specCatKey(qpCat));
     if (!sp.ok) { setQpMissing(sp.missing); return; }
+    // v439: no problem gets filed without a photo (or a written reason) and
+    // what was done about it.
+    const pg = proofGate({ photos: qpPhotos, action: qpAction, noPhotoReason: qpNoPhoto });
+    if (!pg.ok) { setQpProof(pg.missing); return; }
+    setQpProof([]);
     const desc = [specToText(qpDetails, "en"), qpDesc.trim()].filter(Boolean).join(" — ");
     if (!site || !desc) return;
     const now = new Date();
@@ -9458,7 +9485,7 @@ ${sections}
       inspectorName: currentUser?.name || "",
       savedByHash: currentUser?.badgeHash || "",
       overallStatus: "PASS",
-      actionItems: [{ issue: `${cat}: ${desc}`, notes: "", photos: photos.map(p => p.id) }],
+      actionItems: [{ issue: `${cat}: ${desc}${noPhotoLine(qpNoPhoto)}`, notes: `Corrective action: ${qpAction.trim()}`, corrective: qpAction.trim(), photos: photos.map(p => p.id) }],
       photos,
       inspection: {},
     };
@@ -9467,7 +9494,7 @@ ${sections}
     try { notifyCrewsForItems(rec.actionItems, rec.siteName, rec.siteNumber, rec.inspectorName); } catch {}
     setQpFlash(`✓ Problem filed for ${site}${qpUnit.trim() ? ` #${qpUnit.trim()}` : ""} — it's now a follow-up`);
     setTimeout(() => setQpFlash(""), 4000);
-    setQpOpen(false); setQpSite(""); setQpUnit(""); setQpFloor(""); setQpDesc(""); setQpCatOther(""); setQpPhotos([]);
+    setQpOpen(false); setQpSite(""); setQpUnit(""); setQpFloor(""); setQpDesc(""); setQpCatOther(""); setQpPhotos([]); setQpAction(""); setQpNoPhoto(""); setQpProof([]);
     qpIdRef.current = `${Date.now()}_qp${Math.floor(Math.random() * 1e4)}`;
   }
 
@@ -9718,8 +9745,25 @@ ${sections}
                     <label className="fuPhotoBtn qpPhotoBtn">📷 Take photo<input type="file" accept="image/*" capture="environment" hidden onChange={e => { addQpPhotos(e.target.files); e.target.value = ""; }} /></label>
                     <label className="fuPhotoBtn qpPhotoPick">🖼 Add photos<input type="file" accept="image/*" multiple hidden onChange={e => { addQpPhotos(e.target.files); e.target.value = ""; }} /></label>
                     {qpPhotoBusy && <span className="fuPhotoHint">Adding…</span>}
-                    {!qpPhotoBusy && qpPhotos.length === 0 && <span className="fuPhotoHint">optional · up to 4</span>}
+                    {!qpPhotoBusy && qpPhotos.length === 0 && <span className="fuPhotoHint">required · up to 4</span>}
                   </div>
+                  {qpPhotos.length === 0 && (
+                    <div className={"proofRow" + (qpProof.includes("photo") ? " proofMissing" : "")}>
+                      <div className="proofLbl">📷 No photo — why? *</div>
+                      <input value={qpNoPhoto} onChange={e => { setQpNoPhoto(e.target.value); setQpProof([]); }}
+                        placeholder="e.g. camera not working, unit is behind a locked door"
+                        style={{ width: "100%", boxSizing: "border-box", padding: "7px 10px", borderRadius: 9, border: "1.5px solid var(--sdx-gray-200)", fontSize: "16px" }} />
+                    </div>
+                  )}
+                  <div className={"proofRow" + (qpProof.includes("action") ? " proofMissing" : "")}>
+                    <div className="proofLbl">🔧 What did you do about it? *</div>
+                    <textarea value={qpAction} onChange={e => { setQpAction(e.target.value); setQpProof([]); }} rows={2}
+                      placeholder="e.g. told the stand lead, tagged it out, called maintenance"
+                      style={{ width: "100%", boxSizing: "border-box", padding: "7px 10px", borderRadius: 9, border: "1.5px solid var(--sdx-gray-200)", fontSize: "16px", resize: "vertical", fontFamily: "inherit" }} />
+                  </div>
+                  {qpProof.length > 0 && (
+                    <div className="haccpProblemErr">⚠️ {qpProof.includes("photo") && qpProof.includes("action") ? "Add a photo (or say why there is none) and what you did about it" : qpProof.includes("photo") ? "Add a photo — or type why there is none" : "Say what you did about it"}</div>
+                  )}
                   {qpPhotos.length > 0 && (
                     <div className="fuThumbs">
                       {qpPhotos.map(p => (
@@ -23578,6 +23622,12 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                           const newChecklist = (cur2.checklist || []).map((c, i) => i === idx ? { ...c, corrective } : c);
                           return setAtPath(prev, it.path, { ...cur2, checklist: newChecklist });
                         });
+                        // v439: a flagged item needs a photo or a written reason there is none
+                        const makeSetCiNoPhoto = (idx, noPhotoReason) => setInspection((prev) => {
+                          const cur2 = getAtPath(prev, it.path) || withPhotos({ status: "OK", notes: "" });
+                          const newChecklist = (cur2.checklist || []).map((c, i) => i === idx ? { ...c, noPhotoReason } : c);
+                          return setAtPath(prev, it.path, { ...cur2, checklist: newChecklist });
+                        });
                         const makeSetCiLocation = (idx, ciLocation) => setInspection((prev) => {
                           const cur2 = getAtPath(prev, it.path) || withPhotos({ status: "OK", notes: "" });
                           const newChecklist = (cur2.checklist || []).map((c, i) => i === idx ? { ...c, ciLocation } : c);
@@ -23775,15 +23825,16 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                                             />
                                           </div>
                                           <div>
-                                            <div style={{ fontSize: "0.7rem", fontWeight: 700, color: "var(--tx-amber)", letterSpacing: "0.06em", marginBottom: 3 }}>🔧 CORRECTIVE ACTION TAKEN</div>
+                                            <div style={{ fontSize: "0.7rem", fontWeight: 700, color: "var(--tx-amber)", letterSpacing: "0.06em", marginBottom: 3 }}>🔧 CORRECTIVE ACTION TAKEN *</div>
                                             <input
                                               type="text"
                                               className="input inputSmall"
                                               value={ci.corrective || ""}
                                               onChange={(e) => makeSetCiCorrective(idx, e.target.value)}
                                               placeholder="What was done to fix it?..."
-                                              style={{ width: "100%" }}
+                                              style={{ width: "100%", borderColor: (ci.corrective || "").trim().length < 5 ? "#fca5a5" : undefined }}
                                             />
+                                            {(ci.corrective || "").trim().length < 5 && <div className="specHint">⚠ Required — say what was done about it</div>}
                                           </div>
                                           <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                                             <input type="file" accept="image/*" multiple className="fileInput" ref={(el) => { fileRefs.current[ciRefKey] = el; }} onChange={(e) => { addCiPhoto(idx, e.target.files); e.target.value = ""; }} />
@@ -23795,6 +23846,20 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                                               📷 Camera
                                             </button>
                                           </div>
+                                          {ciPhotos.length === 0 && (
+                                            <div>
+                                              <div style={{ fontSize: "0.7rem", fontWeight: 700, color: "var(--tx-amber)", letterSpacing: "0.06em", marginBottom: 3 }}>📷 NO PHOTO — WHY? *</div>
+                                              <input
+                                                type="text"
+                                                className="input inputSmall"
+                                                value={ci.noPhotoReason || ""}
+                                                onChange={(e) => makeSetCiNoPhoto(idx, e.target.value)}
+                                                placeholder="e.g. camera not working, behind a locked door"
+                                                style={{ width: "100%", borderColor: (ci.noPhotoReason || "").trim().length < 8 ? "#fca5a5" : undefined }}
+                                              />
+                                              {(ci.noPhotoReason || "").trim().length < 8 && <div className="specHint">⚠ Add a photo — or say why there is none</div>}
+                                            </div>
+                                          )}
                                         </div>
                                       ) : (
                                         <div className="clItemCommentRow">
@@ -25840,6 +25905,9 @@ function HaccpPortal() {
   // "Report a problem only" — skips the temperature log entirely
   const [problemOnly, setProblemOnly] = useState(false);
   const [problemError, setProblemError] = useState("");
+  const [problemAction, setProblemAction] = useState("");   // v439 — what did you do
+  const [problemNoPhoto, setProblemNoPhoto] = useState(""); // v439 — why no photo
+  const [problemProof, setProblemProof] = useState([]);
   const [problemDetails, setProblemDetails] = useState({}); // v415: which unit / part / where
   const [problemMissing, setProblemMissing] = useState([]);
   const problemPhotoRef = useRef(null);
@@ -26040,6 +26108,18 @@ function HaccpPortal() {
     if (hasProblem) {
       const sp = isSpecific(problem, problemDetails, specCatKey(problemCat), { needUnit: specCatKey(problemCat) === "Equipment" && customItems.some(i => i.tag) });
       if (!sp.ok) { setProblemMissing(sp.missing); setProblemError(L("Be specific: tap the missing chips (what, which part, where)", "Sé específico: toca lo que falta (qué, qué parte, dónde)")); return; }
+      // v439: a photo (or a written reason) and what was done about it
+      const pg = proofGate({ photos: problemPhotos, action: problemAction, noPhotoReason: problemNoPhoto });
+      if (!pg.ok) {
+        setProblemProof(pg.missing);
+        setProblemError(pg.missing.includes("photo") && pg.missing.includes("action")
+          ? L("Add a photo (or say why there is none) and what you did about it", "Agrega una foto (o di por qué no hay) y qué hiciste")
+          : pg.missing.includes("photo")
+            ? L("Add a photo — or type why there is none", "Agrega una foto — o escribe por qué no hay")
+            : L("Say what you did about it", "Di qué hiciste al respecto"));
+        return;
+      }
+      setProblemProof([]);
     }
     setProblemMissing([]);
     setProblemError("");
@@ -26078,7 +26158,7 @@ function HaccpPortal() {
       itemLabels,
       customItems,
       problemOnly,
-      problemReport: (problem.trim() || Object.values(problemDetails).some(Boolean)) ? { text: [specToText(problemDetails, "en"), problem.trim()].filter(Boolean).join(" — "), details: problemDetails, category: problemCat, severity, photos: problemPhotos.map(p => ({ id: p.id, name: p.name, sizeMb: p.sizeMb, type: p.type, tag: p.tag || "", previewUrl: (p.previewUrl && !p.previewUrl.startsWith("data:")) ? p.previewUrl : "" })) } : null,
+      problemReport: (problem.trim() || Object.values(problemDetails).some(Boolean)) ? { text: [specToText(problemDetails, "en"), problem.trim()].filter(Boolean).join(" — ") + noPhotoLine(problemNoPhoto), corrective: problemAction.trim(), details: problemDetails, category: problemCat, severity, photos: problemPhotos.map(p => ({ id: p.id, name: p.name, sizeMb: p.sizeMb, type: p.type, tag: p.tag || "", previewUrl: (p.previewUrl && !p.previewUrl.startsWith("data:")) ? p.previewUrl : "" })) } : null,
       submittedAt: new Date().toISOString(),
     };
     await saveHaccpSubmission(record);
@@ -26094,7 +26174,8 @@ function HaccpPortal() {
         unit: locUnit.trim(),
         floor: locFloor.trim(),
         locationType: locType.trim(),
-        text: problem.trim(),
+        text: problem.trim() + noPhotoLine(problemNoPhoto),
+        corrective: problemAction.trim(),
         category: problemCat,
         severity,
         photos: photosOut,
@@ -26124,7 +26205,7 @@ function HaccpPortal() {
           inspectorName: supName.trim() || "Supervisor",
           overallStatus: "PASS",
           photos: photosOut,
-          actionItems: [{ issue: `${problemCat}: ${problem.trim()}`, notes: `Reported by supervisor ${supName.trim() || "—"} via stand QR (${severity})`, photos: photosOut.map(p => p.id) }],
+          actionItems: [{ issue: `${problemCat}: ${problem.trim()}${noPhotoLine(problemNoPhoto)}`, notes: `Corrective action: ${problemAction.trim()} · Reported by supervisor ${supName.trim() || "—"} via stand QR (${severity})`, corrective: problemAction.trim(), photos: photosOut.map(p => p.id) }],
           inspection: {},
         });
         try { notifyCrewsForItems([{ issue: `${problemCat}: ${problem.trim()}`, notes: "" }], locSite.trim().toUpperCase(), locUnit.trim(), supName.trim()); } catch {}
@@ -26830,6 +26911,20 @@ function HaccpPortal() {
                     {photoError}
                   </div>
                 )}
+                {problemPhotos.length === 0 && (
+                  <div className={"proofRow" + (problemProof.includes("photo") ? " proofMissing" : "")}>
+                    <div className="proofLbl">📷 {L("No photo — why?", "¿Sin foto — por qué?")} *</div>
+                    <input className="haccpProblemTextarea" style={{ minHeight: 0 }}
+                      value={problemNoPhoto} onChange={e => { setProblemNoPhoto(e.target.value); setProblemProof([]); if (problemError) setProblemError(""); }}
+                      placeholder={L("e.g. camera not working, cannot reach it", "ej. la cámara no sirve, no puedo alcanzarlo")} />
+                  </div>
+                )}
+                <div className={"proofRow" + (problemProof.includes("action") ? " proofMissing" : "")}>
+                  <div className="proofLbl">🔧 {L("What did you do about it?", "¿Qué hiciste al respecto?")} *</div>
+                  <textarea className="haccpProblemTextarea"
+                    value={problemAction} onChange={e => { setProblemAction(e.target.value); setProblemProof([]); if (problemError) setProblemError(""); }}
+                    placeholder={L("e.g. stopped using it, told the manager, cleaned the area", "ej. dejamos de usarlo, avisé al gerente, limpiamos el área")} />
+                </div>
                 {problemPhotos.length > 0 && (
                   <div className="photoStrip" style={{ marginTop: 8 }}>
                     {problemPhotos.map(p => (
@@ -29448,14 +29543,37 @@ export default function App() {
           if (pending > 0 && answered > 0) {
             incomplete.push({ text: `${SECTION_NAME[sec]} – ${label}: ${pending} checklist item${pending !== 1 ? "s" : ""} unanswered`, jump: { pid: SECTION_PANEL[sec], key, full: "" } });
           }
-          const noPhoto = cl.filter(c => c.value === "NO" && !(c.photos || []).length).length;
-          if (noPhoto > 0) {
-            incomplete.push({ text: `${SECTION_NAME[sec]} – ${label}: ${noPhoto} issue${noPhoto !== 1 ? "s" : ""} without a photo`, jump: { pid: SECTION_PANEL[sec], key, full: "" } });
-          }
         }
       }
       if (incomplete.length > 0) {
         setModals(m => ({ ...m, preSubmit: { incomplete } }));
+        return;
+      }
+    }
+    // v439: every flagged item needs a photo (or a written reason) AND a
+    // corrective action. This runs even when the soft modal was skipped, and
+    // is marked hard so the "continue anyway" button never renders.
+    {
+      const SEC_PANEL = { facility: 1, maintenance: 5, equipment: 2, utensils: 3 };
+      const SEC_NAME = { facility: "Facilities", equipment: "Equipment", utensils: "Utensils" };
+      const proofMissing = [];
+      for (const sec of ["facility", "equipment", "utensils"]) {
+        for (const [key, node] of Object.entries(inspection[sec] || {})) {
+          const cl = node?.checklist;
+          if (!Array.isArray(cl) || cl.length === 0) continue;
+          const label = node.label || key.replace(/([A-Z])/g, " $1").replace(/^./, c => c.toUpperCase()).trim();
+          for (const c of cl) {
+            if (c.value !== "NO") continue;
+            const pg = proofGate({ photos: c.photos, action: c.corrective, noPhotoReason: c.noPhotoReason });
+            if (pg.ok) continue;
+            const need = pg.missing.includes("photo") && pg.missing.includes("action") ? "a photo and a corrective action"
+              : pg.missing.includes("photo") ? "a photo (or why there is none)" : "a corrective action";
+            proofMissing.push({ text: `${SEC_NAME[sec]} – ${label} · ${c.label || "flagged item"}: needs ${need}`, jump: { pid: SEC_PANEL[sec], key, full: "" } });
+          }
+        }
+      }
+      if (proofMissing.length > 0) {
+        setModals(m => ({ ...m, preSubmit: { hard: true, proof: true, incomplete: proofMissing } }));
         return;
       }
     }
@@ -31776,9 +31894,7 @@ export default function App() {
             const el = document.getElementById("report-output");
             if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
           }}>&#128196; View</button>
-          <button className={cx("btn stickyBtn", saved ? "stickyBtnSaved" : "stickyBtnSave")} type="button" onClick={saveToHistory}>
-            {saved ? "✅ Saved" : "💾 Save"}
-          </button>
+          {saved && <span className="btn stickyBtn stickyBtnSaved" aria-live="polite">✅ Saved</span>}
           <span className="stickyDivider" />
           <button className="btn stickyBtn stickyBtnHaccp" type="button" onClick={() => setShowHaccpModal(true)} title="Share HACCP temperature log QR with supervisor">
             🌡️ HACCP QR
@@ -31817,9 +31933,11 @@ export default function App() {
       {modals.preSubmit && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 9000, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
           <div style={{ background: "var(--surface-1)", borderRadius: 16, padding: "28px 28px 22px", maxWidth: 420, width: "100%", boxShadow: "0 8px 48px rgba(0,0,0,0.22)" }}>
-            <div style={{ fontWeight: 800, fontSize: "1.1rem", color: modals.preSubmit.hard ? "#b91c1c" : "#b45309", marginBottom: 6 }}>{modals.preSubmit.hard ? "🛠 Corrective action required" : "⚠️ Incomplete Sections"}</div>
+            <div style={{ fontWeight: 800, fontSize: "1.1rem", color: modals.preSubmit.hard ? "#b91c1c" : "#b45309", marginBottom: 6 }}>{modals.preSubmit.proof ? "📷 Photo + corrective action required" : modals.preSubmit.hard ? "🛠 Corrective action required" : "⚠️ Incomplete Sections"}</div>
             <div style={{ fontSize: "0.88rem", color: "var(--ink-700)", marginBottom: 14, lineHeight: 1.5 }}>
-              {modals.preSubmit.hard
+              {modals.preSubmit.proof
+                ? "Every problem you flagged needs a photo — or a line saying why there is none — and what was done about it. Tap an item below to jump to it."
+                : modals.preSubmit.hard
                 ? "This stand has open problems. Write what was done about each one (fixed, in progress, or waiting on what) before saving the report."
                 : "The following sections appear to be empty. You can still generate the report, but it may be incomplete."}
             </div>

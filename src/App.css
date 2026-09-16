@@ -8423,3 +8423,12 @@ html[data-theme="dark"] .fuStOnWaiting, html[data-theme="black"] .fuStOnWaiting 
 .fuCleanDayHead b { font-size: 0.8rem; color: var(--sdx-navy); letter-spacing: .03em; }
 .fuCleanDayHead span { font-size: 0.7rem; color: var(--ink-500); font-weight: 700; }
 .fuCleanDayStands { padding: 0 10px 6px; font-size: 0.68rem; color: var(--ink-400); }
+
+/* Proof of a problem — photo + corrective action are required (v439) */
+.proofRow { display: flex; flex-direction: column; gap: 3px; }
+.proofLbl { font-size: 0.72rem; font-weight: 700; color: var(--tx-amber); letter-spacing: .04em; }
+.proofMissing {
+  background: var(--tint-amber-1); border: 1px solid #f59e0b;
+  border-radius: 9px; padding: 7px 9px;
+}
+.haccpCard .proofMissing { background: #fff7ed; border-color: #fdba74; }
