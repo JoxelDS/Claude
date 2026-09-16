@@ -1618,7 +1618,11 @@ async function loadHistory(forVenueId, opts = {}) {
         _speedCache.history[targetVenue] = { list, ts: Date.now() };
       }
       return { list, lastDoc: docs[docs.length - 1] ?? null, hasMore };
-    } catch { return { list: [], lastDoc: null, hasMore: false }; }
+    } catch (e) {
+      // v446: a failed read used to look exactly like "no reports saved yet".
+      console.error("loadHistory failed:", e?.code || e?.message || e);
+      return { list: [], lastDoc: null, hasMore: false, error: e?.code || e?.message || "load-failed" };
+    }
   }
   // localStorage fallback (no pagination)
   if (!_cryptoKey) return { list: [], lastDoc: null, hasMore: false };
@@ -10592,6 +10596,7 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
   useEffect(() => { historyRef.current = history; }, [history]);
   const lastHistoryLoadRef = useRef(0);
   const [historyStamp, setHistoryStamp] = useState(0);
+  const [historyError, setHistoryError] = useState("");
   const [analyticsHistory, setAnalyticsHistory] = useState([]);
   const [deepLoading, setDeepLoading] = useState(false);
   function mergeHistory(prev, incoming) {
@@ -10682,7 +10687,18 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
       dateFrom: filterDateFrom || undefined,
       dateTo: filterDateTo || undefined,
       pageSize: 100,
-    }).then(({ list, lastDoc, hasMore }) => {
+    }).then(({ list, lastDoc, hasMore, error }) => {
+      setHistoryError(error || "");
+      // v446: on a failed read keep whatever the device already has — never
+      // wipe the screen and claim there is nothing saved.
+      if (error) {
+        try {
+          const cached = JSON.parse(localStorage.getItem(`sdx_history_cache_${managedVenueId || VENUE_ID}`) || "[]");
+          if (Array.isArray(cached) && cached.length) setHistory(prev => mergeHistory(prev, cached));
+        } catch {}
+        setHistoryLoaded(true);
+        return;
+      }
       // Local mode with an empty store: keep the warm cache seed instead of
       // flashing the page empty (cloud mode always trusts the fetch).
       if (list.length > 0 || FIREBASE_ON) {
@@ -10761,6 +10777,25 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
       setHistoryLastDoc(lastDoc);
       setHistoryHasMore(hasMore);
       setHistoryLoadingMore(false);
+    });
+  }
+  // v446: an explicit retry — same query as the first page, merged in.
+  function retryHistory() {
+    lastHistoryLoadRef.current = 0;
+    loadHistory(managedVenueId || undefined, {
+      dateFrom: filterDateFrom || undefined,
+      dateTo: filterDateTo || undefined,
+      pageSize: 100,
+      fresh: true,
+    }).then(({ list, lastDoc, hasMore, error }) => {
+      setHistoryError(error || "");
+      setHistoryLoaded(true);
+      if (error || !list.length) return;
+      setHistory(prev => mergeHistory(prev, list));
+      setHistoryLastDoc(lastDoc);
+      setHistoryHasMore(hasMore);
+      lastHistoryLoadRef.current = Date.now();
+      setHistoryStamp(Date.now());
     });
   }
   // v444: pull the whole history in one go — for the "Load all" button and
@@ -12816,8 +12851,33 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
           <div className="card">
             <div className="cardBody">
               <div className="emptyState">
-                <div className="emptyTitle">{history.length === 0 ? "No inspections saved yet" : "No matches"}</div>
-                <div className="emptySub">{history.length === 0 ? "Complete an inspection and click Save to build your history." : "Try adjusting your filters."}</div>
+                {historyError ? (
+                  <>
+                    <div className="emptyTitle">⚠️ Could not load your reports</div>
+                    <div className="emptySub">
+                      Nothing was lost — this device just could not reach the cloud{historyError ? ` (${historyError})` : ""}.
+                      Check the connection and try again.
+                    </div>
+                    <button type="button" className="btn btnPrimary" style={{ marginTop: 12 }}
+                      onClick={() => { setHistoryError(""); setHistoryLoaded(false); retryHistory(); }}>
+                      ↻ Try again
+                    </button>
+                  </>
+                ) : !historyLoaded ? (
+                  <>
+                    <div className="emptyTitle">Loading your reports…</div>
+                    <div className="emptySub">One moment.</div>
+                  </>
+                ) : (
+                  <>
+                    <div className="emptyTitle">{history.length === 0 ? "No inspections saved yet" : "No matches"}</div>
+                    <div className="emptySub">{history.length === 0 ? "Complete an inspection and click Save to build your history." : "Try adjusting your filters."}</div>
+                    {history.length === 0 && <div className="emptySub" style={{ fontSize: "0.72rem", opacity: .7 }}>Venue: {managedVenueId || VENUE_ID} · {SDX_VERSION}</div>}
+                    {history.length === 0 && (
+                      <button type="button" className="btn btnGhost" style={{ marginTop: 12 }} onClick={retryHistory}>↻ Reload</button>
+                    )}
+                  </>
+                )}
               </div>
             </div>
           </div>
