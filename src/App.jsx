@@ -8419,6 +8419,7 @@ function computeFollowups(history, venueSettings, clearedLocal = {}) {
       if (ts > catLastSeen[key].ts) {
         catLastSeen[key].ts = ts; catLastSeen[key].dateStr = rec.inspectionDate; catLastSeen[key].unit = (rec.siteNumber || "").trim();
         catLastSeen[key].floor = floorForStand(rec.siteNumber, rec.siteName, rec.floor);
+        catLastSeen[key].locType = (rec.locationType || "").trim(); // v448: stamped when the problem was filed
         // Keep the latest issue description + inspector notes so the
         // follow-up card can show WHAT the problem actually is.
         const afterColon = (item.issue || "").split(":").slice(1).join(":").trim();
@@ -8455,7 +8456,7 @@ function computeFollowups(history, venueSettings, clearedLocal = {}) {
       const overdue = !likelyResolved && daysSince >= recheckDays;
       const manual = venueSettings?.followupType?.[key];
       const itype = (manual && ISSUE_TYPES.includes(manual.itype)) ? manual.itype : classifyIssueType(`${cat}: ${v.detail || ""}`, v.notes || "");
-      return { key, loc, cat, unit: v.unit || "", floor: v.floor || "", itype, daysSince, count: v.count, dateStr: v.dateStr, likelyResolved, overdue, detail: v.detail || "", notes: v.notes || "", area: v.area || "", ts: v.ts || 0, source: v.source || "", reportedBy: v.reportedBy || "", photos: v.photos || [], inspector: v.inspector || "", typeManual: !!(manual && ISSUE_TYPES.includes(manual.itype)), typeBy: manual?.by || "" };
+      return { key, loc, cat, unit: v.unit || "", floor: v.floor || "", itype, daysSince, count: v.count, dateStr: v.dateStr, likelyResolved, overdue, detail: v.detail || "", notes: v.notes || "", area: v.area || "", locType: v.locType || "", ts: v.ts || 0, source: v.source || "", reportedBy: v.reportedBy || "", photos: v.photos || [], inspector: v.inspector || "", typeManual: !!(manual && ISSUE_TYPES.includes(manual.itype)), typeBy: manual?.by || "" };
     })
     .sort((a, b) => (b.overdue - a.overdue) || (a.likelyResolved - b.likelyResolved) || b.daysSince - a.daysSince);
 
@@ -8822,7 +8823,7 @@ function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLoc
         <div className="crewItemHead">
           <span className="crewItemIcon">{done ? "✅" : ISSUE_TYPE_ICON[f.itype] || "🔧"}</span>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div className="crewItemTitle">{withStand ? <span className="crewItemStand notranslate" translate="no">🍳 {f.loc}{f.unit ? ` · #${f.unit}` : ""} — </span> : null}{f.cat}</div>
+            <div className="crewItemTitle">{withStand ? <span className="crewItemStand notranslate" translate="no">🍳 {f.loc}{f.unit ? ` · #${f.unit}` : ""} — </span> : null}{f.cat}{f.locType ? <span className="notranslate" translate="no"><StandType lt={f.locType} style={{ marginLeft: 6 }} /></span> : null}</div>
             <div className="crewItemDetail">{f.detail || "—"}{f.notes ? <span className="crewItemNotes"> — {f.notes}</span> : null}</div>
             {f.area && !(f.cat || "").toUpperCase().includes(String(f.area).split(" — ")[0].toUpperCase()) && (
               <div className="fuEquipChip">🧊 {f.area}</div>
@@ -9160,6 +9161,8 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
       if (u && lt && !fromReport[u]) fromReport[u] = lt;
     });
     const typeOf = f => {
+      // v448: what the report itself stamped beats any registry guess.
+      if ((f.locType || "").trim()) return f.locType.trim();
       const u = normUnit(f.unit);
       const at = byUnit[u] || [];
       const exact = at.find(k => sameStandName(k.site, f.loc));
@@ -9511,7 +9514,7 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
           `<td>${img(before)}</td><td>${img(after)}</td></tr>`;
       }).join("");
       return `<h2>${esc(g.loc)}${g.unit ? ` \u2014 Unit #${esc(g.unit)}` : ""}</h2>` +
-        `<p class="meta">${r.license ? `License ${esc(r.license)}` : "No license on file"}${r.name ? ` \u00b7 ${esc(r.name)}` : ""} \u2022 ${g.rows.length} clean${g.rows.length !== 1 ? "s" : ""} \u2022 ${hrs(mins)} of crew time \u2022 ${bill.length} billable to the stand</p>` +
+        `<p class="meta">${r.license ? `License ${esc(r.license)}` : "No license on file"}${g.rows[0]?.locType ? ` \u00b7 <b>${esc(standTypeBadge(g.rows[0].locType).short)}</b>` : ""}${r.name ? ` \u00b7 ${esc(r.name)}` : ""} \u2022 ${g.rows.length} clean${g.rows.length !== 1 ? "s" : ""} \u2022 ${hrs(mins)} of crew time \u2022 ${bill.length} billable to the stand</p>` +
         `<table><thead><tr><th>Date</th><th>Started</th><th>Solved</th><th>What was cleaned</th><th>Cleaned by</th><th>Time on job</th><th>Whose mess</th><th>Before</th><th>After</th></tr></thead><tbody>${rows}</tbody></table>`;
     }).join("");
     const totalMins = items.reduce((n, f) => n + (f.fixedMins || 0), 0);
@@ -9561,6 +9564,18 @@ ${sections}
   const [qpSite, setQpSite] = useState("");
   const [qpUnit, setQpUnit] = useState("");
   const [qpFloor, setQpFloor] = useState("");
+  // v448: the kind of stand, stamped on the record when the problem is filed
+  const [qpType, setQpType] = useState("");
+  const [qpTypeAuto, setQpTypeAuto] = useState(true);
+  const detectStandType = (unit, site) => {
+    try {
+      const u = normUnit(unit);
+      if (!u) return "";
+      const at = standSeeds().filter(k => normUnit(k.unit) === u);
+      const exact = at.find(k => sameStandName(k.site, site));
+      return (exact?.locType || at[0]?.locType || "").trim();
+    } catch { return ""; }
+  };
   const [qpCat, setQpCat] = useState(QUICK_PROBLEM_CATS[0]);
   const [qpCatOther, setQpCatOther] = useState("");
   const [qpDesc, setQpDesc] = useState("");
@@ -9628,6 +9643,7 @@ ${sections}
       siteName: site,
       siteNumber: qpUnit.trim(),
       floor: qpFloor.trim(),
+      locationType: qpType.trim(),
       inspectionDate: now.toISOString().slice(0, 10),
       savedAt: now.toISOString(),
       inspectionType: "Quick Report",
@@ -9644,7 +9660,7 @@ ${sections}
     try { notifyCrewsForItems(rec.actionItems, rec.siteName, rec.siteNumber, rec.inspectorName); } catch {}
     setQpFlash(`✓ Problem filed for ${site}${qpUnit.trim() ? ` #${qpUnit.trim()}` : ""} — it's now a follow-up`);
     setTimeout(() => setQpFlash(""), 4000);
-    setQpOpen(false); setQpSite(""); setQpUnit(""); setQpFloor(""); setQpDesc(""); setQpCatOther(""); setQpPhotos([]); setQpAction(""); setQpNoPhoto(""); setQpProof([]);
+    setQpOpen(false); setQpSite(""); setQpUnit(""); setQpFloor(""); setQpType(""); setQpTypeAuto(true); setQpDesc(""); setQpCatOther(""); setQpPhotos([]); setQpAction(""); setQpNoPhoto(""); setQpProof([]);
     qpIdRef.current = `${Date.now()}_qp${Math.floor(Math.random() * 1e4)}`;
   }
 
@@ -9913,12 +9929,21 @@ ${sections}
                 <div style={{ background: "var(--surface-2)", border: "1px solid var(--sdx-gray-200)", borderRadius: 12, padding: "10px 12px", display: "flex", flexDirection: "column", gap: 8, maxWidth: 460 }}>
                   <div style={{ fontWeight: 800, fontSize: "0.84rem", color: "var(--sdx-navy)" }}>＋ Report a problem — no inspection needed</div>
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    <input value={qpSite} onChange={e => setQpSite(e.target.value)} placeholder="Stand / kitchen name"
+                    <input value={qpSite} onChange={e => { setQpSite(e.target.value); if (qpTypeAuto) setQpType(detectStandType(qpUnit, e.target.value)); }} placeholder="Stand / kitchen name"
                       style={{ flex: "2 1 150px", padding: "7px 10px", borderRadius: 9, border: "1.5px solid var(--sdx-gray-200)", fontSize: "16px" }} />
-                    <input value={qpUnit} onChange={e => { setQpUnit(e.target.value); const fl = floorFromUnit(e.target.value); if (fl) setQpFloor(fl); }} placeholder="Unit #"
+                    <input value={qpUnit} onChange={e => { const u = e.target.value; setQpUnit(u); const fl = floorFromUnit(u); if (fl) setQpFloor(fl); if (qpTypeAuto) setQpType(detectStandType(u, qpSite)); }} placeholder="Unit #"
                       style={{ flex: "1 1 70px", maxWidth: 110, padding: "7px 10px", borderRadius: 9, border: "1.5px solid var(--sdx-gray-200)", fontSize: "16px" }} />
                     <input value={qpFloor} onChange={e => setQpFloor(e.target.value)} placeholder="Floor"
                       style={{ flex: "1 1 70px", maxWidth: 110, padding: "7px 10px", borderRadius: 9, border: "1.5px solid var(--sdx-gray-200)", fontSize: "16px" }} />
+                  </div>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                    <span style={{ fontSize: "0.72rem", fontWeight: 700, color: "var(--ink-500)" }}>Type of stand</span>
+                    {qpType ? <StandType lt={qpType} /> : <span style={{ fontSize: "0.72rem", color: "var(--sdx-gray-400)" }}>not detected</span>}
+                    <select value={qpType} onChange={e => { setQpType(e.target.value); setQpTypeAuto(false); }}
+                      style={{ padding: "5px 8px", borderRadius: 9, border: "1.5px solid var(--sdx-gray-200)", fontSize: "0.8rem", fontWeight: 600 }}>
+                      <option value="">— pick —</option>
+                      {["Concession", "Subcontractor", "Portable", "Portable - Subcontractor", "Kitchen", "Bar"].map(t => <option key={t} value={t}>{t}</option>)}
+                    </select>
                   </div>
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                     <select value={qpCat} onChange={e => setQpCat(e.target.value)}
@@ -12728,6 +12753,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                     sub: st.by || "",
                     cat: f.cat || cat || "",
                     detail: f.detail || "",
+                    locType: f.locType || "",
                     mins: Number(st.mins || 0),
                     startTs: Number(st.startTs || 0),
                     whose: st.whose || "",
@@ -12778,7 +12804,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                           }}>
                             <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                               <span style={{ fontSize: "0.78rem", fontWeight: 700, color: ev.type === "inspection" ? "var(--ink-900)" : "#7DC4F0" }}>
-                                {ev.type === "fixed" ? "✅" : ev.type === "inspection" ? "📋" : "🌡️"} {ev.label}{ev.siteNumber ? ` #${ev.siteNumber}` : ""}{ev.type === "fixed" && ev.cat ? ` — ${ev.cat}` : ""}
+                                {ev.type === "fixed" ? "✅" : ev.type === "inspection" ? "📋" : "🌡️"} {ev.label}{ev.siteNumber ? ` #${ev.siteNumber}` : ""}{ev.type === "fixed" && ev.cat ? ` — ${ev.cat}` : ""}{ev.type === "fixed" && ev.locType ? <StandType lt={ev.locType} style={{ marginLeft: 6 }} /> : null}
                               </span>
                               {ev.locationType && (
                                 <span style={{ fontSize: "0.66rem", fontWeight: 600, padding: "1px 6px", borderRadius: 6, background: "var(--surface-3)", color: "var(--ink-600)", border: "1px solid #e2e8f0" }}>
