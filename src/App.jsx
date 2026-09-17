@@ -1196,6 +1196,42 @@ function saveDraft(draft) {
   try { localStorage.setItem(DRAFT_KEY, JSON.stringify({ ...draft, draftSavedAt: new Date().toISOString() })); } catch {}
 }
 
+// v451: the same draft in the cloud, so a dead phone or a second device
+// does not lose the walk. Photo blobs are stripped — ids/urls only.
+const draftDocRef = () => (FIREBASE_ON && db ? doc(db, "venues", VENUE_ID, "sharedMemory", "inspectionDrafts") : null);
+function slimDraft(draft) {
+  const strip = v => {
+    if (Array.isArray(v)) return v.map(strip);
+    if (v && typeof v === "object") {
+      const out = {};
+      for (const [k, val] of Object.entries(v)) {
+        if (k === "photos" || k === "itemPhotos" || k === "notesPhotos") continue;
+        out[k] = strip(val);
+      }
+      return out;
+    }
+    return v;
+  };
+  return strip(draft);
+}
+async function saveDraftCloud(key, draft) {
+  const ref = draftDocRef();
+  if (!ref || !key) return false;
+  try {
+    await setDoc(ref, { [key]: { ...slimDraft(draft), draftSavedAt: new Date().toISOString() } }, { merge: true });
+    return true;
+  } catch { return false; }
+}
+async function loadDraftCloud(key) {
+  const ref = draftDocRef();
+  if (!ref || !key) return null;
+  try { const snap = await getDoc(ref); return snap.exists() ? (snap.data() || {})[key] || null : null; } catch { return null; }
+}
+async function clearDraftCloud(key) {
+  const ref = draftDocRef();
+  if (!ref || !key) return;
+  try { await setDoc(ref, { [key]: null }, { merge: true }); } catch {}
+}
 function loadDraft() {
   try { return JSON.parse(localStorage.getItem(DRAFT_KEY)); } catch { return null; }
 }
@@ -8757,14 +8793,17 @@ function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLoc
       for (const n of names) saveInspectorNotification({ inspectorName: n, kind: "followup", title, message });
     } catch {}
   }
-  async function commit(f, kind, note, how, whose, noPhoto) {
+  async function commit(f, kind, note, how) {
     const ts = Date.now(); const prefix = `${meta.icon} ${me}`;
     // v438: the app keeps the clock — the "In process" tap is the start, this
     // tap is the finish, so the inspector sees a real timeline, not a guess.
+    // v451: we already know whose stand it is — don't ask the crew.
+    const lt = String(f.locType || "").trim();
+    const whose = lt ? (lt === "Subcontractor" || lt === "Portable - Subcontractor" ? "sub" : "ours") : "";
     const prevSt = statusOf(f.key);
     const startTs = prevSt && prevSt.status === "in_progress" && prevSt.ts ? prevSt.ts : 0;
     const mins = startTs ? Math.max(1, Math.round((ts - startTs) / 60000)) : 0;
-    const entry = kind === "fixed" ? { status: "resolved", note: "", by: me, ts, ...(how ? { how } : {}), ...(whose ? { whose } : {}), ...(startTs ? { startTs, mins } : {}), ...(noPhoto ? { noPhoto: String(noPhoto).trim().slice(0, 80) } : {}) } : kind === "waiting" ? { status: "waiting", note: (note || "").slice(0, 80), by: me, ts } : { status: "in_progress", note: "", by: me, ts };
+    const entry = kind === "fixed" ? { status: "resolved", note: "", by: me, ts, ...(how ? { how } : {}), ...(whose ? { whose } : {}), ...(startTs ? { startTs, mins } : {}) } : kind === "waiting" ? { status: "waiting", note: (note || "").slice(0, 80), by: me, ts } : { status: "in_progress", note: "", by: me, ts };
     // v434: cleaning crews say whether they cleaned it or found it already done
     const howText = how === "crew" ? T("we cleaned it", "lo limpiamos nosotros", "nou netwaye l")
       : how === "already" ? T("it was already clean", "ya estaba limpio", "li te deja pwop")
@@ -8859,25 +8898,21 @@ function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLoc
                   onClick={() => setAction(a2 => ({ ...a2, how: "already" }))}>👍 {T("It was already clean", "Ya estaba limpio", "Li te deja pwop")}</button>
               </div>
             )}
-            {/* v437: whose mess was it, and how long did it take — so the
-                stadium can bill the subcontractor and track crew hours. */}
-            {action.kind === "fixed" && role === "cleaning" && action.how === "crew" && (
+            {/* v451: the photo buttons live INSIDE the box — they used to
+                disappear the moment ✅ Fixed was tapped, which is why nobody
+                could attach the photo the form was asking for. */}
+            {action.kind === "fixed" && (
               <>
-                <div className="crewHowLbl">{T("Whose mess was it?", "¿De quién era el desorden?", "Se mess ki moun?")}</div>
+                <div className="crewHowLbl">📷 {after.length > 0
+                  ? T(`After photo added (${after.length})`, `Foto después agregada (${after.length})`, `Foto apre mete (${after.length})`)
+                  : T("After photo required", "Foto después obligatoria", "Foto apre obligatwa")}</div>
                 <div className="crewHowRow">
-                  <button type="button" className={"crewHowBtn" + (action.whose === "ours" ? " on" : "")}
-                    onClick={() => setAction(a2 => ({ ...a2, whose: "ours" }))}>🏟️ {T("Ours", "Nuestro", "Pa nou")}</button>
-                  <button type="button" className={"crewHowBtn crewHowBill" + (action.whose === "sub" ? " on" : "")}
-                    onClick={() => setAction(a2 => ({ ...a2, whose: "sub" }))}>🧾 {T("The stand's / subcontractor", "Del stand / subcontratista", "Pa stand la / soutretan")}</button>
+                  <label className="crewHowBtn crewBtnPhoto">📷 {T("Take photo", "Tomar foto", "Pran foto")}
+                    <input type="file" accept="image/*" capture="environment" multiple hidden onChange={e => { addAfterPhotos(f, e.target.files); e.target.value = ""; }} /></label>
+                  <label className="crewHowBtn crewBtnUpload">🖼 {T("Upload", "Subir", "Telechaje")}
+                    <input type="file" accept="image/*" multiple hidden onChange={e => { addAfterPhotos(f, e.target.files); e.target.value = ""; }} /></label>
+                  {busy === f.key && <span className="fuPhotoHint">{T("Adding…", "Agregando…", "Ap mete…")}</span>}
                 </div>
-              </>
-            )}
-            {/* v439: an after photo proves the fix — or say why there is none */}
-            {action.kind === "fixed" && after.length === 0 && (
-              <>
-                <div className="crewHowLbl">📷 {T("After photo required — or say why there is none", "Foto después obligatoria — o di por qué no hay", "Foto apre obligatwa — oswa di poukisa pa gen")}</div>
-                <input className="caText" value={action.noPhoto || ""} onChange={e => setAction(a => ({ ...a, noPhoto: e.target.value }))}
-                  placeholder={T("e.g. camera not working", "ej. la cámara no sirve", "egz. kamera a pa mache")} />
               </>
             )}
             <textarea rows={2} className="caText" value={action.note} autoFocus onChange={e => setAction(a => ({ ...a, note: e.target.value }))}
@@ -8885,8 +8920,8 @@ function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLoc
             <div className="crewActionBtns">
               <button type="button" className="btn btnGhost" onClick={() => setAction(null)}>{T("Cancel", "Cancelar", "Anile")}</button>
               <button type="button" className="btn btnPrimary"
-                disabled={(action.kind !== "in_progress" && !action.note.trim()) || (action.kind === "fixed" && role === "cleaning" && (!action.how || (action.how === "crew" && !action.whose))) || (action.kind === "fixed" && after.length === 0 && (action.noPhoto || "").trim().length < 8)}
-                onClick={() => commit(f, action.kind, action.note, action.how, action.whose, action.noPhoto)}>📨 {T("Send to inspector", "Enviar al inspector", "Voye bay enspekte a")}</button>
+                disabled={(action.kind !== "in_progress" && !action.note.trim()) || (action.kind === "fixed" && role === "cleaning" && !action.how) || (action.kind === "fixed" && after.length === 0)}
+                onClick={() => commit(f, action.kind, action.note, action.how)}>📨 {T("Send to inspector", "Enviar al inspector", "Voye bay enspekte a")}</button>
             </div>
           </div>
         ) : !done ? (
@@ -8895,10 +8930,11 @@ function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLoc
             <button type="button" className="crewBtn" onClick={() => setAction({ key: f.key, kind: "waiting", note: "" })}>{T("⏳ Waiting on…", "⏳ Esperando…", "⏳ Ap tann…")}</button>
             <button type="button" className="crewBtn crewBtnFix" onClick={() => setAction({ key: f.key, kind: "fixed", note: "" })}>{T("✅ Fixed", "✅ Arreglado", "✅ Ranje")}</button>
             <label className="crewBtn crewBtnPhoto">📷 {T("After photo", "Foto después", "Foto apre")}<input type="file" accept="image/*" capture="environment" multiple hidden onChange={e => { addAfterPhotos(f, e.target.files); e.target.value = ""; }} /></label>
+            <label className="crewBtn crewBtnUpload">🖼 {T("Upload", "Subir", "Telechaje")}<input type="file" accept="image/*" multiple hidden onChange={e => { addAfterPhotos(f, e.target.files); e.target.value = ""; }} /></label>
             {busy === f.key && <span className="fuPhotoHint notranslate" translate="no">{T("Sending…", "Enviando…", "Ap voye…")}</span>}
           </div>
         ) : (
-          <div className="crewActions notranslate" translate="no"><label className="crewBtn crewBtnPhoto">📷 {T("Add after photo", "Agregar foto después", "Mete foto apre")}<input type="file" accept="image/*" capture="environment" multiple hidden onChange={e => { addAfterPhotos(f, e.target.files); e.target.value = ""; }} /></label></div>
+          <div className="crewActions notranslate" translate="no"><label className="crewBtn crewBtnPhoto">📷 {T("Add after photo", "Agregar foto después", "Mete foto apre")}<input type="file" accept="image/*" capture="environment" multiple hidden onChange={e => { addAfterPhotos(f, e.target.files); e.target.value = ""; }} /></label><label className="crewBtn crewBtnUpload">🖼 {T("Upload", "Subir", "Telechaje")}<input type="file" accept="image/*" multiple hidden onChange={e => { addAfterPhotos(f, e.target.files); e.target.value = ""; }} /></label></div>
         )}
       </div>
     );
@@ -28549,6 +28585,7 @@ export default function App() {
 
   const [isOnline, setIsOnline] = useState(() => navigator.onLine);
   const [draftSavedAt, setDraftSavedAt] = useState(null); // timestamp of last auto-save
+  const [draftCloudAt, setDraftCloudAt] = useState(null);  // v451 — last cloud copy
   const [guideStep, setGuideStep] = useState(0); // 0-based index into guide stepper
   const [guideFindQ, setGuideFindQ] = useState("");
   const [guideFindHits, setGuideFindHits] = useState([]);
@@ -29449,14 +29486,16 @@ export default function App() {
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [rawNotes, saved]);
 
-  // ── Auto-save draft every 30 s while inspector has started filling data ──
-  // Saves to localStorage so nothing is lost on accidental tab close / refresh.
-  // Draft is cleared when the report is saved or the form is explicitly reset.
+  // ── Auto-save the draft a few seconds after the inspector stops typing ──
+  // v451: this used to be setInterval(30s) with every form field in the dep
+  // array, so the clock restarted on every keystroke and a steady typist could
+  // go the whole walk without a single save. Now it debounces, and the draft
+  // also goes to the cloud so another device (or a dead battery) can recover it.
   useEffect(() => {
-    const id = setInterval(() => {
+    const id = setTimeout(() => {
       if (!reportInProgressRef.current) return; // nothing started yet
       if (saved) return; // inspection already saved — don't re-draft committed data
-      saveDraft({
+      const draft = {
         noteType, useCase, context, inspection,
         rawNotes, inspectionType, inspectionDate,
         inspectorName, participantName,
@@ -29464,10 +29503,13 @@ export default function App() {
         supervisorName, sitePhone, locationType, floor, eventName,
         foodTemps, foodTempNames,
         savedReportId,
-      });
+      };
+      saveDraft(draft);
       setDraftSavedAt(new Date());
-    }, 30000); // every 30 seconds
-    return () => clearInterval(id);
+      const key = currentUser?.badgeHash || (inspectorName || "").trim().toLowerCase().replace(/[^a-z0-9]+/g, "_");
+      saveDraftCloud(key, draft).then(ok => { if (ok) setDraftCloudAt(new Date()); });
+    }, 4000); // 4 s after the last change
+    return () => clearTimeout(id);
   }, [noteType, useCase, context, inspection, rawNotes, inspectionType,
       inspectionDate, inspectorName, participantName, siteName, siteNumber,
       restaurantLicense, supervisorName, sitePhone, locationType, floor,
@@ -29475,6 +29517,16 @@ export default function App() {
 
   // On unlock: check for a saved draft and offer to restore it
   const [draftBanner, setDraftBanner] = useState(null); // null | draft object
+  // v451: nothing local (new device, cleared browser)? try the cloud copy.
+  useEffect(() => {
+    if (locked || draftBanner || saved) return;
+    if (loadDraft()) return;
+    const key = currentUser?.badgeHash || (inspectorName || "").trim().toLowerCase().replace(/[^a-z0-9]+/g, "_");
+    if (!key) return;
+    let dead = false;
+    loadDraftCloud(key).then(d => { if (!dead && d && d.draftSavedAt && !reportInProgressRef.current) setDraftBanner(d); });
+    return () => { dead = true; };
+  }, [locked]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (locked) return; // only run after login
     const draft = loadDraft();
@@ -30226,6 +30278,8 @@ export default function App() {
       try { notifyCrewsForItems(record.actionItems, record.siteName, record.siteNumber, record.inspectorName); } catch {}
       learnFromSave(cleanRecord);
       clearDraft(); // draft committed — remove auto-save
+      try { clearDraftCloud(currentUser?.badgeHash || (inspectorName || "").trim().toLowerCase().replace(/[^a-z0-9]+/g, "_")); } catch {}
+      setDraftCloudAt(null);
       reportInProgressRef.current = false; // prevent auto-save from re-saving completed inspection
       setSaved(true);
       setSaveToast(true);
@@ -30566,7 +30620,7 @@ export default function App() {
                     if (mins < 1) return "just now";
                     if (mins === 1) return "1 min ago";
                     return `${mins} min ago`;
-                  })()}
+                  })()}{draftCloudAt ? " · ☁︎ in the cloud" : ""}
                 </span>
               </>
             )}

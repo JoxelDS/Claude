@@ -8515,3 +8515,7 @@ html[data-theme="dark"] .fuStOnWaiting, html[data-theme="black"] .fuStOnWaiting 
 @media (max-width: 720px) {
   .fuFilterBar .fuToggle { margin-left: 0; flex: 1 1 100%; }
 }
+
+/* Crews can upload a picture, not just shoot one (v451) */
+.crewBtnUpload { border-color: #93c5fd; color: #1d4ed8; }
+.crewHowRow .crewBtnPhoto, .crewHowRow .crewBtnUpload { cursor: pointer; }
