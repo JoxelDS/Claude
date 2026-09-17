@@ -9073,7 +9073,8 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
     window.addEventListener("sdx-save-failed", on);
     return () => window.removeEventListener("sdx-save-failed", on);
   }, []);
-  const [undoRes, setUndoRes] = useState(null); // { key, prevStamp, ts }
+  const [undoRes, setUndoRes] = useState(null); // { key, prevStamp, ts } | { mode:"reopen", items, ts, label }
+  const [reopenAsk, setReopenAsk] = useState(null); // v455 — { keys:[…], label } awaiting "Yes, put back"
   const [showFixed, setShowFixed] = useState(false); // v434 — "everything fixed" view
   const [showClean, setShowClean] = useState(false);     // v437 — cleaning log
   const [cleanBillOnly, setCleanBillOnly] = useState(false);
@@ -9259,8 +9260,32 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
     setWaitingKey(null); setWaitingNote("");
   }
 
+  // v455 — put fixed issues back: the exact inverse of a resolve, for any
+  // number of items, in one write per field (75 keys = one Firestore merge).
+  function reopenItems(items, why) {
+    const list = (Array.isArray(items) ? items : [items]).filter(Boolean);
+    if (list.length === 0) return;
+    const now = Date.now();
+    const me = currentUser?.name || "Unknown";
+    const clearPatch = {}; const statusPatch = {};
+    list.forEach(f => {
+      clearPatch[f.key] = 0;
+      statusPatch[f.key] = { status: "open", note: (why || "Put back by inspector").slice(0, 80), by: me, ts: now, reopenedFrom: Number(f.fixedTs || 0) };
+    });
+    setClearedLocal(prev => { const n = { ...prev }; list.forEach(f => { delete n[f.key]; }); return n; });
+    setStatusLocal(prev => ({ ...prev, ...statusPatch }));
+    writeMap("followupCleared", clearPatch);
+    writeMap("followupStatus", statusPatch);
+    setReopenAsk(null);
+    // tell the crews the job came back
+    try { list.forEach(f => notifyCrewsForItems([{ issue: `${f.cat}: ${f.detail || ""} (put back by ${me})`, notes: "", photos: [] }], f.loc, f.unit, me)); } catch {}
+    const label = list.length === 1 ? `${list[0].loc}${list[0].unit ? ` #${list[0].unit}` : ""} — ${list[0].cat}` : `${list.length} issues`;
+    setUndoRes({ mode: "reopen", items: list, ts: now, label });
+    setTimeout(() => setUndoRes(u => (u && u.mode === "reopen" && u.ts === now ? null : u)), 9000);
+  }
   function undoResolve() {
     if (!undoRes) return;
+    if (undoRes.mode === "reopen") { const items = undoRes.items || []; setUndoRes(null); items.forEach(f => markResolved(f)); setUndoRes(null); return; }
     const { key, prevStamp } = undoRes;
     setClearedLocal(prev => { const n = { ...prev }; if (prevStamp) n[key] = prevStamp; else delete n[key]; return n; });
     writeMap("followupCleared", { [key]: prevStamp || 0 });
@@ -9869,6 +9894,19 @@ ${sections}
     return [...m.values()];
   })();
   const selPicked = () => selPool.filter(f => fuSelected[f.key]);
+  // v455 — "↩ Put back" on a fixed row, with an inline yes/no so a thumb
+  // slip on a phone cannot reopen a job by accident.
+  const reopenBtn = f => (
+    reopenAsk && reopenAsk.keys.length === 1 && reopenAsk.keys[0] === f.key ? (
+      <div className="fuReopenAsk" onClick={e => e.stopPropagation()}>
+        <span>Put back <b>{reopenAsk.label}</b>?</span>
+        <button type="button" className="fuReopenYes" onClick={() => reopenItems([f])}>Yes, reopen</button>
+        <button type="button" className="fuReopenNo" onClick={() => setReopenAsk(null)}>No</button>
+      </div>
+    ) : (
+      <button type="button" className="fuBtn fuBtnReopen" onClick={e => { e.stopPropagation(); setReopenAsk({ keys: [f.key], label: `${f.loc}${f.unit ? ` #${f.unit}` : ""} — ${f.cat}` }); }}>↩ Put back</button>
+    )
+  );
   const selBox = f => (
     <div className="fuSelBox" onClick={e => { e.stopPropagation(); setFuSelected(p => ({ ...p, [f.key]: !p[f.key] })); }}>
       <span className={"fuSelMark" + (fuSelected[f.key] ? " on" : "")}>{fuSelected[f.key] ? "✓" : ""}</span>
@@ -10005,6 +10043,16 @@ ${sections}
                         onClick={() => exportBeforeAfter(selPicked())}>
                         {baBusy ? `Preparing… ${baBusy}` : "📸 Before & After"}
                       </button>
+                      {(() => { const fixedPicked = selPicked().filter(f => f.fixedTs); return fixedPicked.length > 0 && (
+                        reopenAsk && reopenAsk.keys.length === fixedPicked.length && reopenAsk.bulk ? (
+                          <span className="fuReopenAsk">
+                            <span>Put back <b>{fixedPicked.length} issue{fixedPicked.length !== 1 ? "s" : ""}</b>?</span>
+                            <button type="button" className="fuReopenYes" onClick={() => { reopenItems(fixedPicked); setFuSelected({}); }}>Yes, reopen</button>
+                            <button type="button" className="fuReopenNo" onClick={() => setReopenAsk(null)}>No</button>
+                          </span>
+                        ) : (
+                          <button type="button" className="fuBtn fuBtnReopen fuBtnReopenBulk" onClick={() => setReopenAsk({ bulk: true, keys: fixedPicked.map(f => f.key), label: `${fixedPicked.length} issues` })}>↩ Put back ({fixedPicked.length})</button>
+                        )); })()}
                       <button type="button"
                         onClick={() => { const all = { ...fuSelected }; (showClean ? cleanList : showFixed ? fixedList : fuVisible).forEach(f => { all[f.key] = true; }); setFuSelected(all); }}
                         style={{ background: "var(--surface-2)", border: "1px solid var(--sdx-gray-200)", borderRadius: 10, padding: "8px 12px", fontWeight: 700, fontSize: "0.78rem", cursor: "pointer", color: "var(--sdx-navy)" }}>
@@ -10173,9 +10221,9 @@ ${sections}
             </div>
             {saveWarn && <div className="fuSaveWarn">{saveWarn}</div>}
             {undoRes && (
-              <div className="fuUndoStrip">
-                <span>✓ Resolved {new Date(undoRes.ts).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })} · {undoRes.label}</span>
-                <button type="button" onClick={undoResolve}>↩ Undo</button>
+              <div className={"fuUndoStrip" + (undoRes.mode === "reopen" ? " fuUndoReopen" : "")}>
+                <span>{undoRes.mode === "reopen" ? "↩ Put back" : "✓ Resolved"} {new Date(undoRes.ts).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })} · {undoRes.label}</span>
+                <button type="button" onClick={undoResolve}>{undoRes.mode === "reopen" ? "✓ Resolve again" : "↩ Undo"}</button>
               </div>
             )}
             {showClean && (
@@ -10234,6 +10282,7 @@ ${sections}
                           {f.fixedMins ? <span className="fuTlLen">{f.fixedMins >= 60 ? `${(f.fixedMins / 60).toFixed(f.fixedMins % 60 ? 1 : 0)} h` : `${f.fixedMins} min`} on the job</span> : null}
                         </div>
                         {f.fixedWhose === "sub" && <span className="fuCleanBill">BILL THE STAND</span>}
+                        <div className="fuFixedActs">{reopenBtn(f)}</div>
                       </div>
                       {(before.length > 0 || after.length > 0) && (
                         <div className="fuFixedThumbs">
@@ -10275,6 +10324,7 @@ ${sections}
                         {f.detail && <div className="fuFixedDetail">{f.detail}</div>}
                         {f.reopened && <span className="fuReopened">↻ REOPENED — flagged again {f.dateStr}</span>}
                         <div className="fuFixedMeta">{ago} ({clockT(f.fixedTs)}){f.fixedBy ? ` · by ${f.fixedBy}` : ""}{f.fixedHow === "already" ? " · was already clean" : f.fixedHow === "crew" ? " · cleaned by the crew" : ""}{f.dateStr ? ` · flagged ${f.dateStr}` : ""}</div>
+                        <div className="fuFixedActs">{reopenBtn(f)}</div>
                       </div>
                       {ph.length > 0 && (
                         <div className="fuFixedThumbs">
@@ -10351,6 +10401,9 @@ ${sections}
                               {f.area && !(f.cat || "").toUpperCase().includes(String(f.area).split(" — ")[0].toUpperCase()) && (
                                 <div className="fuEquipChip">🧊 {f.area}</div>
                               )}
+                              {(() => { const st = stMap[f.key]; return st && st.status === "open" && st.reopenedFrom ? (
+                                <div className="fuPutBackChip">↩ PUT BACK{st.by ? ` · by ${st.by}` : ""} · {new Date(Number(st.ts)).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</div>
+                              ) : null; })()}
                               <div className="fuMeta">
                                 {f.likelyResolved
                                   ? `Not seen in the latest inspection — confirm it's fixed and clear it`
@@ -12871,9 +12924,15 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                 const byKey = {};
                 fuAll.forEach(f => { byKey[f.key] = f; });
                 Object.entries(venueSettings?.followupStatus || {}).forEach(([key, st]) => {
-                  if (!st || st.status !== "resolved" || !st.ts) return;
+                  if (!st || !st.ts) return;
                   const f = byKey[key] || {};
                   const [loc, cat] = key.split("::");
+                  // v455 — a put-back is its own event, so the history says closed then reopened
+                  if (st.status === "open" && st.reopenedFrom) {
+                    events.push({ type: "reopened", date: new Date(Number(st.ts)).toISOString(), label: f.loc || loc || "Stand", siteNumber: f.unit || "", locationType: "", sub: st.by || "", cat: f.cat || cat || "", detail: st.note || "", locType: f.locType || "", reopenedFrom: Number(st.reopenedFrom), id: `reopen_${key}_${st.ts}` });
+                    return;
+                  }
+                  if (st.status !== "resolved") return;
                   events.push({
                     type: "fixed",
                     date: new Date(Number(st.ts)).toISOString(),
@@ -12920,7 +12979,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                           <div style={{
                             position: "absolute", left: -20, top: 4,
                             width: 12, height: 12, borderRadius: "50%",
-                            background: ev.type === "fixed" ? "#166534"
+                            background: ev.type === "fixed" ? "#166534" : ev.type === "reopened" ? "#d97706"
                               : ev.type === "inspection"
                               ? (ev.status === "Pass" ? "#16a34a" : ev.status === "Fail" ? "#dc2626" : "var(--ink-500)")
                               : (ev.flagged > 0 ? "#f59e0b" : "#0284c7"),
@@ -12928,13 +12987,13 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                             boxShadow: "0 0 0 2px #e5e7eb",
                           }} />
                           <div style={{
-                            background: ev.type === "fixed" ? "#dcfce7" : ev.type === "inspection" ? "var(--surface-2)" : "var(--tint-sky-1)",
-                            border: `1px solid ${ev.type === "fixed" ? "#86efac" : ev.type === "inspection" ? "var(--sdx-gray-200)" : "#bae6fd"}`,
+                            background: ev.type === "fixed" ? "#dcfce7" : ev.type === "reopened" ? "#fef3c7" : ev.type === "inspection" ? "var(--surface-2)" : "var(--tint-sky-1)",
+                            border: `1px solid ${ev.type === "fixed" ? "#86efac" : ev.type === "reopened" ? "#fcd34d" : ev.type === "inspection" ? "var(--sdx-gray-200)" : "#bae6fd"}`,
                             borderRadius: 8, padding: "8px 12px",
                           }}>
                             <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                               <span style={{ fontSize: "0.78rem", fontWeight: 700, color: ev.type === "inspection" ? "var(--ink-900)" : "#7DC4F0" }}>
-                                {ev.type === "fixed" ? "✅" : ev.type === "inspection" ? "📋" : "🌡️"} {ev.label}{ev.siteNumber ? ` #${ev.siteNumber}` : ""}{ev.type === "fixed" && ev.cat ? ` — ${ev.cat}` : ""}{ev.type === "fixed" && ev.locType ? <StandType lt={ev.locType} style={{ marginLeft: 6 }} /> : null}
+                                {ev.type === "fixed" ? "✅" : ev.type === "reopened" ? "↩" : ev.type === "inspection" ? "📋" : "🌡️"} {ev.label}{ev.siteNumber ? ` #${ev.siteNumber}` : ""}{(ev.type === "fixed" || ev.type === "reopened") && ev.cat ? ` — ${ev.cat}` : ""}{ev.type === "reopened" ? <span className="fuPutBackChip" style={{ marginLeft: 6 }}>PUT BACK{ev.sub ? ` · by ${ev.sub}` : ""}{ev.reopenedFrom ? ` · was closed ${new Date(ev.reopenedFrom).toLocaleDateString([], { month: "short", day: "numeric" })}` : ""}</span> : null}{ev.type === "fixed" && ev.locType ? <StandType lt={ev.locType} style={{ marginLeft: 6 }} /> : null}
                               </span>
                               {ev.locationType && (
                                 <span style={{ fontSize: "0.66rem", fontWeight: 600, padding: "1px 6px", borderRadius: 6, background: "var(--surface-3)", color: "var(--ink-600)", border: "1px solid #e2e8f0" }}>

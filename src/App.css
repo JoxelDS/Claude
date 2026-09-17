@@ -8530,3 +8530,22 @@ html[data-theme="dark"] .fuStOnWaiting, html[data-theme="black"] .fuStOnWaiting 
   background: var(--surface-2); border: 1px solid var(--sdx-gray-200);
 }
 .fuFixedDayN { font-size: 0.68rem; font-weight: 700; color: var(--ink-400); text-transform: none; letter-spacing: 0; }
+
+/* v455 — put a fixed issue back */
+.fuFixedActs { margin-top: 5px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.fuBtnReopen { background: #fff7ed; color: #b45309; border: 1px solid #fdba74; }
+.fuBtnReopenBulk { border-radius: 10px; padding: 8px 16px; font-weight: 800; font-size: 0.84rem; }
+.fuReopenAsk {
+  display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding: 6px 10px; border-radius: 9px; background: #fef3c7; border: 1px solid #fcd34d;
+  color: #92400e; font-size: 0.76rem; font-weight: 700;
+}
+.fuReopenAsk button { border-radius: 8px; padding: 5px 11px; font-weight: 800; font-size: 0.74rem; cursor: pointer; }
+.fuReopenYes { background: #b45309; color: #fff; border: none; }
+.fuReopenNo { background: var(--surface-1); color: #92400e; border: 1px solid #fcd34d; }
+.fuPutBackChip {
+  display: inline-block; margin: 2px 0 4px; font-size: 0.62rem; font-weight: 900; letter-spacing: .04em;
+  color: #92400e; background: #fef3c7; border: 1px solid #fcd34d; border-radius: 5px; padding: 2px 6px;
+}
+.fuUndoStrip.fuUndoReopen { background: #fef3c7; border-color: #fcd34d; color: #92400e; }
+.fuUndoStrip.fuUndoReopen button { border-color: #fcd34d; color: #92400e; }
