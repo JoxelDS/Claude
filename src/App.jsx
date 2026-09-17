@@ -22493,10 +22493,10 @@ function MonthCalendar({ month, onMonth, eventDays = {}, slotsByDate = {}, selec
   for (let day = 1; day <= daysInMonth; day++) cells.push(`${month}-${String(day).padStart(2, "0")}`);
   return (
     <div style={{ background: "var(--surface-1)", border: "1px solid var(--sdx-gray-200)", borderRadius: 12, padding: 12 }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+      <div className="notranslate" translate="no" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
         <button type="button" onClick={() => shift(-1)} style={{ background: "var(--surface-2)", border: "none", borderRadius: 8, padding: "4px 12px", fontWeight: 800, cursor: "pointer", fontSize: "0.9rem" }}>◀</button>
         <div style={{ fontWeight: 800, fontSize: "0.92rem", color: "var(--sdx-navy)" }}>
-          {monthLabel}
+          <span key={month}>{monthLabel}</span>
           {month !== today.slice(0, 7) && (
             <button type="button" onClick={() => onMonth(today.slice(0, 7))}
               style={{ marginLeft: 8, background: "none", border: "1px solid var(--sdx-gray-200)", borderRadius: 999, padding: "1px 9px", fontSize: "0.68rem", fontWeight: 700, color: "var(--ink-500)", cursor: "pointer" }}>Today</button>
@@ -22504,7 +22504,7 @@ function MonthCalendar({ month, onMonth, eventDays = {}, slotsByDate = {}, selec
         </div>
         <button type="button" onClick={() => shift(1)} style={{ background: "var(--surface-2)", border: "none", borderRadius: 8, padding: "4px 12px", fontWeight: 800, cursor: "pointer", fontSize: "0.9rem" }}>▶</button>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 3 }}>
+      <div className="notranslate" translate="no" style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 3 }}>
         {["S", "M", "T", "W", "T", "F", "S"].map((w, i) => (
           <div key={i} style={{ textAlign: "center", fontSize: "0.62rem", fontWeight: 800, color: "var(--ink-400)", textTransform: "uppercase", padding: "2px 0" }}>{w}</div>
         ))}
@@ -22526,7 +22526,7 @@ function MonthCalendar({ month, onMonth, eventDays = {}, slotsByDate = {}, selec
                 outline: isToday && !isSel ? "2px solid var(--sdx-navy)" : "none", outlineOffset: -2,
                 opacity: isPast && !name && slots.length === 0 ? 0.55 : 1,
               }}>
-              <span style={{ fontSize: "0.74rem", fontWeight: isToday || name ? 800 : 600, color: "var(--ink-700)" }}>{Number(d.slice(8))}</span>
+              <span className="notranslate" translate="no" style={{ fontSize: "0.74rem", fontWeight: isToday || name ? 800 : 600, color: "var(--ink-700)" }}>{Number(d.slice(8))}</span>
               {name && <span style={{ fontSize: "0.55rem", fontWeight: 700, color: "#92400e", lineHeight: 1.1, maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>🎪 {name}</span>}
               {slots.slice(0, 2).map((s, si) => (
                 <span key={si} style={{ fontSize: "0.53rem", fontWeight: 700, color: "#1e3a8a", background: "#dbeafe", borderRadius: 4, padding: "0 3px", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", lineHeight: 1.35 }}>
