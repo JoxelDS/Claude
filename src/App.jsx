@@ -9351,16 +9351,21 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
       if (open.length === 0) return;
       const list = JSON.parse(localStorage.getItem("sdx_announcements") || "[]");
       const byCat = mode === "cat";
+      // v453 — type / floor / date groups have no g.loc; name them properly.
+      const head = byCat ? g.cat
+        : mode === "type" ? g.type
+        : mode === "floor" ? g.floor
+        : mode === "date" ? g.type
+        : `${g.loc}${g.unit ? ` (Unit #${g.unit})` : ""}`;
+      const headNice = mode === "date" ? dayLabel(head) : head;
       const a = {
         id: Date.now(),
-        title: byCat
-          ? `🔁 Rechecks Needed — ${g.cat}`
-          : `🔁 Rechecks Needed — ${g.loc}${g.unit ? ` (Unit #${g.unit})` : ""}`,
+        title: `🔁 Rechecks Needed — ${headNice}`,
         body: (byCat
           ? `${open.length} venue${open.length !== 1 ? "s" : ""} still open for "${g.cat}":\n` +
             open.map(f => `• ${f.loc}${f.unit ? ` (Unit #${f.unit})` : ""} — flagged ${f.daysSince} day${f.daysSince !== 1 ? "s" : ""} ago (${f.dateStr})`).join("\n")
-          : `${open.length} item${open.length !== 1 ? "s" : ""} still open at ${g.loc}:\n` +
-            open.map(f => `• ${f.cat} — flagged ${f.daysSince} day${f.daysSince !== 1 ? "s" : ""} ago (${f.dateStr})`).join("\n")) +
+          : `${open.length} item${open.length !== 1 ? "s" : ""} still open${mode === "loc" ? ` at ${g.loc}` : ` — ${headNice}`}:\n` +
+            open.map(f => `• ${mode === "loc" ? "" : `${f.loc}${f.unit ? ` (Unit #${f.unit})` : ""} — `}${f.cat} — flagged ${f.daysSince} day${f.daysSince !== 1 ? "s" : ""} ago (${f.dateStr})`).join("\n")) +
           `\nPlease recheck these on your next walkthrough and mark them resolved in the report.`,
         author: "Insights Auto-Reminder",
         ts: Date.now(),
@@ -9370,13 +9375,13 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
       };
       localStorage.setItem("sdx_announcements", JSON.stringify([a, ...list]));
       notifyAssignedUsers(open, a.title, a.body);
-      setRemindedKey(`grp::${byCat ? g.cat : g.loc}`);
+      setRemindedKey(`grp::${mode === "loc" ? g.loc : head}`);
       setTimeout(() => setRemindedKey(null), 2200);
     } catch {}
   }
 
   const [fuOpen, setFuOpen] = useState({});
-  const [fuGroupBy, setFuGroupBy] = useState("loc"); // "loc" | "cat" | "type"
+  const [fuGroupBy, setFuGroupBy] = useState("loc"); // "loc" | "cat" | "type" | "floor" | "date"
   const [fuTypePick, setFuTypePick] = useState(""); // v447 — Subcontractor / Concession / …
   const [fuFloorPick, setFuFloorPick] = useState(""); // v449 — Floor 1 / Floor 2 / …
   const [fuFilterMenu, setFuFilterMenu] = useState(""); // "" | "type" | "floor"
@@ -9779,6 +9784,18 @@ ${sections}
     cleanList.forEach(f => { const k = f.fixedBy || "Unknown"; (m[k] = m[k] || { by: k, jobs: 0, mins: 0 }); m[k].jobs++; m[k].mins += f.fixedMins || 0; });
     return Object.values(m).sort((a2, b2) => b2.mins - a2.mins || b2.jobs - a2.jobs);
   })();
+  // v453 — the ✅ Fixed list, grouped by the day the crew closed it.
+  const fixedDays = (() => {
+    const m = {};
+    fixedList.slice(0, 80).forEach(f => {
+      const d = new Date(f.fixedTs); d.setHours(0, 0, 0, 0);
+      const k = d.toISOString().slice(0, 10);
+      (m[k] = m[k] || { key: k, rows: [], people: new Set() });
+      m[k].rows.push(f);
+      if (f.fixedBy) m[k].people.add(f.fixedBy);
+    });
+    return Object.values(m).sort((a2, b2) => b2.key.localeCompare(a2.key));
+  })();
   const startOfToday = new Date(); startOfToday.setHours(0, 0, 0, 0);
   const fixedTodayN = fixedList.filter(f => f.fixedTs >= startOfToday.getTime()).length;
   // v447 — group and filter by what kind of stand it is
@@ -9831,6 +9848,20 @@ ${sections}
   })();
   const matchesFloorPick = f => !fuFloorPick || floorKeyOf(f) === fuFloorPick;
   const fuFloorGroups = groupOf(floorKeyOf, floorRank);
+  // v453 — by the day the problem was flagged, so open and fixed issues
+  // both read as a timeline instead of one long undated list.
+  const dateKeyOf = f => (f.dateStr || (f.ts ? new Date(f.ts).toISOString().slice(0, 10) : "")) || "No date";
+  const dayLabel = k => {
+    if (!k || k === "No date") return "No date";
+    const d = new Date(k + "T00:00:00");
+    if (isNaN(d)) return k;
+    const t = new Date(); t.setHours(0, 0, 0, 0);
+    const diff = Math.round((t.getTime() - d.getTime()) / 86400000);
+    const nice = d.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric", year: "numeric" });
+    return diff === 0 ? `Today · ${nice}` : diff === 1 ? `Yesterday · ${nice}` : nice;
+  };
+  const dateRank = k => (k === "No date" ? Infinity : -new Date(k + "T00:00:00").getTime());
+  const fuDateGroups = groupOf(dateKeyOf, dateRank);
   const fuVisible = (analysis.followups || []).filter(fuMatches).filter(matchesTypePick).filter(matchesFloorPick);
   // v440 — one pool to pick from: open items, everything fixed and every
   // clean. Deduped by key, the fixed copy wins because it carries the fix
@@ -10146,6 +10177,7 @@ ${sections}
                 <button type="button" className={`fuToggleBtn${fuGroupBy === "cat" ? " fuToggleActive" : ""}`} onClick={() => setFuGroupBy("cat")}>🗂 By Problem</button>
                 <button type="button" className={`fuToggleBtn${fuGroupBy === "type" ? " fuToggleActive" : ""}`} onClick={() => setFuGroupBy("type")}>🏷 By Type</button>
                 <button type="button" className={`fuToggleBtn${fuGroupBy === "floor" ? " fuToggleActive" : ""}`} onClick={() => setFuGroupBy("floor")}>🏢 By Floor</button>
+                <button type="button" className={`fuToggleBtn${fuGroupBy === "date" ? " fuToggleActive" : ""}`} onClick={() => setFuGroupBy("date")}>📅 By Date</button>
               </span>
             </div>
             {saveWarn && <div className="fuSaveWarn">{saveWarn}</div>}
@@ -10235,7 +10267,10 @@ ${sections}
                 </div>
                 {fixedList.length === 0 ? (
                   <div className="fuFixedEmpty">Nothing marked fixed yet. Crews tap ✅ Fixed on their board and it lands here right away.</div>
-                ) : fixedList.slice(0, 40).map(f => {
+                ) : fixedDays.map(day => (
+                  <div key={day.key} className="fuFixedDayWrap">
+                    <div className="fuFixedDay">📅 {dayLabel(day.key)}<span className="fuFixedDayN">{day.rows.length} fixed{day.people.size ? ` · ${[...day.people].join(", ")}` : ""}</span></div>
+                    {day.rows.map(f => {
                   const when = new Date(f.fixedTs);
                   const mins = Math.round((Date.now() - f.fixedTs) / 60000);
                   const ago = mins < 1 ? "just now" : mins < 60 ? `${mins} min ago` : mins < 1440 ? `${Math.round(mins / 60)} h ago` : when.toLocaleDateString();
@@ -10257,7 +10292,9 @@ ${sections}
                       )}
                     </div>
                   );
-                })}
+                    })}
+                  </div>
+                ))}
               </div>
             )}
             <div className="fuList">
@@ -10267,8 +10304,9 @@ ${sections}
               {(fuGroupBy === "cat" ? fuCatGroupsShown
                 : fuGroupBy === "type" ? fuTypeGroups.filter(g => (!fuTypePick || g.type === fuTypePick) && g.items.some(matchesFloorPick))
                 : fuGroupBy === "floor" ? fuFloorGroups.filter(g => (!fuFloorPick || g.floor === fuFloorPick) && g.items.some(matchesTypePick))
+                : fuGroupBy === "date" ? fuDateGroups.filter(g => g.items.some(f => matchesTypePick(f) && matchesFloorPick(f)))
                 : fuGroupsShown).map(g => {
-                const gKey = `${fuGroupBy}::${fuGroupBy === "cat" ? g.cat : fuGroupBy === "type" ? g.type : fuGroupBy === "floor" ? g.floor : g.loc}`;
+                const gKey = `${fuGroupBy}::${fuGroupBy === "cat" ? g.cat : fuGroupBy === "type" ? g.type : fuGroupBy === "floor" ? g.floor : fuGroupBy === "date" ? g.type : g.loc}`;
                 const isOpen = fuSearch.trim() ? true : (fuOpen[gKey] !== undefined ? fuOpen[gKey] : g.overdueCount > 0);
                 const openItems = g.items.filter(f => !f.likelyResolved);
                 return (
@@ -10282,6 +10320,8 @@ ${sections}
                           ? <><span className="stType stOther">{g.type}</span><span className="fuLoc"> · {g.standCount} stand{g.standCount !== 1 ? "s" : ""}</span></>
                           : fuGroupBy === "floor"
                           ? <>🏢 {g.floor}<span className="fuLoc"> · {g.standCount} stand{g.standCount !== 1 ? "s" : ""}</span></>
+                          : fuGroupBy === "date"
+                          ? <>📅 {dayLabel(g.type)}<span className="fuLoc"> · {g.standCount} stand{g.standCount !== 1 ? "s" : ""}</span></>
                           : <>{g.loc}{g.unit ? <span className="fuLoc"> · Unit #{g.unit}</span> : null}</>}
                         <span className="fuGroupBadge">{g.items.length}</span>
                       </div>
@@ -10293,7 +10333,7 @@ ${sections}
                       <div className="fuActions" onClick={e => e.stopPropagation()}>
                         {openItems.length > 0 && (
                           <button type="button" className="fuBtn fuBtnRemind" onClick={() => remindGroup(g, fuGroupBy)}>
-                            {remindedKey === `grp::${fuGroupBy === "cat" ? g.cat : fuGroupBy === "type" ? g.type : fuGroupBy === "floor" ? g.floor : g.loc}` ? "✓ Posted" : `🔔 Remind Team (${openItems.length})`}
+                            {remindedKey === `grp::${fuGroupBy === "cat" ? g.cat : fuGroupBy === "type" ? g.type : fuGroupBy === "floor" ? g.floor : fuGroupBy === "date" ? g.type : g.loc}` ? "✓ Posted" : `🔔 Remind Team (${openItems.length})`}
                           </button>
                         )}
                         <button type="button" className="fuBtn fuBtnResolve" onClick={() => resolveVenue(g)}>
@@ -10303,7 +10343,7 @@ ${sections}
                     </div>
                     {isOpen && (
                       <div className="fuGroupBody">
-                        {g.items.filter(f => (fuGroupBy !== "type" || matchesFloorPick(f)) && (fuGroupBy !== "floor" || matchesTypePick(f))).map(f => (
+                        {g.items.filter(f => (fuGroupBy !== "type" || matchesFloorPick(f)) && (fuGroupBy !== "floor" || matchesTypePick(f)) && (fuGroupBy !== "date" || (matchesTypePick(f) && matchesFloorPick(f)))).map(f => (
                           <div key={f.key} className={`fuItem ${f.overdue ? "fuOverdue" : f.likelyResolved ? "fuResolved" : "fuWatching"}`}>
                             {fuSelectMode && selBox(f)}
                             <div className="fuStatus">

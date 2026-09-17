@@ -8519,3 +8519,14 @@ html[data-theme="dark"] .fuStOnWaiting, html[data-theme="black"] .fuStOnWaiting 
 /* Crews can upload a picture, not just shoot one (v451) */
 .crewBtnUpload { border-color: #93c5fd; color: #1d4ed8; }
 .crewHowRow .crewBtnPhoto, .crewHowRow .crewBtnUpload { cursor: pointer; }
+
+/* v453 — the ✅ Fixed list, grouped by the day the crew closed it */
+.fuFixedDayWrap { margin-bottom: 10px; }
+.fuFixedDay {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+  font-size: 0.74rem; font-weight: 800; color: var(--sdx-navy);
+  text-transform: uppercase; letter-spacing: 0.03em;
+  padding: 6px 8px; margin: 2px 0 6px; border-radius: 8px;
+  background: var(--surface-2); border: 1px solid var(--sdx-gray-200);
+}
+.fuFixedDayN { font-size: 0.68rem; font-weight: 700; color: var(--ink-400); text-transform: none; letter-spacing: 0; }
