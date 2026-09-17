@@ -9342,6 +9342,8 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
   const [fuOpen, setFuOpen] = useState({});
   const [fuGroupBy, setFuGroupBy] = useState("loc"); // "loc" | "cat" | "type"
   const [fuTypePick, setFuTypePick] = useState(""); // v447 — Subcontractor / Concession / …
+  const [fuFloorPick, setFuFloorPick] = useState(""); // v449 — Floor 1 / Floor 2 / …
+  const [fuFilterMenu, setFuFilterMenu] = useState(""); // "" | "type" | "floor"
   const [fuSearch, setFuSearch] = useState("");
   // Selection → Excel export of chosen follow-ups
   const [fuSelectMode, setFuSelectMode] = useState(false);
@@ -9747,18 +9749,28 @@ ${sections}
   const TYPE_ORDER = ["Subcontractor", "Portable - Subcontractor", "Portable", "Concession", "Kitchen", "Bar"];
   const typeRank = t => { const i = TYPE_ORDER.indexOf(t); return i === -1 ? (t ? 90 : 99) : i; };
   const typeKey = f => (f.locType || "").trim();
+  // v449: group by the BADGE, not the raw string — several raw values
+  // ("Portable", "Portable Cart"…) render the same PORTABLE badge and used
+  // to show up as two identical chips with split counts.
+  const typeLabel = t => (t && t !== "Unknown" ? standTypeBadge(t).short : "NO TYPE");
+  const typeKeyOf = f => typeLabel(typeKey(f) || "Unknown");
   const fuTypeCounts = (() => {
-    const m = {};
-    (analysis.followups || []).filter(fuMatches).forEach(f => { const t = typeKey(f) || "Unknown"; m[t] = (m[t] || 0) + 1; });
-    return Object.entries(m).sort((a, b) => typeRank(a[0] === "Unknown" ? "" : a[0]) - typeRank(b[0] === "Unknown" ? "" : b[0]));
+    const m = {}; const raw = {};
+    (analysis.followups || []).filter(fuMatches).forEach(f => {
+      const lab = typeKeyOf(f); m[lab] = (m[lab] || 0) + 1;
+      if (!raw[lab]) raw[lab] = typeKey(f) || "";
+    });
+    return Object.entries(m)
+      .map(([lab, n]) => ({ label: lab, n, raw: raw[lab] }))
+      .sort((a, b) => typeRank(a.raw) - typeRank(b.raw));
   })();
-  const matchesTypePick = f => !fuTypePick || (typeKey(f) || "Unknown") === fuTypePick;
-  const fuTypeGroups = (() => {
+  const matchesTypePick = f => !fuTypePick || typeKeyOf(f) === fuTypePick;
+  const groupOf = (keyFn, rankFn) => {
     const m = {};
     (analysis.followups || []).filter(fuMatches).forEach(f => {
-      const t = typeKey(f) || "Unknown";
-      if (!m[t]) m[t] = { type: t, cat: t, items: [], overdueCount: 0, dueSoonCount: 0, resolvedCount: 0, minDue: Infinity, stands: new Set() };
-      const g = m[t];
+      const k = keyFn(f);
+      if (!m[k]) m[k] = { type: k, floor: k, cat: k, items: [], overdueCount: 0, dueSoonCount: 0, resolvedCount: 0, minDue: Infinity, stands: new Set() };
+      const g = m[k];
       g.items.push(f); g.stands.add(`${f.loc}#${f.unit || ""}`);
       if (f.overdue) g.overdueCount++;
       else if (f.likelyResolved) g.resolvedCount++;
@@ -9766,9 +9778,24 @@ ${sections}
     });
     return Object.values(m)
       .map(g => ({ ...g, standCount: g.stands.size, stands: undefined }))
-      .sort((a, b) => typeRank(a.type === "Unknown" ? "" : a.type) - typeRank(b.type === "Unknown" ? "" : b.type));
+      .sort((a, b) => rankFn(a.type) - rankFn(b.type) || String(a.type).localeCompare(String(b.type)));
+  };
+  const fuTypeGroups = groupOf(typeKeyOf, lab => {
+    const hit = fuTypeCounts.find(x => x.label === lab);
+    return typeRank(hit?.raw || "");
+  });
+  // v449 — and by floor, the way he actually walks the building
+  const FU_FLOOR_ORDER = ["Floor 1", "Floor 2", "Floor 3", "Ground Level"];
+  const floorRank = f => { const i = FU_FLOOR_ORDER.indexOf(f); return i === -1 ? (f === "No floor" ? 99 : 90) : i; };
+  const floorKeyOf = f => (f.floor || "").trim() || "No floor";
+  const fuFloorCounts = (() => {
+    const m = {};
+    (analysis.followups || []).filter(fuMatches).forEach(f => { const k = floorKeyOf(f); m[k] = (m[k] || 0) + 1; });
+    return Object.entries(m).map(([label, n]) => ({ label, n })).sort((a, b) => floorRank(a.label) - floorRank(b.label) || a.label.localeCompare(b.label));
   })();
-  const fuVisible = (analysis.followups || []).filter(fuMatches).filter(matchesTypePick);
+  const matchesFloorPick = f => !fuFloorPick || floorKeyOf(f) === fuFloorPick;
+  const fuFloorGroups = groupOf(floorKeyOf, floorRank);
+  const fuVisible = (analysis.followups || []).filter(fuMatches).filter(matchesTypePick).filter(matchesFloorPick);
   // v440 — one pool to pick from: open items, everything fixed and every
   // clean. Deduped by key, the fixed copy wins because it carries the fix
   // fields (who, when, how long, whose mess).
@@ -10041,17 +10068,48 @@ ${sections}
                   🧪 {fuVisible.filter(f => f.itype === "Ecolab / Maintenance").length} Ecolab
                 </span>
               )}
-              {fuTypeCounts.map(([t, n]) => (
-                <span key={t} className={"fuSumChip fuTypeFilter" + (fuTypePick === t ? " on" : "")}
-                  onClick={() => setFuTypePick(fuTypePick === t ? "" : t)}>
-                  {standTypeBadge(t === "Unknown" ? "" : t).short} {n}{fuTypePick === t ? " ✕" : ""}
-                </span>
-              ))}
               <span className="fuSumChip">📍 {fuGroupsShown.length} venue{fuGroupsShown.length !== 1 ? "s" : ""}</span>
+            </div>
+            {/* v449: the ten stand-type pills became two compact filters, and
+                the grouping toggle gets its own line instead of fighting them. */}
+            <div className="fuFilterBar">
+              <span className="fuFilterWrap">
+                <button type="button" className={"fuFilterPill" + (fuTypePick ? " on" : "")}
+                  onClick={() => setFuFilterMenu(fuFilterMenu === "type" ? "" : "type")}>
+                  🏷 {fuTypePick || "Type: all"} ▾
+                </button>
+                {fuTypePick && <button type="button" className="fuFilterClear" title="Clear" onClick={() => setFuTypePick("")}>✕</button>}
+                {fuFilterMenu === "type" && (
+                  <div className="fuTypeMenu">
+                    <button type="button" className={"fuTypeOpt" + (!fuTypePick ? " on" : "")} onClick={() => { setFuTypePick(""); setFuFilterMenu(""); }}>All types</button>
+                    {fuTypeCounts.map(t => (
+                      <button key={t.label} type="button" className={"fuTypeOpt" + (fuTypePick === t.label ? " on" : "")}
+                        onClick={() => { setFuTypePick(fuTypePick === t.label ? "" : t.label); setFuFilterMenu(""); }}>{t.label} · {t.n}</button>
+                    ))}
+                  </div>
+                )}
+              </span>
+              <span className="fuFilterWrap">
+                <button type="button" className={"fuFilterPill" + (fuFloorPick ? " on" : "")}
+                  onClick={() => setFuFilterMenu(fuFilterMenu === "floor" ? "" : "floor")}>
+                  🏢 {fuFloorPick || "Floor: all"} ▾
+                </button>
+                {fuFloorPick && <button type="button" className="fuFilterClear" title="Clear" onClick={() => setFuFloorPick("")}>✕</button>}
+                {fuFilterMenu === "floor" && (
+                  <div className="fuTypeMenu">
+                    <button type="button" className={"fuTypeOpt" + (!fuFloorPick ? " on" : "")} onClick={() => { setFuFloorPick(""); setFuFilterMenu(""); }}>All floors</button>
+                    {fuFloorCounts.map(fl => (
+                      <button key={fl.label} type="button" className={"fuTypeOpt" + (fuFloorPick === fl.label ? " on" : "")}
+                        onClick={() => { setFuFloorPick(fuFloorPick === fl.label ? "" : fl.label); setFuFilterMenu(""); }}>{fl.label} · {fl.n}</button>
+                    ))}
+                  </div>
+                )}
+              </span>
               <span className="fuToggle">
                 <button type="button" className={`fuToggleBtn${fuGroupBy === "loc" ? " fuToggleActive" : ""}`} onClick={() => setFuGroupBy("loc")}>📍 By Venue</button>
                 <button type="button" className={`fuToggleBtn${fuGroupBy === "cat" ? " fuToggleActive" : ""}`} onClick={() => setFuGroupBy("cat")}>🗂 By Problem</button>
                 <button type="button" className={`fuToggleBtn${fuGroupBy === "type" ? " fuToggleActive" : ""}`} onClick={() => setFuGroupBy("type")}>🏷 By Type</button>
+                <button type="button" className={`fuToggleBtn${fuGroupBy === "floor" ? " fuToggleActive" : ""}`} onClick={() => setFuGroupBy("floor")}>🏢 By Floor</button>
               </span>
             </div>
             {saveWarn && <div className="fuSaveWarn">{saveWarn}</div>}
@@ -10170,8 +10228,11 @@ ${sections}
               {fuSearch.trim() && fuVisible.length === 0 && (
                 <div style={{ fontSize: "0.82rem", color: "var(--ink-400)", fontStyle: "italic", padding: "10px 4px" }}>No follow-ups match “{fuSearch.trim()}”.</div>
               )}
-              {(fuGroupBy === "cat" ? fuCatGroupsShown : fuGroupBy === "type" ? fuTypeGroups.filter(g => !fuTypePick || g.type === fuTypePick) : fuGroupsShown).map(g => {
-                const gKey = `${fuGroupBy}::${fuGroupBy === "cat" ? g.cat : fuGroupBy === "type" ? g.type : g.loc}`;
+              {(fuGroupBy === "cat" ? fuCatGroupsShown
+                : fuGroupBy === "type" ? fuTypeGroups.filter(g => (!fuTypePick || g.type === fuTypePick) && g.items.some(matchesFloorPick))
+                : fuGroupBy === "floor" ? fuFloorGroups.filter(g => (!fuFloorPick || g.floor === fuFloorPick) && g.items.some(matchesTypePick))
+                : fuGroupsShown).map(g => {
+                const gKey = `${fuGroupBy}::${fuGroupBy === "cat" ? g.cat : fuGroupBy === "type" ? g.type : fuGroupBy === "floor" ? g.floor : g.loc}`;
                 const isOpen = fuSearch.trim() ? true : (fuOpen[gKey] !== undefined ? fuOpen[gKey] : g.overdueCount > 0);
                 const openItems = g.items.filter(f => !f.likelyResolved);
                 return (
@@ -10182,7 +10243,9 @@ ${sections}
                         {fuGroupBy === "cat"
                           ? <>{g.cat}<span className="fuLoc"> · {g.venueCount} venue{g.venueCount !== 1 ? "s" : ""}</span></>
                           : fuGroupBy === "type"
-                          ? <><StandType lt={g.type === "Unknown" ? "" : g.type} /><span className="fuLoc"> · {g.standCount} stand{g.standCount !== 1 ? "s" : ""}</span></>
+                          ? <><span className="stType stOther">{g.type}</span><span className="fuLoc"> · {g.standCount} stand{g.standCount !== 1 ? "s" : ""}</span></>
+                          : fuGroupBy === "floor"
+                          ? <>🏢 {g.floor}<span className="fuLoc"> · {g.standCount} stand{g.standCount !== 1 ? "s" : ""}</span></>
                           : <>{g.loc}{g.unit ? <span className="fuLoc"> · Unit #{g.unit}</span> : null}</>}
                         <span className="fuGroupBadge">{g.items.length}</span>
                       </div>
@@ -10194,7 +10257,7 @@ ${sections}
                       <div className="fuActions" onClick={e => e.stopPropagation()}>
                         {openItems.length > 0 && (
                           <button type="button" className="fuBtn fuBtnRemind" onClick={() => remindGroup(g, fuGroupBy)}>
-                            {remindedKey === `grp::${fuGroupBy === "cat" ? g.cat : fuGroupBy === "type" ? g.type : g.loc}` ? "✓ Posted" : `🔔 Remind Team (${openItems.length})`}
+                            {remindedKey === `grp::${fuGroupBy === "cat" ? g.cat : fuGroupBy === "type" ? g.type : fuGroupBy === "floor" ? g.floor : g.loc}` ? "✓ Posted" : `🔔 Remind Team (${openItems.length})`}
                           </button>
                         )}
                         <button type="button" className="fuBtn fuBtnResolve" onClick={() => resolveVenue(g)}>
@@ -10204,7 +10267,7 @@ ${sections}
                     </div>
                     {isOpen && (
                       <div className="fuGroupBody">
-                        {g.items.map(f => (
+                        {g.items.filter(f => (fuGroupBy !== "type" || matchesFloorPick(f)) && (fuGroupBy !== "floor" || matchesTypePick(f))).map(f => (
                           <div key={f.key} className={`fuItem ${f.overdue ? "fuOverdue" : f.likelyResolved ? "fuResolved" : "fuWatching"}`}>
                             {fuSelectMode && selBox(f)}
                             <div className="fuStatus">

@@ -8495,3 +8495,23 @@ html[data-theme="dark"] .fuStOnWaiting, html[data-theme="black"] .fuStOnWaiting 
 /* Filter follow-ups by stand type (v447) */
 .fuTypeFilter { cursor: pointer; }
 .fuTypeFilter.on { background: var(--sdx-navy); color: #fff; border-color: var(--sdx-navy); }
+
+/* One tidy filter row instead of a wall of pills (v449) */
+.fuFilterBar {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  margin: 6px 0 2px;
+}
+.fuFilterWrap { position: relative; display: inline-flex; align-items: center; gap: 2px; }
+.fuFilterPill {
+  background: var(--surface-1); border: 1.5px solid var(--sdx-gray-200); border-radius: 999px;
+  padding: 6px 14px; font-weight: 700; font-size: 0.78rem; color: var(--sdx-navy); cursor: pointer;
+}
+.fuFilterPill.on { background: var(--sdx-navy); border-color: var(--sdx-navy); color: #fff; }
+.fuFilterClear {
+  background: none; border: none; color: var(--ink-500); font-weight: 800;
+  font-size: 0.75rem; cursor: pointer; padding: 2px 4px;
+}
+.fuFilterBar .fuToggle { margin-left: auto; }
+@media (max-width: 720px) {
+  .fuFilterBar .fuToggle { margin-left: 0; flex: 1 1 100%; }
+}
