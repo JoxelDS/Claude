@@ -24098,12 +24098,6 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                           const newChecklist = (cur2.checklist || []).map((c, i) => i === idx ? { ...c, comment } : c);
                           return setAtPath(prev, it.path, { ...cur2, checklist: newChecklist });
                         });
-                        // Be specific (v416): chip taps write structured details and rebuild the description
-                        const makeSetSpec = (idx, d) => setInspection((prev) => {
-                          const cur2 = getAtPath(prev, it.path) || withPhotos({ status: "OK", notes: "" });
-                          const newChecklist = (cur2.checklist || []).map((c, i) => { if (i !== idx) return c; const specDetails = { ...(c.specDetails || {}), ...d }; return { ...c, specDetails, comment: appendSpec(c.comment, specDetails) }; });
-                          return setAtPath(prev, it.path, { ...cur2, checklist: newChecklist });
-                        });
                         const makeSetCiStatus = (idx, ciStatus) => setInspection((prev) => {
                           const cur2 = getAtPath(prev, it.path) || withPhotos({ status: "OK", notes: "" });
                           const newChecklist = (cur2.checklist || []).map((c, i) => i === idx ? { ...c, ciStatus } : c);
@@ -24282,10 +24276,11 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                                               value={ci.comment || ""}
                                               onChange={(e) => makeSetComment(idx, e.target.value)}
                                               placeholder="What exactly, which part, where? (required)"
-                                              style={{ width: "100%", borderColor: !isSpecific(ci.comment, ci.specDetails, specCatForSection()).ok ? "#fca5a5" : undefined }}
+                                              style={{ width: "100%", borderColor: (ci.comment || "").trim().split(/\s+/).filter(Boolean).length < 4 ? "#fca5a5" : undefined }}
                                             />
-                                            {!isSpecific(ci.comment, ci.specDetails, specCatForSection()).ok && <div className="specHint">⚠ Say what, which part, where — tap the chips</div>}
-                                            <SpecificsPicker cat={specCatForSection()} units={equipUnitsAtStand(siteNumber, siteName)} value={ci.specDetails || {}} onChange={d => makeSetSpec(idx, d)} lang="en" compact />
+                                            {/* v450: the WHAT / WHAT'S WRONG / WHERE chips asked the same thing as
+                                                SPECIFIC LOCATION below, so they are gone from this panel. */}
+                                            {(ci.comment || "").trim().split(/\s+/).filter(Boolean).length < 4 && <div className="specHint">⚠ Say what it is and what is wrong with it</div>}
                                           </div>
                                           <div>
                                             <div style={{ fontSize: "0.7rem", fontWeight: 700, color: "var(--tx-amber)", letterSpacing: "0.06em", marginBottom: 4 }}>
