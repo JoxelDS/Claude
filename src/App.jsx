@@ -3636,7 +3636,7 @@ function buildPhotoIndex(inspection, notesPhotos) {
       for (const p of ciPhotos) {
         n += 1;
         mapByPath[pathKey].push(n);
-        const caption = sanitizeText(ci.comment) || sanitizeText(p?.name) || "";
+        const caption = `${p?.tag === "after" ? "AFTER" : "BEFORE"}${(sanitizeText(ci.comment) || sanitizeText(p?.name)) ? ` — ${sanitizeText(ci.comment) || sanitizeText(p?.name)}` : ""}`;
         index.push({ num: n, label: ciLabel, caption, previewUrl: p.previewUrl || p.url || p.dataUrl || null, thumbUrl: p.thumbUrl || null });
       }
     }
@@ -8480,7 +8480,7 @@ function computeFollowups(history, venueSettings, clearedLocal = {}) {
           const ids = ph.filter(p => typeof p === "string");
           const fromRec = (rec.photos || []).filter(p => p && (ids.length === 0 ? true : ids.includes(p.id)) && (p.thumbUrl || p.previewUrl));
           catLastSeen[key].photos = (objs.length ? objs : (ph.length || rec.quickProblem) ? fromRec : []).slice(0, 6)
-            .map(p => ({ id: p.id, thumbUrl: p.thumbUrl || p.previewUrl || "", previewUrl: (p.previewUrl && !String(p.previewUrl).startsWith("data:")) ? p.previewUrl : (p.exportUrl || p.previewUrl || p.thumbUrl || "") }));
+            .map(p => ({ id: p.id, tag: p.tag === "after" ? "after" : "", thumbUrl: p.thumbUrl || p.previewUrl || "", previewUrl: (p.previewUrl && !String(p.previewUrl).startsWith("data:")) ? p.previewUrl : (p.exportUrl || p.previewUrl || p.thumbUrl || "") }));
         } catch { catLastSeen[key].photos = []; }
       }
     });
@@ -8871,8 +8871,8 @@ function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLoc
   );
   const renderCrewItem = (f, withStand) => {
     const stt = statusOf(f.key); const done = isDone(f);
-    const before = [...(f.photos || []).map(p => ({ ...p, report: true })), ...photosOf(f.key).filter(p => (p.tag || "before") !== "after")];
-    const after = photosOf(f.key).filter(p => p.tag === "after");
+    const before = [...(f.photos || []).filter(p => p.tag !== "after").map(p => ({ ...p, report: true })), ...photosOf(f.key).filter(p => (p.tag || "before") !== "after")];
+    const after = [...(f.photos || []).filter(p => p.tag === "after").map(p => ({ ...p, report: true })), ...photosOf(f.key).filter(p => p.tag === "after")];
     const cm = commentsOf(f.key);
     return (
       <div key={f.key} className={"crewItem" + (done ? " crewItemDone" : f.overdue ? " crewItemOverdue" : "")}>
@@ -10488,8 +10488,8 @@ ${sections}
                                 {/* Pictures — from the report, plus what the team adds while fixing it */}
                                 {(() => {
                                   const mine = fuPhotosOf(f);
-                                  const before = [...(f.photos || []).map(p => ({ ...p, report: true })), ...mine.filter(p => (p.tag || "before") !== "after")];
-                                  const after = mine.filter(p => p.tag === "after");
+                                  const before = [...(f.photos || []).filter(p => p.tag !== "after").map(p => ({ ...p, report: true })), ...mine.filter(p => (p.tag || "before") !== "after")];
+                                  const after = [...(f.photos || []).filter(p => p.tag === "after").map(p => ({ ...p, report: true })), ...mine.filter(p => p.tag === "after")];
                                   if (!before.length && !after.length) return null;
                                   const thumb = (p, side) => (
                                     <div key={(p.report ? "r" : "") + p.id} className={"fuThumb" + (p.report ? " fuThumbReport" : side === "after" ? " fuThumbAfter" : "")} title={p.report ? "From the report" : `${p.by || ""}${p.ts ? " · " + new Date(p.ts).toLocaleDateString([], { month: "short", day: "numeric" }) : ""}`}>
@@ -24252,7 +24252,7 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                           const newChecklist = (cur2.checklist || []).map((c, i) => i === idx ? { ...c, ciLocation } : c);
                           return setAtPath(prev, it.path, { ...cur2, checklist: newChecklist });
                         });
-                        const addCiPhoto = async (idx, files) => {
+                        const addCiPhoto = async (idx, files, tag = "") => { // v457: "" = before, "after" = after
                           const inspId = inspectionId || `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
                           const existingCount = (current.checklist?.[idx]?.photos || []).length;
                           const remaining = PHOTO_LIMIT - existingCount;
@@ -24264,7 +24264,7 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                             const thumbUrl = await compressImage(f, 220, 0.55);
                             if (!thumbUrl) return null;
                             const photoId = `${Date.now()}_${Math.random().toString(16).slice(2)}`;
-                            return { id: photoId, file: f, thumbUrl, uploading: true, previewUrl: thumbUrl, type: "image/jpeg", sizeMb: bytesToMb(f.size), name: f.name, tag: "" };
+                            return { id: photoId, file: f, thumbUrl, uploading: true, previewUrl: thumbUrl, type: "image/jpeg", sizeMb: bytesToMb(f.size), name: f.name, tag: tag || "" };
                           }));
                           const valid = placeholders.filter(Boolean);
                           if (valid.length === 0) return;
@@ -24456,17 +24456,20 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                                             />
                                             {(ci.corrective || "").trim().length < 5 && <div className="specHint">⚠ Required — say what was done about it</div>}
                                           </div>
-                                          <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                                            <input type="file" accept="image/*" multiple className="fileInput" ref={(el) => { fileRefs.current[ciRefKey] = el; }} onChange={(e) => { addCiPhoto(idx, e.target.files); e.target.value = ""; }} />
-                                            <input type="file" accept="image/*" capture="environment" className="fileInput" ref={(el) => { cameraRefs.current[ciRefKey] = el; }} onChange={(e) => { addCiPhoto(idx, e.target.files); e.target.value = ""; }} />
-                                            <button type="button" className={`clItemPhotoBtn${ciPhotos.length > 0 ? " clItemPhotoBtnHasPhotos" : ""}`} title="Open gallery" disabled={ciPhotos.length >= PHOTO_LIMIT} onClick={() => fileRefs.current[ciRefKey]?.click()} aria-label={`Add photo from gallery for ${ci.label}`}>
-                                              📂 Gallery{ciPhotos.length > 0 ? ` (${ciPhotos.length})` : ""}
-                                            </button>
-                                            <button type="button" className="clItemPhotoBtn clItemCameraBtn" title="Take a photo" disabled={ciPhotos.length >= PHOTO_LIMIT} onClick={() => cameraRefs.current[ciRefKey]?.click()} aria-label={`Take photo for ${ci.label}`}>
-                                              📷 Camera
-                                            </button>
-                                          </div>
-                                          {ciPhotos.length === 0 && <div className="specHint">⚠ Add a photo of the problem — required</div>}
+                                          {/* v457 — two big buttons: the problem, and what it looks like fixed. No `capture`, so the phone offers camera OR library in one tap. */}
+                                          {(() => { const nB = ciPhotos.filter(p => p.tag !== "after").length; const nA = ciPhotos.filter(p => p.tag === "after").length; const full = ciPhotos.length >= PHOTO_LIMIT; return (
+                                            <div className="ciBaRow">
+                                              <input type="file" accept="image/*" multiple className="fileInput" ref={(el) => { fileRefs.current[ciRefKey + "_b"] = el; }} onChange={(e) => { addCiPhoto(idx, e.target.files, ""); e.target.value = ""; }} />
+                                              <input type="file" accept="image/*" multiple className="fileInput" ref={(el) => { fileRefs.current[ciRefKey + "_a"] = el; }} onChange={(e) => { addCiPhoto(idx, e.target.files, "after"); e.target.value = ""; }} />
+                                              <button type="button" className={`ciBaBtn ciBaBefore${nB ? " ciBaHas" : ""}`} disabled={full} onClick={() => fileRefs.current[ciRefKey + "_b"]?.click()} aria-label={`Before photo for ${ci.label}`}>
+                                                <span className="ciBaIcon">📷</span><span className="ciBaLbl">BEFORE</span><span className="ciBaSub">{nB ? `${nB} photo${nB > 1 ? "s" : ""}` : "the problem"}</span>
+                                              </button>
+                                              <button type="button" className={`ciBaBtn ciBaAfter${nA ? " ciBaHas" : ""}`} disabled={full} onClick={() => fileRefs.current[ciRefKey + "_a"]?.click()} aria-label={`After photo for ${ci.label}`}>
+                                                <span className="ciBaIcon">📷</span><span className="ciBaLbl">AFTER</span><span className="ciBaSub">{nA ? `${nA} photo${nA > 1 ? "s" : ""}` : "once it's fixed"}</span>
+                                              </button>
+                                            </div>
+                                          ); })()}
+                                          {ciPhotos.filter(p => p.tag !== "after").length === 0 && <div className="specHint">⚠ Add a BEFORE photo of the problem — required</div>}
                                         </div>
                                       ) : (
                                         <div className="clItemCommentRow">
@@ -24484,7 +24487,8 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                                       {ciPhotos.length > 0 && (
                                         <div className="ciPhotoStrip">
                                           {ciPhotos.map(p => (
-                                            <div key={p.id} className={`ciPhotoThumb${p.uploading ? " ciPhotoUploading" : ""}`}>
+                                            <div key={p.id} className={`ciPhotoThumb${p.uploading ? " ciPhotoUploading" : ""}${p.tag === "after" ? " ciPhotoAfter" : " ciPhotoBefore"}`}>
+                                              <span className="ciPhotoTag">{p.tag === "after" ? "AFTER" : "BEFORE"}</span>
                                               <img src={p.previewUrl || p.thumbUrl || p.url || p.dataUrl} alt="item photo" style={{ cursor: p.uploading ? "default" : "zoom-in" }} onClick={() => !p.uploading && setAppLightboxSrc(p.previewUrl || p.url || p.dataUrl)} />
                                               {p.uploading && <div className="ciPhotoSpinner"><div className="ciPhotoSpinnerDot" /></div>}
                                               <button
@@ -30193,10 +30197,10 @@ export default function App() {
           const label = node.label || key.replace(/([A-Z])/g, " $1").replace(/^./, c => c.toUpperCase()).trim();
           for (const c of cl) {
             if (c.value !== "NO") continue;
-            const pg = proofGate({ photos: c.photos, action: c.corrective });
+            const pg = proofGate({ photos: (c.photos || []).filter(p => p && p.tag !== "after"), action: c.corrective }); // v457: the AFTER shot does not count as proof of the problem
             if (pg.ok) continue;
             const need = pg.missing.includes("photo") && pg.missing.includes("action") ? "a photo and a corrective action"
-              : pg.missing.includes("photo") ? "a photo" : "a corrective action";
+              : pg.missing.includes("photo") ? "a BEFORE photo" : "a corrective action";
             proofMissing.push({ text: `${SEC_NAME[sec]} – ${label} · ${c.label || "flagged item"}: needs ${need}`, jump: { pid: SEC_PANEL[sec], key, full: "" } });
           }
         }

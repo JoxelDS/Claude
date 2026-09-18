@@ -8549,3 +8549,28 @@ html[data-theme="dark"] .fuStOnWaiting, html[data-theme="black"] .fuStOnWaiting 
 }
 .fuUndoStrip.fuUndoReopen { background: #fef3c7; border-color: #fcd34d; color: #92400e; }
 .fuUndoStrip.fuUndoReopen button { border-color: #fcd34d; color: #92400e; }
+
+/* v457 — BEFORE / AFTER photo buttons on a flagged checklist item */
+.ciBaRow { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 2px; }
+.ciBaBtn {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  min-height: 74px; border-radius: 12px; border: 2px solid; cursor: pointer;
+  font-family: inherit; transition: transform .08s, box-shadow .15s;
+}
+.ciBaBtn:active { transform: scale(.98); }
+.ciBaBtn:disabled { opacity: .45; cursor: not-allowed; }
+.ciBaIcon { font-size: 1.25rem; line-height: 1; }
+.ciBaLbl { font-size: 0.86rem; font-weight: 900; letter-spacing: .08em; }
+.ciBaSub { font-size: 0.68rem; font-weight: 600; opacity: .85; }
+.ciBaBefore { background: #fef2f2; border-color: #fca5a5; color: #b91c1c; }
+.ciBaAfter { background: #f0fdf4; border-color: #86efac; color: #15803d; }
+.ciBaBefore.ciBaHas { background: #dc2626; border-color: #dc2626; color: #fff; }
+.ciBaAfter.ciBaHas { background: #16a34a; border-color: #16a34a; color: #fff; }
+.ciPhotoThumb.ciPhotoBefore { border-color: #fca5a5; }
+.ciPhotoThumb.ciPhotoAfter { border-color: #4ade80; }
+.ciPhotoTag {
+  position: absolute; left: 0; bottom: 0; right: 0; text-align: center;
+  font-size: 0.5rem; font-weight: 900; letter-spacing: .06em; color: #fff; padding: 1px 0;
+  background: rgba(185, 28, 28, .85);
+}
+.ciPhotoAfter .ciPhotoTag { background: rgba(21, 128, 61, .85); }
