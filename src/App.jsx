@@ -8620,6 +8620,8 @@ function specToText(details, lang) {
 }
 const LOCATION_WORDS = /\b(left|right|front|back|under|behind|inside|top|bottom|line|house|walk[- ]?in|bar|sink|door|prep|storage|shelf|drain|hood|izq|der|frente|atr[aá]s|debajo|adentro|arriba|abajo|l[ií]nea|cuarto|fregadero|puerta)\b/i;
 // Specific enough = every required row answered, or a long free text with a location word
+// v458 — the quick report and the portal only need a few words OR a chip.
+const saidEnough = (text, details) => Object.values(details || {}).some(Boolean) || String(text || "").trim().split(/\s+/).filter(Boolean).length >= 4;
 function isSpecific(text, details, catKey, opts) {
   const rows = SPEC_ROWS[catKey] || SPEC_ROWS.Other;
   const d = details || {};
@@ -8640,7 +8642,7 @@ function proofGate({ photos, action }) {
   if (String(action || "").trim().length < 5) missing.push("action");
   return { ok: missing.length === 0, missing };
 }
-function SpecificsPicker({ cat, units, value, onChange, lang, missing, compact }) {
+function SpecificsPicker({ cat, units, value, onChange, lang, missing, compact, optional }) {
   const key = specCatKey(cat);
   const rows = SPEC_ROWS[key] || SPEC_ROWS.Other;
   const i = lang === "es" ? 1 : 0;
@@ -8649,13 +8651,13 @@ function SpecificsPicker({ cat, units, value, onChange, lang, missing, compact }
   const miss = new Set(missing || []);
   const rowEl = (k, label, opts) => (
     <div key={k} className={"specRow" + (miss.has(k) ? " specMissing" : "")}>
-      <div className="specLbl">{label}{rows.find(r => r.key === k)?.req !== false && k !== "howmany" ? " *" : ""}</div>
+      <div className="specLbl">{label}{!optional && rows.find(r => r.key === k)?.req !== false && k !== "howmany" ? " *" : ""}</div>
       <div className="specChips">{opts.map(o => { const v = Array.isArray(o) ? o[i] : o; const en = Array.isArray(o) ? o[0] : o; return <button key={en} type="button" className={"specChip" + (d[k] === en || d[k] === v ? " on" : "")} onClick={() => set(k, en)}>{v}</button>; })}</div>
     </div>
   );
   return (
     <div className={"specPicker" + (compact ? " specCompact" : "")}>
-      <div className="specHead">{lang === "es" ? "Toca lo que aplica" : "Tap what applies"}</div>
+      <div className="specHead">{optional ? (lang === "es" ? "Detalles (opcional) — toca lo que aplica" : "Details (optional) — tap what applies") : (lang === "es" ? "Toca lo que aplica" : "Tap what applies")}</div>
       {key === "Equipment" && units && units.length > 0 && rowEl("unit", lang === "es" ? "Qué equipo" : "Which unit", units.map(u => `${u.name}${u.brand ? ` · ${u.brand}` : ""}${u.location ? ` · ${u.location}` : ""}`.toUpperCase()))}
       {rows.map(r => rowEl(r.key, r[lang === "es" ? "es" : "en"], r.opts))}
     </div>
@@ -9661,6 +9663,8 @@ ${sections}
   const [qpPhotos, setQpPhotos] = useState([]);
   const [qpDetails, setQpDetails] = useState({});
   const [qpMissing, setQpMissing] = useState([]);
+  const [qpSpecOpen, setQpSpecOpen] = useState(false); // v458 — chips tucked away, optional
+  const [qpSaidErr, setQpSaidErr] = useState(false);
   const [qpAction, setQpAction] = useState("");       // v439 — what did you do about it
   const [qpProof, setQpProof] = useState([]);
   const [qpPhotoBusy, setQpPhotoBusy] = useState(false);
@@ -9704,8 +9708,9 @@ ${sections}
   async function submitQuickProblem() {
     const site = qpSite.trim().toUpperCase();
     const cat = qpCat === "Other" ? (qpCatOther.trim() || "Other") : qpCat;
-    const sp = isSpecific(qpDesc, qpDetails, specCatKey(qpCat));
-    if (!sp.ok) { setQpMissing(sp.missing); return; }
+    // v458: the chips are optional — a few words are enough
+    if (!saidEnough(qpDesc, qpDetails)) { setQpSaidErr(true); return; }
+    setQpSaidErr(false);
     // v439: no problem gets filed without a photo and what was done about it.
     const pg = proofGate({ photos: qpPhotos, action: qpAction });
     if (!pg.ok) { setQpProof(pg.missing); return; }
@@ -9736,7 +9741,7 @@ ${sections}
     try { notifyCrewsForItems(rec.actionItems, rec.siteName, rec.siteNumber, rec.inspectorName); } catch {}
     setQpFlash(`✓ Problem filed for ${site}${qpUnit.trim() ? ` #${qpUnit.trim()}` : ""} — it's now a follow-up`);
     setTimeout(() => setQpFlash(""), 4000);
-    setQpOpen(false); setQpSite(""); setQpUnit(""); setQpFloor(""); setQpType(""); setQpTypeAuto(true); setQpDesc(""); setQpCatOther(""); setQpPhotos([]); setQpAction(""); setQpProof([]);
+    setQpOpen(false); setQpSite(""); setQpUnit(""); setQpFloor(""); setQpType(""); setQpTypeAuto(true); setQpDesc(""); setQpCatOther(""); setQpPhotos([]); setQpAction(""); setQpProof([]); setQpSpecOpen(false); setQpSaidErr(false);
     qpIdRef.current = `${Date.now()}_qp${Math.floor(Math.random() * 1e4)}`;
   }
 
@@ -10105,11 +10110,16 @@ ${sections}
                         style={{ flex: "1 1 130px", padding: "7px 10px", borderRadius: 9, border: "1.5px solid var(--sdx-gray-200)", fontSize: "16px" }} />
                     )}
                   </div>
-                  <SpecificsPicker cat={qpCat} units={equipUnitsAtStand(qpUnit, qpSite)} value={qpDetails} onChange={d => { setQpDetails(d); setQpMissing([]); }} lang="en" missing={qpMissing} compact />
-                  {qpMissing.length > 0 && <div className="haccpProblemErr">⚠️ Be specific — tap the missing chips (what, which part, where)</div>}
-                  <textarea value={qpDesc} onChange={e => setQpDesc(e.target.value)} rows={2}
-                    placeholder="Anything else? (free text — the chips above already say what and where)"
-                    style={{ padding: "7px 10px", borderRadius: 9, border: "1.5px solid var(--sdx-gray-200)", fontSize: "16px", resize: "vertical", fontFamily: "inherit" }} />
+                  <textarea value={qpDesc} onChange={e => { setQpDesc(e.target.value); setQpSaidErr(false); }} rows={2}
+                    placeholder="What is wrong and where?"
+                    style={{ padding: "7px 10px", borderRadius: 9, border: `1.5px solid ${qpSaidErr ? "#fca5a5" : "var(--sdx-gray-200)"}`, fontSize: "16px", resize: "vertical", fontFamily: "inherit" }} />
+                  {qpSaidErr && <div className="haccpProblemErr">⚠️ Say what is wrong and where — a few words is enough</div>}
+                  {/* v458 — the chip block is optional and hidden until asked for */}
+                  {(qpSpecOpen || Object.values(qpDetails).some(Boolean)) ? (
+                    <SpecificsPicker cat={qpCat} units={equipUnitsAtStand(qpUnit, qpSite)} value={qpDetails} onChange={d => { setQpDetails(d); setQpSaidErr(false); }} lang="en" compact optional />
+                  ) : (
+                    <button type="button" className="specOptLink" onClick={() => setQpSpecOpen(true)}>＋ Add details (optional)</button>
+                  )}
                   {/* Pictures of the problem */}
                   <div className="fuPhotoRow">
                     <label className="fuPhotoBtn qpPhotoBtn">📷 Take photo<input type="file" accept="image/*" capture="environment" hidden onChange={e => { addQpPhotos(e.target.files); e.target.value = ""; }} /></label>
@@ -10127,7 +10137,7 @@ ${sections}
                       style={{ width: "100%", boxSizing: "border-box", padding: "7px 10px", borderRadius: 9, border: "1.5px solid var(--sdx-gray-200)", fontSize: "16px", resize: "vertical", fontFamily: "inherit" }} />
                   </div>
                   {qpProof.length > 0 && (
-                    <div className="haccpProblemErr">⚠️ {qpProof.includes("photo") && qpProof.includes("action") ? "Add a photo (or say why there is none) and what you did about it" : qpProof.includes("photo") ? "Add a photo — or type why there is none" : "Say what you did about it"}</div>
+                    <div className="haccpProblemErr">⚠️ {qpProof.includes("photo") && qpProof.includes("action") ? "Add a photo and say what you did about it" : qpProof.includes("photo") ? "Add a photo of the problem" : "Say what you did about it"}</div>
                   )}
                   {qpPhotos.length > 0 && (
                     <div className="fuThumbs">
@@ -26520,6 +26530,7 @@ function HaccpPortal() {
   const [problemProof, setProblemProof] = useState([]);
   const [problemDetails, setProblemDetails] = useState({}); // v415: which unit / part / where
   const [problemMissing, setProblemMissing] = useState([]);
+  const [problemSpecOpen, setProblemSpecOpen] = useState(false); // v458 — optional chips
   const problemPhotoRef = useRef(null);
   const [submitting, setSubmitting] = useState(false);
   const [photoError, setPhotoError] = useState("");
@@ -26716,8 +26727,8 @@ function HaccpPortal() {
     if (problemOnly && !problem.trim() && !Object.values(problemDetails).some(Boolean)) { setProblemError("Describe the problem · Describe el problema"); return; }
     if (hasProblem && !problemCat) { setProblemError("Pick a category · Elige una categoría"); return; }
     if (hasProblem) {
-      const sp = isSpecific(problem, problemDetails, specCatKey(problemCat), { needUnit: specCatKey(problemCat) === "Equipment" && customItems.some(i => i.tag) });
-      if (!sp.ok) { setProblemMissing(sp.missing); setProblemError(L("Be specific: tap the missing chips (what, which part, where)", "Sé específico: toca lo que falta (qué, qué parte, dónde)")); return; }
+      // v458: the chips are optional — a few words are enough
+      if (!saidEnough(problem, problemDetails)) { setProblemError(L("Say what is wrong and where — a few words is enough", "Di qué está mal y dónde — con pocas palabras basta")); return; }
       // v439: a photo and what was done about it (v454: no excuse box)
       const pg = proofGate({ photos: problemPhotos, action: problemAction });
       if (!pg.ok) {
@@ -27499,10 +27510,13 @@ function HaccpPortal() {
                     </button>
                   ))}
                 </div>
-                {problemCat && <SpecificsPicker cat={problemCat} units={customItems.filter(i => i.tag).map(i => ({ name: i.label, location: i.hint }))} value={problemDetails} onChange={d => { setProblemDetails(d); setProblemMissing([]); if (problemError) setProblemError(""); }} lang={pl} missing={problemMissing} />}
                 <textarea className="haccpProblemTextarea"
                   value={problem} onChange={e => { setProblem(e.target.value); if (problemError) setProblemError(""); }}
                   placeholder={problemOnly ? L("What is wrong and where?", "¿Qué está mal y dónde?") : L("Describe any issue, equipment problem, or safety concern...", "Describe cualquier problema, falla de equipo o riesgo...")} />
+                {/* v458 — the chip block is optional and hidden until asked for */}
+                {problemCat && ((problemSpecOpen || Object.values(problemDetails).some(Boolean))
+                  ? <SpecificsPicker cat={problemCat} units={customItems.filter(i => i.tag).map(i => ({ name: i.label, location: i.hint }))} value={problemDetails} onChange={d => { setProblemDetails(d); if (problemError) setProblemError(""); }} lang={pl} optional />
+                  : <button type="button" className="specOptLink" onClick={() => setProblemSpecOpen(true)}>＋ {L("Add details (optional)", "Agregar detalles (opcional)")}</button>)}
                 {problemError && <div className="haccpProblemErr">⚠️ {problemError}</div>}
                 <div className="haccpProblemSeverity">
                   <span style={{ fontSize: "0.75rem", color: "var(--ink-500)", alignSelf: "center" }}>{L("Severity:", "Gravedad:")}</span>
@@ -27620,7 +27634,7 @@ function HaccpPortal() {
               setSessionId(null);
               setProblem("");
               setProblemCat("");
-              setProblemDetails({}); setProblemMissing([]);
+              setProblemDetails({}); setProblemMissing([]); setProblemSpecOpen(false);
               setProblemOnly(false);
               setProblemError("");
               setProblemPhotos([]);

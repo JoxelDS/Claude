@@ -8574,3 +8574,10 @@ html[data-theme="dark"] .fuStOnWaiting, html[data-theme="black"] .fuStOnWaiting 
   background: rgba(185, 28, 28, .85);
 }
 .ciPhotoAfter .ciPhotoTag { background: rgba(21, 128, 61, .85); }
+
+/* v458 — optional chip block, tucked behind one link */
+.specOptLink {
+  align-self: flex-start; background: none; border: none; padding: 2px 0; cursor: pointer;
+  font-size: 0.8rem; font-weight: 700; color: var(--sdx-navy); font-family: inherit;
+}
+.haccpCard .specOptLink { color: #233d8f; }
