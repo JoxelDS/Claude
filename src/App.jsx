@@ -2710,6 +2710,13 @@ function noticeMatches(n, st) {
   return false;
 }
 // Stand type at a glance — Concession / Portable / Subcontractor / Portable-Sub
+// v456 — "CONCESSION problem" / "SUBCONTRACTOR problem": the stand type,
+// not a blame word. Falls back to the stored type, then to the old sub/ours.
+function whoseProblemLabel(locType, whose, standType) {
+  const t = (locType ? standTypeBadge(locType).short : "") || standType || "";
+  if (t) return `${t} problem`;
+  return whose === "sub" ? "STAND / SUBCONTRACTOR" : whose === "ours" ? "Stadium" : "";
+}
 function standTypeBadge(lt) {
   const t = String(lt || "").trim();
   if (!t) return { short: "TYPE?", cls: "stNone", full: "" };
@@ -8678,6 +8685,17 @@ async function notifyCrewsForItems(items, site, unit, by, forceType) {
   } catch {}
 }
 
+// v448/v456 — the stand type from the license registry when a record carries
+// none: same unit, same name first, else the unit's only stand.
+function detectStandTypeFor(unit, site) {
+  try {
+    const u = normUnit(unit);
+    if (!u) return "";
+    const at = standSeeds().filter(k => normUnit(k.unit) === u);
+    const exact = at.find(k => sameStandName(k.site, site));
+    return (exact?.locType || at[0]?.locType || "").trim();
+  } catch { return ""; }
+}
 function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLock, onMessages, onAppearance }) {
   const role = currentUser?.role;
   const meta = CREW_META[role] || CREW_META.maintenance;
@@ -8796,17 +8814,18 @@ function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLoc
     // v438: the app keeps the clock — the "In process" tap is the start, this
     // tap is the finish, so the inspector sees a real timeline, not a guess.
     // v451: we already know whose stand it is — don't ask the crew.
-    const lt = String(f.locType || "").trim();
+    const lt = String(f.locType || detectStandTypeFor(f.unit, f.loc) || "").trim(); // v456: registry fallback for old reports
     const whose = lt ? (lt === "Subcontractor" || lt === "Portable - Subcontractor" ? "sub" : "ours") : "";
     const prevSt = statusOf(f.key);
     const startTs = prevSt && prevSt.status === "in_progress" && prevSt.ts ? prevSt.ts : 0;
     const mins = startTs ? Math.max(1, Math.round((ts - startTs) / 60000)) : 0;
-    const entry = kind === "fixed" ? { status: "resolved", note: "", by: me, ts, ...(how ? { how } : {}), ...(whose ? { whose } : {}), ...(startTs ? { startTs, mins } : {}) } : kind === "waiting" ? { status: "waiting", note: (note || "").slice(0, 80), by: me, ts } : { status: "in_progress", note: "", by: me, ts };
+    const standType = lt ? standTypeBadge(lt).short : "";
+    const entry = kind === "fixed" ? { status: "resolved", note: "", by: me, ts, ...(how ? { how } : {}), ...(whose ? { whose } : {}), ...(standType ? { standType } : {}), ...(startTs ? { startTs, mins } : {}) } : kind === "waiting" ? { status: "waiting", note: (note || "").slice(0, 80), by: me, ts } : { status: "in_progress", note: "", by: me, ts };
     // v434: cleaning crews say whether they cleaned it or found it already done
     const howText = how === "crew" ? T("we cleaned it", "lo limpiamos nosotros", "nou netwaye l")
       : how === "already" ? T("it was already clean", "ya estaba limpio", "li te deja pwop")
       : "";
-    const whoseText = whose === "sub" ? T("stand's mess", "desorden del stand", "mess stand la") : whose === "ours" ? T("our mess", "desorden nuestro", "mess pa nou") : "";
+    const whoseText = standType ? T(`${standType} problem`, `problema de ${standType}`, `pwoblèm ${standType}`) : "";
     const timeText = mins ? `${mins} min, ${new Date(startTs).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}\u2013${new Date(ts).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}` : "";
     const tags = [howText, whoseText, timeText].filter(Boolean).join(", ");
     const text = `${kind === "fixed" ? "Fixed" : kind === "waiting" ? "Waiting on" : "In process"}${tags ? ` (${tags})` : ""}${note ? `: ${note.trim().slice(0, 200)}` : ""}`;
@@ -9441,7 +9460,7 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
       ws.mergeCells(`A${title.number}:Q${title.number}`);
       title.getCell(1).style = { font: { bold: true, size: 13, color: { argb: "FFFFFFFF" } }, fill: { type: "pattern", pattern: "solid", fgColor: { argb: "FF2A295C" } }, alignment: { vertical: "middle", horizontal: "left" } };
       const hdr = ws.addRow(["#", "Stand", "Unit #", "Floor", "Stand Type", "License", "Problem", "What was wrong", "Flagged",
-        "Fixed by", "Date solved", "Time solved", "Min on job", "Whose mess", "Corrective action / notes", "BEFORE", "AFTER"]);
+        "Fixed by", "Date solved", "Time solved", "Min on job", "Whose problem", "Corrective action / notes", "BEFORE", "AFTER"]);
       hdr.height = 20;
       hdr.eachCell(c => { c.style = { font: { bold: true, size: 10, color: { argb: "FFFFFFFF" } }, fill: { type: "pattern", pattern: "solid", fgColor: { argb: "FFDC2626" } }, alignment: { vertical: "middle", horizontal: "center", wrapText: true } }; });
       ws.views = [{ state: "frozen", ySplit: hdr.number }];
@@ -9457,7 +9476,8 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
         const after = all.filter(x => x.tag === "after").slice(0, 3);
         const solved = Number(f.fixedTs || (st.status === "resolved" ? st.ts : 0) || 0);
         const mins = Number(f.fixedMins || st.mins || 0);
-        const whose = (f.fixedWhose || st.whose) === "sub" ? "STAND / SUBCONTRACTOR" : (f.fixedWhose || st.whose) === "ours" ? "Stadium" : "";
+        const whoseKey = f.fixedWhose || st.whose;
+        const whose = whoseProblemLabel(f.locType, whoseKey, st.standType);
         const notes = [f.notes, ...((commentsLocal[f.key] || venueSettings?.followupComments?.[f.key] || []).map(c => `${c.by}: ${c.text}`))].filter(Boolean).join("  |  ");
         const r = lic[normUnit(f.unit)] || {};
         const row = ws.addRow([i + 1, f.loc, f.unit || "", f.floor || "", standTypeBadge(f.locType || "").short || "—", r.license || "", f.cat, f.detail || "", f.dateStr || "",
@@ -9466,7 +9486,7 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
         const bg = i % 2 === 0 ? "FFFFFFFF" : "FFF4F5F7";
         row.eachCell((c, col) => {
           c.style = { font: { size: 10, name: "Calibri" }, fill: { type: "pattern", pattern: "solid", fgColor: { argb: bg } }, alignment: { vertical: "top", wrapText: col === 8 || col === 15 } };
-          if (col === 14 && whose === "STAND / SUBCONTRACTOR") c.style = { ...c.style, font: { size: 10, bold: true, color: { argb: "FFB45309" } } };
+          if (col === 14 && whoseKey === "sub") c.style = { ...c.style, font: { size: 10, bold: true, color: { argb: "FFB45309" } } };
           if (col === 16 || col === 17) c.style = { ...c.style, font: { size: 9, italic: true, color: { argb: "FF9CA3AF" } }, alignment: { vertical: "middle", horizontal: "center" } };
         });
         const place = async (list, startCol) => {
@@ -9515,7 +9535,7 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
     ws.mergeCells(`A${title.number}:U${title.number}`);
     title.getCell(1).style = { font: { bold: true, size: 13, color: { argb: "FFFFFFFF" } }, fill: { type: "pattern", pattern: "solid", fgColor: { argb: "FF2A295C" } }, alignment: { vertical: "middle", horizontal: "left" } };
     const hdrRow = ws.addRow(["#", "Venue / Stand", "Unit #", "Floor", "Stand Type", "Problem", "Issue Type", "Latest Detail", "Inspector Notes", "Status", "Days Open", "Flagged", "Status By", "Comments", "Photos",
-      "Fixed by", "Date solved", "Time solved", "Started", "Min on job", "Whose mess"]);
+      "Fixed by", "Date solved", "Time solved", "Started", "Min on job", "Whose problem"]);
     hdrRow.height = 20;
     hdrRow.eachCell(c => { c.style = { font: { bold: true, size: 10, color: { argb: "FFFFFFFF" } }, fill: { type: "pattern", pattern: "solid", fgColor: { argb: "FFDC2626" } }, alignment: { vertical: "middle", horizontal: "center", wrapText: true } }; });
     ws.autoFilter = { from: { row: hdrRow.number, column: 1 }, to: { row: hdrRow.number, column: 21 } };
@@ -9534,7 +9554,7 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
       const nPhotos = (f.photos || []).length + ((fuPhotosLocal[f.key] || venueSettings?.followupPhotos?.[f.key] || []).length);
       const solved = Number(f.fixedTs || (st?.status === "resolved" ? st?.ts : 0) || 0);
       const clk = t => t ? new Date(t).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "";
-      const whose = f.fixedWhose === "sub" ? "STAND / SUBCONTRACTOR" : f.fixedWhose === "ours" ? "Stadium" : "";
+      const whose = f.fixedWhose ? whoseProblemLabel(f.locType, f.fixedWhose, st?.standType) : "";
       const row = ws.addRow([i + 1, f.loc, f.unit || "", f.floor || "", standTypeBadge(f.locType || "").short || "—", f.cat, f.itype || "Other", f.detail || "", f.notes || "", stLabel, f.daysSince, f.dateStr || "", st?.by || "", cmts, nPhotos,
         f.fixedBy || (st?.status === "resolved" ? st?.by || "" : ""), solved ? new Date(solved).toLocaleDateString() : "", clk(solved), clk(f.fixedStart), f.fixedMins || "", whose]);
       row.height = 18;
@@ -9576,12 +9596,12 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
           `<td>${f.fixedStart ? esc(clk(f.fixedStart)) : "\u2014"}</td><td><b>${esc(clk(f.fixedTs))}</b></td>` +
           `<td><b>${esc(f.cat)}</b>${f.detail ? `<br><small>${esc(f.detail)}</small>` : ""}</td>` +
           `<td>${esc(f.fixedBy || "")}</td><td>${f.fixedMins ? esc(hrs(f.fixedMins)) : "\u2014"}</td>` +
-          `<td class="${f.fixedWhose === "sub" ? "bill" : ""}">${f.fixedWhose === "sub" ? "STAND / SUBCONTRACTOR" : f.fixedWhose === "ours" ? "Stadium" : "\u2014"}${f.fixedHow === "already" ? "<br><small>found already clean</small>" : ""}</td>` +
+          `<td class="${f.fixedWhose === "sub" ? "bill" : ""}">${whoseProblemLabel(f.locType, f.fixedWhose, stMapX[f.key]?.standType) || "\u2014"}${f.fixedHow === "already" ? "<br><small>found already clean</small>" : ""}</td>` +
           `<td>${img(before)}</td><td>${img(after)}</td></tr>`;
       }).join("");
       return `<h2>${esc(g.loc)}${g.unit ? ` \u2014 Unit #${esc(g.unit)}` : ""}</h2>` +
         `<p class="meta">${r.license ? `License ${esc(r.license)}` : "No license on file"}${g.rows[0]?.locType ? ` \u00b7 <b>${esc(standTypeBadge(g.rows[0].locType).short)}</b>` : ""}${r.name ? ` \u00b7 ${esc(r.name)}` : ""} \u2022 ${g.rows.length} clean${g.rows.length !== 1 ? "s" : ""} \u2022 ${hrs(mins)} of crew time \u2022 ${bill.length} billable to the stand</p>` +
-        `<table><thead><tr><th>Date</th><th>Started</th><th>Solved</th><th>What was cleaned</th><th>Cleaned by</th><th>Time on job</th><th>Whose mess</th><th>Before</th><th>After</th></tr></thead><tbody>${rows}</tbody></table>`;
+        `<table><thead><tr><th>Date</th><th>Started</th><th>Solved</th><th>What was cleaned</th><th>Cleaned by</th><th>Time on job</th><th>Whose problem</th><th>Before</th><th>After</th></tr></thead><tbody>${rows}</tbody></table>`;
     }).join("");
     const totalMins = items.reduce((n, f) => n + (f.fixedMins || 0), 0);
     const billN = items.filter(f => f.fixedWhose === "sub").length;
@@ -9633,15 +9653,7 @@ ${sections}
   // v448: the kind of stand, stamped on the record when the problem is filed
   const [qpType, setQpType] = useState("");
   const [qpTypeAuto, setQpTypeAuto] = useState(true);
-  const detectStandType = (unit, site) => {
-    try {
-      const u = normUnit(unit);
-      if (!u) return "";
-      const at = standSeeds().filter(k => normUnit(k.unit) === u);
-      const exact = at.find(k => sameStandName(k.site, site));
-      return (exact?.locType || at[0]?.locType || "").trim();
-    } catch { return ""; }
-  };
+  const detectStandType = detectStandTypeFor; // v456: shared with the crew board
   const [qpCat, setQpCat] = useState(QUICK_PROBLEM_CATS[0]);
   const [qpCatOther, setQpCatOther] = useState("");
   const [qpDesc, setQpDesc] = useState("");
