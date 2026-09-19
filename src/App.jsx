@@ -9346,6 +9346,16 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
 
   // One reminder for however many items were tapped — a single Quick Check
   // announcement instead of one card per problem (v436).
+  // v462 — the reminder must say what the problem IS, not just the unit:
+  // category + the detail (reading / description / note), area when missing.
+  function fuProblemText(f) {
+    const cat = String(f?.cat || "").trim();
+    const detail = String(f?.detail || "").trim();
+    const area = String(f?.area || "").trim();
+    const withArea = area && !cat.toUpperCase().includes(area.split(" — ")[0].toUpperCase()) ? `${cat} (${area})` : cat;
+    return detail && !cat.includes(detail) ? `${withArea} — ${detail}` : withArea;
+  }
+  const fuCheckItem = f => `${f.cat} — ${f.loc}${f.detail && !String(f.cat || "").includes(f.detail) ? `\n${String(f.detail).trim()}` : ""}`;
   function remindMany(items, flashKey) {
     try {
       const list0 = (Array.isArray(items) ? items : [items]).filter(Boolean);
@@ -9353,18 +9363,18 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
       const list = list0.slice().sort((a, b) =>
         (a.loc || "").localeCompare(b.loc || "") || (a.cat || "").localeCompare(b.cat || ""));
       const one = list.length === 1 ? list[0] : null;
-      const line = f => `• ${f.loc}${f.unit ? ` (Unit #${f.unit})` : ""} — ${f.cat}, flagged ${f.daysSince} day${f.daysSince !== 1 ? "s" : ""} ago (${f.dateStr})`;
+      const line = f => `• ${f.loc}${f.unit ? ` (Unit #${f.unit})` : ""} — ${fuProblemText(f)}, flagged ${f.daysSince} day${f.daysSince !== 1 ? "s" : ""} ago (${f.dateStr})`;
       const a = {
         id: Date.now(),
         title: one ? `🔁 Recheck Needed — ${one.cat}` : `🔁 Rechecks Needed — ${list.length} items`,
         body: (one
-          ? `${one.cat} at ${one.loc}${one.unit ? ` (Unit #${one.unit})` : ""} was flagged ${one.daysSince} day${one.daysSince !== 1 ? "s" : ""} ago (${one.dateStr}) and is still open.`
+          ? `${fuProblemText(one)} at ${one.loc}${one.unit ? ` (Unit #${one.unit})` : ""} was flagged ${one.daysSince} day${one.daysSince !== 1 ? "s" : ""} ago (${one.dateStr}) and is still open.`
           : `${list.length} items are still open:\n` + list.map(line).join("\n")) +
           `\nPlease recheck ${one ? "this item" : "these"} on your next walkthrough and mark ${one ? "it" : "them"} resolved in the report.`,
         author: "Insights Auto-Reminder",
         ts: Date.now(),
         quickCheck: true,
-        checkItems: list.map(f => `${f.cat} — ${f.loc}`),
+        checkItems: list.map(fuCheckItem),
         results: [],
       };
       const prevAnn = JSON.parse(localStorage.getItem("sdx_announcements") || "[]");
@@ -9408,14 +9418,14 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
         title: `🔁 Rechecks Needed — ${headNice}`,
         body: (byCat
           ? `${open.length} venue${open.length !== 1 ? "s" : ""} still open for "${g.cat}":\n` +
-            open.map(f => `• ${f.loc}${f.unit ? ` (Unit #${f.unit})` : ""} — flagged ${f.daysSince} day${f.daysSince !== 1 ? "s" : ""} ago (${f.dateStr})`).join("\n")
+            open.map(f => `• ${f.loc}${f.unit ? ` (Unit #${f.unit})` : ""}${f.detail ? ` — ${String(f.detail).trim()}` : ""} — flagged ${f.daysSince} day${f.daysSince !== 1 ? "s" : ""} ago (${f.dateStr})`).join("\n")
           : `${open.length} item${open.length !== 1 ? "s" : ""} still open${mode === "loc" ? ` at ${g.loc}` : ` — ${headNice}`}:\n` +
-            open.map(f => `• ${mode === "loc" ? "" : `${f.loc}${f.unit ? ` (Unit #${f.unit})` : ""} — `}${f.cat} — flagged ${f.daysSince} day${f.daysSince !== 1 ? "s" : ""} ago (${f.dateStr})`).join("\n")) +
+            open.map(f => `• ${mode === "loc" ? "" : `${f.loc}${f.unit ? ` (Unit #${f.unit})` : ""} — `}${fuProblemText(f)} — flagged ${f.daysSince} day${f.daysSince !== 1 ? "s" : ""} ago (${f.dateStr})`).join("\n")) +
           `\nPlease recheck these on your next walkthrough and mark them resolved in the report.`,
         author: "Insights Auto-Reminder",
         ts: Date.now(),
         quickCheck: true,
-        checkItems: open.map(f => `${f.cat} — ${f.loc}`),
+        checkItems: open.map(fuCheckItem),
         results: [],
       };
       localStorage.setItem("sdx_announcements", JSON.stringify([a, ...list]));
@@ -28302,7 +28312,7 @@ function MessagingPanel({ currentUser, onBack, notifItems, onNotifDismiss, onNot
                             {a.checkItems.map(item => (
                               <span key={item} style={{ fontSize: "0.72rem", padding: "3px 9px", borderRadius: 16, background: "var(--tint-amber-2)", color: "var(--tx-amber)", border: "1px solid #fde68a", fontWeight: 600 }}>
                                 {myResult ? (myResult.answers[item] === "FAIL" ? "❌ " : myResult.answers[item] === "OK" ? "✅ " : "○ ") : ""}
-                                {item}
+                                {String(item).split("\n")[0]}{String(item).includes("\n") ? ` · ${String(item).split("\n").slice(1).join(" ")}` : ""}
                               </span>
                             ))}
                           </div>
@@ -28366,7 +28376,10 @@ function MessagingPanel({ currentUser, onBack, notifItems, onNotifDismiss, onNot
                   const isFail = ans === "FAIL";
                   return (
                     <div key={item} style={{ marginBottom: 12, background: isFail ? "var(--tint-red-1)" : ans === "OK" ? "var(--tint-green-1)" : "var(--surface-2)", borderRadius: 10, border: isFail ? "1.5px solid #fca5a5" : ans === "OK" ? "1.5px solid #86efac" : "1.5px solid #e2e8f0", padding: "0.75rem 0.9rem", transition: "all 0.15s" }}>
-                      <div style={{ fontWeight: 700, fontSize: "0.88rem", color: "var(--ink-900)", marginBottom: 8 }}>{item}</div>
+                      <div style={{ fontWeight: 700, fontSize: "0.88rem", color: "var(--ink-900)", marginBottom: 8 }}>
+                        {String(item).split("\n")[0]}
+                        {String(item).includes("\n") && <div style={{ fontWeight: 600, fontSize: "0.84rem", color: "var(--tx-amber, #b45309)", marginTop: 4, whiteSpace: "pre-line" }}>⚠ {String(item).split("\n").slice(1).join(" ")}</div>}
+                      </div>
                       <div style={{ display: "flex", gap: 8, marginBottom: isFail ? 8 : 0 }}>
                         <button type="button"
                           onClick={() => setQcAnswers(a => ({ ...a, [item]: ans === "OK" ? "" : "OK" }))}
