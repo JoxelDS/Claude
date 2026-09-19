@@ -31210,7 +31210,7 @@ export default function App() {
                   <input className="input" value={siteName} readOnly style={{ background: "var(--surface-2)", color: "var(--ink-600)", cursor: "not-allowed" }} title="Location is set by your manager" />
                 ) : (
                   <>
-                    <input className="input" list="siteNameSuggestions" value={siteName} onBlur={(e) => smartFieldCorrect("field-siteName", e.target.value)} onChange={(e) => applySiteAutofill(e.target.value, { lockIdentity: !!siteNumber.trim() })} placeholder="e.g., North Stand Kitchen" />
+                    <input className="input" list="siteNameSuggestions" value={siteName} onBlur={(e) => smartFieldCorrect("field-siteName", e.target.value)} onChange={(e) => setSiteName(e.target.value.toUpperCase())} placeholder="e.g., North Stand Kitchen" />{/* v459: typing never prefills — only a scanned stand QR does (applyStandFromQr) */}
                     <datalist id="siteNameSuggestions">
                       {(getAutofillMemory().siteName || []).map((s, i) => <option key={i} value={s} />)}
                     </datalist>
@@ -31225,23 +31225,9 @@ export default function App() {
                   setSiteNumber(val);
                   // Floor from the unit number (345 → Floor 3)
                   { const fl = floorFromUnit(val); if (fl) setFloor(fl); }
-                  // Auto-fill site name + license from unit number (Hard Rock Stadium only)
-                  if (IS_DEFAULT_VENUE()) {
-                    // Official registry first: unit + location type picks the right
-                    // license even when a unit holds several (101 C vs 101 P).
-                    const regEntry = lookupLicenseByUnitType(val, locationType);
-                    if (regEntry) {
-                      if (regEntry.license && !restaurantLicense && regEntry.status === "ACTIVE") setRestaurantLicense(regEntry.license);
-                      if (regEntry.name && !siteName) setSiteName(regEntry.name.toUpperCase());
-                    }
-                    const numKey = val.toUpperCase().trim();
-                    const seedName = LICENSE_NAME_BY_NUMBER[numKey];
-                    if (seedName && !siteName && !regEntry?.name) setSiteName(seedName);
-                    if (!restaurantLicense && !regEntry?.license) {
-                      const seedLic = lookupLicenseFromSeed(siteName || seedName || "", val);
-                      if (seedLic) setRestaurantLicense(seedLic);
-                    }
-                  }
+                  // v459: no name / license prefill from the unit number while typing —
+                  // bars and pantries share units with licensed stands and got the
+                  // wrong stand written in. Only a scanned stand QR prefills.
                 }} placeholder="e.g., Unit 12 / Loc-204" />
                 <datalist id="siteNumberSuggestions">
                   {(getAutofillMemory().siteNumber || []).map((s, i) => <option key={i} value={s} />)}
