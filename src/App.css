@@ -8581,3 +8581,19 @@ html[data-theme="dark"] .fuStOnWaiting, html[data-theme="black"] .fuStOnWaiting 
   font-size: 0.8rem; font-weight: 700; color: var(--sdx-navy); font-family: inherit;
 }
 .haccpCard .specOptLink { color: #233d8f; }
+
+/* v460 — service-worker update banner at the bottom, above the sticky Save bar */
+.swUpdateBanner {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 1200;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  padding: 10px 16px; padding-bottom: max(10px, env(safe-area-inset-bottom));
+  background: #2A295C; color: #fff; font-family: inherit; font-size: 0.86rem;
+  box-shadow: 0 -4px 16px rgba(0,0,0,.3); border-top: 2px solid #EE0000;
+}
+.swUpdateText { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 220px; }
+.swUpdateText b { font-size: 0.92rem; }
+.swUpdateText span { opacity: .85; font-size: 0.78rem; line-height: 1.3; }
+.swUpdateBtns { display: flex; gap: 8px; flex: none; }
+.swUpdateBtns button { border: none; border-radius: 8px; padding: 10px 16px; font-weight: 800; font-size: 0.86rem; cursor: pointer; min-height: 44px; font-family: inherit; }
+.swUpdateLater { background: rgba(255,255,255,.14); color: #fff; }
+.swUpdateReload { background: #EE0000; color: #fff; }

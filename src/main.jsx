@@ -106,6 +106,39 @@ ReactDOM.createRoot(document.getElementById("root")).render(
   </ErrorBoundary>
 );
 
+// v460 — the update banner lives at the BOTTOM (above the report's sticky
+// Save bar when it is showing) so it never hides under the fixed header or
+// the phone notch, and it can be put off with "Later" while a report is in
+// progress. The draft autosaves, so Reload is safe; the text says so.
+function showUpdateBanner() {
+  if (document.getElementById("sw-update-banner")) return;
+  const banner = document.createElement("div");
+  banner.id = "sw-update-banner";
+  banner.className = "swUpdateBanner";
+  banner.innerHTML = `
+    <div class="swUpdateText"><b>⬆ New version ready</b><span>Finish and save what you are doing, then reload. Your draft is saved automatically.</span></div>
+    <div class="swUpdateBtns">
+      <button type="button" id="sw-later-btn" class="swUpdateLater">Later</button>
+      <button type="button" id="sw-reload-btn" class="swUpdateReload">Reload now</button>
+    </div>`;
+  document.body.appendChild(banner);
+  const place = () => {
+    const bar = document.querySelector(".stickyActionBar");
+    banner.style.bottom = bar ? `${bar.getBoundingClientRect().height}px` : "0px";
+  };
+  place();
+  const mo = new MutationObserver(place);
+  mo.observe(document.body, { childList: true, subtree: true });
+  window.addEventListener("resize", place);
+  document.getElementById("sw-reload-btn").addEventListener("click", () => window.location.reload());
+  document.getElementById("sw-later-btn").addEventListener("click", () => {
+    banner.remove(); mo.disconnect(); window.removeEventListener("resize", place);
+    // come back in 10 minutes — the update is still waiting
+    setTimeout(showUpdateBanner, 10 * 60 * 1000);
+  });
+}
+window.__sdxShowUpdateBanner = showUpdateBanner; // harness hook
+
 // Register service worker for offline support + automatic update detection
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
@@ -116,27 +149,7 @@ if ("serviceWorker" in navigator) {
         function promptReload(worker) {
           if (!worker) return;
           worker.addEventListener("statechange", () => {
-            if (worker.state === "activated") {
-              // New SW took over — show a non-blocking update banner
-              const banner = document.createElement("div");
-              banner.id = "sw-update-banner";
-              banner.style.cssText = [
-                "position:fixed;top:0;left:0;right:0;z-index:99999",
-                "background:#2A295C;color:#fff;padding:0.75rem 1.25rem",
-                "display:flex;align-items:center;justify-content:space-between;gap:12px",
-                "font-family:sans-serif;font-size:0.9rem;box-shadow:0 -2px 12px rgba(0,0,0,0.3)",
-              ].join(";");
-              banner.innerHTML = `
-                <span>⬆ A new version is ready — reload before printing posters.</span>
-                <button id="sw-reload-btn" style="background:#EE0000;color:#fff;border:none;border-radius:6px;padding:0.4rem 1rem;font-size:0.85rem;cursor:pointer;font-weight:600;">
-                  Reload
-                </button>
-              `;
-              document.body.appendChild(banner);
-              document.getElementById("sw-reload-btn").addEventListener("click", () => {
-                window.location.reload();
-              });
-            }
+            if (worker.state === "activated") showUpdateBanner();
           });
         }
 
