@@ -8597,3 +8597,16 @@ html[data-theme="dark"] .fuStOnWaiting, html[data-theme="black"] .fuStOnWaiting 
 .swUpdateBtns button { border: none; border-radius: 8px; padding: 10px 16px; font-weight: 800; font-size: 0.86rem; cursor: pointer; min-height: 44px; font-family: inherit; }
 .swUpdateLater { background: rgba(255,255,255,.14); color: #fff; }
 .swUpdateReload { background: #EE0000; color: #fff; }
+
+/* v461 — the inspector's notes under every issue line */
+.issueNotes { display: flex; flex-direction: column; gap: 2px; margin-top: 4px; font-size: 0.78rem; line-height: 1.35; color: var(--ink-600, #475569); font-weight: 500; }
+.issueNotesArea { font-size: 0.68rem; font-weight: 800; letter-spacing: .04em; color: var(--sdx-navy); text-transform: uppercase; }
+.issueNotesText { white-space: pre-wrap; word-break: break-word; }
+.issueNotesFix { color: #15803d; font-weight: 700; white-space: pre-wrap; word-break: break-word; }
+.issueNotesRpt { width: 100%; }
+.eodItemBody { display: inline-block; vertical-align: top; max-width: calc(100% - 70px); }
+.eodItemBody .issueNotes { font-size: 0.8rem; }
+
+/* v461 — the wide Scan button sits in the sticky quick-reference wrapper, which is
+   pointer-events:none so it never blocks the page; the button must opt back in. */
+.scanStandBtnWide { pointer-events: auto; position: relative; }

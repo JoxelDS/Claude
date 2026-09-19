@@ -4824,6 +4824,7 @@ function RenderedOutput({ noteType, useCase, context, inspection, rawNotes, insp
               )} />
               <div className="rptActionContent">
                 <span className="rptActionText">{a.issue}</span>
+                <IssueNotes item={a} className="issueNotesRpt" />
                 <span className={cx("rptPriorityLabel",
                   a.priority === "Critical" ? "rptLabelCritical" :
                   a.priority === "High" ? "rptLabelHigh" :
@@ -11313,7 +11314,7 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
     return visibleFiltered.map(rec => ({
       // Quick / supervisor reports carry the problem in actionItems (no checklist to rebuild from)
       issues: (rec.quickProblem || (!Object.keys(rec.inspection || {}).length && (rec.actionItems || []).length))
-        ? (rec.actionItems || []).map(a => ({ issue: a.issue || "", notes: a.notes || "", priority: /^(critical|maintenance)/i.test(a.issue || "") ? (/^maintenance/i.test(a.issue) ? "Maintenance" : "Critical") : "High", status: "Follow-Up", photos: a.photos }))
+        ? (rec.actionItems || []).map(a => ({ issue: a.issue || "", notes: a.notes || "", area: a.area || "", corrective: a.corrective || "", priority: /^(critical|maintenance)/i.test(a.issue || "") ? (/^maintenance/i.test(a.issue) ? "Maintenance" : "Critical") : "High", status: "Follow-Up", photos: a.photos }))
         : buildActionItems({ inspection: rec.inspection, rawNotes: rec.rawNotes, foodTemps: rec.foodTemps, foodTempNames: rec.foodTempNames }),
       score: calcInspectionScore(rec.inspection, { foodTemps: rec.foodTemps, foodTempNames: rec.foodTempNames }),
     }));
@@ -13524,6 +13525,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                                         )}>{resolved ? "✓ Resolved" : (() => { const st = a.status && a.status !== "OK" ? a.status : a.priority; return st === "High" ? "Fail" : st === "Med" ? "Needs Attention" : st; })()}</span>
                                         <div className="issueRowTextWrap" style={{ flex: 1 }}>
                                           <span className="issueRowText" style={resolved ? { textDecoration: "line-through", color: "var(--ink-500)" } : undefined}>{a.issue}</span>
+                                          <IssueNotes item={a} />
                                           {resolved && (
                                             <div style={{ fontSize: "0.75rem", color: "#15803d", marginTop: 3 }}>
                                               {resolved.resolvedNote && <span>"{resolved.resolvedNote}" · </span>}
@@ -27657,6 +27659,27 @@ function HaccpPortal() {
   );
 }
 
+// v461 — everything the inspector wrote about an issue, under the issue line:
+// the area (when the text does not already carry it), the description and
+// the corrective action. Used by the saved-report rows, the End-of-Day check
+// and the on-screen report. Renders nothing when there is nothing to show.
+function IssueNotes({ item, className }) {
+  const issue = String(item?.issue || "");
+  const area = String(item?.area || "").trim();
+  const notes = String(item?.notes || "").trim();
+  const corrective = String(item?.corrective || "").trim();
+  const showArea = area && !issue.toUpperCase().includes(area.toUpperCase());
+  const showNotes = notes && !issue.includes(notes) && notes.toLowerCase() !== `corrective action: ${corrective.toLowerCase()}`;
+  if (!showArea && !showNotes && !corrective) return null;
+  return (
+    <div className={"issueNotes" + (className ? ` ${className}` : "")}>
+      {showArea && <span className="issueNotesArea">📍 {area}</span>}
+      {showNotes && <span className="issueNotesText">{notes}</span>}
+      {corrective && <span className="issueNotesFix">🔧 {corrective}</span>}
+    </div>
+  );
+}
+
 // End-of-day corrective action prompt modal
 function EodCorrectivePrompt({ inspection, rawNotes, onDismiss, onAddNotes }) {
   // Analyze raw notes for action items already documented
@@ -27725,7 +27748,7 @@ function EodCorrectivePrompt({ inspection, rawNotes, onDismiss, onAddNotes }) {
               {flaggedIssues.map((item, i) => (
                 <li key={i} className="eodItemWarn">
                   <span className={`eodPriority eodPriority-${item.priority.toLowerCase()}`}>{item.priority}</span>
-                  {item.issue}
+                  <span className="eodItemBody">{item.issue}<IssueNotes item={item} /></span>
                 </li>
               ))}
             </ul>
