@@ -26543,6 +26543,7 @@ function HaccpPortal() {
   const [problemDetails, setProblemDetails] = useState({}); // v415: which unit / part / where
   const [problemMissing, setProblemMissing] = useState([]);
   const [problemSpecOpen, setProblemSpecOpen] = useState(false); // v458 — optional chips
+  const [problemsAdded, setProblemsAdded] = useState([]); // v463 — problems already added this visit (the editor holds the next one)
   const problemPhotoRef = useRef(null);
   const [submitting, setSubmitting] = useState(false);
   const [photoError, setPhotoError] = useState("");
@@ -26732,28 +26733,48 @@ function HaccpPortal() {
     setProblemPhotos(prev => [...prev, ...enriched].slice(0, PHOTO_LIMIT));
   }
 
-  async function handleSubmit() {
-    // A problem needs a category so the inspector's follow-ups can route it
-    // (cleaning crew vs maintenance vs Ecolab); problem-only mode needs the text too.
-    const hasProblem = problemOnly || problem.trim() || Object.values(problemDetails).some(Boolean);
-    if (problemOnly && !problem.trim() && !Object.values(problemDetails).some(Boolean)) { setProblemError("Describe the problem · Describe el problema"); return; }
-    if (hasProblem && !problemCat) { setProblemError("Pick a category · Elige una categoría"); return; }
-    if (hasProblem) {
-      // v458: the chips are optional — a few words are enough
-      if (!saidEnough(problem, problemDetails)) { setProblemError(L("Say what is wrong and where — a few words is enough", "Di qué está mal y dónde — con pocas palabras basta")); return; }
-      // v439: a photo and what was done about it (v454: no excuse box)
-      const pg = proofGate({ photos: problemPhotos, action: problemAction });
-      if (!pg.ok) {
-        setProblemProof(pg.missing);
-        setProblemError(pg.missing.includes("photo") && pg.missing.includes("action")
-          ? L("Add a photo and say what you did about it", "Agrega una foto y di qué hiciste")
-          : pg.missing.includes("photo")
-            ? L("Add a photo of the problem", "Agrega una foto del problema")
-            : L("Say what you did about it", "Di qué hiciste al respecto"));
-        return;
-      }
-      setProblemProof([]);
+  // v463 — the editor holds ONE problem; validate it, or say why not.
+  const editorHasProblem = () => !!(problem.trim() || Object.values(problemDetails).some(Boolean) || problemPhotos.length || problemAction.trim());
+  function validateProblemEditor() {
+    if (!problemCat) return L("Pick a category", "Elige una categoría");
+    if (!saidEnough(problem, problemDetails)) return L("Say what is wrong and where — a few words is enough", "Di qué está mal y dónde — con pocas palabras basta");
+    const pg = proofGate({ photos: problemPhotos, action: problemAction });
+    if (!pg.ok) {
+      setProblemProof(pg.missing);
+      return pg.missing.includes("photo") && pg.missing.includes("action")
+        ? L("Add a photo and say what you did about it", "Agrega una foto y di qué hiciste")
+        : pg.missing.includes("photo")
+          ? L("Add a photo of the problem", "Agrega una foto del problema")
+          : L("Say what you did about it", "Di qué hiciste al respecto");
     }
+    setProblemProof([]);
+    return "";
+  }
+  const editorToProblem = () => ({
+    text: [specToText(problemDetails, "en"), problem.trim()].filter(Boolean).join(" — "),
+    raw: problem.trim(), category: problemCat, severity, corrective: problemAction.trim(), details: problemDetails,
+    photos: problemPhotos.map(p => ({ id: p.id, name: p.name, sizeMb: p.sizeMb, type: p.type, tag: p.tag || "", previewUrl: (p.previewUrl && !p.previewUrl.startsWith("data:")) ? p.previewUrl : "" })),
+  });
+  function clearProblemEditor() {
+    setProblem(""); setProblemCat(""); setSeverity("issue"); setProblemPhotos([]); setProblemAction(""); setProblemDetails({}); setProblemSpecOpen(false); setProblemProof([]); setProblemError("");
+  }
+  function addAnotherProblem() {
+    const err = validateProblemEditor();
+    if (err) { setProblemError(err); return; }
+    setProblemsAdded(p => [...p, editorToProblem()]);
+    clearProblemEditor();
+    setTimeout(() => document.querySelector(".supCatChips")?.scrollIntoView({ behavior: "smooth", block: "center" }), 50);
+  }
+  async function handleSubmit() {
+    // v463 — several problems per visit: the ones already added plus whatever
+    // is still in the editor. The editor is validated only when it has content.
+    const editorFull = editorHasProblem();
+    if (problemOnly && !editorFull && problemsAdded.length === 0) { setProblemError("Describe the problem · Describe el problema"); return; }
+    if (editorFull) {
+      const err = validateProblemEditor();
+      if (err) { setProblemError(err); setTimeout(() => document.querySelector(".haccpProblemErr")?.scrollIntoView({ behavior: "smooth", block: "center" }), 50); return; }
+    }
+    const allProblems = [...problemsAdded, ...(editorFull ? [editorToProblem()] : [])];
     setProblemMissing([]);
     setProblemError("");
     setSubmitting(true);
@@ -26791,58 +26812,50 @@ function HaccpPortal() {
       itemLabels,
       customItems,
       problemOnly,
-      problemReport: (problem.trim() || Object.values(problemDetails).some(Boolean)) ? { text: [specToText(problemDetails, "en"), problem.trim()].filter(Boolean).join(" — "), corrective: problemAction.trim(), details: problemDetails, category: problemCat, severity, photos: problemPhotos.map(p => ({ id: p.id, name: p.name, sizeMb: p.sizeMb, type: p.type, tag: p.tag || "", previewUrl: (p.previewUrl && !p.previewUrl.startsWith("data:")) ? p.previewUrl : "" })) } : null,
+      problemReport: allProblems.length ? {
+        text: allProblems.map(q => q.text).join(" | "),
+        corrective: allProblems.map(q => q.corrective).filter(Boolean).join(" | "),
+        details: allProblems[0].details, category: allProblems[0].category,
+        severity: allProblems.some(q => q.severity === "urgent") ? "urgent" : allProblems.some(q => q.severity === "issue") ? "issue" : allProblems[0].severity,
+        photos: allProblems.flatMap(q => q.photos),
+      } : null,
+      problemReports: allProblems, // v463 — one entry per problem
       submittedAt: new Date().toISOString(),
     };
     await saveHaccpSubmission(record);
-    if (problem.trim()) {
-      const prId = `prob_${Date.now()}_${Math.random().toString(16).slice(2)}`;
-      const photosOut = problemPhotos.map(p => ({ id: p.id, name: p.name, sizeMb: p.sizeMb, type: p.type, tag: p.tag || "", previewUrl: (p.previewUrl && !p.previewUrl.startsWith("data:")) ? p.previewUrl : "" }));
-      await saveProblemReport({
-        id: prId,
-        reportId: urlReportId,
-        supervisorName: supName.trim(),
-        supervisorPhone: supPhone.trim(),
-        site: locSite.trim(),
-        unit: locUnit.trim(),
-        floor: locFloor.trim(),
-        locationType: locType.trim(),
-        text: problem.trim(),
-        corrective: problemAction.trim(),
-        category: problemCat,
-        severity,
-        photos: photosOut,
-        reportedAt: new Date().toISOString(),
-        status: "open",
-      });
-      // Also file it as a Quick Report inspection record — that is what
-      // computeFollowups reads, so the inspector sees it in Follow-ups,
-      // the overdue banner, Past Reports and Excel work orders. Never let a
-      // rules/network failure here block the HACCP submission itself.
-      try {
+    // v463 — the log is in; show "Submitted!" now. The problem reports, the
+    // Quick Report record for Follow-ups and the crew pings go in the
+    // background (each already survives a failure on its own).
+    if (allProblems.length) {
+      (async () => {
         const now = new Date();
-        await saveOneInspection({
-          id: `${Date.now()}_sp${Math.floor(Math.random() * 1e4)}`,
-          siteName: locSite.trim().toUpperCase(),
-          siteNumber: locUnit.trim(),
-          floor: locFloor.trim(),
-          locationType: locType.trim(),
-          inspectionDate: now.toISOString().slice(0, 10),
-          savedAt: now.toISOString(),
-          inspectionType: "Quick Report",
-          quickProblem: true,
-          source: "haccp_portal",
-          haccpSubmissionId: id,
-          problemReportId: prId,
-          reportedBy: { name: supName.trim(), phone: supPhone.trim() },
-          inspectorName: supName.trim() || "Supervisor",
-          overallStatus: "PASS",
-          photos: photosOut,
-          actionItems: [{ issue: `${problemCat}: ${problem.trim()}`, notes: `Corrective action: ${problemAction.trim()} · Reported by supervisor ${supName.trim() || "—"} via stand QR (${severity})`, corrective: problemAction.trim(), photos: photosOut.map(p => p.id) }],
-          inspection: {},
-        });
-        try { notifyCrewsForItems([{ issue: `${problemCat}: ${problem.trim()}`, notes: "" }], locSite.trim().toUpperCase(), locUnit.trim(), supName.trim()); } catch {}
-      } catch {}
+        const items = [];
+        for (const q of allProblems) {
+          const prId = `prob_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+          try {
+            await saveProblemReport({
+              id: prId, reportId: urlReportId, supervisorName: supName.trim(), supervisorPhone: supPhone.trim(),
+              site: locSite.trim(), unit: locUnit.trim(), floor: locFloor.trim(), locationType: locType.trim(),
+              text: q.text, corrective: q.corrective, category: q.category, severity: q.severity, photos: q.photos,
+              reportedAt: now.toISOString(), status: "open",
+            });
+          } catch {}
+          items.push({ issue: `${q.category}: ${q.text}`, notes: `Corrective action: ${q.corrective} · Reported by supervisor ${supName.trim() || "—"} via stand QR (${q.severity})`, corrective: q.corrective, photos: q.photos.map(p => p.id), problemReportId: prId });
+        }
+        // One Quick Report record with every problem — that is what
+        // computeFollowups reads (one follow-up per loc::category).
+        try {
+          await saveOneInspection({
+            id: `${Date.now()}_sp${Math.floor(Math.random() * 1e4)}`,
+            siteName: locSite.trim().toUpperCase(), siteNumber: locUnit.trim(), floor: locFloor.trim(), locationType: locType.trim(),
+            inspectionDate: now.toISOString().slice(0, 10), savedAt: now.toISOString(),
+            inspectionType: "Quick Report", quickProblem: true, source: "haccp_portal", haccpSubmissionId: id,
+            reportedBy: { name: supName.trim(), phone: supPhone.trim() }, inspectorName: supName.trim() || "Supervisor",
+            overallStatus: "PASS", photos: allProblems.flatMap(q => q.photos), actionItems: items, inspection: {},
+          });
+          try { notifyCrewsForItems(items.map(a => ({ issue: a.issue, notes: "" })), locSite.trim().toUpperCase(), locUnit.trim(), supName.trim()); } catch {}
+        } catch {}
+      })();
     }
     setSubmitting(false);
     setStep("done");
@@ -27092,7 +27105,7 @@ function HaccpPortal() {
             {/* Temperature section — multiple readings per item (hidden in problem-only mode) */}
             <div className="haccpSection" hidden={problemOnly}>
               <div className="haccpSectionHead">{L("Temperature Readings", "Temperaturas")}</div>
-              <div className="haccpSectionHint">{L("Your coolers and freezers are listed first with their brand and where they are. Coolers must read 41°F or below, freezers 0°F or below, hot food 135°F or above. Log every 2 hours during service; if a reading is out of range, write what you did (adjusted, moved product, called maintenance).", "Sus equipos aparecen primero con marca y ubicación. Neveras a 41°F o menos, congeladores a 0°F o menos, comida caliente a 135°F o más. Registre cada 2 horas durante el servicio; si está fuera de rango, escriba qué hizo.")}</div>
+              <div className="haccpSectionHint">{L("Log the food temperatures first; your coolers and freezers are listed underneath with their brand and where they are. Coolers must read 41°F or below, freezers 0°F or below, hot food 135°F or above. Log every 2 hours during service; if a reading is out of range, write what you did (adjusted, moved product, called maintenance).", "Registra primero las temperaturas de comida; sus equipos aparecen debajo con marca y ubicación. Neveras a 41°F o menos, congeladores a 0°F o menos, comida caliente a 135°F o más. Registre cada 2 horas durante el servicio; si está fuera de rango, escriba qué hizo.")}</div>
               <div className="haccpSectionBody">
                 {(() => {
                   const cookingMeta = {
@@ -27338,17 +27351,6 @@ function HaccpPortal() {
 
                   return (
                     <>
-                      {(() => { const done = equipRows.filter(i => summaryOf(i).n > 0).length; return (
-                        <div className="htEquipCard">
-                          <div className="htEquipHead">
-                            <span className="htEquipTitle">❄ {L("YOUR COOLERS & FREEZERS", "SUS NEVERAS Y CONGELADORES")}</span>
-                            <span className="htEquipCount">{done}<small>/{equipRows.length} {L("logged", "listos")}</small></span>
-                          </div>
-                          <div className="htEquipHint">{L("One reading per unit · coolers ≤ 41°F · freezers ≤ 0°F · every 2 hours", "Una lectura por equipo · neveras ≤ 41°F · congeladores ≤ 0°F · cada 2 horas")}</div>
-                          {equipRows.length === 0 && <div className="htEquipEmpty">{L("No coolers / freezers registered for this stand — tell the inspector.", "No hay equipos registrados para este puesto — avise al inspector.")}</div>}
-                          {equipRows.map(item => renderReadingBlock(item))}
-                        </div>
-                      ); })()}
                       <div className="htFoodHead">🍽 {L("FOOD TEMPERATURES", "TEMPERATURAS DE COMIDA")}</div>
                       {(() => { const all = [...beforeCooking, ...cookingItems, ...afterCooking]; const done = all.filter(i => summaryOf(i).n > 0).length; return (
                         <div className="htHowTo">
@@ -27488,6 +27490,18 @@ function HaccpPortal() {
                       </div>
 
                       {afterCooking.map(item => renderReadingBlock(item))}
+                      {/* v463 — coolers & freezers come AFTER the food temperatures */}
+                      {(() => { const done = equipRows.filter(i => summaryOf(i).n > 0).length; return (
+                        <div className="htEquipCard">
+                          <div className="htEquipHead">
+                            <span className="htEquipTitle">❄ {L("YOUR COOLERS & FREEZERS", "SUS NEVERAS Y CONGELADORES")}</span>
+                            <span className="htEquipCount">{done}<small>/{equipRows.length} {L("logged", "listos")}</small></span>
+                          </div>
+                          <div className="htEquipHint">{L("One reading per unit · coolers ≤ 41°F · freezers ≤ 0°F · every 2 hours", "Una lectura por equipo · neveras ≤ 41°F · congeladores ≤ 0°F · cada 2 horas")}</div>
+                          {equipRows.length === 0 && <div className="htEquipEmpty">{L("No coolers / freezers registered for this stand — tell the inspector.", "No hay equipos registrados para este puesto — avise al inspector.")}</div>}
+                          {equipRows.map(item => renderReadingBlock(item))}
+                        </div>
+                      ); })()}
                     </>
                   );
                 })()}
@@ -27512,6 +27526,17 @@ function HaccpPortal() {
             <div className="haccpSection">
               <div className="haccpSectionHead">{problemOnly ? L("Report a Problem", "Reportar un problema") : L("Report a Problem (optional)", "Reportar un problema (opcional)")}</div>
               <div className="haccpSectionBody">
+                {problemsAdded.length > 0 && (
+                  <div className="supAddedList">
+                    {problemsAdded.map((q, i) => (
+                      <div key={i} className="supAddedRow">
+                        <span className="supAddedTxt"><b>{supCatEmoji(q.category)} {q.category}</b> — {q.text}{q.photos.length ? ` · 📷 ${q.photos.length}` : ""}</span>
+                        <button type="button" className="supAddedX" onClick={() => setProblemsAdded(p => p.filter((_, j) => j !== i))} aria-label="Remove">✕</button>
+                      </div>
+                    ))}
+                    <div className="supAddedNext">{L(`Problem ${problemsAdded.length + 1} — or leave this empty and submit`, `Problema ${problemsAdded.length + 1} — o déjalo vacío y envía`)}</div>
+                  </div>
+                )}
                 <div className="haccpCatLabel">{L("What kind of problem?", "¿Qué tipo de problema?")}</div>
                 <div className="htFoodChips supCatChips">
                   {SUP_PROBLEM_CATS.map(c => (
@@ -27556,6 +27581,9 @@ function HaccpPortal() {
                     value={problemAction} onChange={e => { setProblemAction(e.target.value); setProblemProof([]); if (problemError) setProblemError(""); }}
                     placeholder={L("e.g. stopped using it, told the manager, cleaned the area", "ej. dejamos de usarlo, avisé al gerente, limpiamos el área")} />
                 </div>
+                {editorHasProblem() && (
+                  <button type="button" className="supAddAnotherBtn" onClick={addAnotherProblem}>＋ {L("Add another problem", "Agregar otro problema")}</button>
+                )}
                 {problemPhotos.length > 0 && (
                   <div className="photoStrip" style={{ marginTop: 8 }}>
                     {problemPhotos.map(p => (
@@ -27589,8 +27617,9 @@ function HaccpPortal() {
               chatListRef={chatListRef}
             />
 
+            {problemError && <div className="haccpProblemErr" style={{ marginBottom: 8 }}>⚠️ {problemError} — <a href="#" onClick={e => { e.preventDefault(); document.querySelector(".supCatChips")?.scrollIntoView({ behavior: "smooth", block: "center" }); }}>{L("go to the problem", "ir al problema")}</a></div>}
             <button className="haccpSubmitBtn" onClick={handleSubmit} disabled={submitting}>
-              {submitting ? L("Submitting…", "Enviando…") : problemOnly ? L("Send Problem Report", "Enviar reporte") : L("Submit Temperature Log", "Enviar registro de temperaturas")}
+              {submitting ? L("Submitting…", "Enviando…") : problemOnly ? (problemsAdded.length + (editorHasProblem() ? 1 : 0) > 1 ? L(`Send ${problemsAdded.length + (editorHasProblem() ? 1 : 0)} Problem Reports`, `Enviar ${problemsAdded.length + (editorHasProblem() ? 1 : 0)} reportes`) : L("Send Problem Report", "Enviar reporte")) : L("Submit Temperature Log", "Enviar registro de temperaturas")}
             </button>
             {problemOnly && (
               <button className="haccpTextBtn" type="button" onClick={() => setProblemOnly(false)}>
@@ -27611,10 +27640,10 @@ function HaccpPortal() {
             {LocationBanner}
             {TodayStatus}
             <div className="haccpSuccessBox">
-              {problemOnly
-                ? <>Your problem report was sent to the inspection team as <b>{supCatEmoji(problemCat)} {problemCat}</b> — it is now on their follow-up list. · Tu reporte fue enviado al equipo de inspección.</>
+              {(() => { const cats = [...problemsAdded.map(q => q.category), ...(problem.trim() && problemCat ? [problemCat] : [])]; const catsEl = cats.map((c, i) => <b key={i}>{i ? ", " : ""}{supCatEmoji(c)} {c}</b>); return problemOnly
+                ? <>{cats.length > 1 ? `Your ${cats.length} problem reports were` : "Your problem report was"} sent to the inspection team as {catsEl} — now on their follow-up list. · {cats.length > 1 ? "Tus reportes fueron enviados" : "Tu reporte fue enviado"} al equipo de inspección.</>
                 : <>Your temperature log has been submitted and will appear in the inspection report.
-                    {problem.trim() && <> Your <b>{supCatEmoji(problemCat)} {problemCat}</b> problem report is now on the inspector's follow-up list.</>}</>}
+                    {cats.length > 0 && <> Your {catsEl} problem report{cats.length > 1 ? "s are" : " is"} now on the inspector's follow-up list.</>}</>; })()}
             </div>
             {urlSite && (todayChecks || []).length > 0 && (
               <div style={{ marginTop: 10 }}>

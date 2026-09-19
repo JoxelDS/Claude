@@ -8610,3 +8610,12 @@ html[data-theme="dark"] .fuStOnWaiting, html[data-theme="black"] .fuStOnWaiting 
 /* v461 — the wide Scan button sits in the sticky quick-reference wrapper, which is
    pointer-events:none so it never blocks the page; the button must opt back in. */
 .scanStandBtnWide { pointer-events: auto; position: relative; }
+
+/* v463 — several problems per supervisor visit */
+.supAddedList { margin-bottom: 12px; display: flex; flex-direction: column; gap: 6px; }
+.supAddedRow { display: flex; align-items: flex-start; gap: 8px; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 10px; padding: 8px 10px; font-size: 0.84rem; color: #1e293b; }
+.supAddedTxt { flex: 1; line-height: 1.35; }
+.supAddedX { border: none; background: #e2e8f0; color: #475569; border-radius: 6px; width: 26px; height: 26px; cursor: pointer; font-weight: 800; flex: none; }
+.supAddedNext { font-size: 0.78rem; font-weight: 700; color: #233D8F; margin-top: 2px; }
+.supAddAnotherBtn { display: block; width: 100%; margin-top: 10px; padding: 10px; border-radius: 10px; border: 2px dashed #86efac; background: #f0fdf4; color: #15803d; font-weight: 800; font-size: 0.9rem; cursor: pointer; font-family: inherit; }
+.haccpProblemErr a { color: inherit; font-weight: 800; }
