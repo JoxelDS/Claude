@@ -1885,6 +1885,17 @@ function buildHaccpDirectory(subs, forDate, overrides) {
 
 // How many real temperature readings a HACCP submission carries (problem-only
 // submissions and empty forms count as zero).
+// v466: tell the inspectors / admins a supervisor filed a log (best effort)
+async function notifySupervisorLog({ site, unit, by, temps, outOfRange, problems }) {
+  if (!FIREBASE_ON) return;
+  try {
+    const users = await getUsers();
+    const title = `📋 Supervisor log — ${site || "stand"}${unit ? ` #${unit}` : ""}`;
+    const message = `${temps} temp${temps !== 1 ? "s" : ""} logged${outOfRange ? ` · ${outOfRange} out of range` : ""}${problems ? ` · ${problems} problem${problems !== 1 ? "s" : ""}` : ""}${by ? ` · by ${by}` : ""}`;
+    (users || []).filter(u => u.approved && u.name && ["inspector", "admin", "global_admin"].includes(u.role)).slice(0, 12)
+      .forEach(u => saveInspectorNotification({ inspectorName: u.name.trim().toLowerCase(), kind: "followup", title, message }).catch(() => {}));
+  } catch {}
+}
 function haccpTempCount(sub) {
   let n = 0;
   for (const arr of Object.values(sub?.temps || {})) (arr || []).forEach(v => { if (String(v ?? "").trim() !== "") n++; });
@@ -1912,7 +1923,7 @@ function haccpStatusForRecord(rec, allSubs, expandedSubs) {
     const sameDay = (s.submittedAt || "").slice(0, 10) === day;
     const sameStand = unitN && normUnit(s.unit) ? normUnit(s.unit) === unitN : (siteN && (s.site || "").trim().toLowerCase() === siteN);
     // A log linked to a DIFFERENT report never counts for this one
-    if (byId || (sameDay && sameStand && !s.reportId)) { seen.add(s.id); matched.push(s); }
+    if (byId || (!!rec?.haccpSubmissionId && s.id === rec.haccpSubmissionId) || (sameDay && sameStand && !s.reportId)) { seen.add(s.id); matched.push(s); }
   }
   const supTemps = matched.reduce((n, s) => n + haccpTempCount(s), 0);
   const temps = supTemps + recordTempCount(rec);
@@ -1940,7 +1951,7 @@ function haccpSubsForRecord(rec, allSubs, extra) {
     const sameDay = (s.submittedAt || "").slice(0, 10) === day;
     const sameStand = unitN && normUnit(s.unit) ? normUnit(s.unit) === unitN : (!!siteN && (s.site || "").trim().toLowerCase() === siteN);
     // A log linked to a DIFFERENT report never bleeds in
-    if (byId || (sameDay && sameStand && !s.reportId)) { seen.add(key); out.push(s); }
+    if (byId || (!!rec?.haccpSubmissionId && s.id === rec.haccpSubmissionId) || (sameDay && sameStand && !s.reportId)) { seen.add(key); out.push(s); }
   }
   return out.sort((a, b) => (a.submittedAt || "").localeCompare(b.submittedAt || ""));
 }
@@ -8451,7 +8462,7 @@ function computeFollowups(history, venueSettings, clearedLocal = {}) {
     if (!ts) continue;
     // Only a real inspection can make an issue "likely fixed" — an equipment
     // temp scan or a filed problem is not a walk-through of the stand.
-    if (!rec.quickEquipCheck && !rec.quickProblem && (!latestInspByLoc[locName] || ts > latestInspByLoc[locName])) latestInspByLoc[locName] = ts;
+    if (!rec.quickEquipCheck && !rec.quickProblem && !rec.supervisorLog && (!latestInspByLoc[locName] || ts > latestInspByLoc[locName])) latestInspByLoc[locName] = ts;
     const recResolvedMap = rec.resolvedIssues || {};
     const actionItems = rec.actionItems || [];
     actionItems.forEach((item, i) => {
@@ -8472,7 +8483,7 @@ function computeFollowups(history, venueSettings, clearedLocal = {}) {
         catLastSeen[key].area = (item.area || "").trim(); // v445: which unit (older reports)
         catLastSeen[key].source = rec.source || "";
         catLastSeen[key].reportedBy = rec.reportedBy?.name || "";
-        catLastSeen[key].inspector = rec.quickProblem && rec.source === "haccp_portal" ? "" : (rec.inspectorName || "");
+        catLastSeen[key].inspector = (rec.quickProblem || rec.supervisorLog) && rec.source === "haccp_portal" ? "" : (rec.inspectorName || "");
         // Pictures of the problem: checklist items carry photo objects;
         // quick / supervisor reports keep objects on rec.photos + ids on the item.
         try {
@@ -13457,8 +13468,20 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                         {rec.temps?.iceMakerCleanedDate && <div className="rptInfoCell"><span className="rptInfoLabel">Ice Maker Cleaned</span><span className="rptInfoVal">{rec.temps.iceMakerCleanedDate}</span></div>}
                       </div>
 
+                      {/* ── v466 SUPERVISOR LOG: filed from the stand QR, no inspector report needed ── */}
+                      {rec.supervisorLog && (
+                        <div className="supLogBadge">
+                          <span className="supLogBadgeHead">📋 SUPERVISOR LOG{rec.reportedBy?.name || rec.supervisorName ? ` · by ${rec.reportedBy?.name || rec.supervisorName}` : ""}</span>
+                          <span className="supLogBadgeMeta">
+                            🌡️ {rec.haccpTempCount || 0} temp{(rec.haccpTempCount || 0) !== 1 ? "s" : ""} logged{rec.haccpOutOfRange ? <b className="supLogBad"> · {rec.haccpOutOfRange} out of range</b> : " · all in range"}
+                            {(rec.actionItems || []).length ? ` · ${rec.actionItems.length} problem${rec.actionItems.length !== 1 ? "s" : ""} reported` : ""}
+                            {rec.reportedBy?.phone ? ` · 📞 ${rec.reportedBy.phone}` : ""}
+                          </span>
+                          <span className="supLogBadgeHint">Filed by the stand from its QR poster — the temperature log is listed below.</span>
+                        </div>
+                      )}
                       {/* ── QUICK REPORT: the problem as reported ── */}
-                      {rec.quickProblem && (() => {
+                      {(rec.quickProblem || (rec.supervisorLog && (rec.actionItems || []).length > 0)) && (() => {
                         const a0 = (rec.actionItems || [])[0] || {};
                         const [catPart, ...restParts] = String(a0.issue || "").split(":");
                         const cat = restParts.length ? catPart.trim() : "";
@@ -20335,7 +20358,7 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
           // (never filled in) get no label. Units without a real asset tag get a
           // stable one: SDX-CL-<UNIT>-<n> / SDX-FZ-<UNIT>-<n>, numbered by label
           // — the same rule the inventory export uses, so every QR is unique.
-          const sortedRecs = [...recList].filter(r => !r.quickProblem).sort((a, b) => (b.savedAt || "").localeCompare(a.savedAt || ""));
+          const sortedRecs = [...recList].filter(r => !r.quickProblem && !r.supervisorLog).sort((a, b) => (b.savedAt || "").localeCompare(a.savedAt || ""));
           const standDone = new Set();
           const standsNoEquip = [];
           const noEquipSeen = new Set();
@@ -26937,7 +26960,10 @@ function HaccpPortal() {
     // v463 — the log is in; show "Submitted!" now. The problem reports, the
     // Quick Report record for Follow-ups and the crew pings go in the
     // background (each already survives a failure on its own).
-    if (allProblems.length) {
+    // v466 — a log WITH temperatures is a report of its own ("Supervisor
+    // Log") in Past Reports, so the inspector gets it without creating one.
+    const tempCount = haccpTempCount(record);
+    if (allProblems.length || tempCount > 0) {
       (async () => {
         const now = new Date();
         const items = [];
@@ -26953,18 +26979,31 @@ function HaccpPortal() {
           } catch {}
           items.push({ issue: `${q.category}: ${q.text}`, notes: `Corrective action: ${q.corrective} · Reported by supervisor ${supName.trim() || "—"} via stand QR (${q.severity})`, corrective: q.corrective, photos: q.photos.map(p => p.id), problemReportId: prId });
         }
-        // One Quick Report record with every problem — that is what
-        // computeFollowups reads (one follow-up per loc::category).
+        // One record per submission — a "Supervisor Log" when temperatures
+        // were logged (problems ride along as its action items), else the
+        // "Quick Report" that computeFollowups reads (one follow-up per loc::category).
         try {
+          const isLog = tempCount > 0;
+          let outOfRange = 0;
+          if (isLog) {
+            const allItems = [...HACCP_TEMP_ITEMS, ...customItems];
+            for (const [k, arr] of Object.entries(tempsFlat)) { const it = allItems.find(i => i.key === k); if (!it) continue; for (const v of arr) if (tempPass(it, v) === false) outOfRange++; }
+          }
+          let license = "";
+          try { const lr = lookupLicenseByUnitType(locUnit.trim(), locType.trim()); if (lr?.status === "ACTIVE" && lr.license) license = lr.license; } catch {}
+          const inspId = `${Date.now()}_sp${Math.floor(Math.random() * 1e4)}`;
           await saveOneInspection({
-            id: `${Date.now()}_sp${Math.floor(Math.random() * 1e4)}`,
+            id: inspId,
             siteName: locSite.trim().toUpperCase(), siteNumber: locUnit.trim(), floor: locFloor.trim(), locationType: locType.trim(),
+            restaurantLicense: license,
             inspectionDate: now.toISOString().slice(0, 10), savedAt: now.toISOString(),
-            inspectionType: "Quick Report", quickProblem: true, source: "haccp_portal", haccpSubmissionId: id,
-            reportedBy: { name: supName.trim(), phone: supPhone.trim() }, inspectorName: supName.trim() || "Supervisor",
-            overallStatus: "PASS", photos: allProblems.flatMap(q => q.photos), actionItems: items, inspection: {},
+            inspectionType: isLog ? "Supervisor Log" : "Quick Report", quickProblem: !isLog, supervisorLog: isLog, source: "haccp_portal", haccpSubmissionId: id,
+            haccpTempCount: tempCount, haccpOutOfRange: outOfRange,
+            reportedBy: { name: supName.trim(), phone: supPhone.trim() }, inspectorName: supName.trim() || "Supervisor", supervisorName: supName.trim(), sitePhone: supPhone.trim(),
+            overallStatus: outOfRange > 0 ? "FAIL" : "PASS", photos: allProblems.flatMap(q => q.photos), actionItems: items, inspection: {},
           });
-          try { notifyCrewsForItems(items.map(a => ({ issue: a.issue, notes: "" })), locSite.trim().toUpperCase(), locUnit.trim(), supName.trim()); } catch {}
+          if (items.length) try { notifyCrewsForItems(items.map(a => ({ issue: a.issue, notes: "" })), locSite.trim().toUpperCase(), locUnit.trim(), supName.trim()); } catch {}
+          if (isLog) try { notifySupervisorLog({ site: locSite.trim().toUpperCase(), unit: locUnit.trim(), by: supName.trim(), temps: tempCount, outOfRange, problems: items.length }); } catch {}
         } catch {}
       })();
     }
@@ -29647,7 +29686,7 @@ export default function App() {
       const siteN = g("site").toUpperCase();
       const cached = JSON.parse(localStorage.getItem(`sdx_history_cache_${VENUE_ID}`) || "[]");
       const last = cached
-        .filter(r => !r.quickProblem && (unitN ? normUnit(r.siteNumber) === unitN : (r.siteName || "").trim().toUpperCase() === siteN))
+        .filter(r => !r.quickProblem && !r.supervisorLog && (unitN ? normUnit(r.siteNumber) === unitN : (r.siteName || "").trim().toUpperCase() === siteN))
         .sort((a, b) => (b.savedAt || "").localeCompare(a.savedAt || ""))[0];
       if (last) {
         if (!g("site") && last.siteName) setSiteName(last.siteName);

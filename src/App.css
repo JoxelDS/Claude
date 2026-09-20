@@ -8623,3 +8623,10 @@ html[data-theme="dark"] .fuStOnWaiting, html[data-theme="black"] .fuStOnWaiting 
 /* v465: equipment tab paints from cache, then refreshes */
 .equipRefreshChip { display: inline-block; margin: 0 0 10px; padding: 4px 12px; border-radius: 999px; font-size: 0.74rem; font-weight: 700; color: #92400e; background: #fef3c7; border: 1px solid #fcd34d; }
 .equipRefreshChip.equipLoadedChip { color: #166534; background: #dcfce7; border-color: #86efac; }
+
+/* v466: supervisor log card badge */
+.supLogBadge { display: flex; flex-direction: column; gap: 3px; margin: 10px 20px 0; padding: 10px 12px; border-radius: 10px; background: #eef2ff; border: 1px solid #c7d2fe; }
+.supLogBadgeHead { font-weight: 800; font-size: 0.8rem; color: #3730a3; letter-spacing: .02em; }
+.supLogBadgeMeta { font-size: 0.8rem; color: #1e1b4b; font-weight: 600; }
+.supLogBad { color: #b91c1c; }
+.supLogBadgeHint { font-size: 0.72rem; color: #6366f1; }
