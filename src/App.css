@@ -8630,3 +8630,20 @@ html[data-theme="dark"] .fuStOnWaiting, html[data-theme="black"] .fuStOnWaiting 
 .supLogBadgeMeta { font-size: 0.8rem; color: #1e1b4b; font-weight: 600; }
 .supLogBad { color: #b91c1c; }
 .supLogBadgeHint { font-size: 0.72rem; color: #6366f1; }
+
+/* v467: "Understood:" strip under free-text boxes */
+.nluStrip { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 6px 0 4px; }
+.nluStripLbl { font-size: 0.72rem; font-weight: 700; color: #6b7280; letter-spacing: .03em; }
+.nluChip { display: inline-flex; align-items: center; gap: 4px; font-size: 0.76rem; font-weight: 700; padding: 3px 6px 3px 9px; border-radius: 999px; background: #eef2ff; color: #3730a3; border: 1px solid #c7d2fe; }
+.nluChip-severity { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+.nluChip-corrective { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+.nluChipX { border: none; background: transparent; color: inherit; opacity: .6; cursor: pointer; font-size: 0.72rem; padding: 0 2px; line-height: 1; }
+.nluChipX:hover { opacity: 1; }
+button.nluChipTemp { background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; cursor: pointer; }
+.nluHint { font-weight: 600; color: #6366f1; font-size: 0.72rem; }
+.nluNotesPanel { margin-top: 8px; background: #eef2ff; border: 1px solid #c7d2fe; border-radius: 10px; padding: 10px 14px; }
+.nluNotesHead { font-weight: 700; font-size: 0.82rem; color: #3730a3; margin-bottom: 6px; }
+.nluNotesRow { display: flex; align-items: center; gap: 8px; font-size: 0.8rem; padding: 4px 0; border-top: 1px dashed #c7d2fe; }
+.nluNotesRow.off { opacity: .5; text-decoration: line-through; }
+.nluNotesRow .grow { flex: 1; min-width: 0; }
+.nluNotesBtn { border: 1px solid #c7d2fe; background: #fff; border-radius: 8px; font-size: 0.72rem; font-weight: 700; padding: 3px 8px; cursor: pointer; color: #3730a3; }

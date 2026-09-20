@@ -2848,13 +2848,13 @@ function extractFieldsFromNotes(text) {
 
   // LICENSE — e.g. "license: FD-2024-00123", "lic# 12345", "license no. ABC-99"
   const licMatch = text.match(
-    /\b(?:license|lic|restaurant\s*license|rest\.?\s*lic\.?|lic\.?\s*#?|license\s*(?:no\.?|#|number)?)\s*[:#\s]?\s*([A-Z0-9][-A-Z0-9 ]{1,30})/i
+    /\b(?:license|lic|licencia|restaurant\s*license|rest\.?\s*lic\.?|lic\.?\s*#?|license\s*(?:no\.?|#|number)?)\s*[:#\s]?\s*([A-Z0-9][-A-Z0-9 ]{1,30})/i
   );
   if (licMatch) found.restaurantLicense = { value: licMatch[1].trim().toUpperCase(), raw: licMatch[0] };
 
   // SUPERVISOR — e.g. "supervisor: John", "sup: Maria", "chef: Luis"
   const supMatch = text.match(
-    /\b(?:supervisor|sup(?:ervisor)?\.?|manager|mgr\.?|chef\s*(?:in\s*charge|lead)?|gm)\s*[:#]?\s*([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ .'-]{1,40}?)(?=\s*[,\n\r.;]|$)/i
+    /\b(?:supervisor|sup(?:ervisor)?\.?|manager|mgr\.?|chef\s*(?:in\s*charge|lead)?|gm|encargad[oa]|gerente|jefe|jefa)\s*[:#]?\s*([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ .'-]{1,40}?)(?=\s*[,\n\r.;]|$)/i
   );
   if (supMatch) found.supervisorName = { value: supMatch[1].trim(), raw: supMatch[0] };
 
@@ -3705,14 +3705,14 @@ function classifyIssueType(issue, notes = "", priority = "") {
   const t = `${issue || ""} ${notes || ""}`.toLowerCase();
   const lead = String(issue || "").split(":")[0].trim().toLowerCase();
   if (EXPLICIT_TYPE[lead]) return EXPLICIT_TYPE[lead];
-  if (/pest|roach|flies|fly |fruit fl|rodent|mice|mouse|rat |droppings|gnat/.test(t) || p === "pest control") return "Pest Control";
-  if (/ecolab/.test(t)) return "Ecolab / Maintenance";
+  if (/pest|roach|flies|fly |fruit fl|rodent|mice|mouse|rat |droppings|gnat|cucarach|mosca|mosquit|rat[oó]n|ratones|\brata|roedor|plaga|hormiga|excremento/.test(t) || p === "pest control") return "Pest Control";
+  if (/ecolab|sanitiz|qu[ií]mic|dispensador|detergent/.test(t)) return "Ecolab / Maintenance";
   if (p === "maintenance" || /^(hvac|plumbing|electrical|refrigeration)$/.test(p)) return "Maintenance";
   // Hard maintenance: something is broken or not working — the crew with tools
-  if (/broken|leak|not working|doesn'?t work|does not work|no power|repair|missing (tile|panel|cover|handle|knob)|cracked|torn|burnt|burned out|light (is )?out|bulb out|drain(ing)? (slow|clog|back)|clogged|no pressure|low pressure|not delivering|no hot water|won'?t close|not closing|unstable|wobbl/.test(t)) return "Maintenance";
+  if (/broken|leak|not working|doesn'?t work|does not work|no power|repair|missing (tile|panel|cover|handle|knob)|cracked|torn|burnt|burned out|light (is )?out|bulb out|drain(ing)? (slow|clog|back)|clogged|no pressure|low pressure|not delivering|no hot water|won'?t close|not closing|unstable|wobbl|\brot[oa]s?\b|quebrad|dañad|no funciona|no sirve|no prende|no enciende|fuga|gotea|tapad[oa]|atascad|sin agua caliente|no cierra|suelt[oa]\b|se cay[oó]/.test(t)) return "Maintenance";
   // Cleaning beats "a little rusted" — dirt is the problem being reported
-  if (/dirty|not clean|unclean|needs? (a )?clean|grease|build[- ]?up|debris|residue|stain|mold|mildew|dust|sweep|swept|mop+ed|not (mopped|swept)|saniti|trash|garbage|sticky|spill|slippery|food (debris|residue)|grimy|filthy|crumbs|grime|soiled|scale|odor|smell|splatter|wipe/.test(t)) return "Cleaning";
-  if (/haccp|°f|\bout[- ]of[- ]range\b|too warm|too cold|not cold|not hot enough|\btemp\b|temperature/.test(t)) return "Temperature";
+  if (/dirty|not clean|unclean|needs? (a )?clean|grease|build[- ]?up|debris|residue|stain|mold|mildew|dust|sweep|swept|mop+ed|not (mopped|swept)|saniti|trash|garbage|sticky|spill|slippery|food (debris|residue)|grimy|filthy|crumbs|grime|soiled|scale|odor|smell|splatter|wipe|sucio|sucia|sucios|sucias|mugre|grasa|moho|basura|pegajos|derrame|restos|olor|huele|limpiar|limpieza/.test(t)) return "Cleaning";
+  if (/haccp|°f|\bout[- ]of[- ]range\b|too warm|too cold|not cold|not hot enough|\btemp\b|temperature|temperatura|grados|tibio|caliente|no enfr[ií]a/.test(t)) return "Temperature";
   // Soft maintenance: wear that can wait for the next visit
   if (/rust|peeling|damag|loose|replace|gasket|hinge|stuck|needs? adjust|it moves/.test(t)) return "Maintenance";
   return "Other";
@@ -3941,6 +3941,22 @@ function buildActionItems({ inspection, rawNotes, foodTemps: ftArg, foodTempName
   }
   for (const a of parseActionLines(rawNotes))
     items.push({ issue: a.issue, owner: "", due: "", priority: "Med", photos: [] });
+  // v467: free sentences in the notes (and in every section's notes) that
+  // describe a problem become issues too — "grasa debajo de la freidora" is
+  // a Cleaning item with an area, not a line nobody reads.
+  try {
+    const seenText = new Set(items.map(i => nluNorm(i.issue)));
+    const pools = [String(rawNotes || "")];
+    const walk = (node, depth) => { if (!node || typeof node !== "object" || depth > 6) return; if (typeof node.notes === "string" && node.notes.trim()) pools.push(node.notes); for (const v of Object.values(node)) if (v && typeof v === "object" && !Array.isArray(v)) walk(v, depth + 1); };
+    walk(inspection, 0);
+    for (const pool of pools) for (const u of understandNotes(pool)) {
+      if (u.rejected) continue;
+      const frag = nluNorm(u.sentence).slice(0, 40);
+      if ([...seenText].some(x => x.includes(frag))) continue; // already an item (checklist / section note)
+      seenText.add(nluNorm(u.sentence));
+      items.push({ issue: `${u.category}: ${u.sentence}`, notes: u.sentence, area: u.area || (u.unit ? u.unit.name : ""), corrective: u.corrective && nluNorm(u.corrective) !== nluNorm(u.sentence) ? u.corrective : "", owner: "", due: "", priority: u.severity === "urgent" ? "High" : "Med", photos: [], understood: true });
+    }
+  } catch {}
   const seen = new Set();
   return items.filter((it) => { const k = it.issue.toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true; });
 }
@@ -8625,6 +8641,189 @@ function specCatKey(cat) {
   if (/plumb|sink|facil|light|maint|floor|ceiling|wall/.test(c)) return "Maintenance";
   return "Other";
 }
+/* ── v467: the app reads what people type — one rule-based, bilingual engine ──
+   understandText(text, { units, lang }) → { lang, category, crewType, severity,
+   unit, area, temps[], details{}, corrective, mentions{floors,types,units}, matched[] }
+   No network, no model: EN / ES (Kreyòl for the crew words) keyword tables. */
+const nluNorm = t => String(t || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[’‘]/g, "'");
+const NLU_ES_MARKERS = /\b(el|la|los|las|esta|estan|hay|del|con|por|para|muy|pero|tambien|no funciona|no enfria|sucio|sucia|roto|rota|fuga|gotea|tapado|cocina|nevera|congelador|camara|puesto|limpiar|arreglar|cambiar|falta|urgente|ya)\b/g;
+const NLU_EN_MARKERS = /\b(the|is|are|and|not|with|under|behind|broken|dirty|leak|leaking|clogged|cooler|freezer|working|please|fixed|cleaned|replaced|urgent|need|needs)\b/g;
+// Ordered: the first matching category wins (pest and chemicals are never "cleaning")
+const NLU_CATS = [
+  { cat: "Pest Control", re: /\b(pest|roach|roaches|cockroach|flies|fly|fruit fl\w*|gnats?|rodent|mice|mouse|rats?|droppings|ants?|maggots?|cucarach\w*|mosca\w*|mosquit\w*|rat[oa]\w*|ratones|roedor\w*|plaga\w*|hormiga\w*|excremento\w*|gusano\w*)\b/ },
+  { cat: "Ecolab / Chemicals", re: /\b(ecolab|saniti[sz]\w*|sanitizante|sanitizador|chemical\w*|quimic\w*|detergent\w*|dispenser|dispensador|test strips?|tiras|ppm|hand soap|jabon|soap|cloro|bleach|chlorine|quat)\b/ },
+  { cat: "Lights", re: /\b(lights?|bulbs?|light out|luz|luces|bombill\w*|foco|focos|lampara\w*|sin luz|no light)\b/ },
+  { cat: "Plumbing", re: /\b(plumb\w*|plomer\w*|faucet|llave|grifo|drain\w*|desague|desagues|clog\w*|tapad[oa]s?|atascad[oa]s?|backing up|sewer|inundad[oa]|flood\w*|no (hot )?water|sin agua|agua caliente|hot water|toilet|inodoro|water heater|calentador)\b/ },
+  { cat: "Equipment", re: /\b(cooler|coolers|freezer|freezers|walk[- ]?in|reach[- ]?in|nevera\w*|refri\w*|congelador\w*|camara|cuarto frio|fridge|fryer|freidora|grill|parrilla|plancha|oven|horno|warmer|ice (maker|machine)|maquina de hielo|compressor|compresor|gasket|empaque|thermostat|termostato|not cooling|no enfria|no congela|not freezing)\b/ },
+  { cat: "Temperature", re: /\b(temp\w*|temperatura\w*|grados|degrees|°\s*f|out of range|fuera de rango|too warm|tibio|caliente|not cold|no esta frio)\b/ },
+  { cat: "Cleaning", re: /\b(dirty|filthy|not clean|unclean|grease|greasy|grime|grimy|build[- ]?up|debris|mold|moldy|sweep|mop|trash|garbage|sticky|spill\w*|crumbs|odor|smell\w*|splatter|wipe|sucio|sucia|sucios|sucias|mugre|grasa|grasoso|moho|basura|pegajoso|derrame|restos|olor|huele|limpiar|limpieza|barrer|trapear)\b/ },
+  { cat: "Maintenance", re: /\b(broken|broke|repair|not working|doesn'?t work|does not work|won'?t (close|open|turn on|start)|no power|cracked|torn|missing|loose|wobbl\w*|stuck|damaged?|rust\w*|peeling|hinge|handle|door|tile|ceiling|wall|outlet|roto|rota|rotos|rotas|quebrad[oa]|dañad[oa]|danad[oa]|no funciona|no sirve|no prende|no enciende|no cierra|no abre|suelt[oa]|falta|faltan|oxidad[oa]|bisagra|manija|puerta|loseta|techo|pared|enchufe|reparar|arreglar)\b/ },
+];
+const NLU_URGENT = /\b(urgent\w*|urgente|emergency|emergencia|asap|right now|ahora mismo|ya mismo|immediately|inmediatamente|flood\w*|inundad[oa]|fire|fuego|humo|smoke|gas leak|fuga de gas|no water|sin agua|no power|sin luz|sin electricidad|se cayo|fell|injur\w*|herid[oa]|blood|sangre|sparks?|chispas?)\b/;
+const NLU_INFO = /\b(fyi|for your information|just (a )?note|heads[- ]?up|nota|solo aviso|informativo|para que sepan|no es urgente|not urgent)\b/;
+// Where → the canonical "where" chips the SPEC_ROWS use
+const NLU_AREAS = [
+  ["Front line", /\b(front line|front|frontline|linea( de frente)?|al frente|frente|adelante|counter|mostrador)\b/],
+  ["Back of house", /\b(back of house|boh|in the back|back area|atras|parte de atras|detras del puesto|cocina|kitchen)\b/],
+  ["Under equipment", /\b(under|underneath|beneath|below|debajo|abajo del|por debajo)\b/],
+  ["Behind equipment", /\b(behind|detras|atras del)\b/],
+  ["Walk-in", /\b(walk[- ]?in|camara|cuarto frio)\b/],
+  ["Bar", /\b(bar|barra)\b/],
+  ["Prep area", /\b(prep( area| table| station)?|preparacion|area de prep)\b/],
+  ["Hand sink", /\b(hand ?sink|lavamanos|handwash\w*)\b/],
+  ["3-compartment sink", /\b(3[- ]?comp\w*|three[- ]?comp\w*|tres compartimientos|fregadero( de)? 3)\b/],
+  ["Storage", /\b(storage|stock ?room|almacen|bodega|deposito)\b/],
+  ["Drain", /\b(drain|desague|floor drain)\b/],
+  ["Trash area", /\b(trash( area| can)?|garbage|dumpster|basura|basurero)\b/],
+  ["Left side", /\b(left( side)?|izquierd[oa]|lado izquierdo)\b/],
+  ["Right side", /\b(right( side)?|derech[oa]|lado derecho)\b/],
+  ["Ceiling", /\b(ceiling|techo)\b/],
+  ["Floor", /\b(floor|piso|suelo)\b/],
+];
+// Extra synonyms for SPEC_ROWS options (option EN text → regex over normalized text)
+const NLU_OPT_SYN = {
+  "Not cooling": /\b(not cooling|not cold|warm|too warm|no enfria|no esta frio|tibio|caliente|calientes)\b/, "Ice build-up": /\b(ice|frost|hielo|escarcha)\b/, "Door won't close": /\b(won'?t close|not closing|doesn'?t close|no cierra|queda abierta)\b/,
+  "Door / gasket broken": /\b(gasket|empaque|seal)\b.*\b(broken|torn|roto|rota|dañad|danad)|\b(broken|torn|roto|rota)\b.*\b(gasket|empaque|seal)\b/, "Leaking water": /\b(leak\w*|dripping|gotea\w*|fuga|goteo|charco|puddle|water on the floor|agua en el piso)\b/,
+  "Not turning on": /\b(not turning on|won'?t (turn on|start)|no power|dead|no prende|no enciende|no arranca|apagad[oa])\b/, "Loud noise": /\b(loud|noise|noisy|ruido|ruidos[oa]|hace ruido)\b/,
+  "Door": /\b(door|puerta)\b/, "Gasket": /\b(gasket|empaque|seal)\b/, "Handle": /\b(handle|manija|agarradera)\b/, "Hinge": /\b(hinge|bisagra)\b/, "Shelf": /\b(shelf|shelves|repisa\w*|estante\w*)\b/, "Compressor": /\b(compressor|compresor)\b/, "Fan": /\b(fan|ventilador|abanico)\b/, "Thermostat": /\b(thermostat|termostato)\b/, "Drain": /\b(drain|desague)\b/, "Cord / plug": /\b(cord|plug|cable|enchufe)\b/,
+  "Left": /\b(left|izquierd[oa])\b/, "Right": /\b(right|derech[oa])\b/, "Top": /\b(top|arriba)\b/, "Bottom": /\b(bottom|abajo)\b/, "Back": /\b(back|atras)\b/, "Inside": /\b(inside|adentro|dentro)\b/, "Front": /\b(front|frente|adelante)\b/,
+  "Floor": /\b(floor|piso|suelo)\b/, "Wall": /\b(wall|walls|pared\w*)\b/, "Ceiling": /\b(ceiling|techo)\b/, "Hood": /\b(hood|campana|vent)\b/, "Sink": /\b(sink|fregadero|lavaplatos)\b/, "Table": /\b(table|mesa)\b/, "Trash area": /\b(trash|garbage|basura)\b/, "Equipment outside": /\b(outside of|exterior|por fuera)\b/,
+  "Dirty": /\b(dirty|filthy|not clean|unclean|sucio|sucia|sucios|sucias|mugre|grimy)\b/, "Grease": /\b(grease|greasy|grasa|grasoso)\b/, "Mold": /\b(mold|moldy|mildew|moho)\b/, "Standing water": /\b(standing water|puddle|agua estancada|charco)\b/, "Trash overflow": /\b(overflow\w*|desbordad[oa]|llena de basura|full of trash)\b/, "Sticky": /\b(sticky|pegajos[oa])\b/, "Food debris": /\b(debris|crumbs|food on|restos|migas|residuos)\b/,
+  "Faucet": /\b(faucet|tap|llave|grifo)\b/, "Hand sink": /\b(hand ?sink|lavamanos)\b/, "Light": /\b(light|lights|bulb|luz|luces|bombill\w*|foco)\b/, "Outlet": /\b(outlet|plug|enchufe|tomacorriente)\b/, "Floor tile": /\b(tile|loseta|baldosa)\b/, "Ceiling tile": /\b(ceiling tile|techo)\b/, "Water heater": /\b(water heater|calentador)\b/,
+  "Broken": /\b(broken|broke|cracked|roto|rota|rotos|rotas|quebrad[oa]|partid[oa])\b/, "Leaking": /\b(leak\w*|gotea\w*|fuga|goteo)\b/, "Clogged": /\b(clog\w*|tapad[oa]s?|atascad[oa]s?|backing up|slow drain)\b/, "Not working": /\b(not working|doesn'?t work|does not work|no funciona|no sirve|no prende|no enciende|dead)\b/, "Loose": /\b(loose|suelt[oa]|flojo|floja)\b/, "Missing": /\b(missing|falta|faltan|no hay)\b/, "No hot water": /\b(no hot water|cold water only|sin agua caliente|no hay agua caliente)\b/, "Low pressure": /\b(low pressure|no pressure|poca presion|sin presion)\b/,
+  "Sanitizer": /\b(saniti[sz]\w*|sanitizante|sanitizador|quat)\b/, "Detergent": /\b(detergent\w*|soap|jabon)\b/, "Dispenser": /\b(dispenser|dispensador)\b/, "Test strips": /\b(test strips?|tiras)\b/, "Hand soap": /\b(hand soap|jabon de manos)\b/, "Sanitizer bucket": /\b(bucket|cubeta|balde)\b/,
+  "Empty": /\b(empty|vacio|vacia|se acabo|ran out|out of)\b/, "Wrong ppm": /\b(ppm|too strong|too weak|muy fuerte|muy debil)\b/, "Not dispensing": /\b(not dispensing|no dispensa|no sale)\b/,
+  "Roach": /\b(roach\w*|cockroach\w*|cucarach\w*)\b/, "Fly": /\b(flies|fly|mosca\w*|fruit fl\w*)\b/, "Rodent": /\b(rodent\w*|mice|mouse|rats?|raton\w*|ratones|rata\w*|roedor\w*)\b/, "Droppings": /\b(droppings|excremento\w*|caca)\b/, "Ants": /\b(ants?|hormiga\w*)\b/, "Gnats": /\b(gnats?|mosquit\w*)\b/,
+  "One": /\b(one|un|una|1)\b/, "Several": /\b(several|a few|some|varios|varias|algunos|unos)\b/, "Many": /\b(many|lots|a lot|tons|muchos|muchas|infestad[oa]|infest\w*)\b/,
+  "Door left open": /\b(door (left )?open|puerta abierta|quedo abierta)\b/, "Just restocked": /\b(restock\w*|just loaded|recien cargad[oa]|acaban de cargar)\b/, "Compressor not running": /\b(compressor|compresor)\b/, "Unit turned off": /\b(turned off|unplugged|apagad[oa]|desconectad[oa])\b/,
+  "Prep cooler": /\b(prep cooler|prep table|mesa fria)\b/, "Hot holding": /\b(hot ?hold\w*|warmer|mesa caliente|alto[- ]?shaam)\b/,
+  "Equipment": /\b(equipment|equipo|unit)\b/, "Supplies": /\b(supplies|insumos|gloves|guantes|towels|toallas)\b/, "Safety": /\b(safety|unsafe|seguridad|peligro\w*|danger\w*)\b/,
+};
+const NLU_CORRECTIVE = /\b(fixed|repaired|replaced|cleaned|we cleaned|resolved|adjusted|tightened|unclogged|reset|arregl\w*|repar\w*|limpi\w*|cambi\w*|reemplaz\w*|ajust\w*|destap\w*|ya esta|ya quedo|resuelto|listo)\b/;
+const NLU_TYPE_WORDS = [["SUBCONTRACTOR", /\b(subcontract\w*|subcontrat\w*|subs?)\b/], ["PORTABLE", /\b(portable\w*|portatil\w*|carts?|carritos?)\b/], ["CONCESSION", /\b(concession\w*|concesion\w*)\b/], ["KITCHEN", /\b(kitchens?|cocinas?)\b/], ["BAR", /\b(bars?|barras?)\b/]];
+function understandText(text, ctx = {}) {
+  const raw = String(text || "");
+  const t = nluNorm(raw);
+  const out = { lang: "en", category: "", crewType: "", severity: "issue", unit: null, area: "", temps: [], details: {}, corrective: "", mentions: { floors: [], types: [], units: [] }, matched: [] };
+  if (!t.trim()) return out;
+  const es = (t.match(NLU_ES_MARKERS) || []).length, en = (t.match(NLU_EN_MARKERS) || []).length;
+  out.lang = ctx.lang || (es > en ? "es" : "en");
+  // category
+  for (const c of NLU_CATS) { const m = t.match(c.re); if (m) { out.category = c.cat; out.matched.push(m[0]); break; } }
+  // a cooler that is warm with a reading is still an Equipment problem; "temperature" alone stays Temperature
+  if (out.category === "Temperature" && NLU_CATS[4].re.test(t)) out.category = "Equipment";
+  // "grease under the fryer" is a cleaning job, not a fryer problem: an equipment
+  // noun only wins when something is said to be wrong WITH the equipment
+  const EQUIP_FAULT = /\b(not cooling|no enfria|no congela|not freezing|warm|caliente|tibio|broken|broke|roto|rota|leak\w*|gotea\w*|fuga|not working|doesn'?t work|no funciona|no sirve|no prende|no enciende|won'?t|no cierra|no abre|gasket|empaque|compressor|compresor|\bice\b|hielo|escarcha|noise|ruido|reads?|marca|°|grados|degrees|temp\w*|temperatura|off\b|apagad|dead|out of order|fuera de servicio)\b/;
+  if (out.category === "Equipment" && NLU_CATS[6].re.test(t) && !EQUIP_FAULT.test(t)) out.category = "Cleaning";
+  // severity
+  if (NLU_URGENT.test(t)) { out.severity = "urgent"; out.matched.push((t.match(NLU_URGENT) || [""])[0]); }
+  else if (NLU_INFO.test(t)) out.severity = "info";
+  // temperatures: "50°F", "50 F", "at 50", "a 50 grados", "reads 48", "-5 F"; never a unit number (#114) or a count
+  const numRe = /(-?\d{1,3}(?:\.\d)?)\s*(°|º|grados|degrees|deg)?\s*([fc])?(?![\w#])/g;
+  let m;
+  while ((m = numRe.exec(t))) {
+    const before = t.slice(Math.max(0, m.index - 14), m.index);
+    if (/[#\w]$/.test(before) && !/\s$/.test(before)) continue; // part of a word / tag
+    const lead = /(\bat|\ba|@|\ben|esta a|esta en|marca|\breads?|reading|temp\w*(\s*(is|de|of|:))?|\bof|\bde|holding( at)?|running( at)?|\bto)\s*$/.test(before);
+    const explicit = !!(m[2] || m[3]);
+    if (!lead && !explicit) continue;
+    if (/(unit|puesto|stand|#|floor|piso|door|puerta|section|seccion)\s*$/.test(before)) continue;
+    let v = Number(m[1]); if (isNaN(v)) continue;
+    if (m[3] === "c" || /^\s*(grados c|celsius)/.test(t.slice(m.index + m[1].length, m.index + m[1].length + 12))) v = Math.round(v * 9 / 5 + 32);
+    if (v < -40 || v > 300) continue;
+    if (out.temps.some(x => x.value === v)) continue;
+    out.temps.push({ value: v, text: m[0].trim() });
+  }
+  // the unit named — from the stand's own list
+  const units = Array.isArray(ctx.units) ? ctx.units : [];
+  const typeWord = /\b(freezer|freezers|congelador\w*|nevera de congel)\b/.test(t) ? "freezer" : /\b(cooler|coolers|nevera\w*|refri\w*|fridge|walk[- ]?in|camara|cuarto frio|reach[- ]?in|prep)\b/.test(t) ? "cooler" : "";
+  const areaWords = NLU_AREAS.filter(([, re]) => re.test(t)).map(([a]) => a.toLowerCase());
+  let best = null, bestScore = 0;
+  for (const u of units) {
+    const name = nluNorm(u.name || u.label || ""), brand = nluNorm(u.brand || u.brandName || ""), tag = nluNorm(u.tag || u.assetTag || ""), loc = nluNorm(u.location || "");
+    let score = 0;
+    if (tag && t.includes(tag)) score += 10;
+    if (brand && brand.length > 2 && t.includes(brand)) score += 4;
+    for (const w of name.replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter(w => w.length > 2 && !/cooler|freezer|door|the/.test(w))) if (new RegExp(`\\b${w}`).test(t)) score += 3;
+    if (/walk/.test(name) && /walk[- ]?in|camara|cuarto frio/.test(t)) score += 4;
+    if (/prep/.test(name) && /\bprep\b/.test(t)) score += 3;
+    const dm = name.match(/(\d)[- ]?door/); if (dm && new RegExp(`\\b${dm[1]}[- ]?(door|puerta)`).test(t)) score += 4;
+    const isFz = !!(u.freezer || /freez|🧊/i.test(u.name || u.label || "") || /fz|frz/i.test(tag));
+    if (typeWord === "freezer" && isFz) score += 2; else if (typeWord === "cooler" && !isFz) score += 1; else if (typeWord && (typeWord === "freezer") !== isFz) score -= 3;
+    if (loc && areaWords.some(a => loc.includes(a.split(" ")[0]))) score += 2;
+    if (score > bestScore) { best = u; bestScore = score; }
+  }
+  if (best && bestScore >= 2) out.unit = { name: best.name || best.label || "", tag: best.tag || best.assetTag || "", location: best.location || "", freezer: !!best.freezer };
+  // area (first canonical match)
+  for (const [area, re] of NLU_AREAS) { if (re.test(t)) { out.area = area; break; } }
+  // chips for the category
+  const catKey = specCatKey(out.category);
+  const rows = SPEC_ROWS[catKey] || [];
+  for (const row of rows) {
+    // the most specific option wins ("Hand sink" over "Sink")
+    let pick = "", pickLen = -1;
+    for (const [en, esw] of row.opts) {
+      const syn = NLU_OPT_SYN[en];
+      const literal = t.includes(nluNorm(en)) || (esw && t.includes(nluNorm(esw)));
+      const hit = literal || (syn && syn.test(t));
+      if (!hit) continue;
+      const len = (literal ? 100 : 0) + en.length;
+      if (len > pickLen) { pick = en; pickLen = len; }
+    }
+    if (pick) out.details[row.key] = pick;
+    if (!out.details[row.key] && row.key === "where" && out.area) {
+      const opt = row.opts.find(([en]) => nluNorm(en) === nluNorm(out.area) || (out.area === "Under equipment" && /under/i.test(en)) || (out.area === "Back of house" && /back/i.test(en)));
+      if (opt) out.details.where = opt[0];
+    }
+  }
+  if (out.unit && catKey === "Equipment") out.details.unit = out.unit.name;
+  // corrective: the sentence that says what was done
+  for (const sent of raw.split(/(?<=[.!;\n])\s+|\s+[-–—]\s+/)) { const ns = nluNorm(sent); if (NLU_CORRECTIVE.test(ns) && !/\b(not|no|needs?|hay que|necesita|please|favor)\b[^.]*\b(fix|repair|clean|replace|arregl|limpi|cambi)/.test(ns)) { out.corrective = sent.trim(); break; } }
+  // mentions (announcements): floors, stand types, unit numbers
+  const floors = new Set(); let fm; const floorRe = /\b(?:floor|piso|level|nivel)\s*([123])\b|\b([123])(?:st|nd|rd|er|do|ro)?\s*(?:floor|piso|nivel)\b|\b(ground( level| floor)?|planta baja)\b/g;
+  while ((fm = floorRe.exec(t))) { const n = fm[1] || fm[2]; floors.add(n ? `Floor ${n}` : "Ground Level"); }
+  out.mentions.floors = [...floors];
+  out.mentions.types = NLU_TYPE_WORDS.filter(([, re]) => re.test(t)).map(([ty]) => ty);
+  const um = new Set(); let xm; const unitRe = /(?:#|\b(?:unit|puesto|stand|local|unidad)\s*#?\s*)(\d{3}[a-z]?)\b/g;
+  while ((xm = unitRe.exec(t))) um.add(xm[1].toUpperCase());
+  out.mentions.units = [...um];
+  out.crewType = out.category ? (EXPLICIT_TYPE[out.category.toLowerCase()] || (out.category === "Equipment" ? "Maintenance" : out.category === "Other" ? "Other" : out.category)) : "";
+  return out;
+}
+try { window.__sdxUnderstand = understandText; } catch {}
+// One line for the "Understood:" strip
+function understoodChips(r, lang = "en") {
+  const L2 = (en, es) => lang === "es" ? es : en;
+  const chips = [];
+  if (r.category) chips.push({ k: "category", label: `${supCatEmoji(r.category)} ${r.category}` });
+  if (r.unit) chips.push({ k: "unit", label: `❄ ${String(r.unit.name).replace(/\s*(❄|🧊)\s*(Cooler|Freezer)\s*$/u, "")}` });
+  if (r.area) chips.push({ k: "area", label: `📍 ${r.area}` });
+  if (r.severity === "urgent") chips.push({ k: "severity", label: L2("🔴 Urgent", "🔴 Urgente") });
+  if (r.severity === "info") chips.push({ k: "severity", label: L2("🔵 Info", "🔵 Info") });
+  for (const tp of r.temps) chips.push({ k: "temp", label: `🌡 ${tp.value}°F`, value: tp.value });
+  if (r.corrective) chips.push({ k: "corrective", label: `🔧 ${r.corrective.slice(0, 40)}${r.corrective.length > 40 ? "…" : ""}` });
+  return chips;
+}
+// Free-text notes → the issues they describe (one per sentence that understands to a category)
+const NLU_REJECT_LS = `sdx_nlu_rejected_${VENUE_ID}`;
+let _nluRejected = new Set(); try { _nluRejected = new Set(JSON.parse(localStorage.getItem(NLU_REJECT_LS) || "[]")); } catch {}
+const nluSentKey = s => nluNorm(s).replace(/[^a-z0-9]+/g, " ").trim().slice(0, 120);
+function nluReject(sentence) { _nluRejected.add(nluSentKey(sentence)); try { localStorage.setItem(NLU_REJECT_LS, JSON.stringify([..._nluRejected].slice(-200))); } catch {} }
+function nluUnreject(sentence) { _nluRejected.delete(nluSentKey(sentence)); try { localStorage.setItem(NLU_REJECT_LS, JSON.stringify([..._nluRejected])); } catch {} }
+function understandNotes(text, ctx = {}) {
+  const out = [];
+  for (const sent0 of String(text || "").split(/(?<=[.!?;\n])\s+|\n+/)) {
+    const sent = sent0.trim();
+    if (sent.length < 6 || /^(action|next chk|next check|follow ?up|owner)\s*:/i.test(sent)) continue;
+    if (/^(license|lic|supervisor|sup|manager|chef|inspector|done by|site|location|stand|unit)\s*[:#]/i.test(sent)) continue;
+    const r = understandText(sent, ctx);
+    if (!r.category) continue;
+    if (r.corrective && nluNorm(r.corrective) === nluNorm(sent) && !/\b(still|todavia|aun|but|pero)\b/.test(nluNorm(sent))) continue; // a pure "we fixed it" line is not a new problem
+    out.push({ sentence: sent, key: nluSentKey(sent), rejected: _nluRejected.has(nluSentKey(sent)), ...r });
+  }
+  return out;
+}
 const SPEC_ROW_LABEL = { unit: T2("Unit", "Equipo"), problem: T2("Problem", "Problema"), part: T2("Part", "Parte"), where: T2("Where", "Dónde"), what: T2("What", "Qué"), condition: T2("Condition", "Condición"), howmany: T2("How many", "Cuántos") };
 function specToText(details, lang) {
   const i = lang === "es" ? 1 : 0;
@@ -8924,9 +9123,9 @@ function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLoc
             {action.kind === "fixed" && role === "cleaning" && (
               <div className="crewHowRow">
                 <button type="button" className={"crewHowBtn" + (action.how === "crew" ? " on" : "")}
-                  onClick={() => setAction(a2 => ({ ...a2, how: "crew" }))}>🧹 {T("We cleaned it", "Lo limpiamos", "Nou netwaye l")}</button>
+                  onClick={() => setAction(a2 => ({ ...a2, how: "crew", howTouched: true }))}>🧹 {T("We cleaned it", "Lo limpiamos", "Nou netwaye l")}</button>
                 <button type="button" className={"crewHowBtn" + (action.how === "already" ? " on" : "")}
-                  onClick={() => setAction(a2 => ({ ...a2, how: "already" }))}>👍 {T("It was already clean", "Ya estaba limpio", "Li te deja pwop")}</button>
+                  onClick={() => setAction(a2 => ({ ...a2, how: "already", howTouched: true }))}>👍 {T("It was already clean", "Ya estaba limpio", "Li te deja pwop")}</button>
               </div>
             )}
             {/* v451: the photo buttons live INSIDE the box — they used to
@@ -8946,7 +9145,7 @@ function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLoc
                 </div>
               </>
             )}
-            <textarea rows={2} className="caText" value={action.note} autoFocus onChange={e => setAction(a => ({ ...a, note: e.target.value }))}
+            <textarea rows={2} className="caText" value={action.note} autoFocus onChange={e => { const v = e.target.value; const n = nluNorm(v); setAction(a => { const next = { ...a, note: v }; if (a.kind === "fixed" && role === "cleaning" && !a.howTouched) { if (/\b(already clean|was clean|ya estaba limpi|estaba limpio|te deja pwop|deja pwop)/.test(n)) next.how = "already"; else if (/\b(we cleaned|cleaned it|lo limpiamos|limpiamos|limpie|nou netwaye)/.test(n)) next.how = "crew"; } return next; }); }}
               placeholder={action.kind === "fixed" ? T("e.g. Replaced gasket, tested — holding 36°F", "ej. Cambié el empaque, probado — se mantiene a 36°F", "egz. Mwen chanje gasket la, teste — li kenbe 36°F") : action.kind === "waiting" ? T("e.g. part on order, vendor Thursday", "ej. pieza pedida, proveedor el jueves", "egz. pyès la kòmande, vandè a jedi") : T("optional note", "nota opcional", "not opsyonel")} />
             <div className="crewActionBtns">
               <button type="button" className="btn btnGhost" onClick={() => setAction(null)}>{T("Cancel", "Cancelar", "Anile")}</button>
@@ -9684,6 +9883,22 @@ ${sections}
   const [qpFlash, setQpFlash] = useState("");
   const [qpPhotos, setQpPhotos] = useState([]);
   const [qpDetails, setQpDetails] = useState({});
+  const [qpNlu, setQpNlu] = useState(null); // v467
+  const qpTouched = useRef({});
+  function applyQpNlu(text) {
+    if (!String(text || "").trim()) { setQpNlu(null); return; }
+    const r = understandText(text, { units: equipUnitsAtStand(qpUnit, qpSite), lang: "en" });
+    setQpNlu(r);
+    if (r.category && !qpTouched.current.cat && QUICK_PROBLEM_CATS.includes(r.category)) setQpCat(r.category);
+    if (Object.keys(r.details).length) setQpDetails(prev => { const n = { ...prev }; for (const [k, v] of Object.entries(r.details)) if (!n[k]) n[k] = v; return n; });
+  }
+  function rejectQpNlu(kind) {
+    if (kind === "category") { qpTouched.current.cat = true; }
+    if (kind === "unit") setQpDetails(d => { const x = { ...d }; delete x.unit; return x; });
+    if (kind === "area") setQpDetails(d => { const x = { ...d }; delete x.where; return x; });
+    setQpNlu(prev => { if (!prev) return prev; const n = { ...prev, details: { ...prev.details } }; if (kind === "category") n.category = ""; if (kind === "unit") { n.unit = null; delete n.details.unit; } if (kind === "area") { n.area = ""; delete n.details.where; } if (kind === "severity") n.severity = "issue"; if (kind === "corrective") n.corrective = ""; return n; });
+  }
+  useEffect(() => { const id = setTimeout(() => applyQpNlu(qpDesc), 500); return () => clearTimeout(id); }, [qpDesc]); // eslint-disable-line react-hooks/exhaustive-deps
   const [qpMissing, setQpMissing] = useState([]);
   const [qpSpecOpen, setQpSpecOpen] = useState(false); // v458 — chips tucked away, optional
   const [qpSaidErr, setQpSaidErr] = useState(false);
@@ -9763,7 +9978,7 @@ ${sections}
     try { notifyCrewsForItems(rec.actionItems, rec.siteName, rec.siteNumber, rec.inspectorName); } catch {}
     setQpFlash(`✓ Problem filed for ${site}${qpUnit.trim() ? ` #${qpUnit.trim()}` : ""} — it's now a follow-up`);
     setTimeout(() => setQpFlash(""), 4000);
-    setQpOpen(false); setQpSite(""); setQpUnit(""); setQpFloor(""); setQpType(""); setQpTypeAuto(true); setQpDesc(""); setQpCatOther(""); setQpPhotos([]); setQpAction(""); setQpProof([]); setQpSpecOpen(false); setQpSaidErr(false);
+    setQpOpen(false); setQpSite(""); setQpUnit(""); setQpFloor(""); setQpType(""); setQpTypeAuto(true); setQpDesc(""); setQpCatOther(""); setQpNlu(null); qpTouched.current = {}; setQpPhotos([]); setQpAction(""); setQpProof([]); setQpSpecOpen(false); setQpSaidErr(false);
     qpIdRef.current = `${Date.now()}_qp${Math.floor(Math.random() * 1e4)}`;
   }
 
@@ -10123,7 +10338,7 @@ ${sections}
                     </select>
                   </div>
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    <select value={qpCat} onChange={e => setQpCat(e.target.value)}
+                    <select value={qpCat} onChange={e => { qpTouched.current.cat = true; setQpCat(e.target.value); }}
                       style={{ flex: "1 1 160px", padding: "7px 10px", borderRadius: 9, border: "1.5px solid var(--sdx-gray-200)", fontSize: "0.86rem", fontWeight: 600 }}>
                       {QUICK_PROBLEM_CATS.map(c => <option key={c} value={c}>{c}</option>)}
                     </select>
@@ -10135,6 +10350,11 @@ ${sections}
                   <textarea value={qpDesc} onChange={e => { setQpDesc(e.target.value); setQpSaidErr(false); }} rows={2}
                     placeholder="What is wrong and where?"
                     style={{ padding: "7px 10px", borderRadius: 9, border: `1.5px solid ${qpSaidErr ? "#fca5a5" : "var(--sdx-gray-200)"}`, fontSize: "16px", resize: "vertical", fontFamily: "inherit" }} />
+                  {qpNlu && understoodChips(qpNlu).filter(c => c.k !== "temp").length > 0 && (
+                    <div className="nluStrip"><span className="nluStripLbl">Understood:</span>
+                      {understoodChips(qpNlu).filter(c => c.k !== "temp").map((c, i) => <span key={i} className={`nluChip nluChip-${c.k}`}>{c.label}<button type="button" className="nluChipX" aria-label="remove" onClick={() => rejectQpNlu(c.k)}>✕</button></span>)}
+                    </div>
+                  )}
                   {qpSaidErr && <div className="haccpProblemErr">⚠️ Say what is wrong and where — a few words is enough</div>}
                   {/* v458 — the chip block is optional and hidden until asked for */}
                   {(qpSpecOpen || Object.values(qpDetails).some(Boolean)) ? (
@@ -21305,22 +21525,22 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
             </div>
             <div className="walkFillBody">
               <label className="walkLbl">Message</label>
-              <textarea className="input" rows={3} autoFocus value={announce.text} onChange={e => setAnnounce(a => ({ ...a, text: e.target.value }))} placeholder="e.g. Health inspector on site today — keep sanitizer buckets at 200 ppm and log temps before 4 PM." />
+              <textarea className="input" rows={3} autoFocus value={announce.text} onChange={e => { const v = e.target.value; const m = understandText(v).mentions; setAnnounce(a => { const n = { ...a, text: v }; if (!a.targetsTouched) { const fl = m.floors.filter(f => FLOOR_OPTIONS.includes(f)); const ty = m.types.filter(t => TYPE_SHORTS.includes(t)); const st = m.units.map(u => standList.find(k => normUnit(k.unit) === normUnit(u))).filter(Boolean).map(k => standIdOf(k.unit, k.site)); n.floors = fl; n.types = ty; n.stands = [...new Set(st)]; n.understood = fl.length + ty.length + st.length; n.all = /\b(everyone|every stand|all stands|todos los puestos|a todos)\b/.test(nluNorm(v)); } return n; }); }} placeholder="e.g. Health inspector on site today — keep sanitizer buckets at 200 ppm and log temps before 4 PM." />
               <label className="walkLbl">Show for</label>
               <div className="walkChips">{[[1, "1 day"], [3, "3 days"], [7, "1 week"], [0, "Until I remove it"]].map(([d, lb]) => <button key={d} type="button" className={"walkChip" + (announce.days === d ? " on" : "")} onClick={() => setAnnounce(a => ({ ...a, days: d }))}>{lb}</button>)}</div>
-              <label className="walkLbl">Who gets it</label>
-              <div className="walkChips"><button type="button" className={"walkChip" + (announce.all ? " on" : "")} onClick={() => setAnnounce(a => ({ ...a, all: !a.all }))}>📢 Every stand</button></div>
+              <label className="walkLbl">Who gets it{announce.understood ? <span className="nluHint"> · understood from your message — tap to change</span> : null}</label>
+              <div className="walkChips"><button type="button" className={"walkChip" + (announce.all ? " on" : "")} onClick={() => setAnnounce(a => ({ ...a, all: !a.all, targetsTouched: true }))}>📢 Every stand</button></div>
               {!announce.all && (
                 <>
                   <div className="walkLbl" style={{ marginTop: 2 }}>Floors</div>
-                  <div className="walkChips">{FLOOR_OPTIONS.map(f => <button key={f} type="button" className={"walkChip" + (announce.floors.includes(f) ? " on" : "")} onClick={() => setAnnounce(a => ({ ...a, floors: a.floors.includes(f) ? a.floors.filter(x => x !== f) : [...a.floors, f] }))}>{f}</button>)}</div>
+                  <div className="walkChips">{FLOOR_OPTIONS.map(f => <button key={f} type="button" className={"walkChip" + (announce.floors.includes(f) ? " on" : "")} onClick={() => setAnnounce(a => ({ ...a, targetsTouched: true, floors: a.floors.includes(f) ? a.floors.filter(x => x !== f) : [...a.floors, f] }))}>{f}</button>)}</div>
                   <div className="walkLbl" style={{ marginTop: 2 }}>Stand types</div>
-                  <div className="walkChips">{TYPE_SHORTS.map(t => <button key={t} type="button" className={"walkChip" + (announce.types.includes(t) ? " on" : "")} onClick={() => setAnnounce(a => ({ ...a, types: a.types.includes(t) ? a.types.filter(x => x !== t) : [...a.types, t] }))}>{t}</button>)}</div>
+                  <div className="walkChips">{TYPE_SHORTS.map(t => <button key={t} type="button" className={"walkChip" + (announce.types.includes(t) ? " on" : "")} onClick={() => setAnnounce(a => ({ ...a, targetsTouched: true, types: a.types.includes(t) ? a.types.filter(x => x !== t) : [...a.types, t] }))}>{t}</button>)}</div>
                   <div className="walkLbl" style={{ marginTop: 2 }}>Specific stands {announce.stands.length ? `· ${announce.stands.length} picked` : ""}</div>
                   <input className="input" value={announce.q} onChange={e => setAnnounce(a => ({ ...a, q: e.target.value }))} placeholder="🔎 search stand or unit #" />
                   <div className="annStandList">
                     {standList.filter(k => { const q = announce.q.trim().toLowerCase(); return !q || `${k.site} ${k.unit}`.toLowerCase().includes(q); }).slice(0, 40).map(k => { const id = standIdOf(k.unit, k.site); const on = announce.stands.includes(id); return (
-                      <button key={id} type="button" className={"annStand" + (on ? " on" : "")} onClick={() => setAnnounce(a => ({ ...a, stands: on ? a.stands.filter(x => x !== id) : [...a.stands, id] }))}>{on ? "☑" : "☐"} {k.site}{k.unit ? ` · #${k.unit}` : ""} <StandType lt={k.locType} /></button>
+                      <button key={id} type="button" className={"annStand" + (on ? " on" : "")} onClick={() => setAnnounce(a => ({ ...a, targetsTouched: true, stands: on ? a.stands.filter(x => x !== id) : [...a.stands, id] }))}>{on ? "☑" : "☐"} {k.site}{k.unit ? ` · #${k.unit}` : ""} <StandType lt={k.locType} /></button>
                     ); })}
                   </div>
                 </>
@@ -26675,6 +26895,9 @@ function HaccpPortal() {
   const [problemAction, setProblemAction] = useState("");   // v439 — what did you do
   const [problemProof, setProblemProof] = useState([]);
   const [problemDetails, setProblemDetails] = useState({}); // v415: which unit / part / where
+  // v467: what the app understood from the description (chips under the box)
+  const [problemNlu, setProblemNlu] = useState(null);
+  const nluTouched = useRef({}); // fields the person set by hand — never overridden
   const [problemMissing, setProblemMissing] = useState([]);
   const [problemSpecOpen, setProblemSpecOpen] = useState(false); // v458 — optional chips
   const [problemsAdded, setProblemsAdded] = useState([]); // v463 — problems already added this visit (the editor holds the next one)
@@ -26869,6 +27092,35 @@ function HaccpPortal() {
 
   // v463 — the editor holds ONE problem; validate it, or say why not.
   const editorHasProblem = () => !!(problem.trim() || Object.values(problemDetails).some(Boolean) || problemPhotos.length || problemAction.trim());
+  // v467: read the description and pre-fill category / severity / chips —
+  // only fields the person has not set by hand. Runs 500 ms after typing stops.
+  function applyProblemNlu(text) {
+    if (!String(text || "").trim()) { setProblemNlu(null); return; }
+    const units = customItems.filter(i => i.tag).map(i => ({ name: i.label, tag: i.tag, location: i.hint, freezer: /freez|🧊/i.test(i.label || "") }));
+    const r = understandText(text, { units, lang: pl });
+    setProblemNlu(r);
+    if (r.category && !nluTouched.current.cat && SUP_PROBLEM_CATS.some(c => c.cat === r.category)) setProblemCat(r.category);
+    if (!nluTouched.current.sev && r.severity !== "issue") setSeverity(r.severity);
+    if (Object.keys(r.details).length) setProblemDetails(prev => { const n = { ...prev }; for (const [k, v] of Object.entries(r.details)) if (!n[k]) n[k] = v; return n; });
+  }
+  function rejectProblemNlu(kind) {
+    if (kind === "category") { nluTouched.current.cat = true; setProblemCat(""); }
+    if (kind === "severity") { nluTouched.current.sev = true; setSeverity("issue"); }
+    if (kind === "unit") setProblemDetails(d => { const x = { ...d }; delete x.unit; return x; });
+    if (kind === "area") setProblemDetails(d => { const x = { ...d }; delete x.where; return x; });
+    setProblemNlu(prev => { if (!prev) return prev; const n = { ...prev, details: { ...prev.details } };
+      if (kind === "category") n.category = ""; if (kind === "severity") n.severity = "issue"; if (kind === "unit") { n.unit = null; delete n.details.unit; } if (kind === "area") { n.area = ""; delete n.details.where; } if (kind === "corrective") n.corrective = "";
+      return n; });
+  }
+  // "+ Log 50°F" — put the understood reading on that unit's temperature row
+  function logUnderstoodTemp(value, unit) {
+    const item = unit ? customItems.find(i => i.tag && (i.tag === unit.tag || i.label === unit.name)) : null;
+    if (!item) { setProblemError(L("Pick the unit in the temperature list above to log this reading.", "Elige el equipo en la lista de temperaturas para registrar esta lectura.")); return; }
+    setTemps(prev => { const arr = [...(prev[item.key] || [])]; const i = arr.findIndex(v => !String(v || "").trim()); if (i >= 0) arr[i] = String(value); else arr.push(String(value)); return { ...prev, [item.key]: arr }; });
+    setProblemNlu(prev => prev ? { ...prev, temps: prev.temps.filter(tp => tp.value !== value) } : prev);
+    setProblemError("");
+  }
+  useEffect(() => { const id = setTimeout(() => applyProblemNlu(problem), 500); return () => clearTimeout(id); }, [problem]); // eslint-disable-line react-hooks/exhaustive-deps
   function validateProblemEditor() {
     if (!problemCat) return L("Pick a category", "Elige una categoría");
     if (!saidEnough(problem, problemDetails)) return L("Say what is wrong and where — a few words is enough", "Di qué está mal y dónde — con pocas palabras basta");
@@ -26890,7 +27142,7 @@ function HaccpPortal() {
     photos: problemPhotos.map(p => ({ id: p.id, name: p.name, sizeMb: p.sizeMb, type: p.type, tag: p.tag || "", previewUrl: (p.previewUrl && !p.previewUrl.startsWith("data:")) ? p.previewUrl : "" })),
   });
   function clearProblemEditor() {
-    setProblem(""); setProblemCat(""); setSeverity("issue"); setProblemPhotos([]); setProblemAction(""); setProblemDetails({}); setProblemSpecOpen(false); setProblemProof([]); setProblemError("");
+    setProblem(""); setProblemCat(""); setSeverity("issue"); setProblemPhotos([]); setProblemAction(""); setProblemDetails({}); setProblemSpecOpen(false); setProblemProof([]); setProblemError(""); setProblemNlu(null); nluTouched.current = {};
   }
   function addAnotherProblem() {
     const err = validateProblemEditor();
@@ -27692,7 +27944,7 @@ function HaccpPortal() {
                   {SUP_PROBLEM_CATS.map(c => (
                     <button key={c.cat} type="button"
                       className={`htChip supCatChip${problemCat === c.cat ? " supCatOn" : ""}`}
-                      onClick={() => { setProblemCat(problemCat === c.cat ? "" : c.cat); setProblemError(""); }}>
+                      onClick={() => { nluTouched.current.cat = true; setProblemCat(problemCat === c.cat ? "" : c.cat); setProblemError(""); }}>
                       {c.emoji} {c.en} <span className="supCatEs">· {c.es}</span>
                     </button>
                   ))}
@@ -27704,12 +27956,20 @@ function HaccpPortal() {
                 {problemCat && ((problemSpecOpen || Object.values(problemDetails).some(Boolean))
                   ? <SpecificsPicker cat={problemCat} units={customItems.filter(i => i.tag).map(i => ({ name: i.label, location: i.hint }))} value={problemDetails} onChange={d => { setProblemDetails(d); if (problemError) setProblemError(""); }} lang={pl} optional />
                   : <button type="button" className="specOptLink" onClick={() => setProblemSpecOpen(true)}>＋ {L("Add details (optional)", "Agregar detalles (opcional)")}</button>)}
+                {problemNlu && understoodChips(problemNlu, pl).length > 0 && (
+                  <div className="nluStrip">
+                    <span className="nluStripLbl">{L("Understood:", "Entendido:")}</span>
+                    {understoodChips(problemNlu, pl).map((c, i) => c.k === "temp"
+                      ? <button key={i} type="button" className="nluChip nluChipTemp" onClick={() => logUnderstoodTemp(c.value, problemNlu.unit)}>＋ {L(`Log ${c.value}°F`, `Registrar ${c.value}°F`)}{problemNlu.unit ? ` · ${String(problemNlu.unit.name).replace(/\s*(❄|🧊)\s*(Cooler|Freezer)\s*$/u, "")}` : ""}</button>
+                      : <span key={i} className={`nluChip nluChip-${c.k}`}>{c.label}<button type="button" className="nluChipX" aria-label="remove" onClick={() => rejectProblemNlu(c.k)}>✕</button></span>)}
+                  </div>
+                )}
                 {problemError && <div className="haccpProblemErr">⚠️ {problemError}</div>}
                 <div className="haccpProblemSeverity">
                   <span style={{ fontSize: "0.75rem", color: "var(--ink-500)", alignSelf: "center" }}>{L("Severity:", "Gravedad:")}</span>
                   {[["urgent","🔴 Urgent"],["issue","🟡 Issue"],["info","🔵 Info"]].map(([val, label]) => (
                     <button key={val} className={`haccpSeverityBtn ${severity === val ? `sel-${val}` : ""}`}
-                      type="button" onClick={() => setSeverity(val)}>{label}</button>
+                      type="button" onClick={() => { nluTouched.current.sev = true; setSeverity(val); }}>{label}</button>
                   ))}
                 </div>
                 <label className="btn btnGhost btnSmall photoBtn" style={{ marginTop: 8, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}>
@@ -29278,6 +29538,8 @@ export default function App() {
   const [notesPhotos, setNotesPhotos] = useState([]);  // photos attached to raw notes section
   const notesPhotoRef = useRef(null);
   const [notesSuggestions, setNotesSuggestions] = useState(null); // detected fields from rawNotes
+  const [nluTick, setNluTick] = useState(0); // v467: re-render after Keep / ✕ on an understood issue
+  const nluIssues = useMemo(() => { try { return understandNotes(rawNotes); } catch { return []; } }, [rawNotes, nluTick]); // eslint-disable-line react-hooks/exhaustive-deps
   const [suggestionsDismissed, setSuggestionsDismissed] = useState(false);
   const [fieldCorrections, setFieldCorrections] = useState({});
 
@@ -32494,6 +32756,19 @@ export default function App() {
               <textarea ref={rawNotesRef} className="textarea" value={rawNotes} onChange={(e) => setRawNotes(e.target.value)} placeholder="Paste quick inspection notes here..." rows={10} />
 
               {/* ── Smart Field Detection Banner ─────────────────────────── */}
+              {nluIssues.length > 0 && (
+                <div className="nluNotesPanel">
+                  <div className="nluNotesHead">🧠 Understood from your notes — these become issues on the report</div>
+                  {nluIssues.map(u => (
+                    <div key={u.key} className={"nluNotesRow" + (u.rejected ? " off" : "")}>
+                      <span className="grow">{supCatEmoji(u.category)} <b>{u.category}</b> — {u.sentence}{u.area ? <span style={{ color: "#6366f1" }}> · 📍 {u.area}</span> : null}{u.unit ? <span style={{ color: "#6366f1" }}> · ❄ {String(u.unit.name).replace(/\s*(❄|🧊)\s*(Cooler|Freezer)\s*$/u, "")}</span> : null}{u.severity === "urgent" ? <span style={{ color: "#b91c1c" }}> · 🔴 urgent</span> : null}</span>
+                      {u.rejected
+                        ? <button type="button" className="nluNotesBtn" onClick={() => { nluUnreject(u.sentence); setNluTick(t => t + 1); }}>↩ Keep</button>
+                        : <button type="button" className="nluNotesBtn" onClick={() => { nluReject(u.sentence); setNluTick(t => t + 1); }}>✕ Not an issue</button>}
+                    </div>
+                  ))}
+                </div>
+              )}
               {notesSuggestions && !suggestionsDismissed && (
                 <div style={{ marginTop: 8, background: "var(--tint-amber-1)", border: "1px solid #f59e0b", borderRadius: 10, padding: "10px 14px" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
