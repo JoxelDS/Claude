@@ -21876,6 +21876,29 @@ function standPeople(k, subs) {
   }
   return Object.values(by).sort((a, b) => (a.source === "manual" ? -1 : 0) - (b.source === "manual" ? -1 : 0) || (b.lastAt || "").localeCompare(a.lastAt || ""));
 }
+// v471: text people one at a time, each with their own signed-in stand link
+function TextStepper({ list, onClose, title }) {
+  const [i, setI] = useState(0);
+  const [sent, setSent] = useState({});
+  const [copied, setCopied] = useState(false);
+  const cur = list[i];
+  if (!cur) return <div className="kqrBulk"><b>✓ Done — everyone was offered their link.</b> <button type="button" className="kqrPersonBtn" onClick={onClose}>Close</button></div>;
+  const { k, p } = cur; const text = standInviteText(k, p.name, p);
+  return (
+    <div className="kqrBulk">
+      <div className="kqrBulkHead">📨 {title ? `${title} · ` : ""}{i + 1} of {list.length} · <b>{p.name || "—"}</b> · {p.phone} · {k.site}{k.unit ? ` #${k.unit}` : ""}</div>
+      <div className="kqrBulkWho">Their link opens already signed in as {p.name || "them"} at this stand — they just log the temps.</div>
+      <div className="kqrBulkBtns">
+        <a className="kqrPersonBtn kqrPersonSave" href={smsHref(p.phone, text)} onClick={() => setTimeout(() => setSent(x => ({ ...x, [i]: true })), 300)}>✉ Open text</a>
+        <a className="kqrPersonBtn kqrPersonWa" href={waHref(p.phone, text)} target="_blank" rel="noreferrer">💬 WhatsApp</a>
+        <button type="button" className="kqrPersonBtn" onClick={() => { try { navigator.clipboard?.writeText(text); } catch {} setCopied(true); setTimeout(() => setCopied(false), 1500); }}>{copied ? "✓ Copied" : "📋 Copy"}</button>
+        <button type="button" className="kqrPersonBtn" onClick={() => setI(i + 1)}>{sent[i] ? "Next ▸" : "Skip ▸"}</button>
+        <button type="button" className="kqrPersonBtn" onClick={onClose}>✕</button>
+      </div>
+      <div className="kqrBulkHint">One text per person so each link is theirs. Tap Open text → Send on your phone → come back → Next.</div>
+    </div>
+  );
+}
 function standHaccpUrl(k) {
     const base = window.location.origin + import.meta.env.BASE_URL;
     const params = new URLSearchParams({ haccp: "1" });
@@ -22407,24 +22430,7 @@ function KitchenQrPage({ onBack, onPrintLabels, onStandEquipment }) {
                   <button type="button" className="kqrPersonBtn" onClick={() => copyText(allText, "all")}>{copied === "all" ? "✓ Copied" : "📋 Copy list"}</button>
                   <button type="button" className="kqrPersonBtn kqrPersonSave" onClick={() => setBulk({ i: 0, list: rows.flatMap(r => r.people.filter(p => p.phone).map(p => ({ k: r.k, p }))) })}>📨 Text everyone</button>
                 </div>
-                {bulk && (() => {
-                  const cur = bulk.list[bulk.i]; if (!cur) return <div className="kqrBulk"><b>✓ Done — everyone was offered their link.</b> <button type="button" className="kqrPersonBtn" onClick={() => setBulk(null)}>Close</button></div>;
-                  const { k, p } = cur; const text = standInviteText(k, p.name, p);
-                  return (
-                    <div className="kqrBulk">
-                      <div className="kqrBulkHead">📨 {bulk.i + 1} of {bulk.list.length} · <b>{p.name || "—"}</b> · {p.phone} · {k.site}{k.unit ? ` #${k.unit}` : ""}</div>
-                      <div className="kqrBulkWho">Their link opens already signed in as {p.name || "them"} at this stand — they just log the temps.</div>
-                      <div className="kqrBulkBtns">
-                        <a className="kqrPersonBtn kqrPersonSave" href={smsHref(p.phone, text)} onClick={() => setTimeout(() => setBulk(b => b ? { ...b, sent: { ...(b.sent || {}), [bulk.i]: true } } : b), 300)}>✉ Open text</a>
-                        <a className="kqrPersonBtn kqrPersonWa" href={waHref(p.phone, text)} target="_blank" rel="noreferrer">💬 WhatsApp</a>
-                        <button type="button" className="kqrPersonBtn" onClick={() => copyText(text, "bulk")}>{copied === "bulk" ? "✓ Copied" : "📋 Copy"}</button>
-                        <button type="button" className="kqrPersonBtn" onClick={() => setBulk(b => ({ ...b, i: b.i + 1 }))}>{bulk.sent?.[bulk.i] ? "Next ▸" : "Skip ▸"}</button>
-                        <button type="button" className="kqrPersonBtn" onClick={() => setBulk(null)}>✕</button>
-                      </div>
-                      <div className="kqrBulkHint">One text per person so each link is theirs. Tap Open text → Send on your phone → come back → Next.</div>
-                    </div>
-                  );
-                })()}
+                {bulk && <TextStepper list={bulk.list} onClose={() => setBulk(null)} />}
                 {rows.length === 0 && <div className="kqrPeopleEmpty">No people yet. Names and phones appear here as soon as someone files a log from a stand QR — or add them on the stand card.</div>}
                 {rows.map(({ k, people }) => (
                   <div key={k.id} className="kqrPeopleStand">
@@ -26480,7 +26486,6 @@ function EquipScanModal({ onClose, onApply, initialTag }) {
 function HaccpTodayTracker({ venueSettings, saveVenueSettingsMap, history, currentUser }) {
   const [subs, setSubs] = useState(null);
   const [regStands, setRegStands] = useState([]); // stands with QR posters (expected universe)
-  const [view, setView] = useState("stand"); // "stand" | "person"
   const [standFilter, setStandFilter] = useState("done"); // "done" | "missed" | "all"
   const [day, setDay] = useState(() => new Date().toISOString().slice(0, 10));
   // Event days are mandatory-compliance days: land on the missed list (the
@@ -26494,16 +26499,18 @@ function HaccpTodayTracker({ venueSettings, saveVenueSettingsMap, history, curre
   const [editSite, setEditSite] = useState("");
   const [showRemoved, setShowRemoved] = useState(false);
   const [teamLocal, setTeamLocal] = useState({}); // optimistic overrides
+  const [textingState, setTextingState] = useState(null); // v471: the text-all-missed stepper list
 
   useEffect(() => {
     (async () => {
       try { setSubs(await loadHaccpSubmissions()); } catch { setSubs([]); }
+      try { await loadStandList(); } catch {}
       // Best-effort: stands registered for QR posters count as "expected"
       try {
         if (FIREBASE_ON) {
           const snap = await getDoc(doc(db, "venues", VENUE_ID, "sharedMemory", "kitchenRegistry"));
           const items = snap.exists() ? (snap.data()?.items || {}) : {};
-          setRegStands(Object.values(items).filter(k => k?.site || k?.unit).map(k => ({ site: k.site || "", unit: k.unit || "" })));
+          setRegStands(Object.entries(items).filter(([, k]) => k?.site || k?.unit).map(([rid, k]) => ({ rid, site: k.site || "", unit: k.unit || "", floor: k.floor || "", locType: k.locType || "", contacts: Array.isArray(k.contacts) ? k.contacts : [] })));
         }
       } catch {}
     })();
@@ -26517,14 +26524,16 @@ function HaccpTodayTracker({ venueSettings, saveVenueSettingsMap, history, curre
     const id = k.unit ? `u:${normUnit(k.unit)}` : `s:${(k.site || "").toLowerCase()}`;
     if (!seenIds.has(id)) { seenIds.add(id); dir.stands.push({ id, site: k.site, unit: k.unit, lastAt: "", submittedToday: false }); }
   }
+  // v471: manual contacts per stand id (kitchenRegistry.items[id].contacts — v468)
+  const regContacts = {};
+  for (const k of regStands) { const id = k.unit ? `u:${normUnit(k.unit)}` : `s:${(k.site || "").toLowerCase()}`; if (k.contacts?.length) regContacts[id] = [...(regContacts[id] || []), ...k.contacts]; if (k.rid && k.contacts?.length) regContacts[k.rid] = k.contacts; }
+  const regMeta = {}; for (const k of regStands) { const id = k.unit ? `u:${normUnit(k.unit)}` : `s:${(k.site || "").toLowerCase()}`; regMeta[id] = k; }
+  for (const k of (_standListCache || [])) { if (k.contacts?.length) regContacts[k.id] = [...(regContacts[k.id] || []), ...k.contacts]; if (!regMeta[k.id]) regMeta[k.id] = k; }
   if (dir.people.length === 0 && dir.stands.length === 0 && dir.hiddenPeople.length === 0) return null;
   const today = new Date().toISOString().slice(0, 10);
   const eventName = venueSettings?.eventDays?.[day];
   const mandatory = !!eventName; // event day → every stand MUST fill the HACCP log
   const shiftDay = n => { const d = new Date(day + "T12:00:00"); d.setDate(d.getDate() + n); setDay(d.toISOString().slice(0, 10)); };
-  const portalUrl = `${window.location.origin}${BASE}?haccp=1${VENUE_ID !== "default" ? `&v=${VENUE_ID}` : ""}`;
-  const msg = `⏰ HACCP Reminder — please log your temperatures now. Open this link on your phone: ${portalUrl}`;
-  const smsHref = phone => `sms:${phone}${/iphone|ipad|ipod|mac/i.test(navigator.userAgent) ? "&" : "?"}body=${encodeURIComponent(msg)}`;
   const dayWord = day === today ? "today" : "this day";
   // Inspector coverage for the same day — did WE also inspect this stand?
   const inspByStand = {};
@@ -26537,12 +26546,40 @@ function HaccpTodayTracker({ venueSettings, saveVenueSettingsMap, history, curre
   const inspectedCount = dir.stands.filter(s => inspByStand[s.id]).length;
   const standsPending = dir.stands.filter(s => !s.submittedToday).length;
   const peoplePending = dir.people.filter(s => !s.submittedToday && s.activeOnDate).length;
-  const allRows = view === "stand" ? dir.stands : dir.people;
-  // Day filter applies to stands; the people view always shows everyone
-  // (pending first) so the Text list stays complete.
-  const rows = view !== "stand" || standFilter === "all" ? allRows
+  // ── v471: ONE list — every stand with its people underneath ──
+  // The universe is the real stand list (unit + stand name — three stands share
+  // #114), not buildHaccpDirectory's unit-keyed stands, which merge siblings.
+  const peopleByPhone = {};
+  for (const p of dir.people) peopleByPhone[phoneDigits(p.phone)] = p;
+  const hiddenPhones = new Set(dir.hiddenPeople.map(p => phoneDigits(p.phone)));
+  const placed = new Set();
+  const universe = (_standListCache || []).length ? _standListCache.slice() : dir.stands.map(s => ({ id: s.id, site: s.site, unit: s.unit, floor: "", locType: "", contacts: [] }));
+  const seenU = new Set(universe.map(k => k.id));
+  for (const s of dir.stands) { if (!seenU.has(s.id) && !universe.some(k => normUnit(k.unit) === normUnit(s.unit) && (!s.site || sameStandName(k.site, s.site)))) { seenU.add(s.id); universe.push({ id: s.id, site: s.site, unit: s.unit, floor: "", locType: "", contacts: [] }); } }
+  const subFor = (k, r) => { if (!r || r.type !== "submission") return false; const uK = normUnit(k.unit), uR = normUnit(r.unit); const sR = (r.site || "").trim(); if (uK && uR) return uK === uR && (!sR || !k.site || sameStandName(sR, k.site)); return !!sR && !!k.site && sameStandName(sR, k.site); };
+  const merged = universe.map(k0 => {
+    const k = { id: k0.id, site: k0.site || "", unit: k0.unit || "", floor: k0.floor || floorFromUnit(k0.unit) || "", locType: k0.locType || "", contacts: [...(k0.contacts || []), ...(regContacts[k0.id] || [])] };
+    let lastAt = "", checksOnDate = 0, doneBy = null;
+    for (const r of subs) { if (!subFor(k, r)) continue; const at = r.submittedAt || ""; if (at > lastAt) lastAt = at; if (at.slice(0, 10) === day && haccpTempCount(r) > 0) { checksOnDate++; if (!doneBy || at > doneBy.at) doneBy = { name: r.supervisorName || "", at }; } }
+    const submittedToday = checksOnDate > 0;
+    const people = standPeople(k, subs).map(p => { const d = phoneDigits(p.phone); const m = peopleByPhone[d]; if (m) placed.add(d); return { ...p, name: (m?.name || p.name || "").toUpperCase(), pkey: m ? m.phone : d, submittedToday: !!m?.submittedToday, activeOnDate: !!m?.activeOnDate, lastAt: m?.lastAt || p.lastAt || "" }; })
+      .filter(p => !hiddenPhones.has(phoneDigits(p.phone)))
+      .sort((a, b) => (b.activeOnDate - a.activeOnDate) || (a.submittedToday - b.submittedToday));
+    return { id: k.id, site: k.site, unit: k.unit, lastAt, submittedToday, checksOnDate, doneBy, k, people, pending: people.filter(p => p.activeOnDate && !p.submittedToday).length };
+  });
+  const orphans = dir.people.filter(p => !placed.has(phoneDigits(p.phone)) && !hiddenPhones.has(phoneDigits(p.phone))).map(p => ({ ...p, name: (p.name || "").toUpperCase(), pkey: p.phone, source: "log" }));
+  if (orphans.length) merged.push({ id: "__nostand", site: "People with no stand on file", unit: "", lastAt: "", submittedToday: orphans.every(p => p.submittedToday), noStand: true, k: { id: "", site: "", unit: "", floor: "", locType: "", contacts: [] }, people: orphans, pending: orphans.filter(p => p.activeOnDate && !p.submittedToday).length });
+  const inspectedCountM = merged.filter(r => !r.noStand && (inspByStand[r.id] || (normUnit(r.unit) && inspByStand[`u:${normUnit(r.unit)}`]))).length;
+  const standsPendingM = merged.filter(r => !r.noStand && !r.submittedToday).length;
+  const inspFor = r => inspByStand[r.id] || (normUnit(r.unit) ? inspByStand[`u:${normUnit(r.unit)}`] : null);
+  const allRows = merged;
+  const rows = (standFilter === "all" ? allRows
     : standFilter === "done" ? allRows.filter(r => r.submittedToday)
-    : allRows.filter(r => !r.submittedToday);
+    : standFilter === "pending" ? allRows.filter(r => r.pending > 0)
+    : standFilter === "inspected" ? allRows.filter(r => inspFor(r))
+    : allRows.filter(r => !r.submittedToday))
+    .slice().sort((a, b) => (a.noStand - b.noStand) || (standFilter === "all" ? (a.submittedToday - b.submittedToday) : 0) || standPrintOrder(a.k, b.k));
+  const [texting, setTexting] = [textingState, setTextingState];
   const chipRing = active => active ? { outline: "2px solid var(--sdx-navy)", outlineOffset: 1, cursor: "pointer" } : { cursor: "pointer", opacity: 0.85 };
   const saveTeam = (phone, patch) => {
     const prev = overrides[phone] || {};
@@ -26566,9 +26603,10 @@ function HaccpTodayTracker({ venueSettings, saveVenueSettingsMap, history, curre
     setReqFlash(`📣 Reminder sent to ${list.length} stand${list.length !== 1 ? "s" : ""} — it pops up on their phone when they open the stand QR`);
     setTimeout(() => setReqFlash(""), 5000);
   }
-  // People on shift at those stands get a text too (their own phone, no app needed)
-  const phoneForStand = s => (dir.people.find(p => p.activeOnDate && !p.submittedToday && p.site && s.site && p.site.trim().toLowerCase() === s.site.trim().toLowerCase()) || {}).phone || "";
-  const missedStands = dir.stands.filter(s => !s.submittedToday);
+  const missedStands = allRows.filter(s => !s.submittedToday && !s.noStand);
+  const missedPeople = allRows.filter(r => !r.submittedToday).flatMap(r => r.people.filter(p => p.phone && !p.submittedToday).map(p => ({ k: r.k.site ? r.k : { ...r.k, site: p.site || "" }, p })));
+  const pill = (on, txt, title) => <span title={title} style={{ fontSize: "0.66rem", fontWeight: 800, padding: "0.2rem 0.55rem", borderRadius: 999, flexShrink: 0, background: on ? "var(--tint-green-1)" : "#FEF3C7", color: on ? "#16a34a" : "#B45309" }}>{txt}</span>;
+  const timeOf = iso => iso ? new Date(iso).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "";
   return (
     <div className="card" style={{ marginBottom: 18 }}>
       <div className="cardHeader"><div className="cardTitle">🌡 HACCP — temp log tracker</div></div>
@@ -26594,122 +26632,104 @@ function HaccpTodayTracker({ venueSettings, saveVenueSettingsMap, history, curre
         )}
         <div className="fuSummary" style={{ marginBottom: 10 }}>
           <span className="fuSumChip fuSumOk" style={chipRing(standFilter === "done")} onClick={() => setStandFilter("done")}>
-            ✓ {dir.stands.filter(s => s.submittedToday).length} logged {dayWord}
+            ✓ {allRows.filter(s => s.submittedToday && !s.noStand).length} logged {dayWord}
           </span>
           {mandatory ? (
             <span className="fuSumChip fuSumOverdue" style={chipRing(standFilter === "missed")} onClick={() => setStandFilter("missed")}>
-              ⏰ {standsPending} missed
+              ⏰ {standsPendingM} missed
             </span>
           ) : (
             <span className="fuSumChip pillGray" style={chipRing(standFilter === "missed")} onClick={() => setStandFilter("missed")}>
-              {standsPending} not logged
+              {standsPendingM} not logged
             </span>
           )}
           <span className="fuSumChip" style={{ ...chipRing(standFilter === "all") }} onClick={() => setStandFilter("all")}>
-            All ({allRows.length})
+            All ({allRows.filter(s => !s.noStand).length})
           </span>
-          {mandatory && peoplePending > 0 && <span className="fuSumChip fuSumSoon">👤 {peoplePending} on shift, pending</span>}
-          {inspectedCount > 0 && <span className="fuSumChip" style={{ background: "#dbeafe", color: "#1d4ed8", borderColor: "#bfdbfe" }}>🕵 {inspectedCount} inspected</span>}
+          {peoplePending > 0 && <span className="fuSumChip fuSumSoon" style={chipRing(standFilter === "pending")} onClick={() => setStandFilter("pending")}>👤 {peoplePending} on shift, pending</span>}
+          {inspectedCountM > 0 && <span className="fuSumChip" style={{ background: "#dbeafe", color: "#1d4ed8", borderColor: "#bfdbfe", ...chipRing(standFilter === "inspected") }} onClick={() => setStandFilter("inspected")}>🕵 {inspectedCountM} inspected</span>}
           {day === today && missedStands.length > 0 && (
             <button type="button" className="haccpReqBtn haccpReqAll" onClick={() => requestTemps(missedStands)}
               title="Send a temperature-log reminder to every stand that hasn't logged today">
               📣 Request temps · all {missedStands.length} missed
             </button>
           )}
-          <span className="fuToggle" style={{ marginLeft: "auto" }}>
-            <button type="button" className={`fuToggleBtn${view === "stand" ? " fuToggleActive" : ""}`} onClick={() => setView("stand")}>🍳 By Stand</button>
-            <button type="button" className={`fuToggleBtn${view === "person" ? " fuToggleActive" : ""}`} onClick={() => setView("person")}>👤 By Person</button>
-          </span>
+          {day === today && missedPeople.length > 0 && (
+            <button type="button" className="haccpReqBtn haccpReqSms" onClick={() => setTexting(missedPeople)} title="Text each person at a stand that has not logged — their own signed-in link">
+              📨 Text all missed ({missedPeople.length})
+            </button>
+          )}
         </div>
         {reqFlash && <div className="haccpReqFlash">{reqFlash}</div>}
-        <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 340, overflowY: "auto" }}>
+        {texting && <div style={{ marginBottom: 8 }}><TextStepper list={texting} title="Missed" onClose={() => setTexting(null)} /></div>}
+        <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 420, overflowY: "auto" }}>
           {rows.length === 0 && (
             <div style={{ fontSize: "0.8rem", color: "var(--ink-400)", fontStyle: "italic", padding: "8px 2px" }}>
               {standFilter === "done" ? "Nobody has logged the HACCP form this day yet." : standFilter === "missed" ? "No misses this day 🎉" : "Nothing here."}
             </div>
           )}
           {rows.map(r => (
-            <div key={r.id || r.phone} style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--surface-2)", border: "1.5px solid var(--sdx-gray-200)", borderRadius: 10, padding: "0.45rem 0.7rem", flexWrap: "wrap" }}>
-              {view === "person" && editPhone === r.phone ? (
-                <>
-                  <input className="input" value={editName} placeholder="Name" onChange={e => setEditName(e.target.value)} style={{ flex: "1 1 120px", fontSize: "16px", padding: "5px 8px" }} />
-                  <input className="input" value={editSite} placeholder="Stand" onChange={e => setEditSite(e.target.value)} style={{ flex: "1 1 100px", fontSize: "16px", padding: "5px 8px" }} />
-                  <button type="button" className="fuBtn fuBtnResolve" onClick={() => { saveTeam(r.phone, { name: editName.trim(), site: editSite.trim() }); setEditPhone(null); }}>Save</button>
-                  <button type="button" className="fuBtn" onClick={() => setEditPhone(null)}>✕</button>
-                </>
-              ) : (
-                <>
-                  <div style={{ flex: 1, minWidth: 0, opacity: view === "person" && !r.activeOnDate ? 0.55 : 1 }}>
-                    <div style={{ fontWeight: 700, fontSize: "0.82rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {view === "person" && r.activeOnDate && <span style={{ color: "#16a34a", marginRight: 4 }}>●</span>}
-                      {view === "stand" ? `${r.site || "—"}${r.unit ? ` · #${r.unit}` : ""}` : (r.name || r.phone)}
-                    </div>
-                    <div style={{ fontSize: "0.7rem", color: "var(--ink-500)" }}>
-                      {view === "stand"
-                        ? (r.submittedToday
-                            ? `${r.checksOnDate || 1} check${(r.checksOnDate || 1) !== 1 ? "s" : ""} this day`
-                            : r.lastAt ? `last log ${new Date(r.lastAt).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}` : "never logged")
-                        : `${r.phone}${r.site ? ` · ${r.site}` : ""}${r.activeOnDate ? "" : " · not on shift this day"}`}
-                    </div>
+            <div key={r.id} className={"haccpStandRow" + (r.submittedToday ? " done" : "")}>
+              <div className="haccpStandHead">
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 800, fontSize: "0.84rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.noStand ? "👤 " : "🍳 "}{r.site || "—"}{r.unit ? ` · #${r.unit}` : ""}{r.k.locType ? <StandType lt={r.k.locType} style={{ marginLeft: 6 }} /> : null}</div>
+                  {!r.noStand && <div style={{ fontSize: "0.7rem", color: "var(--ink-500)" }}>
+                    {r.submittedToday
+                      ? `${r.checksOnDate || 1} check${(r.checksOnDate || 1) !== 1 ? "s" : ""} this day`
+                      : r.lastAt ? `last log ${new Date(r.lastAt).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}` : "never logged"}
+                    {r.people.length === 0 ? " · nobody on file — add people on the stand card" : ""}
+                  </div>}
+                </div>
+                {!r.noStand && (
+                  <div style={{ display: "flex", gap: 5, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                    {pill(r.submittedToday, r.submittedToday
+                      ? `👷 ${(r.doneBy?.name || "done").split(" ")[0]}${r.doneBy?.at ? ` · ${timeOf(r.doneBy.at)}` : ""}${r.checksOnDate > 1 ? ` ×${r.checksOnDate}` : ""}`
+                      : "👷 no HACCP")}
+                    <span style={{ fontSize: "0.66rem", fontWeight: 800, padding: "0.2rem 0.55rem", borderRadius: 999, flexShrink: 0,
+                      background: inspFor(r) ? "#dbeafe" : "var(--surface-1)", color: inspFor(r) ? "#1d4ed8" : "var(--ink-400)", border: inspFor(r) ? "1px solid #bfdbfe" : "1px solid var(--sdx-gray-200)" }}>
+                      {inspFor(r) ? `🕵 ${(inspFor(r).inspector || "inspected").split(" ")[0]}` : "🕵 —"}
+                    </span>
+                    {!r.submittedToday && day === today && (
+                      requestedToday(r.id) ? (
+                        <button type="button" className="haccpReqBtn haccpReqSent" onClick={() => requestTemps([r])}
+                          title={`Requested at ${timeOf(requestedToday(r.id).ts)} by ${requestedToday(r.id).by} — tap to send again`}>
+                          📣 sent {timeOf(requestedToday(r.id).ts)}
+                        </button>
+                      ) : (
+                        <button type="button" className="haccpReqBtn" onClick={() => requestTemps([r])} title="Ask this stand to log temperatures now — alert on their phone">
+                          📣 Request temps
+                        </button>
+                      )
+                    )}
                   </div>
-                  {view === "stand" ? (
-                    <div style={{ display: "flex", gap: 5, flexWrap: "wrap", justifyContent: "flex-end" }}>
-                      <span style={{ fontSize: "0.66rem", fontWeight: 800, padding: "0.2rem 0.55rem", borderRadius: 999, flexShrink: 0,
-                        background: r.submittedToday ? "var(--tint-green-1)" : "#FEF3C7",
-                        color: r.submittedToday ? "#16a34a" : "#B45309" }}>
-                        {r.submittedToday
-                          ? `👷 ${(r.doneBy?.name || "done").split(" ")[0]}${r.doneBy?.at ? ` · ${new Date(r.doneBy.at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}` : ""}${r.checksOnDate > 1 ? ` ×${r.checksOnDate}` : ""}`
-                          : "👷 no HACCP"}
-                      </span>
-                      <span style={{ fontSize: "0.66rem", fontWeight: 800, padding: "0.2rem 0.55rem", borderRadius: 999, flexShrink: 0,
-                        background: inspByStand[r.id] ? "#dbeafe" : "var(--surface-1)",
-                        color: inspByStand[r.id] ? "#1d4ed8" : "var(--ink-400)",
-                        border: inspByStand[r.id] ? "1px solid #bfdbfe" : "1px solid var(--sdx-gray-200)" }}>
-                        {inspByStand[r.id] ? `🕵 ${(inspByStand[r.id].inspector || "inspected").split(" ")[0]}` : "🕵 —"}
-                      </span>
-                      {!r.submittedToday && day === today && (
-                        requestedToday(r.id) ? (
-                          <button type="button" className="haccpReqBtn haccpReqSent" onClick={() => requestTemps([r])}
-                            title={`Requested at ${new Date(requestedToday(r.id).ts).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })} by ${requestedToday(r.id).by} — tap to send again`}>
-                            📣 sent {new Date(requestedToday(r.id).ts).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
-                          </button>
-                        ) : (
-                          <button type="button" className="haccpReqBtn" onClick={() => requestTemps([r])} title="Ask this stand to log temperatures now — alert on their phone">
-                            📣 Request temps
-                          </button>
-                        )
-                      )}
-                      {!r.submittedToday && day === today && phoneForStand(r) && (
-                        <a href={smsHref(phoneForStand(r))} className="haccpReqBtn haccpReqSms" title="Text the supervisor on shift at this stand">💬 Text</a>
-                      )}
-                    </div>
-                  ) : (
-                  <span style={{ fontSize: "0.66rem", fontWeight: 800, padding: "0.2rem 0.55rem", borderRadius: 999, flexShrink: 0,
-                    background: r.submittedToday ? "var(--tint-green-1)" : "#FEF3C7",
-                    color: r.submittedToday ? "#16a34a" : "#B45309" }}>
-                    {r.submittedToday ? "✓ Logged" : "⏰ Missed"}
-                  </span>
-                  )}
-                  {view === "person" && (
+                )}
+              </div>
+              {r.people.map(p => (
+                <div key={p.pkey} className={"haccpPersonRow" + (p.activeOnDate ? "" : " off")}>
+                  {editPhone === p.pkey ? (
                     <>
-                      {!r.submittedToday && r.activeOnDate && day === today && (
-                        <a href={smsHref(r.phone)}
-                          style={{ background: "#2563eb", color: "#fff", borderRadius: 8, padding: "0.35rem 0.7rem", fontWeight: 800, fontSize: "0.74rem", textDecoration: "none", flexShrink: 0 }}>
-                          💬 Text
-                        </a>
+                      <input className="input" value={editName} placeholder="Name" onChange={e => setEditName(e.target.value)} style={{ flex: "1 1 120px", fontSize: "16px", padding: "5px 8px" }} />
+                      <input className="input" value={editSite} placeholder="Stand" onChange={e => setEditSite(e.target.value)} style={{ flex: "1 1 100px", fontSize: "16px", padding: "5px 8px" }} />
+                      <button type="button" className="fuBtn fuBtnResolve" onClick={() => { saveTeam(p.pkey, { name: editName.trim(), site: editSite.trim() }); setEditPhone(null); }}>Save</button>
+                      <button type="button" className="fuBtn" onClick={() => setEditPhone(null)}>✕</button>
+                    </>
+                  ) : (
+                    <>
+                      <span className="haccpPersonWho">{p.activeOnDate ? <span style={{ color: "#16a34a" }}>● </span> : ""}<b>{p.name || p.phone}</b>{p.phone ? <span className="haccpPersonPhone"> · {p.phone}</span> : null}{p.source === "manual" && p.role ? ` · ${p.role}` : ""}{!p.activeOnDate && p.source !== "manual" ? " · not on shift this day" : ""}</span>
+                      {pill(p.submittedToday, p.submittedToday ? `✓ Logged${p.lastAt && (p.lastAt || "").slice(0, 10) === day ? ` ${timeOf(p.lastAt)}` : ""}` : (p.activeOnDate ? "⏰ Missed" : "—"))}
+                      {!p.submittedToday && day === today && p.phone && (
+                        <a href={smsHref(p.phone, standInviteText(r.k.site ? r.k : { ...r.k, site: p.site || "" }, p.name, p))} className="haccpReqBtn haccpReqSms" title="Text this person their own stand link">💬 Text</a>
                       )}
-                      <button type="button" onClick={() => { setEditPhone(r.phone); setEditName(r.name || ""); setEditSite(r.site || ""); }}
-                        style={{ background: "none", border: "none", cursor: "pointer", fontSize: "0.85rem" }}>✎</button>
-                      <button type="button" onClick={() => saveTeam(r.phone, { hidden: true })}
-                        style={{ background: "none", border: "none", color: "#dc2626", fontWeight: 800, cursor: "pointer", fontSize: "0.85rem" }}>✕</button>
+                      <button type="button" onClick={() => { setEditPhone(p.pkey); setEditName(p.name || ""); setEditSite(p.site || r.site || ""); }} style={{ background: "none", border: "none", cursor: "pointer", fontSize: "0.85rem" }}>✎</button>
+                      <button type="button" onClick={() => saveTeam(p.pkey, { hidden: true })} style={{ background: "none", border: "none", color: "#dc2626", fontWeight: 800, cursor: "pointer", fontSize: "0.85rem" }} title="Remove this person">✕</button>
                     </>
                   )}
-                </>
-              )}
+                </div>
+              ))}
             </div>
           ))}
         </div>
-        {view === "person" && dir.hiddenPeople.length > 0 && (
+        {dir.hiddenPeople.length > 0 && (
           <div style={{ marginTop: 8 }}>
             <button type="button" onClick={() => setShowRemoved(s => !s)}
               style={{ background: "none", border: "none", color: "var(--ink-500)", fontWeight: 700, fontSize: "0.74rem", cursor: "pointer", padding: 0 }}>
