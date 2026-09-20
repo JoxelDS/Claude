@@ -315,7 +315,7 @@ function standForUnitless(venueName) {
 }
 function equipBelongsTo(it, stand, siblings) {
   if (!it || !stand) return false;
-  if (it.standId) return it.standId === stand.id;
+  if (it.standId) return canonStandId(it.standId) === stand.id;
   const u = normUnit(stand.unit);
   if (!normUnit(it.unit)) { const s = standForUnitless(it.venueName); return s ? s.id === stand.id : (!u && sameStandName(it.venueName, stand.site) && !!(it.venueName || "").trim()); }
   if (!u) return false;
@@ -654,6 +654,8 @@ const HARD_ROCK_LICENSE_SEED = {
   "111 Ella Cafe":                      "NOS2326513",
   // Stand 114
   "P114 - Shawarma Gyros / Sub":        "NOS2334412",
+  "P114 - Shawarma / Sub":              "NOS2334412",
+  "P114 Shawarma":                      "NOS2334412",
   "P114 Shawarma Gyros":                "NOS2334412",
   "114 - Magic City Dogs":              "NOS2319802",
   "114 Magic City Dogs":                "NOS2319802",
@@ -777,6 +779,8 @@ const HARD_ROCK_LICENSE_SEED = {
   "319A AIFI Edgewater Grill":          "NOS2334858",
   // Stand 322
   "P322 - Shawarma Gyros / Sub":        "NOS2334405",
+  "P322 - Shawarma / Sub":              "NOS2334405",
+  "P322 Shawarma":                      "NOS2334405",
   "P322 Shawarma Gyros":                "NOS2334405",
   // Stand 323
   "P323 - Dip N Dots / Sub":            "NOS2338677",
@@ -918,7 +922,7 @@ const LICENSE_REGISTRY = [
   { unit: "107", type: "C", license: "NOS2319803", name: "Fan Favorites", status: "ACTIVE" },
   { unit: "107", type: "P", license: "NOS2334421", name: "Dip N Dots/ Sub", status: "ACTIVE" },
   { unit: "111", type: "S", license: "NOS2326513", name: "Amazonica", status: "ACTIVE" },
-  { unit: "114", type: "P", license: "NOS2334412", name: "Shawarma Gyros / Sub", status: "ACTIVE" },
+  { unit: "114", type: "P", license: "NOS2334412", name: "Shawarma / Sub", status: "ACTIVE" },
   { unit: "114", type: "C", license: "NOS2319802", name: "Magic City Dogs", status: "ACTIVE" },
   { unit: "114", type: "P", license: "NOS2334416", name: "La Placita", status: "ACTIVE" },
   { unit: "114A", type: "S", license: "NOS2334824", name: "Cheeseburger Baby", status: "ACTIVE" },
@@ -982,7 +986,7 @@ const LICENSE_REGISTRY = [
   { unit: "318", type: "C", license: "NOS2326971", name: "Sweet Cream", status: "ACTIVE" },
   { unit: "319", type: "S", license: "NOS2319800", name: "Fuku", status: "ACTIVE" },
   { unit: "319A", type: "C", license: "NOS2334858", name: "AIFI Edgewater Grill", status: "ACTIVE" },
-  { unit: "322", type: "P", license: "NOS2334405", name: "Shawarma Gyros / Sub", status: "ACTIVE" },
+  { unit: "322", type: "P", license: "NOS2334405", name: "Shawarma / Sub", status: "ACTIVE" },
   { unit: "323", type: "P", license: "NOS2338677", name: "Dip N Dots/ Sub", status: "ACTIVE" },
   { unit: "325", type: "P", license: "", name: "Tostitos Nacho Cart", status: "NEEDED" },
   { unit: "325", type: "P", license: "NOS2334414", name: "Arepa Cart / Sub", status: "ACTIVE" },
@@ -3740,6 +3744,11 @@ function issueTypeStyle(itype) {
 // Unit numbers are the true identity of a stand — names drift between
 // inspections, numbers don't. "142 a" and "142 A" are the same unit; "142"
 // is a different one.
+// v472: "Shawarma Gyros / Sub" became "Shawarma / Sub" — ids stored under the
+// old slug keep resolving (equipment standId, kitchenRegistry keys, verified marks).
+const STAND_SLUG_ALIASES = { shawarmagyrossub: "shawarmasub", shawarmagyros: "shawarma" };
+function canonStandId(id) { const m = /^(u:[^~]+)~(.+)$/.exec(String(id || "")); if (!m) return id; const al = STAND_SLUG_ALIASES[m[2]]; return al ? `${m[1]}~${al}` : id; }
+function canonKeys(obj) { const out = {}; for (const [k, v] of Object.entries(obj || {})) out[canonStandId(k)] = v; return out; }
 function normUnit(u) {
   return String(u ?? "").trim().toUpperCase().replace(/\s+/g, "");
 }
@@ -20707,7 +20716,7 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
     const applyReg = reg => {
       setRegItemsState(reg.items || {});
       const su = reg.setup || {}; setRegSetup(su); persistSetupLocal(su);
-      const v = reg.verified || {}; setRegVerified(v); persistVerified(v);
+      const v = canonKeys(reg.verified || {}); setRegVerified(v); persistVerified(v);
       const c = reg.confirmed || {}; setRegConfirmed(c); persistConfirmed(c);
     };
     // The cutoff: the stored one (or today) on first open, else whatever the picker says
@@ -21955,7 +21964,7 @@ function standSeeds() {
 let _standRemoved = []; // stands hidden with ✕ — restorable
 // Two stands can share a unit number (308 = LEMONADE CART cart + CANTALOUPE stand).
 // The first keeps the plain u:<unit> id; another name at the same unit gets u:<unit>~<slug>.
-const standSlug = s => String(s || "").toLowerCase().replace(/[^a-z0-9]+/g, "").slice(0, 18);
+const standSlug = s => { const x = String(s || "").toLowerCase().replace(/[^a-z0-9]+/g, "").slice(0, 18); return STAND_SLUG_ALIASES[x] || x; };
 const sameStandName = (a, b) => { const x = standSlug(a), y = standSlug(b); if (!x || !y) return true; return x === y || x.startsWith(y) || y.startsWith(x); };
 function standIdIn(existing, site, unit) {
   if (!normUnit(unit)) return `s:${(site || "").trim().toLowerCase()}`;
@@ -22001,14 +22010,15 @@ async function loadStandListNow() {
   const legacyHidden = (site, unit) => regHidden[`${(site || "").toLowerCase()}|${(unit || "").toLowerCase()}`];
   const isHidden = (k) => regHidden[k.id] || legacyHidden(k.site, k.unit);
   for (const [rid, k] of Object.entries(regItems)) {
-    const id = /^u:[^~]+~/.test(rid) ? rid : kidOf(k.site, k.unit); // stands saved with a ~slug id keep it
+    const id = /^u:[^~]+~/.test(rid) ? canonStandId(rid) : kidOf(k.site, k.unit); // stands saved with a ~slug id keep it
     if (regHidden[rid] || regHidden[id] || seen.has(id)) continue;
     seen.add(id);
     list.push({ id, site: k.site || "", unit: k.unit || "", floor: floorForStand(k.unit, k.site, k.floor), locType: k.locType || "", license: k.license || "", contacts: Array.isArray(k.contacts) ? k.contacts : [] });
   }
   for (const k0 of SEED_KITCHENS) {
     const id = kidOf(k0.site, k0.unit);
-    const k = { ...k0, id, contacts: Array.isArray(regItems[id]?.contacts) ? regItems[id].contacts : [] };
+    const regC = regItems[id] || Object.entries(regItems).find(([rid]) => canonStandId(rid) === id)?.[1];
+    const k = { ...k0, id, contacts: Array.isArray(regC?.contacts) ? regC.contacts : [] };
     if (isHidden(k) || regHidden[k0.id] || seen.has(id)) continue;
     seen.add(id);
     list.push(k);
@@ -26526,7 +26536,7 @@ function HaccpTodayTracker({ venueSettings, saveVenueSettingsMap, history, curre
   }
   // v471: manual contacts per stand id (kitchenRegistry.items[id].contacts — v468)
   const regContacts = {};
-  for (const k of regStands) { const id = k.unit ? `u:${normUnit(k.unit)}` : `s:${(k.site || "").toLowerCase()}`; if (k.contacts?.length) regContacts[id] = [...(regContacts[id] || []), ...k.contacts]; if (k.rid && k.contacts?.length) regContacts[k.rid] = k.contacts; }
+  for (const k of regStands) { const id = k.unit ? `u:${normUnit(k.unit)}` : `s:${(k.site || "").toLowerCase()}`; if (k.contacts?.length) regContacts[id] = [...(regContacts[id] || []), ...k.contacts]; if (k.rid && k.contacts?.length) regContacts[canonStandId(k.rid)] = k.contacts; }
   const regMeta = {}; for (const k of regStands) { const id = k.unit ? `u:${normUnit(k.unit)}` : `s:${(k.site || "").toLowerCase()}`; regMeta[id] = k; }
   for (const k of (_standListCache || [])) { if (k.contacts?.length) regContacts[k.id] = [...(regContacts[k.id] || []), ...k.contacts]; if (!regMeta[k.id]) regMeta[k.id] = k; }
   if (dir.people.length === 0 && dir.stands.length === 0 && dir.hiddenPeople.length === 0) return null;
