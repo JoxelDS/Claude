@@ -908,7 +908,7 @@ const LICENSE_SEED_BY_NAME = (() => {
    the stable anchor. Partial: pages covering ~139-230 were not
    photographed; those units fall back to the older name-keyed seed. */
 const LICENSE_REGISTRY = [
-  // Source: INDEX_LICENSES_HR_STADIUM_2026.xlsx — sheet "NEW 2026" (89 active, 14 requested/needed)
+  // Source: INDEX_LICENSES_HR_STADIUM_2026.xlsx — sheet "NEW 2026" (89 active, 16 requested/needed, 1 file-ref) — reconciled row by row against the pasted 2026 sheet in v464
   { unit: "101", type: "C", license: "NOS2319780", name: "Magic City Dogs", status: "ACTIVE" },
   { unit: "101", type: "P", license: "NOS2334411", name: "Arepa Cart / Sub", status: "ACTIVE" },
   { unit: "102", type: "S", license: "NOS2325799", name: "Crisppis Chicken", status: "ACTIVE" },
@@ -1006,12 +1006,12 @@ const LICENSE_REGISTRY = [
   { unit: "350", type: "P", license: "NOS2338678", name: "Dip N Dots/ Sub", status: "ACTIVE" },
   { unit: "350", type: "P", license: "", name: "SHAWARMA", status: "REQUESTED" },
   { unit: "354", type: "P", license: "NOS2334404", name: "Arepa Cart (Sub)", status: "ACTIVE" },
-  { unit: "354", type: "P", license: "", name: "Hot Dog", status: "NEEDED", note: "Check if can be combined with current Arepa cart in 325" },
+  { unit: "354", type: "P", license: "", name: "Hot Dog", status: "NEEDED", note: "Check if can be combined with current Arepa cart in 354" },
   { unit: "355", type: "C", license: "NOS2326624", name: "Fan Favorite", status: "ACTIVE" },
   { unit: "External", type: "C", license: "NOS2336936", name: "Training Facility Batist.", status: "ACTIVE" },
   { unit: "G", type: "K", license: "NOS2324068", name: "Main Kitchen", status: "ACTIVE" },
   { unit: "G", type: "K", license: "NOS2334853", name: "Lexus North Club & Main Warehouse", status: "ACTIVE" },
-  { unit: "G", type: "K", license: "NOS2334854", name: "Club South/East", status: "ACTIVE" },
+  { unit: "G", type: "K", license: "NOS2334854", name: "72 Club South/East", status: "ACTIVE" },
   { unit: "147", type: "K", license: "SEA2338350", name: "Nine", status: "ACTIVE" },
   { unit: "204", type: "K", license: "NOS2321413", name: "M Club Liv Kitchen", status: "ACTIVE" },
   { unit: "232", type: "K", license: "NOS2324071", name: "Suite Kitchen", status: "ACTIVE" },
@@ -21413,6 +21413,18 @@ function standTypeFromRow(r) {
   if (r.type === "P") return /\/\s*sub\b|\(sub\)/i.test(n) ? "Portable - Subcontractor" : "Portable - Stadium";
   return "Concession";
 }
+// v464: print / display order for stands — Floor 1 → 2 → 3 → Ground → other →
+// no floor, then unit number (114 < 114A < 117), then C/K/S/P, then name.
+const floorRank = f => { const s = String(f || "").trim(); if (!s) return 99; const m = /(\d+)/.exec(s); return m ? Number(m[1]) : /ground/i.test(s) ? 50 : 90; };
+const floorLabelOf = k => (String(k.floor || "").trim()) || "No floor";
+function standPrintOrder(a, b) {
+  const fr = floorRank(a.floor) - floorRank(b.floor); if (fr) return fr;
+  const ua = normUnit(a.unit), ub = normUnit(b.unit);
+  if (!!ua !== !!ub) return ua ? -1 : 1;
+  const uc = ua.localeCompare(ub, undefined, { numeric: true }); if (uc) return uc;
+  const tr = { Concession: 0, Kitchen: 1, Subcontractor: 2 }; const ta = tr[a.locType] ?? 3, tb = tr[b.locType] ?? 3; if (ta !== tb) return ta - tb;
+  return String(a.site || "").localeCompare(String(b.site || ""));
+}
 function standSeeds() {
   if (VENUE_ID !== "default") return [];
   const order = { C: 0, K: 1, S: 2, P: 3 };
@@ -21539,7 +21551,7 @@ async function loadStandList() {
 function standPosterHtml(items, qrUrls, brandColor) {
   const esc = (t) => String(t || "").replace(/&/g, "&amp;").replace(/</g, "&lt;");
   const logoUrl = resolveLogoDark().startsWith("data:") ? resolveLogoDark() : window.location.origin + resolveLogoDark().replace(window.location.origin, "");
-  const cards = items.map(k => `
+  const posterOf = k => `
     <div class="poster">
       <div class="ph" style="background:${brandColor}">
         <img class="phl" src="${logoUrl}" alt="" />
@@ -21558,12 +21570,34 @@ function standPosterHtml(items, qrUrls, brandColor) {
           <div class="pis"><span class="pisn">!</span><span><b>Any problem?</b> Tap <b>⚠ Report a problem</b> — broken unit, leak, pest, cleaning, chemicals — add a photo. The inspector and the right crew get it right away.<br/><span class="es">¿Algún problema? Toque <b>⚠ Reportar un problema</b> y agregue una foto. El inspector y el equipo correcto lo reciben al momento.</span></span></div>
         </div>
       </div>
-    </div>`).join("\n");
+    </div>`;
+  // v464: posters come out in floor + unit order with a divider sheet before
+  // each floor, so the stack can be split at the printer.
+  const groups = [];
+  for (const k of items) { const fl = floorLabelOf(k); let g = groups[groups.length - 1]; if (!g || g.floor !== fl) { g = { floor: fl, items: [] }; groups.push(g); } g.items.push(k); }
+  const unitRange = list => { const us = list.map(k => normUnit(k.unit)).filter(Boolean); return us.length ? (us[0] === us[us.length - 1] ? `#${us[0]}` : `#${us[0]} – #${us[us.length - 1]}`) : ""; };
+  const cards = groups.map((g, gi) => `
+    <div class="pdiv${gi === 0 ? " first" : ""}" data-floor="${esc(g.floor)}" data-count="${g.items.length}">
+      <div class="pdb" style="background:${brandColor}"><img class="phl" src="${logoUrl}" alt="" /><div class="pht">${esc(resolveCompanyName())} · Kitchen Check</div></div>
+      <div class="pdt">${esc(g.floor.toUpperCase())}</div>
+      <div class="pds">${g.items.length} poster${g.items.length === 1 ? "" : "s"}${unitRange(g.items) ? ` · ${esc(unitRange(g.items))}` : ""}</div>
+      <div class="pdl">${g.items.map(k => `<span>${esc(String(k.site || "").toUpperCase())}${k.unit ? ` #${esc(String(k.unit).toUpperCase())}` : ""}</span>`).join("")}</div>
+      <div class="pdf">Sheet ${gi + 1} of ${groups.length} · posters follow in unit order · Los afiches siguen en orden de unidad</div>
+    </div>
+    ${g.items.map(posterOf).join("\n")}`).join("\n");
   const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Kitchen QR Posters</title><style>
     * { margin:0; padding:0; box-sizing:border-box; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
     body { font-family:-apple-system,'Segoe UI',Arial,sans-serif; background:#fff; }
     .poster { width:100%; height:auto; min-height:47vh; border:2px dashed #cbd5e1; border-radius:14px; overflow:visible; display:flex; flex-direction:column; page-break-inside:avoid; break-inside:avoid; margin-bottom:1vh; }
     .poster.tall { break-before:page; page-break-before:always; min-height:0; }
+    .pdiv { break-before:page; page-break-before:always; break-after:page; page-break-after:always; min-height:96vh; display:flex; flex-direction:column; align-items:center; text-align:center; border:2px solid #cbd5e1; border-radius:14px; overflow:hidden; }
+    .pdiv.first { break-before:auto; page-break-before:auto; }
+    .pdb { width:100%; color:#fff; padding:12px 18px; display:flex; align-items:center; gap:10px; }
+    .pdt { font-size:64px; font-weight:900; color:#111827; margin-top:18vh; letter-spacing:.02em; }
+    .pds { font-size:22px; font-weight:800; color:#374151; margin-top:8px; }
+    .pdl { display:flex; flex-wrap:wrap; justify-content:center; gap:6px 10px; max-width:640px; margin:26px auto 0; font-size:11px; font-weight:700; color:#4b5563; }
+    .pdl span { border:1px solid #e5e7eb; border-radius:999px; padding:2px 8px; }
+    .pdf { margin-top:auto; padding:14px; font-size:11px; color:#6b7280; font-weight:700; }
     .poster.tall .pq { width:130px; height:130px; margin:4px 0; }
     .poster.tall .pi { font-size:10.5px; }
     .pe.cols { column-count:2; column-gap:14px; }
@@ -21781,7 +21815,7 @@ function KitchenQrPage({ onBack, onPrintLabels, onStandEquipment }) {
   const kTypeCounts = (() => { const c = {}; for (const k of kitchens) { const g = kTypeGroup(k.locType); c[g] = (c[g] || 0) + 1; } return c; })();
 
   function printPosters() {
-    const items = selectedIds.size ? shown.filter(k => selectedIds.has(k.id)) : shown;
+    const items = (selectedIds.size ? shown.filter(k => selectedIds.has(k.id)) : shown).slice().sort(standPrintOrder);
     if (items.length === 0) return;
     const html = standPosterHtml(items.map(k => ({ ...k, equip: equipUnitsAtStand(k.unit, k.site) })), qrUrls, brandColor);
     const win = window.open("", "_blank");
@@ -21984,8 +22018,14 @@ function KitchenQrPage({ onBack, onPrintLabels, onStandEquipment }) {
           </div>
         )}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(230px, 1fr))", gap: 14 }}>
-          {shown.map(k => (
-            <div key={k.id} id={`kqr_${k.id}`} className={newId === k.id ? "kqrNew" : ""} style={{ background: "var(--surface-1)", borderRadius: 12, overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,0.08)", border: selectedIds.has(k.id) ? `2.5px solid ${brandColor}` : "1.5px solid var(--sdx-gray-200)", position: "relative" }}>
+          {shown.slice().sort(standPrintOrder).map((k, i, arr) => (
+            <React.Fragment key={k.id}>
+            {(i === 0 || floorLabelOf(arr[i - 1]) !== floorLabelOf(k)) && (
+              <div className="kqrFloorHead" style={{ gridColumn: "1 / -1", fontWeight: 800, fontSize: "0.82rem", color: "var(--ink-600)", padding: "6px 2px 0", borderBottom: "2px solid var(--sdx-gray-200)", marginTop: i === 0 ? 0 : 6 }}>
+                🏢 {floorLabelOf(k)} · {arr.filter(x => floorLabelOf(x) === floorLabelOf(k)).length}
+              </div>
+            )}
+            <div id={`kqr_${k.id}`} className={newId === k.id ? "kqrNew" : ""} style={{ background: "var(--surface-1)", borderRadius: 12, overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,0.08)", border: selectedIds.has(k.id) ? `2.5px solid ${brandColor}` : "1.5px solid var(--sdx-gray-200)", position: "relative" }}>
               {selectedIds.has(k.id) && (
                 <div style={{ position: "absolute", top: 42, right: 8, background: brandColor, color: "#fff", borderRadius: 999, width: 26, height: 26, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: "0.85rem", zIndex: 2, boxShadow: "0 1px 4px rgba(0,0,0,0.3)" }}>✓</div>
               )}
@@ -22056,6 +22096,7 @@ function KitchenQrPage({ onBack, onPrintLabels, onStandEquipment }) {
                 </div>
               )}
             </div>
+            </React.Fragment>
           ))}
         </div>
         {(() => { void removedTick; const rem = _standRemoved; return rem.length > 0 ? (
