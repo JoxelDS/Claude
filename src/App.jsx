@@ -20499,6 +20499,7 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
         <span className="walkRowMeta">{[it.brandName, it.location].filter(Boolean).join(" · ") || "—"}</span>
         {st.missing.length > 0 && <span className="walkMissing">needs {st.missing.join(", ")}</span>}
         <span className="walkRowTag">{it.assetTag}</span>
+        {it.changedBy && it.changedAt && Date.now() - it.changedAt < 45 * 864e5 && <span className="walkChanged" title={new Date(it.changedAt).toLocaleString()}>✋ {it.changeNote || "changed"} · {it.changedBy} · {new Date(it.changedAt).toLocaleDateString([], { month: "short", day: "numeric" })}</span>}
       </button>
       <button type="button" className="unitRowTemps" title="Temperature history" onClick={() => setHistoryTag(it.assetTag)}>📈</button>
       <button type="button" className="unitRowTemps unitRowDel" title="Delete this unit" onClick={() => { if (window.confirm(`Delete ${cleanName(it.label) || "this unit"} (${it.assetTag}) from ${(it.venueName || "this stand").toUpperCase()}?\n\nIt disappears from the stand, the poster and the temp log. Past reports are not affected.`)) removeUnitVerify(it); }}>🗑</button>
@@ -21835,11 +21836,16 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
 
 // v468: the link we text to the people at a stand — opens the log with the
 // coolers & freezers card in focus, so they check equipment temps too.
-function standInviteUrl(k) { return standHaccpUrl(k) + "&coolers=1"; }
-function standInviteText(k, name) {
+function standInviteUrl(k, person) {
+  let u = standHaccpUrl(k) + "&coolers=1";
+  // v470: the link already knows who they are — the portal opens on their form
+  if (person && (person.name || person.phone)) u += `&n=${encodeURIComponent(String(person.name || "").trim())}&p=${encodeURIComponent(String(person.phone || "").trim())}`;
+  return u;
+}
+function standInviteText(k, name, person) {
   const who = name ? `${String(name).split(" ")[0]}, ` : "";
   const stand = `${(k.site || "").toUpperCase()}${k.unit ? ` #${k.unit}` : ""}`;
-  return `${who}this is the link for ${stand}: ${standInviteUrl(k)}\n\nPlease log the FOOD temps AND every COOLER / FREEZER temperature every 2 hours, and report any problem with a photo. No app needed — just open the link.\n\n${who}este es el enlace de ${stand}. Por favor registre las temperaturas de la comida Y de cada NEVERA / CONGELADOR cada 2 horas, y reporte cualquier problema con foto. No hace falta app.\n\nThe link also has the Food Safety Quick Reference (temps, sanitizer ppm, cutting boards, cooler storage, labels, thawing) · También tiene la referencia rápida de seguridad alimentaria.`;
+  return `${who}this is the link for ${stand}: ${standInviteUrl(k, person || (name ? { name } : null))}\n\nPlease log the FOOD temps AND every COOLER / FREEZER temperature every 2 hours, and report any problem with a photo. No app needed — just open the link.\n\n${who}este es el enlace de ${stand}. Por favor registre las temperaturas de la comida Y de cada NEVERA / CONGELADOR cada 2 horas, y reporte cualquier problema con foto. No hace falta app.\n\nThe link also has the Food Safety Quick Reference (temps, sanitizer ppm, cutting boards, cooler storage, labels, thawing) · También tiene la referencia rápida de seguridad alimentaria.`;
 }
 const phoneDigits = p => String(p || "").replace(/[^0-9]/g, "");
 const smsHref = (phone, text) => `sms:${phoneDigits(phone).length === 10 ? "+1" + phoneDigits(phone) : "+" + phoneDigits(phone)}?&body=${encodeURIComponent(text)}`;
@@ -22153,6 +22159,7 @@ function KitchenQrPage({ onBack, onPrintLabels, onStandEquipment }) {
   const [peopleOpen, setPeopleOpen] = useState(false);   // the directory modal
   const [peopleQ, setPeopleQ] = useState("");
   const [copied, setCopied] = useState("");
+  const [bulk, setBulk] = useState(null); // v470: text everyone, stand by stand
   function savePerson(k) {
     const name = personForm.name.trim().toUpperCase(), phone = personForm.phone.trim();
     if (!name && !phone) return;
@@ -22173,9 +22180,9 @@ function KitchenQrPage({ onBack, onPrintLabels, onStandEquipment }) {
     <div key={i} className="kqrPerson" onClick={e => e.stopPropagation()}>
       <span className="kqrPersonWho">{p.source === "manual" ? "👤" : "📱"} <b>{p.name || "—"}</b>{p.role ? <span className="kqrPersonRole"> · {p.role}</span> : null}{p.phone ? <span className="kqrPersonPhone"> · {p.phone}</span> : null}{p.logs ? <span className="kqrPersonMeta"> · {p.logs} log{p.logs !== 1 ? "s" : ""}</span> : null}</span>
       <span className="kqrPersonBtns">
-        {p.phone && <a className="kqrPersonBtn" href={smsHref(p.phone, standInviteText(k, p.name))} title="Send the stand link by text">✉ Text link</a>}
-        {p.phone && <a className="kqrPersonBtn kqrPersonWa" href={waHref(p.phone, standInviteText(k, p.name))} target="_blank" rel="noreferrer" title="Send on WhatsApp">💬</a>}
-        <button type="button" className="kqrPersonBtn" onClick={() => copyText(standInviteText(k, p.name), `${k.id}|${i}`)}>{copied === `${k.id}|${i}` ? "✓ Copied" : "📋"}</button>
+        {p.phone && <a className="kqrPersonBtn" href={smsHref(p.phone, standInviteText(k, p.name, p))} title="Send the stand link by text">✉ Text link</a>}
+        {p.phone && <a className="kqrPersonBtn kqrPersonWa" href={waHref(p.phone, standInviteText(k, p.name, p))} target="_blank" rel="noreferrer" title="Send on WhatsApp">💬</a>}
+        <button type="button" className="kqrPersonBtn" onClick={() => copyText(standInviteText(k, p.name, p), `${k.id}|${i}`)}>{copied === `${k.id}|${i}` ? "✓ Copied" : "📋"}</button>
         {p.source === "manual" && <button type="button" className="kqrPersonBtn kqrPersonX" onClick={() => removePerson(k, p)} title="Remove">✕</button>}
       </span>
     </div>
@@ -22395,10 +22402,29 @@ function KitchenQrPage({ onBack, onPrintLabels, onStandEquipment }) {
                 <button type="button" onClick={() => setPeopleOpen(false)} style={{ background: "none", border: "none", fontSize: "1.2rem", cursor: "pointer", color: "var(--ink-400)", lineHeight: 1, padding: 4 }}>✕</button>
               </div>
               <div style={{ padding: "8px 14px 14px", display: "flex", flexDirection: "column", gap: 8 }}>
-                <div style={{ display: "flex", gap: 6 }}>
-                  <input className="input" value={peopleQ} onChange={e => setPeopleQ(e.target.value)} placeholder="🔎 name, phone, stand or unit #" style={{ flex: 1 }} />
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  <input className="input" value={peopleQ} onChange={e => setPeopleQ(e.target.value)} placeholder="🔎 name, phone, stand or unit #" style={{ flex: "1 1 160px" }} />
                   <button type="button" className="kqrPersonBtn" onClick={() => copyText(allText, "all")}>{copied === "all" ? "✓ Copied" : "📋 Copy list"}</button>
+                  <button type="button" className="kqrPersonBtn kqrPersonSave" onClick={() => setBulk({ i: 0, list: rows.flatMap(r => r.people.filter(p => p.phone).map(p => ({ k: r.k, p }))) })}>📨 Text everyone</button>
                 </div>
+                {bulk && (() => {
+                  const cur = bulk.list[bulk.i]; if (!cur) return <div className="kqrBulk"><b>✓ Done — everyone was offered their link.</b> <button type="button" className="kqrPersonBtn" onClick={() => setBulk(null)}>Close</button></div>;
+                  const { k, p } = cur; const text = standInviteText(k, p.name, p);
+                  return (
+                    <div className="kqrBulk">
+                      <div className="kqrBulkHead">📨 {bulk.i + 1} of {bulk.list.length} · <b>{p.name || "—"}</b> · {p.phone} · {k.site}{k.unit ? ` #${k.unit}` : ""}</div>
+                      <div className="kqrBulkWho">Their link opens already signed in as {p.name || "them"} at this stand — they just log the temps.</div>
+                      <div className="kqrBulkBtns">
+                        <a className="kqrPersonBtn kqrPersonSave" href={smsHref(p.phone, text)} onClick={() => setTimeout(() => setBulk(b => b ? { ...b, sent: { ...(b.sent || {}), [bulk.i]: true } } : b), 300)}>✉ Open text</a>
+                        <a className="kqrPersonBtn kqrPersonWa" href={waHref(p.phone, text)} target="_blank" rel="noreferrer">💬 WhatsApp</a>
+                        <button type="button" className="kqrPersonBtn" onClick={() => copyText(text, "bulk")}>{copied === "bulk" ? "✓ Copied" : "📋 Copy"}</button>
+                        <button type="button" className="kqrPersonBtn" onClick={() => setBulk(b => ({ ...b, i: b.i + 1 }))}>{bulk.sent?.[bulk.i] ? "Next ▸" : "Skip ▸"}</button>
+                        <button type="button" className="kqrPersonBtn" onClick={() => setBulk(null)}>✕</button>
+                      </div>
+                      <div className="kqrBulkHint">One text per person so each link is theirs. Tap Open text → Send on your phone → come back → Next.</div>
+                    </div>
+                  );
+                })()}
                 {rows.length === 0 && <div className="kqrPeopleEmpty">No people yet. Names and phones appear here as soon as someone files a log from a stand QR — or add them on the stand card.</div>}
                 {rows.map(({ k, people }) => (
                   <div key={k.id} className="kqrPeopleStand">
@@ -27089,6 +27115,7 @@ function HaccpPortal() {
   const urlLocType  = urlParams.get("loctype") || "";
   const urlReportId = urlParams.get("rid")     || ""; // inspector report this HACCP log belongs to
   const urlCoolers = urlParams.get("coolers") === "1"; // v468: the inspector asked for cooler / freezer temps
+  const urlName = (urlParams.get("n") || "").trim(), urlPhone = (urlParams.get("p") || "").trim(); // v470: texted link already knows who they are
 
   // If QR has site info pre-filled, the step order is: "ident" → "location" → "form" → "done"
   // If no site info in URL, we add a manual "location" step after ident so the form is still linked.
@@ -27098,6 +27125,16 @@ function HaccpPortal() {
   // "done" → confirmation
 
   const [step, setStep] = useState("ident"); // "ident" | "location" | "form" | "done"
+  const autoConnect = !!(urlName && urlPhone && (urlSite || urlUnit));
+  useEffect(() => {
+    if (!autoConnect) return;
+    setSupName(urlName); setSupPhone(urlPhone);
+    try { localStorage.setItem("sdx_sup_name", urlName); localStorage.setItem("sdx_sup_phone", urlPhone); } catch {}
+    const newSessionId = `session_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+    setSessionId(newSessionId);
+    saveHaccpSubmission({ id: `supident_${Date.now()}_${Math.random().toString(16).slice(2)}`, type: "ident", sessionId: newSessionId, reportId: urlReportId, supervisorName: urlName, supervisorPhone: urlPhone, site: urlSite, unit: urlUnit, floor: urlFloor, locationType: urlLocType, viaLink: true, submittedAt: new Date().toISOString() }).catch(() => {});
+    setStep("form");
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (step !== "form" || !urlCoolers) return; const id = setTimeout(() => { try { document.querySelector(".htEquipCard")?.scrollIntoView({ behavior: "smooth", block: "start" }); } catch {} }, 700); return () => clearTimeout(id); }, [step]); // eslint-disable-line react-hooks/exhaustive-deps
   const [supName, setSupName] = useState(() => { try { return localStorage.getItem("sdx_sup_name") || ""; } catch { return ""; } });
   const [supPhone, setSupPhone] = useState(() => { try { return localStorage.getItem("sdx_sup_phone") || ""; } catch { return ""; } });
@@ -27131,6 +27168,79 @@ function HaccpPortal() {
   );
   // Custom temperature items added by the supervisor (beyond the 6 defaults)
   const [customItems, setCustomItems] = useState([]);
+  // v470: the supervisor keeps the stand's equipment list right (moved / gone / new)
+  const [eqEdit, setEqEdit] = useState(null);   // { key, name, brand, location }
+  const [eqOpen, setEqOpen] = useState(null);   // which unit shows its edit / move / remove buttons
+  const [eqMove, setEqMove] = useState(null);   // { key, q, stands }
+  const [eqAdd, setEqAdd] = useState(null);     // { name, brand, location }
+  const [eqFlash, setEqFlash] = useState("");
+  const eqStamp = (note) => ({ changedBy: (supName || "").trim().toUpperCase() || "SUPERVISOR", changedPhone: (supPhone || "").trim(), changedAt: Date.now(), changeNote: note });
+  const eqRecFor = (item) => { const it = (_equipRegCache || {})[item.tag] || {}; const [nm, br] = String(item.label || "").split(" · "); return { assetTag: item.tag, label: it.label || (nm ? `${nm}${/freez|🧊/i.test(nm) ? " 🧊 Freezer" : " ❄ Cooler"}` : ""), brandName: it.brandName || it.brand || br || "", location: it.location || item.hint || "", venueName: (locSite || "").trim().toUpperCase(), unit: (locUnit || "").trim(), floor: (locFloor || "").trim(), locType: (locType || "").trim(), standId: it.standId || "" }; };
+  function eqWrite(tag, rec) { try { _equipRegCache = { ...(_equipRegCache || {}), [tag]: { ...((_equipRegCache || {})[tag] || {}), ...rec } }; localStorage.setItem(EQUIP_REG_LS, JSON.stringify(_equipRegCache)); } catch {} writeEquipReg({ items: { [tag]: rec }, labelIndex: { [tag]: { unit: rec.unit, venueName: rec.venueName, standId: rec.standId || "" } } }).catch(() => {}); }
+  function eqSaveEdit() {
+    const e = eqEdit; if (!e) return; const item = customItems.find(i => i.key === e.key); if (!item) return;
+    const name = e.name.trim().toUpperCase(); if (!name) return;
+    const base = eqRecFor(item); const fz = /freez|congel|🧊/i.test(name);
+    const rec = { ...base, label: `${name.replace(/\s*(❄|🧊)\s*(Cooler|Freezer)\s*$/u, "")}${fz ? " 🧊 Freezer" : " ❄ Cooler"}`, brandName: e.brand.trim().toUpperCase(), location: e.location.trim().toUpperCase(), ...eqStamp(L("renamed / relocated by the stand", "renombrado / reubicado por el puesto")) };
+    eqWrite(item.tag, rec);
+    setCustomItems(prev => prev.map(i => i.key === item.key ? { ...i, label: `${name}${rec.brandName ? ` · ${rec.brandName}` : ""}`, hint: rec.location, max: fz ? 0 : 41 } : i));
+    setEqEdit(null); setEqFlash(L("Saved — the inspector sees the change.", "Guardado — el inspector ve el cambio.")); setTimeout(() => setEqFlash(""), 3000);
+  }
+  async function eqOpenMove(item) { let stands = _standListCache; try { stands = await loadStandList(); } catch {} setEqMove({ key: item.key, q: "", stands: (stands || []).slice().sort(standPrintOrder) }); }
+  function eqMoveTo(item, target) {
+    const base = eqRecFor(item);
+    const rec = { ...base, venueName: (target.site || "").toUpperCase(), unit: (target.unit || "").trim(), floor: floorForStand(target.unit, target.site, target.floor) || "", locType: target.locType || "", standId: target.id, ...eqStamp(L(`moved here from ${(locSite || "").toUpperCase()}${locUnit ? ` #${locUnit}` : ""} by the stand`, `movido aquí desde ${(locSite || "").toUpperCase()}${locUnit ? ` #${locUnit}` : ""} por el puesto`)) };
+    eqWrite(item.tag, rec);
+    setCustomItems(prev => prev.filter(i => i.key !== item.key)); setEqMove(null);
+    setEqFlash(L(`Moved to ${target.site}${target.unit ? ` #${target.unit}` : ""}.`, `Movido a ${target.site}${target.unit ? ` #${target.unit}` : ""}.`)); setTimeout(() => setEqFlash(""), 3000);
+  }
+  function eqRemove(item) {
+    if (!window.confirm(L(`${item.label} is not at this stand anymore? The inspector will see it under "Unassigned equipment".`, `¿${item.label} ya no está en este puesto? El inspector lo verá en "Equipo sin asignar".`))) return;
+    const base = eqRecFor(item);
+    const rec = { ...base, venueName: "UNASSIGNED", unit: "-", floor: "", standId: "", removedFrom: `${(locSite || "").toUpperCase()}${locUnit ? ` #${locUnit}` : ""}`, ...eqStamp(L(`removed from ${(locSite || "").toUpperCase()}${locUnit ? ` #${locUnit}` : ""} by the stand — not here anymore`, `retirado de ${(locSite || "").toUpperCase()}${locUnit ? ` #${locUnit}` : ""} por el puesto — ya no está aquí`)) };
+    eqWrite(item.tag, rec);
+    setCustomItems(prev => prev.filter(i => i.key !== item.key));
+    setEqFlash(L("Removed — the inspector will be told.", "Retirado — se le avisará al inspector.")); setTimeout(() => setEqFlash(""), 3000);
+  }
+  function eqSaveAdd() {
+    const a = eqAdd; if (!a || !a.name.trim()) return;
+    const name = a.name.trim().toUpperCase().replace(/\s*(❄|🧊)\s*(Cooler|Freezer)\s*$/u, ""); const fz = /freez|congel|🧊/i.test(name);
+    const unitN = normUnit(locUnit) || (locSite || "").replace(/[^A-Z0-9]/gi, "").toUpperCase().slice(0, 8) || "X";
+    const typ = fz ? "FZ" : "CL"; let n = 1; const reg = _equipRegCache || {}; while (reg[`SDX-${typ}-${unitN}-${n}`] || customItems.some(i => i.tag === `SDX-${typ}-${unitN}-${n}`)) n++;
+    const tag = `SDX-${typ}-${unitN}-${n}`;
+    const rec = { assetTag: tag, label: `${name}${fz ? " 🧊 Freezer" : " ❄ Cooler"}`, brandName: a.brand.trim().toUpperCase(), location: a.location.trim().toUpperCase(), venueName: (locSite || "").trim().toUpperCase(), unit: (locUnit || "").trim(), floor: (locFloor || "").trim(), locType: (locType || "").trim(), standId: (standFor(locUnit, locSite) || {}).id || "", createdAt: Date.now(), ...eqStamp(L("added by the stand", "agregado por el puesto")) };
+    eqWrite(tag, rec);
+    setCustomItems(prev => [...prev, { key: `eq:${tag}`, label: `${name}${rec.brandName ? ` · ${rec.brandName}` : ""}`, hint: rec.location, unit: "°F", type: "cold", max: fz ? 0 : 41, tag }]);
+    setEqAdd(null); setEqFlash(L(`${name} added — log its temperature below.`, `${name} agregado — registre su temperatura abajo.`)); setTimeout(() => setEqFlash(""), 3500);
+  }
+  const PORTAL_UNIT_NAMES = ["1-Door Cooler", "2-Door Cooler", "3-Door Cooler", "Prep Cooler", "Display Cooler", "Walk-In Cooler", "Undercounter Cooler", "Beer Cooler", "Ice Cream Freezer", "1-Door Freezer", "2-Door Freezer", "Chest Freezer", "Walk-In Freezer"];
+  const eqRowControls = (item) => (
+    <div className="htEqActs" key={item.key + "_acts"}>
+      {eqEdit?.key === item.key ? (
+        <div className="htEqForm">
+          <input className="input" value={eqEdit.name} placeholder={L("Name (e.g. 2-DOOR COOLER)", "Nombre (ej. NEVERA 2 PUERTAS)")} onChange={e => setEqEdit(x => ({ ...x, name: e.target.value }))} />
+          <div className="htEqFormRow"><input className="input" value={eqEdit.brand} placeholder={L("Brand", "Marca")} onChange={e => setEqEdit(x => ({ ...x, brand: e.target.value }))} /><input className="input" value={eqEdit.location} placeholder={L("Where in the stand", "Dónde en el puesto")} onChange={e => setEqEdit(x => ({ ...x, location: e.target.value }))} /></div>
+          <div className="htEqFormRow"><button type="button" className="htEqBtn htEqSave" onClick={eqSaveEdit}>✓ {L("Save", "Guardar")}</button><button type="button" className="htEqBtn" onClick={() => setEqEdit(null)}>{L("Cancel", "Cancelar")}</button></div>
+        </div>
+      ) : eqMove?.key === item.key ? (
+        <div className="htEqForm">
+          <div className="htEqFormLbl">{L("Where is it now?", "¿Dónde está ahora?")}</div>
+          <input className="input" value={eqMove.q} placeholder={L("🔎 stand name or unit #", "🔎 nombre del puesto o #")} onChange={e => setEqMove(x => ({ ...x, q: e.target.value }))} />
+          <div className="htEqStands">{(eqMove.stands || []).filter(k => { const q = eqMove.q.trim().toLowerCase(); return q && `${k.site} ${k.unit}`.toLowerCase().includes(q); }).slice(0, 8).map(k => <button key={k.id} type="button" className="htEqBtn" onClick={() => eqMoveTo(item, k)}>{k.site}{k.unit ? ` · #${k.unit}` : ""}</button>)}</div>
+          <button type="button" className="htEqBtn" onClick={() => setEqMove(null)}>{L("Cancel", "Cancelar")}</button>
+        </div>
+      ) : eqOpen === item.key ? (
+        <>
+          <button type="button" className="htEqBtn" onClick={() => { const [nm, br] = String(item.label || "").split(" · "); setEqEdit({ key: item.key, name: nm || "", brand: br || "", location: item.hint || "" }); setEqMove(null); }}>✎ {L("Fix name / location", "Corregir nombre / lugar")}</button>
+          <button type="button" className="htEqBtn" onClick={() => eqOpenMove(item)}>↔ {L("Moved to another stand", "Se movió a otro puesto")}</button>
+          <button type="button" className="htEqBtn htEqDel" onClick={() => eqRemove(item)}>✕ {L("Not here anymore", "Ya no está aquí")}</button>
+          <button type="button" className="htEqBtn htEqMore" onClick={() => setEqOpen(null)}>{L("Close", "Cerrar")}</button>
+        </>
+      ) : (
+        <button type="button" className="htEqBtn htEqMore" onClick={() => setEqOpen(item.key)}>✎ {L("Edit this unit", "Editar este equipo")}</button>
+      )}
+    </div>
+  );
   // { key: string, label: string, unit: "°F", type: "hot"|"cold", min?: number, max?: number }
   // v400: the stand poster is the only QR — its coolers / freezers become the
   // temp rows automatically (name · brand · where it is), one line each.
@@ -27770,7 +27880,7 @@ function HaccpPortal() {
         <div className="haccpCard">
           <div className="haccpCardHeader">
             <div className="haccpCardTitle">{problemOnly ? L("⚠️ Report a Problem", "⚠️ Reportar un problema") : L("🌡️ HACCP Temperature Log", "🌡️ Registro de temperaturas HACCP")}</div>
-            <div className="haccpCardSub">Hi {supName} · {supPhone}</div>
+            <div className="haccpCardSub">Hi {supName} · {supPhone} <button type="button" className="haccpNotYou" onClick={() => setStep("ident")}>{L("not you?", "¿no es usted?")}</button></div>
           </div>
           <div className="haccpCardBody">
             {LocationBanner}
@@ -28183,8 +28293,21 @@ function HaccpPortal() {
                             <span className="htEquipCount">{done}<small>/{equipRows.length} {L("logged", "listos")}</small></span>
                           </div>
                           <div className="htEquipHint">{L("One reading per unit · coolers ≤ 41°F · freezers ≤ 0°F · every 2 hours", "Una lectura por equipo · neveras ≤ 41°F · congeladores ≤ 0°F · cada 2 horas")}</div>
-                          {equipRows.length === 0 && <div className="htEquipEmpty">{L("No coolers / freezers registered for this stand — tell the inspector.", "No hay equipos registrados para este puesto — avise al inspector.")}</div>}
-                          {equipRows.map(item => renderReadingBlock(item))}
+                          {equipRows.length === 0 && <div className="htEquipEmpty">{L("No coolers / freezers registered for this stand yet — add them below.", "No hay equipos registrados para este puesto — agréguelos abajo.")}</div>}
+                          {eqFlash && <div className="htEqFlash">✓ {eqFlash}</div>}
+                          {equipRows.map(item => <div key={item.key} className="htEqRow">{renderReadingBlock(item)}{eqRowControls(item)}</div>)}
+                          {/* v470: the stand keeps its own list right */}
+                          {eqAdd ? (
+                            <div className="htEqForm htEqAddForm">
+                              <div className="htEqFormLbl">＋ {L("Add a cooler / freezer", "Agregar nevera / congelador")}</div>
+                              <div className="htEqNames">{PORTAL_UNIT_NAMES.map(n => <button key={n} type="button" className={"htEqBtn" + (eqAdd.name === n ? " on" : "")} onClick={() => setEqAdd(x => ({ ...x, name: n }))}>{/freez/i.test(n) ? "🧊" : "❄"} {n}</button>)}</div>
+                              <input className="input" value={eqAdd.name} placeholder={L("Or type the name", "O escriba el nombre")} onChange={e => setEqAdd(x => ({ ...x, name: e.target.value }))} />
+                              <div className="htEqFormRow"><input className="input" value={eqAdd.brand} placeholder={L("Brand (optional)", "Marca (opcional)")} onChange={e => setEqAdd(x => ({ ...x, brand: e.target.value }))} /><input className="input" value={eqAdd.location} placeholder={L("Where in the stand", "Dónde en el puesto")} onChange={e => setEqAdd(x => ({ ...x, location: e.target.value }))} /></div>
+                              <div className="htEqFormRow"><button type="button" className="htEqBtn htEqSave" disabled={!eqAdd.name.trim()} onClick={eqSaveAdd}>✓ {L("Add it", "Agregar")}</button><button type="button" className="htEqBtn" onClick={() => setEqAdd(null)}>{L("Cancel", "Cancelar")}</button></div>
+                            </div>
+                          ) : (
+                            <button type="button" className="htEqAddBtn" onClick={() => { setEqAdd({ name: "", brand: "", location: "" }); setEqEdit(null); setEqMove(null); }}>＋ {L("Add a cooler / freezer that is missing", "Agregar una nevera / congelador que falta")}</button>
+                          )}
                         </div>
                       ); })()}
                     </>
@@ -28274,9 +28397,11 @@ function HaccpPortal() {
                     value={problemAction} onChange={e => { setProblemAction(e.target.value); setProblemProof([]); if (problemError) setProblemError(""); }}
                     placeholder={L("e.g. stopped using it, told the manager, cleaned the area", "ej. dejamos de usarlo, avisé al gerente, limpiamos el área")} />
                 </div>
-                {editorHasProblem() && (
-                  <button type="button" className="supAddAnotherBtn" onClick={addAnotherProblem}>＋ {L("Add another problem", "Agregar otro problema")}</button>
-                )}
+                {/* v470: always visible — supervisors did not know they could add more than one */}
+                <div className="supAddAnotherRow">
+                  <span className="supAddAnotherHint">{problemsAdded.length ? L(`Problem ${problemsAdded.length + 1} — you can add as many as you need`, `Problema ${problemsAdded.length + 1} — puede agregar los que necesite`) : L("More than one problem? Add each one separately.", "¿Más de un problema? Agregue cada uno por separado.")}</span>
+                  <button type="button" className="supAddAnotherBtn" onClick={() => { if (!editorHasProblem()) { setProblemError(L("Fill in this problem first (type, description, photo, what you did) — then add the next one.", "Complete este problema primero (tipo, descripción, foto, qué hizo) — luego agregue el siguiente.")); return; } const err = validateProblemEditor(); if (err) { setProblemError(err); return; } addAnotherProblem(); }}>＋ {L("Add another problem", "Agregar otro problema")}</button>
+                </div>
                 {problemPhotos.length > 0 && (
                   <div className="photoStrip" style={{ marginTop: 8 }}>
                     {problemPhotos.map(p => (

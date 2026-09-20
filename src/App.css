@@ -8674,3 +8674,32 @@ button.nluChipTemp { background: #fef3c7; color: #92400e; border: 1px solid #fcd
 .haccpRefLead { font-weight: 800; font-size: 0.86rem; color: #fff; margin: 4px 2px 8px; text-align: center; }
 .foodSafetyRef.fsrPortal { box-shadow: 0 6px 24px rgba(0,0,0,.25); }
 .foodSafetyRef.fsrPortal .foodSafetyRefToggle { min-height: 52px; font-size: 1rem; }
+
+/* v470: supervisors keep the equipment list right; add-another always visible; bulk texting */
+.htEqRow { position: relative; }
+.htEqActs { display: flex; flex-wrap: wrap; gap: 6px; padding: 4px 8px 10px; }
+.htEqBtn { border: 1px solid #c7d2fe; background: #fff; color: #3730a3; border-radius: 8px; font-size: 0.76rem; font-weight: 700; padding: 5px 9px; cursor: pointer; }
+.htEqBtn.on { background: #3730a3; color: #fff; }
+.htEqBtn:disabled { opacity: .45; }
+.htEqDel { color: #b91c1c; border-color: #fecaca; }
+.htEqSave { background: #16a34a; color: #fff; border-color: #16a34a; }
+.htEqForm { display: flex; flex-direction: column; gap: 6px; width: 100%; background: #f5f7ff; border: 1px dashed #c7d2fe; border-radius: 10px; padding: 8px; }
+.htEqFormRow { display: flex; gap: 6px; flex-wrap: wrap; }
+.htEqFormRow .input { flex: 1 1 120px; }
+.htEqForm .input { font-size: 16px; padding: 7px 9px; }
+.htEqFormLbl { font-weight: 800; font-size: 0.8rem; color: #3730a3; }
+.htEqNames, .htEqStands { display: flex; flex-wrap: wrap; gap: 6px; }
+.htEqAddBtn { width: 100%; margin-top: 8px; border: 1.5px dashed #16a34a; background: #f0fdf4; color: #166534; border-radius: 10px; font-weight: 800; font-size: 0.86rem; padding: 10px; cursor: pointer; }
+.htEqAddForm { margin-top: 8px; }
+.htEqFlash { background: #dcfce7; color: #166534; border: 1px solid #86efac; border-radius: 8px; padding: 6px 10px; font-weight: 700; font-size: 0.8rem; margin: 4px 0; }
+.walkChanged { display: inline-block; margin-left: 6px; font-size: 0.68rem; font-weight: 700; color: #92400e; background: #fef3c7; border: 1px solid #fcd34d; border-radius: 999px; padding: 1px 7px; }
+.supAddAnotherRow { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-top: 10px; }
+.supAddAnotherHint { font-size: 0.78rem; color: #4b5563; font-weight: 600; }
+.kqrBulk { border: 1.5px solid #16a34a; background: #f0fdf4; border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; }
+.kqrBulkHead { font-size: 0.86rem; color: #166534; }
+.kqrBulkWho { font-size: 0.76rem; color: #374151; }
+.kqrBulkBtns { display: flex; flex-wrap: wrap; gap: 6px; }
+.kqrBulkHint { font-size: 0.72rem; color: #6b7280; }
+.haccpNotYou { margin-left: 6px; border: 1px solid rgba(255,255,255,.5); background: rgba(255,255,255,.12); color: #fff; border-radius: 999px; font-size: 0.7rem; font-weight: 700; padding: 1px 8px; cursor: pointer; }
+.htEqMore { border-color: transparent; background: transparent; color: #6366f1; padding: 2px 6px; font-size: 0.74rem; }
+.htEqActs { padding-top: 0; }
