@@ -20299,49 +20299,248 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
     try { setDoc(doc(db, "venues", VENUE_ID, "sharedMemory", "equipmentRegistry"), { cutoffMs: ms, cutoffMode: m }, { merge: true }).catch(() => {}); } catch {}
   }
 
-  // Load most recent inspection and extract all equipment items (with or without asset tags)
+  // v465: paint from the local cache first, then ONE registry read + ONE stand
+  // list + ONE history read in parallel where possible. The old effect ran
+  // everything in series, ran twice (the cutoff it derived re-fired it) and
+  // re-downloaded the ~800 KB registry three times per open.
+  const skipNextLoadRef = useRef(false);
+  const cacheShownRef = useRef(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [loadStats, setLoadStats] = useState("");
   useEffect(() => {
-    async function load() {
-      setLoading(true);
-      try {
-        // Registry first: hidden labels + the fresh-start cutoff date.
-        // Labels only come from inspections ON or AFTER the cutoff — old
-        // pre-cutoff equipment is dead weight and never resurfaces.
-        let hidden = {};
-        let regItems = {};
-        let regIndex = {}; // labelIndex: every unit ever indexed from a report — what the poster cards count
-        let cutoffMs = 0;
-        let regLoaded = false;
-        try {
-          await flushOutbox();
-          const snap = await getDoc(doc(db, "venues", VENUE_ID, "sharedMemory", "equipmentRegistry"));
-          const reg = snap.exists() ? (snap.data() || {}) : {};
-          hidden = reg.hidden || {};
-          _equipHiddenCache = hidden;
-          regItems = reg.items || {};
-          regIndex = reg.labelIndex || {};
-          cutoffMs = reg.cutoffMs || 0;
-          regLoaded = true;
-          setRegItemsState(regItems);
-          { const su = reg.setup || {}; setRegSetup(su); persistSetupLocal(su); }
-          { const v = reg.verified || {}; setRegVerified(v); persistVerified(v); const c = reg.confirmed || {}; setRegConfirmed(c); persistConfirmed(c); }
-          if (cutoffDate === null) {
-            setCutoffMode(reg.cutoffMode === "on" ? "on" : "since");
-            if (!cutoffMs) {
-              const d = new Date(); d.setHours(0, 0, 0, 0);
-              cutoffMs = d.getTime();
-              setDoc(doc(db, "venues", VENUE_ID, "sharedMemory", "equipmentRegistry"), { cutoffMs }, { merge: true }).catch(() => {});
+    if (skipNextLoadRef.current) { skipNextLoadRef.current = false; return; }
+    let live = true;
+    const dayOf = ms => { const d = new Date(ms); const pad = n => String(n).padStart(2, "0"); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
+    const plusDays = (day, n) => { const d = new Date(day + "T12:00:00"); d.setDate(d.getDate() + n); return dayOf(d.getTime()); };
+    const applyReg = reg => {
+      setRegItemsState(reg.items || {});
+      const su = reg.setup || {}; setRegSetup(su); persistSetupLocal(su);
+      const v = reg.verified || {}; setRegVerified(v); persistVerified(v);
+      const c = reg.confirmed || {}; setRegConfirmed(c); persistConfirmed(c);
+    };
+    // The cutoff: the stored one (or today) on first open, else whatever the picker says
+    const resolveCutoff = reg => {
+      if (cutoffDate !== null) return { cutoffMs: cutoffDate ? new Date(cutoffDate + "T00:00:00").getTime() : 0, cutoffMode };
+      let ms = reg.cutoffMs || 0;
+      if (!ms) { const d = new Date(); d.setHours(0, 0, 0, 0); ms = d.getTime(); }
+      return { cutoffMs: ms, cutoffMode: reg.cutoffMode === "on" ? "on" : "since" };
+    };
+    // Pure-ish: registry + reports → the equipment rows (same code as before, moved into a function)
+    async function build({ regItems, regIndex, hidden, cutoffMs, cutoffMode, recList }) {
+      const cutoffDay = cutoffMs ? dayOf(cutoffMs) : "";
+          const seen = new Set();
+          const items = [];
+          // The LATEST report of each stand is the truth for its equipment
+          // (numbers don't lie: identity = unit number). Empty template rows
+          // (never filled in) get no label. Units without a real asset tag get a
+          // stable one: SDX-CL-<UNIT>-<n> / SDX-FZ-<UNIT>-<n>, numbered by label
+          // — the same rule the inventory export uses, so every QR is unique.
+          const sortedRecs = [...recList].filter(r => !r.quickProblem).sort((a, b) => (b.savedAt || "").localeCompare(a.savedAt || ""));
+          const standDone = new Set();
+          const standsNoEquip = [];
+          const noEquipSeen = new Set();
+          const isRealUnit = v => !!(v && !v.notApplicable && (String(v.tempF ?? "").trim() || v.brand || (v.assetTag && String(v.assetTag).trim()) || v.count || v.label || (v.status && v.status !== "OK") || (v.notes || "").trim() || (v.photos || []).length));
+          const validTag = t => { const x = String(t || "").trim().toUpperCase(); return x && !/^CUSTOM_/.test(x) && !COLD_EQUIPMENT[x.toLowerCase()] && !BAR_COLD_EQUIPMENT[x.toLowerCase()] && x !== "COOLERS" && x !== "FREEZER" ? x : ""; };
+          for (let rec of sortedRecs) {
+            // The inspection date is the day the walk happened; savedAt is only
+            // when the record was written (edits move it) — prefer the former.
+            const recDay = (rec.inspectionDate || rec.savedAt || "").slice(0, 10);
+            const recMs = Date.parse(recDay ? recDay + "T12:00:00" : "") || 0;
+            if (cutoffMs && recMs < cutoffMs) continue; // before the cutoff — skip
+            if (cutoffDay && cutoffMode === "on" && recDay !== cutoffDay) continue; // only-that-date mode
+            if (!/\d/.test(normUnit(rec.siteNumber))) rec = { ...rec, siteNumber: "" }; // "Ground" / "Lexus Bar Left" are not unit numbers
+            const standKey = (rec.siteNumber || "").trim() ? `u:${normUnit(rec.siteNumber)}` : `s:${(rec.siteName || "").trim().toLowerCase()}`;
+            if (standDone.has(standKey)) continue; // older report of a stand we already have
+            const equip = rec.inspection?.equipment || {};
+            if (!siteName && rec.siteName) setSiteName(rec.siteName);
+            const realEntries = Object.entries(equip).filter(([key, val]) => {
+              const isCold = !!(COLD_EQUIPMENT[key] || BAR_COLD_EQUIPMENT[key] || detectColdType(val?.label));
+              const hasTag = !!validTag(val?.assetTag);
+              return (isCold || hasTag) && isRealUnit(val);
+            });
+            if (realEntries.length === 0) {
+              // No equipment in this report — keep looking at older reports of
+              // the same stand; only if none has equipment is it "to add".
+              const nk = standKey;
+              if (!noEquipSeen.has(nk) && (rec.siteName || rec.siteNumber)) { noEquipSeen.add(nk); standsNoEquip.push({ key: nk, venueName: rec.siteName || "", unit: (rec.siteNumber || "").trim(), floor: floorForStand(rec.siteNumber, rec.siteName, rec.floor), locType: rec.locationType || "", last: recDay }); }
+              continue;
             }
-            // Reflect the stored cutoff in the date picker (runs once)
-            const dt = new Date(cutoffMs);
-            const pad = n => String(n).padStart(2, "0");
-            setCutoffDate(dt.getFullYear() + "-" + pad(dt.getMonth() + 1) + "-" + pad(dt.getDate()));
-          } else {
-            // The user picked a date (or all dates) — that wins
-            cutoffMs = cutoffDate ? new Date(cutoffDate + "T00:00:00").getTime() : 0;
+            standDone.add(standKey);
+            const cleanLbl = (key, val) => String(val?.label || COLD_EQUIPMENT[key]?.label || BAR_COLD_EQUIPMENT[key]?.label || key).replace(/\s*(❄|🧊)\s*(Cooler|Freezer)\s*$/u, "").trim();
+            realEntries.sort((a, b) => cleanLbl(a[0], a[1]).localeCompare(cleanLbl(b[0], b[1])));
+            const counters = { CL: 0, FZ: 0 };
+            const unitN = normUnit(rec.siteNumber) || (rec.siteName || "").replace(/[^A-Z0-9]/gi, "").toUpperCase().slice(0, 8) || "X";
+            for (const [key, val] of realEntries) {
+              const lbl = cleanLbl(key, val);
+              const typ = (/freez|frz/i.test(lbl) || ["freezer", "walkInFreezer", "doubleDoorFreezer"].includes(key)) ? "FZ" : "CL";
+              let tag = validTag(val?.assetTag);
+              if (!tag) { counters[typ]++; tag = `SDX-${typ}-${unitN}-${counters[typ]}`; }
+              const dedupeId = tag;
+              if (seen.has(dedupeId)) continue;
+              seen.add(dedupeId);
+              const id = tag;
+              // Resolve a human-readable label:
+              //   1. val.label (custom items always store their label)
+              //   2. COLD_EQUIPMENT or BAR_COLD_EQUIPMENT map label (standard built-in items)
+              //   3. raw key as last resort
+              const resolvedLabel = val?.label
+                || COLD_EQUIPMENT[key]?.label
+                || BAR_COLD_EQUIPMENT[key]?.label
+                || key;
+              // Add ❄ badge to cold equipment that doesn't already include it
+              const coldType = (COLD_EQUIPMENT[key] || BAR_COLD_EQUIPMENT[key] || detectColdType(val?.label))?.type;
+              const coldBadge = coldType === "cooler" ? " ❄ Cooler" : coldType === "freezer" ? " 🧊 Freezer" : "";
+              const displayLabel = resolvedLabel + coldBadge;
+              items.push({
+                uid: dedupeId,
+                assetTag: id,
+                label: displayLabel,
+                venueName: rec.siteName || activeVenueId,
+                unit: (rec.siteNumber || "").trim(),
+                floor: floorForStand(rec.siteNumber, rec.siteName, rec.floor),
+                locType: (rec.locationType || "").trim(),
+                location: (val?.location || val?.kitchenArea || "").trim(),
+                brandName: (val?.brand || val?.brandName || "").trim(),
+                inspectionDate: rec.savedAt ? new Date(rec.savedAt).toLocaleDateString([], { year: "numeric", month: "short", day: "numeric" }) : "",
+              });
+            }
+          }
+          // Registry (manual entries on this page) is the truth for a stand: a
+          // report's generic "Coolers"/"2-Door Cooler" rows at that stand are the
+          // same physical units under another name — don't print them twice.
+          const regStands = new Set();
+          for (const [tag, it] of Object.entries(regItems)) { if (isHiddenTag(hidden, `reg_${tag}`, tag)) continue; const k = normUnit(it.unit) ? `u:${normUnit(it.unit)}` : `s:${(it.venueName || "").trim().toLowerCase()}`; regStands.add(k); }
+          const isGenerated = t => /^SDX-(CL|FZ)-[A-Z0-9]+-\d+$/.test(String(t || "").toUpperCase());
+          for (let i = items.length - 1; i >= 0; i--) {
+            const it = items[i];
+            const k = normUnit(it.unit) ? `u:${normUnit(it.unit)}` : `s:${(it.venueName || "").trim().toLowerCase()}`;
+            if (regStands.has(k) && isGenerated(it.assetTag)) { seen.delete(it.assetTag); items.splice(i, 1); }
+          }
+          // Every stand from the posters list belongs here too — a stand with no
+          // cooler / freezer yet still shows up, ready to add its units.
+          const stands = _standListCache;
+          setStandList(stands);
+          const noEqKeys = new Set(standsNoEquip.map(sn => sn.key));
+          for (const k of stands) {
+            const key = k.id;
+            const hasUnits = items.some(i => !hidden[i.uid] && equipBelongsTo(i, k));
+            if (hasUnits || standDone.has(key) || regStands.has(key) || noEqKeys.has(key)) continue;
+            noEqKeys.add(key);
+            standsNoEquip.push({ key, venueName: k.site || "", unit: (k.unit || "").trim(), floor: floorForStand(k.unit, k.site, k.floor), locType: k.locType || "", last: "" });
+          }
+          setStandsNoEquip(standsNoEquip.filter(sn => !standDone.has(sn.key) && !regStands.has(sn.key)).sort((a, b) => (a.unit || "").localeCompare(b.unit || "", undefined, { numeric: true })));
+          // Merge manually-created equipment (always shown) and apply removals
+          for (const [tag, it] of Object.entries(regItems)) {
+            const uid = `reg_${tag}`;
+            if (isHiddenTag(hidden, uid, tag)) continue;
+            const T = String(tag).toUpperCase();
+            const existing = items.find(i => String(i.assetTag || "").toUpperCase() === T);
+            if (existing) {
+              // The registry is always newer than a report's snapshot — it wins for identity AND placement
+              if (it.label) existing.label = it.label;
+              if (it.brandName) existing.brandName = it.brandName;
+              if (it.location) existing.location = it.location;
+              if (it.venueName) existing.venueName = it.venueName;
+              if (it.unit !== undefined && String(it.unit).trim()) existing.unit = String(it.unit).trim();
+              if (it.locType) existing.locType = it.locType;
+              if (it.standId) existing.standId = it.standId;
+              if (it.unit || it.venueName) existing.floor = floorForStand(existing.unit, existing.venueName, it.floor || existing.floor);
+              continue;
+            }
+            if (seen.has(tag)) continue; // already present from an inspection
+            seen.add(tag);
+            items.unshift({ ...it, assetTag: String(it.assetTag || tag).toUpperCase(), uid, floor: floorForStand(it.unit, it.venueName, it.floor) });
+          }
+          // Units the registry indexed from reports (labelIndex) — the poster cards and the
+          // portal count these, so this page must too, cutoff or not.
+          for (const [tag, ix] of Object.entries(regIndex)) {
+            const uid = `reg_${tag}`;
+            if (isHiddenTag(hidden, uid, tag)) continue;
+            const T = String(tag).toUpperCase();
+            const ex = items.find(i => String(i.assetTag || "").toUpperCase() === T);
+            if (ex) {
+              if (ix?.standId && !ex.standId) { ex.standId = ix.standId; if (ix.unit) ex.unit = ix.unit; if (ix.venueName) ex.venueName = ix.venueName; }
+              // A bare registry record (placement only) takes its name / brand / location from the index
+              if (ix && !ex.label && (ix.name || ix.label)) ex.label = ix.name || ix.label;
+              if (ix && !ex.brandName && (ix.brand || ix.brandName)) ex.brandName = ix.brand || ix.brandName;
+              if (ix && !ex.location && ix.location) ex.location = ix.location;
+              continue;
+            }
+            if (!ix || !(ix.unit || ix.venueName)) continue;
+            items.push({ assetTag: T, label: ix.name || ix.label || "", brandName: ix.brand || ix.brandName || "", location: ix.location || "", venueName: ix.venueName || "", unit: ix.unit || "", locType: ix.locType || "", standId: ix.standId || "", uid, floor: floorForStand(ix.unit, ix.venueName, ix.floor), fromIndex: true });
+          }
+          // Last guard: one row per uid (the fuller row wins), and never a row without a tag —
+          // two rows sharing a uid made "delete the empty one" delete the real one too.
+          {
+            const byUid = new Map();
+            for (const it of items) {
+              if (!String(it.assetTag || "").trim()) continue;
+              const prev = byUid.get(it.uid);
+              if (!prev) { byUid.set(it.uid, it); continue; }
+              const merged = { ...prev };
+              for (const [k, v] of Object.entries(it)) if (v !== undefined && v !== "" && (merged[k] === undefined || merged[k] === "")) merged[k] = v;
+              byUid.set(it.uid, merged);
+            }
+            items.length = 0; items.push(...byUid.values());
+          }
+      if (items.length === 0 && cutoffMs && recList.length > 0 && cutoffDate !== "") return null; // every report older than the cutoff
+      return items.filter(i => !isHiddenTag(hidden, i.uid, i.assetTag));
+    }
+    async function load() {
+      try { window.__equipLoads = (window.__equipLoads || 0) + 1; } catch {}
+      const t0 = performance.now(); const T = {};
+      // 1) Paint what this device already knows — instantly.
+      if (!cacheShownRef.current) {
+        cacheShownRef.current = true;
+        try {
+          const d = JSON.parse(localStorage.getItem(`sdx_equip_reg_doc_${VENUE_ID}`) || "null");
+          let hist = []; try { hist = JSON.parse(localStorage.getItem(`sdx_history_cache_${VENUE_ID}`) || "[]"); } catch {}
+          if (d && typeof d === "object" && (Object.keys(d.items || {}).length || Object.keys(d.labelIndex || {}).length || hist.length)) {
+            if (_standListCache.length === 0) _standListCache = standSeeds();
+            const hidden = { ...(d.hidden || {}), ...(_equipHiddenCache || {}) };
+            applyReg(d);
+            const { cutoffMs, cutoffMode: cm } = resolveCutoff(d);
+            const items = await build({ regItems: d.items || {}, regIndex: d.labelIndex || {}, hidden, cutoffMs, cutoffMode: cm, recList: hist });
+            if (live && items) { setEquipItems(items); setLoading(false); setRefreshing(true); T.cache = performance.now() - t0; }
           }
         } catch {}
-        if (!regLoaded) {
+      }
+      // 2) The cloud: registry and stand list together, then the reports.
+      try {
+        let hidden = {}, regItems = {}, regIndex = {}, reg = null, regLoaded = false;
+        try {
+          if (_outbox.length) await flushOutbox();
+          const t1 = performance.now();
+          const [, snap] = await Promise.all([
+            loadStandList().then(() => { T.stands = performance.now() - t1; }).catch(() => {}).then(() => undefined),
+            Promise.resolve().then(() => getDoc(doc(db, "venues", VENUE_ID, "sharedMemory", "equipmentRegistry"))).then(s => { T.registry = performance.now() - t1; return s; }),
+          ]);
+          reg = snap.exists() ? (snap.data() || {}) : {};
+          hidden = reg.hidden || {}; _equipHiddenCache = hidden;
+          regItems = reg.items || {}; regIndex = reg.labelIndex || {};
+          regLoaded = true;
+          // This snapshot IS the registry — no second download (warmEquipRegistry) needed
+          _equipRegCache = { ...regIndex, ...regItems };
+          try {
+            localStorage.setItem(EQUIP_REG_LS, JSON.stringify(_equipRegCache));
+            localStorage.setItem(`sdx_equip_hidden_${VENUE_ID}`, JSON.stringify(hidden));
+            localStorage.setItem(`sdx_equip_reg_doc_${VENUE_ID}`, JSON.stringify({ items: regItems, labelIndex: regIndex, hidden, setup: reg.setup || {}, verified: reg.verified || {}, confirmed: reg.confirmed || {}, cutoffMs: reg.cutoffMs || 0, cutoffMode: reg.cutoffMode || "" }));
+          } catch {}
+          if (!live) return;
+          applyReg(reg);
+        } catch {}
+        if (!live) return;
+        let cutoffMs = 0, cm = cutoffMode;
+        if (regLoaded) {
+          ({ cutoffMs, cutoffMode: cm } = resolveCutoff(reg));
+          if (cutoffDate === null) {
+            setCutoffMode(cm);
+            if (!reg.cutoffMs) setDoc(doc(db, "venues", VENUE_ID, "sharedMemory", "equipmentRegistry"), { cutoffMs }, { merge: true }).catch(() => {});
+            // Reflect the stored cutoff in the picker WITHOUT re-running this whole load
+            skipNextLoadRef.current = true;
+            setCutoffDate(dayOf(cutoffMs));
+          }
+        } else {
           // Offline / local: the last synced registry + setup marks keep the walk usable
           hidden = { ...(_equipHiddenCache || {}) }; // removals made offline still count
           let seeded = false;
@@ -20349,193 +20548,48 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
           if (!seeded) try { const c = _equipRegCache || {}; regItems = {}; regIndex = {}; for (const [t, it] of Object.entries(c)) { if (!it) continue; if (it.assetTag) regItems[t] = it; else regIndex[t] = it; } setRegItemsState(regItems); } catch {}
           try { setRegSetup(JSON.parse(localStorage.getItem(EQUIP_SETUP_LS) || "{}")); } catch {}
           try { setRegVerified(JSON.parse(localStorage.getItem(EQUIP_VERIFIED_LS) || "{}")); setRegConfirmed(JSON.parse(localStorage.getItem(EQUIP_CONFIRMED_LS) || "{}")); } catch {}
+          cutoffMs = cutoffDate ? new Date(cutoffDate + "T00:00:00").getTime() : 0;
+          if (!_standListLoadedAt) { try { await loadStandList(); } catch {} }
         }
         // loadHistory handles the default-venue legacy collection correctly.
         // When a date is picked, query THAT date range from Firestore directly —
         // a fixed newest-100 scan never reaches older dates at all.
-        const cutoffDay = cutoffMs ? (() => { const d = new Date(cutoffMs); const pad = n => String(n).padStart(2, "0"); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; })() : "";
-        const plusDays = (day, n) => { const d = new Date(day + "T12:00:00"); d.setDate(d.getDate() + n); const pad = x => String(x).padStart(2, "0"); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
+        const t2 = performance.now();
+        const cutoffDay = cutoffMs ? dayOf(cutoffMs) : "";
         const { list } = await loadHistory(undefined, cutoffDay
-          ? { dateFrom: cutoffDay, dateTo: cutoffMode === "on" ? plusDays(cutoffDay, 1) : undefined, pageSize: 300 }
+          ? { dateFrom: cutoffDay, dateTo: cm === "on" ? plusDays(cutoffDay, 1) : undefined, pageSize: 300 }
           : { pageSize: 100 });
+        T.reports = performance.now() - t2;
+        if (!live) return;
         // Offline / warm-start fallback: if the cloud fetch came back empty,
         // fall back to the local history cache so labels still render.
         let recList = list || [];
-        if (recList.length === 0) {
-          try { recList = JSON.parse(localStorage.getItem(`sdx_history_cache_${VENUE_ID}`) || "[]"); } catch {}
-        }
-        const seen = new Set();
-        const items = [];
-        // The LATEST report of each stand is the truth for its equipment
-        // (numbers don't lie: identity = unit number). Empty template rows
-        // (never filled in) get no label. Units without a real asset tag get a
-        // stable one: SDX-CL-<UNIT>-<n> / SDX-FZ-<UNIT>-<n>, numbered by label
-        // — the same rule the inventory export uses, so every QR is unique.
-        const sortedRecs = [...recList].filter(r => !r.quickProblem).sort((a, b) => (b.savedAt || "").localeCompare(a.savedAt || ""));
-        const standDone = new Set();
-        const standsNoEquip = [];
-        const noEquipSeen = new Set();
-        const isRealUnit = v => !!(v && !v.notApplicable && (String(v.tempF ?? "").trim() || v.brand || (v.assetTag && String(v.assetTag).trim()) || v.count || v.label || (v.status && v.status !== "OK") || (v.notes || "").trim() || (v.photos || []).length));
-        const validTag = t => { const x = String(t || "").trim().toUpperCase(); return x && !/^CUSTOM_/.test(x) && !COLD_EQUIPMENT[x.toLowerCase()] && !BAR_COLD_EQUIPMENT[x.toLowerCase()] && x !== "COOLERS" && x !== "FREEZER" ? x : ""; };
-        for (let rec of sortedRecs) {
-          // The inspection date is the day the walk happened; savedAt is only
-          // when the record was written (edits move it) — prefer the former.
-          const recDay = (rec.inspectionDate || rec.savedAt || "").slice(0, 10);
-          const recMs = Date.parse(recDay ? recDay + "T12:00:00" : "") || 0;
-          if (cutoffMs && recMs < cutoffMs) continue; // before the cutoff — skip
-          if (cutoffDay && cutoffMode === "on" && recDay !== cutoffDay) continue; // only-that-date mode
-          if (!/\d/.test(normUnit(rec.siteNumber))) rec = { ...rec, siteNumber: "" }; // "Ground" / "Lexus Bar Left" are not unit numbers
-          const standKey = (rec.siteNumber || "").trim() ? `u:${normUnit(rec.siteNumber)}` : `s:${(rec.siteName || "").trim().toLowerCase()}`;
-          if (standDone.has(standKey)) continue; // older report of a stand we already have
-          const equip = rec.inspection?.equipment || {};
-          if (!siteName && rec.siteName) setSiteName(rec.siteName);
-          const realEntries = Object.entries(equip).filter(([key, val]) => {
-            const isCold = !!(COLD_EQUIPMENT[key] || BAR_COLD_EQUIPMENT[key] || detectColdType(val?.label));
-            const hasTag = !!validTag(val?.assetTag);
-            return (isCold || hasTag) && isRealUnit(val);
-          });
-          if (realEntries.length === 0) {
-            // No equipment in this report — keep looking at older reports of
-            // the same stand; only if none has equipment is it "to add".
-            const nk = standKey;
-            if (!noEquipSeen.has(nk) && (rec.siteName || rec.siteNumber)) { noEquipSeen.add(nk); standsNoEquip.push({ key: nk, venueName: rec.siteName || "", unit: (rec.siteNumber || "").trim(), floor: floorForStand(rec.siteNumber, rec.siteName, rec.floor), locType: rec.locationType || "", last: recDay }); }
-            continue;
-          }
-          standDone.add(standKey);
-          const cleanLbl = (key, val) => String(val?.label || COLD_EQUIPMENT[key]?.label || BAR_COLD_EQUIPMENT[key]?.label || key).replace(/\s*(❄|🧊)\s*(Cooler|Freezer)\s*$/u, "").trim();
-          realEntries.sort((a, b) => cleanLbl(a[0], a[1]).localeCompare(cleanLbl(b[0], b[1])));
-          const counters = { CL: 0, FZ: 0 };
-          const unitN = normUnit(rec.siteNumber) || (rec.siteName || "").replace(/[^A-Z0-9]/gi, "").toUpperCase().slice(0, 8) || "X";
-          for (const [key, val] of realEntries) {
-            const lbl = cleanLbl(key, val);
-            const typ = (/freez|frz/i.test(lbl) || ["freezer", "walkInFreezer", "doubleDoorFreezer"].includes(key)) ? "FZ" : "CL";
-            let tag = validTag(val?.assetTag);
-            if (!tag) { counters[typ]++; tag = `SDX-${typ}-${unitN}-${counters[typ]}`; }
-            const dedupeId = tag;
-            if (seen.has(dedupeId)) continue;
-            seen.add(dedupeId);
-            const id = tag;
-            // Resolve a human-readable label:
-            //   1. val.label (custom items always store their label)
-            //   2. COLD_EQUIPMENT or BAR_COLD_EQUIPMENT map label (standard built-in items)
-            //   3. raw key as last resort
-            const resolvedLabel = val?.label
-              || COLD_EQUIPMENT[key]?.label
-              || BAR_COLD_EQUIPMENT[key]?.label
-              || key;
-            // Add ❄ badge to cold equipment that doesn't already include it
-            const coldType = (COLD_EQUIPMENT[key] || BAR_COLD_EQUIPMENT[key] || detectColdType(val?.label))?.type;
-            const coldBadge = coldType === "cooler" ? " ❄ Cooler" : coldType === "freezer" ? " 🧊 Freezer" : "";
-            const displayLabel = resolvedLabel + coldBadge;
-            items.push({
-              uid: dedupeId,
-              assetTag: id,
-              label: displayLabel,
-              venueName: rec.siteName || activeVenueId,
-              unit: (rec.siteNumber || "").trim(),
-              floor: floorForStand(rec.siteNumber, rec.siteName, rec.floor),
-              locType: (rec.locationType || "").trim(),
-              location: (val?.location || val?.kitchenArea || "").trim(),
-              brandName: (val?.brand || val?.brandName || "").trim(),
-              inspectionDate: rec.savedAt ? new Date(rec.savedAt).toLocaleDateString([], { year: "numeric", month: "short", day: "numeric" }) : "",
-            });
-          }
-        }
-        // Stand list first so shared units resolve to the right stand
-        try { await loadStandList(); } catch {}
-        // Registry (manual entries on this page) is the truth for a stand: a
-        // report's generic "Coolers"/"2-Door Cooler" rows at that stand are the
-        // same physical units under another name — don't print them twice.
-        const regStands = new Set();
-        for (const [tag, it] of Object.entries(regItems)) { if (isHiddenTag(hidden, `reg_${tag}`, tag)) continue; const k = normUnit(it.unit) ? `u:${normUnit(it.unit)}` : `s:${(it.venueName || "").trim().toLowerCase()}`; regStands.add(k); }
-        const isGenerated = t => /^SDX-(CL|FZ)-[A-Z0-9]+-\d+$/.test(String(t || "").toUpperCase());
-        for (let i = items.length - 1; i >= 0; i--) {
-          const it = items[i];
-          const k = normUnit(it.unit) ? `u:${normUnit(it.unit)}` : `s:${(it.venueName || "").trim().toLowerCase()}`;
-          if (regStands.has(k) && isGenerated(it.assetTag)) { seen.delete(it.assetTag); items.splice(i, 1); }
-        }
-        // Every stand from the posters list belongs here too — a stand with no
-        // cooler / freezer yet still shows up, ready to add its units.
-        const stands = _standListCache;
-        setStandList(stands);
-        const noEqKeys = new Set(standsNoEquip.map(sn => sn.key));
-        for (const k of stands) {
-          const key = k.id;
-          const hasUnits = items.some(i => !hidden[i.uid] && equipBelongsTo(i, k));
-          if (hasUnits || standDone.has(key) || regStands.has(key) || noEqKeys.has(key)) continue;
-          noEqKeys.add(key);
-          standsNoEquip.push({ key, venueName: k.site || "", unit: (k.unit || "").trim(), floor: floorForStand(k.unit, k.site, k.floor), locType: k.locType || "", last: "" });
-        }
-        setStandsNoEquip(standsNoEquip.filter(sn => !standDone.has(sn.key) && !regStands.has(sn.key)).sort((a, b) => (a.unit || "").localeCompare(b.unit || "", undefined, { numeric: true })));
-        // Merge manually-created equipment (always shown) and apply removals
-        for (const [tag, it] of Object.entries(regItems)) {
-          const uid = `reg_${tag}`;
-          if (isHiddenTag(hidden, uid, tag)) continue;
-          const T = String(tag).toUpperCase();
-          const existing = items.find(i => String(i.assetTag || "").toUpperCase() === T);
-          if (existing) {
-            // The registry is always newer than a report's snapshot — it wins for identity AND placement
-            if (it.label) existing.label = it.label;
-            if (it.brandName) existing.brandName = it.brandName;
-            if (it.location) existing.location = it.location;
-            if (it.venueName) existing.venueName = it.venueName;
-            if (it.unit !== undefined && String(it.unit).trim()) existing.unit = String(it.unit).trim();
-            if (it.locType) existing.locType = it.locType;
-            if (it.standId) existing.standId = it.standId;
-            if (it.unit || it.venueName) existing.floor = floorForStand(existing.unit, existing.venueName, it.floor || existing.floor);
-            continue;
-          }
-          if (seen.has(tag)) continue; // already present from an inspection
-          seen.add(tag);
-          items.unshift({ ...it, assetTag: String(it.assetTag || tag).toUpperCase(), uid, floor: floorForStand(it.unit, it.venueName, it.floor) });
-        }
-        // Units the registry indexed from reports (labelIndex) — the poster cards and the
-        // portal count these, so this page must too, cutoff or not.
-        for (const [tag, ix] of Object.entries(regIndex)) {
-          const uid = `reg_${tag}`;
-          if (isHiddenTag(hidden, uid, tag)) continue;
-          const T = String(tag).toUpperCase();
-          const ex = items.find(i => String(i.assetTag || "").toUpperCase() === T);
-          if (ex) {
-            if (ix?.standId && !ex.standId) { ex.standId = ix.standId; if (ix.unit) ex.unit = ix.unit; if (ix.venueName) ex.venueName = ix.venueName; }
-            // A bare registry record (placement only) takes its name / brand / location from the index
-            if (ix && !ex.label && (ix.name || ix.label)) ex.label = ix.name || ix.label;
-            if (ix && !ex.brandName && (ix.brand || ix.brandName)) ex.brandName = ix.brand || ix.brandName;
-            if (ix && !ex.location && ix.location) ex.location = ix.location;
-            continue;
-          }
-          if (!ix || !(ix.unit || ix.venueName)) continue;
-          items.push({ assetTag: T, label: ix.name || ix.label || "", brandName: ix.brand || ix.brandName || "", location: ix.location || "", venueName: ix.venueName || "", unit: ix.unit || "", locType: ix.locType || "", standId: ix.standId || "", uid, floor: floorForStand(ix.unit, ix.venueName, ix.floor), fromIndex: true });
-        }
-        // Last guard: one row per uid (the fuller row wins), and never a row without a tag —
-        // two rows sharing a uid made "delete the empty one" delete the real one too.
-        {
-          const byUid = new Map();
-          for (const it of items) {
-            if (!String(it.assetTag || "").trim()) continue;
-            const prev = byUid.get(it.uid);
-            if (!prev) { byUid.set(it.uid, it); continue; }
-            const merged = { ...prev };
-            for (const [k, v] of Object.entries(it)) if (v !== undefined && v !== "" && (merged[k] === undefined || merged[k] === "")) merged[k] = v;
-            byUid.set(it.uid, merged);
-          }
-          items.length = 0; items.push(...byUid.values());
-        }
-        if (items.length === 0 && cutoffMs && recList.length > 0 && cutoffDate !== "") {
+        if (recList.length === 0) { try { recList = JSON.parse(localStorage.getItem(`sdx_history_cache_${VENUE_ID}`) || "[]"); } catch {} }
+        const items = await build({ regItems, regIndex, hidden, cutoffMs, cutoffMode: cm, recList });
+        if (!live) return;
+        if (items === null) {
           // Every stand's latest report is older than the cutoff — showing
           // nothing helps nobody. Fall back to all dates (the picker shows it).
+          skipNextLoadRef.current = false;
           setCutoffDate("");
           return;
         }
-        setEquipItems(items.filter(i => !isHiddenTag(hidden, i.uid, i.assetTag)));
+        setEquipItems(items);
         // Every label we can print is remembered by tag → old tag-only labels resolve everywhere
-        warmEquipRegistry().then(() => indexEquipLabels(items.filter(i => !isHiddenTag(hidden, i.uid, i.assetTag)))).catch(() => {});
+        try { indexEquipLabels(items); } catch {}
+        const fmt = ms => ms == null ? "—" : ms < 1000 ? `${Math.round(ms)} ms` : `${(ms / 1000).toFixed(1)} s`;
+        const total = performance.now() - t0;
+        try { console.info(`[equip] cache ${fmt(T.cache)} · registry ${fmt(T.registry)} · stands ${fmt(T.stands)} · reports ${fmt(T.reports)} · total ${fmt(total)}`); } catch {}
+        try { window.__equipLoadStats = { ...T, total }; } catch {}
+        setLoadStats(`Loaded in ${fmt(total)}`); setTimeout(() => { if (live) setLoadStats(""); }, 6000);
       } catch {
-        setEquipItems([]);
+        if (!cacheShownRef.current) setEquipItems([]);
       }
-      setLoading(false);
+      if (!live) return;
+      setLoading(false); setRefreshing(false);
     }
     load();
+    return () => { live = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cutoffDate, cutoffMode, reloadTick]);
 
@@ -20703,6 +20757,8 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
         {loading && (
           <div style={{ textAlign: "center", padding: "3rem", color: "var(--ink-500)" }}>Loading equipment…</div>
         )}
+        {!loading && refreshing && <div className="equipRefreshChip">↻ Updating from the cloud…</div>}
+        {!loading && !refreshing && loadStats && <div className="equipRefreshChip equipLoadedChip">✓ {loadStats}</div>}
 
         {/* ── One stand open: its equipment QRs, add more, print ── */}
         {!loading && standFocus && (() => {
@@ -21453,7 +21509,17 @@ function standIdIn(existing, site, unit) {
   if (same) return same.id;
   return `${base}~${standSlug(site) || "b"}`;
 }
-async function loadStandList() {
+let _standListLoadedAt = 0, _standListPending = null;
+// v465: one stand list per minute, shared by the posters tab, the equipment
+// tab and the portal — `{ fresh: true }` forces a re-read.
+async function loadStandList(opts = {}) {
+  if (!opts.fresh && _standListCache.length && Date.now() - _standListLoadedAt < 60000) return _standListCache;
+  if (_standListPending && !opts.fresh) return _standListPending;
+  _standListPending = loadStandListNow().finally(() => { _standListPending = null; });
+  return _standListPending;
+}
+async function loadStandListNow() {
+  try { window.__sdxStandListLoads = (window.__sdxStandListLoads || 0) + 1; } catch {}
   const SEED_KITCHENS = standSeeds();
 
   const seen = new Set();
@@ -21543,6 +21609,7 @@ async function loadStandList() {
     if (!k.locType && /\d/.test(u)) k.locType = "Concession";
   }
   _standListCache = list.map(x => ({ ...x, floor: floorForStand(x.unit, x.site, x.floor) }));
+  _standListLoadedAt = Date.now();
   try { window.__sdxStands = _standListCache; } catch {}
   return _standListCache;
 }
@@ -21737,6 +21804,7 @@ function KitchenQrPage({ onBack, onPrintLabels, onStandEquipment }) {
     const id = standIdIn(kitchens, site, unit);
     const newK = { id, site, unit, floor, license, locType: addType };
     setKitchens(prev => prev.some(k => k.id === id) ? prev : [newK, ...prev]);
+    if (!_standListCache.some(k => k.id === id)) _standListCache = [newK, ..._standListCache];
     setAddSite(""); setAddUnit(""); setAddLicense(""); setAddLicHint(""); setAddType("Concession");
     setAddFlash({ k: newK }); setTimeout(() => setAddFlash(f => (f && f.k.id === id ? null : f)), 12000);
     // Persist so the stand survives reloads and shows on every device
@@ -21748,6 +21816,7 @@ function KitchenQrPage({ onBack, onPrintLabels, onStandEquipment }) {
   function removeKitchen(id) {
     const k = kitchens.find(x => x.id === id);
     setKitchens(prev => prev.filter(x => x.id !== id));
+    _standListCache = _standListCache.filter(x => x.id !== id);
     if (k && !_standRemoved.some(r => r.id === id)) { _standRemoved = [{ ...k, rid: id }, ..._standRemoved]; setRemovedTick(t => t + 1); }
     try { writeKitchenReg({ hidden: { [id]: true } }); } catch {}
   }
@@ -21755,6 +21824,7 @@ function KitchenQrPage({ onBack, onPrintLabels, onStandEquipment }) {
     const k = { id: r.id, site: r.site || "", unit: r.unit || "", floor: floorForStand(r.unit, r.site, r.floor), license: r.license || "", locType: r.locType || "" };
     _standRemoved = _standRemoved.filter(x => x.id !== r.id); setRemovedTick(t => t + 1);
     setKitchens(prev => prev.some(x => x.id === k.id) ? prev : [k, ...prev]);
+    if (!_standListCache.some(x => x.id === k.id)) _standListCache = [k, ..._standListCache];
     setNewId(k.id); setTimeout(() => setNewId(n => (n === k.id ? null : n)), 4000);
     const hidden = { [r.id]: false, [`${(r.site || "").toLowerCase()}|${(r.unit || "").toLowerCase()}`]: false }; if (r.rid && r.rid !== r.id) hidden[r.rid] = false;
     try { writeKitchenReg({ items: { [r.id]: { site: k.site, unit: k.unit, floor: k.floor, license: k.license, locType: k.locType } }, hidden }); } catch {}
