@@ -8884,3 +8884,12 @@ button.nluChipTemp { background: #fef3c7; color: #92400e; border: 1px solid #fcd
 :root[data-theme="dark"] .impNoteBlock { background: #2a1215; }
 .impCard .btnGhost, .impPage .impMain .btnGhost { color: var(--sdx-navy, #1e2761); border: 1.5px solid var(--sdx-gray-300, #cbd5e1); background: var(--surface-1, #fff); }
 .impNote.impActive { border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,.15); }
+.impOr { text-align: center; color: var(--ink-400, #9ca3af); font-size: 0.8rem; font-weight: 700; letter-spacing: .04em; }
+.impFolderDrop { padding: 22px 16px; border-color: #93c5fd; background: #f0f7ff; }
+.impFolderTitle { font-weight: 800; color: var(--sdx-navy, #1e2761); font-size: 1rem; }
+.impHow { border: 1px solid var(--sdx-gray-200, #e5e7eb); border-radius: 10px; padding: 8px 12px; font-size: 0.86rem; }
+.impHow summary { cursor: pointer; font-weight: 800; color: var(--sdx-navy, #1e2761); }
+.impHow ol { margin: 8px 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; line-height: 1.45; }
+.impLinkBtn { border: 1.5px solid var(--sdx-navy, #1e2761); background: #fff; color: var(--sdx-navy, #1e2761); border-radius: 8px; padding: 4px 10px; font-weight: 800; cursor: pointer; font-size: 0.82rem; }
+:root[data-theme="dark"] .impFolderDrop { background: #0f1b33; border-color: #1d4ed8; }
+:root[data-theme="dark"] .impLinkBtn { background: #111827; color: #bfdbfe; border-color: #3b82f6; }

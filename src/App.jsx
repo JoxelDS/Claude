@@ -24629,7 +24629,7 @@ async function processPhotoFiles(files, { limit, inspId, venueId, firebaseOn, on
 // temperatures as cold units, the rest as issues, the stand resolved from the
 // license sheet, optional photos, and the note's time as the report time.
 // ══════════════════════════════════════════════════════════════════════════
-const IMPORT_HEAD_RE = /^\s*(?:(\d{1,2}:\d{2}\s*[ap]\.?\s*m\.?)\s*[-–—:]?\s*)?(?:stand|puesto|unit|local|unidad)\s*#?\s*:?\s*(\d{1,4}(?:\s?[a-z](?![a-z]))?)\b\s*[:\-–—]?\s*/i;
+const IMPORT_HEAD_RE = /^\s*(?:(\d{1,2}\/\d{1,2}\/\d{2,4})\s+)?(?:(\d{1,2}:\d{2}\s*[ap]\.?\s*m\.?)\s*[-–—:]?\s*)?(?:stand|puesto|unit|local|unidad)\s*#?\s*:?\s*(\d{1,4}(?:\s?[a-z](?![a-z]))?)\b\s*[:\-–—]?\s*/i;
 const IMPORT_LIC_RE  = /\b(?:licen[cs]e|licencia|lic)\s*#?\s*:?\s*(no\s+license|[a-z]{2,4}\s?-?\s?\d{4,})/i;
 const IMPORT_TIME_RE = /\b(\d{1,2}):(\d{2})\s*([ap])\.?\s*m\.?\b/i;
 const IMPORT_TEMP_RE = /(?:\b(?:temp\w*|temperatura)\b\s*[:\-=]?\s*(-?\d{1,3}(?:[.,]\d{1,2})?)\s*°?\s*([fc])?\b)|(?:(-?\d{1,3}(?:[.,]\d{1,2})?)\s*°\s*([fc])?)/i;
@@ -24649,6 +24649,42 @@ function importTempZone(type, n) {
   if (!type || !Number.isFinite(n)) return { zone: "unknown", max: null, warn: null };
   const max = type === "freezer" ? 20 : 40, warn = TEMP_WARN_MAX[type];
   return { zone: n <= max ? "good" : n <= warn ? "warn" : "bad", max, warn };
+}
+function importDateIso(text) {
+  const m = /(\d{1,2})\/(\d{1,2})\/(\d{2,4})/.exec(String(text || ""));
+  if (!m) return "";
+  let y = Number(m[3]); if (y < 100) y += 2000;
+  const mo = Number(m[1]), d = Number(m[2]);
+  if (mo < 1 || mo > 12 || d < 1 || d > 31) return "";
+  return `${y}-${String(mo).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+}
+// v482: an exported Notes folder (docs/tools/export-apple-notes.applescript) →
+// one group per sub-folder: the note.txt line + that note's pictures. A flat
+// folder of text files + pictures groups by file name instead.
+function importGroupFolderFiles(list) {
+  const groups = new Map();
+  const isImg = f => /^image\//.test(f.file?.type || "") || PHOTO_EXT_RE.test(f.path || f.file?.name || "");
+  const isTxt = f => /\.(txt|md)$/i.test(f.path || f.file?.name || "");
+  for (const f of list || []) {
+    const parts = String(f.path || f.file?.name || "").split("/").filter(Boolean);
+    if (parts.length && /^all-notes\.txt$/i.test(parts[parts.length - 1])) continue;
+    const base = parts.length > 2 ? parts[1] : parts.length === 2 ? parts[0] : parts[0].replace(/\.[^.]+$/, "");
+    const key = parts.length >= 2 ? base : (isTxt(f) ? base : "__root__");
+    if (!groups.has(key)) groups.set(key, { key, texts: [], files: [] });
+    const g = groups.get(key);
+    if (isTxt(f)) g.texts.push(f.file); else if (isImg(f)) g.files.push(f.file);
+  }
+  // pictures in a flat folder with one text file belong to that note
+  if (groups.has("__root__") && groups.size === 2) { const root = groups.get("__root__"); const other = [...groups.values()].find(g => g.key !== "__root__"); other.files.push(...root.files); groups.delete("__root__"); }
+  return [...groups.values()].filter(g => g.texts.length || g.files.length).sort((a, b) => a.key.localeCompare(b.key, undefined, { numeric: true }));
+}
+async function importReadEntry(entry, prefix, out) {
+  if (!entry) return;
+  if (entry.isFile) { await new Promise(res => entry.file(f => { out.push({ path: prefix + entry.name, file: f }); res(); }, () => res())); return; }
+  if (entry.isDirectory) {
+    const reader = entry.createReader(); let batch;
+    do { batch = await new Promise(res => reader.readEntries(res, () => res([]))); for (const e of batch) await importReadEntry(e, prefix + entry.name + "/", out); } while (batch && batch.length);
+  }
 }
 function importTime24(text) {
   const m = IMPORT_TIME_RE.exec(String(text || ""));
@@ -24692,12 +24728,13 @@ function parseInspectionNotes(text, opts = {}) {
   const notes = [];
   blocks.forEach((block, idx) => {
     const head = IMPORT_HEAD_RE.exec(block);
-    const unit = head ? normUnit(head[2]) : "";
+    const unit = head ? normUnit(head[3]) : "";
+    const noteDate = head && head[1] ? importDateIso(head[1]) : "";
     let rest = head ? block.slice(head[0].length) : block;
     let license = "";
     const lm = IMPORT_LIC_RE.exec(rest);
     if (lm) { license = lm[1].toUpperCase().replace(/\s+/g, " ").trim(); if (/^NO\s+LICENSE$/.test(license)) license = "NO LICENSE"; else license = license.replace(/[\s-]/g, ""); rest = (rest.slice(0, lm.index) + " " + rest.slice(lm.index + lm[0].length)).trim(); }
-    const time = importTime24(head && head[1] ? head[1] : rest);
+    const time = importTime24(head && head[2] ? head[2] : rest);
     rest = importNormalizeTemps(rest.replace(IMPORT_TIME_RE, " "));
     // segments: commas / semicolons / pipes / " - " / newlines, then split a run of
     // several readings before each cold-unit word
@@ -24730,7 +24767,7 @@ function parseInspectionNotes(text, opts = {}) {
     if (stand.licenseMismatch) warnings.push(`The sheet has license ${stand.license} for this stand (you wrote ${license}).`);
     temps.filter(t => !t.type).forEach(t => warnings.push(`“${t.label}” — is it a cooler or a freezer? Pick one so the reading is checked.`));
     if (!temps.length && !issues.length) warnings.push("Nothing to record on this line (no temperatures, no issues).");
-    notes.push({ idx, raw: block, unit, license, time, temps, issues, stand, warnings, include: !!unit, standName: stand.name, standType: stand.type, floor: stand.floor || floorFromUnit(unit), photos: [] });
+    notes.push({ idx, raw: block, unit, license, time, date: noteDate, temps, issues, stand, warnings, include: !!unit, standName: stand.name, standType: stand.type, floor: stand.floor || floorFromUnit(unit), photos: [] });
   });
   return notes;
 }
@@ -24741,6 +24778,7 @@ function importRecordId(date, unit, time, idx) {
 }
 // note (after review edits) → the exact record shape the inspection form saves
 function buildImportedRecord(note, { date, inspectorName, badgeHash } = {}) {
+  date = note.date || date;
   const ts = Date.now();
   const insp = buildDefaultInspection();
   // The notes only cover what they mention: every default section is "not checked".
@@ -24799,7 +24837,7 @@ async function importFilesFromTransfer(dt) {
   }
   return out;
 }
-if (typeof window !== "undefined") { window.__sdxParseNotes = parseInspectionNotes; window.__sdxBuildImportRecord = buildImportedRecord; window.__sdxImportFilesFromTransfer = importFilesFromTransfer; }
+if (typeof window !== "undefined") { window.__sdxParseNotes = parseInspectionNotes; window.__sdxBuildImportRecord = buildImportedRecord; window.__sdxImportFilesFromTransfer = importFilesFromTransfer; window.__sdxImportGroupFolder = importGroupFolderFiles; }
 
 function ImportNotesPage({ onBack, onDone, currentUser }) {
   const today = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; })();
@@ -24846,6 +24884,40 @@ function ImportNotesPage({ onBack, onDone, currentUser }) {
     document.addEventListener("paste", onPaste);
     return () => document.removeEventListener("paste", onPaste);
   }, [step]);
+  const folderRef = useRef(null);
+  const [folderBusy, setFolderBusy] = useState("");
+  // an exported Notes folder → every stand with its pictures, in one go
+  const loadFolder = async (list) => {
+    const groups = importGroupFolderFiles(list);
+    if (!groups.length) { say("No notes found in that folder — export them with the script first."); return; }
+    setFolderBusy(`Reading ${groups.length} note${groups.length !== 1 ? "s" : ""}…`);
+    const built = []; const lines = [];
+    for (const g of groups) {
+      let line = "";
+      for (const t of g.texts) { try { const txt = await t.text(); line = txt.split(/\r?\n/).map(x => x.trim()).filter(Boolean).join(", "); if (line) break; } catch {} }
+      if (!line) line = g.key;
+      lines.push(line);
+      const parsed = parseInspectionNotes(line);
+      const n = parsed[0] || { idx: 0, raw: line, unit: "", license: "", time: "", date: "", temps: [], issues: [], stand: resolveImportStand("", ""), warnings: ["No stand number found — the line must start with “Stand 345A”."], include: false, standName: "", standType: "Concession", floor: "", photos: [] };
+      built.push({ ...n, idx: built.length, dupe: n.unit ? existingSameDay(n.unit) : false, pendingFiles: g.files });
+    }
+    setText(lines.join("\n")); setNotes(built); setStep("review"); setFolderBusy("");
+    for (const n of built) { if (n.pendingFiles?.length) { await addPhotos(n, n.pendingFiles); } }
+    setNotes(prev => prev.map(x => ({ ...x, pendingFiles: undefined })));
+    say(`${built.length} note${built.length !== 1 ? "s" : ""} read from the folder — check the rows, then create the reports.`);
+  };
+  useEffect(() => { window.__sdxImportLoadFolder = loadFolder; return () => { if (window.__sdxImportLoadFolder === loadFolder) delete window.__sdxImportLoadFolder; }; });
+  const onFolderDrop = async (e) => {
+    e.preventDefault(); e.currentTarget.classList.remove("over");
+    const out = []; const items = Array.from(e.dataTransfer?.items || []);
+    for (const it of items) { const entry = it.webkitGetAsEntry ? it.webkitGetAsEntry() : null; if (entry) await importReadEntry(entry, "", out); }
+    if (!out.length) for (const f of Array.from(e.dataTransfer?.files || [])) out.push({ path: f.webkitRelativePath || f.name, file: f });
+    await loadFolder(out);
+  };
+  const copyScript = async () => {
+    try { const r = await fetch(`${import.meta.env.BASE_URL || "/"}tools/export-apple-notes.applescript`); const txt = await r.text(); await navigator.clipboard.writeText(txt); say("Script copied — open Script Editor on the Mac, paste, press Run."); }
+    catch { say("Could not copy — open the script link and copy it from there."); }
+  };
   const included = notes.filter(n => n.include);
   const blockers = included.filter(n => !n.unit || !(n.standName || "").trim());
   const create = async () => {
@@ -24900,6 +24972,23 @@ function ImportNotesPage({ onBack, onDone, currentUser }) {
             </div>
             <div className="impHint">Format: <strong>Stand 345A License NOS2334857</strong> then the findings separated by commas. A reading is <strong>Freezer #2 Temp 12.7°F</strong> (°F, ^F or just the number after “Temp”). A time like <strong>5:40 PM</strong> at the start of the line is kept as the report time. Photos are added per stand on the next screen.</div>
             <button className="btn btnPrimary impBtn" type="button" data-testid="imp-parse" onClick={parse} disabled={!text.trim()}>Read the notes →</button>
+            <div className="impOr">— or, with the pictures —</div>
+            <div className="impDrop impFolderDrop" data-testid="imp-folder-drop" onClick={() => folderRef.current?.click()}
+              onDragOver={e => { e.preventDefault(); e.currentTarget.classList.add("over"); }} onDragLeave={e => e.currentTarget.classList.remove("over")} onDrop={onFolderDrop}>
+              <input ref={folderRef} type="file" className="fileInput" data-testid="imp-folder" multiple webkitdirectory="" directory="" onChange={async e => { const out = Array.from(e.target.files || []).map(f => ({ path: f.webkitRelativePath || f.name, file: f })); e.target.value = ""; await loadFolder(out); }} />
+              <div className="impFolderTitle">📁 Drop the “SDX Notes Export” folder here</div>
+              <span className="impDropHint">{folderBusy || "Every note comes in with its pictures already attached. Tap to choose the folder instead."}</span>
+            </div>
+            <details className="impHow" data-testid="imp-how">
+              <summary>How to get everything out of Apple Notes (text and pictures)</summary>
+              <ol>
+                <li>On the Mac, open <strong>Script Editor</strong> (Spotlight → “Script Editor”).</li>
+                <li>Tap <button type="button" className="impLinkBtn" onClick={copyScript}>📋 Copy the export script</button> and paste it there. If your notes folder is not called “Safety &amp; Sanitation”, change the name on the first line.</li>
+                <li>Press <strong>▶ Run</strong> and allow it to control Notes. A folder <strong>SDX Notes Export</strong> appears on the Desktop: one sub-folder per note with the text and the pictures.</li>
+                <li>Drag that folder onto the box above. Done — check the rows and tap Create.</li>
+              </ol>
+              <div className="impHint">No Mac? Paste the note text above and add the pictures per stand on the next screen (drag, ⌘V, or pick them from Photos). <a href={`${import.meta.env.BASE_URL || "/"}tools/export-apple-notes.applescript`} target="_blank" rel="noreferrer">Open the script as a file</a>.</div>
+            </details>
           </div>
         )}
         {step === "review" && (
@@ -24918,6 +25007,7 @@ function ImportNotesPage({ onBack, onDone, currentUser }) {
                         <StandType lt={n.standType} />
                         <select className="select impTypeSel" value={n.standType} onChange={e => patch(n.idx, x => ({ ...x, standType: e.target.value }))}>{LOCATION_TYPES.map(t => <option key={t} value={t}>{t}</option>)}</select>
                         {n.floor && <span className="impChip impChipGray">{n.floor}</span>}
+                        {n.date && n.date !== date && <span className="impChip impChipGray">📅 {n.date}</span>}
                         {n.time && <span className="impChip impChipGray">🕒 {n.time}</span>}
                         {n.dupe && <span className="impChip impChipWarn">already has a report on {date}</span>}
                       </div>
