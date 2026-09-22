@@ -3095,6 +3095,15 @@ function cx(...classes) {
   return classes.filter(Boolean).join(" ");
 }
 
+// v479: open the app-wide photo viewer from ANY component. The app shell listens for
+// this event (see the `sdx-lightbox` effect next to setAppLightboxSrc). The checklist
+// thumb strip inside GuideSection used to call setAppLightboxSrc directly, which is not
+// in its scope — every tap threw "setAppLightboxSrc is not defined" and nothing opened.
+function openPhotoLightbox(src) {
+  if (!src) return;
+  try { window.dispatchEvent(new CustomEvent("sdx-lightbox", { detail: { src } })); } catch {}
+}
+
 function buildDefaultContext(noteType) {
   const spec = NOTE_TYPES[noteType] || NOTE_TYPES["inspection"];
   const obj = {};
@@ -25300,7 +25309,7 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                                           {ciPhotos.map(p => (
                                             <div key={p.id} className={`ciPhotoThumb${p.uploading ? " ciPhotoUploading" : ""}${p.tag === "after" ? " ciPhotoAfter" : " ciPhotoBefore"}`}>
                                               <span className="ciPhotoTag">{p.tag === "after" ? "AFTER" : "BEFORE"}</span>
-                                              <img src={p.thumbUrl || p.previewUrl || p.url || p.dataUrl} alt="item photo" loading="lazy" style={{ cursor: p.uploading ? "default" : "zoom-in" }} onClick={() => !p.uploading && setAppLightboxSrc(p.previewUrl || p.url || p.dataUrl)} />
+                                              <img src={p.thumbUrl || p.previewUrl || p.url || p.dataUrl} alt="item photo" loading="lazy" style={{ cursor: p.uploading ? "default" : "zoom-in" }} onClick={() => !p.uploading && openPhotoLightbox(p.previewUrl || p.exportUrl || p.url || p.dataUrl || p.thumbUrl)} />
                                               {p.uploading && <div className="ciPhotoSpinner"><div className="ciPhotoSpinnerDot" /></div>}
                                               <button
                                                 type="button"
@@ -30408,6 +30417,12 @@ export default function App() {
   const setShowHaccpModal = (v) => setModals(m => ({ ...m, haccpModal: v }));
   const setShowChatPanel = (v) => setModals(m => ({ ...m, chatPanel: v }));
   const setAppLightboxSrc = (v) => setModals(m => ({ ...m, lightboxSrc: v }));
+  // v479: any component can open the viewer through openPhotoLightbox(src)
+  useEffect(() => {
+    const onOpen = (e) => { const src = e?.detail?.src; if (src) setModals(m => ({ ...m, lightboxSrc: src })); };
+    window.addEventListener("sdx-lightbox", onOpen);
+    return () => window.removeEventListener("sdx-lightbox", onOpen);
+  }, []);
 
   const [output, setOutput] = useState("");
   const [loading, setLoading] = useState(false);
