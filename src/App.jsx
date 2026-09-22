@@ -9924,6 +9924,7 @@ ${sections}
   // Follow-up photos (problem / fix pictures on a card) — venueSettings.followupPhotos[key]
   const [fuPhotosLocal, setFuPhotosLocal] = useState({});
   const [fuPhotoBusy, setFuPhotoBusy] = useState(null);
+  const [photoMenuKey, setPhotoMenuKey] = useState(null); // v473: which card's 📷 Photo menu is open
   const [lightboxSrc, setLightboxSrc] = useState(null);
   const fuPhotosOf = f => (fuPhotosLocal[f.key] || venueSettings?.followupPhotos?.[f.key] || []);
   async function addFuPhotos(f, files, tag = "before") {
@@ -10773,12 +10774,7 @@ ${sections}
                                     </div>
                                   );
                                 })()}
-                                <div className="fuPhotoRow" style={{ marginTop: 4 }}>
-                                  <label className="fuPhotoBtn fuCardPhotoBtn fuPhotoBefore">📷 Before<input type="file" accept="image/*" capture="environment" hidden onChange={e => { addFuPhotos(f, e.target.files, "before"); e.target.value = ""; }} /></label>
-                                  <label className="fuPhotoBtn fuCardPhotoAfter fuPhotoAfter">📷 After<input type="file" accept="image/*" capture="environment" hidden onChange={e => { addFuPhotos(f, e.target.files, "after"); e.target.value = ""; }} /></label>
-                                  <label className="fuPhotoBtn fuCardPhotoPick">🖼 Upload<input type="file" accept="image/*" multiple hidden onChange={e => { addFuPhotos(f, e.target.files, "before"); e.target.value = ""; }} /></label>
-                                  {fuPhotoBusy === f.key && <span className="fuPhotoHint">Adding…</span>}
-                                </div>
+                                {fuPhotoBusy === f.key && <div className="fuPhotoHint" style={{ marginTop: 4 }}>Adding photo…</div>}
                                 {/* Comments — the running conversation on this problem */}
                                 {commentsOf(f).length > 0 && (
                                   <div style={{ marginTop: 5, display: "flex", flexDirection: "column", gap: 3 }}>
@@ -10791,7 +10787,7 @@ ${sections}
                                     {commentsOf(f).length > 3 && <div style={{ fontSize: "0.66rem", color: "var(--ink-400)" }}>+{commentsOf(f).length - 3} earlier comment{commentsOf(f).length - 3 !== 1 ? "s" : ""}</div>}
                                   </div>
                                 )}
-                                {commentKey === f.key ? (
+                                {commentKey === f.key && (
                                   <div className="fuNoteRow">
                                     <input value={commentText} autoFocus placeholder="e.g. can't repair — missing gasket, ordered"
                                       onChange={e => setCommentText(e.target.value)} maxLength={200}
@@ -10800,22 +10796,36 @@ ${sections}
                                       style={{ opacity: commentText.trim() ? 1 : 0.5 }} onClick={() => addComment(f)}>Post</button>
                                     <button type="button" className="fuBtn" onClick={() => { setCommentKey(null); setCommentText(""); }}>✕</button>
                                   </div>
-                                ) : (
-                                  <button type="button" onClick={() => { setCommentKey(f.key); setCommentText(""); }}
-                                    style={{ background: "none", border: "none", color: "var(--sdx-navy)", fontWeight: 700, fontSize: "0.72rem", cursor: "pointer", padding: "3px 0", textAlign: "left" }}>
-                                    💬 Add comment
-                                  </button>
                                 )}
                               </div>
                             </div>
-                            <div className="fuActions">
-                              {!f.likelyResolved && (
-                                <button type="button" className={"fuBtn fuBtnRemind" + (remindPick[f.key] ? " on" : "")} onClick={() => toggleRemind(f)}>
-                                  {remindedKey === f.key ? "✓ Posted" : remindPick[f.key] ? "✓ Added" : "🔔 Remind"}
+                            {/* v473: one action bar at the bottom of the card — secondary on the left, ✓ Resolve big on the right */}
+                            <div className="fuCardBar" onClick={e => e.stopPropagation()}>
+                              <div className="fuBarSecondary">
+                                {!f.likelyResolved && (
+                                  <button type="button" className={"fuBarBtn fuBarRemind" + (remindPick[f.key] ? " on" : "")} onClick={() => toggleRemind(f)}>
+                                    {remindedKey === f.key ? "✓ Posted" : remindPick[f.key] ? "✓ Added" : "🔔 Remind"}
+                                  </button>
+                                )}
+                                <button type="button" className={"fuBarBtn" + (commentKey === f.key ? " on" : "")}
+                                  onClick={() => { if (commentKey === f.key) { setCommentKey(null); setCommentText(""); } else { setCommentKey(f.key); setCommentText(""); } }}>
+                                  💬 Comment
                                 </button>
-                              )}
-                              <button type="button" className="fuBtn fuBtnResolve" onClick={() => markResolved(f)}>
-                                {remindedKey === `res::${f.key}` ? "✓ Cleared" : "✓ Resolved"}
+                                <span className="fuPhotoWrap">
+                                  <button type="button" className={"fuBarBtn" + (photoMenuKey === f.key ? " on" : "")} onClick={() => setPhotoMenuKey(photoMenuKey === f.key ? null : f.key)}>
+                                    📷 Photo
+                                  </button>
+                                  {photoMenuKey === f.key && (
+                                    <div className="fuPhotoMenu">
+                                      <label className="fuPhotoBtn fuCardPhotoBtn fuPhotoBefore">🔴 Before · camera<input type="file" accept="image/*" capture="environment" hidden onChange={e => { addFuPhotos(f, e.target.files, "before"); e.target.value = ""; setPhotoMenuKey(null); }} /></label>
+                                      <label className="fuPhotoBtn fuCardPhotoAfter fuPhotoAfter">🟢 After · camera<input type="file" accept="image/*" capture="environment" hidden onChange={e => { addFuPhotos(f, e.target.files, "after"); e.target.value = ""; setPhotoMenuKey(null); }} /></label>
+                                      <label className="fuPhotoBtn fuCardPhotoPick">🖼 Upload from gallery<input type="file" accept="image/*" multiple hidden onChange={e => { addFuPhotos(f, e.target.files, "before"); e.target.value = ""; setPhotoMenuKey(null); }} /></label>
+                                    </div>
+                                  )}
+                                </span>
+                              </div>
+                              <button type="button" className={"fuBtnPrimary" + (remindedKey === `res::${f.key}` ? " done" : "")} onClick={() => markResolved(f)}>
+                                {remindedKey === `res::${f.key}` ? "✓ Cleared" : "✓ Resolve"}
                               </button>
                             </div>
                           </div>

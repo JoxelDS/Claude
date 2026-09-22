@@ -6623,6 +6623,78 @@ html[data-theme="dsmarketing"] { --sdx-pin-mid: #1A1A1D; --sdx-pin-end: #2E2E33;
   .fuActions { width: 100%; justify-content: flex-start; }
 }
 
+/* v473 — the bottom of every follow-up card: one bar, secondary on the left, ✓ Resolve big on the right */
+.fuItem { flex-wrap: wrap; }
+.fuCardBar {
+  flex-basis: 100%;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--sdx-gray-200);
+}
+.fuBarSecondary { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.fuBarBtn {
+  min-height: 40px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid var(--sdx-gray-200);
+  background: var(--surface-2, #F7F8FA);
+  color: var(--sdx-navy);
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.fuBarBtn.on { background: var(--sdx-navy); color: #fff; border-color: var(--sdx-navy); }
+.fuBarRemind.on { background: #D9F2E3; color: #15803d; border-color: #BBE7C9; }
+.fuBtnPrimary {
+  min-height: 44px;
+  min-width: 130px;
+  padding: 0 18px;
+  border: none;
+  border-radius: 12px;
+  background: #15803d;
+  color: #fff;
+  font-size: 0.9rem;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(21, 128, 61, 0.25);
+}
+.fuBtnPrimary:hover { background: #166534; }
+.fuBtnPrimary:focus-visible { outline: 3px solid #86efac; outline-offset: 2px; }
+.fuBtnPrimary.done { background: #166534; box-shadow: none; }
+.fuPhotoWrap { position: relative; display: inline-block; }
+.fuPhotoMenu {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 6px);
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 210px;
+  padding: 6px;
+  border-radius: 10px;
+  background: #fff;
+  border: 1px solid var(--sdx-gray-200);
+  box-shadow: 0 6px 18px rgba(0,0,0,0.12);
+}
+.fuPhotoMenu .fuPhotoBtn { display: block; width: 100%; box-sizing: border-box; text-align: left; padding: 9px 10px; margin: 0; }
+@media (max-width: 560px) {
+  .fuCardBar { flex-direction: column; align-items: stretch; }
+  .fuBarSecondary { justify-content: space-between; }
+  .fuBarSecondary .fuBarBtn, .fuBarSecondary .fuPhotoWrap { flex: 1; }
+  .fuBarSecondary .fuPhotoWrap .fuBarBtn { width: 100%; }
+  .fuBtnPrimary { width: 100%; }
+}
+html[data-theme="black"] .fuCardBar { border-top-color: #2A2A34; }
+html[data-theme="black"] .fuBarBtn { background: #1C1C22; color: #C9CDDC; border-color: #2F2F3A; }
+html[data-theme="black"] .fuPhotoMenu { background: #17171D; border-color: #2A2A34; }
+
 /* ══════════════════════════════════════════════════════════════
    LOGIN REDESIGN — brand backdrop, glass card, app-grade polish
    (Badge screen always uses the default Sodexo look; venue theme
