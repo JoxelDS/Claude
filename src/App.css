@@ -8883,3 +8883,4 @@ button.nluChipTemp { background: #fef3c7; color: #92400e; border: 1px solid #fcd
 :root[data-theme="dark"] .impNote, :root[data-theme="dark"] .impCard { background: #111827; border-color: #334155; }
 :root[data-theme="dark"] .impNoteBlock { background: #2a1215; }
 .impCard .btnGhost, .impPage .impMain .btnGhost { color: var(--sdx-navy, #1e2761); border: 1.5px solid var(--sdx-gray-300, #cbd5e1); background: var(--surface-1, #fff); }
+.impNote.impActive { border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,.15); }

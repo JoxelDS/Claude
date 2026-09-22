@@ -24783,7 +24783,23 @@ function buildImportedRecord(note, { date, inspectorName, badgeHash } = {}) {
     source: "notes_import", importedAt: new Date().toISOString(), noteTime: note.time || "",
   };
 }
-if (typeof window !== "undefined") { window.__sdxParseNotes = parseInspectionNotes; window.__sdxBuildImportRecord = buildImportedRecord; }
+// v481: pictures arrive in three ways — real files (Finder, the Notes app, the
+// photo picker), file items (dragged out of a web page in Safari, ⌘V of a copied
+// picture) or just a URL (an <img> dragged from another tab). Try all three.
+async function importFilesFromTransfer(dt) {
+  const out = [];
+  try { if (dt?.files?.length) return Array.from(dt.files); } catch {}
+  try { for (const it of Array.from(dt?.items || [])) { if (it.kind === "file") { const f = it.getAsFile(); if (f) out.push(f); } } } catch {}
+  if (out.length) return out;
+  let uris = "";
+  try { uris = dt?.getData ? (dt.getData("text/uri-list") || "") : ""; } catch {}
+  if (!uris) { try { const html = dt?.getData ? (dt.getData("text/html") || "") : ""; const m = /<img[^>]+src=["']([^"']+)["']/i.exec(html); if (m) uris = m[1]; } catch {} }
+  for (const u of uris.split(/\r?\n/).map(x => x.trim()).filter(x => x && !x.startsWith("#"))) {
+    try { const r = await fetch(u, { mode: "cors" }); const b = await r.blob(); if (/^image\//.test(b.type)) out.push(new File([b], `photo-${Date.now()}.jpg`, { type: b.type })); } catch {}
+  }
+  return out;
+}
+if (typeof window !== "undefined") { window.__sdxParseNotes = parseInspectionNotes; window.__sdxBuildImportRecord = buildImportedRecord; window.__sdxImportFilesFromTransfer = importFilesFromTransfer; }
 
 function ImportNotesPage({ onBack, onDone, currentUser }) {
   const today = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; })();
@@ -24796,6 +24812,9 @@ function ImportNotesPage({ onBack, onDone, currentUser }) {
   const [results, setResults] = useState([]);
   const [flash, setFlash] = useState("");
   const fileRefs = useRef({});
+  const [activeIdx, setActiveIdx] = useState(null);
+  const notesRef = useRef([]); notesRef.current = notes;
+  const activeRef = useRef(null); activeRef.current = activeIdx;
   const say = (m) => { setFlash(m); setTimeout(() => setFlash(""), 4500); };
   const existingSameDay = (unit) => {
     try { const cache = JSON.parse(localStorage.getItem(`sdx_history_cache_${VENUE_ID}`) || "[]"); return cache.some(r => r && !r.quickProblem && !r.supervisorLog && r.inspectionDate === date && normUnit(r.siteNumber) === normUnit(unit)); } catch { return false; }
@@ -24812,6 +24831,21 @@ function ImportNotesPage({ onBack, onDone, currentUser }) {
     const { photos } = await processPhotoFiles(files, { limit: 12, inspId: importRecordId(date, note.unit, note.time, note.idx), venueId: activeVenueId, firebaseOn: FIREBASE_ON, onError: say });
     patch(note.idx, n => ({ ...n, photosBusy: false, photos: [...(n.photos || []), ...photos].slice(0, 12) }));
   };
+  // ⌘V / Ctrl+V with a copied picture → the stand you tapped last
+  useEffect(() => {
+    if (step !== "review") return;
+    const onPaste = async (e) => {
+      if (e.target && /^(INPUT|TEXTAREA)$/.test(e.target.tagName)) return;
+      const files = await importFilesFromTransfer(e.clipboardData);
+      if (!files.length) return;
+      e.preventDefault();
+      const idx = activeRef.current; const note = notesRef.current.find(n => n.idx === idx);
+      if (!note) { say("Tap a stand first, then paste the picture."); return; }
+      addPhotos(note, files);
+    };
+    document.addEventListener("paste", onPaste);
+    return () => document.removeEventListener("paste", onPaste);
+  }, [step]);
   const included = notes.filter(n => n.include);
   const blockers = included.filter(n => !n.unit || !(n.standName || "").trim());
   const create = async () => {
@@ -24873,7 +24907,7 @@ function ImportNotesPage({ onBack, onDone, currentUser }) {
             <div className="impSummary">{notes.length} note{notes.length !== 1 ? "s" : ""} · {included.length} selected · {date}{blockers.length ? ` · ${blockers.length} need a stand name` : ""}</div>
             <div className="impList">
               {notes.map(n => (
-                <div key={n.idx} className={cx("impNote", !n.include && "impNoteOff", n.include && (!n.unit || !(n.standName || "").trim()) && "impNoteBlock")} data-testid="imp-note" data-unit={n.unit}>
+                <div key={n.idx} className={cx("impNote", !n.include && "impNoteOff", n.include && (!n.unit || !(n.standName || "").trim()) && "impNoteBlock", activeIdx === n.idx && "impActive")} data-testid="imp-note" data-unit={n.unit} onClickCapture={() => setActiveIdx(n.idx)}>
                   <div className="impNoteHead">
                     <label className="impInclude"><input type="checkbox" checked={!!n.include} onChange={e => patch(n.idx, x => ({ ...x, include: e.target.checked }))} /></label>
                     <div className="impStand">
@@ -24920,10 +24954,10 @@ function ImportNotesPage({ onBack, onDone, currentUser }) {
                     <div className="impSectionHead">📷 Photos {n.photos.length ? `(${n.photos.length})` : ""}{n.photosBusy ? " · adding…" : ""}</div>
                     <div className="impDrop" data-testid="imp-drop" onClick={() => fileRefs.current[n.idx]?.click()}
                       onDragOver={e => { e.preventDefault(); e.currentTarget.classList.add("over"); }} onDragLeave={e => e.currentTarget.classList.remove("over")}
-                      onDrop={e => { e.preventDefault(); e.currentTarget.classList.remove("over"); addPhotos(n, e.dataTransfer?.files); }}>
+                      onDrop={async e => { e.preventDefault(); e.currentTarget.classList.remove("over"); const dt = e.dataTransfer; const files = await importFilesFromTransfer(dt); if (files.length) addPhotos(n, files); else say("That picture could not be read from the drag — save it first, then tap the box to choose it."); }}>
                       <input ref={el => { fileRefs.current[n.idx] = el; }} type="file" accept="image/*" multiple className="fileInput" data-testid="imp-file" onChange={e => { addPhotos(n, e.target.files); e.target.value = ""; }} />
                       {n.photos.length ? <div className="impThumbs">{n.photos.map(p => <img key={p.id} src={p.thumbUrl || p.previewUrl} alt="" onClick={e => { e.stopPropagation(); openPhotoLightbox(p.previewUrl || p.thumbUrl); }} />)}</div> : null}
-                      <span className="impDropHint">Drag the pictures from the note here, or tap to choose</span>
+                      <span className="impDropHint">Drag the pictures from the note here, or tap to choose{activeIdx === n.idx ? " · or copy a picture and press ⌘V" : ""}</span>
                     </div>
                   </div>
                 </div>
