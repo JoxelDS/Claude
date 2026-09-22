@@ -2752,7 +2752,16 @@ const BAR_COLD_EQUIPMENT = {
   underBarCooler: { type: "cooler", max: 40, label: "Under-Bar Cooler" },
   iceBin: { type: "cooler", max: 40, label: "Ice Bin / Ice Machine" },
   wineChiller: { type: "cooler", max: 40, label: "Wine Chiller" },
+  garnishCooler: { type: "cooler", max: 40, label: "Garnish Cooler" },
 };
+// v475: pantries (club / suite / employee pantries) — their own cold units
+const PANTRY_COLD_EQUIPMENT = {
+  reachInCooler:  { type: "cooler",  max: 40, label: "Reach-In Cooler" },
+  reachInFreezer: { type: "freezer", max: 20, label: "Reach-In Freezer" },
+  milkCooler:     { type: "cooler",  max: 40, label: "Milk / Dairy Cooler" },
+};
+// One lookup for every built-in cold unit, whatever the stand type
+function coldMapGet(k) { return COLD_EQUIPMENT[k] || BAR_COLD_EQUIPMENT[k] || PANTRY_COLD_EQUIPMENT[k] || null; }
 
 // Cold equipment: items that need temperature readings during inspection
 const COLD_EQUIPMENT = {
@@ -2782,6 +2791,9 @@ function detectChecklistKey(label) {
   if (/hood|vent|exhaust/.test(l)) return "hood";
   if (/warmer|steam|bain.marie|hot.hold/.test(l)) return "warmers";
   if (/ice.mak|icemaker/.test(l)) return "iceMaker";
+  if (/soda|fountain|bag.in.box|drink.machine/.test(l)) return "sodaMachine";
+  if (/coffee|brewer|airpot|espresso|tea/.test(l)) return "coffee";
+  if (/blender|frozen.drink|margarita|slush/.test(l)) return "blender";
   return null;
 }
 // Warning zone upper bounds: above max but not yet critical
@@ -2796,9 +2808,9 @@ function collectEquipTemps(inspection) {
     if (node?.tempF === "" || node?.tempF === undefined || node?.tempF === null) continue;
     const t = Number(node.tempF);
     if (Number.isNaN(t)) continue;
-    const cold = COLD_EQUIPMENT[k] || BAR_COLD_EQUIPMENT[k] || (k.startsWith("custom_") ? detectColdType(node.label) : null);
+    const cold = coldMapGet(k) || (k.startsWith("custom_") ? detectColdType(node.label) : null);
     if (!cold) continue;
-    const label = COLD_EQUIPMENT[k]?.label || BAR_COLD_EQUIPMENT[k]?.label || node.label || k;
+    const label = coldMapGet(k)?.label || node.label || k;
     const warnMax = TEMP_WARN_MAX[cold.type] ?? cold.max;
     // zone: "good" | "warn" | "bad"
     const zone = t <= cold.max ? "good" : t <= warnMax ? "warn" : "bad";
@@ -7195,7 +7207,7 @@ function buildPredictions(history, venueSettings = {}) {
   const SECTION_MAP = {
     facility: ["ceiling", "walls", "floors", "lighting"],
     operations: ["employeePractices", "handwashing", "labelingDating", "logs"],
-    equipment: ["doubleDoorCooler", "doubleDoorFreezer", "walkInCooler", "walkInFreezer", "prepCooler", "warmers", "ovens", "threeCompSink", "ecolab"],
+    equipment: ["doubleDoorCooler", "doubleDoorFreezer", "walkInCooler", "walkInFreezer", "prepCooler", "warmers", "ovens", "threeCompSink", "ecolab", "sodaMachine", "coffee", "blender", "garnishCooler", "reachInCooler", "reachInFreezer", "milkCooler", "glasswasher", "beerLines"],
     maintenance: ["hvac", "plumbing", "pestControl", "electricalSafety", "dumpsterArea", "structuralDamage"],
   };
   const ITEM_LABEL = {
@@ -7204,6 +7216,7 @@ function buildPredictions(history, venueSettings = {}) {
     doubleDoorCooler: "Double-Door Cooler", doubleDoorFreezer: "Double-Door Freezer", walkInCooler: "Walk-In Cooler", walkInFreezer: "Walk-In Freezer",
     prepCooler: "Prep Cooler", warmers: "Warmers / Hot Holding", ovens: "Ovens", threeCompSink: "3-Compartment Sink", ecolab: "Ecolab / Chemicals",
     hvac: "HVAC", plumbing: "Plumbing", pestControl: "Pest Control", electricalSafety: "Electrical Safety", dumpsterArea: "Dumpster Area", structuralDamage: "Structural Damage",
+    sodaMachine: "Soda / Fountain Machine", coffee: "Coffee / Tea Brewers", blender: "Blender / Frozen-Drink Machine", garnishCooler: "Garnish Cooler", reachInCooler: "Reach-In Cooler", reachInFreezer: "Reach-In Freezer", milkCooler: "Milk / Dairy Cooler", co2Tanks: "CO2 Tanks", speedRails: "Speed Rails", glassStorage: "Glassware Storage", dryStorage: "Dry Storage",
   };
   for (const st of Object.values(byStand)) {
     const visits = st.recs.filter(isVisit);
@@ -20744,7 +20757,7 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
           const standsNoEquip = [];
           const noEquipSeen = new Set();
           const isRealUnit = v => !!(v && !v.notApplicable && (String(v.tempF ?? "").trim() || v.brand || (v.assetTag && String(v.assetTag).trim()) || v.count || v.label || (v.status && v.status !== "OK") || (v.notes || "").trim() || (v.photos || []).length));
-          const validTag = t => { const x = String(t || "").trim().toUpperCase(); return x && !/^CUSTOM_/.test(x) && !COLD_EQUIPMENT[x.toLowerCase()] && !BAR_COLD_EQUIPMENT[x.toLowerCase()] && x !== "COOLERS" && x !== "FREEZER" ? x : ""; };
+          const validTag = t => { const x = String(t || "").trim().toUpperCase(); return x && !/^CUSTOM_/.test(x) && !coldMapGet(x.toLowerCase()) && x !== "COOLERS" && x !== "FREEZER" ? x : ""; };
           for (let rec of sortedRecs) {
             // The inspection date is the day the walk happened; savedAt is only
             // when the record was written (edits move it) — prefer the former.
@@ -20758,7 +20771,7 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
             const equip = rec.inspection?.equipment || {};
             if (!siteName && rec.siteName) setSiteName(rec.siteName);
             const realEntries = Object.entries(equip).filter(([key, val]) => {
-              const isCold = !!(COLD_EQUIPMENT[key] || BAR_COLD_EQUIPMENT[key] || detectColdType(val?.label));
+              const isCold = !!(coldMapGet(key) || detectColdType(val?.label));
               const hasTag = !!validTag(val?.assetTag);
               return (isCold || hasTag) && isRealUnit(val);
             });
@@ -20770,7 +20783,7 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
               continue;
             }
             standDone.add(standKey);
-            const cleanLbl = (key, val) => String(val?.label || COLD_EQUIPMENT[key]?.label || BAR_COLD_EQUIPMENT[key]?.label || key).replace(/\s*(❄|🧊)\s*(Cooler|Freezer)\s*$/u, "").trim();
+            const cleanLbl = (key, val) => String(val?.label || coldMapGet(key)?.label || key).replace(/\s*(❄|🧊)\s*(Cooler|Freezer)\s*$/u, "").trim();
             realEntries.sort((a, b) => cleanLbl(a[0], a[1]).localeCompare(cleanLbl(b[0], b[1])));
             const counters = { CL: 0, FZ: 0 };
             const unitN = normUnit(rec.siteNumber) || (rec.siteName || "").replace(/[^A-Z0-9]/gi, "").toUpperCase().slice(0, 8) || "X";
@@ -20788,11 +20801,10 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
               //   2. COLD_EQUIPMENT or BAR_COLD_EQUIPMENT map label (standard built-in items)
               //   3. raw key as last resort
               const resolvedLabel = val?.label
-                || COLD_EQUIPMENT[key]?.label
-                || BAR_COLD_EQUIPMENT[key]?.label
+                || coldMapGet(key)?.label
                 || key;
               // Add ❄ badge to cold equipment that doesn't already include it
-              const coldType = (COLD_EQUIPMENT[key] || BAR_COLD_EQUIPMENT[key] || detectColdType(val?.label))?.type;
+              const coldType = (coldMapGet(key) || detectColdType(val?.label))?.type;
               const coldBadge = coldType === "cooler" ? " ❄ Cooler" : coldType === "freezer" ? " 🧊 Freezer" : "";
               const displayLabel = resolvedLabel + coldBadge;
               items.push({
@@ -32752,9 +32764,34 @@ export default function App() {
                       { path: ["equipment", "glasswasher"], label: "Glass Washer — working, sanitizer level OK, no cloudy glasses?" },
                       { path: ["equipment", "threeCompSink"], label: "Dish Washing Sink — 3 sections set up: wash, rinse, sanitize?" },
                       { path: ["equipment", "beerLines"], label: "Beer Lines / Taps — cleaned recently, no buildup or off smell?" },
+                      { path: ["equipment", "sodaMachine"], label: "Soda Gun / Fountain — nozzles & holster clean, bag-in-box lines OK, syrup boxes dated, drip tray clean?" },
+                      { path: ["equipment", "co2Tanks"], label: "CO2 Tanks — secured / chained, no leaks, regulator OK?" },
+                      { path: ["equipment", "speedRails"], label: "Speed Rails & Bottle Wells — clean, pourers capped, bottles labeled?" },
+                      { path: ["equipment", "blender"], label: "Blender / Juicer / Frozen-Drink Machine — clean, sanitized, working?" },
+                      { path: ["equipment", "garnishCooler"], label: "Garnish Station / Cooler — covered, dated, cold, tongs not hands?" },
+                      { path: ["equipment", "dumpSink"], label: "Dump Sink / Drip Trays — draining, no odor, no standing liquid?" },
+                      { path: ["equipment", "liquorStorage"], label: "Liquor Storage — locked, off the floor, bottles clean?" },
+                      { path: ["equipment", "glassStorage"], label: "Glassware Storage — inverted, clean racks, no chipped glasses?" },
                       { path: ["equipment", "ecolab"], label: "Chemicals (Ecolab) — correct concentration, properly labeled, stored away from food?" },
                     ]} inspection={inspection} setInspection={setInspection}
                     allowCustom sectionKey="equipment" coldEquipmentMap={BAR_COLD_EQUIPMENT} inspectionId={savedReportId} venueId={activeVenueId} siteName={siteName} siteNumber={siteNumber} siteFloor={floor} siteLocType={locationType} onError={msg => { setError(msg); setTimeout(() => setError(""), 8000); }} onOpenPrintLabels={({ tag, label }) => setPage("print_labels")} defaultOpen={true} />
+                ) : locationType === "Pantry" ? (
+                  <GuideSection title="🔧 Equipments — Pantry"
+                    items={[
+                      { path: ["equipment", "reachInCooler"], label: "Reach-In Cooler — temp OK, gaskets, clean, dated product, nothing on the floor?" },
+                      { path: ["equipment", "reachInFreezer"], label: "Reach-In Freezer — temp OK, no ice build-up, gaskets, clean?" },
+                      { path: ["equipment", "milkCooler"], label: "Milk / Dairy Cooler — temp OK, dated, rotated (FIFO)?" },
+                      { path: ["equipment", "sodaMachine"], label: "Soda / Fountain Machine — nozzles clean, bag-in-box lines OK, drip tray clean, no leaks?" },
+                      { path: ["equipment", "coffee"], label: "Coffee / Tea Brewers & Airpots — clean, dated, no scale, working?" },
+                      { path: ["equipment", "dispensers"], label: "Juice / Milk / Water Dispensers — clean nozzles, dated, cold?" },
+                      { path: ["equipment", "microwave"], label: "Microwave / Toaster / Panini Press — clean inside & out, working?" },
+                      { path: ["equipment", "iceMaker"], label: "Ice Machine / Ice Bin — clean, no mold or slime, scoop handle-up, bin covered?" },
+                      { path: ["equipment", "warmers"], label: "Hot Holding / Warmers — clean, at temp, working?" },
+                      { path: ["equipment", "dryStorage"], label: "Dry Storage Racks — 6\" off the floor, dated, FIFO, no open bags?" },
+                      { path: ["equipment", "ecolab"], label: "Chemicals (Ecolab) — labeled, correct concentration, stored away from food?" },
+                      { path: ["equipment", "otherEquip"], label: "Other Equipment — clean and in good condition?" },
+                    ]} inspection={inspection} setInspection={setInspection}
+                    allowCustom sectionKey="equipment" coldEquipmentMap={PANTRY_COLD_EQUIPMENT} inspectionId={savedReportId} venueId={activeVenueId} siteName={siteName} siteNumber={siteNumber} siteFloor={floor} siteLocType={locationType} onError={msg => { setError(msg); setTimeout(() => setError(""), 8000); }} onOpenPrintLabels={({ tag, label }) => setPage("print_labels")} defaultOpen={true} />
                 ) : locationType === "Event / Temporary" ? (
                   <GuideSection
                     title="🔧 Equipments — Event / Temporary"
