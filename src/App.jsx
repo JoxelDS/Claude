@@ -1196,8 +1196,23 @@ async function pushSharedSiteMap(siteMap) {
   } catch (e) { console.error("pushSharedSiteMap error:", e); }
 }
 
+// v477: the local draft keeps the small thumbs but never the resized exports —
+// a 4 s JSON.stringify of six full photos is what used to kill the tab on iPad.
+function slimLocalDraft(v) {
+  if (Array.isArray(v)) return v.map(slimLocalDraft);
+  if (v && typeof v === "object") {
+    if (v instanceof File || v instanceof Blob) return undefined;
+    const out = {};
+    for (const [k, val] of Object.entries(v)) {
+      if (typeof val === "string" && val.startsWith("data:") && val.length > 60000) continue;
+      const r = slimLocalDraft(val); if (r !== undefined) out[k] = r;
+    }
+    return out;
+  }
+  return v;
+}
 function saveDraft(draft) {
-  try { localStorage.setItem(DRAFT_KEY, JSON.stringify({ ...draft, draftSavedAt: new Date().toISOString() })); } catch {}
+  try { localStorage.setItem(DRAFT_KEY, JSON.stringify({ ...slimLocalDraft(draft), draftSavedAt: new Date().toISOString() })); } catch {}
 }
 
 // v451: the same draft in the cloud, so a dead phone or a second device
@@ -3443,9 +3458,57 @@ function compressImage(file, maxDim = 200, quality = 0.3) {
       ctx.drawImage(img, 0, 0, width, height);
       resolve(canvas.toDataURL("image/jpeg", quality));
     };
-    img.onerror = () => resolve(null);
-    img.src = URL.createObjectURL(file);
+    img.onerror = () => { try { URL.revokeObjectURL(img.src); } catch {} resolve(null); };
+    const objUrl = URL.createObjectURL(file);
+    const done = img.onload; img.onload = () => { try { done(); } finally { try { URL.revokeObjectURL(objUrl); } catch {} } };
+    img.src = objUrl;
   });
+}
+
+// v477: decode a picked photo ONCE and hand back a small thumb + a resized export.
+// Never reads the original into a base64 string — a 12 MP iPad photo as a data URL is ~11 MB,
+// and six of those in React state plus the draft autosave's JSON.stringify killed the tab.
+const PHOTO_EXT_RE = /\.(jpe?g|png|heic|heif|webp|gif|bmp|tiff?)$/i;
+const PHOTO_PREP_MAX_MB = 25;
+async function prepPhoto(file) {
+  if (!file) return { ok: false, reason: "not-image" };
+  const looksImage = (file.type && file.type.startsWith("image/")) || (!file.type && PHOTO_EXT_RE.test(file.name || ""));
+  if (!looksImage) return { ok: false, reason: "not-image" };
+  if (bytesToMb(file.size) > PHOTO_PREP_MAX_MB) return { ok: false, reason: "too-big" };
+  const draw = (src, w, h, maxDim, q) => {
+    let dw = w, dh = h;
+    if (dw > maxDim || dh > maxDim) { const r = Math.min(maxDim / dw, maxDim / dh); dw = Math.round(dw * r); dh = Math.round(dh * r); }
+    const c = document.createElement("canvas"); c.width = dw; c.height = dh;
+    c.getContext("2d").drawImage(src, 0, 0, dw, dh);
+    const out = c.toDataURL("image/jpeg", q);
+    c.width = c.height = 0; // free the backing store right away
+    return out;
+  };
+  let src = null, w = 0, h = 0, bmp = null;
+  try {
+    if (typeof createImageBitmap === "function") { bmp = await createImageBitmap(file, { imageOrientation: "from-image" }); src = bmp; w = bmp.width; h = bmp.height; }
+  } catch { bmp = null; }
+  if (!src) {
+    const url = URL.createObjectURL(file);
+    try {
+      src = await new Promise((resolve, reject) => { const img = new Image(); img.onload = () => resolve(img); img.onerror = reject; img.src = url; });
+      w = src.naturalWidth || src.width; h = src.naturalHeight || src.height;
+    } catch { try { URL.revokeObjectURL(url); } catch {} return { ok: false, reason: "decode-failed" }; }
+    try { URL.revokeObjectURL(url); } catch {}
+  }
+  if (!w || !h) return { ok: false, reason: "decode-failed" };
+  try {
+    const thumbUrl = draw(src, w, h, 220, 0.55);
+    const exportUrl = draw(src, w, h, 1600, 0.85);
+    return { ok: true, thumbUrl, exportUrl, width: w, height: h };
+  } catch { return { ok: false, reason: "decode-failed" }; }
+  finally { try { bmp && bmp.close && bmp.close(); } catch {} }
+}
+const PHOTO_SKIP_MSG = { "not-image": "is not a photo (use a JPG, PNG or HEIC)", "too-big": `is over ${PHOTO_PREP_MAX_MB} MB`, "decode-failed": "could not be read — try the camera button" };
+function photoSkipToast(skips) {
+  if (!skips.length) return "";
+  const n = skips.length;
+  return `📷 ${n} photo${n > 1 ? "s" : ""} skipped: ${skips[0].name || "file"} ${PHOTO_SKIP_MSG[skips[0].reason] || "could not be added"}${n > 1 ? " (and more)" : ""}.`;
 }
 
 // Photos for follow-ups / quick problems: small thumb (always a data URL) +
@@ -24496,36 +24559,25 @@ function PhotoStrip({ photos, onRemove, onTag }) {
  * @returns {Promise<{photos: object[], failCount: number}>}
  */
 async function processPhotoFiles(files, { limit, inspId, venueId, firebaseOn, onError } = {}) {
+  // v477: resized export (max 1600 px), never the original; one file at a time; skipped files are reported
   const accepted = Array.from(files || []).slice(0, limit ?? PHOTO_LIMIT);
   const photos = [];
+  const skips = [];
   let failCount = 0;
   for (const f of accepted) {
-    if (!f.type.startsWith("image/")) continue;
-    if (bytesToMb(f.size) > PHOTO_MAX_MB) continue;
-    const thumbUrl = await compressImage(f, 220, 0.55);
-    if (!thumbUrl) continue;
-    // Read original file as data URL for maximum export quality (no re-compression)
-    const originalDataUrl = await new Promise(resolve => {
-      const rd = new FileReader();
-      rd.onload = () => resolve(rd.result);
-      rd.onerror = () => resolve(null);
-      rd.readAsDataURL(f);
-    });
-    const exportUrl = originalDataUrl || await compressImage(f, 1200, 0.92);
+    const prep = await prepPhoto(f);
+    if (!prep.ok) { skips.push({ name: f.name, reason: prep.reason }); continue; }
     const photoId = `${Date.now()}_${Math.random().toString(16).slice(2)}`;
-    let previewUrl = exportUrl || thumbUrl;
+    let previewUrl = prep.exportUrl, exportUrl = prep.exportUrl;
     if (firebaseOn) {
-      const storageUrl = await uploadPhoto(exportUrl || previewUrl, venueId, inspId, photoId);
-      if (storageUrl) {
-        previewUrl = storageUrl;
-      } else {
-        failCount++;
-      }
+      const storageUrl = await uploadPhoto(prep.exportUrl, venueId, inspId, photoId);
+      if (storageUrl) { previewUrl = storageUrl; exportUrl = storageUrl; } else { failCount++; }
     }
-    photos.push({ id: photoId, name: f.name, sizeMb: bytesToMb(f.size), type: "image/jpeg", previewUrl, thumbUrl, exportUrl: exportUrl || thumbUrl, tag: "" });
+    photos.push({ id: photoId, name: f.name, sizeMb: bytesToMb(f.size), type: "image/jpeg", previewUrl, thumbUrl: prep.thumbUrl, exportUrl, tag: "" });
   }
+  if (skips.length && onError) onError(photoSkipToast(skips));
   if (failCount > 0 && onError) {
-    onError(`⚠️ ${failCount} photo${failCount > 1 ? "s" : ""} saved as low-res thumbnail (cloud upload failed). Check your internet connection. The photo${failCount > 1 ? "s" : ""} will still appear in reports.`);
+    onError(`⚠️ ${failCount} photo${failCount > 1 ? "s" : ""} kept on this device only (cloud upload failed). Check your internet connection.`);
   }
   return { photos, failCount };
 }
@@ -24995,50 +25047,39 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                           const newChecklist = (cur2.checklist || []).map((c, i) => i === idx ? { ...c, ciLocation } : c);
                           return setAtPath(prev, it.path, { ...cur2, checklist: newChecklist });
                         });
-                        const addCiPhoto = async (idx, files, tag = "") => { // v457: "" = before, "after" = after
+                        const addCiPhoto = async (idx, files, tag = "") => { // v457: "" = before, "after" = after · v477: resized, sequential, never the original
                           const inspId = inspectionId || `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
                           const existingCount = (current.checklist?.[idx]?.photos || []).length;
                           const remaining = PHOTO_LIMIT - existingCount;
-                          if (remaining <= 0 || !files || files.length === 0) return;
-                          const accepted = Array.from(files).slice(0, remaining).filter(f => f.type.startsWith("image/") && bytesToMb(f.size) <= PHOTO_MAX_MB);
-                          if (accepted.length === 0) return;
-                          // Phase 1: add placeholders immediately so inspector sees thumbs right away
-                          const placeholders = await Promise.all(accepted.map(async (f) => {
-                            const thumbUrl = await compressImage(f, 220, 0.55);
-                            if (!thumbUrl) return null;
-                            const photoId = `${Date.now()}_${Math.random().toString(16).slice(2)}`;
-                            return { id: photoId, file: f, thumbUrl, uploading: true, previewUrl: thumbUrl, type: "image/jpeg", sizeMb: bytesToMb(f.size), name: f.name, tag: tag || "" };
-                          }));
-                          const valid = placeholders.filter(Boolean);
-                          if (valid.length === 0) return;
-                          setInspection((prev) => {
-                            const cur2 = getAtPath(prev, it.path) || withPhotos({ status: "OK", notes: "" });
-                            const newChecklist = (cur2.checklist || []).map((c, i) =>
-                              i === idx ? { ...c, photos: [...(c.photos || []), ...valid].slice(0, PHOTO_LIMIT) } : c
-                            );
-                            return setAtPath(prev, it.path, { ...cur2, checklist: newChecklist });
-                          });
-                          // Phase 2: upload each in background and patch state when done
+                          if (remaining <= 0 || !files || files.length === 0) { if (files && files.length && remaining <= 0) onError?.(`📷 This item already has ${PHOTO_LIMIT} photos.`); return; }
+                          const picked = Array.from(files).slice(0, remaining);
+                          const skips = [];
                           let failCount = 0;
-                          await Promise.all(valid.map(async (ph) => {
-                            const originalDataUrl = await new Promise(resolve => {
-                              const rd = new FileReader(); rd.onload = () => resolve(rd.result); rd.onerror = () => resolve(null); rd.readAsDataURL(ph.file);
+                          for (const f of picked) {
+                            const prep = await prepPhoto(f);
+                            if (!prep.ok) { skips.push({ name: f.name, reason: prep.reason }); continue; }
+                            const photoId = `${Date.now()}_${Math.random().toString(16).slice(2)}`;
+                            const ph = { id: photoId, thumbUrl: prep.thumbUrl, uploading: true, previewUrl: prep.thumbUrl, type: "image/jpeg", sizeMb: bytesToMb(f.size), name: f.name, tag: tag || "" };
+                            setInspection((prev) => {
+                              const cur2 = getAtPath(prev, it.path) || withPhotos({ status: "OK", notes: "" });
+                              const newChecklist = (cur2.checklist || []).map((c, i) => i === idx ? { ...c, photos: [...(c.photos || []), ph].slice(0, PHOTO_LIMIT) } : c);
+                              return setAtPath(prev, it.path, { ...cur2, checklist: newChecklist });
                             });
-                            const exportUrl = originalDataUrl || await compressImage(ph.file, 1200, 0.92);
-                            let finalPreview = exportUrl || ph.thumbUrl;
+                            let finalPreview = prep.exportUrl, finalExport = prep.exportUrl;
                             if (FIREBASE_ON) {
-                              const storageUrl = await uploadPhoto(exportUrl || finalPreview, activeVenueId, inspId, ph.id);
-                              if (storageUrl) { finalPreview = storageUrl; } else { failCount++; }
+                              const storageUrl = await uploadPhoto(prep.exportUrl, activeVenueId, inspId, photoId);
+                              if (storageUrl) { finalPreview = storageUrl; finalExport = storageUrl; } else { failCount++; }
                             }
                             setInspection((prev) => {
                               const cur2 = getAtPath(prev, it.path) || withPhotos({ status: "OK", notes: "" });
                               const newChecklist = (cur2.checklist || []).map((c, i) =>
-                                i === idx ? { ...c, photos: (c.photos || []).map(p => p.id === ph.id ? { ...p, previewUrl: finalPreview, exportUrl: exportUrl || ph.thumbUrl, uploading: false } : p) } : c
+                                i === idx ? { ...c, photos: (c.photos || []).map(p => p.id === photoId ? { ...p, previewUrl: finalPreview, exportUrl: finalExport, uploading: false } : p) } : c
                               );
                               return setAtPath(prev, it.path, { ...cur2, checklist: newChecklist });
                             });
-                          }));
-                          if (failCount > 0) onError?.(`⚠️ ${failCount} photo${failCount > 1 ? "s" : ""} saved as low-res thumbnail (cloud upload failed). Check your internet connection.`);
+                          }
+                          if (skips.length) onError?.(photoSkipToast(skips));
+                          if (failCount > 0) onError?.(`⚠️ ${failCount} photo${failCount > 1 ? "s" : ""} kept on this device only (cloud upload failed). Check your internet connection.`);
                         };
                         const removeCiPhoto = (idx, photoId) => setInspection((prev) => {
                           const cur2 = getAtPath(prev, it.path) || withPhotos({ status: "OK", notes: "" });
@@ -25232,7 +25273,7 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                                           {ciPhotos.map(p => (
                                             <div key={p.id} className={`ciPhotoThumb${p.uploading ? " ciPhotoUploading" : ""}${p.tag === "after" ? " ciPhotoAfter" : " ciPhotoBefore"}`}>
                                               <span className="ciPhotoTag">{p.tag === "after" ? "AFTER" : "BEFORE"}</span>
-                                              <img src={p.previewUrl || p.thumbUrl || p.url || p.dataUrl} alt="item photo" style={{ cursor: p.uploading ? "default" : "zoom-in" }} onClick={() => !p.uploading && setAppLightboxSrc(p.previewUrl || p.url || p.dataUrl)} />
+                                              <img src={p.thumbUrl || p.previewUrl || p.url || p.dataUrl} alt="item photo" loading="lazy" style={{ cursor: p.uploading ? "default" : "zoom-in" }} onClick={() => !p.uploading && setAppLightboxSrc(p.previewUrl || p.url || p.dataUrl)} />
                                               {p.uploading && <div className="ciPhotoSpinner"><div className="ciPhotoSpinnerDot" /></div>}
                                               <button
                                                 type="button"

@@ -1939,7 +1939,14 @@ input[type="date"] {
   margin-top: 6px;
 }
 .fileInput {
-  display: none;
+  /* v477: visually hidden, not display:none — Safari sometimes ignores .click() on a display:none file input */
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
+  clip: rect(0 0 0 0);
 }
 
 /* Hide datalist elements — they must not render as visible boxes */
