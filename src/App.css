@@ -8784,3 +8784,11 @@ button.nluChipTemp { background: #fef3c7; color: #92400e; border: 1px solid #fcd
 .haccpPersonRow.off { opacity: .6; }
 .haccpPersonWho { flex: 1 1 160px; min-width: 0; }
 .haccpPersonPhone { color: #1d4ed8; font-weight: 700; }
+
+/* v474 — Predictive Insights: the evidence, the status and the next step */
+.predictiveDetailRich { display: flex; flex-direction: column; gap: 8px; align-items: stretch; }
+.predEvidenceHead { font-size: 0.68rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-500, #6b7280); margin-bottom: 3px; }
+.predEvidenceRow { font-size: 0.8rem; line-height: 1.4; color: var(--ink-700, #374151); }
+.predStatus { font-size: 0.8rem; font-weight: 700; color: var(--sdx-navy); }
+.predNext { font-size: 0.8rem; line-height: 1.4; }
+.predCrew { font-weight: 700; color: var(--sdx-navy); white-space: nowrap; }

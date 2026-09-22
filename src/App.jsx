@@ -7062,118 +7062,136 @@ function TempTrendChart({ history }) {
 }
 
 /* ── Predictive AI Engine ────────────────────────────────── */
-function buildPredictions(history) {
+function buildPredictions(history, venueSettings = {}) {
   if (!history || history.length < 2) return [];
   const predictions = [];
+  const fmtD = d => { const t = new Date(d || 0); return isNaN(t) ? "" : t.toLocaleDateString([], { month: "short", day: "numeric" }); };
+  const tsOf = rec => rec.inspectionDate ? new Date(rec.inspectionDate).getTime() : 0;
+  const isVisit = rec => !rec.quickProblem && !rec.supervisorLog && !rec.quickEquipCheck;
+  const stMap = venueSettings?.followupStatus || {};
+  const clearedMap = venueSettings?.followupCleared || {};
+  const now = Date.now();
 
   // Sort history oldest → newest
-  const sorted = [...history].sort((a, b) => {
-    const da = new Date(a.inspectionDate || 0);
-    const db = new Date(b.inspectionDate || 0);
-    return da - db;
-  });
+  const sorted = [...history].filter(r => tsOf(r) > 0).sort((a, b) => tsOf(a) - tsOf(b));
 
-  // ── 1. Per-location issue recurrence prediction ──────────
-  // For each location, look at the last N inspections. If a category
-  // appeared in ≥60% of them, it's predicted to appear again.
-  //
-  // Key normalization: lowercase + trim so "North Kitchen" and "north kitchen"
-  // group together. siteNumber and floor are intentionally excluded from the key
-  // so the same physical site always groups even if floor/unit varies.
-  const byLocation = {};
+  // v474: a stand is NAME + UNIT (three stands share #114; one name can sit at several units).
+  // Quick reports and supervisor logs are evidence of a problem, not a visit.
+  const byStand = {};
   for (const rec of sorted) {
-    const loc = (rec.siteName || rec.location || "—").trim().toLowerCase();
-    if (!byLocation[loc]) byLocation[loc] = [];
-    byLocation[loc].push(rec);
+    const name = String(rec.siteName || rec.location || "—").trim();
+    const unit = normUnit(rec.siteNumber || "");
+    const key = `${unit}|${standSlug(name)}`;
+    if (!byStand[key]) byStand[key] = { name: name.toUpperCase(), locName: rec.siteName || rec.location || "—", unit, floor: rec.floor || "", locType: rec.locationType || "", recs: [] };
+    if (!byStand[key].locType && rec.locationType) byStand[key].locType = rec.locationType;
+    byStand[key].recs.push(rec);
   }
-  // Build a display-name map (use the first record's original casing for labels)
-  const locDisplayName = {};
-  for (const rec of sorted) {
-    const key = (rec.siteName || rec.location || "—").trim().toLowerCase();
-    if (!locDisplayName[key]) locDisplayName[key] = rec.siteName || rec.location || "—";
-  }
+  const label = st => `${st.name}${st.unit ? ` · #${st.unit}` : ""}`;
+  // What the item actually said — the text after the category, the area, the notes
+  const itemText = item => {
+    const issue = String(item.issue || "");
+    const after = issue.includes(":") ? issue.slice(issue.indexOf(":") + 1).trim() : "";
+    const notes = String(item.notes || "").replace(/^Corrective action:.*$/im, "").trim();
+    const parts = [after, item.area && !after.toUpperCase().includes(String(item.area).toUpperCase()) ? item.area : "", notes && notes !== after ? notes : ""].filter(Boolean);
+    return parts.join(" — ").slice(0, 140);
+  };
+  // Is "loc::cat" still open, or did somebody close it after its last sighting?
+  const statusOf = (locName, cat, lastTs) => {
+    const key = `${locName}::${cat}`;
+    const st = stMap[key]; const clearedTs = Number(clearedMap[key] || 0);
+    if (clearedTs && clearedTs >= lastTs) {
+      const by = st && st.status === "resolved" ? st.by : "";
+      return { open: false, text: `✅ Closed${by ? ` by ${by}` : ""} on ${fmtD(clearedTs)}${st?.how === "already" ? " (was already clean)" : ""}` };
+    }
+    if (st && st.status === "in_progress") return { open: true, text: `🔧 In process — ${st.by || "crew"}${st.ts ? ` since ${fmtD(st.ts)}` : ""}` };
+    if (st && st.status === "waiting") return { open: true, text: `⏳ Waiting on ${st.note || "…"} — ${st.by || ""}` };
+    if (st && st.status === "open" && st.reopenedFrom) return { open: true, text: `↩ Put back by ${st.by || ""} on ${fmtD(st.ts)} — still open` };
+    return { open: true, text: `⚠ Still open — nobody has closed it since ${fmtD(lastTs)}` };
+  };
+  const crewFor = cat => { const t = classifyIssueType(cat); return t && t !== "Other" ? t : ""; };
+  const nextStep = (cat, crew, st) => {
+    const c = cat.toLowerCase();
+    if (/temp|cooler|freezer/.test(c)) return "Check the compressor, door gasket and load before the next game; log the temperature at every visit until it holds.";
+    if (/floor|grease|clean/.test(c)) return `Send ${crew || "Cleaning"} before service, not after: schedule a degrease with the stand supervisor and photo it done.`;
+    if (/hand sink|sink|plumb|leak|drain/.test(c)) return `Open a ${crew || "Maintenance"} ticket for the fixture itself; a repeat means the last fix was a patch.`;
+    if (/pest/.test(c)) return "Walk the stand with Pest Control: entry points, drains, storage. Repeat sightings need a treatment plan, not a spray.";
+    if (/hood|fryer|equipment/.test(c)) return `Ask ${crew || "Maintenance"} for a preventive service on that unit and add it to the verify walk.`;
+    if (/ecolab|sanitiz|chemical/.test(c)) return "Ecolab: check dispenser calibration and stock at this stand; retrain the closing shift on test strips.";
+    return `Visit ${st} first on the next walk, with the supervisor, and close the root cause — not just the item.`;
+  };
 
-  for (const [loc, recs] of Object.entries(byLocation)) {
-    if (recs.length < 2) continue;
-    const recent = recs.slice(-6); // last 6 inspections at this location
-    const catCounts = {};
+  // ── 1. Recurrence: same category flagged again and again at the same stand ──
+  for (const st of Object.values(byStand)) {
+    const visits = st.recs.filter(isVisit);
+    if (visits.length < 2) continue;
+    const recent = visits.slice(-6);
+    const cats = {};
     for (const rec of recent) {
       const seen = new Set();
-      for (const item of (rec.actionItems || [])) {
+      (rec.actionItems || []).forEach((item, i) => {
+        if (rec.resolvedIssues?.[i]) return;
         const cat = item.issue?.split(":")[0]?.trim() || "Other";
-        if (!seen.has(cat)) {
-          seen.add(cat);
-          catCounts[cat] = (catCounts[cat] || 0) + 1;
-        }
-      }
+        if (seen.has(cat)) return; seen.add(cat);
+        if (!cats[cat]) cats[cat] = [];
+        cats[cat].push({ ts: tsOf(rec), date: fmtD(rec.inspectionDate), text: itemText(item), by: rec.inspectorName || "", photo: (item.photos || []).length > 0 });
+      });
     }
-    for (const [cat, count] of Object.entries(catCounts)) {
-      const rate = count / recent.length;
-      if (rate >= 0.6) {
-        const risk = rate >= 0.85 ? "high" : "medium";
-        const displayLoc = locDisplayName[loc] || loc;
-        predictions.push({
-          type: "recurrence",
-          risk,
-          location: displayLoc,
-          category: cat,
-          rate: Math.round(rate * 100),
-          occurrences: count,
-          total: recent.length,
-          message: `"${cat}" issues have appeared in ${count} of the last ${recent.length} inspections at ${displayLoc} (${Math.round(rate * 100)}%) — likely to recur.`,
-          detail: `This category has been flagged consistently. Address root cause to break the pattern.`,
-        });
-      }
+    // problems the stand itself reported in the same window (evidence, not visits)
+    const reported = {};
+    for (const rec of st.recs.filter(r => !isVisit(r) && now - tsOf(r) <= 60 * 86400000)) {
+      for (const item of (rec.actionItems || [])) { const cat = item.issue?.split(":")[0]?.trim() || "Other"; reported[cat] = (reported[cat] || 0) + 1; }
     }
-  }
-
-  // ── 2. Temperature drift prediction (equipment) ──────────
-  // If a cooler/freezer temp has been creeping upward over the last 3+
-  // readings at a location, predict it will breach threshold.
-  const EQUIP_KEYS = [
-    { key: "doubleDoorCooler", label: "Double-Door Cooler", max: 40, type: "cooler" },
-    { key: "doubleDoorFreezer", label: "Double-Door Freezer", max: 20, type: "freezer" },
-    { key: "walkInCooler", label: "Walk-In Cooler", max: 40, type: "cooler" },
-    { key: "walkInFreezer", label: "Walk-In Freezer", max: 20, type: "freezer" },
-    { key: "prepCooler", label: "Prep Cooler", max: 40, type: "cooler" },
-  ];
-
-  for (const [loc, recs] of Object.entries(byLocation)) {
-    const displayLoc = locDisplayName[loc] || loc;
-    for (const equip of EQUIP_KEYS) {
-      const readings = recs
-        .map(r => ({ date: r.inspectionDate, val: Number(r.inspection?.equipment?.[equip.key]?.tempF || r[equip.key + "TempF"] || NaN) }))
-        .filter(r => !isNaN(r.val) && r.val > 0);
-      if (readings.length < 3) continue;
-      const last3 = readings.slice(-3);
-      // Check monotonic upward trend in last 3 readings
-      const rising = last3[1].val > last3[0].val && last3[2].val > last3[1].val;
-      if (!rising) continue;
-      const drift = last3[2].val - last3[0].val;
-      const currentTemp = last3[2].val;
-      const gap = equip.max - currentTemp;
-      if (drift <= 0 || gap >= 15) continue; // not significant
-      const stepsToBreech = Math.ceil(gap / (drift / 2));
-      const risk = gap < 5 ? "high" : "medium";
+    for (const [cat, hits] of Object.entries(cats)) {
+      const rate = hits.length / recent.length;
+      if (rate < 0.6 || hits.length < 2) continue;
+      const last = hits[hits.length - 1];
+      const status = statusOf(st.locName, cat, last.ts);
+      const crew = crewFor(cat);
+      const risk = rate >= 0.85 || (status.open && hits.length >= 3) ? "high" : "medium";
+      const dates = hits.map(h => h.date).join(", ");
       predictions.push({
-        type: "tempDrift",
-        risk,
-        location: displayLoc,
-        category: equip.label,
-        message: `${equip.label} at ${displayLoc} has risen from ${last3[0].val}°F → ${last3[2].val}°F over the last ${last3.length} inspections (${gap > 0 ? `${gap.toFixed(1)}°F below max` : "AT OR ABOVE MAX"}).`,
-        detail: risk === "high"
-          ? `Temperature is dangerously close to the ${equip.max}°F limit. Inspect compressor and door seals before the next visit.`
-          : `Upward trend detected. Schedule preventive maintenance within ${stepsToBreech} inspection cycle(s) to avoid failure.`,
-        currentTemp,
-        maxTemp: equip.max,
-        drift: drift.toFixed(1),
+        type: "recurrence", risk, location: label(st), category: cat, rate: Math.round(rate * 100), occurrences: hits.length, total: recent.length, unit: st.unit, locType: st.locType, open: status.open,
+        message: `"${cat}" at ${label(st)}: flagged in ${hits.length} of the last ${recent.length} inspections (${dates})${reported[cat] ? ` + ${reported[cat]} reported by the stand` : ""} — likely to recur.`,
+        evidence: hits.slice(-4).reverse().map(h => `${h.date}${h.by ? ` · ${h.by.split(" ")[0]}` : ""}: ${h.text || "no detail written"}${h.photo ? " 📷" : ""}`),
+        status: status.text,
+        detail: nextStep(cat, crew, label(st)),
+        crew,
       });
     }
   }
 
-  // ── 3. Issue escalation prediction ──────────────────────
-  // If a specific category was "Needs Attention" in 2+ consecutive
-  // inspections at a location, predict it will escalate to "Not Clean".
+  // ── 2. Temperature drift on the stand's own coolers / freezers ──
+  for (const st of Object.values(byStand)) {
+    const series = {};
+    for (const rec of st.recs.filter(isVisit)) {
+      for (const t of collectEquipTemps(rec.inspection)) {
+        const k = t.assetTag || t.key;
+        if (!series[k]) series[k] = { label: t.label, tag: t.assetTag, brand: t.brand, area: t.kitchenArea, max: t.max, type: t.type, pts: [] };
+        series[k].pts.push({ date: fmtD(rec.inspectionDate), val: t.tempNum });
+      }
+    }
+    for (const s of Object.values(series)) {
+      if (s.pts.length < 3) continue;
+      const l3 = s.pts.slice(-3);
+      const rising = l3[1].val > l3[0].val && l3[2].val > l3[1].val;
+      const over = l3.filter(p => p.val > s.max).length;
+      if (!rising && over < 2) continue;
+      const cur = l3[2].val, gap = s.max - cur;
+      if (rising && gap >= 15 && over === 0) continue;
+      const risk = cur > s.max || gap < 5 ? "high" : "medium";
+      const who = [s.label, s.brand, s.area, s.tag].filter(Boolean).join(" · ");
+      predictions.push({
+        type: "tempDrift", risk, location: label(st), category: s.label, unit: st.unit,
+        message: `${who} at ${label(st)}: ${l3.map(p => `${p.val}°F (${p.date})`).join(" → ")} — ${cur > s.max ? `over the ${s.max}°F max` : `${gap.toFixed(0)}°F from the ${s.max}°F max`}${rising ? ", climbing every visit" : ", out of range twice"}.`,
+        evidence: s.pts.slice(-5).reverse().map(p => `${p.date}: ${p.val}°F${p.val > s.max ? " ⚠" : ""}`),
+        status: over ? `⚠ ${over} of the last 3 readings over the limit` : "Still inside the limit — for now",
+        detail: risk === "high" ? "Compressor, gasket or load problem. Have Maintenance look at it before the next event and ask the stand to log this unit every day." : "Ask the stand supervisor to log this unit daily (the Text link does it) and put it on the verify walk.",
+        currentTemp: cur, maxTemp: s.max,
+      });
+    }
+  }
+
+  // ── 3. Escalation: Needs Attention several visits in a row ──
   const SECTION_MAP = {
     facility: ["ceiling", "walls", "floors", "lighting"],
     operations: ["employeePractices", "handwashing", "labelingDating", "logs"],
@@ -7182,117 +7200,85 @@ function buildPredictions(history) {
   };
   const ITEM_LABEL = {
     ceiling: "Ceiling", walls: "Walls", floors: "Floors", lighting: "Lighting",
-    employeePractices: "Employee Practices", handwashing: "Handwashing",
-    labelingDating: "Labeling / Dating", logs: "Logs",
-    doubleDoorCooler: "Double-Door Cooler", doubleDoorFreezer: "Double-Door Freezer",
-    walkInCooler: "Walk-In Cooler", walkInFreezer: "Walk-In Freezer",
-    prepCooler: "Prep Cooler", warmers: "Warmers / Hot Holding", ovens: "Ovens",
-    threeCompSink: "3-Compartment Sink", ecolab: "Ecolab / Chemicals",
-    hvac: "HVAC", plumbing: "Plumbing", pestControl: "Pest Control",
-    electricalSafety: "Electrical Safety", dumpsterArea: "Dumpster Area",
-    structuralDamage: "Structural Damage",
+    employeePractices: "Employee Practices", handwashing: "Handwashing", labelingDating: "Labeling / Dating", logs: "Logs",
+    doubleDoorCooler: "Double-Door Cooler", doubleDoorFreezer: "Double-Door Freezer", walkInCooler: "Walk-In Cooler", walkInFreezer: "Walk-In Freezer",
+    prepCooler: "Prep Cooler", warmers: "Warmers / Hot Holding", ovens: "Ovens", threeCompSink: "3-Compartment Sink", ecolab: "Ecolab / Chemicals",
+    hvac: "HVAC", plumbing: "Plumbing", pestControl: "Pest Control", electricalSafety: "Electrical Safety", dumpsterArea: "Dumpster Area", structuralDamage: "Structural Damage",
   };
-
-  for (const [loc, recs] of Object.entries(byLocation)) {
-    if (recs.length < 2) continue;
-    const displayLoc = locDisplayName[loc] || loc;
-    const last3 = recs.slice(-3);
+  for (const st of Object.values(byStand)) {
+    const visits = st.recs.filter(isVisit);
+    if (visits.length < 2) continue;
+    const last3 = visits.slice(-3);
     for (const [section, keys] of Object.entries(SECTION_MAP)) {
       for (const itemKey of keys) {
-        const statuses = last3
-          .map(r => r.inspection?.[section]?.[itemKey]?.status || null)
-          .filter(Boolean);
-        if (statuses.length < 2) continue;
-        // All recent readings are "Needs Attention" → escalation risk
-        const allAttention = statuses.every(s => s === "Needs Attention");
-        if (allAttention && statuses.length >= 2) {
-          predictions.push({
-            type: "escalation",
-            risk: statuses.length >= 3 ? "high" : "medium",
-            location: displayLoc,
-            category: ITEM_LABEL[itemKey] || itemKey,
-            message: `"${ITEM_LABEL[itemKey] || itemKey}" at ${displayLoc} has been "Needs Attention" for ${statuses.length} consecutive inspections.`,
-            detail: `Unresolved items tend to escalate to "Not Clean". Assign ownership and set a corrective action deadline before the next visit.`,
-          });
-        }
+        const rows = last3.map(r => ({ date: fmtD(r.inspectionDate), status: r.inspection?.[section]?.[itemKey]?.status || null, notes: r.inspection?.[section]?.[itemKey]?.notes || "" })).filter(r => r.status);
+        if (rows.length < 2 || !rows.every(r => r.status === "Needs Attention")) continue;
+        predictions.push({
+          type: "escalation", risk: rows.length >= 3 ? "high" : "medium", location: label(st), category: ITEM_LABEL[itemKey] || itemKey, unit: st.unit,
+          message: `"${ITEM_LABEL[itemKey] || itemKey}" at ${label(st)} has been "Needs Attention" ${rows.length} visits in a row (${rows.map(r => r.date).join(", ")}).`,
+          evidence: rows.slice().reverse().map(r => `${r.date}: ${r.notes || "Needs Attention, no note"}`),
+          status: "⚠ Never fixed, never failed — the next visit usually fails it",
+          detail: "Give it an owner and a date now: a FAIL with a BEFORE photo puts it on a crew board; a third Needs Attention does nothing.",
+        });
       }
     }
   }
 
-  // ── 4. Overdue inspection + prior issues risk flag ───────
-  // Applies to ALL locations (even single-inspection locations) so the
-  // inspector is alerted about any site that has gone 30+ days unvisited
-  // and had open issues at the last visit.
-  const now = new Date();
-  for (const [loc, recs] of Object.entries(byLocation)) {
-    const displayLoc = locDisplayName[loc] || loc;
-    const lastRec = recs[recs.length - 1];
-    const lastDate = new Date(lastRec.inspectionDate || 0);
-    const daysSince = Math.floor((now - lastDate) / (1000 * 60 * 60 * 24));
-    const hadIssues = (lastRec.actionItems || []).length > 0;
-    if (daysSince >= 30 && hadIssues) {
-      const risk = daysSince >= 60 ? "high" : "medium";
+  // ── 4. Overdue: not visited for 30+ days AND something is still open ──
+  for (const st of Object.values(byStand)) {
+    const visits = st.recs.filter(isVisit);
+    if (!visits.length) continue;
+    const lastRec = visits[visits.length - 1];
+    const lastTs = tsOf(lastRec);
+    const daysSince = Math.floor((now - lastTs) / 86400000);
+    if (daysSince < 30) continue;
+    const open = [];
+    (lastRec.actionItems || []).forEach((item, i) => {
+      if (lastRec.resolvedIssues?.[i]) return;
+      const cat = item.issue?.split(":")[0]?.trim() || "Other";
+      const s = statusOf(st.locName, cat, lastTs);
+      if (!s.open) return;
+      open.push({ cat, text: itemText(item), status: s.text });
+    });
+    const fixedSince = (lastRec.actionItems || []).length - open.length;
+    if (!open.length) continue;
+    // the stand's own logs since then count in its favour
+    const logsSince = st.recs.filter(r => !isVisit(r) && tsOf(r) > lastTs).length;
+    predictions.push({
+      type: "overdue", risk: daysSince >= 60 || open.length >= 3 ? "high" : "medium", location: label(st), category: "Inspection Gap", unit: st.unit, daysSince,
+      message: `${label(st)}: last inspected ${fmtD(lastRec.inspectionDate)} (${daysSince} days ago) by ${lastRec.inspectorName || "—"}; ${open.length} of ${(lastRec.actionItems || []).length} issue(s) from that visit still open: ${open.map(o => o.cat).join(", ")}.`,
+      evidence: open.map(o => `${o.cat}${o.text ? ` — ${o.text}` : ""} · ${o.status}`),
+      status: `${fixedSince ? `${fixedSince} fixed since · ` : ""}${logsSince ? `${logsSince} supervisor log(s) / report(s) since` : "nothing heard from the stand since"}`,
+      detail: `Put ${label(st)} first on the next walk and recheck ${open.length === 1 ? "that item" : "those items"} with the BEFORE photos open.`,
+    });
+  }
+
+  // ── 5. Hand sink / 3-comp sink water temperature ──
+  for (const st of Object.values(byStand)) {
+    const visits = st.recs.filter(isVisit);
+    const hand = visits.map(r => ({ date: fmtD(r.inspectionDate), val: Number(r.inspection?.temps?.handSinkTempF ?? r.temps?.handSinkTempF ?? NaN) })).filter(r => !isNaN(r.val) && r.val > 0);
+    const three = visits.map(r => ({ date: fmtD(r.inspectionDate), val: Number(r.inspection?.temps?.threeCompSinkTempF ?? r.temps?.threeCompSinkTempF ?? NaN) })).filter(r => !isNaN(r.val) && r.val > 0);
+    const drop = (arr, min, cat, why) => {
+      if (arr.length < 3) return;
+      const l3 = arr.slice(-3);
+      if (!(l3[0].val > l3[1].val && l3[1].val > l3[2].val) || l3[2].val >= min + 5) return;
       predictions.push({
-        type: "overdue",
-        risk,
-        location: displayLoc,
-        category: "Inspection Gap",
-        message: `${displayLoc} hasn't been inspected in ${daysSince} days and had ${lastRec.actionItems.length} unresolved issue(s) at last visit.`,
-        detail: `Schedule an inspection soon — unresolved issues left unchecked increase the risk of a health code violation.`,
-        daysSince,
+        type: "tempDrift", risk: l3[2].val < min + 2 ? "high" : "medium", location: label(st), category: cat, unit: st.unit,
+        message: `${cat} at ${label(st)}: ${l3.map(p => `${p.val}°F (${p.date})`).join(" → ")} — ${l3[2].val < min ? `under the ${min}°F minimum` : `${(l3[2].val - min).toFixed(0)}°F above the ${min}°F minimum and dropping`}.`,
+        evidence: arr.slice(-5).reverse().map(p => `${p.date}: ${p.val}°F${p.val < min ? " ⚠" : ""}`),
+        status: l3[2].val < min ? "⚠ Below the minimum at the last visit" : "Above the minimum — dropping every visit",
+        detail: why,
       });
-    }
+    };
+    drop(hand, 95, "Hand sink water", "Water heater or mixing valve. Maintenance should check the heater output at this stand before the next event.");
+    drop(three, 110, "3-comp sink wash water", "Water heater capacity or the booster. Maintenance before the next event; the stand cannot sanitize below 110°F.");
   }
 
-  // ── 5. Hand sink / 3-comp sink temperature trend ─────────
-  for (const [loc, recs] of Object.entries(byLocation)) {
-    const displayLoc = locDisplayName[loc] || loc;
-    const handTemps = recs.map(r => Number(r.temps?.handSinkTempF || r.handSinkTempF || NaN)).filter(v => !isNaN(v) && v > 0);
-    const threeTemps = recs.map(r => Number(r.temps?.threeCompSinkTempF || r.threeCompSinkTempF || NaN)).filter(v => !isNaN(v) && v > 0);
-
-    if (handTemps.length >= 3) {
-      const last3 = handTemps.slice(-3);
-      const declining = last3[0] > last3[1] && last3[1] > last3[2];
-      if (declining && last3[2] < 100) {
-        predictions.push({
-          type: "tempDrift",
-          risk: last3[2] < 97 ? "high" : "medium",
-          location: displayLoc,
-          category: "Hand Sink Water Temp",
-          message: `Hand sink temperature at ${displayLoc} has been declining: ${last3[0]}°F → ${last3[1]}°F → ${last3[2]}°F (min: 95°F).`,
-          detail: `Downward trend approaching the 95°F minimum. Inspect water heater output and check for mixing valve issues.`,
-        });
-      }
-    }
-    if (threeTemps.length >= 3) {
-      const last3 = threeTemps.slice(-3);
-      const declining = last3[0] > last3[1] && last3[1] > last3[2];
-      if (declining && last3[2] < 115) {
-        predictions.push({
-          type: "tempDrift",
-          risk: last3[2] < 112 ? "high" : "medium",
-          location: displayLoc,
-          category: "3-Comp Sink Wash Temp",
-          message: `3-comp sink wash temperature at ${displayLoc} declining: ${last3[0]}°F → ${last3[1]}°F → ${last3[2]}°F (min: 110°F).`,
-          detail: `Trend approaching the 110°F minimum. Check water heater capacity and booster heater for the sink.`,
-        });
-      }
-    }
-  }
-
-  // De-duplicate and sort: high risk first, then medium
+  // De-duplicate and sort: high risk first, open before closed, then medium
   const seen = new Set();
-  const deduped = predictions.filter(p => {
-    const k = `${p.type}|${p.location}|${p.category}`;
-    if (seen.has(k)) return false;
-    seen.add(k);
-    return true;
-  });
-
-  return deduped.sort((a, b) => {
-    const order = { high: 0, medium: 1, watch: 2 };
-    return (order[a.risk] ?? 3) - (order[b.risk] ?? 3);
-  });
+  const deduped = predictions.filter(p => { const k = `${p.type}|${p.location}|${p.category}`; if (seen.has(k)) return false; seen.add(k); return true; });
+  const order = { high: 0, medium: 1, watch: 2 };
+  return deduped.sort((a, b) => ((order[a.risk] ?? 3) - (order[b.risk] ?? 3)) || ((b.open === true) - (a.open === true)));
 }
 
 /* ── LocationsPanel — inner sub-panel for the Locations tab ────── */
@@ -8359,9 +8345,10 @@ function AIHealthMonitor({ history, currentUser }) {
 }
 
 /* ── Predictive Insights Panel ───────────────────────────── */
-function PredictiveInsightsPanel({ history }) {
+function PredictiveInsightsPanel({ history, venueSettings }) {
   const [expanded, setExpanded] = React.useState({});
-  const predictions = useMemo(() => buildPredictions(history), [history]);
+  const predictions = useMemo(() => buildPredictions(history, venueSettings), [history, venueSettings]);
+  const scope = useMemo(() => { const v = (history || []).filter(r => !r.quickProblem && !r.supervisorLog && !r.quickEquipCheck && r.inspectionDate); const ds = v.map(r => new Date(r.inspectionDate).getTime()).filter(Boolean); const stands = new Set(v.map(r => `${normUnit(r.siteNumber || "")}|${standSlug(r.siteName || r.location || "")}`)); const f = t => new Date(t).toLocaleDateString([], { month: "short", day: "numeric" }); return { visits: v.length, other: (history || []).length - v.length, stands: stands.size, from: ds.length ? f(Math.min(...ds)) : "", to: ds.length ? f(Math.max(...ds)) : "" }; }, [history]);
 
   if (!predictions || predictions.length === 0) return (
     <div className="card" style={{ marginBottom: 24 }}>
@@ -8408,7 +8395,7 @@ function PredictiveInsightsPanel({ history }) {
       </div>
       <div className="cardBody">
         <div className="predictiveIntro">
-          AI analysis of {history.length} inspection records — identifying patterns and forecasting future risk.
+          {scope.visits} inspections at {scope.stands} stands ({scope.from} – {scope.to}){scope.other ? `, plus ${scope.other} quick report${scope.other === 1 ? "" : "s"} / supervisor log${scope.other === 1 ? "" : "s"} as evidence` : ""} — patterns that are likely to come back, with the dates, the wording, and who has it now.
         </div>
 
         {/* Risk summary bar */}
@@ -8455,9 +8442,15 @@ function PredictiveInsightsPanel({ history }) {
                   <span className="predictiveChevron">{isOpen ? "▲" : "▼"}</span>
                 </div>
                 {isOpen && (
-                  <div className="predictiveDetail">
-                    <span className="predictiveDetailIcon">💡</span>
-                    {p.detail}
+                  <div className="predictiveDetail predictiveDetailRich">
+                    {p.evidence && p.evidence.length > 0 && (
+                      <div className="predEvidence">
+                        <div className="predEvidenceHead">What was written each time</div>
+                        {p.evidence.map((e, j) => <div key={j} className="predEvidenceRow">• {e}</div>)}
+                      </div>
+                    )}
+                    {p.status && <div className="predStatus">{p.status}</div>}
+                    <div className="predNext"><span className="predictiveDetailIcon">💡</span>{p.detail}{p.crew ? <span className="predCrew"> · {ISSUE_TYPE_ICON[p.crew] || ""} {p.crew}</span> : null}</div>
                   </div>
                 )}
               </div>
@@ -13162,7 +13155,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
             {/* v444: analytics reads the deep list, not the loaded page */}
             {analyticsTab === "temp" && <><HaccpTodayTracker venueSettings={venueSettings} saveVenueSettingsMap={saveVenueSettingsMap} history={history} currentUser={currentUser} /><EquipTempBoard history={history} onOpenStand={st => window.dispatchEvent(new CustomEvent("sdx-open-stand-equipment", { detail: st }))} /><TempTrendChart history={filtered.length > 0 ? filtered : (analyticsHistory.length ? analyticsHistory : history)} /></>}
             {analyticsTab === "insights" && <AIHealthMonitor history={filtered.length > 0 ? filtered : (analyticsHistory.length ? analyticsHistory : history)} currentUser={currentUser} />}
-            {analyticsTab === "predictive" && <PredictiveInsightsPanel history={filtered.length > 0 ? filtered : (analyticsHistory.length ? analyticsHistory : history)} />}
+            {analyticsTab === "predictive" && <PredictiveInsightsPanel history={filtered.length > 0 ? filtered : (analyticsHistory.length ? analyticsHistory : history)} venueSettings={venueSettings} />}
             {analyticsTab === "recurring" && <RecurringIssuesPanel history={filtered.length > 0 ? filtered : (analyticsHistory.length ? analyticsHistory : history)} onLocationClick={filterByLocation} onTagClick={goToRecurringAnalytics} onIssueDrilldown={filterByLocationAndIssue} venueSettings={venueSettings} saveVenueSettings={saveVenueSettings} saveVenueSettingsMap={saveVenueSettingsMap} currentUser={currentUser} onAddRecord={rec => setHistory(prev => [rec, ...prev])} />}
             {analyticsTab === "timeline" && (() => {
               const src = filtered.length > 0 ? filtered : (analyticsHistory.length ? analyticsHistory : history);
