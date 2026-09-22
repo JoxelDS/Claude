@@ -1062,6 +1062,18 @@ async function saveLicenseRow(key, patch) {
   window.dispatchEvent(new CustomEvent("sdx-licenses-changed"));
   await writeSharedDoc("licenseRegistry", { items: { [key]: rec } });
 }
+// v478: a license number always carries digits (NOS2334409, FD-2024-00123). A stand
+// name typed into the license box ("PANTRY") must never be stored, remembered or
+// re-applied. "NO LICENSE" is the explicit flag and passes.
+function looksLikeLicense(v) {
+  const s = String(v || "").trim();
+  if (!s) return false;
+  if (s.toUpperCase() === "NO LICENSE") return true;
+  return /\d{4,}/.test(s.replace(/[\s-]/g, ""));
+}
+function isLicenseExemptType(locationType) {
+  return locationType === "Bar" || locationType === "Pantry";
+}
 function lookupLicenseByUnitType(unitVal, locationType) {
   const u = normUnit(unitVal);
   if (!u) return null;
@@ -1155,6 +1167,19 @@ const REPORT_LANGUAGES = [
 function getAutofillMemory() {
   try { return JSON.parse(localStorage.getItem(AUTOFILL_KEY)) || {}; } catch { return {}; }
 }
+// v478 one-time cleanup: drop remembered "licenses" that are really stand names.
+function scrubAutofillLicenses() {
+  try {
+    const mem = getAutofillMemory();
+    let changed = false;
+    for (const [name, m] of Object.entries(mem.siteMap || {})) {
+      if (m && m.restaurantLicense && !looksLikeLicense(m.restaurantLicense)) { mem.siteMap[name] = { ...m, restaurantLicense: "" }; changed = true; }
+    }
+    if (changed) localStorage.setItem(AUTOFILL_KEY, JSON.stringify(mem));
+    return changed;
+  } catch { return false; }
+}
+try { scrubAutofillLicenses(); } catch {}
 
 // Pull shared siteMap from Firestore and merge into local autofill memory.
 // Cloud entries never overwrite locally-learned values — local wins on conflict.
@@ -1289,7 +1314,7 @@ function learnFromSave(record) {
       supervisorName: record.supervisorName || existing.supervisorName || "",
       locationType: record.locationType || existing.locationType || "",
       floor: record.floor || existing.floor || "",
-      restaurantLicense: record.restaurantLicense || existing.restaurantLicense || "",
+      restaurantLicense: (looksLikeLicense(record.restaurantLicense) ? record.restaurantLicense : "") || (looksLikeLicense(existing.restaurantLicense) ? existing.restaurantLicense : "") || "",
     };
     // For Portable/Subcontractor: remember all equipment items (built-in + custom) at this site
     // Event / Temporary locations are skipped — their equipment is one-time and won't be there next time
@@ -10532,24 +10557,26 @@ ${sections}
               {fuVisible.filter(f => effStatus(f) === "waiting").length > 0 && (
                 <span className="fuSumChip fuSumWait">⏳ {fuVisible.filter(f => effStatus(f) === "waiting").length} waiting</span>
               )}
+              <span className="fuCrewGroup" data-testid="fu-crew-group">
               {fuVisible.filter(f => f.itype === "Cleaning").length > 0 && (
-                <span className="fuSumChip" style={{ background: "#dcfce7", color: "#166534", borderColor: "#bbf7d0", cursor: "pointer" }}
+                <span className="fuSumChip fuCrewChip fuCrewClean" style={{ background: "#dcfce7", color: "#166534", borderColor: "#86efac", cursor: "pointer" }}
                   onClick={() => setFuSearch(fuSearch.trim().toLowerCase() === "cleaning" ? "" : "cleaning")}>
                   🧹 {fuVisible.filter(f => f.itype === "Cleaning").length} cleaning
                 </span>
               )}
               {fuVisible.filter(f => f.itype === "Maintenance").length > 0 && (
-                <span className="fuSumChip" style={{ background: "#ffedd5", color: "#9a3412", borderColor: "#fed7aa", cursor: "pointer" }}
+                <span className="fuSumChip fuCrewChip fuCrewMaint" style={{ background: "#ffedd5", color: "#9a3412", borderColor: "#fdba74", cursor: "pointer" }}
                   onClick={() => setFuSearch(fuSearch.trim().toLowerCase() === "maintenance" ? "" : "maintenance")}>
                   🔧 {fuVisible.filter(f => f.itype === "Maintenance").length} maintenance
                 </span>
               )}
               {fuVisible.filter(f => f.itype === "Ecolab / Maintenance").length > 0 && (
-                <span className="fuSumChip" style={{ background: "#ccfbf1", color: "#0f766e", borderColor: "#99f6e4", cursor: "pointer" }}
+                <span className="fuSumChip fuCrewChip fuCrewEcolab" style={{ background: "#ccfbf1", color: "#0f766e", borderColor: "#5eead4", cursor: "pointer" }}
                   onClick={() => setFuSearch(fuSearch.trim().toLowerCase() === "ecolab" ? "" : "ecolab")}>
                   🧪 {fuVisible.filter(f => f.itype === "Ecolab / Maintenance").length} Ecolab
                 </span>
               )}
+              </span>
               <span className="fuSumChip">📍 {fuGroupsShown.length} venue{fuGroupsShown.length !== 1 ? "s" : ""}</span>
             </div>
             {/* v449: the ten stand-type pills became two compact filters, and
@@ -30111,7 +30138,7 @@ export default function App() {
       if (mapped.supervisorName) setSupervisorName(prev => prev || mapped.supervisorName);
       if (!lock && mapped.locationType) setLocationType(mapped.locationType);
       if (!lock && mapped.floor) setFloor(mapped.floor);
-      if (!lock && mapped.restaurantLicense && !restaurantLicense) setRestaurantLicense(mapped.restaurantLicense);
+      if (!lock && looksLikeLicense(mapped.restaurantLicense) && !restaurantLicense) setRestaurantLicense(mapped.restaurantLicense);
       // Restore remembered equipment for Portable / Subcontractor sites
       const lt = mapped.locationType || locationType;
       if ((isPortableType(lt) || lt === "Subcontractor") && mapped.equipmentItems?.length) {
@@ -30503,7 +30530,7 @@ export default function App() {
         if (!g("site") && last.siteName) setSiteName(last.siteName);
         if (last.supervisorName) setSupervisorName(prev => prev || last.supervisorName);
         if (last.sitePhone) setSitePhone(prev => prev || last.sitePhone);
-        if (last.restaurantLicense) setRestaurantLicense(prev => prev || last.restaurantLicense);
+        if (looksLikeLicense(last.restaurantLicense)) setRestaurantLicense(prev => prev || last.restaurantLicense);
         if (last.locationType && !g("loctype")) setLocationType(last.locationType);
         if (last.floor && !g("floor") && !floorFromUnit(g("unit"))) setFloor(last.floor);
         const eq = last.inspection?.equipment;
@@ -31350,9 +31377,11 @@ export default function App() {
       savedAt: new Date().toISOString(),
       savedByHash: currentUser?.badgeHash || "",
       noteType, inspectionType, inspectionDate, inspectorName, participantName,
-      siteName, siteNumber, restaurantLicense, supervisorName, sitePhone, locationType, floor, eventName,
+      siteName, siteNumber, supervisorName, sitePhone, locationType, floor, eventName,
+      // v478: bars / pantries need no license; a non-license string never reaches the record
+      restaurantLicense: isLicenseExemptType(locationType) ? "" : (looksLikeLicense(restaurantLicense) ? restaurantLicense : ""),
       // Flag: license explicitly marked as not on file
-      licenseMissing: restaurantLicense?.trim() === "NO LICENSE",
+      licenseMissing: !isLicenseExemptType(locationType) && restaurantLicense?.trim() === "NO LICENSE",
       suppliesNeeded: suppliesNeeded.filter(s => s.item.trim()),
       location: siteName || context?.kitchen || "Kitchen",
       context: { ...context },
@@ -32265,7 +32294,8 @@ export default function App() {
                   Restaurant License # <span style={{ color: "#ef4444", fontWeight: 700 }}>*</span>
                   {(() => {
                     const mem = getAutofillMemory();
-                    if (siteName && mem.siteMap?.[siteName]?.restaurantLicense && restaurantLicense !== "NO LICENSE")
+                    if (isLicenseExemptType(locationType)) return null;
+                    if (siteName && looksLikeLicense(mem.siteMap?.[siteName]?.restaurantLicense) && restaurantLicense !== "NO LICENSE")
                       return <span style={{ marginLeft: 6, fontSize: "0.7rem", background: "#d1fae5", color: "#065f46", padding: "1px 7px", borderRadius: 20, fontWeight: 700 }}>Remembered</span>;
                     // INDEX 2026: this unit is still waiting on a license
                     const pend = !restaurantLicense && IS_DEFAULT_VENUE() && normUnit(siteNumber)
@@ -32276,6 +32306,11 @@ export default function App() {
                       : null;
                   })()}
                 </span>
+                {isLicenseExemptType(locationType) ? (
+                  <div className="licExemptNote" data-testid="lic-exempt">
+                    ✅ License not required for a {locationType} — nothing to enter here.
+                  </div>
+                ) : (<>
                 <input
                   className="input"
                   value={restaurantLicense === "NO LICENSE" ? "" : restaurantLicense}
@@ -32291,6 +32326,9 @@ export default function App() {
                   }}
                 />
                 {fieldCorrections["field-restaurantLicense"] && restaurantLicense !== "NO LICENSE" && <FieldCorrectionBanner correction={fieldCorrections["field-restaurantLicense"]} />}
+                {restaurantLicense && restaurantLicense !== "NO LICENSE" && !looksLikeLicense(restaurantLicense) && (
+                  <div className="licNotNumber" data-testid="lic-not-number">⚠ "{restaurantLicense.trim()}" is not a license number — it will not be saved. Enter the NOS number or tap "No License on File".</div>
+                )}
 
                 {/* No License toggle button */}
                 <button
@@ -32326,6 +32364,7 @@ export default function App() {
                     <span>This location has been flagged as having no license on file. This will appear on the report.</span>
                   </div>
                 )}
+                </>)}
               </label>
               <label className="field">
                 <span className="fieldLabel">Location Type</span>

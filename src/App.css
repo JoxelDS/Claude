@@ -8799,3 +8799,31 @@ button.nluChipTemp { background: #fef3c7; color: #92400e; border: 1px solid #fcd
 .predStatus { font-size: 0.8rem; font-weight: 700; color: var(--sdx-navy); }
 .predNext { font-size: 0.8rem; line-height: 1.4; }
 .predCrew { font-weight: 700; color: var(--sdx-navy); white-space: nowrap; }
+
+/* ── v478: crew chips in Follow-ups are their own bigger group ─────────── */
+.fuSummary .fuCrewGroup {
+  display: inline-flex; flex-wrap: wrap; gap: 10px; align-items: center;
+  margin-left: 14px; padding-left: 14px; border-left: 2px solid var(--sdx-gray-200, #e5e7eb);
+}
+.fuSummary .fuCrewGroup:empty { display: none; }
+.fuSummary .fuCrewChip {
+  font-size: 0.9rem !important; font-weight: 800 !important; padding: 9px 16px !important;
+  border-width: 2px !important; min-height: 40px; display: inline-flex; align-items: center; gap: 6px;
+  box-shadow: 0 1px 2px rgba(0,0,0,.06); letter-spacing: .01em;
+}
+.fuSummary .fuCrewChip:hover { filter: brightness(.97); }
+@media (max-width: 720px) {
+  .fuSummary .fuCrewGroup { margin-left: 0; padding-left: 0; border-left: 0; width: 100%; margin-top: 6px; padding-top: 8px; border-top: 2px solid var(--sdx-gray-200, #e5e7eb); }
+  .fuSummary .fuCrewChip { flex: 1 1 auto; justify-content: center; }
+}
+:root[data-theme="dark"] .fuSummary .fuCrewGroup { border-color: #334155; }
+
+/* v478: license box states */
+.licExemptNote {
+  margin-top: 4px; padding: 0.55rem 0.8rem; border-radius: 8px; font-size: 0.82rem; font-weight: 700;
+  background: var(--tint-green-1, #ecfdf5); color: #166534; border: 1px solid #a7f3d0;
+}
+.licNotNumber {
+  margin-top: 6px; padding: 0.45rem 0.7rem; border-radius: 8px; font-size: 0.76rem; font-weight: 600;
+  background: var(--tint-amber-1, #fffbeb); color: #92400e; border: 1px solid #fcd34d;
+}
