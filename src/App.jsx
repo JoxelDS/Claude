@@ -12931,9 +12931,6 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
               style={selectMode ? { background: "#1d4ed8", color: "#fff", borderColor: "#1d4ed8" } : {}}
             >{selectMode ? "✕ Cancel" : "☑ Select"}</button>
           )}
-          {currentUser && !isCrewRole(currentUser.role) && (
-            <button className="btn btnGhost historyDesktopBtn" type="button" data-testid="hist-import" title="Paste walk notes and create one report per stand" onClick={() => window.dispatchEvent(new CustomEvent("sdx-nav", { detail: { page: "import_notes" } }))}>📥 Import notes</button>
-          )}
           {/* Notification bell for all users */}
           {currentUser && notifItems && (
             <div>
@@ -12994,7 +12991,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                   ))}
                 </div>
                 <div className="menuSection">Go to</div>
-                {[["📥 Import notes", "import_notes"], ["📅 Schedule", "schedule"], ["🍳 Stands", "print_labels"], ["📍 My Locations", "mylocations"], ["💬 Messages & Comms", "messaging"]].map(([lb, pg]) => (
+                {[["📅 Schedule", "schedule"], ["🍳 Stands", "print_labels"], ["📍 My Locations", "mylocations"], ["💬 Messages & Comms", "messaging"]].map(([lb, pg]) => (
                   <button key={pg} className="dropdownMenuItem" type="button" onClick={() => { setShowHistoryMenu(false); window.dispatchEvent(new CustomEvent("sdx-nav", { detail: { page: pg } })); }}>{lb}</button>
                 ))}
                 {onMyTasks && (currentUser?.role === "inspector" || currentUser?.role === "location_manager") && (
@@ -24625,9 +24622,10 @@ async function processPhotoFiles(files, { limit, inspId, venueId, firebaseOn, on
 // v480 — Import notes → reports. Joxel keeps walk notes in Apple Notes, one
 // note per stand, e.g. "Stand 345A License NOS2334857 Refrigerator Dos Puertas
 // #4 Temp 33.0^F, Freezer Dos Puertas #2 Temp 12.7^F, Agua Frente al Freezer #2".
-// He pastes them all at once; every note becomes ONE inspection record with the
-// temperatures as cold units, the rest as issues, the stand resolved from the
-// license sheet, optional photos, and the note's time as the report time.
+// v483: NOT a feature in the app (Joxel: "i do not want to add that as a feature").
+// These helpers stay as an internal tool, driven headlessly (window.__sdx*) to turn
+// his notes into records: temperatures as cold units, the rest as issues, the stand
+// resolved from the license sheet, the note's date/time as the report time.
 // ══════════════════════════════════════════════════════════════════════════
 const IMPORT_HEAD_RE = /^\s*(?:(\d{1,2}\/\d{1,2}\/\d{2,4})\s+)?(?:(\d{1,2}:\d{2}\s*[ap]\.?\s*m\.?)\s*[-–—:]?\s*)?(?:stand|puesto|unit|local|unidad)\s*#?\s*:?\s*(\d{1,4}(?:\s?[a-z](?![a-z]))?)\b\s*[:\-–—]?\s*/i;
 const IMPORT_LIC_RE  = /\b(?:licen[cs]e|licencia|lic)\s*#?\s*:?\s*(no\s+license|[a-z]{2,4}\s?-?\s?\d{4,})/i;
@@ -24839,242 +24837,6 @@ async function importFilesFromTransfer(dt) {
 }
 if (typeof window !== "undefined") { window.__sdxParseNotes = parseInspectionNotes; window.__sdxBuildImportRecord = buildImportedRecord; window.__sdxImportFilesFromTransfer = importFilesFromTransfer; window.__sdxImportGroupFolder = importGroupFolderFiles; }
 
-function ImportNotesPage({ onBack, onDone, currentUser }) {
-  const today = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; })();
-  const [text, setText] = useState("");
-  const [date, setDate] = useState(today);
-  const [inspector, setInspector] = useState(currentUser?.name || "");
-  const [notes, setNotes] = useState([]);
-  const [step, setStep] = useState("paste");
-  const [saving, setSaving] = useState(false);
-  const [results, setResults] = useState([]);
-  const [flash, setFlash] = useState("");
-  const fileRefs = useRef({});
-  const [activeIdx, setActiveIdx] = useState(null);
-  const notesRef = useRef([]); notesRef.current = notes;
-  const activeRef = useRef(null); activeRef.current = activeIdx;
-  const say = (m) => { setFlash(m); setTimeout(() => setFlash(""), 4500); };
-  const existingSameDay = (unit) => {
-    try { const cache = JSON.parse(localStorage.getItem(`sdx_history_cache_${VENUE_ID}`) || "[]"); return cache.some(r => r && !r.quickProblem && !r.supervisorLog && r.inspectionDate === date && normUnit(r.siteNumber) === normUnit(unit)); } catch { return false; }
-  };
-  const parse = () => {
-    const parsed = parseInspectionNotes(text).map(n => ({ ...n, dupe: n.unit ? existingSameDay(n.unit) : false }));
-    if (!parsed.length) { say("Paste at least one note that starts with “Stand 345A”."); return; }
-    setNotes(parsed); setStep("review");
-  };
-  const patch = (idx, fn) => setNotes(prev => prev.map(n => n.idx === idx ? fn(n) : n));
-  const addPhotos = async (note, files) => {
-    if (!files || !files.length) return;
-    patch(note.idx, n => ({ ...n, photosBusy: true }));
-    const { photos } = await processPhotoFiles(files, { limit: 12, inspId: importRecordId(date, note.unit, note.time, note.idx), venueId: activeVenueId, firebaseOn: FIREBASE_ON, onError: say });
-    patch(note.idx, n => ({ ...n, photosBusy: false, photos: [...(n.photos || []), ...photos].slice(0, 12) }));
-  };
-  // ⌘V / Ctrl+V with a copied picture → the stand you tapped last
-  useEffect(() => {
-    if (step !== "review") return;
-    const onPaste = async (e) => {
-      if (e.target && /^(INPUT|TEXTAREA)$/.test(e.target.tagName)) return;
-      const files = await importFilesFromTransfer(e.clipboardData);
-      if (!files.length) return;
-      e.preventDefault();
-      const idx = activeRef.current; const note = notesRef.current.find(n => n.idx === idx);
-      if (!note) { say("Tap a stand first, then paste the picture."); return; }
-      addPhotos(note, files);
-    };
-    document.addEventListener("paste", onPaste);
-    return () => document.removeEventListener("paste", onPaste);
-  }, [step]);
-  const folderRef = useRef(null);
-  const [folderBusy, setFolderBusy] = useState("");
-  // an exported Notes folder → every stand with its pictures, in one go
-  const loadFolder = async (list) => {
-    const groups = importGroupFolderFiles(list);
-    if (!groups.length) { say("No notes found in that folder — export them with the script first."); return; }
-    setFolderBusy(`Reading ${groups.length} note${groups.length !== 1 ? "s" : ""}…`);
-    const built = []; const lines = [];
-    for (const g of groups) {
-      let line = "";
-      for (const t of g.texts) { try { const txt = await t.text(); line = txt.split(/\r?\n/).map(x => x.trim()).filter(Boolean).join(", "); if (line) break; } catch {} }
-      if (!line) line = g.key;
-      lines.push(line);
-      const parsed = parseInspectionNotes(line);
-      const n = parsed[0] || { idx: 0, raw: line, unit: "", license: "", time: "", date: "", temps: [], issues: [], stand: resolveImportStand("", ""), warnings: ["No stand number found — the line must start with “Stand 345A”."], include: false, standName: "", standType: "Concession", floor: "", photos: [] };
-      built.push({ ...n, idx: built.length, dupe: n.unit ? existingSameDay(n.unit) : false, pendingFiles: g.files });
-    }
-    setText(lines.join("\n")); setNotes(built); setStep("review"); setFolderBusy("");
-    for (const n of built) { if (n.pendingFiles?.length) { await addPhotos(n, n.pendingFiles); } }
-    setNotes(prev => prev.map(x => ({ ...x, pendingFiles: undefined })));
-    say(`${built.length} note${built.length !== 1 ? "s" : ""} read from the folder — check the rows, then create the reports.`);
-  };
-  useEffect(() => { window.__sdxImportLoadFolder = loadFolder; return () => { if (window.__sdxImportLoadFolder === loadFolder) delete window.__sdxImportLoadFolder; }; });
-  const onFolderDrop = async (e) => {
-    e.preventDefault(); e.currentTarget.classList.remove("over");
-    const out = []; const items = Array.from(e.dataTransfer?.items || []);
-    for (const it of items) { const entry = it.webkitGetAsEntry ? it.webkitGetAsEntry() : null; if (entry) await importReadEntry(entry, "", out); }
-    if (!out.length) for (const f of Array.from(e.dataTransfer?.files || [])) out.push({ path: f.webkitRelativePath || f.name, file: f });
-    await loadFolder(out);
-  };
-  const copyScript = async () => {
-    try { const r = await fetch(`${import.meta.env.BASE_URL || "/"}tools/export-apple-notes.applescript`); const txt = await r.text(); await navigator.clipboard.writeText(txt); say("Script copied — open Script Editor on the Mac, paste, press Run."); }
-    catch { say("Could not copy — open the script link and copy it from there."); }
-  };
-  const included = notes.filter(n => n.include);
-  const blockers = included.filter(n => !n.unit || !(n.standName || "").trim());
-  const create = async () => {
-    if (!included.length) { say("Tick at least one stand."); return; }
-    if (blockers.length) { say(`${blockers.length} stand${blockers.length > 1 ? "s" : ""} still need a name — see the red rows.`); return; }
-    if (!inspector.trim()) { say("Type the inspector's name."); return; }
-    setSaving(true); setResults([]);
-    const out = [];
-    for (const n of included) {
-      const rec = buildImportedRecord(n, { date, inspectorName: inspector, badgeHash: currentUser?.badgeHash || "" });
-      try {
-        await saveOneInspection(rec);
-        try { learnFromSave(rec); } catch {}
-        try { if (rec.actionItems.length) notifyCrewsForItems(rec.actionItems, rec.siteName, rec.siteNumber, rec.inspectorName); } catch {}
-        try { const key = `sdx_history_cache_${VENUE_ID}`; const cache = JSON.parse(localStorage.getItem(key) || "[]").filter(r => r && r.id !== rec.id); cache.unshift(rec); localStorage.setItem(key, JSON.stringify(cache.slice(0, 400))); } catch {}
-        try { _speedCache.history = {}; } catch {}
-        out.push({ idx: n.idx, ok: true, id: rec.id, site: rec.siteName, unit: rec.siteNumber, items: rec.actionItems.length, temps: n.temps.length, status: rec.overallStatus });
-      } catch (e) {
-        out.push({ idx: n.idx, ok: false, site: rec.siteName, unit: rec.siteNumber, error: String(e?.message || e).slice(0, 140) });
-      }
-      setResults([...out]);
-    }
-    setSaving(false); setStep("done");
-    try { window.dispatchEvent(new CustomEvent("sdx-history-imported", { detail: { count: out.filter(r => r.ok).length } })); } catch {}
-  };
-  const zoneChip = (t) => t.tempF === null ? <span className="impChip impChipGray">no reading</span>
-    : t.zone === "good" ? <span className="impChip impChipOk">✓ {t.tempF}°F · max {t.max}°F</span>
-    : t.zone === "warn" ? <span className="impChip impChipWarn">⚠ {t.tempF}°F · max {t.max}°F</span>
-    : t.zone === "bad" ? <span className="impChip impChipBad">✗ {t.tempF}°F · max {t.max}°F</span>
-    : <span className="impChip impChipGray">{t.tempF}°F · type?</span>;
-  return (
-    <div className="appShell inspectorPage impPage">
-      <header className="topBar">
-        <div className="brand"><img src={resolveLogoWhite()} alt={resolveCompanyName()} className="brandLogo" /></div>
-        <div className="topActions">
-          <button className="btn btnGhost" type="button" onClick={onBack}>← Back</button>
-        </div>
-      </header>
-      <main className="impMain">
-        <h1 className="impTitle">📥 Import notes → reports</h1>
-        <p className="impLead">Paste your walk notes, one stand per line. Each line becomes a report: the temperatures go in as coolers and freezers, everything else becomes an issue for the crews, and the stand comes from the license sheet.</p>
-        {flash && <div className="impFlash">{flash}</div>}
-        {step === "paste" && (
-          <div className="impCard">
-            <label className="field"><span className="fieldLabel">Notes</span>
-              <textarea className="textarea impTextarea" data-testid="imp-text" value={text} onChange={e => setText(e.target.value)} rows={10}
-                placeholder={"Stand 345A License NOS2334857 Refrigerator Dos Puertas #4 Temp 33.0°F, Freezer Dos Puertas #2 Temp 12.7°F, Agua Frente al Freezer #2\nStand 347 License NOS2326622 Sucio en los estantes, Freezer #1 Temp 28.6°F"} />
-            </label>
-            <div className="impRow">
-              <label className="field"><span className="fieldLabel">Date of the walk</span><input className="input" type="date" data-testid="imp-date" value={date} onChange={e => setDate(e.target.value)} /></label>
-              <label className="field"><span className="fieldLabel">Inspector</span><input className="input" data-testid="imp-inspector" value={inspector} onChange={e => setInspector(e.target.value)} placeholder="Who did the walk" /></label>
-            </div>
-            <div className="impHint">Format: <strong>Stand 345A License NOS2334857</strong> then the findings separated by commas. A reading is <strong>Freezer #2 Temp 12.7°F</strong> (°F, ^F or just the number after “Temp”). A time like <strong>5:40 PM</strong> at the start of the line is kept as the report time. Photos are added per stand on the next screen.</div>
-            <button className="btn btnPrimary impBtn" type="button" data-testid="imp-parse" onClick={parse} disabled={!text.trim()}>Read the notes →</button>
-            <div className="impOr">— or, with the pictures —</div>
-            <div className="impDrop impFolderDrop" data-testid="imp-folder-drop" onClick={() => folderRef.current?.click()}
-              onDragOver={e => { e.preventDefault(); e.currentTarget.classList.add("over"); }} onDragLeave={e => e.currentTarget.classList.remove("over")} onDrop={onFolderDrop}>
-              <input ref={folderRef} type="file" className="fileInput" data-testid="imp-folder" multiple webkitdirectory="" directory="" onChange={async e => { const out = Array.from(e.target.files || []).map(f => ({ path: f.webkitRelativePath || f.name, file: f })); e.target.value = ""; await loadFolder(out); }} />
-              <div className="impFolderTitle">📁 Drop the “SDX Notes Export” folder here</div>
-              <span className="impDropHint">{folderBusy || "Every note comes in with its pictures already attached. Tap to choose the folder instead."}</span>
-            </div>
-            <details className="impHow" data-testid="imp-how">
-              <summary>How to get everything out of Apple Notes (text and pictures)</summary>
-              <ol>
-                <li>On the Mac, open <strong>Script Editor</strong> (Spotlight → “Script Editor”).</li>
-                <li>Tap <button type="button" className="impLinkBtn" onClick={copyScript}>📋 Copy the export script</button> and paste it there. If your notes folder is not called “Safety &amp; Sanitation”, change the name on the first line.</li>
-                <li>Press <strong>▶ Run</strong> and allow it to control Notes. A folder <strong>SDX Notes Export</strong> appears on the Desktop: one sub-folder per note with the text and the pictures.</li>
-                <li>Drag that folder onto the box above. Done — check the rows and tap Create.</li>
-              </ol>
-              <div className="impHint">No Mac? Paste the note text above and add the pictures per stand on the next screen (drag, ⌘V, or pick them from Photos). <a href={`${import.meta.env.BASE_URL || "/"}tools/export-apple-notes.applescript`} target="_blank" rel="noreferrer">Open the script as a file</a>.</div>
-            </details>
-          </div>
-        )}
-        {step === "review" && (
-          <>
-            <div className="impSummary">{notes.length} note{notes.length !== 1 ? "s" : ""} · {included.length} selected · {date}{blockers.length ? ` · ${blockers.length} need a stand name` : ""}</div>
-            <div className="impList">
-              {notes.map(n => (
-                <div key={n.idx} className={cx("impNote", !n.include && "impNoteOff", n.include && (!n.unit || !(n.standName || "").trim()) && "impNoteBlock", activeIdx === n.idx && "impActive")} data-testid="imp-note" data-unit={n.unit} onClickCapture={() => setActiveIdx(n.idx)}>
-                  <div className="impNoteHead">
-                    <label className="impInclude"><input type="checkbox" checked={!!n.include} onChange={e => patch(n.idx, x => ({ ...x, include: e.target.checked }))} /></label>
-                    <div className="impStand">
-                      <div className="impStandTop">
-                        <span className="impUnit">#{n.unit || "?"}</span>
-                        {n.stand.found ? <span className="impStandName">{n.standName}</span>
-                          : <input className="input impStandInput" data-testid="imp-stand-name" placeholder="Stand name (not on the license sheet)" value={n.standName} onChange={e => patch(n.idx, x => ({ ...x, standName: e.target.value.toUpperCase() }))} />}
-                        <StandType lt={n.standType} />
-                        <select className="select impTypeSel" value={n.standType} onChange={e => patch(n.idx, x => ({ ...x, standType: e.target.value }))}>{LOCATION_TYPES.map(t => <option key={t} value={t}>{t}</option>)}</select>
-                        {n.floor && <span className="impChip impChipGray">{n.floor}</span>}
-                        {n.date && n.date !== date && <span className="impChip impChipGray">📅 {n.date}</span>}
-                        {n.time && <span className="impChip impChipGray">🕒 {n.time}</span>}
-                        {n.dupe && <span className="impChip impChipWarn">already has a report on {date}</span>}
-                      </div>
-                      <div className="impLic">{n.stand.found ? `License ${n.stand.license || "—"} · ${n.stand.by === "license" ? "matched by license number" : "matched by unit"}` : (n.license ? `License ${n.license} (as written)` : "No license on the line")}</div>
-                    </div>
-                  </div>
-                  {n.warnings.length > 0 && <ul className="impWarnList">{n.warnings.map((w, i) => <li key={i} className="impWarn">⚠ {w}</li>)}</ul>}
-                  {n.temps.length > 0 && (
-                    <div className="impSection"><div className="impSectionHead">🌡 Temperatures</div>
-                      {n.temps.map(t => (
-                        <div key={t.id} className="impTemp" data-testid="imp-temp">
-                          <span className="impTempLabel">{t.label}</span>
-                          <select className="select impTypeSel" data-testid="imp-temp-type" value={t.type} onChange={e => patch(n.idx, x => ({ ...x, temps: x.temps.map(y => y.id === t.id ? { ...y, type: e.target.value, ...importTempZone(e.target.value, y.tempF) } : y), warnings: x.warnings.filter(w => !w.startsWith(`“${t.label}”`)) }))}>
-                            <option value="">type?</option><option value="cooler">Cooler</option><option value="freezer">Freezer</option>
-                          </select>
-                          {zoneChip(t)}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  {n.issues.length > 0 && (
-                    <div className="impSection"><div className="impSectionHead">⚠ Issues for the crews</div>
-                      {n.issues.map(it => (
-                        <div key={it.id} className="impIssue" data-testid="imp-issue">
-                          <span className={cx("impChip", it.severity === "urgent" ? "impChipBad" : "impChipCat")}>{IMPORT_CAT_LABEL[it.category] || "Other"}</span>
-                          <span className="impIssueText">{it.text}</span>
-                          {it.area && <span className="impChip impChipGray">📍 {it.area}</span>}
-                          <button type="button" className="impX" title="Not an issue" onClick={() => patch(n.idx, x => ({ ...x, issues: x.issues.filter(y => y.id !== it.id) }))}>✕</button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  <div className="impSection">
-                    <div className="impSectionHead">📷 Photos {n.photos.length ? `(${n.photos.length})` : ""}{n.photosBusy ? " · adding…" : ""}</div>
-                    <div className="impDrop" data-testid="imp-drop" onClick={() => fileRefs.current[n.idx]?.click()}
-                      onDragOver={e => { e.preventDefault(); e.currentTarget.classList.add("over"); }} onDragLeave={e => e.currentTarget.classList.remove("over")}
-                      onDrop={async e => { e.preventDefault(); e.currentTarget.classList.remove("over"); const dt = e.dataTransfer; const files = await importFilesFromTransfer(dt); if (files.length) addPhotos(n, files); else say("That picture could not be read from the drag — save it first, then tap the box to choose it."); }}>
-                      <input ref={el => { fileRefs.current[n.idx] = el; }} type="file" accept="image/*" multiple className="fileInput" data-testid="imp-file" onChange={e => { addPhotos(n, e.target.files); e.target.value = ""; }} />
-                      {n.photos.length ? <div className="impThumbs">{n.photos.map(p => <img key={p.id} src={p.thumbUrl || p.previewUrl} alt="" onClick={e => { e.stopPropagation(); openPhotoLightbox(p.previewUrl || p.thumbUrl); }} />)}</div> : null}
-                      <span className="impDropHint">Drag the pictures from the note here, or tap to choose{activeIdx === n.idx ? " · or copy a picture and press ⌘V" : ""}</span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div className="impBar">
-              <button className="btn btnGhost" type="button" onClick={() => setStep("paste")} disabled={saving}>← Edit the text</button>
-              <button className="btn btnPrimary impBtn" type="button" data-testid="imp-create" onClick={create} disabled={saving || !included.length}>{saving ? `Saving ${results.length + 1} of ${included.length}…` : `Create ${included.length} report${included.length !== 1 ? "s" : ""}`}</button>
-            </div>
-          </>
-        )}
-        {step === "done" && (
-          <div className="impCard">
-            <div className="impDoneHead">{results.filter(r => r.ok).length} of {results.length} report{results.length !== 1 ? "s" : ""} saved</div>
-            <ul className="impResults" data-testid="imp-results">
-              {results.map(r => <li key={r.idx} className={r.ok ? "ok" : "bad"}>{r.ok ? "✓" : "✗"} {r.site} #{r.unit}{r.ok ? ` — ${r.temps} temp${r.temps !== 1 ? "s" : ""}, ${r.items} issue${r.items !== 1 ? "s" : ""}, ${r.status}` : ` — ${r.error}`}</li>)}
-            </ul>
-            <div className="impRow">
-              <button className="btn btnPrimary impBtn" type="button" data-testid="imp-open-history" onClick={onDone}>Open Past Reports →</button>
-              <button className="btn btnGhost" type="button" onClick={() => { setStep("paste"); setText(""); setNotes([]); setResults([]); }}>Import more notes</button>
-            </div>
-          </div>
-        )}
-      </main>
-    </div>
-  );
-}
 
 const GuideSection = React.memo(function GuideSection({ title, items, inspection, setInspection, allowCustom, sectionKey, coldEquipmentMap, maintenanceItems, emptyHint, inspectionId, onError, siteName, siteNumber, siteFloor, siteLocType, onOpenPrintLabels, defaultOpen = false }) {
 
@@ -31356,7 +31118,6 @@ export default function App() {
       setSiteName(user.assignedLocation);
     }
   }} />;
-  if (page === "import_notes") return <ImportNotesPage onBack={() => setPage("history")} onDone={() => { setHistoryEntry(null); setPage("history"); }} currentUser={currentUser} />;
   if (page === "history") { AIEngine.trackPage("history"); return <HistoryPage onBack={() => {
     if (managedVenueId) { setVenue(VENUE_ID); setManagedVenueId(null); setManagedVenueName(null); setPage("global_admin"); }
     else { setPage("inspector"); }
@@ -32155,7 +31916,6 @@ export default function App() {
             </div>
             <div className="menuSection">Work</div>
             <button className={cx("dropdownMenuItem", page === "schedule" && "dropdownMenuItemActive")} onClick={() => { setPage("schedule"); setMenuOpen(false); }} type="button">📅 Schedule</button>
-            <button className={cx("dropdownMenuItem", page === "import_notes" && "dropdownMenuItemActive")} onClick={() => { setPage("import_notes"); setMenuOpen(false); }} type="button">📥 Import notes</button>
             <button className="dropdownMenuItem" onClick={() => { setHistoryEntry({ tab: "analytics", sub: "temp" }); setPage("history"); setMenuOpen(false); }} type="button">🌡 Equipment temps</button>
             <button className={cx("dropdownMenuItem", page === "mylocations" && "dropdownMenuItemActive")} onClick={() => { setPage("mylocations"); setMenuOpen(false); }} type="button">📍 My Locations</button>
             <button className={cx("dropdownMenuItem", page === "messaging" && "dropdownMenuItemActive")} onClick={() => { setPage("messaging"); setMenuOpen(false); }} type="button">
