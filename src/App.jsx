@@ -2760,8 +2760,41 @@ const PANTRY_COLD_EQUIPMENT = {
   reachInFreezer: { type: "freezer", max: 20, label: "Reach-In Freezer" },
   milkCooler:     { type: "cooler",  max: 40, label: "Milk / Dairy Cooler" },
 };
+// v476: portable carts — small cold units, no hood / fryer / warmer line
+const PORTABLE_COLD_EQUIPMENT = {
+  cartCooler:  { type: "cooler",  max: 40, label: "Cart Cooler" },
+  cartFreezer: { type: "freezer", max: 20, label: "Cart Freezer" },
+  iceChest:    { type: "cooler",  max: 40, label: "Ice Chest / Ice Bin" },
+};
 // One lookup for every built-in cold unit, whatever the stand type
-function coldMapGet(k) { return COLD_EQUIPMENT[k] || BAR_COLD_EQUIPMENT[k] || PANTRY_COLD_EQUIPMENT[k] || null; }
+function coldMapGet(k) { return COLD_EQUIPMENT[k] || BAR_COLD_EQUIPMENT[k] || PANTRY_COLD_EQUIPMENT[k] || PORTABLE_COLD_EQUIPMENT[k] || null; }
+// v476: the full kitchen line — Concession, Subcontractor and Kitchen stands all have it
+const FULL_EQUIP_ITEMS = [
+  { path: ["equipment", "coolers"],    label: "Coolers — thermometer, temp display, bottom racks, gaskets, door handles, lights, leakage, wheels?" },
+  { path: ["equipment", "freezer"],    label: "Freezer — temp display, bottom racks, gaskets, door handles, lights, leakage, wheels, fans, ice build-up?" },
+  { path: ["equipment", "warmers"],    label: "Warmers — clean, working properly?" },
+  { path: ["equipment", "grill"],      label: "Grill — clean, working, grease trap clean, knobs OK, no gas smell?" },
+  { path: ["equipment", "fryer"],      label: "Fryer — oil quality, oil level, temp correct, basket clean, drain clean, no leaks?" },
+  { path: ["equipment", "hood"],       label: "Hood — clean, working, no leakage, hood lights OK?" },
+  { path: ["equipment", "iceMaker"],   label: "Ice Maker Machine — clean, door works, scoop/holder, ice bucket, filter OK, no leakage?" },
+  { path: ["equipment", "otherEquip"], label: "Other Equipments — clean and in good condition?" },
+];
+// v476: what a portable cart actually has
+const PORTABLE_EQUIP_ITEMS = [
+  { path: ["equipment", "cartCooler"],   label: "Cart Cooler — temp OK, iced, product dated and covered?" },
+  { path: ["equipment", "cartFreezer"],  label: "Cart Freezer — temp OK, no ice build-up, lid closes?" },
+  { path: ["equipment", "iceChest"],     label: "Ice Chest / Ice Bin — drained, scoop handle-up, no product sitting in the ice?" },
+  { path: ["equipment", "warmers"],      label: "Hot Holding / Warmer — at temp, lid on, clean?" },
+  { path: ["equipment", "sneezeGuard"],  label: "Sneeze Guard / Covers — in place, clean, food covered?" },
+  { path: ["equipment", "handWash"],     label: "Hand-Wash Station — water, soap, paper towels, waste bucket?" },
+  { path: ["equipment", "sanitizer"],    label: "Sanitizer Bucket + Test Strips — correct strength, towel in solution?" },
+  { path: ["equipment", "thermometers"], label: "Thermometers — probe present, calibrated, cooler thermometer visible?" },
+  { path: ["equipment", "cartSurfaces"], label: "Cart Surfaces / Wheels / Canopy — clean, stable, no rust, brakes on?" },
+  { path: ["equipment", "power"],        label: "Power / Generator / Propane — cords out of walkways, tanks secured, no leaks?" },
+  { path: ["equipment", "trash"],        label: "Trash Can — lid on, liner, not overflowing?" },
+  { path: ["equipment", "license"],      label: "License / Permit — posted and current?" },
+  { path: ["equipment", "otherEquip"],   label: "Other Equipment — clean and in good condition?" },
+];
 
 // Cold equipment: items that need temperature readings during inspection
 const COLD_EQUIPMENT = {
@@ -7207,7 +7240,7 @@ function buildPredictions(history, venueSettings = {}) {
   const SECTION_MAP = {
     facility: ["ceiling", "walls", "floors", "lighting"],
     operations: ["employeePractices", "handwashing", "labelingDating", "logs"],
-    equipment: ["doubleDoorCooler", "doubleDoorFreezer", "walkInCooler", "walkInFreezer", "prepCooler", "warmers", "ovens", "threeCompSink", "ecolab", "sodaMachine", "coffee", "blender", "garnishCooler", "reachInCooler", "reachInFreezer", "milkCooler", "glasswasher", "beerLines"],
+    equipment: ["doubleDoorCooler", "doubleDoorFreezer", "walkInCooler", "walkInFreezer", "prepCooler", "warmers", "ovens", "threeCompSink", "ecolab", "sodaMachine", "coffee", "blender", "garnishCooler", "reachInCooler", "reachInFreezer", "milkCooler", "glasswasher", "beerLines", "cartCooler", "cartFreezer", "iceChest", "handWash", "sanitizer"],
     maintenance: ["hvac", "plumbing", "pestControl", "electricalSafety", "dumpsterArea", "structuralDamage"],
   };
   const ITEM_LABEL = {
@@ -7216,7 +7249,7 @@ function buildPredictions(history, venueSettings = {}) {
     doubleDoorCooler: "Double-Door Cooler", doubleDoorFreezer: "Double-Door Freezer", walkInCooler: "Walk-In Cooler", walkInFreezer: "Walk-In Freezer",
     prepCooler: "Prep Cooler", warmers: "Warmers / Hot Holding", ovens: "Ovens", threeCompSink: "3-Compartment Sink", ecolab: "Ecolab / Chemicals",
     hvac: "HVAC", plumbing: "Plumbing", pestControl: "Pest Control", electricalSafety: "Electrical Safety", dumpsterArea: "Dumpster Area", structuralDamage: "Structural Damage",
-    sodaMachine: "Soda / Fountain Machine", coffee: "Coffee / Tea Brewers", blender: "Blender / Frozen-Drink Machine", garnishCooler: "Garnish Cooler", reachInCooler: "Reach-In Cooler", reachInFreezer: "Reach-In Freezer", milkCooler: "Milk / Dairy Cooler", co2Tanks: "CO2 Tanks", speedRails: "Speed Rails", glassStorage: "Glassware Storage", dryStorage: "Dry Storage",
+    sodaMachine: "Soda / Fountain Machine", coffee: "Coffee / Tea Brewers", blender: "Blender / Frozen-Drink Machine", garnishCooler: "Garnish Cooler", reachInCooler: "Reach-In Cooler", reachInFreezer: "Reach-In Freezer", milkCooler: "Milk / Dairy Cooler", co2Tanks: "CO2 Tanks", speedRails: "Speed Rails", glassStorage: "Glassware Storage", dryStorage: "Dry Storage", cartCooler: "Cart Cooler", cartFreezer: "Cart Freezer", iceChest: "Ice Chest", sneezeGuard: "Sneeze Guard", handWash: "Hand-Wash Station", sanitizer: "Sanitizer Bucket", thermometers: "Thermometers", cartSurfaces: "Cart Surfaces", power: "Power / Propane", trash: "Trash Can", license: "License / Permit",
   };
   for (const st of Object.values(byStand)) {
     const visits = st.recs.filter(isVisit);
@@ -25079,7 +25112,7 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                                   const ciRefKey = `${key}__ci_${idx}`;
                                   const ciPhotos = ci.photos || [];
                                   return (
-                                    <div key={idx} className={rowClass}>
+                                    <div key={idx} className={rowClass} data-cl-idx={idx}>
                                       <div className="clItemRow">
                                         <span className="checklistLabel">{ci.label}</span>
                                         <button
@@ -29650,8 +29683,27 @@ export default function App() {
         el.classList.add("guideFindFlash");
         setTimeout(() => el.classList.remove("guideFindFlash"), 2400);
       }
+      // v476: land on the exact checklist ROW, not just the unit — the node expands asynchronously, so poll briefly
+      if (hit.ci != null) {
+        let tries = 0;
+        const findRow = () => {
+          const row = document.querySelector(`[data-guide-panel="${hit.pid}"] [data-guide-key="${CSS.escape(hit.key)}"] [data-cl-idx="${hit.ci}"]`);
+          if (row) {
+            row.scrollIntoView({ behavior: "smooth", block: "center" });
+            row.classList.add("guideFindFlash");
+            setTimeout(() => row.classList.remove("guideFindFlash"), 3000);
+            if (hit.need === "action") { const ta = row.querySelector("textarea"); if (ta) setTimeout(() => { try { ta.focus({ preventScroll: true }); } catch {} }, 450); }
+            window.__sdxLastJump = { key: hit.key, ci: hit.ci, found: true };
+            return;
+          }
+          if (++tries < 14) setTimeout(findRow, 150);
+          else window.__sdxLastJump = { key: hit.key, ci: hit.ci, found: false };
+        };
+        setTimeout(findRow, 250);
+      }
     }, 380);
   }
+  if (typeof window !== "undefined") window.__sdxJumpToGuideItem = jumpToGuideItem;
 
   useEffect(() => {
     const goOnline  = () => setIsOnline(true);
@@ -31148,7 +31200,7 @@ export default function App() {
             if (pg.ok) continue;
             const need = pg.missing.includes("photo") && pg.missing.includes("action") ? "a photo and a corrective action"
               : pg.missing.includes("photo") ? "a BEFORE photo" : "a corrective action";
-            proofMissing.push({ text: `${SEC_NAME[sec]} – ${label} · ${c.label || "flagged item"}: needs ${need}`, jump: { pid: SEC_PANEL[sec], key, full: "" } });
+            proofMissing.push({ text: `${SEC_NAME[sec]} – ${label} · ${c.label || "flagged item"}: needs ${need}`, jump: { pid: SEC_PANEL[sec], key: `${sec}.${key}`, full: "", ci: cl.indexOf(c), need: pg.missing.includes("photo") ? "photo" : "action" } }); // v476: guide anchors are keyed by the full path
           }
         }
       }
@@ -32740,19 +32792,14 @@ export default function App() {
                   <div className="guideStepPanel" data-guide-panel="2" style={{ display: (inspectionType==="Event Day"?[4,0,1,5,2,3]:[0,1,5,2,3,4])[guideStep]===2?"block":"none" }}>
 
                 {/* Equipment only — Utensils is Step 3 */}
-                {locationType === "Concession" ? (
-                  <GuideSection title="🔧 Equipments"
-                    items={[
-                      { path: ["equipment", "coolers"],    label: "Coolers — thermometer, temp display, bottom racks, gaskets, door handles, lights, leakage, wheels?" },
-                      { path: ["equipment", "freezer"],    label: "Freezer — temp display, bottom racks, gaskets, door handles, lights, leakage, wheels, fans, ice build-up?" },
-                      { path: ["equipment", "warmers"],    label: "Warmers — clean, working properly?" },
-                      { path: ["equipment", "grill"],      label: "Grill — clean, working, grease trap clean, knobs OK, no gas smell?" },
-                      { path: ["equipment", "fryer"],      label: "Fryer — oil quality, oil level, temp correct, basket clean, drain clean, no leaks?" },
-                      { path: ["equipment", "hood"],       label: "Hood — clean, working, no leakage, hood lights OK?" },
-                      { path: ["equipment", "iceMaker"],   label: "Ice Maker Machine — clean, door works, scoop/holder, ice bucket, filter OK, no leakage?" },
-                      { path: ["equipment", "otherEquip"], label: "Other Equipments — clean and in good condition?" },
-                    ]} inspection={inspection} setInspection={setInspection}
+                {(locationType === "Concession" || locationType === "Subcontractor" || locationType === "Kitchen") ? (
+                  <GuideSection title={`🔧 Equipments — ${locationType}`}
+                    items={FULL_EQUIP_ITEMS} inspection={inspection} setInspection={setInspection}
                     allowCustom sectionKey="equipment" coldEquipmentMap={COLD_EQUIPMENT} inspectionId={savedReportId} venueId={activeVenueId} siteName={siteName} siteNumber={siteNumber} siteFloor={floor} siteLocType={locationType} onError={msg => { setError(msg); setTimeout(() => setError(""), 8000); }} onOpenPrintLabels={({ tag, label }) => setPage("print_labels")} defaultOpen={true} />
+                ) : isPortableType(locationType) ? (
+                  <GuideSection title={`🔧 Equipments — ${locationType}`}
+                    items={PORTABLE_EQUIP_ITEMS} inspection={inspection} setInspection={setInspection}
+                    allowCustom sectionKey="equipment" coldEquipmentMap={PORTABLE_COLD_EQUIPMENT} inspectionId={savedReportId} venueId={activeVenueId} siteName={siteName} siteNumber={siteNumber} siteFloor={floor} siteLocType={locationType} onError={msg => { setError(msg); setTimeout(() => setError(""), 8000); }} onOpenPrintLabels={({ tag, label }) => setPage("print_labels")} defaultOpen={true} />
                 ) : locationType === "Bar" ? (
                   <GuideSection title="🔧 Equipments — Bar"
                     items={[
@@ -33542,7 +33589,7 @@ export default function App() {
             <div style={{ fontWeight: 800, fontSize: "1.1rem", color: modals.preSubmit.hard ? "#b91c1c" : "#b45309", marginBottom: 6 }}>{modals.preSubmit.proof ? "📷 Photo + corrective action required" : modals.preSubmit.hard ? "🛠 Corrective action required" : "⚠️ Incomplete Sections"}</div>
             <div style={{ fontSize: "0.88rem", color: "var(--ink-700)", marginBottom: 14, lineHeight: 1.5 }}>
               {modals.preSubmit.proof
-                ? "Every problem you flagged needs a photo — or a line saying why there is none — and what was done about it. Tap an item below to jump to it."
+                ? "Every problem you flagged needs a BEFORE photo and what was done about it. Tap an item to go straight to that row."
                 : modals.preSubmit.hard
                 ? "This stand has open problems. Write what was done about each one (fixed, in progress, or waiting on what) before saving the report."
                 : "The following sections appear to be empty. You can still generate the report, but it may be incomplete."}
@@ -33555,7 +33602,7 @@ export default function App() {
                     {item.text}
                     {item.jump && (
                       <button type="button"
-                        onClick={() => { setModals(m => ({ ...m, preSubmit: false })); if (item.jump.ca) { try { document.getElementById("ca-" + item.jump.ca.replace(/[^A-Za-z0-9]+/g, "_"))?.scrollIntoView({ behavior: "smooth", block: "center" }); } catch {} } else jumpToGuideItem({ pid: item.jump.pid, key: item.jump.key, full: item.jump.full }); }}
+                        onClick={() => { setModals(m => ({ ...m, preSubmit: false })); if (item.jump.ca) { try { document.getElementById("ca-" + item.jump.ca.replace(/[^A-Za-z0-9]+/g, "_"))?.scrollIntoView({ behavior: "smooth", block: "center" }); } catch {} } else jumpToGuideItem({ pid: item.jump.pid, key: item.jump.key, full: item.jump.full, ci: item.jump.ci, need: item.jump.need }); }}
                         style={{ marginLeft: 8, fontSize: "0.72rem", fontWeight: 800, padding: "2px 10px", borderRadius: 999, border: "1px solid #2563eb", background: "#eff6ff", color: "#2563eb", cursor: "pointer" }}>
                         Go fix →
                       </button>
