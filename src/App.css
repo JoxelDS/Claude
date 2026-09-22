@@ -8827,3 +8827,59 @@ button.nluChipTemp { background: #fef3c7; color: #92400e; border: 1px solid #fcd
   margin-top: 6px; padding: 0.45rem 0.7rem; border-radius: 8px; font-size: 0.76rem; font-weight: 600;
   background: var(--tint-amber-1, #fffbeb); color: #92400e; border: 1px solid #fcd34d;
 }
+
+/* ── v480: Import notes → reports ────────────────────────────────────────── */
+.impMain { max-width: 980px; margin: 0 auto; padding: 84px 16px 120px; }
+.impTitle { font-size: 1.35rem; font-weight: 800; color: var(--sdx-navy, #1e2761); margin: 0 0 4px; }
+.impLead { color: var(--ink-500, #6b7280); font-size: 0.9rem; margin: 0 0 14px; line-height: 1.45; }
+.impCard { background: var(--surface-1, #fff); border: 1px solid var(--sdx-gray-200, #e5e7eb); border-radius: 14px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,.05); display: flex; flex-direction: column; gap: 12px; }
+.impTextarea { min-height: 200px; font-family: inherit; font-size: 0.92rem; line-height: 1.45; }
+.impRow { display: flex; gap: 12px; flex-wrap: wrap; }
+.impRow .field { flex: 1 1 220px; }
+.impHint { font-size: 0.8rem; color: var(--ink-500, #6b7280); background: var(--surface-2, #f8fafc); border: 1px dashed var(--sdx-gray-200, #e5e7eb); border-radius: 10px; padding: 10px 12px; line-height: 1.5; }
+.impBtn { min-height: 46px; font-size: 0.95rem; font-weight: 800; padding: 0 20px; }
+.impFlash { position: sticky; top: 64px; z-index: 5; background: #1e293b; color: #fff; border-radius: 10px; padding: 10px 14px; font-weight: 700; font-size: 0.86rem; margin-bottom: 10px; box-shadow: 0 6px 20px rgba(0,0,0,.2); }
+.impSummary { font-weight: 800; color: var(--sdx-navy, #1e2761); margin: 4px 0 10px; font-size: 0.95rem; }
+.impList { display: flex; flex-direction: column; gap: 12px; }
+.impNote { background: var(--surface-1, #fff); border: 1.5px solid var(--sdx-gray-200, #e5e7eb); border-radius: 14px; padding: 12px 14px; box-shadow: 0 1px 3px rgba(0,0,0,.05); }
+.impNoteOff { opacity: .55; }
+.impNoteBlock { border-color: #fca5a5; background: #fff7f7; }
+.impNoteHead { display: flex; gap: 10px; align-items: flex-start; }
+.impInclude input { width: 20px; height: 20px; margin-top: 6px; }
+.impStand { flex: 1; min-width: 0; }
+.impStandTop { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.impUnit { font-weight: 900; font-size: 1.05rem; color: var(--sdx-navy, #1e2761); }
+.impStandName { font-weight: 800; font-size: 1rem; text-transform: uppercase; }
+.impStandInput { flex: 1 1 240px; text-transform: uppercase; border-color: #f87171 !important; }
+.impTypeSel { padding: 4px 8px; font-size: 0.8rem; min-height: 32px; width: auto; }
+.impLic { font-size: 0.76rem; color: var(--ink-500, #6b7280); margin-top: 4px; }
+.impChip { display: inline-flex; align-items: center; gap: 4px; border-radius: 999px; padding: 3px 10px; font-size: 0.74rem; font-weight: 800; border: 1px solid transparent; white-space: nowrap; }
+.impChipGray { background: var(--surface-2, #f3f4f6); color: var(--ink-500, #6b7280); border-color: var(--sdx-gray-200, #e5e7eb); }
+.impChipOk { background: #dcfce7; color: #166534; border-color: #86efac; }
+.impChipWarn { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
+.impChipBad { background: #fee2e2; color: #991b1b; border-color: #fca5a5; }
+.impChipCat { background: #e0e7ff; color: #3730a3; border-color: #c7d2fe; }
+.impWarnList { margin: 8px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; }
+.impWarn { font-size: 0.8rem; color: #92400e; background: #fffbeb; border: 1px solid #fcd34d; border-radius: 8px; padding: 6px 10px; }
+.impSection { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--sdx-gray-200, #e5e7eb); }
+.impSectionHead { font-size: 0.72rem; font-weight: 900; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-500, #6b7280); margin-bottom: 6px; }
+.impTemp, .impIssue { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 6px 0; }
+.impTempLabel { font-weight: 800; min-width: 160px; }
+.impIssueText { flex: 1 1 200px; font-size: 0.9rem; }
+.impX { border: none; background: transparent; color: var(--ink-400, #9ca3af); font-size: 1rem; cursor: pointer; padding: 4px 8px; }
+.impX:hover { color: #dc2626; }
+.impDrop { border: 2px dashed var(--sdx-gray-200, #e5e7eb); border-radius: 12px; padding: 12px; text-align: center; cursor: pointer; background: var(--surface-2, #f8fafc); display: flex; flex-direction: column; gap: 8px; align-items: center; transition: border-color .15s, background .15s; }
+.impDrop.over { border-color: #2563eb; background: #eff6ff; }
+.impDropHint { font-size: 0.8rem; color: var(--ink-500, #6b7280); }
+.impThumbs { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+.impThumbs img { width: 64px; height: 64px; object-fit: cover; border-radius: 8px; border: 1.5px solid var(--sdx-gray-200, #e5e7eb); cursor: zoom-in; }
+.impBar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 1100; display: flex; gap: 10px; justify-content: flex-end; align-items: center; padding: 10px 16px calc(10px + env(safe-area-inset-bottom)); background: var(--sdx-navy, #1e2761); box-shadow: 0 -6px 20px rgba(0,0,0,.25); }
+.impBar .btnGhost { color: #fff; border-color: rgba(255,255,255,.35); }
+.impDoneHead { font-size: 1.1rem; font-weight: 900; color: var(--sdx-navy, #1e2761); }
+.impResults { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: 0.9rem; }
+.impResults li.ok { color: #166534; }
+.impResults li.bad { color: #991b1b; }
+@media (max-width: 640px) { .impTempLabel { min-width: 0; flex: 1 1 100%; } .impBar { justify-content: stretch; } .impBar .impBtn { flex: 1; } }
+:root[data-theme="dark"] .impNote, :root[data-theme="dark"] .impCard { background: #111827; border-color: #334155; }
+:root[data-theme="dark"] .impNoteBlock { background: #2a1215; }
+.impCard .btnGhost, .impPage .impMain .btnGhost { color: var(--sdx-navy, #1e2761); border: 1.5px solid var(--sdx-gray-300, #cbd5e1); background: var(--surface-1, #fff); }

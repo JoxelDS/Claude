@@ -3857,7 +3857,7 @@ function classifyIssueType(issue, notes = "", priority = "") {
   // Hard maintenance: something is broken or not working — the crew with tools
   if (/broken|leak|not working|doesn'?t work|does not work|no power|repair|missing (tile|panel|cover|handle|knob)|cracked|torn|burnt|burned out|light (is )?out|bulb out|drain(ing)? (slow|clog|back)|clogged|no pressure|low pressure|not delivering|no hot water|won'?t close|not closing|unstable|wobbl|\brot[oa]s?\b|quebrad|dañad|no funciona|no sirve|no prende|no enciende|fuga|gotea|tapad[oa]|atascad|sin agua caliente|no cierra|suelt[oa]\b|se cay[oó]/.test(t)) return "Maintenance";
   // Cleaning beats "a little rusted" — dirt is the problem being reported
-  if (/dirty|not clean|unclean|needs? (a )?clean|grease|build[- ]?up|debris|residue|stain|mold|mildew|dust|sweep|swept|mop+ed|not (mopped|swept)|saniti|trash|garbage|sticky|spill|slippery|food (debris|residue)|grimy|filthy|crumbs|grime|soiled|scale|odor|smell|splatter|wipe|sucio|sucia|sucios|sucias|mugre|grasa|moho|basura|pegajos|derrame|restos|olor|huele|limpiar|limpieza/.test(t)) return "Cleaning";
+  if (/dirty|not clean|unclean|needs? (a )?clean|grease|build[- ]?up|debris|residue|stain|mold|mildew|dust|sweep|swept|mop+ed|not (mopped|swept)|saniti|trash|garbage|sticky|spill|slippery|food (debris|residue)|grimy|filthy|crumbs|grime|soiled|scale|odor|smell|splatter|wipe|sucio|sucia|sucios|sucias|mugre|grasa|moho|basura|mojad|\bagua\b|charco|estante|mostrador|pegajos|derrame|restos|olor|huele|limpiar|limpieza/.test(t)) return "Cleaning";
   if (/haccp|°f|\bout[- ]of[- ]range\b|too warm|too cold|not cold|not hot enough|\btemp\b|temperature|temperatura|grados|tibio|caliente|no enfr[ií]a/.test(t)) return "Temperature";
   // Soft maintenance: wear that can wait for the next visit
   if (/rust|peeling|damag|loose|replace|gasket|hinge|stuck|needs? adjust|it moves/.test(t)) return "Maintenance";
@@ -8801,14 +8801,14 @@ const NLU_CATS = [
   { cat: "Plumbing", re: /\b(plumb\w*|plomer\w*|faucet|llave|grifo|drain\w*|desague|desagues|clog\w*|tapad[oa]s?|atascad[oa]s?|backing up|sewer|inundad[oa]|flood\w*|no (hot )?water|sin agua|agua caliente|hot water|toilet|inodoro|water heater|calentador)\b/ },
   { cat: "Equipment", re: /\b(cooler|coolers|freezer|freezers|walk[- ]?in|reach[- ]?in|nevera\w*|refri\w*|congelador\w*|camara|cuarto frio|fridge|fryer|freidora|grill|parrilla|plancha|oven|horno|warmer|ice (maker|machine)|maquina de hielo|compressor|compresor|gasket|empaque|thermostat|termostato|not cooling|no enfria|no congela|not freezing)\b/ },
   { cat: "Temperature", re: /\b(temp\w*|temperatura\w*|grados|degrees|°\s*f|out of range|fuera de rango|too warm|tibio|caliente|not cold|no esta frio)\b/ },
-  { cat: "Cleaning", re: /\b(dirty|filthy|not clean|unclean|grease|greasy|grime|grimy|build[- ]?up|debris|mold|moldy|sweep|mop|trash|garbage|sticky|spill\w*|crumbs|odor|smell\w*|splatter|wipe|sucio|sucia|sucios|sucias|mugre|grasa|grasoso|moho|basura|pegajoso|derrame|restos|olor|huele|limpiar|limpieza|barrer|trapear)\b/ },
+  { cat: "Cleaning", re: /\b(dirty|filthy|not clean|unclean|grease|greasy|grime|grimy|build[- ]?up|debris|mold|moldy|sweep|mop|trash|garbage|sticky|spill\w*|crumbs|odor|smell\w*|splatter|wipe|sucio|sucia|sucios|sucias|mugre|grasa|grasoso|moho|basura|pegajoso|derrame|restos|olor|huele|limpiar|limpieza|barrer|trapear|mojad\w*|agua|charco\w*|encharcad\w*)\b/ },
   { cat: "Maintenance", re: /\b(broken|broke|repair|not working|doesn'?t work|does not work|won'?t (close|open|turn on|start)|no power|cracked|torn|missing|loose|wobbl\w*|stuck|damaged?|rust\w*|peeling|hinge|handle|door|tile|ceiling|wall|outlet|roto|rota|rotos|rotas|quebrad[oa]|dañad[oa]|danad[oa]|no funciona|no sirve|no prende|no enciende|no cierra|no abre|suelt[oa]|falta|faltan|oxidad[oa]|bisagra|manija|puerta|loseta|techo|pared|enchufe|reparar|arreglar)\b/ },
 ];
 const NLU_URGENT = /\b(urgent\w*|urgente|emergency|emergencia|asap|right now|ahora mismo|ya mismo|immediately|inmediatamente|flood\w*|inundad[oa]|fire|fuego|humo|smoke|gas leak|fuga de gas|no water|sin agua|no power|sin luz|sin electricidad|se cayo|fell|injur\w*|herid[oa]|blood|sangre|sparks?|chispas?)\b/;
 const NLU_INFO = /\b(fyi|for your information|just (a )?note|heads[- ]?up|nota|solo aviso|informativo|para que sepan|no es urgente|not urgent)\b/;
 // Where → the canonical "where" chips the SPEC_ROWS use
 const NLU_AREAS = [
-  ["Front line", /\b(front line|front|frontline|linea( de frente)?|al frente|frente|adelante|counter|mostrador)\b/],
+  ["Front line", /\b(front line|front|frontline|linea( de frente)?|al frente|frente|adelante|delante|counter|mostrador(es)?)\b/],
   ["Back of house", /\b(back of house|boh|in the back|back area|atras|parte de atras|detras del puesto|cocina|kitchen)\b/],
   ["Under equipment", /\b(under|underneath|beneath|below|debajo|abajo del|por debajo)\b/],
   ["Behind equipment", /\b(behind|detras|atras del)\b/],
@@ -8831,9 +8831,9 @@ const NLU_OPT_SYN = {
   "Door / gasket broken": /\b(gasket|empaque|seal)\b.*\b(broken|torn|roto|rota|dañad|danad)|\b(broken|torn|roto|rota)\b.*\b(gasket|empaque|seal)\b/, "Leaking water": /\b(leak\w*|dripping|gotea\w*|fuga|goteo|charco|puddle|water on the floor|agua en el piso)\b/,
   "Not turning on": /\b(not turning on|won'?t (turn on|start)|no power|dead|no prende|no enciende|no arranca|apagad[oa])\b/, "Loud noise": /\b(loud|noise|noisy|ruido|ruidos[oa]|hace ruido)\b/,
   "Door": /\b(door|puerta)\b/, "Gasket": /\b(gasket|empaque|seal)\b/, "Handle": /\b(handle|manija|agarradera)\b/, "Hinge": /\b(hinge|bisagra)\b/, "Shelf": /\b(shelf|shelves|repisa\w*|estante\w*)\b/, "Compressor": /\b(compressor|compresor)\b/, "Fan": /\b(fan|ventilador|abanico)\b/, "Thermostat": /\b(thermostat|termostato)\b/, "Drain": /\b(drain|desague)\b/, "Cord / plug": /\b(cord|plug|cable|enchufe)\b/,
-  "Left": /\b(left|izquierd[oa])\b/, "Right": /\b(right|derech[oa])\b/, "Top": /\b(top|arriba)\b/, "Bottom": /\b(bottom|abajo)\b/, "Back": /\b(back|atras)\b/, "Inside": /\b(inside|adentro|dentro)\b/, "Front": /\b(front|frente|adelante)\b/,
+  "Left": /\b(left|izquierd[oa])\b/, "Right": /\b(right|derech[oa])\b/, "Top": /\b(top|arriba)\b/, "Bottom": /\b(bottom|abajo)\b/, "Back": /\b(back|atras)\b/, "Inside": /\b(inside|adentro|dentro|interior)\b/, "Front": /\b(front|frente|adelante)\b/,
   "Floor": /\b(floor|piso|suelo)\b/, "Wall": /\b(wall|walls|pared\w*)\b/, "Ceiling": /\b(ceiling|techo)\b/, "Hood": /\b(hood|campana|vent)\b/, "Sink": /\b(sink|fregadero|lavaplatos)\b/, "Table": /\b(table|mesa)\b/, "Trash area": /\b(trash|garbage|basura)\b/, "Equipment outside": /\b(outside of|exterior|por fuera)\b/,
-  "Dirty": /\b(dirty|filthy|not clean|unclean|sucio|sucia|sucios|sucias|mugre|grimy)\b/, "Grease": /\b(grease|greasy|grasa|grasoso)\b/, "Mold": /\b(mold|moldy|mildew|moho)\b/, "Standing water": /\b(standing water|puddle|agua estancada|charco)\b/, "Trash overflow": /\b(overflow\w*|desbordad[oa]|llena de basura|full of trash)\b/, "Sticky": /\b(sticky|pegajos[oa])\b/, "Food debris": /\b(debris|crumbs|food on|restos|migas|residuos)\b/,
+  "Dirty": /\b(dirty|filthy|not clean|unclean|sucio|sucia|sucios|sucias|mugre|grimy)\b/, "Grease": /\b(grease|greasy|grasa|grasoso)\b/, "Mold": /\b(mold|moldy|mildew|moho)\b/, "Standing water": /\b(standing water|puddle|agua estancada|charco\w*|agua|mojad\w*|encharcad\w*)\b/, "Trash overflow": /\b(overflow\w*|desbordad[oa]|llena de basura|full of trash)\b/, "Sticky": /\b(sticky|pegajos[oa])\b/, "Food debris": /\b(debris|crumbs|food on|restos|migas|residuos)\b/,
   "Faucet": /\b(faucet|tap|llave|grifo)\b/, "Hand sink": /\b(hand ?sink|lavamanos)\b/, "Light": /\b(light|lights|bulb|luz|luces|bombill\w*|foco)\b/, "Outlet": /\b(outlet|plug|enchufe|tomacorriente)\b/, "Floor tile": /\b(tile|loseta|baldosa)\b/, "Ceiling tile": /\b(ceiling tile|techo)\b/, "Water heater": /\b(water heater|calentador)\b/,
   "Broken": /\b(broken|broke|cracked|roto|rota|rotos|rotas|quebrad[oa]|partid[oa])\b/, "Leaking": /\b(leak\w*|gotea\w*|fuga|goteo)\b/, "Clogged": /\b(clog\w*|tapad[oa]s?|atascad[oa]s?|backing up|slow drain)\b/, "Not working": /\b(not working|doesn'?t work|does not work|no funciona|no sirve|no prende|no enciende|dead)\b/, "Loose": /\b(loose|suelt[oa]|flojo|floja)\b/, "Missing": /\b(missing|falta|faltan|no hay)\b/, "No hot water": /\b(no hot water|cold water only|sin agua caliente|no hay agua caliente)\b/, "Low pressure": /\b(low pressure|no pressure|poca presion|sin presion)\b/,
   "Sanitizer": /\b(saniti[sz]\w*|sanitizante|sanitizador|quat)\b/, "Detergent": /\b(detergent\w*|soap|jabon)\b/, "Dispenser": /\b(dispenser|dispensador)\b/, "Test strips": /\b(test strips?|tiras)\b/, "Hand soap": /\b(hand soap|jabon de manos)\b/, "Sanitizer bucket": /\b(bucket|cubeta|balde)\b/,
@@ -12931,6 +12931,9 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
               style={selectMode ? { background: "#1d4ed8", color: "#fff", borderColor: "#1d4ed8" } : {}}
             >{selectMode ? "✕ Cancel" : "☑ Select"}</button>
           )}
+          {currentUser && !isCrewRole(currentUser.role) && (
+            <button className="btn btnGhost historyDesktopBtn" type="button" data-testid="hist-import" title="Paste walk notes and create one report per stand" onClick={() => window.dispatchEvent(new CustomEvent("sdx-nav", { detail: { page: "import_notes" } }))}>📥 Import notes</button>
+          )}
           {/* Notification bell for all users */}
           {currentUser && notifItems && (
             <div>
@@ -12991,7 +12994,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                   ))}
                 </div>
                 <div className="menuSection">Go to</div>
-                {[["📅 Schedule", "schedule"], ["🍳 Stands", "print_labels"], ["📍 My Locations", "mylocations"], ["💬 Messages & Comms", "messaging"]].map(([lb, pg]) => (
+                {[["📥 Import notes", "import_notes"], ["📅 Schedule", "schedule"], ["🍳 Stands", "print_labels"], ["📍 My Locations", "mylocations"], ["💬 Messages & Comms", "messaging"]].map(([lb, pg]) => (
                   <button key={pg} className="dropdownMenuItem" type="button" onClick={() => { setShowHistoryMenu(false); window.dispatchEvent(new CustomEvent("sdx-nav", { detail: { page: pg } })); }}>{lb}</button>
                 ))}
                 {onMyTasks && (currentUser?.role === "inspector" || currentUser?.role === "location_manager") && (
@@ -24618,6 +24621,337 @@ async function processPhotoFiles(files, { limit, inspId, venueId, firebaseOn, on
   return { photos, failCount };
 }
 
+// ══════════════════════════════════════════════════════════════════════════
+// v480 — Import notes → reports. Joxel keeps walk notes in Apple Notes, one
+// note per stand, e.g. "Stand 345A License NOS2334857 Refrigerator Dos Puertas
+// #4 Temp 33.0^F, Freezer Dos Puertas #2 Temp 12.7^F, Agua Frente al Freezer #2".
+// He pastes them all at once; every note becomes ONE inspection record with the
+// temperatures as cold units, the rest as issues, the stand resolved from the
+// license sheet, optional photos, and the note's time as the report time.
+// ══════════════════════════════════════════════════════════════════════════
+const IMPORT_HEAD_RE = /^\s*(?:(\d{1,2}:\d{2}\s*[ap]\.?\s*m\.?)\s*[-–—:]?\s*)?(?:stand|puesto|unit|local|unidad)\s*#?\s*:?\s*(\d{1,4}(?:\s?[a-z](?![a-z]))?)\b\s*[:\-–—]?\s*/i;
+const IMPORT_LIC_RE  = /\b(?:licen[cs]e|licencia|lic)\s*#?\s*:?\s*(no\s+license|[a-z]{2,4}\s?-?\s?\d{4,})/i;
+const IMPORT_TIME_RE = /\b(\d{1,2}):(\d{2})\s*([ap])\.?\s*m\.?\b/i;
+const IMPORT_TEMP_RE = /(?:\b(?:temp\w*|temperatura)\b\s*[:\-=]?\s*(-?\d{1,3}(?:[.,]\d{1,2})?)\s*°?\s*([fc])?\b)|(?:(-?\d{1,3}(?:[.,]\d{1,2})?)\s*°\s*([fc])?)/i;
+const IMPORT_COLD_SPLIT_RE = /(?=\b(?:refrigerator|refrigerador|refri\w*|nevera|cooler|freezer|congelador|walk[- ]?in|reach[- ]?in|fridge)\b)/i;
+const IMPORT_CAT_LABEL = { "Pest Control": "Pest Control", "Ecolab / Chemicals": "Ecolab", "Lights": "Lights", "Plumbing": "Plumbing", "Equipment": "Equipment", "Temperature": "Temperature", "Cleaning": "Cleaning", "Maintenance": "Maintenance" };
+
+function importNormalizeTemps(s) {
+  return String(s || "").replace(/\^\s*([fFcC])\b/g, "°$1").replace(/º/g, "°").replace(/\b(?:deg(?:rees)?|grados)\s*([fFcC])?\b/g, (m, u) => u ? `°${u}` : "°");
+}
+function importColdType(label) {
+  const l = String(label || "").toLowerCase();
+  if (/congelador|freezer|freez/.test(l)) return "freezer";
+  if (/nevera|refri|cooler|cool\b|fridge|reach.?in|walk.?in|camara|cuarto frio|wic\b/.test(l)) return "cooler";
+  return "";
+}
+function importTempZone(type, n) {
+  if (!type || !Number.isFinite(n)) return { zone: "unknown", max: null, warn: null };
+  const max = type === "freezer" ? 20 : 40, warn = TEMP_WARN_MAX[type];
+  return { zone: n <= max ? "good" : n <= warn ? "warn" : "bad", max, warn };
+}
+function importTime24(text) {
+  const m = IMPORT_TIME_RE.exec(String(text || ""));
+  if (!m) return "";
+  let h = Number(m[1]) % 12; if (m[3].toLowerCase() === "p") h += 12;
+  return `${String(h).padStart(2, "0")}:${m[2]}`;
+}
+// Stand identity from the license sheet: the license number wins, then a unit
+// that has exactly one row. 341 / 219A are not on the 2026 sheet → the inspector
+// types the name in the review table.
+function resolveImportStand(unit, license) {
+  const u = normUnit(unit);
+  const lic = String(license || "").toUpperCase().replace(/[\s-]/g, "");
+  const rows = licenseRows();
+  const norm = r => String(r.license || "").toUpperCase().replace(/[\s-]/g, "");
+  let row = lic && lic !== "NOLICENSE" ? rows.find(r => norm(r) === lic) : null;
+  let by = row ? "license" : "";
+  if (!row && u) {
+    const same = rows.filter(r => normUnit(r.unit) === u);
+    if (same.length === 1) { row = same[0]; by = "unit"; }
+    else if (same.length > 1) { row = same.find(r => r.status === "ACTIVE" && r.license) || same[0]; by = "unit-ambiguous"; }
+  }
+  if (!row) return { found: false, by: "", name: "", type: "Concession", floor: floorFromUnit(u), license: lic && lic !== "NOLICENSE" ? String(license).toUpperCase().replace(/\s/g, "") : "", unit: u, unitMismatch: false, licenseMismatch: false };
+  const regLic = norm(row);
+  return {
+    found: true, by, name: cleanStandName(row.name).toUpperCase(), type: standTypeFromRow(row), floor: floorFromUnit(row.unit) || floorFromUnit(u),
+    license: row.license || "", unit: normUnit(row.unit) || u,
+    unitMismatch: !!u && normUnit(row.unit) !== u,
+    licenseMismatch: !!lic && lic !== "NOLICENSE" && !!regLic && regLic !== lic,
+  };
+}
+// One pasted blob → [{ unit, license, time, temps[], issues[], stand, warnings[] }]
+function parseInspectionNotes(text, opts = {}) {
+  const lines = String(text || "").replace(/\r/g, "").split("\n");
+  const blocks = [];
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (!line) continue;
+    if (IMPORT_HEAD_RE.test(line) || !blocks.length) blocks.push(line); else blocks[blocks.length - 1] += ", " + line;
+  }
+  const notes = [];
+  blocks.forEach((block, idx) => {
+    const head = IMPORT_HEAD_RE.exec(block);
+    const unit = head ? normUnit(head[2]) : "";
+    let rest = head ? block.slice(head[0].length) : block;
+    let license = "";
+    const lm = IMPORT_LIC_RE.exec(rest);
+    if (lm) { license = lm[1].toUpperCase().replace(/\s+/g, " ").trim(); if (/^NO\s+LICENSE$/.test(license)) license = "NO LICENSE"; else license = license.replace(/[\s-]/g, ""); rest = (rest.slice(0, lm.index) + " " + rest.slice(lm.index + lm[0].length)).trim(); }
+    const time = importTime24(head && head[1] ? head[1] : rest);
+    rest = importNormalizeTemps(rest.replace(IMPORT_TIME_RE, " "));
+    // segments: commas / semicolons / pipes / " - " / newlines, then split a run of
+    // several readings before each cold-unit word
+    const pieces = rest.split(/\s*(?:,|;|\||\s\/\s|\s[-–—]\s)\s*/).map(s => s.trim()).filter(Boolean);
+    const segs = [];
+    for (const p of pieces) {
+      const n = (p.match(new RegExp(IMPORT_TEMP_RE.source, "gi")) || []).length;
+      if (n >= 2) segs.push(...p.split(IMPORT_COLD_SPLIT_RE).map(s => s.trim()).filter(Boolean)); else segs.push(p);
+    }
+    const temps = [], issues = [];
+    segs.forEach((seg, si) => {
+      const m = IMPORT_TEMP_RE.exec(seg);
+      if (m) {
+        const valTxt = (m[1] ?? m[3] ?? "").replace(",", "."); const unitLetter = (m[2] || m[4] || "f").toLowerCase();
+        let n = Number(valTxt); if (unitLetter === "c" && Number.isFinite(n)) n = Math.round((n * 9 / 5 + 32) * 10) / 10;
+        let label = (seg.slice(0, m.index) + " " + seg.slice(m.index + m[0].length)).replace(/\s+/g, " ").replace(/^[\s:\-–—]+|[\s:\-–—]+$/g, "").trim();
+        if (!label) label = "UNIT";
+        const type = importColdType(label);
+        temps.push({ id: `t${idx}_${si}`, label: label.toUpperCase(), type, tempF: Number.isFinite(n) ? n : null, ...importTempZone(type, n) });
+      } else if (seg.replace(/[^a-z0-9]/gi, "").length >= 3) {
+        let u = null; try { u = understandText(seg, {}); } catch {}
+        issues.push({ id: `i${idx}_${si}`, text: seg.replace(/\s+/g, " ").trim(), category: (u && u.category) || "Other", crew: (u && u.crewType) || "", area: (u && u.area) || "", severity: (u && u.severity) || "issue" });
+      }
+    });
+    const stand = resolveImportStand(unit, license);
+    const warnings = [];
+    if (!unit) warnings.push("No stand number found — the line must start with “Stand 345A”.");
+    if (unit && !stand.found) warnings.push(`Unit ${unit} is not on the license sheet — type the stand name.`);
+    if (stand.unitMismatch) warnings.push(`License ${license} belongs to unit ${stand.unit} on the sheet, not ${unit}.`);
+    if (stand.licenseMismatch) warnings.push(`The sheet has license ${stand.license} for this stand (you wrote ${license}).`);
+    temps.filter(t => !t.type).forEach(t => warnings.push(`“${t.label}” — is it a cooler or a freezer? Pick one so the reading is checked.`));
+    if (!temps.length && !issues.length) warnings.push("Nothing to record on this line (no temperatures, no issues).");
+    notes.push({ idx, raw: block, unit, license, time, temps, issues, stand, warnings, include: !!unit, standName: stand.name, standType: stand.type, floor: stand.floor || floorFromUnit(unit), photos: [] });
+  });
+  return notes;
+}
+function importRecordId(date, unit, time, idx) {
+  const d = String(date || "").replace(/-/g, "") || "nodate";
+  const t = time ? time.replace(":", "") : `n${idx + 1}`;
+  return `notes_${d}_${(normUnit(unit) || "unk").replace(/[^A-Z0-9]/gi, "")}_${t}`.slice(0, 64);
+}
+// note (after review edits) → the exact record shape the inspection form saves
+function buildImportedRecord(note, { date, inspectorName, badgeHash } = {}) {
+  const ts = Date.now();
+  const insp = buildDefaultInspection();
+  // The notes only cover what they mention: every default section is "not checked".
+  for (const sec of ["facility", "equipment", "utensils", "operations", "maintenance"]) {
+    for (const k of Object.keys(insp[sec] || {})) { const n = insp[sec][k]; if (n && typeof n === "object" && "status" in n) insp[sec][k] = { ...n, status: "" }; }
+  }
+  let anyBad = false;
+  note.temps.forEach((t, i) => {
+    if (t.tempF === null) return;
+    const type = t.type || "";
+    const z = importTempZone(type, t.tempF);
+    if (z.zone === "bad") anyBad = true;
+    let label = t.label;
+    if (type && !detectColdType(label)) label = `${type === "freezer" ? "FREEZER" : "COOLER"} ${label}`;
+    insp.equipment[`custom_${ts}_${i}`] = { status: "OK", notes: "", photos: [], label, count: "", equipSource: "Facility", tempF: String(t.tempF) };
+  });
+  const httpPhotos = (note.photos || []).filter(p => /^https?:/.test(p.previewUrl || "")).map(p => ({ id: p.id, name: p.name || "", sizeMb: p.sizeMb || 0, type: p.type || "image/jpeg", tag: "", previewUrl: p.previewUrl, thumbUrl: "" }));
+  note.issues.forEach((it, i) => {
+    insp.facility[`custom_${ts}_i${i}`] = { label: IMPORT_CAT_LABEL[it.category] || "Issue", status: "Needs Attention", notes: it.text, photos: [], ...(it.area ? { kitchenArea: it.area } : {}) };
+  });
+  insp._notesPhotos = httpPhotos;
+  const unit = normUnit(note.unit);
+  const siteName = String(note.standName || note.stand?.name || "").toUpperCase().trim() || (unit ? `STAND ${unit}` : "STAND");
+  const locationType = note.standType || note.stand?.type || "Concession";
+  const lic = String(note.stand?.found && !note.stand.licenseMismatch ? note.stand.license : (note.license || note.stand?.license || "")).toUpperCase();
+  const rawNotes = `Stand #${unit || "?"} · imported from notes${note.time ? ` · ${note.time}` : ""}: ${note.raw}`;
+  const foodTemps = {}, foodTempNames = {};
+  const actionItems = buildActionItems({ inspection: insp, rawNotes, foodTemps, foodTempNames }).map(a => ({ ...a, photos: a.photos && a.photos.length ? a.photos : httpPhotos }));
+  const overallStatus = (note.issues.length || anyBad) ? "Needs Attention" : "Pass";
+  const savedAt = (() => { try { const d = new Date(`${date}T${note.time || "12:00"}:00`); return isNaN(d) ? new Date().toISOString() : d.toISOString(); } catch { return new Date().toISOString(); } })();
+  return {
+    id: importRecordId(date, unit, note.time, note.idx), savedAt, savedByHash: badgeHash || "",
+    noteType: "inspection", inspectionType: "Regular Inspection", inspectionDate: date, inspectorName: String(inspectorName || "").trim() || "Inspector", participantName: "",
+    siteName, siteNumber: unit, supervisorName: "", sitePhone: "", locationType, floor: note.floor || floorFromUnit(unit) || "", eventName: "",
+    restaurantLicense: isLicenseExemptType(locationType) ? "" : (looksLikeLicense(lic) ? lic : ""), licenseMissing: lic === "NO LICENSE",
+    suppliesNeeded: [], location: siteName, context: {}, temps: { ...insp.temps },
+    foodTemps, foodTempNames, foodTempCorrections: {}, foodTempSubmitted: {}, foodTempTimes: {},
+    overallStatus, actionItems, correctiveActions: [], rawNotes, inspection: insp,
+    photoCount: httpPhotos.length, reportDurationSeconds: null, inspectionDurationSeconds: null, timerConfirmed: false,
+    source: "notes_import", importedAt: new Date().toISOString(), noteTime: note.time || "",
+  };
+}
+if (typeof window !== "undefined") { window.__sdxParseNotes = parseInspectionNotes; window.__sdxBuildImportRecord = buildImportedRecord; }
+
+function ImportNotesPage({ onBack, onDone, currentUser }) {
+  const today = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; })();
+  const [text, setText] = useState("");
+  const [date, setDate] = useState(today);
+  const [inspector, setInspector] = useState(currentUser?.name || "");
+  const [notes, setNotes] = useState([]);
+  const [step, setStep] = useState("paste");
+  const [saving, setSaving] = useState(false);
+  const [results, setResults] = useState([]);
+  const [flash, setFlash] = useState("");
+  const fileRefs = useRef({});
+  const say = (m) => { setFlash(m); setTimeout(() => setFlash(""), 4500); };
+  const existingSameDay = (unit) => {
+    try { const cache = JSON.parse(localStorage.getItem(`sdx_history_cache_${VENUE_ID}`) || "[]"); return cache.some(r => r && !r.quickProblem && !r.supervisorLog && r.inspectionDate === date && normUnit(r.siteNumber) === normUnit(unit)); } catch { return false; }
+  };
+  const parse = () => {
+    const parsed = parseInspectionNotes(text).map(n => ({ ...n, dupe: n.unit ? existingSameDay(n.unit) : false }));
+    if (!parsed.length) { say("Paste at least one note that starts with “Stand 345A”."); return; }
+    setNotes(parsed); setStep("review");
+  };
+  const patch = (idx, fn) => setNotes(prev => prev.map(n => n.idx === idx ? fn(n) : n));
+  const addPhotos = async (note, files) => {
+    if (!files || !files.length) return;
+    patch(note.idx, n => ({ ...n, photosBusy: true }));
+    const { photos } = await processPhotoFiles(files, { limit: 12, inspId: importRecordId(date, note.unit, note.time, note.idx), venueId: activeVenueId, firebaseOn: FIREBASE_ON, onError: say });
+    patch(note.idx, n => ({ ...n, photosBusy: false, photos: [...(n.photos || []), ...photos].slice(0, 12) }));
+  };
+  const included = notes.filter(n => n.include);
+  const blockers = included.filter(n => !n.unit || !(n.standName || "").trim());
+  const create = async () => {
+    if (!included.length) { say("Tick at least one stand."); return; }
+    if (blockers.length) { say(`${blockers.length} stand${blockers.length > 1 ? "s" : ""} still need a name — see the red rows.`); return; }
+    if (!inspector.trim()) { say("Type the inspector's name."); return; }
+    setSaving(true); setResults([]);
+    const out = [];
+    for (const n of included) {
+      const rec = buildImportedRecord(n, { date, inspectorName: inspector, badgeHash: currentUser?.badgeHash || "" });
+      try {
+        await saveOneInspection(rec);
+        try { learnFromSave(rec); } catch {}
+        try { if (rec.actionItems.length) notifyCrewsForItems(rec.actionItems, rec.siteName, rec.siteNumber, rec.inspectorName); } catch {}
+        try { const key = `sdx_history_cache_${VENUE_ID}`; const cache = JSON.parse(localStorage.getItem(key) || "[]").filter(r => r && r.id !== rec.id); cache.unshift(rec); localStorage.setItem(key, JSON.stringify(cache.slice(0, 400))); } catch {}
+        try { _speedCache.history = {}; } catch {}
+        out.push({ idx: n.idx, ok: true, id: rec.id, site: rec.siteName, unit: rec.siteNumber, items: rec.actionItems.length, temps: n.temps.length, status: rec.overallStatus });
+      } catch (e) {
+        out.push({ idx: n.idx, ok: false, site: rec.siteName, unit: rec.siteNumber, error: String(e?.message || e).slice(0, 140) });
+      }
+      setResults([...out]);
+    }
+    setSaving(false); setStep("done");
+    try { window.dispatchEvent(new CustomEvent("sdx-history-imported", { detail: { count: out.filter(r => r.ok).length } })); } catch {}
+  };
+  const zoneChip = (t) => t.tempF === null ? <span className="impChip impChipGray">no reading</span>
+    : t.zone === "good" ? <span className="impChip impChipOk">✓ {t.tempF}°F · max {t.max}°F</span>
+    : t.zone === "warn" ? <span className="impChip impChipWarn">⚠ {t.tempF}°F · max {t.max}°F</span>
+    : t.zone === "bad" ? <span className="impChip impChipBad">✗ {t.tempF}°F · max {t.max}°F</span>
+    : <span className="impChip impChipGray">{t.tempF}°F · type?</span>;
+  return (
+    <div className="appShell inspectorPage impPage">
+      <header className="topBar">
+        <div className="brand"><img src={resolveLogoWhite()} alt={resolveCompanyName()} className="brandLogo" /></div>
+        <div className="topActions">
+          <button className="btn btnGhost" type="button" onClick={onBack}>← Back</button>
+        </div>
+      </header>
+      <main className="impMain">
+        <h1 className="impTitle">📥 Import notes → reports</h1>
+        <p className="impLead">Paste your walk notes, one stand per line. Each line becomes a report: the temperatures go in as coolers and freezers, everything else becomes an issue for the crews, and the stand comes from the license sheet.</p>
+        {flash && <div className="impFlash">{flash}</div>}
+        {step === "paste" && (
+          <div className="impCard">
+            <label className="field"><span className="fieldLabel">Notes</span>
+              <textarea className="textarea impTextarea" data-testid="imp-text" value={text} onChange={e => setText(e.target.value)} rows={10}
+                placeholder={"Stand 345A License NOS2334857 Refrigerator Dos Puertas #4 Temp 33.0°F, Freezer Dos Puertas #2 Temp 12.7°F, Agua Frente al Freezer #2\nStand 347 License NOS2326622 Sucio en los estantes, Freezer #1 Temp 28.6°F"} />
+            </label>
+            <div className="impRow">
+              <label className="field"><span className="fieldLabel">Date of the walk</span><input className="input" type="date" data-testid="imp-date" value={date} onChange={e => setDate(e.target.value)} /></label>
+              <label className="field"><span className="fieldLabel">Inspector</span><input className="input" data-testid="imp-inspector" value={inspector} onChange={e => setInspector(e.target.value)} placeholder="Who did the walk" /></label>
+            </div>
+            <div className="impHint">Format: <strong>Stand 345A License NOS2334857</strong> then the findings separated by commas. A reading is <strong>Freezer #2 Temp 12.7°F</strong> (°F, ^F or just the number after “Temp”). A time like <strong>5:40 PM</strong> at the start of the line is kept as the report time. Photos are added per stand on the next screen.</div>
+            <button className="btn btnPrimary impBtn" type="button" data-testid="imp-parse" onClick={parse} disabled={!text.trim()}>Read the notes →</button>
+          </div>
+        )}
+        {step === "review" && (
+          <>
+            <div className="impSummary">{notes.length} note{notes.length !== 1 ? "s" : ""} · {included.length} selected · {date}{blockers.length ? ` · ${blockers.length} need a stand name` : ""}</div>
+            <div className="impList">
+              {notes.map(n => (
+                <div key={n.idx} className={cx("impNote", !n.include && "impNoteOff", n.include && (!n.unit || !(n.standName || "").trim()) && "impNoteBlock")} data-testid="imp-note" data-unit={n.unit}>
+                  <div className="impNoteHead">
+                    <label className="impInclude"><input type="checkbox" checked={!!n.include} onChange={e => patch(n.idx, x => ({ ...x, include: e.target.checked }))} /></label>
+                    <div className="impStand">
+                      <div className="impStandTop">
+                        <span className="impUnit">#{n.unit || "?"}</span>
+                        {n.stand.found ? <span className="impStandName">{n.standName}</span>
+                          : <input className="input impStandInput" data-testid="imp-stand-name" placeholder="Stand name (not on the license sheet)" value={n.standName} onChange={e => patch(n.idx, x => ({ ...x, standName: e.target.value.toUpperCase() }))} />}
+                        <StandType lt={n.standType} />
+                        <select className="select impTypeSel" value={n.standType} onChange={e => patch(n.idx, x => ({ ...x, standType: e.target.value }))}>{LOCATION_TYPES.map(t => <option key={t} value={t}>{t}</option>)}</select>
+                        {n.floor && <span className="impChip impChipGray">{n.floor}</span>}
+                        {n.time && <span className="impChip impChipGray">🕒 {n.time}</span>}
+                        {n.dupe && <span className="impChip impChipWarn">already has a report on {date}</span>}
+                      </div>
+                      <div className="impLic">{n.stand.found ? `License ${n.stand.license || "—"} · ${n.stand.by === "license" ? "matched by license number" : "matched by unit"}` : (n.license ? `License ${n.license} (as written)` : "No license on the line")}</div>
+                    </div>
+                  </div>
+                  {n.warnings.length > 0 && <ul className="impWarnList">{n.warnings.map((w, i) => <li key={i} className="impWarn">⚠ {w}</li>)}</ul>}
+                  {n.temps.length > 0 && (
+                    <div className="impSection"><div className="impSectionHead">🌡 Temperatures</div>
+                      {n.temps.map(t => (
+                        <div key={t.id} className="impTemp" data-testid="imp-temp">
+                          <span className="impTempLabel">{t.label}</span>
+                          <select className="select impTypeSel" data-testid="imp-temp-type" value={t.type} onChange={e => patch(n.idx, x => ({ ...x, temps: x.temps.map(y => y.id === t.id ? { ...y, type: e.target.value, ...importTempZone(e.target.value, y.tempF) } : y), warnings: x.warnings.filter(w => !w.startsWith(`“${t.label}”`)) }))}>
+                            <option value="">type?</option><option value="cooler">Cooler</option><option value="freezer">Freezer</option>
+                          </select>
+                          {zoneChip(t)}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {n.issues.length > 0 && (
+                    <div className="impSection"><div className="impSectionHead">⚠ Issues for the crews</div>
+                      {n.issues.map(it => (
+                        <div key={it.id} className="impIssue" data-testid="imp-issue">
+                          <span className={cx("impChip", it.severity === "urgent" ? "impChipBad" : "impChipCat")}>{IMPORT_CAT_LABEL[it.category] || "Other"}</span>
+                          <span className="impIssueText">{it.text}</span>
+                          {it.area && <span className="impChip impChipGray">📍 {it.area}</span>}
+                          <button type="button" className="impX" title="Not an issue" onClick={() => patch(n.idx, x => ({ ...x, issues: x.issues.filter(y => y.id !== it.id) }))}>✕</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <div className="impSection">
+                    <div className="impSectionHead">📷 Photos {n.photos.length ? `(${n.photos.length})` : ""}{n.photosBusy ? " · adding…" : ""}</div>
+                    <div className="impDrop" data-testid="imp-drop" onClick={() => fileRefs.current[n.idx]?.click()}
+                      onDragOver={e => { e.preventDefault(); e.currentTarget.classList.add("over"); }} onDragLeave={e => e.currentTarget.classList.remove("over")}
+                      onDrop={e => { e.preventDefault(); e.currentTarget.classList.remove("over"); addPhotos(n, e.dataTransfer?.files); }}>
+                      <input ref={el => { fileRefs.current[n.idx] = el; }} type="file" accept="image/*" multiple className="fileInput" data-testid="imp-file" onChange={e => { addPhotos(n, e.target.files); e.target.value = ""; }} />
+                      {n.photos.length ? <div className="impThumbs">{n.photos.map(p => <img key={p.id} src={p.thumbUrl || p.previewUrl} alt="" onClick={e => { e.stopPropagation(); openPhotoLightbox(p.previewUrl || p.thumbUrl); }} />)}</div> : null}
+                      <span className="impDropHint">Drag the pictures from the note here, or tap to choose</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="impBar">
+              <button className="btn btnGhost" type="button" onClick={() => setStep("paste")} disabled={saving}>← Edit the text</button>
+              <button className="btn btnPrimary impBtn" type="button" data-testid="imp-create" onClick={create} disabled={saving || !included.length}>{saving ? `Saving ${results.length + 1} of ${included.length}…` : `Create ${included.length} report${included.length !== 1 ? "s" : ""}`}</button>
+            </div>
+          </>
+        )}
+        {step === "done" && (
+          <div className="impCard">
+            <div className="impDoneHead">{results.filter(r => r.ok).length} of {results.length} report{results.length !== 1 ? "s" : ""} saved</div>
+            <ul className="impResults" data-testid="imp-results">
+              {results.map(r => <li key={r.idx} className={r.ok ? "ok" : "bad"}>{r.ok ? "✓" : "✗"} {r.site} #{r.unit}{r.ok ? ` — ${r.temps} temp${r.temps !== 1 ? "s" : ""}, ${r.items} issue${r.items !== 1 ? "s" : ""}, ${r.status}` : ` — ${r.error}`}</li>)}
+            </ul>
+            <div className="impRow">
+              <button className="btn btnPrimary impBtn" type="button" data-testid="imp-open-history" onClick={onDone}>Open Past Reports →</button>
+              <button className="btn btnGhost" type="button" onClick={() => { setStep("paste"); setText(""); setNotes([]); setResults([]); }}>Import more notes</button>
+            </div>
+          </div>
+        )}
+      </main>
+    </div>
+  );
+}
+
 const GuideSection = React.memo(function GuideSection({ title, items, inspection, setInspection, allowCustom, sectionKey, coldEquipmentMap, maintenanceItems, emptyHint, inspectionId, onError, siteName, siteNumber, siteFloor, siteLocType, onOpenPrintLabels, defaultOpen = false }) {
 
   const fileRefs = useRef({});
@@ -30898,6 +31232,7 @@ export default function App() {
       setSiteName(user.assignedLocation);
     }
   }} />;
+  if (page === "import_notes") return <ImportNotesPage onBack={() => setPage("history")} onDone={() => { setHistoryEntry(null); setPage("history"); }} currentUser={currentUser} />;
   if (page === "history") { AIEngine.trackPage("history"); return <HistoryPage onBack={() => {
     if (managedVenueId) { setVenue(VENUE_ID); setManagedVenueId(null); setManagedVenueName(null); setPage("global_admin"); }
     else { setPage("inspector"); }
@@ -31696,6 +32031,7 @@ export default function App() {
             </div>
             <div className="menuSection">Work</div>
             <button className={cx("dropdownMenuItem", page === "schedule" && "dropdownMenuItemActive")} onClick={() => { setPage("schedule"); setMenuOpen(false); }} type="button">📅 Schedule</button>
+            <button className={cx("dropdownMenuItem", page === "import_notes" && "dropdownMenuItemActive")} onClick={() => { setPage("import_notes"); setMenuOpen(false); }} type="button">📥 Import notes</button>
             <button className="dropdownMenuItem" onClick={() => { setHistoryEntry({ tab: "analytics", sub: "temp" }); setPage("history"); setMenuOpen(false); }} type="button">🌡 Equipment temps</button>
             <button className={cx("dropdownMenuItem", page === "mylocations" && "dropdownMenuItemActive")} onClick={() => { setPage("mylocations"); setMenuOpen(false); }} type="button">📍 My Locations</button>
             <button className={cx("dropdownMenuItem", page === "messaging" && "dropdownMenuItemActive")} onClick={() => { setPage("messaging"); setMenuOpen(false); }} type="button">
