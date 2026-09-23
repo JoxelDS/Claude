@@ -5233,6 +5233,62 @@ async function fetchAsDataUrl(src, fallback) {
   }
 }
 
+// v484: pictures for a bulk export. The old path pulled EVERY photo of every
+// selected report at full size (3–4 MB each, twice) and embedded them as-is —
+// nine reports took minutes and hundreds of MB. Now: only the ticked issues'
+// photos, each fetched once (cache), at most 6 in flight, decoded and shrunk to
+// ≤ 480 px JPEG (~40 KB) before it goes into the workbook.
+const EXPORT_PHOTO_MAX_PX = 480, EXPORT_PHOTO_Q = 0.72, EXPORT_PHOTO_PARALLEL = 6, EXPORT_PHOTOS_PER_ISSUE = 3;
+async function fetchPhotoBlob(src) {
+  if (!src) return null;
+  if (src.startsWith("data:")) { try { return await (await fetch(src)).blob(); } catch { return null; } }
+  const isFirebaseUrl = src.includes("firebasestorage.googleapis.com") || src.includes("firebasestorage.app");
+  if (isFirebaseUrl && fbStorage) { try { return await storageGetBlob(storageRef(fbStorage, src)); } catch {} }
+  try { const res = await fetch(src, { mode: "cors" }); if (res.ok) return await res.blob(); } catch {}
+  return null;
+}
+async function shrinkBlobToDataUrl(blob, maxPx = EXPORT_PHOTO_MAX_PX, q = EXPORT_PHOTO_Q) {
+  let bmp = null, src = null, w = 0, h = 0, url = "";
+  try { if (typeof createImageBitmap === "function") { bmp = await createImageBitmap(blob, { imageOrientation: "from-image" }); src = bmp; w = bmp.width; h = bmp.height; } } catch { bmp = null; }
+  if (!src) {
+    url = URL.createObjectURL(blob);
+    try { src = await new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = url; }); w = src.naturalWidth; h = src.naturalHeight; }
+    catch { try { URL.revokeObjectURL(url); } catch {} return null; }
+  }
+  try {
+    if (!w || !h) return null;
+    let dw = w, dh = h; if (dw > maxPx || dh > maxPx) { const r = Math.min(maxPx / dw, maxPx / dh); dw = Math.round(dw * r); dh = Math.round(dh * r); }
+    const c = document.createElement("canvas"); c.width = dw; c.height = dh; c.getContext("2d").drawImage(src, 0, 0, dw, dh);
+    const out = c.toDataURL("image/jpeg", q); c.width = c.height = 0; return out;
+  } catch { return null; }
+  finally { try { bmp && bmp.close && bmp.close(); } catch {} try { url && URL.revokeObjectURL(url); } catch {} }
+}
+function makeExportPhotoFetcher({ onProgress } = {}) {
+  const cache = new Map(); let active = 0, done = 0, total = 0; const queue = [];
+  const stats = { requested: 0, fetched: 0, cached: 0, failed: 0 };
+  if (typeof window !== "undefined") window.__sdxExportPhotoStats = stats;
+  const next = () => { if (active >= EXPORT_PHOTO_PARALLEL || !queue.length) return; active++; const job = queue.shift(); job().finally(() => { active--; done++; if (onProgress) onProgress({ done, total }); next(); }); };
+  const run = (fn) => new Promise((resolve) => { total++; queue.push(async () => { try { resolve(await fn()); } catch { resolve(null); } }); next(); });
+  return {
+    stats,
+    get: (src, fallback) => {
+      stats.requested++;
+      const key = src || fallback || "";
+      if (!key) return Promise.resolve(null);
+      if (cache.has(key)) { stats.cached++; return cache.get(key); }
+      const pr = run(async () => {
+        const blob = await fetchPhotoBlob(src) || (fallback && fallback.startsWith("data:") ? await fetchPhotoBlob(fallback) : null);
+        if (!blob) { stats.failed++; return null; }
+        const small = await shrinkBlobToDataUrl(blob);
+        if (small) { stats.fetched++; return small; }
+        // could not decode (odd format): fall back to the raw bytes
+        try { const raw = await blobToDataUrl(blob); stats.fetched++; return raw; } catch { stats.failed++; return null; }
+      });
+      cache.set(key, pr); return pr;
+    },
+  };
+}
+
 async function exportAsCsv({ inspection, notesPhotos, rawNotes, inspectionType, inspectionDate, inspectorName, participantName, siteName, siteNumber, sitePhone, supervisorName, floor, locationType, restaurantLicense, licenseMissing, eventName, foodTemps, foodTempNames, haccpSubs }) {
   const ExcelJS = (await import("exceljs")).default;
   const dataRows = buildCsvRows({ inspection, rawNotes, inspectionType, inspectionDate, inspectorName, siteName, siteNumber, supervisorName });
@@ -11337,6 +11393,9 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
   const [selectedIssueKeys, setSelectedIssueKeys] = useState(null); // null = all issues
   const [modalIssueSearch, setModalIssueSearch] = useState(""); // search filter inside issue modal
   const [issueExporting, setIssueExporting] = useState(false);
+  const [exportCrew, setExportCrew] = useState(null);       // v484: null = ask first; "Cleaning" | "Maintenance" | "Ecolab" | "All"
+  const [exportPhotos, setExportPhotos] = useState(true);   // v484: pictures in the file (off = instant)
+  const [exportProgress, setExportProgress] = useState(null);
   // Corrective action tracking: { [recId]: { [issueKey]: { resolvedAt, resolvedNote, resolvedBy } } }
   const [resolvedIssues, setResolvedIssues] = useState({});
   // Resolve modal state: { recId, issueKey, issueText } | null
@@ -11918,15 +11977,19 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
     URL.revokeObjectURL(url);
   }
 
-  async function exportBulkExcel(records) {
+  async function exportBulkExcel(records, opts = {}) {
     if (!records || records.length === 0) return;
+    const { includePhotos = true, onProgress = null, crew = "" } = opts;
+    const t0 = Date.now();
+    const photoFetcher = makeExportPhotoFetcher({ onProgress: p => onProgress && onProgress({ phase: "photos", ...p }) });
 
     // ── Pre-fetch HACCP data for ALL records in the export ─────────────────
     // haccpByReport only holds data for the currently-expanded card.
     // For bulk exports we must eagerly fetch every record's submissions so
     // the Supervisor Log sheet is populated regardless of which cards were open.
+    // v484: runs at the same time as the photo work below, not before it.
     const haccpMap = { ...haccpByReport }; // start with whatever is already loaded
-    await Promise.all(records.map(async rec => {
+    const haccpPromise = Promise.all(records.map(async rec => {
       if (haccpMap[rec.id] !== undefined) return; // already loaded
       const byId  = await loadHaccpForReport(rec.id);
       const bySite = (rec.siteName || rec.location) && rec.inspectionDate
@@ -12092,33 +12155,35 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
       return m ? { issueClean: m[1].trim(), embeddedCorrective: m[2].trim() } : { issueClean: (text || "").trim(), embeddedCorrective: "" };
     }
 
-    // Prefetch each record's action items with their photos resolved to data
-    // URLs, so every picture can be embedded right next to its issue row.
-    // Photo refs can be index numbers (new records) or photo objects (old ones).
+    // v484: the caller already narrowed rec.actionItems to the ticked issues
+    // (doExport), so ONLY those photos are fetched — at most EXPORT_PHOTOS_PER_ISSUE
+    // each, shrunk, cached, 6 in flight — while the HACCP reads run alongside.
     const rowsByRec = new Map();
-    await Promise.all(records.map(async rec => {
-      const actionItems = rec.inspection
+    const photoPromise = Promise.all(records.map(async rec => {
+      const actionItems = Array.isArray(rec.actionItems) ? rec.actionItems : (rec.inspection
         ? buildActionItems({ inspection: rec.inspection, rawNotes: rec.inspection, foodTemps: rec.foodTemps, foodTempNames: rec.foodTempNames, foodTempCorrections: rec.foodTempCorrections, foodTempSubmitted: rec.foodTempSubmitted })
-        : (rec.actionItems || []);
-      const { index } = buildPhotoIndex(rec.inspection, rec.notesPhotos || rec.inspection?._notesPhotos);
-      const list = await Promise.all(
-        index.map(async p => ({ ...p, dataUrl: await fetchAsDataUrl(p.previewUrl, p.thumbUrl) }))
-      );
+        : []);
+      let index = null; // built only when an item points at a photo by number
+      const indexEntry = (num) => { if (!index) index = buildPhotoIndex(rec.inspection, rec.notesPhotos || rec.inspection?._notesPhotos).index; return index.find(p => p.num === num) || null; };
       const resolved = await Promise.all(actionItems.map(async a => {
-        const refs = Array.isArray(a.photos) ? a.photos : [];
+        const refs = (Array.isArray(a.photos) ? a.photos : []).slice(0, EXPORT_PHOTOS_PER_ISSUE);
+        if (!includePhotos || !refs.length) return { ...a, _photoDataUrls: [], _photoCount: (Array.isArray(a.photos) ? a.photos : []).length };
         const dataUrls = (await Promise.all(refs.map(async ph => {
-          if (typeof ph === "number") return (list.find(p => p.num === ph) || {}).dataUrl || null;
+          if (typeof ph === "number") { const e = indexEntry(ph); return e ? await photoFetcher.get(e.previewUrl, e.thumbUrl) : null; }
           if (ph && typeof ph === "object") {
             const direct = ph.dataUrl || "";
-            if (direct.startsWith("data:image")) return direct;
-            return await fetchAsDataUrl(ph.previewUrl || ph.url || ph.exportUrl, ph.thumbUrl);
+            if (direct.startsWith("data:image")) return await photoFetcher.get(direct, "");
+            return await photoFetcher.get(ph.previewUrl || ph.url || ph.exportUrl, ph.thumbUrl);
           }
           return null;
         }))).filter(u => u && u.startsWith("data:image"));
-        return { ...a, _photoDataUrls: dataUrls };
+        return { ...a, _photoDataUrls: dataUrls, _photoCount: (Array.isArray(a.photos) ? a.photos : []).length };
       }));
       rowsByRec.set(rec, resolved);
     }));
+    await Promise.all([haccpPromise, photoPromise]);
+    if (onProgress) onProgress({ phase: "build" });
+    try { console.info(`[export] photos: ${JSON.stringify(photoFetcher.stats)} in ${Date.now() - t0} ms`); } catch {}
 
     let rowNum = 0;
     records.forEach(rec => {
@@ -12139,7 +12204,7 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
         const row = ws2.addRow([
           rowNum, str(rec.siteName || rec.location), str(rec.siteNumber), str(rec.locationType),
           str(rec.inspectionDate), str(rec.inspectionType), str(rec.inspectorName),
-          area, issueText, itype, inspNotes, corrective, "", str(a.owner || "—"), str(a.due || "—"), statusLabel,
+          area, issueText, itype, inspNotes, corrective, (!includePhotos && a._photoCount) ? `${a._photoCount} photo${a._photoCount !== 1 ? "s" : ""} in the app` : "", str(a.owner || "—"), str(a.due || "—"), statusLabel,
         ]);
         [1,2,3,4,5,6,7,8,9,11,12,13,14,15].forEach(ci => { row.getCell(ci).style = bBody(bg); });
         row.getCell(10).style = issueTypeStyle(itype);
@@ -12398,7 +12463,9 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
     // ── Write & download ───────────────────────────────────────────────────
     const buffer = await wb.xlsx.writeBuffer();
     const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-    return { blob, filename: `inspection-summary-${dateStr}.xlsx` };
+    const crewTag = crew && crew !== "All" ? `${crew.toLowerCase().replace(/[^a-z]+/g, "-")}-` : "";
+    try { console.info(`[export] workbook ready in ${Date.now() - t0} ms`); } catch {}
+    return { blob, filename: `inspection-${crewTag}issues-${dateStr}.xlsx` };
   }
 
   async function exportBulkWord(records) {
@@ -14555,6 +14622,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                 onClick={() => {
                   setSelectedIssueKeys(null); // reset to all
                   setModalIssueSearch(""); // reset search
+                  setExportCrew(null); setExportProgress(null); // v484: ask who it is for first
                   setShowIssueFilter(fmt);
                   // Preload ExcelJS in background so it's cached when they click Download
                   if (fmt === "excel") import("exceljs").catch(() => {});
@@ -14581,6 +14649,14 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
       {showIssueFilter && (() => {
         const selectedRecords = filtered.filter(r => selectedIds.has(r.id));
         // Helper: parse area from issue text when area field is missing
+        // v484: which crew an issue belongs to (same rule as the crew boards / follow-ups)
+        function exportCrewOf(a) {
+          const t = classifyIssueType(a.issue, a.notes, a.priority);
+          if (t === "Cleaning") return "Cleaning";
+          if (t === "Maintenance" || t === "Temperature") return "Maintenance";
+          if (t === "Ecolab / Maintenance") return "Ecolab";
+          return "Other";
+        }
         function splitIssueModal(a) {
           if (a.area && a.area.trim()) return { area: a.area.trim(), issue: (a.issue || "").trim() };
           const raw = (a.issue || "").trim();
@@ -14607,7 +14683,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
             const normStatus = rawStatus || (a.priority === "Follow-up" || a.priority === "Maintenance" ? a.priority : (a.priority === "Med" ? "Needs Attention" : "Fail"));
             if (!seen.has(key)) {
               seen.add(key);
-              allIssues.push({ key, area, issue, priority: a.priority || "High", status: normStatus, corrective: a.corrective || a.notes || "" });
+              allIssues.push({ key, area, issue, priority: a.priority || "High", status: normStatus, corrective: a.corrective || a.notes || "", crew: exportCrewOf(a) });
             }
           }
         }
@@ -14658,7 +14734,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
               };
             });
             if (showIssueFilter === "excel") {
-              const result = await exportBulkExcel(filteredRecords);
+              const result = await exportBulkExcel(filteredRecords, { includePhotos: exportPhotos, crew: exportCrew || "All", onProgress: p => setExportProgress(p) });
               if (result) downloadBlob(result.blob, result.filename);
             } else if (showIssueFilter === "pdf") {
               await exportBulkPdf(filteredRecords);
@@ -14669,9 +14745,14 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
           } catch (err) {
             alert("Export failed: " + (err?.message || String(err)));
           } finally {
-            setIssueExporting(false);
+            setIssueExporting(false); setExportProgress(null);
           }
         }
+        const crewCounts = { Cleaning: 0, Maintenance: 0, Ecolab: 0, Other: 0 };
+        allIssues.forEach(i => { crewCounts[i.crew] = (crewCounts[i.crew] || 0) + 1; });
+        const pickCrew = (c) => { setExportCrew(c); setSelectedIssueKeys(c === "All" ? new Set(allIssues.map(i => i.key)) : new Set(allIssues.filter(i => i.crew === c).map(i => i.key))); };
+        const selectedPhotoCount = (() => { let n = 0; const keys = selectedIssueKeys || new Set(allIssues.map(i => i.key)); for (const rec of selectedRecords) { const items = rec.inspection ? buildActionItems({ inspection: rec.inspection, rawNotes: rec.inspection, foodTemps: rec.foodTemps, foodTempNames: rec.foodTempNames }) : (rec.actionItems || []); for (const a of items) { const { area } = splitIssueModal(a); if (keys.has(`${(area || "").trim()}|||${(a.issue || "").trim()}`)) n += Math.min(EXPORT_PHOTOS_PER_ISSUE, Array.isArray(a.photos) ? a.photos.length : 0); } } return n; })();
+        const CREW_BTNS = [["Cleaning", "🧹", "Cleaning crew", "dirt, grease, mold, spills, trash"], ["Maintenance", "🔧", "Maintenance", "broken, leaking, not working, temperatures"], ["Ecolab", "🧪", "Ecolab", "dispensers, sanitizer, chemicals"], ["All", "📋", "Everything", "every issue, incl. pest control and other"]];
 
         const exportAccent = showIssueFilter === "excel" ? "#16a34a" : showIssueFilter === "pdf" ? "#dc2626" : "#2563eb";
         const exportAccentLight = showIssueFilter === "excel" ? "var(--tint-green-1)" : showIssueFilter === "pdf" ? "var(--tint-red-1)" : "var(--tint-blue-1)";
@@ -14720,6 +14801,17 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                 </div>
 
                 {/* Stats chips row */}
+                {exportCrew !== null && (
+                  <div className="expCrewBar" data-testid="exp-crew-bar">
+                    <span className={cx("expCrewChip", `expCrew${exportCrew}`)}>{exportCrew === "All" ? "📋 Everything" : exportCrew === "Cleaning" ? "🧹 Cleaning crew" : exportCrew === "Maintenance" ? "🔧 Maintenance" : "🧪 Ecolab"}</span>
+                    <button type="button" className="expCrewChange" data-testid="exp-crew-change" onClick={() => setExportCrew(null)}>Change</button>
+                    <label className="expPhotoToggle" data-testid="exp-photos">
+                      <input type="checkbox" checked={exportPhotos} onChange={e => setExportPhotos(e.target.checked)} />
+                      <span>📷 Pictures in the file{selectedPhotoCount ? ` (${selectedPhotoCount})` : ""}</span>
+                      {selectedPhotoCount > 30 && exportPhotos && <em> · off = instant</em>}
+                    </label>
+                  </div>
+                )}
                 <div style={{ display: "flex", gap: 8, marginTop: 14, flexWrap: "wrap" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 10px", borderRadius: 8, background: selectedCount > 0 ? exportAccentLight : "var(--surface-2)", border: `1px solid ${selectedCount > 0 ? exportAccentMid : "var(--sdx-gray-200)"}` }}>
                     <span style={{ width: 7, height: 7, borderRadius: "50%", background: selectedCount > 0 ? exportAccent : "var(--sdx-gray-300)", display: "inline-block" }} />
@@ -14774,8 +14866,25 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                 })()}
               </div>
 
+              {/* v484 step 1: who is this for? */}
+              {exportCrew === null && allIssues.length > 0 ? (
+                <div className="expCrewStep" data-testid="exp-crew-step">
+                  <div className="expCrewTitle">Who is this export for?</div>
+                  <div className="expCrewSub">Pick the crew and only their issues are ticked. You can still adjust the list after.</div>
+                  <div className="expCrewGrid">
+                    {CREW_BTNS.map(([c, ic, lb, sub]) => { const n = c === "All" ? allIssues.length : crewCounts[c]; return (
+                      <button key={c} type="button" className={cx("expCrewBtn", `expCrew${c}`)} data-testid={`exp-crew-${c.toLowerCase()}`} disabled={n === 0} onClick={() => pickCrew(c)}>
+                        <span className="expCrewIcon">{ic}</span>
+                        <span className="expCrewName">{lb}</span>
+                        <span className="expCrewCount">{n} issue{n !== 1 ? "s" : ""}</span>
+                        <span className="expCrewHint">{sub}</span>
+                      </button>); })}
+                  </div>
+                  {crewCounts.Other > 0 && <div className="expCrewNote">{crewCounts.Other} pest-control / other issue{crewCounts.Other !== 1 ? "s" : ""} only come with “Everything”.</div>}
+                </div>
+              ) : null}
               {/* Issue list */}
-              <div style={{ overflowY: "auto", flex: 1, padding: "4px 0" }}>
+              <div style={{ overflowY: "auto", flex: 1, padding: "4px 0", display: exportCrew === null && allIssues.length > 0 ? "none" : undefined }}>
                 {allIssues.length === 0 ? (
                   <div style={{ textAlign: "center", padding: "3.5rem 2rem", color: "var(--ink-400)" }}>
                     <div style={{ fontSize: "2rem", marginBottom: 10 }}>📋</div>
@@ -14880,7 +14989,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                     display: "flex", alignItems: "center", justifyContent: "center", gap: 7,
                   }}>
                   {issueExporting
-                    ? <><span style={{ width: 16, height: 16, border: "2px solid #94a3b8", borderTopColor: "var(--ink-600)", borderRadius: "50%", display: "inline-block", animation: "spin 0.7s linear infinite" }} /><span>Preparing download…</span></>
+                    ? <><span style={{ width: 16, height: 16, border: "2px solid #94a3b8", borderTopColor: "var(--ink-600)", borderRadius: "50%", display: "inline-block", animation: "spin 0.7s linear infinite" }} /><span>{exportProgress?.phase === "photos" && exportProgress.total ? `Pictures ${exportProgress.done} of ${exportProgress.total}…` : exportProgress?.phase === "build" ? "Building the file…" : "Preparing download…"}</span></>
                     : <><span style={{ fontSize: "1rem" }}>{exportIcon}</span><span>{selectedCount > 0 ? `Export ${selectedCount} Issue${selectedCount !== 1 ? "s" : ""} to ${exportLabel}` : `Select issues to export`}</span></>
                   }
                 </button>

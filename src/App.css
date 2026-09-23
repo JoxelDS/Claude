@@ -8827,3 +8827,30 @@ button.nluChipTemp { background: #fef3c7; color: #92400e; border: 1px solid #fcd
   margin-top: 6px; padding: 0.45rem 0.7rem; border-radius: 8px; font-size: 0.76rem; font-weight: 600;
   background: var(--tint-amber-1, #fffbeb); color: #92400e; border: 1px solid #fcd34d;
 }
+
+/* ── v484: bulk export asks who it is for; pictures toggle; progress ─────── */
+.expCrewStep { padding: 18px 20px 24px; }
+.expCrewTitle { font-size: 1.05rem; font-weight: 800; color: var(--ink-900, #0f172a); }
+.expCrewSub { font-size: 0.8rem; color: var(--ink-500, #6b7280); margin: 4px 0 14px; }
+.expCrewGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.expCrewBtn { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; padding: 14px 14px 12px; border-radius: 14px; border: 2px solid var(--sdx-gray-200, #e5e7eb); background: var(--surface-1, #fff); cursor: pointer; min-height: 104px; transition: transform .12s, box-shadow .12s; }
+.expCrewBtn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(0,0,0,.08); }
+.expCrewBtn:disabled { opacity: .45; cursor: not-allowed; }
+.expCrewIcon { font-size: 1.5rem; line-height: 1; }
+.expCrewName { font-weight: 800; font-size: 1rem; color: var(--ink-900, #0f172a); margin-top: 4px; }
+.expCrewCount { font-weight: 800; font-size: 0.82rem; }
+.expCrewHint { font-size: 0.72rem; color: var(--ink-500, #6b7280); line-height: 1.3; }
+.expCrewCleaning { border-color: #86efac; background: #f0fdf4; } .expCrewCleaning .expCrewCount { color: #166534; }
+.expCrewMaintenance { border-color: #fdba74; background: #fff7ed; } .expCrewMaintenance .expCrewCount { color: #9a3412; }
+.expCrewEcolab { border-color: #5eead4; background: #f0fdfa; } .expCrewEcolab .expCrewCount { color: #0f766e; }
+.expCrewAll { border-color: #c7d2fe; background: #eef2ff; } .expCrewAll .expCrewCount { color: #3730a3; }
+.expCrewNote { margin-top: 10px; font-size: 0.76rem; color: var(--ink-500, #6b7280); }
+.expCrewBar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 12px; }
+.expCrewChip { font-weight: 800; font-size: 0.82rem; border-radius: 999px; padding: 5px 12px; border: 1.5px solid transparent; }
+.expCrewChange { border: none; background: transparent; color: #2563eb; font-weight: 700; font-size: 0.8rem; cursor: pointer; padding: 4px 6px; text-decoration: underline; }
+.expPhotoToggle { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; font-size: 0.8rem; font-weight: 700; color: var(--ink-700, #374151); cursor: pointer; }
+.expPhotoToggle input { width: 18px; height: 18px; }
+.expPhotoToggle em { font-style: normal; color: #c2410c; font-weight: 700; }
+@media (max-width: 480px) { .expCrewGrid { grid-template-columns: 1fr; } .expCrewBtn { min-height: 0; } .expPhotoToggle { margin-left: 0; } }
+:root[data-theme="dark"] .expCrewBtn { background: #111827; border-color: #334155; }
+:root[data-theme="dark"] .expCrewCleaning { background: #052e16; } :root[data-theme="dark"] .expCrewMaintenance { background: #431407; } :root[data-theme="dark"] .expCrewEcolab { background: #042f2e; } :root[data-theme="dark"] .expCrewAll { background: #1e1b4b; }
