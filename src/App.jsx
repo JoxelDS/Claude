@@ -2327,6 +2327,99 @@ function lockApp() {
   _currentUser = null;
 }
 
+/* ── v488: crew link sessions — the invite link IS the login ─────────
+   A maintenance / cleaning / Ecolab member opens the role's invite link,
+   types a name and is in. The device keeps { uid, name, role, token } and
+   every load re-checks the token against venueSettings.inviteTokens[role],
+   so "↻ New" on the invite card signs everyone out. No badge to remember. */
+const CREW_SESSION_KEY = () => `sdx_crew_session_${activeVenueId}`;
+const CREW_LINK_ROLES = ["maintenance", "cleaning", "ecolab"];
+function loadCrewSession() {
+  try {
+    const s = JSON.parse(localStorage.getItem(CREW_SESSION_KEY()) || "null");
+    return s && s.uid && s.role && s.token && CREW_LINK_ROLES.includes(s.role) ? s : null;
+  } catch { return null; }
+}
+function saveCrewSession(s) { try { localStorage.setItem(CREW_SESSION_KEY(), JSON.stringify(s)); } catch {} }
+function clearCrewSession() { try { localStorage.removeItem(CREW_SESSION_KEY()); } catch {} }
+const crewLinkHash = uid => `link_${uid}`;
+function newCrewUid() {
+  try { const a = new Uint8Array(8); crypto.getRandomValues(a); return Array.from(a, b => b.toString(16).padStart(2, "0")).join(""); }
+  catch { return Math.random().toString(16).slice(2, 10) + Math.random().toString(16).slice(2, 10); }
+}
+// Make (or refresh) the user record for a link session and sign in with it.
+async function signInCrewLink(session) {
+  const h = crewLinkHash(session.uid);
+  let users = [];
+  try { users = await getUsers(); } catch { users = []; }
+  let user = users.find(u => u.badgeHash === h);
+  if (user && (user.removed || user.approved === false)) return { ok: false, reason: "removed" };
+  if (!user || user.name !== session.name || user.role !== session.role) {
+    user = {
+      ...(user || {}),
+      badgeHash: h, name: session.name, role: session.role, requestedRole: session.role,
+      department: ROLE_DEFAULT_DEPT[session.role] || "Other",
+      badgeDisplay: "🔗 link", approved: true, viaLink: true, invitedVia: session.role,
+      invitedAt: user?.invitedAt || new Date().toISOString(), registeredAt: user?.registeredAt || new Date().toISOString(),
+      lastLinkOpenAt: new Date().toISOString(),
+    };
+    try { await saveOneUser(user); } catch {}
+  }
+  if (!FIREBASE_ON) { try { _cryptoKey = await getMasterKey(); } catch {} }
+  _currentUser = { ...user };
+  return { ok: true, user: _currentUser };
+}
+const CREW_JOIN_STR = {
+  en: { hi: "Welcome", as: "You are joining as", name: "Your name", go: "Open my board", busy: "Opening…", need: "Type your name first.", replaced: "This link was replaced.", ask: "Ask the inspector to send you the new link.", staff: "Staff? Sign in with your badge", opening: "Opening your board…", role: { maintenance: "🔧 Maintenance crew", cleaning: "🧹 Cleaning crew", ecolab: "🧪 Ecolab" } },
+  es: { hi: "Bienvenido", as: "Entras como", name: "Tu nombre", go: "Abrir mi tablero", busy: "Abriendo…", need: "Escribe tu nombre primero.", replaced: "Este enlace fue reemplazado.", ask: "Pídele al inspector el enlace nuevo.", staff: "¿Personal? Entra con tu credencial", opening: "Abriendo tu tablero…", role: { maintenance: "🔧 Equipo de mantenimiento", cleaning: "🧹 Equipo de limpieza", ecolab: "🧪 Ecolab" } },
+  ht: { hi: "Byenveni", as: "W ap antre kòm", name: "Non ou", go: "Louvri tablo mwen", busy: "Ap louvri…", need: "Ekri non ou anvan.", replaced: "Lyen sa a ranplase.", ask: "Mande enspektè a voye nouvo lyen an.", staff: "Anplwaye? Antre ak baj ou", opening: "Ap louvri tablo ou…", role: { maintenance: "🔧 Ekip antretyen", cleaning: "🧹 Ekip pwopte", ecolab: "🧪 Ecolab" } },
+};
+function crewLangGet() { try { return localStorage.getItem("sdx_crew_lang") || (localStorage.getItem("sdx_portal_lang") === "es" ? "es" : "en"); } catch { return "en"; } }
+function CrewLangPills({ lang, onPick }) {
+  return (
+    <div className="crewLangRow crewJoinLang notranslate" translate="no">
+      {[["en", "English"], ["es", "Español"], ["ht", "Kreyòl"]].map(([code, label]) => (
+        <button key={code} type="button" className={"crewLangBtn" + (lang === code ? " on" : "")} onClick={() => { try { localStorage.setItem("sdx_crew_lang", code); } catch {} onPick(code); }}>{label}</button>
+      ))}
+    </div>
+  );
+}
+// The name-only join card for crew invite links (replaces the badge form).
+function CrewJoinCard({ role, token, onUnlock }) {
+  const [lang, setLang] = useState(crewLangGet);
+  const S = CREW_JOIN_STR[lang] || CREW_JOIN_STR.en;
+  const [name, setName] = useState(() => loadCrewSession()?.name || "");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  async function go(e) {
+    e?.preventDefault?.();
+    const nm = name.trim().toUpperCase().replace(/\s+/g, " ").slice(0, 60);
+    if (!nm) { setErr(S.need); return; }
+    setBusy(true); setErr("");
+    try {
+      const prev = loadCrewSession();
+      const session = { uid: prev?.uid || newCrewUid(), name: nm, role, token, venue: activeVenueId, createdAt: prev?.createdAt || Date.now() };
+      const r = await signInCrewLink(session);
+      if (!r.ok) { setErr(S.replaced + " " + S.ask); setBusy(false); return; }
+      saveCrewSession(session);
+      try { window.history.replaceState({}, "", window.location.pathname); } catch {}
+      onUnlock(r.user);
+    } catch { setErr("Could not connect. Try again."); setBusy(false); }
+  }
+  return (
+    <div className="crewJoin notranslate" translate="no" data-testid="crew-join">
+      <CrewLangPills lang={lang} onPick={setLang} />
+      <div className="pinTitle">{S.hi} 👋</div>
+      <div className="crewJoinRole">{S.as}<br /><b>{S.role[role] || role}</b> · {resolveCompanyName()}</div>
+      <form onSubmit={go} className="pinForm">
+        <input className="input crewJoinName" value={name} onChange={e => setName(e.target.value)} placeholder={S.name} autoComplete="name" autoFocus data-testid="crew-join-name" />
+        {err && <div className="pinError">{err}</div>}
+        <button className="btn btnPrimary crewJoinGo" type="submit" disabled={busy || !name.trim()} data-testid="crew-join-go">{busy ? S.busy : S.go} →</button>
+      </form>
+    </div>
+  );
+}
+
 function getCurrentUser() { return _currentUser; }
 
 /* ── Admin helpers (all async for Firestore) ──────────────── */
@@ -2443,7 +2536,7 @@ async function removeGuestInspector(badgeHash) {
 }
 
 /* ── Badge Sign-In Screen ─────────────────────────────────── */
-function BadgeScreen({ onUnlock, inviteRole }) {
+function BadgeScreen({ onUnlock, inviteRole, crewNotice = "" }) {
   const [badge, setBadge] = useState("");
   const [mode, setMode] = useState(inviteRole ? "invite" : "signin"); // signin | register | pending | invite
   useEffect(() => { if (inviteRole) setMode("invite"); }, [inviteRole]);
@@ -2536,7 +2629,7 @@ function BadgeScreen({ onUnlock, inviteRole }) {
           </div>
         )}
 
-        {mode === "signin" && (<>
+        {mode === "signin" && crewNotice !== "opening" && (<>
           <div className="pinTitle">Badge Sign-In</div>
           <div className="pinSub">Enter your work badge number to access inspections</div>
           <form onSubmit={handleSignIn} className="pinForm">
@@ -2552,7 +2645,26 @@ function BadgeScreen({ onUnlock, inviteRole }) {
           </button>
         </>)}
 
-        {mode === "invite" && (() => { const meta = REQUEST_ROLES.find(r => r.value === inviteRole); return (<>
+        {crewNotice === "opening" && (
+          <div className="crewJoin notranslate" translate="no" data-testid="crew-opening">
+            <div className="pinSub">{(CREW_JOIN_STR[crewLangGet()] || CREW_JOIN_STR.en).opening}</div>
+          </div>
+        )}
+        {crewNotice === "replaced" && mode === "signin" && (() => { const S = CREW_JOIN_STR[crewLangGet()] || CREW_JOIN_STR.en; return (
+          <div className="crewJoin crewJoinReplaced notranslate" translate="no" data-testid="crew-replaced">
+            <div className="pinTitle">🔗 {S.replaced}</div>
+            <div className="pinSub">{S.ask}</div>
+          </div>
+        ); })()}
+
+        {mode === "invite" && CREW_LINK_ROLES.includes(inviteRole) && !crewNotice && (
+          <CrewJoinCard role={inviteRole} token={INVITE_TOKEN} onUnlock={onUnlock} />
+        )}
+        {mode === "invite" && CREW_LINK_ROLES.includes(inviteRole) && !crewNotice && (
+          <button className="btnLink" type="button" onClick={() => { setMode("signin"); setError(""); }}>{(CREW_JOIN_STR[crewLangGet()] || CREW_JOIN_STR.en).staff}</button>
+        )}
+
+        {mode === "invite" && !CREW_LINK_ROLES.includes(inviteRole) && (() => { const meta = REQUEST_ROLES.find(r => r.value === inviteRole); return (<>
           <div className="pinTitle">You're invited</div>
           <div className="pinSub">Joining <b>{resolveCompanyName()}</b> as <b>{meta ? `${meta.icon} ${meta.label}` : inviteRole}</b>. Pick a badge number you'll remember — it's your sign-in.</div>
           <form onSubmit={handleInvite} className="pinForm">
@@ -9111,7 +9223,7 @@ function detectStandTypeFor(unit, site) {
     return (exact?.locType || at[0]?.locType || "").trim();
   } catch { return ""; }
 }
-function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLock, onMessages, onAppearance }) {
+function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLock, onMessages, onAppearance, linkSession = false }) {
   const role = currentUser?.role;
   const meta = CREW_META[role] || CREW_META.maintenance;
   // Crew language (v431) — native English / Espanol / Kreyol, no page reload.
@@ -9158,6 +9270,11 @@ function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLoc
   const [lightboxSrc, setLightboxSrc] = useState(null);
   const [openReport, setOpenReport] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  // v488: simple view (default) — one list, two big buttons per job. ⚙ More
+  // brings back search, stand picker, By Problem, floors, fixed, other.
+  const [simple, setSimple] = useState(() => { try { return localStorage.getItem("sdx_crew_simple") !== "0"; } catch { return true; } });
+  const setSimpleSave = v => { setSimple(v); if (v) { setQ(""); setStandPick(""); setFloorPick(""); setGroupBy("stand"); setShowOther(false); setShowDone(false); } try { localStorage.setItem("sdx_crew_simple", v ? "1" : "0"); } catch {} };
+  const [moreKey, setMoreKey] = useState(null); // card whose "more…" row is open
   const me = currentUser?.name || "Crew";
 
   async function load() {
@@ -9306,9 +9423,9 @@ function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLoc
                 {ISSUE_TYPES.filter(t => t !== f.itype && t !== "Temperature").map(t => <button key={t} type="button" className="etChip" onClick={() => moveTo(f, t)}>{ISSUE_TYPE_ICON[t]} {issueTypeLabel(t)}</button>)}
                 <button type="button" className="etChip" onClick={() => setMoveKey(null)}>{T("Cancel", "Cancelar", "Anile")}</button>
               </div>
-            ) : (
+            ) : (!simple || moreKey === f.key) ? (
               <button type="button" className="crewNotMine notranslate" translate="no" onClick={() => setMoveKey(f.key)}>{T("Not mine → move", "No es mío → mover", "Se pa pa m → voye l")}</button>
-            ))}
+            ) : null)}
           </div>
         </div>
         {(before.length > 0 || after.length > 0) && (
@@ -9321,21 +9438,13 @@ function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLoc
         {cm.length > 0 && <div className="crewComments">{cm.slice(-3).map((c, i) => <div key={i}>💬 <b>{c.by}</b>: {c.text}</div>)}</div>}
         {action?.key === f.key ? (
           <div className="crewActionBox notranslate" translate="no">
-            <div className="crewActionTitle">{action.kind === "fixed" ? T("✅ What did you do?", "✅ ¿Qué hiciste?", "✅ Kisa ou fè?") : action.kind === "waiting" ? T("⏳ Waiting on what?", "⏳ ¿Esperando qué?", "⏳ W ap tann kisa?") : T("🔧 In process", "🔧 En proceso", "🔧 Nan pwosesis")}</div>
-            {action.kind === "fixed" && role === "cleaning" && (
-              <div className="crewHowRow">
-                <button type="button" className={"crewHowBtn" + (action.how === "crew" ? " on" : "")}
-                  onClick={() => setAction(a2 => ({ ...a2, how: "crew", howTouched: true }))}>🧹 {T("We cleaned it", "Lo limpiamos", "Nou netwaye l")}</button>
-                <button type="button" className={"crewHowBtn" + (action.how === "already" ? " on" : "")}
-                  onClick={() => setAction(a2 => ({ ...a2, how: "already", howTouched: true }))}>👍 {T("It was already clean", "Ya estaba limpio", "Li te deja pwop")}</button>
-              </div>
-            )}
+            <div className="crewActionTitle">{action.kind === "fixed" ? (simple ? T("✅ Done — show it", "✅ Listo — muéstralo", "✅ Fini — montre l") : T("✅ What did you do?", "✅ ¿Qué hiciste?", "✅ Kisa ou fè?")) : action.kind === "waiting" ? T("⏳ Waiting on what?", "⏳ ¿Esperando qué?", "⏳ W ap tann kisa?") : (simple ? T("🔧 I'm working on it", "🔧 Estoy en eso", "🔧 M ap travay sou li") : T("🔧 In process", "🔧 En proceso", "🔧 Nan pwosesis"))}</div>
             {/* v451: the photo buttons live INSIDE the box — they used to
                 disappear the moment ✅ Fixed was tapped, which is why nobody
                 could attach the photo the form was asking for. */}
             {action.kind === "fixed" && (
               <>
-                <div className="crewHowLbl">📷 {after.length > 0
+                <div className="crewHowLbl">{simple && <span className="crewStepNum">1</span>}📷 {after.length > 0
                   ? T(`After photo added (${after.length})`, `Foto después agregada (${after.length})`, `Foto apre mete (${after.length})`)
                   : T("After photo required", "Foto después obligatoria", "Foto apre obligatwa")}</div>
                 <div className="crewHowRow">
@@ -9347,14 +9456,36 @@ function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLoc
                 </div>
               </>
             )}
-            <textarea rows={2} className="caText" value={action.note} autoFocus onChange={e => { const v = e.target.value; const n = nluNorm(v); setAction(a => { const next = { ...a, note: v }; if (a.kind === "fixed" && role === "cleaning" && !a.howTouched) { if (/\b(already clean|was clean|ya estaba limpi|estaba limpio|te deja pwop|deja pwop)/.test(n)) next.how = "already"; else if (/\b(we cleaned|cleaned it|lo limpiamos|limpiamos|limpie|nou netwaye)/.test(n)) next.how = "crew"; } return next; }); }}
+            {action.kind === "fixed" && role === "cleaning" && (
+              <div className="crewHowRow">
+                {simple && <span className="crewStepNum">2</span>}
+                <button type="button" className={"crewHowBtn" + (action.how === "crew" ? " on" : "")}
+                  onClick={() => setAction(a2 => ({ ...a2, how: "crew", howTouched: true }))}>🧹 {T("We cleaned it", "Lo limpiamos", "Nou netwaye l")}</button>
+                <button type="button" className={"crewHowBtn" + (action.how === "already" ? " on" : "")}
+                  onClick={() => setAction(a2 => ({ ...a2, how: "already", howTouched: true }))}>👍 {T("It was already clean", "Ya estaba limpio", "Li te deja pwop")}</button>
+              </div>
+            )}
+            {simple && action.kind !== "waiting" && <div className="crewHowLbl">{action.kind === "fixed" && <span className="crewStepNum">{role === "cleaning" ? 3 : 2}</span>}💬 {T("Note (optional)", "Nota (opcional)", "Nòt (opsyonèl)")}</div>}
+            <textarea rows={2} className="caText" value={action.note} autoFocus={!simple || action.kind === "waiting"} onChange={e => { const v = e.target.value; const n = nluNorm(v); setAction(a => { const next = { ...a, note: v }; if (a.kind === "fixed" && role === "cleaning" && !a.howTouched) { if (/\b(already clean|was clean|ya estaba limpi|estaba limpio|te deja pwop|deja pwop)/.test(n)) next.how = "already"; else if (/\b(we cleaned|cleaned it|lo limpiamos|limpiamos|limpie|nou netwaye)/.test(n)) next.how = "crew"; } return next; }); }}
               placeholder={action.kind === "fixed" ? T("e.g. Replaced gasket, tested — holding 36°F", "ej. Cambié el empaque, probado — se mantiene a 36°F", "egz. Mwen chanje gasket la, teste — li kenbe 36°F") : action.kind === "waiting" ? T("e.g. part on order, vendor Thursday", "ej. pieza pedida, proveedor el jueves", "egz. pyès la kòmande, vandè a jedi") : T("optional note", "nota opcional", "not opsyonel")} />
             <div className="crewActionBtns">
               <button type="button" className="btn btnGhost" onClick={() => setAction(null)}>{T("Cancel", "Cancelar", "Anile")}</button>
               <button type="button" className="btn btnPrimary"
-                disabled={(action.kind !== "in_progress" && !action.note.trim()) || (action.kind === "fixed" && role === "cleaning" && !action.how) || (action.kind === "fixed" && after.length === 0)}
-                onClick={() => commit(f, action.kind, action.note, action.how)}>📨 {T("Send to inspector", "Enviar al inspector", "Voye bay enspekte a")}</button>
+                disabled={(action.kind === "waiting" && !action.note.trim()) || (action.kind === "fixed" && role === "cleaning" && !action.how) || (action.kind === "fixed" && after.length === 0)}
+                data-testid="crew-send"
+                onClick={() => commit(f, action.kind, action.note, action.how)}>{simple && action.kind === "fixed" && <span className="crewStepNum">{role === "cleaning" ? 4 : 3}</span>}{simple ? "✅ " + T("Send", "Enviar", "Voye") : "📨 " + T("Send to inspector", "Enviar al inspector", "Voye bay enspekte a")}</button>
             </div>
+          </div>
+        ) : !done && simple ? (
+          <div className="crewActions crewActionsSimple notranslate" translate="no">
+            <button type="button" className={"crewBigBtn crewBigWork" + (stt?.status === "in_progress" ? " on" : "")} data-testid="crew-work" onClick={() => setAction({ key: f.key, kind: "in_progress", note: "" })}>🔧 {T("I'm working on it", "Estoy en eso", "M ap travay sou li")}</button>
+            <button type="button" className="crewBigBtn crewBigDone" data-testid="crew-done" onClick={() => setAction({ key: f.key, kind: "fixed", note: "" })}>✅ {T("Done — add photo", "Listo — agregar foto", "Fini — mete foto")}</button>
+            {moreKey === f.key ? (
+              <button type="button" className="crewBtn" onClick={() => setAction({ key: f.key, kind: "waiting", note: "" })}>{T("⏳ Waiting on…", "⏳ Esperando…", "⏳ Ap tann…")}</button>
+            ) : (
+              <button type="button" className="crewMoreLink" onClick={() => setMoreKey(f.key)}>{T("more…", "más…", "plis…")}</button>
+            )}
+            {busy === f.key && <span className="fuPhotoHint notranslate" translate="no">{T("Sending…", "Enviando…", "Ap voye…")}</span>}
           </div>
         ) : !done ? (
           <div className="crewActions notranslate" translate="no">
@@ -9372,7 +9503,7 @@ function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLoc
     );
   };
   return (
-    <div className="appShell crewPage" style={{ background: "var(--surface-2)", minHeight: "100vh" }}>
+    <div className={"appShell crewPage" + (simple ? " crewSimple" : "")} style={{ background: "var(--surface-2)", minHeight: "100vh" }}>
       {lightboxSrc && ReactDOM.createPortal(
         <div onClick={() => setLightboxSrc(null)} style={{ position: "fixed", inset: 0, zIndex: 10050, background: "rgba(0,0,0,.88)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
           <img src={lightboxSrc} alt="" onClick={e => e.stopPropagation()} style={{ maxWidth: "95vw", maxHeight: "90vh", borderRadius: 10 }} />
@@ -9393,9 +9524,10 @@ function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLoc
               <button className="dropdownMenuItem" type="button" onClick={() => { setTab("open"); }}>{meta.icon} {T("My board", "Mi tablero", "Tablo mwen")}</button>
               <button className="dropdownMenuItem" type="button" onClick={() => { setTab("reports"); }}>📄 {T(`Reports with ${boardNoun} issues`, `Reportes con problemas de ${boardNoun}`, `Rapo ak pwoblem ${boardNoun}`)}</button>
               <button className="dropdownMenuItem" type="button" onClick={load}>🔄 {T("Refresh", "Actualizar", "Aktyalize")}</button>
+              <button className="dropdownMenuItem" type="button" onClick={() => setSimpleSave(!simple)}>{simple ? "⚙ " + T("More options", "Más opciones", "Plis opsyon") : "✨ " + T("Simple view", "Vista simple", "Vi senp")}</button>
               {onMessages && <button className="dropdownMenuItem" type="button" onClick={onMessages}>💬 {T("Messages", "Mensajes", "Mesaj")}</button>}
               {onAppearance && <button className="dropdownMenuItem" type="button" onClick={onAppearance}>🎨 {T("App Color", "Color de la app", "Koule app la")}</button>}
-              <button className="dropdownMenuItem dropdownMenuDanger" type="button" onClick={onLock}>{T("Lock App", "Bloquear la app", "Bloke app la")}</button>
+              <button className="dropdownMenuItem dropdownMenuDanger" type="button" onClick={() => { if (!linkSession || window.confirm(T("Sign out of this phone? You will need the link again to get back in.", "¿Salir de este teléfono? Necesitarás el enlace otra vez para entrar.", "Soti nan telefòn sa a? W ap bezwen lyen an ankò pou antre."))) onLock(); }}>{linkSession ? T("Sign out of this phone", "Salir de este teléfono", "Soti nan telefòn sa a") : T("Lock App", "Bloquear la app", "Bloke app la")}</button>
               <div className="menuVersion">SDX Inspect · {SDX_VERSION}</div>
             </div>
           )}
@@ -9408,21 +9540,32 @@ function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLoc
           {[["en", "English"], ["es", "Español"], ["ht", "Kreyòl"]].map(([code, label]) => (
             <button key={code} type="button" className={"crewLangBtn" + (cl === code ? " on" : "")} onClick={() => pickLang(code)}>{label}</button>
           ))}
-          <button type="button" className="crewLangBtn crewLangMore" onClick={() => window.dispatchEvent(new CustomEvent("sdx-open-lang"))}>🌐 +</button>
+          {!simple && <button type="button" className="crewLangBtn crewLangMore" onClick={() => window.dispatchEvent(new CustomEvent("sdx-open-lang"))}>🌐 +</button>}
         </div>
-        <div className="crewTabs notranslate" translate="no">
+        {!simple && <div className="crewTabs notranslate" translate="no">
           <button type="button" className={"crewTab" + (tab === "open" ? " on" : "")} onClick={() => setTab("open")}>{meta.icon} {T("To do", "Por hacer", "Pou fè")} <b>{openN}</b></button>
           <button type="button" className={"crewTab" + (tab === "reports" ? " on" : "")} onClick={() => setTab("reports")}>📄 {T("Reports", "Reportes", "Rapò")} <b>{reports.length}</b></button>
-        </div>
+        </div>}
+        {simple && tab === "reports" && <button type="button" className="crewBigBtn crewBackBtn notranslate" translate="no" onClick={() => setTab("open")}>← {T("Back to my list", "Volver a mi lista", "Retounen nan lis mwen")}</button>}
+        {tab === "open" && simple && (
+          <div className="crewHello notranslate" translate="no" data-testid="crew-hello">
+            <div className="crewHelloHi">👋 {T("Hi", "Hola", "Bonjou")} {me}</div>
+            <div className="crewHelloN">{openN === 0 ? T("Nothing to do right now", "Nada que hacer ahora", "Pa gen anyen pou fè kounye a") : `${openN} ${T(openN === 1 ? "thing to do" : "things to do", openN === 1 ? "cosa por hacer" : "cosas por hacer", "bagay pou fè")}`}{overdueN ? <span className="crewHelloLate"> · ⏰ {overdueN} {T("overdue", "atrasados", "an reta")}</span> : null}{doneTodayN ? <span className="crewHelloOk"> · ✅ {doneTodayN} {T("fixed today", "arreglados hoy", "ranje jodi a")}</span> : null}</div>
+            <div className="crewHelloHow">{T("Tap a job → 🔧 working on it, or ✅ Done with a photo.", "Toca un trabajo → 🔧 en proceso, o ✅ Listo con una foto.", "Tape yon travay → 🔧 ap travay, oswa ✅ Fini ak yon foto.")}</div>
+            <button type="button" className="crewMoreLink" onClick={() => setSimpleSave(false)} data-testid="crew-more-options">⚙ {T("More options", "Más opciones", "Plis opsyon")}</button>
+          </div>
+        )}
         {tab === "open" && (
           <>
-            <div className="crewStats notranslate" translate="no">
+            {!simple && <div className="crewStats notranslate" translate="no">
               <span className={"crewStat" + (overdueN ? " crewStatBad" : "")}>⏰ {overdueN} {T("overdue", "atrasados", "an reta")}</span>
               <span className="crewStat">📋 {openN} {T("open", "abiertos", "ouvè")}</span>
               <span className="crewStat crewStatOk">✅ {doneTodayN} {T("fixed today", "arreglados hoy", "ranje jodi a")}</span>
-            </div>
-            <input value={q} onChange={e => setQ(e.target.value)} placeholder={T("🔎 unit #, stand, problem…", "🔎 # de unidad, puesto, problema…", "🔎 nimewo inite, pwen, pwoblèm…")} className="crewSearch" />
-            <div className="crewPickRow notranslate" translate="no">
+              <span style={{ flex: 1 }} />
+              <button type="button" className="crewMoreLink" onClick={() => setSimpleSave(true)}>✨ {T("Simple view", "Vista simple", "Vi senp")}</button>
+            </div>}
+            {!simple && <input value={q} onChange={e => setQ(e.target.value)} placeholder={T("🔎 unit #, stand, problem…", "🔎 # de unidad, puesto, problema…", "🔎 nimewo inite, pwen, pwoblèm…")} className="crewSearch" />}
+            {!simple && <div className="crewPickRow notranslate" translate="no">
               <select className="crewStandSel notranslate" translate="no" value={standPick} onChange={e => setStandPick(e.target.value)} aria-label={T("Pick a stand", "Elige un puesto", "Chwazi yon pwen")}>
                 <option value="">🍳 {T("All stands", "Todos los puestos", "Tout pwen yo")} ({standList.length})</option>
                 {standList.map(st => <option key={st.key} value={st.key}>{st.loc || "—"}{st.unit ? ` · #${st.unit}` : ""}{st.open ? ` · ${st.open} ${T("open", "abiertos", "ouvè")}` : ""}</option>)}
@@ -9432,15 +9575,15 @@ function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLoc
                 <button type="button" className={`fuToggleBtn${groupBy === "stand" ? " fuToggleActive" : ""}`} onClick={() => setGroupBy("stand")}>📍 {T("By Stand", "Por puesto", "Pa pwen")}</button>
                 <button type="button" className={`fuToggleBtn${groupBy === "problem" ? " fuToggleActive" : ""}`} onClick={() => setGroupBy("problem")}>🗂 {T("By Problem", "Por problema", "Pa pwoblèm")}</button>
               </span>
-            </div>
-            <div className="crewChips notranslate" translate="no">
+            </div>}
+            {!simple && <div className="crewChips notranslate" translate="no">
               {floors.length > 1 && floors.map(f => <button key={f} type="button" className={"etChip" + (floorPick === f ? " on" : "")} onClick={() => setFloorPick(floorPick === f ? "" : f)}>{f}</button>)}
               <span style={{ flex: 1 }} />
               <button type="button" className={"etChip" + (showDone ? " on" : "")} onClick={() => setShowDone(v => !v)}>{T("show fixed", "ver arreglados", "montre sa ki ranje")}</button>
               <button type="button" className={"etChip" + (showOther ? " on" : "")} onClick={() => setShowOther(v => !v)}>{T("+ other problems", "+ otros problemas", "+ lòt pwoblèm")}</button>
-            </div>
+            </div>}
             {loading && !history.length && <div className="etEmpty notranslate" translate="no">{T("Loading…", "Cargando…", "Ap chaje…")}</div>}
-            {!loading && shown.length === 0 && <div className="etEmpty notranslate" translate="no">{openN === 0 ? T(`Nothing open for ${boardNoun} right now. 🎉`, `Nada abierto para ${boardNoun} ahora. 🎉`, `Pa gen anyen ouvè pou ${boardNoun} kounye a. 🎉`) : T("Nothing matches.", "No hay coincidencias.", "Anyen pa koresponn.")}</div>}
+            {!loading && shown.length === 0 && <div className="etEmpty notranslate" translate="no">{openN === 0 ? (simple ? T("Nothing to do right now 🎉 · Come back later.", "Nada que hacer ahora 🎉 · Vuelve más tarde.", "Pa gen anyen pou fè kounye a 🎉 · Tounen pita.") : T(`Nothing open for ${boardNoun} right now. 🎉`, `Nada abierto para ${boardNoun} ahora. 🎉`, `Pa gen anyen ouvè pou ${boardNoun} kounye a. 🎉`)) : T("Nothing matches.", "No hay coincidencias.", "Anyen pa koresponn.")}</div>}
             {groupBy === "problem" && problemGroups.map(g => (
               <div key={g.cat} className="crewStand crewProblem">
                 <div className="crewStandHead notranslate" translate="no">{g.icon} {g.cat}<span className="crewProblemMeta notranslate" translate="no">{g.items.length} {T(g.items.length !== 1 ? "items" : "item", g.items.length !== 1 ? "problemas" : "problema", g.items.length !== 1 ? "pwoblèm" : "pwoblèm")} · {g.stands.size} {T(g.stands.size !== 1 ? "stands" : "stand", g.stands.size !== 1 ? "puestos" : "puesto", "pwen")}{g.overdue ? ` · ⏰ ${g.overdue} ${T("overdue", "atrasados", "an reta")}` : ""}</span></div>
@@ -24359,7 +24502,7 @@ function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVe
         <div className="card adminCard" style={{ marginBottom: 24 }}>
           <div className="cardHeader"><div className="cardTitle">🔗 Invite links</div></div>
           <div className="cardBody">
-            <div style={{ fontSize: "0.84rem", color: "var(--ink-500)", marginBottom: 10 }}>Send a link by text or WhatsApp. Whoever opens it picks a badge number and a name and is in right away with that role. Regenerate a link to cut off anyone who still has the old one.</div>
+            <div style={{ fontSize: "0.84rem", color: "var(--ink-500)", marginBottom: 10 }}>Send a link by text or WhatsApp. <b>Maintenance, Cleaning and Ecolab: no badge needed</b> — they type their name and land on their board, and the phone stays signed in (reload, next day, no idle lock). Inspectors and managers still pick a badge number. <b>↻ New</b> makes a new link and signs out every phone that used the old one.</div>
             {REQUEST_ROLES.map(r => {
               const tok = venueSettings?.inviteTokens?.[r.value] || "";
               const url = tok ? inviteUrlFor(tok) : "";
@@ -24372,6 +24515,7 @@ function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVe
                       <button type="button" className="btn btnPrimary btnSmall" onClick={async () => { try { if (navigator.share) await navigator.share({ title: `${resolveCompanyName()} — ${r.label}`, text: `Join ${resolveCompanyName()} as ${r.label}`, url }); else { await navigator.clipboard.writeText(url); setInviteFlash(`Copied — ${r.label}`); setTimeout(() => setInviteFlash(""), 2500); } } catch {} }}>📤 Share</button>
                       <button type="button" className="btn btnGhost btnSmall" onClick={async () => { try { await navigator.clipboard.writeText(url); setInviteFlash(`Copied — ${r.label}`); setTimeout(() => setInviteFlash(""), 2500); } catch {} }}>Copy</button>
                       <button type="button" className="btn btnGhost btnSmall" onClick={() => showInviteQr(r.label, url)} title="Show a QR code for this link">QR</button>
+                      {CREW_LINK_ROLES.includes(r.value) && <a className="btn btnGhost btnSmall" href={`sms:?&body=${encodeURIComponent(`${resolveCompanyName()} — ${r.label}. Open this link, type your name and you are in (no badge): ${url}\nAbre el enlace, escribe tu nombre y listo (sin credencial).`)}`} title="Send by text message">📱 Text</a>}
                       <button type="button" className="btn btnGhost btnSmall" onClick={() => { if (window.confirm(`Make a new ${r.label} link? The old one stops working.`)) gen(); }} title="New link (the old one stops working)">↻ New</button>
                     </div>
                   ) : (
@@ -30836,12 +30980,47 @@ export default function App() {
   // Track activity for auto-lock
   const resetActivity = useCallback(() => { lastActivity.current = Date.now(); }, []);
 
+  // v488: a saved crew link session opens the board on every load — no badge.
+  // "" | "opening" (session found, signing in) | "replaced" (token changed)
+  const [crewNotice, setCrewNotice] = useState(() => (loadCrewSession() ? "opening" : ""));
+  const crewAutoRef = useRef(false);
+  useEffect(() => {
+    if (!locked) return;
+    const s = loadCrewSession();
+    if (!s) { if (crewNotice === "opening") setCrewNotice(""); return; }
+    const tokens = venueSettings?.inviteTokens;
+    if (!tokens || !Object.keys(tokens).length) return; // settings not here yet — keep "Opening…"
+    if (tokens[s.role] !== s.token) {
+      // ↻ New on the invite card: this device is out. If the person opened
+      // the NEW link, the join card takes over (name + uid are reused there).
+      if (INVITE_TOKEN && Object.values(tokens).includes(INVITE_TOKEN)) { setCrewNotice(""); return; }
+      clearCrewSession(); setCrewNotice("replaced"); return;
+    }
+    if (crewAutoRef.current) return;
+    crewAutoRef.current = true;
+    setCrewNotice("opening");
+    signInCrewLink(s).then(r => {
+      crewAutoRef.current = false;
+      if (!r.ok) { clearCrewSession(); setCrewNotice("replaced"); return; }
+      try { if (INVITE_TOKEN) window.history.replaceState({}, "", window.location.pathname); } catch {}
+      setCrewNotice("");
+      setCurrentUser(r.user);
+      setLocked(false);
+      resetActivity();
+      setPage("crew");
+      window.__sdxCrewAutoOpened = (window.__sdxCrewAutoOpened || 0) + 1;
+    }).catch(() => { crewAutoRef.current = false; setCrewNotice(""); });
+  }, [locked, venueSettings?.inviteTokens]);
+
   useEffect(() => {
     if (locked) return;
     const events = ["mousedown", "keydown", "touchstart", "scroll"];
     events.forEach(e => window.addEventListener(e, resetActivity, { passive: true }));
     const timer = setInterval(() => {
       if (Date.now() - lastActivity.current > LOCK_TIMEOUT_MS) {
+        // v488: a crew member who came in through the link has no badge to
+        // type — never idle-lock them (the link is re-checked on every load).
+        if (loadCrewSession() && isCrewRole(_currentUser?.role)) { lastActivity.current = Date.now(); return; }
         // Don't lock if inspector is mid-report — they would lose unsaved data
         if (reportInProgressRef.current) {
           lastActivity.current = Date.now(); // reset timer silently
@@ -31172,7 +31351,7 @@ export default function App() {
   if (EQUIP_PORTAL_TAG) return <EquipCheckPortal tag={EQUIP_PORTAL_TAG} />;
 
   const inviteRole = INVITE_TOKEN ? (Object.entries(venueSettings?.inviteTokens || {}).find(([, t]) => t === INVITE_TOKEN)?.[0] || "") : "";
-  if (locked) return <BadgeScreen inviteRole={inviteRole} onUnlock={(user) => {
+  if (locked) return <BadgeScreen inviteRole={inviteRole} crewNotice={crewNotice} onUnlock={(user) => {
     setCurrentUser(user);
     setLocked(false);
     resetActivity();
@@ -31322,7 +31501,7 @@ export default function App() {
   if (page === "performance") { AIEngine.trackPage("performance"); return <PerformanceDashboard onBack={() => setPage("admin")} managedVenueId={managedVenueId} managedVenueName={managedVenueName} venueSettings={venueSettings} />; }
   if (page === "myteam")      { return <MyTeamPage currentUser={currentUser} onBack={() => setPage("inspector")} />; }
   if (page === "mylocations") { return <MyLocationsPage currentUser={currentUser} venueSettings={venueSettings} saveVenueSettings={saveVenueSettings} onBack={() => setPage("inspector")} onSelectLocation={(loc, slotId) => { setSiteName(loc); activeSlotIdRef.current = slotId || null; setPage("inspector"); window.scrollTo({ top: 0, behavior: "smooth" }); }} />; }
-  if (page === "crew")              { return <CrewBoardPage currentUser={currentUser} venueSettings={venueSettings} saveVenueSettingsMap={saveVenueSettingsMap} onLock={() => { lockApp(); setCurrentUser(null); setLocked(true); }} onMessages={() => setPage("messaging")} onAppearance={() => setAppearanceOpen(true)} />; }
+  if (page === "crew")              { return <CrewBoardPage currentUser={currentUser} venueSettings={venueSettings} saveVenueSettingsMap={saveVenueSettingsMap} linkSession={!!loadCrewSession()} onLock={() => { clearCrewSession(); setCrewNotice(""); lockApp(); setCurrentUser(null); setLocked(true); }} onMessages={() => setPage("messaging")} onAppearance={() => setAppearanceOpen(true)} />; }
   if (page === "mytemps")           { return <MyTempsPage currentUser={currentUser} onBack={() => setPage("inspector")} />; }
   if (page === "equipment_scanner") { return <EquipmentScannerPage onBack={() => setPage("inspector")} onPrintLabels={() => setPage("print_labels")} onKitchenQr={() => setPage("kitchen_qr")} />; }
   if (page === "print_labels")      { return <PrintLabelsPage onBack={() => { setPage(labelsFocus?.from || "equipment_scanner"); setLabelsFocus(null); }} onKitchenQr={() => setPage("kitchen_qr")} focusStand={labelsFocus} onClearFocus={() => setLabelsFocus(null)} />; }

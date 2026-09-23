@@ -8854,3 +8854,37 @@ button.nluChipTemp { background: #fef3c7; color: #92400e; border: 1px solid #fcd
 @media (max-width: 480px) { .expCrewGrid { grid-template-columns: 1fr; } .expCrewBtn { min-height: 0; } .expPhotoToggle { margin-left: 0; } }
 :root[data-theme="dark"] .expCrewBtn { background: #111827; border-color: #334155; }
 :root[data-theme="dark"] .expCrewCleaning { background: #052e16; } :root[data-theme="dark"] .expCrewMaintenance { background: #431407; } :root[data-theme="dark"] .expCrewEcolab { background: #042f2e; } :root[data-theme="dark"] .expCrewAll { background: #1e1b4b; }
+
+/* ── v488: crew link join + simple crew board ─────────────────── */
+.crewJoin { text-align: center; }
+.crewJoin .crewJoinLang { justify-content: center; margin-bottom: 14px; }
+.crewJoinRole { font-size: 1rem; color: var(--ink-600); margin: 6px 0 16px; line-height: 1.5; }
+.crewJoinRole b { font-size: 1.15rem; color: var(--sdx-navy); }
+.crewJoinName { font-size: 1.25rem !important; padding: 14px 16px !important; text-align: center; font-weight: 800; text-transform: uppercase; }
+.crewJoinGo { font-size: 1.15rem; padding: 16px 20px; min-height: 56px; width: 100%; margin-top: 10px; }
+.crewJoinReplaced .pinTitle { color: #b91c1c; }
+.crewHello { background: var(--surface-1); border: 1.5px solid var(--sdx-gray-200); border-radius: 14px; padding: 14px 16px; margin: 4px 0 12px; }
+.crewHelloHi { font-weight: 900; font-size: 1.15rem; }
+.crewHelloN { font-weight: 800; font-size: 1.35rem; margin-top: 2px; line-height: 1.25; }
+.crewHelloLate { color: #b91c1c; font-size: 1rem; }
+.crewHelloOk { color: #15803d; font-size: 1rem; }
+.crewHelloHow { color: var(--ink-500); font-size: 0.9rem; margin-top: 6px; }
+.crewMoreLink { background: none; border: 0; color: var(--sdx-navy); font-weight: 700; font-size: 0.85rem; padding: 6px 0; cursor: pointer; text-decoration: underline; }
+.crewSimple .crewStandHead { font-size: 1.15rem; margin-top: 10px; }
+.crewSimple .crewItemTitle { font-size: 1.05rem; }
+.crewSimple .crewItemDetail { font-size: 0.98rem; }
+.crewActionsSimple { gap: 10px; }
+.crewBigBtn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 52px; padding: 12px 18px; border-radius: 14px; font-weight: 900; font-size: 1.05rem; border: 2px solid var(--sdx-gray-200); background: var(--surface-1); color: var(--ink-700); cursor: pointer; flex: 1 1 180px; }
+.crewBigWork { border-color: #1d4ed8; color: #1d4ed8; }
+.crewBigWork.on { background: #1d4ed8; color: #fff; }
+.crewBigDone { background: #16a34a; border-color: #16a34a; color: #fff; }
+.crewBackBtn { width: 100%; margin-bottom: 12px; }
+.crewStepNum { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: var(--sdx-navy); color: #fff; font-weight: 900; font-size: 0.85rem; margin-right: 8px; flex: none; }
+.crewSimple .crewHowRow .crewHowBtn, .crewSimple .crewActionBox .crewBtnPhoto { min-height: 52px; font-size: 1.02rem; font-weight: 900; }
+.crewSimple .crewActionBox .crewBtnPhoto { flex: 1 1 200px; justify-content: center; background: #1d4ed8; color: #fff; border-color: #1d4ed8; }
+.crewSimple .crewActionBtns .btnPrimary { min-height: 52px; font-size: 1.05rem; flex: 1; }
+@media (max-width: 560px) {
+  .crewBigBtn { flex: 1 1 100%; }
+  .crewSimple .crewActionBox .crewBtnPhoto, .crewSimple .crewActionBox .crewBtnUpload { flex: 1 1 100%; }
+}
+[data-theme="dark"] .crewHello { background: var(--surface-1); }
