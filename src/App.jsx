@@ -3842,7 +3842,7 @@ const EXPLICIT_TYPE = { "cleaning": "Cleaning", "maintenance": "Maintenance", "p
 const ISSUE_TYPES = ["Cleaning", "Maintenance", "Ecolab / Maintenance", "Pest Control", "Temperature", "Other"];
 const ISSUE_TYPE_ICON = { "Cleaning": "🧹", "Maintenance": "🔧", "Ecolab / Maintenance": "🧪", "Pest Control": "🐜", "Temperature": "🌡", "Other": "⚪" };
 const issueTypeLabel = t => t === "Ecolab / Maintenance" ? "Ecolab" : (t || "Other");
-// Samples: "Interior has food debris and is not clean — a little rusted" → Cleaning
+// Samples: "Interior has food debris and is not clean — a little rusted" → Cleaning; "rusted shelf" → Cleaning (v485)
 //          "Leakage detected (water or refrigerant)" → Maintenance
 //          "Floors not swept or mopped" → Cleaning · "Handle loose" → Maintenance
 //          "Roach activity by the beverage station" → Pest Control · "Cooler at 44°F" → Temperature
@@ -3857,10 +3857,11 @@ function classifyIssueType(issue, notes = "", priority = "") {
   // Hard maintenance: something is broken or not working — the crew with tools
   if (/broken|leak|not working|doesn'?t work|does not work|no power|repair|missing (tile|panel|cover|handle|knob)|cracked|torn|burnt|burned out|light (is )?out|bulb out|drain(ing)? (slow|clog|back)|clogged|no pressure|low pressure|not delivering|no hot water|won'?t close|not closing|unstable|wobbl|\brot[oa]s?\b|quebrad|dañad|no funciona|no sirve|no prende|no enciende|fuga|gotea|tapad[oa]|atascad|sin agua caliente|no cierra|suelt[oa]\b|se cay[oó]/.test(t)) return "Maintenance";
   // Cleaning beats "a little rusted" — dirt is the problem being reported
-  if (/dirty|not clean|unclean|needs? (a )?clean|grease|build[- ]?up|debris|residue|stain|mold|mildew|dust|sweep|swept|mop+ed|not (mopped|swept)|saniti|trash|garbage|sticky|spill|slippery|food (debris|residue)|grimy|filthy|crumbs|grime|soiled|scale|odor|smell|splatter|wipe|sucio|sucia|sucios|sucias|mugre|grasa|moho|basura|mojad|\bagua\b|charco|estante|mostrador|pegajos|derrame|restos|olor|huele|limpiar|limpieza/.test(t)) return "Cleaning";
+  if (/dirty|not clean|unclean|needs? (a )?clean|grease|build[- ]?up|debris|residue|stain|mold|mildew|dust|sweep|swept|mop+ed|not (mopped|swept)|saniti|trash|garbage|sticky|spill|slippery|food (debris|residue)|grimy|filthy|crumbs|grime|soiled|scale|odor|smell|splatter|wipe|sucio|sucia|sucios|sucias|mugre|grasa|moho|basura|mojad|\bagua\b|charco|estante|mostrador|rust\w*|oxidad\w*|corro(?:sion|ded|ido)|herrumbre|pegajos|derrame|restos|olor|huele|limpiar|limpieza/.test(t)) return "Cleaning";
   if (/haccp|°f|\bout[- ]of[- ]range\b|too warm|too cold|not cold|not hot enough|\btemp\b|temperature|temperatura|grados|tibio|caliente|no enfr[ií]a/.test(t)) return "Temperature";
   // Soft maintenance: wear that can wait for the next visit
-  if (/rust|peeling|damag|loose|replace|gasket|hinge|stuck|needs? adjust|it moves/.test(t)) return "Maintenance";
+  // v485: rust is NOT here any more — Joxel: "lets put the rusted things in cleaning" (it is in the Cleaning regex above)
+  if (/peeling|damag|loose|replace|gasket|hinge|stuck|needs? adjust|it moves/.test(t)) return "Maintenance";
   return "Other";
 }
 
@@ -8857,8 +8858,8 @@ const NLU_CATS = [
   { cat: "Plumbing", re: /\b(plumb\w*|plomer\w*|faucet|llave|grifo|drain\w*|desague|desagues|clog\w*|tapad[oa]s?|atascad[oa]s?|backing up|sewer|inundad[oa]|flood\w*|no (hot )?water|sin agua|agua caliente|hot water|toilet|inodoro|water heater|calentador)\b/ },
   { cat: "Equipment", re: /\b(cooler|coolers|freezer|freezers|walk[- ]?in|reach[- ]?in|nevera\w*|refri\w*|congelador\w*|camara|cuarto frio|fridge|fryer|freidora|grill|parrilla|plancha|oven|horno|warmer|ice (maker|machine)|maquina de hielo|compressor|compresor|gasket|empaque|thermostat|termostato|not cooling|no enfria|no congela|not freezing)\b/ },
   { cat: "Temperature", re: /\b(temp\w*|temperatura\w*|grados|degrees|°\s*f|out of range|fuera de rango|too warm|tibio|caliente|not cold|no esta frio)\b/ },
-  { cat: "Cleaning", re: /\b(dirty|filthy|not clean|unclean|grease|greasy|grime|grimy|build[- ]?up|debris|mold|moldy|sweep|mop|trash|garbage|sticky|spill\w*|crumbs|odor|smell\w*|splatter|wipe|sucio|sucia|sucios|sucias|mugre|grasa|grasoso|moho|basura|pegajoso|derrame|restos|olor|huele|limpiar|limpieza|barrer|trapear|mojad\w*|agua|charco\w*|encharcad\w*)\b/ },
-  { cat: "Maintenance", re: /\b(broken|broke|repair|not working|doesn'?t work|does not work|won'?t (close|open|turn on|start)|no power|cracked|torn|missing|loose|wobbl\w*|stuck|damaged?|rust\w*|peeling|hinge|handle|door|tile|ceiling|wall|outlet|roto|rota|rotos|rotas|quebrad[oa]|dañad[oa]|danad[oa]|no funciona|no sirve|no prende|no enciende|no cierra|no abre|suelt[oa]|falta|faltan|oxidad[oa]|bisagra|manija|puerta|loseta|techo|pared|enchufe|reparar|arreglar)\b/ },
+  { cat: "Cleaning", re: /\b(dirty|filthy|not clean|unclean|grease|greasy|grime|grimy|build[- ]?up|debris|mold|moldy|sweep|mop|trash|garbage|sticky|spill\w*|crumbs|odor|smell\w*|splatter|wipe|sucio|sucia|sucios|sucias|mugre|grasa|grasoso|moho|basura|pegajoso|derrame|restos|olor|huele|limpiar|limpieza|barrer|trapear|mojad\w*|agua|charco\w*|encharcad\w*|rust\w*|oxidad\w*|corro\w*|herrumbre)\b/ },
+  { cat: "Maintenance", re: /\b(broken|broke|repair|not working|doesn'?t work|does not work|won'?t (close|open|turn on|start)|no power|cracked|torn|missing|loose|wobbl\w*|stuck|damaged?|peeling|hinge|handle|door|tile|ceiling|wall|outlet|roto|rota|rotos|rotas|quebrad[oa]|dañad[oa]|danad[oa]|no funciona|no sirve|no prende|no enciende|no cierra|no abre|suelt[oa]|falta|faltan|bisagra|manija|puerta|loseta|techo|pared|enchufe|reparar|arreglar)\b/ },
 ];
 const NLU_URGENT = /\b(urgent\w*|urgente|emergency|emergencia|asap|right now|ahora mismo|ya mismo|immediately|inmediatamente|flood\w*|inundad[oa]|fire|fuego|humo|smoke|gas leak|fuga de gas|no water|sin agua|no power|sin luz|sin electricidad|se cayo|fell|injur\w*|herid[oa]|blood|sangre|sparks?|chispas?)\b/;
 const NLU_INFO = /\b(fyi|for your information|just (a )?note|heads[- ]?up|nota|solo aviso|informativo|para que sepan|no es urgente|not urgent)\b/;
