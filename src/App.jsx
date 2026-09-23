@@ -12101,35 +12101,56 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
     ws1.columns = [
       { width: 4 }, { width: 28 }, { width: 10 }, { width: 16 }, { width: 10 },
       { width: 12 }, { width: 18 }, { width: 20 }, { width: 20 }, { width: 20 },
-      { width: 18 }, { width: 14 }, { width: 13 }, { width: 14 },
+      { width: 18 }, { width: 14 }, { width: 9 }, { width: 8 }, { width: 14 }, { width: 13 }, { width: 14 },
     ];
     const s1Title = ws1.addRow([`${resolveCompanyName().toUpperCase()} KITCHEN INSPECTION — BULK SUMMARY`]);
     s1Title.height = 26;
-    ws1.mergeCells(`A${s1Title.number}:N${s1Title.number}`);
+    ws1.mergeCells(`A${s1Title.number}:Q${s1Title.number}`);
     applyB(s1Title.getCell(1), bHdr(14));
 
-    const s1Headers = ["#", "Site / Location", "Unit #", "Location Type", "Floor", "Date", "Inspection Type", "Inspector", "Supervisor", "Participant", "Event", "Overall Status", "Total Issues", "High Priority"];
+    const s1Headers = ["#", "Site / Location", "Unit #", "Location Type", "Floor", "Date", "Inspection Type", "Inspector", "Supervisor", "Participant", "Event", "Overall Status", "Score", "Grade", "Passed / Scored", "Total Issues", "High Priority"];
     const s1HRow = ws1.addRow(s1Headers);
     s1HRow.height = 20;
     s1Headers.forEach((_, ci) => applyB(s1HRow.getCell(ci + 1), bSubHdr()));
-    ws1.autoFilter = { from: { row: s1HRow.number, column: 1 }, to: { row: s1HRow.number, column: 14 } };
+    ws1.autoFilter = { from: { row: s1HRow.number, column: 1 }, to: { row: s1HRow.number, column: 17 } };
     ws1.views = [{ state: "frozen", ySplit: s1HRow.number, topLeftCell: `A${s1HRow.number + 1}`, activeCell: "A1" }];
 
+    // v486: the inspection score (same number as the scorecard on the report) — Joxel: "i want to show the scores here"
+    const gradeStyle = (g, bg) => {
+      const fill = g === "A" ? PASS_G : g === "B" ? ATTN_Y : g === "C" ? "FFD8B4" : (g === "D" || g === "F") ? FAIL_R : bg;
+      const text = g === "A" ? PASS_GT : g === "B" ? ATTN_YT : g === "C" ? "9A3412" : (g === "D" || g === "F") ? FAIL_RT : "333333";
+      return { font: { bold: true, size: 10, name: "Calibri", color: { argb: "FF" + text } }, fill: { type: "pattern", pattern: "solid", fgColor: { argb: "FF" + fill } }, alignment: { vertical: "top", horizontal: "center" } };
+    };
+    const scores = [];
     records.forEach((rec, i) => {
       const issues = rec.actionItems || [];
       const hi = issues.filter(a => a.priority === "High").length;
       const bg = i % 2 === 0 ? WHITE : SILVER;
+      let sc = null; try { sc = rec.inspection ? calcInspectionScore(rec.inspection, { foodTemps: rec.foodTemps, foodTempNames: rec.foodTempNames }) : null; } catch { sc = null; }
+      if (sc) scores.push(sc.pct);
       const row = ws1.addRow([
         i + 1, str(rec.siteName || rec.location), str(rec.siteNumber), str(rec.locationType || "—"), str(rec.floor || "—"),
         str(rec.inspectionDate), str(rec.inspectionType), str(rec.inspectorName), str(rec.supervisorName), str(rec.participantName || "—"),
-        str(rec.eventName || "—"), str(rec.overallStatus || "—"), issues.length, hi,
+        str(rec.eventName || "—"), str(rec.overallStatus || "—"), sc ? sc.pct / 100 : "—", sc ? sc.grade : "—", sc ? `${sc.passed} / ${sc.scoredTotal}` : "—", issues.length, hi,
       ]);
       row.height = 18;
-      [1,2,3,4,5,6,7,8,9,10,11,12,13,14].forEach(ci => { row.getCell(ci).style = bBody(bg); });
+      [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17].forEach(ci => { row.getCell(ci).style = bBody(bg); });
       // Color-code Overall Status cell (col 12)
       const statusCell = row.getCell(12);
       statusCell.font = { bold: true, color: { argb: rec.overallStatus === "Pass" ? "FF15803D" : "FFDC2626" } };
+      if (sc) { row.getCell(13).numFmt = "0%"; row.getCell(13).style = { ...gradeStyle(sc.grade, bg), numFmt: "0%" }; row.getCell(14).style = gradeStyle(sc.grade, bg); row.getCell(15).alignment = { horizontal: "center", vertical: "top" }; }
+      else { [13, 14, 15].forEach(ci => { row.getCell(ci).alignment = { horizontal: "center", vertical: "top" }; }); }
     });
+    if (scores.length) {
+      const avg = Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
+      const avgGrade = avg >= 90 ? "A" : avg >= 80 ? "B" : avg >= 70 ? "C" : avg >= 60 ? "D" : "F";
+      const best = Math.max(...scores), worst = Math.min(...scores);
+      const avgRow = ws1.addRow(["", `AVERAGE SCORE — ${scores.length} scored report${scores.length !== 1 ? "s" : ""} (best ${best}%, lowest ${worst}%)`, "", "", "", "", "", "", "", "", "", "", avg / 100, avgGrade, ""]);
+      avgRow.height = 20;
+      ws1.mergeCells(`B${avgRow.number}:L${avgRow.number}`);
+      [1,2,13,14,15,16,17].forEach(ci => { avgRow.getCell(ci).style = { font: { bold: true, size: 10, name: "Calibri", color: { argb: "FF" + NAVY } }, fill: { type: "pattern", pattern: "solid", fgColor: { argb: "FF" + SILVER } }, alignment: { vertical: "middle" }, border: { top: { style: "thin", color: { argb: "FF" + NAVY } } } }; });
+      avgRow.getCell(13).style = { ...gradeStyle(avgGrade, SILVER), numFmt: "0%" }; avgRow.getCell(14).style = gradeStyle(avgGrade, SILVER);
+    }
 
     // ── SHEET 2: Action Items ──────────────────────────────────────────────
     const ws2 = wb.addWorksheet("Inspection Findings");
