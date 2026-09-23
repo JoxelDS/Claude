@@ -3,6 +3,26 @@ import ReactDOM from "react-dom/client";
 import App from "./App.jsx";
 import LanguageFab from "./LanguageFab.jsx";
 
+// v487 — Google Translate replaces text nodes with its own <font> wrappers,
+// leaving React holding detached nodes. The next re-render (filtering the
+// history, switching chips) then throws NotFoundError from removeChild /
+// insertBefore ("The object can not be found here" on Safari), the boundary
+// takes over and it looks like a logout. Standard guard: when the child is
+// no longer ours, do nothing instead of throwing (facebook/react#11538).
+(function guardDomAgainstTranslator() {
+  if (typeof Node !== "function" || !Node.prototype) return;
+  const origRemove = Node.prototype.removeChild;
+  Node.prototype.removeChild = function (child) {
+    if (child && child.parentNode !== this) { if (console && console.debug) console.debug("[dom] skipped removeChild of a node the page translator moved"); return child; }
+    return origRemove.apply(this, arguments);
+  };
+  const origInsert = Node.prototype.insertBefore;
+  Node.prototype.insertBefore = function (newNode, ref) {
+    if (ref && ref.parentNode !== this) { if (console && console.debug) console.debug("[dom] skipped insertBefore next to a node the page translator moved"); return newNode; }
+    return origInsert.apply(this, arguments);
+  };
+})();
+
 class ErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
@@ -30,6 +50,9 @@ class ErrorBoundary extends React.Component {
             <h2 style={{ margin: "0 0 0.5rem" }}>Something went wrong</h2>
             <p style={{ color: "#555", fontSize: "0.9rem", marginBottom: "1rem" }}>
               {this.state.error?.message || "An unexpected error occurred."}
+            </p>
+            <p style={{ color: "#777", fontSize: "0.8rem", marginBottom: "1rem" }}>
+              You are still signed in — reloading brings you back where you were. Your draft is saved.
             </p>
             <button
               onClick={() => window.location.reload()}
