@@ -2945,6 +2945,7 @@ const PORTABLE_EQUIP_ITEMS = [
   { path: ["equipment", "power"],        label: "Power / Generator / Propane — cords out of walkways, tanks secured, no leaks?" },
   { path: ["equipment", "trash"],        label: "Trash Can — lid on, liner, not overflowing?" },
   { path: ["equipment", "license"],      label: "License / Permit — posted and current?" },
+  { path: ["facility", "ecolabProducts"], label: "Ecolab Products & Supplies — detergent, sanitizer, cleaner, Orange Force, paper towels, hand soap, test strips stocked?" },
   { path: ["equipment", "otherEquip"],   label: "Other Equipment — clean and in good condition?" },
 ];
 
@@ -3317,6 +3318,19 @@ const CHECKLIST_DEFAULTS = {
     { label: "Utility sink clean",                   problem: "Utility sink is not clean",                       value: "" },
     { label: "Other",                                value: "", isOther: true, notes: "" },
   ],
+  // v489: the Ecolab products every stand must have — one row per product so a
+  // NO is its own finding AND drops the product into Supplies Needed (inventory).
+  ecolabProducts: [
+    { label: "Detergent (pot & pan / dish) stocked",        problem: "Detergent is missing or empty",                       value: "", supply: "Detergent (pot & pan)" },
+    { label: "Sanitizer stocked",                            problem: "Sanitizer is missing or empty",                       value: "", supply: "Sanitizer" },
+    { label: "All-purpose cleaner / degreaser stocked",     problem: "Cleaner / degreaser is missing or empty",             value: "", supply: "All-purpose cleaner / degreaser" },
+    { label: "Orange Force (cleaner & sanitizer) stocked",   problem: "Orange Force is missing or empty",                    value: "", supply: "Orange Force" },
+    { label: "Paper towels stocked",                         problem: "Paper towels are missing",                            value: "", supply: "Paper towels" },
+    { label: "Hand soap stocked",                            problem: "Hand soap is missing or empty",                       value: "", supply: "Hand soap" },
+    { label: "Test strips available",                        problem: "Test strips are missing",                             value: "", supply: "Test strips" },
+    { label: "Products labeled and stored below food contact", problem: "Products not labeled or stored above food contact", value: "" },
+    { label: "Other",                                        value: "", isOther: true, notes: "" },
+  ],
   // ── EQUIPMENTS ────────────────────────────────────────────────
   coolers: [
     { label: "Interior thermometer present & accurate", problem: "Interior thermometer is missing or inaccurate",    value: "" },
@@ -3476,7 +3490,7 @@ function withChecklist(key, extra = {}) {
 
 // Map from [section][subsection] → checklist key
 const CHECKLIST_KEY_MAP = {
-  facility:  { ceiling: "ceiling", walls: "walls", floors: "floors", threeCompSinks: "threeCompSinks", handSink: "handSink", mopArea: "mopArea" },
+  facility:  { ceiling: "ceiling", walls: "walls", floors: "floors", threeCompSinks: "threeCompSinks", handSink: "handSink", mopArea: "mopArea", ecolabProducts: "ecolabProducts" },
   equipment: { coolers: "coolers", freezer: "freezer", warmers: "warmers", grill: "grill", fryer: "fryer", hood: "hood", iceMaker: "iceMaker", otherEquip: "otherEquip" },
   utensils:  { cleaningUtensils: "cleaningUtensils", cookingUtensils: "cookingUtensils" },
 };
@@ -3511,6 +3525,7 @@ function buildDefaultInspection() {
       threeCompSinks:  withChecklist("threeCompSinks"),
       handSink:        withChecklist("handSink"),
       mopArea:         withChecklist("mopArea"),
+      ecolabProducts:  withChecklist("ecolabProducts"),
     },
     // ── EQUIPMENTS ──────────────────────────────────────────────
     // coolers and freezer are intentionally omitted from defaults —
@@ -3835,6 +3850,7 @@ function buildPhotoIndex(inspection, notesPhotos) {
     ["facility", "threeCompSinks", "Facilities > 3-Compartment Sinks"],
     ["facility", "handSink",       "Facilities > Hand Sink"],
     ["facility", "mopArea",        "Facilities > Mop Area"],
+    ["facility", "ecolabProducts", "Facilities > Ecolab Products"],
     // ── EQUIPMENTS ──────────────────────────────────────────────
     ["equipment", "coolers",    "Equipments > Coolers"],
     ["equipment", "freezer",    "Equipments > Freezer"],
@@ -3964,7 +3980,7 @@ function classifyIssueType(issue, notes = "", priority = "") {
   const lead = String(issue || "").split(":")[0].trim().toLowerCase();
   if (EXPLICIT_TYPE[lead]) return EXPLICIT_TYPE[lead];
   if (/pest|roach|flies|fly |fruit fl|rodent|mice|mouse|rat |droppings|gnat|cucarach|mosca|mosquit|rat[oó]n|ratones|\brata|roedor|plaga|hormiga|excremento/.test(t) || p === "pest control") return "Pest Control";
-  if (/ecolab|sanitiz|qu[ií]mic|dispensador|detergent/.test(t)) return "Ecolab / Maintenance";
+  if (/ecolab|sanitiz|qu[ií]mic|dispensador|detergent|orange force|degreas|desengras|paper towel|toalla|hand soap|test strip|tiras/.test(t)) return "Ecolab / Maintenance";
   if (p === "maintenance" || /^(hvac|plumbing|electrical|refrigeration)$/.test(p)) return "Maintenance";
   // Hard maintenance: something is broken or not working — the crew with tools
   if (/broken|leak|not working|doesn'?t work|does not work|no power|repair|missing (tile|panel|cover|handle|knob)|cracked|torn|burnt|burned out|light (is )?out|bulb out|drain(ing)? (slow|clog|back)|clogged|no pressure|low pressure|not delivering|no hot water|won'?t close|not closing|unstable|wobbl|\brot[oa]s?\b|quebrad|dañad|no funciona|no sirve|no prende|no enciende|fuga|gotea|tapad[oa]|atascad|sin agua caliente|no cierra|suelt[oa]\b|se cay[oó]/.test(t)) return "Maintenance";
@@ -4024,6 +4040,7 @@ function floorByName(name) { const n = String(name || ""); for (const [re, f] of
 // Floor for a stand: unit-number rule → known stand names → whatever was saved
 function floorForStand(unit, name, saved) { return floorFromUnit(unit) || floorByName(name) || String(saved || "").trim(); }
 
+try { window.__sdxBuildActionItems = (a) => buildActionItems(a); } catch {}
 function buildActionItems({ inspection, rawNotes, foodTemps: ftArg, foodTempNames: fnArg, foodTempCorrections: fcArg, foodTempSubmitted: fsArg }) {
   const items = [];
   const { mapByPath } = buildPhotoIndex(inspection);
@@ -4103,7 +4120,7 @@ function buildActionItems({ inspection, rawNotes, foodTemps: ftArg, foodTempName
   };
   const KEY_LABELS = {
     ceiling: "Ceiling", walls: "Walls", floors: "Floor", threeCompSinks: "3-Compartment Sinks",
-    handSink: "Hand Sink", mopArea: "Mop Area", lighting: "Lighting",
+    handSink: "Hand Sink", mopArea: "Mop Area", ecolabProducts: "Ecolab Products", lighting: "Lighting",
     coolers: "Coolers", freezer: "Freezer", warmers: "Warmers", grill: "Grill", fryer: "Fryer",
     hood: "Hood", iceMaker: "Ice Maker Machine", otherEquip: "Other Equipment",
     doubleDoorCooler: "Double-Door Cooler", doubleDoorFreezer: "Double-Door Freezer",
@@ -5238,6 +5255,7 @@ function buildCsvRows({ inspection, rawNotes, inspectionType, inspectionDate, in
   add("Facilities", "3-Compartment Sinks",   inspection?.facility?.threeCompSinks);
   add("Facilities", "Hand Sink",             inspection?.facility?.handSink);
   add("Facilities", "Mop Area",              inspection?.facility?.mopArea);
+  add("Facilities", "Ecolab Products",       inspection?.facility?.ecolabProducts);
   // legacy
   add("Facilities", "Lighting",              inspection?.facility?.lighting);
 
@@ -5911,6 +5929,7 @@ async function exportAsHtml({ output, inspection, notesPhotos, rawNotes, inspect
     ["Facilities", "3-Comp Sinks",        inspection?.facility?.threeCompSinks],
     ["Facilities", "Hand Sink",           inspection?.facility?.handSink],
     ["Facilities", "Mop Area",            inspection?.facility?.mopArea],
+    ["Facilities", "Ecolab Products",     inspection?.facility?.ecolabProducts],
     // legacy facility
     ["Facilities", "Lighting",            inspection?.facility?.lighting],
     // Equipments
@@ -6341,7 +6360,7 @@ async function exportIssuesOnlyExcel({ rec, haccpSubs = [] }) {
   const checklistSections = [
     ["Facilities", "facility", "ceiling"], ["Facilities", "facility", "walls"],
     ["Facilities", "facility", "floors"], ["Facilities", "facility", "threeCompSinks"],
-    ["Facilities", "facility", "handSink"], ["Facilities", "facility", "mopArea"],
+    ["Facilities", "facility", "handSink"], ["Facilities", "facility", "mopArea"], ["Facilities", "facility", "ecolabProducts"],
     ["Equipment", "equipment", "coolers"], ["Equipment", "equipment", "freezer"],
     ["Equipment", "equipment", "warmers"], ["Equipment", "equipment", "grill"],
     ["Equipment", "equipment", "hood"], ["Equipment", "equipment", "iceMaker"],
@@ -6701,7 +6720,7 @@ ${(() => {
   const ciPhotoEntries = [];
   const checklistSectionsIssuesWord = [
     ["facility","ceiling"],["facility","walls"],["facility","floors"],
-    ["facility","threeCompSinks"],["facility","handSink"],["facility","mopArea"],
+    ["facility","threeCompSinks"],["facility","handSink"],["facility","mopArea"],["facility","ecolabProducts"],
     ["equipment","coolers"],["equipment","freezer"],["equipment","warmers"],
     ["equipment","grill"],["equipment","hood"],["equipment","iceMaker"],["equipment","otherEquip"],
     ["utensils","cleaningUtensils"],["utensils","cookingUtensils"],
@@ -8912,35 +8931,35 @@ const SPEC_ROWS = {
   Equipment: [
     { key: "problem", en: "What's wrong", es: "Qué pasa", req: true, opts: [T2("Not cooling", "No enfría"), T2("Ice build-up", "Acumulación de hielo"), T2("Door won't close", "Puerta no cierra"), T2("Door / gasket broken", "Puerta / empaque roto"), T2("Leaking water", "Gotea agua"), T2("Not turning on", "No enciende"), T2("Loud noise", "Ruido fuerte"), T2("Light out", "Luz apagada"), T2("Temp too high", "Temp. muy alta")] },
     { key: "part", en: "Which part", es: "Qué parte", req: true, opts: [T2("Door", "Puerta"), T2("Gasket", "Empaque"), T2("Handle", "Manija"), T2("Hinge", "Bisagra"), T2("Shelf", "Repisa"), T2("Compressor", "Compresor"), T2("Fan", "Ventilador"), T2("Thermostat", "Termostato"), T2("Drain", "Desagüe"), T2("Cord / plug", "Cable / enchufe"), T2("Whole unit", "Todo el equipo")] },
-    { key: "where", en: "Where on the unit", es: "Dónde en el equipo", req: true, opts: [T2("Left", "Izquierda"), T2("Right", "Derecha"), T2("Top", "Arriba"), T2("Bottom", "Abajo"), T2("Back", "Atrás"), T2("Inside", "Adentro"), T2("Front", "Frente")] },
+    { key: "where", en: "Where on the unit", es: "Dónde en el equipo", req: true, opts: [T2("Left", "Izquierda"), T2("Right", "Derecha"), T2("Top", "Arriba"), T2("Bottom", "Abajo"), T2("Back", "Atrás"), T2("Inside", "Adentro"), T2("Front", "Frente"), T2("Front of the house", "Frente del puesto")] },
   ],
   Cleaning: [
     { key: "what", en: "What", es: "Qué", req: true, opts: [T2("Floor", "Piso"), T2("Wall", "Pared"), T2("Ceiling", "Techo"), T2("Drain", "Desagüe"), T2("Hood", "Campana"), T2("Sink", "Fregadero"), T2("Table", "Mesa"), T2("Shelf", "Repisa"), T2("Trash area", "Área de basura"), T2("Equipment outside", "Equipo por fuera")] },
     { key: "condition", en: "Condition", es: "Condición", req: true, opts: [T2("Dirty", "Sucio"), T2("Grease", "Grasa"), T2("Mold", "Moho"), T2("Standing water", "Agua estancada"), T2("Trash overflow", "Basura desbordada"), T2("Sticky", "Pegajoso"), T2("Food debris", "Restos de comida")] },
-    { key: "where", en: "Where", es: "Dónde", req: true, opts: [T2("Front line", "Línea de frente"), T2("Back of house", "Parte de atrás"), T2("Under equipment", "Debajo del equipo"), T2("Behind equipment", "Detrás del equipo"), T2("Walk-in", "Cuarto frío"), T2("Bar", "Bar"), T2("Prep area", "Área de prep"), T2("Hand sink", "Lavamanos")] },
+    { key: "where", en: "Where", es: "Dónde", req: true, opts: [T2("Front line", "Línea de frente"), T2("Back of the house", "Parte de atrás"), T2("Under equipment", "Debajo del equipo"), T2("Behind equipment", "Detrás del equipo"), T2("Walk-in", "Cuarto frío"), T2("Bar", "Bar"), T2("Prep area", "Área de prep"), T2("Hand sink", "Lavamanos"), T2("Front of the house", "Frente del puesto")] },
   ],
   Maintenance: [
     { key: "what", en: "What", es: "Qué", req: true, opts: [T2("Sink", "Fregadero"), T2("Faucet", "Llave"), T2("Drain", "Desagüe"), T2("Hand sink", "Lavamanos"), T2("Light", "Luz"), T2("Outlet", "Enchufe"), T2("Door", "Puerta"), T2("Floor tile", "Loseta"), T2("Ceiling tile", "Techo"), T2("Hood", "Campana"), T2("Water heater", "Calentador"), T2("Wall", "Pared")] },
     { key: "problem", en: "What's wrong", es: "Qué pasa", req: true, opts: [T2("Broken", "Roto"), T2("Leaking", "Gotea"), T2("Clogged", "Tapado"), T2("Not working", "No funciona"), T2("Loose", "Suelto"), T2("Missing", "Falta"), T2("No hot water", "Sin agua caliente"), T2("Low pressure", "Poca presión")] },
-    { key: "where", en: "Where", es: "Dónde", req: true, opts: [T2("Front line", "Línea de frente"), T2("Back of house", "Parte de atrás"), T2("Left side", "Lado izquierdo"), T2("Right side", "Lado derecho"), T2("Prep area", "Área de prep"), T2("Walk-in", "Cuarto frío"), T2("Bar", "Bar"), T2("Storage", "Almacén")] },
+    { key: "where", en: "Where", es: "Dónde", req: true, opts: [T2("Front line", "Línea de frente"), T2("Back of the house", "Parte de atrás"), T2("Left side", "Lado izquierdo"), T2("Right side", "Lado derecho"), T2("Prep area", "Área de prep"), T2("Walk-in", "Cuarto frío"), T2("Bar", "Bar"), T2("Storage", "Almacén"), T2("Front of the house", "Frente del puesto")] },
   ],
   Ecolab: [
     { key: "what", en: "What", es: "Qué", req: true, opts: [T2("Sanitizer", "Sanitizante"), T2("Detergent", "Detergente"), T2("Dispenser", "Dispensador"), T2("Test strips", "Tiras de prueba"), T2("Hand soap", "Jabón de manos"), T2("Sanitizer bucket", "Cubeta")] },
     { key: "problem", en: "What's wrong", es: "Qué pasa", req: true, opts: [T2("Empty", "Vacío"), T2("Low pressure", "Poca presión"), T2("Wrong ppm", "PPM incorrecto"), T2("Missing", "Falta"), T2("Leaking", "Gotea"), T2("Not dispensing", "No dispensa")] },
-    { key: "where", en: "Which sink / station", es: "Qué fregadero / estación", req: true, opts: [T2("3-compartment sink", "Fregadero 3 compartimientos"), T2("Hand sink", "Lavamanos"), T2("Prep sink", "Fregadero de prep"), T2("Bar", "Bar"), T2("Dish area", "Área de platos"), T2("Front line", "Línea de frente")] },
+    { key: "where", en: "Which sink / station", es: "Qué fregadero / estación", req: true, opts: [T2("3-compartment sink", "Fregadero 3 compartimientos"), T2("Hand sink", "Lavamanos"), T2("Prep sink", "Fregadero de prep"), T2("Bar", "Bar"), T2("Dish area", "Área de platos"), T2("Front line", "Línea de frente"), T2("Front of the house", "Frente del puesto")] },
   ],
   Pest: [
     { key: "what", en: "What did you see", es: "Qué viste", req: true, opts: [T2("Roach", "Cucaracha"), T2("Fly", "Mosca"), T2("Rodent", "Roedor"), T2("Droppings", "Excremento"), T2("Ants", "Hormigas"), T2("Gnats", "Mosquitos")] },
     { key: "howmany", en: "How many", es: "Cuántos", req: false, opts: [T2("One", "Uno"), T2("Several", "Varios"), T2("Many", "Muchos")] },
-    { key: "where", en: "Where", es: "Dónde", req: true, opts: [T2("Front line", "Línea de frente"), T2("Back of house", "Parte de atrás"), T2("Under equipment", "Debajo del equipo"), T2("Drain", "Desagüe"), T2("Trash area", "Área de basura"), T2("Storage", "Almacén"), T2("Walk-in", "Cuarto frío")] },
+    { key: "where", en: "Where", es: "Dónde", req: true, opts: [T2("Front line", "Línea de frente"), T2("Back of the house", "Parte de atrás"), T2("Under equipment", "Debajo del equipo"), T2("Drain", "Desagüe"), T2("Trash area", "Área de basura"), T2("Storage", "Almacén"), T2("Walk-in", "Cuarto frío"), T2("Front of the house", "Frente del puesto")] },
   ],
   Temperature: [
     { key: "problem", en: "Why is it out of range", es: "Por qué está fuera de rango", req: true, opts: [T2("Ice build-up", "Acumulación de hielo"), T2("Door left open", "Puerta quedó abierta"), T2("Just restocked", "Recién cargado"), T2("Compressor not running", "Compresor no corre"), T2("Unit turned off", "Equipo apagado"), T2("Thermostat set wrong", "Termostato mal puesto"), T2("Food still cooling", "Comida aún enfriando"), T2("Reheated below temp", "Recalentado sin llegar")] },
-    { key: "where", en: "Which unit / where", es: "Qué equipo / dónde", req: true, opts: [T2("Front line", "Línea de frente"), T2("Back of house", "Parte de atrás"), T2("Walk-in", "Cuarto frío"), T2("Bar", "Bar"), T2("Prep cooler", "Prep cooler"), T2("Hot holding", "Mesa caliente")] },
+    { key: "where", en: "Which unit / where", es: "Qué equipo / dónde", req: true, opts: [T2("Front line", "Línea de frente"), T2("Back of the house", "Parte de atrás"), T2("Walk-in", "Cuarto frío"), T2("Bar", "Bar"), T2("Prep cooler", "Prep cooler"), T2("Hot holding", "Mesa caliente"), T2("Front of the house", "Frente del puesto")] },
   ],
   Other: [
     { key: "what", en: "What", es: "Qué", req: true, opts: [T2("Equipment", "Equipo"), T2("Sink", "Fregadero"), T2("Floor", "Piso"), T2("Door", "Puerta"), T2("Light", "Luz"), T2("Supplies", "Insumos"), T2("Safety", "Seguridad")] },
-    { key: "where", en: "Where", es: "Dónde", req: true, opts: [T2("Front line", "Línea de frente"), T2("Back of house", "Parte de atrás"), T2("Left side", "Lado izquierdo"), T2("Right side", "Lado derecho"), T2("Walk-in", "Cuarto frío"), T2("Bar", "Bar"), T2("Storage", "Almacén")] },
+    { key: "where", en: "Where", es: "Dónde", req: true, opts: [T2("Front line", "Línea de frente"), T2("Back of the house", "Parte de atrás"), T2("Left side", "Lado izquierdo"), T2("Right side", "Lado derecho"), T2("Walk-in", "Cuarto frío"), T2("Bar", "Bar"), T2("Storage", "Almacén"), T2("Front of the house", "Frente del puesto")] },
   ],
 };
 // Temperature failure reasons (portal + inspector form)
@@ -8965,7 +8984,7 @@ const NLU_EN_MARKERS = /\b(the|is|are|and|not|with|under|behind|broken|dirty|lea
 // Ordered: the first matching category wins (pest and chemicals are never "cleaning")
 const NLU_CATS = [
   { cat: "Pest Control", re: /\b(pest|roach|roaches|cockroach|flies|fly|fruit fl\w*|gnats?|rodent|mice|mouse|rats?|droppings|ants?|maggots?|cucarach\w*|mosca\w*|mosquit\w*|rat[oa]\w*|ratones|roedor\w*|plaga\w*|hormiga\w*|excremento\w*|gusano\w*)\b/ },
-  { cat: "Ecolab / Chemicals", re: /\b(ecolab|saniti[sz]\w*|sanitizante|sanitizador|chemical\w*|quimic\w*|detergent\w*|dispenser|dispensador|test strips?|tiras|ppm|hand soap|jabon|soap|cloro|bleach|chlorine|quat)\b/ },
+  { cat: "Ecolab / Chemicals", re: /\b(ecolab|saniti[sz]\w*|sanitizante|sanitizador|chemical\w*|quimic\w*|detergent\w*|dispenser|dispensador|test strips?|tiras|ppm|hand soap|jabon|soap|cloro|bleach|chlorine|quat|orange force|degreaser|desengrasante|paper towels?|toallas?( de papel)?)\b/ },
   { cat: "Lights", re: /\b(lights?|bulbs?|light out|luz|luces|bombill\w*|foco|focos|lampara\w*|sin luz|no light)\b/ },
   { cat: "Plumbing", re: /\b(plumb\w*|plomer\w*|faucet|llave|grifo|drain\w*|desague|desagues|clog\w*|tapad[oa]s?|atascad[oa]s?|backing up|sewer|inundad[oa]|flood\w*|no (hot )?water|sin agua|agua caliente|hot water|toilet|inodoro|water heater|calentador)\b/ },
   { cat: "Equipment", re: /\b(cooler|coolers|freezer|freezers|walk[- ]?in|reach[- ]?in|nevera\w*|refri\w*|congelador\w*|camara|cuarto frio|fridge|fryer|freidora|grill|parrilla|plancha|oven|horno|warmer|ice (maker|machine)|maquina de hielo|compressor|compresor|gasket|empaque|thermostat|termostato|not cooling|no enfria|no congela|not freezing)\b/ },
@@ -8977,8 +8996,9 @@ const NLU_URGENT = /\b(urgent\w*|urgente|emergency|emergencia|asap|right now|aho
 const NLU_INFO = /\b(fyi|for your information|just (a )?note|heads[- ]?up|nota|solo aviso|informativo|para que sepan|no es urgente|not urgent)\b/;
 // Where → the canonical "where" chips the SPEC_ROWS use
 const NLU_AREAS = [
+  ["Front of the house", /\b(front of (the )?house|foh|frente del puesto|area de frente|al frente del puesto|parte de adelante)\b/],
   ["Front line", /\b(front line|front|frontline|linea( de frente)?|al frente|frente|adelante|delante|counter|mostrador(es)?)\b/],
-  ["Back of house", /\b(back of house|boh|in the back|back area|atras|parte de atras|detras del puesto|cocina|kitchen)\b/],
+  ["Back of house", /\b(back of (the )?house|boh|in the back|back area|atras|parte de atras( del puesto)?|detras del puesto|cocina|kitchen)\b/],
   ["Under equipment", /\b(under|underneath|beneath|below|debajo|abajo del|por debajo)\b/],
   ["Behind equipment", /\b(behind|detras|atras del)\b/],
   ["Walk-in", /\b(walk[- ]?in|camara|cuarto frio)\b/],
@@ -12402,6 +12422,7 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
       ["Facilities", "3-Comp Sinks",        insp => insp?.facility?.threeCompSinks],
       ["Facilities", "Hand Sink",           insp => insp?.facility?.handSink],
       ["Facilities", "Mop Area",            insp => insp?.facility?.mopArea],
+      ["Facilities", "Ecolab Products",     insp => insp?.facility?.ecolabProducts],
       ["Facilities", "Lighting",            insp => insp?.facility?.lighting],
       ["Equipments", "Coolers",             insp => insp?.equipment?.coolers],
       ["Equipments", "Freezer",             insp => insp?.equipment?.freezer],
@@ -20665,7 +20686,7 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
     setNotices(prev => prev.filter(n => n.id !== id));
   }
   const WALK_NAMES = ["1-Door Cooler", "2-Door Cooler", "3-Door Cooler", "4-Door Cooler", "Prep Cooler", "Display Cooler", "Walk-In Cooler", "Undercounter Cooler", "Beer Cooler", "Ice Cream Freezer", "1-Door Freezer", "2-Door Freezer", "Chest Freezer", "Walk-In Freezer", "Undercounter Freezer"];
-  const WALK_LOCS = ["Front line", "Back of house", "Bar", "Prep area", "Walk-in", "Storage", "Under counter", "Beer room", "Left side", "Right side"];
+  const WALK_LOCS = ["Front of the house", "Back of the house", "Front line", "Bar", "Prep area", "Walk-in", "Storage", "Under counter", "Beer room", "Left side", "Right side"];
   const WALK_BRANDS = ["True", "Turbo Air", "Beverage-Air", "Traulsen", "Delfield", "Continental", "Hoshizaki", "Arctic Air", "Atosa", "Victory", "Perlick", "Frigidaire", "Avantco", "Coca-Cola", "Pepsi", "American Panel", "Kolpak", "Nor-Lake"];
   const cleanName = l => String(l || "").replace(/\s*(❄|🧊)\s*(Cooler|Freezer)\s*$/u, "").trim();
   const typeOf = it => (/freez|🧊/i.test(it?.label || "") || coldTypeFromTag(it?.assetTag) === "freezer") ? "freezer" : "cooler";
@@ -25555,6 +25576,9 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                           const newChecklist = (cur2.checklist || []).map((c, i) => i === idx ? { ...c, value: next } : c);
                           const hasNo = newChecklist.some(c => c.value === "NO");
                           const newStatus = hasNo ? "Fail" : "OK";
+                          // v489: a missing Ecolab product goes straight onto the Supplies Needed list
+                          const rowSupply = newChecklist[idx]?.supply;
+                          if (rowSupply) setTimeout(() => { try { window.dispatchEvent(new CustomEvent("sdx-supply-needed", { detail: { item: rowSupply, on: next === "NO" } })); } catch {} }, 0);
                           return setAtPath(prev, it.path, { ...cur2, checklist: newChecklist, status: newStatus });
                         });
                         const makeSetComment = (idx, comment) => setInspection((prev) => {
@@ -25735,7 +25759,7 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                                               📍 SPECIFIC LOCATION <span style={{ color: "#dc2626" }}>*</span>
                                             </div>
                                             <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginBottom: 5 }}>
-                                              {["Grill Area","Fryer","Counter","3-Comp Sink","Mop Area","Prep Table","Walk-In","Dish Room","Storage","Bar","Expo / Pass","Line"].map(loc => {
+                                              {["Front of the house","Back of the house","Grill Area","Fryer","Counter","3-Comp Sink","Mop Area","Prep Table","Walk-In","Dish Room","Storage","Bar","Expo / Pass","Line"].map(loc => {
                                                 const active = ci.ciLocation === loc;
                                                 return (
                                                   <button key={loc} type="button"
@@ -30800,7 +30824,19 @@ export default function App() {
       });
     }
   }
-  const [suppliesNeeded, setSuppliesNeeded] = useState([]);  // [{id, item, qty, urgent}]
+  const [suppliesNeeded, setSuppliesNeeded] = useState([]);  // [{id, item, qty, urgent, fromChecklist?}]
+  // v489: the Ecolab products checklist writes the inventory — NO adds the product, YES removes only what it added
+  useEffect(() => {
+    const h = e => {
+      const { item, on } = e.detail || {}; if (!item) return;
+      setSuppliesNeeded(prev => {
+        const same = x => (x.item || "").trim().toLowerCase() === item.toLowerCase();
+        if (on) return prev.some(same) ? prev : [...prev.filter(x => x.item.trim()), { id: `${Date.now()}_${Math.random().toString(36).slice(2, 6)}`, item, qty: "", urgent: true, fromChecklist: true }];
+        return prev.filter(x => !(x.fromChecklist && same(x)));
+      });
+    };
+    window.addEventListener("sdx-supply-needed", h); return () => window.removeEventListener("sdx-supply-needed", h);
+  }, []);
   const [supplyHistory, setSupplyHistory] = useState(null); // null = not loaded yet, [] = loaded empty
   const supplyHistoryLoadedRef = useRef(false);
   const [standingSupplies, setStandingSupplies] = useState(() => loadParSupplies()); // [{id, item, par}]
@@ -33146,6 +33182,7 @@ export default function App() {
                       return (
                         <div key={s.id} style={{ marginBottom: insight ? 10 : 6 }}>
                           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                            {s.fromChecklist && <span className="supAutoChip" data-testid="sup-auto">🧪 from the Ecolab checklist</span>}
                             <input
                               type="text"
                               placeholder="Supply item (e.g. Gloves, Sanitizer, Cutting boards)"
@@ -33388,6 +33425,7 @@ export default function App() {
                     { path: ["facility", "threeCompSinks"], label: "3-Compartment Sinks — Clean, soap/sanitizer dispensers, test strips, stopper, hot water, no leaks, signs?" },
                     { path: ["facility", "handSink"],       label: "Hand Sink — Clean, soap & paper dispenser working, hot water, no leaks, signs, clear of obstacles?" },
                     { path: ["facility", "mopArea"],        label: "Mop Area — Clean, mop hung to dry, faucet valve/hot water/no leaks, drain not clogged, Ecolab chemical holders & dispensers?" },
+                    { path: ["facility", "ecolabProducts"], label: "Ecolab Products & Supplies — detergent, sanitizer, cleaner, Orange Force, paper towels, hand soap, test strips stocked?" },
                   ]} inspection={inspection} setInspection={setInspection}
                   allowCustom sectionKey="facility"
                   inspectionId={savedReportId} venueId={activeVenueId} onError={msg => { setError(msg); setTimeout(() => setError(""), 8000); }}
@@ -33445,6 +33483,7 @@ export default function App() {
                       { path: ["equipment", "liquorStorage"], label: "Liquor Storage — locked, off the floor, bottles clean?" },
                       { path: ["equipment", "glassStorage"], label: "Glassware Storage — inverted, clean racks, no chipped glasses?" },
                       { path: ["equipment", "ecolab"], label: "Chemicals (Ecolab) — correct concentration, properly labeled, stored away from food?" },
+                      { path: ["facility", "ecolabProducts"], label: "Ecolab Products & Supplies — detergent, sanitizer, cleaner, Orange Force, paper towels, hand soap, test strips stocked?" },
                     ]} inspection={inspection} setInspection={setInspection}
                     allowCustom sectionKey="equipment" coldEquipmentMap={BAR_COLD_EQUIPMENT} inspectionId={savedReportId} venueId={activeVenueId} siteName={siteName} siteNumber={siteNumber} siteFloor={floor} siteLocType={locationType} onError={msg => { setError(msg); setTimeout(() => setError(""), 8000); }} onOpenPrintLabels={({ tag, label }) => setPage("print_labels")} defaultOpen={true} />
                 ) : locationType === "Pantry" ? (
@@ -33461,6 +33500,7 @@ export default function App() {
                       { path: ["equipment", "warmers"], label: "Hot Holding / Warmers — clean, at temp, working?" },
                       { path: ["equipment", "dryStorage"], label: "Dry Storage Racks — 6\" off the floor, dated, FIFO, no open bags?" },
                       { path: ["equipment", "ecolab"], label: "Chemicals (Ecolab) — labeled, correct concentration, stored away from food?" },
+                      { path: ["facility", "ecolabProducts"], label: "Ecolab Products & Supplies — detergent, sanitizer, cleaner, Orange Force, paper towels, hand soap, test strips stocked?" },
                       { path: ["equipment", "otherEquip"], label: "Other Equipment — clean and in good condition?" },
                     ]} inspection={inspection} setInspection={setInspection}
                     allowCustom sectionKey="equipment" coldEquipmentMap={PANTRY_COLD_EQUIPMENT} inspectionId={savedReportId} venueId={activeVenueId} siteName={siteName} siteNumber={siteNumber} siteFloor={floor} siteLocType={locationType} onError={msg => { setError(msg); setTimeout(() => setError(""), 8000); }} onOpenPrintLabels={({ tag, label }) => setPage("print_labels")} defaultOpen={true} />

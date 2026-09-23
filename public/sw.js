@@ -2,7 +2,7 @@
 // v119: Restored to July 13 state
 
 
-const CACHE_NAME = "sdx-inspect-v488";
+const CACHE_NAME = "sdx-inspect-v489";
 const BASE = (() => { try { return new URL(self.registration.scope).pathname; } catch { return "/"; } })();
 const PRECACHE = [
   "./favicon.svg",
