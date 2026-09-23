@@ -2849,7 +2849,7 @@ const NOTE_TYPES = {
   },
 };
 
-const STATUS_OPTIONS = ["OK", "Fail", "Needs Attention", "Critical Violation", "Corrected On-Site", "Maintenance", "Off / Not In Use", "N/A"];
+const STATUS_OPTIONS = ["OK", "Fail", "Needs Attention", "Critical Violation", "Corrected On-Site", "Maintenance", "Building", "Off / Not In Use", "N/A"];
 const PHOTO_LIMIT = 6;
 const PHOTO_MAX_MB = 8;
 
@@ -3733,7 +3733,7 @@ function calcOverallStatus(inspection, { foodTemps, foodTempNames } = {}) {
   const bad = [];
   const walk = (node) => {
     if (!node || typeof node !== "object") return;
-    if (node.status && (node.status === "Needs Attention" || node.status === "Not Clean" || node.status === "Maintenance")) bad.push(true);
+    if (node.status && (node.status === "Needs Attention" || node.status === "Not Clean" || node.status === "Maintenance" || node.status === "Building")) bad.push(true);
     for (const k of Object.keys(node)) walk(node[k]);
   };
   walk(inspection?.facility);
@@ -3966,9 +3966,11 @@ function splitAreaCategory(area) {
 // This is the "Issue Type" column in Excel exports, so cleaning problems can
 // be filtered apart from maintenance work orders.
 // Explicit categories chosen on a form win outright (quick problem / supervisor QR chips)
-const EXPLICIT_TYPE = { "cleaning": "Cleaning", "maintenance": "Maintenance", "plumbing": "Maintenance", "lights": "Maintenance", "ecolab / chemicals": "Ecolab / Maintenance", "pest control": "Pest Control", "temperature": "Temperature" };
-const ISSUE_TYPES = ["Cleaning", "Maintenance", "Ecolab / Maintenance", "Pest Control", "Temperature", "Other"];
-const ISSUE_TYPE_ICON = { "Cleaning": "🧹", "Maintenance": "🔧", "Ecolab / Maintenance": "🧪", "Pest Control": "🐜", "Temperature": "🌡", "Other": "⚪" };
+const EXPLICIT_TYPE = { "cleaning": "Cleaning", "maintenance": "Maintenance", "plumbing": "Maintenance", "lights": "Maintenance", "building": "Building", "ecolab / chemicals": "Ecolab / Maintenance", "pest control": "Pest Control", "temperature": "Temperature" };
+// v490: "Building" = the structure itself (holes in the wall, ceiling / floor tiles, paint, doors, drywall) — Joxel: "add building option for things that are like a hole on the wall and all of that"
+const ISSUE_TYPES = ["Cleaning", "Maintenance", "Building", "Ecolab / Maintenance", "Pest Control", "Temperature", "Other"];
+const ISSUE_TYPE_ICON = { "Cleaning": "🧹", "Maintenance": "🔧", "Building": "🏗", "Ecolab / Maintenance": "🧪", "Pest Control": "🐜", "Temperature": "🌡", "Other": "⚪" };
+const BUILDING_RE = /\bholes?\b|\bhueco\w*|\bagujero\w*|drywall|sheetrock|(missing|broken|cracked|loose|falling|fallen|damaged|stained|sagging) (ceiling |floor |wall )?(tiles?|panels?|loseta\w*|losas?|azulejo\w*)|(tiles?|loseta\w*|losas?|azulejo\w*|baseboards?|cove base|grout|panel|drywall) (is |are |esta\w* )?(missing|broken|cracked|loose|falling|damaged|falta\w*|rot[oa]s?|suelt\w*|rajad\w*|quebrad\w*|dañad\w*|danad\w*)|peeling paint|paint (is )?(peeling|chipp|flak)|pintura (descascar|pelad|caid)|structural|door ?frame (broken|damaged|loose|bent)|marco de (la )?puerta|water damage|wall damage|damaged wall|pared (rota|dañ|danad|agujer|con hueco)|techo (roto|dañ|danad|caid|con hueco)|(broken|cracked) window|ventana (rota|quebrada)|frp (panel )?(broken|damaged|loose|missing)/;
 const issueTypeLabel = t => t === "Ecolab / Maintenance" ? "Ecolab" : (t || "Other");
 // Samples: "Interior has food debris and is not clean — a little rusted" → Cleaning; "rusted shelf" → Cleaning (v485)
 //          "Leakage detected (water or refrigerant)" → Maintenance
@@ -3981,6 +3983,7 @@ function classifyIssueType(issue, notes = "", priority = "") {
   if (EXPLICIT_TYPE[lead]) return EXPLICIT_TYPE[lead];
   if (/pest|roach|flies|fly |fruit fl|rodent|mice|mouse|rat |droppings|gnat|cucarach|mosca|mosquit|rat[oó]n|ratones|\brata|roedor|plaga|hormiga|excremento/.test(t) || p === "pest control") return "Pest Control";
   if (/ecolab|sanitiz|qu[ií]mic|dispensador|detergent|orange force|degreas|desengras|paper towel|toalla|hand soap|test strip|tiras/.test(t)) return "Ecolab / Maintenance";
+  if (p === "building" || BUILDING_RE.test(t)) return "Building";
   if (p === "maintenance" || /^(hvac|plumbing|electrical|refrigeration)$/.test(p)) return "Maintenance";
   // Hard maintenance: something is broken or not working — the crew with tools
   if (/broken|leak|not working|doesn'?t work|does not work|no power|repair|missing (tile|panel|cover|handle|knob)|cracked|torn|burnt|burned out|light (is )?out|bulb out|drain(ing)? (slow|clog|back)|clogged|no pressure|low pressure|not delivering|no hot water|won'?t close|not closing|unstable|wobbl|\brot[oa]s?\b|quebrad|dañad|no funciona|no sirve|no prende|no enciende|fuga|gotea|tapad[oa]|atascad|sin agua caliente|no cierra|suelt[oa]\b|se cay[oó]/.test(t)) return "Maintenance";
@@ -4002,6 +4005,7 @@ function issueTypeStyle(itype) {
     "Temperature":  { bg: "D6E4F7", text: "1C4A7A" },
     "Pest Control": { bg: "F8CBAD", text: "833C00" },
     "Ecolab / Maintenance": { bg: "D5F0EC", text: "0F5A50" },
+    "Building":     { bg: "E4E0F5", text: "3B2F7A" },
     "Other":        { bg: "EDEDED", text: "555555" },
   };
   const c = map[itype] || map.Other;
@@ -4056,7 +4060,7 @@ function buildActionItems({ inspection, rawNotes, foodTemps: ftArg, foodTempName
       return;
     }
     const sectionStatus = (node.status && node.status !== "High" && node.status !== "Med") ? node.status : "";
-    const isFail = node.status === "Fail" || node.status === "Needs Attention" || node.status === "Not Clean" || node.status === "Maintenance";
+    const isFail = node.status === "Fail" || node.status === "Needs Attention" || node.status === "Not Clean" || node.status === "Maintenance" || node.status === "Building";
     const failedCheckItems = Array.isArray(node.checklist)
       ? node.checklist.filter(c => c.value === "NO")
       : [];
@@ -4078,7 +4082,7 @@ function buildActionItems({ inspection, rawNotes, foodTemps: ftArg, foodTempName
           corrective: sanitizeText(c.corrective) || "",
           owner: "", due: "",
           status: itemStatus,
-          priority: itemStatus === "Maintenance" ? "Maintenance" : "High",
+          priority: itemStatus === "Maintenance" ? "Maintenance" : itemStatus === "Building" ? "Building" : "High",
           photos: c.photos?.length ? c.photos : (mapByPath[pathKey] || []),
         });
       });
@@ -4091,7 +4095,7 @@ function buildActionItems({ inspection, rawNotes, foodTemps: ftArg, foodTempName
             notes: "",
             owner: "", due: "",
             status: sectionStatus || "Fail",
-            priority: sectionStatus === "Maintenance" ? "Maintenance" : "High",
+            priority: sectionStatus === "Maintenance" ? "Maintenance" : sectionStatus === "Building" ? "Building" : "High",
             photos: mapByPath[pathKey] || [],
           });
         }
@@ -4104,7 +4108,7 @@ function buildActionItems({ inspection, rawNotes, foodTemps: ftArg, foodTempName
         notes: "",
         owner: "", due: "",
         status: sectionStatus || "Fail",
-        priority: sectionStatus === "Maintenance" ? "Maintenance" : "High",
+        priority: sectionStatus === "Maintenance" ? "Maintenance" : sectionStatus === "Building" ? "Building" : "High",
         photos: mapByPath[pathKey] || [],
       });
     }
@@ -4143,7 +4147,7 @@ function buildActionItems({ inspection, rawNotes, foodTemps: ftArg, foodTempName
   // ── Maintenance items — same dynamic scan ──────────────────────
   const pushMaint = (pathKey, label, node) => {
     if (!node?.status) return;
-    if (node.status === "Needs Attention" || node.status === "Not Clean" || node.status === "Maintenance" || node.status === "Fail") {
+    if (node.status === "Needs Attention" || node.status === "Not Clean" || node.status === "Maintenance" || node.status === "Building" || node.status === "Fail") {
       const detail = sanitizeText(node.notes) || node.status || "Issue flagged";
       items.push({
         issue: `${label}: ${detail}`,
@@ -8907,7 +8911,7 @@ function computeFollowups(history, venueSettings, clearedLocal = {}) {
 const QUICK_PROBLEM_CATS = [
   "Facilities – Floor", "Facilities – Ceiling", "Facilities – Walls", "Facilities – Hand Sink",
   "Facilities – 3-Compartment Sinks", "Equipment", "Utensils", "Cleaning", "Temperature",
-  "Pest Control", "Lights", "Plumbing", "Ecolab / Chemicals", "Other",
+  "Pest Control", "Lights", "Plumbing", "Building", "Ecolab / Chemicals", "Other",
 ];
 
 // Categories a supervisor can pick when reporting a problem from the stand QR.
@@ -8919,6 +8923,7 @@ const SUP_PROBLEM_CATS = [
   { cat: "Ecolab / Chemicals", emoji: "🧪", en: "Ecolab / Chemicals", es: "Químicos" },
   { cat: "Equipment",          emoji: "❄️", en: "Equipment",          es: "Equipo" },
   { cat: "Plumbing",           emoji: "🚰", en: "Plumbing",           es: "Plomería" },
+  { cat: "Building",           emoji: "🏗", en: "Building",           es: "Edificio / Estructura" },
   { cat: "Pest Control",       emoji: "🐜", en: "Pest Control",       es: "Plagas" },
   { cat: "Temperature",        emoji: "🌡️", en: "Temperature",        es: "Temperatura" },
   { cat: "Other",              emoji: "📝", en: "Other",              es: "Otro" },
@@ -8937,6 +8942,11 @@ const SPEC_ROWS = {
     { key: "what", en: "What", es: "Qué", req: true, opts: [T2("Floor", "Piso"), T2("Wall", "Pared"), T2("Ceiling", "Techo"), T2("Drain", "Desagüe"), T2("Hood", "Campana"), T2("Sink", "Fregadero"), T2("Table", "Mesa"), T2("Shelf", "Repisa"), T2("Trash area", "Área de basura"), T2("Equipment outside", "Equipo por fuera")] },
     { key: "condition", en: "Condition", es: "Condición", req: true, opts: [T2("Dirty", "Sucio"), T2("Grease", "Grasa"), T2("Mold", "Moho"), T2("Standing water", "Agua estancada"), T2("Trash overflow", "Basura desbordada"), T2("Sticky", "Pegajoso"), T2("Food debris", "Restos de comida")] },
     { key: "where", en: "Where", es: "Dónde", req: true, opts: [T2("Front line", "Línea de frente"), T2("Back of the house", "Parte de atrás"), T2("Under equipment", "Debajo del equipo"), T2("Behind equipment", "Detrás del equipo"), T2("Walk-in", "Cuarto frío"), T2("Bar", "Bar"), T2("Prep area", "Área de prep"), T2("Hand sink", "Lavamanos"), T2("Front of the house", "Frente del puesto")] },
+  ],
+  Building: [
+    { key: "what", en: "What", es: "Qué", req: true, opts: [T2("Wall", "Pared"), T2("Ceiling", "Techo"), T2("Floor", "Piso"), T2("Door", "Puerta"), T2("Door frame", "Marco"), T2("Window", "Ventana"), T2("Baseboard", "Zócalo"), T2("Paint", "Pintura")] },
+    { key: "problem", en: "What's wrong", es: "Qué pasa", req: true, opts: [T2("Hole", "Hueco"), T2("Crack", "Grieta"), T2("Missing tile", "Falta loseta"), T2("Loose tile", "Loseta suelta"), T2("Peeling paint", "Pintura pelada"), T2("Water damage", "Daño por agua"), T2("Broken", "Roto"), T2("Falling", "Cayéndose")] },
+    { key: "where", en: "Where", es: "Dónde", req: true, opts: [T2("Front of the house", "Frente del puesto"), T2("Back of the house", "Parte de atrás"), T2("Left side", "Lado izquierdo"), T2("Right side", "Lado derecho"), T2("Prep area", "Área de prep"), T2("Walk-in", "Cuarto frío"), T2("Storage", "Almacén"), T2("Mop area", "Área del trapeador")] },
   ],
   Maintenance: [
     { key: "what", en: "What", es: "Qué", req: true, opts: [T2("Sink", "Fregadero"), T2("Faucet", "Llave"), T2("Drain", "Desagüe"), T2("Hand sink", "Lavamanos"), T2("Light", "Luz"), T2("Outlet", "Enchufe"), T2("Door", "Puerta"), T2("Floor tile", "Loseta"), T2("Ceiling tile", "Techo"), T2("Hood", "Campana"), T2("Water heater", "Calentador"), T2("Wall", "Pared")] },
@@ -8971,6 +8981,7 @@ function specCatKey(cat) {
   if (/ecolab|chem/.test(c)) return "Ecolab";
   if (/pest/.test(c)) return "Pest";
   if (/temp/.test(c)) return "Temperature";
+  if (/build|estructur/.test(c)) return "Building";
   if (/plumb|sink|facil|light|maint|floor|ceiling|wall/.test(c)) return "Maintenance";
   return "Other";
 }
@@ -8987,6 +8998,7 @@ const NLU_CATS = [
   { cat: "Ecolab / Chemicals", re: /\b(ecolab|saniti[sz]\w*|sanitizante|sanitizador|chemical\w*|quimic\w*|detergent\w*|dispenser|dispensador|test strips?|tiras|ppm|hand soap|jabon|soap|cloro|bleach|chlorine|quat|orange force|degreaser|desengrasante|paper towels?|toallas?( de papel)?)\b/ },
   { cat: "Lights", re: /\b(lights?|bulbs?|light out|luz|luces|bombill\w*|foco|focos|lampara\w*|sin luz|no light)\b/ },
   { cat: "Plumbing", re: /\b(plumb\w*|plomer\w*|faucet|llave|grifo|drain\w*|desague|desagues|clog\w*|tapad[oa]s?|atascad[oa]s?|backing up|sewer|inundad[oa]|flood\w*|no (hot )?water|sin agua|agua caliente|hot water|toilet|inodoro|water heater|calentador)\b/ },
+  { cat: "Building", re: BUILDING_RE },
   { cat: "Equipment", re: /\b(cooler|coolers|freezer|freezers|walk[- ]?in|reach[- ]?in|nevera\w*|refri\w*|congelador\w*|camara|cuarto frio|fridge|fryer|freidora|grill|parrilla|plancha|oven|horno|warmer|ice (maker|machine)|maquina de hielo|compressor|compresor|gasket|empaque|thermostat|termostato|not cooling|no enfria|no congela|not freezing)\b/ },
   { cat: "Temperature", re: /\b(temp\w*|temperatura\w*|grados|degrees|°\s*f|out of range|fuera de rango|too warm|tibio|caliente|not cold|no esta frio)\b/ },
   { cat: "Cleaning", re: /\b(dirty|filthy|not clean|unclean|grease|greasy|grime|grimy|build[- ]?up|debris|mold|moldy|sweep|mop|trash|garbage|sticky|spill\w*|crumbs|odor|smell\w*|splatter|wipe|sucio|sucia|sucios|sucias|mugre|grasa|grasoso|moho|basura|pegajoso|derrame|restos|olor|huele|limpiar|limpieza|barrer|trapear|mojad\w*|agua|charco\w*|encharcad\w*|rust\w*|oxidad\w*|corro\w*|herrumbre)\b/ },
@@ -9016,6 +9028,8 @@ const NLU_AREAS = [
 ];
 // Extra synonyms for SPEC_ROWS options (option EN text → regex over normalized text)
 const NLU_OPT_SYN = {
+  "Hole": /\b(holes?|hueco\w*|agujero\w*)\b/, "Crack": /\b(cracks?|cracked|grieta\w*|rajad\w*)\b/, "Missing tile": /\b(missing|falta\w*)\b.*\b(tiles?|loseta\w*|losa\w*|azulejo\w*)\b|\b(tiles?|loseta\w*)\b.*\b(missing|falta)\b/, "Loose tile": /\b(loose|suelt\w*)\b.*\b(tiles?|loseta\w*)\b|\b(tiles?|loseta\w*)\b.*\b(loose|suelt\w*)\b/, "Peeling paint": /\b(peeling|chipp\w*|flak\w*|pintura (pelad|descascar)\w*)\b/, "Water damage": /\b(water damage|water stain\w*|dano por agua|daño por agua|manch\w* de agua)\b/, "Falling": /\b(falling|fell|caid\w*|cayend\w*|se cae)\b/,
+  "Ceiling": /\b(ceiling|techo|plafon)\b/, "Door frame": /\b(door ?frame|marco)\b/, "Baseboard": /\b(baseboards?|cove base|zocalo\w*)\b/, "Paint": /\b(paint|pintura)\b/,
   "Not cooling": /\b(not cooling|not cold|warm|too warm|no enfria|no esta frio|tibio|caliente|calientes)\b/, "Ice build-up": /\b(ice|frost|hielo|escarcha)\b/, "Door won't close": /\b(won'?t close|not closing|doesn'?t close|no cierra|queda abierta)\b/,
   "Door / gasket broken": /\b(gasket|empaque|seal)\b.*\b(broken|torn|roto|rota|dañad|danad)|\b(broken|torn|roto|rota)\b.*\b(gasket|empaque|seal)\b/, "Leaking water": /\b(leak\w*|dripping|gotea\w*|fuga|goteo|charco|puddle|water on the floor|agua en el piso)\b/,
   "Not turning on": /\b(not turning on|won'?t (turn on|start)|no power|dead|no prende|no enciende|no arranca|apagad[oa])\b/, "Loud noise": /\b(loud|noise|noisy|ruido|ruidos[oa]|hace ruido)\b/,
@@ -9045,11 +9059,11 @@ function understandText(text, ctx = {}) {
   // category
   for (const c of NLU_CATS) { const m = t.match(c.re); if (m) { out.category = c.cat; out.matched.push(m[0]); break; } }
   // a cooler that is warm with a reading is still an Equipment problem; "temperature" alone stays Temperature
-  if (out.category === "Temperature" && NLU_CATS[4].re.test(t)) out.category = "Equipment";
+  if (out.category === "Temperature" && NLU_CATS.find(c => c.cat === "Equipment").re.test(t)) out.category = "Equipment";
   // "grease under the fryer" is a cleaning job, not a fryer problem: an equipment
   // noun only wins when something is said to be wrong WITH the equipment
   const EQUIP_FAULT = /\b(not cooling|no enfria|no congela|not freezing|warm|caliente|tibio|broken|broke|roto|rota|leak\w*|gotea\w*|fuga|not working|doesn'?t work|no funciona|no sirve|no prende|no enciende|won'?t|no cierra|no abre|gasket|empaque|compressor|compresor|\bice\b|hielo|escarcha|noise|ruido|reads?|marca|°|grados|degrees|temp\w*|temperatura|off\b|apagad|dead|out of order|fuera de servicio)\b/;
-  if (out.category === "Equipment" && NLU_CATS[6].re.test(t) && !EQUIP_FAULT.test(t)) out.category = "Cleaning";
+  if (out.category === "Equipment" && NLU_CATS.find(c => c.cat === "Cleaning").re.test(t) && !EQUIP_FAULT.test(t)) out.category = "Cleaning";
   // severity
   if (NLU_URGENT.test(t)) { out.severity = "urgent"; out.matched.push((t.match(NLU_URGENT) || [""])[0]); }
   else if (NLU_INFO.test(t)) out.severity = "info";
@@ -9212,7 +9226,7 @@ function SpecificsPicker({ cat, units, value, onChange, lang, missing, compact, 
 const haccpProblemText = (pr) => pr?.text ? (pr.category ? `[${pr.category}] ${pr.text}` : pr.text) : "";
 
 /* ── Crew roles: maintenance / cleaning ─────────────────────────────────── */
-const CREW_TYPES = { maintenance: ["Maintenance"], ecolab: ["Ecolab / Maintenance"], cleaning: ["Cleaning"] };
+const CREW_TYPES = { maintenance: ["Maintenance", "Building"], ecolab: ["Ecolab / Maintenance"], cleaning: ["Cleaning"] };
 const CREW_META = { maintenance: { icon: "🔧", title: "Maintenance board", noun: "maintenance" }, ecolab: { icon: "🧪", title: "Ecolab board", noun: "Ecolab" }, cleaning: { icon: "🧹", title: "Cleaning board", noun: "cleaning" } };
 const isCrewRole = r => r === "maintenance" || r === "cleaning" || r === "ecolab";
 // New problem saved (report / quick report / supervisor QR) → ping the crew that owns it
@@ -10797,6 +10811,12 @@ ${sections}
                 <span className="fuSumChip fuCrewChip fuCrewMaint" style={{ background: "#ffedd5", color: "#9a3412", borderColor: "#fdba74", cursor: "pointer" }}
                   onClick={() => setFuSearch(fuSearch.trim().toLowerCase() === "maintenance" ? "" : "maintenance")}>
                   🔧 {fuVisible.filter(f => f.itype === "Maintenance").length} maintenance
+                </span>
+              )}
+              {fuVisible.filter(f => f.itype === "Building").length > 0 && (
+                <span className="fuSumChip fuCrewChip fuCrewBuilding" style={{ background: "#ede9fe", color: "#4c1d95", borderColor: "#c4b5fd", cursor: "pointer" }}
+                  onClick={() => setFuSearch(fuSearch.trim().toLowerCase() === "building" ? "" : "building")}>
+                  🏗 {fuVisible.filter(f => f.itype === "Building").length} building
                 </span>
               )}
               {fuVisible.filter(f => f.itype === "Ecolab / Maintenance").length > 0 && (
@@ -14840,6 +14860,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
           const t = classifyIssueType(a.issue, a.notes, a.priority);
           if (t === "Cleaning") return "Cleaning";
           if (t === "Maintenance" || t === "Temperature") return "Maintenance";
+          if (t === "Building") return "Building";
           if (t === "Ecolab / Maintenance") return "Ecolab";
           return "Other";
         }
@@ -14934,11 +14955,11 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
             setIssueExporting(false); setExportProgress(null);
           }
         }
-        const crewCounts = { Cleaning: 0, Maintenance: 0, Ecolab: 0, Other: 0 };
+        const crewCounts = { Cleaning: 0, Maintenance: 0, Building: 0, Ecolab: 0, Other: 0 };
         allIssues.forEach(i => { crewCounts[i.crew] = (crewCounts[i.crew] || 0) + 1; });
         const pickCrew = (c) => { setExportCrew(c); setSelectedIssueKeys(c === "All" ? new Set(allIssues.map(i => i.key)) : new Set(allIssues.filter(i => i.crew === c).map(i => i.key))); };
         const selectedPhotoCount = (() => { let n = 0; const keys = selectedIssueKeys || new Set(allIssues.map(i => i.key)); for (const rec of selectedRecords) { const items = rec.inspection ? buildActionItems({ inspection: rec.inspection, rawNotes: rec.inspection, foodTemps: rec.foodTemps, foodTempNames: rec.foodTempNames }) : (rec.actionItems || []); for (const a of items) { const { area } = splitIssueModal(a); if (keys.has(`${(area || "").trim()}|||${(a.issue || "").trim()}`)) n += Math.min(EXPORT_PHOTOS_PER_ISSUE, Array.isArray(a.photos) ? a.photos.length : 0); } } return n; })();
-        const CREW_BTNS = [["Cleaning", "🧹", "Cleaning crew", "dirt, grease, mold, spills, trash"], ["Maintenance", "🔧", "Maintenance", "broken, leaking, not working, temperatures"], ["Ecolab", "🧪", "Ecolab", "dispensers, sanitizer, chemicals"], ["All", "📋", "Everything", "every issue, incl. pest control and other"]];
+        const CREW_BTNS = [["Cleaning", "🧹", "Cleaning crew", "dirt, grease, mold, spills, trash"], ["Maintenance", "🔧", "Maintenance", "broken, leaking, not working, temperatures"], ["Building", "🏗", "Building", "holes, walls, ceiling & floor tiles, paint, doors"], ["Ecolab", "🧪", "Ecolab", "dispensers, sanitizer, chemicals"], ["All", "📋", "Everything", "every issue, incl. pest control and other"]];
 
         const exportAccent = showIssueFilter === "excel" ? "#16a34a" : showIssueFilter === "pdf" ? "#dc2626" : "#2563eb";
         const exportAccentLight = showIssueFilter === "excel" ? "var(--tint-green-1)" : showIssueFilter === "pdf" ? "var(--tint-red-1)" : "var(--tint-blue-1)";
@@ -25737,7 +25758,7 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                                               value={ci.ciStatus || "Needs Attention"}
                                               onChange={(e) => makeSetCiStatus(idx, e.target.value)}
                                               style={{ width: "100%" }}>
-                                              {["Needs Attention","Fail","Critical Violation","Corrected On-Site","Maintenance","Off / Not In Use"].map(s => <option key={s} value={s}>{s}</option>)}
+                                              {["Needs Attention","Fail","Critical Violation","Corrected On-Site","Maintenance","Building","Off / Not In Use"].map(s => <option key={s} value={s}>{s}</option>)}
                                             </select>
                                           </div>
                                           <div>
