@@ -1236,9 +1236,86 @@ function slimLocalDraft(v) {
   }
   return v;
 }
-function saveDraft(draft) {
-  try { localStorage.setItem(DRAFT_KEY, JSON.stringify({ ...slimLocalDraft(draft), draftSavedAt: new Date().toISOString() })); } catch {}
+// v495: MANY drafts, one per report id — starting a new report or opening an
+// old one for editing never throws away the walk in progress. The write is
+// synchronous and happens on every change (no timer), so a killed tab, a
+// locked phone or a reload can lose nothing.
+const DRAFTS_KEY = `sdx_drafts_${VENUE_ID}`;
+function loadDrafts() {
+  try { const m = JSON.parse(localStorage.getItem(DRAFTS_KEY) || "{}"); return m && typeof m === "object" && !Array.isArray(m) ? m : {}; } catch { return {}; }
 }
+function writeDrafts(map) { localStorage.setItem(DRAFTS_KEY, JSON.stringify(map)); }
+function draftTitle(d) {
+  const site = (d.siteName || "").trim(), unit = (d.siteNumber || "").trim();
+  const head = site ? `${site}${unit ? " #" + unit : ""}` : (unit ? `Unit #${unit}` : "Untitled report");
+  return `${head}${d.inspectionDate ? " · " + d.inspectionDate : ""}`;
+}
+// Drop every data: string (thumbs included) — the last resort when the phone is full.
+function stripDataUrls(v) {
+  if (Array.isArray(v)) return v.map(stripDataUrls);
+  if (v && typeof v === "object") { const o = {}; for (const [k, x] of Object.entries(v)) { if (typeof x === "string" && x.startsWith("data:")) continue; o[k] = stripDataUrls(x); } return o; }
+  return v;
+}
+function saveDraftFor(id, draft) {
+  if (!id) return false;
+  const entry = { ...slimLocalDraft(draft), id, draftSavedAt: new Date().toISOString() };
+  entry.title = draftTitle(entry);
+  try { const m = loadDrafts(); m[id] = entry; writeDrafts(m); return true; }
+  catch {
+    // Quota: retry once without any pictures, then give up loudly (the strip shows it).
+    try { const m = loadDrafts(); m[id] = { ...stripDataUrls(entry), photosDropped: true }; writeDrafts(m); return true; } catch { return false; }
+  }
+}
+function removeDraftFor(id) {
+  try { const m = loadDrafts(); if (id in m) { delete m[id]; writeDrafts(m); } } catch {}
+}
+function listDrafts() {
+  return Object.values(loadDrafts()).filter(d => d && d.id).sort((a, b) => String(b.draftSavedAt || "").localeCompare(String(a.draftSavedAt || "")));
+}
+// One-time migration of the single-slot draft (v451–v494) into the map.
+function migrateLegacyDraft() {
+  try {
+    const raw = localStorage.getItem(DRAFT_KEY); if (!raw) return;
+    const d = JSON.parse(raw);
+    if (d && d.draftSavedAt) { const id = d.savedReportId || `legacy_${Date.now()}`; const m = loadDrafts(); if (!m[id]) { m[id] = { ...d, id, title: draftTitle(d) }; writeDrafts(m); } }
+    localStorage.removeItem(DRAFT_KEY);
+  } catch {}
+}
+function saveDraft(draft) { return saveDraftFor(draft?.savedReportId, draft); }
+
+// v495: a report whose Save failed (no signal, flaky network) waits here and is
+// uploaded on the next load / when the phone is back online — never lost.
+const INSPECTION_OUTBOX_KEY = `sdx_inspection_outbox_${VENUE_ID}`;
+function loadInspectionOutbox() { try { const l = JSON.parse(localStorage.getItem(INSPECTION_OUTBOX_KEY) || "[]"); return Array.isArray(l) ? l : []; } catch { return []; } }
+function saveInspectionOutbox(list) { try { localStorage.setItem(INSPECTION_OUTBOX_KEY, JSON.stringify(list)); } catch {} }
+function queueInspection(record) {
+  const list = loadInspectionOutbox().filter(r => r.id !== record.id);
+  list.push({ ...record, _queuedAt: new Date().toISOString() });
+  saveInspectionOutbox(list);
+  try { window.dispatchEvent(new CustomEvent("sdx-outbox", { detail: { count: list.length } })); } catch {}
+}
+let _inspOutboxBusy = false;
+let _inspOutboxOnSent = null; // set by the form shell: post-save side effects for a queued record
+async function flushInspectionOutbox(onSent = _inspOutboxOnSent) {
+  if (_inspOutboxBusy) return 0;
+  const list = loadInspectionOutbox(); if (!list.length) return 0;
+  _inspOutboxBusy = true; let sent = 0;
+  try {
+    for (const rec of list) {
+      const { _queuedAt, ...clean } = rec;
+      try { await saveOneInspection(clean); } catch { break; } // keep order — stop at the first failure
+      saveInspectionOutbox(loadInspectionOutbox().filter(r => r.id !== rec.id));
+      // The History warm cache carried it as pending — it is a real record now.
+      try { const k = `sdx_history_cache_${VENUE_ID}`; const c = JSON.parse(localStorage.getItem(k) || "[]"); const i = c.findIndex(r => r.id === rec.id); if (i >= 0) { c[i] = clean; localStorage.setItem(k, JSON.stringify(c)); } } catch {}
+      removeDraftFor(rec.id);
+      try { onSent && onSent(clean); } catch {}
+      sent++;
+    }
+  } finally { _inspOutboxBusy = false; }
+  try { window.dispatchEvent(new CustomEvent("sdx-outbox", { detail: { count: loadInspectionOutbox().length, sent } })); } catch {}
+  return sent;
+}
+try { window.__sdxFlushOutbox = () => flushInspectionOutbox(); } catch {}
 
 // v451: the same draft in the cloud, so a dead phone or a second device
 // does not lose the walk. Photo blobs are stripped — ids/urls only.
@@ -1274,15 +1351,24 @@ async function loadDraftCloud(key) {
 async function clearDraftCloud(key) {
   const ref = draftDocRef();
   if (!ref || !key) return;
-  try { await setDoc(ref, { [key]: null }, { merge: true }); } catch {}
+  try { await setDoc(ref, { [key]: deleteField() }, { merge: true }); } catch {}
 }
-function loadDraft() {
-  try { return JSON.parse(localStorage.getItem(DRAFT_KEY)); } catch { return null; }
+// v495: cloud drafts are keyed `<badge>__<reportId>`; this lists every draft of one badge.
+async function loadDraftsCloud(badge) {
+  const ref = draftDocRef();
+  if (!ref || !badge) return [];
+  try {
+    const snap = await getDoc(ref); if (!snap.exists()) return [];
+    const data = snap.data() || {}; const out = [];
+    for (const [k, v] of Object.entries(data)) {
+      if (!v || typeof v !== "object" || !v.draftSavedAt) continue;
+      if (k === badge && v.savedReportId) out.push({ ...v, id: v.savedReportId, cloudKey: k }); // pre-v495 single slot
+      else if (k.startsWith(badge + "__")) out.push({ ...v, id: v.id || k.slice(badge.length + 2), cloudKey: k });
+    }
+    return out;
+  } catch { return []; }
 }
-
-function clearDraft() {
-  try { localStorage.removeItem(DRAFT_KEY); } catch {}
-}
+const draftCloudKey = (badge, id) => (badge && id ? `${badge}__${id}` : "");
 
 function loadParSupplies() {
   try { return JSON.parse(localStorage.getItem(PAR_KEY)) || []; } catch { return []; }
@@ -1739,6 +1825,7 @@ function sanitizeForFirestore(val) {
 }
 
 async function saveOneInspection(record) {
+  if (window.__sdxFailNextSave) { window.__sdxFailNextSave = false; throw new Error("unavailable: the network is down (test hook)"); } // v495 harness
   if (FIREBASE_ON) {
     const col = IS_DEFAULT_VENUE() ? legacyCol("inspections") : venueCol("inspections");
     await setDoc(doc(col, record.id), sanitizeForFirestore(record));
@@ -14123,6 +14210,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                         {rec.temps?.iceMakerCleanedDate && <div className="rptInfoCell"><span className="rptInfoLabel">Ice Maker Cleaned</span><span className="rptInfoVal">{rec.temps.iceMakerCleanedDate}</span></div>}
                       </div>
 
+                      {rec._pending && <div className="pendingUploadChip" data-testid="pending-upload">⏳ Waiting to upload — saved on this phone, it goes to the cloud when the connection is back</div>}
                       {/* ── v466 SUPERVISOR LOG: filed from the stand QR, no inspector report needed ── */}
                       {rec.supervisorLog && (
                         <div className="supLogBadge">
@@ -30988,6 +31076,7 @@ export default function App() {
   const [aiTips, setAiTips] = useState([]);
   const [saved, setSaved] = useState(false);
   const [saveToast, setSaveToast] = useState(false);
+  const [saveToastMsg, setSaveToastMsg] = useState("✅ Report saved!"); // v495
   // Assign a stable reportId immediately on mount so the HACCP QR is always linkable —
   // even before the inspector clicks "Generate". saveToHistory() reuses this same ID.
   // We persist this ID in localStorage so it survives page reloads — without this,
@@ -31036,7 +31125,7 @@ export default function App() {
       return Object.values(obj).some(v => typeof v === "object" && hasPhotos(v));
     }
     const hasInspectionPhotos = hasPhotos(inspection);
-    reportInProgressRef.current = hasText || hasInspectionPhotos;
+    reportInProgressRef.current = hasText || hasInspectionPhotos || !!dirtyRef.current; // v495: any unsaved change counts
   }, [rawNotes, siteName, output, inspection]);
 
   // Track activity for auto-lock
@@ -31088,6 +31177,7 @@ export default function App() {
           lastActivity.current = Date.now(); // reset timer silently
           return;
         }
+        try { flushDraftRef.current && flushDraftRef.current(); } catch {}
         lockApp();
         setLocked(true);
       }
@@ -31230,66 +31320,171 @@ export default function App() {
     if (p.toString() && !(IS_HACCP_PORTAL && !QR_OPEN_AS_INSPECTOR)) window.history.replaceState({}, "", window.location.pathname);
   }, []);
 
-  // Warn before leaving with unsaved work
+  // Warn before leaving with unsaved work (v495: anything dirty, not only notes)
   useEffect(() => {
     function handleBeforeUnload(e) {
-      if (rawNotes.trim() && !saved) {
+      try { flushDraftRef.current && flushDraftRef.current(); } catch {}
+      if (dirtyRef.current && !saved) {
         e.preventDefault();
         e.returnValue = "";
       }
     }
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [rawNotes, saved]);
+  }, [saved]);
 
-  // ── Auto-save the draft a few seconds after the inspector stops typing ──
-  // v451: this used to be setInterval(30s) with every form field in the dep
-  // array, so the clock restarted on every keystroke and a steady typist could
-  // go the whole walk without a single save. Now it debounces, and the draft
-  // also goes to the cloud so another device (or a dead battery) can recover it.
+  // ── v495: the draft is written on EVERY change, synchronously ──────────
+  // v451 debounced 4 s and only when notes / a stand name / a photo existed, so
+  // a checklist-only walk, a supplies list or the last 4 s before a tab died were
+  // gone. Now: every state that makes up the report is in the snapshot; the
+  // effect compares it with the "pristine" snapshot taken at New / restore /
+  // save and writes the draft (keyed by report id) the moment they differ. The
+  // cloud copy follows at most every 8 s and is forced on hide / lock / navigate.
+  const dirtyRef = useRef(false);
+  const pristineRef = useRef(null);      // JSON of the snapshot that needs no draft
+  const pristineArmRef = useRef(true);   // next effect run records the pristine state
+  const draftSnapRef = useRef(null);
+  const cloudTimerRef = useRef(null);
+  const cloudLastRef = useRef(0);
+  const flushDraftRef = useRef(null);
+  const defaultInspJsonRef = useRef(null);
+  const [draftFail, setDraftFail] = useState(false);
+  const [draftList, setDraftList] = useState(() => { migrateLegacyDraft(); return listDrafts(); });
+  const [cloudDrafts, setCloudDrafts] = useState([]);
+  const [draftsOpen, setDraftsOpen] = useState(false);
+  const [draftAsk, setDraftAsk] = useState(null); // id waiting for a delete confirm
+  const [restoredFrom, setRestoredFrom] = useState(null);
+  const [outboxCount, setOutboxCount] = useState(() => loadInspectionOutbox().length);
+  const badgeKey = () => currentUser?.badgeHash || (inspectorName || "").trim().toLowerCase().replace(/[^a-z0-9]+/g, "_");
+  function buildDraftSnapshot() {
+    return {
+      noteType, useCase, context, inspection,
+      rawNotes, inspectionType, inspectionDate,
+      inspectorName, participantName,
+      siteName, siteNumber, restaurantLicense,
+      supervisorName, sitePhone, locationType, floor, eventName,
+      foodTemps, foodTempNames, foodTempCorrections, foodTempSubmitted, foodTempTimes,
+      suppliesNeeded, notesPhotos, correctives, output, onSiteConfirmed, guideStep,
+      reportStartedAt: reportStartedAt.current, inspectionStartedAt: inspectionStartedAt.current,
+      isEditMode: isEditModeRef.current,
+      savedReportId,
+    };
+  }
+  function sendCloudNow() {
+    if (cloudTimerRef.current) { clearTimeout(cloudTimerRef.current); cloudTimerRef.current = null; }
+    const snap = draftSnapRef.current; if (!snap) return;
+    cloudLastRef.current = Date.now();
+    saveDraftCloud(draftCloudKey(badgeKey(), snap.savedReportId), snap).then(ok => { if (ok) setDraftCloudAt(new Date()); });
+  }
+  function scheduleCloud() {
+    if (cloudTimerRef.current) return;
+    const wait = Math.max(0, 8000 - (Date.now() - cloudLastRef.current));
+    cloudTimerRef.current = setTimeout(() => { cloudTimerRef.current = null; sendCloudNow(); }, wait);
+  }
   useEffect(() => {
-    const id = setTimeout(() => {
-      if (!reportInProgressRef.current) return; // nothing started yet
-      if (saved) return; // inspection already saved — don't re-draft committed data
-      const draft = {
-        noteType, useCase, context, inspection,
-        rawNotes, inspectionType, inspectionDate,
-        inspectorName, participantName,
-        siteName, siteNumber, restaurantLicense,
-        supervisorName, sitePhone, locationType, floor, eventName,
-        foodTemps, foodTempNames,
-        savedReportId,
-      };
-      saveDraft(draft);
-      setDraftSavedAt(new Date());
-      const key = currentUser?.badgeHash || (inspectorName || "").trim().toLowerCase().replace(/[^a-z0-9]+/g, "_");
-      saveDraftCloud(key, draft).then(ok => { if (ok) setDraftCloudAt(new Date()); });
-    }, 4000); // 4 s after the last change
-    return () => clearTimeout(id);
+    const snap = buildDraftSnapshot();
+    draftSnapRef.current = snap;
+    let json = ""; try { json = JSON.stringify(slimLocalDraft(snap)); } catch { json = String(Date.now()); }
+    if (pristineArmRef.current) { pristineArmRef.current = false; pristineRef.current = json; dirtyRef.current = false; return; }
+    if (json === pristineRef.current) { dirtyRef.current = false; return; }
+    // Signing in fills the inspector name / date / on-site flag — that is not a
+    // report. Only user content makes a draft.
+    const hasContent = !!(siteName.trim() || siteNumber.trim() || rawNotes.trim() || suppliesNeeded.length || notesPhotos.length || output.trim()
+      || Object.values(foodTemps || {}).some(a => (a || []).some(v => String(v || "").trim()))
+      || JSON.stringify(inspection) !== (defaultInspJsonRef.current || (defaultInspJsonRef.current = JSON.stringify(buildDefaultInspection()))));
+    if (!hasContent) { dirtyRef.current = false; return; }
+    dirtyRef.current = true;
+    reportInProgressRef.current = true; // dirty work counts — the idle lock must not lock over it
+    if (saved) return; // the record was just written — no draft of committed data
+    const ok = saveDraftFor(savedReportId, snap);
+    setDraftFail(!ok);
+    if (ok) setDraftSavedAt(new Date());
+    scheduleCloud();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [noteType, useCase, context, inspection, rawNotes, inspectionType,
       inspectionDate, inspectorName, participantName, siteName, siteNumber,
       restaurantLicense, supervisorName, sitePhone, locationType, floor,
-      eventName, foodTemps, foodTempNames, saved]);
+      eventName, foodTemps, foodTempNames, foodTempCorrections, foodTempSubmitted, foodTempTimes,
+      suppliesNeeded, notesPhotos, correctives, output, onSiteConfirmed, guideStep, savedReportId, saved]);
+  // Flush = write the local draft from the latest snapshot and push the cloud copy now.
+  flushDraftRef.current = () => {
+    const snap = draftSnapRef.current; if (!snap || !dirtyRef.current) return false;
+    const ok = saveDraftFor(snap.savedReportId, snap);
+    if (cloudTimerRef.current) sendCloudNow();
+    return ok;
+  };
+  try { window.__sdxFlushDraft = () => flushDraftRef.current && flushDraftRef.current(); } catch {}
+  useEffect(() => {
+    const flush = () => { try { flushDraftRef.current && flushDraftRef.current(); } catch {} };
+    const onVis = () => { if (document.visibilityState === "hidden") flush(); };
+    window.addEventListener("pagehide", flush);
+    document.addEventListener("visibilitychange", onVis);
+    return () => { window.removeEventListener("pagehide", flush); document.removeEventListener("visibilitychange", onVis); };
+  }, []);
+  useEffect(() => { try { flushDraftRef.current && flushDraftRef.current(); } catch {} }, [page]); // leaving the form
+  // Mark the current form as pristine (after New / restore / save) — the next render records it.
+  function armPristine() { pristineArmRef.current = true; dirtyRef.current = false; }
 
-  // On unlock: check for a saved draft and offer to restore it
-  const [draftBanner, setDraftBanner] = useState(null); // null | draft object
-  // v451: nothing local (new device, cleared browser)? try the cloud copy.
+  // Open a draft (auto after unlock, or picked from the list). Never discards the
+  // current work: it is flushed to its own slot first.
+  function openDraft(d, { auto = false } = {}) {
+    try { flushDraftRef.current && flushDraftRef.current(); } catch {}
+    restoreFormState(d);
+    const id = d.id || d.savedReportId || `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    savedReportIdRef.current = id; setSavedReportId(id);
+    try { localStorage.setItem(REPORT_ID_KEY, id); } catch {}
+    isEditModeRef.current = !!d.isEditMode;
+    if (typeof d.reportStartedAt === "number") reportStartedAt.current = d.reportStartedAt;
+    if (typeof d.inspectionStartedAt === "number") inspectionStartedAt.current = d.inspectionStartedAt;
+    setSaved(false); setError(""); setWarnings([]);
+    if (d.cloudKey && !loadDrafts()[id]) saveDraftFor(id, { ...d, savedReportId: id }); // a draft from another device — keep a copy here
+    armPristine();
+    setDraftsOpen(false);
+    setRestoredFrom(d.draftSavedAt || new Date().toISOString());
+    setTimeout(() => setRestoredFrom(null), auto ? 8000 : 4000);
+    setDraftList(listDrafts());
+    setPage("inspector");
+    if (!auto) window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+  function deleteDraft(id) {
+    removeDraftFor(id);
+    try { clearDraftCloud(draftCloudKey(badgeKey(), id)); } catch {}
+    setCloudDrafts(prev => prev.filter(d => d.id !== id));
+    setDraftAsk(null);
+    if (id === savedReportIdRef.current) { armPristine(); startNewInspection(); return; }
+    setDraftList(listDrafts());
+  }
+  // After unlock: bring back the report that was open when the tab died — no
+  // question asked — and list the other unsaved reports (this phone + the cloud).
   useEffect(() => {
-    if (locked || draftBanner || saved) return;
-    if (loadDraft()) return;
-    const key = currentUser?.badgeHash || (inspectorName || "").trim().toLowerCase().replace(/[^a-z0-9]+/g, "_");
-    if (!key) return;
+    if (locked) return;
+    migrateLegacyDraft();
+    const m = loadDrafts();
+    const cur = m[savedReportIdRef.current];
+    if (cur && cur.draftSavedAt && !dirtyRef.current) { try { openDraft(cur, { auto: true }); } catch (e) { console.error("draft restore:", e); } }
+    setDraftList(listDrafts());
+    const badge = badgeKey(); if (!badge) return;
     let dead = false;
-    loadDraftCloud(key).then(d => { if (!dead && d && d.draftSavedAt && !reportInProgressRef.current) setDraftBanner(d); });
+    loadDraftsCloud(badge).then(list => { if (dead) return; const local = loadDrafts(); setCloudDrafts(list.filter(d => !local[d.id] && d.id !== savedReportIdRef.current)); });
     return () => { dead = true; };
-  }, [locked]); // eslint-disable-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [locked]);
+  // Reports whose Save failed wait in the outbox — retry on load, when back online, every 30 s.
   useEffect(() => {
-    if (locked) return; // only run after login
-    const draft = loadDraft();
-    if (draft && draft.draftSavedAt) {
-      setDraftBanner(draft);
-    }
-  }, [locked]); // runs once right after the user unlocks
+    const onBox = e => { const n = e.detail?.sent || 0; setOutboxCount(e.detail?.count ?? loadInspectionOutbox().length); if (n) { setSaveToastMsg(`✅ ${n} report${n !== 1 ? "s" : ""} uploaded`); setSaveToast(true); setTimeout(() => setSaveToast(false), 3500); } };
+    window.addEventListener("sdx-outbox", onBox);
+    _inspOutboxOnSent = rec => { try { learnFromSave(rec); } catch {} try { notifyCrewsForItems(rec.actionItems, rec.siteName, rec.siteNumber, rec.inspectorName); } catch {} };
+    const run = () => { if (!locked && navigator.onLine) flushInspectionOutbox(); };
+    run();
+    window.addEventListener("online", run);
+    const iv = setInterval(run, 30000);
+    return () => { window.removeEventListener("sdx-outbox", onBox); window.removeEventListener("online", run); clearInterval(iv); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [locked]);
+  const otherDrafts = useMemo(() => {
+    const seen = new Set();
+    return [...draftList, ...cloudDrafts].filter(d => d.id !== savedReportId && !seen.has(d.id) && seen.add(d.id));
+  }, [draftList, cloudDrafts, savedReportId]);
 
   // Scan rawNotes for structured fields the inspector may have typed in the notes box
   useEffect(() => {
@@ -31585,6 +31780,7 @@ export default function App() {
   }
 
   function startNewInspection() {
+    try { flushDraftRef.current && flushDraftRef.current(); } catch {} // v495: keep the current walk
     reportStartedAt.current = null; // reset — timer restarts when name is typed/confirmed
     inspectionStartedAt.current = null; // reset on-site timer
     activeSlotIdRef.current = null; // clear any active scheduled slot (regular inspection path)
@@ -31643,8 +31839,11 @@ export default function App() {
     setNotesSuggestions(null);
     setSuggestionsDismissed(false);
     setGuideStep(0);
-    clearDraft(); // explicitly reset — discard any saved draft
-    setDraftBanner(null);
+    // v495: the walk in progress is NOT thrown away — it was flushed to its own
+    // slot and stays under "Unsaved reports"; this form starts pristine.
+    armPristine();
+    setDraftsOpen(false);
+    setDraftList(listDrafts());
     setPage("inspector");
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
@@ -31690,10 +31889,15 @@ export default function App() {
     if (snapshot.foodTempCorrections && typeof snapshot.foodTempCorrections === "object") setFoodTempCorrections({ ...snapshot.foodTempCorrections });
     if (snapshot.foodTempSubmitted && typeof snapshot.foodTempSubmitted === "object") setFoodTempSubmitted({ ...snapshot.foodTempSubmitted });
     if (snapshot.foodTempTimes && typeof snapshot.foodTempTimes === "object") setFoodTempTimes({ ...snapshot.foodTempTimes });
-    if (snapshot.inspection !== undefined) setNotesPhotos(Array.isArray(snapshot.inspection?._notesPhotos) ? snapshot.inspection?._notesPhotos : []);
+    if (Array.isArray(snapshot.notesPhotos)) setNotesPhotos(snapshot.notesPhotos); // v495 draft
+    else if (snapshot.inspection !== undefined) setNotesPhotos(Array.isArray(snapshot.inspection?._notesPhotos) ? snapshot.inspection?._notesPhotos : []);
     if (snapshot.suppliesNeeded !== undefined) setSuppliesNeeded(Array.isArray(snapshot.suppliesNeeded) ? snapshot.suppliesNeeded : []);
     if (snapshot.rawNotes !== undefined) setRawNotes(snapshot.rawNotes || "");
     if (snapshot.output !== undefined) setOutput(snapshot.output || "");
+    // v495: the rest of the form state a draft carries
+    if (snapshot.correctives && typeof snapshot.correctives === "object") setCorrectives({ ...snapshot.correctives });
+    if (typeof snapshot.onSiteConfirmed === "boolean") setOnSiteConfirmed(snapshot.onSiteConfirmed);
+    if (typeof snapshot.guideStep === "number") setGuideStep(snapshot.guideStep);
   }
 
   function loadRecordForEdit(rec) {
@@ -31701,6 +31905,7 @@ export default function App() {
     const isAdmin = currentUser?.role === "admin" || currentUser?.role === "global_admin";
     const isAuthor = rec.savedByHash && currentUser?.badgeHash && rec.savedByHash === currentUser.badgeHash;
     if (!isAdmin && !isAuthor) return;
+    try { flushDraftRef.current && flushDraftRef.current(); } catch {} // v495: the walk in progress keeps its slot
     try {
       restoreFormState(rec);
       // Generate output immediately from the record data so it's visible right away
@@ -31741,8 +31946,9 @@ export default function App() {
       setError("");
       setWarnings([]);
       setAiTips([]);
-      clearDraft();
-      setDraftBanner(null);
+      armPristine(); // v495: an edit drafts under rec.id only once something changes
+      setDraftsOpen(false);
+      setDraftList(listDrafts());
       // Enable live output regeneration while this record is being edited
       isEditModeRef.current = true;
       // Skip the "Inspection Locked" on-site confirmation — editing a saved report
@@ -31964,8 +32170,9 @@ export default function App() {
     // Firebase Storage https:// URLs are kept (they are short strings, not image data).
     function stripBase64(val) {
       if (typeof val === "string") {
-        // Drop the value if it is a base64 data URL or any very large string (>8 KB)
-        if (val.startsWith("data:") || val.length > 8192) return "";
+        // Drop the value if it is a base64 data URL or an absurdly large string
+        // (v495: was 8 KB, which blanked long notes — now 200 KB)
+        if (val.startsWith("data:") || val.length > 200000) return "";
         return val;
       }
       if (Array.isArray(val)) return val.map(stripBase64);
@@ -32035,12 +32242,8 @@ export default function App() {
       try { commitCorrectives(record.id); } catch {}
       try { notifyCrewsForItems(record.actionItems, record.siteName, record.siteNumber, record.inspectorName); } catch {}
       learnFromSave(cleanRecord);
-      clearDraft(); // draft committed — remove auto-save
-      try { clearDraftCloud(currentUser?.badgeHash || (inspectorName || "").trim().toLowerCase().replace(/[^a-z0-9]+/g, "_")); } catch {}
-      setDraftCloudAt(null);
-      reportInProgressRef.current = false; // prevent auto-save from re-saving completed inspection
-      setSaved(true);
-      setSaveToast(true);
+      afterSaved(record.id, false);
+      flushInspectionOutbox(); // anything older still waiting goes now too
       savedReportIdRef.current = record.id;
       setSavedReportId(record.id);
       try { localStorage.setItem(REPORT_ID_KEY, record.id); } catch {}
@@ -32073,13 +32276,33 @@ export default function App() {
     } catch (e) {
       console.error("Save failed:", e, "doc size:", docSizeKb, "KB");
       const errMsg = (e?.message || "").toLowerCase();
+      const fatal = e?.code === "permission-denied" || errMsg.includes("size") || errMsg.includes("too large") || errMsg.includes("exceed") || docSizeKb > 900;
+      if (!fatal) {
+        // v495: no signal / flaky network — the report waits on this phone and is
+        // uploaded on the next load or when the connection is back. Never lost.
+        queueInspection(cleanRecord);
+        try { const k = `sdx_history_cache_${VENUE_ID}`; const c = JSON.parse(localStorage.getItem(k) || "[]"); localStorage.setItem(k, JSON.stringify([{ ...cleanRecord, _pending: true }, ...c.filter(r => r.id !== cleanRecord.id)])); } catch {}
+        afterSaved(record.id, true);
+        return;
+      }
       const msg = e?.code === "permission-denied"
         ? "Save failed — permission denied. Check Firestore rules."
-        : (errMsg.includes("size") || errMsg.includes("too large") || errMsg.includes("exceed") || docSizeKb > 900)
-          ? "Save failed — document too large. Try removing some photos."
-          : `Save failed: ${e?.message || "Check your connection and try again."}`;
+        : "Save failed — document too large. Try removing some photos.";
       setError(msg);
     }
+  }
+  // v495: what a successful save (or a queued one) does to the form.
+  function afterSaved(id, queued) {
+    if (!queued) { removeDraftFor(id); try { clearDraftCloud(draftCloudKey(badgeKey(), id)); } catch {} }
+    if (cloudTimerRef.current) { clearTimeout(cloudTimerRef.current); cloudTimerRef.current = null; }
+    setDraftCloudAt(null);
+    setDraftFail(false);
+    setDraftList(listDrafts());
+    armPristine();
+    reportInProgressRef.current = false; // prevent auto-save from re-saving completed inspection
+    setSaved(true);
+    setSaveToastMsg(queued ? "📥 Saved on this phone — it uploads when the connection is back" : "✅ Report saved!");
+    setSaveToast(true);
   }
 
   const licenseMissing = restaurantLicense?.trim() === "NO LICENSE";
@@ -32327,7 +32550,7 @@ export default function App() {
                 <div style={{ display: "flex", gap: 6 }}>
                   <button className="btn" style={{ flex: 1, background: "#dc2626", color: "#fff", border: "none", fontSize: "0.8rem", padding: "0.35rem 0", fontWeight: 700 }}
                     type="button"
-                    onClick={() => { setLockConfirm(false); lockApp(); setCurrentUser(null); setLocked(true); }}>
+                    onClick={() => { setLockConfirm(false); try { flushDraftRef.current && flushDraftRef.current(); } catch {} lockApp(); setCurrentUser(null); setLocked(true); }}>
                     Yes, Lock
                   </button>
                   <button className="btn" style={{ flex: 1, fontSize: "0.8rem", padding: "0.35rem 0", background: "rgba(255,255,255,.1)", color: "#fff", border: "1px solid rgba(255,255,255,.35)", fontWeight: 600 }}
@@ -32345,42 +32568,52 @@ export default function App() {
         )}
 
         {/* ── Offline / draft-sync status strip ──────────────────────────────── */}
-        {(!isOnline || (draftSavedAt && reportInProgressRef.current)) && (
-          <div className={isOnline ? "topStrip topStripDraft" : "topStrip topStripOffline"} style={{
+        {(!isOnline || draftFail || outboxCount > 0 || (page === "inspector" && (saved || (draftSavedAt && dirtyRef.current)))) && (
+          <div className={cx("topStrip", draftFail ? "topStripFail" : isOnline ? "topStripDraft" : "topStripOffline")} data-testid="draft-strip" style={{
             width: "100vw",               /* full-bleed row regardless of header padding */
             marginLeft: "calc(50% - 50vw)",
             flexBasis: "100%",            /* always its own full-width row below the header */
             order: 99,
-            background: isOnline ? "rgba(255,255,255,0.12)" : "rgba(220,38,38,0.85)",
-            borderTop: isOnline ? "1px solid rgba(255,255,255,0.18)" : "1px solid rgba(239,68,68,0.5)",
+            background: draftFail ? "rgba(220,38,38,0.92)" : isOnline ? "rgba(255,255,255,0.12)" : "rgba(220,38,38,0.85)",
+            borderTop: isOnline && !draftFail ? "1px solid rgba(255,255,255,0.18)" : "1px solid rgba(239,68,68,0.5)",
             padding: "0.3rem 28px",
             display: "flex",
             alignItems: "center",
             gap: 8,
             fontSize: "0.78rem",
             color: "#fff",
-            fontWeight: isOnline ? 400 : 600,
+            fontWeight: isOnline && !draftFail ? 400 : 600,
             letterSpacing: "0.01em",
             flexShrink: 0,
+            flexWrap: "wrap",
           }}>
-            {!isOnline ? (
+            {draftFail ? (
+              <span className="draftSavedText" data-testid="draft-fail">⚠ Could not save on this phone — free up space or close other tabs, then keep going</span>
+            ) : !isOnline ? (
               <>
                 <span style={{ fontSize: "0.85rem" }}>🔴</span>
-                <span>Offline — inspection data saved locally and will sync when reconnected</span>
+                <span>Offline — your report is saved on this phone and uploads when reconnected</span>
               </>
-            ) : (
+            ) : saved && page === "inspector" ? (
+              <span className="draftSavedText" data-testid="draft-ok">✅ Report saved</span>
+            ) : draftSavedAt && dirtyRef.current && page === "inspector" ? (
               <>
                 <span style={{ fontSize: "0.85rem", opacity: 0.8 }}>💾</span>
-                <span className="draftSavedText" style={{ opacity: 0.85 }}>
-                  Draft saved {(() => {
+                <span className="draftSavedText" data-testid="draft-ok" style={{ opacity: 0.9 }}>
+                  ✓ Saved on this phone · {(() => {
                     const diffMs = Date.now() - draftSavedAt.getTime();
                     const mins = Math.floor(diffMs / 60000);
                     if (mins < 1) return "just now";
                     if (mins === 1) return "1 min ago";
                     return `${mins} min ago`;
-                  })()}{draftCloudAt ? " · ☁︎ in the cloud" : ""}
+                  })()}{draftCloudAt ? ` · ☁ cloud ${draftCloudAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ""}
                 </span>
               </>
+            ) : null}
+            {outboxCount > 0 && (
+              <button type="button" className="outboxChip" data-testid="outbox-chip" onClick={() => flushInspectionOutbox()}>
+                📥 {outboxCount} report{outboxCount !== 1 ? "s" : ""} waiting to upload · tap to retry
+              </button>
             )}
           </div>
         )}
@@ -32459,26 +32692,41 @@ export default function App() {
         </div>
       )}
 
-      {/* Draft restore banner — shown after login when an unsaved draft exists */}
-      {draftBanner && (
-        <div style={{ background: "var(--tint-amber-1)", border: "1px solid #fde047", padding: "0.75rem 1.25rem", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-          <span style={{ fontSize: "1.1rem" }}>📋</span>
-          <span style={{ flex: 1, color: "#854d0e", fontWeight: 600, fontSize: "0.9rem" }}>
-            Unsaved draft found from {(() => { try { return new Date(draftBanner.draftSavedAt).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }); } catch { return draftBanner.draftSavedAt; } })()} — restore it?
-          </span>
-          <button type="button" className="btn" style={{ background: "var(--sdx-navy)", color: "#fff", borderColor: "var(--sdx-navy)", fontSize: "0.85rem", padding: "0.4rem 1rem" }}
-            onClick={() => {
-              const d = draftBanner;
-              restoreFormState(d);
-              if (d.savedReportId) { savedReportIdRef.current = d.savedReportId; setSavedReportId(d.savedReportId); try { localStorage.setItem(REPORT_ID_KEY, d.savedReportId); } catch {} }
-              setDraftBanner(null);
-            }}>
-            Restore Draft
+      {/* v495: the report that was open comes back by itself; other unsaved reports are listed */}
+      {restoredFrom && page === "inspector" && (
+        <div className="draftRestoredStrip" data-testid="draft-restored">
+          ↩ Restored your unsaved report from {(() => { try { return new Date(restoredFrom).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }); } catch { return restoredFrom; } })()} — keep going, it saves itself.
+        </div>
+      )}
+      {page === "inspector" && otherDrafts.length > 0 && (
+        <div className="draftListBar" data-testid="draft-list">
+          <button type="button" className="draftListHead" data-testid="draft-list-toggle" onClick={() => setDraftsOpen(o => !o)}>
+            📋 {otherDrafts.length} unsaved report{otherDrafts.length !== 1 ? "s" : ""} on this phone{cloudDrafts.length ? " & in the cloud" : ""} <span className="draftListCaret">{draftsOpen ? "▴" : "▾"}</span>
           </button>
-          <button type="button" className="btn btnGhost" style={{ fontSize: "0.85rem", padding: "0.4rem 1rem" }}
-            onClick={() => { clearDraft(); setDraftBanner(null); }}>
-            Discard
-          </button>
+          {draftsOpen && (
+            <div className="draftListBody">
+              {otherDrafts.map(d => (
+                <div key={d.id} className="draftRow" data-testid="draft-row">
+                  <div className="draftRowMain">
+                    <span className="draftRowTitle"><NT>{d.title || draftTitle(d)}</NT>{d.isEditMode ? " · editing a saved report" : ""}</span>
+                    <span className="draftRowMeta">saved {(() => { try { return new Date(d.draftSavedAt).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }); } catch { return ""; } })()}{d.cloudKey ? " · ☁ from another device" : ""}{d.photosDropped ? " · pictures were dropped (phone full)" : ""}</span>
+                  </div>
+                  {draftAsk === d.id ? (
+                    <div className="draftAsk">
+                      <span>Delete this unsaved report?</span>
+                      <button type="button" className="btn btnDanger" data-testid="draft-delete-yes" onClick={() => deleteDraft(d.id)}>Yes, delete</button>
+                      <button type="button" className="btn btnGhost" onClick={() => setDraftAsk(null)}>No</button>
+                    </div>
+                  ) : (
+                    <div className="draftRowBtns">
+                      <button type="button" className="btn btnPrimary" data-testid="draft-open" onClick={() => openDraft(d)}>Open</button>
+                      <button type="button" className="btn btnGhost" data-testid="draft-delete" onClick={() => setDraftAsk(d.id)}>🗑 Delete</button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -34258,8 +34506,8 @@ export default function App() {
           boxShadow: "0 4px 24px rgba(0,0,0,0.25)", zIndex: 9999,
           display: "flex", alignItems: "center", gap: 10,
           animation: "fadeInUp 0.25s ease",
-        }}>
-          ✅ Report saved!
+        }} data-testid="save-toast">
+          {saveToastMsg}
         </div>
       )}
 

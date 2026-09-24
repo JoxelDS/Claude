@@ -153,7 +153,7 @@ function showUpdateBanner() {
   const mo = new MutationObserver(place);
   mo.observe(document.body, { childList: true, subtree: true });
   window.addEventListener("resize", place);
-  document.getElementById("sw-reload-btn").addEventListener("click", () => window.location.reload());
+  document.getElementById("sw-reload-btn").addEventListener("click", () => { try { window.__sdxFlushDraft && window.__sdxFlushDraft(); } catch {} window.location.reload(); });
   document.getElementById("sw-later-btn").addEventListener("click", () => {
     banner.remove(); mo.disconnect(); window.removeEventListener("resize", place);
     // come back in 10 minutes — the update is still waiting
