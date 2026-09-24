@@ -2895,6 +2895,8 @@ function standTypeBadge(lt) {
   if (t === "Kitchen") return { short: "KITCHEN", cls: "stKit", full: t };
   return { short: t.toUpperCase(), cls: "stOther", full: t };
 }
+// v491: proper nouns (stand names, units, licenses, brands) must never be translated by the page translator — "NOVECENTO" became "TWENTIETH CENTURY".
+const NT = ({ children, style, className }) => <span className={"notranslate" + (className ? " " + className : "")} translate="no" style={style}>{children}</span>;
 const StandType = ({ lt, style }) => { const b = standTypeBadge(lt); return <span className={"stType " + b.cls} title={b.full || "Stand type not set"} style={style}>{b.short}</span>; };
 
 // Bar-specific cold equipment
@@ -8764,7 +8766,7 @@ function PredictiveInsightsPanel({ history, venueSettings }) {
                 <div className="predictiveItemTop">
                   <span className="predictiveRiskIcon">{riskIcon[p.risk]}</span>
                   <div className="predictiveItemMain">
-                    <div className="predictiveItemMsg">{p.message}</div>
+                    <div className="predictiveItemMsg notranslate" translate="no">{p.message}</div>
                     <div className="predictiveItemMeta">
                       <span className="predictiveTypeBadge" style={{ background: bt.bg, color: bt.color, border: `1px solid ${bt.border}` }}>
                         {bt.label}
@@ -9644,7 +9646,7 @@ function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLoc
             {reports.map(({ r, hits }) => (
               <div key={r.id} className="crewReport" onClick={() => setOpenReport(openReport === r.id ? null : r.id)}>
                 <div className="crewReportHead notranslate" translate="no">
-                  <span className="crewReportSite">{r.siteName || "—"}{r.siteNumber ? ` · #${r.siteNumber}` : ""}</span>
+                  <span className="crewReportSite notranslate" translate="no">{r.siteName || "—"}{r.siteNumber ? ` · #${r.siteNumber}` : ""}</span>
                   <span className="crewReportMeta">{(r.inspectionDate || r.savedAt || "").slice(0, 10)} · {r.inspectionType || T("Inspection", "Inspección", "Enspeksyon")} · {r.inspectorName || r.reportedBy?.name || ""}</span>
                   <span className="crewReportCount">{hits.length}</span>
                 </div>
@@ -10923,7 +10925,7 @@ ${sections}
                       {fuSelectMode && selBox(f)}
                       <span className="fuFixedIcon">{f.fixedWhose === "sub" ? "🧾" : "🧹"}</span>
                       <div className="fuFixedBody">
-                        <div className="fuFixedTitle">{f.loc}{f.unit ? ` · #${f.unit}` : ""} — {f.cat}</div>
+                        <div className="fuFixedTitle"><NT>{f.loc}{f.unit ? ` · #${f.unit}` : ""}</NT> — {f.cat}</div>
                         <div className="fuFixedMeta">
                           {clockD(f.fixedTs)}{f.fixedBy ? ` · ${f.fixedBy}` : ""}{f.fixedHow === "already" ? " · was already clean" : ""}
                         </div>
@@ -10972,7 +10974,7 @@ ${sections}
                       {fuSelectMode && selBox(f)}
                       <span className="fuFixedIcon">{ISSUE_TYPE_ICON[f.itype] || "🔧"}</span>
                       <div className="fuFixedBody">
-                        <div className="fuFixedTitle">{f.loc}{f.unit ? ` · #${f.unit}` : ""} — {f.cat}</div>
+                        <div className="fuFixedTitle"><NT>{f.loc}{f.unit ? ` · #${f.unit}` : ""}</NT> — {f.cat}</div>
                         {f.detail && <div className="fuFixedDetail">{f.detail}</div>}
                         {f.reopened && <span className="fuReopened">↻ REOPENED — flagged again {f.dateStr}</span>}
                         <div className="fuFixedMeta">{ago} ({clockT(f.fixedTs)}){f.fixedBy ? ` · by ${f.fixedBy}` : ""}{f.fixedHow === "already" ? " · was already clean" : f.fixedHow === "crew" ? " · cleaned by the crew" : ""}{f.dateStr ? ` · flagged ${f.dateStr}` : ""}</div>
@@ -11015,7 +11017,7 @@ ${sections}
                           ? <>🏢 {g.floor}<span className="fuLoc"> · {g.standCount} stand{g.standCount !== 1 ? "s" : ""}</span></>
                           : fuGroupBy === "date"
                           ? <>📅 {dayLabel(g.type)}<span className="fuLoc"> · {g.standCount} stand{g.standCount !== 1 ? "s" : ""}</span></>
-                          : <>{g.loc}{g.unit ? <span className="fuLoc"> · Unit #{g.unit}</span> : null}</>}
+                          : <NT>{g.loc}{g.unit ? <span className="fuLoc"> · Unit #{g.unit}</span> : null}</NT>}
                         <span className="fuGroupBadge">{g.items.length}</span>
                       </div>
                       <div className="fuGroupChips">
@@ -11046,7 +11048,7 @@ ${sections}
                               <div className="fuTitle">
                                 {fuGroupBy === "loc"
                                   ? f.cat
-                                  : <>{f.loc}{f.unit ? <span className="fuLoc"> · Unit #{f.unit}</span> : null}{fuGroupBy === "type" ? <span className="fuLoc"> — {f.cat}</span> : null}</>}
+                                  : <><NT>{f.loc}{f.unit ? <span className="fuLoc"> · Unit #{f.unit}</span> : null}</NT>{fuGroupBy === "type" ? <span className="fuLoc"> — {f.cat}</span> : null}</>}
                                 {f.locType ? <StandType lt={f.locType} style={{ marginLeft: 6 }} /> : null}
                               </div>
                               {/* v445: which unit — for older reports the name only lives in area */}
@@ -12077,7 +12079,7 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
       <div style="border:1px solid #e5e7eb;border-radius:10px;margin-bottom:24px;overflow:hidden;page-break-inside:avoid;">
         <div style="background:#f9fafb;padding:14px 18px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
           <span style="background:${statusColor};color:#fff;border-radius:6px;padding:3px 10px;font-weight:700;font-size:0.85rem;">${rec.overallStatus || "—"}</span>
-          <strong style="font-size:1rem;">${rec.siteName || rec.location || "Inspection"}</strong>
+          <strong class="notranslate" translate="no" style="font-size:1rem;">${rec.siteName || rec.location || "Inspection"}</strong>
           ${rec.siteNumber ? `<span style="background:#1d4ed8;color:#fff;border-radius:5px;padding:2px 8px;font-size:0.8rem;font-weight:700;">#${rec.siteNumber}</span>` : ""}
           ${rec.restaurantLicense ? `<span style="background:#7c3aed;color:#fff;border-radius:5px;padding:2px 8px;font-size:0.8rem;font-weight:700;">🪪 ${rec.restaurantLicense}</span>` : ""}
           ${rec.licenseMissing ? `<span style="background:#fef2f2;color:#991b1b;border:1px solid #fca5a5;border-radius:5px;padding:2px 8px;font-size:0.8rem;font-weight:700;">🚩 No License on File</span>` : ""}
@@ -12108,7 +12110,7 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
     }).join("");
 
     const html = `<!DOCTYPE html>
-<html lang="en">
+<html lang="en" translate="no">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
@@ -12968,7 +12970,7 @@ ${equipRowsP.map(([l, eq, t, st, hasSt, pass], i) => `<tr${even(i)}><td class="l
       : `<p class="none">No HACCP temperature data recorded.</p>`;
 
     const pdfHtml = `<!DOCTYPE html>
-<html lang="en">
+<html lang="en" translate="no">
 <head>
 <meta charset="utf-8">
 <title>Bulk Inspection Summary — ${dateStr}</title>
@@ -13687,7 +13689,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                           }}>
                             <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                               <span style={{ fontSize: "0.78rem", fontWeight: 700, color: ev.type === "inspection" ? "var(--ink-900)" : "#7DC4F0" }}>
-                                {ev.type === "fixed" ? "✅" : ev.type === "reopened" ? "↩" : ev.type === "inspection" ? "📋" : "🌡️"} {ev.label}{ev.siteNumber ? ` #${ev.siteNumber}` : ""}{(ev.type === "fixed" || ev.type === "reopened") && ev.cat ? ` — ${ev.cat}` : ""}{ev.type === "reopened" ? <span className="fuPutBackChip" style={{ marginLeft: 6 }}>PUT BACK{ev.sub ? ` · by ${ev.sub}` : ""}{ev.reopenedFrom ? ` · was closed ${new Date(ev.reopenedFrom).toLocaleDateString([], { month: "short", day: "numeric" })}` : ""}</span> : null}{ev.type === "fixed" && ev.locType ? <StandType lt={ev.locType} style={{ marginLeft: 6 }} /> : null}
+                                {ev.type === "fixed" ? "✅" : ev.type === "reopened" ? "↩" : ev.type === "inspection" ? "📋" : "🌡️"} <NT>{ev.label}{ev.siteNumber ? ` #${ev.siteNumber}` : ""}</NT>{(ev.type === "fixed" || ev.type === "reopened") && ev.cat ? ` — ${ev.cat}` : ""}{ev.type === "reopened" ? <span className="fuPutBackChip" style={{ marginLeft: 6 }}>PUT BACK{ev.sub ? ` · by ${ev.sub}` : ""}{ev.reopenedFrom ? ` · was closed ${new Date(ev.reopenedFrom).toLocaleDateString([], { month: "short", day: "numeric" })}` : ""}</span> : null}{ev.type === "fixed" && ev.locType ? <StandType lt={ev.locType} style={{ marginLeft: 6 }} /> : null}
                               </span>
                               {ev.locationType && (
                                 <span style={{ fontSize: "0.66rem", fontWeight: 600, padding: "1px 6px", borderRadius: 6, background: "var(--surface-3)", color: "var(--ink-600)", border: "1px solid #e2e8f0" }}>
@@ -13724,7 +13726,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                               )}
                             </div>
                             <div style={{ fontSize: "0.72rem", color: "var(--ink-500)", marginTop: 3 }}>
-                              {ev.sub && <span>{ev.sub} · </span>}
+                              {ev.sub && <span className="notranslate" translate="no">{ev.sub} · </span>}
                               {fmtDate(ev.date)}
                               {ev.type === "fixed" && ev.startTs ? <span> · started {new Date(ev.startTs).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</span> : null}
                               {ev.type === "fixed" && ev.how === "already" ? <span> · was already clean</span> : null}
@@ -13930,9 +13932,9 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                       <span className="historyStatus" style={{ background: statusColor }}>{rec.overallStatus}</span>
                       <div>
                         <div className="cardTitle" style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                          {rec.siteName || rec.location || "Inspection"}
-                          {rec.siteNumber && <span style={{ fontWeight: 600 }}>#{rec.siteNumber}</span>}
-                          {rec.restaurantLicense && <span style={{ fontWeight: 600 }}>🪪 {rec.restaurantLicense}</span>}
+                          <NT>{rec.siteName || rec.location || "Inspection"}</NT>
+                          {rec.siteNumber && <NT style={{ fontWeight: 600 }}>#{rec.siteNumber}</NT>}
+                          {rec.restaurantLicense && <NT style={{ fontWeight: 600 }}>🪪 {rec.restaurantLicense}</NT>}
                           <button
                             type="button"
                             title="Show HACCP QR code for this report"
@@ -14029,7 +14031,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                             <span className="rptBrandText">{resolveCompanyName().toUpperCase()}</span>
                             <span className="rptBrandSub">Kitchen Inspection Report</span>
                           </div>
-                          <div className="rptSiteName">{rec.siteName || "—"}</div>
+                          <div className="rptSiteName notranslate" translate="no">{rec.siteName || "—"}</div>
                           {rec.eventName && <div className="rptEventName">📅 {rec.eventName}</div>}
                         </div>
                         <div className="rptReportHeaderRight">
@@ -20520,7 +20522,7 @@ function EquipmentScannerPage({ onBack, onPrintLabels, onKitchenQr }) {
                       <div style={{ fontWeight: 700, fontSize: "0.88rem", color: "var(--ink-900)" }}>
                         {r.date ? new Date(r.date).toLocaleDateString([], { year: "numeric", month: "short", day: "numeric" }) : "Date unknown"}
                       </div>
-                      {r.siteName && <div style={{ fontSize: "0.8rem", color: "var(--ink-500)", marginTop: 2 }}>{r.siteName}</div>}
+                      {r.siteName && <div className="notranslate" translate="no" style={{ fontSize: "0.8rem", color: "var(--ink-500)", marginTop: 2 }}>{r.siteName}</div>}
                       {r.inspectorName && <div style={{ fontSize: "0.75rem", color: "var(--ink-400)" }}>Inspector: {r.inspectorName}</div>}
                       {r.assetTag && <div style={{ fontSize: "0.72rem", color: "#6366f1", fontFamily: "monospace", marginTop: 2 }}>🏷 {r.assetTag}</div>}
                     </div>
@@ -21855,7 +21857,7 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
                 const emptyStand = (sn, i) => (
                   <div key={"ne" + i} className="walkStand walkStandEmpty">
                     <div className="walkStandHead">
-                      <span>🍳 {sn.venueName || "—"}{sn.unit ? ` · #${sn.unit}` : ""}</span>
+                      <span className="notranslate" translate="no">🍳 {sn.venueName || "—"}{sn.unit ? ` · #${sn.unit}` : ""}</span>
                       <span style={{ fontWeight: 500, color: "var(--ink-500)", fontSize: "0.76rem" }}>{[sn.locType, "no cooler / freezer yet"].filter(Boolean).join(" · ")}</span>
                       <button type="button" className="walkMini" onClick={() => setAddAt(sn)}>➕ add units</button>
                     </div>
@@ -21887,7 +21889,7 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
                           {gs.map(g => (
                             <div key={g.key} className="walkStand">
                               <div className="walkStandHead">
-                                <span>🍳 {g.site || "—"}{g.unit ? ` · #${g.unit}` : ""}</span>
+                                <span className="notranslate" translate="no">🍳 {g.site || "—"}{g.unit ? ` · #${g.unit}` : ""}</span>
                                 <StandType lt={typeAt(g.unit, g.site, g.items[0]?.locType)} />
                                 {!licenseAt(g.unit, g.site, g.items[0]?.locType) && <NoLic unit={g.unit} site={g.site} />}
                                 <span style={{ fontWeight: 500, color: "var(--ink-500)", fontSize: "0.76rem" }}>{g.items.filter(i => walkStatus(i).complete).length}/{g.items.length}</span>
@@ -22018,7 +22020,7 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
                       {Object.entries(groups).map(([name, its]) => (
                         <div key={name} className="walkStand unassignedStand">
                           <div className="walkStandHead">
-                            <span>❓ {name}{its[0].unit ? ` · #${its[0].unit}` : ""}</span>
+                            <span className="notranslate" translate="no">❓ {name}{its[0].unit ? ` · #${its[0].unit}` : ""}</span>
                             <span style={{ fontWeight: 500, color: "var(--ink-500)", fontSize: "0.76rem" }}>{its.length} unit{its.length !== 1 ? "s" : ""}</span>
                             <button type="button" className="walkMini" style={{ background: "var(--sdx-navy)", color: "#fff", borderColor: "var(--sdx-navy)" }} onClick={() => setMovePick({ it: its[0], all: its, q: name.replace(/[^A-Z0-9 ]/g, " ").split(" ")[0] || "" })}>→ Assign all {its.length} to a stand…</button>
                           </div>
@@ -22038,7 +22040,7 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
                       {floorsMap[f].map(g => (
                         <div key={g.key} className="walkStand">
                           <div className="walkStandHead">
-                            <span>🍳 {g.site || "—"}{g.unit ? ` · #${g.unit}` : ""}</span>
+                            <span className="notranslate" translate="no">🍳 {g.site || "—"}{g.unit ? ` · #${g.unit}` : ""}</span>
                             <StandType lt={typeAt(g.unit, g.site, g.items[0]?.locType)} />
                             {!licenseAt(g.unit, g.site, g.items[0]?.locType) && <NoLic unit={g.unit} site={g.site} />}
                             {regVerified[standKeyOf(g.unit, g.site)] && <span className="verifyPill">✅ Verified</span>}
@@ -22358,7 +22360,7 @@ function TextStepper({ list, onClose, title }) {
   const { k, p } = cur; const text = standInviteText(k, p.name, p);
   return (
     <div className="kqrBulk">
-      <div className="kqrBulkHead">📨 {title ? `${title} · ` : ""}{i + 1} of {list.length} · <b>{p.name || "—"}</b> · {p.phone} · {k.site}{k.unit ? ` #${k.unit}` : ""}</div>
+      <div className="kqrBulkHead">📨 {title ? `${title} · ` : ""}{i + 1} of {list.length} · <NT><b>{p.name || "—"}</b> · {p.phone} · {k.site}{k.unit ? ` #${k.unit}` : ""}</NT></div>
       <div className="kqrBulkWho">Their link opens already signed in as {p.name || "them"} at this stand — they just log the temps.</div>
       <div className="kqrBulkBtns">
         <a className="kqrPersonBtn kqrPersonSave" href={smsHref(p.phone, text)} onClick={() => setTimeout(() => setSent(x => ({ ...x, [i]: true })), 300)}>✉ Open text</a>
@@ -22907,7 +22909,7 @@ function KitchenQrPage({ onBack, onPrintLabels, onStandEquipment }) {
                 {rows.length === 0 && <div className="kqrPeopleEmpty">No people yet. Names and phones appear here as soon as someone files a log from a stand QR — or add them on the stand card.</div>}
                 {rows.map(({ k, people }) => (
                   <div key={k.id} className="kqrPeopleStand">
-                    <div className="kqrPeopleStandHead">{k.site}{k.unit ? ` · #${k.unit}` : ""} <StandType lt={k.locType} /></div>
+                    <div className="kqrPeopleStandHead notranslate" translate="no">{k.site}{k.unit ? ` · #${k.unit}` : ""} <StandType lt={k.locType} /></div>
                     {people.map((p, i) => renderPerson(k, p, i))}
                   </div>
                 ))}
@@ -23124,7 +23126,7 @@ function KitchenQrPage({ onBack, onPrintLabels, onStandEquipment }) {
                 <div style={{ position: "absolute", top: 42, right: 8, background: brandColor, color: "#fff", borderRadius: 999, width: 26, height: 26, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: "0.85rem", zIndex: 2, boxShadow: "0 1px 4px rgba(0,0,0,0.3)" }}>✓</div>
               )}
               <div style={{ background: brandColor, color: "#fff", padding: "8px 12px", fontWeight: 800, fontSize: "0.82rem", display: "flex", justifyContent: "space-between", gap: 6 }}>
-                <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textTransform: "uppercase" }}>🍳 {k.site}</span>
+                <span className="notranslate" translate="no" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textTransform: "uppercase" }}>🍳 {k.site}</span>
                 <StandType lt={k.locType} style={{ marginLeft: 6 }} />
                 {!(k.license || "").trim() && (k.licStatus === "REQUESTED" ? <span className="stType stReq" style={{ marginLeft: 4 }}>⏳ REQUESTED</span> : <span className="stType stNoLic" style={{ marginLeft: 4 }}>⚠ NO LICENSE</span>)}
                 <span style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 6 }}>
@@ -27347,7 +27349,7 @@ function HaccpTodayTracker({ venueSettings, saveVenueSettingsMap, history, curre
             <div key={r.id} className={"haccpStandRow" + (r.submittedToday ? " done" : "")}>
               <div className="haccpStandHead">
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 800, fontSize: "0.84rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.noStand ? "👤 " : "🍳 "}{r.site || "—"}{r.unit ? ` · #${r.unit}` : ""}{r.k.locType ? <StandType lt={r.k.locType} style={{ marginLeft: 6 }} /> : null}</div>
+                  <div style={{ fontWeight: 800, fontSize: "0.84rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.noStand ? "👤 " : "🍳 "}<NT>{r.site || "—"}{r.unit ? ` · #${r.unit}` : ""}</NT>{r.k.locType ? <StandType lt={r.k.locType} style={{ marginLeft: 6 }} /> : null}</div>
                   {!r.noStand && <div style={{ fontSize: "0.7rem", color: "var(--ink-500)" }}>
                     {r.submittedToday
                       ? `${r.checksOnDate || 1} check${(r.checksOnDate || 1) !== 1 ? "s" : ""} this day`
