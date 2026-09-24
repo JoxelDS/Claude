@@ -4047,6 +4047,7 @@ function floorByName(name) { const n = String(name || ""); for (const [re, f] of
 function floorForStand(unit, name, saved) { return floorFromUnit(unit) || floorByName(name) || String(saved || "").trim(); }
 
 try { window.__sdxBuildActionItems = (a) => buildActionItems(a); } catch {}
+try { window.__sdxComputeFollowups = (h, vs) => computeFollowups(h, vs); } catch {}
 function buildActionItems({ inspection, rawNotes, foodTemps: ftArg, foodTempNames: fnArg, foodTempCorrections: fcArg, foodTempSubmitted: fsArg }) {
   const items = [];
   const { mapByPath } = buildPhotoIndex(inspection);
