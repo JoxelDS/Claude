@@ -2913,6 +2913,8 @@ const PANTRY_COLD_EQUIPMENT = {
   reachInCooler:  { type: "cooler",  max: 40, label: "Reach-In Cooler" },
   reachInFreezer: { type: "freezer", max: 20, label: "Reach-In Freezer" },
   milkCooler:     { type: "cooler",  max: 40, label: "Milk / Dairy Cooler" },
+  walkInCooler:   { type: "cooler",  max: 40, label: "Walk-In Cooler" },      // v493
+  walkInFreezer:  { type: "freezer", max: 20, label: "Walk-In Freezer" },
 };
 // v476: portable carts — small cold units, no hood / fryer / warmer line
 const PORTABLE_COLD_EQUIPMENT = {
@@ -7532,7 +7534,7 @@ function buildPredictions(history, venueSettings = {}) {
   const SECTION_MAP = {
     facility: ["ceiling", "walls", "floors", "lighting"],
     operations: ["employeePractices", "handwashing", "labelingDating", "logs"],
-    equipment: ["doubleDoorCooler", "doubleDoorFreezer", "walkInCooler", "walkInFreezer", "prepCooler", "warmers", "ovens", "threeCompSink", "ecolab", "sodaMachine", "coffee", "blender", "garnishCooler", "reachInCooler", "reachInFreezer", "milkCooler", "glasswasher", "beerLines", "cartCooler", "cartFreezer", "iceChest", "handWash", "sanitizer"],
+    equipment: ["doubleDoorCooler", "doubleDoorFreezer", "walkInCooler", "walkInFreezer", "prepCooler", "warmers", "ovens", "threeCompSink", "ecolab", "sodaMachine", "coffee", "blender", "garnishCooler", "reachInCooler", "reachInFreezer", "milkCooler", "glasswasher", "beerLines", "draftBeer", "cartCooler", "cartFreezer", "iceChest", "handWash", "sanitizer"],
     maintenance: ["hvac", "plumbing", "pestControl", "electricalSafety", "dumpsterArea", "structuralDamage"],
   };
   const ITEM_LABEL = {
@@ -7541,7 +7543,7 @@ function buildPredictions(history, venueSettings = {}) {
     doubleDoorCooler: "Double-Door Cooler", doubleDoorFreezer: "Double-Door Freezer", walkInCooler: "Walk-In Cooler", walkInFreezer: "Walk-In Freezer",
     prepCooler: "Prep Cooler", warmers: "Warmers / Hot Holding", ovens: "Ovens", threeCompSink: "3-Compartment Sink", ecolab: "Ecolab / Chemicals",
     hvac: "HVAC", plumbing: "Plumbing", pestControl: "Pest Control", electricalSafety: "Electrical Safety", dumpsterArea: "Dumpster Area", structuralDamage: "Structural Damage",
-    sodaMachine: "Soda / Fountain Machine", coffee: "Coffee / Tea Brewers", blender: "Blender / Frozen-Drink Machine", garnishCooler: "Garnish Cooler", reachInCooler: "Reach-In Cooler", reachInFreezer: "Reach-In Freezer", milkCooler: "Milk / Dairy Cooler", co2Tanks: "CO2 Tanks", speedRails: "Speed Rails", glassStorage: "Glassware Storage", dryStorage: "Dry Storage", cartCooler: "Cart Cooler", cartFreezer: "Cart Freezer", iceChest: "Ice Chest", sneezeGuard: "Sneeze Guard", handWash: "Hand-Wash Station", sanitizer: "Sanitizer Bucket", thermometers: "Thermometers", cartSurfaces: "Cart Surfaces", power: "Power / Propane", trash: "Trash Can", license: "License / Permit",
+    sodaMachine: "Soda / Fountain Machine", coffee: "Coffee / Tea Brewers", blender: "Blender / Frozen-Drink Machine", garnishCooler: "Garnish Cooler", reachInCooler: "Reach-In Cooler", reachInFreezer: "Reach-In Freezer", milkCooler: "Milk / Dairy Cooler", draftBeer: "Draft Beer", beerLines: "Draft Beer / Beer Lines", co2Tanks: "CO2 Tanks", speedRails: "Speed Rails", glassStorage: "Glassware Storage", dryStorage: "Dry Storage", cartCooler: "Cart Cooler", cartFreezer: "Cart Freezer", iceChest: "Ice Chest", sneezeGuard: "Sneeze Guard", handWash: "Hand-Wash Station", sanitizer: "Sanitizer Bucket", thermometers: "Thermometers", cartSurfaces: "Cart Surfaces", power: "Power / Propane", trash: "Trash Can", license: "License / Permit",
   };
   for (const st of Object.values(byStand)) {
     const visits = st.recs.filter(isVisit);
@@ -9201,7 +9203,7 @@ function proofGate({ photos, action }) {
   const missing = [];
   const nPhotos = Array.isArray(photos) ? photos.length : Number(photos || 0);
   if (!nPhotos) missing.push("photo");
-  if (String(action || "").trim().length < 5) missing.push("action");
+  if (!String(action || "").trim()) missing.push("action"); // v493: any typed action counts ("Bejs" used to be rejected for being 4 letters)
   return { ok: missing.length === 0, missing };
 }
 function SpecificsPicker({ cat, units, value, onChange, lang, missing, compact, optional }) {
@@ -25815,9 +25817,9 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                                               value={ci.corrective || ""}
                                               onChange={(e) => makeSetCiCorrective(idx, e.target.value)}
                                               placeholder="What was done to fix it?..."
-                                              style={{ width: "100%", borderColor: (ci.corrective || "").trim().length < 5 ? "#fca5a5" : undefined }}
+                                              style={{ width: "100%", borderColor: !(ci.corrective || "").trim() ? "#fca5a5" : undefined }}
                                             />
-                                            {(ci.corrective || "").trim().length < 5 && <div className="specHint">⚠ Required — say what was done about it</div>}
+                                            {!(ci.corrective || "").trim() && <div className="specHint">⚠ Required — say what was done about it</div>}
                                           </div>
                                           {/* v457 — two big buttons: the problem, and what it looks like fixed. No `capture`, so the phone offers camera OR library in one tap. */}
                                           {(() => { const nB = ciPhotos.filter(p => p.tag !== "after").length; const nA = ciPhotos.filter(p => p.tag === "after").length; const full = ciPhotos.length >= PHOTO_LIMIT; return (
@@ -33497,7 +33499,7 @@ export default function App() {
                       { path: ["equipment", "wineChiller"], label: "Wine Chiller — temp correct, bottles stored properly?" },
                       { path: ["equipment", "glasswasher"], label: "Glass Washer — working, sanitizer level OK, no cloudy glasses?" },
                       { path: ["equipment", "threeCompSink"], label: "Dish Washing Sink — 3 sections set up: wash, rinse, sanitize?" },
-                      { path: ["equipment", "beerLines"], label: "Beer Lines / Taps — cleaned recently, no buildup or off smell?" },
+                      { path: ["equipment", "beerLines"], label: "Draft Beer / Beer Lines & Taps — cleaned recently, no buildup or off smell, kegs dated?" },
                       { path: ["equipment", "sodaMachine"], label: "Soda Gun / Fountain — nozzles & holster clean, bag-in-box lines OK, syrup boxes dated, drip tray clean?" },
                       { path: ["equipment", "co2Tanks"], label: "CO2 Tanks — secured / chained, no leaks, regulator OK?" },
                       { path: ["equipment", "speedRails"], label: "Speed Rails & Bottle Wells — clean, pourers capped, bottles labeled?" },
@@ -33516,6 +33518,8 @@ export default function App() {
                       { path: ["equipment", "reachInCooler"], label: "Reach-In Cooler — temp OK, gaskets, clean, dated product, nothing on the floor?" },
                       { path: ["equipment", "reachInFreezer"], label: "Reach-In Freezer — temp OK, no ice build-up, gaskets, clean?" },
                       { path: ["equipment", "milkCooler"], label: "Milk / Dairy Cooler — temp OK, dated, rotated (FIFO)?" },
+                      { path: ["equipment", "walkInCooler"], label: "Walk-In Cooler — temp OK, door seals, shelves organized, nothing on the floor, dated product?" },
+                      { path: ["equipment", "draftBeer"], label: "Draft Beer — taps / lines cleaned, kegs dated, drip tray clean, no leaks?" },
                       { path: ["equipment", "sodaMachine"], label: "Soda / Fountain Machine — nozzles clean, bag-in-box lines OK, drip tray clean, no leaks?" },
                       { path: ["equipment", "coffee"], label: "Coffee / Tea Brewers & Airpots — clean, dated, no scale, working?" },
                       { path: ["equipment", "dispensers"], label: "Juice / Milk / Water Dispensers — clean nozzles, dated, cold?" },
