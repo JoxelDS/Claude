@@ -25861,7 +25861,7 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                                               className="input inputSmall"
                                               value={ci.comment || ""}
                                               onChange={(e) => makeSetComment(idx, e.target.value)}
-                                              placeholder="What exactly, which part, where? (required)"
+                                              placeholder="What exactly, which part, where?"
                                               style={{ width: "100%", borderColor: (ci.comment || "").trim().split(/\s+/).filter(Boolean).length < 4 ? "#fca5a5" : undefined }}
                                             />
                                             {/* v450: the WHAT / WHAT'S WRONG / WHERE chips asked the same thing as
@@ -25907,7 +25907,7 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                                               placeholder="What was done to fix it?..."
                                               style={{ width: "100%", borderColor: !(ci.corrective || "").trim() ? "#fca5a5" : undefined }}
                                             />
-                                            {!(ci.corrective || "").trim() && <div className="specHint">⚠ Required — say what was done about it</div>}
+                                            {!(ci.corrective || "").trim() && <div className="specHint">Recommended — say what was done about it</div>}
                                           </div>
                                           {/* v457 — two big buttons: the problem, and what it looks like fixed. No `capture`, so the phone offers camera OR library in one tap. */}
                                           {(() => { const nB = ciPhotos.filter(p => p.tag !== "after").length; const nA = ciPhotos.filter(p => p.tag === "after").length; const full = ciPhotos.length >= PHOTO_LIMIT; return (
@@ -25922,7 +25922,7 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                                               </button>
                                             </div>
                                           ); })()}
-                                          {ciPhotos.filter(p => p.tag !== "after").length === 0 && <div className="specHint">⚠ Add a BEFORE photo of the problem — required</div>}
+                                          {ciPhotos.filter(p => p.tag !== "after").length === 0 && <div className="specHint">Recommended — add a BEFORE photo of the problem</div>}
                                         </div>
                                       ) : (
                                         <div className="clItemCommentRow">
@@ -26002,7 +26002,7 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                       <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                         <input className="input inputSmall" value={current.notes} style={{ flex: 1 }}
                           onChange={(e) => setInspection((prev) => setAtPath(prev, it.path, { ...current, notes: e.target.value }))}
-                          placeholder={current.status && current.status !== "OK" ? "What exactly, which part, where? (required)" : "Describe the issue or leave a comment…"} />
+                          placeholder={current.status && current.status !== "OK" ? "What exactly, which part, where?" : "Describe the issue or leave a comment…"} />
                         {current.status && current.status !== "OK" && <button type="button" className={"specToggle" + (specOpen === it.path ? " on" : "")} onClick={() => setSpecOpen(specOpen === it.path ? null : it.path)}>🎯</button>}
                       </div>
                       {current.status && current.status !== "OK" && !(current.checklist || []).some(c => (c.comment || "").trim()) && !isSpecific(current.notes, {}, specCatForSection()).ok && <div className="specHint">⚠ Be specific: what, which part, where — tap 🎯</div>}
@@ -26309,7 +26309,7 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                         <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                           <input className="input inputSmall" value={cur.notes} style={{ flex: 1 }}
                             onChange={e => setInspection(prev => setAtPath(prev, it.path, { ...cur, notes: e.target.value }))}
-                            placeholder="What exactly, what's wrong, where? (required)" />
+                            placeholder="What exactly, what's wrong, where?" />
                           <button type="button" className={"specToggle" + (specOpen === it.path ? " on" : "")} onClick={() => setSpecOpen(specOpen === it.path ? null : it.path)}>🎯</button>
                         </div>
                         {!isSpecific(cur.notes, {}, "Maintenance").ok && <div className="specHint">⚠ Be specific: what, what's wrong, where — tap 🎯</div>}
@@ -32028,48 +32028,15 @@ export default function App() {
     setWarnings([]);
     setAiTips([]);
 
-    // Pre-submit completeness check — show a summary modal if key sections are empty
-    if (!skipPreSubmitCheck) {
-      const hasDetails  = !!(inspectorName.trim() && inspectionDate);
-      const hasLocation = !!(siteName.trim() && locationType);
-      const hasEquip    = Object.keys(inspection.equipment || {}).some(k => inspection.equipment[k]?.status);
-      const hasChecklist = Object.values(inspection.buckets || {}).some(v =>
-        v && typeof v === "object" && Object.keys(v).some(k => v[k] === true || v[k] === false)
-      );
-      const incomplete = [
-        !hasDetails  && "Inspector name & date (Details)",
-        !hasLocation && "Site name & location type (Location)",
-        !hasEquip    && "At least one equipment status (Equipment)",
-        !hasChecklist && "At least one checklist item (Checklist)",
-      ].filter(Boolean);
-      // Detailed report check: unanswered checklist items and failed items
-      // with no photo, each with a jump link straight to the spot.
-      const SECTION_PANEL = { facility: 1, maintenance: 5, equipment: 2, utensils: 3 };
-      const SECTION_NAME = { facility: "Facilities", equipment: "Equipment", utensils: "Utensils" };
-      for (const sec of ["facility", "equipment", "utensils"]) {
-        for (const [key, node] of Object.entries(inspection[sec] || {})) {
-          const cl = node?.checklist;
-          if (!Array.isArray(cl) || cl.length === 0) continue;
-          const label = node.label || key.replace(/([A-Z])/g, " $1").replace(/^./, c => c.toUpperCase()).trim();
-          const pending = cl.filter(c => c.value === "").length;
-          const answered = cl.length - pending;
-          if (pending > 0 && answered > 0) {
-            incomplete.push({ text: `${SECTION_NAME[sec]} – ${label}: ${pending} checklist item${pending !== 1 ? "s" : ""} unanswered`, jump: { pid: SECTION_PANEL[sec], key, full: "" } });
-          }
-        }
-      }
-      if (incomplete.length > 0) {
-        setModals(m => ({ ...m, preSubmit: { incomplete } }));
-        return;
-      }
-    }
-    // v439: every flagged item needs a photo (or a written reason) AND a
-    // corrective action. This runs even when the soft modal was skipped, and
-    // is marked hard so the "continue anyway" button never renders.
-    {
+    // v497: NOTHING is mandatory. One soft modal lists what is missing (a BEFORE
+    // photo / corrective action on a flagged row, an answer for an open problem)
+    // with "Save anyway" as the primary button. Joxel: "do not make mandatory for
+    // them to fill up everything". `skipPreSubmitCheck` must be literally true —
+    // the header button passes the click event, which used to skip the check.
+    if (skipPreSubmitCheck !== true) {
       const SEC_PANEL = { facility: 1, maintenance: 5, equipment: 2, utensils: 3 };
       const SEC_NAME = { facility: "Facilities", equipment: "Equipment", utensils: "Utensils" };
-      const proofMissing = [];
+      const missing = [];
       for (const sec of ["facility", "equipment", "utensils"]) {
         for (const [key, node] of Object.entries(inspection[sec] || {})) {
           const cl = node?.checklist;
@@ -32079,21 +32046,17 @@ export default function App() {
             if (c.value !== "NO") continue;
             const pg = proofGate({ photos: (c.photos || []).filter(p => p && p.tag !== "after"), action: c.corrective }); // v457: the AFTER shot does not count as proof of the problem
             if (pg.ok) continue;
-            const need = pg.missing.includes("photo") && pg.missing.includes("action") ? "a photo and a corrective action"
-              : pg.missing.includes("photo") ? "a BEFORE photo" : "a corrective action";
-            proofMissing.push({ text: `${SEC_NAME[sec]} – ${label} · ${c.label || "flagged item"}: needs ${need}`, jump: { pid: SEC_PANEL[sec], key: `${sec}.${key}`, full: "", ci: cl.indexOf(c), need: pg.missing.includes("photo") ? "photo" : "action" } }); // v476: guide anchors are keyed by the full path
+            const need = pg.missing.includes("photo") && pg.missing.includes("action") ? "a photo and what was done"
+              : pg.missing.includes("photo") ? "a BEFORE photo" : "what was done about it";
+            missing.push({ text: `${SEC_NAME[sec]} – ${label} · ${c.label || "flagged item"}: ${need}`, jump: { pid: SEC_PANEL[sec], key: `${sec}.${key}`, full: "", ci: cl.indexOf(c), need: pg.missing.includes("photo") ? "photo" : "action" } }); // v476: guide anchors are keyed by the full path
           }
         }
       }
-      if (proofMissing.length > 0) {
-        setModals(m => ({ ...m, preSubmit: { hard: true, proof: true, incomplete: proofMissing } }));
+      for (const f of caMissing) missing.push({ text: `Open problem — ${f.cat}${f.detail ? `: ${f.detail}` : ""}: what was done about it`, jump: { ca: f.key } });
+      if (missing.length > 0) {
+        setModals(m => ({ ...m, preSubmit: { soft: true, incomplete: missing } }));
         return;
       }
-    }
-    // Corrective actions are mandatory: every open problem at this stand needs one
-    if (caMissing.length > 0) {
-      setModals(m => ({ ...m, preSubmit: { hard: true, incomplete: caMissing.map(f => ({ text: `Corrective action needed — ${f.cat}${f.detail ? `: ${f.detail}` : ""}`, jump: { ca: f.key } })) } }));
-      return;
     }
 
     // Validate
@@ -33097,7 +33060,7 @@ export default function App() {
                 {fieldCorrections["field-participantName"] && <FieldCorrectionBanner correction={fieldCorrections["field-participantName"]} />}
               </label>
               <label className="field" id="field-supervisorName">
-                <span className="fieldLabel">Supervisor <span style={{ color: "#ef4444", fontWeight: 700 }}>*</span></span>
+                <span className="fieldLabel">Supervisor</span>
                 <input className="input" list="supervisorSuggestions" value={supervisorName} onBlur={(e) => smartFieldCorrect("field-supervisorName", e.target.value)} onChange={(e) => setSupervisorName(e.target.value)} placeholder="e.g., GM / Chef Lead" />
                 {fieldCorrections["field-supervisorName"] && <FieldCorrectionBanner correction={fieldCorrections["field-supervisorName"]} />}
                 <datalist id="supervisorSuggestions">
@@ -33146,7 +33109,7 @@ export default function App() {
               </label>
               <label className="field" id="field-restaurantLicense">
                 <span className="fieldLabel">
-                  Restaurant License # <span style={{ color: "#ef4444", fontWeight: 700 }}>*</span>
+                  Restaurant License #
                   {(() => {
                     const mem = getAutofillMemory();
                     if (isLicenseExemptType(locationType)) return null;
@@ -33390,7 +33353,7 @@ export default function App() {
                     <span className="caTitle">🛠 Open problems at this stand — corrective action required</span>
                     <span className={"caCount" + (caMissing.length ? " caCountMissing" : " caCountDone")}>{standOpenProblems.length - caMissing.length}/{standOpenProblems.length} answered</span>
                   </div>
-                  <div className="caSub">Say what was done about each one. The report can't be saved until every problem has an answer.</div>
+                  <div className="caSub">Answer what you can — anything left stays open in Follow-ups.</div>
                   {standOpenProblems.map(f => {
                     const c = correctives[f.key] || { action: "", status: "fixed", photos: [] };
                     const set = patch => setCorrectives(prev => ({ ...prev, [f.key]: { ...(prev[f.key] || { action: "", status: "fixed", photos: [] }), ...patch } }));
@@ -33560,7 +33523,7 @@ export default function App() {
                       {inspection.temps.handSinkOutOfOrder ? (
                         <div style={{ background: "var(--tint-red-1)", border: "1px solid #fca5a5", borderRadius: 8, padding: "10px 12px", marginBottom: 6 }}>
                           <div style={{ fontWeight: 700, color: "#dc2626", fontSize: "0.85rem", marginBottom: 4 }}>⚠️ Hand sink flagged as out of order</div>
-                          <textarea className="input" rows={2} placeholder="Describe the issue (required)"
+                          <textarea className="input" rows={2} placeholder="Describe the issue"
                             value={inspection.temps.handSinkNote || ""}
                             onChange={(e) => setInspection((prev) => ({ ...prev, temps: { ...prev.temps, handSinkNote: e.target.value } }))}
                             style={{ resize: "vertical", fontSize: "0.82rem", borderColor: "#fca5a5" }} />
@@ -33609,7 +33572,7 @@ export default function App() {
                                       value={inspection.temps.handSinkCorrection || ""}
                                       onChange={(e) => setInspection(prev => ({ ...prev, temps: { ...prev.temps, handSinkCorrection: e.target.value } }))}
                                       style={{ borderColor: needsCorrection ? "#dc2626" : "#fca5a5", fontSize: "0.82rem" }} />
-                                    {needsCorrection && <div style={{ fontSize: "0.72rem", color: "#dc2626", fontWeight: 600 }}>Required — enter what corrective action was taken</div>}
+                                    {needsCorrection && <div style={{ fontSize: "0.72rem", color: "#dc2626", fontWeight: 600 }}>Recommended — what corrective action was taken?</div>}
                                   </div>
                                 )}
                                 {isSubmitted && !isFlagged && (
@@ -33639,7 +33602,7 @@ export default function App() {
                       {inspection.temps.threeCompSinkOutOfOrder ? (
                         <div style={{ background: "var(--tint-red-1)", border: "1px solid #fca5a5", borderRadius: 8, padding: "10px 12px", marginBottom: 6 }}>
                           <div style={{ fontWeight: 700, color: "#dc2626", fontSize: "0.85rem", marginBottom: 4 }}>⚠️ 3-Comp sink flagged as out of order</div>
-                          <textarea className="input" rows={2} placeholder="Describe the issue (required)"
+                          <textarea className="input" rows={2} placeholder="Describe the issue"
                             value={inspection.temps.threeCompSinkNote || ""}
                             onChange={(e) => setInspection((prev) => ({ ...prev, temps: { ...prev.temps, threeCompSinkNote: e.target.value } }))}
                             style={{ resize: "vertical", fontSize: "0.82rem", borderColor: "#fca5a5" }} />
@@ -33688,7 +33651,7 @@ export default function App() {
                                       value={inspection.temps.threeCompSinkCorrection || ""}
                                       onChange={(e) => setInspection(prev => ({ ...prev, temps: { ...prev.temps, threeCompSinkCorrection: e.target.value } }))}
                                       style={{ borderColor: needsCorrection ? "#dc2626" : "#fca5a5", fontSize: "0.82rem" }} />
-                                    {needsCorrection && <div style={{ fontSize: "0.72rem", color: "#dc2626", fontWeight: 600 }}>Required — enter what corrective action was taken</div>}
+                                    {needsCorrection && <div style={{ fontSize: "0.72rem", color: "#dc2626", fontWeight: 600 }}>Recommended — what corrective action was taken?</div>}
                                   </div>
                                 )}
                                 {isSubmitted && !isFlagged && (
@@ -34040,7 +34003,7 @@ export default function App() {
                                 value={correction}
                                 onChange={e => setFoodTempCorrections(p => { const arr=[...(p[item.key]||[""])]; arr[idx]=e.target.value; return {...p,[item.key]:arr}; })}
                                 style={{ width: "100%", fontSize: "0.82rem", resize: "vertical", borderColor: needsCorrection ? "#dc2626" : "#fca5a5", background: "var(--surface-1)" }} />
-                              {needsCorrection && <div style={{ fontSize: "0.72rem", color: "#dc2626", marginTop: 3, fontWeight: 600 }}>Required — enter what corrective action was taken</div>}
+                              {needsCorrection && <div style={{ fontSize: "0.72rem", color: "#dc2626", marginTop: 3, fontWeight: 600 }}>Recommended — what corrective action was taken?</div>}
                             </div>
                           )}
                         </div>
@@ -34548,13 +34511,9 @@ export default function App() {
       {modals.preSubmit && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 9000, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
           <div style={{ background: "var(--surface-1)", borderRadius: 16, padding: "28px 28px 22px", maxWidth: 420, width: "100%", boxShadow: "0 8px 48px rgba(0,0,0,0.22)" }}>
-            <div style={{ fontWeight: 800, fontSize: "1.1rem", color: modals.preSubmit.hard ? "#b91c1c" : "#b45309", marginBottom: 6 }}>{modals.preSubmit.proof ? "📷 Photo + corrective action required" : modals.preSubmit.hard ? "🛠 Corrective action required" : "⚠️ Incomplete Sections"}</div>
+            <div style={{ fontWeight: 800, fontSize: "1.1rem", color: "#b45309", marginBottom: 6 }} data-testid="presubmit-title">💾 Before you save — a few things are missing (optional)</div>
             <div style={{ fontSize: "0.88rem", color: "var(--ink-700)", marginBottom: 14, lineHeight: 1.5 }}>
-              {modals.preSubmit.proof
-                ? "Every problem you flagged needs a BEFORE photo and what was done about it. Tap an item to go straight to that row."
-                : modals.preSubmit.hard
-                ? "This stand has open problems. Write what was done about each one (fixed, in progress, or waiting on what) before saving the report."
-                : "The following sections appear to be empty. You can still generate the report, but it may be incomplete."}
+              Nothing here is mandatory. You can save now and add the photos or actions later from History → ✏️ Edit. Tap an item to go straight to that row.
             </div>
             <ul style={{ margin: "0 0 18px 0", padding: "0 0 0 18px", color: "#dc2626", fontSize: "0.85rem", lineHeight: 2 }}>
               {modals.preSubmit.incomplete.map((item, i) => typeof item === "string"
@@ -34575,18 +34534,20 @@ export default function App() {
             <div style={{ display: "flex", gap: 10 }}>
               <button
                 type="button"
+                data-testid="presubmit-back"
                 onClick={() => setModals(m => ({ ...m, preSubmit: false }))}
-                style={{ flex: 1, padding: "10px 0", borderRadius: 10, border: "1px solid #e5e7eb", background: "var(--surface-2)", fontWeight: 700, fontSize: "0.88rem", cursor: "pointer", color: "var(--ink-700)" }}
+                style={{ flex: 1, padding: "12px 0", borderRadius: 10, border: "1px solid #e5e7eb", background: "var(--surface-2)", fontWeight: 700, fontSize: "0.88rem", cursor: "pointer", color: "var(--ink-700)", minHeight: 44 }}
               >
-                Go Back &amp; Complete
+                Go back &amp; add them
               </button>
-              {!modals.preSubmit.hard && <button
+              <button
                 type="button"
+                data-testid="presubmit-save"
                 onClick={() => { setModals(m => ({ ...m, preSubmit: false })); onTransform(true); }}
-                style={{ flex: 1, padding: "10px 0", borderRadius: 10, border: "none", background: "#2563eb", color: "#fff", fontWeight: 700, fontSize: "0.88rem", cursor: "pointer" }}
+                style={{ flex: 1.3, padding: "12px 0", borderRadius: 10, border: "none", background: "#16a34a", color: "#fff", fontWeight: 800, fontSize: "0.95rem", cursor: "pointer", minHeight: 44 }}
               >
-                Generate Anyway
-              </button>}
+                💾 Save anyway
+              </button>
             </div>
           </div>
         </div>
