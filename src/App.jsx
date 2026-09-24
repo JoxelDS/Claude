@@ -34510,12 +34510,12 @@ export default function App() {
       {/* ── Pre-submit Incomplete Sections Modal ── */}
       {modals.preSubmit && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 9000, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
-          <div style={{ background: "var(--surface-1)", borderRadius: 16, padding: "28px 28px 22px", maxWidth: 420, width: "100%", boxShadow: "0 8px 48px rgba(0,0,0,0.22)" }}>
+          <div style={{ background: "var(--surface-1)", borderRadius: 16, padding: "24px 22px 18px", maxWidth: 420, width: "100%", maxHeight: "90vh", display: "flex", flexDirection: "column", boxShadow: "0 8px 48px rgba(0,0,0,0.22)" }}>
             <div style={{ fontWeight: 800, fontSize: "1.1rem", color: "#b45309", marginBottom: 6 }} data-testid="presubmit-title">💾 Before you save — a few things are missing (optional)</div>
             <div style={{ fontSize: "0.88rem", color: "var(--ink-700)", marginBottom: 14, lineHeight: 1.5 }}>
               Nothing here is mandatory. You can save now and add the photos or actions later from History → ✏️ Edit. Tap an item to go straight to that row.
             </div>
-            <ul style={{ margin: "0 0 18px 0", padding: "0 0 0 18px", color: "#dc2626", fontSize: "0.85rem", lineHeight: 2 }}>
+            <ul style={{ margin: "0 0 14px 0", padding: "0 0 0 18px", color: "#b45309", fontSize: "0.85rem", lineHeight: 1.8, maxHeight: "38vh", overflowY: "auto" }}>
               {modals.preSubmit.incomplete.map((item, i) => typeof item === "string"
                 ? <li key={i}>{item}</li>
                 : (
