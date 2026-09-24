@@ -33261,23 +33261,32 @@ export default function App() {
                 // Real progress: unanswered checklist items per panel, straight
                 // from inspection data (names drift, data doesn't).
                 const PANEL_SECTIONS = { 1: ["facility"], 5: ["maintenance"], 2: ["equipment"], 3: ["utensils"], 4: ["operations"] };
-                const panelCounts = {}; // pid -> { remaining, total }
+                const panelCounts = {}; // pid -> { remaining, total, issues }
                 for (const [pid, secs] of Object.entries(PANEL_SECTIONS)) {
-                  let remaining = 0, total = 0;
+                  let remaining = 0, total = 0, issues = 0;
                   for (const sec of secs) {
                     for (const node of Object.values(inspection[sec] || {})) {
                       const cl = node?.checklist;
                       if (!Array.isArray(cl)) continue;
                       total += cl.length;
                       remaining += cl.filter(c => c.value === "").length;
+                      issues += cl.filter(c => c.value === "NO").length;
                     }
                   }
-                  panelCounts[pid] = { remaining, total };
+                  panelCounts[pid] = { remaining, total, issues };
                 }
+                // v496: temps count too — a reading or a food temp typed
+                const tempsDone = Object.values(inspection.temps || {}).filter(v => (typeof v === "string" || typeof v === "number") ? String(v).trim() : (v && String(v.value ?? v.tempF ?? "").trim())).length
+                  + Object.values(foodTemps || {}).reduce((a, arr) => a + (arr || []).filter(v => String(v || "").trim()).length, 0);
                 const allTotal = Object.values(panelCounts).reduce((a, c) => a + c.total, 0);
                 const allRemaining = Object.values(panelCounts).reduce((a, c) => a + c.remaining, 0);
+                const allIssues = Object.values(panelCounts).reduce((a, c) => a + c.issues, 0);
                 const pct = allTotal > 0 ? ((allTotal - allRemaining) / allTotal) * 100 : ((guideStep + 1) / totalSteps) * 100;
                 const SHORT_LABELS = STEP_LABELS.map(l => l.replace("Temps & Supplies", "Temps").replace(" ⭐", ""));
+                // v496: every section has its own colour and icon so it is easy to find,
+                // and the badge reads as progress ("12/81"), never as 81 problems.
+                const STEP_META = { 0: { icon: "🌡", c: "#2563eb", bg: "#dbeafe" }, 1: { icon: "🏢", c: "#0d9488", bg: "#ccfbf1" }, 5: { icon: "🔧", c: "#ea580c", bg: "#ffedd5" }, 2: { icon: "❄", c: "#4f46e5", bg: "#e0e7ff" }, 3: { icon: "🍴", c: "#9333ea", bg: "#f3e8ff" }, 4: { icon: "📋", c: "#16a34a", bg: "#dcfce7" } };
+                const checkedSoFar = allTotal - allRemaining + tempsDone;
                 return (
                   <div className="guideStepperHeader">
                     <div className="guideStepperTop">
@@ -33285,6 +33294,9 @@ export default function App() {
                         <div className="guideTitle">Inspector guide</div>
                         <div className="guideSub">
                           Step {guideStep + 1} of {totalSteps} — <strong>{STEP_LABELS[guideStep]}</strong>
+                        </div>
+                        <div className="guideEase" data-testid="guide-ease">
+                          Answer only what you see — anything you skip is simply not checked. Most walks take about 10 minutes.
                         </div>
                       </div>
                       <div className="guidePillRow">
@@ -33299,22 +33311,31 @@ export default function App() {
                       {STEP_LABELS.map((label, i) => {
                         const pid = STEP_ORDER[i];
                         const c = panelCounts[pid];
+                        const meta = STEP_META[pid] || STEP_META[0];
                         const done = c && c.total > 0 && c.remaining === 0;
+                        const started = c ? c.remaining < c.total : tempsDone > 0;
+                        const maintBad = pid === 5 ? Object.values(inspection.maintenance || {}).filter(m => m && m.status && m.status !== "OK" && m.status !== "N/A").length : 0;
+                        const issues = (c?.issues || 0) + maintBad;
+                        const state = i === guideStep ? "active" : done ? "done" : started ? "started" : "todo";
                         return (
                           <button
                             key={i}
                             type="button"
-                            className={`guideStepDot guideStepChip${i === guideStep ? " guideStepDotActive" : done ? " guideStepDotDone" : ""}${pid === 5 ? " guideStepChipMaint" : ""}`}
+                            className={`guideStepDot guideStepChip guideStepChip-${state}${i === guideStep ? " guideStepDotActive" : done ? " guideStepDotDone" : ""}${pid === 5 ? " guideStepChipMaint" : ""}`}
+                            style={{ "--chipC": meta.c, "--chipBg": meta.bg }}
                             onClick={() => setGuideStep(i)}
                             aria-label={`Go to step ${i + 1}: ${label}`}
                             title={label}
+                            data-testid={`guide-chip-${pid}`}
+                            data-state={state}
                           >
-                            <span className="guideChipNum">{i + 1}</span>
+                            <span className="guideChipIcon" aria-hidden="true">{meta.icon}</span>
                             <span className="guideChipLabel">{SHORT_LABELS[i]}</span>
-                            {pid === 5 && (() => { const bad = Object.values(inspection.maintenance || {}).filter(m => m && m.status && m.status !== "OK" && m.status !== "N/A").length; return bad > 0 ? <span className="guideChipBadge guideChipBadgeWarn">{bad}</span> : null; })()}
+                            {issues > 0 && <span className="guideChipBadge guideChipBadgeWarn" title={`${issues} issue${issues !== 1 ? "s" : ""} flagged`}>⚠ {issues}</span>}
                             {c && c.total > 0 && (
-                              <span className={`guideChipBadge${done ? " guideChipBadgeDone" : ""}`}>{done ? "✓" : c.remaining}</span>
+                              <span className={`guideChipBadge${done ? " guideChipBadgeDone" : ""}`}>{done ? "✓ done" : `${c.total - c.remaining}/${c.total}`}</span>
                             )}
+                            {!c && tempsDone > 0 && <span className="guideChipBadge guideChipBadgeDone">✓ {tempsDone}</span>}
                           </button>
                         );
                       })}
@@ -33353,8 +33374,8 @@ export default function App() {
                         <div className="guideProgressBar" style={{ width: `${pct}%` }} />
                       </div>
                       {allTotal > 0 && (
-                        <span style={{ fontSize: "0.68rem", fontWeight: 700, color: "var(--ink-400)", whiteSpace: "nowrap" }}>
-                          {allTotal - allRemaining}/{allTotal} items
+                        <span className="guideProgressText" data-testid="guide-progress-text">
+                          <b>{checkedSoFar} checked</b>{allIssues > 0 ? <> · <span className="guideProgressIssues">⚠ {allIssues} issue{allIssues !== 1 ? "s" : ""}</span></> : null}{allRemaining > 0 ? <> · {allRemaining} left</> : <> · all done ✓</>}
                         </span>
                       )}
                     </div>

@@ -7631,22 +7631,36 @@ html[data-theme="black"] .labelCardPro { background: #fff; }
   .kqrBtnLabel { display: none; }
 }
 
-/* ── Guide step chips (labeled, with live remaining counts) ─────── */
-.guideStepDots { flex-wrap: wrap; }
+/* ── Guide step chips (v496: one colour + icon per section, progress not "problems") ── */
+.guideStepDots { flex-wrap: wrap; gap: 8px; }
 .guideStepChip {
   width: auto !important; height: auto !important; border-radius: 999px !important;
-  padding: 5px 10px; display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 12px; display: inline-flex; align-items: center; gap: 7px; min-height: 40px;
+  border: 2px solid var(--chipBg, #e2e8f0) !important; background: #fff !important; color: var(--chipC, #475569) !important;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
 }
-.guideStepChip.guideStepDotActive { transform: none !important; }
-.guideChipNum { font-weight: 800; font-size: 0.72rem; opacity: 0.75; }
-.guideChipLabel { font-weight: 700; font-size: 0.76rem; white-space: nowrap; }
+.guideStepChip:hover { transform: none; border-color: var(--chipC) !important; }
+.guideStepChip .guideChipIcon { font-size: 0.95rem; line-height: 1; }
+.guideStepChip .guideChipLabel { font-weight: 800; font-size: 0.8rem; white-space: nowrap; }
+.guideStepChip-todo { color: #64748b !important; border-color: #e2e8f0 !important; }
+.guideStepChip-todo .guideChipIcon { filter: grayscale(0.4); opacity: 0.8; }
+.guideStepChip-started { background: var(--chipBg) !important; border-color: var(--chipBg) !important; }
+.guideStepChip-done { background: #dcfce7 !important; border-color: #86efac !important; color: #15803d !important; }
+.guideStepChip.guideStepDotActive { transform: none !important; background: var(--chipC) !important; border-color: var(--chipC) !important; color: #fff !important; box-shadow: 0 0 0 3px var(--chipBg), 0 4px 12px rgba(15, 23, 42, 0.15); }
+.guideStepChip.guideChipNum { font-weight: 800; font-size: 0.72rem; opacity: 0.75; }
 .guideChipBadge {
-  font-size: 0.66rem; font-weight: 800; min-width: 18px; text-align: center;
-  background: #FEE2E2; color: #B91C1C; border-radius: 999px; padding: 1px 6px;
+  font-size: 0.68rem; font-weight: 800; min-width: 18px; text-align: center;
+  background: rgba(255,255,255,0.85); color: var(--chipC, #475569); border: 1px solid var(--chipBg, #e2e8f0); border-radius: 999px; padding: 2px 7px; white-space: nowrap;
 }
-.guideStepDotActive .guideChipBadge { background: rgba(255,255,255,0.25); color: #fff; }
-.guideChipBadgeDone { background: #DCFCE7 !important; color: #15803D !important; }
+.guideStepChip-todo .guideChipBadge { color: #64748b; border-color: #e2e8f0; background: #f8fafc; }
+.guideStepDotActive .guideChipBadge { background: rgba(255,255,255,0.22); color: #fff; border-color: transparent; }
+.guideChipBadgeDone { background: #bbf7d0 !important; color: #15803d !important; border-color: #86efac !important; }
 .guideStepDotActive .guideChipBadgeDone { background: rgba(255,255,255,0.25) !important; color: #fff !important; }
+.guideChipBadgeWarn { background: #dc2626 !important; color: #fff !important; border-color: #dc2626 !important; }
+.guideEase { margin-top: 4px; font-size: 0.78rem; color: #15803d; font-weight: 600; max-width: 520px; }
+.guideProgressText { font-size: 0.72rem; font-weight: 600; color: var(--ink-500, #475569); white-space: nowrap; }
+.guideProgressText b { color: var(--sdx-navy); }
+.guideProgressIssues { color: #b91c1c; font-weight: 800; }
 @media (max-width: 480px) {
   .guideChipLabel { font-size: 0.7rem; }
   .guideStepChip { padding: 4px 8px; gap: 4px; }
@@ -8093,7 +8107,6 @@ html[data-theme="dark"] .fuStOnWaiting, html[data-theme="black"] .fuStOnWaiting 
 .maintChip.on.maintChipUrgent { background: #dc2626; border-color: #dc2626; color: #fff; }
 .maintChip.on.maintChipFixed { background: #2563eb; border-color: #2563eb; color: #fff; }
 .maintJump { width: 100%; margin: 8px 0 2px; background: #fff7ed; border: 1.5px solid #fdba74; color: #9a3412; border-radius: 10px; padding: 9px 12px; font-weight: 800; font-size: 0.82rem; cursor: pointer; text-align: left; }
-.guideStepChipMaint.guideStepDotActive { background: #ea580c !important; border-color: #ea580c !important; }
 .guideChipBadgeWarn { background: #dc2626 !important; color: #fff !important; }
 .eodActions { display: flex; }
 .eodBtnDone { flex: 1; width: 100%; }
