@@ -162,6 +162,28 @@ function showUpdateBanner() {
 }
 window.__sdxShowUpdateBanner = showUpdateBanner; // harness hook
 
+// v499: a new version applies ITSELF. Every change is already saved on the phone
+// (v495), so the page just flushes the draft and reloads — nobody has to find a
+// "Reload now" button. If a Save is in flight (window.__sdxSaving) it waits for it.
+let _updating = false;
+function applyUpdateNow() {
+  if (_updating) return;
+  _updating = true;
+  const strip = document.createElement("div");
+  strip.className = "swUpdatingStrip";
+  strip.textContent = "⬆ Updating to the new version…";
+  strip.style.cssText = "position:fixed;left:0;right:0;bottom:0;z-index:1300;background:#1e3a8a;color:#fff;font:700 14px/1.3 system-ui,sans-serif;padding:10px 16px calc(10px + env(safe-area-inset-bottom));text-align:center";
+  document.body.appendChild(strip);
+  const started = Date.now();
+  const go = () => {
+    if (window.__sdxSaving && Date.now() - started < 20000) { setTimeout(go, 500); return; }
+    try { window.__sdxFlushDraft && window.__sdxFlushDraft(); } catch {}
+    try { window.location.reload(); } catch { strip.remove(); _updating = false; showUpdateBanner(); }
+  };
+  setTimeout(go, 400);
+}
+window.__sdxApplyUpdateNow = applyUpdateNow; // harness hook
+
 // Register service worker for offline support + automatic update detection
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
@@ -172,7 +194,7 @@ if ("serviceWorker" in navigator) {
         function promptReload(worker) {
           if (!worker) return;
           worker.addEventListener("statechange", () => {
-            if (worker.state === "activated") showUpdateBanner();
+            if (worker.state === "activated") applyUpdateNow();
           });
         }
 
@@ -184,8 +206,12 @@ if ("serviceWorker" in navigator) {
           promptReload(reg.installing);
         });
 
-        // Check for updates every 60 seconds while page is open
+        // Check for updates every 60 seconds while page is open, and the moment
+        // the app comes back to the front or the connection returns (v499 — the
+        // interval is paused while an iPhone has the tab in the background).
         setInterval(() => reg.update(), 60 * 1000);
+        document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") reg.update().catch(() => {}); });
+        window.addEventListener("online", () => reg.update().catch(() => {}));
       })
       .catch(() => {});
   });

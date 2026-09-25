@@ -3036,7 +3036,6 @@ const PORTABLE_EQUIP_ITEMS = [
   { path: ["equipment", "power"],        label: "Power / Generator / Propane — cords out of walkways, tanks secured, no leaks?" },
   { path: ["equipment", "trash"],        label: "Trash Can — lid on, liner, not overflowing?" },
   { path: ["equipment", "license"],      label: "License / Permit — posted and current?" },
-  { path: ["facility", "ecolabProducts"], label: "Ecolab Products & Supplies — detergent, sanitizer, cleaner, Orange Force, paper towels, hand soap, test strips stocked?" },
   { path: ["equipment", "otherEquip"],   label: "Other Equipment — clean and in good condition?" },
 ];
 
@@ -32201,7 +32200,8 @@ export default function App() {
       console.warn("saveToHistory: document approaching 1MB limit!", docSizeKb, "KB");
     }
     try {
-      await saveOneInspection(cleanRecord);
+      try { window.__sdxSaving = true; } catch {} // v499: the auto-update waits for this
+      try { await saveOneInspection(cleanRecord); } finally { try { window.__sdxSaving = false; } catch {} }
       try { commitCorrectives(record.id); } catch {}
       try { notifyCrewsForItems(record.actionItems, record.siteName, record.siteNumber, record.inspectorName); } catch {}
       learnFromSave(cleanRecord);
@@ -33394,6 +33394,19 @@ export default function App() {
                   <div className="guideStepPanel" data-guide-panel="0">
                   <div style={{ display: (inspectionType==="Event Day"?[4,0,1,5,2,3]:[0,1,5,2,3,4])[guideStep]===0?"flex":"none", flexDirection: "column" }}>
 
+              {/* ── v500: the Ecolab inventory comes FIRST, for every stand type — Joxel: "i want this
+                  with the supplies at the beginning and it does the work to count supplies".
+                  A NO on a product row drops it straight into Supplies Needed (v489). ── */}
+              <div style={{ order: 0, marginBottom: 12 }} data-testid="ecolab-first">
+                <GuideSection title="🧪 Ecolab Products & Supplies — count what is on hand"
+                  items={[
+                    { path: ["facility", "ecolabProducts"], label: "Ecolab Products & Supplies — tap NO on anything missing or empty: it goes straight onto the Supplies Needed list below" },
+                  ]} inspection={inspection} setInspection={setInspection}
+                  sectionKey="facility"
+                  inspectionId={savedReportId} venueId={activeVenueId} onError={msg => { setError(msg); setTimeout(() => setError(""), 8000); }}
+                  defaultOpen={true} />
+              </div>
+
               {/* ── Supplies Needed ─────────────────────────────────────── */}
               {/* Event Day: show supplies AFTER temps (order 2); all other types: order 1 */}
               {(() => {
@@ -33683,7 +33696,6 @@ export default function App() {
                     { path: ["facility", "threeCompSinks"], label: "3-Compartment Sinks — Clean, soap/sanitizer dispensers, test strips, stopper, hot water, no leaks, signs?" },
                     { path: ["facility", "handSink"],       label: "Hand Sink — Clean, soap & paper dispenser working, hot water, no leaks, signs, clear of obstacles?" },
                     { path: ["facility", "mopArea"],        label: "Mop Area — Clean, mop hung to dry, faucet valve/hot water/no leaks, drain not clogged, Ecolab chemical holders & dispensers?" },
-                    { path: ["facility", "ecolabProducts"], label: "Ecolab Products & Supplies — detergent, sanitizer, cleaner, Orange Force, paper towels, hand soap, test strips stocked?" },
                   ]} inspection={inspection} setInspection={setInspection}
                   allowCustom sectionKey="facility"
                   inspectionId={savedReportId} venueId={activeVenueId} onError={msg => { setError(msg); setTimeout(() => setError(""), 8000); }}
@@ -33741,7 +33753,6 @@ export default function App() {
                       { path: ["equipment", "liquorStorage"], label: "Liquor Storage — locked, off the floor, bottles clean?" },
                       { path: ["equipment", "glassStorage"], label: "Glassware Storage — inverted, clean racks, no chipped glasses?" },
                       { path: ["equipment", "ecolab"], label: "Chemicals (Ecolab) — correct concentration, properly labeled, stored away from food?" },
-                      { path: ["facility", "ecolabProducts"], label: "Ecolab Products & Supplies — detergent, sanitizer, cleaner, Orange Force, paper towels, hand soap, test strips stocked?" },
                     ]} inspection={inspection} setInspection={setInspection}
                     allowCustom sectionKey="equipment" coldEquipmentMap={BAR_COLD_EQUIPMENT} inspectionId={savedReportId} venueId={activeVenueId} siteName={siteName} siteNumber={siteNumber} siteFloor={floor} siteLocType={locationType} onError={msg => { setError(msg); setTimeout(() => setError(""), 8000); }} onOpenPrintLabels={({ tag, label }) => setPage("print_labels")} defaultOpen={true} />
                 ) : locationType === "Pantry" ? (
@@ -33760,7 +33771,6 @@ export default function App() {
                       { path: ["equipment", "warmers"], label: "Hot Holding / Warmers — clean, at temp, working?" },
                       { path: ["equipment", "dryStorage"], label: "Dry Storage Racks — 6\" off the floor, dated, FIFO, no open bags?" },
                       { path: ["equipment", "ecolab"], label: "Chemicals (Ecolab) — labeled, correct concentration, stored away from food?" },
-                      { path: ["facility", "ecolabProducts"], label: "Ecolab Products & Supplies — detergent, sanitizer, cleaner, Orange Force, paper towels, hand soap, test strips stocked?" },
                       { path: ["equipment", "otherEquip"], label: "Other Equipment — clean and in good condition?" },
                     ]} inspection={inspection} setInspection={setInspection}
                     allowCustom sectionKey="equipment" coldEquipmentMap={PANTRY_COLD_EQUIPMENT} inspectionId={savedReportId} venueId={activeVenueId} siteName={siteName} siteNumber={siteNumber} siteFloor={floor} siteLocType={locationType} onError={msg => { setError(msg); setTimeout(() => setError(""), 8000); }} onOpenPrintLabels={({ tag, label }) => setPage("print_labels")} defaultOpen={true} />
