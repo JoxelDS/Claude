@@ -2936,7 +2936,7 @@ const NOTE_TYPES = {
   },
 };
 
-const STATUS_OPTIONS = ["OK", "Fail", "Needs Attention", "Critical Violation", "Corrected On-Site", "Maintenance", "Building", "Off / Not In Use", "N/A"];
+const STATUS_OPTIONS = ["OK", "Fail", "Needs Attention", "Critical Violation", "Corrected On-Site", "Maintenance", "Building", "Ecolab", "Off / Not In Use", "N/A"];
 const PHOTO_LIMIT = 6;
 const PHOTO_MAX_MB = 8;
 
@@ -3410,16 +3410,41 @@ const CHECKLIST_DEFAULTS = {
   ],
   // v489: the Ecolab products every stand must have — one row per product so a
   // NO is its own finding AND drops the product into Supplies Needed (inventory).
+  // v501: the Sodexo × Ecolab Foodservice Guide product list (Joxel's PDF) — one row per
+  // product; a NO drops that exact product into Supplies Needed (v489).
   ecolabProducts: [
-    { label: "Detergent (pot & pan / dish) stocked",        problem: "Detergent is missing or empty",                       value: "", supply: "Detergent (pot & pan)" },
-    { label: "Sanitizer stocked",                            problem: "Sanitizer is missing or empty",                       value: "", supply: "Sanitizer" },
-    { label: "All-purpose cleaner / degreaser stocked",     problem: "Cleaner / degreaser is missing or empty",             value: "", supply: "All-purpose cleaner / degreaser" },
-    { label: "Orange Force (cleaner & sanitizer) stocked",   problem: "Orange Force is missing or empty",                    value: "", supply: "Orange Force" },
-    { label: "Paper towels stocked",                         problem: "Paper towels are missing",                            value: "", supply: "Paper towels" },
-    { label: "Hand soap stocked",                            problem: "Hand soap is missing or empty",                       value: "", supply: "Hand soap" },
-    { label: "Test strips available",                        problem: "Test strips are missing",                             value: "", supply: "Test strips" },
+    { label: "Pot & pan — Smartpower Manual Detergent stocked", problem: "Smartpower Manual Detergent (pot & pan) is missing or empty", value: "", supply: "Smartpower Manual Detergent (pot & pan)" },
+    { label: "Pot & pan — Pantastic detergent stocked", problem: "Pantastic pot & pan detergent is missing or empty", value: "", supply: "Pantastic pot & pan detergent" },
+    { label: "3-comp sink — Sink & Surface Cleaner Sanitizer stocked", problem: "Sink & Surface Cleaner Sanitizer is missing or empty", value: "", supply: "Sink & Surface Cleaner Sanitizer" },
+    { label: "3-comp sink — Sink & Surface test strips available", problem: "Sink & Surface test strips is missing or empty", value: "", supply: "Sink & Surface test strips" },
+    { label: "Sanitizer bucket — Visual Compliance bucket + indicator strips", problem: "Visual Compliance bucket + indicator strips is missing or empty", value: "", supply: "Visual Compliance bucket + indicator strips" },
+    { label: "Delimer — Lime-A-Way stocked", problem: "Lime-A-Way delimer is missing or empty", value: "", supply: "Lime-A-Way delimer" },
+    { label: "Dishmachine — Smartpower Dishmachine Detergent stocked", problem: "Smartpower Dishmachine Detergent is missing or empty", value: "", supply: "Smartpower Dishmachine Detergent" },
+    { label: "Dishmachine — Smartpower Rinse Additive stocked", problem: "Smartpower Rinse Additive is missing or empty", value: "", supply: "Smartpower Rinse Additive" },
+    { label: "Dishmachine — TRUPOWER Ultra San sanitizer stocked", problem: "TRUPOWER Ultra San sanitizer is missing or empty", value: "", supply: "TRUPOWER Ultra San sanitizer" },
+    { label: "Dishmachine — Smartpower Presoak (flatware) stocked", problem: "Smartpower Presoak is missing or empty", value: "", supply: "Smartpower Presoak" },
+    { label: "Floor — Wash 'n Walk floor cleaner / sanitizer stocked", problem: "Wash 'n Walk floor cleaner is missing or empty", value: "", supply: "Wash 'n Walk floor cleaner" },
+    { label: "Floor — No Rinse Alkaline Floor Cleaner stocked", problem: "No Rinse Alkaline Floor Cleaner is missing or empty", value: "", supply: "No Rinse Alkaline Floor Cleaner" },
+    { label: "Drains — Pathways drain treatment stocked", problem: "Pathways drain treatment is missing or empty", value: "", supply: "Pathways drain treatment" },
+    { label: "Degreaser — Greasestrip Plus stocked", problem: "Greasestrip Plus degreaser is missing or empty", value: "", supply: "Greasestrip Plus degreaser" },
+    { label: "Degreaser — Greaselift stocked", problem: "Greaselift degreaser is missing or empty", value: "", supply: "Greaselift degreaser" },
+    { label: "Fryer — Grease Express fryer cleaner stocked", problem: "Grease Express fryer cleaner is missing or empty", value: "", supply: "Grease Express fryer cleaner" },
+    { label: "Grill — Grease Express High-Temp grill cleaner stocked", problem: "Grease Express grill cleaner is missing or empty", value: "", supply: "Grease Express grill cleaner" },
+    { label: "Stainless — Ecoshine stainless steel cleaner stocked", problem: "Ecoshine stainless steel cleaner is missing or empty", value: "", supply: "Ecoshine stainless steel cleaner" },
+    { label: "Freezer — Kool Klene freezer cleaner stocked", problem: "Kool Klene freezer cleaner is missing or empty", value: "", supply: "Kool Klene freezer cleaner" },
+    { label: "Produce — Antimicrobial Fruit & Vegetable Treatment stocked", problem: "Fruit & Vegetable Treatment is missing or empty", value: "", supply: "Fruit & Vegetable Treatment" },
+    { label: "Coffee / tea — Dip-It XP destainer stocked", problem: "Dip-It XP destainer is missing or empty", value: "", supply: "Dip-It XP destainer" },
+    { label: "Glass — Glass Cleaner stocked", problem: "Glass Cleaner is missing or empty", value: "", supply: "Glass Cleaner" },
+    { label: "Surfaces — Rapid Multi Surface Disinfectant Cleaner stocked", problem: "Rapid Multi Surface Disinfectant Cleaner is missing or empty", value: "", supply: "Rapid Multi Surface Disinfectant Cleaner" },
+    { label: "Surfaces — TB Disinfectant Cleaner (ready-to-use) stocked", problem: "TB Disinfectant Cleaner is missing or empty", value: "", supply: "TB Disinfectant Cleaner" },
+    { label: "Restroom — Scrub Free bathroom cleaner stocked", problem: "Scrub Free bathroom cleaner is missing or empty", value: "", supply: "Scrub Free bathroom cleaner" },
+    { label: "Hand soap — Advanced Antibacterial Foam Hand Soap stocked", problem: "Antibacterial Foam Hand Soap is missing or empty", value: "", supply: "Antibacterial Foam Hand Soap" },
+    { label: "Hand soap — Nexa Foam Hand Soap stocked", problem: "Nexa Foam Hand Soap is missing or empty", value: "", supply: "Nexa Foam Hand Soap" },
+    { label: "Hand sanitizer — Protecting Foam Hand Sanitizer stocked", problem: "Protecting Foam Hand Sanitizer is missing or empty", value: "", supply: "Protecting Foam Hand Sanitizer" },
+    { label: "Orange Force (cleaner & sanitizer) stocked", problem: "Orange Force is missing or empty", value: "", supply: "Orange Force" },
+    { label: "Paper towels stocked", problem: "Paper towels is missing or empty", value: "", supply: "Paper towels" },
     { label: "Products labeled and stored below food contact", problem: "Products not labeled or stored above food contact", value: "" },
-    { label: "Other",                                        value: "", isOther: true, notes: "" },
+    { label: "Other", value: "", isOther: true, notes: "" },
   ],
   // ── EQUIPMENTS ────────────────────────────────────────────────
   coolers: [
@@ -3823,7 +3848,7 @@ function calcOverallStatus(inspection, { foodTemps, foodTempNames } = {}) {
   const bad = [];
   const walk = (node) => {
     if (!node || typeof node !== "object") return;
-    if (node.status && (node.status === "Needs Attention" || node.status === "Not Clean" || node.status === "Maintenance" || node.status === "Building")) bad.push(true);
+    if (node.status && (node.status === "Needs Attention" || node.status === "Not Clean" || node.status === "Maintenance" || node.status === "Building" || node.status === "Ecolab")) bad.push(true);
     for (const k of Object.keys(node)) walk(node[k]);
   };
   walk(inspection?.facility);
@@ -4056,7 +4081,7 @@ function splitAreaCategory(area) {
 // This is the "Issue Type" column in Excel exports, so cleaning problems can
 // be filtered apart from maintenance work orders.
 // Explicit categories chosen on a form win outright (quick problem / supervisor QR chips)
-const EXPLICIT_TYPE = { "cleaning": "Cleaning", "maintenance": "Maintenance", "plumbing": "Maintenance", "lights": "Maintenance", "building": "Building", "ecolab / chemicals": "Ecolab / Maintenance", "pest control": "Pest Control", "temperature": "Temperature" };
+const EXPLICIT_TYPE = { "cleaning": "Cleaning", "maintenance": "Maintenance", "plumbing": "Maintenance", "lights": "Maintenance", "building": "Building", "ecolab": "Ecolab / Maintenance", "ecolab / chemicals": "Ecolab / Maintenance", "pest control": "Pest Control", "temperature": "Temperature" };
 // v490: "Building" = the structure itself (holes in the wall, ceiling / floor tiles, paint, doors, drywall) — Joxel: "add building option for things that are like a hole on the wall and all of that"
 const ISSUE_TYPES = ["Cleaning", "Maintenance", "Building", "Ecolab / Maintenance", "Pest Control", "Temperature", "Other"];
 const ISSUE_TYPE_ICON = { "Cleaning": "🧹", "Maintenance": "🔧", "Building": "🏗", "Ecolab / Maintenance": "🧪", "Pest Control": "🐜", "Temperature": "🌡", "Other": "⚪" };
@@ -4071,8 +4096,9 @@ function classifyIssueType(issue, notes = "", priority = "") {
   const t = `${issue || ""} ${notes || ""}`.toLowerCase();
   const lead = String(issue || "").split(":")[0].trim().toLowerCase();
   if (EXPLICIT_TYPE[lead]) return EXPLICIT_TYPE[lead];
+  if (p === "ecolab") return "Ecolab / Maintenance"; // v501: the row STATUS "Ecolab"
   if (/pest|roach|flies|fly |fruit fl|rodent|mice|mouse|rat |droppings|gnat|cucarach|mosca|mosquit|rat[oó]n|ratones|\brata|roedor|plaga|hormiga|excremento/.test(t) || p === "pest control") return "Pest Control";
-  if (/ecolab|sanitiz|qu[ií]mic|dispensador|detergent|orange force|degreas|desengras|paper towel|toalla|hand soap|test strip|tiras/.test(t)) return "Ecolab / Maintenance";
+  if (/ecolab|smartpower|pantastic|sink ?& ?surface|lime-?a-?way|wash ?'?n ?walk|pathways|greasestrip|greaselift|grease express|ecoshine|kool ?klene|dip-?it|scrub free|nexa|trupower|sanitiz|qu[ií]mic|dispensador|detergent|orange force|degreas|desengras|paper towel|toalla|hand soap|test strip|tiras/.test(t)) return "Ecolab / Maintenance";
   if (p === "building" || BUILDING_RE.test(t)) return "Building";
   if (p === "maintenance" || /^(hvac|plumbing|electrical|refrigeration)$/.test(p)) return "Maintenance";
   // Hard maintenance: something is broken or not working — the crew with tools
@@ -4151,7 +4177,7 @@ function buildActionItems({ inspection, rawNotes, foodTemps: ftArg, foodTempName
       return;
     }
     const sectionStatus = (node.status && node.status !== "High" && node.status !== "Med") ? node.status : "";
-    const isFail = node.status === "Fail" || node.status === "Needs Attention" || node.status === "Not Clean" || node.status === "Maintenance" || node.status === "Building";
+    const isFail = node.status === "Fail" || node.status === "Needs Attention" || node.status === "Not Clean" || node.status === "Maintenance" || node.status === "Building" || node.status === "Ecolab";
     const failedCheckItems = Array.isArray(node.checklist)
       ? node.checklist.filter(c => c.value === "NO")
       : [];
@@ -4173,7 +4199,7 @@ function buildActionItems({ inspection, rawNotes, foodTemps: ftArg, foodTempName
           corrective: sanitizeText(c.corrective) || "",
           owner: "", due: "",
           status: itemStatus,
-          priority: itemStatus === "Maintenance" ? "Maintenance" : itemStatus === "Building" ? "Building" : "High",
+          priority: itemStatus === "Maintenance" ? "Maintenance" : itemStatus === "Building" ? "Building" : itemStatus === "Ecolab" ? "Ecolab" : "High",
           photos: c.photos?.length ? c.photos : (mapByPath[pathKey] || []),
         });
       });
@@ -4186,7 +4212,7 @@ function buildActionItems({ inspection, rawNotes, foodTemps: ftArg, foodTempName
             notes: "",
             owner: "", due: "",
             status: sectionStatus || "Fail",
-            priority: sectionStatus === "Maintenance" ? "Maintenance" : sectionStatus === "Building" ? "Building" : "High",
+            priority: sectionStatus === "Maintenance" ? "Maintenance" : sectionStatus === "Building" ? "Building" : sectionStatus === "Ecolab" ? "Ecolab" : "High",
             photos: mapByPath[pathKey] || [],
           });
         }
@@ -4199,7 +4225,7 @@ function buildActionItems({ inspection, rawNotes, foodTemps: ftArg, foodTempName
         notes: "",
         owner: "", due: "",
         status: sectionStatus || "Fail",
-        priority: sectionStatus === "Maintenance" ? "Maintenance" : sectionStatus === "Building" ? "Building" : "High",
+        priority: sectionStatus === "Maintenance" ? "Maintenance" : sectionStatus === "Building" ? "Building" : sectionStatus === "Ecolab" ? "Ecolab" : "High",
         photos: mapByPath[pathKey] || [],
       });
     }
@@ -4238,7 +4264,7 @@ function buildActionItems({ inspection, rawNotes, foodTemps: ftArg, foodTempName
   // ── Maintenance items — same dynamic scan ──────────────────────
   const pushMaint = (pathKey, label, node) => {
     if (!node?.status) return;
-    if (node.status === "Needs Attention" || node.status === "Not Clean" || node.status === "Maintenance" || node.status === "Building" || node.status === "Fail") {
+    if (node.status === "Needs Attention" || node.status === "Not Clean" || node.status === "Maintenance" || node.status === "Building" || node.status === "Ecolab" || node.status === "Fail") {
       const detail = sanitizeText(node.notes) || node.status || "Issue flagged";
       items.push({
         issue: `${label}: ${detail}`,
@@ -9086,7 +9112,7 @@ const NLU_EN_MARKERS = /\b(the|is|are|and|not|with|under|behind|broken|dirty|lea
 // Ordered: the first matching category wins (pest and chemicals are never "cleaning")
 const NLU_CATS = [
   { cat: "Pest Control", re: /\b(pest|roach|roaches|cockroach|flies|fly|fruit fl\w*|gnats?|rodent|mice|mouse|rats?|droppings|ants?|maggots?|cucarach\w*|mosca\w*|mosquit\w*|rat[oa]\w*|ratones|roedor\w*|plaga\w*|hormiga\w*|excremento\w*|gusano\w*)\b/ },
-  { cat: "Ecolab / Chemicals", re: /\b(ecolab|saniti[sz]\w*|sanitizante|sanitizador|chemical\w*|quimic\w*|detergent\w*|dispenser|dispensador|test strips?|tiras|ppm|hand soap|jabon|soap|cloro|bleach|chlorine|quat|orange force|degreaser|desengrasante|paper towels?|toallas?( de papel)?)\b/ },
+  { cat: "Ecolab / Chemicals", re: /\b(ecolab|smartpower|pantastic|sink ?& ?surface|lime-?a-?way|wash ?'?n ?walk|pathways|greasestrip|greaselift|grease express|ecoshine|kool ?klene|dip-?it|scrub free|nexa|trupower|saniti[sz]\w*|sanitizante|sanitizador|chemical\w*|quimic\w*|detergent\w*|dispenser|dispensador|test strips?|tiras|ppm|hand soap|jabon|soap|cloro|bleach|chlorine|quat|orange force|degreaser|desengrasante|paper towels?|toallas?( de papel)?)\b/ },
   { cat: "Lights", re: /\b(lights?|bulbs?|light out|luz|luces|bombill\w*|foco|focos|lampara\w*|sin luz|no light)\b/ },
   { cat: "Plumbing", re: /\b(plumb\w*|plomer\w*|faucet|llave|grifo|drain\w*|desague|desagues|clog\w*|tapad[oa]s?|atascad[oa]s?|backing up|sewer|inundad[oa]|flood\w*|no (hot )?water|sin agua|agua caliente|hot water|toilet|inodoro|water heater|calentador)\b/ },
   { cat: "Building", re: BUILDING_RE },
@@ -25850,7 +25876,7 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                                               value={ci.ciStatus || "Needs Attention"}
                                               onChange={(e) => makeSetCiStatus(idx, e.target.value)}
                                               style={{ width: "100%" }}>
-                                              {["Needs Attention","Fail","Critical Violation","Corrected On-Site","Maintenance","Building","Off / Not In Use"].map(s => <option key={s} value={s}>{s}</option>)}
+                                              {["Needs Attention","Fail","Critical Violation","Corrected On-Site","Maintenance","Building","Ecolab","Off / Not In Use"].map(s => <option key={s} value={s}>{s}</option>)}
                                             </select>
                                           </div>
                                           <div>
@@ -33405,6 +33431,7 @@ export default function App() {
                   sectionKey="facility"
                   inspectionId={savedReportId} venueId={activeVenueId} onError={msg => { setError(msg); setTimeout(() => setError(""), 8000); }}
                   defaultOpen={true} />
+                <div className="ecolabSourceNote" style={{ fontSize: "0.78rem", color: "var(--ink-500)", margin: "6px 4px 0" }}>From the Sodexo × Ecolab Foodservice Guide — tap ✕ on anything missing or empty and it goes onto Supplies Needed below. Skip products this stand does not use.</div>
               </div>
 
               {/* ── Supplies Needed ─────────────────────────────────────── */}
