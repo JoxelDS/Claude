@@ -8920,12 +8920,30 @@ function PredictiveInsightsPanel({ history, venueSettings }) {
 
 /* ── Recurring Issues Analysis ──────────────────────────── */
 // Follow-up derivation, shared by the panel and the App-level overdue badge.
+// v502: follow-up keys are `loc::cat`. Rows of a second crew on the same key
+// (e.g. the maintenance row on a cooler whose other rows are cleaning) become a
+// sibling follow-up `loc::cat##<Crew>`. A clear written on the base key BEFORE
+// this split existed covered every row, so it still hides the sibling.
+const FU_SPLIT_SEP = "##";
+const FU_SPLIT_EPOCH = Date.parse("2026-09-26T01:00:00Z"); // v502 ship time: clears written before this covered every row of a key
+const fuBaseKey = k => String(k || "").split(FU_SPLIT_SEP)[0];
+const fuCatOfKey = k => fuBaseKey(k).split("::").slice(1).join("::");
+function fuRowPhotos(item, rec) {
+  try {
+    const ph = Array.isArray(item.photos) ? item.photos : [];
+    const objs = ph.filter(p => p && typeof p === "object" && (p.thumbUrl || p.previewUrl));
+    const ids = ph.filter(p => typeof p === "string");
+    const fromRec = (rec.photos || []).filter(p => p && (ids.length === 0 ? true : ids.includes(p.id)) && (p.thumbUrl || p.previewUrl));
+    return (objs.length ? objs : (ph.length || rec.quickProblem) ? fromRec : []).slice(0, 6)
+      .map(p => ({ id: p.id, tag: p.tag === "after" ? "after" : "", thumbUrl: p.thumbUrl || p.previewUrl || "", previewUrl: (p.previewUrl && !String(p.previewUrl).startsWith("data:")) ? p.previewUrl : (p.exportUrl || p.previewUrl || p.thumbUrl || "") }));
+  } catch { return []; }
+}
 function computeFollowups(history, venueSettings, clearedLocal = {}) {
   const recheckDays = Number(venueSettings?.recheckDays) || 7;
   if (!Array.isArray(history) || history.length < 1) return { followups: [], followupGroups: [], followupCatGroups: [], recheckDays };
   const cleared = { ...(venueSettings?.followupCleared || {}), ...clearedLocal };
   const latestInspByLoc = {};   // locName -> newest inspection timestamp
-  const catLastSeen = {};       // "loc::cat" -> { ts, dateStr, count }
+  const catLastSeen = {};       // "loc::cat" -> { ts, dateStr, count, rows }
   for (const rec of history) {
     const locName = rec.siteName || rec.location || "—";
     const ts = rec.inspectionDate ? new Date(rec.inspectionDate).getTime() : 0;
@@ -8939,51 +8957,88 @@ function computeFollowups(history, venueSettings, clearedLocal = {}) {
       if (recResolvedMap[i]) return;
       const cat = item.issue?.split(":")[0]?.trim() || "Other";
       const key = `${locName}::${cat}`;
-      if (!catLastSeen[key]) catLastSeen[key] = { ts: 0, dateStr: "", count: 0, unit: "" };
-      catLastSeen[key].count++;
-      if (ts > catLastSeen[key].ts) {
-        catLastSeen[key].ts = ts; catLastSeen[key].dateStr = rec.inspectionDate; catLastSeen[key].unit = (rec.siteNumber || "").trim();
-        catLastSeen[key].floor = floorForStand(rec.siteNumber, rec.siteName, rec.floor);
-        catLastSeen[key].locType = (rec.locationType || "").trim(); // v448: stamped when the problem was filed
+      if (!catLastSeen[key]) catLastSeen[key] = { ts: 0, dateStr: "", count: 0, unit: "", rows: [] };
+      const c = catLastSeen[key];
+      c.count++;
+      const afterColon = (item.issue || "").split(":").slice(1).join(":").trim();
+      // v502: EVERY row of the newest report is kept, not only the first — each
+      // with its own crew (the row STATUS Maintenance / Building / Ecolab counts).
+      const row = {
+        text: afterColon || (item.issue || "").trim(),
+        notes: (item.notes || "").trim(),
+        area: (item.area || "").trim(),
+        priority: item.priority || "",
+        itype: classifyIssueType(item.issue || "", item.notes || "", item.priority || ""),
+        photos: fuRowPhotos(item, rec),
+        cat,
+      };
+      if (ts > c.ts) {
+        c.ts = ts; c.dateStr = rec.inspectionDate; c.unit = (rec.siteNumber || "").trim();
+        c.floor = floorForStand(rec.siteNumber, rec.siteName, rec.floor);
+        c.locType = (rec.locationType || "").trim(); // v448: stamped when the problem was filed
         // Keep the latest issue description + inspector notes so the
         // follow-up card can show WHAT the problem actually is.
-        const afterColon = (item.issue || "").split(":").slice(1).join(":").trim();
-        catLastSeen[key].detail = afterColon || (item.issue || "").trim();
-        catLastSeen[key].notes = (item.notes || "").trim();
-        catLastSeen[key].area = (item.area || "").trim(); // v445: which unit (older reports)
-        catLastSeen[key].source = rec.source || "";
-        catLastSeen[key].reportedBy = rec.reportedBy?.name || "";
-        catLastSeen[key].inspector = (rec.quickProblem || rec.supervisorLog) && rec.source === "haccp_portal" ? "" : (rec.inspectorName || "");
+        c.detail = row.text;
+        c.notes = row.notes;
+        c.area = row.area; // v445: which unit (older reports)
+        c.source = rec.source || "";
+        c.reportedBy = rec.reportedBy?.name || "";
+        c.inspector = (rec.quickProblem || rec.supervisorLog) && rec.source === "haccp_portal" ? "" : (rec.inspectorName || "");
         // Pictures of the problem: checklist items carry photo objects;
         // quick / supervisor reports keep objects on rec.photos + ids on the item.
-        try {
-          const ph = Array.isArray(item.photos) ? item.photos : [];
-          const objs = ph.filter(p => p && typeof p === "object" && (p.thumbUrl || p.previewUrl));
-          const ids = ph.filter(p => typeof p === "string");
-          const fromRec = (rec.photos || []).filter(p => p && (ids.length === 0 ? true : ids.includes(p.id)) && (p.thumbUrl || p.previewUrl));
-          catLastSeen[key].photos = (objs.length ? objs : (ph.length || rec.quickProblem) ? fromRec : []).slice(0, 6)
-            .map(p => ({ id: p.id, tag: p.tag === "after" ? "after" : "", thumbUrl: p.thumbUrl || p.previewUrl || "", previewUrl: (p.previewUrl && !String(p.previewUrl).startsWith("data:")) ? p.previewUrl : (p.exportUrl || p.previewUrl || p.thumbUrl || "") }));
-        } catch { catLastSeen[key].photos = []; }
+        c.photos = row.photos;
+        c.rows = [row];
+      } else if (ts === c.ts && !c.rows.some(r => r.text === row.text && r.notes === row.notes)) {
+        c.rows.push(row);
       }
     });
   }
   const now = Date.now();
-  const followups = Object.entries(catLastSeen)
-    .filter(([key, v]) => {
-      const clearedTs = cleared[key];
-      if (clearedTs && clearedTs >= v.ts) return false;            // resolved, and hasn't reappeared since
-      return now - v.ts <= 90 * 24 * 60 * 60 * 1000;               // ignore ancient history
-    })
-    .map(([key, v]) => {
-      const [loc, cat] = key.split("::");
-      const daysSince = Math.floor((now - v.ts) / (24 * 60 * 60 * 1000));
-      const likelyResolved = (latestInspByLoc[loc] || 0) > v.ts;   // a newer inspection had no such issue
-      const overdue = !likelyResolved && daysSince >= recheckDays;
-      const manual = venueSettings?.followupType?.[key];
-      const itype = (manual && ISSUE_TYPES.includes(manual.itype)) ? manual.itype : classifyIssueType(`${cat}: ${v.detail || ""}`, v.notes || "");
-      return { key, loc, cat, unit: v.unit || "", floor: v.floor || "", itype, daysSince, count: v.count, dateStr: v.dateStr, likelyResolved, overdue, detail: v.detail || "", notes: v.notes || "", area: v.area || "", locType: v.locType || "", ts: v.ts || 0, source: v.source || "", reportedBy: v.reportedBy || "", photos: v.photos || [], inspector: v.inspector || "", typeManual: !!(manual && ISSUE_TYPES.includes(manual.itype)), typeBy: manual?.by || "" };
-    })
-    .sort((a, b) => (b.overdue - a.overdue) || (a.likelyResolved - b.likelyResolved) || b.daysSince - a.daysSince);
+  const mergePhotos = rows => { const seen = new Set(); const out = []; for (const r of rows) for (const p of (r.photos || [])) { const id = p.id || p.thumbUrl; if (!seen.has(id)) { seen.add(id); out.push(p); } } return out.slice(0, 8); };
+  const followups = [];
+  for (const [key, v] of Object.entries(catLastSeen)) {
+    if (now - v.ts > 90 * 24 * 60 * 60 * 1000) continue;             // ignore ancient history
+    const [loc, cat] = key.split("::");
+    const daysSince = Math.floor((now - v.ts) / (24 * 60 * 60 * 1000));
+    const likelyResolved = (latestInspByLoc[loc] || 0) > v.ts;   // a newer inspection had no such issue
+    const overdue = !likelyResolved && daysSince >= recheckDays;
+    const manual = venueSettings?.followupType?.[key];
+    const manualOk = !!(manual && ISSUE_TYPES.includes(manual.itype));
+    const itype = manualOk ? manual.itype : classifyIssueType(`${cat}: ${v.detail || ""}`, v.notes || "");
+    const rows = v.rows || [];
+    // Split the rows by crew: row 0 (and every row of the same crew) stays on
+    // the existing key; each other crew gets its own sibling card. A card the
+    // inspector moved by hand (followupType) keeps all its rows together.
+    const buckets = { [itype]: [] };
+    rows.forEach((r, i) => {
+      const t = (i === 0 || manualOk) ? itype : r.itype;
+      (buckets[t] = buckets[t] || []).push(r);
+    });
+    const common = { loc, cat, unit: v.unit || "", floor: v.floor || "", daysSince, dateStr: v.dateStr, likelyResolved, overdue, locType: v.locType || "", ts: v.ts || 0, source: v.source || "", reportedBy: v.reportedBy || "", inspector: v.inspector || "", baseKey: key };
+    for (const [t, rs] of Object.entries(buckets)) {
+      const isBase = t === itype;
+      if (!isBase && rs.length === 0) continue;
+      const k = isBase ? key : `${key}${FU_SPLIT_SEP}${t}`;
+      const baseClear = cleared[key];
+      const clearedTs = isBase ? baseClear : (cleared[k] !== undefined ? cleared[k] : (baseClear && baseClear < FU_SPLIT_EPOCH ? baseClear : undefined));
+      if (clearedTs && clearedTs >= v.ts) continue;                // resolved, and hasn't reappeared since
+      const man = isBase ? manual : venueSettings?.followupType?.[k];
+      const manOk = !!(man && ISSUE_TYPES.includes(man.itype));
+      const first = rs[0] || {};
+      followups.push({
+        ...common, key: k,
+        itype: manOk ? man.itype : t,
+        count: isBase ? v.count : rs.length,
+        detail: isBase ? (v.detail || "") : (first.text || ""),
+        notes: isBase ? (v.notes || "") : (first.notes || ""),
+        area: isBase ? (v.area || "") : (first.area || v.area || ""),
+        photos: rs.length ? mergePhotos(rs) : (v.photos || []),
+        subs: rs,
+        typeManual: manOk, typeBy: man?.by || "",
+      });
+    }
+  }
+  followups.sort((a, b) => (b.overdue - a.overdue) || (a.likelyResolved - b.likelyResolved) || b.daysSince - a.daysSince);
 
   // Group follow-ups by venue so one site with many issues is one card,
   // with bulk actions, instead of a wall of individual cards.
@@ -9024,6 +9079,80 @@ function computeFollowups(history, venueSettings, clearedLocal = {}) {
 
   return { followups, followupGroups, followupCatGroups, recheckDays };
 }
+
+// ── v502: one card per unit per crew ─────────────────────────────────────
+// Joxel: "all of the cleaning issues with 2 door cooler group them into one and
+// do something similar for the maintenance issues". The follow-ups at one stand
+// that name the same unit (whatever label they came in under — checklist,
+// area-suffixed, temperature, quick report) and belong to the same crew are
+// shown as ONE card; every action on it is written to each member key, so the
+// per-key state (status / cleared / comments / photos / type) never changes shape.
+const FU_GENERIC_CATS = /^(cleaning|maintenance|building|equipment|plumbing|lights?|lighting|pest control|ecolab|ecolab \/ chemicals|chemicals|temperature|other|facilities\s*[–-]\s*(cleaning|maintenance|building))$/i;
+const FU_UNIT_WORD = /cooler|freezer|fridge|refrig|reach-?in|walk-?in|fryer|grill|griddle|hood|oven|warmer|ice (machine|maker|bin)|sink|dish ?machine|dispenser|prep table|shel(f|ves)|rack|soda|beer|coffee/i;
+function fuUnitName(f) {
+  const cat = String(f?.cat || "").trim();
+  if (!cat) return "";
+  const t = /^Temperature (?:out of range|elevated)\s*[—–-]\s*([^(:]+)/i.exec(cat);
+  if (t) return t[1].trim();
+  if (/^HACCP\b/i.test(cat)) return "";
+  if (/^hand ?sink\b/i.test(cat)) return "Hand Sink";
+  if (/^(3|three)[- ]?comp/i.test(cat)) return "3-Compartment Sinks";
+  if (FU_GENERIC_CATS.test(cat)) {
+    // A quick report / note filed as "Cleaning" joins the unit only when its area names one.
+    const a = String(f?.area || "").split(" — ")[0].trim();
+    return a && FU_UNIT_WORD.test(a) ? a : "";
+  }
+  return cat.replace(/^(Equipment|Facilities|Utensils|Operations|Maintenance|Bar|Pantry)\s*[–-]\s*/i, "").replace(/\s+—\s+.*$/, "").trim();
+}
+const fuUnitNorm = u => String(u || "").toUpperCase().replace(/S\b/g, "").replace(/[^A-Z0-9]+/g, "");
+// What a sub-issue line needs in front of its text inside a merged card.
+function fuSubPrefix(cat) {
+  const c = String(cat || "");
+  const t = /^(Temperature (?:out of range|elevated))/i.exec(c);
+  if (t) return t[1];
+  if (FU_GENERIC_CATS.test(c)) return c;
+  return "";
+}
+function fuMergeGroup(unit, ms) {
+  const p = ms[0];
+  const subs = ms.flatMap(m => ((m.subs && m.subs.length) ? m.subs : [{ text: m.detail, notes: m.notes, area: m.area, photos: m.photos, cat: m.cat }])
+    .map(sb => ({ ...sb, cat: sb.cat || m.cat, memberKey: m.key })));
+  const seen = new Set(); const photos = [];
+  ms.forEach(m => (m.photos || []).forEach(ph => { const id = ph.id || ph.thumbUrl; if (!seen.has(id)) { seen.add(id); photos.push(ph); } }));
+  const newest = ms.reduce((a, b) => ((b.ts || 0) > (a.ts || 0) ? b : a), p);
+  return {
+    ...p,
+    merged: true, members: ms, unitName: String(unit).toUpperCase(),
+    cat: String(unit).toUpperCase(), baseCat: p.cat,
+    detail: subs.map(sb => sb.text).filter(Boolean).join(" · "), notes: "", area: "",
+    subs, photos: photos.slice(0, 8),
+    overdue: ms.some(m => m.overdue), likelyResolved: ms.every(m => m.likelyResolved),
+    daysSince: Math.max(...ms.map(m => m.daysSince || 0)), count: ms.reduce((n, m) => n + (m.count || 1), 0),
+    ts: newest.ts || 0, dateStr: newest.dateStr || p.dateStr,
+  };
+}
+function mergeFollowupsByUnit(list) {
+  const out = []; const groups = {};
+  for (const f of (list || [])) {
+    const u = fuUnitName(f); const nu = fuUnitNorm(u);
+    if (!nu) { out.push({ f }); continue; }
+    const sk = normUnit(f.unit) ? `u:${normUnit(f.unit)}` : `s:${String(f.loc || "").toUpperCase()}`;
+    const gk = `${sk}|${nu}|${f.itype}`;
+    if (!groups[gk]) { groups[gk] = { unit: u, members: [] }; out.push({ g: groups[gk] }); }
+    // prefer the plainest label for the card title ("2-Door Cooler" over a temperature line)
+    if (!fuSubPrefix(f.cat) && fuSubPrefix(groups[gk].members[0]?.cat || "x")) groups[gk].unit = u;
+    groups[gk].members.push(f);
+  }
+  return out.map(x => x.f || (x.g.members.length === 1 ? x.g.members[0] : fuMergeGroup(x.g.unit, x.g.members)));
+}
+const fuMembers = f => (f && Array.isArray(f.members) && f.members.length ? f.members : [f]);
+// v502: every issue a follow-up holds, as text for the exports ("1. … 2. …")
+const fuDetailAll = f => {
+  const subs = (f && f.subs) || [];
+  if (subs.length <= 1) return (f && f.detail) || "";
+  return subs.map((sb, i) => `${i + 1}. ${fuSubPrefix(sb.cat) ? fuSubPrefix(sb.cat) + ": " : ""}${sb.text || ""}${sb.notes && sb.notes !== sb.text ? ` — ${sb.notes}` : ""}`).join("\n");
+};
+try { window.__sdxMergeFollowups = mergeFollowupsByUnit; } catch {}
 
 const QUICK_PROBLEM_CATS = [
   "Facilities – Floor", "Facilities – Ceiling", "Facilities – Walls", "Facilities – Hand Sink",
@@ -9447,15 +9576,18 @@ function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLoc
   const all = useMemo(() => { try { return computeFollowups(history, vsT, clearedLocal).followups; } catch { return []; } }, [history, vs.followupCleared, vs.followupStatus, vs.followupType, vs.recheckDays, clearedLocal, local.types]);
   function moveTo(f, itype) {
     const entry = { itype, by: me, ts: Date.now() };
-    setLocal(p => ({ ...p, types: { ...p.types, [f.key]: entry } }));
-    saveVenueSettingsMap?.("followupType", { [f.key]: entry });
+    const patch = {}; fuMembers(f).forEach(m => { patch[m.key] = entry; }); // v502: a merged card moves all of its issues
+    setLocal(p => ({ ...p, types: { ...p.types, ...patch } }));
+    saveVenueSettingsMap?.("followupType", patch);
     setMoveKey(null);
     notifyInspector(f, `${meta.icon} Moved to ${itype} — ${f.loc}${f.unit ? ` #${f.unit}` : ""}`, `${f.cat}: ${f.detail || ""} — ${me} says this is ${itype.toLowerCase()}`);
     try { notifyCrewsForItems([{ issue: `${f.cat}: ${f.detail || ""}`, notes: f.notes || "" }], f.loc, f.unit, me, itype); } catch {}
     setFlash(`↪ ${T("Sent to", "Enviado a", "Voye bay")} ${itype}`); setTimeout(() => setFlash(""), 3000);
   }
-  const mine = all.filter(f => types.includes(f.itype) || (showOther && f.itype === "Other"));
-  const isDone = f => { const st = statusOf(f.key); return !!(st && st.status === "resolved") || f.likelyResolved; };
+  // v502: one card per unit per crew at a stand
+  const mine = mergeFollowupsByUnit(all.filter(f => types.includes(f.itype) || (showOther && f.itype === "Other")));
+  const isDone = f => fuMembers(f).every(m => { const st = statusOf(m.key); return !!(st && st.status === "resolved") || m.likelyResolved; });
+  const photosOfF = f => { const seen = new Set(); const out = []; fuMembers(f).forEach(m => photosOf(m.key).forEach(ph => { if (!seen.has(ph.id)) { seen.add(ph.id); out.push(ph); } })); return out; };
   const qq = q.trim().toLowerCase(); const qUnit = normUnit(qq);
   const standKeyF = f => normUnit(f.unit) ? `u:${normUnit(f.unit)}` : `s:${(f.loc || "").toUpperCase()}`;
   const standList = (() => { const m = {}; for (const f of mine) { const k = standKeyF(f); if (!m[k]) m[k] = { key: k, unit: (f.unit || "").trim(), loc: f.loc || "", open: 0 }; if (!isDone(f)) m[k].open++; } return Object.values(m).sort((a, b) => (a.unit && b.unit) ? a.unit.localeCompare(b.unit, undefined, { numeric: true }) : a.unit ? -1 : b.unit ? 1 : a.loc.localeCompare(b.loc)); })();
@@ -9499,7 +9631,7 @@ function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLoc
     // v451: we already know whose stand it is — don't ask the crew.
     const lt = String(f.locType || detectStandTypeFor(f.unit, f.loc) || "").trim(); // v456: registry fallback for old reports
     const whose = lt ? (lt === "Subcontractor" || lt === "Portable - Subcontractor" ? "sub" : "ours") : "";
-    const prevSt = statusOf(f.key);
+    const prevSt = fuMembers(f).map(m => statusOf(m.key)).find(x => x && x.status === "in_progress") || statusOf(f.key);
     const startTs = prevSt && prevSt.status === "in_progress" && prevSt.ts ? prevSt.ts : 0;
     const mins = startTs ? Math.max(1, Math.round((ts - startTs) / 60000)) : 0;
     const standType = lt ? standTypeBadge(lt).short : "";
@@ -9512,13 +9644,19 @@ function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLoc
     const timeText = mins ? `${mins} min, ${new Date(startTs).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}\u2013${new Date(ts).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}` : "";
     const tags = [howText, whoseText, timeText].filter(Boolean).join(", ");
     const text = `${kind === "fixed" ? "Fixed" : kind === "waiting" ? "Waiting on" : "In process"}${tags ? ` (${tags})` : ""}${note ? `: ${note.trim().slice(0, 200)}` : ""}`;
-    const arr = [...commentsOf(f.key), { text: `${prefix} — ${text}`, by: me, ts }].slice(-10);
-    setLocal(p => ({ ...p, status: { ...p.status, [f.key]: entry }, comments: { ...p.comments, [f.key]: arr }, cleared: kind === "fixed" ? { ...p.cleared, [f.key]: ts } : p.cleared }));
-    saveVenueSettingsMap?.("followupStatus", { [f.key]: entry });
-    saveVenueSettingsMap?.("followupComments", { [f.key]: arr });
-    // v440: the clear must beat the report's own timestamp or the item never
-    // leaves the inspector's list (date-only dates can parse ahead of now).
-    if (kind === "fixed") saveVenueSettingsMap?.("followupCleared", { [f.key]: Math.max(ts, (f.ts || 0) + 1) });
+    // v502: a merged card writes the same update to every issue it holds
+    const stP = {}, cmP = {}, clP = {}, clLocal = {};
+    fuMembers(f).forEach(m => {
+      stP[m.key] = entry;
+      cmP[m.key] = [...commentsOf(m.key), { text: `${prefix} — ${text}`, by: me, ts }].slice(-10);
+      // v440: the clear must beat the report's own timestamp or the item never
+      // leaves the inspector's list (date-only dates can parse ahead of now).
+      clP[m.key] = Math.max(ts, (m.ts || 0) + 1); clLocal[m.key] = ts;
+    });
+    setLocal(p => ({ ...p, status: { ...p.status, ...stP }, comments: { ...p.comments, ...cmP }, cleared: kind === "fixed" ? { ...p.cleared, ...clLocal } : p.cleared }));
+    saveVenueSettingsMap?.("followupStatus", stP);
+    saveVenueSettingsMap?.("followupComments", cmP);
+    if (kind === "fixed") saveVenueSettingsMap?.("followupCleared", clP);
     notifyInspector(f, `${meta.icon} ${meta.title.replace(" board", "")} update — ${f.loc}${f.unit ? ` #${f.unit}` : ""}`, `${f.cat}: ${text} — ${me}`);
     setAction(null);
     setFlash(`${kind === "fixed" ? "✅" : "📨"} ${T("Sent to the inspector", "Enviado al inspector", "Voye bay enspekte a")} — ${f.loc}${f.unit ? ` #${f.unit}` : ""}`); setTimeout(() => setFlash(""), 3500);
@@ -9529,9 +9667,10 @@ function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLoc
     try {
       const got = await makeFollowupPhotos(files, `crew_${f.key.replace(/[^A-Za-z0-9]+/g, "_").slice(0, 60)}`, 4);
       if (got.length) {
-        const arr = [...photosOf(f.key), ...got.map(p => ({ id: p.id, thumbUrl: p.thumbUrl, previewUrl: p.previewUrl, by: me, ts: Date.now(), tag: "after" }))].slice(-8);
-        setLocal(p => ({ ...p, photos: { ...p.photos, [f.key]: arr } }));
-        saveVenueSettingsMap?.("followupPhotos", { [f.key]: arr });
+        const add = got.map(p => ({ id: p.id, thumbUrl: p.thumbUrl, previewUrl: p.previewUrl, by: me, ts: Date.now(), tag: "after" }));
+        const patch = {}; fuMembers(f).forEach(m => { patch[m.key] = [...photosOf(m.key), ...add].slice(-8); }); // v502: one upload, every member
+        setLocal(p => ({ ...p, photos: { ...p.photos, ...patch } }));
+        saveVenueSettingsMap?.("followupPhotos", patch);
         notifyInspector(f, `${meta.icon} After photo — ${f.loc}${f.unit ? ` #${f.unit}` : ""}`, `${f.cat}: ${got.length} photo${got.length !== 1 ? "s" : ""} added by ${me}`);
         setFlash(T("📷 Photo sent to the inspector", "📷 Foto enviada al inspector", "📷 Foto voye bay enspekte a")); setTimeout(() => setFlash(""), 3000);
       }
@@ -9554,16 +9693,20 @@ function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLoc
   );
   const renderCrewItem = (f, withStand) => {
     const stt = statusOf(f.key); const done = isDone(f);
-    const before = [...(f.photos || []).filter(p => p.tag !== "after").map(p => ({ ...p, report: true })), ...photosOf(f.key).filter(p => (p.tag || "before") !== "after")];
-    const after = [...(f.photos || []).filter(p => p.tag === "after").map(p => ({ ...p, report: true })), ...photosOf(f.key).filter(p => p.tag === "after")];
+    const before = [...(f.photos || []).filter(p => p.tag !== "after").map(p => ({ ...p, report: true })), ...photosOfF(f).filter(p => (p.tag || "before") !== "after")];
+    const after = [...(f.photos || []).filter(p => p.tag === "after").map(p => ({ ...p, report: true })), ...photosOfF(f).filter(p => p.tag === "after")];
     const cm = commentsOf(f.key);
     return (
       <div key={f.key} className={"crewItem" + (done ? " crewItemDone" : f.overdue ? " crewItemOverdue" : "")}>
         <div className="crewItemHead">
           <span className="crewItemIcon">{done ? "✅" : ISSUE_TYPE_ICON[f.itype] || "🔧"}</span>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div className="crewItemTitle">{withStand ? <span className="crewItemStand notranslate" translate="no">🍳 {f.loc}{f.unit ? ` · #${f.unit}` : ""} — </span> : null}{f.cat}{f.locType ? <span className="notranslate" translate="no"><StandType lt={f.locType} style={{ marginLeft: 6 }} /></span> : null}</div>
-            <div className="crewItemDetail">{f.detail || "—"}{f.notes ? <span className="crewItemNotes"> — {f.notes}</span> : null}</div>
+            <div className="crewItemTitle">{withStand ? <span className="crewItemStand notranslate" translate="no">🍳 {f.loc}{f.unit ? ` · #${f.unit}` : ""} — </span> : null}{f.merged ? "🧊 " : ""}{f.cat}{(f.subs || []).length > 1 ? <span className="fuSubCount notranslate" translate="no" data-testid="crew-sub-count"> · {(f.subs || []).length} {T("issues", "problemas", "pwoblèm")}</span> : null}{f.locType ? <span className="notranslate" translate="no"><StandType lt={f.locType} style={{ marginLeft: 6 }} /></span> : null}</div>
+            {(f.subs || []).length > 1 ? (
+              <ol className="fuSubList" data-testid="crew-sub-list">{f.subs.map((sb, i) => <li key={i}>{fuSubPrefix(sb.cat) ? <b>{fuSubPrefix(sb.cat)}: </b> : null}{sb.text || "—"}{sb.notes && sb.notes !== sb.text ? <span className="crewItemNotes"> — {sb.notes}</span> : null}</li>)}</ol>
+            ) : (
+              <div className="crewItemDetail">{f.detail || "—"}{f.notes ? <span className="crewItemNotes"> — {f.notes}</span> : null}</div>
+            )}
             {f.area && !(f.cat || "").toUpperCase().includes(String(f.area).split(" — ")[0].toUpperCase()) && (
               <div className="fuEquipChip">🧊 {f.area}</div>
             )}
@@ -9931,8 +10074,9 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
       const exact = at.find(k => sameStandName(k.site, f.loc));
       return (exact?.locType || at[0]?.locType || fromReport[u] || "").trim();
     };
-    const followups = (r0.followups || []).map(f => ({ ...f, locType: typeOf(f) }));
-    const withType = g => ({ ...g, items: (g.items || []).map(f => ({ ...f, locType: typeOf(f) })) });
+    // v502: one card per unit per crew at a stand (all 2-door cooler cleaning issues together)
+    const followups = mergeFollowupsByUnit((r0.followups || []).map(f => ({ ...f, locType: typeOf(f) })));
+    const withType = g => ({ ...g, items: mergeFollowupsByUnit((g.items || []).map(f => ({ ...f, locType: typeOf(f) }))) });
     const followupGroups = (r0.followupGroups || []).map(withType);
     const followupCatGroups = (r0.followupCatGroups || []).map(withType);
     const recheckDays = r0.recheckDays;
@@ -9949,8 +10093,9 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
   // Category by hand: 🧹 / 🔧 / 🧪 / 🐜 / 🌡 / ⚪ — moves the item between the crew boards
   function setFollowupType(f, itype) {
     const entry = itype ? { itype, by: currentUser?.name || "Inspector", ts: Date.now() } : null;
-    setTypeLocal(p => ({ ...p, [f.key]: entry }));
-    writeMap("followupType", { [f.key]: entry });
+    const patch = {}; fuMembers(f).forEach(m => { patch[m.key] = entry; }); // v502
+    setTypeLocal(p => ({ ...p, ...patch }));
+    writeMap("followupType", patch);
     setTypeMenuKey(null);
     if (itype && Object.values(CREW_TYPES).some(ts => ts.includes(itype))) {
       try { notifyCrewsForItems([{ issue: `${f.cat}: ${f.detail || ""}`, notes: f.notes || "" }], f.loc, f.unit, currentUser?.name || "Inspector", itype); } catch {}
@@ -9975,16 +10120,17 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
     const text = commentText.trim().slice(0, 200);
     if (!text) return;
     const entry = { text, by: currentUser?.name || "Unknown", ts: Date.now() };
-    const arr = [...commentsOf(f), entry].slice(-10);
-    setCommentsLocal(prev => ({ ...prev, [f.key]: arr }));
-    writeMap("followupComments", { [f.key]: arr });
+    const patch = {}; fuMembers(f).forEach(m => { patch[m.key] = [...commentsOf(m), entry].slice(-10); }); // v502
+    setCommentsLocal(prev => ({ ...prev, ...patch }));
+    writeMap("followupComments", patch);
     setCommentText(""); setCommentKey(null);
   }
 
   function setStatus(f, status, note = "") {
     const entry = { status, note: note.trim().slice(0, 80), by: currentUser?.name || "Unknown", ts: Date.now() };
-    setStatusLocal(prev => ({ ...prev, [f.key]: entry }));
-    writeMap("followupStatus", { [f.key]: entry });
+    const patch = {}; fuMembers(f).forEach(m => { patch[m.key] = entry; }); // v502
+    setStatusLocal(prev => ({ ...prev, ...patch }));
+    writeMap("followupStatus", patch);
     setWaitingKey(null); setWaitingNote("");
   }
 
@@ -10014,24 +10160,35 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
   function undoResolve() {
     if (!undoRes) return;
     if (undoRes.mode === "reopen") { const items = undoRes.items || []; setUndoRes(null); items.forEach(f => markResolved(f)); setUndoRes(null); return; }
-    const { key, prevStamp } = undoRes;
-    setClearedLocal(prev => { const n = { ...prev }; if (prevStamp) n[key] = prevStamp; else delete n[key]; return n; });
-    writeMap("followupCleared", { [key]: prevStamp || 0 });
-    writeMap("followupStatus", { [key]: { status: "open", note: "", by: currentUser?.name || "Unknown", ts: Date.now() } });
+    // v502: a merged card undoes every issue it resolved
+    const pairs = undoRes.multi || [{ key: undoRes.key, prevStamp: undoRes.prevStamp }];
+    setClearedLocal(prev => { const n = { ...prev }; pairs.forEach(({ key, prevStamp }) => { if (prevStamp) n[key] = prevStamp; else delete n[key]; }); return n; });
+    const clP = {}, stP = {}; const nowTs = Date.now();
+    pairs.forEach(({ key, prevStamp }) => { clP[key] = prevStamp || 0; stP[key] = { status: "open", note: "", by: currentUser?.name || "Unknown", ts: nowTs }; });
+    writeMap("followupCleared", clP);
+    writeMap("followupStatus", stP);
     setUndoRes(null);
   }
   function markResolved(f) {
     // Stamp must be >= the record timestamp it clears — date-only inspection
     // dates parse as UTC midnight, which can sit AHEAD of local Date.now().
-    const stamp = Math.max(Date.now(), (f.ts || 0) + 1);
-    setClearedLocal(prev => ({ ...prev, [f.key]: stamp }));
+    // v502: a merged card resolves every issue it holds, in one write per field.
+    const ms = fuMembers(f);
+    const stamp = Math.max(Date.now(), ...ms.map(m => (m.ts || 0) + 1));
+    const clP = {}, stP = {}, multi = [];
+    ms.forEach(m => {
+      clP[m.key] = stamp;
+      stP[m.key] = { status: "resolved", note: "", by: currentUser?.name || "Unknown", ts: stamp };
+      multi.push({ key: m.key, prevStamp: (venueSettings?.followupCleared || {})[m.key] || clearedLocal[m.key] || 0 });
+    });
+    setClearedLocal(prev => ({ ...prev, ...clP }));
     setRemindedKey(`res::${f.key}`);
     setTimeout(() => setRemindedKey(null), 1500);
-    writeMap("followupStatus", { [f.key]: { status: "resolved", note: "", by: currentUser?.name || "Unknown", ts: stamp } });
-    writeMap("followupCleared", { [f.key]: stamp });
+    writeMap("followupStatus", stP);
+    writeMap("followupCleared", clP);
     // v440: proof it stuck, with a way back
-    const prevStamp = (venueSettings?.followupCleared || {})[f.key] || clearedLocal[f.key] || 0;
-    setUndoRes({ key: f.key, prevStamp, ts: stamp, label: `${f.loc}${f.unit ? ` #${f.unit}` : ""} — ${f.cat}` });
+    const prevStamp = multi[0]?.prevStamp || 0;
+    setUndoRes({ key: f.key, prevStamp, multi, ts: stamp, label: `${f.loc}${f.unit ? ` #${f.unit}` : ""} — ${f.cat}${ms.length > 1 ? ` (${ms.length} issues)` : ""}` });
     setTimeout(() => setUndoRes(u => (u && u.key === f.key ? null : u)), 9000);
   }
 
@@ -10096,7 +10253,7 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
     const patch = {};
     const stPatch = {};
     const by = currentUser?.name || "Unknown";
-    g.items.forEach(f => {
+    g.items.flatMap(fuMembers).forEach(f => { // v502: merged cards hold several keys
       const stamp = Math.max(Date.now(), (f.ts || 0) + 1);
       patch[f.key] = stamp;
       stPatch[f.key] = { status: "resolved", note: "", by, ts: stamp };
@@ -10199,7 +10356,7 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
         const whose = whoseProblemLabel(f.locType, whoseKey, st.standType);
         const notes = [f.notes, ...((commentsLocal[f.key] || venueSettings?.followupComments?.[f.key] || []).map(c => `${c.by}: ${c.text}`))].filter(Boolean).join("  |  ");
         const r = lic[normUnit(f.unit)] || {};
-        const row = ws.addRow([i + 1, f.loc, f.unit || "", f.floor || "", standTypeBadge(f.locType || "").short || "—", r.license || "", f.cat, f.detail || "", f.dateStr || "",
+        const row = ws.addRow([i + 1, f.loc, f.unit || "", f.floor || "", standTypeBadge(f.locType || "").short || "—", r.license || "", f.cat, fuDetailAll(f), f.dateStr || "",
           f.fixedBy || (st.status === "resolved" ? st.by || "" : ""), solved ? new Date(solved).toLocaleDateString() : "", clk(solved),
           mins || "", whose, notes, before.length ? "" : "no before photo", after.length ? "" : "no after photo"]);
         const bg = i % 2 === 0 ? "FFFFFFFF" : "FFF4F5F7";
@@ -10274,7 +10431,7 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
       const solved = Number(f.fixedTs || (st?.status === "resolved" ? st?.ts : 0) || 0);
       const clk = t => t ? new Date(t).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "";
       const whose = f.fixedWhose ? whoseProblemLabel(f.locType, f.fixedWhose, st?.standType) : "";
-      const row = ws.addRow([i + 1, f.loc, f.unit || "", f.floor || "", standTypeBadge(f.locType || "").short || "—", f.cat, f.itype || "Other", f.detail || "", f.notes || "", stLabel, f.daysSince, f.dateStr || "", st?.by || "", cmts, nPhotos,
+      const row = ws.addRow([i + 1, f.loc, f.unit || "", f.floor || "", standTypeBadge(f.locType || "").short || "—", f.cat, f.itype || "Other", fuDetailAll(f), f.notes || "", stLabel, f.daysSince, f.dateStr || "", st?.by || "", cmts, nPhotos,
         f.fixedBy || (st?.status === "resolved" ? st?.by || "" : ""), solved ? new Date(solved).toLocaleDateString() : "", clk(solved), clk(f.fixedStart), f.fixedMins || "", whose]);
       row.height = 18;
       row.eachCell((c, col) => {
@@ -10348,7 +10505,7 @@ ${sections}
       const cmts = ((commentsLocal[f.key] || venueSettings?.followupComments?.[f.key] || [])).map(c => `${c.by}: ${c.text}`).join(" | ");
       const photos = [...(f.photos || []), ...((fuPhotosLocal[f.key] || venueSettings?.followupPhotos?.[f.key] || []))].map(p => p.thumbUrl || p.previewUrl || p.url || "").filter(u => u && !fmt.startsWith("word")).slice(0, 3);
       const cls = f.overdue && !f.likelyResolved ? "bad" : (f.likelyResolved ? "ok" : "");
-      return `<tr class="${i % 2 ? "alt" : ""}"><td>${i + 1}</td><td><b>${esc(f.loc)}</b>${f.unit ? `<br>#${esc(f.unit)}` : ""}${f.floor ? `<br><small>${esc(f.floor)}</small>` : ""}${f.locType ? `<br><small>${esc(standTypeBadge(f.locType).short)}</small>` : ""}</td><td><b>${esc(f.cat)}</b><br><small>${esc(f.itype || "Other")}</small></td><td>${esc(f.detail || "")}${f.notes ? `<br><small><i>${esc(f.notes)}</i></small>` : ""}${cmts ? `<br><small>${esc(cmts)}</small>` : ""}</td><td class="${cls}">${esc(stLabel)}${st?.by ? `<br><small>${esc(st.by)}</small>` : ""}</td><td>${esc(f.daysSince)}</td><td>${esc(f.dateStr || "")}</td><td>${f.fixedTs ? `${esc(new Date(f.fixedTs).toLocaleDateString())}<br><small>${esc(new Date(f.fixedTs).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }))}${f.fixedBy ? ` · ${esc(f.fixedBy)}` : ""}${f.fixedMins ? ` · ${f.fixedMins} min` : ""}</small>` : ""}</td>${fmt === "pdf" ? `<td>${photos.map(u => `<img src="${u}">`).join("")}</td>` : ""}</tr>`;
+      return `<tr class="${i % 2 ? "alt" : ""}"><td>${i + 1}</td><td><b>${esc(f.loc)}</b>${f.unit ? `<br>#${esc(f.unit)}` : ""}${f.floor ? `<br><small>${esc(f.floor)}</small>` : ""}${f.locType ? `<br><small>${esc(standTypeBadge(f.locType).short)}</small>` : ""}</td><td><b>${esc(f.cat)}</b><br><small>${esc(f.itype || "Other")}</small></td><td>${esc(fuDetailAll(f)).replace(/\n/g, "<br>")}${f.notes ? `<br><small><i>${esc(f.notes)}</i></small>` : ""}${cmts ? `<br><small>${esc(cmts)}</small>` : ""}</td><td class="${cls}">${esc(stLabel)}${st?.by ? `<br><small>${esc(st.by)}</small>` : ""}</td><td>${esc(f.daysSince)}</td><td>${esc(f.dateStr || "")}</td><td>${f.fixedTs ? `${esc(new Date(f.fixedTs).toLocaleDateString())}<br><small>${esc(new Date(f.fixedTs).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }))}${f.fixedBy ? ` · ${esc(f.fixedBy)}` : ""}${f.fixedMins ? ` · ${f.fixedMins} min` : ""}</small>` : ""}</td>${fmt === "pdf" ? `<td>${photos.map(u => `<img src="${u}">`).join("")}</td>` : ""}</tr>`;
     }).join("");
     const overdue = items.filter(f => f.overdue && !f.likelyResolved).length;
     const body = `<h1>Follow-ups &amp; Rechecks</h1><div class="brand-line"></div>
@@ -10413,7 +10570,10 @@ ${sections}
   const [fuPhotoBusy, setFuPhotoBusy] = useState(null);
   const [photoMenuKey, setPhotoMenuKey] = useState(null); // v473: which card's 📷 Photo menu is open
   const [lightboxSrc, setLightboxSrc] = useState(null);
-  const fuPhotosOf = f => (fuPhotosLocal[f.key] || venueSettings?.followupPhotos?.[f.key] || []);
+  const fuPhotosOf1 = k => (fuPhotosLocal[k] || venueSettings?.followupPhotos?.[k] || []);
+  // v502: a merged card shows the pictures added to any of its issues
+  const fuPhotosOf = f => { const seen = new Set(); const out = []; fuMembers(f).forEach(m => fuPhotosOf1(m.key).forEach(ph => { if (!seen.has(ph.id)) { seen.add(ph.id); out.push(ph); } })); return out; };
+  const fuPhotoPatch = (f, fn) => { const patch = {}; fuMembers(f).forEach(m => { patch[m.key] = fn(fuPhotosOf1(m.key)); }); setFuPhotosLocal(prev => ({ ...prev, ...patch })); writeMap("followupPhotos", patch); };
   async function addFuPhotos(f, files, tag = "before") {
     if (!files || !files.length) return;
     setFuPhotoBusy(f.key);
@@ -10421,22 +10581,16 @@ ${sections}
       const got = await makeFollowupPhotos(files, `fu_${f.key.replace(/[^A-Za-z0-9]+/g, "_").slice(0, 60)}`, 4);
       if (got.length) {
         const entries = got.map(p => ({ id: p.id, thumbUrl: p.thumbUrl, previewUrl: p.previewUrl, by: currentUser?.name || "Unknown", ts: Date.now(), tag }));
-        const arr = [...fuPhotosOf(f), ...entries].slice(-8);
-        setFuPhotosLocal(prev => ({ ...prev, [f.key]: arr }));
-        writeMap("followupPhotos", { [f.key]: arr });
+        fuPhotoPatch(f, cur => [...cur, ...entries].slice(-8));
       }
     } catch {}
     setFuPhotoBusy(null);
   }
   function setFuPhotoTag(f, id, tag) {
-    const arr = fuPhotosOf(f).map(p => p.id === id ? { ...p, tag } : p);
-    setFuPhotosLocal(prev => ({ ...prev, [f.key]: arr }));
-    writeMap("followupPhotos", { [f.key]: arr });
+    fuPhotoPatch(f, cur => cur.map(p => p.id === id ? { ...p, tag } : p));
   }
   function removeFuPhoto(f, id) {
-    const arr = fuPhotosOf(f).filter(p => p.id !== id);
-    setFuPhotosLocal(prev => ({ ...prev, [f.key]: arr }));
-    writeMap("followupPhotos", { [f.key]: arr });
+    fuPhotoPatch(f, cur => cur.filter(p => p.id !== id));
   }
 
   async function submitQuickProblem() {
@@ -10644,7 +10798,7 @@ ${sections}
     [...fixedList, ...cleanAll].forEach(f => m.set(f.key, f));
     return [...m.values()];
   })();
-  const selPicked = () => selPool.filter(f => fuSelected[f.key]);
+  const selPicked = () => selPool.filter(f => fuSelected[f.key]).flatMap(fuMembers); // v502: exports keep one row per issue
   // v455 — "↩ Put back" on a fixed row, with an inline yes/no so a thumb
   // slip on a phone cannot reopen a job by accident.
   const reopenBtn = f => (
@@ -11159,11 +11313,12 @@ ${sections}
                             <div className="fuStatus">
                               {f.overdue ? "⏰" : f.likelyResolved ? "✅" : "👁"}
                             </div>
-                            <div className="fuBody" style={{ cursor: "pointer" }} onClick={() => onIssueDrilldown?.(f.loc, f.cat)}>
+                            <div className="fuBody" style={{ cursor: "pointer" }} onClick={() => onIssueDrilldown?.(f.loc, f.baseCat || f.cat)}>
                               <div className="fuTitle">
                                 {fuGroupBy === "loc"
-                                  ? f.cat
-                                  : <><NT>{f.loc}{f.unit ? <span className="fuLoc"> · Unit #{f.unit}</span> : null}</NT>{fuGroupBy === "type" ? <span className="fuLoc"> — {f.cat}</span> : null}</>}
+                                  ? <>{f.merged ? "🧊 " : ""}{f.cat}</>
+                                  : <><NT>{f.loc}{f.unit ? <span className="fuLoc"> · Unit #{f.unit}</span> : null}</NT>{(fuGroupBy === "type" || f.merged) ? <span className="fuLoc"> — {f.cat}</span> : null}</>}
+                                {(f.subs || []).length > 1 ? <span className="fuSubCount" data-testid="fu-sub-count"> · {(f.subs || []).length} issues</span> : null}
                                 {f.locType ? <StandType lt={f.locType} style={{ marginLeft: 6 }} /> : null}
                               </div>
                               {/* v445: which unit — for older reports the name only lives in area */}
@@ -11201,7 +11356,9 @@ ${sections}
                                   </span>
                                 )}
                               </div>
-                              {(f.detail || f.notes) && (
+                              {(f.subs || []).length > 1 ? (
+                                <ol className="fuSubList" data-testid="fu-sub-list">{f.subs.map((sb, i) => <li key={i}>{fuSubPrefix(sb.cat) ? <b>{fuSubPrefix(sb.cat)}: </b> : null}{sb.text || "—"}{sb.notes && sb.notes !== sb.text ? <span style={{ color: "var(--ink-500)" }}> — {sb.notes}</span> : null}</li>)}</ol>
+                              ) : (f.detail || f.notes) && (
                                 <div style={{ fontSize: "0.76rem", color: "var(--ink-700)", marginTop: 3, lineHeight: 1.35 }}>
                                   {f.detail}{f.notes && f.detail !== f.notes ? <span style={{ color: "var(--ink-500)" }}> — {f.notes}</span> : null}
                                 </div>
@@ -13737,7 +13894,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                 Object.entries(venueSettings?.followupStatus || {}).forEach(([key, st]) => {
                   if (!st || !st.ts) return;
                   const f = byKey[key] || {};
-                  const [loc, cat] = key.split("::");
+                  const [loc] = key.split("::"); const cat = fuCatOfKey(key); // v502: drop the "##Crew" suffix
                   // v455 — a put-back is its own event, so the history says closed then reopened
                   if (st.status === "open" && st.reopenedFrom) {
                     events.push({ type: "reopened", date: new Date(Number(st.ts)).toISOString(), label: f.loc || loc || "Stand", siteNumber: f.unit || "", locationType: "", sub: st.by || "", cat: f.cat || cat || "", detail: st.note || "", locType: f.locType || "", reopenedFrom: Number(st.reopenedFrom), id: `reopen_${key}_${st.ts}` });
@@ -30670,7 +30827,7 @@ export default function App() {
     for (const [key, v] of fresh) {
       const f = byKey[key];
       const loc = f?.loc || key.split("::")[0] || "a stand";
-      const cat = f?.cat || key.split("::")[1] || "problem";
+      const cat = f?.cat || fuCatOfKey(key) || "problem";
       const unit = f?.unit ? ` #${f.unit}` : "";
       fireNotification(`fixed_${key}_${v.ts}`, "fixed", `✅ Fixed — ${loc}${unit}`,
         `${cat}${v.how === "already" ? " · was already OK" : v.how === "crew" ? " · cleaned by the crew" : ""}${v.by ? ` · by ${v.by}` : ""}`, null);

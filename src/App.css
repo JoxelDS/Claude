@@ -8923,3 +8923,9 @@ button.nluChipTemp { background: #fef3c7; color: #92400e; border: 1px solid #fcd
 .outboxChip { margin-left: auto; background: #fff; color: #9a3412; border: 1px solid #fdba74; border-radius: 999px; padding: 4px 12px; font: inherit; font-weight: 800; font-size: 0.78rem; cursor: pointer; min-height: 32px; }
 .pendingUploadChip { margin: 10px 20px 0; padding: 8px 12px; border-radius: 10px; background: #fff7ed; border: 1px solid #fdba74; color: #9a3412; font-weight: 700; font-size: 0.8rem; }
 @media (prefers-color-scheme: dark) { .draftRow { background: #1f2937; border-color: #a16207; } .draftRowTitle { color: #e0e7ff; } }
+
+/* ── v502: one card per unit per crew — the list of issues it holds ── */
+.fuSubCount { font-weight: 700; color: var(--ink-500, #64748b); font-size: 0.85em; }
+.fuSubList { margin: 4px 0 2px; padding-left: 20px; font-size: 0.78rem; color: var(--ink-700, #334155); line-height: 1.4; display: flex; flex-direction: column; gap: 2px; }
+.fuSubList li::marker { color: var(--ink-400, #94a3b8); font-weight: 700; }
+.crewItem .fuSubList { font-size: 0.86rem; }
