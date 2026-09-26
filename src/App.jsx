@@ -2017,12 +2017,12 @@ function buildHaccpDirectory(subs, forDate, overrides) {
 // How many real temperature readings a HACCP submission carries (problem-only
 // submissions and empty forms count as zero).
 // v466: tell the inspectors / admins a supervisor filed a log (best effort)
-async function notifySupervisorLog({ site, unit, by, temps, outOfRange, problems }) {
+async function notifySupervisorLog({ site, unit, by, temps, outOfRange, problems, supplies }) {
   if (!FIREBASE_ON) return;
   try {
     const users = await getUsers();
     const title = `📋 Supervisor log — ${site || "stand"}${unit ? ` #${unit}` : ""}`;
-    const message = `${temps} temp${temps !== 1 ? "s" : ""} logged${outOfRange ? ` · ${outOfRange} out of range` : ""}${problems ? ` · ${problems} problem${problems !== 1 ? "s" : ""}` : ""}${by ? ` · by ${by}` : ""}`;
+    const message = `${temps} temp${temps !== 1 ? "s" : ""} logged${outOfRange ? ` · ${outOfRange} out of range` : ""}${problems ? ` · ${problems} problem${problems !== 1 ? "s" : ""}` : ""}${supplies ? ` · 📦 ${supplies} supplies requested` : ""}${by ? ` · by ${by}` : ""}`;
     (users || []).filter(u => u.approved && u.name && ["inspector", "admin", "global_admin"].includes(u.role)).slice(0, 12)
       .forEach(u => saveInspectorNotification({ inspectorName: u.name.trim().toLowerCase(), kind: "followup", title, message }).catch(() => {}));
   } catch {}
@@ -3322,6 +3322,17 @@ function withPhotos(obj) {
 // Default checklist arrays per subsection — matches STAND INSPECTION FORM HRS 2025
 // Each item: { label: string, value: "YES"|"NO"|"" }
 // "OTHER" is handled by the notes field (free-text)
+// v503: the Ecolab / cleaning supplies the stands use — the form's inventory rows and the portal's request chips.
+const ECOLAB_SUPPLIES = [
+  { en: "Wash 'n Walk floor cleaner", es: "Wash 'n Walk (limpiador de piso)" },
+  { en: "Test strips", es: "Tiras de prueba" },
+  { en: "Paper towels", es: "Papel toalla" },
+  { en: "Ecolab Sanitizer", es: "Desinfectante Ecolab" },
+  { en: "Ecolab Detergent", es: "Detergente Ecolab" },
+  { en: "Sink & Surface Cleaner Sanitizer", es: "Sink & Surface (limpiador desinfectante)" },
+  { en: "Rapid Multi Surface Disinfectant", es: "Rapid Multi Surface (desinfectante)" },
+  { en: "Thermometer probe wipes", es: "Toallitas para termómetro" },
+];
 const CHECKLIST_DEFAULTS = {
   // ── FACILITIES ────────────────────────────────────────────────
   ceiling: [
@@ -3412,37 +3423,10 @@ const CHECKLIST_DEFAULTS = {
   // NO is its own finding AND drops the product into Supplies Needed (inventory).
   // v501: the Sodexo × Ecolab Foodservice Guide product list (Joxel's PDF) — one row per
   // product; a NO drops that exact product into Supplies Needed (v489).
+  // v503: the products the stands actually USE (Joxel, 2026-09-26) — shared with the portal's
+  // "Request supplies" chips through ECOLAB_SUPPLIES.
   ecolabProducts: [
-    { label: "Pot & pan — Smartpower Manual Detergent stocked", problem: "Smartpower Manual Detergent (pot & pan) is missing or empty", value: "", supply: "Smartpower Manual Detergent (pot & pan)" },
-    { label: "Pot & pan — Pantastic detergent stocked", problem: "Pantastic pot & pan detergent is missing or empty", value: "", supply: "Pantastic pot & pan detergent" },
-    { label: "3-comp sink — Sink & Surface Cleaner Sanitizer stocked", problem: "Sink & Surface Cleaner Sanitizer is missing or empty", value: "", supply: "Sink & Surface Cleaner Sanitizer" },
-    { label: "3-comp sink — Sink & Surface test strips available", problem: "Sink & Surface test strips is missing or empty", value: "", supply: "Sink & Surface test strips" },
-    { label: "Sanitizer bucket — Visual Compliance bucket + indicator strips", problem: "Visual Compliance bucket + indicator strips is missing or empty", value: "", supply: "Visual Compliance bucket + indicator strips" },
-    { label: "Delimer — Lime-A-Way stocked", problem: "Lime-A-Way delimer is missing or empty", value: "", supply: "Lime-A-Way delimer" },
-    { label: "Dishmachine — Smartpower Dishmachine Detergent stocked", problem: "Smartpower Dishmachine Detergent is missing or empty", value: "", supply: "Smartpower Dishmachine Detergent" },
-    { label: "Dishmachine — Smartpower Rinse Additive stocked", problem: "Smartpower Rinse Additive is missing or empty", value: "", supply: "Smartpower Rinse Additive" },
-    { label: "Dishmachine — TRUPOWER Ultra San sanitizer stocked", problem: "TRUPOWER Ultra San sanitizer is missing or empty", value: "", supply: "TRUPOWER Ultra San sanitizer" },
-    { label: "Dishmachine — Smartpower Presoak (flatware) stocked", problem: "Smartpower Presoak is missing or empty", value: "", supply: "Smartpower Presoak" },
-    { label: "Floor — Wash 'n Walk floor cleaner / sanitizer stocked", problem: "Wash 'n Walk floor cleaner is missing or empty", value: "", supply: "Wash 'n Walk floor cleaner" },
-    { label: "Floor — No Rinse Alkaline Floor Cleaner stocked", problem: "No Rinse Alkaline Floor Cleaner is missing or empty", value: "", supply: "No Rinse Alkaline Floor Cleaner" },
-    { label: "Drains — Pathways drain treatment stocked", problem: "Pathways drain treatment is missing or empty", value: "", supply: "Pathways drain treatment" },
-    { label: "Degreaser — Greasestrip Plus stocked", problem: "Greasestrip Plus degreaser is missing or empty", value: "", supply: "Greasestrip Plus degreaser" },
-    { label: "Degreaser — Greaselift stocked", problem: "Greaselift degreaser is missing or empty", value: "", supply: "Greaselift degreaser" },
-    { label: "Fryer — Grease Express fryer cleaner stocked", problem: "Grease Express fryer cleaner is missing or empty", value: "", supply: "Grease Express fryer cleaner" },
-    { label: "Grill — Grease Express High-Temp grill cleaner stocked", problem: "Grease Express grill cleaner is missing or empty", value: "", supply: "Grease Express grill cleaner" },
-    { label: "Stainless — Ecoshine stainless steel cleaner stocked", problem: "Ecoshine stainless steel cleaner is missing or empty", value: "", supply: "Ecoshine stainless steel cleaner" },
-    { label: "Freezer — Kool Klene freezer cleaner stocked", problem: "Kool Klene freezer cleaner is missing or empty", value: "", supply: "Kool Klene freezer cleaner" },
-    { label: "Produce — Antimicrobial Fruit & Vegetable Treatment stocked", problem: "Fruit & Vegetable Treatment is missing or empty", value: "", supply: "Fruit & Vegetable Treatment" },
-    { label: "Coffee / tea — Dip-It XP destainer stocked", problem: "Dip-It XP destainer is missing or empty", value: "", supply: "Dip-It XP destainer" },
-    { label: "Glass — Glass Cleaner stocked", problem: "Glass Cleaner is missing or empty", value: "", supply: "Glass Cleaner" },
-    { label: "Surfaces — Rapid Multi Surface Disinfectant Cleaner stocked", problem: "Rapid Multi Surface Disinfectant Cleaner is missing or empty", value: "", supply: "Rapid Multi Surface Disinfectant Cleaner" },
-    { label: "Surfaces — TB Disinfectant Cleaner (ready-to-use) stocked", problem: "TB Disinfectant Cleaner is missing or empty", value: "", supply: "TB Disinfectant Cleaner" },
-    { label: "Restroom — Scrub Free bathroom cleaner stocked", problem: "Scrub Free bathroom cleaner is missing or empty", value: "", supply: "Scrub Free bathroom cleaner" },
-    { label: "Hand soap — Advanced Antibacterial Foam Hand Soap stocked", problem: "Antibacterial Foam Hand Soap is missing or empty", value: "", supply: "Antibacterial Foam Hand Soap" },
-    { label: "Hand soap — Nexa Foam Hand Soap stocked", problem: "Nexa Foam Hand Soap is missing or empty", value: "", supply: "Nexa Foam Hand Soap" },
-    { label: "Hand sanitizer — Protecting Foam Hand Sanitizer stocked", problem: "Protecting Foam Hand Sanitizer is missing or empty", value: "", supply: "Protecting Foam Hand Sanitizer" },
-    { label: "Orange Force (cleaner & sanitizer) stocked", problem: "Orange Force is missing or empty", value: "", supply: "Orange Force" },
-    { label: "Paper towels stocked", problem: "Paper towels is missing or empty", value: "", supply: "Paper towels" },
+    ...ECOLAB_SUPPLIES.map(p => ({ label: `${p.en} stocked`, problem: `${p.en} is missing or empty`, value: "", supply: p.en })),
     { label: "Products labeled and stored below food contact", problem: "Products not labeled or stored above food contact", value: "" },
     { label: "Other", value: "", isOther: true, notes: "" },
   ],
@@ -4098,7 +4082,7 @@ function classifyIssueType(issue, notes = "", priority = "") {
   if (EXPLICIT_TYPE[lead]) return EXPLICIT_TYPE[lead];
   if (p === "ecolab") return "Ecolab / Maintenance"; // v501: the row STATUS "Ecolab"
   if (/pest|roach|flies|fly |fruit fl|rodent|mice|mouse|rat |droppings|gnat|cucarach|mosca|mosquit|rat[oó]n|ratones|\brata|roedor|plaga|hormiga|excremento/.test(t) || p === "pest control") return "Pest Control";
-  if (/ecolab|smartpower|pantastic|sink ?& ?surface|lime-?a-?way|wash ?'?n ?walk|pathways|greasestrip|greaselift|grease express|ecoshine|kool ?klene|dip-?it|scrub free|nexa|trupower|sanitiz|qu[ií]mic|dispensador|detergent|orange force|degreas|desengras|paper towel|toalla|hand soap|test strip|tiras/.test(t)) return "Ecolab / Maintenance";
+  if (/ecolab|smartpower|pantastic|sink ?& ?surface|lime-?a-?way|wash ?'?n ?walk|pathways|greasestrip|greaselift|grease express|ecoshine|kool ?klene|dip-?it|scrub free|nexa|trupower|sanitiz|qu[ií]mic|dispensador|detergent|orange force|rapid multi|probe wipe|toallita|degreas|desengras|paper towel|toalla|hand soap|test strip|tiras/.test(t)) return "Ecolab / Maintenance";
   if (p === "building" || BUILDING_RE.test(t)) return "Building";
   if (p === "maintenance" || /^(hvac|plumbing|electrical|refrigeration)$/.test(p)) return "Maintenance";
   // Hard maintenance: something is broken or not working — the crew with tools
@@ -9241,7 +9225,7 @@ const NLU_EN_MARKERS = /\b(the|is|are|and|not|with|under|behind|broken|dirty|lea
 // Ordered: the first matching category wins (pest and chemicals are never "cleaning")
 const NLU_CATS = [
   { cat: "Pest Control", re: /\b(pest|roach|roaches|cockroach|flies|fly|fruit fl\w*|gnats?|rodent|mice|mouse|rats?|droppings|ants?|maggots?|cucarach\w*|mosca\w*|mosquit\w*|rat[oa]\w*|ratones|roedor\w*|plaga\w*|hormiga\w*|excremento\w*|gusano\w*)\b/ },
-  { cat: "Ecolab / Chemicals", re: /\b(ecolab|smartpower|pantastic|sink ?& ?surface|lime-?a-?way|wash ?'?n ?walk|pathways|greasestrip|greaselift|grease express|ecoshine|kool ?klene|dip-?it|scrub free|nexa|trupower|saniti[sz]\w*|sanitizante|sanitizador|chemical\w*|quimic\w*|detergent\w*|dispenser|dispensador|test strips?|tiras|ppm|hand soap|jabon|soap|cloro|bleach|chlorine|quat|orange force|degreaser|desengrasante|paper towels?|toallas?( de papel)?)\b/ },
+  { cat: "Ecolab / Chemicals", re: /\b(ecolab|smartpower|pantastic|sink ?& ?surface|lime-?a-?way|wash ?'?n ?walk|pathways|greasestrip|greaselift|grease express|ecoshine|kool ?klene|dip-?it|scrub free|nexa|trupower|saniti[sz]\w*|sanitizante|sanitizador|chemical\w*|quimic\w*|detergent\w*|dispenser|dispensador|test strips?|tiras|ppm|hand soap|jabon|soap|cloro|bleach|chlorine|quat|orange force|rapid multi|probe wipes?|toallitas?|degreaser|desengrasante|paper towels?|toallas?( de papel)?)\b/ },
   { cat: "Lights", re: /\b(lights?|bulbs?|light out|luz|luces|bombill\w*|foco|focos|lampara\w*|sin luz|no light)\b/ },
   { cat: "Plumbing", re: /\b(plumb\w*|plomer\w*|faucet|llave|grifo|drain\w*|desague|desagues|clog\w*|tapad[oa]s?|atascad[oa]s?|backing up|sewer|inundad[oa]|flood\w*|no (hot )?water|sin agua|agua caliente|hot water|toilet|inodoro|water heater|calentador)\b/ },
   { cat: "Building", re: BUILDING_RE },
@@ -28250,6 +28234,10 @@ function HaccpPortal() {
   const [problemPhotos, setProblemPhotos] = useState([]);
   // "Report a problem only" — skips the temperature log entirely
   const [problemOnly, setProblemOnly] = useState(false);
+  // v503 — supplies the stand asks for: {[item]: qty}, plus a typed "other" and urgency
+  const [supReq, setSupReq] = useState({});
+  const [supOther, setSupOther] = useState("");
+  const [supUrgent, setSupUrgent] = useState(false);
   const [problemError, setProblemError] = useState("");
   const [problemAction, setProblemAction] = useState("");   // v439 — what did you do
   const [problemProof, setProblemProof] = useState([]);
@@ -28514,7 +28502,11 @@ function HaccpPortal() {
     // v463 — several problems per visit: the ones already added plus whatever
     // is still in the editor. The editor is validated only when it has content.
     const editorFull = editorHasProblem();
-    if (problemOnly && !editorFull && problemsAdded.length === 0) { setProblemError("Describe the problem · Describe el problema"); return; }
+    const suppliesReq = [
+      ...Object.entries(supReq).map(([item, qty]) => ({ item, qty: String(qty || ""), urgent: supUrgent, fromPortal: true })),
+      ...(supOther.trim() ? [{ item: supOther.trim(), qty: "", urgent: supUrgent, fromPortal: true }] : []),
+    ];
+    if (problemOnly && !editorFull && problemsAdded.length === 0 && !suppliesReq.length) { setProblemError("Describe the problem · Describe el problema"); return; }
     if (editorFull) {
       const err = validateProblemEditor();
       if (err) { setProblemError(err); setTimeout(() => document.querySelector(".haccpProblemErr")?.scrollIntoView({ behavior: "smooth", block: "center" }), 50); return; }
@@ -28565,6 +28557,7 @@ function HaccpPortal() {
         photos: allProblems.flatMap(q => q.photos),
       } : null,
       problemReports: allProblems, // v463 — one entry per problem
+      suppliesNeeded: suppliesReq, // v503
       submittedAt: new Date().toISOString(),
     };
     await saveHaccpSubmission(record);
@@ -28574,7 +28567,7 @@ function HaccpPortal() {
     // v466 — a log WITH temperatures is a report of its own ("Supervisor
     // Log") in Past Reports, so the inspector gets it without creating one.
     const tempCount = haccpTempCount(record);
-    if (allProblems.length || tempCount > 0) {
+    if (allProblems.length || tempCount > 0 || suppliesReq.length) {
       (async () => {
         const now = new Date();
         const items = [];
@@ -28594,7 +28587,7 @@ function HaccpPortal() {
         // were logged (problems ride along as its action items), else the
         // "Quick Report" that computeFollowups reads (one follow-up per loc::category).
         try {
-          const isLog = tempCount > 0;
+          const isLog = tempCount > 0 || (suppliesReq.length > 0 && !allProblems.length);
           let outOfRange = 0;
           if (isLog) {
             const allItems = [...HACCP_TEMP_ITEMS, ...customItems];
@@ -28612,9 +28605,10 @@ function HaccpPortal() {
             haccpTempCount: tempCount, haccpOutOfRange: outOfRange,
             reportedBy: { name: supName.trim(), phone: supPhone.trim() }, inspectorName: supName.trim() || "Supervisor", supervisorName: supName.trim(), sitePhone: supPhone.trim(),
             overallStatus: outOfRange > 0 ? "FAIL" : "PASS", photos: allProblems.flatMap(q => q.photos), actionItems: items, inspection: {},
+            suppliesNeeded: suppliesReq,
           });
           if (items.length) try { notifyCrewsForItems(items.map(a => ({ issue: a.issue, notes: "" })), locSite.trim().toUpperCase(), locUnit.trim(), supName.trim()); } catch {}
-          if (isLog) try { notifySupervisorLog({ site: locSite.trim().toUpperCase(), unit: locUnit.trim(), by: supName.trim(), temps: tempCount, outOfRange, problems: items.length }); } catch {}
+          if (isLog) try { notifySupervisorLog({ site: locSite.trim().toUpperCase(), unit: locUnit.trim(), by: supName.trim(), temps: tempCount, outOfRange, problems: items.length, supplies: suppliesReq.length }); } catch {}
         } catch {}
       })();
     }
@@ -29300,6 +29294,37 @@ function HaccpPortal() {
               </div>
             </div>
 
+            {/* v503 — ask for supplies */}
+            <div className="haccpSection supReqSection" data-testid="sup-req">
+              <div className="haccpSectionHead">{L("📦 Request supplies (optional)", "📦 Pedir suministros (opcional)")}</div>
+              <div className="haccpSectionBody">
+                <div style={{ fontSize: "0.8rem", color: "#555", marginBottom: 8 }}>{L("Tap what you need — the inspector gets the list.", "Toca lo que necesitas — el inspector recibe la lista.")}</div>
+                <div className="supReqGrid">
+                  {ECOLAB_SUPPLIES.map(p => {
+                    const on = supReq[p.en] != null;
+                    return (
+                      <div key={p.en} className={`supReqRow${on ? " on" : ""}`}>
+                        <button type="button" className="supReqChip" data-testid="sup-req-chip" onClick={() => setSupReq(r => { const n = { ...r }; if (on) delete n[p.en]; else n[p.en] = 1; return n; })}>
+                          {on ? "✓ " : "＋ "}{L(p.en, p.es)}
+                        </button>
+                        {on && (
+                          <span className="supReqQty">
+                            <button type="button" onClick={() => setSupReq(r => ({ ...r, [p.en]: Math.max(1, (r[p.en] || 1) - 1) }))}>−</button>
+                            <b data-testid="sup-req-qty">{supReq[p.en]}</b>
+                            <button type="button" onClick={() => setSupReq(r => ({ ...r, [p.en]: (r[p.en] || 1) + 1 }))}>＋</button>
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+                <input className="haccpInput" style={{ marginTop: 8 }} placeholder={L("Something else? Type it here", "¿Otra cosa? Escríbela aquí")} value={supOther} onChange={e => setSupOther(e.target.value)} />
+                <label style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 8, fontSize: "0.85rem", fontWeight: 700 }}>
+                  <input type="checkbox" checked={supUrgent} onChange={e => setSupUrgent(e.target.checked)} /> {L("Urgent — we are out", "Urgente — se nos acabó")}
+                </label>
+              </div>
+            </div>
+
             {/* Problem report section with photo upload */}
             <div className="haccpSection">
               <div className="haccpSectionHead">{problemOnly ? L("Report a Problem", "Reportar un problema") : L("Report a Problem (optional)", "Reportar un problema (opcional)")}</div>
@@ -29433,6 +29458,11 @@ function HaccpPortal() {
                 : <>Your temperature log has been submitted and will appear in the inspection report.
                     {cats.length > 0 && <> Your {catsEl} problem report{cats.length > 1 ? "s are" : " is"} now on the inspector's follow-up list.</>}</>; })()}
             </div>
+            {(Object.keys(supReq).length > 0 || supOther.trim()) && (
+              <div className="haccpSuccessBox" data-testid="sup-req-done" style={{ marginTop: 8 }}>
+                📦 {L("Supplies requested:", "Suministros pedidos:")} {[...Object.entries(supReq).map(([k, q]) => `${k} ×${q}`), ...(supOther.trim() ? [supOther.trim()] : [])].join(" · ")}{supUrgent ? L(" (urgent)", " (urgente)") : ""}
+              </div>
+            )}
             {urlSite && (todayChecks || []).length > 0 && (
               <div style={{ marginTop: 10 }}>
                 <div style={{ fontWeight: 800, fontSize: "0.78rem", color: "var(--ink-600)", marginBottom: 6 }}>{L("Today's checks at this stand", "Registros de hoy en este puesto")}</div>
@@ -33588,7 +33618,7 @@ export default function App() {
                   sectionKey="facility"
                   inspectionId={savedReportId} venueId={activeVenueId} onError={msg => { setError(msg); setTimeout(() => setError(""), 8000); }}
                   defaultOpen={true} />
-                <div className="ecolabSourceNote" style={{ fontSize: "0.78rem", color: "var(--ink-500)", margin: "6px 4px 0" }}>From the Sodexo × Ecolab Foodservice Guide — tap ✕ on anything missing or empty and it goes onto Supplies Needed below. Skip products this stand does not use.</div>
+                <div className="ecolabSourceNote" style={{ fontSize: "0.78rem", color: "var(--ink-500)", margin: "6px 4px 0" }}>The products we use — tap ✕ on anything missing or empty and it goes onto Supplies Needed below. Skip products this stand does not use.</div>
               </div>
 
               {/* ── Supplies Needed ─────────────────────────────────────── */}

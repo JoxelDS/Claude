@@ -8929,3 +8929,11 @@ button.nluChipTemp { background: #fef3c7; color: #92400e; border: 1px solid #fcd
 .fuSubList { margin: 4px 0 2px; padding-left: 20px; font-size: 0.78rem; color: var(--ink-700, #334155); line-height: 1.4; display: flex; flex-direction: column; gap: 2px; }
 .fuSubList li::marker { color: var(--ink-400, #94a3b8); font-weight: 700; }
 .crewItem .fuSubList { font-size: 0.86rem; }
+/* v503 portal supplies request */
+.supReqGrid { display: flex; flex-direction: column; gap: 6px; }
+.supReqRow { display: flex; align-items: center; gap: 8px; }
+.supReqChip { flex: 1; text-align: left; min-height: 44px; padding: 8px 12px; border-radius: 10px; border: 1px solid #d5d9e2; background: #f7f8fa; color: #1e2a4a; font-weight: 700; font-size: 0.88rem; }
+.supReqRow.on .supReqChip { background: #0f766e; border-color: #0f766e; color: #fff; }
+.supReqQty { display: inline-flex; align-items: center; gap: 6px; }
+.supReqQty button { width: 36px; height: 36px; border-radius: 8px; border: 1px solid #d5d9e2; background: #fff; font-weight: 800; }
+.supReqQty b { min-width: 20px; text-align: center; }
