@@ -2853,6 +2853,68 @@ function printHtml(html, filename = "document.html") {
   }
 }
 
+// v504: Analytics → Supplies as an Excel file — every requested item, totals per product, open items per stand.
+// Item index = position among the record's non-empty items (the same "recId::i" key the Done chips use).
+async function exportSuppliesExcel(recs, fulfilled) {
+  const ExcelJS = (await import("exceljs")).default;
+  const wb = new ExcelJS.Workbook();
+  const NAVY = "FF1E2A4A", RED = "FFFEE2E2", REDT = "FFB91C1C", GRN = "FFDCFCE7", GRNT = "FF15803D";
+  const head = (ws, cols) => {
+    const r = ws.addRow(cols.map(c => c[0]));
+    r.eachCell(c => { c.font = { bold: true, color: { argb: "FFFFFFFF" } }; c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: NAVY } }; c.alignment = { vertical: "middle", wrapText: true }; });
+    r.height = 22;
+    cols.forEach((c, i) => { ws.getColumn(i + 1).width = c[1]; });
+    ws.views = [{ state: "frozen", ySplit: 1 }];
+    ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: cols.length } };
+  };
+  const rows = [];
+  for (const rec of recs) {
+    const items = (rec.suppliesNeeded || []).filter(s => s.item?.trim());
+    items.forEach((s, i) => rows.push({
+      date: rec.inspectionDate || (rec.savedAt || "").slice(0, 10) || "",
+      ts: rec.savedAt || rec.inspectionDate || "",
+      stand: (rec.siteName || "—").toUpperCase(), unit: rec.siteNumber || "", floor: rec.floor || "", type: rec.locationType || "",
+      by: s.fromPortal ? `Supervisor ${rec.supervisorName || rec.reportedBy?.name || ""} (stand QR)`.replace("  ", " ") : (rec.inspectorName || ""),
+      item: s.item.trim(), qty: s.qty || "", urgent: !!s.urgent, done: fulfilled.has(`${rec.id}::${i}`),
+      source: s.fromPortal ? "Stand QR" : s.fromChecklist ? "Ecolab checklist" : "Typed",
+    }));
+  }
+  rows.sort((a, b) => String(b.ts).localeCompare(String(a.ts)));
+  const ws1 = wb.addWorksheet("Supplies requested");
+  head(ws1, [["#", 5], ["Date", 12], ["Stand", 28], ["Unit", 8], ["Floor", 10], ["Stand type", 16], ["Requested by", 28], ["Supply item", 34], ["Qty", 7], ["Urgent", 9], ["Status", 10], ["Source", 16]]);
+  rows.forEach((r, i) => {
+    const row = ws1.addRow([i + 1, r.date, r.stand, r.unit, r.floor, r.type, r.by, r.item, r.qty, r.urgent ? "URGENT" : "", r.done ? "✓ Done" : "Open", r.source]);
+    if (r.urgent) { const c = row.getCell(10); c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: RED } }; c.font = { bold: true, color: { argb: REDT } }; }
+    const st = row.getCell(11); st.fill = { type: "pattern", pattern: "solid", fgColor: { argb: r.done ? GRN : "FFFEF3C7" } }; st.font = { bold: true, color: { argb: r.done ? GRNT : "FF92400E" } };
+  });
+  const tot = {};
+  for (const r of rows) {
+    const k = r.item.toLowerCase();
+    const t = tot[k] || (tot[k] = { item: r.item, n: 0, qty: 0, stands: new Set(), open: 0, done: 0 });
+    t.n++; const q = parseFloat(r.qty); t.qty += isNaN(q) ? 1 : q; t.stands.add(`${r.stand}${r.unit ? " #" + r.unit : ""}`); r.done ? t.done++ : t.open++;
+  }
+  const ws2 = wb.addWorksheet("Totals by product");
+  head(ws2, [["Product", 36], ["Times requested", 16], ["Total qty", 11], ["Stands", 9], ["Open", 8], ["Done", 8]]);
+  Object.values(tot).sort((a, b) => b.n - a.n || a.item.localeCompare(b.item)).forEach(t => ws2.addRow([t.item, t.n, t.qty, t.stands.size, t.open, t.done]));
+  const byStand = {};
+  for (const r of rows) {
+    const k = `${r.stand}${r.unit ? " #" + r.unit : ""}`;
+    const b = byStand[k] || (byStand[k] = { open: [], urgent: 0, last: "" });
+    if (!r.done) { b.open.push(r.qty ? `${r.item} ×${r.qty}` : r.item); if (r.urgent) b.urgent++; }
+    if (r.date > b.last) b.last = r.date;
+  }
+  const ws3 = wb.addWorksheet("By stand");
+  head(ws3, [["Stand", 32], ["Items still open", 70], ["Urgent", 8], ["Last requested", 14]]);
+  Object.entries(byStand).sort((a, b) => b[1].open.length - a[1].open.length || a[0].localeCompare(b[0])).forEach(([k, b]) => {
+    const row = ws3.addRow([k, b.open.join(" · ") || "all done", b.urgent || "", b.last]);
+    row.getCell(2).alignment = { wrapText: true, vertical: "top" };
+    if (b.urgent) { const c = row.getCell(3); c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: RED } }; c.font = { bold: true, color: { argb: REDT } }; }
+  });
+  const buf = await wb.xlsx.writeBuffer();
+  downloadBlob(new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }), `supplies-${new Date().toISOString().slice(0, 10)}.xlsx`);
+  return rows.length;
+}
+
 function downloadBlob(blob, filename) {
   try {
     // IE/Edge legacy
@@ -7976,6 +8038,7 @@ function AIHealthMonitor({ history, currentUser }) {
     try { return JSON.parse(localStorage.getItem("sdx_ai_dismissed") || "[]"); } catch { return []; }
   });
   // fulfilledSupplies: Set of "recId::itemIndex" strings for items marked done
+  const [supXlsBusy, setSupXlsBusy] = React.useState(false);
   const [fulfilledSupplies, setFulfilledSupplies] = React.useState(() => {
     try { return new Set(JSON.parse(localStorage.getItem("sdx_fulfilled_supplies") || "[]")); } catch { return new Set(); }
   });
@@ -8225,6 +8288,11 @@ function AIHealthMonitor({ history, currentUser }) {
                 <StatPill emoji="📅" label="Days with requests" val={sortedDates.length} />
                 <StatPill emoji="🏪" label="Sites affected" val={new Set(supRecs.map(r => r.siteName || r.siteNumber || "?")).size} />
                 <StatPill emoji="📦" label="Total items requested" val={supRecs.reduce((s, r) => s + (r.suppliesNeeded?.length || 0), 0)} />
+                <button type="button" data-testid="sup-excel" disabled={supXlsBusy}
+                  style={{ marginLeft: "auto", alignSelf: "center", minHeight: 44, padding: "8px 16px", borderRadius: 10, border: "none", background: "#15803d", color: "#fff", fontWeight: 800, fontSize: "0.9rem", cursor: "pointer", opacity: supXlsBusy ? 0.6 : 1 }}
+                  onClick={async () => { setSupXlsBusy(true); try { await exportSuppliesExcel(supRecs, fulfilledSupplies); } catch (e) { alert("Could not build the Excel file: " + (e?.message || e)); } setSupXlsBusy(false); }}>
+                  {supXlsBusy ? "Preparing…" : "📊 Download Excel"}
+                </button>
               </div>
 
               {/* Most frequently requested items */}
