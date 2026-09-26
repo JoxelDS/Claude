@@ -11562,7 +11562,7 @@ ${sections}
                     {kitchens.map((k, i) => (
                       <span
                         key={i}
-                        className="recurringKitchenTag recurringKitchenClickable"
+                        className="recurringKitchenTag recurringKitchenClickable notranslate" translate="no"
                         title={`View reports for ${k.label} — ${category}`}
                         onClick={() => {
                           // Strip " #Unit (Floor)" suffix to get plain location name for filter
@@ -11588,7 +11588,7 @@ ${sections}
               {analysis.worstLocations.map(([loc, count], i) => (
                 <div key={loc} className="worstLocation worstLocationClickable" onClick={() => onLocationClick?.(loc.split(" #")[0].split(" (")[0])}>
                   <span className="worstRank" style={{ background: i === 0 ? "#EE0000" : i === 1 ? "#f97316" : "#eab308" }}>#{i + 1}</span>
-                  <span className="worstName">{loc}</span>
+                  <span className="worstName notranslate" translate="no">{loc}</span>
                   <span className="worstCount">{count} issue{count !== 1 ? "s" : ""} →</span>
                 </div>
               ))}
@@ -11602,7 +11602,7 @@ ${sections}
             <div className="guideSectionTitle">Flagged Locations — Repeat Problems</div>
             {Object.entries(analysis.locationRecurring).map(([loc, issues]) => (
               <div key={loc} className="flaggedLocation">
-                <div className="flaggedLocationName">{loc}</div>
+                <div className="flaggedLocationName notranslate" translate="no">{loc}</div>
                 <div className="flaggedIssuesList">
                   {issues.map((iss, i) => (
                     <div key={i} className="flaggedIssue" style={{ cursor: "pointer" }}
