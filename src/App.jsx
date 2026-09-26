@@ -25568,7 +25568,8 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
   const [newMaintName, setNewMaintName] = useState("");
   const [open, setOpen] = useState(defaultOpen);
   const [expandedDetails, setExpandedDetails] = useState({});
-  const toggleDetails = (key) => setExpandedDetails(p => ({ ...p, [key]: !p[key] }));
+  // v505: flip what is ON SCREEN — an item with answers shows open by default (key unset), so `!p[key]` needed two taps.
+  const toggleDetails = (key, shownOpen) => setExpandedDetails(p => ({ ...p, [key]: !(p[key] !== undefined ? p[key] : !!shownOpen) }));
 
   // Guide Finder: when the search jumps to an item, make sure it's expanded and open the section
   useEffect(() => {
@@ -25695,7 +25696,7 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
               return (
                 <div className={`guideItem${isNA ? " guideItemNA" : ""}`} key={key} data-guide-item={it.label} data-guide-key={key}>
                   <button type="button" className="guideItemHead guideItemToggle"
-                    onClick={() => toggleDetails(key)}
+                    onClick={() => toggleDetails(key, isItemOpen)}
                     style={{ width: "100%", textAlign: "left", background: "none", border: "none", cursor: "pointer", padding: 0, display: "flex", alignItems: "center", gap: 8 }}>
                     <div className="guideLabel" style={{ flex: 1 }}>
                       {(() => {
