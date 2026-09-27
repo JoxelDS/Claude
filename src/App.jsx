@@ -1955,7 +1955,7 @@ async function saveHaccpSubmission(record) {
     return;
   }
   const list = JSON.parse(localStorage.getItem(HACCP_SUBS_KEY) || "[]");
-  list.unshift(record);
+  const at = list.findIndex(r => r.id === record.id); if (at >= 0) list.splice(at, 1); list.unshift(record); // v507: upsert (auto-sent logs reuse one id)
   localStorage.setItem(HACCP_SUBS_KEY, JSON.stringify(list.slice(0, 200)));
 }
 
@@ -28307,6 +28307,9 @@ function HaccpPortal() {
   const [supReq, setSupReq] = useState({});
   const [supOther, setSupOther] = useState("");
   const [supUrgent, setSupUrgent] = useState(false);
+  // v507 — auto-send while filling in
+  const sessionSubIdRef = useRef(""), sessionInspIdRef = useRef(""), autoNotifiedRef = useRef(false), autoTimerRef = useRef(null), handleSubmitRef = useRef(null);
+  const [autoSent, setAutoSent] = useState(null);
   const [problemError, setProblemError] = useState("");
   const [problemAction, setProblemAction] = useState("");   // v439 — what did you do
   const [problemProof, setProblemProof] = useState([]);
@@ -28567,23 +28570,24 @@ function HaccpPortal() {
     clearProblemEditor();
     setTimeout(() => document.querySelector(".supCatChips")?.scrollIntoView({ behavior: "smooth", block: "center" }), 50);
   }
-  async function handleSubmit() {
+  async function handleSubmit(opts = {}) {
+    // v507: auto = a silent save while they fill in (green Done ▴ / leaving a temp box / supplies).
+    // Same ids every time, so the final Submit updates the record instead of making a second one.
+    const auto = opts.auto === true;
     // v463 — several problems per visit: the ones already added plus whatever
     // is still in the editor. The editor is validated only when it has content.
-    const editorFull = editorHasProblem();
+    const editorFull = auto ? false : editorHasProblem();
     const suppliesReq = [
       ...Object.entries(supReq).map(([item, qty]) => ({ item, qty: String(qty || ""), urgent: supUrgent, fromPortal: true })),
       ...(supOther.trim() ? [{ item: supOther.trim(), qty: "", urgent: supUrgent, fromPortal: true }] : []),
     ];
-    if (problemOnly && !editorFull && problemsAdded.length === 0 && !suppliesReq.length) { setProblemError("Describe the problem · Describe el problema"); return; }
+    if (!auto && problemOnly && !editorFull && problemsAdded.length === 0 && !suppliesReq.length) { setProblemError("Describe the problem · Describe el problema"); return; }
     if (editorFull) {
       const err = validateProblemEditor();
       if (err) { setProblemError(err); setTimeout(() => document.querySelector(".haccpProblemErr")?.scrollIntoView({ behavior: "smooth", block: "center" }), 50); return; }
     }
-    const allProblems = [...problemsAdded, ...(editorFull ? [editorToProblem()] : [])];
-    setProblemMissing([]);
-    setProblemError("");
-    setSubmitting(true);
+    const allProblems = auto ? [] : [...problemsAdded, ...(editorFull ? [editorToProblem()] : [])];
+    if (!auto) { setProblemMissing([]); setProblemError(""); setSubmitting(true); }
     // Build flat temps map for storage (collect all readings per item)
     const tempsFlat = {};
     for (const [k, arr] of Object.entries(temps)) {
@@ -28599,7 +28603,8 @@ function HaccpPortal() {
     [...HACCP_TEMP_ITEMS, ...customItems].forEach(item => {
       itemLabels[item.key] = labelOverrides[item.key] ?? item.label;
     });
-    const id = `haccp_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+    if (!sessionSubIdRef.current) sessionSubIdRef.current = `haccp_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+    const id = sessionSubIdRef.current;
     const record = {
       id,
       type: "submission",
@@ -28628,7 +28633,9 @@ function HaccpPortal() {
       problemReports: allProblems, // v463 — one entry per problem
       suppliesNeeded: suppliesReq, // v503
       submittedAt: new Date().toISOString(),
+      partial: auto,
     };
+    if (auto && haccpTempCount(record) === 0 && !suppliesReq.length) return;
     await saveHaccpSubmission(record);
     // v463 — the log is in; show "Submitted!" now. The problem reports, the
     // Quick Report record for Follow-ups and the crew pings go in the
@@ -28664,7 +28671,8 @@ function HaccpPortal() {
           }
           let license = "";
           try { const lr = lookupLicenseByUnitType(locUnit.trim(), locType.trim()); if (lr?.status === "ACTIVE" && lr.license) license = lr.license; } catch {}
-          const inspId = `${Date.now()}_sp${Math.floor(Math.random() * 1e4)}`;
+          if (!sessionInspIdRef.current) sessionInspIdRef.current = `${Date.now()}_sp${Math.floor(Math.random() * 1e4)}`;
+          const inspId = sessionInspIdRef.current;
           await saveOneInspection({
             id: inspId,
             siteName: locSite.trim().toUpperCase(), siteNumber: locUnit.trim(), floor: locFloor.trim(), locationType: locType.trim(),
@@ -28674,16 +28682,29 @@ function HaccpPortal() {
             haccpTempCount: tempCount, haccpOutOfRange: outOfRange,
             reportedBy: { name: supName.trim(), phone: supPhone.trim() }, inspectorName: supName.trim() || "Supervisor", supervisorName: supName.trim(), sitePhone: supPhone.trim(),
             overallStatus: outOfRange > 0 ? "FAIL" : "PASS", photos: allProblems.flatMap(q => q.photos), actionItems: items, inspection: {},
-            suppliesNeeded: suppliesReq,
+            suppliesNeeded: suppliesReq, partial: auto,
           });
           if (items.length) try { notifyCrewsForItems(items.map(a => ({ issue: a.issue, notes: "" })), locSite.trim().toUpperCase(), locUnit.trim(), supName.trim()); } catch {}
-          if (isLog) try { notifySupervisorLog({ site: locSite.trim().toUpperCase(), unit: locUnit.trim(), by: supName.trim(), temps: tempCount, outOfRange, problems: items.length, supplies: suppliesReq.length }); } catch {}
+          if (isLog && !(auto && autoNotifiedRef.current)) try { autoNotifiedRef.current = true; notifySupervisorLog({ site: locSite.trim().toUpperCase(), unit: locUnit.trim(), by: supName.trim(), temps: tempCount, outOfRange, problems: items.length, supplies: suppliesReq.length }); } catch {}
         } catch {}
       })();
     }
+    if (auto) { setAutoSent({ at: Date.now(), temps: tempCount, supplies: suppliesReq.length }); return; }
     setSubmitting(false);
     setStep("done");
   }
+  // v507: debounced silent send — the green Done ▴, leaving a temperature box and the supply chips call it.
+  function scheduleAutoSend(ms = 1500) {
+    clearTimeout(autoTimerRef.current);
+    autoTimerRef.current = setTimeout(() => { handleSubmitRef.current?.({ auto: true }).catch(() => {}); }, ms);
+  }
+  handleSubmitRef.current = handleSubmit;
+  useEffect(() => {
+    if (step !== "form") return;
+    const flush = (ev) => { if (ev.type === "pagehide" || document.visibilityState === "hidden") { clearTimeout(autoTimerRef.current); handleSubmitRef.current?.({ auto: true }).catch(() => {}); } };
+    window.addEventListener("pagehide", flush); document.addEventListener("visibilitychange", flush);
+    return () => { window.removeEventListener("pagehide", flush); document.removeEventListener("visibilitychange", flush); };
+  }, [step]);
 
   async function sendChat() {
     if (!chatInput.trim() || chatSending) return;
@@ -28926,7 +28947,7 @@ function HaccpPortal() {
               <div className="haccpHowEvery">⏰ {L("Check food and equipment temps EVERY 2 HOURS", "Revise las temperaturas de comida y equipos CADA 2 HORAS")}</div>
               <div className="haccpHowRow"><span className="haccpHowN">1</span><span>{L("Tap a cooler, freezer or food below → type the temperature → save. Green = good, red = write what you did.", "Toque un equipo o comida abajo → escriba la temperatura → guarde. Verde = bien, rojo = escriba qué hizo.")}</span></div>
               <div className="haccpHowRow"><span className="haccpHowN">2</span><span>{L("Something broken, leaking, dirty, pests or no chemicals? Use ⚠ Report a problem below and add a photo — the inspector and the right crew see it right away.", "¿Algo roto, con fuga, sucio, plagas o sin químicos? Use ⚠ Reportar un problema abajo y agregue una foto — el inspector y el equipo lo ven al momento.")}</span></div>
-              <div className="haccpHowRow"><span className="haccpHowN">✓</span><span>{L("Done? Tap Submit at the bottom. Takes 2 minutes.", "¿Listo? Toque Enviar al final. Toma 2 minutos.")}</span></div>
+              <div className="haccpHowRow"><span className="haccpHowN">✓</span><span>{L("Each reading is sent to the inspector when you tap Done. Tap Submit when you finish.", "Cada lectura se envía al inspector al tocar Listo. Toque Enviar al terminar.")}</span></div>
             </div>
 
             {/* Temperature section — multiple readings per item (hidden in problem-only mode) */}
@@ -29035,7 +29056,7 @@ function HaccpPortal() {
                             }}>
                             {L("+ Reading", "+ Lectura")}
                           </button>
-                          <button type="button" className="haccpAddReadingBtn htCollapse" onClick={() => toggleOpen(item.key)}>{L("Done ▴", "Listo ▴")}</button>
+                          <button type="button" className="haccpAddReadingBtn htCollapse" onClick={() => { toggleOpen(item.key); scheduleAutoSend(300); }}>{L("Done ▴", "Listo ▴")}</button>
                         </div>
                       </div>
                       {readings.map((val, idx) => {
@@ -29078,7 +29099,7 @@ function HaccpPortal() {
                               )}
                               <div className="htRowB">
                               <div className="haccpTempInputWrap htTempWrap">
-                                <input className="haccpTempInput" type="number" inputMode="decimal"
+                                <input className="haccpTempInput" onBlur={e => { if (e.target.value) scheduleAutoSend(); }} type="number" inputMode="decimal"
                                   value={val}
                                   disabled={isSubmitted}
                                   onChange={e => {
@@ -29227,7 +29248,7 @@ function HaccpPortal() {
                                     setTempCorrections(p => ({ ...p, [item.key]: [...(p[item.key] || [""]), ""] }));
                                     setTempTimes(p => ({ ...p, [item.key]: [...(p[item.key] || [""]), ""] }));
                                   }}>{L("+ Reading", "+ Lectura")}</button>
-                                <button type="button" className="haccpAddReadingBtn htCollapse" style={{ fontSize: "0.7rem", padding: "2px 8px", flexShrink: 0 }} onClick={() => toggleOpen(item.key)}>{L("Done ▴", "Listo ▴")}</button>
+                                <button type="button" className="haccpAddReadingBtn htCollapse" style={{ fontSize: "0.7rem", padding: "2px 8px", flexShrink: 0 }} onClick={() => { toggleOpen(item.key); scheduleAutoSend(300); }}>{L("Done ▴", "Listo ▴")}</button>
                               </div>
                               {readings.map((val, idx) => {
                                 const isSubmitted = (tempSubmitted[item.key] || [])[idx] === true;
@@ -29263,7 +29284,7 @@ function HaccpPortal() {
                                       )}
                                       <div className="htRowB">
                                       <div className="haccpTempInputWrap htTempWrap">
-                                        <input className="haccpTempInput" type="number" inputMode="decimal" value={val} disabled={isSubmitted}
+                                        <input className="haccpTempInput" onBlur={e => { if (e.target.value) scheduleAutoSend(); }} type="number" inputMode="decimal" value={val} disabled={isSubmitted}
                                           onChange={e => {
                                             setTemps(p => { const arr=[...(p[item.key]||[""])]; arr[idx]=e.target.value; return {...p,[item.key]:arr}; });
                                             if (!readingTime) {
@@ -29373,7 +29394,7 @@ function HaccpPortal() {
                     const on = supReq[p.en] != null;
                     return (
                       <div key={p.en} className={`supReqRow${on ? " on" : ""}`}>
-                        <button type="button" className="supReqChip" data-testid="sup-req-chip" onClick={() => setSupReq(r => { const n = { ...r }; if (on) delete n[p.en]; else n[p.en] = 1; return n; })}>
+                        <button type="button" className="supReqChip" data-testid="sup-req-chip" onClick={() => { setSupReq(r => { const n = { ...r }; if (on) delete n[p.en]; else n[p.en] = 1; return n; }); scheduleAutoSend(2500); }}>
                           {on ? "✓ " : "＋ "}{L(p.en, p.es)}
                         </button>
                         {on && (
@@ -29500,9 +29521,17 @@ function HaccpPortal() {
             />
 
             {problemError && <div className="haccpProblemErr" style={{ marginBottom: 8 }}>⚠️ {problemError} — <a href="#" onClick={e => { e.preventDefault(); document.querySelector(".supCatChips")?.scrollIntoView({ behavior: "smooth", block: "center" }); }}>{L("go to the problem", "ir al problema")}</a></div>}
-            <button className="haccpSubmitBtn" onClick={handleSubmit} disabled={submitting}>
-              {submitting ? L("Submitting…", "Enviando…") : problemOnly ? (problemsAdded.length + (editorHasProblem() ? 1 : 0) > 1 ? L(`Send ${problemsAdded.length + (editorHasProblem() ? 1 : 0)} Problem Reports`, `Enviar ${problemsAdded.length + (editorHasProblem() ? 1 : 0)} reportes`) : L("Send Problem Report", "Enviar reporte")) : L("Submit Temperature Log", "Enviar registro de temperaturas")}
-            </button>
+            <div className="haccpStickySpacer" />
+            <div className="haccpStickySubmit" data-testid="sticky-submit">
+              {autoSent && (
+                <div className="haccpAutoSent" data-testid="auto-sent">
+                  {L("✓ Sent to the inspector", "✓ Enviado al inspector")}{autoSent.temps ? ` · ${autoSent.temps} ${L("temps", "temperaturas")}` : ""}{autoSent.supplies ? ` · ${autoSent.supplies} ${L("supplies", "suministros")}` : ""} · {new Date(autoSent.at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
+                </div>
+              )}
+              <button className="haccpSubmitBtn" onClick={() => handleSubmit()} disabled={submitting}>
+                {submitting ? L("Submitting…", "Enviando…") : problemOnly ? (problemsAdded.length + (editorHasProblem() ? 1 : 0) > 1 ? L(`Send ${problemsAdded.length + (editorHasProblem() ? 1 : 0)} Problem Reports`, `Enviar ${problemsAdded.length + (editorHasProblem() ? 1 : 0)} reportes`) : L("Send Problem Report", "Enviar reporte")) : L("Submit Temperature Log", "Enviar registro de temperaturas")}
+              </button>
+            </div>
             {problemOnly && (
               <button className="haccpTextBtn" type="button" onClick={() => setProblemOnly(false)}>
                 I also want to log temperatures · También registrar temperaturas
@@ -30933,6 +30962,63 @@ export default function App() {
     }
     try { localStorage.setItem(FIXED_SEEN_KEY, String(Math.max(newest, seenTs))); } catch {}
   }, [currentUser, locked, venueSettings?.followupStatus]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // v507 — "From the stands": every Supervisor Log / stand problem / supply request reaches the
+  // inspector live. The old path (inspectorNotifications) is refused by the live rules, so this reads
+  // the inspections the portal writes (public read) and alerts once per record, again when it grows.
+  const [standFeed, setStandFeed] = useState([]);
+  const [standFeedOpen, setStandFeedOpen] = useState(false);
+  const [standAck, setStandAck] = useState(() => { try { return Number(localStorage.getItem(`sdx_stand_ack_${VENUE_ID}`) || 0) || 0; } catch { return 0; } });
+  const standIngestRef = useRef(null);
+  standIngestRef.current = (records) => {
+    const mine = (records || []).filter(r => r && (r.source === "haccp_portal"));
+    const key = `sdx_stand_seen_${VENUE_ID}`;
+    let seen = null; try { seen = JSON.parse(localStorage.getItem(key) || "null"); } catch {}
+    const sig = r => `${r.haccpTempCount || 0}|${(r.suppliesNeeded || []).length}|${(r.actionItems || []).length}`;
+    const first = !seen; seen = seen || {};
+    const fresh = [];
+    for (const r of mine) {
+      if (seen[r.id] === sig(r)) continue;
+      const prev = seen[r.id]; seen[r.id] = sig(r);
+      if (first) continue;
+      fresh.push({ r, prev });
+    }
+    try { const ids = Object.keys(seen); if (ids.length > 400) ids.slice(0, ids.length - 400).forEach(k => delete seen[k]); localStorage.setItem(key, JSON.stringify(seen)); } catch {}
+    const today = new Date().toISOString().slice(0, 10);
+    setStandFeed(prevFeed => {
+      const byId = new Map(prevFeed.map(r => [r.id, r]));
+      for (const r of mine) byId.set(r.id, r);
+      return [...byId.values()].filter(r => (r.savedAt || "").slice(0, 10) >= today).sort((a, b) => String(b.savedAt).localeCompare(String(a.savedAt))).slice(0, 80);
+    });
+    for (const { r, prev } of fresh) {
+      const stand = `${r.siteName || "A stand"}${r.siteNumber ? ` #${r.siteNumber}` : ""}`;
+      const by = r.supervisorName || r.reportedBy?.name || "";
+      const [pt, ps, pp] = (prev || "0|0|0").split("|").map(Number);
+      const sup = (r.suppliesNeeded || []).filter(x => x.item);
+      const probs = (r.actionItems || []).length;
+      if (sup.length > ps) fireNotification(`stand_sup_${r.id}_${sup.length}`, "stand", `📦 ${stand} needs supplies`,
+        `${sup.map(x => x.qty ? `${x.item} ×${x.qty}` : x.item).join(" · ")}${sup.some(x => x.urgent) ? " · URGENT" : ""}${by ? ` · by ${by}` : ""}`, null);
+      if ((r.haccpTempCount || 0) > pt) fireNotification(`stand_tmp_${r.id}_${r.haccpTempCount}`, "stand", `🌡 ${stand} logged ${r.haccpTempCount} temp${r.haccpTempCount === 1 ? "" : "s"}`,
+        `${r.haccpOutOfRange ? `${r.haccpOutOfRange} out of range` : "all in range"}${by ? ` · by ${by}` : ""}`, null);
+      if (probs > (pp || 0)) fireNotification(`stand_prob_${r.id}_${probs}`, "stand", `⚠ ${stand} reported a problem`,
+        `${(r.actionItems || []).map(a => a.issue).join(" · ").slice(0, 160)}${by ? ` · by ${by}` : ""}`, null);
+    }
+    window.__sdxStandFeed = mine;
+  };
+  useEffect(() => { window.__sdxStandFeedIngest = (recs) => standIngestRef.current?.(recs); }, []);
+  useEffect(() => {
+    const role = currentUser?.role;
+    const watches = role === "inspector" || role === "admin" || role === "global_admin" || role === "location_manager";
+    if (!currentUser || locked || !watches || !FIREBASE_ON) return;
+    const since = new Date(Date.now() - 36 * 3600e3).toISOString();
+    let unsub = () => {};
+    try {
+      const col = IS_DEFAULT_VENUE() ? legacyCol("inspections") : venueCol("inspections");
+      unsub = onSnapshot(query(col, where("savedAt", ">=", since), orderBy("savedAt", "desc")),
+        snap => standIngestRef.current?.(snap.docs.map(d => ({ id: d.id, ...d.data() }))), () => {});
+    } catch {}
+    return () => { try { unsub(); } catch {} };
+  }, [currentUser, locked]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Inspector assignment notifications — notifies inspector of newly assigned inspections ──
   useEffect(() => {
@@ -32576,6 +32662,49 @@ export default function App() {
 
   return (
     <div className="appShell inspectorPage">
+      {(() => {
+        const unseen = standFeed.filter(r => Date.parse(r.savedAt || 0) > standAck);
+        if (!standFeed.length) return null;
+        const ack = () => { const t = Date.now(); setStandAck(t); try { localStorage.setItem(`sdx_stand_ack_${VENUE_ID}`, String(t)); } catch {} };
+        return (
+          <>
+            {unseen.length > 0 && !standFeedOpen && (
+              <button type="button" className="standFeedChip" data-testid="stand-feed-chip" onClick={() => setStandFeedOpen(true)}>
+                📥 From the stands · <b>{unseen.length} new</b>
+              </button>
+            )}
+            {standFeedOpen && (
+              <div className="modalBackdrop" style={{ zIndex: 1300 }} onClick={() => { setStandFeedOpen(false); ack(); }}>
+                <div className="modalBox standFeedBox" data-testid="stand-feed" onClick={e => e.stopPropagation()}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                    <b>📥 From the stands today</b>
+                    <button type="button" className="haccpTextBtn" onClick={() => { setStandFeedOpen(false); ack(); }}>✕</button>
+                  </div>
+                  {standFeed.map(r => {
+                    const sup = (r.suppliesNeeded || []).filter(x => x.item);
+                    const isNew = Date.parse(r.savedAt || 0) > standAck;
+                    return (
+                      <div key={r.id} className={`standFeedRow${isNew ? " new" : ""}`} data-testid="stand-feed-row">
+                        <div className="standFeedHead">
+                          <NT>{r.siteName}{r.siteNumber ? ` #${r.siteNumber}` : ""}</NT>
+                          <span className="standFeedTime">{new Date(r.savedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}{r.partial ? " · filling in" : ""}</span>
+                        </div>
+                        <div className="standFeedBody">
+                          {r.haccpTempCount ? <span>🌡 {r.haccpTempCount} temps{r.haccpOutOfRange ? <b style={{ color: "#b91c1c" }}> · {r.haccpOutOfRange} out of range</b> : ""}</span> : null}
+                          {sup.length ? <span>📦 {sup.map(x => x.qty ? `${x.item} ×${x.qty}` : x.item).join(" · ")}{sup.some(x => x.urgent) ? <b style={{ color: "#b91c1c" }}> · URGENT</b> : ""}</span> : null}
+                          {(r.actionItems || []).length ? <span>⚠ {(r.actionItems || []).map(a => a.issue).join(" · ")}</span> : null}
+                          <span className="standFeedBy">{r.supervisorName || r.reportedBy?.name || ""}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  <button type="button" className="btn btnPrimary" style={{ marginTop: 10, width: "100%" }} onClick={() => { setStandFeedOpen(false); ack(); window.dispatchEvent(new CustomEvent("sdx-nav", { detail: { page: "history" } })); }}>Open Past Reports</button>
+                </div>
+              </div>
+            )}
+          </>
+        );
+      })()}
       {showInstallBanner && (
         <div style={{ background: "linear-gradient(90deg,var(--sdx-navy),var(--sdx-blue))", color: "#fff", padding: "10px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, zIndex: 9998, position: "relative" }}>
           <span style={{ fontSize: "0.88rem", fontWeight: 600 }}>📱 Install SDX Inspect — use it like a native app!</span>
