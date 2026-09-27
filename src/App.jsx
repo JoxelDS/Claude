@@ -11829,7 +11829,7 @@ function ImportReviewModal({ fields: initialFields, imagePreview, saving, onSave
 }
 
 /* ── History Page Component ──────────────────────────────── */
-function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, currentUser, notifItems, onNotifDismiss, onNotifClearAll, onMyTasks, venueSettings, saveVenueSettings, saveVenueSettingsMap, initialTab, initialAnalyticsTab }) {
+function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, currentUser, notifItems, onNotifDismiss, onNotifClearAll, onMyTasks, venueSettings, saveVenueSettings, saveVenueSettingsMap, initialTab, initialAnalyticsTab, initialFocusId }) {
   // Returns true if the current user is allowed to edit the given record.
   // Allowed: the original author (matched by badgeHash), any admin, or global_admin.
   function canEditRec(rec) {
@@ -11892,6 +11892,15 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
   const [analyticsTab, setAnalyticsTab] = useState(initialAnalyticsTab || "recurring"); // "recurring" (Follow-ups) | "temp" | "insights" | "predictive" | "timeline"
   // Navigating to this page while it's already open (⋯ menu, notifications) → follow the requested tab
   useEffect(() => { if (initialTab) setHistoryTab(initialTab); if (initialAnalyticsTab) setAnalyticsTab(initialAnalyticsTab); }, [initialTab, initialAnalyticsTab]);
+  // v508: open one report by id ("Open report" in From the stands, record notifications)
+  const focusDoneRef = useRef("");
+  useEffect(() => {
+    if (!initialFocusId || focusDoneRef.current === initialFocusId) return;
+    if (!history.some(r => r.id === initialFocusId)) return;
+    focusDoneRef.current = initialFocusId;
+    setHistoryTab("reports"); setExpandedId(initialFocusId);
+    setTimeout(() => { try { document.querySelector(`[data-rec="${CSS.escape(initialFocusId)}"]`)?.scrollIntoView({ behavior: "smooth", block: "start" }); } catch {} }, 250);
+  }, [initialFocusId, history]); // eslint-disable-line react-hooks/exhaustive-deps
   const fuTabOverdue = useMemo(() => { try { return computeFollowups(history, venueSettings).followups.filter(f => f.overdue && !f.likelyResolved).length; } catch { return 0; } }, [history, venueSettings?.followupCleared, venueSettings?.followupStatus, venueSettings?.recheckDays]);
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState(new Set());
@@ -14217,6 +14226,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
               return (
                 <div
                   className="card historyCard"
+                  data-rec={rec.id}
                   key={rec.id}
                   data-recid={rec.id}
                   style={{ marginBottom: 16, outline: selectMode && selectedIds.has(rec.id) ? "2.5px solid #1d4ed8" : "none", outlineOffset: 2, background: selectMode && selectedIds.has(rec.id) ? "var(--tint-blue-1)" : undefined, transition: "background 0.15s, outline 0.1s" }}
@@ -28664,10 +28674,12 @@ function HaccpPortal() {
         // "Quick Report" that computeFollowups reads (one follow-up per loc::category).
         try {
           const isLog = tempCount > 0 || (suppliesReq.length > 0 && !allProblems.length);
-          let outOfRange = 0;
+          let outOfRange = 0; const haccpReadings = [];
           if (isLog) {
             const allItems = [...HACCP_TEMP_ITEMS, ...customItems];
-            for (const [k, arr] of Object.entries(tempsFlat)) { const it = allItems.find(i => i.key === k); if (!it) continue; for (const v of arr) if (tempPass(it, v) === false) outOfRange++; }
+            for (const [k, arr] of Object.entries(tempsFlat)) { const it = allItems.find(i => i.key === k); if (!it) continue; arr.forEach((v, vi) => { const ok = tempPass(it, v); if (ok === false) outOfRange++;
+              // v508: each reading rides on the record so the inspector's "From the stands" panel can show it
+              const food = (foodNamesFlat[k] || [])[vi]; haccpReadings.push({ label: `${itemLabels[k] || it.label}${food ? ` · ${food}` : ""}`, value: v, ok, ...(it.type === "cold" ? { max: it.max } : it.type === "hot" ? { min: it.min } : {}) }); }); }
           }
           let license = "";
           try { const lr = lookupLicenseByUnitType(locUnit.trim(), locType.trim()); if (lr?.status === "ACTIVE" && lr.license) license = lr.license; } catch {}
@@ -28679,7 +28691,7 @@ function HaccpPortal() {
             restaurantLicense: license,
             inspectionDate: now.toISOString().slice(0, 10), savedAt: now.toISOString(),
             inspectionType: isLog ? "Supervisor Log" : "Quick Report", quickProblem: !isLog, supervisorLog: isLog, source: "haccp_portal", haccpSubmissionId: id,
-            haccpTempCount: tempCount, haccpOutOfRange: outOfRange,
+            haccpTempCount: tempCount, haccpOutOfRange: outOfRange, haccpReadings,
             reportedBy: { name: supName.trim(), phone: supPhone.trim() }, inspectorName: supName.trim() || "Supervisor", supervisorName: supName.trim(), sitePhone: supPhone.trim(),
             overallStatus: outOfRange > 0 ? "FAIL" : "PASS", photos: allProblems.flatMap(q => q.photos), actionItems: items, inspection: {},
             suppliesNeeded: suppliesReq, partial: auto,
@@ -30433,6 +30445,121 @@ function MessagingPanel({ currentUser, onBack, notifItems, onNotifDismiss, onNot
   );
 }
 
+// v508 — "From the stands today": one card per stand, attention first, tap to see every reading.
+const plural = (n, one, many) => `${n} ${n === 1 ? one : (many || one + "s")}`;
+function StandFeedPanel({ feed, ackTs, onClose, onOpenReport, onTempsTracker }) {
+  const [filter, setFilter] = useState("all");
+  const [open, setOpen] = useState(null);
+  const [done, setDone] = useState(() => { try { return new Set(JSON.parse(localStorage.getItem("sdx_fulfilled_supplies") || "[]")); } catch { return new Set(); } });
+  const markDelivered = (recs) => {
+    const next = new Set(done);
+    for (const r of recs) (r.suppliesNeeded || []).filter(x => x.item?.trim()).forEach((_, i) => next.add(`${r.id}::${i}`));
+    setDone(next); try { localStorage.setItem("sdx_fulfilled_supplies", JSON.stringify([...next])); } catch {}
+  };
+  const groups = useMemo(() => {
+    const out = [];
+    for (const r of feed) {
+      const u = normUnit(r.siteNumber || "");
+      let g = out.find(x => (u ? normUnit(x.unit) === u : true) && sameStandName(x.name, r.siteName || ""));
+      if (!g) { g = { key: r.id, name: (r.siteName || "A STAND").toUpperCase(), unit: r.siteNumber || "", type: r.locationType || "", recs: [] }; out.push(g); }
+      g.recs.push(r);
+    }
+    for (const g of out) {
+      g.recs.sort((a, b) => String(b.savedAt).localeCompare(String(a.savedAt)));
+      g.last = g.recs[0].savedAt;
+      g.temps = g.recs.reduce((n, r) => n + (r.haccpTempCount || 0), 0);
+      g.oor = g.recs.reduce((n, r) => n + (r.haccpOutOfRange || 0), 0);
+      g.supplies = g.recs.flatMap(r => (r.suppliesNeeded || []).filter(x => x.item?.trim()).map((x, i) => ({ ...x, done: done.has(`${r.id}::${i}`) })));
+      g.openSup = g.supplies.filter(x => !x.done);
+      g.urgent = g.openSup.some(x => x.urgent);
+      g.problems = g.recs.flatMap(r => r.actionItems || []);
+      g.people = [...new Set(g.recs.map(r => (r.supervisorName || r.reportedBy?.name || "").trim()).filter(Boolean))];
+      g.phone = g.recs.map(r => r.sitePhone || r.reportedBy?.phone).find(Boolean) || "";
+      g.isNew = g.recs.some(r => Date.parse(r.savedAt || 0) > ackTs);
+      g.attn = g.oor > 0 || g.problems.length > 0;
+      g.rank = g.attn ? 0 : g.urgent ? 1 : g.openSup.length ? 2 : 3;
+    }
+    return out.sort((a, b) => a.rank - b.rank || String(b.last).localeCompare(String(a.last)));
+  }, [feed, ackTs, done]);
+  const tot = {
+    stands: groups.length, logs: feed.filter(r => r.haccpTempCount).length,
+    oor: groups.filter(g => g.oor).length, sup: groups.filter(g => g.openSup.length).length, prob: groups.filter(g => g.problems.length).length,
+  };
+  const shown = groups.filter(g => filter === "all" || (filter === "attn" && g.attn) || (filter === "sup" && g.openSup.length) || (filter === "temps" && g.temps));
+  const time = t => { try { return new Date(t).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }); } catch { return ""; } };
+  const F = (id, label, n) => (
+    <button type="button" data-testid={`sf-filter-${id}`} className={cx("sfFilter", filter === id && "on")} onClick={() => setFilter(id)}>{label}{n != null ? <b>{n}</b> : null}</button>
+  );
+  return (
+    <div className="modalBackdrop sfBackdrop" onClick={onClose}>
+      <div className="sfPanel" data-testid="stand-feed" onClick={e => e.stopPropagation()}>
+        <div className="sfHead">
+          <div className="sfTitleRow">
+            <div><div className="sfTitle">📥 From the stands today</div>
+              <div className="sfSub">{plural(tot.stands, "stand")} · {plural(tot.logs, "temperature log")}{tot.oor ? <> · <b className="sfRed">{plural(tot.oor, "stand")} out of range</b></> : null}{tot.sup ? <> · <b className="sfAmber">{plural(tot.sup, "supply request")}</b></> : null}</div></div>
+            <button type="button" className="sfClose" aria-label="Close" onClick={onClose}>✕</button>
+          </div>
+          <div className="sfFilters">
+            {F("all", "All", tot.stands)}
+            {F("attn", "⚠ Needs attention", tot.oor + tot.prob ? groups.filter(g => g.attn).length : 0)}
+            {F("sup", "📦 Supplies", tot.sup)}
+            {F("temps", "🌡 Temps", groups.filter(g => g.temps).length)}
+          </div>
+        </div>
+        <div className="sfList">
+          {shown.length === 0 && <div className="sfEmpty">Nothing here right now.</div>}
+          {shown.map(g => {
+            const isOpen = open === g.key;
+            return (
+              <div key={g.key} data-testid="stand-feed-row" className={cx("sfCard", g.attn ? "attn" : g.openSup.length ? "sup" : "", isOpen && "open")}>
+                <button type="button" className="sfCardHead" onClick={() => setOpen(isOpen ? null : g.key)}>
+                  <div className="sfRow1">
+                    <span className="sfName"><NT>{g.name}{g.unit ? ` #${g.unit}` : ""}</NT></span>
+                    {g.type ? <StandType lt={g.type} /> : null}
+                    {g.isNew && <span className="sfNew">NEW</span>}
+                    <span className="sfTime">{time(g.last)}</span>
+                  </div>
+                  <div className="sfPills">
+                    {g.temps > 0 && (g.oor
+                      ? <span className="sfPill red">⚠ {g.oor} out of range · {plural(g.temps, "temp")}</span>
+                      : <span className="sfPill green">🌡 {plural(g.temps, "temp")} · all OK</span>)}
+                    {g.supplies.length > 0 && <span className={cx("sfPill", g.openSup.length ? "amber" : "grey")} data-testid="sf-sup-pill">📦 {g.supplies.map(x => x.qty ? `${x.item} ×${x.qty}` : x.item).join(" · ")}{g.urgent ? <b className="sfRed"> · URGENT</b> : null}{!g.openSup.length ? " · ✓ delivered" : ""}</span>}
+                    {g.problems.length > 0 && <span className="sfPill red">🧰 {plural(g.problems.length, "problem")}</span>}
+                    {g.recs.length > 1 && <span className="sfPill grey">{plural(g.recs.length, "visit")}</span>}
+                  </div>
+                  <div className="sfPeople">{g.people.join(" · ") || "—"}<span className="sfChevron">{isOpen ? "▴" : "▾"}</span></div>
+                </button>
+                {isOpen && (
+                  <div className="sfBody" data-testid="sf-body">
+                    {g.recs.map(r => (
+                      <div key={r.id} className="sfVisit">
+                        <div className="sfVisitHead">{time(r.savedAt)} · {r.supervisorName || r.reportedBy?.name || "—"}{r.partial ? <span className="sfFilling"> · still filling in</span> : null}</div>
+                        {(r.haccpReadings || []).length > 0
+                          ? <div className="sfReadings">{r.haccpReadings.map((x, i) => (
+                              <span key={i} className={cx("sfReading", x.ok === false && "bad")}>{x.label} <b>{x.value}°F</b>{x.ok === false ? ` ✗ ${x.max != null ? `max ${x.max}°F` : x.min != null ? `min ${x.min}°F` : ""}` : x.ok ? " ✓" : ""}</span>))}</div>
+                          : r.haccpTempCount ? <div className="sfHint">{plural(r.haccpTempCount, "temp")} logged — tap Open report to see the readings.</div> : null}
+                        {(r.actionItems || []).map((a, i) => <div key={i} className="sfProblem">🧰 {a.issue}</div>)}
+                      </div>
+                    ))}
+                    <div className="sfActions">
+                      <button type="button" className="sfBtn primary" data-testid="sf-open-report" onClick={() => onOpenReport(g.recs[0].id)}>📄 Open report</button>
+                      {g.phone && <a className="sfBtn" href={`tel:${String(g.phone).replace(/[^\d+]/g, "")}`}>📞 Call</a>}
+                      {g.openSup.length > 0 && <button type="button" className="sfBtn green" data-testid="sf-delivered" onClick={() => markDelivered(g.recs)}>✓ Supplies delivered</button>}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+        <div className="sfFoot">
+          <button type="button" className="sfLink" onClick={onTempsTracker}>See who hasn't logged today →</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const [lightboxSrc, setLightboxSrc] = useState(null);
   const [locked, setLocked] = useState(true);
@@ -32065,6 +32192,7 @@ export default function App() {
     saveVenueSettingsMap={saveVenueSettingsMap}
     initialTab={historyEntry?.tab}
     initialAnalyticsTab={historyEntry?.sub}
+    initialFocusId={historyEntry?.focusId}
   />; }
   if (page === "schedule") { return <SchedulePage onBack={() => setPage("inspector")} currentUser={currentUser} venueSettings={venueSettings} onManage={(currentUser?.role === "admin" || currentUser?.role === "global_admin") ? () => setPage("admin") : null} />; }
   if (page === "global_admin") {
@@ -32666,6 +32794,7 @@ export default function App() {
         const unseen = standFeed.filter(r => Date.parse(r.savedAt || 0) > standAck);
         if (!standFeed.length) return null;
         const ack = () => { const t = Date.now(); setStandAck(t); try { localStorage.setItem(`sdx_stand_ack_${VENUE_ID}`, String(t)); } catch {} };
+        const close = () => { setStandFeedOpen(false); ack(); };
         return (
           <>
             {unseen.length > 0 && !standFeedOpen && (
@@ -32673,35 +32802,9 @@ export default function App() {
                 📥 From the stands · <b>{unseen.length} new</b>
               </button>
             )}
-            {standFeedOpen && (
-              <div className="modalBackdrop" style={{ zIndex: 1300 }} onClick={() => { setStandFeedOpen(false); ack(); }}>
-                <div className="modalBox standFeedBox" data-testid="stand-feed" onClick={e => e.stopPropagation()}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                    <b>📥 From the stands today</b>
-                    <button type="button" className="haccpTextBtn" onClick={() => { setStandFeedOpen(false); ack(); }}>✕</button>
-                  </div>
-                  {standFeed.map(r => {
-                    const sup = (r.suppliesNeeded || []).filter(x => x.item);
-                    const isNew = Date.parse(r.savedAt || 0) > standAck;
-                    return (
-                      <div key={r.id} className={`standFeedRow${isNew ? " new" : ""}`} data-testid="stand-feed-row">
-                        <div className="standFeedHead">
-                          <NT>{r.siteName}{r.siteNumber ? ` #${r.siteNumber}` : ""}</NT>
-                          <span className="standFeedTime">{new Date(r.savedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}{r.partial ? " · filling in" : ""}</span>
-                        </div>
-                        <div className="standFeedBody">
-                          {r.haccpTempCount ? <span>🌡 {r.haccpTempCount} temps{r.haccpOutOfRange ? <b style={{ color: "#b91c1c" }}> · {r.haccpOutOfRange} out of range</b> : ""}</span> : null}
-                          {sup.length ? <span>📦 {sup.map(x => x.qty ? `${x.item} ×${x.qty}` : x.item).join(" · ")}{sup.some(x => x.urgent) ? <b style={{ color: "#b91c1c" }}> · URGENT</b> : ""}</span> : null}
-                          {(r.actionItems || []).length ? <span>⚠ {(r.actionItems || []).map(a => a.issue).join(" · ")}</span> : null}
-                          <span className="standFeedBy">{r.supervisorName || r.reportedBy?.name || ""}</span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                  <button type="button" className="btn btnPrimary" style={{ marginTop: 10, width: "100%" }} onClick={() => { setStandFeedOpen(false); ack(); window.dispatchEvent(new CustomEvent("sdx-nav", { detail: { page: "history" } })); }}>Open Past Reports</button>
-                </div>
-              </div>
-            )}
+            {standFeedOpen && <StandFeedPanel feed={standFeed} ackTs={standAck} onClose={close}
+              onOpenReport={id => { close(); setHistoryEntry({ tab: "reports", focusId: id }); setPage("history"); }}
+              onTempsTracker={() => { close(); setHistoryEntry({ tab: "analytics", sub: "temp" }); setPage("history"); }} />}
           </>
         );
       })()}
@@ -32834,8 +32937,8 @@ export default function App() {
                         setPage("mylocations");
                       } else if (n.url && n.url.startsWith("record:")) {
                         const recId = n.url.replace("record:", "");
+                        setHistoryEntry({ tab: "reports", focusId: recId });
                         setPage("history");
-                        setTimeout(() => setExpandedId(recId), 300);
                       } else {
                         setPage("admin");
                       }
