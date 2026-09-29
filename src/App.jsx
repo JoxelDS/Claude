@@ -10478,6 +10478,27 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
     setBaBusy("");
   }
 
+  // v510: the pictures of a follow-up for the exports — report photos + every member's card photos,
+  // split before / after, at most 3 each, fetched once and shrunk (v484 fetcher) so the file carries them.
+  const [fuXBusy, setFuXBusy] = useState("");
+  function fuExportPhotos(f) {
+    const seen = new Set(); const all = [];
+    for (const p of [...(f.photos || []), ...fuPhotosOf(f)]) {
+      if (!p) continue; const id = p.id || p.exportUrl || p.previewUrl || p.url || p.thumbUrl; if (!id || seen.has(id)) continue; seen.add(id); all.push(p);
+    }
+    return { before: all.filter(p => p.tag !== "after").slice(0, 3), after: all.filter(p => p.tag === "after").slice(0, 3) };
+  }
+  async function loadExportPics(items, label) {
+    const fetcher = makeExportPhotoFetcher({ onProgress: ({ done, total }) => setFuXBusy(`${label} · pictures ${done} of ${total}…`) });
+    const src = p => p.exportUrl || p.previewUrl || p.url || p.dataUrl || p.thumbUrl || "";
+    const out = {};
+    await Promise.all(items.map(async f => {
+      const { before, after } = fuExportPhotos(f);
+      const get = arr => Promise.all(arr.map(async p => ({ link: /^https?:/.test(src(p)) ? src(p) : "", data: await fetcher.get(src(p), p.thumbUrl) })));
+      out[f.key] = { before: await get(before), after: await get(after) };
+    }));
+    return out;
+  }
   async function exportSelectedFollowups(items) {
     if (!items.length) return;
     const ExcelJS = (await import("exceljs")).default;
@@ -10488,18 +10509,23 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
       { width: 16 }, { width: 46 }, { width: 30 }, { width: 14 }, { width: 12 }, { width: 12 }, { width: 20 }, { width: 50 }, { width: 8 },
       // v440 — what the team actually did
       { width: 20 }, { width: 12 }, { width: 11 }, { width: 11 }, { width: 12 }, { width: 22 },
+      { width: 44 }, { width: 44 }, // v510 — BEFORE / AFTER pictures
     ];
+    setFuXBusy("Excel · starting…");
+    let pics = {};
+    try { pics = await loadExportPics(items, "Excel"); } catch {}
     const title = ws.addRow(["FOLLOW-UPS EXPORT — " + new Date().toLocaleDateString()]);
     title.height = 24;
-    ws.mergeCells(`A${title.number}:U${title.number}`);
+    ws.mergeCells(`A${title.number}:W${title.number}`);
     title.getCell(1).style = { font: { bold: true, size: 13, color: { argb: "FFFFFFFF" } }, fill: { type: "pattern", pattern: "solid", fgColor: { argb: "FF2A295C" } }, alignment: { vertical: "middle", horizontal: "left" } };
     const hdrRow = ws.addRow(["#", "Venue / Stand", "Unit #", "Floor", "Stand Type", "Problem", "Issue Type", "Latest Detail", "Inspector Notes", "Status", "Days Open", "Flagged", "Status By", "Comments", "Photos",
-      "Fixed by", "Date solved", "Time solved", "Started", "Min on job", "Whose problem"]);
+      "Fixed by", "Date solved", "Time solved", "Started", "Min on job", "Whose problem", "BEFORE photos", "AFTER photos"]);
     hdrRow.height = 20;
     hdrRow.eachCell(c => { c.style = { font: { bold: true, size: 10, color: { argb: "FFFFFFFF" } }, fill: { type: "pattern", pattern: "solid", fgColor: { argb: "FFDC2626" } }, alignment: { vertical: "middle", horizontal: "center", wrapText: true } }; });
-    ws.autoFilter = { from: { row: hdrRow.number, column: 1 }, to: { row: hdrRow.number, column: 21 } };
+    ws.autoFilter = { from: { row: hdrRow.number, column: 1 }, to: { row: hdrRow.number, column: 23 } };
     ws.views = [{ state: "frozen", ySplit: hdrRow.number }];
     const stMapX = { ...(venueSettings?.followupStatus || {}), ...statusLocal };
+    let nImg = 0;
     items.forEach((f, i) => {
       const st = stMapX[f.key];
       const stLabel = st && st.status === "resolved" ? (f.reopened ? "Fixed — then flagged again" : "Fixed")
@@ -10523,8 +10549,23 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
         if (col === 10) c.style = { ...c.style, font: { size: 10, bold: true, color: { argb: f.overdue && !f.likelyResolved ? "FFDC2626" : "FF166534" } } };
         if (col === 21 && f.fixedWhose === "sub") c.style = { ...c.style, font: { size: 10, bold: true, color: { argb: "FFB45309" } } };
       });
+      // v510 — embed the pictures (cols 22 = BEFORE, 23 = AFTER)
+      const pp = pics[f.key] || { before: [], after: [] };
+      [[22, pp.before, "before"], [23, pp.after, "after"]].forEach(([col, arr, word]) => {
+        const cell = row.getCell(col);
+        cell.style = { font: { size: 9, color: { argb: "FF6B7280" } }, alignment: { vertical: "top", wrapText: true } };
+        const ok = arr.filter(x => x.data); const miss = arr.filter(x => !x.data && x.link);
+        if (!arr.length) { cell.value = `no ${word} photo`; return; }
+        if (miss.length && !ok.length) { cell.value = { text: `open ${word} photo`, hyperlink: miss[0].link }; cell.style = { ...cell.style, font: { size: 9, color: { argb: "FF1D4ED8" }, underline: true } }; }
+        ok.forEach((x, j) => {
+          const m = String(x.data).match(/^data:image\/(png|jpe?g|gif|webp);base64,(.+)$/); if (!m) return;
+          try { const id = wb.addImage({ base64: m[2], extension: m[1].replace("jpg", "jpeg") }); ws.addImage(id, { tl: { col: col - 1 + j * 0.33, row: row.number - 1 + 0.08 }, ext: { width: 96, height: 96 }, editAs: "oneCell" }); nImg++; } catch {}
+        });
+        if (ok.length) row.height = 80;
+      });
     });
     const buf = await wb.xlsx.writeBuffer();
+    setFuXBusy("");
     downloadBlob(new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }), `Follow-ups_${new Date().toISOString().slice(0, 10)}.xlsx`);
   }
   // Follow-ups → PDF (print sheet) or Word (.doc) — same rows as the Excel export (v429)
@@ -10573,8 +10614,12 @@ ${sections}
     printHtml(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Cleaning report ${stamp}</title><style>${css}</style></head><body>${body}</body></html>`, `Cleaning-report_${stamp}.html`);
   }
 
-  function exportFollowupsDoc(items, fmt) {
+  async function exportFollowupsDoc(items, fmt) {
     if (!items.length) return;
+    setFuXBusy(`${fmt === "pdf" ? "PDF" : "Word"} · starting…`);
+    let pics = {};
+    try { pics = await loadExportPics(items, fmt === "pdf" ? "PDF" : "Word"); } catch {}
+    setFuXBusy("");
     const esc = v => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
     const stMapX = { ...(venueSettings?.followupStatus || {}), ...statusLocal };
     const dateStr = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
@@ -10586,14 +10631,16 @@ ${sections}
         : st && st.status === "waiting" ? `Waiting${st.note ? ` — ${st.note}` : ""}`
         : f.overdue ? "Overdue" : "Open";
       const cmts = ((commentsLocal[f.key] || venueSettings?.followupComments?.[f.key] || [])).map(c => `${c.by}: ${c.text}`).join(" | ");
-      const photos = [...(f.photos || []), ...((fuPhotosLocal[f.key] || venueSettings?.followupPhotos?.[f.key] || []))].map(p => p.thumbUrl || p.previewUrl || p.url || "").filter(u => u && !fmt.startsWith("word")).slice(0, 3);
+      const pp = pics[f.key] || { before: [], after: [] }; // v510: embedded data: pictures, before / after
+      const picCell = arr => arr.filter(x => x.data).map(x => `<img src="${x.data}" width="96">`).join("");
+      const photoHtml = (pp.before.length || pp.after.length) ? `${pp.before.length ? `<div><small><b>BEFORE</b></small><br>${picCell(pp.before)}</div>` : ""}${pp.after.length ? `<div><small><b style="color:#166534">AFTER</b></small><br>${picCell(pp.after)}</div>` : ""}` : `<small>no photo</small>`;
       const cls = f.overdue && !f.likelyResolved ? "bad" : (f.likelyResolved ? "ok" : "");
-      return `<tr class="${i % 2 ? "alt" : ""}"><td>${i + 1}</td><td><b>${esc(f.loc)}</b>${f.unit ? `<br>#${esc(f.unit)}` : ""}${f.floor ? `<br><small>${esc(f.floor)}</small>` : ""}${f.locType ? `<br><small>${esc(standTypeBadge(f.locType).short)}</small>` : ""}</td><td><b>${esc(f.cat)}</b><br><small>${esc(f.itype || "Other")}</small></td><td>${esc(fuDetailAll(f)).replace(/\n/g, "<br>")}${f.notes ? `<br><small><i>${esc(f.notes)}</i></small>` : ""}${cmts ? `<br><small>${esc(cmts)}</small>` : ""}</td><td class="${cls}">${esc(stLabel)}${st?.by ? `<br><small>${esc(st.by)}</small>` : ""}</td><td>${esc(f.daysSince)}</td><td>${esc(f.dateStr || "")}</td><td>${f.fixedTs ? `${esc(new Date(f.fixedTs).toLocaleDateString())}<br><small>${esc(new Date(f.fixedTs).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }))}${f.fixedBy ? ` · ${esc(f.fixedBy)}` : ""}${f.fixedMins ? ` · ${f.fixedMins} min` : ""}</small>` : ""}</td>${fmt === "pdf" ? `<td>${photos.map(u => `<img src="${u}">`).join("")}</td>` : ""}</tr>`;
+      return `<tr class="${i % 2 ? "alt" : ""}"><td>${i + 1}</td><td><b>${esc(f.loc)}</b>${f.unit ? `<br>#${esc(f.unit)}` : ""}${f.floor ? `<br><small>${esc(f.floor)}</small>` : ""}${f.locType ? `<br><small>${esc(standTypeBadge(f.locType).short)}</small>` : ""}</td><td><b>${esc(f.cat)}</b><br><small>${esc(f.itype || "Other")}</small></td><td>${esc(fuDetailAll(f)).replace(/\n/g, "<br>")}${f.notes ? `<br><small><i>${esc(f.notes)}</i></small>` : ""}${cmts ? `<br><small>${esc(cmts)}</small>` : ""}</td><td class="${cls}">${esc(stLabel)}${st?.by ? `<br><small>${esc(st.by)}</small>` : ""}</td><td>${esc(f.daysSince)}</td><td>${esc(f.dateStr || "")}</td><td>${f.fixedTs ? `${esc(new Date(f.fixedTs).toLocaleDateString())}<br><small>${esc(new Date(f.fixedTs).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }))}${f.fixedBy ? ` · ${esc(f.fixedBy)}` : ""}${f.fixedMins ? ` · ${f.fixedMins} min` : ""}</small>` : ""}</td><td>${photoHtml}</td></tr>`;
     }).join("");
     const overdue = items.filter(f => f.overdue && !f.likelyResolved).length;
     const body = `<h1>Follow-ups &amp; Rechecks</h1><div class="brand-line"></div>
 <p class="meta">${dateStr} &bull; ${resolveCompanyName()} &bull; ${items.length} follow-up${items.length !== 1 ? "s" : ""} &bull; ${overdue} overdue</p>
-<table><thead><tr><th>#</th><th>Venue / Stand</th><th>Problem</th><th>Detail &amp; notes</th><th>Status</th><th>Days open</th><th>Flagged</th><th>Solved</th>${fmt === "pdf" ? "<th>Photos</th>" : ""}</tr></thead><tbody>${rows}</tbody></table>
+<table><thead><tr><th>#</th><th>Venue / Stand</th><th>Problem</th><th>Detail &amp; notes</th><th>Status</th><th>Days open</th><th>Flagged</th><th>Solved</th><th>Photos</th></tr></thead><tbody>${rows}</tbody></table>
 <div class="footer">Generated ${dateStr} &bull; ${resolveSystemName()}</div>`;
     const css = `body{font-family:Arial,Helvetica,sans-serif;color:#111827;margin:0;padding:14px;font-size:9pt}h1{font-size:16pt;margin:0 0 4px;color:#1e2761}.brand-line{height:3px;background:#EE0000;width:90px;margin:0 0 8px}.meta{color:#6b7280;font-size:8pt;margin:0 0 10px}table{width:100%;border-collapse:collapse}th{background:#DC2626;color:#fff;text-align:left;padding:5px 6px;font-size:8pt}td{padding:5px 6px;border-bottom:1px solid #e5e7eb;vertical-align:top;font-size:8.5pt}tr.alt td{background:#f4f5f7}td.bad{color:#b91c1c;font-weight:700}td.ok{color:#166534;font-weight:700}small{color:#6b7280;font-size:7.5pt}td img{height:56px;width:auto;margin:0 3px 3px 0;border-radius:4px;border:1px solid #e5e7eb}.footer{margin-top:10px;padding-top:5px;border-top:1px solid #e5e7eb;font-size:6.5pt;color:#9ca3af;text-align:center}@page{size:landscape;margin:10mm}@media print{tr{page-break-inside:avoid}}`;
     const stamp = new Date().toISOString().slice(0, 10);
@@ -11013,19 +11060,19 @@ ${sections}
                   ) : (
                     <>
                       <button type="button" disabled={fuSelCount === 0}
-                        onClick={() => exportSelectedFollowups(selPicked())}
+                        onClick={() => { if (!fuXBusy) exportSelectedFollowups(selPicked()).catch(() => setFuXBusy("")); }}
                         style={{ background: "#166534", color: "#fff", border: "none", borderRadius: 10, padding: "8px 16px", fontWeight: 800, fontSize: "0.84rem", cursor: "pointer", opacity: fuSelCount ? 1 : 0.5 }}>
-                        📊 Excel ({fuSelCount})
+                        {/^Excel/.test(fuXBusy) ? fuXBusy.replace(/^Excel · /, "") : `📊 Excel (${fuSelCount})`}
                       </button>
                       <button type="button" disabled={fuSelCount === 0}
-                        onClick={() => exportFollowupsDoc(selPicked(), "pdf")}
+                        onClick={() => { if (!fuXBusy) exportFollowupsDoc(selPicked(), "pdf").catch(() => setFuXBusy("")); }}
                         style={{ background: "#b91c1c", color: "#fff", border: "none", borderRadius: 10, padding: "8px 16px", fontWeight: 800, fontSize: "0.84rem", cursor: "pointer", opacity: fuSelCount ? 1 : 0.5 }}>
-                        📄 PDF
+                        {/^PDF/.test(fuXBusy) ? fuXBusy.replace(/^PDF · /, "") : "📄 PDF"}
                       </button>
                       <button type="button" disabled={fuSelCount === 0}
-                        onClick={() => exportFollowupsDoc(selPicked(), "word")}
+                        onClick={() => { if (!fuXBusy) exportFollowupsDoc(selPicked(), "word").catch(() => setFuXBusy("")); }}
                         style={{ background: "#1e40af", color: "#fff", border: "none", borderRadius: 10, padding: "8px 16px", fontWeight: 800, fontSize: "0.84rem", cursor: "pointer", opacity: fuSelCount ? 1 : 0.5 }}>
-                        📝 Word
+                        {/^Word/.test(fuXBusy) ? fuXBusy.replace(/^Word · /, "") : "📝 Word"}
                       </button>
                       <button type="button" className="fuBaBtn" disabled={fuSelCount === 0 || !!baBusy}
                         onClick={() => exportBeforeAfter(selPicked())}>
