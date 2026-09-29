@@ -3138,6 +3138,19 @@ function detectChecklistKey(label) {
 const TEMP_WARN_MAX = { cooler: 45, freezer: 25 };
 
 // Collect all equipment temperature readings
+// v509: hand sink ≥ 95°F and 3-comp wash ≥ 110°F (same rule as calcOverallStatus) → OK / Flag rows for the exports.
+function sinkTempRows(temps) {
+  const t = temps || {}; const out = [];
+  const one = (label, key, oooKey, min) => {
+    const raw = t[key]; const n = Number(raw);
+    if (t[oooKey]) out.push({ label: `${label} (out of order)`, tempF: raw !== "" && !isNaN(n) && n > 0 ? n : "—", status: "Flag" });
+    else if (raw !== "" && raw != null && !isNaN(n) && n > 0) out.push({ label: `${label} (min ${min}°F)`, tempF: n, status: n >= min ? "OK" : "Flag" });
+  };
+  one("Hand Sink", "handSinkTempF", "handSinkOutOfOrder", 95);
+  one("3-Comp Sink — wash", "threeCompSinkTempF", "threeCompSinkOutOfOrder", 110);
+  return out;
+}
+
 function collectEquipTemps(inspection) {
   const results = [];
   const equip = inspection?.equipment || {};
@@ -6022,8 +6035,7 @@ async function exportAsCsv({ inspection, notesPhotos, rawNotes, inspectionType, 
     const threeT = Number(inspection?.temps?.threeCompSinkTempF);
     const eTemps = collectEquipTemps(inspection);
     const equipDataRows = [];
-    if (!isNaN(handT) && handT > 0) equipDataRows.push(["Hand Sink", handT, "—"]);
-    if (!isNaN(threeT) && threeT > 0) equipDataRows.push(["3-Comp Sink", threeT, "—"]);
+    sinkTempRows(inspection?.temps).forEach(x => equipDataRows.push([x.label, x.tempF, x.status]));
     eTemps.forEach(e => equipDataRows.push([e.label, e.tempF, e.pass ? "OK" : "Flag"]));
     if (equipDataRows.length > 0) {
       const wsEq = wb.addWorksheet("Equipment Temps");
@@ -6582,8 +6594,7 @@ async function exportIssuesOnlyExcel({ rec, haccpSubs = [] }) {
     eHdr.eachCell(c => applyStyle(c, styleHdr));
     eHdr.height = 22;
     let ei = 0;
-    if (!isNaN(handT) && handT > 0) { const r = wsEq.addRow(["Hand Sink", handT, "—"]); r.eachCell((c, col) => applyStyle(c, col === 3 ? styleBody(false) : styleBody(ei % 2 === 0))); ei++; }
-    if (!isNaN(threeT) && threeT > 0) { const r = wsEq.addRow(["3-Comp Sink", threeT, "—"]); r.eachCell((c, col) => applyStyle(c, col === 3 ? styleBody(false) : styleBody(ei % 2 === 0))); ei++; }
+    sinkTempRows(rec.temps).forEach(x => { const r = wsEq.addRow([x.label, x.tempF, x.status]); r.eachCell((c, col) => applyStyle(c, col === 3 ? styleStatus(x.status) : styleBody(ei % 2 === 0))); ei++; });
     eTemps.forEach(e => {
       const st = e.pass ? "OK" : "Flag";
       const r = wsEq.addRow([e.label, e.tempF, st]);
@@ -8978,6 +8989,7 @@ function PredictiveInsightsPanel({ history, venueSettings }) {
 // this split existed covered every row, so it still hides the sibling.
 const FU_SPLIT_SEP = "##";
 const FU_SPLIT_EPOCH = Date.parse("2026-09-26T01:00:00Z"); // v502 ship time: clears written before this covered every row of a key
+const fuRowSlug = t => String(t || "").toLowerCase().replace(/[^a-z0-9]+/g, "").slice(0, 60) || "row";
 const fuBaseKey = k => String(k || "").split(FU_SPLIT_SEP)[0];
 const fuCatOfKey = k => fuBaseKey(k).split("::").slice(1).join("::");
 function fuRowPhotos(item, rec) {
@@ -9062,14 +9074,21 @@ function computeFollowups(history, venueSettings, clearedLocal = {}) {
     // the existing key; each other crew gets its own sibling card. A card the
     // inspector moved by hand (followupType) keeps all its rows together.
     const buckets = { [itype]: [] };
+    // v509: one issue inside a grouped card can be moved to another crew on its own
+    // (followupRowType["loc::cat|slug"]) — it then becomes that crew's card.
+    const rowTypes = venueSettings?.followupRowType || {};
     rows.forEach((r, i) => {
-      const t = (i === 0 || manualOk) ? itype : r.itype;
+      r.rowKey = `${key}|${fuRowSlug(r.text)}`;
+      const rt = rowTypes[r.rowKey]?.itype;
+      const rtOk = !!(rt && ISSUE_TYPES.includes(rt));
+      if (rtOk) { r.itype = rt; r.rowManual = true; }
+      const t = rtOk ? rt : (i === 0 || manualOk) ? itype : r.itype;
       (buckets[t] = buckets[t] || []).push(r);
     });
     const common = { loc, cat, unit: v.unit || "", floor: v.floor || "", daysSince, dateStr: v.dateStr, likelyResolved, overdue, locType: v.locType || "", ts: v.ts || 0, source: v.source || "", reportedBy: v.reportedBy || "", inspector: v.inspector || "", baseKey: key };
     for (const [t, rs] of Object.entries(buckets)) {
       const isBase = t === itype;
-      if (!isBase && rs.length === 0) continue;
+      if (rs.length === 0 && (!isBase || rows.length > 0)) continue;
       const k = isBase ? key : `${key}${FU_SPLIT_SEP}${t}`;
       const baseClear = cleared[key];
       const clearedTs = isBase ? baseClear : (cleared[k] !== undefined ? cleared[k] : (baseClear && baseClear < FU_SPLIT_EPOCH ? baseClear : undefined));
@@ -10004,6 +10023,8 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
   const [cleanRange, setCleanRange] = useState("today"); // today | 7d | all
   const [typeMenuKey, setTypeMenuKey] = useState(null);
   const [typeLocal, setTypeLocal] = useState({});
+  const [rowTypeLocal, setRowTypeLocal] = useState({}); // v509
+  const [rowTypeMenu, setRowTypeMenu] = useState(null);
   const analysis = useMemo(() => {
     if (history.length < 2) return null;
 
@@ -10105,7 +10126,7 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
       .slice(0, 5);
 
     // 6. Follow-ups: open issues that need a recheck or look resolved
-    const vsWithTypes = Object.keys(typeLocal).length ? { ...venueSettings, followupType: { ...(venueSettings?.followupType || {}), ...typeLocal } } : venueSettings;
+    const vsWithTypes = (Object.keys(typeLocal).length || Object.keys(rowTypeLocal).length) ? { ...venueSettings, followupType: { ...(venueSettings?.followupType || {}), ...typeLocal }, followupRowType: { ...(venueSettings?.followupRowType || {}), ...rowTypeLocal } } : venueSettings;
     const r0 = computeFollowups(history, vsWithTypes, clearedLocal);
     // v447: what kind of stand is this? The license registry IS the stand list,
     // so resolve unit+name against standSeeds(), then fall back to the report.
@@ -10134,7 +10155,7 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
     const recheckDays = r0.recheckDays;
 
     return { recurring, locationRecurring, tempComplianceRate, tempChecks, tempFails, totalInspections: history.length, worstLocations, followups, followupGroups, followupCatGroups, recheckDays };
-  }, [history, venueSettings, clearedLocal]);
+  }, [history, venueSettings, clearedLocal, typeLocal, rowTypeLocal]);
 
   const [remindedKey, setRemindedKey] = useState(null);
   // Status lifecycle — optimistic overlay + shared per-key writes
@@ -10151,6 +10172,16 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
     setTypeMenuKey(null);
     if (itype && Object.values(CREW_TYPES).some(ts => ts.includes(itype))) {
       try { notifyCrewsForItems([{ issue: `${f.cat}: ${f.detail || ""}`, notes: f.notes || "" }], f.loc, f.unit, currentUser?.name || "Inspector", itype); } catch {}
+    }
+  }
+  function setRowType(sb, itype, f) {
+    if (!sb?.rowKey) return;
+    const entry = itype ? { itype, by: currentUser?.name || "Inspector", ts: Date.now() } : null;
+    setRowTypeLocal(p => ({ ...p, [sb.rowKey]: entry }));
+    writeMap("followupRowType", { [sb.rowKey]: entry });
+    setRowTypeMenu(null);
+    if (itype && Object.values(CREW_TYPES).some(ts => ts.includes(itype))) {
+      try { notifyCrewsForItems([{ issue: `${sb.cat || f.cat}: ${sb.text || ""}`, notes: sb.notes || "" }], f.loc, f.unit, currentUser?.name || "Inspector", itype); } catch {}
     }
   }
   function writeMap(field, patch) {
@@ -11409,7 +11440,10 @@ ${sections}
                                 )}
                               </div>
                               {(f.subs || []).length > 1 ? (
-                                <ol className="fuSubList" data-testid="fu-sub-list">{f.subs.map((sb, i) => <li key={i}>{fuSubPrefix(sb.cat) ? <b>{fuSubPrefix(sb.cat)}: </b> : null}{sb.text || "—"}{sb.notes && sb.notes !== sb.text ? <span style={{ color: "var(--ink-500)" }}> — {sb.notes}</span> : null}</li>)}</ol>
+                                <ol className="fuSubList" data-testid="fu-sub-list">{f.subs.map((sb, i) => { const mk = `${f.key}#${i}`; return <li key={i}>{fuSubPrefix(sb.cat) ? <b>{fuSubPrefix(sb.cat)}: </b> : null}{sb.text || "—"}{sb.notes && sb.notes !== sb.text ? <span style={{ color: "var(--ink-500)" }}> — {sb.notes}</span> : null}
+                                  {sb.rowKey && <span className="fuRowTypeWrap"><button type="button" className="fuRowType" data-testid="fu-row-type" title="Move just this issue to another crew" onClick={e => { e.stopPropagation(); setRowTypeMenu(rowTypeMenu === mk ? null : mk); }}>{(ISSUE_TYPE_ICON[sb.itype] || "") + " " + issueTypeLabel(sb.itype || "Other")}{sb.rowManual ? " ✋" : ""} ▾</button>
+                                    {rowTypeMenu === mk && <span className="fuRowTypeMenu" data-testid="fu-row-type-menu">{ISSUE_TYPES.map(t => <button key={t} type="button" className={t === sb.itype ? "on" : ""} onClick={e => { e.stopPropagation(); setRowType(sb, t, f); }}>{(ISSUE_TYPE_ICON[t] || "") + " " + issueTypeLabel(t)}</button>)}{sb.rowManual && <button type="button" onClick={e => { e.stopPropagation(); setRowType(sb, null, f); }}>↩ Automatic</button>}</span>}
+                                  </span>}</li>; })}</ol>
                               ) : (f.detail || f.notes) && (
                                 <div style={{ fontSize: "0.76rem", color: "var(--ink-700)", marginTop: 3, lineHeight: 1.35 }}>
                                   {f.detail}{f.notes && f.detail !== f.notes ? <span style={{ color: "var(--ink-500)" }}> — {f.notes}</span> : null}
@@ -12843,9 +12877,8 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
       const threeT = Number(rec.temps?.threeCompSinkTempF);
       const eTemps = collectEquipTemps(rec.inspection);
       const eqEntries = [];
-      if (!isNaN(handT) && handT > 0) eqEntries.push({ label: "Hand Sink", tempF: handT, status: "—" });
-      if (!isNaN(threeT) && threeT > 0) eqEntries.push({ label: "3-Comp Sink", tempF: threeT, status: "—" });
-      eTemps.forEach(e => eqEntries.push({ label: e.label, tempF: e.tempF, status: e.pass ? "OK" : "Flag" }));
+      sinkTempRows(rec.temps).forEach(x => eqEntries.push(x));
+      eTemps.forEach(e => { const n = Number(e.tempF); eqEntries.push({ label: e.label, tempF: e.tempF !== "" && !isNaN(n) ? n : e.tempF, status: e.pass ? "OK" : "Flag" }); });
       eqEntries.forEach(entry => {
         eqRowNum++;
         const bg = eqRowNum % 2 === 0 ? SILVER : WHITE;

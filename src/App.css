@@ -9000,3 +9000,9 @@ button.nluChipTemp { background: #fef3c7; color: #92400e; border: 1px solid #fcd
 @media (max-width: 560px) { .sfBackdrop { padding: 0; } .sfPanel { width: 100%; max-height: 100vh; height: 100%; border-radius: 0; } }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .sfCard.attn { background: #3b1113; border-color: #7f1d1d; } :root:not([data-theme="light"]) .sfCard.sup { background: #3a2a07; border-color: #92400e; } }
 :root[data-theme="dark"] .sfCard.attn { background: #3b1113; border-color: #7f1d1d; } :root[data-theme="dark"] .sfCard.sup { background: #3a2a07; border-color: #92400e; }
+/* v509 per-issue crew picker */
+.fuRowTypeWrap { position: relative; display: inline-block; margin-left: 8px; vertical-align: middle; }
+.fuRowType { font-size: .74rem; font-weight: 700; border: 1px solid var(--sdx-gray-200, #e5e7eb); background: var(--surface-1, #fff); color: var(--ink-700, #334155); border-radius: 999px; padding: 2px 9px; cursor: pointer; }
+.fuRowTypeMenu { position: absolute; left: 0; top: calc(100% + 4px); z-index: 60; display: flex; flex-direction: column; min-width: 190px; background: var(--surface-1, #fff); border: 1px solid var(--sdx-gray-200, #e5e7eb); border-radius: 10px; box-shadow: 0 10px 24px rgba(15,23,42,.18); padding: 4px; }
+.fuRowTypeMenu button { text-align: left; border: none; background: none; color: inherit; padding: 8px 10px; border-radius: 7px; font-weight: 600; font-size: .85rem; cursor: pointer; }
+.fuRowTypeMenu button:hover, .fuRowTypeMenu button.on { background: var(--surface-2, #f1f5f9); }
