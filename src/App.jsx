@@ -11058,7 +11058,7 @@ ${sections}
                       ☑ Select to export
                     </button>
                   ) : (
-                    <>
+                    <div className="fuExportBar" data-testid="fu-export-bar"><span className="fuExportN">{fuSelCount} selected</span>
                       <button type="button" disabled={fuSelCount === 0}
                         onClick={() => { if (!fuXBusy) exportSelectedFollowups(selPicked()).catch(() => setFuXBusy("")); }}
                         style={{ background: "#166534", color: "#fff", border: "none", borderRadius: 10, padding: "8px 16px", fontWeight: 800, fontSize: "0.84rem", cursor: "pointer", opacity: fuSelCount ? 1 : 0.5 }}>
@@ -11095,7 +11095,7 @@ ${sections}
                       </button>
                       <button type="button" onClick={() => { setFuSelectMode(false); setFuSelected({}); }}
                         style={{ background: "none", border: "none", color: "var(--ink-500)", fontWeight: 700, cursor: "pointer", fontSize: "0.8rem" }}>Cancel</button>
-                    </>
+                    </div>
                   )}
                 </div>
               ) : (
@@ -11184,8 +11184,9 @@ ${sections}
               )}
               {qpFlash && <div style={{ fontSize: "0.8rem", fontWeight: 700, color: "#16a34a", marginTop: 6 }}>{qpFlash}</div>}
             </div>
-            {/* Summary bar */}
-            <div className="fuSummary">
+            {/* v511: one labelled toolbar — Status (counts) / Crew (tap to filter) / Filter / Group by */}
+            <div className="fuTools" data-testid="fu-tools">
+              <div className="fuToolsRow fuToolsStatus"><span className="fuToolsLbl">Status</span><div className="fuToolsBody">
               {fuVisible.filter(f => f.overdue).length > 0 && (
                 <span className="fuSumChip fuSumOverdue">⏰ {fuVisible.filter(f => f.overdue).length} overdue</span>
               )}
@@ -11201,37 +11202,35 @@ ${sections}
               {fuVisible.filter(f => effStatus(f) === "waiting").length > 0 && (
                 <span className="fuSumChip fuSumWait">⏳ {fuVisible.filter(f => effStatus(f) === "waiting").length} waiting</span>
               )}
-              <span className="fuCrewGroup" data-testid="fu-crew-group">
+              </div></div>
+              <div className="fuToolsRow"><span className="fuToolsLbl">Crew</span><div className="fuToolsBody fuCrewGroup" data-testid="fu-crew-group">
               {fuVisible.filter(f => f.itype === "Cleaning").length > 0 && (
-                <span className="fuSumChip fuCrewChip fuCrewClean" style={{ background: "#dcfce7", color: "#166534", borderColor: "#86efac", cursor: "pointer" }}
+                <button type="button" className={"fuSumChip fuCrewChip fuCrewClean" + (fuSearch.trim().toLowerCase() === "cleaning" ? " on" : "")} style={{ background: "#dcfce7", color: "#166534", borderColor: "#86efac", cursor: "pointer" }}
                   onClick={() => setFuSearch(fuSearch.trim().toLowerCase() === "cleaning" ? "" : "cleaning")}>
                   🧹 {fuVisible.filter(f => f.itype === "Cleaning").length} cleaning
-                </span>
+                </button>
               )}
               {fuVisible.filter(f => f.itype === "Maintenance").length > 0 && (
-                <span className="fuSumChip fuCrewChip fuCrewMaint" style={{ background: "#ffedd5", color: "#9a3412", borderColor: "#fdba74", cursor: "pointer" }}
+                <button type="button" className={"fuSumChip fuCrewChip fuCrewMaint" + (fuSearch.trim().toLowerCase() === "maintenance" ? " on" : "")} style={{ background: "#ffedd5", color: "#9a3412", borderColor: "#fdba74", cursor: "pointer" }}
                   onClick={() => setFuSearch(fuSearch.trim().toLowerCase() === "maintenance" ? "" : "maintenance")}>
                   🔧 {fuVisible.filter(f => f.itype === "Maintenance").length} maintenance
-                </span>
+                </button>
               )}
               {fuVisible.filter(f => f.itype === "Building").length > 0 && (
-                <span className="fuSumChip fuCrewChip fuCrewBuilding" style={{ background: "#ede9fe", color: "#4c1d95", borderColor: "#c4b5fd", cursor: "pointer" }}
+                <button type="button" className={"fuSumChip fuCrewChip fuCrewBuilding" + (fuSearch.trim().toLowerCase() === "building" ? " on" : "")} style={{ background: "#ede9fe", color: "#4c1d95", borderColor: "#c4b5fd", cursor: "pointer" }}
                   onClick={() => setFuSearch(fuSearch.trim().toLowerCase() === "building" ? "" : "building")}>
                   🏗 {fuVisible.filter(f => f.itype === "Building").length} building
-                </span>
+                </button>
               )}
               {fuVisible.filter(f => f.itype === "Ecolab / Maintenance").length > 0 && (
-                <span className="fuSumChip fuCrewChip fuCrewEcolab" style={{ background: "#ccfbf1", color: "#0f766e", borderColor: "#5eead4", cursor: "pointer" }}
+                <button type="button" className={"fuSumChip fuCrewChip fuCrewEcolab" + (fuSearch.trim().toLowerCase() === "ecolab" ? " on" : "")} style={{ background: "#ccfbf1", color: "#0f766e", borderColor: "#5eead4", cursor: "pointer" }}
                   onClick={() => setFuSearch(fuSearch.trim().toLowerCase() === "ecolab" ? "" : "ecolab")}>
                   🧪 {fuVisible.filter(f => f.itype === "Ecolab / Maintenance").length} Ecolab
-                </span>
+                </button>
               )}
-              </span>
-              <span className="fuSumChip">📍 {fuGroupsShown.length} venue{fuGroupsShown.length !== 1 ? "s" : ""}</span>
-            </div>
-            {/* v449: the ten stand-type pills became two compact filters, and
-                the grouping toggle gets its own line instead of fighting them. */}
-            <div className="fuFilterBar">
+              {["cleaning", "maintenance", "building", "ecolab"].includes(fuSearch.trim().toLowerCase()) && <button type="button" className="fuFilterClear fuCrewClear" onClick={() => setFuSearch("")}>✕ clear</button>}
+              </div></div>
+              <div className="fuToolsRow fuFilterBar"><span className="fuToolsLbl">Filter</span><div className="fuToolsBody">
               <span className="fuFilterWrap">
                 <button type="button" className={"fuFilterPill" + (fuTypePick ? " on" : "")}
                   onClick={() => setFuFilterMenu(fuFilterMenu === "type" ? "" : "type")}>
@@ -11264,6 +11263,8 @@ ${sections}
                   </div>
                 )}
               </span>
+</div></div>
+              <div className="fuToolsRow"><span className="fuToolsLbl">Group by</span><div className="fuToolsBody fuToolsGroup">
               <span className="fuToggle">
                 <button type="button" className={`fuToggleBtn${fuGroupBy === "loc" ? " fuToggleActive" : ""}`} onClick={() => setFuGroupBy("loc")}>📍 By Venue</button>
                 <button type="button" className={`fuToggleBtn${fuGroupBy === "cat" ? " fuToggleActive" : ""}`} onClick={() => setFuGroupBy("cat")}>🗂 By Problem</button>
@@ -11271,6 +11272,8 @@ ${sections}
                 <button type="button" className={`fuToggleBtn${fuGroupBy === "floor" ? " fuToggleActive" : ""}`} onClick={() => setFuGroupBy("floor")}>🏢 By Floor</button>
                 <button type="button" className={`fuToggleBtn${fuGroupBy === "date" ? " fuToggleActive" : ""}`} onClick={() => setFuGroupBy("date")}>📅 By Date</button>
               </span>
+<span className="fuToolsVenues">{fuGroupsShown.length} venue{fuGroupsShown.length !== 1 ? "s" : ""}</span>
+              </div></div>
             </div>
             {saveWarn && <div className="fuSaveWarn">{saveWarn}</div>}
             {undoRes && (
@@ -11984,6 +11987,7 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
   }, [initialFocusId, history]); // eslint-disable-line react-hooks/exhaustive-deps
   const fuTabOverdue = useMemo(() => { try { return computeFollowups(history, venueSettings).followups.filter(f => f.overdue && !f.likelyResolved).length; } catch { return 0; } }, [history, venueSettings?.followupCleared, venueSettings?.followupStatus, venueSettings?.recheckDays]);
   const [selectMode, setSelectMode] = useState(false);
+  useEffect(() => { if (historyTab === "analytics") setSelectMode(false); }, [historyTab]); // v511: report Select only on the Reports tab
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [confirmDeleteId, setConfirmDeleteId] = useState(null); // two-step delete: first click sets ID, second confirms
   const dragSelecting = useRef(false);
@@ -13611,7 +13615,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
           {onMyTasks && (currentUser?.role === "inspector" || currentUser?.role === "location_manager") && (
             <button className="btn btnGhost historyDesktopBtn" onClick={onMyTasks} type="button">📋 My Tasks</button>
           )}
-          {history.length > 0 && (
+          {history.length > 0 && historyTab !== "analytics" && (
             <button
               className="btn btnGhost historyDesktopBtn"
               onClick={() => { setSelectMode(m => !m); setSelectedIds(new Set()); }}
@@ -13688,7 +13692,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                     <button className="dropdownMenuItem" onClick={() => { onMyTasks(); setShowHistoryMenu(false); }} type="button" style={{ padding: "15px 20px", fontSize: "0.97rem" }}>📋 My Tasks</button>
                   </>
                 )}
-                {history.length > 0 && (
+                {history.length > 0 && historyTab !== "analytics" && (
                   <>
                     <div style={{ height: 1, background: "rgba(255,255,255,0.12)", margin: "8px 10px" }} />
                     <button className="dropdownMenuItem" onClick={() => { setSelectMode(m => !m); setSelectedIds(new Set()); setShowHistoryMenu(false); }} type="button" style={{ padding: "15px 20px", fontSize: "0.97rem" }}>

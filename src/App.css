@@ -9006,3 +9006,30 @@ button.nluChipTemp { background: #fef3c7; color: #92400e; border: 1px solid #fcd
 .fuRowTypeMenu { position: absolute; left: 0; top: calc(100% + 4px); z-index: 60; display: flex; flex-direction: column; min-width: 190px; background: var(--surface-1, #fff); border: 1px solid var(--sdx-gray-200, #e5e7eb); border-radius: 10px; box-shadow: 0 10px 24px rgba(15,23,42,.18); padding: 4px; }
 .fuRowTypeMenu button { text-align: left; border: none; background: none; color: inherit; padding: 8px 10px; border-radius: 7px; font-weight: 600; font-size: .85rem; cursor: pointer; }
 .fuRowTypeMenu button:hover, .fuRowTypeMenu button.on { background: var(--surface-2, #f1f5f9); }
+
+/* v511 — Follow-ups toolbar: labelled rows, real spacing */
+.fuTools { display: grid; gap: 12px; margin: 14px 0 16px; padding: 12px 14px; border: 1px solid var(--sdx-gray-200, #e5e7eb); border-radius: 14px; background: var(--surface-2, #f8fafc); }
+.fuToolsRow { display: grid; grid-template-columns: 72px 1fr; align-items: center; gap: 10px; margin: 0 !important; padding: 0 !important; border: 0 !important; }
+.fuToolsRow + .fuToolsRow { padding-top: 12px !important; border-top: 1px solid var(--sdx-gray-200, #e5e7eb) !important; }
+.fuToolsLbl { font-size: 0.68rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-500, #64748b); }
+.fuToolsBody { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; min-width: 0; }
+.fuTools .fuCrewGroup { margin: 0 !important; padding: 0 !important; border: 0 !important; }
+.fuToolsStatus .fuSumChip { background: transparent !important; border-color: transparent !important; padding: 2px 6px; font-weight: 700; cursor: default; }
+.fuTools .fuCrewChip { font-family: inherit; font-size: 0.9rem; font-weight: 800; min-height: 44px; padding: 6px 14px; border-width: 2px; border-style: solid; border-radius: 999px; cursor: pointer; display: inline-flex; align-items: center; }
+.fuTools .fuCrewChip.on { box-shadow: 0 0 0 2px var(--sdx-navy, #1e3a8a); }
+.fuToolsGroup { flex-wrap: nowrap; }
+.fuToolsGroup .fuToggle { margin: 0 !important; overflow-x: auto; max-width: 100%; flex: 0 1 auto; scrollbar-width: none; }
+.fuToolsGroup .fuToggleBtn { white-space: nowrap; }
+.fuToolsVenues { margin-left: auto; font-size: 0.74rem; color: var(--ink-500, #64748b); white-space: nowrap; }
+.fuExportBar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 10px 12px; border-radius: 12px; background: #eff6ff; border: 1px solid #bfdbfe; flex: 1 1 100%; }
+.fuExportN { font-weight: 800; color: #1e40af; font-size: 0.82rem; margin-right: 4px; }
+@media (max-width: 560px) {
+  .fuToolsRow { grid-template-columns: 1fr; gap: 6px; }
+  .fuToolsGroup { flex-wrap: wrap; }
+  .fuToolsGroup .fuToggle { flex: 1 1 100%; }
+  .fuToolsVenues { margin-left: 0; }
+}
+[data-theme="dark"] .fuTools { background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.12); }
+[data-theme="dark"] .fuToolsRow + .fuToolsRow { border-top-color: rgba(255,255,255,0.12) !important; }
+[data-theme="dark"] .fuExportBar { background: rgba(59,130,246,0.12); border-color: rgba(59,130,246,0.35); }
+[data-theme="dark"] .fuExportN { color: #93c5fd; }
