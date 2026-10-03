@@ -1947,7 +1947,27 @@ async function loadAnalyticsSnapshot(venueId) {
 }
 
 /* ── HACCP Supervisor Submissions ────────────────────────── */
+// v513 — harness hooks + a small outbox so the final Submit never waits on the network
+const HACCP_PENDING_KEY = () => `sdx_haccp_pending_${VENUE_ID}`;
+function loadHaccpPending() { try { return JSON.parse(localStorage.getItem(HACCP_PENDING_KEY()) || "[]"); } catch { return []; } }
+function storeHaccpPending(list) { try { localStorage.setItem(HACCP_PENDING_KEY(), JSON.stringify(list.slice(0, 50))); } catch {} }
+async function saveHaccpSubmissionSafe(record) {
+  try { await saveHaccpSubmission(record); storeHaccpPending(loadHaccpPending().filter(r => r.id !== record.id)); return true; }
+  catch { const l = loadHaccpPending().filter(r => r.id !== record.id); l.push(record); storeHaccpPending(l); return false; }
+}
+let _haccpFlushing = false;
+async function flushHaccpPending() {
+  if (_haccpFlushing) return; const l = loadHaccpPending(); if (!l.length) return;
+  _haccpFlushing = true;
+  try { for (const r of l) { try { await saveHaccpSubmission(r); storeHaccpPending(loadHaccpPending().filter(x => x.id !== r.id)); } catch { break; } } }
+  finally { _haccpFlushing = false; }
+}
+if (typeof window !== "undefined") window.__sdxFlushHaccpPending = flushHaccpPending;
 async function saveHaccpSubmission(record) {
+  if (typeof window !== "undefined") {
+    if (window.__sdxSlowHaccpMs) await new Promise(r => setTimeout(r, window.__sdxSlowHaccpMs));
+    if (window.__sdxFailHaccpOnce) { window.__sdxFailHaccpOnce = false; throw new Error("test failure"); }
+  }
   if (FIREBASE_ON) {
     const writes = [setDoc(doc(legacyCol("haccpSubmissions"), record.id), record)];
     if (!IS_DEFAULT_VENUE()) writes.push(setDoc(doc(venueCol("haccpSubmissions"), record.id), record));
@@ -28273,6 +28293,13 @@ function HaccpPortal() {
     Object.fromEntries(HACCP_TEMP_ITEMS.map(it => [it.key, [""]]))
   );
   // submitted: tracks which readings have been confirmed (pass/flag only shown after submit)
+  const [subSaved, setSubSaved] = useState(""); // v513 — "sending" | "saved" | "queued"
+  useEffect(() => { // v513 — retry logs that could not be sent
+    flushHaccpPending(); const on = () => flushHaccpPending(); window.addEventListener("online", on);
+    const t = setInterval(async () => { const before = loadHaccpPending().length; await flushHaccpPending(); if (before && !loadHaccpPending().length) setSubSaved(v => v === "queued" ? "saved" : v); }, 30000);
+    return () => { window.removeEventListener("online", on); clearInterval(t); };
+  }, []);
+  const [corrSent, setCorrSent] = useState({}); // v513 — {"key:idx": ts} corrective action sent
   const [tempSubmitted, setTempSubmitted] = useState(() =>
     Object.fromEntries(HACCP_TEMP_ITEMS.map(it => [it.key, [false]]))
   );
@@ -28666,6 +28693,33 @@ function HaccpPortal() {
     clearProblemEditor();
     setTimeout(() => document.querySelector(".supCatChips")?.scrollIntoView({ behavior: "smooth", block: "center" }), 50);
   }
+  // v513 — a corrective action is "sent" like a temperature: tap Send, the box locks green.
+  const corrText = (k, i) => String((tempCorrections[k] || [])[i] || "").trim();
+  const corrHasAction = (k, i) => !!corrText(k, i).replace(/^(Reason|Motivo):[^—]*—?/i, "").trim();
+  function sendCorrective(k, i) {
+    if (!corrHasAction(k, i)) return;
+    setCorrSent(p => ({ ...p, [`${k}:${i}`]: Date.now() }));
+    setTempErr("");
+    scheduleAutoSend(300);
+  }
+  function renderCorrSent(k, i) {
+    const ts = corrSent[`${k}:${i}`];
+    return (
+      <div data-corr={`${k}:${i}`} className="corrSentBox" data-testid="corr-sent">
+        <div className="corrSentHead">✓ {L("Corrective action sent to the inspector", "Acción correctiva enviada al inspector")} · {new Date(ts).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</div>
+        <div className="corrSentText">🔧 {corrText(k, i)}</div>
+        <button type="button" className="corrSentEdit" onClick={() => setCorrSent(p => { const n = { ...p }; delete n[`${k}:${i}`]; return n; })}>✎ {L("Change", "Cambiar")}</button>
+      </div>
+    );
+  }
+  function renderCorrSendBtn(k, i) {
+    const ok = corrHasAction(k, i);
+    return (
+      <button type="button" className={"corrSendBtn" + (ok ? " ready" : "")} data-testid="corr-send" disabled={!ok} onClick={() => sendCorrective(k, i)}>
+        ✓ {L("Send corrective action", "Enviar acción correctiva")}
+      </button>
+    );
+  }
   async function handleSubmit(opts = {}) {
     // v507: auto = a silent save while they fill in (green Done ▴ / leaving a temp box / supplies).
     // Same ids every time, so the final Submit updates the record instead of making a second one.
@@ -28755,7 +28809,12 @@ function HaccpPortal() {
       missingCorrective: missingCorr.length,
     };
     if (auto && haccpTempCount(record) === 0 && !suppliesReq.length) return;
-    await saveHaccpSubmission(record);
+    // v513 — the final Submit shows "Submitted!" after at most 1.2 s; the write keeps going
+    // (and lands in the pending outbox if it fails), so a slow stadium network never holds the button.
+    if (!auto) clearTimeout(autoTimerRef.current);
+    const write = saveHaccpSubmissionSafe(record);
+    if (auto) await write;
+    else { setSubSaved("sending"); write.then(ok => setSubSaved(ok ? "saved" : "queued")); await Promise.race([write, new Promise(r => setTimeout(r, 1200))]); }
     // v463 — the log is in; show "Submitted!" now. The problem reports, the
     // Quick Report record for Follow-ups and the crew pings go in the
     // background (each already survives a failure on its own).
@@ -29287,7 +29346,8 @@ function HaccpPortal() {
                               )}
                             </div>
                             {/* Corrective action — only shown after submit when flagged */}
-                            {isSubmitted && pass === false && (
+                            {isSubmitted && pass === false && corrSent[`${item.key}:${idx}`] && renderCorrSent(item.key, idx)}
+                            {isSubmitted && pass === false && !corrSent[`${item.key}:${idx}`] && (
                               <div data-corr={`${item.key}:${idx}`} style={{ background: "var(--tint-red-1)", border: `1px solid ${needsCorrection ? "#dc2626" : "#fca5a5"}`, borderRadius: 8, padding: "8px 10px", marginTop: 4 }}>
                                 <label style={{ display: "block", fontSize: "0.72rem", fontWeight: 700, color: "#dc2626", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>
                                   {L("🔧 WHY? + CORRECTIVE ACTION *", "🔧 ¿POR QUÉ? + ACCIÓN CORRECTIVA *")}
@@ -29309,6 +29369,7 @@ function HaccpPortal() {
                                     {L("Required — tap why it's out of range, then what you did", "Obligatorio — toca por qué está fuera de rango y qué hiciste")}
                                   </div>
                                 )}
+                                {renderCorrSendBtn(item.key, idx)}
                               </div>
                             )}
                           </div>
@@ -29445,7 +29506,8 @@ function HaccpPortal() {
                                           }}>✕</button>
                                       )}
                                     </div>
-                                    {isSubmitted && pass === false && (
+                                    {isSubmitted && pass === false && corrSent[`${item.key}:${idx}`] && renderCorrSent(item.key, idx)}
+                                    {isSubmitted && pass === false && !corrSent[`${item.key}:${idx}`] && (
                                       <div data-corr={`${item.key}:${idx}`} style={{ background: "rgba(127,29,29,0.25)", border: `1px solid ${needsCorrection ? "#dc2626" : "#fca5a5"}`, borderRadius: 8, padding: "8px 10px", marginTop: 4 }}>
                                         <label style={{ display: "block", fontSize: "0.72rem", fontWeight: 700, color: "#fca5a5", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>{L("🔧 CORRECTIVE ACTION TAKEN *", "🔧 ACCIÓN CORRECTIVA *")}</label>
                                         <div className="specChips" style={{ marginBottom: 6 }}>{TEMP_FAIL_REASONS.map(o => { const lbl = pl === "es" ? o[1] : o[0]; const on = correction.startsWith(`${pl === "es" ? "Motivo" : "Reason"}: ${lbl}`); return <button key={o[0]} type="button" className={"specChip" + (on ? " on" : "")} onClick={() => setTempCorrections(p => { const arr = [...(p[item.key] || [""])]; const rest = String(arr[idx] || "").replace(/^(Reason|Motivo):[^—]*—?\s*/i, ""); arr[idx] = `${pl === "es" ? "Motivo" : "Reason"}: ${lbl} — ${rest}`; return { ...p, [item.key]: arr }; })}>{lbl}</button>; })}</div>
@@ -29453,6 +29515,7 @@ function HaccpPortal() {
                                           onChange={e => setTempCorrections(p => { const arr=[...(p[item.key]||[""])]; arr[idx]=e.target.value; return {...p,[item.key]:arr}; })}
                                           style={{ width: "100%", fontSize: "0.82rem", resize: "vertical", border: `1px solid ${needsCorrection ? "#dc2626" : "#fca5a5"}`, borderRadius: 6, padding: "6px 8px", outline: "none", background: "#1e293b", color: "#e2e8f0" }} />
                                         {needsCorrection && <div style={{ fontSize: "0.72rem", color: "#f87171", marginTop: 3, fontWeight: 600 }}>{L("Required — enter corrective action", "Obligatorio — escribe la acción correctiva")}</div>}
+                                        {renderCorrSendBtn(item.key, idx)}
                                       </div>
                                     )}
                                   </div>
@@ -29672,6 +29735,7 @@ function HaccpPortal() {
         <div className="haccpCard">
           <div className="haccpCardHeader">
             <div className="haccpCardTitle">{L("✅ Submitted!", "✅ ¡Enviado!")}</div>
+            {subSaved && <div className={"haccpSaveState " + subSaved} data-testid="sub-saved">{subSaved === "saved" ? L("✓ Saved — the inspector has it", "✓ Guardado — el inspector lo tiene") : subSaved === "sending" ? L("Sending…", "Enviando…") : L("📥 Saved on this phone — it sends when the connection is back", "📥 Guardado en este teléfono — se envía cuando vuelva la conexión")}</div>}
             <div className="haccpCardSub">{L("Thank you", "Gracias")}, {supName}</div>
           </div>
           <div className="haccpCardBody">
