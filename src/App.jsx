@@ -14545,15 +14545,16 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                           <span className="supLogBadgeHead">📋 SUPERVISOR LOG{rec.reportedBy?.name || rec.supervisorName ? ` · by ${rec.reportedBy?.name || rec.supervisorName}` : ""}</span>
                           <span className="supLogBadgeMeta">
                             🌡️ {rec.haccpTempCount || 0} temp{(rec.haccpTempCount || 0) !== 1 ? "s" : ""} logged{rec.haccpOutOfRange ? <b className="supLogBad"> · {rec.haccpOutOfRange} out of range</b> : " · all in range"}
-                            {(rec.actionItems || []).length ? ` · ${rec.actionItems.length} problem${rec.actionItems.length !== 1 ? "s" : ""} reported` : ""}
+                            {(() => { const pr = (rec.actionItems || []).filter(a => !a.fromTemp).length; return pr ? ` · ${pr} problem${pr !== 1 ? "s" : ""} reported` : ""; })()}
+                            {(() => { const rd = (rec.haccpReadings || []).filter(x => x.ok === false); const done = rd.filter(x => String(x.corrective || "").replace(/^(Reason|Motivo):[^—]*—?/i, "").trim()).length; const miss = rec.missingCorrective != null ? rec.missingCorrective : rd.length - done; return <>{done ? <b className="supLogCorr" data-testid="sup-corr-ok"> · 🔧 {done} corrective action{done !== 1 ? "s" : ""}</b> : null}{miss > 0 ? <b className="supLogBad" data-testid="sup-corr-miss"> · ⚠ {miss} without corrective action</b> : null}</>; })()}
                             {rec.reportedBy?.phone ? ` · 📞 ${rec.reportedBy.phone}` : ""}
                           </span>
                           <span className="supLogBadgeHint">Filed by the stand from its QR poster — the temperature log is listed below.</span>
                         </div>
                       )}
                       {/* ── QUICK REPORT: the problem as reported ── */}
-                      {(rec.quickProblem || (rec.supervisorLog && (rec.actionItems || []).length > 0)) && (() => {
-                        const a0 = (rec.actionItems || [])[0] || {};
+                      {(rec.quickProblem || (rec.supervisorLog && (rec.actionItems || []).some(a => !a.fromTemp))) && (() => {
+                        const a0 = (rec.actionItems || []).find(a => !a.fromTemp) || (rec.actionItems || [])[0] || {};
                         const [catPart, ...restParts] = String(a0.issue || "").split(":");
                         const cat = restParts.length ? catPart.trim() : "";
                         const text = restParts.length ? restParts.join(":").trim() : String(a0.issue || "");
@@ -28405,6 +28406,7 @@ function HaccpPortal() {
   const sessionSubIdRef = useRef(""), sessionInspIdRef = useRef(""), autoNotifiedRef = useRef(false), autoTimerRef = useRef(null), handleSubmitRef = useRef(null);
   const [autoSent, setAutoSent] = useState(null);
   const [problemError, setProblemError] = useState("");
+  const [tempErr, setTempErr] = useState(""); // v512 — out-of-range readings without a corrective action
   const [problemAction, setProblemAction] = useState("");   // v439 — what did you do
   const [problemProof, setProblemProof] = useState([]);
   const [problemDetails, setProblemDetails] = useState({}); // v415: which unit / part / where
@@ -28697,6 +28699,28 @@ function HaccpPortal() {
     [...HACCP_TEMP_ITEMS, ...customItems].forEach(item => {
       itemLabels[item.key] = labelOverrides[item.key] ?? item.label;
     });
+    // v512 — every out-of-range reading needs its corrective action before the final Submit.
+    const allTempItems = [...HACCP_TEMP_ITEMS, ...customItems];
+    const badTemps = [];
+    for (const [k, arr] of Object.entries(temps)) {
+      const it = allTempItems.find(i => i.key === k); if (!it) continue;
+      (arr || []).forEach((v, i) => {
+        if (!String(v || "").trim() || (tempSubmitted[k] || [])[i] !== true || tempPass(it, v) !== false) return;
+        const corr = String((tempCorrections[k] || [])[i] || "").trim();
+        const actual = corr.replace(/^(Reason|Motivo):[^—]*—?/i, "").trim();
+        const food = String((foodNames[k] || [])[i] || "").trim();
+        badTemps.push({ k, i, v, it, food, corr, missing: !actual });
+      });
+    }
+    const missingCorr = badTemps.filter(b => b.missing);
+    if (!auto && missingCorr.length) {
+      setTempErr(L(`🔧 Add the corrective action for ${missingCorr.length} out-of-range temperature${missingCorr.length > 1 ? "s" : ""} — what did you do about it?`, `🔧 Escribe la acción correctiva de ${missingCorr.length} temperatura${missingCorr.length > 1 ? "s" : ""} fuera de rango — ¿qué hiciste?`));
+      const m = missingCorr[0];
+      setSubmitting(false);
+      setTimeout(() => { const box = document.querySelector(`[data-corr="${m.k}:${m.i}"]`); if (box) { box.scrollIntoView({ behavior: "smooth", block: "center" }); box.querySelector("textarea")?.focus({ preventScroll: true }); } }, 60);
+      return;
+    }
+    if (!auto) setTempErr("");
     if (!sessionSubIdRef.current) sessionSubIdRef.current = `haccp_${Date.now()}_${Math.random().toString(16).slice(2)}`;
     const id = sessionSubIdRef.current;
     const record = {
@@ -28728,6 +28752,7 @@ function HaccpPortal() {
       suppliesNeeded: suppliesReq, // v503
       submittedAt: new Date().toISOString(),
       partial: auto,
+      missingCorrective: missingCorr.length,
     };
     if (auto && haccpTempCount(record) === 0 && !suppliesReq.length) return;
     await saveHaccpSubmission(record);
@@ -28760,10 +28785,15 @@ function HaccpPortal() {
           const isLog = tempCount > 0 || (suppliesReq.length > 0 && !allProblems.length);
           let outOfRange = 0; const haccpReadings = [];
           if (isLog) {
-            const allItems = [...HACCP_TEMP_ITEMS, ...customItems];
-            for (const [k, arr] of Object.entries(tempsFlat)) { const it = allItems.find(i => i.key === k); if (!it) continue; arr.forEach((v, vi) => { const ok = tempPass(it, v); if (ok === false) outOfRange++;
-              // v508: each reading rides on the record so the inspector's "From the stands" panel can show it
-              const food = (foodNamesFlat[k] || [])[vi]; haccpReadings.push({ label: `${itemLabels[k] || it.label}${food ? ` · ${food}` : ""}`, value: v, ok, ...(it.type === "cold" ? { max: it.max } : it.type === "hot" ? { min: it.min } : {}) }); }); }
+            // v508/v512: each reading rides on the record (with its corrective action) for the inspector
+            for (const [k, arr] of Object.entries(temps)) { const it = allTempItems.find(x => x.key === k); if (!it) continue; (arr || []).forEach((v, vi) => { if (!String(v || "").trim()) return; const ok = tempPass(it, v); if (ok === false) outOfRange++;
+              const food = String((foodNames[k] || [])[vi] || "").trim(); const corr = ok === false ? String((tempCorrections[k] || [])[vi] || "").trim() : "";
+              haccpReadings.push({ label: `${itemLabels[k] || it.label}${food ? ` · ${food}` : ""}`, value: v, ok, ...(it.type === "cold" ? { max: it.max } : it.type === "hot" ? { min: it.min } : {}), ...(ok === false ? { corrective: corr } : {}) }); }); }
+            for (const b of badTemps) {
+              const lbl = `${itemLabels[b.k] || b.it.label}${b.food ? ` (${b.food})` : ""}`;
+              const thr = b.it.type === "hot" ? `min ${b.it.min}°F` : `max ${b.it.max}°F`;
+              items.push({ issue: `HACCP – ${lbl}: out-of-range reading ${Number(b.v)}°F (${thr})`, notes: b.corr ? `Corrective action: ${b.corr} · Logged by supervisor ${supName.trim() || "—"} via stand QR` : `No corrective action yet · Logged by supervisor ${supName.trim() || "—"} via stand QR`, corrective: b.corr, priority: "Follow-up", photos: [], fromTemp: true });
+            }
           }
           let license = "";
           try { const lr = lookupLicenseByUnitType(locUnit.trim(), locType.trim()); if (lr?.status === "ACTIVE" && lr.license) license = lr.license; } catch {}
@@ -28778,7 +28808,7 @@ function HaccpPortal() {
             haccpTempCount: tempCount, haccpOutOfRange: outOfRange, haccpReadings,
             reportedBy: { name: supName.trim(), phone: supPhone.trim() }, inspectorName: supName.trim() || "Supervisor", supervisorName: supName.trim(), sitePhone: supPhone.trim(),
             overallStatus: outOfRange > 0 ? "FAIL" : "PASS", photos: allProblems.flatMap(q => q.photos), actionItems: items, inspection: {},
-            suppliesNeeded: suppliesReq, partial: auto,
+            suppliesNeeded: suppliesReq, partial: auto, missingCorrective: missingCorr.length,
           });
           if (items.length) try { notifyCrewsForItems(items.map(a => ({ issue: a.issue, notes: "" })), locSite.trim().toUpperCase(), locUnit.trim(), supName.trim()); } catch {}
           if (isLog && !(auto && autoNotifiedRef.current)) try { autoNotifiedRef.current = true; notifySupervisorLog({ site: locSite.trim().toUpperCase(), unit: locUnit.trim(), by: supName.trim(), temps: tempCount, outOfRange, problems: items.length, supplies: suppliesReq.length }); } catch {}
@@ -29258,7 +29288,7 @@ function HaccpPortal() {
                             </div>
                             {/* Corrective action — only shown after submit when flagged */}
                             {isSubmitted && pass === false && (
-                              <div style={{ background: "var(--tint-red-1)", border: `1px solid ${needsCorrection ? "#dc2626" : "#fca5a5"}`, borderRadius: 8, padding: "8px 10px", marginTop: 4 }}>
+                              <div data-corr={`${item.key}:${idx}`} style={{ background: "var(--tint-red-1)", border: `1px solid ${needsCorrection ? "#dc2626" : "#fca5a5"}`, borderRadius: 8, padding: "8px 10px", marginTop: 4 }}>
                                 <label style={{ display: "block", fontSize: "0.72rem", fontWeight: 700, color: "#dc2626", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>
                                   {L("🔧 WHY? + CORRECTIVE ACTION *", "🔧 ¿POR QUÉ? + ACCIÓN CORRECTIVA *")}
                                 </label>
@@ -29416,7 +29446,7 @@ function HaccpPortal() {
                                       )}
                                     </div>
                                     {isSubmitted && pass === false && (
-                                      <div style={{ background: "rgba(127,29,29,0.25)", border: `1px solid ${needsCorrection ? "#dc2626" : "#fca5a5"}`, borderRadius: 8, padding: "8px 10px", marginTop: 4 }}>
+                                      <div data-corr={`${item.key}:${idx}`} style={{ background: "rgba(127,29,29,0.25)", border: `1px solid ${needsCorrection ? "#dc2626" : "#fca5a5"}`, borderRadius: 8, padding: "8px 10px", marginTop: 4 }}>
                                         <label style={{ display: "block", fontSize: "0.72rem", fontWeight: 700, color: "#fca5a5", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>{L("🔧 CORRECTIVE ACTION TAKEN *", "🔧 ACCIÓN CORRECTIVA *")}</label>
                                         <div className="specChips" style={{ marginBottom: 6 }}>{TEMP_FAIL_REASONS.map(o => { const lbl = pl === "es" ? o[1] : o[0]; const on = correction.startsWith(`${pl === "es" ? "Motivo" : "Reason"}: ${lbl}`); return <button key={o[0]} type="button" className={"specChip" + (on ? " on" : "")} onClick={() => setTempCorrections(p => { const arr = [...(p[item.key] || [""])]; const rest = String(arr[idx] || "").replace(/^(Reason|Motivo):[^—]*—?\s*/i, ""); arr[idx] = `${pl === "es" ? "Motivo" : "Reason"}: ${lbl} — ${rest}`; return { ...p, [item.key]: arr }; })}>{lbl}</button>; })}</div>
                                         <textarea rows={2} placeholder={L("What was done? (e.g. Discarded food, reheated to 165°F…)", "¿Qué se hizo? (ej. se desechó, se recalentó a 165°F…)")} value={correction}
@@ -29618,6 +29648,7 @@ function HaccpPortal() {
 
             {problemError && <div className="haccpProblemErr" style={{ marginBottom: 8 }}>⚠️ {problemError} — <a href="#" onClick={e => { e.preventDefault(); document.querySelector(".supCatChips")?.scrollIntoView({ behavior: "smooth", block: "center" }); }}>{L("go to the problem", "ir al problema")}</a></div>}
             <div className="haccpStickySpacer" />
+            {tempErr && <div className="haccpProblemErr" data-testid="temp-corr-err" style={{ marginBottom: 8 }}>{tempErr} — <a href="#" onClick={e => { e.preventDefault(); const box = document.querySelector('[data-corr] textarea'); box?.scrollIntoView({ behavior: "smooth", block: "center" }); box?.focus({ preventScroll: true }); }}>{L("go to it", "ir ahí")}</a></div>}
             <div className="haccpStickySubmit" data-testid="sticky-submit">
               {autoSent && (
                 <div className="haccpAutoSent" data-testid="auto-sent">
@@ -30556,7 +30587,7 @@ function StandFeedPanel({ feed, ackTs, onClose, onOpenReport, onTempsTracker }) 
       g.supplies = g.recs.flatMap(r => (r.suppliesNeeded || []).filter(x => x.item?.trim()).map((x, i) => ({ ...x, done: done.has(`${r.id}::${i}`) })));
       g.openSup = g.supplies.filter(x => !x.done);
       g.urgent = g.openSup.some(x => x.urgent);
-      g.problems = g.recs.flatMap(r => r.actionItems || []);
+      g.problems = g.recs.flatMap(r => (r.actionItems || []).filter(a => !a.fromTemp));
       g.people = [...new Set(g.recs.map(r => (r.supervisorName || r.reportedBy?.name || "").trim()).filter(Boolean))];
       g.phone = g.recs.map(r => r.sitePhone || r.reportedBy?.phone).find(Boolean) || "";
       g.isNew = g.recs.some(r => Date.parse(r.savedAt || 0) > ackTs);
@@ -30620,9 +30651,11 @@ function StandFeedPanel({ feed, ackTs, onClose, onOpenReport, onTempsTracker }) 
                         <div className="sfVisitHead">{time(r.savedAt)} · {r.supervisorName || r.reportedBy?.name || "—"}{r.partial ? <span className="sfFilling"> · still filling in</span> : null}</div>
                         {(r.haccpReadings || []).length > 0
                           ? <div className="sfReadings">{r.haccpReadings.map((x, i) => (
-                              <span key={i} className={cx("sfReading", x.ok === false && "bad")}>{x.label} <b>{x.value}°F</b>{x.ok === false ? ` ✗ ${x.max != null ? `max ${x.max}°F` : x.min != null ? `min ${x.min}°F` : ""}` : x.ok ? " ✓" : ""}</span>))}</div>
+                              <span key={i} className={cx("sfReading", x.ok === false && "bad")}>{x.label} <b>{x.value}°F</b>{x.ok === false ? ` ✗ ${x.max != null ? `max ${x.max}°F` : x.min != null ? `min ${x.min}°F` : ""}` : x.ok ? " ✓" : ""}{x.ok === false && ("corrective" in x) && (String(x.corrective || "").replace(/^(Reason|Motivo):[^—]*—?/i, "").trim()
+                                ? <span className="sfCorr" data-testid="sf-corr">🔧 {x.corrective}</span>
+                                : <span className="sfCorr miss" data-testid="sf-corr-miss">⚠ no corrective action yet</span>)}</span>))}</div>
                           : r.haccpTempCount ? <div className="sfHint">{plural(r.haccpTempCount, "temp")} logged — tap Open report to see the readings.</div> : null}
-                        {(r.actionItems || []).map((a, i) => <div key={i} className="sfProblem">🧰 {a.issue}</div>)}
+                        {(r.actionItems || []).filter(a => !a.fromTemp).map((a, i) => <div key={i} className="sfProblem">🧰 {a.issue}</div>)}
                       </div>
                     ))}
                     <div className="sfActions">
@@ -31185,7 +31218,7 @@ export default function App() {
     const mine = (records || []).filter(r => r && (r.source === "haccp_portal"));
     const key = `sdx_stand_seen_${VENUE_ID}`;
     let seen = null; try { seen = JSON.parse(localStorage.getItem(key) || "null"); } catch {}
-    const sig = r => `${r.haccpTempCount || 0}|${(r.suppliesNeeded || []).length}|${(r.actionItems || []).length}`;
+    const sig = r => `${r.haccpTempCount || 0}|${(r.suppliesNeeded || []).length}|${(r.actionItems || []).filter(a => !a.fromTemp).length}`;
     const first = !seen; seen = seen || {};
     const fresh = [];
     for (const r of mine) {
@@ -31206,13 +31239,13 @@ export default function App() {
       const by = r.supervisorName || r.reportedBy?.name || "";
       const [pt, ps, pp] = (prev || "0|0|0").split("|").map(Number);
       const sup = (r.suppliesNeeded || []).filter(x => x.item);
-      const probs = (r.actionItems || []).length;
+      const probs = (r.actionItems || []).filter(a => !a.fromTemp).length;
       if (sup.length > ps) fireNotification(`stand_sup_${r.id}_${sup.length}`, "stand", `📦 ${stand} needs supplies`,
         `${sup.map(x => x.qty ? `${x.item} ×${x.qty}` : x.item).join(" · ")}${sup.some(x => x.urgent) ? " · URGENT" : ""}${by ? ` · by ${by}` : ""}`, null);
       if ((r.haccpTempCount || 0) > pt) fireNotification(`stand_tmp_${r.id}_${r.haccpTempCount}`, "stand", `🌡 ${stand} logged ${r.haccpTempCount} temp${r.haccpTempCount === 1 ? "" : "s"}`,
         `${r.haccpOutOfRange ? `${r.haccpOutOfRange} out of range` : "all in range"}${by ? ` · by ${by}` : ""}`, null);
       if (probs > (pp || 0)) fireNotification(`stand_prob_${r.id}_${probs}`, "stand", `⚠ ${stand} reported a problem`,
-        `${(r.actionItems || []).map(a => a.issue).join(" · ").slice(0, 160)}${by ? ` · by ${by}` : ""}`, null);
+        `${(r.actionItems || []).filter(a => !a.fromTemp).map(a => a.issue).join(" · ").slice(0, 160)}${by ? ` · by ${by}` : ""}`, null);
     }
     window.__sdxStandFeed = mine;
   };

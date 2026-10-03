@@ -9033,3 +9033,11 @@ button.nluChipTemp { background: #fef3c7; color: #92400e; border: 1px solid #fcd
 [data-theme="dark"] .fuToolsRow + .fuToolsRow { border-top-color: rgba(255,255,255,0.12) !important; }
 [data-theme="dark"] .fuExportBar { background: rgba(59,130,246,0.12); border-color: rgba(59,130,246,0.35); }
 [data-theme="dark"] .fuExportN { color: #93c5fd; }
+
+/* v512 — corrective action on bad stand temps */
+.sfCorr { display: block; margin-top: 3px; font-weight: 600; color: #166534; background: #dcfce7; border-radius: 5px; padding: 2px 6px; }
+.sfCorr.miss { color: #b91c1c; background: #fff; border: 1px dashed #fca5a5; }
+.supLogCorr { color: #166534; }
+[data-theme="dark"] .sfCorr { background: rgba(22,101,52,.3); color: #bbf7d0; }
+[data-theme="dark"] .sfCorr.miss { background: transparent; color: #fca5a5; }
+[data-theme="dark"] .supLogCorr { color: #86efac; }
