@@ -28414,7 +28414,9 @@ function HaccpPortal() {
   const [problemCat, setProblemCat] = useState("");
   const [severity, setSeverity] = useState("issue");
   // Portal language — native strings, no page reload
-  const [pl, setPl] = useState(() => { try { return localStorage.getItem("sdx_portal_lang") || (/googtrans=[^;]*\/es/.test(document.cookie) ? "es" : "en"); } catch { return "en"; } });
+  const [pl, setPl] = useState(() => { try { return localStorage.getItem("sdx_portal_lang") || (/googtrans=[^;]*\/es/.test(document.cookie) ? "es" : /googtrans=[^;]*\/ht/.test(document.cookie) ? "ht" : "en"); } catch { return "en"; } });
+  // v515 — Kreyòl: the page is built in English and the page translator turns it into Haitian Creole
+  useEffect(() => { if (pl === "ht") { const t = setTimeout(() => { try { applyLanguage("ht"); } catch {} }, 300); return () => clearTimeout(t); } }, []); // eslint-disable-line
   const L = (en, es) => (pl === "es" ? es : en);
   // v401: announcements from the inspector for this stand
   const [standNotices, setStandNotices] = useState([]);
@@ -28992,15 +28994,16 @@ function HaccpPortal() {
       <img src={resolveLogoDark()} alt={resolveCompanyName()} className="haccpLogo" />
       {/* Language toggle — native English / Spanish strings */}
       <div style={{ display: "flex", justifyContent: "center", gap: 0, margin: "2px 0 10px" }}>
-        {[["en", "English"], ["es", "Español"]].map(([code, label], i) => {
+        {[["en", "English"], ["es", "Español"], ["ht", "Kreyòl"]].map(([code, label], i, arr) => {
           const active = pl === code;
           return (
             <button key={code} type="button"
-              onClick={() => { setPl(code); try { localStorage.setItem("sdx_portal_lang", code); document.cookie = "googtrans=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"; } catch {} }}
+              data-testid={`portal-lang-${code}`} className="notranslate" translate="no"
+              onClick={() => { const was = pl; setPl(code); try { localStorage.setItem("sdx_portal_lang", code); } catch {} try { if (code === "ht") applyLanguage("ht"); else if (was === "ht" || /googtrans=[^;]*\/[a-z]/.test(document.cookie)) applyLanguage("en"); } catch {} }}
               style={{
                 padding: "5px 16px", fontSize: "0.78rem", fontWeight: 800, cursor: "pointer",
                 border: "1.5px solid rgba(255,255,255,0.45)",
-                borderRadius: i === 0 ? "999px 0 0 999px" : "0 999px 999px 0",
+                borderRadius: i === 0 ? "999px 0 0 999px" : i === arr.length - 1 ? "0 999px 999px 0" : 0,
                 background: active ? "#fff" : "rgba(255,255,255,0.12)",
                 color: active ? "#1e1d4a" : "#fff",
                 borderLeftWidth: i === 0 ? "1.5px" : 0,
