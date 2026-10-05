@@ -27621,6 +27621,10 @@ function HaccpTodayTracker({ venueSettings, saveVenueSettingsMap, history, curre
   const [showRemoved, setShowRemoved] = useState(false);
   const [teamLocal, setTeamLocal] = useState({}); // optimistic overrides
   const [textingState, setTextingState] = useState(null); // v471: the text-all-missed stepper list
+  const [hcView, setHcView] = useState("day"); // v517: "day" | "flags" (not scanning report)
+  const [hcRange, setHcRange] = useState(5);   // 3 | 5 events, or 30 days
+  const [hcFilter, setHcFilter] = useState("flagged"); // "flagged" | "never" | "none" | "often" | "ok" | "all"
+  const [hcXls, setHcXls] = useState("");
 
   useEffect(() => {
     (async () => {
@@ -27694,6 +27698,52 @@ function HaccpTodayTracker({ venueSettings, saveVenueSettingsMap, history, curre
   const standsPendingM = merged.filter(r => !r.noStand && !r.submittedToday).length;
   const inspFor = r => inspByStand[r.id] || (normUnit(r.unit) ? inspByStand[`u:${normUnit(r.unit)}`] : null);
   const allRows = merged;
+  // ── v517: who keeps NOT scanning — over the last N event days ──
+  const hc = (() => {
+    const evKeys = Object.keys(venueSettings?.eventDays || {}).filter(d => d <= today).sort().reverse();
+    const logDays = [...new Set(subs.filter(r => r.type === "submission" && haccpTempCount(r) > 0).map(r => (r.submittedAt || "").slice(0, 10)).filter(Boolean))].filter(d => d <= today).sort().reverse();
+    const useEvents = evKeys.length > 0;
+    const pool = useEvents ? evKeys : logDays;
+    let days;
+    if (hcRange === 30) { const cut = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10); days = pool.filter(d => d >= cut); }
+    else days = pool.slice(0, hcRange);
+    const daySet = new Set(days);
+    const rowsC = merged.filter(r => !r.noStand).map(r => {
+      const logged = new Set(); let everAny = false;
+      for (const sub of subs) { if (!subFor(r.k, sub) || haccpTempCount(sub) <= 0) continue; everAny = true; const d = (sub.submittedAt || "").slice(0, 10); if (daySet.has(d)) logged.add(d); }
+      let streak = 0; for (const d of days) { if (logged.has(d)) break; streak++; }
+      const n = logged.size, exp = days.length;
+      const flag = !everAny ? "never" : exp && n === 0 ? "none" : exp && n < exp / 2 ? "often" : "ok";
+      return { ...r, hcLogged: n, hcExpected: exp, hcStreak: streak, hcFlag: flag };
+    });
+    const rank = { never: 0, none: 1, often: 2, ok: 3 };
+    rowsC.sort((a, b) => (rank[a.hcFlag] - rank[b.hcFlag]) || (b.hcStreak - a.hcStreak) || standPrintOrder(a.k, b.k));
+    const count = f => rowsC.filter(r => r.hcFlag === f).length;
+    return { days, useEvents, rows: rowsC, byId: Object.fromEntries(rowsC.map(r => [r.id, r])), n: { never: count("never"), none: count("none"), often: count("often"), ok: count("ok") } };
+  })();
+  const hcLabel = { never: "🚩 Never scanned", none: "🚩 Not scanning", often: "⚠ Missing often", ok: "✓ On track" };
+  const hcLine = r => r.hcExpected ? `logged ${r.hcLogged} of ${r.hcExpected} ${hc.useEvents ? "event" : "log"} day${r.hcExpected !== 1 ? "s" : ""}${r.lastAt ? ` · last ${new Date(r.lastAt).toLocaleDateString([], { month: "short", day: "numeric" })}` : ""}${r.hcStreak > 1 ? ` · ${r.hcStreak} missed in a row` : ""}` : (r.lastAt ? `last ${new Date(r.lastAt).toLocaleDateString([], { month: "short", day: "numeric" })}` : "never logged");
+  async function exportHcExcel() {
+    setHcXls("Building…");
+    try {
+      const ExcelJS = (await import("exceljs")).default;
+      const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet("HACCP scanning");
+      ws.addRow([`HACCP scanning by stand — ${hc.days.length} ${hc.useEvents ? "event" : "log"} days (${hc.days.slice().reverse().join(", ")})`]).font = { bold: true, size: 13 };
+      const head = ws.addRow(["Stand", "Unit", "Floor", "Type", "License", "Days logged", "Days expected", "Last log", "Missed in a row", "Flag", "People"]);
+      head.eachCell(c => { c.font = { bold: true, color: { argb: "FFFFFFFF" } }; c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF2A2A5C" } }; });
+      const fill = { never: "FFFECACA", none: "FFFECACA", often: "FFFEF3C7", ok: "FFDCFCE7" };
+      for (const r of hc.rows) {
+        let lic = ""; try { lic = lookupLicenseByUnitType(r.unit, r.k.locType)?.license || ""; } catch {}
+        const row = ws.addRow([r.site, r.unit, r.k.floor || "", r.k.locType || "", lic, r.hcLogged, r.hcExpected, r.lastAt ? r.lastAt.slice(0, 10) : "never", r.hcStreak, hcLabel[r.hcFlag].replace(/^\S+ /, ""), r.people.map(p => `${p.name}${p.phone ? " " + p.phone : ""}`).join("; ")]);
+        row.getCell(10).fill = { type: "pattern", pattern: "solid", fgColor: { argb: fill[r.hcFlag] } }; row.getCell(10).font = { bold: true };
+      }
+      [30, 8, 10, 22, 14, 12, 14, 12, 14, 18, 50].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
+      ws.autoFilter = { from: { row: 2, column: 1 }, to: { row: 2, column: 11 } };
+      const buf = await wb.xlsx.writeBuffer();
+      downloadBlob(new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }), `haccp-not-scanning-${today}.xlsx`);
+    } catch {}
+    setHcXls("");
+  }
   const rows = (standFilter === "all" ? allRows
     : standFilter === "done" ? allRows.filter(r => r.submittedToday)
     : standFilter === "pending" ? allRows.filter(r => r.pending > 0)
@@ -27728,10 +27778,56 @@ function HaccpTodayTracker({ venueSettings, saveVenueSettingsMap, history, curre
   const missedPeople = allRows.filter(r => !r.submittedToday).flatMap(r => r.people.filter(p => p.phone && !p.submittedToday).map(p => ({ k: r.k.site ? r.k : { ...r.k, site: p.site || "" }, p })));
   const pill = (on, txt, title) => <span title={title} style={{ fontSize: "0.66rem", fontWeight: 800, padding: "0.2rem 0.55rem", borderRadius: 999, flexShrink: 0, background: on ? "var(--tint-green-1)" : "#FEF3C7", color: on ? "#16a34a" : "#B45309" }}>{txt}</span>;
   const timeOf = iso => iso ? new Date(iso).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "";
+  const hcToggle = (
+    <div className="hcViewToggle" data-testid="hc-view">
+      <button type="button" className={hcView === "day" ? "on" : ""} onClick={() => setHcView("day")}>📅 By day</button>
+      <button type="button" className={hcView === "flags" ? "on" : ""} data-testid="hc-view-flags" onClick={() => setHcView("flags")}>🚩 Not scanning{hc.n.never + hc.n.none ? ` (${hc.n.never + hc.n.none})` : ""}</button>
+    </div>
+  );
+  if (hcView === "flags") {
+    const shown = hc.rows.filter(r => hcFilter === "all" ? true : hcFilter === "flagged" ? r.hcFlag !== "ok" : r.hcFlag === hcFilter);
+    const flaggedPeople = hc.rows.filter(r => r.hcFlag !== "ok").flatMap(r => r.people.filter(p => p.phone).map(p => ({ k: r.k, p })));
+    return (
+      <div className="card" style={{ marginBottom: 18 }}>
+        <div className="cardHeader"><div className="cardTitle">🌡 HACCP — temp log tracker</div></div>
+        <div className="cardBody" data-testid="hc-flags">
+          {hcToggle}
+          <div className="hcRange">
+            {[[3, "Last 3 events"], [5, "Last 5 events"], [30, "Last 30 days"]].map(([v, l]) => (
+              <button key={v} type="button" className={hcRange === v ? "on" : ""} data-testid={`hc-range-${v}`} onClick={() => setHcRange(v)}>{hc.useEvents ? l : l.replace("events", "log days")}</button>
+            ))}
+          </div>
+          <div className="hcScope">{hc.days.length ? `Checking ${hc.days.length} ${hc.useEvents ? "event" : "log"} day${hc.days.length !== 1 ? "s" : ""}: ${hc.days.slice().reverse().map(d => new Date(d + "T12:00:00").toLocaleDateString([], { month: "short", day: "numeric" })).join(", ")}` : "No event days or logs yet in this range."}{!hc.useEvents && " · mark event days in the By day view to make this exact"}</div>
+          <div className="fuSummary" style={{ marginBottom: 10 }}>
+            {[["flagged", `🚩 ${hc.n.never + hc.n.none + hc.n.often} flagged`], ["never", `🚩 ${hc.n.never} never scanned`], ["none", `🚩 ${hc.n.none} not scanning`], ["often", `⚠ ${hc.n.often} missing often`], ["ok", `✓ ${hc.n.ok} on track`], ["all", `All (${hc.rows.length})`]].map(([k, l]) => (
+              <span key={k} className={"fuSumChip hcChip hcChip-" + k} data-testid={`hc-chip-${k}`} style={chipRing(hcFilter === k)} onClick={() => setHcFilter(k)}>{l}</span>
+            ))}
+            {flaggedPeople.length > 0 && <button type="button" className="haccpReqBtn haccpReqSms" data-testid="hc-text" onClick={() => setTexting(flaggedPeople)}>📨 Text the flagged ({flaggedPeople.length})</button>}
+            <button type="button" className="haccpReqBtn" data-testid="hc-excel" disabled={!!hcXls} onClick={exportHcExcel}>{hcXls || "📊 Excel"}</button>
+          </div>
+          {texting && <div style={{ marginBottom: 8 }}><TextStepper list={texting} title="Not scanning" onClose={() => setTexting(null)} /></div>}
+          <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 520, overflowY: "auto" }}>
+            {shown.length === 0 && <div style={{ fontSize: "0.8rem", color: "var(--ink-400)", fontStyle: "italic", padding: "8px 2px" }}>Nobody in this group 🎉</div>}
+            {shown.map(r => (
+              <div key={r.id} className={"hcRow hcRow-" + r.hcFlag} data-testid="hc-row">
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 800, fontSize: "0.84rem" }}><NT>{r.site || "—"}{r.unit ? ` · #${r.unit}` : ""}</NT>{r.k.locType ? <StandType lt={r.k.locType} /> : null}</div>
+                  <div className="hcLine">{hcLine(r)}</div>
+                  {r.people.length > 0 && <div className="hcPeople">👥 {r.people.slice(0, 3).map(p => p.name).join(" · ")}{r.people.length > 3 ? ` +${r.people.length - 3}` : ""}</div>}
+                </div>
+                <span className={"hcFlag hcFlag-" + r.hcFlag} data-testid="hc-flag">{hcLabel[r.hcFlag]}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="card" style={{ marginBottom: 18 }}>
       <div className="cardHeader"><div className="cardTitle">🌡 HACCP — temp log tracker</div></div>
       <div className="cardBody">
+        {hcToggle}
         {/* Day picker — on game day, pick the date and see exactly who missed */}
         <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
           <button type="button" onClick={() => shiftDay(-1)} style={{ background: "var(--surface-2)", border: "none", borderRadius: 8, padding: "5px 11px", fontWeight: 800, cursor: "pointer" }}>◀</button>
@@ -27798,6 +27894,7 @@ function HaccpTodayTracker({ venueSettings, saveVenueSettingsMap, history, curre
                     {r.submittedToday
                       ? `${r.checksOnDate || 1} check${(r.checksOnDate || 1) !== 1 ? "s" : ""} this day`
                       : r.lastAt ? `last log ${new Date(r.lastAt).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}` : "never logged"}
+                    {hc.byId[r.id] && hc.byId[r.id].hcFlag !== "ok" && <span className={"hcMini hcFlag-" + hc.byId[r.id].hcFlag} data-testid="hc-mini">{hc.byId[r.id].hcFlag === "never" ? " · 🚩 never scanned" : hc.byId[r.id].hcStreak > 1 ? ` · 🚩 ${hc.byId[r.id].hcStreak} missed in a row` : hc.byId[r.id].hcFlag === "often" ? " · ⚠ missing often" : " · 🚩 not scanning"}</span>}
                     {r.people.length === 0 ? " · nobody on file — add people on the stand card" : ""}
                   </div>}
                 </div>

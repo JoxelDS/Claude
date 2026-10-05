@@ -9066,3 +9066,27 @@ button.nluChipTemp { background: #fef3c7; color: #92400e; border: 1px solid #fcd
 
 /* v516 — page-at-a-time lists */
 .showMoreSentinel { display: block; width: 100%; margin: 6px 0 12px; padding: 10px; border: 1px dashed var(--sdx-gray-200, #e5e7eb); border-radius: 10px; background: transparent; color: var(--ink-500, #64748b); font-weight: 700; font-size: .82rem; cursor: pointer; }
+
+/* v517 — HACCP "not scanning" report */
+.hcViewToggle { display: inline-flex; border: 1px solid var(--sdx-gray-200, #e5e7eb); border-radius: 999px; overflow: hidden; margin-bottom: 10px; }
+.hcViewToggle button { border: 0; background: transparent; padding: 7px 14px; font-weight: 800; font-size: .8rem; color: var(--ink-600, #475569); cursor: pointer; }
+.hcViewToggle button.on { background: var(--sdx-navy, #2a2a5c); color: #fff; }
+.hcRange { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 6px; }
+.hcRange button { border: 1px solid var(--sdx-gray-200, #e5e7eb); background: var(--surface-1, #fff); border-radius: 999px; padding: 4px 11px; font-weight: 700; font-size: .74rem; cursor: pointer; color: var(--ink-600, #475569); }
+.hcRange button.on { border-color: var(--sdx-navy, #2a2a5c); color: var(--sdx-navy, #2a2a5c); box-shadow: inset 0 0 0 1px var(--sdx-navy, #2a2a5c); }
+.hcScope { font-size: .72rem; color: var(--ink-500, #64748b); margin-bottom: 8px; }
+.hcRow { display: flex; align-items: center; gap: 10px; padding: 9px 11px; border-radius: 10px; border: 1px solid var(--sdx-gray-200, #e5e7eb); background: var(--surface-1, #fff); }
+.hcRow-never, .hcRow-none { border-color: #fca5a5; background: #fef2f2; }
+.hcRow-often { border-color: #fcd34d; background: #fffbeb; }
+.hcLine { font-size: .72rem; color: var(--ink-600, #475569); margin-top: 2px; }
+.hcPeople { font-size: .7rem; color: var(--ink-500, #64748b); margin-top: 2px; }
+.hcFlag { flex-shrink: 0; font-size: .68rem; font-weight: 800; padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
+.hcFlag-never, .hcFlag-none { background: #fee2e2; color: #991b1b; }
+.hcFlag-often { background: #fef3c7; color: #92400e; }
+.hcFlag-ok { background: #dcfce7; color: #166534; }
+.hcMini.hcFlag-never, .hcMini.hcFlag-none, .hcMini.hcFlag-often { background: none; padding: 0; font-weight: 800; }
+.hcMini.hcFlag-never, .hcMini.hcFlag-none { color: #b91c1c; }
+.hcMini.hcFlag-often { color: #b45309; }
+[data-theme="dark"] .hcRow { background: rgba(255,255,255,.04); border-color: rgba(255,255,255,.12); }
+[data-theme="dark"] .hcRow-never, [data-theme="dark"] .hcRow-none { background: rgba(185,28,28,.15); border-color: rgba(248,113,113,.4); }
+[data-theme="dark"] .hcRow-often { background: rgba(180,83,9,.15); border-color: rgba(252,211,77,.4); }
