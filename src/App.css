@@ -9369,3 +9369,31 @@ html[data-theme="black"] .walkSupLog { color: #9DB8F5; }
 .inspTypePick.compact .inspTypeCard { min-height: 52px; flex-direction: row; justify-content: center; }
 .inspTypePick.compact .inspTypeIcon { font-size: 1.15rem; }
 html[data-theme="black"] .inspTypeCard.on { border-color: #9DB8F5; box-shadow: 0 0 0 2px #9DB8F5 inset; }
+/* v522 simple follow-ups */
+.fuSim { padding: 14px; }
+.fuSimHead { margin-bottom: 10px; }
+.fuSimTitle { font-size: 1.35rem; font-weight: 800; color: var(--ink-900); }
+.fuSimSub { color: var(--ink-600); font-size: 0.98rem; margin-top: 4px; }
+.fuSimCrews { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; margin-bottom: 10px; }
+.fuSimCrew { flex: none; min-height: 44px; padding: 0 14px; border-radius: 999px; border: 2px solid var(--sdx-gray-200); background: var(--surface-1); color: var(--ink-900); font-weight: 700; font-size: 0.95rem; cursor: pointer; }
+.fuSimCrew span { margin-left: 4px; color: var(--ink-500); }
+.fuSimCrew.on { background: var(--sdx-navy); border-color: var(--sdx-navy); color: #fff; }
+.fuSimCrew.on span { color: #fff; }
+.fuSimList { display: flex; flex-direction: column; gap: 10px; }
+.fuSimCard { border: 2px solid var(--sdx-gray-200); border-radius: 16px; padding: 12px; background: var(--surface-1); }
+.fuSimCard.late { border-color: #f59e0b; background: var(--tint-amber-1); }
+.fuSimTop { display: flex; gap: 12px; align-items: flex-start; }
+.fuSimPhoto { width: 72px; height: 72px; object-fit: cover; border-radius: 12px; flex: none; cursor: zoom-in; }
+.fuSimText { min-width: 0; flex: 1; }
+.fuSimStand { font-weight: 800; font-size: 1.05rem; color: var(--ink-900); overflow-wrap: anywhere; }
+.fuSimProblem { font-weight: 600; font-size: 1rem; color: var(--ink-800, var(--ink-900)); margin-top: 2px; overflow-wrap: anywhere; line-height: 1.35; }
+.fuSimSubs { margin: 4px 0 0; padding-left: 20px; font-size: 0.92rem; color: var(--ink-700); }
+.fuSimMeta { font-size: 0.85rem; color: var(--ink-500); margin-top: 4px; }
+.fuSimBtns { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 8px; margin-top: 10px; }
+.fuSimBtns > * { min-height: 52px; border-radius: 12px; font-weight: 800; font-size: 1rem; display: flex; align-items: center; justify-content: center; cursor: pointer; border: 2px solid var(--sdx-gray-200); background: var(--surface-2); color: var(--ink-900); font-family: inherit; }
+.fuSimBtns .fuSimFixed { background: #15803d; border-color: #15803d; color: #fff; }
+.fuSimUndo { position: sticky; top: 70px; z-index: 5; display: flex; align-items: center; gap: 8px; background: #111827; color: #fff; border-radius: 12px; padding: 8px 8px 8px 14px; margin-bottom: 10px; font-weight: 700; }
+.fuSimUndo span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.fuSimUndo button { min-height: 44px; padding: 0 14px; border: none; border-radius: 10px; background: #fbbf24; font-weight: 800; cursor: pointer; }
+.fuSimFlash { background: var(--tint-green-1); color: var(--tx-green); border-radius: 12px; padding: 8px 12px; font-weight: 700; margin-bottom: 8px; }
+.fuSimMore { min-height: 48px; border-radius: 12px; border: 2px dashed var(--sdx-gray-300); background: none; font-weight: 700; color: var(--ink-700); cursor: pointer; }

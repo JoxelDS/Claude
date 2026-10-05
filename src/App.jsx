@@ -10805,7 +10805,13 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
   }
 
   const [fuOpen, setFuOpen] = useState({});
-  const [fuShowN, setFuShowN] = useState(30); // v516 — follow-up groups render 30 at a time
+  const [fuShowN, setFuShowN] = useState(30);
+  // v522: the SIMPLE follow-ups screen (default) — one list, big cards, three buttons; "More options" = the full screen
+  const [fuSimple, setFuSimpleS] = useState(() => { try { return localStorage.getItem("sdx_fu_simple") !== "0"; } catch { return true; } });
+  const setFuSimple = v => { setFuSimpleS(v); try { localStorage.setItem("sdx_fu_simple", v ? "1" : "0"); } catch {} };
+  const [fuSimCrew, setFuSimCrew] = useState("all");
+  const [fuSimShow, setFuSimShow] = useState(20);
+  const [fuSimDone, setFuSimDone] = useState(null); // v516 — follow-up groups render 30 at a time
   const [fuGroupBy, setFuGroupBy] = useState("loc"); // "loc" | "cat" | "type" | "floor" | "date"
   const [fuTypePick, setFuTypePick] = useState(""); // v447 — Subcontractor / Concession / …
   const [fuFloorPick, setFuFloorPick] = useState(""); // v449 — Floor 1 / Floor 2 / …
@@ -11375,6 +11381,52 @@ ${sections}
   const fuGroupsShown = fuFilterGroups(analysis.followupGroups || []);
   const fuCatGroupsShown = fuFilterGroups(analysis.followupCatGroups || []);
 
+  if (fuSimple) {
+    const CREWS = [["all", "All"], ["Cleaning", "🧹 Cleaning"], ["Maintenance", "🔧 Repairs"], ["Ecolab", "🧪 Ecolab"], ["Temperature", "🌡 Temps"]];
+    const crewOf = f => { const t = f.itype || "Other"; return t === "Building" ? "Maintenance" : t; };
+    const all = (analysis.followups || []).filter(f => !(clearedLocal[f.key]));
+    const list = all.filter(f => fuSimCrew === "all" || crewOf(f) === fuSimCrew)
+      .sort((a, b) => (b.overdue ? 1 : 0) - (a.overdue ? 1 : 0) || (a.ts || 0) - (b.ts || 0));
+    const ago = f => { const d = f.daysSince ?? Math.floor((Date.now() - (f.ts || Date.now())) / 864e5); return d <= 0 ? "today" : d === 1 ? "yesterday" : `${d} days ago`; };
+    const who = f => { const st = stMap[f.key]; if (!st) return ""; return st.status === "in_progress" ? `🔧 ${st.by || "Crew"} is working on it` : st.status === "waiting" ? `⏳ Waiting${st.note ? `: ${st.note}` : ""}` : ""; };
+    return (
+      <div className="card fuSim" data-testid="fu-simple" style={{ marginBottom: 24 }}>
+        <div className="fuSimHead">
+          <div className="fuSimTitle">{list.length === 0 ? "✅ Nothing to check" : `🔁 ${list.length} problem${list.length !== 1 ? "s" : ""} to check`}</div>
+          <div className="fuSimSub">Go to the stand, look, then tap <b>✓ Fixed</b> or <b>🔔 Remind</b>.</div>
+        </div>
+        <div className="fuSimCrews">{CREWS.map(([k, l]) => { const n = k === "all" ? all.length : all.filter(f => crewOf(f) === k).length; return n || k === "all" ? <button key={k} type="button" className={"fuSimCrew" + (fuSimCrew === k ? " on" : "")} data-testid={`fu-sim-crew-${k.toLowerCase()}`} onClick={() => { setFuSimCrew(k); setFuSimShow(20); }}>{l} <span>{n}</span></button> : null; })}</div>
+        {undoRes && <div className="fuSimUndo" data-testid="fu-sim-undo"><span>✓ Fixed: <NT>{undoRes.label}</NT></span><button type="button" onClick={undoResolve}>↩ Undo</button></div>}
+        {fuSimDone && <div className="fuSimFlash">{fuSimDone}</div>}
+        <div className="fuSimList">
+          {list.slice(0, fuSimShow).map(f => {
+            const ph = [...(f.photos || []), ...fuPhotosOf(f)].filter(p => p && p.thumbUrl)[0];
+            const subs = (f.subs || []).length > 1 ? f.subs : null;
+            return (
+              <div key={f.key} className={"fuSimCard" + (f.overdue ? " late" : "")} data-testid="fu-sim-card" data-key={f.key}>
+                <div className="fuSimTop">
+                  {ph && <img className="fuSimPhoto" src={ph.thumbUrl} alt="" onClick={() => openPhotoLightbox(ph.previewUrl || ph.thumbUrl)} />}
+                  <div className="fuSimText">
+                    <div className="fuSimStand"><NT>{String(f.loc || "").toUpperCase()}{f.unit ? ` #${f.unit}` : ""}</NT></div>
+                    <div className="fuSimProblem">{subs ? `${f.cat} · ${subs.length} things` : fuProblemText(f)}</div>
+                    {subs && <ol className="fuSimSubs">{subs.map((x, i) => <li key={i}>{x.text}</li>)}</ol>}
+                    <div className="fuSimMeta">{f.overdue ? "⏰ Late — " : ""}found {ago(f)}{who(f) ? ` · ${who(f)}` : ""}</div>
+                  </div>
+                </div>
+                <div className="fuSimBtns">
+                  <button type="button" className="fuSimFixed" data-testid="fu-sim-fixed" onClick={() => markResolved(f)}>✓ Fixed</button>
+                  <button type="button" className="fuSimRemind" data-testid="fu-sim-remind" onClick={() => { remindMany([f], `sim:${f.key}`); setFuSimDone(`🔔 Reminder sent for ${f.loc}`); setTimeout(() => setFuSimDone(null), 3000); }}>🔔 Remind</button>
+                  <label className="fuSimPhotoBtn" data-testid="fu-sim-photo">📷 Photo<input type="file" accept="image/*" hidden onChange={e => { addFuPhotos(f, e.target.files, "after"); e.target.value = ""; }} /></label>
+                </div>
+              </div>
+            );
+          })}
+          {list.length > fuSimShow && <button type="button" className="fuSimMore" onClick={() => setFuSimShow(n => n + 20)}>Show {Math.min(20, list.length - fuSimShow)} more</button>}
+        </div>
+        <button type="button" className="walkModeSwitch" data-testid="fu-more-options" onClick={() => setFuSimple(false)}>⚙ More options (filters, export, fixed list) ⇄</button>
+      </div>
+    );
+  }
   return (
     <div className="card" style={{ marginBottom: 24 }}>
       {lightboxSrc && ReactDOM.createPortal(
@@ -11609,6 +11661,7 @@ ${sections}
               {qpFlash && <div style={{ fontSize: "0.8rem", fontWeight: 700, color: "#16a34a", marginTop: 6 }}>{qpFlash}</div>}
             </div>
             {/* v511: one labelled toolbar — Status (counts) / Crew (tap to filter) / Filter / Group by */}
+            <button type="button" className="walkModeSwitch" data-testid="fu-simple-on" onClick={() => setFuSimple(true)} style={{ marginBottom: 8 }}>⇄ Simple view</button>
             <div className="fuTools" data-testid="fu-tools">
               <div className="fuToolsRow fuToolsStatus"><span className="fuToolsLbl">Status</span><div className="fuToolsBody">
               {fuVisible.filter(f => f.overdue).length > 0 && (
