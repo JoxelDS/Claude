@@ -3304,6 +3304,91 @@ const COLD_EQUIPMENT = {
   walkInFreezer:    { type: "freezer", max: 20, label: "Walk-In Freezer" },
   prepCooler:       { type: "cooler",  max: 40, label: "Prep Cooler" },
 };
+
+// ── v520: the guide's item lists, shared by the full checklist and the simple walk ──
+const FACILITY_ITEMS = [
+  { path: ["facility", "ceiling"],        label: "Ceiling — Missing, dirty, mold, AC/vents clean, fire sprinklers, light covers & bulbs?" },
+  { path: ["facility", "walls"],          label: "Walls — Clean, no visible holes?" },
+  { path: ["facility", "floors"],         label: "Floor — Dirty, spills/standing water, missing tiles, drain clean/clogged?" },
+  { path: ["facility", "threeCompSinks"], label: "3-Compartment Sinks — Clean, soap/sanitizer dispensers, test strips, stopper, hot water, no leaks, signs?" },
+  { path: ["facility", "handSink"],       label: "Hand Sink — Clean, soap & paper dispenser working, hot water, no leaks, signs, clear of obstacles?" },
+  { path: ["facility", "mopArea"],        label: "Mop Area — Clean, mop hung to dry, faucet valve/hot water/no leaks, drain not clogged, Ecolab chemical holders & dispensers?" },
+];
+const MAINT_ITEMS = [
+  { path: ["maintenance", "pestControl"],      label: "Pest Control — any signs of bugs, insects, or rodents?", hasPriority: true },
+  { path: ["maintenance", "hvac"],             label: "AC / Ventilation — working properly, no bad smells?", hasPriority: true },
+  { path: ["maintenance", "plumbing"],         label: "Plumbing / Drains — no leaks, clogs, or slow drains?", hasPriority: true },
+  { path: ["maintenance", "electricalSafety"], label: "Electrical — no exposed wires, outlets work safely?", hasPriority: true },
+  { path: ["maintenance", "dumpsterArea"],     label: "Trash / Dumpster — clean, lids closed, no odor?", hasPriority: true },
+  { path: ["maintenance", "structuralDamage"], label: "Building — any cracks, broken fixtures, or hazards?", hasPriority: true },
+];
+const BAR_EQUIP_ITEMS = [
+  { path: ["equipment", "backBarCooler"], label: "Back Bar Cooler — clean inside, bottles organized?" },
+  { path: ["equipment", "beerWalkInCooler"], label: "Beer Walk-In Cooler — door seals tight, kegs stored safely?" },
+  { path: ["equipment", "underBarCooler"], label: "Under-Bar Cooler — clean, door closing properly?" },
+  { path: ["equipment", "iceBin"], label: "Ice Bin / Ice Machine — clean, no mold or pink slime, scoop stored handle-up?" },
+  { path: ["equipment", "wineChiller"], label: "Wine Chiller — temp correct, bottles stored properly?" },
+  { path: ["equipment", "glasswasher"], label: "Glass Washer — working, sanitizer level OK, no cloudy glasses?" },
+  { path: ["equipment", "threeCompSink"], label: "Dish Washing Sink — 3 sections set up: wash, rinse, sanitize?" },
+  { path: ["equipment", "beerLines"], label: "Draft Beer / Beer Lines & Taps — cleaned recently, no buildup or off smell, kegs dated?" },
+  { path: ["equipment", "sodaMachine"], label: "Soda Gun / Fountain — nozzles & holster clean, bag-in-box lines OK, syrup boxes dated, drip tray clean?" },
+  { path: ["equipment", "co2Tanks"], label: "CO2 Tanks — secured / chained, no leaks, regulator OK?" },
+  { path: ["equipment", "speedRails"], label: "Speed Rails & Bottle Wells — clean, pourers capped, bottles labeled?" },
+  { path: ["equipment", "blender"], label: "Blender / Juicer / Frozen-Drink Machine — clean, sanitized, working?" },
+  { path: ["equipment", "garnishCooler"], label: "Garnish Station / Cooler — covered, dated, cold, tongs not hands?" },
+  { path: ["equipment", "dumpSink"], label: "Dump Sink / Drip Trays — draining, no odor, no standing liquid?" },
+  { path: ["equipment", "liquorStorage"], label: "Liquor Storage — locked, off the floor, bottles clean?" },
+  { path: ["equipment", "glassStorage"], label: "Glassware Storage — inverted, clean racks, no chipped glasses?" },
+  { path: ["equipment", "ecolab"], label: "Chemicals (Ecolab) — correct concentration, properly labeled, stored away from food?" },
+];
+const PANTRY_EQUIP_ITEMS = [
+  { path: ["equipment", "reachInCooler"], label: "Reach-In Cooler — temp OK, gaskets, clean, dated product, nothing on the floor?" },
+  { path: ["equipment", "reachInFreezer"], label: "Reach-In Freezer — temp OK, no ice build-up, gaskets, clean?" },
+  { path: ["equipment", "milkCooler"], label: "Milk / Dairy Cooler — temp OK, dated, rotated (FIFO)?" },
+  { path: ["equipment", "walkInCooler"], label: "Walk-In Cooler — temp OK, door seals, shelves organized, nothing on the floor, dated product?" },
+  { path: ["equipment", "draftBeer"], label: "Draft Beer — taps / lines cleaned, kegs dated, drip tray clean, no leaks?" },
+  { path: ["equipment", "sodaMachine"], label: "Soda / Fountain Machine — nozzles clean, bag-in-box lines OK, drip tray clean, no leaks?" },
+  { path: ["equipment", "coffee"], label: "Coffee / Tea Brewers & Airpots — clean, dated, no scale, working?" },
+  { path: ["equipment", "dispensers"], label: "Juice / Milk / Water Dispensers — clean nozzles, dated, cold?" },
+  { path: ["equipment", "microwave"], label: "Microwave / Toaster / Panini Press — clean inside & out, working?" },
+  { path: ["equipment", "iceMaker"], label: "Ice Machine / Ice Bin — clean, no mold or slime, scoop handle-up, bin covered?" },
+  { path: ["equipment", "warmers"], label: "Hot Holding / Warmers — clean, at temp, working?" },
+  { path: ["equipment", "dryStorage"], label: "Dry Storage Racks — 6\" off the floor, dated, FIFO, no open bags?" },
+  { path: ["equipment", "ecolab"], label: "Chemicals (Ecolab) — labeled, correct concentration, stored away from food?" },
+  { path: ["equipment", "otherEquip"], label: "Other Equipment — clean and in good condition?" },
+];
+const UTENSIL_ITEMS = [
+  { path: ["utensils", "cleaningUtensils"], label: "Cleaning Utensils — clean, properly stored, trash cans, brooms, mop stick/head, dust pan, mop bucket available?" },
+  { path: ["utensils", "cookingUtensils"],  label: "Cooking Utensils — clean, properly stored?" },
+];
+const OPS_HYGIENE_ITEMS = [
+  { path: ["operations", "hairnets"],      label: "Hairnets / Hats — all food-handling staff wearing proper hair restraints?" },
+  { path: ["operations", "gloves"],        label: "Gloves — worn when handling ready-to-eat foods, changed between tasks, no torn/soiled gloves in use?" },
+  { path: ["operations", "uniforms"],      label: "Uniforms — clean, full uniform (shirt, apron, non-slip shoes), no jewelry on hands/wrists?" },
+  { path: ["operations", "handwashing"],   label: "Handwashing — staff washing hands at correct sink, with soap, for 20 s, after glove removal/raw food/restroom?" },
+  { path: ["operations", "illnessPolicy"], label: "Illness Policy — any staff with symptoms (vomiting, diarrhea, jaundice) removed from food handling?" },
+];
+const OPS_COMPLIANCE_ITEMS = [
+  { path: ["operations", "foodLabeling"],     label: "Food Labeling — all prepped/stored food labeled with name and date, no unlabeled containers?" },
+  { path: ["operations", "dateRotation"],     label: "Date Rotation (FIFO) — oldest product in front, expired items discarded, nothing past use-by date?" },
+  { path: ["operations", "crossContamination"],label: "Cross-Contamination — raw meats stored below ready-to-eat foods, separate cutting boards/utensils used?" },
+  { path: ["operations", "chemicalStorage"],  label: "Chemical Storage — cleaning chemicals stored away from food/equipment, properly labeled?" },
+  { path: ["operations", "thermometers"],     label: "Thermometers — probe thermometers available, calibrated, sanitized between uses?" },
+  { path: ["operations", "staffingLevels"],   label: "Staffing — sufficient staff for volume, all positions covered, no unsupervised minors in hazardous areas?" },
+  { path: ["operations", "openFoodCoverage"],  label: "Open Food — all food covered/protected from contamination when not actively in use?" },
+];
+const ECOLAB_ITEMS = [
+  { path: ["facility", "ecolabProducts"], label: "Ecolab Products & Supplies — tap NO on anything missing or empty: it goes straight onto the Supplies Needed list below" },
+];
+// Equipment items + cold map for a stand type (same branches the guide renders)
+function equipItemsFor(locType) {
+  if (locType === "Concession" || locType === "Subcontractor" || locType === "Kitchen") return { items: FULL_EQUIP_ITEMS, coldMap: COLD_EQUIPMENT };
+  if (isPortableType(locType)) return { items: PORTABLE_EQUIP_ITEMS, coldMap: PORTABLE_COLD_EQUIPMENT };
+  if (locType === "Bar") return { items: BAR_EQUIP_ITEMS, coldMap: BAR_COLD_EQUIPMENT };
+  if (locType === "Pantry") return { items: PANTRY_EQUIP_ITEMS, coldMap: PANTRY_COLD_EQUIPMENT };
+  return { items: [], coldMap: COLD_EQUIPMENT };
+}
+
 function detectColdType(label) {
   const l = (label || "").toLowerCase();
   if (/freezer|freez/.test(l)) return { type: "freezer", max: 20 };
@@ -3335,7 +3420,7 @@ function gameDayProgress(inspection, foodTemps) {
     !!String(t.handSinkTempF ?? "").trim() || !!t.handSinkOutOfOrder,
     !!String(t.threeCompSinkTempF ?? "").trim() || !!t.threeCompSinkOutOfOrder,
     foodN > 0,
-    ...GD_OPS.map(([k]) => !!inspection?.operations?.[k]?.gdAt),
+    ...GD_OPS.map(([k]) => !!(inspection?.operations?.[k]?.gdAt || inspection?.operations?.[k]?.checkedAt)),
   ];
   return { priorityDone: checks.filter(Boolean).length, priorityTotal: checks.length };
 }
@@ -3357,7 +3442,7 @@ function GameDayCard({ inspection, setInspection, foodTemps, siteName, siteNumbe
   const markOp = (k, ok) => {
     setInspection(prev => {
       const node = prev.operations?.[k] || { status: "OK", notes: "", photos: [] };
-      return { ...prev, operations: { ...(prev.operations || {}), [k]: { ...node, status: ok ? "OK" : "Needs Attention", gdAt: Date.now() } } };
+      return { ...prev, operations: { ...(prev.operations || {}), [k]: { ...node, status: ok ? "OK" : "Needs Attention", gdAt: Date.now(), checkedAt: Date.now() } } };
     });
     if (!ok) setTimeout(() => { try { window.__sdxJumpToGuideItem?.({ pid: 4, key: `operations.${k}` }); } catch {} }, 150);
   };
@@ -3391,7 +3476,7 @@ function GameDayCard({ inspection, setInspection, foodTemps, siteName, siteNumbe
       <button type="button" className={"gdFood" + (foodN ? " ok" : "")} data-testid="gameday-food" onClick={() => { try { document.getElementById("food-temps-section")?.scrollIntoView({ behavior: "smooth", block: "start" }); } catch {} }}>{foodN ? `✓ ${foodN} food temp${foodN !== 1 ? "s" : ""} logged — add more ↓` : "Log hot / cold holding food temps ↓"}</button>
       <div className="gdSec">🧤 Cross-contamination</div>
       {GD_OPS.map(([k, en]) => {
-        const node = inspection?.operations?.[k]; const done = !!node?.gdAt; const bad = done && node.status !== "OK";
+        const node = inspection?.operations?.[k]; const done = !!(node?.gdAt || node?.checkedAt); const bad = done && node.status !== "OK";
         return (
           <div key={k} className={"gdRow gdOp" + (bad ? " bad" : done ? " ok" : "")} data-testid="gameday-op" data-key={k}>
             <span className="gdLabel">{en}</span>
@@ -3403,6 +3488,51 @@ function GameDayCard({ inspection, setInspection, foodTemps, siteName, siteNumbe
     </div>
   );
 }
+// ── v520: shared answer helpers (full checklist + simple walk) ──
+// A status the inspector chose by hand (Critical, Corrected, Maintenance…) survives row taps;
+// only the automatic OK / Fail follows the rows.
+const AUTO_STATUS = s => !s || s === "OK" || s === "Fail";
+function nodeStatusAfter(prevStatus, checklist) {
+  const hasNo = (checklist || []).some(c => c.value === "NO");
+  return AUTO_STATUS(prevStatus) ? (hasNo ? "Fail" : "OK") : prevStatus;
+}
+// Temperatures: digits, one minus in front, one dot (the iPhone decimal keypad has no minus — the walk adds a − button)
+function cleanTempInput(v) {
+  // "38,5" (comma-decimal phones) is 38.5, not 385
+  const s0 = String(v ?? "").replace(",", ".").replace(/[^0-9.\-]/g, ""); const neg = s0.startsWith("-");
+  const body = s0.replace(/-/g, ""); const parts = body.split(".");
+  return (neg ? "-" : "") + parts[0] + (parts.length > 1 ? "." + parts.slice(1).join("") : "");
+}
+// Every node the guide shows for this stand type: [{ section, key, path, label, kind }] — kind: checklist | status | maint
+function guideNodesFor(locType, inspection) {
+  const out = []; const seen = new Set();
+  const push = (path, label, kind) => { const id = path.join("."); if (seen.has(id)) return; seen.add(id); out.push({ section: path[0], key: path[1], path, label, kind }); };
+  const kindOf = (path, fallback) => { const n = inspection?.[path[0]]?.[path[1]]; return Array.isArray(n?.checklist) && n.checklist.length ? "checklist" : fallback; };
+  const customs = sec => Object.entries(inspection?.[sec] || {}).filter(([k, v]) => k.startsWith("custom_") && v && typeof v === "object").map(([k, v]) => [[sec, k], String(v.label || k)]);
+  for (const it of ECOLAB_ITEMS) push(it.path, it.label, "checklist");
+  for (const it of FACILITY_ITEMS) push(it.path, it.label, kindOf(it.path, "status"));
+  for (const [path, label] of customs("facility")) push(path, label, kindOf(path, "status"));
+  for (const it of MAINT_ITEMS) push(it.path, it.label, "maint");
+  for (const [path, label] of customs("maintenance")) push(path, label, "maint");
+  for (const it of equipItemsFor(locType).items) {
+    // the generic "Coolers" / "Freezer" placeholders show only when they already hold data (same rule as GuideSection)
+    if (it.path[1] === "coolers" || it.path[1] === "freezer") { const d = inspection?.equipment?.[it.path[1]] || {}; if (!(d.label || d.tempF || d.assetTag || (d.status && d.status !== "OK") || (d.notes || "").trim())) continue; }
+    push(it.path, it.label, kindOf(it.path, "status"));
+  }
+  for (const [path, label] of customs("equipment")) push(path, label, kindOf(path, "status"));
+  for (const it of UTENSIL_ITEMS) push(it.path, it.label, kindOf(it.path, "status"));
+  for (const [path, label] of customs("utensils")) push(path, label, kindOf(path, "status"));
+  for (const it of [...OPS_HYGIENE_ITEMS, ...OPS_COMPLIANCE_ITEMS]) push(it.path, it.label, kindOf(it.path, "status"));
+  for (const [path, label] of customs("operations")) push(path, label, kindOf(path, "status"));
+  return out;
+}
+// Rows that count: N/A items count nothing; the "Other" row only when someone marked it NO
+function rowCounts(node) {
+  if (!node || node.notApplicable) return { total: 0, answered: 0, issues: 0 };
+  const rows = (node.checklist || []).filter(c => !c.isOther || c.value === "NO");
+  return { total: rows.length, answered: rows.filter(c => c.value === "YES" || c.value === "NO").length, issues: rows.filter(c => c.value === "NO").length };
+}
+try { window.__sdxNodeStatusAfter = nodeStatusAfter; window.__sdxGuideNodes = (t, insp) => guideNodesFor(t, insp || {}).map(n => n.path.join(".")); } catch {}
 // Map a custom equipment label to the matching CHECKLIST_DEFAULTS key
 function detectChecklistKey(label) {
   const l = (label || "").toLowerCase();
@@ -3439,7 +3569,7 @@ function collectEquipTemps(inspection) {
   const results = [];
   const equip = inspection?.equipment || {};
   for (const [k, node] of Object.entries(equip)) {
-    if (node?.status === "Off / Not In Use") continue;
+    if (node?.status === "Off / Not In Use" || node?.notApplicable) continue;
     if (node?.tempF === "" || node?.tempF === undefined || node?.tempF === null) continue;
     const t = Number(node.tempF);
     if (Number.isNaN(t)) continue;
@@ -3449,7 +3579,7 @@ function collectEquipTemps(inspection) {
     const warnMax = TEMP_WARN_MAX[cold.type] ?? cold.max;
     // zone: "good" | "warn" | "bad"
     const zone = t <= cold.max ? "good" : t <= warnMax ? "warn" : "bad";
-    results.push({ key: k, label, tempF: node.tempF, tempNum: t, type: cold.type, max: cold.max, warnMax, zone, pass: zone === "good", kitchenArea: node.kitchenArea || "", assetTag: node.assetTag || "", brand: node.brand || node.brandName || "" });
+    results.push({ key: k, label, tempF: node.tempF, tempNum: t, type: cold.type, max: cold.max, warnMax, zone, pass: zone === "good", tempCorrective: sanitizeText(node.tempCorrective) || "", kitchenArea: node.kitchenArea || "", assetTag: node.assetTag || "", brand: node.brand || node.brandName || "" });
   }
   return results;
 }
@@ -3754,7 +3884,7 @@ const CHECKLIST_DEFAULTS = {
     { label: "Sink basin clean and free of debris",  problem: "Sink basin is dirty or has debris",                value: "" },
     { label: "Soap dispenser stocked and working",   problem: "Soap dispenser is empty or not working",           value: "" },
     { label: "Paper towel dispenser stocked",        problem: "Paper towel dispenser is empty",                   value: "" },
-    { label: "Faucet delivers hot water (≥100°F)",   problem: "Faucet is not delivering hot water (≥100°F)",      value: "" },
+    { label: "Faucet delivers hot water (≥95°F)",    problem: "Faucet is not delivering hot water (≥95°F)",       value: "" },
     { label: "No faucet drips or leakage",           problem: "Faucet is dripping or leaking",                    value: "" },
     { label: "No drain leakage or slow drain",       problem: "Drain is leaking or draining slowly",              value: "" },
     { label: "Handwashing sign posted",              problem: "Handwashing sign is not posted",                   value: "" },
@@ -3793,7 +3923,7 @@ const CHECKLIST_DEFAULTS = {
   coolers: [
     { label: "Interior thermometer present & accurate", problem: "Interior thermometer is missing or inaccurate",    value: "" },
     { label: "Temperature display working",              problem: "Temperature display is not working",               value: "" },
-    { label: "Unit holding temp ≤41°F",                  problem: "Unit is not holding temperature at or below 41°F", value: "" },
+    { label: "Unit holding temp ≤40°F",                  problem: "Unit is not holding temperature at or below 40°F", value: "" },
     { label: "Bottom racks off floor (6-inch min)",      problem: "Bottom racks are not at least 6 inches off floor", value: "" },
     { label: "Gaskets clean and free of tears",          problem: "Gaskets are dirty or have tears",                  value: "" },
     { label: "Door handles clean and secure",            problem: "Door handles are dirty or not secure",             value: "" },
@@ -3810,7 +3940,7 @@ const CHECKLIST_DEFAULTS = {
   ],
   freezer: [
     { label: "Temperature display working",              problem: "Temperature display is not working",                value: "" },
-    { label: "Unit holding temp ≤0°F",                   problem: "Unit is not holding temperature at or below 0°F",  value: "" },
+    { label: "Unit holding temp ≤20°F",                  problem: "Unit is not holding temperature at or below 20°F", value: "" },
     { label: "Bottom racks off floor (6-inch min)",      problem: "Bottom racks are not at least 6 inches off floor",  value: "" },
     { label: "Gaskets clean and free of tears",          problem: "Gaskets are dirty or have tears",                   value: "" },
     { label: "Door handles clean and secure",            problem: "Door handles are dirty or not secure",              value: "" },
@@ -4509,7 +4639,7 @@ function buildActionItems({ inspection, rawNotes, foodTemps: ftArg, foodTempName
   const items = [];
   const { mapByPath } = buildPhotoIndex(inspection);
   const pushIfBad = (pathKey, label, node) => {
-    if (!node?.status) return;
+    if (!node?.status || node.notApplicable) return; // v520: "not at this stand" never makes an issue
     if (node.status === "Off / Not In Use") {
       items.push({
         issue: `${label}: Equipment off / not in use — verify before next service`,
@@ -4520,7 +4650,7 @@ function buildActionItems({ inspection, rawNotes, foodTemps: ftArg, foodTempName
       return;
     }
     const sectionStatus = (node.status && node.status !== "High" && node.status !== "Med") ? node.status : "";
-    const isFail = node.status === "Fail" || node.status === "Needs Attention" || node.status === "Not Clean" || node.status === "Maintenance" || node.status === "Building" || node.status === "Ecolab";
+    const isFail = node.status === "Fail" || node.status === "Needs Attention" || node.status === "Critical Violation" || node.status === "Not Clean" || node.status === "Maintenance" || node.status === "Building" || node.status === "Ecolab";
     const failedCheckItems = Array.isArray(node.checklist)
       ? node.checklist.filter(c => c.value === "NO")
       : [];
@@ -4566,10 +4696,11 @@ function buildActionItems({ inspection, rawNotes, foodTemps: ftArg, foodTempName
       items.push({
         issue: `${label}: ${detail}`,
         notes: "",
+        corrective: sanitizeText(node.corrective) || "", // v520: what was done (simple walk / status items)
         owner: "", due: "",
         status: sectionStatus || "Fail",
         priority: sectionStatus === "Maintenance" ? "Maintenance" : sectionStatus === "Building" ? "Building" : sectionStatus === "Ecolab" ? "Ecolab" : "High",
-        photos: mapByPath[pathKey] || [],
+        photos: (mapByPath[pathKey] || []).length ? mapByPath[pathKey] : (node.photos || []), // v520: nodes the photo index does not list (ops, bar / pantry keys) still carry their pictures
       });
     }
   };
@@ -4607,13 +4738,14 @@ function buildActionItems({ inspection, rawNotes, foodTemps: ftArg, foodTempName
   // ── Maintenance items — same dynamic scan ──────────────────────
   const pushMaint = (pathKey, label, node) => {
     if (!node?.status) return;
-    if (node.status === "Needs Attention" || node.status === "Not Clean" || node.status === "Maintenance" || node.status === "Building" || node.status === "Ecolab" || node.status === "Fail") {
+    if (node.status === "Needs Attention" || node.status === "Critical Violation" || node.status === "Not Clean" || node.status === "Maintenance" || node.status === "Building" || node.status === "Ecolab" || node.status === "Fail") {
       const detail = sanitizeText(node.notes) || node.status || "Issue flagged";
       items.push({
         issue: `${label}: ${detail}`,
+        corrective: sanitizeText(node.corrective) || "",
         owner: "", due: "",
         priority: label,
-        photos: mapByPath[pathKey] || [],
+        photos: (mapByPath[pathKey] || []).length ? mapByPath[pathKey] : (node.photos || []),
       });
     }
   };
@@ -4626,19 +4758,19 @@ function buildActionItems({ inspection, rawNotes, foodTemps: ftArg, foodTempName
   // Water temps / out-of-order
   if (inspection?.temps?.handSinkOutOfOrder) {
     const note = inspection?.temps?.handSinkNote?.trim();
-    items.push({ issue: `Hand sink out of order / not working${note ? ": " + note : ""}`, owner: "", due: "", priority: "Follow-up", photos: [] });
+    items.push({ issue: `Hand sink out of order / not working${note ? ": " + note : ""}`, corrective: sanitizeText(inspection?.temps?.handSinkCorrection) || "", owner: "", due: "", priority: "Follow-up", photos: [] });
   } else {
     const hand = Number(inspection?.temps?.handSinkTempF);
     if (!Number.isNaN(hand) && hand && hand < 95)
-      items.push({ issue: `Hand sink temperature below minimum: ${hand}°F (min 95°F)`, owner: "", due: "", priority: "Follow-up", photos: [] });
+      items.push({ issue: `Hand sink temperature below minimum: ${hand}°F (min 95°F)`, corrective: sanitizeText(inspection?.temps?.handSinkCorrection) || "", owner: "", due: "", priority: "Follow-up", photos: [] });
   }
   if (inspection?.temps?.threeCompSinkOutOfOrder) {
     const note = inspection?.temps?.threeCompSinkNote?.trim();
-    items.push({ issue: `3-Comp sink out of order / not working${note ? ": " + note : ""}`, owner: "", due: "", priority: "Follow-up", photos: [] });
+    items.push({ issue: `3-Comp sink out of order / not working${note ? ": " + note : ""}`, corrective: sanitizeText(inspection?.temps?.threeCompSinkCorrection) || "", owner: "", due: "", priority: "Follow-up", photos: [] });
   } else {
     const three = Number(inspection?.temps?.threeCompSinkTempF);
     if (!Number.isNaN(three) && three && three < 110)
-      items.push({ issue: `3-compartment sink wash temperature below minimum: ${three}°F (min 110°F)`, owner: "", due: "", priority: "Follow-up", photos: [] });
+      items.push({ issue: `3-compartment sink wash temperature below minimum: ${three}°F (min 110°F)`, corrective: sanitizeText(inspection?.temps?.threeCompSinkCorrection) || "", owner: "", due: "", priority: "Follow-up", photos: [] });
   }
   // HACCP food temps — flag any reading outside safe range
   // ftArg/fnArg passed from live form; fall back to embedded fields on saved records
@@ -4679,9 +4811,9 @@ function buildActionItems({ inspection, rawNotes, foodTemps: ftArg, foodTempName
     const bits = [et.brand, et.kitchenArea, et.assetTag].map(x => String(x || "").trim()).filter(Boolean);
     const who = `${et.label}${bits.length ? ` (${bits.join(" · ")})` : ""}`.toUpperCase();
     if (et.zone === "bad") {
-      items.push({ area: etArea, issue: `Temperature out of range — ${who}: ${et.tempNum}°F (max ${et.max}°F, critical limit ${et.warnMax}°F)`, owner: "", due: "", priority: "Fail", photos: [] });
+      items.push({ area: etArea, issue: `Temperature out of range — ${who}: ${et.tempNum}°F (max ${et.max}°F, critical limit ${et.warnMax}°F)`, corrective: et.tempCorrective || "", owner: "", due: "", priority: "Fail", photos: [] });
     } else if (et.zone === "warn") {
-      items.push({ area: etArea, issue: `Temperature elevated — ${who}: ${et.tempNum}°F (above ${et.max}°F limit — monitor and recheck in 30 min)`, owner: "", due: "", priority: "Follow-up", photos: [] });
+      items.push({ area: etArea, issue: `Temperature elevated — ${who}: ${et.tempNum}°F (above ${et.max}°F limit — monitor and recheck in 30 min)`, corrective: et.tempCorrective || "", owner: "", due: "", priority: "Follow-up", photos: [] });
     }
   }
   for (const a of parseActionLines(rawNotes))
@@ -4710,7 +4842,7 @@ function tableMarkdown(rows) {
   const header = "| Issue | Owner | Due | Priority | Photo # |\n|---|---|---|---|---|";
   const body = rows
     .map((r) => {
-      const photos = (r.photos || []).length ? r.photos.join(", ") : "";
+      const photos = (r.photos || []).length ? r.photos.map(p => (p && typeof p === "object") ? (p.num ?? "📷") : p).join(", ") : "";
       return `| ${sanitizeText(r.issue)} | ${sanitizeText(r.owner)} | ${sanitizeText(r.due)} | ${sanitizeText(r.priority)} | ${photos} |`;
     })
     .join("\n");
@@ -4775,7 +4907,7 @@ function emailPreview({ noteType, context, inspection, rawNotes, inspectionType,
   if (!Number.isNaN(handT) && handT && handT < 95) findings.push(`- Temps > Hand sink: ${handT}°F (below 95°F minimum)`);
   if (!Number.isNaN(threeT) && threeT && threeT < 110) findings.push(`- Temps > 3-comp wash: ${threeT}°F (below 110°F minimum)`);
   const findingsText = findings.length ? findings.join("\n") : "- No exceptions noted from checklist/temps.";
-  const critical = actionItems.filter((a) => a.priority === "High").map((a) => `- ${a.issue}${a.photos?.length ? ` (Photo ${a.photos.join(", ")})` : ""}`).join("\n");
+  const critical = actionItems.filter((a) => a.priority === "High").map((a) => `- ${a.issue}${a.photos?.length ? ` (Photo ${a.photos.map(p => (p && typeof p === "object") ? (p.num ?? "📷") : p).join(", ")})` : ""}`).join("\n");
   const criticalText = critical || (inspectionType === "Event Day" ? "- No critical blockers identified for service." : "- No critical issues flagged.");
   return [
     subject, "", `Hi team,`, "", playbook.opening, "",
@@ -12040,8 +12172,8 @@ const HACCP_TEMP_ITEMS = [
     how: "Probe cold food on the line/display — 41°F or colder · Comida fría en línea: 41°F o menos",
     example: "e.g. Pico de gallo on line",
     foods: ["Pico de gallo", "Lettuce / produce", "Cut fruit", "Cold sauces", "Deli meat"] },
-  { key: "walkInCooler",      label: "Walk-in Cooler",               unit: "°F", max: 41,  type: "cold", hint: "Ambient air temp",
-    how: "Read the door thermometer (air temp) — 41°F or colder · Termómetro de la puerta: 41°F o menos",
+  { key: "walkInCooler",      label: "Walk-in Cooler",               unit: "°F", max: 40,  type: "cold", hint: "Ambient air temp",
+    how: "Read the door thermometer (air temp) — 40°F or colder · Termómetro de la puerta: 40°F o menos",
     example: "e.g. Walk-in #1" },
   { key: "walkInFreezer",     label: "Walk-in Freezer",              unit: "°F", max: 20,  type: "cold", hint: "Max 20 °F",
     how: "Read the door thermometer (air temp) — 20°F or colder · Termómetro de la puerta: 20°F o menos",
@@ -12669,7 +12801,8 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
       // Quick / supervisor reports carry the problem in actionItems (no checklist to rebuild from)
       issues: (rec.quickProblem || (!Object.keys(rec.inspection || {}).length && (rec.actionItems || []).length))
         ? (rec.actionItems || []).map(a => ({ issue: a.issue || "", notes: a.notes || "", area: a.area || "", corrective: a.corrective || "", priority: /^(critical|maintenance)/i.test(a.issue || "") ? (/^maintenance/i.test(a.issue) ? "Maintenance" : "Critical") : "High", status: "Follow-Up", photos: a.photos }))
-        : buildActionItems({ inspection: rec.inspection, rawNotes: rec.rawNotes, foodTemps: rec.foodTemps, foodTempNames: rec.foodTempNames }),
+        : (() => { const built = buildActionItems({ inspection: rec.inspection, rawNotes: rec.rawNotes, foodTemps: rec.foodTemps, foodTempNames: rec.foodTempNames });
+            const stored = rec.actionItems; return Array.isArray(stored) && stored.length && stored.length !== built.length ? stored : built; })(), // v520: Resolve writes resolvedIssues[i] against the stored list Follow-ups reads
       score: calcInspectionScore(rec.inspection, { foodTemps: rec.foodTemps, foodTempNames: rec.foodTempNames }),
     }));
   }, [visibleFiltered]);
@@ -16745,7 +16878,7 @@ function FoodSafetyRef({ lang = "en", portal = false, defaultOpen = false, heade
             { icon: "🔥", bg: "linear-gradient(90deg,var(--tint-red-1),var(--tint-red-2))", border: "#ef4444", label: "HOT HOLDING — SAFE", temp: "≥ 135°F / 57°C", sub: "Keep hot foods at or above this temperature" },
             { icon: "⚠️", bg: "repeating-linear-gradient(45deg,var(--tint-amber-2),var(--tint-amber-2) 6px,var(--tint-amber-1) 6px,var(--tint-amber-1) 12px)", border: "#f59e0b", label: "DANGER ZONE — AVOID", temp: "41°F – 135°F / 5–57°C", sub: "Bacteria double every 20 min · limit to 4 hrs max" },
             { icon: "❄️", bg: "linear-gradient(90deg,var(--tint-blue-1),var(--tint-blue-2))", border: "#3b82f6", label: "COLD HOLDING — SAFE", temp: "≤ 41°F / 5°C", sub: "Refrigerate at or below · ideal WIC: 34–38°F" },
-            { icon: "🧊", bg: "linear-gradient(90deg,var(--tint-sky-1),var(--tint-blue-2))", border: "#0ea5e9", label: "FREEZER", temp: "0°F / -18°C or below", sub: "Stops bacterial growth · check monthly for ice crystals" },
+            { icon: "🧊", bg: "linear-gradient(90deg,var(--tint-sky-1),var(--tint-blue-2))", border: "#0ea5e9", label: "FREEZER", temp: "≤ 20°F / -7°C", sub: "Our rule for freezers · colder is better · check for ice crystals" },
           ].map((z, i, arr) => (
             <div key={t(z.label)} className="fsrZoneRow" style={{ background: z.bg, borderBottom: i < arr.length - 1 ? `2px solid ${z.border}` : "none", padding: "12px 14px", display: "flex", alignItems: "center", gap: 12 }}>
               <span style={{ width: 36, height: 36, borderRadius: 11, background: "var(--surface-1)", border: `1.5px solid ${z.border}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.05rem", flexShrink: 0, boxShadow: "0 1px 4px rgba(0,0,0,.08)" }}>{z.icon}</span>
@@ -23398,7 +23531,7 @@ function standPosterHtml(items, qrUrls, brandColor) {
           <div class="pih">HOW TO USE THIS QR · CÓMO USAR ESTE QR</div>
           <div class="pi2h">⏰ CHECK FOOD &amp; EQUIPMENT TEMPS EVERY 2 HOURS · REVISE TEMPERATURAS CADA 2 HORAS</div>
           <div class="pis"><span class="pisn">1</span><span><b>Scan with your phone camera</b> — no app, no login.<br/><span class="es">Escanee con la cámara del teléfono — sin app, sin usuario.</span></span></div>
-          <div class="pis"><span class="pisn">2</span><span><b>Log temps EVERY 2 HOURS:</b> tap each cooler / freezer and food item, type the temperature, save. Cold ≤ 41°F · Freezer ≤ 0°F · Hot ≥ 135°F.<br/><span class="es">Registre temperaturas <b>CADA 2 HORAS</b>: toque cada equipo o comida, escriba la temperatura y guarde.</span></span></div>
+          <div class="pis"><span class="pisn">2</span><span><b>Log temps EVERY 2 HOURS:</b> tap each cooler / freezer and food item, type the temperature, save. Cold food ≤ 41°F · Coolers ≤ 40°F · Freezers ≤ 20°F · Hot ≥ 135°F.<br/><span class="es">Registre temperaturas <b>CADA 2 HORAS</b>: toque cada equipo o comida, escriba la temperatura y guarde.</span></span></div>
           <div class="pis"><span class="pisn">!</span><span><b>Any problem?</b> Tap <b>⚠ Report a problem</b> — broken unit, leak, pest, cleaning, chemicals — add a photo. The inspector and the right crew get it right away.<br/><span class="es">¿Algún problema? Toque <b>⚠ Reportar un problema</b> y agregue una foto. El inspector y el equipo correcto lo reciben al momento.</span></span></div>
         </div>
       </div>
@@ -26205,6 +26338,9 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                 !!(current.photos && current.photos.length > 0) ||
                 !!(current.tempF);
               const isItemOpen = expandedDetails[key] !== undefined ? expandedDetails[key] : isFilled;
+              // v520: an item answered with only ✓ is done too — it used to keep saying "Tap to fill in"
+              const rcA = rowCounts(current);
+              const isAnswered = isFilled || (rcA.total > 0 && rcA.answered >= rcA.total) || (!(current.checklist || []).length && !!current.checkedAt);
               return (
                 <div className={`guideItem${isNA ? " guideItemNA" : ""}`} key={key} data-guide-item={it.label} data-guide-key={key}>
                   <button type="button" className="guideItemHead guideItemToggle"
@@ -26227,10 +26363,10 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                       })()}
                       {isNA && <span className="naBadge">Not at this location</span>}
                     </div>
-                    {!isItemOpen && isFilled && !isNA && (
-                      <span style={{ fontSize: "0.7rem", fontWeight: 600, padding: "2px 8px", borderRadius: 6, background: "var(--tint-green-1)", color: "#15803d", border: "1px solid #bbf7d0", whiteSpace: "nowrap" }}>✓ Filled</span>
+                    {!isItemOpen && isAnswered && !isNA && (
+                      <span data-testid="guide-item-state" style={{ fontSize: "0.7rem", fontWeight: 600, padding: "2px 8px", borderRadius: 6, background: "var(--tint-green-1)", color: "#15803d", border: "1px solid #bbf7d0", whiteSpace: "nowrap" }}>{isFilled ? "✓ Filled" : "✓ All OK"}</span>
                     )}
-                    {!isItemOpen && !isFilled && (
+                    {!isItemOpen && !isAnswered && (
                       <span style={{ fontSize: "0.7rem", color: "var(--ink-400)", fontStyle: "italic", whiteSpace: "nowrap" }}>Tap to fill in</span>
                     )}
                     <span style={{ fontSize: "0.75rem", color: "var(--ink-400)", display: "inline-block", transform: isItemOpen ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s", flexShrink: 0 }}>▼</span>
@@ -26443,8 +26579,7 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                           const cur2val = (cur2.checklist || [])[idx]?.value;
                           const next = cur2val === val ? "" : val;
                           const newChecklist = (cur2.checklist || []).map((c, i) => i === idx ? { ...c, value: next } : c);
-                          const hasNo = newChecklist.some(c => c.value === "NO");
-                          const newStatus = hasNo ? "Fail" : "OK";
+                          const newStatus = nodeStatusAfter(cur2.status, newChecklist); // v520: a hand-picked status survives
                           // v489: a missing Ecolab product goes straight onto the Supplies Needed list
                           const rowSupply = newChecklist[idx]?.supply;
                           if (rowSupply) setTimeout(() => { try { window.dispatchEvent(new CustomEvent("sdx-supply-needed", { detail: { item: rowSupply, on: next === "NO" } })); } catch {} }, 0);
@@ -26532,8 +26667,7 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                                   onClick={() => setInspection((prev) => {
                                     const cur2 = getAtPath(prev, it.path) || withPhotos({ status: "OK", notes: "" });
                                     const newChecklist = (cur2.checklist || []).map(c => c.value === "" || c.value == null ? { ...c, value: "YES" } : c);
-                                    const hasNo = newChecklist.some(c => c.value === "NO");
-                                    return setAtPath(prev, it.path, { ...cur2, checklist: newChecklist, status: hasNo ? "Fail" : "OK" });
+                                    return setAtPath(prev, it.path, { ...cur2, checklist: newChecklist, status: nodeStatusAfter(cur2.status, newChecklist) });
                                   })}
                                   aria-label={`Mark ${pendingCount} remaining items as passed`}>
                                   ⚡ Pass remaining ({pendingCount})
@@ -26738,7 +26872,7 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                             <button
                               key={opt.value}
                               type="button"
-                              onClick={() => setInspection((prev) => setAtPath(prev, it.path, { ...current, status: opt.value }))}
+                              onClick={() => setInspection((prev) => setAtPath(prev, it.path, { ...current, status: opt.value, checkedAt: Date.now() }))}
                               style={{
                                 fontSize: "0.74rem", fontWeight: active ? 700 : 500,
                                 padding: "4px 10px", borderRadius: 20, cursor: "pointer", border: "1.5px solid",
@@ -26801,39 +26935,11 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
               // v518: one tap adds a unit; `pre` = a unit already registered at this stand (keeps its tag / brand / location)
               const addEquip = (label0, pre) => {
                 if (!label0.trim()) return;
-                // a registered unit keeps its cooler / freezer type even when its name has no such word ("CHEST SHOWCASE")
-                const label = pre && !detectColdType(label0) ? `${label0.trim()}${pre.freezer ? " 🧊 Freezer" : " ❄ Cooler"}` : label0;
-                const key = `custom_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`;
-                const cold = detectColdType(label);
-                const ckKey = detectChecklistKey(label);
-                const checklist = ckKey ? (CHECKLIST_DEFAULTS[ckKey] || []).map(i => ({ ...i })) : [];
-                // Cold unit at a known stand → it gets its QR tag right now
-                // (SDX-CL/FZ-<UNIT>-n, same rule as the labels page) and is
-                // registered so the label can be printed and scanned today.
-                let assetTag = pre?.tag || "";
-                if (!assetTag && cold && sectionKey === "equipment" && (normUnit(siteNumber) || (siteName || "").trim())) {
-                  try {
-                    const unitN = normUnit(siteNumber) || (siteName || "").replace(/[^A-Z0-9]/gi, "").toUpperCase().slice(0, 8) || "X";
-                    const pre = `SDX-${cold.type === "freezer" ? "FZ" : "CL"}-${unitN}-`;
-                    const used = new Set();
-                    for (const v of Object.values(inspection?.equipment || {})) if (v?.assetTag) used.add(String(v.assetTag).toUpperCase());
-                    for (const t of Object.keys(_equipRegCache || {})) used.add(String(t).toUpperCase());
-                    try { for (const r of JSON.parse(localStorage.getItem(`sdx_history_cache_${VENUE_ID}`) || "[]")) for (const v of Object.values(r?.inspection?.equipment || {})) if (v?.assetTag) used.add(String(v.assetTag).toUpperCase()); } catch {}
-                    let n = 1; while (used.has(pre + n)) n++;
-                    assetTag = pre + n;
-                    _freshEquipTags.add(assetTag);
-                    const floor = floorForStand(siteNumber, siteName, siteFloor);
-                    const known = standForStrict(siteNumber, siteName);
-                    const rec = { assetTag, label: label.trim() + (cold.type === "freezer" ? " 🧊 Freezer" : " ❄ Cooler"), venueName: (siteName || "").trim().toUpperCase(), unit: (siteNumber || "").trim() || (known?.unit || ""), floor: floor || known?.floor || "", locType: siteLocType || known?.locType || "", standId: known?.id || "", location: "", brandName: "", createdAt: Date.now() };
-                    _equipRegCache = { ...(_equipRegCache || {}), [assetTag]: rec };
-                    try { localStorage.setItem(EQUIP_REG_LS, JSON.stringify(_equipRegCache)); } catch {}
-                    { const _p = { items: { [assetTag]: rec }, labelIndex: { [assetTag]: { name: rec.label, brand: "", location: "", venueName: rec.venueName, unit: rec.unit, floor, locType: rec.locType, ts: Date.now() } } }; patchEquipDocCache(_p); if (FIREBASE_ON) setDoc(doc(db, "venues", VENUE_ID, "sharedMemory", "equipmentRegistry"), _p, { merge: true }).catch(() => {}); }
-                  } catch { assetTag = ""; }
-                }
-                setInspection((prev) => setAtPath(prev, [sectionKey, key], { status: "OK", notes: "", photos: [], label: label.trim(), count: "", equipSource: "Facility", ...(assetTag ? { assetTag } : {}), ...(pre?.brand ? { brand: pre.brand } : {}), ...(pre?.location ? { location: pre.location, kitchenArea: pre.location } : {}), ...(cold ? { tempF: "" } : {}), ...(checklist.length ? { checklist } : {}) }));
+                const { key, label, assetTag, node } = createEquipUnit({ label0, pre, sectionKey, inspection, siteName, siteNumber, siteFloor, siteLocType });
+                setInspection((prev) => setAtPath(prev, [sectionKey, key], node));
                 setNewItemName("");
                 setNewEquipType(null);
-                if (assetTag && !pre) { setScanNote(`✓ ${label.trim()} added — type its temperature.`); setTimeout(() => setScanNote(""), 4000); }
+                if (assetTag && !pre) { setScanNote(`✓ ${label} added — type its temperature.`); setTimeout(() => setScanNote(""), 4000); }
                 // Straight to the temperature box of the new unit
                 if (!pre) setTimeout(() => { try { window.dispatchEvent(new CustomEvent("sdx-open-guide-item", { detail: { key: `${sectionKey}.${key}` } })); } catch {} setTimeout(() => { try { const el = document.querySelector(`[data-guide-key="${sectionKey}.${key}"]`); el?.scrollIntoView({ behavior: "smooth", block: "center" }); const inp = el?.querySelector("input.tempInput") || el?.querySelector("input"); inp?.focus(); } catch {} }, 250); }, 60);
                 return key;
@@ -27075,7 +27181,7 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                         <div className="maintChips">
                           {[["OK", "✅ OK", "maintChipOk"], ["Needs Attention", "⚠️ Issue", "maintChipIssue"], ["Critical Violation", "🚨 Urgent", "maintChipUrgent"], ["Corrected On-Site", "🛠 Fixed on site", "maintChipFixed"]].map(([val, lbl, cls]) => (
                             <button key={val} type="button" className={`maintChip ${cls}${cur.status === val ? " on" : ""}`}
-                              onClick={() => setInspection(prev => setAtPath(prev, it.path, { ...cur, status: val, priority: val === "Critical Violation" ? "High" : val === "OK" ? "Low" : (cur.priority === "Low" ? "Med" : cur.priority) }))}>{lbl}</button>
+                              onClick={() => setInspection(prev => setAtPath(prev, it.path, { ...cur, status: val, checkedAt: Date.now(), priority: val === "Critical Violation" ? "High" : val === "OK" ? "Low" : (cur.priority === "Low" ? "Med" : cur.priority) }))}>{lbl}</button>
                           ))}
                           {!["OK", "Needs Attention", "Critical Violation", "Corrected On-Site"].includes(cur.status) && <span className="maintChip on">{cur.status}</span>}
                         </div>
@@ -27185,6 +27291,682 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
   if (prev.siteNumber !== next.siteNumber || prev.siteFloor !== next.siteFloor || prev.siteLocType !== next.siteLocType) return false;
   return true;
 }); // end GuideSection React.memo
+
+// ══════════════════════════════════════════════════════════════════════════
+// v520: THE SIMPLE WALK — Joxel: "simpler for the inspector … like they are
+// 3 year olds … checkmarks, issues, temperatures … smooth, easy, make sense,
+// help the user". Same inspection data as the full checklist (rows YES / NO,
+// row comment / ciLocation / corrective / photos, node status + checkedAt,
+// temps.*, equipment[*].tempF, foodTemp arrays) — reports, exports, follow-ups,
+// scoring and drafts do not change. Default for everyone; "Full checklist"
+// switch keeps the detailed guide (localStorage sdx_guide_mode).
+// ══════════════════════════════════════════════════════════════════════════
+// v520: ONE way to add a unit — the full guide's "+" and the walk's chips. A cold unit at a known stand gets its
+// SDX-CL/FZ-<UNIT>-n tag now and is registered (label print, Stands & equipment, the stand portal's list).
+// `pre` = a unit already registered at this stand (keeps its tag / brand / location).
+function createEquipUnit({ label0, pre, sectionKey = "equipment", inspection, siteName, siteNumber, siteFloor, siteLocType }) {
+  const raw = String(label0 || "").trim();
+  // a registered unit keeps its cooler / freezer type even when its name has no such word ("CHEST SHOWCASE")
+  const label = pre && !detectColdType(raw) ? `${raw}${pre.freezer ? " 🧊 Freezer" : " ❄ Cooler"}` : raw;
+  const key = `custom_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`;
+  const cold = detectColdType(label);
+  const ckKey = detectChecklistKey(label);
+  const checklist = ckKey ? (CHECKLIST_DEFAULTS[ckKey] || []).map(i => ({ ...i })) : [];
+  let assetTag = pre?.tag || "";
+  if (!assetTag && cold && sectionKey === "equipment" && (normUnit(siteNumber) || (siteName || "").trim())) {
+    try {
+      const unitN = normUnit(siteNumber) || (siteName || "").replace(/[^A-Z0-9]/gi, "").toUpperCase().slice(0, 8) || "X";
+      const tagPre = `SDX-${cold.type === "freezer" ? "FZ" : "CL"}-${unitN}-`;
+      const used = new Set();
+      for (const v of Object.values(inspection?.equipment || {})) if (v?.assetTag) used.add(String(v.assetTag).toUpperCase());
+      for (const t of Object.keys(_equipRegCache || {})) used.add(String(t).toUpperCase());
+      try { for (const r of JSON.parse(localStorage.getItem(`sdx_history_cache_${VENUE_ID}`) || "[]")) for (const v of Object.values(r?.inspection?.equipment || {})) if (v?.assetTag) used.add(String(v.assetTag).toUpperCase()); } catch {}
+      let n = 1; while (used.has(tagPre + n)) n++;
+      assetTag = tagPre + n;
+      _freshEquipTags.add(assetTag);
+      const floor = floorForStand(siteNumber, siteName, siteFloor);
+      const known = standForStrict(siteNumber, siteName);
+      const rec = { assetTag, label: label + (cold.type === "freezer" ? " 🧊 Freezer" : " ❄ Cooler"), venueName: (siteName || "").trim().toUpperCase(), unit: (siteNumber || "").trim() || (known?.unit || ""), floor: floor || known?.floor || "", locType: siteLocType || known?.locType || "", standId: known?.id || "", location: "", brandName: "", createdAt: Date.now() };
+      _equipRegCache = { ...(_equipRegCache || {}), [assetTag]: rec };
+      try { localStorage.setItem(EQUIP_REG_LS, JSON.stringify(_equipRegCache)); } catch {}
+      { const _p = { items: { [assetTag]: rec }, labelIndex: { [assetTag]: { name: rec.label, brand: "", location: "", venueName: rec.venueName, unit: rec.unit, floor, locType: rec.locType, ts: Date.now() } } }; patchEquipDocCache(_p); if (FIREBASE_ON) setDoc(doc(db, "venues", VENUE_ID, "sharedMemory", "equipmentRegistry"), _p, { merge: true }).catch(() => {}); }
+    } catch { assetTag = ""; }
+  }
+  const node = { status: "OK", notes: "", photos: [], label, count: "", equipSource: "Facility", ...(assetTag ? { assetTag } : {}), ...(pre?.brand ? { brand: pre.brand } : {}), ...(pre?.location ? { location: pre.location, kitchenArea: pre.location } : {}), ...(cold ? { tempF: "" } : {}), ...(checklist.length ? { checklist } : {}) };
+  return { key, label, assetTag, node };
+}
+// the answers of a checklist row, wiped (used by "Not here" and the carry-over from the last report)
+const blankChecklistRows = rows => (rows || []).map(r => { const { value, comment, ciLocation, corrective, photos, ciStatus, specDetails, noPhotoReason, ...rest } = r || {}; return { ...rest, value: "" }; });
+const WALK_STATUS_Q = {
+  hairnets: ["Hair covered — hairnet or hat?", "Staff without a hairnet or hat"],
+  gloves: ["Gloves on for ready-to-eat food, changed between tasks?", "Staff not wearing or not changing gloves on ready-to-eat food"],
+  uniforms: ["Clean uniform, no jewelry on hands?", "Uniform not clean or jewelry on hands"],
+  handwashing: ["Staff wash hands at the hand sink (soap, 20 seconds)?", "Staff not washing hands the right way"],
+  illnessPolicy: ["Nobody working while sick?", "Sick staff handling food"],
+  foodLabeling: ["Food labeled with name and date?", "Food not labeled or dated"],
+  dateRotation: ["Oldest in front, nothing expired?", "Expired or out-of-date product"],
+  crossContamination: ["Raw meat below ready-to-eat food, separate boards?", "Raw meat stored over ready-to-eat food"],
+  chemicalStorage: ["Chemicals away from food and labeled?", "Chemicals stored near food or not labeled"],
+  thermometers: ["Probe thermometer here and clean?", "No probe thermometer, or not sanitized"],
+  staffingLevels: ["Enough staff for the line?", "Not enough staff"],
+  openFoodCoverage: ["Open food covered?", "Food left uncovered"],
+  pestControl: ["No bugs, no droppings?", "Signs of pests (bugs or droppings)"],
+  hvac: ["AC and vents working?", "AC or ventilation not working"],
+  plumbing: ["No leaks, no clogged drains?", "Leak or clogged drain"],
+  electricalSafety: ["No loose wires, outlets safe?", "Electrical hazard (wires or outlet)"],
+  dumpsterArea: ["Trash area clean, lids closed?", "Trash area dirty or lids open"],
+  structuralDamage: ["No broken walls, doors or fixtures?", "Building damage (wall, door or fixture)"],
+};
+const WALK_FIX = ["Told the manager", "Fixed it now", "Cleaned it", "Called maintenance", "Threw the food out", "Moved the food", "Asked for supplies"];
+const WALK_TEMP_FIX = ["Moved the food", "Threw it out", "Reheated to 165°F", "Cooked longer", "Put it back in the cooler", "Told the manager", "Recheck in 30 min"];
+// what fits each kind of bad reading — a broken sink is never "reheated"
+const WALK_FIX_COLD = ["Moved the food", "Threw it out", "Closed / fixed the door", "Called maintenance", "Told the manager", "Recheck in 30 min"];
+const WALK_FIX_SINK = ["Told the manager", "Called maintenance", "Ran the water longer", "Turned the water heater on", "Recheck in 30 min"];
+const WALK_FIX_HOT = ["Reheated to 165°F", "Cooked longer", "Threw it out", "Told the manager", "Recheck in 30 min"];
+const WALK_FIX_FOOD_COLD = ["Put it back in the cooler", "Added ice", "Threw it out", "Told the manager", "Recheck in 30 min"];
+const WALK_WHERE = ["Front of the house", "Back of the house", "Line", "Prep table", "Storage", "Walk-in"];
+const WALK_ADD_UNITS = [["2-Door Cooler", "cooler"], ["Prep Cooler", "cooler"], ["Reach-In Cooler", "cooler"], ["Walk-In Cooler", "cooler"], ["Chest Freezer", "freezer"], ["2-Door Freezer", "freezer"], ["Walk-In Freezer", "freezer"]];
+const walkNameOf = label => String(label || "").split(" — ")[0].replace(/\s*(❄|🧊)\s*(Cooler|Freezer)\s*$/u, "").trim();
+const walkQOf = label => { const parts = String(label || "").split(" — "); return parts.slice(1).join(" — ") || ""; };
+const walkNow = () => { const t = new Date(); return `${String(t.getHours()).padStart(2, "0")}:${String(t.getMinutes()).padStart(2, "0")}`; };
+function walkStatusQ(n) {
+  const q = WALK_STATUS_Q[n.key];
+  if (q) return { q: q[0], problem: q[1] };
+  const name = walkNameOf(n.label); const q2 = walkQOf(n.label);
+  return { q: q2 ? `${name} — ${q2}` : `${name} OK?`, problem: `${name} — not OK` };
+}
+const walkIsColdNode = (inspection, n) => n.section === "equipment" && !!(coldMapGet(n.key) || detectColdType(inspection?.equipment?.[n.key]?.label || ""));
+// Which areas, in which order, covering exactly the nodes the full guide shows for this stand type
+function walkAreasFor(locType, inspection, eventDay) {
+  const nodes = guideNodesFor(locType, inspection);
+  const SINK = new Set(["facility.handSink", "facility.threeCompSinks", "equipment.handWash", "equipment.sanitizer", "equipment.threeCompSink", "equipment.dumpSink"]);
+  const SUPPLY = new Set(["facility.ecolabProducts", "equipment.ecolab"]);
+  const by = { supplies: [], sinks: [], floors: [], repairs: [], coolers: [], equipment: [], utensils: [], food: [] };
+  for (const n of nodes) {
+    const id = n.path.join(".");
+    if (SUPPLY.has(id)) by.supplies.push(n);
+    else if (SINK.has(id)) by.sinks.push(n);
+    else if (n.section === "facility") by.floors.push(n);
+    else if (n.section === "maintenance") by.repairs.push(n);
+    else if (n.section === "equipment") (walkIsColdNode(inspection, n) ? by.coolers : by.equipment).push(n);
+    else if (n.section === "utensils") by.utensils.push(n);
+    else if (n.section === "operations") by.food.push(n);
+  }
+  if (eventDay) { const rank = k => { const i = GD_OPS.findIndex(g => g[0] === k); return i === -1 ? 99 : i; }; by.food.sort((a, b) => rank(a.key) - rank(b.key)); }
+  const A = {
+    supplies: { id: "supplies", icon: "🧪", title: "Supplies", look: "Soap, paper towels, sanitizer, test strips — tap anything that is missing.", nodes: by.supplies },
+    temps: { id: "temps", icon: "🌡", title: "Temperatures", look: "Coolers, freezers, hand sink, 3-comp sink and food. Type each number.", nodes: by.coolers, special: "temps" },
+    sinks: { id: "sinks", icon: "🚰", title: "Sinks", look: "Hand sink and 3-comp sink: clean, soap, paper towels, hot water, no leaks.", nodes: by.sinks },
+    floors: { id: "floors", icon: "🧱", title: "Floors, walls & ceiling", look: "Clean, dry, no holes or missing tiles, mop area tidy.", nodes: by.floors },
+    repairs: { id: "repairs", icon: "🔧", title: "Repairs", look: "Pests, AC, leaks, wires, trash area, broken things.", nodes: by.repairs },
+    coolers: { id: "coolers", icon: "❄", title: "Coolers & freezers", look: "Clean inside, door seals, nothing on the floor, food covered and dated.", nodes: by.coolers },
+    equipment: { id: "equipment", icon: "🔥", title: "Equipment", look: "Clean and working: warmers, grill, fryer, hood, ice machine…", nodes: by.equipment },
+    utensils: { id: "utensils", icon: "🍴", title: "Utensils", look: "Clean and stored the right way.", nodes: by.utensils },
+    food: { id: "food", icon: "🧤", title: "Food safety", look: "Gloves, hand washing, raw meat below ready-to-eat, food covered.", nodes: by.food },
+  };
+  const order = eventDay ? ["temps", "food", "coolers", "equipment", "sinks", "floors", "repairs", "utensils", "supplies"] : ["supplies", "temps", "sinks", "floors", "repairs", "coolers", "equipment", "utensils", "food"];
+  return order.map(id => ({ ...A[id], prio: !!eventDay && (id === "temps" || id === "food") })).filter(a => a.special || a.nodes.length);
+}
+try { window.__sdxWalkAreas = (t, insp) => walkAreasFor(t, insp || buildDefaultInspection(), false).map(a => ({ id: a.id, nodes: a.nodes.map(n => n.path.join(".")) })); } catch {}
+// Is this node answered? (N/A counts as answered)
+function walkNodeDone(inspection, n) {
+  const node = inspection?.[n.section]?.[n.key];
+  if (!node) return false;
+  if (node.notApplicable) return true;
+  if (Array.isArray(node.checklist) && node.checklist.length) { const rc = rowCounts(node); return rc.total > 0 && rc.answered >= rc.total; }
+  return !!node.checkedAt || !!(node.status && node.status !== "OK");
+}
+// The cold units of this walk (the guide's own cold items for the stand type + added units) — a unit not touched yet still shows
+const walkColdOf = (inspection, nodes) => (nodes || []).map(n => {
+  const v = inspection?.equipment?.[n.key] || {}; if (v.notApplicable) return null;
+  const c = coldMapGet(n.key) || detectColdType(v.label || n.label || "") || {}; const type = c.type || "cooler";
+  return { k: n.key, v, label: walkNameOf(v.label || n.label), type, max: type === "freezer" ? 20 : 40 };
+}).filter(Boolean);
+function walkTempsDone(inspection, nodes) {
+  const t = inspection?.temps || {};
+  const cold = walkColdOf(inspection, nodes);
+  const sinks = (String(t.handSinkTempF ?? "").trim() || t.handSinkOutOfOrder) && (String(t.threeCompSinkTempF ?? "").trim() || t.threeCompSinkOutOfOrder || t.threeCompSinkNA);
+  return !!sinks && cold.every(c => String(c.v.tempF ?? "").trim());
+}
+function walkAreaState(inspection, area) {
+  if (area.special === "temps") {
+    const t = inspection?.temps || {};
+    const any = String(t.handSinkTempF ?? "").trim() || String(t.threeCompSinkTempF ?? "").trim() || walkColdOf(inspection, area.nodes).some(c => String(c.v.tempF ?? "").trim());
+    return walkTempsDone(inspection, area.nodes) ? "done" : any ? "started" : "todo";
+  }
+  const done = area.nodes.filter(n => walkNodeDone(inspection, n)).length;
+  const touched = area.nodes.some(n => { const node = inspection?.[n.section]?.[n.key]; return node && (node.checkedAt || node.notApplicable || (node.checklist || []).some(c => c.value)); });
+  return done === area.nodes.length ? "done" : (done || touched) ? "started" : "todo";
+}
+// "✓ All good": every blank row YES, every untouched status item OK — a problem already marked stays
+function walkAllGood(prev, area) {
+  let next = prev; const now = Date.now();
+  for (const n of area.nodes) {
+    const node = next?.[n.section]?.[n.key] || withPhotos({ status: "OK", notes: "" }); if (node.notApplicable) continue;
+    if (Array.isArray(node.checklist) && node.checklist.length) {
+      const cl = node.checklist.map(c => (!c.isOther && (c.value === "" || c.value == null)) ? { ...c, value: "YES" } : c);
+      next = setAtPath(next, n.path, { ...node, checklist: cl, status: nodeStatusAfter(node.status, cl), checkedAt: node.checkedAt || now });
+    } else if (!node.status || node.status === "OK") {
+      next = setAtPath(next, n.path, { ...node, status: "OK", checkedAt: node.checkedAt || now });
+    }
+  }
+  return next;
+}
+// Photos for a row (idx) or for the whole item (idx === null) — resized, uploaded, never the original (v477 rules)
+async function addWalkPhoto({ setInspection, path, idx, files, tag = "", inspectionId, onError }) {
+  const inspId = inspectionId || `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  const picked = Array.from(files || []).slice(0, PHOTO_LIMIT); const skips = []; let failCount = 0;
+  const patchPhotos = (fn) => setInspection(prev => {
+    const cur = getAtPath(prev, path) || withPhotos({ status: "OK", notes: "" });
+    if (idx === null) return setAtPath(prev, path, { ...cur, photos: fn(cur.photos || []) });
+    const cl = (cur.checklist || []).map((c, i) => i === idx ? { ...c, photos: fn(c.photos || []) } : c);
+    return setAtPath(prev, path, { ...cur, checklist: cl });
+  });
+  for (const f of picked) {
+    const prep = await prepPhoto(f);
+    if (!prep.ok) { skips.push({ name: f.name, reason: prep.reason }); continue; }
+    const photoId = `${Date.now()}_${Math.random().toString(16).slice(2)}`;
+    const ph = { id: photoId, thumbUrl: prep.thumbUrl, uploading: true, previewUrl: prep.thumbUrl, type: "image/jpeg", sizeMb: bytesToMb(f.size), name: f.name, tag };
+    patchPhotos(list => [...list, ph].slice(0, PHOTO_LIMIT));
+    let finalPreview = prep.exportUrl, finalExport = prep.exportUrl;
+    if (FIREBASE_ON) { const url = await uploadPhoto(prep.exportUrl, activeVenueId, inspId, photoId); if (url) { finalPreview = url; finalExport = url; } else failCount++; }
+    patchPhotos(list => list.map(p => p.id === photoId ? { ...p, previewUrl: finalPreview, exportUrl: finalExport, uploading: false } : p));
+  }
+  if (skips.length) onError?.(photoSkipToast(skips));
+  if (failCount) onError?.(`⚠️ ${failCount} photo${failCount > 1 ? "s" : ""} kept on this phone only (upload failed) — it uploads with the report later.`);
+}
+
+function WalkCoach({ onDone }) {
+  const [i, setI] = useState(0);
+  const cards = [
+    ["👋", "Hi! This is your inspection walk.", "Go area by area. Most areas take one tap."],
+    ["✓", "Everything fine? Tap “All good”.", "Something wrong? Tap “Something's wrong”, pick the problem, take a photo, say what you did."],
+    ["🌡", "Type the temperatures.", "Green = good, red = tell us what you did. At the end, tap Save. That's it!"],
+  ];
+  const [ic, t1, t2] = cards[i];
+  return ReactDOM.createPortal( // portal: the form card animates with a transform, which would trap position:fixed
+    <div className="walkCoach" data-testid="walk-coach">
+      <div className="walkCoachCard">
+        <div className="walkCoachIcon">{ic}</div>
+        <div className="walkCoachTitle">{t1}</div>
+        <div className="walkCoachText">{t2}</div>
+        <div className="walkCoachDots">{cards.map((_, k) => <span key={k} className={k === i ? "on" : ""} />)}</div>
+        {i < cards.length - 1
+          ? <button type="button" className="walkBtnOk" data-testid="walk-coach-next" onClick={() => setI(i + 1)}>Next →</button>
+          : <button type="button" className="walkBtnOk" data-testid="walk-coach-done" onClick={onDone}>Let's start</button>}
+        <button type="button" className="walkLinkBtn" onClick={onDone}>Skip</button>
+      </div>
+    </div>, document.body);
+}
+
+function WalkStart({ onPickStand, onScan, siteName }) {
+  const [q, setQ] = useState("");
+  const [typed, setTyped] = useState("");
+  const [stands, setStands] = useState(() => (_standListCache.length ? _standListCache : standSeeds()));
+  useEffect(() => { let live = true; loadStandList().then(l => { if (live && l?.length) setStands(l); }).catch(() => {}); const on = () => { if (live && _standListCache.length) setStands(_standListCache); }; window.addEventListener("sdx-stands-loaded", on); return () => { live = false; window.removeEventListener("sdx-stands-loaded", on); }; }, []);
+  const recent = useMemo(() => {
+    try {
+      const hist = JSON.parse(localStorage.getItem(`sdx_history_cache_${VENUE_ID}`) || "[]");
+      const out = []; const seen = new Set();
+      for (const r of hist) { if (r.quickProblem || r.supervisorLog || r.quickEquipCheck) continue; const st = standForStrict(r.siteNumber, r.siteName); if (!st || seen.has(st.id)) continue; seen.add(st.id); out.push(st); if (out.length >= 4) break; }
+      return out;
+    } catch { return []; }
+  }, [stands]);
+  const qq = q.trim().toLowerCase(); const qU = normUnit(q);
+  const list = (qq ? stands.filter(k => `${k.site} ${k.unit}`.toLowerCase().includes(qq) || (qU && normUnit(k.unit).startsWith(qU))) : stands).slice().sort(standPrintOrder).slice(0, qq ? 40 : 12);
+  const row = k => (
+    <button key={k.id} type="button" className="walkStandRow" data-testid="walk-stand-row" data-id={k.id} onClick={() => onPickStand(k)}>
+      <span className="walkStandRowName"><NT>{String(k.site || "").toUpperCase()}</NT></span>
+      <span className="walkStandRowMeta">{k.unit ? <NT>#{k.unit}</NT> : null}{k.floor ? ` · ${k.floor}` : ""}</span>
+      <StandType lt={k.locType} />
+    </button>
+  );
+  return (
+    <div className="walkStart" data-testid="walk-start">
+      <div className="walkStartTitle">Which stand are you inspecting?</div>
+      <button type="button" className="walkScanBtn" data-testid="walk-scan" onClick={onScan}><span className="walkScanIcon">📷</span><span>Scan the stand QR<small>on the poster at the stand</small></span></button>
+      {recent.length > 0 && !qq && (
+        <div className="walkRecent" data-testid="walk-stand-recent"><div className="walkSmallHead">Recent</div>{recent.map(row)}</div>
+      )}
+      <div className="walkSmallHead">Or find it</div>
+      <input className="input walkSearch" data-testid="walk-stand-search" value={q} onChange={e => setQ(e.target.value)} placeholder="🔎 Stand name or unit #" />
+      <div className="walkStandList">{list.map(row)}</div>
+      {qq && list.length === 0 && <div className="walkNone">No stand matches “{q}”.</div>}
+      <div className="walkSmallHead">Not in the list?</div>
+      <div className="walkTypeRow">
+        <input className="input" value={typed} onChange={e => setTyped(e.target.value.toUpperCase())} placeholder="Type the stand name" data-testid="walk-stand-other" />
+        <button type="button" className="walkBtnOk walkBtnSmall" disabled={!typed.trim()} onClick={() => onPickStand({ site: typed.trim(), unit: "", floor: "", locType: "" })}>Start</button>
+      </div>
+    </div>
+  );
+}
+
+function WalkProblemSheet({ sheet, inspection, setInspection, inspectionId, onError, onClose, onUndo, foodTempCorrections }) {
+  const { path, idx, title, isMaint, isTemp } = sheet;
+  const node = getAtPath(inspection, path) || {};
+  const row = idx !== null && idx !== undefined ? (node.checklist || [])[idx] || {} : null;
+  const photos = isTemp ? [] : (row ? (row.photos || []) : (node.photos || []));
+  const fixField = isTemp ? (sheet.tempField || "tempCorrective") : "corrective";
+  const fixText = isTemp ? (sheet.readFix ? sheet.readFix(inspection, foodTempCorrections) : "") : (row ? (row.corrective || "") : (node.corrective || ""));
+  const where = row ? (row.ciLocation || "") : "";
+  const words = row ? (row.comment || "") : "";
+  const fixes = String(fixText || "").split(" · ").filter(Boolean);
+  const camRef = useRef(null), galRef = useRef(null);
+  const write = patch => {
+    if (isTemp) { sheet.setFix?.(patch.fix ?? fixText); return; }
+    setInspection(prev => {
+      const cur = getAtPath(prev, path) || withPhotos({ status: "OK", notes: "" });
+      if (row) { const cl = (cur.checklist || []).map((c, i) => i === idx ? { ...c, ...patch } : c); return setAtPath(prev, path, { ...cur, checklist: cl }); }
+      return setAtPath(prev, path, { ...cur, ...patch });
+    });
+  };
+  const toggleFix = f => { const set = fixes.includes(f) ? fixes.filter(x => x !== f) : [...fixes, f]; const v = set.join(" · "); isTemp ? sheet.setFix?.(v) : write({ [fixField]: v }); };
+  const urgent = !row && node.status === "Critical Violation";
+  return ReactDOM.createPortal(
+    <div className="walkSheetBackdrop" onClick={onClose}>
+      <div className="walkSheet" data-testid="walk-sheet" onClick={e => e.stopPropagation()}>
+        <div className="walkSheetGrip" />
+        <div className="walkSheetTitle" data-testid="walk-sheet-title">⚠ {title}</div>
+        {!isTemp && (
+          <>
+            <button type="button" className={"walkPhotoBtn" + (photos.length ? " has" : "")} data-testid="walk-photo" onClick={() => camRef.current?.click()}>📷 {photos.length ? `Photo added (${photos.length}) — add another` : "Take a photo"}</button>
+            <button type="button" className="walkLinkBtn" onClick={() => galRef.current?.click()}>or pick from photos</button>
+            <input ref={camRef} type="file" accept="image/*" capture="environment" className="fileInput" data-testid="walk-photo-input" onChange={e => { const f = e.target.files; addWalkPhoto({ setInspection, path, idx: row ? idx : null, files: f, inspectionId, onError }); e.target.value = ""; }} />
+            <input ref={galRef} type="file" accept="image/*" multiple className="fileInput" onChange={e => { const f = e.target.files; addWalkPhoto({ setInspection, path, idx: row ? idx : null, files: f, inspectionId, onError }); e.target.value = ""; }} />
+            {photos.length > 0 && <div className="walkThumbs">{photos.map(p => <img key={p.id} src={p.thumbUrl || p.previewUrl} alt="" data-testid="walk-photo-thumb" />)}</div>}
+          </>
+        )}
+        <div className="walkSheetLbl">What did you do? <small>(tap all that apply)</small></div>
+        <div className="swChips">{(isTemp ? (sheet.fixList || WALK_TEMP_FIX) : WALK_FIX).map(f => <button key={f} type="button" className={"swChip" + (fixes.includes(f) ? " on" : "")} data-testid="walk-fix-chip" data-v={f} onClick={() => toggleFix(f)}>{fixes.includes(f) ? "✓ " : ""}{f}</button>)}</div>
+        {row && (
+          <>
+            <div className="walkSheetLbl">Where? <small>(optional)</small></div>
+            <div className="swChips">{WALK_WHERE.map(w => <button key={w} type="button" className={"swChip" + (where === w ? " on" : "")} data-testid="walk-where-chip" onClick={() => write({ ciLocation: where === w ? "" : w })}>{w}</button>)}</div>
+            <input className="input walkWords" value={words} onChange={e => write({ comment: e.target.value })} placeholder="Add a few words (optional)" />
+          </>
+        )}
+        {!row && !isTemp && (
+          <>
+            {isMaint && <button type="button" className={"swChip walkUrgent" + (urgent ? " on" : "")} data-testid="walk-urgent" onClick={() => write(urgent ? { status: "Needs Attention", priority: "Med" } : { status: "Critical Violation", priority: "High" })}>🚨 Urgent — needs help now</button>}
+            <input className="input walkWords" value={(node.notes || "").replace(sheet.problem || "", "").replace(/^ — /, "")} onChange={e => write({ notes: `${sheet.problem || ""}${e.target.value.trim() ? ` — ${e.target.value}` : ""}` })} placeholder="Add a few words (optional)" />
+          </>
+        )}
+        <div className="walkSheetActs">
+          <button type="button" className="walkBtnSkip" data-testid="walk-sheet-undo" onClick={onUndo}>{isTemp ? "Close" : "↩ It's fine"}</button>
+          <button type="button" className="walkBtnOk" data-testid="walk-sheet-done" onClick={onClose}>✓ Done</button>
+        </div>
+      </div>
+    </div>, document.body);
+}
+
+function WalkTemps({ inspection, setInspection, siteName, siteNumber, floor, locationType, foodTemps, foodTempNames, foodTempCorrections, foodTempSubmitted, foodTempTimes, food, openTempSheet, coldNodes }) {
+  const cold = walkColdOf(inspection, coldNodes);
+  const t = inspection?.temps || {};
+  const have = new Set(Object.values(inspection?.equipment || {}).map(v => String(v?.assetTag || "").toUpperCase()).filter(Boolean));
+  const missing = (normUnit(siteNumber) || (siteName || "").trim()) ? equipUnitsAtStand(siteNumber, siteName).filter(u => !have.has(String(u.tag).toUpperCase())) : [];
+  const [foodPick, setFoodPick] = useState("");
+  // the stand's own registered units come in by themselves the first time Temperatures opens (a reading for each is what "done" means)
+  const addUnitsRef = useRef(null); const autoRef = useRef(false);
+  useEffect(() => { if (!autoRef.current && missing.length) { autoRef.current = true; addUnitsRef.current?.(missing); } }, [missing.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  const naCold = (coldNodes || []).map(n => ({ k: n.key, v: inspection?.equipment?.[n.key] || {}, label: walkNameOf(inspection?.equipment?.[n.key]?.label || n.label) })).filter(c => c.v.notApplicable);
+  const setNa = (k, on) => setInspection(prev => { const node = prev.equipment?.[k] || withPhotos({ status: "OK", notes: "" }); return setAtPath(prev, ["equipment", k], on ? { ...node, notApplicable: true, status: "OK", tempF: "", tempCorrective: "", checkedAt: node.checkedAt || Date.now(), ...(Array.isArray(node.checklist) ? { checklist: node.checklist.map(c => ({ ...blankChecklistRows([c])[0], photos: [] })) } : {}) } : { ...node, notApplicable: false }); });
+  // the same path as the full guide's "+": registered units keep their tag; a new cold unit gets its SDX tag + registry record
+  const addUnits = list => {
+    const made = list.map(u => createEquipUnit({ label0: u.name, pre: u.tag ? u : null, inspection, siteName, siteNumber, siteFloor: floor, siteLocType: locationType }));
+    setInspection(prev => { const eq = { ...(prev.equipment || {}) }; made.forEach(m => { eq[m.key] = m.node; }); return { ...prev, equipment: eq }; });
+  };
+  addUnitsRef.current = addUnits;
+  const msg = (val, ok, max, min) => { const n = parseFloat(val); if (String(val ?? "").trim() === "" || !Number.isFinite(n)) return null; return ok(n) ? { ok: true, text: `✓ ${n}°F — good` } : { ok: false, text: `✗ ${n}°F — ${max !== undefined ? `too warm, must be ${max}°F or less` : `too cold, must be ${min}°F or more`}` }; };
+  const tempRow = ({ key, label, val, okFn, max, min, onVal, neg, ooo, onOoo, none, onNone, onNa, fix, sheetTitle, setFix, readFix, fixList }) => {
+    const m = none ? { ok: true, text: "No 3-comp sink at this stand" } : ooo ? { ok: false, text: "✗ Not working" } : msg(val, okFn, max, min);
+    return (
+      <div key={key} className={"walkTempRow" + (m ? (m.ok ? " ok" : " bad") : "")} data-testid="walk-temp-row" data-key={key} data-state={m ? (m.ok ? "ok" : "bad") : "empty"}>
+        <div className="walkTempTop">
+          <span className="walkTempName"><NT>{label}</NT></span>
+          <span className="walkTempRule">{max !== undefined ? `≤ ${max}°F` : `≥ ${min}°F`}</span>
+        </div>
+        <div className="walkTempInputRow">
+          {neg && <button type="button" className="walkTempNeg" data-testid="walk-temp-neg" onClick={() => onVal(String(val || "").startsWith("-") ? String(val).slice(1) : `-${val || ""}`)}>−</button>}
+          <input className="walkTempInput" data-testid="walk-temp-input" type="text" inputMode="decimal" enterKeyHint="next" value={val ?? ""} disabled={!!ooo || !!none} placeholder="–"
+            onChange={e => onVal(cleanTempInput(e.target.value))}
+            onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); const all = [...document.querySelectorAll(".walkTempInput:not([disabled])")]; const i = all.indexOf(e.currentTarget); all[i + 1]?.focus(); } }} />
+          <span className="walkTempF">°F</span>
+          {onOoo && !none && <button type="button" className={"swChip walkOoo" + (ooo ? " on" : "")} data-testid="walk-temp-ooo" onClick={onOoo}>{ooo ? "✓ Not working" : "Not working"}</button>}
+          {onNone && !ooo && <button type="button" className={"swChip walkOoo" + (none ? " on" : "")} data-testid="walk-temp-none" onClick={onNone}>{none ? "↩ There is one" : "None here"}</button>}
+          {onNa && <button type="button" className="swChip walkOoo" data-testid="walk-temp-na" onClick={onNa}>Not here</button>}
+        </div>
+        {m && <div className="walkTempMsg" data-testid="walk-temp-msg">{m.text}</div>}
+        {m && !m.ok && (
+          <button type="button" className={"walkFixBtn" + (fix ? " done" : "")} data-testid="walk-temp-fix" onClick={() => openTempSheet({ title: sheetTitle, setFix, readFix, fixList })}>{fix ? `🔧 ${fix}` : "What did you do? →"}</button>
+        )}
+      </div>
+    );
+  };
+  const setEq = (k, patch) => setInspection(prev => setAtPath(prev, ["equipment", k], { ...(prev.equipment?.[k] || withPhotos({ status: "OK", notes: "" })), ...patch }));
+  const setT = patch => setInspection(prev => ({ ...prev, temps: { ...(prev.temps || {}), ...patch } }));
+  const foodRows = [];
+  for (const it of HACCP_TEMP_ITEMS) (foodTemps?.[it.key] || []).forEach((v, i) => { if (String(v ?? "").trim() || String(foodTempTimes?.[it.key]?.[i] || "").trim()) foodRows.push({ it, i, v }); }); // a row added in the walk has its time
+  return (
+    <div className="walkTemps">
+      <div className="walkSmallHead">❄ Coolers & freezers</div>
+      {missing.length > 0 && <button type="button" className="walkLoadBtn" data-testid="walk-load-units" onClick={() => addUnits(missing)}>＋ Add this stand's {missing.length} cooler{missing.length !== 1 ? "s" : ""} / freezer{missing.length !== 1 ? "s" : ""}</button>}
+      {cold.map(c => tempRow({ key: c.k, label: c.label, val: c.v.tempF, okFn: n => n <= c.max, max: c.max, neg: c.type === "freezer", onNa: String(c.v.tempF ?? "").trim() ? null : () => setNa(c.k, true), onVal: v => setEq(c.k, { tempF: v }), fix: c.v.tempCorrective, sheetTitle: `${c.label} is too warm`, fixList: WALK_FIX_COLD, setFix: v => setEq(c.k, { tempCorrective: v }), readFix: insp => insp?.equipment?.[c.k]?.tempCorrective || "" }))}
+      {naCold.length > 0 && <div className="swChips walkNaBack">{naCold.map(c => <button key={c.k} type="button" className="swChip" data-testid="walk-temp-back" onClick={() => setNa(c.k, false)}>↩ <NT>{c.label}</NT> is here</button>)}</div>}
+      <div className="swChips walkAddUnits">
+        {WALK_ADD_UNITS.map(([n, ty]) => <button key={n} type="button" className="swChip" data-testid={ty === "freezer" ? "walk-add-freezer" : "walk-add-cooler"} onClick={() => addUnits([{ name: n, freezer: ty === "freezer" }])}>＋ {n}</button>)}
+      </div>
+      <div className="walkSmallHead">🚰 Sinks</div>
+      {tempRow({ key: "handSink", label: "Hand sink — hot water", val: t.handSinkTempF, okFn: n => n >= 95, min: 95, onVal: v => setT({ handSinkTempF: v, handSinkSubmitted: !!v }), ooo: !!t.handSinkOutOfOrder, onOoo: () => setT(t.handSinkOutOfOrder ? { handSinkOutOfOrder: false } : { handSinkOutOfOrder: true, handSinkTempF: "", handSinkSubmitted: false }), fix: t.handSinkCorrection, sheetTitle: t.handSinkOutOfOrder ? "Hand sink is not working" : "Hand sink water is not hot enough", fixList: WALK_FIX_SINK, setFix: v => setT({ handSinkCorrection: v }), readFix: insp => insp?.temps?.handSinkCorrection || "" })}
+      {tempRow({ key: "threeCompSink", label: "3-comp sink — wash water", val: t.threeCompSinkTempF, okFn: n => n >= 110, min: 110, onVal: v => setT({ threeCompSinkTempF: v, threeCompSinkSubmitted: !!v }), ooo: !!t.threeCompSinkOutOfOrder, onOoo: () => setT(t.threeCompSinkOutOfOrder ? { threeCompSinkOutOfOrder: false } : { threeCompSinkOutOfOrder: true, threeCompSinkTempF: "", threeCompSinkSubmitted: false }),
+        none: !!t.threeCompSinkNA, onNone: () => setT(t.threeCompSinkNA ? { threeCompSinkNA: false } : { threeCompSinkNA: true, threeCompSinkTempF: "", threeCompSinkSubmitted: false, threeCompSinkCorrection: "" }), fix: t.threeCompSinkCorrection, sheetTitle: t.threeCompSinkOutOfOrder ? "3-comp sink is not working" : "3-comp wash water is not hot enough", fixList: WALK_FIX_SINK, setFix: v => setT({ threeCompSinkCorrection: v }), readFix: insp => insp?.temps?.threeCompSinkCorrection || "" })}
+      <div className="walkSmallHead">🍗 Food <small>(optional — add what you probe)</small></div>
+      {foodRows.map(({ it, i, v }) => {
+        const name = foodTempNames?.[it.key]?.[i] || "";
+        return (
+          <div key={`${it.key}_${i}`} className="walkFoodRow" data-testid="walk-food-row" data-key={it.key}>
+            {tempRow({ key: `${it.key}_${i}`, label: `${it.label}${name ? ` · ${name}` : ""}`, val: v, okFn: n => it.type === "hot" ? n >= it.min : n <= it.max, max: it.type === "cold" ? it.max : undefined, min: it.type === "hot" ? it.min : undefined, neg: it.type === "cold", onVal: val => food.set(it.key, i, { value: val }), fix: foodTempCorrections?.[it.key]?.[i], sheetTitle: `${it.label}${name ? ` (${name})` : ""} is out of range`, fixList: it.type === "hot" ? WALK_FIX_HOT : WALK_FIX_FOOD_COLD, setFix: val => food.set(it.key, i, { correction: val }), readFix: (insp, fc) => fc?.[it.key]?.[i] || "" })}
+            {!name && (it.foods || []).length > 0 && <div className="swChips walkFoodNames">{it.foods.map(f => <button key={f} type="button" className="swChip" onClick={() => food.set(it.key, i, { name: f })}>{f}</button>)}</div>}
+          </div>
+        );
+      })}
+      {foodPick ? (
+        <div className="swChips" data-testid="walk-food-types">
+          {HACCP_TEMP_ITEMS.map(it => <button key={it.key} type="button" className="swChip" data-testid={`walk-food-type-${it.key}`} onClick={() => { food.add(it.key); setFoodPick(""); }}>{it.type === "hot" ? "🔥" : "❄"} {it.label}</button>)}
+          <button type="button" className="walkLinkBtn" onClick={() => setFoodPick("")}>Cancel</button>
+        </div>
+      ) : <button type="button" className="walkLoadBtn" data-testid="walk-food-add" onClick={() => setFoodPick("open")}>＋ Add a food temperature</button>}
+    </div>
+  );
+}
+
+function SimpleWalk(props) {
+  const { inspection, setInspection, locationType, siteName, siteNumber, floor, eventDay, eventName, inspectionId, onError,
+    onPickStand, onScan, onChangeStand, onToggleDetails, detailsOpen, supervisorName, setSupervisorName, rawNotes, setRawNotes,
+    onSave, saving, saved, onNew, onViewReport, onHaccpQr, onFull, standOpenProblems, correctives, setCorrectives, suppliesNeeded,
+    onSiteConfirmed, onConfirmOnSite, nluIssues, onNlu } = props;
+  const areas = useMemo(() => walkAreasFor(locationType, inspection, eventDay), [locationType, inspection, eventDay]);
+  const states = areas.map(a => walkAreaState(inspection, a));
+  const doneN = states.filter(s => s === "done").length;
+  const [open, setOpen] = useState(null);       // area id open
+  const [wrong, setWrong] = useState(null);     // area id in "something's wrong" mode
+  const [item, setItem] = useState(null);       // node path id chosen in wrong mode
+  const [sheet, setSheet] = useState(null);     // problem sheet
+  const [undo, setUndo] = useState(null);       // { snap, text }
+  const [review, setReview] = useState(false);
+  const [help, setHelp] = useState(null);
+  const [coach, setCoach] = useState(() => { try { return !localStorage.getItem("sdx_walk_coach_seen"); } catch { return false; } });
+  const undoTimer = useRef(null);
+  const hasStand = !!(siteName || "").trim();
+  useEffect(() => { if (hasStand && open === null && !review) { const i = states.findIndex(s => s !== "done"); setOpen(areas[i >= 0 ? i : 0]?.id || null); } }, [hasStand]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (!hasStand) { setOpen(null); setWrong(null); setItem(null); setReview(false); } }, [hasStand]);
+  // another report or another stand type: nothing from the old screen may point into the new one
+  useEffect(() => { setWrong(null); setItem(null); setSheet(null); setUndo(null); clearTimeout(undoTimer.current); }, [locationType, inspectionId]);
+  useEffect(() => () => clearTimeout(undoTimer.current), []);
+  // a stand that arrived any other way (QR link, assigned chip, restored draft) also starts the on-site clock
+  useEffect(() => { if (hasStand && !onSiteConfirmed) onConfirmOnSite?.(); }, [hasStand]); // eslint-disable-line react-hooks/exhaustive-deps
+  // "Go fix →" from the save check lands here in simple mode
+  useEffect(() => {
+    const on = e => { const hit = e.detail || {}; const a = areas.find(x => !x.special && x.nodes.some(n => n.path.join(".") === hit.key)); if (!a) return; setReview(false); setOpen(a.id); setWrong(a.id); setItem(hit.key); if (hit.ci != null) { const node = getAtPath(inspection, hit.key.split(".")); const row = node?.checklist?.[hit.ci]; if (row) setSheet({ path: hit.key.split("."), idx: hit.ci, title: row.problem || row.label }); } };
+    window.addEventListener("sdx-walk-open", on); return () => window.removeEventListener("sdx-walk-open", on);
+  }, [areas, inspection]);
+  useEffect(() => { const on = () => { setReview(true); setOpen(null); setSheet(null); try { window.scrollTo({ top: 0, behavior: "smooth" }); } catch {} }; window.addEventListener("sdx-walk-review", on); return () => window.removeEventListener("sdx-walk-review", on); }, []);
+  const showUndo = (revert, text) => { setUndo({ revert, text }); clearTimeout(undoTimer.current); undoTimer.current = setTimeout(() => setUndo(null), 8000); };
+  const nextOpen = (fromId, insp) => { const st = areas.map(a => walkAreaState(insp, a)); const i0 = areas.findIndex(a => a.id === fromId); for (let k = 1; k <= areas.length; k++) { const j = (i0 + k) % areas.length; if (st[j] !== "done") return areas[j].id; } return null; };
+  const allGood = a => {
+    // undo puts back ONLY what "All good" changed (row values, status, checkedAt, nodes it created) — later edits and photo uploads stay
+    const before = a.nodes.map(n => { const node = getAtPath(inspection, n.path); return { path: n.path, existed: !!node, status: node?.status, checkedAt: node?.checkedAt, values: (node?.checklist || []).map(c => c.value) }; });
+    const next = walkAllGood(inspection, a);
+    setInspection(next); setWrong(null); setItem(null);
+    showUndo(prev => before.reduce((acc, b) => {
+      const cur = getAtPath(acc, b.path); if (!cur) return acc;
+      const cl = (cur.checklist || []).map((c, i) => (b.values[i] === "" || b.values[i] == null) && c.value === "YES" ? { ...c, value: b.values[i] ?? "" } : c);
+      if (!b.existed && !cl.some(c => c.value === "NO") && !(cur.photos || []).length && !cl.some(c => (c.photos || []).length)) { const sec = { ...(acc[b.path[0]] || {}) }; delete sec[b.path[1]]; return { ...acc, [b.path[0]]: sec }; }
+      return setAtPath(acc, b.path, { ...cur, checklist: cl, status: nodeStatusAfter(b.existed ? b.status : cur.status, cl), checkedAt: b.checkedAt });
+    }, prev), `✓ ${a.title} — all good`);
+    const n = nextOpen(a.id, next); setOpen(n); if (!n) setReview(true);
+    setTimeout(() => { try { document.querySelector(`[data-testid="walk-area-${n}"]`)?.scrollIntoView({ behavior: "smooth", block: "start" }); } catch {} }, 120);
+  };
+  // "Not here": the unit is not at this stand — its old answers go too (a hidden NO or 50°F would still reach the report)
+  const markNA = n => setInspection(prev => {
+    const node = getAtPath(prev, n.path) || withPhotos({ status: "OK", notes: "" });
+    if (node.notApplicable) return setAtPath(prev, n.path, { ...node, notApplicable: false });
+    return setAtPath(prev, n.path, { ...node, notApplicable: true, status: "OK", notes: "", corrective: "", photos: [], checkedAt: node.checkedAt || Date.now(),
+      ...(Array.isArray(node.checklist) ? { checklist: node.checklist.map(c => ({ ...blankChecklistRows([c])[0], photos: [] })) } : {}),
+      ...("tempF" in node ? { tempF: "", tempCorrective: "" } : {}) });
+  });
+  const flagRow = (n, idx) => {
+    const node = getAtPath(inspection, n.path) || {}; const row = node.checklist?.[idx];
+    setInspection(prev => { const cur = getAtPath(prev, n.path) || {}; const cl = (cur.checklist || []).map((c, i) => i === idx ? { ...c, value: "NO" } : c); return setAtPath(prev, n.path, { ...cur, checklist: cl, status: nodeStatusAfter(cur.status, cl), checkedAt: cur.checkedAt || Date.now() }); });
+    if (row?.supply) setTimeout(() => { try { window.dispatchEvent(new CustomEvent("sdx-supply-needed", { detail: { item: row.supply, on: true } })); } catch {} }, 0);
+    setSheet({ path: n.path, idx, title: row?.problem || row?.label || "Problem" });
+  };
+  // "↩ It's fine": the row / item is NOT a problem after all — always clears the flag (no snapshot that could be stale)
+  const unflag = sh => {
+    if (!sh || sh.isTemp) return;
+    if (sh.idx !== null && sh.idx !== undefined) {
+      setInspection(prev => {
+        const cur = getAtPath(prev, sh.path) || {}; const row = cur.checklist?.[sh.idx]; if (!row) return prev;
+        const cl = cur.checklist.map((c, i) => i === sh.idx ? { ...blankChecklistRows([c])[0], value: "YES", photos: [] } : c);
+        if (row.supply && row.value === "NO") setTimeout(() => { try { window.dispatchEvent(new CustomEvent("sdx-supply-needed", { detail: { item: row.supply, on: false } })); } catch {} }, 0);
+        return setAtPath(prev, sh.path, { ...cur, checklist: cl, status: nodeStatusAfter(cur.status, cl) });
+      });
+    } else setInspection(prev => setAtPath(prev, sh.path, statusCleared(getAtPath(prev, sh.path), sh)));
+  };
+  const statusCleared = (cur, sh) => {
+    cur = cur || withPhotos({ status: "OK", notes: "" });
+    const prob = sh?.problem || walkStatusQ({ key: sh?.path?.[1], label: cur.label || "" }).problem;
+    const notes = String(cur.notes || "").replace(prob, "").replace(/^\s*—\s*/, "").trim();
+    return { ...cur, status: "OK", notes, corrective: "", photos: [], checkedAt: Date.now(), ...(sh?.prevPriority !== undefined ? { priority: sh.prevPriority } : cur.priority === "Med" || cur.priority === "High" ? { priority: "Low" } : {}) };
+  };
+  const flagStatus = (n, isMaint) => {
+    const { problem } = walkStatusQ(n); const prevPriority = getAtPath(inspection, n.path)?.priority;
+    setInspection(prev => { const cur = getAtPath(prev, n.path) || withPhotos({ status: "OK", notes: "" }); return setAtPath(prev, n.path, { ...cur, status: cur.status && cur.status !== "OK" ? cur.status : "Needs Attention", ...(isMaint ? { priority: cur.priority && cur.priority !== "Low" ? cur.priority : "Med" } : {}), notes: (cur.notes || "").trim() ? cur.notes : problem, checkedAt: Date.now() }); });
+    setSheet({ path: n.path, idx: null, title: problem, problem, isMaint, prevPriority });
+  };
+  const toggleSupply = (n, idx) => {
+    setInspection(prev => { const cur = getAtPath(prev, n.path) || {}; const was = cur.checklist?.[idx]?.value; const v = was === "NO" ? "" : "NO"; const cl = (cur.checklist || []).map((c, i) => i === idx ? { ...c, value: v, ...(v === "NO" && c.supply && !c.corrective ? { corrective: "Asked for supplies" } : {}), ...(v !== "NO" && c.corrective === "Asked for supplies" ? { corrective: "" } : {}) } : c); const row = cl[idx]; if (row?.supply) setTimeout(() => { try { window.dispatchEvent(new CustomEvent("sdx-supply-needed", { detail: { item: row.supply, on: v === "NO" } })); } catch {} }, 0); return setAtPath(prev, n.path, { ...cur, checklist: cl, status: nodeStatusAfter(cur.status, cl), checkedAt: cur.checkedAt || Date.now() }); });
+  };
+  // problems for the review
+  const problems = [];
+  for (const a of areas) for (const n of a.nodes) {
+    if (a.special) continue; // the temperatures area is a view of the cooler units — they are listed under Coolers
+    const node = getAtPath(inspection, n.path); if (!node || node.notApplicable) continue;
+    if ((node.checklist || []).length && !(node.checklist || []).some(c => c.value === "NO") && node.status && !AUTO_STATUS(node.status) && node.status !== "N/A" && node.status !== "Off / Not In Use") problems.push({ key: `${n.path.join(".")}#s`, area: a, n, idx: null, title: `${walkNameOf(n.label)}: ${node.status}${(node.notes || "").trim() ? ` — ${node.notes.trim()}` : ""}`, photo: true, fix: true });
+    (node.checklist || []).forEach((c, i) => { if (c.value === "NO") problems.push({ key: `${n.path.join(".")}#${i}`, area: a, n, idx: i, title: `${walkNameOf(n.label)}: ${c.problem || c.label}`, photo: (c.photos || []).some(p => p.tag !== "after"), fix: !!(c.corrective || "").trim(), supply: !!c.supply }); });
+    if (!(node.checklist || []).length && node.status && node.status !== "OK" && node.status !== "N/A") problems.push({ key: n.path.join("."), area: a, n, idx: null, title: `${walkNameOf(n.label)}: ${(node.notes || "").trim() || node.status}`, photo: (node.photos || []).length > 0, fix: !!(node.corrective || "").trim() });
+  }
+  const tt = inspection?.temps || {};
+  const tempProblems = [
+    ...walkColdOf(inspection, areas.find(x => x.id === "temps")?.nodes).filter(c => String(c.v.tempF ?? "").trim() && parseFloat(c.v.tempF) > c.max).map(c => ({ key: `t:${c.k}`, title: `${c.label}: ${c.v.tempF}°F`, fix: !!(c.v.tempCorrective || "").trim() })),
+    ...(tt.handSinkOutOfOrder ? [{ key: "t:hand", title: "Hand sink: not working", fix: !!(tt.handSinkCorrection || "").trim() }] : String(tt.handSinkTempF ?? "").trim() && parseFloat(tt.handSinkTempF) < 95 ? [{ key: "t:hand", title: `Hand sink: ${tt.handSinkTempF}°F`, fix: !!(tt.handSinkCorrection || "").trim() }] : []),
+    ...(tt.threeCompSinkOutOfOrder ? [{ key: "t:three", title: "3-comp sink: not working", fix: !!(tt.threeCompSinkCorrection || "").trim() }] : String(tt.threeCompSinkTempF ?? "").trim() && parseFloat(tt.threeCompSinkTempF) < 110 ? [{ key: "t:three", title: `3-comp sink: ${tt.threeCompSinkTempF}°F`, fix: !!(tt.threeCompSinkCorrection || "").trim() }] : []),
+    ...HACCP_TEMP_ITEMS.flatMap(it => (props.foodTemps?.[it.key] || []).map((v, i) => ({ v, i }))
+      .filter(({ v }) => String(v ?? "").trim() && Number.isFinite(parseFloat(v)) && tempPass(it, parseFloat(v)) === false)
+      .map(({ v, i }) => { const nm = props.foodTempNames?.[it.key]?.[i]; return { key: `f:${it.key}:${i}`, title: `${it.label}${nm ? ` · ${nm}` : ""}: ${v}°F`, fix: !!String(props.foodTempCorrections?.[it.key]?.[i] || "").trim() }; })),
+  ];
+  const notChecked = areas.filter((a, i) => states[i] !== "done");
+  if (!hasStand) return (
+    <div className="walkRoot" data-testid="walk-root">
+      {coach && <WalkCoach onDone={() => { setCoach(false); try { localStorage.setItem("sdx_walk_coach_seen", "1"); } catch {} }} />}
+      <WalkStart onPickStand={onPickStand} onScan={onScan} siteName={siteName} />
+      <button type="button" className="walkModeSwitch" data-testid="walk-mode-full" onClick={onFull}>Full checklist (detailed) ⇄</button>
+    </div>
+  );
+  if (saved) return (
+    <div className="walkRoot" data-testid="walk-root">
+      <div className="walkSaved" data-testid="walk-saved">
+        <div className="walkSavedIcon">✅</div>
+        <div className="walkSavedTitle">Report saved!</div>
+        <div className="walkSavedSub"><NT>{String(siteName).toUpperCase()}{siteNumber ? ` #${siteNumber}` : ""}</NT> · {problems.length + tempProblems.length} problem{problems.length + tempProblems.length !== 1 ? "s" : ""} found</div>
+        <button type="button" className="walkBtnOk" data-testid="walk-new" onClick={onNew}>Next stand →</button>
+        <div className="walkSavedLinks">
+          <button type="button" className="walkLinkBtn" data-testid="walk-view-report" onClick={onViewReport}>📄 View report</button>
+          <button type="button" className="walkLinkBtn" onClick={onHaccpQr}>🌡 Stand QR</button>
+        </div>
+      </div>
+    </div>
+  );
+  const renderArea = (a, i) => {
+    const st = states[i]; const isOpen = open === a.id;
+    const nodesShown = a.nodes;
+    return (
+      <div key={a.id} className={"walkArea" + (isOpen ? " open" : "") + (st === "done" ? " done" : "") + (a.prio ? " prio" : "")} data-testid={`walk-area-${a.id}`} data-state={st} data-open={isOpen ? "1" : "0"} data-prio={a.prio ? "1" : "0"}>
+        <button type="button" className="walkAreaHead" onClick={() => { setOpen(isOpen ? null : a.id); setWrong(null); setItem(null); }}>
+          <span className="walkAreaIcon">{a.icon}</span>
+          <span className="walkAreaTitle">{a.title}{a.prio && <span className="walkPrio">PRIORITY</span>}</span>
+          <span className={"walkAreaState " + st}>{st === "done" ? "✓ Done" : st === "started" ? "In progress" : ""}</span>
+        </button>
+        {isOpen && (
+          <div className="walkAreaBody">
+            <div className="walkLook" data-testid="walk-look">{a.look} <button type="button" className="walkHelpBtn" data-testid={`walk-help-${a.id}`} onClick={() => setHelp(help === a.id ? null : a.id)}>?</button></div>
+            {help === a.id && (
+              <div className="walkHelp" data-testid="walk-help">
+                {a.special === "temps" ? <div>Coolers ≤ 40°F · freezers ≤ 20°F · hand sink ≥ 95°F · 3-comp wash ≥ 110°F · hot food ≥ 135°F · cold food ≤ 41°F. Probe the thickest part of the food.</div>
+                  : <ul>{a.nodes.map(n => <li key={n.path.join(".")}><b>{walkNameOf(n.label)}</b>{walkQOf(n.label) ? ` — ${walkQOf(n.label)}` : ""}</li>)}</ul>}
+              </div>
+            )}
+            {a.special === "temps" ? (
+              <>
+                <WalkTemps {...props} coldNodes={a.nodes} openTempSheet={({ title, setFix, readFix, fixList }) => setSheet({ isTemp: true, title, setFix, readFix, fixList, path: [], idx: null })} />
+                <button type="button" className="walkBtnOk" data-testid="walk-next" onClick={() => { const n = nextOpen(a.id, inspection); setOpen(n); if (!n) setReview(true); }}>Next →</button>
+              </>
+            ) : a.id === "supplies" ? (
+              <>
+                {nodesShown.map(n => { const node = getAtPath(inspection, n.path) || {}; if (!(node.checklist || []).length) return (
+                  <div key={n.path.join(".")} className="walkStatusRow" data-testid="walk-item" data-key={n.path.join(".")}><span>{walkStatusQ(n).q}</span>
+                    <button type="button" className={"walkYes" + (node.checkedAt && node.status === "OK" ? " on" : "")} onClick={() => setInspection(prev => setAtPath(prev, n.path, statusCleared(getAtPath(prev, n.path), { path: n.path, problem: walkStatusQ(n).problem })))}>✓ Yes</button>
+                    <button type="button" className={"walkNo" + (node.status && node.status !== "OK" ? " on" : "")} onClick={() => flagStatus(n, false)}>✗ No</button></div>
+                ); return (
+                  <div key={n.path.join(".")} className="walkSupplies" data-testid="walk-item" data-key={n.path.join(".")}>
+                    <div className="walkSmallHead">Tap what is MISSING or empty:</div>
+                    <div className="swChips">{node.checklist.map((c, idx) => c.isOther || !c.supply ? null : <button key={idx} type="button" className={"swChip walkSupplyChip" + (c.value === "NO" ? " missing" : "")} data-testid="walk-supply-chip" data-idx={idx} onClick={() => toggleSupply(n, idx)}>{c.value === "NO" ? "✗ " : ""}{c.supply || walkNameOf(c.label)}</button>)}</div>
+                  </div>
+                ); })}
+                {nodesShown.flatMap(n => { const node = getAtPath(inspection, n.path) || {}; return (node.checklist || []).map((c, idx) => ({ n, c, idx })).filter(x => !x.c.isOther && !x.c.supply); }).map(({ n, c, idx }) => (
+                  <div key={`${n.path.join(".")}#${idx}`} className="walkStatusRow" data-testid="walk-supply-q"><span>{c.label}</span>
+                    <button type="button" className={"walkYes" + (c.value === "YES" ? " on" : "")} onClick={() => setInspection(prev => { const cur = getAtPath(prev, n.path) || {}; const cl = (cur.checklist || []).map((r, i) => i === idx ? { ...blankChecklistRows([r])[0], value: "YES", photos: [] } : r); return setAtPath(prev, n.path, { ...cur, checklist: cl, status: nodeStatusAfter(cur.status, cl), checkedAt: cur.checkedAt || Date.now() }); })}>✓ Yes</button>
+                    <button type="button" className={"walkNo" + (c.value === "NO" ? " on" : "")} onClick={() => flagRow(n, idx)}>✗ No</button></div>
+                ))}
+                {(suppliesNeeded || []).filter(x => (x.item || "").trim()).length > 0 && <div className="walkSupplyList" data-testid="walk-supply-list">📦 Asking for: {(suppliesNeeded || []).filter(x => (x.item || "").trim()).map(x => x.item).join(", ")}</div>}
+                <button type="button" className="walkBtnOk" data-testid="walk-allgood" onClick={() => allGood(a)}>{(inspection.facility?.ecolabProducts?.checklist || []).some(c => c.value === "NO") ? "✓ The rest is stocked" : "✓ All stocked"}</button>
+              </>
+            ) : wrong !== a.id ? (
+              <div className="walkAreaActs">
+                <button type="button" className="walkBtnOk" data-testid="walk-allgood" onClick={() => allGood(a)}>✓ All good</button>
+                <button type="button" className="walkBtnWrong" data-testid="walk-wrong" onClick={() => { setWrong(a.id); setItem(null); }}>⚠ Something's wrong</button>
+              </div>
+            ) : (
+              <div className="walkWrongBox">
+                {!item ? (
+                  <>
+                    <div className="walkSmallHead">What has the problem?</div>
+                    <div className="walkItems">{nodesShown.map(n => { const node = getAtPath(inspection, n.path) || {}; const bad = (node.checklist || []).some(c => c.value === "NO") || (node.status && node.status !== "OK"); return (
+                      <div key={n.path.join(".")} className={"walkItemRow" + (node.notApplicable ? " na" : "") + (bad ? " bad" : "")}>
+                        <button type="button" className="walkItemChip" data-testid="walk-item" data-key={n.path.join(".")} disabled={!!node.notApplicable} onClick={() => { if ((node.checklist || []).length) setItem(n.path.join(".")); else flagStatus(n, n.kind === "maint"); }}>{bad ? "⚠ " : ""}<NT>{walkNameOf(n.label)}</NT>{(node.checklist || []).length ? " ›" : ""}</button>
+                        {n.section !== "maintenance" && n.section !== "operations" && <button type="button" className={"walkNa" + (node.notApplicable ? " on" : "")} data-testid="walk-na" onClick={() => markNA(n)}>{node.notApplicable ? "↩ It's here" : "Not here"}</button>}
+                      </div>
+                    ); })}</div>
+                    <button type="button" className="walkBtnOk" data-testid="walk-rest-ok" onClick={() => allGood(a)}>✓ The rest is fine</button>
+                  </>
+                ) : (() => {
+                  const n = nodesShown.find(x => x.path.join(".") === item);
+                  if (!n) return <button type="button" className="walkLinkBtn" onClick={() => setItem(null)}>‹ back</button>; // the item left this area (stand type changed)
+                  const node = getAtPath(inspection, n.path) || {};
+                  return (
+                    <>
+                      <button type="button" className="walkLinkBtn" onClick={() => setItem(null)}>‹ back</button>
+                      <div className="walkSmallHead"><NT>{walkNameOf(n.label)}</NT> — what is wrong?</div>
+                      <div className="walkRows">{(node.checklist || []).map((c, idx) => (
+                        <button key={idx} type="button" className={"swRow" + (c.value === "NO" ? " bad" : c.value === "YES" ? " ok" : "")} data-testid="walk-row" data-key={item} data-idx={idx}
+                          onClick={() => flagRow(n, idx)}>{c.value === "NO" ? "⚠ " : ""}{c.isOther ? "Something else…" : (c.problem || c.label)}</button>
+                      ))}</div>
+                      <button type="button" className="walkBtnOk" data-testid="walk-rest-ok" onClick={() => allGood(a)}>✓ The rest is fine</button>
+                    </>
+                  );
+                })()}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
+  return (
+    <div className="walkRoot" data-testid="walk-root">
+      {coach && <WalkCoach onDone={() => { setCoach(false); try { localStorage.setItem("sdx_walk_coach_seen", "1"); } catch {} }} />}
+      <div className="walkStandCard" data-testid="walk-stand-card">
+        <div className="walkStandName"><NT>{String(siteName).toUpperCase()}</NT>{siteNumber ? <NT> · #{siteNumber}</NT> : null}</div>
+        <div className="walkStandMeta"><StandType lt={locationType} />{floor ? <span>{floor}</span> : null}{eventDay ? <span className="walkEvent" data-testid="walk-eventday">🏟 Event day{eventName ? ` · ${eventName}` : ""}</span> : null}</div>
+        <div className="walkStandActs">
+          <button type="button" className="walkLinkBtn" data-testid="walk-details-toggle" onClick={onToggleDetails}>{detailsOpen ? "Hide details" : "Edit details"}</button>
+          <button type="button" className="walkLinkBtn" data-testid="walk-stand-change" onClick={onChangeStand}>Change stand</button>
+        </div>
+        {props.supervisorLogUrl && <a href={props.supervisorLogUrl} className="walkSupLog" data-testid="walk-sup-log">Not inspecting? Open the supervisor log →</a>}
+      </div>
+      <div className="walkProgress" data-testid="walk-progress">
+        <div className="walkProgressText" data-testid="walk-progress-text"><span key={doneN}>{doneN === areas.length ? "All done 🎉 — review and save" : `${doneN} of ${areas.length} done`}</span></div>
+        <div className="walkDots">{areas.map((a, i) => <button key={a.id} type="button" className={"walkDot " + states[i] + (open === a.id ? " active" : "") + (a.prio ? " prio" : "")} data-testid={`walk-dot-${a.id}`} title={a.title} onClick={() => { setReview(false); setOpen(a.id); setWrong(null); setItem(null); }}>{a.icon}</button>)}</div>
+      </div>
+      {(standOpenProblems || []).length > 0 && (
+        <div className="walkArea walkPrev" data-testid="walk-prev">
+          <div className="walkAreaHead"><span className="walkAreaIcon">🔁</span><span className="walkAreaTitle">Last time's problems</span></div>
+          <div className="walkAreaBody">{standOpenProblems.map(f => { const c = correctives[f.key] || {}; const st = c.status; return (
+            <div key={f.key} id={"ca-" + f.key.replace(/[^A-Za-z0-9]+/g, "_")} className="walkPrevRow" data-testid="walk-prev-problem">
+              <div className="walkPrevText"><NT>{f.cat}</NT>{f.detail ? ` — ${f.detail}` : ""}</div>
+              <div className="walkStatusBtns">
+                <button type="button" className={"walkYes" + (st === "fixed" ? " on" : "")} data-testid="walk-prev-fixed" onClick={() => setCorrectives(p => ({ ...p, [f.key]: { ...(p[f.key] || {}), status: "fixed", action: "Fixed — checked on site", photos: p[f.key]?.photos || [] } }))}>✓ Fixed</button>
+                <button type="button" className={"walkNo" + (st === "still" ? " on" : "")} data-testid="walk-prev-still" onClick={() => setCorrectives(p => ({ ...p, [f.key]: { ...(p[f.key] || {}), status: "still", action: "Still there — checked on site", photos: p[f.key]?.photos || [] } }))}>✗ Still there</button>
+              </div>
+            </div>
+          ); })}</div>
+        </div>
+      )}
+      {!review && areas.map(renderArea)}
+      {!review && <button type="button" className="walkReviewBtn" data-testid="walk-to-review" onClick={() => { setReview(true); setOpen(null); try { window.scrollTo({ top: 0, behavior: "smooth" }); } catch {} }}>{doneN === areas.length ? "Review & save →" : "Finish & save →"}</button>}
+      {review && (
+        <div className="walkReview" data-testid="walk-review">
+          <div className="walkReviewTitle">Review & save</div>
+          {problems.length + tempProblems.length === 0 ? <div className="walkReviewNone">✓ No problems found.</div> : (
+            <div className="walkReviewList">
+              <div className="walkSmallHead">Problems found ({problems.length + tempProblems.length})</div>
+              {problems.map(p => (
+                <div key={p.key} className={"walkReviewItem" + (!p.supply && (!p.photo || !p.fix) ? " missing" : "")} data-testid="walk-review-problem">
+                  <div><NT>{p.title}</NT></div>
+                  {!p.supply && (!p.photo || !p.fix) && <button type="button" className="walkLinkBtn" data-testid="walk-review-missing" onClick={() => { setReview(false); setOpen(p.area.id); setWrong(p.area.id); setItem(p.idx !== null ? p.n.path.join(".") : null); if (p.idx !== null) { const node = getAtPath(inspection, p.n.path); const row = node?.checklist?.[p.idx]; setSheet({ path: p.n.path, idx: p.idx, title: row?.problem || row?.label }); } else { const q = walkStatusQ(p.n); setSheet({ path: p.n.path, idx: null, title: q.problem, problem: q.problem, isMaint: p.n.kind === "maint" }); } }}>{!p.photo && !p.fix ? "Add a photo and what you did →" : !p.photo ? "Add a photo →" : "Say what you did →"}</button>}
+                </div>
+              ))}
+              {tempProblems.map(p => <div key={p.key} className={"walkReviewItem" + (!p.fix ? " missing" : "")} data-testid="walk-review-problem"><div><NT>{p.title}</NT></div>{!p.fix && <span className="walkHint">Say what you did in Temperatures</span>}</div>)}
+            </div>
+          )}
+          {notChecked.length > 0 && <div className="walkReviewUnchecked" data-testid="walk-review-unchecked">Not checked yet: {notChecked.map(a => <button key={a.id} type="button" className="swChip" onClick={() => { setReview(false); setOpen(a.id); }}>{a.icon} {a.title}</button>)}</div>}
+          <label className="walkSmallHead">Supervisor on duty <small>(optional)</small></label>
+          <input className="input" data-testid="walk-supervisor" value={supervisorName} onChange={e => setSupervisorName(e.target.value)} placeholder="Name" />
+          <label className="walkSmallHead">📝 Anything else? <small>(optional)</small></label>
+          <textarea className="input walkNotes" data-testid="walk-review-notes" rows={3} value={rawNotes} onChange={e => setRawNotes(e.target.value)} placeholder="Anything you want on the report" />
+          {(nluIssues || []).length > 0 && (
+            <div className="walkNlu" data-testid="walk-nlu">
+              <div className="walkSmallHead">🧠 These become problems on the report</div>
+              {nluIssues.map(u => (
+                <div key={u.key} className={"walkNluRow" + (u.rejected ? " off" : "")} data-testid="walk-nlu-row">
+                  <span>{u.category} — {u.sentence}</span>
+                  <button type="button" className="walkLinkBtn" onClick={() => onNlu?.(u.sentence, !u.rejected)}>{u.rejected ? "↩ Keep" : "✕ Not a problem"}</button>
+                </div>
+              ))}
+            </div>
+          )}
+          {props.saveError && <div className="walkSaveErr" data-testid="walk-save-error">⚠ {props.saveError}</div>}
+          <button type="button" className="walkSaveBtn" data-testid="walk-save" disabled={saving} onClick={onSave}>{saving ? "Saving…" : "💾 Save report"}</button>
+          <button type="button" className="walkLinkBtn" onClick={() => setReview(false)}>‹ Back to the walk</button>
+        </div>
+      )}
+      <button type="button" className="walkModeSwitch" data-testid="walk-mode-full" onClick={onFull}>Full checklist (detailed) ⇄</button>
+      {sheet && <WalkProblemSheet sheet={sheet} inspection={inspection} setInspection={setInspection} inspectionId={inspectionId} onError={onError} foodTempCorrections={props.foodTempCorrections}
+        onClose={() => setSheet(null)}
+        onUndo={() => { unflag(sheet); setSheet(null); }} />}
+      {undo && ReactDOM.createPortal(<div className="walkUndo" data-testid="walk-undo"><span>{undo.text}</span><button type="button" data-testid="walk-undo-btn" onClick={() => { setInspection(undo.revert); setUndo(null); clearTimeout(undoTimer.current); }}>↩ Undo</button></div>, document.body)}
+    </div>
+  );
+}
 
 /* ── Live HACCP Panel (real-time supervisor temp submissions) ── */
 // subsFromParent: if provided by the parent (already subscribed), use it directly
@@ -28662,7 +29444,7 @@ function EquipCheckPortal({ tag }) {
                 {meta.brandName && <><br />Brand: {meta.brandName}</>}{meta.location && <> · {meta.location}</>}
               </div>
               <div style={{ fontSize: "0.72rem", color: "#6b7280", marginTop: 5 }}>
-                Target: <b>{isFreezer ? "10°F or below" : "41°F or below"}</b>
+                Target: <b>{limit}°F or below</b>
               </div>
             </div>
 
@@ -28852,7 +29634,7 @@ function HaccpPortal() {
     const base = eqRecFor(item); const fz = /freez|congel|🧊/i.test(name);
     const rec = { ...base, label: `${name.replace(/\s*(❄|🧊)\s*(Cooler|Freezer)\s*$/u, "")}${fz ? " 🧊 Freezer" : " ❄ Cooler"}`, brandName: e.brand.trim().toUpperCase(), location: e.location.trim().toUpperCase(), ...eqStamp(L("renamed / relocated by the stand", "renombrado / reubicado por el puesto")) };
     eqWrite(item.tag, rec);
-    setCustomItems(prev => prev.map(i => i.key === item.key ? { ...i, label: `${name}${rec.brandName ? ` · ${rec.brandName}` : ""}`, hint: rec.location, max: fz ? 0 : 41 } : i));
+    setCustomItems(prev => prev.map(i => i.key === item.key ? { ...i, label: `${name}${rec.brandName ? ` · ${rec.brandName}` : ""}`, hint: rec.location, max: fz ? 20 : 40 } : i));
     setEqEdit(null); setEqFlash(L("Saved — the inspector sees the change.", "Guardado — el inspector ve el cambio.")); setTimeout(() => setEqFlash(""), 3000);
   }
   async function eqOpenMove(item) { let stands = _standListCache; try { stands = await loadStandList(); } catch {} setEqMove({ key: item.key, q: "", stands: (stands || []).slice().sort(standPrintOrder) }); }
@@ -28879,7 +29661,7 @@ function HaccpPortal() {
     const tag = `SDX-${typ}-${unitN}-${n}`;
     const rec = { assetTag: tag, label: `${name}${fz ? " 🧊 Freezer" : " ❄ Cooler"}`, brandName: a.brand.trim().toUpperCase(), location: a.location.trim().toUpperCase(), venueName: (locSite || "").trim().toUpperCase(), unit: (locUnit || "").trim(), floor: (locFloor || "").trim(), locType: (locType || "").trim(), standId: standForStrict(locUnit, locSite)?.id || "", createdAt: Date.now(), ...eqStamp(L("added by the stand", "agregado por el puesto")) };
     eqWrite(tag, rec);
-    setCustomItems(prev => [...prev, { key: `eq:${tag}`, label: `${name}${rec.brandName ? ` · ${rec.brandName}` : ""}`, hint: rec.location, unit: "°F", type: "cold", max: fz ? 0 : 41, tag }]);
+    setCustomItems(prev => [...prev, { key: `eq:${tag}`, label: `${name}${rec.brandName ? ` · ${rec.brandName}` : ""}`, hint: rec.location, unit: "°F", type: "cold", max: fz ? 20 : 40, tag }]);
     setEqAdd(null); setEqFlash(L(`${name} added — log its temperature below.`, `${name} agregado — registre su temperatura abajo.`)); setTimeout(() => setEqFlash(""), 3500);
   }
   const PORTAL_UNIT_NAMES = ["1-Door Cooler", "2-Door Cooler", "3-Door Cooler", "Prep Cooler", "Display Cooler", "Walk-In Cooler", "Undercounter Cooler", "Beer Cooler", "Ice Cream Freezer", "1-Door Freezer", "2-Door Freezer", "Chest Freezer", "Walk-In Freezer"];
@@ -28924,7 +29706,7 @@ function HaccpPortal() {
       if (!eq.length) return;
       setCustomItems(prev => {
         const have = new Set(prev.map(i => i.key));
-        const add = eq.filter(e => !have.has(`eq:${e.tag}`)).map(e => ({ key: `eq:${e.tag}`, label: `${e.name}${e.brand ? ` · ${e.brand}` : ""}`.toUpperCase(), hint: (e.location || "").toUpperCase(), unit: "°F", type: "cold", max: e.freezer ? 0 : 41, tag: e.tag }));
+        const add = eq.filter(e => !have.has(`eq:${e.tag}`)).map(e => ({ key: `eq:${e.tag}`, label: `${e.name}${e.brand ? ` · ${e.brand}` : ""}`.toUpperCase(), hint: (e.location || "").toUpperCase(), unit: "°F", type: "cold", max: e.freezer ? 20 : 40, tag: e.tag }));
         return add.length ? [...prev, ...add] : prev;
       });
     });
@@ -29667,7 +30449,7 @@ function HaccpPortal() {
             {/* Temperature section — multiple readings per item (hidden in problem-only mode) */}
             <div className="haccpSection" hidden={problemOnly}>
               <div className="haccpSectionHead">{L("Temperature Readings", "Temperaturas")}</div>
-              <div className="haccpSectionHint">{L("Log the food temperatures first; your coolers and freezers are listed underneath with their brand and where they are. Coolers must read 41°F or below, freezers 0°F or below, hot food 135°F or above. Log every 2 hours during service; if a reading is out of range, write what you did (adjusted, moved product, called maintenance).", "Registra primero las temperaturas de comida; sus equipos aparecen debajo con marca y ubicación. Neveras a 41°F o menos, congeladores a 0°F o menos, comida caliente a 135°F o más. Registre cada 2 horas durante el servicio; si está fuera de rango, escriba qué hizo.")}</div>
+              <div className="haccpSectionHint">{L("Log the food temperatures first; your coolers and freezers are listed underneath with their brand and where they are. Coolers must read 40°F or below, freezers 20°F or below, hot food 135°F or above. Log every 2 hours during service; if a reading is out of range, write what you did (adjusted, moved product, called maintenance).", "Registra primero las temperaturas de comida; sus equipos aparecen debajo con marca y ubicación. Neveras a 40°F o menos, congeladores a 20°F o menos, comida caliente a 135°F o más. Registre cada 2 horas durante el servicio; si está fuera de rango, escriba qué hizo.")}</div>
               <div className="haccpSectionBody">
                 {(() => {
                   const cookingMeta = {
@@ -30064,7 +30846,7 @@ function HaccpPortal() {
                             <span className="htEquipTitle">❄ {L("YOUR COOLERS & FREEZERS", "SUS NEVERAS Y CONGELADORES")}</span>
                             <span className="htEquipCount">{done}<small>/{equipRows.length} {L("logged", "listos")}</small></span>
                           </div>
-                          <div className="htEquipHint">{L("One reading per unit · coolers ≤ 41°F · freezers ≤ 0°F · every 2 hours", "Una lectura por equipo · neveras ≤ 41°F · congeladores ≤ 0°F · cada 2 horas")}</div>
+                          <div className="htEquipHint">{L("One reading per unit · coolers ≤ 40°F · freezers ≤ 20°F · every 2 hours", "Una lectura por equipo · neveras ≤ 40°F · congeladores ≤ 20°F · cada 2 horas")}</div>
                           {equipRows.length === 0 && <div className="htEquipEmpty">{L("No coolers / freezers registered for this stand yet — add them below.", "No hay equipos registrados para este puesto — agréguelos abajo.")}</div>}
                           {eqUnsureN > 0 && <div className="htEqUnsure" data-testid="portal-eq-unsure">❓ {L(`${eqUnsureN} cooler${eqUnsureN !== 1 ? "s" : ""} / freezer${eqUnsureN !== 1 ? "s" : ""} at #${locUnit} are waiting for the inspector to confirm which stand they belong to.`, `${eqUnsureN} nevera(s) / congelador(es) en el #${locUnit} esperan que el inspector confirme a qué puesto pertenecen.`)}</div>}
                           {eqFlash && <div className="htEqFlash">✓ {eqFlash}</div>}
@@ -30576,7 +31358,7 @@ function MessagingPanel({ currentUser, onBack, notifItems, onNotifDismiss, onNot
   const [qcDoneId, setQcDoneId] = useState(null);
 
   const QC_PRESET_ITEMS = [
-    "Hand Sink Temperature (≥100°F)",
+    "Hand Sink Temperature (≥95°F)",
     "Pest Control — Signs of Activity",
     "Employee Hygiene & Gloves",
     "Cold Storage Temperatures",
@@ -31519,6 +32301,17 @@ export default function App() {
   const [draftSavedAt, setDraftSavedAt] = useState(null); // timestamp of last auto-save
   const [draftCloudAt, setDraftCloudAt] = useState(null);  // v451 — last cloud copy
   const [guideStep, setGuideStep] = useState(0); // 0-based index into guide stepper
+  // v520: the simple walk is the default for everyone; "Full checklist" keeps the detailed guide (per phone)
+  const [guideMode, setGuideModeS] = useState(() => { try { return localStorage.getItem("sdx_guide_mode") === "full" ? "full" : "simple"; } catch { return "simple"; } });
+  const setGuideMode = m => { setGuideModeS(m); try { localStorage.setItem("sdx_guide_mode", m); } catch {} try { window.scrollTo({ top: 0 }); } catch {} };
+  const guideModeRef = useRef(guideMode); guideModeRef.current = guideMode;
+  const [walkDetailsOpen, setWalkDetailsOpen] = useState(false);
+  const [walkSaving, setWalkSaving] = useState(false); // the walk's Save covers the whole write, not only the report text
+  const [walkSavedId, setWalkSavedId] = useState(null); // the walk's "Report saved!" screen stays until Next stand (the ✓ Saved chip flag clears itself after 2.5 s)
+  const walkBaseRef = useRef(""); const walkBaseArmRef = useRef(false); // what the form looked like right after the stand was picked
+  const walkSavingRef = useRef(false);
+  try { window.__sdxSetGuideMode = setGuideMode; } catch {}
+  const formSnapRef = useRef(null); try { window.__sdxFormSnapshot = () => (formSnapRef.current ? formSnapRef.current() : null); } catch {} // harness: the live form state
   const [guideFindQ, setGuideFindQ] = useState("");
   const [guideFindHits, setGuideFindHits] = useState([]);
 
@@ -31528,7 +32321,7 @@ export default function App() {
     const query = q.trim().toLowerCase();
     if (query.length < 2) { setGuideFindHits([]); return; }
     const terms = query.split(/\s+/).filter(Boolean);
-    const stepNames = ["Temps & Supplies", "Facilities", "Equipment", "Utensils & Checklist", "Hygiene & Compliance"];
+    const stepNames = { 0: "Temps & Supplies", 1: "Facilities", 2: "Equipment", 3: "Utensils", 4: "Operations", 5: "Maintenance" }; // v520: by panel id
     const hits = [];
     document.querySelectorAll("[data-guide-panel] [data-guide-item]").forEach(el => {
       const label = el.getAttribute("data-guide-item") || "";
@@ -31541,6 +32334,7 @@ export default function App() {
   }
 
   function jumpToGuideItem(hit) {
+    if (guideModeRef.current === "simple") { try { window.dispatchEvent(new CustomEvent("sdx-walk-open", { detail: hit })); } catch {} return; } // v520
     const stepIdx = GUIDE_ORDER.indexOf(hit.pid); // v518: same order as the stepper (event days differ)
     if (stepIdx >= 0) setGuideStep(stepIdx);
     window.dispatchEvent(new CustomEvent("sdx-open-guide-item", { detail: { key: hit.key } }));
@@ -32464,8 +33258,9 @@ export default function App() {
         if (last.floor && !g("floor") && !floorFromUnit(g("unit"))) setFloor(last.floor);
         const eq = last.inspection?.equipment;
         if (eq && typeof eq === "object" && Object.keys(eq).length > 0) {
-          const carried = {};
+          const carried = {}; const naKeys = [];
           for (const [k, v] of Object.entries(eq)) {
+            if (v && v.notApplicable && !k.startsWith("custom_")) { naKeys.push(k); continue; } // v520: "not at this stand" carries over too
             if (!v || v.notApplicable) continue;
             carried[k] = {
               status: "OK", notes: "", photos: [],
@@ -32478,13 +33273,71 @@ export default function App() {
               ...(v.kitchenArea ? { kitchenArea: v.kitchenArea } : {}),
               ...(("tempF" in v) || detectColdType(v.label || k) ? { tempF: "" } : {}),
             };
+            // v520: keep the rows — the template the last report used, answers wiped (a node without rows turns into a status-only item)
+            const tmpl = Array.isArray(v.checklist) && v.checklist.length ? blankChecklistRows(v.checklist) : (CHECKLIST_DEFAULTS[detectChecklistKey(v.label || k)] || []).map(r => ({ ...r }));
+            if (tmpl.length) carried[k].checklist = tmpl;
           }
-          if (Object.keys(carried).length > 0) setInspection(prev => ({ ...prev, equipment: { ...(prev.equipment || {}), ...carried } }));
+          if (Object.keys(carried).length > 0 || naKeys.length > 0) setInspection(prev => {
+            const e2 = { ...(prev.equipment || {}) };
+            for (const [k, c] of Object.entries(carried)) {
+              const cur = e2[k];
+              // an existing node (the template's fryer, or one already answered) only takes the identity — never loses its rows or answers
+              e2[k] = cur ? { ...cur, ...Object.fromEntries(["label", "brand", "assetTag", "location", "kitchenArea", "equipSource"].filter(f => c[f] !== undefined).map(f => [f, c[f]])), ...((cur.checklist || []).length || !c.checklist ? {} : { checklist: c.checklist }), ...("tempF" in c && !("tempF" in cur) ? { tempF: "" } : {}) } : c;
+            }
+            for (const k of naKeys) if (e2[k]) e2[k] = { ...e2[k], notApplicable: true };
+            return { ...prev, equipment: e2 };
+          });
         }
       }
     } catch {}
     setQrStand({ site: g("site"), unit: g("unit"), floor: floorForStand(g("unit"), g("site"), g("floor")), loctype: g("loctype") });
   }
+  // ── v520: simple walk helpers ──
+  function confirmOnSite() {
+    if (!inspectionStartedAt.current) inspectionStartedAt.current = Date.now();
+    if (!reportStartedAt.current && inspectorName.trim().length > 0) reportStartedAt.current = Date.now();
+    setOnSiteConfirmed(true);
+  }
+  // Picking a stand from the official list (or scanning it) IS the "I'm on site" step
+  function pickStand(k) {
+    walkBaseArmRef.current = true;
+    applyStandFromQr({ site: k.site || "", unit: k.unit || "", floor: k.floor || "", loctype: k.locType || "" });
+    if ((k.license || "").trim()) setRestaurantLicense(prev => prev || k.license.trim());
+    confirmOnSite();
+    try { window.scrollTo({ top: 0, behavior: "smooth" }); } catch {}
+  }
+  // v520: has the walk changed since the stand was picked? (the carried-over equipment / "Not here" flags are not work)
+  const walkSig = () => { try { return JSON.stringify({ inspection, foodTemps, foodTempCorrections, rawNotes, correctives, suppliesNeeded, n: notesPhotos.length, supervisorName }); } catch { return String(Date.now()); } };
+  function changeStand() {
+    const touched = !walkBaseRef.current || walkSig() !== walkBaseRef.current;
+    if (touched) { if (!window.confirm("Start a NEW report for another stand? This one stays saved on this phone as an unsaved report.")) return; startNewInspection(); setWalkDetailsOpen(false); return; }
+    // nothing done yet — a full reset (food temps, notes, timers too) and no junk "unsaved report" left behind
+    const oldId = savedReportIdRef.current || savedReportId;
+    if (cloudTimerRef.current) { clearTimeout(cloudTimerRef.current); cloudTimerRef.current = null; } // no cloud copy of an empty walk
+    dirtyRef.current = false; // nothing to keep — startNewInspection must not flush it
+    startNewInspection();
+    try { removeDraftFor(oldId); clearDraftCloud(draftCloudKey(badgeKey(), oldId)); setDraftList(listDrafts()); } catch {}
+    setWalkDetailsOpen(false);
+  }
+  useEffect(() => { if (walkBaseArmRef.current && siteName.trim()) { walkBaseArmRef.current = false; walkBaseRef.current = walkSig(); } }); // eslint-disable-line react-hooks/exhaustive-deps
+  // Food temperatures: one reading = the same position in the five arrays (value, name, time, submitted, correction)
+  const foodHelpers = {
+    add(key) {
+      const vals = foodTemps[key] || [""]; const times = foodTempTimes[key] || [];
+      // reuse an untouched slot (no number, no time) so the arrays stay short and aligned
+      let idx = vals.findIndex((v, i) => !String(v ?? "").trim() && !String(times[i] || "").trim());
+      if (idx === -1) idx = vals.length;
+      const put = (setter, val, filler) => setter(prev => { const arr = [...(prev[key] || [])]; while (arr.length <= idx) arr.push(filler); arr[idx] = val; return { ...prev, [key]: arr }; });
+      put(setFoodTempTimes, walkNow(), ""); put(setFoodTemps, "", ""); put(setFoodTempNames, "", ""); put(setFoodTempCorrections, "", ""); put(setFoodTempSubmitted, false, false);
+      return idx;
+    },
+    set(key, idx, patch) {
+      const put = (setter, val, filler = "") => setter(prev => { const arr = [...(prev[key] || [])]; while (arr.length <= idx) arr.push(filler); arr[idx] = val; return { ...prev, [key]: arr }; });
+      if (patch.value !== undefined) { put(setFoodTemps, patch.value); put(setFoodTempSubmitted, !!String(patch.value).trim(), false); if (!String(foodTempTimes[key]?.[idx] || "").trim()) put(setFoodTempTimes, walkNow()); }
+      if (patch.name !== undefined) put(setFoodTempNames, patch.name);
+      if (patch.correction !== undefined) put(setFoodTempCorrections, patch.correction);
+    },
+  };
   function handleStandScan(raw) {
     setScanStandOpen(false);
     const st = parseStandQr(raw);
@@ -32493,6 +33346,7 @@ export default function App() {
     applyStandFromQr(st);
     setScanFlash(`✅ Stand loaded — ${st.site || ""}${st.unit ? ` #${st.unit}` : ""}. Details pre-filled, start the checklist.`);
     setTimeout(() => setScanFlash(""), 5000);
+    if (guideModeRef.current === "simple") { confirmOnSite(); return; } // v520: the scan is the on-site step; the walk opens itself
     setTimeout(() => { try { document.getElementById("field-siteNumber")?.scrollIntoView({ behavior: "smooth", block: "center" }); } catch {} }, 150);
   }
 
@@ -32587,6 +33441,7 @@ export default function App() {
   const [restoredFrom, setRestoredFrom] = useState(null);
   const [outboxCount, setOutboxCount] = useState(() => loadInspectionOutbox().length);
   const badgeKey = () => currentUser?.badgeHash || (inspectorName || "").trim().toLowerCase().replace(/[^a-z0-9]+/g, "_");
+  formSnapRef.current = () => buildDraftSnapshot();
   function buildDraftSnapshot() {
     return {
       noteType, useCase, context, inspection,
@@ -32782,23 +33637,28 @@ export default function App() {
 
   // End-of-day corrective action prompt — checks every 5 minutes
   // Triggers when hour >= 17 (5 PM) and inspection has flagged issues or raw notes present
+  const eodSiteRef = useRef(""); eodSiteRef.current = siteName || "";
+  const eodNotesRef = useRef(""); eodNotesRef.current = rawNotes || "";
   useEffect(() => {
     const EOD_DISMISS_KEY = "sdx_eod_dismissed";
     function checkEod() {
       const now = new Date();
       const hour = now.getHours();
       if (hour < 17) return; // before 5 PM — don't show
-      const today = now.toISOString().slice(0, 10);
+      // v520: the LOCAL date (the UTC one re-opened it after 8 PM on game nights), refs instead of re-running per keystroke,
+      // and never in the simple walk (its own review screen does this job)
+      const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
       const dismissed = localStorage.getItem(EOD_DISMISS_KEY);
       if (dismissed === today) return; // already dismissed today
+      if (guideModeRef.current === "simple") return;
       // Only show if there's actual inspection work (has site name or raw notes)
-      if (!siteName.trim() && !rawNotes.trim()) return;
+      if (!eodSiteRef.current.trim() && !eodNotesRef.current.trim()) return;
       setShowEodPrompt(true);
     }
     checkEod();
     const timer = setInterval(checkEod, 5 * 60 * 1000); // re-check every 5 min
     return () => clearInterval(timer);
-  }, [siteName, rawNotes]);
+  }, [!!siteName.trim() || !!rawNotes.trim()]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Live report output regeneration during edit ──────────────────────────
   // Must be declared BEFORE any conditional early returns (Rules of Hooks).
@@ -33244,11 +34104,11 @@ export default function App() {
     for (const f of standOpenProblems) {
       const c = correctives[f.key]; if (!c || !(c.action || "").trim()) continue;
       const st = c.status || "fixed";
-      const entry = { status: st === "fixed" ? "resolved" : st, note: st === "waiting" ? c.action.trim().slice(0, 80) : "", by, ts };
-      saveVenueSettingsMap("followupStatus", { [f.key]: entry });
+      // v520: the walk's "✗ Still there" is not a crew status — it only leaves a dated comment
+      if (st !== "still") { const entry = { status: st === "fixed" ? "resolved" : st, note: st === "waiting" ? c.action.trim().slice(0, 80) : "", by, ts }; saveVenueSettingsMap("followupStatus", { [f.key]: entry }); }
       if (st === "fixed") saveVenueSettingsMap("followupCleared", { [f.key]: Math.max(ts, (f.ts || 0) + 1) });
       const prevC = venueSettings?.followupComments?.[f.key] || [];
-      saveVenueSettingsMap("followupComments", { [f.key]: [...prevC, { text: `Corrective action: ${c.action.trim().slice(0, 200)}`, by, ts, reportId }].slice(-10) });
+      saveVenueSettingsMap("followupComments", { [f.key]: [...prevC, { text: st === "still" ? `Checked on site — still there` : `Corrective action: ${c.action.trim().slice(0, 200)}`, by, ts, reportId }].slice(-10) });
       if ((c.photos || []).length) {
         const prevP = venueSettings?.followupPhotos?.[f.key] || [];
         saveVenueSettingsMap("followupPhotos", { [f.key]: [...prevP, ...c.photos.map(p => ({ id: p.id, thumbUrl: p.thumbUrl, previewUrl: p.previewUrl, by, ts, tag: "after" }))].slice(-8) });
@@ -33280,7 +34140,7 @@ export default function App() {
             if (pg.ok) continue;
             const need = pg.missing.includes("photo") && pg.missing.includes("action") ? "a photo and what was done"
               : pg.missing.includes("photo") ? "a BEFORE photo" : "what was done about it";
-            missing.push({ text: `${SEC_NAME[sec]} – ${label} · ${c.label || "flagged item"}: ${need}`, jump: { pid: SEC_PANEL[sec], key: `${sec}.${key}`, full: "", ci: cl.indexOf(c), need: pg.missing.includes("photo") ? "photo" : "action" } }); // v476: guide anchors are keyed by the full path
+            missing.push({ text: `${SEC_NAME[sec]} – ${label} · ${c.label || "flagged item"}: ${need}`, jump: { pid: key === "ecolabProducts" ? 0 : SEC_PANEL[sec], key: `${sec}.${key}`, full: "", ci: cl.indexOf(c), need: pg.missing.includes("photo") ? "photo" : "action" } }); // v476: guide anchors are keyed by the full path
           }
         }
       }
@@ -33387,6 +34247,7 @@ export default function App() {
       savedByHash: currentUser?.badgeHash || "",
       noteType, inspectionType, inspectionDate, inspectorName, participantName,
       siteName, siteNumber, supervisorName, sitePhone, locationType, floor, eventName,
+      guideMode, // v520: "simple" walk or "full" checklist
       ...(guideEventDay ? { eventDay: true, eventDayName: guideEventName || eventName || "", ...gameDayProgress(inspection, foodTemps) } : {}),
       // v478: bars / pantries need no license; a non-license string never reaches the record
       restaurantLicense: isLicenseExemptType(locationType) ? "" : (looksLikeLicense(restaurantLicense) ? restaurantLicense : ""),
@@ -33402,7 +34263,17 @@ export default function App() {
       foodTempSubmitted: { ...foodTempSubmitted },
       foodTempTimes: { ...foodTempTimes },
       overallStatus: calcOverallStatus(inspection, { foodTemps, foodTempNames }),
-      actionItems: buildActionItems({ inspection, rawNotes, foodTemps, foodTempNames, foodTempCorrections, foodTempSubmitted }),
+      actionItems: (() => {
+        const base = buildActionItems({ inspection, rawNotes, foodTemps, foodTempNames, foodTempCorrections, foodTempSubmitted });
+        // every row of the open problem comes back (the newest report decides which rows a follow-up keeps), deduped by the full text
+        const norm = t => String(t || "").trim().toLowerCase();
+        const have = new Set(base.map(a => norm(a.issue)));
+        const still = standOpenProblems.filter(f => correctives[f.key]?.status === "still")
+          .flatMap(f => ((f.subs || []).length ? f.subs : [{ text: f.detail || "still there", notes: f.notes, area: f.area, priority: "", photos: f.photos }])
+            .map(r => ({ issue: `${f.cat}: ${r.text || "still there"}`, notes: r.notes ? `${r.notes} — checked on site, still there` : "Checked on site — still there", ...(r.area ? { area: r.area } : {}), corrective: "", owner: "", due: "", priority: r.priority || "Follow-up", photos: (r.photos || []).filter(p => p && typeof p === "object" && !String(p.previewUrl || "").startsWith("data:")), stillThere: true })))
+          .filter(a => { const k = norm(a.issue); if (have.has(k)) return false; have.add(k); return true; });
+        return [...base, ...still];
+      })(),
       correctiveActions: standOpenProblems.filter(f => (correctives[f.key]?.action || "").trim()).map(f => ({ key: f.key, cat: f.cat, detail: f.detail || "", flagged: f.dateStr || "", action: correctives[f.key].action.trim(), status: correctives[f.key].status || "fixed", photos: (correctives[f.key].photos || []).map(p => ({ id: p.id, thumbUrl: p.thumbUrl, previewUrl: (p.previewUrl || "").startsWith("http") ? p.previewUrl : "", tag: "after" })) })),
       rawNotes,
       // output is NOT stored — it's regenerated on demand from transformLocally.
@@ -33498,6 +34369,7 @@ export default function App() {
     armPristine();
     reportInProgressRef.current = false; // prevent auto-save from re-saving completed inspection
     setSaved(true);
+    setWalkSavedId(id);
     setSaveToastMsg(queued ? "📥 Saved on this phone — it uploads when the connection is back" : "✅ Report saved!");
     setSaveToast(true);
   }
@@ -33593,7 +34465,13 @@ export default function App() {
             <span className="translateBtnLabel">Language</span>
           </button>
           {/* HACCP QR button moved to sticky action bar after save */}
-          <button className={cx("btn", "btnPrimary", "btnGenHeader")} onClick={onTransform} type="button" disabled={loading}>
+          <button className={cx("btn", "btnPrimary", "btnGenHeader")} onClick={e => {
+              if (guideModeRef.current === "simple" && page === "inspector") { // v520: the walk has its own review — no blank or unchecked save from here
+                if (!siteName.trim()) { setScanFlash("👆 Pick the stand first — walk it, then tap Save at the end."); setTimeout(() => setScanFlash(""), 4000); return; }
+                try { window.dispatchEvent(new CustomEvent("sdx-walk-review")); } catch {} return;
+              }
+              onTransform(e);
+            }} type="button" disabled={loading}>
             <svg className="genBtnSvg" width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true">
               <path d="M12.5 14H3.5C2.67 14 2 13.33 2 12.5V3.5C2 2.67 2.67 2 3.5 2H10L14 6V12.5C14 13.33 13.33 14 12.5 14Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
               <path d="M5.5 8.6L7.3 10.4L10.8 6.9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
@@ -33838,7 +34716,7 @@ export default function App() {
       {/* ── Full-page inspection lock overlay ───────────────────────────────────
            Blocks everything until the inspector clicks "Start Inspection Timer".
            z-index 99 keeps it below the topBar (z-index 100) but above all content.   */}
-      {!onSiteConfirmed && (
+      {!onSiteConfirmed && guideMode === "full" && (
         <div
           style={{
             position: "fixed",
@@ -33904,6 +34782,8 @@ export default function App() {
               Or scroll down and click &ldquo;Start Inspection Timer&rdquo;
             </div>
           </div>
+          {/* v520: the lock must never trap someone who only wanted to look — the way back to the simple walk */}
+          <button type="button" className="walkModeSwitch walkModeSwitchLock" data-testid="lock-mode-simple" onClick={e => { e.stopPropagation(); setGuideMode("simple"); }}>⇄ Back to the simple walk</button>
         </div>
       )}
 
@@ -33972,6 +34852,7 @@ export default function App() {
       {/* ── Inspector assignment banner — shows scheduled inspections assigned to this user ── */}
       {(() => {
         if (!currentUser?.name) return null;
+        if (guideMode === "simple" && siteName.trim()) return null; // v520: only on the walk's start screen
         const myName = currentUser.name.trim().toLowerCase();
         const today = new Date().toISOString().slice(0, 10);
         const completedSlots = venueSettings?.completedSlots || [];
@@ -34039,7 +34920,7 @@ export default function App() {
       })()}
 
       {/* ── Assigned Stands banner — shows stands/locations assigned to this inspector ── */}
-      {currentUser?.role === "inspector" && (currentUser?.assignedStands?.length > 0) && (
+      {currentUser?.role === "inspector" && (currentUser?.assignedStands?.length > 0) && !(guideMode === "simple" && siteName.trim()) && (
         <div style={{
           background: "var(--surface-1)",
           borderBottom: "1px solid var(--sdx-gray-200)",
@@ -34095,6 +34976,7 @@ export default function App() {
       {(() => {
         const interval = Number(venueSettings.inspectionInterval) || 0;
         if (!interval || !lastInspectionDate) return null;
+        if (guideMode === "simple" && siteName.trim()) return null;
         const daysSince = Math.floor((Date.now() - new Date(lastInspectionDate).getTime()) / 86400000);
         if (daysSince < interval) return null;
         const overdueDays = daysSince - interval;
@@ -34124,7 +35006,7 @@ export default function App() {
       })()}
 
       {/* ── Opened from a stand QR as the inspector ───────────── */}
-      {currentUser && qrStand && (
+      {currentUser && qrStand && guideMode === "full" && (
         <div className="qrStandBanner">
           <span style={{ fontSize: "1.15rem" }}>📍</span>
           <span style={{ flex: 1, fontWeight: 700, fontSize: "0.9rem" }}>
@@ -34144,7 +35026,7 @@ export default function App() {
       )}
 
       {/* ── Follow-ups overdue banner ─────────────────────────── */}
-      {currentUser && fuOverdueCount > 0 && (
+      {currentUser && fuOverdueCount > 0 && !(guideMode === "simple" && siteName.trim()) && (
         <div style={{ background: "#ede9fe", borderBottom: "3px solid #6366f1", padding: "0.7rem 1.25rem", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
           <span style={{ fontSize: "1.2rem" }}>🔁</span>
           <span style={{ flex: 1, fontWeight: 700, fontSize: "0.92rem", color: "#4338ca" }}>
@@ -34158,15 +35040,18 @@ export default function App() {
       )}
 
       {/* ── Food Safety Quick Reference ─────────────────────── */}
+      {guideMode === "full" && (
       <div className="foodSafetyRefWrap">
         <FoodSafetyRef />
         <button type="button" className="scanStandBtn scanStandBtnWide" onClick={() => setScanStandOpen(true)}>
           📷 Scan stand QR — start an inspection with everything pre-filled
         </button>
       </div>
+      )}
 
       {/* ── Form Progress Indicator (5-step bar) ─────────────── */}
       {(() => {
+        if (guideMode === "simple") return null; // v520: the walk has its own progress
         const hasDetails  = !!(inspectorName.trim() && inspectionDate);
         const hasLocation = !!(siteName.trim() && locationType);
         const hasEquip    = Object.keys(inspection.equipment || {}).some(k => {
@@ -34180,9 +35065,8 @@ export default function App() {
             || (eq.notes && eq.notes.trim() !== "")
             || (eq.photos && eq.photos.length > 0);
         });
-        const hasChecklist = Object.values(inspection.buckets || {}).some(v =>
-          v && typeof v === "object" && Object.keys(v).some(k => v[k] === true || v[k] === false)
-        );
+        // v520: any row answered or any item checked (it read the long-gone `inspection.buckets`, so it never reached 5/5)
+        const hasChecklist = ["facility", "equipment", "utensils", "operations", "maintenance"].some(sec => Object.values(inspection[sec] || {}).some(n => n && typeof n === "object" && (n.checkedAt || (n.checklist || []).some(c => c.value === "YES" || c.value === "NO"))));
         const hasNotes    = !!(rawNotes?.trim() || notesPhotos?.length > 0);
         const steps = [
           { label: "Details",   done: hasDetails },
@@ -34227,7 +35111,7 @@ export default function App() {
 
           <div className="cardBody">
             {/* ── On-Site Timer Button — top of form ── */}
-            <div style={{ marginBottom: "1rem" }}>
+            <div style={{ marginBottom: "1rem", ...(guideMode === "simple" ? { display: "none" } : {}) }}>
               {!onSiteConfirmed ? (
                 <button
                   type="button"
@@ -34268,7 +35152,7 @@ export default function App() {
                 </div>
               )}
             </div>
-            <div className="fieldGrid">
+            <div className="fieldGrid" style={guideMode === "simple" && !(walkDetailsOpen && siteName.trim()) ? { display: "none" } : undefined}>
               <label className="field">
                 <span className="fieldLabel">Type</span>
                 <select className="select" value={inspectionType} onChange={(e) => {
@@ -34463,7 +35347,20 @@ export default function App() {
               )}
             </div>
 
+            {guideMode === "simple" ? (
+              <SimpleWalk inspection={inspection} setInspection={setInspection} locationType={locationType} siteName={siteName} siteNumber={siteNumber} floor={floor}
+                eventDay={guideEventDay} eventName={guideEventName || eventName} inspectionId={savedReportId} onError={msg => { setError(msg); setTimeout(() => setError(""), 8000); }}
+                onPickStand={pickStand} onScan={() => setScanStandOpen(true)} onChangeStand={changeStand} onToggleDetails={() => setWalkDetailsOpen(v => !v)} detailsOpen={walkDetailsOpen}
+                supervisorName={supervisorName} setSupervisorName={setSupervisorName} rawNotes={rawNotes} setRawNotes={setRawNotes}
+                onSiteConfirmed={onSiteConfirmed} onConfirmOnSite={confirmOnSite} supervisorLogUrl={QR_OPEN_AS_INSPECTOR && qrStand ? qrStandUrl("supervisor") : ""} nluIssues={nluIssues} onNlu={(sentence, reject) => { reject ? nluReject(sentence) : nluUnreject(sentence); setNluTick(t => t + 1); }}
+                onSave={async () => { if (walkSavingRef.current) return; walkSavingRef.current = true; setWalkSaving(true); try { await onTransform(true); } finally { walkSavingRef.current = false; setWalkSaving(false); } }} saving={loading || walkSaving} saveError={error} saved={!!walkSavedId && walkSavedId === savedReportId} onNew={() => { startNewInspection(); setWalkDetailsOpen(false); }}
+                onViewReport={() => { try { document.getElementById("report-output")?.scrollIntoView({ behavior: "smooth", block: "start" }); } catch {} }}
+                onHaccpQr={() => setShowHaccpModal(true)} onFull={() => setGuideMode("full")}
+                standOpenProblems={standOpenProblems} correctives={correctives} setCorrectives={setCorrectives} suppliesNeeded={suppliesNeeded}
+                foodTemps={foodTemps} foodTempNames={foodTempNames} foodTempCorrections={foodTempCorrections} foodTempSubmitted={foodTempSubmitted} foodTempTimes={foodTempTimes} food={foodHelpers} />
+            ) : (
             <div className="guide">
+              <button type="button" className="walkModeSwitch walkModeSwitchTop" data-testid="guide-mode-simple" onClick={() => setGuideMode("simple")}>⇄ Simple walk (easier)</button>
               {/* ── Stepper header ─────────────────────────────────────── */}
               {(() => {
                 const isEventDay = guideEventDay;
@@ -34475,18 +35372,21 @@ export default function App() {
                 // from inspection data (names drift, data doesn't).
                 const PANEL_SECTIONS = { 1: ["facility"], 5: ["maintenance"], 2: ["equipment"], 3: ["utensils"], 4: ["operations"] };
                 const panelCounts = {}; // pid -> { remaining, total, issues }
-                for (const [pid, secs] of Object.entries(PANEL_SECTIONS)) {
-                  let remaining = 0, total = 0, issues = 0;
-                  for (const sec of secs) {
-                    for (const node of Object.values(inspection[sec] || {})) {
-                      const cl = node?.checklist;
-                      if (!Array.isArray(cl)) continue;
-                      total += cl.length;
-                      remaining += cl.filter(c => c.value === "").length;
-                      issues += cl.filter(c => c.value === "NO").length;
-                    }
+                // v520: count only what this stand type's guide SHOWS — Ecolab lives on step 0, "Other" rows and N/A
+                // items don't count, status-only items count once answered (checkedAt) — so every step can reach "done"
+                const PID_OF = { facility: 1, maintenance: 5, equipment: 2, utensils: 3, operations: 4 };
+                for (const pid of Object.keys(PANEL_SECTIONS)) panelCounts[pid] = { remaining: 0, total: 0, issues: 0 };
+                for (const gn of guideNodesFor(locationType, inspection)) {
+                  if (gn.section === "facility" && gn.key === "ecolabProducts") continue;
+                  const pc = panelCounts[PID_OF[gn.section]]; if (!pc) continue;
+                  const node = inspection[gn.section]?.[gn.key];
+                  if (gn.kind === "checklist") { const rc = rowCounts(node); pc.total += rc.total; pc.remaining += rc.total - rc.answered; pc.issues += rc.issues; }
+                  else if (!node?.notApplicable) {
+                    // a status item already shows "OK" until someone changes it — it counts once answered and is never "left"
+                    const st = node?.status || "";
+                    if (node?.checkedAt || (st && st !== "OK") || String(node?.tempF ?? "").trim() || String(node?.notes || "").trim() || (node?.photos || []).length) pc.total += 1;
+                    if (gn.kind !== "maint" && st && st !== "OK" && st !== "N/A") pc.issues += 1;
                   }
-                  panelCounts[pid] = { remaining, total, issues };
                 }
                 // v496: temps count too — a reading or a food temp typed
                 const tempsDone = Object.values(inspection.temps || {}).filter(v => (typeof v === "string" || typeof v === "number") ? String(v).trim() : (v && String(v.value ?? v.tempF ?? "").trim())).length
@@ -34556,9 +35456,7 @@ export default function App() {
                         );
                       })}
                     </div>
-                    {activePanel !== 5 && (
-                      <button type="button" className="maintJump" onClick={() => setGuideStep(STEP_ORDER.indexOf(5))}>🔧 Maintenance — pest, AC, plumbing, electrical →</button>
-                    )}
+
                     {/* Guide Finder — jump to any item in any step */}
                     <div style={{ position: "relative", margin: "10px 0 4px" }}>
                       <input
@@ -34622,8 +35520,8 @@ export default function App() {
                           <div className="fuThumbs" style={{ margin: "4px 0" }}>{f.photos.map(p => <div key={p.id} className="fuThumb fuThumbReport"><img src={p.thumbUrl} alt="" onClick={() => setAppLightboxSrc(p.previewUrl || p.thumbUrl)} /><span className="fuThumbTag">before</span></div>)}</div>
                         )}
                         <div className="caChips">
-                          {[["fixed", "✅ Fixed"], ["in_progress", "🔧 In progress"], ["waiting", "⏳ Waiting on…"]].map(([v, l]) => (
-                            <button key={v} type="button" className={"caChip" + ((c.status || "fixed") === v ? " on" : "")} onClick={() => set({ status: v })}>{l}</button>
+                          {[["fixed", "✅ Fixed"], ["in_progress", "🔧 In progress"], ["waiting", "⏳ Waiting on…"], ["still", "✗ Still there"]].map(([v, l]) => (
+                            <button key={v} type="button" className={"caChip" + ((c.status || "fixed") === v ? " on" : "")} onClick={() => set({ status: v, ...(v === "still" ? { action: "Still there — checked on site" } : c.status === "still" ? { action: "" } : {}) })}>{l}</button>
                           ))}
                         </div>
                         <textarea className="caText" rows={2} value={c.action} onChange={e => set({ action: e.target.value })}
@@ -34653,9 +35551,7 @@ export default function App() {
               {guideEventDay && <div style={{ order: -1, marginBottom: 12 }}><GameDayCard inspection={inspection} setInspection={setInspection} foodTemps={foodTemps} siteName={siteName} siteNumber={siteNumber} eventName={guideEventName || eventName} /></div>}
               <div style={{ order: 0, marginBottom: 12 }} data-testid="ecolab-first">
                 <GuideSection title="🧪 Ecolab Products & Supplies — count what is on hand"
-                  items={[
-                    { path: ["facility", "ecolabProducts"], label: "Ecolab Products & Supplies — tap NO on anything missing or empty: it goes straight onto the Supplies Needed list below" },
-                  ]} inspection={inspection} setInspection={setInspection}
+                  items={ECOLAB_ITEMS} inspection={inspection} setInspection={setInspection}
                   sectionKey="facility"
                   inspectionId={savedReportId} venueId={activeVenueId} onError={msg => { setError(msg); setTimeout(() => setError(""), 8000); }}
                   defaultOpen={true} />
@@ -34810,12 +35706,10 @@ export default function App() {
                               <>
                                 <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                                   <div className="tempInputWrap" style={{ flex: "0 0 auto" }}>
-                                    <input className="input tempInput" inputMode="numeric" value={raw}
-                                      disabled={isSubmitted}
+                                    <input className="input tempInput" type="text" inputMode="decimal" value={raw}
                                       onBlur={(e) => !isSubmitted && smartFieldCorrect("field-handSinkTempF", e.target.value)}
-                                      onChange={(e) => setInspection((prev) => ({ ...prev, temps: { ...prev.temps, handSinkTempF: e.target.value } }))}
-                                      placeholder="97"
-                                      style={isSubmitted ? { opacity: 0.6, background: "var(--surface-2)" } : {}} />
+                                      onChange={(e) => setInspection((prev) => ({ ...prev, temps: { ...prev.temps, handSinkTempF: cleanTempInput(e.target.value) } }))}
+                                      placeholder="97" />
                                     <span className="tempUnit">{String.fromCharCode(176) + "F"}</span>
                                   </div>
                                   {!isSubmitted && (
@@ -34889,12 +35783,10 @@ export default function App() {
                               <>
                                 <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                                   <div className="tempInputWrap" style={{ flex: "0 0 auto" }}>
-                                    <input className="input tempInput" inputMode="numeric" value={raw}
-                                      disabled={isSubmitted}
+                                    <input className="input tempInput" type="text" inputMode="decimal" value={raw}
                                       onBlur={(e) => !isSubmitted && smartFieldCorrect("field-threeCompSinkTempF", e.target.value)}
-                                      onChange={(e) => setInspection((prev) => ({ ...prev, temps: { ...prev.temps, threeCompSinkTempF: e.target.value } }))}
-                                      placeholder="112"
-                                      style={isSubmitted ? { opacity: 0.6, background: "var(--surface-2)" } : {}} />
+                                      onChange={(e) => setInspection((prev) => ({ ...prev, temps: { ...prev.temps, threeCompSinkTempF: cleanTempInput(e.target.value) } }))}
+                                      placeholder="112" />
                                     <span className="tempUnit">{String.fromCharCode(176) + "F"}</span>
                                   </div>
                                   {!isSubmitted && (
@@ -34944,14 +35836,7 @@ export default function App() {
                   <div className="guideStepPanel" data-guide-panel="1" style={{ display: GUIDE_ORDER[guideStep]===1?"block":"none" }}>
 
                 <GuideSection title="🏢 Facilities"
-                  items={[
-                    { path: ["facility", "ceiling"],        label: "Ceiling — Missing, dirty, mold, AC/vents clean, fire sprinklers, light covers & bulbs?" },
-                    { path: ["facility", "walls"],          label: "Walls — Clean, no visible holes?" },
-                    { path: ["facility", "floors"],         label: "Floor — Dirty, spills/standing water, missing tiles, drain clean/clogged?" },
-                    { path: ["facility", "threeCompSinks"], label: "3-Compartment Sinks — Clean, soap/sanitizer dispensers, test strips, stopper, hot water, no leaks, signs?" },
-                    { path: ["facility", "handSink"],       label: "Hand Sink — Clean, soap & paper dispenser working, hot water, no leaks, signs, clear of obstacles?" },
-                    { path: ["facility", "mopArea"],        label: "Mop Area — Clean, mop hung to dry, faucet valve/hot water/no leaks, drain not clogged, Ecolab chemical holders & dispensers?" },
-                  ]} inspection={inspection} setInspection={setInspection}
+                  items={FACILITY_ITEMS} inspection={inspection} setInspection={setInspection}
                   allowCustom sectionKey="facility"
                   inspectionId={savedReportId} venueId={activeVenueId} onError={msg => { setError(msg); setTimeout(() => setError(""), 8000); }}
                   defaultOpen={true} />
@@ -34967,14 +35852,7 @@ export default function App() {
                     </div>
                     <GuideSection title="🔧 Maintenance" items={[]} inspection={inspection} setInspection={setInspection}
                       sectionKey="maintenance" inspectionId={savedReportId} venueId={activeVenueId} onError={msg => { setError(msg); setTimeout(() => setError(""), 8000); }}
-                  maintenanceItems={[
-                        { path: ["maintenance", "pestControl"],      label: "Pest Control — any signs of bugs, insects, or rodents?", hasPriority: true },
-                        { path: ["maintenance", "hvac"],             label: "AC / Ventilation — working properly, no bad smells?", hasPriority: true },
-                        { path: ["maintenance", "plumbing"],         label: "Plumbing / Drains — no leaks, clogs, or slow drains?", hasPriority: true },
-                        { path: ["maintenance", "electricalSafety"], label: "Electrical — no exposed wires, outlets work safely?", hasPriority: true },
-                        { path: ["maintenance", "dumpsterArea"],     label: "Trash / Dumpster — clean, lids closed, no odor?", hasPriority: true },
-                        { path: ["maintenance", "structuralDamage"], label: "Building — any cracks, broken fixtures, or hazards?", hasPriority: true },
-                      ]} defaultOpen={true} />
+                  maintenanceItems={MAINT_ITEMS} defaultOpen={true} />
                   </div>
 
                   <div className="guideStepPanel" data-guide-panel="2" style={{ display: GUIDE_ORDER[guideStep]===2?"block":"none" }}>
@@ -34990,44 +35868,11 @@ export default function App() {
                     allowCustom sectionKey="equipment" coldEquipmentMap={PORTABLE_COLD_EQUIPMENT} inspectionId={savedReportId} venueId={activeVenueId} siteName={siteName} siteNumber={siteNumber} siteFloor={floor} siteLocType={locationType} onError={msg => { setError(msg); setTimeout(() => setError(""), 8000); }} onOpenPrintLabels={({ tag, label }) => setPage("print_labels")} defaultOpen={true} />
                 ) : locationType === "Bar" ? (
                   <GuideSection title="🔧 Equipments — Bar"
-                    items={[
-                      { path: ["equipment", "backBarCooler"], label: "Back Bar Cooler — clean inside, bottles organized?" },
-                      { path: ["equipment", "beerWalkInCooler"], label: "Beer Walk-In Cooler — door seals tight, kegs stored safely?" },
-                      { path: ["equipment", "underBarCooler"], label: "Under-Bar Cooler — clean, door closing properly?" },
-                      { path: ["equipment", "iceBin"], label: "Ice Bin / Ice Machine — clean, no mold or pink slime, scoop stored handle-up?" },
-                      { path: ["equipment", "wineChiller"], label: "Wine Chiller — temp correct, bottles stored properly?" },
-                      { path: ["equipment", "glasswasher"], label: "Glass Washer — working, sanitizer level OK, no cloudy glasses?" },
-                      { path: ["equipment", "threeCompSink"], label: "Dish Washing Sink — 3 sections set up: wash, rinse, sanitize?" },
-                      { path: ["equipment", "beerLines"], label: "Draft Beer / Beer Lines & Taps — cleaned recently, no buildup or off smell, kegs dated?" },
-                      { path: ["equipment", "sodaMachine"], label: "Soda Gun / Fountain — nozzles & holster clean, bag-in-box lines OK, syrup boxes dated, drip tray clean?" },
-                      { path: ["equipment", "co2Tanks"], label: "CO2 Tanks — secured / chained, no leaks, regulator OK?" },
-                      { path: ["equipment", "speedRails"], label: "Speed Rails & Bottle Wells — clean, pourers capped, bottles labeled?" },
-                      { path: ["equipment", "blender"], label: "Blender / Juicer / Frozen-Drink Machine — clean, sanitized, working?" },
-                      { path: ["equipment", "garnishCooler"], label: "Garnish Station / Cooler — covered, dated, cold, tongs not hands?" },
-                      { path: ["equipment", "dumpSink"], label: "Dump Sink / Drip Trays — draining, no odor, no standing liquid?" },
-                      { path: ["equipment", "liquorStorage"], label: "Liquor Storage — locked, off the floor, bottles clean?" },
-                      { path: ["equipment", "glassStorage"], label: "Glassware Storage — inverted, clean racks, no chipped glasses?" },
-                      { path: ["equipment", "ecolab"], label: "Chemicals (Ecolab) — correct concentration, properly labeled, stored away from food?" },
-                    ]} inspection={inspection} setInspection={setInspection}
+                    items={BAR_EQUIP_ITEMS} inspection={inspection} setInspection={setInspection}
                     allowCustom sectionKey="equipment" coldEquipmentMap={BAR_COLD_EQUIPMENT} inspectionId={savedReportId} venueId={activeVenueId} siteName={siteName} siteNumber={siteNumber} siteFloor={floor} siteLocType={locationType} onError={msg => { setError(msg); setTimeout(() => setError(""), 8000); }} onOpenPrintLabels={({ tag, label }) => setPage("print_labels")} defaultOpen={true} />
                 ) : locationType === "Pantry" ? (
                   <GuideSection title="🔧 Equipments — Pantry"
-                    items={[
-                      { path: ["equipment", "reachInCooler"], label: "Reach-In Cooler — temp OK, gaskets, clean, dated product, nothing on the floor?" },
-                      { path: ["equipment", "reachInFreezer"], label: "Reach-In Freezer — temp OK, no ice build-up, gaskets, clean?" },
-                      { path: ["equipment", "milkCooler"], label: "Milk / Dairy Cooler — temp OK, dated, rotated (FIFO)?" },
-                      { path: ["equipment", "walkInCooler"], label: "Walk-In Cooler — temp OK, door seals, shelves organized, nothing on the floor, dated product?" },
-                      { path: ["equipment", "draftBeer"], label: "Draft Beer — taps / lines cleaned, kegs dated, drip tray clean, no leaks?" },
-                      { path: ["equipment", "sodaMachine"], label: "Soda / Fountain Machine — nozzles clean, bag-in-box lines OK, drip tray clean, no leaks?" },
-                      { path: ["equipment", "coffee"], label: "Coffee / Tea Brewers & Airpots — clean, dated, no scale, working?" },
-                      { path: ["equipment", "dispensers"], label: "Juice / Milk / Water Dispensers — clean nozzles, dated, cold?" },
-                      { path: ["equipment", "microwave"], label: "Microwave / Toaster / Panini Press — clean inside & out, working?" },
-                      { path: ["equipment", "iceMaker"], label: "Ice Machine / Ice Bin — clean, no mold or slime, scoop handle-up, bin covered?" },
-                      { path: ["equipment", "warmers"], label: "Hot Holding / Warmers — clean, at temp, working?" },
-                      { path: ["equipment", "dryStorage"], label: "Dry Storage Racks — 6\" off the floor, dated, FIFO, no open bags?" },
-                      { path: ["equipment", "ecolab"], label: "Chemicals (Ecolab) — labeled, correct concentration, stored away from food?" },
-                      { path: ["equipment", "otherEquip"], label: "Other Equipment — clean and in good condition?" },
-                    ]} inspection={inspection} setInspection={setInspection}
+                    items={PANTRY_EQUIP_ITEMS} inspection={inspection} setInspection={setInspection}
                     allowCustom sectionKey="equipment" coldEquipmentMap={PANTRY_COLD_EQUIPMENT} inspectionId={savedReportId} venueId={activeVenueId} siteName={siteName} siteNumber={siteNumber} siteFloor={floor} siteLocType={locationType} onError={msg => { setError(msg); setTimeout(() => setError(""), 8000); }} onOpenPrintLabels={({ tag, label }) => setPage("print_labels")} defaultOpen={true} />
                 ) : locationType === "Event / Temporary" ? (
                   <GuideSection
@@ -35059,10 +35904,7 @@ export default function App() {
                   <div className="guideStepPanel" data-guide-panel="3" style={{ display: GUIDE_ORDER[guideStep]===3?"block":"none" }}>
 
                 <GuideSection title="🧹 Utensils"
-                  items={[
-                    { path: ["utensils", "cleaningUtensils"], label: "Cleaning Utensils — clean, properly stored, trash cans, brooms, mop stick/head, dust pan, mop bucket available?" },
-                    { path: ["utensils", "cookingUtensils"],  label: "Cooking Utensils — clean, properly stored?" },
-                  ]} inspection={inspection} setInspection={setInspection}
+                  items={UTENSIL_ITEMS} inspection={inspection} setInspection={setInspection}
                   allowCustom sectionKey="utensils" inspectionId={savedReportId} venueId={activeVenueId} onError={msg => { setError(msg); setTimeout(() => setError(""), 8000); }} defaultOpen={true} />
 
                   </div>{/* end Step 3 panel */}
@@ -35081,25 +35923,11 @@ export default function App() {
                 )}
 
                 <GuideSection title="👷 Personal Hygiene & Dress Code"
-                  items={[
-                    { path: ["operations", "hairnets"],      label: "Hairnets / Hats — all food-handling staff wearing proper hair restraints?" },
-                    { path: ["operations", "gloves"],        label: "Gloves — worn when handling ready-to-eat foods, changed between tasks, no torn/soiled gloves in use?" },
-                    { path: ["operations", "uniforms"],      label: "Uniforms — clean, full uniform (shirt, apron, non-slip shoes), no jewelry on hands/wrists?" },
-                    { path: ["operations", "handwashing"],   label: "Handwashing — staff washing hands at correct sink, with soap, for 20 s, after glove removal/raw food/restroom?" },
-                    { path: ["operations", "illnessPolicy"], label: "Illness Policy — any staff with symptoms (vomiting, diarrhea, jaundice) removed from food handling?" },
-                  ]} inspection={inspection} setInspection={setInspection}
+                  items={OPS_HYGIENE_ITEMS} inspection={inspection} setInspection={setInspection}
                   allowCustom sectionKey="operations" inspectionId={savedReportId} venueId={activeVenueId} onError={msg => { setError(msg); setTimeout(() => setError(""), 8000); }} defaultOpen={true} />
 
                 <GuideSection title="⚙️ Operational Compliance"
-                  items={[
-                    { path: ["operations", "foodLabeling"],     label: "Food Labeling — all prepped/stored food labeled with name and date, no unlabeled containers?" },
-                    { path: ["operations", "dateRotation"],     label: "Date Rotation (FIFO) — oldest product in front, expired items discarded, nothing past use-by date?" },
-                    { path: ["operations", "crossContamination"],label: "Cross-Contamination — raw meats stored below ready-to-eat foods, separate cutting boards/utensils used?" },
-                    { path: ["operations", "chemicalStorage"],  label: "Chemical Storage — cleaning chemicals stored away from food/equipment, properly labeled?" },
-                    { path: ["operations", "thermometers"],     label: "Thermometers — probe thermometers available, calibrated, sanitized between uses?" },
-                    { path: ["operations", "staffingLevels"],   label: "Staffing — sufficient staff for volume, all positions covered, no unsupervised minors in hazardous areas?" },
-                    { path: ["operations", "openFoodCoverage"],  label: "Open Food — all food covered/protected from contamination when not actively in use?" },
-                  ]} inspection={inspection} setInspection={setInspection}
+                  items={OPS_COMPLIANCE_ITEMS} inspection={inspection} setInspection={setInspection}
                   allowCustom sectionKey="operations" inspectionId={savedReportId} venueId={activeVenueId} onError={msg => { setError(msg); setTimeout(() => setError(""), 8000); }} defaultOpen={true} />
 
                   </div>{/* end Step 4 panel */}
@@ -35148,7 +35976,7 @@ export default function App() {
                 );
               })()}
 
-            </div>{/* end .guide */}
+            </div>{/* end of the stepper viewport (the .guide container closes after food temps) */}
 
             {/* ── HACCP Food Temperatures ─────────────────────────────── */}
             <div id="food-temps-section" style={{
@@ -35362,7 +36190,9 @@ export default function App() {
             </div>
 
             </div>
+            )}{/* end .guide (simple walk ⇄ full checklist) */}
 
+            {guideMode === "full" && (<>
             {/* Ice makers — multi-unit tracking: last cleaned, filter last changed */}
             {(() => {
               // iceMakers is an array of { id, label, cleanedDate, filterDates: ["MM/DD/YYYY", ...] }
@@ -35628,7 +36458,9 @@ export default function App() {
               )}
             </div>
 
-            {warnings.length > 0 && (
+            </>)}
+
+            {warnings.length > 0 && guideMode === "full" && (
               <div className="warningBox">
                 <strong>Missing information:</strong>
                 <ul>{warnings.map((w, i) => (
@@ -35650,7 +36482,7 @@ export default function App() {
         </section>
 
         {/* RIGHT */}
-        <section className="card" id="report-output">
+        <section className="card" id="report-output" style={guideMode === "simple" && !output ? { display: "none" } : undefined}>
           <div className="outputCardHeader">
             <div className="outputCardTitleRow">
               <div>
@@ -35728,7 +36560,7 @@ export default function App() {
 
 
       {/* Sticky action bar — appears when report is generated */}
-      {output && (
+      {output && guideMode === "full" && (
         <div className="stickyActionBar">
           <button className="btn stickyBtn stickyBtnView" type="button" onClick={() => {
             const el = document.getElementById("report-output");
@@ -35906,7 +36738,7 @@ export default function App() {
           inspection={inspection}
           rawNotes={rawNotes}
           onDismiss={() => {
-            const today = new Date().toISOString().slice(0, 10);
+            const _n = new Date(); const today = `${_n.getFullYear()}-${String(_n.getMonth() + 1).padStart(2, "0")}-${String(_n.getDate()).padStart(2, "0")}`;
             localStorage.setItem("sdx_eod_dismissed", today);
             setShowEodPrompt(false);
           }}
