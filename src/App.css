@@ -9397,3 +9397,4 @@ html[data-theme="black"] .inspTypeCard.on { border-color: #9DB8F5; box-shadow: 0
 .fuSimUndo button { min-height: 44px; padding: 0 14px; border: none; border-radius: 10px; background: #fbbf24; font-weight: 800; cursor: pointer; }
 .fuSimFlash { background: var(--tint-green-1); color: var(--tx-green); border-radius: 12px; padding: 8px 12px; font-weight: 700; margin-bottom: 8px; }
 .fuSimMore { min-height: 48px; border-radius: 12px; border: 2px dashed var(--sdx-gray-300); background: none; font-weight: 700; color: var(--ink-700); cursor: pointer; }
+.walkAreaFull { font-size: 0.85rem; padding: 4px 0; min-height: 36px; align-self: flex-end; order: 99; }

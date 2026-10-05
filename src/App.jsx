@@ -27760,7 +27760,7 @@ function SimpleWalk(props) {
   const { inspection, setInspection, locationType, siteName, siteNumber, floor, eventDay, eventName, inspectionId, onError,
     onPickStand, onScan, onChangeStand, onToggleDetails, detailsOpen, supervisorName, setSupervisorName, rawNotes, setRawNotes,
     onSave, saving, saved, onNew, onViewReport, onHaccpQr, onFull, standOpenProblems, correctives, setCorrectives, suppliesNeeded,
-    onSiteConfirmed, onConfirmOnSite, nluIssues, onNlu, mode, inspectionType, onPickType } = props;
+    onSiteConfirmed, onConfirmOnSite, nluIssues, onNlu, mode, inspectionType, onPickType, startArea } = props;
   const areas = useMemo(() => walkAreasFor(locationType, inspection, eventDay && mode !== "post", mode), [locationType, inspection, eventDay, mode]);
   const states = areas.map(a => walkAreaState(inspection, a));
   const doneN = states.filter(s => s === "done").length;
@@ -27776,6 +27776,7 @@ function SimpleWalk(props) {
   const hasStand = !!(siteName || "").trim();
   useEffect(() => { if (hasStand && open === null && !review) { const i = states.findIndex(s => s !== "done"); setOpen(areas[i >= 0 ? i : 0]?.id || null); } }, [hasStand]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (!hasStand) { setOpen(null); setWrong(null); setItem(null); setReview(false); } }, [hasStand]);
+  useEffect(() => { if (hasStand && startArea && areas.some(a => a.id === startArea)) setOpen(startArea); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   // another report or another stand type: nothing from the old screen may point into the new one
   useEffect(() => { setWrong(null); setItem(null); setSheet(null); setUndo(null); clearTimeout(undoTimer.current); }, [locationType, inspectionId]);
   useEffect(() => () => clearTimeout(undoTimer.current), []);
@@ -27866,7 +27867,7 @@ function SimpleWalk(props) {
     <div className="walkRoot" data-testid="walk-root">
       {coach && <WalkCoach onDone={() => { setCoach(false); try { localStorage.setItem("sdx_walk_coach_seen", "1"); } catch {} }} />}
       <WalkStart onPickStand={onPickStand} onScan={onScan} siteName={siteName} inspectionType={inspectionType} onPickType={onPickType} />
-      <button type="button" className="walkModeSwitch" data-testid="walk-mode-full" onClick={onFull}>Full checklist (detailed) ⇄</button>
+      <button type="button" className="walkModeSwitch" data-testid="walk-mode-full" onClick={() => onFull(open)}>Full checklist (detailed) ⇄</button>
     </div>
   );
   if (saved) return (
@@ -27895,6 +27896,7 @@ function SimpleWalk(props) {
         </button>
         {isOpen && (
           <div className="walkAreaBody">
+            <button type="button" className="walkLinkBtn walkAreaFull" data-testid="walk-area-full" onClick={() => onFull(a.id)}>Need more detail? Full checklist for this part →</button>
             <div className="walkLook" data-testid="walk-look">{a.look} <button type="button" className="walkHelpBtn" data-testid={`walk-help-${a.id}`} onClick={() => setHelp(help === a.id ? null : a.id)}>?</button></div>
             {help === a.id && (
               <div className="walkHelp" data-testid="walk-help">
@@ -28037,7 +28039,7 @@ function SimpleWalk(props) {
           <button type="button" className="walkLinkBtn" onClick={() => setReview(false)}>‹ Back to the walk</button>
         </div>
       )}
-      <button type="button" className="walkModeSwitch" data-testid="walk-mode-full" onClick={onFull}>Full checklist (detailed) ⇄</button>
+      <button type="button" className="walkModeSwitch" data-testid="walk-mode-full" onClick={() => onFull(open)}>Full checklist (detailed) ⇄</button>
       {sheet && <WalkProblemSheet sheet={sheet} inspection={inspection} setInspection={setInspection} inspectionId={inspectionId} onError={onError} foodTempCorrections={props.foodTempCorrections}
         onClose={() => setSheet(null)}
         onUndo={() => { unflag(sheet); setSheet(null); }} />}
@@ -32384,7 +32386,7 @@ export default function App() {
   // a manual switch overrides it for this report only. Harnesses (local mode) can force a mode with sdx_guide_mode.
   const [guideOverride, setGuideOverride] = useState(() => { try { const f = localStorage.getItem("sdx_force_local") === "1" ? localStorage.getItem("sdx_guide_mode") : ""; return ["full", "simple", "post"].includes(f) ? f : null; } catch { return null; } });
   const setGuideMode = m => { setGuideOverride(m); try { window.scrollTo({ top: 0 }); } catch {} };
-  const guideModeRef = useRef("full");
+  const guideModeRef = useRef("full"); const walkStartAreaRef = useRef(null);
   const [walkDetailsOpen, setWalkDetailsOpen] = useState(false);
   const [walkSaving, setWalkSaving] = useState(false); // the walk's Save covers the whole write, not only the report text
   const [walkSavedId, setWalkSavedId] = useState(null); // the walk's "Report saved!" screen stays until Next stand (the ✓ Saved chip flag clears itself after 2.5 s)
@@ -33114,6 +33116,11 @@ export default function App() {
   const pickInspType = t => { setInspectionType(t); setGuideOverride(null); try { window.scrollTo({ top: 0 }); } catch {} };
   try { window.__sdxPickType = pickInspType; } catch {}
   const GUIDE_ORDER = guideEventDay ? [0, 4, 2, 1, 5, 3] : [0, 1, 5, 2, 3, 4];
+  // v523: one walk ↔ one guide — switching keeps the answers AND lands on the same part of the inspection
+  const AREA_PID = { supplies: 0, temps: 0, sinks: 1, floors: 1, repairs: 5, coolers: 2, equipment: 2, utensils: 3, food: 4 };
+  const PID_AREA = { 0: "temps", 1: "floors", 5: "repairs", 2: "equipment", 3: "utensils", 4: "food" };
+  const walkToFull = areaId => { setGuideMode("full"); const i = GUIDE_ORDER.indexOf(AREA_PID[areaId]); if (i >= 0) setGuideStep(i); };
+  const fullToWalk = () => { walkStartAreaRef.current = PID_AREA[GUIDE_ORDER[guideStep]] || null; setGuideMode(inspectionType === "Post Event" ? "post" : "simple"); };
   const GUIDE_LABELS = guideEventDay ? ["Temps ⭐", "Food safety ⭐", "Equipment", "Facilities", "Maintenance", "Utensils"] : ["Temps & Supplies", "Facilities", "Maintenance", "Equipment", "Utensils", "Operations"];
   const [inspectorName, setInspectorName] = useState("");
   const [participantName, setParticipantName] = useState("");
@@ -34870,7 +34877,7 @@ export default function App() {
           </div>
           {/* v520: the lock must never trap someone who only wanted to look — the way back to the simple walk */}
           <div onClick={e => e.stopPropagation()} style={{ width: "100%", maxWidth: 420 }}><InspTypePick value={inspectionType} onPick={pickInspType} compact /></div>
-          <button type="button" className="walkModeSwitch walkModeSwitchLock" data-testid="lock-mode-simple" onClick={e => { e.stopPropagation(); setGuideMode("simple"); }}>⇄ Back to the simple walk</button>
+          <button type="button" className="walkModeSwitch walkModeSwitchLock" data-testid="lock-mode-simple" onClick={e => { e.stopPropagation(); fullToWalk(); }}>⇄ Back to the simple walk</button>
         </div>
       )}
 
@@ -35443,13 +35450,13 @@ export default function App() {
                 onSiteConfirmed={onSiteConfirmed} onConfirmOnSite={confirmOnSite} supervisorLogUrl={QR_OPEN_AS_INSPECTOR && qrStand ? qrStandUrl("supervisor") : ""} nluIssues={nluIssues} onNlu={(sentence, reject) => { reject ? nluReject(sentence) : nluUnreject(sentence); setNluTick(t => t + 1); }}
                 onSave={async () => { if (walkSavingRef.current) return; walkSavingRef.current = true; setWalkSaving(true); try { await onTransform(true); } finally { walkSavingRef.current = false; setWalkSaving(false); } }} saving={loading || walkSaving} saveError={error} saved={!!walkSavedId && walkSavedId === savedReportId} onNew={() => { startNewInspection(); setWalkDetailsOpen(false); }}
                 onViewReport={() => { try { document.getElementById("report-output")?.scrollIntoView({ behavior: "smooth", block: "start" }); } catch {} }}
-                onHaccpQr={() => setShowHaccpModal(true)} onFull={() => setGuideMode("full")}
+                onHaccpQr={() => setShowHaccpModal(true)} onFull={a => walkToFull(a)} startArea={walkStartAreaRef.current}
                 standOpenProblems={standOpenProblems} correctives={correctives} setCorrectives={setCorrectives} suppliesNeeded={suppliesNeeded}
                 foodTemps={foodTemps} foodTempNames={foodTempNames} foodTempCorrections={foodTempCorrections} foodTempSubmitted={foodTempSubmitted} foodTempTimes={foodTempTimes} food={foodHelpers} />
             ) : (
             <div className="guide">
               <InspTypePick value={inspectionType} onPick={pickInspType} compact />
-              <button type="button" className="walkModeSwitch walkModeSwitchTop" data-testid="guide-mode-simple" onClick={() => setGuideMode("simple")}>⇄ Quick walk</button>
+              <button type="button" className="walkModeSwitch walkModeSwitchTop" data-testid="guide-mode-simple" onClick={() => fullToWalk()}>⇄ Back to the quick walk (same answers)</button>
               {/* ── Stepper header ─────────────────────────────────────── */}
               {(() => {
                 const isEventDay = guideEventDay;
