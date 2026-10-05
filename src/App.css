@@ -9359,3 +9359,13 @@ html[data-theme="black"] .walkLinkBtn { color: #9DB8F5; }
 html[data-theme="black"] .walkDot.active { box-shadow: 0 0 0 3px #9DB8F5; }
 html[data-theme="black"] .walkArea.open { border-color: #9DB8F5; }
 html[data-theme="black"] .walkSupLog { color: #9DB8F5; }
+/* v521 inspection type picker */
+.inspTypePick { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 4px 0 10px; }
+.inspTypeCard { display: flex; flex-direction: column; align-items: center; gap: 4px; min-height: 76px; padding: 10px 6px; border-radius: 14px; border: 2px solid var(--sdx-gray-200); background: var(--surface-1); color: var(--ink-900); cursor: pointer; text-align: center; font-family: inherit; }
+.inspTypeCard.on { border-color: var(--sdx-navy); background: var(--tint-blue-1); box-shadow: 0 0 0 2px var(--sdx-navy) inset; }
+.inspTypeIcon { font-size: 1.5rem; line-height: 1; }
+.inspTypeName { font-weight: 800; font-size: 0.92rem; line-height: 1.2; display: flex; flex-direction: column; gap: 2px; }
+.inspTypeName small { font-weight: 600; font-size: 0.72rem; color: var(--ink-500); }
+.inspTypePick.compact .inspTypeCard { min-height: 52px; flex-direction: row; justify-content: center; }
+.inspTypePick.compact .inspTypeIcon { font-size: 1.15rem; }
+html[data-theme="black"] .inspTypeCard.on { border-color: #9DB8F5; box-shadow: 0 0 0 2px #9DB8F5 inset; }

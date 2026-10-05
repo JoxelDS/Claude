@@ -27377,7 +27377,7 @@ function walkStatusQ(n) {
 }
 const walkIsColdNode = (inspection, n) => n.section === "equipment" && !!(coldMapGet(n.key) || detectColdType(inspection?.equipment?.[n.key]?.label || ""));
 // Which areas, in which order, covering exactly the nodes the full guide shows for this stand type
-function walkAreasFor(locType, inspection, eventDay) {
+function walkAreasFor(locType, inspection, eventDay, mode) {
   const nodes = guideNodesFor(locType, inspection);
   const SINK = new Set(["facility.handSink", "facility.threeCompSinks", "equipment.handWash", "equipment.sanitizer", "equipment.threeCompSink", "equipment.dumpSink"]);
   const SUPPLY = new Set(["facility.ecolabProducts", "equipment.ecolab"]);
@@ -27404,10 +27404,20 @@ function walkAreasFor(locType, inspection, eventDay) {
     utensils: { id: "utensils", icon: "🍴", title: "Utensils", look: "Clean and stored the right way.", nodes: by.utensils },
     food: { id: "food", icon: "🧤", title: "Food safety", look: "Gloves, hand washing, raw meat below ready-to-eat, food covered.", nodes: by.food },
   };
+  if (mode === "post") {
+    // v521 post-event: cleaning, temperatures, food safety & storage — no supplies count, no repairs
+    const POST_OPS = ["foodLabeling", "dateRotation", "crossContamination", "chemicalStorage", "openFoodCoverage"];
+    const rk = k => { const i = POST_OPS.indexOf(k); return i === -1 ? 99 : i; };
+    A.food = { ...A.food, title: "Food safety & storage", look: "Food labeled and dated, oldest first, raw below ready-to-eat, chemicals away from food, food covered.", nodes: [...by.food].sort((a, b) => rk(a.key) - rk(b.key)) };
+    A.coolers = { ...A.coolers, title: "Coolers & storage", look: "Clean inside, nothing on the floor, food covered, labeled and dated." };
+    A.equipment = { ...A.equipment, title: "Equipment cleaning", look: "Cleaned after the event: grill, fryer, warmers, hood, ice machine…" };
+    A.floors = { ...A.floors, title: "Cleaning — floors, walls & ceiling", look: "Swept and mopped, no spills, trash out, mop area tidy." };
+    return ["temps", "coolers", "food", "floors", "equipment", "sinks", "utensils"].map(id => ({ ...A[id], prio: id === "temps" || id === "food" || id === "floors" })).filter(a => a.special || a.nodes.length);
+  }
   const order = eventDay ? ["temps", "food", "coolers", "equipment", "sinks", "floors", "repairs", "utensils", "supplies"] : ["supplies", "temps", "sinks", "floors", "repairs", "coolers", "equipment", "utensils", "food"];
   return order.map(id => ({ ...A[id], prio: !!eventDay && (id === "temps" || id === "food") })).filter(a => a.special || a.nodes.length);
 }
-try { window.__sdxWalkAreas = (t, insp) => walkAreasFor(t, insp || buildDefaultInspection(), false).map(a => ({ id: a.id, nodes: a.nodes.map(n => n.path.join(".")) })); } catch {}
+try { window.__sdxWalkAreas = (t, insp, mode) => walkAreasFor(t, insp || buildDefaultInspection(), false, mode).map(a => ({ id: a.id, nodes: a.nodes.map(n => n.path.join(".")) })); } catch {}
 // Is this node answered? (N/A counts as answered)
 function walkNodeDone(inspection, n) {
   const node = inspection?.[n.section]?.[n.key];
@@ -27499,7 +27509,20 @@ function WalkCoach({ onDone }) {
     </div>, document.body);
 }
 
-function WalkStart({ onPickStand, onScan, siteName }) {
+// v521: what kind of inspection — it decides the form
+const INSP_TYPE_CARDS = [["Event Day", "🏟", "Event walk", "Quick — temps & food safety first"], ["Regular Inspection", "📋", "Regular inspection", "The full guide"], ["Post Event", "🧹", "Post-event", "Cleaning, temps, food safety & storage"]];
+function InspTypePick({ value, onPick, compact }) {
+  return (
+    <div className={"inspTypePick" + (compact ? " compact" : "")} data-testid="insp-type-pick">
+      {INSP_TYPE_CARDS.map(([t, ic, name, sub]) => (
+        <button key={t} type="button" className={"inspTypeCard" + (value === t ? " on" : "")} data-testid={`insp-type-${t.split(" ")[0].toLowerCase()}`} onClick={() => onPick(t)}>
+          <span className="inspTypeIcon">{ic}</span><span className="inspTypeName">{name}{!compact && <small>{sub}</small>}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+function WalkStart({ onPickStand, onScan, siteName, inspectionType, onPickType }) {
   const [q, setQ] = useState("");
   const [typed, setTyped] = useState("");
   const [stands, setStands] = useState(() => (_standListCache.length ? _standListCache : standSeeds()));
@@ -27523,6 +27546,7 @@ function WalkStart({ onPickStand, onScan, siteName }) {
   );
   return (
     <div className="walkStart" data-testid="walk-start">
+      {onPickType && <><div className="walkSmallHead">What kind of inspection?</div><InspTypePick value={inspectionType} onPick={onPickType} /></>}
       <div className="walkStartTitle">Which stand are you inspecting?</div>
       <button type="button" className="walkScanBtn" data-testid="walk-scan" onClick={onScan}><span className="walkScanIcon">📷</span><span>Scan the stand QR<small>on the poster at the stand</small></span></button>
       {recent.length > 0 && !qq && (
@@ -27683,8 +27707,8 @@ function SimpleWalk(props) {
   const { inspection, setInspection, locationType, siteName, siteNumber, floor, eventDay, eventName, inspectionId, onError,
     onPickStand, onScan, onChangeStand, onToggleDetails, detailsOpen, supervisorName, setSupervisorName, rawNotes, setRawNotes,
     onSave, saving, saved, onNew, onViewReport, onHaccpQr, onFull, standOpenProblems, correctives, setCorrectives, suppliesNeeded,
-    onSiteConfirmed, onConfirmOnSite, nluIssues, onNlu } = props;
-  const areas = useMemo(() => walkAreasFor(locationType, inspection, eventDay), [locationType, inspection, eventDay]);
+    onSiteConfirmed, onConfirmOnSite, nluIssues, onNlu, mode, inspectionType, onPickType } = props;
+  const areas = useMemo(() => walkAreasFor(locationType, inspection, eventDay && mode !== "post", mode), [locationType, inspection, eventDay, mode]);
   const states = areas.map(a => walkAreaState(inspection, a));
   const doneN = states.filter(s => s === "done").length;
   const [open, setOpen] = useState(null);       // area id open
@@ -27788,7 +27812,7 @@ function SimpleWalk(props) {
   if (!hasStand) return (
     <div className="walkRoot" data-testid="walk-root">
       {coach && <WalkCoach onDone={() => { setCoach(false); try { localStorage.setItem("sdx_walk_coach_seen", "1"); } catch {} }} />}
-      <WalkStart onPickStand={onPickStand} onScan={onScan} siteName={siteName} />
+      <WalkStart onPickStand={onPickStand} onScan={onScan} siteName={siteName} inspectionType={inspectionType} onPickType={onPickType} />
       <button type="button" className="walkModeSwitch" data-testid="walk-mode-full" onClick={onFull}>Full checklist (detailed) ⇄</button>
     </div>
   );
@@ -27896,7 +27920,7 @@ function SimpleWalk(props) {
       {coach && <WalkCoach onDone={() => { setCoach(false); try { localStorage.setItem("sdx_walk_coach_seen", "1"); } catch {} }} />}
       <div className="walkStandCard" data-testid="walk-stand-card">
         <div className="walkStandName"><NT>{String(siteName).toUpperCase()}</NT>{siteNumber ? <NT> · #{siteNumber}</NT> : null}</div>
-        <div className="walkStandMeta"><StandType lt={locationType} />{floor ? <span>{floor}</span> : null}{eventDay ? <span className="walkEvent" data-testid="walk-eventday">🏟 Event day{eventName ? ` · ${eventName}` : ""}</span> : null}</div>
+        <div className="walkStandMeta"><StandType lt={locationType} />{floor ? <span>{floor}</span> : null}{mode === "post" ? <span className="walkEvent" data-testid="walk-post">🧹 Post-event check — cleaning, temps, food safety & storage</span> : null}{eventDay && mode !== "post" ? <span className="walkEvent" data-testid="walk-eventday">🏟 Event day{eventName ? ` · ${eventName}` : ""}</span> : null}</div>
         <div className="walkStandActs">
           <button type="button" className="walkLinkBtn" data-testid="walk-details-toggle" onClick={onToggleDetails}>{detailsOpen ? "Hide details" : "Edit details"}</button>
           <button type="button" className="walkLinkBtn" data-testid="walk-stand-change" onClick={onChangeStand}>Change stand</button>
@@ -27922,7 +27946,8 @@ function SimpleWalk(props) {
         </div>
       )}
       {!review && areas.map(renderArea)}
-      {!review && <button type="button" className="walkReviewBtn" data-testid="walk-to-review" onClick={() => { setReview(true); setOpen(null); try { window.scrollTo({ top: 0, behavior: "smooth" }); } catch {} }}>{doneN === areas.length ? "Review & save →" : "Finish & save →"}</button>}
+      {!review && <button type="button" className="walkReviewBtn" data-testid="walk-finish-save" disabled={saving} onClick={() => onSave()}>{saving ? "Saving…" : "💾 Finish & save"}</button>}
+      {!review && <button type="button" className="walkLinkBtn" data-testid="walk-to-review" onClick={() => { setReview(true); setOpen(null); try { window.scrollTo({ top: 0, behavior: "smooth" }); } catch {} }}>Check the list of problems first</button>}
       {review && (
         <div className="walkReview" data-testid="walk-review">
           <div className="walkReviewTitle">Review & save</div>
@@ -32302,9 +32327,11 @@ export default function App() {
   const [draftCloudAt, setDraftCloudAt] = useState(null);  // v451 — last cloud copy
   const [guideStep, setGuideStep] = useState(0); // 0-based index into guide stepper
   // v520: the simple walk is the default for everyone; "Full checklist" keeps the detailed guide (per phone)
-  const [guideMode, setGuideModeS] = useState(() => { try { return localStorage.getItem("sdx_guide_mode") === "full" ? "full" : "simple"; } catch { return "simple"; } });
-  const setGuideMode = m => { setGuideModeS(m); try { localStorage.setItem("sdx_guide_mode", m); } catch {} try { window.scrollTo({ top: 0 }); } catch {} };
-  const guideModeRef = useRef(guideMode); guideModeRef.current = guideMode;
+  // v521: the INSPECTION TYPE picks the form (Event → quick walk, Post Event → focused walk, Regular → full guide);
+  // a manual switch overrides it for this report only. Harnesses (local mode) can force a mode with sdx_guide_mode.
+  const [guideOverride, setGuideOverride] = useState(() => { try { const f = localStorage.getItem("sdx_force_local") === "1" ? localStorage.getItem("sdx_guide_mode") : ""; return ["full", "simple", "post"].includes(f) ? f : null; } catch { return null; } });
+  const setGuideMode = m => { setGuideOverride(m); try { window.scrollTo({ top: 0 }); } catch {} };
+  const guideModeRef = useRef("full");
   const [walkDetailsOpen, setWalkDetailsOpen] = useState(false);
   const [walkSaving, setWalkSaving] = useState(false); // the walk's Save covers the whole write, not only the report text
   const [walkSavedId, setWalkSavedId] = useState(null); // the walk's "Report saved!" screen stays until Next stand (the ✓ Saved chip flag clears itself after 2.5 s)
@@ -32334,7 +32361,7 @@ export default function App() {
   }
 
   function jumpToGuideItem(hit) {
-    if (guideModeRef.current === "simple") { try { window.dispatchEvent(new CustomEvent("sdx-walk-open", { detail: hit })); } catch {} return; } // v520
+    if (guideModeRef.current !== "full") { try { window.dispatchEvent(new CustomEvent("sdx-walk-open", { detail: hit })); } catch {} return; } // v520
     const stepIdx = GUIDE_ORDER.indexOf(hit.pid); // v518: same order as the stepper (event days differ)
     if (stepIdx >= 0) setGuideStep(stepIdx);
     window.dispatchEvent(new CustomEvent("sdx-open-guide-item", { detail: { key: hit.key } }));
@@ -33029,6 +33056,10 @@ export default function App() {
   // v518.1: event day belongs to the REPORT (its date + type) — an old report edited on a game day stays what it was; Post Event is not an event day
   const guideEventName = ((venueSettings?.eventDays || {})[inspectionDate]) || "";
   const guideEventDay = inspectionType === "Event Day" || (!!guideEventName && inspectionType !== "Post Event");
+  const guideMode = guideOverride || (inspectionType === "Post Event" ? "post" : guideEventDay ? "simple" : "full");
+  guideModeRef.current = guideMode;
+  const pickInspType = t => { setInspectionType(t); setGuideOverride(null); try { window.scrollTo({ top: 0 }); } catch {} };
+  try { window.__sdxPickType = pickInspType; } catch {}
   const GUIDE_ORDER = guideEventDay ? [0, 4, 2, 1, 5, 3] : [0, 1, 5, 2, 3, 4];
   const GUIDE_LABELS = guideEventDay ? ["Temps ⭐", "Food safety ⭐", "Equipment", "Facilities", "Maintenance", "Utensils"] : ["Temps & Supplies", "Facilities", "Maintenance", "Equipment", "Utensils", "Operations"];
   const [inspectorName, setInspectorName] = useState("");
@@ -33346,7 +33377,7 @@ export default function App() {
     applyStandFromQr(st);
     setScanFlash(`✅ Stand loaded — ${st.site || ""}${st.unit ? ` #${st.unit}` : ""}. Details pre-filled, start the checklist.`);
     setTimeout(() => setScanFlash(""), 5000);
-    if (guideModeRef.current === "simple") { confirmOnSite(); return; } // v520: the scan is the on-site step; the walk opens itself
+    if (guideModeRef.current !== "full") { confirmOnSite(); return; } // v520: the scan is the on-site step; the walk opens itself
     setTimeout(() => { try { document.getElementById("field-siteNumber")?.scrollIntoView({ behavior: "smooth", block: "center" }); } catch {} }, 150);
   }
 
@@ -33650,7 +33681,7 @@ export default function App() {
       const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
       const dismissed = localStorage.getItem(EOD_DISMISS_KEY);
       if (dismissed === today) return; // already dismissed today
-      if (guideModeRef.current === "simple") return;
+      if (guideModeRef.current !== "full") return;
       // Only show if there's actual inspection work (has site name or raw notes)
       if (!eodSiteRef.current.trim() && !eodNotesRef.current.trim()) return;
       setShowEodPrompt(true);
@@ -33872,6 +33903,7 @@ export default function App() {
   }
 
   function startNewInspection() {
+    try { if (localStorage.getItem("sdx_force_local") !== "1") setGuideOverride(null); } catch {} // v521: a new report follows its type again
     try { flushDraftRef.current && flushDraftRef.current(); } catch {} // v495: keep the current walk
     reportStartedAt.current = null; // reset — timer restarts when name is typed/confirmed
     inspectionStartedAt.current = null; // reset on-site timer
@@ -33993,6 +34025,7 @@ export default function App() {
   }
 
   function loadRecordForEdit(rec) {
+    try { if (localStorage.getItem("sdx_force_local") !== "1") setGuideOverride(null); } catch {}
     // Permission check: only the original author, admins, or global_admin may edit.
     const isAdmin = currentUser?.role === "admin" || currentUser?.role === "global_admin";
     const isAuthor = rec.savedByHash && currentUser?.badgeHash && rec.savedByHash === currentUser.badgeHash;
@@ -34466,7 +34499,7 @@ export default function App() {
           </button>
           {/* HACCP QR button moved to sticky action bar after save */}
           <button className={cx("btn", "btnPrimary", "btnGenHeader")} onClick={e => {
-              if (guideModeRef.current === "simple" && page === "inspector") { // v520: the walk has its own review — no blank or unchecked save from here
+              if (guideModeRef.current !== "full" && page === "inspector") { // v520: the walk has its own review — no blank or unchecked save from here
                 if (!siteName.trim()) { setScanFlash("👆 Pick the stand first — walk it, then tap Save at the end."); setTimeout(() => setScanFlash(""), 4000); return; }
                 try { window.dispatchEvent(new CustomEvent("sdx-walk-review")); } catch {} return;
               }
@@ -34783,6 +34816,7 @@ export default function App() {
             </div>
           </div>
           {/* v520: the lock must never trap someone who only wanted to look — the way back to the simple walk */}
+          <div onClick={e => e.stopPropagation()} style={{ width: "100%", maxWidth: 420 }}><InspTypePick value={inspectionType} onPick={pickInspType} compact /></div>
           <button type="button" className="walkModeSwitch walkModeSwitchLock" data-testid="lock-mode-simple" onClick={e => { e.stopPropagation(); setGuideMode("simple"); }}>⇄ Back to the simple walk</button>
         </div>
       )}
@@ -34852,7 +34886,7 @@ export default function App() {
       {/* ── Inspector assignment banner — shows scheduled inspections assigned to this user ── */}
       {(() => {
         if (!currentUser?.name) return null;
-        if (guideMode === "simple" && siteName.trim()) return null; // v520: only on the walk's start screen
+        if (guideMode !== "full" && siteName.trim()) return null; // v520: only on the walk's start screen
         const myName = currentUser.name.trim().toLowerCase();
         const today = new Date().toISOString().slice(0, 10);
         const completedSlots = venueSettings?.completedSlots || [];
@@ -34920,7 +34954,7 @@ export default function App() {
       })()}
 
       {/* ── Assigned Stands banner — shows stands/locations assigned to this inspector ── */}
-      {currentUser?.role === "inspector" && (currentUser?.assignedStands?.length > 0) && !(guideMode === "simple" && siteName.trim()) && (
+      {currentUser?.role === "inspector" && (currentUser?.assignedStands?.length > 0) && !(guideMode !== "full" && siteName.trim()) && (
         <div style={{
           background: "var(--surface-1)",
           borderBottom: "1px solid var(--sdx-gray-200)",
@@ -34976,7 +35010,7 @@ export default function App() {
       {(() => {
         const interval = Number(venueSettings.inspectionInterval) || 0;
         if (!interval || !lastInspectionDate) return null;
-        if (guideMode === "simple" && siteName.trim()) return null;
+        if (guideMode !== "full" && siteName.trim()) return null;
         const daysSince = Math.floor((Date.now() - new Date(lastInspectionDate).getTime()) / 86400000);
         if (daysSince < interval) return null;
         const overdueDays = daysSince - interval;
@@ -35026,7 +35060,7 @@ export default function App() {
       )}
 
       {/* ── Follow-ups overdue banner ─────────────────────────── */}
-      {currentUser && fuOverdueCount > 0 && !(guideMode === "simple" && siteName.trim()) && (
+      {currentUser && fuOverdueCount > 0 && !(guideMode !== "full" && siteName.trim()) && (
         <div style={{ background: "#ede9fe", borderBottom: "3px solid #6366f1", padding: "0.7rem 1.25rem", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
           <span style={{ fontSize: "1.2rem" }}>🔁</span>
           <span style={{ flex: 1, fontWeight: 700, fontSize: "0.92rem", color: "#4338ca" }}>
@@ -35051,7 +35085,7 @@ export default function App() {
 
       {/* ── Form Progress Indicator (5-step bar) ─────────────── */}
       {(() => {
-        if (guideMode === "simple") return null; // v520: the walk has its own progress
+        if (guideMode !== "full") return null; // v520: the walk has its own progress
         const hasDetails  = !!(inspectorName.trim() && inspectionDate);
         const hasLocation = !!(siteName.trim() && locationType);
         const hasEquip    = Object.keys(inspection.equipment || {}).some(k => {
@@ -35111,7 +35145,7 @@ export default function App() {
 
           <div className="cardBody">
             {/* ── On-Site Timer Button — top of form ── */}
-            <div style={{ marginBottom: "1rem", ...(guideMode === "simple" ? { display: "none" } : {}) }}>
+            <div style={{ marginBottom: "1rem", ...(guideMode !== "full" ? { display: "none" } : {}) }}>
               {!onSiteConfirmed ? (
                 <button
                   type="button"
@@ -35152,7 +35186,7 @@ export default function App() {
                 </div>
               )}
             </div>
-            <div className="fieldGrid" style={guideMode === "simple" && !(walkDetailsOpen && siteName.trim()) ? { display: "none" } : undefined}>
+            <div className="fieldGrid" style={guideMode !== "full" && !(walkDetailsOpen && siteName.trim()) ? { display: "none" } : undefined}>
               <label className="field">
                 <span className="fieldLabel">Type</span>
                 <select className="select" value={inspectionType} onChange={(e) => {
@@ -35347,8 +35381,9 @@ export default function App() {
               )}
             </div>
 
-            {guideMode === "simple" ? (
+            {guideMode !== "full" ? (
               <SimpleWalk inspection={inspection} setInspection={setInspection} locationType={locationType} siteName={siteName} siteNumber={siteNumber} floor={floor}
+                mode={guideMode} inspectionType={inspectionType} onPickType={pickInspType}
                 eventDay={guideEventDay} eventName={guideEventName || eventName} inspectionId={savedReportId} onError={msg => { setError(msg); setTimeout(() => setError(""), 8000); }}
                 onPickStand={pickStand} onScan={() => setScanStandOpen(true)} onChangeStand={changeStand} onToggleDetails={() => setWalkDetailsOpen(v => !v)} detailsOpen={walkDetailsOpen}
                 supervisorName={supervisorName} setSupervisorName={setSupervisorName} rawNotes={rawNotes} setRawNotes={setRawNotes}
@@ -35360,7 +35395,8 @@ export default function App() {
                 foodTemps={foodTemps} foodTempNames={foodTempNames} foodTempCorrections={foodTempCorrections} foodTempSubmitted={foodTempSubmitted} foodTempTimes={foodTempTimes} food={foodHelpers} />
             ) : (
             <div className="guide">
-              <button type="button" className="walkModeSwitch walkModeSwitchTop" data-testid="guide-mode-simple" onClick={() => setGuideMode("simple")}>⇄ Simple walk (easier)</button>
+              <InspTypePick value={inspectionType} onPick={pickInspType} compact />
+              <button type="button" className="walkModeSwitch walkModeSwitchTop" data-testid="guide-mode-simple" onClick={() => setGuideMode("simple")}>⇄ Quick walk</button>
               {/* ── Stepper header ─────────────────────────────────────── */}
               {(() => {
                 const isEventDay = guideEventDay;
@@ -36482,7 +36518,7 @@ export default function App() {
         </section>
 
         {/* RIGHT */}
-        <section className="card" id="report-output" style={guideMode === "simple" && !output ? { display: "none" } : undefined}>
+        <section className="card" id="report-output" style={guideMode !== "full" && !output ? { display: "none" } : undefined}>
           <div className="outputCardHeader">
             <div className="outputCardTitleRow">
               <div>
