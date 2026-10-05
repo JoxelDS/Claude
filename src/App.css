@@ -9118,7 +9118,7 @@ button.nluChipTemp { background: #fef3c7; color: #92400e; border: 1px solid #fcd
 .unitRowWrap .walkRow { flex: 1 1 220px; min-width: 0; }
 .unitRowTemps { min-height: 40px; }
 
-/* v519: event-day priorities */
+/* v518: event-day priorities */
 .guideChipPrio { font-size: .6rem; font-weight: 900; letter-spacing: .06em; background: #dc2626; color: #fff; border-radius: 999px; padding: 1px 6px; }
 .guideChipLater { font-size: .62rem; font-weight: 600; color: var(--ink-400, #9ca3af); font-style: italic; }
 .gdCard { border: 2px solid #f97316; background: var(--tint-amber-1, #fff7ed); border-radius: 14px; padding: 12px; }
@@ -9145,3 +9145,13 @@ button.nluChipTemp { background: #fef3c7; color: #92400e; border: 1px solid #fcd
 .gdBadge { font-weight: 800; }
 .gdBadgeOk { background: #dcfce7 !important; color: #166534 !important; }
 .gdBadgeOpen { background: #ffedd5 !important; color: #9a3412 !important; }
+/* v518.1: readable chip once nothing is "not sure"; dark themes for the v518 cards */
+.lblFloorChip.eqPlacedChip { background: #f0fdf4 !important; border: 1px solid #86efac !important; color: #166534 !important; }
+.lblFloorChip.eqPlacedChip.warn { background: #fffbeb !important; border-color: #fcd34d !important; color: #92400e !important; }
+:root[data-theme="midnight"] .eqStandHead, :root[data-theme="black"] .eqStandHead, :root[data-theme="noir"] .eqStandHead { color: #bfdbfe; }
+:root[data-theme="midnight"] .eqStandCard, :root[data-theme="black"] .eqStandCard, :root[data-theme="noir"] .eqStandCard { border-color: #1e3a8a; }
+:root[data-theme="midnight"] .gdHead, :root[data-theme="midnight"] .gdSub, :root[data-theme="black"] .gdHead, :root[data-theme="black"] .gdSub, :root[data-theme="noir"] .gdHead, :root[data-theme="noir"] .gdSub { color: #fdba74; }
+:root[data-theme="midnight"] .gdProg, :root[data-theme="black"] .gdProg, :root[data-theme="noir"] .gdProg { background: transparent; color: #fdba74; }
+:root[data-theme="midnight"] .gdRow.bad, :root[data-theme="black"] .gdRow.bad, :root[data-theme="noir"] .gdRow.bad { background: rgba(185,28,28,.18); }
+:root[data-theme="midnight"] .gdLoad, :root[data-theme="midnight"] .gdFood, :root[data-theme="black"] .gdLoad, :root[data-theme="black"] .gdFood, :root[data-theme="noir"] .gdLoad, :root[data-theme="noir"] .gdFood { background: transparent; color: #fdba74; }
+:root[data-theme="midnight"] .eqReviewWhy, :root[data-theme="black"] .eqReviewWhy, :root[data-theme="noir"] .eqReviewWhy, :root[data-theme="midnight"] .eqNearChip, :root[data-theme="black"] .eqNearChip, :root[data-theme="noir"] .eqNearChip, :root[data-theme="midnight"] .htEqUnsure, :root[data-theme="midnight"] .kqrEquipUnsure { background: rgba(245,158,11,.14); color: #fcd34d; border-color: rgba(245,158,11,.4); }
