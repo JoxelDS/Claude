@@ -10402,6 +10402,7 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
   }
 
   const [fuOpen, setFuOpen] = useState({});
+  const [fuShowN, setFuShowN] = useState(30); // v516 — follow-up groups render 30 at a time
   const [fuGroupBy, setFuGroupBy] = useState("loc"); // "loc" | "cat" | "type" | "floor" | "date"
   const [fuTypePick, setFuTypePick] = useState(""); // v447 — Subcontractor / Concession / …
   const [fuFloorPick, setFuFloorPick] = useState(""); // v449 — Floor 1 / Floor 2 / …
@@ -11418,11 +11419,11 @@ ${sections}
               {fuSearch.trim() && fuVisible.length === 0 && (
                 <div style={{ fontSize: "0.82rem", color: "var(--ink-400)", fontStyle: "italic", padding: "10px 4px" }}>No follow-ups match “{fuSearch.trim()}”.</div>
               )}
-              {(fuGroupBy === "cat" ? fuCatGroupsShown
+              {(() => { const __fuAll = (fuGroupBy === "cat" ? fuCatGroupsShown
                 : fuGroupBy === "type" ? fuTypeGroups.filter(g => (!fuTypePick || g.type === fuTypePick) && g.items.some(matchesFloorPick))
                 : fuGroupBy === "floor" ? fuFloorGroups.filter(g => (!fuFloorPick || g.floor === fuFloorPick) && g.items.some(matchesTypePick))
                 : fuGroupBy === "date" ? fuDateGroups.filter(g => g.items.some(f => matchesTypePick(f) && matchesFloorPick(f)))
-                : fuGroupsShown).map(g => {
+                : fuGroupsShown); const __renderFuGroup = (g => {
                 const gKey = `${fuGroupBy}::${fuGroupBy === "cat" ? g.cat : fuGroupBy === "type" ? g.type : fuGroupBy === "floor" ? g.floor : fuGroupBy === "date" ? g.type : g.loc}`;
                 const isOpen = fuSearch.trim() ? true : (fuOpen[gKey] !== undefined ? fuOpen[gKey] : g.overdueCount > 0);
                 const openItems = g.items.filter(f => !f.likelyResolved);
@@ -11642,7 +11643,7 @@ ${sections}
                     )}
                   </div>
                 );
-              })}
+              }); return (<>{__fuAll.slice(0, fuShowN).map(__renderFuGroup)}{__fuAll.length > fuShowN && <ShowMoreSentinel left={__fuAll.length - fuShowN} label={`Show more groups · ${__fuAll.length - fuShowN} left`} onMore={() => setFuShowN(n => n + 30)} />}</>); })()}
             </div>
             <div style={{ fontSize: "0.68rem", color: "var(--sdx-gray-400)", marginTop: 6 }}>
               “Remind” collects the items you tap — hit “Send one reminder” and they all go out as one Quick Check announcement. “Remind Team” does the same for a whole stand. Resolved items reappear automatically if the issue shows up again.
@@ -11993,6 +11994,7 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
   const [haccpSaving, setHaccpSaving] = useState(false);
   const [chatByReport, setChatByReport] = useState({});  // { [reportId]: [...messages] }
   const [showHistoryMenu, setShowHistoryMenu] = useState(false);
+  const [tlShow, setTlShow] = useState(60); // v516 — Timeline renders 60 events, more on scroll
   const [analyticsTab, setAnalyticsTab] = useState(initialAnalyticsTab || "recurring"); // "recurring" (Follow-ups) | "temp" | "insights" | "predictive" | "timeline"
   // Navigating to this page while it's already open (⋯ menu, notifications) → follow the requested tab
   useEffect(() => { if (initialTab) setHistoryTab(initialTab); if (initialAnalyticsTab) setAnalyticsTab(initialAnalyticsTab); }, [initialTab, initialAnalyticsTab]);
@@ -14106,7 +14108,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                     <div style={{ position: "relative", paddingLeft: 24 }}>
                       {/* vertical line */}
                       <div style={{ position: "absolute", left: 8, top: 0, bottom: 0, width: 2, background: "var(--sdx-gray-200)" }} />
-                      {events.map((ev, i) => (
+                      {events.slice(0, tlShow).map((ev, i) => (
                         <div key={ev.id || i} style={{ position: "relative", marginBottom: 14 }}>
                           {/* dot */}
                           <div style={{
@@ -14172,6 +14174,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                           </div>
                         </div>
                       ))}
+                      {events.length > tlShow && <ShowMoreSentinel left={events.length - tlShow} onMore={() => setTlShow(n => n + 60)} />}
                     </div>
                   )}
                 </div>
@@ -29815,6 +29818,16 @@ function HaccpPortal() {
 // the area (when the text does not already carry it), the description and
 // the corrective action. Used by the saved-report rows, the End-of-Day check
 // and the on-screen report. Renders nothing when there is nothing to show.
+// v516 — long lists render a page at a time; this loads the next page when it scrolls into view
+function ShowMoreSentinel({ left, onMore, label }) {
+  const ref = React.useRef(null);
+  React.useEffect(() => {
+    const el = ref.current; if (!el || typeof IntersectionObserver === "undefined") return;
+    const io = new IntersectionObserver(es => { if (es.some(e => e.isIntersecting)) onMore(); }, { rootMargin: "600px 0px" });
+    io.observe(el); return () => io.disconnect();
+  }, [left, onMore]);
+  return <button ref={ref} type="button" className="showMoreSentinel" data-testid="show-more" onClick={onMore}>{label || `Show more · ${left} left`}</button>;
+}
 function IssueNotes({ item, className }) {
   const issue = String(item?.issue || "");
   const area = String(item?.area || "").trim();

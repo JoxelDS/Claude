@@ -9,6 +9,40 @@ import LanguageFab from "./LanguageFab.jsx";
 // insertBefore ("The object can not be found here" on Safari), the boundary
 // takes over and it looks like a logout. Standard guard: when the child is
 // no longer ours, do nothing instead of throwing (facebook/react#11538).
+// v516 — date formatting was the slowest thing in the app: every toLocale*String call with options
+// builds a fresh Intl.DateTimeFormat (Predictive spent 6 of 6.3 s there with 1,500 reports).
+// Reuse one formatter per (locales, options) — same output, built once.
+(function cacheDateFormatters() {
+  try {
+    const DP = Date.prototype, cache = new Map();
+    const DATE_F = ["weekday", "year", "month", "day", "era"];
+    const TIME_F = ["hour", "minute", "second", "dayPeriod", "fractionalSecondDigits"];
+    const has = (o, list) => list.some(k => o[k] !== undefined);
+    const fmt = (locales, opts) => {
+      const key = JSON.stringify([locales ?? null, opts]);
+      let f = cache.get(key);
+      if (!f) { if (cache.size > 300) cache.clear(); f = new Intl.DateTimeFormat(locales, opts); cache.set(key, f); }
+      return f;
+    };
+    const wrap = (orig, kind) => function (locales, options) {
+      try {
+        if (isNaN(this.getTime())) return orig.call(this, locales, options);
+        const o = options ? { ...options } : {};
+        if (o.dateStyle !== undefined || o.timeStyle !== undefined) return orig.call(this, locales, options);
+        {
+          if (kind === "date" && !has(o, DATE_F)) { o.year = "numeric"; o.month = "numeric"; o.day = "numeric"; }
+          else if (kind === "time" && !has(o, TIME_F)) { o.hour = "numeric"; o.minute = "numeric"; o.second = "numeric"; }
+          else if (kind === "all" && !has(o, DATE_F) && !has(o, TIME_F)) { o.year = "numeric"; o.month = "numeric"; o.day = "numeric"; o.hour = "numeric"; o.minute = "numeric"; o.second = "numeric"; }
+        }
+        return fmt(locales, o).format(this);
+      } catch { return orig.call(this, locales, options); }
+    };
+    DP.toLocaleDateString = wrap(DP.toLocaleDateString, "date");
+    DP.toLocaleTimeString = wrap(DP.toLocaleTimeString, "time");
+    DP.toLocaleString = wrap(DP.toLocaleString, "all");
+  } catch {}
+})();
+
 (function guardDomAgainstTranslator() {
   if (typeof Node !== "function" || !Node.prototype) return;
   const origRemove = Node.prototype.removeChild;

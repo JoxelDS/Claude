@@ -9063,3 +9063,6 @@ button.nluChipTemp { background: #fef3c7; color: #92400e; border: 1px solid #fcd
   .foodSafetyRef.fsrPortal .fsrZoneRow > div:first-of-type { flex: 1 1 calc(100% - 60px) !important; }
   .foodSafetyRef.fsrPortal .fsrZonePill { margin-left: 48px; font-size: 0.85rem !important; padding: 4px 10px !important; }
 }
+
+/* v516 — page-at-a-time lists */
+.showMoreSentinel { display: block; width: 100%; margin: 6px 0 12px; padding: 10px; border: 1px dashed var(--sdx-gray-200, #e5e7eb); border-radius: 10px; background: transparent; color: var(--ink-500, #64748b); font-weight: 700; font-size: .82rem; cursor: pointer; }
