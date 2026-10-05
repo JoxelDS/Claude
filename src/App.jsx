@@ -16472,13 +16472,13 @@ function FoodSafetyRef({ lang = "en", portal = false, defaultOpen = false, heade
             { icon: "❄️", bg: "linear-gradient(90deg,var(--tint-blue-1),var(--tint-blue-2))", border: "#3b82f6", label: "COLD HOLDING — SAFE", temp: "≤ 41°F / 5°C", sub: "Refrigerate at or below · ideal WIC: 34–38°F" },
             { icon: "🧊", bg: "linear-gradient(90deg,var(--tint-sky-1),var(--tint-blue-2))", border: "#0ea5e9", label: "FREEZER", temp: "0°F / -18°C or below", sub: "Stops bacterial growth · check monthly for ice crystals" },
           ].map((z, i, arr) => (
-            <div key={t(z.label)} style={{ background: z.bg, borderBottom: i < arr.length - 1 ? `2px solid ${z.border}` : "none", padding: "12px 14px", display: "flex", alignItems: "center", gap: 12 }}>
+            <div key={t(z.label)} className="fsrZoneRow" style={{ background: z.bg, borderBottom: i < arr.length - 1 ? `2px solid ${z.border}` : "none", padding: "12px 14px", display: "flex", alignItems: "center", gap: 12 }}>
               <span style={{ width: 36, height: 36, borderRadius: 11, background: "var(--surface-1)", border: `1.5px solid ${z.border}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.05rem", flexShrink: 0, boxShadow: "0 1px 4px rgba(0,0,0,.08)" }}>{z.icon}</span>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontWeight: 800, fontSize: "0.62rem", textTransform: "uppercase", letterSpacing: "0.07em", color: "var(--ink-700)", marginBottom: 2 }}>{t(z.label)}</div>
                 <div style={{ fontSize: "0.65rem", color: "var(--ink-600)", lineHeight: 1.4 }}>{t(z.sub)}</div>
               </div>
-              <div style={{ fontWeight: 900, fontSize: "0.92rem", color: "var(--ink-900)", whiteSpace: "nowrap", textAlign: "right", flexShrink: 0, background: "var(--surface-1)", border: `1.5px solid ${z.border}`, borderRadius: 10, padding: "5px 12px" }}>{z.temp}</div>
+              <div className="fsrZonePill" style={{ fontWeight: 900, fontSize: "0.92rem", color: "var(--ink-900)", whiteSpace: "nowrap", textAlign: "right", flexShrink: 0, background: "var(--surface-1)", border: `1.5px solid ${z.border}`, borderRadius: 10, padding: "5px 12px" }}>{z.temp}</div>
             </div>
           ))}
         </div>

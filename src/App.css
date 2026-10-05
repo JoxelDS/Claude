@@ -9052,3 +9052,14 @@ button.nluChipTemp { background: #fef3c7; color: #92400e; border: 1px solid #fcd
 .haccpSaveState { margin: 6px 0 10px; font-weight: 700; font-size: .85rem; color: #6b7280; }
 .haccpSaveState.saved { color: #166534; }
 .haccpSaveState.queued { color: #92400e; }
+
+/* v514 — the portal Food Safety guide fits the phone: nothing inside may set the page width */
+.haccpRefWrap { width: 100%; max-width: min(560px, 100vw); box-sizing: border-box; overflow: hidden; }
+.foodSafetyRef.fsrPortal { max-width: 100%; min-width: 0; }
+.foodSafetyRef.fsrPortal * { min-width: 0; max-width: 100%; box-sizing: border-box; overflow-wrap: break-word; }
+.foodSafetyRef.fsrPortal .foodSafetyRefBadge { white-space: nowrap; flex-shrink: 0; }
+@media (max-width: 520px) {
+  .foodSafetyRef.fsrPortal .fsrZoneRow { flex-wrap: wrap; row-gap: 8px; }
+  .foodSafetyRef.fsrPortal .fsrZoneRow > div:first-of-type { flex: 1 1 calc(100% - 60px) !important; }
+  .foodSafetyRef.fsrPortal .fsrZonePill { margin-left: 48px; font-size: 0.85rem !important; padding: 4px 10px !important; }
+}
