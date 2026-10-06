@@ -27572,6 +27572,22 @@ function WalkCoach({ onDone }) {
 
 // v521: what kind of inspection — it decides the form
 const INSP_TYPE_CARDS = [["Event Day", "🏟", "Event walk", "Quick — temps & food safety first"], ["Regular Inspection", "📋", "Regular inspection", "The full guide"], ["Post Event", "🧹", "Post-event", "Cleaning, temps, food safety & storage"]];
+// v525: each type looks like itself — a coloured banner that says what it is and what to focus on
+const INSP_TYPE_LOOK = {
+  "Event Day": { cls: "event", icon: "🏟", name: "EVENT WALK", focus: ["🌡 Temps", "🧤 Gloves & hand washing", "🥩 Raw below ready-to-eat", "❄ Coolers"], line: "Game day — quick, safety first" },
+  "Regular Inspection": { cls: "regular", icon: "📋", name: "REGULAR INSPECTION", focus: ["🏢 Facilities", "🔥 Equipment", "🔧 Maintenance", "🍴 Utensils", "🧤 Food safety"], line: "The full guide — every section" },
+  "Post Event": { cls: "post", icon: "🧹", name: "POST-EVENT CHECK", focus: ["🧽 Cleaning", "🌡 Temps", "🏷 Labels & dates", "📦 Storage"], line: "After the game — clean, cold and stored right" },
+};
+function InspTypeBanner({ type, eventName }) {
+  const L = INSP_TYPE_LOOK[type] || INSP_TYPE_LOOK["Regular Inspection"];
+  return (
+    <div className={"inspBanner " + L.cls} data-testid={`insp-banner-${L.cls}`}>
+      <div className="inspBannerTop"><span className="inspBannerIcon">{L.icon}</span><span className="inspBannerName">{L.name}</span>{type === "Event Day" && eventName ? <span className="inspBannerEvent"><NT>{eventName}</NT></span> : null}</div>
+      <div className="inspBannerLine">{L.line}</div>
+      <div className="inspBannerFocus"><span>Focus:</span>{L.focus.map(f => <b key={f}>{f}</b>)}</div>
+    </div>
+  );
+}
 function InspTypePick({ value, onPick, compact }) {
   return (
     <div className={"inspTypePick" + (compact ? " compact" : "")} data-testid="insp-type-pick">
@@ -27979,7 +27995,7 @@ function SimpleWalk(props) {
     );
   };
   return (
-    <div className="walkRoot" data-testid="walk-root">
+    <div className={"walkRoot walkType-" + ((INSP_TYPE_LOOK[inspectionType] || {}).cls || "regular")} data-testid="walk-root">
       {coach && <WalkCoach onDone={() => { setCoach(false); try { localStorage.setItem("sdx_walk_coach_seen", "1"); } catch {} }} />}
       <div className="walkStandCard" data-testid="walk-stand-card">
         <div className="walkStandName"><NT>{String(siteName).toUpperCase()}</NT>{siteNumber ? <NT> · #{siteNumber}</NT> : null}</div>
@@ -27990,6 +28006,7 @@ function SimpleWalk(props) {
         </div>
         {props.supervisorLogUrl && <a href={props.supervisorLogUrl} className="walkSupLog" data-testid="walk-sup-log">Not inspecting? Open the supervisor log →</a>}
       </div>
+      <InspTypeBanner type={inspectionType} eventName={eventName} />
       <div className="walkProgress" data-testid="walk-progress">
         <div className="walkProgressText" data-testid="walk-progress-text"><span key={doneN}>{doneN === areas.length ? "All done 🎉 — review and save" : `${doneN} of ${areas.length} done`}</span></div>
         <div className="walkDots">{areas.map((a, i) => <button key={a.id} type="button" className={"walkDot " + states[i] + (open === a.id ? " active" : "") + (a.prio ? " prio" : "")} data-testid={`walk-dot-${a.id}`} title={a.title} onClick={() => { setReview(false); setOpen(a.id); setWrong(null); setItem(null); }}>{a.icon}</button>)}</div>
@@ -33119,7 +33136,8 @@ export default function App() {
   // v518.1: event day belongs to the REPORT (its date + type) — an old report edited on a game day stays what it was; Post Event is not an event day
   const guideEventName = ((venueSettings?.eventDays || {})[inspectionDate]) || "";
   const guideEventDay = inspectionType === "Event Day" || (!!guideEventName && inspectionType !== "Post Event");
-  const guideMode = guideOverride || (inspectionType === "Post Event" ? "post" : guideEventDay ? "simple" : "full");
+  // v525: the type the inspector picked wins — Regular is ALWAYS the full guide, even on a date marked as an event day
+  const guideMode = guideOverride || (inspectionType === "Post Event" ? "post" : inspectionType === "Event Day" ? "simple" : "full");
   guideModeRef.current = guideMode;
   const pickInspType = t => { setInspectionType(t); setGuideOverride(null); try { window.scrollTo({ top: 0 }); } catch {} };
   try { window.__sdxPickType = pickInspType; } catch {}
@@ -35464,6 +35482,7 @@ export default function App() {
             ) : (
             <div className="guide">
               <InspTypePick value={inspectionType} onPick={pickInspType} compact />
+              <InspTypeBanner type={inspectionType} eventName={guideEventName || eventName} />
               <button type="button" className="walkModeSwitch walkModeSwitchTop" data-testid="guide-mode-simple" onClick={() => fullToWalk()}>⇄ Back to the quick walk (same answers)</button>
               {/* ── Stepper header ─────────────────────────────────────── */}
               {(() => {
