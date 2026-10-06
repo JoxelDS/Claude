@@ -11141,9 +11141,11 @@ ${sections}
       const got = await makeFollowupPhotos(files, `fu_${f.key.replace(/[^A-Za-z0-9]+/g, "_").slice(0, 60)}`, 4);
       if (got.length) {
         const entries = got.map(p => ({ id: p.id, thumbUrl: p.thumbUrl, previewUrl: p.previewUrl, by: currentUser?.name || "Unknown", ts: Date.now(), tag }));
-        fuPhotoPatch(f, cur => [...cur, ...entries].slice(-8));
-      }
-    } catch {}
+        // v526: keep up to 6 BEFORE and 6 AFTER — new after photos never push the before pictures out
+        fuPhotoPatch(f, cur => { const all = [...cur, ...entries]; const isA = p => p.tag === "after"; return [...all.filter(p => !isA(p)).slice(-6), ...all.filter(isA).slice(-6)]; });
+        if (typeof setFuSimDone === "function") { setFuSimDone(`📷 ${tag === "after" ? "After" : "Before"} photo added`); setTimeout(() => setFuSimDone(null), 3000); }
+      } else if (typeof setFuSimDone === "function") { setFuSimDone("⚠ The photo could not be added — try again"); setTimeout(() => setFuSimDone(null), 4000); }
+    } catch { if (typeof setFuSimDone === "function") { setFuSimDone("⚠ The photo could not be added — try again"); setTimeout(() => setFuSimDone(null), 4000); } }
     setFuPhotoBusy(null);
   }
   function setFuPhotoTag(f, id, tag) {
@@ -11384,8 +11386,9 @@ ${sections}
   if (fuSimple) {
     const CREWS = [["all", "All"], ["Cleaning", "🧹 Cleaning"], ["Maintenance", "🔧 Repairs"], ["Ecolab", "🧪 Ecolab"], ["Temperature", "🌡 Temps"]];
     const crewOf = f => { const t = f.itype || "Other"; return t === "Building" ? "Maintenance" : t; };
-    const all = (analysis.followups || []).filter(f => !(clearedLocal[f.key]));
-    const list = all.filter(f => fuSimCrew === "all" || crewOf(f) === fuSimCrew)
+    const all = analysis.followups || []; // v526: computeFollowups already knows clearedLocal (and reopens re-flagged items)
+    const crewSel = fuSimCrew !== "all" && all.some(f => crewOf(f) === fuSimCrew) ? fuSimCrew : "all"; // the picked crew ran out → show everyone
+    const list = all.filter(f => crewSel === "all" || crewOf(f) === crewSel)
       .sort((a, b) => (b.overdue ? 1 : 0) - (a.overdue ? 1 : 0) || (a.ts || 0) - (b.ts || 0));
     const ago = f => { const d = f.daysSince ?? Math.floor((Date.now() - (f.ts || Date.now())) / 864e5); return d <= 0 ? "today" : d === 1 ? "yesterday" : `${d} days ago`; };
     const who = f => { const st = stMap[f.key]; if (!st) return ""; return st.status === "in_progress" ? `🔧 ${st.by || "Crew"} is working on it` : st.status === "waiting" ? `⏳ Waiting${st.note ? `: ${st.note}` : ""}` : ""; };
@@ -11395,7 +11398,7 @@ ${sections}
           <div className="fuSimTitle">{list.length === 0 ? "✅ Nothing to check" : `🔁 ${list.length} problem${list.length !== 1 ? "s" : ""} to check`}</div>
           <div className="fuSimSub">Go to the stand, look, then tap <b>✓ Fixed</b> or <b>🔔 Remind</b>.</div>
         </div>
-        <div className="fuSimCrews">{CREWS.map(([k, l]) => { const n = k === "all" ? all.length : all.filter(f => crewOf(f) === k).length; return n || k === "all" ? <button key={k} type="button" className={"fuSimCrew" + (fuSimCrew === k ? " on" : "")} data-testid={`fu-sim-crew-${k.toLowerCase()}`} onClick={() => { setFuSimCrew(k); setFuSimShow(20); }}>{l} <span>{n}</span></button> : null; })}</div>
+        <div className="fuSimCrews">{CREWS.map(([k, l]) => { const n = k === "all" ? all.length : all.filter(f => crewOf(f) === k).length; return n || k === "all" ? <button key={k} type="button" className={"fuSimCrew" + (crewSel === k ? " on" : "")} data-testid={`fu-sim-crew-${k.toLowerCase()}`} onClick={() => { setFuSimCrew(k); setFuSimShow(20); }}>{l} <span>{n}</span></button> : null; })}</div>
         {undoRes && <div className="fuSimUndo" data-testid="fu-sim-undo"><span>✓ Fixed: <NT>{undoRes.label}</NT></span><button type="button" onClick={undoResolve}>↩ Undo</button></div>}
         {fuSimDone && <div className="fuSimFlash">{fuSimDone}</div>}
         <div className="fuSimList">
@@ -11423,8 +11426,8 @@ ${sections}
                 <div className="fuSimBtns">
                   <button type="button" className="fuSimFixed" data-testid="fu-sim-fixed" onClick={() => markResolved(f)}>✓ Fixed</button>
                   <button type="button" className="fuSimRemind" data-testid="fu-sim-remind" onClick={() => { remindMany([f], `sim:${f.key}`); setFuSimDone(`🔔 Reminder sent for ${f.loc}`); setTimeout(() => setFuSimDone(null), 3000); }}>🔔 Remind</button>
-                  <label className="fuSimPhotoBtn fuSimPhB" data-testid="fu-sim-photo-before">📷 Before<input type="file" accept="image/*" hidden onChange={e => { addFuPhotos(f, e.target.files, "before"); e.target.value = ""; }} /></label>
-                  <label className="fuSimPhotoBtn fuSimPhA" data-testid="fu-sim-photo">📷 After<input type="file" accept="image/*" hidden onChange={e => { addFuPhotos(f, e.target.files, "after"); e.target.value = ""; }} /></label>
+                  <label className={"fuSimPhotoBtn fuSimPhB" + (fuPhotoBusy === f.key ? " busy" : "")} data-testid="fu-sim-photo-before">{fuPhotoBusy === f.key ? "Adding…" : "📷 Before"}<input disabled={fuPhotoBusy === f.key} type="file" accept="image/*" hidden onChange={e => { addFuPhotos(f, e.target.files, "before"); e.target.value = ""; }} /></label>
+                  <label className={"fuSimPhotoBtn fuSimPhA" + (fuPhotoBusy === f.key ? " busy" : "")} data-testid="fu-sim-photo">{fuPhotoBusy === f.key ? "Adding…" : "📷 After"}<input disabled={fuPhotoBusy === f.key} type="file" accept="image/*" hidden onChange={e => { addFuPhotos(f, e.target.files, "after"); e.target.value = ""; }} /></label>
                 </div>
               </div>
             );
@@ -27999,7 +28002,7 @@ function SimpleWalk(props) {
       {coach && <WalkCoach onDone={() => { setCoach(false); try { localStorage.setItem("sdx_walk_coach_seen", "1"); } catch {} }} />}
       <div className="walkStandCard" data-testid="walk-stand-card">
         <div className="walkStandName"><NT>{String(siteName).toUpperCase()}</NT>{siteNumber ? <NT> · #{siteNumber}</NT> : null}</div>
-        <div className="walkStandMeta"><StandType lt={locationType} />{floor ? <span>{floor}</span> : null}{mode === "post" ? <span className="walkEvent" data-testid="walk-post">🧹 Post-event check — cleaning, temps, food safety & storage</span> : null}{eventDay && mode !== "post" ? <span className="walkEvent" data-testid="walk-eventday">🏟 Event day{eventName ? ` · ${eventName}` : ""}</span> : null}</div>
+        <div className="walkStandMeta"><StandType lt={locationType} />{floor ? <span>{floor}</span> : null}{mode === "post" ? <span className="walkEvent" data-testid="walk-post">🧹 Post-event check — cleaning, temps, food safety & storage</span> : null}{eventDay && mode !== "post" ? <span className={"walkEvent" + (inspectionType === "Event Day" ? " walkEventShort" : "")} data-testid="walk-eventday">🏟 Event day{eventName ? ` · ${eventName}` : ""}</span> : null}</div>
         <div className="walkStandActs">
           <button type="button" className="walkLinkBtn" data-testid="walk-details-toggle" onClick={onToggleDetails}>{detailsOpen ? "Hide details" : "Edit details"}</button>
           <button type="button" className="walkLinkBtn" data-testid="walk-stand-change" onClick={onChangeStand}>Change stand</button>
@@ -28026,6 +28029,7 @@ function SimpleWalk(props) {
         </div>
       )}
       {!review && areas.map(renderArea)}
+      {!review && props.saveError && <div className="walkSaveErr" data-testid="walk-save-error">⚠ {props.saveError}</div>}
       {!review && <button type="button" className="walkReviewBtn" data-testid="walk-finish-save" disabled={saving} onClick={() => onSave()}>{saving ? "Saving…" : "💾 Finish & save"}</button>}
       {!review && <button type="button" className="walkLinkBtn" data-testid="walk-to-review" onClick={() => { setReview(true); setOpen(null); try { window.scrollTo({ top: 0, behavior: "smooth" }); } catch {} }}>Check the list of problems first</button>}
       {review && (
@@ -33139,7 +33143,7 @@ export default function App() {
   // v525: the type the inspector picked wins — Regular is ALWAYS the full guide, even on a date marked as an event day
   const guideMode = guideOverride || (inspectionType === "Post Event" ? "post" : inspectionType === "Event Day" ? "simple" : "full");
   guideModeRef.current = guideMode;
-  const pickInspType = t => { setInspectionType(t); setGuideOverride(null); try { window.scrollTo({ top: 0 }); } catch {} };
+  const pickInspType = t => { setInspectionType(t); setGuideOverride(null); if (t !== "Event Day") setEventName(""); try { window.scrollTo({ top: 0 }); } catch {} };
   try { window.__sdxPickType = pickInspType; } catch {}
   const GUIDE_ORDER = guideEventDay ? [0, 4, 2, 1, 5, 3] : [0, 1, 5, 2, 3, 4];
   // v523: one walk ↔ one guide — switching keeps the answers AND lands on the same part of the inspection
@@ -33183,11 +33187,10 @@ export default function App() {
   // saved report re-runs this too, since editing restores into this form.
   const eventDayName = venueSettings?.eventDays?.[inspectionDate] || "";
   useEffect(() => {
-    if (!eventDayName) return;
-    if (inspectionType === "Regular Inspection") setInspectionType("Event Day");
+    if (!eventDayName || inspectionType !== "Event Day") return; // v526: the picked type wins — never switch it for them
     setEventName(prev => prev && prev.trim() ? prev : eventDayName);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [eventDayName, inspectionDate]);
+  }, [eventDayName, inspectionDate, inspectionType]);
 
   const [modals, setModals] = useState({ menuOpen: false, shareModal: false, haccpModal: false, chatPanel: false, lightboxSrc: null, preSubmit: false });
   // Convenience aliases so all existing call-sites keep working without change
@@ -33567,7 +33570,7 @@ export default function App() {
       siteName, siteNumber, restaurantLicense,
       supervisorName, sitePhone, locationType, floor, eventName,
       foodTemps, foodTempNames, foodTempCorrections, foodTempSubmitted, foodTempTimes,
-      suppliesNeeded, notesPhotos, correctives, output, onSiteConfirmed, guideStep,
+      suppliesNeeded, notesPhotos, correctives, output, onSiteConfirmed, guideStep, guideOverride,
       reportStartedAt: reportStartedAt.current, inspectionStartedAt: inspectionStartedAt.current,
       isEditMode: isEditModeRef.current,
       savedReportId,
@@ -34108,6 +34111,7 @@ export default function App() {
     if (snapshot.correctives && typeof snapshot.correctives === "object") setCorrectives({ ...snapshot.correctives });
     if (typeof snapshot.onSiteConfirmed === "boolean") setOnSiteConfirmed(snapshot.onSiteConfirmed);
     if (typeof snapshot.guideStep === "number") setGuideStep(snapshot.guideStep);
+    if (["full", "simple", "post"].includes(snapshot.guideOverride)) setGuideOverride(snapshot.guideOverride); // v526: back on the walk or the guide they were using
   }
 
   function loadRecordForEdit(rec) {
@@ -34903,7 +34907,10 @@ export default function App() {
           </div>
           {/* v520: the lock must never trap someone who only wanted to look — the way back to the simple walk */}
           <div onClick={e => e.stopPropagation()} style={{ width: "100%", maxWidth: 420 }}><InspTypePick value={inspectionType} onPick={pickInspType} compact /></div>
-          <button type="button" className="walkModeSwitch walkModeSwitchLock" data-testid="lock-mode-simple" onClick={e => { e.stopPropagation(); fullToWalk(); }}>⇄ Back to the simple walk</button>
+          <div className="lockModeRow" onClick={e => e.stopPropagation()}>
+            <button type="button" className="walkModeSwitch walkModeSwitchLock" data-testid="lock-mode-simple" onClick={e => { e.stopPropagation(); fullToWalk(); }}>⇄ Simple walk</button>
+            <button type="button" className="walkModeSwitch walkModeSwitchLock lockFullBtn" data-testid="lock-mode-full" onClick={e => { e.stopPropagation(); setGuideMode("full"); confirmOnSite(); }}>📋 Full walk — I'm on site</button>
+          </div>
         </div>
       )}
 
@@ -35147,7 +35154,7 @@ export default function App() {
 
       {/* ── Follow-ups overdue banner ─────────────────────────── */}
       {currentUser && fuOverdueCount > 0 && !(guideMode !== "full" && siteName.trim()) && (
-        <div style={{ background: "#ede9fe", borderBottom: "3px solid #6366f1", padding: "0.7rem 1.25rem", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+        <div className="fuOverdueBanner" style={{ background: "#ede9fe", borderBottom: "3px solid #6366f1", padding: "0.7rem 1.25rem", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
           <span style={{ fontSize: "1.2rem" }}>🔁</span>
           <span style={{ flex: 1, fontWeight: 700, fontSize: "0.92rem", color: "#4338ca" }}>
             {fuOverdueCount} follow-up{fuOverdueCount !== 1 ? "s" : ""} overdue for recheck
@@ -35273,27 +35280,11 @@ export default function App() {
               )}
             </div>
             <div className="fieldGrid" style={guideMode !== "full" && !(walkDetailsOpen && siteName.trim()) ? { display: "none" } : undefined}>
-              <label className="field">
+              <label className="field fieldTypeWide">
                 <span className="fieldLabel">Type</span>
-                <select className="select" value={inspectionType} onChange={(e) => {
-                  const newType = e.target.value;
-                  setInspectionType(newType);
-                  // Clear event name when switching away from Event Day — it's only relevant for that type
-                  if (newType !== "Event Day") setEventName("");
-                }}>
+                <select className="select" value={inspectionType} onChange={(e) => pickInspType(e.target.value)}>
                   {INSPECTION_TYPES.map((t) => (<option key={t} value={t}>{t}</option>))}
                 </select>
-                {eventDayName && (
-                  <span style={{ marginTop: 6, display: "inline-flex", alignItems: "center", gap: 8, fontSize: "0.76rem", fontWeight: 700, color: "#92400E", background: "var(--tint-amber-1, #fffbeb)", border: "1px solid #fde68a", borderRadius: 8, padding: "5px 10px" }}>
-                    🎪 {inspectionDate} is an event day: {eventDayName}
-                    {inspectionType === "Regular Inspection" && (
-                      <button type="button" onClick={() => { setInspectionType("Event Day"); setEventName(prev => prev.trim() ? prev : eventDayName); }}
-                        style={{ background: "#92400E", color: "#fff", border: "none", borderRadius: 999, padding: "2px 10px", fontWeight: 800, fontSize: "0.72rem", cursor: "pointer" }}>
-                        Switch to Event Day
-                      </button>
-                    )}
-                  </span>
-                )}
               </label>
               <label className="field" id="field-inspectionDate">
                 <span className="fieldLabel">Date <span style={{ color: "#ef4444", fontWeight: 700 }}>*</span></span>

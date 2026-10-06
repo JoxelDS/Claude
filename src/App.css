@@ -9430,3 +9430,27 @@ html[data-theme="black"] .inspTypeCard.on { border-color: #9DB8F5; box-shadow: 0
 .walkType-post .walkDot.active { box-shadow: 0 0 0 3px #0d9488; }
 .inspTypeCard.on:nth-child(1) { border-color: #ea580c; background: #fff7ed; box-shadow: 0 0 0 2px #ea580c inset; }
 .inspTypeCard.on:nth-child(3) { border-color: #0d9488; background: #f0fdfa; box-shadow: 0 0 0 2px #0d9488 inset; }
+.lockModeRow { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+.lockFullBtn { background: var(--sdx-navy) !important; color: #fff !important; border-color: var(--sdx-navy) !important; }
+/* v526 review + design pass */
+.walkAreaFull { min-height: 44px !important; padding: 10px 0 !important; }
+.walkEventShort { display: none; }
+@media (max-width: 560px) {
+  .fieldTypeWide { grid-column: 1 / -1; }
+  .walkAreaHead { padding-right: 56px; }
+  .walkLook { padding-right: 44px; }
+}
+.fuSimBtns .busy { opacity: .6; pointer-events: none; }
+html[data-theme="black"] .fuOverdueBanner { background: #1e1b4b !important; border-bottom-color: #818cf8 !important; color: #e0e7ff; }
+/* desktop: comfortable widths, follow-ups in two columns */
+.fuSim { max-width: 1200px; margin-left: auto; margin-right: auto; }
+@media (min-width: 1000px) {
+  .fuSimList { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; align-items: start; }
+  .fuSimList .fuSimMore { grid-column: 1 / -1; }
+  .fuSimBtns > * { min-height: 46px; font-size: 0.95rem; }
+}
+/* one look: cards share radius / shadow across the walk and follow-ups */
+.walkArea, .walkStandCard, .walkProgress, .walkReview, .fuSimCard { border-radius: 16px; box-shadow: var(--shadow-sm); }
+.fuSimCard { transition: box-shadow var(--transition-fast); }
+.fuSimCard:hover { box-shadow: var(--shadow-md); }
+.inspTypePick.compact { margin-bottom: 6px; }
