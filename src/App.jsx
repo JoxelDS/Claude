@@ -35176,6 +35176,12 @@ export default function App() {
       </div>
       )}
 
+      {guideMode === "full" && (
+        <div className="fullTopBack" data-testid="full-top-back">
+          <span>📋 Full checklist</span>
+          <button type="button" onClick={() => { fullToWalk(); try { window.scrollTo({ top: 0, behavior: "smooth" }); } catch {} }}>⇄ Back to the quick walk</button>
+        </div>
+      )}
       {/* ── Form Progress Indicator (5-step bar) ─────────────── */}
       {(() => {
         if (guideMode !== "full") return null; // v520: the walk has its own progress

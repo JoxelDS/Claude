@@ -9454,3 +9454,7 @@ html[data-theme="black"] .fuOverdueBanner { background: #1e1b4b !important; bord
 .fuSimCard { transition: box-shadow var(--transition-fast); }
 .fuSimCard:hover { box-shadow: var(--shadow-md); }
 .inspTypePick.compact { margin-bottom: 6px; }
+
+/* v527: way back to the walk from the top of the full guide */
+.fullTopBack{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:0 0 12px;padding:10px 14px;border-radius:14px;background:var(--surface-1,#fff);box-shadow:0 1px 4px rgba(20,30,60,.08);font-weight:700;color:var(--ink-700,#334)}
+.fullTopBack button{min-height:44px;padding:0 18px;border-radius:12px;border:2px solid #2A3492;background:#2A3492;color:#fff;font-weight:800;font-size:.95rem;cursor:pointer}
