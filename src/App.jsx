@@ -32740,11 +32740,11 @@ export default function App() {
       fresh.push({ r, prev });
     }
     try { const ids = Object.keys(seen); if (ids.length > 400) ids.slice(0, ids.length - 400).forEach(k => delete seen[k]); localStorage.setItem(key, JSON.stringify(seen)); } catch {}
-    const today = new Date().toISOString().slice(0, 10);
+    const today = (() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d.toISOString(); })(); // v529: local midnight (UTC date dropped evening logs after 8 PM EDT)
     setStandFeed(prevFeed => {
       const byId = new Map(prevFeed.map(r => [r.id, r]));
       for (const r of mine) byId.set(r.id, r);
-      return [...byId.values()].filter(r => (r.savedAt || "").slice(0, 10) >= today).sort((a, b) => String(b.savedAt).localeCompare(String(a.savedAt))).slice(0, 80);
+      return [...byId.values()].filter(r => String(r.savedAt || "") >= today).sort((a, b) => String(b.savedAt).localeCompare(String(a.savedAt))).slice(0, 80);
     });
     for (const { r, prev } of fresh) {
       const stand = `${r.siteName || "A stand"}${r.siteNumber ? ` #${r.siteNumber}` : ""}`;
