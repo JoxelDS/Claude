@@ -35176,6 +35176,12 @@ export default function App() {
       </div>
       )}
 
+      {guideMode !== "full" && siteName.trim() && (
+        <div className="fullTopBack" data-testid="walk-top-full">
+          <span>{guideMode === "post" ? "🧹 Post-event walk" : "⚡ Quick walk"}</span>
+          <button type="button" onClick={() => { walkToFull(null); try { window.scrollTo({ top: 0, behavior: "smooth" }); } catch {} }}>📋 Go to the full checklist</button>
+        </div>
+      )}
       {guideMode === "full" && (
         <div className="fullTopBack" data-testid="full-top-back">
           <span>📋 Full checklist</span>
