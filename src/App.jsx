@@ -11400,12 +11400,18 @@ ${sections}
         {fuSimDone && <div className="fuSimFlash">{fuSimDone}</div>}
         <div className="fuSimList">
           {list.slice(0, fuSimShow).map(f => {
-            const ph = [...(f.photos || []), ...fuPhotosOf(f)].filter(p => p && p.thumbUrl)[0];
+            const allPh = [...(f.photos || []), ...fuPhotosOf(f)].filter(p => p && p.thumbUrl).filter((p, i, a) => a.findIndex(x => (x.id || x.thumbUrl) === (p.id || p.thumbUrl)) === i);
+            const before = allPh.filter(p => p.tag !== "after"), after = allPh.filter(p => p.tag === "after");
+            const strip = (list, kind) => (
+              <div className={"fuSimBA " + kind}>
+                <div className="fuSimBALbl">{kind === "before" ? "🔴 BEFORE" : "🟢 AFTER"}</div>
+                <div className="fuSimBAPics">{list.length ? list.slice(0, 4).map(p => <img key={p.id || p.thumbUrl} src={p.thumbUrl} alt="" onClick={() => openPhotoLightbox(p.previewUrl || p.thumbUrl)} />) : <span className="fuSimBANone">{kind === "before" ? "no photo" : "not yet"}</span>}</div>
+              </div>
+            );
             const subs = (f.subs || []).length > 1 ? f.subs : null;
             return (
               <div key={f.key} className={"fuSimCard" + (f.overdue ? " late" : "")} data-testid="fu-sim-card" data-key={f.key}>
                 <div className="fuSimTop">
-                  {ph && <img className="fuSimPhoto" src={ph.thumbUrl} alt="" onClick={() => openPhotoLightbox(ph.previewUrl || ph.thumbUrl)} />}
                   <div className="fuSimText">
                     <div className="fuSimStand"><NT>{String(f.loc || "").toUpperCase()}{f.unit ? ` #${f.unit}` : ""}</NT></div>
                     <div className="fuSimProblem">{subs ? `${f.cat} · ${subs.length} things` : fuProblemText(f)}</div>
@@ -11413,10 +11419,12 @@ ${sections}
                     <div className="fuSimMeta">{f.overdue ? "⏰ Late — " : ""}found {ago(f)}{who(f) ? ` · ${who(f)}` : ""}</div>
                   </div>
                 </div>
+                <div className="fuSimBARow" data-testid="fu-sim-ba">{strip(before, "before")}{strip(after, "after")}</div>
                 <div className="fuSimBtns">
                   <button type="button" className="fuSimFixed" data-testid="fu-sim-fixed" onClick={() => markResolved(f)}>✓ Fixed</button>
                   <button type="button" className="fuSimRemind" data-testid="fu-sim-remind" onClick={() => { remindMany([f], `sim:${f.key}`); setFuSimDone(`🔔 Reminder sent for ${f.loc}`); setTimeout(() => setFuSimDone(null), 3000); }}>🔔 Remind</button>
-                  <label className="fuSimPhotoBtn" data-testid="fu-sim-photo">📷 Photo<input type="file" accept="image/*" hidden onChange={e => { addFuPhotos(f, e.target.files, "after"); e.target.value = ""; }} /></label>
+                  <label className="fuSimPhotoBtn fuSimPhB" data-testid="fu-sim-photo-before">📷 Before<input type="file" accept="image/*" hidden onChange={e => { addFuPhotos(f, e.target.files, "before"); e.target.value = ""; }} /></label>
+                  <label className="fuSimPhotoBtn fuSimPhA" data-testid="fu-sim-photo">📷 After<input type="file" accept="image/*" hidden onChange={e => { addFuPhotos(f, e.target.files, "after"); e.target.value = ""; }} /></label>
                 </div>
               </div>
             );

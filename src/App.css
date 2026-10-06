@@ -9398,3 +9398,16 @@ html[data-theme="black"] .inspTypeCard.on { border-color: #9DB8F5; box-shadow: 0
 .fuSimFlash { background: var(--tint-green-1); color: var(--tx-green); border-radius: 12px; padding: 8px 12px; font-weight: 700; margin-bottom: 8px; }
 .fuSimMore { min-height: 48px; border-radius: 12px; border: 2px dashed var(--sdx-gray-300); background: none; font-weight: 700; color: var(--ink-700); cursor: pointer; }
 .walkAreaFull { font-size: 0.85rem; padding: 4px 0; min-height: 36px; align-self: flex-end; order: 99; }
+.fuSimBARow { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+.fuSimBA { border-radius: 12px; padding: 6px 8px; border: 2px solid; min-width: 0; }
+.fuSimBA.before { border-color: #fca5a5; background: var(--tint-red-1); }
+.fuSimBA.after { border-color: #86efac; background: var(--tint-green-1); }
+.fuSimBALbl { font-size: 0.75rem; font-weight: 800; letter-spacing: .05em; color: var(--ink-700); margin-bottom: 4px; }
+.fuSimBAPics { display: flex; gap: 6px; overflow-x: auto; min-height: 64px; align-items: center; }
+.fuSimBAPics img { width: 64px; height: 64px; object-fit: cover; border-radius: 8px; flex: none; cursor: zoom-in; }
+.fuSimBANone { font-size: 0.85rem; color: var(--ink-500); font-style: italic; }
+.fuSimBtns { grid-template-columns: 1.3fr 1fr 1fr 1fr !important; }
+.fuSimBtns .fuSimPhB { border-color: #fca5a5; }
+.fuSimBtns .fuSimPhA { border-color: #86efac; }
+@media (max-width: 420px) { .fuSimBtns > * { font-size: 0.88rem; } }
+@media (max-width: 560px) { .fuSimBtns { grid-template-columns: 1fr 1fr !important; } }
