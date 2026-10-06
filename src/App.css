@@ -8856,6 +8856,7 @@ button.nluChipTemp { background: #fef3c7; color: #92400e; border: 1px solid #fcd
 .expCrewCleaning { border-color: #86efac; background: #f0fdf4; } .expCrewCleaning .expCrewCount { color: #166534; }
 .expCrewMaintenance { border-color: #fdba74; background: #fff7ed; } .expCrewMaintenance .expCrewCount { color: #9a3412; }
 .expCrewEcolab { border-color: #5eead4; background: #f0fdfa; } .expCrewEcolab .expCrewCount { color: #0f766e; }
+.expCrewBuilding { border-color: #c4b5fd; background: #f5f3ff; } .expCrewBuilding .expCrewCount { color: #5b21b6; }
 .expCrewAll { border-color: #c7d2fe; background: #eef2ff; } .expCrewAll .expCrewCount { color: #3730a3; }
 .expCrewNote { margin-top: 10px; font-size: 0.76rem; color: var(--ink-500, #6b7280); }
 .expCrewBar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 12px; }

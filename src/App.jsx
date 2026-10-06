@@ -15924,7 +15924,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                 {/* Stats chips row */}
                 {exportCrew !== null && (
                   <div className="expCrewBar" data-testid="exp-crew-bar">
-                    <span className={cx("expCrewChip", `expCrew${exportCrew}`)}>{exportCrew === "All" ? "📋 Everything" : exportCrew === "Cleaning" ? "🧹 Cleaning crew" : exportCrew === "Maintenance" ? "🔧 Maintenance" : "🧪 Ecolab"}</span>
+                    <span className={cx("expCrewChip", `expCrew${exportCrew}`)}>{(() => { const c = CREW_BTNS.find(x => x[0] === exportCrew); return c ? `${c[1]} ${c[2]}` : "🧪 Ecolab"; })()}</span>
                     <button type="button" className="expCrewChange" data-testid="exp-crew-change" onClick={() => setExportCrew(null)}>Change</button>
                     <label className="expPhotoToggle" data-testid="exp-photos">
                       <input type="checkbox" checked={exportPhotos} onChange={e => setExportPhotos(e.target.checked)} />
