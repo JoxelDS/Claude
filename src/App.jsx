@@ -33143,7 +33143,14 @@ export default function App() {
   // v525: the type the inspector picked wins — Regular is ALWAYS the full guide, even on a date marked as an event day
   const guideMode = guideOverride || (inspectionType === "Post Event" ? "post" : inspectionType === "Event Day" ? "simple" : "full");
   guideModeRef.current = guideMode;
-  const pickInspType = t => { setInspectionType(t); setGuideOverride(null); if (t !== "Event Day") setEventName(""); try { window.scrollTo({ top: 0 }); } catch {} };
+  // v530: in the middle of a report the full checklist STAYS the full checklist when the type changes (Joxel: "it does not stay in the full like I had it");
+  // a fresh form, or one on the walk, still lets the type pick the form
+  const pickInspType = t => {
+    const keepFull = guideModeRef.current === "full" && (guideOverride === "full" || !!String(siteName || "").trim());
+    setInspectionType(t); setGuideOverride(keepFull ? "full" : null);
+    if (t !== "Event Day") setEventName("");
+    if (!keepFull) { try { window.scrollTo({ top: 0 }); } catch {} }
+  };
   try { window.__sdxPickType = pickInspType; } catch {}
   const GUIDE_ORDER = guideEventDay ? [0, 4, 2, 1, 5, 3] : [0, 1, 5, 2, 3, 4];
   // v523: one walk ↔ one guide — switching keeps the answers AND lands on the same part of the inspection
