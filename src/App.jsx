@@ -32595,6 +32595,12 @@ export default function App() {
   }, []);
 
   const [output, setOutput] = useState("");
+  // v534: iPad / phone — the report opens as a full-screen sheet instead of sitting under the whole form
+  const [narrowScreen, setNarrowScreen] = useState(() => { try { return window.matchMedia("(max-width: 1100px)").matches; } catch { return false; } });
+  useEffect(() => { let mq; try { mq = window.matchMedia("(max-width: 1100px)"); } catch { return; } const f = () => setNarrowScreen(mq.matches); f(); mq.addEventListener ? mq.addEventListener("change", f) : mq.addListener(f); return () => { mq.removeEventListener ? mq.removeEventListener("change", f) : mq.removeListener(f); }; }, []);
+  const [outputSheet, setOutputSheet] = useState(false);
+  useEffect(() => { if (!outputSheet) return; const prev = document.body.style.overflow; document.body.style.overflow = "hidden"; const k = e => { if (e.key === "Escape") setOutputSheet(false); }; window.addEventListener("keydown", k); return () => { document.body.style.overflow = prev; window.removeEventListener("keydown", k); }; }, [outputSheet]);
+  useEffect(() => { if (!narrowScreen || !output) setOutputSheet(false); }, [narrowScreen, output]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [warnings, setWarnings] = useState([]);
@@ -35933,8 +35939,9 @@ export default function App() {
           </div>
         </section>
 
-        {/* RIGHT */}
-        <section className="card" id="report-output">
+        {/* RIGHT — v534: on iPad / phone the report lives in a full-screen sheet, the page keeps a small peek */}
+        {(() => {
+          const outHeader = (
           <div className="outputCardHeader">
             <div className="outputCardTitleRow">
               <div>
@@ -35965,7 +35972,8 @@ export default function App() {
               </select>
             </div>
           </div>
-
+          );
+          const outBody = (
           <div className="cardBody">
             {aiTips.length > 0 && (
               <div className="aiBox">
@@ -36006,7 +36014,50 @@ export default function App() {
               </>
             )}
           </div>
-        </section>
+          );
+          if (!narrowScreen) return (
+            <section className="card" id="report-output">
+              {outHeader}
+              {outBody}
+            </section>
+          );
+          if (!output) return null;
+          const st = (() => { try { return calcOverallStatus(inspection, { foodTemps, foodTempNames }); } catch { return ""; } })();
+          const nIss = (() => { try { return buildActionItems({ inspection, rawNotes, foodTemps, foodTempNames }).length; } catch { return 0; } })();
+          return (
+            <>
+              <section className="card outputPeek" id="report-output" data-testid="output-peek">
+                <div className="outputPeekTop">
+                  <div className="outputPeekInfo">
+                    <div className="outputPeekKicker">📄 Report ready</div>
+                    <div className="outputPeekName notranslate" translate="no">{siteName || "Inspection"}{siteNumber ? ` #${siteNumber}` : ""}</div>
+                    <div className="outputPeekMeta">{inspectionType} · {inspectionDate}</div>
+                  </div>
+                  <span className={"outputPeekPill " + (st === "Pass" ? "ok" : "bad")}>{st === "Pass" ? "PASSED" : "NEEDS ATTENTION"}</span>
+                </div>
+                <div className="outputPeekIssues">{nIss ? `⚠ ${nIss} issue${nIss !== 1 ? "s" : ""} found` : "✓ No issues found"}</div>
+                <div className="outputPeekBtns">
+                  <button className="btn outputPeekOpen" type="button" data-testid="output-open" onClick={() => setOutputSheet(true)}>📄 Open full report</button>
+                  <button className="btn btnGhost" type="button" onClick={copyOutput}>⎘ Copy</button>
+                  <button className={cx("btn", saved ? "btnSaved" : "btnSave")} type="button" onClick={saveToHistory}>{saved ? "✓ Saved" : "Save"}</button>
+                </div>
+              </section>
+              {outputSheet && ReactDOM.createPortal(
+                <div className="outputSheet" data-testid="output-sheet" role="dialog" aria-modal="true">
+                  <div className="outputSheetBar">
+                    <button className="btn outputSheetClose" type="button" data-testid="output-close" onClick={() => setOutputSheet(false)}>✕ Close</button>
+                    <span className="outputSheetTitle notranslate" translate="no">{siteName || "Report"}</span>
+                  </div>
+                  <div className="outputSheetScroll" data-testid="output-sheet-scroll">
+                    <div className="card outputSheetCard">
+                      {outHeader}
+                      {outBody}
+                    </div>
+                  </div>
+                </div>, document.body)}
+            </>
+          );
+        })()}
 
       </main>
 
@@ -36014,7 +36065,8 @@ export default function App() {
       {/* Sticky action bar — appears when report is generated */}
       {output && (
         <div className="stickyActionBar">
-          <button className="btn stickyBtn stickyBtnView" type="button" onClick={() => {
+          <button className="btn stickyBtn stickyBtnView" type="button" data-testid="sticky-view" onClick={() => {
+            if (narrowScreen) { setOutputSheet(true); return; }
             const el = document.getElementById("report-output");
             if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
           }}>&#128196; View</button>

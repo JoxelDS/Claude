@@ -9471,3 +9471,26 @@ html[data-theme="black"] .inspTypeCard.on:nth-child(1) { background: rgba(234, 8
 html[data-theme="black"] .inspTypeCard.on:nth-child(3) { background: rgba(13, 148, 136, .18); }
 html[data-theme="black"] .inspTypeCard.on:nth-child(2) { background: rgba(37, 99, 235, .18); }
 .standFinderOpen { width: 100%; min-height: 48px; border-radius: 12px; border: 1.5px dashed var(--sdx-gray-300, #cbd5e1); background: var(--surface-1); color: var(--ink-900); font-weight: 800; font-size: .95rem; cursor: pointer; }
+
+/* v534: report peek + full-screen sheet (iPad / phone) */
+.outputPeek { padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; }
+.outputPeekTop { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.outputPeekKicker { font-size: .75rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--muted, #64748b); }
+.outputPeekName { font-size: 1.25rem; font-weight: 800; color: var(--text, #1e2a4a); margin-top: 2px; }
+.outputPeekMeta { font-size: .85rem; color: var(--muted, #64748b); margin-top: 2px; }
+.outputPeekPill { flex: 0 0 auto; font-size: .78rem; font-weight: 800; letter-spacing: .06em; padding: 7px 12px; border-radius: 999px; border: 2px solid; }
+.outputPeekPill.ok { color: #15803d; border-color: #86efac; background: #f0fdf4; }
+.outputPeekPill.bad { color: #b45309; border-color: #fcd34d; background: #fffbeb; }
+.outputPeekIssues { font-size: .92rem; font-weight: 700; color: var(--text, #1e2a4a); }
+.outputPeekBtns { display: flex; gap: 8px; flex-wrap: wrap; }
+.outputPeekBtns .btn { min-height: 44px; }
+.outputPeekOpen { flex: 1 1 200px; background: #1e2a78; color: #fff; font-weight: 800; border: 0; }
+.outputSheet { position: fixed; inset: 0; z-index: 1300; background: var(--bg, #f1f4f9); display: flex; flex-direction: column; }
+.outputSheetBar { display: flex; align-items: center; gap: 12px; padding: calc(10px + env(safe-area-inset-top)) 14px 10px; background: #1e2a78; color: #fff; flex: 0 0 auto; }
+.outputSheetClose { background: rgba(255,255,255,.14); color: #fff; border: 1px solid rgba(255,255,255,.3); font-weight: 800; min-height: 44px; }
+.outputSheetTitle { font-weight: 800; font-size: 1.05rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.outputSheetScroll { flex: 1 1 auto; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 12px 12px calc(24px + env(safe-area-inset-bottom)); }
+.outputSheetCard { max-width: 900px; margin: 0 auto; }
+[data-theme="midnight"] .outputSheet, [data-theme="noir"] .outputSheet, [data-theme="black"] .outputSheet { background: #0b1020; }
+[data-theme="midnight"] .outputPeekPill.ok, [data-theme="noir"] .outputPeekPill.ok, [data-theme="black"] .outputPeekPill.ok { background: transparent; }
+[data-theme="midnight"] .outputPeekPill.bad, [data-theme="noir"] .outputPeekPill.bad, [data-theme="black"] .outputPeekPill.bad { background: transparent; }

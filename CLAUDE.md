@@ -185,6 +185,8 @@ Read this first. It is the memory between sessions.
 
 - v533: the HACCP food temperatures block (`#food-temps-section`: hot holding, cooking, reheating, cold holding) is hidden on a Post Event inspection (`guideFocus === "post"` → display none; data kept). Joxel: "lets hide the haccp form from the post inspection". Harness scratchpad `train/v533.mjs` (v532 head): post hidden, regular + event visible.
 
+- v534: iPad / phone (≤1100 px, `narrowScreen` matchMedia state next to `output`) no longer stack the whole report under the form. Joxel: "this in iPad and phone gets kinda long to scroll so figure something better". Before a report: no right card at all. After: a small `.outputPeek` (`output-peek`: stand, type · date, PASSED / NEEDS ATTENTION pill, issue count, `output-open` 📄 Open full report, Copy, Save); the full report (same header + body JSX, `outHeader` / `outBody`) opens in `.outputSheet` (`output-sheet`, portal, full screen, fixed top bar `output-close`, body scrolls in `output-sheet-scroll`, page `overflow:hidden`, Esc closes); the sticky bar's 📄 View (`sticky-view`) opens the sheet. Desktop unchanged. Harness scratchpad `train/v534.mjs` (VW/VH env; 390 + 820 ALL PASS).
+
 ## Open items
 - Compact `equipmentRegistry` (size risk). Audit workbook was delivered 2026-09-14 (29 orphan units, 28 duplicate copies, 41 units missing brand/location, 43 stands without equipment, 22 stands without license, verify walk 0/116).
 - Domain change: waiting for the domain name (needs CNAME, vite `base`, SW scope, Firebase authorized domains).
