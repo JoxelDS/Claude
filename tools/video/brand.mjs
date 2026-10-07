@@ -50,7 +50,6 @@ await png(`<div style="position:absolute;inset:0;${bgCss}"></div>${topo}<div sty
 await png(`<div style="position:absolute;inset:0;background:url(file://${DIR}ds-torn.png) center/auto 1920px no-repeat #000"></div>
 <div style="position:absolute;top:1260px;left:0;right:0;text-align:center;color:#fff;font-size:62px;letter-spacing:-1px;text-shadow:0 4px 20px #000">WALK IT. FIX IT. PROVE IT.</div>
 <div style="position:absolute;top:1360px;left:0;right:0;text-align:center;color:#bdbdbd;font-family:N;font-size:40px">SDX Inspect · by DSmarketing Agency</div>
-<div style="position:absolute;top:1490px;left:0;right:0;text-align:center"><span style="display:inline-block;background:#fff;color:#000;border-radius:999px;padding:24px 56px;font-size:40px">LINK IN BIO →</span></div>
 <div style="position:absolute;bottom:60px;left:0;right:0;text-align:center">${handle}</div>`, 'outro.png', false);
 await b.close();
 
