@@ -4,7 +4,8 @@ Routine: 8:52 · 11:52 · 17:52 New York time. Each firing makes ONE Reel from t
 
 ## How a Reel is made (tools/video/)
 1. `npm ci` (repo root) if `node_modules` is missing, `npm run build`, and `npm i --no-save --prefix /tmp/ff ffmpeg-static`.
-2. PREFERRED (v2, sharp + step captions): `cd tools/video && node pov.mjs <clip>` for g_temps · g_problem · crew · portal → `out/pov-<clip>.mp4` (records the app at 390×844 @3×, one caption per action, yellow key moments with a zoom punch, hook, end card, beat, −14 LUFS). Set a new hook with `HOOK="line 1|line 2 with *yellow*" node pov.mjs <clip>`. New topics = add a flow to FLOWS in pov.mjs (copy an existing one; `a.cue(text,{key})` before each action). Use the old steps below only for clips pov.mjs does not have yet.
+2. SAAS LOOK (Joxel prefers it, 2026-10-07): after `node pov.mjs <clip>` run `node saas.mjs <clip>` → `out/saas-<clip>.mp4` (light gradient, app in a phone frame, one headline per step, intro + outro "Link in bio"; INTRO="Title|sub" to change the intro). Post the saas file.
+   v2, sharp + step captions): `cd tools/video && node pov.mjs <clip>` for g_temps · g_problem · crew · portal → `out/pov-<clip>.mp4` (records the app at 390×844 @3×, one caption per action, yellow key moments with a zoom punch, hook, end card, beat, −14 LUFS). Set a new hook with `HOOK="line 1|line 2 with *yellow*" node pov.mjs <clip>`. New topics = add a flow to FLOWS in pov.mjs (copy an existing one; `a.cue(text,{key})` before each action). Use the old steps below only for clips pov.mjs does not have yet.
    Old: Record the clip: `cd tools/video && node rec_full.mjs <clip>` (g_types · g_temps · g_problem) or `node record.mjs <clip>` (portal · crew · followups · reports · stands). Output `out/<clip>.mp4` (1920×1080 stage, phone in it). The phone crop in reel.mjs (448×975 at 1098,34) only fits PHONE scenes — skip laptop parts with start/len.
 3. Cut the Reel: `node reel.mjs <clip> "<HOOK (use <br>)>" "<line 2>" <start s> <len s>` → `out/reel-<clip>.mp4` (1080×1920, H.264/AAC, faststart, ~20 s). Check a frame sheet (`ffmpeg -i … -vf fps=1/3,scale=180:-1,tile=6x1`) — the hook must not cover the key moment.
 4. Copy to `docs/reels/<YYYY-MM-DD>-<slot>.mp4`, commit + push to main. Public URL = `https://raw.githubusercontent.com/JoxelDS/Claude/main/docs/reels/<file>`.
@@ -17,11 +18,11 @@ NEXT: 2
 
 ## Ready to post (already rendered — use these files and captions for #2–#4, no re-recording)
 - #1 temps — `docs/reels/2026-10-07-pov-g_temps.mp4` — POSTED 2026-10-07.
-- #2 `docs/reels/2026-10-07-pov-g_problem.mp4`
+- #2 `docs/reels/2026-10-07-saas-g_problem.mp4`
   Caption: Paper notes get greasy, wet and lost. Your phone doesn't. 📱 / Mark it ✗, say what's wrong, where it is, and snap the BEFORE photo, all in a few taps. Saved even if you lose signal. / 🇪🇸 Problema, lugar y foto en segundos. / #foodsafety #restaurantinspection #kitchenmanagement #foodservice #facilitiesmanagement #inspectionapp #restauranttech #stadiumfood #concessions #qualitycontrol #paperless #hospitality
-- #3 `docs/reels/2026-10-07-pov-crew.mp4`
+- #3 `docs/reels/2026-10-07-saas-crew.mp4`
   Caption: "Is it fixed yet?" Now you don't have to ask. ✅ / The crew opens a link (no password), taps Done and adds the AFTER photo. The inspector sees it fixed, with proof. / 🇪🇸 Arreglado y con foto de prueba. / #facilitiesmanagement #maintenance #cleaningcrew #foodsafety #kitchenmanagement #foodservice #beforeandafter #inspectionapp #stadiumfood #operations #restauranttech #hospitality
-- #4 `docs/reels/2026-10-07-pov-portal.mp4`
+- #4 `docs/reels/2026-10-07-saas-portal.mp4`
   Caption: Stand teams log their own temps with one scan. 📲 / Scan the stand's QR poster, type name + phone, log the reading. No app, no password, and it's sent straight to the inspector. / 🇪🇸 Escanea, registra y listo. / #haccp #foodsafety #temperaturelog #foodservice #concessions #stadiumfood #kitchenmanagement #qrcode #inspectionapp #restauranttech #qualitycontrol #hospitality
 (" / " = line break in the caption.) From #5 on, make new Reels with pov.mjs.
 
