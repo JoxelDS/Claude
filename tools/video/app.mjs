@@ -3,7 +3,7 @@
 // the app inside a phone frame, one headline per step, navy intro card, light outro with 'by DS Marketing'.
 import { readFileSync, writeFileSync } from 'fs';
 import { execFileSync } from 'child_process';
-import { C, mark, fontCss, status } from './sdxmark.mjs';
+import { C, mark, lockup, fontCss, status } from './sdxmark.mjs';
 import { chromium } from '/home/user/Claude/node_modules/playwright-core/index.mjs';
 const FF = process.env.FFMPEG || '/tmp/ff/node_modules/ffmpeg-static/ffmpeg';
 const DIR = new URL('.', import.meta.url).pathname;
@@ -21,7 +21,7 @@ const IN = 2.2, ENDL = 2.8;
 const font = `${fontCss(DIR)}*{margin:0;box-sizing:border-box}body{width:1080px;height:1920px;background:transparent;font-family:I,Arial}`;
 // the app's own look: light page, navy header bar, white cards, red accent (Save Report), Inter
 const header = `<div style="position:absolute;left:0;right:0;top:0;height:190px;background:${C.navy};display:flex;align-items:center;justify-content:space-between;padding:40px 56px 0">
-  <div style="display:flex;align-items:center;gap:20px">${mark(84, { onDark: true })}<span style="color:#fff;font-weight:800;font-size:44px;letter-spacing:-1px">SDX Inspect</span></div>
+  <div style="display:flex;align-items:center">${lockup(86, 'light')}</div>
   <span style="color:#C9CCEB;font-weight:600;font-size:30px">@sdxinspect</span></div>`;
 const pageBg = `background:radial-gradient(800px 600px at 85% 30%,#E6E9F8 0,transparent 70%),${C.bg}`;
 const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium', args: ['--no-sandbox'] });
@@ -42,7 +42,7 @@ cues.forEach((c, i) => { const t0 = IN + c.t, t1 = IN + Math.min(i + 1 < cues.le
 for (const h of heads) await png(h.html, h.f);
 const [i1, i2] = intro.split('|');
 await png(`<div style="position:absolute;inset:0;background:linear-gradient(165deg,${C.navy},${C.navyDeep})"></div>
-<div style="position:absolute;top:180px;left:0;right:0;text-align:center">${mark(150, { shadow: true, onDark: true })}</div>
+<div style="position:absolute;top:200px;left:0;right:0;text-align:center">${lockup(150, 'light')}</div>
 <div style="position:absolute;top:650px;left:70px;right:60px">
 <div style="display:inline-block;background:${C.red};color:#fff;font-weight:800;font-size:34px;border-radius:14px;padding:10px 22px;margin-bottom:28px">SDX Inspect</div>
 <div style="font-weight:800;font-size:${i1.length > 20 ? 104 : 120}px;line-height:.98;letter-spacing:-4px;color:#fff">${i1}</div>
