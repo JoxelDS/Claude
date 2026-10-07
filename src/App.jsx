@@ -27419,7 +27419,6 @@ function InspTypeBanner({ type, eventName }) {
     <div className={"inspBanner " + L.cls} data-testid={`insp-banner-${L.cls}`}>
       <div className="inspBannerTop"><span className="inspBannerIcon">{L.icon}</span><span className="inspBannerName">{L.name}</span>{type === "Event Day" && eventName ? <span className="inspBannerEvent"><NT>{eventName}</NT></span> : null}</div>
       <div className="inspBannerLine">{L.line}</div>
-      <div className="inspBannerFocus"><span>Focus:</span>{L.focus.map(f => <b key={f}>{f}</b>)}</div>
     </div>
   );
 }
@@ -34859,15 +34858,16 @@ export default function App() {
                           Answer only what you see — anything you skip is simply not checked. Most walks take about 10 minutes.
                         </div>
                       </div>
-                      <div className="guidePillRow">
-                        <span className="pill">Hand sink {"\u2265"} 95 F</span>
-                        <span className="pill">3-comp wash {"\u2265"} 110 F</span>
-                        <span className="pill">Cooler {"\u2264"} 40 F</span>
-                        <span className="pill">Freezer {"\u2264"} 20 F</span>
+                      <div className="guidePillRow guideRules" data-testid="guide-rules">
+                        <span className="guideRulesLabel">Temp rules</span>
+                        <span className="guideRule">Hand sink {"\u2265"} 95°F</span>
+                        <span className="guideRule">3-comp wash {"\u2265"} 110°F</span>
+                        <span className="guideRule">Cooler {"\u2264"} 40°F</span>
+                        <span className="guideRule">Freezer {"\u2264"} 20°F</span>
                       </div>
                     </div>
                     {/* Step chips — label + live remaining count */}
-                    <div className="guideStepDots">
+                    <div className="guideStepDots guideStepGrid" data-testid="guide-step-grid">
                       {STEP_LABELS.map((label, i) => {
                         const pid = STEP_ORDER[i];
                         const c = panelCounts[pid];
@@ -34891,6 +34891,7 @@ export default function App() {
                             data-state={state}
                             data-prio={prio ? "1" : undefined}
                           >
+                            <span className="guideChipNum" aria-hidden="true">{i + 1}</span>
                             <span className="guideChipIcon" aria-hidden="true">{meta.icon}</span>
                             <span className="guideChipLabel">{SHORT_LABELS[i]}</span>
                             {prio && <span className="guideChipPrio" data-testid="guide-chip-prio">PRIORITY</span>}

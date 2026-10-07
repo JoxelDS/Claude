@@ -9494,3 +9494,27 @@ html[data-theme="black"] .inspTypeCard.on:nth-child(2) { background: rgba(37, 99
 [data-theme="midnight"] .outputSheet, [data-theme="noir"] .outputSheet, [data-theme="black"] .outputSheet { background: #0b1020; }
 [data-theme="midnight"] .outputPeekPill.ok, [data-theme="noir"] .outputPeekPill.ok, [data-theme="black"] .outputPeekPill.ok { background: transparent; }
 [data-theme="midnight"] .outputPeekPill.bad, [data-theme="noir"] .outputPeekPill.bad, [data-theme="black"] .outputPeekPill.bad { background: transparent; }
+
+/* v535: the guide header, organized — one even grid of numbered sections, quiet temp rules */
+.guideStepperTop { flex-direction: column; align-items: stretch; gap: 10px; }
+.guideEase { font-size: .86rem; font-weight: 600; opacity: .9; }
+.guideRules { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.guideRulesLabel { font-size: .7rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-500, #64748b); margin-right: 4px; }
+.guideRule { font-size: .8rem; font-weight: 700; color: var(--ink-700, #334155); background: var(--surface-1, #fff); border: 1px solid var(--sdx-gray-200, #e2e8f0); border-radius: 8px; padding: 4px 9px; white-space: nowrap; }
+.guideStepGrid { display: grid !important; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; flex-wrap: initial; overflow: visible; }
+.guideStepGrid .guideStepChip { width: 100%; min-width: 0; margin: 0; justify-content: flex-start; gap: 8px; border-radius: 14px; padding: 10px 12px; min-height: 52px; }
+.guideStepGrid .guideChipLabel { flex: 1 1 auto; min-width: 0; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.guideStepGrid .guideChipBadge, .guideStepGrid .guideChipLater, .guideStepGrid .guideChipPrio { flex: 0 0 auto; margin-left: auto; }
+.guideChipNum { flex: 0 0 auto; width: 22px; height: 22px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: .75rem; font-weight: 800; background: var(--chipBg, #e2e8f0); color: var(--chipC, #334155); }
+.guideStepChip-active .guideChipNum { background: rgba(255,255,255,.25); color: #fff; }
+@media (max-width: 760px) { .guideStepGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 380px) { .guideStepGrid .guideChipIcon { display: none; } }
+/* v535b: two-line section buttons — full name on top, progress / priority underneath */
+.guideStepGrid .guideStepChip { flex-wrap: wrap; align-items: center; row-gap: 4px; column-gap: 8px; padding: 10px 12px; }
+.guideStepGrid .guideChipIcon { display: none; }
+.guideStepGrid .guideChipLabel { flex: 1 1 calc(100% - 34px); white-space: normal; overflow: visible; line-height: 1.15; }
+.guideStepGrid .guideChipBadge, .guideStepGrid .guideChipLater, .guideStepGrid .guideChipPrio { margin-left: 30px; font-size: .7rem; }
+.guideStepGrid .guideChipBadge + .guideChipBadge, .guideStepGrid .guideChipPrio + .guideChipBadge { margin-left: 0; }
+@media (max-width: 380px) { .guideStepGrid .guideChipIcon { display: none; } }
+.guideStepGrid { align-items: stretch; }
+.guideStepGrid .guideStepChip { height: auto; min-height: 66px; align-self: stretch; align-content: center; }
