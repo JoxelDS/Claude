@@ -9562,3 +9562,14 @@ html[data-theme="black"] .inspTypeCard.on:nth-child(2) { background: rgba(37, 99
 .fuSimPill{font-size:12px;font-weight:800;padding:2px 8px;border-radius:999px}
 .fuSimPill.ns{background:#fee2e2;color:#991b1b}.fuSimPill.wk{background:#dbeafe;color:#1e40af}.fuSimPill.wt{background:#fef3c7;color:#92400e}
 .fuSimRowWrap{display:flex;flex-direction:column;gap:6px}
+/* v545: fix one row + comments */
+.fuSimSubs li{margin:4px 0}
+.fuSimSubFix{margin-left:6px;min-height:34px;padding:2px 10px;border-radius:8px;border:1px solid #16a34a;background:#f0fdf4;color:#166534;font-weight:800;font-size:13px;cursor:pointer}
+.fuSimCmts{margin-top:8px;display:flex;flex-direction:column;gap:4px}
+.fuSimCmt{font-size:14px;background:#f1f5f9;border-radius:8px;padding:6px 10px}
+.fuSimCmt span{color:#64748b;font-size:12px}
+.fuSimCmtBtn{align-self:flex-start;min-height:40px;padding:4px 14px;border-radius:10px;border:1px solid #cbd5e1;background:#fff;font-weight:700;cursor:pointer}
+.fuSimCmtBox{display:flex;gap:6px}
+.fuSimCmtBox input{flex:1;min-width:0;font-size:16px;padding:8px 10px;border:1px solid #94a3b8;border-radius:10px}
+.fuSimCmtBox button{min-height:44px;padding:0 14px;border-radius:10px;border:0;background:#1e3a8a;color:#fff;font-weight:800;cursor:pointer}
+.fuSimCmtBox button.ghost{background:#e2e8f0;color:#1e293b}

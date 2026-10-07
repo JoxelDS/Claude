@@ -10826,9 +10826,18 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
   const fuSubKey = (f, sb) => `${sb.memberKey || f.key}|${fuRowSlug(sb.origText || sb.text)}`;
   const fuApplyEdit = f => {
     const e = fuEdits[f.key];
-    const subs = (f.subs || []).map(sb => { const k = fuSubKey(f, sb); const se = fuEdits[k]; return se && se.text ? { ...sb, origText: sb.origText || sb.text, text: se.text } : sb; });
-    return e ? { ...f, cat: e.cat || f.cat, detail: e.detail ?? f.detail, area: e.area ?? f.area, subs, editedBy: e.by } : (f.subs ? { ...f, subs } : f);
+    const subs0 = (f.subs || []).map(sb => { const k = fuSubKey(f, sb); const se = fuEdits[k]; return se && se.text ? { ...sb, origText: sb.origText || sb.text, text: se.text } : sb; });
+    const subs = subs0.filter(sb => !fuEdits[fuSubKey(f, sb)]?.done); // v545: rows fixed one by one
+    const one = subs0.length > 1 && subs.length === 1 && !(e && e.detail) ? { detail: subs[0].text } : {};
+    return e ? { ...f, ...one, cat: e.cat || f.cat, detail: e.detail || one.detail || f.detail, area: e.area ?? f.area, subs, subsFixed: subs0.length - subs.length, editedBy: e.by } : (f.subs ? { ...f, ...one, subs, subsFixed: subs0.length - subs.length } : f);
   };
+  const [fuSubUndo, setFuSubUndo] = useState(null); // {k, label}
+  const fixSubRow = (f, sb) => {
+    const k = fuSubKey(f, sb); const entry = { done: true, by: currentUser?.name || "Inspector", ts: Date.now() };
+    setFuEditLocal(prev => ({ ...prev, [k]: entry })); writeMap("followupEdit", { [k]: entry });
+    setFuSubUndo({ k, label: sb.text });
+  };
+  const unfixSubRow = k => { const entry = { done: false, by: currentUser?.name || "Inspector", ts: Date.now() }; setFuEditLocal(prev => ({ ...prev, [k]: entry })); writeMap("followupEdit", { [k]: entry }); setFuSubUndo(null); };
   const saveFuEdit = (f) => {
     if (!fuEdit) return;
     const by = currentUser?.name || "Inspector", ts = Date.now();
@@ -11435,7 +11444,7 @@ ${sections}
     const fuListText = items => {
       const by = {}; items.forEach(f => { const k = `${String(f.loc || "").toUpperCase()}${f.unit ? ` #${f.unit}` : ""}`; (by[k] = by[k] || []).push(f); });
       const head = `${items.length} problem${items.length !== 1 ? "s" : ""}${items.every(f => stOf(f) === "notstarted") ? " not being repaired" : " to fix"} · ${new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`;
-      return [head, "", ...Object.keys(by).sort().flatMap(k => [k, ...by[k].flatMap(f => (f.subs || []).length > 1 ? f.subs.map(x => `• ${f.cat}: ${x.text} — found ${ago(f)}`) : [`• ${fuProblemText(f)} — found ${ago(f)}${stOf(f) === "working" ? " (in process)" : stOf(f) === "waiting" ? " (waiting)" : ""}`]), ""])].join("\n").trim();
+      return [head, "", ...Object.keys(by).sort().flatMap(k => [k, ...by[k].flatMap(f => (f.subs || []).length > 1 ? f.subs.map(x => `• ${f.cat}: ${x.text} — found ${ago(f)}`) : [`• ${fuProblemText(f)}${commentsOf(f).length ? ` (note: ${commentsOf(f).slice(-1)[0].text})` : ""} — found ${ago(f)}${stOf(f) === "working" ? " (in process)" : stOf(f) === "waiting" ? " (waiting)" : ""}`]), ""])].join("\n").trim();
     };
     return (
       <div className="card fuSim" data-testid="fu-simple" style={{ marginBottom: 24 }}>
@@ -11460,6 +11469,7 @@ ${sections}
           <div className="fuSimViewToggle">{[["cards", "🗂 Cards"], ["list", "📋 List"]].map(([k, l]) => <button key={k} type="button" className={fuSimView === k ? "on" : ""} data-testid={`fu-sim-view-${k}`} onClick={() => { setFuSimView(k); try { localStorage.setItem("sdx_fu_sim_view", k); } catch {} }}>{l}</button>)}</div>
           {list.length > 0 && <button type="button" className="fuSimListAll" data-testid="fu-sim-list-all" onClick={() => setRemindPick(prev => { const n = { ...prev }; const allOn = list.every(f => n[f.key]); list.forEach(f => { if (allOn) delete n[f.key]; else n[f.key] = true; }); return n; })}>{list.every(f => remindPick[f.key]) ? "☐ Unselect all" : `☑ Select all shown (${list.length})`}</button>}
         </div>
+        {fuSubUndo && <div className="fuSimUndo" data-testid="fu-sim-sub-undo"><span>✓ Fixed: {fuSubUndo.label}</span><button type="button" onClick={() => unfixSubRow(fuSubUndo.k)}>↩ Undo</button></div>}
         {undoRes && <div className="fuSimUndo" data-testid="fu-sim-undo"><span>✓ Fixed: <NT>{undoRes.label}</NT></span><button type="button" onClick={undoResolve}>↩ Undo</button></div>}
         {fuSimDone && <div className="fuSimFlash">{fuSimDone}</div>}
         <div className={"fuSimList" + (fuSimView === "list" ? " asList" : "")}>
@@ -11492,7 +11502,13 @@ ${sections}
                   <div className="fuSimText">
                     <div className="fuSimStand"><NT>{String(f.loc || "").toUpperCase()}{f.unit ? ` #${f.unit}` : ""}</NT></div>
                     <div className="fuSimProblem">{subs ? `${f.cat} · ${subs.length} things` : fuProblemText(f)}</div>
-                    {subs && <ol className="fuSimSubs">{subs.map((x, i) => <li key={i}>{x.text}</li>)}</ol>}
+                    {subs && <ol className="fuSimSubs">{subs.map((x, i) => <li key={i}><span>{x.text}</span> <button type="button" className="fuSimSubFix" data-testid="fu-sim-sub-fixed" onClick={() => fixSubRow(f, x)}>✓ Fixed</button></li>)}</ol>}
+                    {f.subsFixed > 0 && <div className="fuSimEdited">✓ {f.subsFixed} already fixed on this card</div>}
+                    {(() => { const cs = commentsOf(f); return (<div className="fuSimCmts">
+                      {cs.slice(-3).map((c, i) => <div key={i} className="fuSimCmt" data-testid="fu-sim-cmt">💬 {c.text} <span>· {c.by} · {new Date(c.ts).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</span></div>)}
+                      {commentKey === f.key ? <div className="fuSimCmtBox"><input data-testid="fu-sim-comment-input" autoFocus value={commentText} placeholder="Add a note or more information…" onChange={e => setCommentText(e.target.value)} onKeyDown={e => { if (e.key === "Enter") addComment(f); }} /><button type="button" data-testid="fu-sim-comment-post" onClick={() => addComment(f)}>Post</button><button type="button" className="ghost" onClick={() => { setCommentKey(null); setCommentText(""); }}>✕</button></div>
+                        : <button type="button" className="fuSimCmtBtn" data-testid="fu-sim-comment" onClick={() => { setCommentKey(f.key); setCommentText(""); }}>💬 Comment{cs.length ? ` (${cs.length})` : ""}</button>}
+                    </div>); })()}
                     {f.editedBy && <div className="fuSimEdited">✏️ edited by {f.editedBy}</div>}
                     <div className="fuSimMeta">{f.overdue ? "⏰ Late — " : ""}found {ago(f)}{who(f) ? ` · ${who(f)}` : ""}</div>
                   </div>
