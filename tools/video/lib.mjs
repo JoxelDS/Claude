@@ -62,6 +62,7 @@ export async function launch() {
   return { browser, PICS };
 }
 export const jpg = k => Buffer.from(PICS[k].split(',')[1], 'base64');
+export const _state = () => ({ browser, PICS });
 export async function close() { await browser.close(); }
 
 /** Record one chapter: body(api) drives the stage + app; frames + timeline land in out/<name>/. */
