@@ -10815,6 +10815,10 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
   const [fuSimCrew, setFuSimCrew] = useState("all");
   const [fuSimFloor, setFuSimFloor] = useState("all"); // v540
   const [fuSimQ, setFuSimQ] = useState("");
+  // v543: status filter + list view (Joxel: "list them so I can send what is not being repaired")
+  const [fuSimStatus, setFuSimStatus] = useState("all");
+  const [fuSimView, setFuSimView] = useState(() => { try { return localStorage.getItem("sdx_fu_sim_view") || "cards"; } catch { return "cards"; } });
+  const [fuSimOpen, setFuSimOpen] = useState(null);
   // v542: edit a follow-up's words (Joxel: "I want to be able to edit the info") — venueSettings.followupEdit
   const [fuEditLocal, setFuEditLocal] = useState({});
   const [fuEdit, setFuEdit] = useState(null); // {key, detail, area, subs:{subKey:text}}
@@ -11420,10 +11424,19 @@ ${sections}
     const floorSel = fuSimFloor !== "all" && floors.includes(fuSimFloor) ? fuSimFloor : "all";
     const byQF = byQ.filter(f => floorSel === "all" || flOf(f) === floorSel);
     const crewSel = fuSimCrew !== "all" && byQF.some(f => crewOf(f) === fuSimCrew) ? fuSimCrew : "all"; // the picked crew ran out → show everyone
-    const list = byQF.filter(f => crewSel === "all" || crewOf(f) === crewSel)
+    const byQFC = byQF.filter(f => crewSel === "all" || crewOf(f) === crewSel);
+    const stOf = f => { const s = stMap[f.key]?.status; return s === "in_progress" ? "working" : s === "waiting" ? "waiting" : "notstarted"; };
+    const STATUSES = [["all", "All"], ["notstarted", "🚫 Not being repaired"], ["working", "🔧 In process"], ["waiting", "⏳ Waiting"]];
+    const statusSel = fuSimStatus;
+    const list = byQFC.filter(f => statusSel === "all" || stOf(f) === statusSel)
       .sort((a, b) => (b.overdue ? 1 : 0) - (a.overdue ? 1 : 0) || (a.ts || 0) - (b.ts || 0));
     const ago = f => { const d = f.daysSince ?? Math.floor((Date.now() - (f.ts || Date.now())) / 864e5); return d <= 0 ? "today" : d === 1 ? "yesterday" : `${d} days ago`; };
     const who = f => { const st = stMap[f.key]; if (!st) return ""; return st.status === "in_progress" ? `🔧 ${st.by || "Crew"} is working on it` : st.status === "waiting" ? `⏳ Waiting${st.note ? `: ${st.note}` : ""}` : ""; };
+    const fuListText = items => {
+      const by = {}; items.forEach(f => { const k = `${String(f.loc || "").toUpperCase()}${f.unit ? ` #${f.unit}` : ""}`; (by[k] = by[k] || []).push(f); });
+      const head = `${items.length} problem${items.length !== 1 ? "s" : ""}${items.every(f => stOf(f) === "notstarted") ? " not being repaired" : " to fix"} · ${new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`;
+      return [head, "", ...Object.keys(by).sort().flatMap(k => [k, ...by[k].flatMap(f => (f.subs || []).length > 1 ? f.subs.map(x => `• ${f.cat}: ${x.text} — found ${ago(f)}`) : [`• ${fuProblemText(f)} — found ${ago(f)}${stOf(f) === "working" ? " (in process)" : stOf(f) === "waiting" ? " (waiting)" : ""}`]), ""])].join("\n").trim();
+    };
     return (
       <div className="card fuSim" data-testid="fu-simple" style={{ marginBottom: 24 }}>
         <div className="fuSimHead">
@@ -11436,13 +11449,20 @@ ${sections}
         <div className="fuSimCrews">{CREWS.map(([k, l]) => { const n = k === "all" ? byQF.length : byQF.filter(f => crewOf(f) === k).length; return n || k === "all" ? <button key={k} type="button" className={"fuSimCrew" + (crewSel === k ? " on" : "")} data-testid={`fu-sim-crew-${k.toLowerCase()}`} onClick={() => { setFuSimCrew(k); setFuSimShow(20); }}>{l} <span>{n}</span></button> : null; })}</div>
         {list.length > 1 && <button type="button" className="fuSimRemindAll" data-testid="fu-sim-remind-all" onClick={() => setRemindPick(prev => { const n = { ...prev }; list.forEach(f => { n[f.key] = true; }); return n; })}>🔔 Remind all shown ({list.length})</button>}
         {remindList.length > 0 && ReactDOM.createPortal(<div className="fuSimRemindBar" data-testid="fu-sim-remind-bar">
-          <div className="fuSimRemindTxt"><b>🔔 {remindList.length} problem{remindList.length !== 1 ? "s" : ""} picked</b> <span className="notranslate" translate="no">· {[...new Set(remindList.map(f => `${String(f.loc || "").toUpperCase()}${f.unit ? ` #${f.unit}` : ""}`))].slice(0, 3).join(", ")}{new Set(remindList.map(f => f.loc + f.unit)).size > 3 ? " …" : ""}</span></div>
+          <div className="fuSimRemindTxt"><b>{remindList.length} problem{remindList.length !== 1 ? "s" : ""} picked</b> <span className="notranslate" translate="no">· {[...new Set(remindList.map(f => `${String(f.loc || "").toUpperCase()}${f.unit ? ` #${f.unit}` : ""}`))].slice(0, 3).join(", ")}{new Set(remindList.map(f => f.loc + f.unit)).size > 3 ? " …" : ""}</span></div>
           <button type="button" className="fuSimRemindSend" data-testid="fu-sim-remind-send" onClick={() => { const n = remindList.length; remindMany(remindList, "sim:group"); setRemindPick({}); setFuSimDone(`🔔 One reminder sent for ${n} problem${n !== 1 ? "s" : ""}`); setTimeout(() => setFuSimDone(null), 3500); }}>Send one reminder</button>
+          <button type="button" className="fuSimRemindClear" data-testid="fu-sim-copy" onClick={() => { const t = fuListText(remindList); try { navigator.clipboard.writeText(t); setFuSimDone("📋 List copied — paste it in a text or WhatsApp"); } catch { setFuSimDone("Could not copy"); } setTimeout(() => setFuSimDone(null), 3500); }}>📋 Copy list</button>
+          <button type="button" className="fuSimRemindClear" data-testid="fu-sim-share" onClick={async () => { const t = fuListText(remindList); try { if (navigator.share) { await navigator.share({ title: "Problems to fix", text: t }); return; } } catch (e) { if (e && e.name === "AbortError") return; } try { navigator.clipboard.writeText(t); setFuSimDone("📋 List copied — paste it in a text or WhatsApp"); setTimeout(() => setFuSimDone(null), 3500); } catch {} }}>📤 Share</button>
           <button type="button" className="fuSimRemindClear" data-testid="fu-sim-remind-clear" onClick={() => setRemindPick({})}>Clear</button>
         </div>, document.body)}
+        <div className="fuSimCrews fuSimStatusRow">{STATUSES.map(([k, l]) => { const n = k === "all" ? byQFC.length : byQFC.filter(f => stOf(f) === k).length; return <button key={k} type="button" className={"fuSimCrew" + (statusSel === k ? " on" : "")} data-testid={`fu-sim-status-${k}`} onClick={() => { setFuSimStatus(k); setFuSimShow(20); }}>{l} <span>{n}</span></button>; })}</div>
+        <div className="fuSimViewRow">
+          <div className="fuSimViewToggle">{[["cards", "🗂 Cards"], ["list", "📋 List"]].map(([k, l]) => <button key={k} type="button" className={fuSimView === k ? "on" : ""} data-testid={`fu-sim-view-${k}`} onClick={() => { setFuSimView(k); try { localStorage.setItem("sdx_fu_sim_view", k); } catch {} }}>{l}</button>)}</div>
+          {list.length > 0 && <button type="button" className="fuSimListAll" data-testid="fu-sim-list-all" onClick={() => setRemindPick(prev => { const n = { ...prev }; const allOn = list.every(f => n[f.key]); list.forEach(f => { if (allOn) delete n[f.key]; else n[f.key] = true; }); return n; })}>{list.every(f => remindPick[f.key]) ? "☐ Unselect all" : `☑ Select all shown (${list.length})`}</button>}
+        </div>
         {undoRes && <div className="fuSimUndo" data-testid="fu-sim-undo"><span>✓ Fixed: <NT>{undoRes.label}</NT></span><button type="button" onClick={undoResolve}>↩ Undo</button></div>}
         {fuSimDone && <div className="fuSimFlash">{fuSimDone}</div>}
-        <div className="fuSimList">
+        <div className={"fuSimList" + (fuSimView === "list" ? " asList" : "")}>
           {list.slice(0, fuSimShow).map(f => {
             const allPh = [...(f.photos || []), ...fuPhotosOf(f)].filter(p => p && p.thumbUrl).filter((p, i, a) => a.findIndex(x => (x.id || x.thumbUrl) === (p.id || p.thumbUrl)) === i);
             const before = allPh.filter(p => p.tag !== "after"), after = allPh.filter(p => p.tag === "after");
@@ -11453,7 +11473,20 @@ ${sections}
               </div>
             );
             const subs = (f.subs || []).length > 1 ? f.subs : null;
-            return (
+            const stPill = { notstarted: ["🚫 Not started", "ns"], working: ["🔧 In process", "wk"], waiting: ["⏳ Waiting", "wt"] }[stOf(f)];
+            const rowEl = (
+              <div className={"fuSimRow" + (remindPick[f.key] ? " picked" : "") + (fuSimOpen === f.key ? " open" : "")} data-testid="fu-sim-row" data-key={f.key}>
+                <input type="checkbox" checked={!!remindPick[f.key]} onChange={() => toggleRemind(f)} aria-label="Pick" />
+                <div className="fuSimRowText" onClick={() => setFuSimOpen(o => o === f.key ? null : f.key)}>
+                  <div className="fuSimRowStand"><NT>{String(f.loc || "").toUpperCase()}{f.unit ? ` #${f.unit}` : ""}</NT> <span className={"fuSimPill " + stPill[1]}>{stPill[0]}</span></div>
+                  <div className="fuSimRowProb">{subs ? subs.map(x => x.text).join(" · ") : fuProblemText(f)}</div>
+                  <div className="fuSimRowMeta">{crewOf(f)} · found {ago(f)}{f.overdue ? " · ⏰ late" : ""}</div>
+                </div>
+                <span className="fuSimRowChev">{fuSimOpen === f.key ? "▴" : "▾"}</span>
+              </div>
+            );
+            if (fuSimView === "list" && fuSimOpen !== f.key) return <React.Fragment key={f.key}>{rowEl}</React.Fragment>;
+            const card = (
               <div key={f.key} className={"fuSimCard" + (f.overdue ? " late" : "")} data-testid="fu-sim-card" data-key={f.key}>
                 <div className="fuSimTop">
                   <div className="fuSimText">
@@ -11481,6 +11514,7 @@ ${sections}
                 </div>
               </div>
             );
+            return fuSimView === "list" ? <div key={f.key} className="fuSimRowWrap">{rowEl}{card}</div> : card;
           })}
           {list.length > fuSimShow && <button type="button" className="fuSimMore" onClick={() => setFuSimShow(n => n + 20)}>Show {Math.min(20, list.length - fuSimShow)} more</button>}
         </div>

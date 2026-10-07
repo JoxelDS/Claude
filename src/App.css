@@ -9543,3 +9543,22 @@ html[data-theme="black"] .inspTypeCard.on:nth-child(2) { background: rgba(37, 99
 .fuSimEditLbl textarea,.fuSimEditLbl input{font-size:16px;font-weight:500;text-transform:none;padding:10px;border-radius:10px;border:1px solid #a5b4fc;background:#fff;color:#111;font-family:inherit}
 .fuSimEditBtns{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .fuSimEdited{font-size:12px;color:#6366f1;margin-top:4px}
+/* v543: Follow-ups status chips + list view */
+.fuSimStatusRow{margin-top:6px}
+.fuSimViewRow{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:8px 0}
+.fuSimViewToggle{display:inline-flex;border:2px solid #1e293b;border-radius:12px;overflow:hidden}
+.fuSimViewToggle button{min-height:44px;padding:0 16px;border:0;background:#fff;color:#1e293b;font-weight:800;font-size:15px;cursor:pointer}
+.fuSimViewToggle button.on{background:#1e293b;color:#fff}
+.fuSimListAll{min-height:44px;padding:0 14px;border-radius:12px;border:2px solid #64748b;background:#f8fafc;color:#1e293b;font-weight:800;font-size:15px;cursor:pointer}
+.fuSimList.asList{display:flex!important;flex-direction:column;gap:6px}
+.fuSimRow{display:flex;align-items:flex-start;gap:12px;padding:12px;border:1px solid #e2e8f0;border-radius:12px;background:#fff}
+.fuSimRow.picked{border-color:#22c55e;background:#f0fdf4}
+.fuSimRow input{width:26px;height:26px;margin-top:2px;flex:none;accent-color:#16a34a}
+.fuSimRowText{flex:1;min-width:0;cursor:pointer}
+.fuSimRowStand{font-weight:800;font-size:15px;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.fuSimRowProb{font-size:15px;margin-top:2px}
+.fuSimRowMeta{font-size:13px;color:#64748b;margin-top:2px}
+.fuSimRowChev{color:#64748b;font-size:18px;padding:0 4px}
+.fuSimPill{font-size:12px;font-weight:800;padding:2px 8px;border-radius:999px}
+.fuSimPill.ns{background:#fee2e2;color:#991b1b}.fuSimPill.wk{background:#dbeafe;color:#1e40af}.fuSimPill.wt{background:#fef3c7;color:#92400e}
+.fuSimRowWrap{display:flex;flex-direction:column;gap:6px}
