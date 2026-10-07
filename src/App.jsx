@@ -27077,7 +27077,7 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                         ))}
                       </div>
                     </div>
-                    <button type="button" className="eqMoreWays" data-testid="eq-more-ways" onClick={() => setNewEquipType(newEquipType === "__more__" || isCustomMode ? null : "__more__")}>{newEquipType === "__more__" || isCustomMode ? "▾ Fewer options" : "More ways ▸ scan a label · custom name · labels page"}</button>
+                    <button type="button" className="eqMoreWays" data-testid="eq-more-ways" onClick={() => setNewEquipType(newEquipType === "__more__" || isCustomMode ? null : "__more__")}>{newEquipType === "__more__" || isCustomMode ? "▾ Fewer options" : "＋ Add other equipment — type a name or scan a label"}</button>
                     {(newEquipType === "__more__" || isCustomMode) && <div className="eqMoreBox">
                     {/* Scan a printed QR label — creates the unit with its saved info */}
                   <button type="button" onClick={() => setFastScan(true)}

@@ -195,6 +195,8 @@ Read this first. It is the memory between sessions.
 
 - v538: a missing supply is ONE short line, not a problem form. Joxel (Ecolab Sanitizer / Detergent rows marked ✕ each opening STATUS / ISSUE DESCRIPTION / LOCATION / CORRECTIVE / BEFORE-AFTER): "For supplies, we shouldn't have that many options". A ✕ on a row with `supply` shows `sup-row-note` "📦 Missing — added to Supplies Needed" + an optional "How many?" box (row `comment`); the row still goes to Supplies Needed (v489) and the soft "Before you save" list skips supply rows. Non-supply rows (labeled & stored, Other) keep the full form. Harness scratchpad `train/v538.mjs` ALL PASS.
 
+- v539: the equipment step's `eq-more-ways` is a solid blue 52 px button "＋ Add other equipment — type a name or scan a label" (was a faint dashed "More ways ▸ …" link). Joxel: "It is too hard to see to add the equipment". Harness scratchpad `train/v539.mjs`.
+
 ## Open items
 - Compact `equipmentRegistry` (size risk). Audit workbook was delivered 2026-09-14 (29 orphan units, 28 duplicate copies, 41 units missing brand/location, 43 stands without equipment, 22 stands without license, verify walk 0/116).
 - Domain change: waiting for the domain name (needs CNAME, vite `base`, SW scope, Firebase authorized domains).
