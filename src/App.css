@@ -9521,3 +9521,11 @@ html[data-theme="black"] .inspTypeCard.on:nth-child(2) { background: rgba(37, 99
 /* v539: the add-equipment button is a real button, not a faint dashed link */
 .eqMoreWays { background: #2563eb; color: #fff; border: none; border-radius: 12px; padding: 14px 16px; font-size: 1rem; font-weight: 800; min-height: 52px; box-shadow: 0 2px 8px rgba(37,99,235,.25); }
 .eqMoreWays:hover { background: #1d4ed8; }
+/* v540: Follow-ups search + floor chips */
+.fuSimSearchRow { position: relative; margin: 10px 0 4px; }
+.fuSimSearch { width: 100%; box-sizing: border-box; min-height: 48px; font-size: 16px; padding: 10px 44px 10px 14px; border: 2px solid var(--sdx-gray-300, #d1d5db); border-radius: 12px; background: var(--card-bg, #fff); color: inherit; }
+.fuSimSearch:focus { outline: none; border-color: #2563eb; }
+.fuSimSearchX { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); width: 36px; height: 36px; border: none; border-radius: 50%; background: #e5e7eb; font-weight: 800; cursor: pointer; }
+.fuSimFloors { margin-top: 6px; }
+.fuSimFilt { font-size: .8em; font-weight: 700; color: #2563eb; }
+.fuSimClear { margin: 8px 0; padding: 10px 16px; min-height: 44px; border: none; border-radius: 10px; background: #2563eb; color: #fff; font-weight: 800; cursor: pointer; }

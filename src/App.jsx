@@ -10813,6 +10813,8 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
   const [fuSimple, setFuSimpleS] = useState(() => { try { return localStorage.getItem("sdx_fu_simple") !== "0"; } catch { return true; } });
   const setFuSimple = v => { setFuSimpleS(v); try { localStorage.setItem("sdx_fu_simple", v ? "1" : "0"); } catch {} };
   const [fuSimCrew, setFuSimCrew] = useState("all");
+  const [fuSimFloor, setFuSimFloor] = useState("all"); // v540
+  const [fuSimQ, setFuSimQ] = useState("");
   const [fuSimShow, setFuSimShow] = useState(20);
   const [fuSimDone, setFuSimDone] = useState(null); // v516 — follow-up groups render 30 at a time
   const [fuGroupBy, setFuGroupBy] = useState("loc"); // "loc" | "cat" | "type" | "floor" | "date"
@@ -11390,18 +11392,29 @@ ${sections}
     const CREWS = [["all", "All"], ["Cleaning", "🧹 Cleaning"], ["Maintenance", "🔧 Repairs"], ["Ecolab", "🧪 Ecolab"], ["Temperature", "🌡 Temps"]];
     const crewOf = f => { const t = f.itype || "Other"; return t === "Building" ? "Maintenance" : t; };
     const all = analysis.followups || []; // v526: computeFollowups already knows clearedLocal (and reopens re-flagged items)
-    const crewSel = fuSimCrew !== "all" && all.some(f => crewOf(f) === fuSimCrew) ? fuSimCrew : "all"; // the picked crew ran out → show everyone
-    const list = all.filter(f => crewSel === "all" || crewOf(f) === crewSel)
+    // v540: search by stand # / name + floor chips (Joxel: "filter by issue floor and search by number")
+    const flOf = f => (f.floor || "").trim() || floorFromUnit(f.unit || "") || "No floor";
+    const q = fuSimQ.trim().toLowerCase(); const qUnit = normUnit(q);
+    const qOk = f => !q || (qUnit && normUnit(f.unit || "").toLowerCase().startsWith(qUnit.toLowerCase())) || [f.loc, f.cat, f.unit, fuProblemText(f)].some(x => String(x || "").toLowerCase().includes(q));
+    const byQ = all.filter(qOk);
+    const floors = [...new Set(byQ.map(flOf))].sort((a, b) => floorRank(a) - floorRank(b));
+    const floorSel = fuSimFloor !== "all" && floors.includes(fuSimFloor) ? fuSimFloor : "all";
+    const byQF = byQ.filter(f => floorSel === "all" || flOf(f) === floorSel);
+    const crewSel = fuSimCrew !== "all" && byQF.some(f => crewOf(f) === fuSimCrew) ? fuSimCrew : "all"; // the picked crew ran out → show everyone
+    const list = byQF.filter(f => crewSel === "all" || crewOf(f) === crewSel)
       .sort((a, b) => (b.overdue ? 1 : 0) - (a.overdue ? 1 : 0) || (a.ts || 0) - (b.ts || 0));
     const ago = f => { const d = f.daysSince ?? Math.floor((Date.now() - (f.ts || Date.now())) / 864e5); return d <= 0 ? "today" : d === 1 ? "yesterday" : `${d} days ago`; };
     const who = f => { const st = stMap[f.key]; if (!st) return ""; return st.status === "in_progress" ? `🔧 ${st.by || "Crew"} is working on it` : st.status === "waiting" ? `⏳ Waiting${st.note ? `: ${st.note}` : ""}` : ""; };
     return (
       <div className="card fuSim" data-testid="fu-simple" style={{ marginBottom: 24 }}>
         <div className="fuSimHead">
-          <div className="fuSimTitle">{list.length === 0 ? "✅ Nothing to check" : `🔁 ${list.length} problem${list.length !== 1 ? "s" : ""} to check`}</div>
+          <div className="fuSimTitle">{list.length === 0 ? (q || floorSel !== "all" ? "No problems match" : "✅ Nothing to check") : `🔁 ${list.length} problem${list.length !== 1 ? "s" : ""} to check`}{(floorSel !== "all" || q) && <span className="fuSimFilt notranslate" translate="no">{floorSel !== "all" ? ` · ${floorSel}` : ""}{q ? ` · “${fuSimQ.trim()}”` : ""}</span>}</div>
           <div className="fuSimSub">Go to the stand, look, then tap <b>✓ Fixed</b> or <b>🔔 Remind</b>.</div>
         </div>
-        <div className="fuSimCrews">{CREWS.map(([k, l]) => { const n = k === "all" ? all.length : all.filter(f => crewOf(f) === k).length; return n || k === "all" ? <button key={k} type="button" className={"fuSimCrew" + (crewSel === k ? " on" : "")} data-testid={`fu-sim-crew-${k.toLowerCase()}`} onClick={() => { setFuSimCrew(k); setFuSimShow(20); }}>{l} <span>{n}</span></button> : null; })}</div>
+        <div className="fuSimSearchRow"><input className="fuSimSearch notranslate" translate="no" data-testid="fu-sim-search" type="text" inputMode="search" enterKeyHint="search" placeholder="🔎 Stand # or name…" value={fuSimQ} onChange={e => { setFuSimQ(e.target.value); setFuSimShow(20); }} />{fuSimQ && <button type="button" className="fuSimSearchX" data-testid="fu-sim-search-clear" onClick={() => { setFuSimQ(""); setFuSimShow(20); }}>✕</button>}</div>
+        {floors.length > 1 && <div className="fuSimCrews fuSimFloors notranslate" translate="no">{[["all", "🏢 All floors"], ...floors.map(fl => [fl, fl])].map(([k, l]) => { const n = k === "all" ? byQ.length : byQ.filter(f => flOf(f) === k).length; return <button key={k} type="button" className={"fuSimCrew" + (floorSel === k ? " on" : "")} data-testid={`fu-sim-floor-${k.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`} onClick={() => { setFuSimFloor(k); setFuSimShow(20); }}>{l} <span>{n}</span></button>; })}</div>}
+        {list.length === 0 && (q || floorSel !== "all") && <button type="button" className="fuSimClear" data-testid="fu-sim-clear" onClick={() => { setFuSimQ(""); setFuSimFloor("all"); setFuSimCrew("all"); }}>Clear the filters</button>}
+        <div className="fuSimCrews">{CREWS.map(([k, l]) => { const n = k === "all" ? byQF.length : byQF.filter(f => crewOf(f) === k).length; return n || k === "all" ? <button key={k} type="button" className={"fuSimCrew" + (crewSel === k ? " on" : "")} data-testid={`fu-sim-crew-${k.toLowerCase()}`} onClick={() => { setFuSimCrew(k); setFuSimShow(20); }}>{l} <span>{n}</span></button> : null; })}</div>
         {undoRes && <div className="fuSimUndo" data-testid="fu-sim-undo"><span>✓ Fixed: <NT>{undoRes.label}</NT></span><button type="button" onClick={undoResolve}>↩ Undo</button></div>}
         {fuSimDone && <div className="fuSimFlash">{fuSimDone}</div>}
         <div className="fuSimList">
