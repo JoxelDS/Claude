@@ -13,7 +13,17 @@ Routine: 8:52 · 11:52 · 17:52 New York time. Each firing makes ONE Reel from t
 
 Rules: real app only, demo data (no badge codes, no real phones), no Sodexo / Hard Rock logos, captions EN with a short ES line, ≤ 15 hashtags.
 
-NEXT: 1
+NEXT: 2
+
+## Ready to post (already rendered — use these files and captions for #2–#4, no re-recording)
+- #1 temps — `docs/reels/2026-10-07-pov-g_temps.mp4` — POSTED 2026-10-07.
+- #2 `docs/reels/2026-10-07-pov-g_problem.mp4`
+  Caption: Paper notes get greasy, wet and lost. Your phone doesn't. 📱 / Mark it ✗, say what's wrong, where it is, and snap the BEFORE photo, all in a few taps. Saved even if you lose signal. / 🇪🇸 Problema, lugar y foto en segundos. / #foodsafety #restaurantinspection #kitchenmanagement #foodservice #facilitiesmanagement #inspectionapp #restauranttech #stadiumfood #concessions #qualitycontrol #paperless #hospitality
+- #3 `docs/reels/2026-10-07-pov-crew.mp4`
+  Caption: "Is it fixed yet?" Now you don't have to ask. ✅ / The crew opens a link (no password), taps Done and adds the AFTER photo. The inspector sees it fixed, with proof. / 🇪🇸 Arreglado y con foto de prueba. / #facilitiesmanagement #maintenance #cleaningcrew #foodsafety #kitchenmanagement #foodservice #beforeandafter #inspectionapp #stadiumfood #operations #restauranttech #hospitality
+- #4 `docs/reels/2026-10-07-pov-portal.mp4`
+  Caption: Stand teams log their own temps with one scan. 📲 / Scan the stand's QR poster, type name + phone, log the reading. No app, no password, and it's sent straight to the inspector. / 🇪🇸 Escanea, registra y listo. / #haccp #foodsafety #temperaturelog #foodservice #concessions #stadiumfood #kitchenmanagement #qrcode #inspectionapp #restauranttech #qualitycontrol #hospitality
+(" / " = line break in the caption.) From #5 on, make new Reels with pov.mjs.
 
 ## Topics (rotate; when the list ends start over with a new hook)
 | # | Clip | start / len | Hook | Line 2 | Caption idea |
