@@ -136,6 +136,10 @@ const LOGO_WHITE = `${BASE}sodexo-live-logo.svg`;
 const LOGO_DARK = `${BASE}sodexo-dark.svg`;
 const DS_LOGO_WHITE = `${BASE}ds-marketing.svg`;
 const DS_LOGO_DARK = `${BASE}ds-marketing-dark.svg`;
+// v546: every venue other than the original one ("default") is a customer of SDX Inspect — its own brand, its own stands.
+const SDX_LOGO_WHITE = `${BASE}sdx-inspect.svg`;
+const SDX_LOGO_DARK = `${BASE}sdx-inspect-dark.svg`;
+const isHomeVenue = () => VENUE_ID === "default";
 
 /* ── Themes — admin-selectable, synced to every device via venueSettings ── */
 const THEMES = [
@@ -175,10 +179,10 @@ function applyTheme(themeId, accent) {
 // Module-level branding cache — updated by the main App on every venueSettings change
 let _vs = {};
 const isDsTheme = () => _vs.theme === "dsmarketing";
-function resolveLogoWhite() { return _vs.logoUrl || (isDsTheme() ? DS_LOGO_WHITE : LOGO_WHITE); }
-function resolveLogoDark() { return _vs.logoDarkUrl || _vs.logoUrl || (isDsTheme() ? DS_LOGO_DARK : LOGO_DARK); }
-function resolveCompanyName() { return _vs.companyName || (isDsTheme() ? "DS Marketing" : "Sodexo Live!"); }
-function resolveSystemName() { return _vs.companyName ? `${_vs.companyName} Inspection System` : (isDsTheme() ? "DS Marketing Inspection System" : "Sodexo Kitchen Inspection System"); }
+function resolveLogoWhite() { return _vs.logoUrl || (isDsTheme() ? DS_LOGO_WHITE : isHomeVenue() ? LOGO_WHITE : SDX_LOGO_WHITE); }
+function resolveLogoDark() { return _vs.logoDarkUrl || _vs.logoUrl || (isDsTheme() ? DS_LOGO_DARK : isHomeVenue() ? LOGO_DARK : SDX_LOGO_DARK); }
+function resolveCompanyName() { return _vs.companyName || (isDsTheme() ? "DS Marketing" : isHomeVenue() ? "Sodexo Live!" : "SDX Inspect"); }
+function resolveSystemName() { return _vs.companyName ? `${_vs.companyName} Inspection System` : (isDsTheme() ? "DS Marketing Inspection System" : isHomeVenue() ? "Sodexo Kitchen Inspection System" : "SDX Inspect"); }
 
 /* ── Multi-venue: detect ?v=venueSlug from URL ───────────────────
    Each venue gets completely isolated data (localStorage + Firestore).
@@ -786,7 +790,7 @@ function normaliseLocName(s) {
 
 /* ── Pre-normalised lookup table built once at module load ───────────── */
 const ICE_MAKER_SEED_NORM = {};
-for (const [key, val] of Object.entries(HARD_ROCK_ICE_MAKER_SEED)) {
+for (const [key, val] of Object.entries(VENUE_ID === "default" ? HARD_ROCK_ICE_MAKER_SEED : {})) {
   ICE_MAKER_SEED_NORM[normaliseLocName(key)] = val;
 }
 
@@ -1012,10 +1016,12 @@ const HARD_ROCK_LICENSE_SEED = {
   "Training Facility Batist.":          "NOS2336936",
   "Training Facility":                  "NOS2336936",
 };
+// v546: the license sheet belongs to the original venue only; other venues start empty.
+const LICENSE_SEED = VENUE_ID === "default" ? HARD_ROCK_LICENSE_SEED : {};
 
 /* ── Pre-normalised license lookup built once at module load ─────────── */
 const LICENSE_SEED_NORM = {};
-for (const [key, val] of Object.entries(HARD_ROCK_LICENSE_SEED)) {
+for (const [key, val] of Object.entries(LICENSE_SEED)) {
   LICENSE_SEED_NORM[normaliseLocName(key)] = val;
 }
 
@@ -1030,7 +1036,7 @@ const LICENSE_SEED_BY_NUMBER = (() => {
   // "101 - Magic City Dogs" → token "101"
   // "P101 - Arepa Cart"     → token "P101"
   const byNum = {};  // num → Set of license values seen
-  for (const [key, lic] of Object.entries(HARD_ROCK_LICENSE_SEED)) {
+  for (const [key, lic] of Object.entries(LICENSE_SEED)) {
     const m = key.match(/^([A-Z]?\d+[A-Z]?)\s*[-–]?\s*/i);
     if (!m) continue;
     const num = m[1].toUpperCase().trim();
@@ -1053,7 +1059,7 @@ const LICENSE_SEED_BY_NUMBER = (() => {
 const LICENSE_SEED_BY_NAME = (() => {
   // Strip the leading number/P-number prefix and normalise the remainder
   const byName = {};  // nameNorm → Set of license values seen
-  for (const [key, lic] of Object.entries(HARD_ROCK_LICENSE_SEED)) {
+  for (const [key, lic] of Object.entries(LICENSE_SEED)) {
     // Remove leading "101 -", "P101 -", "P101", "101" prefixes then normalise
     const stripped = key.replace(/^[A-Z]?\d+[A-Z]?\s*[-–\/]?\s*/i, "").trim();
     if (!stripped) continue;
@@ -1071,7 +1077,7 @@ const LICENSE_SEED_BY_NAME = (() => {
 })();
 
 /* ── Canonical restaurant name lookup by unit/stand number ───────────────
-   Derived from HARD_ROCK_LICENSE_SEED: the first "NNN - Name" entry for each
+   Derived from LICENSE_SEED: the first "NNN - Name" entry for each
    unambiguous number becomes the canonical name for that unit.
    Used to auto-fill siteName when an inspector enters a unit number.
 ──────────────────────────────────────────────────────────────────────── */
@@ -1212,7 +1218,7 @@ try { _licenseOverlay = JSON.parse(localStorage.getItem(LIC_OVERLAY_LS) || "{}")
 const licRowKey = r => `${normUnit(r.unit)}|${r.type || ""}|${String(r.name || "").trim().toLowerCase()}`;
 function licenseRows() {
   const seen = new Set();
-  const out = LICENSE_REGISTRY.map(r => { const k = licRowKey(r); seen.add(k); const o = _licenseOverlay[k]; return o && !o.removed ? { ...r, ...o, key: k } : o?.removed ? null : { ...r, key: k }; }).filter(Boolean);
+  const out = (VENUE_ID === "default" ? LICENSE_REGISTRY : []).map(r => { const k = licRowKey(r); seen.add(k); const o = _licenseOverlay[k]; return o && !o.removed ? { ...r, ...o, key: k } : o?.removed ? null : { ...r, key: k }; }).filter(Boolean);
   for (const [k, o] of Object.entries(_licenseOverlay)) { if (seen.has(k) || !o || o.removed) continue; out.push({ ...o, key: k }); }
   return out;
 }
@@ -1266,7 +1272,7 @@ function lookupLicenseByUnitType(unitVal, locationType) {
 
 const LICENSE_NAME_BY_NUMBER = (() => {
   const byNum = {};
-  for (const key of Object.keys(HARD_ROCK_LICENSE_SEED)) {
+  for (const key of Object.keys(LICENSE_SEED)) {
     const dashIdx = key.indexOf(" - ");
     if (dashIdx === -1) continue;
     const numPart = key.slice(0, dashIdx).trim();
@@ -4634,7 +4640,11 @@ function floorFromUnit(u) {
 const STAND_FLOOR_BY_NAME = [[/lexus/i, "Ground Level"], [/main\s*kitchen/i, "Ground Level"], [/nine\s*club/i, "Floor 1"]];
 function floorByName(name) { const n = String(name || ""); for (const [re, f] of STAND_FLOOR_BY_NAME) if (re.test(n)) return f; return ""; }
 // Floor for a stand: unit-number rule → known stand names → whatever was saved
-function floorForStand(unit, name, saved) { return floorFromUnit(unit) || floorByName(name) || String(saved || "").trim(); }
+function floorForStand(unit, name, saved) {
+  // v546: a customer venue's own floor wins; the unit-number rule is only a guess there
+  if (VENUE_ID !== "default") return String(saved || "").trim() || floorFromUnit(unit);
+  return floorFromUnit(unit) || floorByName(name) || String(saved || "").trim();
+}
 
 try { window.__sdxBuildActionItems = (a) => buildActionItems(a); } catch {}
 try { window.__sdxComputeFollowups = (h, vs) => computeFollowups(h, vs); } catch {}
@@ -10383,7 +10393,7 @@ function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLoc
             ))}
             {groupBy === "stand" && floors.filter(fl => byFloor[fl]).map(fl => (
               <div key={fl}>
-                <div className="etFloorHead notranslate" translate="no"><span>🏢 {fl}</span><span>{Object.keys(byFloor[fl]).length} {T("stands", "puestos", "pwen")}</span></div>
+                <div className="etFloorHead notranslate" translate="no"><span>🏢 {fl}</span><span>{Object.keys(byFloor[fl]).length} {Object.keys(byFloor[fl]).length === 1 ? T("stand", "puesto", "pwen") : T("stands", "puestos", "pwen")}</span></div>
                 {Object.values(byFloor[fl]).sort((a, b) => (a.unit || "").localeCompare(b.unit || "", undefined, { numeric: true })).map(st => (
                   <div key={st.loc + st.unit} className="crewStand">
                     <div className="crewStandHead notranslate" translate="no">🍳 {st.loc}{st.unit ? ` · #${st.unit}` : ""}</div>
@@ -17847,7 +17857,7 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
     });
   }, [history]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Seed license numbers from HARD_ROCK_LICENSE_SEED ──────────────────
+  // ── Seed license numbers from LICENSE_SEED ──────────────────
   // Approach: seed ALL canonical entries from the static table so the
   // Licenses tab is fully pre-populated from day one, regardless of whether
   // a given stand has inspection history yet.  For each seed entry the
@@ -17858,11 +17868,11 @@ function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueS
   useEffect(() => {
     const licPatch = {};
 
-    // 1) Seed every entry in HARD_ROCK_LICENSE_SEED using the seed key itself
+    // 1) Seed every entry in LICENSE_SEED using the seed key itself
     //    as the registry key.  The first occurrence of each normalised key wins
     //    (handles duplicate aliases mapping to the same license).
     const seenNorm = new Set();
-    for (const [key, lic] of Object.entries(HARD_ROCK_LICENSE_SEED)) {
+    for (const [key, lic] of Object.entries(LICENSE_SEED)) {
       const norm = normaliseLocName(key);
       if (seenNorm.has(norm)) continue;
       seenNorm.add(norm);
@@ -22217,7 +22227,7 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
     const esc = (s) => String(s || "").toUpperCase().replace(/&/g, "&amp;").replace(/</g, "&lt;");
     const cardHtml = item => `
       <div class="lc">
-        <div class="lh"><span class="lhn">${esc(item.label)}</span><img class="lhlogo" src="${logoUrl}" alt="Sodexo Live!" /></div>
+        <div class="lh"><span class="lhn">${esc(item.label)}</span><img class="lhlogo" src="${logoUrl}" alt="${esc(resolveCompanyName())}" /></div>
         <div class="lb">
           <img class="lqr" src="${qrDataUrls[item.uid] || ""}" width="96" height="96" />
           <div class="li">
@@ -22633,7 +22643,7 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
                   {/* Header band: equipment name */}
                   <div className="labelHead">
                     <span className="labelHeadName">{item.label}</span>
-                    <img src={resolveLogoWhite()} alt="Sodexo Live!" style={{ height: 22, width: "auto", marginLeft: "auto", flexShrink: 0 }} />
+                    <img src={resolveLogoWhite()} alt={resolveCompanyName()} style={{ height: 22, width: "auto", marginLeft: "auto", flexShrink: 0 }} />
                   </div>
                   <div className="labelBody">
                     {/* QR code */}
@@ -23765,6 +23775,71 @@ function standPosterHtml(items, qrUrls, brandColor) {
 /* ── Kitchen QR Posters: one QR per kitchen/stand — scanning opens the HACCP
    temp log prefilled for that exact location, so every kitchen can self-report
    and the inspectors see it live ─────────────────────────────────────────── */
+// ── v546: import a venue's stands from Excel / CSV (Stands & equipment → Posters & licenses) ──
+const STAND_COLS = {
+  unit: /^(unit|unit\s*#|unit\s*(no\.?|number)|stand\s*#|stand\s*(no\.?|number)|#|no\.?|number)$/i,
+  site: /^(name|stand|stand\s*name|location|location\s*name|site|restaurant|outlet|concept)$/i,
+  floor: /^(floor|level|concourse)$/i,
+  locType: /^(type|stand\s*type|location\s*type|kind|category)$/i,
+  license: /^(license|licen[cs]e\s*#|licen[cs]e\s*(no\.?|number)|permit|permit\s*#)$/i,
+};
+function standTypeFromText(v) {
+  const t = String(v || "").trim(); if (!t) return "Concession";
+  const exact = LOCATION_TYPES.find(x => x.toLowerCase() === t.toLowerCase()); if (exact) return exact;
+  const l = t.toLowerCase();
+  if (/port/.test(l) && /sub/.test(l)) return "Portable - Subcontractor";
+  if (/port|cart/.test(l)) return "Portable";
+  if (/sub/.test(l)) return "Subcontractor";
+  if (/kitchen/.test(l)) return "Kitchen";
+  if (/bar/.test(l)) return "Bar";
+  if (/pantry/.test(l)) return "Pantry";
+  if (/event|temp|pop/.test(l)) return "Event / Temporary";
+  return ({ c: "Concession", s: "Subcontractor", p: "Portable", k: "Kitchen", b: "Bar" })[l] || "Concession";
+}
+function parseCsvText(text) {
+  const rows = []; let row = [], cell = "", q = false;
+  const src = String(text || "").replace(/^﻿/, "");
+  const sep = (src.split("\n")[0].match(/;/g) || []).length > (src.split("\n")[0].match(/,/g) || []).length ? ";" : ",";
+  for (let i = 0; i < src.length; i++) {
+    const ch = src[i];
+    if (q) { if (ch === '"') { if (src[i + 1] === '"') { cell += '"'; i++; } else q = false; } else cell += ch; continue; }
+    if (ch === '"') q = true;
+    else if (ch === sep) { row.push(cell.trim()); cell = ""; }
+    else if (ch === "\n" || ch === "\r") { if (ch === "\r" && src[i + 1] === "\n") i++; row.push(cell.trim()); rows.push(row); row = []; cell = ""; }
+    else cell += ch;
+  }
+  if (cell || row.length) { row.push(cell.trim()); rows.push(row); }
+  return rows.filter(r => r.some(c => c));
+}
+async function parseStandSheet(file) {
+  let table = [];
+  if (/\.(xlsx|xlsm)$/i.test(file.name || "")) {
+    const ExcelJS = (await import("exceljs")).default;
+    const wb = new ExcelJS.Workbook(); await wb.xlsx.load(await file.arrayBuffer());
+    const ws = wb.worksheets[0]; if (!ws) return { error: "That file has no sheets." };
+    ws.eachRow({ includeEmpty: false }, row => {
+      const vals = [];
+      row.eachCell({ includeEmpty: true }, (c, i) => { let v = c.value; if (v && typeof v === "object") v = v.text ?? v.result ?? (v.richText ? v.richText.map(t => t.text).join("") : ""); vals[i - 1] = String(v ?? "").trim(); });
+      table.push(Array.from(vals, v => v || ""));
+    });
+  } else if (/\.(csv|txt|tsv)$/i.test(file.name || "") || /text|csv/.test(file.type || "")) {
+    const txt = await file.text();
+    table = /\.tsv$/i.test(file.name || "") ? txt.split(/\r?\n/).filter(Boolean).map(l => l.split("\t").map(c => c.trim())) : parseCsvText(txt);
+  } else return { error: "Use an Excel file (.xlsx) or a CSV file." };
+  let hi = -1, map = {};
+  for (let r = 0; r < Math.min(12, table.length); r++) {
+    const m = {};
+    (table[r] || []).forEach((h, i) => { const t = String(h || "").trim(); for (const [k, re] of Object.entries(STAND_COLS)) if (m[k] == null && re.test(t)) m[k] = i; });
+    if (m.site != null || m.unit != null) { hi = r; map = m; break; }
+  }
+  if (hi < 0) return { error: "No header row found. The first row needs column names like Unit, Name, Floor, Type, License." };
+  const cell = (r, k) => (map[k] == null ? "" : String(r[map[k]] ?? "").trim());
+  const rows = table.slice(hi + 1).map(r => ({ unit: cell(r, "unit").toUpperCase(), site: cell(r, "site").toUpperCase(), floor: cell(r, "floor"), locType: standTypeFromText(cell(r, "locType")), license: cell(r, "license").toUpperCase() }))
+    .filter(r => r.unit || r.site)
+    .map(r => ({ ...r, floor: /^\d+$/.test(r.floor) ? `Floor ${r.floor}` : r.floor, license: looksLikeLicense(r.license) ? r.license : "" }));
+  return { rows, columns: Object.keys(map) };
+}
+
 function KitchenQrPage({ onBack, onPrintLabels, onStandEquipment }) {
   const [showLicList, setShowLicList] = useState(false);
   const [kitchens, setKitchens] = useState([]); // { id, site, unit, floor }
@@ -23927,12 +24002,48 @@ function KitchenQrPage({ onBack, onPrintLabels, onStandEquipment }) {
     const newK = { id, site, unit, floor, license, locType: addType };
     setKitchens(prev => prev.some(k => k.id === id) ? prev : [newK, ...prev]);
     if (!_standListCache.some(k => k.id === id)) _standListCache = [newK, ..._standListCache];
+    try { window.__sdxStands = _standListCache; } catch {}
     setAddSite(""); setAddUnit(""); setAddLicense(""); setAddLicHint(""); setAddType("Concession");
     setAddFlash({ k: newK }); setTimeout(() => setAddFlash(f => (f && f.k.id === id ? null : f)), 12000);
     // Persist so the stand survives reloads and shows on every device
     setNewId(id); setTimeout(() => setNewId(n => (n === id ? null : n)), 4000);
     setTimeout(() => { try { document.getElementById(`kqr_${id}`)?.scrollIntoView({ behavior: "smooth", block: "center" }); } catch {} }, 150);
     try { writeKitchenReg({ items: { [id]: { site, unit, floor, license, locType: addType } }, hidden: { [id]: false, [`${site.toLowerCase()}|${unit.toLowerCase()}`]: false } }); } catch {}
+  }
+
+  // v546: import stands from Excel / CSV — preview first, then one write for all of them
+  const [standImport, setStandImport] = useState(null); // { file, rows:[{…, dup}], error, busy }
+  const standImportRef = useRef(null);
+  async function onStandImportFile(f) {
+    if (!f) return;
+    setStandImport({ file: f.name, rows: [], busy: true });
+    try {
+      const res = await parseStandSheet(f);
+      if (res.error) { setStandImport({ file: f.name, rows: [], error: res.error }); return; }
+      const rows = res.rows.map(r => ({ ...r, dup: kitchens.some(k => (r.unit ? normUnit(k.unit) === normUnit(r.unit) : !normUnit(k.unit)) && sameStandName(k.site, r.site || `STAND ${r.unit}`)) }));
+      setStandImport({ file: f.name, rows, columns: res.columns });
+    } catch (e) { setStandImport({ file: f.name, rows: [], error: "Could not read that file — save it as .xlsx or .csv and try again." }); }
+  }
+  function confirmStandImport() {
+    const list = [...kitchens]; const items = {}, hidden = {}, added = [];
+    for (const r of (standImport?.rows || []).filter(x => !x.dup)) {
+      const unit = r.unit, site = (r.site || (unit ? `STAND ${unit}` : "")).toUpperCase(); if (!site) continue;
+      const id = standIdIn(list, site, unit); if (list.some(k => k.id === id) || items[id]) continue;
+      const k = { id, site, unit, floor: r.floor || "", license: r.license || "", locType: r.locType || "Concession" };
+      list.unshift(k); added.push(k);
+      items[id] = { site, unit, floor: k.floor, license: k.license, locType: k.locType }; hidden[id] = false;
+    }
+    if (!added.length) { setStandImport(null); return; }
+    setKitchens(prev => [...added.filter(a => !prev.some(p => p.id === a.id)), ...prev]);
+    _standListCache = [...added.filter(a => !_standListCache.some(p => p.id === a.id)), ..._standListCache];
+    try { window.__sdxStands = _standListCache; window.dispatchEvent(new CustomEvent("sdx-stands-loaded")); } catch {}
+    try { writeKitchenReg({ items, hidden }); } catch {}
+    setStandImport({ done: added.length });
+    setTimeout(() => setStandImport(s => (s && s.done ? null : s)), 6000);
+  }
+  function downloadStandTemplate() {
+    const csv = "Unit,Name,Floor,Type,License\n101,SAMPLE GRILL,Floor 1,Concession,\n102,SAMPLE TACOS,Floor 1,Subcontractor,\nC3,SAMPLE CART,Floor 2,Portable,\n";
+    downloadBlob(new Blob([csv], { type: "text/csv" }), "stands-template.csv");
   }
 
   function removeKitchen(id) {
@@ -24181,6 +24292,27 @@ function KitchenQrPage({ onBack, onPrintLabels, onStandEquipment }) {
         {/* Add a stand — its own card */}
         <div className="kqrAddCard" ref={addRef} onKeyDown={e => { if (e.key === "Enter" && (addUnit.trim() || addSite.trim())) { e.preventDefault(); addKitchen(); } }}>
           <div className="kqrAddHead">➕ Add a stand <span className="kqrAddHint">Unit # first — name, floor, type and license fill in when we know them.</span></div>
+          <div className="standImportRow">
+            <button type="button" className="standImportBtn" data-testid="stand-import" onClick={() => standImportRef.current?.click()}>📥 Import stands from Excel / CSV</button>
+            <button type="button" className="standImportTpl" data-testid="stand-import-template" onClick={downloadStandTemplate}>⬇ Template</button>
+            <input ref={standImportRef} type="file" accept=".xlsx,.xlsm,.csv,.tsv,.txt,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" className="fileInput" data-testid="stand-import-file" onChange={e => { const f = e.target.files?.[0]; e.target.value = ""; onStandImportFile(f); }} />
+          </div>
+          {standImport && (
+            <div className="standImportBox" data-testid="stand-import-box">
+              {standImport.done ? <div className="standImportDone" data-testid="stand-import-done">✅ Added {standImport.done} stand{standImport.done !== 1 ? "s" : ""}. Print their posters below.</div>
+              : standImport.busy ? <div>Reading {standImport.file}…</div>
+              : standImport.error ? <div className="standImportErr" data-testid="stand-import-error">⚠ {standImport.error} <button type="button" className="standImportTpl" onClick={() => setStandImport(null)}>Close</button></div>
+              : (() => { const nNew = standImport.rows.filter(r => !r.dup).length; return (<>
+                <div className="standImportHead"><b>{standImport.rows.length} stand{standImport.rows.length !== 1 ? "s" : ""}</b> in {standImport.file}{standImport.rows.length - nNew ? ` · ${standImport.rows.length - nNew} already in your list` : ""}</div>
+                <div className="standImportTable"><table><thead><tr><th>Unit</th><th>Name</th><th>Floor</th><th>Type</th><th>License</th><th></th></tr></thead><tbody>
+                  {standImport.rows.slice(0, 300).map((r, i) => <tr key={i} className={r.dup ? "dup" : ""}><td>{r.unit || "—"}</td><td><NT>{r.site || `STAND ${r.unit}`}</NT></td><td>{r.floor || "—"}</td><td><StandType lt={r.locType} /></td><td>{r.license || <span className="standImportNoLic">none</span>}</td><td>{r.dup ? "already here" : "new"}</td></tr>)}
+                </tbody></table></div>
+                <div className="standImportActions">
+                  <button type="button" className="standImportGo" data-testid="stand-import-go" disabled={!nNew} onClick={confirmStandImport}>＋ Add {nNew} stand{nNew !== 1 ? "s" : ""}</button>
+                  <button type="button" className="standImportTpl" onClick={() => setStandImport(null)}>Cancel</button>
+                </div></>); })()}
+            </div>
+          )}
           <div className="kqrAddRow">
             <input value={addUnit} onChange={e => onAddUnitChange(e.target.value)} placeholder="Unit #" style={{ flex: "0 1 110px", minWidth: 0, padding: "0.55rem 0.75rem", borderRadius: 8, border: "1.5px solid var(--sdx-gray-200)", fontSize: "16px", background: "var(--surface-1)", color: "var(--ink-900)" }} />
             <input value={addSite} onChange={e => setAddSite(e.target.value)} placeholder="Stand name (e.g. TACOTOMIA)" style={{ flex: "2 1 200px", minWidth: 0, padding: "0.55rem 0.75rem", borderRadius: 8, border: "1.5px solid var(--sdx-gray-200)", fontSize: "16px", background: "var(--surface-1)", color: "var(--ink-900)" }} />
@@ -24640,7 +24772,7 @@ function GlobalAdminPanel({ currentUser, onBack, onManageVenue, onEnterVenue, on
                     placeholder="Venue ID (slug, e.g. hard-rock-stadium)" required
                     style={{ padding: "0.55rem 0.75rem", borderRadius: 7, border: "1.5px solid #e2e8f0", fontSize: "0.9rem" }} />
                   <input value={addName} onChange={e => setAddName(e.target.value)}
-                    placeholder="Display Name (e.g. Hard Rock Stadium)" required
+                    placeholder="Display Name (e.g. Riverside Arena)" required
                     style={{ padding: "0.55rem 0.75rem", borderRadius: 7, border: "1.5px solid #e2e8f0", fontSize: "0.9rem" }} />
                   <select value={addType} onChange={e => setAddType(e.target.value)}
                     style={{ padding: "0.55rem 0.75rem", borderRadius: 7, border: "1.5px solid #e2e8f0", fontSize: "0.9rem", background: "var(--surface-1)" }}>
@@ -25503,7 +25635,7 @@ function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVe
                         type="text"
                         value={scheduleLoc}
                         onChange={e => setScheduleLoc(e.target.value)}
-                        placeholder="e.g. Hard Rock Stadium – Main Kitchen"
+                        placeholder="e.g. Riverside Arena – Main Kitchen"
                         style={{ width: "100%", boxSizing: "border-box", padding: "0.35rem 0.5rem", border: "1.5px solid #cbd5e1", borderRadius: 6, fontSize: "0.9rem" }}
                       />
                     </div>
@@ -25622,7 +25754,7 @@ function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVe
                   {(addRole === "location_manager" || addRole === "guest") && (
                     <label className="field">
                       <span className="fieldLabel">Assigned Location</span>
-                      <input className="input" value={addLocation} onChange={e => setAddLocation(e.target.value)} placeholder="e.g., Hard Rock Stadium Kitchen" />
+                      <input className="input" value={addLocation} onChange={e => setAddLocation(e.target.value)} placeholder="e.g., Riverside Arena Kitchen" />
                     </label>
                   )}
                 </div>
@@ -25901,7 +26033,7 @@ function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVe
                       <input className="input" style={{ flex: 1, fontSize: "0.85rem" }}
                         value={editingManagerLoc.value}
                         onChange={e => setEditingManagerLoc({ ...editingManagerLoc, value: e.target.value })}
-                        placeholder="Location name, e.g., Hard Rock Stadium" autoFocus />
+                        placeholder="Location name, e.g., Riverside Arena" autoFocus />
                       <button className="btn btnPrimary btnSmall" onClick={() => handleSetManager(u.badgeHash, editingManagerLoc.value)} disabled={!editingManagerLoc.value.trim()}>Assign</button>
                       <button className="btn btnGhost btnSmall" onClick={() => setEditingManagerLoc(null)}>Cancel</button>
                     </div>
@@ -29894,7 +30026,7 @@ function HaccpPortal() {
       </div>
     ) : (
       <div style={{ background: "#F0FDF4", border: "1px solid #bbf7d0", color: "#15803D", borderRadius: 10, padding: "9px 12px", fontSize: "0.8rem", fontWeight: 700, marginBottom: 10 }}>
-        ✅ Today's log: {todayChecks.length} check{todayChecks.length !== 1 ? "s" : ""} — last at {new Date(todayChecks[todayChecks.length - 1].submittedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })} by {todayChecks[todayChecks.length - 1].supervisorName || "—"}. You can add another check.
+        ✅ Today's log: {todayChecks.length} check{todayChecks.length !== 1 ? "s" : ""} — last at {new Date(todayChecks[todayChecks.length - 1].submittedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })} by {todayChecks[todayChecks.length - 1].supervisorName || "—"}{String(todayChecks[todayChecks.length - 1].supervisorName || "").trim().endsWith(".") ? "" : "."} You can add another check.
       </div>
     )
   ) : null;
@@ -30642,7 +30774,7 @@ function HaccpPortal() {
             <div className="haccpStickySubmit" data-testid="sticky-submit">
               {autoSent && (
                 <div className="haccpAutoSent" data-testid="auto-sent">
-                  {L("✓ Sent to the inspector", "✓ Enviado al inspector")}{autoSent.temps ? ` · ${autoSent.temps} ${L("temps", "temperaturas")}` : ""}{autoSent.supplies ? ` · ${autoSent.supplies} ${L("supplies", "suministros")}` : ""} · {new Date(autoSent.at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
+                  {L("✓ Sent to the inspector", "✓ Enviado al inspector")}{autoSent.temps ? ` · ${autoSent.temps} ${autoSent.temps === 1 ? L("temp", "temperatura") : L("temps", "temperaturas")}` : ""}{autoSent.supplies ? ` · ${autoSent.supplies} ${L("supplies", "suministros")}` : ""} · {new Date(autoSent.at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
                 </div>
               )}
               <button className="haccpSubmitBtn" onClick={() => handleSubmit()} disabled={submitting}>
@@ -31819,10 +31951,8 @@ export default function App() {
   // Branded browser tab — title and favicon follow the venue's brand
   useEffect(() => {
     if (VENUE_ID === "default") return;
-    if (venueSettings?.companyName) {
-      document.title = `${venueSettings.companyName} — Kitchen Inspection`;
-    }
-    const logo = venueSettings?.logoDarkUrl || venueSettings?.logoUrl || "";
+    document.title = venueSettings?.companyName ? `${venueSettings.companyName} — Kitchen Inspection` : "SDX Inspect";
+    const logo = venueSettings?.logoDarkUrl || venueSettings?.logoUrl || `${BASE}sdx-inspect-icon.svg`;
     if (logo) {
       document.querySelectorAll('link[rel="icon"]').forEach(l => { l.href = logo; });
       const apple = document.querySelector('link[rel="apple-touch-icon"]');
@@ -35433,24 +35563,24 @@ export default function App() {
 
                 {/* Equipment only — Utensils is Step 3 */}
                 {(locationType === "Concession" || locationType === "Subcontractor" || locationType === "Kitchen") ? (
-                  <GuideSection title={`🔧 Equipments — ${locationType}`}
+                  <GuideSection title={`🔧 Equipment — ${locationType}`}
                     items={FULL_EQUIP_ITEMS} inspection={inspection} setInspection={setInspection}
                     allowCustom sectionKey="equipment" coldEquipmentMap={COLD_EQUIPMENT} inspectionId={savedReportId} venueId={activeVenueId} siteName={siteName} siteNumber={siteNumber} siteFloor={floor} siteLocType={locationType} onError={msg => { setError(msg); setTimeout(() => setError(""), 8000); }} onOpenPrintLabels={({ tag, label }) => setPage("print_labels")} defaultOpen={true} />
                 ) : isPortableType(locationType) ? (
-                  <GuideSection title={`🔧 Equipments — ${locationType}`}
+                  <GuideSection title={`🔧 Equipment — ${locationType}`}
                     items={PORTABLE_EQUIP_ITEMS} inspection={inspection} setInspection={setInspection}
                     allowCustom sectionKey="equipment" coldEquipmentMap={PORTABLE_COLD_EQUIPMENT} inspectionId={savedReportId} venueId={activeVenueId} siteName={siteName} siteNumber={siteNumber} siteFloor={floor} siteLocType={locationType} onError={msg => { setError(msg); setTimeout(() => setError(""), 8000); }} onOpenPrintLabels={({ tag, label }) => setPage("print_labels")} defaultOpen={true} />
                 ) : locationType === "Bar" ? (
-                  <GuideSection title="🔧 Equipments — Bar"
+                  <GuideSection title="🔧 Equipment — Bar"
                     items={BAR_EQUIP_ITEMS} inspection={inspection} setInspection={setInspection}
                     allowCustom sectionKey="equipment" coldEquipmentMap={BAR_COLD_EQUIPMENT} inspectionId={savedReportId} venueId={activeVenueId} siteName={siteName} siteNumber={siteNumber} siteFloor={floor} siteLocType={locationType} onError={msg => { setError(msg); setTimeout(() => setError(""), 8000); }} onOpenPrintLabels={({ tag, label }) => setPage("print_labels")} defaultOpen={true} />
                 ) : locationType === "Pantry" ? (
-                  <GuideSection title="🔧 Equipments — Pantry"
+                  <GuideSection title="🔧 Equipment — Pantry"
                     items={PANTRY_EQUIP_ITEMS} inspection={inspection} setInspection={setInspection}
                     allowCustom sectionKey="equipment" coldEquipmentMap={PANTRY_COLD_EQUIPMENT} inspectionId={savedReportId} venueId={activeVenueId} siteName={siteName} siteNumber={siteNumber} siteFloor={floor} siteLocType={locationType} onError={msg => { setError(msg); setTimeout(() => setError(""), 8000); }} onOpenPrintLabels={({ tag, label }) => setPage("print_labels")} defaultOpen={true} />
                 ) : locationType === "Event / Temporary" ? (
                   <GuideSection
-                    title="🔧 Equipments — Event / Temporary"
+                    title="🔧 Equipment — Event / Temporary"
                     items={[]}
                     inspection={inspection} setInspection={setInspection}
                     allowCustom sectionKey="equipment" coldEquipmentMap={COLD_EQUIPMENT}
@@ -35461,7 +35591,7 @@ export default function App() {
                   />
                 ) : (
                   <GuideSection
-                    title={`🔧 Equipments — ${locationType}`}
+                    title={`🔧 Equipment — ${locationType}`}
                     items={[]}
                     inspection={inspection} setInspection={setInspection}
                     allowCustom sectionKey="equipment" coldEquipmentMap={COLD_EQUIPMENT}

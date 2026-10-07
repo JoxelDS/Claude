@@ -9573,3 +9573,21 @@ html[data-theme="black"] .inspTypeCard.on:nth-child(2) { background: rgba(37, 99
 .fuSimCmtBox input{flex:1;min-width:0;font-size:16px;padding:8px 10px;border:1px solid #94a3b8;border-radius:10px}
 .fuSimCmtBox button{min-height:44px;padding:0 14px;border-radius:10px;border:0;background:#1e3a8a;color:#fff;font-weight:800;cursor:pointer}
 .fuSimCmtBox button.ghost{background:#e2e8f0;color:#1e293b}
+
+/* v546: import stands from Excel / CSV */
+.standImportRow { display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0 10px; }
+.standImportBtn { background: var(--sdx-navy); color: #fff; border: none; border-radius: 10px; padding: 0.6rem 1rem; font-weight: 800; font-size: 0.9rem; cursor: pointer; min-height: 44px; }
+.standImportTpl { background: var(--surface-1); color: var(--ink-900); border: 1.5px solid var(--sdx-gray-200); border-radius: 10px; padding: 0.55rem 0.9rem; font-weight: 700; font-size: 0.85rem; cursor: pointer; min-height: 44px; }
+.standImportBox { border: 1.5px solid var(--sdx-gray-200); border-radius: 12px; padding: 12px; margin-bottom: 12px; background: var(--surface-1); display: flex; flex-direction: column; gap: 10px; }
+.standImportHead { font-size: 0.9rem; color: var(--ink-700); }
+.standImportTable { max-height: 360px; overflow: auto; border: 1px solid var(--sdx-gray-200); border-radius: 8px; }
+.standImportTable table { border-collapse: collapse; width: 100%; font-size: 0.85rem; }
+.standImportTable th, .standImportTable td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--sdx-gray-200); white-space: nowrap; }
+.standImportTable th { position: sticky; top: 0; background: var(--surface-2, #f5f6fa); font-size: 0.72rem; text-transform: uppercase; letter-spacing: .05em; color: var(--ink-500); }
+.standImportTable tr.dup td { opacity: .5; }
+.standImportNoLic { color: #b45309; font-weight: 700; }
+.standImportActions { display: flex; flex-wrap: wrap; gap: 8px; }
+.standImportGo { background: #16a34a; color: #fff; border: none; border-radius: 10px; padding: 0.6rem 1.1rem; font-weight: 800; font-size: 0.9rem; cursor: pointer; min-height: 44px; }
+.standImportGo:disabled { opacity: .5; cursor: default; }
+.standImportDone { color: #15803d; font-weight: 800; }
+.standImportErr { color: #b91c1c; font-weight: 700; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
