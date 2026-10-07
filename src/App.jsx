@@ -3399,6 +3399,8 @@ function detectColdType(label) {
 // Joxel: "in the days of event we prioritize … cross contamination like gloves …
 // also the temperatures of their equipment, the food, handsink and 3 comp sink".
 const GD_OPS = [
+  ["uniforms", "👕 Clean uniform, apron, non-slip shoes", "👕 Uniforme limpio, delantal, zapatos antideslizantes"], // v532: event = temps + uniforms + operations
+  ["hairnets", "🧢 Hairnets / hats on everyone handling food", "🧢 Gorras / redecillas en todos los que manejan comida"],
   ["gloves", "🧤 Gloves on ready-to-eat food, changed between tasks", "🧤 Guantes con comida lista, cambiados entre tareas"],
   ["handwashing", "🧼 Hands washed at the hand sink — soap, 20 seconds", "🧼 Manos lavadas en el lavamanos — jabón, 20 segundos"],
   ["crossContamination", "🥩 Raw below ready-to-eat · separate boards & utensils", "🥩 Crudo debajo de lo listo · tablas y utensilios separados"],
@@ -3446,13 +3448,14 @@ function GameDayCard({ inspection, setInspection, foodTemps, siteName, siteNumbe
     });
     if (!ok) setTimeout(() => { try { window.__sdxJumpToGuideItem?.({ pid: 4, key: `operations.${k}` }); } catch {} }, 150);
   };
-  const tempRow = (key, label, val, okFn, rule, onChange) => {
+  const tempRow = (key, label, val, okFn, rule, onChange, neg) => {
     const n = parseFloat(val); const has = String(val ?? "").trim() !== "" && Number.isFinite(n); const ok = has ? okFn(n) : null;
     return (
       <div key={key} className={"gdRow" + (ok === false ? " bad" : ok ? " ok" : "")} data-testid="gameday-temp">
         <span className="gdLabel notranslate" translate="no">{label}</span>
         <span className="gdRule">{rule}</span>
-        <input className="input gdTemp" inputMode="decimal" value={val ?? ""} placeholder="°F" onChange={e => onChange(e.target.value)} />
+        <input className="input gdTemp" inputMode="decimal" value={val ?? ""} placeholder="°F" onChange={e => onChange(cleanTempInput(e.target.value))} />
+        {neg && <button type="button" className="tempMinusBtn" aria-label="minus" onClick={() => { const v = String(val ?? ""); onChange(v.startsWith("-") ? v.slice(1) : "-" + v); }}>−</button>}
         <span className="gdState">{ok === null ? "" : ok ? "✓" : "✗"}</span>
       </div>
     );
@@ -3464,17 +3467,17 @@ function GameDayCard({ inspection, setInspection, foodTemps, siteName, siteNumbe
         <span className="gdProg" data-testid="gameday-progress">{priorityDone} of {priorityTotal} done</span>
       </div>
       <div className="gdProgBar"><div style={{ width: `${priorityTotal ? Math.round(priorityDone / priorityTotal * 100) : 0}%` }} /></div>
-      <div className="gdSub">Do these first. Everything else in the guide is “if time allows”.</div>
+      <div className="gdSub">Do these first, then Uniforms &amp; operations. The rest of the guide is “if time allows”.</div>
       <div className="gdSec">❄ Cooler &amp; freezer temps</div>
       {missing.length > 0 && <button type="button" className="gdLoad" data-testid="gameday-load-units" onClick={loadUnits}>＋ Load this stand's {missing.length} cooler{missing.length !== 1 ? "s" : ""} / freezer{missing.length !== 1 ? "s" : ""}</button>}
       {cold.length === 0 && missing.length === 0 && <div className="gdNone">No cooler / freezer on this report yet — add them in the Equipment step.</div>}
-      {cold.map(c => tempRow(c.k, c.label, c.v.tempF, n => n <= c.max, `≤ ${c.max}°F`, v => setTemp(c.k, v)))}
+      {cold.map(c => tempRow(c.k, c.label, c.v.tempF, n => n <= c.max, `≤ ${c.max}°F`, v => setTemp(c.k, v), c.type === "freezer"))}
       <div className="gdSec">🚰 Sinks</div>
       {tempRow("hand", "Hand sink", t.handSinkTempF, n => n >= 95, "≥ 95°F", v => setSink("handSinkTempF", v))}
       {tempRow("three", "3-comp sink — wash", t.threeCompSinkTempF, n => n >= 110, "≥ 110°F", v => setSink("threeCompSinkTempF", v))}
       <div className="gdSec">🍗 Food temps</div>
       <button type="button" className={"gdFood" + (foodN ? " ok" : "")} data-testid="gameday-food" onClick={() => { try { document.getElementById("food-temps-section")?.scrollIntoView({ behavior: "smooth", block: "start" }); } catch {} }}>{foodN ? `✓ ${foodN} food temp${foodN !== 1 ? "s" : ""} logged — add more ↓` : "Log hot / cold holding food temps ↓"}</button>
-      <div className="gdSec">🧤 Cross-contamination</div>
+      <div className="gdSec">👕 Uniforms &amp; operations</div>
       {GD_OPS.map(([k, en]) => {
         const node = inspection?.operations?.[k]; const done = !!(node?.gdAt || node?.checkedAt); const bad = done && node.status !== "OK";
         return (
@@ -26607,10 +26610,11 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                         <div className="equipTempRow">
                           <div className="tempInputWrap" style={{ flex: "0 0 130px" }}>
                             <input className="input inputSmall tempInput" type="text" inputMode="decimal" value={tempVal}
-                              onChange={(e) => { const v = String(e.target.value).replace(/[^0-9.\-]/g, ""); setInspection((prev) => setAtPath(prev, it.path, { ...current, tempF: v })); }}
+                              onChange={(e) => { const v = cleanTempInput(e.target.value); setInspection((prev) => setAtPath(prev, it.path, { ...current, tempF: v })); }}
                               placeholder={lastByTag[String(current.assetTag || "").toUpperCase()] ? `last ${lastByTag[String(current.assetTag || "").toUpperCase()]}` : (coldInfo.type === "cooler" ? "38" : "10")} />
                             <span className="tempUnit">{"\u00B0F"}</span>
                           </div>
+                          {coldInfo.type === "freezer" && <button type="button" className="tempMinusBtn" aria-label="minus" data-testid="temp-minus" onClick={() => { const v0 = String(tempVal ?? ""); setInspection((prev) => setAtPath(prev, it.path, { ...current, tempF: v0.startsWith("-") ? v0.slice(1) : "-" + v0 })); }}>−</button>}
                           {(() => {
                             const warnMax = TEMP_WARN_MAX[coldInfo.type] ?? (coldInfo.type === "cooler" ? 45 : 25);
                             const tempDigits = String(tempVal).replace(/\D/g, "");
@@ -27356,15 +27360,8 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
   return true;
 }); // end GuideSection React.memo
 
-// ══════════════════════════════════════════════════════════════════════════
-// v520: THE SIMPLE WALK — Joxel: "simpler for the inspector … like they are
-// 3 year olds … checkmarks, issues, temperatures … smooth, easy, make sense,
-// help the user". Same inspection data as the full checklist (rows YES / NO,
-// row comment / ciLocation / corrective / photos, node status + checkedAt,
-// temps.*, equipment[*].tempF, foodTemp arrays) — reports, exports, follow-ups,
-// scoring and drafts do not change. Default for everyone; "Full checklist"
-// switch keeps the detailed guide (localStorage sdx_guide_mode).
-// ══════════════════════════════════════════════════════════════════════════
+// v532: the v520 simple walk was removed (Joxel: "take out the quick inspection guide at all") — the full guide is
+// the only inspection form; the inspection type sets its focus (GUIDE_FOCUS below).
 // v520: ONE way to add a unit — the full guide's "+" and the walk's chips. A cold unit at a known stand gets its
 // SDX-CL/FZ-<UNIT>-n tag now and is registered (label print, Stands & equipment, the stand portal's list).
 // `pre` = a unit already registered at this stand (keeps its tag / brand / location).
@@ -27401,185 +27398,20 @@ function createEquipUnit({ label0, pre, sectionKey = "equipment", inspection, si
 }
 // the answers of a checklist row, wiped (used by "Not here" and the carry-over from the last report)
 const blankChecklistRows = rows => (rows || []).map(r => { const { value, comment, ciLocation, corrective, photos, ciStatus, specDetails, noPhotoReason, ...rest } = r || {}; return { ...rest, value: "" }; });
-const WALK_STATUS_Q = {
-  hairnets: ["Hair covered — hairnet or hat?", "Staff without a hairnet or hat"],
-  gloves: ["Gloves on for ready-to-eat food, changed between tasks?", "Staff not wearing or not changing gloves on ready-to-eat food"],
-  uniforms: ["Clean uniform, no jewelry on hands?", "Uniform not clean or jewelry on hands"],
-  handwashing: ["Staff wash hands at the hand sink (soap, 20 seconds)?", "Staff not washing hands the right way"],
-  illnessPolicy: ["Nobody working while sick?", "Sick staff handling food"],
-  foodLabeling: ["Food labeled with name and date?", "Food not labeled or dated"],
-  dateRotation: ["Oldest in front, nothing expired?", "Expired or out-of-date product"],
-  crossContamination: ["Raw meat below ready-to-eat food, separate boards?", "Raw meat stored over ready-to-eat food"],
-  chemicalStorage: ["Chemicals away from food and labeled?", "Chemicals stored near food or not labeled"],
-  thermometers: ["Probe thermometer here and clean?", "No probe thermometer, or not sanitized"],
-  staffingLevels: ["Enough staff for the line?", "Not enough staff"],
-  openFoodCoverage: ["Open food covered?", "Food left uncovered"],
-  pestControl: ["No bugs, no droppings?", "Signs of pests (bugs or droppings)"],
-  hvac: ["AC and vents working?", "AC or ventilation not working"],
-  plumbing: ["No leaks, no clogged drains?", "Leak or clogged drain"],
-  electricalSafety: ["No loose wires, outlets safe?", "Electrical hazard (wires or outlet)"],
-  dumpsterArea: ["Trash area clean, lids closed?", "Trash area dirty or lids open"],
-  structuralDamage: ["No broken walls, doors or fixtures?", "Building damage (wall, door or fixture)"],
+// v532: what kind of inspection — ONE form (the full guide), the type decides the focus.
+// Panels: 0 Temps & Supplies · 1 Facilities · 2 Equipment · 3 Utensils · 4 Operations (uniforms, hygiene) · 5 Maintenance
+const GUIDE_FOCUS = {
+  regular: { order: [0, 1, 5, 2, 3, 4], labels: ["Temps & Supplies", "Facilities", "Maintenance", "Equipment", "Utensils", "Operations"], prio: 0 },
+  event:   { order: [0, 4, 2, 1, 5, 3], labels: ["Temps ⭐", "Uniforms & operations ⭐", "Equipment", "Facilities", "Maintenance", "Utensils"], prio: 2 },
+  post:    { order: [1, 2, 3, 0, 5, 4], labels: ["Facilities ⭐", "Equipment cleaning ⭐", "Utensils ⭐", "Temps & Supplies", "Maintenance", "Operations"], prio: 3 },
 };
-const WALK_FIX = ["Told the manager", "Fixed it now", "Cleaned it", "Called maintenance", "Threw the food out", "Moved the food", "Asked for supplies"];
-const WALK_TEMP_FIX = ["Moved the food", "Threw it out", "Reheated to 165°F", "Cooked longer", "Put it back in the cooler", "Told the manager", "Recheck in 30 min"];
-// what fits each kind of bad reading — a broken sink is never "reheated"
-const WALK_FIX_COLD = ["Moved the food", "Threw it out", "Closed / fixed the door", "Called maintenance", "Told the manager", "Recheck in 30 min"];
-const WALK_FIX_SINK = ["Told the manager", "Called maintenance", "Ran the water longer", "Turned the water heater on", "Recheck in 30 min"];
-const WALK_FIX_HOT = ["Reheated to 165°F", "Cooked longer", "Threw it out", "Told the manager", "Recheck in 30 min"];
-const WALK_FIX_FOOD_COLD = ["Put it back in the cooler", "Added ice", "Threw it out", "Told the manager", "Recheck in 30 min"];
-const WALK_WHERE = ["Front of the house", "Back of the house", "Line", "Prep table", "Storage", "Walk-in"];
-const WALK_ADD_UNITS = [["2-Door Cooler", "cooler"], ["Prep Cooler", "cooler"], ["Reach-In Cooler", "cooler"], ["Walk-In Cooler", "cooler"], ["Chest Freezer", "freezer"], ["2-Door Freezer", "freezer"], ["Walk-In Freezer", "freezer"]];
-const walkNameOf = label => String(label || "").split(" — ")[0].replace(/\s*(❄|🧊)\s*(Cooler|Freezer)\s*$/u, "").trim();
-const walkQOf = label => { const parts = String(label || "").split(" — "); return parts.slice(1).join(" — ") || ""; };
-const walkNow = () => { const t = new Date(); return `${String(t.getHours()).padStart(2, "0")}:${String(t.getMinutes()).padStart(2, "0")}`; };
-function walkStatusQ(n) {
-  const q = WALK_STATUS_Q[n.key];
-  if (q) return { q: q[0], problem: q[1] };
-  const name = walkNameOf(n.label); const q2 = walkQOf(n.label);
-  return { q: q2 ? `${name} — ${q2}` : `${name} OK?`, problem: `${name} — not OK` };
-}
-const walkIsColdNode = (inspection, n) => n.section === "equipment" && !!(coldMapGet(n.key) || detectColdType(inspection?.equipment?.[n.key]?.label || ""));
-// Which areas, in which order, covering exactly the nodes the full guide shows for this stand type
-function walkAreasFor(locType, inspection, eventDay, mode) {
-  const nodes = guideNodesFor(locType, inspection);
-  const SINK = new Set(["facility.handSink", "facility.threeCompSinks", "equipment.handWash", "equipment.sanitizer", "equipment.threeCompSink", "equipment.dumpSink"]);
-  const SUPPLY = new Set(["facility.ecolabProducts", "equipment.ecolab"]);
-  const by = { supplies: [], sinks: [], floors: [], repairs: [], coolers: [], equipment: [], utensils: [], food: [] };
-  for (const n of nodes) {
-    const id = n.path.join(".");
-    if (SUPPLY.has(id)) by.supplies.push(n);
-    else if (SINK.has(id)) by.sinks.push(n);
-    else if (n.section === "facility") by.floors.push(n);
-    else if (n.section === "maintenance") by.repairs.push(n);
-    else if (n.section === "equipment") (walkIsColdNode(inspection, n) ? by.coolers : by.equipment).push(n);
-    else if (n.section === "utensils") by.utensils.push(n);
-    else if (n.section === "operations") by.food.push(n);
-  }
-  if (eventDay) { const rank = k => { const i = GD_OPS.findIndex(g => g[0] === k); return i === -1 ? 99 : i; }; by.food.sort((a, b) => rank(a.key) - rank(b.key)); }
-  const A = {
-    supplies: { id: "supplies", icon: "🧪", title: "Supplies", look: "Soap, paper towels, sanitizer, test strips — tap anything that is missing.", nodes: by.supplies },
-    temps: { id: "temps", icon: "🌡", title: "Temperatures", look: "Coolers, freezers, hand sink, 3-comp sink and food. Type each number.", nodes: by.coolers, special: "temps" },
-    sinks: { id: "sinks", icon: "🚰", title: "Sinks", look: "Hand sink and 3-comp sink: clean, soap, paper towels, hot water, no leaks.", nodes: by.sinks },
-    floors: { id: "floors", icon: "🧱", title: "Floors, walls & ceiling", look: "Clean, dry, no holes or missing tiles, mop area tidy.", nodes: by.floors },
-    repairs: { id: "repairs", icon: "🔧", title: "Repairs", look: "Pests, AC, leaks, wires, trash area, broken things.", nodes: by.repairs },
-    coolers: { id: "coolers", icon: "❄", title: "Coolers & freezers", look: "Clean inside, door seals, nothing on the floor, food covered and dated.", nodes: by.coolers },
-    equipment: { id: "equipment", icon: "🔥", title: "Equipment", look: "Clean and working: warmers, grill, fryer, hood, ice machine…", nodes: by.equipment },
-    utensils: { id: "utensils", icon: "🍴", title: "Utensils", look: "Clean and stored the right way.", nodes: by.utensils },
-    food: { id: "food", icon: "🧤", title: "Food safety", look: "Gloves, hand washing, raw meat below ready-to-eat, food covered.", nodes: by.food },
-  };
-  if (mode === "post") {
-    // v521 post-event: cleaning, temperatures, food safety & storage — no supplies count, no repairs
-    const POST_OPS = ["foodLabeling", "dateRotation", "crossContamination", "chemicalStorage", "openFoodCoverage"];
-    const rk = k => { const i = POST_OPS.indexOf(k); return i === -1 ? 99 : i; };
-    A.food = { ...A.food, title: "Food safety & storage", look: "Food labeled and dated, oldest first, raw below ready-to-eat, chemicals away from food, food covered.", nodes: [...by.food].sort((a, b) => rk(a.key) - rk(b.key)) };
-    A.coolers = { ...A.coolers, title: "Coolers & storage", look: "Clean inside, nothing on the floor, food covered, labeled and dated." };
-    A.equipment = { ...A.equipment, title: "Equipment cleaning", look: "Cleaned after the event: grill, fryer, warmers, hood, ice machine…" };
-    A.floors = { ...A.floors, title: "Cleaning — floors, walls & ceiling", look: "Swept and mopped, no spills, trash out, mop area tidy." };
-    return ["temps", "coolers", "food", "floors", "equipment", "sinks", "utensils"].map(id => ({ ...A[id], prio: id === "temps" || id === "food" || id === "floors" })).filter(a => a.special || a.nodes.length);
-  }
-  const order = eventDay ? ["temps", "food", "coolers", "equipment", "sinks", "floors", "repairs", "utensils", "supplies"] : ["supplies", "temps", "sinks", "floors", "repairs", "coolers", "equipment", "utensils", "food"];
-  return order.map(id => ({ ...A[id], prio: !!eventDay && (id === "temps" || id === "food") })).filter(a => a.special || a.nodes.length);
-}
-try { window.__sdxWalkAreas = (t, insp, mode) => walkAreasFor(t, insp || buildDefaultInspection(), false, mode).map(a => ({ id: a.id, nodes: a.nodes.map(n => n.path.join(".")) })); } catch {}
-// Is this node answered? (N/A counts as answered)
-function walkNodeDone(inspection, n) {
-  const node = inspection?.[n.section]?.[n.key];
-  if (!node) return false;
-  if (node.notApplicable) return true;
-  if (Array.isArray(node.checklist) && node.checklist.length) { const rc = rowCounts(node); return rc.total > 0 && rc.answered >= rc.total; }
-  return !!node.checkedAt || !!(node.status && node.status !== "OK");
-}
-// The cold units of this walk (the guide's own cold items for the stand type + added units) — a unit not touched yet still shows
-const walkColdOf = (inspection, nodes) => (nodes || []).map(n => {
-  const v = inspection?.equipment?.[n.key] || {}; if (v.notApplicable) return null;
-  const c = coldMapGet(n.key) || detectColdType(v.label || n.label || "") || {}; const type = c.type || "cooler";
-  return { k: n.key, v, label: walkNameOf(v.label || n.label), type, max: type === "freezer" ? 20 : 40 };
-}).filter(Boolean);
-function walkTempsDone(inspection, nodes) {
-  const t = inspection?.temps || {};
-  const cold = walkColdOf(inspection, nodes);
-  const sinks = (String(t.handSinkTempF ?? "").trim() || t.handSinkOutOfOrder) && (String(t.threeCompSinkTempF ?? "").trim() || t.threeCompSinkOutOfOrder || t.threeCompSinkNA);
-  return !!sinks && cold.every(c => String(c.v.tempF ?? "").trim());
-}
-function walkAreaState(inspection, area) {
-  if (area.special === "temps") {
-    const t = inspection?.temps || {};
-    const any = String(t.handSinkTempF ?? "").trim() || String(t.threeCompSinkTempF ?? "").trim() || walkColdOf(inspection, area.nodes).some(c => String(c.v.tempF ?? "").trim());
-    return walkTempsDone(inspection, area.nodes) ? "done" : any ? "started" : "todo";
-  }
-  const done = area.nodes.filter(n => walkNodeDone(inspection, n)).length;
-  const touched = area.nodes.some(n => { const node = inspection?.[n.section]?.[n.key]; return node && (node.checkedAt || node.notApplicable || (node.checklist || []).some(c => c.value)); });
-  return done === area.nodes.length ? "done" : (done || touched) ? "started" : "todo";
-}
-// "✓ All good": every blank row YES, every untouched status item OK — a problem already marked stays
-function walkAllGood(prev, area) {
-  let next = prev; const now = Date.now();
-  for (const n of area.nodes) {
-    const node = next?.[n.section]?.[n.key] || withPhotos({ status: "OK", notes: "" }); if (node.notApplicable) continue;
-    if (Array.isArray(node.checklist) && node.checklist.length) {
-      const cl = node.checklist.map(c => (!c.isOther && (c.value === "" || c.value == null)) ? { ...c, value: "YES" } : c);
-      next = setAtPath(next, n.path, { ...node, checklist: cl, status: nodeStatusAfter(node.status, cl), checkedAt: node.checkedAt || now });
-    } else if (!node.status || node.status === "OK") {
-      next = setAtPath(next, n.path, { ...node, status: "OK", checkedAt: node.checkedAt || now });
-    }
-  }
-  return next;
-}
-// Photos for a row (idx) or for the whole item (idx === null) — resized, uploaded, never the original (v477 rules)
-async function addWalkPhoto({ setInspection, path, idx, files, tag = "", inspectionId, onError }) {
-  const inspId = inspectionId || `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-  const picked = Array.from(files || []).slice(0, PHOTO_LIMIT); const skips = []; let failCount = 0;
-  const patchPhotos = (fn) => setInspection(prev => {
-    const cur = getAtPath(prev, path) || withPhotos({ status: "OK", notes: "" });
-    if (idx === null) return setAtPath(prev, path, { ...cur, photos: fn(cur.photos || []) });
-    const cl = (cur.checklist || []).map((c, i) => i === idx ? { ...c, photos: fn(c.photos || []) } : c);
-    return setAtPath(prev, path, { ...cur, checklist: cl });
-  });
-  for (const f of picked) {
-    const prep = await prepPhoto(f);
-    if (!prep.ok) { skips.push({ name: f.name, reason: prep.reason }); continue; }
-    const photoId = `${Date.now()}_${Math.random().toString(16).slice(2)}`;
-    const ph = { id: photoId, thumbUrl: prep.thumbUrl, uploading: true, previewUrl: prep.thumbUrl, type: "image/jpeg", sizeMb: bytesToMb(f.size), name: f.name, tag };
-    patchPhotos(list => [...list, ph].slice(0, PHOTO_LIMIT));
-    let finalPreview = prep.exportUrl, finalExport = prep.exportUrl;
-    if (FIREBASE_ON) { const url = await uploadPhoto(prep.exportUrl, activeVenueId, inspId, photoId); if (url) { finalPreview = url; finalExport = url; } else failCount++; }
-    patchPhotos(list => list.map(p => p.id === photoId ? { ...p, previewUrl: finalPreview, exportUrl: finalExport, uploading: false } : p));
-  }
-  if (skips.length) onError?.(photoSkipToast(skips));
-  if (failCount) onError?.(`⚠️ ${failCount} photo${failCount > 1 ? "s" : ""} kept on this phone only (upload failed) — it uploads with the report later.`);
-}
-
-function WalkCoach({ onDone }) {
-  const [i, setI] = useState(0);
-  const cards = [
-    ["👋", "Hi! This is your inspection walk.", "Go area by area. Most areas take one tap."],
-    ["✓", "Everything fine? Tap “All good”.", "Something wrong? Tap “Something's wrong”, pick the problem, take a photo, say what you did."],
-    ["🌡", "Type the temperatures.", "Green = good, red = tell us what you did. At the end, tap Save. That's it!"],
-  ];
-  const [ic, t1, t2] = cards[i];
-  return ReactDOM.createPortal( // portal: the form card animates with a transform, which would trap position:fixed
-    <div className="walkCoach" data-testid="walk-coach">
-      <div className="walkCoachCard">
-        <div className="walkCoachIcon">{ic}</div>
-        <div className="walkCoachTitle">{t1}</div>
-        <div className="walkCoachText">{t2}</div>
-        <div className="walkCoachDots">{cards.map((_, k) => <span key={k} className={k === i ? "on" : ""} />)}</div>
-        {i < cards.length - 1
-          ? <button type="button" className="walkBtnOk" data-testid="walk-coach-next" onClick={() => setI(i + 1)}>Next →</button>
-          : <button type="button" className="walkBtnOk" data-testid="walk-coach-done" onClick={onDone}>Let's start</button>}
-        <button type="button" className="walkLinkBtn" onClick={onDone}>Skip</button>
-      </div>
-    </div>, document.body);
-}
-
-// v521: what kind of inspection — it decides the form
-const INSP_TYPE_CARDS = [["Event Day", "🏟", "Event walk", "Quick — temps & food safety first"], ["Regular Inspection", "📋", "Regular inspection", "The full guide"], ["Post Event", "🧹", "Post-event", "Cleaning, temps, food safety & storage"]];
+const guideFocusOf = type => type === "Post Event" ? "post" : type === "Event Day" ? "event" : "regular";
+const INSP_TYPE_CARDS = [["Event Day", "🏟", "Event day", "Temps, uniforms & operations first"], ["Regular Inspection", "📋", "Regular inspection", "Every section"], ["Post Event", "🧹", "Post-event", "Cleaning & facilities first"]];
 // v525: each type looks like itself — a coloured banner that says what it is and what to focus on
 const INSP_TYPE_LOOK = {
-  "Event Day": { cls: "event", icon: "🏟", name: "EVENT WALK", focus: ["🌡 Temps", "🧤 Gloves & hand washing", "🥩 Raw below ready-to-eat", "❄ Coolers"], line: "Game day — quick, safety first" },
-  "Regular Inspection": { cls: "regular", icon: "📋", name: "REGULAR INSPECTION", focus: ["🏢 Facilities", "🔥 Equipment", "🔧 Maintenance", "🍴 Utensils", "🧤 Food safety"], line: "The full guide — every section" },
-  "Post Event": { cls: "post", icon: "🧹", name: "POST-EVENT CHECK", focus: ["🧽 Cleaning", "🌡 Temps", "🏷 Labels & dates", "📦 Storage"], line: "After the game — clean, cold and stored right" },
+  "Event Day": { cls: "event", icon: "🏟", name: "EVENT DAY", focus: ["🌡 Temps", "👕 Uniforms & hair restraints", "🧤 Gloves & hand washing", "📋 Operations"], line: "Game day — temps, uniforms & operations first" },
+  "Regular Inspection": { cls: "regular", icon: "📋", name: "REGULAR INSPECTION", focus: ["🌡 Temps", "🏢 Facilities", "🔥 Equipment", "🔧 Maintenance", "🍴 Utensils", "📋 Operations"], line: "The full guide — every section" },
+  "Post Event": { cls: "post", icon: "🧹", name: "POST-EVENT CHECK", focus: ["🧽 Cleaning", "🏢 Facilities", "🔥 Equipment cleaning", "🍴 Utensils"], line: "After the game — cleaning & facilities first" },
 };
 function InspTypeBanner({ type, eventName }) {
   const L = INSP_TYPE_LOOK[type] || INSP_TYPE_LOOK["Regular Inspection"];
@@ -27602,477 +27434,37 @@ function InspTypePick({ value, onPick, compact }) {
     </div>
   );
 }
-function WalkStart({ onPickStand, onScan, siteName, inspectionType, onPickType }) {
+// v532: pick the stand from the official list (the finder the quick walk had) — a pick fills name, unit, floor, type,
+// license and carries the stand's last equipment, exactly like scanning its poster
+function StandFinder({ onPick, compact, collapsed }) {
   const [q, setQ] = useState("");
-  const [typed, setTyped] = useState("");
+  const [open, setOpen] = useState(!collapsed);
   const [stands, setStands] = useState(() => (_standListCache.length ? _standListCache : standSeeds()));
   useEffect(() => { let live = true; loadStandList().then(l => { if (live && l?.length) setStands(l); }).catch(() => {}); const on = () => { if (live && _standListCache.length) setStands(_standListCache); }; window.addEventListener("sdx-stands-loaded", on); return () => { live = false; window.removeEventListener("sdx-stands-loaded", on); }; }, []);
   const recent = useMemo(() => {
     try {
       const hist = JSON.parse(localStorage.getItem(`sdx_history_cache_${VENUE_ID}`) || "[]");
       const out = []; const seen = new Set();
-      for (const r of hist) { if (r.quickProblem || r.supervisorLog || r.quickEquipCheck) continue; const st = standForStrict(r.siteNumber, r.siteName); if (!st || seen.has(st.id)) continue; seen.add(st.id); out.push(st); if (out.length >= 4) break; }
+      for (const r of hist) { if (r.quickProblem || r.supervisorLog || r.quickEquipCheck) continue; const st = standForStrict(r.siteNumber, r.siteName); if (!st || seen.has(st.id)) continue; seen.add(st.id); out.push(st); if (out.length >= (compact ? 3 : 4)) break; }
       return out;
     } catch { return []; }
-  }, [stands]);
+  }, [stands, compact]);
   const qq = q.trim().toLowerCase(); const qU = normUnit(q);
-  const list = (qq ? stands.filter(k => `${k.site} ${k.unit}`.toLowerCase().includes(qq) || (qU && normUnit(k.unit).startsWith(qU))) : stands).slice().sort(standPrintOrder).slice(0, qq ? 40 : 12);
+  const list = qq ? stands.filter(k => `${k.site} ${k.unit}`.toLowerCase().includes(qq) || (qU && normUnit(k.unit).startsWith(qU))).slice().sort(standPrintOrder).slice(0, compact ? 5 : 8) : [];
   const row = k => (
-    <button key={k.id} type="button" className="walkStandRow" data-testid="walk-stand-row" data-id={k.id} onClick={() => onPickStand(k)}>
+    <button key={k.id} type="button" className="walkStandRow" data-testid="stand-row" data-id={k.id} onClick={() => { setQ(""); onPick(k); }}>
       <span className="walkStandRowName"><NT>{String(k.site || "").toUpperCase()}</NT></span>
       <span className="walkStandRowMeta">{k.unit ? <NT>#{k.unit}</NT> : null}{k.floor ? ` · ${k.floor}` : ""}</span>
       <StandType lt={k.locType} />
     </button>
   );
+  if (!open) return <button type="button" className="standFinderOpen" data-testid="stand-finder-open" onClick={() => setOpen(true)}>🔎 Pick the stand from the list</button>;
   return (
-    <div className="walkStart" data-testid="walk-start">
-      {onPickType && <><div className="walkSmallHead">What kind of inspection?</div><InspTypePick value={inspectionType} onPick={onPickType} /></>}
-      <div className="walkStartTitle">Which stand are you inspecting?</div>
-      <button type="button" className="walkScanBtn" data-testid="walk-scan" onClick={onScan}><span className="walkScanIcon">📷</span><span>Scan the stand QR<small>on the poster at the stand</small></span></button>
-      {recent.length > 0 && !qq && (
-        <div className="walkRecent" data-testid="walk-stand-recent"><div className="walkSmallHead">Recent</div>{recent.map(row)}</div>
-      )}
-      <div className="walkSmallHead">Or find it</div>
-      <input className="input walkSearch" data-testid="walk-stand-search" value={q} onChange={e => setQ(e.target.value)} placeholder="🔎 Stand name or unit #" />
-      <div className="walkStandList">{list.map(row)}</div>
-      {qq && list.length === 0 && <div className="walkNone">No stand matches “{q}”.</div>}
-      <div className="walkSmallHead">Not in the list?</div>
-      <div className="walkTypeRow">
-        <input className="input" value={typed} onChange={e => setTyped(e.target.value.toUpperCase())} placeholder="Type the stand name" data-testid="walk-stand-other" />
-        <button type="button" className="walkBtnOk walkBtnSmall" disabled={!typed.trim()} onClick={() => onPickStand({ site: typed.trim(), unit: "", floor: "", locType: "" })}>Start</button>
-      </div>
-    </div>
-  );
-}
-
-function WalkProblemSheet({ sheet, inspection, setInspection, inspectionId, onError, onClose, onUndo, foodTempCorrections }) {
-  const { path, idx, title, isMaint, isTemp } = sheet;
-  const node = getAtPath(inspection, path) || {};
-  const row = idx !== null && idx !== undefined ? (node.checklist || [])[idx] || {} : null;
-  const photos = isTemp ? [] : (row ? (row.photos || []) : (node.photos || []));
-  const fixField = isTemp ? (sheet.tempField || "tempCorrective") : "corrective";
-  const fixText = isTemp ? (sheet.readFix ? sheet.readFix(inspection, foodTempCorrections) : "") : (row ? (row.corrective || "") : (node.corrective || ""));
-  const where = row ? (row.ciLocation || "") : "";
-  const words = row ? (row.comment || "") : "";
-  const fixes = String(fixText || "").split(" · ").filter(Boolean);
-  const camRef = useRef(null), galRef = useRef(null);
-  const write = patch => {
-    if (isTemp) { sheet.setFix?.(patch.fix ?? fixText); return; }
-    setInspection(prev => {
-      const cur = getAtPath(prev, path) || withPhotos({ status: "OK", notes: "" });
-      if (row) { const cl = (cur.checklist || []).map((c, i) => i === idx ? { ...c, ...patch } : c); return setAtPath(prev, path, { ...cur, checklist: cl }); }
-      return setAtPath(prev, path, { ...cur, ...patch });
-    });
-  };
-  const toggleFix = f => { const set = fixes.includes(f) ? fixes.filter(x => x !== f) : [...fixes, f]; const v = set.join(" · "); isTemp ? sheet.setFix?.(v) : write({ [fixField]: v }); };
-  const urgent = !row && node.status === "Critical Violation";
-  return ReactDOM.createPortal(
-    <div className="walkSheetBackdrop" onClick={onClose}>
-      <div className="walkSheet" data-testid="walk-sheet" onClick={e => e.stopPropagation()}>
-        <div className="walkSheetGrip" />
-        <div className="walkSheetTitle" data-testid="walk-sheet-title">⚠ {title}</div>
-        {!isTemp && (
-          <>
-            <button type="button" className={"walkPhotoBtn" + (photos.length ? " has" : "")} data-testid="walk-photo" onClick={() => camRef.current?.click()}>📷 {photos.length ? `Photo added (${photos.length}) — add another` : "Take a photo"}</button>
-            <button type="button" className="walkLinkBtn" onClick={() => galRef.current?.click()}>or pick from photos</button>
-            <input ref={camRef} type="file" accept="image/*" capture="environment" className="fileInput" data-testid="walk-photo-input" onChange={e => { const f = e.target.files; addWalkPhoto({ setInspection, path, idx: row ? idx : null, files: f, inspectionId, onError }); e.target.value = ""; }} />
-            <input ref={galRef} type="file" accept="image/*" multiple className="fileInput" onChange={e => { const f = e.target.files; addWalkPhoto({ setInspection, path, idx: row ? idx : null, files: f, inspectionId, onError }); e.target.value = ""; }} />
-            {photos.length > 0 && <div className="walkThumbs">{photos.map(p => <img key={p.id} src={p.thumbUrl || p.previewUrl} alt="" data-testid="walk-photo-thumb" />)}</div>}
-          </>
-        )}
-        <div className="walkSheetLbl">What did you do? <small>(tap all that apply)</small></div>
-        <div className="swChips">{(isTemp ? (sheet.fixList || WALK_TEMP_FIX) : WALK_FIX).map(f => <button key={f} type="button" className={"swChip" + (fixes.includes(f) ? " on" : "")} data-testid="walk-fix-chip" data-v={f} onClick={() => toggleFix(f)}>{fixes.includes(f) ? "✓ " : ""}{f}</button>)}</div>
-        {row && (
-          <>
-            <div className="walkSheetLbl">Where? <small>(optional)</small></div>
-            <div className="swChips">{WALK_WHERE.map(w => <button key={w} type="button" className={"swChip" + (where === w ? " on" : "")} data-testid="walk-where-chip" onClick={() => write({ ciLocation: where === w ? "" : w })}>{w}</button>)}</div>
-            <input className="input walkWords" value={words} onChange={e => write({ comment: e.target.value })} placeholder="Add a few words (optional)" />
-          </>
-        )}
-        {!row && !isTemp && (
-          <>
-            {isMaint && <button type="button" className={"swChip walkUrgent" + (urgent ? " on" : "")} data-testid="walk-urgent" onClick={() => write(urgent ? { status: "Needs Attention", priority: "Med" } : { status: "Critical Violation", priority: "High" })}>🚨 Urgent — needs help now</button>}
-            <input className="input walkWords" value={(node.notes || "").replace(sheet.problem || "", "").replace(/^ — /, "")} onChange={e => write({ notes: `${sheet.problem || ""}${e.target.value.trim() ? ` — ${e.target.value}` : ""}` })} placeholder="Add a few words (optional)" />
-          </>
-        )}
-        <div className="walkSheetActs">
-          <button type="button" className="walkBtnSkip" data-testid="walk-sheet-undo" onClick={onUndo}>{isTemp ? "Close" : "↩ It's fine"}</button>
-          <button type="button" className="walkBtnOk" data-testid="walk-sheet-done" onClick={onClose}>✓ Done</button>
-        </div>
-      </div>
-    </div>, document.body);
-}
-
-function WalkTemps({ inspection, setInspection, siteName, siteNumber, floor, locationType, foodTemps, foodTempNames, foodTempCorrections, foodTempSubmitted, foodTempTimes, food, openTempSheet, coldNodes }) {
-  const cold = walkColdOf(inspection, coldNodes);
-  const t = inspection?.temps || {};
-  const have = new Set(Object.values(inspection?.equipment || {}).map(v => String(v?.assetTag || "").toUpperCase()).filter(Boolean));
-  const missing = (normUnit(siteNumber) || (siteName || "").trim()) ? equipUnitsAtStand(siteNumber, siteName).filter(u => !have.has(String(u.tag).toUpperCase())) : [];
-  const [foodPick, setFoodPick] = useState("");
-  // the stand's own registered units come in by themselves the first time Temperatures opens (a reading for each is what "done" means)
-  const addUnitsRef = useRef(null); const autoRef = useRef(false);
-  useEffect(() => { if (!autoRef.current && missing.length) { autoRef.current = true; addUnitsRef.current?.(missing); } }, [missing.length]); // eslint-disable-line react-hooks/exhaustive-deps
-  const naCold = (coldNodes || []).map(n => ({ k: n.key, v: inspection?.equipment?.[n.key] || {}, label: walkNameOf(inspection?.equipment?.[n.key]?.label || n.label) })).filter(c => c.v.notApplicable);
-  const setNa = (k, on) => setInspection(prev => { const node = prev.equipment?.[k] || withPhotos({ status: "OK", notes: "" }); return setAtPath(prev, ["equipment", k], on ? { ...node, notApplicable: true, status: "OK", tempF: "", tempCorrective: "", checkedAt: node.checkedAt || Date.now(), ...(Array.isArray(node.checklist) ? { checklist: node.checklist.map(c => ({ ...blankChecklistRows([c])[0], photos: [] })) } : {}) } : { ...node, notApplicable: false }); });
-  // the same path as the full guide's "+": registered units keep their tag; a new cold unit gets its SDX tag + registry record
-  const addUnits = list => {
-    const made = list.map(u => createEquipUnit({ label0: u.name, pre: u.tag ? u : null, inspection, siteName, siteNumber, siteFloor: floor, siteLocType: locationType }));
-    setInspection(prev => { const eq = { ...(prev.equipment || {}) }; made.forEach(m => { eq[m.key] = m.node; }); return { ...prev, equipment: eq }; });
-  };
-  addUnitsRef.current = addUnits;
-  const msg = (val, ok, max, min) => { const n = parseFloat(val); if (String(val ?? "").trim() === "" || !Number.isFinite(n)) return null; return ok(n) ? { ok: true, text: `✓ ${n}°F — good` } : { ok: false, text: `✗ ${n}°F — ${max !== undefined ? `too warm, must be ${max}°F or less` : `too cold, must be ${min}°F or more`}` }; };
-  const tempRow = ({ key, label, val, okFn, max, min, onVal, neg, ooo, onOoo, none, onNone, onNa, fix, sheetTitle, setFix, readFix, fixList }) => {
-    const m = none ? { ok: true, text: "No 3-comp sink at this stand" } : ooo ? { ok: false, text: "✗ Not working" } : msg(val, okFn, max, min);
-    return (
-      <div key={key} className={"walkTempRow" + (m ? (m.ok ? " ok" : " bad") : "")} data-testid="walk-temp-row" data-key={key} data-state={m ? (m.ok ? "ok" : "bad") : "empty"}>
-        <div className="walkTempTop">
-          <span className="walkTempName"><NT>{label}</NT></span>
-          <span className="walkTempRule">{max !== undefined ? `≤ ${max}°F` : `≥ ${min}°F`}</span>
-        </div>
-        <div className="walkTempInputRow">
-          {neg && <button type="button" className="walkTempNeg" data-testid="walk-temp-neg" onClick={() => onVal(String(val || "").startsWith("-") ? String(val).slice(1) : `-${val || ""}`)}>−</button>}
-          <input className="walkTempInput" data-testid="walk-temp-input" type="text" inputMode="decimal" enterKeyHint="next" value={val ?? ""} disabled={!!ooo || !!none} placeholder="–"
-            onChange={e => onVal(cleanTempInput(e.target.value))}
-            onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); const all = [...document.querySelectorAll(".walkTempInput:not([disabled])")]; const i = all.indexOf(e.currentTarget); all[i + 1]?.focus(); } }} />
-          <span className="walkTempF">°F</span>
-          {onOoo && !none && <button type="button" className={"swChip walkOoo" + (ooo ? " on" : "")} data-testid="walk-temp-ooo" onClick={onOoo}>{ooo ? "✓ Not working" : "Not working"}</button>}
-          {onNone && !ooo && <button type="button" className={"swChip walkOoo" + (none ? " on" : "")} data-testid="walk-temp-none" onClick={onNone}>{none ? "↩ There is one" : "None here"}</button>}
-          {onNa && <button type="button" className="swChip walkOoo" data-testid="walk-temp-na" onClick={onNa}>Not here</button>}
-        </div>
-        {m && <div className="walkTempMsg" data-testid="walk-temp-msg">{m.text}</div>}
-        {m && !m.ok && (
-          <button type="button" className={"walkFixBtn" + (fix ? " done" : "")} data-testid="walk-temp-fix" onClick={() => openTempSheet({ title: sheetTitle, setFix, readFix, fixList })}>{fix ? `🔧 ${fix}` : "What did you do? →"}</button>
-        )}
-      </div>
-    );
-  };
-  const setEq = (k, patch) => setInspection(prev => setAtPath(prev, ["equipment", k], { ...(prev.equipment?.[k] || withPhotos({ status: "OK", notes: "" })), ...patch }));
-  const setT = patch => setInspection(prev => ({ ...prev, temps: { ...(prev.temps || {}), ...patch } }));
-  const foodRows = [];
-  for (const it of HACCP_TEMP_ITEMS) (foodTemps?.[it.key] || []).forEach((v, i) => { if (String(v ?? "").trim() || String(foodTempTimes?.[it.key]?.[i] || "").trim()) foodRows.push({ it, i, v }); }); // a row added in the walk has its time
-  return (
-    <div className="walkTemps">
-      <div className="walkSmallHead">❄ Coolers & freezers</div>
-      {missing.length > 0 && <button type="button" className="walkLoadBtn" data-testid="walk-load-units" onClick={() => addUnits(missing)}>＋ Add this stand's {missing.length} cooler{missing.length !== 1 ? "s" : ""} / freezer{missing.length !== 1 ? "s" : ""}</button>}
-      {cold.map(c => tempRow({ key: c.k, label: c.label, val: c.v.tempF, okFn: n => n <= c.max, max: c.max, neg: c.type === "freezer", onNa: String(c.v.tempF ?? "").trim() ? null : () => setNa(c.k, true), onVal: v => setEq(c.k, { tempF: v }), fix: c.v.tempCorrective, sheetTitle: `${c.label} is too warm`, fixList: WALK_FIX_COLD, setFix: v => setEq(c.k, { tempCorrective: v }), readFix: insp => insp?.equipment?.[c.k]?.tempCorrective || "" }))}
-      {naCold.length > 0 && <div className="swChips walkNaBack">{naCold.map(c => <button key={c.k} type="button" className="swChip" data-testid="walk-temp-back" onClick={() => setNa(c.k, false)}>↩ <NT>{c.label}</NT> is here</button>)}</div>}
-      <div className="swChips walkAddUnits">
-        {WALK_ADD_UNITS.map(([n, ty]) => <button key={n} type="button" className="swChip" data-testid={ty === "freezer" ? "walk-add-freezer" : "walk-add-cooler"} onClick={() => addUnits([{ name: n, freezer: ty === "freezer" }])}>＋ {n}</button>)}
-      </div>
-      <div className="walkSmallHead">🚰 Sinks</div>
-      {tempRow({ key: "handSink", label: "Hand sink — hot water", val: t.handSinkTempF, okFn: n => n >= 95, min: 95, onVal: v => setT({ handSinkTempF: v, handSinkSubmitted: !!v }), ooo: !!t.handSinkOutOfOrder, onOoo: () => setT(t.handSinkOutOfOrder ? { handSinkOutOfOrder: false } : { handSinkOutOfOrder: true, handSinkTempF: "", handSinkSubmitted: false }), fix: t.handSinkCorrection, sheetTitle: t.handSinkOutOfOrder ? "Hand sink is not working" : "Hand sink water is not hot enough", fixList: WALK_FIX_SINK, setFix: v => setT({ handSinkCorrection: v }), readFix: insp => insp?.temps?.handSinkCorrection || "" })}
-      {tempRow({ key: "threeCompSink", label: "3-comp sink — wash water", val: t.threeCompSinkTempF, okFn: n => n >= 110, min: 110, onVal: v => setT({ threeCompSinkTempF: v, threeCompSinkSubmitted: !!v }), ooo: !!t.threeCompSinkOutOfOrder, onOoo: () => setT(t.threeCompSinkOutOfOrder ? { threeCompSinkOutOfOrder: false } : { threeCompSinkOutOfOrder: true, threeCompSinkTempF: "", threeCompSinkSubmitted: false }),
-        none: !!t.threeCompSinkNA, onNone: () => setT(t.threeCompSinkNA ? { threeCompSinkNA: false } : { threeCompSinkNA: true, threeCompSinkTempF: "", threeCompSinkSubmitted: false, threeCompSinkCorrection: "" }), fix: t.threeCompSinkCorrection, sheetTitle: t.threeCompSinkOutOfOrder ? "3-comp sink is not working" : "3-comp wash water is not hot enough", fixList: WALK_FIX_SINK, setFix: v => setT({ threeCompSinkCorrection: v }), readFix: insp => insp?.temps?.threeCompSinkCorrection || "" })}
-      <div className="walkSmallHead">🍗 Food <small>(optional — add what you probe)</small></div>
-      {foodRows.map(({ it, i, v }) => {
-        const name = foodTempNames?.[it.key]?.[i] || "";
-        return (
-          <div key={`${it.key}_${i}`} className="walkFoodRow" data-testid="walk-food-row" data-key={it.key}>
-            {tempRow({ key: `${it.key}_${i}`, label: `${it.label}${name ? ` · ${name}` : ""}`, val: v, okFn: n => it.type === "hot" ? n >= it.min : n <= it.max, max: it.type === "cold" ? it.max : undefined, min: it.type === "hot" ? it.min : undefined, neg: it.type === "cold", onVal: val => food.set(it.key, i, { value: val }), fix: foodTempCorrections?.[it.key]?.[i], sheetTitle: `${it.label}${name ? ` (${name})` : ""} is out of range`, fixList: it.type === "hot" ? WALK_FIX_HOT : WALK_FIX_FOOD_COLD, setFix: val => food.set(it.key, i, { correction: val }), readFix: (insp, fc) => fc?.[it.key]?.[i] || "" })}
-            {!name && (it.foods || []).length > 0 && <div className="swChips walkFoodNames">{it.foods.map(f => <button key={f} type="button" className="swChip" onClick={() => food.set(it.key, i, { name: f })}>{f}</button>)}</div>}
-          </div>
-        );
-      })}
-      {foodPick ? (
-        <div className="swChips" data-testid="walk-food-types">
-          {HACCP_TEMP_ITEMS.map(it => <button key={it.key} type="button" className="swChip" data-testid={`walk-food-type-${it.key}`} onClick={() => { food.add(it.key); setFoodPick(""); }}>{it.type === "hot" ? "🔥" : "❄"} {it.label}</button>)}
-          <button type="button" className="walkLinkBtn" onClick={() => setFoodPick("")}>Cancel</button>
-        </div>
-      ) : <button type="button" className="walkLoadBtn" data-testid="walk-food-add" onClick={() => setFoodPick("open")}>＋ Add a food temperature</button>}
-    </div>
-  );
-}
-
-function SimpleWalk(props) {
-  const { inspection, setInspection, locationType, siteName, siteNumber, floor, eventDay, eventName, inspectionId, onError,
-    onPickStand, onScan, onChangeStand, onToggleDetails, detailsOpen, supervisorName, setSupervisorName, rawNotes, setRawNotes,
-    onSave, saving, saved, onNew, onViewReport, onHaccpQr, onFull, standOpenProblems, correctives, setCorrectives, suppliesNeeded,
-    onSiteConfirmed, onConfirmOnSite, nluIssues, onNlu, mode, inspectionType, onPickType, startArea } = props;
-  const areas = useMemo(() => walkAreasFor(locationType, inspection, eventDay && mode !== "post", mode), [locationType, inspection, eventDay, mode]);
-  const states = areas.map(a => walkAreaState(inspection, a));
-  const doneN = states.filter(s => s === "done").length;
-  const [open, setOpen] = useState(null);       // area id open
-  const [wrong, setWrong] = useState(null);     // area id in "something's wrong" mode
-  const [item, setItem] = useState(null);       // node path id chosen in wrong mode
-  const [sheet, setSheet] = useState(null);     // problem sheet
-  const [undo, setUndo] = useState(null);       // { snap, text }
-  const [review, setReview] = useState(false);
-  const [help, setHelp] = useState(null);
-  const [coach, setCoach] = useState(() => { try { return !localStorage.getItem("sdx_walk_coach_seen"); } catch { return false; } });
-  const undoTimer = useRef(null);
-  const hasStand = !!(siteName || "").trim();
-  useEffect(() => { if (hasStand && open === null && !review) { const i = states.findIndex(s => s !== "done"); setOpen(areas[i >= 0 ? i : 0]?.id || null); } }, [hasStand]); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { if (!hasStand) { setOpen(null); setWrong(null); setItem(null); setReview(false); } }, [hasStand]);
-  useEffect(() => { if (hasStand && startArea && areas.some(a => a.id === startArea)) setOpen(startArea); }, []); // eslint-disable-line react-hooks/exhaustive-deps
-  // another report or another stand type: nothing from the old screen may point into the new one
-  useEffect(() => { setWrong(null); setItem(null); setSheet(null); setUndo(null); clearTimeout(undoTimer.current); }, [locationType, inspectionId]);
-  useEffect(() => () => clearTimeout(undoTimer.current), []);
-  // a stand that arrived any other way (QR link, assigned chip, restored draft) also starts the on-site clock
-  useEffect(() => { if (hasStand && !onSiteConfirmed) onConfirmOnSite?.(); }, [hasStand]); // eslint-disable-line react-hooks/exhaustive-deps
-  // "Go fix →" from the save check lands here in simple mode
-  useEffect(() => {
-    const on = e => { const hit = e.detail || {}; const a = areas.find(x => !x.special && x.nodes.some(n => n.path.join(".") === hit.key)); if (!a) return; setReview(false); setOpen(a.id); setWrong(a.id); setItem(hit.key); if (hit.ci != null) { const node = getAtPath(inspection, hit.key.split(".")); const row = node?.checklist?.[hit.ci]; if (row) setSheet({ path: hit.key.split("."), idx: hit.ci, title: row.problem || row.label }); } };
-    window.addEventListener("sdx-walk-open", on); return () => window.removeEventListener("sdx-walk-open", on);
-  }, [areas, inspection]);
-  useEffect(() => { const on = () => { setReview(true); setOpen(null); setSheet(null); try { window.scrollTo({ top: 0, behavior: "smooth" }); } catch {} }; window.addEventListener("sdx-walk-review", on); return () => window.removeEventListener("sdx-walk-review", on); }, []);
-  const showUndo = (revert, text) => { setUndo({ revert, text }); clearTimeout(undoTimer.current); undoTimer.current = setTimeout(() => setUndo(null), 8000); };
-  const nextOpen = (fromId, insp) => { const st = areas.map(a => walkAreaState(insp, a)); const i0 = areas.findIndex(a => a.id === fromId); for (let k = 1; k <= areas.length; k++) { const j = (i0 + k) % areas.length; if (st[j] !== "done") return areas[j].id; } return null; };
-  const allGood = a => {
-    // undo puts back ONLY what "All good" changed (row values, status, checkedAt, nodes it created) — later edits and photo uploads stay
-    const before = a.nodes.map(n => { const node = getAtPath(inspection, n.path); return { path: n.path, existed: !!node, status: node?.status, checkedAt: node?.checkedAt, values: (node?.checklist || []).map(c => c.value) }; });
-    const next = walkAllGood(inspection, a);
-    setInspection(next); setWrong(null); setItem(null);
-    showUndo(prev => before.reduce((acc, b) => {
-      const cur = getAtPath(acc, b.path); if (!cur) return acc;
-      const cl = (cur.checklist || []).map((c, i) => (b.values[i] === "" || b.values[i] == null) && c.value === "YES" ? { ...c, value: b.values[i] ?? "" } : c);
-      if (!b.existed && !cl.some(c => c.value === "NO") && !(cur.photos || []).length && !cl.some(c => (c.photos || []).length)) { const sec = { ...(acc[b.path[0]] || {}) }; delete sec[b.path[1]]; return { ...acc, [b.path[0]]: sec }; }
-      return setAtPath(acc, b.path, { ...cur, checklist: cl, status: nodeStatusAfter(b.existed ? b.status : cur.status, cl), checkedAt: b.checkedAt });
-    }, prev), `✓ ${a.title} — all good`);
-    const n = nextOpen(a.id, next); setOpen(n); if (!n) setReview(true);
-    setTimeout(() => { try { document.querySelector(`[data-testid="walk-area-${n}"]`)?.scrollIntoView({ behavior: "smooth", block: "start" }); } catch {} }, 120);
-  };
-  // "Not here": the unit is not at this stand — its old answers go too (a hidden NO or 50°F would still reach the report)
-  const markNA = n => setInspection(prev => {
-    const node = getAtPath(prev, n.path) || withPhotos({ status: "OK", notes: "" });
-    if (node.notApplicable) return setAtPath(prev, n.path, { ...node, notApplicable: false });
-    return setAtPath(prev, n.path, { ...node, notApplicable: true, status: "OK", notes: "", corrective: "", photos: [], checkedAt: node.checkedAt || Date.now(),
-      ...(Array.isArray(node.checklist) ? { checklist: node.checklist.map(c => ({ ...blankChecklistRows([c])[0], photos: [] })) } : {}),
-      ...("tempF" in node ? { tempF: "", tempCorrective: "" } : {}) });
-  });
-  const flagRow = (n, idx) => {
-    const node = getAtPath(inspection, n.path) || {}; const row = node.checklist?.[idx];
-    setInspection(prev => { const cur = getAtPath(prev, n.path) || {}; const cl = (cur.checklist || []).map((c, i) => i === idx ? { ...c, value: "NO" } : c); return setAtPath(prev, n.path, { ...cur, checklist: cl, status: nodeStatusAfter(cur.status, cl), checkedAt: cur.checkedAt || Date.now() }); });
-    if (row?.supply) setTimeout(() => { try { window.dispatchEvent(new CustomEvent("sdx-supply-needed", { detail: { item: row.supply, on: true } })); } catch {} }, 0);
-    setSheet({ path: n.path, idx, title: row?.problem || row?.label || "Problem" });
-  };
-  // "↩ It's fine": the row / item is NOT a problem after all — always clears the flag (no snapshot that could be stale)
-  const unflag = sh => {
-    if (!sh || sh.isTemp) return;
-    if (sh.idx !== null && sh.idx !== undefined) {
-      setInspection(prev => {
-        const cur = getAtPath(prev, sh.path) || {}; const row = cur.checklist?.[sh.idx]; if (!row) return prev;
-        const cl = cur.checklist.map((c, i) => i === sh.idx ? { ...blankChecklistRows([c])[0], value: "YES", photos: [] } : c);
-        if (row.supply && row.value === "NO") setTimeout(() => { try { window.dispatchEvent(new CustomEvent("sdx-supply-needed", { detail: { item: row.supply, on: false } })); } catch {} }, 0);
-        return setAtPath(prev, sh.path, { ...cur, checklist: cl, status: nodeStatusAfter(cur.status, cl) });
-      });
-    } else setInspection(prev => setAtPath(prev, sh.path, statusCleared(getAtPath(prev, sh.path), sh)));
-  };
-  const statusCleared = (cur, sh) => {
-    cur = cur || withPhotos({ status: "OK", notes: "" });
-    const prob = sh?.problem || walkStatusQ({ key: sh?.path?.[1], label: cur.label || "" }).problem;
-    const notes = String(cur.notes || "").replace(prob, "").replace(/^\s*—\s*/, "").trim();
-    return { ...cur, status: "OK", notes, corrective: "", photos: [], checkedAt: Date.now(), ...(sh?.prevPriority !== undefined ? { priority: sh.prevPriority } : cur.priority === "Med" || cur.priority === "High" ? { priority: "Low" } : {}) };
-  };
-  const flagStatus = (n, isMaint) => {
-    const { problem } = walkStatusQ(n); const prevPriority = getAtPath(inspection, n.path)?.priority;
-    setInspection(prev => { const cur = getAtPath(prev, n.path) || withPhotos({ status: "OK", notes: "" }); return setAtPath(prev, n.path, { ...cur, status: cur.status && cur.status !== "OK" ? cur.status : "Needs Attention", ...(isMaint ? { priority: cur.priority && cur.priority !== "Low" ? cur.priority : "Med" } : {}), notes: (cur.notes || "").trim() ? cur.notes : problem, checkedAt: Date.now() }); });
-    setSheet({ path: n.path, idx: null, title: problem, problem, isMaint, prevPriority });
-  };
-  const toggleSupply = (n, idx) => {
-    setInspection(prev => { const cur = getAtPath(prev, n.path) || {}; const was = cur.checklist?.[idx]?.value; const v = was === "NO" ? "" : "NO"; const cl = (cur.checklist || []).map((c, i) => i === idx ? { ...c, value: v, ...(v === "NO" && c.supply && !c.corrective ? { corrective: "Asked for supplies" } : {}), ...(v !== "NO" && c.corrective === "Asked for supplies" ? { corrective: "" } : {}) } : c); const row = cl[idx]; if (row?.supply) setTimeout(() => { try { window.dispatchEvent(new CustomEvent("sdx-supply-needed", { detail: { item: row.supply, on: v === "NO" } })); } catch {} }, 0); return setAtPath(prev, n.path, { ...cur, checklist: cl, status: nodeStatusAfter(cur.status, cl), checkedAt: cur.checkedAt || Date.now() }); });
-  };
-  // problems for the review
-  const problems = [];
-  for (const a of areas) for (const n of a.nodes) {
-    if (a.special) continue; // the temperatures area is a view of the cooler units — they are listed under Coolers
-    const node = getAtPath(inspection, n.path); if (!node || node.notApplicable) continue;
-    if ((node.checklist || []).length && !(node.checklist || []).some(c => c.value === "NO") && node.status && !AUTO_STATUS(node.status) && node.status !== "N/A" && node.status !== "Off / Not In Use") problems.push({ key: `${n.path.join(".")}#s`, area: a, n, idx: null, title: `${walkNameOf(n.label)}: ${node.status}${(node.notes || "").trim() ? ` — ${node.notes.trim()}` : ""}`, photo: true, fix: true });
-    (node.checklist || []).forEach((c, i) => { if (c.value === "NO") problems.push({ key: `${n.path.join(".")}#${i}`, area: a, n, idx: i, title: `${walkNameOf(n.label)}: ${c.problem || c.label}`, photo: (c.photos || []).some(p => p.tag !== "after"), fix: !!(c.corrective || "").trim(), supply: !!c.supply }); });
-    if (!(node.checklist || []).length && node.status && node.status !== "OK" && node.status !== "N/A") problems.push({ key: n.path.join("."), area: a, n, idx: null, title: `${walkNameOf(n.label)}: ${(node.notes || "").trim() || node.status}`, photo: (node.photos || []).length > 0, fix: !!(node.corrective || "").trim() });
-  }
-  const tt = inspection?.temps || {};
-  const tempProblems = [
-    ...walkColdOf(inspection, areas.find(x => x.id === "temps")?.nodes).filter(c => String(c.v.tempF ?? "").trim() && parseFloat(c.v.tempF) > c.max).map(c => ({ key: `t:${c.k}`, title: `${c.label}: ${c.v.tempF}°F`, fix: !!(c.v.tempCorrective || "").trim() })),
-    ...(tt.handSinkOutOfOrder ? [{ key: "t:hand", title: "Hand sink: not working", fix: !!(tt.handSinkCorrection || "").trim() }] : String(tt.handSinkTempF ?? "").trim() && parseFloat(tt.handSinkTempF) < 95 ? [{ key: "t:hand", title: `Hand sink: ${tt.handSinkTempF}°F`, fix: !!(tt.handSinkCorrection || "").trim() }] : []),
-    ...(tt.threeCompSinkOutOfOrder ? [{ key: "t:three", title: "3-comp sink: not working", fix: !!(tt.threeCompSinkCorrection || "").trim() }] : String(tt.threeCompSinkTempF ?? "").trim() && parseFloat(tt.threeCompSinkTempF) < 110 ? [{ key: "t:three", title: `3-comp sink: ${tt.threeCompSinkTempF}°F`, fix: !!(tt.threeCompSinkCorrection || "").trim() }] : []),
-    ...HACCP_TEMP_ITEMS.flatMap(it => (props.foodTemps?.[it.key] || []).map((v, i) => ({ v, i }))
-      .filter(({ v }) => String(v ?? "").trim() && Number.isFinite(parseFloat(v)) && tempPass(it, parseFloat(v)) === false)
-      .map(({ v, i }) => { const nm = props.foodTempNames?.[it.key]?.[i]; return { key: `f:${it.key}:${i}`, title: `${it.label}${nm ? ` · ${nm}` : ""}: ${v}°F`, fix: !!String(props.foodTempCorrections?.[it.key]?.[i] || "").trim() }; })),
-  ];
-  const notChecked = areas.filter((a, i) => states[i] !== "done");
-  if (!hasStand) return (
-    <div className="walkRoot" data-testid="walk-root">
-      {coach && <WalkCoach onDone={() => { setCoach(false); try { localStorage.setItem("sdx_walk_coach_seen", "1"); } catch {} }} />}
-      <WalkStart onPickStand={onPickStand} onScan={onScan} siteName={siteName} inspectionType={inspectionType} onPickType={onPickType} />
-      <button type="button" className="walkModeSwitch" data-testid="walk-mode-full" onClick={() => onFull(open)}>Full checklist (detailed) ⇄</button>
-    </div>
-  );
-  if (saved) return (
-    <div className="walkRoot" data-testid="walk-root">
-      <div className="walkSaved" data-testid="walk-saved">
-        <div className="walkSavedIcon">✅</div>
-        <div className="walkSavedTitle">Report saved!</div>
-        <div className="walkSavedSub"><NT>{String(siteName).toUpperCase()}{siteNumber ? ` #${siteNumber}` : ""}</NT> · {problems.length + tempProblems.length} problem{problems.length + tempProblems.length !== 1 ? "s" : ""} found</div>
-        <button type="button" className="walkBtnOk" data-testid="walk-new" onClick={onNew}>Next stand →</button>
-        <div className="walkSavedLinks">
-          <button type="button" className="walkLinkBtn" data-testid="walk-view-report" onClick={onViewReport}>📄 View report</button>
-          <button type="button" className="walkLinkBtn" onClick={onHaccpQr}>🌡 Stand QR</button>
-        </div>
-      </div>
-    </div>
-  );
-  const renderArea = (a, i) => {
-    const st = states[i]; const isOpen = open === a.id;
-    const nodesShown = a.nodes;
-    return (
-      <div key={a.id} className={"walkArea" + (isOpen ? " open" : "") + (st === "done" ? " done" : "") + (a.prio ? " prio" : "")} data-testid={`walk-area-${a.id}`} data-state={st} data-open={isOpen ? "1" : "0"} data-prio={a.prio ? "1" : "0"}>
-        <button type="button" className="walkAreaHead" onClick={() => { setOpen(isOpen ? null : a.id); setWrong(null); setItem(null); }}>
-          <span className="walkAreaIcon">{a.icon}</span>
-          <span className="walkAreaTitle">{a.title}{a.prio && <span className="walkPrio">PRIORITY</span>}</span>
-          <span className={"walkAreaState " + st}>{st === "done" ? "✓ Done" : st === "started" ? "In progress" : ""}</span>
-        </button>
-        {isOpen && (
-          <div className="walkAreaBody">
-            <button type="button" className="walkLinkBtn walkAreaFull" data-testid="walk-area-full" onClick={() => onFull(a.id)}>Need more detail? Full checklist for this part →</button>
-            <div className="walkLook" data-testid="walk-look">{a.look} <button type="button" className="walkHelpBtn" data-testid={`walk-help-${a.id}`} onClick={() => setHelp(help === a.id ? null : a.id)}>?</button></div>
-            {help === a.id && (
-              <div className="walkHelp" data-testid="walk-help">
-                {a.special === "temps" ? <div>Coolers ≤ 40°F · freezers ≤ 20°F · hand sink ≥ 95°F · 3-comp wash ≥ 110°F · hot food ≥ 135°F · cold food ≤ 41°F. Probe the thickest part of the food.</div>
-                  : <ul>{a.nodes.map(n => <li key={n.path.join(".")}><b>{walkNameOf(n.label)}</b>{walkQOf(n.label) ? ` — ${walkQOf(n.label)}` : ""}</li>)}</ul>}
-              </div>
-            )}
-            {a.special === "temps" ? (
-              <>
-                <WalkTemps {...props} coldNodes={a.nodes} openTempSheet={({ title, setFix, readFix, fixList }) => setSheet({ isTemp: true, title, setFix, readFix, fixList, path: [], idx: null })} />
-                <button type="button" className="walkBtnOk" data-testid="walk-next" onClick={() => { const n = nextOpen(a.id, inspection); setOpen(n); if (!n) setReview(true); }}>Next →</button>
-              </>
-            ) : a.id === "supplies" ? (
-              <>
-                {nodesShown.map(n => { const node = getAtPath(inspection, n.path) || {}; if (!(node.checklist || []).length) return (
-                  <div key={n.path.join(".")} className="walkStatusRow" data-testid="walk-item" data-key={n.path.join(".")}><span>{walkStatusQ(n).q}</span>
-                    <button type="button" className={"walkYes" + (node.checkedAt && node.status === "OK" ? " on" : "")} onClick={() => setInspection(prev => setAtPath(prev, n.path, statusCleared(getAtPath(prev, n.path), { path: n.path, problem: walkStatusQ(n).problem })))}>✓ Yes</button>
-                    <button type="button" className={"walkNo" + (node.status && node.status !== "OK" ? " on" : "")} onClick={() => flagStatus(n, false)}>✗ No</button></div>
-                ); return (
-                  <div key={n.path.join(".")} className="walkSupplies" data-testid="walk-item" data-key={n.path.join(".")}>
-                    <div className="walkSmallHead">Tap what is MISSING or empty:</div>
-                    <div className="swChips">{node.checklist.map((c, idx) => c.isOther || !c.supply ? null : <button key={idx} type="button" className={"swChip walkSupplyChip" + (c.value === "NO" ? " missing" : "")} data-testid="walk-supply-chip" data-idx={idx} onClick={() => toggleSupply(n, idx)}>{c.value === "NO" ? "✗ " : ""}{c.supply || walkNameOf(c.label)}</button>)}</div>
-                  </div>
-                ); })}
-                {nodesShown.flatMap(n => { const node = getAtPath(inspection, n.path) || {}; return (node.checklist || []).map((c, idx) => ({ n, c, idx })).filter(x => !x.c.isOther && !x.c.supply); }).map(({ n, c, idx }) => (
-                  <div key={`${n.path.join(".")}#${idx}`} className="walkStatusRow" data-testid="walk-supply-q"><span>{c.label}</span>
-                    <button type="button" className={"walkYes" + (c.value === "YES" ? " on" : "")} onClick={() => setInspection(prev => { const cur = getAtPath(prev, n.path) || {}; const cl = (cur.checklist || []).map((r, i) => i === idx ? { ...blankChecklistRows([r])[0], value: "YES", photos: [] } : r); return setAtPath(prev, n.path, { ...cur, checklist: cl, status: nodeStatusAfter(cur.status, cl), checkedAt: cur.checkedAt || Date.now() }); })}>✓ Yes</button>
-                    <button type="button" className={"walkNo" + (c.value === "NO" ? " on" : "")} onClick={() => flagRow(n, idx)}>✗ No</button></div>
-                ))}
-                {(suppliesNeeded || []).filter(x => (x.item || "").trim()).length > 0 && <div className="walkSupplyList" data-testid="walk-supply-list">📦 Asking for: {(suppliesNeeded || []).filter(x => (x.item || "").trim()).map(x => x.item).join(", ")}</div>}
-                <button type="button" className="walkBtnOk" data-testid="walk-allgood" onClick={() => allGood(a)}>{(inspection.facility?.ecolabProducts?.checklist || []).some(c => c.value === "NO") ? "✓ The rest is stocked" : "✓ All stocked"}</button>
-              </>
-            ) : wrong !== a.id ? (
-              <div className="walkAreaActs">
-                <button type="button" className="walkBtnOk" data-testid="walk-allgood" onClick={() => allGood(a)}>✓ All good</button>
-                <button type="button" className="walkBtnWrong" data-testid="walk-wrong" onClick={() => { setWrong(a.id); setItem(null); }}>⚠ Something's wrong</button>
-              </div>
-            ) : (
-              <div className="walkWrongBox">
-                {!item ? (
-                  <>
-                    <div className="walkSmallHead">What has the problem?</div>
-                    <div className="walkItems">{nodesShown.map(n => { const node = getAtPath(inspection, n.path) || {}; const bad = (node.checklist || []).some(c => c.value === "NO") || (node.status && node.status !== "OK"); return (
-                      <div key={n.path.join(".")} className={"walkItemRow" + (node.notApplicable ? " na" : "") + (bad ? " bad" : "")}>
-                        <button type="button" className="walkItemChip" data-testid="walk-item" data-key={n.path.join(".")} disabled={!!node.notApplicable} onClick={() => { if ((node.checklist || []).length) setItem(n.path.join(".")); else flagStatus(n, n.kind === "maint"); }}>{bad ? "⚠ " : ""}<NT>{walkNameOf(n.label)}</NT>{(node.checklist || []).length ? " ›" : ""}</button>
-                        {n.section !== "maintenance" && n.section !== "operations" && <button type="button" className={"walkNa" + (node.notApplicable ? " on" : "")} data-testid="walk-na" onClick={() => markNA(n)}>{node.notApplicable ? "↩ It's here" : "Not here"}</button>}
-                      </div>
-                    ); })}</div>
-                    <button type="button" className="walkBtnOk" data-testid="walk-rest-ok" onClick={() => allGood(a)}>✓ The rest is fine</button>
-                  </>
-                ) : (() => {
-                  const n = nodesShown.find(x => x.path.join(".") === item);
-                  if (!n) return <button type="button" className="walkLinkBtn" onClick={() => setItem(null)}>‹ back</button>; // the item left this area (stand type changed)
-                  const node = getAtPath(inspection, n.path) || {};
-                  return (
-                    <>
-                      <button type="button" className="walkLinkBtn" onClick={() => setItem(null)}>‹ back</button>
-                      <div className="walkSmallHead"><NT>{walkNameOf(n.label)}</NT> — what is wrong?</div>
-                      <div className="walkRows">{(node.checklist || []).map((c, idx) => (
-                        <button key={idx} type="button" className={"swRow" + (c.value === "NO" ? " bad" : c.value === "YES" ? " ok" : "")} data-testid="walk-row" data-key={item} data-idx={idx}
-                          onClick={() => flagRow(n, idx)}>{c.value === "NO" ? "⚠ " : ""}{c.isOther ? "Something else…" : (c.problem || c.label)}</button>
-                      ))}</div>
-                      <button type="button" className="walkBtnOk" data-testid="walk-rest-ok" onClick={() => allGood(a)}>✓ The rest is fine</button>
-                    </>
-                  );
-                })()}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-    );
-  };
-  return (
-    <div className={"walkRoot walkType-" + ((INSP_TYPE_LOOK[inspectionType] || {}).cls || "regular")} data-testid="walk-root">
-      {coach && <WalkCoach onDone={() => { setCoach(false); try { localStorage.setItem("sdx_walk_coach_seen", "1"); } catch {} }} />}
-      <div className="walkStandCard" data-testid="walk-stand-card">
-        <div className="walkStandName"><NT>{String(siteName).toUpperCase()}</NT>{siteNumber ? <NT> · #{siteNumber}</NT> : null}</div>
-        <div className="walkStandMeta"><StandType lt={locationType} />{floor ? <span>{floor}</span> : null}{mode === "post" ? <span className="walkEvent" data-testid="walk-post">🧹 Post-event check — cleaning, temps, food safety & storage</span> : null}{eventDay && mode !== "post" ? <span className={"walkEvent" + (inspectionType === "Event Day" ? " walkEventShort" : "")} data-testid="walk-eventday">🏟 Event day{eventName ? ` · ${eventName}` : ""}</span> : null}</div>
-        <div className="walkStandActs">
-          <button type="button" className="walkLinkBtn" data-testid="walk-details-toggle" onClick={onToggleDetails}>{detailsOpen ? "Hide details" : "Edit details"}</button>
-          <button type="button" className="walkLinkBtn" data-testid="walk-stand-change" onClick={onChangeStand}>Change stand</button>
-        </div>
-        {props.supervisorLogUrl && <a href={props.supervisorLogUrl} className="walkSupLog" data-testid="walk-sup-log">Not inspecting? Open the supervisor log →</a>}
-      </div>
-      <InspTypeBanner type={inspectionType} eventName={eventName} />
-      <div className="walkProgress" data-testid="walk-progress">
-        <div className="walkProgressText" data-testid="walk-progress-text"><span key={doneN}>{doneN === areas.length ? "All done 🎉 — review and save" : `${doneN} of ${areas.length} done`}</span></div>
-        <div className="walkDots">{areas.map((a, i) => <button key={a.id} type="button" className={"walkDot " + states[i] + (open === a.id ? " active" : "") + (a.prio ? " prio" : "")} data-testid={`walk-dot-${a.id}`} title={a.title} onClick={() => { setReview(false); setOpen(a.id); setWrong(null); setItem(null); }}>{a.icon}</button>)}</div>
-      </div>
-      {(standOpenProblems || []).length > 0 && (
-        <div className="walkArea walkPrev" data-testid="walk-prev">
-          <div className="walkAreaHead"><span className="walkAreaIcon">🔁</span><span className="walkAreaTitle">Last time's problems</span></div>
-          <div className="walkAreaBody">{standOpenProblems.map(f => { const c = correctives[f.key] || {}; const st = c.status; return (
-            <div key={f.key} id={"ca-" + f.key.replace(/[^A-Za-z0-9]+/g, "_")} className="walkPrevRow" data-testid="walk-prev-problem">
-              <div className="walkPrevText"><NT>{f.cat}</NT>{f.detail ? ` — ${f.detail}` : ""}</div>
-              <div className="walkStatusBtns">
-                <button type="button" className={"walkYes" + (st === "fixed" ? " on" : "")} data-testid="walk-prev-fixed" onClick={() => setCorrectives(p => ({ ...p, [f.key]: { ...(p[f.key] || {}), status: "fixed", action: "Fixed — checked on site", photos: p[f.key]?.photos || [] } }))}>✓ Fixed</button>
-                <button type="button" className={"walkNo" + (st === "still" ? " on" : "")} data-testid="walk-prev-still" onClick={() => setCorrectives(p => ({ ...p, [f.key]: { ...(p[f.key] || {}), status: "still", action: "Still there — checked on site", photos: p[f.key]?.photos || [] } }))}>✗ Still there</button>
-              </div>
-            </div>
-          ); })}</div>
-        </div>
-      )}
-      {!review && areas.map(renderArea)}
-      {!review && props.saveError && <div className="walkSaveErr" data-testid="walk-save-error">⚠ {props.saveError}</div>}
-      {!review && <button type="button" className="walkReviewBtn" data-testid="walk-finish-save" disabled={saving} onClick={() => onSave()}>{saving ? "Saving…" : "💾 Finish & save"}</button>}
-      {!review && <button type="button" className="walkLinkBtn" data-testid="walk-to-review" onClick={() => { setReview(true); setOpen(null); try { window.scrollTo({ top: 0, behavior: "smooth" }); } catch {} }}>Check the list of problems first</button>}
-      {review && (
-        <div className="walkReview" data-testid="walk-review">
-          <div className="walkReviewTitle">Review & save</div>
-          {problems.length + tempProblems.length === 0 ? <div className="walkReviewNone">✓ No problems found.</div> : (
-            <div className="walkReviewList">
-              <div className="walkSmallHead">Problems found ({problems.length + tempProblems.length})</div>
-              {problems.map(p => (
-                <div key={p.key} className={"walkReviewItem" + (!p.supply && (!p.photo || !p.fix) ? " missing" : "")} data-testid="walk-review-problem">
-                  <div><NT>{p.title}</NT></div>
-                  {!p.supply && (!p.photo || !p.fix) && <button type="button" className="walkLinkBtn" data-testid="walk-review-missing" onClick={() => { setReview(false); setOpen(p.area.id); setWrong(p.area.id); setItem(p.idx !== null ? p.n.path.join(".") : null); if (p.idx !== null) { const node = getAtPath(inspection, p.n.path); const row = node?.checklist?.[p.idx]; setSheet({ path: p.n.path, idx: p.idx, title: row?.problem || row?.label }); } else { const q = walkStatusQ(p.n); setSheet({ path: p.n.path, idx: null, title: q.problem, problem: q.problem, isMaint: p.n.kind === "maint" }); } }}>{!p.photo && !p.fix ? "Add a photo and what you did →" : !p.photo ? "Add a photo →" : "Say what you did →"}</button>}
-                </div>
-              ))}
-              {tempProblems.map(p => <div key={p.key} className={"walkReviewItem" + (!p.fix ? " missing" : "")} data-testid="walk-review-problem"><div><NT>{p.title}</NT></div>{!p.fix && <span className="walkHint">Say what you did in Temperatures</span>}</div>)}
-            </div>
-          )}
-          {notChecked.length > 0 && <div className="walkReviewUnchecked" data-testid="walk-review-unchecked">Not checked yet: {notChecked.map(a => <button key={a.id} type="button" className="swChip" onClick={() => { setReview(false); setOpen(a.id); }}>{a.icon} {a.title}</button>)}</div>}
-          <label className="walkSmallHead">Supervisor on duty <small>(optional)</small></label>
-          <input className="input" data-testid="walk-supervisor" value={supervisorName} onChange={e => setSupervisorName(e.target.value)} placeholder="Name" />
-          <label className="walkSmallHead">📝 Anything else? <small>(optional)</small></label>
-          <textarea className="input walkNotes" data-testid="walk-review-notes" rows={3} value={rawNotes} onChange={e => setRawNotes(e.target.value)} placeholder="Anything you want on the report" />
-          {(nluIssues || []).length > 0 && (
-            <div className="walkNlu" data-testid="walk-nlu">
-              <div className="walkSmallHead">🧠 These become problems on the report</div>
-              {nluIssues.map(u => (
-                <div key={u.key} className={"walkNluRow" + (u.rejected ? " off" : "")} data-testid="walk-nlu-row">
-                  <span>{u.category} — {u.sentence}</span>
-                  <button type="button" className="walkLinkBtn" onClick={() => onNlu?.(u.sentence, !u.rejected)}>{u.rejected ? "↩ Keep" : "✕ Not a problem"}</button>
-                </div>
-              ))}
-            </div>
-          )}
-          {props.saveError && <div className="walkSaveErr" data-testid="walk-save-error">⚠ {props.saveError}</div>}
-          <button type="button" className="walkSaveBtn" data-testid="walk-save" disabled={saving} onClick={onSave}>{saving ? "Saving…" : "💾 Save report"}</button>
-          <button type="button" className="walkLinkBtn" onClick={() => setReview(false)}>‹ Back to the walk</button>
-        </div>
-      )}
-      <button type="button" className="walkModeSwitch" data-testid="walk-mode-full" onClick={() => onFull(open)}>Full checklist (detailed) ⇄</button>
-      {sheet && <WalkProblemSheet sheet={sheet} inspection={inspection} setInspection={setInspection} inspectionId={inspectionId} onError={onError} foodTempCorrections={props.foodTempCorrections}
-        onClose={() => setSheet(null)}
-        onUndo={() => { unflag(sheet); setSheet(null); }} />}
-      {undo && ReactDOM.createPortal(<div className="walkUndo" data-testid="walk-undo"><span>{undo.text}</span><button type="button" data-testid="walk-undo-btn" onClick={() => { setInspection(undo.revert); setUndo(null); clearTimeout(undoTimer.current); }}>↩ Undo</button></div>, document.body)}
+    <div className={"standFinder" + (compact ? " compact" : "")} data-testid="stand-finder">
+      <input className="input walkSearch" data-testid="stand-find" value={q} onChange={e => setQ(e.target.value)} placeholder="🔎 Find the stand — name or unit #" autoFocus={!!collapsed} />
+      {!qq && recent.length > 0 && <div className="walkRecent" data-testid="stand-recent"><div className="walkSmallHead">Recent</div>{recent.map(row)}</div>}
+      {qq && <div className="walkStandList">{list.map(row)}</div>}
+      {qq && list.length === 0 && <div className="walkNone">No stand matches “{q}” — type it in the form below.</div>}
     </div>
   );
 }
@@ -32410,18 +31802,9 @@ export default function App() {
   const [draftSavedAt, setDraftSavedAt] = useState(null); // timestamp of last auto-save
   const [draftCloudAt, setDraftCloudAt] = useState(null);  // v451 — last cloud copy
   const [guideStep, setGuideStep] = useState(0); // 0-based index into guide stepper
-  // v520: the simple walk is the default for everyone; "Full checklist" keeps the detailed guide (per phone)
-  // v521: the INSPECTION TYPE picks the form (Event → quick walk, Post Event → focused walk, Regular → full guide);
-  // a manual switch overrides it for this report only. Harnesses (local mode) can force a mode with sdx_guide_mode.
-  const [guideOverride, setGuideOverride] = useState(() => { try { const f = localStorage.getItem("sdx_force_local") === "1" ? localStorage.getItem("sdx_guide_mode") : ""; return ["full", "simple", "post"].includes(f) ? f : null; } catch { return null; } });
-  const setGuideMode = m => { setGuideOverride(m); try { window.scrollTo({ top: 0 }); } catch {} };
-  const guideModeRef = useRef("full"); const walkStartAreaRef = useRef(null);
-  const [walkDetailsOpen, setWalkDetailsOpen] = useState(false);
-  const [walkSaving, setWalkSaving] = useState(false); // the walk's Save covers the whole write, not only the report text
-  const [walkSavedId, setWalkSavedId] = useState(null); // the walk's "Report saved!" screen stays until Next stand (the ✓ Saved chip flag clears itself after 2.5 s)
-  const walkBaseRef = useRef(""); const walkBaseArmRef = useRef(false); // what the form looked like right after the stand was picked
-  const walkSavingRef = useRef(false);
-  try { window.__sdxSetGuideMode = setGuideMode; } catch {}
+  // v532: the quick walk is gone — every inspection is the full guide; the TYPE picks what comes first (Joxel:
+  // "take out the quick inspection guide at all … regular has all, event focused on temps and uniforms and operation
+  // stuff and the post is cleaning and facilities")
   const formSnapRef = useRef(null); try { window.__sdxFormSnapshot = () => (formSnapRef.current ? formSnapRef.current() : null); } catch {} // harness: the live form state
   const [guideFindQ, setGuideFindQ] = useState("");
   const [guideFindHits, setGuideFindHits] = useState([]);
@@ -32445,7 +31828,6 @@ export default function App() {
   }
 
   function jumpToGuideItem(hit) {
-    if (guideModeRef.current !== "full") { try { window.dispatchEvent(new CustomEvent("sdx-walk-open", { detail: hit })); } catch {} return; } // v520
     const stepIdx = GUIDE_ORDER.indexOf(hit.pid); // v518: same order as the stepper (event days differ)
     if (stepIdx >= 0) setGuideStep(stepIdx);
     window.dispatchEvent(new CustomEvent("sdx-open-guide-item", { detail: { key: hit.key } }));
@@ -33139,26 +32521,20 @@ export default function App() {
   const [inspectionDate, setInspectionDate] = useState(() => { const _d = new Date(); return `${_d.getFullYear()}-${String(_d.getMonth()+1).padStart(2,"0")}-${String(_d.getDate()).padStart(2,"0")}`; });
   // v518.1: event day belongs to the REPORT (its date + type) — an old report edited on a game day stays what it was; Post Event is not an event day
   const guideEventName = ((venueSettings?.eventDays || {})[inspectionDate]) || "";
-  const guideEventDay = inspectionType === "Event Day" || (!!guideEventName && inspectionType !== "Post Event");
-  // v525: the type the inspector picked wins — Regular is ALWAYS the full guide, even on a date marked as an event day
-  const guideMode = guideOverride || (inspectionType === "Post Event" ? "post" : inspectionType === "Event Day" ? "simple" : "full");
-  guideModeRef.current = guideMode;
-  // v530: in the middle of a report the full checklist STAYS the full checklist when the type changes (Joxel: "it does not stay in the full like I had it");
-  // a fresh form, or one on the walk, still lets the type pick the form
+  // v532: one form for every type — the type decides the focus (order + ⭐ priority sections)
+  const guideFocus = guideFocusOf(inspectionType);
+  const { order: GUIDE_ORDER, labels: GUIDE_LABELS, prio: GUIDE_PRIO } = GUIDE_FOCUS[guideFocus];
+  // a new type keeps you on the section you are working in; a fresh form opens the type's first priority
+  const typeTouchedRef = useRef(false);
   const pickInspType = t => {
-    const keepFull = guideModeRef.current === "full" && (guideOverride === "full" || !!String(siteName || "").trim());
-    setInspectionType(t); setGuideOverride(keepFull ? "full" : null);
+    typeTouchedRef.current = true;
+    const curPid = GUIDE_ORDER[guideStep];
+    setInspectionType(t);
     if (t !== "Event Day") setEventName("");
-    if (!keepFull) { try { window.scrollTo({ top: 0 }); } catch {} }
+    const started = onSiteConfirmed || !!String(siteName || "").trim() || guideStep > 0;
+    if (started) { const i = GUIDE_FOCUS[guideFocusOf(t)].order.indexOf(curPid); setGuideStep(i >= 0 ? i : 0); } else setGuideStep(0);
   };
   try { window.__sdxPickType = pickInspType; } catch {}
-  const GUIDE_ORDER = guideEventDay ? [0, 4, 2, 1, 5, 3] : [0, 1, 5, 2, 3, 4];
-  // v523: one walk ↔ one guide — switching keeps the answers AND lands on the same part of the inspection
-  const AREA_PID = { supplies: 0, temps: 0, sinks: 1, floors: 1, repairs: 5, coolers: 2, equipment: 2, utensils: 3, food: 4 };
-  const PID_AREA = { 0: "temps", 1: "floors", 5: "repairs", 2: "equipment", 3: "utensils", 4: "food" };
-  const walkToFull = areaId => { setGuideMode("full"); const i = GUIDE_ORDER.indexOf(AREA_PID[areaId]); if (i >= 0) setGuideStep(i); };
-  const fullToWalk = () => { walkStartAreaRef.current = PID_AREA[GUIDE_ORDER[guideStep]] || null; setGuideMode(inspectionType === "Post Event" ? "post" : "simple"); };
-  const GUIDE_LABELS = guideEventDay ? ["Temps ⭐", "Food safety ⭐", "Equipment", "Facilities", "Maintenance", "Utensils"] : ["Temps & Supplies", "Facilities", "Maintenance", "Equipment", "Utensils", "Operations"];
   const [inspectorName, setInspectorName] = useState("");
   const [participantName, setParticipantName] = useState("");
 
@@ -33242,6 +32618,14 @@ export default function App() {
   });
   // Ref mirror so saveToHistory always reads the latest ID even inside stale closures
   const savedReportIdRef = useRef(savedReportId);
+  // v532: on a date marked as an event day a NEW, untouched form starts as Event Day (temps + uniforms + operations first);
+  // a type someone picked, a restored draft or an edited report is never switched (v526)
+  useEffect(() => {
+    if (!eventDayName || typeTouchedRef.current || isEditModeRef.current) return;
+    if (inspectionType !== "Regular Inspection" || String(siteName || "").trim() || onSiteConfirmed) return;
+    setInspectionType("Event Day");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [eventDayName, savedReportId]);
   // Live HACCP submissions for the current report — lifted here so onDownloadHtml can include them
   const [liveHaccpSubs, setLiveHaccpSubs] = useState([]);
   useEffect(() => {
@@ -33419,52 +32803,14 @@ export default function App() {
     } catch {}
     setQrStand({ site: g("site"), unit: g("unit"), floor: floorForStand(g("unit"), g("site"), g("floor")), loctype: g("loctype") });
   }
-  // ── v520: simple walk helpers ──
-  function confirmOnSite() {
+  // v532: a stand picked from the official list = the same as scanning its poster, and it is the "I'm on site" step
+  function pickStand(k) {
+    applyStandFromQr({ site: k.site || "", unit: k.unit || "", floor: k.floor || "", loctype: k.locType || "" });
+    if ((k.license || "").trim()) setRestaurantLicense(prev => prev || k.license.trim());
     if (!inspectionStartedAt.current) inspectionStartedAt.current = Date.now();
     if (!reportStartedAt.current && inspectorName.trim().length > 0) reportStartedAt.current = Date.now();
     setOnSiteConfirmed(true);
   }
-  // Picking a stand from the official list (or scanning it) IS the "I'm on site" step
-  function pickStand(k) {
-    walkBaseArmRef.current = true;
-    applyStandFromQr({ site: k.site || "", unit: k.unit || "", floor: k.floor || "", loctype: k.locType || "" });
-    if ((k.license || "").trim()) setRestaurantLicense(prev => prev || k.license.trim());
-    confirmOnSite();
-    try { window.scrollTo({ top: 0, behavior: "smooth" }); } catch {}
-  }
-  // v520: has the walk changed since the stand was picked? (the carried-over equipment / "Not here" flags are not work)
-  const walkSig = () => { try { return JSON.stringify({ inspection, foodTemps, foodTempCorrections, rawNotes, correctives, suppliesNeeded, n: notesPhotos.length, supervisorName }); } catch { return String(Date.now()); } };
-  function changeStand() {
-    const touched = !walkBaseRef.current || walkSig() !== walkBaseRef.current;
-    if (touched) { if (!window.confirm("Start a NEW report for another stand? This one stays saved on this phone as an unsaved report.")) return; startNewInspection(); setWalkDetailsOpen(false); return; }
-    // nothing done yet — a full reset (food temps, notes, timers too) and no junk "unsaved report" left behind
-    const oldId = savedReportIdRef.current || savedReportId;
-    if (cloudTimerRef.current) { clearTimeout(cloudTimerRef.current); cloudTimerRef.current = null; } // no cloud copy of an empty walk
-    dirtyRef.current = false; // nothing to keep — startNewInspection must not flush it
-    startNewInspection();
-    try { removeDraftFor(oldId); clearDraftCloud(draftCloudKey(badgeKey(), oldId)); setDraftList(listDrafts()); } catch {}
-    setWalkDetailsOpen(false);
-  }
-  useEffect(() => { if (walkBaseArmRef.current && siteName.trim()) { walkBaseArmRef.current = false; walkBaseRef.current = walkSig(); } }); // eslint-disable-line react-hooks/exhaustive-deps
-  // Food temperatures: one reading = the same position in the five arrays (value, name, time, submitted, correction)
-  const foodHelpers = {
-    add(key) {
-      const vals = foodTemps[key] || [""]; const times = foodTempTimes[key] || [];
-      // reuse an untouched slot (no number, no time) so the arrays stay short and aligned
-      let idx = vals.findIndex((v, i) => !String(v ?? "").trim() && !String(times[i] || "").trim());
-      if (idx === -1) idx = vals.length;
-      const put = (setter, val, filler) => setter(prev => { const arr = [...(prev[key] || [])]; while (arr.length <= idx) arr.push(filler); arr[idx] = val; return { ...prev, [key]: arr }; });
-      put(setFoodTempTimes, walkNow(), ""); put(setFoodTemps, "", ""); put(setFoodTempNames, "", ""); put(setFoodTempCorrections, "", ""); put(setFoodTempSubmitted, false, false);
-      return idx;
-    },
-    set(key, idx, patch) {
-      const put = (setter, val, filler = "") => setter(prev => { const arr = [...(prev[key] || [])]; while (arr.length <= idx) arr.push(filler); arr[idx] = val; return { ...prev, [key]: arr }; });
-      if (patch.value !== undefined) { put(setFoodTemps, patch.value); put(setFoodTempSubmitted, !!String(patch.value).trim(), false); if (!String(foodTempTimes[key]?.[idx] || "").trim()) put(setFoodTempTimes, walkNow()); }
-      if (patch.name !== undefined) put(setFoodTempNames, patch.name);
-      if (patch.correction !== undefined) put(setFoodTempCorrections, patch.correction);
-    },
-  };
   function handleStandScan(raw) {
     setScanStandOpen(false);
     const st = parseStandQr(raw);
@@ -33473,7 +32819,6 @@ export default function App() {
     applyStandFromQr(st);
     setScanFlash(`✅ Stand loaded — ${st.site || ""}${st.unit ? ` #${st.unit}` : ""}. Details pre-filled, start the checklist.`);
     setTimeout(() => setScanFlash(""), 5000);
-    if (guideModeRef.current !== "full") { confirmOnSite(); return; } // v520: the scan is the on-site step; the walk opens itself
     setTimeout(() => { try { document.getElementById("field-siteNumber")?.scrollIntoView({ behavior: "smooth", block: "center" }); } catch {} }, 150);
   }
 
@@ -33525,7 +32870,7 @@ export default function App() {
     if (p.has("unit"))      setSiteNumber(p.get("unit"));
     if (p.has("supervisor")) setSupervisorName(p.get("supervisor"));
     if (p.has("phone"))     setSitePhone(p.get("phone"));
-    if (p.has("type"))      setInspectionType(p.get("type"));
+    if (p.has("type"))      { setInspectionType(p.get("type")); typeTouchedRef.current = true; }
     if (p.has("date"))      setInspectionDate(p.get("date"));
     if (QR_OPEN_AS_INSPECTOR) applyStandFromQr(QR_STAND);
     // Clean URL without reloading — skip if this is the HACCP portal (params needed for HaccpPortal)
@@ -33577,7 +32922,7 @@ export default function App() {
       siteName, siteNumber, restaurantLicense,
       supervisorName, sitePhone, locationType, floor, eventName,
       foodTemps, foodTempNames, foodTempCorrections, foodTempSubmitted, foodTempTimes,
-      suppliesNeeded, notesPhotos, correctives, output, onSiteConfirmed, guideStep, guideOverride,
+      suppliesNeeded, notesPhotos, correctives, output, onSiteConfirmed, guideStep,
       reportStartedAt: reportStartedAt.current, inspectionStartedAt: inspectionStartedAt.current,
       isEditMode: isEditModeRef.current,
       savedReportId,
@@ -33777,7 +33122,6 @@ export default function App() {
       const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
       const dismissed = localStorage.getItem(EOD_DISMISS_KEY);
       if (dismissed === today) return; // already dismissed today
-      if (guideModeRef.current !== "full") return;
       // Only show if there's actual inspection work (has site name or raw notes)
       if (!eodSiteRef.current.trim() && !eodNotesRef.current.trim()) return;
       setShowEodPrompt(true);
@@ -33999,7 +33343,6 @@ export default function App() {
   }
 
   function startNewInspection() {
-    try { if (localStorage.getItem("sdx_force_local") !== "1") setGuideOverride(null); } catch {} // v521: a new report follows its type again
     try { flushDraftRef.current && flushDraftRef.current(); } catch {} // v495: keep the current walk
     reportStartedAt.current = null; // reset — timer restarts when name is typed/confirmed
     inspectionStartedAt.current = null; // reset on-site timer
@@ -34027,7 +33370,7 @@ export default function App() {
     savedReportIdRef.current = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     setSavedReportId(savedReportIdRef.current);
     try { localStorage.setItem(REPORT_ID_KEY, savedReportIdRef.current); } catch {}
-    setInspectionType("Regular Inspection");
+    setInspectionType("Regular Inspection"); typeTouchedRef.current = false; // v532: a marked event day starts as Event Day (effect below)
     setInspectionDate(() => { const _d = new Date(); return `${_d.getFullYear()}-${String(_d.getMonth()+1).padStart(2,"0")}-${String(_d.getDate()).padStart(2,"0")}`; });
     if (currentUser?.role === "guest" && currentUser?.sponsoredByName) {
       setInspectorName(currentUser.sponsoredByName);
@@ -34073,7 +33416,7 @@ export default function App() {
     const nt = NOTE_TYPES[snapshot.noteType] ? snapshot.noteType : "inspection";
     if (snapshot.noteType !== undefined) setNoteType(nt);
     if (snapshot.useCase !== undefined) setUseCase(snapshot.useCase);
-    if (snapshot.inspectionType !== undefined) setInspectionType(snapshot.inspectionType || "Regular Inspection");
+    if (snapshot.inspectionType !== undefined) { setInspectionType(snapshot.inspectionType || "Regular Inspection"); typeTouchedRef.current = true; }
     if (snapshot.inspectionDate !== undefined) setInspectionDate(snapshot.inspectionDate || "");
     if (snapshot.inspectorName !== undefined) setInspectorName(snapshot.inspectorName || "");
     if (snapshot.participantName !== undefined) setParticipantName(snapshot.participantName || "");
@@ -34118,11 +33461,9 @@ export default function App() {
     if (snapshot.correctives && typeof snapshot.correctives === "object") setCorrectives({ ...snapshot.correctives });
     if (typeof snapshot.onSiteConfirmed === "boolean") setOnSiteConfirmed(snapshot.onSiteConfirmed);
     if (typeof snapshot.guideStep === "number") setGuideStep(snapshot.guideStep);
-    if (["full", "simple", "post"].includes(snapshot.guideOverride)) setGuideOverride(snapshot.guideOverride); // v526: back on the walk or the guide they were using
   }
 
   function loadRecordForEdit(rec) {
-    try { if (localStorage.getItem("sdx_force_local") !== "1") setGuideOverride(null); } catch {}
     // Permission check: only the original author, admins, or global_admin may edit.
     const isAdmin = currentUser?.role === "admin" || currentUser?.role === "global_admin";
     const isAuthor = rec.savedByHash && currentUser?.badgeHash && rec.savedByHash === currentUser.badgeHash;
@@ -34189,7 +33530,7 @@ export default function App() {
     setContext({ ...s.context });
     setInspection(s.inspection ? mergeChecklistIntoInspection({ ...s.inspection }) : buildDefaultInspection());
     setRawNotes(s.rawNotes || "");
-    setInspectionType(s.meta?.inspectionType || "Regular Inspection");
+    setInspectionType(s.meta?.inspectionType || "Regular Inspection"); typeTouchedRef.current = true;
     setInspectionDate(s.meta?.inspectionDate || s.context?.date || "");
     setInspectorName(s.meta?.inspectorName || "");
     setSiteName("");
@@ -34377,8 +33718,9 @@ export default function App() {
       savedByHash: currentUser?.badgeHash || "",
       noteType, inspectionType, inspectionDate, inspectorName, participantName,
       siteName, siteNumber, supervisorName, sitePhone, locationType, floor, eventName,
-      guideMode, // v520: "simple" walk or "full" checklist
-      ...(guideEventDay ? { eventDay: true, eventDayName: guideEventName || eventName || "", ...gameDayProgress(inspection, foodTemps) } : {}),
+      guideMode: "full", // v532: the full guide is the only form (v520–v531 reports may say "simple" / "post")
+      // v532: the game-day stamp and priority score follow the FOCUS the inspector saw (type Event Day)
+      ...(guideFocus === "event" ? { eventDay: true, eventDayName: guideEventName || eventName || "", ...gameDayProgress(inspection, foodTemps) } : guideEventName ? { eventDayName: guideEventName } : {}),
       // v478: bars / pantries need no license; a non-license string never reaches the record
       restaurantLicense: isLicenseExemptType(locationType) ? "" : (looksLikeLicense(restaurantLicense) ? restaurantLicense : ""),
       // Flag: license explicitly marked as not on file
@@ -34499,7 +33841,6 @@ export default function App() {
     armPristine();
     reportInProgressRef.current = false; // prevent auto-save from re-saving completed inspection
     setSaved(true);
-    setWalkSavedId(id);
     setSaveToastMsg(queued ? "📥 Saved on this phone — it uploads when the connection is back" : "✅ Report saved!");
     setSaveToast(true);
   }
@@ -34596,10 +33937,6 @@ export default function App() {
           </button>
           {/* HACCP QR button moved to sticky action bar after save */}
           <button className={cx("btn", "btnPrimary", "btnGenHeader")} onClick={e => {
-              if (guideModeRef.current !== "full" && page === "inspector") { // v520: the walk has its own review — no blank or unchecked save from here
-                if (!siteName.trim()) { setScanFlash("👆 Pick the stand first — walk it, then tap Save at the end."); setTimeout(() => setScanFlash(""), 4000); return; }
-                try { window.dispatchEvent(new CustomEvent("sdx-walk-review")); } catch {} return;
-              }
               onTransform(e);
             }} type="button" disabled={loading}>
             <svg className="genBtnSvg" width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true">
@@ -34846,7 +34183,7 @@ export default function App() {
       {/* ── Full-page inspection lock overlay ───────────────────────────────────
            Blocks everything until the inspector clicks "Start Inspection Timer".
            z-index 99 keeps it below the topBar (z-index 100) but above all content.   */}
-      {!onSiteConfirmed && guideMode === "full" && (
+      {!onSiteConfirmed && (
         <div
           style={{
             position: "fixed",
@@ -34859,8 +34196,9 @@ export default function App() {
             flexDirection: "column",
             alignItems: "center",
             justifyContent: "center",
-            gap: 20,
-            padding: "2rem",
+            gap: 12,
+            padding: "4.5rem 1rem 1rem", // v532: room for the header; scrolls on short phones (type picker + stand finder)
+            overflowY: "auto",
           }}
           onClick={() => {
             inspectionStartedAt.current = Date.now();
@@ -34873,7 +34211,7 @@ export default function App() {
           <div style={{
             background: "var(--surface-1)",
             borderRadius: 20,
-            padding: "2.5rem 2rem",
+            padding: "1.4rem 1.25rem",
             maxWidth: 420,
             width: "100%",
             textAlign: "center",
@@ -34881,10 +34219,10 @@ export default function App() {
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
-            gap: 16,
+            gap: 10,
             cursor: "pointer",
           }}>
-            <div style={{ fontSize: "3.5rem", lineHeight: 1 }}>🔒</div>
+            <div style={{ fontSize: "2.4rem", lineHeight: 1 }}>🔒</div>
             <div style={{ fontWeight: 800, fontSize: "1.15rem", color: "var(--ink-900)", lineHeight: 1.3 }}>
               Inspection Locked
             </div>
@@ -34909,15 +34247,12 @@ export default function App() {
               🕐 Tap here — I&apos;m on site, Start Timer
             </div>
             <div style={{ fontSize: "0.75rem", color: "var(--ink-400)", marginTop: -4 }}>
-              Or scroll down and click &ldquo;Start Inspection Timer&rdquo;
+              {siteName.trim() ? <>Or scroll down and click &ldquo;Start Inspection Timer&rdquo;</> : "Or pick your stand below — that starts the timer too"}
             </div>
           </div>
-          {/* v520: the lock must never trap someone who only wanted to look — the way back to the simple walk */}
+          {/* v532: pick the type right here — it sets the focus of the guide — and the stand from the official list */}
           <div onClick={e => e.stopPropagation()} style={{ width: "100%", maxWidth: 420 }}><InspTypePick value={inspectionType} onPick={pickInspType} compact /></div>
-          <div className="lockModeRow" onClick={e => e.stopPropagation()}>
-            <button type="button" className="walkModeSwitch walkModeSwitchLock" data-testid="lock-mode-simple" onClick={e => { e.stopPropagation(); fullToWalk(); }}>⇄ Simple walk</button>
-            <button type="button" className="walkModeSwitch walkModeSwitchLock lockFullBtn" data-testid="lock-mode-full" onClick={e => { e.stopPropagation(); setGuideMode("full"); confirmOnSite(); }}>📋 Full walk — I'm on site</button>
-          </div>
+          {!siteName.trim() && <div className="lockFinder" onClick={e => e.stopPropagation()} style={{ width: "100%", maxWidth: 420 }}><StandFinder onPick={pickStand} compact collapsed /></div>}
         </div>
       )}
 
@@ -34986,7 +34321,6 @@ export default function App() {
       {/* ── Inspector assignment banner — shows scheduled inspections assigned to this user ── */}
       {(() => {
         if (!currentUser?.name) return null;
-        if (guideMode !== "full" && siteName.trim()) return null; // v520: only on the walk's start screen
         const myName = currentUser.name.trim().toLowerCase();
         const today = new Date().toISOString().slice(0, 10);
         const completedSlots = venueSettings?.completedSlots || [];
@@ -35054,7 +34388,7 @@ export default function App() {
       })()}
 
       {/* ── Assigned Stands banner — shows stands/locations assigned to this inspector ── */}
-      {currentUser?.role === "inspector" && (currentUser?.assignedStands?.length > 0) && !(guideMode !== "full" && siteName.trim()) && (
+      {currentUser?.role === "inspector" && (currentUser?.assignedStands?.length > 0) && (
         <div style={{
           background: "var(--surface-1)",
           borderBottom: "1px solid var(--sdx-gray-200)",
@@ -35110,7 +34444,6 @@ export default function App() {
       {(() => {
         const interval = Number(venueSettings.inspectionInterval) || 0;
         if (!interval || !lastInspectionDate) return null;
-        if (guideMode !== "full" && siteName.trim()) return null;
         const daysSince = Math.floor((Date.now() - new Date(lastInspectionDate).getTime()) / 86400000);
         if (daysSince < interval) return null;
         const overdueDays = daysSince - interval;
@@ -35140,7 +34473,7 @@ export default function App() {
       })()}
 
       {/* ── Opened from a stand QR as the inspector ───────────── */}
-      {currentUser && qrStand && guideMode === "full" && (
+      {currentUser && qrStand && (
         <div className="qrStandBanner">
           <span style={{ fontSize: "1.15rem" }}>📍</span>
           <span style={{ flex: 1, fontWeight: 700, fontSize: "0.9rem" }}>
@@ -35160,7 +34493,7 @@ export default function App() {
       )}
 
       {/* ── Follow-ups overdue banner ─────────────────────────── */}
-      {currentUser && fuOverdueCount > 0 && !(guideMode !== "full" && siteName.trim()) && (
+      {currentUser && fuOverdueCount > 0 && (
         <div className="fuOverdueBanner" style={{ background: "#ede9fe", borderBottom: "3px solid #6366f1", padding: "0.7rem 1.25rem", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
           <span style={{ fontSize: "1.2rem" }}>🔁</span>
           <span style={{ flex: 1, fontWeight: 700, fontSize: "0.92rem", color: "#4338ca" }}>
@@ -35174,7 +34507,7 @@ export default function App() {
       )}
 
       {/* ── Food Safety Quick Reference ─────────────────────── */}
-      {guideMode === "full" && (
+      {(
       <div className="foodSafetyRefWrap">
         <FoodSafetyRef />
         <button type="button" className="scanStandBtn scanStandBtnWide" onClick={() => setScanStandOpen(true)}>
@@ -35183,21 +34516,8 @@ export default function App() {
       </div>
       )}
 
-      {guideMode !== "full" && siteName.trim() && (
-        <div className="fullTopBack" data-testid="walk-top-full">
-          <span>{guideMode === "post" ? "🧹 Post-event walk" : "⚡ Quick walk"}</span>
-          <button type="button" onClick={() => { walkToFull(null); try { window.scrollTo({ top: 0, behavior: "smooth" }); } catch {} }}>📋 Go to the full checklist</button>
-        </div>
-      )}
-      {guideMode === "full" && (
-        <div className="fullTopBack" data-testid="full-top-back">
-          <span>📋 Full checklist</span>
-          <button type="button" onClick={() => { fullToWalk(); try { window.scrollTo({ top: 0, behavior: "smooth" }); } catch {} }}>⇄ Back to the quick walk</button>
-        </div>
-      )}
       {/* ── Form Progress Indicator (5-step bar) ─────────────── */}
       {(() => {
-        if (guideMode !== "full") return null; // v520: the walk has its own progress
         const hasDetails  = !!(inspectorName.trim() && inspectionDate);
         const hasLocation = !!(siteName.trim() && locationType);
         const hasEquip    = Object.keys(inspection.equipment || {}).some(k => {
@@ -35257,7 +34577,7 @@ export default function App() {
 
           <div className="cardBody">
             {/* ── On-Site Timer Button — top of form ── */}
-            <div style={{ marginBottom: "1rem", ...(guideMode !== "full" ? { display: "none" } : {}) }}>
+            <div style={{ marginBottom: "1rem" }}>
               {!onSiteConfirmed ? (
                 <button
                   type="button"
@@ -35298,7 +34618,8 @@ export default function App() {
                 </div>
               )}
             </div>
-            <div className="fieldGrid" style={guideMode !== "full" && !(walkDetailsOpen && siteName.trim()) ? { display: "none" } : undefined}>
+            {!siteName.trim() && <div style={{ marginBottom: "1rem" }}><StandFinder onPick={pickStand} /></div>}
+            <div className="fieldGrid">
               <label className="field fieldTypeWide">
                 <span className="fieldLabel">Type</span>
                 <select className="select" value={inspectionType} onChange={(e) => pickInspType(e.target.value)}>
@@ -35477,26 +34798,13 @@ export default function App() {
               )}
             </div>
 
-            {guideMode !== "full" ? (
-              <SimpleWalk inspection={inspection} setInspection={setInspection} locationType={locationType} siteName={siteName} siteNumber={siteNumber} floor={floor}
-                mode={guideMode} inspectionType={inspectionType} onPickType={pickInspType}
-                eventDay={guideEventDay} eventName={guideEventName || eventName} inspectionId={savedReportId} onError={msg => { setError(msg); setTimeout(() => setError(""), 8000); }}
-                onPickStand={pickStand} onScan={() => setScanStandOpen(true)} onChangeStand={changeStand} onToggleDetails={() => setWalkDetailsOpen(v => !v)} detailsOpen={walkDetailsOpen}
-                supervisorName={supervisorName} setSupervisorName={setSupervisorName} rawNotes={rawNotes} setRawNotes={setRawNotes}
-                onSiteConfirmed={onSiteConfirmed} onConfirmOnSite={confirmOnSite} supervisorLogUrl={QR_OPEN_AS_INSPECTOR && qrStand ? qrStandUrl("supervisor") : ""} nluIssues={nluIssues} onNlu={(sentence, reject) => { reject ? nluReject(sentence) : nluUnreject(sentence); setNluTick(t => t + 1); }}
-                onSave={async () => { if (walkSavingRef.current) return; walkSavingRef.current = true; setWalkSaving(true); try { await onTransform(true); } finally { walkSavingRef.current = false; setWalkSaving(false); } }} saving={loading || walkSaving} saveError={error} saved={!!walkSavedId && walkSavedId === savedReportId} onNew={() => { startNewInspection(); setWalkDetailsOpen(false); }}
-                onViewReport={() => { try { document.getElementById("report-output")?.scrollIntoView({ behavior: "smooth", block: "start" }); } catch {} }}
-                onHaccpQr={() => setShowHaccpModal(true)} onFull={a => walkToFull(a)} startArea={walkStartAreaRef.current}
-                standOpenProblems={standOpenProblems} correctives={correctives} setCorrectives={setCorrectives} suppliesNeeded={suppliesNeeded}
-                foodTemps={foodTemps} foodTempNames={foodTempNames} foodTempCorrections={foodTempCorrections} foodTempSubmitted={foodTempSubmitted} foodTempTimes={foodTempTimes} food={foodHelpers} />
-            ) : (
+            {(
             <div className="guide">
               <InspTypePick value={inspectionType} onPick={pickInspType} compact />
               <InspTypeBanner type={inspectionType} eventName={guideEventName || eventName} />
-              <button type="button" className="walkModeSwitch walkModeSwitchTop" data-testid="guide-mode-simple" onClick={() => fullToWalk()}>⇄ Back to the quick walk (same answers)</button>
               {/* ── Stepper header ─────────────────────────────────────── */}
               {(() => {
-                const isEventDay = guideEventDay;
+                const focus = guideFocus; // v532: regular / event / post
                 const STEP_LABELS = GUIDE_LABELS;
                 const STEP_ORDER = GUIDE_ORDER;
                 const activePanel = STEP_ORDER[guideStep];
@@ -35528,7 +34836,7 @@ export default function App() {
                 const allRemaining = Object.values(panelCounts).reduce((a, c) => a + c.remaining, 0);
                 const allIssues = Object.values(panelCounts).reduce((a, c) => a + c.issues, 0);
                 const pct = allTotal > 0 ? ((allTotal - allRemaining) / allTotal) * 100 : ((guideStep + 1) / totalSteps) * 100;
-                const SHORT_LABELS = STEP_LABELS.map(l => l.replace("Temps & Supplies", "Temps").replace(" ⭐", ""));
+                const SHORT_LABELS = STEP_LABELS.map(l => l.replace("Temps & Supplies", "Temps").replace(" ⭐", "").replace("Uniforms & operations", "Uniforms & ops"));
                 // v496: every section has its own colour and icon so it is easy to find,
                 // and the badge reads as progress ("12/81"), never as 81 problems.
                 const STEP_META = { 0: { icon: "🌡", c: "#2563eb", bg: "#dbeafe" }, 1: { icon: "🏢", c: "#0d9488", bg: "#ccfbf1" }, 5: { icon: "🔧", c: "#ea580c", bg: "#ffedd5" }, 2: { icon: "❄", c: "#4f46e5", bg: "#e0e7ff" }, 3: { icon: "🍴", c: "#9333ea", bg: "#f3e8ff" }, 4: { icon: "📋", c: "#16a34a", bg: "#dcfce7" } };
@@ -35557,8 +34865,8 @@ export default function App() {
                       {STEP_LABELS.map((label, i) => {
                         const pid = STEP_ORDER[i];
                         const c = panelCounts[pid];
-                        const meta = isEventDay && pid === 4 ? { ...(STEP_META[4] || STEP_META[0]), icon: "🧤" } : (STEP_META[pid] || STEP_META[0]);
-                        const prio = isEventDay && i < 2; // v518: the day's priorities
+                        const meta = focus === "event" && pid === 4 ? { ...STEP_META[4], icon: "👕" } : focus === "post" && pid === 1 ? { ...STEP_META[1], icon: "🧽" } : (STEP_META[pid] || STEP_META[0]);
+                        const prio = i < GUIDE_PRIO; // v532: the type's priorities (event: temps + uniforms/ops · post: cleaning + facilities)
                         const done = c && c.total > 0 && c.remaining === 0;
                         const started = c ? c.remaining < c.total : tempsDone > 0;
                         const maintBad = pid === 5 ? Object.values(inspection.maintenance || {}).filter(m => m && m.status && m.status !== "OK" && m.status !== "N/A").length : 0;
@@ -35581,7 +34889,7 @@ export default function App() {
                             <span className="guideChipLabel">{SHORT_LABELS[i]}</span>
                             {prio && <span className="guideChipPrio" data-testid="guide-chip-prio">PRIORITY</span>}
                             {issues > 0 && <span className="guideChipBadge guideChipBadgeWarn" title={`${issues} issue${issues !== 1 ? "s" : ""} flagged`}>⚠ {issues}</span>}
-                            {c && c.total > 0 && isEventDay && !prio && state === "todo" ? <span className="guideChipLater">if time allows</span> : c && c.total > 0 && (
+                            {GUIDE_PRIO > 0 && !prio && state === "todo" && !issues ? <span className="guideChipLater">if time allows</span> : c && c.total > 0 && (
                               <span className={`guideChipBadge${done ? " guideChipBadgeDone" : ""}`}>{done ? "✓ done" : `${c.total - c.remaining}/${c.total}`}</span>
                             )}
                             {!c && tempsDone > 0 && <span className="guideChipBadge guideChipBadgeDone">✓ {tempsDone}</span>}
@@ -35681,7 +34989,7 @@ export default function App() {
               {/* ── v500: the Ecolab inventory comes FIRST, for every stand type — Joxel: "i want this
                   with the supplies at the beginning and it does the work to count supplies".
                   A NO on a product row drops it straight into Supplies Needed (v489). ── */}
-              {guideEventDay && <div style={{ order: -1, marginBottom: 12 }}><GameDayCard inspection={inspection} setInspection={setInspection} foodTemps={foodTemps} siteName={siteName} siteNumber={siteNumber} eventName={guideEventName || eventName} /></div>}
+              {guideFocus === "event" && <div style={{ order: -1, marginBottom: 12 }}><GameDayCard inspection={inspection} setInspection={setInspection} foodTemps={foodTemps} siteName={siteName} siteNumber={siteNumber} eventName={guideEventName || eventName} /></div>}
               <div style={{ order: 0, marginBottom: 12 }} data-testid="ecolab-first">
                 <GuideSection title="🧪 Ecolab Products & Supplies — count what is on hand"
                   items={ECOLAB_ITEMS} inspection={inspection} setInspection={setInspection}
@@ -35694,7 +35002,7 @@ export default function App() {
               {/* ── Supplies Needed ─────────────────────────────────────── */}
               {/* Event Day: show supplies AFTER temps (order 2); all other types: order 1 */}
               {(() => {
-                const _suppliesOrder = guideEventDay ? 2 : 1;
+                const _suppliesOrder = guideFocus === "event" ? 2 : 1;
                 const urgentCount = suppliesNeeded.filter(s => s.urgent && s.item.trim()).length;
                 const insightColors = {
                   warn: { bg: "var(--tint-amber-1)", border: "#fdba74", text: "#c2410c", icon: "⚠️" },
@@ -35795,7 +35103,7 @@ export default function App() {
               })()}
 
               {/* Event Day: show temps BEFORE supplies (order 1); all other types: order 2 */}
-              <div className="equipCheckWrapper" style={{ order: guideEventDay ? 1 : 2 }}>
+              <div className="equipCheckWrapper" style={{ order: guideFocus === "event" ? 1 : 2 }}>
                 <div className="equipCheckBanner">
                   🌡️ Temperatures &amp; Equipment Check
                   <span className="equipCheckBannerSub">Record all temperatures and check the status of every piece of equipment</span>
@@ -35968,6 +35276,16 @@ export default function App() {
                   {/* ══ Step 1: Facilities ════════════════════════════════ */}
                   <div className="guideStepPanel" data-guide-panel="1" style={{ display: GUIDE_ORDER[guideStep]===1?"block":"none" }}>
 
+                {guideFocus === "post" && (
+                  <div className="postFocusNote" data-testid="post-focus-note">
+                    <span aria-hidden="true">🧽</span>
+                    <div>
+                      <div className="postFocusTitle">Post-event — cleaning &amp; facilities first</div>
+                      <div className="postFocusText">Floors, walls, ceiling, sinks and mop area here · then equipment cleaning (hood, grill, fryer, coolers) · then utensils. Temps, maintenance and operations if time allows.</div>
+                    </div>
+                  </div>
+                )}
+
                 <GuideSection title="🏢 Facilities"
                   items={FACILITY_ITEMS} inspection={inspection} setInspection={setInspection}
                   allowCustom sectionKey="facility"
@@ -36045,7 +35363,7 @@ export default function App() {
                   {/* ══ Step 4: Operations ════════════════════════════════ */}
                   <div className="guideStepPanel" data-guide-panel="4" style={{ display: GUIDE_ORDER[guideStep]===4?"block":"none" }}>
 
-                {guideEventDay && (
+                {guideFocus === "event" && (
                   <div style={{ background: "var(--tint-amber-1)", border: "1.5px solid #fb923c", borderRadius: 10, padding: "10px 14px", marginBottom: 12, display: "flex", gap: 10, alignItems: "flex-start" }}>
                     <span style={{ fontSize: "1.2rem", flexShrink: 0 }}>🎟️</span>
                     <div>
@@ -36070,7 +35388,7 @@ export default function App() {
 
               {/* ── Stepper navigation buttons ──────────────────────────── */}
               {(() => {
-                const NAV_LABELS = GUIDE_LABELS;
+                const NAV_LABELS = GUIDE_LABELS.map(l => l.replace(" ⭐", "").replace("Uniforms & operations", "Uniforms & ops").replace("Equipment cleaning", "Equipment").replace("Temps & Supplies", "Temps")); // v532: fit a 390 px phone
                 const last = NAV_LABELS.length - 1;
                 return (
                   <div className="guideStepNav">
@@ -36323,9 +35641,9 @@ export default function App() {
             </div>
 
             </div>
-            )}{/* end .guide (simple walk ⇄ full checklist) */}
+            )}{/* end .guide */}
 
-            {guideMode === "full" && (<>
+            {(<>
             {/* Ice makers — multi-unit tracking: last cleaned, filter last changed */}
             {(() => {
               // iceMakers is an array of { id, label, cleanedDate, filterDates: ["MM/DD/YYYY", ...] }
@@ -36593,7 +35911,7 @@ export default function App() {
 
             </>)}
 
-            {warnings.length > 0 && guideMode === "full" && (
+            {warnings.length > 0 && (
               <div className="warningBox">
                 <strong>Missing information:</strong>
                 <ul>{warnings.map((w, i) => (
@@ -36615,7 +35933,7 @@ export default function App() {
         </section>
 
         {/* RIGHT */}
-        <section className="card" id="report-output" style={guideMode !== "full" && !output ? { display: "none" } : undefined}>
+        <section className="card" id="report-output">
           <div className="outputCardHeader">
             <div className="outputCardTitleRow">
               <div>
@@ -36693,7 +36011,7 @@ export default function App() {
 
 
       {/* Sticky action bar — appears when report is generated */}
-      {output && guideMode === "full" && (
+      {output && (
         <div className="stickyActionBar">
           <button className="btn stickyBtn stickyBtnView" type="button" onClick={() => {
             const el = document.getElementById("report-output");

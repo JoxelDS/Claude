@@ -9431,8 +9431,6 @@ html[data-theme="black"] .inspTypeCard.on { border-color: #9DB8F5; box-shadow: 0
 .walkType-post .walkDot.active { box-shadow: 0 0 0 3px #0d9488; }
 .inspTypeCard.on:nth-child(1) { border-color: #ea580c; background: #fff7ed; box-shadow: 0 0 0 2px #ea580c inset; }
 .inspTypeCard.on:nth-child(3) { border-color: #0d9488; background: #f0fdfa; box-shadow: 0 0 0 2px #0d9488 inset; }
-.lockModeRow { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
-.lockFullBtn { background: var(--sdx-navy) !important; color: #fff !important; border-color: var(--sdx-navy) !important; }
 /* v526 review + design pass */
 .walkAreaFull { min-height: 44px !important; padding: 10px 0 !important; }
 .walkEventShort { display: none; }
@@ -9456,6 +9454,20 @@ html[data-theme="black"] .fuOverdueBanner { background: #1e1b4b !important; bord
 .fuSimCard:hover { box-shadow: var(--shadow-md); }
 .inspTypePick.compact { margin-bottom: 6px; }
 
-/* v527: way back to the walk from the top of the full guide */
-.fullTopBack{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:0 0 12px;padding:10px 14px;border-radius:14px;background:var(--surface-1,#fff);box-shadow:0 1px 4px rgba(20,30,60,.08);font-weight:700;color:var(--ink-700,#334)}
-.fullTopBack button{min-height:44px;padding:0 18px;border-radius:12px;border:2px solid #2A3492;background:#2A3492;color:#fff;font-weight:800;font-size:.95rem;cursor:pointer}
+/* v532: post-event focus note at the top of Facilities (the full guide is the only form) */
+.postFocusNote{display:flex;gap:10px;align-items:flex-start;margin:0 0 12px;padding:10px 14px;border-radius:12px;background:#ecfdf5;border:1.5px solid #14b8a6;color:#065f46}
+.postFocusNote>span{font-size:1.2rem;flex-shrink:0}
+.postFocusTitle{font-weight:800;font-size:.9rem;margin-bottom:2px}
+.postFocusText{font-size:.82rem;color:#0f5132}
+html[data-theme="black"] .postFocusNote{background:rgba(20,184,166,.12);border-color:rgba(45,212,191,.55);color:#99f6e4}
+html[data-theme="black"] .postFocusText{color:#ccfbf1}
+/* v532: the stand finder (official list) in the full guide and on the on-site lock */
+.standFinder { display: flex; flex-direction: column; gap: 8px; }
+.standFinder.compact .walkStandRow { min-height: 48px; padding: 8px 12px; }
+.lockFinder { background: var(--surface-1); border-radius: 16px; padding: 10px; box-shadow: 0 12px 30px rgba(0,0,0,.3); max-height: 38vh; overflow-y: auto; }
+.tempMinusBtn { min-width: 44px; min-height: 44px; border-radius: 10px; border: 1.5px solid var(--sdx-gray-200); background: var(--surface-1); color: var(--ink-900); font-size: 1.3rem; font-weight: 800; cursor: pointer; flex-shrink: 0; }
+.gdRow .tempMinusBtn { min-height: 40px; }
+html[data-theme="black"] .inspTypeCard.on:nth-child(1) { background: rgba(234, 88, 12, .18); }
+html[data-theme="black"] .inspTypeCard.on:nth-child(3) { background: rgba(13, 148, 136, .18); }
+html[data-theme="black"] .inspTypeCard.on:nth-child(2) { background: rgba(37, 99, 235, .18); }
+.standFinderOpen { width: 100%; min-height: 48px; border-radius: 12px; border: 1.5px dashed var(--sdx-gray-300, #cbd5e1); background: var(--surface-1); color: var(--ink-900); font-weight: 800; font-size: .95rem; cursor: pointer; }
