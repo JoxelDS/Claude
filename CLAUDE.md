@@ -191,6 +191,8 @@ Read this first. It is the memory between sessions.
 
 - v536: equipment items that showed only OK / Issue / Fail (no YES/NO rows) get their checklist back. Joxel (iPad: Hood + 2-Door Cooler with status chips only): "sometimes it bugs and I do not have the options to check". Nodes carried / restored / added without `checklist` (or missing nodes) rendered status-only. `nodeWithRows(path, node)` + `ckTemplateFor` (before `GuideSection`) fill rows from `CHECKLIST_DEFAULTS[key]` (custom_ nodes via `detectChecklistKey(label)`) in the render and every row setter. Harness scratchpad `train/v536b.mjs` (v479 head: History → Edit a report whose hood and custom cooler have no rows → both show YES/NO, a NO tap saves); v532 passes.
 
+- v537: Post Event = INVENTORY first. Joxel: "In post event is super important to do inventory" (chose: the Ecolab & supplies count). `GUIDE_FOCUS.post` = order [0,1,2,3,5,4], prio 4, labels Inventory & supplies ⭐ (icon 🧪) → Facilities ⭐ → Equipment cleaning ⭐ → Utensils ⭐ → Maintenance → Operations; `post-inventory-note` above the Ecolab count (post only); type card / banner say inventory first. Harness scratchpad `train/v537.mjs` ALL PASS; v532's post chip-order checks are stale now.
+
 ## Open items
 - Compact `equipmentRegistry` (size risk). Audit workbook was delivered 2026-09-14 (29 orphan units, 28 duplicate copies, 41 units missing brand/location, 43 stands without equipment, 22 stands without license, verify walk 0/116).
 - Domain change: waiting for the domain name (needs CNAME, vite `base`, SW scope, Firebase authorized domains).

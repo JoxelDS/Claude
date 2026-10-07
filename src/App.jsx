@@ -27415,15 +27415,15 @@ const blankChecklistRows = rows => (rows || []).map(r => { const { value, commen
 const GUIDE_FOCUS = {
   regular: { order: [0, 1, 5, 2, 3, 4], labels: ["Temps & Supplies", "Facilities", "Maintenance", "Equipment", "Utensils", "Operations"], prio: 0 },
   event:   { order: [0, 4, 2, 1, 5, 3], labels: ["Temps ⭐", "Uniforms & operations ⭐", "Equipment", "Facilities", "Maintenance", "Utensils"], prio: 2 },
-  post:    { order: [1, 2, 3, 0, 5, 4], labels: ["Facilities ⭐", "Equipment cleaning ⭐", "Utensils ⭐", "Temps & Supplies", "Maintenance", "Operations"], prio: 3 },
+  post:    { order: [0, 1, 2, 3, 5, 4], labels: ["Inventory & supplies ⭐", "Facilities ⭐", "Equipment cleaning ⭐", "Utensils ⭐", "Maintenance", "Operations"], prio: 4 },
 };
 const guideFocusOf = type => type === "Post Event" ? "post" : type === "Event Day" ? "event" : "regular";
-const INSP_TYPE_CARDS = [["Event Day", "🏟", "Event day", "Temps, uniforms & operations first"], ["Regular Inspection", "📋", "Regular inspection", "Every section"], ["Post Event", "🧹", "Post-event", "Cleaning & facilities first"]];
+const INSP_TYPE_CARDS = [["Event Day", "🏟", "Event day", "Temps, uniforms & operations first"], ["Regular Inspection", "📋", "Regular inspection", "Every section"], ["Post Event", "🧹", "Post-event", "Inventory, cleaning & facilities first"]];
 // v525: each type looks like itself — a coloured banner that says what it is and what to focus on
 const INSP_TYPE_LOOK = {
   "Event Day": { cls: "event", icon: "🏟", name: "EVENT DAY", focus: ["🌡 Temps", "👕 Uniforms & hair restraints", "🧤 Gloves & hand washing", "📋 Operations"], line: "Game day — temps, uniforms & operations first" },
   "Regular Inspection": { cls: "regular", icon: "📋", name: "REGULAR INSPECTION", focus: ["🌡 Temps", "🏢 Facilities", "🔥 Equipment", "🔧 Maintenance", "🍴 Utensils", "📋 Operations"], line: "The full guide — every section" },
-  "Post Event": { cls: "post", icon: "🧹", name: "POST-EVENT CHECK", focus: ["🧽 Cleaning", "🏢 Facilities", "🔥 Equipment cleaning", "🍴 Utensils"], line: "After the game — cleaning & facilities first" },
+  "Post Event": { cls: "post", icon: "🧹", name: "POST-EVENT CHECK", focus: ["🧪 Inventory", "🧽 Cleaning", "🏢 Facilities", "🔥 Equipment cleaning", "🍴 Utensils"], line: "After the game — inventory, then cleaning & facilities" },
 };
 function InspTypeBanner({ type, eventName }) {
   const L = INSP_TYPE_LOOK[type] || INSP_TYPE_LOOK["Regular Inspection"];
@@ -34883,7 +34883,7 @@ export default function App() {
                       {STEP_LABELS.map((label, i) => {
                         const pid = STEP_ORDER[i];
                         const c = panelCounts[pid];
-                        const meta = focus === "event" && pid === 4 ? { ...STEP_META[4], icon: "👕" } : focus === "post" && pid === 1 ? { ...STEP_META[1], icon: "🧽" } : (STEP_META[pid] || STEP_META[0]);
+                        const meta = focus === "event" && pid === 4 ? { ...STEP_META[4], icon: "👕" } : focus === "post" && pid === 0 ? { ...STEP_META[0], icon: "🧪" } : focus === "post" && pid === 1 ? { ...STEP_META[1], icon: "🧽" } : (STEP_META[pid] || STEP_META[0]);
                         const prio = i < GUIDE_PRIO; // v532: the type's priorities (event: temps + uniforms/ops · post: cleaning + facilities)
                         const done = c && c.total > 0 && c.remaining === 0;
                         const started = c ? c.remaining < c.total : tempsDone > 0;
@@ -35009,6 +35009,7 @@ export default function App() {
                   with the supplies at the beginning and it does the work to count supplies".
                   A NO on a product row drops it straight into Supplies Needed (v489). ── */}
               {guideFocus === "event" && <div style={{ order: -1, marginBottom: 12 }}><GameDayCard inspection={inspection} setInspection={setInspection} foodTemps={foodTemps} siteName={siteName} siteNumber={siteNumber} eventName={guideEventName || eventName} /></div>}
+              {guideFocus === "post" && <div className="postFocusNote" data-testid="post-inventory-note" style={{ order: -1, marginBottom: 10 }}>⭐ <b>Post-event: inventory first.</b> Count every product and supply before anything else — mark ✕ on what is missing or empty and it goes straight onto Supplies Needed for the next event.</div>}
               <div style={{ order: 0, marginBottom: 12 }} data-testid="ecolab-first">
                 <GuideSection title="🧪 Ecolab Products & Supplies — count what is on hand"
                   items={ECOLAB_ITEMS} inspection={inspection} setInspection={setInspection}
