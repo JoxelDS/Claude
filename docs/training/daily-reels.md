@@ -1,31 +1,42 @@
-# Daily Reels — SDX Inspect (Instagram, 3 a day, Joxel approves each one)
+# Daily Reels — SDX Inspect (Instagram, 3 a day, TWO accounts, Joxel approves each one)
 
-Routine: 8:52 · 11:52 · 17:52 New York time. Each firing makes ONE Reel from the next topic, sends Joxel the link + caption and asks "Post it?". Nothing posts without his yes.
+Routine: 8:52 · 11:52 · 17:52 New York time. Each firing makes ONE Reel in TWO cuts, sends Joxel both files + both captions and asks "Post it?". Yes = post to both. Nothing posts without his yes.
+
+## The two accounts
+| Account | Job | Cut | Caption voice | Make scenario |
+|---|---|---|---|---|
+| **@sdxinspect** (new) | the product | `app.mjs` — the app's own look: light page, navy header bar with the SDX mark, Inter, red "KEY MOMENT" pill, navy intro, light outro "by DS Marketing" | product: what it does + how, EN + short ES, end with "DM us DEMO", ≤ 15 hashtags | NOT CONNECTED YET — see docs/social/sdxinspect/SETUP.md; when Joxel says it is ready: find its accountId with the instagram-business `Pages` RPC on connection 7319439, copy scenario 6549655 with that accountId, set its interface (video_url, post_caption) with scenarios_set-interface, activate, write the id here |
+| **@dsmarketing.agency** (his brand) | the maker | `brand.mjs` — black, his DS Marketing logo, @dsmarketing_1, torn-paper outro, NO "link in bio" | maker: "We built SDX Inspect for…", tag @sdxinspect, EN + short ES, ≤ 15 hashtags | **6549655** "SDX Inspect - IG Reel Post" |
+
+Until @sdxinspect is connected: post only to @dsmarketing.agency and say "the @sdxinspect copy is saved and waiting for the account".
 
 ## How a Reel is made (tools/video/)
 1. `npm ci` (repo root) if `node_modules` is missing, `npm run build`, and `npm i --no-save --prefix /tmp/ff ffmpeg-static`.
-2. BRAND LOOK (Joxel: black, his DS Marketing logo, @dsmarketing_1 — USE THIS): after `node pov.mjs <clip>` run `node brand.mjs <clip>` → `out/brand-<clip>.mp4`; logo file tools/video/ds-logo.png. Post the brand file.
-   Older SaaS look (Joxel prefers it, 2026-10-07): after `node pov.mjs <clip>` run `node saas.mjs <clip>` → `out/saas-<clip>.mp4` (light gradient, app in a phone frame, one headline per step, intro + outro "Link in bio"; INTRO="Title|sub" to change the intro). Post the saas file.
-   v2, sharp + step captions): `cd tools/video && node pov.mjs <clip>` for g_temps · g_problem · crew · portal → `out/pov-<clip>.mp4` (records the app at 390×844 @3×, one caption per action, yellow key moments with a zoom punch, hook, end card, beat, −14 LUFS). Set a new hook with `HOOK="line 1|line 2 with *yellow*" node pov.mjs <clip>`. New topics = add a flow to FLOWS in pov.mjs (copy an existing one; `a.cue(text,{key})` before each action). Use the old steps below only for clips pov.mjs does not have yet.
-   Old: Record the clip: `cd tools/video && node rec_full.mjs <clip>` (g_types · g_temps · g_problem) or `node record.mjs <clip>` (portal · crew · followups · reports · stands). Output `out/<clip>.mp4` (1920×1080 stage, phone in it). The phone crop in reel.mjs (448×975 at 1098,34) only fits PHONE scenes — skip laptop parts with start/len.
-3. Cut the Reel: `node reel.mjs <clip> "<HOOK (use <br>)>" "<line 2>" <start s> <len s>` → `out/reel-<clip>.mp4` (1080×1920, H.264/AAC, faststart, ~20 s). Check a frame sheet (`ffmpeg -i … -vf fps=1/3,scale=180:-1,tile=6x1`) — the hook must not cover the key moment.
-4. Copy to `docs/reels/<YYYY-MM-DD>-<slot>.mp4`, commit + push to main. Public URL = `https://raw.githubusercontent.com/JoxelDS/Claude/main/docs/reels/<file>`.
-5. Send Joxel the file (SendUserFile) + the caption, ask "Post it?". On YES: Make scenario **6549655 "SDX Inspect - IG Reel Post"** (`scenarios_run` with `video_url`, `post_caption`) → posts to the connected Instagram (same account as the IG Photo Post scenario). Report the post id.
-6. Bump `NEXT` below and push.
+2. Record: `cd tools/video && node pov.mjs <clip>` (flows in FLOWS: g_temps · g_problem · crew · portal). It records the real app at 390×844 @3× and writes `out/pov_<clip>/master.mp4` + `cues.json` (one caption cue per action; `a.cue(text,{key})`). New topic = add a flow to FLOWS (copy an existing one).
+3. Cut both: `node app.mjs <clip>` → `out/app-<clip>.mp4` and `node brand.mjs <clip>` → `out/brand-<clip>.mp4`. Intro text: `INTRO="Title|sub" node app.mjs <clip>` (same for brand.mjs); defaults per clip live in both files.
+4. Check a frame sheet of each (`ffmpeg -i … -vf fps=1/1.5,scale=180:-1,tile=10x2 -frames:v 1 sheet.jpg`): the app fills the phone, headlines readable, nothing covers the action, no Sodexo marks.
+5. Copy to `docs/reels/<YYYY-MM-DD>-app-<clip>.mp4` and `…-brand-<clip>.mp4`, commit + push to main. Public URL = `https://raw.githubusercontent.com/JoxelDS/Claude/main/docs/reels/<file>`.
+6. Send Joxel both files (SendUserFile) + both captions, ask "Post it?". On YES: `scenarios_run` (responsive) on each account's scenario with `video_url` + `post_caption`. Instagram takes ~1.5 min per Reel; if the call times out, check `executions_list` before retrying so nothing posts twice. Report both post ids.
+7. Bump `NEXT` below and push.
 
-Rules: real app only, demo data (no badge codes, no real phones), no Sodexo / Hard Rock logos, captions EN with a short ES line, ≤ 15 hashtags.
+Rules: real app only, demo data (no badge codes, no real phones), no Sodexo / Hard Rock logos or text, captions EN with a short ES line, ≤ 15 hashtags. Never change either look without asking Joxel.
+Old cutters kept for reference only: `saas.mjs` (light gradient), `reel.mjs` (old stage crop).
 
 NEXT: 2
 
-## Ready to post (already rendered — use these files and captions for #2–#4, no re-recording)
-- #1 temps — `docs/reels/2026-10-07-pov-g_temps.mp4` — POSTED 2026-10-07.
-- #2 `docs/reels/2026-10-07-brand-g_problem.mp4`
-  Caption: Paper notes get greasy, wet and lost. Your phone doesn't. 📱 / Mark it ✗, say what's wrong, where it is, and snap the BEFORE photo, all in a few taps. Saved even if you lose signal. / 🇪🇸 Problema, lugar y foto en segundos. / #foodsafety #restaurantinspection #kitchenmanagement #foodservice #facilitiesmanagement #inspectionapp #restauranttech #stadiumfood #concessions #qualitycontrol #paperless #hospitality
-- #3 `docs/reels/2026-10-07-brand-crew.mp4`
-  Caption: "Is it fixed yet?" Now you don't have to ask. ✅ / The crew opens a link (no password), taps Done and adds the AFTER photo. The inspector sees it fixed, with proof. / 🇪🇸 Arreglado y con foto de prueba. / #facilitiesmanagement #maintenance #cleaningcrew #foodsafety #kitchenmanagement #foodservice #beforeandafter #inspectionapp #stadiumfood #operations #restauranttech #hospitality
-- #4 `docs/reels/2026-10-07-brand-portal.mp4`
-  Caption: Stand teams log their own temps with one scan. 📲 / Scan the stand's QR poster, type name + phone, log the reading. No app, no password, and it's sent straight to the inspector. / 🇪🇸 Escanea, registra y listo. / #haccp #foodsafety #temperaturelog #foodservice #concessions #stadiumfood #kitchenmanagement #qrcode #inspectionapp #restauranttech #qualitycontrol #hospitality
-(" / " = line break in the caption.) From #5 on, make new Reels with pov.mjs.
+## Ready to post (already rendered — no re-recording)
+- #1 temps — DS: POSTED 2026-10-07 (old pov cut). @sdxinspect: `docs/reels/2026-10-07-app-g_temps.mp4` = its FIRST post once connected.
+  @sdxinspect caption: A cooler at 50°F should be 40°F or below. SDX Inspect catches it the second you type it. 🌡️ / One rule for every stand: coolers ≤ 40°F, freezers ≤ 20°F, hand sinks ≥ 95°F. Bad reading → flagged → fixed. / 🇪🇸 Una temperatura mala se marca al instante. / DM us DEMO to try it. / #foodsafety #haccp #foodsafetyinspection #restaurantinspection #temperaturelog #kitchenmanagement #foodservice #concessions #stadiumfood #inspectionapp #restauranttech #qualitycontrol
+- #2 problem — `docs/reels/2026-10-07-app-g_problem.mp4` (@sdxinspect) + `docs/reels/2026-10-07-brand-g_problem.mp4` (DS)
+  @sdxinspect: Paper notes get greasy, wet and lost. SDX Inspect doesn't. 📱 / Mark it ✗, say what's wrong and where, snap the BEFORE photo — a few taps, saved even with no signal. / 🇪🇸 Problema, lugar y foto en segundos. / DM us DEMO. / #foodsafety #restaurantinspection #kitchenmanagement #foodservice #facilitiesmanagement #inspectionapp #restauranttech #stadiumfood #concessions #qualitycontrol #paperless #hospitality
+  DS: We built @sdxinspect because inspection notes kept getting lost. 📱 / Now every problem is saved with what, where and a BEFORE photo, in a few taps. / 🇪🇸 Lo construimos para que nada se pierda. / #dsmarketing #softwaredevelopment #appdevelopment #restauranttech #foodsafety #kitchenmanagement #foodservice #inspectionapp #startup #madeinmiami #saas #hospitality
+- #3 crew — `…-app-crew.mp4` + `…-brand-crew.mp4`
+  @sdxinspect: "Is it fixed yet?" You don't have to ask anymore. ✅ / The crew opens a link (no password), taps Done and adds the AFTER photo. The inspector sees it fixed — with proof. / 🇪🇸 Arreglado y con foto de prueba. / DM us DEMO. / #facilitiesmanagement #maintenance #cleaningcrew #foodsafety #kitchenmanagement #foodservice #beforeandafter #inspectionapp #stadiumfood #operations #restauranttech #hospitality
+  DS: Crews used to text "done" with no proof. With @sdxinspect they tap Done and add the AFTER photo. ✅ / We design tools people actually use. / 🇪🇸 Herramientas que la gente sí usa. / #dsmarketing #appdevelopment #softwaredevelopment #facilitiesmanagement #operations #restauranttech #saas #beforeandafter #madeinmiami #startup #foodservice #hospitality
+- #4 portal — `…-app-portal.mp4` + `…-brand-portal.mp4`
+  @sdxinspect: Stand teams log their own temps with one scan. 📲 / Scan the stand's QR poster, type name + phone, log the reading. No app, no password — straight to the inspector. / 🇪🇸 Escanea, registra y listo. / DM us DEMO. / #haccp #foodsafety #temperaturelog #foodservice #concessions #stadiumfood #kitchenmanagement #qrcode #inspectionapp #restauranttech #qualitycontrol #hospitality
+  DS: One QR poster per stand, and the team logs temps without downloading anything. That's @sdxinspect. 📲 / Simple wins. / 🇪🇸 Lo simple gana. / #dsmarketing #appdevelopment #qrcode #restauranttech #saas #foodsafety #concessions #ux #madeinmiami #startup #foodservice #hospitality
+(" / " = line break in the caption.) From #5 on, make new Reels with pov.mjs + app.mjs + brand.mjs.
 
 ## Topics (rotate; when the list ends start over with a new hook)
 | # | Clip | start / len | Hook | Line 2 | Caption idea |
