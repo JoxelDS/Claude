@@ -9529,3 +9529,10 @@ html[data-theme="black"] .inspTypeCard.on:nth-child(2) { background: rgba(37, 99
 .fuSimFloors { margin-top: 6px; }
 .fuSimFilt { font-size: .8em; font-weight: 700; color: #2563eb; }
 .fuSimClear { margin: 8px 0; padding: 10px 16px; min-height: 44px; border: none; border-radius: 10px; background: #2563eb; color: #fff; font-weight: 800; cursor: pointer; }
+/* v541: simple Follow-ups — reminders go out as one group */
+.fuSimRemindAll{display:block;margin:6px 0 10px;min-height:44px;padding:8px 14px;border-radius:12px;border:2px solid #2563eb;background:#eff6ff;color:#1d4ed8;font-weight:800;font-size:15px;cursor:pointer}
+.fuSimRemindBar{position:fixed;left:50%;transform:translateX(-50%);bottom:max(14px,env(safe-area-inset-bottom));z-index:1100;width:min(680px,calc(100vw - 24px));display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:12px 14px;border-radius:16px;background:#1e3a8a;color:#fff;box-shadow:0 10px 30px rgba(0,0,0,.3)}
+.fuSimRemindTxt{flex:1 1 220px;padding-right:56px;font-size:15px;line-height:1.3}
+.fuSimRemindSend{min-height:48px;padding:0 18px;border-radius:12px;border:0;background:#22c55e;color:#fff;font-weight:800;font-size:16px;cursor:pointer}
+.fuSimRemindClear{min-height:48px;padding:0 14px;border-radius:12px;border:1px solid rgba(255,255,255,.5);background:transparent;color:#fff;font-weight:700;cursor:pointer}
+.fuSim{padding-bottom:90px}

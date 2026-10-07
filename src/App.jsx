@@ -11409,12 +11409,18 @@ ${sections}
       <div className="card fuSim" data-testid="fu-simple" style={{ marginBottom: 24 }}>
         <div className="fuSimHead">
           <div className="fuSimTitle">{list.length === 0 ? (q || floorSel !== "all" ? "No problems match" : "✅ Nothing to check") : `🔁 ${list.length} problem${list.length !== 1 ? "s" : ""} to check`}{(floorSel !== "all" || q) && <span className="fuSimFilt notranslate" translate="no">{floorSel !== "all" ? ` · ${floorSel}` : ""}{q ? ` · “${fuSimQ.trim()}”` : ""}</span>}</div>
-          <div className="fuSimSub">Go to the stand, look, then tap <b>✓ Fixed</b> or <b>🔔 Remind</b>.</div>
+          <div className="fuSimSub">Go to the stand, look, then tap <b>✓ Fixed</b>, or pick 🔔 Remind on several and send one reminder.</div>
         </div>
         <div className="fuSimSearchRow"><input className="fuSimSearch notranslate" translate="no" data-testid="fu-sim-search" type="text" inputMode="search" enterKeyHint="search" placeholder="🔎 Stand # or name…" value={fuSimQ} onChange={e => { setFuSimQ(e.target.value); setFuSimShow(20); }} />{fuSimQ && <button type="button" className="fuSimSearchX" data-testid="fu-sim-search-clear" onClick={() => { setFuSimQ(""); setFuSimShow(20); }}>✕</button>}</div>
         {floors.length > 1 && <div className="fuSimCrews fuSimFloors notranslate" translate="no">{[["all", "🏢 All floors"], ...floors.map(fl => [fl, fl])].map(([k, l]) => { const n = k === "all" ? byQ.length : byQ.filter(f => flOf(f) === k).length; return <button key={k} type="button" className={"fuSimCrew" + (floorSel === k ? " on" : "")} data-testid={`fu-sim-floor-${k.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`} onClick={() => { setFuSimFloor(k); setFuSimShow(20); }}>{l} <span>{n}</span></button>; })}</div>}
         {list.length === 0 && (q || floorSel !== "all") && <button type="button" className="fuSimClear" data-testid="fu-sim-clear" onClick={() => { setFuSimQ(""); setFuSimFloor("all"); setFuSimCrew("all"); }}>Clear the filters</button>}
         <div className="fuSimCrews">{CREWS.map(([k, l]) => { const n = k === "all" ? byQF.length : byQF.filter(f => crewOf(f) === k).length; return n || k === "all" ? <button key={k} type="button" className={"fuSimCrew" + (crewSel === k ? " on" : "")} data-testid={`fu-sim-crew-${k.toLowerCase()}`} onClick={() => { setFuSimCrew(k); setFuSimShow(20); }}>{l} <span>{n}</span></button> : null; })}</div>
+        {list.length > 1 && <button type="button" className="fuSimRemindAll" data-testid="fu-sim-remind-all" onClick={() => setRemindPick(prev => { const n = { ...prev }; list.forEach(f => { n[f.key] = true; }); return n; })}>🔔 Remind all shown ({list.length})</button>}
+        {remindList.length > 0 && ReactDOM.createPortal(<div className="fuSimRemindBar" data-testid="fu-sim-remind-bar">
+          <div className="fuSimRemindTxt"><b>🔔 {remindList.length} problem{remindList.length !== 1 ? "s" : ""} picked</b> <span className="notranslate" translate="no">· {[...new Set(remindList.map(f => `${String(f.loc || "").toUpperCase()}${f.unit ? ` #${f.unit}` : ""}`))].slice(0, 3).join(", ")}{new Set(remindList.map(f => f.loc + f.unit)).size > 3 ? " …" : ""}</span></div>
+          <button type="button" className="fuSimRemindSend" data-testid="fu-sim-remind-send" onClick={() => { const n = remindList.length; remindMany(remindList, "sim:group"); setRemindPick({}); setFuSimDone(`🔔 One reminder sent for ${n} problem${n !== 1 ? "s" : ""}`); setTimeout(() => setFuSimDone(null), 3500); }}>Send one reminder</button>
+          <button type="button" className="fuSimRemindClear" data-testid="fu-sim-remind-clear" onClick={() => setRemindPick({})}>Clear</button>
+        </div>, document.body)}
         {undoRes && <div className="fuSimUndo" data-testid="fu-sim-undo"><span>✓ Fixed: <NT>{undoRes.label}</NT></span><button type="button" onClick={undoResolve}>↩ Undo</button></div>}
         {fuSimDone && <div className="fuSimFlash">{fuSimDone}</div>}
         <div className="fuSimList">
@@ -11441,7 +11447,7 @@ ${sections}
                 <div className="fuSimBARow" data-testid="fu-sim-ba">{strip(before, "before")}{strip(after, "after")}</div>
                 <div className="fuSimBtns">
                   <button type="button" className="fuSimFixed" data-testid="fu-sim-fixed" onClick={() => markResolved(f)}>✓ Fixed</button>
-                  <button type="button" className="fuSimRemind" data-testid="fu-sim-remind" onClick={() => { remindMany([f], `sim:${f.key}`); setFuSimDone(`🔔 Reminder sent for ${f.loc}`); setTimeout(() => setFuSimDone(null), 3000); }}>🔔 Remind</button>
+                  <button type="button" className="fuSimRemind" data-testid="fu-sim-remind" onClick={() => toggleRemind(f)} data-on={remindPick[f.key] ? "1" : "0"} style={remindPick[f.key] ? { background: "#16a34a", color: "#fff", borderColor: "#16a34a" } : undefined}>{remindPick[f.key] ? "✓ Added" : "🔔 Remind"}</button>
                   <label className={"fuSimPhotoBtn fuSimPhB" + (fuPhotoBusy === f.key ? " busy" : "")} data-testid="fu-sim-photo-before">{fuPhotoBusy === f.key ? "Adding…" : "📷 Before"}<input disabled={fuPhotoBusy === f.key} type="file" accept="image/*" hidden onChange={e => { addFuPhotos(f, e.target.files, "before"); e.target.value = ""; }} /></label>
                   <label className={"fuSimPhotoBtn fuSimPhA" + (fuPhotoBusy === f.key ? " busy" : "")} data-testid="fu-sim-photo">{fuPhotoBusy === f.key ? "Adding…" : "📷 After"}<input disabled={fuPhotoBusy === f.key} type="file" accept="image/*" hidden onChange={e => { addFuPhotos(f, e.target.files, "after"); e.target.value = ""; }} /></label>
                 </div>
