@@ -10827,12 +10827,12 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
   const fuApplyEdit = f => {
     const e = fuEdits[f.key];
     const subs = (f.subs || []).map(sb => { const k = fuSubKey(f, sb); const se = fuEdits[k]; return se && se.text ? { ...sb, origText: sb.origText || sb.text, text: se.text } : sb; });
-    return e ? { ...f, detail: e.detail ?? f.detail, area: e.area ?? f.area, subs, editedBy: e.by } : (f.subs ? { ...f, subs } : f);
+    return e ? { ...f, cat: e.cat || f.cat, detail: e.detail ?? f.detail, area: e.area ?? f.area, subs, editedBy: e.by } : (f.subs ? { ...f, subs } : f);
   };
   const saveFuEdit = (f) => {
     if (!fuEdit) return;
     const by = currentUser?.name || "Inspector", ts = Date.now();
-    const patch = { [f.key]: { detail: fuEdit.detail.trim(), area: fuEdit.area.trim(), by, ts } };
+    const patch = { [f.key]: { cat: (fuEdit.cat || "").trim(), detail: fuEdit.detail.trim(), area: fuEdit.area.trim(), by, ts } };
     Object.entries(fuEdit.subs || {}).forEach(([k, t]) => { patch[k] = { text: String(t).trim(), by, ts }; });
     setFuEditLocal(prev => ({ ...prev, ...patch }));
     writeMap("followupEdit", patch);
@@ -11499,12 +11499,13 @@ ${sections}
                 </div>
                 {fuEdit?.key === f.key ? (
                   <div className="fuSimEditBox" data-testid="fu-sim-edit-box">
+                    <label className="fuSimEditLbl">Name<input data-testid="fu-sim-edit-name" value={fuEdit.cat} onChange={e => { const v = e.target.value; setFuEdit(p => ({ ...p, cat: v })); }} /></label>
                     {subs ? subs.map(x => { const k = fuSubKey(f, x); return <label key={k} className="fuSimEditLbl">Problem<textarea data-testid="fu-sim-edit-sub" rows={2} value={fuEdit.subs[k] ?? x.text} onChange={e => { const v = e.target.value; setFuEdit(p => ({ ...p, subs: { ...p.subs, [k]: v } })); }} /></label>; })
                       : <label className="fuSimEditLbl">What is wrong<textarea data-testid="fu-sim-edit-detail" rows={3} value={fuEdit.detail} onChange={e => { const v = e.target.value; setFuEdit(p => ({ ...p, detail: v })); }} /></label>}
                     <label className="fuSimEditLbl">Where<input data-testid="fu-sim-edit-area" value={fuEdit.area} placeholder="e.g. Back of the house" onChange={e => { const v = e.target.value.toUpperCase(); setFuEdit(p => ({ ...p, area: v })); }} /></label>
                     <div className="fuSimEditBtns"><button type="button" className="fuSimFixed" data-testid="fu-sim-edit-save" onClick={() => saveFuEdit(f)}>💾 Save</button><button type="button" className="fuSimRemind" onClick={() => setFuEdit(null)}>Cancel</button></div>
                   </div>
-                ) : <button type="button" className="fuSimEditBtn" data-testid="fu-sim-edit" onClick={() => setFuEdit({ key: f.key, detail: String(f.detail || ""), area: String(f.area || ""), subs: {} })}>✏️ Edit</button>}
+                ) : <button type="button" className="fuSimEditBtn" data-testid="fu-sim-edit" onClick={() => setFuEdit({ key: f.key, cat: String(f.cat || ""), detail: String(f.detail || ""), area: String(f.area || ""), subs: {} })}>✏️ Edit</button>}
                 <div className="fuSimBARow" data-testid="fu-sim-ba">{strip(before, "before")}{strip(after, "after")}</div>
                 <div className="fuSimBtns">
                   <button type="button" className="fuSimFixed" data-testid="fu-sim-fixed" onClick={() => markResolved(f)}>✓ Fixed</button>
