@@ -189,6 +189,8 @@ Read this first. It is the memory between sessions.
 
 - v535: the guide header, organized. Joxel (Regular banner Focus chips + section chips + red temp pills): "I want this to look more organized". `InspTypeBanner` lost its Focus chip row (it repeated the section buttons); the section buttons are one even grid (`guide-step-grid`, 3 columns, 2 under 760 px, every button the same size, min-height 66) with a coloured step number (`.guideChipNum`), the full name on line 1 and progress / PRIORITY / "if time allows" on line 2 (icon hidden inside the grid); the temperature pills are a quiet `Temp rules` row (`guide-rules`, `.guideRule`, grey, °F). Harness scratchpad `train/v535.mjs` (390 + 1100, all three types); v532 passes.
 
+- v536: equipment items that showed only OK / Issue / Fail (no YES/NO rows) get their checklist back. Joxel (iPad: Hood + 2-Door Cooler with status chips only): "sometimes it bugs and I do not have the options to check". Nodes carried / restored / added without `checklist` (or missing nodes) rendered status-only. `nodeWithRows(path, node)` + `ckTemplateFor` (before `GuideSection`) fill rows from `CHECKLIST_DEFAULTS[key]` (custom_ nodes via `detectChecklistKey(label)`) in the render and every row setter. Harness scratchpad `train/v536b.mjs` (v479 head: History → Edit a report whose hood and custom cooler have no rows → both show YES/NO, a NO tap saves); v532 passes.
+
 ## Open items
 - Compact `equipmentRegistry` (size risk). Audit workbook was delivered 2026-09-14 (29 orphan units, 28 duplicate copies, 41 units missing brand/location, 43 stands without equipment, 22 stands without license, verify walk 0/116).
 - Domain change: waiting for the domain name (needs CNAME, vite `base`, SW scope, Firebase authorized domains).

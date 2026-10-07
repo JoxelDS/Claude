@@ -26192,6 +26192,18 @@ async function importFilesFromTransfer(dt) {
 if (typeof window !== "undefined") { window.__sdxParseNotes = parseInspectionNotes; window.__sdxBuildImportRecord = buildImportedRecord; window.__sdxImportFilesFromTransfer = importFilesFromTransfer; window.__sdxImportGroupFolder = importGroupFolderFiles; }
 
 
+// v536: a node with no checklist rows (or no node at all) showed only OK / Issue / Fail — give it its rows back.
+function ckTemplateFor(path, node) {
+  const key = path[path.length - 1];
+  const t = CHECKLIST_DEFAULTS[key] || (String(key).startsWith("custom_") ? CHECKLIST_DEFAULTS[detectChecklistKey((node && node.label) || "")] : null);
+  return Array.isArray(t) && t.length ? t.map(r => ({ ...r })) : null;
+}
+function nodeWithRows(path, node) {
+  const base = node || withPhotos({ status: "OK", notes: "" });
+  if (Array.isArray(base.checklist) && base.checklist.length) return base;
+  const t = ckTemplateFor(path, base);
+  return t ? { ...base, checklist: t } : base;
+}
 const GuideSection = React.memo(function GuideSection({ title, items, inspection, setInspection, allowCustom, sectionKey, coldEquipmentMap, maintenanceItems, emptyHint, inspectionId, onError, siteName, siteNumber, siteFloor, siteLocType, onOpenPrintLabels, defaultOpen = false }) {
   const [, setStandsTick] = useState(0); // v518: the stand's own coolers show once the stand list is in
   useEffect(() => { if (sectionKey !== "equipment") return; const on = () => setStandsTick(t => t + 1); window.addEventListener("sdx-stands-loaded", on); return () => window.removeEventListener("sdx-stands-loaded", on); }, [sectionKey]);
@@ -26325,7 +26337,7 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
     if (enriched.length === 0) return;
     setInspection((prev) => {
       const path = pathKey.split(".");
-      const current = getAtPath(prev, path) || withPhotos({ status: "OK", notes: "" });
+      const current = nodeWithRows(path, getAtPath(prev, path));
       const next = { ...current, photos: [...(current.photos || []), ...enriched].slice(0, PHOTO_LIMIT) };
       return setAtPath(prev, path, next);
     });
@@ -26334,7 +26346,7 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
   function removePhoto(pathKey, id) {
     setInspection((prev) => {
       const path = pathKey.split(".");
-      const current = getAtPath(prev, path) || withPhotos({ status: "OK", notes: "" });
+      const current = nodeWithRows(path, getAtPath(prev, path));
       const next = { ...current, photos: (current.photos || []).filter((p) => p.id !== id) };
       return setAtPath(prev, path, next);
     });
@@ -26343,7 +26355,7 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
   function tagPhoto(pathKey, id, tag) {
     setInspection((prev) => {
       const path = pathKey.split(".");
-      const current = getAtPath(prev, path) || withPhotos({ status: "OK", notes: "" });
+      const current = nodeWithRows(path, getAtPath(prev, path));
       const next = { ...current, photos: (current.photos || []).map((p) => p.id === id ? { ...p, tag } : p) };
       return setAtPath(prev, path, next);
     });
@@ -26390,7 +26402,7 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
             {allItems.map((it) => {
               const key = it.path.join(".");
               const itemKey = it.path[it.path.length - 1];
-              const current = getAtPath(inspection, it.path) || withPhotos({ status: "OK", notes: "" });
+              const current = nodeWithRows(it.path, getAtPath(inspection, it.path));
               // Determine if this is cold equipment needing a temp reading
               const coldInfo = coldEquipmentMap?.[itemKey] || (it.isCustom ? detectColdType(it.label) : null);
               const tempVal = current.tempF || "";
@@ -26642,7 +26654,7 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                       {/* ── Checkmark Checklist items ── */}
                       {Array.isArray(current.checklist) && current.checklist.length > 0 && (() => {
                         const makeSet = (idx, val) => () => setInspection((prev) => {
-                          const cur2 = getAtPath(prev, it.path) || withPhotos({ status: "OK", notes: "" });
+                          const cur2 = nodeWithRows(it.path, getAtPath(prev, it.path));
                           // Tapping the active button again clears the item
                           const cur2val = (cur2.checklist || [])[idx]?.value;
                           const next = cur2val === val ? "" : val;
@@ -26654,23 +26666,23 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                           return setAtPath(prev, it.path, { ...cur2, checklist: newChecklist, status: newStatus });
                         });
                         const makeSetComment = (idx, comment) => setInspection((prev) => {
-                          const cur2 = getAtPath(prev, it.path) || withPhotos({ status: "OK", notes: "" });
+                          const cur2 = nodeWithRows(it.path, getAtPath(prev, it.path));
                           const newChecklist = (cur2.checklist || []).map((c, i) => i === idx ? { ...c, comment } : c);
                           return setAtPath(prev, it.path, { ...cur2, checklist: newChecklist });
                         });
                         const makeSetCiStatus = (idx, ciStatus) => setInspection((prev) => {
-                          const cur2 = getAtPath(prev, it.path) || withPhotos({ status: "OK", notes: "" });
+                          const cur2 = nodeWithRows(it.path, getAtPath(prev, it.path));
                           const newChecklist = (cur2.checklist || []).map((c, i) => i === idx ? { ...c, ciStatus } : c);
                           return setAtPath(prev, it.path, { ...cur2, checklist: newChecklist });
                         });
                         const makeSetCiCorrective = (idx, corrective) => setInspection((prev) => {
-                          const cur2 = getAtPath(prev, it.path) || withPhotos({ status: "OK", notes: "" });
+                          const cur2 = nodeWithRows(it.path, getAtPath(prev, it.path));
                           const newChecklist = (cur2.checklist || []).map((c, i) => i === idx ? { ...c, corrective } : c);
                           return setAtPath(prev, it.path, { ...cur2, checklist: newChecklist });
                         });
                         // v439: a flagged item needs a photo or a written reason there is none
                         const makeSetCiLocation = (idx, ciLocation) => setInspection((prev) => {
-                          const cur2 = getAtPath(prev, it.path) || withPhotos({ status: "OK", notes: "" });
+                          const cur2 = nodeWithRows(it.path, getAtPath(prev, it.path));
                           const newChecklist = (cur2.checklist || []).map((c, i) => i === idx ? { ...c, ciLocation } : c);
                           return setAtPath(prev, it.path, { ...cur2, checklist: newChecklist });
                         });
@@ -26688,7 +26700,7 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                             const photoId = `${Date.now()}_${Math.random().toString(16).slice(2)}`;
                             const ph = { id: photoId, thumbUrl: prep.thumbUrl, uploading: true, previewUrl: prep.thumbUrl, type: "image/jpeg", sizeMb: bytesToMb(f.size), name: f.name, tag: tag || "" };
                             setInspection((prev) => {
-                              const cur2 = getAtPath(prev, it.path) || withPhotos({ status: "OK", notes: "" });
+                              const cur2 = nodeWithRows(it.path, getAtPath(prev, it.path));
                               const newChecklist = (cur2.checklist || []).map((c, i) => i === idx ? { ...c, photos: [...(c.photos || []), ph].slice(0, PHOTO_LIMIT) } : c);
                               return setAtPath(prev, it.path, { ...cur2, checklist: newChecklist });
                             });
@@ -26698,7 +26710,7 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                               if (storageUrl) { finalPreview = storageUrl; finalExport = storageUrl; } else { failCount++; }
                             }
                             setInspection((prev) => {
-                              const cur2 = getAtPath(prev, it.path) || withPhotos({ status: "OK", notes: "" });
+                              const cur2 = nodeWithRows(it.path, getAtPath(prev, it.path));
                               const newChecklist = (cur2.checklist || []).map((c, i) =>
                                 i === idx ? { ...c, photos: (c.photos || []).map(p => p.id === photoId ? { ...p, previewUrl: finalPreview, exportUrl: finalExport, uploading: false } : p) } : c
                               );
@@ -26709,7 +26721,7 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                           if (failCount > 0) onError?.(`⚠️ ${failCount} photo${failCount > 1 ? "s" : ""} kept on this device only (cloud upload failed). Check your internet connection.`);
                         };
                         const removeCiPhoto = (idx, photoId) => setInspection((prev) => {
-                          const cur2 = getAtPath(prev, it.path) || withPhotos({ status: "OK", notes: "" });
+                          const cur2 = nodeWithRows(it.path, getAtPath(prev, it.path));
                           const newChecklist = (cur2.checklist || []).map((c, i) =>
                             i === idx ? { ...c, photos: (c.photos || []).filter(p => p.id !== photoId) } : c
                           );
@@ -26733,7 +26745,7 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                                   className="clStatusChip clStatusChipOK"
                                   style={{ border: "1px solid #86efac", cursor: "pointer", fontWeight: 700 }}
                                   onClick={() => setInspection((prev) => {
-                                    const cur2 = getAtPath(prev, it.path) || withPhotos({ status: "OK", notes: "" });
+                                    const cur2 = nodeWithRows(it.path, getAtPath(prev, it.path));
                                     const newChecklist = (cur2.checklist || []).map(c => c.value === "" || c.value == null ? { ...c, value: "YES" } : c);
                                     return setAtPath(prev, it.path, { ...cur2, checklist: newChecklist, status: nodeStatusAfter(cur2.status, newChecklist) });
                                   })}
