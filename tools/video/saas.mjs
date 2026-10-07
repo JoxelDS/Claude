@@ -55,7 +55,7 @@ const T = IN + dur + ENDL;
 const ins = ['-loop', '1', '-t', T.toFixed(2), '-i', `${OUT}/sbg.png`, '-i', `${OUT}/master.mp4`, '-loop', '1', '-i', `${OUT}/mask.png`, '-loop', '1', '-t', T.toFixed(2), '-i', `${OUT}/bezel.png`,
   '-loop', '1', '-t', String(IN + 0.4), '-i', `${OUT}/intro.png`, '-loop', '1', '-t', String(ENDL + 0.4), '-i', `${OUT}/outro.png`];
 heads.forEach(h => ins.push('-loop', '1', '-t', T.toFixed(2), '-i', `${OUT}/${h.f}`));
-let g = `[1:v]fps=30,scale=${PW}:${PH}:flags=lanczos,setpts=PTS-STARTPTS+${IN}/TB,format=rgba[scr];[2:v]scale=${PW}:${PH},format=gray[m];[scr][m]alphamerge[scrm];`;
+let g = `[1:v]fps=30,scale=${PW}:${PH}:flags=lanczos,setpts=PTS-STARTPTS+${IN}/TB,format=rgba[scr];[2:v]crop=${PW}:${PH}:0:0,format=gray[m];[scr][m]alphamerge[scrm];`;
 // the phone slides up into place as the intro leaves
 g += `[0:v]fps=30,format=rgba[bg];[bg][scrm]overlay=${PX}:'${PY}+90*max(0,1-(t-${IN})/0.5)':eof_action=pass[s1];[s1][3:v]overlay=0:'90*max(0,1-(t-${IN})/0.5)'[s2];`;
 let last = 's2';

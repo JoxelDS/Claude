@@ -47,10 +47,10 @@ await png(`<div style="position:absolute;inset:0;${bgCss}"></div>${topo}<div sty
 <div style="font-size:${i1.length > 20 ? 104 : 124}px;line-height:.95;letter-spacing:-3px;color:#fff">${i1.toUpperCase()}</div>
 <div style="font-size:52px;line-height:1.1;letter-spacing:-1px;color:#9a9a9a;margin-top:28px">${i2.toUpperCase()}</div></div>
 <div style="position:absolute;bottom:60px;left:0;right:0;text-align:center">${handle}</div>`, 'intro.png', false);
-await png(`<div style="position:absolute;inset:0;${bgCss}"></div>${topo}<div style="position:absolute;top:560px;left:0;right:0;text-align:center"><img src="${LOGO}" style="width:560px"></div>
-<div style="position:absolute;top:1010px;left:0;right:0;text-align:center;color:#fff;font-size:64px;letter-spacing:-1px">WALK IT. FIX IT. PROVE IT.</div>
-<div style="position:absolute;top:1110px;left:0;right:0;text-align:center;color:#9a9a9a;font-family:N;font-size:40px">SDX Inspect · by DSmarketing Agency</div>
-<div style="position:absolute;top:1250px;left:0;right:0;text-align:center"><span style="display:inline-flex;align-items:center;gap:16px;background:#fff;color:#000;border-radius:999px;padding:24px 56px;font-size:40px">LINK IN BIO →</span></div>
+await png(`<div style="position:absolute;inset:0;background:url(file://${DIR}ds-torn.png) center/auto 1920px no-repeat #000"></div>
+<div style="position:absolute;top:1260px;left:0;right:0;text-align:center;color:#fff;font-size:62px;letter-spacing:-1px;text-shadow:0 4px 20px #000">WALK IT. FIX IT. PROVE IT.</div>
+<div style="position:absolute;top:1360px;left:0;right:0;text-align:center;color:#bdbdbd;font-family:N;font-size:40px">SDX Inspect · by DSmarketing Agency</div>
+<div style="position:absolute;top:1490px;left:0;right:0;text-align:center"><span style="display:inline-block;background:#fff;color:#000;border-radius:999px;padding:24px 56px;font-size:40px">LINK IN BIO →</span></div>
 <div style="position:absolute;bottom:60px;left:0;right:0;text-align:center">${handle}</div>`, 'outro.png', false);
 await b.close();
 
@@ -58,7 +58,7 @@ const T = IN + dur + ENDL;
 const ins = ['-loop', '1', '-t', T.toFixed(2), '-i', `${OUT}/sbg.png`, '-i', `${OUT}/master.mp4`, '-loop', '1', '-i', `${OUT}/mask.png`, '-loop', '1', '-t', T.toFixed(2), '-i', `${OUT}/bezel.png`,
   '-loop', '1', '-t', String(IN + 0.4), '-i', `${OUT}/intro.png`, '-loop', '1', '-t', String(ENDL + 0.4), '-i', `${OUT}/outro.png`];
 heads.forEach(h => ins.push('-loop', '1', '-t', T.toFixed(2), '-i', `${OUT}/${h.f}`));
-let g = `[1:v]fps=30,scale=${PW}:${PH}:flags=lanczos,setpts=PTS-STARTPTS+${IN}/TB,format=rgba[scr];[2:v]scale=${PW}:${PH},format=gray[m];[scr][m]alphamerge[scrm];`;
+let g = `[1:v]fps=30,scale=${PW}:${PH}:flags=lanczos,setpts=PTS-STARTPTS+${IN}/TB,format=rgba[scr];[2:v]crop=${PW}:${PH}:0:0,format=gray[m];[scr][m]alphamerge[scrm];`;
 // the phone slides up into place as the intro leaves
 g += `[0:v]fps=30,format=rgba[bg];[bg][scrm]overlay=${PX}:'${PY}+90*max(0,1-(t-${IN})/0.5)':eof_action=pass[s1];[s1][3:v]overlay=0:'90*max(0,1-(t-${IN})/0.5)'[s2];`;
 let last = 's2';
