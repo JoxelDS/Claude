@@ -46,5 +46,26 @@ if (!process.env.ONLY || process.env.ONLY === 'laptop') { const { ctx, page } = 
   await page.evaluate(() => { const e = document.querySelector('[data-testid=hc-view]'); if (e) { const y = e.getBoundingClientRect().top + scrollY - 70; scrollTo(0, y); } }); await W(800);
   await page.screenshot({ path: DIR + 'out/stills/notscanning.png' });
   await ctx.close(); }
+
+// 4. Guide screens: sign-in (phone), crew join (phone), posters page + invite links (laptop)
+if (!process.env.ONLY || process.env.ONLY === 'guide') {
+  { const { ctx, page } = await ctxFor({ width: 390, height: 844 }, 3);
+    await page.goto(APP); await W(2600); await page.screenshot({ path: DIR + 'out/stills/signin.png' });
+    await page.goto(APP + '?invite=tokc'); await W(2600);
+    const n = await find(page, '[data-testid=crew-join-name]', null, 8); if (n) { await n.fill('ANA R.'); await W(400); }
+    await page.screenshot({ path: DIR + 'out/stills/crewjoin.png' });
+    await ctx.close(); }
+  { const { ctx, page } = await ctxFor({ width: 1280, height: 800 }, 2);
+    await signIn(page, '448800');
+    const ov = await find(page, 'div', /Tap here — I'm on site/, 6); if (ov) { await ov.click().catch(() => {}); await W(900); }
+    await nav(page, 'kitchen_qr'); await W(3200);
+    await page.screenshot({ path: DIR + 'out/stills/posters.png' });
+    await ctx.close(); }
+  { const { ctx, page } = await ctxFor({ width: 1280, height: 800 }, 2);
+    await signIn(page, '365582'); await nav(page, 'admin'); await W(3000);
+    await page.evaluate(() => { const t = [...document.querySelectorAll('.cardTitle')].find(e => /Invite links/.test(e.textContent)); if (t) { const c = t.closest('.card') || t; scrollTo(0, c.getBoundingClientRect().top + scrollY - 90); } }); await W(900);
+    await page.screenshot({ path: DIR + 'out/stills/invites.png' });
+    await ctx.close(); }
+}
 await L.close();
 console.log('stills done');
