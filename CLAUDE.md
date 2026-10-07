@@ -197,6 +197,8 @@ Read this first. It is the memory between sessions.
 
 - v539: the equipment step's `eq-more-ways` is a solid blue 52 px button "＋ Add other equipment — type a name or scan a label" (was a faint dashed "More ways ▸ …" link). Joxel: "It is too hard to see to add the equipment". Harness scratchpad `train/v539.mjs`.
 
+- Full-system video (2026-10-07, Joxel: "explain more about timeline as well and also excels … almost a full resume of the system" → app-only, music, ~3 min): 2:52, 17 scenes (start, type focus incl. Post inventory first, full guide, temps, reports, portal temps + problems/supplies, feed, crews, follow-ups, TIMELINE, EXCEL picker + real workbook, BEFORE & AFTER workbook, analytics/not scanning, stands, messaging, end). Scratchpad `train/tour/rs/` (`beats.mjs` T 172 @30 fps, `extract.mjs` with `xl:<name>` still-image segs + zoompan, `render.mjs` = nc render, `full.sh`); app clips re-recorded on v537 (`rec_full.mjs`, `record.mjs`, new `rec_resume.mjs` laptop chapter r1–r5 + `resvs.mjs` seeding 4 resolved fixes with AFTER photos + a put-back); real exported workbooks via `xlprep.mjs` (createObjectURL stub) → `xlhtml.mjs` (Excel-look HTML/PNG, images embedded). Silent cuts `docs/training/video/resume-*` (commit 458bc38); music-only bed in sandbox. Media 16:9 `13695ba7-d6f6-450d-ba4f-658b7c645834`, 9:16 `6da535ae-aa04-49d0-9436-ab1150699beb`.
+
 ## Open items
 - Compact `equipmentRegistry` (size risk). Audit workbook was delivered 2026-09-14 (29 orphan units, 28 duplicate copies, 41 units missing brand/location, 43 stands without equipment, 22 stands without license, verify walk 0/116).
 - Domain change: waiting for the domain name (needs CNAME, vite `base`, SW scope, Firebase authorized domains).
