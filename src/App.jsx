@@ -10815,6 +10815,25 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
   const [fuSimCrew, setFuSimCrew] = useState("all");
   const [fuSimFloor, setFuSimFloor] = useState("all"); // v540
   const [fuSimQ, setFuSimQ] = useState("");
+  // v542: edit a follow-up's words (Joxel: "I want to be able to edit the info") — venueSettings.followupEdit
+  const [fuEditLocal, setFuEditLocal] = useState({});
+  const [fuEdit, setFuEdit] = useState(null); // {key, detail, area, subs:{subKey:text}}
+  const fuEdits = { ...(venueSettings?.followupEdit || {}), ...fuEditLocal };
+  const fuSubKey = (f, sb) => `${sb.memberKey || f.key}|${fuRowSlug(sb.origText || sb.text)}`;
+  const fuApplyEdit = f => {
+    const e = fuEdits[f.key];
+    const subs = (f.subs || []).map(sb => { const k = fuSubKey(f, sb); const se = fuEdits[k]; return se && se.text ? { ...sb, origText: sb.origText || sb.text, text: se.text } : sb; });
+    return e ? { ...f, detail: e.detail ?? f.detail, area: e.area ?? f.area, subs, editedBy: e.by } : (f.subs ? { ...f, subs } : f);
+  };
+  const saveFuEdit = (f) => {
+    if (!fuEdit) return;
+    const by = currentUser?.name || "Inspector", ts = Date.now();
+    const patch = { [f.key]: { detail: fuEdit.detail.trim(), area: fuEdit.area.trim(), by, ts } };
+    Object.entries(fuEdit.subs || {}).forEach(([k, t]) => { patch[k] = { text: String(t).trim(), by, ts }; });
+    setFuEditLocal(prev => ({ ...prev, ...patch }));
+    writeMap("followupEdit", patch);
+    setFuEdit(null);
+  };
   const [fuSimShow, setFuSimShow] = useState(20);
   const [fuSimDone, setFuSimDone] = useState(null); // v516 — follow-up groups render 30 at a time
   const [fuGroupBy, setFuGroupBy] = useState("loc"); // "loc" | "cat" | "type" | "floor" | "date"
@@ -11384,14 +11403,14 @@ ${sections}
       <span className={"fuSelMark" + (fuSelected[f.key] ? " on" : "")}>{fuSelected[f.key] ? "✓" : ""}</span>
     </div>
   );
-  const remindList = (analysis.followups || []).filter(f => remindPick[f.key]);
+  const remindList = (analysis.followups || []).filter(f => remindPick[f.key]).map(fuApplyEdit);
   const fuGroupsShown = fuFilterGroups(analysis.followupGroups || []);
   const fuCatGroupsShown = fuFilterGroups(analysis.followupCatGroups || []);
 
   if (fuSimple) {
     const CREWS = [["all", "All"], ["Cleaning", "🧹 Cleaning"], ["Maintenance", "🔧 Repairs"], ["Ecolab", "🧪 Ecolab"], ["Temperature", "🌡 Temps"]];
     const crewOf = f => { const t = f.itype || "Other"; return t === "Building" ? "Maintenance" : t; };
-    const all = analysis.followups || []; // v526: computeFollowups already knows clearedLocal (and reopens re-flagged items)
+    const all = (analysis.followups || []).map(fuApplyEdit); // v542 edits; v526: computeFollowups already knows clearedLocal (and reopens re-flagged items)
     // v540: search by stand # / name + floor chips (Joxel: "filter by issue floor and search by number")
     const flOf = f => (f.floor || "").trim() || floorFromUnit(f.unit || "") || "No floor";
     const q = fuSimQ.trim().toLowerCase(); const qUnit = normUnit(q);
@@ -11441,9 +11460,18 @@ ${sections}
                     <div className="fuSimStand"><NT>{String(f.loc || "").toUpperCase()}{f.unit ? ` #${f.unit}` : ""}</NT></div>
                     <div className="fuSimProblem">{subs ? `${f.cat} · ${subs.length} things` : fuProblemText(f)}</div>
                     {subs && <ol className="fuSimSubs">{subs.map((x, i) => <li key={i}>{x.text}</li>)}</ol>}
+                    {f.editedBy && <div className="fuSimEdited">✏️ edited by {f.editedBy}</div>}
                     <div className="fuSimMeta">{f.overdue ? "⏰ Late — " : ""}found {ago(f)}{who(f) ? ` · ${who(f)}` : ""}</div>
                   </div>
                 </div>
+                {fuEdit?.key === f.key ? (
+                  <div className="fuSimEditBox" data-testid="fu-sim-edit-box">
+                    {subs ? subs.map(x => { const k = fuSubKey(f, x); return <label key={k} className="fuSimEditLbl">Problem<textarea data-testid="fu-sim-edit-sub" rows={2} value={fuEdit.subs[k] ?? x.text} onChange={e => { const v = e.target.value; setFuEdit(p => ({ ...p, subs: { ...p.subs, [k]: v } })); }} /></label>; })
+                      : <label className="fuSimEditLbl">What is wrong<textarea data-testid="fu-sim-edit-detail" rows={3} value={fuEdit.detail} onChange={e => { const v = e.target.value; setFuEdit(p => ({ ...p, detail: v })); }} /></label>}
+                    <label className="fuSimEditLbl">Where<input data-testid="fu-sim-edit-area" value={fuEdit.area} placeholder="e.g. Back of the house" onChange={e => { const v = e.target.value.toUpperCase(); setFuEdit(p => ({ ...p, area: v })); }} /></label>
+                    <div className="fuSimEditBtns"><button type="button" className="fuSimFixed" data-testid="fu-sim-edit-save" onClick={() => saveFuEdit(f)}>💾 Save</button><button type="button" className="fuSimRemind" onClick={() => setFuEdit(null)}>Cancel</button></div>
+                  </div>
+                ) : <button type="button" className="fuSimEditBtn" data-testid="fu-sim-edit" onClick={() => setFuEdit({ key: f.key, detail: String(f.detail || ""), area: String(f.area || ""), subs: {} })}>✏️ Edit</button>}
                 <div className="fuSimBARow" data-testid="fu-sim-ba">{strip(before, "before")}{strip(after, "after")}</div>
                 <div className="fuSimBtns">
                   <button type="button" className="fuSimFixed" data-testid="fu-sim-fixed" onClick={() => markResolved(f)}>✓ Fixed</button>

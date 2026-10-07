@@ -9536,3 +9536,10 @@ html[data-theme="black"] .inspTypeCard.on:nth-child(2) { background: rgba(37, 99
 .fuSimRemindSend{min-height:48px;padding:0 18px;border-radius:12px;border:0;background:#22c55e;color:#fff;font-weight:800;font-size:16px;cursor:pointer}
 .fuSimRemindClear{min-height:48px;padding:0 14px;border-radius:12px;border:1px solid rgba(255,255,255,.5);background:transparent;color:#fff;font-weight:700;cursor:pointer}
 .fuSim{padding-bottom:90px}
+/* v542: edit a follow-up */
+.fuSimEditBtn{align-self:flex-start;min-height:40px;padding:6px 14px;margin:2px 0 8px;border-radius:10px;border:1px solid #c7d2fe;background:#eef2ff;color:#3730a3;font-weight:700;cursor:pointer}
+.fuSimEditBox{display:flex;flex-direction:column;gap:10px;padding:12px;margin:4px 0 10px;border-radius:12px;background:#eef2ff;border:2px solid #6366f1}
+.fuSimEditLbl{display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:800;color:#3730a3;text-transform:uppercase}
+.fuSimEditLbl textarea,.fuSimEditLbl input{font-size:16px;font-weight:500;text-transform:none;padding:10px;border-radius:10px;border:1px solid #a5b4fc;background:#fff;color:#111;font-family:inherit}
+.fuSimEditBtns{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.fuSimEdited{font-size:12px;color:#6366f1;margin-top:4px}
