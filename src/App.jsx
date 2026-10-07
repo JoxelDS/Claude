@@ -26811,7 +26811,12 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                                           ✕
                                         </button>
                                       </div>
-                                      {isFail ? (
+                                      {isFail && ci.supply ? (
+                                        <div className="supRowNote" data-testid="sup-row-note" style={{ background: "var(--tint-amber-1)", border: "1.5px solid #fed7aa", borderRadius: 8, padding: "8px 12px", marginTop: 6, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                                          <span style={{ fontWeight: 700, color: "var(--tx-amber)", fontSize: "0.82rem" }}>📦 Missing — added to Supplies Needed</span>
+                                          <input className="input" style={{ flex: "1 1 180px", minWidth: 0 }} placeholder="How many? (optional)" value={ci.comment || ""} onChange={e => makeSetComment(idx, e.target.value)} />
+                                        </div>
+                                      ) : isFail ? (
                                         <div style={{ background: "var(--tint-amber-1)", border: "1.5px solid #fed7aa", borderRadius: 8, padding: "10px 12px", marginTop: 6, display: "flex", flexDirection: "column", gap: 8, animation: "clFailPanelIn 0.18s ease" }}>
                                           <div>
                                             <div style={{ fontSize: "0.7rem", fontWeight: 700, color: "var(--tx-amber)", letterSpacing: "0.06em", marginBottom: 3 }}>📋 STATUS</div>
@@ -33623,7 +33628,7 @@ export default function App() {
           if (!Array.isArray(cl) || cl.length === 0) continue;
           const label = node.label || key.replace(/([A-Z])/g, " $1").replace(/^./, c => c.toUpperCase()).trim();
           for (const c of cl) {
-            if (c.value !== "NO") continue;
+            if (c.value !== "NO" || c.supply) continue; // v538: a missing supply is a supply, not a problem to prove
             const pg = proofGate({ photos: (c.photos || []).filter(p => p && p.tag !== "after"), action: c.corrective }); // v457: the AFTER shot does not count as proof of the problem
             if (pg.ok) continue;
             const need = pg.missing.includes("photo") && pg.missing.includes("action") ? "a photo and what was done"
