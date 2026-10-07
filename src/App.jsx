@@ -35430,7 +35430,8 @@ export default function App() {
             </div>{/* end of the stepper viewport (the .guide container closes after food temps) */}
 
             {/* ── HACCP Food Temperatures ─────────────────────────────── */}
-            <div id="food-temps-section" style={{
+            <div id="food-temps-section" data-testid="food-temps-section" style={{
+              display: guideFocus === "post" ? "none" : undefined, // post-event check: no HACCP food temps
               border: "1px solid #e2e8f0",
               borderRadius: 14,
               overflow: "hidden",

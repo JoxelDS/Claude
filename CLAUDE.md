@@ -183,6 +183,8 @@ Read this first. It is the memory between sessions.
 
 - App-only cut, no character (2026-10-07, Joxel: "less character and just the app now" + inspector name Joxel): scratchpad `train/tour/nc/` = v4 render + v31 layout (text left at top 230, devices right, no Dex/bubble), streaks + label cloud kept, end card byline "Built by inspector Joxel Da Silva" (end ring moved to 960,1000). App clips re-recorded with `seed.mjs` INSPECTOR = 'Joxel Da Silva' (`rec_full.mjs g_types g_temps g_problem`, `record.mjs portal crew feed followups`, `full.mjs`); `lib.mjs` `show()` now uses `scrollIntoView` (the old scroll-parent walk stopped scrolling → the clips froze on the form top). New seg timings in `v31/beats.mjs` + `nc/beats.mjs`: phone g_types st 8 sp 0.6, types st 31 sp 1.6 (callouts 4.5/5.0/6.5), temps st 33.5. Music-only mix in sandbox (−14.4 LUFS). Silent cuts `docs/training/video/nochar-*` (commit 0a60be5). Media 16:9 `0cc7895d-2fdf-446d-b494-c4f0544342fe`, 9:16 `6a4e6fc7-062e-46d6-8c82-ac954cca8b40` (62 s).
 
+- v533: the HACCP food temperatures block (`#food-temps-section`: hot holding, cooking, reheating, cold holding) is hidden on a Post Event inspection (`guideFocus === "post"` → display none; data kept). Joxel: "lets hide the haccp form from the post inspection". Harness scratchpad `train/v533.mjs` (v532 head): post hidden, regular + event visible.
+
 ## Open items
 - Compact `equipmentRegistry` (size risk). Audit workbook was delivered 2026-09-14 (29 orphan units, 28 duplicate copies, 41 units missing brand/location, 43 stands without equipment, 22 stands without license, verify walk 0/116).
 - Domain change: waiting for the domain name (needs CNAME, vite `base`, SW scope, Firebase authorized domains).
