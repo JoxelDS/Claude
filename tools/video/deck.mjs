@@ -7,7 +7,7 @@ import { C, TEAL, lockup, mark, fontCss } from './sdxmark.mjs';
 const DIR = new URL('.', import.meta.url).pathname;
 const OUT = new URL('../../docs/sales/', import.meta.url).pathname; mkdirSync(OUT, { recursive: true });
 const S = f => `file://${DIR}out/stills/${f}`;
-const CONTACT = { name: 'Joxel Da Silva', co: 'DS Marketing', email: 'DSmarketing@wwwdsmarketing.com', ig: '@sdxinspect' };
+const CONTACT = { name: 'Joxel Da Silva', co: 'SDX Inspect', email: process.env.SDX_EMAIL || 'joxelds.github.io/Claude', ig: '@sdxinspect' };
 const css = `${fontCss(DIR)}
 *{margin:0;box-sizing:border-box} body{font-family:I,Arial;color:${C.ink};-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .slide{width:1920px;height:1080px;position:relative;overflow:hidden;page-break-after:always;background:${C.bg}}

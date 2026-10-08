@@ -84,7 +84,7 @@ const html = `<!doctype html><meta charset=utf-8><style>${fontCss(DIR)}
 <div id="intro"><div id="logo">${LOOK === 'brand' ? `<div id="logoBrand">${LOGO}</div>` : LOGO}</div><div id="ih">${INTRO[0].split(' ').map(w => `<span>${w}&nbsp;</span>`).join('')}</div><div id="is">${INTRO[1].split(' ').map(w => `<span>${w}&nbsp;</span>`).join('')}</div></div>
 <div id="outro"><div id="oc"><div style="width:${LOOK === 'brand' ? 420 : 170}px">${LOOK === 'brand' ? LOGO : LOGO.replace('id="lbox"', 'id="lbox2"').replace('id="lchk"', 'id="lchk2"').replace(/stroke-dashoffset="1"/g, 'stroke-dashoffset="0"')}</div>
 <div id="oname">${LOOK === 'brand' ? 'SDX Inspect' : 'SDX Inspect'}</div><div id="otag">Walk it. Fix it. <b>Prove it.</b></div><div id="ohandle">${look.handle}</div>
-${LOOK === 'brand' ? `<div id="ocredit">by DSmarketing Agency</div>` : `<div id="ocredit">by <img src="file://${DIR}ds-logo.png" style="height:44px;filter:brightness(1.2)"> DS Marketing</div>`}</div></div>
+${LOOK === 'brand' ? `<div id="ocredit">by DSmarketing Agency</div>` : ''}</div></div>
 <div id="sweep"></div>
 <script>
 const T=${T}, IN=${IN}, D=${DO}, OUTRO=${OUTRO}, FPS=${FPS}, NSEQ=${nSeq}; const SRC_AT=${JSON.stringify(srcAt.map(x => +x.toFixed(3)))};

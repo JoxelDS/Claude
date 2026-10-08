@@ -1,6 +1,6 @@
 // node app.mjs <clip> [INTRO="Title|sub"]  → out/app-<clip>.mp4  (for @sdxinspect)
 // The app's own look (navy header, white cards, red accent, Inter) from an existing pov.mjs recording (out/pov_<clip>/master.mp4 + cues.json):
-// the app inside a phone frame, one headline per step, navy intro card, light outro with 'by DS Marketing'.
+// the app inside a phone frame, one headline per step, navy intro card, light outro (SDX Inspect only — no DS Marketing anywhere in the SDX look).
 import { readFileSync, writeFileSync } from 'fs';
 import { execFileSync } from 'child_process';
 import { C, mark, lockup, fontCss, status } from './sdxmark.mjs';
@@ -53,8 +53,7 @@ await png(`<div style="position:absolute;inset:0;${pageBg}"></div>
 <div style="position:absolute;top:830px;left:0;right:0;text-align:center;color:${C.navy};font-weight:800;font-size:110px;letter-spacing:-4px">SDX Inspect</div>
 <div style="position:absolute;top:980px;left:0;right:0;text-align:center;color:${C.navy};font-weight:800;font-size:56px;letter-spacing:-1px">Walk it. Fix it. <span style="color:${C.red}">Prove it.</span></div>
 <div style="position:absolute;top:1080px;left:0;right:0;text-align:center;color:${C.muted};font-weight:600;font-size:38px">The inspection app for food stands & kitchens</div>
-<div style="position:absolute;top:1230px;left:0;right:0;text-align:center"><span style="display:inline-block;background:${C.navy};color:#fff;font-weight:800;font-size:40px;border-radius:999px;padding:22px 52px">@sdxinspect</span></div>
-<div style="position:absolute;bottom:80px;left:0;right:0;display:flex;align-items:center;justify-content:center;gap:18px;color:${C.muted};font-weight:600;font-size:30px">by <img src="file://${DIR}ds-logo.png" style="height:80px;filter:invert(1) brightness(.35)"></div>`, 'outro.png', false);
+<div style="position:absolute;top:1230px;left:0;right:0;text-align:center"><span style="display:inline-block;background:${C.navy};color:#fff;font-weight:800;font-size:40px;border-radius:999px;padding:22px 52px">@sdxinspect</span></div>`, 'outro.png', false);
 await b.close();
 
 const T = IN + dur + ENDL;

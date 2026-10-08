@@ -6401,7 +6401,7 @@ html[data-theme="midnight"] {
 }
 html[data-theme="midnight"] body { background: #E9EAF2; }
 
-/* DS Marketing — black & white editorial monochrome (red kept for FAIL/status) */
+/* Mono — black & white editorial monochrome (theme id "dsmarketing" kept for stored settings) (red kept for FAIL/status) */
 html[data-theme="dsmarketing"] {
   --sdx-navy: #141416;
   --sdx-navy-deep: #000000;

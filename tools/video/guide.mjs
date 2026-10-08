@@ -6,7 +6,7 @@ import { C, TEAL, lockup, fontCss } from './sdxmark.mjs';
 const DIR = new URL('.', import.meta.url).pathname;
 const OUT = new URL('../../docs/sales/', import.meta.url).pathname; mkdirSync(OUT, { recursive: true });
 const S = f => `file://${DIR}out/stills/${f}`;
-const CONTACT = { name: 'Joxel Da Silva', co: 'DS Marketing', email: 'DSmarketing@wwwdsmarketing.com', ig: '@sdxinspect' };
+const CONTACT = { name: 'Joxel Da Silva', co: 'SDX Inspect', email: process.env.SDX_EMAIL || 'joxelds.github.io/Claude', ig: '@sdxinspect' };
 const N = 8;
 const css = `${fontCss(DIR)}
 @page{size:8.5in 11in;margin:0} *{margin:0;box-sizing:border-box}

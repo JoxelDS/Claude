@@ -134,8 +134,6 @@ if (import.meta.env.PROD) {
 const BASE = import.meta.env.BASE_URL;
 const LOGO_WHITE = `${BASE}sodexo-live-logo.svg`;
 const LOGO_DARK = `${BASE}sodexo-dark.svg`;
-const DS_LOGO_WHITE = `${BASE}ds-marketing.svg`;
-const DS_LOGO_DARK = `${BASE}ds-marketing-dark.svg`;
 // v546: every venue other than the original one ("default") is a customer of SDX Inspect — its own brand, its own stands.
 const SDX_LOGO_WHITE = `${BASE}sdx-inspect.svg`;
 const SDX_LOGO_DARK = `${BASE}sdx-inspect-dark.svg`;
@@ -178,11 +176,12 @@ function applyTheme(themeId, accent) {
 
 // Module-level branding cache — updated by the main App on every venueSettings change
 let _vs = {};
-const isDsTheme = () => _vs.theme === "dsmarketing";
-function resolveLogoWhite() { return _vs.logoUrl || (isDsTheme() ? DS_LOGO_WHITE : isHomeVenue() ? LOGO_WHITE : SDX_LOGO_WHITE); }
-function resolveLogoDark() { return _vs.logoDarkUrl || _vs.logoUrl || (isDsTheme() ? DS_LOGO_DARK : isHomeVenue() ? LOGO_DARK : SDX_LOGO_DARK); }
-function resolveCompanyName() { return _vs.companyName || (isDsTheme() ? "DS Marketing" : isHomeVenue() ? "Sodexo Live!" : "SDX Inspect"); }
-function resolveSystemName() { return _vs.companyName ? `${_vs.companyName} Inspection System` : (isDsTheme() ? "DS Marketing Inspection System" : isHomeVenue() ? "Sodexo Kitchen Inspection System" : "SDX Inspect"); }
+// "dsmarketing" stays a valid stored theme id (black & white mono look); it carries the SDX Inspect brand
+const isMonoTheme = () => _vs.theme === "dsmarketing";
+function resolveLogoWhite() { return _vs.logoUrl || (!isMonoTheme() && isHomeVenue() ? LOGO_WHITE : SDX_LOGO_WHITE); }
+function resolveLogoDark() { return _vs.logoDarkUrl || _vs.logoUrl || (!isMonoTheme() && isHomeVenue() ? LOGO_DARK : SDX_LOGO_DARK); }
+function resolveCompanyName() { return _vs.companyName || (!isMonoTheme() && isHomeVenue() ? "Sodexo Live!" : "SDX Inspect"); }
+function resolveSystemName() { return _vs.companyName ? `${_vs.companyName} Inspection System` : (!isMonoTheme() && isHomeVenue() ? "Sodexo Kitchen Inspection System" : "SDX Inspect"); }
 
 /* ── Multi-venue: detect ?v=venueSlug from URL ───────────────────
    Each venue gets completely isolated data (localStorage + Firestore).
@@ -196,6 +195,17 @@ const VENUE_ID = (() => {
     return v.trim().toLowerCase().replace(/[^a-z0-9_-]/g, "") || "default";
   } catch { return "default"; }
 })();
+
+// Clean the address bar after reading its parameters, but keep the venue (?v= / ?vname=) —
+// dropping it sent customer venues back to the home venue on the next reload (v547).
+function cleanUrlKeepVenue() {
+  try {
+    const q = new URLSearchParams(window.location.search), keep = new URLSearchParams();
+    for (const n of ["v", "vname"]) if (q.get(n)) keep.set(n, q.get(n));
+    const s = keep.toString();
+    window.history.replaceState({}, "", window.location.pathname + (s ? "?" + s : ""));
+  } catch {}
+}
 
 // Human-readable venue name from ?vname= param (optional display label)
 const VENUE_NAME = (() => {
@@ -2050,7 +2060,7 @@ async function loadVenueRegistry() {
   } catch { return []; }
 }
 
-// Clients (created in the DS Marketing owner portal) — used to group venues
+// Clients (created in the SDX Inspect owner portal) — used to group venues
 async function loadClientRegistry() {
   if (!FIREBASE_ON) return [];
   try {
@@ -2686,7 +2696,7 @@ function CrewJoinCard({ role, token, onUnlock }) {
       const r = await signInCrewLink(session);
       if (!r.ok) { setErr(S.replaced + " " + S.ask); setBusy(false); return; }
       saveCrewSession(session);
-      try { window.history.replaceState({}, "", window.location.pathname); } catch {}
+      cleanUrlKeepVenue();
       onUnlock(r.user);
     } catch { setErr("Could not connect. Try again."); setBusy(false); }
   }
@@ -2871,7 +2881,7 @@ function BadgeScreen({ onUnlock, inviteRole, crewNotice = "" }) {
         if (u && u.role !== inviteRole) { setError(`That badge number already exists as ${roleChip(u.role)}. Pick a different badge number for the ${meta?.label || inviteRole} account, or use "Already have a badge? Sign in".`); return; }
       } else if (!r.ok) { setError("Could not create your access. Try again."); return; }
       const result = await signIn(badge.trim());
-      if (result.ok) { try { window.history.replaceState({}, "", window.location.pathname); } catch {} onUnlock(result.user); return; }
+      if (result.ok) { cleanUrlKeepVenue(); onUnlock(result.user); return; }
       if (result.reason === "pending") setMode("pending"); else setError("Badge not recognized. Try again.");
     } catch { setError("Could not reach the database. Check your connection and try again."); }
     finally { setLoading(false); }
@@ -32936,7 +32946,7 @@ export default function App() {
     signInCrewLink(s).then(r => {
       crewAutoRef.current = false;
       if (!r.ok) { clearCrewSession(); setCrewNotice("replaced"); return; }
-      try { if (INVITE_TOKEN) window.history.replaceState({}, "", window.location.pathname); } catch {}
+      if (INVITE_TOKEN) cleanUrlKeepVenue();
       setCrewNotice("");
       setCurrentUser(r.user);
       setLocked(false);
@@ -33124,7 +33134,7 @@ export default function App() {
     if (p.has("date"))      setInspectionDate(p.get("date"));
     if (QR_OPEN_AS_INSPECTOR) applyStandFromQr(QR_STAND);
     // Clean URL without reloading — skip if this is the HACCP portal (params needed for HaccpPortal)
-    if (p.toString() && !(IS_HACCP_PORTAL && !QR_OPEN_AS_INSPECTOR)) window.history.replaceState({}, "", window.location.pathname);
+    if (p.toString() && !(IS_HACCP_PORTAL && !QR_OPEN_AS_INSPECTOR)) cleanUrlKeepVenue();
   }, []);
 
   // Warn before leaving with unsaved work (v495: anything dirty, not only notes)

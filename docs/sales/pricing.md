@@ -275,7 +275,7 @@ Only verified figures are listed here. They come from search-engine copies of of
 Always check Joxel's calendar before promising an on-site date. He does every setup himself.
 
 ### Before your first quote
-- **Ownership:** confirm in writing that DS Marketing owns SDX and can sell it. It was built while Joxel worked as an inspector, and buyers' legal teams will ask.
+- **Ownership:** confirm in writing which company of Joxel's owns SDX and can sell it. It was built while Joxel worked as an inspector, and buyers' legal teams will ask.
 - **Current venue:** do not name the current venue or its operator, or show their data, without written permission. Demo with the demo data.
 - **Promises:** only sell features that exist today. That rules out sensors, SSO and push notifications to closed phones.
 

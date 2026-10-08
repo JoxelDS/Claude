@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>DS Marketing — Client Portal</title>
+  <title>SDX Inspect — Owner Portal</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,400&family=Playfair+Display:ital,wght@0,700;0,900;1,700;1,900&display=swap" rel="stylesheet" />
@@ -404,7 +404,7 @@
   <div class="gridOverlay"></div>
   <div class="loginWrap">
     <div class="dsLogo">
-      <img src="../ds-marketing.svg" alt="DS Marketing" style="height:110px;width:auto;display:block;margin:0 auto;" />
+      <img src="../sdx-inspect.svg" alt="SDX Inspect" style="height:110px;width:auto;display:block;margin:0 auto;" />
     </div>
     <div class="loginDivider"></div>
     <h1 class="loginHeading">Owner Portal</h1>
@@ -415,7 +415,7 @@
       <input type="password" id="pinInput" class="loginInput" placeholder="••••••••••" autocomplete="off" />
     </div>
     <button id="loginBtn" class="loginSubmit">Access Portal</button>
-    <div class="loginFooter">DS Marketing · Proprietary &amp; Confidential</div>
+    <div class="loginFooter">SDX Inspect · Proprietary &amp; Confidential</div>
   </div>
 </div>
 
@@ -425,7 +425,7 @@
   <!-- NAV -->
   <nav class="nav">
     <div class="navBrand">
-      <img src="../ds-marketing.svg" alt="DS Marketing" style="height:44px;width:auto;display:block;" />
+      <img src="../sdx-inspect.svg" alt="SDX Inspect" style="height:44px;width:auto;display:block;" />
       <div class="navBrandText">
         <div class="navBrandSub">Client Management</div>
       </div>
@@ -450,7 +450,7 @@
 
       <!-- Hero -->
       <div class="hero">
-        <div class="heroEyebrow">DS Marketing · Owner Dashboard</div>
+        <div class="heroEyebrow">SDX Inspect · Owner Dashboard</div>
         <h1 class="heroTitle">Your clients.<br/><span class="accent">All in one place.</span></h1>
         <p class="heroDesc">Each client company gets their own branded inspection portal with multiple locations.</p>
       </div>
@@ -1321,7 +1321,7 @@
     if(clients.find(c=>c.id===slug)){errEl.textContent="A client with that ID already exists.";errEl.style.display="block";return;}
     const btn=e.target.querySelector("[type=submit]"); btn.disabled=true; btn.textContent="Creating…";
     try {
-      const data={name,logoUrl,logoDarkUrl,primaryColor,accentColor,notes,status:"active",_type:"client",createdAt:new Date().toISOString(),createdBy:"DSMarketing"};
+      const data={name,logoUrl,logoDarkUrl,primaryColor,accentColor,notes,status:"active",_type:"client",createdAt:new Date().toISOString(),createdBy:"Owner"};
       await setDoc(doc(db,"venueRegistry",slug),data);
       clients.push({id:slug,...data});
       clients.sort((a,b)=>(a.name||a.id).localeCompare(b.name||b.id));
@@ -1361,7 +1361,7 @@
       const companyName=c?.name||name;
       const effectiveLogo=logoUrl||c?.logoUrl||"";
       const effectiveColor=primaryColor||c?.primaryColor||"";
-      const data={name,clientId:currentClientId,companyName,type,address,logoUrl,primaryColor,status:"active",createdAt:new Date().toISOString(),createdBy:"DSMarketing"};
+      const data={name,clientId:currentClientId,companyName,type,address,logoUrl,primaryColor,status:"active",createdAt:new Date().toISOString(),createdBy:"Owner"};
       const exists = allVenues.find(v=>v.id===slug);
       await setDoc(doc(db,"venueRegistry",slug),data,{merge:true});
       await setDoc(doc(db,"venues",slug,"sharedMemory","venueSettings"),{companyName,logoUrl:effectiveLogo,primaryColor:effectiveColor,accentColor:(c?.accentColor||""),logoDarkUrl:(c?.logoDarkUrl||""),_updatedAt:new Date().toISOString()},{merge:true});

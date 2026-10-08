@@ -8,7 +8,7 @@
    The inspection app for food stands & kitchens 🌡️
    Temps · problems · crews · proof — in one app 📲
    🇪🇸 Inspecciones sin papel
-   Built by @dsmarketing.agency
+   DM "PILOT" for a free 30-day pilot
    ```
 5. **Make it Professional:** Settings → **Account type and tools** → **Switch to professional account** → **Business** → category **Software** (or "App Page").
 6. **Link a Facebook Page.** This is required so the automation can post Reels. In the Instagram app go to Edit profile → **Page** → **Create a new Facebook Page** called "SDX Inspect". Use the SAME Facebook login that is connected in Make (Joxel Dasilva).
@@ -25,6 +25,6 @@ Post each cover as a story, then add it to a highlight with the same name:
 
 ## Two accounts, two jobs
 - **@sdxinspect**: the product. The app's own look (navy, white, red), product captions, "DM DEMO".
-- **@dsmarketing.agency**: your brand. The black DS Marketing look, "we built this" captions, tagging @sdxinspect.
+- **@dsmarketing.agency**: your agency's own account (its own look and captions). Nothing on @sdxinspect, in the app or in the SDX sales material mentions DS Marketing.
 
 Every Reel goes to both accounts.

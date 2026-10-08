@@ -13,6 +13,36 @@
     <meta http-equiv="Expires" content="0" />
     <!-- PWA Manifest -->
     <link rel="manifest" href="/manifest.json" />
+    <script>
+      // Customer venues (?v=slug) must never fall back to the home venue: keep the venue for this tab
+      // across URL clean-ups and the automatic update reload, brand the splash, and give installs a
+      // start URL that carries the venue. ?v=default clears it.
+      (function () {
+        try {
+          var q = new URLSearchParams(location.search);
+          var clean = function (x) { return (x || "").trim().toLowerCase().replace(/[^a-z0-9_-]/g, ""); };
+          var v = clean(q.get("v"));
+          if (v === "default") { sessionStorage.removeItem("sdx_venue_tab"); sessionStorage.removeItem("sdx_vname_tab"); v = ""; }
+          else if (v) { sessionStorage.setItem("sdx_venue_tab", v); if (q.get("vname")) sessionStorage.setItem("sdx_vname_tab", q.get("vname")); }
+          else {
+            v = clean(sessionStorage.getItem("sdx_venue_tab"));
+            if (v) {
+              q.set("v", v); var vn = sessionStorage.getItem("sdx_vname_tab"); if (vn && !q.has("vname")) q.set("vname", vn);
+              history.replaceState(history.state, "", location.pathname + "?" + q.toString() + location.hash);
+            }
+          }
+          window.__sdxTabVenue = v;
+          if (!v) return;
+          document.title = "SDX Inspect";
+          var base = location.origin + location.pathname.replace(/[^/]*$/, "");
+          var m = { name: "SDX Inspect", short_name: "SDX Inspect", start_url: base + "?v=" + encodeURIComponent(v), scope: base, display: "standalone",
+            orientation: "portrait-primary", background_color: "#2A295C", theme_color: "#2A295C",
+            icons: [192, 512].map(function (n) { return { src: base + "icons/icon-" + n + ".png", sizes: n + "x" + n, type: "image/png" }; }) };
+          var link = document.querySelector('link[rel="manifest"]');
+          if (link) link.href = URL.createObjectURL(new Blob([JSON.stringify(m)], { type: "application/manifest+json" }));
+        } catch (e) {}
+      })();
+    </script>
     <!-- Icons -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="icon" type="image/png" sizes="96x96" href="/icons/icon-96.png" />
@@ -107,6 +137,7 @@
           var v = new URLSearchParams(location.search).get("v") || "default";
           var vs = JSON.parse(localStorage.getItem("sdx_venue_settings_" + v) || "{}");
           if (vs.companyName) document.getElementById("sp-logo-text").textContent = vs.companyName;
+          else if (v !== "default") document.getElementById("sp-logo-text").textContent = "SDX Inspect";
           if (vs.primaryColor && /^#[0-9a-fA-F]{6}$/.test(vs.primaryColor)) {
             document.getElementById("splash").style.background = "linear-gradient(135deg," + vs.primaryColor + " 0%,#16152e 100%)";
           }

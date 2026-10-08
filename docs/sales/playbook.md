@@ -1,6 +1,6 @@
-# SDX Inspect — sales playbook (DS Marketing)
+# SDX Inspect — sales playbook
 
-Sender: **Joxel Da Silva, DS Marketing**, DSmarketing@wwwdsmarketing.com. Every email and DM is approved by Joxel in the **SDX Sales Pipeline** page (https://claude.ai/artifact/AXaFpXzZgUGiUkVhJhShVf) before it goes out.
+Sender: **Joxel Da Silva, SDX Inspect** (Joxel: "Do not put ds marketing in the sdx" — no DS Marketing name, logo or handle in SDX emails, decks, Reels or the app; send from an SDX address once he has one). Every email and DM is approved by Joxel in the **SDX Sales Pipeline** page (https://claude.ai/artifact/AXaFpXzZgUGiUkVhJhShVf) before it goes out.
 
 ## The offer
 **Free 30-day pilot** at a few stands / locations. We set up the stands and posters, train the team in 20 minutes, and at the end show them their own numbers: temps logged, problems found, fixed, and with what proof. Then we talk price.
@@ -29,7 +29,7 @@ I'm an inspector at a 100+ stand stadium in Miami, and I built SDX Inspect for m
 Would you try it free for 30 days at a few {stands / locations}? I set it up and train your team.
 
 Joxel Da Silva
-DS Marketing · SDX Inspect
+SDX Inspect
 {mailing address} · Reply "no thanks" and I won't email again.
 
 **Email 2 (day 4) — subject: "Re: {Org}: food safety checks on one phone"**
