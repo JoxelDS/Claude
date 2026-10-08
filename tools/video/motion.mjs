@@ -41,7 +41,7 @@ const nSeq = readdirSync(SEQ).filter(f => f.endsWith('.jpg')).length;
 // 2) cues → captions (hold until the next cue) + camera targets (tap y in screen fraction)
 const caps = cues.map((c, i) => ({ text: c.text, key: !!c.key, t0: IN + outOf(c.t - S0), t1: IN + (i + 1 < cues.length ? outOf(cues[i + 1].t - S0) : DO), y: c.y == null ? null : c.y / 844 })).filter(c => c.t1 > c.t0 + .3);
 const look = LOOK === 'brand'
-  ? { bg0: '#050505', bg1: '#121212', glowA: 'rgba(255,255,255,.10)', glowB: 'rgba(160,160,160,.08)', accent: '#FFFFFF', ink: '#FFFFFF', sub: '#9A9A9A', pill: 'rgba(20,20,20,.62)', pillEdge: 'rgba(255,255,255,.22)', key: '#FFFFFF', keyInk: '#000', rim: ['#3a3a3a', '#0d0d0d'], handle: '@dsmarketing_1' }
+  ? { bg0: '#050505', bg1: '#121212', glowA: 'rgba(255,255,255,.10)', glowB: 'rgba(160,160,160,.08)', accent: '#FFFFFF', ink: '#FFFFFF', sub: '#9A9A9A', pill: 'rgba(20,20,20,.62)', pillEdge: 'rgba(255,255,255,.22)', key: '#FFFFFF', keyInk: '#000', rim: ['#3a3a3a', '#0d0d0d'], handle: '@dsmarketing.agency' }
   : { bg0: '#070A1F', bg1: '#141A44', glowA: 'rgba(51,195,176,.30)', glowB: 'rgba(72,84,214,.34)', accent: TEAL, ink: '#FFFFFF', sub: '#AEB4E6', pill: 'rgba(18,22,58,.58)', pillEdge: 'rgba(160,190,255,.30)', key: TEAL, keyInk: '#06231F', rim: ['#C9CEE3', '#4A4F6B'], handle: '@sdxinspect' };
 const LOGO = LOOK === 'brand'
   ? `<img src="file://${DIR}ds-logo.png" style="width:100%;height:auto;display:block">`

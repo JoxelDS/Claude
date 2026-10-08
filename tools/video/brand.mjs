@@ -1,5 +1,5 @@
 // node brand.mjs <clip> ["Intro title|sub"]  → out/brand-<clip>.mp4
-// DS Marketing brand look (black, DS logo, @dsmarketing_1) from an existing pov.mjs recording (out/pov_<clip>/master.mp4 + cues.json):
+// DS Marketing brand look (black, DS logo, @dsmarketing.agency) from an existing pov.mjs recording (out/pov_<clip>/master.mp4 + cues.json):
 // light gradient canvas, the app inside a phone frame, one clean headline per step, intro + outro cards.
 import { readFileSync, writeFileSync } from 'fs';
 import { execFileSync } from 'child_process';
@@ -23,7 +23,7 @@ const LOGO = `file://${DIR}ds-logo.png`;
 // DS Marketing look: black, soft grey glow, faint contour lines, heavy white uppercase type
 const topo = `<svg width="1080" height="1920" style="position:absolute;inset:0;opacity:.13" xmlns="http://www.w3.org/2000/svg">${Array.from({ length: 22 }, (_, i) => `<ellipse cx="${880 + i * 6}" cy="${380 + i * 14}" rx="${80 + i * 46}" ry="${60 + i * 34}" fill="none" stroke="#fff" stroke-width="1.4" transform="rotate(${-18 + i * 1.5} 900 420)"/>`).join('')}</svg>`;
 const bgCss = `background:radial-gradient(900px 900px at 50% 40%,#232323 0,#0A0A0A 60%,#000 100%)`;
-const handle = `<div style="font-family:N;font-size:30px;color:#8C8C8C;letter-spacing:1px">@dsmarketing_1</div>`;
+const handle = `<div style="font-family:N;font-size:30px;color:#8C8C8C;letter-spacing:1px">@dsmarketing.agency</div>`;
 const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium', args: ['--no-sandbox'] });
 const p = await b.newPage({ viewport: { width: 1080, height: 1920 } });
 writeFileSync(`${OUT}/blank.html`, '<html></html>');
