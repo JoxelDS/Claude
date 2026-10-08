@@ -38,6 +38,14 @@ NEXT: 2
   DS: One QR poster per stand, and the team logs temps without downloading anything. That's @sdxinspect. 📲 / Simple wins. / 🇪🇸 Lo simple gana. / #dsmarketing #appdevelopment #qrcode #restauranttech #saas #foodsafety #concessions #ux #madeinmiami #startup #foodservice #hospitality
 (" / " = line break in the caption.) From #5 on, make new Reels with pov.mjs + app.mjs + brand.mjs.
 
+## Joxel's own POV clips (2026-10-08)
+Joxel films POV clips while using the app and sends them (attached in the chat → saved under /root/.claude/uploads/<session>/, or uploaded to Higgsfield with the media id). Each batch becomes ONE Reel for **@sdxinspect only**:
+- Hook: "POV: you inspect 100+ stands at a stadium in Miami" (never name the stadium, Sodexo or any stand).
+- Blur EVERYTHING identifying, frame by frame: faces (OpenCV face detection + a manual check of a frame sheet), stand names / signs / logos, license numbers, phone numbers, badge numbers, the app's stand names on screen. When unsure, blur.
+- Real problems on camera (warm cooler, dirty fryer) only when nothing identifies the stand.
+- Cut: fast, 15–30 s, captions timed to the action (and to his words if he talks — faster-whisper in sandbox_exec), app-look intro/outro from app.mjs styles, music bed −14 LUFS.
+- Same approval rule: send the file + caption, post only after "yes".
+
 ## Selling Reels (Joxel: "videos … but selling to people")
 Every 3rd Reel is a SELLING Reel for the buyer, not a feature tour: hook = their pain in their words ("Event day. 100 stands. 1 inspector."), middle = the app solving it (pov.mjs flow), end = the offer ("Free 30-day pilot — DM PILOT"). Write captions to the buyer (F&B directors, ops managers, concession operators), not to inspectors. Keep learning what sells: note in Market notes which hooks get views / DMs.
 
