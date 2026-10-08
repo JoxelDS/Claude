@@ -12,7 +12,8 @@
 //   "cues": [{"t": 3.6, "d": 2.6, "text": "Cooler at 50°F? *Flagged.*", "key": true}],  times on the joined timeline
 //   "blur": [{"t0": 0, "t1": 2.5, "x": 0.1, "y": 0.6, "w": 0.4, "h": 0.08}],           extra boxes (signs, names, badges), 0..1
 //   "faces": true,
-//   "appBar": true,                               blur the app's navy header bar (employer logo, venue / stand line, tab title); default on
+//   "appBar": "brand",                            the app's own header bar (employer logo, stand line) gets our SDX Inspect bar painted over it, tab title frosted;
+//                                                  "blur" = frosted blur instead · false = leave it
 //   "audio": "music" | "keep",                    music = bed + 15 % ambience (default) · keep = his voice / sound + soft bed
 //   "end": {"tag": "Walk it. Fix it. Prove it.", "handle": "", "cta": "DM “PILOT” — free 30-day pilot"},
 //   "out": "final.mp4" }
@@ -43,7 +44,7 @@ function probe(file) {
 }
 const durOf = f => probe(f).dur;
 
-function prep() {
+async function prep() {
   const parts = [];
   job.clips.forEach((c, i) => {
     const src = c.file.startsWith('/') ? c.file : `${job.dir}/${c.file}`;
@@ -66,15 +67,29 @@ function prep() {
   ff([...ins, '-filter_complex', fc, '-map', '[v]', '-map', '[a]', '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '15', '-c:a', 'aac', '-b:a', '192k', '-ar', '48000', `${W}/joined.mp4`]);
   writeFileSync(`${W}/probe.json`, JSON.stringify({ parts, total: durOf(`${W}/joined.mp4`) }, null, 1));
   console.log('joined', durOf(`${W}/joined.mp4`).toFixed(2), 's from', parts.length, 'clips');
-  blur();
+  await blur();
 }
 
-function blur() {
+// the white SDX Inspect lockup on transparent, for the bar povblur paints over the app's own header
+async function brandLogo() {
+  const f = `${W}/sdx_lockup.png`; if (existsSync(f)) return f;
+  const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium', args: ['--no-sandbox', '--no-proxy-server', '--allow-file-access-from-files'] });
+  const page = await b.newPage({ viewport: { width: 900, height: 240 } });
+  const h = `${W}/_logo.html`;
+  writeFileSync(h, `<!doctype html><meta charset=utf-8><style>${fontCss(DIR)}*{margin:0}html,body{background:transparent;font-family:I,Arial}#l{display:inline-block;padding:6px}</style><div id=l>${lockup(150, 'light')}</div>`);
+  await page.goto('file://' + h); await page.evaluate(() => document.fonts.ready); await page.waitForTimeout(80);
+  await page.locator('#l').screenshot({ path: f, omitBackground: true });
+  await b.close(); return f;
+}
+
+async function blur() {
   writeFileSync(`${W}/boxes.json`, JSON.stringify(job.blur || []));
   rmSync(`${W}/sheets`, { recursive: true, force: true });
   const args = ['-I', `${DIR}povblur.py`, `${W}/joined.mp4`, `${W}/blurred.mp4`, '--ffmpeg', FF, '--boxes', `${W}/boxes.json`, '--sheet', `${W}/sheets`, '--report', `${W}/faces.json`, '--fps', '30'];
   if (job.faces === false) args.push('--no-faces');
-  if (job.appBar !== false) args.push('--app-bar');
+  if (job.appBar !== false) {   // appBar: "brand" (default) paints our SDX bar over the app header · "blur" frosts it · false = off
+    args.push('--app-bar', '--app-bar-style', job.appBar === 'blur' ? 'blur' : 'brand', '--brand-logo', await brandLogo());
+  }
   const r = spawnSync('python3', args, { encoding: 'utf8', maxBuffer: 1 << 24 });
   if (r.status) throw new Error('povblur failed: ' + (r.stderr || '').slice(-1500));
   console.log('blur', (r.stdout || '').trim().slice(0, 400));
@@ -146,4 +161,4 @@ async function render() {
   console.log('render', out, TOTAL.toFixed(2), 's', (readFileSync(out).length / 1048576).toFixed(1), 'MB');
 }
 
-if (cmd === 'prep') prep(); else if (cmd === 'blur') blur(); else if (cmd === 'render') await render(); else { console.log('unknown command', cmd); process.exit(1); }
+if (cmd === 'prep') await prep(); else if (cmd === 'blur') await blur(); else if (cmd === 'render') await render(); else { console.log('unknown command', cmd); process.exit(1); }
