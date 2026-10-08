@@ -46,15 +46,16 @@ for ln in open('u.txt').read().split('\n'):
         ok = min(w, h) >= 480 and 35 < mean < 225 and sd > 28
         score = (int(likes) if likes.isdigit() else 0) * (0.6 if isvid else 1.0) * (1.0 if ok else 0.15) * (0.8 if sharp > 38 else 1.0)  # very busy edges ≈ text-heavy flyers
         thumb = small.resize((16, 20)).convert('L')
-        items.append({'k': k, 'g': g, 'score': score, 'thumb': list(thumb.getdata())})
+        items.append({'k': k, 'g': g, 'score': score, 'thumb': list(thumb.tobytes())})
 items.sort(key=lambda x: -x['score'])
 picked = []
-for it in items:
-    if any(sum(abs(a - b) for a, b in zip(it['thumb'], p['thumb'])) / 320 < 14 for p in picked):
-        continue
-    picked.append(it)
-    if len(picked) == 3:
-        break
+near = lambda it: any(sum(abs(a - b) for a, b in zip(it['thumb'], p['thumb'])) / 320 < 14 for p in picked)
+for distinct in (True, False):  # first one photo per post (two frames of one video look alike), then fill up
+    for it in items:
+        if len(picked) == 3: break
+        if it in picked or near(it) or (distinct and any(p['k'] == it['k'] for p in picked)):
+            continue
+        picked.append(it)
 for n, it in enumerate(picked, 1):
     im = Image.open(it['g']).convert('RGB')
     ImageOps.fit(im, (720, 900), centering=(0.5, 0.42)).save(f'o/{S}-{n}.jpg', quality=72)
