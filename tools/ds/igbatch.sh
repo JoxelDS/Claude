@@ -9,12 +9,13 @@ set -u
 C=${1:?commit}; M=${2:?media file}; KEEP=${3:-840}
 RAW=https://raw.githubusercontent.com/joxelds/Claude/$C
 rm -rf ~/ig && mkdir -p ~/ig/o && cd ~/ig || exit 1
+python3 -c "import rapidocr_onnxruntime" 2>/dev/null || python3 -m pip install -q rapidocr_onnxruntime
 curl -sfL -o igauto.py "$RAW/tools/ds/igauto.py" && curl -sfL -o media.txt "$RAW/$M" || { echo "download failed"; exit 1; }
 for s in $(awk '{print $1}' media.txt | awk '!seen[$0]++'); do
   mkdir -p "w_$s" && cd "w_$s"
   awk -v s="$s" '$1 == s { $1 = ""; sub(/^ /, ""); print }' ../media.txt > u.txt
   echo "=== $s"
-  S="$s" timeout 100 python3 ../igauto.py 2>&1 | grep -v '^FILE' | sed 's/^/  /'
+  S="$s" timeout 300 python3 ../igauto.py 2>&1 | grep -v '^FILE' | sed 's/^/  /'
   cp o/* ../o/ 2>/dev/null
   cd ..
 done
