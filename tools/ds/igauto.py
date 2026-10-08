@@ -130,13 +130,14 @@ for distinct in (True, False):  # first one photo per post (two frames of one vi
 import json
 from PIL import ImageDraw
 cands = []
-for it in items:
+for it in ([] if '--final' in sys.argv else items):
     if len(cands) == 16:
         break
     if any(sum(abs(a - b) for a, b in zip(it['thumb'], c['thumb'])) / 320 < 10 for c in cands):
         continue
     cands.append(it)
-json.dump([{'g': c['g'], 'crop': c['crop'], 'k': c['k'], 'score': round(c['score']), 'text': c['text']} for c in cands], open('cand.json', 'w'))
+if '--final' not in sys.argv:
+    json.dump([{'g': c['g'], 'crop': c['crop'], 'k': c['k'], 'score': round(c['score']), 'text': c['text']} for c in cands], open('cand.json', 'w'))
 if cands:
     TW, TH = 200, 250
     sheet = Image.new('RGB', (TW * 4, TH * ((len(cands) + 3) // 4)), 'white')
