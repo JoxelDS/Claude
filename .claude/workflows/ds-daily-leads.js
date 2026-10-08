@@ -2,7 +2,7 @@ export const meta = {
   name: 'ds-daily-leads',
   description: 'DS Marketing daily lead engine: harvest Miami businesses tagged by local aggregator / event / collab accounts on Instagram, verify each on Instagram, keep the ones with no real website, find public contacts, rank, and write preview copy + DM / email drafts',
   whenToUse: 'Every day (DS Autopilot routine) or when Joxel asks for more website leads. Needs Make scenarios 6559189 (mention harvest) and 6552164 / 6558876 / 6558880 / 6558883 (profile lookups).',
-  phases: [{ title: 'Seeds' }, { title: 'Harvest' }, { title: 'Verify' }, { title: 'Contact' }, { title: 'Write' }],
+  phases: [{ title: 'Seeds' }, { title: 'Harvest' }, { title: 'Verify' }, { title: 'Contact' }, { title: 'Domains' }, { title: 'Write' }],
 }
 // args: { date, known: [handles already in the pipeline], seeds: [{handle, niche, uses}], maxSeeds (25), maxLookups (240), dmPerDay (25),
 //         findSeeds: true|false (spend ≤ 8 WebSearch on new aggregator accounts), out: "<dir to save raw harvest>" }
@@ -72,13 +72,28 @@ ${b.map(q => `- @${q.handle} · ${q.ig.name || ''} · bio: ${(q.ig.bio || '').re
 const cmap = new Map(contacts.filter(Boolean).flatMap(c => c.contacts || []).map(c => [String(c.handle).replace(/^@/, '').toLowerCase(), c]))
 for (const q of qualified) { const c = cmap.get(q.handle) || {}; q.email = c.email || ''; q.phone = c.phone || ''; q.area = c.area || ''; q.emailSource = c.source || '' }
 
+// Domains: the Instagram 'website' field misses real sites (2026-10-08: Cakes By Cary, Hollywood Baked Goods and Los Perritos del Barrio
+// all had their own site while their bio linked elsewhere). The build container cannot reach the web, so the check runs in the Higgsfield sandbox.
+phase('Domains')
+const DOM = { type: 'object', properties: { sites: { type: 'array', items: { type: 'object', properties: { handle: { type: 'string' }, hasSite: { type: 'boolean' }, url: { type: 'string' }, note: { type: 'string' } }, required: ['handle', 'hasSite', 'url', 'note'] } } }, required: ['sites'] }
+const dbatches = []; for (let i = 0; i < qualified.length; i += 25) dbatches.push(qualified.slice(i, i + 25))
+const domains = await parallel(dbatches.map((b, i) => () => agent(`Check whether each business below ALREADY HAS ITS OWN WEBSITE. Use the Higgsfield sandbox (load mcp__higgfield__sandbox_exec with ToolSearch "select:mcp__higgfield__sandbox_exec"; it has internet; keep each command under 15,000 characters; timeout_seconds 120). For each business try, with curl -sL --max-time 8: (1) the link in their bio when it is a real domain, (2) <name>.com and <handle>.com with every non-letter/digit removed, plus the same without words like foodtruck / truck / miami / fl / llc / official. Print the HTTP code, the final URL, the <title> and the first ~300 characters of visible text.
+hasSite = true only when a page is clearly THIS business's own site (their name, food/services, Miami-area city or phone, or their Instagram linked). NOT a site: parked / for sale / "launching soon" / empty / registrar pages, an unrelated business with a similar name (other state, other area code), aggregators and ordering pages (Clover, Toast, Square ordering, DoorDash, Uber Eats, Linktree…). Put what you saw in note (e.g. "artcakemiami.com = Launching Soon placeholder" — useful as a DM detail).
+${b.map(q => `- @${q.handle} · ${q.ig.name || ''} · link: ${q.ig.website || 'none'} · bio: ${(q.ig.bio || '').replace(/\s+/g, ' ').slice(0, 160)}`).join('\n')}`, { label: `domains:${i + 1}`, phase: 'Domains', schema: DOM })))
+const dmap = new Map(domains.filter(Boolean).flatMap(d => d.sites || []).map(d => [String(d.handle).replace(/^@/, '').toLowerCase(), d]))
+const hadSite = qualified.filter(q => (dmap.get(q.handle) || {}).hasSite)
+for (const q of qualified) q.domainNote = (dmap.get(q.handle) || {}).note || ''
+if (hadSite.length) { log(`${hadSite.length} already have a site: ${hadSite.map(q => q.handle + ' ' + dmap.get(q.handle).url).join(' · ')}`); for (const q of hadSite) { counts.qualified = (counts.qualified || 0) - 1; counts.has_website = (counts.has_website || 0) + 1 } }
+qualified.splice(0, qualified.length, ...qualified.filter(q => !hadSite.includes(q)))
+
 // rank: real audience + activity + a phone/email to close with + trades that buy fast
 const fast = { food: 1.12, beauty: 1.1, home: 1.1, fitness: 1 }
 for (const q of qualified) q.score = Math.log10(Math.max(150, q.ig.followers || 150)) * ((q.ig.media || 0) >= 40 ? 1.1 : 1) * (fast[q.niche] || 1) * (q.phone || q.email ? 1.08 : 1) * (q.ig.local === 'yes' ? 1.1 : 1)
 qualified.sort((a, b) => b.score - a.score)
-const dm = qualified.slice(0, DM_PER_DAY)
-const mail = qualified.slice(DM_PER_DAY).filter(q => /@/.test(q.email))
-const hold = qualified.slice(DM_PER_DAY).filter(q => !/@/.test(q.email))
+const noDM = q => /no\s*(dm|dms|mensajes)\b|❌\s*dm|dm\s*❌/i.test(q.ig.bio || '')   // e.g. "No DM❌" — respect it: email or nothing
+const dm = qualified.filter(q => !noDM(q)).slice(0, DM_PER_DAY)
+const mail = qualified.filter(q => !dm.includes(q)).filter(q => /@/.test(q.email))
+const hold = qualified.filter(q => !dm.includes(q)).filter(q => !/@/.test(q.email))
 
 phase('Write')
 const slugOf = h => h.replace(/[._]+/g, '-').replace(/^-|-$/g, '')
@@ -95,7 +110,7 @@ Preview link = https://joxelds.github.io/Claude/p/<slug>/ with <slug> given belo
 ${b.map(q => `- @${q.handle} (slug ${slugOf(q.handle)}) · ${q.ig.name || ''} · ${q.niche} · ${q.area || ''} · ${q.ig.followers} followers · bio: ${(q.ig.bio || '').replace(/\s+/g, ' ').slice(0, 300)} · tagged by @${q.seed}: "${q.context}"`).join('\n')}`, { label: `write:${i + 1}`, phase: 'Write', schema: WR })))
 const wmap = new Map(written.filter(Boolean).flatMap(w => w.out || []).map(w => [String(w.handle).replace(/^@/, '').toLowerCase(), w]))
 const pack = q => ({ handle: q.handle, slug: slugOf(q.handle), name: q.ig.name || q.handle, niche: q.niche, area: q.area, seed: q.seed, context: q.context,
-  followers: q.ig.followers, media: q.ig.media, bio: q.ig.bio, website: q.ig.website || '', local: q.ig.local, email: q.email, emailSource: q.emailSource, phone: q.phone, score: +q.score.toFixed(3), copy: wmap.get(q.handle) || null })
+  followers: q.ig.followers, media: q.ig.media, bio: q.ig.bio, website: q.ig.website || '', domainNote: q.domainNote || '', local: q.ig.local, email: q.email, emailSource: q.emailSource, phone: q.phone, score: +q.score.toFixed(3), copy: wmap.get(q.handle) || null })
 return { date: A.date, counts: { seeds: today.length, seedsOk: seedsOk.size, candidates: cands.length, checked: vmap.size, verdicts: counts, qualified: qualified.length, dm: dm.length, email: mail.length, hold: hold.length, leftover: cands.length - toCheck.length },
   seedsUsed: today.map(s => s.handle), seedsDead: today.map(s => s.handle).filter(h => !seedsOk.has(h)), newSeeds, leftover: cands.slice(MAX_LOOKUPS),
   dm: dm.map(pack), email: mail.map(pack), hold: hold.map(pack) }
