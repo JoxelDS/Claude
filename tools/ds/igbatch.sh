@@ -26,6 +26,7 @@ for s in $(awk '{print $1}' media.txt | awk '!seen[$0]++'); do
   cp o/* ../o/ 2>/dev/null
   cd ..
 done
+curl -sfL -o igpack.py "$RAW/tools/ds/igpack.py" && python3 igpack.py o packs
 echo "=== FILES"
 for f in o/*; do echo "FILE $(basename "$f") $(stat -c %s "$f")"; done
 echo DONE
