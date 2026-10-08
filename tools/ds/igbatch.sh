@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# Runs in the Higgsfield sandbox (Instagram's CDN is reachable there, not from the build container).
+#   bash igbatch.sh <commit> <media file path in the repo> [keep-alive seconds]
+# The media file has one line per candidate photo: "SLUG KEY TYPE LIKES URL" (KEY LOGO = profile picture),
+# written by the daily run from the brand pulls. For every SLUG it runs tools/ds/igauto.py, which keeps the
+# 3 best photos (720×900) + the logo (320×320) in ~/ig/o/ and prints "FILE <name> <bytes>" + the logo palette.
+# Then it stays alive so the files can be fetched 4 at a time with sandbox_exec image_paths.
+set -u
+C=${1:?commit}; M=${2:?media file}; KEEP=${3:-840}
+RAW=https://raw.githubusercontent.com/joxelds/Claude/$C
+rm -rf ~/ig && mkdir -p ~/ig/o && cd ~/ig || exit 1
+curl -sfL -o igauto.py "$RAW/tools/ds/igauto.py" && curl -sfL -o media.txt "$RAW/$M" || { echo "download failed"; exit 1; }
+for s in $(awk '{print $1}' media.txt | awk '!seen[$0]++'); do
+  mkdir -p "w_$s" && cd "w_$s"
+  awk -v s="$s" '$1 == s { $1 = ""; sub(/^ /, ""); print }' ../media.txt > u.txt
+  echo "=== $s"
+  S="$s" timeout 100 python3 ../igauto.py 2>&1 | grep -v '^FILE' | sed 's/^/  /'
+  cp o/* ../o/ 2>/dev/null
+  cd ..
+done
+echo "=== FILES"
+for f in o/*; do echo "FILE $(basename "$f") $(stat -c %s "$f")"; done
+echo DONE
+sleep "$KEEP"

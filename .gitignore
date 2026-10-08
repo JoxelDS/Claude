@@ -6,3 +6,5 @@ dist/
 serviceAccountKey.json
 *.pem
 *.key
+# website generator experiments (ds-site-v2 / ds-inspiration workflows) — scratch, never published
+public/p/_lab/
