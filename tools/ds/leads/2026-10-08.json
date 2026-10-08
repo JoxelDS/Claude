@@ -1,0 +1,789 @@
+[
+ {
+  "slug": "kingsmiamiconch",
+  "name": "King's Miami Conch",
+  "niche": "food",
+  "lang": "en",
+  "theme": "runway",
+  "area": "Miami · NW 27th Ave",
+  "instagram": "@kingsmiamiconch",
+  "heroTitle": "#1 Conch Spot in Miami",
+  "heroSub": "Conch made tender, served 7 days a week at 11920 NW 27th Ave — people come from everywhere for it.",
+  "services": [
+   {
+    "t": "Conch salad",
+    "d": "Our conch salad, made at the truck and packed to go."
+   },
+   {
+    "t": "Tender conch",
+    "d": "The question we get the most: how we get it that tender. Come taste it."
+   },
+   {
+    "t": "Open every day",
+    "d": "10AM to 10PM, 7 days a week. Cash, card, Zelle or Apple Pay."
+   }
+  ],
+  "hours": [
+   "Every day · 10AM – 10PM"
+  ],
+  "address": "11920 NW 27th Ave, Miami, FL 33167",
+  "phone": "305-413-6037",
+  "proof": [
+   "Open 7 days, 10AM – 10PM",
+   "Cash · Card · Zelle · Apple Pay"
+  ],
+  "links": [
+   {
+    "label": "Menu + directions",
+    "url": "https://menu.miami/kings-conch"
+   }
+  ],
+  "ctaUrl": "https://menu.miami/kings-conch",
+  "cta": "Menu + directions",
+  "photos": [
+   "../_img/kingsmiamiconch-1.jpg",
+   "../_img/kingsmiamiconch-2.jpg",
+   "../_img/kingsmiamiconch-3.jpg"
+  ],
+  "ownPhotos": 3,
+  "logo": "../_img/kingsmiamiconch-logo.jpg",
+  "brand": {
+   "accent": "#1a7a9e",
+   "onAccent": "#ffffff",
+   "mark": "#1a7a9e",
+   "link": "#1a7a9e"
+  }
+ },
+ {
+  "slug": "rm-food-truck",
+  "name": "Reyes Manso Food Truck",
+  "niche": "food",
+  "lang": "es",
+  "theme": "diner",
+  "area": "Kendall · Medley",
+  "instagram": "@rm_food_truck",
+  "heroTitle": "El preferido de los que saben escoger",
+  "heroSub": "Dos food trucks en Kendall y Medley, abiertos hasta tarde todos los días. Eventos, catering y comida rápida.",
+  "services": [
+   {
+    "t": "Croquetas",
+    "d": "Si quieres una buena croqueta, es en Reyes Manso."
+   },
+   {
+    "t": "Catering y eventos",
+    "d": "Llámanos y ordena tu catering con nosotros."
+   },
+   {
+    "t": "Smoothies",
+    "d": "Ven a probar nuestros smoothies."
+   },
+   {
+    "t": "Dos ubicaciones",
+    "d": "Kendall: 6776 SW 117th Ave · 786-912-2152. Medley: 8421 NW 70th St · 786-559-2960."
+   }
+  ],
+  "hours": [
+   "Lunes a jueves · 6:30pm – 1am",
+   "Viernes y sábado · 12pm – 2am",
+   "Domingo · 12pm – 1am"
+  ],
+  "address": "6776 SW 117th Ave, Kendall, FL",
+  "phone": "786-912-2152",
+  "cta": "Llamar a Kendall",
+  "photos": [
+   "../_img/rm-food-truck-1.jpg",
+   "../_img/food-2.jpg",
+   "../_img/food-3.jpg"
+  ],
+  "ownPhotos": 1,
+  "logo": "../_img/rm-food-truck-logo.jpg",
+  "brand": {
+   "accent": "#b5562a",
+   "onAccent": "#ffffff",
+   "mark": "#b5562a",
+   "link": "#b5562a"
+  }
+ },
+ {
+  "slug": "cuban-cajita",
+  "name": "Cuban Cajita Food Truck",
+  "niche": "food",
+  "lang": "en",
+  "theme": "gallery",
+  "area": "Miami",
+  "instagram": "@cuban_cajita",
+  "heroTitle": "Cuban street food, made with love",
+  "heroSub": "Parrilladas y más — breakfast, lunch and dinner Monday to Saturday, plus Sunday brunch.",
+  "services": [
+   {
+    "t": "Breakfast",
+    "d": "Monday to Saturday, 6:30AM – 3:00PM. How do you like your eggs?"
+   },
+   {
+    "t": "Chicharrones",
+    "d": "Chicharrones from the cajita."
+   },
+   {
+    "t": "Disco volador de guayaba y queso",
+    "d": "Guava and cheese."
+   },
+   {
+    "t": "Sunday brunch",
+    "d": "Sundays from 12:00PM to 8:00PM."
+   }
+  ],
+  "hours": [
+   "Breakfast · Mon – Sat · 6:30AM – 3:00PM",
+   "Lunch & dinner · Mon – Sat · 11:00AM – 10:00PM",
+   "Sunday brunch · 12:00PM – 8:00PM"
+  ],
+  "cta": "Get in touch",
+  "photos": [
+   "../_img/food-1.jpg",
+   "../_img/food-2.jpg",
+   "../_img/food-3.jpg"
+  ],
+  "ownPhotos": 0,
+  "logo": "../_img/cuban-cajita-logo.jpg"
+ },
+ {
+  "slug": "ranchitocafeteromiami",
+  "name": "Mi Ranchito Cafetero",
+  "niche": "food",
+  "lang": "es",
+  "theme": "deli",
+  "area": "Miami · NW South River Dr",
+  "instagram": "@ranchitocafeteromiami",
+  "heroTitle": "Sazón, tradición y sabor",
+  "heroSub": "Street food colombiano y cubano en 10791 NW South River Dr — y en el Ranchito también se siente Colombia.",
+  "services": [
+   {
+    "t": "Salchipapas",
+    "d": "El clásico del street food colombiano."
+   },
+   {
+    "t": "Picadas",
+    "d": "Para compartir con la familia y los amigos."
+   },
+   {
+    "t": "Comida colombiana",
+    "d": "Sazón y tradición en cada plato 🇨🇴"
+   },
+   {
+    "t": "Comida cubana",
+    "d": "El sabor cubano en el mismo lugar 🇨🇺"
+   }
+  ],
+  "hours": [
+   "Lunes a viernes · 5pm – 11pm",
+   "Sábado y domingo · 12pm – 12am"
+  ],
+  "address": "10791 NW South River Dr, Miami, FL",
+  "cta": "Cómo llegar",
+  "photos": [
+   "../_img/ranchitocafeteromiami-1.jpg",
+   "../_img/ranchitocafeteromiami-2.jpg",
+   "../_img/ranchitocafeteromiami-3.jpg"
+  ],
+  "ownPhotos": 3,
+  "logo": "../_img/ranchitocafeteromiami-logo.jpg",
+  "brand": {
+   "accent": "#7a6342",
+   "onAccent": "#ffffff",
+   "mark": "#7a6342",
+   "link": "#7a6342"
+  }
+ },
+ {
+  "slug": "delomiostreetfood",
+  "name": "De lo Mío Street Food",
+  "niche": "food",
+  "lang": "es",
+  "theme": "noir",
+  "area": "Miami · 33015",
+  "instagram": "@delomiostreetfood",
+  "heroTitle": "Muy de lo nuestro, pero a otro nivel",
+  "heroSub": "Sabor callejero dominicano desde 2018: chimis, yaroas, catibías y mucho más, hasta las 12am.",
+  "services": [
+   {
+    "t": "Chimis",
+    "d": "Si tú sabes lo que es un chimi auténtico de verdad… tú ere’ De Lo Mío 🇩🇴"
+   },
+   {
+    "t": "Yaroas",
+    "d": "Tu yaroa favorita está en nuestras manos."
+   },
+   {
+    "t": "Catibías",
+    "d": "Hechas en casa, rechonchitas de relleno, en 4 sabores."
+   },
+   {
+    "t": "Martes de mangú",
+    "d": "Encárgalo con tiempo y pásalo a recoger, o llega a la ventana y ordena."
+   }
+  ],
+  "proof": [
+   "Desde 2018"
+  ],
+  "cta": "Escríbenos",
+  "photos": [
+   "../_img/food-1.jpg",
+   "../_img/food-2.jpg",
+   "../_img/food-3.jpg"
+  ],
+  "ownPhotos": 0,
+  "logo": "../_img/delomiostreetfood-logo.jpg"
+ },
+ {
+  "slug": "keaperofoodtruck",
+  "name": "Ke' Apero Food Truck",
+  "niche": "food",
+  "lang": "es",
+  "theme": "lookbook",
+  "area": "Hollywood, FL",
+  "instagram": "@keaperofoodtruck",
+  "heroTitle": "El Chimi que te hace feliz",
+  "heroSub": "El famoso chimi dominicano que rompió en Hollywood, FL — de miércoles a domingo desde las 7pm.",
+  "services": [
+   {
+    "t": "Tu Mayimbe",
+    "d": "Nuestro chimi con doble carne artesanal, queso frito y bacon, repollo y tomate verde."
+   },
+   {
+    "t": "El Búfalo",
+    "d": "¿Para qué pelear por pan si existe el plátano?"
+   },
+   {
+    "t": "Hotdog 100% dominicano",
+    "d": "💯% dominicano 🇩🇴"
+   },
+   {
+    "t": "Picadera",
+    "d": "Longaniza artesanal hecha por nosotros, chicharrón de cerdo, carnita de res y de cerdo, pechurinas, queso frito y salami."
+   }
+  ],
+  "hours": [
+   "Miércoles a domingo · desde las 7pm"
+  ],
+  "address": "5611 Hollywood Blvd, Hollywood, FL 33021",
+  "links": [
+   {
+    "label": "Ver el menú",
+    "url": "https://www.canva.com/design/DAF__LAppi8/f1MlkzFSJVlcqfzQa5UQwA/view"
+   }
+  ],
+  "cta": "Ver el menú",
+  "ctaUrl": "https://www.canva.com/design/DAF__LAppi8/f1MlkzFSJVlcqfzQa5UQwA/view",
+  "photos": [
+   "../_img/keaperofoodtruck-1.jpg",
+   "../_img/keaperofoodtruck-2.jpg",
+   "../_img/keaperofoodtruck-3.jpg"
+  ],
+  "ownPhotos": 3,
+  "logo": "../_img/keaperofoodtruck-logo.jpg",
+  "brand": {
+   "accent": "#c8102e",
+   "onAccent": "#ffffff",
+   "mark": "#c8102e",
+   "link": "#c8102e"
+  }
+ },
+ {
+  "slug": "peruanosfoodtruck",
+  "name": "Peruanos Food Truck",
+  "niche": "food",
+  "lang": "en",
+  "theme": "darkroom",
+  "area": "Miami · NE 2nd Ave",
+  "instagram": "@peruanosfoodtruck",
+  "heroTitle": "Peruvian cuisine until 5am",
+  "heroSub": "Ceviche, seafood and late-night Peruvian food at 2805 NE 2nd Ave, Miami.",
+  "services": [
+   {
+    "t": "Ceviche",
+    "d": "Ceviche, the Peruvian way."
+   },
+   {
+    "t": "Seafood",
+    "d": "Trío marino, dúo marino, chaufa de mariscos, leche de tigre and jalea."
+   },
+   {
+    "t": "Picarones",
+    "d": "On weekdays — nobody can resist them."
+   }
+  ],
+  "hours": [
+   "Mon, Wed, Thu & Sun · 8:30pm – 3am",
+   "Fri & Sat · 8:30pm – 5am",
+   "Tuesday · closed"
+  ],
+  "address": "2805 NE 2nd Ave, Miami, FL 33137",
+  "phone": "(305) 897-6167",
+  "cta": "Call ahead",
+  "photos": [
+   "../_img/peruanosfoodtruck-1.jpg",
+   "../_img/food-2.jpg",
+   "../_img/food-3.jpg"
+  ],
+  "ownPhotos": 1,
+  "logo": "../_img/peruanosfoodtruck-logo.jpg"
+ },
+ {
+  "slug": "reedsmiami",
+  "name": "Reed's Miami",
+  "niche": "food",
+  "lang": "en",
+  "theme": "coastal",
+  "area": "Miami · Ali Baba Ave",
+  "instagram": "@reedsmiami",
+  "heroTitle": "Fresh Miami Seafood",
+  "heroSub": "Seafood & soul food from the truck, Wednesday to Sunday from 2:30PM — and catering for your next event.",
+  "services": [
+   {
+    "t": "Lobster, crab & conch",
+    "d": "Fresh, hot and made just how you like it."
+   },
+   {
+    "t": "Seafood rice",
+    "d": "Add it to your favorite combo."
+   },
+   {
+    "t": "Conch salad & conch balls",
+    "d": "Plus wings, shrimp and more."
+   },
+   {
+    "t": "Catering",
+    "d": "Book Reed’s for your next wedding or event."
+   }
+  ],
+  "hours": [
+   "Wednesday – Sunday · 2:30PM – until"
+  ],
+  "address": "2304 Ali Baba Ave, Miami, FL",
+  "cta": "Book catering",
+  "photos": [
+   "../_img/reedsmiami-1.jpg",
+   "../_img/reedsmiami-2.jpg",
+   "../_img/reedsmiami-3.jpg"
+  ],
+  "ownPhotos": 3,
+  "logo": "../_img/reedsmiami-logo.jpg"
+ },
+ {
+  "slug": "rincon-del-taco",
+  "name": "Rincón del Taco",
+  "niche": "food",
+  "lang": "en",
+  "theme": "diner",
+  "area": "Davie, FL",
+  "instagram": "@rincon.del_taco",
+  "heroTitle": "Tacos & antojitos 100% mexicanos",
+  "heroSub": "Tacos, quesadillas, huaraches and empanadas on weekends at 14950 SW 14th St, Davie.",
+  "services": [
+   {
+    "t": "Tacos",
+    "d": "Try them with our homemade salsas — like the habanero."
+   },
+   {
+    "t": "Huaraches",
+    "d": "Stuffed with beans inside."
+   },
+   {
+    "t": "Quesadillas & empanadas",
+    "d": "More antojitos 100% mexicanos 🇲🇽"
+   },
+   {
+    "t": "Naranjada",
+    "d": "Come and try it with your tacos."
+   }
+  ],
+  "hours": [
+   "Friday · 12pm – 8pm",
+   "Saturday & Sunday · 11am – 8pm"
+  ],
+  "address": "14950 SW 14th St, Davie, FL 33326",
+  "cta": "Directions",
+  "photos": [
+   "../_img/rincon-del-taco-1.jpg",
+   "../_img/rincon-del-taco-2.jpg",
+   "../_img/rincon-del-taco-3.jpg"
+  ],
+  "ownPhotos": 3,
+  "logo": "../_img/rincon-del-taco-logo.jpg",
+  "brand": {
+   "accent": "#870001",
+   "onAccent": "#ffffff",
+   "mark": "#870001",
+   "link": "#870001"
+  }
+ },
+ {
+  "slug": "1821sandwichshop",
+  "name": "1821 Sandwich Shop",
+  "niche": "food",
+  "lang": "es",
+  "theme": "runway",
+  "area": "Kendall · SW 137th Ave",
+  "instagram": "@1821sandwichshop",
+  "heroTitle": "Comida peruana como tiene que ser",
+  "heroSub": "Peruvian street food desde 2017, de martes a domingo desde las 7pm en 9225 SW 137th Ave.",
+  "services": [
+   {
+    "t": "Crispy Chicken Sandwich",
+    "d": "El crunch que estabas buscando 🤌🏼🍗"
+   },
+   {
+    "t": "Anticuchos",
+    "d": "En oferta los martes y jueves."
+   },
+   {
+    "t": "Comida peruana",
+    "d": "Con sabor, sazón y mucho cariño 🇵🇪"
+   }
+  ],
+  "hours": [
+   "Martes a domingo · desde las 7pm",
+   "Lunes · cerrado"
+  ],
+  "address": "9225 SW 137th Ave, Miami, FL 33186",
+  "phone": "(786) 816-1821",
+  "proof": [
+   "Desde 2017"
+  ],
+  "cta": "Llamar",
+  "photos": [
+   "../_img/food-1.jpg",
+   "../_img/food-2.jpg",
+   "../_img/food-3.jpg"
+  ],
+  "ownPhotos": 0,
+  "logo": "../_img/1821sandwichshop-logo.jpg",
+  "brand": {
+   "accent": "#c42a06",
+   "onAccent": "#ffffff",
+   "mark": "#c42a06",
+   "link": "#c42a06"
+  }
+ },
+ {
+  "slug": "bocalocafoodtruck",
+  "name": "Boca Loca Food Truck",
+  "niche": "food",
+  "lang": "es",
+  "theme": "diner",
+  "area": "Hialeah",
+  "instagram": "@bocalocafoodtruck",
+  "heroTitle": "El plan de hoy ya está resuelto",
+  "heroSub": "Fajitas, mariscos, la Picada Boca y tostones en 7551 W 4th Ave, Hialeah — abiertos todos los días hasta la medianoche.",
+  "services": [
+   {
+    "t": "Fajitas Mix",
+    "d": "Camarones, pollo, carne, vegetales frescos y tortillas. ¡Los viernes son de fajitas!"
+   },
+   {
+    "t": "Mariscos",
+    "d": "Para tus noches con sabor y buena vibra."
+   },
+   {
+    "t": "Picada Boca y tostones",
+    "d": "Para compartir con tu gente."
+   },
+   {
+    "t": "Limonada y piña colada",
+    "d": "Bien frías."
+   }
+  ],
+  "hours": [
+   "Lunes a viernes · 5pm – 12am",
+   "Sábado y domingo · 2pm – 12am"
+  ],
+  "address": "7551 W 4th Ave, Hialeah, FL 33014",
+  "links": [
+   {
+    "label": "Pedir en DoorDash",
+    "url": "https://www.doordash.com/es-US/store/boca-loca-food-truck-hialeah-24930751/"
+   }
+  ],
+  "ctaUrl": "https://www.doordash.com/es-US/store/boca-loca-food-truck-hialeah-24930751/",
+  "cta": "Pedir en DoorDash",
+  "photos": [
+   "../_img/bocalocafoodtruck-1.jpg",
+   "../_img/bocalocafoodtruck-2.jpg",
+   "../_img/bocalocafoodtruck-3.jpg"
+  ],
+  "ownPhotos": 3,
+  "logo": "../_img/bocalocafoodtruck-logo.jpg",
+  "brand": {
+   "accent": "#c4161c",
+   "onAccent": "#ffffff",
+   "mark": "#c4161c",
+   "link": "#c4161c"
+  }
+ },
+ {
+  "slug": "laperlafoodtruck",
+  "name": "La Perla Food Truck",
+  "niche": "food",
+  "lang": "es",
+  "theme": "atelier",
+  "area": "Hialeah",
+  "instagram": "@laperlafoodtruck",
+  "heroTitle": "Más que comida, una experiencia",
+  "heroSub": "Comida cubana auténtica en 53 W 21st St, Hialeah. Llama para ordenar.",
+  "services": [
+   {
+    "t": "Uruguayo de cerdo",
+    "d": "🔥 Pruébalo."
+   },
+   {
+    "t": "Tacos",
+    "d": "De pollo, ropa vieja o chicharrón."
+   },
+   {
+    "t": "Tamal con chicharrón",
+    "d": "Comida cubana auténtica."
+   },
+   {
+    "t": "Combos para fiestas",
+    "d": "Encárgalos para tu próxima celebración."
+   }
+  ],
+  "address": "53 W 21st St, Hialeah, FL 33010",
+  "phone": "(561) 897-2484",
+  "links": [
+   {
+    "label": "Escribir por WhatsApp",
+    "url": "https://api.whatsapp.com/send?phone=15618972484"
+   }
+  ],
+  "cta": "Llamar para ordenar",
+  "photos": [
+   "../_img/laperlafoodtruck-1.jpg",
+   "../_img/laperlafoodtruck-2.jpg",
+   "../_img/laperlafoodtruck-3.jpg"
+  ],
+  "ownPhotos": 3,
+  "logo": "../_img/laperlafoodtruck-logo.jpg"
+ },
+ {
+  "slug": "frutipartymiami",
+  "name": "FrutiParty Miami",
+  "niche": "food",
+  "lang": "es",
+  "theme": "pinkdawn",
+  "area": "Miami",
+  "instagram": "@frutipartymiami",
+  "heroTitle": "Postres colombianos sobre ruedas",
+  "heroSub": "Food truck y frutería colombiana en Miami: fresas con crema, postres y antojos de otro nivel.",
+  "services": [
+   {
+    "t": "Fresas con crema",
+    "d": "Un antojo así no se piensa… se disfruta 🍓"
+   },
+   {
+    "t": "Postres colombianos",
+    "d": "Todo se antoja cuando el sabor es de otro nivel."
+   },
+   {
+    "t": "Frutería",
+    "d": "El sabor que alegra cualquier momento del día 🍍"
+   }
+  ],
+  "phone": "305-465-0522",
+  "links": [
+   {
+    "label": "Pedir en Uber Eats",
+    "url": "https://ubereats.app.link/42RUudsy3sb"
+   }
+  ],
+  "ctaUrl": "https://ubereats.app.link/42RUudsy3sb",
+  "cta": "Pedir en Uber Eats",
+  "photos": [
+   "../_img/frutipartymiami-1.jpg",
+   "../_img/frutipartymiami-2.jpg",
+   "../_img/frutipartymiami-3.jpg"
+  ],
+  "ownPhotos": 3,
+  "logo": "../_img/frutipartymiami-logo.jpg",
+  "brand": {
+   "accent": "#0e7577",
+   "onAccent": "#ffffff",
+   "mark": "#0e7577",
+   "link": "#0e7577"
+  }
+ },
+ {
+  "slug": "art-cake-miami",
+  "name": "Art Cake Miami",
+  "niche": "food",
+  "lang": "en",
+  "theme": "pastelserif",
+  "proof": [
+   "Est. 2022",
+   "Delivery in the Miami Downtown area"
+  ],
+  "area": "Miami · Downtown",
+  "instagram": "@art.cake.miami",
+  "heroTitle": "Exclusive cakes, premium desserts",
+  "heroSub": "Custom cakes handcrafted from scratch with fresh premium ingredients — delivered in the Miami Downtown area.",
+  "services": [
+   {
+    "t": "Custom cakes",
+    "d": "Wafer-paper textures, rhinestones and pearls, gold details — designed for your celebration."
+   },
+   {
+    "t": "Our flavors",
+    "d": "Homemade berry confits, orange carrot cake, rich chocolate sponge and iconic red velvet."
+   },
+   {
+    "t": "Delivery",
+    "d": "Delivery is available in the Miami Downtown area. DM us to order."
+   }
+  ],
+  "cta": "Order a cake",
+  "photos": [
+   "../_img/art-cake-miami-1.jpg",
+   "../_img/art-cake-miami-2.jpg",
+   "../_img/art-cake-miami-3.jpg"
+  ],
+  "ownPhotos": 3,
+  "logo": "../_img/art-cake-miami-logo.jpg",
+  "brand": {
+   "accent": "#c44a6a",
+   "onAccent": "#ffffff",
+   "mark": "#c44a6a",
+   "link": "#c44a6a"
+  }
+ },
+ {
+  "slug": "cocina-el-pecado",
+  "name": "El Pecado Food Truck",
+  "niche": "food",
+  "lang": "es",
+  "theme": "darkroom",
+  "area": "North Miami · Biscayne Blvd",
+  "instagram": "@cocina_el_pecado_",
+  "heroTitle": "Tacos mexicanos, hechos por mexicanos",
+  "heroSub": "Auténtica cocina mexicana en 11650 Biscayne Blvd, North Miami — de martes a domingo por la noche.",
+  "services": [
+   {
+    "t": "Tacos",
+    "d": "Los mejores tacos mexicanos, hechos por mexicanos."
+   },
+   {
+    "t": "Burritos, quesadillas y nachos",
+    "d": "Y de más."
+   },
+   {
+    "t": "Especiales",
+    "d": "Tacos de tripa, gorditas y huaraches en días especiales."
+   }
+  ],
+  "hours": [
+   "Martes a sábado · 6:00pm – 11:00pm",
+   "Domingo · 4:00pm – 10:00pm"
+  ],
+  "address": "11650 Biscayne Blvd, North Miami, FL 33181",
+  "cta": "Cómo llegar",
+  "photos": [
+   "../_img/cocina-el-pecado-1.jpg",
+   "../_img/cocina-el-pecado-2.jpg",
+   "../_img/food-3.jpg"
+  ],
+  "ownPhotos": 2,
+  "logo": "../_img/cocina-el-pecado-logo.jpg"
+ },
+ {
+  "slug": "delfinas-chimi",
+  "name": "Delfina's Chimi",
+  "niche": "food",
+  "lang": "es",
+  "theme": "noir",
+  "area": "Miami · NW 36th St",
+  "instagram": "@delfinas.chimi",
+  "heroTitle": "Fritura dominicana toda la noche",
+  "heroSub": "En 2345 NW 36th St, Miami, de jueves a domingo de 6pm a 6am. Pickup y delivery.",
+  "services": [
+   {
+    "t": "Fritura",
+    "d": "Carne frita, longaniza, salami, chicharrón de pollo, queso frito, bofe y tostones."
+   },
+   {
+    "t": "Chimis",
+    "d": "Chimi de pollo y chimi de carne."
+   },
+   {
+    "t": "Bistec de pollo",
+    "d": "A la parrilla."
+   }
+  ],
+  "hours": [
+   "Jueves a domingo · 6pm – 6am"
+  ],
+  "address": "2345 NW 36th St, Miami, FL 33142",
+  "phone": "(786) 346-6041",
+  "cta": "Llamar",
+  "photos": [
+   "../_img/delfinas-chimi-1.jpg",
+   "../_img/delfinas-chimi-2.jpg",
+   "../_img/food-3.jpg"
+  ],
+  "ownPhotos": 2,
+  "logo": "../_img/delfinas-chimi-logo.jpg",
+  "brand": {
+   "accent": "#8d6817",
+   "onAccent": "#ffffff",
+   "mark": "#8d6817",
+   "link": "#8d6817"
+  }
+ },
+ {
+  "slug": "ccdominicancakes",
+  "name": "CC Dominican Cakes",
+  "niche": "food",
+  "lang": "en",
+  "theme": "pinkdawn",
+  "area": "Miramar, FL",
+  "instagram": "@ccdominicancakes",
+  "heroTitle": "Not just pretty cakes. They're very tasty!",
+  "heroSub": "Bizcocho dominicano from Miramar — custom cakes for every celebration, plus cake slices ready to pick up.",
+  "services": [
+   {
+    "t": "Bizcocho dominicano",
+    "d": "Custom Dominican cakes for birthdays, showers and every celebration."
+   },
+   {
+    "t": "Cake slices",
+    "d": "Dominican cake with chinola, chocolate and more — $8 a slice, ready to pick up.",
+    "price": "$8"
+   },
+   {
+    "t": "Weekly drops",
+    "d": "Beso de Ángel, upside-down pineapple cake, mini cakes and chocolate chip cookies. Delivery available."
+   }
+  ],
+  "address": "Miramar, FL 33023",
+  "phone": "305-316-8424",
+  "links": [
+   {
+    "label": "Order on Hotplate",
+    "url": "https://www.hotplate.com/ccdominicancakes/d9554ec9-10cf-4357-9609-bb739b53bedc"
+   }
+  ],
+  "ctaUrl": "https://www.hotplate.com/ccdominicancakes/d9554ec9-10cf-4357-9609-bb739b53bedc",
+  "cta": "Order on Hotplate",
+  "photos": [
+   "../_img/ccdominicancakes-1.jpg",
+   "../_img/ccdominicancakes-2.jpg",
+   "../_img/ccdominicancakes-3.jpg"
+  ],
+  "ownPhotos": 3,
+  "logo": "../_img/ccdominicancakes-logo.jpg",
+  "brand": {
+   "accent": "#7a4fa0",
+   "onAccent": "#ffffff",
+   "mark": "#7a4fa0",
+   "link": "#7a4fa0"
+  }
+ }
+]
