@@ -71,7 +71,7 @@ def duration(f):
 
 
 items = []
-for ln in open('u.txt').read().split('\n'):
+for ln in ([] if '--final' in sys.argv else open('u.txt').read().split('\n')):
     ln = ln.strip()
     if not ln:
         continue
@@ -125,8 +125,37 @@ for distinct in (True, False):  # first one photo per post (two frames of one vi
         if it in picked or near(it) or (distinct and any(p['k'] == it['k'] for p in picked)):
             continue
         picked.append(it)
+# Review sheet: the 16 best clean candidates, numbered, so a person (or Claude) can choose instead of the automatic pick:
+#   PICK="3,7,12" python3 igauto.py --final   → o/<S>-1..3.jpg from those numbers (cand.json keeps the crops).
+import json
+from PIL import ImageDraw
+cands = []
+for it in items:
+    if len(cands) == 16:
+        break
+    if any(sum(abs(a - b) for a, b in zip(it['thumb'], c['thumb'])) / 320 < 10 for c in cands):
+        continue
+    cands.append(it)
+json.dump([{'g': c['g'], 'crop': c['crop'], 'k': c['k'], 'score': round(c['score']), 'text': c['text']} for c in cands], open('cand.json', 'w'))
+if cands:
+    TW, TH = 200, 250
+    sheet = Image.new('RGB', (TW * 4, TH * ((len(cands) + 3) // 4)), 'white')
+    dr = ImageDraw.Draw(sheet)
+    for i, c in enumerate(cands):
+        t = Image.open(c['g']).convert('RGB').crop(c['crop']).resize((TW - 4, TH - 4))
+        x, y = (i % 4) * TW + 2, (i // 4) * TH + 2
+        sheet.paste(t, (x, y))
+        dr.rectangle([x, y, x + 34, y + 26], fill='black')
+        dr.text((x + 6, y + 6), str(i + 1), fill='white')
+    sheet.save(f'o/{S}-sheet.jpg', quality=60)
+if '--final' in sys.argv:
+    cands = json.load(open('cand.json'))
+    picked = [cands[int(x) - 1] for x in os.environ.get('PICK', '').split(',') if x.strip().isdigit() and 0 < int(x) <= len(cands)]
+    for f in os.listdir('o'):
+        if f.startswith(f'{S}-') and f[len(S) + 1:-4].isdigit():
+            os.remove('o/' + f)
 for n, it in enumerate(picked, 1):
-    Image.open(it['g']).convert('RGB').crop(it['crop']).resize((720, 900), Image.LANCZOS).save(f'o/{S}-{n}.jpg', quality=72)
+    Image.open(it['g']).convert('RGB').crop(tuple(it['crop'])).resize((720, 900), Image.LANCZOS).save(f'o/{S}-{n}.jpg', quality=72)
 for fn in sorted(os.listdir('o')):
     print('FILE', fn, os.path.getsize('o/' + fn))
 print('PICKED', [(p['k'], round(p['score']), p['text']) for p in picked], 'of', len(items), 'ocr' if ocr else 'NO-OCR')
