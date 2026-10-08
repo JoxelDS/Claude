@@ -1,14 +1,14 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Knockout Kendall · Kendall</title><meta name="robots" content="noindex,nofollow">
 <!-- DS Marketing preview · theme runway · inspired by Peloton — red beacon on charcoal runway (styles.refero.design) -->
-<meta name="theme-color" content="#181a1d">
+<meta name="theme-color" content="#292929">
 <meta property="og:title" content="Knockout Kendall · website preview"><meta property="og:description" content="Group classes in Kendall that push you, for every level."><meta property="og:image" content="https://joxelds.github.io/Claude/p/_img/knockout-kendall-1.jpg">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&amp;display=swap" rel="stylesheet">
 <link rel="preload" as="image" href="../_img/knockout-kendall-1.jpg">
 <style>
 :root{--bg:#f7f7f7;--surface:#ffffff;--surface2:#ffffff;--ink:#181a1d;--sub:#65666a;--line:#e4e6e7;--a:#df1c2f;--onA:#ffffff;--tagBg:#df1c2f;--tagInk:#ffffff;
---heroBg:#181a1d;--heroInk:#ffffff;--btnR:28px;--cardR:16px;--imgR:12px;--link:#181a1d;
+--heroBg:#292929;--heroInk:#ffffff;--btnR:28px;--cardR:16px;--imgR:12px;--link:#c4172a;
 --disp:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;--body:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif}
 *{margin:0;box-sizing:border-box}html{scroll-behavior:smooth}body{background:var(--bg);color:var(--ink);font-family:var(--body);-webkit-font-smoothing:antialiased;overflow-x:hidden;font-size:16px}
 img{display:block;max-width:100%}figure{margin:0}
@@ -17,7 +17,6 @@ h1,h2,.poster,.kicker{font-family:var(--disp);font-weight:300;text-transform:non
 h1{font-size:clamp(44px,11.5vw,96px);line-height:.96;max-width:13ch}
 h2{font-size:clamp(32px,8vw,56px);line-height:1.02;margin-bottom:28px}
 .top{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:18px 22px;font:700 15px var(--body);letter-spacing:.01em}
-.top span{max-width:56%;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .top a{white-space:nowrap;color:inherit;text-decoration:none;font:600 13px var(--body);letter-spacing:.02em;border:1px solid color-mix(in srgb,currentColor 35%,transparent);padding:8px 14px;border-radius:var(--btnR)}
 .tag{display:inline-block;align-self:flex-start;font:700 11px var(--body);letter-spacing:.18em;text-transform:uppercase;color:var(--tagInk);background:var(--tagBg);padding:6px 10px;border-radius:6px;margin-bottom:18px}
 .lead{font-size:clamp(17px,4.4vw,20px);line-height:1.55;margin-top:18px;max-width:38ch;opacity:.86}
@@ -27,6 +26,13 @@ h2{font-size:clamp(32px,8vw,56px);line-height:1.02;margin-bottom:28px}
 .cta:hover{transform:translateY(-2px)}
 .ghost{color:inherit;font:600 15px var(--body);text-decoration:none;padding:15px 22px;border-radius:var(--btnR);border:1px solid color-mix(in srgb,currentColor 35%,transparent);}
 .rating{margin-top:20px;font:600 14px var(--body);opacity:.85}
+.brandName{display:flex;align-items:center;gap:10px;min-width:0;max-width:62%}.brandName>span{line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.logo{width:36px;height:36px;border-radius:50%;object-fit:cover;flex:none;box-shadow:0 0 0 2px color-mix(in srgb,currentColor 18%,transparent)}
+.heroLogo{width:84px;height:84px;border-radius:50%;object-fit:cover;margin-bottom:20px;box-shadow:0 10px 30px rgba(0,0,0,.18),0 0 0 3px color-mix(in srgb,currentColor 14%,transparent)}
+.h-center .heroLogo{align-self:center}
+.pr{display:block;margin:6px 0 0;font-style:normal;font-weight:700;font-size:.92em;color:var(--link);overflow-wrap:anywhere}
+.promo{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:baseline;background:var(--a);color:var(--onA);border-radius:var(--cardR);padding:16px 20px;margin-bottom:40px;font-size:16px;line-height:1.45}.promo b{font:700 12px var(--body);letter-spacing:.16em;text-transform:uppercase}
+.proof{list-style:none;padding:0;margin:26px 0 0;display:flex;flex-wrap:wrap;gap:8px}.proof li{border:1px solid var(--line);border-radius:999px;padding:8px 14px;font-size:14px;color:var(--sub)}.proof li:before{content:'✓ ';color:var(--link);font-weight:700}
 .h-overlay{min-height:100svh;display:flex;flex-direction:column;position:relative;isolation:isolate;overflow:hidden;color:var(--heroInk);background:var(--heroBg)}
 .h-overlay .bgimg{position:absolute;inset:0;z-index:-2;width:100%;height:100%;object-fit:cover;transform:scale(1.08);animation:kb 18s ease-out forwards}
 .h-overlay:after{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(180deg,color-mix(in srgb,var(--heroBg) 50%,transparent) 0%,color-mix(in srgb,var(--heroBg) 12%,transparent) 24%,color-mix(in srgb,var(--heroBg) 72%,transparent) 52%,color-mix(in srgb,var(--heroBg) 94%,transparent) 78%,var(--heroBg) 100%)}
@@ -58,7 +64,7 @@ section{padding:72px 22px;max-width:1120px;margin:0 auto}
 .hours b{font:700 17px var(--body);color:var(--ink);margin-bottom:4px}
 .reach{display:flex;flex-direction:column;gap:10px}
 .reach a{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:20px 22px;border-radius:var(--cardR);background:var(--surface);color:var(--ink);text-decoration:none;font:700 17px var(--body);}
-.reach a span{color:var(--link);font-weight:500;font-size:15px;text-align:right}
+.reach a span{color:var(--link);font-weight:500;font-size:15px;text-align:right;min-width:0;overflow-wrap:anywhere}
 footer{padding:36px 22px 140px;text-align:center;color:var(--sub);font-size:13px;line-height:1.7;border-top:1px solid color-mix(in srgb,var(--ink) 14%,transparent)}footer a{color:var(--ink)}
 .ribbon{position:fixed;left:0;right:0;bottom:0;z-index:30;display:flex;gap:10px;align-items:center;justify-content:center;flex-wrap:wrap;background:color-mix(in srgb,var(--heroBg) 88%,transparent);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-top:1px solid color-mix(in srgb,var(--heroInk) 14%,transparent);color:color-mix(in srgb,var(--heroInk) 75%,transparent);font:500 13px/1.35 var(--body);padding:11px 16px calc(11px + env(safe-area-inset-bottom));text-align:center}
 .ribbon b{color:var(--heroInk);font-weight:700}.ribbon a{color:var(--onA);background:var(--a);font-weight:700;text-decoration:none;padding:7px 14px;border-radius:var(--btnR);white-space:nowrap}
@@ -81,9 +87,9 @@ footer{padding:36px 22px 140px;text-align:center;color:var(--sub);font-size:13px
 }
 @media (prefers-reduced-motion:reduce){.h-overlay .bgimg,.heroText>*{animation:none!important}.reveal{opacity:1;transform:none;transition:none}}
 </style></head><body class="theme-runway">
-<header class="hero h-overlay"><img class="bgimg" src="../_img/knockout-kendall-1.jpg" alt="" fetchpriority="high"><div class="top"><span>Knockout Kendall</span><a href="https://instagram.com/knockoutkendall" target="_blank" rel="noopener">@knockoutkendall</a></div><div class="heroText"><div class="tag">Kendall · Training</div><h1>Strength. HIIT. Fitness boxing.</h1><p class="lead">Group classes in Kendall that push you, for every level.</p><div class="ctas"><a class="cta" href="https://linktr.ee/knockoutkendall" target="_blank" rel="noopener">Book your first class <span aria-hidden="true">→</span></a><a class="ghost" href="#more">Programs</a></div></div></header>
+<header class="hero h-overlay"><img class="bgimg" src="../_img/knockout-kendall-1.jpg" alt="" fetchpriority="high"><div class="top"><span class="brandName"><img class="logo" src="../_img/knockout-kendall-logo.jpg" alt="Knockout Kendall logo"><span>Knockout Kendall</span></span><a href="https://instagram.com/knockoutkendall" target="_blank" rel="noopener">@knockoutkendall</a></div><div class="heroText"><img class="heroLogo" src="../_img/knockout-kendall-logo.jpg" alt=""><div class="tag">Kendall · Training</div><h1>Strength. HIIT. Fitness boxing.</h1><p class="lead">Group classes in Kendall that push you, for every level.</p><div class="ctas"><a class="cta" href="https://linktr.ee/knockoutkendall" target="_blank" rel="noopener">Book your first class <span aria-hidden="true">→</span></a><a class="ghost" href="#more">Programs</a></div></div></header>
 <section id="more" class="reveal"><div class="eyebrow">Knockout Kendall</div><h2>Programs</h2><div class="grid"><div class="card"><b>Strength training</b><span>Build real strength with coached lifts.</span></div><div class="card"><b>HIIT</b><span>High-intensity intervals that keep you moving.</span></div><div class="card"><b>Fitness boxing</b><span>Bag work and combos for a full-body burn.</span></div></div></section>
-<section class="reveal"><div class="eyebrow">Gallery</div><h2>See it for yourself</h2><div class="photos"><div class="ph"><img src="../_img/knockout-kendall-1.jpg" alt="Sample photo" loading="lazy"></div><div class="ph"><img src="../_img/fitness-3.jpg" alt="Sample photo" loading="lazy"></div><div class="ph"><img src="../_img/fitness-1.jpg" alt="Sample photo" loading="lazy"></div></div><p class="note">Sample photos: your own photos go here.</p></section>
+<section class="reveal"><div class="eyebrow">Gallery</div><h2>See it for yourself</h2><div class="photos"><div class="ph"><img src="../_img/knockout-kendall-1.jpg" alt="Photo from @knockoutkendall" loading="lazy"></div><div class="ph"><img src="../_img/knockout-kendall-2.jpg" alt="Photo from @knockoutkendall" loading="lazy"></div><div class="ph"><img src="../_img/knockout-kendall-3.jpg" alt="Photo from @knockoutkendall" loading="lazy"></div></div><p class="note">Photos from @knockoutkendall on Instagram. You pick the final ones.</p></section>
 <section class="reveal"><div class="eyebrow">Visit</div><h2>Find us</h2><div class="reach"><a href="https://www.google.com/maps/search/Knockout%20Kendall%20Kendall" target="_blank" rel="noopener">Directions <span>Kendall</span></a><a href="https://instagram.com/knockoutkendall" target="_blank" rel="noopener">Instagram <span>@knockoutkendall</span></a></div></section>
 <footer>This is a free preview made by DS Marketing. It is not the official website of Knockout Kendall.<br><a href="https://instagram.com/dsmarketing.agency" target="_blank" rel="noopener">@dsmarketing.agency</a> · <a href="https://dsmarketing.company/portfolio" target="_blank" rel="noopener">dsmarketing.company</a></footer>
 <div class="ribbon"><span><b>Free preview for Knockout Kendall</b> by DS Marketing · live on your own domain in 48 h</span><a href="https://instagram.com/dsmarketing.agency" target="_blank" rel="noopener">Make it mine</a></div>
