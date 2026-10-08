@@ -1,6 +1,8 @@
 // node tools/ds/preview.mjs leads.json → public/p/<slug>/index.html (free preview homepages for DS Marketing website outreach)
 // One self-contained page per lead: photo hero, services, sample gallery, how to reach them, a "free preview by DS Marketing" ribbon.
-// No invented facts: only the name, area, services and rating the research found. No fake reviews, no stock "customers".
+// No invented facts: only the name, area, services, rating and what their own Instagram bio says (hours, address, business phone).
+// No fake reviews, no stock "customers". Lead fields: name slug niche area instagram heroTitle heroSub services[{t,d}] cta accent
+// short? (top-bar name) rating? heroImg? photos[3]? lang ('en'|'es')? phone? address? hours[]? hoursTitle? ctaUrl? (their booking / ordering link)
 // Photos are SAMPLES (public/p/_img/<niche>-1..3.jpg) and say so on the page — their own photos replace them on the real site.
 import { readFileSync, writeFileSync, mkdirSync } from 'fs';
 const ROOT = new URL('../../', import.meta.url).pathname;
@@ -11,6 +13,14 @@ const NICHE = {
   beauty: { font: 'Playfair Display', w: '600;700', bg: '#0F0B0E', ink: '#FFF2F6', sub: '#D8BFCB', label: 'Services', tag: 'Beauty', icon: '✦' },
   fitness: { font: 'Anton', w: '400', bg: '#07090C', ink: '#F2F6FF', sub: '#AAB6CC', label: 'Programs', tag: 'Training', icon: '◆' },
   home: { font: 'Archivo', w: '700;800', bg: '#0A0E12', ink: '#F4F7FA', sub: '#B3C0CC', label: 'What we do', tag: 'Home services', icon: '■' },
+};
+const STR = {
+  en: { tag: { food: 'Eat & drink', beauty: 'Beauty', fitness: 'Training', home: 'Home services' }, label: { food: 'Menu highlights', beauty: 'Services', fitness: 'Programs', home: 'What we do' },
+    gallery: 'Gallery', see: 'See it for yourself', sample: 'Sample photos: your own photos go here.', visit: 'Visit', find: 'Find us', call: 'Call', directions: 'Directions', hours: 'Hours',
+    foot: n => `This is a free preview made by DS Marketing. It is not the official website of ${n}.`, rib: n => `<b>Free preview for ${n}</b> by DS Marketing · live on your own domain in 48 h`, mine: 'Make it mine', touch: 'Get in touch' },
+  es: { tag: { food: 'Comida', beauty: 'Belleza', fitness: 'Entrenamiento', home: 'Servicios para el hogar' }, label: { food: 'Lo más pedido', beauty: 'Servicios', fitness: 'Programas', home: 'Lo que hacemos' },
+    gallery: 'Galería', see: 'Míralo tú mismo', sample: 'Fotos de muestra: aquí van tus propias fotos.', visit: 'Visítanos', find: 'Encuéntranos', call: 'Llamar', directions: 'Cómo llegar', hours: 'Horario',
+    foot: n => `Esta es una vista previa gratis hecha por DS Marketing. No es la página oficial de ${n}.`, rib: n => `<b>Vista previa gratis para ${n}</b> por DS Marketing · en vivo con tu dominio en 48 h`, mine: 'La quiero', touch: 'Escríbenos' },
 };
 const opsz = f => f === 'Fraunces' ? 'ital,opsz,wght@0,9..144,600;0,9..144,800' : null;
 for (const l of leads) {
@@ -25,8 +35,13 @@ for (const l of leads) {
   const order = [first, ...[1, 2, 3].filter(i => i !== first)];
   const img = i => l.photos?.[i - 1] || `../_img/${key}-${order[i - 1]}.jpg`;
   const igUrl = `https://instagram.com/${esc(ig)}`;
-  const maps = `https://www.google.com/maps/search/${encodeURIComponent(l.name + ' ' + (l.area || 'Miami'))}`;
-  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  const t = STR[l.lang === 'es' ? 'es' : 'en'];
+  const where = l.address || `${l.name} ${l.area || 'Miami'}`;
+  const maps = `https://www.google.com/maps/search/${encodeURIComponent(where)}`;
+  const tel = l.phone ? 'tel:+1' + String(l.phone).replace(/\D/g, '').replace(/^1(?=\d{10}$)/, '') : '';
+  const label = t.label[key];
+  const ctaHref = l.ctaUrl || tel || igUrl; const ctaExt = !(tel && !l.ctaUrl);
+  const html = `<!doctype html><html lang="${l.lang === 'es' ? 'es' : 'en'}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>${esc(l.name)} · ${esc(l.area || 'Miami')}</title><meta name="robots" content="noindex,nofollow">
 <meta name="theme-color" content="${n.bg}">
 <meta property="og:title" content="${esc(l.name)} · website preview"><meta property="og:description" content="${esc(l.heroSub)}"><meta property="og:image" content="${l.photos?.[0] ? l.photos[0].replace(/^\.\.\//, 'https://joxelds.github.io/Claude/p/') : `https://joxelds.github.io/Claude/p/_img/${key}-${first}.jpg`}">
@@ -45,7 +60,8 @@ a:focus-visible{outline:2px solid var(--a);outline-offset:3px}
 @keyframes kb{to{transform:scale(1)}}
 .hero:after{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(180deg,color-mix(in srgb,var(--bg) 45%,transparent) 0%,color-mix(in srgb,var(--bg) 15%,transparent) 22%,color-mix(in srgb,var(--bg) 70%,transparent) 48%,color-mix(in srgb,var(--bg) 92%,transparent) 75%,var(--bg) 100%)}
 .top{position:absolute;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:center;padding:18px 22px;font:700 15px var(--sans);letter-spacing:.02em}
-.top a{color:var(--ink);text-decoration:none;font:600 14px var(--sans);border:1px solid color-mix(in srgb,var(--ink) 30%,transparent);padding:8px 14px;border-radius:999px;background:color-mix(in srgb,var(--bg) 30%,transparent);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+.top span{max-width:52%;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.top a{white-space:nowrap;color:var(--ink);text-decoration:none;font:600 14px var(--sans);border:1px solid color-mix(in srgb,var(--ink) 30%,transparent);padding:8px 14px;border-radius:999px;background:color-mix(in srgb,var(--bg) 30%,transparent);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
 .tag{display:inline-block;align-self:flex-start;font:700 11px var(--sans);letter-spacing:.2em;text-transform:uppercase;color:#111;background:var(--a);padding:6px 10px;border-radius:6px;margin-bottom:18px}
 .hero h1,.hero .lead{text-shadow:0 2px 24px color-mix(in srgb,var(--bg) 70%,transparent)}
 h1{font-family:'${n.font}',${key === 'fitness' ? "Impact,'Arial Narrow',sans-serif" : key === 'home' ? 'var(--sans)' : "Georgia,'Times New Roman',serif"};font-weight:800;font-size:clamp(48px,12.5vw,112px);line-height:.94;letter-spacing:-.02em;max-width:12ch;text-wrap:balance}
@@ -72,6 +88,7 @@ h2{font-family:'${n.font}',${key === 'fitness' ? "Impact,'Arial Narrow',sans-ser
 .note{margin-top:12px;color:var(--sub);font-size:13px}
 .reach{display:flex;flex-direction:column;gap:10px}.reach a{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:20px 22px;border-radius:18px;background:var(--card);border:1px solid var(--line);color:var(--ink);text-decoration:none;font:600 17px var(--sans)}
 .reach a span{color:var(--sub);font-weight:500;font-size:15px;text-align:right}
+.hours{display:flex;flex-direction:column;gap:6px;padding:20px 22px;border-radius:18px;background:var(--card);border:1px solid var(--line);margin-bottom:10px;font-size:15px;color:var(--sub);line-height:1.45}.hours b{font:700 17px var(--sans);color:var(--ink);margin-bottom:4px}
 footer{padding:36px 22px 130px;text-align:center;color:var(--sub);font-size:13px;line-height:1.7;border-top:1px solid var(--line)}
 footer a{color:var(--ink)}
 .reveal{opacity:0;transform:translateY(26px);transition:opacity .9s cubic-bezier(.2,.7,.2,1),transform .9s cubic-bezier(.2,.7,.2,1)}.reveal.in{opacity:1;transform:none}
@@ -83,16 +100,16 @@ footer a{color:var(--ink)}
 </style></head><body>
 <header class="hero">
 <img class="bgimg" src="${img(1)}" alt="" fetchpriority="high">
-<div class="top"><span>${esc(l.name)}</span><a href="${igUrl}" target="_blank" rel="noopener">@${esc(ig)}</a></div>
-<div class="tag">${esc(l.area || 'Miami')} · ${n.tag}</div>
+<div class="top"><span>${esc(l.short || l.name)}</span><a href="${igUrl}" target="_blank" rel="noopener">${ig.length > 17 ? 'Instagram' : '@' + esc(ig)}</a></div>
+<div class="tag">${esc(l.area || 'Miami')} · ${t.tag[key]}</div>
 <h1>${esc(l.heroTitle || l.name)}</h1><p class="lead">${esc(l.heroSub || '')}</p>
-<div class="ctas"><a class="cta" href="${igUrl}" target="_blank" rel="noopener">${esc(l.cta || 'Get in touch')} →</a><a class="ghost" href="#more">${n.label}</a></div>
+<div class="ctas"><a class="cta" href="${esc(ctaHref)}"${ctaExt ? ' target="_blank" rel="noopener"' : ''}>${esc(l.cta || t.touch)} →</a><a class="ghost" href="#more">${label}</a></div>
 ${l.rating ? `<div class="rating"><b>★ ${esc(l.rating)}</b></div>` : ''}</header>
-<section id="more" class="reveal"><div class="eyebrow">${esc(l.name)}</div><h2>${n.label}</h2><div class="grid">${(l.services || []).slice(0, 6).map(s => `<div class="card"><i>${n.icon}</i><b>${esc(s.t)}</b><span>${esc(s.d)}</span></div>`).join('')}</div></section>
-<section class="reveal"><div class="eyebrow">Gallery</div><h2>See it for yourself</h2><div class="photos"><div class="ph"><img src="${img(1)}" alt="Sample photo" loading="lazy"></div><div class="ph"><img src="${img(2)}" alt="Sample photo" loading="lazy"></div><div class="ph"><img src="${img(3)}" alt="Sample photo" loading="lazy"></div></div><p class="note">Sample photos: your own photos go here.</p></section>
-<section class="reveal"><div class="eyebrow">Visit</div><h2>Find us</h2><div class="reach"><a href="${igUrl}" target="_blank" rel="noopener">Instagram <span>@${esc(ig)}</span></a><a href="${maps}" target="_blank" rel="noopener">Directions <span>${esc(l.area || 'Miami')}</span></a></div></section>
-<footer>This is a free preview made by DS Marketing. It is not ${esc(l.name)}'s official website.<br><a href="https://instagram.com/dsmarketing.agency" target="_blank" rel="noopener">@dsmarketing.agency</a> · <a href="https://dsmarketing.company/portfolio" target="_blank" rel="noopener">dsmarketing.company</a></footer>
-<div class="ribbon"><span><b>Free preview for ${esc(l.name)}</b> by DS Marketing · live on your own domain in 48 h</span><a href="https://instagram.com/dsmarketing.agency" target="_blank" rel="noopener">Make it mine</a></div>
+<section id="more" class="reveal"><div class="eyebrow">${esc(l.name)}</div><h2>${label}</h2><div class="grid">${(l.services || []).slice(0, 6).map(s => `<div class="card"><i>${n.icon}</i><b>${esc(s.t)}</b><span>${esc(s.d)}</span></div>`).join('')}</div></section>
+<section class="reveal"><div class="eyebrow">${t.gallery}</div><h2>${t.see}</h2><div class="photos"><div class="ph"><img src="${img(1)}" alt="Sample photo" loading="lazy"></div><div class="ph"><img src="${img(2)}" alt="Sample photo" loading="lazy"></div><div class="ph"><img src="${img(3)}" alt="Sample photo" loading="lazy"></div></div><p class="note">${t.sample}</p></section>
+<section class="reveal"><div class="eyebrow">${t.visit}</div><h2>${t.find}</h2>${(l.hours || []).length ? `<div class="hours"><b>${esc(l.hoursTitle || t.hours)}</b>${l.hours.map(h => `<span>${esc(h)}</span>`).join('')}</div>` : ''}<div class="reach">${tel ? `<a href="${tel}">${t.call} <span>${esc(l.phone)}</span></a>` : ''}<a href="${maps}" target="_blank" rel="noopener">${t.directions} <span>${esc(l.address || l.area || 'Miami')}</span></a><a href="${igUrl}" target="_blank" rel="noopener">Instagram <span>@${esc(ig)}</span></a></div></section>
+<footer>${t.foot(esc(l.name))}<br><a href="https://instagram.com/dsmarketing.agency" target="_blank" rel="noopener">@dsmarketing.agency</a> · <a href="https://dsmarketing.company/portfolio" target="_blank" rel="noopener">dsmarketing.company</a></footer>
+<div class="ribbon"><span>${t.rib(esc(l.name))}</span><a href="https://instagram.com/dsmarketing.agency" target="_blank" rel="noopener">${t.mine}</a></div>
 <script>const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target)}}),{threshold:.12});document.querySelectorAll('.reveal').forEach(el=>io.observe(el));</script>
 </body></html>`;
   const dir = `${ROOT}public/p/${l.slug}`; mkdirSync(dir, { recursive: true }); writeFileSync(`${dir}/index.html`, html);
