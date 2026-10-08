@@ -20,9 +20,11 @@ const now = () => Date.now() / 1000;
 const mime = p => p.endsWith('.html') ? 'text/html' : p.endsWith('.js') ? 'text/javascript' : p.endsWith('.css') ? 'text/css' : p.endsWith('.svg') ? 'image/svg+xml' : p.endsWith('.png') ? 'image/png' : p.endsWith('.json') ? 'application/json' : p.endsWith('.woff2') ? 'font/woff2' : p.endsWith('.webmanifest') ? 'application/manifest+json' : 'application/octet-stream';
 export const route = r => {
   const u = new URL(r.request().url());
+  // the app's Inter webfont, served from tools/video/fonts (Google is not reachable from the recorder)
+  if (u.hostname === 'fonts.googleapis.com') return r.fulfill({ contentType: 'text/css', body: [400, 500, 600, 700, 800].map(w => `@font-face{font-family:'Inter';font-style:normal;font-weight:${w};font-display:swap;src:url(https://app.local/__tour/fonts/inter${w}.${w === 500 || w === 600 ? 'woff2' : 'ttf'})}`).join('') });
   if (u.hostname !== 'app.local') return r.abort();
   let f;
-  if (u.pathname.startsWith('/__tour/fonts/')) f = TR + '/fonts/' + u.pathname.slice(14);
+  if (u.pathname.startsWith('/__tour/fonts/')) { f = TR + '/fonts/' + u.pathname.slice(14); if (!existsSync(f)) f = TR + '/../../tools/video/fonts/' + u.pathname.slice(14); }
   else if (u.pathname.startsWith('/__tour/')) f = TOUR + '/' + u.pathname.slice(8);
   else { let p = u.pathname.replace(/^\/Claude/, '') || '/'; if (p === '/') p = '/index.html'; f = DIST + p; }
   if (existsSync(f)) r.fulfill({ body: readFileSync(f), contentType: mime(f) }); else r.fulfill({ status: 404, body: 'nf' });
@@ -34,7 +36,7 @@ export const initAll = () => {
   const N = function () {}; N.permission = 'granted'; N.requestPermission = () => Promise.resolve('granted');
   try { Object.defineProperty(window, 'Notification', { value: N, writable: true, configurable: true }); } catch {}
   if (!location.pathname.startsWith('/Claude')) return;
-  const css = 'img[src*="sodexo"],#splash,#__sdx_shield,.swUpdateBanner,.swUpdatingStrip,.topStrip,.draftRestoredStrip,.draftListBar,.outboxChip{display:none!important} html:not(.tourLang) .langFabWrap{display:none!important}';
+  const css = 'img[src*="sodexo"],#splash,#__sdx_shield,.swUpdateBanner,.swUpdatingStrip,.pinFooter,.foodSafetyRefBadge,.draftRestoredStrip,.draftListBar,.outboxChip{display:none!important} html:not(.tourLang) .langFabWrap{display:none!important}';
   const add = () => { const s = document.createElement('style'); s.textContent = css; (document.head || document.documentElement).appendChild(s); };
   if (document.documentElement) add(); else document.addEventListener('DOMContentLoaded', add);
   const fix = n => { if (n && n.nodeType === 3 && /sodexo/i.test(n.nodeValue)) n.nodeValue = n.nodeValue.replace(/Sodexo Live!?/gi, 'SDX Inspect').replace(/Sodexo/gi, 'SDX'); };
@@ -42,14 +44,15 @@ export const initAll = () => {
   new MutationObserver(ms => { for (const m of ms) { if (m.type === 'characterData') fix(m.target); else m.addedNodes.forEach(n => n.nodeType === 3 ? fix(n) : n.nodeType === 1 && walk(n)); } })
     .observe(document, { subtree: true, childList: true, characterData: true });
 };
-export const seedFn = ([h, vs, us, rd, subs, extra]) => {
-  if (!location.pathname.startsWith('/Claude') || localStorage.getItem('sdx_tour_seeded')) return;
+export const seedFn = ([h, vs, us, rd, subs, extra, V = 'default', kreg = null]) => {
+  if (!location.pathname.startsWith('/Claude') || localStorage.getItem('sdx_tour_seeded_' + V)) return;
   const set = (k, v) => localStorage.setItem(k, typeof v === 'string' ? v : JSON.stringify(v));
-  set('sdx_force_local', '1'); set('sdx_history_cache_default', h); set('sdx_venue_settings_default', vs); set('sdx_users_default', us);
-  set('sdx_equip_reg_doc_default', rd); set('sdx_equip_registry_default', rd.items); set('sdx_haccp_subs_default', subs);
+  set('sdx_force_local', '1'); set('sdx_history_cache_' + V, h); set('sdx_venue_settings_' + V, vs); set('sdx_users_' + V, us);
+  if (kreg) set('sdx_kitchen_reg_doc_' + V, kreg);
+  set('sdx_equip_reg_doc_' + V, rd); set('sdx_equip_registry_' + V, rd.items); set('sdx_haccp_subs_' + V, subs);
   set('sdx_msg_threads', []); set('sdx_walk_coach_seen', '1'); set('sdx_portal_lang', 'en');
   for (const [k, v] of Object.entries(extra || {})) set(k, v);
-  set('sdx_tour_seeded', '1');
+  set('sdx_tour_seeded_' + V, '1');
 };
 
 let browser, PICS;
@@ -72,7 +75,7 @@ export async function chapter(name, opts, body) {
   await ctx.route('**/*', route);
   await ctx.addInitScript(initAll);
   const history = opts.history || S.buildHistory(PICS);
-  await ctx.addInitScript(seedFn, [history, { ...S.venueSettings(), ...(opts.vs || {}) }, S.users, S.regdoc, S.haccpSubs(), opts.extra || {}]);
+  await ctx.addInitScript(seedFn, [history, { ...S.venueSettings(), ...(opts.vs || {}) }, S.users, S.regdoc, S.haccpSubs(), opts.extra || {}, S.VENUE, S.kitchenReg]);
   if (opts.init) await ctx.addInitScript(opts.init.fn, opts.init.arg);
   const page = await ctx.newPage();
   const errs = []; page.on('pageerror', e => { if (!/ServiceWorker|serviceWorker/.test(e.message)) { errs.push(e.message); console.log('PAGEERR', e.message.slice(0, 200)); } });

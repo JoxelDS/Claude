@@ -4,7 +4,7 @@ import * as L from './lib.mjs';
 import * as S from './seed.mjs';
 const { W, route, initAll, seedFn } = L;
 const DIR = new URL('.', import.meta.url).pathname;
-const APP = 'https://app.local/Claude/';
+const APP = 'https://app.local/Claude/?v=demo';
 mkdirSync(DIR + 'out/stills', { recursive: true });
 await L.launch();
 const { browser, PICS } = L._state();
@@ -12,7 +12,7 @@ const clean = () => { if (!location.pathname.startsWith('/Claude')) return; cons
 async function ctxFor(vp, dpr) {
   const ctx = await browser.newContext({ viewport: vp, deviceScaleFactor: dpr, isMobile: vp.width < 500, hasTouch: true, locale: 'en-US', timezoneId: 'America/New_York', serviceWorkers: 'block' });
   await ctx.route('**/*', route); await ctx.addInitScript(initAll); await ctx.addInitScript(clean);
-  await ctx.addInitScript(seedFn, [S.buildHistory(PICS), S.venueSettings(), S.users, S.regdoc, S.haccpSubs(), {}]);
+  await ctx.addInitScript(seedFn, [S.buildHistory(PICS), S.venueSettings(), S.users, S.regdoc, S.haccpSubs(), {}, S.VENUE, S.kitchenReg]);
   const page = await ctx.newPage(); page.on('dialog', d => d.accept().catch(() => {}));
   return { ctx, page };
 }
@@ -51,7 +51,7 @@ if (!process.env.ONLY || process.env.ONLY === 'laptop') { const { ctx, page } = 
 if (!process.env.ONLY || process.env.ONLY === 'guide') {
   { const { ctx, page } = await ctxFor({ width: 390, height: 844 }, 3);
     await page.goto(APP); await W(2600); await page.screenshot({ path: DIR + 'out/stills/signin.png' });
-    await page.goto(APP + '?invite=tokc'); await W(2600);
+    await page.goto(APP + '&invite=tokc'); await W(2600);
     const n = await find(page, '[data-testid=crew-join-name]', null, 8); if (n) { await n.fill('ANA R.'); await W(400); }
     await page.screenshot({ path: DIR + 'out/stills/crewjoin.png' });
     await ctx.close(); }

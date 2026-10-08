@@ -5,11 +5,12 @@ import { readFileSync, writeFileSync, mkdirSync, rmSync } from 'fs';
 import { execFileSync } from 'child_process';
 import * as L from './lib.mjs';
 import * as S from './seed.mjs';
+import { chromium } from '/home/user/Claude/node_modules/playwright-core/index.mjs';
 const { W, jpg, route, initAll, seedFn } = L;
 const FF = process.env.FFMPEG || '/tmp/ff/node_modules/ffmpeg-static/ffmpeg';
 const DIR = new URL('.', import.meta.url).pathname;
-const APP = 'https://app.local/Claude/';
-const STAND = APP + '?haccp=1&site=MAGIC+CITY+DOGS&unit=114&loctype=Concession';
+const APP = 'https://app.local/Claude/?v=demo';
+const STAND = APP + '&haccp=1&site=HARBOR+DOGS&unit=101&loctype=Concession';
 const now = () => Date.now() / 1000;
 const SCALE = 1080 / 390;               // css px → output px
 const CROPY = Math.round((844 * SCALE - 1920) / 2); // centre crop of the 2338 px tall frame
@@ -27,11 +28,17 @@ const touch = () => {
 
 async function record(name, body) {
   const OUT = `${DIR}out/pov_${name}`; rmSync(OUT, { recursive: true, force: true }); mkdirSync(OUT + '/f', { recursive: true });
-  const { browser, PICS } = L._state();
-  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true, locale: 'en-US', timezoneId: 'America/New_York', serviceWorkers: 'block' });
+  const { PICS } = L._state();
+  // A real 3x display (forced device scale factor) so the CDP screencast delivers 1170x2532 frames at ~20 fps;
+  // Playwright's own deviceScaleFactor emulation only gives CSS-pixel screencast frames.
+  const hb = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium', args: ['--no-sandbox', '--no-proxy-server', '--force-color-profile=srgb', '--force-device-scale-factor=3', '--window-size=390,844'] });
+  const ctx = await hb.newContext({ viewport: null, locale: 'en-US', timezoneId: 'America/New_York', serviceWorkers: 'block' });
   await ctx.route('**/*', route); await ctx.addInitScript(initAll); await ctx.addInitScript(touch);
-  await ctx.addInitScript(seedFn, [S.buildHistory(PICS), S.venueSettings(), S.users, S.regdoc, S.haccpSubs(), {}]);
+  await ctx.addInitScript(seedFn, [S.buildHistory(PICS), S.venueSettings(), S.users, S.regdoc, S.haccpSubs(), {}, S.VENUE, S.kitchenReg]);
   const page = await ctx.newPage(); page.on('dialog', d => d.accept().catch(() => {}));
+  const emu = await ctx.newCDPSession(page);
+  await emu.send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 0, mobile: true });
+  await emu.send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 });
   page.on('pageerror', e => { if (!/ServiceWorker/i.test(e.message)) console.log('PAGEERR', e.message.slice(0, 160)); });
   const cdp = await ctx.newCDPSession(page); const frames = []; let fi = 0, on = false;
   cdp.on('Page.screencastFrame', ev => { cdp.send('Page.screencastFrameAck', { sessionId: ev.sessionId }).catch(() => {}); if (!on) return; const f = `f/${String(++fi).padStart(6, '0')}.jpg`; writeFileSync(`${OUT}/${f}`, Buffer.from(ev.data, 'base64')); frames.push([f, ev.metadata.timestamp]); });
@@ -39,7 +46,7 @@ async function record(name, body) {
   const a = {
     page, W,
     async open(url, settle = 2500) { await page.goto(url); await W(settle); },
-    start: async () => { await cdp.send('Page.startScreencast', { format: 'jpeg', quality: 95, maxWidth: 1170, maxHeight: 2532, everyNthFrame: 1 }); on = true; T0 = now(); await W(300); },
+    start: async () => { await cdp.send('Page.startScreencast', { format: 'jpeg', quality: 92, maxWidth: 1170, maxHeight: 2532, everyNthFrame: 1 }); on = true; T0 = now(); await W(300); },
     cue(text, { key = false, y = null } = {}) { cues.push({ t: now() - T0, text, key, y }); },
     async find(sel, re, tries = 16) { for (let i = 0; i < tries; i++) { for (const e of await page.$$(sel)) { const t = (await e.textContent().catch(() => '')) || ''; if ((!re || re.test(t)) && await e.isVisible().catch(() => false)) return e; } await W(250); } console.log('  MISSING', sel, re || ''); return null; },
     async show(e, block = 'center') { if (!e) return; await e.evaluate((el, b) => { const r = el.getBoundingClientRect(); if (r.top >= 90 && r.bottom <= innerHeight - 90 && b !== 'start') return; el.scrollIntoView({ behavior: 'smooth', block: b }); }, block); await W(850); },
@@ -52,7 +59,7 @@ async function record(name, body) {
       await e.click({ timeout: 4000 }).catch(err => console.log('  click failed', String(err).slice(0, 100)));
       await W(settle); return e;
     },
-    async type(sel, text, { delay = 75, settle = 400, cue, key } = {}) { const e = typeof sel === 'string' ? await a.find(sel) : sel; if (!e) return null; await a.show(e); const b = await e.boundingBox(); if (cue) a.cue(cue, { key, y: b && b.y + b.height / 2 }); if (b) await page.evaluate(([x, y]) => window.__tap(x, y), [b.x + b.width / 2, b.y + b.height / 2]); await e.click().catch(() => {}); await e.type(text, { delay }); await W(settle); return e; },
+    async type(sel, text, { delay = 75, settle = 400, cue, key } = {}) { const e = typeof sel === 'string' ? await a.find(sel) : sel; if (!e) return null; await a.show(e); const b = await e.boundingBox(); if (cue) a.cue(cue, { key, y: b && b.y + b.height / 2 }); if (b) await page.evaluate(([x, y]) => window.__tap(x, y), [b.x + Math.min(28, b.width / 4), b.y + b.height / 2]); await e.click().catch(() => {}); await W(350); await e.type(text, { delay }); await W(settle); return e; },
     async signIn(badge) {
       const inp = await a.find('input'); if (inp) { await inp.fill(badge); const b = await a.find('button', /Sign In/); if (b) await b.click(); await W(2200); }
       for (let i = 0; i < 2; i++) { const e = await a.find('button', /All done for today/, 2); if (!e) break; await e.click(); await W(400); }
@@ -61,12 +68,12 @@ async function record(name, body) {
     jpg,
   };
   try { await body(a); } catch (e) { console.log('FLOW ERROR', e.stack || e); }
-  await W(500); on = false; await cdp.send('Page.stopScreencast').catch(() => {}); const T1 = now(); await ctx.close();
+  await W(500); on = false; await cdp.send('Page.stopScreencast').catch(() => {}); const T1 = now(); await ctx.close(); await hb.close();
   // frames → 30 fps master at 1080 wide
   let list = 'ffconcat version 1.0\n';
   for (let i = 0; i < frames.length; i++) { const next = i + 1 < frames.length ? frames[i + 1][1] : T1; let d = next - frames[i][1]; if (i === 0) d += Math.max(0, frames[0][1] - T0); list += `file '${OUT}/${frames[i][0]}'\nduration ${Math.max(0.001, d).toFixed(4)}\n`; }
   list += `file '${OUT}/${frames[frames.length - 1][0]}'\n`; writeFileSync(OUT + '/list.ffconcat', list);
-  execFileSync(FF, ['-loglevel', 'error', '-y', '-f', 'concat', '-safe', '0', '-i', OUT + '/list.ffconcat', '-vf', `fps=30,scale=1080:-2:flags=lanczos,crop=1080:1920:0:${CROPY},format=yuv420p`, '-c:v', 'libx264', '-crf', '12', '-preset', 'fast', `${OUT}/master.mp4`]);
+  execFileSync(FF, ['-loglevel', 'error', '-y', '-f', 'concat', '-safe', '0', '-i', OUT + '/list.ffconcat', '-vf', `fps=30,scale=1080:2338:flags=lanczos,format=yuv420p`, '-c:v', 'libx264', '-crf', '12', '-preset', 'fast', `${OUT}/master.mp4`]);
   writeFileSync(`${OUT}/cues.json`, JSON.stringify({ dur: T1 - T0, cues }, null, 1));
   console.log(`recorded ${name}: ${frames.length} frames, ${(T1 - T0).toFixed(1)} s, ${cues.length} cues`);
   return OUT;
@@ -77,7 +84,7 @@ const inspector = async (a, type) => {
   await a.open(STAND + '&as=inspector'); await a.signIn('448800'); await W(800);
   if (type) await a.evalApp(t => window.__sdxPickType(t), type); await W(600);
   await a.start();
-  const ov = await a.find('div', /Tap here — I'm on site/, 8); if (ov) await a.tap(ov, null, { cue: "I'm on site — MAGIC CITY DOGS", settle: 1300 });
+  const ov = await a.find('div', /Tap here — I'm on site/, 8); if (ov) await a.tap(ov, null, { cue: "I'm on site — HARBOR DOGS", settle: 1300 });
 };
 const FLOWS = {
   g_temps: { hook: 'POV: you check|100+ *coolers* alone', async run(a) {
@@ -85,7 +92,7 @@ const FLOWS = {
     const card = await a.find('[data-testid=gameday-card]'); if (card) await a.show(card, 'start');
     const load = await a.find('[data-testid=gameday-load-units]', null, 6); if (load) await a.tap(load, null, { cue: "Load this stand's coolers", settle: 1500 });
     const rows = await a.page.$$('[data-testid=gameday-temp]');
-    const inp = async (r, v, cue, key) => { const i = r && await r.$('input'); if (i) { await a.type(i, v, { delay: 260, cue, key }); await a.evalApp(() => document.activeElement && document.activeElement.blur()); await W(1600); } };
+    const inp = async (r, v, cue, key) => { const i = r && await r.$('input'); if (i) { await a.type(i, v, { delay: 70 }); const bb = await i.boundingBox(); a.cue(cue, { key, y: bb && bb.y + bb.height / 2 }); await a.evalApp(() => document.activeElement && document.activeElement.blur()); await W(1600); } };
     await inp(rows[0], '50', 'Cooler reads 50°F', false);
     a.cue('TOO WARM — flagged', { key: true, y: (await rows[0]?.boundingBox())?.y }); await W(1800);
     await inp(rows[1], '38', '38°F — good ✓');
@@ -104,18 +111,28 @@ const FLOWS = {
     const fi = await a.page.$(R + ' .ciBaRow input[type=file]'); if (fi) await fi.setInputFiles({ name: 'fryer.jpg', mimeType: 'image/jpeg', buffer: jpg('grease') });
     await W(2200);
     const c = await a.find('[data-guide-key="equipment.fryer"] [placeholder^="What was done"]'); if (c) await a.type(c, 'Told the crew to clean it', { delay: 45, cue: 'What you did about it' });
-    await W(1200); a.cue('Saved on the phone ✓', { y: 200 }); await W(1800);
+    await a.evalApp(() => document.activeElement && document.activeElement.blur()); await W(1500);
+    const ds = await a.find('[data-testid=draft-strip]', null, 8);
+    if (ds) { await ds.evaluate(e => e.scrollIntoView({ behavior: 'smooth', block: 'center' })); await W(1000); const db = await ds.boundingBox(); a.cue('Saved on this phone ✓', { key: true, y: db ? db.y + db.height / 2 : 200 }); }
+    else { const ph = await a.find(R + ' .ciPhotoStrip, ' + R + ' .ciBaRow', null, 4); const pb = ph && await ph.boundingBox(); a.cue('Problem logged — with proof ✓', { key: true, y: pb ? pb.y + pb.height / 2 : 400 }); }
+    await W(2200);
   } },
   crew: { hook: 'The crew fixed it.|Here\'s the *proof*.', async run(a) {
-    await a.open(APP + '?invite=tokc'); await a.start();
+    await a.open(APP + '&invite=tokc'); await a.start();
     await a.type('[data-testid=crew-join-name]', 'ANA R.', { delay: 110, cue: 'Crew opens the link — no password' });
     await a.tap('[data-testid=crew-join-go]', null, { settle: 2200 });
     a.cue('Their jobs, one card each', { y: 200 }); await W(1600);
-    await a.tap('[data-testid=crew-work]', null, { cue: "I'm working on it", settle: 1300 });
-    await a.tap('[data-testid=crew-done]', null, { cue: 'Done → add the AFTER photo', key: true, settle: 1000 });
-    for (const f of await a.page.$$('input[type=file]')) { try { await f.setInputFiles({ name: 'a.jpg', mimeType: 'image/jpeg', buffer: jpg('after') }); break; } catch {} } await W(1500);
-    const how = await a.find('.crewHowBtn', null, 2); if (how) await a.tap(how, null, { settle: 600 });
-    await a.tap('[data-testid=crew-send]', null, { cue: 'Sent — the inspector sees it FIXED', key: true, settle: 2000 });
+    const card = a.page.locator('.crewItem').first();
+    const title = ((await card.locator('.crewItemTitle').textContent().catch(() => '')) || '').trim().slice(0, 40);
+    const job = () => a.page.locator('.crewItem', { hasText: title }).first();
+    await a.tap(await job().locator('[data-testid=crew-work]').elementHandle(), null, { cue: "I'm working on it", settle: 1100 });
+    const s1 = job().locator('[data-testid=crew-send]'); if (await s1.count()) { await a.tap(await s1.first().elementHandle(), null, { settle: 1400 }); }
+    await a.tap(await job().locator('[data-testid=crew-done]').elementHandle(), null, { cue: 'Done → add the AFTER photo', key: true, settle: 1000 });
+    for (const f of await job().locator('input[type=file]').elementHandles()) { try { await f.setInputFiles({ name: 'a.jpg', mimeType: 'image/jpeg', buffer: jpg('after') }); break; } catch {} } await W(1500);
+    const how = job().locator('.crewHowBtn', { hasText: /We cleaned it/ }); if (await how.count()) await a.tap(await how.first().elementHandle(), null, { cue: 'We cleaned it', settle: 700 });
+    const send = job().locator('[data-testid=crew-send]').first();
+    for (let i = 0; i < 20 && !(await send.isEnabled().catch(() => false)); i++) await W(150);
+    await a.tap(await send.elementHandle(), null, { cue: 'Sent — the inspector sees it FIXED', key: true, settle: 2600 });
   } },
   portal: { hook: 'Stand teams log temps|with *one scan*', async run(a) {
     await a.open(STAND); await a.start();
@@ -178,6 +195,7 @@ async function edit(name, OUT, hook) {
 await L.launch();
 for (const name of process.argv.slice(2).filter(x => FLOWS[x])) {
   const OUT = await record(name, FLOWS[name].run);
-  await edit(name, OUT, process.env.HOOK || FLOWS[name].hook);
+  // the bold-caption cut (edit) expects the old 1920 crop; the posted cuts come from app.mjs / brand.mjs / motion.mjs now
+  if (process.env.POVCUT) await edit(name, OUT, process.env.HOOK || FLOWS[name].hook);
 }
 await L.close();
