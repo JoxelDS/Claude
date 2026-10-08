@@ -2,7 +2,12 @@
 """Blur faces (YuNet, every frame, held across misses) and any manual boxes in a video, keep its audio,
 and write contact sheets of the RESULT so a person (or Claude) can check nothing identifying is left.
 
-python3 -I povblur.py IN.mp4 OUT.mp4 --ffmpeg PATH [--boxes boxes.json] [--no-faces] [--sheet DIR] [--report faces.json]
+python3 -I povblur.py IN.mp4 OUT.mp4 --ffmpeg PATH [--boxes boxes.json] [--no-faces] [--app-bar] [--sheet DIR] [--report faces.json]
+
+--app-bar  also blurs the SDX app's navy header bar wherever it is on screen (on the home venue it carries the employer's logo,
+           the venue / stand line under it and the browser tab title above it): wide saturated-navy bands are found every frame,
+           bands stacked close together (header + "Scan stand QR" bar) are merged, the box is padded up / down / sideways and held
+           for a few frames when the iPad moves too fast to detect.
 
 boxes.json = [{"t0": 1.2, "t1": 3.4, "x": 0.1, "y": 0.2, "w": 0.3, "h": 0.1}, ...]  (x/y/w/h are 0..1 of the frame)
 """
@@ -21,6 +26,7 @@ ap.add_argument('--report', default='')
 ap.add_argument('--score', type=float, default=0.55)
 ap.add_argument('--hold', type=int, default=10, help='frames a face box stays after the detector loses it')
 ap.add_argument('--fps', type=float, default=0, help='frame rate of the input (povcut normalizes to 30; OpenCV misreads some files)')
+ap.add_argument('--app-bar', action='store_true', help='blur the app header bar (navy) wherever it shows')
 a = ap.parse_args()
 
 cap = cv2.VideoCapture(a.inp)
@@ -55,8 +61,68 @@ def mosaic(img, x, y, w, h):
     img[y0:y1, x0:x1] = roi
 
 
+def navy_bands(frame, DW=360):
+    """Wide saturated-navy bands (the app header, the Scan-stand-QR bar, a navy login screen) as [x, y, w, h] in frame px.
+    Every navy component is cut into horizontal bands by its row fill, so a header touching the iPad's navy case (or a
+    sink sticker) still yields the header band; side-by-side pieces of one header (glare, tilt) are merged, then padded:
+    up for the browser tab title, down for the venue / stand line, sideways for the logo. Over-blurring other blue things
+    (tubs, stickers, the bezel) is harmless; missing the logo is not."""
+    H, W = frame.shape[:2]; s = W / DW; DH2 = int(round(H / s))
+    small = cv2.resize(frame, (DW, DH2), interpolation=cv2.INTER_AREA)
+    hsv = cv2.cvtColor(small, cv2.COLOR_BGR2HSV)
+    m = cv2.inRange(hsv, (102, 115, 70), (132, 255, 250))
+    m = cv2.morphologyEx(m, cv2.MORPH_CLOSE, cv2.getStructuringElement(cv2.MORPH_RECT, (11, 3)))
+    n, lab, st, _ = cv2.connectedComponentsWithStats(m)
+    bands = []
+    for i in range(1, n):
+        x, y, w, h, a = st[i]
+        if w < 0.07 * DW or a < 30:
+            continue
+        if a >= 0.5 * w * h and h > 0.12 * DH2:          # a solid navy page (login screen)
+            bands.append([x, y, w, h]); continue
+        sub = (lab[y:y + h, x:x + w] == i)
+        full = sub.sum(1) >= max(0.3 * w, 0.05 * DW)
+        r = 0
+        while r < h:
+            if not full[r]:
+                r += 1; continue
+            r0 = r
+            while r < h and (full[r] or (r + 1 < h and full[r + 1]) or (r + 2 < h and full[r + 2])):
+                r += 1
+            cols = np.where(sub[r0:r].sum(0) >= max(1, 0.4 * (r - r0)))[0]
+            if len(cols):
+                bx0, bx1 = cols[0], cols[-1] + 1
+                bw, bh = bx1 - bx0, r - r0
+                if bw >= 0.07 * DW and bh <= 0.6 * bw:
+                    bands.append([x + bx0, y + r0, bw, bh])
+    bands = [[v * s for v in b] for b in bands]
+    merged = True
+    while merged and len(bands) > 1:
+        merged = False
+        for i in range(len(bands)):
+            for j in range(i + 1, len(bands)):
+                a, b = bands[i], bands[j]
+                xo = min(a[0] + a[2], b[0] + b[2]) - max(a[0], b[0])
+                yo = min(a[1] + a[3], b[1] + b[3]) - max(a[1], b[1])
+                gap = max(a[1], b[1]) - min(a[1] + a[3], b[1] + b[3])
+                if (xo > 0.3 * min(a[2], b[2]) and gap < 0.06 * H) or (yo > -0.01 * H and -xo < 0.08 * W):
+                    x0, y0 = min(a[0], b[0]), min(a[1], b[1])
+                    bands[i] = [x0, y0, max(a[0] + a[2], b[0] + b[2]) - x0, max(a[1] + a[3], b[1] + b[3]) - y0]
+                    bands.pop(j); merged = True; break
+            if merged:
+                break
+    out = []
+    for x, y, w, h in bands:
+        hh = max(min(h, 0.05 * H), 0.012 * H)
+        px = max(0.14 * w, 0.09 * W)
+        out.append([x - px, y - 1.8 * hh, w + 2 * px, h + 2.6 * hh])
+    return out
+
+
+bars = []     # [x, y, w, h, frames_left] for --app-bar
 tracks = []   # [x, y, w, h, frames_left]
 hits = []     # (t, n) frames with at least one detection
+barHits = []  # frames where the app bar was found
 sheet_every = max(1, int(round(fps / 2)))
 thumbs = []
 i = 0
@@ -94,6 +160,18 @@ while True:
         for x, y, w, h, _ in tracks:
             px, py = w * 0.45, h * 0.55
             mosaic(frame, x - px, y - py * 0.8, w + 2 * px, h + 2 * py)
+    if a.app_bar:
+        found = navy_bands(frame)
+        nb = [f + [8] for f in found]
+        for tr in bars:   # a band the detector lost (motion blur, glare) stays a few frames, a little bigger each frame
+            if tr[4] > 1 and not any(abs(tr[0] - n[0]) < tr[2] * 0.5 and abs(tr[1] - n[1]) < tr[3] for n in nb):
+                g = 0.03
+                nb.append([tr[0] - tr[2] * g, tr[1] - tr[3] * g, tr[2] * (1 + 2 * g), tr[3] * (1 + 2 * g), tr[4] - 1])
+        bars = nb
+        if found:
+            barHits.append(round(t, 2))
+        for x, y, w, h, _ in bars:
+            mosaic(frame, x, y, w, h)
     for b in manual:
         if b['t0'] <= t <= b['t1']:
             mosaic(frame, b['x'] * W, b['y'] * H, b['w'] * W, b['h'] * H)
@@ -118,7 +196,7 @@ if a.sheet:
             grid[(k // cols) * th:(k // cols + 1) * th, (k % cols) * tw:(k % cols + 1) * tw] = im
         cv2.imwrite(os.path.join(a.sheet, f'sheet_{n // per + 1}.jpg'), grid, [cv2.IMWRITE_JPEG_QUALITY, 78])
 
-rep = {'frames': i, 'fps': fps, 'size': [W, H], 'faceFrames': len(hits), 'manualBoxes': len(manual)}
+rep = {'frames': i, 'fps': fps, 'size': [W, H], 'faceFrames': len(hits), 'manualBoxes': len(manual), 'appBarFrames': len(barHits)}
 spans = []
 for t in hits:
     if spans and t - spans[-1][1] <= 0.5:

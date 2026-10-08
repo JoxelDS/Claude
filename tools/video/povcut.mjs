@@ -12,6 +12,7 @@
 //   "cues": [{"t": 3.6, "d": 2.6, "text": "Cooler at 50°F? *Flagged.*", "key": true}],  times on the joined timeline
 //   "blur": [{"t0": 0, "t1": 2.5, "x": 0.1, "y": 0.6, "w": 0.4, "h": 0.08}],           extra boxes (signs, names, badges), 0..1
 //   "faces": true,
+//   "appBar": true,                               blur the app's navy header bar (employer logo, venue / stand line, tab title); default on
 //   "audio": "music" | "keep",                    music = bed + 15 % ambience (default) · keep = his voice / sound + soft bed
 //   "end": {"tag": "Walk it. Fix it. Prove it.", "handle": "", "cta": "DM “PILOT” — free 30-day pilot"},
 //   "out": "final.mp4" }
@@ -73,6 +74,7 @@ function blur() {
   rmSync(`${W}/sheets`, { recursive: true, force: true });
   const args = ['-I', `${DIR}povblur.py`, `${W}/joined.mp4`, `${W}/blurred.mp4`, '--ffmpeg', FF, '--boxes', `${W}/boxes.json`, '--sheet', `${W}/sheets`, '--report', `${W}/faces.json`, '--fps', '30'];
   if (job.faces === false) args.push('--no-faces');
+  if (job.appBar !== false) args.push('--app-bar');
   const r = spawnSync('python3', args, { encoding: 'utf8', maxBuffer: 1 << 24 });
   if (r.status) throw new Error('povblur failed: ' + (r.stderr || '').slice(-1500));
   console.log('blur', (r.stdout || '').trim().slice(0, 400));
