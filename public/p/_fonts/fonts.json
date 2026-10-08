@@ -1,0 +1,1209 @@
+[
+ {
+  "family": "Bricolage Grotesque",
+  "file": "bricolage-grotesque.woff2",
+  "style": "normal",
+  "weight": [
+   200,
+   800
+  ],
+  "variable": true,
+  "axes": {
+   "opsz": [
+    12.0,
+    96.0
+   ],
+   "wdth": [
+    75.0,
+    100.0
+   ],
+   "wght": [
+    200.0,
+    800.0
+   ]
+  },
+  "role": "display",
+  "category": "grotesque",
+  "bytes": 168788
+ },
+ {
+  "family": "Instrument Serif",
+  "file": "instrument-serif-400.woff2",
+  "style": "normal",
+  "weight": [
+   400,
+   400
+  ],
+  "variable": false,
+  "axes": {},
+  "role": "display",
+  "category": "serif",
+  "bytes": 24324
+ },
+ {
+  "family": "Instrument Serif",
+  "file": "instrument-serif-italic-400.woff2",
+  "style": "italic",
+  "weight": [
+   400,
+   400
+  ],
+  "variable": false,
+  "axes": {},
+  "role": "display",
+  "category": "serif",
+  "bytes": 24952
+ },
+ {
+  "family": "Instrument Sans",
+  "file": "instrument-sans.woff2",
+  "style": "normal",
+  "weight": [
+   400,
+   700
+  ],
+  "variable": true,
+  "axes": {
+   "wdth": [
+    75.0,
+    100.0
+   ],
+   "wght": [
+    400.0,
+    700.0
+   ]
+  },
+  "role": "body",
+  "category": "sans",
+  "bytes": 82708
+ },
+ {
+  "family": "Instrument Sans",
+  "file": "instrument-sans-italic.woff2",
+  "style": "italic",
+  "weight": [
+   400,
+   700
+  ],
+  "variable": true,
+  "axes": {
+   "wdth": [
+    75.0,
+    100.0
+   ],
+   "wght": [
+    400.0,
+    700.0
+   ]
+  },
+  "role": "body",
+  "category": "sans",
+  "bytes": 87748
+ },
+ {
+  "family": "DM Serif Display",
+  "file": "dm-serif-display-400.woff2",
+  "style": "normal",
+  "weight": [
+   400,
+   400
+  ],
+  "variable": false,
+  "axes": {},
+  "role": "display",
+  "category": "serif",
+  "bytes": 28008
+ },
+ {
+  "family": "DM Serif Display",
+  "file": "dm-serif-display-italic-400.woff2",
+  "style": "italic",
+  "weight": [
+   400,
+   400
+  ],
+  "variable": false,
+  "axes": {},
+  "role": "display",
+  "category": "serif",
+  "bytes": 28088
+ },
+ {
+  "family": "DM Sans",
+  "file": "dm-sans.woff2",
+  "style": "normal",
+  "weight": [
+   100,
+   1000
+  ],
+  "variable": true,
+  "axes": {
+   "opsz": [
+    9.0,
+    40.0
+   ],
+   "wght": [
+    100.0,
+    1000.0
+   ]
+  },
+  "role": "body",
+  "category": "sans",
+  "bytes": 76580
+ },
+ {
+  "family": "DM Sans",
+  "file": "dm-sans-italic.woff2",
+  "style": "italic",
+  "weight": [
+   100,
+   1000
+  ],
+  "variable": true,
+  "axes": {
+   "opsz": [
+    9.0,
+    40.0
+   ],
+   "wght": [
+    100.0,
+    1000.0
+   ]
+  },
+  "role": "body",
+  "category": "sans",
+  "bytes": 94472
+ },
+ {
+  "family": "Fraunces",
+  "file": "fraunces.woff2",
+  "style": "normal",
+  "weight": [
+   100,
+   900
+  ],
+  "variable": true,
+  "axes": {
+   "SOFT": [
+    0.0,
+    100.0
+   ],
+   "WONK": [
+    0.0,
+    1.0
+   ],
+   "opsz": [
+    9.0,
+    144.0
+   ],
+   "wght": [
+    100.0,
+    900.0
+   ]
+  },
+  "role": "display",
+  "category": "serif",
+  "bytes": 145248
+ },
+ {
+  "family": "Fraunces",
+  "file": "fraunces-italic.woff2",
+  "style": "italic",
+  "weight": [
+   100,
+   900
+  ],
+  "variable": true,
+  "axes": {
+   "SOFT": [
+    0.0,
+    100.0
+   ],
+   "WONK": [
+    0.0,
+    1.0
+   ],
+   "opsz": [
+    9.0,
+    144.0
+   ],
+   "wght": [
+    100.0,
+    900.0
+   ]
+  },
+  "role": "display",
+  "category": "serif",
+  "bytes": 176300
+ },
+ {
+  "family": "Playfair Display",
+  "file": "playfair-display.woff2",
+  "style": "normal",
+  "weight": [
+   400,
+   900
+  ],
+  "variable": true,
+  "axes": {
+   "wght": [
+    400.0,
+    900.0
+   ]
+  },
+  "role": "display",
+  "category": "serif",
+  "bytes": 60296
+ },
+ {
+  "family": "Playfair Display",
+  "file": "playfair-display-italic.woff2",
+  "style": "italic",
+  "weight": [
+   400,
+   900
+  ],
+  "variable": true,
+  "axes": {
+   "wght": [
+    400.0,
+    900.0
+   ]
+  },
+  "role": "display",
+  "category": "serif",
+  "bytes": 58112
+ },
+ {
+  "family": "Bodoni Moda",
+  "file": "bodoni-moda.woff2",
+  "style": "normal",
+  "weight": [
+   400,
+   900
+  ],
+  "variable": true,
+  "axes": {
+   "opsz": [
+    6.0,
+    96.0
+   ],
+   "wght": [
+    400.0,
+    900.0
+   ]
+  },
+  "role": "display",
+  "category": "serif",
+  "bytes": 63704
+ },
+ {
+  "family": "Bodoni Moda",
+  "file": "bodoni-moda-italic.woff2",
+  "style": "italic",
+  "weight": [
+   400,
+   900
+  ],
+  "variable": true,
+  "axes": {
+   "opsz": [
+    6.0,
+    96.0
+   ],
+   "wght": [
+    400.0,
+    900.0
+   ]
+  },
+  "role": "display",
+  "category": "serif",
+  "bytes": 75180
+ },
+ {
+  "family": "Cormorant Garamond",
+  "file": "cormorant-garamond.woff2",
+  "style": "normal",
+  "weight": [
+   300,
+   700
+  ],
+  "variable": true,
+  "axes": {
+   "wght": [
+    300.0,
+    700.0
+   ]
+  },
+  "role": "display",
+  "category": "serif",
+  "bytes": 81636
+ },
+ {
+  "family": "Cormorant Garamond",
+  "file": "cormorant-garamond-italic.woff2",
+  "style": "italic",
+  "weight": [
+   300,
+   700
+  ],
+  "variable": true,
+  "axes": {
+   "wght": [
+    300.0,
+    700.0
+   ]
+  },
+  "role": "display",
+  "category": "serif",
+  "bytes": 59336
+ },
+ {
+  "family": "Young Serif",
+  "file": "young-serif-400.woff2",
+  "style": "normal",
+  "weight": [
+   400,
+   400
+  ],
+  "variable": false,
+  "axes": {},
+  "role": "display",
+  "category": "serif",
+  "bytes": 30424
+ },
+ {
+  "family": "Gloock",
+  "file": "gloock-400.woff2",
+  "style": "normal",
+  "weight": [
+   400,
+   400
+  ],
+  "variable": false,
+  "axes": {},
+  "role": "display",
+  "category": "serif",
+  "bytes": 28688
+ },
+ {
+  "family": "Libre Caslon Display",
+  "file": "libre-caslon-display-400.woff2",
+  "style": "normal",
+  "weight": [
+   400,
+   400
+  ],
+  "variable": false,
+  "axes": {},
+  "role": "display",
+  "category": "serif",
+  "bytes": 30116
+ },
+ {
+  "family": "Anton",
+  "file": "anton-400.woff2",
+  "style": "normal",
+  "weight": [
+   400,
+   400
+  ],
+  "variable": false,
+  "axes": {},
+  "role": "display",
+  "category": "condensed",
+  "bytes": 24632
+ },
+ {
+  "family": "Bebas Neue",
+  "file": "bebas-neue-400.woff2",
+  "style": "normal",
+  "weight": [
+   400,
+   400
+  ],
+  "variable": false,
+  "axes": {},
+  "role": "display",
+  "category": "condensed",
+  "bytes": 15608
+ },
+ {
+  "family": "Oswald",
+  "file": "oswald.woff2",
+  "style": "normal",
+  "weight": [
+   200,
+   700
+  ],
+  "variable": true,
+  "axes": {
+   "wght": [
+    200.0,
+    700.0
+   ]
+  },
+  "role": "display",
+  "category": "condensed",
+  "bytes": 31968
+ },
+ {
+  "family": "Big Shoulders Display",
+  "file": "big-shoulders-display.woff2",
+  "style": "normal",
+  "weight": [
+   100,
+   900
+  ],
+  "variable": true,
+  "axes": {
+   "wght": [
+    100.0,
+    900.0
+   ]
+  },
+  "role": "display",
+  "category": "condensed",
+  "bytes": 51440
+ },
+ {
+  "family": "Archivo",
+  "file": "archivo.woff2",
+  "style": "normal",
+  "weight": [
+   100,
+   900
+  ],
+  "variable": true,
+  "axes": {
+   "wdth": [
+    62.0,
+    125.0
+   ],
+   "wght": [
+    100.0,
+    900.0
+   ]
+  },
+  "role": "both",
+  "category": "grotesque",
+  "bytes": 117756
+ },
+ {
+  "family": "Archivo",
+  "file": "archivo-italic.woff2",
+  "style": "italic",
+  "weight": [
+   100,
+   900
+  ],
+  "variable": true,
+  "axes": {
+   "wdth": [
+    62.0,
+    125.0
+   ],
+   "wght": [
+    100.0,
+    900.0
+   ]
+  },
+  "role": "both",
+  "category": "grotesque",
+  "bytes": 131708
+ },
+ {
+  "family": "Archivo Black",
+  "file": "archivo-black-400.woff2",
+  "style": "normal",
+  "weight": [
+   400,
+   400
+  ],
+  "variable": false,
+  "axes": {},
+  "role": "display",
+  "category": "grotesque",
+  "bytes": 25704
+ },
+ {
+  "family": "Unbounded",
+  "file": "unbounded.woff2",
+  "style": "normal",
+  "weight": [
+   200,
+   900
+  ],
+  "variable": true,
+  "axes": {
+   "wght": [
+    200.0,
+    900.0
+   ]
+  },
+  "role": "display",
+  "category": "geometric",
+  "bytes": 80936
+ },
+ {
+  "family": "Syne",
+  "file": "syne.woff2",
+  "style": "normal",
+  "weight": [
+   400,
+   800
+  ],
+  "variable": true,
+  "axes": {
+   "wght": [
+    400.0,
+    800.0
+   ]
+  },
+  "role": "display",
+  "category": "geometric",
+  "bytes": 43916
+ },
+ {
+  "family": "Shrikhand",
+  "file": "shrikhand-400.woff2",
+  "style": "normal",
+  "weight": [
+   400,
+   400
+  ],
+  "variable": false,
+  "axes": {},
+  "role": "display",
+  "category": "script",
+  "bytes": 17636
+ },
+ {
+  "family": "Pacifico",
+  "file": "pacifico-400.woff2",
+  "style": "normal",
+  "weight": [
+   400,
+   400
+  ],
+  "variable": false,
+  "axes": {},
+  "role": "display",
+  "category": "script",
+  "bytes": 44976
+ },
+ {
+  "family": "Caveat",
+  "file": "caveat.woff2",
+  "style": "normal",
+  "weight": [
+   400,
+   700
+  ],
+  "variable": true,
+  "axes": {
+   "wght": [
+    400.0,
+    700.0
+   ]
+  },
+  "role": "accent",
+  "category": "script",
+  "bytes": 79796
+ },
+ {
+  "family": "Bungee",
+  "file": "bungee-400.woff2",
+  "style": "normal",
+  "weight": [
+   400,
+   400
+  ],
+  "variable": false,
+  "axes": {},
+  "role": "display",
+  "category": "signage",
+  "bytes": 28940
+ },
+ {
+  "family": "Cinzel",
+  "file": "cinzel.woff2",
+  "style": "normal",
+  "weight": [
+   400,
+   900
+  ],
+  "variable": true,
+  "axes": {
+   "wght": [
+    400.0,
+    900.0
+   ]
+  },
+  "role": "display",
+  "category": "serif",
+  "bytes": 42124
+ },
+ {
+  "family": "Italiana",
+  "file": "italiana-400.woff2",
+  "style": "normal",
+  "weight": [
+   400,
+   400
+  ],
+  "variable": false,
+  "axes": {},
+  "role": "display",
+  "category": "serif",
+  "bytes": 10016
+ },
+ {
+  "family": "Marcellus",
+  "file": "marcellus-400.woff2",
+  "style": "normal",
+  "weight": [
+   400,
+   400
+  ],
+  "variable": false,
+  "axes": {},
+  "role": "display",
+  "category": "serif",
+  "bytes": 17128
+ },
+ {
+  "family": "Figtree",
+  "file": "figtree.woff2",
+  "style": "normal",
+  "weight": [
+   300,
+   900
+  ],
+  "variable": true,
+  "axes": {
+   "wght": [
+    300.0,
+    900.0
+   ]
+  },
+  "role": "body",
+  "category": "sans",
+  "bytes": 23420
+ },
+ {
+  "family": "Figtree",
+  "file": "figtree-italic.woff2",
+  "style": "italic",
+  "weight": [
+   300,
+   900
+  ],
+  "variable": true,
+  "axes": {
+   "wght": [
+    300.0,
+    900.0
+   ]
+  },
+  "role": "body",
+  "category": "sans",
+  "bytes": 23964
+ },
+ {
+  "family": "Plus Jakarta Sans",
+  "file": "plus-jakarta-sans.woff2",
+  "style": "normal",
+  "weight": [
+   200,
+   800
+  ],
+  "variable": true,
+  "axes": {
+   "wght": [
+    200.0,
+    800.0
+   ]
+  },
+  "role": "body",
+  "category": "sans",
+  "bytes": 38180
+ },
+ {
+  "family": "Plus Jakarta Sans",
+  "file": "plus-jakarta-sans-italic.woff2",
+  "style": "italic",
+  "weight": [
+   200,
+   800
+  ],
+  "variable": true,
+  "axes": {
+   "wght": [
+    200.0,
+    800.0
+   ]
+  },
+  "role": "body",
+  "category": "sans",
+  "bytes": 41960
+ },
+ {
+  "family": "Hanken Grotesk",
+  "file": "hanken-grotesk.woff2",
+  "style": "normal",
+  "weight": [
+   100,
+   900
+  ],
+  "variable": true,
+  "axes": {
+   "wght": [
+    100.0,
+    900.0
+   ]
+  },
+  "role": "body",
+  "category": "sans",
+  "bytes": 39880
+ },
+ {
+  "family": "Hanken Grotesk",
+  "file": "hanken-grotesk-italic.woff2",
+  "style": "italic",
+  "weight": [
+   100,
+   900
+  ],
+  "variable": true,
+  "axes": {
+   "wght": [
+    100.0,
+    900.0
+   ]
+  },
+  "role": "body",
+  "category": "sans",
+  "bytes": 41652
+ },
+ {
+  "family": "Outfit",
+  "file": "outfit.woff2",
+  "style": "normal",
+  "weight": [
+   100,
+   900
+  ],
+  "variable": true,
+  "axes": {
+   "wght": [
+    100.0,
+    900.0
+   ]
+  },
+  "role": "body",
+  "category": "geometric",
+  "bytes": 39376
+ },
+ {
+  "family": "Work Sans",
+  "file": "work-sans.woff2",
+  "style": "normal",
+  "weight": [
+   100,
+   900
+  ],
+  "variable": true,
+  "axes": {
+   "wght": [
+    100.0,
+    900.0
+   ]
+  },
+  "role": "body",
+  "category": "sans",
+  "bytes": 89656
+ },
+ {
+  "family": "Work Sans",
+  "file": "work-sans-italic.woff2",
+  "style": "italic",
+  "weight": [
+   100,
+   900
+  ],
+  "variable": true,
+  "axes": {
+   "wght": [
+    100.0,
+    900.0
+   ]
+  },
+  "role": "body",
+  "category": "sans",
+  "bytes": 83804
+ },
+ {
+  "family": "Karla",
+  "file": "karla.woff2",
+  "style": "normal",
+  "weight": [
+   200,
+   800
+  ],
+  "variable": true,
+  "axes": {
+   "wght": [
+    200.0,
+    800.0
+   ]
+  },
+  "role": "body",
+  "category": "sans",
+  "bytes": 38360
+ },
+ {
+  "family": "Karla",
+  "file": "karla-italic.woff2",
+  "style": "italic",
+  "weight": [
+   200,
+   800
+  ],
+  "variable": true,
+  "axes": {
+   "wght": [
+    200.0,
+    800.0
+   ]
+  },
+  "role": "body",
+  "category": "sans",
+  "bytes": 39424
+ },
+ {
+  "family": "Manrope",
+  "file": "manrope.woff2",
+  "style": "normal",
+  "weight": [
+   200,
+   800
+  ],
+  "variable": true,
+  "axes": {
+   "wght": [
+    200.0,
+    800.0
+   ]
+  },
+  "role": "body",
+  "category": "sans",
+  "bytes": 29552
+ },
+ {
+  "family": "Onest",
+  "file": "onest.woff2",
+  "style": "normal",
+  "weight": [
+   100,
+   900
+  ],
+  "variable": true,
+  "axes": {
+   "wght": [
+    100.0,
+    900.0
+   ]
+  },
+  "role": "body",
+  "category": "sans",
+  "bytes": 42124
+ },
+ {
+  "family": "Geist",
+  "file": "geist.woff2",
+  "style": "normal",
+  "weight": [
+   100,
+   900
+  ],
+  "variable": true,
+  "axes": {
+   "wght": [
+    100.0,
+    900.0
+   ]
+  },
+  "role": "body",
+  "category": "sans",
+  "bytes": 36392
+ },
+ {
+  "family": "Geist",
+  "file": "geist-italic.woff2",
+  "style": "italic",
+  "weight": [
+   100,
+   900
+  ],
+  "variable": true,
+  "axes": {
+   "wght": [
+    100.0,
+    900.0
+   ]
+  },
+  "role": "body",
+  "category": "sans",
+  "bytes": 38320
+ },
+ {
+  "family": "Geist Mono",
+  "file": "geist-mono.woff2",
+  "style": "normal",
+  "weight": [
+   100,
+   900
+  ],
+  "variable": true,
+  "axes": {
+   "wght": [
+    100.0,
+    900.0
+   ]
+  },
+  "role": "accent",
+  "category": "mono",
+  "bytes": 36960
+ },
+ {
+  "family": "Geist Mono",
+  "file": "geist-mono-italic.woff2",
+  "style": "italic",
+  "weight": [
+   100,
+   900
+  ],
+  "variable": true,
+  "axes": {
+   "wght": [
+    100.0,
+    900.0
+   ]
+  },
+  "role": "accent",
+  "category": "mono",
+  "bytes": 40232
+ },
+ {
+  "family": "Inter",
+  "file": "inter.woff2",
+  "style": "normal",
+  "weight": [
+   100,
+   900
+  ],
+  "variable": true,
+  "axes": {
+   "opsz": [
+    14.0,
+    32.0
+   ],
+   "wght": [
+    100.0,
+    900.0
+   ]
+  },
+  "role": "body",
+  "category": "sans",
+  "bytes": 106212
+ },
+ {
+  "family": "Inter",
+  "file": "inter-italic.woff2",
+  "style": "italic",
+  "weight": [
+   100,
+   900
+  ],
+  "variable": true,
+  "axes": {
+   "opsz": [
+    14.0,
+    32.0
+   ],
+   "wght": [
+    100.0,
+    900.0
+   ]
+  },
+  "role": "body",
+  "category": "sans",
+  "bytes": 115412
+ },
+ {
+  "family": "Sora",
+  "file": "sora.woff2",
+  "style": "normal",
+  "weight": [
+   100,
+   800
+  ],
+  "variable": true,
+  "axes": {
+   "wght": [
+    100.0,
+    800.0
+   ]
+  },
+  "role": "both",
+  "category": "geometric",
+  "bytes": 41728
+ },
+ {
+  "family": "Montserrat",
+  "file": "montserrat.woff2",
+  "style": "normal",
+  "weight": [
+   100,
+   900
+  ],
+  "variable": true,
+  "axes": {
+   "wght": [
+    100.0,
+    900.0
+   ]
+  },
+  "role": "both",
+  "category": "geometric",
+  "bytes": 64916
+ },
+ {
+  "family": "Montserrat",
+  "file": "montserrat-italic.woff2",
+  "style": "italic",
+  "weight": [
+   100,
+   900
+  ],
+  "variable": true,
+  "axes": {
+   "wght": [
+    100.0,
+    900.0
+   ]
+  },
+  "role": "both",
+  "category": "geometric",
+  "bytes": 69304
+ },
+ {
+  "family": "Nunito",
+  "file": "nunito.woff2",
+  "style": "normal",
+  "weight": [
+   200,
+   1000
+  ],
+  "variable": true,
+  "axes": {
+   "wght": [
+    200.0,
+    1000.0
+   ]
+  },
+  "role": "body",
+  "category": "rounded",
+  "bytes": 44256
+ },
+ {
+  "family": "Nunito",
+  "file": "nunito-italic.woff2",
+  "style": "italic",
+  "weight": [
+   200,
+   1000
+  ],
+  "variable": true,
+  "axes": {
+   "wght": [
+    200.0,
+    1000.0
+   ]
+  },
+  "role": "body",
+  "category": "rounded",
+  "bytes": 46820
+ },
+ {
+  "family": "Tenor Sans",
+  "file": "tenor-sans-400.woff2",
+  "style": "normal",
+  "weight": [
+   400,
+   400
+  ],
+  "variable": false,
+  "axes": {},
+  "role": "display",
+  "category": "sans",
+  "bytes": 24828
+ },
+ {
+  "family": "Courier Prime",
+  "file": "courier-prime-400.woff2",
+  "style": "normal",
+  "weight": [
+   400,
+   400
+  ],
+  "variable": false,
+  "axes": {},
+  "role": "accent",
+  "category": "mono",
+  "bytes": 23216
+ },
+ {
+  "family": "Courier Prime",
+  "file": "courier-prime-italic-400.woff2",
+  "style": "italic",
+  "weight": [
+   400,
+   400
+  ],
+  "variable": false,
+  "axes": {},
+  "role": "accent",
+  "category": "mono",
+  "bytes": 26356
+ },
+ {
+  "family": "Courier Prime",
+  "file": "courier-prime-700.woff2",
+  "style": "normal",
+  "weight": [
+   700,
+   700
+  ],
+  "variable": false,
+  "axes": {},
+  "role": "accent",
+  "category": "mono",
+  "bytes": 23884
+ },
+ {
+  "family": "Courier Prime",
+  "file": "courier-prime-italic-700.woff2",
+  "style": "italic",
+  "weight": [
+   700,
+   700
+  ],
+  "variable": false,
+  "axes": {},
+  "role": "accent",
+  "category": "mono",
+  "bytes": 26800
+ }
+]
