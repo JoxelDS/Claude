@@ -63,7 +63,8 @@
    "3": "60% 45%"
   },
   "display": "cormorant",
-  "motif": "arches"
+  "motif": "arches",
+  "field": "#ecdcd1"
  },
  "eber-martini": {
   "layout": "cinematic",

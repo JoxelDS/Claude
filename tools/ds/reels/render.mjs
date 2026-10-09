@@ -73,7 +73,7 @@ console.log(`spec ${spec.id || specPath}: ${scenes.length} scenes · ${T.toFixed
 const b64 = p => readFileSync(p).toString('base64');
 const fontCss = [['M', 800, HERE + '/lib/fonts/Montserrat-800-solid.woff2', 'woff2'], ...[400, 500, 600, 700, 800].map(w => ['I', w, `${HERE}/lib/fonts/Inter-${w}-solid.woff2`, 'woff2'])]
   .map(([fam, w, file, fmt]) => `@font-face{font-family:${fam};font-weight:${w};src:url(data:font/${fmt === 'woff2' ? 'woff2' : 'ttf'};base64,${b64(file.startsWith('/') ? file : FONTS + file)}) format('${fmt}')}`).join('\n');
-const CFG = { beat, T, lang, accent, scenes, assets: { logo: 'file://' + LOGO }, img: {}, showSafe: SAFE };
+const CFG = { beat, T, lang, accent, scenes, counter: spec.counter || null, assets: { logo: 'file://' + LOGO }, img: {}, showSafe: SAFE };
 imgs.add(CFG.assets.logo);
 const html = `<!doctype html><html><head><meta charset="utf-8"><style>${fontCss}\n${readFileSync(HERE + '/lib/style.css', 'utf8')}</style></head>
 <body><div id="stage"></div><script>window.__CFG=${JSON.stringify(CFG)};window.__IMGS=${JSON.stringify([...imgs])};

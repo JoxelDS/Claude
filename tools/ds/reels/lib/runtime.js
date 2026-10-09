@@ -166,7 +166,7 @@ function phone(par, o) {                                         // o: {x, y, w,
 }
 const phoneW = availH => availH / 2.085;                          // phone width that fits a given height
 function browser(par, o) {                                       // o: {x, y, w, src, url, demo}
-  const bar = 96, sw = o.w, sh = Math.round(o.w * 800 / 1280), h = sh + bar;
+  const bar = 96, sw = o.w, sh = Math.round(o.w * (o.aspect || 800 / 1280)), h = sh + bar;   // aspect: screen h / w (default 1280×800)
   const el = $('div', 'browser sz', par, { left: px(o.x), top: px(o.y), width: px(o.w), height: px(h) });
   const b = $('div', 'bar', el); for (let i = 0; i < 3; i++) $('div', 'dot', b);
   const u = $('div', 'url rd', b); u.innerHTML = `<svg width="26" height="30" viewBox="0 0 26 30"><rect x="2" y="13" width="22" height="16" rx="4" fill="#8f8f8f"/><path d="M7 13 V9 a6 6 0 0 1 12 0 V13" fill="none" stroke="#8f8f8f" stroke-width="3.5"/></svg>`;
@@ -426,8 +426,14 @@ SC.text = (cam, sp, ctx) => {
 SC.list = (cam0, sp, ctx) => {
   const cam = group(cam0);
   const bx = ctx.box, items = sp.items || [], n = items.length;
-  const hd = headTop(cam, sp.head, bx, { h: bx.h * .26, max: 112 });
-  const avail = bx.h - hd.h - (hd.h ? 84 : 0), numW = sp.numbered === false ? 50 : 132, tw = bx.w - numW;
+  const hd = headTop(cam, sp.head, bx, { h: bx.h * .26, max: sp.headSize || 112 });   // headSize: head max px (e.g. 88 keeps a short head on one line)
+  // peeks: [{image, box: [x, y, w, h] (css px of the image), cssWidth? (the image's css width; default sp.cssWidth, else its
+  // pixel width), max? (max zoom, 3), tilt? (deg)} | null, …] aligned with items — a cropped, zoomed "evidence" card of the
+  // screenshot (e.g. the price table of a demo page) that pops in right under its row while that row is the active one (it
+  // may cover the rows still to come; it drops away as the next row arrives; the last one stays). peekH = the room kept
+  // under the last row for its card (default 30 % of the box); earlier cards use everything down to that line.
+  const pks = Array.isArray(sp.peeks) && sp.peeks.some(Boolean) ? sp.peeks : null, pkH = pks ? (sp.peekH || Math.round(bx.h * .3)) : 0;
+  const avail = bx.h - hd.h - (hd.h ? 84 : 0) - (pks ? pkH + 50 : 0), numW = sp.numbered === false ? 50 : 132, tw = bx.w - numW;
   let fs = sp.size || 76, rows; const w0 = WARN.length;
   const build = f => items.map((it, i) => dual(cam, it, { font: 'I', weight: 600, w: tw, h: f * 1.25 * (tx(it).s ? 3.6 : 2) + 4, max: f, min: Math.min(f, 44), upper: false, maxLines: tx(it).s ? undefined : 2 }, { max: Math.max(44, Math.round(f * .78)) }));
   const clear = rs => rs && rs.forEach(g => { g.m.el.remove(); g.s && g.s.el.remove(); });
@@ -439,13 +445,27 @@ SC.list = (cam0, sp, ctx) => {
   const hs = rows.map(g => Math.max(g.h, 112)); const sum = hs.reduce((a, b) => a + b, 0);
   const gap = n > 1 ? cl((avail - sum) / (n - 1), 30, 70) : 0;
   let y = bx.y + hd.h + (hd.h ? 84 : 0);
-  const nums = [], divs = [];
+  const nums = [], divs = [], rowBot = [];
   rows.forEach((g, i) => {
+    rowBot.push(y + hs[i]);
     g.at(bx.x + numW, y + Math.max(0, (hs[i] - g.h) / 2));
-    if (sp.numbered !== false) { const nb = block(cam, String(i + 1), { font: 'M', w: numW, h: 130, max: 112, min: 60, rd: true, cls: 'noclip' }); nb.at(bx.x, y + Math.max(0, (hs[i] - nb.h) / 2) - 4); nums.push(nb); }
+    if (sp.numbered !== false) { const nb = block(cam, String(i + (sp.numFrom ?? 1)), { font: 'M', w: numW, h: 130, max: 112, min: 60, rd: true, cls: 'noclip' }); nb.at(bx.x, y + Math.max(0, (hs[i] - nb.h) / 2) - 4); nums.push(nb); }
     else { const d = $('div', 'abs', cam, { left: px(bx.x + 6), top: px(y + hs[i] / 2 - 10), width: '20px', height: '20px', borderRadius: '50%', background: '#fff' }); nums.push({ el: d }); }
     if (i < n - 1) divs.push($('div', 'abs', cam, { left: px(bx.x), top: px(y + hs[i] + gap / 2), width: px(bx.w), height: '2px', background: 'rgba(255,255,255,.13)', transformOrigin: '0 50%' }));
     y += hs[i] + gap;
+  });
+  const pkBot = (rowBot[n - 1] || y) + 50 + pkH;
+  const cards = (pks || []).map((p, i) => {                           // peek cards (see above): right under their row, down to pkBot at most
+    if (!p || i >= n || !(p.image || p.src)) return null;
+    const src = p.image || p.src, d = IMG[src] || { w: 1000, h: 1000 }, cw = +(p.cssWidth || sp.cssWidth || d.w), k = d.w / cw;
+    const top = rowBot[i] + 44, room = pkBot - top;
+    const [x, yy, w, h] = p.box || [0, 0, cw, d.h / k], P = 16, s = Math.min((bx.w - 2 * P) / w, (room - 2 * P) / h, p.max || 3);
+    const card = $('div', 'abs sz', cam, { width: px(w * s + 2 * P), height: px(h * s + 2 * P), background: '#fff', borderRadius: '22px', boxShadow: '0 34px 80px rgba(0,0,0,.62)', visibility: 'hidden' });
+    const crop = $('div', 'abs', card, { left: px(P), top: px(P), width: px(w * s), height: px(h * s), overflow: 'hidden', borderRadius: '8px' });
+    const im = $('img', null, crop, { position: 'absolute', left: px(-x * s), top: px(-yy * s), width: px(cw * s), maxWidth: 'none' }); im.src = src;
+    if (p.demo ?? isDemo(src)) $('div', 'demo', card, { left: '-14px', top: '-20px' }, 'DEMO');
+    place(card, bx.x + (bx.w - (w * s + 2 * P)) / 2, top);
+    return { card, tilt: p.tilt ?? (i % 2 ? 1.6 : -1.8) };
   });
   cam.centre(bx);
   const t1 = hd.h ? B / 2 : .2;
@@ -467,6 +487,14 @@ SC.list = (cam0, sp, ctx) => {
       nb.el.style.transform = tau <= 0 ? 'scale(.3)' : `scale(${lerp(.3, 1, q).toFixed(4)})`;
       nb.el.style.color = act ? C.accent : '#fff';
       if (divs[i]) divs[i].style.transform = `scaleX(${E.o5(pr(lt, ti(i) + .15, .6)).toFixed(4)})`;
+    });
+    cards.forEach((c, i) => {                                         // a peek springs in with its row, drops away when the next row comes
+      if (!c) return;
+      const tau = lt - ti(i) - .08, u = i < n - 1 ? lt - ti(i + 1) : -1;
+      if (tau < 0 || u > .14) { c.card.style.visibility = 'hidden'; return; }
+      const p = spr(tau, 1.9, .6), q = u >= 0 ? E.o3(pr(u, 0, .14)) : 0;
+      c.card.style.visibility = 'visible'; c.card.style.opacity = (cl(tau / .08) * (1 - q)).toFixed(3);
+      c.card.style.transform = `translateY(${((1 - p) * 70 - q * 30).toFixed(1)}px) rotate(${(c.tilt + (1 - p) * 5 - q * 3).toFixed(2)}deg) scale(${(lerp(.84, 1, p) * (1 - .12 * q)).toFixed(4)})`;
     });
   };
 };
@@ -574,7 +602,9 @@ SC.compare = (cam, sp, ctx) => {
     const x0 = bx.x + (bx.w - (2 * pw + gapX)) / 2, py = top + ch + 24;
     // a side can be a story viewer instead of a screenshot: left.story / right.story (see storyViewer)
     const devs = [Lt, Rt].map((o, i) => phone(cam, { x: x0 + i * (pw + gapX), y: py, w: pw, src: o.story ? null : o.image, bg: o.story ? '#000' : undefined, demo: o.story ? false : o.demo ?? isDemo(o.image) }));
-    const chips = [chip(cam, lbl(Lt, LB('BEFORE', 'ANTES'), false), 'dim'), chip(cam, lbl(Rt, LB('AFTER', 'DESPUÉS'), true), 'solid')];
+    // stamp: false = the left side is the SOURCE, not the bad version: no ✗ stamp, no ✗ on its chip, it is not dimmed
+    const calm = sp.stamp === false;
+    const chips = [chip(cam, calm ? (Lt.label ? tx(Lt.label).m : LB('BEFORE', 'ANTES')) : lbl(Lt, LB('BEFORE', 'ANTES'), false), 'dim'), chip(cam, lbl(Rt, LB('AFTER', 'DESPUÉS'), true), 'solid')];
     chips.forEach((c, i) => { const d = devs[i]; let cx = d.x + (d.w - c.offsetWidth) / 2; cx = cl(cx, S.x, S.x + S.w - c.offsetWidth); place(c, cx, top); });
     const scr = devs.map((d, i) => scrollFn(d, [Lt, Rt][i].scroll ?? 'auto', sp.dur, i ? tR + .6 : .5));
     const zfs = devs.map((d, i) => zoomFn(d, [Lt, Rt][i].zoom, [Lt, Rt][i].zoomAt, scr[i]));   // optional left/right zoom (see zoomFn)
@@ -594,9 +624,22 @@ SC.compare = (cam, sp, ctx) => {
       });
     }
     const side = [Lt, Rt].map((o, i) => ({ tp: o.taps ? taps(devs[i], o.taps, ctx, scr[i]) : () => 1, hl: o.highlights ? highlights(devs[i], o.highlights, ctx, cam, scr[i]) : null }));   // left/right taps + highlights (page coords use that side's scroll)
-    const stamp = $('div', 'abs', cam, { left: px(devs[0].x + devs[0].w / 2 - 90), top: px(py + devs[0].h * .42 - 90), width: '180px', height: '180px', borderRadius: '50%', background: '#fff', color: '#050505', display: 'grid', placeItems: 'center', font: '800 110px/1 M', boxShadow: '0 20px 50px rgba(0,0,0,.5)' }, '✗');
-    ctx.cues.push({ t: tR - .14, s: 'whoosh', g: .6 }, { t: tR + .25, s: 'nope', g: .6 }, { t: tR + .55, s: 'ding', g: .7 });
-    ctx.ready = Math.max(tR + .8, ...[Lt, Rt].flatMap(o => (o.highlights || []).map(h => h.t + .5)));
+    const stamp = calm ? null : $('div', 'abs', cam, { left: px(devs[0].x + devs[0].w / 2 - 90), top: px(py + devs[0].h * .42 - 90), width: '180px', height: '180px', borderRadius: '50%', background: '#fff', color: '#050505', display: 'grid', placeItems: 'center', font: '800 110px/1 M', boxShadow: '0 20px 50px rgba(0,0,0,.5)' }, '✗');
+    ctx.cues.push({ t: tR - .14, s: 'whoosh', g: .6 }, { t: tR + .55, s: 'ding', g: .7 }); if (!calm) ctx.cues.push({ t: tR + .25, s: 'nope', g: .6 });
+    // flows: [{t, from: [x, y, w, h] (left page css px), to: [x, y, w, h] (right page css px), lift? (.22 s), d? (.6 s flight)}]
+    // — a crop of the LEFT screenshot lifts off the left phone (accent outline), flies in an arc into the right phone's box,
+    // growing to fit it, then fades so the real section shows (a menu post → the site's menu section). Lands at
+    // t + lift + d (`whoosh` on lift-off, `pop` + punch on landing): scroll the right page there first and put a right-side
+    // highlight at the landing time to label it. The card follows both pages' scroll (keep the left phone out of solo by then).
+    const fls = (Lt.image && !Lt.story && Rt.image && !Rt.story ? sp.flows || [] : []).filter(f => f && f.from && f.to).map(f => {
+      const dL = devs[0], dR = devs[1], kL = dL.sw / (dL.cssW || dL.sw), kR = dR.sw / (dR.cssW || dR.sw);
+      const [fx, fy, fw, fh] = f.from, [gx, gy, gw, gh] = f.to, lift = f.lift ?? .22, d = f.d ?? .6, w0 = fw * kL, h0 = fh * kL;
+      const card = $('div', 'abs', cam, { left: 0, top: 0, width: px(w0), height: px(h0), overflow: 'hidden', borderRadius: '12px', transformOrigin: '50% 50%', opacity: 0, background: '#111' });
+      const im = $('img', null, card, { position: 'absolute', left: px(-fx * kL), top: px(-fy * kL), width: px(dL.sw), maxWidth: 'none' }); im.src = Lt.image;
+      const tl = +f.t + lift + d; ctx.cues.push({ t: +f.t + lift * .4, s: 'whoosh', g: .5 }, { t: tl, s: 'pop', g: .75 }); ctx.punch.push(tl);
+      return { t: +f.t, card, kL, kR, fx, fy, w0, h0, gx, gy, gw, gh, lift, d, tl, s1: Math.min(gw * kR / w0, gh * kR / h0) };
+    });
+    ctx.ready = Math.max(tR + .8, ...[Lt, Rt].flatMap(o => (o.highlights || []).map(h => h.t + .5)), ...fls.map(F => F.tl + .45));
     ctx.punch.push(tR + .25);
     const tHead = hs.g ? tR - .05 : .05;
     ups.push(lt => {
@@ -608,13 +651,25 @@ SC.compare = (cam, sp, ctx) => {
       sCo.forEach(({ c, co }) => { popIn(co, lt - c.t, .5, 2.2, .5); const off = Math.min(c.d != null ? c.t + c.d : 1e9, tR - .42); if (lt > off) co.style.opacity = (1 - pr(lt, off, .2)).toFixed(3); });
       // per-side zoom: the overlay (taps, highlight boxes) zooms with the screen, as in phone / browser scenes
       devs.forEach((d, i) => { const hl = side[i].hl; if (!d.img) { if (hl) hl(lt); return; } const s = scr[i](lt); if (zfs[i]) { const zm = zfs[i](lt, s); d.img.style.transform = `translate(${zm.ox.toFixed(1)}px,${(zm.oy - s * zm.z).toFixed(1)}px) scale(${zm.z.toFixed(4)})`; d.ovl.style.transform = `translate(${zm.ox.toFixed(1)}px,${zm.oy.toFixed(1)}px) scale(${zm.z.toFixed(4)})`; if (hl) hl(lt, zm); } else { d.img.style.transform = `translateY(${(-s).toFixed(1)}px)`; if (hl) hl(lt); } });
-      devs[0].el.style.filter = lt > tR + .2 ? `brightness(${lerp(1, .55, E.o3(pr(lt, tR + .2, .4))).toFixed(3)})` : '';
+      if (!calm) devs[0].el.style.filter = lt > tR + .2 ? `brightness(${lerp(1, .55, E.o3(pr(lt, tR + .2, .4))).toFixed(3)})` : '';
       fadeUp(chips[0], lt, so ? tR + .1 : .1, .4, 20); fadeUp(chips[1], lt, tR + .15, .4, 20);
-      popIn(stamp, lt - tR - .25, .3, 2.2, .45); if (lt < tR + .25) stamp.style.opacity = 0;
+      if (stamp) { popIn(stamp, lt - tR - .25, .3, 2.2, .45); if (lt < tR + .25) stamp.style.opacity = 0; }
+      fls.forEach(F => {                                              // flows (see above): lift → arc → land → fade
+        const tau = lt - F.t; if (tau < 0 || lt > F.tl + .32) { F.card.style.opacity = 0; return; }
+        const dL = devs[0], dR = devs[1], sR = scr[1](Math.max(lt, F.tl));
+        const c0x = dL.sx + F.fx * F.kL + F.w0 / 2, c0y = dL.sy + F.fy * F.kL - scr[0](lt) + F.h0 / 2;
+        const c1x = dR.sx + (F.gx + F.gw / 2) * F.kR, c1y = dR.sy + (F.gy + F.gh / 2) * F.kR - sR;
+        const pl = E.o3(pr(tau, 0, F.lift)), p = E.io3(pr(tau, F.lift, F.d)), arc = Math.sin(Math.PI * p);
+        const cx = lerp(c0x, c1x, p), cy = lerp(c0y - 18 * pl, c1y, p) - 110 * arc;
+        const sc = lerp(1 + .12 * pl, F.s1, p) + .18 * arc, rot = lerp(-3 * pl, 0, p) + 4 * arc;
+        F.card.style.transform = `translate(${(cx - F.w0 / 2).toFixed(1)}px,${(cy - F.h0 / 2).toFixed(1)}px) rotate(${rot.toFixed(2)}deg) scale(${sc.toFixed(4)})`;
+        F.card.style.boxShadow = `0 0 0 ${(4 / sc).toFixed(2)}px ${C.accent}, 0 ${(24 / sc).toFixed(1)}px ${(60 / sc).toFixed(1)}px rgba(0,0,0,${(.6 * Math.max(pl, arc)).toFixed(2)})`;
+        F.card.style.opacity = (cl(tau / .06) * (1 - pr(lt, F.tl + .04, .28))).toFixed(3);
+      });
     });
   } else if (mode === 'slider') {
     const dw = sp.device === 'browser' ? bx.w : Math.min(560, phoneW(avail - 120));
-    const mk = src => sp.device === 'browser' ? browser(cam, { x: bx.x, y: top + 110, w: dw, src, url: sp.url, demo: isDemo(src) }) : phone(cam, { x: bx.x + (bx.w - dw) / 2, y: top + 110, w: dw, src, demo: isDemo(src) });
+    const mk = src => sp.device === 'browser' ? browser(cam, { x: bx.x, y: top + 110, w: dw, src, url: sp.url, demo: isDemo(src) }) : phone(cam, { x: bx.x + (bx.w - dw) / 2, y: top + 110, w: dw, src, demo: isDemo(src), bg: Lt.bg });   // left.bg: screen colour under a short BEFORE page
     const d = mk(Lt.image);
     const after = $('img', 'shot', d.scr); after.src = Rt.image; const ad = IMG[Rt.image] || { w: 1, h: 1 };
     d.scr.insertBefore(after, d.scr.querySelector('.sheen'));
@@ -691,26 +746,31 @@ function deviceScene(kind) {
     let dev, mob = null;
     if (kind === 'phone') { const pw = Math.min(sp.width || 560, phoneW(avail)); dev = phone(cam, { x: bx.x + (bx.w - pw) / 2, y: top + Math.max(0, (avail - pw * 2.085) * .5), w: pw, src: sp.story ? null : sp.image, bg: sp.story ? '#000' : undefined, demo: sp.story ? false : sp.demo ?? isDemo(sp.image), cssW: sp.cssWidth }); }
     else {
-      const bw = bx.w, bh = bw * 800 / 1280 + 96;
+      const asp = sp.aspect ? cl(+sp.aspect, .4, 1.4) : 800 / 1280, bw = bx.w, bh = bw * asp + 96;   // aspect: a taller window for a vertical reel (screen h / w, default .625)
       const extra = sp.mobile ? 300 : 0;
-      dev = browser(cam, { x: bx.x, y: top + Math.max(0, (avail - bh - extra) * .4), w: bw, src: sp.image, url: tx(sp.url).m, demo: sp.demo ?? isDemo(sp.image), cssW: sp.cssWidth });
+      dev = browser(cam, { x: bx.x, y: top + Math.max(0, (avail - bh - extra) * .4), w: bw, aspect: asp, src: sp.image, url: tx(sp.url).m, demo: sp.demo ?? isDemo(sp.image), cssW: sp.cssWidth });
       if (sp.mobile) { const pw = Math.min(250, phoneW(avail - (dev.y - top) - bh * .55)); mob = phone(cam, { x: bx.x + bx.w - pw - 10, y: Math.min(dev.y + bh * .5, S.y + S.h - pw * 2.085), w: pw, src: sp.mobile, demo: false }); }
     }
     // pages: [{t, image, scroll? (0; a number or keyframes in scene s), fx? ('load' = accent loading bar for `load` s, then the
     // page slides in from the right · 'back' = slides in from the left · 'cut'), load? (.3)}] — the screen navigates to another
     // screenshot at t (a tapped link opens a 404, "back", another page …). Page-coordinate taps / highlights / badges use the
     // page on screen at their start time; zoom applies to whichever page is showing. No `pages` = one image, as before.
-    const pgs = [{ t: -1e9, img: dev.img, sc: scrollFn(dev, sp.scroll ?? 'auto', sp.dur, .6), fx: 'cut' }];
+    // fx 'scan' = the new page is revealed behind an accent scan line that sweeps the screen in `dur` s (.55), top → bottom,
+    // or bottom → top with dir: 'up' (e.g. a profile "turning into" a website, and back for a rewind); `whoosh` on t.
+    const pgs = [{ t: -1e9, img: dev.img, sc: scrollFn(dev, sp.scroll ?? 'auto', sp.dur, .6), fx: 'cut', ih: dev.ih }];
     (dev.img ? sp.pages || [] : []).forEach(p => {
       const im = $('img', 'shot'); im.src = p.image; dev.scr.insertBefore(im, dev.content); im.style.visibility = 'hidden';
       const d = IMG[p.image] || { w: 1, h: 1 }, ih = dev.sw * d.h / d.w, t = +p.t || 0;
-      pgs.push({ t, img: im, sc: scrollFn({ img: im, maxScroll: Math.max(0, ih - dev.sh) }, p.scroll ?? 0, sp.dur, t + .5), fx: p.fx || 'load', load: p.load ?? .3 });
-      ctx.cues.push({ t, s: 'whoosh', g: .3 });
+      pgs.push({ t, img: im, sc: scrollFn({ img: im, maxScroll: Math.max(0, ih - dev.sh) }, p.scroll ?? 0, sp.dur, t + .5), fx: p.fx || 'load', load: p.load ?? .3, ih, dur: Math.max(.15, +p.dur || .55), up: p.dir === 'up' });
+      ctx.cues.push({ t, s: 'whoosh', g: p.fx === 'scan' ? .5 : .3 });
     });
     pgs.sort((a, b) => a.t - b.t);
     const pgAt = lt => { let k = 0; pgs.forEach((p, i) => { if (lt >= p.t) k = i; }); return k; };
     const sc = pgs.length > 1 ? lt => pgs[pgAt(lt)].sc(lt) : pgs[0].sc;
     const lbar = pgs.some(p => p.fx === 'load') ? $('div', 'abs', dev.scr, { left: 0, top: px(Math.round(dev.sw * .125)), height: px(Math.max(6, dev.sw * .014)), width: '0px', background: C.accent, zIndex: 6, boxShadow: `0 0 12px ${C.accent}`, opacity: 0 }) : null;
+    const SLH = Math.round(dev.sh * .16);                             // scan pages: the accent line + a soft glow trailing behind it
+    const sline = pgs.some(p => p.fx === 'scan') ? $('div', 'abs', dev.scr, { left: 0, top: 0, width: px(dev.sw), height: px(SLH), zIndex: 6, opacity: 0, pointerEvents: 'none' }) : null;
+    const slineCss = up => `linear-gradient(${up ? 0 : 180}deg, transparent, ${C.accent}33 70%, ${C.accent}cc calc(100% - 7px), ${C.accent} calc(100% - 6px))`;
     const zf = zoomFn(dev, sp.zoom, sp.zoomAt, sc);
     if (zf) pgs.forEach(p => { if (p.img) p.img.style.transformOrigin = '0 0'; });
     const ms = mob ? scrollFn(mob, sp.mobileScroll ?? 'auto', sp.dur, 1.1) : null;
@@ -728,7 +788,7 @@ function deviceScene(kind) {
       ctx.cues.push({ t: b.t, s: 'pop', g: .6 });
       return { b, e, off };
     });
-    ctx.ready = Math.max(.9, ...(sp.highlights || []).map(h => h.t + .5), ...(sp.taps || []).map(h => h.t + .4), ...bdg.map(x => x.b.t + .3), ...pgs.slice(1).map(p => p.t + .3), hw.length ? tW(hw.length - 1) + .3 : 0);
+    ctx.ready = Math.max(.9, ...(sp.highlights || []).map(h => h.t + .5), ...(sp.taps || []).map(h => h.t + .4), ...bdg.map(x => x.b.t + .3), ...pgs.slice(1).map(p => p.t + (p.fx === 'scan' ? p.dur : 0) + .3), hw.length ? tW(hw.length - 1) + .3 : 0);
     const typeUrl = kind === 'browser' && sp.typeUrl !== false && dev.ut.textContent;
     const url = dev.ut ? dev.ut.textContent : '';
     if (typeUrl) for (let i = 0; i < url.length; i++) ctx.cues.push({ t: .25 + i * .045, s: 'tick', g: .45, p: .9 + ((i * 37) % 10) / 40 });
@@ -746,24 +806,34 @@ function deviceScene(kind) {
       const press = tp(lt) * (sv ? sv(lt) : 1);
       devMotion(dev, lt, o0, 1, press);
       if (pgs.length > 1) {                                           // pages: the one on screen (+ the one it covers while it slides in)
-        const k = pgAt(lt), cur = pgs[k], tau = lt - cur.t, inP = cur.fx === 'cut' ? 1 : E.o3(pr(tau, 0, .26));
-        pgs.forEach((p, i) => { if (!p.img) return; const vis = i === k || (i === k - 1 && inP < 1); p.img.style.visibility = vis ? 'visible' : 'hidden'; p.slide = i === k && inP < 1 ? (1 - inP) * (cur.fx === 'back' ? -1 : 1) * dev.sw * .32 : 0; p.img.style.opacity = i === k && inP < 1 ? Math.min(1, .55 + 1.5 * inP).toFixed(3) : ''; });
+        const k = pgAt(lt), cur = pgs[k], tau = lt - cur.t, scan = cur.fx === 'scan', inP = cur.fx === 'cut' ? 1 : scan ? E.io3(pr(tau, 0, cur.dur)) : E.o3(pr(tau, 0, .26));
+        pgs.forEach((p, i) => { if (!p.img) return; const vis = i === k || (i === k - 1 && inP < 1); p.img.style.visibility = vis ? 'visible' : 'hidden'; p.slide = !scan && i === k && inP < 1 ? (1 - inP) * (cur.fx === 'back' ? -1 : 1) * dev.sw * .32 : 0; p.img.style.opacity = !scan && i === k && inP < 1 ? Math.min(1, .55 + 1.5 * inP).toFixed(3) : ''; p.scanP = scan && i === k && inP < 1 ? inP : null; });
+        if (sline) { const on = scan && inP > 0 && inP < 1; sline.style.opacity = on ? (cl(inP / .08) * cl((1 - inP) / .08)).toFixed(3) : 0; if (on) { sline.style.background = slineCss(cur.up); sline.style.transform = `translateY(${(cur.up ? (1 - inP) * dev.sh - 6 : inP * dev.sh - SLH + 6).toFixed(1)}px)`; } }
         if (lbar) { let w = 0, o = 0; pgs.forEach(p => { if (p.fx !== 'load' || lt < p.t - p.load || lt >= p.t + .3) return; w = lt < p.t ? .88 * E.o3(pr(lt, p.t - p.load, p.load)) : 1; o = lt < p.t ? 1 : 1 - pr(lt, p.t + .06, .22); }); lbar.style.width = px(dev.sw * w); lbar.style.opacity = o.toFixed(3); }
       }
       bdg.forEach(({ b, e, off }) => {
-        const tau = lt - b.t; if (tau < 0 || lt >= off + .22) { e.style.opacity = 0; return; }
+        const tau = lt - b.t; if (tau < 0 || lt >= off) { e.style.opacity = 0; return; }   // gone by the next page change (fades .15 s before)
         const q = spr(tau, 2.4, .45), tl = b.tilt ?? -8, pul = b.pulse ? kick(lt % B, 9) : 0;
-        e.style.opacity = (cl(tau / .05) * (1 - pr(lt, off, .2))).toFixed(3);
+        e.style.opacity = (cl(tau / .05) * (1 - pr(lt, off - .15, .15))).toFixed(3);
         e.style.transform = `rotate(${(tl * (3 - 2 * q)).toFixed(2)}deg) scale(${(lerp(.15, 1, q) * (1 + .12 * pul)).toFixed(4)})`;
       });
       const s = sc(lt);
+      // scan pages: clip the incoming page to the part of the screen the line has passed (screen y → image y, zoom-aware)
+      const clipScan = zm => pgs.forEach(p => {
+        if (!p.img) return; if (p.scanP == null) { if (p.img.style.clipPath) p.img.style.clipPath = ''; return; }
+        const z = zm ? zm.z : 1, oy = zm ? zm.oy : 0, ps = p.sc(lt), loc = Y => (Y - oy) / z + ps;
+        const a = p.up ? (1 - p.scanP) * dev.sh : 0, b = p.up ? dev.sh : p.scanP * dev.sh;
+        p.img.style.clipPath = `inset(${Math.max(0, loc(a)).toFixed(1)}px 0 ${Math.max(0, (p.ih || 0) - loc(b)).toFixed(1)}px 0)`;
+      });
       if (zf) {
         const zm = zf(lt, s), z = zm.z.toFixed(4);
         pgs.forEach(p => { if (p.img) p.img.style.transform = `translate(${(zm.ox + (p.slide || 0)).toFixed(1)}px,${(zm.oy - p.sc(lt) * zm.z).toFixed(1)}px) scale(${z})`; });
         dev.ovl.style.transform = `translate(${zm.ox.toFixed(1)}px,${zm.oy.toFixed(1)}px) scale(${z})`;
+        if (pgs.length > 1) clipScan(zm);
         hl(lt, zm);
       } else {
         pgs.forEach(p => { if (p.img) p.img.style.transform = p.slide ? `translate(${p.slide.toFixed(1)}px,${(-p.sc(lt)).toFixed(1)}px)` : `translateY(${(-p.sc(lt)).toFixed(1)}px)`; });
+        if (pgs.length > 1) clipScan(null);
         hl(lt);
       }
       if (typeUrl) dev.ut.textContent = url.slice(0, Math.max(0, Math.floor((lt - .25) / .045) + 1));
@@ -898,6 +968,7 @@ SC.search = (cam, sp, ctx) => {
   if (meB) {
     ring = svg(card, bx.w - 2 * P + 40, meB.h + 40, `<rect x="0" y="0" width="${bx.w - 2 * P + 40}" height="${meB.h + 40}" rx="28" fill="none" stroke="${C.accent}" stroke-width="8" pathLength="1" stroke-dasharray="1" stroke-dashoffset="1"/>`, { left: px(P - 20), top: px(meB.y - 20) });
     co = $('div', 'callout rd sz', cam, null, sp.foundLabel ? tx(sp.foundLabel).m : LB('✓ That’s you', '✓ Ese eres tú'));
+    if (co.textContent.includes('\n')) co.style.whiteSpace = 'pre';   // a "\n" in foundLabel breaks the callout into lines (default: one line)
     const cy = top + meB.y - 20 - co.offsetHeight * .55; place(co, bx.x + bx.w - co.offsetWidth - 10, cl(cy, S.y, S.y + S.h - co.offsetHeight)); co.style.transformOrigin = '100% 50%';   // straddles the ring's top edge
     ctx.cues.push({ t: tFocus, s: 'ding', g: .8 }); ctx.punch.push(tFocus);
   }
@@ -1124,11 +1195,18 @@ SC.end = (cam, sp, ctx) => {
 
 // ---------- build ----------
 const DEF_BG = { hook: 'diag', text: 'right', list: 'left', checklist: 'left', mythfact: 'bottom', compare: 'top', phone: 'right', browser: 'bottom', profile: 'left', search: 'right', chat: 'left', stat: 'right', timer: 'bottom', quote: 'left', pov: 'right', end: 'right' };
+// spec.counter (a running count across scenes, e.g. "🚩 red flags"): times are reel seconds or [scene, scene-local s];
+// scenes it is on screen for (> .5 s, or the indexes in counter.reserve) get a box 172 px shorter on its side (top | bottom)
+const CT = C.counter && typeof C.counter === 'object' ? C.counter : null;
+const ctT = v => { if (v == null) return null; if (Array.isArray(v)) { const s = C.scenes[v[0]]; return s ? s.start + (+v[1] || 0) - Math.max(0, +s.pre || 0) : null; } return +v; };
+const ctWin = CT ? [ctT(CT.from) ?? 0, ctT(CT.to) ?? C.T] : null, CT_H = 172, ctBottom = !!CT && CT.pos === 'bottom';
+const ctReserve = i => { if (!CT || CT.reserve === false) return false; if (Array.isArray(CT.reserve)) return CT.reserve.includes(i); const s = C.scenes[i]; return Math.min(s.start + s.dur, ctWin[1]) - Math.max(s.start, ctWin[0]) > .5; };
 const SCN = C.scenes.map((sp, i) => {
   CUR = i;
   const root = $('div', 'scene', stage); root.dataset.i = i; root.dataset.type = sp.type;
   const bg = $('div', 'bg', root); const cam = $('div', 'cam', root);
   const ctx = { i, dur: sp.dur, box: { ...S }, cues: [], punch: [] };
+  if (ctReserve(i)) { if (!ctBottom) ctx.box.y += CT_H; ctx.box.h -= CT_H; }
   const bgUp = background(bg, sp.bg ?? (sp.type === 'pov' ? DEF_BG[(sp.scene || {}).type] || 'right' : DEF_BG[sp.type]), i + 3);
   let up = () => {};
   // optional scene-level source line (any type but stat, which draws its own): "Fuente: …" / "Source: …", small grey,
@@ -1183,10 +1261,49 @@ safe.innerHTML = `<div class="z" style="left:0;top:0;width:1080px;height:220px">
   + [1040, 1170, 1300, 1430].map(y => `<div class="ic" style="top:${y}px"></div>`).join('') + [1560, 1610, 1660].map((y, i) => `<div class="cap" style="top:${y}px;width:${[420, 760, 560][i]}px"></div>`).join('');
 if (C.showSafe) safe.style.display = 'block';
 
+// running counter overlay (spec.counter): {label ("🚩 Red flags"), sub? ("Comment your number"), start? (0), from, to,
+// ticks: [t | [scene, s], …], pos? (top | bottom), reserve?} — a dark pill above every scene (it stays put through the
+// transitions): an accent badge with the count that rolls up on each tick (pop, ring, wiggle, a rising `ding`), the label
+// and a grey second line. Pops in at `from`, shrinks away at `to`.
+const ctCues = []; let ctUp = null;
+if (CT) {
+  CUR = -1;
+  const el = $('div', 'abs', stage, { left: px(S.x), top: px(ctBottom ? S.y + S.h - 128 : S.y + 4), height: '124px', zIndex: 45, display: 'flex', alignItems: 'center', gap: '24px', padding: '10px 38px 10px 10px', borderRadius: '999px', background: 'rgba(14,14,14,.95)', boxShadow: '0 18px 44px rgba(0,0,0,.6), inset 0 0 0 3px rgba(255,255,255,.2)', transformOrigin: '62px 50%', whiteSpace: 'nowrap' });
+  const badge = $('div', null, el, { position: 'relative', width: '104px', height: '104px', borderRadius: '50%', background: C.accent, overflow: 'hidden', flex: 'none' });
+  const num = () => $('div', 'abs', badge, { left: 0, top: 0, width: '104px', height: '104px', font: '800 64px/104px M', color: '#050505', textAlign: 'center', letterSpacing: '-.03em' });
+  const prev = num(), cur = num();
+  const ring = $('div', 'abs', stage, { width: '104px', height: '104px', borderRadius: '50%', border: `6px solid ${C.accent}`, zIndex: 46, opacity: 0, pointerEvents: 'none' });
+  const col = $('div', null, el, { display: 'flex', flexDirection: 'column', gap: '6px' });
+  const lab = $('div', null, col, { font: '800 50px/1.02 M', textTransform: 'uppercase', letterSpacing: '-.01em', color: '#fff' }, tx(CT.label || 'Count').m);
+  const sub = CT.sub ? $('div', null, col, { font: '600 44px/1.05 I', color: '#b7b7b7' }, tx(CT.sub).m) : null;
+  for (let f = 50; el.offsetWidth > S.w && f > 44; f -= 2) lab.style.fontSize = f + 'px';
+  if (el.offsetWidth > S.w) warn('overflow', `counter pill ${el.offsetWidth} px wider than the safe zone`);
+  place(ring, S.x + 10, el.offsetTop + 10);
+  const ticks = (CT.ticks || []).map(ctT).filter(v => v != null).sort((a, b) => a - b), base = +CT.start || 0, [ta, tz] = ctWin;
+  ctCues.push({ t: ta, s: 'pop', g: .6 }); ticks.forEach((t, i) => ctCues.push({ t, s: 'ding', g: .6, p: 1 + i * .06 }));
+  ctUp = t => {
+    if (t < ta || t > tz + .32) { el.style.display = 'none'; ring.style.opacity = 0; return; }
+    el.style.display = 'flex';
+    let k = 0; ticks.forEach(x => { if (t >= x) k++; });
+    const tau = k ? t - ticks[k - 1] : 1e9, q = k ? E.o5(pr(tau, 0, .3)) : 1, kk = k ? kick(tau, 7) : 0;
+    cur.textContent = String(base + k); prev.textContent = String(base + k - 1);
+    const fz = String(base + k).length > 1 ? '50px' : '64px'; cur.style.fontSize = fz; prev.style.fontSize = String(base + k - 1).length > 1 ? '50px' : '64px';
+    cur.style.transform = q >= 1 ? '' : `translateY(${((1 - q) * 100).toFixed(1)}%)`;
+    prev.style.transform = `translateY(${(-q * 100).toFixed(1)}%)`; prev.style.visibility = k && q < 1 ? 'visible' : 'hidden';
+    badge.style.transform = `scale(${(1 + .3 * kk).toFixed(4)})`;
+    const ro = k && tau < .6 ? 1 - pr(tau, .1, .5) : 0; ring.style.opacity = ro.toFixed(3); ring.style.transform = `scale(${lerp(1, 1.8, E.o3(pr(tau, 0, .6))).toFixed(3)})`;
+    const pin = spr(t - ta, 2, .6), out = E.i3(pr(t, tz, .3)), wig = k ? Math.exp(-tau * 6) * Math.sin(tau * 30) * 3.5 : 0;
+    el.style.opacity = (cl((t - ta) / .08) * (1 - out)).toFixed(3);
+    el.style.transform = `scale(${(lerp(.55, 1, pin) * (1 - .3 * out) * (1 + .04 * kk)).toFixed(4)}) rotate(${wig.toFixed(2)}deg)`;
+    if (out > 0) ring.style.opacity = 0;
+  };
+}
+
 // ---------- frame ----------
 const reset = s => { const r = s.root.style; r.transform = ''; r.filter = ''; r.opacity = ''; r.clipPath = ''; r.zIndex = ''; };
 window.at = t => {
   tear.style.display = 'none';
+  if (ctUp) ctUp(t);
   const n = SCN.length;
   for (let i = 0; i < n; i++) {
     const s = SCN[i], nx = SCN[i + 1];
@@ -1225,7 +1342,7 @@ window.at = t => {
   }
 };                                                                   // grain stays still: moving noise would cost ~10× the bitrate
 window.__info = () => ({
-  cues: SCN.flatMap(s => s.ctx.cues.map(c => ({ ...c, t: +(s.start + c.t - s.pre).toFixed(4), scene: s.i }))).filter(c => c.t >= 0).sort((a, b) => a.t - b.t),
+  cues: SCN.flatMap(s => s.ctx.cues.map(c => ({ ...c, t: +(s.start + c.t - s.pre).toFixed(4), scene: s.i }))).concat(ctCues).filter(c => c.t >= 0).sort((a, b) => a.t - b.t),
   warnings: WARN,
 });
 window.__safe = on => { safe.style.display = on ? 'block' : 'none'; };

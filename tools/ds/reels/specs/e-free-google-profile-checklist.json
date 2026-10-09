@@ -1,0 +1,93 @@
+{
+ "id": "e-free-google-profile-checklist",
+ "lang": "en",
+ "title": "Open on the holiday? Your free Google profile: do these 5",
+ "music": {
+  "preset": "minimal",
+  "bpm": 116
+ },
+ "accent": "#FFC83D",
+ "cover": 1.95,
+ "facts": [
+  "gbp-holiday-hours",
+  "gbp-complete-info",
+  "gbp-free",
+  "gbp-verify",
+  "gbp-website-field",
+  "gbp-photo-specs",
+  "gbp-reply-reviews"
+ ],
+ "scenes": [
+  {
+   "type": "hook",
+   "beats": 5,
+   "kicker": "Miami business owners",
+   "text": "Open on *holidays*?"
+  },
+  {
+   "type": "search",
+   "beats": 9,
+   "tr": "whip",
+   "head": "Your listing says *open daily*",
+   "query": "tacos wynwood",
+   "results": [
+    {
+     "title": "Taco trucks in Wynwood: a guide",
+     "url": "streetfood.example",
+     "text": "Where the trucks park and what to order"
+    },
+    {
+     "title": "Late-night tacos near you",
+     "url": "eats.example",
+     "text": "Spots that stay open late around Wynwood"
+    }
+   ],
+   "business": {
+    "title": "Calle Cometa Tacos · Demo",
+    "url": "cometa.demo",
+    "text": "Open daily · 6 PM – 1 AM · Wynwood taco truck"
+   },
+   "position": 1,
+   "found": true,
+   "foundLabel": "Google: complete info =\nmore likely to show up",
+   "source": "Google Business Profile Help",
+   "sourceAt": 3.0
+  },
+  {
+   "type": "text",
+   "beats": 8,
+   "tr": "zoom",
+   "kicker": "Google’s own tip",
+   "head": "Same hours on holidays? ==Confirm them anyway==.",
+   "source": "Google Business Profile Help",
+   "sourceAt": 1.7
+  },
+  {
+   "type": "checklist",
+   "beats": 16,
+   "tr": "wipe",
+   "head": "Your *free* Google Business Profile: do these 5",
+   "every": 3,
+   "items": [
+    "Verify your business",
+    "Hours — holidays too",
+    "Add your website",
+    "Photos: 720×720 recommended",
+    "Reply to reviews"
+   ],
+   "source": [
+    "Google Business Profile",
+    "Google Business Profile Help"
+   ],
+   "sourceAt": 0.9
+  },
+  {
+   "type": "end",
+   "beats": 6,
+   "tr": "whip",
+   "line": "No website for step 3?",
+   "cta": "DM us “WEBSITE”",
+   "offer": "Free website preview first"
+  }
+ ]
+}

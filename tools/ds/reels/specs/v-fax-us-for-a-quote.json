@@ -1,0 +1,73 @@
+{
+ "id": "v-fax-us-for-a-quote",
+ "lang": "en",
+ "title": "Roasting a (demo) 2011 website",
+ "music": { "preset": "upbeat", "bpm": 124 },
+ "accent": "#FFD43B",
+ "cover": 2.4,
+ "facts": [],
+ "counter": {
+  "label": "🚩 Red flags",
+  "sub": "Comment your number",
+  "from": [0, 2.2],
+  "to": [3, 0],
+  "ticks": [[1, 1.5], [1, 3.1], [1, 5.1], [2, 0.34], [2, 1.55], [2, 2.76]]
+ },
+ "scenes": [
+  {
+   "type": "hook", "beats": 7,
+   "kicker": "Demo site roast",
+   "text": "Fax us for a *QUOTE*?!",
+   "sub": "Count the red flags 🚩"
+  },
+  {
+   "type": "browser", "beats": 13, "tr": "whip",
+   "image": "demo/pool-oldsite-hd.jpg", "cssWidth": 1000, "aspect": 1,
+   "url": "tidewick.example/index.htm",
+   "scroll": [[0, 0], [4.2, 0], [4.6, 1]],
+   "zoom": [[0, 1, 420, 182], [1.0, 1, 420, 182], [1.35, 2.3, 420, 182], [2.3, 2.3, 420, 182], [2.62, 1.15, 220, 420], [2.95, 2.4, 20, 640], [3.95, 2.4, 20, 640], [4.25, 1, 635, 1641], [4.6, 1, 635, 1641], [4.95, 2.6, 635, 1641]],
+   "highlights": [
+    { "t": 1.4, "box": [322, 165, 198, 31], "label": "Call for… what? 🚩", "d": 1.05 },
+    { "t": 3.0, "box": [26, 608, 125, 62], "label": "A visitor counter?! 🚩", "d": 1.05 },
+    { "t": 5.0, "box": [493, 1628, 283, 25], "label": "Internet Explorer?! 🚩" }
+   ]
+  },
+  {
+   "type": "list", "beats": 9, "tr": "wipe",
+   "head": "Also spotted:", "headSize": 88,
+   "numFrom": 4, "every": 2.5, "size": 72, "peekH": 170,
+   "items": ["Prices: “Call” and “Depends”", "Print it. Fax it.", "“Under construction”"],
+   "cssWidth": 1000,
+   "peeks": [
+    { "image": "demo/pool-oldsite-hd.jpg", "box": [280, 775, 276, 228], "max": 2.3 },
+    { "image": "demo/pool-oldsite-hd.jpg", "box": [459, 1059, 262, 30] },
+    { "image": "demo/pool-oldsite-hd.jpg", "box": [398, 493, 460, 58], "max": 1.6 }
+   ]
+  },
+  {
+   "type": "hook", "beats": 5, "tr": "zoom", "every": 0.5,
+   "text": "==6== red flags",
+   "sub": "Found more? Comment your number 👇"
+  },
+  {
+   "type": "compare", "beats": 8, "tr": "whip",
+   "mode": "slider", "device": "phone",
+   "head": "Same pool company. *Glow-up.*",
+   "left": { "image": "demo/pool-oldsite-hd.jpg", "bg": "#b8d6ee" },
+   "right": { "image": "demo/pool-mobile.jpg" }
+  },
+  {
+   "type": "phone", "beats": 5, "tr": "cut",
+   "head": "Quote from your *phone*",
+   "image": "demo/pool-mobile.jpg", "scroll": 0,
+   "highlights": [{ "t": 0.7, "box": [22, 704, 173, 49], "label": "One tap. No fax. ✓" }],
+   "taps": [{ "t": 1.05, "at": [108, 728] }]
+  },
+  {
+   "type": "end", "beats": 7, "tr": "wipe",
+   "line": "Send this to the business still on its 2011 site",
+   "cta": "DM us “WEBSITE”",
+   "offer": "Free website preview first"
+  }
+ ]
+}
