@@ -83,7 +83,7 @@ Keep two neighbours on the grid in different families:
   | offer · demo · process | DM “WEBSITE” | Escríbenos “WEBSITE” |
   | everything else | Save this | Guárdalo |
 
-- **Prices are never typed in a post.** Write `{price.starter}`, `{price.pro}`, `{price.care}`, `{keyword}` or `{delivery}`; they come from `OFFER` at the top of `posts2.mjs` (today $497 / $997 / $49/month / WEBSITE / 48 hours). To change a price, edit `OFFER` (or pass `--offer offer.json` with the same keys) and re-render. A literal `$` amount prints a PRICE warning.
+- **Prices are never typed in a post.** Write `{price.starter}`, `{price.pro}`, `{price.care}`, `{keyword}` or `{delivery}`; they come from `OFFER` at the top of `posts2.mjs` (today $500 Quick Start / $1,000 Growth Site / $49/month / WEBSITE / 48 hours; Premium Site $1,500 is not used in posts). To change a price, edit `OFFER` (or pass `--offer offer.json` with the same keys) and re-render. A literal `$` amount prints a PRICE warning.
 - **Sample material only:**
   - `photo` takes only the niche SAMPLE photos `food|beauty|fitness|home-1..3` from `public/p/_img/`. Anything else stops that post.
   - `screen` takes only `food|beauty|fitness|home` from `tools/ds/assets/hero-sample-*.jpg`. The printed "★ 4.8 on Google" on the food screen is painted out at load.
@@ -122,7 +122,7 @@ Look at the slides and `grid.jpg` before anything goes to the queue.
 [
  {"id": "torn-offer", "kind": "offer", "look": "torn", "lang": "en", "format": "single",
   "slides": [{"headline": "Free preview first. *Then* you decide.",
-              "lines": ["{price.starter}: live on your own domain in {delivery}", "Website Pro: {price.pro}", "Care plan: {price.care}"],
+              "lines": ["{price.starter}: live on your own domain in {delivery}", "Growth Site: {price.pro}", "Care plan: {price.care}"],
               "visual": {"screen": "food", "screen2": "beauty"}}]},
 
  {"id": "block-vitrina", "kind": "relatable", "look": "block", "lang": "es", "format": "single", "accent": "green", "cta": "Mándaselo a un dueño",

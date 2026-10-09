@@ -56,8 +56,8 @@ import { chromium } from 'playwright-core';
 import { mkdirSync, readFileSync, writeFileSync, statSync, existsSync } from 'fs';
 
 export const OFFER = {
-  starter: '$497',          // site live on your own domain in 48 hours
-  pro: '$997',              // Website Pro
+  starter: '$500',          // Quick Start: site live on your own domain in 48 hours
+  pro: '$1,000',            // Growth Site (Premium Site is $1,500)
   care: '$49',              // care plan, per month
   careUnit: '/month',
   keyword: 'WEBSITE',
