@@ -606,7 +606,8 @@ SC.compare = (cam, sp, ctx) => {
       devMotion(devs[0], lt, 0, 1, press[0], so ? 0 : -1); devMotion(devs[1], lt, tR, 1, press[1], 1);
       if (soloT) devs[0].el.style.transform = soloT(E.io3(pr(lt, tR - .42, .62))) + devs[0].el.style.transform;
       sCo.forEach(({ c, co }) => { popIn(co, lt - c.t, .5, 2.2, .5); const off = Math.min(c.d != null ? c.t + c.d : 1e9, tR - .42); if (lt > off) co.style.opacity = (1 - pr(lt, off, .2)).toFixed(3); });
-      devs.forEach((d, i) => { const hl = side[i].hl; if (!d.img) { if (hl) hl(lt); return; } const s = scr[i](lt); if (zfs[i]) { const zm = zfs[i](lt, s); d.img.style.transform = `translate(${zm.ox.toFixed(1)}px,${(zm.oy - s * zm.z).toFixed(1)}px) scale(${zm.z.toFixed(4)})`; if (hl) hl(lt, zm); } else { d.img.style.transform = `translateY(${(-s).toFixed(1)}px)`; if (hl) hl(lt); } });
+      // per-side zoom: the overlay (taps, highlight boxes) zooms with the screen, as in phone / browser scenes
+      devs.forEach((d, i) => { const hl = side[i].hl; if (!d.img) { if (hl) hl(lt); return; } const s = scr[i](lt); if (zfs[i]) { const zm = zfs[i](lt, s); d.img.style.transform = `translate(${zm.ox.toFixed(1)}px,${(zm.oy - s * zm.z).toFixed(1)}px) scale(${zm.z.toFixed(4)})`; d.ovl.style.transform = `translate(${zm.ox.toFixed(1)}px,${zm.oy.toFixed(1)}px) scale(${zm.z.toFixed(4)})`; if (hl) hl(lt, zm); } else { d.img.style.transform = `translateY(${(-s).toFixed(1)}px)`; if (hl) hl(lt); } });
       devs[0].el.style.filter = lt > tR + .2 ? `brightness(${lerp(1, .55, E.o3(pr(lt, tR + .2, .4))).toFixed(3)})` : '';
       fadeUp(chips[0], lt, so ? tR + .1 : .1, .4, 20); fadeUp(chips[1], lt, tR + .15, .4, 20);
       popIn(stamp, lt - tR - .25, .3, 2.2, .45); if (lt < tR + .25) stamp.style.opacity = 0;
@@ -695,14 +696,39 @@ function deviceScene(kind) {
       dev = browser(cam, { x: bx.x, y: top + Math.max(0, (avail - bh - extra) * .4), w: bw, src: sp.image, url: tx(sp.url).m, demo: sp.demo ?? isDemo(sp.image), cssW: sp.cssWidth });
       if (sp.mobile) { const pw = Math.min(250, phoneW(avail - (dev.y - top) - bh * .55)); mob = phone(cam, { x: bx.x + bx.w - pw - 10, y: Math.min(dev.y + bh * .5, S.y + S.h - pw * 2.085), w: pw, src: sp.mobile, demo: false }); }
     }
-    const sc = scrollFn(dev, sp.scroll ?? 'auto', sp.dur, .6);
+    // pages: [{t, image, scroll? (0; a number or keyframes in scene s), fx? ('load' = accent loading bar for `load` s, then the
+    // page slides in from the right · 'back' = slides in from the left · 'cut'), load? (.3)}] — the screen navigates to another
+    // screenshot at t (a tapped link opens a 404, "back", another page …). Page-coordinate taps / highlights / badges use the
+    // page on screen at their start time; zoom applies to whichever page is showing. No `pages` = one image, as before.
+    const pgs = [{ t: -1e9, img: dev.img, sc: scrollFn(dev, sp.scroll ?? 'auto', sp.dur, .6), fx: 'cut' }];
+    (dev.img ? sp.pages || [] : []).forEach(p => {
+      const im = $('img', 'shot'); im.src = p.image; dev.scr.insertBefore(im, dev.content); im.style.visibility = 'hidden';
+      const d = IMG[p.image] || { w: 1, h: 1 }, ih = dev.sw * d.h / d.w, t = +p.t || 0;
+      pgs.push({ t, img: im, sc: scrollFn({ img: im, maxScroll: Math.max(0, ih - dev.sh) }, p.scroll ?? 0, sp.dur, t + .5), fx: p.fx || 'load', load: p.load ?? .3 });
+      ctx.cues.push({ t, s: 'whoosh', g: .3 });
+    });
+    pgs.sort((a, b) => a.t - b.t);
+    const pgAt = lt => { let k = 0; pgs.forEach((p, i) => { if (lt >= p.t) k = i; }); return k; };
+    const sc = pgs.length > 1 ? lt => pgs[pgAt(lt)].sc(lt) : pgs[0].sc;
+    const lbar = pgs.some(p => p.fx === 'load') ? $('div', 'abs', dev.scr, { left: 0, top: px(Math.round(dev.sw * .125)), height: px(Math.max(6, dev.sw * .014)), width: '0px', background: C.accent, zIndex: 6, boxShadow: `0 0 12px ${C.accent}`, opacity: 0 }) : null;
     const zf = zoomFn(dev, sp.zoom, sp.zoomAt, sc);
+    if (zf) pgs.forEach(p => { if (p.img) p.img.style.transformOrigin = '0 0'; });
     const ms = mob ? scrollFn(mob, sp.mobileScroll ?? 'auto', sp.dur, 1.1) : null;
     const tp = taps(dev, sp.taps, ctx, sc); const hl = highlights(dev, sp.highlights, ctx, cam, sc);
     const sv = kind === 'phone' && sp.story ? storyViewer(dev, sp.story, ctx) : null;   // story: the screen is a story viewer (see storyViewer)
     const hw = hd.g && sp.headSlam ? hd.g.m.words : [], every = sp.every ? sp.every * B : (hw.length <= 3 ? B : B / 2), tW = i => (sp.open ? 0 : .12) + i * every;
     hw.forEach((w, i) => { w.style.transformOrigin = '50% 75%'; ctx.cues.push({ t: tW(i), s: 'hit', g: i === hw.length - 1 ? 1 : .7 }); ctx.punch.push(tW(i)); });
-    ctx.ready = Math.max(.9, ...(sp.highlights || []).map(h => h.t + .5), ...(sp.taps || []).map(h => h.t + .4), hw.length ? tW(hw.length - 1) + .3 : 0);
+    // badges: [{t, at: [x, y] (page css px) | x, y (screen fractions), text, d? (s; default: until the next page change),
+    // size? (css px, 40), tilt? (deg, -8), pulse? (true = a small kick on every beat)}] — accent number stickers on the screen
+    // (e.g. "1" and "2" on two look-alike buttons); they sit on the overlay, so they zoom with the screen like taps do
+    const bdg = (sp.badges || []).map(b0 => {
+      const b = norm(dev, b0, sc), d = (b.size || 40) * dev.sw / (dev.cssW || dev.sw);
+      const e = $('div', 'abs', dev.ovl, { left: px(b.x * dev.sw - d / 2), top: px(b.y * dev.sh - d / 2), width: px(d), height: px(d), borderRadius: '50%', background: C.accent, color: '#050505', display: 'grid', placeItems: 'center', font: `800 ${(d * .58).toFixed(1)}px/1 M`, boxShadow: `0 0 0 ${(d * .07).toFixed(1)}px #fff, 0 ${(d * .12).toFixed(1)}px ${(d * .3).toFixed(1)}px rgba(0,0,0,.4)`, opacity: 0 }, tx(b.text).m);
+      const nx = pgs.find(p => p.t > b.t), off = b.d != null ? b.t + b.d : nx ? nx.t : 1e9;
+      ctx.cues.push({ t: b.t, s: 'pop', g: .6 });
+      return { b, e, off };
+    });
+    ctx.ready = Math.max(.9, ...(sp.highlights || []).map(h => h.t + .5), ...(sp.taps || []).map(h => h.t + .4), ...bdg.map(x => x.b.t + .3), ...pgs.slice(1).map(p => p.t + .3), hw.length ? tW(hw.length - 1) + .3 : 0);
     const typeUrl = kind === 'browser' && sp.typeUrl !== false && dev.ut.textContent;
     const url = dev.ut ? dev.ut.textContent : '';
     if (typeUrl) for (let i = 0; i < url.length; i++) ctx.cues.push({ t: .25 + i * .045, s: 'tick', g: .45, p: .9 + ((i * 37) % 10) / 40 });
@@ -719,14 +745,25 @@ function deviceScene(kind) {
       } else if (hd.g) revLines(hd.g.lines, lt, sp.open ? -.25 : .05);
       const press = tp(lt) * (sv ? sv(lt) : 1);
       devMotion(dev, lt, o0, 1, press);
+      if (pgs.length > 1) {                                           // pages: the one on screen (+ the one it covers while it slides in)
+        const k = pgAt(lt), cur = pgs[k], tau = lt - cur.t, inP = cur.fx === 'cut' ? 1 : E.o3(pr(tau, 0, .26));
+        pgs.forEach((p, i) => { if (!p.img) return; const vis = i === k || (i === k - 1 && inP < 1); p.img.style.visibility = vis ? 'visible' : 'hidden'; p.slide = i === k && inP < 1 ? (1 - inP) * (cur.fx === 'back' ? -1 : 1) * dev.sw * .32 : 0; p.img.style.opacity = i === k && inP < 1 ? Math.min(1, .55 + 1.5 * inP).toFixed(3) : ''; });
+        if (lbar) { let w = 0, o = 0; pgs.forEach(p => { if (p.fx !== 'load' || lt < p.t - p.load || lt >= p.t + .3) return; w = lt < p.t ? .88 * E.o3(pr(lt, p.t - p.load, p.load)) : 1; o = lt < p.t ? 1 : 1 - pr(lt, p.t + .06, .22); }); lbar.style.width = px(dev.sw * w); lbar.style.opacity = o.toFixed(3); }
+      }
+      bdg.forEach(({ b, e, off }) => {
+        const tau = lt - b.t; if (tau < 0 || lt >= off + .22) { e.style.opacity = 0; return; }
+        const q = spr(tau, 2.4, .45), tl = b.tilt ?? -8, pul = b.pulse ? kick(lt % B, 9) : 0;
+        e.style.opacity = (cl(tau / .05) * (1 - pr(lt, off, .2))).toFixed(3);
+        e.style.transform = `rotate(${(tl * (3 - 2 * q)).toFixed(2)}deg) scale(${(lerp(.15, 1, q) * (1 + .12 * pul)).toFixed(4)})`;
+      });
       const s = sc(lt);
       if (zf) {
         const zm = zf(lt, s), z = zm.z.toFixed(4);
-        if (dev.img) dev.img.style.transform = `translate(${zm.ox.toFixed(1)}px,${(zm.oy - s * zm.z).toFixed(1)}px) scale(${z})`;
+        pgs.forEach(p => { if (p.img) p.img.style.transform = `translate(${(zm.ox + (p.slide || 0)).toFixed(1)}px,${(zm.oy - p.sc(lt) * zm.z).toFixed(1)}px) scale(${z})`; });
         dev.ovl.style.transform = `translate(${zm.ox.toFixed(1)}px,${zm.oy.toFixed(1)}px) scale(${z})`;
         hl(lt, zm);
       } else {
-        if (dev.img) dev.img.style.transform = `translateY(${(-s).toFixed(1)}px)`;
+        pgs.forEach(p => { if (p.img) p.img.style.transform = p.slide ? `translate(${p.slide.toFixed(1)}px,${(-p.sc(lt)).toFixed(1)}px)` : `translateY(${(-p.sc(lt)).toFixed(1)}px)`; });
         hl(lt);
       }
       if (typeUrl) dev.ut.textContent = url.slice(0, Math.max(0, Math.floor((lt - .25) / .045) + 1));
@@ -895,10 +932,14 @@ SC.chat = (cam, sp, ctx) => {
   const col = $('div', 'abs', area, { left: 0, top: 0, width: px(bx.w) });
   const msgs = sp.messages || []; const n = msgs.length;
   let y = 0, prev = null; const items = [];
-  const typing = $('div', 'typing', col, { opacity: 0 }); [0, 1, 2].forEach(i => $('i', null, typing, { left: px(34 + i * 32) }));
+  // optional sp.size = bubble font px (default 54): padding, radius, gaps and the typing dots scale with it
+  const k = sp.size ? cl(sp.size / 54, .8, 1.6) : 1;
+  const typing = $('div', 'typing', col, { opacity: 0 }); [0, 1, 2].forEach(i => $('i', null, typing, { left: px((34 + i * 32) * k) }));
+  if (k !== 1) { Object.assign(typing.style, { width: px(170 * k), height: px(110 * k), borderRadius: px(50 * k), borderBottomLeftRadius: px(14 * k) }); [...typing.children].forEach(d => Object.assign(d.style, { top: px(46 * k), width: px(18 * k), height: px(18 * k) })); }
   msgs.forEach((m, i) => {
     const me = m.from === 'me', t = tx(m.text);
     const b = $('div', 'bubble rd ' + (me ? 'me' : 'them'), col);
+    if (k !== 1) { Object.assign(b.style, { fontSize: px(54 * k), padding: `${px(30 * k)} ${px(40 * k)} ${px(31 * k)}`, borderRadius: px(50 * k), maxWidth: px(Math.min(bx.w - 40, 800 * k)) }); b.style[me ? 'borderBottomRightRadius' : 'borderBottomLeftRadius'] = px(14 * k); }
     // optional link preview card on top of the bubble: preview {image, top? (css px of a 390-wide page to start the crop at),
     // title, url?, w? (600), h? (315)} — images under /demo/ get a DEMO tag
     if (m.preview && m.preview.image) {
@@ -911,8 +952,8 @@ SC.chat = (cam, sp, ctx) => {
       if (pv.url) $('div', null, card, { font: '500 34px/1.2 I', padding: '2px 26px 22px', color: me ? '#6b6b6b' : '#9a9a9a', whiteSpace: 'nowrap' }, tx(pv.url).m);
       else card.lastChild.style.paddingBottom = '22px';
     }
-    $('span', null, b, null, t.m); if (t.s) $('span', 'es', b, null, t.s);
-    if (prev !== null) y += prev === me ? 16 : 40;
+    $('span', null, b, null, t.m); if (t.s) { const es = $('span', 'es', b, null, t.s); if (k !== 1) es.style.fontSize = px(46 * k); }
+    if (prev !== null) y += (prev === me ? 16 : 40) * k;
     b.style.top = px(y); if (me) { b.style.right = '0px'; b.style.left = 'auto'; } else b.style.left = '0px'; b.style.transformOrigin = me ? '100% 100%' : '0 100%';
     items.push({ b, me, y, h: b.offsetHeight }); y += b.offsetHeight; prev = me;
   });
@@ -929,6 +970,8 @@ SC.chat = (cam, sp, ctx) => {
     let off = 0; let prevT = 0; let prevV = 0;
     items.forEach(it => { if (lt >= it.t) { const v = Math.max(0, it.y + it.h - areaH + 30); off = lerp(prevV, Math.max(prevV, v), E.o3(pr(lt, it.t, .35))); prevV = Math.max(prevV, v); prevT = it.t; } });
     col.style.transform = `translateY(${(-off).toFixed(1)}px)`;
+    // optional sp.fadeTop: once the thread scrolls, older bubbles fade out under the header instead of a hard clip
+    if (sp.fadeTop) { const f = Math.min(110, off * 1.4); area.style.webkitMaskImage = area.style.maskImage = f > 1 ? `linear-gradient(to bottom, transparent 0, #000 ${f.toFixed(0)}px)` : 'none'; }
     let ty = null;
     items.forEach((it, i) => {
       const tau = lt - it.t; const p = spr(tau, 2, .62);
@@ -936,7 +979,7 @@ SC.chat = (cam, sp, ctx) => {
       it.b.style.transform = tau <= 0 ? 'scale(.5)' : `translateY(${((1 - p) * 30).toFixed(1)}px) scale(${lerp(.5, 1, p).toFixed(4)})`;
       if (!it.me && tau < 0 && tau > -.75) ty = it;
     });
-    if (ty) { typing.style.top = px(ty.y + ty.h - 96); typing.style.opacity = 1; [...typing.children].forEach((d, k) => d.style.transform = `translateY(${(-10 * Math.max(0, Math.sin(lt * 9 - k * .9))).toFixed(1)}px)`); }
+    if (ty) { typing.style.top = px(ty.y + ty.h - 96 * k); typing.style.opacity = 1; [...typing.children].forEach((d, j) => d.style.transform = `translateY(${(-10 * k * Math.max(0, Math.sin(lt * 9 - j * .9))).toFixed(1)}px)`); }
     else typing.style.opacity = 0;
   };
 };

@@ -40,12 +40,13 @@
       "text": "¿el elote es $4 o $5??",
       "t": 3.95
      }
-    ]
+    ],
+    "size": 60
    }
   },
   {
    "type": "compare",
-   "beats": 12,
+   "beats": 13,
    "tr": "whip",
    "mode": "phones",
    "soloHead": "El “menú”:",
@@ -66,7 +67,7 @@
     "label": "Highlight",
     "story": {
      "title": "Menú 🌮",
-     "sub": "calle.cometa.tacos",
+     "sub": "callecometa.demo",
      "avatar": "photos/food-1.jpg",
      "segments": 5,
      "segDur": 2.2,
@@ -102,15 +103,15 @@
         640
        ],
        "at": [
-        280,
-        340
+        235,
+        300
        ],
-       "zoom": 2.1,
-       "rot": 5,
-       "blur": 2.6,
-       "ghost": 10,
-       "dark": 0.1,
-       "glare": 0.25
+       "zoom": 1.6,
+       "rot": 3,
+       "blur": 2.4,
+       "ghost": 8,
+       "dark": 0.12,
+       "glare": 0.15
       },
       {
        "src": "demo/taco-menu-photo.jpg",
@@ -159,12 +160,27 @@
       "t": 4.35,
       "box": [
        14,
-       1272,
-       362,
-       112
+       1288,
+       210,
+       64
       ],
-      "label": "Elote · $5 ✓"
+      "label": "Elote · $5 ✓",
+      "size": 58
      }
+    ],
+    "zoom": [
+     [
+      4.5,
+      1,
+      14,
+      1320
+     ],
+     [
+      5.1,
+      1.6,
+      14,
+      1320
+     ]
     ]
    }
   },
@@ -196,7 +212,8 @@
      "text": "perfecto, voy pa’ allá 🙌",
      "t": 1.85
     }
-   ]
+   ],
+   "size": 60
   },
   {
    "type": "end",
@@ -204,7 +221,7 @@
    "tr": "whip",
    "line": "Mándaselo a tu pana del food truck",
    "cta": "Escríbenos “WEBSITE”",
-   "offer": "Preview gratis de tu página"
+   "offer": "Te hacemos un preview gratis"
   }
  ]
 }

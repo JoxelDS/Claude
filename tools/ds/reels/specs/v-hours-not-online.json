@@ -7,12 +7,12 @@
   "bpm": 126
  },
  "accent": "#FFC83D",
- "cover": 3.9,
+ "cover": 4.6,
  "facts": [],
  "scenes": [
   {
    "type": "chat",
-   "beats": 10,
+   "beats": 11,
    "head": "When your hours aren’t *online*",
    "name": "Customer",
    "status": "Today · 11:58 PM",
@@ -25,25 +25,27 @@
     },
     {
      "from": "them",
-     "t": 0.9,
+     "t": 0.85,
      "text": "¿¿están abiertos??"
     },
     {
      "from": "them",
-     "t": 1.75,
+     "t": 1.7,
      "text": "hello???"
     },
     {
      "from": "them",
-     "t": 2.75,
+     "t": 2.6,
      "text": "nvm"
     },
     {
      "from": "them",
-     "t": 3.25,
+     "t": 3.2,
      "text": "fuimos al de al lado 🌮"
     }
-   ]
+   ],
+   "size": 62,
+   "fadeTop": true
   },
   {
    "type": "list",
@@ -51,20 +53,20 @@
    "tr": "whip",
    "bg": "right",
    "head": "Things customers do",
-   "every": 2.5,
+   "every": 2,
+   "size": 88,
    "items": [
-    "Pull up after closing",
+    "Pull up after you close",
     "Trust last year’s post",
-    "Go next door 🌮"
-   ],
-   "size": 88
+    "Ask in the comments"
+   ]
   },
   {
    "type": "phone",
    "beats": 10,
    "tr": "zoom",
    "bg": "left",
-   "head": "Or they check your *site*",
+   "head": "Or they just check your *site*",
    "image": "demo/taco-mobile.jpg",
    "scroll": [
     [
@@ -80,10 +82,10 @@
     {
      "t": 1.95,
      "box": [
-      30,
-      2486,
-      166,
-      84
+      26,
+      2484,
+      174,
+      88
      ],
      "label": "Hours, in one place",
      "d": 1.15
@@ -143,7 +145,7 @@
   },
   {
    "type": "end",
-   "beats": 7,
+   "beats": 8,
    "tr": "wipe",
    "line": "Send to the owner who gets this DM",
    "cta": "DM us “WEBSITE”",

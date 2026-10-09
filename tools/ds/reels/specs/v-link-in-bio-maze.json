@@ -1,0 +1,254 @@
+{
+ "id": "v-link-in-bio-maze",
+ "lang": "en",
+ "title": "Which BOOK button actually works?",
+ "music": {
+  "preset": "upbeat",
+  "bpm": 124
+ },
+ "accent": "#FFC83D",
+ "cover": 2.3,
+ "facts": [],
+ "notes": "Game hook: 1 or 2? → #1 is a 404, #2 is another link page (nails + barbers, each on a different app) → one-line verdict → before/after slider → one tap opens the booking screen. All screens are the FICTIONAL demo studio Lacquer Lagoon (DEMO tag on every device); staff first names are invented. Uses the engine's phone `pages` + `badges` (added for this Reel).",
+ "scenes": [
+  {
+   "type": "phone",
+   "beats": 17,
+   "open": true,
+   "headSlam": true,
+   "headSize": 92,
+   "head": "Which *BOOK* button works: 1 or 2?",
+   "image": "demo/nails-linkinbio.jpg",
+   "scroll": 0,
+   "badges": [
+    {
+     "t": 0.97,
+     "at": [
+      36,
+      275
+     ],
+     "text": "1",
+     "pulse": true,
+     "size": 46
+    },
+    {
+     "t": 1.45,
+     "at": [
+      36,
+      327
+     ],
+     "text": "2",
+     "pulse": true,
+     "size": 46
+    },
+    {
+     "t": 4.85,
+     "at": [
+      36,
+      327
+     ],
+     "text": "2",
+     "pulse": true,
+     "size": 46
+    }
+   ],
+   "taps": [
+    {
+     "t": 2.9,
+     "at": [
+      210,
+      276
+     ]
+    },
+    {
+     "t": 5.15,
+     "at": [
+      210,
+      328
+     ]
+    }
+   ],
+   "pages": [
+    {
+     "t": 3.2,
+     "image": "demo/linkinbio-404.jpg",
+     "fx": "load"
+    },
+    {
+     "t": 4.75,
+     "image": "demo/nails-linkinbio.jpg",
+     "fx": "back"
+    },
+    {
+     "t": 5.45,
+     "image": "demo/nails-linkinbio-2.jpg",
+     "fx": "load"
+    }
+   ],
+   "highlights": [
+    {
+     "t": 1.62,
+     "box": [
+      12,
+      248,
+      318,
+      108
+     ],
+     "label": "Comment 1 or 2 👇",
+     "d": 1.25,
+     "size": 50
+    },
+    {
+     "t": 3.3,
+     "box": [
+      30,
+      245,
+      330,
+      182
+     ],
+     "label": "#1? Expired 😬",
+     "d": 1.2,
+     "size": 54
+    },
+    {
+     "t": 5.6,
+     "box": [
+      10,
+      236,
+      370,
+      368
+     ],
+     "label": "#2? Another link page 🌀",
+     "d": 1.35,
+     "size": 50
+    },
+    {
+     "t": 7.0,
+     "box": [
+      10,
+      342,
+      370,
+      168
+     ],
+     "label": "Every barber, a different app 💈",
+     "size": 50
+    }
+   ],
+   "zoom": [
+    [
+     0,
+     1,
+     195,
+     300
+    ],
+    [
+     1.6,
+     1,
+     195,
+     300
+    ],
+    [
+     2.85,
+     1.2,
+     40,
+     300
+    ],
+    [
+     3.0,
+     1.2,
+     40,
+     300
+    ],
+    [
+     3.25,
+     1,
+     195,
+     422
+    ],
+    [
+     6.85,
+     1,
+     195,
+     422
+    ],
+    [
+     7.15,
+     1.2,
+     195,
+     426
+    ]
+   ]
+  },
+  {
+   "type": "text",
+   "beats": 6,
+   "tr": "whip",
+   "bg": "right",
+   "head": "One link. ==Too many== buttons.",
+   "sub": "Which one do I tap? 😵"
+  },
+  {
+   "type": "compare",
+   "beats": 8,
+   "tr": "wipe",
+   "mode": "slider",
+   "device": "phone",
+   "head": "Same studio. One button.",
+   "left": {
+    "label": "Link page",
+    "image": "demo/nails-linkinbio.jpg",
+    "scroll": 0
+   },
+   "right": {
+    "label": "Website",
+    "image": "demo/nails-mobile.jpg",
+    "scroll": 0
+   }
+  },
+  {
+   "type": "phone",
+   "beats": 6,
+   "tr": "zoom",
+   "bg": "left",
+   "head": "One tap to book",
+   "image": "demo/nails-mobile.jpg",
+   "scroll": 0,
+   "taps": [
+    {
+     "t": 0.95,
+     "at": [
+      100,
+      415
+     ]
+    }
+   ],
+   "pages": [
+    {
+     "t": 1.25,
+     "image": "demo/nails-booking.jpg",
+     "fx": "load"
+    }
+   ],
+   "highlights": [
+    {
+     "t": 1.45,
+     "box": [
+      16,
+      561,
+      358,
+      160
+     ],
+     "label": "One tap. No maze ✓"
+    }
+   ]
+  },
+  {
+   "type": "end",
+   "beats": 7,
+   "tr": "wipe",
+   "line": "Send this to a friend who runs a shop",
+   "cta": "DM us “WEBSITE”",
+   "offer": "Free website preview first"
+  }
+ ]
+}
