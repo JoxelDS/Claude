@@ -92,7 +92,7 @@ function block(par, str, o) {
   const ws = [...el.querySelectorAll('.w')]; const rows = []; let top = null;
   ws.forEach(w => { const tp = w.offsetTop; if (top === null || Math.abs(tp - top) > fs * .3) { rows.push([]); top = tp; } rows[rows.length - 1].push(w); });
   el.textContent = ''; el.style.width = px(o.w);
-  const lines = rows.map(r => { const ln = $('div', 'ln', el); const inner = $('div', 'lni', ln); r.forEach((w, i) => { inner.appendChild(w); if (i < r.length - 1) inner.appendChild(document.createTextNode(' ')); }); return { ln, inner, words: r }; });
+  const lines = rows.map(r => { const ln = $('div', 'ln', el); const inner = $('div', 'lni', ln); r.forEach((w, i) => { inner.appendChild(w); if (i < r.length - 1) inner.appendChild(document.createTextNode(' ')); if (i < r.length - 1 && w.classList.contains('hl') && r[i + 1].classList.contains('hl')) w.classList.add('hlr'); }); return { ln, inner, words: r }; });   // hlr: a ==multi word== highlight bridges the space to the next word (one bar, no seams)
   const b = { el, lines, words: ws, fs, w: o.w, h: el.offsetHeight };
   b.lineW = l => { const a = l.words[0], z = l.words[l.words.length - 1]; return z.offsetLeft + z.offsetWidth - a.offsetLeft; };
   b.textW = () => Math.max(0, ...lines.map(b.lineW));
@@ -1221,6 +1221,8 @@ const SCN = C.scenes.map((sp, i) => {
     srcB.at(S.x, Math.min(S.y + S.h - srcB.h, bot + 36));
     // ==words== inside a source line wipe on at sp.sourceHlAt (s), else .5 s after the line fades in
     const ts = sp.sourceAt ?? ctx.srcAt ?? .6, tHl = sp.sourceHlAt ?? ts + .5, hlW = [...srcB.el.querySelectorAll('.w.hl')], u0 = up;
+    // opt-in sp.sourcePunch: the source highlight is a beat of its own (camera punch + a soft pop) — breaks up a long reading hold
+    if (sp.sourcePunch && hlW.length) { ctx.cues.push({ t: tHl, s: 'pop', g: .45 }); ctx.punch.push(tHl); }
     up = lt => { u0(lt); fadeUp(srcB.el, lt, ts, .45, 16); hlW.forEach((w, i) => { const q = E.o3(pr(lt, tHl + i * .06, .35)); w.style.setProperty('--hp', q.toFixed(3)); w.style.color = q < .3 ? 'inherit' : ''; }); };   // grey until the bar reaches it
   }
   { const words = [...root.querySelectorAll('.rd')].filter(e => !e.closest('.es') && !e.closest('.ui') && !e.closest('.url') && !e.querySelector('.rd')).reduce((a, e) => a + (e.textContent.match(/[\p{L}\p{N}$'’]+/gu) || []).length, 0);

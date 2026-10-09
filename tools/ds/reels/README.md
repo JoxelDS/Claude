@@ -60,11 +60,11 @@ Output ≈ 9–10 Mb/s (≈ 50 MB per 40 s).
 | `music: "break"` | drums + bass drop out for this scene (a breath before a punch). |
 | `punch: false` | no camera punch-zoom on this scene's hits. |
 | `pre?` | seconds: the scene's own clock starts that far in, so its entrance is already under way on its first frame (cue times and the pace lint follow). Use ~0.3 on a first scene that is not a `hook` so frame 0 is never empty; highlight / tap times stay scene-local (shift them by `pre`). |
-| `source?`, `sourceAt?`, `sourceHlAt?` | any type but `stat` (which draws its own): a small grey "Fuente: …" / "Source: …" line right under the scene's lowest element (the scene gets a shorter box so nothing sits on it). Fades in at `sourceAt` (s), else when the scene says: `hook` after its sub, `mythfact` after the flip (never on the MYTH side), `list` / `checklist` after the last row, others at .6 s. Up to 3 lines (a verbatim one-sentence quote fits); `==words==` inside it wipe on at `sourceHlAt` (s, default .5 s after it fades in) and stay grey until the bar reaches them. Use it for every number or Google/stat-type claim. An array of sources prints "Fuentes: a · b" / "Sources: a · b". |
+| `source?`, `sourceAt?`, `sourceHlAt?`, `sourcePunch?` | any type but `stat` (which draws its own): a small grey "Fuente: …" / "Source: …" line right under the scene's lowest element (the scene gets a shorter box so nothing sits on it). Fades in at `sourceAt` (s), else when the scene says: `hook` after its sub, `mythfact` after the flip (never on the MYTH side), `list` / `checklist` after the last row, others at .6 s. Up to 3 lines (a verbatim one-sentence quote fits); `==words==` inside it wipe on at `sourceHlAt` (s, default .5 s after it fades in) and stay grey until the bar reaches them; `sourcePunch: true` makes that wipe a beat of its own (camera punch + soft `pop`) — use it to break up a long reading hold. Use it for every number or Google/stat-type claim. An array of sources prints "Fuentes: a · b" / "Sources: a · b". |
 
 **Text** props take a plain string, or `{ "en": "…", "es": "…" }` for bilingual specs (`lang: "es"` shows `es`,
 `lang: "bi"` shows `en` with `es` as a smaller grey second line). Markup inside any string: `*word*` = outlined type,
-`==words==` = accent highlighter (wipes on), `\n` = line break. Punctuation right after markup sticks to it (`*yours*,`).
+`==words==` = accent highlighter (wipes on; several words on one line get one continuous bar), `\n` = line break. Punctuation right after markup sticks to it (`*yours*,`).
 Everything auto-fits its box (binary search on font size, `text-wrap: balance`), never below **44 px**.
 
 **Images**: `demo/<file>` (this folder), `photos/<file>` (`public/p/_img/`: `food-1..3`, `beauty-1..3`, `fitness-1..3`,
@@ -181,7 +181,7 @@ mix is loudness-normalised in two passes to **−14 LUFS integrated, ≤ −1.5 
 
 ## Limits for scriptwriters
 
-- Offer facts you may use: free website preview first · $500 = live on your own domain in 48 hours · $1,000 = Growth Site ·
+- Offer facts you may use: free website preview first · $497 = live on your own domain in 48 hours · $997 = Website Pro ·
   $49/month care plan · "DM us WEBSITE". No other numbers, prices, claims or guarantees. A `stat` needs a real `source`.
 - No fake reviews, testimonials, ratings or customers; `quote` is never an invented person. Demo screens are the three
   FICTIONAL businesses below and must keep their DEMO tag; never present them as clients.
@@ -249,7 +249,7 @@ Fonts: Montserrat ExtraBold and Inter 400–800 (from `tools/video/fonts/`, OFL)
     { "type": "list", "beats": 10, "head": "Your menu page needs",
       "items": ["Dishes as text", "A price on each", "A pickup button"] },
     { "type": "text", "beats": 7, "kicker": "The offer", "head": "Free preview *first*",
-      "sub": "$500 · live on your own domain in 48 hours" },
+      "sub": "$497 · live on your own domain in 48 hours" },
     { "type": "end", "beats": 6, "tr": "wipe", "line": "Want a free preview?", "cta": "DM us “WEBSITE”" }
   ]
 }

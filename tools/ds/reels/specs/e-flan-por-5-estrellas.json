@@ -43,36 +43,42 @@
      "text": "¿Y si te pongo 3? 👀",
      "t": 2.05
     }
-   ]
+   ],
+   "bg": "right",
+   "size": 74,
+   "status": "Mensaje nuevo"
   },
   {
    "type": "mythfact",
-   "beats": 13,
+   "beats": 18,
    "tr": "zoom",
-   "strike": 1.81,
+   "strike": 2.6,
    "myth": "Un flancito por 5 estrellas no hace daño.",
    "fact": "La FTC ==prohíbe== premiar reseñas de 5 estrellas.",
    "fact2": "Y Google Maps no permite regalos ni descuentos por reseñas.",
    "source": [
-    "FTC, 16 CFR § 465.4",
+    "FTC, ==16 CFR § 465.4==",
     "Política de contenido de Google Maps"
    ],
-   "fact2At": 3.9
+   "fact2At": 4.4,
+   "sourceHlAt": 6.72,
+   "sourcePunch": true
   },
   {
    "type": "checklist",
-   "beats": 7,
+   "beats": 9,
    "tr": "wipe",
    "head": "Lo que sí",
    "items": [
-    "Pide la reseña, sin flan",
+    "Pide reseña a todos, sin flan",
     "Cero reseñas falsas",
     "Responde cada reseña"
-   ]
+   ],
+   "size": 64
   },
   {
    "type": "end",
-   "beats": 6,
+   "beats": 9,
    "tr": "whip",
    "line": "Mándaselo a tu socio antes de imprimir el letrero",
    "cta": "Escríbenos “WEBSITE”",
