@@ -242,7 +242,7 @@
   {
    "type": "stat",
    "beats": 7,
-   "value": 497,
+   "value": 500,
    "prefix": "$",
    "label": "Live on your own domain",
    "source": "DS Marketing standard plan"
@@ -264,7 +264,7 @@
    "beats": 6,
    "kicker": "The offer",
    "head": "Free preview *first*",
-   "sub": "$497 · live in 48 hours"
+   "sub": "$500 · live in 48 hours"
   },
   {
    "type": "end",

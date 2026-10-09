@@ -9,14 +9,14 @@ Everything below is a one-time setup that only you can do, because each one chec
 3. Settings → Business → **Public details**: name "DS Marketing", statement descriptor `DSMARKETING`, support email/phone.
 4. Settings → Payouts: **daily**.
 5. Connect it to Claude: open https://claude.ai/customize/connectors → **Stripe** → Connect → approve.
-   (Claude then creates the three payment links — Website $497, Website Pro $997, Care $49/month — and checks for new payments by itself.)
+   (Claude then creates the three payment links — Quick Start Website $500, Growth Site $1,000, Care $49/month — and checks for new payments by itself.)
 
 ## 2. Porkbun = domains + hosting (we buy each client's domain)
 1. **porkbun.com/account/create**. Verify your email, then your phone (needed to buy domains).
 2. **Account → Credit**: save a card and add **$50**. Turn on **auto top-up** ($50 whenever the balance drops under $15).
 3. **porkbun.com/account/api**: set the **monthly API limit** to **$300**. That covers about 20 domains + hosting a month. Claude can never spend more than this, and you get an email for every charge.
 4. Connect it to Claude: https://claude.ai/customize/connectors → **Add custom connector** → URL `https://mcp.porkbun.com/mcp` → sign in → choose **Full access** and tick **"allow API access for all domains"**.
-   Each client costs us about **$11/year (.com) + $3/month hosting**. The first year is inside the $497. After that it's covered by the $49/month care plan.
+   Each client costs us about **$11/year (.com) + $3/month hosting**. The first year is inside the $500. After that it's covered by the $49/month care plan.
 
 ## 3. Make = more operations for 200 leads a day
 Make → Organization → **Subscription** → raise operations to **40,000 / month** (Core 40k, or Pro). The current 10,000 covers about 50–80 lead checks a day.

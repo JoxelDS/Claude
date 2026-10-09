@@ -1,19 +1,19 @@
 # DS Marketing — websites for Miami small businesses
 
-Goal: sell websites through @dsmarketing.agency. First target: $1,000 = two Starters ($497) or one Pro ($997).
+Goal: sell websites through @dsmarketing.agency. First target: $1,000 = two Quick Starts ($500) or one Growth Site ($1,000).
 
 ## The offer
 
-| | Starter | Pro | Care plan |
-|---|---|---|---|
-| Price | **$497** one time | **$997** one time | **$49/mo** |
-| Live in | 48 hours after we get their info | 5 days | ongoing |
-| What | One-page mobile-first site · their own domain connected · Call / Instagram / Directions buttons · Google-ready basics (titles, map, fast load) · 1 round of changes | Up to 5 pages · online booking or ordering (their Square / Vagaro / Booksy / Toast / DoorDash link) · menu or services with prices · gallery from their photos · Google Business Profile setup · 2 rounds of changes | Hosting, updates, small text / photo / price edits each month |
-| Payment | 100% up front | 50% to start, 50% at launch | monthly |
+| | Quick Start Website | Growth Site | Premium Site | Care plan |
+|---|---|---|---|---|
+| Price | **$500** one time | **$1,000** one time | **$1,500** one time | **$49/mo** |
+| Live in | 48 hours after we get their info | 5 days | agreed per project | ongoing |
+| What | One-page mobile-first site · their own domain connected · Call / Instagram / Directions buttons · Google-ready basics (titles, map, fast load) · 1 round of changes | Everything in Quick Start + booking, ordering or lead capture wired in (their Square / Vagaro / Booksy / Toast / DoorDash link or a lead form) · up to 5 pages · menu or services with prices · gallery · Google Business Profile setup · 2 rounds of changes | Full build with automations (lead / order notifications, email flows) and ongoing updates | Hosting, updates, small text / photo / price edits each month |
+| Payment | 100% up front (Stripe link) | 100% up front (Stripe link) | 100% up front (Stripe link) | monthly |
 
 - Domain: about $12–15 a year, registered **in the client's name** (Porkbun, Namecheap or Cloudflare). We set it up on a screen share or with their login. They own it.
 - Hosting: free static hosting (Netlify or Cloudflare Pages) under DS's account; the Care plan pays for our time, not the hosting.
-- Payment link: from dsmarketing.company (Joxel's site). Never take card numbers in a DM.
+- Payment: Stripe Payment Links on Joxel's account (joxelbusinessllc) — one link per product (Quick Start $500 · Growth $1,000 · Premium $1,500); add `?client_reference_id=<slug>` so the payment matches the preview. The 2026-10-09 link https://buy.stripe.com/4gM3cv5PI9XyfFh3DC1oI00 bundles all three ($3,000) — never send it. Never take card numbers in a DM.
 
 ## How a deal happens
 
@@ -27,12 +27,12 @@ Goal: sell websites through @dsmarketing.agency. First target: $1,000 = two Star
 ## DM 1 (with the preview)
 
 > Hey {first name or business}! I'm Joxel from DS Marketing in Miami. I saw you don't have a website yet, so I made you a free preview: {PREVIEW_URL}
-> It's yours if you want it: live on your own domain in 48 hours for $497. Want me to put your real photos and menu on it?
+> It's yours if you want it: live on your own domain in 48 hours for $500. Want me to put your real photos and menu on it?
 
 Spanish:
 
 > ¡Hola {nombre}! Soy Joxel de DS Marketing en Miami. Vi que todavía no tienen página web y les hice una vista previa gratis: {PREVIEW_URL}
-> Si les gusta, la ponemos en vivo con su propio dominio en 48 horas por $497. ¿Quieren que le ponga sus fotos y su menú?
+> Si les gusta, la ponemos en vivo con su propio dominio en 48 horas por $500. ¿Quieren que le ponga sus fotos y su menú?
 
 Rules: send between 10 am and 7 pm, max 25 cold DMs a day from a fresh-ish account (IG limits), never copy-paste the same text 25 times in a row — change the first line per business.
 
@@ -46,7 +46,7 @@ Rules: send between 10 am and 7 pm, max 25 cold DMs a day from a fresh-ish accou
 
 | They say | You answer |
 |---|---|
-| "How much?" | "$497 one time, live in 48 hours on your own domain. Domain is about $15 a year and it's in your name. No monthly fee unless you want us to keep it updated ($49/mo)." |
+| "How much?" | "$500 one time, live in 48 hours on your own domain. Domain is about $15 a year and it's in your name. No monthly fee unless you want us to keep it updated ($49/mo)." |
 | "I already have Instagram" | "Instagram is great for people who already follow you. Google sends people who are searching right now, 'tacos near me', and they want a site with your hours, menu and a button to call. This is that page." |
 | "Too expensive" | "Totally fair. One or two new customers from Google usually pays for it. If timing is the issue, I can split it in two payments of $250." (Keep the price; offer the split, not a discount.) |
 | "Send me more info" | Send story 2 (`docs/social/ds/website-offer-story2.png`) + "The fastest way to see it is the preview: {PREVIEW_URL}. Want it live?" |
@@ -67,7 +67,7 @@ Rules: send between 10 am and 7 pm, max 25 cold DMs a day from a fresh-ish accou
 
 ## Upsells (at delivery, when they're happiest)
 
-1. **Pro $997** (credit the $497 if they upgrade within 14 days → $500 more).
+1. **Growth $1,000** (credit the $500 if they upgrade within 14 days → $500 more).
 2. **Care $49/mo**: "I'll keep the menu and hours updated whenever you text me."
 3. **Google Business Profile tune-up $150** (photos, categories, hours, link to the site).
 4. Later: Reels / ads packages from DS.
@@ -89,7 +89,7 @@ Post caption:
 
 > No website? We build it in 48 hours. 🖥️📱
 > A real site on your own domain: mobile-first, fast, with buttons to call you, see your Instagram and get directions.
-> 💸 $497, one time. We make you a free preview first, so you only pay if you love it.
+> 💸 $500, one time. We make you a free preview first, so you only pay if you love it.
 > DM "WEBSITE" and we'll send yours.
 > ·
 > ¿No tienes página web? Te la hacemos en 48 horas. Vista previa gratis primero. Escríbenos "WEBSITE".

@@ -42,9 +42,10 @@ Joxel (2026-10-08): "I want you to post 3 times a day" → chose **post on its o
    - Topics and format come from `docs/social/ds/content-insights.md` (the research agent keeps it current). Rotate kinds: tip, myth, process, checklist, compare, spanish, faq, offer, "what a preview looks like". Have at most one hard offer in every 3 posts. Never reuse a headline from the last 30 posts.
    - Write them as `posts.json` (format at the top of `tools/ds/posts.mjs`). Each post carries `claims[]`: every factual statement in the image and the caption.
    - The only offer facts allowed:
-     - $497 website live in 48 h on their own domain.
+     - $500 website live in 48 h on their own domain.
      - A free preview made from their Instagram before they pay.
-     - $997 Pro.
+     - $1,000 Growth Site (booking, ordering or lead capture).
+     - $1,500 Premium Site (automations, email flows, ongoing updates).
      - $49/mo care.
      - DM "WEBSITE".
    - Never invent results, client names, reviews, stats, percentages or "most people" numbers. Advice must be general and true.

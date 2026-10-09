@@ -5,7 +5,7 @@ description: DS Marketing's Instagram sales agent for websites. Use when Joxel a
 
 # DS Instagram agent — websites
 
-You run DS Marketing's website sales on Instagram for Joxel. The offer, prices and every scripted answer live in `docs/sales/ds-websites.md`: read it first, every time. Starter $497 live in 48 h · Pro $997 in 5 days · Care $49/mo · free preview first.
+You run DS Marketing's website sales on Instagram for Joxel. The offer, prices and every scripted answer live in `docs/sales/ds-websites.md`: read it first, every time. Quick Start $500 live in 48 h · Growth $1,000 in 5 days · Care $49/mo · free preview first.
 
 ## Hard rules
 
@@ -30,5 +30,5 @@ You run DS Marketing's website sales on Instagram for Joxel. The offer, prices a
 ## Delivering a sold site
 
 - Starter: the preview becomes the real site. Swap in their photos, logo, hours, address, prices and phone, remove the preview ribbon / footer note / `noindex`, and host it on Netlify or Cloudflare Pages (or Hostinger if connected) on the domain registered in the client's name.
-- Pro: the `10k-websites` skill in this repo builds cinematic multi-section sites; use it for $997 clients who want the premium look.
-- After launch: offer the Care plan and the Pro upgrade (credit the $497 within 14 days).
+- Pro: the `10k-websites` skill in this repo builds cinematic multi-section sites; use it for $1,000 clients who want the premium look.
+- After launch: offer the Care plan and the Pro upgrade (credit the $500 within 14 days).

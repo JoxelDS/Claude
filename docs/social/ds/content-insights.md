@@ -240,9 +240,9 @@ Fri Oct 9 – Thu Oct 22, 2026. Slots 08:52 / 12:52 / 18:52 ET (the post queue's
 - **Carousels.** When the poster gets a carousel module, render tips, checklists and process posts as 3–5 slides: a cover, one point per slide, and a CTA slide. Until then, post single images. This is the biggest format gap in the data (carousels 1.16, single images 0.73).
 - **Offers.** At most one hard offer in any three posts. This plan has 3 offer posts plus the Reel end cards.
 - **Offer facts** come only from `post-queue.md`:
-  - $497, live in 48 h on their own domain.
+  - $500, live in 48 h on their own domain.
   - A free preview from their Instagram first.
-  - $997 Pro.
+  - $1,000 Growth.
   - $49/mo care.
   - DM "WEBSITE".
   - No results, client names, reviews, ratings or statistics.
@@ -259,11 +259,11 @@ Fri Oct 9 – Thu Oct 22, 2026. Slots 08:52 / 12:52 / 18:52 ET (the post queue's
 |---|---|---|---|
 | Fri 9 | checklist · checklist — What a one-page site needs (hours, menu or services with prices, address + map, call button, Instagram, order/booking link) · B | compare · vs — Link in bio vs. your website: the basics · C | **Reel A1** Instagram → website, food (Sample build 1/4) · A |
 | Sat 10 | tip · phones-food — Put your menu in text, not only in a photo · B | spanish · phones-beauty — ¿Te encuentran rápido? Horario, precios, dirección y un botón para llamar · E | **Reel D1** Link in bio vs. a real page, food · A |
-| Sun 11 | myth · none — "Instagram is enough": it serves followers; a page with hours, menu and a map serves people searching · D | process · steps — How your website happens: 1 · we look at your Instagram, 2 · free preview, 3 · you say yes, 4 · live on your domain in 48 h · C | offer · phones-fitness — No website? Live in 48 hours, $497, free preview first · A |
+| Sun 11 | myth · none — "Instagram is enough": it serves followers; a page with hours, menu and a map serves people searching · D | process · steps — How your website happens: 1 · we look at your Instagram, 2 · free preview, 3 · you say yes, 4 · live on your domain in 48 h · C | offer · phones-fitness — No website? Live in 48 hours, $500, free preview first · A |
 | Mon 12 | tip · phones-beauty — Make "Book" the biggest button on the page · B | faq · none — Do I pay before I see it? No: a free preview from your Instagram first · D | **Reel A2** beauty (2/4) · A |
 | Tue 13 | checklist · checklist — 5 taps to test before you share your site (call, directions, hours, booking link, Instagram link) · B | spanish · phones-food — Tu menú en tu página, no solo en una foto · E | **Reel B** Four businesses, one 48-hour build · A |
 | Wed 14 | tip · phones-home — Name the neighborhoods you serve · B | compare · vs — "Are you open?": link in bio vs. website · C | **Reel C** The 48 hours, on a clock · A |
-| Thu 15 | myth · none — "A website takes months": a clear one-page site is a small job · D | spanish · phones-fitness — Mito: con Instagram basta · C | offer · phones-home — Free preview from your Instagram, live in 48 h for $497 · A |
+| Thu 15 | myth · none — "A website takes months": a clear one-page site is a small job · D | spanish · phones-fitness — Mito: con Instagram basta · C | offer · phones-home — Free preview from your Instagram, live in 48 h for $500 · A |
 | Fri 16 | tip · phones-fitness — One main button at the top: book, order or call · B | process · steps — What we need from you: logo, 6–10 photos, hours + address, menu or services + prices, the domain you want, booking/order link · C | **Reel A3** fitness (3/4) · A |
 | Sat 17 | checklist · checklist — Halloween week: the same hours on Google, Instagram and your site, special hours posted · C | faq · none — What's the $49/mo? The optional care plan · D | **Reel A1-ES** De Instagram a página web (comida) · E |
 | Sun 18 | spanish · checklist — Lo que tu página necesita · B (Guárdalo) | compare · vs — Booking: link in bio vs. website · C | **Reel D2** Link in bio vs. a real page, beauty · A |
@@ -374,7 +374,7 @@ Four concepts in the style of software product demos: screen recordings with kin
 | 8–11 s | Scroll of the sample site, top to map | Menu · hours · map |
 | 11–13 s | Tap ripples on Call, then Directions | One tap to call. One tap to get there. |
 | 13–16 s | The address bar types `yourname.com`, a padlock appears, a "Live" chip | Live on your own domain in 48 h |
-| 16–18 s | Price card | $497 one time · free preview first |
+| 16–18 s | Price card | $500 one time · free preview first |
 | 18–20 s | End card with the DS logo | DM "WEBSITE" · Sample build 1/4 |
 
 ### B — "Four businesses, one 48-hour build" (transformation montage; EN + ES)
@@ -407,7 +407,7 @@ Four concepts in the style of software product demos: screen recordings with kin
 | 9–13 s | Menu / services section fills in with prices | Menu or services, with prices |
 | 13–17 s | The same page on a phone and a laptop | Built for the phone first |
 | 17–21 s | The address bar types `yourname.com`; the timer hits 48:00 | Live on your own domain |
-| 21–25 s | End card | $497 one time · free preview first · DM "WEBSITE" |
+| 21–25 s | End card | $500 one time · free preview first · DM "WEBSITE" |
 
 ### D — "Link in bio vs. a real page" (A/B screen recording; food + beauty)
 

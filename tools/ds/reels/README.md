@@ -144,7 +144,7 @@ mix is loudness-normalised in two passes to **−14 LUFS integrated, ≤ −1.5 
 
 ## Limits for scriptwriters
 
-- Offer facts you may use: free website preview first · $497 = live on your own domain in 48 hours · $997 = Website Pro ·
+- Offer facts you may use: free website preview first · $500 = live on your own domain in 48 hours · $1,000 = Growth Site ·
   $49/month care plan · "DM us WEBSITE". No other numbers, prices, claims or guarantees. A `stat` needs a real `source`.
 - No fake reviews, testimonials, ratings or customers; `quote` is never an invented person. Demo screens are the three
   FICTIONAL businesses below and must keep their DEMO tag; never present them as clients.
@@ -206,7 +206,7 @@ Fonts: Montserrat ExtraBold and Inter 400–800 (from `tools/video/fonts/`, OFL)
     { "type": "list", "beats": 10, "head": "Your menu page needs",
       "items": ["Dishes as text", "A price on each", "A pickup button"] },
     { "type": "text", "beats": 7, "kicker": "The offer", "head": "Free preview *first*",
-      "sub": "$497 · live on your own domain in 48 hours" },
+      "sub": "$500 · live on your own domain in 48 hours" },
     { "type": "end", "beats": 6, "tr": "wipe", "line": "Want a free preview?", "cta": "DM us “WEBSITE”" }
   ]
 }
