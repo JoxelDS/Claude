@@ -28,6 +28,14 @@ Hard limits learned: WebSearch is capped at 200 calls per turn for ALL agents to
 7. **Follow-ups**: a DM marked sent ≥ 3 days ago with no reply → `dm2-<slug>` draft (short, one new detail, same link). At ≥ 7 days → `dm3` (last, friendly close). Emails the same, once Gmail is connected. Approved emails: send up to 40/day through "DS - send email", oldest first.
 8. One line to Joxel: "N new leads (M DMs ready) · K emails sent · P payments · Q sites live".
 
+## Payments watch (routine "DS Payments — watch Stripe emails", hourly)
+Stripe has no connector here, but its emails reach the connected Gmail (DSmarketing@wwwdsmarketing.com gets the notifications for dasilvajoxel@gmail.com). Each run:
+1. `mcp__Gmail__search_threads` with `from:stripe.com newer_than:3d (payment OR paid OR received OR "new payment" OR "successful")` (skip "signed in", "legal terms", "payout" unless it is a payout to report).
+2. For each thread whose id is not yet a doc in the pipeline page's `payments` collection: `get_thread` (PLAIN_TEXT) and read the amount, product (Quick Start $500 / Growth $1,000 / Premium $1,500), customer name + email, and the custom field / `client_reference_id` if shown.
+3. Write `payments/<threadId>` `{amount, product, customer, email, at, slug?}` and, when the payer matches a prospect (reference id = slug, or the Instagram @ / business name / email), set that prospect `stage: "paid"` with the amount.
+4. Tell Joxel in one line ("💸 $500 from <name> — <product> — starting delivery") and start **Delivery** below. Nothing found → stop silently (no message).
+Payment links: one per product (Joxel makes them). Never send the bundled link https://buy.stripe.com/4gM3cv5PI9XyfFh3DC1oI00 ($3,000 = all three products). When the separate links exist, previews' "Make it mine" button points to `<Quick Start link>?client_reference_id=<slug>`.
+
 ## Delivery (a payment came in)
 1. Find the prospect by `client_reference_id`. Mark it `stage: "paid"` with amount, email, phone, Stripe session id.
 2. **Domain**: if the client typed one in the custom field, check it; otherwise check `<name>.com`, `<name>miami.com`, `<name>fl.com`, `<shortname>.com` (letters only, ≤ 20 chars). Register the first available one at ≤ $15 (Porkbun `check_domain` → `register_domain`). If none qualifies, ask Joxel with 3 options.
