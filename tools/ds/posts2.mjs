@@ -284,7 +284,7 @@ D('photo', 'relatable lines by trade (food truck, salon, gym, home services)',
       s.lines?.length && { html: s.lines.map(ln).join(''), fs: 42, min: 30, style: 'font:500 1em/1.35 Inter;color:#222', c: 'body' },
     ], { gap: 24, maxh: 520, name: 'panel' });
     body += `<div class="above" data-gap="20" data-c="samp" style="position:absolute;right:${M}px;background:${INK};color:#fff;font:700 30px/1 Inter;letter-spacing:.08em;text-transform:uppercase;padding:14px 20px;border-radius:12px">${esc(T[ctx.lang].photo)}</div>`;
-    return { bg: '', body, logo: 'white', foot: 'dark', footbg: INK, pagebg: INK, css: `.look-photo .em{font-style:normal;background:${ctx.acc};padding:0 .12em;border-radius:.12em}` };
+    return { bg: '', body, logo: 'white', foot: 'dark', footbg: INK, pagebg: INK, css: `.look-photo .em{font-style:normal;background:${ctx.acc};padding:0 .12em;border-radius:.12em;-webkit-box-decoration-break:clone;box-decoration-break:clone}` };
   },
   { bg: ctx => `<div style="position:absolute;inset:-40px;background:url(${photoUrl(ctx.post._photo || 'food-3')}) center/cover;filter:blur(18px)"></div><div style="position:absolute;inset:0;background:rgba(8,8,8,.78)"></div>`, logo: 'white', text: '#fff', pagebg: '#2A2A2A', head: 'h', css: ctx => `.look-photo .em{font-style:normal;color:${ctx.acc}}` });
 
@@ -468,7 +468,7 @@ D('tips', 'utility people share or save: "4 things customers check", icon grids'
         { html: grid, fs: cols === 3 ? 36 : 42, min: 30, c: 'grid' },
       ], { gap: 44, v: 'center' });
     }
-    return { bg: tipsBg(ctx.acc), body, logo: 'black', pagebg: '#FFF8EC', css: `.look-tips .em{font-style:normal;background:${ctx.acc};padding:0 .1em}` };
+    return { bg: tipsBg(ctx.acc), body, logo: 'black', pagebg: '#FFF8EC', css: `.look-tips .em{font-style:normal;background:${ctx.acc};padding:0 .1em;-webkit-box-decoration-break:clone;box-decoration-break:clone}` };
   },
   { bg: ctx => tipsBg(ctx.acc), logo: 'black', pagebg: '#FFF8EC', head: 'h' });
 
@@ -494,7 +494,7 @@ const BASE_CSS = `*{margin:0;padding:0;box-sizing:border-box}html,body{width:${W
 .h{font-family:Mont;font-weight:800;text-transform:uppercase;letter-spacing:-.02em;line-height:1}
 .chip{display:inline-flex;align-items:center;gap:.4em;border-radius:999px;padding:16px 28px;font:800 30px/1 Mont;letter-spacing:.02em;white-space:nowrap}
 .em{font-style:italic}
-.fit{text-wrap:pretty}.fit[data-c=headline],.fit[data-c=label],.fit[data-c=myth],.fit[data-c=saying],.fit[data-c=kicker]{text-wrap:balance}`;
+.fit{text-wrap:pretty}.fit[data-c=label],.fit[data-c=kicker]{text-wrap:balance}`;
 const html = (r, ctx) => `<!doctype html><html><head><meta charset="utf-8"><style>${FONT_CSS}\n${BASE_CSS}\n${r.css || ''}</style></head>
 <body class="look-${ctx.look}" data-bg="${r.pagebg || '#000'}" style="background:${r.pagebg || '#000'}">${r.bg || ''}${r.body}${chrome(ctx, r)}</body></html>`;
 
