@@ -1,0 +1,160 @@
+{
+ "id": "e-bio-150-caracteres-en",
+ "lang": "en",
+ "title": "Your bio has 150 characters. Use them.",
+ "music": {
+  "preset": "upbeat",
+  "bpm": 120
+ },
+ "accent": "#FFC83D",
+ "cover": 1.8,
+ "facts": [
+  "ig-bio-150"
+ ],
+ "scenes": [
+  {
+   "type": "pov",
+   "beats": 8,
+   "text": "a new customer reads your bio",
+   "scene": {
+    "type": "profile",
+    "name": "Calle Cometa",
+    "handle": "callecometa.demo",
+    "demo": true,
+    "avatar": "photos/food-1.jpg",
+    "bio": [
+     "🌮🔥🔥 BEST TACOS!!!",
+     "DM for info 📩"
+    ],
+    "link": false,
+    "grid": [
+     "photos/food-1.jpg",
+     "photos/food-3.jpg",
+     {
+      "src": "photos/food-1.jpg",
+      "pos": "85% 15%",
+      "zoom": 1.8
+     },
+     {
+      "src": "photos/food-3.jpg",
+      "pos": "25% 45%",
+      "zoom": 1.6
+     },
+     {
+      "src": "photos/food-1.jpg",
+      "pos": "35% 60%",
+      "zoom": 1.5
+     },
+     {
+      "src": "photos/food-3.jpg",
+      "pos": "85% 40%",
+      "zoom": 1.7
+     }
+    ],
+    "highlights": [
+     {
+      "t": 1.2,
+      "target": "bio",
+      "label": "Where? When? 🤔",
+      "size": 60,
+      "d": 1.45
+     },
+     {
+      "t": 2.8,
+      "target": "bio",
+      "label": "How do I order? 😅",
+      "size": 60
+     }
+    ]
+   },
+   "pre": 0.35
+  },
+  {
+   "type": "stat",
+   "beats": 8,
+   "tr": "zoom",
+   "head": "Your bio: up to",
+   "value": 150,
+   "label": "characters.\nMake them count.",
+   "source": "Instagram Help Center",
+   "size": 420
+  },
+  {
+   "type": "list",
+   "beats": 9,
+   "tr": "wipe",
+   "head": "The *3*-line bio",
+   "items": [
+    "What you sell + where",
+    "When you’re open",
+    "How to order"
+   ],
+   "size": 66
+  },
+  {
+   "type": "profile",
+   "beats": 10,
+   "tr": "whip",
+   "head": "Same tacos. *Better* bio.",
+   "name": "Calle Cometa",
+   "handle": "callecometa.demo",
+   "demo": true,
+   "avatar": "photos/food-1.jpg",
+   "bio": [
+    "🌮 Al pastor tacos · Wynwood",
+    "⏰ Tue–Sun · 6 PM – 1 AM",
+    "👇 Order pickup here"
+   ],
+   "typeBio": {
+    "t": 0.5,
+    "cps": 36
+   },
+   "link": "callecometa.demo",
+   "grid": [
+    "photos/food-1.jpg",
+    "photos/food-3.jpg",
+    {
+     "src": "photos/food-1.jpg",
+     "pos": "85% 15%",
+     "zoom": 1.8
+    },
+    {
+     "src": "photos/food-3.jpg",
+     "pos": "25% 45%",
+     "zoom": 1.6
+    },
+    {
+     "src": "photos/food-1.jpg",
+     "pos": "35% 60%",
+     "zoom": 1.5
+    },
+    {
+     "src": "photos/food-3.jpg",
+     "pos": "85% 40%",
+     "zoom": 1.7
+    }
+   ],
+   "highlights": [
+    {
+     "t": 2.95,
+     "target": "link",
+     "label": "Link #1: your website"
+    }
+   ],
+   "taps": [
+    {
+     "t": 3.9,
+     "target": "link"
+    }
+   ]
+  },
+  {
+   "type": "end",
+   "beats": 6,
+   "tr": "wipe",
+   "line": "Save this for your bio fix",
+   "cta": "DM us “WEBSITE”",
+   "offer": "No website yet? Free preview first"
+  }
+ ]
+}

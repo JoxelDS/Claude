@@ -1,0 +1,276 @@
+{
+ "id": "_demo",
+ "lang": "en",
+ "music": {
+  "preset": "upbeat",
+  "bpm": 132
+ },
+ "cover": 1.6,
+ "scenes": [
+  {
+   "type": "hook",
+   "beats": 4,
+   "text": "Your menu is a *JPEG*"
+  },
+  {
+   "type": "pov",
+   "beats": 6,
+   "text": "your customer squints at your menu",
+   "scene": {
+    "type": "phone",
+    "image": "demo/taco-menu-photo.jpg",
+    "scroll": 0,
+    "taps": [
+     {
+      "t": 0.7,
+      "x": 0.7,
+      "y": 0.44
+     },
+     {
+      "t": 1.0,
+      "x": 0.7,
+      "y": 0.44
+     }
+    ],
+    "highlights": [
+     {
+      "t": 1.35,
+      "x": 0.06,
+      "y": 0.3,
+      "w": 0.88,
+      "h": 0.3,
+      "label": "$4 or $5?"
+     }
+    ]
+   }
+  },
+  {
+   "type": "compare",
+   "beats": 6,
+   "head": "Same tacos. Better menu.",
+   "left": {
+    "label": "Menu photo",
+    "image": "demo/taco-menu-photo.jpg",
+    "scroll": 0
+   },
+   "right": {
+    "label": "Menu page",
+    "image": "demo/taco-mobile.jpg",
+    "scroll": [
+     [
+      1.9,
+      0
+     ],
+     [
+      2.9,
+      0.22
+     ]
+    ]
+   }
+  },
+  {
+   "type": "mythfact",
+   "beats": 7,
+   "myth": "Instagram is enough.",
+   "fact": "It's rented. A website is *yours*."
+  },
+  {
+   "type": "search",
+   "beats": 7,
+   "head": "Where they look first",
+   "query": "tacos near me",
+   "results": [
+    {
+     "title": "Late-night tacos: 9 Wynwood spots",
+     "url": "food-guide.example › wynwood",
+     "text": "Our list of the trucks and counters worth the line after 10 PM."
+    },
+    {
+     "title": "Street Taco Bar · Order online",
+     "url": "streettacobar.example",
+     "text": "Pickup and delivery. Menu, hours and directions."
+    },
+    {
+     "title": "Wynwood food trucks map",
+     "url": "citymaps.example › food-trucks",
+     "text": "Every truck parked in the neighborhood this week."
+    }
+   ],
+   "business": {
+    "title": "Calle Cometa Tacos"
+   },
+   "found": false
+  },
+  {
+   "type": "profile",
+   "beats": 5,
+   "head": "Link in bio",
+   "name": "Lacquer Lagoon",
+   "handle": "lacquerlagoon.demo",
+   "stats": {
+    "posts": "214",
+    "followers": "3,120"
+   },
+   "bio": [
+    "Nails · Brickell",
+    "DM to book!!! read policy first"
+   ],
+   "link": "my-links.page/lacquerlagoon",
+   "grid": [
+    "photos/beauty-2.jpg",
+    "photos/beauty-3.jpg",
+    "photos/beauty-1.jpg",
+    {
+     "src": "photos/beauty-2.jpg",
+     "pos": "20% 80%",
+     "zoom": 1.6
+    },
+    {
+     "src": "photos/beauty-3.jpg",
+     "pos": "70% 30%",
+     "zoom": 1.5
+    },
+    {
+     "src": "photos/beauty-1.jpg",
+     "pos": "80% 60%",
+     "zoom": 1.7
+    }
+   ],
+   "highlights": [
+    {
+     "t": 1.05,
+     "target": "link",
+     "label": "One link, 15 buttons"
+    }
+   ]
+  },
+  {
+   "type": "phone",
+   "beats": 5,
+   "head": "One tap to book",
+   "image": "demo/nails-mobile.jpg",
+   "scroll": [
+    [
+     1.2,
+     0
+    ],
+    [
+     1.9,
+     0.1
+    ]
+   ],
+   "taps": [
+    {
+     "t": 0.75,
+     "at": [
+      100,
+      415
+     ]
+    }
+   ],
+   "highlights": [
+    {
+     "t": 0.85,
+     "box": [
+      12,
+      380,
+      176,
+      70
+     ],
+     "label": "Book a set",
+     "d": 0.9
+    }
+   ]
+  },
+  {
+   "type": "browser",
+   "beats": 4,
+   "head": "On *your own* domain",
+   "image": "demo/pool-desktop.jpg",
+   "url": "tidewickpools.com",
+   "mobile": "demo/pool-mobile.jpg",
+   "scroll": [
+    [
+     1.5,
+     0
+    ],
+    [
+     2.4,
+     0.18
+    ]
+   ]
+  },
+  {
+   "type": "chat",
+   "beats": 6,
+   "name": "Customer",
+   "messages": [
+    {
+     "from": "them",
+     "text": "Menu link?"
+    },
+    {
+     "from": "me",
+     "text": "Here 👉 callecometa.com"
+    },
+    {
+     "from": "them",
+     "text": "Ordering now 🙌"
+    }
+   ]
+  },
+  {
+   "type": "list",
+   "beats": 8,
+   "head": "Every site needs",
+   "items": [
+    "Tap to call",
+    "Menu as text",
+    "A book button"
+   ]
+  },
+  {
+   "type": "checklist",
+   "beats": 7,
+   "head": "What you get",
+   "items": [
+    "Mobile-first",
+    "Your own domain",
+    "Live in 48h"
+   ]
+  },
+  {
+   "type": "stat",
+   "beats": 7,
+   "value": 497,
+   "prefix": "$",
+   "label": "Live on your own domain",
+   "source": "DS Marketing standard plan"
+  },
+  {
+   "type": "timer",
+   "beats": 6,
+   "hours": 48,
+   "label": "Yes to live"
+  },
+  {
+   "type": "quote",
+   "beats": 6,
+   "text": "Can't ==find you==? Can't pay you.",
+   "by": "DS Marketing"
+  },
+  {
+   "type": "text",
+   "beats": 6,
+   "kicker": "The offer",
+   "head": "Free preview *first*",
+   "sub": "$497 · live in 48 hours"
+  },
+  {
+   "type": "end",
+   "beats": 5,
+   "line": "Want a free preview?",
+   "cta": "DM us “WEBSITE”"
+  }
+ ]
+}

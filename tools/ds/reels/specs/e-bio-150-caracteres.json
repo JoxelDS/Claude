@@ -1,0 +1,160 @@
+{
+ "id": "e-bio-150-caracteres",
+ "lang": "es",
+ "title": "Tu bio tiene 150 caracteres. Úsalos bien.",
+ "music": {
+  "preset": "upbeat",
+  "bpm": 120
+ },
+ "accent": "#FFC83D",
+ "cover": 1.8,
+ "facts": [
+  "ig-bio-150"
+ ],
+ "scenes": [
+  {
+   "type": "pov",
+   "beats": 8,
+   "text": "un cliente nuevo lee tu bio",
+   "scene": {
+    "type": "profile",
+    "name": "Calle Cometa",
+    "handle": "callecometa.demo",
+    "demo": true,
+    "avatar": "photos/food-1.jpg",
+    "bio": [
+     "🌮🔥🔥 LOS MEJORES TACOS!!!",
+     "Info por DM 📩"
+    ],
+    "link": false,
+    "grid": [
+     "photos/food-1.jpg",
+     "photos/food-3.jpg",
+     {
+      "src": "photos/food-1.jpg",
+      "pos": "85% 15%",
+      "zoom": 1.8
+     },
+     {
+      "src": "photos/food-3.jpg",
+      "pos": "25% 45%",
+      "zoom": 1.6
+     },
+     {
+      "src": "photos/food-1.jpg",
+      "pos": "35% 60%",
+      "zoom": 1.5
+     },
+     {
+      "src": "photos/food-3.jpg",
+      "pos": "85% 40%",
+      "zoom": 1.7
+     }
+    ],
+    "highlights": [
+     {
+      "t": 1.2,
+      "target": "bio",
+      "label": "¿Dónde? ¿Cuándo? 🤔",
+      "size": 60,
+      "d": 1.45
+     },
+     {
+      "t": 2.8,
+      "target": "bio",
+      "label": "¿Y cómo pido? 😅",
+      "size": 60
+     }
+    ]
+   },
+   "pre": 0.35
+  },
+  {
+   "type": "stat",
+   "beats": 8,
+   "tr": "zoom",
+   "head": "Tu bio: hasta",
+   "value": 150,
+   "label": "caracteres.\nHaz que cuenten.",
+   "source": "Centro de ayuda de Instagram",
+   "size": 420
+  },
+  {
+   "type": "list",
+   "beats": 9,
+   "tr": "wipe",
+   "head": "La bio en *3* líneas",
+   "items": [
+    "Qué vendes y dónde",
+    "Cuándo abres",
+    "Cómo pedir"
+   ],
+   "size": 72
+  },
+  {
+   "type": "profile",
+   "beats": 10,
+   "tr": "whip",
+   "head": "Mismos tacos. *Mejor* bio.",
+   "name": "Calle Cometa",
+   "handle": "callecometa.demo",
+   "demo": true,
+   "avatar": "photos/food-1.jpg",
+   "bio": [
+    "🌮 Tacos al pastor · Wynwood",
+    "⏰ Mar a dom · 6 PM – 1 AM",
+    "👇 Pide pickup aquí"
+   ],
+   "typeBio": {
+    "t": 0.5,
+    "cps": 36
+   },
+   "link": "callecometa.demo",
+   "grid": [
+    "photos/food-1.jpg",
+    "photos/food-3.jpg",
+    {
+     "src": "photos/food-1.jpg",
+     "pos": "85% 15%",
+     "zoom": 1.8
+    },
+    {
+     "src": "photos/food-3.jpg",
+     "pos": "25% 45%",
+     "zoom": 1.6
+    },
+    {
+     "src": "photos/food-1.jpg",
+     "pos": "35% 60%",
+     "zoom": 1.5
+    },
+    {
+     "src": "photos/food-3.jpg",
+     "pos": "85% 40%",
+     "zoom": 1.7
+    }
+   ],
+   "highlights": [
+    {
+     "t": 2.95,
+     "target": "link",
+     "label": "1er link: tu página web"
+    }
+   ],
+   "taps": [
+    {
+     "t": 3.9,
+     "target": "link"
+    }
+   ]
+  },
+  {
+   "type": "end",
+   "beats": 6,
+   "tr": "wipe",
+   "line": "Guárdalo para arreglar tu bio",
+   "cta": "Escríbenos “WEBSITE”",
+   "offer": "¿Sin web? Preview gratis primero"
+  }
+ ]
+}

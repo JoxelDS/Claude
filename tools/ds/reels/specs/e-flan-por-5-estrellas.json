@@ -1,0 +1,82 @@
+{
+ "id": "e-flan-por-5-estrellas",
+ "lang": "es",
+ "music": {
+  "preset": "upbeat",
+  "bpm": 116
+ },
+ "accent": "#FFCF3F",
+ "cover": 2.3,
+ "scenes": [
+  {
+   "type": "hook",
+   "beats": 5,
+   "kicker": "Dueños de restaurante",
+   "text": "¿Flan\ngratis\npor *5*\n*estrellas*?",
+   "sign": {
+    "text": "5 ⭐ = flan gratis 🍮",
+    "small": "Muestra tu reseña en caja",
+    "sticker": "Ojo 👀",
+    "stickerAt": 3,
+    "tilt": -3
+   },
+   "align": "center"
+  },
+  {
+   "type": "chat",
+   "beats": 7,
+   "tr": "whip",
+   "name": "Cliente",
+   "messages": [
+    {
+     "from": "me",
+     "text": "Déjanos 5 ⭐ y te regalamos el flan 🍮",
+     "t": 0.25
+    },
+    {
+     "from": "them",
+     "text": "¡Dale! 😋",
+     "t": 1.2
+    },
+    {
+     "from": "them",
+     "text": "¿Y si te pongo 3? 👀",
+     "t": 2.05
+    }
+   ]
+  },
+  {
+   "type": "mythfact",
+   "beats": 13,
+   "tr": "zoom",
+   "strike": 1.81,
+   "myth": "Un flancito por 5 estrellas no hace daño.",
+   "fact": "La FTC ==prohíbe== premiar reseñas de 5 estrellas.",
+   "fact2": "Y Google Maps no permite regalos ni descuentos por reseñas.",
+   "source": [
+    "FTC, 16 CFR § 465.4",
+    "Política de contenido de Google Maps"
+   ],
+   "fact2At": 3.9
+  },
+  {
+   "type": "checklist",
+   "beats": 7,
+   "tr": "wipe",
+   "head": "Lo que sí",
+   "items": [
+    "Pide la reseña, sin flan",
+    "Cero reseñas falsas",
+    "Responde cada reseña"
+   ]
+  },
+  {
+   "type": "end",
+   "beats": 6,
+   "tr": "whip",
+   "line": "Mándaselo a tu socio antes de imprimir el letrero",
+   "cta": "Escríbenos “WEBSITE”",
+   "offer": "Preview gratis de tu web"
+  }
+ ]
+}

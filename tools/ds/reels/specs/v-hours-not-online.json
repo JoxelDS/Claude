@@ -1,0 +1,153 @@
+{
+ "id": "v-hours-not-online",
+ "lang": "en",
+ "title": "Things customers do when your hours aren't online",
+ "music": {
+  "preset": "upbeat",
+  "bpm": 126
+ },
+ "accent": "#FFC83D",
+ "cover": 3.9,
+ "facts": [],
+ "scenes": [
+  {
+   "type": "chat",
+   "beats": 10,
+   "head": "When your hours aren’t *online*",
+   "name": "Customer",
+   "status": "Today · 11:58 PM",
+   "avatar": "demo/avatar-unknown.svg",
+   "messages": [
+    {
+     "from": "them",
+     "t": 0,
+     "text": "y’all open?"
+    },
+    {
+     "from": "them",
+     "t": 0.9,
+     "text": "¿¿están abiertos??"
+    },
+    {
+     "from": "them",
+     "t": 1.75,
+     "text": "hello???"
+    },
+    {
+     "from": "them",
+     "t": 2.75,
+     "text": "nvm"
+    },
+    {
+     "from": "them",
+     "t": 3.25,
+     "text": "fuimos al de al lado 🌮"
+    }
+   ]
+  },
+  {
+   "type": "list",
+   "beats": 9,
+   "tr": "whip",
+   "bg": "right",
+   "head": "Things customers do",
+   "every": 2.5,
+   "items": [
+    "Pull up after closing",
+    "Trust last year’s post",
+    "Go next door 🌮"
+   ],
+   "size": 88
+  },
+  {
+   "type": "phone",
+   "beats": 10,
+   "tr": "zoom",
+   "bg": "left",
+   "head": "Or they check your *site*",
+   "image": "demo/taco-mobile.jpg",
+   "scroll": [
+    [
+     0.3,
+     0
+    ],
+    [
+     1.45,
+     1
+    ]
+   ],
+   "highlights": [
+    {
+     "t": 1.95,
+     "box": [
+      30,
+      2486,
+      166,
+      84
+     ],
+     "label": "Hours, in one place",
+     "d": 1.15
+    },
+    {
+     "t": 3.5,
+     "box": [
+      26,
+      2588,
+      338,
+      59
+     ],
+     "label": "Tap to call"
+    }
+   ],
+   "taps": [
+    {
+     "t": 3.75,
+     "at": [
+      300,
+      2617
+     ]
+    }
+   ],
+   "zoom": [
+    [
+     0,
+     1,
+     195,
+     2560
+    ],
+    [
+     1.45,
+     1,
+     195,
+     2560
+    ],
+    [
+     2.05,
+     2.15,
+     40,
+     2526
+    ],
+    [
+     3.0,
+     2.15,
+     40,
+     2526
+    ],
+    [
+     3.45,
+     1.1,
+     195,
+     2610
+    ]
+   ]
+  },
+  {
+   "type": "end",
+   "beats": 7,
+   "tr": "wipe",
+   "line": "Send to the owner who gets this DM",
+   "cta": "DM us “WEBSITE”",
+   "offer": "Free website preview first"
+  }
+ ]
+}

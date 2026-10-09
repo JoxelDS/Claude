@@ -1,0 +1,210 @@
+{
+ "id": "v-pov-highlight-borroso",
+ "lang": "es",
+ "title": "pov: te piden el menú y mandas el highlight borroso",
+ "music": {
+  "preset": "upbeat",
+  "bpm": 122
+ },
+ "accent": "#FFC83D",
+ "cover": 4.4,
+ "facts": [],
+ "scenes": [
+  {
+   "type": "pov",
+   "beats": 11,
+   "pre": 0.6,
+   "text": "te piden el menú y mandas el highlight borroso",
+   "scene": {
+    "type": "chat",
+    "name": "Cliente",
+    "avatar": "demo/avatar-unknown.svg",
+    "messages": [
+     {
+      "from": "them",
+      "text": "¿tienen menú? 👀",
+      "t": 1.2
+     },
+     {
+      "from": "me",
+      "text": "en los highlights 👆",
+      "t": 2.1
+     },
+     {
+      "from": "them",
+      "text": "¿en cuál? 😅",
+      "t": 3.05
+     },
+     {
+      "from": "them",
+      "text": "¿el elote es $4 o $5??",
+      "t": 3.95
+     }
+    ]
+   }
+  },
+  {
+   "type": "compare",
+   "beats": 12,
+   "tr": "whip",
+   "mode": "phones",
+   "soloHead": "El “menú”:",
+   "head": "Mismo taco. Otro nivel.",
+   "rightAt": 3.2,
+   "solo": {
+    "w": 540,
+    "callouts": [
+     {
+      "t": 1.8,
+      "text": "¿$4 o $5? 🤨",
+      "y": 0.76,
+      "size": 56
+     }
+    ]
+   },
+   "left": {
+    "label": "Highlight",
+    "story": {
+     "title": "Menú 🌮",
+     "sub": "calle.cometa.tacos",
+     "avatar": "photos/food-1.jpg",
+     "segments": 5,
+     "segDur": 2.2,
+     "taps": [
+      0.75,
+      1.4
+     ],
+     "frames": [
+      {
+       "src": "demo/taco-menu-photo.jpg",
+       "crop": [
+        0,
+        75,
+        390,
+        640
+       ],
+       "at": [
+        195,
+        400
+       ],
+       "zoom": 1.2,
+       "rot": -4,
+       "blur": 2.2,
+       "glare": 0.5,
+       "sticker": "MENÚ 👇"
+      },
+      {
+       "src": "demo/taco-menu-photo.jpg",
+       "crop": [
+        0,
+        75,
+        390,
+        640
+       ],
+       "at": [
+        280,
+        340
+       ],
+       "zoom": 2.1,
+       "rot": 5,
+       "blur": 2.6,
+       "ghost": 10,
+       "dark": 0.1,
+       "glare": 0.25
+      },
+      {
+       "src": "demo/taco-menu-photo.jpg",
+       "crop": [
+        0,
+        75,
+        390,
+        640
+       ],
+       "at": [
+        215,
+        365
+       ],
+       "zoom": 1.25,
+       "rot": -2,
+       "blur": 2.6
+      }
+     ],
+     "squint": {
+      "t": 1.6,
+      "d": 1.55,
+      "zoom": 1.3,
+      "at": [
+       275,
+       352
+      ],
+      "amt": 0.22
+     }
+    }
+   },
+   "right": {
+    "label": "Tu página",
+    "image": "demo/taco-mobile.jpg",
+    "scroll": [
+     [
+      3.6,
+      0
+     ],
+     [
+      4.25,
+      0.41
+     ]
+    ],
+    "highlights": [
+     {
+      "t": 4.35,
+      "box": [
+       14,
+       1272,
+       362,
+       112
+      ],
+      "label": "Elote · $5 ✓"
+     }
+    ]
+   }
+  },
+  {
+   "type": "chat",
+   "beats": 7,
+   "tr": "wipe",
+   "name": "Cliente",
+   "avatar": "demo/avatar-unknown.svg",
+   "messages": [
+    {
+     "from": "them",
+     "text": "¿tienen menú? 👀",
+     "t": 0.3
+    },
+    {
+     "from": "me",
+     "text": "aquí 👉 tunombre.com",
+     "t": 1.0,
+     "preview": {
+      "image": "demo/taco-mobile.jpg",
+      "top": 105,
+      "title": "Calle Cometa · Menú",
+      "url": "tunombre.com"
+     }
+    },
+    {
+     "from": "them",
+     "text": "perfecto, voy pa’ allá 🙌",
+     "t": 1.85
+    }
+   ]
+  },
+  {
+   "type": "end",
+   "beats": 6,
+   "tr": "whip",
+   "line": "Mándaselo a tu pana del food truck",
+   "cta": "Escríbenos “WEBSITE”",
+   "offer": "Preview gratis de tu página"
+  }
+ ]
+}

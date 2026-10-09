@@ -1,0 +1,163 @@
+{
+ "id": "e-menu-photo-real-text",
+ "lang": "en",
+ "title": "Is your menu a PHOTO?",
+ "music": {
+  "preset": "minimal",
+  "bpm": 120
+ },
+ "accent": "#FFC83D",
+ "cover": 1.25,
+ "facts": [
+  "text-not-in-images",
+  "wcag-images-of-text"
+ ],
+ "scenes": [
+  {
+   "type": "phone",
+   "beats": 7,
+   "open": true,
+   "kicker": "Food truck owners",
+   "head": "Is your menu a *PHOTO*?",
+   "headSlam": true,
+   "headSize": 104,
+   "image": "demo/taco-menu-photo.jpg",
+   "scroll": 0,
+   "zoom": [
+    [
+     0,
+     1.15,
+     388,
+     305
+    ],
+    [
+     1.5,
+     1.6,
+     388,
+     305
+    ],
+    [
+     2.3,
+     2.2,
+     388,
+     300
+    ],
+    [
+     3.5,
+     2.25,
+     388,
+     300
+    ]
+   ],
+   "taps": [
+    {
+     "t": 1.55,
+     "at": [
+      352,
+      330
+     ]
+    },
+    {
+     "t": 1.78,
+     "at": [
+      352,
+      330
+     ]
+    }
+   ],
+   "highlights": [
+    {
+     "t": -0.35,
+     "box": [
+      316,
+      232,
+      70,
+      244
+     ],
+     "label": "$4 or $5?"
+    }
+   ]
+  },
+  {
+   "type": "text",
+   "beats": 11,
+   "tr": "whip",
+   "head": "Google wants your menu in ==real text==",
+   "source": "Google Search Central: “Make sure that your visual content is ==expressed in text form==.”",
+   "sourceAt": 1.2,
+   "sourceHlAt": 3.0
+  },
+  {
+   "type": "compare",
+   "beats": 8,
+   "tr": "wipe",
+   "mode": "phones",
+   "head": "Same tacos. Better menu.",
+   "left": {
+    "label": "Menu photo",
+    "image": "demo/taco-menu-photo.jpg",
+    "scroll": 0
+   },
+   "right": {
+    "label": "Menu page",
+    "image": "demo/taco-mobile.jpg",
+    "scroll": [
+     [
+      1.85,
+      0
+     ],
+     [
+      2.85,
+      0.37
+     ]
+    ],
+    "zoom": [
+     [
+      0,
+      1,
+      20,
+      1040
+     ],
+     [
+      2.2,
+      1,
+      20,
+      1040
+     ],
+     [
+      3.0,
+      1.24,
+      20,
+      1040
+     ],
+     [
+      4,
+      1.26,
+      20,
+      1040
+     ]
+    ]
+   }
+  },
+  {
+   "type": "checklist",
+   "beats": 10,
+   "tr": "whip",
+   "head": "Your menu page needs",
+   "items": [
+    "Every dish as text",
+    "A price on each",
+    "An “Order pickup” button",
+    "Hours + tap to call"
+   ]
+  },
+  {
+   "type": "end",
+   "beats": 7,
+   "tr": "wipe",
+   "line": "Save this for your next menu change",
+   "cta": "DM us “WEBSITE”",
+   "offer": "Free website preview first"
+  }
+ ]
+}

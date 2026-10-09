@@ -1,0 +1,86 @@
+{
+ "id": "e-nadie-garantiza-el-1",
+ "lang": "es",
+ "title": "¿Te prometieron el #1 en Google?",
+ "music": {
+  "preset": "tension",
+  "bpm": 110
+ },
+ "accent": "#FFC83D",
+ "cover": 1.3,
+ "facts": [
+  "google-no-guaranteed-1",
+  "gbp-no-pay-ranking",
+  "gbp-ranking-factors"
+ ],
+ "scenes": [
+  {
+   "type": "chat",
+   "beats": 8,
+   "head": "¿Te prometieron el *#1*?",
+   "name": "Número desconocido",
+   "status": "No está en tus contactos",
+   "avatar": "demo/avatar-unknown.svg",
+   "messages": [
+    {
+     "from": "them",
+     "t": 0,
+     "text": "Te ponemos #1 en Google Maps 🔥 garantizado"
+    },
+    {
+     "from": "me",
+     "t": 1.65,
+     "text": "mmm… ¿garantizado? 🤨"
+    },
+    {
+     "from": "them",
+     "t": 2.8,
+     "text": "Sí 😎 ¿Te llamo ahora? 📞"
+    }
+   ]
+  },
+  {
+   "type": "mythfact",
+   "beats": 10,
+   "tr": "whip",
+   "myth": "Si pagas, te garantizan el #1.",
+   "fact": "“Nadie puede garantizar el *#1* en Google.”",
+   "source": "Google Search Central (cita traducida)"
+  },
+  {
+   "type": "hook",
+   "beats": 8,
+   "tr": "zoom",
+   "text": "¿Te lo garantizan? ==Cuelga==.",
+   "sub": "Y según Google, un mejor ranking local no se compra.",
+   "source": "Google Business Profile Help"
+  },
+  {
+   "type": "list",
+   "beats": 10,
+   "tr": "wipe",
+   "head": "Según Google, lo principal:",
+   "items": [
+    "Qué tan relevante eres",
+    "Qué tan cerca estás",
+    "Qué tan conocido eres"
+   ],
+   "source": "Google Business Profile Help",
+   "size": 64
+  },
+  {
+   "type": "text",
+   "beats": 6,
+   "tr": "whip",
+   "head": "Nosotros tampoco te prometemos el *#1*.",
+   "sub": "Te enseñamos tu web primero. ==Gratis==."
+  },
+  {
+   "type": "end",
+   "beats": 6,
+   "tr": "wipe",
+   "line": "Guárdalo pa’ la próxima llamada",
+   "cta": "Escríbenos “WEBSITE”"
+  }
+ ]
+}

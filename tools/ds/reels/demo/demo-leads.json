@@ -1,0 +1,44 @@
+[
+  {
+    "name": "Calle Cometa Tacos", "short": "Calle Cometa", "slug": "demo-calle-cometa", "niche": "food", "theme": "darkroom",
+    "area": "Wynwood", "instagram": "callecometa.demo",
+    "heroTitle": "Tacos al pastor, off the trompo",
+    "heroSub": "A taco truck in Wynwood. Corn tortillas pressed to order and salsas made every morning.",
+    "services": [
+      { "t": "Al pastor taco", "d": "Pork off the trompo, pineapple, onion and cilantro.", "price": "$4" },
+      { "t": "Birria quesataco", "d": "Crispy, cheesy, with a cup of consomé for dipping.", "price": "$5" },
+      { "t": "Elote en vaso", "d": "Street corn in a cup with lime, chile and cotija.", "price": "$5" },
+      { "t": "Agua fresca", "d": "Horchata, jamaica or the flavor of the day.", "price": "$4" }
+    ],
+    "cta": "Order for pickup", "phone": "(305) 555-0142", "hours": ["Tue–Sun · 6 PM – 1 AM"],
+    "photos": ["../_img/food-1.jpg", "../_img/food-3.jpg", "../_img/food-2.jpg"]
+  },
+  {
+    "name": "Lacquer Lagoon Nail Studio", "short": "Lacquer Lagoon", "slug": "demo-lacquer-lagoon", "niche": "beauty", "theme": "pinkdawn",
+    "area": "Brickell", "instagram": "lacquerlagoon.demo",
+    "heroTitle": "Clean sets that last three weeks",
+    "heroSub": "Gel-X, structured gel and nail art in a calm Brickell studio. Book your chair in under a minute.",
+    "services": [
+      { "t": "Gel-X full set", "d": "Soft gel extensions, shaped and finished your way.", "price": "$65" },
+      { "t": "Structured gel manicure", "d": "Strength for natural nails, no extensions.", "price": "$50" },
+      { "t": "Nail art", "d": "Chrome, French, 3D details. Bring your inspo.", "price": "from $10" },
+      { "t": "Spa pedicure", "d": "Soak, scrub, mask and polish.", "price": "$45" }
+    ],
+    "cta": "Book a set", "phone": "(305) 555-0187", "hours": ["Mon–Sat · 10 AM – 8 PM"],
+    "photos": ["../_img/beauty-2.jpg", "../_img/beauty-3.jpg", "../_img/beauty-1.jpg"]
+  },
+  {
+    "name": "Tidewick Pool Care", "short": "Tidewick Pools", "slug": "demo-tidewick-pools", "niche": "home", "theme": "coastal",
+    "area": "Kendall", "instagram": "tidewickpools.demo",
+    "heroTitle": "Pools that stay blue all summer",
+    "heroSub": "Weekly cleaning, chemical balance and repairs across Kendall and Pinecrest.",
+    "services": [
+      { "t": "Weekly service", "d": "Skim, brush, vacuum, baskets and a full chemical check." },
+      { "t": "Green to clean", "d": "We bring a green pool back to blue." },
+      { "t": "Equipment repair", "d": "Pumps, filters, heaters and timers." },
+      { "t": "Free quote", "d": "Send a photo of your pool and get a price the same day." }
+    ],
+    "cta": "Get a quote", "phone": "(305) 555-0119", "hours": ["Mon–Sat · 8 AM – 6 PM"],
+    "photos": ["../_img/home-3.jpg", "../_img/home-2.jpg", "../_img/home-1.jpg"]
+  }
+]

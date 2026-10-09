@@ -1,0 +1,11 @@
+{
+  "_doc": "Art direction for tools/ds/site.mjs, keyed by lead slug. Data, not code: the lead-prep step (or a person looking at the photos) writes one entry per lead; a lead's own `art` object wins over this file. All photo numbers are 1-based (photo 1 = photos[0]). Keys: layout cinematic|field|arch|badge|pair (hero variant); hero = the hero photo (0 = no photo in the hero); focus = {n: 'x% y%'} object-position; text = photos with baked-in text, logos or graphics (never full-bleed behind the name; fine in a frame); skip = never shown (e.g. a flyer whose wording conflicts with the promo); posts = show as framed Instagram posts (flyers); pairs = stacked before/after composites (top = before), split at build time; wide = show landscape in the gallery; field = hex for the hero colour field; display/body = font keys from site.mjs DISPLAY/BODY.",
+  "el-bori": { "layout": "field", "hero": 1, "focus": { "1": "50% 62%", "2": "50% 50%", "3": "50% 40%" }, "text": [3] },
+  "taco-lovers": { "layout": "badge", "hero": 0, "skip": [1], "posts": [2, 3], "text": [1, 2, 3] },
+  "gaby-nails": { "layout": "field", "hero": 1, "focus": { "1": "60% 42%", "2": "55% 50%", "3": "50% 55%" }, "text": [1, 2, 3] },
+  "f21-nail-lounge": { "layout": "arch", "hero": 1, "focus": { "1": "50% 45%", "2": "45% 50%", "3": "60% 45%" } },
+  "eber-martini": { "layout": "cinematic", "hero": 1, "focus": { "1": "52% 20%", "2": "50% 30%", "3": "50% 40%" }, "text": [2] },
+  "elite-barbershop-doral": { "layout": "field", "hero": 3, "focus": { "1": "45% 40%", "2": "50% 12%", "3": "55% 45%" }, "wide": [2], "display": "cinzel" },
+  "knockout-kendall": { "layout": "cinematic", "hero": 1, "focus": { "1": "50% 58%", "2": "50% 45%", "3": "50% 55%" } },
+  "miamis-finest": { "layout": "pair", "hero": 1, "pairs": [1, 2, 3], "text": [1, 2, 3] }
+}
