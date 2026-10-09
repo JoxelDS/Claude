@@ -1,0 +1,843 @@
+[
+ {
+  "name": "El Bori Food Truck",
+  "slug": "el-bori",
+  "niche": "food",
+  "lang": "es",
+  "area": "Midtown Miami",
+  "instagram": "@elborifoodtruck",
+  "heroTitle": "El sabor de la isla, en Wynwood",
+  "heroSub": "Puerto Rican street food desde 2018: mofongos, la Bori Tripleta y empanadillas en el 261 NW 36th St, de miércoles a domingo.",
+  "services": [
+   {
+    "t": "Mofongos",
+    "d": "Nuestro best seller: de carne frita con cebolla en escabeche, de pionono (carne molida, maduros, queso y huevo frito), pollo al ajillo, camarones, bistec y Mar & Tierra."
+   },
+   {
+    "t": "Bori Tripleta",
+    "d": "Triple carne: steak, pollo y jamón en pan sobao, con queso, papitas y mayo-ketchup. Tres ingredientes. Un solo resultado."
+   },
+   {
+    "t": "Empanadillas",
+    "d": "Rellenas de pizza, lasaña, pionono, carne y queso, queso o amarillos con queso. También tenemos alcapurrias y relleno de papa."
+   },
+   {
+    "t": "Pastrami Sandwich",
+    "d": "Pastrami con queso derretido y nuestra salsa de la casa en pan sobao. El sándwich que destacan Time Out y Cozymeal."
+   },
+   {
+    "t": "Carne Frita con tostones",
+    "d": "Cerdo frito con la receta de la familia de nuestro chef, cebolla en escabeche y tostones."
+   },
+   {
+    "t": "Catering",
+    "d": "Bandejas para 10 por ezCater: bolitas de mofongo, mini empanadillas, alcapurrias, sorullitos, pernil, carne frita, arroz con gandules y más. Delivery mínimo $150.",
+    "price": "Bolitas de Mofongo $65 (sirve 10)"
+   }
+  ],
+  "hours": [
+   "Miércoles y jueves · 6pm – 11pm",
+   "Viernes y sábado · 5pm – 12:30am",
+   "Domingo · 4pm – 10:30pm"
+  ],
+  "address": "261 NW 36th St, Miami, FL 33127",
+  "cta": "Pedir en Uber Eats",
+  "photos": [
+   "../_img/el-bori-1.jpg",
+   "../_img/el-bori-2.jpg",
+   "../_img/el-bori-3.jpg"
+  ],
+  "theme": "diner",
+  "logo": "../_img/el-bori-logo.jpg",
+  "ownPhotos": true,
+  "brand": {
+   "accent": "#D42789",
+   "onAccent": "#ffffff",
+   "tagBg": "#111111",
+   "tagInk": "#ffffff",
+   "mark": "#D42789",
+   "surface": "#fdeef6",
+   "surface2": "#f9dcec",
+   "line": "#f2d2e3",
+   "link": "#b01f6f"
+  },
+  "proof": [
+   "Serving Wynwood since 2018",
+   "4.6 stars on Uber Eats from 700+ ratings",
+   "“Best Mofongo in town.” — Uber Eats review",
+   "“As a puerto rican I was craving tripletas…” — Uber Eats review"
+  ],
+  "links": [
+   {
+    "label": "Pedir en Uber Eats",
+    "url": "https://www.ubereats.com/miami/food-delivery/el-bori/wqM8CxP4QDW0JqCQZYxRfw"
+   },
+   {
+    "label": "Pedir en Grubhub",
+    "url": "https://www.grubhub.com/restaurant/el-bori-3814-nw-2nd-ave-miami/1033925"
+   },
+   {
+    "label": "Catering en ezCater",
+    "url": "https://www.ezcater.com/catering/el-bori-food-truck-3"
+   }
+  ],
+  "ctaUrl": "https://www.ubereats.com/miami/food-delivery/el-bori/wqM8CxP4QDW0JqCQZYxRfw",
+  "phone": "305-778-1111",
+  "_dmHook": "Vi el reel del corporate lunch de Karol G y el de las quenepas GRATIS con el mofongo, directo desde Ponce. Eso es sabor de la isla de verdad.",
+  "_tagline": "#MadeByPuertoRicansInWynwoodMiami",
+  "_websiteStatus": "No website of their own. The IG link in bio is a Flowcode Flowpage (https://www.flowcode.com/page/elborifoodtruck, which redirects to https://www.flow.page/elborifoodtruck). It holds a contact card, a 2022 menu image on Google Drive, Instagram, Facebook, and Uber Eats / Postmates / Grubhub buttons. Uber Eats (4.6, 700+ ratings) and Grubhub are live for ordering. Catering runs through ezCater and Airbnb Services. The domain elborifoodtruck.com belongs to a different El Bori Food Truck in Hartford, CT.",
+  "_dropped": [
+   "ezCater Yuca al Mojo was listed as $50. The live ezCater page shows $35 (serves 10), so the fact is corrected. Ensalada Verde $25, Bolitas de Mofongo $65, Mini Empanadillas $50, Amarillos $35 and Arroz con Pollo $100 all match the live page, and the 'since July 11, 2024' date and Mon-Sun 11am-7pm hours are confirmed.",
+   "Removed 'a second mobile kitchen was added in August 2021' from facts and proof. The Caplin News article was published 2021-06-14, so it cannot report an August 2021 event as already done. Kept 'since July 2018'.",
+   "Removed the '$3 to $19' price range. It is from June 2021, and today's Uber Eats prices run about $4–$25.",
+   "websiteStatus was wrong to say there is no Uber Eats or Grubhub. Their Flowpage links Uber Eats, Postmates and Grubhub. Uber Eats (4.6, 700+ ratings) and Grubhub (live, preorder) are both active, so both are now in links. Postmates was not added: its link lands on an Uber challenge/404 page.",
+   "Flagged that elborifoodtruck.com is a different El Bori Food Truck in Hartford, CT (Wix site, (860) 995-3420), so the preview must not link it or copy from it. The Miami truck still has no site of its own.",
+   "Services: dropped 'Especial de domingo: 7 carnes en una olla'. It was a one-off special posted Tue June 9 for the following Sunday, not a menu item.",
+   "Services: moved 'Juguito de guanábana' to promos only. It is a one-time Sept 1 'disponible ya' post and not on the Uber Eats menu.",
+   "Services: rewrote 'Pastrami con cilantro mayo y empanadilla de lasaña' from the current Uber Eats menu. The pastrami is now 'melted cheese and house sauce on Sobao bread' (cilantro mayo was the 2022 menu, Time Out 2024 and Cozymeal), and lasagna is one empanadilla filling among several.",
+   "Services: the mofongo description now uses the current Uber Eats menu (carne frita, relleno de pionono, pollo al ajillo, camarones, bistec, Mar & Tierra) instead of the 2021 article's how-it's-made line.",
+   "Services: 'BORI-TRIPLETA' became 'Bori Tripleta', with the full build from Uber Eats (pan sobao, cheese, potato sticks, mayo-ketchup). Their IG writes 'BORI- TRIPLETA', the 2022 menu 'La Bori Tripleta' and Uber 'El Bori Tripleta'.",
+   "Added Carne Frita con tostones (2022 menu description + Uber Eats item). Catering keeps the only price in services (Bolitas de Mofongo $65 per 10, ezCater). Dish prices are left off because the 2022 menu, Uber Eats and Grubhub all show different prices.",
+   "heroSub: removed 'los especiales de domingo' (only occasional one-off posts) and 'en la noche' (Sunday opens at 4pm).",
+   "Promos dropped as older than ~45 days: 'SUNDAY 23 SPECIAL' (Aug 23, 46 days ago, no detail of what it was), the loaded potato salad (June 28) and '7 carnes' (June 9). Added the live Uber Eats deal 'Buy 5 empanadas get 1 free ($20)'. The quenepas promo is marked as a one-day promo.",
+   "Hours: dropped 'Lunes y martes · cerrado'. The bio does not mention Monday or Tuesday, so being closed is an inference.",
+   "Proof: dropped the Best Food Trucks 'top 8 (Nov 2025)' item. The page is behind a Vercel security checkpoint, so neither the rank nor the date could be verified.",
+   "Proof: corrected Cozymeal. El Bori is #1 on 'The 17 Most Popular Food Trucks in Miami', and the page is now titled 'Top 17 in 2026' (updated May 5, 2026), not '2025'.",
+   "Proof: added the Uber Eats 4.6 (700+) rating, two real dated Uber Eats reviews, the New Times mofongo quote and Chowhound #4. Did not use the Grubhub 3.8 (56 ratings) as proof; it is in facts only.",
+   "Chowhound was flagged as 'may be outdated'. It is dated Aug 20, 2026 and confirmed. Its 'Pork in My Belly … topped with bacon' contradicts their own menu (carne frita + escabeche onions), so it is not used, and 'cash only' stays a caveat in facts, not in copy.",
+   "Humans of the Kitchen claims are confirmed, but the interview is from Oct 2019 (Liliana Boneta). The date is noted.",
+   "Voice: 'always tag … and sign off with 📍 📞 📲' was overstated. #streetfood is missing on several posts, and the address/phone/handle sign-off appears mainly on the June posts. Reworded to 'most' / 'many'.",
+   "brandLook was 'UNKNOWN'. Their own menu art shows the brand: magenta #FF00FE with white type and a bearded-mascot logo. Recommend replacing our red #E4312B accent.",
+   "bestPhotoPosts: swapped DZXii_5AyeY (the one-off 7-carnes special) for DdRwP6PTDdn (mofongo reel), so the hero shows a regular menu item. All four are video reels with a media_url.",
+   "Unchanged and confirmed: phone 305-778-1111, address 261 NW 36th St Miami FL 33127, bio hours, 20,653 followers / 224 posts, the Karol G / Ñengo Flow / Brray reels, the quenepas promo, Nicky Jam, Time Out text, Airbnb prices ($35 / $50 per group, up to 10 guests), heroTitle, tagline and dmHook (only 'lo de las' → 'el de las' for smoother Spanish)."
+  ]
+ },
+ {
+  "name": "Taco Lovers",
+  "slug": "taco-lovers",
+  "niche": "food",
+  "lang": "en",
+  "area": "Miami · Kendall",
+  "instagram": "@tacoloversmiami",
+  "heroTitle": "Best Birria in town! 🌮",
+  "heroSub": "Birria Tacos, Birria Quesadillas and Pizza Birria at 3 Miami spots: 5891 NW 36 St, 14700 SW 88 St and 12750 SW 128 St. Open every day, with Hialeah coming soon.",
+  "services": [
+   {
+    "t": "Steak Birria Tacos",
+    "d": "3 steak Birria tacos with cheese, onions and cilantro."
+   },
+   {
+    "t": "Birria Quesadilla BOGO",
+    "d": "Our BOGO Birria Quesadilla, chicken or steak. The #1 most liked item on our SW 88th St online menu.",
+    "price": "$25.00 (online order, SW 88th St and SW 128th St)"
+   },
+   {
+    "t": "Pizza Birria",
+    "d": "Pizza Birria in 8 pieces. Our online menu also has a chicken-or-steak Pizza Birria BOGO."
+   },
+   {
+    "t": "Birria Ramen Soup",
+    "d": "Birria ramen with chicken, steak or half and half.",
+    "price": "$16.00 (online menus)"
+   },
+   {
+    "t": "Birria Taco Box Party",
+    "d": "Birria taco party boxes: 10, 15 or 20 tacos, or our 50-taco Ultra Box.",
+    "price": "10 for $40 · 15 for $50 · 20 for $60 · Ultra Box 50 for $120 (online order, 12750 SW 128th St)"
+   },
+   {
+    "t": "We Cater + 🚚 Events",
+    "d": "We cater, and our food truck is available for events."
+   }
+  ],
+  "hoursTitle": "Locations",
+  "hours": [
+   "Open every day",
+   "14700 SW 88 St · 1 PM – 12:30 AM"
+  ],
+  "phone": "305-890-0723",
+  "address": "5891 NW 36 St, Virginia Gardens · 14700 SW 88 St, Miami · 12750 SW 128 St, Miami",
+  "cta": "Order on Uber Eats",
+  "photos": [
+   "../_img/taco-lovers-1.jpg",
+   "../_img/taco-lovers-2.jpg",
+   "../_img/taco-lovers-3.jpg"
+  ],
+  "theme": "lookbook",
+  "logo": "../_img/taco-lovers-logo.jpg",
+  "ownPhotos": true,
+  "brand": {
+   "accent": "#111111",
+   "onAccent": "#ffffff",
+   "tagBg": "#0f7c80",
+   "tagInk": "#ffffff",
+   "link": "#c2410c",
+   "surface": "#f4f1ea",
+   "surface2": "#f4f1ea"
+  },
+  "promo": "Taco Tuesday · $2 birria tacos all day",
+  "proof": [
+   "Food truck since 2022, now 3 locations",
+   "25.6K followers on Instagram",
+   "Birria Quesadilla: the most liked item on their online menu"
+  ],
+  "links": [
+   {
+    "label": "Order on Uber Eats",
+    "url": "https://www.ubereats.com/store/taco-lovers-miami/psW7hb77VuKvwYJ3fXlD3g"
+   },
+   {
+    "label": "Order online · SW 88th St",
+    "url": "https://order.online/store/taco-lovers-miami-30894511"
+   },
+   {
+    "label": "Order online · SW 128th St",
+    "url": "https://order.online/store/TacoLovers-30933438"
+   }
+  ],
+  "ctaUrl": "https://www.ubereats.com/store/taco-lovers-miami/psW7hb77VuKvwYJ3fXlD3g",
+  "_dmHook": "Saw your National Taco Day post 🌮🔥 You've got 3 spots and Hialeah on the way, but your bio link only goes to Uber Eats. So I built Taco Lovers a free page with all 3 addresses and phones, Taco Tuesday and the Birria Taco Box Party right up top.",
+  "_tagline": "Because life is better with Tacos 🌮",
+  "_websiteStatus": "none. The IG bio link goes to their Uber Eats store (https://www.ubereats.com/store/taco-lovers-miami/psW7hb77VuKvwYJ3fXlD3g). They do have DoorDash Storefront ordering pages on order.online for SW 88th St and SW 128th St (search also shows one for 5891 NW 36th St), plus a Facebook page. These are ordering and social pages, not a site of their own, so the pitch should not say they have nothing online. No own domain turned up in search (2026-10-08). tacoloversmiami.com could not be re-checked from here because egress is blocked; the earlier sandbox check said it does not resolve.",
+  "_dropped": [
+   "ACCESS LIMIT: order.online, DoorDash, Uber Eats, Postmates, Yelp, Instagram and every DNS lookup are blocked by this session's egress policy (proxy 403), and WebFetch could not resolve any of them. I did not try to get around the block. The menu checks below rest on search-engine listing text (2026-10-08) compared with the earlier brief. A price stays only where both agree.",
+   "Steak Birria Tacos: dropped the $16.00 price (listings show $14.00 and $16.00) and the '#2 most liked' rank (another snapshot has it at #3). The description '3 steak Birria tacos with cheese, onions and cilantro' is confirmed.",
+   "Pizza Birria: dropped the $28.00 price. Uber Eats and Postmates listings show $25.00 for 8 pieces. Kept the item: their own Oct 1 caption says 'Try our … Pizza Birria'.",
+   "Birria Taco Box Party: removed 'Chicken or steak' because no source says the boxes come with that choice. All four tier prices (10 $40, 15 $50, 20 $60, Ultra 50 $120) are confirmed.",
+   "Birria Quesadilla BOGO: kept $25.00 and #1 most liked. Dropped the '83%, 12 votes' style numbers from facts and proof because they change and could not be re-checked.",
+   "Facts, menu prices dropped as unconfirmed or conflicting: Pizza Birria BOGO $49 (order.online listing shows $39), Lover's Papas $19 (listing shows $17), Chicken Birria Taco Bogo $22, Steak Birria Taco Bogo $26 (Postmates shows $22), Burrito $15, Burrito BOGO $24, Tacos Al Pastor X3 $16, Homemade Lemonade 32 Oz $12, Chicken Burrito Special $12, Jarritos $4, Nacho Lovers $16, Birria Steak Empanada X3 $12. Kept the ones a second listing confirms: Crunchy Wrap $14, Quesadilla De Birria $14, Birria Toston X2 $12.50, Nutellada $12, Deep Fried Oreos BOGO $20.",
+   "Facts: dropped the menu sections '$12 Meal Box' and 'Birria Tacos All Day Long in Store'. A search found no Meal Box.",
+   "Promos: dropped National Taco Day ($2 tacos, 5 minimum, 'TODAY ONLY — OCTOBER 6'). It is over.",
+   "Promos: dropped '10 Birria Tacos for $29.99 … ALL SEPTEMBER'. It is over. I also replaced that reel (DdMjcmaRx5j) in bestPhotoPosts with the Oct 1 'Try our Birria Quesadilla or our Pizza Birria' reel (Dd-PSgIRxoZ), because the old one advertises the expired deal.",
+   "Promos: moved the Hialeah 'WE'RE COMING' post (58 days old, and an announcement rather than a deal) out of promos. It stays in facts because the bio and the Oct 1 caption still say Hialeah is coming soon. Corrected its date to 2026-08-10, Miami time (it was the UTC date, 08-11).",
+   "Taco Tuesday promo: added that the Oct 6 Taco Tuesday post set a 5-taco minimum (the Sept posts mention none). Changed 'at all 3 locations' to 'the captions list all 3 locations'.",
+   "dmHook: rewritten. It opened on the 2-month-old Hialeah post (now the National Taco Day post from 2 days ago). It promised '$2 Birria Taco Tuesday', but the minimum is unclear, so it now just says Taco Tuesday. It said 'the Taco Box', which reads like the expired $29.99 box, so it now names the Birria Taco Box Party from their menu.",
+   "heroSub: made the run-on sentence two sentences. Same confirmed facts: the 3 addresses, OPEN EVERYDAY, Hialeah coming soon, and Pizza Birria / Birria Quesadilla from their own caption.",
+   "Voice: 'Almost every post ends with Because life is better with Tacos + #TacoLovers #BirriaTacos #MiamiFood' was overstated. The sign-off is on 6 of the last 12 posts, and those three tags appear together only twice. Also completed the quotes from the captions.",
+   "Address: removed the ZIP from 14700 SW 88 St. They post 33186, but the DoorDash / order.online listing says 14700 N Kendall Dr, Miami FL 33196-1481. Stopped calling 12750 SW 128 St 'Kendall', because they never do (now 'both SW addresses').",
+   "Hours: the SW 128th St online ordering hours are now the full 5:00 PM - 11:40 PM (was 'opens 5:00 PM').",
+   "Proof: 'Taco Lovers family is growing' is from the Hialeah graphic's footer ('TACO LOVERS FAMILY IS GROWING'), not the caption (the caption says 'Taco Lovers sigue creciendo'). Fixed the source.",
+   "Facts: corrected 'no Yelp page was found'. Search shows yelp.com/biz/taco-lovers-miami-3 (23 reviews, 12750 SW 128th St), but I could not open it, so no rating is used. Still left out: Caviar 4.6 (50+), seen only in a search summary with mixed reviews; a TikTok creator review (@mayitakeabite, 'Biggest Birria Menu in Miami'), unopened, and one summary tied it to a different restaurant; a Gmail address from a Facebook snippet.",
+   "Website check: I could not re-run the tacoloversmiami.com DNS check because all DNS and HTTPS to it is blocked here. Three web searches found no site of their own. websiteStatus now notes their order.online storefronts and their Facebook page, so the pitch does not claim they have nothing online."
+  ]
+ },
+ {
+  "name": "Gaby Nails & Beauty Salon",
+  "slug": "gaby-nails",
+  "niche": "beauty",
+  "lang": "en",
+  "area": "Hialeah Gardens",
+  "instagram": "@gabynails_beautysalon",
+  "heroTitle": "We make your dream nails real 💅",
+  "heroSub": "Owner Monika Morales and her team do builder gel, Après Gel-X and French at 9160 NW 122nd St in Hialeah Gardens, and walk-ins are welcome Tuesday to Saturday.",
+  "services": [
+   {
+    "t": "Builder gel",
+    "d": "Our go-to technique, including our fall set 🍂."
+   },
+   {
+    "t": "Après Gel-X",
+    "d": "A cheerful design full of personality."
+   },
+   {
+    "t": "French",
+    "d": "French nails, and we also do them over builder gel."
+   },
+   {
+    "t": "Glitter nails",
+    "d": "Glitter is our passion ✨"
+   },
+   {
+    "t": "Manicure & pedicure",
+    "d": "Manicure and pedicure for your hands and feet."
+   },
+   {
+    "t": "Hair & brows",
+    "d": "We're a full beauty salon: nails, hair, brows, and more!"
+   }
+  ],
+  "hours": [
+   "Tuesday – Saturday",
+   "Walk-ins welcome",
+   "Closed Sunday & Monday"
+  ],
+  "phone": "786-354-3555",
+  "address": "9160 NW 122nd St, Suite 6, Hialeah Gardens, FL 33018",
+  "cta": "Call or text to book",
+  "photos": [
+   "../_img/gaby-nails-1.jpg",
+   "../_img/gaby-nails-2.jpg",
+   "../_img/gaby-nails-3.jpg"
+  ],
+  "short": "Gaby Nails",
+  "theme": "pinkdawn",
+  "logo": "../_img/gaby-nails-logo.jpg",
+  "ownPhotos": true,
+  "brand": {
+   "accent": "#111111",
+   "onAccent": "#ffffff",
+   "tagBg": "#111111",
+   "tagInk": "#ffffff",
+   "surface2": "#f4ecef",
+   "link": "#111111"
+  },
+  "proof": [
+   "Mayor's Award for Distinguished Public Service, City of Hialeah",
+   "Featured in Diario Las Américas",
+   "4.9 stars from 206 reviews on Birdeye"
+  ],
+  "links": [],
+  "_dmHook": "¡Felicidades, Monika! Congratulations on the Mayor's Award from Hialeah Gardens and on your story in Diario Las Américas 🏆. A salon with a story like that (and that fall builder gel set 🍂) deserves its own website, not just a TikTok link.",
+  "_tagline": "Nails, hair, brows, and more!",
+  "_websiteStatus": "No website of their own. The IG website field points to TikTok (https://www.tiktok.com/@gabynails_beautysalon). Searches for a gabynails / Mia Spa domain found nothing. Online there are only directory pages (Birdeye, Atly, BestProsInTown, Fresha), a Square booking page and a Booksy listing that both show another address, and a Facebook page still titled \"Mia Spa and Beauty Salon\". That mix of names and addresses is a good pitch angle.",
+  "_dropped": [
+   "Square Appointments booking link removed from links: its listing shows 10550 NW 77th Ct, Suite 203 and (866) 818-9914, not the IG bio address or phone. Sending visitors there could send them to the wrong place. It is now a do-not-use fact.",
+   "\"7 years in operation\" dropped: no snippet of the Diario article confirms it. Proof now says \"A Florida corporation since January 2019\" (a filing date, not an opening date) instead of \"In business since 2019\".",
+   "Registered agent \"Monika Gallardo Morales\" dropped: no search result confirms it. Kept only the doc number, filing date, active status and principal address, which the Sunbiz snippet does show.",
+   "\"Reported during Hispanic Heritage Month\" dropped: the award reel was posted Sep 9, 2026, before the month starts on Sep 15, and no source pins the date. Proof now says \"September 2026\".",
+   "BestProsInTown as a source for the hours dropped: its URL is the old Mia Spa listing and I could not re-check its hours.",
+   "Display hours trimmed to what the IG bio says (Tuesday–Saturday, walk-ins welcome) plus Sunday & Monday closed. The Birdeye times (Tue–Fri 9–6, Sat 9–5) moved to facts only, because the page could not be opened and the owner does not post times. Corrected the fact itself: Birdeye shows 9–6 on Wed–Fri too, not only Tuesday.",
+   "Manicure & pedicure: removed the direct quote \"I usually get my hands and feet done by Monika, the owner\" (only a paraphrase is visible) and removed \"Reviewers say walk-ins still get served\" (not confirmed by a review; walk-ins come from the bio instead). Now a paraphrase of the review.",
+   "French: \"Classic French\" changed to \"French nails, also done over builder gel\". \"Classic\" was not in the source.",
+   "Glitter: \"The owner's passion\" changed to \"their passion\". The caption is not signed, so it is not clear the owner wrote it.",
+   "Après: renamed \"Après Gel-X\". \"Extensions\" and \"Fun designs\" were reworded to their own caption line, which describes one design.",
+   "Voice: \"The captions are written by owner Monika Morales\" softened. Only the long captions are signed by her.",
+   "heroTitle \"We make your nails a reality\" (a word-for-word translation that sounds stiff) changed to \"We make your dream nails real 💅\". It keeps their caption \"hacemos tus uñas realidad\" and reads naturally in English.",
+   "heroSub \"builder gel, Après and French\" changed to \"builder gel, Après Gel-X and French\" so it reads in English. All the facts stayed the same.",
+   "dmHook kept the Spanish greeting and dropped the long award title from the English, so it reads naturally. All facts in it are confirmed (award caption Sep 9, Diario caption Sep 16, TikTok in the IG website field, fall builder gel post Sep 17).",
+   "TikTok link changed from http to https.",
+   "Added to facts: the Birdeye website link points to a \"miaspaandbeautysalon\" address, and Fresha phones conflict between snippets. Both are signs of the mixed-up online presence and must not appear on the preview."
+  ]
+ },
+ {
+  "name": "F21 Nail Lounge",
+  "slug": "f21-nail-lounge",
+  "niche": "beauty",
+  "lang": "en",
+  "area": "Miami · 7 locations",
+  "instagram": "@f21nails",
+  "heroTitle": "Your next set is waiting.",
+  "heroSub": "Soft ombré, classic French and structured gel at seven F21 lounges across Miami, Doral, Kendall, Hialeah and Sweetwater, since 2020.",
+  "services": [
+   {
+    "t": "Structured Gel Mani",
+    "d": "Adds strength and shape to your natural nails, with a smooth, glossy finish.",
+    "price": "$35"
+   },
+   {
+    "t": "Aprés Gel Mani",
+    "d": "An Aprés gel manicure with a smooth, glossy, polished finish.",
+    "price": "$60"
+   },
+   {
+    "t": "Gel Mani + Gel Pedi",
+    "d": "Glossy, long-lasting gel on both hands and toes.",
+    "price": "$45"
+   },
+   {
+    "t": "Gel Pedi",
+    "d": "A pedicure finished in gel polish for a smooth, glossy, long-lasting look.",
+    "price": "$30"
+   },
+   {
+    "t": "French, Ombré & Seasonal Sets",
+    "d": "Classic French, soft ombré, burgundy French with a touch of gold, and darker shades for fall."
+   },
+   {
+    "t": "Men's Mani",
+    "d": "Clean, well-groomed hands with a clear, natural shine. Men's Mani + Regular Pedi: $40.",
+    "price": "$25"
+   }
+  ],
+  "phone": "305-967-2511",
+  "cta": "Book online",
+  "ctaUrl": "https://f21nails.as.me/",
+  "photos": [
+   "../_img/f21-nail-lounge-1.jpg",
+   "../_img/f21-nail-lounge-2.jpg",
+   "../_img/f21-nail-lounge-3.jpg"
+  ],
+  "theme": "atelier",
+  "logo": "../_img/f21-nail-lounge-logo.jpg",
+  "ownPhotos": true,
+  "brand": {
+   "accent": "#6f5a4c",
+   "onAccent": "#ffffff",
+   "bg": "#fbf6f2",
+   "surface2": "#E8D6CA",
+   "tagBg": "#E8D6CA",
+   "tagInk": "#3d2f26",
+   "ink": "#2a211b",
+   "sub": "#5b4c42",
+   "line": "#3d2f26",
+   "link": "#6f5a4c"
+  },
+  "promo": "Current special offer: Gel Mani + Regular Pedi, $30",
+  "proof": [
+   "Open since 2020",
+   "7 lounges across Miami-Dade",
+   "18.8K followers on Instagram"
+  ],
+  "links": [
+   {
+    "label": "Book online (all lounges)",
+    "url": "https://f21nails.as.me/"
+   },
+   {
+    "label": "Book East Doral",
+    "url": "https://f21nails.as.me/Doral25Calle"
+   },
+   {
+    "label": "Book Sweetwater",
+    "url": "https://F21nails.as.me/SweetWater"
+   }
+  ],
+  "address": "7 lounges: East Doral · West Doral · Central Doral · Sweetwater · Miami (NW 36th St) · West Hialeah · West Kendall",
+  "hours": [
+   "Mon–Fri 9 AM – 9 PM",
+   "Sat 9 AM – 6 PM",
+   "Sun 10 AM – 6 PM"
+  ],
+  "_dmHook": "Thalía's burgundy French with a touch of gold at East Doral is gorgeous 🤎 and the cafecito POV reel is way too real 😂",
+  "_tagline": "\"The kind of nails that go with everything.\"",
+  "_websiteStatus": "None of their own. The IG bio links to Linktree (linktr.ee/f21nails), which lists the 7 lounges. Booking runs on Acuity Scheduling (f21nails.as.me, titled 'Forever 21 Nail Salon'). The Google listings for West Doral, Central Doral and Sweetwater also give the Linktree as their website, and the Fresha listing for East Doral only says 'Call to book'. Checked on 2026-10-08: f21nails.com, f21naillounge.com, f21nailsalon.com, forever21nailsalon.com, forever21naillounge.com, f21nails.net and f21nailsmiami.com do not resolve, and the matching Squarespace subdomains return 404.",
+  "_dropped": [
+   "Removed the Volcano Spa Pedicure ($45, 'most popular') from services. It is not on the live booking menu (fetched 2026-10-08); the only pedicures now are Regular Pedi $25 and Gel Pedi $30. Replaced it with Gel Pedi $30.",
+   "Corrected Gel Mani + Gel Pedi from $50 to $45 (live menu, in both the Current Special Offers and the Mani & Pedi Combos).",
+   "Dropped the promo 'Gel mani + gel pedi $40 (regular price $50)'. The live page shows $45 and no crossed-out price.",
+   "Dropped the promo 'Volcano SPA Pedicure with gel mani & gel pedi, $55'. It is not on the live menu.",
+   "Promos were rebuilt from the live 'Current Special Offers' category (Gel+Regular $30, Gel+Gel $45, Structured+Regular $55, Structured+Gel $65, Men's Mani+Regular Pedi $40), dated as live on 2026-10-08. These are the same prices as the regular combo menu, so they are not presented as discounts.",
+   "Corrected the old price-menu fact: Structured Gel + Regular Pedi $50 is now $55, Structured Gel + Gel Pedi $60 is now $65, Aprés + Regular Pedi $80 is now $85, Aprés + Gel Pedi $85 is now $90. Added the full live menu and the polish / removal footnote.",
+   "Removed every duration ('About 1 hour', '2 hours'). The booking page hides durations from customers (hideDuration: true), so the salon does not publish them.",
+   "Removed the Après description 'Gel-X style Après extensions'. The page only says 'An Aprés gel manicure for a smooth, glossy, polished finish'. Also used their spelling, 'Aprés'.",
+   "Corrected the claim that the booking page uses the name 'Forever 21 Nail Lounge'. The booking page is titled 'Forever 21 Nail Salon'; 'Forever 21 Nail Lounge' appears only on the IG avatar badge.",
+   "Dropped the Yelp ratings (West Kendall 4.0 from 4, Miami 2.7 from 26) and the Yelp quote 'Our special is $30…'. Yelp returns 403 / CAPTCHA from every route I tried, and search found no matching page, so they cannot be confirmed. Keep showing no ratings on the preview.",
+   "Dropped '(Kendall Shops West)' from the West Kendall address. No source confirms it.",
+   "Removed '(directories list it as Miami FL 33126)' from the East Doral address line, to keep the line clean. Fresha does use that form, and it is noted in facts.",
+   "Miami lounge: removed the city 'Miami FL'. The booking page says Doral, 33166, and Linktree gives only '33166'. The address now uses the street and ZIP only. Sweetwater: the city is also left out (IG says Doral, the booking page says Sweetwater), with the booking page's 'Sweetwater / Dolphin Mall' label.",
+   "The Linktree, Fresha and booking-page facts were upgraded from search-engine snippets to direct reads (2026-10-08). The 'blocked from this sandbox' caveat was removed.",
+   "The booking-category fact was corrected from 5 categories to the actual 7 (adds Spa & Beauty Treatments and Hair Services).",
+   "Booking links: replaced the long East Doral query URL and the separate owner URL with f21nails.as.me (all lounges) plus the per-lounge links Linktree uses for East Doral and Sweetwater. Did not add the Linktree WhatsApp link: it lacks the +1 country code.",
+   "Directory 'dip powder' is kept only as a Fresha tag, with a note that it is not on the booking menu.",
+   "The brand look was rewritten from the actual logos, now viewed: the blush/taupe 'FOREVER 21 NAIL LOUNGE' badge and the white 'F21 Nails' script on black. It replaces the 'Logo: UNKNOWN' guess.",
+   "Copy: heroSub now says 'structured gel' (the menu term) and 'seven F21 lounges … since 2020'. The voice quote 'Nails by Glenda · 📍 Sweetwater' was split into the two real caption lines. heroTitle, tagline and dmHook are unchanged and confirmed word for word against the captions (Sep 12 – Sep 26 posts, all within 45 days)."
+  ]
+ },
+ {
+  "name": "EBER MARTINI SALÓN",
+  "slug": "eber-martini",
+  "niche": "beauty",
+  "lang": "es",
+  "area": "Miami",
+  "instagram": "@eber_hairstylistsalon",
+  "heroTitle": "Los expertos en Miami",
+  "heroSub": "Color, balayage, cortes, extensiones y alisados en Coral Way, Miami. 5.0 en Fresha con más de 780 reseñas.",
+  "services": [
+   {
+    "t": "Balayage",
+    "d": "Luz y movimiento a tu medida.",
+    "price": "desde $200 · 1–2 h"
+   },
+   {
+    "t": "Color y mechas",
+    "d": "Color desde $65 (35 min). Mechas completas con foils desde $180 o con gorra desde $170; mechas parciales desde $150 (foils) o $140 (gorra). Gloss desde $65.",
+    "price": "desde $65"
+   },
+   {
+    "t": "Cortes de dama y caballero",
+    "d": "Corte de dama o de caballero en 20–30 min. Blower desde $40.",
+    "price": "desde $45"
+   },
+   {
+    "t": "Extensiones",
+    "d": "Más largo y con más volumen.",
+    "price": "desde $200 · 1–2 h"
+   },
+   {
+    "t": "Alisados y tratamientos",
+    "d": "Keratina desde $130 (1 h 30 min), vegana desde $160, hair botox desde $100, Magic Arganoil (reconstrucción o hidratación profunda + blower) $75, Blonde Reconstructor $60.",
+    "price": "keratina desde $130 · tratamientos desde $60"
+   },
+   {
+    "t": "Uñas",
+    "d": "Manicure $25, pedicure $35, gel manicure $40 y gel pedicure $50. Diseños desde $15.",
+    "price": "desde $25"
+   }
+  ],
+  "address": "2885 SW 3rd Ave, Coral Way, Miami, FL 33129",
+  "cta": "Reservar cita (Fresha)",
+  "ctaUrl": "https://www.fresha.com/a/eber-martini-stylist-miami-ee-uu-2885-southwest-3rd-avenue-z98pftc6/booking",
+  "photos": [
+   "../_img/eber-martini-1.jpg",
+   "../_img/eber-martini-2.jpg",
+   "../_img/eber-martini-3.jpg"
+  ],
+  "theme": "darkroom",
+  "logo": "../_img/eber-martini-logo.jpg",
+  "ownPhotos": true,
+  "brand": {
+   "bg": "#00163d",
+   "surface": "#01214f",
+   "surface2": "#0a2c5e",
+   "ink": "#f5ecd7",
+   "sub": "#c2bcab",
+   "line": "#1e3a66",
+   "accent": "#d4af5a",
+   "onAccent": "#001B4A",
+   "tagInk": "#d4af5a",
+   "link": "#d4af5a"
+  },
+  "promo": "Promo para niños (uñas) desde $30",
+  "proof": [
+   "5.0 en Fresha con 787 reseñas",
+   "5,978 citas completadas en Fresha",
+   "“Amazing hair stylist” — reseña en Fresha",
+   "Dos años abiertos (agosto 2026)"
+  ],
+  "links": [
+   {
+    "label": "Reservar cita (Fresha)",
+    "url": "https://www.fresha.com/a/eber-martini-stylist-miami-ee-uu-2885-southwest-3rd-avenue-z98pftc6/booking"
+   },
+   {
+    "label": "Servicios y precios (Fresha)",
+    "url": "https://www.fresha.com/a/eber-martini-stylist-miami-ee-uu-2885-southwest-3rd-avenue-z98pftc6"
+   },
+   {
+    "label": "Reservar con Eber (perfil Fresha)",
+    "url": "https://www.fresha.com/p/eber-martini-4252824"
+   }
+  ],
+  "phone": "+1 305-699-1417",
+  "hours": [
+   "Lunes a viernes: 8:00 AM – 6:00 PM",
+   "Sábado: cerrado",
+   "Domingo: cerrado"
+  ],
+  "_dmHook": "¡Hola, equipo de Eber Martini! Nos encantó el reel de Laila 😂💅 Vimos que ebermartini.com ahora solo muestra una página de \"dominio estacionado\" de Hostinger, así que les preparamos una web de muestra con sus servicios y precios, sus más de 780 reseñas 5.0 en Fresha y el botón para reservar.",
+  "_tagline": "\"Los expertos en Miami 📌\" (IG bio: \"Color/ Balayage/ Cortes 💇‍♂️ extensiones y alisados Los expertos en Miami 📌\")",
+  "_websiteStatus": "They had a real site, but it is down. Bing's index (site:ebermartini.com, checked 2026-10-08) still lists three pages: \"Makeup | Eber Martini Stylist\", \"Servicios de Color | Eber Martini Stylist\" and \"Tratamientos Capilares | Eber Martini Stylist\". Checked 2026-10-08: http://ebermartini.com, www.ebermartini.com and /color.html all show \"Parked Domain name on Hostinger DNS system\". https fails with a TLS error. The Wayback Machine has no snapshots. Their IG link goes to the Fresha booking page: https://www.fresha.com/a/eber-martini-stylist-miami-ee-uu-2885-southwest-3rd-avenue-z98pftc6 . No other site of their own turned up in searches. A strong pitch: their own domain shows a parked page right now.",
+  "_dropped": [
+   "PROOF: removed the Aleska Génesis visit (IG post DeCScRAx-7p), and her post from bestPhotoPosts. Putting a public figure's name or photo on our preview suggests she endorses it. The 'arrest' note cited a 2021 Telemundo article that never mentions an arrest; other outlets report a 2025 detention tied to a Mexican case that she says was closed. Do not feature her.",
+   "PROMO: dropped the 2026-05-21 IG line 'Te esperamos en @eber_hairstylistsalon … consiéntete un poquito'. It is more than 45 days old, and it was only a DuckDuckGo snippet, not one of the pulled posts.",
+   "PROMO: dropped Fresha's 'Buy a package — Buy multiple items together to save'. It is a generic Fresha widget that names no package and no saving, so there is nothing concrete to put on the site.",
+   "FACT: dropped 'Unit 400'. The findglocal page is behind a Cloudflare 403, so the unit number cannot be confirmed. Use 2885 SW 3rd Ave with no unit.",
+   "FACT: dropped Eber's personal IG @ebermartini (~1.4K followers). Instagram returned 429 and the only source was a search snippet.",
+   "FACT: dropped the 'EBER MARTINI' trademark application (serial 99649414). Justia returned 403 and web search found no record for that mark or serial.",
+   "FACT: dropped 'BY EBER, LLC, registered agent Eber Martini'. Bizapedia showed a human-verification wall and Sunbiz returned 403, so it is unconfirmed.",
+   "COUNTS: the review count is now 787, not 786. heroSub and dmHook now say 'más de 780 reseñas' so the copy does not go out of date.",
+   "SERVICES: Balayage and Extensions said '(1 h)'. The Fresha menu shows '1 hr - 2 hr' (JSON-LD has PT1H only as the minimum), so both now read 1–2 h.",
+   "SERVICES: removed 'de nuestros favoritos' from the Balayage copy. The salon never said that.",
+   "SERVICES: the 'Tratamientos Nook y uñas' card is gone. Fresha never says the Magic Arganoil or Blonde Reconstructor treatments are Nook. It is split into 'Alisados y tratamientos' and 'Uñas', and Nook appears only as a brand they use (from the IG captions).",
+   "SERVICES: the old 'Alisados' card said 'desde $130' but listed Hair Botox at $100. The card is rebuilt and its price label now matches what it lists.",
+   "DM HOOK: the two-year anniversary post was 2026-08-17, more than 7 weeks ago, so the hook now uses the 2026-09-30 Laila reel. Fixed the awkward 'hoy abre una página de dominio estacionado' to 'ahora solo muestra una página de \"dominio estacionado\"' and replaced '786' with 'más de 780'.",
+   "BRAND LOOK: removed 'Our current preview uses accent #9B4A86 (plum)'. leads2.json already uses the navy/gold palette. Added the measured average gold, ≈ #8D743C.",
+   "WEBSITE STATUS: the old ebermartini.com page titles are confirmed through Bing's index; DuckDuckGo showed a captcha from here. Parked page, https TLS failure and empty Wayback were re-checked 2026-10-08.",
+   "PROOF (kept, now verified): Atly 8.9. The page was fetched directly this time, and it adds '#3 in Hair salons in Coral Way'.",
+   "REVIEWS (kept): Beatriz R is quoted exactly as written on Fresha ('Excelente atención , muchachas muy profesionales.', 2026-08-14). Review dates were added."
+  ]
+ },
+ {
+  "name": "Elite Barbershop Doral",
+  "slug": "elite-barbershop-doral",
+  "niche": "beauty",
+  "lang": "en",
+  "area": "Doral",
+  "instagram": "@elite_barbershop_doral",
+  "heroTitle": "Sharp fades. Classic style. Doral.",
+  "heroSub": "Haircuts, beard trims and hot towel shaves at 7902 NW 36th St #6 in Doral, rated 5.0 from 771 reviews on Booksy. Pick your barber and book online.",
+  "services": [
+   {
+    "t": "Haircut",
+    "d": "A haircut with the barber you pick, about 30 minutes. $30 with any of our barbers.",
+    "price": "$30"
+   },
+   {
+    "t": "Haircut & beard",
+    "d": "Cut plus beard, 35 to 45 minutes. $40 with Angel, Charles, Alberto or G.Marlon, $50 with Juan Carlos.",
+    "price": "from $40"
+   },
+   {
+    "t": "Beard trim",
+    "d": "Beard only, about 15 minutes. $20 with Charles, $25 with Angel.",
+    "price": "from $20"
+   },
+   {
+    "t": "Hot towel shave",
+    "d": "Hot towel shave, about 30 minutes: $25 with Charles, $30 with Angel. A haircut plus hot towel shave is $50.",
+    "price": "from $25 · $50 with a haircut"
+   },
+   {
+    "t": "Kid's haircut",
+    "d": "Cuts for kids, about 30 minutes. We cut kids and adults.",
+    "price": "from $30"
+   },
+   {
+    "t": "Servicio Élite (VIP)",
+    "d": "Haircut, beard, hot towel and a mask, plus extras like eyebrows or a massage depending on your barber. $100 with Juan Carlos, $110 with Angel or Alberto.",
+    "price": "from $100"
+   }
+  ],
+  "address": "7902 NW 36th St #6, Doral, FL 33166",
+  "cta": "Book on Booksy",
+  "ctaUrl": "https://booksy.com/en-us/1134712_elite-barbershop-doral_barber-shop_15889_miami",
+  "photos": [
+   "../_img/elite-barbershop-doral-1.jpg",
+   "../_img/elite-barbershop-doral-2.jpg",
+   "../_img/elite-barbershop-doral-3.jpg"
+  ],
+  "short": "Elite Barbershop",
+  "theme": "noir",
+  "logo": "../_img/elite-barbershop-doral-logo.jpg",
+  "ownPhotos": true,
+  "brand": {
+   "accent": "#c9a35b",
+   "onAccent": "#0e0e00",
+   "tagInk": "#c9a35b",
+   "link": "#c9a35b"
+  },
+  "proof": [
+   "5.0 on Booksy from 771 reviews",
+   "Alberto: 5.0 from 363 reviews on Booksy",
+   "4.9 on magicpin (51 ratings)"
+  ],
+  "links": [
+   {
+    "label": "Book on Booksy (shop)",
+    "url": "https://booksy.com/en-us/1134712_elite-barbershop-doral_barber-shop_15889_miami"
+   },
+   {
+    "label": "Book Juan Carlos",
+    "url": "https://booksy.com/en-us/1049295_juan-carlos-barber-elite-barbershop_barber-shop_15889_miami"
+   },
+   {
+    "label": "Book Angel",
+    "url": "https://booksy.com/en-us/503420_angel-barber_barber-shop_15889_miami"
+   }
+  ],
+  "phone": "(305) 639-8260",
+  "hours": [
+   "Mon–Sat 8 AM – 8 PM",
+   "Sun 9 AM – 3 PM",
+   "Each barber sets their own hours on Booksy"
+  ],
+  "_dmHook": "Quick heads-up: the link in your bio opens an empty Flowpage (\"Nobody's reserved this Flowpage yet\"), so people on Instagram can't reach Juan Carlos, Angel, Charles, Alberto or Mabel to book. With a 5.0 from 771 reviews on Booksy, Elite deserves better, so I built you a free preview site that sends people straight to each barber's booking page.",
+  "_tagline": "\"Tecnología + estilo clásico = el look perfecto 💈\" (IG caption https://www.instagram.com/p/DT08ACmiRx1/). Other lines they use: \"Exclusivos como tu imagen\" (text on their pinned graphic https://www.instagram.com/p/C0u7MPuNg4x/), \"Scan in for a Cut Above the Rest\" (pinned caption, same post), and \"El equipo elite\" (https://www.instagram.com/reel/DUBu44IicCb/)",
+  "_websiteStatus": "No website of their own. Booksy's website field is empty, and Apple Maps' website field points to their Instagram. The IG bio link is a BROKEN Flowcode link (flowcode.com/page/elitebarbershop%2520doral). It is double-encoded and lands on a 404 page that says \"Nobody's reserved this Flowpage yet.\" Their working link page is https://flow.page/elitebarbershop%20doral, which lists 5 barbers' booking links (4 Booksy, 1 Square). Web searches found no own domain.",
+  "_dropped": [
+   "Haircut & beard: the brief said $40 on both G.Marlon's and Juan Carlos's profiles. Juan Carlos lists it at $50 (40 min), so the card now reads 'from $40' ($40 with Angel, Charles, Alberto and G.Marlon).",
+   "Beard: $25 changed to 'from $20'. Charles and Alefrech list $20; Angel and G.Marlon list $25. Removed the Yelp research note from the description.",
+   "Hot towel shave: $30 changed to 'from $25' (Charles lists $25+ for the shave alone). The $50 haircut + hot towel shave price is kept (G.Marlon and Angel).",
+   "Kid's haircut: $30 changed to 'from $30', because Alberto's Booksy shows '$30.00+'.",
+   "Dropped the 'Black mask & mini facial scrub $20 / $30' card. Black mask prices vary from $10 to $20 by barber (Juan Carlos $10, Alberto $15, Angel and G.Marlon $20). Replaced it with their signature 'Servicio Élite (VIP)', which is from $100 on four barber profiles. Hair wash $10 / eyebrows $20 were G.Marlon-only and are not shown.",
+   "Rewrote every service description as customer-facing copy. The research notes ('I could not get the shop's own Booksy menu') would have shown on the site. The shop's Booksy page really has no menu, because each barber has their own.",
+   "Hours: Apple Maps says Sunday 10 AM–3 PM, not 9 AM. The Booksy shop page says Mon–Sat 8 AM–8 PM and Sun 9–3. Alberto's profile is 9–7:15 on weekdays, not 7:30. G.Marlon's 9–8 is replaced by the per-barber list. Dropped the Wheree 8:30–8:30 line (not checked, not needed).",
+   "Proof: Booksy now confirmed live at 5.0 / 771 reviews (the 'only in snippets, 658/729/771' caveat is gone). 771 is the barbers' totals added up. The DM no longer says '729'.",
+   "Barber review counts updated: Alberto 359 → 363, Juan Carlos 27 → 39. Added Charles 313 and Angel 54. Booksy Recommended applies to all four, not just Juan Carlos.",
+   "Apple Maps changed from '86% from 14 ratings' to 87% from 15 ratings overall. 86% / 14 was the 'Services Offered' sub-score.",
+   "Dropped 'Yelp Top 10 Best Barbers in Doral (8th / 10th)'. Yelp is blocked from every route I have (403 / CAPTCHA), and search-page ranks change between snapshots.",
+   "Dropped 'credit cards and cryptocurrency' from the Yelp amenities. I could not confirm them; the only crypto mention found was a for-sale listing for a different Doral barbershop. Credit cards are confirmed by Apple Maps and the barbers' Booksy amenities, so that stays under Apple Maps.",
+   "Yelp description trimmed to the part I could confirm ('…dirigida por dos personas'). The ending '…que buscan establecerse en la ciudad' did not appear in any source I could read.",
+   "Dropped the El Patron Barbershop fact. Nothing found ties El Patron to this address, and Alberto's Booksy URL now redirects to /383858_barber-albert_barber-shop_15889_miami (no 'el-patron'). Link updated to that canonical URL.",
+   "Corrected 'last post Jan 27, 2026 … nothing in about 8 months'. That is the shop's last OWN post, but a June 18, 2026 collab reel from @alefrech_01 is on their grid. Also, the 'El equipo elite' reel is an AI-made cartoon clipper (Veo watermark), not a team photo.",
+   "bestPhotoPosts: removed DT08ACmiRx1. Its carousel is a 'cortes en tendencia 2026' trend board with stock/AI model photos (Textured Fringe, Wolf Cut…), not their clients, so it must not be used as their work. Removed DG3cxPARXsv (a comedy skit). Added DZvdfSpP0f8 (a real before/after fade in the shop, collab with @alefrech_01) and C0u7MPuNg4x (their pinned gold-crown brand graphic). Kept DKufCn6xBUM (a real client in the shop) and DFYputJRaBd (the team in the shop).",
+   "brandLook: no longer UNKNOWN. I viewed the profile picture: a gold crowned 'E' in a laurel wreath on black, gold ≈ #CCA041. The noir + gold guess is confirmed.",
+   "websiteStatus: resolved the 'did not check the double-encoded bio URL' gap. The bio link 404s ('Nobody's reserved this Flowpage yet'); the working page is flow.page/elitebarbershop%20doral.",
+   "dmHook rewritten. It now leads with the confirmed broken bio link and the live 771-review figure, and says 'each barber's booking page' instead of 'straight to Booksy', because Mabel books on Square. It no longer leans on the trend-board post.",
+   "heroSub: now says 'beard trims' and adds the confirmed 5.0 / 771 Booksy rating. 'Book on Booksy' became 'book online' (Mabel uses Square).",
+   "Links: added Angel, Charles, Mabel (Square) and TikTok from their Flowpage. Labelled the flow.page link as the working URL. G.Marlon is kept, but a fact now notes he is not on the Flowpage or the shop's Booksy barber list (0 reviews).",
+   "Tagline kept (confirmed). Added their own alternatives: 'Exclusivos como tu imagen' (pinned graphic) and 'Scan in for a Cut Above the Rest' (pinned caption).",
+   "Do not use 786-538-8695 anywhere: it is Alberto's personal number from his Booksy hair-prosthesis service, not the shop phone."
+  ]
+ },
+ {
+  "name": "KNOCKOUT KENDALL",
+  "slug": "knockout-kendall",
+  "niche": "fitness",
+  "lang": "en",
+  "area": "Kendall",
+  "instagram": "@knockoutkendall",
+  "heroTitle": "READY TO KNOCKOUT YOUR LIMITS?",
+  "heroSub": "60 minutes of weight training, HIIT & fitness boxing at 8745 SW 134th St in Miami: Leg Day, Upper Body, Full Body & Boxing, and Saturday BOOTYCAMP.",
+  "services": [
+   {
+    "t": "Unlimited Monthly Membership",
+    "d": "Unlimited classes (Kendall location only), recurring monthly charge, no start fee, 30-day written cancellation notice. Was $180.",
+    "price": "$124.99/mo"
+   },
+   {
+    "t": "Single Class Pass",
+    "d": "One-time purchase, not recurring, expires 2 weeks after purchase. Classes are also $25 as a drop-in.",
+    "price": "$25"
+   },
+   {
+    "t": "LEG DAY STRENGTH TRAINING",
+    "d": "60-minute leg strength classes every Monday and Thursday, 8 a day (first class 5:00 am, last 7:15 pm)."
+   },
+   {
+    "t": "UPPER BODY STRENGTH TRAINING",
+    "d": "60-minute upper body classes every Tuesday, 8 a day. FLEX CHECK TUESDAYS 💥"
+   },
+   {
+    "t": "FULL BODY & BOXING (HIIT)",
+    "d": "Full-body HIIT + fitness boxing on Wednesdays & Fridays. Burn calories, build strength, improve conditioning, and have FUN doing it."
+   },
+   {
+    "t": "BOOTYCAMP",
+    "d": "Saturday 8:30 am & 10:00 am with Janice Niebla. 60 minutes. ALL GLUTES. Lift it. Shape it. Burn it. 🍑🔥"
+   }
+  ],
+  "cta": "Book a class",
+  "ctaUrl": "https://clients.mindbodyonline.com/classic/ws?studioid=5739515&stype=-7&sView=week&sLoc=1",
+  "photos": [
+   "../_img/knockout-kendall-1.jpg",
+   "../_img/knockout-kendall-2.jpg",
+   "../_img/knockout-kendall-3.jpg"
+  ],
+  "theme": "runway",
+  "logo": "../_img/knockout-kendall-logo.jpg",
+  "ownPhotos": true,
+  "brand": {
+   "heroBg": "#292929",
+   "accent": "#df1c2f",
+   "onAccent": "#ffffff",
+   "tagBg": "#df1c2f",
+   "tagInk": "#ffffff",
+   "link": "#c4172a"
+  },
+  "promo": "Unlimited monthly membership $124.99 (was $180), no start fee",
+  "proof": [
+   "4.98 on Mindbody from 295 reviews",
+   "“Best workout ever!!!!” — Mindbody review",
+   "“Joanna is AWESOME!” — Mindbody review",
+   "4.9 on ClassPass from 1,000+ ratings"
+  ],
+  "links": [
+   {
+    "label": "Class schedule / book (Mindbody)",
+    "url": "https://clients.mindbodyonline.com/classic/ws?studioid=5739515&stype=-7&sView=week&sLoc=1"
+   },
+   {
+    "label": "Memberships (Mindbody)",
+    "url": "https://clients.mindbodyonline.com/classic/ws?studioid=5739515&stype=40"
+   },
+   {
+    "label": "Mindbody profile + reviews",
+    "url": "https://www.mindbodyonline.com/explore/locations/knockout-kendall"
+   }
+  ],
+  "phone": "(786) 282-1927",
+  "address": "8745 SW 134th St, Miami, FL 33176",
+  "hours": [
+   "Mon, Tue, Thu · 5, 6, 7:45, 9 AM · 12:30, 4:45, 6, 7:15 PM",
+   "Wed · 5, 6, 9 AM · 12:30, 4:45, 6, 7:15 PM",
+   "Fri · 6, 9 AM · 12:30, 5:45 PM",
+   "Sat · BOOTYCAMP 8:30 & 10 AM",
+   "Sun · no classes"
+  ],
+  "_dmHook": "Saw SATURDAY BOOTYCAMP is ON (60 min, ALL GLUTES 🍑🔥) and your 4.98 rating from 295 reviews on Mindbody, so we built KNOCKOUT KENDALL a preview site with your weekly class schedule and one-tap booking 🥊",
+  "_tagline": "\"READY TO KNOCKOUT YOUR LIMITS? JOIN US FOR A CLASS.\" (their landing page knockoutkendall.gr8.com). Alternate from IG: \"Your transformation starts at Knockout. 🥊\"",
+  "_websiteStatus": "No site on their own domain. The IG bio links to linktr.ee/knockoutkendall, which has 2 links. (1) 'KNOCKOUT KENDALL STUDIO' goes to knockoutkendall.gr8.com, a one-page GetResponse landing page: headline, $124.99 membership and $25 class pass cards, a 'TRY A FREE CLASS' button (opens Mindbody), address (ZIP misprinted 33178) and phone. The class schedule, coaches and reviews are only on Mindbody. (2) 'LEAN60 - 60 DAY CHALLENGE' goes to KOchallenge.gr8.com, a challenge that began 4/20/26 and is over. knockoutmiami.com, knockoutkendall.com, knockoutgables.com and knockoutlakes.com do not exist (NXDOMAIN via dns.google, 2026-10-08). A real site is still an open opportunity.",
+  "_dropped": [
+   "Free class: changed 'free-class form' / 'sign-up form' to a 'TRY A FREE CLASS' button. The landing page has no sign-up form (the only <form> is a hidden template font picker); the button just opens the Mindbody week schedule. Fixed in facts, websiteStatus and promos.",
+   "Membership: took 'no contract' out of our service and promo copy. The landing page says 'No Contract / No Start Fee', but the Mindbody checkout shows '$124.99 every month for 12 months' with a contract that auto-renews every 12 months. 'No start fee' stays (both sources agree: 'We do not charge an initiation fee'). The $124.99 price and 'was $180' are confirmed.",
+   "Removed the note that 'older search caches showed $99.99'. It can't be verified and it muddies the confirmed $124.99 price.",
+   "brandLook: corrected the logo colors. On the landing page and Linktree the whole logo (KNOCKOUT and KENDALL) is red; only the IG avatar has a white KNOCKOUT and a red KENDALL on charcoal. Added the darker red #E70820 and grey #A1A9AD found in the page styles.",
+   "Studio look: corrected the 'red neon KNOCKOUT sign'. The wall sign reads KNOCKOUT KENDALL and is red/pink in one photo and blue in the other.",
+   "Promo dropped: 'Unlimited Membership Special' IG caption from 2026-07-07 (more than 45 days old; the live $124.99 offer covers it).",
+   "Promo dropped: LEAN60 60-day challenge (began 4/20/26 and is over).",
+   "Promo dropped: New Year Membership Sale, 50 spots (2026-01-02, expired).",
+   "Leg Day: rewrote 'Mondays and Thursdays from 5:00 am to 7:15 pm'. Those are the first and last class start times (8 classes a day), not opening hours.",
+   "Voice/facts: rewrote 'The community is mostly women' / 'Classes are full of women' as what their posts and group photos show, so it isn't an unsourced claim.",
+   "dmHook: reworded for natural English ('your 4.98 rating from 295 reviews on Mindbody'); every fact in it is confirmed.",
+   "heroSub: added 'in Miami' after the street address; content otherwise confirmed.",
+   "Added confirmed proof: ClassPass 4.9 from 1,000+ ratings (live page). Added confirmed fact: Mindbody membership terms (Kendall only, monthly billing, no initiation fee, 30-day written notice by text or DM, $10 no-show fee, $8 late cancellation).",
+   "Removed the unconfirmed 'search summary attributes knockoutmiami.com to the Facebook page' remark. DNS (dns.google) returns NXDOMAIN for knockoutmiami.com, knockoutkendall.com, knockoutgables.com and knockoutlakes.com."
+  ],
+  "hoursTitle": "Class times"
+ },
+ {
+  "name": "Miami’s Finest Pressure Cleaning",
+  "slug": "miamis-finest",
+  "niche": "home",
+  "lang": "en",
+  "area": "South Florida",
+  "instagram": "@miamifinestpressurecleaning",
+  "heroTitle": "Your property, brand new again",
+  "heroSub": "Soft washing, pressure washing, paver sealing and window cleaning for homes and office buildings across South Florida. Licensed & insured, with free estimates at 786-691-6962.",
+  "services": [
+   {
+    "t": "Soft washing",
+    "d": "For roofs and surfaces. Our soft washing eliminates the algae and mold to recover the true beauty of the exterior of your property 🏡"
+   },
+   {
+    "t": "Pressure washing",
+    "d": "Roofs, driveways, sidewalks, patios and fences. On a recent surface and canopy job, we pretreated with our chemicals, then pressure washed for maximum results."
+   },
+   {
+    "t": "Paver sealing: Clean · Sand · Seal",
+    "d": "A wet look sealer, or our clean & seal package with a high gloss sealer that protects Chicago bricks from mold and algae."
+   },
+   {
+    "t": "Driveway makeovers",
+    "d": "We sandblast, pressure wash and stain driveways, removing old paint layers down to clean concrete."
+   },
+   {
+    "t": "Driveway deep cleaning",
+    "d": "We brought a driveway back to life with a deep cleaning that removed construction debris and all the mold."
+   },
+   {
+    "t": "Window cleaning",
+    "d": "Window cleaning for homes and office buildings, one of our three core services."
+   }
+  ],
+  "phone": "786-691-6962",
+  "cta": "Get a free estimate",
+  "photos": [
+   "../_img/miamis-finest-1.jpg",
+   "../_img/miamis-finest-2.jpg",
+   "../_img/miamis-finest-3.jpg"
+  ],
+  "short": "Miami's Finest",
+  "theme": "coastal",
+  "logo": "../_img/miamis-finest-logo.jpg",
+  "ownPhotos": true,
+  "brand": {
+   "heroBg": "#0b0f12",
+   "tagBg": "#5FA0C5",
+   "tagInk": "#0b0f12",
+   "link": "#2b6f96",
+   "bodyAccent": "#0b0f12"
+  },
+  "promo": "Free estimates: call or text (786) 691-6962",
+  "proof": [
+   "In business since 2019",
+   "Licensed & insured",
+   "Free estimates",
+   "3.6K followers on Instagram"
+  ],
+  "links": [],
+  "address": "Serving all of South Florida (mobile service)",
+  "_dmHook": "Saw the driveway you guys sandblasted and stained after taking off 4 layers of paint 🤩 A before & after like that deserves its own page, not just a post that gets buried in the feed.",
+  "_tagline": "Best quality work & prices in South Florida",
+  "_websiteStatus": "none. The IG Business Discovery lookup returned NO website field for this account, while the same lookup returned one for the other leads, so their profile has no link. Searches for the name, the phone 786-691-6962 and likely domains (miamifinestpressurecleaning.com, miamisfinestpressurecleaning.com) found no site. The only results were two old Nextdoor pages (posts from 2020–2021) and the Sunbiz record. finestpressurecleaning.com belongs to a different company, Finest Pressure Cleaning LLC in Palm Bay. Direct domain probes could not run from here (DNS and egress are blocked), so a parked or unindexed domain is not fully ruled out.",
+  "_dropped": [
+   "PROMOS: dropped the 2020-03-08 Nextdoor promo \"25% off!! a guarantee that I will beat anyone else's prices\". It is about 7 years old (well past the 45-day limit), and showing it would promise a discount and a price match they may not honor today.",
+   "PROMOS: dropped the 2021-09 Nextdoor promo \"20% off any Pressure cleaning service\" for the same reason. The only promo kept is the current \"Free estimates!\" from the bio, also in captions through 2026-09-15.",
+   "SERVICES / Soft washing: removed \"walls\". No caption mentions walls; the source post says \"Roof and surface\".",
+   "SERVICES / Pressure washing: \"pretreated with their chemicals first\" turned one job (a surface and canopy) into a rule for every job. It now describes that one job. Added roofs, which the 2020 Nextdoor list also names. Sidewalks / patios / fences are confirmed only by that 2020 Nextdoor post, and the source now says so.",
+   "SERVICES / \"Post-construction clean-up\" renamed \"Driveway deep cleaning\". The caption describes one driveway cleaned of construction debris and mold, not a named post-construction service.",
+   "SERVICES / Driveway makeovers: added their own label \"exterior cleaning and painting experts\" from the same posts, plus the \"Driveway make overs\" Reel as a source. The 4 layers of paint is confirmed (Dakq_4yBd2q).",
+   "DMHOOK: \"sandblasted off 4 layers of paint\" merged two separate claims. The caption says the driveway was \"sandblasted, pressure washed and stained\" and that \"4 layers of paint\" were removed. Reworded to match.",
+   "VOICE: \"Short all-caps hooks\" was overstated. Only \"MOLD GONE IN SECONDS‼️\" is in all caps, so it now reads \"sometimes in all caps\".",
+   "TAGLINE: removed the \"(IG bio)\" note so the field is just their phrase. The wording is confirmed in the bio.",
+   "FACTS / Owner story: confirmed with their exact words from Nextdoor search snippets. The paraphrase \"focus is making homes mold and algae free\" is replaced by the owner's own line (\"making their home mold/algae free\").",
+   "FACTS / Sunbiz: confirmed through search snippets: document L21000392556, filed 09/02/2021, ACTIVE, reinstated 12/21/2022, Hialeah FL 33013, Neil Bernal as manager and registered agent. Added that annual reports run through 04/22/2026. The street address and EIN were left out on purpose.",
+   "FACTS / Best-performing post: narrowed to \"of the 12 latest posts pulled\", the only data we have.",
+   "FACTS / Reviews: no rating found anywhere. Added a warning that lookalike companies (Finest Pressure Cleaning LLC in Palm Bay, Miami's Pressure Washing Services, Miami's Best Pressure Cleaning) have reviews that must NOT be used.",
+   "ADDRESS: the Nextdoor street address (Miami Lakes 33018) and the Sunbiz street address (Hialeah 33013) are both confirmed but sit in residential areas, so the site shows only the service area.",
+   "WEBSITESTATUS: made stronger. The Business Discovery lookup asked for the website field (other leads returned one) and got none for this account. Noted that finestpressurecleaning.com belongs to a different company. Direct DNS and HTTP probes were still blocked from here.",
+   "HEROSUB: kept, every part is confirmed (services from the bio, homes and office buildings from captions, South Florida, licensed & insured, free estimates, phone). Changed only \"free estimates at\" to \"with free estimates at\" so it reads better."
+  ]
+ }
+]

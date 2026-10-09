@@ -18,7 +18,7 @@ Goal: sell websites through @dsmarketing.agency. First target: $1,000 = two Quic
 ## How a deal happens
 
 1. **Find**: Miami business with an active Instagram and no website (only a Linktree, a DoorDash / Square page, or nothing).
-2. **Build a free preview**: `node tools/ds/preview.mjs leads.json` → `https://joxelds.github.io/Claude/p/<slug>/`. It uses only facts from their public profile, sample photos marked "Sample photos", and a footer that says it is not their official site.
+2. **Build a free preview**: `node tools/ds/site.mjs leads.json --out public/p` (v2; art direction per lead in `tools/ds/site-art.json`: display font, divider motif, hero photo) → `https://joxelds.github.io/Claude/p/<slug>/`. It uses only facts from their public profile; the niche sample photos (`food-1.jpg` …) are never credited as theirs and never go in the hero; the footer says it is not their official site.
 3. **DM from @dsmarketing.agency** (Joxel sends by hand; cold DMs cannot be automated). Short, their name, the link, one question.
 4. **Reply in under 10 minutes** while they're warm. Answers below.
 5. **Close**: send the payment link + the 6 questions (below). 48 h starts when both are in.

@@ -46,6 +46,14 @@ function hoursStatus(M, d, lang) {
     var lab = nx.l != null && M.lb ? M.lb[nx.l] + ' · ' : '';
     return { s: 'next', t: (es ? 'Próxima clase · ' : 'Next class · ') + lab + when(now + nx.d), today: n.day };
   }
+  if (M.k === 'opens') {                                // only a start time is known ("desde las 7pm"): say the schedule, never "open now"
+    var op = M.op || [], td = null, nxo = null;
+    for (var q = 0; q < op.length; q++) { if (op[q][0] === n.day) td = op[q];
+      var dq = ((op[q][0] * 1440 + op[q][1] - now) % W + W) % W; if (op[q][0] !== n.day && (!nxo || dq < nxo.d)) nxo = { d: dq }; }
+    if (td) return { s: 'next', t: (es ? 'Hoy desde ' + at(td[1]).replace(/^a /, '') : 'Today from ' + tm(td[1])), today: n.day };
+    if (!nxo) return null;
+    return { s: 'closed', t: (es ? 'Cerrado hoy · abre ' : 'Closed today · opens ') + when(now + nxo.d), today: n.day };
+  }
   if (M.k === 'days') {                                 // only days are known: say "closed today" (a fact); on open days show no pill
     if ((M.closed || []).indexOf(n.day) < 0) return null;
     for (var k = 1; k <= 7; k++) { var dd2 = (n.day + k) % 7; if ((M.open || []).indexOf(dd2) >= 0)

@@ -541,6 +541,17 @@ function inPage({ carousel }) {
   }
   // body lines: a line that wraps once is balanced (two even lines); longer ones stay "pretty" (no lone last word)
   for (const el of document.querySelectorAll('.ln')) { const lh = px(getComputedStyle(el).lineHeight); if (lh && Math.round(el.getBoundingClientRect().height / lh) === 2) el.style.textWrap = 'balance'; }
+  // a lone word on the last line of a headline / fact / line (Chromium's "pretty" skips text with styled inline boxes): balance that block
+  //   — unless the author placed the line breaks (\n → <br>)
+  const lastLineWords = el => { const rs = [], r = document.createRange(), tw = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    while (tw.nextNode()) { const n = tw.currentNode, t = n.textContent; const re = /\S+/g; let m; while ((m = re.exec(t))) { r.setStart(n, m.index); r.setEnd(n, m.index + m[0].length); const q = [...r.getClientRects()].pop(); if (q && q.width) rs.push({ top: q.top, w: m[0] }); } }
+    if (!rs.length) return { lines: 0, last: 0 }; const tops = [...new Set(rs.map(x => Math.round(x.top / 8)))]; const lastTop = Math.max(...rs.map(x => x.top));
+    return { lines: tops.length, last: rs.filter(x => Math.abs(x.top - lastTop) < 8).filter(x => /[\p{L}\p{N}]/u.test(x.w)).length }; };
+  for (const el of document.querySelectorAll('.fit[data-c=headline], .fit[data-c=fact], .fit[data-c=myth], .fit[data-c=saying], .fit[data-c=body], .ln')) {
+    if (el.querySelector('br') || el.style.textWrap === 'balance') continue;
+    const targets = el.classList.contains('ln') ? [el] : (el.querySelector('.ln') ? [] : [el]);
+    for (const t of targets) { const { lines, last } = lastLineWords(t); if (lines >= 2 && last === 1) t.style.textWrap = 'balance'; }
+  }
   // 3) elements that sit above another (the SAMPLE PHOTO tag above the photo panel)
   for (const a of document.querySelectorAll('.above')) { const ref = document.querySelector('.col[data-name=panel]'); if (ref) a.style.top = (ref.getBoundingClientRect().top - a.getBoundingClientRect().height - (+a.dataset.gap || 18)) + 'px'; }
   // footer: the left item must leave room for the handle
@@ -652,7 +663,7 @@ for (const post of posts) {
     console.log(`${file.split('/').pop()}  ${post.look}/${role}  ${kb} KB q${q}  ${warn.length ? warn.join(' | ') : 'ok'}`);
     files.push(file.split('/').pop());
     const v = s.v;
-    alt.push(plain([s0.headline, v.myth, v.fact, v.saying, v.number && `${v.number} ${v.label || ''}`, ...(s0.lines || []), ...(v.options || []), ...((v.items || []).map(x => x.label)), ...((v.stickers || []))].filter(Boolean).join(' · ')).replace(/\[[x ]\]\s*/gi, '').slice(0, 300));
+    alt.push(plain([s0.headline, v.myth, v.fact, v.saying, v.number && `${v.number} ${v.label || ''}`, ...(s0.lines || []), ...(v.options || []), ...((v.items || []).map(x => x.label)), ...((v.stickers || []))].filter(Boolean).join(' · ')).replace(/\[[x ]\]\s*/gi, '').replace(/\s*\n\s*/g, ' ').slice(0, 300));
     if (i === 0) firsts.push({ file, carousel });
   }
   if (files.length) manifest.push({ id: post.id, look: post.look, kind: post.kind, lang, format: carousel ? 'carousel' : 'single', files, alt });

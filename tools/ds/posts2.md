@@ -89,6 +89,12 @@ Keep two neighbours on the grid in different families:
   - `screen` takes only `food|beauty|fitness|home` from `tools/ds/assets/hero-sample-*.jpg`. The printed "★ 4.8 on Google" on the food screen is painted out at load.
   - Every look that shows them adds the SAMPLE PHOTO / SAMPLE SITE(S) / DEMO / EXAMPLE CHAT label by itself.
 
+## Line breaks
+
+- Body lines wrap with `text-wrap: pretty`; a line that wraps exactly once is balanced into two even lines.
+- A headline, fact or body line that would end on one lone word is balanced — unless it already has a `\n`.
+- Put a `\n` where a phrase must stay together (`"Your page gets read\n*in the Miami sun*."`). Kickers and number labels are always balanced.
+
 ## Checks printed per slide
 
 A clean slide prints `ok`. Otherwise you see one or more of:
@@ -184,6 +190,7 @@ Look at the slides and `grid.jpg` before anything goes to the queue.
 | `torn` | `screen`, `screen2` | The SAMPLE phones. Inner slides show one phone and a big accent index. `number` overrides the index. |
 | `block` | `headline` | Split it with `\n` into poster lines. Each line is scaled to the full width. |
 | `editorial` | `kicker` | The caps line above the headline. Inner slides show a serif `1.`, `2.` … (`number` overrides it). |
+| `editorial` | `mark` | The small italic mark at the right of the kicker rule (default "DS Notes" / "Notas DS"). Never a made-up issue number. |
 | `number` | `number` (required), `label` | The giant number and its caps label. Inner slides fall back to the slide index. |
 | `photo` | `photo` | The niche SAMPLE photo, `food\|beauty\|fitness\|home-1..3`. |
 | `photo` | `stickers` | Up to 3 sticker labels. |
@@ -195,4 +202,4 @@ Look at the slides and `grid.jpg` before anything goes to the queue.
 | `myth` | `myth`, `fact`, `source` | One myth per slide. The cover uses `headline` + `lines`. |
 | `ask` | `options` | 2–3 options. Inner slides show a big letter (`letter` overrides it) + headline + lines. |
 | `dicho` | `saying` | The dicho. `lines` = what it means for the business. `kicker` overrides "DICHO". |
-| `tips` | `items` | `[{icon, label, sub}]`, 2–6 items. Icons: clock, pin, phone, menu, calendar, link, search, lock, camera, tag, chat, globe. Inner slides show the first item's icon big. |
+| `tips` | `items` | `[{icon, label, sub}]`, 2–6 items. Icons: clock, pin, phone, menu, calendar, link, search, lock, camera, tag, chat, globe. Inner slides show the first item's icon big. | Inner slides centre icon + headline + lines (+ `source`) between the logo and the footer.

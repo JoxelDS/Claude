@@ -68,9 +68,9 @@ function daysIn(f) {                                  // day set from a folded s
 
 function blank(f, re, cb) { return f.replace(re, (...m) => { cb && cb(m); return ' '.repeat(m[0].length); }); }
 
-export function parseHours(lines = [], { title = '' } = {}) {
-  const model = { k: 'none', iv: [], st: [], open: [], closed: [], w: [], lb: [], rows: [], notes: [] };
-  const classHint = /class|clase/i.test(title);
+export function parseHours(lines = [], { title = '', niche = '' } = {}) {
+  const model = { k: 'none', iv: [], st: [], op: [], open: [], closed: [], w: [], lb: [], rows: [], notes: [] };
+  const classHint = /class|clase/i.test(title) || niche === 'fitness';   // a lone start time elsewhere = "opens at" ("desde las 7pm", "2:30PM – until")
   const placeHint = /location|ubicaci|sede|local/i.test(title);
   let inherit = null;                                 // days from a days-only line ("Open every day") for following time-only lines
   for (const raw of lines || []) {
@@ -106,13 +106,14 @@ export function parseHours(lines = [], { title = '' } = {}) {
       let wi = -1; if (label && label.length > 2 && (placeHint || /\d/.test(label))) { wi = model.w.indexOf(label); if (wi < 0) wi = model.w.push(label) - 1; }
       for (const day of d) for (const [s, e] of good) model.iv.push(wi < 0 ? [day, s, e] : [day, s, e, wi]);
     }
-    if (lists.length && (classHint || lists.length > 1 || !good.length)) {
+    if (lists.length === 1 && !good.length && !classHint) { for (const day of d) model.op.push([day, lists[0]]); }
+    else if (lists.length && (classHint || lists.length > 1 || !good.length)) {
       let li = -1; if (label && label.length > 2) { li = model.lb.indexOf(label); if (li < 0) li = model.lb.push(label) - 1; }
       for (const day of d) for (const s of lists) model.st.push(li < 0 ? [day, s] : [day, s, li]);
     }
   }
   model.open = [...new Set(model.open)].sort(); model.closed = [...new Set(model.closed)].sort();
-  model.k = model.st.length ? 'classes' : model.iv.length ? 'hours' : (model.open.length || model.closed.length) ? 'days' : 'none';
+  model.k = model.st.length ? 'classes' : model.iv.length ? 'hours' : model.op.length ? 'opens' : (model.open.length || model.closed.length) ? 'days' : 'none';
   return model;
 }
 
@@ -136,6 +137,6 @@ export function openingHoursSpec(model, whereIdx) {
 // minified copy of the model for the page (drop empties)
 export function compactModel(m) {
   const o = { k: m.k, rows: m.rows };
-  for (const key of ['iv', 'st', 'open', 'closed', 'w', 'lb']) if (m[key].length) o[key] = m[key];
+  for (const key of ['iv', 'st', 'op', 'open', 'closed', 'w', 'lb']) if (m[key].length) o[key] = m[key];
   return o;
 }

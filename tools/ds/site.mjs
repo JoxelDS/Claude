@@ -404,9 +404,10 @@ const leadList = (Array.isArray(allLeads) ? allLeads : allLeads.leads || []).fil
 if (!leadList.length) { console.error('no leads matched'); process.exit(2); }
 const ART = existsSync(join(HERE, 'site-art.json')) ? JSON.parse(readFileSync(join(HERE, 'site-art.json'), 'utf8')) : {};
 
+const SAMPLE_PHOTO = /^(food|beauty|fitness|home)-\d\.jpg$/;   // the niche stand-ins in public/p/_img — never credited as theirs
 function photoPlan(l, art) {
-  const own = l.ownPhotos !== false;
-  const files = (l.photos || []).map((p, i) => ({ n: i + 1, src: join(IMG_DIR, basename(p)) })).filter(p => existsSync(p.src));
+  const own = l.ownPhotos !== false && l.ownPhotos !== 0;
+  const files = (l.photos || []).map((p, i) => ({ n: i + 1, src: join(IMG_DIR, basename(p)) })).filter(p => existsSync(p.src) && !SAMPLE_PHOTO.test(basename(p.src)));
   if (own && files.length) return { own: true, files };
   return { own: false, files: [1, 2, 3].map(i => ({ n: i, src: join(IMG_DIR, `${l.niche}-${i}.jpg`) })).filter(p => existsSync(p.src)) };
 }
@@ -468,7 +469,7 @@ function build(p) {
   const textOk = !!tel && (l.textOk === true || /\b(call or text|text or call|text us|textea|llama o escribe|escribe o llama|mensaje de texto)\b/.test(leadText));
   const waLink = (l.links || []).find(x => platformOf(x.url) === 'WhatsApp');
   const pr = parseProof(l.proof, l.services);
-  const model = parseHours(l.hours || [], { title: l.hoursTitle || '' }), cm = compactModel(model);
+  const model = parseHours(l.hours || [], { title: l.hoursTitle || '', niche: l.niche }), cm = compactModel(model);
   const addrParts = String(l.address || '').split(/\s+·\s+/).map(s => s.trim()).filter(Boolean);
   const streets = addrParts.filter(isStreet);
   const loungeM = String(l.address || '').match(/^(\d+)\s+(lounges?|locations?|shops?|spots?|salones|locales|sedes)\s*:\s*(.+)$/i);

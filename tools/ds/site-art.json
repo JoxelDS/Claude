@@ -123,5 +123,73 @@
   "mark": "#5fa0c5",
   "btn": "#5fa0c5",
   "motif": "wave"
+ },
+ "kingsmiamiconch": {
+  "display": "bigshoulders",
+  "motif": "wave"
+ },
+ "rm-food-truck": {
+  "display": "dmserif",
+  "motif": "dots"
+ },
+ "cuban-cajita": {
+  "display": "archivoi",
+  "motif": "checker"
+ },
+ "ranchitocafeteromiami": {
+  "display": "fraunces",
+  "motif": "picado"
+ },
+ "delomiostreetfood": {
+  "display": "anton",
+  "motif": "tape"
+ },
+ "keaperofoodtruck": {
+  "display": "shrikhand",
+  "motif": "dots"
+ },
+ "peruanosfoodtruck": {
+  "display": "bodoni",
+  "motif": "deco"
+ },
+ "reedsmiami": {
+  "display": "young",
+  "motif": "wave"
+ },
+ "rincon-del-taco": {
+  "display": "archivoblack",
+  "motif": "picado"
+ },
+ "1821sandwichshop": {
+  "display": "cinzel",
+  "motif": "deco"
+ },
+ "bocalocafoodtruck": {
+  "display": "archivoblack",
+  "motif": "checker"
+ },
+ "laperlafoodtruck": {
+  "display": "dmserif",
+  "motif": "arches"
+ },
+ "frutipartymiami": {
+  "display": "shrikhand",
+  "motif": "sparkle"
+ },
+ "art-cake-miami": {
+  "display": "playfair",
+  "motif": "sparkle"
+ },
+ "cocina-el-pecado": {
+  "display": "anton",
+  "motif": "picado"
+ },
+ "delfinas-chimi": {
+  "display": "shrikhand",
+  "motif": "awning"
+ },
+ "ccdominicancakes": {
+  "display": "dmserif",
+  "motif": "arches"
  }
 }
