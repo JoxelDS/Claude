@@ -1,1 +1,12 @@
-aW1wb3J0IFhDVGVzdApAdGVzdGFibGUgaW1wb3J0IExvY2FsTm90aWZpY2F0aW9uc1BsdWdpbgoKZmluYWwgY2xhc3MgTG9jYWxOb3RpZmljYXRpb25zUGx1Z2luVGVzdHM6IFhDVGVzdENhc2UgewogICAgZnVuYyB0ZXN0RXhhbXBsZSgpIHRocm93cyB7CiAgICAgICAgLy8gWENUZXN0IERvY3VtZW50YXRpb24KICAgICAgICAvLyBodHRwczovL2RldmVsb3Blci5hcHBsZS5jb20vZG9jdW1lbnRhdGlvbi94Y3Rlc3QKCiAgICAgICAgLy8gRGVmaW5pbmcgVGVzdCBDYXNlcyBhbmQgVGVzdCBNZXRob2RzCiAgICAgICAgLy8gaHR0cHM6Ly9kZXZlbG9wZXIuYXBwbGUuY29tL2RvY3VtZW50YXRpb24veGN0ZXN0L2RlZmluaW5nX3Rlc3RfY2FzZXNfYW5kX3Rlc3RfbWV0aG9kcwogICAgfQp9Cg==
+import XCTest
+@testable import LocalNotificationsPlugin
+
+final class LocalNotificationsPluginTests: XCTestCase {
+    func testExample() throws {
+        // XCTest Documentation
+        // https://developer.apple.com/documentation/xctest
+
+        // Defining Test Cases and Test Methods
+        // https://developer.apple.com/documentation/xctest/defining_test_cases_and_test_methods
+    }
+}
