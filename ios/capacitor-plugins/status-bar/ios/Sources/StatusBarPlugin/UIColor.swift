@@ -1,1 +1,40 @@
-aW1wb3J0IENhcGFjaXRvcgoKcHVibGljIGV4dGVuc2lvbiBDYXBhY2l0b3JFeHRlbnNpb25UeXBlV3JhcHBlciB3aGVyZSBUOiBVSUNvbG9yIHsKCiAgICBzdGF0aWMgZnVuYyBoZXgoZnJvbUNvbG9yOiBVSUNvbG9yKSAtPiBTdHJpbmc/IHsKICAgICAgICB2YXIgcmVkOiBDR0Zsb2F0ID0gMAogICAgICAgIHZhciBncmVlbjogQ0dGbG9hdCA9IDAKICAgICAgICB2YXIgYmx1ZTogQ0dGbG9hdCA9IDAKICAgICAgICB2YXIgYWxwaGE6IENHRmxvYXQgPSAwCgogICAgICAgIGd1YXJkIGZyb21Db2xvci5nZXRSZWQoJnJlZCwgZ3JlZW46ICZncmVlbiwgYmx1ZTogJmJsdWUsIGFscGhhOiAmYWxwaGEpIGVsc2UgewogICAgICAgICAgICBhc3NlcnRpb25GYWlsdXJlKCJGYWlsZWQgdG8gZ2V0IFJHQkEgY29tcG9uZW50cyBmcm9tIFVJQ29sb3IiKQogICAgICAgICAgICByZXR1cm4gbmlsCiAgICAgICAgfQoKICAgICAgICByZWQgPSBtYXgoMCwgbWluKDEsIHJlZCkpCiAgICAgICAgZ3JlZW4gPSBtYXgoMCwgbWluKDEsIGdyZWVuKSkKICAgICAgICBibHVlID0gbWF4KDAsIG1pbigxLCBibHVlKSkKICAgICAgICBhbHBoYSA9IG1heCgwLCBtaW4oMSwgYWxwaGEpKQoKICAgICAgICBpZiBhbHBoYSA9PSAxIHsKICAgICAgICAgICAgLy8gUkdCCiAgICAgICAgICAgIHJldHVybiBTdHJpbmcoCiAgICAgICAgICAgICAgICBmb3JtYXQ6ICIjJTAybFglMDJsWCUwMmxYIiwKICAgICAgICAgICAgICAgIEludChyb3VuZChyZWQgKiAyNTUpKSwKICAgICAgICAgICAgICAgIEludChyb3VuZChncmVlbiAqIDI1NSkpLAogICAgICAgICAgICAgICAgSW50KHJvdW5kKGJsdWUgKiAyNTUpKQogICAgICAgICAgICApCiAgICAgICAgfSBlbHNlIHsKICAgICAgICAgICAgLy8gUkdCQQogICAgICAgICAgICByZXR1cm4gU3RyaW5nKAogICAgICAgICAgICAgICAgZm9ybWF0OiAiIyUwMmxYJTAybFglMDJsWCUwMmxYIiwKICAgICAgICAgICAgICAgIEludChyb3VuZChyZWQgKiAyNTUpKSwKICAgICAgICAgICAgICAgIEludChyb3VuZChncmVlbiAqIDI1NSkpLAogICAgICAgICAgICAgICAgSW50KHJvdW5kKGJsdWUgKiAyNTUpKSwKICAgICAgICAgICAgICAgIEludChyb3VuZChhbHBoYSAqIDI1NSkpCiAgICAgICAgICAgICkKICAgICAgICB9CiAgICB9Cn0K
+import Capacitor
+
+public extension CapacitorExtensionTypeWrapper where T: UIColor {
+
+    static func hex(fromColor: UIColor) -> String? {
+        var red: CGFloat = 0
+        var green: CGFloat = 0
+        var blue: CGFloat = 0
+        var alpha: CGFloat = 0
+
+        guard fromColor.getRed(&red, green: &green, blue: &blue, alpha: &alpha) else {
+            assertionFailure("Failed to get RGBA components from UIColor")
+            return nil
+        }
+
+        red = max(0, min(1, red))
+        green = max(0, min(1, green))
+        blue = max(0, min(1, blue))
+        alpha = max(0, min(1, alpha))
+
+        if alpha == 1 {
+            // RGB
+            return String(
+                format: "#%02lX%02lX%02lX",
+                Int(round(red * 255)),
+                Int(round(green * 255)),
+                Int(round(blue * 255))
+            )
+        } else {
+            // RGBA
+            return String(
+                format: "#%02lX%02lX%02lX%02lX",
+                Int(round(red * 255)),
+                Int(round(green * 255)),
+                Int(round(blue * 255)),
+                Int(round(alpha * 255))
+            )
+        }
+    }
+}
