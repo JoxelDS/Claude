@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- SDX Inspect app icon — full-bleed master (no rounded corners, no
+       transparency: iOS applies its own mask; Android adaptive uses
+       icon-foreground.png + icon-background.png from the same art).
+       Source mark: public/sdx-inspect-icon.svg on the locked SDX navy. -->
+  <rect width="1024" height="1024" fill="#2A295C"/>
+  <rect x="143" y="143" width="737" height="737" rx="194" fill="none" stroke="#FFFFFF" stroke-width="87"/>
+  <path d="M328 522 L460 654 L707 378" fill="none" stroke="#33C3B0" stroke-width="102" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
