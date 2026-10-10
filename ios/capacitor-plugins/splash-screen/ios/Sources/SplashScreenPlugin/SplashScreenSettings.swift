@@ -1,1 +1,8 @@
-aW1wb3J0IFVJS2l0CgpwdWJsaWMgc3RydWN0IFNwbGFzaFNjcmVlblNldHRpbmdzIHsKICAgIHZhciBzaG93RHVyYXRpb24gPSAzMDAwCiAgICB2YXIgZmFkZUluRHVyYXRpb24gPSAyMDAKICAgIHZhciBmYWRlT3V0RHVyYXRpb24gPSAyMDAKICAgIHZhciBhdXRvSGlkZSA9IHRydWUKfQo=
+import UIKit
+
+public struct SplashScreenSettings {
+    var showDuration = 3000
+    var fadeInDuration = 200
+    var fadeOutDuration = 200
+    var autoHide = true
+}
