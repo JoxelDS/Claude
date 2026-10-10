@@ -9574,6 +9574,56 @@ html[data-theme="black"] .inspTypeCard.on:nth-child(2) { background: rgba(37, 99
 .fuSimCmtBox button{min-height:44px;padding:0 14px;border-radius:10px;border:0;background:#1e3a8a;color:#fff;font-weight:800;cursor:pointer}
 .fuSimCmtBox button.ghost{background:#e2e8f0;color:#1e293b}
 
+/* ── v549: problems-to-check redesign — summary strip, ONE sticky toolbar with
+   labeled filter groups, uniform cards with a fixed action footer ── */
+.fuSummary{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.fuSummaryItem{display:inline-flex;align-items:center;gap:5px;padding:4px 12px;border-radius:999px;background:var(--surface-2);border:1px solid var(--sdx-gray-200);font-size:.85rem;font-weight:700;color:var(--ink-600)}
+.fuSummaryItem b{font-size:1rem;color:var(--ink-900)}
+.fuSummaryLate.has{background:#FDECEC;border-color:#F5B5B5;color:#B91C1C}
+.fuSummaryLate.has b{color:#EE0000}
+.fuToolbar{position:sticky;top:66px;z-index:40;background:var(--surface-1);border:1.5px solid var(--sdx-gray-200);border-radius:16px;padding:12px;box-shadow:var(--shadow-md);margin-bottom:14px}
+.fuToolbar .fuSimSearchRow{margin:0 0 10px}
+.fuToolbar .fuSimUndo{position:static;margin:10px 0 0}
+.fuToolbar .fuSimFlash{margin:10px 0 0}
+.fuToolGroups{display:flex;flex-direction:column;gap:8px}
+.fuToolGroup{display:flex;align-items:flex-start;gap:10px}
+.fuToolLbl{flex:none;width:52px;padding-top:11px;font-size:.68rem;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-500)}
+.fuToolPills{flex:1;min-width:0;margin-bottom:0;padding-bottom:2px}
+.fuToolPills .fuSimCrew{min-height:40px;padding:0 12px;font-size:.9rem}
+.fuToolActions{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:10px;padding-top:10px;border-top:1px solid var(--sdx-gray-200)}
+.fuToolSpacer{flex:1}
+.fuToolbar .fuSimRemindAll{display:inline-flex;align-items:center;margin:0;min-height:44px}
+.fuToolbar .fuSimClear{margin:0}
+.fuSimCard{display:flex;flex-direction:column}
+.fuSimCardHead{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.fuSimCardHead .fuSimStand{min-width:0}
+.fuSimCardHead .fuSimPill{flex:none;margin-top:2px}
+.fuSimChips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.fuSimChip{display:inline-flex;align-items:center;padding:3px 10px;border-radius:999px;background:var(--surface-2);border:1px solid var(--sdx-gray-200);font-size:.78rem;font-weight:700;color:var(--ink-600)}
+.fuSimChipCrew{background:#ECECF4;border-color:#C9C9DE;color:var(--sdx-navy)}
+.fuSimChipLate{background:#FDECEC;border-color:#F5B5B5;color:#EE0000}
+.fuSim .fuSimProblem{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;margin-top:8px}
+.fuSimBARow{grid-auto-rows:1fr}
+.fuSimBA{display:flex;flex-direction:column}
+.fuSimBAPics{flex:1}
+.fuSim .fuSimBtns{margin-top:auto;padding-top:10px;grid-template-columns:1.5fr 1fr 1fr !important}
+.fuSimBtns .fuSimFixed{background:linear-gradient(135deg,var(--sdx-navy) 0%,#283897 100%);border-color:var(--sdx-navy-deep,#1E1D4A);color:#fff}
+.fuSimBtns .fuSimCmtBtn,.fuSimBtns .fuSimEditBtn{align-self:stretch;min-height:52px;margin:0;padding:0 10px;border-radius:12px;border:2px solid var(--sdx-gray-200);background:var(--surface-2);color:var(--ink-900);font-weight:800;font-size:1rem;display:flex;align-items:center;justify-content:center;cursor:pointer;font-family:inherit}
+.fuSimBtns .fuSimCmtBtn.on{background:#ECECF4;border-color:var(--sdx-navy);color:var(--sdx-navy)}
+@media (min-width:1000px){
+  .fuSimList{align-items:stretch}
+}
+@media (max-width:700px){
+  .fuToolbar{top:60px;padding:10px}
+  .fuToolGroup{flex-direction:column;gap:4px}
+  .fuToolLbl{width:auto;padding-top:2px}
+  .fuToolPills{width:100%}
+}
+@media (max-width:560px){
+  .fuSim .fuSimBtns{grid-template-columns:1fr 1fr !important}
+  .fuSimBtns .fuSimCmtBtn,.fuSimBtns .fuSimEditBtn{min-height:48px;font-size:.92rem}
+}
+
 /* v546: import stands from Excel / CSV */
 .standImportRow { display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0 10px; }
 .standImportBtn { background: var(--sdx-navy); color: #fff; border: none; border-radius: 10px; padding: 0.6rem 1rem; font-weight: 800; font-size: 0.9rem; cursor: pointer; min-height: 44px; }
