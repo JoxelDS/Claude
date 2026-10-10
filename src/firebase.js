@@ -188,8 +188,52 @@ export { db, storage, ref as storageRef, getBlob as storageGetBlob, isConfigured
    Web Push certificates → "Key pair". Paste it below (it is a PUBLIC key).   */
 export const VAPID_PUBLIC_KEY = "";
 
+
+/* ── Native push (Capacitor app shell) ─────────────────────────────────
+   Inside the installed iOS/Android app there is no service worker or
+   VAPID key: the OS hands the app a device token through the Capacitor
+   PushNotifications plugin (APNs on iOS, FCM on Android). The token is
+   stored in the SAME venues/<venue>/sharedMemory/pushTokens doc the web
+   flow uses — tagged with its platform — so the notifyOnFix function and
+   any future sender reach app phones and browsers through one list.
+   Requires the native side to be finished (google-services.json /
+   GoogleService-Info.plist + APNs key): see docs/APP-SETUP.md. Until
+   then registration simply fails soft and the app works as before.     */
+export async function registerNativePushToken({ venueId, name, role }) {
+  try {
+    const { Capacitor } = await import("@capacitor/core");
+    if (!Capacitor.isNativePlatform()) return { ok: false, reason: "not-native" };
+    const { PushNotifications } = await import("@capacitor/push-notifications");
+    let perm = await PushNotifications.checkPermissions();
+    if (perm.receive === "prompt" || perm.receive === "prompt-with-rationale") {
+      perm = await PushNotifications.requestPermissions();
+    }
+    if (perm.receive !== "granted") return { ok: false, reason: "denied" };
+    const token = await new Promise((resolve, reject) => {
+      let done = false;
+      PushNotifications.addListener("registration", t => { if (!done) { done = true; resolve(t.value); } });
+      PushNotifications.addListener("registrationError", e => { if (!done) { done = true; reject(new Error(e?.error || "push registration failed")); } });
+      PushNotifications.register();
+    });
+    if (!token) return { ok: false, reason: "no-token" };
+    await setDoc(
+      doc(db, "venues", venueId || "default", "sharedMemory", "pushTokens"),
+      { tokens: { [token]: { name: name || "", role: role || "", ts: Date.now(), platform: Capacitor.getPlatform(), native: true } } },
+      { merge: true }
+    );
+    return { ok: true, token };
+  } catch (e) {
+    console.warn("registerNativePushToken:", e?.message || e);
+    return { ok: false, reason: "error" };
+  }
+}
+
 export async function registerPushToken({ venueId, name, role }) {
   try {
+    // In the native app shell, tokens come from the OS, not Web Push.
+    if (typeof window !== "undefined" && window.Capacitor?.isNativePlatform?.()) {
+      return registerNativePushToken({ venueId, name, role });
+    }
     if (!app || !VAPID_PUBLIC_KEY) return { ok: false, reason: "not-configured" };
     if (!(await messagingSupported().catch(() => false))) return { ok: false, reason: "unsupported" };
     if (typeof Notification === "undefined") return { ok: false, reason: "unsupported" };

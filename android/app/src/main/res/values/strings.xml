@@ -2,6 +2,6 @@
 <resources>
     <string name="app_name">SDX Inspect</string>
     <string name="title_activity_main">SDX Inspect</string>
-    <string name="package_name">com.sodexolive.sdxinspect</string>
-    <string name="custom_url_scheme">com.sodexolive.sdxinspect</string>
+    <string name="package_name">com.sdxinspect.app</string>
+    <string name="custom_url_scheme">com.sdxinspect.app</string>
 </resources>

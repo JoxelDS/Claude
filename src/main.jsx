@@ -250,3 +250,12 @@ if ("serviceWorker" in navigator) {
       .catch(() => {});
   });
 }
+
+// ── Native app shell (Capacitor) ──────────────────────────────────────
+// Inside the installed iOS/Android app, wire the native push listeners.
+// The import is dynamic and guarded: on the web window.Capacitor is
+// undefined (or reports a web platform), this module is never loaded,
+// and PWA behavior is completely unchanged.
+if (typeof window !== "undefined" && window.Capacitor?.isNativePlatform?.()) {
+  import("./native/push.js").then(m => m.initNativePush()).catch(() => {});
+}

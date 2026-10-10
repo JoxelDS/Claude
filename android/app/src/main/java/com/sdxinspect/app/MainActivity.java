@@ -1,4 +1,4 @@
-package com.sodexolive.sdxinspect;
+package com.sdxinspect.app;
 
 import com.getcapacitor.BridgeActivity;
 

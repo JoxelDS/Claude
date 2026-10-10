@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Push notifications (APNs). "development" covers Xcode/TestFlight
+	     sandbox builds; when archiving for the App Store, Xcode's
+	     automatic signing pairs this with the production environment of
+	     the distribution profile. See docs/APP-SETUP.md. -->
+	<key>aps-environment</key>
+	<string>development</string>
+</dict>
+</plist>

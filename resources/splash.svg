@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2732 2732">
+  <!-- Splash: SDX mark centered on the deep brand base #16152E. -->
+  <rect width="2732" height="2732" fill="#16152E"/>
+  <g transform="translate(866,866) scale(10)">
+    <rect x="14" y="14" width="72" height="72" rx="19" fill="none" stroke="#FFFFFF" stroke-width="8.5"/>
+    <path d="M32 51 L45 64 L69 37" fill="none" stroke="#33C3B0" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>

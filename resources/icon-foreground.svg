@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- Adaptive-icon foreground: ring + check only, inside the safe zone. -->
+  <rect x="215" y="215" width="594" height="594" rx="156" fill="none" stroke="#FFFFFF" stroke-width="70"/>
+  <path d="M372 517 L472 617 L664 405" fill="none" stroke="#33C3B0" stroke-width="82" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

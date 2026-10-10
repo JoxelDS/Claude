@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- PLACEHOLDER — not a real Firebase config. Download the real
+     GoogleService-Info.plist from Firebase console (Project settings ->
+     General -> Your apps -> iOS, bundle ID com.sdxinspect.app), save it
+     in this folder as GoogleService-Info.plist (no .example suffix),
+     make sure Xcode lists it in the App target, and rebuild.
+     See docs/APP-SETUP.md. -->
+<plist version="1.0">
+<dict>
+	<key>API_KEY</key>
+	<string>YOUR_IOS_API_KEY</string>
+	<key>GCM_SENDER_ID</key>
+	<string>000000000000</string>
+	<key>BUNDLE_ID</key>
+	<string>com.sdxinspect.app</string>
+	<key>PROJECT_ID</key>
+	<string>YOUR_FIREBASE_PROJECT_ID</string>
+	<key>STORAGE_BUCKET</key>
+	<string>YOUR_FIREBASE_PROJECT_ID.firebasestorage.app</string>
+	<key>GOOGLE_APP_ID</key>
+	<string>1:000000000000:ios:0000000000000000000000</string>
+</dict>
+</plist>
