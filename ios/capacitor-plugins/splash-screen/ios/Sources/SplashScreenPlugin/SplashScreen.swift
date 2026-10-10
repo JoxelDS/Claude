@@ -1,1 +1,160 @@
-aW1wb3J0IEZvdW5kYXRpb24KaW1wb3J0IENhcGFjaXRvcgoKQG9iamMgcHVibGljIGNsYXNzIFNwbGFzaFNjcmVlbjogTlNPYmplY3QgewoKICAgIHZhciBwYXJlbnRWaWV3OiBVSVZpZXcKICAgIHZhciB2aWV3Q29udHJvbGxlciA9IFVJVmlld0NvbnRyb2xsZXIoKQogICAgdmFyIHNwaW5uZXIgPSBVSUFjdGl2aXR5SW5kaWNhdG9yVmlldygpCiAgICB2YXIgY29uZmlnOiBTcGxhc2hTY3JlZW5Db25maWcgPSBTcGxhc2hTY3JlZW5Db25maWcoKQogICAgdmFyIGhpZGVUYXNrOiBBbnk/CiAgICB2YXIgaXNWaXNpYmxlOiBCb29sID0gZmFsc2UKCiAgICBpbml0KHBhcmVudFZpZXc6IFVJVmlldywgY29uZmlnOiBTcGxhc2hTY3JlZW5Db25maWcpIHsKICAgICAgICBzZWxmLnBhcmVudFZpZXcgPSBwYXJlbnRWaWV3CiAgICAgICAgc2VsZi5jb25maWcgPSBjb25maWcKICAgIH0KCiAgICBwdWJsaWMgZnVuYyBzaG93T25MYXVuY2goKSB7CiAgICAgICAgYnVpbGRWaWV3cygpCiAgICAgICAgaWYgc2VsZi5jb25maWcubGF1bmNoU2hvd0R1cmF0aW9uID09IDAgewogICAgICAgICAgICByZXR1cm4KICAgICAgICB9CiAgICAgICAgdmFyIHNldHRpbmdzID0gU3BsYXNoU2NyZWVuU2V0dGluZ3MoKQogICAgICAgIHNldHRpbmdzLnNob3dEdXJhdGlvbiA9IGNvbmZpZy5sYXVuY2hTaG93RHVyYXRpb24KICAgICAgICBzZXR0aW5ncy5mYWRlSW5EdXJhdGlvbiA9IGNvbmZpZy5sYXVuY2hGYWRlSW5EdXJhdGlvbgogICAgICAgIHNldHRpbmdzLmF1dG9IaWRlID0gY29uZmlnLmxhdW5jaEF1dG9IaWRlCiAgICAgICAgc2hvd1NwbGFzaChzZXR0aW5nczogc2V0dGluZ3MsIGNvbXBsZXRpb246IHt9LCBpc0xhdW5jaFNwbGFzaDogdHJ1ZSkKICAgIH0KCiAgICBwdWJsaWMgZnVuYyBzaG93KHNldHRpbmdzOiBTcGxhc2hTY3JlZW5TZXR0aW5ncywgY29tcGxldGlvbjogQGVzY2FwaW5nICgpIC0+IFZvaWQpIHsKICAgICAgICBzZWxmLnNob3dTcGxhc2goc2V0dGluZ3M6IHNldHRpbmdzLCBjb21wbGV0aW9uOiBjb21wbGV0aW9uLCBpc0xhdW5jaFNwbGFzaDogZmFsc2UpCiAgICB9CgogICAgcHVibGljIGZ1bmMgaGlkZShzZXR0aW5nczogU3BsYXNoU2NyZWVuU2V0dGluZ3MpIHsKICAgICAgICBoaWRlU3BsYXNoKGZhZGVPdXREdXJhdGlvbjogc2V0dGluZ3MuZmFkZU91dER1cmF0aW9uLCBpc0xhdW5jaFNwbGFzaDogZmFsc2UpCiAgICB9CgogICAgcHJpdmF0ZSBmdW5jIHNob3dTcGxhc2goc2V0dGluZ3M6IFNwbGFzaFNjcmVlblNldHRpbmdzLCBjb21wbGV0aW9uOiBAZXNjYXBpbmcgKCkgLT4gVm9pZCwgaXNMYXVuY2hTcGxhc2g6IEJvb2wpIHsKICAgICAgICBEaXNwYXRjaFF1ZXVlLm1haW4uYXN5bmMgeyBbd2VhayBzZWxmXSBpbgogICAgICAgICAgICBndWFyZCBsZXQgc3Ryb25nU2VsZiA9IHNlbGYgZWxzZSB7CiAgICAgICAgICAgICAgICByZXR1cm4KICAgICAgICAgICAgfQogICAgICAgICAgICBpZiBsZXQgYmFja2dyb3VuZENvbG9yID0gc3Ryb25nU2VsZi5jb25maWcuYmFja2dyb3VuZENvbG9yIHsKICAgICAgICAgICAgICAgIHN0cm9uZ1NlbGYudmlld0NvbnRyb2xsZXIudmlldy5iYWNrZ3JvdW5kQ29sb3IgPSBiYWNrZ3JvdW5kQ29sb3IKICAgICAgICAgICAgfQoKICAgICAgICAgICAgaWYgc3Ryb25nU2VsZi5jb25maWcuc2hvd1NwaW5uZXIgewogICAgICAgICAgICAgICAgaWYgbGV0IHN0eWxlID0gc3Ryb25nU2VsZi5jb25maWcuc3Bpbm5lclN0eWxlIHsKICAgICAgICAgICAgICAgICAgICBzdHJvbmdTZWxmLnNwaW5uZXIuc3R5bGUgPSBzdHlsZQogICAgICAgICAgICAgICAgfQoKICAgICAgICAgICAgICAgIGlmIGxldCBzcGlubmVyQ29sb3IgPSBzdHJvbmdTZWxmLmNvbmZpZy5zcGlubmVyQ29sb3IgewogICAgICAgICAgICAgICAgICAgIHN0cm9uZ1NlbGYuc3Bpbm5lci5jb2xvciA9IHNwaW5uZXJDb2xvcgogICAgICAgICAgICAgICAgfQogICAgICAgICAgICB9CgogICAgICAgICAgICBzdHJvbmdTZWxmLnBhcmVudFZpZXcuYWRkU3VidmlldyhzdHJvbmdTZWxmLnZpZXdDb250cm9sbGVyLnZpZXcpCgogICAgICAgICAgICBpZiBzdHJvbmdTZWxmLmNvbmZpZy5zaG93U3Bpbm5lciB7CiAgICAgICAgICAgICAgICBzdHJvbmdTZWxmLnBhcmVudFZpZXcuYWRkU3VidmlldyhzdHJvbmdTZWxmLnNwaW5uZXIpCiAgICAgICAgICAgICAgICBzdHJvbmdTZWxmLnNwaW5uZXIuY2VudGVyWEFuY2hvci5jb25zdHJhaW50KGVxdWFsVG86IHN0cm9uZ1NlbGYucGFyZW50Vmlldy5jZW50ZXJYQW5jaG9yKS5pc0FjdGl2ZSA9IHRydWUKICAgICAgICAgICAgICAgIHN0cm9uZ1NlbGYuc3Bpbm5lci5jZW50ZXJZQW5jaG9yLmNvbnN0cmFpbnQoZXF1YWxUbzogc3Ryb25nU2VsZi5wYXJlbnRWaWV3LmNlbnRlcllBbmNob3IpLmlzQWN0aXZlID0gdHJ1ZQogICAgICAgICAgICB9CgogICAgICAgICAgICBzdHJvbmdTZWxmLnBhcmVudFZpZXcuaXNVc2VySW50ZXJhY3Rpb25FbmFibGVkID0gZmFsc2UKCiAgICAgICAgICAgIFVJVmlldy50cmFuc2l0aW9uKHdpdGg6IHN0cm9uZ1NlbGYudmlld0NvbnRyb2xsZXIudmlldywgZHVyYXRpb246IFRpbWVJbnRlcnZhbChEb3VibGUoc2V0dGluZ3MuZmFkZUluRHVyYXRpb24pIC8gMTAwMCksIG9wdGlvbnM6IC5jdXJ2ZUxpbmVhciwgYW5pbWF0aW9uczogewogICAgICAgICAgICAgICAgc3Ryb25nU2VsZi52aWV3Q29udHJvbGxlci52aWV3LmFscGhhID0gMQoKICAgICAgICAgICAgICAgIGlmIHN0cm9uZ1NlbGYuY29uZmlnLnNob3dTcGlubmVyIHsKICAgICAgICAgICAgICAgICAgICBzdHJvbmdTZWxmLnNwaW5uZXIuYWxwaGEgPSAxCiAgICAgICAgICAgICAgICB9CiAgICAgICAgICAgIH0pIHsgKF86IEJvb2wpIGluCiAgICAgICAgICAgICAgICBzdHJvbmdTZWxmLmlzVmlzaWJsZSA9IHRydWUKCiAgICAgICAgICAgICAgICBpZiBzZXR0aW5ncy5hdXRvSGlkZSB7CiAgICAgICAgICAgICAgICAgICAgc3Ryb25nU2VsZi5oaWRlVGFzayA9IERpc3BhdGNoUXVldWUubWFpbi5hc3luY0FmdGVyKAogICAgICAgICAgICAgICAgICAgICAgICBkZWFkbGluZTogRGlzcGF0Y2hUaW1lLm5vdygpICsgKERvdWJsZShzZXR0aW5ncy5zaG93RHVyYXRpb24pIC8gMTAwMCkKICAgICAgICAgICAgICAgICAgICApIHsKICAgICAgICAgICAgICAgICAgICAgICAgc3Ryb25nU2VsZi5oaWRlU3BsYXNoKGZhZGVPdXREdXJhdGlvbjogc2V0dGluZ3MuZmFkZU91dER1cmF0aW9uLCBpc0xhdW5jaFNwbGFzaDogaXNMYXVuY2hTcGxhc2gpCiAgICAgICAgICAgICAgICAgICAgICAgIGNvbXBsZXRpb24oKQogICAgICAgICAgICAgICAgICAgIH0KICAgICAgICAgICAgICAgIH0gZWxzZSB7CiAgICAgICAgICAgICAgICAgICAgY29tcGxldGlvbigpCiAgICAgICAgICAgICAgICB9CiAgICAgICAgICAgIH0KICAgICAgICB9CiAgICB9CgogICAgcHJpdmF0ZSBmdW5jIGJ1aWxkVmlld3MoKSB7CiAgICAgICAgbGV0IHN0b3J5Ym9hcmROYW1lID0gQnVuZGxlLm1haW4uaW5mb0RpY3Rpb25hcnk/WyJVSUxhdW5jaFN0b3J5Ym9hcmROYW1lIl0gYXM/IFN0cmluZyA/PyAiTGF1bmNoU2NyZWVuIgogICAgICAgIGlmIGxldCB2YyA9IFVJU3Rvcnlib2FyZChuYW1lOiBzdG9yeWJvYXJkTmFtZS5yZXBsYWNpbmdPY2N1cnJlbmNlcyhvZjogIi5zdG9yeWJvYXJkIiwgd2l0aDogIiIpLCBidW5kbGU6IG5pbCkuaW5zdGFudGlhdGVJbml0aWFsVmlld0NvbnRyb2xsZXIoKSB7CiAgICAgICAgICAgIHZpZXdDb250cm9sbGVyID0gdmMKICAgICAgICB9CgogICAgICAgIC8vIE9ic2VydmUgZm9yIGNoYW5nZXMgb24gZnJhbWUgYW5kIGJvdW5kcyB0byBoYW5kbGUgcm90YXRpb24gcmVzaXppbmcKICAgICAgICBwYXJlbnRWaWV3LmFkZE9ic2VydmVyKHNlbGYsIGZvcktleVBhdGg6ICJmcmFtZSIsIG9wdGlvbnM6IC5uZXcsIGNvbnRleHQ6IG5pbCkKICAgICAgICBwYXJlbnRWaWV3LmFkZE9ic2VydmVyKHNlbGYsIGZvcktleVBhdGg6ICJib3VuZHMiLCBvcHRpb25zOiAubmV3LCBjb250ZXh0OiBuaWwpCgogICAgICAgIHVwZGF0ZVNwbGFzaEltYWdlQm91bmRzKCkKICAgICAgICBpZiBjb25maWcuc2hvd1NwaW5uZXIgewogICAgICAgICAgICBzcGlubmVyLnRyYW5zbGF0ZXNBdXRvcmVzaXppbmdNYXNrSW50b0NvbnN0cmFpbnRzID0gZmFsc2UKICAgICAgICAgICAgc3Bpbm5lci5zdGFydEFuaW1hdGluZygpCiAgICAgICAgfQogICAgfQoKICAgIHByaXZhdGUgZnVuYyB0ZWFyRG93bigpIHsKICAgICAgICBpc1Zpc2libGUgPSBmYWxzZQogICAgICAgIHBhcmVudFZpZXcuaXNVc2VySW50ZXJhY3Rpb25FbmFibGVkID0gdHJ1ZQogICAgICAgIHZpZXdDb250cm9sbGVyLnZpZXcucmVtb3ZlRnJvbVN1cGVydmlldygpCgogICAgICAgIGlmIGNvbmZpZy5zaG93U3Bpbm5lciB7CiAgICAgICAgICAgIHNwaW5uZXIucmVtb3ZlRnJvbVN1cGVydmlldygpCiAgICAgICAgfQogICAgfQoKICAgIC8vIFVwZGF0ZSB0aGUgYm91bmRzIGZvciB0aGUgc3BsYXNoIGltYWdlLiBUaGlzIHdpbGwgYWxzbyBiZSBjYWxsZWQgd2hlbgogICAgLy8gdGhlIHBhcmVudCB2aWV3IG9ic2VydmVycyBmaXJlCiAgICBwcml2YXRlIGZ1bmMgdXBkYXRlU3BsYXNoSW1hZ2VCb3VuZHMoKSB7CiAgICAgICAgdmFyIHdpbmRvdzogVUlXaW5kb3c/ID0gVUlBcHBsaWNhdGlvbi5zaGFyZWQuZGVsZWdhdGU/LndpbmRvdyA/PyBuaWwKCiAgICAgICAgaWYgd2luZG93ID09IG5pbCB7CiAgICAgICAgICAgIGxldCBzY2VuZTogVUlXaW5kb3dTY2VuZT8gPSBVSUFwcGxpY2F0aW9uLnNoYXJlZC5jb25uZWN0ZWRTY2VuZXMuZmlyc3QgYXM/IFVJV2luZG93U2NlbmUKICAgICAgICAgICAgd2luZG93ID0gc2NlbmU/LndpbmRvd3MuZmlsdGVyKHskMC5pc0tleVdpbmRvd30pLmZpcnN0CiAgICAgICAgICAgIGlmIHdpbmRvdyA9PSBuaWwgewogICAgICAgICAgICAgICAgd2luZG93ID0gc2NlbmU/LndpbmRvd3MuZmlyc3QKICAgICAgICAgICAgfQogICAgICAgIH0KCiAgICAgICAgaWYgbGV0IHVud3JhcHBlZFdpbmRvdyA9IHdpbmRvdyB7CiAgICAgICAgICAgIHZpZXdDb250cm9sbGVyLnZpZXcuZnJhbWUgPSBDR1JlY3Qob3JpZ2luOiBDR1BvaW50KHg6IDAsIHk6IDApLCBzaXplOiB1bndyYXBwZWRXaW5kb3cuYm91bmRzLnNpemUpCiAgICAgICAgfSBlbHNlIHsKICAgICAgICAgICAgQ0FQTG9nLnByaW50KCJVbmFibGUgdG8gZmluZCByb290IHdpbmRvdyBvYmplY3QgZm9yIFNwbGFzaFNjcmVlbiBib3VuZHMuIFBsZWFzZSBmaWxlIGFuIGlzc3VlIikKICAgICAgICB9CiAgICB9CgogICAgb3ZlcnJpZGUgcHVibGljIGZ1bmMgb2JzZXJ2ZVZhbHVlKGZvcktleVBhdGgga2V5UGF0aDogU3RyaW5nPywgb2Ygb2JqZWN0OiBBbnk/LCBjaGFuZ2UgXzogW05TS2V5VmFsdWVDaGFuZ2VLZXk6IEFueV0/LCBjb250ZXh0OiBVbnNhZmVNdXRhYmxlUmF3UG9pbnRlcj8pIHsKICAgICAgICB1cGRhdGVTcGxhc2hJbWFnZUJvdW5kcygpCiAgICB9CgogICAgcHJpdmF0ZSBmdW5jIGhpZGVTcGxhc2goZmFkZU91dER1cmF0aW9uOiBJbnQsIGlzTGF1bmNoU3BsYXNoOiBCb29sKSB7CiAgICAgICAgaWYgaXNMYXVuY2hTcGxhc2gsIGlzVmlzaWJsZSB7CiAgICAgICAgICAgIENBUExvZy5wcmludCgiU3BsYXNoU2NyZWVuLmhpZGVTcGxhc2g6IFNwbGFzaFNjcmVlbiB3YXMgYXV0b21hdGljYWxseSBoaWRkZW4gYWZ0ZXIgZGVmYXVsdCB0aW1lb3V0LiAiICsKICAgICAgICAgICAgICAgICAgICAgICAgICAgICJZb3Ugc2hvdWxkIGNhbGwgYFNwbGFzaFNjcmVlbi5oaWRlKClgIGFzIHNvb24gYXMgeW91ciB3ZWIgYXBwIGlzIGxvYWRlZCAob3IgaW5jcmVhc2UgdGhlIHRpbWVvdXQpLiAiICsKICAgICAgICAgICAgICAgICAgICAgICAgICAgICJSZWFkIG1vcmUgYXQgaHR0cHM6Ly9jYXBhY2l0b3Jqcy5jb20vZG9jcy9hcGlzL3NwbGFzaC1zY3JlZW4jaGlkaW5nLXRoZS1zcGxhc2gtc2NyZWVuIikKICAgICAgICB9CiAgICAgICAgaWYgIWlzVmlzaWJsZSB7IHJldHVybiB9CiAgICAgICAgRGlzcGF0Y2hRdWV1ZS5tYWluLmFzeW5jIHsKICAgICAgICAgICAgVUlWaWV3LnRyYW5zaXRpb24od2l0aDogc2VsZi52aWV3Q29udHJvbGxlci52aWV3LCBkdXJhdGlvbjogVGltZUludGVydmFsKERvdWJsZShmYWRlT3V0RHVyYXRpb24pIC8gMTAwMCksIG9wdGlvbnM6IC5jdXJ2ZUxpbmVhciwgYW5pbWF0aW9uczogewogICAgICAgICAgICAgICAgc2VsZi52aWV3Q29udHJvbGxlci52aWV3LmFscGhhID0gMAoKICAgICAgICAgICAgICAgIGlmIHNlbGYuY29uZmlnLnNob3dTcGlubmVyIHsKICAgICAgICAgICAgICAgICAgICBzZWxmLnNwaW5uZXIuYWxwaGEgPSAwCiAgICAgICAgICAgICAgICB9CiAgICAgICAgICAgIH0pIHsgKF86IEJvb2wpIGluCiAgICAgICAgICAgICAgICBzZWxmLnRlYXJEb3duKCkKICAgICAgICAgICAgfQogICAgICAgIH0KICAgIH0KfQo=
+import Foundation
+import Capacitor
+
+@objc public class SplashScreen: NSObject {
+
+    var parentView: UIView
+    var viewController = UIViewController()
+    var spinner = UIActivityIndicatorView()
+    var config: SplashScreenConfig = SplashScreenConfig()
+    var hideTask: Any?
+    var isVisible: Bool = false
+
+    init(parentView: UIView, config: SplashScreenConfig) {
+        self.parentView = parentView
+        self.config = config
+    }
+
+    public func showOnLaunch() {
+        buildViews()
+        if self.config.launchShowDuration == 0 {
+            return
+        }
+        var settings = SplashScreenSettings()
+        settings.showDuration = config.launchShowDuration
+        settings.fadeInDuration = config.launchFadeInDuration
+        settings.autoHide = config.launchAutoHide
+        showSplash(settings: settings, completion: {}, isLaunchSplash: true)
+    }
+
+    public func show(settings: SplashScreenSettings, completion: @escaping () -> Void) {
+        self.showSplash(settings: settings, completion: completion, isLaunchSplash: false)
+    }
+
+    public func hide(settings: SplashScreenSettings) {
+        hideSplash(fadeOutDuration: settings.fadeOutDuration, isLaunchSplash: false)
+    }
+
+    private func showSplash(settings: SplashScreenSettings, completion: @escaping () -> Void, isLaunchSplash: Bool) {
+        DispatchQueue.main.async { [weak self] in
+            guard let strongSelf = self else {
+                return
+            }
+            if let backgroundColor = strongSelf.config.backgroundColor {
+                strongSelf.viewController.view.backgroundColor = backgroundColor
+            }
+
+            if strongSelf.config.showSpinner {
+                if let style = strongSelf.config.spinnerStyle {
+                    strongSelf.spinner.style = style
+                }
+
+                if let spinnerColor = strongSelf.config.spinnerColor {
+                    strongSelf.spinner.color = spinnerColor
+                }
+            }
+
+            strongSelf.parentView.addSubview(strongSelf.viewController.view)
+
+            if strongSelf.config.showSpinner {
+                strongSelf.parentView.addSubview(strongSelf.spinner)
+                strongSelf.spinner.centerXAnchor.constraint(equalTo: strongSelf.parentView.centerXAnchor).isActive = true
+                strongSelf.spinner.centerYAnchor.constraint(equalTo: strongSelf.parentView.centerYAnchor).isActive = true
+            }
+
+            strongSelf.parentView.isUserInteractionEnabled = false
+
+            UIView.transition(with: strongSelf.viewController.view, duration: TimeInterval(Double(settings.fadeInDuration) / 1000), options: .curveLinear, animations: {
+                strongSelf.viewController.view.alpha = 1
+
+                if strongSelf.config.showSpinner {
+                    strongSelf.spinner.alpha = 1
+                }
+            }) { (_: Bool) in
+                strongSelf.isVisible = true
+
+                if settings.autoHide {
+                    strongSelf.hideTask = DispatchQueue.main.asyncAfter(
+                        deadline: DispatchTime.now() + (Double(settings.showDuration) / 1000)
+                    ) {
+                        strongSelf.hideSplash(fadeOutDuration: settings.fadeOutDuration, isLaunchSplash: isLaunchSplash)
+                        completion()
+                    }
+                } else {
+                    completion()
+                }
+            }
+        }
+    }
+
+    private func buildViews() {
+        let storyboardName = Bundle.main.infoDictionary?["UILaunchStoryboardName"] as? String ?? "LaunchScreen"
+        if let vc = UIStoryboard(name: storyboardName.replacingOccurrences(of: ".storyboard", with: ""), bundle: nil).instantiateInitialViewController() {
+            viewController = vc
+        }
+
+        // Observe for changes on frame and bounds to handle rotation resizing
+        parentView.addObserver(self, forKeyPath: "frame", options: .new, context: nil)
+        parentView.addObserver(self, forKeyPath: "bounds", options: .new, context: nil)
+
+        updateSplashImageBounds()
+        if config.showSpinner {
+            spinner.translatesAutoresizingMaskIntoConstraints = false
+            spinner.startAnimating()
+        }
+    }
+
+    private func tearDown() {
+        isVisible = false
+        parentView.isUserInteractionEnabled = true
+        viewController.view.removeFromSuperview()
+
+        if config.showSpinner {
+            spinner.removeFromSuperview()
+        }
+    }
+
+    // Update the bounds for the splash image. This will also be called when
+    // the parent view observers fire
+    private func updateSplashImageBounds() {
+        var window: UIWindow? = UIApplication.shared.delegate?.window ?? nil
+
+        if window == nil {
+            let scene: UIWindowScene? = UIApplication.shared.connectedScenes.first as? UIWindowScene
+            window = scene?.windows.filter({$0.isKeyWindow}).first
+            if window == nil {
+                window = scene?.windows.first
+            }
+        }
+
+        if let unwrappedWindow = window {
+            viewController.view.frame = CGRect(origin: CGPoint(x: 0, y: 0), size: unwrappedWindow.bounds.size)
+        } else {
+            CAPLog.print("Unable to find root window object for SplashScreen bounds. Please file an issue")
+        }
+    }
+
+    override public func observeValue(forKeyPath keyPath: String?, of object: Any?, change _: [NSKeyValueChangeKey: Any]?, context: UnsafeMutableRawPointer?) {
+        updateSplashImageBounds()
+    }
+
+    private func hideSplash(fadeOutDuration: Int, isLaunchSplash: Bool) {
+        if isLaunchSplash, isVisible {
+            CAPLog.print("SplashScreen.hideSplash: SplashScreen was automatically hidden after default timeout. " +
+                            "You should call `SplashScreen.hide()` as soon as your web app is loaded (or increase the timeout). " +
+                            "Read more at https://capacitorjs.com/docs/apis/splash-screen#hiding-the-splash-screen")
+        }
+        if !isVisible { return }
+        DispatchQueue.main.async {
+            UIView.transition(with: self.viewController.view, duration: TimeInterval(Double(fadeOutDuration) / 1000), options: .curveLinear, animations: {
+                self.viewController.view.alpha = 0
+
+                if self.config.showSpinner {
+                    self.spinner.alpha = 0
+                }
+            }) { (_: Bool) in
+                self.tearDown()
+            }
+        }
+    }
+}
