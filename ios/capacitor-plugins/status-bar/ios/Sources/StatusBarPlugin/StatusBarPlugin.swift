@@ -1,1 +1,134 @@
-aW1wb3J0IEZvdW5kYXRpb24KaW1wb3J0IENhcGFjaXRvcgoKLyoqCiAqIFN0YXR1c0JhciBwbHVnaW4uIFJlcXVpcmVzICJWaWV3IGNvbnRyb2xsZXItYmFzZWQgc3RhdHVzIGJhciBhcHBlYXJhbmNlIiB0bwogKiBiZSAiWUVTIiBpbiBJbmZvLnBsaXN0CiAqLwpAb2JqYyhTdGF0dXNCYXJQbHVnaW4pCnB1YmxpYyBjbGFzcyBTdGF0dXNCYXJQbHVnaW46IENBUFBsdWdpbiwgQ0FQQnJpZGdlZFBsdWdpbiB7CiAgICBwdWJsaWMgbGV0IGlkZW50aWZpZXIgPSAiU3RhdHVzQmFyUGx1Z2luIgogICAgcHVibGljIGxldCBqc05hbWUgPSAiU3RhdHVzQmFyIgogICAgcHVibGljIGxldCBwbHVnaW5NZXRob2RzOiBbQ0FQUGx1Z2luTWV0aG9kXSA9IFsKICAgICAgICBDQVBQbHVnaW5NZXRob2QobmFtZTogInNldFN0eWxlIiwgcmV0dXJuVHlwZTogQ0FQUGx1Z2luUmV0dXJuUHJvbWlzZSksCiAgICAgICAgQ0FQUGx1Z2luTWV0aG9kKG5hbWU6ICJzZXRCYWNrZ3JvdW5kQ29sb3IiLCByZXR1cm5UeXBlOiBDQVBQbHVnaW5SZXR1cm5Qcm9taXNlKSwKICAgICAgICBDQVBQbHVnaW5NZXRob2QobmFtZTogInNob3ciLCByZXR1cm5UeXBlOiBDQVBQbHVnaW5SZXR1cm5Qcm9taXNlKSwKICAgICAgICBDQVBQbHVnaW5NZXRob2QobmFtZTogImhpZGUiLCByZXR1cm5UeXBlOiBDQVBQbHVnaW5SZXR1cm5Qcm9taXNlKSwKICAgICAgICBDQVBQbHVnaW5NZXRob2QobmFtZTogImdldEluZm8iLCByZXR1cm5UeXBlOiBDQVBQbHVnaW5SZXR1cm5Qcm9taXNlKSwKICAgICAgICBDQVBQbHVnaW5NZXRob2QobmFtZTogInNldE92ZXJsYXlzV2ViVmlldyIsIHJldHVyblR5cGU6IENBUFBsdWdpblJldHVyblByb21pc2UpCiAgICBdCiAgICBwcml2YXRlIHZhciBzdGF0dXNCYXI6IFN0YXR1c0Jhcj8KICAgIHByaXZhdGUgbGV0IHN0YXR1c0JhclZpc2liaWxpdHlDaGFuZ2VkID0gInN0YXR1c0JhclZpc2liaWxpdHlDaGFuZ2VkIgogICAgcHJpdmF0ZSBsZXQgc3RhdHVzQmFyT3ZlcmxheUNoYW5nZWQgPSAic3RhdHVzQmFyT3ZlcmxheUNoYW5nZWQiCgogICAgb3ZlcnJpZGUgcHVibGljIGZ1bmMgbG9hZCgpIHsKICAgICAgICBndWFyZCBsZXQgYnJpZGdlID0gYnJpZGdlIGVsc2UgeyByZXR1cm4gfQogICAgICAgIHN0YXR1c0JhciA9IFN0YXR1c0JhcihicmlkZ2U6IGJyaWRnZSwgY29uZmlnOiBzdGF0dXNCYXJDb25maWcoKSkKICAgIH0KCiAgICBwcml2YXRlIGZ1bmMgc3RhdHVzQmFyQ29uZmlnKCkgLT4gU3RhdHVzQmFyQ29uZmlnIHsKICAgICAgICB2YXIgY29uZmlnID0gU3RhdHVzQmFyQ29uZmlnKCkKICAgICAgICBjb25maWcub3ZlcmxheXNXZWJWaWV3ID0gZ2V0Q29uZmlnKCkuZ2V0Qm9vbGVhbigib3ZlcmxheXNXZWJWaWV3IiwgY29uZmlnLm92ZXJsYXlzV2ViVmlldykKICAgICAgICBpZiBsZXQgY29sb3JDb25maWcgPSBnZXRDb25maWcoKS5nZXRTdHJpbmcoImJhY2tncm91bmRDb2xvciIpLCBsZXQgY29sb3IgPSBVSUNvbG9yLmNhcGFjaXRvci5jb2xvcihmcm9tSGV4OiBjb2xvckNvbmZpZykgewogICAgICAgICAgICBjb25maWcuYmFja2dyb3VuZENvbG9yID0gY29sb3IKICAgICAgICB9CiAgICAgICAgaWYgbGV0IGNvbmZpZ1N0eWxlID0gZ2V0Q29uZmlnKCkuZ2V0U3RyaW5nKCJzdHlsZSIpIHsKICAgICAgICAgICAgY29uZmlnLnN0eWxlID0gc3R5bGUoZnJvbVN0cmluZzogY29uZmlnU3R5bGUpCiAgICAgICAgfQogICAgICAgIHJldHVybiBjb25maWcKICAgIH0KCiAgICBwcml2YXRlIGZ1bmMgc3R5bGUoZnJvbVN0cmluZzogU3RyaW5nKSAtPiBVSVN0YXR1c0JhclN0eWxlIHsKICAgICAgICBzd2l0Y2ggZnJvbVN0cmluZy5sb3dlcmNhc2VkKCkgewogICAgICAgIGNhc2UgImRhcmsiLCAibGlnaHRjb250ZW50IjoKICAgICAgICAgICAgcmV0dXJuIC5saWdodENvbnRlbnQKICAgICAgICBjYXNlICJsaWdodCIsICJkYXJrY29udGVudCI6CiAgICAgICAgICAgIHJldHVybiAuZGFya0NvbnRlbnQKICAgICAgICBjYXNlICJkZWZhdWx0IjoKICAgICAgICAgICAgcmV0dXJuIC5kZWZhdWx0CiAgICAgICAgZGVmYXVsdDoKICAgICAgICAgICAgcmV0dXJuIC5kZWZhdWx0CiAgICAgICAgfQogICAgfQoKICAgIEBvYmpjIGZ1bmMgc2V0U3R5bGUoXyBjYWxsOiBDQVBQbHVnaW5DYWxsKSB7CiAgICAgICAgbGV0IG9wdGlvbnMgPSBjYWxsLm9wdGlvbnMhCiAgICAgICAgaWYgbGV0IHN0eWxlU3RyaW5nID0gb3B0aW9uc1sic3R5bGUiXSBhcz8gU3RyaW5nIHsKICAgICAgICAgICAgc3RhdHVzQmFyPy5zZXRTdHlsZShzdHlsZShmcm9tU3RyaW5nOiBzdHlsZVN0cmluZykpCiAgICAgICAgfQogICAgICAgIGNhbGwucmVzb2x2ZShbOl0pCiAgICB9CgogICAgQG9iamMgZnVuYyBzZXRCYWNrZ3JvdW5kQ29sb3IoXyBjYWxsOiBDQVBQbHVnaW5DYWxsKSB7CiAgICAgICAgZ3VhcmQKICAgICAgICAgICAgbGV0IGhleFN0cmluZyA9IGNhbGwub3B0aW9uc1siY29sb3IiXSBhcz8gU3RyaW5nLAogICAgICAgICAgICBsZXQgY29sb3IgPSBVSUNvbG9yLmNhcGFjaXRvci5jb2xvcihmcm9tSGV4OiBoZXhTdHJpbmcpCiAgICAgICAgZWxzZSB7IHJldHVybiB9CiAgICAgICAgRGlzcGF0Y2hRdWV1ZS5tYWluLmFzeW5jIHsgW3dlYWsgc2VsZl0gaW4KICAgICAgICAgICAgc2VsZj8uc3RhdHVzQmFyPy5zZXRCYWNrZ3JvdW5kQ29sb3IoY29sb3IpCiAgICAgICAgfQogICAgICAgIGNhbGwucmVzb2x2ZSgpCiAgICB9CgogICAgQG9iamMgZnVuYyBoaWRlKF8gY2FsbDogQ0FQUGx1Z2luQ2FsbCkgewogICAgICAgIGxldCBhbmltYXRpb24gPSBjYWxsLmdldFN0cmluZygiYW5pbWF0aW9uIiwgIkZBREUiKQogICAgICAgIERpc3BhdGNoUXVldWUubWFpbi5hc3luYyB7IFt3ZWFrIHNlbGZdIGluCiAgICAgICAgICAgIHNlbGY/LnN0YXR1c0Jhcj8uaGlkZShhbmltYXRpb246IGFuaW1hdGlvbikKICAgICAgICAgICAgZ3VhcmQKICAgICAgICAgICAgICAgIGxldCBpbmZvID0gc2VsZj8uc3RhdHVzQmFyPy5nZXRJbmZvKCksCiAgICAgICAgICAgICAgICBsZXQgZGljdCA9IHNlbGY/LnRvRGljdChpbmZvKSwKICAgICAgICAgICAgICAgIGxldCBldmVudCA9IHNlbGY/LnN0YXR1c0JhclZpc2liaWxpdHlDaGFuZ2VkCiAgICAgICAgICAgIGVsc2UgeyByZXR1cm4gfQogICAgICAgICAgICBzZWxmPy5ub3RpZnlMaXN0ZW5lcnMoZXZlbnQsIGRhdGE6IGRpY3QpCiAgICAgICAgfQogICAgICAgIGNhbGwucmVzb2x2ZSgpCiAgICB9CgogICAgQG9iamMgZnVuYyBzaG93KF8gY2FsbDogQ0FQUGx1Z2luQ2FsbCkgewogICAgICAgIGxldCBhbmltYXRpb24gPSBjYWxsLmdldFN0cmluZygiYW5pbWF0aW9uIiwgIkZBREUiKQogICAgICAgIERpc3BhdGNoUXVldWUubWFpbi5hc3luYyB7IFt3ZWFrIHNlbGZdIGluCiAgICAgICAgICAgIHNlbGY/LnN0YXR1c0Jhcj8uc2hvdyhhbmltYXRpb246IGFuaW1hdGlvbikKICAgICAgICAgICAgZ3VhcmQKICAgICAgICAgICAgICAgIGxldCBpbmZvID0gc2VsZj8uc3RhdHVzQmFyPy5nZXRJbmZvKCksCiAgICAgICAgICAgICAgICBsZXQgZGljdCA9IHNlbGY/LnRvRGljdChpbmZvKSwKICAgICAgICAgICAgICAgIGxldCBldmVudCA9IHNlbGY/LnN0YXR1c0JhclZpc2liaWxpdHlDaGFuZ2VkCiAgICAgICAgICAgIGVsc2UgeyByZXR1cm4gfQogICAgICAgICAgICBzZWxmPy5ub3RpZnlMaXN0ZW5lcnMoZXZlbnQsIGRhdGE6IGRpY3QpCiAgICAgICAgfQogICAgICAgIGNhbGwucmVzb2x2ZSgpCiAgICB9CgogICAgQG9iamMgZnVuYyBnZXRJbmZvKF8gY2FsbDogQ0FQUGx1Z2luQ2FsbCkgewogICAgICAgIERpc3BhdGNoUXVldWUubWFpbi5hc3luYyB7IFt3ZWFrIHNlbGZdIGluCiAgICAgICAgICAgIGd1YXJkCiAgICAgICAgICAgICAgICBsZXQgaW5mbyA9IHNlbGY/LnN0YXR1c0Jhcj8uZ2V0SW5mbygpLAogICAgICAgICAgICAgICAgbGV0IGRpY3QgPSBzZWxmPy50b0RpY3QoaW5mbykKICAgICAgICAgICAgZWxzZSB7IHJldHVybiB9CiAgICAgICAgICAgIGNhbGwucmVzb2x2ZShkaWN0KQogICAgICAgIH0KICAgIH0KCiAgICBAb2JqYyBmdW5jIHNldE92ZXJsYXlzV2ViVmlldyhfIGNhbGw6IENBUFBsdWdpbkNhbGwpIHsKICAgICAgICBndWFyZCBsZXQgb3ZlcmxheSA9IGNhbGwub3B0aW9uc1sib3ZlcmxheSJdIGFzPyBCb29sIGVsc2UgeyByZXR1cm4gfQogICAgICAgIERpc3BhdGNoUXVldWUubWFpbi5hc3luYyB7IFt3ZWFrIHNlbGZdIGluCiAgICAgICAgICAgIHNlbGY/LnN0YXR1c0Jhcj8uc2V0T3ZlcmxheXNXZWJWaWV3KG92ZXJsYXkpCiAgICAgICAgICAgIGd1YXJkCiAgICAgICAgICAgICAgICBsZXQgaW5mbyA9IHNlbGY/LnN0YXR1c0Jhcj8uZ2V0SW5mbygpLAogICAgICAgICAgICAgICAgbGV0IGRpY3QgPSBzZWxmPy50b0RpY3QoaW5mbyksCiAgICAgICAgICAgICAgICBsZXQgZXZlbnQgPSBzZWxmPy5zdGF0dXNCYXJPdmVybGF5Q2hhbmdlZAogICAgICAgICAgICBlbHNlIHsgcmV0dXJuIH0KICAgICAgICAgICAgc2VsZj8ubm90aWZ5TGlzdGVuZXJzKGV2ZW50LCBkYXRhOiBkaWN0KQogICAgICAgIH0KICAgICAgICBjYWxsLnJlc29sdmUoKQogICAgfQoKICAgIHByaXZhdGUgZnVuYyB0b0RpY3QoXyBpbmZvOiBTdGF0dXNCYXJJbmZvKSAtPiBbU3RyaW5nOiBBbnldIHsKICAgICAgICByZXR1cm4gWwogICAgICAgICAgICAidmlzaWJsZSI6IGluZm8udmlzaWJsZSEsCiAgICAgICAgICAgICJzdHlsZSI6IGluZm8uc3R5bGUhLAogICAgICAgICAgICAiY29sb3IiOiBpbmZvLmNvbG9yISwKICAgICAgICAgICAgIm92ZXJsYXlzIjogaW5mby5vdmVybGF5cyEsCiAgICAgICAgICAgICJoZWlnaHQiOiBpbmZvLmhlaWdodCEKICAgICAgICBdCiAgICB9Cn0K
+import Foundation
+import Capacitor
+
+/**
+ * StatusBar plugin. Requires "View controller-based status bar appearance" to
+ * be "YES" in Info.plist
+ */
+@objc(StatusBarPlugin)
+public class StatusBarPlugin: CAPPlugin, CAPBridgedPlugin {
+    public let identifier = "StatusBarPlugin"
+    public let jsName = "StatusBar"
+    public let pluginMethods: [CAPPluginMethod] = [
+        CAPPluginMethod(name: "setStyle", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "setBackgroundColor", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "show", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "hide", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "getInfo", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "setOverlaysWebView", returnType: CAPPluginReturnPromise)
+    ]
+    private var statusBar: StatusBar?
+    private let statusBarVisibilityChanged = "statusBarVisibilityChanged"
+    private let statusBarOverlayChanged = "statusBarOverlayChanged"
+
+    override public func load() {
+        guard let bridge = bridge else { return }
+        statusBar = StatusBar(bridge: bridge, config: statusBarConfig())
+    }
+
+    private func statusBarConfig() -> StatusBarConfig {
+        var config = StatusBarConfig()
+        config.overlaysWebView = getConfig().getBoolean("overlaysWebView", config.overlaysWebView)
+        if let colorConfig = getConfig().getString("backgroundColor"), let color = UIColor.capacitor.color(fromHex: colorConfig) {
+            config.backgroundColor = color
+        }
+        if let configStyle = getConfig().getString("style") {
+            config.style = style(fromString: configStyle)
+        }
+        return config
+    }
+
+    private func style(fromString: String) -> UIStatusBarStyle {
+        switch fromString.lowercased() {
+        case "dark", "lightcontent":
+            return .lightContent
+        case "light", "darkcontent":
+            return .darkContent
+        case "default":
+            return .default
+        default:
+            return .default
+        }
+    }
+
+    @objc func setStyle(_ call: CAPPluginCall) {
+        let options = call.options!
+        if let styleString = options["style"] as? String {
+            statusBar?.setStyle(style(fromString: styleString))
+        }
+        call.resolve([:])
+    }
+
+    @objc func setBackgroundColor(_ call: CAPPluginCall) {
+        guard
+            let hexString = call.options["color"] as? String,
+            let color = UIColor.capacitor.color(fromHex: hexString)
+        else { return }
+        DispatchQueue.main.async { [weak self] in
+            self?.statusBar?.setBackgroundColor(color)
+        }
+        call.resolve()
+    }
+
+    @objc func hide(_ call: CAPPluginCall) {
+        let animation = call.getString("animation", "FADE")
+        DispatchQueue.main.async { [weak self] in
+            self?.statusBar?.hide(animation: animation)
+            guard
+                let info = self?.statusBar?.getInfo(),
+                let dict = self?.toDict(info),
+                let event = self?.statusBarVisibilityChanged
+            else { return }
+            self?.notifyListeners(event, data: dict)
+        }
+        call.resolve()
+    }
+
+    @objc func show(_ call: CAPPluginCall) {
+        let animation = call.getString("animation", "FADE")
+        DispatchQueue.main.async { [weak self] in
+            self?.statusBar?.show(animation: animation)
+            guard
+                let info = self?.statusBar?.getInfo(),
+                let dict = self?.toDict(info),
+                let event = self?.statusBarVisibilityChanged
+            else { return }
+            self?.notifyListeners(event, data: dict)
+        }
+        call.resolve()
+    }
+
+    @objc func getInfo(_ call: CAPPluginCall) {
+        DispatchQueue.main.async { [weak self] in
+            guard
+                let info = self?.statusBar?.getInfo(),
+                let dict = self?.toDict(info)
+            else { return }
+            call.resolve(dict)
+        }
+    }
+
+    @objc func setOverlaysWebView(_ call: CAPPluginCall) {
+        guard let overlay = call.options["overlay"] as? Bool else { return }
+        DispatchQueue.main.async { [weak self] in
+            self?.statusBar?.setOverlaysWebView(overlay)
+            guard
+                let info = self?.statusBar?.getInfo(),
+                let dict = self?.toDict(info),
+                let event = self?.statusBarOverlayChanged
+            else { return }
+            self?.notifyListeners(event, data: dict)
+        }
+        call.resolve()
+    }
+
+    private func toDict(_ info: StatusBarInfo) -> [String: Any] {
+        return [
+            "visible": info.visible!,
+            "style": info.style!,
+            "color": info.color!,
+            "overlays": info.overlays!,
+            "height": info.height!
+        ]
+    }
+}
