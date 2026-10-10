@@ -1,0 +1,25 @@
+{
+  "_comment": "PLACEHOLDER — not a real Firebase config. Download the real google-services.json from Firebase console (Project settings -> General -> Your apps -> Android, package name com.sdxinspect.app), save it as android/app/google-services.json (no .example suffix), and rebuild. See docs/APP-SETUP.md. Do not put real values in this example file.",
+  "project_info": {
+    "project_number": "000000000000",
+    "project_id": "YOUR_FIREBASE_PROJECT_ID",
+    "storage_bucket": "YOUR_FIREBASE_PROJECT_ID.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:000000000000:android:0000000000000000000000",
+        "android_client_info": {
+          "package_name": "com.sdxinspect.app"
+        }
+      },
+      "api_key": [
+        { "current_key": "YOUR_ANDROID_API_KEY" }
+      ],
+      "services": {
+        "appinvite_service": { "other_platform_oauth_client": [] }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
