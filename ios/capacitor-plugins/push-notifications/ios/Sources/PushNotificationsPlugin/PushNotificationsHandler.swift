@@ -1,1 +1,93 @@
-aW1wb3J0IENhcGFjaXRvcgppbXBvcnQgVXNlck5vdGlmaWNhdGlvbnMKCnB1YmxpYyBjbGFzcyBQdXNoTm90aWZpY2F0aW9uc0hhbmRsZXI6IE5TT2JqZWN0LCBOb3RpZmljYXRpb25IYW5kbGVyUHJvdG9jb2wgewogICAgcHVibGljIHdlYWsgdmFyIHBsdWdpbjogQ0FQUGx1Z2luPwogICAgdmFyIG5vdGlmaWNhdGlvblJlcXVlc3RMb29rdXAgPSBbU3RyaW5nOiBKU09iamVjdF0oKQoKICAgIHB1YmxpYyBmdW5jIHJlcXVlc3RQZXJtaXNzaW9ucyh3aXRoIGNvbXBsZXRpb246ICgoQm9vbCwgRXJyb3I/KSAtPiBWb2lkKT8gPSBuaWwpIHsKICAgICAgICBVTlVzZXJOb3RpZmljYXRpb25DZW50ZXIuY3VycmVudCgpLnJlcXVlc3RBdXRob3JpemF0aW9uKG9wdGlvbnM6IFsuYWxlcnQsIC5zb3VuZCwgLmJhZGdlXSkgeyBncmFudGVkLCBlcnJvciBpbgogICAgICAgICAgICBjb21wbGV0aW9uPyhncmFudGVkLCBlcnJvcikKICAgICAgICB9CiAgICB9CgogICAgcHVibGljIGZ1bmMgY2hlY2tQZXJtaXNzaW9ucyh3aXRoIGNvbXBsZXRpb246ICgoVU5BdXRob3JpemF0aW9uU3RhdHVzKSAtPiBWb2lkKT8gPSBuaWwpIHsKICAgICAgICBVTlVzZXJOb3RpZmljYXRpb25DZW50ZXIuY3VycmVudCgpLmdldE5vdGlmaWNhdGlvblNldHRpbmdzIHsgc2V0dGluZ3MgaW4KICAgICAgICAgICAgY29tcGxldGlvbj8oc2V0dGluZ3MuYXV0aG9yaXphdGlvblN0YXR1cykKICAgICAgICB9CiAgICB9CgogICAgcHVibGljIGZ1bmMgd2lsbFByZXNlbnQobm90aWZpY2F0aW9uOiBVTk5vdGlmaWNhdGlvbikgLT4gVU5Ob3RpZmljYXRpb25QcmVzZW50YXRpb25PcHRpb25zIHsKICAgICAgICBsZXQgbm90aWZpY2F0aW9uRGF0YSA9IG1ha2VOb3RpZmljYXRpb25SZXF1ZXN0SlNPYmplY3Qobm90aWZpY2F0aW9uLnJlcXVlc3QpCiAgICAgICAgc2VsZi5wbHVnaW4/Lm5vdGlmeUxpc3RlbmVycygicHVzaE5vdGlmaWNhdGlvblJlY2VpdmVkIiwgZGF0YTogbm90aWZpY2F0aW9uRGF0YSkKCiAgICAgICAgaWYgbGV0IG9wdGlvbnMgPSBub3RpZmljYXRpb25SZXF1ZXN0TG9va3VwW25vdGlmaWNhdGlvbi5yZXF1ZXN0LmlkZW50aWZpZXJdIHsKICAgICAgICAgICAgbGV0IHNpbGVudCA9IG9wdGlvbnNbInNpbGVudCJdIGFzPyBCb29sID8/IGZhbHNlCgogICAgICAgICAgICBpZiBzaWxlbnQgewogICAgICAgICAgICAgICAgcmV0dXJuIFVOTm90aWZpY2F0aW9uUHJlc2VudGF0aW9uT3B0aW9ucy5pbml0KHJhd1ZhbHVlOiAwKQogICAgICAgICAgICB9CiAgICAgICAgfQoKICAgICAgICBpZiBsZXQgb3B0aW9uc0FycmF5ID0gc2VsZi5wbHVnaW4/LmdldENvbmZpZygpLmdldEFycmF5KCJwcmVzZW50YXRpb25PcHRpb25zIikgYXM/IFtTdHJpbmddIHsKICAgICAgICAgICAgdmFyIHByZXNlbnRhdGlvbk9wdGlvbnMgPSBVTk5vdGlmaWNhdGlvblByZXNlbnRhdGlvbk9wdGlvbnMuaW5pdCgpCgogICAgICAgICAgICBvcHRpb25zQXJyYXkuZm9yRWFjaCB7IG9wdGlvbiBpbgogICAgICAgICAgICAgICAgc3dpdGNoIG9wdGlvbiB7CiAgICAgICAgICAgICAgICBjYXNlICJiYW5uZXIiOgogICAgICAgICAgICAgICAgICAgIHByZXNlbnRhdGlvbk9wdGlvbnMuaW5zZXJ0KC5iYW5uZXIpCiAgICAgICAgICAgICAgICBjYXNlICJsaXN0IjoKICAgICAgICAgICAgICAgICAgICBwcmVzZW50YXRpb25PcHRpb25zLmluc2VydCgubGlzdCkKICAgICAgICAgICAgICAgIGNhc2UgImFsZXJ0IjoKICAgICAgICAgICAgICAgICAgICBwcmVzZW50YXRpb25PcHRpb25zLmluc2VydCguYmFubmVyKQogICAgICAgICAgICAgICAgICAgIHByZXNlbnRhdGlvbk9wdGlvbnMuaW5zZXJ0KC5saXN0KQogICAgICAgICAgICAgICAgY2FzZSAiYmFkZ2UiOgogICAgICAgICAgICAgICAgICAgIHByZXNlbnRhdGlvbk9wdGlvbnMuaW5zZXJ0KC5iYWRnZSkKICAgICAgICAgICAgICAgIGNhc2UgInNvdW5kIjoKICAgICAgICAgICAgICAgICAgICBwcmVzZW50YXRpb25PcHRpb25zLmluc2VydCguc291bmQpCiAgICAgICAgICAgICAgICBkZWZhdWx0OgogICAgICAgICAgICAgICAgICAgIHByaW50KCJVbnJlY29naXpuZWQgcHJlc2VudGF0aW9uIG9wdGlvbjogXChvcHRpb24pIikKICAgICAgICAgICAgICAgIH0KICAgICAgICAgICAgfQoKICAgICAgICAgICAgcmV0dXJuIHByZXNlbnRhdGlvbk9wdGlvbnMKICAgICAgICB9CgogICAgICAgIHJldHVybiBbXQogICAgfQoKICAgIHB1YmxpYyBmdW5jIGRpZFJlY2VpdmUocmVzcG9uc2U6IFVOTm90aWZpY2F0aW9uUmVzcG9uc2UpIHsKICAgICAgICB2YXIgZGF0YSA9IEpTT2JqZWN0KCkKCiAgICAgICAgbGV0IG9yaWdpbmFsTm90aWZpY2F0aW9uUmVxdWVzdCA9IHJlc3BvbnNlLm5vdGlmaWNhdGlvbi5yZXF1ZXN0CiAgICAgICAgbGV0IGFjdGlvbklkID0gcmVzcG9uc2UuYWN0aW9uSWRlbnRpZmllcgoKICAgICAgICBpZiBhY3Rpb25JZCA9PSBVTk5vdGlmaWNhdGlvbkRlZmF1bHRBY3Rpb25JZGVudGlmaWVyIHsKICAgICAgICAgICAgZGF0YVsiYWN0aW9uSWQiXSA9ICJ0YXAiCiAgICAgICAgfSBlbHNlIGlmIGFjdGlvbklkID09IFVOTm90aWZpY2F0aW9uRGlzbWlzc0FjdGlvbklkZW50aWZpZXIgewogICAgICAgICAgICBkYXRhWyJhY3Rpb25JZCJdID0gImRpc21pc3MiCiAgICAgICAgfSBlbHNlIHsKICAgICAgICAgICAgZGF0YVsiYWN0aW9uSWQiXSA9IGFjdGlvbklkCiAgICAgICAgfQoKICAgICAgICBpZiBsZXQgaW5wdXRUeXBlID0gcmVzcG9uc2UgYXM/IFVOVGV4dElucHV0Tm90aWZpY2F0aW9uUmVzcG9uc2UgewogICAgICAgICAgICBkYXRhWyJpbnB1dFZhbHVlIl0gPSBpbnB1dFR5cGUudXNlclRleHQKICAgICAgICB9CgogICAgICAgIGRhdGFbIm5vdGlmaWNhdGlvbiJdID0gbWFrZU5vdGlmaWNhdGlvblJlcXVlc3RKU09iamVjdChvcmlnaW5hbE5vdGlmaWNhdGlvblJlcXVlc3QpCgogICAgICAgIHNlbGYucGx1Z2luPy5ub3RpZnlMaXN0ZW5lcnMoInB1c2hOb3RpZmljYXRpb25BY3Rpb25QZXJmb3JtZWQiLCBkYXRhOiBkYXRhLCByZXRhaW5VbnRpbENvbnN1bWVkOiB0cnVlKQoKICAgIH0KCiAgICBmdW5jIG1ha2VOb3RpZmljYXRpb25SZXF1ZXN0SlNPYmplY3QoXyByZXF1ZXN0OiBVTk5vdGlmaWNhdGlvblJlcXVlc3QpIC0+IEpTT2JqZWN0IHsKICAgICAgICByZXR1cm4gWwogICAgICAgICAgICAiaWQiOiByZXF1ZXN0LmlkZW50aWZpZXIsCiAgICAgICAgICAgICJ0aXRsZSI6IHJlcXVlc3QuY29udGVudC50aXRsZSwKICAgICAgICAgICAgInN1YnRpdGxlIjogcmVxdWVzdC5jb250ZW50LnN1YnRpdGxlLAogICAgICAgICAgICAiYmFkZ2UiOiByZXF1ZXN0LmNvbnRlbnQuYmFkZ2UgPz8gMSwKICAgICAgICAgICAgImJvZHkiOiByZXF1ZXN0LmNvbnRlbnQuYm9keSwKICAgICAgICAgICAgImRhdGEiOiBKU1R5cGVzLmNvZXJjZURpY3Rpb25hcnlUb0pTT2JqZWN0KHJlcXVlc3QuY29udGVudC51c2VySW5mbykgPz8gWzpdCiAgICAgICAgXQogICAgfQp9Cg==
+import Capacitor
+import UserNotifications
+
+public class PushNotificationsHandler: NSObject, NotificationHandlerProtocol {
+    public weak var plugin: CAPPlugin?
+    var notificationRequestLookup = [String: JSObject]()
+
+    public func requestPermissions(with completion: ((Bool, Error?) -> Void)? = nil) {
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
+            completion?(granted, error)
+        }
+    }
+
+    public func checkPermissions(with completion: ((UNAuthorizationStatus) -> Void)? = nil) {
+        UNUserNotificationCenter.current().getNotificationSettings { settings in
+            completion?(settings.authorizationStatus)
+        }
+    }
+
+    public func willPresent(notification: UNNotification) -> UNNotificationPresentationOptions {
+        let notificationData = makeNotificationRequestJSObject(notification.request)
+        self.plugin?.notifyListeners("pushNotificationReceived", data: notificationData)
+
+        if let options = notificationRequestLookup[notification.request.identifier] {
+            let silent = options["silent"] as? Bool ?? false
+
+            if silent {
+                return UNNotificationPresentationOptions.init(rawValue: 0)
+            }
+        }
+
+        if let optionsArray = self.plugin?.getConfig().getArray("presentationOptions") as? [String] {
+            var presentationOptions = UNNotificationPresentationOptions.init()
+
+            optionsArray.forEach { option in
+                switch option {
+                case "banner":
+                    presentationOptions.insert(.banner)
+                case "list":
+                    presentationOptions.insert(.list)
+                case "alert":
+                    presentationOptions.insert(.banner)
+                    presentationOptions.insert(.list)
+                case "badge":
+                    presentationOptions.insert(.badge)
+                case "sound":
+                    presentationOptions.insert(.sound)
+                default:
+                    print("Unrecogizned presentation option: \(option)")
+                }
+            }
+
+            return presentationOptions
+        }
+
+        return []
+    }
+
+    public func didReceive(response: UNNotificationResponse) {
+        var data = JSObject()
+
+        let originalNotificationRequest = response.notification.request
+        let actionId = response.actionIdentifier
+
+        if actionId == UNNotificationDefaultActionIdentifier {
+            data["actionId"] = "tap"
+        } else if actionId == UNNotificationDismissActionIdentifier {
+            data["actionId"] = "dismiss"
+        } else {
+            data["actionId"] = actionId
+        }
+
+        if let inputType = response as? UNTextInputNotificationResponse {
+            data["inputValue"] = inputType.userText
+        }
+
+        data["notification"] = makeNotificationRequestJSObject(originalNotificationRequest)
+
+        self.plugin?.notifyListeners("pushNotificationActionPerformed", data: data, retainUntilConsumed: true)
+
+    }
+
+    func makeNotificationRequestJSObject(_ request: UNNotificationRequest) -> JSObject {
+        return [
+            "id": request.identifier,
+            "title": request.content.title,
+            "subtitle": request.content.subtitle,
+            "badge": request.content.badge ?? 1,
+            "body": request.content.body,
+            "data": JSTypes.coerceDictionaryToJSObject(request.content.userInfo) ?? [:]
+        ]
+    }
+}
