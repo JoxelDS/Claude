@@ -76,7 +76,8 @@
     <title>SDX Inspect</title>
     <!-- Inline critical CSS for instant first paint -->
     <style>
-      body{margin:0;font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f0f2f7}
+      html{background:#16152E}
+      body{margin:0;font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#16152E}
       #splash{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px;background:linear-gradient(135deg,#2A295C 0%,#1e1d4a 50%,#283897 100%);z-index:9999;transition:opacity .3s}
       #splash.hide{opacity:0;pointer-events:none}
       .sp-logo{font-size:1.4rem;font-weight:700;color:#fff;letter-spacing:-.3px}
@@ -120,6 +121,26 @@
     /* Kill the top bar that flashes when translation is applied */
     .goog-te-banner-frame.skiptranslate { display: none !important; }
     font[style*="vertical-align"] { vertical-align: inherit !important; }
+  </style>
+  <!-- SDX sign-in hotfix (2026-10-10) — index.html-level fix for the badge
+       sign-in screen. The full fixes live in the build-2 patch 01 + app-feel
+       stack (src/App.css, capacitor.config.json); these overrides use the
+       same values, so when that stack lands they agree and this block
+       simply becomes redundant.
+       1) Black band: .pinOverlay paints only the web viewport; when iOS
+          shrinks it (keyboard), the strip below showed the shell's
+          near-black (#0A0A0D). The page canvas (html/body, above) is now the
+          SDX deep base #16152E, and the overlay is pinned to the dynamic
+          viewport height and allowed to scroll — black can no longer show.
+       2) Pink button: .pinBtn.btnPrimary inherited the app-wide red
+          primary; disabled at 45% opacity it rendered salmon-pink. Navy
+          when enabled, true gray when disabled — red stays for fails. -->
+  <style>
+    .pinOverlay{height:100vh !important;height:100dvh !important;min-height:100dvh !important;overflow-y:auto !important}
+    .pinBtn.btnPrimary{background:#2A295C !important;box-shadow:0 1px 3px rgba(20,20,40,.18) !important}
+    .pinBtn.btnPrimary:hover:not(:disabled){background:#1E1D4A !important}
+    .pinBtn.btnPrimary:active:not(:disabled){background:#1E1D4A !important}
+    .pinBtn.btnPrimary:disabled{background:#DDE1E8 !important;color:#8D95A5 !important;box-shadow:none !important;opacity:1 !important}
   </style>
   </head>
   <body>
