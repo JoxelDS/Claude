@@ -1,1 +1,11 @@
-aW1wb3J0IFVJS2l0CgpwdWJsaWMgc3RydWN0IFNwbGFzaFNjcmVlbkNvbmZpZyB7CiAgICB2YXIgYmFja2dyb3VuZENvbG9yOiBVSUNvbG9yPwogICAgdmFyIHNwaW5uZXJTdHlsZTogVUlBY3Rpdml0eUluZGljYXRvclZpZXcuU3R5bGU/CiAgICB2YXIgc3Bpbm5lckNvbG9yOiBVSUNvbG9yPwogICAgdmFyIHNob3dTcGlubmVyID0gZmFsc2UKICAgIHZhciBsYXVuY2hTaG93RHVyYXRpb24gPSA1MDAKICAgIHZhciBsYXVuY2hBdXRvSGlkZSA9IHRydWUKICAgIGxldCBsYXVuY2hGYWRlSW5EdXJhdGlvbiA9IDAKfQo=
+import UIKit
+
+public struct SplashScreenConfig {
+    var backgroundColor: UIColor?
+    var spinnerStyle: UIActivityIndicatorView.Style?
+    var spinnerColor: UIColor?
+    var showSpinner = false
+    var launchShowDuration = 500
+    var launchAutoHide = true
+    let launchFadeInDuration = 0
+}
