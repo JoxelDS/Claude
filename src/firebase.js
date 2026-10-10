@@ -1,5 +1,5 @@
 /*
- * Firebase Configuration for Sodexo Kitchen Inspection
+ * Firebase Configuration for SDX Inspect
  *
  * ── API KEY SECURITY ──────────────────────────────────────────────
  * The API key below is a BROWSER key (public identifier). It is safe

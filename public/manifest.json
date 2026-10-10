@@ -1,7 +1,7 @@
 {
-  "name": "Sodexo Live! Kitchen Inspection",
+  "name": "SDX Inspect",
   "short_name": "SDX Inspect",
-  "description": "Professional kitchen inspection and HACCP compliance system for Sodexo Live! venues",
+  "description": "Professional kitchen inspection and HACCP compliance system for venue teams",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
