@@ -6,6 +6,23 @@ the same web app now also builds as a native iOS/Android app named
 wiring in place. The website/PWA is untouched in behavior — every native
 code path is guarded by a platform check and never loads on the web.
 
+> ⚠️ **One pre-merge step — lockfile.** `package.json` in this branch adds
+> `@capacitor/push-notifications` and `@capacitor/assets`, but
+> `package-lock.json` could not be refreshed through the API channel used
+> to assemble this branch (the file exceeds what that channel can carry).
+> Before merging, from a normal checkout run:
+>
+> ```bash
+> npm install   # refreshes package-lock.json for the two new deps
+> git add package-lock.json && git commit -m "app: refresh lockfile"
+> ```
+>
+> Until that commit lands, `npm ci` (used by the Pages deploy workflow)
+> would fail on the mismatch — so do not merge without it. The updated
+> lockfile was generated and verified during this branch's preparation
+> (push-notifications 8.1.3, @capacitor/assets 3.0.5, lockfileVersion 3);
+> it just couldn't ride along.
+
 ## What this branch changes
 
 - `capacitor.config.json` — appId `com.sodexolive.sdxinspect` →
