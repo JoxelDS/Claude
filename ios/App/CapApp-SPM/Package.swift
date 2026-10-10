@@ -1,1 +1,35 @@
-Ly8gc3dpZnQtdG9vbHMtdmVyc2lvbjogNS45CmltcG9ydCBQYWNrYWdlRGVzY3JpcHRpb24KCi8vIERPIE5PVCBNT0RJRlkgVEhJUyBGSUxFIC0gbWFuYWdlZCBieSBDYXBhY2l0b3IgQ0xJIGNvbW1hbmRzCmxldCBwYWNrYWdlID0gUGFja2FnZSgKICAgIG5hbWU6ICJDYXBBcHAtU1BNIiwKICAgIHBsYXRmb3JtczogWy5pT1MoLnYxNSldLAogICAgcHJvZHVjdHM6IFsKICAgICAgICAubGlicmFyeSgKICAgICAgICAgICAgbmFtZTogIkNhcEFwcC1TUE0iLAogICAgICAgICAgICB0YXJnZXRzOiBbIkNhcEFwcC1TUE0iXSkKICAgIF0sCiAgICBkZXBlbmRlbmNpZXM6IFsKICAgICAgICAucGFja2FnZSh1cmw6ICJodHRwczovL2dpdGh1Yi5jb20vaW9uaWMtdGVhbS9jYXBhY2l0b3Itc3dpZnQtcG0uZ2l0IiwgZXhhY3Q6ICI4LjUuMyIpLAogICAgICAgIC5wYWNrYWdlKG5hbWU6ICJDYXBhY2l0b3JLZXlib2FyZCIsIHBhdGg6ICIuLi8uLi9jYXBhY2l0b3ItcGx1Z2lucy9rZXlib2FyZCIpLAogICAgICAgIC5wYWNrYWdlKG5hbWU6ICJDYXBhY2l0b3JMb2NhbE5vdGlmaWNhdGlvbnMiLCBwYXRoOiAiLi4vLi4vY2FwYWNpdG9yLXBsdWdpbnMvbG9jYWwtbm90aWZpY2F0aW9ucyIpLAogICAgICAgIC5wYWNrYWdlKG5hbWU6ICJDYXBhY2l0b3JQdXNoTm90aWZpY2F0aW9ucyIsIHBhdGg6ICIuLi8uLi9jYXBhY2l0b3ItcGx1Z2lucy9wdXNoLW5vdGlmaWNhdGlvbnMiKSwKICAgICAgICAucGFja2FnZShuYW1lOiAiQ2FwYWNpdG9yU3BsYXNoU2NyZWVuIiwgcGF0aDogIi4uLy4uL2NhcGFjaXRvci1wbHVnaW5zL3NwbGFzaC1zY3JlZW4iKSwKICAgICAgICAucGFja2FnZShuYW1lOiAiQ2FwYWNpdG9yU3RhdHVzQmFyIiwgcGF0aDogIi4uLy4uL2NhcGFjaXRvci1wbHVnaW5zL3N0YXR1cy1iYXIiKQogICAgXSwKICAgIHRhcmdldHM6IFsKICAgICAgICAudGFyZ2V0KAogICAgICAgICAgICBuYW1lOiAiQ2FwQXBwLVNQTSIsCiAgICAgICAgICAgIGRlcGVuZGVuY2llczogWwogICAgICAgICAgICAgICAgLnByb2R1Y3QobmFtZTogIkNhcGFjaXRvciIsIHBhY2thZ2U6ICJjYXBhY2l0b3Itc3dpZnQtcG0iKSwKICAgICAgICAgICAgICAgIC5wcm9kdWN0KG5hbWU6ICJDb3Jkb3ZhIiwgcGFja2FnZTogImNhcGFjaXRvci1zd2lmdC1wbSIpLAogICAgICAgICAgICAgICAgLnByb2R1Y3QobmFtZTogIkNhcGFjaXRvcktleWJvYXJkIiwgcGFja2FnZTogIkNhcGFjaXRvcktleWJvYXJkIiksCiAgICAgICAgICAgICAgICAucHJvZHVjdChuYW1lOiAiQ2FwYWNpdG9yTG9jYWxOb3RpZmljYXRpb25zIiwgcGFja2FnZTogIkNhcGFjaXRvckxvY2FsTm90aWZpY2F0aW9ucyIpLAogICAgICAgICAgICAgICAgLnByb2R1Y3QobmFtZTogIkNhcGFjaXRvclB1c2hOb3RpZmljYXRpb25zIiwgcGFja2FnZTogIkNhcGFjaXRvclB1c2hOb3RpZmljYXRpb25zIiksCiAgICAgICAgICAgICAgICAucHJvZHVjdChuYW1lOiAiQ2FwYWNpdG9yU3BsYXNoU2NyZWVuIiwgcGFja2FnZTogIkNhcGFjaXRvclNwbGFzaFNjcmVlbiIpLAogICAgICAgICAgICAgICAgLnByb2R1Y3QobmFtZTogIkNhcGFjaXRvclN0YXR1c0JhciIsIHBhY2thZ2U6ICJDYXBhY2l0b3JTdGF0dXNCYXIiKQogICAgICAgICAgICBdCiAgICAgICAgKQogICAgXQopCg==
+// swift-tools-version: 5.9
+import PackageDescription
+
+// DO NOT MODIFY THIS FILE - managed by Capacitor CLI commands
+let package = Package(
+    name: "CapApp-SPM",
+    platforms: [.iOS(.v15)],
+    products: [
+        .library(
+            name: "CapApp-SPM",
+            targets: ["CapApp-SPM"])
+    ],
+    dependencies: [
+        .package(url: "https://github.com/ionic-team/capacitor-swift-pm.git", exact: "8.5.3"),
+        .package(name: "CapacitorKeyboard", path: "../../capacitor-plugins/keyboard"),
+        .package(name: "CapacitorLocalNotifications", path: "../../capacitor-plugins/local-notifications"),
+        .package(name: "CapacitorPushNotifications", path: "../../capacitor-plugins/push-notifications"),
+        .package(name: "CapacitorSplashScreen", path: "../../capacitor-plugins/splash-screen"),
+        .package(name: "CapacitorStatusBar", path: "../../capacitor-plugins/status-bar")
+    ],
+    targets: [
+        .target(
+            name: "CapApp-SPM",
+            dependencies: [
+                .product(name: "Capacitor", package: "capacitor-swift-pm"),
+                .product(name: "Cordova", package: "capacitor-swift-pm"),
+                .product(name: "CapacitorKeyboard", package: "CapacitorKeyboard"),
+                .product(name: "CapacitorLocalNotifications", package: "CapacitorLocalNotifications"),
+                .product(name: "CapacitorPushNotifications", package: "CapacitorPushNotifications"),
+                .product(name: "CapacitorSplashScreen", package: "CapacitorSplashScreen"),
+                .product(name: "CapacitorStatusBar", package: "CapacitorStatusBar")
+            ]
+        )
+    ]
+)
