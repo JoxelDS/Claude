@@ -153,12 +153,16 @@ export async function buildAudio({ T, bpm, preset, cues, sec, dir, music = true,
     for (let i = 0; i < len; i++) { const j = start + i; if (j < 0 || j >= N) continue; const x = i * p, k = Math.floor(x), fr = x - k; buf[j] += g * (src[k] * (1 - fr) + (src[k + 1] || 0) * fr); }
   }
   const sw = `${dir}/sfx.f32`; writeFileSync(sw, Buffer.from(buf.buffer));
-  const chain = `[1:a]aformat=channel_layouts=stereo,asplit=2[s][k];[0:a][k]sidechaincompress=threshold=0.04:ratio=4:attack=6:release=260:makeup=1[md];[md][s]amix=inputs=2:normalize=0,highpass=f=28`;
+  // both side-chain inputs are padded: sidechaincompress otherwise ends its output a few hundred ms early (a different
+  // length on every run), cutting the music's 1.4 s fade-out and leaving digital silence at the end; atrim restores T
+  const chain = `[1:a]aformat=channel_layouts=stereo,apad=pad_dur=2,asplit=2[s][k];[0:a]apad=pad_dur=2[mp];[mp][k]sidechaincompress=threshold=0.04:ratio=4:attack=6:release=260:makeup=1[md];[md][s]amix=inputs=2:normalize=0,highpass=f=28,atrim=0:${f(T, 4)}`;
   const ins = ['-i', mw, '-f', 'f32le', '-ar', String(SR), '-ac', '1', '-i', sw];
   const p1 = await run(['-hide_banner', '-nostats', ...ins, '-filter_complex', chain + ',loudnorm=I=-14:TP=-1.5:LRA=11:print_format=json[o]', '-map', '[o]', '-f', 'null', '-']);
   const m = JSON.parse(String(p1.stderr).match(/\{[\s\S]*?\}/g).pop());
+  // the final trim counts samples: after loudnorm's dynamic mode the timestamps run ahead, and a time-based atrim cut
+  // the last ~70 ms of the mix (the end of the fade-out)
   const out = `${dir}/mix.wav`;
-  await run(['-y', '-loglevel', 'error', ...ins, '-filter_complex', chain + `,loudnorm=I=-14:TP=-1.5:LRA=11:measured_I=${m.input_i}:measured_TP=${m.input_tp}:measured_LRA=${m.input_lra}:measured_thresh=${m.input_thresh}:offset=${m.target_offset}:linear=true,aresample=${SR},alimiter=limit=0.83:attack=1.5:release=60:level=false,atrim=0:${f(T, 4)}[o]`, '-map', '[o]', '-c:a', 'pcm_s16le', '-ar', String(SR), out]);
+  await run(['-y', '-loglevel', 'error', ...ins, '-filter_complex', chain + `,loudnorm=I=-14:TP=-1.5:LRA=11:measured_I=${m.input_i}:measured_TP=${m.input_tp}:measured_LRA=${m.input_lra}:measured_thresh=${m.input_thresh}:offset=${m.target_offset}:linear=true,aresample=${SR},alimiter=limit=0.83:attack=1.5:release=60:level=false,asetpts=NB_CONSUMED_SAMPLES/SR/TB,atrim=end_sample=${Math.round(T * SR)}[o]`, '-map', '[o]', '-c:a', 'pcm_s16le', '-ar', String(SR), out]);
   const p3 = await run(['-hide_banner', '-nostats', '-i', out, '-af', 'loudnorm=I=-14:TP=-1.5:LRA=11:print_format=json', '-f', 'null', '-']);
   const m3 = JSON.parse(String(p3.stderr).match(/\{[\s\S]*?\}/g).pop());
   return { wav: out, lufs: +m3.input_i, tp: +m3.input_tp, sfxTypes: Object.keys(cache) };

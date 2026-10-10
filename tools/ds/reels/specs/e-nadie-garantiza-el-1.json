@@ -7,7 +7,7 @@
   "bpm": 110
  },
  "accent": "#FFC83D",
- "cover": 1.3,
+ "cover": 12.6,
  "facts": [
   "google-no-guaranteed-1",
   "gbp-no-pay-ranking",
@@ -17,7 +17,7 @@
   {
    "type": "chat",
    "beats": 8,
-   "head": "¿Te prometieron el *#1*?",
+   "head": "¿Te prometieron el #1?",
    "name": "Número desconocido",
    "status": "No está en tus contactos",
    "avatar": "demo/avatar-unknown.svg",
@@ -25,62 +25,65 @@
     {
      "from": "them",
      "t": 0,
-     "text": "Te ponemos #1 en Google Maps 🔥 garantizado"
+     "text": "Te ponemos #1 en Google Maps 🔥 garantizado",
+     "shake": 0.62
     },
     {
      "from": "me",
-     "t": 1.65,
+     "t": 1.0,
      "text": "mmm… ¿garantizado? 🤨"
     },
     {
      "from": "them",
-     "t": 2.8,
+     "t": 2.35,
      "text": "Sí 😎 ¿Te llamo ahora? 📞"
     }
-   ]
+   ],
+   "size": 58
   },
   {
    "type": "mythfact",
    "beats": 10,
    "tr": "whip",
    "myth": "Si pagas, te garantizan el #1.",
-   "fact": "“Nadie puede garantizar el *#1* en Google.”",
-   "source": "Google Search Central (cita traducida)"
+   "fact": "“Nadie puede garantizar el #1 en Google.”",
+   "source": "Google Search Central (cita traducida)",
+   "strike": 2.45
   },
   {
    "type": "hook",
    "beats": 8,
-   "tr": "zoom",
+   "tr": "cut",
    "text": "¿Te lo garantizan? ==Cuelga==.",
    "sub": "Y según Google, un mejor ranking local no se compra.",
    "source": "Google Business Profile Help"
   },
   {
    "type": "list",
-   "beats": 10,
+   "beats": 11,
    "tr": "wipe",
-   "head": "Según Google, lo principal:",
+   "head": "Lo que más cuenta:",
    "items": [
     "Qué tan relevante eres",
     "Qué tan cerca estás",
     "Qué tan conocido eres"
    ],
-   "source": "Google Business Profile Help",
-   "size": 64
+   "source": "Google Business Profile Help"
   },
   {
    "type": "text",
    "beats": 6,
    "tr": "whip",
    "head": "Nosotros tampoco te prometemos el *#1*.",
-   "sub": "Te enseñamos tu web primero. ==Gratis==."
+   "sub": "Primero ves tu web. ==Gratis==."
   },
   {
    "type": "end",
    "beats": 6,
    "tr": "wipe",
    "line": "Guárdalo pa’ la próxima llamada",
-   "cta": "Escríbenos “WEBSITE”"
+   "cta": "Escríbenos “WEBSITE”",
+   "tapX": -0.3
   }
  ]
 }

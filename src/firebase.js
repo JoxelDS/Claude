@@ -137,7 +137,7 @@ export async function deletePhoto(venueId, inspectionId, photoId) {
 export async function saveInspectorNotification(notif) {
   if (!db) return null;
   try {
-    const ref = await addDoc(collection(db, "inspectorNotifications"), { ...notif, read: false, createdAt: Date.now() });
+    const ref = await addDoc(collection(db, "inspectorNotifications"), { venueId: activeVenueId, ...notif, read: false, createdAt: Date.now() });
     return ref.id;
   } catch (e) {
     console.error("saveInspectorNotification error:", e.message);
@@ -158,7 +158,8 @@ export async function getInspectorNotifications(inspectorName) {
       where("read", "==", false)
     );
     const snap = await getDocs(q);
-    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    // One collection serves every venue: keep only this venue's (old ones carry no venueId = the home venue)
+    return snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(n => (n.venueId || "default") === activeVenueId);
   } catch (e) {
     console.error("getInspectorNotifications error:", e.message);
     return [];

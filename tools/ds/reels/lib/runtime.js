@@ -254,7 +254,9 @@ function highlights(dev, list = [], ctx, cam, sc) {
         place(co, fx, cl(fy, S.y, S.y + S.h - ch));
       };
     }
-    ctx.cues.push({ t: h.t, s: 'pop', g: .7 });
+    // the pop lands when the callout arrives (it springs in .12 s after the box starts drawing, visible from ≈ .15 s);
+    // a highlight without a label pops as its box starts to draw
+    ctx.cues.push({ t: h.t + (h.label ? .15 : 0), s: 'pop', g: .7 });
     return { h, box, spot, rect, co };
   });
   return (lt, zm) => items.forEach(({ h, spot, rect, co }) => {
@@ -1031,7 +1033,7 @@ SC.chat = (cam, sp, ctx) => {
   const shift = Math.max(0, (areaH - y) * .3); if (shift) items.forEach(it => { it.y += shift; it.b.style.top = px(it.y); });
   // timing: given t, or spread over the scene
   const t0 = .3, gapT = n > 1 ? cl((sp.dur - 1.05 - t0 - .35) / (n - 1), .5, 1.6) : 0;
-  items.forEach((it, i) => { it.t = msgs[i].t ?? (t0 + i * gapT + (msgs[i].from === 'me' ? 0 : .35)); ctx.cues.push({ t: it.t, s: it.me ? 'send' : 'recv', g: .8 }); });
+  items.forEach((it, i) => { it.t = msgs[i].t ?? (t0 + i * gapT + (msgs[i].from === 'me' ? 0 : .35)); ctx.cues.push({ t: it.t, s: it.me ? 'send' : 'recv', g: .8 }); if (msgs[i].shake != null) { ctx.cues.push({ t: +msgs[i].shake, s: 'tap', g: .45 }); ctx.punch.push(+msgs[i].shake); } });
   ctx.ready = (items.length ? items[items.length - 1].t : 0) + .5;
   const scrollAt = lt => { let target = 0; items.forEach(it => { if (lt >= it.t) target = Math.max(target, it.y + it.h - areaH + 30); }); return Math.max(0, target); };
   return lt => {
@@ -1047,7 +1049,9 @@ SC.chat = (cam, sp, ctx) => {
     items.forEach((it, i) => {
       const tau = lt - it.t; const p = spr(tau, 2, .62);
       it.b.style.opacity = cl(tau / .06).toFixed(3);
-      it.b.style.transform = tau <= 0 ? 'scale(.5)' : `translateY(${((1 - p) * 30).toFixed(1)}px) scale(${lerp(.5, 1, p).toFixed(4)})`;
+      // optional per-message `shake` (scene s): a short buzz (horizontal wiggle + tilt) on that bubble — an attention beat
+      const sk = msgs[i].shake != null ? lt - +msgs[i].shake : -1, sv = sk >= 0 && sk < .42 ? Math.sin(sk * 2 * Math.PI * 8.5) * (1 - sk / .42) : 0;
+      it.b.style.transform = tau <= 0 ? 'scale(.5)' : `translateX(${(sv * 12).toFixed(1)}px) translateY(${((1 - p) * 30).toFixed(1)}px) scale(${(lerp(.5, 1, p) * (1 + .03 * Math.abs(sv))).toFixed(4)}) rotate(${(sv * 1.6).toFixed(2)}deg)`;
       if (!it.me && tau < 0 && tau > -.75) ty = it;
     });
     if (ty) { typing.style.top = px(ty.y + ty.h - 96 * k); typing.style.opacity = 1; [...typing.children].forEach((d, j) => d.style.transform = `translateY(${(-10 * k * Math.max(0, Math.sin(lt * 9 - j * .9))).toFixed(1)}px)`); }
@@ -1074,14 +1078,18 @@ SC.stat = (cam, sp, ctx) => {
   const src = sp.source ? block(cam, (C.lang === 'es' ? 'Fuente: ' : 'Source: ') + tx(sp.source).m, { font: 'I', weight: 500, w: bx.w, h: 150, max: 44, min: 44, upper: false, color: '#8f8f8f' }) : null;
   const total = nh + 40 + lab.h + (src ? 50 + src.h : 0), y0 = top + Math.max(0, (avail - total) * .38);
   place(num, bx.x, y0); place(bar, bx.x, y0 + nh + 6); lab.at(bx.x, y0 + nh + 44); if (src) src.at(bx.x, y0 + nh + 44 + lab.h + 50);
-  const tc = .2, tl = tc + cl(sp.dur * .3, .55, 1.5);
-  for (let k = 0; k < 14; k++) { const f = k / 14; ctx.cues.push({ t: tc + (tl - tc) * (1 - Math.pow(1 - f, .5)), s: 'tick', g: .35, p: 1 + f * .4 }); }
+  // opt-in sp.count (s) + sp.countAt (s, .3): a short count-up that lands ON the hit — eased out, rounded down, so the
+  // final value first shows on the hit frame (no paused frame with a wrong number) and the last tick sits right before it
+  const quick = sp.count != null, tc = quick ? +(sp.countAt ?? .3) : .2, tl = tc + (quick ? Math.max(.2, +sp.count) : cl(sp.dur * .3, .55, 1.5));
+  if (quick) { const n = Math.round(cl((tl - tc) * 16, 5, 12)); for (let k = 0; k < n; k++) { const f = k / n; ctx.cues.push({ t: tc + (tl - tc) * f, s: 'tick', g: .35, p: 1 + f * .4 }); } }   // even ratchet, last tick one step before the hit
+  else for (let k = 0; k < 14; k++) { const f = k / 14; ctx.cues.push({ t: tc + (tl - tc) * (1 - Math.pow(1 - f, .5)), s: 'tick', g: .35, p: 1 + f * .4 }); }
   ctx.cues.push({ t: tl, s: 'hit', g: .9 }); ctx.punch.push(tl); ctx.ready = tl + (src ? .75 : .5);
   return lt => {
     if (hd.g) revLines(hd.g.lines, lt, .05);
-    const f = E.o5(pr(lt, tc, tl - tc)); const s = fmt(dec ? +(val * f).toFixed(dec) : Math.round(val * f));
+    const f = quick ? 1 - (1 - pr(lt, tc, tl - tc)) ** 2 : E.o5(pr(lt, tc, tl - tc)); const q = dec ? 10 ** dec : 1;
+    const s = quick ? fmt(f >= 1 ? val : Math.floor(val * f * q) / q) : fmt(dec ? +(val * f).toFixed(dec) : Math.round(val * f));
     const chars = [...s.padStart(final.length, ' ')]; cells.forEach((c, i) => { c.textContent = chars[i] === ' ' ? '' : chars[i]; });
-    num.style.opacity = cl((lt - .1) / .2).toFixed(3);
+    num.style.opacity = cl((lt - (quick ? tc - .12 : .1)) / .2).toFixed(3);
     const land = kick(lt - tl, 7); num.style.transform = `scale(${(1 + .06 * land).toFixed(4)})`; num.style.transformOrigin = '0 60%';
     bar.style.transform = `scaleX(${E.o5(pr(lt, tl, .5)).toFixed(4)})`;
     revLines(lab.lines, lt, tl + .08, .06, .5);
@@ -1148,7 +1156,7 @@ SC.quote = (cam, sp, ctx) => {
 SC.pov = (cam, sp, ctx) => {
   const bx = ctx.box; const t = tx(sp.text); let main = t.m; if (!/^pov\b/i.test(main)) main = 'POV: ' + main;
   const boxEl = $('div', 'abs sz', cam, { left: px(bx.x), top: px(bx.y), width: px(bx.w), background: '#fff', borderRadius: '30px', padding: '30px 38px 32px', boxShadow: '0 20px 50px rgba(0,0,0,.5)' });
-  const b = block(boxEl, main.replace(/^pov:?\s*/i, '==POV:== '), { font: 'I', weight: 800, w: bx.w - 76, h: 260, max: 64, min: 44, upper: false, color: '#050505', sz: false, ls: '-.015em', lh: 1.16 });
+  const b = block(boxEl, main.replace(/^pov:?\s*/i, '==POV:== '), { font: 'I', weight: 800, w: bx.w - 76, h: 260, max: sp.size || 64, min: 44, upper: false, color: '#050505', sz: false, ls: '-.015em', lh: 1.16 });
   b.el.style.position = 'relative';
   let s2 = null; if (t.s) { s2 = block(boxEl, t.s, { cls: 'es', font: 'I', weight: 500, w: bx.w - 76, h: 150, max: 46, min: 44, upper: false, color: '#555', sz: false }); s2.el.style.position = 'relative'; s2.el.style.marginTop = '10px'; }
   const bh = boxEl.offsetHeight;
@@ -1181,7 +1189,9 @@ SC.end = (cam, sp, ctx) => {
   place(hand, bx.x, y + 56);
   const tC = .35 + (line ? line.lines.length * .07 + .15 : 0), tTap = Math.max(tC + .7, sp.dur * .62);
   ctx.cues.push({ t: .05, s: 'hit', g: .8 }, { t: tC, s: 'ding', g: .8 }, { t: tTap, s: 'tap', g: .9 }); ctx.punch.push(.05, tC); ctx.ready = tC + .7;
-  const ring = $('div', 'ring', cam, { width: '150px', height: '150px', left: px(bx.x + bx.w / 2 - 75 + cta.offsetWidth * .25), top: px(cta.offsetTop + cta.offsetHeight / 2 - 75), opacity: 0 });
+  // sp.tapX: where the tap ring lands on the pill, as a fraction of its width from the centre (.25; e.g. −.3 taps the
+  // left word so a keyword on the right stays readable)
+  const ring = $('div', 'ring', cam, { width: '150px', height: '150px', left: px(bx.x + bx.w / 2 - 75 + cta.offsetWidth * (sp.tapX ?? .25)), top: px(cta.offsetTop + cta.offsetHeight / 2 - 75), opacity: 0 });
   return lt => {
     const p = spr(lt, 1.3, .62); logo.style.opacity = cl(lt / .1 + .001).toFixed(3); logo.style.clipPath = `inset(${((1 - E.o5(pr(lt, 0, .55))) * 100).toFixed(2)}% 0 0 0)`; logo.style.transform = `scale(${lerp(1.18, 1, p).toFixed(4)})`;
     if (line) revLines(line.lines, lt, .22, .07, .5);
@@ -1207,6 +1217,9 @@ const SCN = C.scenes.map((sp, i) => {
   const bg = $('div', 'bg', root); const cam = $('div', 'cam', root);
   const ctx = { i, dur: sp.dur, box: { ...S }, cues: [], punch: [] };
   if (ctReserve(i)) { if (!ctBottom) ctx.box.y += CT_H; ctx.box.h -= CT_H; }
+  // opt-in sp.pad: inset this scene's box — a number (all sides) or [top, right, bottom, left] px — e.g. [28, 0, 0, 0] keeps a
+  // head off the top edge of the safe zone, [0, 50, 0, 50] leaves room for the camera punch / pill pulse on the sides
+  if (sp.pad != null) { const pd = Array.isArray(sp.pad) ? [0, 1, 2, 3].map(k => +sp.pad[k] || 0) : Array(4).fill(+sp.pad || 0); ctx.box.x += pd[3]; ctx.box.y += pd[0]; ctx.box.w -= pd[1] + pd[3]; ctx.box.h -= pd[0] + pd[2]; }
   const bgUp = background(bg, sp.bg ?? (sp.type === 'pov' ? DEF_BG[(sp.scene || {}).type] || 'right' : DEF_BG[sp.type]), i + 3);
   let up = () => {};
   // optional scene-level source line (any type but stat, which draws its own): "Fuente: …" / "Source: …", small grey,

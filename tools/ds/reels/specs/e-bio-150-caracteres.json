@@ -1,13 +1,13 @@
 {
  "id": "e-bio-150-caracteres",
  "lang": "es",
- "title": "Tu bio tiene 150 caracteres. Úsalos bien.",
+ "title": "Tu bio: hasta 150 caracteres. Úsalos bien.",
  "music": {
   "preset": "upbeat",
   "bpm": 120
  },
  "accent": "#FFC83D",
- "cover": 1.8,
+ "cover": 12.3,
  "facts": [
   "ig-bio-150"
  ],
@@ -31,14 +31,14 @@
      "photos/food-1.jpg",
      "photos/food-3.jpg",
      {
-      "src": "photos/food-1.jpg",
-      "pos": "85% 15%",
-      "zoom": 1.8
+      "src": "photos/food-2.jpg",
+      "pos": "38% 6%",
+      "zoom": 1.6
      },
      {
-      "src": "photos/food-3.jpg",
-      "pos": "25% 45%",
-      "zoom": 1.6
+      "src": "photos/food-2.jpg",
+      "pos": "30% 78%",
+      "zoom": 1.45
      },
      {
       "src": "photos/food-1.jpg",
@@ -53,21 +53,28 @@
     ],
     "highlights": [
      {
-      "t": 1.2,
+      "t": 1.5,
       "target": "bio",
       "label": "¿Dónde? ¿Cuándo? 🤔",
       "size": 60,
       "d": 1.45
      },
      {
-      "t": 2.8,
+      "t": 3.1,
       "target": "bio",
       "label": "¿Y cómo pido? 😅",
       "size": 60
      }
     ]
    },
-   "pre": 0.35
+   "pre": 0.9,
+   "size": 76,
+   "pad": [
+    12,
+    0,
+    0,
+    0
+   ]
   },
   {
    "type": "stat",
@@ -76,8 +83,16 @@
    "head": "Tu bio: hasta",
    "value": 150,
    "label": "caracteres.\nHaz que cuenten.",
-   "source": "Centro de ayuda de Instagram",
-   "size": 420
+   "source": "Servicio de ayuda de Instagram",
+   "size": 395,
+   "count": 0.55,
+   "countAt": 0.45,
+   "pad": [
+    28,
+    0,
+    0,
+    0
+   ]
   },
   {
    "type": "list",
@@ -114,14 +129,14 @@
     "photos/food-1.jpg",
     "photos/food-3.jpg",
     {
-     "src": "photos/food-1.jpg",
-     "pos": "85% 15%",
-     "zoom": 1.8
+     "src": "photos/food-2.jpg",
+     "pos": "38% 6%",
+     "zoom": 1.6
     },
     {
-     "src": "photos/food-3.jpg",
-     "pos": "25% 45%",
-     "zoom": 1.6
+     "src": "photos/food-2.jpg",
+     "pos": "30% 78%",
+     "zoom": 1.45
     },
     {
      "src": "photos/food-1.jpg",
@@ -146,15 +161,28 @@
      "t": 3.9,
      "target": "link"
     }
+   ],
+   "pad": [
+    28,
+    0,
+    0,
+    0
    ]
   },
   {
    "type": "end",
-   "beats": 6,
+   "beats": 7,
    "tr": "wipe",
    "line": "Guárdalo para arreglar tu bio",
    "cta": "Escríbenos “WEBSITE”",
-   "offer": "¿Sin web? Preview gratis primero"
+   "offer": "por DM y primero te hacemos un preview gratis",
+   "pad": [
+    0,
+    46,
+    0,
+    46
+   ],
+   "tapX": -0.3
   }
  ]
 }

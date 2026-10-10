@@ -1737,6 +1737,11 @@ const FIXED_SEEN_KEY  = `sdx_fixed_seen_${VENUE_ID}`; // newest crew-fix timesta
 function legacyCol(name) {
   return collection(db, name);
 }
+// v548: a customer venue's stand logs live ONLY under venues/<id>/haccpSubmissions. The flat
+// collection belongs to the home venue — sharing it showed one venue's supervisors and phone
+// numbers to every other venue (and put demo logs in the home venue's tracker).
+function haccpCols() { return IS_DEFAULT_VENUE() ? [legacyCol("haccpSubmissions")] : [venueCol("haccpSubmissions")]; }
+const haccpOwn = r => !IS_DEFAULT_VENUE() || !(r && r.venueId && r.venueId !== "default");
 // True when the app is running without any ?v= param — the original
 // single-venue mode. In this mode we read from old flat collections
 // as the authoritative source AND write to both paths so data is
@@ -2156,9 +2161,8 @@ async function saveHaccpSubmission(record) {
     if (window.__sdxFailHaccpOnce) { window.__sdxFailHaccpOnce = false; throw new Error("test failure"); }
   }
   if (FIREBASE_ON) {
-    const writes = [setDoc(doc(legacyCol("haccpSubmissions"), record.id), record)];
-    if (!IS_DEFAULT_VENUE()) writes.push(setDoc(doc(venueCol("haccpSubmissions"), record.id), record));
-    await Promise.all(writes);
+    const rec = { ...record, venueId: activeVenueId };
+    await Promise.all(haccpCols().map(col => setDoc(doc(col, rec.id), rec)));
     return;
   }
   const list = JSON.parse(localStorage.getItem(HACCP_SUBS_KEY) || "[]");
@@ -2297,15 +2301,14 @@ function haccpSubsForRecord(rec, allSubs, extra) {
 async function loadHaccpSubmissions() {
   if (FIREBASE_ON) {
     try {
-      const cols = [legacyCol("haccpSubmissions")];
-      if (!IS_DEFAULT_VENUE()) cols.push(venueCol("haccpSubmissions"));
+      const cols = haccpCols();
       const snaps = await Promise.all(
         cols.map(col => getDocs(query(col, orderBy("submittedAt", "desc"))).catch(() => null))
       );
       const seen = new Set();
       return snaps
         .flatMap(snap => snap ? snap.docs.map(d => d.data()) : [])
-        .filter(r => { const k = r.id || r.submittedAt; if (seen.has(k)) return false; seen.add(k); return true; });
+        .filter(r => { if (!haccpOwn(r)) return false; const k = r.id || r.submittedAt; if (seen.has(k)) return false; seen.add(k); return true; });
     } catch { return []; }
   }
   try { return JSON.parse(localStorage.getItem(HACCP_SUBS_KEY) || "[]"); } catch { return []; }
@@ -2319,15 +2322,14 @@ async function loadHaccpForReport(reportId) {
       // strategy as subscribeHaccpForReport — so submissions are found regardless of which
       // Firestore path was used at write time (e.g. submissions saved before venue scoping
       // was introduced still live in the legacy root collection).
-      const cols = [legacyCol("haccpSubmissions")];
-      if (!IS_DEFAULT_VENUE()) cols.push(venueCol("haccpSubmissions"));
+      const cols = haccpCols();
       const snaps = await Promise.all(
         cols.map(col => getDocs(query(col, where("reportId", "==", reportId), where("type", "==", "submission"))).catch(() => null))
       );
       const seen = new Set();
       const merged = snaps
         .flatMap(snap => snap ? snap.docs.map(d => d.data()) : [])
-        .filter(r => { if (seen.has(r.id)) return false; seen.add(r.id); return true; })
+        .filter(r => { if (!haccpOwn(r) || seen.has(r.id)) return false; seen.add(r.id); return true; })
         .sort((a, b) => (a.submittedAt || "").localeCompare(b.submittedAt || ""));
       return merged;
     } catch (e) { console.error("loadHaccpForReport:", e); return []; }
@@ -2360,8 +2362,7 @@ async function loadHaccpBySite(siteName, inspectionDate, reportId = null, unit =
     try {
       // Query BOTH legacy root + venue-scoped collections so submissions are found
       // regardless of which Firestore path was used at write time.
-      const cols = [legacyCol("haccpSubmissions")];
-      if (!IS_DEFAULT_VENUE()) cols.push(venueCol("haccpSubmissions"));
+      const cols = haccpCols();
       const snaps = await Promise.all(
         cols.map(col => getDocs(query(col, where("type", "==", "submission"))).catch(() => null))
       );
@@ -2369,7 +2370,7 @@ async function loadHaccpBySite(siteName, inspectionDate, reportId = null, unit =
       return snaps
         .flatMap(snap => snap ? snap.docs.map(d => d.data()) : [])
         .filter(r => {
-          if (seen.has(r.id)) return false; seen.add(r.id);
+          if (!haccpOwn(r) || seen.has(r.id)) return false; seen.add(r.id);
           const siteMatch = bothUnits(r) ? normUnit(r.unit) === unitNorm : (r.site || "").trim().toLowerCase() === siteNorm;
           const dateMatch = (r.submittedAt || "").startsWith(datePrefix);
           // If a reportId is known, only include logs that either match it or have no reportId
@@ -2424,12 +2425,12 @@ function subscribeHaccpForReport(reportId, onUpdate) {
         const u = onSnapshot(q, (snap) => {
           slices[sliceKey] = snap.docs
             .map(d => d.data())
-            .filter(d => d.type === "submission");
+            .filter(d => d.type === "submission" && haccpOwn(d));
           merge();
         }, (_err) => {
           // Listener failed — fall back to a one-time fetch for this slice
           getDocs(query(col, where("reportId", "==", reportId))).then(snap => {
-            slices[sliceKey] = snap.docs.map(d => d.data()).filter(d => d.type === "submission");
+            slices[sliceKey] = snap.docs.map(d => d.data()).filter(d => d.type === "submission" && haccpOwn(d));
             merge();
           }).catch(() => {});
         });
@@ -2439,13 +2440,8 @@ function subscribeHaccpForReport(reportId, onUpdate) {
       }
     }
 
-    // 1. Legacy root collection
-    try { attachListener(legacyCol("haccpSubmissions"), "legacy"); } catch (_) {}
-
-    // 2. Venue-scoped subcollection (skip if same as legacy i.e. default venue)
-    if (!IS_DEFAULT_VENUE()) {
-      try { attachListener(venueCol("haccpSubmissions"), "venue"); } catch (_) {}
-    }
+    // Home venue: the flat collection · customer venue: its own subcollection only (v548)
+    haccpCols().forEach((col, i) => { try { attachListener(col, "c" + i); } catch (_) {} });
 
     // Emit an initial empty result immediately so UI doesn't hang on first load
     onUpdate([]);
@@ -2576,7 +2572,8 @@ async function signIn(badge) {
 
 // Request Access: departments and what the person does (drives the role)
 const INVITE_TOKEN = (() => { try { return new URLSearchParams(window.location.search).get("invite") || ""; } catch { return ""; } })();
-const inviteUrlFor = token => `${window.location.origin}${window.location.pathname}?invite=${encodeURIComponent(token)}`;
+// Customer venues keep their ?v= (and ?vname=) in the link — without it a new phone opened the home venue, where the token is unknown
+const inviteUrlFor = token => { const q = new URLSearchParams(); if (VENUE_ID !== "default") { q.set("v", VENUE_ID); if (VENUE_NAME) q.set("vname", VENUE_NAME); } q.set("invite", token); return `${window.location.origin}${window.location.pathname}?${q.toString()}`; };
 const DEPARTMENTS = ["Food Safety / QA", "Culinary", "Concessions", "Maintenance / Facilities", "Cleaning / Sanitation", "Ecolab", "Management", "Other"];
 const REQUEST_ROLES = [
   { value: "inspector", icon: "🕵", label: "Inspector", help: "Does inspections, sees reports and follow-ups" },
