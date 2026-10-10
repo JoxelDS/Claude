@@ -1,1 +1,28 @@
-Ly8gc3dpZnQtdG9vbHMtdmVyc2lvbjogNS45CmltcG9ydCBQYWNrYWdlRGVzY3JpcHRpb24KCmxldCBwYWNrYWdlID0gUGFja2FnZSgKICAgIG5hbWU6ICJDYXBhY2l0b3JTcGxhc2hTY3JlZW4iLAogICAgcGxhdGZvcm1zOiBbLmlPUygudjE1KV0sCiAgICBwcm9kdWN0czogWwogICAgICAgIC5saWJyYXJ5KAogICAgICAgICAgICBuYW1lOiAiQ2FwYWNpdG9yU3BsYXNoU2NyZWVuIiwKICAgICAgICAgICAgdGFyZ2V0czogWyJTcGxhc2hTY3JlZW5QbHVnaW4iXSkKICAgIF0sCiAgICBkZXBlbmRlbmNpZXM6IFsKICAgICAgICAucGFja2FnZSh1cmw6ICJodHRwczovL2dpdGh1Yi5jb20vaW9uaWMtdGVhbS9jYXBhY2l0b3Itc3dpZnQtcG0uZ2l0IiwgZnJvbTogIjguMC4wIikKICAgIF0sCiAgICB0YXJnZXRzOiBbCiAgICAgICAgLnRhcmdldCgKICAgICAgICAgICAgbmFtZTogIlNwbGFzaFNjcmVlblBsdWdpbiIsCiAgICAgICAgICAgIGRlcGVuZGVuY2llczogWwogICAgICAgICAgICAgICAgLnByb2R1Y3QobmFtZTogIkNhcGFjaXRvciIsIHBhY2thZ2U6ICJjYXBhY2l0b3Itc3dpZnQtcG0iKSwKICAgICAgICAgICAgICAgIC5wcm9kdWN0KG5hbWU6ICJDb3Jkb3ZhIiwgcGFja2FnZTogImNhcGFjaXRvci1zd2lmdC1wbSIpCiAgICAgICAgICAgIF0sCiAgICAgICAgICAgIHBhdGg6ICJpb3MvU291cmNlcy9TcGxhc2hTY3JlZW5QbHVnaW4iKSwKICAgICAgICAudGVzdFRhcmdldCgKICAgICAgICAgICAgbmFtZTogIlNwbGFzaFNjcmVlblBsdWdpblRlc3RzIiwKICAgICAgICAgICAgZGVwZW5kZW5jaWVzOiBbIlNwbGFzaFNjcmVlblBsdWdpbiJdLAogICAgICAgICAgICBwYXRoOiAiaW9zL1Rlc3RzL1NwbGFzaFNjcmVlblBsdWdpblRlc3RzIikKICAgIF0KKQo=
+// swift-tools-version: 5.9
+import PackageDescription
+
+let package = Package(
+    name: "CapacitorSplashScreen",
+    platforms: [.iOS(.v15)],
+    products: [
+        .library(
+            name: "CapacitorSplashScreen",
+            targets: ["SplashScreenPlugin"])
+    ],
+    dependencies: [
+        .package(url: "https://github.com/ionic-team/capacitor-swift-pm.git", from: "8.0.0")
+    ],
+    targets: [
+        .target(
+            name: "SplashScreenPlugin",
+            dependencies: [
+                .product(name: "Capacitor", package: "capacitor-swift-pm"),
+                .product(name: "Cordova", package: "capacitor-swift-pm")
+            ],
+            path: "ios/Sources/SplashScreenPlugin"),
+        .testTarget(
+            name: "SplashScreenPluginTests",
+            dependencies: ["SplashScreenPlugin"],
+            path: "ios/Tests/SplashScreenPluginTests")
+    ]
+)
