@@ -89,7 +89,7 @@ async function start() {
   app.listen(config.port, () => {
     console.log(`
 ╔══════════════════════════════════════════════════════╗
-║   Sodexo Kitchen Inspection — Secure Server          ║
+║   SDX Inspect — Secure Server                        ║
 ╠══════════════════════════════════════════════════════╣
 ║   Port:       ${String(config.port).padEnd(39)}║
 ║   Mode:       ${config.nodeEnv.padEnd(39)}║

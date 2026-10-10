@@ -1,4 +1,4 @@
-// Sodexo Kitchen Inspection — Service Worker
+// SDX Inspect — Service Worker
 // v119: Restored to July 13 state
 
 
@@ -6,8 +6,8 @@ const CACHE_NAME = "sdx-inspect-v548";
 const BASE = (() => { try { return new URL(self.registration.scope).pathname; } catch { return "/"; } })();
 const PRECACHE = [
   "./favicon.svg",
-  "./sodexo-live-logo.svg",
-  "./sodexo-dark.svg",
+  "./sdx-inspect.svg",
+  "./sdx-inspect-dark.svg",
 ];
 
 // Install: precache static assets (NOT the HTML or JS bundles — those use network-first)
