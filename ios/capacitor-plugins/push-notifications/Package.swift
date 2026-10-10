@@ -1,1 +1,28 @@
-Ly8gc3dpZnQtdG9vbHMtdmVyc2lvbjogNS45CmltcG9ydCBQYWNrYWdlRGVzY3JpcHRpb24KCmxldCBwYWNrYWdlID0gUGFja2FnZSgKICAgIG5hbWU6ICJDYXBhY2l0b3JQdXNoTm90aWZpY2F0aW9ucyIsCiAgICBwbGF0Zm9ybXM6IFsuaU9TKC52MTUpXSwKICAgIHByb2R1Y3RzOiBbCiAgICAgICAgLmxpYnJhcnkoCiAgICAgICAgICAgIG5hbWU6ICJDYXBhY2l0b3JQdXNoTm90aWZpY2F0aW9ucyIsCiAgICAgICAgICAgIHRhcmdldHM6IFsiUHVzaE5vdGlmaWNhdGlvbnNQbHVnaW4iXSkKICAgIF0sCiAgICBkZXBlbmRlbmNpZXM6IFsKICAgICAgICAucGFja2FnZSh1cmw6ICJodHRwczovL2dpdGh1Yi5jb20vaW9uaWMtdGVhbS9jYXBhY2l0b3Itc3dpZnQtcG0uZ2l0IiwgZnJvbTogIjguMC4wIikKICAgIF0sCiAgICB0YXJnZXRzOiBbCiAgICAgICAgLnRhcmdldCgKICAgICAgICAgICAgbmFtZTogIlB1c2hOb3RpZmljYXRpb25zUGx1Z2luIiwKICAgICAgICAgICAgZGVwZW5kZW5jaWVzOiBbCiAgICAgICAgICAgICAgICAucHJvZHVjdChuYW1lOiAiQ2FwYWNpdG9yIiwgcGFja2FnZTogImNhcGFjaXRvci1zd2lmdC1wbSIpLAogICAgICAgICAgICAgICAgLnByb2R1Y3QobmFtZTogIkNvcmRvdmEiLCBwYWNrYWdlOiAiY2FwYWNpdG9yLXN3aWZ0LXBtIikKICAgICAgICAgICAgXSwKICAgICAgICAgICAgcGF0aDogImlvcy9Tb3VyY2VzL1B1c2hOb3RpZmljYXRpb25zUGx1Z2luIiksCiAgICAgICAgLnRlc3RUYXJnZXQoCiAgICAgICAgICAgIG5hbWU6ICJQdXNoTm90aWZpY2F0aW9uc1BsdWdpblRlc3RzIiwKICAgICAgICAgICAgZGVwZW5kZW5jaWVzOiBbIlB1c2hOb3RpZmljYXRpb25zUGx1Z2luIl0sCiAgICAgICAgICAgIHBhdGg6ICJpb3MvVGVzdHMvUHVzaE5vdGlmaWNhdGlvbnNQbHVnaW5UZXN0cyIpCiAgICBdCikK
+// swift-tools-version: 5.9
+import PackageDescription
+
+let package = Package(
+    name: "CapacitorPushNotifications",
+    platforms: [.iOS(.v15)],
+    products: [
+        .library(
+            name: "CapacitorPushNotifications",
+            targets: ["PushNotificationsPlugin"])
+    ],
+    dependencies: [
+        .package(url: "https://github.com/ionic-team/capacitor-swift-pm.git", from: "8.0.0")
+    ],
+    targets: [
+        .target(
+            name: "PushNotificationsPlugin",
+            dependencies: [
+                .product(name: "Capacitor", package: "capacitor-swift-pm"),
+                .product(name: "Cordova", package: "capacitor-swift-pm")
+            ],
+            path: "ios/Sources/PushNotificationsPlugin"),
+        .testTarget(
+            name: "PushNotificationsPluginTests",
+            dependencies: ["PushNotificationsPlugin"],
+            path: "ios/Tests/PushNotificationsPluginTests")
+    ]
+)

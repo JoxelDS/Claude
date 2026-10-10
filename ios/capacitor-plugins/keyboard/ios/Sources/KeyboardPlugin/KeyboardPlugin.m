@@ -1,1 +1,14 @@
-I2ltcG9ydCA8Rm91bmRhdGlvbi9Gb3VuZGF0aW9uLmg+CiNpbXBvcnQgPENhcGFjaXRvci9DYXBhY2l0b3IuaD4KCi8vIERlZmluZSB0aGUgcGx1Z2luIHVzaW5nIHRoZSBDQVBfUExVR0lOIE1hY3JvLCBhbmQKLy8gZWFjaCBtZXRob2QgdGhlIHBsdWdpbiBzdXBwb3J0cyB1c2luZyB0aGUgQ0FQX1BMVUdJTl9NRVRIT0QgbWFjcm8uCkNBUF9QTFVHSU4oS2V5Ym9hcmRQbHVnaW4sICJLZXlib2FyZCIsCiAgICAgICAgICAgQ0FQX1BMVUdJTl9NRVRIT0Qoc2hvdywgQ0FQUGx1Z2luUmV0dXJuUHJvbWlzZSk7CiAgICAgICAgICAgQ0FQX1BMVUdJTl9NRVRIT0QoaGlkZSwgQ0FQUGx1Z2luUmV0dXJuUHJvbWlzZSk7CiAgICAgICAgICAgQ0FQX1BMVUdJTl9NRVRIT0Qoc2V0QWNjZXNzb3J5QmFyVmlzaWJsZSwgQ0FQUGx1Z2luUmV0dXJuUHJvbWlzZSk7CiAgICAgICAgICAgQ0FQX1BMVUdJTl9NRVRIT0Qoc2V0U3R5bGUsIENBUFBsdWdpblJldHVyblByb21pc2UpOwogICAgICAgICAgIENBUF9QTFVHSU5fTUVUSE9EKHNldFJlc2l6ZU1vZGUsIENBUFBsdWdpblJldHVyblByb21pc2UpOwogICAgICAgICAgIENBUF9QTFVHSU5fTUVUSE9EKGdldFJlc2l6ZU1vZGUsIENBUFBsdWdpblJldHVyblByb21pc2UpOwogICAgICAgICAgIENBUF9QTFVHSU5fTUVUSE9EKHNldFNjcm9sbCwgQ0FQUGx1Z2luUmV0dXJuUHJvbWlzZSk7CikK
+#import <Foundation/Foundation.h>
+#import <Capacitor/Capacitor.h>
+
+// Define the plugin using the CAP_PLUGIN Macro, and
+// each method the plugin supports using the CAP_PLUGIN_METHOD macro.
+CAP_PLUGIN(KeyboardPlugin, "Keyboard",
+           CAP_PLUGIN_METHOD(show, CAPPluginReturnPromise);
+           CAP_PLUGIN_METHOD(hide, CAPPluginReturnPromise);
+           CAP_PLUGIN_METHOD(setAccessoryBarVisible, CAPPluginReturnPromise);
+           CAP_PLUGIN_METHOD(setStyle, CAPPluginReturnPromise);
+           CAP_PLUGIN_METHOD(setResizeMode, CAPPluginReturnPromise);
+           CAP_PLUGIN_METHOD(getResizeMode, CAPPluginReturnPromise);
+           CAP_PLUGIN_METHOD(setScroll, CAPPluginReturnPromise);
+)

@@ -1,1 +1,157 @@
-aW1wb3J0IENhcGFjaXRvcgppbXBvcnQgVXNlck5vdGlmaWNhdGlvbnMKCnB1YmxpYyBjbGFzcyBMb2NhbE5vdGlmaWNhdGlvbnNIYW5kbGVyOiBOU09iamVjdCwgTm90aWZpY2F0aW9uSGFuZGxlclByb3RvY29sIHsKCiAgICBwdWJsaWMgd2VhayB2YXIgcGx1Z2luOiBDQVBQbHVnaW4/CgogICAgLy8gTG9jYWwgbGlzdCBvZiBub3RpZmljYXRpb24gaWQgLT4gSlNPYmplY3QgZm9yIHN0b3Jpbmcgb3B0aW9ucwogICAgLy8gYmV0d2VlbiBub3RpZmljYXRpb24gcmVxdWV0cwogICAgdmFyIG5vdGlmaWNhdGlvblJlcXVlc3RMb29rdXAgPSBbU3RyaW5nOiBKU09iamVjdF0oKQoKICAgIHB1YmxpYyBmdW5jIHJlcXVlc3RQZXJtaXNzaW9ucyh3aXRoIGNvbXBsZXRpb246ICgoQm9vbCwgRXJyb3I/KSAtPiBWb2lkKT8gPSBuaWwpIHsKICAgICAgICBsZXQgY2VudGVyID0gVU5Vc2VyTm90aWZpY2F0aW9uQ2VudGVyLmN1cnJlbnQoKQogICAgICAgIGNlbnRlci5yZXF1ZXN0QXV0aG9yaXphdGlvbihvcHRpb25zOiBbLmJhZGdlLCAuYWxlcnQsIC5zb3VuZF0pIHsgKGdyYW50ZWQsIGVycm9yKSBpbgogICAgICAgICAgICBjb21wbGV0aW9uPyhncmFudGVkLCBlcnJvcikKICAgICAgICB9CiAgICB9CgogICAgcHVibGljIGZ1bmMgY2hlY2tQZXJtaXNzaW9ucyh3aXRoIGNvbXBsZXRpb246ICgoVU5BdXRob3JpemF0aW9uU3RhdHVzKSAtPiBWb2lkKT8gPSBuaWwpIHsKICAgICAgICBsZXQgY2VudGVyID0gVU5Vc2VyTm90aWZpY2F0aW9uQ2VudGVyLmN1cnJlbnQoKQogICAgICAgIGNlbnRlci5nZXROb3RpZmljYXRpb25TZXR0aW5ncyB7IHNldHRpbmdzIGluCiAgICAgICAgICAgIGNvbXBsZXRpb24/KHNldHRpbmdzLmF1dGhvcml6YXRpb25TdGF0dXMpCiAgICAgICAgfQogICAgfQoKICAgIHB1YmxpYyBmdW5jIHdpbGxQcmVzZW50KG5vdGlmaWNhdGlvbjogVU5Ob3RpZmljYXRpb24pIC0+IFVOTm90aWZpY2F0aW9uUHJlc2VudGF0aW9uT3B0aW9ucyB7CiAgICAgICAgbGV0IG5vdGlmaWNhdGlvbkRhdGEgPSBtYWtlTm90aWZpY2F0aW9uUmVxdWVzdEpTT2JqZWN0KG5vdGlmaWNhdGlvbi5yZXF1ZXN0KQoKICAgICAgICBzZWxmLnBsdWdpbj8ubm90aWZ5TGlzdGVuZXJzKCJsb2NhbE5vdGlmaWNhdGlvblJlY2VpdmVkIiwgZGF0YTogbm90aWZpY2F0aW9uRGF0YSkKCiAgICAgICAgaWYgbGV0IG9wdGlvbnMgPSBub3RpZmljYXRpb25SZXF1ZXN0TG9va3VwW25vdGlmaWNhdGlvbi5yZXF1ZXN0LmlkZW50aWZpZXJdIHsKICAgICAgICAgICAgLy8gYGZvcmVncm91bmRgIHRha2VzIHByZWNlZGVuY2Ugb3ZlciBgc2lsZW50YCB3aGVuIGJvdGggYXJlIHByb3ZpZGVkLgogICAgICAgICAgICBpZiBsZXQgZm9yZWdyb3VuZCA9IG9wdGlvbnNbImZvcmVncm91bmQiXSBhcz8gQm9vbCB7CiAgICAgICAgICAgICAgICBpZiBmb3JlZ3JvdW5kIHsKICAgICAgICAgICAgICAgICAgICByZXR1cm4gWy5iYWRnZSwgLnNvdW5kLCAuYmFubmVyLCAubGlzdF0KICAgICAgICAgICAgICAgIH0KICAgICAgICAgICAgICAgIHJldHVybiBVTk5vdGlmaWNhdGlvblByZXNlbnRhdGlvbk9wdGlvbnMuaW5pdChyYXdWYWx1ZTogMCkKICAgICAgICAgICAgfQogICAgICAgICAgICBsZXQgc2lsZW50ID0gb3B0aW9uc1sic2lsZW50Il0gYXM/IEJvb2wgPz8gZmFsc2UKICAgICAgICAgICAgaWYgc2lsZW50IHsKICAgICAgICAgICAgICAgIHJldHVybiBVTk5vdGlmaWNhdGlvblByZXNlbnRhdGlvbk9wdGlvbnMuaW5pdChyYXdWYWx1ZTogMCkKICAgICAgICAgICAgfQogICAgICAgIH0KCiAgICAgICAgaWYgbGV0IG9wdGlvbnNBcnJheSA9IHNlbGYucGx1Z2luPy5nZXRDb25maWcoKS5nZXRBcnJheSgicHJlc2VudGF0aW9uT3B0aW9ucyIpIGFzPyBbU3RyaW5nXSB7CiAgICAgICAgICAgIHZhciBwcmVzZW50YXRpb25PcHRpb25zID0gVU5Ob3RpZmljYXRpb25QcmVzZW50YXRpb25PcHRpb25zLmluaXQoKQoKICAgICAgICAgICAgb3B0aW9uc0FycmF5LmZvckVhY2ggeyBvcHRpb24gaW4KICAgICAgICAgICAgICAgIHN3aXRjaCBvcHRpb24gewogICAgICAgICAgICAgICAgY2FzZSAiYmFubmVyIjoKICAgICAgICAgICAgICAgICAgICBwcmVzZW50YXRpb25PcHRpb25zLmluc2VydCguYmFubmVyKQogICAgICAgICAgICAgICAgY2FzZSAibGlzdCI6CiAgICAgICAgICAgICAgICAgICAgcHJlc2VudGF0aW9uT3B0aW9ucy5pbnNlcnQoLmxpc3QpCiAgICAgICAgICAgICAgICBjYXNlICJiYWRnZSI6CiAgICAgICAgICAgICAgICAgICAgcHJlc2VudGF0aW9uT3B0aW9ucy5pbnNlcnQoLmJhZGdlKQogICAgICAgICAgICAgICAgY2FzZSAic291bmQiOgogICAgICAgICAgICAgICAgICAgIHByZXNlbnRhdGlvbk9wdGlvbnMuaW5zZXJ0KC5zb3VuZCkKICAgICAgICAgICAgICAgIGRlZmF1bHQ6CiAgICAgICAgICAgICAgICAgICAgcHJpbnQoIlVucmVjb2duaXplZCBwcmVzZW50YXRpb24gb3B0aW9uOiBcKG9wdGlvbikiKQogICAgICAgICAgICAgICAgfQogICAgICAgICAgICB9CgogICAgICAgICAgICByZXR1cm4gcHJlc2VudGF0aW9uT3B0aW9ucwogICAgICAgIH0KCiAgICAgICAgcmV0dXJuIFsKICAgICAgICAgICAgLmJhZGdlLAogICAgICAgICAgICAuc291bmQsCiAgICAgICAgICAgIC5iYW5uZXIsCiAgICAgICAgICAgIC5saXN0CiAgICAgICAgXQogICAgfQoKICAgIHB1YmxpYyBmdW5jIGRpZFJlY2VpdmUocmVzcG9uc2U6IFVOTm90aWZpY2F0aW9uUmVzcG9uc2UpIHsKICAgICAgICB2YXIgZGF0YSA9IEpTT2JqZWN0KCkKCiAgICAgICAgLy8gR2V0IHRoZSBpbmZvIGZvciB0aGUgb3JpZ2luYWwgbm90aWZpY2F0aW9uIHJlcXVlc3QKICAgICAgICBsZXQgb3JpZ2luYWxOb3RpZmljYXRpb25SZXF1ZXN0ID0gcmVzcG9uc2Uubm90aWZpY2F0aW9uLnJlcXVlc3QKCiAgICAgICAgbGV0IGFjdGlvbklkID0gcmVzcG9uc2UuYWN0aW9uSWRlbnRpZmllcgoKICAgICAgICAvLyBXZSB0dXJuIHRoZSB0d28gZGVmYXVsdCBhY3Rpb25zIChvcGVuL2Rpc21pc3MpIGludG8gZ2VuZXJpYyBzdHJpbmdzCiAgICAgICAgaWYgYWN0aW9uSWQgPT0gVU5Ob3RpZmljYXRpb25EZWZhdWx0QWN0aW9uSWRlbnRpZmllciB7CiAgICAgICAgICAgIGRhdGFbImFjdGlvbklkIl0gPSAidGFwIgogICAgICAgIH0gZWxzZSBpZiBhY3Rpb25JZCA9PSBVTk5vdGlmaWNhdGlvbkRpc21pc3NBY3Rpb25JZGVudGlmaWVyIHsKICAgICAgICAgICAgZGF0YVsiYWN0aW9uSWQiXSA9ICJkaXNtaXNzIgogICAgICAgIH0gZWxzZSB7CiAgICAgICAgICAgIGRhdGFbImFjdGlvbklkIl0gPSBhY3Rpb25JZAogICAgICAgIH0KCiAgICAgICAgLy8gSWYgdGhlIHR5cGUgb2YgYWN0aW9uIHdhcyBmb3IgYW4gaW5wdXQgdHlwZSwgZ2V0IHRoZSB2YWx1ZQogICAgICAgIGlmIGxldCBpbnB1dFR5cGUgPSByZXNwb25zZSBhcz8gVU5UZXh0SW5wdXROb3RpZmljYXRpb25SZXNwb25zZSB7CiAgICAgICAgICAgIGRhdGFbImlucHV0VmFsdWUiXSA9IGlucHV0VHlwZS51c2VyVGV4dAogICAgICAgIH0KCiAgICAgICAgZGF0YVsibm90aWZpY2F0aW9uIl0gPSBtYWtlTm90aWZpY2F0aW9uUmVxdWVzdEpTT2JqZWN0KG9yaWdpbmFsTm90aWZpY2F0aW9uUmVxdWVzdCkKCiAgICAgICAgc2VsZi5wbHVnaW4/Lm5vdGlmeUxpc3RlbmVycygibG9jYWxOb3RpZmljYXRpb25BY3Rpb25QZXJmb3JtZWQiLCBkYXRhOiBkYXRhLCByZXRhaW5VbnRpbENvbnN1bWVkOiB0cnVlKQogICAgfQoKICAgIC8qKgogICAgICogVHVybiBhIFVOTm90aWZpY2F0aW9uUmVxdWVzdCBpbnRvIGEgSlNPYmplY3QgdG8gcmV0dXJuIGJhY2sgdG8gdGhlIGNsaWVudC4KICAgICAqLwogICAgZnVuYyBtYWtlTm90aWZpY2F0aW9uUmVxdWVzdEpTT2JqZWN0KF8gcmVxdWVzdDogVU5Ob3RpZmljYXRpb25SZXF1ZXN0KSAtPiBKU09iamVjdCB7CiAgICAgICAgbGV0IG5vdGlmaWNhdGlvblJlcXVlc3QgPSBub3RpZmljYXRpb25SZXF1ZXN0TG9va3VwW3JlcXVlc3QuaWRlbnRpZmllcl0gPz8gWzpdCiAgICAgICAgdmFyIG5vdGlmaWNhdGlvbiA9IG1ha2VQZW5kaW5nTm90aWZpY2F0aW9uUmVxdWVzdEpTT2JqZWN0KHJlcXVlc3QpCiAgICAgICAgbm90aWZpY2F0aW9uWyJzb3VuZCJdID0gbm90aWZpY2F0aW9uUmVxdWVzdFsic291bmQiXSAgPz8gIiIKICAgICAgICBub3RpZmljYXRpb25bImFjdGlvblR5cGVJZCJdID0gcmVxdWVzdC5jb250ZW50LmNhdGVnb3J5SWRlbnRpZmllcgogICAgICAgIG5vdGlmaWNhdGlvblsiYXR0YWNobWVudHMiXSA9IG5vdGlmaWNhdGlvblJlcXVlc3RbImF0dGFjaG1lbnRzIl0gID8/IFtdCiAgICAgICAgaWYgbGV0IGJhZGdlID0gcmVxdWVzdC5jb250ZW50LmJhZGdlIHsKICAgICAgICAgICAgbm90aWZpY2F0aW9uWyJiYWRnZSJdID0gYmFkZ2UuaW50VmFsdWUKICAgICAgICB9CiAgICAgICAgaWYgbGV0IGZvcmVncm91bmQgPSBub3RpZmljYXRpb25SZXF1ZXN0WyJmb3JlZ3JvdW5kIl0gYXM/IEJvb2wgewogICAgICAgICAgICBub3RpZmljYXRpb25bImZvcmVncm91bmQiXSA9IGZvcmVncm91bmQKICAgICAgICB9CiAgICAgICAgcmV0dXJuIG5vdGlmaWNhdGlvbgoKICAgIH0KCiAgICBmdW5jIG1ha2VQZW5kaW5nTm90aWZpY2F0aW9uUmVxdWVzdEpTT2JqZWN0KF8gcmVxdWVzdDogVU5Ob3RpZmljYXRpb25SZXF1ZXN0KSAtPiBKU09iamVjdCB7CiAgICAgICAgdmFyIG5vdGlmaWNhdGlvbjogSlNPYmplY3QgPSBbCiAgICAgICAgICAgICJpZCI6IEludChyZXF1ZXN0LmlkZW50aWZpZXIpID8/IC0xLAogICAgICAgICAgICAidGl0bGUiOiByZXF1ZXN0LmNvbnRlbnQudGl0bGUsCiAgICAgICAgICAgICJib2R5IjogcmVxdWVzdC5jb250ZW50LmJvZHkKICAgICAgICBdCgogICAgICAgIGlmIGxldCB1c2VySW5mbyA9IEpTVHlwZXMuY29lcmNlRGljdGlvbmFyeVRvSlNPYmplY3QocmVxdWVzdC5jb250ZW50LnVzZXJJbmZvKSB7CiAgICAgICAgICAgIC8vIGBleHRyYWAgaXMgZG9jdW1lbnRlZCBhcyBgYW55YCwgbm90IGp1c3QgYW4gb2JqZWN0LiBPbmx5IGRpY3Rpb25hcmllcwogICAgICAgICAgICAvLyBuZWVkIHBlci1rZXkgRGF0ZSBub3JtYWxpemF0aW9uOyBhbnl0aGluZyBlbHNlIGlzIHBhc3NlZCB0aHJvdWdoCiAgICAgICAgICAgIC8vIGFzLWlzIHJhdGhlciB0aGFuIHN1YnN0aXR1dGluZyB0aGUgd2hvbGUgdXNlckluZm8gb2JqZWN0LgogICAgICAgICAgICBpZiB2YXIgZXh0cmFEaWN0ID0gdXNlckluZm9bImNhcF9leHRyYSJdIGFzPyBKU09iamVjdCB7CiAgICAgICAgICAgICAgICBmb3Ioa2V5LCB2YWx1ZSkgaW4gZXh0cmFEaWN0IHsKICAgICAgICAgICAgICAgICAgICBpZiBsZXQgZGF0ZSA9IHZhbHVlIGFzPyBEYXRlIHsKICAgICAgICAgICAgICAgICAgICAgICAgbGV0IGRhdGVTdHJpbmcgPSBJU084NjAxRGF0ZUZvcm1hdHRlcigpLnN0cmluZyhmcm9tOiBkYXRlKQogICAgICAgICAgICAgICAgICAgICAgICBleHRyYURpY3Rba2V5XSA9IGRhdGVTdHJpbmcKICAgICAgICAgICAgICAgICAgICB9CiAgICAgICAgICAgICAgICB9CiAgICAgICAgICAgICAgICBub3RpZmljYXRpb25bImV4dHJhIl0gPSBleHRyYURpY3QKICAgICAgICAgICAgfSBlbHNlIGlmIGxldCBleHRyYVZhbHVlID0gdXNlckluZm9bImNhcF9leHRyYSJdIHsKICAgICAgICAgICAgICAgIG5vdGlmaWNhdGlvblsiZXh0cmEiXSA9IGV4dHJhVmFsdWUKICAgICAgICAgICAgfQoKICAgICAgICAgICAgaWYgdmFyIHNjaGVkdWxlID0gdXNlckluZm9bImNhcF9zY2hlZHVsZSJdIGFzPyBKU09iamVjdCB7CiAgICAgICAgICAgICAgICAvLyBjb252ZXJ0IHNjaGVkdWxlIGF0IGRhdGUgdG8gc3RyaW5nCiAgICAgICAgICAgICAgICBpZiBsZXQgZGF0ZSA9IHNjaGVkdWxlWyJhdCJdIGFzPyBEYXRlIHsKICAgICAgICAgICAgICAgICAgICBsZXQgZGF0ZVN0cmluZyA9IElTTzg2MDFEYXRlRm9ybWF0dGVyKCkuc3RyaW5nKGZyb206IGRhdGUpCiAgICAgICAgICAgICAgICAgICAgc2NoZWR1bGVbImF0Il0gPSBkYXRlU3RyaW5nCiAgICAgICAgICAgICAgICB9CgogICAgICAgICAgICAgICAgbm90aWZpY2F0aW9uWyJzY2hlZHVsZSJdID0gc2NoZWR1bGUKICAgICAgICAgICAgfQogICAgICAgIH0KCiAgICAgICAgcmV0dXJuIG5vdGlmaWNhdGlvbgoKICAgIH0KfQo=
+import Capacitor
+import UserNotifications
+
+public class LocalNotificationsHandler: NSObject, NotificationHandlerProtocol {
+
+    public weak var plugin: CAPPlugin?
+
+    // Local list of notification id -> JSObject for storing options
+    // between notification requets
+    var notificationRequestLookup = [String: JSObject]()
+
+    public func requestPermissions(with completion: ((Bool, Error?) -> Void)? = nil) {
+        let center = UNUserNotificationCenter.current()
+        center.requestAuthorization(options: [.badge, .alert, .sound]) { (granted, error) in
+            completion?(granted, error)
+        }
+    }
+
+    public func checkPermissions(with completion: ((UNAuthorizationStatus) -> Void)? = nil) {
+        let center = UNUserNotificationCenter.current()
+        center.getNotificationSettings { settings in
+            completion?(settings.authorizationStatus)
+        }
+    }
+
+    public func willPresent(notification: UNNotification) -> UNNotificationPresentationOptions {
+        let notificationData = makeNotificationRequestJSObject(notification.request)
+
+        self.plugin?.notifyListeners("localNotificationReceived", data: notificationData)
+
+        if let options = notificationRequestLookup[notification.request.identifier] {
+            // `foreground` takes precedence over `silent` when both are provided.
+            if let foreground = options["foreground"] as? Bool {
+                if foreground {
+                    return [.badge, .sound, .banner, .list]
+                }
+                return UNNotificationPresentationOptions.init(rawValue: 0)
+            }
+            let silent = options["silent"] as? Bool ?? false
+            if silent {
+                return UNNotificationPresentationOptions.init(rawValue: 0)
+            }
+        }
+
+        if let optionsArray = self.plugin?.getConfig().getArray("presentationOptions") as? [String] {
+            var presentationOptions = UNNotificationPresentationOptions.init()
+
+            optionsArray.forEach { option in
+                switch option {
+                case "banner":
+                    presentationOptions.insert(.banner)
+                case "list":
+                    presentationOptions.insert(.list)
+                case "badge":
+                    presentationOptions.insert(.badge)
+                case "sound":
+                    presentationOptions.insert(.sound)
+                default:
+                    print("Unrecognized presentation option: \(option)")
+                }
+            }
+
+            return presentationOptions
+        }
+
+        return [
+            .badge,
+            .sound,
+            .banner,
+            .list
+        ]
+    }
+
+    public func didReceive(response: UNNotificationResponse) {
+        var data = JSObject()
+
+        // Get the info for the original notification request
+        let originalNotificationRequest = response.notification.request
+
+        let actionId = response.actionIdentifier
+
+        // We turn the two default actions (open/dismiss) into generic strings
+        if actionId == UNNotificationDefaultActionIdentifier {
+            data["actionId"] = "tap"
+        } else if actionId == UNNotificationDismissActionIdentifier {
+            data["actionId"] = "dismiss"
+        } else {
+            data["actionId"] = actionId
+        }
+
+        // If the type of action was for an input type, get the value
+        if let inputType = response as? UNTextInputNotificationResponse {
+            data["inputValue"] = inputType.userText
+        }
+
+        data["notification"] = makeNotificationRequestJSObject(originalNotificationRequest)
+
+        self.plugin?.notifyListeners("localNotificationActionPerformed", data: data, retainUntilConsumed: true)
+    }
+
+    /**
+     * Turn a UNNotificationRequest into a JSObject to return back to the client.
+     */
+    func makeNotificationRequestJSObject(_ request: UNNotificationRequest) -> JSObject {
+        let notificationRequest = notificationRequestLookup[request.identifier] ?? [:]
+        var notification = makePendingNotificationRequestJSObject(request)
+        notification["sound"] = notificationRequest["sound"]  ?? ""
+        notification["actionTypeId"] = request.content.categoryIdentifier
+        notification["attachments"] = notificationRequest["attachments"]  ?? []
+        if let badge = request.content.badge {
+            notification["badge"] = badge.intValue
+        }
+        if let foreground = notificationRequest["foreground"] as? Bool {
+            notification["foreground"] = foreground
+        }
+        return notification
+
+    }
+
+    func makePendingNotificationRequestJSObject(_ request: UNNotificationRequest) -> JSObject {
+        var notification: JSObject = [
+            "id": Int(request.identifier) ?? -1,
+            "title": request.content.title,
+            "body": request.content.body
+        ]
+
+        if let userInfo = JSTypes.coerceDictionaryToJSObject(request.content.userInfo) {
+            // `extra` is documented as `any`, not just an object. Only dictionaries
+            // need per-key Date normalization; anything else is passed through
+            // as-is rather than substituting the whole userInfo object.
+            if var extraDict = userInfo["cap_extra"] as? JSObject {
+                for(key, value) in extraDict {
+                    if let date = value as? Date {
+                        let dateString = ISO8601DateFormatter().string(from: date)
+                        extraDict[key] = dateString
+                    }
+                }
+                notification["extra"] = extraDict
+            } else if let extraValue = userInfo["cap_extra"] {
+                notification["extra"] = extraValue
+            }
+
+            if var schedule = userInfo["cap_schedule"] as? JSObject {
+                // convert schedule at date to string
+                if let date = schedule["at"] as? Date {
+                    let dateString = ISO8601DateFormatter().string(from: date)
+                    schedule["at"] = dateString
+                }
+
+                notification["schedule"] = schedule
+            }
+        }
+
+        return notification
+
+    }
+}

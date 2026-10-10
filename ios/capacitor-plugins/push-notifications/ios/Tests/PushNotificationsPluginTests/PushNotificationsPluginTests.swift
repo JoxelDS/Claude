@@ -1,1 +1,5 @@
-aW1wb3J0IFhDVGVzdApAdGVzdGFibGUgaW1wb3J0IFB1c2hOb3RpZmljYXRpb25zUGx1Z2luCgpjbGFzcyBQdXNoTm90aWZpY2F0aW9uc1Rlc3RzOiBYQ1Rlc3RDYXNlIHsKfQo=
+import XCTest
+@testable import PushNotificationsPlugin
+
+class PushNotificationsTests: XCTestCase {
+}

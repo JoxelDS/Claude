@@ -1,1 +1,211 @@
-aW1wb3J0IEZvdW5kYXRpb24KaW1wb3J0IENhcGFjaXRvcgppbXBvcnQgVXNlck5vdGlmaWNhdGlvbnMKCmVudW0gUHVzaE5vdGlmaWNhdGlvbkVycm9yOiBFcnJvciB7CiAgICBjYXNlIHRva2VuUGFyc2luZ0ZhaWxlZAogICAgY2FzZSB0b2tlblJlZ2lzdHJhdGlvbkZhaWxlZAp9CgplbnVtIFB1c2hOb3RpZmljYXRpb25zUGVybWlzc2lvbnM6IFN0cmluZyB7CiAgICBjYXNlIHByb21wdAogICAgY2FzZSBkZW5pZWQKICAgIGNhc2UgZ3JhbnRlZAp9CgpAb2JqYyhQdXNoTm90aWZpY2F0aW9uc1BsdWdpbikKcHVibGljIGNsYXNzIFB1c2hOb3RpZmljYXRpb25zUGx1Z2luOiBDQVBQbHVnaW4sIENBUEJyaWRnZWRQbHVnaW4gewogICAgcHVibGljIGxldCBpZGVudGlmaWVyID0gIlB1c2hOb3RpZmljYXRpb25zUGx1Z2luIgogICAgcHVibGljIGxldCBqc05hbWUgPSAiUHVzaE5vdGlmaWNhdGlvbnMiCiAgICBwdWJsaWMgbGV0IHBsdWdpbk1ldGhvZHM6IFtDQVBQbHVnaW5NZXRob2RdID0gWwogICAgICAgIENBUFBsdWdpbk1ldGhvZChuYW1lOiAicmVnaXN0ZXIiLCByZXR1cm5UeXBlOiBDQVBQbHVnaW5SZXR1cm5Qcm9taXNlKSwKICAgICAgICBDQVBQbHVnaW5NZXRob2QobmFtZTogInVucmVnaXN0ZXIiLCByZXR1cm5UeXBlOiBDQVBQbHVnaW5SZXR1cm5Qcm9taXNlKSwKICAgICAgICBDQVBQbHVnaW5NZXRob2QobmFtZTogImNoZWNrUGVybWlzc2lvbnMiLCByZXR1cm5UeXBlOiBDQVBQbHVnaW5SZXR1cm5Qcm9taXNlKSwKICAgICAgICBDQVBQbHVnaW5NZXRob2QobmFtZTogInJlcXVlc3RQZXJtaXNzaW9ucyIsIHJldHVyblR5cGU6IENBUFBsdWdpblJldHVyblByb21pc2UpLAogICAgICAgIENBUFBsdWdpbk1ldGhvZChuYW1lOiAiZ2V0RGVsaXZlcmVkTm90aWZpY2F0aW9ucyIsIHJldHVyblR5cGU6IENBUFBsdWdpblJldHVyblByb21pc2UpLAogICAgICAgIENBUFBsdWdpbk1ldGhvZChuYW1lOiAicmVtb3ZlQWxsRGVsaXZlcmVkTm90aWZpY2F0aW9ucyIsIHJldHVyblR5cGU6IENBUFBsdWdpblJldHVyblByb21pc2UpLAogICAgICAgIENBUFBsdWdpbk1ldGhvZChuYW1lOiAicmVtb3ZlRGVsaXZlcmVkTm90aWZpY2F0aW9ucyIsIHJldHVyblR5cGU6IENBUFBsdWdpblJldHVyblByb21pc2UpLAogICAgICAgIENBUFBsdWdpbk1ldGhvZChuYW1lOiAiY3JlYXRlQ2hhbm5lbCIsIHJldHVyblR5cGU6IENBUFBsdWdpblJldHVyblByb21pc2UpLAogICAgICAgIENBUFBsdWdpbk1ldGhvZChuYW1lOiAibGlzdENoYW5uZWxzIiwgcmV0dXJuVHlwZTogQ0FQUGx1Z2luUmV0dXJuUHJvbWlzZSksCiAgICAgICAgQ0FQUGx1Z2luTWV0aG9kKG5hbWU6ICJkZWxldGVDaGFubmVsIiwgcmV0dXJuVHlwZTogQ0FQUGx1Z2luUmV0dXJuUHJvbWlzZSkKICAgIF0KICAgIHByaXZhdGUgbGV0IG5vdGlmaWNhdGlvbkRlbGVnYXRlSGFuZGxlciA9IFB1c2hOb3RpZmljYXRpb25zSGFuZGxlcigpCiAgICBwcml2YXRlIHZhciBhcHBEZWxlZ2F0ZVJlZ2lzdHJhdGlvbkNhbGxlZDogQm9vbCA9IGZhbHNlCgogICAgb3ZlcnJpZGUgcHVibGljIGZ1bmMgbG9hZCgpIHsKICAgICAgICBzZWxmLmJyaWRnZT8ubm90aWZpY2F0aW9uUm91dGVyLnB1c2hOb3RpZmljYXRpb25IYW5kbGVyID0gc2VsZi5ub3RpZmljYXRpb25EZWxlZ2F0ZUhhbmRsZXIKICAgICAgICBzZWxmLm5vdGlmaWNhdGlvbkRlbGVnYXRlSGFuZGxlci5wbHVnaW4gPSBzZWxmCgogICAgICAgIE5vdGlmaWNhdGlvbkNlbnRlci5kZWZhdWx0LmFkZE9ic2VydmVyKHNlbGYsCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgc2VsZWN0b3I6ICNzZWxlY3RvcihzZWxmLmRpZFJlZ2lzdGVyRm9yUmVtb3RlTm90aWZpY2F0aW9uc1dpdGhEZXZpY2VUb2tlbihub3RpZmljYXRpb246KSksCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgbmFtZTogLmNhcGFjaXRvckRpZFJlZ2lzdGVyRm9yUmVtb3RlTm90aWZpY2F0aW9ucywKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBvYmplY3Q6IG5pbCkKCiAgICAgICAgTm90aWZpY2F0aW9uQ2VudGVyLmRlZmF1bHQuYWRkT2JzZXJ2ZXIoc2VsZiwKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBzZWxlY3RvcjogI3NlbGVjdG9yKHNlbGYuZGlkRmFpbFRvUmVnaXN0ZXJGb3JSZW1vdGVOb3RpZmljYXRpb25zV2l0aEVycm9yKG5vdGlmaWNhdGlvbjopKSwKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBuYW1lOiAuY2FwYWNpdG9yRGlkRmFpbFRvUmVnaXN0ZXJGb3JSZW1vdGVOb3RpZmljYXRpb25zLAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIG9iamVjdDogbmlsKQogICAgfQoKICAgIGRlaW5pdCB7CiAgICAgICAgTm90aWZpY2F0aW9uQ2VudGVyLmRlZmF1bHQucmVtb3ZlT2JzZXJ2ZXIoc2VsZikKICAgIH0KCiAgICAvKioKICAgICAqIFJlZ2lzdGVyIGZvciBwdXNoIG5vdGlmaWNhdGlvbnMKICAgICAqLwogICAgQG9iamMgZnVuYyByZWdpc3RlcihfIGNhbGw6IENBUFBsdWdpbkNhbGwpIHsKICAgICAgICBEaXNwYXRjaFF1ZXVlLm1haW4uYXN5bmMgewogICAgICAgICAgICBVSUFwcGxpY2F0aW9uLnNoYXJlZC5yZWdpc3RlckZvclJlbW90ZU5vdGlmaWNhdGlvbnMoKQogICAgICAgIH0KICAgICAgICBjYWxsLnJlc29sdmUoKQogICAgfQoKICAgIC8qKgogICAgICogVW5yZWdpc3RlciBmb3IgcmVtb3RlIG5vdGlmaWNhdGlvbnMKICAgICAqLwogICAgQG9iamMgZnVuYyB1bnJlZ2lzdGVyKF8gY2FsbDogQ0FQUGx1Z2luQ2FsbCkgewogICAgICAgIERpc3BhdGNoUXVldWUubWFpbi5hc3luYyB7CiAgICAgICAgICAgIFVJQXBwbGljYXRpb24uc2hhcmVkLnVucmVnaXN0ZXJGb3JSZW1vdGVOb3RpZmljYXRpb25zKCkKICAgICAgICAgICAgY2FsbC5yZXNvbHZlKCkKICAgICAgICB9CiAgICB9CgogICAgLyoqCiAgICAgKiBSZXF1ZXN0IG5vdGlmaWNhdGlvbiBwZXJtaXNzaW9uCiAgICAgKi8KICAgIEBvYmpjIG92ZXJyaWRlIHB1YmxpYyBmdW5jIHJlcXVlc3RQZXJtaXNzaW9ucyhfIGNhbGw6IENBUFBsdWdpbkNhbGwpIHsKICAgICAgICBzZWxmLm5vdGlmaWNhdGlvbkRlbGVnYXRlSGFuZGxlci5yZXF1ZXN0UGVybWlzc2lvbnMgeyBncmFudGVkLCBlcnJvciBpbgogICAgICAgICAgICBndWFyZCBlcnJvciA9PSBuaWwgZWxzZSB7CiAgICAgICAgICAgICAgICBpZiBsZXQgZXJyID0gZXJyb3IgewogICAgICAgICAgICAgICAgICAgIGNhbGwucmVqZWN0KGVyci5sb2NhbGl6ZWREZXNjcmlwdGlvbikKICAgICAgICAgICAgICAgICAgICByZXR1cm4KICAgICAgICAgICAgICAgIH0KCiAgICAgICAgICAgICAgICBjYWxsLnJlamVjdCgidW5rbm93biBlcnJvciBpbiBwZXJtaXNzaW9ucyByZXF1ZXN0IikKICAgICAgICAgICAgICAgIHJldHVybgogICAgICAgICAgICB9CgogICAgICAgICAgICB2YXIgcmVzdWx0OiBQdXNoTm90aWZpY2F0aW9uc1Blcm1pc3Npb25zID0gLmRlbmllZAoKICAgICAgICAgICAgaWYgZ3JhbnRlZCB7CiAgICAgICAgICAgICAgICByZXN1bHQgPSAuZ3JhbnRlZAogICAgICAgICAgICB9CgogICAgICAgICAgICBjYWxsLnJlc29sdmUoWyJyZWNlaXZlIjogcmVzdWx0LnJhd1ZhbHVlXSkKICAgICAgICB9CiAgICB9CgogICAgLyoqCiAgICAgKiBDaGVjayBub3RpZmljYXRpb24gcGVybWlzc2lvbgogICAgICovCiAgICBAb2JqYyBvdmVycmlkZSBwdWJsaWMgZnVuYyBjaGVja1Blcm1pc3Npb25zKF8gY2FsbDogQ0FQUGx1Z2luQ2FsbCkgewogICAgICAgIHNlbGYubm90aWZpY2F0aW9uRGVsZWdhdGVIYW5kbGVyLmNoZWNrUGVybWlzc2lvbnMgeyBzdGF0dXMgaW4KICAgICAgICAgICAgdmFyIHJlc3VsdDogUHVzaE5vdGlmaWNhdGlvbnNQZXJtaXNzaW9ucyA9IC5wcm9tcHQKCiAgICAgICAgICAgIHN3aXRjaCBzdGF0dXMgewogICAgICAgICAgICBjYXNlIC5ub3REZXRlcm1pbmVkOgogICAgICAgICAgICAgICAgcmVzdWx0ID0gLnByb21wdAogICAgICAgICAgICBjYXNlIC5kZW5pZWQ6CiAgICAgICAgICAgICAgICByZXN1bHQgPSAuZGVuaWVkCiAgICAgICAgICAgIGNhc2UgLmVwaGVtZXJhbCwgLmF1dGhvcml6ZWQsIC5wcm92aXNpb25hbDoKICAgICAgICAgICAgICAgIHJlc3VsdCA9IC5ncmFudGVkCiAgICAgICAgICAgIEB1bmtub3duIGRlZmF1bHQ6CiAgICAgICAgICAgICAgICByZXN1bHQgPSAucHJvbXB0CiAgICAgICAgICAgIH0KCiAgICAgICAgICAgIGNhbGwucmVzb2x2ZShbInJlY2VpdmUiOiByZXN1bHQucmF3VmFsdWVdKQogICAgICAgIH0KICAgIH0KCiAgICAvKioKICAgICAqIEdldCBub3RpZmljYXRpb25zIGluIE5vdGlmaWNhdGlvbiBDZW50ZXIKICAgICAqLwogICAgQG9iamMgZnVuYyBnZXREZWxpdmVyZWROb3RpZmljYXRpb25zKF8gY2FsbDogQ0FQUGx1Z2luQ2FsbCkgewogICAgICAgIGlmICFhcHBEZWxlZ2F0ZVJlZ2lzdHJhdGlvbkNhbGxlZCB7CiAgICAgICAgICAgIGNhbGwucmVqZWN0KCJldmVudCBjYXBhY2l0b3JEaWRSZWdpc3RlckZvclJlbW90ZU5vdGlmaWNhdGlvbnMgbm90IGNhbGxlZC4gIFZpc2l0IGh0dHBzOi8vY2FwYWNpdG9yanMuY29tL2RvY3MvYXBpcy9wdXNoLW5vdGlmaWNhdGlvbnMgZm9yIG1vcmUgaW5mb3JtYXRpb24iKQogICAgICAgICAgICByZXR1cm4KICAgICAgICB9CiAgICAgICAgVU5Vc2VyTm90aWZpY2F0aW9uQ2VudGVyLmN1cnJlbnQoKS5nZXREZWxpdmVyZWROb3RpZmljYXRpb25zKGNvbXBsZXRpb25IYW5kbGVyOiB7IChub3RpZmljYXRpb25zKSBpbgogICAgICAgICAgICBsZXQgcmV0ID0gbm90aWZpY2F0aW9ucy5tYXAoeyAobm90aWZpY2F0aW9uKSAtPiBbU3RyaW5nOiBBbnldIGluCiAgICAgICAgICAgICAgICByZXR1cm4gc2VsZi5ub3RpZmljYXRpb25EZWxlZ2F0ZUhhbmRsZXIubWFrZU5vdGlmaWNhdGlvblJlcXVlc3RKU09iamVjdChub3RpZmljYXRpb24ucmVxdWVzdCkKICAgICAgICAgICAgfSkKICAgICAgICAgICAgY2FsbC5yZXNvbHZlKFsKICAgICAgICAgICAgICAgICJub3RpZmljYXRpb25zIjogcmV0CiAgICAgICAgICAgIF0pCiAgICAgICAgfSkKICAgIH0KCiAgICAvKioKICAgICAqIFJlbW92ZSBzcGVjaWZpZWQgbm90aWZpY2F0aW9ucyBmcm9tIE5vdGlmaWNhdGlvbiBDZW50ZXIKICAgICAqLwogICAgQG9iamMgZnVuYyByZW1vdmVEZWxpdmVyZWROb3RpZmljYXRpb25zKF8gY2FsbDogQ0FQUGx1Z2luQ2FsbCkgewogICAgICAgIGlmICFhcHBEZWxlZ2F0ZVJlZ2lzdHJhdGlvbkNhbGxlZCB7CiAgICAgICAgICAgIGNhbGwucmVqZWN0KCJldmVudCBjYXBhY2l0b3JEaWRSZWdpc3RlckZvclJlbW90ZU5vdGlmaWNhdGlvbnMgbm90IGNhbGxlZC4gIFZpc2l0IGh0dHBzOi8vY2FwYWNpdG9yanMuY29tL2RvY3MvYXBpcy9wdXNoLW5vdGlmaWNhdGlvbnMgZm9yIG1vcmUgaW5mb3JtYXRpb24iKQogICAgICAgICAgICByZXR1cm4KICAgICAgICB9CiAgICAgICAgZ3VhcmQgbGV0IG5vdGlmaWNhdGlvbnMgPSBjYWxsLmdldEFycmF5KCJub3RpZmljYXRpb25zIiwgSlNPYmplY3Quc2VsZikgZWxzZSB7CiAgICAgICAgICAgIGNhbGwucmVqZWN0KCJNdXN0IHN1cHBseSBub3RpZmljYXRpb25zIHRvIHJlbW92ZSIpCiAgICAgICAgICAgIHJldHVybgogICAgICAgIH0KCiAgICAgICAgbGV0IGlkcyA9IG5vdGlmaWNhdGlvbnMubWFwIHsgJDBbImlkIl0gYXM/IFN0cmluZyA/PyAiIiB9CiAgICAgICAgVU5Vc2VyTm90aWZpY2F0aW9uQ2VudGVyLmN1cnJlbnQoKS5yZW1vdmVEZWxpdmVyZWROb3RpZmljYXRpb25zKHdpdGhJZGVudGlmaWVyczogaWRzKQogICAgICAgIGNhbGwucmVzb2x2ZSgpCiAgICB9CgogICAgLyoqCiAgICAgKiBSZW1vdmUgYWxsIG5vdGlmaWNhdGlvbnMgZnJvbSBOb3RpZmljYXRpb24gQ2VudGVyCiAgICAgKi8KICAgIEBvYmpjIGZ1bmMgcmVtb3ZlQWxsRGVsaXZlcmVkTm90aWZpY2F0aW9ucyhfIGNhbGw6IENBUFBsdWdpbkNhbGwpIHsKICAgICAgICBpZiAhYXBwRGVsZWdhdGVSZWdpc3RyYXRpb25DYWxsZWQgewogICAgICAgICAgICBjYWxsLnJlamVjdCgiZXZlbnQgY2FwYWNpdG9yRGlkUmVnaXN0ZXJGb3JSZW1vdGVOb3RpZmljYXRpb25zIG5vdCBjYWxsZWQuICBWaXNpdCBodHRwczovL2NhcGFjaXRvcmpzLmNvbS9kb2NzL2FwaXMvcHVzaC1ub3RpZmljYXRpb25zIGZvciBtb3JlIGluZm9ybWF0aW9uIikKICAgICAgICAgICAgcmV0dXJuCiAgICAgICAgfQogICAgICAgIFVOVXNlck5vdGlmaWNhdGlvbkNlbnRlci5jdXJyZW50KCkucmVtb3ZlQWxsRGVsaXZlcmVkTm90aWZpY2F0aW9ucygpCiAgICAgICAgRGlzcGF0Y2hRdWV1ZS5tYWluLmFzeW5jKGV4ZWN1dGU6IHsKICAgICAgICAgICAgVUlBcHBsaWNhdGlvbi5zaGFyZWQuYXBwbGljYXRpb25JY29uQmFkZ2VOdW1iZXIgPSAwCiAgICAgICAgfSkKICAgICAgICBjYWxsLnJlc29sdmUoKQogICAgfQoKICAgIEBvYmpjIGZ1bmMgY3JlYXRlQ2hhbm5lbChfIGNhbGw6IENBUFBsdWdpbkNhbGwpIHsKICAgICAgICBjYWxsLnVuaW1wbGVtZW50ZWQoIk5vdCBhdmFpbGFibGUgb24gaU9TIikKICAgIH0KCiAgICBAb2JqYyBmdW5jIGRlbGV0ZUNoYW5uZWwoXyBjYWxsOiBDQVBQbHVnaW5DYWxsKSB7CiAgICAgICAgY2FsbC51bmltcGxlbWVudGVkKCJOb3QgYXZhaWxhYmxlIG9uIGlPUyIpCiAgICB9CgogICAgQG9iamMgZnVuYyBsaXN0Q2hhbm5lbHMoXyBjYWxsOiBDQVBQbHVnaW5DYWxsKSB7CiAgICAgICAgY2FsbC51bmltcGxlbWVudGVkKCJOb3QgYXZhaWxhYmxlIG9uIGlPUyIpCiAgICB9CgogICAgQG9iamMgcHVibGljIGZ1bmMgZGlkUmVnaXN0ZXJGb3JSZW1vdGVOb3RpZmljYXRpb25zV2l0aERldmljZVRva2VuKG5vdGlmaWNhdGlvbjogTlNOb3RpZmljYXRpb24pIHsKICAgICAgICBhcHBEZWxlZ2F0ZVJlZ2lzdHJhdGlvbkNhbGxlZCA9IHRydWUKICAgICAgICBpZiBsZXQgZGV2aWNlVG9rZW4gPSBub3RpZmljYXRpb24ub2JqZWN0IGFzPyBEYXRhIHsKICAgICAgICAgICAgbGV0IGRldmljZVRva2VuU3RyaW5nID0gZGV2aWNlVG9rZW4ucmVkdWNlKCIiLCB7JDAgKyBTdHJpbmcoZm9ybWF0OiAiJTAyWCIsICQxKX0pCiAgICAgICAgICAgIG5vdGlmeUxpc3RlbmVycygicmVnaXN0cmF0aW9uIiwgZGF0YTogWwogICAgICAgICAgICAgICAgInZhbHVlIjogZGV2aWNlVG9rZW5TdHJpbmcKICAgICAgICAgICAgXSkKICAgICAgICB9IGVsc2UgaWYgbGV0IHN0cmluZ1Rva2VuID0gbm90aWZpY2F0aW9uLm9iamVjdCBhcz8gU3RyaW5nIHsKICAgICAgICAgICAgbm90aWZ5TGlzdGVuZXJzKCJyZWdpc3RyYXRpb24iLCBkYXRhOiBbCiAgICAgICAgICAgICAgICAidmFsdWUiOiBzdHJpbmdUb2tlbgogICAgICAgICAgICBdKQogICAgICAgIH0gZWxzZSB7CiAgICAgICAgICAgIG5vdGlmeUxpc3RlbmVycygicmVnaXN0cmF0aW9uRXJyb3IiLCBkYXRhOiBbCiAgICAgICAgICAgICAgICAiZXJyb3IiOiBQdXNoTm90aWZpY2F0aW9uRXJyb3IudG9rZW5QYXJzaW5nRmFpbGVkLmxvY2FsaXplZERlc2NyaXB0aW9uCiAgICAgICAgICAgIF0pCiAgICAgICAgfQogICAgfQoKICAgIEBvYmpjIHB1YmxpYyBmdW5jIGRpZEZhaWxUb1JlZ2lzdGVyRm9yUmVtb3RlTm90aWZpY2F0aW9uc1dpdGhFcnJvcihub3RpZmljYXRpb246IE5TTm90aWZpY2F0aW9uKSB7CiAgICAgICAgYXBwRGVsZWdhdGVSZWdpc3RyYXRpb25DYWxsZWQgPSB0cnVlCiAgICAgICAgZ3VhcmQgbGV0IGVycm9yID0gbm90aWZpY2F0aW9uLm9iamVjdCBhcz8gRXJyb3IgZWxzZSB7CiAgICAgICAgICAgIHJldHVybgogICAgICAgIH0KICAgICAgICBub3RpZnlMaXN0ZW5lcnMoInJlZ2lzdHJhdGlvbkVycm9yIiwgZGF0YTogWwogICAgICAgICAgICAiZXJyb3IiOiBlcnJvci5sb2NhbGl6ZWREZXNjcmlwdGlvbgogICAgICAgIF0pCiAgICB9Cn0K
+import Foundation
+import Capacitor
+import UserNotifications
+
+enum PushNotificationError: Error {
+    case tokenParsingFailed
+    case tokenRegistrationFailed
+}
+
+enum PushNotificationsPermissions: String {
+    case prompt
+    case denied
+    case granted
+}
+
+@objc(PushNotificationsPlugin)
+public class PushNotificationsPlugin: CAPPlugin, CAPBridgedPlugin {
+    public let identifier = "PushNotificationsPlugin"
+    public let jsName = "PushNotifications"
+    public let pluginMethods: [CAPPluginMethod] = [
+        CAPPluginMethod(name: "register", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "unregister", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "checkPermissions", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "requestPermissions", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "getDeliveredNotifications", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "removeAllDeliveredNotifications", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "removeDeliveredNotifications", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "createChannel", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "listChannels", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "deleteChannel", returnType: CAPPluginReturnPromise)
+    ]
+    private let notificationDelegateHandler = PushNotificationsHandler()
+    private var appDelegateRegistrationCalled: Bool = false
+
+    override public func load() {
+        self.bridge?.notificationRouter.pushNotificationHandler = self.notificationDelegateHandler
+        self.notificationDelegateHandler.plugin = self
+
+        NotificationCenter.default.addObserver(self,
+                                               selector: #selector(self.didRegisterForRemoteNotificationsWithDeviceToken(notification:)),
+                                               name: .capacitorDidRegisterForRemoteNotifications,
+                                               object: nil)
+
+        NotificationCenter.default.addObserver(self,
+                                               selector: #selector(self.didFailToRegisterForRemoteNotificationsWithError(notification:)),
+                                               name: .capacitorDidFailToRegisterForRemoteNotifications,
+                                               object: nil)
+    }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
+
+    /**
+     * Register for push notifications
+     */
+    @objc func register(_ call: CAPPluginCall) {
+        DispatchQueue.main.async {
+            UIApplication.shared.registerForRemoteNotifications()
+        }
+        call.resolve()
+    }
+
+    /**
+     * Unregister for remote notifications
+     */
+    @objc func unregister(_ call: CAPPluginCall) {
+        DispatchQueue.main.async {
+            UIApplication.shared.unregisterForRemoteNotifications()
+            call.resolve()
+        }
+    }
+
+    /**
+     * Request notification permission
+     */
+    @objc override public func requestPermissions(_ call: CAPPluginCall) {
+        self.notificationDelegateHandler.requestPermissions { granted, error in
+            guard error == nil else {
+                if let err = error {
+                    call.reject(err.localizedDescription)
+                    return
+                }
+
+                call.reject("unknown error in permissions request")
+                return
+            }
+
+            var result: PushNotificationsPermissions = .denied
+
+            if granted {
+                result = .granted
+            }
+
+            call.resolve(["receive": result.rawValue])
+        }
+    }
+
+    /**
+     * Check notification permission
+     */
+    @objc override public func checkPermissions(_ call: CAPPluginCall) {
+        self.notificationDelegateHandler.checkPermissions { status in
+            var result: PushNotificationsPermissions = .prompt
+
+            switch status {
+            case .notDetermined:
+                result = .prompt
+            case .denied:
+                result = .denied
+            case .ephemeral, .authorized, .provisional:
+                result = .granted
+            @unknown default:
+                result = .prompt
+            }
+
+            call.resolve(["receive": result.rawValue])
+        }
+    }
+
+    /**
+     * Get notifications in Notification Center
+     */
+    @objc func getDeliveredNotifications(_ call: CAPPluginCall) {
+        if !appDelegateRegistrationCalled {
+            call.reject("event capacitorDidRegisterForRemoteNotifications not called.  Visit https://capacitorjs.com/docs/apis/push-notifications for more information")
+            return
+        }
+        UNUserNotificationCenter.current().getDeliveredNotifications(completionHandler: { (notifications) in
+            let ret = notifications.map({ (notification) -> [String: Any] in
+                return self.notificationDelegateHandler.makeNotificationRequestJSObject(notification.request)
+            })
+            call.resolve([
+                "notifications": ret
+            ])
+        })
+    }
+
+    /**
+     * Remove specified notifications from Notification Center
+     */
+    @objc func removeDeliveredNotifications(_ call: CAPPluginCall) {
+        if !appDelegateRegistrationCalled {
+            call.reject("event capacitorDidRegisterForRemoteNotifications not called.  Visit https://capacitorjs.com/docs/apis/push-notifications for more information")
+            return
+        }
+        guard let notifications = call.getArray("notifications", JSObject.self) else {
+            call.reject("Must supply notifications to remove")
+            return
+        }
+
+        let ids = notifications.map { $0["id"] as? String ?? "" }
+        UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: ids)
+        call.resolve()
+    }
+
+    /**
+     * Remove all notifications from Notification Center
+     */
+    @objc func removeAllDeliveredNotifications(_ call: CAPPluginCall) {
+        if !appDelegateRegistrationCalled {
+            call.reject("event capacitorDidRegisterForRemoteNotifications not called.  Visit https://capacitorjs.com/docs/apis/push-notifications for more information")
+            return
+        }
+        UNUserNotificationCenter.current().removeAllDeliveredNotifications()
+        DispatchQueue.main.async(execute: {
+            UIApplication.shared.applicationIconBadgeNumber = 0
+        })
+        call.resolve()
+    }
+
+    @objc func createChannel(_ call: CAPPluginCall) {
+        call.unimplemented("Not available on iOS")
+    }
+
+    @objc func deleteChannel(_ call: CAPPluginCall) {
+        call.unimplemented("Not available on iOS")
+    }
+
+    @objc func listChannels(_ call: CAPPluginCall) {
+        call.unimplemented("Not available on iOS")
+    }
+
+    @objc public func didRegisterForRemoteNotificationsWithDeviceToken(notification: NSNotification) {
+        appDelegateRegistrationCalled = true
+        if let deviceToken = notification.object as? Data {
+            let deviceTokenString = deviceToken.reduce("", {$0 + String(format: "%02X", $1)})
+            notifyListeners("registration", data: [
+                "value": deviceTokenString
+            ])
+        } else if let stringToken = notification.object as? String {
+            notifyListeners("registration", data: [
+                "value": stringToken
+            ])
+        } else {
+            notifyListeners("registrationError", data: [
+                "error": PushNotificationError.tokenParsingFailed.localizedDescription
+            ])
+        }
+    }
+
+    @objc public func didFailToRegisterForRemoteNotificationsWithError(notification: NSNotification) {
+        appDelegateRegistrationCalled = true
+        guard let error = notification.object as? Error else {
+            return
+        }
+        notifyListeners("registrationError", data: [
+            "error": error.localizedDescription
+        ])
+    }
+}

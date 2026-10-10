@@ -1,1 +1,17 @@
-IyEvYmluL3NoCiMgWGNvZGUgQ2xvdWQgcG9zdC1jbG9uZTogZGVwZW5kZW5jaWVzIG11c3QgYmUgaW5zdGFsbGVkIGFuZCB0aGUgd2ViIGFwcAojIGJ1aWx0ICsgY29waWVkIGJlZm9yZSBYY29kZSBhcmNoaXZlcy4gVGhlIENhcGFjaXRvciBTUE0gcGx1Z2lucyBhcmUKIyB2ZW5kb3JlZCBpbiBpb3MvY2FwYWNpdG9yLXBsdWdpbnMgKFhjb2RlIENsb3VkIHJlc29sdmVzIHBhY2thZ2VzIGJlZm9yZQojIHRoaXMgc2NyaXB0IGNhbiBydW4pLCBzbyB0aGlzIHNjcmlwdCBvbmx5IHByZXBhcmVzIHRoZSB3ZWIgYXNzZXRzLgojIFVzZSBgY2FwIGNvcHlgLCBOT1QgYGNhcCBzeW5jYDogc3luYyByZWdlbmVyYXRlcyBDYXBBcHAtU1BNL1BhY2thZ2Uuc3dpZnQKIyBhbmQgd291bGQgcG9pbnQgaXQgYmFjayBhdCBub2RlX21vZHVsZXMsIHVuLXZlbmRvcmluZyB0aGUgcGx1Z2lucy4Kc2V0IC1lCmV4cG9ydCBIT01FQlJFV19OT19BVVRPX1VQREFURT0xCk5PREVfTUFKT1I9JChub2RlIC12IDI+L2Rldi9udWxsIHwgc2VkIC1lICdzL152Ly8nIC1lICdzL1wuLiovLycpCmlmIFsgLXogIiROT0RFX01BSk9SIiBdIHx8IFsgIiROT0RFX01BSk9SIiAtbHQgMjIgXTsgdGhlbgogIGJyZXcgaW5zdGFsbCBub2RlCmZpCmNkICIkQ0lfUFJJTUFSWV9SRVBPU0lUT1JZX1BBVEgiCm5wbSBjaQpucG0gcnVuIGJ1aWxkCm5weCBjYXAgY29weSBpb3MK
+#!/bin/sh
+# Xcode Cloud post-clone: dependencies must be installed and the web app
+# built + copied before Xcode archives. The Capacitor SPM plugins are
+# vendored in ios/capacitor-plugins (Xcode Cloud resolves packages before
+# this script can run), so this script only prepares the web assets.
+# Use `cap copy`, NOT `cap sync`: sync regenerates CapApp-SPM/Package.swift
+# and would point it back at node_modules, un-vendoring the plugins.
+set -e
+export HOMEBREW_NO_AUTO_UPDATE=1
+NODE_MAJOR=$(node -v 2>/dev/null | sed -e 's/^v//' -e 's/\..*//')
+if [ -z "$NODE_MAJOR" ] || [ "$NODE_MAJOR" -lt 22 ]; then
+  brew install node
+fi
+cd "$CI_PRIMARY_REPOSITORY_PATH"
+npm ci
+npm run build
+npx cap copy ios

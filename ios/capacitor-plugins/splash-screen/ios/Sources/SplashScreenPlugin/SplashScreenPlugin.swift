@@ -1,1 +1,88 @@
-aW1wb3J0IEZvdW5kYXRpb24KaW1wb3J0IENhcGFjaXRvcgoKQG9iamMoU3BsYXNoU2NyZWVuUGx1Z2luKQpwdWJsaWMgY2xhc3MgU3BsYXNoU2NyZWVuUGx1Z2luOiBDQVBQbHVnaW4sIENBUEJyaWRnZWRQbHVnaW4gewogICAgcHVibGljIGxldCBpZGVudGlmaWVyID0gIlNwbGFzaFNjcmVlblBsdWdpbiIKICAgIHB1YmxpYyBsZXQganNOYW1lID0gIlNwbGFzaFNjcmVlbiIKICAgIHB1YmxpYyBsZXQgcGx1Z2luTWV0aG9kczogW0NBUFBsdWdpbk1ldGhvZF0gPSBbCiAgICAgICAgQ0FQUGx1Z2luTWV0aG9kKG5hbWU6ICJzaG93IiwgcmV0dXJuVHlwZTogQ0FQUGx1Z2luUmV0dXJuUHJvbWlzZSksCiAgICAgICAgQ0FQUGx1Z2luTWV0aG9kKG5hbWU6ICJoaWRlIiwgcmV0dXJuVHlwZTogQ0FQUGx1Z2luUmV0dXJuUHJvbWlzZSkKICAgIF0KICAgIHByaXZhdGUgdmFyIHNwbGFzaFNjcmVlbjogU3BsYXNoU2NyZWVuPwoKICAgIG92ZXJyaWRlIHB1YmxpYyBmdW5jIGxvYWQoKSB7CiAgICAgICAgaWYgbGV0IHZpZXcgPSBicmlkZ2U/LnZpZXdDb250cm9sbGVyPy52aWV3IHsKICAgICAgICAgICAgc3BsYXNoU2NyZWVuID0gU3BsYXNoU2NyZWVuKHBhcmVudFZpZXc6IHZpZXcsIGNvbmZpZzogc3BsYXNoU2NyZWVuQ29uZmlnKCkpCiAgICAgICAgICAgIHNwbGFzaFNjcmVlbj8uc2hvd09uTGF1bmNoKCkKICAgICAgICB9CiAgICB9CgogICAgLy8gU2hvdyB0aGUgc3BsYXNoIHNjcmVlbgogICAgQG9iamMgcHVibGljIGZ1bmMgc2hvdyhfIGNhbGw6IENBUFBsdWdpbkNhbGwpIHsKICAgICAgICBpZiBsZXQgc3BsYXNoID0gc3BsYXNoU2NyZWVuIHsKICAgICAgICAgICAgbGV0IHNldHRpbmdzID0gc3BsYXNoU2NyZWVuU2V0dGluZ3MoZnJvbTogY2FsbCkKICAgICAgICAgICAgc3BsYXNoLnNob3coc2V0dGluZ3M6IHNldHRpbmdzLAogICAgICAgICAgICAgICAgICAgICAgICBjb21wbGV0aW9uOiB7CiAgICAgICAgICAgICAgICAgICAgICAgICAgICBjYWxsLnJlc29sdmUoKQogICAgICAgICAgICAgICAgICAgICAgICB9KQogICAgICAgIH0gZWxzZSB7CiAgICAgICAgICAgIGNhbGwucmVqZWN0KCJVbmFibGUgdG8gc2hvdyBTcGxhc2ggU2NyZWVuIikKICAgICAgICB9CgogICAgfQoKICAgIC8vIEhpZGUgdGhlIHNwbGFzaCBzY3JlZW4KICAgIEBvYmpjIHB1YmxpYyBmdW5jIGhpZGUoXyBjYWxsOiBDQVBQbHVnaW5DYWxsKSB7CiAgICAgICAgaWYgbGV0IHNwbGFzaCA9IHNwbGFzaFNjcmVlbiB7CiAgICAgICAgICAgIGxldCBzZXR0aW5ncyA9IHNwbGFzaFNjcmVlblNldHRpbmdzKGZyb206IGNhbGwpCiAgICAgICAgICAgIHNwbGFzaC5oaWRlKHNldHRpbmdzOiBzZXR0aW5ncykKICAgICAgICAgICAgY2FsbC5yZXNvbHZlKCkKICAgICAgICB9IGVsc2UgewogICAgICAgICAgICBjYWxsLnJlamVjdCgiVW5hYmxlIHRvIGhpZGUgU3BsYXNoIFNjcmVlbiIpCiAgICAgICAgfQogICAgfQoKICAgIHByaXZhdGUgZnVuYyBzcGxhc2hTY3JlZW5TZXR0aW5ncyhmcm9tIGNhbGw6IENBUFBsdWdpbkNhbGwpIC0+IFNwbGFzaFNjcmVlblNldHRpbmdzIHsKICAgICAgICB2YXIgc2V0dGluZ3MgPSBTcGxhc2hTY3JlZW5TZXR0aW5ncygpCgogICAgICAgIGlmIGxldCBzaG93RHVyYXRpb24gPSBjYWxsLmdldEludCgic2hvd0R1cmF0aW9uIikgewogICAgICAgICAgICBzZXR0aW5ncy5zaG93RHVyYXRpb24gPSBzaG93RHVyYXRpb24KICAgICAgICB9CiAgICAgICAgaWYgbGV0IGZhZGVJbkR1cmF0aW9uID0gY2FsbC5nZXRJbnQoImZhZGVJbkR1cmF0aW9uIikgewogICAgICAgICAgICBzZXR0aW5ncy5mYWRlSW5EdXJhdGlvbiA9IGZhZGVJbkR1cmF0aW9uCiAgICAgICAgfQogICAgICAgIGlmIGxldCBmYWRlT3V0RHVyYXRpb24gPSBjYWxsLmdldEludCgiZmFkZU91dER1cmF0aW9uIikgewogICAgICAgICAgICBzZXR0aW5ncy5mYWRlT3V0RHVyYXRpb24gPSBmYWRlT3V0RHVyYXRpb24KICAgICAgICB9CiAgICAgICAgaWYgbGV0IGF1dG9IaWRlID0gY2FsbC5nZXRCb29sKCJhdXRvSGlkZSIpIHsKICAgICAgICAgICAgc2V0dGluZ3MuYXV0b0hpZGUgPSBhdXRvSGlkZQogICAgICAgIH0KICAgICAgICByZXR1cm4gc2V0dGluZ3MKICAgIH0KCiAgICBwcml2YXRlIGZ1bmMgc3BsYXNoU2NyZWVuQ29uZmlnKCkgLT4gU3BsYXNoU2NyZWVuQ29uZmlnIHsKICAgICAgICB2YXIgY29uZmlnID0gU3BsYXNoU2NyZWVuQ29uZmlnKCkKCiAgICAgICAgaWYgbGV0IGJhY2tncm91bmRDb2xvciA9IGdldENvbmZpZygpLmdldFN0cmluZygiYmFja2dyb3VuZENvbG9yIikgewogICAgICAgICAgICBjb25maWcuYmFja2dyb3VuZENvbG9yID0gVUlDb2xvci5jYXBhY2l0b3IuY29sb3IoZnJvbUhleDogYmFja2dyb3VuZENvbG9yKQogICAgICAgIH0KICAgICAgICBpZiBsZXQgc3Bpbm5lclN0eWxlID0gZ2V0Q29uZmlnKCkuZ2V0U3RyaW5nKCJpb3NTcGlubmVyU3R5bGUiKSB7CiAgICAgICAgICAgIHN3aXRjaCBzcGlubmVyU3R5bGUubG93ZXJjYXNlZCgpIHsKICAgICAgICAgICAgY2FzZSAic21hbGwiOgogICAgICAgICAgICAgICAgY29uZmlnLnNwaW5uZXJTdHlsZSA9IC5tZWRpdW0KICAgICAgICAgICAgZGVmYXVsdDoKICAgICAgICAgICAgICAgIGNvbmZpZy5zcGlubmVyU3R5bGUgPSAubGFyZ2UKICAgICAgICAgICAgfQogICAgICAgIH0KICAgICAgICBpZiBsZXQgc3Bpbm5lckNvbG9yID0gZ2V0Q29uZmlnKCkuZ2V0U3RyaW5nKCJzcGlubmVyQ29sb3IiKSB7CiAgICAgICAgICAgIGNvbmZpZy5zcGlubmVyQ29sb3IgPSBVSUNvbG9yLmNhcGFjaXRvci5jb2xvcihmcm9tSGV4OiBzcGlubmVyQ29sb3IpCiAgICAgICAgfQogICAgICAgIGNvbmZpZy5zaG93U3Bpbm5lciA9IGdldENvbmZpZygpLmdldEJvb2xlYW4oInNob3dTcGlubmVyIiwgY29uZmlnLnNob3dTcGlubmVyKQoKICAgICAgICBjb25maWcubGF1bmNoU2hvd0R1cmF0aW9uID0gZ2V0Q29uZmlnKCkuZ2V0SW50KCJsYXVuY2hTaG93RHVyYXRpb24iLCBjb25maWcubGF1bmNoU2hvd0R1cmF0aW9uKQogICAgICAgIGNvbmZpZy5sYXVuY2hBdXRvSGlkZSA9IGdldENvbmZpZygpLmdldEJvb2xlYW4oImxhdW5jaEF1dG9IaWRlIiwgY29uZmlnLmxhdW5jaEF1dG9IaWRlKQogICAgICAgIHJldHVybiBjb25maWcKICAgIH0KCn0K
+import Foundation
+import Capacitor
+
+@objc(SplashScreenPlugin)
+public class SplashScreenPlugin: CAPPlugin, CAPBridgedPlugin {
+    public let identifier = "SplashScreenPlugin"
+    public let jsName = "SplashScreen"
+    public let pluginMethods: [CAPPluginMethod] = [
+        CAPPluginMethod(name: "show", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "hide", returnType: CAPPluginReturnPromise)
+    ]
+    private var splashScreen: SplashScreen?
+
+    override public func load() {
+        if let view = bridge?.viewController?.view {
+            splashScreen = SplashScreen(parentView: view, config: splashScreenConfig())
+            splashScreen?.showOnLaunch()
+        }
+    }
+
+    // Show the splash screen
+    @objc public func show(_ call: CAPPluginCall) {
+        if let splash = splashScreen {
+            let settings = splashScreenSettings(from: call)
+            splash.show(settings: settings,
+                        completion: {
+                            call.resolve()
+                        })
+        } else {
+            call.reject("Unable to show Splash Screen")
+        }
+
+    }
+
+    // Hide the splash screen
+    @objc public func hide(_ call: CAPPluginCall) {
+        if let splash = splashScreen {
+            let settings = splashScreenSettings(from: call)
+            splash.hide(settings: settings)
+            call.resolve()
+        } else {
+            call.reject("Unable to hide Splash Screen")
+        }
+    }
+
+    private func splashScreenSettings(from call: CAPPluginCall) -> SplashScreenSettings {
+        var settings = SplashScreenSettings()
+
+        if let showDuration = call.getInt("showDuration") {
+            settings.showDuration = showDuration
+        }
+        if let fadeInDuration = call.getInt("fadeInDuration") {
+            settings.fadeInDuration = fadeInDuration
+        }
+        if let fadeOutDuration = call.getInt("fadeOutDuration") {
+            settings.fadeOutDuration = fadeOutDuration
+        }
+        if let autoHide = call.getBool("autoHide") {
+            settings.autoHide = autoHide
+        }
+        return settings
+    }
+
+    private func splashScreenConfig() -> SplashScreenConfig {
+        var config = SplashScreenConfig()
+
+        if let backgroundColor = getConfig().getString("backgroundColor") {
+            config.backgroundColor = UIColor.capacitor.color(fromHex: backgroundColor)
+        }
+        if let spinnerStyle = getConfig().getString("iosSpinnerStyle") {
+            switch spinnerStyle.lowercased() {
+            case "small":
+                config.spinnerStyle = .medium
+            default:
+                config.spinnerStyle = .large
+            }
+        }
+        if let spinnerColor = getConfig().getString("spinnerColor") {
+            config.spinnerColor = UIColor.capacitor.color(fromHex: spinnerColor)
+        }
+        config.showSpinner = getConfig().getBoolean("showSpinner", config.showSpinner)
+
+        config.launchShowDuration = getConfig().getInt("launchShowDuration", config.launchShowDuration)
+        config.launchAutoHide = getConfig().getBoolean("launchAutoHide", config.launchAutoHide)
+        return config
+    }
+
+}

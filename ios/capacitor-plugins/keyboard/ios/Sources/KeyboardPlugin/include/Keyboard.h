@@ -1,1 +1,11 @@
-I2ltcG9ydCA8VUlLaXQvVUlLaXQuaD4KI2ltcG9ydCA8Q2FwYWNpdG9yL0NBUFBsdWdpbi5oPgojaW1wb3J0IDxDYXBhY2l0b3IvQ0FQQnJpZGdlZFBsdWdpbi5oPgoKCkBjbGFzcyBDQVBQbHVnaW5DYWxsOwoKQGludGVyZmFjZSBLZXlib2FyZFBsdWdpbiA6IENBUFBsdWdpbiA8Q0FQQnJpZGdlZFBsdWdpbj4KCkBlbmQKCg==
+#import <UIKit/UIKit.h>
+#import <Capacitor/CAPPlugin.h>
+#import <Capacitor/CAPBridgedPlugin.h>
+
+
+@class CAPPluginCall;
+
+@interface KeyboardPlugin : CAPPlugin <CAPBridgedPlugin>
+
+@end
+

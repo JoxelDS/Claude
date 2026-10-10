@@ -1,1 +1,30 @@
-Ly8gc3dpZnQtdG9vbHMtdmVyc2lvbjogNS45CgppbXBvcnQgUGFja2FnZURlc2NyaXB0aW9uCgpsZXQgcGFja2FnZSA9IFBhY2thZ2UoCiAgICBuYW1lOiAiQ2FwYWNpdG9yU3RhdHVzQmFyIiwKICAgIHBsYXRmb3JtczogWy5pT1MoLnYxNSldLAogICAgcHJvZHVjdHM6IFsKICAgICAgICAubGlicmFyeSgKICAgICAgICAgICAgbmFtZTogIkNhcGFjaXRvclN0YXR1c0JhciIsCiAgICAgICAgICAgIHRhcmdldHM6IFsiU3RhdHVzQmFyUGx1Z2luIl0pCiAgICBdLAogICAgZGVwZW5kZW5jaWVzOiBbCiAgICAgICAgLnBhY2thZ2UodXJsOiAiaHR0cHM6Ly9naXRodWIuY29tL2lvbmljLXRlYW0vY2FwYWNpdG9yLXN3aWZ0LXBtLmdpdCIsIGZyb206ICI4LjAuMCIpCiAgICBdLAogICAgdGFyZ2V0czogWwogICAgICAgIC50YXJnZXQoCiAgICAgICAgICAgIG5hbWU6ICJTdGF0dXNCYXJQbHVnaW4iLAogICAgICAgICAgICBkZXBlbmRlbmNpZXM6IFsKICAgICAgICAgICAgICAgIC5wcm9kdWN0KG5hbWU6ICJDYXBhY2l0b3IiLCBwYWNrYWdlOiAiY2FwYWNpdG9yLXN3aWZ0LXBtIiksCiAgICAgICAgICAgICAgICAucHJvZHVjdChuYW1lOiAiQ29yZG92YSIsIHBhY2thZ2U6ICJjYXBhY2l0b3Itc3dpZnQtcG0iKQogICAgICAgICAgICBdLAogICAgICAgICAgICBwYXRoOiAiaW9zL1NvdXJjZXMvU3RhdHVzQmFyUGx1Z2luIgogICAgICAgICksCiAgICAgICAgLnRlc3RUYXJnZXQoCiAgICAgICAgICAgIG5hbWU6ICJTdGF0dXNCYXJQbHVnaW5UZXN0cyIsCiAgICAgICAgICAgIGRlcGVuZGVuY2llczogWyJTdGF0dXNCYXJQbHVnaW4iXSwKICAgICAgICAgICAgcGF0aDogImlvcy9UZXN0cy9TdGF0dXNCYXJQbHVnaW5UZXN0cyIpCiAgICBdCikK
+// swift-tools-version: 5.9
+
+import PackageDescription
+
+let package = Package(
+    name: "CapacitorStatusBar",
+    platforms: [.iOS(.v15)],
+    products: [
+        .library(
+            name: "CapacitorStatusBar",
+            targets: ["StatusBarPlugin"])
+    ],
+    dependencies: [
+        .package(url: "https://github.com/ionic-team/capacitor-swift-pm.git", from: "8.0.0")
+    ],
+    targets: [
+        .target(
+            name: "StatusBarPlugin",
+            dependencies: [
+                .product(name: "Capacitor", package: "capacitor-swift-pm"),
+                .product(name: "Cordova", package: "capacitor-swift-pm")
+            ],
+            path: "ios/Sources/StatusBarPlugin"
+        ),
+        .testTarget(
+            name: "StatusBarPluginTests",
+            dependencies: ["StatusBarPlugin"],
+            path: "ios/Tests/StatusBarPluginTests")
+    ]
+)

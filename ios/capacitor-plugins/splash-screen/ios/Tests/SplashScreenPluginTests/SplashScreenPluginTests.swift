@@ -1,1 +1,5 @@
-aW1wb3J0IFhDVGVzdApAdGVzdGFibGUgaW1wb3J0IFNwbGFzaFNjcmVlblBsdWdpbgoKY2xhc3MgU3BsYXNoU2NyZWVuVGVzdHM6IFhDVGVzdENhc2Ugewp9Cg==
+import XCTest
+@testable import SplashScreenPlugin
+
+class SplashScreenTests: XCTestCase {
+}

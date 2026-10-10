@@ -1,1 +1,28 @@
-Ly8gc3dpZnQtdG9vbHMtdmVyc2lvbjogNS45CmltcG9ydCBQYWNrYWdlRGVzY3JpcHRpb24KCmxldCBwYWNrYWdlID0gUGFja2FnZSgKICAgIG5hbWU6ICJDYXBhY2l0b3JMb2NhbE5vdGlmaWNhdGlvbnMiLAogICAgcGxhdGZvcm1zOiBbLmlPUygudjE1KV0sCiAgICBwcm9kdWN0czogWwogICAgICAgIC5saWJyYXJ5KAogICAgICAgICAgICBuYW1lOiAiQ2FwYWNpdG9yTG9jYWxOb3RpZmljYXRpb25zIiwKICAgICAgICAgICAgdGFyZ2V0czogWyJMb2NhbE5vdGlmaWNhdGlvbnNQbHVnaW4iXSkKICAgIF0sCiAgICBkZXBlbmRlbmNpZXM6IFsKICAgICAgICAucGFja2FnZSh1cmw6ICJodHRwczovL2dpdGh1Yi5jb20vaW9uaWMtdGVhbS9jYXBhY2l0b3Itc3dpZnQtcG0uZ2l0IiwgZnJvbTogIjguMC4wIikKICAgIF0sCiAgICB0YXJnZXRzOiBbCiAgICAgICAgLnRhcmdldCgKICAgICAgICAgICAgbmFtZTogIkxvY2FsTm90aWZpY2F0aW9uc1BsdWdpbiIsCiAgICAgICAgICAgIGRlcGVuZGVuY2llczogWwogICAgICAgICAgICAgICAgLnByb2R1Y3QobmFtZTogIkNhcGFjaXRvciIsIHBhY2thZ2U6ICJjYXBhY2l0b3Itc3dpZnQtcG0iKSwKICAgICAgICAgICAgICAgIC5wcm9kdWN0KG5hbWU6ICJDb3Jkb3ZhIiwgcGFja2FnZTogImNhcGFjaXRvci1zd2lmdC1wbSIpCiAgICAgICAgICAgIF0sCiAgICAgICAgICAgIHBhdGg6ICJpb3MvU291cmNlcy9Mb2NhbE5vdGlmaWNhdGlvbnNQbHVnaW4iKSwKICAgICAgICAudGVzdFRhcmdldCgKICAgICAgICAgICAgbmFtZTogIkxvY2FsTm90aWZpY2F0aW9uc1BsdWdpblRlc3RzIiwKICAgICAgICAgICAgZGVwZW5kZW5jaWVzOiBbIkxvY2FsTm90aWZpY2F0aW9uc1BsdWdpbiJdLAogICAgICAgICAgICBwYXRoOiAiaW9zL1Rlc3RzL0xvY2FsTm90aWZpY2F0aW9uc1BsdWdpblRlc3RzIikKICAgIF0KKQo=
+// swift-tools-version: 5.9
+import PackageDescription
+
+let package = Package(
+    name: "CapacitorLocalNotifications",
+    platforms: [.iOS(.v15)],
+    products: [
+        .library(
+            name: "CapacitorLocalNotifications",
+            targets: ["LocalNotificationsPlugin"])
+    ],
+    dependencies: [
+        .package(url: "https://github.com/ionic-team/capacitor-swift-pm.git", from: "8.0.0")
+    ],
+    targets: [
+        .target(
+            name: "LocalNotificationsPlugin",
+            dependencies: [
+                .product(name: "Capacitor", package: "capacitor-swift-pm"),
+                .product(name: "Cordova", package: "capacitor-swift-pm")
+            ],
+            path: "ios/Sources/LocalNotificationsPlugin"),
+        .testTarget(
+            name: "LocalNotificationsPluginTests",
+            dependencies: ["LocalNotificationsPlugin"],
+            path: "ios/Tests/LocalNotificationsPluginTests")
+    ]
+)

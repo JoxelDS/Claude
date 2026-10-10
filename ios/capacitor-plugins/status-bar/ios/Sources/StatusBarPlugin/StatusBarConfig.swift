@@ -1,1 +1,7 @@
-aW1wb3J0IFVJS2l0CgpwdWJsaWMgc3RydWN0IFN0YXR1c0JhckNvbmZpZyB7CiAgICB2YXIgb3ZlcmxheXNXZWJWaWV3ID0gdHJ1ZQogICAgdmFyIGJhY2tncm91bmRDb2xvcjogVUlDb2xvciA9IC5ibGFjawogICAgdmFyIHN0eWxlOiBVSVN0YXR1c0JhclN0eWxlID0gLmRlZmF1bHQKfQo=
+import UIKit
+
+public struct StatusBarConfig {
+    var overlaysWebView = true
+    var backgroundColor: UIColor = .black
+    var style: UIStatusBarStyle = .default
+}

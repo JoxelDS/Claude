@@ -1,1 +1,9 @@
-aW1wb3J0IEZvdW5kYXRpb24KCnB1YmxpYyBzdHJ1Y3QgU3RhdHVzQmFySW5mbyB7CiAgICBwdWJsaWMgdmFyIG92ZXJsYXlzOiBCb29sPwogICAgcHVibGljIHZhciB2aXNpYmxlOiBCb29sPwogICAgcHVibGljIHZhciBzdHlsZTogU3RyaW5nPwogICAgcHVibGljIHZhciBjb2xvcjogU3RyaW5nPwogICAgcHVibGljIHZhciBoZWlnaHQ6IENHRmxvYXQ/Cn0K
+import Foundation
+
+public struct StatusBarInfo {
+    public var overlays: Bool?
+    public var visible: Bool?
+    public var style: String?
+    public var color: String?
+    public var height: CGFloat?
+}

@@ -1,1 +1,50 @@
-IyBWZW5kb3JlZCBDYXBhY2l0b3IgcGx1Z2lucyDigJQgZG8gbm90IGRlbGV0ZQoKVGhlc2UgcGFja2FnZXMgYXJlICoqdmVuZG9yZWQgY29waWVzKiogb2YgdGhlIGBAY2FwYWNpdG9yLypgIGlPUyBwbHVnaW5zLApjb21taXR0ZWQgdG8gdGhlIHJlcG8gc28gWGNvZGUgQ2xvdWQgY2FuIGJ1aWxkIHRoZSBhcHAuCgojIyBXaHkgdGhleSBhcmUgaGVyZQoKWGNvZGUgQ2xvdWQgcmVzb2x2ZXMgU3dpZnQgcGFja2FnZXMgKipiZWZvcmUqKiBhbnkgYGNpX3Bvc3RfY2xvbmUuc2hgCnNjcmlwdCBydW5zOiBpdHMgcHJlLWZsaWdodCBzdGVwcyAoIkNoZWNrIHByb2plY3QgY29uZmlndXJhdGlvbiIsCmB4Y29kZWJ1aWxkIC1kZXNjcmliZVNjaGVtZXNgLCBgLXJlc29sdmVQYWNrYWdlRGVwZW5kZW5jaWVzYCkgbG9hZCB0aGUKcGFja2FnZSBncmFwaCBmcm9tIHRoZSBiYXJlIGNsb25lLiBgQ2FwQXBwLVNQTS9QYWNrYWdlLnN3aWZ0YCBvcmlnaW5hbGx5CnBvaW50ZWQgZWFjaCBwbHVnaW4gYXQgYC4uLy4uLy4uL25vZGVfbW9kdWxlcy9AY2FwYWNpdG9yLzxuYW1lPmAg4oCUIGFuZApgbm9kZV9tb2R1bGVzYCBpcyBuZXZlciBjb21taXR0ZWQsIHNvIGV2ZXJ5IGNsb3VkIGJ1aWxkIGZhaWxlZCBpbiBhYm91dCBhCm1pbnV0ZSB3aXRoICJ0aGUgcGFja2FnZSBhdCAn4oCmL25vZGVfbW9kdWxlcy9AY2FwYWNpdG9yL+KApicgY2Fubm90IGJlCmFjY2Vzc2VkIiwgbm8gbWF0dGVyIHdoYXQgdGhlIHBvc3QtY2xvbmUgc2NyaXB0IGRpZC4KCmBDYXBBcHAtU1BNL1BhY2thZ2Uuc3dpZnRgIG5vdyBwb2ludHMgYXQgdGhlc2UgdmVuZG9yZWQgY29waWVzIGluc3RlYWQ6Cgp8IEZvbGRlciB8IG5wbSBwYWNrYWdlIHwgVmVyc2lvbiB8CnwtLS18LS0tfC0tLXwKfCBga2V5Ym9hcmQvYCB8IGBAY2FwYWNpdG9yL2tleWJvYXJkYCB8IDguMC41IHwKfCBgbG9jYWwtbm90aWZpY2F0aW9ucy9gIHwgYEBjYXBhY2l0b3IvbG9jYWwtbm90aWZpY2F0aW9uc2AgfCA4LjMuMCB8CnwgYHB1c2gtbm90aWZpY2F0aW9ucy9gIHwgYEBjYXBhY2l0b3IvcHVzaC1ub3RpZmljYXRpb25zYCB8IDguMS4zIHwKfCBgc3BsYXNoLXNjcmVlbi9gIHwgYEBjYXBhY2l0b3Ivc3BsYXNoLXNjcmVlbmAgfCA4LjAuMiB8CnwgYHN0YXR1cy1iYXIvYCB8IGBAY2FwYWNpdG9yL3N0YXR1cy1iYXJgIHwgOC4wLjMgfAoKRWFjaCBmb2xkZXIgaXMgdGhlIG5wbSB0YXJiYWxsJ3MgYFBhY2thZ2Uuc3dpZnRgIHBsdXMgaXRzIGBpb3MvU291cmNlc2AKYW5kIGBpb3MvVGVzdHNgIHRyZWVzLCB1bm1vZGlmaWVkLiAoQ2FwYWNpdG9yIGFuZCBDb3Jkb3ZhIHRoZW1zZWx2ZXMgc3RpbGwKY29tZSBmcm9tIHRoZSByZW1vdGUgYGNhcGFjaXRvci1zd2lmdC1wbWAgcGFja2FnZSDigJQgdGhhdCBvbmUgd2FzIG5ldmVyCnRoZSBwcm9ibGVtLikKCiMjIOKaoO+4jyBUaGUgYGNhcCBzeW5jYCB0cmFwCgoqKlJ1bm5pbmcgYG5weCBjYXAgc3luYyBpb3NgIHJlZ2VuZXJhdGVzIGBDYXBBcHAtU1BNL1BhY2thZ2Uuc3dpZnRgIGFuZApwb2ludHMgdGhlIHBsdWdpbnMgYmFjayBhdCBgbm9kZV9tb2R1bGVzYC4qKiBJZiB0aGF0IHJlZ2VuZXJhdGVkIGZpbGUgaXMKY29tbWl0dGVkLCBYY29kZSBDbG91ZCBidWlsZHMgYnJlYWsgYWdhaW4gd2l0aCB0aGUgc2FtZSBlcnJvci4KCi0gVGhlIFhjb2RlIENsb3VkIHNjcmlwdHMgKGBjaV9zY3JpcHRzL2NpX3Bvc3RfY2xvbmUuc2hgIGFuZAogIGBpb3MvQXBwL2NpX3NjcmlwdHMvY2lfcG9zdF9jbG9uZS5zaGApIGRlbGliZXJhdGVseSB1c2UKICBgbnB4IGNhcCBjb3B5IGlvc2Ag4oCUIGl0IHN5bmNzIHRoZSB3ZWIgYXNzZXRzIHdpdGhvdXQgcmVnZW5lcmF0aW5nIHRoZQogIG1hbmlmZXN0LgotIElmIHlvdSBydW4gYGNhcCBzeW5jYCBsb2NhbGx5IChlLmcuIGFmdGVyIGFkZGluZy9yZW1vdmluZyBhIHBsdWdpbiksCiAgYWZ0ZXJ3YXJkcyByZS1hcHBseSB0aGUgdmVuZG9yaW5nIGJ5IGVkaXRpbmcKICBgaW9zL0FwcC9DYXBBcHAtU1BNL1BhY2thZ2Uuc3dpZnRgOiBjaGFuZ2UgZWFjaAogIGAuLi8uLi8uLi9ub2RlX21vZHVsZXMvQGNhcGFjaXRvci88bmFtZT5gIHBhdGggYmFjayB0bwogIGAuLi8uLi9jYXBhY2l0b3ItcGx1Z2lucy88bmFtZT5gIGJlZm9yZSBjb21taXR0aW5nLgotIFdoZW4gYSBwbHVnaW4gdmVyc2lvbiBpcyBidW1wZWQgaW4gYHBhY2thZ2UuanNvbmAsIHJlLXZlbmRvciBpdDoKICBgbnBtIHBhY2sgQGNhcGFjaXRvci88bmFtZT5APG5ldy12ZXJzaW9uPmAsIHRoZW4gcmVwbGFjZSB0aGUgZm9sZGVyJ3MKICBgUGFja2FnZS5zd2lmdGAgKyBgaW9zL1NvdXJjZXNgICsgYGlvcy9UZXN0c2Agd2l0aCB0aGUgdGFyYmFsbCdzLCBhbmQKICB1cGRhdGUgdGhlIHRhYmxlIGFib3ZlLgo=
+# Vendored Capacitor plugins — do not delete
+
+These packages are **vendored copies** of the `@capacitor/*` iOS plugins,
+committed to the repo so Xcode Cloud can build the app.
+
+## Why they are here
+
+Xcode Cloud resolves Swift packages **before** any `ci_post_clone.sh`
+script runs: its pre-flight steps ("Check project configuration",
+`xcodebuild -describeSchemes`, `-resolvePackageDependencies`) load the
+package graph from the bare clone. `CapApp-SPM/Package.swift` originally
+pointed each plugin at `../../../node_modules/@capacitor/<name>` — and
+`node_modules` is never committed, so every cloud build failed in about a
+minute with "the package at '…/node_modules/@capacitor/…' cannot be
+accessed", no matter what the post-clone script did.
+
+`CapApp-SPM/Package.swift` now points at these vendored copies instead:
+
+| Folder | npm package | Version |
+|---|---|---|
+| `keyboard/` | `@capacitor/keyboard` | 8.0.5 |
+| `local-notifications/` | `@capacitor/local-notifications` | 8.3.0 |
+| `push-notifications/` | `@capacitor/push-notifications` | 8.1.3 |
+| `splash-screen/` | `@capacitor/splash-screen` | 8.0.2 |
+| `status-bar/` | `@capacitor/status-bar` | 8.0.3 |
+
+Each folder is the npm tarball's `Package.swift` plus its `ios/Sources`
+and `ios/Tests` trees, unmodified. (Capacitor and Cordova themselves still
+come from the remote `capacitor-swift-pm` package — that one was never
+the problem.)
+
+## ⚠️ The `cap sync` trap
+
+**Running `npx cap sync ios` regenerates `CapApp-SPM/Package.swift` and
+points the plugins back at `node_modules`.** If that regenerated file is
+committed, Xcode Cloud builds break again with the same error.
+
+- The Xcode Cloud scripts (`ci_scripts/ci_post_clone.sh` and
+  `ios/App/ci_scripts/ci_post_clone.sh`) deliberately use
+  `npx cap copy ios` — it syncs the web assets without regenerating the
+  manifest.
+- If you run `cap sync` locally (e.g. after adding/removing a plugin),
+  afterwards re-apply the vendoring by editing
+  `ios/App/CapApp-SPM/Package.swift`: change each
+  `../../../node_modules/@capacitor/<name>` path back to
+  `../../capacitor-plugins/<name>` before committing.
+- When a plugin version is bumped in `package.json`, re-vendor it:
+  `npm pack @capacitor/<name>@<new-version>`, then replace the folder's
+  `Package.swift` + `ios/Sources` + `ios/Tests` with the tarball's, and
+  update the table above.

@@ -1,1 +1,524 @@
-LyoKIExpY2Vuc2VkIHRvIHRoZSBBcGFjaGUgU29mdHdhcmUgRm91bmRhdGlvbiAoQVNGKSB1bmRlciBvbmUKIG9yIG1vcmUgY29udHJpYnV0b3IgbGljZW5zZSBhZ3JlZW1lbnRzLiAgU2VlIHRoZSBOT1RJQ0UgZmlsZQogZGlzdHJpYnV0ZWQgd2l0aCB0aGlzIHdvcmsgZm9yIGFkZGl0aW9uYWwgaW5mb3JtYXRpb24KIHJlZ2FyZGluZyBjb3B5cmlnaHQgb3duZXJzaGlwLiAgVGhlIEFTRiBsaWNlbnNlcyB0aGlzIGZpbGUKIHRvIHlvdSB1bmRlciB0aGUgQXBhY2hlIExpY2Vuc2UsIFZlcnNpb24gMi4wICh0aGUKICJMaWNlbnNlIik7IHlvdSBtYXkgbm90IHVzZSB0aGlzIGZpbGUgZXhjZXB0IGluIGNvbXBsaWFuY2UKIHdpdGggdGhlIExpY2Vuc2UuICBZb3UgbWF5IG9idGFpbiBhIGNvcHkgb2YgdGhlIExpY2Vuc2UgYXQKIGh0dHA6Ly93d3cuYXBhY2hlLm9yZy9saWNlbnNlcy9MSUNFTlNFLTIuMAogVW5sZXNzIHJlcXVpcmVkIGJ5IGFwcGxpY2FibGUgbGF3IG9yIGFncmVlZCB0byBpbiB3cml0aW5nLAogc29mdHdhcmUgZGlzdHJpYnV0ZWQgdW5kZXIgdGhlIExpY2Vuc2UgaXMgZGlzdHJpYnV0ZWQgb24gYW4KICJBUyBJUyIgQkFTSVMsIFdJVEhPVVQgV0FSUkFOVElFUyBPUiBDT05ESVRJT05TIE9GIEFOWQogS0lORCwgZWl0aGVyIGV4cHJlc3Mgb3IgaW1wbGllZC4gIFNlZSB0aGUgTGljZW5zZSBmb3IgdGhlCiBzcGVjaWZpYyBsYW5ndWFnZSBnb3Zlcm5pbmcgcGVybWlzc2lvbnMgYW5kIGxpbWl0YXRpb25zCiB1bmRlciB0aGUgTGljZW5zZS4KICovCgojaW1wb3J0ICJLZXlib2FyZC5oIgojaW1wb3J0IDxGb3VuZGF0aW9uL0ZvdW5kYXRpb24uaD4KI2ltcG9ydCA8b2JqYy9ydW50aW1lLmg+CiNpbXBvcnQgPFVJS2l0L1VJS2l0Lmg+CiNpbXBvcnQgPENhcGFjaXRvci9DYXBhY2l0b3IuaD4KI2ltcG9ydCA8Q2FwYWNpdG9yL0NhcGFjaXRvci1Td2lmdC5oPgojaW1wb3J0IDxDYXBhY2l0b3IvQ0FQQnJpZGdlZFBsdWdpbi5oPgojaW1wb3J0IDxDYXBhY2l0b3IvQ0FQQnJpZGdlZEpTVHlwZXMuaD4KCnR5cGVkZWYgZW51bSA6IE5TVUludGVnZXIgewogIFJlc2l6ZU5vbmUsCiAgUmVzaXplTmF0aXZlLAogIFJlc2l6ZUJvZHksCiAgUmVzaXplSW9uaWMsCn0gUmVzaXplUG9saWN5OwoKCkBpbnRlcmZhY2UgS2V5Ym9hcmRQbHVnaW4gKCkgPFVJU2Nyb2xsVmlld0RlbGVnYXRlPgoKQHByb3BlcnR5IChyZWFkd3JpdGUsIGFzc2lnbiwgbm9uYXRvbWljKSBCT09MIGRpc2FibGVTY3JvbGw7CkBwcm9wZXJ0eSAocmVhZHdyaXRlLCBhc3NpZ24sIG5vbmF0b21pYykgQk9PTCBoaWRlRm9ybUFjY2Vzc29yeUJhcjsKQHByb3BlcnR5IChyZWFkd3JpdGUsIGFzc2lnbiwgbm9uYXRvbWljKSBCT09MIGtleWJvYXJkSXNWaXNpYmxlOwpAcHJvcGVydHkgKG5vbmF0b21pYywgcmVhZHdyaXRlKSBSZXNpemVQb2xpY3kga2V5Ym9hcmRSZXNpemVzOwpAcHJvcGVydHkgKHJlYWR3cml0ZSwgYXNzaWduLCBub25hdG9taWMpIE5TU3RyaW5nKiBrZXlib2FyZFN0eWxlOwpAcHJvcGVydHkgKG5vbmF0b21pYywgcmVhZHdyaXRlKSBpbnQgcGFkZGluZ0JvdHRvbTsKCkBlbmQKCiNwcmFnbWEgY2xhbmcgZGlhZ25vc3RpYyBwdXNoCiNwcmFnbWEgY2xhbmcgZGlhZ25vc3RpYyBpZ25vcmVkICItV3Byb3RvY29sIgovLyBzdXBwcmVzc2luZyB3YXJuaW5ncyBvZiB0aGUgdHlwZTogIkNsYXNzICdLZXlib2FyZFBsdWdpbicgZG9lcyBub3QgY29uZm9ybSB0byBwcm90b2NvbCAnQ0FQQnJpZGdlZFBsdWdpbiciCi8vIHByb3RvY29sIGNvbmZvcm1hbmNlIGZvciB0aGlzIGNsYXNzIGlzIGltcGxlbWVudGVkIGJ5IGEgbWFjcm8gYW5kIGNsYW5nIGlzbid0IGRldGVjdGluZyB0aGF0CkBpbXBsZW1lbnRhdGlvbiBLZXlib2FyZFBsdWdpbgoKTlNUaW1lciAqaGlkZVRpbWVyOwpOU1N0cmluZyogVUlDbGFzc1N0cmluZzsKTlNTdHJpbmcqIFdLQ2xhc3NTdHJpbmc7Ck5TU3RyaW5nKiBVSVRyYWl0c0NsYXNzU3RyaW5nOwpkb3VibGUgc3RhZ2VNYW5hZ2VyT2Zmc2V0OwoKI3ByYWdtYSBtYXJrIC0gSGVscGVycwoKLSAoVUlXaW5kb3cgKiljdXJyZW50S2V5V2luZG93IHsKICBVSVdpbmRvdyAqd2luZG93ID0gbmlsOwogIGlmIChbW1tVSUFwcGxpY2F0aW9uIHNoYXJlZEFwcGxpY2F0aW9uXSBkZWxlZ2F0ZV0gcmVzcG9uZHNUb1NlbGVjdG9yOkBzZWxlY3Rvcih3aW5kb3cpXSkgewogICAgd2luZG93ID0gW1tbVUlBcHBsaWNhdGlvbiBzaGFyZWRBcHBsaWNhdGlvbl0gZGVsZWdhdGVdIHdpbmRvd107CiAgfQogIGlmICghd2luZG93KSB7CiAgICBOU1ByZWRpY2F0ZSAqcHJlZGljYXRlID0gW05TUHJlZGljYXRlIHByZWRpY2F0ZVdpdGhGb3JtYXQ6QCJzZWxmIGlzS2luZE9mQ2xhc3M6ICVAIiwgVUlXaW5kb3dTY2VuZS5jbGFzc107CiAgICBVSVNjZW5lICpzY2VuZSA9IFtVSUFwcGxpY2F0aW9uLnNoYXJlZEFwcGxpY2F0aW9uLmNvbm5lY3RlZFNjZW5lcy5hbGxPYmplY3RzIGZpbHRlcmVkQXJyYXlVc2luZ1ByZWRpY2F0ZTpwcmVkaWNhdGVdLmZpcnN0T2JqZWN0OwogICAgd2luZG93ID0gW1soVUlXaW5kb3dTY2VuZSopc2NlbmUgd2luZG93c10gZmlsdGVyZWRBcnJheVVzaW5nUHJlZGljYXRlOltOU1ByZWRpY2F0ZSBwcmVkaWNhdGVXaXRoRm9ybWF0OkAiaXNLZXlXaW5kb3cgPT0gWUVTIl1dLmZpcnN0T2JqZWN0OwogIH0KICByZXR1cm4gd2luZG93Owp9CgotICh2b2lkKWZvcmNlQmFja2Ryb3BDb2xvcjooVUlDb2xvciAqKWNvbG9yIHsKICBVSVdpbmRvdyAqdyA9IFtzZWxmIGN1cnJlbnRLZXlXaW5kb3ddOwogIGlmICh3KSB7CiAgICBkaXNwYXRjaF9hc3luYyhkaXNwYXRjaF9nZXRfbWFpbl9xdWV1ZSgpLCBeewogICAgICB3LmJhY2tncm91bmRDb2xvciA9IGNvbG9yOwogICAgfSk7CiAgfQp9CgotIChCT09MKWlzSVBhZCB7CiAgcmV0dXJuIChbW1VJRGV2aWNlIGN1cnJlbnREZXZpY2VdIHVzZXJJbnRlcmZhY2VJZGlvbV0gPT0gVUlVc2VySW50ZXJmYWNlSWRpb21QYWQpOwp9CgotIChCT09MKXNob3VsZElnbm9yZVJlc2l6ZUZvckhlaWdodDooZG91YmxlKWhlaWdodCB7CiAgaWYgKCFbc2VsZiBpc0lQYWRdKSByZXR1cm4gTk87CiAgaWYgKGhlaWdodCA8PSAwLjApIHJldHVybiBOTzsKICBDR0Zsb2F0IHNjcmVlbkhlaWdodCA9IFVJU2NyZWVuLm1haW5TY3JlZW4uYm91bmRzLnNpemUuaGVpZ2h0OwogIHJldHVybiAoaGVpZ2h0IC8gc2NyZWVuSGVpZ2h0KSA8IDAuMjA7Cn0KCiNwcmFnbWEgbWFyayAtIExpZmVjeWNsZQoKLSAoVUlDb2xvciAqKWNvbG9yRnJvbUNzc0NvbG9yU3RyaW5nOihOU1N0cmluZyAqKWNzc0NvbG9yIHsKICAgIE5TU3RyaW5nICp0cmltbWVkID0gW2Nzc0NvbG9yIHN0cmluZ0J5VHJpbW1pbmdDaGFyYWN0ZXJzSW5TZXQ6W05TQ2hhcmFjdGVyU2V0IHdoaXRlc3BhY2VBbmROZXdsaW5lQ2hhcmFjdGVyU2V0XV07CgogICAgaWYgKFt0cmltbWVkIGlzRXF1YWxUb1N0cmluZzpAInRyYW5zcGFyZW50Il0pIHsKICAgICAgICByZXR1cm4gW1VJQ29sb3IgY2xlYXJDb2xvcl07CiAgICB9CgogICAgaWYgKFt0cmltbWVkIGhhc1ByZWZpeDpAInJnYiJdKSB7CiAgICAgICAgTlNSYW5nZSBwYXJlblJhbmdlID0gW3RyaW1tZWQgcmFuZ2VPZlN0cmluZzpAIigiXTsKICAgICAgICBOU1N0cmluZyAqY2xlYW4gPSBwYXJlblJhbmdlLmxvY2F0aW9uICE9IE5TTm90Rm91bmQgPyBbdHJpbW1lZCBzdWJzdHJpbmdGcm9tSW5kZXg6cGFyZW5SYW5nZS5sb2NhdGlvbiArIDFdIDogdHJpbW1lZDsKICAgICAgICBjbGVhbiA9IFtjbGVhbiBzdHJpbmdCeVJlcGxhY2luZ09jY3VycmVuY2VzT2ZTdHJpbmc6QCIpIiB3aXRoU3RyaW5nOkAiIl07CiAgICAgICAgTlNBcnJheSAqcGFydHMgPSBbY2xlYW4gY29tcG9uZW50c1NlcGFyYXRlZEJ5U3RyaW5nOkAiLCJdOwogICAgICAgIGlmIChwYXJ0cy5jb3VudCA+PSAzKSB7CiAgICAgICAgICAgIENHRmxvYXQgciA9IFtwYXJ0c1swXSBmbG9hdFZhbHVlXSAvIDI1NS4wOwogICAgICAgICAgICBDR0Zsb2F0IGcgPSBbcGFydHNbMV0gZmxvYXRWYWx1ZV0gLyAyNTUuMDsKICAgICAgICAgICAgQ0dGbG9hdCBiID0gW3BhcnRzWzJdIGZsb2F0VmFsdWVdIC8gMjU1LjA7CiAgICAgICAgICAgIENHRmxvYXQgYSA9IHBhcnRzLmNvdW50ID49IDQgPyBbcGFydHNbM10gZmxvYXRWYWx1ZV0gOiAxLjA7CiAgICAgICAgICAgIHJldHVybiBbVUlDb2xvciBjb2xvcldpdGhSZWQ6ciBncmVlbjpnIGJsdWU6YiBhbHBoYTphXTsKICAgICAgICB9CiAgICB9CgogICAgaWYgKFt0cmltbWVkIGhhc1ByZWZpeDpAIiMiXSkgewogICAgICAgIHVuc2lnbmVkIHJnYlZhbHVlID0gMDsKICAgICAgICBOU1NjYW5uZXIgKnNjYW5uZXIgPSBbTlNTY2FubmVyIHNjYW5uZXJXaXRoU3RyaW5nOnRyaW1tZWRdOwogICAgICAgIFtzY2FubmVyIHNldFNjYW5Mb2NhdGlvbjoxXTsKICAgICAgICBpZiAoW3NjYW5uZXIgc2NhbkhleEludDomcmdiVmFsdWVdKSB7CiAgICAgICAgICAgIENHRmxvYXQgciA9ICgocmdiVmFsdWUgJiAweEZGMDAwMCkgPj4gMTYpIC8gMjU1LjA7CiAgICAgICAgICAgIENHRmxvYXQgZyA9ICgocmdiVmFsdWUgJiAweDAwRkYwMCkgPj4gOCkgLyAyNTUuMDsKICAgICAgICAgICAgQ0dGbG9hdCBiID0gKHJnYlZhbHVlICYgMHgwMDAwRkYpIC8gMjU1LjA7CiAgICAgICAgICAgIHJldHVybiBbVUlDb2xvciBjb2xvcldpdGhSZWQ6ciBncmVlbjpnIGJsdWU6YiBhbHBoYToxLjBdOwogICAgICAgIH0KICAgIH0KCiAgICByZXR1cm4gW1VJQ29sb3Igd2hpdGVDb2xvcl07IC8vIGZhbGxiYWNrCn0KCi0gKHZvaWQpdXBkYXRlQmFja2Ryb3BDb2xvciB7CiAgTlNTdHJpbmcgKm1vZGUgPSBbW3NlbGYgZ2V0Q29uZmlnXSBnZXRTdHJpbmc6QCJhdXRvQmFja2Ryb3BDb2xvciI6IEAib2ZmIl07CgogIGlmIChbbW9kZSBpc0VxdWFsVG9TdHJpbmc6QCJhdXRvIl0pIHsKICAgIGlmIChzZWxmLmJyaWRnZS5jb25maWcuYmFja2dyb3VuZENvbG9yKSB7CiAgICAgIFtzZWxmIGZvcmNlQmFja2Ryb3BDb2xvcjpzZWxmLmJyaWRnZS5jb25maWcuYmFja2dyb3VuZENvbG9yXTsKICAgIH0gZWxzZSB7CiAgICAgIFtzZWxmIHVwZGF0ZUJhY2tkcm9wQ29sb3JGcm9tRE9NXTsKICAgIH0KICB9IGVsc2UgaWYgKFttb2RlIGlzRXF1YWxUb1N0cmluZzpAImRvbSJdKSB7CiAgICBbc2VsZiB1cGRhdGVCYWNrZHJvcENvbG9yRnJvbURPTV07CiAgfQp9CgotICh2b2lkKXVwZGF0ZUJhY2tkcm9wQ29sb3JGcm9tRE9NIHsKICAgIGlmICghc2VsZi53ZWJWaWV3KSByZXR1cm47CiAgICBbc2VsZi53ZWJWaWV3IGV2YWx1YXRlSmF2YVNjcmlwdDpAIndpbmRvdy5nZXRDb21wdXRlZFN0eWxlKGRvY3VtZW50LmJvZHkpLmJhY2tncm91bmRDb2xvciIgY29tcGxldGlvbkhhbmRsZXI6XihpZCByZXN1bHQsIE5TRXJyb3IgKmVycm9yKSB7CiAgICAgICAgaWYgKHJlc3VsdCAmJiBbcmVzdWx0IGlzS2luZE9mQ2xhc3M6W05TU3RyaW5nIGNsYXNzXV0pIHsKICAgICAgICAgICAgVUlDb2xvciAqY29sb3IgPSBbc2VsZiBjb2xvckZyb21Dc3NDb2xvclN0cmluZzooTlNTdHJpbmcgKilyZXN1bHRdOwogICAgICAgICAgICBpZiAoY29sb3IpIHsKICAgICAgICAgICAgICAgIFtzZWxmIGZvcmNlQmFja2Ryb3BDb2xvcjpjb2xvcl07CiAgICAgICAgICAgIH0KICAgICAgICB9CiAgICB9XTsKfQoKLSAodm9pZClsb2FkCnsKICBzZWxmLmRpc2FibGVTY3JvbGwgPSAhc2VsZi5icmlkZ2UuY29uZmlnLnNjcm9sbGluZ0VuYWJsZWQ7CgogIFVJQ2xhc3NTdHJpbmcgPSBbQFtAIlVJIiwgQCJXZWIiLCBAIkJyb3dzZXIiLCBAIlZpZXciXSBjb21wb25lbnRzSm9pbmVkQnlTdHJpbmc6QCIiXTsKICBXS0NsYXNzU3RyaW5nID0gW0BbQCJXSyIsIEAiQ29udGVudCIsIEAiVmlldyJdIGNvbXBvbmVudHNKb2luZWRCeVN0cmluZzpAIiJdOwogIFVJVHJhaXRzQ2xhc3NTdHJpbmcgPSBbQFtAIlVJIiwgQCJUZXh0IiwgQCJJbnB1dCIsIEAiVHJhaXRzIl0gY29tcG9uZW50c0pvaW5lZEJ5U3RyaW5nOkAiIl07CgogIFBsdWdpbkNvbmZpZyAqIGNvbmZpZyA9IFtzZWxmIGdldENvbmZpZ107CiAgTlNTdHJpbmcgKiBzdHlsZSA9IFtjb25maWcgZ2V0U3RyaW5nOkAic3R5bGUiOiBuaWxdOwogIFtzZWxmIGNoYW5nZUtleWJvYXJkU3R5bGU6c3R5bGUudXBwZXJjYXNlU3RyaW5nXTsKCiAgc2VsZi5rZXlib2FyZFJlc2l6ZXMgPSBSZXNpemVOYXRpdmU7CiAgTlNTdHJpbmcgKiByZXNpemVNb2RlID0gW2NvbmZpZyBnZXRTdHJpbmc6QCJyZXNpemUiOiBuaWxdOwoKICBpZiAoW3Jlc2l6ZU1vZGUgaXNFcXVhbFRvU3RyaW5nOkAibm9uZSJdKSB7CiAgICBzZWxmLmtleWJvYXJkUmVzaXplcyA9IFJlc2l6ZU5vbmU7CiAgICBOU0xvZyhAIktleWJvYXJkUGx1Z2luOiBubyByZXNpemUiKTsKICB9IGVsc2UgaWYgKFtyZXNpemVNb2RlIGlzRXF1YWxUb1N0cmluZzpAImlvbmljIl0pIHsKICAgIHNlbGYua2V5Ym9hcmRSZXNpemVzID0gUmVzaXplSW9uaWM7CiAgICBOU0xvZyhAIktleWJvYXJkUGx1Z2luOiByZXNpemUgbW9kZSAtIGlvbmljIik7CiAgfSBlbHNlIGlmIChbcmVzaXplTW9kZSBpc0VxdWFsVG9TdHJpbmc6QCJib2R5Il0pIHsKICAgIHNlbGYua2V5Ym9hcmRSZXNpemVzID0gUmVzaXplQm9keTsKICAgIE5TTG9nKEAiS2V5Ym9hcmRQbHVnaW46IHJlc2l6ZSBtb2RlIC0gYm9keSIpOwogIH0KCiAgaWYgKHNlbGYua2V5Ym9hcmRSZXNpemVzID09IFJlc2l6ZU5hdGl2ZSkgewogICAgTlNMb2coQCJLZXlib2FyZFBsdWdpbjogcmVzaXplIG1vZGUgLSBuYXRpdmUiKTsKICB9CgogIHNlbGYuaGlkZUZvcm1BY2Nlc3NvcnlCYXIgPSBZRVM7CiAgCiAgTlNOb3RpZmljYXRpb25DZW50ZXIgKm5jID0gW05TTm90aWZpY2F0aW9uQ2VudGVyIGRlZmF1bHRDZW50ZXJdOwogIAogIFtuYyBhZGRPYnNlcnZlcjpzZWxmIHNlbGVjdG9yOkBzZWxlY3RvcihvbktleWJvYXJkRGlkSGlkZTopIG5hbWU6VUlLZXlib2FyZERpZEhpZGVOb3RpZmljYXRpb24gb2JqZWN0Om5pbF07CiAgW25jIGFkZE9ic2VydmVyOnNlbGYgc2VsZWN0b3I6QHNlbGVjdG9yKG9uS2V5Ym9hcmREaWRTaG93OikgbmFtZTpVSUtleWJvYXJkRGlkU2hvd05vdGlmaWNhdGlvbiBvYmplY3Q6bmlsXTsKICBbbmMgYWRkT2JzZXJ2ZXI6c2VsZiBzZWxlY3RvcjpAc2VsZWN0b3Iob25LZXlib2FyZFdpbGxIaWRlOikgbmFtZTpVSUtleWJvYXJkV2lsbEhpZGVOb3RpZmljYXRpb24gb2JqZWN0Om5pbF07CiAgW25jIGFkZE9ic2VydmVyOnNlbGYgc2VsZWN0b3I6QHNlbGVjdG9yKG9uS2V5Ym9hcmRXaWxsU2hvdzopIG5hbWU6VUlLZXlib2FyZFdpbGxTaG93Tm90aWZpY2F0aW9uIG9iamVjdDpuaWxdOwogIAogIFtuYyByZW1vdmVPYnNlcnZlcjpzZWxmLndlYlZpZXcgbmFtZTpVSUtleWJvYXJkV2lsbEhpZGVOb3RpZmljYXRpb24gb2JqZWN0Om5pbF07CiAgW25jIHJlbW92ZU9ic2VydmVyOnNlbGYud2ViVmlldyBuYW1lOlVJS2V5Ym9hcmRXaWxsU2hvd05vdGlmaWNhdGlvbiBvYmplY3Q6bmlsXTsKICBbbmMgcmVtb3ZlT2JzZXJ2ZXI6c2VsZi53ZWJWaWV3IG5hbWU6VUlLZXlib2FyZFdpbGxDaGFuZ2VGcmFtZU5vdGlmaWNhdGlvbiBvYmplY3Q6bmlsXTsKICBbbmMgcmVtb3ZlT2JzZXJ2ZXI6c2VsZi53ZWJWaWV3IG5hbWU6VUlLZXlib2FyZERpZENoYW5nZUZyYW1lTm90aWZpY2F0aW9uIG9iamVjdDpuaWxdOwoKICBbc2VsZiB1cGRhdGVCYWNrZHJvcENvbG9yXTsKfQoKI3ByYWdtYSBtYXJrIEtleWJvYXJkIGV2ZW50cwoKLSAodm9pZClyZXNldFNjcm9sbFZpZXcKewogIFVJU2Nyb2xsVmlldyAqc2Nyb2xsVmlldyA9IFtzZWxmLndlYlZpZXcgc2Nyb2xsVmlld107CiAgW3Njcm9sbFZpZXcgc2V0Q29udGVudEluc2V0OlVJRWRnZUluc2V0c1plcm9dOwp9CgotICh2b2lkKW9uS2V5Ym9hcmRXaWxsSGlkZTooTlNOb3RpZmljYXRpb24gKilub3RpZmljYXRpb24KewogIFtzZWxmIHNldEtleWJvYXJkSGVpZ2h0OjAgZGVsYXk6MC4wMV07CiAgW3NlbGYgcmVzZXRTY3JvbGxWaWV3XTsKICBoaWRlVGltZXIgPSBbTlNUaW1lciBzY2hlZHVsZWRUaW1lcldpdGhUaW1lSW50ZXJ2YWw6MCByZXBlYXRzOk5PIGJsb2NrOl4oTlNUaW1lciAqIF9Ob25udWxsIHRpbWVyKSB7CiAgICBbc2VsZi5icmlkZ2UgdHJpZ2dlcldpbmRvd0pTRXZlbnRXaXRoRXZlbnROYW1lOkAia2V5Ym9hcmRXaWxsSGlkZSJdOwogICAgW3NlbGYgbm90aWZ5TGlzdGVuZXJzOkAia2V5Ym9hcmRXaWxsSGlkZSIgZGF0YTpuaWxdOwogIH1dOwogIFtbTlNSdW5Mb29wIGN1cnJlbnRSdW5Mb29wXSBhZGRUaW1lcjpoaWRlVGltZXIgZm9yTW9kZTpOU1J1bkxvb3BDb21tb25Nb2Rlc107Cn0KCi0gKHZvaWQpb25LZXlib2FyZFdpbGxTaG93OihOU05vdGlmaWNhdGlvbiAqKW5vdGlmaWNhdGlvbgp7CiAgaWYgKGhpZGVUaW1lciAhPSBuaWwpIHsKICAgIFtoaWRlVGltZXIgaW52YWxpZGF0ZV07CiAgfQoKICAvLyBGb3JjZSBET00gY29sb3Igd2hlbmV2ZXIga2V5Ym9hcmQgc2hvd3MKICBbc2VsZiB1cGRhdGVCYWNrZHJvcENvbG9yXTsKCiAgQ0dSZWN0IHJlY3QgPSBbW25vdGlmaWNhdGlvbi51c2VySW5mbyB2YWx1ZUZvcktleTpVSUtleWJvYXJkRnJhbWVFbmRVc2VySW5mb0tleV0gQ0dSZWN0VmFsdWVdOwoKICBkb3VibGUgaGVpZ2h0ID0gcmVjdC5zaXplLmhlaWdodDsKICAgIAogIGlmIChbc2VsZiBpc0lQYWRdKSB7CiAgICBpZiAoc3RhZ2VNYW5hZ2VyT2Zmc2V0ID4gMCkgewogICAgICBoZWlnaHQgPSBzdGFnZU1hbmFnZXJPZmZzZXQ7CiAgICB9IGVsc2UgewogICAgICBDR1JlY3Qgd2ViVmlld0Fic29sdXRlID0gW3NlbGYud2ViVmlldyBjb252ZXJ0UmVjdDpzZWxmLndlYlZpZXcuZnJhbWUgdG9Db29yZGluYXRlU3BhY2U6c2VsZi53ZWJWaWV3LndpbmRvdy5zY3JlZW4uY29vcmRpbmF0ZVNwYWNlXTsKICAgICAgaGVpZ2h0ID0gKHdlYlZpZXdBYnNvbHV0ZS5zaXplLmhlaWdodCArIHdlYlZpZXdBYnNvbHV0ZS5vcmlnaW4ueSkgLSAoVUlTY3JlZW4ubWFpblNjcmVlbi5ib3VuZHMuc2l6ZS5oZWlnaHQgLSByZWN0LnNpemUuaGVpZ2h0KTsKICAgICAgaWYgKGhlaWdodCA8IDApIHsKICAgICAgICBoZWlnaHQgPSAwOwogICAgICB9CiAgICAgICAgCiAgICAgIHN0YWdlTWFuYWdlck9mZnNldCA9IGhlaWdodDsKICAgIH0KICB9CgogIEJPT0wgaWdub3JlZCA9IFtzZWxmIHNob3VsZElnbm9yZVJlc2l6ZUZvckhlaWdodDpoZWlnaHRdOwogIGlmIChpZ25vcmVkKSB7CiAgICBOU0xvZyhAIktleWJvYXJkUGx1Z2luOiBJZ25vcmluZyBRdWlja1R5cGUgQmFyICglLjFmKSAtPiB0cmVhdCBhcyAwLiIsIGhlaWdodCk7CiAgICBoZWlnaHQgPSAwLjA7CiAgfQoKICBkb3VibGUgZHVyYXRpb24gPSBbW25vdGlmaWNhdGlvbi51c2VySW5mbyB2YWx1ZUZvcktleTpVSUtleWJvYXJkQW5pbWF0aW9uRHVyYXRpb25Vc2VySW5mb0tleV0gZG91YmxlVmFsdWVdKzAuMjsKICBbc2VsZiBzZXRLZXlib2FyZEhlaWdodDooaW50KWhlaWdodCBkZWxheTpkdXJhdGlvbl07CiAgW3NlbGYgcmVzZXRTY3JvbGxWaWV3XTsKCiAgTlNTdHJpbmcgKiBkYXRhID0gW05TU3RyaW5nIHN0cmluZ1dpdGhGb3JtYXQ6QCJ7ICdrZXlib2FyZEhlaWdodCc6ICVkIH0iLCAoaW50KWhlaWdodF07CiAgW3NlbGYuYnJpZGdlIHRyaWdnZXJXaW5kb3dKU0V2ZW50V2l0aEV2ZW50TmFtZTpAImtleWJvYXJkV2lsbFNob3ciIGRhdGE6ZGF0YV07CiAgTlNEaWN0aW9uYXJ5ICoga2JEYXRhID0gQHtAImtleWJvYXJkSGVpZ2h0IjogW05TTnVtYmVyIG51bWJlcldpdGhEb3VibGU6aGVpZ2h0XX07CiAgW3NlbGYgbm90aWZ5TGlzdGVuZXJzOkAia2V5Ym9hcmRXaWxsU2hvdyIgZGF0YTprYkRhdGFdOwp9CgotICh2b2lkKW9uS2V5Ym9hcmREaWRTaG93OihOU05vdGlmaWNhdGlvbiAqKW5vdGlmaWNhdGlvbgp7CiAgQ0dSZWN0IHJlY3QgPSBbW25vdGlmaWNhdGlvbi51c2VySW5mbyB2YWx1ZUZvcktleTpVSUtleWJvYXJkRnJhbWVFbmRVc2VySW5mb0tleV0gQ0dSZWN0VmFsdWVdOwogIGRvdWJsZSBoZWlnaHQgPSByZWN0LnNpemUuaGVpZ2h0OwoKICBpZiAoW3NlbGYgaXNJUGFkXSkgewogICAgaWYgKHN0YWdlTWFuYWdlck9mZnNldCA+IDApIHsKICAgICAgaGVpZ2h0ID0gc3RhZ2VNYW5hZ2VyT2Zmc2V0OwogICAgfSBlbHNlIHsKICAgICAgQ0dSZWN0IHdlYlZpZXdBYnNvbHV0ZSA9IFtzZWxmLndlYlZpZXcgY29udmVydFJlY3Q6c2VsZi53ZWJWaWV3LmZyYW1lIHRvQ29vcmRpbmF0ZVNwYWNlOnNlbGYud2ViVmlldy53aW5kb3cuc2NyZWVuLmNvb3JkaW5hdGVTcGFjZV07CiAgICAgIGhlaWdodCA9ICh3ZWJWaWV3QWJzb2x1dGUuc2l6ZS5oZWlnaHQgKyB3ZWJWaWV3QWJzb2x1dGUub3JpZ2luLnkpIC0gKFVJU2NyZWVuLm1haW5TY3JlZW4uYm91bmRzLnNpemUuaGVpZ2h0IC0gcmVjdC5zaXplLmhlaWdodCk7CiAgICAgIGlmIChoZWlnaHQgPCAwKSB7CiAgICAgICAgaGVpZ2h0ID0gMDsKICAgICAgfQogICAgfQogIH0KCiAgQk9PTCBpZ25vcmVkID0gW3NlbGYgc2hvdWxkSWdub3JlUmVzaXplRm9ySGVpZ2h0OmhlaWdodF07CiAgaWYgKGlnbm9yZWQpIHsKICAgIE5TTG9nKEAiS2V5Ym9hcmRQbHVnaW46IChkaWRTaG93KSBJZ25vcmluZyBRdWlja1R5cGUgQmFyICglLjFmKSAtPiByZXBvcnQgMC4iLCBoZWlnaHQpOwogICAgaGVpZ2h0ID0gMC4wOwogIH0KCiAgW3NlbGYgcmVzZXRTY3JvbGxWaWV3XTsKCiAgTlNTdHJpbmcgKiBkYXRhID0gW05TU3RyaW5nIHN0cmluZ1dpdGhGb3JtYXQ6QCJ7ICdrZXlib2FyZEhlaWdodCc6ICVkIH0iLCAoaW50KWhlaWdodF07CiAgW3NlbGYuYnJpZGdlIHRyaWdnZXJXaW5kb3dKU0V2ZW50V2l0aEV2ZW50TmFtZTpAImtleWJvYXJkRGlkU2hvdyIgZGF0YTpkYXRhXTsKICBOU0RpY3Rpb25hcnkgKiBrYkRhdGEgPSBAe0Aia2V5Ym9hcmRIZWlnaHQiOiBbTlNOdW1iZXIgbnVtYmVyV2l0aERvdWJsZTpoZWlnaHRdfTsKICBbc2VsZiBub3RpZnlMaXN0ZW5lcnM6QCJrZXlib2FyZERpZFNob3ciIGRhdGE6a2JEYXRhXTsKfQoKLSAodm9pZClvbktleWJvYXJkRGlkSGlkZTooTlNOb3RpZmljYXRpb24gKilub3RpZmljYXRpb24KewogIFtzZWxmLmJyaWRnZSB0cmlnZ2VyV2luZG93SlNFdmVudFdpdGhFdmVudE5hbWU6QCJrZXlib2FyZERpZEhpZGUiXTsKICBbc2VsZiBub3RpZnlMaXN0ZW5lcnM6QCJrZXlib2FyZERpZEhpZGUiIGRhdGE6bmlsXTsKICBbc2VsZiByZXNldFNjcm9sbFZpZXddOwoKICBzdGFnZU1hbmFnZXJPZmZzZXQgPSAwOwp9CgotICh2b2lkKXNldEtleWJvYXJkSGVpZ2h0OihpbnQpaGVpZ2h0IGRlbGF5OihOU1RpbWVJbnRlcnZhbClkZWxheQp7CiAgaWYgKHNlbGYucGFkZGluZ0JvdHRvbSA9PSBoZWlnaHQpIHsKICAgIHJldHVybjsKICB9CgogIHNlbGYucGFkZGluZ0JvdHRvbSA9IGhlaWdodDsKCiAgX193ZWFrIEtleWJvYXJkUGx1Z2luKiB3ZWFrU2VsZiA9IHNlbGY7CiAgU0VMIGFjdGlvbiA9IEBzZWxlY3RvcihfdXBkYXRlRnJhbWUpOwogIFtOU09iamVjdCBjYW5jZWxQcmV2aW91c1BlcmZvcm1SZXF1ZXN0c1dpdGhUYXJnZXQ6d2Vha1NlbGYgc2VsZWN0b3I6YWN0aW9uIG9iamVjdDpuaWxdOwogIGlmIChkZWxheSA9PSAwKSB7CiAgICBbc2VsZiBfdXBkYXRlRnJhbWVdOwogIH0gZWxzZSB7CiAgICBbd2Vha1NlbGYgcGVyZm9ybVNlbGVjdG9yOmFjdGlvbiB3aXRoT2JqZWN0Om5pbCBhZnRlckRlbGF5OmRlbGF5IGluTW9kZXM6QFtOU1J1bkxvb3BDb21tb25Nb2Rlc11dOwogIH0KfQoKLSAodm9pZClyZXNpemVFbGVtZW50OihOU1N0cmluZyAqKWVsZW1lbnQgd2l0aFBhZGRpbmdCb3R0b206KGludClwYWRkaW5nQm90dG9tIHdpdGhTY3JlZW5IZWlnaHQ6KGludClzY3JlZW5IZWlnaHQKewogICAgaW50IGhlaWdodCA9IC0xOwogICAgaWYgKHBhZGRpbmdCb3R0b20gPiAwKSB7CiAgICAgICAgaGVpZ2h0ID0gc2NyZWVuSGVpZ2h0IC0gcGFkZGluZ0JvdHRvbTsKICAgIH0KICAgIAogICAgW3NlbGYuYnJpZGdlIGV2YWxXaXRoSnM6IFtOU1N0cmluZyBzdHJpbmdXaXRoRm9ybWF0OkAiKGZ1bmN0aW9uKCkgeyB2YXIgZWwgPSAlQDsgdmFyIGhlaWdodCA9ICVkOyBpZiAoZWwpIHsgZWwuc3R5bGUuaGVpZ2h0ID0gaGVpZ2h0ID4gLTEgPyBoZWlnaHQgKyAncHgnIDogbnVsbDsgfSB9KSgpIiwgZWxlbWVudCwgaGVpZ2h0XV07Cn0KCi0gKHZvaWQpX3VwZGF0ZUZyYW1lCnsKICBDR1JlY3QgZiwgd2YgPSBDR1JlY3RaZXJvOwogIFVJV2luZG93ICp3aW5kb3cgPSBbc2VsZiBjdXJyZW50S2V5V2luZG93XTsKCiAgaWYgKHdpbmRvdykgewogICAgZiA9IFt3aW5kb3cgYm91bmRzXTsKICB9CiAgaWYgKHNlbGYud2ViVmlldyAhPSBuaWwpIHsKICAgIHdmID0gc2VsZi53ZWJWaWV3LmZyYW1lOwogIH0KICBzd2l0Y2ggKHNlbGYua2V5Ym9hcmRSZXNpemVzKSB7CiAgICBjYXNlIFJlc2l6ZUJvZHk6CiAgICB7CiAgICAgIFtzZWxmIHJlc2l6ZUVsZW1lbnQ6QCJkb2N1bWVudC5ib2R5IiB3aXRoUGFkZGluZ0JvdHRvbTpfcGFkZGluZ0JvdHRvbSB3aXRoU2NyZWVuSGVpZ2h0OihpbnQpZi5zaXplLmhlaWdodF07CiAgICAgIGJyZWFrOwogICAgfQogICAgY2FzZSBSZXNpemVJb25pYzoKICAgIHsKICAgICAgW3NlbGYgcmVzaXplRWxlbWVudDpAImRvY3VtZW50LnF1ZXJ5U2VsZWN0b3IoJ2lvbi1hcHAnKSIgd2l0aFBhZGRpbmdCb3R0b206X3BhZGRpbmdCb3R0b20gd2l0aFNjcmVlbkhlaWdodDooaW50KWYuc2l6ZS5oZWlnaHRdOwogICAgICBicmVhazsKICAgIH0KICAgIGNhc2UgUmVzaXplTmF0aXZlOgogICAgewogICAgICBbc2VsZi53ZWJWaWV3IHNldEZyYW1lOkNHUmVjdE1ha2Uod2Yub3JpZ2luLngsIHdmLm9yaWdpbi55LCBmLnNpemUud2lkdGggLSB3Zi5vcmlnaW4ueCwgZi5zaXplLmhlaWdodCAtIHdmLm9yaWdpbi55IC0gc2VsZi5wYWRkaW5nQm90dG9tKV07CiAgICAgIGJyZWFrOwogICAgfQogICAgZGVmYXVsdDoKICAgICAgYnJlYWs7CiAgfQogIFtzZWxmIHJlc2V0U2Nyb2xsVmlld107Cn0KCgojcHJhZ21hIG1hcmsgSGlkZUZvcm1BY2Nlc3NvcnlCYXIKCnN0YXRpYyBJTVAgVUlPcmlnaW5hbEltcDsKc3RhdGljIElNUCBXS09yaWdpbmFsSW1wOwoKLSAodm9pZClzZXRIaWRlRm9ybUFjY2Vzc29yeUJhcjooQk9PTCloaWRlRm9ybUFjY2Vzc29yeUJhcgp7CiAgaWYgKGhpZGVGb3JtQWNjZXNzb3J5QmFyID09IF9oaWRlRm9ybUFjY2Vzc29yeUJhcikgewogICAgcmV0dXJuOwogIH0KICBNZXRob2QgVUlNZXRob2QgPSBjbGFzc19nZXRJbnN0YW5jZU1ldGhvZChOU0NsYXNzRnJvbVN0cmluZyhVSUNsYXNzU3RyaW5nKSwgQHNlbGVjdG9yKGlucHV0QWNjZXNzb3J5VmlldykpOwogIE1ldGhvZCBXS01ldGhvZCA9IGNsYXNzX2dldEluc3RhbmNlTWV0aG9kKE5TQ2xhc3NGcm9tU3RyaW5nKFdLQ2xhc3NTdHJpbmcpLCBAc2VsZWN0b3IoaW5wdXRBY2Nlc3NvcnlWaWV3KSk7CiAgaWYgKGhpZGVGb3JtQWNjZXNzb3J5QmFyKSB7CiAgICBVSU9yaWdpbmFsSW1wID0gbWV0aG9kX2dldEltcGxlbWVudGF0aW9uKFVJTWV0aG9kKTsKICAgIFdLT3JpZ2luYWxJbXAgPSBtZXRob2RfZ2V0SW1wbGVtZW50YXRpb24oV0tNZXRob2QpOwogICAgSU1QIG5ld0ltcCA9IGltcF9pbXBsZW1lbnRhdGlvbldpdGhCbG9jayheKGlkIF9zKSB7CiAgICAgIHJldHVybiBuaWw7CiAgICB9KTsKICAgIG1ldGhvZF9zZXRJbXBsZW1lbnRhdGlvbihVSU1ldGhvZCwgbmV3SW1wKTsKICAgIG1ldGhvZF9zZXRJbXBsZW1lbnRhdGlvbihXS01ldGhvZCwgbmV3SW1wKTsKICB9IGVsc2UgewogICAgbWV0aG9kX3NldEltcGxlbWVudGF0aW9uKFVJTWV0aG9kLCBVSU9yaWdpbmFsSW1wKTsKICAgIG1ldGhvZF9zZXRJbXBsZW1lbnRhdGlvbihXS01ldGhvZCwgV0tPcmlnaW5hbEltcCk7CiAgfQogIF9oaWRlRm9ybUFjY2Vzc29yeUJhciA9IGhpZGVGb3JtQWNjZXNzb3J5QmFyOwp9CgojcHJhZ21hIG1hcmsgc2Nyb2xsCgotICh2b2lkKXNldERpc2FibGVTY3JvbGw6KEJPT0wpZGlzYWJsZVNjcm9sbCB7CiAgaWYgKGRpc2FibGVTY3JvbGwgPT0gX2Rpc2FibGVTY3JvbGwpIHsKICAgIHJldHVybjsKICB9CiAgZGlzcGF0Y2hfYXN5bmMoZGlzcGF0Y2hfZ2V0X21haW5fcXVldWUoKSwgXnsKICAgIGlmIChkaXNhYmxlU2Nyb2xsKSB7CiAgICAgIHNlbGYud2ViVmlldy5zY3JvbGxWaWV3LnNjcm9sbEVuYWJsZWQgPSBOTzsKICAgICAgc2VsZi53ZWJWaWV3LnNjcm9sbFZpZXcuZGVsZWdhdGUgPSBzZWxmOwogICAgfQogICAgZWxzZSB7CiAgICAgIHNlbGYud2ViVmlldy5zY3JvbGxWaWV3LnNjcm9sbEVuYWJsZWQgPSBZRVM7CiAgICAgIHNlbGYud2ViVmlldy5zY3JvbGxWaWV3LmRlbGVnYXRlID0gbmlsOwogICAgfQogIH0pOwogIF9kaXNhYmxlU2Nyb2xsID0gZGlzYWJsZVNjcm9sbDsKfQoKLSAodm9pZClzY3JvbGxWaWV3RGlkU2Nyb2xsOihVSVNjcm9sbFZpZXcgKilzY3JvbGxWaWV3IHsKICBbc2Nyb2xsVmlldyBzZXRDb250ZW50T2Zmc2V0OiBDR1BvaW50WmVyb107Cn0KCiNwcmFnbWEgbWFyayBQbHVnaW4gaW50ZXJmYWNlCgotICh2b2lkKXNldEFjY2Vzc29yeUJhclZpc2libGU6KENBUFBsdWdpbkNhbGwgKiljYWxsCnsKICBCT09MIHZhbHVlID0gW2NhbGwgZ2V0Qm9vbDpAImlzVmlzaWJsZSIgZGVmYXVsdFZhbHVlOkZBTFNFXTsKCiAgTlNMb2coQCJBY2Nlc3NvcnkgYmFyIHZpc2libGUgY2hhbmdlICVkIiwgdmFsdWUpOwogIHNlbGYuaGlkZUZvcm1BY2Nlc3NvcnlCYXIgPSAhdmFsdWU7CiAgW2NhbGwgcmVzb2x2ZV07Cn0KCi0gKHZvaWQpaGlkZTooQ0FQUGx1Z2luQ2FsbCAqKWNhbGwKewogIGRpc3BhdGNoX2FzeW5jKGRpc3BhdGNoX2dldF9tYWluX3F1ZXVlKCksIF57CiAgICBbc2VsZi53ZWJWaWV3IGVuZEVkaXRpbmc6WUVTXTsKICB9KTsKICBbY2FsbCByZXNvbHZlXTsKfQoKLSAodm9pZClzaG93OihDQVBQbHVnaW5DYWxsICopY2FsbAp7CiAgW2NhbGwgdW5pbXBsZW1lbnRlZF07Cn0KCi0gKHZvaWQpc2V0U3R5bGU6KENBUFBsdWdpbkNhbGwgKiljYWxsCnsKICBzZWxmLmtleWJvYXJkU3R5bGUgPSBbY2FsbCBnZXRTdHJpbmc6QCJzdHlsZSIgZGVmYXVsdFZhbHVlOkAiTElHSFQiXTsKICBbc2VsZiBjaGFuZ2VLZXlib2FyZFN0eWxlOnNlbGYua2V5Ym9hcmRTdHlsZV07IAogIFtjYWxsIHJlc29sdmVdOwp9CgotICh2b2lkKXNldFJlc2l6ZU1vZGU6KENBUFBsdWdpbkNhbGwgKiljYWxsCnsKICBOU1N0cmluZyAqIG1vZGUgPSBbY2FsbCBnZXRTdHJpbmc6QCJtb2RlIiBkZWZhdWx0VmFsdWU6QCJub25lIl07CiAgaWYgKFttb2RlIGlzRXF1YWxUb1N0cmluZzpAImlvbmljIl0pIHsKICAgIHNlbGYua2V5Ym9hcmRSZXNpemVzID0gUmVzaXplSW9uaWM7CiAgfSBlbHNlIGlmIChbbW9kZSBpc0VxdWFsVG9TdHJpbmc6QCJib2R5Il0pIHsKICAgIHNlbGYua2V5Ym9hcmRSZXNpemVzID0gUmVzaXplQm9keTsKICB9IGVsc2UgaWYgKFttb2RlIGlzRXF1YWxUb1N0cmluZzpAIm5hdGl2ZSJdKSB7CiAgICBzZWxmLmtleWJvYXJkUmVzaXplcyA9IFJlc2l6ZU5hdGl2ZTsKICB9IGVsc2UgewogICAgc2VsZi5rZXlib2FyZFJlc2l6ZXMgPSBSZXNpemVOb25lOwogIH0KICBbY2FsbCByZXNvbHZlXTsKfQoKLSAodm9pZClnZXRSZXNpemVNb2RlOihDQVBQbHVnaW5DYWxsICopY2FsbAp7CiAgICBOU1N0cmluZyAqbW9kZTsKICAgIAogICAgaWYgKHNlbGYua2V5Ym9hcmRSZXNpemVzID09IFJlc2l6ZUlvbmljKSB7CiAgICAgICAgbW9kZSA9IEAiaW9uaWMiOwogICAgfSBlbHNlIGlmKHNlbGYua2V5Ym9hcmRSZXNpemVzID09IFJlc2l6ZUJvZHkpIHsKICAgICAgICBtb2RlID0gQCJib2R5IjsKICAgIH0gZWxzZSBpZiAoc2VsZi5rZXlib2FyZFJlc2l6ZXMgPT0gUmVzaXplTmF0aXZlKSB7CiAgICAgICAgbW9kZSA9IEAibmF0aXZlIjsKICAgIH0gZWxzZSB7CiAgICAgICAgbW9kZSA9IEAibm9uZSI7CiAgICB9CiAgICAKICAgIE5TRGljdGlvbmFyeSAqcmVzcG9uc2UgPSBbTlNEaWN0aW9uYXJ5IGRpY3Rpb25hcnlXaXRoT2JqZWN0Om1vZGUgZm9yS2V5OkAibW9kZSJdOwogICAgW2NhbGwgcmVzb2x2ZTogcmVzcG9uc2VdOwp9CgotICh2b2lkKXNldFNjcm9sbDooQ0FQUGx1Z2luQ2FsbCAqKWNhbGwgewogIHNlbGYuZGlzYWJsZVNjcm9sbCA9IFtjYWxsIGdldEJvb2w6QCJpc0Rpc2FibGVkIiBkZWZhdWx0VmFsdWU6RkFMU0VdOwogIFtjYWxsIHJlc29sdmVdOwp9CgotICh2b2lkKWNoYW5nZUtleWJvYXJkU3R5bGU6KE5TU3RyaW5nKilzdHlsZQp7CiAgSU1QIG5ld0ltcCA9IG5pbDsKICBpZiAoW3N0eWxlIGlzRXF1YWxUb1N0cmluZzpAIkRBUksiXSkgewogICAgbmV3SW1wID0gaW1wX2ltcGxlbWVudGF0aW9uV2l0aEJsb2NrKF4oaWQgX3MpIHsKICAgICAgcmV0dXJuIFVJS2V5Ym9hcmRBcHBlYXJhbmNlRGFyazsKICAgIH0pOwogIH0gZWxzZSBpZiAoW3N0eWxlIGlzRXF1YWxUb1N0cmluZzpAIkxJR0hUIl0pIHsKICAgIG5ld0ltcCA9IGltcF9pbXBsZW1lbnRhdGlvbldpdGhCbG9jayheKGlkIF9zKSB7CiAgICAgIHJldHVybiBVSUtleWJvYXJkQXBwZWFyYW5jZUxpZ2h0OwogICAgfSk7CiAgfSBlbHNlIHsKICAgIG5ld0ltcCA9IGltcF9pbXBsZW1lbnRhdGlvbldpdGhCbG9jayheKGlkIF9zKSB7CiAgICAgIHJldHVybiBVSUtleWJvYXJkQXBwZWFyYW5jZURlZmF1bHQ7CiAgICB9KTsKICB9CiAgZm9yIChOU1N0cmluZyogY2xhc3NTdHJpbmcgaW4gQFtXS0NsYXNzU3RyaW5nLCBVSVRyYWl0c0NsYXNzU3RyaW5nXSkgewogICAgQ2xhc3MgYyA9IE5TQ2xhc3NGcm9tU3RyaW5nKGNsYXNzU3RyaW5nKTsKICAgIE1ldGhvZCBtID0gY2xhc3NfZ2V0SW5zdGFuY2VNZXRob2QoYywgQHNlbGVjdG9yKGtleWJvYXJkQXBwZWFyYW5jZSkpOwogICAgaWYgKG0gIT0gTlVMTCkgewogICAgICBtZXRob2Rfc2V0SW1wbGVtZW50YXRpb24obSwgbmV3SW1wKTsKICAgIH0gZWxzZSB7CiAgICAgIGNsYXNzX2FkZE1ldGhvZChjLCBAc2VsZWN0b3Ioa2V5Ym9hcmRBcHBlYXJhbmNlKSwgbmV3SW1wLCAibEA6Iik7CiAgICB9CiAgfQogIF9rZXlib2FyZFN0eWxlID0gc3R5bGU7Cn0KCiNwcmFnbWEgbWFyayBkZWFsbG9jCgotICh2b2lkKWRlYWxsb2MKewogIFtbTlNOb3RpZmljYXRpb25DZW50ZXIgZGVmYXVsdENlbnRlcl0gcmVtb3ZlT2JzZXJ2ZXI6c2VsZl07Cn0KCkBlbmQKI3ByYWdtYSBjbGFuZyBkaWFnbm9zdGljIHBvcAoK
+/*
+ Licensed to the Apache Software Foundation (ASF) under one
+ or more contributor license agreements.  See the NOTICE file
+ distributed with this work for additional information
+ regarding copyright ownership.  The ASF licenses this file
+ to you under the Apache License, Version 2.0 (the
+ "License"); you may not use this file except in compliance
+ with the License.  You may obtain a copy of the License at
+ http://www.apache.org/licenses/LICENSE-2.0
+ Unless required by applicable law or agreed to in writing,
+ software distributed under the License is distributed on an
+ "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ KIND, either express or implied.  See the License for the
+ specific language governing permissions and limitations
+ under the License.
+ */
+
+#import "Keyboard.h"
+#import <Foundation/Foundation.h>
+#import <objc/runtime.h>
+#import <UIKit/UIKit.h>
+#import <Capacitor/Capacitor.h>
+#import <Capacitor/Capacitor-Swift.h>
+#import <Capacitor/CAPBridgedPlugin.h>
+#import <Capacitor/CAPBridgedJSTypes.h>
+
+typedef enum : NSUInteger {
+  ResizeNone,
+  ResizeNative,
+  ResizeBody,
+  ResizeIonic,
+} ResizePolicy;
+
+
+@interface KeyboardPlugin () <UIScrollViewDelegate>
+
+@property (readwrite, assign, nonatomic) BOOL disableScroll;
+@property (readwrite, assign, nonatomic) BOOL hideFormAccessoryBar;
+@property (readwrite, assign, nonatomic) BOOL keyboardIsVisible;
+@property (nonatomic, readwrite) ResizePolicy keyboardResizes;
+@property (readwrite, assign, nonatomic) NSString* keyboardStyle;
+@property (nonatomic, readwrite) int paddingBottom;
+
+@end
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wprotocol"
+// suppressing warnings of the type: "Class 'KeyboardPlugin' does not conform to protocol 'CAPBridgedPlugin'"
+// protocol conformance for this class is implemented by a macro and clang isn't detecting that
+@implementation KeyboardPlugin
+
+NSTimer *hideTimer;
+NSString* UIClassString;
+NSString* WKClassString;
+NSString* UITraitsClassString;
+double stageManagerOffset;
+
+#pragma mark - Helpers
+
+- (UIWindow *)currentKeyWindow {
+  UIWindow *window = nil;
+  if ([[[UIApplication sharedApplication] delegate] respondsToSelector:@selector(window)]) {
+    window = [[[UIApplication sharedApplication] delegate] window];
+  }
+  if (!window) {
+    NSPredicate *predicate = [NSPredicate predicateWithFormat:@"self isKindOfClass: %@", UIWindowScene.class];
+    UIScene *scene = [UIApplication.sharedApplication.connectedScenes.allObjects filteredArrayUsingPredicate:predicate].firstObject;
+    window = [[(UIWindowScene*)scene windows] filteredArrayUsingPredicate:[NSPredicate predicateWithFormat:@"isKeyWindow == YES"]].firstObject;
+  }
+  return window;
+}
+
+- (void)forceBackdropColor:(UIColor *)color {
+  UIWindow *w = [self currentKeyWindow];
+  if (w) {
+    dispatch_async(dispatch_get_main_queue(), ^{
+      w.backgroundColor = color;
+    });
+  }
+}
+
+- (BOOL)isIPad {
+  return ([[UIDevice currentDevice] userInterfaceIdiom] == UIUserInterfaceIdiomPad);
+}
+
+- (BOOL)shouldIgnoreResizeForHeight:(double)height {
+  if (![self isIPad]) return NO;
+  if (height <= 0.0) return NO;
+  CGFloat screenHeight = UIScreen.mainScreen.bounds.size.height;
+  return (height / screenHeight) < 0.20;
+}
+
+#pragma mark - Lifecycle
+
+- (UIColor *)colorFromCssColorString:(NSString *)cssColor {
+    NSString *trimmed = [cssColor stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+
+    if ([trimmed isEqualToString:@"transparent"]) {
+        return [UIColor clearColor];
+    }
+
+    if ([trimmed hasPrefix:@"rgb"]) {
+        NSRange parenRange = [trimmed rangeOfString:@"("];
+        NSString *clean = parenRange.location != NSNotFound ? [trimmed substringFromIndex:parenRange.location + 1] : trimmed;
+        clean = [clean stringByReplacingOccurrencesOfString:@")" withString:@""];
+        NSArray *parts = [clean componentsSeparatedByString:@","];
+        if (parts.count >= 3) {
+            CGFloat r = [parts[0] floatValue] / 255.0;
+            CGFloat g = [parts[1] floatValue] / 255.0;
+            CGFloat b = [parts[2] floatValue] / 255.0;
+            CGFloat a = parts.count >= 4 ? [parts[3] floatValue] : 1.0;
+            return [UIColor colorWithRed:r green:g blue:b alpha:a];
+        }
+    }
+
+    if ([trimmed hasPrefix:@"#"]) {
+        unsigned rgbValue = 0;
+        NSScanner *scanner = [NSScanner scannerWithString:trimmed];
+        [scanner setScanLocation:1];
+        if ([scanner scanHexInt:&rgbValue]) {
+            CGFloat r = ((rgbValue & 0xFF0000) >> 16) / 255.0;
+            CGFloat g = ((rgbValue & 0x00FF00) >> 8) / 255.0;
+            CGFloat b = (rgbValue & 0x0000FF) / 255.0;
+            return [UIColor colorWithRed:r green:g blue:b alpha:1.0];
+        }
+    }
+
+    return [UIColor whiteColor]; // fallback
+}
+
+- (void)updateBackdropColor {
+  NSString *mode = [[self getConfig] getString:@"autoBackdropColor": @"off"];
+
+  if ([mode isEqualToString:@"auto"]) {
+    if (self.bridge.config.backgroundColor) {
+      [self forceBackdropColor:self.bridge.config.backgroundColor];
+    } else {
+      [self updateBackdropColorFromDOM];
+    }
+  } else if ([mode isEqualToString:@"dom"]) {
+    [self updateBackdropColorFromDOM];
+  }
+}
+
+- (void)updateBackdropColorFromDOM {
+    if (!self.webView) return;
+    [self.webView evaluateJavaScript:@"window.getComputedStyle(document.body).backgroundColor" completionHandler:^(id result, NSError *error) {
+        if (result && [result isKindOfClass:[NSString class]]) {
+            UIColor *color = [self colorFromCssColorString:(NSString *)result];
+            if (color) {
+                [self forceBackdropColor:color];
+            }
+        }
+    }];
+}
+
+- (void)load
+{
+  self.disableScroll = !self.bridge.config.scrollingEnabled;
+
+  UIClassString = [@[@"UI", @"Web", @"Browser", @"View"] componentsJoinedByString:@""];
+  WKClassString = [@[@"WK", @"Content", @"View"] componentsJoinedByString:@""];
+  UITraitsClassString = [@[@"UI", @"Text", @"Input", @"Traits"] componentsJoinedByString:@""];
+
+  PluginConfig * config = [self getConfig];
+  NSString * style = [config getString:@"style": nil];
+  [self changeKeyboardStyle:style.uppercaseString];
+
+  self.keyboardResizes = ResizeNative;
+  NSString * resizeMode = [config getString:@"resize": nil];
+
+  if ([resizeMode isEqualToString:@"none"]) {
+    self.keyboardResizes = ResizeNone;
+    NSLog(@"KeyboardPlugin: no resize");
+  } else if ([resizeMode isEqualToString:@"ionic"]) {
+    self.keyboardResizes = ResizeIonic;
+    NSLog(@"KeyboardPlugin: resize mode - ionic");
+  } else if ([resizeMode isEqualToString:@"body"]) {
+    self.keyboardResizes = ResizeBody;
+    NSLog(@"KeyboardPlugin: resize mode - body");
+  }
+
+  if (self.keyboardResizes == ResizeNative) {
+    NSLog(@"KeyboardPlugin: resize mode - native");
+  }
+
+  self.hideFormAccessoryBar = YES;
+  
+  NSNotificationCenter *nc = [NSNotificationCenter defaultCenter];
+  
+  [nc addObserver:self selector:@selector(onKeyboardDidHide:) name:UIKeyboardDidHideNotification object:nil];
+  [nc addObserver:self selector:@selector(onKeyboardDidShow:) name:UIKeyboardDidShowNotification object:nil];
+  [nc addObserver:self selector:@selector(onKeyboardWillHide:) name:UIKeyboardWillHideNotification object:nil];
+  [nc addObserver:self selector:@selector(onKeyboardWillShow:) name:UIKeyboardWillShowNotification object:nil];
+  
+  [nc removeObserver:self.webView name:UIKeyboardWillHideNotification object:nil];
+  [nc removeObserver:self.webView name:UIKeyboardWillShowNotification object:nil];
+  [nc removeObserver:self.webView name:UIKeyboardWillChangeFrameNotification object:nil];
+  [nc removeObserver:self.webView name:UIKeyboardDidChangeFrameNotification object:nil];
+
+  [self updateBackdropColor];
+}
+
+#pragma mark Keyboard events
+
+- (void)resetScrollView
+{
+  UIScrollView *scrollView = [self.webView scrollView];
+  [scrollView setContentInset:UIEdgeInsetsZero];
+}
+
+- (void)onKeyboardWillHide:(NSNotification *)notification
+{
+  [self setKeyboardHeight:0 delay:0.01];
+  [self resetScrollView];
+  hideTimer = [NSTimer scheduledTimerWithTimeInterval:0 repeats:NO block:^(NSTimer * _Nonnull timer) {
+    [self.bridge triggerWindowJSEventWithEventName:@"keyboardWillHide"];
+    [self notifyListeners:@"keyboardWillHide" data:nil];
+  }];
+  [[NSRunLoop currentRunLoop] addTimer:hideTimer forMode:NSRunLoopCommonModes];
+}
+
+- (void)onKeyboardWillShow:(NSNotification *)notification
+{
+  if (hideTimer != nil) {
+    [hideTimer invalidate];
+  }
+
+  // Force DOM color whenever keyboard shows
+  [self updateBackdropColor];
+
+  CGRect rect = [[notification.userInfo valueForKey:UIKeyboardFrameEndUserInfoKey] CGRectValue];
+
+  double height = rect.size.height;
+    
+  if ([self isIPad]) {
+    if (stageManagerOffset > 0) {
+      height = stageManagerOffset;
+    } else {
+      CGRect webViewAbsolute = [self.webView convertRect:self.webView.frame toCoordinateSpace:self.webView.window.screen.coordinateSpace];
+      height = (webViewAbsolute.size.height + webViewAbsolute.origin.y) - (UIScreen.mainScreen.bounds.size.height - rect.size.height);
+      if (height < 0) {
+        height = 0;
+      }
+        
+      stageManagerOffset = height;
+    }
+  }
+
+  BOOL ignored = [self shouldIgnoreResizeForHeight:height];
+  if (ignored) {
+    NSLog(@"KeyboardPlugin: Ignoring QuickType Bar (%.1f) -> treat as 0.", height);
+    height = 0.0;
+  }
+
+  double duration = [[notification.userInfo valueForKey:UIKeyboardAnimationDurationUserInfoKey] doubleValue]+0.2;
+  [self setKeyboardHeight:(int)height delay:duration];
+  [self resetScrollView];
+
+  NSString * data = [NSString stringWithFormat:@"{ 'keyboardHeight': %d }", (int)height];
+  [self.bridge triggerWindowJSEventWithEventName:@"keyboardWillShow" data:data];
+  NSDictionary * kbData = @{@"keyboardHeight": [NSNumber numberWithDouble:height]};
+  [self notifyListeners:@"keyboardWillShow" data:kbData];
+}
+
+- (void)onKeyboardDidShow:(NSNotification *)notification
+{
+  CGRect rect = [[notification.userInfo valueForKey:UIKeyboardFrameEndUserInfoKey] CGRectValue];
+  double height = rect.size.height;
+
+  if ([self isIPad]) {
+    if (stageManagerOffset > 0) {
+      height = stageManagerOffset;
+    } else {
+      CGRect webViewAbsolute = [self.webView convertRect:self.webView.frame toCoordinateSpace:self.webView.window.screen.coordinateSpace];
+      height = (webViewAbsolute.size.height + webViewAbsolute.origin.y) - (UIScreen.mainScreen.bounds.size.height - rect.size.height);
+      if (height < 0) {
+        height = 0;
+      }
+    }
+  }
+
+  BOOL ignored = [self shouldIgnoreResizeForHeight:height];
+  if (ignored) {
+    NSLog(@"KeyboardPlugin: (didShow) Ignoring QuickType Bar (%.1f) -> report 0.", height);
+    height = 0.0;
+  }
+
+  [self resetScrollView];
+
+  NSString * data = [NSString stringWithFormat:@"{ 'keyboardHeight': %d }", (int)height];
+  [self.bridge triggerWindowJSEventWithEventName:@"keyboardDidShow" data:data];
+  NSDictionary * kbData = @{@"keyboardHeight": [NSNumber numberWithDouble:height]};
+  [self notifyListeners:@"keyboardDidShow" data:kbData];
+}
+
+- (void)onKeyboardDidHide:(NSNotification *)notification
+{
+  [self.bridge triggerWindowJSEventWithEventName:@"keyboardDidHide"];
+  [self notifyListeners:@"keyboardDidHide" data:nil];
+  [self resetScrollView];
+
+  stageManagerOffset = 0;
+}
+
+- (void)setKeyboardHeight:(int)height delay:(NSTimeInterval)delay
+{
+  if (self.paddingBottom == height) {
+    return;
+  }
+
+  self.paddingBottom = height;
+
+  __weak KeyboardPlugin* weakSelf = self;
+  SEL action = @selector(_updateFrame);
+  [NSObject cancelPreviousPerformRequestsWithTarget:weakSelf selector:action object:nil];
+  if (delay == 0) {
+    [self _updateFrame];
+  } else {
+    [weakSelf performSelector:action withObject:nil afterDelay:delay inModes:@[NSRunLoopCommonModes]];
+  }
+}
+
+- (void)resizeElement:(NSString *)element withPaddingBottom:(int)paddingBottom withScreenHeight:(int)screenHeight
+{
+    int height = -1;
+    if (paddingBottom > 0) {
+        height = screenHeight - paddingBottom;
+    }
+    
+    [self.bridge evalWithJs: [NSString stringWithFormat:@"(function() { var el = %@; var height = %d; if (el) { el.style.height = height > -1 ? height + 'px' : null; } })()", element, height]];
+}
+
+- (void)_updateFrame
+{
+  CGRect f, wf = CGRectZero;
+  UIWindow *window = [self currentKeyWindow];
+
+  if (window) {
+    f = [window bounds];
+  }
+  if (self.webView != nil) {
+    wf = self.webView.frame;
+  }
+  switch (self.keyboardResizes) {
+    case ResizeBody:
+    {
+      [self resizeElement:@"document.body" withPaddingBottom:_paddingBottom withScreenHeight:(int)f.size.height];
+      break;
+    }
+    case ResizeIonic:
+    {
+      [self resizeElement:@"document.querySelector('ion-app')" withPaddingBottom:_paddingBottom withScreenHeight:(int)f.size.height];
+      break;
+    }
+    case ResizeNative:
+    {
+      [self.webView setFrame:CGRectMake(wf.origin.x, wf.origin.y, f.size.width - wf.origin.x, f.size.height - wf.origin.y - self.paddingBottom)];
+      break;
+    }
+    default:
+      break;
+  }
+  [self resetScrollView];
+}
+
+
+#pragma mark HideFormAccessoryBar
+
+static IMP UIOriginalImp;
+static IMP WKOriginalImp;
+
+- (void)setHideFormAccessoryBar:(BOOL)hideFormAccessoryBar
+{
+  if (hideFormAccessoryBar == _hideFormAccessoryBar) {
+    return;
+  }
+  Method UIMethod = class_getInstanceMethod(NSClassFromString(UIClassString), @selector(inputAccessoryView));
+  Method WKMethod = class_getInstanceMethod(NSClassFromString(WKClassString), @selector(inputAccessoryView));
+  if (hideFormAccessoryBar) {
+    UIOriginalImp = method_getImplementation(UIMethod);
+    WKOriginalImp = method_getImplementation(WKMethod);
+    IMP newImp = imp_implementationWithBlock(^(id _s) {
+      return nil;
+    });
+    method_setImplementation(UIMethod, newImp);
+    method_setImplementation(WKMethod, newImp);
+  } else {
+    method_setImplementation(UIMethod, UIOriginalImp);
+    method_setImplementation(WKMethod, WKOriginalImp);
+  }
+  _hideFormAccessoryBar = hideFormAccessoryBar;
+}
+
+#pragma mark scroll
+
+- (void)setDisableScroll:(BOOL)disableScroll {
+  if (disableScroll == _disableScroll) {
+    return;
+  }
+  dispatch_async(dispatch_get_main_queue(), ^{
+    if (disableScroll) {
+      self.webView.scrollView.scrollEnabled = NO;
+      self.webView.scrollView.delegate = self;
+    }
+    else {
+      self.webView.scrollView.scrollEnabled = YES;
+      self.webView.scrollView.delegate = nil;
+    }
+  });
+  _disableScroll = disableScroll;
+}
+
+- (void)scrollViewDidScroll:(UIScrollView *)scrollView {
+  [scrollView setContentOffset: CGPointZero];
+}
+
+#pragma mark Plugin interface
+
+- (void)setAccessoryBarVisible:(CAPPluginCall *)call
+{
+  BOOL value = [call getBool:@"isVisible" defaultValue:FALSE];
+
+  NSLog(@"Accessory bar visible change %d", value);
+  self.hideFormAccessoryBar = !value;
+  [call resolve];
+}
+
+- (void)hide:(CAPPluginCall *)call
+{
+  dispatch_async(dispatch_get_main_queue(), ^{
+    [self.webView endEditing:YES];
+  });
+  [call resolve];
+}
+
+- (void)show:(CAPPluginCall *)call
+{
+  [call unimplemented];
+}
+
+- (void)setStyle:(CAPPluginCall *)call
+{
+  self.keyboardStyle = [call getString:@"style" defaultValue:@"LIGHT"];
+  [self changeKeyboardStyle:self.keyboardStyle]; 
+  [call resolve];
+}
+
+- (void)setResizeMode:(CAPPluginCall *)call
+{
+  NSString * mode = [call getString:@"mode" defaultValue:@"none"];
+  if ([mode isEqualToString:@"ionic"]) {
+    self.keyboardResizes = ResizeIonic;
+  } else if ([mode isEqualToString:@"body"]) {
+    self.keyboardResizes = ResizeBody;
+  } else if ([mode isEqualToString:@"native"]) {
+    self.keyboardResizes = ResizeNative;
+  } else {
+    self.keyboardResizes = ResizeNone;
+  }
+  [call resolve];
+}
+
+- (void)getResizeMode:(CAPPluginCall *)call
+{
+    NSString *mode;
+    
+    if (self.keyboardResizes == ResizeIonic) {
+        mode = @"ionic";
+    } else if(self.keyboardResizes == ResizeBody) {
+        mode = @"body";
+    } else if (self.keyboardResizes == ResizeNative) {
+        mode = @"native";
+    } else {
+        mode = @"none";
+    }
+    
+    NSDictionary *response = [NSDictionary dictionaryWithObject:mode forKey:@"mode"];
+    [call resolve: response];
+}
+
+- (void)setScroll:(CAPPluginCall *)call {
+  self.disableScroll = [call getBool:@"isDisabled" defaultValue:FALSE];
+  [call resolve];
+}
+
+- (void)changeKeyboardStyle:(NSString*)style
+{
+  IMP newImp = nil;
+  if ([style isEqualToString:@"DARK"]) {
+    newImp = imp_implementationWithBlock(^(id _s) {
+      return UIKeyboardAppearanceDark;
+    });
+  } else if ([style isEqualToString:@"LIGHT"]) {
+    newImp = imp_implementationWithBlock(^(id _s) {
+      return UIKeyboardAppearanceLight;
+    });
+  } else {
+    newImp = imp_implementationWithBlock(^(id _s) {
+      return UIKeyboardAppearanceDefault;
+    });
+  }
+  for (NSString* classString in @[WKClassString, UITraitsClassString]) {
+    Class c = NSClassFromString(classString);
+    Method m = class_getInstanceMethod(c, @selector(keyboardAppearance));
+    if (m != NULL) {
+      method_setImplementation(m, newImp);
+    } else {
+      class_addMethod(c, @selector(keyboardAppearance), newImp, "l@:");
+    }
+  }
+  _keyboardStyle = style;
+}
+
+#pragma mark dealloc
+
+- (void)dealloc
+{
+  [[NSNotificationCenter defaultCenter] removeObserver:self];
+}
+
+@end
+#pragma clang diagnostic pop
+

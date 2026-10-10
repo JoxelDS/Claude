@@ -1,1 +1,10 @@
-I2ltcG9ydCA8VUlLaXQvVUlLaXQuaD4KCi8vISBQcm9qZWN0IHZlcnNpb24gbnVtYmVyIGZvciBQbHVnaW4uCkZPVU5EQVRJT05fRVhQT1JUIGRvdWJsZSBQbHVnaW5WZXJzaW9uTnVtYmVyOwoKLy8hIFByb2plY3QgdmVyc2lvbiBzdHJpbmcgZm9yIFBsdWdpbi4KRk9VTkRBVElPTl9FWFBPUlQgY29uc3QgdW5zaWduZWQgY2hhciBQbHVnaW5WZXJzaW9uU3RyaW5nW107CgovLyBJbiB0aGlzIGhlYWRlciwgeW91IHNob3VsZCBpbXBvcnQgYWxsIHRoZSBwdWJsaWMgaGVhZGVycyBvZiB5b3VyIGZyYW1ld29yayB1c2luZyBzdGF0ZW1lbnRzIGxpa2UgI2ltcG9ydCA8UGx1Z2luL1B1YmxpY0hlYWRlci5oPgoK
+#import <UIKit/UIKit.h>
+
+//! Project version number for Plugin.
+FOUNDATION_EXPORT double PluginVersionNumber;
+
+//! Project version string for Plugin.
+FOUNDATION_EXPORT const unsigned char PluginVersionString[];
+
+// In this header, you should import all the public headers of your framework using statements like #import <Plugin/PublicHeader.h>
+

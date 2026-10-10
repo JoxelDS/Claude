@@ -1,1 +1,12 @@
-aW1wb3J0IFhDVGVzdApAdGVzdGFibGUgaW1wb3J0IEtleWJvYXJkUGx1Z2luCgpmaW5hbCBjbGFzcyBLZXlib2FyZFBsdWdpblRlc3RzOiBYQ1Rlc3RDYXNlIHsKICAgIGZ1bmMgdGVzdEV4YW1wbGUoKSB0aHJvd3MgewogICAgICAgIC8vIFhDVGVzdCBEb2N1bWVudGF0aW9uCiAgICAgICAgLy8gaHR0cHM6Ly9kZXZlbG9wZXIuYXBwbGUuY29tL2RvY3VtZW50YXRpb24veGN0ZXN0CgogICAgICAgIC8vIERlZmluaW5nIFRlc3QgQ2FzZXMgYW5kIFRlc3QgTWV0aG9kcwogICAgICAgIC8vIGh0dHBzOi8vZGV2ZWxvcGVyLmFwcGxlLmNvbS9kb2N1bWVudGF0aW9uL3hjdGVzdC9kZWZpbmluZ190ZXN0X2Nhc2VzX2FuZF90ZXN0X21ldGhvZHMKICAgIH0KfQo=
+import XCTest
+@testable import KeyboardPlugin
+
+final class KeyboardPluginTests: XCTestCase {
+    func testExample() throws {
+        // XCTest Documentation
+        // https://developer.apple.com/documentation/xctest
+
+        // Defining Test Cases and Test Methods
+        // https://developer.apple.com/documentation/xctest/defining_test_cases_and_test_methods
+    }
+}

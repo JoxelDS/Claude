@@ -1,1 +1,23 @@
-IyEvYmluL3NoCiMgWGNvZGUgQ2xvdWQgcG9zdC1jbG9uZSAoYmVzaWRlIHRoZSBYY29kZSBwcm9qZWN0KS4KIyBXaHkgdGhpcyBjb3B5IGV4aXN0czogdGhlIFhjb2RlIHByb2plY3QgbGl2ZXMgaW4gaW9zL0FwcCwgYW5kIFhjb2RlIENsb3VkCiMgZGlzY292ZXJzIGNpX3NjcmlwdHMgbmV4dCB0byB0aGUgLnhjb2RlcHJvaiBmb3Igc3ViZm9sZGVyIHByb2plY3RzLiBBIGNvcHkKIyBhbHNvIHNpdHMgYXQgdGhlIHJlcG8gcm9vdDsgd2hpY2hldmVyIGxvY2F0aW9uIHRoZSB3b3JrZmxvdyByZWFkcywgdGhlCiMgbG9naWMgaXMgdGhlIHNhbWUuCiMgQ2FwYWNpdG9yIENMSSA4IHJlcXVpcmVzIE5vZGUgPj0gMjIgYW5kIGV4aXRzIGZhdGFsbHkgb24gb2xkZXIgTm9kZS4gVGhlCiMgY2xvdWQgaW1hZ2UgY2FuIHNoaXAgTm9kZSAyMCBXSVRIIG5wbSBwcmVzZW50LCBzbyBjaGVjayB0aGUgTm9kZSB2ZXJzaW9uCiMgaXRzZWxmLCBub3Qgd2hldGhlciBucG0gZXhpc3RzLgojIFRoZSBDYXBhY2l0b3IgU1BNIHBsdWdpbnMgYXJlIHZlbmRvcmVkIGluIGlvcy9jYXBhY2l0b3ItcGx1Z2lucyAoWGNvZGUKIyBDbG91ZCByZXNvbHZlcyBwYWNrYWdlcyBiZWZvcmUgdGhpcyBzY3JpcHQgY2FuIHJ1bikuIFVzZSBgY2FwIGNvcHlgLCBOT1QKIyBgY2FwIHN5bmNgOiBzeW5jIHJlZ2VuZXJhdGVzIENhcEFwcC1TUE0vUGFja2FnZS5zd2lmdCBhbmQgd291bGQgcG9pbnQgaXQKIyBiYWNrIGF0IG5vZGVfbW9kdWxlcywgdW4tdmVuZG9yaW5nIHRoZSBwbHVnaW5zLgpzZXQgLWUKZXhwb3J0IEhPTUVCUkVXX05PX0FVVE9fVVBEQVRFPTEKTk9ERV9NQUpPUj0kKG5vZGUgLXYgMj4vZGV2L251bGwgfCBzZWQgLWUgJ3MvXnYvLycgLWUgJ3MvXC4uKi8vJykKaWYgWyAteiAiJE5PREVfTUFKT1IiIF0gfHwgWyAiJE5PREVfTUFKT1IiIC1sdCAyMiBdOyB0aGVuCiAgYnJldyBpbnN0YWxsIG5vZGUKZmkKY2QgIiRDSV9QUklNQVJZX1JFUE9TSVRPUllfUEFUSCIKbnBtIGNpCm5wbSBydW4gYnVpbGQKbnB4IGNhcCBjb3B5IGlvcwo=
+#!/bin/sh
+# Xcode Cloud post-clone (beside the Xcode project).
+# Why this copy exists: the Xcode project lives in ios/App, and Xcode Cloud
+# discovers ci_scripts next to the .xcodeproj for subfolder projects. A copy
+# also sits at the repo root; whichever location the workflow reads, the
+# logic is the same.
+# Capacitor CLI 8 requires Node >= 22 and exits fatally on older Node. The
+# cloud image can ship Node 20 WITH npm present, so check the Node version
+# itself, not whether npm exists.
+# The Capacitor SPM plugins are vendored in ios/capacitor-plugins (Xcode
+# Cloud resolves packages before this script can run). Use `cap copy`, NOT
+# `cap sync`: sync regenerates CapApp-SPM/Package.swift and would point it
+# back at node_modules, un-vendoring the plugins.
+set -e
+export HOMEBREW_NO_AUTO_UPDATE=1
+NODE_MAJOR=$(node -v 2>/dev/null | sed -e 's/^v//' -e 's/\..*//')
+if [ -z "$NODE_MAJOR" ] || [ "$NODE_MAJOR" -lt 22 ]; then
+  brew install node
+fi
+cd "$CI_PRIMARY_REPOSITORY_PATH"
+npm ci
+npm run build
+npx cap copy ios
