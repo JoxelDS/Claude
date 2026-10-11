@@ -348,6 +348,41 @@
       .pinOverlay .pinForm{gap:16px}
     }
   </style>
+  <style id="sdx-signin-layout-v3">
+    /* ===== SDX SIGN-IN LAYOUT v3 (2026-10-10) =====
+       Joxel, with a close-up of the live card: "Make all of the
+       space here make sense." Measured first (production build,
+       child-by-child geometry, 390x844 / 800x1180 / 1440x900):
+       the card has NO fixed height or min-height anywhere — it
+       already hugs its content to ~1px on every variant. The dead
+       feel is DISTRIBUTED: five eras of margins stacked inside one
+       card — 20px after the logo, 30px after the subtitle, an
+       accidental 0px between the form and the Request-access pill
+       (the sign-in button carries an inline margin:0 auto that
+       silently kills PR #19's intended 14px), then a ~98px bottom
+       tail (26px margin + two faint micro-lines + 28px bottom
+       padding; ~118px on desktop where bottom padding is 48px)
+       floating in white under the actions. This block imposes ONE
+       rhythm on the card — brand 14 / title 6 / subtitle 22 /
+       actions 14 / footer 16 / patent 5, bottom padding trimmed —
+       so every gap is a deliberate step at any field count: the
+       one-field card today, the three-field name+badge card next,
+       the tall register card unchanged in structure. The card
+       still hugs its content; PR #19's margin:auto centering,
+       PR #20's chip (glued to the card's bottom edge — it follows
+       the card as it shrinks) and PR #14's button colors are
+       untouched. Locked palette only; no color changes at all. */
+    .pinOverlay .pinLogo{margin-bottom:14px}
+    .pinOverlay .pinTitle{margin-bottom:6px}
+    .pinOverlay .pinSub{margin-bottom:22px}
+    .pinOverlay .pinCard .btnLink{margin-top:14px !important}
+    .pinOverlay .pinFooter{margin-top:16px}
+    .pinOverlay .pinPatent{margin-top:5px}
+    .pinCard .pendingIcon{margin:2px 0 14px}
+    .pinCard:has(.pendingIcon) .pinSub{margin-bottom:10px}
+    @media (max-width:768px){ .pinOverlay .pinCard{padding-bottom:22px} }
+    @media (min-width:769px){ .pinOverlay .pinCard{padding-bottom:36px} }
+  </style>
   <style id="sdx-portal-submit-fix">
     /* ===== SDX HACCP PORTAL — SUBMIT BAR + READABILITY (2026-10-11) =====
        Joxel, from iPad screenshots: (1) "Submit Temperature Log" bottom
