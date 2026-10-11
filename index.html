@@ -305,6 +305,49 @@
       padding-bottom: calc(14px + env(safe-area-inset-bottom, 0px)) !important;
     }
   </style>
+  <style id="sdx-signin-layout-v2">
+    /* ===== SDX SIGN-IN LAYOUT v2 (2026-10-10) =====
+       Joxel, with a photo of the live screen: "Make it better and
+       also the ig in the middle bottom outside of the white shape."
+       1) THE IG CHIP LEAVES THE CARD. In PR #19 the chip sat at the
+          card's bottom-right corner, INSIDE the white shape. It now
+          hangs centered below the card's bottom edge, on the navy
+          overlay — same injected anchor, same href, icon only. The
+          anchor is a child of .pinCard (position:relative), so
+          top:calc(100% + 18px) puts its top edge 18px under the card
+          on every variant (sign-in / register / pending), and
+          left:0;right:0 with auto side margins centers it on the
+          card WITHOUT a transform — the login-motion entrance
+          animates .pinIg's transform (sdxPinRise, fill both), which
+          would override a translateX(-50%) forever. The overlay is
+          the scroll container (PR #14) and the chip is part of its
+          scrollable overflow, so when a tall card fills the viewport
+          (register, keyboard up) the chip scrolls into reach below
+          the card and can never overlap card content — its position
+          is card-relative, never viewport-relative. A deeper shadow
+          plus a hairline light edge make the light disc read as a
+          deliberate element on the dark background.
+       2) POLISH ("make it better"). A deeper, layered card shadow so
+          the white shape carries real presence on the navy; a calmer
+          vertical rhythm — logo, title, subtitle and form get a
+          little more air (full-height screens only, so the compact
+          short-screen rhythm in App.css is untouched); the two
+          footer lines sit quieter. Colors stay inside the locked
+          SDX palette (#2A295C / #283897 / #16152E / #F0F2F7 /
+          white); PR #14's button colors (navy enabled, true-gray
+          disabled) and the PR #19 centering pattern are not touched. */
+    .pinIg[data-sdx-ig="injected"]{top:calc(100% + 18px);bottom:auto;left:0;right:0;margin-top:0;margin-bottom:0;margin-left:auto;margin-right:auto;border:1px solid rgba(255,255,255,.4);box-shadow:0 10px 24px rgba(22,21,46,.45),0 2px 6px rgba(22,21,46,.35);z-index:3}
+    .pinIg[data-sdx-ig="injected"]:hover{background:#FFFFFF}
+    .pinOverlay .pinCard{box-shadow:0 30px 80px rgba(22,21,46,.5),0 4px 16px rgba(22,21,46,.3)}
+    .pinOverlay .pinFooter{margin-top:26px;font-size:.7rem;letter-spacing:.02em;opacity:.85}
+    .pinOverlay .pinPatent{margin-top:7px;opacity:.8}
+    @media (min-height:501px){
+      .pinOverlay .pinLogo{margin-bottom:20px}
+      .pinOverlay .pinTitle{letter-spacing:-.015em;margin-bottom:8px}
+      .pinOverlay .pinSub{line-height:1.5;margin-bottom:30px}
+      .pinOverlay .pinForm{gap:16px}
+    }
+  </style>
 </head>
   <body>
     <!-- Google Translate widget — mounted here permanently, teleported into popover via JS -->
