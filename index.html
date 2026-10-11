@@ -78,8 +78,15 @@
     <style>
       html{background:#16152E}
       body{margin:0;font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#16152E}
-      #splash{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px;background:linear-gradient(135deg,#2A295C 0%,#1e1d4a 50%,#283897 100%);z-index:9999;transition:opacity .3s}
+      #splash{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px;background:#16152E;z-index:9999;transition:opacity .3s}
       #splash.hide{opacity:0;pointer-events:none}
+      /* Login motion (2026-10-10): the animated #sdx-boot overlay below owns
+         the boot visuals now (it matches the native splash artwork). This
+         layer stays as a clean deep-navy underlay — its old text + loading
+         bar are hidden so nothing flashes between the boot overlay's exit
+         and the app's mount. Elements remain in the DOM: the white-label
+         script and the boot watchdog below still reference them. */
+      .sp-logo,.sp-bar{display:none}
       .sp-logo{font-size:1.4rem;font-weight:700;color:#fff;letter-spacing:-.3px}
       .sp-bar{width:120px;height:3px;background:rgba(255,255,255,.15);border-radius:3px;overflow:hidden}
       .sp-fill{width:40%;height:100%;background:#EE0000;border-radius:3px;animation:sp .8s ease infinite alternate}
@@ -142,6 +149,58 @@
     .pinBtn.btnPrimary:active:not(:disabled){background:#1E1D4A !important}
     .pinBtn.btnPrimary:disabled{background:#DDE1E8 !important;color:#8D95A5 !important;box-shadow:none !important;opacity:1 !important}
   </style>
+  <!-- SDX login motion (2026-10-10) — boot choreography + sign-in entrance.
+       Layered ON TOP of the sign-in hotfix above: the canvas color, the
+       .pinOverlay height/scroll rules and the .pinBtn colors are untouched;
+       where anything overlapped, the hotfix behavior wins.
+       Boot overlay (#sdx-boot): first frame matches the native splash
+       artwork exactly (flat #16152E, white SDX mark at 34% width with its
+       center at 40% height, wordmark + #B9BBD9 tagline beneath — measured
+       from splash-iphone-1290x2796.png). The mark paths are the shipped
+       favicon geometry (viewBox 64: rounded square + check). Transform /
+       opacity / stroke only — GPU-cheap, no backdrop-filter, no assets.
+       Dismissal is pure CSS (sdxBootExit at 2.35s) so it can never trap
+       the user if JS fails; the inline watcher in <body> dismisses it
+       earlier once the app has mounted, and it is pointer-events:none
+       from the first frame, so it never blocks a tap. -->
+  <style>
+    #sdx-boot{position:fixed;inset:0;z-index:10100;background:#16152E;pointer-events:none;animation:sdxBootExit .5s ease-in-out 2.35s both;will-change:opacity,transform}
+    #sdx-boot.boot-done{animation:none;opacity:0;visibility:hidden;transform:scale(1.035);transition:opacity .5s ease-in-out,transform .5s ease-in-out,visibility 0s linear .5s}
+    .boot-glow{position:absolute;left:50%;top:40%;width:340px;height:340px;margin:-170px 0 0 -170px;border-radius:50%;background:radial-gradient(circle,rgba(40,56,151,.55) 0%,rgba(40,56,151,0) 62%);opacity:0;animation:sdxBootGlow 1.5s ease .3s both}
+    .boot-stage{position:absolute;left:0;right:0;top:32.2%;display:flex;flex-direction:column;align-items:center}
+    .boot-mark{width:34vw;max-width:150px;height:auto;display:block}
+    .boot-sq,.boot-ck{fill:none;stroke:#fff;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:100;stroke-dashoffset:100}
+    .boot-sq{stroke-width:5.5;animation:sdxDraw .7s cubic-bezier(.65,0,.35,1) .05s both}
+    .boot-ck{stroke-width:6.5;animation:sdxDraw .42s cubic-bezier(.33,1,.68,1) .5s both}
+    .boot-name{margin-top:16px;font-size:40px;font-weight:800;letter-spacing:-.02em;line-height:1.1;color:#fff;opacity:0;animation:sdxBootRise .5s cubic-bezier(.22,1,.36,1) .78s both}
+    .boot-tag{margin-top:10px;font-size:16px;font-weight:500;letter-spacing:.01em;line-height:1.35;color:#B9BBD9;opacity:0;animation:sdxBootRise .45s cubic-bezier(.22,1,.36,1) .95s both}
+    @keyframes sdxDraw{from{stroke-dashoffset:100}to{stroke-dashoffset:0}}
+    @keyframes sdxBootGlow{0%{opacity:0;transform:scale(.82)}55%{opacity:.55}100%{opacity:.3;transform:scale(1)}}
+    @keyframes sdxBootRise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+    @keyframes sdxBootExit{to{opacity:0;transform:scale(1.035);visibility:hidden}}
+    /* Sign-in entrance: the card gets a slight-overshoot rise (this
+       higher-specificity rule supersedes App.css's pinCardIn entrance;
+       App.css itself is untouched) and the card's children stagger in. */
+    .pinOverlay .pinCard{animation:sdxCardIn .6s cubic-bezier(.22,1,.36,1) both}
+    .pinLogo,.pinTitle,.pinSub,.pinForm,.pinIg,.pinFooter{animation:sdxPinRise .55s cubic-bezier(.22,1,.36,1) both}
+    .pinLogo{animation-delay:.05s}
+    .pinTitle{animation-delay:.12s}
+    .pinSub{animation-delay:.19s}
+    .pinForm{animation-delay:.28s}
+    .pinIg{animation-delay:.4s}
+    .pinFooter{animation-delay:.48s}
+    @keyframes sdxCardIn{0%{opacity:0;transform:translateY(26px) scale(.98)}62%{opacity:1;transform:translateY(-3px) scale(1.002)}100%{opacity:1;transform:translateY(0) scale(1)}}
+    @keyframes sdxPinRise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+    /* Reduced motion: no choreography — static, fully drawn frame and the
+       overlay clears immediately; the sign-in renders in its final state. */
+    @media (prefers-reduced-motion: reduce){
+      #sdx-boot{animation:sdxBootExit .01s linear .05s both}
+      .boot-sq,.boot-ck{animation:none;stroke-dashoffset:0}
+      .boot-glow{animation:none;opacity:.3}
+      .boot-name,.boot-tag{animation:none;opacity:1;transform:none}
+      .pinOverlay .pinCard,.pinLogo,.pinTitle,.pinSub,.pinForm,.pinIg,.pinFooter{animation:none !important}
+    }
+  </style>
   </head>
   <body>
     <!-- Google Translate widget — mounted here permanently, teleported into popover via JS -->
@@ -163,6 +222,43 @@
             document.getElementById("splash").style.background = "linear-gradient(135deg," + vs.primaryColor + " 0%,#16152e 100%)";
           }
         } catch (e) {}
+      })();
+    </script>
+    <!-- Boot overlay: the splash, alive. Purely visual (aria-hidden,
+         pointer-events:none); dismissal is CSS-first — see the login
+         motion <style> in <head>. Mark geometry = the shipped favicon. -->
+    <div id="sdx-boot" aria-hidden="true">
+      <div class="boot-glow"></div>
+      <div class="boot-stage">
+        <svg class="boot-mark" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" focusable="false">
+          <path class="boot-sq" pathLength="100" d="M32 9h11a12 12 0 0 1 12 12v22a12 12 0 0 1-12 12H21a12 12 0 0 1-12-12V21a12 12 0 0 1 12-12h11z"/>
+          <path class="boot-ck" pathLength="100" d="M20.5 32.6L28.8 41L44.2 23.7"/>
+        </svg>
+        <div class="boot-name">SDX Inspect</div>
+        <div class="boot-tag">Kitchen Inspection &amp; Food Safety</div>
+      </div>
+    </div>
+    <script>
+      // Boot overlay dismissal watcher. The CSS timeline dismisses the
+      // overlay on its own at ~2.35s even if every script fails; this
+      // watcher only dismisses it EARLIER, once the app has mounted
+      // (#root populated) and the draw-in has had its moment (1.4s) —
+      // plus a hard backstop, so the overlay can never outstay its welcome.
+      (function () {
+        var boot = document.getElementById("sdx-boot");
+        if (!boot) return;
+        var t0 = Date.now(), done = false;
+        function hide() {
+          if (done) return; done = true;
+          boot.classList.add("boot-done");
+          setTimeout(function () { if (boot.parentNode) boot.parentNode.removeChild(boot); }, 750);
+        }
+        var iv = setInterval(function () {
+          var root = document.getElementById("root");
+          var mounted = root && root.childElementCount > 0;
+          if ((mounted && Date.now() - t0 >= 1400) || Date.now() - t0 >= 4000) { clearInterval(iv); hide(); }
+        }, 120);
+        setTimeout(hide, 4500);
       })();
     </script>
     <div id="root"></div>
