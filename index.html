@@ -159,21 +159,25 @@
        from splash-iphone-1290x2796.png). The mark paths are the shipped
        favicon geometry (viewBox 64: rounded square + check). Transform /
        opacity / stroke only — GPU-cheap, no backdrop-filter, no assets.
-       Dismissal is pure CSS (sdxBootExit at 2.35s) so it can never trap
+       Dismissal is pure CSS (sdxBootExit at 1.6s) so it can never trap
        the user if JS fails; the inline watcher in <body> dismisses it
        earlier once the app has mounted, and it is pointer-events:none
-       from the first frame, so it never blocks a tap. -->
+       from the first frame, so it never blocks a tap.
+       RETIMED 2026-10-10 (v2, Joxel: "make the loading faster and also
+       the effects"): every beat scaled ~0.64x in step — same shapes,
+       same overlaps; watcher minimum hold 1.4s → 0.7s, CSS fallback
+       exit 2.35s → 1.6s. The draw still completes before the exit. -->
   <style>
-    #sdx-boot{position:fixed;inset:0;z-index:10100;background:#16152E;pointer-events:none;animation:sdxBootExit .5s ease-in-out 2.35s both;will-change:opacity,transform}
-    #sdx-boot.boot-done{animation:none;opacity:0;visibility:hidden;transform:scale(1.035);transition:opacity .5s ease-in-out,transform .5s ease-in-out,visibility 0s linear .5s}
-    .boot-glow{position:absolute;left:50%;top:40%;width:340px;height:340px;margin:-170px 0 0 -170px;border-radius:50%;background:radial-gradient(circle,rgba(40,56,151,.55) 0%,rgba(40,56,151,0) 62%);opacity:0;animation:sdxBootGlow 1.5s ease .3s both}
+    #sdx-boot{position:fixed;inset:0;z-index:10100;background:#16152E;pointer-events:none;animation:sdxBootExit .45s ease-in-out 1.6s both;will-change:opacity,transform}
+    #sdx-boot.boot-done{animation:none;opacity:0;visibility:hidden;transform:scale(1.035);transition:opacity .45s ease-in-out,transform .45s ease-in-out,visibility 0s linear .45s}
+    .boot-glow{position:absolute;left:50%;top:40%;width:340px;height:340px;margin:-170px 0 0 -170px;border-radius:50%;background:radial-gradient(circle,rgba(40,56,151,.55) 0%,rgba(40,56,151,0) 62%);opacity:0;animation:sdxBootGlow .95s ease .19s both}
     .boot-stage{position:absolute;left:0;right:0;top:32.2%;display:flex;flex-direction:column;align-items:center}
     .boot-mark{width:34vw;max-width:150px;height:auto;display:block}
     .boot-sq,.boot-ck{fill:none;stroke:#fff;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:100;stroke-dashoffset:100}
-    .boot-sq{stroke-width:5.5;animation:sdxDraw .7s cubic-bezier(.65,0,.35,1) .05s both}
-    .boot-ck{stroke-width:6.5;animation:sdxDraw .42s cubic-bezier(.33,1,.68,1) .5s both}
-    .boot-name{margin-top:16px;font-size:40px;font-weight:800;letter-spacing:-.02em;line-height:1.1;color:#fff;opacity:0;animation:sdxBootRise .5s cubic-bezier(.22,1,.36,1) .78s both}
-    .boot-tag{margin-top:10px;font-size:16px;font-weight:500;letter-spacing:.01em;line-height:1.35;color:#B9BBD9;opacity:0;animation:sdxBootRise .45s cubic-bezier(.22,1,.36,1) .95s both}
+    .boot-sq{stroke-width:5.5;animation:sdxDraw .45s cubic-bezier(.65,0,.35,1) .03s both}
+    .boot-ck{stroke-width:6.5;animation:sdxDraw .27s cubic-bezier(.33,1,.68,1) .32s both}
+    .boot-name{margin-top:16px;font-size:40px;font-weight:800;letter-spacing:-.02em;line-height:1.1;color:#fff;opacity:0;animation:sdxBootRise .32s cubic-bezier(.22,1,.36,1) .5s both}
+    .boot-tag{margin-top:10px;font-size:16px;font-weight:500;letter-spacing:.01em;line-height:1.35;color:#B9BBD9;opacity:0;animation:sdxBootRise .29s cubic-bezier(.22,1,.36,1) .61s both}
     @keyframes sdxDraw{from{stroke-dashoffset:100}to{stroke-dashoffset:0}}
     @keyframes sdxBootGlow{0%{opacity:0;transform:scale(.82)}55%{opacity:.55}100%{opacity:.3;transform:scale(1)}}
     @keyframes sdxBootRise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
@@ -181,14 +185,14 @@
     /* Sign-in entrance: the card gets a slight-overshoot rise (this
        higher-specificity rule supersedes App.css's pinCardIn entrance;
        App.css itself is untouched) and the card's children stagger in. */
-    .pinOverlay .pinCard{animation:sdxCardIn .6s cubic-bezier(.22,1,.36,1) both}
-    .pinLogo,.pinTitle,.pinSub,.pinForm,.pinIg,.pinFooter{animation:sdxPinRise .55s cubic-bezier(.22,1,.36,1) both}
-    .pinLogo{animation-delay:.05s}
-    .pinTitle{animation-delay:.12s}
-    .pinSub{animation-delay:.19s}
-    .pinForm{animation-delay:.28s}
-    .pinIg{animation-delay:.4s}
-    .pinFooter{animation-delay:.48s}
+    .pinOverlay .pinCard{animation:sdxCardIn .45s cubic-bezier(.22,1,.36,1) both}
+    .pinLogo,.pinTitle,.pinSub,.pinForm,.pinIg,.pinFooter{animation:sdxPinRise .42s cubic-bezier(.22,1,.36,1) both}
+    .pinLogo{animation-delay:.04s}
+    .pinTitle{animation-delay:.08s}
+    .pinSub{animation-delay:.13s}
+    .pinForm{animation-delay:.19s}
+    .pinIg{animation-delay:.27s}
+    .pinFooter{animation-delay:.33s}
     @keyframes sdxCardIn{0%{opacity:0;transform:translateY(26px) scale(.98)}62%{opacity:1;transform:translateY(-3px) scale(1.002)}100%{opacity:1;transform:translateY(0) scale(1)}}
     @keyframes sdxPinRise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
     /* Reduced motion: no choreography — static, fully drawn frame and the
@@ -200,6 +204,17 @@
       .boot-name,.boot-tag{animation:none;opacity:1;transform:none}
       .pinOverlay .pinCard,.pinLogo,.pinTitle,.pinSub,.pinForm,.pinIg,.pinFooter{animation:none !important}
     }
+  </style>
+  <!-- Follow-on-Instagram row, sign-in card (2026-10-10) — styling identical
+       to the App.css rules in the queued App.jsx patch
+       (~/workspace/sdx-ig-link/ig-link.patch), duplicated here because the
+       row itself is injected from index.html until that patch lands (see
+       the injection script before </body>). When App.css gains these same
+       rules, both copies agree and either can win harmlessly. -->
+  <style>
+    .pinIg{margin-top:20px;display:inline-flex;align-items:center;justify-content:center;gap:7px;color:var(--sdx-navy);font-size:.82rem;font-weight:700;letter-spacing:.01em;text-decoration:none}
+    .pinIg:hover{text-decoration:underline}
+    .pinIg svg{flex-shrink:0}
   </style>
   </head>
   <body>
@@ -240,10 +255,11 @@
     </div>
     <script>
       // Boot overlay dismissal watcher. The CSS timeline dismisses the
-      // overlay on its own at ~2.35s even if every script fails; this
+      // overlay on its own at ~1.6s even if every script fails; this
       // watcher only dismisses it EARLIER, once the app has mounted
-      // (#root populated) and the draw-in has had its moment (1.4s) —
-      // plus a hard backstop, so the overlay can never outstay its welcome.
+      // (#root populated) and the draw-in has had its moment (0.7s —
+      // retimed 2026-10-10, was 1.4s) — plus a hard backstop, so the
+      // overlay can never outstay its welcome.
       (function () {
         var boot = document.getElementById("sdx-boot");
         if (!boot) return;
@@ -251,14 +267,14 @@
         function hide() {
           if (done) return; done = true;
           boot.classList.add("boot-done");
-          setTimeout(function () { if (boot.parentNode) boot.parentNode.removeChild(boot); }, 750);
+          setTimeout(function () { if (boot.parentNode) boot.parentNode.removeChild(boot); }, 700);
         }
         var iv = setInterval(function () {
           var root = document.getElementById("root");
           var mounted = root && root.childElementCount > 0;
-          if ((mounted && Date.now() - t0 >= 1400) || Date.now() - t0 >= 4000) { clearInterval(iv); hide(); }
+          if ((mounted && Date.now() - t0 >= 700) || Date.now() - t0 >= 2600) { clearInterval(iv); hide(); }
         }, 120);
-        setTimeout(hide, 4500);
+        setTimeout(hide, 3000);
       })();
     </script>
     <div id="root"></div>
@@ -324,6 +340,74 @@
           }
         });
         observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["class"] });
+      })();
+    </script>
+    <!-- SDX Instagram row — INTERIM index.html implementation (2026-10-10).
+         Joxel asked for the IG link in the app at 07:25 ("Put the ig in
+         the app so they can click it and go in"); the real patch edits
+         src/App.jsx (~/workspace/sdx-ig-link/ig-link.patch) and is queued
+         in the Mac landing stack. Until it lands, this script injects the
+         same row — same .pinIg class, glyph, link and footer placement —
+         into the badge sign-in card.
+         DEDUPE GUARD: before injecting it checks for an existing .pinIg
+         anywhere in the card and stands down if one is there, so the day
+         the App.jsx patch ships, the app's native row is the only row
+         and this script adds nothing. The MENU placement is NOT done
+         here — it already lives in the menu-redesign package.
+         Language: the label follows the card's own rendered language —
+         "Sigue a @sdxinspection" when the card reads Spanish (visible
+         text or the translate cookie), "Follow @sdxinspection" otherwise.
+         Inert on every screen except the sign-in card. -->
+    <script>
+      (function () {
+        var IG_URL = "https://www.instagram.com/sdxinspection";
+        var EN = "Follow @sdxinspection", ES = "Sigue a @sdxinspection";
+        var GLYPH = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="2.5" y="2.5" width="19" height="19" rx="5.5"/><circle cx="12" cy="12" r="4.25"/><circle cx="17.35" cy="6.65" r="0.7" fill="currentColor" stroke="none"/></svg>';
+        function cardIsSpanish(card) {
+          try {
+            if (/(?:^|;\s*)googtrans=[^;]*\/es(?:;|$)/.test(document.cookie || "")) return true;
+            var t = card.textContent || "";
+            return /iniciar sesi|gafete|credencial|insignia|ingresa|ingrese|solicitar acceso|n[uú]mero de/i.test(t);
+          } catch (e) { return false; }
+        }
+        function ensure() {
+          var card = document.querySelector(".pinOverlay .pinCard") || document.querySelector(".pinCard");
+          if (!card) return; // not on the sign-in screen — stay inert
+          var row = card.querySelector(".pinIg");
+          if (row) {
+            // A row already exists: if it's ours, keep its label in the
+            // card's current language; if it's the app's own (the App.jsx
+            // patch has landed), stand down completely — never duplicate.
+            if (row.getAttribute("data-sdx-ig") === "injected") {
+              var span = row.querySelector("[data-sdx-ig-label]");
+              var label = cardIsSpanish(card) ? ES : EN;
+              if (span && span.textContent !== label) span.textContent = label;
+            }
+            return;
+          }
+          var a = document.createElement("a");
+          a.className = "pinIg";
+          a.setAttribute("data-sdx-ig", "injected");
+          a.href = IG_URL;
+          a.target = "_blank";
+          a.rel = "noopener noreferrer";
+          a.setAttribute("aria-label", "Follow SDX Inspect on Instagram (opens Instagram)");
+          a.innerHTML = GLYPH + "<span data-sdx-ig-label></span>";
+          a.querySelector("[data-sdx-ig-label]").textContent = cardIsSpanish(card) ? ES : EN;
+          var footer = card.querySelector(".pinFooter");
+          if (footer && footer.parentNode === card) card.insertBefore(a, footer);
+          else card.appendChild(a);
+        }
+        var queued = false;
+        function schedule() {
+          if (queued) return; queued = true;
+          var run = function () { queued = false; try { ensure(); } catch (e) {} };
+          if (window.requestAnimationFrame) requestAnimationFrame(run); else setTimeout(run, 50);
+        }
+        if (document.body && window.MutationObserver) {
+          new MutationObserver(schedule).observe(document.body, { childList: true, subtree: true, characterData: true });
+        }
+        schedule();
       })();
     </script>
   </body>
