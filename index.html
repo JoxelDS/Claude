@@ -610,6 +610,28 @@
       .foodSafetyRefWrap { top: calc(66px + env(safe-area-inset-top, 0px)) !important; }
     }
   </style>
+  <style id="sdx-footer-anchor">
+    /* ===== SDX FOOTER ANCHOR (2026-10-11) =====
+       Bug (Joxel, 2026-10-11 00:38 EDT, Past Reports screenshot): the navy
+       page footer (SDX logo + "Inspection history synced to cloud database.")
+       renders mid-screen, immediately under the short loading content, with
+       empty page background below it — "I do not want the blue there."
+       Diagnosis (~/workspace/sdx-history-load-fix/DIAGNOSIS.md): every page
+       root is .appShell, a min-height:100vh flex column, and .pageMain (the
+       middle child, bundle CSS) has no flex-grow — so on any page whose
+       content is shorter than the viewport (History loading/empty states,
+       My Team, Admin Panel, My Locations) the footer parks right under the
+       content instead of at the bottom of the screen. Measured before this
+       fix (390x844, History short state): footer bottom y=554 of 844, with
+       290px of empty background below the band. After: footer bottom = 844.
+       Fix: .pageMain becomes the growing child of the column. Tall pages
+       (content beyond 100vh) are unchanged — the footer still follows the
+       content at the natural end of the page. Specificity (0,2,0) beats the
+       bundle's .pageMain (0,1,0) regardless of order. When this rule is
+       folded into src/App.css with the stack landing, retire this block
+       like PR #17's will be. */
+    .appShell > .pageMain { flex: 1 0 auto; }
+  </style>
 </head>
   <body>
     <!-- Google Translate widget — mounted here permanently, teleported into popover via JS -->
