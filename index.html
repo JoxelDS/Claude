@@ -583,6 +583,33 @@
       border-bottom-left-radius: 17px;
     }
   </style>
+  <style id="sdx-fsr-sticky-fix">
+    /* ===== SDX FOOD SAFETY QUICK REFERENCE STICKY FIX (2026-10-11) =====
+       Bug (Joxel, 2026-10-10 21:32 EDT): the Food Safety Quick Reference
+       bar clips under the fixed header when scrolling. Diagnosis
+       (~/workspace/sdx-scroll-clip/): .foodSafetyRefWrap is
+       position:sticky with a HARD-CODED top (72px, 66px @<=768px) and
+       no safe-area term, while .topBar's real height is
+       calc(60px + env(safe-area-inset-top)) on phones (<=640px) and
+       calc(72px + env(safe-area-inset-top)) above that. On a notched
+       iPhone (inset ~47px) the header is ~107px tall but the bar
+       still sticks at 66px -> 41px of the 49px bar hides under the
+       header (measured in Chromium with the app's own header rules
+       computed at inset=47px; pre/post PR #17 identical — the menu
+       hotfix never touched these values). The 641-768px band also
+       clipped 6px with no notch at all (header 72px vs wrap 66px).
+       Fix: the sticky top tracks the header height 1:1, safe-area
+       included. At inset=0 nothing changes on desktop (72/72) or
+       phones <=640px (66 vs 60 header = the same +6px gap as today);
+       the 641-768px band goes from -6px clip to flush, and notched
+       phones gain the missing inset. Fold-in twin lives at the end
+       of src/App.css (scroll-clip fix package) — when that lands in
+       the bundle, this block can be retired like PR #17's will be. */
+    .foodSafetyRefWrap { top: calc(72px + env(safe-area-inset-top, 0px)) !important; }
+    @media (max-width: 640px) {
+      .foodSafetyRefWrap { top: calc(66px + env(safe-area-inset-top, 0px)) !important; }
+    }
+  </style>
 </head>
   <body>
     <!-- Google Translate widget — mounted here permanently, teleported into popover via JS -->
