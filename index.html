@@ -216,6 +216,64 @@
     .pinIg:hover{text-decoration:underline}
     .pinIg svg{flex-shrink:0}
   </style>
+  <!-- SDX sign-in layout (2026-10-10) — centered card, status-bar
+       spacing, IG icon chip, pending polish. Joxel: "Put sign in the
+       middle", "on the top make the time thing good — do not see the
+       information merge with the time on the phone", "just the [IG]
+       icon somewhere good place."
+       CENTERING: App.css centers the overlay with align-items only
+       inside one media query ((max-width:768px) and (min-height:501px)),
+       and plain flex centering in a SCROLLABLE overlay (PR #14 made
+       .pinOverlay overflow-y:auto) clips the card's top edge whenever
+       the card is taller than the visible viewport — keyboard up, or
+       the native shell's shrunken webview after a keyboard dismissal.
+       margin:auto on the card is the safe pattern: it centers when
+       there is free space and collapses to zero when there is not, so
+       the card starts at the top and every pixel stays scrollable.
+       It also centers at every width and height, not just inside
+       that one media query.
+       SAFE AREA: the viewport meta already ships viewport-fit=cover,
+       so in installed / full-screen contexts the page runs UNDER the
+       phone's clock and env(safe-area-inset-top) is the only thing
+       keeping content clear of it. The rules below restate App.css's
+       own safe-area values for the sign-in overlay and the app header
+       so the guarantee holds from this file too — env() resolves to
+       0 in browser tabs and in the native shell (the Capacitor
+       StatusBar does not overlay the webview), so nothing shifts
+       there, and max()/calc() preserve the existing paddings
+       underneath. The page canvas behind any rubber-band scroll
+       stays #16152E (critical CSS at the top of this file).
+       IG CHIP + PENDING: CSS only — the PR #16 injection script, its
+       href and the native .pinIg text row (App.jsx patch, still in
+       the landing stack) are untouched; the chip treatment targets
+       the injected anchor via its data-sdx-ig marker, and the
+       pending card's emoji hourglass (a .pendingIcon element) is
+       swapped for the SDX mark with the loader family's soft pulse. -->
+  <style>
+    /* — Centered sign-in card + safe-area spacing — */
+    .pinOverlay{align-items:center !important;justify-content:center !important;padding-top:max(16px,env(safe-area-inset-top,0px)) !important;padding-bottom:max(16px,env(safe-area-inset-bottom,0px)) !important;padding-left:max(16px,env(safe-area-inset-left,0px)) !important;padding-right:max(16px,env(safe-area-inset-right,0px)) !important}
+    .pinOverlay .pinCard{margin:auto}
+    .topBar{padding-top:env(safe-area-inset-top,0px)}
+    .topBarSpacer{min-height:calc(72px + env(safe-area-inset-top,0px))}
+    @media (max-width:640px){
+      .topBarSpacer{min-height:calc(60px + env(safe-area-inset-top,0px))}
+    }
+    /* — Instagram: icon-only chip in the card's footer zone — */
+    .pinIg[data-sdx-ig="injected"]{position:absolute;right:12px;bottom:10px;width:44px;height:44px;margin:0;padding:0;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;background:#F0F2F7;border:1px solid rgba(42,41,92,.14);color:var(--sdx-navy,#2A295C);font-size:0;line-height:0;text-decoration:none;z-index:2}
+    .pinIg[data-sdx-ig="injected"] span{display:none}
+    .pinIg[data-sdx-ig="injected"] svg{width:20px;height:20px}
+    .pinIg[data-sdx-ig="injected"]:hover{text-decoration:none;background:#E7EBF4}
+    /* — Pending approval: the mark waits with you; real buttons — */
+    .pinCard .pendingIcon{font-size:0;line-height:0;color:transparent;margin:6px 0 18px;display:flex;justify-content:center;animation:none}
+    .pinCard .pendingIcon::before{content:"";width:76px;height:76px;border-radius:50%;background-image:url("data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2064%2064%22%3E%3Cpath%20d%3D%22M32%209h11a12%2012%200%200%201%2012%2012v22a12%2012%200%200%201-12%2012H21a12%2012%200%200%201-12-12V21a12%2012%200%200%201%2012-12h11z%22%20fill%3D%22none%22%20stroke%3D%22%23FFFFFF%22%20stroke-width%3D%225.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3Cpath%20d%3D%22M20.5%2032.6L28.8%2041L44.2%2023.7%22%20fill%3D%22none%22%20stroke%3D%22%23FFFFFF%22%20stroke-width%3D%226.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fsvg%3E"),linear-gradient(150deg,#2A295C 0%,#283897 100%);background-size:42px 42px,cover;background-position:center,center;background-repeat:no-repeat}
+    @media (prefers-reduced-motion: no-preference){
+      .pinCard .pendingIcon::before{animation:sdxPendingPulse 2.4s ease-out infinite}
+    }
+    @keyframes sdxPendingPulse{0%{box-shadow:0 0 0 0 rgba(40,56,151,.28)}70%{box-shadow:0 0 0 18px rgba(40,56,151,0)}100%{box-shadow:0 0 0 0 rgba(40,56,151,0)}}
+    .pinCard:has(.pendingIcon) .pinSub{margin-bottom:10px}
+    .pinCard .btnLink{display:flex !important;align-items:center;justify-content:center;min-height:46px;margin-top:14px;padding:10px 20px;border:1.5px solid rgba(42,41,92,.32);border-radius:999px;background:rgba(42,41,92,.04);color:var(--sdx-navy,#2A295C);font-size:.88rem;font-weight:700;text-decoration:none;cursor:pointer}
+    .pinCard .btnLink:hover{background:rgba(42,41,92,.09);color:var(--sdx-navy,#2A295C);text-decoration:none}
+  </style>
     <style id="sdx-menu-scroll-hotfix">
     /* ===== SDX MENU SCROLL HOTFIX (2026-10-10) =====
        Bug: the header dropdown menu renders and caps its height, but does not
