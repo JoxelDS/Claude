@@ -348,6 +348,87 @@
       .pinOverlay .pinForm{gap:16px}
     }
   </style>
+  <style id="sdx-portal-submit-fix">
+    /* ===== SDX HACCP PORTAL — SUBMIT BAR + READABILITY (2026-10-11) =====
+       Joxel, from iPad screenshots: (1) "Submit Temperature Log" bottom
+       bar "does not look good" — a white hard-cornered strip WIDER than
+       the content column, bleeding into the navy margins; (2) "I can't
+       read" — portal text washed out, worst the yellow-on-yellow notice
+       "No coolers / freezers registered for this stand yet — add them
+       below."
+       BAR: App.css .haccpStickySubmit is width:min(560px,100%) while
+       .haccpCard is max-width:520px inside a 16px-padded overlay — the
+       bar stuck out 20px per side on iPad and ran full-bleed on phone
+       while the card stayed inset. It is now exactly the card column —
+       min(520px, 100% - 32px) — with the card family's rounded top
+       corners, a hairline navy edge and a real top shadow, so it reads
+       as the card's own footer docked to the screen edge.
+       SPACER: .haccpStickySpacer was a flat 96px, but the bar is ~68px
+       tall normally and ~124px+ once the .haccpAutoSent confirmation
+       line appears — tail content hid behind it. The spacer now tracks
+       both states (:has on the card body).
+       CONTRAST: every text/background pair in the portal view was
+       measured (full table in the package README). The equipment card
+       family (.htEquip*, .htRowState, .htFoodHead) carried light-on-dark
+       colors (#93C5FD / #BFDBFE / #FDE68A, 1.0–1.9:1) onto the WHITE card
+       — that is the unreadable yellow notice and the washed-out blue
+       headers. They now use the locked SDX palette on light grounds.
+       The card header and the submit button also leave the off-lock
+       indigo #4F46E5 gradient for the locked SDX gradient
+       (#2A295C → #1E1D4A → #283897), and the header sub-line goes solid
+       white (was rgba(255,255,255,.7) = 3.93:1 at the gradient's end).
+       Small gray meta text (#9CA3AF family, 2.3–2.9:1) moves to
+       --sdx-gray-600 #4B5563. COLOR ONLY — no wording, flow, layout or
+       behavior changes; inline JSX label colors yield to !important. */
+    /* — Sticky submit bar: exactly the card column, card corners — */
+    .haccpStickySubmit{width:min(520px,calc(100% - 32px)) !important;box-sizing:border-box;border:1px solid rgba(42,41,92,.16);border-bottom:none;border-radius:18px 18px 0 0;box-shadow:0 -14px 34px -12px rgba(22,21,46,.38)}
+    .haccpStickySpacer{height:84px}
+    .haccpCardBody:has(.haccpAutoSent) .haccpStickySpacer,.haccpCard:has(.haccpAutoSent) .haccpStickySpacer{height:calc(150px + env(safe-area-inset-bottom,0px))}
+    /* — Locked SDX gradient: overlay, card header, submit, chat — */
+    .haccpOverlay{background:linear-gradient(145deg,#1E1D4A 0%,#2A295C 55%,#283897 100%)}
+    .haccpCardHeader{background:linear-gradient(135deg,#2A295C,#283897)}
+    .haccpCardSub{color:#FFFFFF}
+    .haccpSubmitBtn{background:linear-gradient(135deg,#2A295C,#283897)}
+    .haccpChatSendBtn{background:#283897}
+    .haccpChatMsg.mine .haccpChatBubble{background:#283897}
+    /* — Equipment card family: dark text on its light ground — */
+    .htEquipCard{background:#EEF0F4;border-color:#B8BFCC}
+    .htEquipTitle{color:#2A295C}
+    .htEquipCount{color:#2A295C}
+    .htEquipCount small{color:#374151}
+    .htEquipHint{color:#374151;opacity:1}
+    .htEquipEmpty{background:#FEF3C7;border:1px solid #D97706;color:#78350F}
+    .htEquipCard .htRow{background:#FFFFFF;border-color:#B8BFCC}
+    .htFoodHead{color:#2A295C}
+    /* — Compact rows + expanded labels: state/name colors to AA — */
+    .htRowState{color:#2A295C}
+    .htRowDone .htRowState{color:#166534}
+    .htRowFail .htRowState{color:#B91C1C}
+    .htRowName{color:#2A295C !important}
+    .haccpTempLabel{color:#2A295C !important}
+    /* — Small gray meta text: #9CA3AF family → sdx-gray-600 — */
+    .haccpTempStatus.empty{background:#EEF0F4;color:#4B5563}
+    .haccpChatMeta{color:#4B5563}
+    .haccpEmptyChat{color:#4B5563}
+    .haccpSubmissionDate{color:#4B5563}
+    .haccpLocConfirmMeta{color:#4B5563}
+    .haccpSeverityBtn{color:#4B5563}
+    .htSubmit:not(.htSubmitReady){color:#4B5563}
+    .htSubmitReady{background:#166534;border-color:#166534}
+    .haccpTempStatus.pass{color:#14532D}
+    .haccpCard .hint{color:#4B5563}
+    .haccpSubmitBtn:disabled{opacity:1;background:#DDE1E8;color:#4B5563;box-shadow:none}
+    .haccpCard .specHead,.haccpCard .specLbl{color:#4B5563}
+    .haccpFoodNameInput::placeholder{color:#6B7280}
+    .haccpTextBtn:hover{color:#4B5563}
+    .htEqMore{color:#2A295C}
+    /* — Fail reds at small sizes: #DC2626 (3.95:1) → #B91C1C (5.30:1) — */
+    .haccpReportBadgeFail{color:#B91C1C}
+    .haccpReportTempVal.fail{color:#B91C1C}
+    /* — Food Safety reference inside the portal wrap — */
+    .haccpRefWrap .foodSafetyTempNote{color:#4B5563}
+    .haccpRefWrap .foodSafetyRefChevron{color:#64748B}
+  </style>
 </head>
   <body>
     <!-- Google Translate widget — mounted here permanently, teleported into popover via JS -->
