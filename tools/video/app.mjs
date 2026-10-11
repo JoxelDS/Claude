@@ -1,4 +1,4 @@
-// node app.mjs <clip> [INTRO="Title|sub"]  → out/app-<clip>.mp4  (for @sdxinspect)
+// node app.mjs <clip> [INTRO="Title|sub"]  → out/app-<clip>.mp4  (for @sdxinspection)
 // The app's own look (navy header, white cards, red accent, Inter) from an existing pov.mjs recording (out/pov_<clip>/master.mp4 + cues.json):
 // the app inside a phone frame, one headline per step, navy intro card, light outro (SDX Inspect only — no DS Marketing anywhere in the SDX look).
 import { readFileSync, writeFileSync } from 'fs';
@@ -22,7 +22,7 @@ const font = `${fontCss(DIR)}*{margin:0;box-sizing:border-box}body{width:1080px;
 // the app's own look: light page, navy header bar, white cards, red accent (Save Report), Inter
 const header = `<div style="position:absolute;left:0;right:0;top:0;height:190px;background:${C.navy};display:flex;align-items:center;justify-content:space-between;padding:40px 56px 0">
   <div style="display:flex;align-items:center">${lockup(86, 'light')}</div>
-  <span style="color:#C9CCEB;font-weight:600;font-size:30px">@sdxinspect</span></div>`;
+  <span style="color:#C9CCEB;font-weight:600;font-size:30px">@sdxinspection</span></div>`;
 const pageBg = `background:radial-gradient(800px 600px at 85% 30%,#E6E9F8 0,transparent 70%),${C.bg}`;
 const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium', args: ['--no-sandbox'] });
 const p = await b.newPage({ viewport: { width: 1080, height: 1920 } });
@@ -47,13 +47,13 @@ await png(`<div style="position:absolute;inset:0;background:linear-gradient(165d
 <div style="display:inline-block;background:${C.red};color:#fff;font-weight:800;font-size:34px;border-radius:14px;padding:10px 22px;margin-bottom:28px">SDX Inspect</div>
 <div style="font-weight:800;font-size:${i1.length > 20 ? 104 : 120}px;line-height:.98;letter-spacing:-4px;color:#fff">${i1}</div>
 <div style="font-weight:600;font-size:52px;line-height:1.15;letter-spacing:-1px;color:#C9CCEB;margin-top:30px">${i2}</div></div>
-<div style="position:absolute;bottom:70px;left:0;right:0;text-align:center;color:#9EA2D6;font-weight:600;font-size:30px">@sdxinspect</div>`, 'intro.png', false);
+<div style="position:absolute;bottom:70px;left:0;right:0;text-align:center;color:#9EA2D6;font-weight:600;font-size:30px">@sdxinspection</div>`, 'intro.png', false);
 await png(`<div style="position:absolute;inset:0;${pageBg}"></div>
 <div style="position:absolute;top:520px;left:0;right:0;text-align:center">${mark(260, { shadow: true })}</div>
 <div style="position:absolute;top:830px;left:0;right:0;text-align:center;color:${C.navy};font-weight:800;font-size:110px;letter-spacing:-4px">SDX Inspect</div>
 <div style="position:absolute;top:980px;left:0;right:0;text-align:center;color:${C.navy};font-weight:800;font-size:56px;letter-spacing:-1px">Walk it. Fix it. <span style="color:${C.red}">Prove it.</span></div>
 <div style="position:absolute;top:1080px;left:0;right:0;text-align:center;color:${C.muted};font-weight:600;font-size:38px">The inspection app for food stands & kitchens</div>
-<div style="position:absolute;top:1230px;left:0;right:0;text-align:center"><span style="display:inline-block;background:${C.navy};color:#fff;font-weight:800;font-size:40px;border-radius:999px;padding:22px 52px">@sdxinspect</span></div>`, 'outro.png', false);
+<div style="position:absolute;top:1230px;left:0;right:0;text-align:center"><span style="display:inline-block;background:${C.navy};color:#fff;font-weight:800;font-size:40px;border-radius:999px;padding:22px 52px">@sdxinspection</span></div>`, 'outro.png', false);
 await b.close();
 
 const T = IN + dur + ENDL;

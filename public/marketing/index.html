@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SDX Inspect — Kitchen Inspection & Food Safety</title>
-<meta name="description" content="SDX Inspect is the all-in-one kitchen inspection and food safety compliance app for venue culinary teams. Digital checklists, instant PDF reports, smart insights.">
+<meta name="description" content="SDX Inspect is the kitchen and stand inspection app for venue food teams: guided checklists, temperature logs, problems with BEFORE / AFTER photos, crew boards and instant reports. Try the live demo.">
 <style>
   :root {
     --navy: #2A295C; --navy2: #283897; --red: #EE0000;
@@ -43,6 +43,19 @@
   .video-wrap { max-width: 960px; margin: 0 auto; border-radius: 18px; overflow: hidden; background: #0b1a36; box-shadow: 0 24px 60px rgba(42,41,92,.28); border: 1px solid #E5E7EB; }
   .video-wrap video { display: block; width: 100%; aspect-ratio: 16 / 9; background: #0b1a36; }
   .video-note { text-align: center; font-size: .85rem; color: var(--muted); margin-top: 14px; }
+  .demo-note { margin-top: 16px; font-size: .85rem; color: rgba(255,255,255,.72); }
+  .demo-note b { color: #fff; }
+  .reels { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 18px; }
+  .reels figure { margin: 0; }
+  .reels video { width: 100%; aspect-ratio: 9 / 16; border-radius: 18px; background: #0b1a36; display: block; box-shadow: 0 18px 44px rgba(42,41,92,.22); }
+  .reels figcaption { text-align: center; font-size: .85rem; color: var(--ink); margin-top: 10px; font-weight: 700; }
+  .reels figcaption span { display: block; font-weight: 500; color: var(--muted); font-size: .8rem; }
+  @media (max-width: 860px) { .reels { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  .pilot { background: var(--card); border: 1px solid #E5E7EB; border-radius: 18px; padding: 34px 28px; max-width: 720px; margin: 0 auto; text-align: center; }
+  .pilot p { color: var(--muted); margin: 6px auto 0; max-width: 560px; }
+  .pilot .cta { margin-top: 22px; }
+  .pilot .cta.ghost { background: #EEF0F6; color: var(--navy); margin-left: 10px; }
+  @media (max-width: 520px) { .cta.ghost, .pilot .cta.ghost { margin-left: 0; margin-top: 12px; } }
   footer { background: var(--navy); color: rgba(255,255,255,.8); padding: 36px 24px; text-align: center; font-size: .85rem; }
   footer a { color: #fff; }
 </style>
@@ -50,24 +63,24 @@
 <body>
 
 <div class="hero">
-  <div class="badge">For Venue Culinary Teams</div>
+  <div class="badge">For Venue Food Teams</div>
   <h1>SDX Inspect</h1>
-  <p class="sub">The all-in-one kitchen inspection &amp; food safety compliance app. From walk-through to signed report in minutes — on iPhone, iPad, and the web.</p>
-  <a class="cta" href="https://joxelds.github.io/Claude/">Open the App</a>
-  <a class="cta ghost" href="#video">▶ Watch the video</a>
+  <p class="sub">The inspection app for food stands and kitchens. Temperatures, problems with BEFORE / AFTER photos, crew boards and the report — on the phone your team already has.</p>
+  <a class="cta" href="https://joxelds.github.io/Claude/?v=riverside-demo">Try the live demo</a>
+  <a class="cta ghost" href="#video">▶ Watch it work</a>
+  <p class="demo-note">Demo sign-in: badge <b>448800</b>. The stands and reports are made up, and other visitors use the same demo.</p>
 </div>
 
 <section id="video">
   <div class="wrap">
-    <h2>A game day with SDX Inspect</h2>
-    <p class="lead">Two minutes and forty-five seconds, no sound needed: the inspector's walk, the QR poster every stand scans, the crew boards, and the proof that closes each problem. Captions in English and Spanish.</p>
-    <div class="video-wrap">
-      <video controls playsinline preload="metadata" poster="video/sdx-explainer.jpg">
-        <source src="video/sdx-explainer.mp4" type="video/mp4">
-        Your browser can't play this video. <a href="video/sdx-explainer.mp4">Download it</a> instead.
-      </video>
+    <h2>Watch it work</h2>
+    <p class="lead">Four 20-second clips recorded in the app, on a demo venue with made-up stands.</p>
+    <div class="reels">
+      <figure><video controls playsinline preload="none" poster="video/reel-temps.jpg"><source src="video/reel-temps.mp4" type="video/mp4"></video><figcaption>Catch the bad temp<span>A cooler at 50°F is flagged on the spot</span></figcaption></figure>
+      <figure><video controls playsinline preload="none" poster="video/reel-problem.jpg"><source src="video/reel-problem.mp4" type="video/mp4"></video><figcaption>Report a problem<span>What, where, a BEFORE photo, what was done</span></figcaption></figure>
+      <figure><video controls playsinline preload="none" poster="video/reel-portal.jpg"><source src="video/reel-portal.mp4" type="video/mp4"></video><figcaption>Stand teams log temps<span>Scan the stand poster — no app, no password</span></figcaption></figure>
+      <figure><video controls playsinline preload="none" poster="video/reel-crew.jpg"><source src="video/reel-crew.mp4" type="video/mp4"></video><figcaption>Crews close it<span>Done with an AFTER photo — the inspector sees it</span></figcaption></figure>
     </div>
-    <p class="video-note">Silent by design — watch it anywhere, with or without headphones.</p>
   </div>
 </section>
 
@@ -88,13 +101,13 @@
 
 <section class="dark-band">
   <div class="wrap">
-    <h2>Beautiful in light and dark</h2>
-    <p class="lead">Themes your team will actually enjoy using — including a full dark mode with customizable accent colors.</p>
+    <h2>Built for the phone in your pocket</h2>
+    <p class="lead">Big buttons, plain words, English / Español / Kreyòl. Nothing to install — it opens in the browser and works offline.</p>
     <div class="shots">
-      <figure><img src="img/signin.png" alt="Badge sign-in screen"><figcaption>Badge Sign-In</figcaption></figure>
-      <figure><img src="img/inspection.png" alt="Inspection form"><figcaption>Guided Inspection</figcaption></figure>
-      <figure><img src="img/foodsafety.png" alt="Food safety quick reference"><figcaption>Food Safety Reference</figcaption></figure>
-      <figure><img src="img/dark.png" alt="Dark mode"><figcaption>Dark Mode</figcaption></figure>
+      <figure><img src="img/screen-temps.jpg" alt="Temperature step: a 2-door cooler at 50°F flagged in red, a display cooler at 38°F marked good" loading="lazy"><figcaption>Temperatures</figcaption></figure>
+      <figure><img src="img/screen-problem.jpg" alt="A flagged checklist row with location chips, the corrective action box and BEFORE / AFTER photo buttons" loading="lazy"><figcaption>Problems with proof</figcaption></figure>
+      <figure><img src="img/screen-crew.jpg" alt="Cleaning crew board: a job card with the BEFORE photo, I'm working on it and Done — add photo buttons" loading="lazy"><figcaption>Crew board</figcaption></figure>
+      <figure><img src="img/screen-portal.jpg" alt="Stand temperature log opened from the stand poster, with a hot holding reading sent to the inspector" loading="lazy"><figcaption>Stand temp log</figcaption></figure>
     </div>
   </div>
 </section>
@@ -113,9 +126,20 @@
   </div>
 </section>
 
+<section id="pilot">
+  <div class="wrap">
+    <div class="pilot">
+      <h2>Try it at your venue</h2>
+      <p>Free 30-day pilot: we load your stands, print a QR poster for each one and walk your team through it. Send <b>PILOT</b> on Instagram or email us.</p>
+      <a class="cta" href="https://www.instagram.com/sdxinspection/">DM @sdxinspection</a>
+      <a class="cta ghost" href="mailto:joxelpanita@gmail.com?subject=SDX%20Inspect%20pilot">Email us</a>
+    </div>
+  </div>
+</section>
+
 <footer>
-  <p>SDX Inspect · A kitchen inspection tool for authorized venue staff</p>
-  <p style="margin-top:8px"><a href="https://joxelds.github.io/Claude/">Open the App</a> · <a href="https://joxelds.github.io/Claude/privacy.html">Privacy Policy</a> · <a href="mailto:joxelpanita@gmail.com">Contact</a></p>
+  <p>SDX Inspect · Inspections for food stands and kitchens</p>
+  <p style="margin-top:8px"><a href="https://joxelds.github.io/Claude/?v=riverside-demo">Live demo</a> · <a href="https://joxelds.github.io/Claude/">Sign in</a> · <a href="https://joxelds.github.io/Claude/privacy.html">Privacy Policy</a> · <a href="mailto:joxelpanita@gmail.com">Contact</a></p>
 </footer>
 
 </body>

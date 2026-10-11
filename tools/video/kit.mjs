@@ -1,9 +1,9 @@
-// node kit.mjs → docs/social/sdxinspect/ profile picture + 5 story-highlight covers (the app's own look)
+// node kit.mjs → docs/social/sdxinspection/ profile picture + 5 story-highlight covers (the app's own look)
 import { mkdirSync, writeFileSync } from 'fs';
 import { chromium } from '/home/user/Claude/node_modules/playwright-core/index.mjs';
 import { C, TEAL, fontCss } from './sdxmark.mjs';
 const DIR = new URL('.', import.meta.url).pathname;
-const OUT = new URL('../../docs/social/sdxinspect/', import.meta.url).pathname;
+const OUT = new URL('../../docs/social/sdxinspection/', import.meta.url).pathname;
 mkdirSync(OUT, { recursive: true });
 const css = `${fontCss(DIR)}*{margin:0;box-sizing:border-box}body{background:transparent;font-family:I,Arial}`;
 const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium', args: ['--no-sandbox'] });

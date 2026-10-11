@@ -33,7 +33,7 @@ SDX Inspect
 {mailing address} · Reply "no thanks" and I won't email again.
 
 **Email 2 (day 4) — subject: "Re: {Org}: food safety checks on one phone"**
-Hi {Name}, a 25-second look at how a bad cooler temp gets caught and fixed: {Reel link on @sdxinspect}. Happy to set up a free 30-day pilot whenever it suits you. — Joxel
+Hi {Name}, a 25-second look at how a bad cooler temp gets caught and fixed: {Reel link on @sdxinspection}. Happy to set up a free 30-day pilot whenever it suits you. — Joxel
 
 **Email 3 (day 11) — subject: "Close the loop?"**
 Hi {Name}, last note from me. If food-safety checks across your {stands / locations} are already covered, no problem. If not, the 30-day pilot is free and takes 20 minutes to start. — Joxel
@@ -42,8 +42,8 @@ Every email ends with the mailing address and the opt-out line (CAN-SPAM). "No t
 
 ## Instagram DMs (sent by Joxel by hand; Instagram does not allow automated cold DMs)
 - Only to businesses with a public business Instagram. One DM, plus at most one follow-up a week later.
-- DM 1: "Hi {Org} 👋 I'm an inspector in Miami and I built @sdxinspect, a phone app for stand / kitchen food-safety checks (temps, problems with photos, crews fixing with proof). Would a free 30-day pilot be useful for your team? Happy to send a 25-second video."
-- Inbound DMs to @sdxinspect: Claude drafts the reply in the pipeline; Joxel sends it.
+- DM 1: "Hi {Org} 👋 I'm an inspector in Miami and I built @sdxinspection, a phone app for stand / kitchen food-safety checks (temps, problems with photos, crews fixing with proof). Would a free 30-day pilot be useful for your team? Happy to send a 25-second video."
+- Inbound DMs to @sdxinspection: Claude drafts the reply in the pipeline; Joxel sends it.
 
 ## Hot leads — "talk to me"
 A reply is HOT when it mentions price, a demo or call, a pilot date, a contract / procurement / security review, or asks for a decision maker. Then:
