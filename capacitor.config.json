@@ -3,7 +3,6 @@
   "appName": "SDX Inspect",
   "webDir": "dist",
   "server": {
-    "url": "https://joxelds.github.io/Claude/",
     "allowNavigation": [
       "joxelds.github.io",
       "*.googleapis.com",
@@ -17,7 +16,7 @@
   },
   "ios": {
     "contentInset": "never",
-    "backgroundColor": "#0A0A0D",
+    "backgroundColor": "#16152E",
     "scheme": "SDXInspect"
   },
   "plugins": {
@@ -33,6 +32,14 @@
         "sound",
         "alert"
       ]
+    },
+    "Keyboard": {
+      "resize": "none"
+    },
+    "StatusBar": {
+      "overlaysWebView": false,
+      "backgroundColor": "#16152E",
+      "style": "DARK"
     }
   }
 }
