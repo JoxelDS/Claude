@@ -464,6 +464,125 @@
     .haccpRefWrap .foodSafetyTempNote{color:#4B5563}
     .haccpRefWrap .foodSafetyRefChevron{color:#64748B}
   </style>
+  <style id="sdx-notifications-design">
+    /* ===== SDX NOTIFICATIONS DESIGN (2026-10-10) =====
+       Joxel: "I want the notification to look better and blue."
+       The bell dropdown (main header + Past Reports header) rendered as a
+       plain white card: emoji bell in the header, and a 4px AMBER (#f59e0b)
+       bar on everything that wasn't chat/problem_report — approvals
+       included. This block restyles it into the menu's panel language:
+       detached 18px panel, navy header band with a real SVG bell, item
+       accents in SDX blue, red reserved for true alerts.
+       SCOPE: the notification panels are the only .dropdownMenu with no
+       .menuQuick and no .dropdownMenuItem inside (every real menu has
+       both) — the same :has() technique as the menu-scroll hotfix.
+       Item kinds carry no classes; the kind lives only in the inline
+       border-left color, so kinds are matched by that color in the style
+       attribute (hex as authored; rgb() serialization included as a
+       fallback). Tap targets, dismiss and clear-all handlers untouched —
+       presentation only. Literal brand hex throughout: the "black"
+       theme redefines the --sdx-* vars (navy var turns red there), so
+       vars must not be used here; that theme gets the band treatment
+       only, below. */
+
+    /* ── Panel ── */
+    html:not([data-theme="black"]) .dropdownMenu:not(:has(.menuQuick)):not(:has(.dropdownMenuItem)) {
+      background: linear-gradient(180deg, #FFFFFF 0%, #F0F2F7 100%) !important;
+      border: 1px solid #DDE1E8 !important;
+      border-radius: 18px !important;
+      box-shadow: 0 20px 60px rgba(27,26,66,.35), 0 4px 14px rgba(42,41,92,.18) !important;
+    }
+
+    /* ── Header band: navy, real bell, quiet Clear all ── */
+    .dropdownMenu:not(:has(.menuQuick)):not(:has(.dropdownMenuItem)) > div:first-child {
+      background: linear-gradient(135deg, #2A295C 0%, #1E1D4A 100%) !important;
+      color: #FFFFFF !important;
+      border-bottom: 1px solid rgba(255,255,255,.14) !important;
+      border-radius: 17px 17px 0 0 !important;
+    }
+    .dropdownMenu:not(:has(.menuQuick)):not(:has(.dropdownMenuItem)) > div:first-child > span {
+      font-size: 0 !important;
+      display: inline-flex !important;
+      align-items: center;
+      gap: 8px;
+    }
+    .dropdownMenu:not(:has(.menuQuick)):not(:has(.dropdownMenuItem)) > div:first-child > span::before {
+      content: "";
+      width: 17px; height: 17px; flex-shrink: 0;
+      background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9'/%3E%3Cpath d='M13.73 21a2 2 0 0 1-3.46 0'/%3E%3C/svg%3E") center / contain no-repeat;
+    }
+    .dropdownMenu:not(:has(.menuQuick)):not(:has(.dropdownMenuItem)) > div:first-child > span::after {
+      content: "Notifications";
+      font-size: 0.85rem; font-weight: 700; color: #FFFFFF; letter-spacing: .01em;
+    }
+    .dropdownMenu:not(:has(.menuQuick)):not(:has(.dropdownMenuItem)) > div:first-child > button {
+      color: rgba(255,255,255,.75) !important;
+      font-weight: 600;
+      padding: 4px 10px !important;
+      border-radius: 999px;
+    }
+    .dropdownMenu:not(:has(.menuQuick)):not(:has(.dropdownMenuItem)) > div:first-child > button:hover {
+      background: rgba(255,255,255,.14) !important;
+      color: #FFFFFF !important;
+    }
+
+    /* ── Items: blue by default, navy for chat, locked red for alerts ── */
+    html:not([data-theme="black"]) .dropdownMenu:not(:has(.menuQuick)):not(:has(.dropdownMenuItem)) > div:has(> button):not(:first-child) {
+      background: transparent !important;
+      border-bottom: 1px solid #E4E7F0 !important;
+      border-left: 4px solid #283897 !important;
+    }
+    html:not([data-theme="black"]) .dropdownMenu:not(:has(.menuQuick)):not(:has(.dropdownMenuItem)) > div:has(> button):not(:first-child):hover {
+      background: rgba(255,255,255,.7) !important;
+    }
+    html:not([data-theme="black"]) .dropdownMenu:not(:has(.menuQuick)):not(:has(.dropdownMenuItem)) > div[style*="#ef4444"]:not(:first-child),
+    html:not([data-theme="black"]) .dropdownMenu:not(:has(.menuQuick)):not(:has(.dropdownMenuItem)) > div[style*="rgb(239, 68, 68)"]:not(:first-child) {
+      border-left-color: #EE0000 !important;
+    }
+    html:not([data-theme="black"]) .dropdownMenu:not(:has(.menuQuick)):not(:has(.dropdownMenuItem)) > div[style*="#3b82f6"]:not(:first-child),
+    html:not([data-theme="black"]) .dropdownMenu:not(:has(.menuQuick)):not(:has(.dropdownMenuItem)) > div[style*="rgb(59, 130, 246)"]:not(:first-child) {
+      border-left-color: #2A295C !important;
+    }
+    .dropdownMenu:not(:has(.menuQuick)):not(:has(.dropdownMenuItem)) > div > button:first-child:hover {
+      background: rgba(42,41,92,.05) !important;
+    }
+    .dropdownMenu:not(:has(.menuQuick)):not(:has(.dropdownMenuItem)) > div > button[aria-label^="Dismiss"] {
+      color: #8D95A5 !important;
+    }
+    .dropdownMenu:not(:has(.menuQuick)):not(:has(.dropdownMenuItem)) > div > button[aria-label^="Dismiss"]:hover {
+      color: #2A295C !important;
+    }
+
+    /* ── Empty state: branded bell chip ── */
+    html:not([data-theme="black"]) .dropdownMenu:not(:has(.menuQuick)):not(:has(.dropdownMenuItem)) > div:not(:first-child):not(:has(> button)) {
+      background: transparent !important;
+      color: #6B7280 !important;
+      padding: 1.9rem 1rem 1.6rem !important;
+    }
+    .dropdownMenu:not(:has(.menuQuick)):not(:has(.dropdownMenuItem)) > div:not(:first-child):not(:has(> button))::before {
+      content: "";
+      display: block;
+      width: 46px; height: 46px;
+      margin: 0 auto 10px;
+      border-radius: 50%;
+      background: #EEF0F4 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%232A295C' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9'/%3E%3Cpath d='M13.73 21a2 2 0 0 1-3.46 0'/%3E%3C/svg%3E") center / 22px no-repeat;
+    }
+
+    /* ── Bell badge: locked SDX red (the inline #ef4444 was off-brand) ── */
+    .topBar .hamburgerBadge { background: #EE0000 !important; }
+
+    /* ── "Black" theme: band + bell only (its bars already read on black) ── */
+    html[data-theme="black"] .dropdownMenu:not(:has(.menuQuick)):not(:has(.dropdownMenuItem)) > div:first-child {
+      background: linear-gradient(180deg, #101014 0%, #17171F 100%) !important;
+      border-bottom: 1px solid #2A2A34 !important;
+    }
+    html[data-theme="black"] .dropdownMenu:not(:has(.menuQuick)):not(:has(.dropdownMenuItem)) > div:not(:first-child):not(:has(> button))::before {
+      background-color: #23232B;
+    }
+    .dropdownMenu:not(:has(.menuQuick)):not(:has(.dropdownMenuItem)) > div:has(> button):last-child {
+      border-bottom-left-radius: 17px;
+    }
+  </style>
 </head>
   <body>
     <!-- Google Translate widget — mounted here permanently, teleported into popover via JS -->
