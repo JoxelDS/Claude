@@ -216,7 +216,38 @@
     .pinIg:hover{text-decoration:underline}
     .pinIg svg{flex-shrink:0}
   </style>
-  </head>
+    <style id="sdx-menu-scroll-hotfix">
+    /* ===== SDX MENU SCROLL HOTFIX (2026-10-10) =====
+       Bug: the header dropdown menu renders and caps its height, but does not
+       touch-scroll in the app (WKWebView), and its last rows sit off-screen.
+       Root causes, both in src/App.css:
+       1) .topBar is position:fixed AND permanently transformed
+          (.topBar{transform:translateZ(0);will-change:transform}). A transformed
+          fixed ancestor breaks touch scrolling of an overflow descendant in
+          WebKit (Blink is unaffected, which is why it "works on desktop").
+       2) .dropdownMenu{max-height:calc(100vh - 90px)} ignores the panel's top
+          offset (fixed header height + safe-area-inset-top + 8px gap), so the
+          panel box extends below the visible screen and its last rows
+          (IG row, version footer) can never be scrolled into view.
+       Fix: un-transform the header, use WebKit's native scroller on the header
+       dropdowns, drop the panel's backdrop-filter (composited layer over the
+       scroller), and cap the main menu against 100dvh minus its true offset
+       with safe-area bottom padding. Handlers and menu markup untouched. */
+    .topBar { transform: none !important; will-change: auto !important; }
+    .topBar .dropdownMenu {
+      -webkit-overflow-scrolling: auto !important;
+      overscroll-behavior: contain;
+      touch-action: pan-y;
+      backdrop-filter: none !important;
+      -webkit-backdrop-filter: none !important;
+    }
+    .topBar > .dropdownMenu:has(.menuQuick) {
+      max-height: calc(100vh - 140px) !important;
+      max-height: calc(100dvh - 140px) !important;
+      padding-bottom: calc(14px + env(safe-area-inset-bottom, 0px)) !important;
+    }
+  </style>
+</head>
   <body>
     <!-- Google Translate widget — mounted here permanently, teleported into popover via JS -->
     <div id="google_translate_element" style="position:fixed;top:-9999px;left:-9999px;"></div>
