@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self' data:; font-src 'self'; style-src 'unsafe-inline'; script-src 'sha256-Potsr1BS8awGGaZrIDO7op+AR7jCsMkyhxgugmx4yOo=' 'sha256-VGWnH8JAiXA9N44RLWWpydphr+LXDN+ctzz5NlQOHPE=' 'sha256-tVKIoweOB3cY1+LdA9RapRXLjvpjfzWhI7aSiq19bqc='; frame-src https://www.google.com; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self' data:; font-src 'self'; style-src 'unsafe-inline'; script-src 'sha256-owZg4/7K13rdBU1cjb3fkyXw3eJ9yH5XG3xLPOu1GWU=' 'sha256-VGWnH8JAiXA9N44RLWWpydphr+LXDN+ctzz5NlQOHPE=' 'sha256-c3M00E6VUKSJ+HVWCnzdR8EGOZoj8uIh6A83jAVGE7k='; frame-src https://www.google.com; base-uri 'none'; form-action 'none'">
 <title>Peruanos Food Truck — food in Miami</title>
 <link rel="preload" href="/Claude/p/_fonts/s/bodoni-moda.wght600.opsz24.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" as="image" type="image/webp" imagesrcset="/Claude/p/_img/peruanosfoodtruck-1-480.webp 480w, /Claude/p/_img/peruanosfoodtruck-1-720.webp 720w" imagesizes="(min-width: 900px) 34vw, 50vw" fetchpriority="high">
@@ -33,6 +33,7 @@ ul{padding:0;list-style:none}
 .skip:focus{top:12px}
 .wrap{max-width:1200px;margin:0 auto;padding:0 var(--g)}
 h1,h2,.bandp .t,.bq p,.pq p,.promise{text-wrap:balance}
+.it .d,.clist p,.facts span,.plan .d,.vc p{text-wrap:pretty}
 .eye{font:800 12px/1.3 var(--body);letter-spacing:.22em;text-transform:uppercase;color:var(--link)}
 .sec{padding:48px 0}
 .sec h2,.end h2{font:normal 600 clamp(42px,11.5vw,92px)/.98 var(--disp);letter-spacing:0.01em;text-transform:uppercase;margin:10px 0 28px}
@@ -122,7 +123,20 @@ position:relative;display:grid;grid-template-columns:100%;background:var(--hbg);
 .frame picture,.frame img,.archf picture,.archf img{width:100%;height:100%;object-fit:cover}
 .L-field .hs{flex-direction:column;align-items:flex-start;padding:18px 8px 0 var(--g);gap:12px}
 .L-field .hfs{flex-direction:column;align-items:flex-start;gap:8px}
-.L-field .ptags{flex-direction:column;align-items:stretch;width:100%}.L-field .ptags li{justify-content:space-between;border-radius:var(--rcs)}
+.L-field .ptags{flex-direction:column;align-items:stretch;width:100%}.L-field .ptags li{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:baseline;column-gap:10px;border-radius:var(--rcs)}
+.L-field .ptags b{white-space:nowrap;text-align:right}
+.L-field .hs{align-self:stretch;justify-content:center;flex-wrap:nowrap}
+.also{display:flex;flex-direction:column;align-items:stretch;gap:8px;width:100%}
+.also-k{font:800 11.5px/1.2 var(--body);letter-spacing:.14em;text-transform:uppercase;color:var(--hsub)}
+.also-a,.who{display:flex;align-items:center;gap:8px;min-height:44px;padding:8px 12px;border-radius:var(--rcs);background:var(--hsurf);border:1.5px solid var(--hline);color:var(--hink);font:700 14px/1.2 var(--body)}
+.also-a span,.who .whoT{flex:1;min-width:0}
+.also-a svg,.who>svg{width:16px;height:16px}
+.who{width:100%}
+.whoI{display:flex;flex:none}
+.whoI i{display:grid;place-items:center;width:32px;height:32px;border-radius:50%;background:var(--hb);color:var(--hbi);box-shadow:0 0 0 2px var(--hbg);font:800 13px/1 var(--body);font-style:normal}
+.whoI i+i{margin-left:-9px}
+.who{flex-wrap:wrap;row-gap:6px}.who>svg{margin-left:auto}.who .whoT{order:1;flex:1 0 100%}
+.L-field.sk-r .stk{left:auto;right:6px;bottom:-8px}
 .stk{position:absolute;z-index:2;left:-26px;bottom:-6px;width:104px;height:104px;display:grid;place-items:center;transform:rotate(-9deg);color:var(--hb)}
 .stk .bsh{position:absolute;inset:0;width:100%;height:100%;filter:drop-shadow(0 6px 10px rgba(0,0,0,.25))}
 .stk span{position:relative;display:grid;justify-items:center;color:var(--hbi);text-align:center;line-height:1.05}
@@ -334,7 +348,8 @@ position:relative;display:grid;grid-template-columns:100%;background:var(--hbg);
 .ds-btn{display:inline-flex;align-items:center;gap:10px;min-height:56px;padding:0 26px;border-radius:999px;background:#fff;color:#141414;font:800 16.5px/1 var(--body)}
 .ds-s{margin-top:12px;font-size:13.5px;color:#bdbdbd}
 /* ---------------- footer */
-.ft{background:#010101;color:#ececec;padding:44px 0 calc(var(--bar) + 26px)}
+.ft{background:#010101;color:#ececec;padding:44px 0 calc(26px + env(safe-area-inset-bottom))}
+html:not(.js) .ft{padding-bottom:calc(var(--bar) + 26px)}
 .ftg{display:grid;grid-template-columns:auto minmax(0,1fr);gap:18px;align-items:start}
 .ring.small{width:104px;height:104px;color:#a6a6a6}
 .ring.small text{font-size:16px}
@@ -349,7 +364,10 @@ position:relative;display:grid;grid-template-columns:100%;background:var(--hbg);
 .actbar{position:fixed;left:0;right:0;bottom:0;z-index:40;display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:8px;padding:8px 10px calc(8px + env(safe-area-inset-bottom));background:var(--bg);box-shadow:0 -1px 0 var(--line),0 -10px 28px rgba(0,0,0,.14);transition:transform .35s cubic-bezier(.2,.7,.2,1)}
 .actbar a{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-height:52px;border-radius:14px;font:800 13px/1 var(--body);color:var(--ink);background:var(--surf)}
 .actbar a.pri{background:var(--a);color:var(--onA)}
-.js .actbar:not(.on){transform:translateY(115%)}
+.js .actbar:not(.on){transform:translateY(115%);visibility:hidden;transition:transform .35s cubic-bezier(.2,.7,.2,1),visibility 0s .35s}
+.actbar.on{visibility:visible;transition:transform .35s cubic-bezier(.2,.7,.2,1)}
+/* ---------------- desktop top bar */
+.topbar{display:none}
 /* ---------------- tablet */
 @media (min-width:600px) and (max-width:899px){
 :root{--g:32px}
@@ -397,6 +415,11 @@ body{font-size:18px}
 .L-field .frame{width:min(100%,430px)}
 .L-field .hs,.L-arch .hs{flex-direction:row;flex-wrap:wrap;align-items:center;padding:20px 48px 0 var(--g)}
 .L-field .hfs,.L-field .ptags{flex-direction:row}
+.L-field .hs{justify-content:flex-start;flex-wrap:wrap}
+.also{flex-direction:row;flex-wrap:wrap;align-items:center;width:auto;gap:8px 10px}
+.also-a,.who{width:auto;padding:8px 16px}
+.who{flex-wrap:nowrap}.who .whoT{order:0;flex:0 1 auto}.who>svg{margin-left:0}
+.L-field .stk,.L-field.sk-r .stk{left:-40px;right:auto;bottom:30px}
 .stk{width:132px;height:132px;left:-56px;bottom:30px}
 .stk b{font-size:34px}.stk small{font-size:10.5px;max-width:112px}
 .L-arch .mk{align-self:auto}
@@ -444,6 +467,16 @@ body{font-size:18px}
 .ring.small{width:150px;height:150px}
 .actbar{display:none}
 .ft{padding-bottom:48px}
+html:not(.js) .ft{padding-bottom:48px}
+.topbar{display:block;position:fixed;top:0;left:0;right:0;z-index:45;background:var(--bg);box-shadow:0 1px 0 var(--line),0 12px 30px -12px rgba(0,0,0,.22);translate:0 -110%;visibility:hidden;transition:translate .35s cubic-bezier(.2,.7,.2,1),visibility 0s .35s}
+.topbar.on{translate:0 0;visibility:visible;transition:translate .35s cubic-bezier(.2,.7,.2,1)}
+.topbar-i{display:flex;align-items:center;gap:14px;min-height:68px}
+.topbar-l{width:36px;height:36px;flex:none;border-radius:50%;object-fit:cover;box-shadow:0 0 0 1px var(--line)}
+.topbar-n{min-width:0;font:800 17px/1.2 var(--body);color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.topbar .status{flex:none;margin-left:auto;min-height:32px;padding:4px 11px 4px 9px;font-size:13.5px;background:var(--surf);border-color:var(--line);color:var(--ink)}
+.topbar .btn{flex:none;margin-left:auto}
+.topbar .status:not([hidden])+.btn{margin-left:0}
+html:has(.topbar.on){scroll-padding-top:84px}
 }
 @media (max-width:370px){.rib span{display:none}.tiles{grid-template-columns:1fr}}
 /* motion — only when the visitor allows it */
@@ -455,8 +488,16 @@ body{font-size:18px}
 .stk{animation:pop .7s .7s cubic-bezier(.2,1.4,.4,1) both}
 .ring.big svg,.ring.small svg{animation:spin 40s linear infinite}
 .burst svg{animation:spin 60s linear infinite}
-.btn:hover{transform:translateY(-2px)}
+.lite .L-cine .hm img,.lite .frame,.lite .stk,.lite .ring.big svg,.lite .ring.small svg,.lite .burst svg{animation:none}
 }
+@media (any-pointer:fine) and (prefers-reduced-motion:no-preference){
+.btn:hover{transform:translateY(-2px)}
+.g img{transition:scale .4s cubic-bezier(.2,.7,.2,1)}
+.g:hover img{scale:1.015}
+}
+.actbar a,.tile,.lt,.tl,.ib,.igl,.rib-btn,.ds-btn{transition:transform .08s}
+.actbar a:active,.tile:active,.lt:active,.tl:active,.ib:active,.igl:active,.rib-btn:active,.ds-btn:active{transform:scale(.97)}
+.btn:active{transform:scale(.97);transition-duration:.08s}
 @keyframes rise{from{transform:translateY(105%)}}
 @keyframes fade{from{opacity:0;transform:translateY(12px)}}
 @keyframes settle{from{transform:scale(1.1)}}
@@ -529,7 +570,8 @@ function hoursStatus(M, d, lang) {
 var M={"k":"hours","rows":[[0,1,3,4],[5,6],[2]],"iv":[[0,1230,1620],[1,1230,1620],[3,1230,1620],[4,1230,1620],[5,1230,1740],[6,1230,1740]],"closed":[2]},LANG="en",TD="today";
 function paintStatus(){var r=null;try{r=hoursStatus(M,new Date(),LANG)}catch(e){}var els=document.querySelectorAll('.st');for(var i=0;i<els.length;i++){var el=els[i];if(r){el.textContent=r.t;el.setAttribute('data-s',r.s);el.hidden=false}else el.hidden=true}
 if(r){var rows=document.querySelectorAll('[data-days]');for(var j=0;j<rows.length;j++){var d=(','+rows[j].getAttribute('data-days')+',').indexOf(','+r.today+',')>=0;rows[j].classList.toggle('today',d);if(d)rows[j].setAttribute('data-t',TD)}}}
-document.documentElement.classList.add('js');</script>
+document.documentElement.classList.add('js');
+(function(n){if(/Instagram|FBAN|FBAV|TikTok|musical_ly|; wv\)/.test(n.userAgent||'')||n.deviceMemory<=2||n.hardwareConcurrency<=2)document.documentElement.classList.add('lite')})(navigator);</script>
 <meta name="description" content="Ceviche, seafood and late-night Peruvian food at 2805 NE 2nd Ave, Miami.">
 <meta name="robots" content="noindex,nofollow">
 <meta name="format-detection" content="telephone=no">
@@ -544,6 +586,7 @@ document.documentElement.classList.add('js');</script>
 <body>
 <a class="skip" href="#main">Skip to content</a>
 <aside class="rib" data-ds aria-label="Preview notice"><p><b>Free preview for Peruanos Food Truck</b> <span>by DS Marketing</span></p><a class="rib-btn" href="https://ig.me/m/dsmarketing.agency">Make it mine</a></aside>
+<div class="topbar" id="topbar"><div class="wrap topbar-i"><img class="topbar-l" src="/Claude/p/_img/peruanosfoodtruck-logo-160.webp" width="160" height="160" alt="" loading="lazy"><span class="topbar-n">Peruanos Food Truck</span><p class="status st" hidden></p><a class="btn pri sm" href="tel:+13058976167"><span>Call ahead</span><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6.6 10.8a15.2 15.2 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25 11.4 11.4 0 0 0 3.6.57 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.45.57 3.57a1 1 0 0 1-.25 1z" fill="currentColor"/></svg></a></div></div>
 <main id="main" tabindex="-1">
 <section class="hero L-field dark" aria-labelledby="h1"><header class="top"><span class="brand"><img class="logo" src="/Claude/p/_img/peruanosfoodtruck-logo-160.webp" width="160" height="160" alt="" loading="eager"></span><a class="igl" href="https://www.instagram.com/peruanosfoodtruck/" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="3" y="3" width="18" height="18" rx="5" stroke="currentColor" stroke-width="2" fill="none"/><circle cx="12" cy="12" r="4.2" stroke="currentColor" stroke-width="2" fill="none"/><circle cx="17.4" cy="6.6" r="1.3" fill="currentColor"/></svg><span>@peruanosfoodtruck</span></a></header><div class="hm"><figure class="frame"><picture><source type="image/webp" srcset="/Claude/p/_img/peruanosfoodtruck-1-480.webp 480w, /Claude/p/_img/peruanosfoodtruck-1-720.webp 720w" sizes="(min-width: 900px) 34vw, 50vw"><img src="/Claude/p/_img/peruanosfoodtruck-1.jpg" width="720" height="900" alt="Photo 1 from @peruanosfoodtruck on Instagram" style="object-position:51% 56%" fetchpriority="high"></picture></figure></div><h1 class="mk" id="h1"><span class="vh">Peruanos Food Truck</span><span class="mkl" aria-hidden="true"><span class="ln"><span style="animation-delay:0.06s">PERUANOS</span></span></span><span class="mkr rd" aria-hidden="true">Food Truck</span></h1><div class="hp-p"><p class="stac">Ceviche<i aria-hidden="true"> · </i>Seafood<i aria-hidden="true"> · </i>Picarones</p><p class="promise">Peruvian cuisine until 5am</p></div><div class="hs"><p class="status st" hidden></p><script>paintStatus()</script></div><div class="acts" id="heroCtas"><a class="btn pri" href="tel:+13058976167"><span>Call ahead</span><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6.6 10.8a15.2 15.2 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25 11.4 11.4 0 0 0 3.6.57 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.45.57 3.57a1 1 0 0 1-.25 1z" fill="currentColor"/></svg></a><div class="tiles"><a class="tile" href="https://www.instagram.com/peruanosfoodtruck/" target="_blank" rel="noopener"><span class="tk"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="3" y="3" width="18" height="18" rx="5" stroke="currentColor" stroke-width="2" fill="none"/><circle cx="12" cy="12" r="4.2" stroke="currentColor" stroke-width="2" fill="none"/><circle cx="17.4" cy="6.6" r="1.3" fill="currentColor"/></svg>Instagram</span><b>@peruanosfoodtruck</b></a><a class="tile" href="https://www.google.com/maps/dir/?api=1&amp;destination=2805%20NE%202nd%20Ave%2C%20Miami%2C%20FL%2033137" target="_blank" rel="noopener"><span class="tk"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z" fill="currentColor"/></svg>Directions</span><b>2805 NE 2nd Ave</b></a></div></div></section>
 <div class="orn-div m-deco" aria-hidden="true"></div>
@@ -559,8 +602,12 @@ document.documentElement.classList.add('js');</script>
 <footer class="ft"><div class="wrap ftg"><div class="ring small" aria-hidden="true"><svg viewBox="0 0 200 200" focusable="false"><defs><path id="rgf" d="M100,100 m-80,0 a80,80 0 1,1 160,0 a80,80 0 1,1 -160,0"/></defs><text><textPath href="#rgf" textLength="497" lengthAdjust="spacing">PERUANOS FOOD TRUCK ✺ 2805 NE 2ND AVE ✺</textPath></text></svg><img class="flogo" src="/Claude/p/_img/peruanosfoodtruck-logo-160.webp" width="160" height="160" alt="" loading="lazy"></div><div><p class="fn">Peruanos Food Truck</p><ul class="fs"><li>2805 NE 2nd Ave, Miami, FL 33137</li><li><a href="tel:+13058976167">(305) 897-6167</a></li><li><a href="https://www.instagram.com/peruanosfoodtruck/" target="_blank" rel="noopener">@peruanosfoodtruck</a></li></ul></div><p class="disc" data-ds>This is a free preview made by DS Marketing. It is not the official website of Peruanos Food Truck.</p><p class="dsb" data-ds><a class="rib-btn alt" href="https://ig.me/m/dsmarketing.agency">Make it mine</a></p></div></footer>
 <nav class="actbar" aria-label="Quick actions"><a href="https://www.google.com/maps/dir/?api=1&destination=2805%20NE%202nd%20Ave%2C%20Miami%2C%20FL%2033137" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z" fill="currentColor"/></svg><span>Directions</span></a><a class="pri" href="tel:+13058976167"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6.6 10.8a15.2 15.2 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25 11.4 11.4 0 0 0 3.6.57 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.45.57 3.57a1 1 0 0 1-.25 1z" fill="currentColor"/></svg><span>Call</span></a></nav>
 <script>paintStatus();setInterval(paintStatus,60000);document.addEventListener('visibilitychange',function(){if(!document.hidden)paintStatus()});
-(function(){var b=document.querySelector('.actbar'),h=document.getElementById('heroCtas');if(!b)return;if(!h||!('IntersectionObserver' in window)){b.classList.add('on');return}
-new IntersectionObserver(function(e){b.classList.toggle('on',!e[0].isIntersecting&&e[0].boundingClientRect.top<0)}).observe(h)})();
+(function(){var b=document.querySelector('.actbar'),t=document.getElementById('topbar'),h=document.getElementById('heroCtas'),v=document.getElementById('visit');if(!b&&!t)return;
+if(!h||!('IntersectionObserver' in window)){if(b)b.classList.add('on');return}
+var past=false,end=false,up=false;function u(){if(b)b.classList.toggle('on',past&&!end);if(t)t.classList.toggle('on',past&&!end&&up)}
+var io=new IntersectionObserver(function(es){for(var i=0;i<es.length;i++){var e=es[i];if(e.target===h)past=!e.isIntersecting&&e.boundingClientRect.top<0;else end=e.isIntersecting||e.boundingClientRect.top<0}u()});io.observe(h);if(v)io.observe(v);
+var y=scrollY,q=0;addEventListener('scroll',function(){if(q)return;q=requestAnimationFrame(function(){q=0;var n=scrollY,d=n-y;if(d>8||d<-8){up=d<0;y=n}if(v)end=v.getBoundingClientRect().top<innerHeight;u()})},{passive:true})})();
+document.addEventListener('touchstart',function(){},{passive:true});
 (function(){var mb=document.getElementById('mapLoad');if(!mb)return;mb.hidden=false;mb.addEventListener('click',function(){var box=document.getElementById('mapBox'),f=document.createElement('iframe');
 f.src='https://www.google.com/maps?q='+encodeURIComponent(mb.getAttribute('data-q'))+'&output=embed';f.title=mb.getAttribute('data-t');f.loading='lazy';f.referrerPolicy='no-referrer-when-downgrade';f.allowFullscreen=true;box.textContent='';box.appendChild(f);mb.remove();f.focus()})})();
 (function(){var t=document.querySelector('.dtabs');if(!t)return;var bs=t.querySelectorAll('.dt'),ps=[];for(var k=0;k<bs.length;k++)ps.push(document.getElementById(bs[k].getAttribute('aria-controls')));

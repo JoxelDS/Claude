@@ -57,6 +57,29 @@
  *   A page looks wrong → fix the DATA first: art direction in tools/ds/site-art.json (hero photo, focus, layout, text photos,
  *   colours), facts in the lead. Fonts: DISPLAY / BODY tables + SUB_FONT (per niche default). Copy: STR. Motifs: MOTIFS.
  *   Section order: build() → H.push(…). Check a page: node <scratch>/shot.mjs p/_lab/final/<slug>/ <prefix> (phone + desktop).
+ *
+ * CHANGELOG
+ *   2026-10-12  Class timetable you can read at a glance (fitness pages with a class schedule): one colour per class, made in
+ *               OKLCH from the brand accent and contrast-checked by the build gate (P.xp); a colour legend over the day tabs,
+ *               each day tab underlined in the colours of that day's classes, a colour rule on the open day and on the class
+ *               list; days with no class are dimmed; when today has no class the next day with classes opens; tab changes
+ *               use a View Transition (skipped for reduced motion and in-app webviews).
+ *   2026-10-12  No-risk line under a gym's main button ("Drop-in $25 · No start fee"): at most 2 pieces, built only from the
+ *               lead's own fields (never from "_" research notes); free first class / drop-in or day pass price / no start
+ *               fee / no contract, each only when the lead's text says it.
+ *   2026-10-12  Field hero side column offers the next choice: "Also on" with up to 2 other order / booking apps (only when
+ *               the business is on 2+ consumer platforms; never the primary's platform, a street or a team member's link),
+ *               or "Pick your barber / stylist" with the team's initials (beauty pages with 2+ team members) linking to #team;
+ *               the rating sticker moves to the photo's right edge when the column is full; price tags are fitted to the
+ *               column from real glyph widths (no wrapped prices).
+ *   2026-10-12  Sticky actions step aside: the phone action bar shows only between the hero buttons and the Visit block (hidden
+ *               and out of the tab order when parked), so it never covers the footer or the "Like what you see?" block.
+ *   2026-10-12  Desktop top bar (≥ 900 px): logo, name, live open / next-class status and the primary action, shown on scroll-up
+ *               past the hero and hidden again at Visit. Classes are .topbar / .topbar-i / -l / -n (the experiment's .tb clashed
+ *               with the promo band's ".bandp .tb" line and hid "call or text …" on desktop).
+ *   2026-10-12  Touch-true feedback: a quick press scale on buttons, tiles and bar links (instant under reduced motion), hover
+ *               zoom on the photo grid only for fine pointers, text-wrap: pretty on descriptions, and a "lite" mode (in-app
+ *               webviews, ≤ 2 GB / ≤ 2-core devices) that drops the photo settle / tilt, sticker pop and spinning-ring animations.
  */
 import { readFileSync, writeFileSync, mkdirSync, existsSync, copyFileSync } from 'fs';
 import { execFileSync } from 'child_process';
@@ -102,6 +125,19 @@ const sha = s => "'sha256-" + createHash('sha256').update(s, 'utf8').digest('bas
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 const toHex = rgb => '#' + rgb.map(v => clamp(Math.round(v), 0, 255).toString(16).padStart(2, '0')).join('');
 const mix = (a, b, t) => { const A = hex2rgb(a), B = hex2rgb(b); return toHex(A.map((v, i) => v + (B[i] - v) * t)); };
+// sRGB <-> OKLab / OKLCH (Björn Ottosson's matrices) for the class colours; fromOklch reduces chroma until it fits sRGB
+const s2l = v => { v /= 255; return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; };
+const l2s = v => 255 * (v <= 0.0031308 ? 12.92 * v : 1.055 * Math.pow(v, 1 / 2.4) - 0.055);
+const oklch = hex => { const [r, g, b] = hex2rgb(hex).map(s2l);
+  const l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b), m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b), q = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b);
+  const L = 0.2104542553 * l + 0.7936177850 * m - 0.0040720468 * q, A = 1.9779984951 * l - 2.4285922050 * m + 0.4505937099 * q, B = 0.0259040371 * l + 0.7827717662 * m - 0.8086757660 * q;
+  return [L, Math.hypot(A, B), (Math.atan2(B, A) * 180 / Math.PI + 360) % 360]; };
+const oklchLin = (L, C, H) => { const h = H * Math.PI / 180, A = C * Math.cos(h), B = C * Math.sin(h);
+  const l = (L + 0.3963377774 * A + 0.2158037573 * B) ** 3, m = (L - 0.1055613458 * A - 0.0638541728 * B) ** 3, q = (L - 0.0894841775 * A - 1.2914855480 * B) ** 3;
+  return [4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * q, -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * q, -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * q]; };
+const fromOklch = (L, C, H) => { const fits = c => oklchLin(L, c, H).every(v => v >= -1e-4 && v <= 1 + 1e-4);
+  if (!fits(C)) { let lo = 0, hi = C; for (let i = 0; i < 24; i++) { const mid = (lo + hi) / 2; if (fits(mid)) lo = mid; else hi = mid; } C = lo; }
+  return toHex(oklchLin(L, C, H).map(v => l2s(clamp(v, 0, 1)))); };
 const isHex = s => /^#[0-9a-f]{3}([0-9a-f]{3})?$/i.test(String(s || ''));
 const norm = h => { h = String(h).toLowerCase(); return h.length === 4 ? '#' + [...h.slice(1)].map(c => c + c).join('') : h; };
 const words = s => String(s || '').split(/\s+/).filter(Boolean);
@@ -164,13 +200,14 @@ const STR = {
     menuNP: { nails: 'Our nails', salon: 'Services', barber: 'Services' },
     menuEye: { food: 'On the menu', truck: 'Straight from the truck', cafe: 'From the counter', barber: 'Price board', nails: 'The menu', salon: 'The menu', gym: 'Train with us', studio: 'Train with us', home: 'Services' },
     plans: 'Memberships', plansEye: 'Join', special: 'Special', was: 'was', join: 'Join', perMo: '/mo',
+    rrDrop: 'Drop-in', rrDay: 'Day pass', rrStart: 'No start fee', rrContract: 'No contract', rrFree: 'Free first class',
     classes: 'This week’s classes', classesEye: 'Class times', noClasses: 'No classes', classList: 'The classes', days: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'], daysL: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
     reviews: 'What people say', reviewsEye: 'Reviews', seeOn: p => `See it on ${p}`, review: p => `${p} review`, on: p => `on ${p}`,
     photosEye: 'On Instagram', photosFrom: h => `Photos from @${h} on Instagram`, sample: 'Sample photos — your own photos go here', sampleTag: 'Sample photo', seeIg: 'See more on Instagram', photoBy: h => `Photo · @${h}`, post: 'Post',
     hours: 'Hours', visit: 'Visit us', area: 'Service area', today: 'today', loungesT: n => `${n} lounges`,
     call: 'Call', callTo: 'Call to book', text: 'Text', textPhoto: 'Text a photo', dir: 'Directions', openMaps: 'Open in Google Maps', showMap: 'Show the map here', mapT: a => `Map: ${a}`,
     quick: 'Quick actions', more: { food: 'More ways to order', beauty: 'More ways to book', fitness: 'More ways to book', home: 'More ways to reach us' },
-    verb: { food: 'Order', beauty: 'Book', fitness: 'Book', home: 'Estimate' }, team: 'Pick your barber', teamS: 'Pick your stylist', bookWith: n => `Book with ${n}`, book: 'Book', order: 'Order',
+    verb: { food: 'Order', beauty: 'Book', fitness: 'Book', home: 'Estimate' }, team: 'Pick your barber', teamS: 'Pick your stylist', alsoOn: 'Also on', bookWith: n => `Book with ${n}`, book: 'Book', order: 'Order',
     now: 'Right now', offer: 'Right now', since: y => `Since ${y}`, ba: 'Before / after', before: 'Before', after: 'After', drag: 'Drag to compare before and after',
     estH: 'Free estimate', estP: 'Type your address, then send us a text with a photo of the job.', estPh: 'Your address or area', estBtn: 'Text for a free estimate',
     estBody: 'Hi! I would like a free estimate. My address: ',
@@ -185,13 +222,14 @@ const STR = {
     menuNP: { nails: 'Nuestras uñas', salon: 'Servicios', barber: 'Servicios' },
     menuEye: { food: 'En la carta', truck: 'Desde la ventanilla', cafe: 'Desde el mostrador', barber: 'Lista de precios', nails: 'El menú', salon: 'El menú', gym: 'Entrena con nosotros', studio: 'Entrena con nosotros', home: 'Servicios' },
     plans: 'Membresías', plansEye: 'Únete', special: 'Especial', was: 'antes', join: 'Unirme', perMo: '/mes',
+    rrDrop: 'Clase suelta', rrDay: 'Pase de un día', rrStart: 'Sin cuota de inscripción', rrContract: 'Sin contrato', rrFree: 'Primera clase gratis',
     classes: 'Clases de la semana', classesEye: 'Horario de clases', noClasses: 'Sin clases', classList: 'Las clases', days: ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'], daysL: ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'],
     reviews: 'Lo que dicen', reviewsEye: 'Reseñas', seeOn: p => `Ver en ${p}`, review: p => `Reseña en ${p}`, on: p => `en ${p}`,
     photosEye: 'En Instagram', photosFrom: h => `Fotos de @${h} en Instagram`, sample: 'Fotos de muestra — aquí van las tuyas', sampleTag: 'Foto de muestra', seeIg: 'Ver más en Instagram', photoBy: h => `Foto · @${h}`, post: 'Post',
     hours: 'Horario', visit: 'Visítanos', area: 'Zona de servicio', today: 'hoy', loungesT: n => `${n} salones`,
     call: 'Llamar', callTo: 'Llamar para reservar', text: 'Mensaje', textPhoto: 'Manda una foto', dir: 'Cómo llegar', openMaps: 'Abrir en Google Maps', showMap: 'Ver el mapa aquí', mapT: a => `Mapa: ${a}`,
     quick: 'Acciones rápidas', more: { food: 'Más formas de pedir', beauty: 'Más formas de reservar', fitness: 'Más formas de reservar', home: 'Más formas de contactarnos' },
-    verb: { food: 'Pedir', beauty: 'Reservar', fitness: 'Reservar', home: 'Cotizar' }, team: 'Elige tu barbero', teamS: 'Elige tu estilista', bookWith: n => `Reservar con ${n}`, book: 'Reservar', order: 'Pedir',
+    verb: { food: 'Pedir', beauty: 'Reservar', fitness: 'Reservar', home: 'Cotizar' }, team: 'Elige tu barbero', teamS: 'Elige tu estilista', alsoOn: 'También en', bookWith: n => `Reservar con ${n}`, book: 'Reservar', order: 'Pedir',
     now: 'Ahora mismo', offer: 'Ahora mismo', since: y => `Desde ${y}`, ba: 'Antes / después', before: 'Antes', after: 'Después', drag: 'Desliza para comparar el antes y el después',
     estH: 'Cotización gratis', estP: 'Escribe tu dirección y mándanos un mensaje con una foto del trabajo.', estPh: 'Tu dirección o zona', estBtn: 'Pedir cotización por mensaje',
     estBody: '¡Hola! Quiero una cotización gratis. Mi dirección: ',
@@ -357,7 +395,7 @@ function contrastReport(P, D) {                            // every pair the CSS
   const r = [['ink/bg', P.ink, P.bg, 4.5], ['ink/surf', P.ink, P.surf, 4.5], ['ink/surf2', P.ink, P.surf2, 4.5], ['sub/bg', P.sub, P.bg, 4.5], ['sub/surf', P.sub, P.surf, 4.5],
     ['link/bg', P.link, P.bg, 4.5], ['link/surf', P.link, P.surf, 4.5], ['onA/a', P.onA, P.a, 4.5], ['onFl/fl', P.onFl, P.fl, 4.5], ['flSub/fl', P.flSub, P.fl, 4.5],
     ['onFlBtn/flBtn', P.onFlBtn, P.flBtn, 4.5], ['mk/fl', P.mk, P.fl, 3], ['mk2/fl', P.mk2, P.fl, 3], ['mark/bg', P.mark, P.bg, 3], ['onFt/ft', P.onFt, P.ft, 4.5],
-    ['ftSub/ft', P.ftSub, P.ft, 4.5], ['ribbon', '#f4f4f4', '#141414', 4.5]];
+    ['ftSub/ft', P.ftSub, P.ft, 4.5], ['ribbon', '#f4f4f4', '#141414', 4.5], ...(P.xp || [])];
   return r.map(([k, a, b, min]) => ({ k, v: +ratio(a, b).toFixed(2), min }));
 }
 
@@ -443,7 +481,8 @@ for (const p of plans) {
   job.fonts.push({ key: `${p.l.slug}|D`, src: join(FONT_DIR, p.D.file), out: join(FONT_DIR, subFile(p.D.file, p.D.axes)), axes: p.D.axes, kind: kindD, sample, measure: measure.filter(m => !m.startsWith('@')), upper: p.D.upper, ls: p.D.ls });
   if (ig) job.fonts.push({ key: `${p.l.slug}|DH`, src: join(FONT_DIR, p.D.file), out: join(FONT_DIR, subFile(p.D.file, p.D.axes)), axes: p.D.axes, kind: kindD, sample, measure: ['@' + ig], upper: false, ls: 0 });
   if (p.D.ital) job.fonts.push({ key: `${p.l.slug}|DI`, src: join(FONT_DIR, p.D.ital.file), out: join(FONT_DIR, subFile(p.D.ital.file, p.D.ital.axes)), axes: p.D.ital.axes, kind: 'serif', sample, measure: p.nm.rest ? [p.nm.rest] : [], upper: false, ls: 0 });
-  job.fonts.push({ key: `${p.l.slug}|B`, src: join(FONT_DIR, p.B.file), out: join(FONT_DIR, subFile(p.B.file, p.B.axes)), axes: p.B.axes, kind: 'sans', sample: bodySample, measure: [], upper: false, ls: 0 });
+  const tagMeasure = (p.l.services || []).flatMap(sv => [String(sv.price || '').split(/\s+·\s+/)[0], ...words(sv.t)]).filter(Boolean);
+  job.fonts.push({ key: `${p.l.slug}|B`, src: join(FONT_DIR, p.B.file), out: join(FONT_DIR, subFile(p.B.file, p.B.axes)), axes: p.B.axes, kind: 'sans', sample: bodySample, measure: [...new Set(tagMeasure)], upper: false, ls: 0 });
 }
 const AN = JSON.parse(execFileSync('python3', [join(HERE, 'site/assets.py')], { input: JSON.stringify(job), encoding: 'utf8', maxBuffer: 1 << 26 }));
 if (AN.errors.length) console.error('asset warnings:\n  ' + AN.errors.join('\n  '));
@@ -569,11 +608,29 @@ function build(p) {
   if (sinceTxt) heroFacts.push(factPill(sinceTxt));
   if (pr.press[0]) { heroFacts.push(factPill(pr.press[0], ICON.award)); heroUsed.add(pr.press[0]); }
   if (!topRating && !pr.press.length) for (const f of pr.facts.slice(0, 2)) { heroFacts.push(factPill(es && factEs(f) ? factEs(f) : f)); heroUsed.add(f); }
+  // the next choice, in the field hero's side column: other order / booking apps, or the team
+  const PLAT_ALL = 'Uber Eats|Grubhub|DoorDash|ezCater|Postmates|Online order|Booksy|Fresha|Square|Vagaro|StyleSeat|Mindbody|ClassPass|Toast';
+  const alsoLabel = (x, plat) => {
+    const rest = cleanLabel(x.label).replace(/^(?:pedir en|ordenar en|order on|order online|book on|reservar en)\s*/i, '')
+      .replace(new RegExp(`\\s*(?:\\b(?:en|on|via|at|con|with)\\s+)?(?:${PLAT_ALL})\\s*$`, 'i'), '').trim();
+    return rest ? `${rest} · ${plat}` : plat;
+  };
+  const priPlat = primary?.url ? platformOf(primary.url) : '';
+  const teamAll = new Set(team.map(t => t.url));
+  const alsoPool = layout === 'field' ? (l.links || []).filter(x => { const pl = platformOf(x.url); return (CONSUMER.has(pl) || pl === 'Online order') && x.url !== primary?.url && pl !== priPlat && !streetKey(x.label) && !teamAll.has(x.url); }) : [];
+  const alsoOn = []; for (const x of alsoPool) { const pl = platformOf(x.url); if (!alsoOn.some(a => a.plat === pl)) alsoOn.push({ url: x.url, plat: pl, label: alsoLabel(x, pl) }); }
+  const alsoList = (alsoOn.length + (priPlat && (CONSUMER.has(priPlat) || priPlat === 'Online order') ? 1 : 0)) >= 2 ? alsoOn.slice(0, 2) : [];
+  const alsoHtml = alsoList.length ? `<div class="also"><p class="also-k">${esc(S.alsoOn)}</p>${alsoList.map(a => `<a class="also-a" href="${esc(a.url)}"${ext}><span>${langSpan(a.label, lang)}</span>${ICON.out}</a>`).join('')}</div>` : '';
+  const whoHtml = layout === 'field' && niche === 'beauty' && team.length >= 2
+    ? `<a class="who" href="#team"><span class="whoI" aria-hidden="true">${team.slice(0, 4).map(t => `<i>${esc(t.who.trim()[0].toUpperCase())}</i>`).join('')}</span><span class="whoT">${esc(sub === 'barber' ? S.team : S.teamS)}</span>${ICON.down}</a>` : '';
   const statusSlot = model.k !== 'none' ? '<p class="status st" hidden></p><script>paintStatus()</script>' : '';
 
   // beauty price tags (instant "how much?")
   const priceTags = niche === 'beauty' ? (l.services || []).map(s => { const sp = splitPrice(s.price); return sp && sp.lead && sp.lead.length <= 11 && noEmoji(s.t).length <= 18 ? { t: noEmoji(s.t), p: sp.lead } : null; }).filter(Boolean).slice(0, 3) : [];
-  const tagList = layout === 'field' ? priceTags.filter(t => t.t.length <= 12 && t.p.length <= 9) : priceTags;
+  const bw = (t, k) => ((FB.widths && FB.widths[t]) || t.length * 0.6) * 14 * k;            // px at 14 px; 800 / 600 weight ≈ +10 % / +5 %
+  const tagInner = 0.48 * 360 - 20 - 8 - 24;                                                  // field column on a 360 px phone, minus the pill padding
+  const tagFits = t => bw(t.p, 1.1) + 10 + Math.max(...words(t.t).map(w => bw(w, 1.05))) <= tagInner;
+  const tagList = layout === 'field' ? priceTags.filter(t => t.t.length <= 12 && tagFits(t)) : priceTags;
   const priceTagsHtml = tagList.length >= 2 ? `<ul class="ptags">${tagList.map(t => `<li><span>${langSpan(t.t, lang)}</span><b>${esc(t.p)}</b></li>`).join('')}</ul>` : '';
   // food staccato line (their service titles)
   const stacT = (niche === 'food' ? (l.services || []).filter(s => !/catering|party|box|cater|events?/i.test(s.t)).map(s => noEmoji(s.t)) : []).slice(0, 3);
@@ -599,11 +656,32 @@ function build(p) {
   else if (layout === 'badge') media = `<div class="hm">${ring('rgh', ringTxt, logo(320, 'rlogo'), 'big')}</div>`;
   else if (layout === 'pair') { const pp = AN.pairs[`${slug}|${hero.n}`];
     media = `<div class="hm"><div class="ba" style="--p:50%">${pic(pp.before, { sizes: '(min-width: 900px) 46vw, 100vw', alt: `${S.before} — ${altOf(hero, hero.n)}`, heroImg: true, pos: '50% 50%' })}<div class="baA">${pic(pp.after, { sizes: '(min-width: 900px) 46vw, 100vw', alt: `${S.after} — ${altOf(hero, hero.n)}`, heroImg: true, pos: '50% 50%' })}</div><span class="baL b" aria-hidden="true">${S.before}</span><span class="baL a" aria-hidden="true">${S.after}</span><span class="baH" aria-hidden="true"></span><input class="baR" type="range" min="0" max="100" value="50" aria-label="${esc(S.drag)}"></div></div>`; }
-  const sideHtml = `<div class="hs">${statusSlot}${heroFacts.length ? `<p class="hfs">${heroFacts.join('')}</p>` : ''}${layout === 'field' ? priceTagsHtml : ''}</div>`;
+  const sideHtml = `<div class="hs">${statusSlot}${heroFacts.length ? `<p class="hfs">${heroFacts.join('')}</p>` : ''}${layout === 'field' ? priceTagsHtml + alsoHtml + whoHtml : ''}</div>`;
   const pHtml = `<div class="hp-p">${stac ? `<p class="stac">${stac.map(t => langSpan(t, lang)).join('<i aria-hidden="true"> · </i>')}</p>` : ''}${promise}</div>`;
-  const actsHtml = `<div class="acts" id="heroCtas">${priBtn('btn pri')}${tilesHtml.length ? `<div class="tiles">${tilesHtml.join('')}</div>` : ''}</div>`;
+  // the no-risk line under the gym's CTA — only from the lead's own (non-"_") fields, at most 2 pieces
+  const FX = niche === 'fitness' && model.k === 'classes';
+  const rrHtml = FX ? (() => {
+    const own = JSON.stringify(l, (k, v) => (k.startsWith('_') || /^(url|ctaUrl|photos|logo|brand|slug|theme|art)$/.test(k) ? undefined : v));
+    const ownF = fold(own);
+    const TRIAL = /\b(drop-?in|single class|class pass|day pass|clase suelta|pase de un dia)\b/;
+    const FREE = /\bfree (?:(?:first|trial) )?class\b|\b(?:primera )?clase (?:de prueba )?gratis\b/;
+    const trialLab = t => /day pass|pase de un dia/.test(t) && !/drop-?in|single class|clase suelta/.test(t) ? S.rrDay : S.rrDrop;
+    let trial = '';
+    if (FREE.test(ownF)) trial = S.rrFree;
+    else {
+      const ps = (l.services || []).find(x => x.price && TRIAL.test(fold(`${x.t} ${x.d || ''}`)) && /\$\d/.test(x.price));
+      if (ps) trial = `${trialLab(fold(`${ps.t} ${ps.d || ''}`))} ${String(ps.price).match(/\$\d[\d,.]*/)[0].replace(/[.,]$/, '')}`;
+      else { const m = own.match(/(drop-?in|single class|class pass|day pass)[^$."]{0,24}?(\$\d[\d,.]*\d|\$\d)|(\$\d[\d,.]*\d|\$\d)[^$."]{0,24}?(drop-?in|single class|class pass|day pass)/i);
+        if (m) trial = `${trialLab(fold(m[1] || m[4]))} ${m[2] || m[3]}`; }
+    }
+    const start = /\bno (start|initiation|sign-?up|enrol+ment) fees?\b|\bsin (?:cuota|costo|cargo) de inscripcion\b/.test(ownF) ? S.rrStart : '';
+    const contract = /\bno (long-term )?contracts?\b|\bsin contratos?\b/.test(ownF) ? S.rrContract : '';
+    const pieces = [trial, start, contract].filter(Boolean).slice(0, 2);
+    return pieces.length ? `<p class="rr">${pieces.map(t => `<span>${ICON.check}${esc(t)}</span>`).join('<i aria-hidden="true">·</i>')}</p>` : '';
+  })() : '';
+  const actsHtml = `<div class="acts" id="heroCtas">${priBtn('btn pri')}${rrHtml}${tilesHtml.length ? `<div class="tiles">${tilesHtml.join('')}</div>` : ''}</div>`;
   const xHtml = nowStrip || (layout !== 'field' && priceTagsHtml) ? `<div class="hx">${nowStrip}${layout !== 'field' ? priceTagsHtml : ''}</div>` : '';
-  const heroCls = `hero L-${layout === 'cinematic' ? 'cine' : layout}${archStack ? ' arch-stack' : ''}${hero ? '' : ' nophoto'}${P.dark ? ' dark' : ''}`;
+  const heroCls = `hero L-${layout === 'cinematic' ? 'cine' : layout}${layout === 'field' && stickerOn && (alsoHtml || whoHtml || tagList.length >= 2) ? ' sk-r' : ''}${archStack ? ' arch-stack' : ''}${hero ? '' : ' nophoto'}${P.dark ? ' dark' : ''}`;
   H.push(`<section class="${heroCls}" aria-labelledby="h1">${top}${media}${markHtml}${pHtml}${sideHtml}${actsHtml}${xHtml}</section>`);
 
   // ornament divider (one per page)
@@ -665,13 +743,44 @@ function build(p) {
     for (const s of fitClasses) { const t = fold(`${s.t} ${s.d || ''}`); DAYW.forEach((re, d) => { if (re.test(t)) (dayClass[d] ||= []).push(noEmoji(s.t)); }); }
     const tm = m => { const h = Math.floor(m / 60) % 24, mm = m % 60; return `${h % 12 || 12}${mm ? ':' + String(mm).padStart(2, '0') : ''} ${h < 12 ? 'AM' : 'PM'}`; };
     const order = [1, 2, 3, 4, 5, 6, 0];
-    const tabs = order.map(d => `<button type="button" class="dt" id="dt-${d}" data-d="${d}" data-days="${d}" aria-controls="dp-${d}">${esc(S.days[d])}</button>`).join('');
-    const panels = order.map(d => { const st = model.st.filter(x => x[0] === d).sort((a, b) => a[1] - b[1]);
-      const lbl = [...new Set([...(dayClass[d] || []), ...st.filter(x => x[2] != null).map(x => model.lb[x[2]])])].filter((v, i, a) => !a.some((o, j) => j !== i && fold(o).includes(fold(v)) && o !== v));
-      return `<div class="dp${st.length ? '' : ' off'}" id="dp-${d}" data-days="${d}"><h3 class="dh">${esc(S.daysL[d])}</h3>${lbl.length ? `<p class="dl">${lbl.map(t => langSpan(t, lang)).join(' · ')}</p>` : ''}${st.length ? `<ul class="tt">${st.map(x => `<li>${tm(x[1])}</li>`).join('')}</ul>` : `<p class="tn">${esc(S.noClasses)}</p>`}</div>`; }).join('');
-    const list = fitClasses.length ? `<ul class="clist">${fitClasses.map(s => `<li><h3>${langSpan(noEmoji(s.t), lang)}</h3>${s.d ? `<p>${langSpan(s.d, lang)}</p>` : ''}</li>`).join('')}</ul>` : '';
+    const stOf = d => model.st.filter(x => x[0] === d).sort((a, b) => a[1] - b[1]);
+    const lblOf = (d, st) => [...new Set([...(dayClass[d] || []), ...st.filter(x => x[2] != null).map(x => model.lb[x[2]])])].filter((v, i, a) => !a.some((o, j) => j !== i && fold(o).includes(fold(v)) && o !== v));
+    // one colour per class (OKLCH from the brand accent), days mapped to classes, colour as marks only
+    const CC = FX && fitClasses.length ? (() => {
+      const acc = P.b.accent && P.b.accent !== '#111111' ? P.b.accent : (P.b.link || P.b.tagBg || P.a);
+      const [, aC, aH] = oklch(acc);
+      const OFF = [0, 150, 215, 290, 60, 105, 250, 330];
+      const LS = P.dark ? [0.70, 0.72, 0.68, 0.66, 0.72, 0.69, 0.67, 0.71] : [0.52, 0.49, 0.55, 0.50, 0.53, 0.48, 0.54, 0.51];
+      const C = clamp(aC, 0.09, 0.17);                                     // floor: a grey brand still gets classes you can tell apart
+      const markOf = c => { for (let i = 0; i < 3; i++) c = fixFg(fixFg(c, P.surf, 3), P.bg, 3); return c; };
+      P.xp = P.xp || [];
+      return fitClasses.map((x, i) => { const c = markOf(fromOklch(LS[i % LS.length], C, (aH + OFF[i % OFF.length]) % 360)); const bt = fixButton(c, P.dark ? '#111111' : '#ffffff');
+        P.xp.push([`class${i}/surf`, c, P.surf, 3], [`class${i}/bg`, c, P.bg, 3], [`class${i}/tab`, bt.ink, bt.fill, 4.5]); return { c, f: bt.fill, i: bt.ink }; });
+    })() : null;
+    const clsIdx = t => { const f = fold(t); let k = fitClasses.findIndex(x => fold(noEmoji(x.t)) === f);
+      if (k < 0) k = fitClasses.findIndex(x => { const g = fold(noEmoji(x.t)); return g.includes(f) || f.includes(g); }); return k; };
+    const segs = (dir, cols) => cols.length === 1 ? `linear-gradient(${cols[0]},${cols[0]})` : `linear-gradient(${dir},${cols.map((c, j) => `${c} ${+(j * 100 / cols.length).toFixed(2)}% ${+((j + 1) * 100 / cols.length).toFixed(2)}%`).join(',')})`;
+    const dayCi = {};
+    if (CC) for (const d of order) dayCi[d] = [...new Set(lblOf(d, stOf(d)).map(clsIdx).filter(k => k >= 0))];
+    const tabStyle = d => { const ci = (dayCi[d] || []).slice(0, 3); if (!ci.length) return '';
+      if (ci.length === 1) { const x = CC[ci[0]]; return ` style="--cb:${segs('', [x.c])};--cf:${x.f};--ci:${x.i}"`; }
+      const marks = ci.map(k => CC[k].c), inks = ['#111111', '#ffffff'];
+      const ink = inks.sort((a, b) => Math.min(...marks.map(c => ratio(b, c))) - Math.min(...marks.map(c => ratio(a, c))))[0];
+      const fills = marks.map(c => { const bt = fixButton(c, ink); return bt.ink === ink ? bt.fill : fixFg(c, ink, 4.5); });
+      fills.forEach((f, j) => P.xp.push([`day${d}/tab${j}`, ink, f, 4.5]));
+      return ` style="--cb:${segs('90deg', marks)};--cf:${segs('90deg', fills)};--ci:${ink}"`; };
+    const tabs = order.map(d => `<button type="button" class="dt" id="dt-${d}" data-d="${d}" data-days="${d}" aria-controls="dp-${d}"${CC ? (stOf(d).length ? '' : ' data-o') + tabStyle(d) : ''}>${esc(S.days[d])}</button>`).join('');
+    const dot = k => `<i class="cd" style="--c:${CC[k].c}" aria-hidden="true"></i>`;
+    const panels = order.map(d => { const st = stOf(d);
+      const lbl = lblOf(d, st);
+      const ci = CC ? (dayCi[d] || []) : [];
+      const dl = !lbl.length ? '' : CC ? `<p class="dl">${lbl.map((t, j) => { const k = clsIdx(t); return `${j ? '<span class="vh">, </span>' : ''}<span class="dli">${k >= 0 ? dot(k) : ''}${langSpan(t, lang)}</span>`; }).join('')}</p>`
+        : `<p class="dl">${lbl.map(t => langSpan(t, lang)).join(' · ')}</p>`;
+      return `<div class="dp${st.length ? '' : ' off'}${ci.length ? ' cc' : ''}" id="dp-${d}" data-days="${d}"${ci.length ? ` style="--cv:${segs('180deg', ci.map(k => CC[k].c))}"` : ''}><h3 class="dh">${esc(S.daysL[d])}</h3>${dl}${st.length ? `<ul class="tt">${st.map(x => `<li>${tm(x[1])}</li>`).join('')}</ul>` : `<p class="tn">${esc(S.noClasses)}</p>`}</div>`; }).join('');
+    const list = fitClasses.length ? `<ul class="clist">${fitClasses.map((s, i) => `<li${CC ? ` style="--c:${CC[i].c}"` : ''}><h3>${CC ? `<i class="cd" aria-hidden="true"></i>` : ''}${langSpan(noEmoji(s.t), lang)}</h3>${s.d ? `<p>${langSpan(s.d, lang)}</p>` : ''}</li>`).join('')}</ul>` : '';
+    const legend = CC ? `<ul class="cleg" aria-hidden="true">${fitClasses.map((s, i) => `<li>${dot(i).replace(' aria-hidden="true"', '')}${esc(noEmoji(s.t))}</li>`).join('')}</ul>` : '';
     H.push(`<section class="sec cls" id="classes" aria-labelledby="h-classes"><div class="wrap"><div class="clg"><div><p class="eye">${esc(l.hoursTitle || S.classesEye)}</p><h2 id="h-classes">${esc(S.classes)}</h2><p class="status st sst" hidden></p>
-<div class="dtabs" hidden aria-label="${esc(S.classes)}">${tabs}</div><div class="dps">${panels}</div>${primary ? priBtn('btn pri') : ''}</div>${list ? `<div><p class="eye">${esc(S.classList)}</p>${list}</div>` : ''}</div></div></section>`);
+${legend}<div class="dtabs" hidden aria-label="${esc(S.classes)}">${tabs}</div><div class="dps">${panels}</div>${primary ? priBtn('btn pri') : ''}</div>${list ? `<div><p class="eye">${esc(S.classList)}</p>${list}</div>` : ''}</div></div></section>`);
   }
 
   // proof: the best quote (flood band when the promo did not take it) + rating cards + facts
@@ -738,8 +847,10 @@ ${hoursCard || locCards ? `<div class="vg">${hoursCard}${locCards}</div>` : ''}<
     streets.length === 1 ? `<a href="${dirUrl(streets[0])}"${ext}>${ICON.dir}<span>${esc(S.dir)}</span></a>` : (streets.length > 1 || lounges.length || mobile) ? `<a href="#visit">${ICON.dir}<span>${esc(S.loc)}</span></a>` : igUrl && !igPrimary ? `<a href="${igUrl}"${ext}>${ICON.ig}<span>Instagram</span></a>` : '',
     primary ? `<a class="pri" href="${esc(primary.href)}"${primary.ext ? ext : ''}>${primary.tel ? ICON.call : ICON.out}<span>${esc(primary.short)}</span></a>` : ''].filter(Boolean);
   const actbar = barItems.length ? `<nav class="actbar" aria-label="${S.quick}">${barItems.join('')}</nav>` : '';
+  // desktop top bar (≥900 px) — logo, name (body 800, not a heading), live status, the primary action
+  const topbar = primary ? `<div class="topbar" id="topbar"><div class="wrap topbar-i">${p.logo ? logo(36, 'topbar-l') : ''}<span class="topbar-n">${esc(l.name)}</span>${model.k !== 'none' ? '<p class="status st" hidden></p>' : ''}${priBtn('btn pri sm')}</div></div>` : '';
 
-  return finish({ p, l, lang, es, S, P, D, B, FD, FDI, FB, U, H, ribbon, footer, actbar, layout, hero, lines, emW, fsM, fsD, maxM, restTxt, restW, archStack, motif: mo, motifKey, cm, model, sub, niche, pageUrl, slug, ig, tel, sticker: stickerOn, floodUsed, archSide, promoPrice });
+  return finish({ p, l, lang, es, S, P, D, B, FD, FDI, FB, U, H, ribbon, footer, actbar, topbar, layout, hero, lines, emW, fsM, fsD, maxM, restTxt, restW, archStack, motif: mo, motifKey, cm, model, sub, niche, pageUrl, slug, ig, tel, sticker: stickerOn, floodUsed, archSide, promoPrice, fx: FX });
 }
 
 // ================================================================= CSS + head + scripts + gate
@@ -794,6 +905,7 @@ ul{padding:0;list-style:none}
 .skip:focus{top:12px}
 .wrap{max-width:1200px;margin:0 auto;padding:0 var(--g)}
 h1,h2,.bandp .t,.bq p,.pq p,.promise{text-wrap:balance}
+.it .d,.clist p,.facts span,.plan .d,.vc p{text-wrap:pretty}
 .eye{font:800 12px/1.3 var(--body);letter-spacing:.22em;text-transform:uppercase;color:var(--link)}
 .sec{padding:48px 0}
 .sec h2,.end h2{font:${dstyle} ${D.w} ${h2Size}/${isSerif ? '.98' : '.94'} var(--disp);letter-spacing:${dispTrack};${caseCss}margin:10px 0 28px}
@@ -883,7 +995,20 @@ ${P.dark ? `.L-cine .mkr:not(.rd){color:${P.restC}}` : ''}
 .frame picture,.frame img,.archf picture,.archf img{width:100%;height:100%;object-fit:cover}
 .L-field .hs{flex-direction:column;align-items:flex-start;padding:18px 8px 0 var(--g);gap:12px}
 .L-field .hfs{flex-direction:column;align-items:flex-start;gap:8px}
-.L-field .ptags{flex-direction:column;align-items:stretch;width:100%}.L-field .ptags li{justify-content:space-between;border-radius:var(--rcs)}
+.L-field .ptags{flex-direction:column;align-items:stretch;width:100%}.L-field .ptags li{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:baseline;column-gap:10px;border-radius:var(--rcs)}
+.L-field .ptags b{white-space:nowrap;text-align:right}
+.L-field .hs{align-self:stretch;justify-content:center;flex-wrap:nowrap}
+.also{display:flex;flex-direction:column;align-items:stretch;gap:8px;width:100%}
+.also-k{font:800 11.5px/1.2 var(--body);letter-spacing:.14em;text-transform:uppercase;color:var(--hsub)}
+.also-a,.who{display:flex;align-items:center;gap:8px;min-height:44px;padding:8px 12px;border-radius:var(--rcs);background:${ratio(P.onFl, P.flSurf) >= 4.5 ? 'var(--hsurf)' : 'transparent'};border:1.5px solid var(--hline);color:var(--hink);font:700 14px/1.2 var(--body)}
+.also-a span,.who .whoT{flex:1;min-width:0}
+.also-a svg,.who>svg{width:16px;height:16px}
+.who{width:100%}
+.whoI{display:flex;flex:none}
+.whoI i{display:grid;place-items:center;width:32px;height:32px;border-radius:50%;background:var(--hb);color:var(--hbi);box-shadow:0 0 0 2px var(--hbg);font:800 13px/1 var(--body);font-style:normal}
+.whoI i+i{margin-left:-9px}
+.who{flex-wrap:wrap;row-gap:6px}.who>svg{margin-left:auto}.who .whoT{order:1;flex:1 0 100%}
+.L-field.sk-r .stk{left:auto;right:6px;bottom:-8px}
 .stk{position:absolute;z-index:2;left:-26px;bottom:-6px;width:104px;height:104px;display:grid;place-items:center;transform:rotate(-9deg);color:var(--hb)}
 .stk .bsh{position:absolute;inset:0;width:100%;height:100%;filter:drop-shadow(0 6px 10px rgba(0,0,0,.25))}
 .stk span{position:relative;display:grid;justify-items:center;color:var(--hbi);text-align:center;line-height:1.05}
@@ -1004,6 +1129,23 @@ ${['arches', 'sparkle', 'deco', 'wave', 'dots'].includes(motifKey) ? `.orn-div{m
 .clist li{padding:14px 0;border-bottom:1px solid var(--line)}
 .clist h3{font:${dstyle} ${D.w} ${h3Size}/1.05 var(--disp);${caseCss}margin-bottom:4px}
 .clist p{color:var(--sub);font-size:15.5px}
+${c.fx ? `.rr{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;font:700 14.5px/1.3 var(--body);color:var(--hsub)}
+.rr span{display:inline-flex;align-items:center;gap:6px}.rr i{font-style:normal;opacity:.6}
+.rr svg{width:16px;height:16px;color:var(--mk)}.L-cine .rr svg{color:var(--link)}.L-badge .rr{justify-content:center}
+.cd{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--c);flex:none}
+.cleg{display:flex;flex-wrap:wrap;gap:6px 16px;margin:0 0 14px;font:700 13px/1.3 var(--body);color:var(--sub)}
+.cleg li{display:inline-flex;align-items:center;gap:7px}
+.dt{background-image:var(--cb,none);background-size:100% 4px;background-position:0 100%;background-repeat:no-repeat}
+.dt[aria-selected=true]{background:var(--cf,var(--a));background-origin:border-box;color:var(--ci,var(--onA));border-color:transparent;view-transition-name:day-pill}
+.dp.cc{border-left-width:0;padding-left:20px;background-image:var(--cv);background-size:4px 100%;background-repeat:no-repeat;background-origin:border-box}
+.tabs-on .dp:not([hidden]){view-transition-name:day-panel}
+.dl{display:flex;flex-wrap:wrap;align-items:center;gap:4px 16px}.dli{display:inline-flex;align-items:center;gap:8px}
+.clist li{border-left:4px solid var(--c,var(--line));padding-left:14px}
+.clist h3{display:flex;align-items:flex-start;gap:10px}.clist .cd{width:12px;height:12px;margin-top:.32em}
+.dt[data-o]{color:var(--sub);font-weight:600}
+@media (min-width:600px){.acts .rr{grid-column:1/-1;grid-row:2}}
+@media (prefers-reduced-motion:no-preference){::view-transition-group(day-pill){animation-duration:.3s;animation-timing-function:cubic-bezier(.2,.7,.2,1)}
+::view-transition-group(day-panel),::view-transition-old(day-panel),::view-transition-new(day-panel){animation-duration:.2s}}` : ''}
 /* ---------------- proof */
 .proof .bq{margin:6px 0 30px}
 .bq p{font:${isSerif && realItal ? 'italic ' : dstyle + ' '}${D.ital ? D.ital.w : D.w} clamp(38px,10.5vw,92px)/1.02 var(--disp);letter-spacing:${dispTrack};${caseCss}max-width:15ch}
@@ -1096,7 +1238,8 @@ ${isSerif && c.ig.includes('_') ? '.gal h2{font-family:var(--body)!important;fon
 .ds-btn{display:inline-flex;align-items:center;gap:10px;min-height:56px;padding:0 26px;border-radius:999px;background:#fff;color:#141414;font:800 16.5px/1 var(--body)}
 .ds-s{margin-top:12px;font-size:13.5px;color:#bdbdbd}
 /* ---------------- footer */
-.ft{background:${P.ft};color:${P.onFt};padding:44px 0 calc(var(--bar) + 26px)}
+.ft{background:${P.ft};color:${P.onFt};padding:44px 0 calc(26px + env(safe-area-inset-bottom))}
+html:not(.js) .ft{padding-bottom:calc(var(--bar) + 26px)}
 .ftg{display:grid;grid-template-columns:auto minmax(0,1fr);gap:18px;align-items:start}
 .ring.small{width:104px;height:104px;color:${P.ftSub}}
 .ring.small text{font-size:16px}
@@ -1111,7 +1254,10 @@ ${isSerif && c.ig.includes('_') ? '.gal h2{font-family:var(--body)!important;fon
 .actbar{position:fixed;left:0;right:0;bottom:0;z-index:40;display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:8px;padding:8px 10px calc(8px + env(safe-area-inset-bottom));background:var(--bg);box-shadow:0 -1px 0 var(--line),0 -10px 28px rgba(0,0,0,.14);transition:transform .35s cubic-bezier(.2,.7,.2,1)}
 .actbar a{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-height:52px;border-radius:14px;font:800 13px/1 var(--body);color:var(--ink);background:var(--surf)}
 .actbar a.pri{background:var(--a);color:var(--onA)}
-.js .actbar:not(.on){transform:translateY(115%)}
+.js .actbar:not(.on){transform:translateY(115%);visibility:hidden;transition:transform .35s cubic-bezier(.2,.7,.2,1),visibility 0s .35s}
+.actbar.on{visibility:visible;transition:transform .35s cubic-bezier(.2,.7,.2,1)}
+/* ---------------- desktop top bar */
+.topbar{display:none}
 /* ---------------- tablet */
 @media (min-width:600px) and (max-width:899px){
 :root{--g:32px}
@@ -1159,6 +1305,11 @@ body{font-size:18px}
 .L-field .frame{width:min(100%,430px)}
 .L-field .hs,.L-arch .hs{flex-direction:row;flex-wrap:wrap;align-items:center;padding:20px 48px 0 var(--g)}
 .L-field .hfs,.L-field .ptags{flex-direction:row}
+.L-field .hs{justify-content:flex-start;flex-wrap:wrap}
+.also{flex-direction:row;flex-wrap:wrap;align-items:center;width:auto;gap:8px 10px}
+.also-a,.who{width:auto;padding:8px 16px}
+.who{flex-wrap:nowrap}.who .whoT{order:0;flex:0 1 auto}.who>svg{margin-left:0}
+.L-field .stk,.L-field.sk-r .stk{left:-40px;right:auto;bottom:30px}
 .stk{width:132px;height:132px;left:-56px;bottom:30px}
 .stk b{font-size:34px}.stk small{font-size:10.5px;max-width:112px}
 .L-arch .mk{align-self:auto}
@@ -1206,6 +1357,16 @@ body{font-size:18px}
 .ring.small{width:150px;height:150px}
 .actbar{display:none}
 .ft{padding-bottom:48px}
+html:not(.js) .ft{padding-bottom:48px}
+.topbar{display:block;position:fixed;top:0;left:0;right:0;z-index:45;background:var(--bg);box-shadow:0 1px 0 var(--line),0 12px 30px -12px rgba(0,0,0,.22);translate:0 -110%;visibility:hidden;transition:translate .35s cubic-bezier(.2,.7,.2,1),visibility 0s .35s}
+.topbar.on{translate:0 0;visibility:visible;transition:translate .35s cubic-bezier(.2,.7,.2,1)}
+.topbar-i{display:flex;align-items:center;gap:14px;min-height:68px}
+.topbar-l{width:36px;height:36px;flex:none;border-radius:50%;object-fit:cover;box-shadow:0 0 0 1px var(--line)}
+.topbar-n{min-width:0;font:800 17px/1.2 var(--body);color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.topbar .status{flex:none;margin-left:auto;min-height:32px;padding:4px 11px 4px 9px;font-size:13.5px;background:var(--surf);border-color:var(--line);color:var(--ink)}
+.topbar .btn{flex:none;margin-left:auto}
+.topbar .status:not([hidden])+.btn{margin-left:0}
+html:has(.topbar.on){scroll-padding-top:84px}
 }
 @media (max-width:370px){.rib span{display:none}.tiles{grid-template-columns:1fr}}
 /* motion — only when the visitor allows it */
@@ -1217,8 +1378,16 @@ body{font-size:18px}
 .stk{animation:pop .7s .7s cubic-bezier(.2,1.4,.4,1) both}
 .ring.big svg,.ring.small svg{animation:spin 40s linear infinite}
 .burst svg{animation:spin 60s linear infinite}
-.btn:hover{transform:translateY(-2px)}
+.lite .L-cine .hm img,.lite .frame,.lite .stk,.lite .ring.big svg,.lite .ring.small svg,.lite .burst svg{animation:none}
 }
+@media (any-pointer:fine) and (prefers-reduced-motion:no-preference){
+.btn:hover{transform:translateY(-2px)}
+.g img{transition:scale .4s cubic-bezier(.2,.7,.2,1)}
+.g:hover img{scale:1.015}
+}
+.actbar a,.tile,.lt,.tl,.ib,.igl,.rib-btn,.ds-btn{transition:transform .08s}
+.actbar a:active,.tile:active,.lt:active,.tl:active,.ib:active,.igl:active,.rib-btn:active,.ds-btn:active{transform:scale(.97)}
+.btn:active{transform:scale(.97);transition-duration:.08s}
 @keyframes rise{from{transform:translateY(105%)}}
 @keyframes fade{from{opacity:0;transform:translateY(12px)}}
 @keyframes settle{from{transform:scale(1.1)}}
@@ -1233,11 +1402,20 @@ body{font-size:18px}
 var M=${JSON.stringify(cm)},LANG=${JSON.stringify(lang)},TD=${JSON.stringify(S.today)};
 function paintStatus(){var r=null;try{r=hoursStatus(M,new Date(),LANG)}catch(e){}var els=document.querySelectorAll('.st');for(var i=0;i<els.length;i++){var el=els[i];if(r){el.textContent=r.t;el.setAttribute('data-s',r.s);el.hidden=false}else el.hidden=true}
 if(r){var rows=document.querySelectorAll('[data-days]');for(var j=0;j<rows.length;j++){var d=(','+rows[j].getAttribute('data-days')+',').indexOf(','+r.today+',')>=0;rows[j].classList.toggle('today',d);if(d)rows[j].setAttribute('data-t',TD)}}}
-document.documentElement.classList.add('js');`;
+document.documentElement.classList.add('js');
+(function(n){if(/Instagram|FBAN|FBAV|TikTok|musical_ly|; wv\\)/.test(n.userAgent||'')||n.deviceMemory<=2||n.hardwareConcurrency<=2)document.documentElement.classList.add('lite')})(navigator);`;
   const slotJs = 'paintStatus()';
-  const tailJs = `paintStatus();setInterval(paintStatus,60000);document.addEventListener('visibilitychange',function(){if(!document.hidden)paintStatus()});
-(function(){var b=document.querySelector('.actbar'),h=document.getElementById('heroCtas');if(!b)return;if(!h||!('IntersectionObserver' in window)){b.classList.add('on');return}
-new IntersectionObserver(function(e){b.classList.toggle('on',!e[0].isIntersecting&&e[0].boundingClientRect.top<0)}).observe(h)})();
+  const fxJs = js => !c.fx ? js : js
+    .replace("function sel(i,f){", "var vt=!!document.startViewTransition&&matchMedia('(prefers-reduced-motion: no-preference)').matches&&!/Instagram|FBAN|FBAV|TikTok|musical_ly|; wv\\)/.test(navigator.userAgent);function go(i,f){if(vt)document.startViewTransition(function(){sel(i,f)});else sel(i,f)}\nfunction sel(i,f){")
+    .replace("bs[i].addEventListener('click',function(){sel(i)})})(k)}", "bs[i].addEventListener('click',function(){go(i)})})(k)}\nfor(k=0;k<bs.length&&ps[idx].classList.contains('off');k++)idx=(idx+1)%bs.length;")
+    .replace("if(n>=0){sel(n,true);e.preventDefault()}", "if(n>=0){go(n,true);e.preventDefault()}");
+  const tailJs0 = `paintStatus();setInterval(paintStatus,60000);document.addEventListener('visibilitychange',function(){if(!document.hidden)paintStatus()});
+(function(){var b=document.querySelector('.actbar'),t=document.getElementById('topbar'),h=document.getElementById('heroCtas'),v=document.getElementById('visit');if(!b&&!t)return;
+if(!h||!('IntersectionObserver' in window)){if(b)b.classList.add('on');return}
+var past=false,end=false,up=false;function u(){if(b)b.classList.toggle('on',past&&!end);if(t)t.classList.toggle('on',past&&!end&&up)}
+var io=new IntersectionObserver(function(es){for(var i=0;i<es.length;i++){var e=es[i];if(e.target===h)past=!e.isIntersecting&&e.boundingClientRect.top<0;else end=e.isIntersecting||e.boundingClientRect.top<0}u()});io.observe(h);if(v)io.observe(v);
+var y=scrollY,q=0;addEventListener('scroll',function(){if(q)return;q=requestAnimationFrame(function(){q=0;var n=scrollY,d=n-y;if(d>8||d<-8){up=d<0;y=n}if(v)end=v.getBoundingClientRect().top<innerHeight;u()})},{passive:true})})();
+document.addEventListener('touchstart',function(){},{passive:true});
 (function(){var mb=document.getElementById('mapLoad');if(!mb)return;mb.hidden=false;mb.addEventListener('click',function(){var box=document.getElementById('mapBox'),f=document.createElement('iframe');
 f.src='https://www.google.com/maps?q='+encodeURIComponent(mb.getAttribute('data-q'))+'&output=embed';f.title=mb.getAttribute('data-t');f.loading='lazy';f.referrerPolicy='no-referrer-when-downgrade';f.allowFullscreen=true;box.textContent='';box.appendChild(f);mb.remove();f.focus()})})();
 (function(){var t=document.querySelector('.dtabs');if(!t)return;var bs=t.querySelectorAll('.dt'),ps=[];for(var k=0;k<bs.length;k++)ps.push(document.getElementById(bs[k].getAttribute('aria-controls')));
@@ -1248,6 +1426,7 @@ t.addEventListener('keydown',function(e){var i=[].indexOf.call(bs,document.activ
 t.hidden=false;document.documentElement.classList.add('tabs-on');sel(idx)})();
 (function(){var rs=document.querySelectorAll('.baR');for(var i=0;i<rs.length;i++)(function(r){var b=r.parentNode;function u(){b.style.setProperty('--p',r.value+'%')}r.addEventListener('input',u);u()})(rs[i])})();
 (function(){var i=document.getElementById('estIn'),a=document.getElementById('estGo');if(!i||!a)return;var base=a.getAttribute('href'),body=a.getAttribute('data-body');function u(){a.setAttribute('href',base+'?&body='+encodeURIComponent(body+i.value))}i.addEventListener('input',u);u()})();`;
+  const tailJs = fxJs(tailJs0);
   const csp = `default-src 'none'; img-src 'self' data:; font-src 'self'; style-src 'unsafe-inline'; script-src ${sha(headJs)} ${sha(slotJs)} ${sha(tailJs)}; frame-src https://www.google.com; base-uri 'none'; form-action 'none'`;
 
   // ---------------- head
@@ -1290,6 +1469,7 @@ ${jsonld}
 <body>
 <a class="skip" href="#main">${esc(S.skip)}</a>
 ${c.ribbon}
+${c.topbar}
 <main id="main" tabindex="-1">
 ${H.join('\n')}
 </main>
