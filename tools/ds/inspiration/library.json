@@ -1,0 +1,290 @@
+[
+ {
+  "url": "https://colorlib.com/wp/food-truck-website-examples/",
+  "niche": "food truck",
+  "idea": "Like the 'Truck' page of Watson's Shack & Rail: a 'Where to find us this week' block for food-truck leads that have several stops. Each stop is one row (day · time · street) built from the lead's own hours[] and its address list joined by ' · '. A ~200-byte script picks out today's row by weekday and marks it 'TODAY' in the accent colour, and every row gets its own 44 px 'Directions' link to maps.",
+  "why": "A food truck's first question is 'where are you today?'. Answering it in one glance turns IG followers into walk-ups, and a schedule that looks current reads as a real, active business instead of a dead link in bio.",
+  "kind": "layout",
+  "date": "2026-10-11"
+ },
+ {
+  "url": "https://colorlib.com/wp/food-truck-website-examples/",
+  "niche": "food truck / catering",
+  "idea": "Like the catering sections of Baonanas and Ms. Cheezious (Miami), which pair a contact form with the menu: a 'Book us for your event' card, shown only when the lead's services mention catering/party/events. It has a date input, a guest-count stepper and chips for the lead's own menu items, and these compose a prefilled SMS (or IG DM link) such as 'Hi! Event on Sat Nov 8, ~60 guests, interested in: tacos, empanadas'. No backend; it reuses the existing estimate-box script pattern.",
+  "why": "Catering is the most valuable order a truck takes, but 'DM for catering' loses people. A three-field builder gets a qualified request with the date and headcount in the first message, so the owner can quote at once.",
+  "kind": "conversion",
+  "date": "2026-10-11"
+ },
+ {
+  "url": "https://createtoday.io/examples?category=bakery&platform=shopify",
+  "niche": "bakery",
+  "idea": "Like Dendara's olive-green ticker that repeats 'Order 2 days in advance': a thin, brand-coloured marquee strip pinned above the hero. It loops 1–2 of the lead's own ordering rules (lead time, pickup days, 'custom cakes by order') with a pure-CSS translateX animation that pauses on hover/focus. Under prefers-reduced-motion it becomes one static line, and the text is in the DOM once (aria-hidden on the duplicate).",
+  "why": "It answers the question that floods a bakery's DMs ('can I get a cake tomorrow?') before anyone asks. The moving strip also adds a premium, editorial feel for almost no bytes.",
+  "kind": "motion",
+  "date": "2026-10-11"
+ },
+ {
+  "url": "https://createtoday.io/examples?category=bakery",
+  "niche": "bakery / café / restaurant",
+  "idea": "A split primary CTA, after the bakeries in this list that show 'Order Local Pickup' and 'Nationwide Shipping' side by side. When a lead has both its own pickup/order link and a delivery-app link, the hero shows a two-part segmented button ('Pick up' | 'Delivery') instead of one CTA. Each half is a 44 px tap target labelled with its platform name.",
+  "why": "It captures both intents on the first screen without making the visitor hunt through 'more ways to order' at the bottom. Pickup orders through the owner's own link also avoid app commissions, which is a selling point for the $500 site.",
+  "kind": "conversion",
+  "date": "2026-10-11"
+ },
+ {
+  "url": "https://mycodelesswebsite.com/fitness-website-designs/",
+  "niche": "boutique gym / boxing club",
+  "idea": "Like HYPE Fitness (Silver Lake), whose 'Book Now' buttons are colour-coded by class: give each class type in the lead's class list (e.g. Boxing, Conditioning, Kids) its own colour token derived from the brand palette and contrast-checked at build. That colour is used for the class's chip in the day-tabs, the left border of its timetable rows and its Book button, with a small legend above the tabs.",
+  "why": "Colour lets a visitor scan a busy timetable for 'their' class in a second instead of reading every row. It makes the schedule look designed rather than pasted, which signals a well-run gym.",
+  "kind": "colour",
+  "date": "2026-10-11"
+ },
+ {
+  "url": "https://nanoglobals.com/gym-websites/",
+  "niche": "boxing club",
+  "idea": "After Knockout Fitness Nashville, whose hero leads with 30 years in business and the founder's pro boxing background, and whose rates page shows per-session prices and 'no contracts': put a one-line risk-reversal under the primary CTA, e.g. 'No contract · drop-in $20 · since 1996'. It is assembled only from facts in the lead (contract wording, a per-class price, a founding year, a coach credential), and any piece the lead doesn't state is left out.",
+  "why": "Fear of being locked into a membership is the main objection for gym walk-ins. Answering it next to the button, with the owner's real credentials, raises trust and click-through more than a generic 'Join now'.",
+  "kind": "conversion",
+  "date": "2026-10-11"
+ },
+ {
+  "url": "https://mycodelesswebsite.com/fitness-website-designs/",
+  "niche": "boutique gym / boxing club",
+  "idea": "Like Dogpound's team page (trainer profiles with specialties and quotes): coach cards for fitness leads that name their coaches. Each card has the coach's own photo (or a big initial), 2–3 specialty tags (e.g. 'Footwork', 'Kids', 'Fight prep') and one short quote in their own words from the lead data. It uses the same horizontal scroll-snap row as the barber team block, with a 'Train with <Name>' link when that coach has one.",
+  "why": "People choose a boxing gym or studio for the coach. Faces, specialties and a human quote build trust in the people, and give beginners someone to ask for by name.",
+  "kind": "layout",
+  "date": "2026-10-11"
+ },
+ {
+  "url": "https://www.wodify.com/blog/gym-and-martial-arts-website-examples-to-inspire-you",
+  "niche": "boxing club",
+  "idea": "After Jose Morales Boxing Academy (Roseville, CA), whose homepage opens on a black-and-white video of its young and female students to back its 'Boxing For All' line: allow a cinematic hero variant that plays a 5–8 s muted loop cut from the lead's own Reel. It is greyscale via CSS filter with the name in the brand colour on top, uses <video muted playsinline loop preload=none> with a poster JPEG, and starts only after load. It stays on the poster under prefers-reduced-motion or Save-Data.",
+  "why": "A real clip of real members says 'people like you train here' better than any headline. It makes a small local gym feel cinematic while the page stays fast, because only the poster loads first.",
+  "kind": "photo",
+  "date": "2026-10-11"
+ },
+ {
+  "url": "https://glossgenius.com/blog/nail-salon-websites",
+  "niche": "nail / lash studio",
+  "idea": "After Artiva Nails & Co, which presents itself with hospital-grade sterilization and a 3-station studio, using white space and interior photography: a 'How we keep it clean' trio of icon cards (e.g. 'Tools sterilized every client', 'Single-use files', 'Private 3-chair studio'), placed right before the booking CTA. Each card renders only when the lead's own text states that fact.",
+  "why": "Hygiene is the silent worry for a first-time nail or lash client. Naming the studio's real practices next to the Book button turns that worry into a reason to choose them over a cheaper salon.",
+  "kind": "copy",
+  "date": "2026-10-11"
+ },
+ {
+  "url": "https://www.sitebuilderreport.com/salon-websites",
+  "niche": "salon / nail / lash studio",
+  "idea": "Like Sugarcoat Beauty (Atlanta), where each category (hands & feet, waxing, lash extensions) is clearly set out: when a beauty lead has 8+ services, group them into category tabs (a segmented control reusing the class day-tab script, with arrow-key support). Each tab shows its services with price and duration on a dotted-leader menu and ends with one 'Book <category>' button.",
+  "why": "A long flat price list overwhelms people on a phone. Tabs let a client jump straight to 'Lashes' and see the price and the booking button within one screen, so the menu feels curated and premium.",
+  "kind": "layout",
+  "date": "2026-10-11"
+ },
+ {
+  "url": "https://nanoglobals.com/barbershop-websites/",
+  "niche": "barbershop",
+  "idea": "After the Austin barbershop whose booking opens in a popup so visitors never leave the page: when the lead's booking platform allows embedding (Square Appointments, Booksy widget), 'Book now' opens a full-screen <dialog> that injects the booking iframe only on tap, like the tap-to-load map, so there are still 0 external requests at load. It has a 44 px close button, keeps focus inside the dialog, and falls back to the plain external link when there is no JS or the iframe can't load.",
+  "why": "Every hop to another site loses would-be clients. Keeping booking 'inside' the barber's own site feels more professional and keeps the brand on screen while they choose a time.",
+  "kind": "conversion",
+  "date": "2026-10-11"
+ },
+ {
+  "url": "https://busnurd.com/case-studies/organic-traffic/",
+  "niche": "barbershop",
+  "idea": "From Busnurd's case study of a 35-year-old Indianapolis barbershop, whose redesign added founder storytelling, per-service pricing and live reviews: an optional 'Our story' block between the proof and the photos. It holds a pull-quote from the owner in their own words, the founding year set big in the display font, and one own photo of the owner at the chair. It renders only when the lead provides a story line or a founding year.",
+  "why": "Long-running neighbourhood shops compete on heritage and personality, not price. A short founder story with a big 'Since 1990' gives loyal and new clients an emotional reason to book with them over a chain.",
+  "kind": "copy",
+  "date": "2026-10-11"
+ },
+ {
+  "url": "https://github.com/googlefonts/caacupe",
+  "niche": "food (Latin food trucks, cafeterías, bakeries)",
+  "idea": "Add a DISPLAY key `caacupe` (Caacupé One 400, Google Fonts July 2026, OFL, upper:true, lh≈0.9, tight tracking) to site.mjs and make it the default headline font for Latin food-truck and cafetería leads, with the hero name and menu section titles set big in it.",
+  "why": "It is a heavy condensed face drawn from hand-painted Buenos Aires shop signs, with full Spanish accents. A Cuban or Dominican spot then looks like its own painted sign, not a template, and long names like 'DELFINA'S CHIMI' still fit on one line on a phone.",
+  "kind": "type",
+  "date": "2026-10-11"
+ },
+ {
+  "url": "https://github.com/HelsinkiTypeStudio/valley-sans",
+  "niche": "food (bakeries, cafés, family restaurants) and home services",
+  "idea": "Add a BODY key `valley` (Valley Sans variable 100–900 plus italic, Google Fonts July 2026, OFL) and use it in place of Manrope/DM Sans on warm-niche themes, with weight 700–800 for subheads so one family covers the whole page.",
+  "why": "Helsinki Type Studio drew it for Moomin from Tove Jansson's lettering, so its slightly flared ends feel friendly without being cute. It reads well at small sizes and gives family businesses a warm, trustworthy voice that the overused geometric sans fonts don't.",
+  "kind": "type",
+  "date": "2026-10-11"
+ },
+ {
+  "url": "https://raw.githubusercontent.com/google/fonts/main/ofl/librecasloncondensed/METADATA.pb",
+  "niche": "food (restaurants, cafés, bakeries with menus)",
+  "idea": "Set menu item names and prices in Libre Caslon Condensed (wght 400–700, Google Fonts Aug 2026) as a two-column 'name …… price' list with dotted leaders on phones at 360 px, keeping the body font for the descriptions.",
+  "why": "A condensed classic serif fits twice as many dish names per line as a regular serif, so the menu stops wrapping into a long scroll on phones. It also gives the menu a printed bistro look that signals 'real restaurant' and helps visitors order.",
+  "kind": "type",
+  "date": "2026-10-11"
+ },
+ {
+  "url": "https://github.com/dimgrenev/akt",
+  "niche": "all (menu category tabs, service lists, nav)",
+  "idea": "Use Akt (Google Fonts Apr 2026, OFL variable 100–900, the same glyph widths at every weight) for menu-category / service tabs and nav, and show the active or hovered tab by animating font-weight 450→800 with no layout shift.",
+  "why": "A weight change usually makes tabs jump and reflow. Because Akt keeps the same widths at every weight, the active state can be bold and obvious while the page stays still, which looks polished and helps people find 'Tacos / Bowls / Drinks' fast.",
+  "kind": "type",
+  "date": "2026-10-11"
+ },
+ {
+  "url": "https://www.collletttivo.it/newsletter/archive/63b42437-8f76-46bc-977c-34bb2cf8fadb",
+  "niche": "beauty (nail, lash, brow studios, spas)",
+  "idea": "Add a DISPLAY key `aujournuit` (Collletttivo's open-source calligraphic display face) for beauty leads, used only for the business name and one big italic-style pull line, never for body text.",
+  "why": "It has an ink-and-brush feel that reads as hand-made luxury, and it replaces Playfair Display italic, the face that makes most nail-salon sites look the same. That makes a $500 page feel like a custom brand identity.",
+  "kind": "type",
+  "date": "2026-10-11"
+ },
+ {
+  "url": "https://raw.githubusercontent.com/likeahuman-ai/font-hunt/main/skills/font-hunt/references/anti-slop-blocklist.md",
+  "niche": "all",
+  "idea": "Treat Playfair Display, DM Serif Display, Manrope and DM Sans (all four now in site.mjs DISPLAY/BODY) as 'AI-default' fonts. Stop picking them by default: use Instrument Serif italic or Fraunces for the elegant serif role, and Valley Sans, Pliant or Scoutie Sans for body text, and keep the old keys only when a lead's own brand already uses them.",
+  "why": "Prospects have seen these exact fonts on every template and AI-built site, so a preview set in them looks generic before anyone reads it. A fresher pairing is the cheapest way to make a sample look custom-designed and worth paying for.",
+  "kind": "type",
+  "date": "2026-10-11"
+ },
+ {
+  "url": "https://raw.githubusercontent.com/google/fonts/main/ofl/asapsharp/METADATA.pb",
+  "niche": "fitness (gyms, boxing, trainers) and home services (pressure washing, detailing)",
+  "idea": "Use Asap Sharp (Google Fonts Aug 2026, wdth 75–125, wght 100–900) for fitness and service heroes: set the name at wdth 75 / wght 900 so long names fit, and run a one-time scroll-linked wdth 75→110 stretch on the headline.",
+  "why": "Sharp corners and a compressed width read as fast and strong, which suits gyms and detailers. The width axis also keeps long business names to one or two lines on a phone instead of shrinking them to an unreadable size.",
+  "kind": "type",
+  "date": "2026-10-11"
+ },
+ {
+  "url": "https://www.vistaprint.com/hub/pantone-color-of-the-year",
+  "niche": "all (default page background)",
+  "idea": "Replace pure #FFFFFF and yellowish cream page grounds with Pantone 2026 Cloud Dancer (#F0EEE9 on screen) as the default --paper token. Pair it with soft charcoal #2B2B2B text and use Pantone's 'Powdered Pastels' tints for beauty and 'Atmospheric' blue-greys for home services.",
+  "why": "A soft warm white makes food and skin photos look richer, avoids the dated 2020 beige-cream look, and is easier on the eyes than stark white. It is also the Pantone colour of the year, so sites look current.",
+  "kind": "colour",
+  "date": "2026-10-11"
+ },
+ {
+  "url": "https://mr-mag.com/wgsn-and-coloro-announce-colour-of-the-year-2026-transformative-teal-and-the-key-colours-for-a-w-26-27",
+  "niche": "home services (cleaning, pool, pressure washing, HVAC) and wellness",
+  "idea": "Add a 'teal' palette preset: WGSN/Coloro 2026 Transformative Teal (Coloro 092-37-14; try oklch(42% 0.07 195) ≈ #1F5F5B) for the header field and buttons, with their A/W 26/27 'Wax Paper' off-white as the ground and 'Green Glow' as a small highlight colour for badges like 'Licensed & insured'.",
+  "why": "A deep blue-green reads as clean, calm and trustworthy, which is what someone hiring a cleaner or pool service wants to feel. It also stands apart from the generic navy that most contractor sites use.",
+  "kind": "colour",
+  "date": "2026-10-11"
+ },
+ {
+  "url": "https://www.pedestrian.tv/style/pinterest-palette-2026/",
+  "niche": "food (food trucks, street food, juice bars)",
+  "idea": "Add a 'persimmon' palette from the Pinterest Palette 2026 (persimmon, wasabi, plum noir, jade): a plum-noir hero field, persimmon order/call buttons, and a wasabi green for 'open now' / spicy tags.",
+  "why": "Warm orange-reds make people hungry and draw the eye to the order button, and a near-black plum ground looks 2026 rather than the flat red-and-yellow look of 2020 food sites. Pinterest's own trend data puts these colours in front of the audience these trucks want.",
+  "kind": "colour",
+  "date": "2026-10-11"
+ },
+ {
+  "url": "https://www.idealhome.co.uk/all-rooms/lick-colour-edit-of-the-year-2026",
+  "niche": "food (bakeries, coffee shops, brunch) and beauty",
+  "idea": "Add a 'butter' palette following Lick's 2026 edit: butter-yellow section bands (≈ #F3E3A6) with deep burgundy (≈ #5E1A26) for text, rules and buttons, plus a matcha-green chip colour for vegan or new items.",
+  "why": "Butter yellow with burgundy feels warm and a little upscale, like a modern pâtisserie. Dark burgundy text on butter passes contrast where yellow on white fails, and the pair photographs well with pastries and coffee.",
+  "kind": "colour",
+  "date": "2026-10-11"
+ },
+ {
+  "url": "https://github.com/evilmartians/harmony",
+  "niche": "all (generator engine)",
+  "idea": "In site.mjs, build each lead's whole accent scale from its one sampled brand hex in OKLCH, the way Evil Martians' Harmony palette does: keep the hue and chroma, and fix the lightness steps (e.g. 97 / 92 / 82 / 65 / 50 / 38 / 25 %). Then pick button-text colour by APCA contrast, not by guesswork.",
+  "why": "Logo colours pulled from Instagram are often too light or too loud for buttons, and that makes text hard to read or the page look off-brand. Fixed OKLCH steps give matched tints for cards and a readable button every time, so the site looks professional and the call-to-action can be read.",
+  "kind": "colour",
+  "date": "2026-10-11"
+ },
+ {
+  "url": "https://github.com/mdn/content/blob/main/files/en-us/web/css/guides/scroll-driven_animations/timeline_range_names/index.md",
+  "niche": "all (food menu rows, beauty service rows, fitness plan cards)",
+  "idea": "Reveal content below the first screen with no JavaScript. Inside `@media (prefers-reduced-motion:no-preference){@supports (animation-timeline:view()){…}}`, give menu rows, rating cards, gallery tiles and visit cards (`.items li,.rc,.g,.vc`) `animation:rise2 1ms linear both;` and then `animation-timeline:view();animation-range:entry 5% entry 55%`, with `@keyframes rise2{from{opacity:0;translate:0 18px}}`. animation-timeline must come AFTER the shorthand, because the shorthand resets it. In 2-column grids, offset the right column with `.gg>:nth-child(even){animation-range:entry 15% entry 65%}` so the tiles land one after the other.",
+  "why": "Right now only the hero moves. Everything after the first screen just sits there. Rows that settle in under the thumb make a $500 page feel like a brand's own site. The cost is zero JS (fine with the default-src 'none' CSP) and zero extra requests. Chrome 115+ and Safari / iOS 26 support it, which covers most iPhones opening the link from an Instagram DM. Every other browser sees the static page, because the rule lives inside @supports, so content is never hidden.",
+  "kind": "motion",
+  "date": "2026-10-11"
+ },
+ {
+  "url": "https://github.com/mdn/content/blob/main/files/en-us/web/css/guides/scroll-driven_animations/timelines/index.md",
+  "niche": "all (badge layout logo ring + footer ring)",
+  "idea": "Replace the logo ring's endless `spin 40s linear infinite` with a turn tied to scrolling: `@supports (animation-timeline:scroll()){.ring svg{animation:spin 1ms linear both;animation-timeline:scroll(root block)}}` with `@keyframes spin{to{rotate:540deg}}`. The 1ms duration is needed because Firefox requires a non-zero duration. The ring of the owner's own words then turns only while the visitor scrolls and stops when they stop. Browsers without support show a still ring.",
+  "why": "The motion answers the visitor instead of looping forever. WCAG 2.2.2 asks for a pause control on automatic motion longer than 5 s, and this removes the need for one. The phone does no work while it sits idle on the page. The ring also reads as a dial connected to the page, which looks more crafted than a screensaver spin.",
+  "kind": "motion",
+  "date": "2026-10-11"
+ },
+ {
+  "url": "https://github.com/mdn/content/blob/main/files/en-us/web/css/guides/overflow/carousels/index.md",
+  "niche": "beauty (nails / lash / cake lookbooks), food (dish photos)",
+  "idea": "Under 600 px, turn the `.gg` photo grid into a swipe row: `display:flex;overflow-x:auto;scroll-snap-type:x mandatory;overscroll-behavior-x:contain` with tiles at `flex:0 0 82%;scroll-snap-align:center`, so the next photo peeks in. Add browser-made dots with `scroll-marker-group:after` and `.g::scroll-marker{content:attr(data-label)}` (label = the photo's alt text). Fill the current dot with `:target-current`. Add arrows with `.gg::scroll-button(left){content:\"‹\" / \"Previous photo\"}` and the matching right button. Put a sticky right-edge fade inside the row and show it only through `container-type:scroll-state` + `@container scroll-state(scrollable:inline-end)`, so it disappears on the last photo.",
+  "why": "The 2-column grid of 4:5 photos takes about two screens of scrolling. A snap row shows each photo almost full width, which is what sells nails, cakes and plates, and fits in one screen height. The peeking photo invites a swipe, and the page gets shorter, so the Visit / Call block comes sooner. Chrome 135+ gets dots and arrows (each dot needs a real label for WCAG 4.1.2). Safari and Firefox get a plain snapping row that still swipes.",
+  "kind": "layout",
+  "date": "2026-10-11"
+ },
+ {
+  "url": "https://github.com/mdn/content/blob/main/files/en-us/web/css/guides/conditional_rules/container_scroll-state_queries/index.md",
+  "niche": "food (taquerías, cafeterías, food trucks with 3+ menu groups)",
+  "idea": "When the menu has 3 or more groups, add a chip nav (`<nav class=\"mcats\">` with `<a href=\"#m-tacos\">` links) that is `position:sticky;top:0;container-type:scroll-state`. Then `@container scroll-state(stuck:top){.mcats-in{padding-block:6px;background:var(--bg);box-shadow:0 6px 16px -10px #0006}}` makes it compact and adds a shadow only once it sticks. Add `scroll-target-group:auto` on the nav (Chrome 140) so the chip for the section on screen matches `a:target-current` and gets the accent fill. That is scroll-spy in pure CSS. Give each group heading `scroll-margin-top` equal to the nav height.",
+  "why": "Ordering apps taught people to jump straight to 'Combos' or 'Drinks'. A long dotted-leader menu is 3–4 screens on a 390 px phone. Jump chips take the visitor to what they came for and make the menu feel like an ordering product, not a pasted PDF. Chrome 133/140 add the stuck shadow and the active chip. Everywhere else the plain sticky chips still work.",
+  "kind": "layout",
+  "date": "2026-10-11"
+ },
+ {
+  "url": "https://github.com/Shopify/horizon/blob/main/assets/sticky-add-to-cart.js",
+  "niche": "all",
+  "idea": "Extend the `.actbar` script with a second IntersectionObserver. It watches the `.end` visit section and the `.ft` footer with `rootMargin:'200px 0px 0px 0px'`. While either is on screen, remove `.on` so the bar slides away. When they leave and the hero CTAs are still above the viewport (`boundingClientRect.top<0`), add `.on` back. This is how Shopify Horizon's sticky add-to-cart steps aside near the footer and only shows once the buy block is above the viewport.",
+  "why": "At the end of the page, the visit card already shows full-size Call / Directions / Order buttons with the hours and address next to them. The bar only repeats them while covering the footer links, the preview disclaimer and the 'Like what you see?' ask. Stepping aside makes the ending look finished and sends the tap to the bigger buttons that have context. It also removes the need for the extra `--bar` footer padding.",
+  "kind": "conversion",
+  "date": "2026-10-11"
+ },
+ {
+  "url": "https://github.com/Shopify/dawn/blob/main/sections/header.liquid",
+  "niche": "all (desktop / laptop visitors, e.g. from Google on a work computer)",
+  "idea": "At 900 px and up (where `.actbar` is display:none and there is no sticky call-to-action at all), add a slim top bar: logo, name, the live open-now pill (`.st`) and one primary button. It starts hidden at `translate:0 -110%` and slides in only after the hero is gone and the visitor scrolls UP, like Shopify Dawn's default 'on-scroll-up' sticky header. In Chrome 144+ this is pure CSS: `html{container-type:scroll-state}` plus `@container scroll-state(scrolled:block-start){.topbar.past{translate:0 0}}`. The existing hero IntersectionObserver sets `.past`, and other browsers simply keep the bar shown once `.past` is set.",
+  "why": "Desktop visitors lose every Call / Book button once the hero scrolls away. Scrolling up is the 'go back / I'm ready' gesture. Bringing the bar back exactly then keeps the main action one click away without a header permanently taking screen space from the photos. The live open-now pill in the bar also answers 'are they open?' without scrolling.",
+  "kind": "conversion",
+  "date": "2026-10-11"
+ },
+ {
+  "url": "https://github.com/GoogleChrome/developer.chrome.com/blob/main/site/en/blog/entry-exit-animations/index.md",
+  "niche": "food (several delivery apps) and beauty (book a specific barber or artist)",
+  "idea": "When a lead has 2 or more order/book links, make the actbar's primary button `<button popovertarget=\"ways\">`. It opens `<div id=\"ways\" popover>` as a bottom sheet listing each option (Uber Eats, DoorDash, Booksy, Call) as a 56 px row with its platform name. Animate it with `#ways{inset:auto 0 0;translate:0 100%;transition:translate .3s cubic-bezier(.2,.7,.2,1),display .3s allow-discrete,overlay .3s allow-discrete}`, `#ways:popover-open{translate:0 0}`, `@starting-style{#ways:popover-open{translate:0 100%}}`, plus a fading `::backdrop`. No JavaScript is needed, so it fits the CSP. Esc and tap-outside close it for free.",
+  "why": "Today 'more ways to order' sits near the bottom in the visit block. The sheet puts the visitor's own app one thumb-tap away from anywhere on the page, the same 'choose your app' step that ordering and booking products use, and the slide-up feels native. @starting-style is Baseline (Chrome 117, Firefox 129, Safari 17.5). Older browsers show the sheet without the slide.",
+  "kind": "conversion",
+  "date": "2026-10-11"
+ },
+ {
+  "url": "https://github.com/Shopify/horizon/blob/main/assets/base.css",
+  "niche": "fitness (class timetables), also dance and martial-arts studios",
+  "idea": "In the day-tabs script, run `sel(i)` inside `document.startViewTransition(()=>sel(i))` when the API exists, motion is allowed and the page is not in an in-app browser. Give whichever `.dt` is `aria-selected=true` `view-transition-name:day-pill`, and the visible `.dp` panel `view-transition-name:day-panel`. The filled pill then glides from Mon to Tue and the timetable cross-fades. Put the `::view-transition-group(day-pill)` timing and the `::view-transition-old/new(day-panel)` fade inside `@media (prefers-reduced-motion:no-preference)`, the way Horizon scopes its transitions.",
+  "why": "Switching days currently snaps, and the eye has to find what changed. A gliding pill plus a soft cross-fade makes the schedule feel like a class-booking app and shows clearly which day you are on. Same-document view transitions work in Chrome 111+ and Safari 18+. Elsewhere the tabs switch instantly, exactly as now.",
+  "kind": "motion",
+  "date": "2026-10-11"
+ },
+ {
+  "url": "https://github.com/Shopify/horizon/blob/main/assets/view-transitions.js",
+  "niche": "all (traffic from Instagram DMs)",
+  "idea": "Add a tiny head check that sets `html.lite` when the page opens inside Instagram / Facebook / TikTok in-app browsers or an Android WebView (UA /Instagram|FBAN|FBAV|TikTok|musical_ly|; wv\\)/), or on a low-end phone (`navigator.deviceMemory<=2 || navigator.hardwareConcurrency<=2`). Under `.lite`, skip view transitions, the 2.6 s hero `settle` zoom and any infinite loop. Also call `skipTransition()` on the first pointerdown or keydown. Shopify Horizon does the same: it injects `@view-transition{navigation:none}` in those WebViews and on low-power devices, and drops its render-blocker.",
+  "why": "DS previews are opened from an Instagram DM, so the first view happens inside Instagram's WebView, often on mid-range Android phones. Horizon found that transitions stall there. Making the first paint instant in exactly that browser protects the moment the sale depends on, while normal browsers keep all the motion.",
+  "kind": "tech",
+  "date": "2026-10-11"
+ },
+ {
+  "url": "https://github.com/Shopify/horizon/blob/main/snippets/card-hover-effect-styles.liquid",
+  "niche": "all",
+  "idea": "Move `.btn:hover{transform:translateY(-2px)}` into `@media (any-pointer:fine) and (prefers-reduced-motion:no-preference)`, Horizon's exact guard for hover effects. Add a fine-pointer-only photo zoom `.g:hover img{scale:1.015}` inside the tiles, which are already `overflow:hidden`. For touch, extend the press state the site has on `.btn` to the sticky bar and the link tiles: `.actbar a:active,.lt:active,.tl:active{scale:.98;translate:0 1px;transition:scale .08s,translate .08s}`, returning with an ease-out-cubic curve as Horizon's add-to-cart button does.",
+  "why": "The hover lift also fires on phone taps. After a visitor taps Call and comes back, the button can stay stuck raised, which looks buggy. Limiting hover to real mice and giving every touch target a quick press-down makes each tap feel confirmed. That matters most on the sticky Call / Directions / Book bar, which has no press state today.",
+  "kind": "motion",
+  "date": "2026-10-11"
+ },
+ {
+  "url": "https://github.com/mdn/content/blob/main/files/en-us/web/css/reference/properties/text-wrap-style/index.md",
+  "niche": "food (menu descriptions), beauty (service descriptions), fitness (plan details)",
+  "idea": "Add `text-wrap:pretty` to multi-line body copy that is not already balanced: menu item descriptions, service and plan descriptions (e.g. `.items p`, `.clist p`), the facts list (`.facts span`) and the visit-card notes. Keep `balance` only on headings and quotes. MDN describes balance as capped at about six lines and meant for short blocks, while pretty is the algorithm for body text.",
+  "why": "Short 2–3 line menu descriptions are where one stranded word ('fries.' alone on the last line) looks most amateur. `pretty` fixes it in Chrome 130+ and Safari / iOS 26, and other browsers keep the current wrapping. It is one line of CSS that adds a typesetter's polish to every page.",
+  "kind": "type",
+  "date": "2026-10-11"
+ },
+ {
+  "url": "https://github.com/Shopify/horizon/blob/main/assets/product-hotspot.js",
+  "niche": "food (plate / spread photos), beauty (a photo showing several services)",
+  "idea": "Let art direction in site-art.json add `spots:[{x:'38%',y:'52%',item:'Chimichurri burger'}]` to a hero or gallery photo. Render each spot as a 44 px numbered dot, `<button popovertarget=\"sp1\" style=\"anchor-name:--sp1\">`, with a `popover` callout placed by `position-anchor:--sp1;position-area:top`. The callout shows the item name, its price taken from the lead's own menu (so it passes the number gate) and a 'See it on the menu' link to that menu row. Tap opens it on phones; hover or focus opens it on desktop, like Shopify Horizon's product hotspots. Without anchor positioning, fall back to a fixed bottom callout.",
+  "why": "The photo is what makes people hungry, but on the page it is disconnected from the price. Tying the plate to its name and price turns the prettiest image into a way into the menu, which helps most for food trucks whose hero is one big spread. The popover attribute is Baseline, and CSS anchor positioning now ships in Chrome 125, Safari 26 and Firefox 147.",
+  "kind": "conversion",
+  "date": "2026-10-11"
+ }
+]
