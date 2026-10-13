@@ -1,4 +1,4 @@
-/* ── Sodexo Live! Brand Tokens ────────────────────────────── */
+/* ── SDX Inspect Brand Tokens ────────────────────────────── */
 :root {
   --sdx-red: #EE0000;
   --sdx-red-dark: #C50000;
@@ -42,6 +42,10 @@ html {
   -moz-osx-font-smoothing: grayscale;
   /* Block both horizontal swipe-navigate and vertical pull-to-refresh */
   overscroll-behavior: none;
+  /* Build-2 login fix: the page canvas itself is the SDX deep base, so any
+     area the app doesn't paint (e.g. below a keyboard-shrunken viewport on
+     the sign-in screen) is deep navy — never the webview's default black. */
+  background: #16152E;
 }
 
 body {
@@ -104,8 +108,10 @@ body {
   margin: -6px -10px;
   transition: background 0.15s ease;
 }
+@media (hover: hover) and (pointer: fine) {
 .brandClickable:hover {
   background: rgba(255,255,255,.1);
+}
 }
 .brandClickable:active {
   background: rgba(255,255,255,.15);
@@ -197,8 +203,10 @@ body {
   border-radius: 8px;
   transition: background 0.15s;
 }
+@media (hover: hover) and (pointer: fine) {
 .hamburgerBtn:hover {
   background: rgba(255,255,255,0.2);
+}
 }
 .hamburgerIcon {
   display: flex;
@@ -257,9 +265,11 @@ body {
   transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
   white-space: nowrap;
 }
+@media (hover: hover) and (pointer: fine) {
 .translateTriggerBtn:hover {
   background: rgba(255,255,255,0.16);
   border-color: rgba(255,255,255,0.38);
+}
 }
 .translateTriggerActive {
   background: rgba(255,255,255,0.2) !important;
@@ -373,11 +383,13 @@ body {
   text-align: left;
   font-family: inherit;
 }
+@media (hover: hover) and (pointer: fine) {
 .translateLangBtn:hover {
   background: #eff0ff;
   border-color: var(--sdx-blue);
   color: var(--sdx-navy);
   transform: translateY(-1px);
+}
 }
 .translateLangActive {
   background: linear-gradient(135deg, var(--sdx-navy) 0%, var(--sdx-blue) 100%) !important;
@@ -514,9 +526,16 @@ body {
   transition: background 0.15s;
   font-family: inherit;
 }
+@media (hover: hover) and (pointer: fine) {
 .dropdownMenuItem:hover { background: rgba(255,255,255,0.12); }
+}
 .dropdownMenuDanger { color: #fca5a5; }
+@media (hover: hover) and (pointer: fine) {
 .dropdownMenuDanger:hover { background: rgba(239,68,68,0.2); }
+}
+a.dropdownMenuItem { text-decoration: none; }
+.dropdownMenuItem.igMenuItem { gap: 9px; }
+.igMenuItem svg { flex-shrink: 0; opacity: 0.9; }
 
 /* ── Buttons ─────────────────────────────────────────────── */
 .btn {
@@ -544,10 +563,12 @@ body {
   background: var(--sdx-red);
   color: var(--sdx-white);
 }
+@media (hover: hover) and (pointer: fine) {
 .btnPrimary:hover:not(:disabled) {
   background: var(--sdx-red-dark);
   transform: translateY(-2px);
   box-shadow: 0 6px 20px rgba(238,0,0,.35);
+}
 }
 .btnPrimary:active:not(:disabled) {
   transform: translateY(0px) scale(0.98);
@@ -560,8 +581,10 @@ body {
   color: var(--sdx-white);
   border: 1px solid rgba(255,255,255,.2);
 }
+@media (hover: hover) and (pointer: fine) {
 .btnGhost:hover:not(:disabled) {
   background: rgba(255,255,255,.2);
+}
 }
 
 .btnSmall {
@@ -576,10 +599,12 @@ body {
   color: var(--sdx-gray-600);
   border: 1px solid var(--sdx-gray-200);
 }
+@media (hover: hover) and (pointer: fine) {
 .card .btnGhost:hover:not(:disabled),
 .guide .btnGhost:hover:not(:disabled) {
   background: var(--sdx-gray-100);
   color: var(--sdx-gray-800);
+}
 }
 
 /* ── Grid / Layout ───────────────────────────────────────── */
@@ -635,9 +660,11 @@ body {
   border: none;
   transition: box-shadow var(--transition), transform var(--transition);
 }
+@media (hover: hover) and (pointer: fine) {
 .card:hover {
   box-shadow: var(--shadow-lg);
   transform: translateY(-2px) translateZ(0);
+}
 }
 
 /* Output card stays visible while scrolling the long left form (desktop 2-col only) */
@@ -700,7 +727,9 @@ body {
   border-radius: 4px;
   transition: all var(--transition);
 }
+@media (hover: hover) and (pointer: fine) {
 .seg:hover { color: var(--sdx-gray-700); }
+}
 .segActive {
   background: var(--sdx-white);
   color: var(--sdx-navy);
@@ -887,10 +916,12 @@ input[type="date"] {
   transition: background 0.18s, border-color 0.18s, color 0.18s, transform 0.15s;
   flex-shrink: 0;
 }
+@media (hover: hover) and (pointer: fine) {
 .guideStepDot:hover {
   border-color: #60a5fa;
   color: #1d4ed8;
   transform: scale(1.1);
+}
 }
 .guideStepDotDone {
   background: #dbeafe;
@@ -965,8 +996,10 @@ input[type="date"] {
   background: #f1f5f9;
   color: #475569;
 }
+@media (hover: hover) and (pointer: fine) {
 .guideStepNavPrev:hover:not(:disabled) {
   background: #e2e8f0;
+}
 }
 .guideStepNavPrev:disabled {
   opacity: 0.35;
@@ -976,15 +1009,19 @@ input[type="date"] {
   background: var(--sdx-navy);
   color: #fff;
 }
+@media (hover: hover) and (pointer: fine) {
 .guideStepNavNext:hover {
   background: #1e1d52;
+}
 }
 .guideStepNavDone {
   background: #16a34a;
   color: #fff;
 }
+@media (hover: hover) and (pointer: fine) {
 .guideStepNavDone:hover {
   background: #15803d;
+}
 }
 
 /* Guide Sections */
@@ -1032,8 +1069,10 @@ input[type="date"] {
   width: 100%;
   box-sizing: border-box;
 }
+@media (hover: hover) and (pointer: fine) {
 .guideItem:hover {
   border-color: var(--sdx-gray-300);
+}
 }
 
 .guideItemHead {
@@ -1108,7 +1147,9 @@ input[type="date"] {
   cursor: pointer; transition: background 0.12s, border-color 0.12s, color 0.12s;
   -webkit-tap-highlight-color: transparent;
 }
+@media (hover: hover) and (pointer: fine) {
 .issueCategoryChip:hover { background: #eff6ff; border-color: #93c5fd; }
+}
 .issueCategoryChipActive { background: var(--sdx-navy); border-color: var(--sdx-navy); color: #fff; }
 
 /* ── Ice Maker multi-unit block ── */
@@ -1199,10 +1240,12 @@ input[type="date"] {
   line-height: 1.2;
 }
 .equipTypeChip:active { transform: scale(0.96); }
+@media (hover: hover) and (pointer: fine) {
 .equipTypeChip:not(.equipTypeChipActive):hover {
   background: #eff6ff;
   border-color: #60a5fa;
   box-shadow: 0 2px 6px rgba(30,58,138,0.1);
+}
 }
 .equipTypeChipActive {
   background: #1e3a8a !important;
@@ -1217,9 +1260,11 @@ input[type="date"] {
   background: #f0f9ff;
   font-style: italic;
 }
+@media (hover: hover) and (pointer: fine) {
 .equipTypeChipCustom:not(.equipTypeChipActive):hover {
   background: #dbeafe;
   border-color: #3b82f6;
+}
 }
 .equipTypeChipCustom.equipTypeChipActive {
   font-style: normal;
@@ -1313,8 +1358,10 @@ input[type="date"] {
   cursor: pointer;
   letter-spacing: 0.02em;
 }
+@media (hover: hover) and (pointer: fine) {
 .guideDetailsToggle:hover {
   color: var(--sdx-navy);
+}
 }
 
 /* ── Equipment N/A toggle ─────────────────────────────────── */
@@ -1331,20 +1378,24 @@ input[type="date"] {
   line-height: 1;
   transition: background 0.15s, border-color 0.15s, color 0.15s;
 }
+@media (hover: hover) and (pointer: fine) {
 .naToggleBtn:hover {
   border-color: #9ca3af;
   background: #f3f4f6;
   color: #374151;
+}
 }
 .naToggleBtnActive {
   background: #fef3c7;
   border-color: #fbbf24;
   color: #92400e;
 }
+@media (hover: hover) and (pointer: fine) {
 .naToggleBtnActive:hover {
   background: #fde68a;
   border-color: #f59e0b;
   color: #78350f;
+}
 }
 .naBadge {
   display: inline-block;
@@ -1439,10 +1490,12 @@ input[type="date"] {
   white-space: nowrap;
   line-height: 1.4;
 }
+@media (hover: hover) and (pointer: fine) {
 .clItemPhotoBtn:hover:not(:disabled) {
   background: #e2e8f0;
   border-color: #94a3b8;
   color: #1e293b;
+}
 }
 .clItemPhotoBtn:disabled {
   opacity: 0.45;
@@ -1458,10 +1511,12 @@ input[type="date"] {
   border-color: #86efac;
   color: #15803d;
 }
+@media (hover: hover) and (pointer: fine) {
 .clItemCameraBtn:hover:not(:disabled) {
   background: #dcfce7;
   border-color: #4ade80;
   color: #166534;
+}
 }
 /* Per-item photo thumbnails strip */
 .ciPhotoStrip {
@@ -1506,7 +1561,9 @@ input[type="date"] {
   align-items: center;
   justify-content: center;
 }
+@media (hover: hover) and (pointer: fine) {
 .ciPhotoRemove:hover { background: rgba(220,38,38,0.85); }
+}
 /* Uploading state overlay */
 .ciPhotoThumb.ciPhotoUploading { border-color: #93c5fd; }
 .ciPhotoThumb.ciPhotoUploading img { opacity: 0.55; }
@@ -1675,11 +1732,17 @@ input[type="date"] {
 .clBtnPass {
   border-color: #d1fae5;
 }
-.clBtnPass:hover,
 .clBtnPass:focus-visible {
   background: #dcfce7;
   border-color: #86efac;
   color: #15803d;
+}
+@media (hover: hover) and (pointer: fine) {
+.clBtnPass:hover {
+  background: #dcfce7;
+  border-color: #86efac;
+  color: #15803d;
+}
 }
 .clBtnPass.clBtnActive {
   background: #16a34a;
@@ -1689,11 +1752,17 @@ input[type="date"] {
 .clBtnFail {
   border-color: #fee2e2;
 }
-.clBtnFail:hover,
 .clBtnFail:focus-visible {
   background: #fee2e2;
   border-color: #fca5a5;
   color: #b91c1c;
+}
+@media (hover: hover) and (pointer: fine) {
+.clBtnFail:hover {
+  background: #fee2e2;
+  border-color: #fca5a5;
+  color: #b91c1c;
+}
 }
 .clBtnFail.clBtnActive {
   background: #dc2626;
@@ -2191,10 +2260,12 @@ datalist {
   color: var(--sdx-white);
   border: none;
 }
+@media (hover: hover) and (pointer: fine) {
 .btnAi:hover:not(:disabled) {
   background: linear-gradient(135deg, #6B2F90 0%, #C93698 100%);
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(123,63,160,.3);
+}
 }
 
 /* ── Brand Logo ──────────────────────────────────────────── */
@@ -2250,12 +2321,14 @@ datalist {
   padding: 6px 14px;
   font-size: 0.8rem;
 }
+@media (hover: hover) and (pointer: fine) {
 .btnDownload:hover:not(:disabled) {
   background: var(--sdx-navy);
   color: var(--sdx-white);
   border-color: var(--sdx-navy);
   transform: translateY(-1px);
   box-shadow: var(--shadow-sm);
+}
 }
 
 /* ── Save Button ─────────────────────────────────────────── */
@@ -2264,10 +2337,12 @@ datalist {
   color: var(--sdx-white);
   border: 1.5px solid transparent;
 }
+@media (hover: hover) and (pointer: fine) {
 .btnSave:hover:not(:disabled) {
   background: #0E6B31;
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(21,128,61,.3);
+}
 }
 .btnSaved {
   background: var(--sdx-green-light);
@@ -2283,9 +2358,11 @@ datalist {
 .historyCard {
   transition: box-shadow var(--transition), transform var(--transition);
 }
+@media (hover: hover) and (pointer: fine) {
 .historyCard:hover {
   box-shadow: var(--shadow-lg);
   transform: translateY(-1px);
+}
 }
 .historyStatus {
   display: inline-flex;
@@ -2362,8 +2439,10 @@ datalist {
   border-bottom: 1px solid var(--sdx-gray-100);
   color: var(--sdx-gray-700);
 }
+@media (hover: hover) and (pointer: fine) {
 .historyTable tr:hover td {
   background: var(--sdx-gray-50);
+}
 }
 .priorityBadge {
   display: inline-block;
@@ -2453,7 +2532,9 @@ datalist {
   border-left: 5px solid #b45309;
   background: #fffbeb;
 }
+@media (hover: hover) and (pointer: fine) {
 .issueRowMaint:hover { background: #fef3c7; }
+}
 .priorityMaint {
   background: #b45309;
   color: #fff;
@@ -2463,7 +2544,9 @@ datalist {
   border-left: 5px solid #991b1b;
   background: #fff1f1;
 }
+@media (hover: hover) and (pointer: fine) {
 .issueRowCritical:hover { background: #ffe4e4; }
+}
 .priorityCritical {
   background: #dc2626;
   color: #fff;
@@ -2473,15 +2556,23 @@ datalist {
   border-left: 4px solid #86efac;
   background: #f0fdf4;
 }
+@media (hover: hover) and (pointer: fine) {
 .issueRowResolved:hover { background: #dcfce7; }
+}
 .priorityResolved {
   background: #16a34a;
   color: #fff;
   white-space: nowrap;
 }
+@media (hover: hover) and (pointer: fine) {
 .issueRowHigh:hover { background: #fff0f0; }
+}
+@media (hover: hover) and (pointer: fine) {
 .issueRowMed:hover  { background: #fff8e6; }
+}
+@media (hover: hover) and (pointer: fine) {
 .issueRowFollowup:hover { background: #f0f0fe; }
+}
 .issueRowText {
   flex: 1;
   min-width: 0;
@@ -2509,9 +2600,11 @@ datalist {
   opacity: 0;
   transition: background 0.15s, opacity 0.15s;
 }
+@media (hover: hover) and (pointer: fine) {
 .photoThumbImgWrap:hover .photoThumbOverlay {
   background: rgba(0,0,0,0.35);
   opacity: 1;
+}
 }
 
 /* ── Inline Full Report View ─────────────────────────────── */
@@ -2880,7 +2973,9 @@ datalist {
   color: var(--sdx-gray-700);
   vertical-align: middle;
 }
+@media (hover: hover) and (pointer: fine) {
 .rptTable tbody tr:hover { background: var(--sdx-gray-50); }
+}
 .rptSectionCell {
   font-weight: 700;
   color: var(--sdx-navy);
@@ -3152,6 +3247,11 @@ datalist {
 .pinOverlay {
   position: fixed;
   inset: 0;
+  /* Build-2 login fix: pin the backdrop to the dynamic viewport height as
+     well as inset:0 — on iOS the classic inset pair can resolve against a
+     taller layout viewport than the visible screen. */
+  height: 100vh;
+  height: 100dvh;
   background: linear-gradient(135deg, var(--sdx-navy) 0%, var(--sdx-pin-mid, #3a3980) 40%, var(--sdx-pin-end, #6B3FA0) 100%);
   display: flex;
   align-items: center;
@@ -3280,9 +3380,11 @@ datalist {
   cursor: pointer;
   transition: all var(--transition);
 }
+@media (hover: hover) and (pointer: fine) {
 .btnLock:hover {
   background: rgba(255,255,255,.15);
   color: white;
+}
 }
 
 /* ── Registration / Badge Screen extras ──────────────────── */
@@ -3304,8 +3406,10 @@ datalist {
   text-decoration: underline;
   text-underline-offset: 2px;
 }
+@media (hover: hover) and (pointer: fine) {
 .btnLink:hover {
   color: var(--sdx-navy);
+}
 }
 .pendingIcon {
   font-size: 3rem;
@@ -3326,9 +3430,11 @@ datalist {
   transition: all var(--transition);
   letter-spacing: 0.5px;
 }
+@media (hover: hover) and (pointer: fine) {
 .btnAdmin:hover {
   filter: brightness(1.15);
   transform: translateY(-1px);
+}
 }
 .userBadgeLabel {
   color: rgba(255,255,255,.7);
@@ -3469,9 +3575,11 @@ datalist {
   transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
   white-space: nowrap;
 }
+@media (hover: hover) and (pointer: fine) {
 .fab:hover {
   transform: translateY(-2px);
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.25), 0 2px 8px rgba(0, 0, 0, 0.15);
+}
 }
 .fab:active {
   transform: translateY(0);
@@ -3481,13 +3589,17 @@ datalist {
   background: linear-gradient(135deg, var(--sdx-blue) 0%, var(--sdx-navy) 100%);
   color: #fff;
 }
+@media (hover: hover) and (pointer: fine) {
 .fabLeft:hover { background: linear-gradient(135deg, #3049b5 0%, #1f1e4e 100%); }
+}
 .fabRight {
   right: 20px;
   background: linear-gradient(135deg, var(--sdx-blue) 0%, var(--sdx-navy) 100%);
   color: #fff;
 }
+@media (hover: hover) and (pointer: fine) {
 .fabRight:hover { background: linear-gradient(135deg, #3049b5 0%, #1f1e4e 100%); }
+}
 
 /* ── Page Main (for History + Admin) ─────────────────────── */
 .pageMain {
@@ -3503,7 +3615,9 @@ datalist {
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--sdx-gray-300); border-radius: 3px; }
+@media (hover: hover) and (pointer: fine) {
 ::-webkit-scrollbar-thumb:hover { background: var(--sdx-gray-400); }
+}
 
 /* ── Touch & Mobile Foundations ─────────────────────────── */
 
@@ -3846,8 +3960,10 @@ datalist {
   text-underline-offset: 2px;
   transition: color 0.15s;
 }
+@media (hover: hover) and (pointer: fine) {
 .warningLink:hover {
   color: #b45309;
+}
 }
 .fieldHighlight {
   animation: fieldPulse 2s ease-out;
@@ -3873,7 +3989,9 @@ datalist {
   cursor: pointer;
   transition: background 0.15s;
 }
+@media (hover: hover) and (pointer: fine) {
 .btnNew:hover { background: #166534; }
+}
 
 /* ── Photo button ──────────────────────────────────────── */
 .photoBtn {
@@ -3881,9 +3999,11 @@ datalist {
   color: var(--sdx-navy);
   font-weight: 600;
 }
+@media (hover: hover) and (pointer: fine) {
 .photoBtn:hover {
   background: var(--sdx-navy);
   color: white;
+}
 }
 /* ── Floor Badge ────────────────────────────────────────── */
 .typeBadgeFloor {
@@ -3956,9 +4076,11 @@ datalist {
   user-select: none;
   transition: transform var(--spring), box-shadow var(--transition);
 }
+@media (hover: hover) and (pointer: fine) {
 .tempAvgPillClickable:hover {
   transform: scale(1.06);
   box-shadow: 0 4px 14px rgba(0,0,0,0.18);
+}
 }
 .tempAvgPillActive {
   transform: scale(1.09);
@@ -4108,15 +4230,19 @@ datalist {
   cursor: pointer;
   transition: background var(--transition), transform var(--transition), box-shadow var(--transition);
 }
+@media (hover: hover) and (pointer: fine) {
 .recurringKitchenClickable:hover {
   background: #2A295C;
   color: #fff;
   transform: translateY(-1px);
   box-shadow: 0 3px 10px rgba(42,41,92,0.22);
 }
+}
+@media (hover: hover) and (pointer: fine) {
 .recurringKitchenClickable:hover .recurringKitchenCount {
   background: rgba(255,255,255,0.2);
   color: #fff;
+}
 }
 .recurringKitchenTag {
   display: inline-flex;
@@ -4174,10 +4300,12 @@ datalist {
   cursor: pointer;
   transition: background var(--transition), box-shadow var(--transition), transform var(--transition);
 }
+@media (hover: hover) and (pointer: fine) {
 .worstLocationClickable:hover {
   background: #f0f4ff;
   box-shadow: 0 3px 12px rgba(42,41,92,0.12);
   transform: translateX(3px);
+}
 }
 .worstArrow {
   font-size: 1rem;
@@ -4185,7 +4313,9 @@ datalist {
   opacity: 0.5;
   transition: opacity 0.15s;
 }
+@media (hover: hover) and (pointer: fine) {
 .worstLocationClickable:hover .worstArrow { opacity: 1; }
+}
 
 /* ── History Tabs ──────────────────────────────────────── */
 .historyTabs {
@@ -4220,12 +4350,16 @@ datalist {
   filter: grayscale(0.3);
   transition: transform 0.18s ease, filter 0.18s ease;
 }
+@media (hover: hover) and (pointer: fine) {
 .historyTab:hover {
   border-color: #c7d2fe;
   color: #3730a3;
   background: #f5f3ff;
 }
+}
+@media (hover: hover) and (pointer: fine) {
 .historyTab:hover .tabIcon { transform: scale(1.1); filter: grayscale(0); }
+}
 .historyTabActive {
   background: var(--sdx-navy);
   border-color: var(--sdx-navy);
@@ -4314,60 +4448,6 @@ datalist {
   pointer-events: none;
 }
 
-/* ── Performance Dashboard Tab Nav ──────────────────────── */
-.perfTabsWrapper {
-  display: flex;
-  gap: 2px;
-  margin: 0 0 1.25rem;
-  background: #f1f4f9;
-  border-radius: 12px;
-  padding: 3px;
-  overflow-x: auto;
-  scrollbar-width: none;
-  -webkit-overflow-scrolling: touch;
-  border: 1px solid #e2e8f0;
-}
-.perfTabsWrapper::-webkit-scrollbar { display: none; }
-.perfTab {
-  flex: 1 1 0;
-  min-width: 0;
-  padding: 8px 4px;
-  border: none;
-  cursor: pointer;
-  border-radius: 9px;
-  font-weight: 600;
-  font-size: 0.66rem;
-  background: transparent;
-  color: #64748b;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background 0.15s, color 0.15s, box-shadow 0.15s;
-  text-align: center;
-  text-transform: uppercase;
-  letter-spacing: 0.07em;
-  line-height: 1;
-  overflow: hidden;
-  white-space: nowrap;
-}
-.perfTab:hover {
-  background: rgba(255,255,255,0.7);
-  color: var(--sdx-navy);
-}
-.perfTabIcon {
-  display: none;
-}
-.perfTabActive {
-  background: #fff;
-  color: var(--sdx-navy);
-  font-weight: 800;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.1), 0 0 0 1px rgba(28,43,94,0.06);
-}
-.perfTabActive:hover {
-  background: #fff;
-  color: var(--sdx-navy);
-}
-
 /* ── Analytics Sub-Tabs ─────────────────────────────────── */
 .analyticsSubNav {
   display: flex;
@@ -4401,10 +4481,12 @@ datalist {
   line-height: 1;
 }
 .analyticsSubTab .tabIcon { display: none; }
+@media (hover: hover) and (pointer: fine) {
 .analyticsSubTab:hover {
   border-color: #c7d2fe;
   color: #3730a3;
   background: #f5f3ff;
+}
 }
 .analyticsSubTab:focus { outline: none; }
 .analyticsSubTab:focus-visible { outline: 2px solid #6366f1; outline-offset: 2px; }
@@ -4469,9 +4551,11 @@ datalist {
   transition: box-shadow 0.15s, transform 0.1s;
   user-select: none;
 }
+@media (hover: hover) and (pointer: fine) {
 .predictiveItem:hover {
   box-shadow: 0 2px 10px rgba(0,0,0,0.08);
   transform: translateY(-1px);
+}
 }
 .predictiveItemTop {
   display: flex;
@@ -4589,13 +4673,17 @@ datalist {
   font-weight: 600;
   padding: 7px 12px;
 }
+@media (hover: hover) and (pointer: fine) {
 .stickyBtnView:hover { background: rgba(255,255,255,0.18); color: white; }
+}
 .stickyBtnEdit {
   background: rgba(255,255,255,0.15);
   color: white;
   border: 1px solid rgba(255,255,255,0.3);
 }
+@media (hover: hover) and (pointer: fine) {
 .stickyBtnEdit:hover { background: rgba(255,255,255,0.25); }
+}
 .stickyBtnSave {
   background: rgba(21,128,61,0.55);
   color: rgba(255,255,255,0.85);
@@ -4604,7 +4692,9 @@ datalist {
   font-weight: 600;
   padding: 7px 12px;
 }
+@media (hover: hover) and (pointer: fine) {
 .stickyBtnSave:hover { background: rgba(21,128,61,0.8); color: white; }
+}
 .stickyBtnSaved {
   background: rgba(34,197,94,0.45);
   color: rgba(255,255,255,0.85);
@@ -4619,13 +4709,17 @@ datalist {
   color: white;
   border: 1px solid rgba(255,255,255,0.3);
 }
+@media (hover: hover) and (pointer: fine) {
 .stickyBtnNew:hover { background: rgba(255,255,255,0.25); }
+}
 .stickyBtnHaccp {
   background: rgba(234,179,8,0.25);
   color: white;
   border: 1px solid rgba(234,179,8,0.55);
 }
+@media (hover: hover) and (pointer: fine) {
 .stickyBtnHaccp:hover { background: rgba(234,179,8,0.4); }
+}
 .stickyBtnHaccpOff {
   background: rgba(100,100,100,0.1);
   color: rgba(255,255,255,0.3);
@@ -4781,7 +4875,9 @@ datalist {
   transition: background 0.15s, color 0.15s;
   line-height: 1;
 }
+@media (hover: hover) and (pointer: fine) {
 .modalClose:hover { background: #f3f4f6; color: #1e293b; }
+}
 .modalBody {
   padding: 20px;
   display: flex;
@@ -4798,9 +4894,11 @@ datalist {
   transition: border-color 0.15s, box-shadow 0.15s;
   text-decoration: none;
 }
+@media (hover: hover) and (pointer: fine) {
 .qrWrap:hover {
   border-color: var(--sdx-blue);
   box-shadow: 0 0 0 3px rgba(40,56,151,0.10);
+}
 }
 .qrImg {
   display: block;
@@ -4831,7 +4929,9 @@ datalist {
   cursor: pointer;
   transition: background 0.15s;
 }
+@media (hover: hover) and (pointer: fine) {
 .btnShare:hover { background: rgba(255,255,255,0.25); }
+}
 .btnHaccp {
   padding: 9px 16px;
   font-size: 0.82rem;
@@ -4844,7 +4944,9 @@ datalist {
   cursor: pointer;
   transition: background 0.15s;
 }
+@media (hover: hover) and (pointer: fine) {
 .btnHaccp:hover { background: rgba(234,179,8,0.4); }
+}
 .btnHaccpDisabled {
   padding: 9px 16px;
   font-size: 0.82rem;
@@ -4882,7 +4984,9 @@ datalist {
   padding: 4px 0;
   text-align: center;
 }
+@media (hover: hover) and (pointer: fine) {
 .haccpTextBtn:hover { color: #9ca3af; }
+}
 .haccpLocEntry { display: flex; flex-direction: column; gap: 4px; }
 
 @media (max-width: 480px) {
@@ -4926,7 +5030,9 @@ datalist {
   color: var(--sdx-gray-500);
   white-space: nowrap;
 }
+@media (hover: hover) and (pointer: fine) {
 .maintPriorityBtn:hover { filter: brightness(0.94); }
+}
 .maintPriorityBtn.active-High { background: #fee2e2; border-color: #ef4444; color: #b91c1c; }
 .maintPriorityBtn.active-Med  { background: #fef3c7; border-color: #f59e0b; color: #92400e; }
 .maintPriorityBtn.active-Low  { background: #dcfce7; border-color: #22c55e; color: #166534; }
@@ -5271,10 +5377,12 @@ datalist {
   transition: background 0.18s, box-shadow 0.18s, transform 0.1s;
   box-shadow: 0 1px 4px rgba(0,0,0,0.07);
 }
+@media (hover: hover) and (pointer: fine) {
 .guideSectionToggle:hover {
   background: linear-gradient(135deg, #e2e9ff 0%, #d6dffa 100%);
   box-shadow: 0 3px 10px rgba(0,0,0,0.12);
   transform: translateY(-1px);
+}
 }
 .guideSectionToggle:active {
   transform: translateY(0);
@@ -5322,9 +5430,11 @@ datalist {
   transition: opacity 0.15s, background 0.15s;
   flex-shrink: 0;
 }
+@media (hover: hover) and (pointer: fine) {
 .guideItemDeleteBtn:hover {
   opacity: 1;
   background: #ffe4e4;
+}
 }
 /* Empty hint shown when no items exist yet (Portable/Subcontractor equipment) */
 .guideSectionEmptyHint {
@@ -5371,7 +5481,9 @@ datalist {
   color: var(--sdx-navy);
   gap: 6px;
 }
+@media (hover: hover) and (pointer: fine) {
 .inlineChatToggle:hover { background: #f0f2ff; }
+}
 .inlineChatChevron { font-size: 0.65rem; color: #9ca3af; }
 .inlineChatBadge {
   background: var(--sdx-red);
@@ -5460,9 +5572,11 @@ datalist {
   white-space: nowrap;
   transition: background 0.15s, border-color 0.15s;
 }
+@media (hover: hover) and (pointer: fine) {
 .haccpAddReadingBtn:hover {
   background: #e0e7ff;
   border-color: #6366f1;
+}
 }
 .haccpRemoveReadingBtn {
   background: none;
@@ -5475,9 +5589,11 @@ datalist {
   flex-shrink: 0;
   transition: background 0.15s, color 0.15s;
 }
+@media (hover: hover) and (pointer: fine) {
 .haccpRemoveReadingBtn:hover {
   background: #fee2e2;
   color: #b91c1c;
+}
 }
 .haccpLabelEditInput {
   font-size: 0.85rem;
@@ -5504,9 +5620,11 @@ datalist {
   cursor: pointer;
   transition: background 0.15s, border-color 0.15s;
 }
+@media (hover: hover) and (pointer: fine) {
 .haccpAddItemBtn:hover {
   background: #dcfce7;
   border-color: #4ade80;
+}
 }
 
 /* ── End-of-Day Corrective Action Prompt ─────────────────────────────── */
@@ -5574,7 +5692,9 @@ datalist {
   flex-shrink: 0;
   transition: background 0.15s, color 0.15s;
 }
+@media (hover: hover) and (pointer: fine) {
 .eodClose:hover { background: #f3f4f6; color: #374151; }
+}
 .eodSection {
   margin-bottom: 16px;
 }
@@ -5739,9 +5859,11 @@ datalist {
   flex: 1;
   justify-content: center;
 }
+@media (hover: hover) and (pointer: fine) {
 .aiMonitorNavBtn:hover {
   color: #1e293b;
   background: #f1f5f9;
+}
 }
 .aiMonitorNavBtn.active {
   color: #2563eb;
@@ -5851,8 +5973,10 @@ datalist {
   padding: 16px;
   transition: box-shadow 120ms ease;
 }
+@media (hover: hover) and (pointer: fine) {
 .aiSugCard:hover {
   box-shadow: 0 3px 12px rgba(0,0,0,.09);
+}
 }
 
 .aiSugIcon {
@@ -5883,8 +6007,10 @@ datalist {
   flex-shrink: 0;
   transition: color 120ms ease;
 }
+@media (hover: hover) and (pointer: fine) {
 .aiSugDismiss:hover {
   color: #64748b;
+}
 }
 
 .aiRestoreBtn {
@@ -5902,9 +6028,11 @@ datalist {
   text-align: center;
   transition: border-color 120ms, color 120ms;
 }
+@media (hover: hover) and (pointer: fine) {
 .aiRestoreBtn:hover {
   border-color: #94a3b8;
   color: #475569;
+}
 }
 
 /* Person / location cards */
@@ -5919,8 +6047,10 @@ datalist {
 .aiPersonCard:last-child {
   margin-bottom: 0;
 }
+@media (hover: hover) and (pointer: fine) {
 .aiPersonCard:hover {
   box-shadow: 0 2px 10px rgba(0,0,0,.07);
+}
 }
 
 .aiPersonRank {
@@ -6009,7 +6139,9 @@ datalist {
   letter-spacing: -0.01em;
   transition: background 0.2s;
 }
+@media (hover: hover) and (pointer: fine) {
 .foodSafetyRefToggle:hover { background: linear-gradient(135deg, #f1f5f9 0%, #f8fafc 100%); }
+}
 
 .foodSafetyRefToggleMeta {
   display: flex;
@@ -6109,7 +6241,9 @@ datalist {
   align-items: start;
   transition: box-shadow 0.15s;
 }
+@media (hover: hover) and (pointer: fine) {
 .foodSafetyTempCard:hover { box-shadow: 0 2px 10px rgba(0,0,0,.07); }
+}
 .foodSafetyTempLabel {
   font-size: 0.76rem;
   font-weight: 600;
@@ -6199,7 +6333,9 @@ datalist {
   gap: 1px 8px;
   transition: box-shadow 0.15s;
 }
+@media (hover: hover) and (pointer: fine) {
 .sanitizerCard:hover { box-shadow: 0 2px 10px rgba(0,0,0,.07); }
+}
 .sanitizerType {
   font-size: 0.76rem;
   font-weight: 700;
@@ -6245,116 +6381,6 @@ datalist {
   line-height: 1.55;
 }
 
-/* ── Print / Report Styles ───────────────────────────────────────── */
-@media print {
-  /* Hide everything by default */
-  body * { visibility: hidden; }
-
-  /* Show only the performance dashboard print region */
-  .perfDashPrintRegion,
-  .perfDashPrintRegion * { visibility: visible; }
-
-  /* Position it to fill the page */
-  .perfDashPrintRegion {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    padding: 0;
-    margin: 0;
-    background: #fff !important;
-  }
-
-  /* Page setup */
-  @page {
-    size: A4 portrait;
-    margin: 14mm 12mm 14mm 12mm;
-  }
-
-  /* Print header — replaces the dark gradient header */
-  .perfPrintHeader {
-    display: flex !important;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0 0 10px 0;
-    border-bottom: 3px solid #2A295C;
-    margin-bottom: 14px;
-  }
-  .perfPrintHeader .perfPrintLogo {
-    font-size: 15pt;
-    font-weight: 900;
-    color: #2A295C;
-    letter-spacing: -0.01em;
-  }
-  .perfPrintHeader .perfPrintMeta {
-    font-size: 8pt;
-    color: #64748b;
-    text-align: right;
-    line-height: 1.5;
-  }
-
-  /* KPI strip for print */
-  .perfPrintKpis {
-    display: grid !important;
-    grid-template-columns: repeat(5, 1fr);
-    gap: 8px;
-    margin-bottom: 14px;
-  }
-  .perfPrintKpis > div {
-    background: #f1f5f9 !important;
-    border: 1.5px solid #e2e8f0 !important;
-    border-radius: 8px;
-    padding: 8px 6px;
-    text-align: center;
-  }
-  .perfPrintKpis .kpiVal {
-    font-size: 14pt;
-    font-weight: 900;
-    color: #2A295C;
-    line-height: 1;
-  }
-  .perfPrintKpis .kpiLbl {
-    font-size: 7pt;
-    color: #64748b;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    margin-top: 3px;
-  }
-
-  /* Section heading */
-  .perfPrintSectionTitle {
-    font-size: 10pt;
-    font-weight: 900;
-    color: #2A295C;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    border-bottom: 1.5px solid #e2e8f0;
-    padding-bottom: 4px;
-    margin: 12px 0 8px;
-  }
-
-  /* Make each inspector card page-friendly */
-  .perfPrintCard {
-    break-inside: avoid;
-    page-break-inside: avoid;
-    border: 1.5px solid #e2e8f0;
-    border-radius: 8px;
-    padding: 8px 10px;
-    margin-bottom: 8px;
-    background: #fff !important;
-  }
-
-  /* Hide screen-only elements */
-  .perfPrintHide { display: none !important; }
-
-  /* Force print-only elements to show */
-  .perfPrintOnly { display: block !important; }
-
-  /* Ensure text is dark on white */
-  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-}
-
 /* Cutting board cards — built inline in JSX, no extra class needed */
 @keyframes spin { to { transform: rotate(360deg); } }
 
@@ -6381,9 +6407,9 @@ datalist {
    Overriding the brand tokens re-skins the whole app chrome.
    ══════════════════════════════════════════════════════════════ */
 
-/* Sodexo Classic (default) — uses the :root tokens above */
+/* SDX Classic (default) — uses the :root tokens above */
 
-/* Sodexo Ocean — bright blue gradient, matches the blue Sodexo brand tile */
+/* SDX Ocean — bright blue gradient, matches the blue SDX brand tile */
 html[data-theme="ocean"] {
   --sdx-navy: #0B4EA2;
   --sdx-navy-deep: #0A3D80;
@@ -6393,7 +6419,7 @@ html[data-theme="ocean"] {
   --shadow-lg: 0 8px 30px rgba(11,78,162,.14);
 }
 
-/* Sodexo Midnight — deep dark-navy chrome, like the dark Sodexo tile */
+/* SDX Midnight — deep dark-navy chrome, like the dark SDX tile */
 html[data-theme="midnight"] {
   --sdx-navy: #1C1B45;
   --sdx-navy-deep: #121130;
@@ -6437,7 +6463,9 @@ html[data-theme="dsmarketing"] .logoMark { background: #FFFFFF; }
   text-align: left;
   transition: border-color var(--transition-fast), transform var(--transition-fast), box-shadow var(--transition-fast);
 }
+@media (hover: hover) and (pointer: fine) {
 .themeCard:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+}
 .themeCard.active { border-color: var(--sdx-navy); box-shadow: 0 0 0 3px rgba(42,41,92,.15); }
 .themeSwatch {
   height: 58px;
@@ -6490,8 +6518,10 @@ body {
   border-radius: var(--radius-lg);
   box-shadow: 0 1px 2px rgba(42,41,92,.05), 0 6px 20px rgba(42,41,92,.06), 0 0 0 1px rgba(42,41,92,.045);
 }
+@media (hover: hover) and (pointer: fine) {
 .card:hover {
   box-shadow: 0 2px 4px rgba(42,41,92,.06), 0 12px 32px rgba(42,41,92,.10), 0 0 0 1px rgba(42,41,92,.05);
+}
 }
 
 /* Buttons: rounder, gradient primary, crisper press */
@@ -6504,8 +6534,10 @@ body {
   background: linear-gradient(180deg, #FF1A1A 0%, var(--sdx-red) 55%, var(--sdx-red-dark) 100%);
   box-shadow: 0 1px 0 rgba(255,255,255,.25) inset, 0 3px 10px rgba(238,0,0,.28);
 }
+@media (hover: hover) and (pointer: fine) {
 .btnPrimary:hover:not(:disabled) {
   background: linear-gradient(180deg, #FF3333 0%, var(--sdx-red) 60%, var(--sdx-red-dark) 100%);
+}
 }
 
 /* Inputs: modern focus ring */
@@ -6533,10 +6565,12 @@ html[data-theme="dsmarketing"] textarea:focus {
   ::-webkit-scrollbar { width: 10px; height: 10px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb { background: rgba(42,41,92,.22); border-radius: 8px; border: 2px solid transparent; background-clip: content-box; }
-  ::-webkit-scrollbar-thumb:hover { background: rgba(42,41,92,.4); border: 2px solid transparent; background-clip: content-box; }
+  @media (hover: hover) and (pointer: fine) {
+::-webkit-scrollbar-thumb:hover { background: rgba(42,41,92,.4); border: 2px solid transparent; background-clip: content-box; }
+}
 }
 
-/* Sodexo Noir — black chrome with the Sodexo mark, red accent kept */
+/* SDX Noir — black chrome with the SDX mark, red accent kept */
 html[data-theme="noir"] {
   --sdx-navy: #141416;
   --sdx-navy-deep: #000000;
@@ -6577,11 +6611,13 @@ html[data-theme="dsmarketing"] { --sdx-pin-mid: #1A1A1D; --sdx-pin-end: #2E2E33;
   background: var(--sdx-red);
   box-shadow: 0 2px 8px rgba(238,0,0,.28);
 }
+@media (hover: hover) and (pointer: fine) {
 .btnGenHeader:hover:not(:disabled),
 .btnGenHeader.btnPrimary:hover:not(:disabled) {
   background: var(--sdx-red-dark);
   transform: translateY(-1px);
   box-shadow: 0 4px 14px rgba(238,0,0,.34);
+}
 }
 .btnGenHeader:active:not(:disabled) { transform: translateY(0) scale(0.98); }
 .genBtnSvg { flex-shrink: 0; }
@@ -6620,11 +6656,17 @@ html[data-theme="dsmarketing"] { --sdx-pin-mid: #1A1A1D; --sdx-pin-end: #2E2E33;
   white-space: nowrap;
   transition: transform var(--transition-fast), box-shadow var(--transition-fast), background var(--transition-fast);
 }
+@media (hover: hover) and (pointer: fine) {
 .fuBtn:hover { transform: translateY(-1px); }
+}
 .fuBtnRemind { background: var(--sdx-navy); color: #fff; }
+@media (hover: hover) and (pointer: fine) {
 .fuBtnRemind:hover { box-shadow: 0 3px 10px rgba(42,41,92,.3); }
+}
 .fuBtnResolve { background: #E8F7EE; color: #15803D; border: 1px solid #BBE7C9; }
+@media (hover: hover) and (pointer: fine) {
 .fuBtnResolve:hover { background: #D9F2E3; }
+}
 @media (max-width: 560px) {
   .fuItem { flex-wrap: wrap; }
   .fuActions { width: 100%; justify-content: flex-start; }
@@ -6671,7 +6713,9 @@ html[data-theme="dsmarketing"] { --sdx-pin-mid: #1A1A1D; --sdx-pin-end: #2E2E33;
   cursor: pointer;
   box-shadow: 0 2px 6px rgba(21, 128, 61, 0.25);
 }
+@media (hover: hover) and (pointer: fine) {
 .fuBtnPrimary:hover { background: #166534; }
+}
 .fuBtnPrimary:focus-visible { outline: 3px solid #86efac; outline-offset: 2px; }
 .fuBtnPrimary.done { background: #166534; box-shadow: none; }
 .fuPhotoWrap { position: relative; display: inline-block; }
@@ -6704,7 +6748,7 @@ html[data-theme="black"] .fuPhotoMenu { background: #17171D; border-color: #2A2A
 
 /* ══════════════════════════════════════════════════════════════
    LOGIN REDESIGN — brand backdrop, glass card, app-grade polish
-   (Badge screen always uses the default Sodexo look; venue theme
+   (Badge screen always uses the default SDX look; venue theme
    kicks in only after sign-in.)
    ══════════════════════════════════════════════════════════════ */
 .pinOverlay {
@@ -6712,7 +6756,14 @@ html[data-theme="black"] .fuPhotoMenu { background: #17171D; border-color: #2A2A
     radial-gradient(900px 600px at 15% -10%, rgba(238,0,0,.14), transparent 55%),
     radial-gradient(1100px 700px at 110% 110%, var(--sdx-pin-rad, rgba(40,56,151,.55)), transparent 60%),
     linear-gradient(150deg, var(--sdx-pin-deep, #201F4E) 0%, var(--sdx-navy, #2A295C) 45%, var(--sdx-pin-glow, #283897) 100%);
-  overflow: hidden;
+  /* Build-2 login fix: was overflow:hidden — when the iOS keyboard shrinks
+     the viewport, the fixed overlay shrinks with it and a taller card was
+     CLIPPED (Sign In button unreachable). Let the backdrop scroll vertically
+     instead; horizontal stays hidden so the glow blobs can't widen the page.
+     Padding keeps the glass card off the screen edges on short viewports. */
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 16px;
 }
 .pinOverlay::before,
 .pinOverlay::after {
@@ -6801,7 +6852,7 @@ img { -webkit-user-drag: none; }
 
 /* Views and cards ease in gently */
 @media (prefers-reduced-motion: no-preference) {
-  .grid, .guide, .adminPage, .historyPage, .perfPage {
+  .grid, .guide, .adminPage, .historyPage {
     animation: viewIn .32s cubic-bezier(0.22, 1, 0.36, 1);
   }
   .card { animation: cardIn .38s cubic-bezier(0.22, 1, 0.36, 1) backwards; }
@@ -6837,7 +6888,6 @@ img { -webkit-user-drag: none; }
 /* Press feedback everywhere — buttons feel physical */
 .btn:active:not(:disabled),
 .fuBtn:active,
-.perfTab:active,
 .historyTab:active { transform: scale(0.97); transition: transform 80ms ease; }
 
 /* Long lists render lazily — huge scroll-performance win */
@@ -6853,14 +6903,21 @@ img { -webkit-user-drag: none; }
 input, select, textarea { transition: border-color 120ms ease, box-shadow 120ms ease, background 120ms ease; }
 
 /* Cleaner Sign In button — crisp, no heavy glow */
-.pinBtn.btnPrimary,
+.pinBtn.btnPrimary {
+  background: var(--sdx-red);
+  box-shadow: 0 1px 3px rgba(20,20,40,.18);
+}
+@media (hover: hover) and (pointer: fine) {
 .pinBtn.btnPrimary:hover:not(:disabled) {
   background: var(--sdx-red);
   box-shadow: 0 1px 3px rgba(20,20,40,.18);
 }
+}
+@media (hover: hover) and (pointer: fine) {
 .pinBtn.btnPrimary:hover:not(:disabled) {
   background: var(--sdx-red-dark);
   transform: translateY(-1px);
+}
 }
 
 /* ══════════════════════════════════════════════════════════════
@@ -6868,7 +6925,9 @@ input, select, textarea { transition: border-color 120ms ease, box-shadow 120ms 
    ══════════════════════════════════════════════════════════════ */
 @media (prefers-reduced-motion: no-preference) {
   /* Notification bell gives a little ring on hover */
-  .headerMessagesBtn:hover, .hamburgerBtn:hover { animation: bellWiggle .5s ease; }
+  @media (hover: hover) and (pointer: fine) {
+.headerMessagesBtn:hover, .hamburgerBtn:hover { animation: bellWiggle .5s ease; }
+}
   @keyframes bellWiggle {
     0%,100% { transform: rotate(0); }
     25% { transform: rotate(-8deg); }
@@ -6891,11 +6950,15 @@ input, select, textarea { transition: border-color 120ms ease, box-shadow 120ms 
   }
 
   /* Logo gives a tiny happy tilt on hover */
-  .brandLogo:hover, .pinLogo:hover { transform: rotate(-2deg) scale(1.04); }
+  @media (hover: hover) and (pointer: fine) {
+.brandLogo:hover, .pinLogo:hover { transform: rotate(-2deg) scale(1.04); }
+}
   .brandLogo, .pinLogo { transition: transform 200ms cubic-bezier(0.34, 1.56, 0.64, 1); }
 
   /* Theme cards wiggle-lift on hover */
-  .themeCard:hover { transform: translateY(-3px) rotate(-0.4deg); }
+  @media (hover: hover) and (pointer: fine) {
+.themeCard:hover { transform: translateY(-3px) rotate(-0.4deg); }
+}
 
   /* Follow-up status icons breathe */
   .fuOverdue .fuStatus { animation: pulseSoft 1.8s ease-in-out infinite; }
@@ -6905,7 +6968,9 @@ input, select, textarea { transition: border-color 120ms ease, box-shadow 120ms 
   }
 
   /* Save button success-ish shimmer on hover */
-  .btnGenHeader:hover:not(:disabled) { animation: none; }
+  @media (hover: hover) and (pointer: fine) {
+.btnGenHeader:hover:not(:disabled) { animation: none; }
+}
 }
 
 /* Skeleton shimmer utility for anything that loads */
@@ -6928,7 +6993,7 @@ input, select, textarea { transition: border-color 120ms ease, box-shadow 120ms 
 }
 
 /* ══════════════════════════════════════════════════════════════
-   SODEXO BLACK — full dark mode. Every surface goes black, text
+   SDX BLACK — full dark mode. Every surface goes black, text
    goes light, structure stays identical.
    ══════════════════════════════════════════════════════════════ */
 :root {
@@ -7059,9 +7124,11 @@ html[data-theme="black"] ::-webkit-scrollbar-thumb { background: rgba(255,255,25
   font-size: 0.88rem;
   transition: background .15s ease, transform .15s ease, padding-left .15s ease;
 }
+@media (hover: hover) and (pointer: fine) {
 .dropdownMenuItem:hover {
   background: rgba(255,255,255,.1);
   padding-left: 16px;
+}
 }
 .dropdownMenuItem:active { transform: scale(.98); }
 .dropdownMenuDanger {
@@ -7071,7 +7138,9 @@ html[data-theme="black"] ::-webkit-scrollbar-thumb { background: rgba(255,255,25
   color: #FF8A8A;
   font-weight: 700;
 }
+@media (hover: hover) and (pointer: fine) {
 .dropdownMenuDanger:hover { background: rgba(238,0,0,.18); padding-left: 16px; }
+}
 @media (max-width: 640px) {
   .dropdownMenu { left: 8px; right: 8px; border-radius: 18px; }
 }
@@ -7185,9 +7254,13 @@ html[data-theme="black"] .clBtn { background: #1C1C22; color: #C9CDDC; }
 html[data-theme="black"] .clItemPhotoBtn { background: #1C1C22; }
 html[data-theme="black"] .clItemCameraBtn { background: #10261C; }
 html[data-theme="black"] .naToggleBtn { background: #1C1C22; color: #B9BDCE; }
+@media (hover: hover) and (pointer: fine) {
 html[data-theme="black"] .naToggleBtn:hover { background: #23232B; }
+}
 html[data-theme="black"] .naToggleBtnActive { background: #2B2313; color: #EFC367; }
+@media (hover: hover) and (pointer: fine) {
 html[data-theme="black"] .naToggleBtnActive:hover { background: #332A17; }
+}
 html[data-theme="black"] .naBadge { background: #23232B; color: #B9BDCE; }
 html[data-theme="black"] .guideItemNA { background: #131317; }
 
@@ -7210,7 +7283,9 @@ html[data-theme="black"] .dropdownMenu {
   border-color: #26262E;
   box-shadow: 0 20px 60px rgba(0,0,0,.7), 0 4px 14px rgba(0,0,0,.5);
 }
+@media (hover: hover) and (pointer: fine) {
 html[data-theme="black"] .dropdownMenuItem:hover { background: rgba(255,255,255,.07); }
+}
 
 /* extra tint tokens */
 :root {
@@ -7223,7 +7298,7 @@ html[data-theme="black"] {
 }
 
 /* ══════════════════════════════════════════════════════════════
-   DARK APPEAL PASS — depth, glow, premium feel for Sodexo Black
+   DARK APPEAL PASS — depth, glow, premium feel for SDX Black
    ══════════════════════════════════════════════════════════════ */
 /* Page gets a subtle top glow in the accent color, like OLED ambient light */
 html[data-theme="black"] body {
@@ -7238,9 +7313,11 @@ html[data-theme="black"] .historyCard {
   border: 1px solid #1F1F27;
   box-shadow: 0 1px 0 rgba(255,255,255,.03) inset, 0 8px 28px rgba(0,0,0,.55);
 }
+@media (hover: hover) and (pointer: fine) {
 html[data-theme="black"] .card:hover {
   border-color: color-mix(in srgb, var(--sdx-navy) 35%, #1F1F27);
   box-shadow: 0 1px 0 rgba(255,255,255,.04) inset, 0 14px 40px rgba(0,0,0,.65);
+}
 }
 
 /* Primary buttons glow softly in the accent */
@@ -7285,7 +7362,9 @@ html[data-theme="black"] .aiMonitorTitle { color: #F2F3F8; }
 html[data-theme="black"] .aiMonitorNav { background: #101014; border-color: #23232B; }
 html[data-theme="black"] .aiMonitorNavBtn { color: #979CB0; }
 html[data-theme="black"] .aiMonitorNavBtn.active { color: #F2F3F8; background: #1C1C22; }
+@media (hover: hover) and (pointer: fine) {
 html[data-theme="black"] .aiMonitorNavBtn:hover { background: #17171D; }
+}
 
 /* Black theme: analytics stat tiles, Smart Insights header, Predictive cards */
 html[data-theme="black"] .aiMonitorHeader { background: #17171D; }
@@ -7293,16 +7372,12 @@ html[data-theme="black"] .aiMonitorSub { color: #979CB0; }
 html[data-theme="black"] .analysisStat { background: #17171D; border-color: #2A2A34; }
 html[data-theme="black"] .analysisStatLabel { color: #979CB0; }
 html[data-theme="black"] .predictiveItem { background: #17171D; border-color: #2A2A34; }
+@media (hover: hover) and (pointer: fine) {
 html[data-theme="black"] .predictiveItem:hover { box-shadow: 0 4px 14px rgba(0,0,0,.5); }
+}
 html[data-theme="black"] .predictiveItemMsg { color: #ECEDF3; }
 html[data-theme="black"] .predictiveIntro { color: #979CB0; }
 html[data-theme="black"] .predictiveFooter { color: #6E7488; }
-
-/* Black theme: Performance Dashboard tab bar */
-html[data-theme="black"] .perfTabsWrapper { background: #17171D; border-color: #2A2A34; }
-html[data-theme="black"] .perfTab { color: #979CB0; }
-html[data-theme="black"] .perfTab:hover { background: rgba(255,255,255,.06); color: #ECEDF3; }
-html[data-theme="black"] .perfTab.perfTabActive { background: #26262E; color: #FFFFFF; box-shadow: 0 2px 8px rgba(0,0,0,.4); }
 
 /* Black theme: Smart Insights brain tile */
 html[data-theme="black"] .aiMonitorBrain {
@@ -7437,9 +7512,11 @@ html[data-theme="black"] .guideSectionToggle {
   border-left-color: var(--sdx-red);
   box-shadow: 0 1px 4px rgba(0,0,0,.5);
 }
+@media (hover: hover) and (pointer: fine) {
 html[data-theme="black"] .guideSectionToggle:hover {
   background: var(--surface-3);
   box-shadow: 0 3px 10px rgba(0,0,0,.6);
+}
 }
 
 /* ── Action Items block in dark mode ── */
@@ -7447,17 +7524,29 @@ html[data-theme="black"] .issuesBlock { background: var(--surface-2); border-col
 html[data-theme="black"] .issuesBlockTitle { background: rgba(153,27,27,.35); color: #fca5a5; border-bottom-color: rgba(239,68,68,.4); }
 html[data-theme="black"] .issueRow { border-bottom-color: var(--surface-3); }
 html[data-theme="black"] .issueRowHigh { background: rgba(239,68,68,.08); }
+@media (hover: hover) and (pointer: fine) {
 html[data-theme="black"] .issueRowHigh:hover { background: rgba(239,68,68,.14); }
+}
 html[data-theme="black"] .issueRowMed { background: rgba(245,158,11,.07); }
+@media (hover: hover) and (pointer: fine) {
 html[data-theme="black"] .issueRowMed:hover { background: rgba(245,158,11,.13); }
+}
 html[data-theme="black"] .issueRowFollowup { background: rgba(129,140,248,.08); }
+@media (hover: hover) and (pointer: fine) {
 html[data-theme="black"] .issueRowFollowup:hover { background: rgba(129,140,248,.14); }
+}
 html[data-theme="black"] .issueRowMaint { background: rgba(180,83,9,.1); }
+@media (hover: hover) and (pointer: fine) {
 html[data-theme="black"] .issueRowMaint:hover { background: rgba(180,83,9,.16); }
+}
 html[data-theme="black"] .issueRowCritical { background: rgba(153,27,27,.14); }
+@media (hover: hover) and (pointer: fine) {
 html[data-theme="black"] .issueRowCritical:hover { background: rgba(153,27,27,.2); }
+}
 html[data-theme="black"] .issueRowResolved { background: rgba(22,163,74,.08); }
+@media (hover: hover) and (pointer: fine) {
 html[data-theme="black"] .issueRowResolved:hover { background: rgba(22,163,74,.14); }
+}
 html[data-theme="black"] .priorityHigh { background: rgba(239,68,68,.2); color: #fca5a5; }
 html[data-theme="black"] .priorityMed { background: rgba(245,158,11,.2); color: #fcd34d; }
 html[data-theme="black"] .priorityFollowup { background: rgba(129,140,248,.2); color: #a5b4fc; }
@@ -7639,7 +7728,9 @@ html[data-theme="black"] .labelCardPro { background: #fff; }
   border: 2px solid var(--chipBg, #e2e8f0) !important; background: #fff !important; color: var(--chipC, #475569) !important;
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
 }
+@media (hover: hover) and (pointer: fine) {
 .guideStepChip:hover { transform: none; border-color: var(--chipC) !important; }
+}
 .guideStepChip .guideChipIcon { font-size: 0.95rem; line-height: 1; }
 .guideStepChip .guideChipLabel { font-weight: 800; font-size: 0.8rem; white-space: nowrap; }
 .guideStepChip-todo { color: #64748b !important; border-color: #e2e8f0 !important; }
@@ -7808,8 +7899,8 @@ html[data-theme="dark"] .fuStOnWaiting, html[data-theme="black"] .fuStOnWaiting 
   background: #2A295C; color: #fff; border: 1px solid #2A295C; text-decoration: none; flex-shrink: 0; line-height: 1.3;
 }
 .haccpReqBtn.haccpReqSent { background: #fef3c7; color: #92400e; border-color: #fde68a; }
-.haccpReqBtn.haccpReqSms  { background: #2563eb; border-color: #2563eb; }
-.haccpReqBtn.haccpReqAll  { font-size: 0.72rem; padding: 0.3rem 0.8rem; background: #dc2626; border-color: #dc2626; }
+.haccpReqBtn.haccpReqSms  { background: transparent; border-color: var(--sdx-navy, #2A295C); color: var(--sdx-navy, #2A295C); }
+.haccpReqBtn.haccpReqAll  { font-size: 0.72rem; padding: 0.3rem 0.8rem; background: var(--sdx-navy, #2A295C); border-color: var(--sdx-navy, #2A295C); }
 .haccpReqFlash {
   margin: 0 0 10px; padding: 7px 11px; border-radius: 9px; font-size: 0.8rem; font-weight: 700;
   background: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0;
@@ -8186,7 +8277,10 @@ html[data-theme="dark"] .fuStOnWaiting, html[data-theme="black"] .fuStOnWaiting 
 .fuTypeChip.fuType-Temperature { background: #dbeafe; color: #1d4ed8; }
 .fuTypeMenu { position: absolute; top: 110%; left: 0; z-index: 50; background: var(--surface-1); border: 1.5px solid var(--sdx-gray-200); border-radius: 12px; padding: 6px; display: flex; flex-direction: column; gap: 3px; min-width: 190px; box-shadow: 0 8px 24px rgba(0,0,0,.18); }
 .fuTypeOpt { background: none; border: none; text-align: left; padding: 7px 10px; border-radius: 8px; font-size: 0.8rem; font-weight: 700; color: var(--ink-800); cursor: pointer; }
-.fuTypeOpt:hover, .fuTypeOpt.on { background: var(--surface-2); }
+.fuTypeOpt.on { background: var(--surface-2); }
+@media (hover: hover) and (pointer: fine) {
+.fuTypeOpt:hover { background: var(--surface-2); }
+}
 .fuTypeAuto { color: var(--ink-500); border-top: 1px solid var(--sdx-gray-100); border-radius: 0; }
 .crewNotMine { background: none; border: none; color: var(--ink-500); font-size: 0.72rem; font-weight: 700; cursor: pointer; padding: 4px 0 0; text-decoration: underline; }
 .crewMove { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 6px; font-size: 0.74rem; font-weight: 700; color: var(--ink-600); }
@@ -8223,7 +8317,10 @@ html[data-theme="dark"] .fuStOnWaiting, html[data-theme="black"] .fuStOnWaiting 
   -webkit-backdrop-filter: blur(8px);
   transition: transform .15s ease, box-shadow .15s ease;
 }
-.langFab:hover, .langFabActive { transform: translateY(-1px); box-shadow: 0 10px 26px rgba(20, 20, 60, 0.24); }
+.langFabActive { transform: translateY(-1px); box-shadow: 0 10px 26px rgba(20, 20, 60, 0.24); }
+@media (hover: hover) and (pointer: fine) {
+.langFab:hover { transform: translateY(-1px); box-shadow: 0 10px 26px rgba(20, 20, 60, 0.24); }
+}
 .langFabSet { background: #2A295C; color: #fff; border-color: #2A295C; }
 .langFabFlag { font-size: 1.15rem; line-height: 1; }
 .langFabCode { white-space: nowrap; }
@@ -8376,7 +8473,9 @@ html[data-theme="dark"] .fuStOnWaiting, html[data-theme="black"] .fuStOnWaiting 
 .specMissing { background: #fff7ed; border-radius: 8px; padding: 4px 6px; }
 .specChips { display: flex; flex-wrap: wrap; gap: 5px; }
 .specChip { background: var(--surface-1); border: 1px solid var(--sdx-gray-200); border-radius: 999px; padding: 5px 11px; font-size: 0.75rem; font-weight: 600; color: var(--ink-700); cursor: pointer; line-height: 1.2; }
+@media (hover: hover) and (pointer: fine) {
 .specChip:hover { border-color: var(--ink-400, #9ca3af); }
+}
 .specChip.on { background: var(--sdx-navy); border-color: var(--sdx-navy); color: #fff; font-weight: 700; }
 .specCompact .specChip { padding: 4px 9px; font-size: 0.73rem; }
 .specToggle { background: var(--surface-2); border: 1px solid var(--sdx-gray-200); border-radius: 8px; padding: 0 10px; height: 34px; cursor: pointer; font-size: 1rem; }
@@ -8730,7 +8829,9 @@ html[data-theme="dark"] .fuStOnWaiting, html[data-theme="black"] .fuStOnWaiting 
 .nluChip-severity { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
 .nluChip-corrective { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
 .nluChipX { border: none; background: transparent; color: inherit; opacity: .6; cursor: pointer; font-size: 0.72rem; padding: 0 2px; line-height: 1; }
+@media (hover: hover) and (pointer: fine) {
 .nluChipX:hover { opacity: 1; }
+}
 button.nluChipTemp { background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; cursor: pointer; }
 .nluHint { font-weight: 600; color: #6366f1; font-size: 0.72rem; }
 .nluNotesPanel { margin-top: 8px; background: #eef2ff; border: 1px solid #c7d2fe; border-radius: 10px; padding: 10px 14px; }
@@ -8824,7 +8925,9 @@ button.nluChipTemp { background: #fef3c7; color: #92400e; border: 1px solid #fcd
   border-width: 2px !important; min-height: 40px; display: inline-flex; align-items: center; gap: 6px;
   box-shadow: 0 1px 2px rgba(0,0,0,.06); letter-spacing: .01em;
 }
+@media (hover: hover) and (pointer: fine) {
 .fuSummary .fuCrewChip:hover { filter: brightness(.97); }
+}
 @media (max-width: 720px) {
   .fuSummary .fuCrewGroup { margin-left: 0; padding-left: 0; border-left: 0; width: 100%; margin-top: 6px; padding-top: 8px; border-top: 2px solid var(--sdx-gray-200, #e5e7eb); }
   .fuSummary .fuCrewChip { flex: 1 1 auto; justify-content: center; }
@@ -8847,7 +8950,9 @@ button.nluChipTemp { background: #fef3c7; color: #92400e; border: 1px solid #fcd
 .expCrewSub { font-size: 0.8rem; color: var(--ink-500, #6b7280); margin: 4px 0 14px; }
 .expCrewGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .expCrewBtn { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; padding: 14px 14px 12px; border-radius: 14px; border: 2px solid var(--sdx-gray-200, #e5e7eb); background: var(--surface-1, #fff); cursor: pointer; min-height: 104px; transition: transform .12s, box-shadow .12s; }
+@media (hover: hover) and (pointer: fine) {
 .expCrewBtn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(0,0,0,.08); }
+}
 .expCrewBtn:disabled { opacity: .45; cursor: not-allowed; }
 .expCrewIcon { font-size: 1.5rem; line-height: 1; }
 .expCrewName { font-weight: 800; font-size: 1rem; color: var(--ink-900, #0f172a); margin-top: 4px; }
@@ -9006,7 +9111,10 @@ button.nluChipTemp { background: #fef3c7; color: #92400e; border: 1px solid #fcd
 .fuRowType { font-size: .74rem; font-weight: 700; border: 1px solid var(--sdx-gray-200, #e5e7eb); background: var(--surface-1, #fff); color: var(--ink-700, #334155); border-radius: 999px; padding: 2px 9px; cursor: pointer; }
 .fuRowTypeMenu { position: absolute; left: 0; top: calc(100% + 4px); z-index: 60; display: flex; flex-direction: column; min-width: 190px; background: var(--surface-1, #fff); border: 1px solid var(--sdx-gray-200, #e5e7eb); border-radius: 10px; box-shadow: 0 10px 24px rgba(15,23,42,.18); padding: 4px; }
 .fuRowTypeMenu button { text-align: left; border: none; background: none; color: inherit; padding: 8px 10px; border-radius: 7px; font-weight: 600; font-size: .85rem; cursor: pointer; }
-.fuRowTypeMenu button:hover, .fuRowTypeMenu button.on { background: var(--surface-2, #f1f5f9); }
+.fuRowTypeMenu button.on { background: var(--surface-2, #f1f5f9); }
+@media (hover: hover) and (pointer: fine) {
+.fuRowTypeMenu button:hover { background: var(--surface-2, #f1f5f9); }
+}
 
 /* v511 — Follow-ups toolbar: labelled rows, real spacing */
 .fuTools { display: grid; gap: 12px; margin: 14px 0 16px; padding: 12px 14px; border: 1px solid var(--sdx-gray-200, #e5e7eb); border-radius: 14px; background: var(--surface-2, #f8fafc); }
@@ -9093,11 +9201,13 @@ button.nluChipTemp { background: #fef3c7; color: #92400e; border: 1px solid #fcd
 [data-theme="dark"] .hcRow-often { background: rgba(180,83,9,.15); border-color: rgba(252,211,77,.4); }
 
 /* v518: equipment only where we are sure */
-.eqReviewWhy { font-size: .8rem; color: #92400e; background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 6px 10px; margin: 4px 0 6px; }
+.eqReviewWhy { font-size: .78rem; line-height: 1.45; color: var(--ink-700); background: #FFFBEB; border: 1px solid var(--sdx-gray-200); border-left: 3px solid #F59E0B; border-radius: 10px; padding: 8px 12px; margin: 6px 0 8px; }
 .eqReviewActs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 4px; }
-.eqReviewBtn { min-height: 40px; padding: 6px 12px; border-radius: 999px; border: 1.5px solid var(--sdx-navy, #2a295c); background: var(--sdx-navy, #2a295c); color: #fff; font-weight: 800; font-size: .8rem; cursor: pointer; max-width: 100%; text-align: left; }
-.eqReviewBtn.other { background: transparent; color: var(--sdx-navy, #2a295c); }
+.eqReviewBtn { min-height: 36px; padding: 6px 12px; border-radius: 10px; border: 1.5px solid var(--sdx-navy, #2A295C); background: var(--surface-1); color: var(--sdx-navy, #2A295C); font-weight: 700; font-size: .78rem; cursor: pointer; max-width: 100%; text-align: left; }
+.eqReviewBtn.other { background: transparent; color: var(--ink-700); border-color: var(--sdx-gray-300, #D1D5DB); }
 .eqReviewBtn.none { background: transparent; color: #b91c1c; border-color: #fca5a5; }
+.eqReviewActs { gap: 8px; }
+.unassignedStand { border-color: var(--sdx-gray-200); box-shadow: inset 4px 0 0 #F59E0B; }
 .eqPlacedChip { border-color: #86efac !important; color: #166534 !important; }
 .eqPlacedChip.warn { border-color: #fcd34d !important; color: #92400e !important; background: #fffbeb !important; }
 .eqNearChip { font-size: .72rem; font-weight: 800; border: 1px solid #fcd34d; background: #fffbeb; color: #92400e; border-radius: 999px; padding: 2px 9px; cursor: pointer; }
@@ -9451,7 +9561,9 @@ html[data-theme="black"] .fuOverdueBanner { background: #1e1b4b !important; bord
 /* one look: cards share radius / shadow across the walk and follow-ups */
 .walkArea, .walkStandCard, .walkProgress, .walkReview, .fuSimCard { border-radius: 16px; box-shadow: var(--shadow-sm); }
 .fuSimCard { transition: box-shadow var(--transition-fast); }
+@media (hover: hover) and (pointer: fine) {
 .fuSimCard:hover { box-shadow: var(--shadow-md); }
+}
 .inspTypePick.compact { margin-bottom: 6px; }
 
 /* v532: post-event focus note at the top of Facilities (the full guide is the only form) */
@@ -9520,7 +9632,9 @@ html[data-theme="black"] .inspTypeCard.on:nth-child(2) { background: rgba(37, 99
 .guideStepGrid .guideStepChip { height: auto; min-height: 66px; align-self: stretch; align-content: center; }
 /* v539: the add-equipment button is a real button, not a faint dashed link */
 .eqMoreWays { background: #2563eb; color: #fff; border: none; border-radius: 12px; padding: 14px 16px; font-size: 1rem; font-weight: 800; min-height: 52px; box-shadow: 0 2px 8px rgba(37,99,235,.25); }
+@media (hover: hover) and (pointer: fine) {
 .eqMoreWays:hover { background: #1d4ed8; }
+}
 /* v540: Follow-ups search + floor chips */
 .fuSimSearchRow { position: relative; margin: 10px 0 4px; }
 .fuSimSearch { width: 100%; box-sizing: border-box; min-height: 48px; font-size: 16px; padding: 10px 44px 10px 14px; border: 2px solid var(--sdx-gray-300, #d1d5db); border-radius: 12px; background: var(--card-bg, #fff); color: inherit; }
@@ -9641,3 +9755,366 @@ html[data-theme="black"] .inspTypeCard.on:nth-child(2) { background: rgba(37, 99
 .standImportGo:disabled { opacity: .5; cursor: default; }
 .standImportDone { color: #15803d; font-weight: 800; }
 .standImportErr { color: #b91c1c; font-weight: 700; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+
+/* ══════════════════════════════════════════════════════════════
+   APP-FEEL PASS 3 — press feedback for tappable surfaces, inner
+   scroller polish, chrome selection lock, sheet entrance.
+   Companion to the hover guard applied throughout this file:
+   every :hover rule now sits behind
+   @media (hover: hover) and (pointer: fine), so a tap never
+   leaves a sticky hover state behind. Colors: none added —
+   transform / opacity / motion only, brand system untouched.
+   ══════════════════════════════════════════════════════════════ */
+
+/* Tappable divs get the same double-tap-zoom kill as buttons */
+[role="button"], .card, .checklistItem, .dropdownMenuItem, .menuQuickTile,
+.historyCard, .historyTab, .analyticsSubTab, .crewTab, .standsTab,
+.themeCard, .guideItem, .crewItem, .fuItem, .caItem, .kqrEquipItem,
+.predictiveItem, .recurringItem { touch-action: manipulation; }
+
+/* Press feedback — the PASS 2 recipe (.btn scale) extended to
+   cards, list rows, menu tiles and the remaining tab styles */
+.card:active, .historyCard:active, .checklistItem:active,
+.guideItem:active, .crewItem:active, .fuItem:active, .caItem:active,
+.kqrEquipItem:active, .predictiveItem:active, .recurringItem:active,
+.menuQuickTile:active, .themeCard:active {
+  transform: scale(0.98); transition: transform 80ms ease;
+}
+.analyticsSubTab:active, .crewTab:active, .standsTab:active {
+  transform: scale(0.96); transition: transform 80ms ease;
+}
+.dropdownMenuItem:active { opacity: 0.72; transition: opacity 80ms ease; }
+
+/* App chrome never text-selects on tap (content and reports
+   stay selectable — this list is chrome only) */
+.topBar, .dropdownMenu, .dropdownMenuItem, .historyTabs,
+.analyticsSubNav, .aiMonitorNav, .menuSection, .historyTab,
+.analyticsSubTab, .crewTab, .standsTab {
+  user-select: none; -webkit-user-select: none;
+}
+
+/* Inner scrollers: momentum scrolling + stop scroll-chaining
+   so a flick inside a sheet/list never drags the page behind it */
+.modalBody, .eodModal, .walkSheet, .historyChatLog, .haccpChatList,
+.inlineChatList, .standFeedBox, .sfList, .fuSimCrews, .fuSimBAPics,
+.lockFinder, .translateLangGrid, .rptTableWrap, .foodSafetyRefBody,
+.outputPre, #report-output {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+/* The full-screen output sheet enters like a view, not a teleport */
+@media (prefers-reduced-motion: no-preference) {
+  .outputSheet { animation: viewIn .22s cubic-bezier(0.22, 1, 0.36, 1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .outputSheet { animation: none; }
+}
+/* ════════════════════════════════════════════════════════════════════
+   SDX GLASS — PASS 4 (DRAFT — prototype, nothing pushed)
+   The hybrid direction: glass on chrome only, content stays solid.
+   Landing form: append this whole section at the end of src/App.css,
+   after the app-feel PASS 3 block. No App.jsx / index.html changes.
+   Rules target existing classes only. Zero :hover rules (hover-driven
+   changes on filtered surfaces force filter repaints; press feedback
+   already belongs to app-feel PASS 3 :active rules).
+   ════════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* filters */
+  --glass-blur-chrome: 18px;
+  --glass-blur-popover: 22px;
+  --glass-blur-sheet: 24px;
+  --glass-sat-navy: 150%;
+  --glass-sat-light: 175%;
+  /* fills */
+  --glass-navy: linear-gradient(135deg, rgba(42,41,92,.84), rgba(30,29,74,.88) 52%, rgba(40,56,151,.84));
+  --glass-navy-flat: rgba(34,33,78,.86);
+  --glass-popover-navy: linear-gradient(160deg, #32316B, #1B1A42); /* opaque — see below */
+  --glass-light: rgba(255,255,255,.72);
+  --glass-light-pill: rgba(255,255,255,.68);
+  --glass-strong: rgba(255,255,255,.88);
+  --glass-sheet: rgba(255,255,255,.90);
+  --glass-card-signin: rgba(255,255,255,.85);
+  /* rims & edges */
+  --glass-rim-navy: inset 0 1px 0 rgba(255,255,255,.16), inset 0 0 0 1px rgba(255,255,255,.07);
+  --glass-rim-light: inset 0 1px 0 rgba(255,255,255,.70), inset 0 0 0 1px rgba(42,41,92,.05);
+  --glass-edge-navy: rgba(255,255,255,.16);
+  --glass-edge-light: rgba(42,41,92,.08);
+  /* shadows (navy-tinted, never pure black) */
+  --glass-shadow-bar: 0 10px 30px rgba(22,21,46,.30), 0 2px 8px rgba(22,21,46,.18);
+  --glass-shadow-pop: 0 18px 44px rgba(15,14,40,.42), 0 4px 12px rgba(15,14,40,.25);
+  --glass-shadow-light: 0 10px 26px rgba(42,41,92,.16), 0 2px 8px rgba(42,41,92,.10);
+  --glass-shadow-sheet: 0 -14px 44px rgba(13,16,38,.32);
+}
+
+/* ── Top bar — navy glass ─────────────────────────────────────────── */
+.topBar {
+  background: var(--glass-navy);
+  -webkit-backdrop-filter: blur(var(--glass-blur-chrome)) saturate(var(--glass-sat-navy));
+  backdrop-filter: blur(var(--glass-blur-chrome)) saturate(var(--glass-sat-navy));
+  border-bottom: 1px solid var(--glass-edge-navy);
+  box-shadow: var(--glass-rim-navy), var(--glass-shadow-bar);
+}
+
+/* Output sheet's bar — same chrome, same glass */
+.outputSheetBar {
+  background: var(--glass-navy);
+  -webkit-backdrop-filter: blur(var(--glass-blur-chrome)) saturate(var(--glass-sat-navy));
+  backdrop-filter: blur(var(--glass-blur-chrome)) saturate(var(--glass-sat-navy));
+  box-shadow: var(--glass-rim-navy);
+}
+
+/* ── Sticky stands tab bar — light glass over the scrolling list ──── */
+.standsTabs {
+  background: var(--glass-light);
+  -webkit-backdrop-filter: blur(var(--glass-blur-chrome)) saturate(var(--glass-sat-light));
+  backdrop-filter: blur(var(--glass-blur-chrome)) saturate(var(--glass-sat-light));
+  border-bottom: 1px solid var(--glass-edge-light);
+  box-shadow: var(--glass-rim-light);
+}
+
+/* ── Header dropdown menu — detached navy glass popover ───────────── */
+.dropdownMenu {
+  /* Glass-TRIMMED, deliberately not glass: this drawer is nearly
+     full-screen over busy content — at .88 and even .97 fill the page
+     ghosted through as a double exposure (see design-spec §7). It
+     takes the detached geometry, rim, border and shadow; the fill is
+     opaque. On desktop widths the same panel could carry the frost. */
+  top: calc(100% + 8px);
+  background: var(--glass-popover-navy);
+  border: 1px solid var(--glass-edge-navy);
+  border-radius: 16px;
+  box-shadow: var(--glass-rim-navy), var(--glass-shadow-pop);
+}
+
+/* ── Bottom walk sheet — strong light glass ───────────────────────── */
+.walkSheet {
+  background: var(--glass-sheet);
+  -webkit-backdrop-filter: blur(var(--glass-blur-sheet)) saturate(var(--glass-sat-light));
+  backdrop-filter: blur(var(--glass-blur-sheet)) saturate(var(--glass-sat-light));
+  box-shadow: var(--glass-rim-light), var(--glass-shadow-sheet);
+}
+/* The sheet's sticky action bar sits INSIDE the glass sheet:
+   static treatment only — a second backdrop-filter here would sample
+   the composited parent and break (and double the cost). */
+.walkSheetActs {
+  background: rgba(255,255,255,.55);
+}
+
+/* ── Modal dialog — strong light glass ────────────────────────────── */
+.modalBox {
+  background: var(--glass-strong);
+  -webkit-backdrop-filter: blur(var(--glass-blur-sheet)) saturate(var(--glass-sat-light));
+  backdrop-filter: blur(var(--glass-blur-sheet)) saturate(var(--glass-sat-light));
+  border: 1px solid rgba(255,255,255,.55);
+  box-shadow: var(--glass-rim-light), var(--glass-shadow-pop);
+}
+
+/* ── Sign-in card — frosted card on the brand gradient ────────────── */
+.pinCard {
+  background: var(--glass-card-signin);
+  -webkit-backdrop-filter: blur(var(--glass-blur-sheet)) saturate(var(--glass-sat-light));
+  backdrop-filter: blur(var(--glass-blur-sheet)) saturate(var(--glass-sat-light));
+  border: 1px solid rgba(255,255,255,.55);
+  border-radius: 22px;
+  box-shadow: var(--glass-rim-light), 0 24px 64px rgba(10,9,32,.45), 0 4px 16px rgba(10,9,32,.30);
+}
+
+/* ── Floating pills ───────────────────────────────────────────────── */
+.langFab {
+  background: var(--glass-light-pill);
+  -webkit-backdrop-filter: blur(16px) saturate(var(--glass-sat-light));
+  backdrop-filter: blur(16px) saturate(var(--glass-sat-light));
+  border-color: var(--glass-edge-light);
+  box-shadow: var(--glass-rim-light), var(--glass-shadow-light);
+}
+.fabLeft, .fabRight {
+  background: var(--glass-navy-flat);
+  -webkit-backdrop-filter: blur(16px) saturate(var(--glass-sat-navy));
+  backdrop-filter: blur(16px) saturate(var(--glass-sat-navy));
+  box-shadow: var(--glass-rim-navy), var(--glass-shadow-bar);
+}
+
+/* ── PR #5 follow-ups toolbar — STATIC glass (apply only when the
+      PR #5 markup has landed; inert otherwise). No backdrop-filter:
+      it sticks over the 356-row list, so it takes the fill + rim +
+      highlight treatment at zero per-frame cost. ─────────────────── */
+.fuToolbar {
+  background: rgba(255,255,255,.92);
+  border: 1px solid var(--glass-edge-light);
+  box-shadow: var(--glass-rim-light), 0 8px 22px rgba(42,41,92,.10);
+}
+
+/* ── Dark chrome themes: swap navy glass to near-black glass ──────── */
+html[data-theme="noir"], html[data-theme="midnight"], html[data-theme="black"] {
+  --glass-navy: linear-gradient(135deg, rgba(20,20,22,.86), rgba(8,8,12,.90) 52%, rgba(28,28,34,.86));
+  --glass-navy-flat: rgba(16,16,20,.88);
+  --glass-popover-navy: linear-gradient(160deg, #1B1B20, #060609);
+}
+
+/* ── Accessibility: increased contrast ────────────────────────────── */
+@media (prefers-contrast: more) {
+  :root {
+    --glass-navy: linear-gradient(135deg, rgba(42,41,92,.95), rgba(30,29,74,.96) 52%, rgba(40,56,151,.95));
+    --glass-navy-flat: rgba(34,33,78,.96);
+    --glass-popover-navy: linear-gradient(160deg, #32316B, #1B1A42);
+    --glass-light: rgba(255,255,255,.95);
+    --glass-light-pill: rgba(255,255,255,.95);
+    --glass-strong: rgba(255,255,255,.98);
+    --glass-sheet: rgba(255,255,255,.99);
+    --glass-card-signin: rgba(255,255,255,.97);
+    --glass-edge-navy: rgba(255,255,255,.35);
+    --glass-edge-light: rgba(42,41,92,.22);
+  }
+}
+
+/* ── Accessibility / no-support fallback: Reduce Transparency, or an
+      engine without backdrop-filter, gets today's solid surfaces. ── */
+@media (prefers-reduced-transparency: reduce) {
+  .topBar, .outputSheetBar, .standsTabs, .dropdownMenu, .walkSheet,
+  .modalBox, .pinCard, .langFab, .fabLeft, .fabRight {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  .topBar { background: linear-gradient(135deg, var(--sdx-navy) 0%, var(--sdx-navy-deep) 50%, var(--sdx-blue) 100%); }
+  .outputSheetBar { background: #1e2a78; }
+  .standsTabs { background: var(--surface-2); }
+  .dropdownMenu { background: linear-gradient(135deg, #2A295C 0%, #1a1940 100%); }
+  .walkSheet { background: var(--surface-1); }
+  .walkSheetActs { background: var(--surface-1); }
+  .modalBox { background: #fff; }
+  .pinCard { background: var(--sdx-white); }
+  .langFab { background: rgba(255,255,255,.96); }
+  .fabLeft, .fabRight { background: linear-gradient(135deg, var(--sdx-blue) 0%, var(--sdx-navy) 100%); }
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .topBar { background: linear-gradient(135deg, var(--sdx-navy) 0%, var(--sdx-navy-deep) 50%, var(--sdx-blue) 100%); }
+  .outputSheetBar { background: #1e2a78; }
+  .standsTabs { background: var(--glass-light); }
+  .dropdownMenu { background: linear-gradient(135deg, #2A295C 0%, #1a1940 100%); }
+  .walkSheet { background: var(--glass-sheet); }
+  .modalBox { background: var(--glass-strong); }
+  .pinCard { background: var(--glass-card-signin); }
+  .langFab { background: var(--glass-light-pill); }
+  .fabLeft, .fabRight { background: var(--glass-navy-flat); }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   MENU REDESIGN 2 — header menu: icon system, user header, panel
+   (2026-10-10). Lands AFTER the glass layer on purpose: the
+   .dropdownMenu rules below supersede the glass layer's menu rules
+   with the same verdict values — detached floating panel, OPAQUE
+   popover fill, glass rim + shadow, NO backdrop filter on this
+   surface (glass design-spec §7: translucent versions ghosted the
+   page through). Values are literals, identical to the --glass-*
+   popover tokens, so the panel is correct whether or not the
+   glass layer is present.
+   ══════════════════════════════════════════════════════════════ */
+.dropdownMenu {
+  background: linear-gradient(160deg, #32316B 0%, #1B1A42 100%);
+  border: 1px solid rgba(255,255,255,.16);
+  border-radius: 16px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.16), inset 0 0 0 1px rgba(255,255,255,.07), 0 18px 44px rgba(15,14,40,.42), 0 4px 12px rgba(15,14,40,.25);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+html[data-theme="black"] .dropdownMenu { background: linear-gradient(160deg, #26262E 0%, #141419 100%); }
+/* User header: a name, not a label — role becomes a chip */
+.dropdownMenuUser { text-transform: none; letter-spacing: 0; font-size: 0.95rem; font-weight: 800; color: #fff; }
+.menuUserName { vertical-align: middle; }
+.menuUserRole {
+  display: inline-block; margin-left: 8px; padding: 2px 8px; border-radius: 999px;
+  background: rgba(255,255,255,.14); color: rgba(255,255,255,.88);
+  font-size: 0.64rem; font-weight: 800; letter-spacing: 0.07em; text-transform: uppercase;
+  vertical-align: 2px;
+}
+/* Rows: 44px touch targets, one icon rail, label flexes, badges trail */
+.dropdownMenuItem { min-height: 44px; }
+.menuItemIcon { width: 22px; height: 22px; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; color: rgba(255,255,255,.85); }
+.menuItemIcon svg { width: 20px; height: 20px; display: block; }
+.dropdownMenuItemActive .menuItemIcon { color: #fff; }
+.menuItemLabel { flex: 1; text-align: left; }
+/* Tiles: SVG icon + live follow-up count line */
+.menuQuickIcon { display: inline-flex; color: #fff; }
+.menuQuickIcon svg { width: 22px; height: 22px; display: block; }
+.menuQuickSub { font-size: 0.68rem; font-weight: 700; color: rgba(255,255,255,.68); letter-spacing: 0.02em; }
+.menuQuickBadge { background: #EE0000; }
+@media (hover: hover) and (pointer: fine) {
+  .dropdownMenuItem:hover { background: rgba(255,255,255,.10); }
+}
+
+/* ── Scroll architecture — INVARIANT (2026-10-10 menu scroll hotfix) ──
+   The live menu shipped with a scroll bug (Joxel, 2026-10-10 21:03 EDT):
+   the panel rendered and height-capped but would not touch-scroll in
+   the app, and its last rows sat off-screen. Two root causes in the
+   old CSS: (1) .topBar is position:fixed AND permanently transformed
+   (translateZ(0) + will-change) — in WKWebView a transformed fixed
+   ancestor breaks touch scrolling of an overflow descendant;
+   (2) max-height:calc(100vh - 90px) ignored the panel's top offset
+   (fixed header + safe-area-inset-top + 8px gap), pushing the panel's
+   bottom rows below the visible screen. Fixed live via PR #17
+   (index.html <style> block, merge 604f248f). The rules below fold
+   the same architecture into the bundle so the redesign can never
+   reintroduce it; when this package lands, the PR #17 index.html
+   block becomes redundant and can be retired. DO NOT regress: no
+   transform/will-change on .topBar, no 100vh-only cap, no
+   -webkit-overflow-scrolling:touch, no backdrop-filter on the panel
+   (already removed above). Rows at 44px make the content TALLER —
+   internal scroll is load-bearing, not decorative. */
+.topBar { transform: none; will-change: auto; }
+.dropdownMenu {
+  max-height: calc(100vh - 140px);
+  max-height: calc(100dvh - 140px);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  padding-bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+}
+
+/* ── Equipment Tab (2026-10-13 — dedicated equipment page) ─────────────── */
+.eqpStats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 12px; }
+.eqpStat { background: var(--surface-2, #f4f5fb); border: 1.5px solid var(--sdx-gray-200, #e2e4f0); border-radius: 14px; padding: 10px 8px; text-align: center; display: flex; flex-direction: column; gap: 2px; }
+.eqpStat b { font-size: 1.35rem; line-height: 1; color: var(--sdx-navy, #2A295C); }
+.eqpStat span { font-size: 0.68rem; font-weight: 700; color: var(--ink-500); text-transform: uppercase; letter-spacing: .04em; }
+.eqpStatAlert { border-color: #dc2626 !important; background: #fef2f2 !important; }
+.eqpStatAlert b { color: #b91c1c; }
+.eqpFlash { background: #dcfce7; color: #166534; border: 1.5px solid #16a34a; border-radius: 12px; padding: 10px 12px; font-weight: 700; font-size: 0.85rem; margin-bottom: 12px; }
+.eqpStandRow { display: flex; gap: 8px; overflow-x: auto; padding: 2px 2px 10px; -webkit-overflow-scrolling: touch; }
+.eqpStandChip { flex: 0 0 auto; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; background: #fff; border: 1.5px solid var(--sdx-gray-200, #e2e4f0); border-radius: 14px; padding: 10px 12px; cursor: pointer; text-align: left; max-width: 250px; }
+.eqpStandChip b { font-size: 0.85rem; color: var(--ink-900); white-space: nowrap; }
+.eqpStandChip span { font-size: 0.72rem; font-weight: 700; color: var(--ink-500); }
+.eqpStandChip.on { background: var(--sdx-navy, #2A295C); border-color: var(--sdx-navy, #2A295C); }
+.eqpStandChip.on b, .eqpStandChip.on span { color: #fff; }
+.eqpUnit { background: #fff; border: 1.5px solid var(--sdx-gray-200, #e2e4f0); border-radius: 14px; padding: 12px; margin-bottom: 10px; }
+.eqpUnitMain { display: flex; align-items: center; gap: 10px; }
+.eqpUnitIcon { font-size: 1.5rem; }
+.eqpUnitInfo { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.eqpUnitInfo b { font-size: 0.98rem; color: var(--ink-900); }
+.eqpUnitInfo span { font-size: 0.76rem; color: var(--ink-500); font-weight: 600; }
+.eqpTag { font-family: monospace; font-size: 0.7rem !important; color: var(--ink-400) !important; }
+.eqpUnitTemp { text-align: right; display: flex; flex-direction: column; gap: 1px; }
+.eqpUnitTemp b { font-size: 1.25rem; color: #15803d; }
+.eqpUnitTemp span { font-size: 0.7rem; color: var(--ink-500); font-weight: 600; }
+.eqpTempAlert { color: #b91c1c !important; }
+.eqpNoRead { font-size: 0.8rem; font-weight: 700; color: var(--ink-400); }
+.eqpActions { display: flex; gap: 8px; margin-top: 10px; }
+.eqpLogRow { display: flex; gap: 8px; margin-top: 10px; align-items: center; }
+.eqpLogInput { flex: 1; min-width: 0; }
+.eqpAddCard { margin-top: 16px; }
+
+/* ── Already open at this stand — read-only peek at report entry ─────────── */
+.fuPeek { background: var(--surface-1); border: 1.5px solid #c7d2fe; border-radius: 14px; padding: 10px 14px; margin: 0 0 14px; }
+.fuPeekHead { display: flex; align-items: center; gap: 10px; width: 100%; background: none; border: none; padding: 2px 0 6px; cursor: pointer; text-align: left; font-weight: 900; font-size: 0.92rem; color: var(--ink-900); }
+.fuPeekGo { margin-left: auto; font-size: 0.74rem; font-weight: 800; color: #4338ca; background: #eef2ff; border-radius: 999px; padding: 2px 10px; white-space: nowrap; }
+.fuPeekItem { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; padding: 6px 0; border-top: 1px solid var(--sdx-gray-200); }
+.fuPeekTitle { font-weight: 700; font-size: 0.86rem; color: var(--ink-900); flex: 1; min-width: 180px; }
+.fuPeekMeta { font-size: 0.74rem; font-weight: 700; color: var(--ink-500); white-space: nowrap; }
+.fuPeekInToday { font-size: 0.72rem; font-weight: 800; color: #166534; background: #dcfce7; border-radius: 999px; padding: 2px 9px; white-space: nowrap; }
+.fuPeekClean { font-size: 0.86rem; font-weight: 700; color: var(--ink-600); padding: 2px 0; }
+.fuPeekSub { font-size: 0.78rem; font-weight: 600; color: var(--ink-500); padding: 0 0 2px; }
+.fuPeekActions { flex-basis: 100%; display: flex; gap: 8px; margin-top: 4px; }
+.fuPeekBtn { flex: 1; border-radius: 999px; padding: 7px 10px; font-size: 0.82rem; font-weight: 800; cursor: pointer; border: 1.5px solid var(--sdx-gray-200); background: var(--surface-1); color: var(--ink-600); }
+.fuPeekBtnFixed.on { background: #dcfce7; border-color: #16a34a; color: #166534; }
+.fuPeekBtnStill.on { background: #fee2e2; border-color: #dc2626; color: #991b1b; }

@@ -132,8 +132,8 @@ if (import.meta.env.PROD) {
 }
 
 const BASE = import.meta.env.BASE_URL;
-const LOGO_WHITE = `${BASE}sodexo-live-logo.svg`;
-const LOGO_DARK = `${BASE}sodexo-dark.svg`;
+const LOGO_WHITE = `${BASE}sdx-inspect.svg`;
+const LOGO_DARK = `${BASE}sdx-inspect-dark.svg`;
 // v546: every venue other than the original one ("default") is a customer of SDX Inspect — its own brand, its own stands.
 const SDX_LOGO_WHITE = `${BASE}sdx-inspect.svg`;
 const SDX_LOGO_DARK = `${BASE}sdx-inspect-dark.svg`;
@@ -180,8 +180,8 @@ let _vs = {};
 const isMonoTheme = () => _vs.theme === "dsmarketing";
 function resolveLogoWhite() { return _vs.logoUrl || (!isMonoTheme() && isHomeVenue() ? LOGO_WHITE : SDX_LOGO_WHITE); }
 function resolveLogoDark() { return _vs.logoDarkUrl || _vs.logoUrl || (!isMonoTheme() && isHomeVenue() ? LOGO_DARK : SDX_LOGO_DARK); }
-function resolveCompanyName() { return _vs.companyName || (!isMonoTheme() && isHomeVenue() ? "Sodexo Live!" : "SDX Inspect"); }
-function resolveSystemName() { return _vs.companyName ? `${_vs.companyName} Inspection System` : (!isMonoTheme() && isHomeVenue() ? "Sodexo Kitchen Inspection System" : "SDX Inspect"); }
+function resolveCompanyName() { return _vs.companyName || (!isMonoTheme() && isHomeVenue() ? "SDX Inspect" : "SDX Inspect"); }
+function resolveSystemName() { return _vs.companyName ? `${_vs.companyName} Inspection System` : (!isMonoTheme() && isHomeVenue() ? "SDX Inspect" : "SDX Inspect"); }
 
 /* ── Multi-venue: detect ?v=venueSlug from URL ───────────────────
    Each venue gets completely isolated data (localStorage + Firestore).
@@ -2825,6 +2825,52 @@ async function addGuestInspector(badge, name, department, assignedLocation, assi
 async function removeGuestInspector(badgeHash) {
   await deleteOneUser(badgeHash);
 }
+
+/* ── Follow SDX on Instagram ─────────────────────────────────
+   Joxel, 2026-10-10: "Put the IG in the app so they can click it
+   and go in." Rendered on the sign-in card and in the header
+   menu. Opens externally (new tab on web / system browser in the
+   Capacitor shell) so the app session is never lost.           */
+const SDX_INSTAGRAM_URL = "https://www.instagram.com/sdxinspection";
+function InstagramGlyph() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+      <rect x="2.5" y="2.5" width="19" height="19" rx="5.5" />
+      <circle cx="12" cy="12" r="4.25" />
+      <circle cx="17.35" cy="6.65" r="0.7" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+/* ── Menu icons ──────────────────────────────────────────────
+   Inline-SVG icon set for the header menu, drawn in the same
+   language as InstagramGlyph above (24x24 grid, stroke =
+   currentColor, round caps/joins) so menu rows read as one
+   system instead of one emoji per row. Menu redesign, 2026-10-10. */
+const MENU_ICONS = {
+  plusSquare: (<><rect x="3" y="3" width="18" height="18" rx="4" /><path d="M12 8v8M8 12h8" /></>),
+  snowflake: (<><line x1="12" y1="2" x2="12" y2="22" /><line x1="3.3" y1="7" x2="20.7" y2="17" /><line x1="20.7" y1="7" x2="3.3" y2="17" /><path d="M12 2 9.5 4.5M12 2l2.5 2.5M12 22l-2.5-2.5M12 22l2.5-2.5M3.3 7l3.5.4M3.3 7l.4 3.5M20.7 17l-3.5-.4M20.7 17l-.4-3.5M20.7 7l-3.5.4M20.7 7l-.4 3.5M3.3 17l3.5-.4M3.3 17l.4-3.5" /></>),
+  qr: (<><path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2" /><rect x="9.2" y="9.2" width="5.6" height="5.6" rx="1" /></>),
+  repeat: (<><polyline points="17 1 21 5 17 9" /><path d="M3 11V9a4 4 0 0 1 4-4h14" /><polyline points="7 23 3 19 7 15" /><path d="M21 13v2a4 4 0 0 1-4 4H3" /></>),
+  fileText: (<><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><path d="M16 13H8M16 17H8" /></>),
+  calendar: (<><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" /></>),
+  thermometer: (<><path d="M10 4a2 2 0 0 1 4 0v9.1a4.5 4.5 0 1 1-4 0z" /><circle cx="12" cy="17.6" r="1.2" fill="currentColor" stroke="none" /></>),
+  pin: (<><path d="M21 10c0 7-9 12-9 12s-9-5-9-12a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" /></>),
+  chat: (<><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" /></>),
+  store: (<><path d="M3 9l1.6-5h14.8L21 9" /><path d="M3 9a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0" /><path d="M5 11.5V21h14v-9.5" /><path d="M9.5 21v-5.5h5V21" /></>),
+  scanLine: (<><path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2" /><path d="M4 12h16" /></>),
+  globe: (<><circle cx="12" cy="12" r="9.2" /><path d="M2.8 12h18.4M12 2.8a13.8 13.8 0 0 1 3.6 9.2A13.8 13.8 0 0 1 12 21.2a13.8 13.8 0 0 1-3.6-9.2A13.8 13.8 0 0 1 12 2.8z" /></>),
+  sliders: (<><path d="M5 21v-6M5 9V3M12 21v-9M12 6V3M19 21v-4M19 11V3" /><path d="M2.5 15h5M9.5 6h5M16.5 11h5" /></>),
+  users: (<><path d="M17 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9.5" cy="7" r="3.6" /><path d="M22 21v-2a4 4 0 0 0-3-3.85M15.5 3.6a3.6 3.6 0 0 1 0 6.8" /></>),
+  share: (<><circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" /><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4" /></>),
+  droplet: (<><path d="M12 2.7l5.66 5.66a8 8 0 1 1-11.31 0z" /></>),
+  lock: (<><rect x="4" y="11" width="16" height="10" rx="2" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></>),
+};
+function MenuIcon({ name }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">{MENU_ICONS[name]}</svg>
+  );
+}
+
 
 /* ── Badge Sign-In Screen ─────────────────────────────────── */
 function BadgeScreen({ onUnlock, inviteRole, crewNotice = "" }) {
@@ -6050,8 +6096,8 @@ async function exportAsCsv({ inspection, notesPhotos, rawNotes, inspectionType, 
 
   const str = v => (v == null ? "" : String(v));
 
-  // ── Sodexo Brand colours ─────────────────────────────────────────────────
-  const NAVY    = (/^#[0-9a-fA-F]{6}$/.test(_vs.primaryColor || "") ? _vs.primaryColor.slice(1).toUpperCase() : "1C2B5E"); // brand primary (Sodexo deep blue default)
+  // ── SDX Brand colours ─────────────────────────────────────────────────
+  const NAVY    = (/^#[0-9a-fA-F]{6}$/.test(_vs.primaryColor || "") ? _vs.primaryColor.slice(1).toUpperCase() : "2A295C"); // brand primary (SDX navy default)
   const RED     = "A8192E"; // accent — muted crimson, section dividers
   const BLUE_LT = "E8EDF7"; // light tint of navy — Executive Summary / Notes rows
   const RED_LT  = "FAEAEC"; // light tint of red — metadata block background
@@ -6820,7 +6866,7 @@ async function exportIssuesOnlyExcel({ rec, haccpSubs = [] }) {
   );
 
   // ── Brand colours (same as bulk export) ──────────────────────────────────
-  const NAVY    = (/^#[0-9a-fA-F]{6}$/.test(_vs.primaryColor || "") ? _vs.primaryColor.slice(1).toUpperCase() : "1C2B5E");
+  const NAVY    = (/^#[0-9a-fA-F]{6}$/.test(_vs.primaryColor || "") ? _vs.primaryColor.slice(1).toUpperCase() : "2A295C");
   const RED     = "A8192E";
   const RED_LT  = "FAEAEC";
   const SILVER  = "F4F5F7";
@@ -6895,7 +6941,7 @@ async function exportIssuesOnlyExcel({ rec, haccpSubs = [] }) {
     summaryText.split(/\n+/).filter(l => l.trim()).forEach(line => {
       const r = ws1.addRow(["", line]);
       ws1.mergeCells(`B${r.number}:I${r.number}`);
-      applyStyle(r.getCell(2), { font: font({ italic: true, color: { argb: "FF1C2B5E" } }), fill: fill("E8EDF7"), alignment: { wrapText: true } });
+      applyStyle(r.getCell(2), { font: font({ italic: true, color: { argb: "FF2A295C" } }), fill: fill("E8EDF7"), alignment: { wrapText: true } });
       r.height = 16;
     });
     ws1.addRow([]);
@@ -7553,6 +7599,281 @@ function EquipTempBoard({ history, onOpenStand }) {
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+/* ── Equipment Tab ───────────────────────────────────────────────────────
+   Joxel's order (2026-10-13): "more protagonist on the system and put a tab
+   just for the equipment." Equipment becomes a first-class page: pick a
+   stand → its registry units with the latest temp + status, log a temp per
+   unit (the same "Equipment Check" record the QR checker writes), and add
+   units by type (the same SDX-CL / SDX-FZ tag rule + registry write the
+   form's one-tap add and the labels walk use). The inspection form keeps
+   pulling this stand's units from the SAME registry (its eqStandCard), so
+   nothing is re-entered — the tab is the registry's home. ──────────────── */
+function EquipmentPage({ currentUser, onBack, focusStand, onOpenLabels }) {
+  const [regItems, setRegItems] = useState(null); // { TAG: registryItem } | null = loading
+  const [hist, setHist] = useState([]);
+  const [stands, setStands] = useState([]);
+  const [standKey, setStandKey] = useState("");
+  const [filter, setFilter] = useState("all"); // all | alert | unread
+  const [logTag, setLogTag] = useState(null);
+  const [logTemp, setLogTemp] = useState("");
+  const [logBusy, setLogBusy] = useState(false);
+  const [histTag, setHistTag] = useState(null);
+  const [flash, setFlash] = useState("");
+  const STALE_DAYS = 7;
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try { await loadStandList(); } catch {}
+      if (alive) setStands([...(_standListCache || [])]);
+      let items = null;
+      try {
+        const snap = await getDoc(doc(db, "venues", VENUE_ID, "sharedMemory", "equipmentRegistry"));
+        if (snap.exists()) {
+          const d = snap.data() || {};
+          items = { ...(d.items || {}) };
+          // Warm the shared registry mirror so equipUnitsAtStand (the form's
+          // pull) and this page read the same truth.
+          _equipRegCache = { ...(_equipRegCache || {}), ...items };
+          try { localStorage.setItem(EQUIP_REG_LS, JSON.stringify(_equipRegCache)); } catch {}
+        }
+      } catch {}
+      if (!items) { try { items = JSON.parse(localStorage.getItem(EQUIP_REG_LS) || "null"); } catch {} }
+      if (alive) setRegItems(items || {});
+      let recs = [];
+      try { const r = await loadHistory(undefined, { pageSize: 500 }); recs = r?.list || []; } catch {}
+      try {
+        const c = JSON.parse(localStorage.getItem(`sdx_history_cache_${VENUE_ID}`) || "[]");
+        if (c.length) { const seen = new Set(recs.map(x => x.id)); recs = [...recs, ...c.filter(x => !seen.has(x.id))]; }
+      } catch {}
+      if (alive) setHist(recs);
+    })();
+    return () => { alive = false; };
+  }, []);
+
+  const model = useMemo(() => {
+    if (!regItems) return null;
+    // Last read per tag — readings live only in inspection records (EquipTempBoard join)
+    const lastByTag = {};
+    for (const rec of hist) {
+      const eq = rec?.inspection?.equipment; if (!eq) continue;
+      const at = rec.savedAt || (rec.inspectionDate ? rec.inspectionDate + "T12:00:00" : "");
+      for (const [k, v] of Object.entries(eq)) {
+        const tag = String(v?.assetTag || (k.startsWith("equip_") ? k.slice(6) : "")).trim().toUpperCase();
+        if (!tag) continue;
+        const t = parseFloat(v?.tempF);
+        if (!Number.isFinite(t)) continue;
+        const cur = lastByTag[tag];
+        if (!cur || (at || "") > (cur.at || "")) lastByTag[tag] = { tempF: t, at, by: rec.inspectorName || "", status: v.status || "" };
+      }
+    }
+    const today = new Date().toISOString().slice(0, 10);
+    const now = Date.now();
+    const cleanName = l => String(l || "").replace(/\s*(❄|🧊)\s*(Cooler|Freezer)\s*$/u, "").trim();
+    // Group registry units by the stand they SURELY belong to (placeEquip)
+    const groups = new Map();
+    const standById = new Map(stands.map(k => [k.id, k]));
+    const groupFor = (key, info) => {
+      if (!groups.has(key)) groups.set(key, { key, id: info.id || "", unit: info.unit || "", site: info.site || "", floor: info.floor || "", locType: info.locType || "", unsure: !!info.unsure, units: [] });
+      return groups.get(key);
+    };
+    for (const k of stands) groupFor(k.id, k); // every known stand is pickable, even with no units yet
+    for (const [tagRaw, it] of Object.entries(regItems)) {
+      if (!it) continue;
+      const tag = String(it.assetTag || tagRaw).trim().toUpperCase();
+      if (!tag || /^CUSTOM_/.test(tag)) continue;
+      if (isHiddenTag(_equipHiddenCache, `reg_${tagRaw}`, tag)) continue;
+      if (!/^SDX-(CL|FZ|COOL|FRZ)-/.test(tag) && !it.assetTag && !it.label) continue;
+      const label = it.label || it.name || "";
+      const freezer = /freez|🧊/i.test(label) || coldTypeFromTag(tag) === "freezer";
+      const limit = freezer ? 20 : 40;
+      const last = lastByTag[tag] || null;
+      const ageDays = last?.at ? (now - Date.parse(last.at)) / 86400000 : null;
+      let state = "await";
+      if (last) state = last.tempF > limit ? "alert" : (ageDays !== null && ageDays > STALE_DAYS) ? "stale" : "ok";
+      const readToday = !!last?.at && String(last.at).slice(0, 10) === today;
+      const u = { tag, name: cleanName(label) || (freezer ? "Freezer" : "Cooler"), freezer, limit, brand: it.brandName || it.brand || "", location: it.location || "", last, state, readToday };
+      const p = placeEquip(it);
+      if (p.sure && standById.has(p.id)) { groupFor(p.id, standById.get(p.id)).units.push(u); continue; }
+      if (p.sure) { const k = standById.get(p.id); groupFor(p.id, { id: p.id, unit: it.unit || k?.unit || "", site: it.venueName || k?.site || "", floor: it.floor || k?.floor || "", locType: it.locType || "" }).units.push(u); continue; }
+      const gk = `?:${normUnit(it.unit)}|${String(it.venueName || "").trim().toUpperCase()}`;
+      groupFor(gk, { id: "", unit: it.unit || "", site: (it.venueName || "").trim(), floor: it.floor || "", locType: it.locType || "", unsure: true }).units.push(u);
+    }
+    const list = [...groups.values()];
+    for (const g of list) g.units.sort((a, b) => (a.state === "alert" ? -1 : b.state === "alert" ? 1 : 0) || a.name.localeCompare(b.name));
+    list.sort((a, b) => (b.units.some(u => u.state === "alert") ? 1 : 0) - (a.units.some(u => u.state === "alert") ? 1 : 0) || (a.site || "").localeCompare(b.site || "") || (a.unit || "").localeCompare(b.unit || "", undefined, { numeric: true }));
+    const all = list.flatMap(g => g.units);
+    const tot = { units: all.length, today: all.filter(u => u.readToday).length, alert: all.filter(u => u.state === "alert").length, await: all.filter(u => u.state === "await").length };
+    // Default stand: the focused one, else the first with an alert, else the first with units, else the first
+    let defKey = "";
+    if (focusStand) {
+      const f = list.find(g => (focusStand.id && g.id === focusStand.id) || (focusStand.unit && normUnit(g.unit) === normUnit(focusStand.unit) && (!focusStand.site || sameStandName(g.site, focusStand.site))));
+      if (f) defKey = f.key;
+    }
+    if (!defKey) defKey = (list.find(g => g.units.some(u => u.state === "alert")) || list.find(g => g.units.length) || list[0] || {}).key || "";
+    return { groups: list, tot, defKey };
+  }, [regItems, hist, stands]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Pin the default stand as soon as the model offers one. defKey is
+  // recomputed from live alert state on every render, so without pinning,
+  // the view would jump to another stand the moment an alert clears
+  // (e.g. right after logging the fixing temp).
+  useEffect(() => { if (!standKey && model?.defKey) setStandKey(model.defKey); }, [model?.defKey, standKey]);
+  const selKey = standKey || model?.defKey || "";
+  const sel = model?.groups.find(g => g.key === selKey) || null;
+  const shownUnits = sel ? sel.units.filter(u => filter === "all" ? true : filter === "alert" ? u.state === "alert" : !u.readToday) : [];
+  const ago = at => { if (!at) return ""; const ms = Date.now() - Date.parse(at); if (!Number.isFinite(ms)) return ""; const m = Math.round(ms / 60000); if (m < 60) return `${Math.max(1, m)}m ago`; const h = Math.round(m / 60); if (h < 36) return `${h}h ago`; return `${Math.round(h / 24)}d ago`; };
+  const STATE = { alert: { cls: "etAlert", text: "OVER LIMIT" }, ok: { cls: "etOk", text: "OK" }, stale: { cls: "etStale", text: `no read ${STALE_DAYS}d+` }, await: { cls: "etAwait", text: "awaiting first read" } };
+
+  async function submitLog(u) {
+    const t = parseFloat(logTemp);
+    if (!Number.isFinite(t) || logBusy) return;
+    setLogBusy(true);
+    const now = new Date();
+    const ok = t <= u.limit;
+    const rec = {
+      id: `equipcheck_${Date.now()}_${Math.random().toString(16).slice(2, 8)}`,
+      inspectionType: "Equipment Check",
+      inspectionDate: now.toISOString().slice(0, 10),
+      savedAt: now.toISOString(),
+      inspectorName: currentUser?.name || "",
+      siteName: sel?.site || "",
+      siteNumber: sel?.unit || "",
+      floor: sel?.floor || "",
+      quickEquipCheck: true,
+      inspection: { equipment: { [`equip_${u.tag}`]: { assetTag: u.tag, label: u.name, brand: u.brand || "", kitchenArea: u.location || "", tempF: String(t), status: ok ? "OK" : "FAIL", notes: "", photos: [] } } },
+    };
+    try { await saveOneInspection(rec); } catch {}
+    setHist(h => [rec, ...h]);
+    setLogBusy(false); setLogTag(null); setLogTemp("");
+    setFlash(`✓ ${u.name} logged at ${t}°F — ${ok ? "in range" : "OVER LIMIT — flagged"}`);
+    setTimeout(() => setFlash(""), 4500);
+  }
+
+  function addUnit(label0, freezer) {
+    if (!sel) return;
+    const unitN = normUnit(sel.unit) || (sel.site || "").replace(/[^A-Z0-9]/gi, "").toUpperCase().slice(0, 8) || "X";
+    const tagPre = `SDX-${freezer ? "FZ" : "CL"}-${unitN}-`;
+    const used = new Set(Object.keys(_equipRegCache || {}).map(t => String(t).toUpperCase()));
+    try { for (const r of hist) for (const v of Object.values(r?.inspection?.equipment || {})) if (v?.assetTag) used.add(String(v.assetTag).toUpperCase()); } catch {}
+    let n = 1; while (used.has(tagPre + n)) n++;
+    const assetTag = tagPre + n;
+    const label = `${label0}${freezer ? " 🧊 Freezer" : " ❄ Cooler"}`;
+    const known = standForStrict(sel.unit, sel.site);
+    const rec = { assetTag, label, venueName: (sel.site || "").trim().toUpperCase(), unit: (sel.unit || "").trim(), floor: sel.floor || "", locType: sel.locType || "", standId: sel.id && !String(sel.id).startsWith("?") ? sel.id : (known?.id || ""), location: "", brandName: "", createdAt: Date.now() };
+    _equipRegCache = { ...(_equipRegCache || {}), [assetTag]: rec };
+    try { localStorage.setItem(EQUIP_REG_LS, JSON.stringify(_equipRegCache)); } catch {}
+    try { writeEquipReg({ items: { [assetTag]: rec }, labelIndex: { [assetTag]: { name: label, brand: "", location: "", venueName: rec.venueName, unit: rec.unit, floor: rec.floor, locType: rec.locType, ts: Date.now() } } }); } catch {}
+    setRegItems(prev => ({ ...(prev || {}), [assetTag]: rec }));
+    setFlash(`✓ ${label0} added at ${sel.site || "this stand"} — tag ${assetTag}. Stick its label, then log its first temp.`);
+    setTimeout(() => setFlash(""), 5000);
+  }
+
+  const ADD_COOLERS = ["1-Door Cooler", "2-Door Cooler", "3-Door Cooler", "4-Door Cooler", "Prep Cooler", "Display Cooler", "Walk-In Cooler", "Undercounter Cooler"];
+  const ADD_FREEZERS = ["1-Door Freezer", "2-Door Freezer", "3-Door Freezer", "Chest Freezer", "Walk-In Freezer", "Undercounter Freezer"];
+
+  return (
+    <div className="appShell">
+      <header className="topBar">
+        <div className="brandLeft brandClickable" onClick={onBack} title="Back">
+          <img src={resolveLogoWhite()} alt={resolveCompanyName()} className="brandLogo" />
+          <div>
+            <div className="brandTitle">🧊 Equipment</div>
+            <div className="brandSub">Units · temps · registry — by stand</div>
+          </div>
+        </div>
+        <div className="topActions">
+          <button className="btn btnGhost" onClick={onBack} type="button">Back</button>
+        </div>
+      </header>
+      <div className="topBarSpacer" />
+      <main className="pageMain pageMainNarrow">
+        <div data-testid="eqp-page">
+          {histTag && <EquipScanModal initialTag={histTag} onClose={() => setHistTag(null)} />}
+          {!model && <div className="card"><div className="cardBody">Loading equipment…</div></div>}
+          {model && (<>
+            <div className="eqpStats">
+              <div className="eqpStat"><b>{model.tot.units}</b><span>units</span></div>
+              <div className="eqpStat"><b>{model.tot.today}</b><span>read today</span></div>
+              <div className={"eqpStat" + (model.tot.alert ? " eqpStatAlert" : "")}><b>{model.tot.alert}</b><span>over limit</span></div>
+              <div className="eqpStat"><b>{model.tot.await}</b><span>awaiting first read</span></div>
+            </div>
+            {flash && <div className="eqpFlash" data-testid="eqp-flash">{flash}</div>}
+            <div className="eqpStandRow" role="tablist" aria-label="Stands">
+              {model.groups.map(g => {
+                const alerts = g.units.filter(u => u.state === "alert").length;
+                return (
+                  <button key={g.key} type="button" data-testid="eqp-stand-chip" className={"eqpStandChip" + (g.key === selKey ? " on" : "")} onClick={() => { setStandKey(g.key); setFilter("all"); setLogTag(null); }}>
+                    <b>{g.unsure ? `❓ ${g.site || "Unplaced"}` : (g.site || "Stand")}{g.unit ? ` · #${g.unit}` : ""}</b>
+                    <span>{g.units.length} units{alerts ? ` · 🔥 ${alerts}` : ""}</span>
+                  </button>
+                );
+              })}
+            </div>
+            {sel && (<>
+              <div className="etChips" style={{ margin: "4px 0 10px" }}>
+                <button type="button" className={"etChip" + (filter === "all" ? " on" : "")} onClick={() => setFilter("all")}>All {sel.units.length}</button>
+                <button type="button" className={"etChip" + (filter === "alert" ? " on" : "")} onClick={() => setFilter("alert")}>🔥 Over limit {sel.units.filter(u => u.state === "alert").length}</button>
+                <button type="button" className={"etChip" + (filter === "unread" ? " on" : "")} onClick={() => setFilter("unread")}>Not read today {sel.units.filter(u => !u.readToday).length}</button>
+                <span style={{ flex: 1 }} />
+                {onOpenLabels && <button type="button" className="etChip" data-testid="eqp-labels-link" onClick={() => onOpenLabels(sel)}>🏷 Labels &amp; details</button>}
+              </div>
+              {shownUnits.length === 0 && <div className="etEmpty">{sel.units.length === 0 ? "No units registered at this stand yet — add the first one below." : "Nothing matches this filter at this stand."}</div>}
+              {shownUnits.map(u => (
+                <div key={u.tag} className="eqpUnit" data-testid="eqp-unit">
+                  <div className="eqpUnitMain">
+                    <span className="eqpUnitIcon">{u.freezer ? "🧊" : "❄"}</span>
+                    <div className="eqpUnitInfo">
+                      <b className="notranslate" translate="no">{u.name}</b>
+                      <span>{[u.brand, u.location].filter(Boolean).join(" · ") || "—"}</span>
+                      <span className="eqpTag">{u.tag} · limit {u.limit}°F</span>
+                    </div>
+                    <div className="eqpUnitTemp">
+                      {u.last ? (<><b className={u.state === "alert" ? "eqpTempAlert" : ""}>{u.last.tempF}°F</b><span>{ago(u.last.at)}{u.last.by ? ` · ${u.last.by}` : ""}</span></>) : <span className="eqpNoRead">No read yet</span>}
+                    </div>
+                    <span className={"etPill " + STATE[u.state].cls}>{STATE[u.state].text}</span>
+                  </div>
+                  <div className="eqpActions">
+                    <button type="button" className="btn btnSmall" data-testid="eqp-log-btn" onClick={() => { setLogTag(logTag === u.tag ? null : u.tag); setLogTemp(""); }}>🌡 Log temp</button>
+                    <button type="button" className="btn btnGhost btnSmall" data-testid="eqp-hist-btn" onClick={() => setHistTag(u.tag)}>📈 History</button>
+                  </div>
+                  {logTag === u.tag && (
+                    <div className="eqpLogRow">
+                      <input className="input eqpLogInput" data-testid="eqp-log-input" type="number" inputMode="decimal" step="0.1" autoFocus placeholder={`°F — limit ${u.limit}°F`} value={logTemp} onChange={e => setLogTemp(e.target.value)} onKeyDown={e => { if (e.key === "Enter") submitLog(u); }} />
+                      <button type="button" className="btn" data-testid="eqp-log-submit" disabled={logBusy || logTemp.trim() === ""} onClick={() => submitLog(u)}>{logBusy ? "Saving…" : "Log it"}</button>
+                      <button type="button" className="btn btnGhost" onClick={() => setLogTag(null)}>Cancel</button>
+                    </div>
+                  )}
+                </div>
+              ))}
+              <div className="card eqpAddCard">
+                <div className="cardHeader"><div className="cardTitle" style={{ fontSize: "1rem" }}>➕ Add a unit at {sel.site || "this stand"}{sel.unit ? ` · #${sel.unit}` : ""}</div></div>
+                <div className="cardBody">
+                  <div className="equipTypeGroups">
+                    <div className="equipTypeGroup">
+                      <span className="equipTypeGroupLabel">❄️ Coolers</span>
+                      <div className="equipTypeChips">
+                        {ADD_COOLERS.map(label => <button key={label} type="button" className="equipTypeChip eqQuickChip" data-testid="eqp-add-chip" onClick={() => addUnit(label, false)}>＋ {label}</button>)}
+                      </div>
+                    </div>
+                    <div className="equipTypeGroup">
+                      <span className="equipTypeGroupLabel">🧊 Freezers</span>
+                      <div className="equipTypeChips">
+                        {ADD_FREEZERS.map(label => <button key={label} type="button" className="equipTypeChip eqQuickChip" data-testid="eqp-add-chip" onClick={() => addUnit(label, true)}>＋ {label}</button>)}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="eqQuickHint" style={{ marginTop: 8 }}>Tags are automatic: SDX-CL-{normUnit(sel.unit) || "UNIT"}-n for coolers · SDX-FZ-{normUnit(sel.unit) || "UNIT"}-n for freezers. The unit joins the registry right away — the inspection form pulls it from here.</div>
+                </div>
+              </div>
+            </>)}
+          </>)}
+        </div>
+      </main>
     </div>
   );
 }
@@ -8338,7 +8659,7 @@ function LocationsPanel({ loc, passColor, trendArrow, MiniBar, EmptyState }) {
 // ── Equipment icons by bucket key ────────────────────────────────────────
 const EQUIP_BUCKET_ICONS = { coolers: "❄️", freezers: "🧊", sinks: "🚰", other: "🔧" };
 
-// ── Equipment type display metadata (module-level — shared by SiteCard/TotalsStrip/PerformanceDashboard) ──
+// ── Equipment type display metadata (module-level — shared by SiteCard/TotalsStrip) ──
 const EQUIP_META = [
   { type: "Cooler",      icon: "❄️",  color: "#3b82f6", bg: "var(--tint-blue-1)" },
   { type: "Freezer",     icon: "🧊",  color: "#0ea5e9", bg: "var(--tint-sky-1)" },
@@ -8348,7 +8669,7 @@ const EQUIP_META = [
   { type: "Other",       icon: "🔧",  color: "var(--ink-500)", bg: "var(--surface-2)" },
 ];
 
-// ── Equipment category buckets (module-level — shared by Inventory + PerformanceDashboard) ──
+// ── Equipment category buckets (module-level — shared by the Inventory views) ──
 const KPI_BUCKETS = [
   { key: "coolers",  label: "Coolers",  keywords: ["cooler"],
     subBuckets: [
@@ -8862,7 +9183,7 @@ function AIHealthMonitor({ history, currentUser }) {
         {activeTab === "locations" && (() => {
           const inv = patterns?.equipmentInventory || [];
 
-          // KPI_BUCKETS is defined at module level (shared with PerformanceDashboard)
+          // KPI_BUCKETS is defined at module level (shared)
 
           const bucketFor = (label) => {
             const l = label.toLowerCase();
@@ -10720,17 +11041,34 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
 
   // Cross-device reach: notify approved users assigned to this stand so the
   // reminder isn't just a local announcement on THIS device.
+  // Build-2 wiring fix: recipients are (1) approved users assigned to the
+  // stand, plus (2) every approved admin / global_admin as a backstop — a
+  // reminder for a stand nobody is assigned to still reaches the venue's
+  // admins instead of vanishing. The old 10-user cap is gone and writes are
+  // awaited so the returned count is real (callers may log it).
   async function notifyAssignedUsers(fs, title, message) {
-    if (!FIREBASE_ON) return;
+    if (!FIREBASE_ON) return 0;
+    let sent = 0;
     try {
       const users = await getUsers();
       const locs = new Set((Array.isArray(fs) ? fs : [fs]).map(f => (f.loc || "").trim().toUpperCase()));
+      const seen = new Set();
+      const targets = [];
+      const push = u => { const k = (u.name || "").trim().toLowerCase(); if (k && !seen.has(k)) { seen.add(k); targets.push(u); } };
       (users || [])
         .filter(u => u.approved && u.name && u.badgeHash !== currentUser?.badgeHash &&
           (u.assignedStands || []).some(s => locs.has((s || "").trim().toUpperCase())))
-        .slice(0, 10)
-        .forEach(u => saveInspectorNotification({ inspectorName: u.name.trim().toLowerCase(), kind: "followup", title, message }).catch(() => {}));
+        .forEach(push);
+      (users || [])
+        .filter(u => u.approved && u.name && u.badgeHash !== currentUser?.badgeHash &&
+          (u.role === "admin" || u.role === "global_admin"))
+        .forEach(push);
+      for (const u of targets) {
+        const r = await saveInspectorNotification({ inspectorName: u.name.trim().toLowerCase(), kind: "followup", title, message }).catch(() => null);
+        if (r) sent++;
+      }
     } catch {}
+    return sent;
   }
 
   // One reminder for however many items were tapped — a single Quick Check
@@ -12600,7 +12938,8 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
   const [chatByReport, setChatByReport] = useState({});  // { [reportId]: [...messages] }
   const [showHistoryMenu, setShowHistoryMenu] = useState(false);
   const [tlShow, setTlShow] = useState(60); // v516 — Timeline renders 60 events, more on scroll
-  const [analyticsTab, setAnalyticsTab] = useState(initialAnalyticsTab || "recurring"); // "recurring" (Follow-ups) | "temp" | "insights" | "predictive" | "timeline"
+  const [analyticsTab, setAnalyticsTab] = useState(initialAnalyticsTab || "recurring"); // "recurring" (Follow-ups) | "temp" | "insights" | "predictive" | "timeline" | "trends" (admin-gated)
+  const canSeeTrends = currentUser?.role === "admin" || currentUser.role === "global_admin"; // Trends stays admin-only in its new Analytics home (it was the admin-only Performance Dashboard's surviving tab)
   // Navigating to this page while it's already open (⋯ menu, notifications) → follow the requested tab
   useEffect(() => { if (initialTab) setHistoryTab(initialTab); if (initialAnalyticsTab) setAnalyticsTab(initialAnalyticsTab); }, [initialTab, initialAnalyticsTab]);
   // v508: open one report by id ("Open report" in From the stands, record notifications)
@@ -13242,8 +13581,8 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
     const ExcelJS = (await import("exceljs")).default;
     const dateStr = new Date().toISOString().slice(0, 10);
 
-    // ── Sodexo brand colours ───────────────────────────────────────────────
-    const NAVY   = "1C2B5E";
+    // ── SDX brand colours ───────────────────────────────────────────────
+    const NAVY   = "2A295C";
     const RED    = "A8192E";
     const SILVER = "F4F5F7";
     const WHITE  = "FFFFFF";
@@ -14606,6 +14945,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                 { key: "insights",   label: "Insights"   },
                 { key: "predictive", label: "Predictive" },
                 { key: "timeline",   label: "Timeline"   },
+                ...(canSeeTrends ? [{ key: "trends",     label: "Trends"     }] : []),
               ].map(({ key, label, badge }) => (
                 <button
                   key={key}
@@ -14618,10 +14958,11 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
               ))}
             </div>
             {/* v444: analytics reads the deep list, not the loaded page */}
-            {analyticsTab === "temp" && <><HaccpTodayTracker venueSettings={venueSettings} saveVenueSettingsMap={saveVenueSettingsMap} history={history} currentUser={currentUser} /><EquipTempBoard history={history} onOpenStand={st => window.dispatchEvent(new CustomEvent("sdx-open-stand-equipment", { detail: st }))} /><TempTrendChart history={filtered.length > 0 ? filtered : (analyticsHistory.length ? analyticsHistory : history)} /></>}
+            {analyticsTab === "temp" && <><HaccpTodayTracker venueSettings={venueSettings} saveVenueSettingsMap={saveVenueSettingsMap} history={history} currentUser={currentUser} />{venueSettings?.equipTemps?.verifiedAt ? <>{(currentUser?.role === "admin" || currentUser?.role === "global_admin") && <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 10 }}><span style={{ fontSize: "0.74rem", fontWeight: 700, color: "var(--ink-500)" }}>❄ Equipment temps on · walk-through verified {new Date(venueSettings.equipTemps.verifiedAt).toLocaleDateString()}{venueSettings.equipTemps.verifiedBy ? ` by ${venueSettings.equipTemps.verifiedBy}` : ""}</span><button type="button" className="etChip" data-testid="equip-temps-pause" onClick={() => saveVenueSettingsMap?.("equipTemps", { verifiedAt: 0, verifiedBy: "" })}>Pause equipment temps</button></div>}<EquipTempBoard history={history} onOpenStand={st => window.dispatchEvent(new CustomEvent("sdx-open-stand-equipment", { detail: st }))} /></> : <div className="card equipTempsPaused" style={{ marginBottom: 24 }}><div className="cardBody" style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}><span style={{ fontSize: "0.82rem", fontWeight: 700, color: "var(--ink-700)" }}>❄ Equipment temps are paused for this venue — they turn on once the equipment walk-through is verified, so every cooler and freezer tracked is one this venue actually has.</span>{(currentUser?.role === "admin" || currentUser?.role === "global_admin") && <button type="button" className="etChip" data-testid="equip-temps-verify-on" onClick={() => saveVenueSettingsMap?.("equipTemps", { verifiedAt: Date.now(), verifiedBy: currentUser?.name || "" })}>Mark walk-through verified — turn on</button>}</div></div>}<TempTrendChart history={filtered.length > 0 ? filtered : (analyticsHistory.length ? analyticsHistory : history)} /></>}
             {analyticsTab === "insights" && <AIHealthMonitor history={filtered.length > 0 ? filtered : (analyticsHistory.length ? analyticsHistory : history)} currentUser={currentUser} />}
             {analyticsTab === "predictive" && <PredictiveInsightsPanel history={filtered.length > 0 ? filtered : (analyticsHistory.length ? analyticsHistory : history)} venueSettings={venueSettings} />}
             {analyticsTab === "recurring" && <RecurringIssuesPanel history={filtered.length > 0 ? filtered : (analyticsHistory.length ? analyticsHistory : history)} onLocationClick={filterByLocation} onTagClick={goToRecurringAnalytics} onIssueDrilldown={filterByLocationAndIssue} venueSettings={venueSettings} saveVenueSettings={saveVenueSettings} saveVenueSettingsMap={saveVenueSettingsMap} currentUser={currentUser} onAddRecord={rec => setHistory(prev => [rec, ...prev])} />}
+            {analyticsTab === "trends" && canSeeTrends && <TrendsPanel history={filtered.length > 0 ? filtered : (analyticsHistory.length ? analyticsHistory : history)} />}
             {analyticsTab === "timeline" && (() => {
               const src = filtered.length > 0 ? filtered : (analyticsHistory.length ? analyticsHistory : history);
               // Build merged event list: one entry per inspection + one per HACCP submission linked to it
@@ -17823,3174 +18164,308 @@ function LicensesTab({ history, invLicenseData, setInvLicenseData, invLicenseMis
 }
 
 /* ══════════════════════════════════════════════════════════════
-   PerformanceDashboard — Admin-only inspector performance view
-   Shows: rankings, time-per-report, time-per-location, best inspector
+   TrendsPanel — venue compliance trends (monthly compliance +
+   pass-rate chart, monthly table, recurring issue categories,
+   inspection volume). Extracted verbatim from the retired
+   Performance Dashboard (2026-10-10: the Duration / per-inspector
+   analytics were cut by Joxel's verdict; Trends is kept and now
+   lives in Past Reports → Analytics, admin-gated). Computes only
+   venue-level aggregates from inspection history records — no
+   per-person data is derived here.
 ══════════════════════════════════════════════════════════════ */
-function PerformanceDashboard({ onBack, managedVenueId, managedVenueName, venueSettings }) {
-  const [history, setHistory] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("time");
-  const [expandedSiteTags, setExpandedSiteTags] = useState(new Set()); // inspector names with expanded site tags
-  const [invSearch,       setInvSearch]       = useState("");
-  const [invTypeFilter,   setInvTypeFilter]   = useState(""); // Cooler|Freezer|Hand Sink|3-Comp Sink|""
-  const [invEquipBucket,  setInvEquipBucket]  = useState(""); // coolers|freezers|sinks|other|""
-  const [invEquipSub,     setInvEquipSub]     = useState(""); // walkin|doubledoor|prep|etc|""
-  const [invLocFilter,    setInvLocFilter]    = useState(""); // permanent|subcontractor|event|""
-  const [invExpandedKeys, setInvExpandedKeys] = useState(new Set()); // which site cards are expanded
-  const [invCountOverrides, setInvCountOverrides] = useState({}); // { "eventName||siteName::itemLabel": number }
-  const [invNameOverrides,  setInvNameOverrides]  = useState({}); // { siteName: customDisplayName }
-  const [invEditingName,    setInvEditingName]    = useState(null); // siteName currently being edited
-  const [iceMakerData,      setIceMakerData]      = useState({}); // { siteKey: { count, lastCleaned } }
-  const [filterData,        setFilterData]        = useState({}); // { siteKey: { count, lastChanged } }
-  // invLicenseData: { siteName: { licenseNum, notes } }
-  // Seeded from the most recent restaurantLicense found in inspection history per site.
-  // Users can edit/override per site in SiteCard or in the Licenses tab.
-  const [invLicenseData,    setInvLicenseData]    = useState({});
-  // invLicenseMismatches: array of { siteName, historyLicense, enteredLicense, date }
-  // tracks cases where a different license was recorded for the same site across inspections
-  const [invLicenseMismatches, setInvLicenseMismatches] = useState([]);
-  // dismissed mismatches (siteName keys) — user said "keep as-is"
-  const [dismissedMismatches, setDismissedMismatches] = useState(new Set());
-
-  // ── Seed ice maker counts from spreadsheet data on first history load ──
-  // For each unique site name in history we try to find a match in the
-  // ICE_MAKER_SEED_NORM lookup (normalised: uppercase, alpha-numeric + spaces
-  // only, collapsed whitespace).  We only write a seed value when the user
-  // hasn't already set one (count > 0 or lastCleaned set) so manual overrides
-  // are never clobbered.
-  // siteKey for permanent/sub sites is "||siteName" (no event prefix).
-  useEffect(() => {
-    if (!history || history.length === 0) return;
-    const sites = new Set();
-    for (const rec of history) {
-      const s = rec.siteName || rec.site;
-      if (s) sites.add(s);
-    }
-    setIceMakerData(prev => {
-      const patch = {};
-      for (const site of sites) {
-        // Only use the permanent-style key (no event prefix) for seed
-        const sk = "||" + site;
-        const existing = prev[sk];
-        if (existing && (existing.count > 0 || existing.lastCleaned)) continue; // user already set
-        const norm = normaliseLocName(site);
-        const seedEntry = ICE_MAKER_SEED_NORM[norm];
-        if (seedEntry && seedEntry.count > 0) {
-          patch[sk] = { count: seedEntry.count, lastCleaned: "" };
-        }
-      }
-      if (Object.keys(patch).length === 0) return prev;
-      return { ...prev, ...patch };
-    });
-  }, [history]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // ── Seed license numbers from LICENSE_SEED ──────────────────
-  // Approach: seed ALL canonical entries from the static table so the
-  // Licenses tab is fully pre-populated from day one, regardless of whether
-  // a given stand has inspection history yet.  For each seed entry the
-  // FIRST alias (the "canonical" form, e.g. "101 - Magic City Dogs") is
-  // used as the key.  We also match any site names found in history so
-  // that however an inspector typed the name it resolves correctly.
-  // User-set values always win (prev wins in the merge).
-  useEffect(() => {
-    const licPatch = {};
-
-    // 1) Seed every entry in LICENSE_SEED using the seed key itself
-    //    as the registry key.  The first occurrence of each normalised key wins
-    //    (handles duplicate aliases mapping to the same license).
-    const seenNorm = new Set();
-    for (const [key, lic] of Object.entries(LICENSE_SEED)) {
-      const norm = normaliseLocName(key);
-      if (seenNorm.has(norm)) continue;
-      seenNorm.add(norm);
-      licPatch[key] = { licenseNum: lic, notes: "" };
-    }
-
-    // 2) Also resolve site names from inspection history — so however the
-    //    inspector typed the name it appears in the registry with the right license.
-    if (history?.length) {
-      const allHistorySites = [...new Set(history.map(r => r.siteName || r.site).filter(Boolean))];
-      for (const site of allHistorySites) {
-        if (licPatch[site]) continue; // already covered by seed key above
-        const seedLic = lookupLicenseFromSeed(site, null);
-        if (seedLic) {
-          licPatch[site] = { licenseNum: seedLic, notes: "" };
-        }
-      }
-    }
-
-    if (Object.keys(licPatch).length > 0) {
-      setInvLicenseData(prev => {
-        const merged = { ...licPatch, ...prev }; // prev wins so user overrides are kept
-        return merged;
-      });
-    }
-  }, [history]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // ── Detect license mismatches across inspection history ───────────────────
-  useEffect(() => {
-    if (!history || history.length === 0) return;
-    // Group all restaurantLicense values seen per site
-    const siteToLicenses = {};
-    const siteDisplayName = {}; // normalised key → canonical display name
-    for (const r of history) {
-      const site = (r.siteName || r.location || "").trim();
-      const lic  = (r.restaurantLicense || "").trim().toUpperCase();
-      if (!site || !lic || lic === "NO LICENSE") continue;
-      const normSite = normaliseLocName(site);
-      if (!siteToLicenses[normSite]) { siteToLicenses[normSite] = new Set(); siteDisplayName[normSite] = site; }
-      siteToLicenses[normSite].add(lic);
-    }
-    const mismatches = [];
-    const autoResolved = {};
-    for (const [normSite, lics] of Object.entries(siteToLicenses)) {
-      if (lics.size > 1) {
-        const displayName = siteDisplayName[normSite] || normSite;
-        // The official license sheet is the source of truth: if this site (or one of
-        // the license numbers seen) resolves in the seed, silently auto-pick the
-        // official number instead of nagging the user with a mismatch banner.
-        const official = lookupLicenseFromSeed(displayName, null);
-        if (official) {
-          autoResolved[displayName] = { licenseNum: official, notes: "Auto-set from official license sheet" };
-          continue;
-        }
-        const seedMatch = [...lics].find(l => LICENSE_SEED_BY_NUMBER && Object.values(LICENSE_SEED_NORM).includes(l));
-        if (seedMatch) {
-          autoResolved[displayName] = { licenseNum: seedMatch, notes: "Auto-set from official license sheet" };
-          continue;
-        }
-        mismatches.push({ siteName: displayName, licenses: [...lics] });
-      }
-    }
-    if (Object.keys(autoResolved).length > 0) {
-      setInvLicenseData(prev => {
-        const next = { ...prev };
-        for (const [site, entry] of Object.entries(autoResolved)) {
-          const cur = (next[site]?.licenseNum || "").trim();
-          if (!cur || cur !== entry.licenseNum) next[site] = { ...next[site], ...entry };
-        }
-        return next;
-      });
-    }
-    setInvLicenseMismatches(mismatches);
-  }, [history]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const [feedbackNotes,     setFeedbackNotes]     = useState(() => {
-    try { return JSON.parse(localStorage.getItem("inspectorFeedbackNotes") || "{}"); } catch { return {}; }
+function TrendsPanel({ history }) {
+  // ── Compute monthly buckets ───────────────────────────────────────
+  const buckets = {}; // { "2026-03": { scores: [], passes: 0, total: 0 } }
+  const sorted = [...history].sort((a, b) => (a.savedAt || "").localeCompare(b.savedAt || ""));
+  for (const r of sorted) {
+    const monthKey = (r.savedAt || r.inspectionDate || "").slice(0, 7);
+    if (!monthKey || monthKey.length < 7) continue;
+    if (!buckets[monthKey]) buckets[monthKey] = { scores: [], passes: 0, total: 0 };
+    const sc = calcInspectionScore(r.inspection);
+    if (sc) buckets[monthKey].scores.push(sc.pct);
+    buckets[monthKey].total++;
+    if ((r.overallStatus || "").toLowerCase() === "pass") buckets[monthKey].passes++;
+  }
+  const months = Object.keys(buckets).sort();
+  const points = months.map(m => {
+    const b = buckets[m];
+    const avgPct = b.scores.length ? Math.round(b.scores.reduce((s, v) => s + v, 0) / b.scores.length) : null;
+    const passRate = b.total ? Math.round((b.passes / b.total) * 100) : null;
+    return { month: m, avgPct, passRate, total: b.total };
   });
-  const [feedbackDraft,     setFeedbackDraft]     = useState({}); // { inspectorName: draftText }
-  const [feedbackOpen,      setFeedbackOpen]      = useState({}); // { inspectorName: bool }
 
-  function saveFeedback(inspectorName) {
-    const key = (managedVenueId || "default") + "||" + inspectorName;
-    const draft = feedbackDraft[inspectorName] ?? feedbackNotes[key] ?? "";
-    const updated = { ...feedbackNotes, [key]: draft };
-    setFeedbackNotes(updated);
-    try { localStorage.setItem("inspectorFeedbackNotes", JSON.stringify(updated)); } catch {}
-  }
-
-  function getFeedback(inspectorName) {
-    const key = (managedVenueId || "default") + "||" + inspectorName;
-    return feedbackNotes[key] || "";
-  }
-
-  useEffect(() => {
-    // INSTANT RENDER: show the locally cached history right away (if any)
-    // while the fresh data loads in the background. The dashboard becomes
-    // usable immediately and silently updates when the network returns.
-    try {
-      const cached = JSON.parse(localStorage.getItem(`sdx_history_cache_${managedVenueId || VENUE_ID}`) || "[]");
-      if (Array.isArray(cached) && cached.length > 0) {
-        setHistory(cached);
-        setLoading(false);
-      }
-    } catch { /* no cache — keep spinner until fetch resolves */ }
-
-    loadHistory(managedVenueId || undefined, { pageSize: 2000 }).then(({ list }) => {
-      // Re-derive overallStatus from the score for every record so that historical
-      // records (saved with the old item-scan logic) also reflect the current
-      // score-based threshold (≥80% = Pass).  calcOverallStatus reads rec.inspection
-      // plus the stored foodTemps/foodTempNames so no data is lost.
-      const enriched = (list || []).map(rec => {
-        try {
-          const derived = calcOverallStatus(
-            rec.inspection,
-            { foodTemps: rec.foodTemps, foodTempNames: rec.foodTempNames }
-          );
-          return derived !== rec.overallStatus ? { ...rec, overallStatus: derived } : rec;
-        } catch { return rec; }
-      });
-      setHistory(enriched);
-      // Refresh the cache so the NEXT open renders instantly (skip photo blobs
-      // and cap the payload so localStorage never overflows)
-      try {
-        const slim = enriched.map(r => { const { photos, itemPhotos, ...rest } = r; return rest; });
-        const json = JSON.stringify(slim);
-        if (json.length < 4_000_000) localStorage.setItem(`sdx_history_cache_${managedVenueId || VENUE_ID}`, json);
-      } catch { /* quota exceeded — not critical */ }
-    }).catch(() => {
-      // Network/Firestore failure — fall back to whatever is cached locally so the page still renders
-      try {
-        const cached = JSON.parse(localStorage.getItem(`sdx_history_cache_${managedVenueId || VENUE_ID}`) || "[]");
-        setHistory(Array.isArray(cached) ? cached : []);
-      } catch { setHistory([]); }
-    }).finally(() => setLoading(false));
-    // Safety net: never show the spinner longer than 12s even if the request hangs
-    const t = setTimeout(() => setLoading(false), 12000);
-    return () => clearTimeout(t);
-  }, [managedVenueId]);
-
-  const ranking = useMemo(() => AIEngine.getInspectorRanking(history), [history]);
-
-  function fmtDur(sec) {
-    if (!sec || sec <= 0) return "—";
-    const m = Math.floor(sec / 60);
-    const s = sec % 60;
-    return m > 0 ? `${m}m ${s}s` : `${s}s`;
-  }
-
-  // Format gap between inspections — can be hours or days
-  function fmtGap(sec) {
-    if (!sec || sec <= 0) return "—";
-    if (sec < 3600) { const m = Math.floor(sec / 60); return `${m}m`; }
-    if (sec < 86400) { const h = Math.floor(sec / 3600); const m = Math.floor((sec % 3600) / 60); return m > 0 ? `${h}h ${m}m` : `${h}h`; }
-    const d = Math.floor(sec / 86400);
-    const h = Math.floor((sec % 86400) / 3600);
-    return h > 0 ? `${d}d ${h}h` : `${d}d`;
-  }
-
-  const medals = ["🥇", "🥈", "🥉"];
-
-  const scoreColor = (score) => {
-    if (score >= 80) return "#22c55e";
-    if (score >= 60) return "#f59e0b";
-    return "#ef4444";
-  };
-
-  const trendLabel = (t) => {
-    if (t === "improving") return { label: "↑ Improving", color: "#22c55e" };
-    if (t === "declining") return { label: "↓ Declining", color: "#ef4444" };
-    return { label: "→ Stable", color: "var(--ink-400)" };
-  };
-
-  // By-location aggregation (enriched with unit number, floor, locationType, issue categories, inspector list)
-  // Grouping key includes siteName + siteNumber + floor so each distinct unit gets its own card.
-  const byLocation = useMemo(() => {
-    if (!history.length) return [];
-    const map = {};
-    for (const r of history) {
-      const siteName  = (r.siteName || r.location || "—").trim();
-      const unitNum   = (r.siteNumber || "").trim();
-      const floor     = (r.floor || "").trim();
-      const key       = `${siteName}||${unitNum}||${floor}`;
-      if (!map[key]) map[key] = {
-        siteName, unitNum, floor,
-        locationType: r.locationType || "",
-        eventName: r.eventName || "",
-        sitePhone: r.sitePhone || "",
-        restaurantLicense: r.restaurantLicense || "",
-        total: 0, passes: 0, durations: [], inspectors: new Set(), cats: {}, lastDate: null
-      };
-      const e = map[key];
-      e.total++;
-      if ((r.overallStatus || "").toLowerCase() === "pass") e.passes++;
-      if (r.timerConfirmed && typeof r.reportDurationSeconds === "number" && r.reportDurationSeconds > 0)
-        e.durations.push(r.reportDurationSeconds);
-      if (r.inspectorName) e.inspectors.add(r.inspectorName);
-      // pick up enriched fields from later records too
-      if (!e.locationType && r.locationType) e.locationType = r.locationType;
-      if (!e.eventName   && r.eventName)    e.eventName   = r.eventName;
-      if (!e.sitePhone   && r.sitePhone)    e.sitePhone   = r.sitePhone;
-      if (!e.restaurantLicense && r.restaurantLicense) e.restaurantLicense = r.restaurantLicense;
-      // tally issue categories
-      if (Array.isArray(r.issues)) {
-        for (const iss of r.issues) {
-          const cat = iss.category || iss.label || "Other";
-          e.cats[cat] = (e.cats[cat] || 0) + 1;
-        }
-      }
-      if (r.savedAt && (!e.lastDate || r.savedAt > e.lastDate)) e.lastDate = r.savedAt;
-    }
-    return Object.values(map).map(v => ({
-      key: `${v.siteName}||${v.unitNum}||${v.floor}`,
-      siteName: v.siteName,
-      unitNum: v.unitNum,
-      floor: v.floor,
-      locationType: v.locationType,
-      eventName: v.eventName,
-      sitePhone: v.sitePhone,
-      restaurantLicense: v.restaurantLicense,
-      total: v.total,
-      passRate: v.total ? Math.round((v.passes / v.total) * 100) : 0,
-      avgSec: v.durations.length ? Math.round(v.durations.reduce((a, b) => a + b, 0) / v.durations.length) : null,
-      inspectorCount: v.inspectors.size,
-      inspectors: [...v.inspectors],
-      topIssues: Object.entries(v.cats).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([cat, count]) => ({ cat, count })),
-      lastDate: v.lastDate,
-    })).sort((a, b) => b.total - a.total);
-  }, [history]);
-
-  const best = ranking[0];
-  const fastest = ranking.length
-    ? [...ranking].filter(r => r.avgDurationSec).sort((a, b) => a.avgDurationSec - b.avgDurationSec)[0]
-    : null;
-
-  // Sodexo brand tokens
-  const NAVY  = "var(--sdx-navy)";
-  const RED   = "#EE0000";
-  const BG    = "var(--surface-2)";
-
-  // Aggregate summary stats
-  const totalInspections = history.length;
-  const overallPassRate  = totalInspections
-    ? Math.round((history.filter(r => (r.overallStatus || "").toLowerCase() === "pass").length / totalInspections) * 100)
-    : 0;
-  const avgScore = ranking.length
-    ? Math.round(ranking.reduce((s, p) => s + p.performanceScore, 0) / ranking.length)
-    : 0;
-
-  // Avatar initials helper
-  const initials = (name) => name ? name.split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2) : "?";
-  // Avatar background from name hash
-  const avatarBg = (name) => {
-    const colors = ["#6366f1","#0ea5e9","#10b981","#f59e0b","#8b5cf6","#ec4899","#14b8a6","#f97316"];
-    let h = 0; for (let c of (name || "")) h = (h * 31 + c.charCodeAt(0)) & 0xffff;
-    return colors[h % colors.length];
-  };
-  // Pass rate color with more granularity
-  const passColor = (r) => r >= 90 ? "#16a34a" : r >= 75 ? "#22c55e" : r >= 60 ? "#f59e0b" : "#ef4444";
-
-  // ── Retention Verdict Engine ─────────────────────────────────────────
-  // Built around Real Work Score: output quality only — no time component.
-  // Signals: pass rate vs site baseline, issue find rate, note quality,
-  //          rubber-stamp detection, score variance, trend, recent trajectory.
-  function buildVerdict(p) {
-    const signals = [];
-    const recommendations = [];
-    let score = 0;
-    const MIN_INSPECTIONS = 5;
-
-    // ── 1. Site-normalized pass rate ──────────────────────────────────
-    // Use effectivePassRate (site-adjusted) when we have enough cross-site data,
-    // otherwise fall back to raw passRate. This prevents hard-site bias.
-    const displayRate = p.effectivePassRate ?? p.passRate;
-    const isNormalized = (p.sitesWithBaseline || 0) >= 2;
-    const rateLabel = isNormalized
-      ? `${displayRate}% site-adjusted (raw ${p.passRate}%)`
-      : `${displayRate}%`;
-
-    if (displayRate >= 85) {
-      score += 3;
-      signals.push({ label: "Strong pass rate", detail: `${rateLabel} — consistently approving kitchens that meet standards`, type: "positive" });
-    } else if (displayRate >= 70) {
-      score += 1;
-      signals.push({ label: "Acceptable pass rate", detail: `${rateLabel} — room to improve`, type: "neutral" });
-    } else if (displayRate >= 55) {
-      score -= 1;
-      signals.push({ label: "Below-average pass rate", detail: `${rateLabel} — standards may be applied inconsistently`, type: "warning" });
-      recommendations.push("Review whether failing sites have genuine issues or if standards are being applied inconsistently.");
-    } else {
-      score -= 3;
-      signals.push({ label: "Low pass rate", detail: `${rateLabel} — significantly below expectations`, type: "danger" });
-      recommendations.push("Urgent: conduct a calibration session and shadow this inspector on their next visit.");
-    }
-
-    // ── 2. Issue-finding rate ─────────────────────────────────────────
-    // An inspector who never finds problems is either in perfect venues (unlikely)
-    // or is rubber-stamping. This is the strongest real-work signal.
-    if (p.avgIssues >= 3) {
-      score += 3;
-      signals.push({ label: "Excellent issue detection", detail: `Avg ${p.avgIssues} issues flagged per inspection — actively catching real problems`, type: "positive" });
-    } else if (p.avgIssues >= 1.5) {
-      score += 1;
-      signals.push({ label: "Solid issue detection", detail: `Avg ${p.avgIssues} issues per inspection — finding problems at an acceptable rate`, type: "positive" });
-    } else if (p.avgIssues >= 0.5) {
-      signals.push({ label: "Low issue rate", detail: `Avg ${p.avgIssues} issues per inspection — may be missing findings`, type: "warning" });
-      recommendations.push("Compare this inspector's findings at the same sites vs other inspectors to determine if the low rate is site-specific or a pattern.");
-    } else if (p.total >= MIN_INSPECTIONS) {
-      score -= 3;
-      signals.push({ label: "Almost no issues flagged", detail: `Avg ${p.avgIssues} issues per inspection across ${p.total} visits — nearly impossible in real conditions`, type: "danger" });
-      recommendations.push("An inspector who finds almost zero issues across many visits is a major red flag. Either they are not looking, or are rubber-stamping results. Cross-reference their sites with inspections done by others.");
-    }
-
-    // ── 3. Note quality ───────────────────────────────────────────────
-    // Measures how thoroughly the inspector fills every field:
-    //   - Are flagged items accompanied by a written observation note?
-    //   - Are those notes specific enough to be actionable?
-    // noteQualityScore = 0-25 pts (coverageScore 0-15 + specificityScore 0-10)
-    const coverage = p.flaggedNoteCoverage ?? 100;
-    const avgLen   = p.avgNoteLength ?? 0;
-    if (p.noteQualityScore >= 22) {
-      score += 2;
-      signals.push({ label: "Thorough, detailed documentation", detail: `${coverage}% of flagged items have notes · avg ${avgLen} chars — inspector is filling every field with specific observations`, type: "positive" });
-    } else if (p.noteQualityScore >= 14) {
-      score += 1;
-      signals.push({ label: "Adequate documentation", detail: `${coverage}% of flagged items have notes · avg ${avgLen} chars — reasonably thorough`, type: "neutral" });
-    } else if (p.noteQualityScore >= 5 && p.avgIssues > 0) {
-      score -= 1;
-      signals.push({ label: "Incomplete documentation", detail: `Only ${coverage}% of flagged items have written notes · avg ${avgLen} chars — missing observations on some issues`, type: "warning" });
-      recommendations.push("Inspector is flagging issues but not filling in observation notes for all of them. Every 'Needs Attention' or 'Fail' item should have a written note explaining what was observed, where, and severity.");
-    } else if (p.noteQualityScore === 0 && p.avgIssues > 0) {
-      score -= 2;
-      signals.push({ label: "No written observations", detail: "Issues are being flagged but no observation notes are written — records are not actionable", type: "danger" });
-      recommendations.push("Flagged items have no accompanying notes. Require inspectors to describe every issue: what was wrong, where exactly, and what condition it was in. Records without notes cannot be used for follow-up or training.");
-    }
-
-    // ── 4. Rubber-stamp detection ─────────────────────────────────────
-    // Two patterns that indicate an inspector is not really engaging:
-    //   a) Pass rate ≥95% + near-zero issues across multiple visits
-    //   b) Suspiciously flat results (near-zero variance) across many records
-    if (p.isRubberStampPattern) {
-      score -= 4;
-      signals.push({ label: "Rubber-stamp pattern detected", detail: `${p.passRate}% pass rate with avg ${p.avgIssues} issues — nearly every inspection is a perfect pass with nothing flagged`, type: "danger" });
-      recommendations.push("This pattern is a strong indicator of rubber-stamping: consistently perfect passes with almost no findings is statistically implausible across real venues. Conduct an unannounced joint inspection to verify.");
-    } else if (p.isSuspiciouslyFlat && !p.isRubberStampPattern) {
-      score -= 2;
-      signals.push({ label: "Unusually consistent results", detail: `Results show very low variance across ${p.total} inspections — real venues rarely produce identical outcomes every visit`, type: "warning" });
-      recommendations.push("Results that are nearly identical across many different visits and sites may indicate the inspector is not engaging with what they find. Compare against other inspectors at the same locations.");
-    }
-
-    // ── 5. Trend signal ──────────────────────────────────────────────
-    if (p.trendLabel === "improving" && p.trend >= 15) {
-      score += 2;
-      signals.push({ label: "Strong upward trend", detail: `Pass rate rose +${p.trend}pts from first to second half of their records`, type: "positive" });
-    } else if (p.trendLabel === "improving") {
-      score += 1;
-      signals.push({ label: "Improving trajectory", detail: `Pass rate trending upward (+${p.trend}pts) — on the right track`, type: "positive" });
-    } else if (p.trendLabel === "stable") {
-      signals.push({ label: "Stable performance", detail: "Results are steady — neither improving nor declining", type: "neutral" });
-    } else if (p.trendLabel === "declining" && Math.abs(p.trend) >= 20) {
-      score -= 3;
-      signals.push({ label: "Sharp decline", detail: `Pass rate dropped ${Math.abs(p.trend)}pts — significant regression`, type: "danger" });
-      recommendations.push("Performance is dropping sharply. Schedule a 1:1 review to understand the root cause.");
-    } else if (p.trendLabel === "declining") {
-      score -= 1;
-      signals.push({ label: "Declining trend", detail: `Pass rate dropped ${Math.abs(p.trend)}pts over time`, type: "warning" });
-      recommendations.push("Monitor closely over the next 3–4 inspections for signs of recovery.");
-    }
-
-    // ── 6. Recent trajectory (last 3 inspections) ────────────────────
-    if (p.recent && p.recent.length >= 3) {
-      const recentFails = p.recent.filter(r => (r.status || "").toLowerCase() !== "pass").length;
-      if (recentFails === 0) {
-        score += 1;
-        signals.push({ label: "Strong recent performance", detail: "Last 3 inspections all passed — currently in good form", type: "positive" });
-      } else if (recentFails === 3) {
-        score -= 2;
-        signals.push({ label: "3 consecutive non-passes", detail: "Every recent inspection failed — immediate attention needed", type: "danger" });
-        recommendations.push("Three consecutive non-passes is a red flag. Investigate whether issues are site-specific or inspector-related.");
-      } else if (recentFails >= 2) {
-        score -= 1;
-        signals.push({ label: "Recent struggles", detail: `${recentFails} of last 3 inspections did not pass`, type: "warning" });
-      }
-    }
-
-    // ── 7. Repeated issue blindspot ───────────────────────────────────
-    // Same issue category appearing in >30% of inspections signals a blind spot
-    // — either sites aren't fixing the problem, or inspector can't resolve it.
-    if (p.topIssues && p.topIssues.length > 0) {
-      const persistentIssue = p.topIssues[0];
-      if (persistentIssue.rate >= 50) {
-        score -= 2;
-        signals.push({ label: "Chronic issue type", detail: `"${persistentIssue.cat}" appears in ${persistentIssue.rate}% of inspections — strong pattern of neglect or blindspot`, type: "danger" });
-        recommendations.push(`"${persistentIssue.cat}" is appearing in over half of inspections. Escalate to determine if sites aren't fixing the problem, or if this inspector is stuck.`);
-      } else if (persistentIssue.rate >= 30) {
-        score -= 1;
-        signals.push({ label: "Recurring issue type", detail: `"${persistentIssue.cat}" appears in ${persistentIssue.rate}% of inspections — early pattern forming`, type: "warning" });
-        recommendations.push(`Investigate whether "${persistentIssue.cat}" issues are being resolved between visits or if the same problem keeps getting reported without resolution.`);
-      }
-    }
-
-    // ── 8. Site coverage ─────────────────────────────────────────────
-    if (p.siteCount >= 5) {
-      score += 1;
-      signals.push({ label: "Wide site coverage", detail: `Inspected ${p.siteCount} different locations — versatile`, type: "positive" });
-    } else if (p.siteCount <= 1 && p.total >= MIN_INSPECTIONS) {
-      signals.push({ label: "Single-site pattern", detail: "All inspections at the same location — limited cross-site comparison possible", type: "neutral" });
-    }
-
-    // ── 9. Sample size caveat ─────────────────────────────────────────
-    if (p.total < MIN_INSPECTIONS) {
-      signals.push({ label: "Limited data", detail: `Only ${p.total} inspection${p.total !== 1 ? "s" : ""} on record — verdict may not reflect full picture`, type: "neutral" });
-      recommendations.push("Collect more inspections before drawing conclusions about this person's performance.");
-    }
-
-    // ── Final verdict ─────────────────────────────────────────────────
-    // Thresholds: Top ≥7, Solid ≥3, Watch ≥0, Concern ≥-3, Urgent <-3
-    let verdict, color, bgColor, borderColor, emoji, summary;
-    if (score >= 7) {
-      verdict = "KEEP — Top Performer";
-      emoji = "🟢";
-      color = "#15803d";
-      bgColor = "var(--tint-green-1)";
-      borderColor = "#86efac";
-      summary = "This inspector is genuinely doing the work: finding real issues, writing detailed findings, passing sites that deserve to pass, and showing no rubber-stamp patterns. A reliable asset.";
-    } else if (score >= 3) {
-      verdict = "KEEP — Solid";
-      emoji = "✅";
-      color = "#16a34a";
-      bgColor = "var(--tint-green-1)";
-      borderColor = "#bbf7d0";
-      summary = "Performing at or above expectations. Output quality is good with some areas to develop. Continue standard oversight.";
-    } else if (score >= 0) {
-      verdict = "WATCH — Monitor Closely";
-      emoji = "🟡";
-      color = "#b45309";
-      bgColor = "var(--tint-amber-1)";
-      borderColor = "#fde68a";
-      summary = "Performance is marginal — some output quality concerns detected. Requires closer monitoring over the next several inspections before drawing firm conclusions.";
-    } else if (score >= -3) {
-      verdict = "CONCERN — Action Required";
-      emoji = "🔴";
-      color = "#dc2626";
-      bgColor = "var(--tint-red-1)";
-      borderColor = "#fca5a5";
-      summary = "Multiple output quality issues detected. This inspector needs a formal review and coaching before concerns become a liability.";
-    } else {
-      verdict = "CONCERN — Urgent Review";
-      emoji = "🚨";
-      color = "var(--tx-red-strong)";
-      bgColor = "var(--tint-red-1)";
-      borderColor = "#fda4af";
-      summary = "Significant red flags across output quality, issue detection, or rubber-stamp patterns. Continued unsupervised work at this level is not recommended without immediate intervention.";
-    }
-
-    return { verdict, color, bgColor, borderColor, emoji, summary, signals, recommendations, score };
-  }
-
-  // ── Inventory tab inner components — defined at PerformanceDashboard scope so
-  //    React maintains stable component identity across renders (prevents remount flash).
-  //    They close over PerformanceDashboard state/setters directly.
-
-  const statusColor = (s) => {
-    if (!s || s === "OK") return "#16a34a";
-    if (s === "Fail" || s === "Critical Violation") return "#dc2626";
-    if (s === "Needs Attention" || s === "Maintenance") return "#d97706";
-    if (s === "N/A" || s === "Off / Not In Use") return "var(--ink-400)";
-    return "var(--ink-900)";
-  };
-
-  const typeIcon = (t) => {
-    if (t === "Cooler")      return "❄️";
-    if (t === "Freezer")     return "🧊";
-    if (t === "Hand Sink")   return "🚿";
-    if (t === "3-Comp Sink") return "🚰";
-    return null;
-  };
-
-  const EquipRow = ({ item, siteKey }) => {
-    const icon = typeIcon(item.type);
-    if (!icon) return null;
-    const overrideKey = `${siteKey}::${item.label || item.type}`;
-    const overrideVal = invCountOverrides[overrideKey];
-    const displayCount = overrideVal !== undefined ? overrideVal : item.count;
-    const isEdited = overrideVal !== undefined && overrideVal !== item.count;
-    const specificLabel = item.label && item.label !== item.type ? item.label : null;
-    return (
-      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.45rem 0.7rem", borderRadius: 8, background: "var(--surface-2)", border: `1px solid ${isEdited ? "#fbbf24" : "var(--sdx-gray-200)"}`, marginBottom: 4 }}>
-        <span style={{ fontSize: "1rem", flexShrink: 0 }}>{icon}</span>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontWeight: 700, fontSize: "0.8rem", color: "var(--ink-900)" }}>
-            {specificLabel || item.type}
-          </div>
-          {specificLabel && (
-            <div style={{ fontSize: "0.62rem", color: "var(--ink-400)" }}>{item.type}</div>
-          )}
-        </div>
-        {item.lastTemp && (
-          <div style={{ fontSize: "0.72rem", fontWeight: 700, color: "var(--tx-blue)", background: "var(--tint-blue-1)", borderRadius: 6, padding: "0.2rem 0.45rem", flexShrink: 0 }}>
-            {item.lastTemp}°F
-          </div>
-        )}
-        <div style={{ fontSize: "0.68rem", fontWeight: 700, color: statusColor(item.lastStatus), flexShrink: 0, marginRight: 4 }}>
-          {item.lastStatus || "OK"}
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 4, background: isEdited ? "var(--tint-amber-1)" : "#fff", border: `1.5px solid ${isEdited ? "#f59e0b" : "var(--sdx-gray-300)"}`, borderRadius: 8, padding: "2px 6px", flexShrink: 0 }}>
-          <button type="button"
-            onClick={() => {
-              const next = Math.max(0, displayCount - 1);
-              setInvCountOverrides(prev => ({ ...prev, [overrideKey]: next }));
-            }}
-            style={{ background: "none", border: "none", cursor: "pointer", fontWeight: 900, fontSize: "0.9rem", color: "var(--ink-500)", padding: "0 2px", lineHeight: 1 }}>−</button>
-          <span style={{ fontWeight: 900, fontSize: "0.85rem", color: isEdited ? "var(--tx-amber)" : "var(--ink-900)", minWidth: 18, textAlign: "center" }}>{displayCount}</span>
-          <button type="button"
-            onClick={() => {
-              const next = displayCount + 1;
-              setInvCountOverrides(prev => ({ ...prev, [overrideKey]: next }));
-            }}
-            style={{ background: "none", border: "none", cursor: "pointer", fontWeight: 900, fontSize: "0.9rem", color: "var(--ink-500)", padding: "0 2px", lineHeight: 1 }}>+</button>
-        </div>
-        {isEdited && (
-          <button type="button"
-            onClick={() => setInvCountOverrides(prev => { const n = { ...prev }; delete n[overrideKey]; return n; })}
-            style={{ background: "none", border: "none", cursor: "pointer", fontSize: "0.65rem", color: "var(--ink-400)", padding: 0, flexShrink: 0 }} title="Reset to report count">↺</button>
-        )}
-      </div>
-    );
-  };
-
-  const IceMakerRow = ({ siteKey }) => {
-    const d = iceMakerData[siteKey] || { count: 0, lastCleaned: "" };
-    const setD = (patch) => setIceMakerData(prev => ({ ...prev, [siteKey]: { ...(prev[siteKey] || { count: 0, lastCleaned: "" }), ...patch } }));
-    const handleDate = (val) => {
-      let v = val.replace(/[^\d]/g, "");
-      if (v.length > 2) v = v.slice(0,2) + "/" + v.slice(2);
-      if (v.length > 5) v = v.slice(0,5) + "/" + v.slice(5);
-      v = v.slice(0, 10);
-      setD({ lastCleaned: v });
-    };
-    return (
-      <div style={{ background: "var(--tint-sky-1)", border: "1.5px solid #bae6fd", borderRadius: 10, padding: "0.5rem 0.7rem", marginBottom: 4 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{ fontSize: "1rem", flexShrink: 0 }}>🧊</span>
-          <div style={{ flex: 1, fontWeight: 700, fontSize: "0.8rem", color: "#0c4a6e" }}>Ice Maker</div>
-          <div style={{ display: "flex", alignItems: "center", gap: 4, background: "var(--surface-1)", border: "1.5px solid #7dd3fc", borderRadius: 8, padding: "2px 6px", flexShrink: 0 }}>
-            <button type="button" onClick={() => setD({ count: Math.max(0, d.count - 1) })}
-              style={{ background: "none", border: "none", cursor: "pointer", fontWeight: 900, fontSize: "0.9rem", color: "#0369a1", padding: "0 2px", lineHeight: 1 }}>−</button>
-            <span style={{ fontWeight: 900, fontSize: "0.85rem", color: "#0c4a6e", minWidth: 18, textAlign: "center" }}>{d.count}</span>
-            <button type="button" onClick={() => setD({ count: d.count + 1 })}
-              style={{ background: "none", border: "none", cursor: "pointer", fontWeight: 900, fontSize: "0.9rem", color: "#0369a1", padding: "0 2px", lineHeight: 1 }}>+</button>
-          </div>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6 }}>
-          <span style={{ fontSize: "0.65rem", fontWeight: 700, color: "#0369a1", minWidth: 80 }}>Last Cleaned</span>
-          <input
-            type="text"
-            inputMode="numeric"
-            placeholder="MM/DD/YYYY"
-            value={d.lastCleaned || ""}
-            onChange={e => handleDate(e.target.value)}
-            style={{ flex: 1, padding: "0.25rem 0.4rem", borderRadius: 6, border: "1.5px solid #7dd3fc", fontSize: "0.8rem", fontWeight: 700, color: "#0c4a6e", background: "var(--surface-1)" }}
-          />
-        </div>
-      </div>
-    );
-  };
-
-  const FilterRows = ({ siteKey }) => {
-    const entries = filterData[siteKey] || [];
-    const setEntries = (fn) => setFilterData(prev => ({ ...prev, [siteKey]: fn(prev[siteKey] || []) }));
-    const handleDate = (idx, val) => {
-      let v = val.replace(/[^\d]/g, "");
-      if (v.length > 2) v = v.slice(0,2) + "/" + v.slice(2);
-      if (v.length > 5) v = v.slice(0,5) + "/" + v.slice(5);
-      v = v.slice(0, 10);
-      setEntries(prev => prev.map((e, i) => i === idx ? { ...e, lastChanged: v } : e));
-    };
-    return (
-      <div style={{ background: "var(--tint-amber-1)", border: "1.5px solid #fde68a", borderRadius: 10, padding: "0.5rem 0.7rem", marginBottom: 4 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: entries.length ? 6 : 0 }}>
-          <span style={{ fontSize: "1rem", flexShrink: 0 }}>🔄</span>
-          <div style={{ flex: 1, fontWeight: 700, fontSize: "0.8rem", color: "var(--tx-amber-strong)" }}>Filters <span style={{ fontWeight: 400, color: "var(--tx-amber)" }}>({entries.length})</span></div>
-          <button type="button"
-            onClick={() => setEntries(prev => [...prev, { lastChanged: "" }])}
-            style={{ background: "#fcd34d", border: "none", borderRadius: 7, padding: "3px 10px", fontSize: "0.72rem", fontWeight: 800, color: "var(--tx-amber-strong)", cursor: "pointer" }}>+ Add Filter</button>
-        </div>
-        {entries.map((entry, idx) => (
-          <div key={idx} style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 4 }}>
-            <span style={{ fontSize: "0.65rem", fontWeight: 700, color: "var(--tx-amber)", minWidth: 58 }}>Filter {idx + 1}</span>
-            <span style={{ fontSize: "0.6rem", color: "var(--tx-amber)", minWidth: 70 }}>Last Changed</span>
-            <input
-              type="text"
-              inputMode="numeric"
-              placeholder="MM/DD/YYYY"
-              value={entry.lastChanged || ""}
-              onChange={e => handleDate(idx, e.target.value)}
-              style={{ flex: 1, padding: "0.22rem 0.4rem", borderRadius: 6, border: "1.5px solid #fcd34d", fontSize: "0.78rem", fontWeight: 700, color: "var(--tx-amber-strong)", background: "var(--surface-1)" }}
-            />
-            <button type="button"
-              onClick={() => setEntries(prev => prev.filter((_, i) => i !== idx))}
-              style={{ background: "none", border: "none", cursor: "pointer", fontSize: "0.75rem", color: "#dc2626", padding: "0 2px", flexShrink: 0 }} title="Remove">✕</button>
-          </div>
-        ))}
-      </div>
-    );
-  };
-
-  const SiteCard = ({ site, badge, badgeColor, showIceMaker }) => {
-    const siteKey = `${site.eventName || ""}||${site.siteName}`;
-    const isOpen = invExpandedKeys.has(siteKey);
-    const toggle = () => setInvExpandedKeys(prev => {
-      const n = new Set(prev);
-      isOpen ? n.delete(siteKey) : n.add(siteKey);
-      return n;
+  // ── Compute top recurring issues ──────────────────────────────────
+  // Issues are computed from inspection data via buildActionItems.
+  // Each item.issue is "Section: detail" — we count by section name.
+  const issueCounts = {};
+  for (const r of history) {
+    if (!r.inspection) continue;
+    const items = buildActionItems({
+      inspection: r.inspection,
+      rawNotes: r.rawNotes,
+      foodTemps: r.foodTemps,
+      foodTempNames: r.foodTempNames,
     });
-    const items = Object.values(site.items);
-    const chipCounts = {};
+    // Count each unique section once per inspection (not per item)
+    const seenSections = new Set();
     for (const item of items) {
-      const ovKey = `${siteKey}::${item.label || item.type}`;
-      const ov = invCountOverrides[ovKey];
-      chipCounts[item.type] = (chipCounts[item.type] || 0) + (ov !== undefined ? ov : item.count);
+      const section = (item.issue || "").split(":")[0].trim() || "Other";
+      if (!seenSections.has(section)) {
+        seenSections.add(section);
+        issueCounts[section] = (issueCounts[section] || 0) + 1;
+      }
     }
-    const iceMakerCount = iceMakerData[siteKey]?.count || 0;
-    if (iceMakerCount > 0) chipCounts["Ice Maker"] = iceMakerCount;
-    const displayName = invNameOverrides[site.siteName] || site.siteName;
-    const isEditingThisName = invEditingName === site.siteName;
-    // Event Day / Post Event type indicators
-    const hasEventDay  = site.hasEventDay;
-    const hasPostEvent = site.hasPostEvent;
-    const inspCount    = site.inspectionCount || 0;
-    return (
-      <div style={{ background: "var(--surface-1)", borderRadius: 14, border: "1.5px solid #e8edf4", overflow: "hidden", boxShadow: "0 2px 10px rgba(42,41,92,0.08)", transition: "box-shadow 0.15s" }}>
-        <button type="button" onClick={toggle}
-          style={{ width: "100%", display: "flex", alignItems: "center", gap: "0.6rem", padding: "0.75rem 0.9rem", borderBottom: isOpen ? "1.5px solid #f1f5f9" : "none", background: isOpen ? `linear-gradient(90deg, color-mix(in srgb, ${NAVY} 3%, transparent) 0%, #f8fafc 100%)` : "var(--surface-2)", border: "none", cursor: "pointer", textAlign: "left" }}>
-          <div style={{ width: 3, alignSelf: "stretch", borderRadius: 4, background: badgeColor || NAVY, flexShrink: 0, minHeight: 36 }} />
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontWeight: 800, fontSize: "0.88rem", color: "var(--ink-900)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-              {displayName}
-              {invNameOverrides[site.siteName] && (
-                <span style={{ fontSize: "0.58rem", color: "var(--ink-400)", fontWeight: 400, marginLeft: 5 }}>(renamed)</span>
-              )}
-            </div>
-            {site.eventName && site.eventName !== site.siteName && (
-              <div style={{ fontSize: "0.68rem", color: "var(--ink-500)", fontWeight: 500 }}>{site.eventName}</div>
-            )}
-            {/* Event Day / Post Event status row */}
-            {(hasEventDay || hasPostEvent) && (
-              <div style={{ display: "flex", gap: 4, alignItems: "center", marginTop: 3, flexWrap: "wrap" }}>
-                {hasEventDay && (
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: 3, background: "var(--tint-amber-1)", border: "1px solid #fbbf24", borderRadius: 6, padding: "1px 6px", fontSize: "0.6rem", fontWeight: 800, color: "var(--tx-amber)" }}>
-                    🎯 Event Day{site.eventDayDate ? ` · ${site.eventDayDate.slice(0,10)}` : ""}
-                  </span>
-                )}
-                {hasPostEvent && (
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: 3, background: "var(--tint-green-1)", border: "1px solid #86efac", borderRadius: 6, padding: "1px 6px", fontSize: "0.6rem", fontWeight: 800, color: "var(--tx-green)" }}>
-                    ✅ Post Event{site.postEventDate ? ` · ${site.postEventDate.slice(0,10)}` : ""}
-                  </span>
-                )}
-                {inspCount > 0 && (
-                  <span style={{ fontSize: "0.58rem", color: "var(--ink-400)", fontWeight: 600 }}>{inspCount} inspection{inspCount !== 1 ? "s" : ""}</span>
-                )}
-              </div>
-            )}
-            {site.date && !(hasEventDay || hasPostEvent) && (
-              <div style={{ fontSize: "0.62rem", color: "var(--ink-400)", marginTop: 1 }}>Last inspected: {site.date.slice(0,10)}</div>
-            )}
-            {site.date && (hasEventDay || hasPostEvent) && (
-              <div style={{ fontSize: "0.6rem", color: "var(--ink-400)", marginTop: 1 }}>Max count across {inspCount} visit{inspCount !== 1 ? "s" : ""}</div>
-            )}
-            <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 5 }}>
-              {EQUIP_META.filter(m => chipCounts[m.type] > 0).map(m => (
-                <span key={m.type} style={{ display: "inline-flex", alignItems: "center", gap: 3, background: m.bg, border: `1px solid ${m.color}40`, borderRadius: 7, padding: "2px 7px", fontSize: "0.63rem", fontWeight: 700, color: m.color }}>
-                  {m.icon} {chipCounts[m.type]}
-                </span>
-              ))}
-            </div>
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6, flexShrink: 0 }}>
-            <div style={{ background: badgeColor || NAVY, color: "#fff", borderRadius: 8, padding: "0.22rem 0.6rem", fontSize: "0.63rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em", boxShadow: `0 2px 6px ${(badgeColor || NAVY)}40` }}>
-              {badge}
-            </div>
-            <span style={{ fontSize: "0.65rem", color: "var(--ink-400)", fontWeight: 600 }}>{isOpen ? "▲" : "▼"}</span>
-          </div>
-        </button>
-        {isOpen && (
-          <div style={{ padding: "0.75rem 0.85rem 0.65rem" }}>
-            <div style={{ marginBottom: 12, padding: "0.5rem 0.65rem", background: "var(--surface-2)", borderRadius: 10, border: "1px solid #e8edf4" }}>
-              <div style={{ fontSize: "0.6rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-500)", marginBottom: 4 }}>
-                Location Name
-              </div>
-              {isEditingThisName ? (
-                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                  <input
-                    type="text"
-                    defaultValue={displayName}
-                    autoFocus
-                    onKeyDown={e => {
-                      if (e.key === "Enter") {
-                        const v = e.target.value.trim();
-                        if (v) setInvNameOverrides(prev => ({ ...prev, [site.siteName]: v }));
-                        else setInvNameOverrides(prev => { const n = { ...prev }; delete n[site.siteName]; return n; });
-                        setInvEditingName(null);
-                      } else if (e.key === "Escape") { setInvEditingName(null); }
-                    }}
-                    style={{ flex: 1, padding: "0.3rem 0.5rem", borderRadius: 6, border: "1.5px solid #6366f1", fontSize: "0.8rem", fontWeight: 700, color: "var(--ink-900)", outline: "none" }}
-                  />
-                  <button type="button"
-                    onMouseDown={e => {
-                      e.preventDefault();
-                      const input = e.target.closest("div").querySelector("input");
-                      const v = input.value.trim();
-                      if (v) setInvNameOverrides(prev => ({ ...prev, [site.siteName]: v }));
-                      else setInvNameOverrides(prev => { const n = { ...prev }; delete n[site.siteName]; return n; });
-                      setInvEditingName(null);
-                    }}
-                    style={{ padding: "0.3rem 0.6rem", borderRadius: 6, border: "none", background: "#6366f1", color: "#fff", fontSize: "0.72rem", fontWeight: 700, cursor: "pointer" }}>Save</button>
-                  {invNameOverrides[site.siteName] && (
-                    <button type="button"
-                      onClick={() => { setInvNameOverrides(prev => { const n = { ...prev }; delete n[site.siteName]; return n; }); setInvEditingName(null); }}
-                      style={{ padding: "0.3rem 0.6rem", borderRadius: 6, border: "none", background: "var(--surface-3)", color: "#dc2626", fontSize: "0.72rem", fontWeight: 700, cursor: "pointer" }}>Reset</button>
-                  )}
-                </div>
-              ) : (
-                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <span style={{ fontWeight: 700, fontSize: "0.8rem", color: "var(--ink-900)", flex: 1 }}>{displayName}</span>
-                  {site.siteName !== displayName && (
-                    <span style={{ fontSize: "0.62rem", color: "var(--ink-400)" }}>orig: {site.siteName}</span>
-                  )}
-                  <button type="button"
-                    onClick={e => { e.stopPropagation(); setInvEditingName(site.siteName); }}
-                    style={{ background: "none", border: "1px solid #cbd5e1", borderRadius: 6, padding: "0.2rem 0.45rem", fontSize: "0.68rem", color: "var(--ink-500)", cursor: "pointer", fontWeight: 600 }}>✏ Rename</button>
-                </div>
-              )}
-            </div>
-            {/* ── License Number row ── */}
-            {(() => {
-              const licEntry = invLicenseData[site.siteName] || { licenseNum: "", notes: "" };
-              const [editingLic, setEditingLic] = React.useState(false);
-              const [licDraft, setLicDraft] = React.useState(licEntry.licenseNum);
-              const saveLic = () => {
-                const v = licDraft.trim().toUpperCase();
-                setInvLicenseData(prev => ({ ...prev, [site.siteName]: { ...(prev[site.siteName] || {}), licenseNum: v } }));
-                setEditingLic(false);
-              };
-              return (
-                <div style={{ marginBottom: 8, padding: "0.5rem 0.65rem", background: "var(--tint-indigo-1)", borderRadius: 10, border: "1px solid #c4b5fd" }}>
-                  <div style={{ fontSize: "0.6rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: "#7c3aed", marginBottom: 4 }}>
-                    License #
-                  </div>
-                  {editingLic ? (
-                    <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                      <input
-                        type="text"
-                        value={licDraft}
-                        autoFocus
-                        onChange={e => setLicDraft(e.target.value.toUpperCase())}
-                        onKeyDown={e => { if (e.key === "Enter") saveLic(); else if (e.key === "Escape") setEditingLic(false); }}
-                        placeholder="e.g. FD-2024-00123"
-                        style={{ flex: 1, padding: "0.3rem 0.5rem", borderRadius: 6, border: "1.5px solid #7c3aed", fontSize: "0.8rem", fontWeight: 700, color: "var(--ink-900)", outline: "none", background: "var(--surface-1)" }}
-                      />
-                      <button type="button" onClick={saveLic}
-                        style={{ padding: "0.3rem 0.6rem", borderRadius: 6, border: "none", background: "#7c3aed", color: "#fff", fontSize: "0.72rem", fontWeight: 700, cursor: "pointer" }}>Save</button>
-                      <button type="button" onClick={() => setEditingLic(false)}
-                        style={{ padding: "0.3rem 0.6rem", borderRadius: 6, border: "none", background: "var(--surface-3)", color: "var(--ink-500)", fontSize: "0.72rem", fontWeight: 700, cursor: "pointer" }}>Cancel</button>
-                    </div>
-                  ) : (
-                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                      <span style={{ fontWeight: 700, fontSize: "0.82rem", color: licEntry.licenseNum ? "#6d28d9" : "var(--ink-400)", flex: 1, fontFamily: "monospace" }}>
-                        {licEntry.licenseNum || "— not set —"}
-                      </span>
-                      <button type="button"
-                        onClick={e => { e.stopPropagation(); setLicDraft(licEntry.licenseNum); setEditingLic(true); }}
-                        style={{ background: "none", border: "1px solid #c4b5fd", borderRadius: 6, padding: "0.2rem 0.45rem", fontSize: "0.68rem", color: "#7c3aed", cursor: "pointer", fontWeight: 600 }}>
-                        {licEntry.licenseNum ? "✏ Edit" : "+ Add"}
-                      </button>
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
-            <div style={{ fontSize: "0.6rem", color: "var(--ink-400)", marginBottom: 6, fontStyle: "italic" }}>
-              Equipment reflects the latest inspection. Use − / + to correct counts if needed.
-            </div>
-            {items.map((item, idx) => <EquipRow key={`${item.label || item.type}-${idx}`} item={item} siteKey={siteKey} />)}
-            {showIceMaker && <IceMakerRow siteKey={siteKey} />}
-            <FilterRows siteKey={siteKey} />
-          </div>
-        )}
-      </div>
-    );
+  }
+  const topIssues = Object.entries(issueCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 8)
+    .map(([cat, count]) => ({ cat, count }));
+  const maxIssueCount = topIssues[0]?.count || 1;
+
+  // ── SVG line chart helpers ────────────────────────────────────────
+  const W = 320, H = 90, PAD = { top: 14, right: 10, bottom: 22, left: 30 };
+  const chartW = W - PAD.left - PAD.right;
+  const chartH = H - PAD.top - PAD.bottom;
+
+  // Zoom Y axis to data range — pad 3% above and below
+  const allVals = points.flatMap(p => [p.avgPct, p.passRate]).filter(v => v !== null);
+  const yMin = allVals.length ? Math.max(0,  Math.floor((Math.min(...allVals) - 3) / 5) * 5) : 0;
+  const yMax = allVals.length ? Math.min(100, Math.ceil( (Math.max(...allVals) + 3) / 5) * 5) : 100;
+  const yRange = yMax - yMin || 1;
+  // Grid ticks: ~4 evenly spaced within [yMin, yMax]
+  const yStep = [1,2,5,10,20,25][([1,2,5,10,20,25].findIndex(s => (yRange / s) <= 4) + 0) || 5];
+  const yTicks = [];
+  for (let v = Math.ceil(yMin / yStep) * yStep; v <= yMax; v += yStep) yTicks.push(v);
+
+  function toSvgX(i) {
+    return PAD.left + (points.length > 1 ? (i / (points.length - 1)) * chartW : chartW / 2);
+  }
+  function toSvgY(val) {
+    return PAD.top + chartH - ((val - yMin) / yRange) * chartH;
+  }
+
+  const scoreLinePoints = points
+    .map((p, i) => p.avgPct !== null ? `${toSvgX(i)},${toSvgY(p.avgPct)}` : null)
+    .filter(Boolean).join(" ");
+  const passLinePoints = points
+    .map((p, i) => p.passRate !== null ? `${toSvgX(i)},${toSvgY(p.passRate)}` : null)
+    .filter(Boolean).join(" ");
+
+  // Area fill for score line
+  const firstScore = points.findIndex(p => p.avgPct !== null);
+  const lastScore  = points.map((p, i) => p.avgPct !== null ? i : -1).filter(i => i >= 0).slice(-1)[0];
+  const scoreArea = firstScore >= 0
+    ? `${toSvgX(firstScore)},${PAD.top + chartH} ${scoreLinePoints} ${toSvgX(lastScore)},${PAD.top + chartH}`
+    : "";
+
+  const labelMonth = (m) => {
+    const [y, mo] = m.split("-");
+    const names = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    return (names[parseInt(mo, 10) - 1] || mo) + (y !== new Date().getFullYear().toString() ? ` '${y.slice(2)}` : "");
   };
 
-  const TotalsStrip = ({ totals, color }) => {
-    const rows = EQUIP_META.filter(m => totals[m.type] > 0);
-    if (!rows.length) return null;
-    return (
-      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 4 }}>
-        {rows.map(m => (
-          <span key={m.type} style={{ display: "inline-flex", alignItems: "center", gap: 4, background: m.bg, border: `1px solid ${m.color}30`, borderRadius: 7, padding: "2px 8px", fontSize: "0.68rem", fontWeight: 700, color: m.color }}>
-            {m.icon} {totals[m.type]} {m.type}{totals[m.type] !== 1 ? "s" : ""}
-          </span>
-        ))}
-      </div>
-    );
-  };
+  // Pick label indices — show at most 6 evenly spaced
+  const labelStep = Math.max(1, Math.ceil(points.length / 6));
+  const labelIdxs = points.map((_, i) => i).filter(i => i % labelStep === 0 || i === points.length - 1);
 
-  // ── Export state ──────────────────────────────────────────────────────
-  const [exportMenuOpen, setExportMenuOpen] = useState(false);
-  const [exportingGlobal, setExportingGlobal] = useState(false);
-  const [exportingInspector, setExportingInspector] = useState(null); // name or null
-  const [exportingGlobalWord, setExportingGlobalWord] = useState(false);
-  const [exportingInspectorWord, setExportingInspectorWord] = useState(null); // name or null
-
-  // ── Export: Global Excel (all inspectors) ─────────────────────────────
-  async function exportGlobalExcel() {
-    if (!ranking.length) return;
-    setExportingGlobal(true);
-    setExportMenuOpen(false);
-    try {
-      const ExcelJS = (await import("exceljs")).default;
-      const dateStr = new Date().toISOString().slice(0, 10);
-      const venue = managedVenueName || activeVenueId || "All Venues";
-
-      const NAVY = "1C2B5E"; const RED = "A8192E";
-      const SILVER = "F4F5F7"; const WHITE = "FFFFFF";
-      const PASS_G = "C6EFCE"; const PASS_GT = "276221";
-      const FAIL_R = "FFC7CE"; const FAIL_RT = "9C0006";
-      const ATTN_Y = "FFEB9C"; const ATTN_YT = "9C6500";
-
-      const hdr = (sz = 12) => ({ font: { name: "Calibri", bold: true, size: sz, color: { argb: "FF" + WHITE } }, fill: { type: "pattern", pattern: "solid", fgColor: { argb: "FF" + NAVY } }, alignment: { vertical: "middle", horizontal: "center", wrapText: true }, border: { bottom: { style: "thin", color: { argb: "FF" + RED } } } });
-      const subHdr = () => ({ font: { name: "Calibri", bold: true, size: 10, color: { argb: "FF" + WHITE } }, fill: { type: "pattern", pattern: "solid", fgColor: { argb: "FF" + RED } }, alignment: { vertical: "middle", horizontal: "center", wrapText: true } });
-      const body = (bg = WHITE) => ({ font: { name: "Calibri", size: 10 }, fill: { type: "pattern", pattern: "solid", fgColor: { argb: "FF" + bg } }, alignment: { vertical: "middle", wrapText: true } });
-      const apply = (cell, style) => Object.assign(cell, style);
-      const str = v => (v == null ? "" : String(v));
-
-      const wb = new ExcelJS.Workbook();
-      wb.creator = resolveCompanyName() + " Inspection";
-
-      // ── Sheet 1: Summary ──────────────────────────────────────────────
-      const ws1 = wb.addWorksheet("Summary");
-      ws1.columns = [{ width: 4 }, { width: 26 }, { width: 12 }, { width: 12 }, { width: 12 }, { width: 12 }, { width: 14 }, { width: 14 }, { width: 12 }, { width: 18 }];
-      const t1 = ws1.addRow([`${resolveCompanyName().toUpperCase()} — PERFORMANCE REPORT: ${venue.toUpperCase()}`]);
-      t1.height = 26; ws1.mergeCells(`A${t1.number}:J${t1.number}`); apply(t1.getCell(1), hdr(12));
-      const m1 = ws1.addRow([`Generated: ${new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })} · ${totalInspections} inspections · ${ranking.length} inspectors · Overall Pass Rate: ${overallPassRate}%`]);
-      m1.height = 16; ws1.mergeCells(`A${m1.number}:J${m1.number}`);
-      apply(m1.getCell(1), { font: { name: "Calibri", italic: true, size: 9, color: { argb: "FF555555" } }, alignment: { horizontal: "center" } });
-      ws1.addRow([]);
-      const heads1 = ["#", "Inspector", "Score", "Pass Rate", "Inspections", "Sites", "Avg Duration", "Trend", "Avg Issues", "Top Issue"];
-      const h1Row = ws1.addRow(heads1); h1Row.height = 20;
-      heads1.forEach((_, ci) => apply(h1Row.getCell(ci + 1), subHdr()));
-      ws1.autoFilter = { from: { row: h1Row.number, column: 1 }, to: { row: h1Row.number, column: 10 } };
-      ws1.views = [{ state: "frozen", ySplit: h1Row.number, topLeftCell: `A${h1Row.number + 1}`, activeCell: "A1" }];
-      ranking.forEach((p, i) => {
-        const bg = i % 2 === 0 ? WHITE : SILVER;
-        const row = ws1.addRow([
-          i + 1, str(p.name), p.performanceScore,
-          `${p.passRate}%`, p.total, p.siteCount,
-          p.avgDurationSec ? fmtDur(p.avgDurationSec) : "—",
-          p.trendLabel || "stable",
-          p.avgIssues != null ? Number(p.avgIssues).toFixed(1) : "—",
-          p.topIssues?.[0]?.cat || "—",
-        ]);
-        row.height = 18;
-        [1,2,3,4,5,6,7,8,9,10].forEach(ci => apply(row.getCell(ci), body(bg)));
-        // colour pass rate cell
-        const prCell = row.getCell(4);
-        if (p.passRate >= 75) { prCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF" + PASS_G } }; prCell.font = { name: "Calibri", size: 10, bold: true, color: { argb: "FF" + PASS_GT } }; }
-        else { prCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF" + FAIL_R } }; prCell.font = { name: "Calibri", size: 10, bold: true, color: { argb: "FF" + FAIL_RT } }; }
-      });
-
-      // ── Sheet 2: Inspector Detail ──────────────────────────────────────
-      const ws2 = wb.addWorksheet("Inspector Detail");
-      ws2.columns = [{ width: 26 }, { width: 12 }, { width: 12 }, { width: 12 }, { width: 14 }, { width: 14 }, { width: 12 }, { width: 28 }, { width: 28 }, { width: 22 }];
-      const t2 = ws2.addRow(["INSPECTOR DETAIL — ALL INSPECTORS"]);
-      t2.height = 24; ws2.mergeCells(`A${t2.number}:J${t2.number}`); apply(t2.getCell(1), hdr(11));
-      const heads2 = ["Inspector", "Score", "Pass Rate", "Inspections", "Avg Duration", "Trend", "Sites", "Top Issue #1", "Top Issue #2", "Top Issue #3"];
-      const h2Row = ws2.addRow(heads2); h2Row.height = 20;
-      heads2.forEach((_, ci) => apply(h2Row.getCell(ci + 1), subHdr()));
-      ranking.forEach((p, i) => {
-        const bg = i % 2 === 0 ? WHITE : SILVER;
-        const row = ws2.addRow([
-          str(p.name), p.performanceScore, `${p.passRate}%`, p.total,
-          p.avgDurationSec ? fmtDur(p.avgDurationSec) : "—",
-          p.trendLabel || "stable", p.siteCount,
-          p.topIssues?.[0] ? `${p.topIssues[0].cat} (${p.topIssues[0].count}x)` : "—",
-          p.topIssues?.[1] ? `${p.topIssues[1].cat} (${p.topIssues[1].count}x)` : "—",
-          p.topIssues?.[2] ? `${p.topIssues[2].cat} (${p.topIssues[2].count}x)` : "—",
-        ]);
-        row.height = 18;
-        [1,2,3,4,5,6,7,8,9,10].forEach(ci => apply(row.getCell(ci), body(bg)));
-      });
-
-      // ── Sheet 3: By Location ──────────────────────────────────────────
-      const ws3 = wb.addWorksheet("By Location");
-      ws3.columns = [{ width: 32 }, { width: 10 }, { width: 10 }, { width: 16 }, { width: 12 }, { width: 12 }, { width: 14 }, { width: 28 }, { width: 22 }];
-      const t3 = ws3.addRow(["BY LOCATION — ALL SITES"]);
-      t3.height = 24; ws3.mergeCells(`A${t3.number}:I${t3.number}`); apply(t3.getCell(1), hdr(11));
-      const heads3 = ["Site / Location", "Unit #", "Floor", "Location Type", "Inspections", "Pass Rate", "Avg Duration", "Top Issue", "Inspectors"];
-      const h3Row = ws3.addRow(heads3); h3Row.height = 20;
-      heads3.forEach((_, ci) => apply(h3Row.getCell(ci + 1), subHdr()));
-      ws3.autoFilter = { from: { row: h3Row.number, column: 1 }, to: { row: h3Row.number, column: 9 } };
-      byLocation.forEach((loc, i) => {
-        const bg = i % 2 === 0 ? WHITE : SILVER;
-        const row = ws3.addRow([
-          str(loc.siteName), str(loc.unitNum), str(loc.floor), str(loc.locationType),
-          loc.total, `${loc.passRate}%`,
-          loc.avgSec ? fmtDur(loc.avgSec) : "—",
-          loc.topIssues?.[0] ? `${loc.topIssues[0].cat} (${loc.topIssues[0].count}x)` : "—",
-          loc.inspectors.join(", "),
-        ]);
-        row.height = 18;
-        [1,2,3,4,5,6,7,8,9].forEach(ci => apply(row.getCell(ci), body(bg)));
-        const prCell = row.getCell(6);
-        if (loc.passRate >= 75) { prCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF" + PASS_G } }; prCell.font = { name: "Calibri", size: 10, bold: true, color: { argb: "FF" + PASS_GT } }; }
-        else if (loc.passRate < 60) { prCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF" + FAIL_R } }; prCell.font = { name: "Calibri", size: 10, bold: true, color: { argb: "FF" + FAIL_RT } }; }
-      });
-
-      // ── Sheet 4: Raw Inspections ───────────────────────────────────────
-      const ws4 = wb.addWorksheet("All Inspections");
-      ws4.columns = [{ width: 4 }, { width: 22 }, { width: 26 }, { width: 10 }, { width: 16 }, { width: 18 }, { width: 12 }, { width: 12 }, { width: 22 }, { width: 14 }];
-      const t4 = ws4.addRow(["ALL INSPECTIONS"]);
-      t4.height = 24; ws4.mergeCells(`A${t4.number}:J${t4.number}`); apply(t4.getCell(1), hdr(11));
-      const heads4 = ["#", "Inspector", "Site", "Unit #", "Location Type", "Inspection Type", "Date", "Status", "Event", "Issues"];
-      const h4Row = ws4.addRow(heads4); h4Row.height = 20;
-      heads4.forEach((_, ci) => apply(h4Row.getCell(ci + 1), subHdr()));
-      ws4.autoFilter = { from: { row: h4Row.number, column: 1 }, to: { row: h4Row.number, column: 10 } };
-      ws4.views = [{ state: "frozen", ySplit: h4Row.number, topLeftCell: `A${h4Row.number + 1}`, activeCell: "A1" }];
-      [...history].sort((a, b) => (b.savedAt || "").localeCompare(a.savedAt || "")).forEach((rec, i) => {
-        const bg = i % 2 === 0 ? WHITE : SILVER;
-        const issueCount = Array.isArray(rec.issues) ? rec.issues.length : 0;
-        const row = ws4.addRow([
-          i + 1, str(rec.inspectorName), str(rec.siteName || rec.location),
-          str(rec.siteNumber), str(rec.locationType), str(rec.inspectionType),
-          rec.savedAt ? new Date(rec.savedAt).toLocaleDateString("en-US") : "—",
-          (rec.overallStatus || "").toLowerCase() === "pass" ? "PASS" : (rec.overallStatus || "").toLowerCase() === "fail" ? "FAIL" : "—",
-          str(rec.eventName), issueCount,
-        ]);
-        row.height = 16;
-        [1,2,3,4,5,6,7,8,9,10].forEach(ci => apply(row.getCell(ci), body(bg)));
-        const stCell = row.getCell(8);
-        if ((rec.overallStatus || "").toLowerCase() === "pass") { stCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF" + PASS_G } }; stCell.font = { name: "Calibri", size: 10, bold: true, color: { argb: "FF" + PASS_GT } }; }
-        else if ((rec.overallStatus || "").toLowerCase() === "fail") { stCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF" + FAIL_R } }; stCell.font = { name: "Calibri", size: 10, bold: true, color: { argb: "FF" + FAIL_RT } }; }
-      });
-
-      const buffer = await wb.xlsx.writeBuffer();
-      const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-      downloadBlob(blob, `performance-report-${dateStr}.xlsx`);
-    } catch (err) {
-      alert("Export failed: " + (err?.message || String(err)));
-    } finally {
-      setExportingGlobal(false);
-    }
-  }
-
-  // ── Export: Individual Inspector Excel ────────────────────────────────
-  async function exportInspectorExcel(inspectorName) {
-    const p = ranking.find(r => r.name === inspectorName);
-    if (!p) return;
-    setExportingInspector(inspectorName);
-    setExportMenuOpen(false);
-    try {
-      const ExcelJS = (await import("exceljs")).default;
-      const dateStr = new Date().toISOString().slice(0, 10);
-      const venue = managedVenueName || activeVenueId || "All Venues";
-      const safeName = (inspectorName || "inspector").replace(/[^a-z0-9]/gi, "-").toLowerCase();
-
-      const NAVY = "1C2B5E"; const RED = "A8192E";
-      const SILVER = "F4F5F7"; const WHITE = "FFFFFF";
-      const PASS_G = "C6EFCE"; const PASS_GT = "276221";
-      const FAIL_R = "FFC7CE"; const FAIL_RT = "9C0006";
-
-      const hdr = (sz = 12) => ({ font: { name: "Calibri", bold: true, size: sz, color: { argb: "FF" + WHITE } }, fill: { type: "pattern", pattern: "solid", fgColor: { argb: "FF" + NAVY } }, alignment: { vertical: "middle", horizontal: "center", wrapText: true }, border: { bottom: { style: "thin", color: { argb: "FF" + RED } } } });
-      const subHdr = () => ({ font: { name: "Calibri", bold: true, size: 10, color: { argb: "FF" + WHITE } }, fill: { type: "pattern", pattern: "solid", fgColor: { argb: "FF" + RED } }, alignment: { vertical: "middle", horizontal: "center", wrapText: true } });
-      const metaLbl = () => ({ font: { name: "Calibri", bold: true, size: 10, color: { argb: "FF" + NAVY } }, fill: { type: "pattern", pattern: "solid", fgColor: { argb: "FFE8EDF7" } }, alignment: { vertical: "middle" } });
-      const metaVal = () => ({ font: { name: "Calibri", size: 10 }, fill: { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFFFFF" } }, alignment: { vertical: "middle" } });
-      const body = (bg = WHITE) => ({ font: { name: "Calibri", size: 10 }, fill: { type: "pattern", pattern: "solid", fgColor: { argb: "FF" + bg } }, alignment: { vertical: "middle", wrapText: true } });
-      const apply = (cell, style) => Object.assign(cell, style);
-      const str = v => (v == null ? "" : String(v));
-
-      const wb = new ExcelJS.Workbook();
-      wb.creator = resolveCompanyName() + " Inspection";
-
-      // ── Sheet 1: Profile ──────────────────────────────────────────────
-      const ws1 = wb.addWorksheet("Profile");
-      ws1.columns = [{ width: 24 }, { width: 20 }, { width: 24 }, { width: 20 }, { width: 20 }];
-      const t1 = ws1.addRow([`INSPECTOR REPORT — ${(inspectorName || "").toUpperCase()}`]);
-      t1.height = 28; ws1.mergeCells(`A${t1.number}:E${t1.number}`); apply(t1.getCell(1), hdr(13));
-      const m1 = ws1.addRow([`${venue} · Generated: ${new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}`]);
-      m1.height = 14; ws1.mergeCells(`A${m1.number}:E${m1.number}`);
-      apply(m1.getCell(1), { font: { name: "Calibri", italic: true, size: 9, color: { argb: "FF555555" } }, alignment: { horizontal: "center" } });
-      ws1.addRow([]);
-
-      const addMeta = (label, value) => {
-        const row = ws1.addRow([label, str(value)]);
-        row.height = 18;
-        apply(row.getCell(1), metaLbl());
-        apply(row.getCell(2), metaVal());
-        ws1.mergeCells(`B${row.number}:E${row.number}`);
-      };
-      addMeta("Inspector Name", p.name);
-      addMeta("Performance Score", `${p.performanceScore} / 100`);
-      addMeta("Overall Pass Rate", `${p.passRate}%`);
-      addMeta("Total Inspections", p.total);
-      addMeta("Sites Covered", p.siteCount);
-      addMeta("Avg Inspection Duration", p.avgDurationSec ? fmtDur(p.avgDurationSec) : "—");
-      addMeta("Fastest Inspection", p.minDurationSec ? fmtDur(p.minDurationSec) : "—");
-      addMeta("Performance Trend", p.trendLabel ? p.trendLabel.charAt(0).toUpperCase() + p.trendLabel.slice(1) : "Stable");
-      addMeta("Avg Issues per Inspection", p.avgIssues != null ? Number(p.avgIssues).toFixed(1) : "—");
-      if (p.eventRate != null) addMeta("Event Inspection Rate", `${p.eventRate}%`);
-      if (p.avgTurnaroundDays != null) addMeta("Avg Submission Lag", `${p.avgTurnaroundDays} day(s)`);
-      ws1.addRow([]);
-
-      if (p.topIssues && p.topIssues.length) {
-        const issHdr = ws1.addRow(["TOP ISSUES"]); issHdr.height = 18;
-        ws1.mergeCells(`A${issHdr.number}:E${issHdr.number}`);
-        apply(issHdr.getCell(1), subHdr());
-        const issColHdr = ws1.addRow(["Issue Category", "Occurrences", "Rate", "", ""]);
-        issColHdr.height = 16; apply(issColHdr.getCell(1), metaLbl()); apply(issColHdr.getCell(2), metaLbl()); apply(issColHdr.getCell(3), metaLbl());
-        p.topIssues.forEach((iss, i) => {
-          const row = ws1.addRow([str(iss.cat), iss.count, iss.rate != null ? `${iss.rate}%` : "—"]);
-          row.height = 16;
-          [1, 2, 3].forEach(ci => apply(row.getCell(ci), body(i % 2 === 0 ? WHITE : SILVER)));
-        });
-      }
-
-      // ── Sheet 2: Inspection History ────────────────────────────────────
-      const ws2 = wb.addWorksheet("Inspection History");
-      ws2.columns = [{ width: 4 }, { width: 28 }, { width: 12 }, { width: 16 }, { width: 18 }, { width: 12 }, { width: 12 }, { width: 22 }];
-      const t2 = ws2.addRow([`INSPECTIONS BY ${(inspectorName || "").toUpperCase()}`]);
-      t2.height = 24; ws2.mergeCells(`A${t2.number}:H${t2.number}`); apply(t2.getCell(1), hdr(11));
-      const heads2 = ["#", "Site / Location", "Unit #", "Location Type", "Inspection Type", "Date", "Status", "Event"];
-      const h2Row = ws2.addRow(heads2); h2Row.height = 20;
-      heads2.forEach((_, ci) => apply(h2Row.getCell(ci + 1), subHdr()));
-      ws2.autoFilter = { from: { row: h2Row.number, column: 1 }, to: { row: h2Row.number, column: 8 } };
-      ws2.views = [{ state: "frozen", ySplit: h2Row.number, topLeftCell: `A${h2Row.number + 1}`, activeCell: "A1" }];
-      const inspRecs = [...history].filter(r => r.inspectorName === inspectorName)
-        .sort((a, b) => (b.savedAt || "").localeCompare(a.savedAt || ""));
-      inspRecs.forEach((rec, i) => {
-        const bg = i % 2 === 0 ? WHITE : SILVER;
-        const row = ws2.addRow([
-          i + 1, str(rec.siteName || rec.location), str(rec.siteNumber),
-          str(rec.locationType), str(rec.inspectionType),
-          rec.savedAt ? new Date(rec.savedAt).toLocaleDateString("en-US") : "—",
-          (rec.overallStatus || "").toLowerCase() === "pass" ? "PASS" : (rec.overallStatus || "").toLowerCase() === "fail" ? "FAIL" : "—",
-          str(rec.eventName),
-        ]);
-        row.height = 16;
-        [1,2,3,4,5,6,7,8].forEach(ci => apply(row.getCell(ci), body(bg)));
-        const stCell = row.getCell(7);
-        if ((rec.overallStatus || "").toLowerCase() === "pass") { stCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF" + PASS_G } }; stCell.font = { name: "Calibri", size: 10, bold: true, color: { argb: "FF" + PASS_GT } }; }
-        else if ((rec.overallStatus || "").toLowerCase() === "fail") { stCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF" + FAIL_R } }; stCell.font = { name: "Calibri", size: 10, bold: true, color: { argb: "FF" + FAIL_RT } }; }
-      });
-
-      // ── Sheet 3: Sites Covered ──────────────────────────────────────────
-      if (p.siteReinspDetail && p.siteReinspDetail.length) {
-        const ws3 = wb.addWorksheet("Sites Covered");
-        ws3.columns = [{ width: 34 }, { width: 12 }, { width: 16 }, { width: 18 }];
-        const t3 = ws3.addRow(["SITES COVERED"]);
-        t3.height = 22; ws3.mergeCells(`A${t3.number}:D${t3.number}`); apply(t3.getCell(1), hdr(11));
-        const heads3 = ["Site", "Visits", "Avg Days Between Visits", "Last Visit"];
-        const h3Row = ws3.addRow(heads3); h3Row.height = 20;
-        heads3.forEach((_, ci) => apply(h3Row.getCell(ci + 1), subHdr()));
-        p.siteReinspDetail.forEach((s, i) => {
-          const bg = i % 2 === 0 ? WHITE : SILVER;
-          const row = ws3.addRow([str(s.site), s.visits, s.avgDays != null ? `${s.avgDays}d` : "—", s.lastVisit ? new Date(s.lastVisit).toLocaleDateString("en-US") : "—"]);
-          row.height = 16;
-          [1,2,3,4].forEach(ci => apply(row.getCell(ci), body(bg)));
-        });
-      }
-
-      const buffer = await wb.xlsx.writeBuffer();
-      const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-      downloadBlob(blob, `inspector-${safeName}-${dateStr}.xlsx`);
-    } catch (err) {
-      alert("Export failed: " + (err?.message || String(err)));
-    } finally {
-      setExportingInspector(null);
-    }
-  }
-
-  // ── Word export: All Inspectors ────────────────────────────────────────────
-  async function exportGlobalWord() {
-    setExportingGlobalWord(true);
-    setExportMenuOpen(false);
-    try {
-      const { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
-              HeadingLevel, AlignmentType, WidthType, BorderStyle, ShadingType } = await import("docx");
-      const dateStr = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
-
-      const NAVY_HEX = "1C2B5E";
-      const RED_HEX = "A8192E";
-      const LIGHT_GRAY = "F2F4F8";
-
-      const mkBorder = () => ({ style: BorderStyle.SINGLE, size: 4, color: "C0C8D8" });
-      const cellBorders = () => ({ top: mkBorder(), bottom: mkBorder(), left: mkBorder(), right: mkBorder() });
-
-      function hdrCell(text) {
-        return new TableCell({
-          borders: cellBorders(),
-          shading: { type: ShadingType.SOLID, color: NAVY_HEX },
-          children: [new Paragraph({
-            children: [new TextRun({ text, bold: true, color: "FFFFFF", size: 18 })],
-            alignment: AlignmentType.CENTER,
-          })],
-        });
-      }
-      function dataCell(text, shade = false) {
-        return new TableCell({
-          borders: cellBorders(),
-          shading: shade ? { type: ShadingType.SOLID, color: LIGHT_GRAY } : undefined,
-          children: [new Paragraph({
-            children: [new TextRun({ text: String(text ?? "—"), size: 18 })],
-            alignment: AlignmentType.CENTER,
-          })],
-        });
-      }
-
-      // Summary table rows
-      const summaryRows = [
-        new TableRow({
-          tableHeader: true,
-          children: ["Rank","Inspector","Score","Pass Rate","Inspections","Sites","Trend"].map(hdrCell),
-        }),
-        ...ranking.map((p, i) => new TableRow({
-          children: [
-            dataCell(`#${i + 1}`, i % 2 === 1),
-            new TableCell({
-              borders: cellBorders(),
-              shading: i % 2 === 1 ? { type: ShadingType.SOLID, color: LIGHT_GRAY } : undefined,
-              children: [new Paragraph({ children: [new TextRun({ text: p.name, bold: true, size: 18 })] })],
-            }),
-            dataCell(`${p.performanceScore} pts`, i % 2 === 1),
-            dataCell(`${p.passRate}%`, i % 2 === 1),
-            dataCell(p.total, i % 2 === 1),
-            dataCell(p.siteCount, i % 2 === 1),
-            dataCell(p.trendLabel || "—", i % 2 === 1),
-          ],
-        })),
-      ];
-
-      const children = [
-        new Paragraph({
-          children: [new TextRun({ text: `Performance Report — ${resolveCompanyName()}`, bold: true, size: 36, color: NAVY_HEX })],
-          heading: HeadingLevel.TITLE,
-        }),
-        new Paragraph({
-          children: [new TextRun({ text: `Generated: ${dateStr}`, size: 20, color: "555555" })],
-          spacing: { after: 300 },
-        }),
-        new Paragraph({
-          children: [new TextRun({ text: "Inspector Rankings Summary", bold: true, size: 28, color: NAVY_HEX })],
-          heading: HeadingLevel.HEADING_1,
-          spacing: { before: 200, after: 160 },
-        }),
-        new Table({
-          width: { size: 100, type: WidthType.PERCENTAGE },
-          rows: summaryRows,
-        }),
-      ];
-
-      // Per-inspector detail sections
-      ranking.forEach((p, i) => {
-        const insp = history.filter(r => r.inspector === p.name);
-        children.push(
-          new Paragraph({
-            children: [new TextRun({ text: `${i + 1}. ${p.name}`, bold: true, size: 28, color: RED_HEX })],
-            heading: HeadingLevel.HEADING_1,
-            spacing: { before: 400, after: 120 },
-            pageBreakBefore: i > 0,
-          }),
-          new Paragraph({
-            children: [
-              new TextRun({ text: `Score: ${p.performanceScore} pts  |  Pass Rate: ${p.passRate}%  |  Inspections: ${p.total}  |  Sites: ${p.siteCount}`, size: 20 }),
-            ],
-            spacing: { after: 200 },
-          }),
-        );
-
-        if (p.topIssues?.length) {
-          children.push(new Paragraph({
-            children: [new TextRun({ text: "Top Issues", bold: true, size: 22, color: NAVY_HEX })],
-            spacing: { before: 100, after: 80 },
-          }));
-          p.topIssues.forEach(iss => {
-            children.push(new Paragraph({
-              children: [new TextRun({ text: `• ${iss.cat}: ${iss.count} occurrences (${iss.rate}% rate)`, size: 18 })],
-              spacing: { after: 40 },
-            }));
-          });
-        }
-
-        if (insp.length > 0) {
-          children.push(new Paragraph({
-            children: [new TextRun({ text: "Recent Inspections", bold: true, size: 22, color: NAVY_HEX })],
-            spacing: { before: 160, after: 80 },
-          }));
-          const inspRows = [
-            new TableRow({
-              tableHeader: true,
-              children: ["Date","Location","Score","Pass/Fail","Type"].map(hdrCell),
-            }),
-            ...insp.slice(0, 20).map((r, ri) => new TableRow({
-              children: [
-                dataCell(r.savedAt ? new Date(r.savedAt).toLocaleDateString("en-US") : "—", ri % 2 === 1),
-                new TableCell({
-                  borders: cellBorders(),
-                  shading: ri % 2 === 1 ? { type: ShadingType.SOLID, color: LIGHT_GRAY } : undefined,
-                  children: [new Paragraph({ children: [new TextRun({ text: r.location || "—", size: 18 })] })],
-                }),
-                dataCell(r.totalScore != null ? `${r.totalScore}/${r.maxScore ?? 100}` : "—", ri % 2 === 1),
-                dataCell(r.passed ? "✓ Pass" : "✗ Fail", ri % 2 === 1),
-                dataCell(r.inspectionType || "—", ri % 2 === 1),
-              ],
-            })),
-          ];
-          children.push(new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: inspRows }));
-        }
-      });
-
-      const doc = new Document({ sections: [{ children }] });
-      const blob = await Packer.toBlob(doc);
-      const today = new Date().toISOString().slice(0, 10);
-      downloadBlob(blob, `performance-report-${today}.docx`);
-    } catch (err) {
-      alert("Word export failed: " + (err?.message || String(err)));
-    } finally {
-      setExportingGlobalWord(false);
-    }
-  }
-
-  // ── Word export: Single Inspector ──────────────────────────────────────────
-  async function exportInspectorWord(inspectorName) {
-    setExportingInspectorWord(inspectorName);
-    setExportMenuOpen(false);
-    try {
-      const { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
-              HeadingLevel, AlignmentType, WidthType, BorderStyle, ShadingType } = await import("docx");
-      const p = ranking.find(r => r.name === inspectorName);
-      if (!p) { alert("Inspector not found"); return; }
-      const insp = history.filter(r => r.inspector === inspectorName);
-      const dateStr = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
-
-      const NAVY_HEX = "1C2B5E";
-      const RED_HEX = "A8192E";
-      const LIGHT_GRAY = "F2F4F8";
-
-      const mkBorder = () => ({ style: BorderStyle.SINGLE, size: 4, color: "C0C8D8" });
-      const cellBorders = () => ({ top: mkBorder(), bottom: mkBorder(), left: mkBorder(), right: mkBorder() });
-      function hdrCell(text) {
-        return new TableCell({
-          borders: cellBorders(),
-          shading: { type: ShadingType.SOLID, color: NAVY_HEX },
-          children: [new Paragraph({
-            children: [new TextRun({ text, bold: true, color: "FFFFFF", size: 18 })],
-            alignment: AlignmentType.CENTER,
-          })],
-        });
-      }
-      function dataCell(text, shade = false) {
-        return new TableCell({
-          borders: cellBorders(),
-          shading: shade ? { type: ShadingType.SOLID, color: LIGHT_GRAY } : undefined,
-          children: [new Paragraph({
-            children: [new TextRun({ text: String(text ?? "—"), size: 18 })],
-            alignment: AlignmentType.CENTER,
-          })],
-        });
-      }
-
-      const statsRows = [
-        new TableRow({ tableHeader: true, children: ["Metric","Value"].map(hdrCell) }),
-        ...([
-          ["Performance Score", `${p.performanceScore} pts`],
-          ["Pass Rate", `${p.passRate}%`],
-          ["Total Inspections", p.total],
-          ["Sites Covered", p.siteCount],
-          ["Trend", p.trendLabel || "—"],
-          ["Avg Issues / Inspection", p.avgIssues ?? "—"],
-          ["Avg Duration", p.avgDurationSec ? `${Math.round(p.avgDurationSec / 60)} min` : "—"],
-        ]).map(([k, v], i) => new TableRow({
-          children: [
-            new TableCell({
-              borders: cellBorders(),
-              shading: i % 2 === 1 ? { type: ShadingType.SOLID, color: LIGHT_GRAY } : undefined,
-              children: [new Paragraph({ children: [new TextRun({ text: k, bold: true, size: 18 })] })],
-            }),
-            dataCell(v, i % 2 === 1),
-          ],
-        })),
-      ];
-
-      const inspRows = [
-        new TableRow({ tableHeader: true, children: ["Date","Location","Score","Pass/Fail","Type"].map(hdrCell) }),
-        ...insp.map((r, ri) => new TableRow({
-          children: [
-            dataCell(r.savedAt ? new Date(r.savedAt).toLocaleDateString("en-US") : "—", ri % 2 === 1),
-            new TableCell({
-              borders: cellBorders(),
-              shading: ri % 2 === 1 ? { type: ShadingType.SOLID, color: LIGHT_GRAY } : undefined,
-              children: [new Paragraph({ children: [new TextRun({ text: r.location || "—", size: 18 })] })],
-            }),
-            dataCell(r.totalScore != null ? `${r.totalScore}/${r.maxScore ?? 100}` : "—", ri % 2 === 1),
-            dataCell(r.passed ? "✓ Pass" : "✗ Fail", ri % 2 === 1),
-            dataCell(r.inspectionType || "—", ri % 2 === 1),
-          ],
-        })),
-      ];
-
-      const children = [
-        new Paragraph({
-          children: [new TextRun({ text: `Inspector Report — ${p.name}`, bold: true, size: 36, color: NAVY_HEX })],
-          heading: HeadingLevel.TITLE,
-        }),
-        new Paragraph({
-          children: [new TextRun({ text: `${resolveCompanyName()} Inspections  |  ${dateStr}`, size: 20, color: "555555" })],
-          spacing: { after: 300 },
-        }),
-        new Paragraph({
-          children: [new TextRun({ text: "Performance Metrics", bold: true, size: 28, color: NAVY_HEX })],
-          heading: HeadingLevel.HEADING_1,
-          spacing: { before: 200, after: 160 },
-        }),
-        new Table({ width: { size: 60, type: WidthType.PERCENTAGE }, rows: statsRows }),
-      ];
-
-      if (p.topIssues?.length) {
-        children.push(
-          new Paragraph({
-            children: [new TextRun({ text: "Top Issue Categories", bold: true, size: 28, color: NAVY_HEX })],
-            heading: HeadingLevel.HEADING_1,
-            spacing: { before: 320, after: 160 },
-          }),
-        );
-        p.topIssues.forEach(iss => {
-          children.push(new Paragraph({
-            children: [new TextRun({ text: `• ${iss.cat}: ${iss.count} occurrences (${iss.rate}% rate)`, size: 20 })],
-            spacing: { after: 60 },
-          }));
-        });
-      }
-
-      if (insp.length > 0) {
-        children.push(
-          new Paragraph({
-            children: [new TextRun({ text: "Inspection History", bold: true, size: 28, color: NAVY_HEX })],
-            heading: HeadingLevel.HEADING_1,
-            spacing: { before: 320, after: 160 },
-          }),
-          new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: inspRows }),
-        );
-      }
-
-      const doc = new Document({ sections: [{ children }] });
-      const blob = await Packer.toBlob(doc);
-      const safeName = inspectorName.replace(/\s+/g, "-").toLowerCase();
-      const today = new Date().toISOString().slice(0, 10);
-      downloadBlob(blob, `inspector-${safeName}-${today}.docx`);
-    } catch (err) {
-      alert("Word export failed: " + (err?.message || String(err)));
-    } finally {
-      setExportingInspectorWord(null);
-    }
-  }
+  const hasChartData = points.length >= 2;
 
   return (
-    <div className="perfDashPrintRegion" style={{ background: BG, minHeight: "100vh", paddingBottom: "2.5rem" }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
 
-      {/* ── PRINT-ONLY HEADER (hidden on screen, visible in print) ── */}
-      <div className="perfPrintOnly perfPrintHeader" style={{ display: "none" }}>
-        <div className="perfPrintLogo">📋 Performance Report — {resolveCompanyName()}</div>
-        <div className="perfPrintMeta">
-          {managedVenueName || "All Venues"}<br />
-          Tab: {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} · {new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}
+      {/* ── Score over time + data table side by side on desktop ── */}
+      <div className="trendsTopGrid" style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: "0.75rem", alignItems: "start" }}>
+      <div style={{ background: "var(--surface-1)", borderRadius: 16, border: "1.5px solid #e2e8f0", overflow: "hidden" }}>
+        <div style={{ padding: "0.6rem 0.9rem 0.4rem", borderBottom: "1px solid #f1f5f9", display: "flex", flexWrap: "wrap", alignItems: "center", gap: "0.35rem 0.75rem" }}>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontWeight: 800, fontSize: "0.85rem", color: "var(--ink-900)", whiteSpace: "nowrap" }}>Compliance Score Over Time</div>
+            <div style={{ fontSize: "0.65rem", color: "var(--ink-400)" }}>Monthly average compliance % and pass rate</div>
+          </div>
+          {/* Legend inline in header — wraps below the title on narrow screens */}
+          <div style={{ marginLeft: "auto", display: "flex", gap: "0.75rem", flexShrink: 0 }}>
+            {[["var(--sdx-navy)", "Compliance"], ["#22c55e", "Pass Rate"]].map(([color, label]) => (
+              <div key={label} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: "0.62rem", color: "var(--ink-500)", fontWeight: 600 }}>
+                <div style={{ width: 16, height: 2.5, background: color, borderRadius: 2 }} />
+                {label}
+              </div>
+            ))}
+          </div>
         </div>
+
+        {!hasChartData ? (
+          <div style={{ padding: "1.5rem 1rem", textAlign: "center", color: "var(--ink-400)", fontSize: "0.82rem" }}>
+            Not enough data yet — need inspections across at least 2 months.
+          </div>
+        ) : (
+          <div style={{ padding: "0.5rem 0.5rem 0.35rem", overflowX: "auto" }}>
+            <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ display: "block", minWidth: Math.max(W, points.length * 32) }}>
+              {/* Y-axis grid lines at computed ticks */}
+              {yTicks.map(v => (
+                <g key={v}>
+                  <line x1={PAD.left} y1={toSvgY(v)} x2={W - PAD.right} y2={toSvgY(v)}
+                    stroke={v === yMax ? "var(--sdx-gray-300)" : "var(--surface-3)"} strokeWidth={1} />
+                  <text x={PAD.left - 4} y={toSvgY(v) + 3.5}
+                    textAnchor="end" fontSize="7" fill="var(--ink-400)" fontFamily="Inter,sans-serif">{v}</text>
+                </g>
+              ))}
+
+              {/* Area under score line */}
+              {scoreArea && (
+                <polygon points={scoreArea} fill="var(--sdx-navy)" fillOpacity="0.06" />
+              )}
+
+              {/* Pass rate line */}
+              {passLinePoints && (
+                <polyline points={passLinePoints} fill="none" stroke="#22c55e" strokeWidth="1.5"
+                  strokeLinejoin="round" strokeLinecap="round" strokeDasharray="4 2" />
+              )}
+
+              {/* Score line */}
+              {scoreLinePoints && (
+                <polyline points={scoreLinePoints} fill="none" stroke="var(--sdx-navy)" strokeWidth="2"
+                  strokeLinejoin="round" strokeLinecap="round" />
+              )}
+
+              {/* Dots on score line */}
+              {points.map((p, i) => p.avgPct !== null && (
+                <g key={i}>
+                  <circle cx={toSvgX(i)} cy={toSvgY(p.avgPct)} r="3.5"
+                    fill="#fff" stroke="var(--sdx-navy)" strokeWidth="1.5" />
+                  {/* Value label above dot — only if not too crowded */}
+                  {(points.length <= 8) && (
+                    <text x={toSvgX(i)} y={toSvgY(p.avgPct) - 6}
+                      textAnchor="middle" fontSize="7" fontWeight="700"
+                      fill="var(--sdx-navy)" fontFamily="Inter,sans-serif">{p.avgPct}%</text>
+                  )}
+                </g>
+              ))}
+
+              {/* X-axis month labels */}
+              {labelIdxs.map(i => (
+                <text key={i} x={toSvgX(i)} y={H - 6}
+                  textAnchor="middle" fontSize="7.5" fill="var(--ink-400)" fontFamily="Inter,sans-serif">
+                  {labelMonth(points[i].month)}
+                </text>
+              ))}
+            </svg>
+
+          </div>
+        )}
       </div>
 
-      {/* ── HEADER ── */}
-      <div className="perfPrintHide" style={{ background: "var(--chrome-grad)", position: "relative" }}>
-        {/* decorative red bottom line */}
-        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 3, background: `linear-gradient(90deg, ${RED}, #ff5555, ${RED})` }} />
+      {/* Data table — second column on desktop */}
+      {hasChartData && (
+        <div style={{ background: "var(--surface-1)", borderRadius: 16, border: "1.5px solid #e2e8f0", overflow: "hidden", minWidth: 200 }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.68rem" }}>
+            <thead>
+              <tr style={{ background: "var(--surface-2)" }}>
+                {["Month","Insp","Score","Pass"].map(h => (
+                  <th key={h} style={{ padding: "0.4rem 0.5rem", textAlign: h === "Month" ? "left" : "center",
+                    fontWeight: 700, color: "var(--ink-500)", borderBottom: "1.5px solid #e2e8f0", whiteSpace: "nowrap" }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {[...points].reverse().map(p => (
+                <tr key={p.month} style={{ borderBottom: "1px solid #f8fafc" }}>
+                  <td style={{ padding: "0.3rem 0.5rem", color: "var(--ink-900)", fontWeight: 600 }}>{labelMonth(p.month)}</td>
+                  <td style={{ padding: "0.3rem 0.5rem", textAlign: "center", color: "var(--ink-600)" }}>{p.total}</td>
+                  <td style={{ padding: "0.3rem 0.5rem", textAlign: "center", fontWeight: 700,
+                    color: p.avgPct !== null ? (p.avgPct >= 90 ? "#16a34a" : p.avgPct >= 70 ? "#ca8a04" : "#dc2626") : "var(--ink-400)" }}>
+                    {p.avgPct !== null ? `${p.avgPct}%` : "—"}
+                  </td>
+                  <td style={{ padding: "0.3rem 0.5rem", textAlign: "center", fontWeight: 700,
+                    color: p.passRate !== null ? passColor(p.passRate) : "var(--ink-400)" }}>
+                    {p.passRate !== null ? `${p.passRate}%` : "—"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      </div>{/* end top grid */}
 
-        {/* top bar — safe area aware */}
-        <div style={{ display: "flex", alignItems: "center", gap: "0.65rem", padding: "calc(0.9rem + env(safe-area-inset-top, 0px)) 1rem 0.75rem" }}>
-          <button onClick={onBack} style={{
-            background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.18)",
-            borderRadius: 9, color: "#fff", fontWeight: 700, fontSize: "0.82rem",
-            padding: "0.45rem 0.85rem", cursor: "pointer", flexShrink: 0,
-            whiteSpace: "nowrap"
-          }}>← Back</button>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{
-              fontSize: "0.95rem", fontWeight: 900, color: "#fff",
-              whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis"
-            }}>Performance Dashboard</div>
-            <div style={{ fontSize: "0.65rem", color: "rgba(255,255,255,0.4)", fontWeight: 500, marginTop: "0.05rem" }}>{resolveCompanyName()} · Kitchen Inspections</div>
+      {/* ── Bottom row: Recurring Issues + Volume side by side ── */}
+      <div className="trendsBottomGrid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
+
+      {/* ── Recurring Issues Bar Chart ── */}
+      <div style={{ background: "var(--surface-1)", borderRadius: 16, border: "1.5px solid #e2e8f0", overflow: "hidden" }}>
+        <div style={{ padding: "0.75rem 0.9rem 0.5rem", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+          <span style={{ fontSize: "1rem" }}>🔁</span>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontWeight: 800, fontSize: "0.88rem", color: "var(--ink-900)", whiteSpace: "nowrap" }}>Recurring Issues</div>
+            <div style={{ fontSize: "0.68rem", color: "var(--ink-400)" }}>Top issue categories across all inspections</div>
           </div>
-          {/* Export button + dropdown */}
-          <div style={{ position: "relative", flexShrink: 0 }}>
-            <button
-              onClick={() => setExportMenuOpen(o => !o)}
-              disabled={exportingGlobal || exportingInspector != null || exportingGlobalWord || exportingInspectorWord != null}
-              style={{
-                background: (exportingGlobal || exportingInspector || exportingGlobalWord || exportingInspectorWord) ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.18)",
-                border: "1px solid rgba(255,255,255,0.28)",
-                borderRadius: 9, color: "#fff", fontWeight: 700, fontSize: "0.82rem",
-                padding: "0.5rem 0.9rem", cursor: (exportingGlobal || exportingInspector || exportingGlobalWord || exportingInspectorWord) ? "default" : "pointer",
-                whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: "0.35rem"
-              }}
-            >
-              {exportingGlobal || exportingGlobalWord ? "⏳ Exporting…"
-                : (exportingInspector || exportingInspectorWord) ? `⏳ ${(exportingInspector || exportingInspectorWord).split(" ")[0]}…`
-                : "📊 Export ▾"}
-            </button>
-            {exportMenuOpen && !exportingGlobal && !exportingInspector && !exportingGlobalWord && !exportingInspectorWord && (
-              <div
-                style={{
-                  position: "absolute", top: "calc(100% + 8px)", right: 0, zIndex: 999,
-                  background: "#1e1d54", border: "1px solid rgba(255,255,255,0.2)",
-                  borderRadius: 12, boxShadow: "0 10px 40px rgba(0,0,0,0.55)",
-                  minWidth: 320, overflow: "hidden",
-                }}
-                onClick={e => e.stopPropagation()}
-              >
-                {/* close on outside click */}
-                <div
-                  style={{ position: "fixed", inset: 0, zIndex: -1 }}
-                  onClick={() => setExportMenuOpen(false)}
-                />
-
-                {/* ── Global Reports ── */}
-                <div style={{ padding: "0.75rem 1rem 0.35rem", fontSize: "0.68rem", fontWeight: 800, color: "rgba(255,255,255,0.45)", textTransform: "uppercase", letterSpacing: "0.1em" }}>
-                  Global Reports
-                </div>
-
-                {/* All Inspectors — Excel */}
-                <button
-                  onClick={exportGlobalExcel}
-                  style={{ display: "flex", alignItems: "center", gap: "0.6rem", width: "100%", textAlign: "left", background: "none", border: "none", color: "#fff", fontWeight: 600, fontSize: "0.9rem", padding: "0.65rem 1rem", cursor: "pointer" }}
-                  onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.09)"}
-                  onMouseLeave={e => e.currentTarget.style.background = "none"}
-                >
-                  <span style={{ fontSize: "1.1rem" }}>📊</span>
-                  <div>
-                    <div style={{ fontWeight: 700, fontSize: "0.88rem" }}>All Inspectors — Excel</div>
-                    <div style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.5)", fontWeight: 400 }}>4-sheet workbook (.xlsx)</div>
-                  </div>
-                </button>
-
-                {/* All Inspectors — Word */}
-                <button
-                  onClick={exportGlobalWord}
-                  style={{ display: "flex", alignItems: "center", gap: "0.6rem", width: "100%", textAlign: "left", background: "none", border: "none", color: "#fff", fontWeight: 600, fontSize: "0.9rem", padding: "0.65rem 1rem", cursor: "pointer" }}
-                  onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.09)"}
-                  onMouseLeave={e => e.currentTarget.style.background = "none"}
-                >
-                  <span style={{ fontSize: "1.1rem" }}>📝</span>
-                  <div>
-                    <div style={{ fontWeight: 700, fontSize: "0.88rem" }}>All Inspectors — Word</div>
-                    <div style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.5)", fontWeight: 400 }}>Full report document (.docx)</div>
-                  </div>
-                </button>
-
-                {/* ── Individual Reports ── */}
-                {ranking.length > 0 && (
-                  <>
-                    <div style={{ margin: "0.4rem 1rem", borderTop: "1px solid rgba(255,255,255,0.13)" }} />
-                    <div style={{ padding: "0.4rem 1rem 0.35rem", fontSize: "0.68rem", fontWeight: 800, color: "rgba(255,255,255,0.45)", textTransform: "uppercase", letterSpacing: "0.1em" }}>
-                      Individual Reports
-                    </div>
-                    {ranking.map(p => (
-                      <div
-                        key={p.name}
-                        style={{ padding: "0.55rem 1rem", borderBottom: "1px solid rgba(255,255,255,0.06)" }}
-                      >
-                        {/* Inspector name + stats row */}
-                        <div style={{ fontSize: "0.88rem", fontWeight: 700, color: "#fff", marginBottom: "0.35rem" }}>
-                          {p.name}
-                          <span style={{ marginLeft: "0.5rem", fontSize: "0.72rem", fontWeight: 400, color: "rgba(255,255,255,0.5)" }}>
-                            {p.total} insp · {p.performanceScore}pts · {p.passRate}%
-                          </span>
-                        </div>
-                        {/* Format buttons */}
-                        <div style={{ display: "flex", gap: "0.5rem" }}>
-                          <button
-                            onClick={() => exportInspectorExcel(p.name)}
-                            style={{
-                              flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: "0.3rem",
-                              background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)",
-                              borderRadius: 7, color: "#fff", fontWeight: 600, fontSize: "0.78rem",
-                              padding: "0.4rem 0.5rem", cursor: "pointer"
-                            }}
-                            onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.18)"}
-                            onMouseLeave={e => e.currentTarget.style.background = "rgba(255,255,255,0.1)"}
-                          >
-                            📊 Excel
-                          </button>
-                          <button
-                            onClick={() => exportInspectorWord(p.name)}
-                            style={{
-                              flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: "0.3rem",
-                              background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)",
-                              borderRadius: 7, color: "#fff", fontWeight: 600, fontSize: "0.78rem",
-                              padding: "0.4rem 0.5rem", cursor: "pointer"
-                            }}
-                            onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.18)"}
-                            onMouseLeave={e => e.currentTarget.style.background = "rgba(255,255,255,0.1)"}
-                          >
-                            📝 Word
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </>
-                )}
-                <div style={{ height: "0.5rem" }} />
-              </div>
-            )}
+          <div style={{ marginLeft: "auto", fontWeight: 700, fontSize: "0.68rem", color: "var(--ink-500)", background: "var(--surface-3)", borderRadius: 999, padding: "0.15rem 0.55rem", whiteSpace: "nowrap" }}>
+            {history.length} inspections
           </div>
         </div>
 
-        {/* KPI strip — 2-row layout: pass+score big, rest small */}
-        {!loading && (
-          <div style={{ padding: "0.05rem 1rem 1.25rem", display: "flex", flexDirection: "column", gap: "0.35rem" }}>
-            {/* Top row: 2 prominent KPIs */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.35rem" }}>
-              {[
-                { icon: overallPassRate >= 75 ? "✅" : overallPassRate >= 60 ? "⚠️" : "❌", val: `${overallPassRate}%`, lbl: "Overall Pass Rate",
-                  valColor: overallPassRate >= 90 ? "#4ade80" : overallPassRate >= 75 ? "#86efac" : overallPassRate >= 60 ? "#fbbf24" : "#f87171",
-                  accent: overallPassRate >= 75 ? "rgba(74,222,128,0.12)" : "rgba(248,113,113,0.12)" },
-                { icon: "⭐", val: avgScore || "—", lbl: "Avg Performance Score",
-                  valColor: avgScore >= 80 ? "#4ade80" : avgScore >= 60 ? "#fbbf24" : "#f87171",
-                  accent: "rgba(255,255,255,0.06)" },
-              ].map(({ icon, val, lbl, valColor, accent }) => (
-                <div key={lbl} style={{
-                  background: accent, borderRadius: 13,
-                  padding: "0.7rem 0.5rem 0.6rem", textAlign: "center",
-                  border: "1px solid rgba(255,255,255,0.13)"
-                }}>
-                  <div style={{ fontSize: "1rem", lineHeight: 1 }}>{icon}</div>
-                  <div style={{ fontSize: "1.35rem", fontWeight: 900, color: valColor, lineHeight: 1.15, marginTop: "0.18rem" }}>{val}</div>
-                  <div style={{ fontSize: "0.54rem", color: "rgba(255,255,255,0.42)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", marginTop: "0.1rem" }}>{lbl}</div>
+        {topIssues.length === 0 ? (
+          <div style={{ padding: "2rem 1rem", textAlign: "center", color: "var(--ink-400)", fontSize: "0.82rem" }}>
+            No issues recorded yet.
+          </div>
+        ) : (
+          <div style={{ padding: "0.75rem 0.9rem" }}>
+            {topIssues.map(({ cat, count }, idx) => {
+              const pct = Math.round((count / maxIssueCount) * 100);
+              const barColor = idx === 0 ? "#EE0000" : idx < 3 ? "#f97316" : "var(--sdx-navy)";
+              return (
+                <div key={cat} style={{ marginBottom: "0.6rem" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "0.2rem" }}>
+                    <span style={{ fontSize: "0.76rem", fontWeight: 600, color: "var(--ink-900)", flex: 1, minWidth: 0,
+                      whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", marginRight: 8 }}>
+                      {idx === 0 && "🔴 "}{cat}
+                    </span>
+                    <span style={{ fontSize: "0.72rem", fontWeight: 800, color: barColor, flexShrink: 0 }}>{count}x</span>
+                  </div>
+                  <div style={{ height: 8, background: "var(--surface-3)", borderRadius: 6, overflow: "hidden" }}>
+                    <div style={{ width: `${pct}%`, height: "100%", background: barColor,
+                      borderRadius: 6, transition: "width 0.4s ease" }} />
+                  </div>
                 </div>
-              ))}
-            </div>
-            {/* Bottom row: 3 smaller KPIs */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "0.35rem" }}>
-              {[
-                { icon: "📋", val: totalInspections, lbl: "Inspections" },
-                { icon: "🏪", val: byLocation.length || "—", lbl: "Sites" },
-                { icon: "👤", val: ranking.length || "—", lbl: "Inspectors" },
-              ].map(({ icon, val, lbl }) => (
-                <div key={lbl} style={{
-                  background: "rgba(255,255,255,0.08)", borderRadius: 11,
-                  padding: "0.5rem 0.15rem 0.45rem", textAlign: "center",
-                  border: "1px solid rgba(255,255,255,0.08)"
-                }}>
-                  <div style={{ fontSize: "0.85rem", lineHeight: 1 }}>{icon}</div>
-                  <div style={{ fontSize: "0.95rem", fontWeight: 900, color: "#fff", lineHeight: 1.2, marginTop: "0.18rem" }}>{val}</div>
-                  <div style={{ fontSize: "0.52rem", color: "rgba(255,255,255,0.38)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", marginTop: "0.1rem" }}>{lbl}</div>
-                </div>
-              ))}
+              );
+            })}
+            <div style={{ fontSize: "0.65rem", color: "var(--ink-400)", marginTop: "0.25rem" }}>
+              Bar length relative to most frequent issue. {topIssues.length < Object.keys(issueCounts).length && `Showing top ${topIssues.length} of ${Object.keys(issueCounts).length}.`}
             </div>
           </div>
         )}
       </div>
 
-      {/* Venue banner */}
-      {managedVenueId && (
-        <div style={{ margin: "1rem 1rem 0", background: "var(--tint-amber-2)", border: "1px solid #f59e0b", borderRadius: 10, padding: "0.65rem 0.9rem", color: "var(--tx-amber)", fontWeight: 600, fontSize: "0.83rem" }}>
-          ⚠️ Viewing: <strong>{managedVenueName || managedVenueId}</strong>
-        </div>
-      )}
-
-      {/* ── STATES ── */}
-      {loading ? (
-        <div style={{ textAlign: "center", padding: "4rem 1rem", color: "var(--ink-400)" }}>
-          <div style={{ fontSize: "2rem", marginBottom: "0.65rem" }}>⏳</div>
-          <div style={{ fontWeight: 600, fontSize: "0.9rem" }}>Loading performance data…</div>
-        </div>
-      ) : ranking.length === 0 ? (
-        <div style={{ margin: "1rem", textAlign: "center", padding: "2.5rem 1.25rem", color: "var(--ink-400)", background: "var(--surface-1)", borderRadius: 18, border: "1.5px dashed #e2e8f0" }}>
-          <div style={{ fontSize: "2.5rem", marginBottom: "0.65rem" }}>📊</div>
-          <div style={{ fontWeight: 700, color: "var(--ink-500)", fontSize: "0.95rem" }}>No data yet</div>
-          <div style={{ fontSize: "0.82rem", marginTop: "0.3rem" }}>Complete inspections to see performance stats.</div>
-        </div>
-      ) : (
-        <div style={{ padding: "0 1rem" }}>
-
-
-          {/* ── TAB NAV ── */}
-          <div className="perfPrintHide perfTabsWrapper">
-            {[["time","Duration"],["trends","Trends"]].map(([id, label]) => (
-              <button key={id} onClick={() => setActiveTab(id)} className={cx("perfTab", activeTab === id && "perfTabActive")}>
-                <span>{label}</span>
-              </button>
-            ))}
+      {/* ── Volume by Month (bar chart) ── */}
+      {points.length >= 2 && (
+        <div style={{ background: "var(--surface-1)", borderRadius: 16, border: "1.5px solid #e2e8f0", overflow: "hidden" }}>
+          <div style={{ padding: "0.75rem 0.9rem 0.5rem", borderBottom: "1px solid #f1f5f9" }}>
+            <div style={{ fontWeight: 800, fontSize: "0.88rem", color: "var(--ink-900)" }}>Inspection Volume</div>
+            <div style={{ fontSize: "0.68rem", color: "var(--ink-400)" }}>Number of inspections per month</div>
           </div>
-
-          {/* ── RANKINGS TAB ── */}
-          {activeTab === "rankings" && (
-            <div style={{ display: "flex", flexDirection: "column", gap: "0.65rem" }}>
-              {/* Quick podium summary — only if 3+ inspectors */}
-              {ranking.length >= 3 && (
-                <div style={{
-                  background: "var(--chrome-grad)",
-                  borderRadius: 14, padding: "0.75rem 1rem",
-                  display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.5rem"
-                }}>
-                  <div style={{ fontSize: "0.62rem", color: "rgba(255,255,255,0.45)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", flexShrink: 0 }}>Podium</div>
-                  {ranking.slice(0, 3).map((p, i) => {
-                    const podiumColors = [RED, "var(--ink-400)", "#d97706"];
-                    return (
-                      <div key={p.name} style={{ display: "flex", alignItems: "center", gap: "0.3rem", flex: 1, minWidth: 0, justifyContent: "center" }}>
-                        <span style={{ fontSize: i === 0 ? "1rem" : "0.85rem" }}>{medals[i]}</span>
-                        <div style={{ minWidth: 0 }}>
-                          <div style={{ fontSize: "0.66rem", fontWeight: 800, color: i === 0 ? "#fff" : "rgba(255,255,255,0.65)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "5rem" }}>{p.name.split(" ")[0]}</div>
-                          <div style={{ fontSize: "0.57rem", fontWeight: 700, color: podiumColors[i] }}>{p.performanceScore} pts</div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-
-              {/* Separator label before "Others" section */}
-              {ranking.map((p, i) => {
-                const trend = trendLabel(p.trendLabel);
-                const isTop = i === 0;
-                const rankColors = [RED, "var(--ink-500)", "#d97706"];
-                const rankBg = rankColors[i] ?? "var(--ink-400)";
-                const pct = p.performanceScore;
-                // compact stat string — output quality signals only (no time)
-                const statLine = [
-                  `${p.total} insp`,
-                  `${p.siteCount} site${p.siteCount !== 1 ? "s" : ""}`,
-                  p.avgIssues > 0 ? `${p.avgIssues.toFixed(1)} iss/visit` : null,
-                ].filter(Boolean).join(" · ");
+          <div style={{ padding: "0.75rem 0.9rem" }}>
+            {(() => {
+              const maxVol = Math.max(...points.map(p => p.total));
+              return points.map(p => {
+                const barPct = maxVol ? Math.max(4, Math.round((p.total / maxVol) * 100)) : 4;
                 return (
-                  <React.Fragment key={p.name}>
-                    {/* Section label before rank 4+ */}
-                    {i === 3 && (
-                      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", margin: "0.1rem 0 -0.15rem" }}>
-                        <div style={{ flex: 1, height: 1, background: "var(--sdx-gray-200)" }} />
-                        <span style={{ fontSize: "0.6rem", color: "#b0bec5", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em", flexShrink: 0 }}>Others</span>
-                        <div style={{ flex: 1, height: 1, background: "var(--sdx-gray-200)" }} />
-                      </div>
-                    )}
-                  <div style={{
-                    background: "var(--surface-1)", borderRadius: 15, overflow: "hidden",
-                    border: isTop ? `1.5px solid ${RED}30` : "1.5px solid #f1f5f9",
-                    boxShadow: isTop ? "0 5px 20px rgba(238,0,0,0.09), 0 1px 3px rgba(0,0,0,0.05)" : "0 1px 5px rgba(0,0,0,0.04)"
-                  }}>
-                    {/* top accent strip for top 3 */}
-                    {i < 3 && <div style={{ height: 3, background: rankBg }} />}
-
-                    <div style={{ display: "flex", alignItems: "center", gap: "0.7rem", padding: "0.85rem 0.9rem" }}>
-                      {/* Rank badge */}
-                      <div style={{
-                        width: 36, height: 36, borderRadius: 11, flexShrink: 0,
-                        background: i < 3 ? rankBg : "var(--surface-3)",
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                        fontSize: i < 3 ? "1.15rem" : "0.75rem", fontWeight: 900,
-                        color: i < 3 ? "#fff" : "var(--ink-400)"
-                      }}>{medals[i] || `#${i+1}`}</div>
-
-                      {/* Avatar */}
-                      <div style={{
-                        width: 34, height: 34, borderRadius: 10, flexShrink: 0,
-                        background: avatarBg(p.name),
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                        fontSize: "0.73rem", fontWeight: 900, color: "#fff"
-                      }}>{initials(p.name)}</div>
-
-                      {/* Info — flex:1 minWidth:0 is critical for text truncation */}
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        {/* Row 1: name + trend badge */}
-                        <div style={{ display: "flex", alignItems: "center", gap: "0.35rem", marginBottom: "0.08rem" }}>
-                          <span style={{ fontWeight: 800, color: "var(--ink-900)", fontSize: "0.9rem", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", flex: 1, minWidth: 0 }}>{p.name}</span>
-                          <span style={{
-                            fontSize: "0.6rem", color: trend.color, fontWeight: 700, flexShrink: 0,
-                            background: trend.color + "14", padding: "0.08rem 0.35rem", borderRadius: 20,
-                            border: `1px solid ${trend.color}28`, whiteSpace: "nowrap"
-                          }}>{trend.label}</span>
-                        </div>
-                        {/* Row 2: stats on one line */}
-                        <div style={{ fontSize: "0.7rem", color: "var(--ink-400)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                          <span style={{ color: passColor(p.passRate), fontWeight: 700 }}>{p.passRate}%</span>
-                          <span style={{ margin: "0 0.25rem" }}>·</span>
-                          {statLine}
-                        </div>
-                        {/* Progress bar */}
-                        <div style={{ marginTop: "0.45rem", height: 4, background: "var(--surface-3)", borderRadius: 99 }}>
-                          <div style={{ height: "100%", width: `${pct}%`, borderRadius: 99, background: i < 3 ? rankBg : scoreColor(pct), transition: "width 0.6s ease" }} />
-                        </div>
-                        {/* Output quality signal tags */}
-                        <div style={{ marginTop: "0.38rem", display: "flex", flexWrap: "wrap", gap: "0.22rem" }}>
-                          {/* Note quality */}
-                          {p.noteQualityScore >= 25 && (
-                            <span style={{ background: "var(--tint-green-1)", border: "1px solid #bbf7d0", borderRadius: 5, padding: "0.08rem 0.38rem", fontSize: "0.63rem", color: "#15803d", fontWeight: 700, whiteSpace: "nowrap" }}>📝 Detailed notes</span>
-                          )}
-                          {p.noteQualityScore >= 10 && p.noteQualityScore < 25 && (
-                            <span style={{ background: "var(--tint-green-1)", border: "1px solid #bbf7d0", borderRadius: 5, padding: "0.08rem 0.38rem", fontSize: "0.63rem", color: "#15803d", fontWeight: 600, whiteSpace: "nowrap" }}>📝 Adequate notes</span>
-                          )}
-                          {p.noteQualityScore === 0 && p.avgIssues > 0 && (
-                            <span style={{ background: "var(--tint-amber-2)", border: "1px solid #fde047", borderRadius: 5, padding: "0.08rem 0.38rem", fontSize: "0.63rem", color: "#713f12", fontWeight: 600, whiteSpace: "nowrap" }}>📝 Vague notes</span>
-                          )}
-                          {/* Issue detection */}
-                          {p.avgIssues >= 2 && (
-                            <span style={{ background: "var(--tint-blue-1)", border: "1px solid #bfdbfe", borderRadius: 5, padding: "0.08rem 0.38rem", fontSize: "0.63rem", color: "#1d4ed8", fontWeight: 700, whiteSpace: "nowrap" }}>🔍 {p.avgIssues.toFixed(1)} iss/visit</span>
-                          )}
-                          {/* Rubber-stamp flags */}
-                          {p.isRubberStampPattern && (
-                            <span style={{ background: "var(--tint-red-1)", border: "1px solid #fecaca", borderRadius: 5, padding: "0.08rem 0.38rem", fontSize: "0.63rem", color: "#991b1b", fontWeight: 700, whiteSpace: "nowrap" }}>⚠ Rubber-stamp pattern</span>
-                          )}
-                          {!p.isRubberStampPattern && p.isSuspiciouslyFlat && (
-                            <span style={{ background: "var(--tint-amber-1)", border: "1px solid #fed7aa", borderRadius: 5, padding: "0.08rem 0.38rem", fontSize: "0.63rem", color: "var(--tx-amber)", fontWeight: 600, whiteSpace: "nowrap" }}>⚠ Flat results</span>
-                          )}
-                          {/* Top recurring issue */}
-                          {!p.isRubberStampPattern && !p.isSuspiciouslyFlat && p.topIssues && p.topIssues.length > 0 && (
-                            <span style={{ background: "#fef3f2", border: "1px solid #fecaca", borderRadius: 5, padding: "0.08rem 0.38rem", fontSize: "0.63rem", color: "#991b1b", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "55%" }}>⚠ {p.topIssues[0].cat}</span>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Score chip — colored for top 3, neutral for rest */}
-                      <div style={{
-                        flexShrink: 0, width: 46, textAlign: "center",
-                        background: i < 3 ? rankBg : "var(--surface-2)",
-                        borderRadius: 11, padding: "0.38rem 0.3rem",
-                        border: i < 3 ? "none" : "1.5px solid #e8ecf0"
-                      }}>
-                        <div style={{ fontSize: "1.05rem", fontWeight: 900, color: i < 3 ? "#fff" : scoreColor(pct), lineHeight: 1 }}>{pct}</div>
-                        <div style={{ fontSize: "0.5rem", color: i < 3 ? "rgba(255,255,255,0.55)" : "#b0bec5", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em" }}>score</div>
-                      </div>
+                  <div key={p.month} style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.45rem" }}>
+                    <div style={{ width: 44, flexShrink: 0, fontSize: "0.65rem", fontWeight: 600, color: "var(--ink-500)", textAlign: "right" }}>
+                      {labelMonth(p.month)}
                     </div>
-                  </div>
-                  </React.Fragment>
-                );
-              })}
-            </div>
-          )}
-
-          {/* ── TIME TAB ── */}
-          {activeTab === "time" && (() => {
-            const timedRanking = [...ranking].filter(p => p.avgDurationSec).sort((a, b) => a.name.localeCompare(b.name));
-            const teamAvgSec = timedRanking.length
-              ? Math.round(timedRanking.reduce((s, p) => s + p.avgDurationSec, 0) / timedRanking.length)
-              : null;
-            const maxDur = timedRanking.length ? Math.max(...timedRanking.map(p => p.avgDurationSec)) : 0;
-
-            return (
-              <div style={{ display: "flex", flexDirection: "column", gap: "0.65rem" }}>
-
-                {/* ── Section 1: Duration Overview ── */}
-                {timedRanking.length >= 1 && teamAvgSec && (
-                  <div style={{
-                    background: "var(--chrome-grad)",
-                    borderRadius: 16, padding: "1rem 1.1rem", color: "#fff",
-                    boxShadow: "0 6px 24px rgba(42,41,92,0.25)"
-                  }}>
-                    <div style={{ fontSize: "0.7rem", fontWeight: 700, opacity: 0.65, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.6rem" }}>Report Completion Time</div>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.6rem" }}>
-                      <div style={{ textAlign: "center" }}>
-                        <div style={{ fontSize: "1.3rem", fontWeight: 900, lineHeight: 1 }}>{fmtDur(teamAvgSec)}</div>
-                        <div style={{ fontSize: "0.58rem", opacity: 0.6, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", marginTop: 2 }}>Team Avg</div>
-                      </div>
-                      <div style={{ textAlign: "center", borderLeft: "1px solid rgba(255,255,255,0.15)" }}>
-                        <div style={{ fontSize: "1.3rem", fontWeight: 900, lineHeight: 1, color: "#fbbf24" }}>{timedRanking.filter(p => p.avgDurationSec < 300).length}</div>
-                        <div style={{ fontSize: "0.58rem", opacity: 0.6, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", marginTop: 2 }}>Under 5 min ⚠️</div>
-                        <div style={{ fontSize: "0.6rem", opacity: 0.55, marginTop: 1 }}>may need review</div>
-                      </div>
+                    <div style={{ flex: 1, height: 14, background: "var(--surface-3)", borderRadius: 6, overflow: "hidden" }}>
+                      <div style={{ width: `${barPct}%`, height: "100%", background: "var(--sdx-navy)", borderRadius: 6 }} />
                     </div>
-                    <div style={{ marginTop: "0.75rem", background: "rgba(255,255,255,0.08)", borderRadius: 8, padding: "0.45rem 0.65rem", fontSize: "0.7rem", color: "rgba(255,255,255,0.75)", lineHeight: 1.45 }}>
-                      Longer inspection time generally reflects more thorough on-site work. Very short completions (&lt;5 min) may indicate the form was filled in quickly without being on-site.
+                    <div style={{ width: 22, flexShrink: 0, fontSize: "0.68rem", fontWeight: 800, color: "var(--sdx-navy)", textAlign: "left" }}>
+                      {p.total}
                     </div>
-                  </div>
-                )}
-
-                {/* ── Section 2: Per-Inspector Duration ── */}
-                <div style={{ background: "var(--surface-1)", borderRadius: 14, padding: "0.85rem 0.9rem", border: "1.5px solid #f1f5f9", boxShadow: "0 1px 6px rgba(0,0,0,0.04)" }}>
-                  <div style={{ background: "var(--tint-sky-1)", border: "1.5px solid #bae6fd", borderRadius: 10, padding: "0.55rem 0.75rem", marginBottom: "0.75rem", display: "flex", alignItems: "flex-start", gap: "0.4rem" }}>
-                    <span style={{ fontSize: "0.95rem", flexShrink: 0 }}>ℹ️</span>
-                    <div style={{ fontSize: "0.7rem", color: "#0369a1", lineHeight: 1.5 }}>
-                      <strong>Duration is a thoroughness signal, not a speed contest.</strong> Inspections that take longer generally reflect more careful on-site work. Very short completions (&lt;5 min) are flagged in amber as they may indicate the form was filled in without being fully on-site.
-                    </div>
-                  </div>
-
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.7rem" }}>
-                    <div>
-                      <div style={{ fontSize: "0.82rem", fontWeight: 800, color: "var(--ink-900)" }}>Avg Completion Time per Inspector</div>
-                      <div style={{ fontSize: "0.67rem", color: "var(--ink-400)", marginTop: 1 }}>Time from form open to save · reference data only</div>
-                    </div>
-                    {teamAvgSec && (
-                      <div style={{ background: "var(--surface-3)", borderRadius: 8, padding: "0.2rem 0.5rem", fontSize: "0.65rem", color: "var(--ink-500)", fontWeight: 700, flexShrink: 0 }}>
-                        Team avg: {fmtDur(teamAvgSec)}
-                      </div>
-                    )}
-                  </div>
-
-                  {timedRanking.length === 0 ? (
-                    <div style={{ color: "var(--ink-400)", padding: "1.5rem 0", textAlign: "center", fontSize: "0.8rem" }}>No timing data yet.</div>
-                  ) : (
-                    <div style={{ display: "flex", flexDirection: "column", gap: "0.55rem" }}>
-                      {timedRanking.map((p, i) => {
-                        const isTooFast = p.avgDurationSec < 300; // < 5 min — potential quality concern
-                        const barPct = maxDur ? Math.round((p.avgDurationSec / maxDur) * 100) : 100;
-                        const vsTeam = teamAvgSec ? p.avgDurationSec - teamAvgSec : 0;
-                        // Color logic: too fast = amber warning, normal = neutral blue, long = green (thorough)
-                        const durColor = isTooFast ? "#f59e0b" : p.avgDurationSec >= 1200 ? "#22c55e" : "#3b82f6";
-                        const durationTrendLabel = p.durationTrend !== null
-                          ? (p.durationTrend < -60 ? { label: "↓ Getting faster", color: "#f59e0b" }
-                            : p.durationTrend > 60 ? { label: "↑ Taking more time", color: "#22c55e" }
-                            : { label: "→ Consistent duration", color: "var(--ink-400)" })
-                          : null;
-                        return (
-                          <div key={p.name} style={{ border: isTooFast ? "1.5px solid #fde68a" : "1px solid #f1f5f9", borderRadius: 12, overflow: "hidden", background: isTooFast ? "var(--tint-amber-1)" : "var(--surface-2)" }}>
-                            {isTooFast && <div style={{ height: 2, background: "linear-gradient(90deg, #f59e0b, #fbbf24)" }} />}
-                            <div style={{ padding: "0.65rem 0.75rem" }}>
-                              <div style={{ display: "flex", alignItems: "center", gap: "0.55rem" }}>
-                                {/* Avatar */}
-                                <div style={{
-                                  width: 32, height: 32, borderRadius: 9, flexShrink: 0,
-                                  background: avatarBg(p.name),
-                                  display: "flex", alignItems: "center", justifyContent: "center",
-                                  fontSize: "0.7rem", fontWeight: 900, color: "#fff"
-                                }}>{initials(p.name)}</div>
-                                {/* Name + badges */}
-                                <div style={{ flex: 1, minWidth: 0 }}>
-                                  <div style={{ display: "flex", alignItems: "center", gap: "0.3rem", flexWrap: "wrap" }}>
-                                    <span style={{ fontWeight: 800, color: "var(--ink-900)", fontSize: "0.87rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 140 }}>{p.name}</span>
-                                    {isTooFast && <span style={{ background: "#f59e0b", color: "#fff", fontSize: "0.55rem", padding: "0.08rem 0.35rem", borderRadius: 20, fontWeight: 800, whiteSpace: "nowrap" }}>⚠️ Very short</span>}
-                                    {durationTrendLabel && <span style={{ fontSize: "0.58rem", color: durationTrendLabel.color, fontWeight: 700, whiteSpace: "nowrap" }}>{durationTrendLabel.label}</span>}
-                                  </div>
-                                  <div style={{ fontSize: "0.65rem", color: "var(--ink-400)", marginTop: 1 }}>
-                                    {p.durationCount} timed · shortest {fmtDur(p.minDurationSec)} · longest {fmtDur(p.maxDurationSec)}
-                                  </div>
-                                </div>
-                                {/* Avg time chip */}
-                                <div style={{ flexShrink: 0, textAlign: "center", background: durColor + "15", borderRadius: 10, padding: "0.3rem 0.5rem", border: `1.5px solid ${durColor}30`, minWidth: 50 }}>
-                                  <div style={{ fontSize: "0.9rem", fontWeight: 900, color: durColor, lineHeight: 1, whiteSpace: "nowrap" }}>{fmtDur(p.avgDurationSec)}</div>
-                                  <div style={{ fontSize: "0.48rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", color: durColor, opacity: 0.8 }}>avg</div>
-                                </div>
-                              </div>
-                              {/* Progress bar + vs-team indicator */}
-                              <div style={{ marginTop: "0.45rem" }}>
-                                <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
-                                  <div style={{ flex: 1, height: 5, background: "var(--surface-3)", borderRadius: 99 }}>
-                                    <div style={{ height: "100%", width: `${barPct}%`, borderRadius: 99, background: durColor, transition: "width 0.6s ease", opacity: 0.85 }} />
-                                  </div>
-                                  {teamAvgSec && (
-                                    <span style={{ fontSize: "0.6rem", fontWeight: 700, color: "var(--ink-500)", whiteSpace: "nowrap", flexShrink: 0 }}>
-                                      {vsTeam > 0 ? `+${fmtDur(vsTeam)} vs avg` : vsTeam < 0 ? `${fmtDur(Math.abs(vsTeam))} below avg` : "= avg"}
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                              {/* Per-site time breakdown — collapsed by default */}
-                              {p.timePerSite && p.timePerSite.length > 0 && (() => {
-                                const expanded = expandedSiteTags.has(p.name);
-                                const shown = expanded ? p.timePerSite : p.timePerSite.slice(0, 2);
-                                const hidden = p.timePerSite.length - 2;
-                                return (
-                                  <div style={{ marginTop: "0.45rem" }}>
-                                    <div style={{ display: "flex", flexWrap: "wrap", gap: "0.22rem", alignItems: "center" }}>
-                                      {shown.map(s => (
-                                        <span key={s.site} style={{
-                                          background: "var(--surface-3)", border: "1px solid #e2e8f0", borderRadius: 5,
-                                          padding: "0.08rem 0.38rem", fontSize: "0.63rem", color: "var(--ink-600)",
-                                          fontWeight: 500, whiteSpace: "nowrap"
-                                        }}>
-                                          {s.site}: {fmtDur(s.avgSec)} <span style={{ opacity: 0.5 }}>×{s.count}</span>
-                                        </span>
-                                      ))}
-                                      {!expanded && hidden > 0 && (
-                                        <button type="button" onClick={() => setExpandedSiteTags(prev => { const n = new Set(prev); n.add(p.name); return n; })} style={{
-                                          background: "none", border: "1px solid #e2e8f0", borderRadius: 5,
-                                          padding: "0.08rem 0.38rem", fontSize: "0.62rem", color: "var(--ink-500)",
-                                          fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap"
-                                        }}>+{hidden} more ▾</button>
-                                      )}
-                                      {expanded && p.timePerSite.length > 2 && (
-                                        <button type="button" onClick={() => setExpandedSiteTags(prev => { const n = new Set(prev); n.delete(p.name); return n; })} style={{
-                                          background: "none", border: "1px solid #e2e8f0", borderRadius: 5,
-                                          padding: "0.08rem 0.38rem", fontSize: "0.62rem", color: "var(--ink-500)",
-                                          fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap"
-                                        }}>▴ less</button>
-                                      )}
-                                    </div>
-                                  </div>
-                                );
-                              })()}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-
-                  {/* Time zone legend */}
-                  <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginTop: "0.7rem", paddingTop: "0.65rem", borderTop: "1px solid #f1f5f9" }}>
-                    {[["#22c55e","< 10 min"], ["#3b82f6","10–20 min"], ["#f59e0b","20–30 min"], ["#ef4444","> 30 min"]].map(([c, l]) => (
-                      <span key={l} style={{ display: "flex", alignItems: "center", gap: "0.2rem", fontSize: "0.62rem", color: "var(--ink-500)" }}>
-                        <span style={{ width: 8, height: 8, borderRadius: 99, background: c, display: "inline-block" }} />{l}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-
-
-
-                {/* ── Section 5: Throughput (inspections per active day) ── */}
-                {(() => {
-                  const withTP = [...ranking].filter(p => p.inspPerDay !== null && p.activeDayCount > 0).sort((a, b) => b.inspPerDay - a.inspPerDay);
-                  if (withTP.length === 0) return null;
-                  const maxTP = withTP[0].inspPerDay;
-                  const teamAvgTP = parseFloat((withTP.reduce((s, p) => s + p.inspPerDay, 0) / withTP.length).toFixed(1));
-                  return (
-                    <div style={{ background: "var(--surface-1)", borderRadius: 14, padding: "0.85rem 0.9rem", border: "1.5px solid #f1f5f9", boxShadow: "0 1px 6px rgba(0,0,0,0.04)" }}>
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 2 }}>
-                        <div style={{ fontSize: "0.82rem", fontWeight: 800, color: "var(--ink-900)" }}>Daily Throughput</div>
-                        <div style={{ background: "var(--surface-3)", borderRadius: 8, padding: "0.2rem 0.5rem", fontSize: "0.65rem", color: "var(--ink-500)", fontWeight: 700 }}>Team avg: {teamAvgTP}/day</div>
-                      </div>
-                      <div style={{ fontSize: "0.67rem", color: "var(--ink-400)", marginBottom: "0.7rem" }}>Inspections completed per active working day</div>
-                      <div style={{ display: "flex", flexDirection: "column", gap: "0.45rem" }}>
-                        {withTP.map((p, i) => {
-                          const barPct = maxTP ? Math.round((p.inspPerDay / maxTP) * 100) : 100;
-                          const isTop = i === 0;
-                          const vsTeamTP = (p.inspPerDay - teamAvgTP).toFixed(1);
-                          const tpColor = p.inspPerDay >= teamAvgTP * 1.2 ? "#22c55e" : p.inspPerDay >= teamAvgTP * 0.8 ? "#3b82f6" : "#f59e0b";
-                          return (
-                            <div key={p.name + "-tp"} style={{ border: isTop ? `1.5px solid color-mix(in srgb, ${NAVY} 12%, transparent)` : "1px solid #f1f5f9", borderRadius: 10, overflow: "hidden", background: isTop ? "var(--surface-2)" : "var(--surface-2)" }}>
-                              {isTop && <div style={{ height: 2, background: NAVY }} />}
-                              <div style={{ display: "flex", alignItems: "center", gap: "0.55rem", padding: "0.6rem 0.7rem" }}>
-                                <div style={{ width: 32, height: 32, borderRadius: 9, flexShrink: 0, background: avatarBg(p.name), display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.7rem", fontWeight: 900, color: "#fff" }}>{initials(p.name)}</div>
-                                <div style={{ flex: 1, minWidth: 0 }}>
-                                  <div style={{ display: "flex", alignItems: "center", gap: "0.3rem" }}>
-                                    <span style={{ fontWeight: 800, color: "var(--ink-900)", fontSize: "0.82rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</span>
-                                    {isTop && <span style={{ background: NAVY, color: "#fff", fontSize: "0.52rem", padding: "0.06rem 0.3rem", borderRadius: 20, fontWeight: 800, flexShrink: 0 }}>TOP</span>}
-                                  </div>
-                                  <div style={{ fontSize: "0.63rem", color: "var(--ink-400)", marginBottom: "0.2rem" }}>
-                                    {p.total} total · {p.activeDayCount} active day{p.activeDayCount !== 1 ? "s" : ""}
-                                    {Number(vsTeamTP) > 0
-                                      ? <span style={{ marginLeft: 4, color: "#22c55e", fontWeight: 700 }}>+{vsTeamTP} vs team</span>
-                                      : Number(vsTeamTP) < 0
-                                        ? <span style={{ marginLeft: 4, color: "#f59e0b", fontWeight: 700 }}>{vsTeamTP} vs team</span>
-                                        : null
-                                    }
-                                  </div>
-                                  <div style={{ height: 4, background: "var(--surface-3)", borderRadius: 99 }}>
-                                    <div style={{ height: "100%", width: `${barPct}%`, borderRadius: 99, background: isTop ? NAVY : tpColor, transition: "width 0.5s ease", opacity: 0.85 }} />
-                                  </div>
-                                </div>
-                                <div style={{ flexShrink: 0, textAlign: "center", background: isTop ? NAVY : tpColor + "15", borderRadius: 10, padding: "0.3rem 0.5rem", border: `1.5px solid ${isTop ? "transparent" : tpColor + "30"}`, minWidth: 44 }}>
-                                  <div style={{ fontSize: "1rem", fontWeight: 900, color: isTop ? "#fff" : tpColor, lineHeight: 1 }}>{p.inspPerDay}</div>
-                                  <div style={{ fontSize: "0.48rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", color: isTop ? "rgba(255,255,255,0.55)" : tpColor, opacity: 0.8 }}>/day</div>
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  );
-                })()}
-
-                {/* ── Section 6: Site Re-Inspection Cycle ── */}
-                {(() => {
-                  const withRI = [...ranking].filter(p => p.avgReinspDays !== null).sort((a, b) => a.avgReinspDays - b.avgReinspDays);
-                  if (withRI.length === 0) return null;
-                  return (
-                    <div style={{ background: "var(--surface-1)", borderRadius: 14, padding: "0.85rem 0.9rem", border: "1.5px solid #f1f5f9", boxShadow: "0 1px 6px rgba(0,0,0,0.04)" }}>
-                      <div style={{ fontSize: "0.82rem", fontWeight: 800, color: "var(--ink-900)", marginBottom: 2 }}>Site Re-Inspection Cycle</div>
-                      <div style={{ fontSize: "0.67rem", color: "var(--ink-400)", marginBottom: "0.7rem" }}>Average days between revisits to the same location — shorter means more frequent follow-up</div>
-                      <div style={{ display: "flex", flexDirection: "column", gap: "0.45rem" }}>
-                        {withRI.map(p => {
-                          const days = p.avgReinspDays;
-                          const riColor = days <= 7 ? "#22c55e" : days <= 30 ? "#3b82f6" : days <= 90 ? "#f59e0b" : "#ef4444";
-                          const riLabel = days <= 7 ? "Weekly" : days <= 14 ? "Bi-weekly" : days <= 30 ? "Monthly" : days <= 90 ? "Quarterly" : `${days}d`;
-                          return (
-                            <div key={p.name + "-ri"} style={{ display: "flex", alignItems: "flex-start", gap: "0.55rem", background: riColor + "0c", borderRadius: 10, padding: "0.65rem 0.7rem", border: `1.5px solid ${riColor}20` }}>
-                              <div style={{ width: 32, height: 32, borderRadius: 9, flexShrink: 0, background: avatarBg(p.name), display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.7rem", fontWeight: 900, color: "#fff" }}>{initials(p.name)}</div>
-                              <div style={{ flex: 1, minWidth: 0 }}>
-                                <div style={{ fontWeight: 800, color: "var(--ink-900)", fontSize: "0.82rem" }}>{p.name}</div>
-                                <div style={{ fontSize: "0.63rem", color: "var(--ink-500)", marginTop: 1, marginBottom: "0.35rem" }}>
-                                  {p.siteReinspDetail.length} site{p.siteReinspDetail.length !== 1 ? "s" : ""} revisited · {riLabel} avg cycle
-                                </div>
-                                {p.siteReinspDetail.length > 0 && (
-                                  <div style={{ display: "flex", flexWrap: "wrap", gap: "0.22rem" }}>
-                                    {p.siteReinspDetail.map(s => (
-                                      <span key={s.site} style={{
-                                        background: "var(--surface-3)", border: "1px solid #e2e8f0", borderRadius: 5,
-                                        padding: "0.08rem 0.38rem", fontSize: "0.62rem", color: "var(--ink-600)",
-                                        fontWeight: 500, whiteSpace: "nowrap"
-                                      }}>
-                                        {s.site}: every {s.avgDays}d <span style={{ opacity: 0.5 }}>({s.visits} visits)</span>
-                                      </span>
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
-                              <div style={{ flexShrink: 0, textAlign: "center", minWidth: 54 }}>
-                                <div style={{ fontSize: "0.95rem", fontWeight: 900, color: riColor, lineHeight: 1 }}>{riLabel}</div>
-                                <div style={{ fontSize: "0.48rem", color: riColor, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", opacity: 0.8, marginTop: 1 }}>cycle</div>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  );
-                })()}
-
-              </div>
-            );
-          })()}
-
-          {/* ── VERDICT TAB ── */}
-          {activeTab === "inventory" && (() => {
-            // ── Equipment Inventory — built from inspection history ──────────
-            // Tracks coolers, freezers, hand sinks, 3-comp sinks seen in reports.
-            // Groups: Permanent (Concession/Bar/Pantry), Subcontractor, Events (Portable/Event Day/Event/Temporary)
-
-            const EQUIP_LABELS = {
-              coolers: "Cooler", freezer: "Freezer",
-              "2-Door Cooler": "Cooler", "1-Door Cooler": "Cooler",
-              "Walk-In Cooler": "Cooler", "Prep Cooler": "Cooler",
-              "2-Door Freezer": "Freezer", "1-Door Freezer": "Freezer",
-              "Walk-In Freezer": "Freezer",
-            };
-
-            const isCooler  = (label = "") => /cooler/i.test(label);
-            const isFreezer = (label = "") => /freezer/i.test(label);
-            const isHandSink  = (label = "") => /hand.?sink/i.test(label);
-            const is3CompSink = (label = "") => /(3.comp|three.comp|3-comp)/i.test(label);
-
-            const extractEquip = (record) => {
-              const equip = record.inspection?.equipment || {};
-              const facility = record.inspection?.facility || {};
-              const items = [];
-
-              // Equipment section — coolers, freezers, custom items
-              for (const [key, val] of Object.entries(equip)) {
-                if (!val || val.notApplicable) continue;
-                const label = val.label || key;
-                const tempF = val.tempF || "";
-                const status = val.status || "OK";
-                if (isCooler(label))       items.push({ type: "Cooler",  label, tempF, status });
-                else if (isFreezer(label)) items.push({ type: "Freezer", label, tempF, status });
-                else                       items.push({ type: "Other",   label, tempF, status });
-              }
-
-              // Facility section — hand sinks, 3-comp sinks
-              for (const [key, val] of Object.entries(facility)) {
-                if (!val || val.notApplicable) continue;
-                const label = val.label || key;
-                const status = val.status || "OK";
-                if (isHandSink(label))   items.push({ type: "Hand Sink",    label, tempF: record.temps?.handSinkTempF || "", status });
-                if (is3CompSink(label))  items.push({ type: "3-Comp Sink",  label, tempF: record.temps?.threeCompSinkTempF || "", status });
-              }
-
-              // Also check built-in facility keys directly
-              if (facility.handSink && !facility.handSink.notApplicable)
-                if (!items.some(i => i.type === "Hand Sink" && i.label === (facility.handSink.label || "handSink")))
-                  items.push({ type: "Hand Sink",   label: facility.handSink.label || "Hand Sink",   tempF: record.temps?.handSinkTempF || "", status: facility.handSink.status || "OK" });
-              if (facility.threeCompSinks && !facility.threeCompSinks.notApplicable)
-                if (!items.some(i => i.type === "3-Comp Sink" && i.label === (facility.threeCompSinks.label || "threeCompSinks")))
-                  items.push({ type: "3-Comp Sink", label: facility.threeCompSinks.label || "3-Comp Sink", tempF: record.temps?.threeCompSinkTempF || "", status: facility.threeCompSinks.status || "OK" });
-
-              return items;
-            };
-
-            const isPermanent     = (lt) => ["Concession","Bar","Pantry"].includes(lt);
-            const isSubcontractor = (lt) => lt === "Subcontractor";
-            // Portable/Event/Temporary location types are always event-side.
-            // inspectionType "Event Day" or "Post Event" on ANY location type also goes
-            // to the event section — keeping permanent baselines clean.
-            const isEventInspType = (it) => it === "Event Day" || it === "Post Event";
-            const isEventLocType  = (lt) => isPortableType(lt) || lt === "Event / Temporary";
-
-            // ── Qualification gate for inventory counts & insights ────────────
-            // Bar and Pantry: exempt from the 3-field requirement, but must have
-            //   a passing inspection ("well done") to count.
-            // All other types: must have siteNumber + siteName + restaurantLicense.
-            const qualifiesForCounting = (rec) => {
-              const lt = (rec.locationType || "").trim();
-              if (lt === "Bar" || lt === "Pantry") {
-                return (rec.overallStatus || "").toLowerCase() === "pass";
-              }
-              return !!(rec.siteNumber?.trim()) && !!(rec.siteName?.trim()) && !!(rec.restaurantLicense?.trim());
-            };
-
-            // ── Build inventory maps ──────────────────────────────────────────
-            // PERMANENT locations (Concession/Bar/Pantry):
-            //   • Only Regular Inspection records feed the permanent baseline.
-            //   • Event Day / Post Event records at these locations go to the
-            //     event section instead — so the permanent count never includes
-            //     temporary / brought-in event equipment.
-            //   • Count strategy: MAXIMUM count seen across all Regular Inspections
-            //     per label, not just the latest. Inspections can miss items; the
-            //     highest ever seen is the most reliable equipment count.
-            //
-            // SUBCONTRACTOR locations:
-            //   • Subcontractors that appear in Regular Inspections across ≥2
-            //     distinct dates are "permanent subcontractors" — they are a fixed
-            //     presence and their baseline belongs in the permanent section
-            //     (shown with a "Subcontractor" badge, not "Concession" etc.).
-            //   • One-off or single-visit subcontractors stay in their own
-            //     Subcontractor section.
-            //
-            // EVENT section (grouped by eventName||siteName):
-            //   • Includes records with inspectionType "Event Day" OR "Post Event",
-            //     regardless of locationType.
-            //   • Also includes Portable / Event/Temporary location types.
-            //   • Event Day and Post Event for the same event+venue are merged into
-            //     one group — the max count per item across both is used (Post Event
-            //     the day after may catch equipment the Event Day inspector missed).
-            //   • Each group shows which inspection types it covers.
-
-            // First pass: bucket records
-            const permRecords  = {}; // siteName → [{ date, lt, it, equipItems }]
-            const subRecords   = {}; // siteName → [{ date, equipItems, lt }]
-            // eventRecords key: "eventName||siteName" regardless of location type
-            const eventRecords = {}; // evKey → [{ date, eventName, siteName, lt, it, equipItems }]
-
-            for (const record of history) {
-              // Skip records that don't qualify for counting
-              if (!qualifiesForCounting(record)) continue;
-
-              const lt = record.locationType || "";
-              const it = record.inspectionType || "";
-              const site = (record.siteName || record.location || "—").trim();
-              const eventName = (record.eventName || "").trim();
-              const date = record.savedAt || "";
-              const equipItems = extractEquip(record);
-              if (!equipItems.length) continue;
-
-              // Route to event section if: event/post-event inspection type, OR portable loc type
-              if (isEventInspType(it) || isEventLocType(lt)) {
-                // Use eventName if set; fall back to site name so ad-hoc portables still group
-                const evKey = `${eventName || "—"}||${site}`;
-                if (!eventRecords[evKey]) eventRecords[evKey] = [];
-                eventRecords[evKey].push({ date, eventName: eventName || "—", siteName: site, lt, it, equipItems });
-              } else if (isSubcontractor(lt)) {
-                // Collect in subRecords first; promotion to permanent happens in second pass
-                if (!subRecords[site]) subRecords[site] = [];
-                subRecords[site].push({ date, equipItems, lt });
-              } else {
-                // Permanent: only Regular Inspection (anything that is NOT event/post-event)
-                if (!permRecords[site]) permRecords[site] = [];
-                permRecords[site].push({ date, equipItems, lt, it });
-              }
-            }
-
-            // Promote recurring subcontractors to permanent.
-            // A subcontractor site that has Regular Inspection records on ≥2 distinct
-            // calendar dates is considered a permanent fixture at this venue.
-            const promotedSubKeys = new Set();
-            for (const [site, records] of Object.entries(subRecords)) {
-              const distinctDates = new Set(records.map(r => (r.date || "").slice(0, 10)).filter(Boolean));
-              if (distinctDates.size >= 2) {
-                // Move to permRecords with locationType "Subcontractor" preserved
-                if (!permRecords[site]) permRecords[site] = [];
-                for (const rec of records) permRecords[site].push({ ...rec, it: "Regular Inspection" });
-                promotedSubKeys.add(site);
-              }
-            }
-            // Remove promoted sites from subRecords so they don't appear in both sections
-            for (const site of promotedSubKeys) delete subRecords[site];
-
-            // Helper: build item map using MAXIMUM count seen across all inspections.
-            // Status and temp come from the LATEST inspection (most current reading).
-            // This prevents a single inspection that missed an item from dropping the count.
-            const buildItemsFromMax = (records) => {
-              if (!records || !records.length) return { items: {}, date: "", lt: "", inspTypes: new Set() };
-              const sorted = [...records].sort((a, b) => (b.date || "").localeCompare(a.date || ""));
-              const latest = sorted[0];
-              const inspTypes = new Set(records.map(r => r.it).filter(Boolean));
-
-              // Per-inspection count snapshot: for each inspection, count how many
-              // times each label appears.
-              const maxCounts   = {}; // label → highest count seen in any single inspection
-              const latestMeta  = {}; // label → { type, status, tempF, date } from latest inspection
-
-              for (const rec of sorted) {
-                // Count within this single inspection
-                const snapshot = {};
-                for (const eq of rec.equipItems) {
-                  const k = eq.label || eq.type;
-                  snapshot[k] = (snapshot[k] || 0) + 1;
-                  // Track type so we can reconstruct the item
-                  if (!latestMeta[k]) latestMeta[k] = { type: eq.type, label: eq.label || eq.type, lastStatus: eq.status, lastTemp: eq.tempF, lastDate: rec.date };
-                  // Update status/temp from the LATEST (already sorted desc, so only first write matters)
-                }
-                // Take max count per label across all inspections
-                for (const [k, cnt] of Object.entries(snapshot)) {
-                  maxCounts[k] = Math.max(maxCounts[k] || 0, cnt);
-                }
-              }
-
-              // Build final items map
-              const items = {};
-              for (const [k, count] of Object.entries(maxCounts)) {
-                const meta = latestMeta[k] || {};
-                items[k] = {
-                  type: meta.type || "Other",
-                  label: meta.label || k,
-                  count,
-                  lastStatus: meta.lastStatus || "OK",
-                  lastTemp: meta.lastTemp || "",
-                  lastDate: meta.lastDate || latest.date,
-                };
-              }
-              return { items, date: latest.date, lt: latest.lt, inspTypes };
-            };
-
-            // Second pass: build final maps
-            const permanent     = {};
-            const subcontractor = {};
-            const events        = {};
-
-            for (const [site, records] of Object.entries(permRecords)) {
-              const { items, date, lt } = buildItemsFromMax(records);
-              if (!Object.keys(items).length) continue;
-              const locType = records.find(r => r.lt)?.lt || "";
-              permanent[site] = { siteName: site, locationType: lt || locType, items, date };
-            }
-
-            for (const [site, records] of Object.entries(subRecords)) {
-              const { items, date } = buildItemsFromMax(records);
-              if (!Object.keys(items).length) continue;
-              subcontractor[site] = { siteName: site, items, date };
-            }
-
-            for (const [evKey, records] of Object.entries(eventRecords)) {
-              // Merge Event Day + Post Event: max count across all records for this event+site
-              const { items, date, inspTypes } = buildItemsFromMax(records);
-              if (!Object.keys(items).length) continue;
-              const sorted = [...records].sort((a, b) => (b.date || "").localeCompare(a.date || ""));
-              const r0 = sorted[0];
-              const hasEventDay  = inspTypes.has("Event Day");
-              const hasPostEvent = inspTypes.has("Post Event");
-              // Determine the earliest Event Day date and latest Post Event date for display
-              const eventDayRecs  = records.filter(r => r.it === "Event Day").sort((a,b) => (a.date||"").localeCompare(b.date||""));
-              const postEventRecs = records.filter(r => r.it === "Post Event").sort((a,b) => (b.date||"").localeCompare(a.date||""));
-              const eventDayDate  = eventDayRecs[0]?.date  || "";
-              const postEventDate = postEventRecs[0]?.date || "";
-              events[evKey] = {
-                eventName: r0.eventName,
-                siteName: r0.siteName,
-                items,
-                date,
-                hasEventDay,
-                hasPostEvent,
-                eventDayDate,
-                postEventDate,
-                inspectionCount: records.length,
-              };
-            }
-
-            const permList  = Object.values(permanent).sort((a,b) => a.siteName.localeCompare(b.siteName));
-            const subList   = Object.values(subcontractor).sort((a,b) => a.siteName.localeCompare(b.siteName));
-            // Sort events: most recent first (by latest record date)
-            const eventList = Object.values(events).sort((a,b) => (b.date||"").localeCompare(a.date||""));
-
-            // ── Compute totals across all lists (uses overrides when set) ────
-            // Override key: "eventName||siteName::itemLabel" — uses label (specific item)
-            const computeTotals = (list) => {
-              const t = {};
-              for (const site of list) {
-                const siteKey = `${site.eventName || ""}||${site.siteName}`;
-                for (const item of Object.values(site.items)) {
-                  const ovKey = `${siteKey}::${item.label || item.type}`;
-                  const ov = invCountOverrides[ovKey];
-                  t[item.type] = (t[item.type] || 0) + (ov !== undefined ? ov : item.count);
-                }
-                const iceCnt = iceMakerData[siteKey]?.count || 0;
-                if (iceCnt) t["Ice Maker"] = (t["Ice Maker"] || 0) + iceCnt;
-              }
-              return t;
-            };
-            const totalPerm  = computeTotals(permList);
-            const totalSub   = computeTotals(subList);
-            const totalEvent = computeTotals(eventList);
-            const grandTotal = {};
-            for (const t of [totalPerm, totalSub, totalEvent]) {
-              for (const [k, v] of Object.entries(t)) {
-                grandTotal[k] = (grandTotal[k] || 0) + v;
-              }
-            }
-            // EQUIP_META is defined at module level
-
-            // ── Pill filter groups (all sites, unfiltered) ────────────────
-            const allSiteItems = [...permList, ...subList, ...eventList].flatMap(s => Object.values(s.items));
-            const invEquipGroups = KPI_BUCKETS.map(b => {
-              // bucket total
-              const typeMap = { coolers: ["Cooler"], freezers: ["Freezer"], sinks: ["Hand Sink", "3-Comp Sink"] };
-              const types = typeMap[b.key];
-              const bucketItems = types
-                ? allSiteItems.filter(it => types.includes(it.type))
-                : allSiteItems.filter(it => !["Cooler","Freezer","Hand Sink","3-Comp Sink"].includes(it.type));
-              const bucketTotal = bucketItems.reduce((s, it) => s + (it.count || 1), 0);
-              // sub-type totals
-              const subs = (b.subBuckets || []).map(sb => {
-                const subItems = bucketItems.filter(it => sb.keywords.some(kw => (it.label||"").toLowerCase().includes(kw)));
-                return { ...sb, total: subItems.reduce((s, it) => s + (it.count || 1), 0) };
-              }).filter(sb => sb.total > 0);
-              return { ...b, total: bucketTotal, subs };
-            }).filter(b => b.total > 0);
-            // Ice Maker is tracked separately (not in site.items) — add dedicated pill
-            const totalIceMakerAll = grandTotal["Ice Maker"] || 0;
-            if (totalIceMakerAll > 0) {
-              invEquipGroups.push({ key: "icemaker", icon: "🧊", label: "Ice Makers", total: totalIceMakerAll, subs: [] });
-            }
-            const invActiveBucketObj = invEquipGroups.find(b => b.key === invEquipBucket);
-
-            // Format date as MM/DD/YYYY
-            const fmtDate = (val) => {
-              if (!val) return "";
-              // val may be YYYY-MM-DD or MM/DD/YYYY already
-              if (/^\d{4}-\d{2}-\d{2}/.test(val)) {
-                const [y, m, d] = val.slice(0, 10).split("-");
-                return `${m}/${d}/${y}`;
-              }
-              return val;
-            };
-
-            // ── Apply filters ─────────────────────────────────────────────
-            const sq = invSearch.trim().toLowerCase();
-
-            // ── Bucket/sub-type resolution for pill filter ────────────────
-            const BUCKET_TYPE_MAP = { coolers: "Cooler", freezers: "Freezer", sinks: null, other: null };
-            const invActiveSub = invEquipBucket && invEquipSub
-              ? KPI_BUCKETS.find(b => b.key === invEquipBucket)?.subBuckets.find(sb => sb.key === invEquipSub)
-              : null;
-
-            const filterSite = (site) => {
-              // text search: matches site name, custom name, or event name
-              const customName = (invNameOverrides[site.siteName] || "").toLowerCase();
-              if (sq && !site.siteName.toLowerCase().includes(sq) && !customName.includes(sq) && !(site.eventName||"").toLowerCase().includes(sq)) return null;
-              // pill bucket filter
-              let items = site.items;
-              if (invEquipBucket === "icemaker") {
-                // Ice Maker filter: show only sites that have ice makers (keep all items)
-                const sk = `${site.eventName || ""}||${site.siteName}`;
-                if (!(iceMakerData[sk]?.count > 0)) return null;
-                return { ...site, items };
-              } else if (invEquipBucket) {
-                const mappedType = BUCKET_TYPE_MAP[invEquipBucket];
-                if (mappedType) {
-                  items = Object.fromEntries(Object.entries(items).filter(([,v]) => v.type === mappedType));
-                } else if (invEquipBucket === "sinks") {
-                  items = Object.fromEntries(Object.entries(items).filter(([,v]) => v.type === "Hand Sink" || v.type === "3-Comp Sink"));
-                } else if (invEquipBucket === "other") {
-                  items = Object.fromEntries(Object.entries(items).filter(([,v]) => v.type !== "Cooler" && v.type !== "Freezer" && v.type !== "Hand Sink" && v.type !== "3-Comp Sink"));
-                }
-                // sub-type filter on label keywords
-                if (invActiveSub) {
-                  items = Object.fromEntries(Object.entries(items).filter(([,v]) =>
-                    invActiveSub.keywords.some(kw => (v.label || "").toLowerCase().includes(kw))
-                  ));
-                }
-              } else if (invTypeFilter) {
-                // legacy fallback (kept for safety)
-                items = Object.fromEntries(Object.entries(items).filter(([,v]) => v.type === invTypeFilter));
-              }
-              if (Object.keys(items).length === 0) return null;
-              return { ...site, items };
-            };
-
-            const filteredPerm  = (invLocFilter === "subcontractor" || invLocFilter === "event") ? [] : permList.map(filterSite).filter(Boolean);
-            const filteredSub   = (invLocFilter === "permanent" || invLocFilter === "event")       ? [] : subList.map(filterSite).filter(Boolean);
-            const filteredEvent = (invLocFilter === "permanent" || invLocFilter === "subcontractor") ? [] : eventList.map(filterSite).filter(Boolean);
-
-            const hasAny      = permList.length || subList.length || eventList.length;
-            const hasFiltered = filteredPerm.length || filteredSub.length || filteredEvent.length;
-            const isFiltering = sq || invEquipBucket || invTypeFilter || invLocFilter;
-
-            return (
-              <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-
-                {/* ── Grand Total Summary bar ── */}
-                {hasAny && (
-                  <div style={{ borderRadius: 16, overflow: "hidden", boxShadow: "0 8px 28px rgba(42,41,92,0.22)" }}>
-                    {/* Dark navy header */}
-                    <div style={{ background: "var(--chrome-grad)", position: "relative", padding: "1rem 1.1rem 0.9rem" }}>
-                      {/* Red accent strip */}
-                      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 3, background: "linear-gradient(90deg, #EE0000, #ff5555, #EE0000)" }} />
-                      <div style={{ fontSize: "0.58rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.12em", color: "rgba(255,255,255,0.55)", marginBottom: 10 }}>Equipment Inventory — All Locations</div>
-                      {/* KPI grid — only show types with at least one unit */}
-                      {(() => {
-                        const kpiItems = EQUIP_META.filter(m => (grandTotal[m.type] || 0) > 0);
-                        return (
-                          <div style={{ display: "grid", gridTemplateColumns: `repeat(${kpiItems.length || 1}, 1fr)`, gap: 8 }}>
-                            {kpiItems.map(m => (
-                              <div key={m.type} style={{ background: "rgba(255,255,255,0.1)", backdropFilter: "blur(4px)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 12, padding: "0.6rem 0.5rem", textAlign: "center", overflow: "hidden", position: "relative" }}>
-                                <div style={{ position: "absolute", top: 0, left: "20%", right: "20%", height: 2, background: m.color || "rgba(255,255,255,0.4)", borderRadius: "0 0 3px 3px" }} />
-                                <div style={{ fontWeight: 900, fontSize: "1.5rem", color: "#fff", lineHeight: 1.1, marginTop: 2 }}>{grandTotal[m.type]}</div>
-                                <div style={{ fontSize: "0.58rem", color: "rgba(255,255,255,0.65)", fontWeight: 700, marginTop: 2, textTransform: "uppercase", letterSpacing: "0.04em" }}>{m.type}{grandTotal[m.type] !== 1 ? "s" : ""}</div>
-                              </div>
-                            ))}
-                          </div>
-                        );
-                      })()}
-                    </div>
-                    {/* White bottom section — breakdown by group + ice/filter */}
-                    <div style={{ background: "var(--surface-1)", padding: "0.7rem 1.1rem 0.75rem" }}>
-                      {/* Breakdown by group */}
-                      {[
-                        { label: "Concession", totals: totalPerm,  color: "#2563eb", bg: "var(--tint-blue-1)", show: permList.length > 0 },
-                        { label: "Subcontractor", totals: totalSub,   color: "#7c3aed", bg: "var(--tint-indigo-1)", show: subList.length > 0 },
-                        { label: "Portables", totals: totalEvent, color: "#d97706", bg: "var(--tint-amber-1)", show: eventList.length > 0 },
-                      ].filter(g => g.show).map((g, gi) => {
-                        const cols = EQUIP_META.filter(m => g.totals[m.type] > 0);
-                        if (!cols.length) return null;
-                        return (
-                          <div key={g.label} style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", paddingTop: gi === 0 ? 0 : 7, marginTop: gi === 0 ? 0 : 7, borderTop: gi === 0 ? "none" : "1px solid #f1f5f9" }}>
-                            <span style={{ fontSize: "0.65rem", fontWeight: 800, color: g.color, minWidth: 115 }}>{g.label}</span>
-                            <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
-                              {cols.map(m => (
-                                <span key={m.type} style={{ display: "inline-flex", alignItems: "center", gap: 3, background: m.bg, border: `1px solid ${m.color}40`, borderRadius: 7, padding: "2px 8px", fontSize: "0.65rem", fontWeight: 700, color: m.color }}>
-                                  <span style={{ fontSize: "0.6rem", opacity: 0.7 }}>{m.type.slice(0,3).toUpperCase()}</span> {g.totals[m.type]}
-                                </span>
-                              ))}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {/* ── Filter bar ── */}
-                {hasAny && (
-                  <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                    {/* Search */}
-                    <input
-                      type="text"
-                      value={invSearch}
-                      onChange={e => setInvSearch(e.target.value)}
-                      placeholder="Search site or event name…"
-                      style={{ padding: "0.65rem 0.9rem", borderRadius: 11, border: "1.5px solid #e2e8f0", fontSize: "0.85rem", color: "var(--ink-900)", outline: "none", background: "var(--surface-1)", boxShadow: "0 1px 4px rgba(42,41,92,0.06)" }}
-                    />
-
-                    {/* ── Row 1: Equipment category pills + Location Type + Clear ── */}
-                    <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
-                      {/* "All" pill */}
-                      <button type="button"
-                        onClick={() => { setInvEquipBucket(""); setInvEquipSub(""); }}
-                        style={{ padding: "6px 13px", borderRadius: 20, border: invEquipBucket ? "1.5px solid #e2e8f0" : "1.5px solid #2A295C", background: invEquipBucket ? "var(--surface-2)" : "var(--sdx-navy)", color: invEquipBucket ? "var(--ink-500)" : "#fff", fontSize: "0.78rem", fontWeight: 700, cursor: "pointer" }}>
-                        All
-                      </button>
-                      {invEquipGroups.map(b => {
-                        const isActive = invEquipBucket === b.key;
-                        return (
-                          <button key={b.key} type="button"
-                            onClick={() => { setInvEquipBucket(isActive ? "" : b.key); setInvEquipSub(""); }}
-                            style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 13px", borderRadius: 20, border: isActive ? "1.5px solid #2A295C" : "1.5px solid #e2e8f0", background: isActive ? "var(--sdx-navy)" : "var(--surface-2)", color: isActive ? "#fff" : "var(--ink-600)", fontSize: "0.78rem", fontWeight: 700, cursor: "pointer", transition: "all 0.12s" }}>
-                            <span>{b.label}</span>
-                            <span style={{ fontSize: "0.7rem", opacity: 0.75 }}>({b.total})</span>
-                          </button>
-                        );
-                      })}
-                      <div style={{ flex: 1, minWidth: 8 }} />
-                      {/* Location Type dropdown */}
-                      <select
-                        value={invLocFilter}
-                        onChange={e => setInvLocFilter(e.target.value)}
-                        style={{ padding: "0.38rem 0.6rem", borderRadius: 7, border: `1.5px solid ${invLocFilter ? "#d97706" : "var(--sdx-gray-300)"}`, background: invLocFilter ? "var(--tint-amber-1)" : "#fff", color: invLocFilter ? "var(--tx-amber)" : "var(--ink-700)", fontSize: "0.8rem", fontWeight: 600, cursor: "pointer", outline: "none" }}>
-                        <option value="">All Locations</option>
-                        <option value="permanent">Permanent</option>
-                        <option value="subcontractor">Subcontractor</option>
-                        <option value="event">Events</option>
-                      </select>
-                      {/* Clear */}
-                      {isFiltering && (
-                        <button type="button"
-                          onClick={() => { setInvSearch(""); setInvEquipBucket(""); setInvEquipSub(""); setInvTypeFilter(""); setInvLocFilter(""); }}
-                          style={{ padding: "6px 12px", borderRadius: 10, border: "1.5px solid #fca5a5", background: "var(--surface-1)", color: "#dc2626", fontSize: "0.78rem", fontWeight: 700, cursor: "pointer" }}>
-                          ✕ Clear
-                        </button>
-                      )}
-                    </div>
-
-                    {/* ── Row 2: Sub-type pills — appears when a category is active ── */}
-                    {invActiveBucketObj && invActiveBucketObj.subs.length > 0 && (
-                      <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", paddingLeft: 2 }}>
-                        <span style={{ fontSize: "0.68rem", fontWeight: 700, color: "var(--ink-400)", textTransform: "uppercase", letterSpacing: "0.06em", marginRight: 2 }}>Type:</span>
-                        <button type="button"
-                          onClick={() => setInvEquipSub("")}
-                          style={{ padding: "4px 11px", borderRadius: 20, border: invEquipSub ? "1.5px solid #e2e8f0" : "1.5px solid #2A295C", background: invEquipSub ? "var(--surface-2)" : "var(--sdx-navy)", color: invEquipSub ? "var(--ink-500)" : "#fff", fontSize: "0.75rem", fontWeight: 700, cursor: "pointer" }}>
-                          All {invActiveBucketObj.label}
-                        </button>
-                        {invActiveBucketObj.subs.map(sb => {
-                          const isActiveSub = invEquipSub === sb.key;
-                          return (
-                            <button key={sb.key} type="button"
-                              onClick={() => setInvEquipSub(isActiveSub ? "" : sb.key)}
-                              style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 11px", borderRadius: 20, border: isActiveSub ? "1.5px solid #2A295C" : "1.5px solid #e2e8f0", background: isActiveSub ? "var(--sdx-navy)" : "var(--surface-2)", color: isActiveSub ? "#fff" : "var(--ink-600)", fontSize: "0.75rem", fontWeight: 700, cursor: "pointer", transition: "all 0.12s" }}>
-                              {sb.label}
-                              <span style={{ fontSize: "0.68rem", opacity: 0.75 }}>({sb.total})</span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {!hasAny && (
-                  <div style={{ textAlign: "center", padding: "2.5rem 1rem", color: "var(--ink-400)", fontSize: "0.85rem" }}>
-                    No equipment found in inspection history yet.
-                  </div>
-                )}
-
-                {isFiltering && !hasFiltered && (
-                  <div style={{ textAlign: "center", padding: "1.5rem 1rem", color: "var(--ink-400)", fontSize: "0.85rem" }}>
-                    Nothing matched. Try different filters.
-                  </div>
-                )}
-
-                {/* ── PERMANENT (Concession / Bar / Pantry) ── */}
-                {filteredPerm.length > 0 && (
-                  <div>
-                    <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginBottom: "0.7rem", padding: "0.55rem 0.9rem", background: "linear-gradient(90deg, #eff6ff 0%, #f8fafc 100%)", borderRadius: 10, border: "1px solid #bfdbfe", borderLeft: "4px solid #3b82f6" }}>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: "0.7rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em", color: "#1d4ed8" }}>
-                          Permanent Locations
-                        </div>
-                        <div style={{ fontSize: "0.62rem", color: "#3b82f6", fontWeight: 600, marginTop: 1 }}>{filteredPerm.length} site{filteredPerm.length !== 1 ? "s" : ""}</div>
-                      </div>
-                      <TotalsStrip totals={computeTotals(filteredPerm)} color="#3b82f6" />
-                    </div>
-                    <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
-                      {filteredPerm.map(site => <SiteCard key={site.siteName} site={site} badge={site.locationType || "Concession"} badgeColor={site.locationType === "Subcontractor" ? "#7c3aed" : site.locationType === "Portable - Subcontractor" ? "#9333ea" : site.locationType === "Portable - Stadium" ? "#0369a1" : NAVY} showIceMaker />)}
-                    </div>
-                  </div>
-                )}
-
-                {/* ── SUBCONTRACTOR ── */}
-                {filteredSub.length > 0 && (
-                  <div>
-                    <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginBottom: "0.7rem", padding: "0.55rem 0.9rem", background: "linear-gradient(90deg, #f5f3ff 0%, #f8fafc 100%)", borderRadius: 10, border: "1px solid #ddd6fe", borderLeft: "4px solid #7c3aed" }}>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: "0.7rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em", color: "#6d28d9" }}>
-                          Subcontractors
-                        </div>
-                        <div style={{ fontSize: "0.62rem", color: "#7c3aed", fontWeight: 600, marginTop: 1 }}>{filteredSub.length} operator{filteredSub.length !== 1 ? "s" : ""}</div>
-                      </div>
-                      <TotalsStrip totals={computeTotals(filteredSub)} color="#7c3aed" />
-                    </div>
-                    <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
-                      {filteredSub.map(site => <SiteCard key={site.siteName} site={site} badge="Subcontractor" badgeColor="#7c3aed" />)}
-                    </div>
-                  </div>
-                )}
-
-                {/* ── EVENTS (Portable / Event Day / Temporary) ── */}
-                {filteredEvent.length > 0 && (
-                  <div>
-                    <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginBottom: "0.7rem", padding: "0.55rem 0.9rem", background: "linear-gradient(90deg, #fffbeb 0%, #f8fafc 100%)", borderRadius: 10, border: "1px solid #fde68a", borderLeft: "4px solid #d97706" }}>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: "0.7rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em", color: "#b45309" }}>
-                          Events & Portables
-                        </div>
-                        <div style={{ fontSize: "0.62rem", color: "#d97706", fontWeight: 600, marginTop: 1 }}>{filteredEvent.length} event{filteredEvent.length !== 1 ? "s" : ""}</div>
-                      </div>
-                      <TotalsStrip totals={computeTotals(filteredEvent)} color="#d97706" />
-                    </div>
-                    <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
-                      {filteredEvent.map(site => <SiteCard key={`${site.eventName}||${site.siteName}`} site={site} badge={site.eventName || "Event"} badgeColor="#d97706" />)}
-                    </div>
-                  </div>
-                )}
-
-              </div>
-            );
-          })()}
-
-
-          {activeTab === "verdict" && (
-            <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-
-              {/* Explainer banner */}
-              <div style={{
-                background: "var(--surface-1)", borderRadius: 12, padding: "0.7rem 0.95rem",
-                border: "1.5px solid #e2e8f0", display: "flex", alignItems: "flex-start", gap: "0.5rem"
-              }}>
-                <div style={{ fontSize: "0.76rem", color: "var(--ink-600)", lineHeight: 1.55 }}>
-                  <span style={{ fontWeight: 700, color: "var(--ink-900)" }}>Retention Analysis</span> — each inspector is rated on real output signals: pass rate, issue-finding, note quality, rubber-stamp detection, site coverage, and recent trajectory. Use this as a starting point for reviews, not as a final decision.
-                </div>
-              </div>
-
-              {ranking.map((p) => {
-                const v = buildVerdict(p);
-                return (
-                  <div key={p.name} style={{
-                    background: v.bgColor, borderRadius: 16, overflow: "hidden",
-                    border: `1.5px solid ${v.borderColor}`,
-                    boxShadow: "0 2px 10px rgba(0,0,0,0.05)"
-                  }}>
-                    {/* ── Card header: avatar + name + verdict badge ── */}
-                    <div style={{
-                      display: "flex", alignItems: "center", gap: "0.75rem",
-                      padding: "0.9rem 0.95rem 0.7rem", borderBottom: `1px solid ${v.borderColor}`
-                    }}>
-                      {/* Avatar */}
-                      <div style={{
-                        width: 42, height: 42, borderRadius: 12, flexShrink: 0,
-                        background: avatarBg(p.name),
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                        fontSize: "0.85rem", fontWeight: 900, color: "#fff"
-                      }}>{initials(p.name)}</div>
-
-                      {/* Name + stats */}
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontWeight: 800, color: "var(--ink-900)", fontSize: "0.92rem", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.name}</div>
-                        <div style={{ fontSize: "0.69rem", color: "var(--ink-500)", marginTop: "0.08rem" }}>
-                          {p.total} insp · {p.passRate}% pass · {p.siteCount} site{p.siteCount !== 1 ? "s" : ""}
-                        </div>
-                      </div>
-
-                      {/* Verdict badge */}
-                      <div style={{
-                        flexShrink: 0, background: v.color, color: "#fff",
-                        borderRadius: 10, padding: "0.3rem 0.5rem",
-                        fontSize: "0.62rem", fontWeight: 800, textAlign: "center",
-                        maxWidth: 80, lineHeight: 1.3
-                      }}>
-                        <div style={{ fontSize: "0.9rem", lineHeight: 1 }}>{v.emoji}</div>
-                        <div style={{ marginTop: "0.15rem", letterSpacing: "0.01em" }}>
-                          {v.verdict.split("—")[0].trim()}
-                        </div>
-                        {v.verdict.includes("—") && (
-                          <div style={{ fontWeight: 600, opacity: 0.85, fontSize: "0.58rem" }}>
-                            {v.verdict.split("—")[1].trim()}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* ── Summary line ── */}
-                    <div style={{ padding: "0.65rem 0.95rem 0.5rem", fontSize: "0.76rem", color: v.color, fontWeight: 600, lineHeight: 1.5, borderBottom: `1px solid ${v.borderColor}` }}>
-                      {v.summary}
-                    </div>
-
-                    {/* ── Signals list ── */}
-                    <div style={{ padding: "0.6rem 0.95rem 0.5rem" }}>
-                      <div style={{ fontSize: "0.6rem", fontWeight: 800, color: "var(--ink-400)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.45rem" }}>Performance signals</div>
-                      <div style={{ display: "flex", flexDirection: "column", gap: "0.35rem" }}>
-                        {v.signals.map((s, si) => {
-                          const dotColor = s.type === "positive" ? "#16a34a" : s.type === "danger" ? "#dc2626" : s.type === "warning" ? "#d97706" : "var(--ink-400)";
-                          return (
-                            <div key={si} style={{ display: "flex", gap: "0.55rem", alignItems: "flex-start" }}>
-                              <div style={{ width: 7, height: 7, borderRadius: "50%", background: dotColor, flexShrink: 0, marginTop: "0.32rem" }} />
-                              <div style={{ flex: 1, minWidth: 0 }}>
-                                <span style={{ fontWeight: 700, fontSize: "0.76rem", color: "var(--ink-900)" }}>{s.label}</span>
-                                <span style={{ fontSize: "0.73rem", color: "var(--ink-500)", marginLeft: "0.35rem" }}>{s.detail}</span>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-
-                    {/* ── Recommendations ── */}
-                    {v.recommendations.length > 0 && (
-                      <div style={{
-                        margin: "0 0.95rem 0.75rem",
-                        background: "rgba(0,0,0,0.04)", borderRadius: 10,
-                        padding: "0.55rem 0.7rem",
-                        borderLeft: `3px solid ${v.color}`
-                      }}>
-                        <div style={{ fontSize: "0.6rem", fontWeight: 800, color: v.color, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.3rem" }}>Recommended actions</div>
-                        {v.recommendations.map((r, ri) => (
-                          <div key={ri} style={{ fontSize: "0.74rem", color: "var(--ink-700)", lineHeight: 1.5, marginBottom: ri < v.recommendations.length - 1 ? "0.3rem" : 0 }}>
-                            → {r}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    {/* ── Admin Feedback ── */}
-                    {(() => {
-                      const savedNote = getFeedback(p.name);
-                      const isOpen = feedbackOpen[p.name] || false;
-                      const draft = feedbackDraft[p.name] ?? savedNote;
-                      return (
-                        <div style={{ borderTop: `1px solid ${v.borderColor}`, margin: "0 0 0 0" }}>
-                          {/* Toggle button */}
-                          <button
-                            onClick={() => setFeedbackOpen(prev => ({ ...prev, [p.name]: !prev[p.name] }))}
-                            style={{
-                              width: "100%", background: "none", border: "none", cursor: "pointer",
-                              display: "flex", alignItems: "center", gap: "0.45rem",
-                              padding: "0.55rem 0.95rem",
-                              color: savedNote ? "var(--ink-900)" : "var(--ink-500)",
-                              fontSize: "0.71rem", fontWeight: savedNote ? 700 : 500,
-                              textAlign: "left"
-                            }}
-                            type="button"
-                          >
-                            <span style={{ fontSize: "0.85rem" }}>📝</span>
-                            <span style={{ flex: 1 }}>
-                              {savedNote
-                                ? isOpen ? "Edit admin note" : `Note: ${savedNote.length > 60 ? savedNote.slice(0, 60) + "…" : savedNote}`
-                                : "Add admin note"}
-                            </span>
-                            <span style={{ fontSize: "0.65rem", color: "var(--ink-400)", marginLeft: "auto" }}>{isOpen ? "▲" : "▼"}</span>
-                          </button>
-
-                          {/* Expanded feedback form */}
-                          {isOpen && (
-                            <div style={{ padding: "0 0.95rem 0.8rem" }}>
-                              <textarea
-                                value={draft}
-                                onChange={e => setFeedbackDraft(prev => ({ ...prev, [p.name]: e.target.value }))}
-                                placeholder="Write your notes about this inspector (e.g. strengths, areas to coach, follow-up needed)…"
-                                rows={3}
-                                style={{
-                                  width: "100%", boxSizing: "border-box",
-                                  resize: "vertical", minHeight: 70,
-                                  border: "1.5px solid #cbd5e1", borderRadius: 9,
-                                  padding: "0.55rem 0.7rem", fontSize: "0.78rem",
-                                  color: "var(--ink-900)", lineHeight: 1.55,
-                                  fontFamily: "inherit", background: "var(--surface-2)",
-                                  outline: "none"
-                                }}
-                                onFocus={e => { e.target.style.borderColor = "#3b82f6"; e.target.style.background = "#fff"; }}
-                                onBlur={e => { e.target.style.borderColor = "var(--sdx-gray-300)"; e.target.style.background = "var(--surface-2)"; }}
-                              />
-                              <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.45rem", justifyContent: "flex-end" }}>
-                                {savedNote && (
-                                  <button
-                                    onClick={() => {
-                                      const key = (managedVenueId || "default") + "||" + p.name;
-                                      const updated = { ...feedbackNotes };
-                                      delete updated[key];
-                                      setFeedbackNotes(updated);
-                                      setFeedbackDraft(prev => ({ ...prev, [p.name]: "" }));
-                                      try { localStorage.setItem("inspectorFeedbackNotes", JSON.stringify(updated)); } catch {}
-                                      setFeedbackOpen(prev => ({ ...prev, [p.name]: false }));
-                                    }}
-                                    type="button"
-                                    style={{
-                                      background: "none", border: "1.5px solid #fca5a5", borderRadius: 7,
-                                      color: "#dc2626", fontSize: "0.72rem", fontWeight: 600,
-                                      padding: "0.3rem 0.65rem", cursor: "pointer"
-                                    }}
-                                  >Delete note</button>
-                                )}
-                                <button
-                                  onClick={() => {
-                                    setFeedbackDraft(prev => ({ ...prev, [p.name]: savedNote }));
-                                    setFeedbackOpen(prev => ({ ...prev, [p.name]: false }));
-                                  }}
-                                  type="button"
-                                  style={{
-                                    background: "none", border: "1.5px solid #e2e8f0", borderRadius: 7,
-                                    color: "var(--ink-500)", fontSize: "0.72rem", fontWeight: 600,
-                                    padding: "0.3rem 0.65rem", cursor: "pointer"
-                                  }}
-                                >Cancel</button>
-                                <button
-                                  onClick={() => {
-                                    saveFeedback(p.name);
-                                    setFeedbackOpen(prev => ({ ...prev, [p.name]: false }));
-                                  }}
-                                  type="button"
-                                  style={{
-                                    background: "#0f172a", border: "none", borderRadius: 7,
-                                    color: "#fff", fontSize: "0.72rem", fontWeight: 700,
-                                    padding: "0.3rem 0.75rem", cursor: "pointer"
-                                  }}
-                                >Save note</button>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })()}
                   </div>
                 );
-              })}
-
-              {/* Footer disclaimer */}
-              <div style={{ fontSize: "0.68rem", color: "var(--ink-400)", textAlign: "center", padding: "0.25rem 1rem 0.5rem", lineHeight: 1.5 }}>
-                Verdicts are based on inspection data only. Always consider context, site conditions, and direct observation before making employment decisions.
-              </div>
-            </div>
-          )}
-
-          {/* ── TRENDS TAB ── */}
-          {activeTab === "trends" && (() => {
-            // ── Compute monthly buckets ───────────────────────────────────────
-            const buckets = {}; // { "2026-03": { scores: [], passes: 0, total: 0 } }
-            const sorted = [...history].sort((a, b) => (a.savedAt || "").localeCompare(b.savedAt || ""));
-            for (const r of sorted) {
-              const monthKey = (r.savedAt || r.inspectionDate || "").slice(0, 7);
-              if (!monthKey || monthKey.length < 7) continue;
-              if (!buckets[monthKey]) buckets[monthKey] = { scores: [], passes: 0, total: 0 };
-              const sc = calcInspectionScore(r.inspection);
-              if (sc) buckets[monthKey].scores.push(sc.pct);
-              buckets[monthKey].total++;
-              if ((r.overallStatus || "").toLowerCase() === "pass") buckets[monthKey].passes++;
-            }
-            const months = Object.keys(buckets).sort();
-            const points = months.map(m => {
-              const b = buckets[m];
-              const avgPct = b.scores.length ? Math.round(b.scores.reduce((s, v) => s + v, 0) / b.scores.length) : null;
-              const passRate = b.total ? Math.round((b.passes / b.total) * 100) : null;
-              return { month: m, avgPct, passRate, total: b.total };
-            });
-
-            // ── Compute top recurring issues ──────────────────────────────────
-            // Issues are computed from inspection data via buildActionItems.
-            // Each item.issue is "Section: detail" — we count by section name.
-            const issueCounts = {};
-            for (const r of history) {
-              if (!r.inspection) continue;
-              const items = buildActionItems({
-                inspection: r.inspection,
-                rawNotes: r.rawNotes,
-                foodTemps: r.foodTemps,
-                foodTempNames: r.foodTempNames,
               });
-              // Count each unique section once per inspection (not per item)
-              const seenSections = new Set();
-              for (const item of items) {
-                const section = (item.issue || "").split(":")[0].trim() || "Other";
-                if (!seenSections.has(section)) {
-                  seenSections.add(section);
-                  issueCounts[section] = (issueCounts[section] || 0) + 1;
-                }
-              }
-            }
-            const topIssues = Object.entries(issueCounts)
-              .sort((a, b) => b[1] - a[1])
-              .slice(0, 8)
-              .map(([cat, count]) => ({ cat, count }));
-            const maxIssueCount = topIssues[0]?.count || 1;
-
-            // ── SVG line chart helpers ────────────────────────────────────────
-            const W = 320, H = 90, PAD = { top: 14, right: 10, bottom: 22, left: 30 };
-            const chartW = W - PAD.left - PAD.right;
-            const chartH = H - PAD.top - PAD.bottom;
-
-            // Zoom Y axis to data range — pad 3% above and below
-            const allVals = points.flatMap(p => [p.avgPct, p.passRate]).filter(v => v !== null);
-            const yMin = allVals.length ? Math.max(0,  Math.floor((Math.min(...allVals) - 3) / 5) * 5) : 0;
-            const yMax = allVals.length ? Math.min(100, Math.ceil( (Math.max(...allVals) + 3) / 5) * 5) : 100;
-            const yRange = yMax - yMin || 1;
-            // Grid ticks: ~4 evenly spaced within [yMin, yMax]
-            const yStep = [1,2,5,10,20,25][([1,2,5,10,20,25].findIndex(s => (yRange / s) <= 4) + 0) || 5];
-            const yTicks = [];
-            for (let v = Math.ceil(yMin / yStep) * yStep; v <= yMax; v += yStep) yTicks.push(v);
-
-            function toSvgX(i) {
-              return PAD.left + (points.length > 1 ? (i / (points.length - 1)) * chartW : chartW / 2);
-            }
-            function toSvgY(val) {
-              return PAD.top + chartH - ((val - yMin) / yRange) * chartH;
-            }
-
-            const scoreLinePoints = points
-              .map((p, i) => p.avgPct !== null ? `${toSvgX(i)},${toSvgY(p.avgPct)}` : null)
-              .filter(Boolean).join(" ");
-            const passLinePoints = points
-              .map((p, i) => p.passRate !== null ? `${toSvgX(i)},${toSvgY(p.passRate)}` : null)
-              .filter(Boolean).join(" ");
-
-            // Area fill for score line
-            const firstScore = points.findIndex(p => p.avgPct !== null);
-            const lastScore  = points.map((p, i) => p.avgPct !== null ? i : -1).filter(i => i >= 0).slice(-1)[0];
-            const scoreArea = firstScore >= 0
-              ? `${toSvgX(firstScore)},${PAD.top + chartH} ${scoreLinePoints} ${toSvgX(lastScore)},${PAD.top + chartH}`
-              : "";
-
-            const labelMonth = (m) => {
-              const [y, mo] = m.split("-");
-              const names = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-              return (names[parseInt(mo, 10) - 1] || mo) + (y !== new Date().getFullYear().toString() ? ` '${y.slice(2)}` : "");
-            };
-
-            // Pick label indices — show at most 6 evenly spaced
-            const labelStep = Math.max(1, Math.ceil(points.length / 6));
-            const labelIdxs = points.map((_, i) => i).filter(i => i % labelStep === 0 || i === points.length - 1);
-
-            const hasChartData = points.length >= 2;
-
-            return (
-              <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-
-                {/* ── Score over time + data table side by side on desktop ── */}
-                <div className="trendsTopGrid" style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: "0.75rem", alignItems: "start" }}>
-                <div style={{ background: "var(--surface-1)", borderRadius: 16, border: "1.5px solid #e2e8f0", overflow: "hidden" }}>
-                  <div style={{ padding: "0.6rem 0.9rem 0.4rem", borderBottom: "1px solid #f1f5f9", display: "flex", flexWrap: "wrap", alignItems: "center", gap: "0.35rem 0.75rem" }}>
-                    <div style={{ minWidth: 0 }}>
-                      <div style={{ fontWeight: 800, fontSize: "0.85rem", color: "var(--ink-900)", whiteSpace: "nowrap" }}>Compliance Score Over Time</div>
-                      <div style={{ fontSize: "0.65rem", color: "var(--ink-400)" }}>Monthly average compliance % and pass rate</div>
-                    </div>
-                    {/* Legend inline in header — wraps below the title on narrow screens */}
-                    <div style={{ marginLeft: "auto", display: "flex", gap: "0.75rem", flexShrink: 0 }}>
-                      {[["var(--sdx-navy)", "Compliance"], ["#22c55e", "Pass Rate"]].map(([color, label]) => (
-                        <div key={label} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: "0.62rem", color: "var(--ink-500)", fontWeight: 600 }}>
-                          <div style={{ width: 16, height: 2.5, background: color, borderRadius: 2 }} />
-                          {label}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {!hasChartData ? (
-                    <div style={{ padding: "1.5rem 1rem", textAlign: "center", color: "var(--ink-400)", fontSize: "0.82rem" }}>
-                      Not enough data yet — need inspections across at least 2 months.
-                    </div>
-                  ) : (
-                    <div style={{ padding: "0.5rem 0.5rem 0.35rem", overflowX: "auto" }}>
-                      <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ display: "block", minWidth: Math.max(W, points.length * 32) }}>
-                        {/* Y-axis grid lines at computed ticks */}
-                        {yTicks.map(v => (
-                          <g key={v}>
-                            <line x1={PAD.left} y1={toSvgY(v)} x2={W - PAD.right} y2={toSvgY(v)}
-                              stroke={v === yMax ? "var(--sdx-gray-300)" : "var(--surface-3)"} strokeWidth={1} />
-                            <text x={PAD.left - 4} y={toSvgY(v) + 3.5}
-                              textAnchor="end" fontSize="7" fill="var(--ink-400)" fontFamily="Inter,sans-serif">{v}</text>
-                          </g>
-                        ))}
-
-                        {/* Area under score line */}
-                        {scoreArea && (
-                          <polygon points={scoreArea} fill="var(--sdx-navy)" fillOpacity="0.06" />
-                        )}
-
-                        {/* Pass rate line */}
-                        {passLinePoints && (
-                          <polyline points={passLinePoints} fill="none" stroke="#22c55e" strokeWidth="1.5"
-                            strokeLinejoin="round" strokeLinecap="round" strokeDasharray="4 2" />
-                        )}
-
-                        {/* Score line */}
-                        {scoreLinePoints && (
-                          <polyline points={scoreLinePoints} fill="none" stroke="var(--sdx-navy)" strokeWidth="2"
-                            strokeLinejoin="round" strokeLinecap="round" />
-                        )}
-
-                        {/* Dots on score line */}
-                        {points.map((p, i) => p.avgPct !== null && (
-                          <g key={i}>
-                            <circle cx={toSvgX(i)} cy={toSvgY(p.avgPct)} r="3.5"
-                              fill="#fff" stroke="var(--sdx-navy)" strokeWidth="1.5" />
-                            {/* Value label above dot — only if not too crowded */}
-                            {(points.length <= 8) && (
-                              <text x={toSvgX(i)} y={toSvgY(p.avgPct) - 6}
-                                textAnchor="middle" fontSize="7" fontWeight="700"
-                                fill="var(--sdx-navy)" fontFamily="Inter,sans-serif">{p.avgPct}%</text>
-                            )}
-                          </g>
-                        ))}
-
-                        {/* X-axis month labels */}
-                        {labelIdxs.map(i => (
-                          <text key={i} x={toSvgX(i)} y={H - 6}
-                            textAnchor="middle" fontSize="7.5" fill="var(--ink-400)" fontFamily="Inter,sans-serif">
-                            {labelMonth(points[i].month)}
-                          </text>
-                        ))}
-                      </svg>
-
-                    </div>
-                  )}
-                </div>
-
-                {/* Data table — second column on desktop */}
-                {hasChartData && (
-                  <div style={{ background: "var(--surface-1)", borderRadius: 16, border: "1.5px solid #e2e8f0", overflow: "hidden", minWidth: 200 }}>
-                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.68rem" }}>
-                      <thead>
-                        <tr style={{ background: "var(--surface-2)" }}>
-                          {["Month","Insp","Score","Pass"].map(h => (
-                            <th key={h} style={{ padding: "0.4rem 0.5rem", textAlign: h === "Month" ? "left" : "center",
-                              fontWeight: 700, color: "var(--ink-500)", borderBottom: "1.5px solid #e2e8f0", whiteSpace: "nowrap" }}>{h}</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {[...points].reverse().map(p => (
-                          <tr key={p.month} style={{ borderBottom: "1px solid #f8fafc" }}>
-                            <td style={{ padding: "0.3rem 0.5rem", color: "var(--ink-900)", fontWeight: 600 }}>{labelMonth(p.month)}</td>
-                            <td style={{ padding: "0.3rem 0.5rem", textAlign: "center", color: "var(--ink-600)" }}>{p.total}</td>
-                            <td style={{ padding: "0.3rem 0.5rem", textAlign: "center", fontWeight: 700,
-                              color: p.avgPct !== null ? (p.avgPct >= 90 ? "#16a34a" : p.avgPct >= 70 ? "#ca8a04" : "#dc2626") : "var(--ink-400)" }}>
-                              {p.avgPct !== null ? `${p.avgPct}%` : "—"}
-                            </td>
-                            <td style={{ padding: "0.3rem 0.5rem", textAlign: "center", fontWeight: 700,
-                              color: p.passRate !== null ? passColor(p.passRate) : "var(--ink-400)" }}>
-                              {p.passRate !== null ? `${p.passRate}%` : "—"}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-                </div>{/* end top grid */}
-
-                {/* ── Bottom row: Recurring Issues + Volume side by side ── */}
-                <div className="trendsBottomGrid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
-
-                {/* ── Recurring Issues Bar Chart ── */}
-                <div style={{ background: "var(--surface-1)", borderRadius: 16, border: "1.5px solid #e2e8f0", overflow: "hidden" }}>
-                  <div style={{ padding: "0.75rem 0.9rem 0.5rem", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                    <span style={{ fontSize: "1rem" }}>🔁</span>
-                    <div style={{ minWidth: 0 }}>
-                      <div style={{ fontWeight: 800, fontSize: "0.88rem", color: "var(--ink-900)", whiteSpace: "nowrap" }}>Recurring Issues</div>
-                      <div style={{ fontSize: "0.68rem", color: "var(--ink-400)" }}>Top issue categories across all inspections</div>
-                    </div>
-                    <div style={{ marginLeft: "auto", fontWeight: 700, fontSize: "0.68rem", color: "var(--ink-500)", background: "var(--surface-3)", borderRadius: 999, padding: "0.15rem 0.55rem", whiteSpace: "nowrap" }}>
-                      {history.length} inspections
-                    </div>
-                  </div>
-
-                  {topIssues.length === 0 ? (
-                    <div style={{ padding: "2rem 1rem", textAlign: "center", color: "var(--ink-400)", fontSize: "0.82rem" }}>
-                      No issues recorded yet.
-                    </div>
-                  ) : (
-                    <div style={{ padding: "0.75rem 0.9rem" }}>
-                      {topIssues.map(({ cat, count }, idx) => {
-                        const pct = Math.round((count / maxIssueCount) * 100);
-                        const barColor = idx === 0 ? "#EE0000" : idx < 3 ? "#f97316" : "var(--sdx-navy)";
-                        return (
-                          <div key={cat} style={{ marginBottom: "0.6rem" }}>
-                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "0.2rem" }}>
-                              <span style={{ fontSize: "0.76rem", fontWeight: 600, color: "var(--ink-900)", flex: 1, minWidth: 0,
-                                whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", marginRight: 8 }}>
-                                {idx === 0 && "🔴 "}{cat}
-                              </span>
-                              <span style={{ fontSize: "0.72rem", fontWeight: 800, color: barColor, flexShrink: 0 }}>{count}x</span>
-                            </div>
-                            <div style={{ height: 8, background: "var(--surface-3)", borderRadius: 6, overflow: "hidden" }}>
-                              <div style={{ width: `${pct}%`, height: "100%", background: barColor,
-                                borderRadius: 6, transition: "width 0.4s ease" }} />
-                            </div>
-                          </div>
-                        );
-                      })}
-                      <div style={{ fontSize: "0.65rem", color: "var(--ink-400)", marginTop: "0.25rem" }}>
-                        Bar length relative to most frequent issue. {topIssues.length < Object.keys(issueCounts).length && `Showing top ${topIssues.length} of ${Object.keys(issueCounts).length}.`}
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* ── Volume by Month (bar chart) ── */}
-                {points.length >= 2 && (
-                  <div style={{ background: "var(--surface-1)", borderRadius: 16, border: "1.5px solid #e2e8f0", overflow: "hidden" }}>
-                    <div style={{ padding: "0.75rem 0.9rem 0.5rem", borderBottom: "1px solid #f1f5f9" }}>
-                      <div style={{ fontWeight: 800, fontSize: "0.88rem", color: "var(--ink-900)" }}>Inspection Volume</div>
-                      <div style={{ fontSize: "0.68rem", color: "var(--ink-400)" }}>Number of inspections per month</div>
-                    </div>
-                    <div style={{ padding: "0.75rem 0.9rem" }}>
-                      {(() => {
-                        const maxVol = Math.max(...points.map(p => p.total));
-                        return points.map(p => {
-                          const barPct = maxVol ? Math.max(4, Math.round((p.total / maxVol) * 100)) : 4;
-                          return (
-                            <div key={p.month} style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.45rem" }}>
-                              <div style={{ width: 44, flexShrink: 0, fontSize: "0.65rem", fontWeight: 600, color: "var(--ink-500)", textAlign: "right" }}>
-                                {labelMonth(p.month)}
-                              </div>
-                              <div style={{ flex: 1, height: 14, background: "var(--surface-3)", borderRadius: 6, overflow: "hidden" }}>
-                                <div style={{ width: `${barPct}%`, height: "100%", background: "var(--sdx-navy)", borderRadius: 6 }} />
-                              </div>
-                              <div style={{ width: 22, flexShrink: 0, fontSize: "0.68rem", fontWeight: 800, color: "var(--sdx-navy)", textAlign: "left" }}>
-                                {p.total}
-                              </div>
-                            </div>
-                          );
-                        });
-                      })()}
-                    </div>
-                  </div>
-                )}
-
-                </div>{/* end bottom grid */}
-              </div>
-            );
-          })()}
-
+            })()}
+          </div>
         </div>
       )}
+
+      </div>{/* end bottom grid */}
     </div>
   );
 }
@@ -21102,6 +18577,42 @@ function QrScanModal({ title, hint, onCode, onClose }) {
       </div>
     </div>
   );
+}
+// ── Scan prefill: resolve a stand NAME from the canonical stand list ────────
+// A poster only carries a name when the stand's list entry had one at print
+// time (standHaccpUrl omits an empty site), and a bare unit # carries none —
+// so the scan path must be able to resolve the name by unit # from the same
+// canonical list the posters page uses: the merged stand list when it has
+// loaded, plus the synchronous license seeds (always available on the home
+// venue). Returns "" when the unit is unknown, or when several stands share
+// the unit and the location type can't disambiguate — never guess a name.
+function scanStandCandidates(unit) {
+  const U = normUnit(unit); if (!U) return [];
+  const seen = new Set(); const out = [];
+  const push = k => {
+    if (!k || normUnit(k.unit) !== U) return;
+    const nm = (k.site || "").trim(); if (!nm) return;
+    const key = standSlug(nm); if (seen.has(key)) return;
+    seen.add(key); out.push(k);
+  };
+  for (const k of _standListCache) push(k);
+  try { for (const k of standSeeds()) push(k); } catch {}
+  return out;
+}
+function resolveScanStandName(unit, loctype) {
+  const cands = scanStandCandidates(unit);
+  if (!cands.length) return "";
+  if (cands.length === 1) return (cands[0].site || "").trim();
+  const t = licTypeForLocationType(loctype || "");
+  if (t) {
+    const typed = cands.filter(k => licTypeForLocationType(k.locType || "") === t);
+    if (typed.length === 1) return (typed[0].site || "").trim();
+  }
+  return "";
+}
+function scanStandKnown(unit) {
+  if (scanStandCandidates(unit).length) return true;
+  try { return IS_DEFAULT_VENUE() && licenseRows().some(r => normUnit(r.unit) === normUnit(unit)); } catch { return false; }
 }
 // Parse a scanned stand QR (…?haccp=1&site=…&unit=…&floor=…) — or a bare unit number
 function parseStandQr(raw) {
@@ -25416,27 +22927,6 @@ function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVe
             <button type="button" onClick={() => setRemoveError("")} style={{ background: "none", border: "none", color: "#991b1b", cursor: "pointer", fontWeight: 700, fontSize: "1.1rem", lineHeight: 1, padding: "0 2px" }}>×</button>
           </div>
         )}
-        {/* Performance Dashboard shortcut */}
-        <button
-          type="button"
-          onClick={() => onNavigate && onNavigate("performance")}
-          style={{
-            width: "100%", marginBottom: "1rem", padding: "1rem 1.25rem",
-            background: "linear-gradient(135deg, #1e3a5f 0%, #0f2744 100%)",
-            border: "1px solid #2563eb55", borderRadius: "10px",
-            color: "#fff", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.75rem",
-            textAlign: "left",
-          }}
-        >
-          <span style={{ fontSize: "1.5rem" }}>📊</span>
-          <div>
-            <div style={{ fontWeight: 700, fontSize: "0.95rem" }}>Performance Dashboard</div>
-            <div style={{ fontSize: "0.78rem", color: "#93c5fd", marginTop: "0.1rem" }}>
-              Inspector rankings · Time tracking · Best inspector
-            </div>
-          </div>
-          <span style={{ marginLeft: "auto", color: "#93c5fd", fontSize: "1.1rem" }}>→</span>
-        </button>
 
         {/* Inspection Schedule Settings */}
         <div className="card adminCard" style={{ marginBottom: 24 }}>
@@ -27309,6 +24799,7 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                     );
                   })()}
                   <div className="eqQuickHint">Log each cooler / freezer temp. Missing one? Tap its type — it is added right away.</div>
+                  <button type="button" className="guideStandEquipLink" data-testid="eqp-form-link" onClick={() => window.dispatchEvent(new CustomEvent("sdx-nav", { detail: { page: "equipment", equipFocus: { unit: siteNumber || "", site: siteName || "" } } }))}>🧊 Equipment tab — this stand's units, temps &amp; history</button>
                   <div className="equipTypeGroups">
                     <div className="equipTypeGroup">
                       <span className="equipTypeGroupLabel">❄️ Coolers</span>
@@ -31849,6 +29340,7 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
   const [page, setPage] = useState("inspector"); // "inspector" | "history" | "admin" | "global_admin"
   const [labelsFocus, setLabelsFocus] = useState(null); // { unit, site, floor, locType, from } — open Equipment Labels on one stand
+  const [equipFocus, setEquipFocus] = useState(null); // { id, unit, site } — open the Equipment tab on one stand
   const [historyEntry, setHistoryEntry] = useState(null); // { tab, sub } — deep link into HistoryPage tabs
   const [fuHistoryTick, setFuHistoryTick] = useState(0);  // bumped when the warm history cache lands
   const [pendingCount, setPendingCount] = useState(0);
@@ -31902,7 +29394,7 @@ export default function App() {
       const rgb = [1, 3, 5].map(i => parseInt(brand.slice(i, i + 2), 16));
       r.setProperty("--sdx-pin-rad", `rgba(${rgb[0]},${rgb[1]},${rgb[2]},0.55)`);
     }
-    // Brand accent (buttons, highlights) — replaces the Sodexo red on client systems
+    // Brand accent (buttons, highlights) — replaces the legacy red on client systems
     const accent = (venueSettings?.accentColor || "").trim();
     if (VENUE_ID !== "default" && /^#[0-9a-fA-F]{6}$/.test(accent) && activeTheme !== "black") {
       const shadeA = (hex, f) => "#" + [1, 3, 5].map(i => Math.min(255, Math.round(parseInt(hex.slice(i, i + 2), 16) * f)).toString(16).padStart(2, "0")).join("");
@@ -31972,6 +29464,42 @@ export default function App() {
       return computeFollowups(cached, venueSettings).followups.filter(f => f.overdue).length;
     } catch { return 0; }
   }, [currentUser, venueSettings?.followupCleared, venueSettings?.followupStatus, venueSettings?.recheckDays, fuHistoryTick]);
+
+  // Open follow-up count for the menu tile — same warmed cache + computation
+  // as the overdue count above, unfiltered (menu redesign, 2026-10-10).
+  const fuOpenCount = useMemo(() => {
+    if (!currentUser) return 0;
+    try {
+      const cached = JSON.parse(localStorage.getItem(`sdx_history_cache_${VENUE_ID}`) || "[]");
+      return computeFollowups(cached, venueSettings).followups.length;
+    } catch { return 0; }
+  }, [currentUser, venueSettings?.followupCleared, venueSettings?.followupStatus, venueSettings?.recheckDays, fuHistoryTick]);
+
+  // Equipment tab badge: units whose latest read (local caches) is over limit
+  const equipAlertCount = useMemo(() => {
+    if (!currentUser) return 0;
+    try {
+      const reg = JSON.parse(localStorage.getItem(EQUIP_REG_LS) || "{}") || {};
+      const histC = JSON.parse(localStorage.getItem(`sdx_history_cache_${VENUE_ID}`) || "[]");
+      const last = {};
+      for (const rec of histC) {
+        const eq = rec?.inspection?.equipment; if (!eq) continue;
+        const at = rec.savedAt || "";
+        for (const v of Object.values(eq)) {
+          const tag = String(v?.assetTag || "").toUpperCase(); const t = parseFloat(v?.tempF);
+          if (!tag || !Number.isFinite(t)) continue;
+          if (!last[tag] || at > last[tag].at) last[tag] = { t, at };
+        }
+      }
+      let n = 0;
+      for (const [tag, it] of Object.entries(reg)) {
+        const L = last[String(tag).toUpperCase()]; if (!L) continue;
+        const freezer = /freez|🧊/i.test(it?.label || it?.name || "") || /^SDX-(FZ|FRZ)/i.test(tag);
+        if (L.t > (freezer ? 20 : 40)) n++;
+      }
+      return n;
+    } catch { return 0; }
+  }, [currentUser, fuHistoryTick]);
 
   const openFollowups = () => { setHistoryEntry({ tab: "analytics", sub: "recurring" }); setPage("history"); };
 
@@ -32828,6 +30356,19 @@ export default function App() {
     } catch { return []; }
   }, [siteNumber, siteName, venueSettings?.followupCleared, venueSettings?.followupStatus, venueSettings?.recheckDays, fuHistoryTick]);
   const caMissing = standOpenProblems.filter(f => !(correctives[f.key]?.action || "").trim());
+  // "Already open" peek (report entry): is the history cache warm enough to
+  // trust a "nothing open" answer, and which problem texts has THIS report
+  // already captured (checklist fails + Action: note lines)?
+  const fuCacheWarm = useMemo(() => { try { return (JSON.parse(localStorage.getItem(`sdx_history_cache_${VENUE_ID}`) || "[]")).length > 0; } catch { return false; } }, [fuHistoryTick]);
+  const draftIssueTexts = useMemo(() => {
+    try { return buildActionItems({ inspection, rawNotes, foodTemps, foodTempNames, foodTempCorrections, foodTempSubmitted }).map(a => String(a.issue || "").trim().toLowerCase().replace(/\s+/g, " ")).filter(Boolean); } catch { return []; }
+  }, [inspection, rawNotes, foodTemps, foodTempNames, foodTempCorrections, foodTempSubmitted]);
+  const fuInTodaysReport = f => {
+    const c = correctives[f.key];
+    if (c && ((c.action || "").trim() || c.status === "still")) return true; // answered in the corrective panel below — it lands in today's report
+    const texts = [f.detail, ...((f.subs || []).map(r => r.text))].map(s => String(s || "").trim().toLowerCase().replace(/\s+/g, " ")).filter(Boolean);
+    return texts.some(t => draftIssueTexts.some(d => d === t || (d.length >= 8 && t.includes(d)) || (t.length >= 8 && d.includes(t))));
+  };
   const [restaurantLicense, setRestaurantLicense] = useState("");
   const [supervisorName, setSupervisorName] = useState("");
   const [sitePhone, setSitePhone] = useState("");
@@ -33003,24 +30544,34 @@ export default function App() {
   const [qrStand, setQrStand] = useState(QR_OPEN_AS_INSPECTOR ? QR_STAND : null);
   const [scanStandOpen, setScanStandOpen] = useState(false);
   const [scanFlash, setScanFlash] = useState("");
+  const standScanSeqRef = useRef(0); // bumped per scan/pick — a late registry fill only ever serves the newest one
   function applyStandFromQr(st) {
     const g = k => (st?.[k] || "").trim();
-    if (g("site")) setSiteName(g("site").toUpperCase());
+    const seq = ++standScanSeqRef.current;
+    // The payload's name is trusted as far as it goes — but a poster printed
+    // for a stand whose list entry had no name encodes unit only, and a bare
+    // unit # carries no name at all. Resolve the name from the canonical
+    // stand list by unit # BEFORE anything else consumes it, so a known
+    // stand can never land with a blank name by silence.
+    let site = g("site");
+    if (!site && g("unit")) { try { site = resolveScanStandName(g("unit"), g("loctype")) || ""; } catch {} }
+    let resolvedName = site ? site.toUpperCase() : "";
+    if (site) setSiteName(site.toUpperCase());
     if (g("unit")) setSiteNumber(g("unit"));
-    { const fl = floorForStand(g("unit"), g("site"), g("floor")); if (fl) setFloor(fl); }
+    { const fl = floorForStand(g("unit"), site, g("floor")); if (fl) setFloor(fl); }
     if (g("loctype")) { try { setLocationType(g("loctype")); } catch {} }
     // Remembered details for this stand — people only when the unit is known
-    try { if (g("site")) applySiteAutofill(g("site"), { lockIdentity: !!g("unit"), unit: g("unit") }); } catch {}
+    try { if (site) applySiteAutofill(site, { lockIdentity: !!g("unit"), unit: g("unit") }); } catch {}
     // License (and official name) from the registry BY UNIT — this wins over
     // anything name-keyed memory may have remembered for a same-named stand.
     try {
       const reg = g("unit") && IS_DEFAULT_VENUE() ? lookupLicenseByUnitType(g("unit"), g("loctype") || "Concession") : null;
       if (reg?.license && reg.status === "ACTIVE") {
         setRestaurantLicense(reg.license);
-        if (reg.name && (!g("site") || reg.name.toUpperCase().includes(g("site").toUpperCase()))) setSiteName(reg.name.toUpperCase());
+        if (reg.name && (!site || reg.name.toUpperCase().includes(site.toUpperCase()))) { setSiteName(reg.name.toUpperCase()); resolvedName = reg.name.toUpperCase(); }
       } else if (g("unit") && IS_DEFAULT_VENUE()) {
         const nm = LICENSE_NAME_BY_NUMBER[g("unit").toUpperCase()];
-        if (nm && !g("site")) setSiteName(nm.toUpperCase());
+        if (nm && !site) { setSiteName(nm.toUpperCase()); resolvedName = nm.toUpperCase(); }
       }
     } catch {}
     // The stand's LAST report fills the rest: supervisor, phone, license,
@@ -33028,17 +30579,17 @@ export default function App() {
     // readings/photos cleared) so the inspector walks in with a full form.
     try {
       const unitN = normUnit(g("unit"));
-      const siteN = g("site").toUpperCase();
+      const siteN = site.toUpperCase();
       const cached = JSON.parse(localStorage.getItem(`sdx_history_cache_${VENUE_ID}`) || "[]");
       // v518: the SAME stand only — three stands can share a unit #
-      const target = standForStrict(g("unit"), g("site"));
+      const target = standForStrict(g("unit"), site);
       const sameStandRec = r => target ? standForStrict(r.siteNumber, r.siteName)?.id === target.id
         : (unitN ? normUnit(r.siteNumber) === unitN && (!siteN || (!!standSlug(r.siteName) && sameStandName(r.siteName, siteN))) : (r.siteName || "").trim().toUpperCase() === siteN);
       const last = cached
         .filter(r => !r.quickProblem && !r.supervisorLog && !r.quickEquipCheck && sameStandRec(r))
         .sort((a, b) => (b.savedAt || "").localeCompare(a.savedAt || ""))[0];
       if (last) {
-        if (!g("site") && last.siteName) setSiteName(last.siteName);
+        if (!site && last.siteName) { setSiteName(last.siteName); resolvedName = last.siteName; }
         if (last.supervisorName) setSupervisorName(prev => prev || last.supervisorName);
         if (last.sitePhone) setSitePhone(prev => prev || last.sitePhone);
         if (looksLikeLicense(last.restaurantLicense)) setRestaurantLicense(prev => prev || last.restaurantLicense);
@@ -33078,7 +30629,33 @@ export default function App() {
         }
       }
     } catch {}
-    setQrStand({ site: g("site"), unit: g("unit"), floor: floorForStand(g("unit"), g("site"), g("floor")), loctype: g("loctype") });
+    setQrStand({ site: site || g("site"), unit: g("unit"), floor: floorForStand(g("unit"), site, g("floor")), loctype: g("loctype") });
+    // Still no name? The canonical list may simply not have loaded yet (a
+    // scan in the first seconds after opening the app, or the as=inspector
+    // deep link applied at mount). Re-resolve once it lands — and only ever
+    // fill a name that is STILL blank on THIS stand's form: never overwrite
+    // typing, never follow the form to a different stand.
+    if (!resolvedName && g("unit")) {
+      const wantUnit = g("unit"), wantType = g("loctype");
+      loadStandList().then(() => {
+        const nm = resolveScanStandName(wantUnit, wantType);
+        if (!nm) return;
+        const tryFill = tries => {
+          if (standScanSeqRef.current !== seq) return; // a newer scan / pick took over
+          let nameEl = null, unitEl = null;
+          try { nameEl = document.querySelector("#field-siteName input"); unitEl = document.querySelector("#field-siteNumber input"); } catch {}
+          if (!nameEl) { if (tries > 0) setTimeout(() => tryFill(tries - 1), 2500); return; } // form not on screen yet (e.g. still on the lock screen)
+          if ((nameEl.value || "").trim()) return;
+          if (unitEl && normUnit(unitEl.value || "") !== normUnit(wantUnit)) return;
+          setSiteName(nm.toUpperCase());
+          setQrStand(prev => prev && normUnit(prev.unit) === normUnit(wantUnit) ? { ...prev, site: nm } : prev);
+          setScanFlash(`✅ Stand name filled in — ${nm.toUpperCase()} #${wantUnit}.`);
+          setTimeout(() => setScanFlash(""), 5000);
+        };
+        tryFill(4);
+      }).catch(() => {});
+    }
+    return { site: resolvedName || "", known: g("unit") ? scanStandKnown(g("unit")) : !!site };
   }
   // v532: a stand picked from the official list = the same as scanning its poster, and it is the "I'm on site" step
   function pickStand(k) {
@@ -33093,9 +30670,19 @@ export default function App() {
     const st = parseStandQr(raw);
     if (!st) { setScanFlash("⚠️ That code isn't a stand QR. Scan the poster on the stand, or type the unit #."); setTimeout(() => setScanFlash(""), 5000); return; }
     if (st.equip) { setScanFlash("🏷 That's an equipment label — open Menu → Equipment Scanner for temp checks."); setTimeout(() => setScanFlash(""), 6000); return; }
-    applyStandFromQr(st);
-    setScanFlash(`✅ Stand loaded — ${st.site || ""}${st.unit ? ` #${st.unit}` : ""}. Details pre-filled, start the checklist.`);
-    setTimeout(() => setScanFlash(""), 5000);
+    const info = applyStandFromQr(st) || { site: "", known: false };
+    if (st.unit && !info.site) {
+      // Never a silent blank: say plainly whether the stand is known but its
+      // name could not be resolved, or not recognized at all. The form stays
+      // open with the unit filled — typing the name once remembers it.
+      setScanFlash(info.known
+        ? `⚠️ Stand #${st.unit} loaded — its name could not be filled in automatically. Type the name once and it will be remembered.`
+        : `⚠️ Stand not recognized — #${st.unit} isn't in the stand list. The form is open: type the stand name to continue.`);
+      setTimeout(() => setScanFlash(""), 8000);
+    } else {
+      setScanFlash(`✅ Stand loaded — ${info.site || st.site || ""}${st.unit ? ` #${st.unit}` : ""}. Details pre-filled, start the checklist.`);
+      setTimeout(() => setScanFlash(""), 5000);
+    }
     setTimeout(() => { try { document.getElementById("field-siteNumber")?.scrollIntoView({ behavior: "smooth", block: "center" }); } catch {} }, 150);
   }
 
@@ -33118,6 +30705,7 @@ export default function App() {
       if (d.entry !== undefined) setHistoryEntry(d.entry);
       if (d.page === "history" && d.entry === undefined) setHistoryEntry(null);
       if (d.clearFocus) { try { setLabelsFocus(null); } catch {} }
+      if (d.equipFocus) setEquipFocus(d.equipFocus);
       if (d.page) setPage(d.page);
       if (d.scanStand) setTimeout(() => setScanStandOpen(true), 50);
       if (d.newInspection) { try { startNewInspection(); } catch {} }
@@ -33453,8 +31041,8 @@ export default function App() {
     resetActivity();
     // Merge shared site map from Firestore into local autofill memory (non-blocking)
     syncSharedSiteMap();
-    // Warm the history cache in the background so History and the
-    // Performance Dashboard open instantly this session
+    // Warm the history cache in the background so History opens
+    // instantly this session
     loadHistory(undefined, { pageSize: 2000 }).then(({ list }) => {
       try {
         // Never wipe a good cache with an empty fetch (flaky network, cold store)
@@ -33540,7 +31128,14 @@ export default function App() {
     initialFocusId={historyEntry?.focusId}
   />; }
   if (page === "schedule") { return <SchedulePage onBack={() => setPage("inspector")} currentUser={currentUser} venueSettings={venueSettings} onManage={(currentUser?.role === "admin" || currentUser?.role === "global_admin") ? () => setPage("admin") : null} />; }
-  if (page === "global_admin") {
+  /* Menu redesign (2026-10-10) — the Manage pages are role-guarded HERE, at
+     render, not merely hidden in the menu: page state has other writers (the
+     notification dropdown's fallback sends any signed-in user to "admin"),
+     so a role that does not qualify now falls through to the inspector home
+     instead of receiving the admin surface. Client-side defense-in-depth
+     only — the real boundary stays Firestore rules + Auth
+     (workspace/inspection-analysis/security-fix-plan.md). */
+  if (page === "global_admin" && currentUser?.role === "global_admin") {
     return <GlobalAdminPanel
       currentUser={currentUser}
       onBack={() => { setVenue(VENUE_ID); setManagedVenueId(null); setManagedVenueName(null); startNewInspection(); }}
@@ -33565,7 +31160,7 @@ export default function App() {
       }}
     />;
   }
-  if (page === "admin") {
+  if (page === "admin" && (currentUser?.role === "admin" || currentUser?.role === "global_admin")) {
     AIEngine.trackPage("admin");
     return <AdminPanel
       currentUser={currentUser}
@@ -33595,11 +31190,11 @@ export default function App() {
       onNotifClearAll={() => setNotifItems([])}
     />;
   }
-  if (page === "performance") { AIEngine.trackPage("performance"); return <PerformanceDashboard onBack={() => setPage("admin")} managedVenueId={managedVenueId} managedVenueName={managedVenueName} venueSettings={venueSettings} />; }
-  if (page === "myteam")      { return <MyTeamPage currentUser={currentUser} onBack={() => setPage("inspector")} />; }
+  if (page === "myteam" && (currentUser?.role === "location_manager" || currentUser?.role === "inspector"))      { return <MyTeamPage currentUser={currentUser} onBack={() => setPage("inspector")} />; }
   if (page === "mylocations") { return <MyLocationsPage currentUser={currentUser} venueSettings={venueSettings} saveVenueSettings={saveVenueSettings} onBack={() => setPage("inspector")} onSelectLocation={(loc, slotId) => { setSiteName(loc); activeSlotIdRef.current = slotId || null; setPage("inspector"); window.scrollTo({ top: 0, behavior: "smooth" }); }} />; }
   if (page === "crew")              { return <CrewBoardPage currentUser={currentUser} venueSettings={venueSettings} saveVenueSettingsMap={saveVenueSettingsMap} linkSession={!!loadCrewSession()} onLock={() => { clearCrewSession(); setCrewNotice(""); lockApp(); setCurrentUser(null); setLocked(true); }} onMessages={() => setPage("messaging")} onAppearance={() => setAppearanceOpen(true)} />; }
-  if (page === "mytemps")           { return <MyTempsPage currentUser={currentUser} onBack={() => setPage("inspector")} />; }
+  if (page === "mytemps" && currentUser?.role === "location_manager")           { return <MyTempsPage currentUser={currentUser} onBack={() => setPage("inspector")} />; }
+  if (page === "equipment") { AIEngine.trackPage("equipment"); return <EquipmentPage currentUser={currentUser} onBack={() => setPage("inspector")} focusStand={equipFocus} onOpenLabels={(st) => { setLabelsFocus({ id: st?.id || "", unit: st?.unit || "", site: st?.site || "", floor: st?.floor || floorForStand(st?.unit, st?.site, st?.floor), locType: st?.locType || "", from: "equipment" }); setPage("print_labels"); }} />; }
   if (page === "equipment_scanner") { return <EquipmentScannerPage onBack={() => setPage("inspector")} onPrintLabels={() => setPage("print_labels")} onKitchenQr={() => setPage("kitchen_qr")} />; }
   if (page === "print_labels")      { return <PrintLabelsPage onBack={() => { setPage(labelsFocus?.from || "equipment_scanner"); setLabelsFocus(null); }} onKitchenQr={() => setPage("kitchen_qr")} focusStand={labelsFocus} onClearFocus={() => setLabelsFocus(null)} />; }
   if (page === "kitchen_qr")        { return <KitchenQrPage onBack={() => setPage("inspector")} onPrintLabels={() => setPage("print_labels")} onStandEquipment={(k) => { setLabelsFocus({ id: k.id || "", unit: k.unit || "", site: k.site || "", floor: floorForStand(k.unit, k.site, k.floor), locType: k.locType || "", from: "kitchen_qr" }); setPage("print_labels"); }} />; }
@@ -34329,8 +31924,8 @@ export default function App() {
           <div className="dropdownMenu" onClick={() => { setMenuOpen(false); setLockConfirm(false); }}>
             {currentUser && (
               <div className="dropdownMenuUser">
-                {currentUser.name}
-                {currentUser.role === "global_admin" ? " (Global Admin)" : currentUser.role === "admin" ? " (Admin)" : currentUser.role === "location_manager" ? " (Manager)" : currentUser.role === "guest" ? " (Guest)" : currentUser.role === "maintenance" ? " (Maintenance)" : currentUser.role === "cleaning" ? " (Cleaning)" : currentUser.role === "ecolab" ? " (Ecolab)" : ""}
+                <span className="menuUserName">{currentUser.name}</span>
+                <span className="menuUserRole">{currentUser.role === "global_admin" ? "Global Admin" : currentUser.role === "admin" ? "Admin" : currentUser.role === "location_manager" ? "Manager" : currentUser.role === "guest" ? "Guest" : currentUser.role === "maintenance" ? "Maintenance" : currentUser.role === "cleaning" ? "Cleaning" : currentUser.role === "ecolab" ? "Ecolab" : "Inspector"}</span>
                 {currentUser.role === "location_manager" && currentUser.assignedLocation && (
                   <div style={{ fontSize: "0.72rem", color: "var(--ink-400)", marginTop: 2 }}>📍 {currentUser.assignedLocation}</div>
                 )}
@@ -34339,48 +31934,51 @@ export default function App() {
                 )}
               </div>
             )}
-            {/* Daily actions — the four things done all day */}
+            {/* Daily actions — the things done all day */}
             <div className="menuQuick">
-              <button type="button" className={cx("menuQuickTile", page === "inspector" && "on")} onClick={startNewInspection}><span className="menuQuickIcon">➕</span><span>New Inspection</span></button>
-              <button type="button" className="menuQuickTile" onClick={() => { setModals(m => ({ ...m, menuOpen: false })); setPage("inspector"); setScanStandOpen(true); }}><span className="menuQuickIcon">📷</span><span>Scan stand QR</span></button>
-              <button type="button" className={cx("menuQuickTile", page === "history" && historyEntry?.sub === "recurring" && "on")} onClick={() => { setMenuOpen(false); openFollowups(); }}><span className="menuQuickIcon">🔁</span><span>Follow-ups</span>{fuOverdueCount > 0 && <b className="menuQuickBadge">{fuOverdueCount}</b>}</button>
-              <button type="button" className={cx("menuQuickTile", page === "history" && historyEntry?.sub !== "recurring" && "on")} onClick={() => { setHistoryEntry(null); setPage("history"); }}><span className="menuQuickIcon">📄</span><span>Past Reports</span></button>
+              <button type="button" className={cx("menuQuickTile", page === "inspector" && "on")} onClick={startNewInspection}><span className="menuQuickIcon"><MenuIcon name="plusSquare" /></span><span>New Inspection</span></button>
+              <button type="button" className="menuQuickTile" onClick={() => { setModals(m => ({ ...m, menuOpen: false })); setPage("inspector"); setScanStandOpen(true); }}><span className="menuQuickIcon"><MenuIcon name="qr" /></span><span>Scan stand QR</span></button>
+              <button type="button" className={cx("menuQuickTile", page === "history" && historyEntry?.sub === "recurring" && "on")} onClick={() => { setMenuOpen(false); openFollowups(); }}><span className="menuQuickIcon"><MenuIcon name="repeat" /></span><span>Follow-ups</span>{fuOpenCount > 0 && <span className="menuQuickSub">{fuOpenCount} open</span>}{fuOverdueCount > 0 && <b className="menuQuickBadge">{fuOverdueCount}</b>}</button>
+              <button type="button" className={cx("menuQuickTile", page === "history" && historyEntry?.sub !== "recurring" && "on")} onClick={() => { setHistoryEntry(null); setPage("history"); }}><span className="menuQuickIcon"><MenuIcon name="fileText" /></span><span>Past Reports</span></button>
+              <button type="button" data-testid="eqp-menu-tile" className={cx("menuQuickTile", page === "equipment" && "on")} onClick={() => { setMenuOpen(false); setEquipFocus(null); setPage("equipment"); }}><span className="menuQuickIcon"><MenuIcon name="snowflake" /></span><span>Equipment</span>{equipAlertCount > 0 && <b className="menuQuickBadge">{equipAlertCount}</b>}</button>
             </div>
             <div className="menuSection">Work</div>
-            <button className={cx("dropdownMenuItem", page === "schedule" && "dropdownMenuItemActive")} onClick={() => { setPage("schedule"); setMenuOpen(false); }} type="button">📅 Schedule</button>
-            <button className="dropdownMenuItem" onClick={() => { setHistoryEntry({ tab: "analytics", sub: "temp" }); setPage("history"); setMenuOpen(false); }} type="button">🌡 Equipment temps</button>
-            <button className={cx("dropdownMenuItem", page === "mylocations" && "dropdownMenuItemActive")} onClick={() => { setPage("mylocations"); setMenuOpen(false); }} type="button">📍 My Locations</button>
+            <button className={cx("dropdownMenuItem", page === "schedule" && "dropdownMenuItemActive")} onClick={() => { setPage("schedule"); setMenuOpen(false); }} type="button"><span className="menuItemIcon"><MenuIcon name="calendar" /></span><span className="menuItemLabel">Schedule</span></button>
+            {/* Equipment temps — hidden while this venue's equipment registry is
+                unverified (build-2 patch 03 reads the same flag on the TEMPS tab).
+                Admins keep the entry: that tab is where they turn it back on. */}
+            {(venueSettings?.equipTemps?.verifiedAt || currentUser?.role === "admin" || currentUser?.role === "global_admin") && (
+              <button className="dropdownMenuItem" onClick={() => { setHistoryEntry({ tab: "analytics", sub: "temp" }); setPage("history"); setMenuOpen(false); }} type="button"><span className="menuItemIcon"><MenuIcon name="thermometer" /></span><span className="menuItemLabel">Equipment temps</span></button>
+            )}
+            <button className={cx("dropdownMenuItem", page === "mylocations" && "dropdownMenuItemActive")} onClick={() => { setPage("mylocations"); setMenuOpen(false); }} type="button"><span className="menuItemIcon"><MenuIcon name="pin" /></span><span className="menuItemLabel">My Locations</span></button>
             <button className={cx("dropdownMenuItem", page === "messaging" && "dropdownMenuItemActive")} onClick={() => { setPage("messaging"); setMenuOpen(false); }} type="button">
-              💬 Messages &amp; Comms
+              <span className="menuItemIcon"><MenuIcon name="chat" /></span><span className="menuItemLabel">Messages &amp; Comms</span>
               {notifItems.filter(n => n.type === "chat").length > 0 && <span className="menuBadge menuBadgeSoft">{notifItems.filter(n => n.type === "chat").length} new</span>}
             </button>
             <div className="menuSection">Equipment &amp; QR</div>
-            <button className={cx("dropdownMenuItem", (page === "print_labels" || page === "kitchen_qr") && "dropdownMenuItemActive")} onClick={() => { setLabelsFocus(null); setPage("print_labels"); setMenuOpen(false); }} type="button">🍳 Stands (posters · equipment · verify walk)</button>
-            <button className={cx("dropdownMenuItem", page === "equipment_scanner" && "dropdownMenuItemActive")} onClick={() => { setPage("equipment_scanner"); setMenuOpen(false); }} type="button">📡 Equipment Scanner</button>
+            <button className={cx("dropdownMenuItem", (page === "print_labels" || page === "kitchen_qr") && "dropdownMenuItemActive")} onClick={() => { setLabelsFocus(null); setPage("print_labels"); setMenuOpen(false); }} type="button"><span className="menuItemIcon"><MenuIcon name="store" /></span><span className="menuItemLabel">Stands (posters · equipment · verify walk)</span></button>
+            <button className={cx("dropdownMenuItem", page === "equipment" && "dropdownMenuItemActive")} onClick={() => { setEquipFocus(null); setPage("equipment"); setMenuOpen(false); }} type="button"><span className="menuItemIcon"><MenuIcon name="snowflake" /></span><span className="menuItemLabel">Equipment — units · temps · add</span>{equipAlertCount > 0 && <b className="menuBadge">{equipAlertCount}</b>}</button>
             {(currentUser?.role === "global_admin" || currentUser?.role === "admin" || currentUser?.role === "location_manager" || currentUser?.role === "inspector") && <div className="menuSection">Manage</div>}
             {currentUser?.role === "global_admin" && (
-              <button className={cx("dropdownMenuItem", page === "global_admin" && "dropdownMenuItemActive")} onClick={() => setPage("global_admin")} type="button">🌐 Global Admin</button>
+              <button className={cx("dropdownMenuItem", page === "global_admin" && "dropdownMenuItemActive")} onClick={() => setPage("global_admin")} type="button"><span className="menuItemIcon"><MenuIcon name="globe" /></span><span className="menuItemLabel">Global Admin</span></button>
             )}
             {(currentUser?.role === "admin" || currentUser?.role === "global_admin") && (
               <button className={cx("dropdownMenuItem", page === "admin" && "dropdownMenuItemActive")} onClick={() => setPage("admin")} type="button">
-                ⚙️ Admin Panel
+                <span className="menuItemIcon"><MenuIcon name="sliders" /></span><span className="menuItemLabel">Admin Panel</span>
                 {pendingCount > 0 && <span className="menuBadge">{pendingCount} pending</span>}
               </button>
             )}
-            {(currentUser?.role === "admin" || currentUser?.role === "global_admin") && (
-              <button className={cx("dropdownMenuItem", page === "performance" && "dropdownMenuItemActive")} onClick={() => { setPage("performance"); setMenuOpen(false); }} type="button">📊 Performance Dashboard</button>
-            )}
             {(currentUser?.role === "location_manager" || currentUser?.role === "inspector") && (
-              <button className={cx("dropdownMenuItem", page === "myteam" && "dropdownMenuItemActive")} onClick={() => setPage("myteam")} type="button">👥 My Team</button>
+              <button className={cx("dropdownMenuItem", page === "myteam" && "dropdownMenuItemActive")} onClick={() => setPage("myteam")} type="button"><span className="menuItemIcon"><MenuIcon name="users" /></span><span className="menuItemLabel">My Team</span></button>
             )}
             {currentUser?.role === "location_manager" && (
-              <button className={cx("dropdownMenuItem", page === "mytemps" && "dropdownMenuItemActive")} onClick={() => setPage("mytemps")} type="button">🌡️ Temperature Logs</button>
+              <button className={cx("dropdownMenuItem", page === "mytemps" && "dropdownMenuItemActive")} onClick={() => setPage("mytemps")} type="button"><span className="menuItemIcon"><MenuIcon name="thermometer" /></span><span className="menuItemLabel">Temperature Logs</span></button>
             )}
             <div className="menuSection">Settings</div>
             {canShare && (
-              <button className="dropdownMenuItem" onClick={() => { setShowShareModal(true); setMenuOpen(false); }} type="button">📤 Share Form Link</button>
+              <button className="dropdownMenuItem" onClick={() => { setShowShareModal(true); setMenuOpen(false); }} type="button"><span className="menuItemIcon"><MenuIcon name="share" /></span><span className="menuItemLabel">Share Form Link</span></button>
             )}
-            <button className="dropdownMenuItem" onClick={() => { setAppearanceOpen(true); setMenuOpen(false); }} type="button">🎨 App Color</button>
+            <button className="dropdownMenuItem" onClick={() => { setAppearanceOpen(true); setMenuOpen(false); }} type="button"><span className="menuItemIcon"><MenuIcon name="droplet" /></span><span className="menuItemLabel">App Color</span></button>
             {lockConfirm ? (
               <div style={{ padding: "0.5rem 1rem 0.7rem", display: "flex", flexDirection: "column", gap: 6, borderTop: "1px solid rgba(239,68,68,.35)", background: "rgba(220,38,38,.14)", borderRadius: "0 0 12px 12px" }} onClick={e => e.stopPropagation()}>
                 <span style={{ fontSize: "0.82rem", color: "#fca5a5", fontWeight: 700 }}>Lock the app?</span>
@@ -34398,8 +31996,12 @@ export default function App() {
                 </div>
               </div>
             ) : (
-              <button className="dropdownMenuItem dropdownMenuDanger" onClick={e => { e.stopPropagation(); setLockConfirm(true); }} type="button">Lock App</button>
+              <button className="dropdownMenuItem dropdownMenuDanger" onClick={e => { e.stopPropagation(); setLockConfirm(true); }} type="button"><span className="menuItemIcon"><MenuIcon name="lock" /></span><span className="menuItemLabel">Lock App</span></button>
             )}
+            <a className="dropdownMenuItem igMenuItem" href={SDX_INSTAGRAM_URL} target="_blank" rel="noreferrer">
+              <span className="menuItemIcon"><InstagramGlyph /></span>
+              <span className="menuItemLabel">Follow @sdxinspection</span>
+            </a>
             <div className="menuVersion">SDX Inspect · {SDX_VERSION} · close &amp; reopen twice to update</div>
           </div>
         )}
@@ -35074,6 +32676,57 @@ export default function App() {
                 </label>
               )}
             </div>
+
+            {/* ── From the last inspection — still open at this stand, actionable
+                at report entry. Same canonical list as the corrective panel +
+                Follow-ups (standOpenProblems): see what is already open BEFORE
+                writing, so the same problem never gets written twice — and if
+                a problem from last time is fixed now, one tap on ✓ Corrected
+                answers it right here. The taps write the SAME `correctives`
+                state the corrective panel below uses (same status values,
+                same auto action texts), so on save they land identically:
+                record.correctiveActions + commitCorrectives' follow-up maps. ── */}
+            {((siteName || "").trim() || (siteNumber || "").trim()) && (standOpenProblems.length > 0 || fuCacheWarm) && (
+              <div className="fuPeek" data-testid="fu-peek">
+                {standOpenProblems.length > 0 ? (
+                  <>
+                    <button type="button" className="fuPeekHead" data-testid="fu-peek-head" onClick={openFollowups} title="Open these in Follow-ups">
+                      <span>📌 From the last inspection — still open ({standOpenProblems.length})</span>
+                      <span className="fuPeekGo">Follow-ups →</span>
+                    </button>
+                    <div className="fuPeekSub">Found last time at this stand. Fixed now? Tap <b>✓ Corrected</b> and it closes with today's report — no need to write it again below.</div>
+                    {standOpenProblems.map(f => {
+                      const wst = venueSettings?.followupStatus?.[f.key]?.status;
+                      const stLbl = wst === "in_progress" ? "🔧 In process" : wst === "waiting" ? "⏳ Waiting" : wst === "reported" ? "📣 Reported" : f.overdue ? "⏰ Overdue" : "Open";
+                      const c = correctives[f.key];
+                      const setCa = patch => setCorrectives(prev => ({ ...prev, [f.key]: { ...(prev[f.key] || { action: "", status: "fixed", photos: [] }), ...patch } }));
+                      // One-tap answers — mirror the corrective panel exactly:
+                      // "Still there" carries the panel's own auto action text;
+                      // "Corrected" is the panel's "fixed" status plus a real
+                      // action text (an answer only counts once action is
+                      // non-empty — see caMissing / commitCorrectives). An
+                      // item already answered as Fixed with the inspector's
+                      // own words below is left untouched.
+                      const tapCorrected = () => { if (c?.status === "fixed" && (c.action || "").trim()) return; setCa({ status: "fixed", action: "Corrected — verified on site" }); };
+                      const tapStill = () => setCa({ status: "still", action: "Still there — checked on site" });
+                      return (
+                        <div key={f.key} className="fuPeekItem" data-testid="fu-peek-item">
+                          <span className="fuPeekTitle">{f.cat}{f.detail && f.detail !== f.cat ? ` — ${f.detail}` : ""}</span>
+                          <span className="fuPeekMeta">{[stLbl, f.daysSince != null ? (f.daysSince === 0 ? "flagged today" : `${f.daysSince}d open`) : (f.dateStr ? `flagged ${f.dateStr}` : "")].filter(Boolean).join(" · ")}</span>
+                          {fuInTodaysReport(f) && <span className="fuPeekInToday" data-testid="fu-peek-intoday">✓ In today's report</span>}
+                          <div className="fuPeekActions">
+                            <button type="button" data-testid="fu-peek-corrected" className={"fuPeekBtn fuPeekBtnFixed" + (c?.status === "fixed" ? " on" : "")} onClick={tapCorrected}>✓ Corrected</button>
+                            <button type="button" data-testid="fu-peek-still" className={"fuPeekBtn fuPeekBtnStill" + (c?.status === "still" ? " on" : "")} onClick={tapStill}>✗ Still there</button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </>
+                ) : (
+                  <div className="fuPeekClean" data-testid="fu-peek-clean">✅ Nothing open for this stand — no follow-ups waiting.</div>
+                )}
+              </div>
+            )}
 
             {(
             <div className="guide">
