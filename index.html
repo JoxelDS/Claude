@@ -69,10 +69,8 @@
     <!-- Google Translate CDN — dns-prefetch only since it loads async -->
     <link rel="dns-prefetch" href="//translate.google.com" />
     <link rel="dns-prefetch" href="//translate.googleapis.com" />
-    <!-- Preload font CSS so it starts downloading immediately -->
-    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" />
+    <!-- Google Fonts: Inter — single async stylesheet reference (deduped 2026-10-14) -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
-    <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" /></noscript>
     <title>SDX Inspect</title>
     <!-- Inline critical CSS for instant first paint -->
     <style>
@@ -631,6 +629,27 @@
        folded into src/App.css with the stack landing, retire this block
        like PR #17's will be. */
     .appShell > .pageMain { flex: 1 0 auto; }
+  </style>
+  <style id="sdx-signin-footer-contrast">
+    /* ===== SDX SIGN-IN FOOTER CONTRAST FIX (2026-10-11, UX audit M6 / Patch D) =====
+       Finding M6: on the sign-in card (white background) the two footer
+       lines fail WCAG AA for normal text (needs 4.5:1) — .pinPatent
+       ("PATENT PENDING") measured 1.85:1 (bundle color
+       var(--sdx-gray-300), rgb(184,191,204)) and .pinFooter
+       ("AES-256 encrypted · stored only on this…") measured 3.01:1
+       (var(--sdx-gray-400), rgb(141,149,165)); measurements in
+       ~/workspace/sdx-ux-audit/contrast-results.json.
+       Fix: both lines take #64748B — the exact value Patch D sets in
+       src/App.css (~/workspace/sdx-ux-audit/fix-package/
+       patch-d-signin-footer-contrast.patch) — ≈4.8:1 on white, AA pass.
+       COLOR ONLY — no wording, layout or flow change; #64748B is a
+       neutral slate gray, not a brand color, so the SDX navy system
+       and the alert-red reservation are untouched. Fold-in twin is
+       Patch D in src/App.css: when that bundle lands, this block
+       becomes redundant/harmless and can be retired like the earlier
+       hotfix blocks. Package: ~/workspace/sdx-signin-footer-fix/ */
+    .pinFooter { color: #64748B !important; }
+    .pinPatent { color: #64748B !important; }
   </style>
 </head>
   <body>
