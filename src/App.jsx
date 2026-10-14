@@ -11164,16 +11164,6 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
 
   const [fuOpen, setFuOpen] = useState({});
   const [fuShowN, setFuShowN] = useState(30);
-  // v522: the SIMPLE follow-ups screen (default) — one list, big cards, three buttons; "More options" = the full screen
-  const [fuSimple, setFuSimpleS] = useState(() => { try { return localStorage.getItem("sdx_fu_simple") !== "0"; } catch { return true; } });
-  const setFuSimple = v => { setFuSimpleS(v); try { localStorage.setItem("sdx_fu_simple", v ? "1" : "0"); } catch {} };
-  const [fuSimCrew, setFuSimCrew] = useState("all");
-  const [fuSimFloor, setFuSimFloor] = useState("all"); // v540
-  const [fuSimQ, setFuSimQ] = useState("");
-  // v543: status filter + list view (Joxel: "list them so I can send what is not being repaired")
-  const [fuSimStatus, setFuSimStatus] = useState("all");
-  const [fuSimView, setFuSimView] = useState(() => { try { return localStorage.getItem("sdx_fu_sim_view") || "cards"; } catch { return "cards"; } });
-  const [fuSimOpen, setFuSimOpen] = useState(null);
   // v542: edit a follow-up's words (Joxel: "I want to be able to edit the info") — venueSettings.followupEdit
   const [fuEditLocal, setFuEditLocal] = useState({});
   const [fuEdit, setFuEdit] = useState(null); // {key, detail, area, subs:{subKey:text}}
@@ -11202,8 +11192,6 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
     writeMap("followupEdit", patch);
     setFuEdit(null);
   };
-  const [fuSimShow, setFuSimShow] = useState(20);
-  const [fuSimDone, setFuSimDone] = useState(null); // v516 — follow-up groups render 30 at a time
   const [fuGroupBy, setFuGroupBy] = useState("loc"); // "loc" | "cat" | "type" | "floor" | "date"
   const [fuTypePick, setFuTypePick] = useState(""); // v447 — Subcontractor / Concession / …
   const [fuFloorPick, setFuFloorPick] = useState(""); // v449 — Floor 1 / Floor 2 / …
@@ -11775,145 +11763,6 @@ ${sections}
   const fuGroupsShown = fuFilterGroups(analysis.followupGroups || []);
   const fuCatGroupsShown = fuFilterGroups(analysis.followupCatGroups || []);
 
-  if (fuSimple) {
-    const CREWS = [["all", "All"], ["Cleaning", "🧹 Cleaning"], ["Maintenance", "🔧 Repairs"], ["Ecolab", "🧪 Ecolab"], ["Temperature", "🌡 Temps"]];
-    const crewOf = f => { const t = f.itype || "Other"; return t === "Building" ? "Maintenance" : t; };
-    const all = (analysis.followups || []).map(fuApplyEdit); // v542 edits; v526: computeFollowups already knows clearedLocal (and reopens re-flagged items)
-    // v540: search by stand # / name + floor chips (Joxel: "filter by issue floor and search by number")
-    const flOf = f => (f.floor || "").trim() || floorFromUnit(f.unit || "") || "No floor";
-    const q = fuSimQ.trim().toLowerCase(); const qUnit = normUnit(q);
-    const qOk = f => !q || (qUnit && normUnit(f.unit || "").toLowerCase().startsWith(qUnit.toLowerCase())) || [f.loc, f.cat, f.unit, fuProblemText(f)].some(x => String(x || "").toLowerCase().includes(q));
-    const byQ = all.filter(qOk);
-    const floors = [...new Set(byQ.map(flOf))].sort((a, b) => floorRank(a) - floorRank(b));
-    const floorSel = fuSimFloor !== "all" && floors.includes(fuSimFloor) ? fuSimFloor : "all";
-    const byQF = byQ.filter(f => floorSel === "all" || flOf(f) === floorSel);
-    const crewSel = fuSimCrew !== "all" && byQF.some(f => crewOf(f) === fuSimCrew) ? fuSimCrew : "all"; // the picked crew ran out → show everyone
-    const byQFC = byQF.filter(f => crewSel === "all" || crewOf(f) === crewSel);
-    const stOf = f => { const s = stMap[f.key]?.status; return s === "in_progress" ? "working" : s === "waiting" ? "waiting" : "notstarted"; };
-    const STATUSES = [["all", "All"], ["notstarted", "🚫 Not being repaired"], ["working", "🔧 In process"], ["waiting", "⏳ Waiting"]];
-    const statusSel = fuSimStatus;
-    const list = byQFC.filter(f => statusSel === "all" || stOf(f) === statusSel)
-      .sort((a, b) => (b.overdue ? 1 : 0) - (a.overdue ? 1 : 0) || (a.ts || 0) - (b.ts || 0));
-    const ago = f => { const d = f.daysSince ?? Math.floor((Date.now() - (f.ts || Date.now())) / 864e5); return d <= 0 ? "today" : d === 1 ? "yesterday" : `${d} days ago`; };
-    const who = f => { const st = stMap[f.key]; if (!st) return ""; return st.status === "in_progress" ? `🔧 ${st.by || "Crew"} is working on it` : st.status === "waiting" ? `⏳ Waiting${st.note ? `: ${st.note}` : ""}` : ""; };
-    // v549 — summary strip counts: overall (unfiltered) numbers from the pool already on the page
-    const sumLate = all.filter(f => f.overdue).length;
-    const sumWorking = all.filter(f => stOf(f) === "working").length;
-    const ageDays = f => f.daysSince ?? Math.floor((Date.now() - (f.ts || Date.now())) / 864e5);
-    const fuListText = items => {
-      const by = {}; items.forEach(f => { const k = `${String(f.loc || "").toUpperCase()}${f.unit ? ` #${f.unit}` : ""}`; (by[k] = by[k] || []).push(f); });
-      const head = `${items.length} problem${items.length !== 1 ? "s" : ""}${items.every(f => stOf(f) === "notstarted") ? " not being repaired" : " to fix"} · ${new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`;
-      return [head, "", ...Object.keys(by).sort().flatMap(k => [k, ...by[k].flatMap(f => (f.subs || []).length > 1 ? f.subs.map(x => `• ${f.cat}: ${x.text} — found ${ago(f)}`) : [`• ${fuProblemText(f)}${commentsOf(f).length ? ` (note: ${commentsOf(f).slice(-1)[0].text})` : ""} — found ${ago(f)}${stOf(f) === "working" ? " (in process)" : stOf(f) === "waiting" ? " (waiting)" : ""}`]), ""])].join("\n").trim();
-    };
-    return (
-      <div className="card fuSim" data-testid="fu-simple" style={{ marginBottom: 24 }}>
-        <div className="fuSimHead">
-          <div className="fuSimTitle">{list.length === 0 ? (q || floorSel !== "all" ? "No problems match" : "✅ Nothing to check") : `🔁 ${list.length} problem${list.length !== 1 ? "s" : ""} to check`}{(floorSel !== "all" || q) && <span className="fuSimFilt notranslate" translate="no">{floorSel !== "all" ? ` · ${floorSel}` : ""}{q ? ` · “${fuSimQ.trim()}”` : ""}</span>}</div>
-          <div className="fuSimSub">Go to the stand, look, then tap <b>✓ Fixed</b>, or pick 🔔 Remind on several and send one reminder.</div>
-          <div className="fuSummary" data-testid="fu-sim-summary">
-            <span className="fuSummaryItem"><b>{all.length}</b> open</span>
-            <span className={"fuSummaryItem fuSummaryLate" + (sumLate ? " has" : "")}><b>{sumLate}</b> late</span>
-            <span className="fuSummaryItem"><b>{sumWorking}</b> in process</span>
-          </div>
-        </div>
-        <div className="fuToolbar">
-          <div className="fuSimSearchRow"><input className="fuSimSearch notranslate" translate="no" data-testid="fu-sim-search" type="text" inputMode="search" enterKeyHint="search" placeholder="🔎 Stand # or name…" value={fuSimQ} onChange={e => { setFuSimQ(e.target.value); setFuSimShow(20); }} />{fuSimQ && <button type="button" className="fuSimSearchX" data-testid="fu-sim-search-clear" onClick={() => { setFuSimQ(""); setFuSimShow(20); }}>✕</button>}</div>
-          <div className="fuToolGroups">
-            {floors.length > 1 && <div className="fuToolGroup"><span className="fuToolLbl">Floor</span><div className="fuSimCrews fuToolPills fuSimFloors notranslate" translate="no">{[["all", "🏢 All floors"], ...floors.map(fl => [fl, fl])].map(([k, l]) => { const n = k === "all" ? byQ.length : byQ.filter(f => flOf(f) === k).length; return <button key={k} type="button" className={"fuSimCrew" + (floorSel === k ? " on" : "")} data-testid={`fu-sim-floor-${k.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`} onClick={() => { setFuSimFloor(k); setFuSimShow(20); }}>{l} <span>{n}</span></button>; })}</div></div>}
-            <div className="fuToolGroup"><span className="fuToolLbl">Type</span><div className="fuSimCrews fuToolPills">{CREWS.map(([k, l]) => { const n = k === "all" ? byQF.length : byQF.filter(f => crewOf(f) === k).length; return n || k === "all" ? <button key={k} type="button" className={"fuSimCrew" + (crewSel === k ? " on" : "")} data-testid={`fu-sim-crew-${k.toLowerCase()}`} onClick={() => { setFuSimCrew(k); setFuSimShow(20); }}>{l} <span>{n}</span></button> : null; })}</div></div>
-            <div className="fuToolGroup"><span className="fuToolLbl">Status</span><div className="fuSimCrews fuToolPills fuSimStatusRow">{STATUSES.map(([k, l]) => { const n = k === "all" ? byQFC.length : byQFC.filter(f => stOf(f) === k).length; return <button key={k} type="button" className={"fuSimCrew" + (statusSel === k ? " on" : "")} data-testid={`fu-sim-status-${k}`} onClick={() => { setFuSimStatus(k); setFuSimShow(20); }}>{l} <span>{n}</span></button>; })}</div></div>
-          </div>
-          <div className="fuToolActions">
-            {list.length > 1 && <button type="button" className="fuSimRemindAll" data-testid="fu-sim-remind-all" onClick={() => setRemindPick(prev => { const n = { ...prev }; list.forEach(f => { n[f.key] = true; }); return n; })}>🔔 Remind all shown ({list.length})</button>}
-            {list.length === 0 && (q || floorSel !== "all") && <button type="button" className="fuSimClear" data-testid="fu-sim-clear" onClick={() => { setFuSimQ(""); setFuSimFloor("all"); setFuSimCrew("all"); }}>Clear the filters</button>}
-            <span className="fuToolSpacer" />
-            <div className="fuSimViewToggle">{[["cards", "🗂 Cards"], ["list", "📋 List"]].map(([k, l]) => <button key={k} type="button" className={fuSimView === k ? "on" : ""} data-testid={`fu-sim-view-${k}`} onClick={() => { setFuSimView(k); try { localStorage.setItem("sdx_fu_sim_view", k); } catch {} }}>{l}</button>)}</div>
-            {list.length > 0 && <button type="button" className="fuSimListAll" data-testid="fu-sim-list-all" onClick={() => setRemindPick(prev => { const n = { ...prev }; const allOn = list.every(f => n[f.key]); list.forEach(f => { if (allOn) delete n[f.key]; else n[f.key] = true; }); return n; })}>{list.every(f => remindPick[f.key]) ? "☐ Unselect all" : `☑ Select all shown (${list.length})`}</button>}
-          </div>
-        {remindList.length > 0 && ReactDOM.createPortal(<div className="fuSimRemindBar" data-testid="fu-sim-remind-bar">
-          <div className="fuSimRemindTxt"><b>{remindList.length} problem{remindList.length !== 1 ? "s" : ""} picked</b> <span className="notranslate" translate="no">· {[...new Set(remindList.map(f => `${String(f.loc || "").toUpperCase()}${f.unit ? ` #${f.unit}` : ""}`))].slice(0, 3).join(", ")}{new Set(remindList.map(f => f.loc + f.unit)).size > 3 ? " …" : ""}</span></div>
-          <button type="button" className="fuSimRemindSend" data-testid="fu-sim-remind-send" onClick={() => { const n = remindList.length; remindMany(remindList, "sim:group"); setRemindPick({}); setFuSimDone(`🔔 One reminder sent for ${n} problem${n !== 1 ? "s" : ""}`); setTimeout(() => setFuSimDone(null), 3500); }}>Send one reminder</button>
-          <button type="button" className="fuSimRemindClear" data-testid="fu-sim-copy" onClick={() => { const t = fuListText(remindList); try { navigator.clipboard.writeText(t); setFuSimDone("📋 List copied — paste it in a text or WhatsApp"); } catch { setFuSimDone("Could not copy"); } setTimeout(() => setFuSimDone(null), 3500); }}>📋 Copy list</button>
-          <button type="button" className="fuSimRemindClear" data-testid="fu-sim-share" onClick={async () => { const t = fuListText(remindList); try { if (navigator.share) { await navigator.share({ title: "Problems to fix", text: t }); return; } } catch (e) { if (e && e.name === "AbortError") return; } try { navigator.clipboard.writeText(t); setFuSimDone("📋 List copied — paste it in a text or WhatsApp"); setTimeout(() => setFuSimDone(null), 3500); } catch {} }}>📤 Share</button>
-          <button type="button" className="fuSimRemindClear" data-testid="fu-sim-remind-clear" onClick={() => setRemindPick({})}>Clear</button>
-        </div>, document.body)}
-        {fuSubUndo && <div className="fuSimUndo" data-testid="fu-sim-sub-undo"><span>✓ Fixed: {fuSubUndo.label}</span><button type="button" onClick={() => unfixSubRow(fuSubUndo.k)}>↩ Undo</button></div>}
-        {undoRes && <div className="fuSimUndo" data-testid="fu-sim-undo"><span>✓ Fixed: <NT>{undoRes.label}</NT></span><button type="button" onClick={undoResolve}>↩ Undo</button></div>}
-        {fuSimDone && <div className="fuSimFlash">{fuSimDone}</div>}
-        </div>
-        <div className={"fuSimList" + (fuSimView === "list" ? " asList" : "")}>
-          {list.slice(0, fuSimShow).map(f => {
-            const allPh = [...(f.photos || []), ...fuPhotosOf(f)].filter(p => p && p.thumbUrl).filter((p, i, a) => a.findIndex(x => (x.id || x.thumbUrl) === (p.id || p.thumbUrl)) === i);
-            const before = allPh.filter(p => p.tag !== "after"), after = allPh.filter(p => p.tag === "after");
-            const strip = (list, kind) => (
-              <div className={"fuSimBA " + kind}>
-                <div className="fuSimBALbl">{kind === "before" ? "🔴 BEFORE" : "🟢 AFTER"}</div>
-                <div className="fuSimBAPics">{list.length ? list.slice(0, 4).map(p => <img key={p.id || p.thumbUrl} src={p.thumbUrl} alt="" onClick={() => openPhotoLightbox(p.previewUrl || p.thumbUrl)} />) : <span className="fuSimBANone">{kind === "before" ? "no photo" : "not yet"}</span>}</div>
-              </div>
-            );
-            const subs = (f.subs || []).length > 1 ? f.subs : null;
-            const stPill = { notstarted: ["🚫 Not started", "ns"], working: ["🔧 In process", "wk"], waiting: ["⏳ Waiting", "wt"] }[stOf(f)];
-            const cmtN = commentsOf(f).length;
-            const rowEl = (
-              <div className={"fuSimRow" + (remindPick[f.key] ? " picked" : "") + (fuSimOpen === f.key ? " open" : "")} data-testid="fu-sim-row" data-key={f.key}>
-                <input type="checkbox" checked={!!remindPick[f.key]} onChange={() => toggleRemind(f)} aria-label="Pick" />
-                <div className="fuSimRowText" onClick={() => setFuSimOpen(o => o === f.key ? null : f.key)}>
-                  <div className="fuSimRowStand"><NT>{String(f.loc || "").toUpperCase()}{f.unit ? ` #${f.unit}` : ""}</NT> <span className={"fuSimPill " + stPill[1]}>{stPill[0]}</span></div>
-                  <div className="fuSimRowProb">{subs ? subs.map(x => x.text).join(" · ") : fuProblemText(f)}</div>
-                  <div className="fuSimRowMeta">{crewOf(f)} · found {ago(f)}{f.overdue ? " · ⏰ late" : ""}</div>
-                </div>
-                <span className="fuSimRowChev">{fuSimOpen === f.key ? "▴" : "▾"}</span>
-              </div>
-            );
-            if (fuSimView === "list" && fuSimOpen !== f.key) return <React.Fragment key={f.key}>{rowEl}</React.Fragment>;
-            const card = (
-              <div key={f.key} className={"fuSimCard" + (f.overdue ? " late" : "")} data-testid="fu-sim-card" data-key={f.key}>
-                <div className="fuSimCardHead">
-                  <div className="fuSimStand"><NT>{String(f.loc || "").toUpperCase()}{f.unit ? ` #${f.unit}` : ""}</NT></div>
-                  <span className={"fuSimPill " + stPill[1]}>{stPill[0]}</span>
-                </div>
-                <div className="fuSimChips">
-                  <span className="fuSimChip fuSimChipCrew">{crewOf(f)}</span>
-                  {f.overdue ? <span className="fuSimChip fuSimChipLate">⏰ Late{ageDays(f) > 0 ? ` · ${ageDays(f)}d` : ""}</span> : <span className="fuSimChip">Found {ago(f)}</span>}
-                  {who(f) ? <span className="fuSimChip fuSimChipWho">{who(f)}</span> : null}
-                </div>
-                <div className="fuSimProblem">{subs ? `${f.cat} · ${subs.length} things` : fuProblemText(f)}</div>
-                {subs && <ol className="fuSimSubs">{subs.map((x, i) => <li key={i}><span>{x.text}</span> <button type="button" className="fuSimSubFix" data-testid="fu-sim-sub-fixed" onClick={() => fixSubRow(f, x)}>✓ Fixed</button></li>)}</ol>}
-                {f.subsFixed > 0 && <div className="fuSimEdited">✓ {f.subsFixed} already fixed on this card</div>}
-{(() => { const cs = commentsOf(f); return (<div className="fuSimCmts">
-{cs.slice(-3).map((c, i) => <div key={i} className="fuSimCmt" data-testid="fu-sim-cmt">💬 {c.text} <span>· {c.by} · {new Date(c.ts).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</span></div>)}
-{commentKey === f.key ? <div className="fuSimCmtBox"><input data-testid="fu-sim-comment-input" autoFocus value={commentText} placeholder="Add a note or more information…" onChange={e => setCommentText(e.target.value)} onKeyDown={e => { if (e.key === "Enter") addComment(f); }} /><button type="button" data-testid="fu-sim-comment-post" onClick={() => addComment(f)}>Post</button><button type="button" className="ghost" onClick={() => { setCommentKey(null); setCommentText(""); }}>✕</button></div>
-: null}
-</div>); })()}
-                {f.editedBy && <div className="fuSimEdited">✏️ edited by {f.editedBy}</div>}
-                {fuEdit?.key === f.key ? (
-                  <div className="fuSimEditBox" data-testid="fu-sim-edit-box">
-                    <label className="fuSimEditLbl">Name<input data-testid="fu-sim-edit-name" value={fuEdit.cat} onChange={e => { const v = e.target.value; setFuEdit(p => ({ ...p, cat: v })); }} /></label>
-                    {subs ? subs.map(x => { const k = fuSubKey(f, x); return <label key={k} className="fuSimEditLbl">Problem<textarea data-testid="fu-sim-edit-sub" rows={2} value={fuEdit.subs[k] ?? x.text} onChange={e => { const v = e.target.value; setFuEdit(p => ({ ...p, subs: { ...p.subs, [k]: v } })); }} /></label>; })
-                      : <label className="fuSimEditLbl">What is wrong<textarea data-testid="fu-sim-edit-detail" rows={3} value={fuEdit.detail} onChange={e => { const v = e.target.value; setFuEdit(p => ({ ...p, detail: v })); }} /></label>}
-                    <label className="fuSimEditLbl">Where<input data-testid="fu-sim-edit-area" value={fuEdit.area} placeholder="e.g. Back of the house" onChange={e => { const v = e.target.value.toUpperCase(); setFuEdit(p => ({ ...p, area: v })); }} /></label>
-                    <div className="fuSimEditBtns"><button type="button" className="fuSimFixed" data-testid="fu-sim-edit-save" onClick={() => saveFuEdit(f)}>💾 Save</button><button type="button" className="fuSimRemind" onClick={() => setFuEdit(null)}>Cancel</button></div>
-                  </div>
-                ) : null}
-                <div className="fuSimBARow" data-testid="fu-sim-ba">{strip(before, "before")}{strip(after, "after")}</div>
-                <div className="fuSimBtns">
-                  <button type="button" className="fuSimFixed" data-testid="fu-sim-fixed" onClick={() => markResolved(f)}>✓ Fixed</button>
-                  <button type="button" className="fuSimRemind" data-testid="fu-sim-remind" onClick={() => toggleRemind(f)} data-on={remindPick[f.key] ? "1" : "0"} style={remindPick[f.key] ? { background: "#16a34a", color: "#fff", borderColor: "#16a34a" } : undefined}>{remindPick[f.key] ? "✓ Added" : "🔔 Remind"}</button>
-                  <button type="button" className={"fuSimCmtBtn" + (commentKey === f.key ? " on" : "")} data-testid="fu-sim-comment" onClick={() => { setCommentKey(f.key); setCommentText(""); }}>💬 Comment{cmtN ? ` (${cmtN})` : ""}</button>
-                  {fuEdit?.key !== f.key && <button type="button" className="fuSimEditBtn" data-testid="fu-sim-edit" onClick={() => setFuEdit({ key: f.key, cat: String(f.cat || ""), detail: String(f.detail || ""), area: String(f.area || ""), subs: {} })}>✏️ Edit</button>}
-                  <label className={"fuSimPhotoBtn fuSimPhB" + (fuPhotoBusy === f.key ? " busy" : "")} data-testid="fu-sim-photo-before">{fuPhotoBusy === f.key ? "Adding…" : "📷 Before"}<input disabled={fuPhotoBusy === f.key} type="file" accept="image/*" hidden onChange={e => { addFuPhotos(f, e.target.files, "before"); e.target.value = ""; }} /></label>
-                  <label className={"fuSimPhotoBtn fuSimPhA" + (fuPhotoBusy === f.key ? " busy" : "")} data-testid="fu-sim-photo">{fuPhotoBusy === f.key ? "Adding…" : "📷 After"}<input disabled={fuPhotoBusy === f.key} type="file" accept="image/*" hidden onChange={e => { addFuPhotos(f, e.target.files, "after"); e.target.value = ""; }} /></label>
-                </div>
-              </div>
-            );
-            return fuSimView === "list" ? <div key={f.key} className="fuSimRowWrap">{rowEl}{card}</div> : card;
-          })}
-          {list.length > fuSimShow && <button type="button" className="fuSimMore" onClick={() => setFuSimShow(n => n + 20)}>Show {Math.min(20, list.length - fuSimShow)} more</button>}
-        </div>
-        <button type="button" className="walkModeSwitch" data-testid="fu-more-options" onClick={() => setFuSimple(false)}>⚙ More options (filters, export, fixed list) ⇄</button>
-      </div>
-    );
-  }
   return (
     <div className="card" style={{ marginBottom: 24 }}>
       {lightboxSrc && ReactDOM.createPortal(
@@ -12148,7 +11997,6 @@ ${sections}
               {qpFlash && <div style={{ fontSize: "0.8rem", fontWeight: 700, color: "#16a34a", marginTop: 6 }}>{qpFlash}</div>}
             </div>
             {/* v511: one labelled toolbar — Status (counts) / Crew (tap to filter) / Filter / Group by */}
-            <button type="button" className="walkModeSwitch" data-testid="fu-simple-on" onClick={() => setFuSimple(true)} style={{ marginBottom: 8 }}>⇄ Simple view</button>
             <div className="fuTools" data-testid="fu-tools">
               <div className="fuToolsRow fuToolsStatus"><span className="fuToolsLbl">Status</span><div className="fuToolsBody">
               {fuVisible.filter(f => f.overdue).length > 0 && (
@@ -18173,6 +18021,15 @@ function LicensesTab({ history, invLicenseData, setInvLicenseData, invLicenseMis
    venue-level aggregates from inspection history records — no
    per-person data is derived here.
 ══════════════════════════════════════════════════════════════ */
+// v549: passColor hoisted to module level for TrendsPanel — Trends was extracted
+// from the retired Performance Dashboard without this helper, so opening Trends
+// crashed with "Can't find variable: passColor" (reported by Joxel 2026-10-13).
+// Same thresholds as the insights panel's inner copy.
+function passColor(r) {
+  if (r >= 80) return "#16a34a";
+  if (r >= 60) return "#d97706";
+  return "#dc2626";
+}
 function TrendsPanel({ history }) {
   // ── Compute monthly buckets ───────────────────────────────────────
   const buckets = {}; // { "2026-03": { scores: [], passes: 0, total: 0 } }
