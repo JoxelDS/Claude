@@ -4871,6 +4871,11 @@ datalist {
   font-size: 1.1rem;
   color: #6b7280;
   padding: 4px 8px;
+  min-width: 44px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border-radius: 6px;
   transition: background 0.15s, color 0.15s;
   line-height: 1;
@@ -5688,6 +5693,11 @@ datalist {
   color: #9ca3af;
   cursor: pointer;
   padding: 4px 6px;
+  min-width: 44px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border-radius: 6px;
   flex-shrink: 0;
   transition: background 0.15s, color 0.15s;
@@ -7948,7 +7958,7 @@ html[data-theme="dark"] .fuStOnWaiting, html[data-theme="black"] .fuStOnWaiting 
 .qrScanOverlay { position: fixed; inset: 0; z-index: 10050; background: rgba(0,0,0,0.72); display: flex; align-items: center; justify-content: center; padding: 16px; }
 .qrScanModal { width: 100%; max-width: 440px; background: var(--surface-1); border-radius: 16px; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.45); }
 .qrScanHead { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; background: #2A295C; color: #fff; font-weight: 800; }
-.qrScanX { background: rgba(255,255,255,0.18); border: none; color: #fff; border-radius: 8px; width: 32px; height: 32px; font-weight: 800; cursor: pointer; }
+.qrScanX { background: rgba(255,255,255,0.18); border: none; color: #fff; border-radius: 8px; width: 44px; height: 44px; font-weight: 800; cursor: pointer; }
 .qrScanVideoWrap { position: relative; background: #000; aspect-ratio: 1 / 1; }
 .qrScanVideo { width: 100%; height: 100%; object-fit: cover; display: block; }
 .qrScanFrame { position: absolute; inset: 14%; border: 3px solid rgba(255,255,255,0.85); border-radius: 14px; box-shadow: 0 0 0 9999px rgba(0,0,0,0.35); pointer-events: none; }
@@ -9068,7 +9078,7 @@ button.nluChipTemp { background: #fef3c7; color: #92400e; border: 1px solid #fcd
 .sfTitle { font-size: 1.1rem; font-weight: 800; }
 .sfSub { font-size: .84rem; color: var(--ink-500, #64748b); margin-top: 2px; }
 .sfRed { color: #b91c1c; } .sfAmber { color: #b45309; }
-.sfClose { border: none; background: var(--surface-2, #f1f5f9); width: 36px; height: 36px; border-radius: 50%; font-size: 1rem; cursor: pointer; flex-shrink: 0; color: inherit; }
+.sfClose { border: none; background: var(--surface-2, #f1f5f9); width: 44px; height: 44px; border-radius: 50%; font-size: 1rem; cursor: pointer; flex-shrink: 0; color: inherit; }
 .sfFilters { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
 .sfFilter { border: 1px solid var(--sdx-gray-200, #e5e7eb); background: var(--surface-1, #fff); color: inherit; border-radius: 999px; padding: 6px 12px; font-weight: 700; font-size: .82rem; min-height: 34px; display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
 .sfFilter b { background: var(--surface-2, #f1f5f9); border-radius: 999px; padding: 0 7px; font-size: .75rem; }

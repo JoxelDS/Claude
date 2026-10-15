@@ -5871,7 +5871,7 @@ function RenderedOutput({ noteType, useCase, context, inspection, rawNotes, insp
       {lightboxSrc && ReactDOM.createPortal(
         <div onClick={() => setLightboxSrc(null)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.9)",zIndex:999999,display:"flex",alignItems:"center",justifyContent:"center",cursor:"zoom-out"}}>
           <img src={lightboxSrc} alt="Full size photo" onClick={e => e.stopPropagation()} style={{maxWidth:"95vw",maxHeight:"90vh",objectFit:"contain",borderRadius:8,boxShadow:"0 4px 32px rgba(0,0,0,0.5)"}} />
-          <button onClick={() => setLightboxSrc(null)} style={{position:"absolute",top:16,right:16,background:"rgba(255,255,255,0.15)",border:"none",color:"#fff",fontSize:28,width:44,height:44,borderRadius:"50%",cursor:"pointer",lineHeight:1}}>×</button>
+          <button onClick={() => setLightboxSrc(null)} style={{position:"absolute",top:"max(16px, env(safe-area-inset-top))",right:16,background:"rgba(255,255,255,0.15)",border:"none",color:"#fff",fontSize:28,width:44,height:44,borderRadius:"50%",cursor:"pointer",lineHeight:1}}>×</button>
         </div>,
         document.body
       )}
@@ -18781,7 +18781,7 @@ function EquipmentScannerPage({ onBack, onPrintLabels, onKitchenQr }) {
         {checkTag && ReactDOM.createPortal(
           <div style={{ position: "fixed", inset: 0, zIndex: 10000, overflowY: "auto", background: "#1e1d4a" }}>
             <button type="button" onClick={() => setCheckTag(null)}
-              style={{ position: "fixed", top: 14, right: 14, zIndex: 10001, background: "rgba(255,255,255,0.15)", border: "1.5px solid rgba(255,255,255,0.4)", color: "#fff", borderRadius: 999, padding: "0.45rem 1rem", fontWeight: 700, fontSize: "0.85rem", cursor: "pointer" }}>
+              style={{ position: "fixed", top: "max(14px, env(safe-area-inset-top))", right: 14, zIndex: 10001, background: "rgba(255,255,255,0.15)", border: "1.5px solid rgba(255,255,255,0.4)", color: "#fff", borderRadius: 999, padding: "0.45rem 1rem", fontWeight: 700, fontSize: "0.85rem", cursor: "pointer" }}>
               ✕ Close
             </button>
             <EquipCheckPortal tag={checkTag} />
@@ -23551,7 +23551,7 @@ function PhotoStrip({ photos, onRemove, onTag }) {
     {lightboxSrc && ReactDOM.createPortal(
       <div onClick={() => setLightboxSrc(null)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.9)",zIndex:999999,display:"flex",alignItems:"center",justifyContent:"center",cursor:"zoom-out"}}>
         <img src={lightboxSrc} alt="Full size photo" onClick={e => e.stopPropagation()} style={{maxWidth:"95vw",maxHeight:"90vh",objectFit:"contain",borderRadius:8,boxShadow:"0 4px 32px rgba(0,0,0,0.5)"}} />
-        <button onClick={() => setLightboxSrc(null)} style={{position:"absolute",top:16,right:16,background:"rgba(255,255,255,0.15)",border:"none",color:"#fff",fontSize:28,width:44,height:44,borderRadius:"50%",cursor:"pointer",lineHeight:1}}>×</button>
+        <button onClick={() => setLightboxSrc(null)} style={{position:"absolute",top:"max(16px, env(safe-area-inset-top))",right:16,background:"rgba(255,255,255,0.15)",border:"none",color:"#fff",fontSize:28,width:44,height:44,borderRadius:"50%",cursor:"pointer",lineHeight:1}}>×</button>
       </div>,
       document.body
     )}
