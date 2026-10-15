@@ -6849,12 +6849,18 @@ html[data-theme="black"] .fuPhotoMenu { background: #17171D; border-color: #2A2A
    ══════════════════════════════════════════════════════════════ */
 * { -webkit-tap-highlight-color: transparent; }
 button, a, select, label, input, textarea { touch-action: manipulation; }
+/* v552: Joxel — "when you touch the screen it zooms out". No double-tap zoom
+   anywhere on the page (touch-action intersects down the tree, so pan and
+   pinch still work everywhere), and iOS never inflates text on rotate. */
+html { touch-action: manipulation; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 /* v551: iOS focus-zoom floor — on touch devices every text control renders
    at 16px, so tapping any field/select can never trigger Safari's focus
    auto-zoom + layout shift. !important overrides the sub-16px inline sizes
    still used by dense forms (inspection corrections, HACCP rows, editors);
-   mouse/desktop rendering is unchanged. */
-@media (pointer: coarse), (max-width: 768px) {
+   mouse/desktop rendering is unchanged.
+   v552: (any-pointer: coarse) — an iPad with a keyboard / trackpad reports
+   pointer: fine but still has the touch screen (and still zooms). */
+@media (pointer: coarse), (any-pointer: coarse), (max-width: 768px) {
   input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="hidden"]):not([type="range"]):not([type="button"]):not([type="submit"]):not([type="reset"]),
   select, textarea { font-size: 16px !important; }
 }

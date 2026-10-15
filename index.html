@@ -3,6 +3,21 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <script>
+      // v552 (Joxel: "when you touch the screen it zooms out"): iPhone / iPad — Safari, Home Screen
+      // and the app — zoom the page by themselves when a box gets the tap. Locking the scale at 1
+      // stops that automatic zoom in and out. Android and computers keep the plain tag (they do not
+      // auto-zoom, and people can still pinch there).
+      (function () {
+        try {
+          var ua = navigator.userAgent || "";
+          var ios = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+          if (!ios) return;
+          var m = document.querySelector('meta[name="viewport"]');
+          if (m && !/maximum-scale/.test(m.content)) m.setAttribute("content", m.content + ", minimum-scale=1, maximum-scale=1");
+        } catch (e) {}
+      })();
+    </script>
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="mobile-web-app-capable" content="yes" />
