@@ -12299,8 +12299,8 @@ ${sections}
                             <div className="fuStatus">
                               {f.overdue ? "⏰" : f.likelyResolved ? "✅" : "👁"}
                             </div>
-                            <div className="fuBody" style={{ cursor: "pointer" }} onClick={() => onIssueDrilldown?.(f.loc, f.baseCat || f.cat)}>
-                              <div className="fuTitle">
+                            <div className="fuBody">
+                              <div className="fuTitle" style={{ cursor: "pointer" }} title="View reports for this issue" onClick={() => onIssueDrilldown?.(f.loc, f.baseCat || f.cat)}>
                                 {fuGroupBy === "loc"
                                   ? <>{f.merged ? "🧊 " : ""}{f.cat}</>
                                   : <><NT>{f.loc}{f.unit ? <span className="fuLoc"> · Unit #{f.unit}</span> : null}</NT>{(fuGroupBy === "type" || f.merged) ? <span className="fuLoc"> — {f.cat}</span> : null}</>}
@@ -14697,7 +14697,19 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
               <button
                 type="button"
                 className="filterCardToggle"
-                onClick={() => setFilterOpen(o => !o)}
+                onClick={e => {
+                  const cardEl = e.currentTarget.closest(".filterCard");
+                  const anchor = document.querySelector(".historyTabs") || document.getElementById("history-results");
+                  const lookingBelow = cardEl ? cardEl.getBoundingClientRect().bottom < 64 : false;
+                  const top0 = anchor ? anchor.getBoundingClientRect().top : null;
+                  setFilterOpen(o => !o);
+                  if (lookingBelow && anchor && top0 !== null) {
+                    setTimeout(() => {
+                      const d = anchor.getBoundingClientRect().top - top0;
+                      if (Math.abs(d) > 1) window.scrollBy(0, d);
+                    }, 340);
+                  }
+                }}
                 aria-expanded={filterOpen}
               >
                 <div className="filterToggleLeft">

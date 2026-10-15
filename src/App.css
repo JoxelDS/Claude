@@ -6849,6 +6849,15 @@ html[data-theme="black"] .fuPhotoMenu { background: #17171D; border-color: #2A2A
    ══════════════════════════════════════════════════════════════ */
 * { -webkit-tap-highlight-color: transparent; }
 button, a, select, label, input, textarea { touch-action: manipulation; }
+/* v551: iOS focus-zoom floor — on touch devices every text control renders
+   at 16px, so tapping any field/select can never trigger Safari's focus
+   auto-zoom + layout shift. !important overrides the sub-16px inline sizes
+   still used by dense forms (inspection corrections, HACCP rows, editors);
+   mouse/desktop rendering is unchanged. */
+@media (pointer: coarse), (max-width: 768px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="hidden"]):not([type="range"]):not([type="button"]):not([type="submit"]):not([type="reset"]),
+  select, textarea { font-size: 16px !important; }
+}
 button { user-select: none; -webkit-user-select: none; }
 .appShell { -webkit-overflow-scrolling: touch; }
 img { -webkit-user-drag: none; }
