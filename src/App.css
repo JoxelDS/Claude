@@ -6838,7 +6838,7 @@ html[data-theme="black"] .fuPhotoMenu { background: #17171D; border-color: #2A2A
    APP-FEEL PASS — faster taps, smoother scrolling, no flashes
    ══════════════════════════════════════════════════════════════ */
 * { -webkit-tap-highlight-color: transparent; }
-button, a, select, label { touch-action: manipulation; }
+button, a, select, label, input, textarea { touch-action: manipulation; }
 button { user-select: none; -webkit-user-select: none; }
 .appShell { -webkit-overflow-scrolling: touch; }
 img { -webkit-user-drag: none; }
@@ -8693,6 +8693,9 @@ html[data-theme="dark"] .fuStOnWaiting, html[data-theme="black"] .fuStOnWaiting 
   margin: 6px 0 2px;
 }
 .fuFilterWrap { position: relative; display: inline-flex; align-items: center; gap: 2px; }
+
+/* v550 — Follow-Ups tappable surfaces: no double-tap zoom on cards / group headers */
+.fuGroupHead, .fuItem { touch-action: manipulation; }
 .fuFilterPill {
   background: var(--surface-1); border: 1.5px solid var(--sdx-gray-200); border-radius: 999px;
   padding: 6px 14px; font-weight: 700; font-size: 0.78rem; color: var(--sdx-navy); cursor: pointer;

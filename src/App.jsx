@@ -11195,7 +11195,8 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
   const [fuGroupBy, setFuGroupBy] = useState("loc"); // "loc" | "cat" | "type" | "floor" | "date"
   const [fuTypePick, setFuTypePick] = useState(""); // v447 — Subcontractor / Concession / …
   const [fuFloorPick, setFuFloorPick] = useState(""); // v449 — Floor 1 / Floor 2 / …
-  const [fuFilterMenu, setFuFilterMenu] = useState(""); // "" | "type" | "floor"
+  const [fuDatePick, setFuDatePick] = useState(""); // v550 — "" | "today" | "yesterday" | "7d" | "30d" | "YYYY-MM-DD"
+  const [fuFilterMenu, setFuFilterMenu] = useState(""); // "" | "type" | "floor" | "date"
   const [fuSearch, setFuSearch] = useState("");
   // Selection → Excel export of chosen follow-ups
   const [fuSelectMode, setFuSelectMode] = useState(false);
@@ -11584,9 +11585,9 @@ ${sections}
     if (qUnit && normUnit(f.unit).includes(qUnit)) return true;
     return [f.loc, f.cat, f.detail, f.notes, f.floor, f.itype].some(v => (v || "").toLowerCase().includes(q));
   };
-  const fuFilterGroups = groups => !fuSearch.trim() ? groups
+  const fuFilterGroups = groups => (!fuSearch.trim() && !fuDatePick) ? groups
     : groups.map(g => {
-        const items = g.items.filter(fuMatches);
+        const items = g.items.filter(fuMatches).filter(matchesDatePick);
         if (!items.length) return null;
         const rec = { ...g, items, overdueCount: 0, dueSoonCount: 0, resolvedCount: 0 };
         for (const f of items) {
@@ -11730,7 +11731,25 @@ ${sections}
   };
   const dateRank = k => (k === "No date" ? Infinity : -new Date(k + "T00:00:00").getTime());
   const fuDateGroups = groupOf(dateKeyOf, dateRank);
-  const fuVisible = (analysis.followups || []).filter(fuMatches).filter(matchesTypePick).filter(matchesFloorPick);
+  // v550 — date filter: narrow problems by the day they were flagged
+  // (dateKeyOf), as a pick next to Type/Floor in the Filter row.
+  const fuDayKey = off => { const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() + off); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
+  const FU_DATE_OPTS = [["today", "Today"], ["yesterday", "Yesterday"], ["7d", "Last 7 days"], ["30d", "Last 30 days"]];
+  const fuDateMatch = (f, pick) => {
+    if (!pick) return true;
+    const k0 = dateKeyOf(f);
+    const k = !k0 || k0 === "No date" ? "" : String(k0).slice(0, 10);
+    if (!k) return false;
+    if (pick === "today") return k === fuDayKey(0);
+    if (pick === "yesterday") return k === fuDayKey(-1);
+    if (pick === "7d") return k >= fuDayKey(-6) && k <= fuDayKey(0);
+    if (pick === "30d") return k >= fuDayKey(-29) && k <= fuDayKey(0);
+    return k === pick;
+  };
+  const matchesDatePick = f => fuDateMatch(f, fuDatePick);
+  const fuDateOptCount = pick => (analysis.followups || []).filter(fuMatches).filter(f => fuDateMatch(f, pick)).length;
+  const fuDateLabel = !fuDatePick ? "Date: all" : fuDatePick === "today" ? "Today" : fuDatePick === "yesterday" ? "Yesterday" : fuDatePick === "7d" ? "Last 7 days" : fuDatePick === "30d" ? "Last 30 days" : dayLabel(fuDatePick);
+  const fuVisible = (analysis.followups || []).filter(fuMatches).filter(matchesTypePick).filter(matchesFloorPick).filter(matchesDatePick);
   // v440 — one pool to pick from: open items, everything fixed and every
   // clean. Deduped by key, the fixed copy wins because it carries the fix
   // fields (who, when, how long, whose mess).
@@ -11823,7 +11842,7 @@ ${sections}
                 <select
                   value={analysis.recheckDays}
                   onChange={e => saveVenueSettings?.({ recheckDays: Number(e.target.value) })}
-                  style={{ padding: "3px 6px", borderRadius: 8, border: "1px solid var(--sdx-gray-200)", fontSize: "0.72rem", fontWeight: 600 }}
+                  style={{ padding: "3px 6px", borderRadius: 8, border: "1px solid var(--sdx-gray-200)", fontSize: "16px", fontWeight: 600 }}
                 >
                   <option value={3}>3 days</option>
                   <option value={7}>7 days</option>
@@ -11925,14 +11944,14 @@ ${sections}
                     <span style={{ fontSize: "0.72rem", fontWeight: 700, color: "var(--ink-500)" }}>Type of stand</span>
                     {qpType ? <StandType lt={qpType} /> : <span style={{ fontSize: "0.72rem", color: "var(--sdx-gray-400)" }}>not detected</span>}
                     <select value={qpType} onChange={e => { setQpType(e.target.value); setQpTypeAuto(false); }}
-                      style={{ padding: "5px 8px", borderRadius: 9, border: "1.5px solid var(--sdx-gray-200)", fontSize: "0.8rem", fontWeight: 600 }}>
+                      style={{ padding: "5px 8px", borderRadius: 9, border: "1.5px solid var(--sdx-gray-200)", fontSize: "16px", fontWeight: 600 }}>
                       <option value="">— pick —</option>
                       {["Concession", "Subcontractor", "Portable", "Portable - Subcontractor", "Kitchen", "Bar"].map(t => <option key={t} value={t}>{t}</option>)}
                     </select>
                   </div>
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                     <select value={qpCat} onChange={e => { qpTouched.current.cat = true; setQpCat(e.target.value); }}
-                      style={{ flex: "1 1 160px", padding: "7px 10px", borderRadius: 9, border: "1.5px solid var(--sdx-gray-200)", fontSize: "0.86rem", fontWeight: 600 }}>
+                      style={{ flex: "1 1 160px", padding: "7px 10px", borderRadius: 9, border: "1.5px solid var(--sdx-gray-200)", fontSize: "16px", fontWeight: 600 }}>
                       {QUICK_PROBLEM_CATS.map(c => <option key={c} value={c}>{c}</option>)}
                     </select>
                     {qpCat === "Other" && (
@@ -12075,6 +12094,28 @@ ${sections}
                   </div>
                 )}
               </span>
+              <span className="fuFilterWrap">
+                <button type="button" className={"fuFilterPill" + (fuDatePick ? " on" : "")}
+                  onClick={() => setFuFilterMenu(fuFilterMenu === "date" ? "" : "date")}>
+                  📅 {fuDateLabel} ▾
+                </button>
+                {fuDatePick && <button type="button" className="fuFilterClear" title="Clear" onClick={() => setFuDatePick("")}>✕</button>}
+                {fuFilterMenu === "date" && (
+                  <div className="fuTypeMenu">
+                    <button type="button" className={"fuTypeOpt" + (!fuDatePick ? " on" : "")} onClick={() => { setFuDatePick(""); setFuFilterMenu(""); }}>All dates</button>
+                    {FU_DATE_OPTS.map(([k, lbl]) => (
+                      <button key={k} type="button" className={"fuTypeOpt" + (fuDatePick === k ? " on" : "")}
+                        onClick={() => { setFuDatePick(fuDatePick === k ? "" : k); setFuFilterMenu(""); }}>{lbl} · {fuDateOptCount(k)}</button>
+                    ))}
+                    <label className="fuTypeOpt" style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
+                      📅 Pick a day
+                      <input type="date" aria-label="Pick a day" value={/^\d{4}-\d{2}-\d{2}$/.test(fuDatePick) ? fuDatePick : ""} max={fuDayKey(0)}
+                        onChange={e => setFuDatePick(e.target.value || "")}
+                        style={{ fontSize: "16px", border: "1px solid var(--sdx-gray-200)", borderRadius: 8, padding: "4px 6px", fontFamily: "inherit" }} />
+                    </label>
+                  </div>
+                )}
+              </span>
 </div></div>
               <div className="fuToolsRow"><span className="fuToolsLbl">Group by</span><div className="fuToolsBody fuToolsGroup">
               <span className="fuToggle">
@@ -12207,13 +12248,13 @@ ${sections}
               </div>
             )}
             <div className="fuList">
-              {fuSearch.trim() && fuVisible.length === 0 && (
-                <div style={{ fontSize: "0.82rem", color: "var(--ink-400)", fontStyle: "italic", padding: "10px 4px" }}>No follow-ups match “{fuSearch.trim()}”.</div>
+              {(fuSearch.trim() || fuDatePick) && fuVisible.length === 0 && (
+                <div style={{ fontSize: "0.82rem", color: "var(--ink-400)", fontStyle: "italic", padding: "10px 4px" }}>{fuSearch.trim() ? `No follow-ups match “${fuSearch.trim()}”.` : `No follow-ups for ${fuDateLabel.toLowerCase()}.`}</div>
               )}
               {(() => { const __fuAll = (fuGroupBy === "cat" ? fuCatGroupsShown
-                : fuGroupBy === "type" ? fuTypeGroups.filter(g => (!fuTypePick || g.type === fuTypePick) && g.items.some(matchesFloorPick))
-                : fuGroupBy === "floor" ? fuFloorGroups.filter(g => (!fuFloorPick || g.floor === fuFloorPick) && g.items.some(matchesTypePick))
-                : fuGroupBy === "date" ? fuDateGroups.filter(g => g.items.some(f => matchesTypePick(f) && matchesFloorPick(f)))
+                : fuGroupBy === "type" ? fuTypeGroups.filter(g => (!fuTypePick || g.type === fuTypePick) && g.items.some(f => matchesFloorPick(f) && matchesDatePick(f)))
+                : fuGroupBy === "floor" ? fuFloorGroups.filter(g => (!fuFloorPick || g.floor === fuFloorPick) && g.items.some(f => matchesTypePick(f) && matchesDatePick(f)))
+                : fuGroupBy === "date" ? fuDateGroups.filter(g => g.items.some(f => matchesTypePick(f) && matchesFloorPick(f) && matchesDatePick(f)))
                 : fuGroupsShown); const __renderFuGroup = (g => {
                 const gKey = `${fuGroupBy}::${fuGroupBy === "cat" ? g.cat : fuGroupBy === "type" ? g.type : fuGroupBy === "floor" ? g.floor : fuGroupBy === "date" ? g.type : g.loc}`;
                 const isOpen = fuSearch.trim() ? true : (fuOpen[gKey] !== undefined ? fuOpen[gKey] : g.overdueCount > 0);
@@ -12252,7 +12293,7 @@ ${sections}
                     </div>
                     {isOpen && (
                       <div className="fuGroupBody">
-                        {g.items.filter(f => (fuGroupBy !== "type" || matchesFloorPick(f)) && (fuGroupBy !== "floor" || matchesTypePick(f)) && (fuGroupBy !== "date" || (matchesTypePick(f) && matchesFloorPick(f)))).map(f => (
+                        {g.items.filter(f => (fuGroupBy !== "type" || matchesFloorPick(f)) && (fuGroupBy !== "floor" || matchesTypePick(f)) && (fuGroupBy !== "date" || (matchesTypePick(f) && matchesFloorPick(f))) && matchesDatePick(f)).map(f => (
                           <div key={f.key} className={`fuItem ${f.overdue ? "fuOverdue" : f.likelyResolved ? "fuResolved" : "fuWatching"}`}>
                             {fuSelectMode && selBox(f)}
                             <div className="fuStatus">
