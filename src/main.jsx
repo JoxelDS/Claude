@@ -116,6 +116,8 @@ class ErrorBoundary extends React.Component {
 ──────────────────────────────────────────────────────────────── */
 (function smoothEngine() {
   if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  // v555: never on a touch screen — the cards sliding up as they scrolled into view read as "the screen moves by itself"
+  if (window.matchMedia("(any-pointer: coarse)").matches) return;
 
   const SELECTOR = [
     ".card", ".historyCard", ".fuItem", ".step", ".feat",

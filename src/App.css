@@ -10216,7 +10216,44 @@ html[data-theme="black"] .leaveGuardWhySaving { background: #0f1b33; color: #bfd
 }
 /* v553: on phones / iPads (no CSS scroll anchoring) a card that was skipped as 180 px snapped to its real height as it
    came into view above the reader, and the list jumped. The list is already paged (Show more), so render them all. */
-@media (pointer: coarse), (hover: none) {
+@media (pointer: coarse), (any-pointer: coarse), (hover: none) { /* v555: + an iPad with a keyboard case */
   .historyCard { content-visibility: visible; contain-intrinsic-size: none; }
 }
 .fuReturnBar { display: block; width: 100%; min-height: 44px; margin: 0 0 10px; padding: 8px 14px; border-radius: 12px; border: 1.5px solid var(--sdx-navy); background: var(--surface-2, #eef2ff); color: var(--sdx-navy); font-weight: 800; font-size: 0.88rem; text-align: left; cursor: pointer; }
+
+/* ════════════════════════════════════════════════════════════════════
+   v555 — STILL ON TOUCH SCREENS. Joxel: "remove any weird motion when we touch the screen".
+   On anything with a touch screen (iPhone, iPad — also an iPad with a keyboard case, which reports a mouse
+   pointer and so fires the hover rules on every tap) nothing slides, fades, grows, shrinks or pulses:
+   no transitions, no entrance / pulse animations, no hover or press transforms, no smooth scrolling.
+   Colours still change instantly so a tap still shows. Only the two loading spinners keep turning.
+   ════════════════════════════════════════════════════════════════════ */
+@media (any-pointer: coarse) {
+  html, body, * { scroll-behavior: auto !important; }
+  *, *::before, *::after {
+    transition: none !important;
+    animation-duration: 0.001ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+  }
+  .ciPhotoSpinnerDot { animation: ciSpin 0.75s linear infinite !important; }
+  [style*="spin 0.7s"] { animation: spin 0.7s linear infinite !important; }
+  /* hover / press never move or resize anything (these are every :hover / :active rule that did) */
+  .btnPrimary:active, .guideStepNavBtn:active, .equipTypeChip:active, .stickyBtn:active, .btnGenHeader:active,
+  .btn:active, .fuBtn:active, .historyTab:active, .dropdownMenuItem:active, .htSubmitReady:active, .htRow:active,
+  .menuQuickTile:active, .ciBaBtn:active, .walkBtnOk:active, .walkBtnWrong:active, .walkSaveBtn:active,
+  .walkReviewBtn:active, .walkScanBtn:active, .swChip:active, .swRow:active, .walkItemChip:active,
+  .kqrEquipItem:active, .themeCard:active, .analyticsSubTab:active, .crewTab:active, .standsTab:active,
+  .guideSectionToggle:active, .fab:active,
+  .translateLangBtn:hover, .btnPrimary:hover, .card:hover, .guideStepDot:hover, .btnAi:hover, .btnDownload:hover,
+  .btnSave:hover, .historyCard:hover, .btnAdmin:hover, .fab:hover, .tempAvgPillClickable:hover,
+  .recurringKitchenClickable:hover, .worstLocationClickable:hover, .historyTab:hover .tabIcon, .predictiveItem:hover,
+  .guideSectionToggle:hover, .themeCard:hover, .btnGenHeader:hover, .fuBtn:hover, .pinBtn:hover,
+  .brandLogo:hover, .pinLogo:hover, .langFab:hover, .expCrewBtn:hover { transform: none !important; }
+  .dropdownMenuItem:hover, .dropdownMenuDanger:hover { padding-left: 12px !important; }
+  .sv-in { animation: none !important; }
+  /* the "GPU layer" trick (translateZ(0) + will-change) made every card a box that position:fixed children
+     stick to — a hover / press that dropped it moved them; on touch screens the cards are plain boxes */
+  .card, .historyCard, .btnPrimary, .btnSecondary, .historyTab, .modalOverlay, .modalBox, .notifDropdown,
+  .tempAvgPill, .tempAvgPillClickable, .worstLocationClickable { will-change: auto !important; transform: none !important; }
+}

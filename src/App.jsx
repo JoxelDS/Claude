@@ -10887,10 +10887,21 @@ if (typeof window !== "undefined") {
 function skipScrollAnchor(ms = 900) { _anchorSkipUntil = Date.now() + ms; }
 // a scroll the app asks for (scrollTo / scrollIntoView — page changes, "go to the item", "back to the top") is
 // deliberate: the anchor stays out of its way while it runs (its own corrections use scrollBy, which is not wrapped)
+// v555: on a touch screen every scroll the app asks for JUMPS instead of gliding ("remove any weird motion")
+const _stillScroll = typeof window !== "undefined" && !!window.matchMedia && window.matchMedia("(any-pointer: coarse)").matches;
+const _noGlide = a => {
+  if (!_stillScroll) return a;
+  const o = a[0];
+  if (o && typeof o === "object" && o.behavior === "smooth") return [{ ...o, behavior: "auto" }, ...a.slice(1)];
+  return a;
+};
 if (typeof window !== "undefined" && !window.__sdxScrollWrapped) {
   window.__sdxScrollWrapped = true;
-  try { const st = window.scrollTo.bind(window); window.scrollTo = function (...a) { _anchorSkipUntil = Date.now() + 1200; return st(...a); }; } catch {}
-  try { const siv = Element.prototype.scrollIntoView; Element.prototype.scrollIntoView = function (...a) { _anchorSkipUntil = Date.now() + 1200; return siv.apply(this, a); }; } catch {}
+  try { const st = window.scrollTo.bind(window); window.scrollTo = function (...a) { _anchorSkipUntil = Date.now() + 1200; return st(..._noGlide(a)); }; } catch {}
+  try { const sb = window.scrollBy.bind(window); window.scrollBy = function (...a) { return sb(..._noGlide(a)); }; } catch {}
+  try { const siv = Element.prototype.scrollIntoView; Element.prototype.scrollIntoView = function (...a) { _anchorSkipUntil = Date.now() + 1200; return siv.apply(this, _noGlide(a)); }; } catch {}
+  try { const est = Element.prototype.scrollTo; if (est) Element.prototype.scrollTo = function (...a) { return est.apply(this, _noGlide(a)); }; } catch {}
+  try { const esb = Element.prototype.scrollBy; if (esb) Element.prototype.scrollBy = function (...a) { return esb.apply(this, _noGlide(a)); }; } catch {}
 }
 function anchorFixedAncestor(el) {
   // a button inside a fixed / sticky box (header, menu, modal, toast) does not move with the page
@@ -18736,7 +18747,8 @@ function QrScanModal({ title, hint, onCode, onClose }) {
     } catch { setErr("Could not read that photo."); }
   }
   useEffect(() => { start(); return stop; }, []); // eslint-disable-line react-hooks/exhaustive-deps
-  return (
+  // v555: rendered on <body> — inside a transformed card a fixed overlay opened far off screen
+  return ReactDOM.createPortal(
     <div className="qrScanOverlay" onClick={() => { stop(); onClose(); }}>
       <div className="qrScanModal" onClick={e => e.stopPropagation()}>
         <div className="qrScanHead">
@@ -18762,7 +18774,8 @@ function QrScanModal({ title, hint, onCode, onClose }) {
           <button type="button" className="btn btnPrimary btnSmall" disabled={!pasted.trim()} onClick={() => found(pasted.trim())}>Go</button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 // ── Scan prefill: resolve a stand NAME from the canonical stand list ────────
