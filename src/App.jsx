@@ -7688,6 +7688,7 @@ function EquipmentPage({ currentUser, onBack, focusStand, onOpenLabels }) {
   useScrollAnchor(); // v553: opening / closing a unit's log row or adding a unit keeps the tapped button in place
   const [regItems, setRegItems] = useState(null); // { TAG: registryItem } | null = loading
   const [hist, setHist] = useState([]);
+  const [histLoaded, setHistLoaded] = useState(false); // v554: the order resets once when the history read lands, never on a log
   const [stands, setStands] = useState([]);
   const [standKey, setStandKey] = useState("");
   const [filter, setFilter] = useState("all"); // all | alert | unread
@@ -7723,7 +7724,7 @@ function EquipmentPage({ currentUser, onBack, focusStand, onOpenLabels }) {
         const c = JSON.parse(localStorage.getItem(`sdx_history_cache_${VENUE_ID}`) || "[]");
         if (c.length) { const seen = new Set(recs.map(x => x.id)); recs = [...recs, ...c.filter(x => !seen.has(x.id))]; }
       } catch {}
-      if (alive) setHist(recs);
+      if (alive) { setHist(recs); setHistLoaded(true); }
     })();
     return () => { alive = false; };
   }, []);
@@ -7804,7 +7805,12 @@ function EquipmentPage({ currentUser, onBack, focusStand, onOpenLabels }) {
   const eqOrderRef = useRef({ sig: null, rank: {}, n: 0 });
   const [eqKeep, setEqKeep] = useState({});
   useEffect(() => { setEqKeep({}); }, [selKey, filter]);
-  const eqSig = `${selKey}|${hist.length ? 1 : 0}`;
+  const eqSig = `${selKey}|${histLoaded ? 1 : 0}`; // v554: was hist.length — the first log on an empty history re-sorted the cards
+  // v554: the stand chips keep the order they had when the page opened (a reading over the limit used to throw that
+  // stand's chip to the front of the row, so the row slid under the finger); new stands join at the end
+  const grpOrderRef = useRef({ sig: null, rank: {}, n: 0 });
+  if (grpOrderRef.current.sig !== histLoaded) grpOrderRef.current = { sig: histLoaded, rank: {}, n: 0 };
+  const shownGroups = (() => { const R = grpOrderRef.current; const gs = model?.groups || []; for (const g of gs) if (R.rank[g.key] === undefined) R.rank[g.key] = R.n++; return [...gs].sort((a, b) => R.rank[a.key] - R.rank[b.key]); })();
   if (eqOrderRef.current.sig !== eqSig) eqOrderRef.current = { sig: eqSig, rank: {}, n: 0 };
   const eqRank = eqOrderRef.current;
   for (const u of sel?.units || []) if (eqRank.rank[u.tag] === undefined) eqRank.rank[u.tag] = eqRank.n++;
@@ -7895,7 +7901,7 @@ function EquipmentPage({ currentUser, onBack, focusStand, onOpenLabels }) {
             {/* v553: a floating toast (it was inserted above the stand chips and every unit, then removed a few seconds later) */}
             {flash && ReactDOM.createPortal(<div className="eqpFlash eqpFlashToast" data-testid="eqp-flash" role="status">{flash}</div>, document.body)}
             <div className="eqpStandRow" role="tablist" aria-label="Stands">
-              {model.groups.map(g => {
+              {shownGroups.map(g => {
                 const alerts = g.units.filter(u => u.state === "alert").length;
                 return (
                   <button key={g.key} type="button" data-testid="eqp-stand-chip" className={"eqpStandChip" + (g.key === selKey ? " on" : "")} onClick={() => { setStandKey(g.key); setFilter("all"); setLogTag(null); }}>
@@ -10895,7 +10901,9 @@ function useScrollAnchor() {
   const snapRef = useRef(null);
   try {
     const pick = [];
-    if (typeof window !== "undefined" && window.scrollY > 40) {
+    // v554: the tapped control is held at ANY scroll position (adding a unit at the top of a page walked the
+    // chips under the finger); the cards on screen are held only once the reader has scrolled down
+    if (typeof window !== "undefined") {
       const hdr = document.querySelector(".topBar");
       const top = hdr ? hdr.getBoundingClientRect().bottom : 0;
       const tap = _anchorTapEl;
@@ -10909,7 +10917,7 @@ function useScrollAnchor() {
           for (let k = 0; n && n !== document.body && k < 6; k++, n = n.parentElement) { const rr = n.getBoundingClientRect(); if (rr.height > 0) pick.push({ el: n, top: rr.top }); }
         }
       }
-      for (const el of document.querySelectorAll("[data-anchor], [data-rec]")) {
+      if (window.scrollY > 40) for (const el of document.querySelectorAll("[data-anchor], [data-rec]")) {
         const r = el.getBoundingClientRect();
         if (r.height > 0 && r.bottom > top + 4) {
           if (r.top > innerHeight) break; // never hold something below the screen (it scrolled away whatever a tap opened)
