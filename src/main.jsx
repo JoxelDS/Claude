@@ -86,10 +86,10 @@ class ErrorBoundary extends React.Component {
               {this.state.error?.message || "An unexpected error occurred."}
             </p>
             <p style={{ color: "#777", fontSize: "0.8rem", marginBottom: "1rem" }}>
-              You are still signed in — reloading brings you back where you were. Your draft is saved.
+              Reloading opens the sign-in screen; after you sign in, the report you were working on comes back from this phone.
             </p>
             <button
-              onClick={() => window.location.reload()}
+              onClick={() => { try { window.__sdxFlushDraft && window.__sdxFlushDraft(); } catch {} window.location.reload(); }}
               style={{
                 background: "#1e1b4b", color: "#fff", border: "none",
                 borderRadius: 8, padding: "0.75rem 2rem", fontSize: "1rem",
@@ -187,7 +187,21 @@ function showUpdateBanner() {
   const mo = new MutationObserver(place);
   mo.observe(document.body, { childList: true, subtree: true });
   window.addEventListener("resize", place);
-  document.getElementById("sw-reload-btn").addEventListener("click", () => { try { window.__sdxFlushDraft && window.__sdxFlushDraft(); } catch {} window.location.reload(); });
+  document.getElementById("sw-reload-btn").addEventListener("click", () => {
+    try { window.__sdxFlushDraft && window.__sdxFlushDraft(); } catch {}
+    // v553: never reload over a report that is not in the cloud yet — wait for it
+    const btn = document.getElementById("sw-reload-btn");
+    const t0 = Date.now();
+    const go = () => {
+      if (window.__sdxHasUnsavedReport && window.__sdxHasUnsavedReport()) {
+        // v553: say why it waits — the bar at the top says what the report needs
+        if (btn) btn.textContent = Date.now() - t0 > 15000 ? "Waiting — your report is not saved yet (see the top bar)" : "Saving your report first…";
+        setTimeout(go, 1000); return;
+      }
+      window.location.reload();
+    };
+    go();
+  });
   document.getElementById("sw-later-btn").addEventListener("click", () => {
     banner.remove(); mo.disconnect(); window.removeEventListener("resize", place);
     // come back in 10 minutes — the update is still waiting
@@ -206,10 +220,19 @@ function applyUpdateNow() {
   const strip = document.createElement("div");
   strip.className = "swUpdatingStrip";
   strip.textContent = "⬆ Updating to the new version…";
-  strip.style.cssText = "position:fixed;left:0;right:0;bottom:0;z-index:1300;background:#1e3a8a;color:#fff;font:700 14px/1.3 system-ui,sans-serif;padding:10px 16px calc(10px + env(safe-area-inset-bottom));text-align:center";
+  strip.style.cssText = "pointer-events:none;position:fixed;left:0;right:0;bottom:0;z-index:1300;background:#1e3a8a;color:#fff;font:700 14px/1.3 system-ui,sans-serif;padding:10px 16px calc(10px + env(safe-area-inset-bottom));text-align:center";
   document.body.appendChild(strip);
   const started = Date.now();
   const go = () => {
+    // v553: an open report that is not in the cloud yet holds the update until it is (no time limit)
+    if (window.__sdxHasUnsavedReport && window.__sdxHasUnsavedReport()) {
+      strip.textContent = "⬆ A new version is ready — it installs as soon as your report is saved";
+      const bar = document.querySelector(".stickyActionBar"); // sit above the report's bottom bar, never over it
+      strip.style.bottom = bar ? `${bar.getBoundingClientRect().height}px` : "0px";
+      setTimeout(go, 1000); return;
+    }
+    strip.style.bottom = "0px";
+    strip.textContent = "⬆ Updating to the new version…";
     if (window.__sdxSaving && Date.now() - started < 20000) { setTimeout(go, 500); return; }
     try { window.__sdxFlushDraft && window.__sdxFlushDraft(); } catch {}
     try { window.location.reload(); } catch { strip.remove(); _updating = false; showUpdateBanner(); }

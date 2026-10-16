@@ -25,7 +25,7 @@ AIEngine.boot((() => {
 })());
 import {
   doc, getDocs, getDoc, setDoc, deleteDoc, updateDoc, query, orderBy, where, onSnapshot,
-  limit, startAfter, getCountFromServer, collectionGroup, deleteField
+  limit, startAfter, getCountFromServer, collectionGroup, deleteField, disableNetwork, enableNetwork
 } from "firebase/firestore";
 
 /* ── Runtime Security Shield ─────────────────────────────────────────────────
@@ -1475,12 +1475,30 @@ function saveDraft(draft) { return saveDraftFor(draft?.savedReportId, draft); }
 const INSPECTION_OUTBOX_KEY = `sdx_inspection_outbox_${VENUE_ID}`;
 function loadInspectionOutbox() { try { const l = JSON.parse(localStorage.getItem(INSPECTION_OUTBOX_KEY) || "[]"); return Array.isArray(l) ? l : []; } catch { return []; } }
 function saveInspectionOutbox(list) { try { localStorage.setItem(INSPECTION_OUTBOX_KEY, JSON.stringify(list)); } catch {} }
+function outboxEvent(extra = {}) {
+  const list = loadInspectionOutbox();
+  try { window.dispatchEvent(new CustomEvent("sdx-outbox", { detail: { count: list.length, ids: list.map(r => r.id), ...extra } })); } catch {}
+}
+const _ackedSavedAt = {}; // v553: report id → savedAt of the newest copy the cloud confirmed (the outbox never replays older)
+let _openReportId = "";    // v553: the report open in the form right now
 function queueInspection(record) {
-  const list = loadInspectionOutbox().filter(r => r.id !== record.id);
+  const all = loadInspectionOutbox();
+  const had = all.find(r => r.id === record.id);
+  if (had && String(had.savedAt || "") > String(record.savedAt || "")) return; // a newer copy already waits — keep it
+  const list = all.filter(r => r.id !== record.id);
   list.push({ ...record, _queuedAt: new Date().toISOString() });
   saveInspectionOutbox(list);
-  try { window.dispatchEvent(new CustomEvent("sdx-outbox", { detail: { count: list.length } })); } catch {}
+  outboxEvent();
 }
+// v553: drop a report from the outbox once the cloud has it — only when the
+// acked copy is at least as new as the queued one (a newer edit stays queued).
+function unqueueInspection(id, savedAt) {
+  const list = loadInspectionOutbox();
+  const next = list.filter(r => !(r.id === id && (!savedAt || String(r.savedAt || "") <= String(savedAt))));
+  if (next.length !== list.length) { saveInspectionOutbox(next); outboxEvent(); }
+}
+// v553: the report the form is writing right now — the outbox leaves it alone.
+const _cloudBusyIds = new Set();
 let _inspOutboxBusy = false;
 let _inspOutboxOnSent = null; // set by the form shell: post-save side effects for a queued record
 async function flushInspectionOutbox(onSent = _inspOutboxOnSent) {
@@ -1489,18 +1507,62 @@ async function flushInspectionOutbox(onSent = _inspOutboxOnSent) {
   _inspOutboxBusy = true; let sent = 0;
   try {
     for (const rec of list) {
-      const { _queuedAt, ...clean } = rec;
-      try { await saveOneInspection(clean); } catch { break; } // keep order — stop at the first failure
-      saveInspectionOutbox(loadInspectionOutbox().filter(r => r.id !== rec.id));
+      const { _queuedAt, _lastError, _tries, _sig, ...cleanQ } = rec;
+      const clean = cleanQ; // keeps _venueId for the write; saveOneInspection strips it
+      if (_cloudBusyIds.has(rec.id)) continue;
+      if (rec._venueId && rec._venueId !== activeVenueId) continue; // v553: it belongs to another venue
+      // v553: the copy may have changed (or been confirmed) while earlier ones were sending
+      const curQ = loadInspectionOutbox().find(r => r.id === rec.id);
+      if (!curQ || String(curQ.savedAt || "") !== String(rec.savedAt || "")) continue;
+      if (_ackedSavedAt[rec.id] && String(_ackedSavedAt[rec.id]) >= String(rec.savedAt || "")) { saveInspectionOutbox(loadInspectionOutbox().filter(r => !(r.id === rec.id && String(r.savedAt || "") <= String(_ackedSavedAt[rec.id])))); continue; }
+      // v553: one bad record no longer blocks every report behind it — note why and go on.
+      try { await saveOneInspection(clean); } catch (e) {
+        const l = loadInspectionOutbox(); const i = l.findIndex(r => r.id === rec.id);
+        if (i >= 0) { l[i] = { ...l[i], _lastError: saveErrorText(e, clean), _tries: (l[i]._tries || 0) + 1 }; saveInspectionOutbox(l); }
+        continue;
+      }
+      saveInspectionOutbox(loadInspectionOutbox().filter(r => !(r.id === rec.id && String(r.savedAt || "") <= String(clean.savedAt || ""))));
       // The History warm cache carried it as pending — it is a real record now.
       try { const k = `sdx_history_cache_${VENUE_ID}`; const c = JSON.parse(localStorage.getItem(k) || "[]"); const i = c.findIndex(r => r.id === rec.id); if (i >= 0) { c[i] = clean; localStorage.setItem(k, JSON.stringify(c)); } } catch {}
-      removeDraftFor(rec.id);
-      try { onSent && onSent(clean); } catch {}
+      if (!onSent) removeDraftFor(rec.id); // the form decides for the report it has open
+      try { onSent && onSent(clean, _sig); } catch {}
       sent++;
     }
   } finally { _inspOutboxBusy = false; }
-  try { window.dispatchEvent(new CustomEvent("sdx-outbox", { detail: { count: loadInspectionOutbox().length, sent } })); } catch {}
+  outboxEvent({ sent });
   return sent;
+}
+// v553: mark a report the cloud already holds as thrown away (rules forbid deletes) — merges, keeps the rule fields.
+async function markDiscardedCloud(id, venueId, by) {
+  if (!FIREBASE_ON || !id) return;
+  const vid = venueId || activeVenueId;
+  const col = vid === "default" ? legacyCol("inspections") : collection(db, "venues", vid, "inspections");
+  try { await setDoc(doc(col, id), { discarded: true, inProgress: false, discardedAt: new Date().toISOString(), discardedBy: by || "" }, { merge: true }); } catch (e) { console.error("discard:", e); }
+}
+// v553: a short fingerprint of a report's content (the full JSON would sit in memory, the outbox and the draft).
+function hashSig(str) {
+  let h1 = 0x811c9dc5, h2 = 0x01000193 ^ str.length;
+  for (let i = 0; i < str.length; i++) { const c = str.charCodeAt(i); h1 = Math.imul(h1 ^ c, 16777619); h2 = Math.imul(h2 ^ c, 2246822519); }
+  return `${str.length.toString(36)}.${(h1 >>> 0).toString(36)}.${(h2 >>> 0).toString(36)}`;
+}
+// v553: what the database rules need before they accept a report (firestore.rules validInspection).
+function reportMissingFields(rec) {
+  const miss = [];
+  if (!String(rec?.siteName || "").trim()) miss.push("stand name");
+  if (!String(rec?.inspectorName || "").trim()) miss.push("inspector name");
+  if (!String(rec?.inspectionDate || "").trim()) miss.push("date");
+  return miss;
+}
+// v553: a save error in plain words — what went wrong and what to do.
+function saveErrorText(e, rec) {
+  const code = String(e?.code || ""); const msg = String(e?.message || "").toLowerCase();
+  if (code === "permission-denied" || msg.includes("permission")) {
+    const miss = reportMissingFields(rec || {});
+    return miss.length ? `the ${miss.join(", ")} is missing` : "the database did not accept it (missing information)";
+  }
+  if (msg.includes("too large") || msg.includes("exceed") || msg.includes("maximum") || msg.includes("size")) return "the report is too big (over 1 MB) — remove some notes or photos";
+  if (code === "unavailable" || msg.includes("network") || msg.includes("offline") || msg.includes("unavailable")) return "no internet connection";
+  return (e?.message || "unknown error").slice(0, 140);
 }
 try { window.__sdxFlushOutbox = () => flushInspectionOutbox(); } catch {}
 
@@ -1607,7 +1669,7 @@ function learnFromSave(record) {
     }
     mem.siteMap[record.siteName] = update;
   }
-  localStorage.setItem(AUTOFILL_KEY, JSON.stringify(mem));
+  try { localStorage.setItem(AUTOFILL_KEY, JSON.stringify(mem)); } catch {} // v553: a full phone must never turn a saved report into "Save failed"
 }
 
 /**
@@ -1971,7 +2033,7 @@ async function loadHistory(forVenueId, opts = {}) {
       const snap = await getDocs(query(col, ...constraints));
       const hasMore = snap.docs.length > pageSize;
       const docs = hasMore ? snap.docs.slice(0, pageSize) : snap.docs;
-      const list = docs.map(d => d.data());
+      const list = docs.map(d => d.data()).filter(r => !r?.discarded); // v553: a report thrown away by its inspector
       if (isFullLoad) {
         _speedCache.history[targetVenue] = { list, ts: Date.now() };
       }
@@ -2018,8 +2080,15 @@ function sanitizeForFirestore(val) {
 
 async function saveOneInspection(record) {
   if (window.__sdxFailNextSave) { window.__sdxFailNextSave = false; throw new Error("unavailable: the network is down (test hook)"); } // v495 harness
+  // v553 harness: log every write and let a test delay / hang / reject one
+  try { (window.__sdxSaveLog = window.__sdxSaveLog || []).push({ id: record.id, at: Date.now(), siteName: record.siteName, discarded: !!record.discarded, inProgress: record.inProgress, finishedHow: record.finishedHow || "", notes: String(record.rawNotes || "").slice(0, 80), venue: record._venueId || "" }); } catch {}
+  // v553: the venue is decided when the report is built (a later venue switch must not move it)
+  const { _venueId, _sig, _queuedAt, _lastError, _tries, ...plain } = record;
+  record = plain;
+  const vid = _venueId || activeVenueId;
+  const col = FIREBASE_ON ? (vid === "default" ? legacyCol("inspections") : collection(db, "venues", vid, "inspections")) : null;
+  if (typeof window.__sdxSaveHook === "function") await window.__sdxSaveHook(record);
   if (FIREBASE_ON) {
-    const col = IS_DEFAULT_VENUE() ? legacyCol("inspections") : venueCol("inspections");
     await setDoc(doc(col, record.id), sanitizeForFirestore(record));
     return;
   }
@@ -3505,8 +3574,10 @@ function GameDayCard({ inspection, setInspection, foodTemps, siteName, siteNumbe
       const node = prev.operations?.[k] || { status: "OK", notes: "", photos: [] };
       return { ...prev, operations: { ...(prev.operations || {}), [k]: { ...node, status: ok ? "OK" : "Needs Attention", gdAt: Date.now(), checkedAt: Date.now() } } };
     });
-    if (!ok) setTimeout(() => { try { window.__sdxJumpToGuideItem?.({ pid: 4, key: `operations.${k}` }); } catch {} }, 150);
+    // v553: a ✗ No no longer throws the inspector into the Operations step (the card they are filling in
+    // vanished under the finger) — the red row offers "Add a photo or note →" for that, on purpose.
   };
+  const openOpItem = k => { try { window.__sdxJumpToGuideItem?.({ pid: 4, key: `operations.${k}` }); } catch {} };
   const tempRow = (key, label, val, okFn, rule, onChange, neg) => {
     const n = parseFloat(val); const has = String(val ?? "").trim() !== "" && Number.isFinite(n); const ok = has ? okFn(n) : null;
     return (
@@ -3514,7 +3585,7 @@ function GameDayCard({ inspection, setInspection, foodTemps, siteName, siteNumbe
         <span className="gdLabel notranslate" translate="no">{label}</span>
         <span className="gdRule">{rule}</span>
         <input className="input gdTemp" inputMode="decimal" value={val ?? ""} placeholder="°F" onChange={e => onChange(cleanTempInput(e.target.value))} />
-        {neg && <button type="button" className="tempMinusBtn" aria-label="minus" onClick={() => { const v = String(val ?? ""); onChange(v.startsWith("-") ? v.slice(1) : "-" + v); }}>−</button>}
+        {neg && <button type="button" className="tempMinusBtn" aria-label="minus" onMouseDown={e => e.preventDefault()} onClick={() => { const v = String(val ?? ""); onChange(v.startsWith("-") ? v.slice(1) : "-" + v); }}>−</button>}
         <span className="gdState">{ok === null ? "" : ok ? "✓" : "✗"}</span>
       </div>
     );
@@ -3544,6 +3615,7 @@ function GameDayCard({ inspection, setInspection, foodTemps, siteName, siteNumbe
             <span className="gdLabel">{en}</span>
             <button type="button" className={"gdYes" + (done && !bad ? " on" : "")} onClick={() => markOp(k, true)}>✓ Yes</button>
             <button type="button" className={"gdNo" + (bad ? " on" : "")} onClick={() => markOp(k, false)}>✗ No</button>
+            {bad && <button type="button" className="gdOpMore" data-testid="gameday-op-more" onClick={() => openOpItem(k)}>Add a photo or note →</button>}
           </div>
         );
       })}
@@ -5869,7 +5941,7 @@ function RenderedOutput({ noteType, useCase, context, inspection, rawNotes, insp
 
       {/* Photo Lightbox */}
       {lightboxSrc && ReactDOM.createPortal(
-        <div onClick={() => setLightboxSrc(null)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.9)",zIndex:999999,display:"flex",alignItems:"center",justifyContent:"center",cursor:"zoom-out"}}>
+        <div onClick={() => setLightboxSrc(null)} style={{position:"fixed",inset:0,touchAction:"none",overscrollBehavior:"contain",background:"rgba(0,0,0,0.9)",zIndex:999999,display:"flex",alignItems:"center",justifyContent:"center",cursor:"zoom-out"}}>
           <img src={lightboxSrc} alt="Full size photo" onClick={e => e.stopPropagation()} style={{maxWidth:"95vw",maxHeight:"90vh",objectFit:"contain",borderRadius:8,boxShadow:"0 4px 32px rgba(0,0,0,0.5)"}} />
           <button onClick={() => setLightboxSrc(null)} style={{position:"absolute",top:"max(16px, env(safe-area-inset-top))",right:16,background:"rgba(255,255,255,0.15)",border:"none",color:"#fff",fontSize:28,width:44,height:44,borderRadius:"50%",cursor:"pointer",lineHeight:1}}>×</button>
         </div>,
@@ -7567,7 +7639,7 @@ function EquipTempBoard({ history, onOpenStand }) {
               const isCollapsed = !!collapsed[st.key];
               const lic = st.unit ? lookupLicenseByUnitType(st.unit, st.locType || "") : null;
               return (
-                <div key={st.key} className={"etStand" + (alerts ? " etStandAlert" : "")}>
+                <div key={st.key} data-anchor={"et:" + st.key} className={"etStand" + (alerts ? " etStandAlert" : "")}>
                   <button type="button" className="etStandHead" onClick={() => setCollapsed(c => ({ ...c, [st.key]: !c[st.key] }))}>
                     <span className="etStandName">🍳 {st.site || "—"}{st.unit ? ` · #${st.unit}` : ""}</span>
                     <span className="etStandMeta">{[st.locType, lic?.license ? `🪪 ${lic.license}` : ""].filter(Boolean).join(" · ")}</span>
@@ -7613,6 +7685,7 @@ function EquipTempBoard({ history, onOpenStand }) {
    pulling this stand's units from the SAME registry (its eqStandCard), so
    nothing is re-entered — the tab is the registry's home. ──────────────── */
 function EquipmentPage({ currentUser, onBack, focusStand, onOpenLabels }) {
+  useScrollAnchor(); // v553: opening / closing a unit's log row or adding a unit keeps the tapped button in place
   const [regItems, setRegItems] = useState(null); // { TAG: registryItem } | null = loading
   const [hist, setHist] = useState([]);
   const [stands, setStands] = useState([]);
@@ -7725,7 +7798,17 @@ function EquipmentPage({ currentUser, onBack, focusStand, onOpenLabels }) {
   useEffect(() => { if (!standKey && model?.defKey) setStandKey(model.defKey); }, [model?.defKey, standKey]);
   const selKey = standKey || model?.defKey || "";
   const sel = model?.groups.find(g => g.key === selKey) || null;
-  const shownUnits = sel ? sel.units.filter(u => filter === "all" ? true : filter === "alert" ? u.state === "alert" : !u.readToday) : [];
+  // v553: while the inspector logs a stand, its units keep the order they had when the stand opened (a reading
+  // over the limit used to throw that card to the top), and a unit just logged stays on screen under
+  // "Not read today" / "Over limit" until the stand or the filter changes — no card vanishes under the finger.
+  const eqOrderRef = useRef({ sig: null, rank: {}, n: 0 });
+  const [eqKeep, setEqKeep] = useState({});
+  useEffect(() => { setEqKeep({}); }, [selKey, filter]);
+  const eqSig = `${selKey}|${hist.length ? 1 : 0}`;
+  if (eqOrderRef.current.sig !== eqSig) eqOrderRef.current = { sig: eqSig, rank: {}, n: 0 };
+  const eqRank = eqOrderRef.current;
+  for (const u of sel?.units || []) if (eqRank.rank[u.tag] === undefined) eqRank.rank[u.tag] = eqRank.n++;
+  const shownUnits = sel ? sel.units.filter(u => eqKeep[u.tag] || (filter === "all" ? true : filter === "alert" ? u.state === "alert" : !u.readToday)).sort((a, b) => eqRank.rank[a.tag] - eqRank.rank[b.tag]) : [];
   const ago = at => { if (!at) return ""; const ms = Date.now() - Date.parse(at); if (!Number.isFinite(ms)) return ""; const m = Math.round(ms / 60000); if (m < 60) return `${Math.max(1, m)}m ago`; const h = Math.round(m / 60); if (h < 36) return `${h}h ago`; return `${Math.round(h / 24)}d ago`; };
   const STATE = { alert: { cls: "etAlert", text: "OVER LIMIT" }, ok: { cls: "etOk", text: "OK" }, stale: { cls: "etStale", text: `no read ${STALE_DAYS}d+` }, await: { cls: "etAwait", text: "awaiting first read" } };
 
@@ -7740,18 +7823,25 @@ function EquipmentPage({ currentUser, onBack, focusStand, onOpenLabels }) {
       inspectionType: "Equipment Check",
       inspectionDate: now.toISOString().slice(0, 10),
       savedAt: now.toISOString(),
-      inspectorName: currentUser?.name || "",
-      siteName: sel?.site || "",
+      inspectorName: currentUser?.name || "Inspector",
+      siteName: sel?.site || (sel?.unit ? `UNIT ${sel.unit}` : "EQUIPMENT CHECK"),
       siteNumber: sel?.unit || "",
       floor: sel?.floor || "",
       quickEquipCheck: true,
+      overallStatus: ok ? "Pass" : "Needs Attention", // v553: the database refuses a record without it
       inspection: { equipment: { [`equip_${u.tag}`]: { assetTag: u.tag, label: u.name, brand: u.brand || "", kitchenArea: u.location || "", tempF: String(t), status: ok ? "OK" : "FAIL", notes: "", photos: [] } } },
     };
-    try { await saveOneInspection(rec); } catch {}
+    let saveErr = "";
+    try {
+      // v553: never "logged" unless the cloud has it — offline it waits up to 12 s, then says so
+      const r = await Promise.race([saveOneInspection(rec).then(() => "ok"), new Promise(res => setTimeout(() => res("timeout"), 12000))]);
+      if (r === "timeout") { queueInspection(rec); saveErr = "no internet — it is kept on this phone and sends when the signal is back"; }
+    } catch (e) { saveErr = saveErrorText(e, rec); }
     setHist(h => [rec, ...h]);
+    setEqKeep(k => ({ ...k, [u.tag]: true }));
     setLogBusy(false); setLogTag(null); setLogTemp("");
-    setFlash(`✓ ${u.name} logged at ${t}°F — ${ok ? "in range" : "OVER LIMIT — flagged"}`);
-    setTimeout(() => setFlash(""), 4500);
+    setFlash(saveErr ? `⚠ ${u.name} ${t}°F NOT saved yet — ${saveErr}` : `✓ ${u.name} logged at ${t}°F — ${ok ? "in range" : "OVER LIMIT — flagged"}`);
+    setTimeout(() => setFlash(""), saveErr ? 9000 : 4500);
   }
 
   function addUnit(label0, freezer) {
@@ -7802,7 +7892,8 @@ function EquipmentPage({ currentUser, onBack, focusStand, onOpenLabels }) {
               <div className={"eqpStat" + (model.tot.alert ? " eqpStatAlert" : "")}><b>{model.tot.alert}</b><span>over limit</span></div>
               <div className="eqpStat"><b>{model.tot.await}</b><span>awaiting first read</span></div>
             </div>
-            {flash && <div className="eqpFlash" data-testid="eqp-flash">{flash}</div>}
+            {/* v553: a floating toast (it was inserted above the stand chips and every unit, then removed a few seconds later) */}
+            {flash && ReactDOM.createPortal(<div className="eqpFlash eqpFlashToast" data-testid="eqp-flash" role="status">{flash}</div>, document.body)}
             <div className="eqpStandRow" role="tablist" aria-label="Stands">
               {model.groups.map(g => {
                 const alerts = g.units.filter(u => u.state === "alert").length;
@@ -7824,7 +7915,7 @@ function EquipmentPage({ currentUser, onBack, focusStand, onOpenLabels }) {
               </div>
               {shownUnits.length === 0 && <div className="etEmpty">{sel.units.length === 0 ? "No units registered at this stand yet — add the first one below." : "Nothing matches this filter at this stand."}</div>}
               {shownUnits.map(u => (
-                <div key={u.tag} className="eqpUnit" data-testid="eqp-unit">
+                <div key={u.tag} className="eqpUnit" data-testid="eqp-unit" data-anchor={"eqp:" + u.tag}>
                   <div className="eqpUnitMain">
                     <span className="eqpUnitIcon">{u.freezer ? "🧊" : "❄"}</span>
                     <div className="eqpUnitInfo">
@@ -7941,7 +8032,8 @@ function TempTrendChart({ history }) {
   }, [history]);
 
   const locations = Object.keys(locationData);
-  if (locations.length === 0) return null;
+  // v553: the early "nothing to chart" return sits BELOW every hook (a filter that leaves no stand used to
+  // skip the glanceSummary hook → React threw and the whole app showed "Something went wrong")
 
   // Determine which location is active — null until user explicitly selects one
   const activeLoc = (selectedLoc && locations.includes(selectedLoc)) ? selectedLoc : null;
@@ -7969,6 +8061,7 @@ function TempTrendChart({ history }) {
       freezerPass: freezerTemps.length ? freezerTemps.every(t=>t<=20) : null,
     };
   }, [locations, locationData]);
+  if (locations.length === 0) return null;
 
   const anyAlert = (glanceSummary.handPass === false || glanceSummary.threePass === false || glanceSummary.coolerPass === false || glanceSummary.freezerPass === false);
 
@@ -9697,13 +9790,17 @@ function PredictiveInsightsPanel({ history, venueSettings }) {
         <div className="predictiveList">
           {predictions.map((p, i) => {
             const bt = typeBadge[p.type] || { label: p.type, bg: "var(--surface-2)", color: "var(--ink-700)", border: "var(--sdx-gray-200)" };
-            const isOpen = !!expanded[i];
+            // v553: open state and React key follow the prediction itself, not its place in the list (a re-sort
+            // after a fix opened another card), and taps inside the open detail do not fold it shut
+            const pk0 = `${p.type}|${p.location || ""}|${p.category || ""}`;
+            const pk = predictions.slice(0, i).filter(q => `${q.type}|${q.location || ""}|${q.category || ""}` === pk0).length ? `${pk0}~${i}` : pk0;
+            const isOpen = !!expanded[pk];
             return (
               <div
-                key={i}
+                key={pk}
                 className="predictiveItem"
                 style={{ borderColor: riskColor[p.risk] + "55" }}
-                onClick={() => toggle(i)}
+                onClick={() => toggle(pk)}
               >
                 <div className="predictiveItemTop">
                   <span className="predictiveRiskIcon">{riskIcon[p.risk]}</span>
@@ -9721,7 +9818,7 @@ function PredictiveInsightsPanel({ history, venueSettings }) {
                   <span className="predictiveChevron">{isOpen ? "▲" : "▼"}</span>
                 </div>
                 {isOpen && (
-                  <div className="predictiveDetail predictiveDetailRich">
+                  <div className="predictiveDetail predictiveDetailRich" onClick={e => e.stopPropagation()}>
                     {p.evidence && p.evidence.length > 0 && (
                       <div className="predEvidence">
                         <div className="predEvidenceHead">What was written each time</div>
@@ -9773,12 +9870,15 @@ function computeFollowups(history, venueSettings, clearedLocal = {}) {
   const latestInspByLoc = {};   // locName -> newest inspection timestamp
   const catLastSeen = {};       // "loc::cat" -> { ts, dateStr, count, rows }
   for (const rec of history) {
+    if (rec?.discarded) continue; // v553
     const locName = rec.siteName || rec.location || "—";
     const ts = rec.inspectionDate ? new Date(rec.inspectionDate).getTime() : 0;
     if (!ts) continue;
     // Only a real inspection can make an issue "likely fixed" — an equipment
     // temp scan or a filed problem is not a walk-through of the stand.
-    if (!rec.quickEquipCheck && !rec.quickProblem && !rec.supervisorLog && (!latestInspByLoc[locName] || ts > latestInspByLoc[locName])) latestInspByLoc[locName] = ts;
+    // v553: an autosaved report still being walked is not a finished walk-through (for 8 h)
+    const walking = rec.inProgress === true; // v553: an autosaved, never-finished report is not a walk-through
+    if (!rec.quickEquipCheck && !rec.quickProblem && !rec.supervisorLog && !walking && (!latestInspByLoc[locName] || ts > latestInspByLoc[locName])) latestInspByLoc[locName] = ts;
     const recResolvedMap = rec.resolvedIssues || {};
     const actionItems = rec.actionItems || [];
     actionItems.forEach((item, i) => {
@@ -10339,6 +10439,7 @@ function detectStandTypeFor(unit, site) {
   } catch { return ""; }
 }
 function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLock, onMessages, onAppearance, linkSession = false }) {
+  useScrollAnchor(); // v553: the 2-minute refresh and other crews' fixes no longer move the job being read
   const role = currentUser?.role;
   const meta = CREW_META[role] || CREW_META.maintenance;
   // Crew language (v431) — native English / Espanol / Kreyol, no page reload.
@@ -10370,7 +10471,9 @@ function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLoc
   const types = CREW_TYPES[role] || CREW_TYPES.maintenance;
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState("open"); // open | reports
+  const [tab, setTabRaw] = useState("open"); // open | reports
+  // v553: a different view starts at its top (blocks were added / removed above the reader with the scroll kept)
+  const setTab = v => { skipScrollAnchor(); try { window.scrollTo(0, 0); } catch {} setTabRaw(v); };
   const [q, setQ] = useState("");
   const [floorPick, setFloorPick] = useState("");
   const [standPick, setStandPick] = useState("");   // one stand only (key "u:114" / "s:NAME")
@@ -10388,7 +10491,7 @@ function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLoc
   // v488: simple view (default) — one list, two big buttons per job. ⚙ More
   // brings back search, stand picker, By Problem, floors, fixed, other.
   const [simple, setSimple] = useState(() => { try { return localStorage.getItem("sdx_crew_simple") !== "0"; } catch { return true; } });
-  const setSimpleSave = v => { setSimple(v); if (v) { setQ(""); setStandPick(""); setFloorPick(""); setGroupBy("stand"); setShowOther(false); setShowDone(false); } try { localStorage.setItem("sdx_crew_simple", v ? "1" : "0"); } catch {} };
+  const setSimpleSave = v => { skipScrollAnchor(); try { window.scrollTo(0, 0); } catch {} setSimple(v); if (v) { setQ(""); setStandPick(""); setFloorPick(""); setGroupBy("stand"); setShowOther(false); setShowDone(false); } try { localStorage.setItem("sdx_crew_simple", v ? "1" : "0"); } catch {} };
   const [moreKey, setMoreKey] = useState(null); // card whose "more…" row is open
   const me = currentUser?.name || "Crew";
 
@@ -10532,7 +10635,7 @@ function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLoc
     const after = [...(f.photos || []).filter(p => p.tag === "after").map(p => ({ ...p, report: true })), ...photosOfF(f).filter(p => p.tag === "after")];
     const cm = commentsOf(f.key);
     return (
-      <div key={f.key} className={"crewItem" + (done ? " crewItemDone" : f.overdue ? " crewItemOverdue" : "")}>
+      <div key={f.key} data-anchor={"crew:" + f.key} className={"crewItem" + (done ? " crewItemDone" : f.overdue ? " crewItemOverdue" : "")}>
         <div className="crewItemHead">
           <span className="crewItemIcon">{done ? "✅" : ISSUE_TYPE_ICON[f.itype] || "🔧"}</span>
           <div style={{ flex: 1, minWidth: 0 }}>
@@ -10595,7 +10698,7 @@ function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLoc
               </div>
             )}
             {simple && action.kind !== "waiting" && <div className="crewHowLbl">{action.kind === "fixed" && <span className="crewStepNum">{role === "cleaning" ? 3 : 2}</span>}💬 {T("Note (optional)", "Nota (opcional)", "Nòt (opsyonèl)")}</div>}
-            <textarea rows={2} className="caText" value={action.note} autoFocus={!simple || action.kind === "waiting"} onChange={e => { const v = e.target.value; const n = nluNorm(v); setAction(a => { const next = { ...a, note: v }; if (a.kind === "fixed" && role === "cleaning" && !a.howTouched) { if (/\b(already clean|was clean|ya estaba limpi|estaba limpio|te deja pwop|deja pwop)/.test(n)) next.how = "already"; else if (/\b(we cleaned|cleaned it|lo limpiamos|limpiamos|limpie|nou netwaye)/.test(n)) next.how = "crew"; } return next; }); }}
+            <textarea rows={2} className="caText" value={action.note} autoFocus={action.kind === "waiting"} onChange={e => { const v = e.target.value; const n = nluNorm(v); setAction(a => { const next = { ...a, note: v }; if (a.kind === "fixed" && role === "cleaning" && !a.howTouched) { if (/\b(already clean|was clean|ya estaba limpi|estaba limpio|te deja pwop|deja pwop)/.test(n)) next.how = "already"; else if (/\b(we cleaned|cleaned it|lo limpiamos|limpiamos|limpie|nou netwaye)/.test(n)) next.how = "crew"; } return next; }); }}
               placeholder={action.kind === "fixed" ? T("e.g. Replaced gasket, tested — holding 36°F", "ej. Cambié el empaque, probado — se mantiene a 36°F", "egz. Mwen chanje gasket la, teste — li kenbe 36°F") : action.kind === "waiting" ? T("e.g. part on order, vendor Thursday", "ej. pieza pedida, proveedor el jueves", "egz. pyès la kòmande, vandè a jedi") : T("optional note", "nota opcional", "not opsyonel")} />
             <div className="crewActionBtns">
               <button type="button" className="btn btnGhost" onClick={() => setAction(null)}>{T("Cancel", "Cancelar", "Anile")}</button>
@@ -10634,7 +10737,7 @@ function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLoc
   return (
     <div className={"appShell crewPage" + (simple ? " crewSimple" : "")} style={{ background: "var(--surface-2)", minHeight: "100vh" }}>
       {lightboxSrc && ReactDOM.createPortal(
-        <div onClick={() => setLightboxSrc(null)} style={{ position: "fixed", inset: 0, zIndex: 10050, background: "rgba(0,0,0,.88)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+        <div onClick={() => setLightboxSrc(null)} style={{ position: "fixed", inset: 0, touchAction: "none", overscrollBehavior: "contain", zIndex: 10050, background: "rgba(0,0,0,.88)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
           <img src={lightboxSrc} alt="" onClick={e => e.stopPropagation()} style={{ maxWidth: "95vw", maxHeight: "90vh", borderRadius: 10 }} />
         </div>, document.body)}
       <header className="topBar notranslate" translate="no">
@@ -10737,7 +10840,7 @@ function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLoc
             <div className="etEmpty notranslate" translate="no" style={{ textAlign: "left", marginBottom: 10 }}>{T(`Reports from the last 60 days that mention a ${boardNoun} problem. Tap one to read it.`, `Reportes de los últimos 60 días que mencionan un problema de ${boardNoun}. Toca uno para leerlo.`, `Rapò 60 dènye jou yo ki pale de yon pwoblèm ${boardNoun}. Tape youn pou li li.`)}</div>
             {reports.length === 0 && <div className="etEmpty notranslate" translate="no">{T(`No reports with ${boardNoun} problems.`, `No hay reportes con problemas de ${boardNoun}.`, `Pa gen rapò ak pwoblèm ${boardNoun}.`)}</div>}
             {reports.map(({ r, hits }) => (
-              <div key={r.id} className="crewReport" onClick={() => setOpenReport(openReport === r.id ? null : r.id)}>
+              <div key={r.id} data-anchor={"crewrep:" + r.id} className="crewReport" onClick={() => setOpenReport(openReport === r.id ? null : r.id)}>
                 <div className="crewReportHead notranslate" translate="no">
                   <span className="crewReportSite notranslate" translate="no">{r.siteName || "—"}{r.siteNumber ? ` · #${r.siteNumber}` : ""}</span>
                   <span className="crewReportMeta">{(r.inspectionDate || r.savedAt || "").slice(0, 10)} · {r.inspectionType || T("Inspection", "Inspección", "Enspeksyon")} · {r.inspectorName || r.reportedBy?.name || ""}</span>
@@ -10763,7 +10866,77 @@ function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLoc
   );
 }
 
+// v553: iPhone / iPad Safari do not keep the reader's place when content above them changes (no CSS
+// scroll anchoring), so a list that refreshes while someone reads it "jumps by itself", and a tap that opens
+// or removes something above the finger moves the button away. Before each render note WHAT THE FINGER JUST
+// PRESSED (≤ 1.5 s ago) and the first cards on screen ([data-anchor] / [data-rec]) — never one below the
+// screen — and after the commit put the first one that still exists back where it was.
+// A drag (or a wheel) in the last 300 ms wins, and a deliberate scroll (skipScrollAnchor) is never fought.
+let _anchorTouchAt = 0, _anchorTapEl = null, _anchorTapAt = 0, _anchorSkipUntil = 0;
+if (typeof window !== "undefined") {
+  const t = () => { _anchorTouchAt = Date.now(); };
+  const d = e => { _anchorTapEl = e.target instanceof Element ? e.target : null; _anchorTapAt = Date.now(); };
+  try { window.addEventListener("touchmove", t, { passive: true }); window.addEventListener("wheel", t, { passive: true }); window.addEventListener("pointerdown", d, { capture: true, passive: true }); } catch {}
+}
+function skipScrollAnchor(ms = 900) { _anchorSkipUntil = Date.now() + ms; }
+// a scroll the app asks for (scrollTo / scrollIntoView — page changes, "go to the item", "back to the top") is
+// deliberate: the anchor stays out of its way while it runs (its own corrections use scrollBy, which is not wrapped)
+if (typeof window !== "undefined" && !window.__sdxScrollWrapped) {
+  window.__sdxScrollWrapped = true;
+  try { const st = window.scrollTo.bind(window); window.scrollTo = function (...a) { _anchorSkipUntil = Date.now() + 1200; return st(...a); }; } catch {}
+  try { const siv = Element.prototype.scrollIntoView; Element.prototype.scrollIntoView = function (...a) { _anchorSkipUntil = Date.now() + 1200; return siv.apply(this, a); }; } catch {}
+}
+function anchorFixedAncestor(el) {
+  // a button inside a fixed / sticky box (header, menu, modal, toast) does not move with the page
+  try { for (let n = el; n && n !== document.body; n = n.parentElement) { const p = getComputedStyle(n).position; if (p === "fixed" || p === "sticky") return true; } } catch {}
+  return false;
+}
+function useScrollAnchor() {
+  const snapRef = useRef(null);
+  try {
+    const pick = [];
+    if (typeof window !== "undefined" && window.scrollY > 40) {
+      const hdr = document.querySelector(".topBar");
+      const top = hdr ? hdr.getBoundingClientRect().bottom : 0;
+      const tap = _anchorTapEl;
+      if (tap && tap.isConnected && Date.now() - _anchorTapAt < 1500 && !anchorFixedAncestor(tap)) {
+        const r = tap.getBoundingClientRect();
+        if (r.height > 0 && r.bottom > top && r.top < innerHeight) {
+          // the tapped control, then what holds it — when the tap removes the control (✓ Resolve takes its card
+          // away) its group stays where it was and the cards BELOW move up; nothing slides down from above
+          pick.push({ el: tap, top: r.top });
+          let n = tap.parentElement;
+          for (let k = 0; n && n !== document.body && k < 6; k++, n = n.parentElement) { const rr = n.getBoundingClientRect(); if (rr.height > 0) pick.push({ el: n, top: rr.top }); }
+        }
+      }
+      for (const el of document.querySelectorAll("[data-anchor], [data-rec]")) {
+        const r = el.getBoundingClientRect();
+        if (r.height > 0 && r.bottom > top + 4) {
+          if (r.top > innerHeight) break; // never hold something below the screen (it scrolled away whatever a tap opened)
+          pick.push({ key: el.getAttribute("data-anchor") || "rec:" + el.getAttribute("data-rec"), top: r.top });
+          if (pick.length >= 8) break;
+        }
+      }
+    }
+    snapRef.current = pick.length ? pick : null;
+  } catch { snapRef.current = null; }
+  React.useLayoutEffect(() => {
+    const s = snapRef.current; if (!s) return;
+    if (Date.now() - _anchorTouchAt < 300 || Date.now() < _anchorSkipUntil || window.__sdxNoAnchor) return; // (__sdxNoAnchor: harness before/after)
+    try {
+      for (const a of s) {
+        const el = a.el ? (a.el.isConnected ? a.el : null) : document.querySelector(a.key.startsWith("rec:") ? `[data-rec="${CSS.escape(a.key.slice(4))}"]` : `[data-anchor="${CSS.escape(a.key)}"]`);
+        if (!el) continue;
+        const r = el.getBoundingClientRect(); if (!r.height) continue;
+        const d = r.top - a.top;
+        if (Math.abs(d) > 1) window.scrollBy(0, d);
+        break;
+      }
+    } catch {}
+  });
+}
 function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDrilldown, venueSettings, saveVenueSettings, saveVenueSettingsMap, currentUser, onAddRecord }) {
+  useScrollAnchor();
   // Locally cleared follow-ups — instant feedback independent of settings sync
   const FU_CLEARED_KEY = `sdx_fu_cleared_${VENUE_ID}`;
   // v440: the panel unmounts whenever the Analytics tab changes, which used to
@@ -11164,6 +11337,12 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
 
   const [fuOpen, setFuOpen] = useState({});
   const [fuShowN, setFuShowN] = useState(30);
+  // v553: while someone works the list, a ✓ Resolve must not re-sort the stands or fold a group shut under the
+  // finger (groups sort by "has overdue" + due date + size, and open by default only while overdue). The order and
+  // the default open state are frozen for this view; they refresh when the grouping, a filter, the search or the
+  // data source changes.
+  const fuFreezeRef = useRef({ sig: "", rank: {}, open: {}, n: 0 });
+  const lastResolveTapRef = useRef(0);
   // v542: edit a follow-up's words (Joxel: "I want to be able to edit the info") — venueSettings.followupEdit
   const [fuEditLocal, setFuEditLocal] = useState({});
   const [fuEdit, setFuEdit] = useState(null); // {key, detail, area, subs:{subKey:text}}
@@ -11567,7 +11746,13 @@ ${sections}
       photos,
       inspection: {},
     };
-    try { await saveOneInspection(rec); } catch {}
+    try { await saveOneInspection(rec); } catch (e) {
+      // v553: never "filed" when it was not — keep the form so nothing is lost, and say why
+      console.error("quick report save:", e);
+      setQpFlash(`⚠ Not filed — ${saveErrorText(e, rec)}. Your text and photos are still here; tap File again.`);
+      setTimeout(() => setQpFlash(""), 7000);
+      return;
+    }
     onAddRecord?.(rec); // surfaces the new follow-up immediately
     try { notifyCrewsForItems(rec.actionItems, rec.siteName, rec.siteNumber, rec.inspectorName); } catch {}
     setQpFlash(`✓ Problem filed for ${site}${qpUnit.trim() ? ` #${qpUnit.trim()}` : ""} — it's now a follow-up`);
@@ -11785,7 +11970,7 @@ ${sections}
   return (
     <div className="card" style={{ marginBottom: 24 }}>
       {lightboxSrc && ReactDOM.createPortal(
-        <div onClick={() => setLightboxSrc(null)} style={{ position: "fixed", inset: 0, zIndex: 10050, background: "rgba(0,0,0,.88)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+        <div onClick={() => setLightboxSrc(null)} style={{ position: "fixed", inset: 0, touchAction: "none", overscrollBehavior: "contain", zIndex: 10050, background: "rgba(0,0,0,.88)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
           <img src={lightboxSrc} alt="" onClick={e => e.stopPropagation()} style={{ maxWidth: "95vw", maxHeight: "90vh", borderRadius: 10, boxShadow: "0 10px 40px rgba(0,0,0,.6)" }} />
         </div>, document.body)}
       <div className="cardHeader fuCardHead">
@@ -11863,19 +12048,6 @@ ${sections}
                   style={{ position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)", background: "var(--surface-2)", border: "none", borderRadius: 999, width: 24, height: 24, cursor: "pointer", fontWeight: 800, color: "var(--ink-500)", lineHeight: 1 }}>×</button>
               )}
             </div>
-            {remindList.length > 0 && (
-              <div className="fuRemindBar">
-                <div className="fuRemindInfo">
-                  <b>🔔 {remindList.length} item{remindList.length !== 1 ? "s" : ""} picked</b>
-                  <span>{remindList.map(f => `${f.loc}${f.unit ? ` #${f.unit}` : ""} — ${f.cat}`).join(" · ")}</span>
-                </div>
-                <button type="button" className="fuRemindSend"
-                  onClick={() => { remindMany(remindList, "many"); setRemindPick({}); }}>
-                  {remindedKey === "many" ? "✓ Posted" : `Send one reminder (${remindList.length})`}
-                </button>
-                <button type="button" className="fuRemindClear" onClick={() => setRemindPick({})}>Clear</button>
-              </div>
-            )}
             <div style={{ margin: "8px 0 2px" }}>
               {!qpOpen ? (
                 <div className="fuActionsRow" style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
@@ -11969,7 +12141,8 @@ ${sections}
                   )}
                   {qpSaidErr && <div className="haccpProblemErr">⚠️ Say what is wrong and where — a few words is enough</div>}
                   {/* v458 — the chip block is optional and hidden until asked for */}
-                  {(qpSpecOpen || Object.values(qpDetails).some(Boolean)) ? (
+                  {/* v553: opens only when tapped — the text reader used to open it by itself half a second after typing, pushing 📷 and File down under the finger (what it understood shows in the strip above) */}
+                  {qpSpecOpen ? (
                     <SpecificsPicker cat={qpCat} units={equipUnitsAtStand(qpUnit, qpSite)} value={qpDetails} onChange={d => { setQpDetails(d); setQpSaidErr(false); }} lang="en" compact optional />
                   ) : (
                     <button type="button" className="specOptLink" onClick={() => setQpSpecOpen(true)}>＋ Add details (optional)</button>
@@ -12013,7 +12186,7 @@ ${sections}
                   </div>
                 </div>
               )}
-              {qpFlash && <div style={{ fontSize: "0.8rem", fontWeight: 700, color: "#16a34a", marginTop: 6 }}>{qpFlash}</div>}
+              {qpFlash && <div data-testid="qp-flash" style={{ fontSize: "0.8rem", fontWeight: 700, color: qpFlash.startsWith("⚠") ? "#dc2626" : "#16a34a", marginTop: 6 }}>{qpFlash}</div>}
             </div>
             {/* v511: one labelled toolbar — Status (counts) / Crew (tap to filter) / Filter / Group by */}
             <div className="fuTools" data-testid="fu-tools">
@@ -12128,13 +12301,31 @@ ${sections}
 <span className="fuToolsVenues">{fuGroupsShown.length} venue{fuGroupsShown.length !== 1 ? "s" : ""}</span>
               </div></div>
             </div>
-            {saveWarn && <div className="fuSaveWarn">{saveWarn}</div>}
-            {undoRes && (
-              <div className={"fuUndoStrip" + (undoRes.mode === "reopen" ? " fuUndoReopen" : "")}>
-                <span>{undoRes.mode === "reopen" ? "↩ Put back" : "✓ Resolved"} {new Date(undoRes.ts).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })} · {undoRes.label}</span>
-                <button type="button" onClick={undoResolve}>{undoRes.mode === "reopen" ? "✓ Resolve again" : "↩ Undo"}</button>
-              </div>
-            )}
+            {/* v553: Undo, "not saved yet" and the reminder basket are bottom toasts (a portal — .card's transform
+                traps position:fixed). In the page flow they appeared above the list and pushed it down under the finger. */}
+            {(saveWarn || undoRes || remindList.length > 0) && ReactDOM.createPortal(
+              <div className="fuToastStack" data-testid="fu-toasts">
+                {saveWarn && <div className="fuSaveWarn">{saveWarn}</div>}
+                {undoRes && (
+                  <div className={"fuUndoStrip" + (undoRes.mode === "reopen" ? " fuUndoReopen" : "")}>
+                    <span>{undoRes.mode === "reopen" ? "↩ Put back" : "✓ Resolved"} {new Date(undoRes.ts).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })} · {undoRes.label}</span>
+                    <button type="button" onClick={undoResolve}>{undoRes.mode === "reopen" ? "✓ Resolve again" : "↩ Undo"}</button>
+                  </div>
+                )}
+                {remindList.length > 0 && (
+                  <div className="fuRemindBar">
+                    <div className="fuRemindInfo">
+                      <b>🔔 {remindList.length} item{remindList.length !== 1 ? "s" : ""} picked</b>
+                      <span>{remindList.map(f => `${f.loc}${f.unit ? ` #${f.unit}` : ""} — ${f.cat}`).join(" · ")}</span>
+                    </div>
+                    <button type="button" className="fuRemindSend"
+                      onClick={() => { remindMany(remindList, "many"); setRemindPick({}); }}>
+                      {remindedKey === "many" ? "✓ Posted" : `Send one reminder (${remindList.length})`}
+                    </button>
+                    <button type="button" className="fuRemindClear" onClick={() => setRemindPick({})}>Clear</button>
+                  </div>
+                )}
+              </div>, document.body)}
             {showClean && (
               <div className="fuFixedPanel fuCleanPanel">
                 <div className="fuFixedHead">
@@ -12251,17 +12442,24 @@ ${sections}
               {(fuSearch.trim() || fuDatePick) && fuVisible.length === 0 && (
                 <div style={{ fontSize: "0.82rem", color: "var(--ink-400)", fontStyle: "italic", padding: "10px 4px" }}>{fuSearch.trim() ? `No follow-ups match “${fuSearch.trim()}”.` : `No follow-ups for ${fuDateLabel.toLowerCase()}.`}</div>
               )}
-              {(() => { const __fuAll = (fuGroupBy === "cat" ? fuCatGroupsShown
+              {(() => { const __fuNatural = (fuGroupBy === "cat" ? fuCatGroupsShown
                 : fuGroupBy === "type" ? fuTypeGroups.filter(g => (!fuTypePick || g.type === fuTypePick) && g.items.some(f => matchesFloorPick(f) && matchesDatePick(f)))
                 : fuGroupBy === "floor" ? fuFloorGroups.filter(g => (!fuFloorPick || g.floor === fuFloorPick) && g.items.some(f => matchesTypePick(f) && matchesDatePick(f)))
                 : fuGroupBy === "date" ? fuDateGroups.filter(g => g.items.some(f => matchesTypePick(f) && matchesFloorPick(f) && matchesDatePick(f)))
-                : fuGroupsShown); const __renderFuGroup = (g => {
-                const gKey = `${fuGroupBy}::${fuGroupBy === "cat" ? g.cat : fuGroupBy === "type" ? g.type : fuGroupBy === "floor" ? g.floor : fuGroupBy === "date" ? g.type : g.loc}`;
-                const isOpen = fuSearch.trim() ? true : (fuOpen[gKey] !== undefined ? fuOpen[gKey] : g.overdueCount > 0);
+                : fuGroupsShown);
+                const __gKeyOf = g => `${fuGroupBy}::${fuGroupBy === "cat" ? g.cat : fuGroupBy === "type" ? g.type : fuGroupBy === "floor" ? g.floor : fuGroupBy === "date" ? g.type : g.loc}`;
+                const __fz = fuFreezeRef.current, __sig = [fuGroupBy, fuSearch.trim(), fuTypePick, fuFloorPick, fuDatePick].join("|");
+                if (__fz.sig !== __sig || __fz.src !== history) { fuFreezeRef.current = { sig: __sig, src: history, rank: {}, open: {}, n: 0 }; }
+                const __f = fuFreezeRef.current;
+                for (const g of __fuNatural) { const k = __gKeyOf(g); if (__f.rank[k] === undefined) { __f.rank[k] = __f.n++; __f.open[k] = g.overdueCount > 0; } }
+                const __fuAll = fuGroupBy === "date" ? __fuNatural : [...__fuNatural].sort((a, b) => __f.rank[__gKeyOf(a)] - __f.rank[__gKeyOf(b)]);
+                const __renderFuGroup = (g => {
+                const gKey = __gKeyOf(g);
+                const isOpen = fuSearch.trim() ? true : (fuOpen[gKey] !== undefined ? fuOpen[gKey] : (__f.open[gKey] ?? g.overdueCount > 0));
                 const openItems = g.items.filter(f => !f.likelyResolved);
                 return (
                   <div key={gKey} className={`fuGroup ${g.overdueCount > 0 ? "fuGroupOverdue" : g.dueSoonCount > 0 ? "fuGroupWatching" : "fuGroupResolved"}`}>
-                    <div className="fuGroupHead" onClick={() => setFuOpen(m => ({ ...m, [gKey]: !isOpen }))}>
+                    <div className="fuGroupHead" data-anchor={"g:" + gKey} onClick={() => setFuOpen(m => ({ ...m, [gKey]: !isOpen }))}>
                       <span className="fuGroupChevron">{isOpen ? "▾" : "▸"}</span>
                       <div className="fuGroupName">
                         {fuGroupBy === "cat"
@@ -12294,13 +12492,13 @@ ${sections}
                     {isOpen && (
                       <div className="fuGroupBody">
                         {g.items.filter(f => (fuGroupBy !== "type" || matchesFloorPick(f)) && (fuGroupBy !== "floor" || matchesTypePick(f)) && (fuGroupBy !== "date" || (matchesTypePick(f) && matchesFloorPick(f))) && matchesDatePick(f)).map(f => (
-                          <div key={f.key} className={`fuItem ${f.overdue ? "fuOverdue" : f.likelyResolved ? "fuResolved" : "fuWatching"}`}>
+                          <div key={f.key} data-anchor={f.key} className={`fuItem ${f.overdue ? "fuOverdue" : f.likelyResolved ? "fuResolved" : "fuWatching"}`}>
                             {fuSelectMode && selBox(f)}
                             <div className="fuStatus">
                               {f.overdue ? "⏰" : f.likelyResolved ? "✅" : "👁"}
                             </div>
                             <div className="fuBody">
-                              <div className="fuTitle" style={{ cursor: "pointer" }} title="View reports for this issue" onClick={() => onIssueDrilldown?.(f.loc, f.baseCat || f.cat)}>
+                              <div className="fuTitle">
                                 {fuGroupBy === "loc"
                                   ? <>{f.merged ? "🧊 " : ""}{f.cat}</>
                                   : <><NT>{f.loc}{f.unit ? <span className="fuLoc"> · Unit #{f.unit}</span> : null}</NT>{(fuGroupBy === "type" || f.merged) ? <span className="fuLoc"> — {f.cat}</span> : null}</>}
@@ -12428,16 +12626,6 @@ ${sections}
                                     {commentsOf(f).length > 3 && <div style={{ fontSize: "0.66rem", color: "var(--ink-400)" }}>+{commentsOf(f).length - 3} earlier comment{commentsOf(f).length - 3 !== 1 ? "s" : ""}</div>}
                                   </div>
                                 )}
-                                {commentKey === f.key && (
-                                  <div className="fuNoteRow">
-                                    <input value={commentText} autoFocus placeholder="e.g. can't repair — missing gasket, ordered"
-                                      onChange={e => setCommentText(e.target.value)} maxLength={200}
-                                      onKeyDown={e => { if (e.key === "Enter") addComment(f); }} />
-                                    <button type="button" className="fuBtn fuBtnResolve" disabled={!commentText.trim()}
-                                      style={{ opacity: commentText.trim() ? 1 : 0.5 }} onClick={() => addComment(f)}>Post</button>
-                                    <button type="button" className="fuBtn" onClick={() => { setCommentKey(null); setCommentText(""); }}>✕</button>
-                                  </div>
-                                )}
                               </div>
                             </div>
                             {/* v473: one action bar at the bottom of the card — secondary on the left, ✓ Resolve big on the right */}
@@ -12452,6 +12640,8 @@ ${sections}
                                   onClick={() => { if (commentKey === f.key) { setCommentKey(null); setCommentText(""); } else { setCommentKey(f.key); setCommentText(""); } }}>
                                   💬 Comment
                                 </button>
+                                {/* v553: the reports for this issue — a button of its own (tapping the card title used to throw you out of Follow-ups) */}
+                                {onIssueDrilldown && <button type="button" className="fuBarBtn" data-testid="fu-reports" onClick={() => onIssueDrilldown(f.loc, f.baseCat || f.cat)}>📄 Reports</button>}
                                 <span className="fuPhotoWrap">
                                   <button type="button" className={"fuBarBtn" + (photoMenuKey === f.key ? " on" : "")} onClick={() => setPhotoMenuKey(photoMenuKey === f.key ? null : f.key)}>
                                     📷 Photo
@@ -12465,10 +12655,21 @@ ${sections}
                                   )}
                                 </span>
                               </div>
-                              <button type="button" className={"fuBtnPrimary" + (remindedKey === `res::${f.key}` ? " done" : "")} onClick={() => markResolved(f)}>
+                              <button type="button" className={"fuBtnPrimary" + (remindedKey === `res::${f.key}` ? " done" : "")} onClick={() => { if (Date.now() - lastResolveTapRef.current < 700) return; lastResolveTapRef.current = Date.now(); markResolved(f); }}>
                                 {remindedKey === `res::${f.key}` ? "✓ Cleared" : "✓ Resolve"}
                               </button>
                             </div>
+                            {/* v553: the comment box opens UNDER the bar (it used to open above the 💬 button and push it down under the finger) */}
+                            {commentKey === f.key && (
+                              <div className="fuNoteRow fuNoteRowBelow" onClick={e => e.stopPropagation()}>
+                                <input value={commentText} autoFocus placeholder="e.g. can't repair — missing gasket, ordered"
+                                  onChange={e => setCommentText(e.target.value)} maxLength={200}
+                                  onKeyDown={e => { if (e.key === "Enter") addComment(f); }} />
+                                <button type="button" className="fuBtn fuBtnResolve" disabled={!commentText.trim()}
+                                  style={{ opacity: commentText.trim() ? 1 : 0.5 }} onClick={() => addComment(f)}>Post</button>
+                                <button type="button" className="fuBtn" onClick={() => { setCommentKey(null); setCommentText(""); }}>✕</button>
+                              </div>
+                            )}
                           </div>
                         ))}
                       </div>
@@ -12769,6 +12970,9 @@ function ImportReviewModal({ fields: initialFields, imagePreview, saving, onSave
 function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, currentUser, notifItems, onNotifDismiss, onNotifClearAll, onMyTasks, venueSettings, saveVenueSettings, saveVenueSettingsMap, initialTab, initialAnalyticsTab, initialFocusId }) {
   // Returns true if the current user is allowed to edit the given record.
   // Allowed: the original author (matched by badgeHash), any admin, or global_admin.
+  // v553: a report the inspector is still writing (autosaved in the last 3 h) is not edited or resolved from
+  // History — their next autosave is the whole report and would wipe the change. Their own open report goes to the form.
+  const writingNow = rec => rec && rec.inProgress === true && !rec._pending && Date.now() - Date.parse(rec.savedAt || 0) < 3 * 3600e3;
   function canEditRec(rec) {
     if (!currentUser) return false;
     if (currentUser.role === "admin" || currentUser.role === "global_admin") return true;
@@ -12797,7 +13001,7 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
       const old = byId.get(r.id);
       byId.set(r.id, old && old._pinned ? { ...r, _pinned: true } : r);
     });
-    return [...byId.values()].sort((a, b) => (b.savedAt || "").localeCompare(a.savedAt || ""));
+    return [...byId.values()].filter(r => !r.discarded).sort((a, b) => (b.savedAt || "").localeCompare(a.savedAt || "")); // v553: a thrown-away report leaves the lists
   }
   const [historyNotifOpen, setHistoryNotifOpen] = useState(false);
   const [filterDate, setFilterDate] = useState("");
@@ -12838,7 +13042,7 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
     if (!history.some(r => r.id === initialFocusId)) return;
     focusDoneRef.current = initialFocusId;
     setHistoryTab("reports"); setExpandedId(initialFocusId);
-    setTimeout(() => { try { document.querySelector(`[data-rec="${CSS.escape(initialFocusId)}"]`)?.scrollIntoView({ behavior: "smooth", block: "start" }); } catch {} }, 250);
+    setTimeout(() => { try { skipScrollAnchor(1200); document.querySelector(`[data-rec="${CSS.escape(initialFocusId)}"]`)?.scrollIntoView({ behavior: "smooth", block: "start" }); } catch {} }, 250);
   }, [initialFocusId, history]); // eslint-disable-line react-hooks/exhaustive-deps
   const fuTabOverdue = useMemo(() => { try { return computeFollowups(history, venueSettings).followups.filter(f => f.overdue && !f.likelyResolved).length; } catch { return 0; } }, [history, venueSettings?.followupCleared, venueSettings?.followupStatus, venueSettings?.recheckDays]);
   const [selectMode, setSelectMode] = useState(false);
@@ -12872,10 +13076,15 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
   const sentinelRef = useRef(null);
 
   useEffect(() => {
-    setHistory([]);
+    // v553: a date range narrows what is already on screen at once and the fetched page merges in — it used to empty
+    // the list, so the tabs and the whole Follow-ups panel vanished and came back reset
+    const ranged = !!(filterDateFrom || filterDateTo);
+    const inRange = r => (!filterDateFrom || !r.inspectionDate || r.inspectionDate >= filterDateFrom) && (!filterDateTo || !r.inspectionDate || r.inspectionDate <= filterDateTo);
+    const keep = ranged ? (historyRef.current || []).filter(inRange) : [];
+    setHistory(keep);
     setHistoryLastDoc(null);
     setHistoryHasMore(false);
-    setHistoryLoaded(false);
+    if (!keep.length) setHistoryLoaded(false);
     // INSTANT RENDER: unfiltered view shows the locally cached copy right away
     // while the fresh page downloads behind it.
     if (!filterDateFrom && !filterDateTo) {
@@ -13048,7 +13257,7 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
         ? collection(db, "venues", managedVenueId, "inspections")
         : legacyCol("inspections");
       const snap = await getDocs(query(col, orderBy("savedAt", "desc"), limit(2000)));
-      const all = snap.docs.map(d => d.data());
+      const all = snap.docs.map(d => d.data()).filter(r => !r.discarded);
       const q = term.toLowerCase();
       const matches = all.filter(r => {
         const site = `${r.siteName || r.location || ""} ${r.siteNumber || ""}`.toLowerCase();
@@ -13178,6 +13387,7 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
 
   const filtered = useMemo(() => {
     return history.filter(rec => {
+      if (rec.discarded) return false; // v553
       // Exact date
       if (filterDate && rec.inspectionDate !== filterDate) return false;
       // Date range (inclusive)
@@ -13218,6 +13428,39 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
       return true;
     });
   }, [history, filterDate, filterDateFrom, filterDateTo, filterType, filterFloor, filterLocType, filterSite, filterIssue]);
+  // v553: the analytics tabs read ONE list — every report (the deep load) plus anything newer this page has —
+  // and a filter narrows it. Before, with no filter they read the History pages as they arrived (first page,
+  // then the prefetch, then refreshes), so Follow-ups kept changing under the reader (and never saw every stand).
+  const anyHistoryFilter = !!(filterDate || filterDateFrom || filterDateTo || filterType || filterFloor || filterLocType || filterSite || filterIssue);
+  const liveAnalyticsSrc = useMemo(() => (anyHistoryFilter ? filtered : (analyticsHistory.length ? mergeHistory(analyticsHistory, history) : history.filter(r => !r.discarded))),
+    [anyHistoryFilter, filtered, analyticsHistory, history]); // eslint-disable-line react-hooks/exhaustive-deps
+  // what a list holds (ids + save times) — a refresh that brings nothing new must not raise the pill
+  const listSig = l => hashSig((l || []).map(r => `${r.id}:${r.savedAt || ""}:${r.inProgress ? 1 : 0}`).join(","));
+  const ownAddRef = useRef(false); // v553: a problem filed from Follow-ups shows at once (never behind the pill)
+  // The list on screen only changes under the reader when they are near the top (or ask for it): new data that
+  // lands while they read further down waits behind a small "↻ Update the list" pill. (Status changes from the
+  // crews still show in place — they come through venueSettings, and the scroll anchor holds the card.)
+  const [analyticsSrc, setAnalyticsSrc] = useState(liveAnalyticsSrc);
+  const [analyticsWaiting, setAnalyticsWaiting] = useState(false);
+  const liveAnalyticsRef = useRef(liveAnalyticsSrc); liveAnalyticsRef.current = liveAnalyticsSrc;
+  useEffect(() => {
+    if (liveAnalyticsSrc === analyticsSrc) return;
+    const own = ownAddRef.current; ownAddRef.current = false;
+    const reading = historyTab === "analytics" && window.scrollY > 160 && analyticsSrc.length > 0 && !anyHistoryFilter;
+    if (reading && !own && listSig(liveAnalyticsSrc) !== listSig(analyticsSrc)) setAnalyticsWaiting(true);
+    else { setAnalyticsSrc(liveAnalyticsSrc); setAnalyticsWaiting(false); }
+  }, [liveAnalyticsSrc]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (historyTab !== "analytics" || anyHistoryFilter) { setAnalyticsSrc(liveAnalyticsRef.current); setAnalyticsWaiting(false); } }, [historyTab, anyHistoryFilter]);
+  useEffect(() => {
+    if (!analyticsWaiting) return;
+    const on = () => { if (window.scrollY < 120) { setAnalyticsSrc(liveAnalyticsRef.current); setAnalyticsWaiting(false); } };
+    window.addEventListener("scroll", on, { passive: true });
+    return () => window.removeEventListener("scroll", on);
+  }, [analyticsWaiting]);
+  const applyAnalyticsNow = () => { setAnalyticsSrc(liveAnalyticsRef.current); setAnalyticsWaiting(false); }; // v553: the reader keeps their place (the anchor holds the card on screen)
+  useScrollAnchor(); // the History list and the analytics tabs keep the reader's place on iPhone / iPad
+  // harness: feed the page a deeper list the way the cloud does (local mode has no cloud)
+  try { window.__sdxHistoryInject = list => setHistory(prev => mergeHistory(prev, list || [])); window.__sdxAnalyticsInject = list => setAnalyticsHistory(list || []); } catch {}
 
   // Reset visible window when filters change
   useEffect(() => { setVisibleCount(50); }, [filterDate, filterDateFrom, filterDateTo, filterType, filterFloor, filterLocType, filterSite, filterIssue]);
@@ -13253,8 +13496,21 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
     return () => obs.disconnect();
   }, [visibleCount, filtered.length, historyHasMore, historyLoadingMore]);
 
+  // v553: a drill-down from Follow-ups (📄 Reports, a stand tag…) remembers where the reader was, and the
+  // Reports list shows "← Back to Follow-ups" to return there
+  const [fuReturn, setFuReturn] = useState(null); // { sub, y, site, issue }
+  const noteFuReturn = (site, issue) => { if (historyTab === "analytics") setFuReturn({ sub: analyticsTab, y: window.scrollY, site, issue }); };
+  function backToFollowups() {
+    const r = fuReturn; setFuReturn(null);
+    if (!r) return;
+    if (filterSite === r.site) setFilterSite("");
+    if (r.issue && filterIssue === r.issue) setFilterIssue("");
+    setHistoryTab("analytics"); setAnalyticsTab(r.sub || "recurring");
+    setTimeout(() => { try { window.scrollTo(0, r.y || 0); } catch {} }, 350);
+  }
   // Function to jump to a specific location's reports
   function filterByLocation(locLabel) {
+    noteFuReturn(locLabel, "");
     setFilterSite(locLabel);
     setFilterDate("");
     setFilterType("");
@@ -13263,12 +13519,13 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
     setHistoryTab("reports");
     setTimeout(() => {
       const el = document.getElementById("history-results");
-      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+      if (el) { skipScrollAnchor(1200); el.scrollIntoView({ behavior: "smooth", block: "start" }); }
     }, 100);
   }
 
   // Navigate to reports filtered by both location AND issue category
   function filterByLocationAndIssue(locLabel, issueCategory) {
+    noteFuReturn(locLabel, issueCategory);
     setFilterSite(locLabel);
     setFilterIssue(issueCategory);
     setFilterDate("");
@@ -13277,7 +13534,7 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
     setHistoryTab("reports");
     setTimeout(() => {
       const el = document.getElementById("history-results");
-      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+      if (el) { skipScrollAnchor(1200); el.scrollIntoView({ behavior: "smooth", block: "start" }); }
     }, 100);
   }
 
@@ -13287,7 +13544,7 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
     setAnalyticsTab("recurring");
     setTimeout(() => {
       const el = document.getElementById("history-results");
-      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+      if (el) { skipScrollAnchor(1200); el.scrollIntoView({ behavior: "smooth", block: "start" }); }
     }, 100);
   }
 
@@ -14563,7 +14820,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
       </header>
       <div className="topBarSpacer" />
       {lightboxSrc && ReactDOM.createPortal(
-        <div onClick={() => setLightboxSrc(null)} style={{ position: "fixed", inset: 0, zIndex: 10050, background: "rgba(0,0,0,.88)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+        <div onClick={() => setLightboxSrc(null)} style={{ position: "fixed", inset: 0, touchAction: "none", overscrollBehavior: "contain", zIndex: 10050, background: "rgba(0,0,0,.88)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
           <img src={lightboxSrc} alt="" onClick={e => e.stopPropagation()} style={{ maxWidth: "95vw", maxHeight: "90vh", borderRadius: 10, boxShadow: "0 10px 40px rgba(0,0,0,.6)" }} />
         </div>, document.body)}
 
@@ -14589,7 +14846,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
       {/* Corrective action — resolve issue modal */}
       {resolveModal && (
         <div
-          style={{ position: "fixed", inset: 0, zIndex: 10000, background: "rgba(0,0,0,0.55)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}
+          style={{ position: "fixed", inset: 0, zIndex: 10000, overscrollBehavior: "contain", touchAction: "manipulation", background: "rgba(0,0,0,0.55)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}
           onClick={() => { if (!resolveSaving) { setResolveModal(null); setResolveNote(""); } }}
         >
           <div
@@ -14607,7 +14864,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                 value={resolveNote}
                 onChange={e => setResolveNote(e.target.value)}
                 style={{ resize: "vertical", width: "100%", boxSizing: "border-box" }}
-                autoFocus
+                autoFocus={!window.matchMedia?.("(pointer: coarse)").matches} /* v553: no keyboard pop on phones (it panned the list behind) */
               />
             </label>
             <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
@@ -14859,13 +15116,15 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
               ))}
             </div>
             {/* v444: analytics reads the deep list, not the loaded page */}
-            {analyticsTab === "temp" && <><HaccpTodayTracker venueSettings={venueSettings} saveVenueSettingsMap={saveVenueSettingsMap} history={history} currentUser={currentUser} />{venueSettings?.equipTemps?.verifiedAt ? <>{(currentUser?.role === "admin" || currentUser?.role === "global_admin") && <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 10 }}><span style={{ fontSize: "0.74rem", fontWeight: 700, color: "var(--ink-500)" }}>❄ Equipment temps on · walk-through verified {new Date(venueSettings.equipTemps.verifiedAt).toLocaleDateString()}{venueSettings.equipTemps.verifiedBy ? ` by ${venueSettings.equipTemps.verifiedBy}` : ""}</span><button type="button" className="etChip" data-testid="equip-temps-pause" onClick={() => saveVenueSettingsMap?.("equipTemps", { verifiedAt: 0, verifiedBy: "" })}>Pause equipment temps</button></div>}<EquipTempBoard history={history} onOpenStand={st => window.dispatchEvent(new CustomEvent("sdx-open-stand-equipment", { detail: st }))} /></> : <div className="card equipTempsPaused" style={{ marginBottom: 24 }}><div className="cardBody" style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}><span style={{ fontSize: "0.82rem", fontWeight: 700, color: "var(--ink-700)" }}>❄ Equipment temps are paused for this venue — they turn on once the equipment walk-through is verified, so every cooler and freezer tracked is one this venue actually has.</span>{(currentUser?.role === "admin" || currentUser?.role === "global_admin") && <button type="button" className="etChip" data-testid="equip-temps-verify-on" onClick={() => saveVenueSettingsMap?.("equipTemps", { verifiedAt: Date.now(), verifiedBy: currentUser?.name || "" })}>Mark walk-through verified — turn on</button>}</div></div>}<TempTrendChart history={filtered.length > 0 ? filtered : (analyticsHistory.length ? analyticsHistory : history)} /></>}
-            {analyticsTab === "insights" && <AIHealthMonitor history={filtered.length > 0 ? filtered : (analyticsHistory.length ? analyticsHistory : history)} currentUser={currentUser} />}
-            {analyticsTab === "predictive" && <PredictiveInsightsPanel history={filtered.length > 0 ? filtered : (analyticsHistory.length ? analyticsHistory : history)} venueSettings={venueSettings} />}
-            {analyticsTab === "recurring" && <RecurringIssuesPanel history={filtered.length > 0 ? filtered : (analyticsHistory.length ? analyticsHistory : history)} onLocationClick={filterByLocation} onTagClick={goToRecurringAnalytics} onIssueDrilldown={filterByLocationAndIssue} venueSettings={venueSettings} saveVenueSettings={saveVenueSettings} saveVenueSettingsMap={saveVenueSettingsMap} currentUser={currentUser} onAddRecord={rec => setHistory(prev => [rec, ...prev])} />}
-            {analyticsTab === "trends" && canSeeTrends && <TrendsPanel history={filtered.length > 0 ? filtered : (analyticsHistory.length ? analyticsHistory : history)} />}
+            {analyticsTab === "temp" && <><HaccpTodayTracker venueSettings={venueSettings} saveVenueSettingsMap={saveVenueSettingsMap} history={analyticsSrc} currentUser={currentUser} />{venueSettings?.equipTemps?.verifiedAt ? <>{(currentUser?.role === "admin" || currentUser?.role === "global_admin") && <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 10 }}><span style={{ fontSize: "0.74rem", fontWeight: 700, color: "var(--ink-500)" }}>❄ Equipment temps on · walk-through verified {new Date(venueSettings.equipTemps.verifiedAt).toLocaleDateString()}{venueSettings.equipTemps.verifiedBy ? ` by ${venueSettings.equipTemps.verifiedBy}` : ""}</span><button type="button" className="etChip" data-testid="equip-temps-pause" onClick={() => saveVenueSettingsMap?.("equipTemps", { verifiedAt: 0, verifiedBy: "" })}>Pause equipment temps</button></div>}<EquipTempBoard history={analyticsSrc} onOpenStand={st => window.dispatchEvent(new CustomEvent("sdx-open-stand-equipment", { detail: st }))} /></> : <div className="card equipTempsPaused" style={{ marginBottom: 24 }}><div className="cardBody" style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}><span style={{ fontSize: "0.82rem", fontWeight: 700, color: "var(--ink-700)" }}>❄ Equipment temps are paused for this venue — they turn on once the equipment walk-through is verified, so every cooler and freezer tracked is one this venue actually has.</span>{(currentUser?.role === "admin" || currentUser?.role === "global_admin") && <button type="button" className="etChip" data-testid="equip-temps-verify-on" onClick={() => saveVenueSettingsMap?.("equipTemps", { verifiedAt: Date.now(), verifiedBy: currentUser?.name || "" })}>Mark walk-through verified — turn on</button>}</div></div>}<TempTrendChart history={analyticsSrc} /></>}
+            {analyticsTab === "insights" && <AIHealthMonitor history={analyticsSrc} currentUser={currentUser} />}
+            {analyticsTab === "predictive" && <PredictiveInsightsPanel history={analyticsSrc} venueSettings={venueSettings} />}
+            {analyticsWaiting && ReactDOM.createPortal(
+              <button type="button" className="fuUpdatePill" data-testid="fu-update-pill" onClick={applyAnalyticsNow}>↻ New reports came in — tap to update the list</button>, document.body)}
+            {analyticsTab === "recurring" && <RecurringIssuesPanel history={analyticsSrc} onLocationClick={filterByLocation} onTagClick={goToRecurringAnalytics} onIssueDrilldown={filterByLocationAndIssue} venueSettings={venueSettings} saveVenueSettings={saveVenueSettings} saveVenueSettingsMap={saveVenueSettingsMap} currentUser={currentUser} onAddRecord={rec => { ownAddRef.current = true; setHistory(prev => [rec, ...prev]); }} />}
+            {analyticsTab === "trends" && canSeeTrends && <TrendsPanel history={analyticsSrc} />}
             {analyticsTab === "timeline" && (() => {
-              const src = filtered.length > 0 ? filtered : (analyticsHistory.length ? analyticsHistory : history);
+              const src = analyticsSrc;
               // Build merged event list: one entry per inspection + one per HACCP submission linked to it
               const events = [];
               src.forEach(rec => {
@@ -15029,7 +15288,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
               );
             })()}
             {analyticsTab === "locations" && (() => {
-              const src = filtered.length > 0 ? filtered : (analyticsHistory.length ? analyticsHistory : history);
+              const src = analyticsSrc;
               // Group by siteName
               const byLocation = {};
               src.forEach(rec => {
@@ -15151,6 +15410,9 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
               </button>
             )}
           </div>
+          {fuReturn && historyTab === "reports" && (
+            <button type="button" className="fuReturnBar" data-testid="fu-return" onClick={backToFollowups}>← Back to {fuReturn.sub === "recurring" ? "Follow-ups" : "Analytics"}</button>
+          )}
           <div
             className="historyList"
             id="history-results"
@@ -15298,7 +15560,10 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                           </span>
                         );
                       })()}
-                      {onEdit && canEditRec(rec) && (
+                      {!rec._pending && rec.inProgress === true && (
+                        <span className="inProgressPill" data-testid="in-progress-pill" title={writingNow(rec) && rec.id !== _openReportId ? "Still being written — ✏️ Edit and ✓ Resolve open once the inspector finishes it" : "Saved as the inspector walks — not finished yet"}>✏️ {Date.now() - Date.parse(rec.savedAt || 0) < 8 * 3600e3 ? "In progress" : "Not finished"}</span>
+                      )}
+                      {onEdit && canEditRec(rec) && (!writingNow(rec) || rec.id === _openReportId) && (
                         <button
                           className="btn btnGhost btnSmall"
                           type="button"
@@ -15411,6 +15676,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                       </div>
 
                       {rec._pending && <div className="pendingUploadChip" data-testid="pending-upload">⏳ Waiting to upload — saved on this phone, it goes to the cloud when the connection is back</div>}
+                      {!rec._pending && rec.inProgress === true && <div className="inProgressChip" data-testid="in-progress">✏️ {Date.now() - Date.parse(rec.savedAt || 0) < 8 * 3600e3 ? "In progress — the inspector is still on this report" : "Not finished — saved as it was left"}</div>}
                       {/* ── v466 SUPERVISOR LOG: filed from the stand QR, no inspector report needed ── */}
                       {rec.supervisorLog && (
                         <div className="supLogBadge">
@@ -15512,7 +15778,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                                           )}
                                         </div>
                                       </div>
-                                      {canEditRec(rec) && (
+                                      {canEditRec(rec) && !writingNow(rec) && (
                                         <button
                                           type="button"
                                           className="btn btnGhost btnSmall"
@@ -15967,7 +16233,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                               onClick={() => { setDlPickerId(rec.id); setDlScope(null); import("exceljs").catch(() => {}); }}>
                               ⬇️ Download Report
                             </button>
-                            {onEdit && canEditRec(rec) && (
+                            {onEdit && canEditRec(rec) && (!writingNow(rec) || rec.id === _openReportId) && (
                               <button className="btn btnGhost" type="button"
                                 style={{ color: "#2563EB", borderColor: "rgba(37,99,235,.3)", padding: "0.6rem 1rem", flex: "1 1 auto", justifyContent: "center" }}
                                 onClick={() => onEdit(rec)}>✏️ Edit</button>
@@ -17271,12 +17537,15 @@ function FoodSafetyRef({ lang = "en", portal = false, defaultOpen = false, heade
   const [activeTab, setActiveTab] = React.useState(0);
   const sectionRef = React.useRef(null);
 
+  // v553: scroll only when the PERSON opened it, and only if its top is off screen — the portal's "Submitted!"
+  // screen (open by default) used to glide away to the guide, and opening it in the form moved the form.
+  const userOpenedRef = React.useRef(false);
   React.useEffect(() => {
-    if (open && sectionRef.current) {
-      const rect = sectionRef.current.getBoundingClientRect();
-      const scrollTop = window.scrollY + rect.top - headerOffset;
-      window.scrollTo({ top: scrollTop, behavior: "smooth" });
-    }
+    if (!open || !userOpenedRef.current || !sectionRef.current) return;
+    userOpenedRef.current = false;
+    const rect = sectionRef.current.getBoundingClientRect();
+    if (rect.top >= headerOffset - 4 && rect.top < window.innerHeight * 0.55) return;
+    window.scrollTo({ top: window.scrollY + rect.top - headerOffset, behavior: "smooth" });
   }, [open]);
 
   const tabs = [
@@ -17619,7 +17888,7 @@ function FoodSafetyRef({ lang = "en", portal = false, defaultOpen = false, heade
       <button
         className="foodSafetyRefToggle"
         type="button"
-        onClick={() => setOpen(o => !o)}
+        onClick={() => setOpen(o => { if (!o) userOpenedRef.current = true; return !o; })}
         aria-expanded={open}
       >
         <div className="foodSafetyRefToggleMeta">
@@ -19042,6 +19311,7 @@ function StandsTabs({ active }) {
 }
 /* ── Print Equipment Labels Page ──────────────────────────── */
 function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
+  useScrollAnchor(); // v553: the tapped button stays where it is when groups open / close or the list refreshes
   const [loading, setLoading] = useState(true);
   const [equipItems, setEquipItems] = useState([]); // { uid, assetTag, label, venueName, ... }
   const [qrDataUrls, setQrDataUrls] = useState({}); // { uid: dataUrl }
@@ -19325,7 +19595,7 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
     setWalkFlash(`🗑 ${cleanName(it.label) || "Unit"} · ${T || it.assetTag || ""} removed from this stand.`); setTimeout(() => setWalkFlash(""), 6000);
   }
   // v518: "Not at any stand" for a whole review group — one write, one undo
-  const [reviewOpen, setReviewOpen] = useState("");
+  const [reviewOpen, setReviewOpen] = useState({}); // v553: each "Not sure" group opens on its own (opening one used to fold the one above)
   function hideUnitsGroup(its) {
     const hk = {}; const confirmed = {};
     its.forEach(i => { Object.assign(hk, hiddenKeysFor(i.uid, tagOf(i))); if (tagOf(i)) confirmed[tagOf(i)] = deleteField(); });
@@ -19438,7 +19708,9 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
     setAddAt(null);
     openFill(item); // brand + location right away, then "Label stuck"
   }
+  const listSpotRef = useRef(null); // v553: where the stand list was (scroll + search) when a stand was opened
   function focusOnStand(st) {
+    if (!standFocus) listSpotRef.current = { y: window.scrollY, q: labelSearch };
     const unitN = normUnit(st?.unit);
     const siteU = (st?.site || st?.venueName || "").trim().toUpperCase();
     const sid = (st?.id && standById(st.id) ? st.id : "") || (st?.key && standById(st.key) ? st.key : "") || standForStrict(st?.unit, siteU)?.id || "";
@@ -19453,7 +19725,12 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
       : `📍 ${site || "Stand"}${unitN ? ` #${fs.unit}` : ""} has no equipment QR yet — add its coolers / freezers.`);
     setTimeout(() => setWalkFlash(""), 6000);
     if (!known.length && sid) setAddAt({ venueName: site, unit: fs.unit, floor: fs.floor, locType: fs.locType, standId: sid });
-    try { window.scrollTo({ top: 0, behavior: "smooth" }); } catch {}
+    skipScrollAnchor(); try { window.scrollTo(0, 0); } catch {}
+  }
+  function backToAllStands() {
+    const spot = listSpotRef.current; listSpotRef.current = null;
+    setStandFocus(null);
+    if (spot) { setLabelSearch(spot.q || ""); skipScrollAnchor(1200); requestAnimationFrame(() => requestAnimationFrame(() => { try { window.scrollTo(0, spot.y); } catch {} })); }
   }
   function walkScanCode(raw) {
     setWalkScanOpen(false);
@@ -20236,14 +20513,14 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
                     ) : null; })()}
                   </>); })()}
                 </div>
-                <button type="button" className="walkMini" onClick={() => { setStandFocus(null); onClearFocus && onClearFocus(); }}>✕ All stands</button>
+                <button type="button" className="walkMini" onClick={() => { backToAllStands(); onClearFocus && onClearFocus(); }}>✕ All stands</button>
               </div>
               {standEdit && (
                 <div className="standEditForm">
                   <label className="walkLbl">Unit #</label>
                   <input className="input" value={standEdit.unit} onChange={e => setStandEdit(f => ({ ...f, unit: e.target.value }))} placeholder="e.g. 314, 319A" />
                   <label className="walkLbl">Stand name</label>
-                  <input className="input" value={standEdit.site} onChange={e => setStandEdit(f => ({ ...f, site: e.target.value }))} placeholder="Stand name" autoFocus />
+                  <input className="input" value={standEdit.site} onChange={e => setStandEdit(f => ({ ...f, site: e.target.value }))} placeholder="Stand name" />
                   <label className="walkLbl">Stand type</label>
                   <div className="walkChips">{LOCATION_TYPES.map(t => <button key={t} type="button" className={"walkChip" + (standEdit.locType === t ? " on" : "")} onClick={() => setStandEdit(f => ({ ...f, locType: t }))}>{t}</button>)}</div>
                   <label className="walkLbl">License #</label>
@@ -20584,7 +20861,7 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
                           <span style={{ fontWeight: 700 }}>{st.venueName || "—"}{st.unit ? ` · #${st.unit}` : ""}</span>
                           <span style={{ color: "var(--ink-500)", fontSize: "0.74rem" }}>{[st.floor, st.locType, st.last ? `last report ${st.last}` : ""].filter(Boolean).join(" · ")}</span>
                           <button type="button" className="lblFloorChip" style={{ marginLeft: "auto" }}
-                            onClick={() => { setAddForm(f => ({ ...f, venueName: st.venueName || "", unit: st.unit || "", floor: st.floor || "", label: "", assetTag: "" })); setShowAdd(true); window.scrollTo({ top: 0, behavior: "smooth" }); }}>
+                            onClick={() => { setAddForm(f => ({ ...f, venueName: st.venueName || "", unit: st.unit || "", floor: st.floor || "", label: "", assetTag: "" })); setShowAdd(true); }}>
                             ＋ Add cooler / freezer
                           </button>
                         </div>
@@ -20594,12 +20871,12 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
                   {(() => { const orphans = equipItems.filter(isUnassigned); if (!orphans.length) return null; const groups = {}; for (const it of orphans) { const k = `${normUnit(it.unit)}|${(it.venueName || "—").trim().toUpperCase()}`; (groups[k] = groups[k] || []).push(it); } return (
                     <div className="unassignedWrap eqReviewWrap" id="eq-review" data-testid="eq-review">
                       <div className="lblFloorHead"><span>❓ Not sure which stand</span><span className="lblFloorCount">{orphans.length} unit{orphans.length !== 1 ? "s" : ""} — kept off every stand until you pick one. One tap moves the whole group.</span></div>
-                      {Object.entries(groups).sort((x, y) => y[1].length - x[1].length).map(([gk, its]) => { const it0 = its[0]; const p = placeEquip(it0); const name = (it0.venueName || "—").trim().toUpperCase(); const open = reviewOpen === gk; return (
+                      {Object.entries(groups).sort((x, y) => y[1].length - x[1].length).map(([gk, its]) => { const it0 = its[0]; const p = placeEquip(it0); const name = (it0.venueName || "—").trim().toUpperCase(); const open = !!reviewOpen[gk]; return (
                         <div key={gk} className="walkStand unassignedStand eqReviewGroup" data-testid="eq-review-group" data-unit={normUnit(it0.unit)} data-name={name}>
                           <div className="walkStandHead">
                             <span className="notranslate" translate="no">❓ {name}{it0.unit ? ` · #${it0.unit}` : ""}</span>
                             <span style={{ fontWeight: 500, color: "var(--ink-500)", fontSize: "0.76rem" }}>{its.length} unit{its.length !== 1 ? "s" : ""}</span>
-                            <button type="button" className="walkMini" onClick={() => setReviewOpen(open ? "" : gk)}>{open ? "▾ hide" : "▸ see units"}</button>
+                            <button type="button" className="walkMini" onClick={() => setReviewOpen(m => ({ ...m, [gk]: !m[gk] }))}>{open ? "▾ hide" : "▸ see units"}</button>
                           </div>
                           <div className="eqReviewWhy" data-testid="eq-review-why">{eqWhyText(p, it0)}</div>
                           <div className="eqReviewActs">
@@ -23561,7 +23838,7 @@ function PhotoStrip({ photos, onRemove, onTag }) {
   return (
     <>
     {lightboxSrc && ReactDOM.createPortal(
-      <div onClick={() => setLightboxSrc(null)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.9)",zIndex:999999,display:"flex",alignItems:"center",justifyContent:"center",cursor:"zoom-out"}}>
+      <div onClick={() => setLightboxSrc(null)} style={{position:"fixed",inset:0,touchAction:"none",overscrollBehavior:"contain",background:"rgba(0,0,0,0.9)",zIndex:999999,display:"flex",alignItems:"center",justifyContent:"center",cursor:"zoom-out"}}>
         <img src={lightboxSrc} alt="Full size photo" onClick={e => e.stopPropagation()} style={{maxWidth:"95vw",maxHeight:"90vh",objectFit:"contain",borderRadius:8,boxShadow:"0 4px 32px rgba(0,0,0,0.5)"}} />
         <button onClick={() => setLightboxSrc(null)} style={{position:"absolute",top:"max(16px, env(safe-area-inset-top))",right:16,background:"rgba(255,255,255,0.15)",border:"none",color:"#fff",fontSize:28,width:44,height:44,borderRadius:"50%",cursor:"pointer",lineHeight:1}}>×</button>
       </div>,
@@ -23862,6 +24139,9 @@ function nodeWithRows(path, node) {
   return t ? { ...base, checklist: t } : base;
 }
 const GuideSection = React.memo(function GuideSection({ title, items, inspection, setInspection, allowCustom, sectionKey, coldEquipmentMap, maintenanceItems, emptyHint, inspectionId, onError, siteName, siteNumber, siteFloor, siteLocType, onOpenPrintLabels, defaultOpen = false }) {
+  useScrollAnchor(); // v553: adding an item from a chip, a row / status tap, opening an item: the tapped control stays put
+  const seenOpenRef = useRef({}); // v553: an item that showed open stays open (it folded shut under the finger when its last answer was cleared)
+  const seenForRef = useRef(inspectionId); if (seenForRef.current !== inspectionId) { seenForRef.current = inspectionId; seenOpenRef.current = {}; } // a new report starts closed
   const [, setStandsTick] = useState(0); // v518: the stand's own coolers show once the stand list is in
   useEffect(() => { if (sectionKey !== "equipment") return; const on = () => setStandsTick(t => t + 1); window.addEventListener("sdx-stands-loaded", on); return () => window.removeEventListener("sdx-stands-loaded", on); }, [sectionKey]);
 
@@ -23897,7 +24177,8 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
         const inp = el?.querySelector("input.tempInput") || el?.querySelector("input");
         if (inp) {
           if (!scrolled) { el.scrollIntoView({ behavior: "smooth", block: "center" }); scrolled = true; }
-          if (document.activeElement !== inp) inp.focus({ preventScroll: true });
+          if (document.activeElement === inp) { tries = 99; } // v553: it has the focus — stop claiming it (taps on other fields bounced back for 2.4 s)
+          else inp.focus({ preventScroll: true });
         }
       } catch {}
       if (tries < 12) setTimeout(attempt, 200);
@@ -23957,6 +24238,7 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
     function onOpen(e) {
       const k = e.detail?.key;
       if (!k) return;
+      if (sectionKey && String(k).includes(".") && !String(k).startsWith(sectionKey + ".")) return; // v553: not every section (collapsed ones above the target opened too)
       setExpandedDetails(p => (p[k] === true ? p : { ...p, [k]: true }));
       setOpen(true);
     }
@@ -24073,7 +24355,8 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                 !!(current.checklist && current.checklist.some(c => c.value === "NO")) ||
                 !!(current.photos && current.photos.length > 0) ||
                 !!(current.tempF);
-              const isItemOpen = expandedDetails[key] !== undefined ? expandedDetails[key] : isFilled;
+              const isItemOpen = expandedDetails[key] !== undefined ? expandedDetails[key] : (isFilled || !!seenOpenRef.current[key]);
+              if (isItemOpen) seenOpenRef.current[key] = true;
               // v520: an item answered with only ✓ is done too — it used to keep saying "Tap to fill in"
               const rcA = rowCounts(current);
               const isAnswered = isFilled || (rcA.total > 0 && rcA.answered >= rcA.total) || (!(current.checklist || []).length && !!current.checkedAt);
@@ -24283,7 +24566,7 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                               placeholder={lastByTag[String(current.assetTag || "").toUpperCase()] ? `last ${lastByTag[String(current.assetTag || "").toUpperCase()]}` : (coldInfo.type === "cooler" ? "38" : "10")} />
                             <span className="tempUnit">{"\u00B0F"}</span>
                           </div>
-                          {coldInfo.type === "freezer" && <button type="button" className="tempMinusBtn" aria-label="minus" data-testid="temp-minus" onClick={() => { const v0 = String(tempVal ?? ""); setInspection((prev) => setAtPath(prev, it.path, { ...current, tempF: v0.startsWith("-") ? v0.slice(1) : "-" + v0 })); }}>−</button>}
+                          {coldInfo.type === "freezer" && <button type="button" className="tempMinusBtn" aria-label="minus" data-testid="temp-minus" onMouseDown={e => e.preventDefault()} onClick={() => { const v0 = String(tempVal ?? ""); setInspection((prev) => setAtPath(prev, it.path, { ...current, tempF: v0.startsWith("-") ? v0.slice(1) : "-" + v0 })); }}>−</button>}
                           {(() => {
                             const warnMax = TEMP_WARN_MAX[coldInfo.type] ?? (coldInfo.type === "cooler" ? 45 : 25);
                             const tempDigits = String(tempVal).replace(/\D/g, "");
@@ -24512,7 +24795,7 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                                                       border: active ? "1.5px solid #b45309" : "1.5px solid #fed7aa",
                                                       background: active ? "var(--tx-amber)" : "var(--tint-amber-1)",
                                                       color: active ? "#fff" : "var(--tx-amber)",
-                                                      cursor: "pointer", fontWeight: active ? 700 : 400, transition: "all 0.12s" }}
+                                                      cursor: "pointer", fontWeight: 600, transition: "background 0.12s, border-color 0.12s, color 0.12s" }}
                                                     onClick={() => makeSetCiLocation(idx, active ? "" : loc)}>
                                                     {loc}
                                                   </button>
@@ -24616,7 +24899,7 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                               type="button"
                               onClick={() => setInspection((prev) => setAtPath(prev, it.path, { ...current, status: opt.value, checkedAt: Date.now() }))}
                               style={{
-                                fontSize: "0.74rem", fontWeight: active ? 700 : 500,
+                                fontSize: "0.74rem", fontWeight: 600,
                                 padding: "4px 10px", borderRadius: 20, cursor: "pointer", border: "1.5px solid",
                                 background: active ? opt.bg : "transparent",
                                 color: active ? opt.color : "var(--ink-400)",
@@ -24987,7 +25270,7 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
       )}
 
       {/* Equipment QR scan modal — fills the item and shows reading history */}
-      {scanNote && <div className="equipScanNote">{scanNote}</div>}
+      {scanNote && ReactDOM.createPortal(<div className="equipScanNote" role="status">{scanNote}</div>, document.body)}
       {fastScan && (
         <QrScanModal title="📷 Scan cooler / freezer label" hint="Point at the QR label on the unit — it opens with the temperature box ready."
           onCode={handleFastScan} onClose={() => setFastScan(false)} />
@@ -26543,10 +26826,11 @@ function EquipCheckPortal({ tag }) {
       inspectionDate: now.toISOString().slice(0, 10),
       savedAt: now.toISOString(),
       inspectorName: name.trim(),
-      siteName: meta?.venueName || "",
+      siteName: meta?.venueName || (meta?.unit ? `UNIT ${meta.unit}` : "EQUIPMENT CHECK"),
       siteNumber: meta?.unit || "",
       floor: meta?.floor || "",
       quickEquipCheck: true,
+      overallStatus: tempOk ? "Pass" : "Needs Attention", // v553: the database refuses a record without it
       inspection: {
         equipment: {
           [`equip_${tag}`]: {
@@ -27349,6 +27633,7 @@ function HaccpPortal() {
             restaurantLicense: license,
             inspectionDate: now.toISOString().slice(0, 10), savedAt: now.toISOString(),
             inspectionType: isLog ? "Supervisor Log" : "Quick Report", quickProblem: !isLog, supervisorLog: isLog, source: "haccp_portal", haccpSubmissionId: id,
+            portalDay: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`, // v553: the stand feed listens to these only
             haccpTempCount: tempCount, haccpOutOfRange: outOfRange, haccpReadings,
             reportedBy: { name: supName.trim(), phone: supPhone.trim() }, inspectorName: supName.trim() || "Supervisor", supervisorName: supName.trim(), sitePhone: supPhone.trim(),
             overallStatus: outOfRange > 0 ? "FAIL" : "PASS", photos: allProblems.flatMap(q => q.photos), actionItems: items, inspection: {},
@@ -28120,7 +28405,7 @@ function HaccpPortal() {
                   value={problem} onChange={e => { setProblem(e.target.value); if (problemError) setProblemError(""); }}
                   placeholder={problemOnly ? L("What is wrong and where?", "¿Qué está mal y dónde?") : L("Describe any issue, equipment problem, or safety concern...", "Describe cualquier problema, falla de equipo o riesgo...")} />
                 {/* v458 — the chip block is optional and hidden until asked for */}
-                {problemCat && ((problemSpecOpen || Object.values(problemDetails).some(Boolean))
+                {problemCat && (problemSpecOpen
                   ? <SpecificsPicker cat={problemCat} units={customItems.filter(i => i.tag).map(i => ({ name: i.label, location: i.hint }))} value={problemDetails} onChange={d => { setProblemDetails(d); if (problemError) setProblemError(""); }} lang={pl} optional />
                   : <button type="button" className="specOptLink" onClick={() => setProblemSpecOpen(true)}>＋ {L("Add details (optional)", "Agregar detalles (opcional)")}</button>)}
                 {problemNlu && understoodChips(problemNlu, pl).length > 0 && (
@@ -29239,6 +29524,7 @@ function StandFeedPanel({ feed, ackTs, onClose, onOpenReport, onTempsTracker }) 
 }
 
 export default function App() {
+  useScrollAnchor(); // v553: a tap in the form shell (stand card, event-day card, type cards, step buttons) keeps the tapped control in place
   const [lightboxSrc, setLightboxSrc] = useState(null);
   const [locked, setLocked] = useState(true);
   // v518: the inspection form needs the stand list (the stand's own coolers, event-day card) — load it once signed in
@@ -29248,7 +29534,21 @@ export default function App() {
   const [lockConfirm, setLockConfirm] = useState(false); // two-step logout confirmation
   const [appearanceOpen, setAppearanceOpen] = useState(false); // personal theme picker in menu
   const [currentUser, setCurrentUser] = useState(null);
-  const [page, setPage] = useState("inspector"); // "inspector" | "history" | "admin" | "global_admin"
+  const [page, setPageRaw] = useState("inspector"); // "inspector" | "history" | "admin" | "global_admin"
+  // v553: every page change goes through here. Leaving the report while its latest
+  // changes are not in the cloud opens the "not saved yet" box instead (refs only —
+  // the sdx-nav listener keeps the first render's copy of this function).
+  const pageNowRef = useRef("inspector"); pageNowRef.current = page;
+  const leaveGuardRef = useRef(null);
+  const startNewRef = useRef(null); // v553: listeners set up once call the current New Inspection
+  function setPage(next) {
+    const to = typeof next === "function" ? next(pageNowRef.current) : next;
+    if (pageNowRef.current === "inspector" && to !== "inspector" && leaveGuardRef.current) {
+      leaveGuardRef.current("page", () => setPageRaw(to));
+      return;
+    }
+    setPageRaw(to);
+  }
   const [labelsFocus, setLabelsFocus] = useState(null); // { unit, site, floor, locType, from } — open Equipment Labels on one stand
   const [equipFocus, setEquipFocus] = useState(null); // { id, unit, site } — open the Equipment tab on one stand
   const [historyEntry, setHistoryEntry] = useState(null); // { tab, sub } — deep link into HistoryPage tabs
@@ -29853,19 +30153,25 @@ export default function App() {
     window.__sdxStandFeed = mine;
   };
   useEffect(() => { window.__sdxStandFeedIngest = (recs) => standIngestRef.current?.(recs); }, []);
+  const [feedDay, setFeedDay] = useState(""); // v553: re-listens at local midnight
   useEffect(() => {
     const role = currentUser?.role;
     const watches = role === "inspector" || role === "admin" || role === "global_admin" || role === "location_manager";
     if (!currentUser || locked || !watches || !FIREBASE_ON) return;
-    const since = new Date(Date.now() - 36 * 3600e3).toISOString();
+    // v553: inspector reports now save every few seconds — listening to every fresh report would download
+    // each autosave on every inspector's phone. The feed only needs the stand logs, which carry portalDay.
+    const ld = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    const days = [ld(new Date()), ld(new Date(Date.now() - 864e5))];
+    const mid = new Date(); mid.setHours(24, 0, 5, 0);
+    const dayTimer = setTimeout(() => setFeedDay(ld(new Date())), Math.max(1000, mid.getTime() - Date.now()));
     let unsub = () => {};
     try {
       const col = IS_DEFAULT_VENUE() ? legacyCol("inspections") : venueCol("inspections");
-      unsub = onSnapshot(query(col, where("savedAt", ">=", since), orderBy("savedAt", "desc")),
+      unsub = onSnapshot(query(col, where("portalDay", "in", days)),
         snap => standIngestRef.current?.(snap.docs.map(d => ({ id: d.id, ...d.data() }))), () => {});
     } catch {}
-    return () => { try { unsub(); } catch {} };
-  }, [currentUser, locked]); // eslint-disable-line react-hooks/exhaustive-deps
+    return () => { clearTimeout(dayTimer); try { unsub(); } catch {} };
+  }, [currentUser, locked, feedDay]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Inspector assignment notifications — notifies inspector of newly assigned inspections ──
   useEffect(() => {
@@ -30258,7 +30564,8 @@ export default function App() {
     try {
       const unitN = normUnit(siteNumber); const siteU = (siteName || "").trim().toUpperCase();
       if (!unitN && !siteU) return [];
-      const cached = JSON.parse(localStorage.getItem(`sdx_history_cache_${VENUE_ID}`) || "[]");
+      let curReportId = ""; try { curReportId = localStorage.getItem(REPORT_ID_KEY) || ""; } catch {}
+      const cached = JSON.parse(localStorage.getItem(`sdx_history_cache_${VENUE_ID}`) || "[]").filter(r => r && r.id !== curReportId && r.id !== _openReportId); // v553: not the report being autosaved now
       return computeFollowups(cached, venueSettings).followups
         .filter(f => !f.likelyResolved)
         .filter(f => unitN ? normUnit(f.unit) === unitN : (f.loc || "").toUpperCase() === siteU)
@@ -30337,8 +30644,10 @@ export default function App() {
   // to any HACCP submissions the supervisor already sent via that QR.
   const [savedReportId, setSavedReportId] = useState(() => {
     try {
-      const stored = localStorage.getItem(REPORT_ID_KEY);
-      if (stored && stored.trim()) return stored.trim();
+      const stored = (localStorage.getItem(REPORT_ID_KEY) || "").trim();
+      let legacyId = ""; try { legacyId = JSON.parse(localStorage.getItem(`sdx_draft_${VENUE_ID}`) || "null")?.savedReportId || ""; } catch {}
+      // v553: a finished report never lends its id to the next one (a reload + the next stand overwrote it)
+      if (stored && (loadDrafts()[stored] || legacyId === stored)) return stored;
     } catch {}
     const fresh = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     try { localStorage.setItem(REPORT_ID_KEY, fresh); } catch {}
@@ -30346,6 +30655,7 @@ export default function App() {
   });
   // Ref mirror so saveToHistory always reads the latest ID even inside stale closures
   const savedReportIdRef = useRef(savedReportId);
+  _openReportId = savedReportIdRef.current;
   // v532: on a date marked as an event day a NEW, untouched form starts as Event Day (temps + uniforms + operations first);
   // a type someone picked, a restored draft or an edited report is never switched (v526)
   useEffect(() => {
@@ -30574,12 +30884,24 @@ export default function App() {
     if (!inspectionStartedAt.current) inspectionStartedAt.current = Date.now();
     if (!reportStartedAt.current && inspectorName.trim().length > 0) reportStartedAt.current = Date.now();
     setOnSiteConfirmed(true);
+    try { window.scrollTo(0, 0); } catch {} // v553: the finder above the form disappears — show the picked stand at the top on purpose
   }
   function handleStandScan(raw) {
     setScanStandOpen(false);
     const st = parseStandQr(raw);
     if (!st) { setScanFlash("⚠️ That code isn't a stand QR. Scan the poster on the stand, or type the unit #."); setTimeout(() => setScanFlash(""), 5000); return; }
     if (st.equip) { setScanFlash("🏷 That's an equipment label — open Menu → Equipment Scanner for temp checks."); setTimeout(() => setScanFlash(""), 6000); return; }
+    // v553: another stand = another report. The open one is saved first (or the box says why it can't
+    // be yet), then a fresh report opens for the scanned stand.
+    if (hasContentRef.current && (siteName.trim() || siteNumber.trim())) {
+      const otherName = st.site && siteName.trim() && !sameStandName(st.site, siteName);
+      const otherUnit = st.unit && siteNumber.trim() && normUnit(st.unit) !== normUnit(siteNumber);
+      if (otherName || otherUnit) {
+        pendingStandRef.current = { raw };
+        guardLeave("stand", () => startNewInspection({ force: true }));
+        return;
+      }
+    }
     const info = applyStandFromQr(st) || { site: "", known: false };
     if (st.unit && !info.site) {
       // Never a silent blank: say plainly whether the stand is known but its
@@ -30618,7 +30940,7 @@ export default function App() {
       if (d.equipFocus) setEquipFocus(d.equipFocus);
       if (d.page) setPage(d.page);
       if (d.scanStand) setTimeout(() => setScanStandOpen(true), 50);
-      if (d.newInspection) { try { startNewInspection(); } catch {} }
+      if (d.newInspection) { try { startNewRef.current && startNewRef.current(); } catch {} }
       window.scrollTo({ top: 0 });
     };
     window.addEventListener("sdx-nav", onNav);
@@ -30640,6 +30962,12 @@ export default function App() {
   // Pre-fill form from share URL params (runs once on mount)
   useEffect(() => {
     const p = new URLSearchParams(window.location.search);
+    // v553: a stand link starts its own report — the report that was open before stays in its own slot
+    if ((p.has("site") || p.has("unit")) && loadDrafts()[savedReportIdRef.current]) {
+      const nid = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      savedReportIdRef.current = nid; setSavedReportId(nid);
+      try { localStorage.setItem(REPORT_ID_KEY, nid); } catch {}
+    }
     if (p.has("inspector")) setInspectorName(p.get("inspector"));
     if (p.has("site"))      setSiteName(p.get("site"));
     if (p.has("unit"))      setSiteNumber(p.get("unit"));
@@ -30656,14 +30984,15 @@ export default function App() {
   useEffect(() => {
     function handleBeforeUnload(e) {
       try { flushDraftRef.current && flushDraftRef.current(); } catch {}
-      if (dirtyRef.current && !saved) {
+      try { autoSaveRef.current && autoSaveRef.current({ reason: "unload" }); } catch {}
+      if (window.__sdxHasUnsavedReport && window.__sdxHasUnsavedReport()) { // v553: not in the cloud yet
         e.preventDefault();
         e.returnValue = "";
       }
     }
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [saved]);
+  }, []);
 
   // ── v495: the draft is written on EVERY change, synchronously ──────────
   // v451 debounced 4 s and only when notes / a stand name / a photo existed, so
@@ -30700,13 +31029,28 @@ export default function App() {
       suppliesNeeded, notesPhotos, correctives, output, onSiteConfirmed, guideStep,
       reportStartedAt: reportStartedAt.current, inspectionStartedAt: inspectionStartedAt.current,
       isEditMode: isEditModeRef.current,
+      editBase: editBaseRef.current && editBaseRef.current.id === savedReportId ? editBaseForDraft(editBaseRef.current) : null,
+      venueId: reportVenueRef.current.id === savedReportId ? reportVenueRef.current.venue : activeVenueId,
+      finishedAt: finishedRef.current[savedReportId] || null,
       savedReportId,
     };
+  }
+  // ✏️ Edit: the draft keeps what a reload needs — the whole record for stand logs / quick reports (small, and
+  // the form cannot rebuild them), only the author fields for inspections.
+  function editBaseForDraft(eb) {
+    const { full, ...small } = eb;
+    if (full && (full.quickProblem || full.supervisorLog || full.source === "haccp_portal")) { const { inspection: _i, _pending, ...rest } = full; return { ...small, full: rest }; }
+    // v553: an inspection's original rides along too while it is small enough, so "throw away my changes"
+    // still puts it back after the app reloaded (the first autosave of an edit already replaced the cloud copy)
+    if (full) { try { const { _pending, ...rest } = full; if (JSON.stringify(rest).length < 250000) return { ...small, full: rest }; } catch {} }
+    return small;
   }
   function sendCloudNow() {
     if (cloudTimerRef.current) { clearTimeout(cloudTimerRef.current); cloudTimerRef.current = null; }
     const snap = draftSnapRef.current; if (!snap) return;
+    if (hasWorkRef.current && String(snap.siteName || "").trim()) return; // v553: the report itself goes to the cloud
     cloudLastRef.current = Date.now();
+    cloudDraftSentRef.current[snap.savedReportId] = true;
     saveDraftCloud(draftCloudKey(badgeKey(), snap.savedReportId), snap).then(ok => { if (ok) setDraftCloudAt(new Date()); });
   }
   function scheduleCloud() {
@@ -30718,18 +31062,34 @@ export default function App() {
     const snap = buildDraftSnapshot();
     draftSnapRef.current = snap;
     let json = ""; try { json = JSON.stringify(slimLocalDraft(snap)); } catch { json = String(Date.now()); }
+    // v553: what the cloud must hold — the report itself, not where the inspector is on the page
+    const hasContent = formHasContent();
+    hasContentRef.current = hasContent;
+    hasWorkRef.current = hasContent && reportWorkCount(snap) > 0; // a stand picked with nothing answered yet is not a report
+    curSigRef.current = contentSigOf(snap);
+    const rid = snap.savedReportId;
+    if (confirmArmRef.current) { confirmArmRef.current = false; confirmedSigRef.current[rid] = curSigRef.current; ackedIdsRef.current[rid] = true; armWindowRef.current = { id: rid, until: Date.now() + 1500 }; }
+    else if (restoreSigRef.current && restoreSigRef.current.id === rid) {
+      // a draft whose content the cloud already holds (it was autosaved before the app closed)
+      if (restoreSigRef.current.sig === curSigRef.current) { confirmedSigRef.current[rid] = curSigRef.current; ackedIdsRef.current[rid] = true; armWindowRef.current = { id: rid, until: Date.now() + 1500 }; }
+      restoreSigRef.current = null;
+    } else if (armWindowRef.current.id === rid && Date.now() < armWindowRef.current.until) {
+      confirmedSigRef.current[rid] = curSigRef.current; // the form settling right after it opened (rows filled in, stand data) is not an edit
+    }
+    if (hasWorkRef.current && confirmedSigRef.current[rid] !== curSigRef.current) { if (!firstDirtyAtRef.current) firstDirtyAtRef.current = Date.now(); }
+    else firstDirtyAtRef.current = 0;
+    setUnsavedNow(hasWorkRef.current && confirmedSigRef.current[rid] !== curSigRef.current);
+    setFormFlags(f => (f.c === hasContent && f.w === hasWorkRef.current ? f : { c: hasContent, w: hasWorkRef.current }));
     if (pristineArmRef.current) { pristineArmRef.current = false; pristineRef.current = json; dirtyRef.current = false; return; }
     if (json === pristineRef.current) { dirtyRef.current = false; return; }
     // Signing in fills the inspector name / date / on-site flag — that is not a
     // report. Only user content makes a draft.
-    const hasContent = !!(siteName.trim() || siteNumber.trim() || rawNotes.trim() || suppliesNeeded.length || notesPhotos.length || output.trim()
-      || Object.values(foodTemps || {}).some(a => (a || []).some(v => String(v || "").trim()))
-      || JSON.stringify(inspection) !== (defaultInspJsonRef.current || (defaultInspJsonRef.current = JSON.stringify(buildDefaultInspection()))));
-    if (!hasContent) { dirtyRef.current = false; return; }
+    if (!hasWorkRef.current) { dirtyRef.current = false; return; } // v553: a stand picked with nothing answered is not a report
     dirtyRef.current = true;
     reportInProgressRef.current = true; // dirty work counts — the idle lock must not lock over it
     if (saved) return; // the record was just written — no draft of committed data
     const ok = saveDraftFor(savedReportId, snap);
+    try { if (localStorage.getItem(REPORT_ID_KEY) !== savedReportId) localStorage.setItem(REPORT_ID_KEY, savedReportId); } catch {} // the report in progress
     setDraftFail(!ok);
     if (ok) setDraftSavedAt(new Date());
     scheduleCloud();
@@ -30742,13 +31102,15 @@ export default function App() {
   // Flush = write the local draft from the latest snapshot and push the cloud copy now.
   flushDraftRef.current = () => {
     const snap = draftSnapRef.current; if (!snap || !dirtyRef.current) return false;
+    if (confirmedSigRef.current[snap.savedReportId] === curSigRef.current) return true; // v553: the cloud has it
+
     const ok = saveDraftFor(snap.savedReportId, snap);
     if (cloudTimerRef.current) sendCloudNow();
     return ok;
   };
   try { window.__sdxFlushDraft = () => flushDraftRef.current && flushDraftRef.current(); } catch {}
   useEffect(() => {
-    const flush = () => { try { flushDraftRef.current && flushDraftRef.current(); } catch {} };
+    const flush = () => { try { flushDraftRef.current && flushDraftRef.current(); } catch {} try { autoSaveRef.current && autoSaveRef.current({ reason: "hide" }); } catch {} };
     const onVis = () => { if (document.visibilityState === "hidden") flush(); };
     window.addEventListener("pagehide", flush);
     document.addEventListener("visibilitychange", onVis);
@@ -30758,13 +31120,373 @@ export default function App() {
   // Mark the current form as pristine (after New / restore / save) — the next render records it.
   function armPristine() { pristineArmRef.current = true; dirtyRef.current = false; }
 
+  // ── v553: the REPORT saves itself to the cloud ─────────────────────────
+  // Joxel: "tengo gente que no se le salvan los reportes — no los dejes salir
+  // hasta que se salve el reporte, y diles por qué" + "do autosave". The draft
+  // above is only a safety copy on the phone. This writes the report itself a few
+  // seconds after each change (one write at a time, newest wins), keeps the state
+  // on screen, and only a cloud confirmation counts as saved.
+  const AUTOSAVE_MS = 4000;
+  const SAVE_TIMEOUT_MS = 12000;
+  const [cloud, setCloud] = useState({ state: "idle", at: null, err: "", missing: [] }); // idle | saving | saved | offline | failed | missing
+  const [unsavedNow, setUnsavedNow] = useState(false);
+  const [formFlags, setFormFlags] = useState({ c: false, w: false }); // has content / has real work (for the bar)
+  const saveBarRedRef = useRef(false);
+  const [leaveAsk, setLeaveAsk] = useState(null); // { kind, action, discard: 0 | 1 }
+  const curSigRef = useRef("");
+  const hasContentRef = useRef(false);
+  const confirmedSigRef = useRef({});  // report id → content signature the cloud confirmed
+  const ackedIdsRef = useRef({});      // report id → some version of it is in the cloud
+  const lastAckedRecRef = useRef({});  // report id → the record the cloud confirmed last
+  const finishedRef = useRef({});      // v553: report id → finishedAt once the cloud holds it finished (kept in the draft, so a reload keeps it finished)
+  const confirmArmRef = useRef(false); // an opened saved report counts as confirmed as it loads
+  const cloudWriteRef = useRef({}); // report id → { inflight, next } — one write at a time PER report (a stuck one never blocks the others)
+  const lastFailRef = useRef(null);    // { id, sig, err }
+  const autoSaveRef = useRef(null);
+  const cloudAckRef = useRef(null);
+  const editBaseRef = useRef(null);    // the saved record behind an ✏️ Edit
+  const pendingStandRef = useRef(null); // a stand scanned / picked while another report was open
+  const committedRef = useRef({});     // report id → { followup key: signature } already committed
+  const retryTimerRef = useRef(null);
+  const cloudDraftSentRef = useRef({}); // report id → a cloud draft copy exists (clear it once the report is in)
+  const hasWorkRef = useRef(false);     // something answered / typed / photographed — not just a stand picked
+  const armWindowRef = useRef({ id: "", until: 0 });
+  const restoreSigRef = useRef(null);   // { id, sig } of a restored draft the cloud already had
+  const firstDirtyAtRef = useRef(0);    // when the oldest unsaved change was made
+  const lastWriteAtRef = useRef(0);
+  const lastSentRecRef = useRef({});    // report id → the record last handed to the cloud
+  const reportVenueRef = useRef({ id: "", venue: "" }); // the venue a report belongs to (a venue switch never moves it)
+  // How much real work the form holds: answered rows, status taps, temps, notes, photos, supplies, answers to old problems.
+  function reportWorkCount(snap) {
+    let n = 0;
+    const insp = snap?.inspection || {};
+    for (const [sec, nodes] of Object.entries(insp)) {
+      if (!nodes || typeof nodes !== "object" || sec.startsWith("_")) continue;
+      if (sec === "temps") { for (const v of Object.values(nodes)) if (v !== "" && v != null && v !== false && typeof v !== "object") n++; continue; }
+      for (const node of Object.values(nodes)) {
+        if (!node || typeof node !== "object" || node.notApplicable) continue;
+        for (const r of node.checklist || []) if (r && (r.value === "YES" || r.value === "NO")) n++;
+        if (node.checkedAt) n++;
+        if (String(node.tempF ?? "").trim()) n++;
+        if (String(node.notes || "").trim()) n++;
+        if ((node.photos || []).length) n++;
+      }
+    }
+    if (String(snap?.rawNotes || "").trim()) n++;
+    n += (snap?.notesPhotos || []).length;
+    n += (snap?.suppliesNeeded || []).filter(x => String(x?.item || "").trim()).length;
+    for (const a of Object.values(snap?.foodTemps || {})) for (const v of a || []) if (String(v || "").trim()) n++;
+    for (const c of Object.values(snap?.correctives || {})) if (c && ((c.action || "").trim() || (c.photos || []).length)) n++;
+    return n;
+  }
+  try { window.__sdxWorkCount = () => reportWorkCount(buildDraftSnapshot()); } catch {}
+  function formHasContent() {
+    return !!(siteName.trim() || siteNumber.trim() || rawNotes.trim() || suppliesNeeded.length || notesPhotos.length || output.trim()
+      || Object.values(foodTemps || {}).some(a => (a || []).some(v => String(v || "").trim()))
+      || JSON.stringify(inspection) !== (defaultInspJsonRef.current || (defaultInspJsonRef.current = JSON.stringify(buildDefaultInspection()))));
+  }
+  const SIG_KEYS = ["noteType", "useCase", "context", "inspection", "rawNotes", "inspectionType", "inspectionDate", "inspectorName", "participantName",
+    "siteName", "siteNumber", "restaurantLicense", "supervisorName", "sitePhone", "locationType", "floor", "eventName",
+    "foodTemps", "foodTempNames", "foodTempCorrections", "foodTempSubmitted", "foodTempTimes", "suppliesNeeded", "notesPhotos", "correctives", "savedReportId"];
+  function contentSigOf(snap) {
+    try { const o = {}; for (const k of SIG_KEYS) o[k] = snap?.[k] ?? null; return hashSig(JSON.stringify(slimLocalDraft(o))); } catch { return String(Date.now()); }
+  }
+  function reportUnsaved() {
+    return !!hasWorkRef.current && confirmedSigRef.current[savedReportIdRef.current] !== curSigRef.current;
+  }
+  try { window.__sdxHasUnsavedReport = () => reportUnsaved(); window.__sdxCloudState = () => ({ ...cloud, unsaved: reportUnsaved(), id: savedReportIdRef.current }); } catch {}
+
+  // Crews hear about a problem once per report, not on every autosave.
+  const NOTIFIED_KEY = `sdx_crew_notified_${VENUE_ID}`;
+  function notifiedMap() { try { const m = JSON.parse(localStorage.getItem(NOTIFIED_KEY) || "{}"); return m && typeof m === "object" ? m : {}; } catch { return {}; } }
+  function markNotified(id, issues) {
+    try {
+      const m = notifiedMap(); const done = new Set(m[id] || []); issues.forEach(i => done.add(i)); m[id] = [...done].slice(-200);
+      const ids = Object.keys(m); if (ids.length > 300) for (const k of ids.slice(0, ids.length - 300)) delete m[k];
+      localStorage.setItem(NOTIFIED_KEY, JSON.stringify(m));
+    } catch {}
+  }
+  function notifyNewCrewItems(rec) {
+    try {
+      const done = new Set(notifiedMap()[rec.id] || []);
+      const fresh = (rec.actionItems || []).filter(a => a && a.issue && !done.has(a.issue));
+      if (!fresh.length) return;
+      markNotified(rec.id, fresh.map(a => a.issue));
+      notifyCrewsForItems(fresh, rec.siteName, rec.siteNumber, rec.inspectorName);
+    } catch {}
+  }
+  // "From the last inspection" answers go to Follow-ups once each (again only when they change).
+  function commitNewCorrectives(reportId) {
+    const done = committedRef.current[reportId] || (committedRef.current[reportId] = {});
+    const changed = new Set();
+    for (const [k, c] of Object.entries(correctives || {})) {
+      if (!c || !(c.action || "").trim()) continue;
+      const sg = `${c.status || "fixed"}|${c.action.trim()}|${(c.photos || []).length}`;
+      if (done[k] !== sg) { changed.add(k); done[k] = sg; }
+    }
+    if (changed.size) commitCorrectives(reportId, changed);
+  }
+
+  // One write at a time; edits made while a write is out wait as "next" (newest wins).
+  async function cloudWrite(rec, sig) {
+    const w = cloudWriteRef.current[rec.id] || (cloudWriteRef.current[rec.id] = { inflight: false, next: null });
+    lastSentRecRef.current[rec.id] = rec;
+    if (w.inflight) { w.next = { rec, sig }; return; }
+    const id = rec.id;
+    w.inflight = true; w.inflightSig = sig; _cloudBusyIds.add(id);
+    lastWriteAtRef.current = Date.now();
+    if (id === savedReportIdRef.current) setCloud(c => ({ ...c, state: "saving", err: "", missing: [] }));
+    try { window.__sdxSaving = true; } catch {}
+    const p = saveOneInspection(rec).then(() => "ok", e => ({ e }));
+    let timer = null;
+    let res = await Promise.race([p, new Promise(r => { timer = setTimeout(() => r("timeout"), SAVE_TIMEOUT_MS); })]);
+    clearTimeout(timer);
+    if (res === "timeout") {
+      queueInspection({ ...rec, _sig: sig }); // no answer yet — it also waits on the phone (survives the app closing)
+      if (w.next) queueInspection({ ...w.next.rec, _sig: w.next.sig }); // and the newer one waiting behind it
+      if (id === savedReportIdRef.current) setCloud(c => ({ ...c, state: "offline" }));
+      res = await p; // Firestore sends it by itself once the signal is back
+    }
+    _cloudBusyIds.delete(id);
+    try { window.__sdxSaving = _cloudBusyIds.size > 0; } catch {}
+    if (res === "ok") { try { cloudAckRef.current && cloudAckRef.current(rec, sig); } catch (e) { console.error("ack:", e); } }
+    else { try { onCloudFail(rec, sig, res.e); } catch {} }
+    w.inflight = false; w.inflightSig = null;
+    const nx = w.next; w.next = null;
+    if (nx) cloudWrite(nx.rec, nx.sig);
+  }
+  function onCloudAck(rec, sig) {
+    const id = rec.id;
+    if (sig) confirmedSigRef.current[id] = sig;
+    ackedIdsRef.current[id] = true;
+    lastAckedRecRef.current[id] = rec;
+    if (rec.inProgress === false && !rec.discarded) finishedRef.current[id] = rec.finishedAt || finishedRef.current[id] || new Date().toISOString();
+    if (!_ackedSavedAt[id] || String(rec.savedAt || "") > String(_ackedSavedAt[id])) _ackedSavedAt[id] = rec.savedAt || "";
+    unqueueInspection(id, rec.savedAt);
+    if (lastFailRef.current?.id === id) lastFailRef.current = null;
+    if (rec.discarded) return;
+    if (id === savedReportIdRef.current) {
+      setCloud({ state: "saved", at: new Date(), err: "", missing: [] });
+      const still = !!hasWorkRef.current && curSigRef.current !== confirmedSigRef.current[id];
+      setUnsavedNow(still);
+      if (!still) firstDirtyAtRef.current = 0;
+      try { const d = loadDrafts()[id]; if (d && sig) saveDraftFor(id, { ...d, cloudSig: sig }); } catch {} // a reopened app knows this copy is in the cloud
+      if (cloudDraftSentRef.current[id]) { delete cloudDraftSentRef.current[id]; try { clearDraftCloud(draftCloudKey(badgeKey(), id)); } catch {} }
+    } else {
+      // an earlier report finished in the background: drop its draft only if the draft holds exactly what the cloud now has
+      try { const d = loadDrafts()[id]; const pending = cloudWriteRef.current[id]?.next; if (d && sig && !pending && contentSigOf(d) === sig) { removeDraftFor(id); setDraftList(listDrafts()); } } catch {}
+    }
+    try { window.dispatchEvent(new CustomEvent("sdx-report-saved", { detail: { id } })); } catch {}
+  }
+  cloudAckRef.current = onCloudAck;
+  function onCloudFail(rec, sig, e) {
+    const err = saveErrorText(e, rec);
+    lastFailRef.current = { id: rec.id, sig, err };
+    const code = String(e?.code || ""); const msg = String(e?.message || "").toLowerCase();
+    const permanent = code === "permission-denied" || code === "invalid-argument" || msg.includes("too large") || msg.includes("exceed");
+    if (permanent) unqueueInspection(rec.id); // it will never go as it is — the draft keeps it, the next change retries
+    else queueInspection({ ...rec, _sig: sig });
+    if (rec.id === savedReportIdRef.current) {
+      setCloud(c => ({ ...c, state: "failed", err }));
+      if (!permanent) { // a network-ish error: try again by itself
+        if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
+        retryTimerRef.current = setTimeout(() => { retryTimerRef.current = null; try { autoSaveRef.current && autoSaveRef.current({ reason: "retry", force: true }); } catch {} }, 15000);
+      }
+    }
+  }
+  function localTodayStr() { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; }
+  // Build the record from the form, fill what the database needs and the app
+  // already knows (inspector = whoever is signed in, date = today), and send it.
+  function autoSaveNow({ reason = "auto", force = false } = {}) {
+    if (locked) return { skipped: "locked" };
+    const id = savedReportIdRef.current;
+    if (!hasContentRef.current) return { skipped: "empty" };
+    if (!hasWorkRef.current && reason !== "finish") return { skipped: "empty" };
+    const sig = curSigRef.current;
+    if (!force && confirmedSigRef.current[id] === sig) return { same: true, id, sig };
+    const w = cloudWriteRef.current[id];
+    if (w && w.inflight && w.next && w.next.sig === sig) { if (reason === "hide" || reason === "leave") queueInspection({ ...w.next.rec, _sig: sig }); if (!force) return { id, sig }; }
+    if (!force && w && w.inflight && !w.next && w.inflightSig === sig) return { id, sig };
+    const built = buildFilledRecord(reason, true);
+    const rec = built.cleanRecord;
+    const missing = reportMissingFields(rec);
+    if (missing.length) { setCloud(c => ({ ...c, state: "missing", missing, err: "" })); return { missing, id, sig }; }
+    if (built.docSizeKb > 950) {
+      const err = "the report is too big (over 1 MB) — remove some notes or photos";
+      lastFailRef.current = { id, sig, err }; setCloud(c => ({ ...c, state: "failed", err }));
+      return { failed: err, id, sig };
+    }
+    if (retryTimerRef.current) { clearTimeout(retryTimerRef.current); retryTimerRef.current = null; }
+    if (reason === "hide" || reason === "leave") queueInspection({ ...rec, _sig: sig }); // the app may close before the cloud answers
+    cloudWrite(rec, sig);
+    return { id, sig, reason };
+  }
+  autoSaveRef.current = autoSaveNow;
+  // The record plus what the database needs and the app already knows.
+  function buildFilledRecord(reason, fillForm) {
+    const id = savedReportIdRef.current;
+    const built = buildReportRecord();
+    const rec = built.cleanRecord;
+    // In progress until Finish & save (or until the inspector moves on); an edited saved report stays finished.
+    const prev = lastAckedRecRef.current[id] || (editBaseRef.current && editBaseRef.current.id === id ? editBaseRef.current : null) || (finishedRef.current[id] ? { inProgress: false, finishedAt: finishedRef.current[id] } : null);
+    if (reason === "finish") { rec.inProgress = false; rec.finishedAt = new Date().toISOString(); }
+    else if (isEditModeRef.current || (prev && prev.inProgress !== true)) { rec.inProgress = false; if (prev?.finishedAt) rec.finishedAt = prev.finishedAt; }
+    else rec.inProgress = true;
+    if (!String(rec.inspectorName || "").trim()) {
+      const n = String((currentUser?.role === "guest" && currentUser?.sponsoredByName) || currentUser?.name || "").trim();
+      if (n) { rec.inspectorName = n; if (fillForm) setInspectorName(n); }
+    }
+    if (!String(rec.inspectionDate || "").trim()) { const d = localTodayStr(); rec.inspectionDate = d; if (fillForm) setInspectionDate(d); }
+    if (!String(rec.overallStatus || "").trim()) rec.overallStatus = "Needs Attention";
+    return built;
+  }
+  // Moving on from a report the cloud holds: tell the crews, file the answers to the
+  // old problems, remember the stand, and mark it finished. Runs once per change.
+  function finalizeReport(how) {
+    const id = savedReportIdRef.current;
+    if (hasWorkRef.current && confirmedSigRef.current[id] !== curSigRef.current) return; // not all of it is in the cloud — the box handles it
+    // after the app reopened, the restored draft is what the cloud holds
+    const last = lastAckedRecRef.current[id] || (ackedIdsRef.current[id] && hasWorkRef.current ? buildFilledRecord("auto", false).cleanRecord : null);
+    if (!last || last.discarded || !String(last.siteName || "").trim()) return;
+    notifyNewCrewItems(last);
+    try { commitNewCorrectives(id); } catch {}
+    try { learnFromSave(last); } catch {}
+    removeDraftFor(id); setDraftList(listDrafts());
+    rotateStoredReportId();
+    if (last.inProgress) cloudWrite({ ...last, inProgress: false, finishedAt: new Date().toISOString(), finishedHow: how }, confirmedSigRef.current[id] || "");
+  }
+  const REPORT_ENDS = { new: 1, edit: 1, draft: 1, stand: 1, venue: 1, link: 1 }; // v553: not "lock" — locking only waits for the save; the same report comes back after unlock (a different badge finalizes it on unlock)
+  // The id stored for "the report in progress" moves on once a report is finished (the on-screen report keeps its id).
+  function rotateStoredReportId() { try { localStorage.setItem(REPORT_ID_KEY, `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`); } catch {} }
+  function waitForAck(id, sig, ms, needFinished) {
+    return new Promise(resolve => {
+      const t0 = Date.now();
+      const tick = () => {
+        if (confirmedSigRef.current[id] === sig && (!needFinished || lastAckedRecRef.current[id]?.inProgress === false)) return resolve("ok");
+        const f = lastFailRef.current; if (f && f.id === id && f.sig === sig) return resolve("failed");
+        if (Date.now() - t0 > ms) return resolve("timeout");
+        setTimeout(tick, 200);
+      };
+      tick();
+    });
+  }
+  // Every way out of the report comes here. Saved → go. Not saved → save now and
+  // show the box that says why the report is not in the cloud yet.
+  function guardLeave(kind, action) {
+    if (!reportUnsaved()) {
+      if (REPORT_ENDS[kind]) { try { finalizeReport(kind); } catch (e) { console.error(e); } }
+      try { action && action(); } catch (e) { console.error(e); }
+      return true;
+    }
+    try { autoSaveRef.current && autoSaveRef.current({ reason: "leave" }); } catch {}
+    setMenuOpen(false);
+    setPageRaw("inspector");
+    setLeaveAsk({ kind, action, discard: 0 });
+    return false;
+  }
+  leaveGuardRef.current = guardLeave;
+  // Try again (the bar and the box): reconnect now instead of waiting for Firestore's next try, resend, flush the rest.
+  function retrySaveNow() {
+    if (FIREBASE_ON) { try { disableNetwork(db).then(() => enableNetwork(db)).catch(() => {}); } catch {} }
+    try { autoSaveRef.current && autoSaveRef.current({ reason: "retry", force: true }); } catch {}
+    try { flushInspectionOutbox(); } catch {}
+  }
+  // A report belongs to one venue: switching venue finishes it (or waits for the cloud) and starts a new one there.
+  function switchVenueTo(id, then, alwaysNew) {
+    if (id === activeVenueId && !alwaysNew) { try { then && then(); } catch (e) { console.error(e); } return; }
+    guardLeave("venue", () => { if (id !== activeVenueId) setVenue(id); startNewInspection({ force: true }); try { then && then(); } catch (e) { console.error(e); } });
+  }
+  // The box closes and the action runs by itself the moment the cloud confirms.
+  useEffect(() => {
+    if (!leaveAsk || reportUnsaved()) return;
+    const a = leaveAsk.action; const kind = leaveAsk.kind; setLeaveAsk(null);
+    if (REPORT_ENDS[kind]) { try { finalizeReport(kind); } catch (e) { console.error(e); } }
+    setSaveToastMsg("✅ Report saved to the cloud"); setSaveToast(true); setTimeout(() => setSaveToast(false), 2500);
+    try { a && a(); } catch (e) { console.error(e); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [leaveAsk, cloud, unsavedNow]);
+  // Throw the open report away (the box's two-step button).
+  function discardReport() {
+    const id = savedReportIdRef.current;
+    const ask = leaveAsk; setLeaveAsk(null);
+    pendingStandRef.current = ask?.kind === "stand" ? pendingStandRef.current : null;
+    removeDraftFor(id); try { clearDraftCloud(draftCloudKey(badgeKey(), id)); } catch {}
+    unqueueInspection(id);
+    const sent = lastAckedRecRef.current[id] || lastSentRecRef.current[id];
+    const base = editBaseRef.current && editBaseRef.current.id === id && editBaseRef.current.full ? editBaseRef.current.full : null;
+    if (base) {
+      // ✏️ Edit thrown away: if a changed copy reached (or is on its way to) the cloud, put the saved report back as it was opened
+      if (sent) { const { _pending, ...orig } = base; const back = { ...orig, _venueId: reportVenueRef.current.venue || activeVenueId, savedAt: new Date().toISOString() }; queueInspection(back); cloudWrite(back, ""); }
+    } else if (isEditModeRef.current) {
+      // an edit restored after the app closed: the original is not on this phone any more — keep what the cloud has
+    } else if (sent || ackedIdsRef.current[id]) {
+      const last = sent || buildFilledRecord("auto", false).cleanRecord;
+      if (String(last.siteName || "").trim() && String(last.inspectorName || "").trim()) {
+        const disc = { ...last, overallStatus: last.overallStatus || "Needs Attention", inspectionDate: last.inspectionDate || localTodayStr(), discarded: true, inProgress: false, discardedAt: new Date().toISOString(), discardedBy: currentUser?.name || inspectorName || "", savedAt: new Date().toISOString() };
+        queueInspection(disc); // survives the app closing before the cloud answers
+        cloudWrite(disc, "");
+      } else markDiscardedCloud(id, reportVenueRef.current.venue, currentUser?.name || "");
+    }
+    confirmedSigRef.current[id] = curSigRef.current; // nothing left to save for this one
+    setUnsavedNow(false);
+    setCloud({ state: "idle", at: null, err: "", missing: [] });
+    setDraftList(listDrafts());
+    const action = ask?.action;
+    startNewInspection({ force: true });
+    if (action && ask.kind !== "new") { try { action(); } catch {} }
+  }
+  // Autosave: a few seconds after the last change (the draft effect above has
+  // already measured the form — it runs first).
+  useEffect(() => {
+    if (locked || !hasWorkRef.current) return;
+    if (confirmedSigRef.current[savedReportIdRef.current] === curSigRef.current) return;
+    const now = Date.now(); const lw = lastWriteAtRef.current;
+    let due = Math.max(now + AUTOSAVE_MS, lw + 10000); // at most one write every 10 s,
+    due = Math.min(due, Math.max(firstDirtyAtRef.current || now, lw) + 30000); // and a steady typist still saves within 30 s
+    const t = setTimeout(() => { try { autoSaveRef.current && autoSaveRef.current({ reason: "auto" }); } catch {} }, Math.max(300, due - now));
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [noteType, useCase, context, inspection, rawNotes, inspectionType,
+      inspectionDate, inspectorName, participantName, siteName, siteNumber,
+      restaurantLicense, supervisorName, sitePhone, locationType, floor,
+      eventName, foodTemps, foodTempNames, foodTempCorrections, foodTempSubmitted, foodTempTimes,
+      suppliesNeeded, notesPhotos, correctives, savedReportId, locked]);
+  // A new report starts with a clean status line, and belongs to the venue open now.
+  if (reportVenueRef.current.id !== savedReportId) reportVenueRef.current = { id: savedReportId, venue: activeVenueId };
+  useEffect(() => { setCloud(c => (confirmedSigRef.current[savedReportId] ? c : { state: "idle", at: null, err: "", missing: [] })); }, [savedReportId]);
+  // A stand scanned / picked while another report was open: apply it to the new report.
+  useEffect(() => {
+    const p = pendingStandRef.current; if (!p || hasContentRef.current) return;
+    pendingStandRef.current = null;
+    try { if (p.raw) handleStandScan(p.raw); else if (p.autofill) applySiteAutofill(p.autofill); else if (p.site) { setSiteName(p.site); if (p.slotId !== undefined) activeSlotIdRef.current = p.slotId; } } catch (e) { console.error(e); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [savedReportId]);
+  // Back button / swipe back while the report is not in the cloud: stay, say why.
+  useEffect(() => {
+    if (!(page === "inspector" && unsavedNow)) return;
+    try { if (!history.state?.sdxGuard) history.pushState({ ...(history.state || {}), sdxGuard: 1 }, ""); } catch {}
+    const onPop = () => {
+      if (!reportUnsaved()) return;
+      try { history.pushState({ sdxGuard: 1 }, ""); } catch {}
+      guardLeave("back", null);
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, unsavedNow]);
+
   // Open a draft (auto after unlock, or picked from the list). Never discards the
   // current work: it is flushed to its own slot first.
-  function openDraft(d, { auto = false } = {}) {
+  function openDraft(d, { auto = false, force = false } = {}) {
+    if (!auto && !force && !guardLeave("draft", () => openDraft(d, { force: true }))) return; // v553
     try { flushDraftRef.current && flushDraftRef.current(); } catch {}
     restoreFormState(d);
     const id = d.id || d.savedReportId || `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     savedReportIdRef.current = id; setSavedReportId(id);
+    restoreSigRef.current = d.cloudSig ? { id, sig: d.cloudSig } : null;
+    if (d.venueId) reportVenueRef.current = { id, venue: d.venueId }; // a report keeps the venue it was started in
+    editBaseRef.current = d.editBase && d.editBase.id === id ? { ...d.editBase } : null; // an ✏️ Edit keeps its author after a reload
+    if (d.finishedAt) finishedRef.current[id] = d.finishedAt; // v553: a finished report stays finished after a reload
     try { localStorage.setItem(REPORT_ID_KEY, id); } catch {}
     isEditModeRef.current = !!d.isEditMode;
     if (typeof d.reportStartedAt === "number") reportStartedAt.current = d.reportStartedAt;
@@ -30780,11 +31502,26 @@ export default function App() {
     if (!auto) window.scrollTo({ top: 0, behavior: "smooth" });
   }
   function deleteDraft(id) {
+    // v553: a deleted unsaved report must not come back — its copy waiting in the outbox goes too (marked thrown
+    // away so the cloud copy is hidden), and the cloud copy is marked even when the draft lost its cloud flag.
+    // An ✏️ Edit's draft puts the original back when the draft carries it, else just stops its queued changes.
+    try {
+      const d = loadDrafts()[id] || null;
+      const qi = loadInspectionOutbox().find(r => r.id === id) || null;
+      const nowIso = new Date().toISOString();
+      if (d && d.isEditMode) {
+        if (d.editBase && d.editBase.full) queueInspection({ ...d.editBase.full, id, savedAt: nowIso, _venueId: d.venueId || activeVenueId });
+        else if (qi) unqueueInspection(id);
+      } else {
+        if (qi) queueInspection({ ...qi, discarded: true, inProgress: false, discardedAt: nowIso, discardedBy: currentUser?.name || "", savedAt: nowIso });
+        markDiscardedCloud(id, d?.venueId || qi?._venueId, currentUser?.name || "");
+      }
+    } catch {}
     removeDraftFor(id);
     try { clearDraftCloud(draftCloudKey(badgeKey(), id)); } catch {}
     setCloudDrafts(prev => prev.filter(d => d.id !== id));
     setDraftAsk(null);
-    if (id === savedReportIdRef.current) { armPristine(); startNewInspection(); return; }
+    if (id === savedReportIdRef.current) { armPristine(); confirmedSigRef.current[id] = curSigRef.current; startNewInspection({ force: true }); return; }
     setDraftList(listDrafts());
   }
   // After unlock: bring back the report that was open when the tab died — no
@@ -30804,9 +31541,9 @@ export default function App() {
   }, [locked]);
   // Reports whose Save failed wait in the outbox — retry on load, when back online, every 30 s.
   useEffect(() => {
-    const onBox = e => { const n = e.detail?.sent || 0; setOutboxCount(e.detail?.count ?? loadInspectionOutbox().length); if (n) { setSaveToastMsg(`✅ ${n} report${n !== 1 ? "s" : ""} uploaded`); setSaveToast(true); setTimeout(() => setSaveToast(false), 3500); } };
+    const onBox = e => { const n = e.detail?.sent || 0; setOutboxCount((e.detail?.ids || loadInspectionOutbox().map(r => r.id)).filter(id => id !== savedReportIdRef.current).length); if (n) { setSaveToastMsg(`✅ ${n} report${n !== 1 ? "s" : ""} uploaded`); setSaveToast(true); setTimeout(() => setSaveToast(false), 3500); } };
     window.addEventListener("sdx-outbox", onBox);
-    _inspOutboxOnSent = rec => { try { learnFromSave(rec); } catch {} try { notifyCrewsForItems(rec.actionItems, rec.siteName, rec.siteNumber, rec.inspectorName); } catch {} };
+    _inspOutboxOnSent = (rec, sig) => { try { learnFromSave(rec); } catch {} try { cloudAckRef.current && cloudAckRef.current(rec, sig); } catch {} };
     const run = () => { if (!locked && navigator.onLine) flushInspectionOutbox(); };
     run();
     window.addEventListener("online", run);
@@ -31000,10 +31737,16 @@ export default function App() {
     }
     // Global admin lands on the global panel, not the inspector
     if (user?.role === "global_admin") {
-      setPage("global_admin");
+      if (!String(inspectorName || "").trim() && user?.name) setInspectorName(user.name); // v553: the database needs a name on the report
+      setPageRaw("global_admin");
       return;
     }
-    if (isCrewRole(user?.role)) { setPage("crew"); return; }
+    if (isCrewRole(user?.role)) { setPageRaw("crew"); return; }
+    {
+      const before = (inspectorName || "").trim().toLowerCase();
+      const now = String((user?.role === "guest" && user?.sponsoredByName) || user?.name || "").trim().toLowerCase();
+      if (hasContentRef.current && before && now && before !== now) { try { finalizeReport("handoff"); startNewInspection({ force: true }); } catch {} } // v553
+    }
     if (user?.role === "guest" && user?.sponsoredByName) {
       // Guest reports: inspector = sponsor, participant = guest
       setInspectorName(user.sponsoredByName);
@@ -31023,7 +31766,7 @@ export default function App() {
     }
   }} />;
   if (page === "history") { AIEngine.trackPage("history"); return <HistoryPage onBack={() => {
-    if (managedVenueId) { setVenue(VENUE_ID); setManagedVenueId(null); setManagedVenueName(null); setPage("global_admin"); }
+    if (managedVenueId) switchVenueTo(VENUE_ID, () => { setManagedVenueId(null); setManagedVenueName(null); setPage("global_admin"); });
     else { setPage("inspector"); }
   }} onEdit={loadRecordForEdit} managedVenueId={managedVenueId} managedVenueName={managedVenueName} currentUser={currentUser}
     notifItems={notifItems}
@@ -31048,26 +31791,22 @@ export default function App() {
   if (page === "global_admin" && currentUser?.role === "global_admin") {
     return <GlobalAdminPanel
       currentUser={currentUser}
-      onBack={() => { setVenue(VENUE_ID); setManagedVenueId(null); setManagedVenueName(null); startNewInspection(); }}
-      onManageVenue={(id, name) => {
-        setVenue(id);
+      onBack={() => switchVenueTo(VENUE_ID, () => { setManagedVenueId(null); setManagedVenueName(null); }, true)}
+      onManageVenue={(id, name) => switchVenueTo(id, () => {
         setManagedVenueId(id);
         setManagedVenueName(name);
         setPage("admin");
-      }}
-      onEnterVenue={(id, name) => {
-        setVenue(id);
+      })}
+      onEnterVenue={(id, name) => switchVenueTo(id, () => {
         setManagedVenueId(id);
         setManagedVenueName(name);
         setPage("inspector");
-      }}
-      onCreateReport={(id, name) => {
-        setVenue(id);
+      })}
+      onCreateReport={(id, name) => switchVenueTo(id, () => {
         setManagedVenueId(id);
         setManagedVenueName(name);
-        startNewInspection();
         setPage("inspector");
-      }}
+      }, true)}
     />;
   }
   if (page === "admin" && (currentUser?.role === "admin" || currentUser?.role === "global_admin")) {
@@ -31076,10 +31815,7 @@ export default function App() {
       currentUser={currentUser}
       onBack={() => {
         if (managedVenueId) {
-          setVenue(VENUE_ID);
-          setManagedVenueId(null);
-          setManagedVenueName(null);
-          setPage("global_admin");
+          switchVenueTo(VENUE_ID, () => { setManagedVenueId(null); setManagedVenueName(null); setPage("global_admin"); });
         } else {
           setPage("inspector");
         }
@@ -31101,12 +31837,12 @@ export default function App() {
     />;
   }
   if (page === "myteam" && (currentUser?.role === "location_manager" || currentUser?.role === "inspector"))      { return <MyTeamPage currentUser={currentUser} onBack={() => setPage("inspector")} />; }
-  if (page === "mylocations") { return <MyLocationsPage currentUser={currentUser} venueSettings={venueSettings} saveVenueSettings={saveVenueSettings} onBack={() => setPage("inspector")} onSelectLocation={(loc, slotId) => { setSiteName(loc); activeSlotIdRef.current = slotId || null; setPage("inspector"); window.scrollTo({ top: 0, behavior: "smooth" }); }} />; }
+  if (page === "mylocations") { return <MyLocationsPage currentUser={currentUser} venueSettings={venueSettings} saveVenueSettings={saveVenueSettings} onBack={() => setPage("inspector")} onSelectLocation={(loc, slotId) => { if (hasContentRef.current && siteName.trim() && !sameStandName(loc, siteName)) { pendingStandRef.current = { site: loc, slotId: slotId || null }; guardLeave("stand", () => startNewInspection({ force: true })); } else { setSiteName(loc); activeSlotIdRef.current = slotId || null; } setPage("inspector"); window.scrollTo({ top: 0, behavior: "smooth" }); }} />; }
   if (page === "crew")              { return <CrewBoardPage currentUser={currentUser} venueSettings={venueSettings} saveVenueSettingsMap={saveVenueSettingsMap} linkSession={!!loadCrewSession()} onLock={() => { clearCrewSession(); setCrewNotice(""); lockApp(); setCurrentUser(null); setLocked(true); }} onMessages={() => setPage("messaging")} onAppearance={() => setAppearanceOpen(true)} />; }
   if (page === "mytemps" && currentUser?.role === "location_manager")           { return <MyTempsPage currentUser={currentUser} onBack={() => setPage("inspector")} />; }
   if (page === "equipment") { AIEngine.trackPage("equipment"); return <EquipmentPage currentUser={currentUser} onBack={() => setPage("inspector")} focusStand={equipFocus} onOpenLabels={(st) => { setLabelsFocus({ id: st?.id || "", unit: st?.unit || "", site: st?.site || "", floor: st?.floor || floorForStand(st?.unit, st?.site, st?.floor), locType: st?.locType || "", from: "equipment" }); setPage("print_labels"); }} />; }
   if (page === "equipment_scanner") { return <EquipmentScannerPage onBack={() => setPage("inspector")} onPrintLabels={() => setPage("print_labels")} onKitchenQr={() => setPage("kitchen_qr")} />; }
-  if (page === "print_labels")      { return <PrintLabelsPage onBack={() => { setPage(labelsFocus?.from || "equipment_scanner"); setLabelsFocus(null); }} onKitchenQr={() => setPage("kitchen_qr")} focusStand={labelsFocus} onClearFocus={() => setLabelsFocus(null)} />; }
+  if (page === "print_labels")      { return <PrintLabelsPage onBack={() => { setPage(labelsFocus?.from || "inspector"); setLabelsFocus(null); }} onKitchenQr={() => setPage("kitchen_qr")} focusStand={labelsFocus} onClearFocus={() => setLabelsFocus(null)} />; }
   if (page === "kitchen_qr")        { return <KitchenQrPage onBack={() => setPage("inspector")} onPrintLabels={() => setPage("print_labels")} onStandEquipment={(k) => { setLabelsFocus({ id: k.id || "", unit: k.unit || "", site: k.site || "", floor: floorForStand(k.unit, k.site, k.floor), locType: k.locType || "", from: "kitchen_qr" }); setPage("print_labels"); }} />; }
 
   const spec = NOTE_TYPES[noteType];
@@ -31124,8 +31860,11 @@ export default function App() {
     setAiTips([]);
   }
 
-  function startNewInspection() {
+  startNewRef.current = (o) => startNewInspection(o);
+  function startNewInspection(opts = {}) {
+    if (!opts?.force && !guardLeave("new", () => startNewInspection({ force: true }))) return; // v553: the open report goes to the cloud first
     try { flushDraftRef.current && flushDraftRef.current(); } catch {} // v495: keep the current walk
+    editBaseRef.current = null;
     reportStartedAt.current = null; // reset — timer restarts when name is typed/confirmed
     inspectionStartedAt.current = null; // reset on-site timer
     activeSlotIdRef.current = null; // clear any active scheduled slot (regular inspection path)
@@ -31245,14 +31984,29 @@ export default function App() {
     if (typeof snapshot.guideStep === "number") setGuideStep(snapshot.guideStep);
   }
 
-  function loadRecordForEdit(rec) {
+  function loadRecordForEdit(rec, opts = {}) {
     // Permission check: only the original author, admins, or global_admin may edit.
     const isAdmin = currentUser?.role === "admin" || currentUser?.role === "global_admin";
     const isAuthor = rec.savedByHash && currentUser?.badgeHash && rec.savedByHash === currentUser.badgeHash;
     if (!isAdmin && !isAuthor) return;
+    // v553: the report already open here is the newest copy — the History card can be older (warm cache)
+    if (!opts?.force && rec.id === savedReportIdRef.current) { setPage("inspector"); try { window.scrollTo(0, 0); } catch {} return; }
+    if (!opts?.force && !guardLeave("edit", () => loadRecordForEdit(rec, { force: true }))) return; // v553
+    // v553: edit the cloud's newest copy (with its photos), not the History list's — that one can be an older
+    // or slimmed copy, and the first autosave of the edit would write it back over the newer one
+    if (!opts?.fresh && FIREBASE_ON && !rec._pending) {
+      const vid = activeVenueId;
+      const col = vid === "default" ? legacyCol("inspections") : collection(db, "venues", vid, "inspections");
+      Promise.race([getDoc(doc(col, rec.id)), new Promise(res => setTimeout(() => res(null), 4000))])
+        .then(snap => { const d = snap && snap.exists && snap.exists() ? snap.data() : null; loadRecordForEdit(d && !d.discarded ? { ...d, id: rec.id } : rec, { force: true, fresh: true }); })
+        .catch(() => loadRecordForEdit(rec, { force: true, fresh: true }));
+      return;
+    }
     try { flushDraftRef.current && flushDraftRef.current(); } catch {} // v495: the walk in progress keeps its slot
     try {
-      restoreFormState(rec);
+      // v553: start from a blank form — a quick report / stand log carries no notes, food temps, supplies…,
+      // and the previous report's values used to stay in those fields and be saved into it
+      restoreFormState({ noteType: "inspection", inspectionType: "Regular Inspection", inspectionDate: "", inspectorName: "", participantName: "", siteName: "", siteNumber: "", restaurantLicense: "", supervisorName: "", sitePhone: "", locationType: "Concession", floor: "Floor 1", eventName: "", context: null, inspection: null, foodTemps: {}, foodTempNames: {}, foodTempCorrections: {}, foodTempSubmitted: {}, foodTempTimes: {}, suppliesNeeded: [], rawNotes: "", correctives: {}, ...rec });
       // Generate output immediately from the record data so it's visible right away
       // (before React re-renders, state from restoreFormState isn't readable yet —
       //  so we generate directly from rec fields rather than waiting for the useEffect)
@@ -31292,6 +32046,11 @@ export default function App() {
       setWarnings([]);
       setAiTips([]);
       armPristine(); // v495: an edit drafts under rec.id only once something changes
+      // v553: the record is in the cloud as it loads (unless it never got there) — only changes save,
+      // its old problems were already sent to the crews, and fields the form does not rebuild survive
+      editBaseRef.current = { id: rec.id, savedByHash: rec.savedByHash || "", createdAt: rec.createdAt, resolvedIssues: rec.resolvedIssues, inProgress: rec.inProgress, finishedAt: rec.finishedAt, full: rec };
+      if (!rec._pending) confirmArmRef.current = true;
+      markNotified(rec.id, (rec.actionItems || []).map(a => a && a.issue).filter(Boolean));
       setDraftsOpen(false);
       setDraftList(listDrafts());
       // Enable live output regeneration while this record is being edited
@@ -31352,9 +32111,10 @@ export default function App() {
     setCaBusy(null);
   }
   // Write the corrective actions to the shared follow-up maps (status, comment, after-photos)
-  function commitCorrectives(reportId) {
+  function commitCorrectives(reportId, onlyKeys) {
     const by = inspectorName || currentUser?.name || "Inspector"; const ts = Date.now();
     for (const f of standOpenProblems) {
+      if (onlyKeys && !onlyKeys.has(f.key)) continue; // v553: autosave commits each answer once
       const c = correctives[f.key]; if (!c || !(c.action || "").trim()) continue;
       const st = c.status || "fixed";
       // v520: the walk's "✗ Still there" is not a crew status — it only leaves a dated comment
@@ -31458,21 +32218,8 @@ export default function App() {
     setAiTips(tips);
   }
 
-  async function saveToHistory() {
-    // If warnings are already shown, scroll to the first missing field so the
-    // inspector sees what to fix — save still proceeds regardless.
-    if (warnings.length > 0) {
-      const first = warnings[0];
-      const el = document.getElementById(first.fieldId);
-      if (el) {
-        el.scrollIntoView({ behavior: "smooth", block: "center" });
-        el.classList.add("fieldHighlight");
-        setTimeout(() => el.classList.remove("fieldHighlight"), 2000);
-        const input = el.querySelector("input, select, textarea");
-        if (input) setTimeout(() => input.focus(), 400);
-      }
-    }
-
+  // v553: the report record exactly as it is saved — used by the autosave and by Save Report.
+  function buildReportRecord() {
     // Recursively remove any base64 data URLs from the entire document —
     // catches photos stored under ANY key name, not just "photos".
     // Firebase Storage https:// URLs are kept (they are short strings, not image data).
@@ -31497,6 +32244,7 @@ export default function App() {
       // chat messages written before saving remain associated with this record.
       id: savedReportIdRef.current || savedReportId || `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
       savedAt: new Date().toISOString(),
+      _venueId: reportVenueRef.current.id === (savedReportIdRef.current || savedReportId) ? reportVenueRef.current.venue : activeVenueId,
       savedByHash: currentUser?.badgeHash || "",
       noteType, inspectionType, inspectionDate, inspectorName, participantName,
       siteName, siteNumber, supervisorName, sitePhone, locationType, floor, eventName,
@@ -31552,66 +32300,106 @@ export default function App() {
     // Final pass: strip any remaining base64 strings from the whole record
     // (catches edge cases in context, rawNotes, or any field we didn't anticipate)
     const cleanRecord = stripBase64(record);
-    // Log approximate document size to help diagnose size issues
+    // An ✏️ Edit keeps what the form does not rebuild (resolved rows, the original author)
+    const base = editBaseRef.current && editBaseRef.current.id === cleanRecord.id ? editBaseRef.current : null;
+    if (base) {
+      if (base.resolvedIssues && cleanRecord.resolvedIssues === undefined) cleanRecord.resolvedIssues = base.resolvedIssues;
+      if (base.savedByHash) cleanRecord.savedByHash = base.savedByHash;
+      if (base.createdAt && cleanRecord.createdAt === undefined) cleanRecord.createdAt = base.createdAt;
+      const full = base.full;
+      if (full && (full.quickProblem || full.supervisorLog || full.source === "haccp_portal")) {
+        // v553: a stand log / quick report is not an inspection the form can rebuild — keep its own fields and problems
+        for (const [k, v] of Object.entries(full)) if (cleanRecord[k] === undefined && k !== "_pending" && k !== "inspection") cleanRecord[k] = v;
+        for (const k of ["inspectionType", "quickProblem", "supervisorLog", "source", "haccpSubmissionId", "haccpReadings", "haccpTempCount", "haccpOutOfRange", "reportedBy", "portalDay", "partial", "missingCorrective"]) if (full[k] !== undefined) cleanRecord[k] = full[k];
+        const norm = t => String(t || "").trim().toLowerCase();
+        const have = new Set((cleanRecord.actionItems || []).map(a => norm(a.issue)));
+        cleanRecord.actionItems = [...(full.actionItems || []).filter(a => !have.has(norm(a.issue))), ...(cleanRecord.actionItems || [])];
+        // the form cannot judge a stand log's readings — a FAIL / Needs Attention it came with stays unless the form found worse
+        if (full.overallStatus && full.overallStatus !== "Pass" && (!cleanRecord.overallStatus || cleanRecord.overallStatus === "Pass")) cleanRecord.overallStatus = full.overallStatus;
+      }
+    }
     const docSizeKb = Math.round(JSON.stringify(cleanRecord).length / 1024);
-    console.log(`saveToHistory: doc ~${docSizeKb} KB (limit 1024 KB)`);
-    if (docSizeKb > 900) {
-      console.warn("saveToHistory: document approaching 1MB limit!", docSizeKb, "KB");
+    return { record, cleanRecord, docSizeKb };
+  }
+
+  // Save Report: send it now and wait for the cloud. Nothing about the report is
+  // required except what the database itself needs (stand, inspector, date).
+  async function saveToHistory() {
+    // If warnings are already shown, scroll to the first missing field so the
+    // inspector sees what to fix — save still proceeds regardless.
+    if (warnings.length > 0) {
+      const first = warnings[0];
+      const el = document.getElementById(first.fieldId);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        el.classList.add("fieldHighlight");
+        setTimeout(() => el.classList.remove("fieldHighlight"), 2000);
+        const input = el.querySelector("input, select, textarea");
+        if (input) setTimeout(() => input.focus(), 400);
+      }
     }
+
+    const res = autoSaveNow({ reason: "finish", force: true });
+    const problem = (txt) => { setSaveToastMsg(txt); setSaveToast(true); setTimeout(() => setSaveToast(false), 6000); };
+    if (res?.skipped === "empty") { problem("⚠ Nothing to save yet — pick the stand and fill in the report first."); return; }
+    if (res?.skipped) return;
+    if (res?.missing) {
+      problem(`⚠ Not saved yet — add the ${res.missing.join(", ")}.`);
+      jumpToSaveField(res.missing[0]);
+      return;
+    }
+    if (res?.failed) { problem(`⚠ Not saved — ${res.failed}.`); return; }
+    const out = await waitForAck(res.id, res.sig, SAVE_TIMEOUT_MS + 2000, true);
+    if (out !== "ok") {
+      problem(out === "failed"
+        ? `⚠ Not saved — ${lastFailRef.current?.err || "it did not go through"}. Tap Try again at the top.`
+        : "⚠ Not saved yet — no internet. Stay on this report: it saves by itself as soon as the signal is back.");
+      return;
+    }
+    const record = lastAckedRecRef.current[res.id] || buildReportRecord().cleanRecord;
+    notifyNewCrewItems(record);
+    try { commitNewCorrectives(record.id); } catch {}
+    try { learnFromSave(record); } catch {}
+    firstDirtyAtRef.current = 0;
+    afterSaved(record.id, false);
+    rotateStoredReportId(); // a reload after this starts a new report, never on this one
+    flushInspectionOutbox(); // anything older still waiting goes now too
+    setTimeout(() => setSaved(false), 2500);
+    setTimeout(() => setSaveToast(false), 3500);
+    // Auto-complete the scheduled slot that was used to start this inspection (if any)
+    if (activeSlotIdRef.current) {
+      const prevCompleted = venueSettings?.completedSlots || [];
+      if (!prevCompleted.includes(activeSlotIdRef.current)) {
+        saveVenueSettings({ completedSlots: [...prevCompleted, activeSlotIdRef.current] });
+      }
+      activeSlotIdRef.current = null;
+    }
+    // Tell AI engine about the new save — best-effort, never a "Save failed".
     try {
-      try { window.__sdxSaving = true; } catch {} // v499: the auto-update waits for this
-      try { await saveOneInspection(cleanRecord); } finally { try { window.__sdxSaving = false; } catch {} }
-      try { commitCorrectives(record.id); } catch {}
-      try { notifyCrewsForItems(record.actionItems, record.siteName, record.siteNumber, record.inspectorName); } catch {}
-      learnFromSave(cleanRecord);
-      afterSaved(record.id, false);
-      flushInspectionOutbox(); // anything older still waiting goes now too
-      savedReportIdRef.current = record.id;
-      setSavedReportId(record.id);
-      try { localStorage.setItem(REPORT_ID_KEY, record.id); } catch {}
-      setTimeout(() => setSaved(false), 2500);
-      setTimeout(() => setSaveToast(false), 3500);
-      // Auto-complete the scheduled slot that was used to start this inspection (if any)
-      if (activeSlotIdRef.current) {
-        const prevCompleted = venueSettings?.completedSlots || [];
-        if (!prevCompleted.includes(activeSlotIdRef.current)) {
-          saveVenueSettings({ completedSlots: [...prevCompleted, activeSlotIdRef.current] });
-        }
-        activeSlotIdRef.current = null;
-      }
-      // Tell AI engine about the new save — in its own try so a query failure
-      // doesn't surface as a "Save failed" error when the record was already written.
-      try {
-        AIEngine.trackAction("saveInspection", {
-          overallStatus: record.overallStatus,
-          inspectionType: record.inspectionType,
-          locationType: record.locationType || "unknown",
-          issueCount: (record.actionItems || []).length,
-          inspectorName: record.inspectorName || "",
-          siteName: record.siteName || record.location || "",
-          reportDurationSeconds: record.reportDurationSeconds,
-        });
-        const { list: allHistory } = await loadHistory(undefined, { pageSize: 2000 });
-        AIEngine.learnFromInspection(record, allHistory);
-        persistAnalyticsSnapshot(VENUE_ID);
-      } catch { /* AI learning is best-effort; don't surface errors to the user */ }
-    } catch (e) {
-      console.error("Save failed:", e, "doc size:", docSizeKb, "KB");
-      const errMsg = (e?.message || "").toLowerCase();
-      const fatal = e?.code === "permission-denied" || errMsg.includes("size") || errMsg.includes("too large") || errMsg.includes("exceed") || docSizeKb > 900;
-      if (!fatal) {
-        // v495: no signal / flaky network — the report waits on this phone and is
-        // uploaded on the next load or when the connection is back. Never lost.
-        queueInspection(cleanRecord);
-        try { const k = `sdx_history_cache_${VENUE_ID}`; const c = JSON.parse(localStorage.getItem(k) || "[]"); localStorage.setItem(k, JSON.stringify([{ ...cleanRecord, _pending: true }, ...c.filter(r => r.id !== cleanRecord.id)])); } catch {}
-        afterSaved(record.id, true);
-        return;
-      }
-      const msg = e?.code === "permission-denied"
-        ? "Save failed — permission denied. Check Firestore rules."
-        : "Save failed — document too large. Try removing some photos.";
-      setError(msg);
-    }
+      AIEngine.trackAction("saveInspection", {
+        overallStatus: record.overallStatus,
+        inspectionType: record.inspectionType,
+        locationType: record.locationType || "unknown",
+        issueCount: (record.actionItems || []).length,
+        inspectorName: record.inspectorName || "",
+        siteName: record.siteName || record.location || "",
+        reportDurationSeconds: record.reportDurationSeconds,
+      });
+      const { list: allHistory } = await loadHistory(undefined, { pageSize: 2000 });
+      AIEngine.learnFromInspection(record, allHistory);
+      persistAnalyticsSnapshot(VENUE_ID);
+    } catch { /* AI learning is best-effort */ }
+  }
+  // v553: take the inspector to the box the database is waiting for.
+  function jumpToSaveField(what) {
+    const id = what === "stand name" ? "field-siteName" : what === "inspector name" ? "field-inspectorName" : what === "date" ? "field-inspectionDate" : "";
+    if (!id) return;
+    setTimeout(() => {
+      const el = document.getElementById(id); if (!el) return;
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      el.classList.add("fieldHighlight"); setTimeout(() => el.classList.remove("fieldHighlight"), 2500);
+      const inp = el.querySelector("input, select, textarea"); if (inp) setTimeout(() => { try { inp.focus(); } catch {} }, 400);
+    }, 120);
   }
   // v495: what a successful save (or a queued one) does to the form.
   function afterSaved(id, queued) {
@@ -31680,7 +32468,7 @@ export default function App() {
           </div>
         </div>
       )}
-      <header className="topBar" ref={headerRef}>
+      <header className={cx("topBar", (!isOnline || draftFail || outboxCount > 0 || page === "inspector") && "topBarHasStrip")} ref={headerRef}>
         <div className="brandLeft brandClickable" onClick={() => {
           setPage("inspector"); window.scrollTo({ top: 0, behavior: "smooth" });
           // Secret 5-tap: only navigates to global_admin if user has that role
@@ -31725,8 +32513,8 @@ export default function App() {
               <path d="M12.5 14H3.5C2.67 14 2 13.33 2 12.5V3.5C2 2.67 2.67 2 3.5 2H10L14 6V12.5C14 13.33 13.33 14 12.5 14Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
               <path d="M5.5 8.6L7.3 10.4L10.8 6.9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
-            <span className="genBtnLabelMobile">{loading ? "Saving…" : "Save Report"}</span>
-            <span className="genBtnLabel">{loading ? "Saving…" : "Save Report"}</span>
+            <span className="genBtnLabelMobile">{loading ? "Saving…" : "Finish & Save"}</span>
+            <span className="genBtnLabel">{loading ? "Saving…" : "Finish & Save"}</span>
           </button>
           <div className="topActionsDivider" aria-hidden="true" />
           {/* Notification bell — shown for all logged-in users */}
@@ -31895,7 +32683,7 @@ export default function App() {
                 <div style={{ display: "flex", gap: 6 }}>
                   <button className="btn" style={{ flex: 1, background: "#dc2626", color: "#fff", border: "none", fontSize: "0.8rem", padding: "0.35rem 0", fontWeight: 700 }}
                     type="button"
-                    onClick={() => { setLockConfirm(false); try { flushDraftRef.current && flushDraftRef.current(); } catch {} lockApp(); setCurrentUser(null); setLocked(true); }}>
+                    onClick={() => { setLockConfirm(false); setMenuOpen(false); guardLeave("lock", () => { try { flushDraftRef.current && flushDraftRef.current(); } catch {} lockApp(); setCurrentUser(null); setLocked(true); }); }}>
                     Yes, Lock
                   </button>
                   <button className="btn" style={{ flex: 1, fontSize: "0.8rem", padding: "0.35rem 0", background: "rgba(255,255,255,.1)", color: "#fff", border: "1px solid rgba(255,255,255,.35)", fontWeight: 600 }}
@@ -31917,51 +32705,58 @@ export default function App() {
         )}
 
         {/* ── Offline / draft-sync status strip ──────────────────────────────── */}
-        {(!isOnline || draftFail || outboxCount > 0 || (page === "inspector" && (saved || (draftSavedAt && dirtyRef.current)))) && (
-          <div className={cx("topStrip", draftFail ? "topStripFail" : isOnline ? "topStripDraft" : "topStripOffline")} data-testid="draft-strip" style={{
+        {(() => {
+          // v553: one line that always says where the report is — in the cloud or not, and why.
+          const red = page === "inspector" && (formFlags.c || cloud.state !== "idle") && (cloud.state === "missing" || (unsavedNow && (cloud.state === "failed" || cloud.state === "offline" || !isOnline)));
+          saveBarRedRef.current = red;
+          return null;
+        })()}
+        {(!isOnline || draftFail || outboxCount > 0 || page === "inspector") && (
+          <div className={cx("topStrip", (draftFail || saveBarRedRef.current) ? "topStripFail" : isOnline ? "topStripDraft" : "topStripOffline", page === "inspector" && "topStripSave")} data-testid="draft-strip" style={{
             width: "100vw",               /* full-bleed row regardless of header padding */
             marginLeft: "calc(50% - 50vw)",
             flexBasis: "100%",            /* always its own full-width row below the header */
             order: 99,
-            background: draftFail ? "rgba(220,38,38,0.92)" : isOnline ? "rgba(255,255,255,0.12)" : "rgba(220,38,38,0.85)",
-            borderTop: isOnline && !draftFail ? "1px solid rgba(255,255,255,0.18)" : "1px solid rgba(239,68,68,0.5)",
+            background: (draftFail || saveBarRedRef.current) ? "rgba(220,38,38,0.92)" : isOnline ? (page === "inspector" && cloud.state === "saved" && !unsavedNow ? "rgba(22,163,74,0.55)" : "rgba(255,255,255,0.12)") : "rgba(220,38,38,0.85)",
+            borderTop: isOnline && !draftFail && !saveBarRedRef.current ? "1px solid rgba(255,255,255,0.18)" : "1px solid rgba(239,68,68,0.5)",
             padding: "0.3rem 28px",
             display: "flex",
             alignItems: "center",
             gap: 8,
             fontSize: "0.78rem",
             color: "#fff",
-            fontWeight: isOnline && !draftFail ? 400 : 600,
+            fontWeight: isOnline && !draftFail && !saveBarRedRef.current ? 500 : 700,
             letterSpacing: "0.01em",
             flexShrink: 0,
             flexWrap: "wrap",
           }}>
-            {draftFail ? (
-              <span className="draftSavedText" data-testid="draft-fail">⚠ Could not save on this phone — free up space or close other tabs, then keep going</span>
+            {page === "inspector" ? (() => {
+              const t = cloud.at ? cloud.at.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "";
+              const retry = <button type="button" className="saveBarBtn" data-testid="save-retry" onClick={retrySaveNow}>Try again</button>;
+              // v553: one fixed-height line on the report screen (it never grows or appears under the finger);
+              // phones get the short words — the full reason is in the leave box and on wider screens.
+              const say = (st, long, short) => <span className="draftSavedText" data-testid="save-state" data-state={st}><span className="sbLong">{long}</span><span className="sbShort">{short}</span></span>;
+              if (cloud.state === "missing") return <>{say("missing", `⚠ Not saved yet — add the ${cloud.missing.join(" and ")} so the report can save`, `⚠ Not saved — add the ${cloud.missing.join(" and ")}`)}<button type="button" className="saveBarBtn" data-testid="save-fix" onClick={() => jumpToSaveField(cloud.missing[0])}>Add it</button></>;
+              if (cloud.state === "failed" && unsavedNow) return <>{say("failed", `⚠ Not saved — ${cloud.err}`, `⚠ Not saved — ${cloud.err}`)}{retry}</>;
+              if (unsavedNow && (cloud.state === "offline" || !isOnline)) return <>{say("offline", "⚠ Not saved yet — no internet. Stay on this report: it saves by itself when the signal is back", "⚠ Not saved — no internet. Stay on this report")}{retry}</>;
+              if (cloud.state === "saving") return say("saving", "☁ Saving the report to the cloud…", "☁ Saving to the cloud…");
+              if (unsavedNow) return say("pending", "✏️ Changes not saved yet — saving in a few seconds…", "✏️ Saving in a few seconds…");
+              if (cloud.state === "saved" || (formFlags.w && confirmedSigRef.current[savedReportId])) return say("saved", `✅ Report saved to the cloud${t ? ` · ${t}` : ""}`, `✅ Saved to the cloud${t ? ` · ${t}` : ""}`);
+              if (!isOnline) return say("offline-idle", "🔴 Offline — keep working, the report saves itself when the signal is back", "🔴 Offline — it saves when the signal is back");
+              if (formFlags.c) return say("ready", "☁ Answer the first item — the report saves itself to the cloud", "☁ Answer the first item — it saves itself");
+              return say("idle", "☁ This report saves itself to the cloud as you work", "☁ Saves itself to the cloud as you work");
+            })() : draftFail ? (
+              <span className="draftSavedText" data-testid="draft-fail">⚠ Could not keep a copy on this phone — free up space or close other tabs</span>
             ) : !isOnline ? (
               <>
                 <span style={{ fontSize: "0.85rem" }}>🔴</span>
-                <span>Offline — your report is saved on this phone and uploads when reconnected</span>
-              </>
-            ) : saved && page === "inspector" ? (
-              <span className="draftSavedText" data-testid="draft-ok">✅ Report saved</span>
-            ) : draftSavedAt && dirtyRef.current && page === "inspector" ? (
-              <>
-                <span style={{ fontSize: "0.85rem", opacity: 0.8 }}>💾</span>
-                <span className="draftSavedText" data-testid="draft-ok" style={{ opacity: 0.9 }}>
-                  ✓ Saved on this phone · {(() => {
-                    const diffMs = Date.now() - draftSavedAt.getTime();
-                    const mins = Math.floor(diffMs / 60000);
-                    if (mins < 1) return "just now";
-                    if (mins === 1) return "1 min ago";
-                    return `${mins} min ago`;
-                  })()}{draftCloudAt ? ` · ☁ cloud ${draftCloudAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ""}
-                </span>
+                <span>Offline — no internet right now</span>
               </>
             ) : null}
+            {page === "inspector" && draftFail && <span className="draftSavedText" data-testid="draft-fail" style={{ opacity: 0.85 }}>· no copy on this phone (storage full)</span>}
             {outboxCount > 0 && (
               <button type="button" className="outboxChip" data-testid="outbox-chip" onClick={() => flushInspectionOutbox()}>
-                📥 {outboxCount} report{outboxCount !== 1 ? "s" : ""} waiting to upload · tap to retry
+                <span className="sbLong">📥 {outboxCount} report{outboxCount !== 1 ? "s" : ""} waiting to upload · tap to retry</span><span className="sbShort">📥 {outboxCount} waiting · retry</span>
               </button>
             )}
           </div>
@@ -32100,7 +32895,7 @@ export default function App() {
             <span style={{ fontWeight: 400, fontSize: "0.8rem", opacity: 0.8, marginLeft: 8 }}>— working in this venue</span>
           </span>
           <button type="button"
-            onClick={() => { setVenue(VENUE_ID); setManagedVenueId(null); setManagedVenueName(null); setPage("global_admin"); }}
+            onClick={() => switchVenueTo(VENUE_ID, () => { setManagedVenueId(null); setManagedVenueName(null); setPageRaw("global_admin"); })}
             style={{ background: "rgba(255,255,255,0.15)", border: "1.5px solid rgba(255,255,255,0.4)", color: "#fff", borderRadius: 6, padding: "0.3rem 0.85rem", fontWeight: 600, fontSize: "0.82rem", cursor: "pointer", whiteSpace: "nowrap" }}>
             ← All Venues
           </button>
@@ -32198,7 +32993,7 @@ export default function App() {
               <button
                 key={s}
                 type="button"
-                onClick={() => { applySiteAutofill(s); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+                onClick={() => { if (hasContentRef.current && siteName.trim() && !sameStandName(s, siteName)) { pendingStandRef.current = { autofill: s }; guardLeave("stand", () => startNewInspection({ force: true })); } else applySiteAutofill(s); window.scrollTo({ top: 0, behavior: "smooth" }); }}
                 style={{
                   background: "var(--surface-2)",
                   color: "var(--ink-900)",
@@ -32272,7 +33067,7 @@ export default function App() {
             onClick={() => { setLabelsFocus({ unit: qrStand.unit || "", site: qrStand.site || "", floor: qrStand.floor || "", locType: qrStand.loctype || "", from: "inspector" }); setPage("print_labels"); }}>
             🏷 Equipment QR
           </button>
-          {QR_OPEN_AS_INSPECTOR && <a href={qrStandUrl("supervisor")} className="qrStandSwitch">Not inspecting? Open the supervisor log →</a>}
+          {QR_OPEN_AS_INSPECTOR && <a href={qrStandUrl("supervisor")} className="qrStandSwitch" onClick={e => { if (reportUnsaved()) { e.preventDefault(); const href = qrStandUrl("supervisor"); guardLeave("link", () => { window.location.href = href; }); } }}>Not inspecting? Open the supervisor log →</a>}
         </div>
       )}
       {currentUser && scanFlash && <div className="qrScanFlash">{scanFlash}</div>}
@@ -33905,7 +34700,7 @@ export default function App() {
           <button className="btn stickyBtn stickyBtnView" type="button" data-testid="sticky-view" onClick={() => {
             if (narrowScreen) { setOutputSheet(true); return; }
             const el = document.getElementById("report-output");
-            if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+            if (el) { skipScrollAnchor(1200); el.scrollIntoView({ behavior: "smooth", block: "start" }); }
           }}>&#128196; View</button>
           {saved && <span className="btn stickyBtn stickyBtnSaved" aria-live="polite">✅ Saved</span>}
           <span className="stickyDivider" />
@@ -33942,6 +34737,58 @@ export default function App() {
         </div>,
         document.body
       )}
+      {/* ── v553: "Your report is not saved yet" — every way out of an unsaved report lands here ── */}
+      {leaveAsk && ReactDOM.createPortal((() => {
+        const st = cloud.state;
+        const stand = [siteName.trim(), siteNumber.trim() ? `#${siteNumber.trim()}` : ""].filter(Boolean).join(" ");
+        const why = st === "missing"
+          ? { icon: "✏️", en: `It can't save yet: add the ${cloud.missing.join(" and ")}.`, es: `Todavía no se puede guardar: falta ${cloud.missing.map(m => m === "stand name" ? "el nombre del puesto" : m === "inspector name" ? "el nombre del inspector" : "la fecha").join(" y ")}.` }
+          : st === "failed"
+          ? { icon: "⚠", en: `The last save did not go through: ${cloud.err}.`, es: `El último guardado no pasó: ${cloud.err}.` }
+          : (st === "offline" || !isOnline)
+          ? { icon: "📶", en: "No internet — the report is NOT in the cloud yet. Stay on it: it saves by itself as soon as the signal is back.", es: "Sin internet — el reporte todavía NO está en la nube. Quédate aquí: se guarda solo cuando vuelva la señal." }
+          : { icon: "☁", en: "Saving your report to the cloud — one moment…", es: "Guardando tu reporte en la nube — un momento…" };
+        const what = { new: "start a new report", edit: "open another report", draft: "open another report", page: "leave this page", stand: "switch to the other stand", lock: "lock the app", venue: "switch venue", link: "open the supervisor log", back: "go back" }[leaveAsk.kind] || "leave";
+        const counts = (() => {
+          let answers = 0, photos = 0;
+          for (const sec of Object.values(inspection || {})) if (sec && typeof sec === "object") for (const n of Object.values(sec)) if (n && typeof n === "object") { for (const c of (n.checklist || [])) { if (c && (c.value === "YES" || c.value === "NO")) answers++; photos += (c?.photos || []).length; } photos += (n.photos || []).length; }
+          const temps = Object.values(foodTemps || {}).reduce((k, a) => k + (a || []).filter(v => String(v || "").trim()).length, 0);
+          return [answers && `${answers} answer${answers !== 1 ? "s" : ""}`, photos && `${photos} photo${photos !== 1 ? "s" : ""}`, temps && `${temps} temperature${temps !== 1 ? "s" : ""}`, rawNotes.trim() && "your notes"].filter(Boolean).join(", ");
+        })();
+        return (
+          <div className="leaveGuardBack" data-testid="leave-guard" data-state={st} onClick={e => { if (e.target === e.currentTarget) { setLeaveAsk(null); pendingStandRef.current = null; } }}>
+            <div className="leaveGuardBox" role="dialog" aria-modal="true" aria-labelledby="leave-guard-title">
+              <div className="leaveGuardTitle" id="leave-guard-title">Your report is not saved yet</div>
+              <div className="leaveGuardSub">Tu reporte todavía no está guardado{stand ? ` · ${stand}` : ""}</div>
+              <div className={cx("leaveGuardWhy", st === "saving" || (st !== "missing" && st !== "failed" && st !== "offline" && isOnline) ? "leaveGuardWhySaving" : "leaveGuardWhyBad")} data-testid="leave-guard-why">
+                <span className="leaveGuardIcon" aria-hidden="true">{why.icon}</span>
+                <span><b>{why.en}</b><br /><span className="leaveGuardEs">{why.es}</span></span>
+              </div>
+              <div className="leaveGuardNote">{leaveAsk.kind === "back" ? "Once it is in the cloud this closes by itself — then press back again. · Cuando esté en la nube esto se cierra solo — luego presiona atrás otra vez." : `You can ${what} as soon as it is in the cloud — this closes by itself when it is. · Podrás continuar en cuanto esté en la nube.`}</div>
+              {leaveAsk.discard === 0 ? (
+                <div className="leaveGuardBtns">
+                  {st === "missing"
+                    ? <button type="button" className="leaveGuardPrimary" data-testid="leave-guard-fix" onClick={() => { const f = cloud.missing[0]; setLeaveAsk(null); pendingStandRef.current = null; jumpToSaveField(f); }}>Add the {cloud.missing[0]}</button>
+                    : (st === "failed" || st === "offline" || !isOnline)
+                    ? <button type="button" className="leaveGuardPrimary" data-testid="leave-guard-retry" onClick={retrySaveNow}>Try again</button>
+                    : <button type="button" className="leaveGuardPrimary" disabled>Saving…</button>}
+                  <button type="button" className="leaveGuardSecondary" data-testid="leave-guard-stay" onClick={() => { setLeaveAsk(null); pendingStandRef.current = null; }}>Keep working on the report</button>
+                  <button type="button" className="leaveGuardDiscardLink" data-testid="leave-guard-discard" onClick={() => setLeaveAsk(a => ({ ...a, discard: 1 }))}>Throw this report away…</button>
+                </div>
+              ) : (
+                <div className="leaveGuardDiscard" data-testid="leave-guard-discard-ask">
+                  <div><b>Throw away the report{stand ? ` for ${stand}` : ""}?</b> {isEditModeRef.current ? "All your changes are undone — the report goes back to the way it was when you opened it." : `Everything in it${counts ? ` — ${counts} —` : ""} will be deleted. This cannot be undone.`}</div>
+                  <div className="leaveGuardEs">¿Botar este reporte? {isEditModeRef.current ? "Se deshacen todos tus cambios — el reporte vuelve a como estaba cuando lo abriste." : "Se borra todo lo que tiene. No se puede deshacer."}</div>
+                  <div className="leaveGuardBtns">
+                    <button type="button" className="leaveGuardDanger" data-testid="leave-guard-discard-yes" onClick={discardReport}>Yes, throw it away</button>
+                    <button type="button" className="leaveGuardSecondary" onClick={() => setLeaveAsk(a => ({ ...a, discard: 0 }))}>No, keep it</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })(), document.body)}
       {/* ── Pre-submit Incomplete Sections Modal ── */}
       {modals.preSubmit && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 9000, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>

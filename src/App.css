@@ -1788,10 +1788,14 @@ input[type="date"] {
 /* Status summary bar — chips only, items never move positions */
 .clStatusBar {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap; /* v553: one line that scrolls sideways — its line count changed as rows were answered and moved the rows */
+  overflow-x: auto;
+  scrollbar-width: none;
   gap: 6px;
   padding: 6px 10px 4px;
 }
+.clStatusBar::-webkit-scrollbar { display: none; }
+.clStatusBar .clStatusChip { flex: none; white-space: nowrap; }
 .clStatusChip {
   font-size: 0.7rem;
   font-weight: 700;
@@ -6867,9 +6871,9 @@ html { touch-action: manipulation; -webkit-text-size-adjust: 100%; text-size-adj
 button { user-select: none; -webkit-user-select: none; }
 .appShell { -webkit-overflow-scrolling: touch; }
 img { -webkit-user-drag: none; }
-@media (prefers-reduced-motion: no-preference) {
-  html { scroll-behavior: smooth; }
-}
+/* v553: no global smooth scrolling. With it, every scroll the app makes to HOLD the reader's place
+   (the Follow-ups anchor, the filter card, a page change) played as a visible slide on iPhone / iPad —
+   "the screen moves when I tap". Scrolls that should glide pass behavior: "smooth" themselves. */
 
 /* ══════════════════════════════════════════════════════════════
    SMOOTHNESS PASS 2 — every screen eases in like the login
@@ -7649,7 +7653,7 @@ html[data-theme="black"] .labelCardPro { background: #fff; }
 }
 
 /* ── Top-bar status strips (offline / draft-saved) always full row ── */
-.topStrip { flex-basis: 100% !important; order: 99 !important; }
+.topStrip { flex-basis: 100vw !important; order: 99 !important; } /* 100vw with the strip's negative left margin = edge to edge (100% stopped short by the header's side padding) */
 @media (max-width: 700px) {
   /* On phones hide the passive draft-saved note (Save state lives in the bottom bar) */
   .topStripDraft { display: none !important; }
@@ -7988,7 +7992,7 @@ html[data-theme="dark"] .fuStOnWaiting, html[data-theme="black"] .fuStOnWaiting 
 .qrScanFlash { background: #ecfdf5; border-bottom: 3px solid #10b981; padding: 0.6rem 1.25rem; font-weight: 700; font-size: 0.88rem; color: #065f46; }
 [data-theme="black"] .qrScanFlash, [data-theme="dark"] .qrScanFlash, [data-theme="noir"] .qrScanFlash { background: rgba(16,185,129,0.14); color: #6ee7b7; }
 .qrScanPhotoBtn { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; padding: 0.5rem 0.9rem; border-radius: 10px; border: 1.5px solid var(--sdx-gray-300, #cbd5e1); background: var(--surface-2); color: var(--ink-700); font-weight: 700; font-size: 0.84rem; }
-.equipScanNote { position: sticky; bottom: 12px; z-index: 5; margin: 8px 0; padding: 9px 12px; border-radius: 10px; background: #2A295C; color: #fff; font-weight: 800; font-size: 0.84rem; box-shadow: 0 6px 18px rgba(0,0,0,0.25); }
+.equipScanNote { position: fixed; left: 12px; right: 12px; bottom: max(18px, env(safe-area-inset-bottom)); z-index: 10001; margin: 0; padding: 9px 12px; border-radius: 10px; background: #2A295C; color: #fff; font-weight: 800; font-size: 0.84rem; box-shadow: 0 6px 18px rgba(0,0,0,0.25); }
 
 /* ── Equipment labels by floor (v371) ── */
 .lblFloorBar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 12px 0 4px; }
@@ -9270,6 +9274,7 @@ button.nluChipTemp { background: #fef3c7; color: #92400e; border: 1px solid #fcd
 .gdRow { display: flex; align-items: center; gap: 8px; background: var(--surface-1, #fff); border: 1.5px solid var(--sdx-gray-200, #e5e7eb); border-radius: 10px; padding: 6px 8px; margin: 4px 0; flex-wrap: wrap; }
 .gdRow.ok { border-color: #86efac; }
 .gdRow.bad { border-color: #fca5a5; background: #fef2f2; }
+.gdOpMore { flex-basis: 100%; min-height: 44px; margin-top: 2px; background: none; border: 1.5px dashed #fca5a5; border-radius: 8px; color: #b91c1c; font-weight: 700; font-size: 0.85rem; text-align: left; padding: 6px 10px; cursor: pointer; }
 .gdLabel { flex: 1 1 140px; min-width: 0; font-weight: 700; font-size: .84rem; }
 .gdRule { font-size: .72rem; color: var(--ink-500, #6b7280); }
 .gdTemp { width: 76px !important; min-height: 44px; font-size: 16px; text-align: center; }
@@ -9802,10 +9807,10 @@ html[data-theme="black"] .inspTypeCard.on:nth-child(2) { background: rgba(37, 99
 
 /* Press feedback — the PASS 2 recipe (.btn scale) extended to
    cards, list rows, menu tiles and the remaining tab styles */
-.card:active, .historyCard:active, .checklistItem:active,
-.guideItem:active, .crewItem:active, .fuItem:active, .caItem:active,
-.kqrEquipItem:active, .predictiveItem:active, .recurringItem:active,
-.menuQuickTile:active, .themeCard:active {
+/* v553: only things that ARE the tap target shrink. Containers (.card, .fuItem, .guideItem, .crewItem…)
+   used to scale too — :active also lands on every ancestor of the touched button, so each touch shrank the
+   whole Follow-ups list / form toward its middle and sprang it back: "the screen moves when I tap". */
+.kqrEquipItem:active, .menuQuickTile:active, .themeCard:active {
   transform: scale(0.98); transition: transform 80ms ease;
 }
 .analyticsSubTab:active, .crewTab:active, .standsTab:active {
@@ -10146,3 +10151,72 @@ html[data-theme="black"] .dropdownMenu { background: linear-gradient(160deg, #26
 .fuPeekBtn { flex: 1; border-radius: 999px; padding: 7px 10px; font-size: 0.82rem; font-weight: 800; cursor: pointer; border: 1.5px solid var(--sdx-gray-200); background: var(--surface-1); color: var(--ink-600); }
 .fuPeekBtnFixed.on { background: #dcfce7; border-color: #16a34a; color: #166534; }
 .fuPeekBtnStill.on { background: #fee2e2; border-color: #dc2626; color: #991b1b; }
+
+/* ── v553: report save status + "not saved yet" box ─────────────────── */
+.saveBarBtn { margin-left: 4px; background: #fff; color: #b91c1c; border: none; border-radius: 999px; padding: 4px 12px; font-weight: 800; font-size: 0.78rem; min-height: 30px; cursor: pointer; }
+.leaveGuardBack { position: fixed; inset: 0; z-index: 9500; background: rgba(15, 23, 42, 0.62); display: flex; align-items: center; justify-content: center; padding: 16px; }
+.leaveGuardBox { background: var(--surface-1, #fff); color: var(--ink-900, #0f172a); border-radius: 18px; padding: 22px 20px 16px; width: 100%; max-width: 440px; max-height: 92vh; overflow-y: auto; box-shadow: 0 18px 60px rgba(0, 0, 0, 0.35); }
+.leaveGuardTitle { font-weight: 800; font-size: 1.15rem; color: #b91c1c; }
+.leaveGuardSub { font-size: 0.85rem; color: var(--ink-500, #64748b); margin-top: 2px; }
+.leaveGuardWhy { display: flex; gap: 10px; align-items: flex-start; margin: 14px 0 10px; padding: 12px 14px; border-radius: 12px; font-size: 0.92rem; line-height: 1.45; }
+.leaveGuardWhyBad { background: #fef2f2; border: 1.5px solid #fca5a5; color: #7f1d1d; }
+.leaveGuardWhySaving { background: #eff6ff; border: 1.5px solid #93c5fd; color: #1e3a8a; }
+.leaveGuardIcon { font-size: 1.3rem; line-height: 1.2; }
+.leaveGuardEs { font-size: 0.84rem; opacity: 0.85; }
+.leaveGuardNote { font-size: 0.8rem; color: var(--ink-500, #64748b); line-height: 1.45; margin-bottom: 12px; }
+.leaveGuardBtns { display: flex; flex-direction: column; gap: 8px; }
+.leaveGuardPrimary, .leaveGuardSecondary, .leaveGuardDanger { min-height: 48px; border-radius: 12px; font-weight: 800; font-size: 0.95rem; cursor: pointer; border: none; }
+.leaveGuardPrimary { background: #1d4ed8; color: #fff; }
+.leaveGuardPrimary:disabled { background: #93c5fd; cursor: default; }
+.leaveGuardSecondary { background: var(--surface-2, #f1f5f9); color: var(--ink-900, #0f172a); border: 1.5px solid var(--sdx-gray-200, #e2e8f0); }
+.leaveGuardDanger { background: #dc2626; color: #fff; }
+.leaveGuardDiscardLink { background: none; border: none; color: #b91c1c; font-size: 0.82rem; text-decoration: underline; padding: 8px; min-height: 40px; cursor: pointer; }
+.leaveGuardDiscard { display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: 12px; background: #fef2f2; border: 1.5px solid #fca5a5; color: #7f1d1d; font-size: 0.88rem; line-height: 1.45; }
+html[data-theme="black"] .leaveGuardWhyBad, html[data-theme="black"] .leaveGuardDiscard { background: #2a0f0f; color: #fecaca; border-color: #7f1d1d; }
+html[data-theme="black"] .leaveGuardWhySaving { background: #0f1b33; color: #bfdbfe; border-color: #1e3a8a; }
+/* v553: a report the inspector is still writing (it saves itself while they walk) */
+.inProgressChip { margin: 10px 20px 0; padding: 8px 12px; border-radius: 10px; background: #eff6ff; border: 1px solid #93c5fd; color: #1e3a8a; font-weight: 700; font-size: 0.8rem; }
+[data-theme="black"] .inProgressChip, [data-theme="midnight"] .inProgressChip, [data-theme="noir"] .inProgressChip { background: rgba(59,130,246,0.14); border-color: rgba(147,197,253,0.45); color: #bfdbfe; }
+.inProgressPill { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 999px; background: #eff6ff; border: 1px solid #93c5fd; color: #1e3a8a; font-weight: 800; font-size: 0.72rem; white-space: nowrap; }
+[data-theme="black"] .inProgressPill, [data-theme="midnight"] .inProgressPill, [data-theme="noir"] .inProgressPill { background: rgba(59,130,246,0.14); border-color: rgba(147,197,253,0.45); color: #bfdbfe; }
+/* v553: new data waits behind this pill while someone reads further down (no jump) */
+.fuUpdatePill { position: fixed; top: calc(env(safe-area-inset-top, 0px) + 78px); left: 50%; transform: translateX(-50%); z-index: 1150; background: var(--sdx-navy, #1f2a44); color: #fff; border: none; border-radius: 999px; padding: 10px 18px; min-height: 44px; font-weight: 800; font-size: 0.86rem; box-shadow: 0 6px 22px rgba(15,23,42,.28); cursor: pointer; white-space: nowrap; max-width: calc(100vw - 32px); overflow: hidden; text-overflow: ellipsis; }
+
+/* v553: on the report screen the save strip is ALWAYS one fixed-height line (every width), so it never
+   appears, grows or wraps under the inspector's finger when the signal drops or a save lands. */
+.topStrip.topStripSave { display: flex !important; flex-wrap: nowrap !important; height: 34px; min-height: 34px; padding-top: 0 !important; padding-bottom: 0 !important; overflow: hidden; white-space: nowrap; }
+.topStripSave .draftSavedText { display: inline-block !important; flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.topStripSave .saveBarBtn, .topStripSave .outboxChip { flex: 0 0 auto; min-height: 28px; padding-top: 3px; padding-bottom: 3px; white-space: nowrap; }
+.sbShort { display: none; }
+@media (max-width: 600px) {
+  .topStrip.topStripSave { padding-left: 12px !important; padding-right: 12px !important; }
+  .topStripSave .sbLong { display: none; }
+  .topStripSave .sbShort { display: inline; }
+}
+/* the status strip gets its own row under the header buttons (phone headers are nowrap — the strip used to
+   squeeze into the top row and push the logo off the screen) */
+@media (max-width: 768px) {
+  .topBar.topBarHasStrip { flex-wrap: wrap !important; row-gap: 6px; padding-bottom: 0 !important; }
+  .topBar.topBarHasStrip > .topStrip { margin-top: 0; }
+}
+.fuNoteRowBelow { flex-basis: 100%; width: 100%; margin-top: 2px; }
+/* v553: Follow-ups toasts (Undo / not saved yet / reminder basket) float at the bottom instead of pushing the list */
+.fuToastStack { position: fixed; left: 50%; transform: translateX(-50%); bottom: max(14px, env(safe-area-inset-bottom)); z-index: 1100; width: min(680px, calc(100vw - 24px)); display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+.fuToastStack > * { pointer-events: auto; margin: 0 !important; box-shadow: 0 10px 28px rgba(15, 23, 42, 0.22); }
+.fuToastStack .fuRemindBar { background: var(--surface-1, #fff); }
+.fuToastStack .fuUndoStrip, .fuToastStack .fuSaveWarn { padding: 10px 14px; font-size: 0.82rem; }
+.fuToastStack .fuUndoStrip button { min-height: 40px; padding: 6px 14px; }
+
+.eqpFlashToast { position: fixed; left: 50%; transform: translateX(-50%); bottom: max(16px, env(safe-area-inset-bottom)); width: min(560px, calc(100vw - 24px)); z-index: 10001; margin: 0; box-shadow: 0 10px 28px rgba(15, 23, 42, 0.22); }
+/* v553: the "Updating from the cloud / Loaded in" chip floats (it pushed the stand list down, then pulled it back up 6 s later) */
+.equipRefreshChip { position: fixed; left: 50%; transform: translateX(-50%); bottom: max(16px, env(safe-area-inset-bottom)); z-index: 1050; margin: 0; box-shadow: 0 6px 18px rgba(15, 23, 42, 0.18); pointer-events: none; }
+/* v553: the QR sheet sits at the top and scrolls inside itself, so tapping the paste box never slides it off the screen */
+@media (max-width: 768px) {
+  .qrScanOverlay { align-items: flex-start; overflow-y: auto; overscroll-behavior: contain; padding-top: max(16px, env(safe-area-inset-top)); }
+}
+/* v553: on phones / iPads (no CSS scroll anchoring) a card that was skipped as 180 px snapped to its real height as it
+   came into view above the reader, and the list jumped. The list is already paged (Show more), so render them all. */
+@media (pointer: coarse), (hover: none) {
+  .historyCard { content-visibility: visible; contain-intrinsic-size: none; }
+}
+.fuReturnBar { display: block; width: 100%; min-height: 44px; margin: 0 0 10px; padding: 8px 14px; border-radius: 12px; border: 1.5px solid var(--sdx-navy); background: var(--surface-2, #eef2ff); color: var(--sdx-navy); font-weight: 800; font-size: 0.88rem; text-align: left; cursor: pointer; }
