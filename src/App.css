@@ -7936,6 +7936,9 @@ html[data-theme="dark"] .fuStOnWaiting, html[data-theme="black"] .fuStOnWaiting 
 }
 [data-theme="black"] .haccpReqBtn.haccpReqSent, [data-theme="dark"] .haccpReqBtn.haccpReqSent, [data-theme="noir"] .haccpReqBtn.haccpReqSent { background: rgba(245,158,11,0.2); color: #fcd34d; border-color: rgba(245,158,11,0.4); }
 [data-theme="black"] .haccpReqFlash, [data-theme="dark"] .haccpReqFlash, [data-theme="noir"] .haccpReqFlash { background: rgba(16,185,129,0.15); color: #6ee7b7; border-color: rgba(16,185,129,0.4); }
+/* v556: the "Reminder sent" message is a bottom toast now (HaccpTodayTracker) — solid so the page does not show through */
+.fuToastStack .haccpReqFlash { padding: 10px 14px; border-radius: 12px; }
+[data-theme="black"] .fuToastStack .haccpReqFlash, [data-theme="dark"] .fuToastStack .haccpReqFlash, [data-theme="noir"] .fuToastStack .haccpReqFlash { background: #064e3b; color: #d1fae5; border-color: #10b981; }
 [data-theme="black"] .haccpPillPartial, [data-theme="dark"] .haccpPillPartial, [data-theme="noir"] .haccpPillPartial { background: rgba(245,158,11,0.18) !important; color: #fcd34d !important; border-color: rgba(245,158,11,0.4) !important; }
 
 /* ── Stand QR: inspector vs supervisor routing (v361) ── */
@@ -8856,6 +8859,10 @@ html[data-theme="dark"] .fuStOnWaiting, html[data-theme="black"] .fuStOnWaiting 
 
 /* v467: "Understood:" strip under free-text boxes */
 .nluStrip { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 6px 0 4px; }
+/* v556: the quick report keeps one fixed line for it (scrolls sideways when long) so nothing below moves */
+.nluStrip.qpNluSlot { min-height: 26px; flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; scrollbar-width: none; }
+.nluStrip.qpNluSlot::-webkit-scrollbar { display: none; }
+.nluStrip.qpNluSlot > * { flex: 0 0 auto; white-space: nowrap; }
 .nluStripLbl { font-size: 0.72rem; font-weight: 700; color: #6b7280; letter-spacing: .03em; }
 .nluChip { display: inline-flex; align-items: center; gap: 4px; font-size: 0.76rem; font-weight: 700; padding: 3px 6px 3px 9px; border-radius: 999px; background: #eef2ff; color: #3730a3; border: 1px solid #c7d2fe; }
 .nluChip-severity { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
@@ -9105,7 +9112,9 @@ button.nluChipTemp { background: #fef3c7; color: #92400e; border: 1px solid #fcd
 .sfFilter.on b { background: rgba(255,255,255,.2); }
 .sfList { overflow-y: auto; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; flex: 1 1 auto; min-height: 0; }
 .sfList > .sfCard { flex-shrink: 0; }
-@media (min-width: 900px) { .sfList { display: grid; grid-template-columns: 1fr 1fr; grid-auto-rows: max-content; align-content: start; } .sfCard.open { grid-column: 1 / -1; } }
+/* v556: an open card stays in its own column (it used to span both and jump to the next row); the panel grows downward only */
+@media (min-width: 900px) { .sfList { display: grid; grid-template-columns: 1fr 1fr; grid-auto-rows: max-content; align-content: start; align-items: start; } }
+@media (min-width: 561px) { .sfBackdrop { align-items: flex-start; padding-top: 6vh; } }
 .sfCard { border: 1px solid var(--sdx-gray-200, #e5e7eb); border-radius: 12px; background: var(--surface-1, #fff); overflow: hidden; }
 .sfCard.attn { border-color: #fca5a5; background: #fff5f5; }
 .sfCard.sup { border-color: #fcd34d; background: #fffbeb; }
@@ -10206,6 +10215,13 @@ html[data-theme="black"] .leaveGuardWhySaving { background: #0f1b33; color: #bfd
 .fuToastStack .fuRemindBar { background: var(--surface-1, #fff); }
 .fuToastStack .fuUndoStrip, .fuToastStack .fuSaveWarn { padding: 10px 14px; font-size: 0.82rem; }
 .fuToastStack .fuUndoStrip button { min-height: 40px; padding: 6px 14px; }
+/* v556: the form's scan message / "Restored your unsaved report" float above the bottom bar instead of pushing the
+   form down at the top of the page; text only, so taps go straight through to what is under them */
+.fuToastStack.formToastStack { bottom: calc(84px + env(safe-area-inset-bottom, 0px)); }
+.fuToastStack.formToastStack > * { pointer-events: none; }
+.fuToastStack .qrScanFlash, .fuToastStack .draftRestoredStrip { border-radius: 12px; border: 1px solid #a7f3d0; background: #ecfdf5; padding: 10px 14px; }
+[data-theme="black"] .fuToastStack .qrScanFlash, [data-theme="dark"] .fuToastStack .qrScanFlash, [data-theme="noir"] .fuToastStack .qrScanFlash,
+[data-theme="black"] .fuToastStack .draftRestoredStrip, [data-theme="dark"] .fuToastStack .draftRestoredStrip, [data-theme="noir"] .fuToastStack .draftRestoredStrip { background: #064e3b; color: #d1fae5; border-color: #10b981; }
 
 .eqpFlashToast { position: fixed; left: 50%; transform: translateX(-50%); bottom: max(16px, env(safe-area-inset-bottom)); width: min(560px, calc(100vw - 24px)); z-index: 10001; margin: 0; box-shadow: 0 10px 28px rgba(15, 23, 42, 0.22); }
 /* v553: the "Updating from the cloud / Loaded in" chip floats (it pushed the stand list down, then pulled it back up 6 s later) */
@@ -10219,6 +10235,8 @@ html[data-theme="black"] .leaveGuardWhySaving { background: #0f1b33; color: #bfd
 @media (pointer: coarse), (any-pointer: coarse), (hover: none) { /* v555: + an iPad with a keyboard case */
   .historyCard { content-visibility: visible; contain-intrinsic-size: none; }
 }
+/* v556: "Open report" (From the stands, a notification) lands the card below the fixed header, not under it */
+.historyCard { scroll-margin-top: calc(84px + env(safe-area-inset-top, 0px)); }
 .fuReturnBar { display: block; width: 100%; min-height: 44px; margin: 0 0 10px; padding: 8px 14px; border-radius: 12px; border: 1.5px solid var(--sdx-navy); background: var(--surface-2, #eef2ff); color: var(--sdx-navy); font-weight: 800; font-size: 0.88rem; text-align: left; cursor: pointer; }
 
 /* ════════════════════════════════════════════════════════════════════

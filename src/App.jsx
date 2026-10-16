@@ -586,7 +586,9 @@ async function flushOutbox() {
 }
 // v518.1: every registry write also patches this phone's copy of the doc, so a page that re-opens
 // offline (or before the cloud answers) shows the change instead of the old placement
+let _equipTempRegMem = null; // v556: the board's last registry read, so a second Temps visit paints at once
 function patchEquipDocCache(payload) {
+  _equipTempRegMem = null; // v556: a registry write makes the Temps board's in-memory copy stale — it re-reads next visit
   try {
     const key = `sdx_equip_reg_doc_${VENUE_ID}`;
     const d = JSON.parse(localStorage.getItem(key) || "null") || { items: {}, labelIndex: {}, hidden: {} };
@@ -7500,8 +7502,34 @@ ${(() => {
    inspection records carrying the unit's assetTag. This board joins the two:
    stand → units → last read, so the day the labels go up the reads start
    showing here, linked to the stand. ─────────────────────────────────────── */
+// v556: this phone's own copy of the equipment registry, hidden units kept hidden: the full doc copy that Stands &
+// equipment writes (it carries cutoffMs — a copy that only holds this phone's own patches does not count), else the
+// registry mirror (items + labelIndex) with its hidden list. null when the phone has neither.
+function equipBoardLocalReg() {
+  try {
+    const d = JSON.parse(localStorage.getItem(`sdx_equip_reg_doc_${VENUE_ID}`) || "null");
+    if (d && typeof d === "object" && "cutoffMs" in d) return { items: { ...(d.labelIndex || {}), ...(d.items || {}) }, setup: d.setup || {}, hidden: d.hidden || {}, src: "doc" };
+  } catch {}
+  try {
+    const items = JSON.parse(localStorage.getItem(EQUIP_REG_LS) || "null");
+    if (items && typeof items === "object" && Object.keys(items).length) {
+      let hidden = {}, setup = {};
+      try { hidden = JSON.parse(localStorage.getItem(`sdx_equip_hidden_${VENUE_ID}`) || "{}") || {}; } catch {}
+      try { setup = JSON.parse(localStorage.getItem(`sdx_equip_setup_${VENUE_ID}`) || "{}") || {}; } catch {}
+      return { items, setup, hidden, src: "mirror" };
+    }
+  } catch {}
+  return null;
+}
 function EquipTempBoard({ history, onOpenStand }) {
-  const [reg, setReg] = useState(null);      // { items, setup, hidden }
+  // v556: paint on the first frame from this phone's copy of the registry (the effect below refreshes it in place),
+  // so the board no longer pops in seconds later above "Temperature Monitoring". Only when the stand list is in
+  // memory — without it every unit would land in "Not sure" and then re-group.
+  const [reg, setReg] = useState(() => {
+    if (!(_standListCache || []).length) return null;
+    if (_equipTempRegMem?.venue === VENUE_ID && _equipTempRegMem.src === "cloud") return _equipTempRegMem;
+    return equipBoardLocalReg();
+  });      // { items, setup, hidden, src }
   const [filter, setFilter] = useState("all"); // all | alert | await | today | stale
   const [floorPick, setFloorPick] = useState("");
   const [q, setQ] = useState("");
@@ -7513,18 +7541,23 @@ function EquipTempBoard({ history, onOpenStand }) {
   useEffect(() => {
     let alive = true;
     (async () => {
-      let items = {}, setup = {}, hidden = {};
+      let next = null;
       try { await loadStandList(); } catch {} // v518: placement needs the stand list
       try {
         const snap = await getDoc(doc(db, "venues", VENUE_ID, "sharedMemory", "equipmentRegistry"));
         const d = snap.exists() ? (snap.data() || {}) : {};
-        items = { ...(d.labelIndex || {}), ...(d.items || {}) }; setup = d.setup || {}; hidden = d.hidden || {};
-        try { localStorage.setItem(`sdx_equip_setup_${VENUE_ID}`, JSON.stringify(setup)); } catch {}
+        next = { items: { ...(d.labelIndex || {}), ...(d.items || {}) }, setup: d.setup || {}, hidden: d.hidden || {}, src: "cloud" };
+        try { localStorage.setItem(`sdx_equip_setup_${VENUE_ID}`, JSON.stringify(next.setup)); } catch {}
       } catch {
-        try { items = JSON.parse(localStorage.getItem(EQUIP_REG_LS) || "{}") || {}; } catch {}
-        try { setup = JSON.parse(localStorage.getItem(`sdx_equip_setup_${VENUE_ID}`) || "{}") || {}; } catch {}
+        // v556: offline / local mode — this phone's copy WITH its hidden list (the old fallback had hidden = {}, so a few
+        // seconds after a correct board painted every deleted / duplicate unit came back and the list moved)
+        next = equipBoardLocalReg() || { items: {}, setup: {}, hidden: {}, src: "none" };
       }
-      if (alive) setReg({ items, setup, hidden });
+      const cloud = next.src === "cloud";
+      // a cloud read always wins and is the only thing kept in memory; offline the phone's own copy (with its edits and
+      // hidden list) is what is shown — never an older in-memory read, never an empty "none" copy over a real one
+      if (cloud) _equipTempRegMem = { ...next, venue: VENUE_ID };
+      if (alive) setReg(prev => cloud ? _equipTempRegMem : (next.src === "none" && prev ? prev : next));
     })();
     return () => { alive = false; };
   }, []);
@@ -8671,9 +8704,9 @@ function LocationsPanel({ loc, passColor, trendArrow, MiniBar, EmptyState }) {
           <button key={t.key} type="button" onClick={() => setLocSub(t.key)}
             style={{
               background: locSub === t.key ? "var(--tint-blue-1)" : "var(--surface-2)",
-              border: locSub === t.key ? "1.5px solid #93c5fd" : "1px solid #e5e7eb",
+              border: locSub === t.key ? "1.5px solid #93c5fd" : "1.5px solid #e5e7eb", // v556: same border + weight in both states — the picked tab no longer grows and pushes the others
               borderRadius: 7, padding: "5px 10px", cursor: "pointer",
-              fontSize: "0.73rem", fontWeight: locSub === t.key ? 700 : 400,
+              fontSize: "0.73rem", fontWeight: 600,
               color: locSub === t.key ? "#1d4ed8" : "var(--ink-500)",
             }}
           >{t.label}</button>
@@ -10487,18 +10520,21 @@ function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLoc
   const [showOther, setShowOther] = useState(false);
   const [showDone, setShowDone] = useState(false);
   const [local, setLocal] = useState({ status: {}, comments: {}, photos: {}, cleared: {}, types: {} });
-  const [moveKey, setMoveKey] = useState(null);
-  const [action, setAction] = useState(null); // { key, kind: "in_progress"|"waiting"|"fixed", note }
+  // v556: every card keeps its OWN open box (move row, action box, more…, report) — opening one on card B used to close
+  // card A's box above it, so B jumped up 200-330 px under the finger. Maps keyed by f.key / report id.
+  const [moveKeys, setMoveKeys] = useState({});
+  const [actions, setActions] = useState({}); // { [f.key]: { kind: "in_progress"|"waiting"|"fixed", note, how? } }
   const [busy, setBusy] = useState(null);
   const [flash, setFlash] = useState("");
   const [lightboxSrc, setLightboxSrc] = useState(null);
-  const [openReport, setOpenReport] = useState(null);
+  const [openReports, setOpenReports] = useState({}); // v556
   const [menuOpen, setMenuOpen] = useState(false);
   // v488: simple view (default) — one list, two big buttons per job. ⚙ More
   // brings back search, stand picker, By Problem, floors, fixed, other.
   const [simple, setSimple] = useState(() => { try { return localStorage.getItem("sdx_crew_simple") !== "0"; } catch { return true; } });
   const setSimpleSave = v => { skipScrollAnchor(); try { window.scrollTo(0, 0); } catch {} setSimple(v); if (v) { setQ(""); setStandPick(""); setFloorPick(""); setGroupBy("stand"); setShowOther(false); setShowDone(false); } try { localStorage.setItem("sdx_crew_simple", v ? "1" : "0"); } catch {} };
-  const [moreKey, setMoreKey] = useState(null); // card whose "more…" row is open
+  const [moreKeys, setMoreKeys] = useState({}); // v556: cards whose "more…" row is open
+  const dropKey = (setter, k) => setter(p => { if (!(k in p)) return p; const n = { ...p }; delete n[k]; return n; });
   const me = currentUser?.name || "Crew";
 
   async function load() {
@@ -10523,7 +10559,7 @@ function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLoc
     const patch = {}; fuMembers(f).forEach(m => { patch[m.key] = entry; }); // v502: a merged card moves all of its issues
     setLocal(p => ({ ...p, types: { ...p.types, ...patch } }));
     saveVenueSettingsMap?.("followupType", patch);
-    setMoveKey(null);
+    dropKey(setMoveKeys, f.key); // v556
     notifyInspector(f, `${meta.icon} Moved to ${itype} — ${f.loc}${f.unit ? ` #${f.unit}` : ""}`, `${f.cat}: ${f.detail || ""} — ${me} says this is ${itype.toLowerCase()}`);
     try { notifyCrewsForItems([{ issue: `${f.cat}: ${f.detail || ""}`, notes: f.notes || "" }], f.loc, f.unit, me, itype); } catch {}
     setFlash(`↪ ${T("Sent to", "Enviado a", "Voye bay")} ${itype}`); setTimeout(() => setFlash(""), 3000);
@@ -10602,7 +10638,7 @@ function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLoc
     saveVenueSettingsMap?.("followupComments", cmP);
     if (kind === "fixed") saveVenueSettingsMap?.("followupCleared", clP);
     notifyInspector(f, `${meta.icon} ${meta.title.replace(" board", "")} update — ${f.loc}${f.unit ? ` #${f.unit}` : ""}`, `${f.cat}: ${text} — ${me}`);
-    setAction(null);
+    dropKey(setActions, f.key); // v556: only this card's box closes
     setFlash(`${kind === "fixed" ? "✅" : "📨"} ${T("Sent to the inspector", "Enviado al inspector", "Voye bay enspekte a")} — ${f.loc}${f.unit ? ` #${f.unit}` : ""}`); setTimeout(() => setFlash(""), 3500);
   }
   async function addAfterPhotos(f, files) {
@@ -10640,6 +10676,19 @@ function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLoc
     const before = [...(f.photos || []).filter(p => p.tag !== "after").map(p => ({ ...p, report: true })), ...photosOfF(f).filter(p => (p.tag || "before") !== "after")];
     const after = [...(f.photos || []).filter(p => p.tag === "after").map(p => ({ ...p, report: true })), ...photosOfF(f).filter(p => p.tag === "after")];
     const cm = commentsOf(f.key);
+    // v556: this card's own box — the setAction(...) calls below work as before, but only touch f.key
+    const action = actions[f.key] ? { key: f.key, ...actions[f.key] } : null;
+    const setAction = v => setActions(p => { const cur = p[f.key] ? { key: f.key, ...p[f.key] } : null; const nv = typeof v === "function" ? v(cur) : v; const n = { ...p }; if (nv) { const { key: _k, ...rest } = nv; n[f.key] = rest; } else delete n[f.key]; return n; });
+    const moveOpen = !!moveKeys[f.key];
+    const moreOpen = !!moreKeys[f.key];
+    const moveRow = (
+      <div className="crewMove notranslate" translate="no">
+        <span>{T("This belongs to:", "Esto es de:", "Sa se pou:")}</span>
+        {ISSUE_TYPES.filter(t => t !== f.itype && t !== "Temperature").map(t => <button key={t} type="button" className="etChip" onClick={() => moveTo(f, t)}>{ISSUE_TYPE_ICON[t]} {issueTypeLabel(t)}</button>)}
+        <button type="button" className="etChip" onClick={() => dropKey(setMoveKeys, f.key)}>{T("Cancel", "Cancelar", "Anile")}</button>
+      </div>
+    );
+    const notMineBtn = <button type="button" className="crewNotMine notranslate" translate="no" onClick={() => setMoveKeys(p => ({ ...p, [f.key]: true }))}>{T("Not mine → move", "No es mío → mover", "Se pa pa m → voye l")}</button>;
     return (
       <div key={f.key} data-anchor={"crew:" + f.key} className={"crewItem" + (done ? " crewItemDone" : f.overdue ? " crewItemOverdue" : "")}>
         <div className="crewItemHead">
@@ -10655,15 +10704,8 @@ function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLoc
               <div className="fuEquipChip">🧊 {f.area}</div>
             )}
             <div className="crewItemMeta notranslate" translate="no">{[f.dateStr ? `${T("flagged", "reportado", "siyale")} ${f.dateStr}` : "", f.daysSince != null ? `${f.daysSince}${T("d open", "d abierto", "j ouve")}` : "", f.reportedBy ? `${T("by supervisor", "por supervisor", "pa sipevize")} ${f.reportedBy}` : f.inspector ? `${T("by", "por", "pa")} ${f.inspector}` : "", f.overdue && !done ? T("⏰ overdue", "⏰ atrasado", "⏰ an reta") : "", f.typeManual ? `✋ ${f.itype} ${T("by", "por", "pa")} ${f.typeBy}` : ""].filter(Boolean).join(" · ")}</div>
-            {!done && (moveKey === f.key ? (
-              <div className="crewMove notranslate" translate="no">
-                <span>{T("This belongs to:", "Esto es de:", "Sa se pou:")}</span>
-                {ISSUE_TYPES.filter(t => t !== f.itype && t !== "Temperature").map(t => <button key={t} type="button" className="etChip" onClick={() => moveTo(f, t)}>{ISSUE_TYPE_ICON[t]} {issueTypeLabel(t)}</button>)}
-                <button type="button" className="etChip" onClick={() => setMoveKey(null)}>{T("Cancel", "Cancelar", "Anile")}</button>
-              </div>
-            ) : (!simple || moreKey === f.key) ? (
-              <button type="button" className="crewNotMine notranslate" translate="no" onClick={() => setMoveKey(f.key)}>{T("Not mine → move", "No es mío → mover", "Se pa pa m → voye l")}</button>
-            ) : null)}
+            {/* v556: in the simple view "Not mine → move" lives in the button row under "more…", so nothing appears ABOVE the tapped button */}
+            {!done && !simple && (moveOpen ? moveRow : notMineBtn)}
           </div>
         </div>
         {(before.length > 0 || after.length > 0) && (
@@ -10715,16 +10757,20 @@ function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLoc
             </div>
           </div>
         ) : !done && simple ? (
+          <>
           <div className="crewActions crewActionsSimple notranslate" translate="no">
             <button type="button" className={"crewBigBtn crewBigWork" + (stt?.status === "in_progress" ? " on" : "")} data-testid="crew-work" onClick={() => setAction({ key: f.key, kind: "in_progress", note: "" })}>🔧 {T("I'm working on it", "Estoy en eso", "M ap travay sou li")}</button>
             <button type="button" className="crewBigBtn crewBigDone" data-testid="crew-done" onClick={() => setAction({ key: f.key, kind: "fixed", note: "" })}>✅ {T("Done — add photo", "Listo — agregar foto", "Fini — mete foto")}</button>
-            {moreKey === f.key ? (
+            {moreOpen ? (
               <button type="button" className="crewBtn" onClick={() => setAction({ key: f.key, kind: "waiting", note: "" })}>{T("⏳ Waiting on…", "⏳ Esperando…", "⏳ Ap tann…")}</button>
             ) : (
-              <button type="button" className="crewMoreLink" onClick={() => setMoreKey(f.key)}>{T("more…", "más…", "plis…")}</button>
+              <button type="button" className="crewMoreLink" onClick={() => setMoreKeys(p => ({ ...p, [f.key]: true }))}>{T("more…", "más…", "plis…")}</button>
             )}
+            {moreOpen && !moveOpen && notMineBtn}
             {busy === f.key && <span className="fuPhotoHint notranslate" translate="no">{T("Sending…", "Enviando…", "Ap voye…")}</span>}
           </div>
+          {moreOpen && moveOpen && moveRow}
+          </>
         ) : !done ? (
           <div className="crewActions notranslate" translate="no">
             <button type="button" className="crewBtn" onClick={() => setAction({ key: f.key, kind: "in_progress", note: "" })}>{T("🔧 In process", "🔧 En proceso", "🔧 Nan pwosesis")}</button>
@@ -10846,13 +10892,13 @@ function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLoc
             <div className="etEmpty notranslate" translate="no" style={{ textAlign: "left", marginBottom: 10 }}>{T(`Reports from the last 60 days that mention a ${boardNoun} problem. Tap one to read it.`, `Reportes de los últimos 60 días que mencionan un problema de ${boardNoun}. Toca uno para leerlo.`, `Rapò 60 dènye jou yo ki pale de yon pwoblèm ${boardNoun}. Tape youn pou li li.`)}</div>
             {reports.length === 0 && <div className="etEmpty notranslate" translate="no">{T(`No reports with ${boardNoun} problems.`, `No hay reportes con problemas de ${boardNoun}.`, `Pa gen rapò ak pwoblèm ${boardNoun}.`)}</div>}
             {reports.map(({ r, hits }) => (
-              <div key={r.id} data-anchor={"crewrep:" + r.id} className="crewReport" onClick={() => setOpenReport(openReport === r.id ? null : r.id)}>
+              <div key={r.id} data-anchor={"crewrep:" + r.id} className="crewReport" onClick={() => setOpenReports(p => ({ ...p, [r.id]: !p[r.id] }))}>
                 <div className="crewReportHead notranslate" translate="no">
                   <span className="crewReportSite notranslate" translate="no">{r.siteName || "—"}{r.siteNumber ? ` · #${r.siteNumber}` : ""}</span>
                   <span className="crewReportMeta">{(r.inspectionDate || r.savedAt || "").slice(0, 10)} · {r.inspectionType || T("Inspection", "Inspección", "Enspeksyon")} · {r.inspectorName || r.reportedBy?.name || ""}</span>
                   <span className="crewReportCount">{hits.length}</span>
                 </div>
-                {openReport === r.id && (
+                {openReports[r.id] && (
                   <div className="crewReportBody" onClick={e => e.stopPropagation()}>
                     {hits.map((a, i) => (
                       <div key={i} className="crewReportIssue">
@@ -10878,13 +10924,16 @@ function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLoc
 // PRESSED (≤ 1.5 s ago) and the first cards on screen ([data-anchor] / [data-rec]) — never one below the
 // screen — and after the commit put the first one that still exists back where it was.
 // A drag (or a wheel) in the last 300 ms wins, and a deliberate scroll (skipScrollAnchor) is never fought.
-let _anchorTouchAt = 0, _anchorTapEl = null, _anchorTapAt = 0, _anchorSkipUntil = 0;
+let _anchorTouchAt = 0, _anchorTapEl = null, _anchorTapAt = 0, _anchorSkipUntil = 0, _anchorTypeAt = 0;
 if (typeof window !== "undefined") {
   const t = () => { _anchorTouchAt = Date.now(); };
   const d = e => { _anchorTapEl = e.target instanceof Element ? e.target : null; _anchorTapAt = Date.now(); };
-  try { window.addEventListener("touchmove", t, { passive: true }); window.addEventListener("wheel", t, { passive: true }); window.addEventListener("pointerdown", d, { capture: true, passive: true }); } catch {}
+  const k = () => { _anchorTypeAt = Date.now(); }; // v556: typing (capture runs before React's own listener)
+  try { window.addEventListener("touchmove", t, { passive: true }); window.addEventListener("wheel", t, { passive: true }); window.addEventListener("pointerdown", d, { capture: true, passive: true }); window.addEventListener("input", k, { capture: true, passive: true }); window.addEventListener("keydown", k, { capture: true, passive: true }); } catch {}
 }
 function skipScrollAnchor(ms = 900) { _anchorSkipUntil = Date.now() + ms; }
+// v556: hold this element in place through the next re-render(s) the way a fresh tap is held (≤ 1.5 s)
+function holdInPlace(el) { if (el instanceof Element) { _anchorTapEl = el; _anchorTapAt = Date.now(); } }
 // a scroll the app asks for (scrollTo / scrollIntoView — page changes, "go to the item", "back to the top") is
 // deliberate: the anchor stays out of its way while it runs (its own corrections use scrollBy, which is not wrapped)
 // v555: on a touch screen every scroll the app asks for JUMPS instead of gliding ("remove any weird motion")
@@ -10928,13 +10977,29 @@ function useScrollAnchor() {
           for (let k = 0; n && n !== document.body && k < 6; k++, n = n.parentElement) { const rr = n.getBoundingClientRect(); if (rr.height > 0) pick.push({ el: n, top: rr.top }); }
         }
       }
-      if (window.scrollY > 40) for (const el of document.querySelectorAll("[data-anchor], [data-rec]")) {
-        const r = el.getBoundingClientRect();
-        if (r.height > 0 && r.bottom > top + 4) {
-          if (r.top > innerHeight) break; // never hold something below the screen (it scrolled away whatever a tap opened)
-          pick.push({ key: el.getAttribute("data-anchor") || "rec:" + el.getAttribute("data-rec"), top: r.top });
-          if (pick.length >= 8) break;
+      // v556: the box being typed in stays put (a recent tap still wins) — typing in the Follow-ups search, the
+      // stand name or a description re-renders the list around it, and holding a card moved the box (then iOS
+      // scrolled back to the caret: two jumps)
+      const ae = document.activeElement;
+      if (ae && ae !== document.body && Date.now() - _anchorTypeAt < 1500 && ae.matches?.('input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=button]):not([type=submit]), textarea, [contenteditable="true"]') && !anchorFixedAncestor(ae)) {
+        const r = ae.getBoundingClientRect();
+        if (r.height > 0 && r.bottom > top && r.top < innerHeight) pick.push({ el: ae, top: r.top });
+      }
+      // v556: page order, except that an anchor which starts above the screen gives way to an anchor INSIDE it — an
+      // expanded report card never moves when the HACCP / chat block inside it grows, so holding it compensated
+      // nothing while its Photos / Download rows were pushed down. An open item or tall card with nothing nested in
+      // it stays first (as in v555), so a photo landing inside it never slides what the reader is looking at.
+      if (window.scrollY > 40) {
+        const cand = [];
+        for (const el of document.querySelectorAll("[data-anchor], [data-rec]")) {
+          const r = el.getBoundingClientRect();
+          if (r.height > 0 && r.bottom > top + 4) {
+            if (r.top > innerHeight) break; // never hold something below the screen (it scrolled away whatever a tap opened)
+            cand.push({ el, part: r.top < top, key: el.getAttribute("data-anchor") || "rec:" + el.getAttribute("data-rec"), top: r.top });
+            if (cand.length >= 8) break;
+          }
         }
+        for (const c of cand) if (!(c.part && cand.some(o => o !== c && c.el.contains(o.el)))) pick.push({ key: c.key, top: c.top });
       }
     }
     snapRef.current = pick.length ? pick : null;
@@ -10954,6 +11019,11 @@ function useScrollAnchor() {
     } catch {}
   });
 }
+// v556: the Follow-ups view (open groups, how many shown, grouping, search, filters) survives the panel being
+// unmounted while History stays open — a trip to "📄 Reports" or another Analytics tab and back lands on the same
+// list, not a reset one. HistoryPage clears it on each new visit (fuViewReset), so an old search never sticks.
+const FU_VIEW = {};
+function fuViewReset() { for (const k of Object.keys(FU_VIEW)) delete FU_VIEW[k]; }
 function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDrilldown, venueSettings, saveVenueSettings, saveVenueSettingsMap, currentUser, onAddRecord }) {
   useScrollAnchor();
   // Locally cleared follow-ups — instant feedback independent of settings sync
@@ -11354,8 +11424,8 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
     } catch {}
   }
 
-  const [fuOpen, setFuOpen] = useState({});
-  const [fuShowN, setFuShowN] = useState(30);
+  const [fuOpen, setFuOpen] = useState(() => FU_VIEW.open ?? {});
+  const [fuShowN, setFuShowN] = useState(() => FU_VIEW.showN ?? 30);
   // v553: while someone works the list, a ✓ Resolve must not re-sort the stands or fold a group shut under the
   // finger (groups sort by "has overdue" + due date + size, and open by default only while overdue). The order and
   // the default open state are frozen for this view; they refresh when the grouping, a filter, the search or the
@@ -11390,12 +11460,13 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
     writeMap("followupEdit", patch);
     setFuEdit(null);
   };
-  const [fuGroupBy, setFuGroupBy] = useState("loc"); // "loc" | "cat" | "type" | "floor" | "date"
-  const [fuTypePick, setFuTypePick] = useState(""); // v447 — Subcontractor / Concession / …
-  const [fuFloorPick, setFuFloorPick] = useState(""); // v449 — Floor 1 / Floor 2 / …
-  const [fuDatePick, setFuDatePick] = useState(""); // v550 — "" | "today" | "yesterday" | "7d" | "30d" | "YYYY-MM-DD"
+  const [fuGroupBy, setFuGroupBy] = useState(() => FU_VIEW.groupBy ?? "loc"); // "loc" | "cat" | "type" | "floor" | "date"
+  const [fuTypePick, setFuTypePick] = useState(() => FU_VIEW.typePick ?? ""); // v447 — Subcontractor / Concession / …
+  const [fuFloorPick, setFuFloorPick] = useState(() => FU_VIEW.floorPick ?? ""); // v449 — Floor 1 / Floor 2 / …
+  const [fuDatePick, setFuDatePick] = useState(() => FU_VIEW.datePick ?? ""); // v550 — "" | "today" | "yesterday" | "7d" | "30d" | "YYYY-MM-DD"
   const [fuFilterMenu, setFuFilterMenu] = useState(""); // "" | "type" | "floor" | "date"
-  const [fuSearch, setFuSearch] = useState("");
+  const [fuSearch, setFuSearch] = useState(() => FU_VIEW.search ?? "");
+  useEffect(() => { Object.assign(FU_VIEW, { open: fuOpen, showN: fuShowN, groupBy: fuGroupBy, typePick: fuTypePick, floorPick: fuFloorPick, datePick: fuDatePick, search: fuSearch }); }, [fuOpen, fuShowN, fuGroupBy, fuTypePick, fuFloorPick, fuDatePick, fuSearch]); // v556
   // Selection → Excel export of chosen follow-ups
   const [fuSelectMode, setFuSelectMode] = useState(false);
   const [fuSelected, setFuSelected] = useState({}); // { [f.key]: true }
@@ -11818,16 +11889,19 @@ ${sections}
 
   // v434 — everything the crews fixed. computeFollowups drops cleared items,
   // so recompute with an empty cleared map and keep only the resolved ones.
-  const fixedList = (() => {
+  // v556: a crew chip is a search word — these two say which one is picked (the header and the chips read them)
+  const FU_CREW_WORDS = ["cleaning", "maintenance", "building", "ecolab"];
+  const fuCrewWord = FU_CREW_WORDS.includes(fuSearch.trim().toLowerCase()) ? fuSearch.trim().toLowerCase() : "";
+  const fixedAll = (() => {
     const clearedMap = { ...(venueSettings?.followupCleared || {}), ...clearedLocal };
     const all = computeFollowups(history, { ...(venueSettings || {}), followupCleared: {} }, {}).followups || [];
     return all
       .map(f => { const st = stMap[f.key]; const when = Number(st?.ts || clearedMap[f.key] || 0); return { ...f, fixedBy: st?.by || "", fixedHow: st?.how || "", fixedWhose: st?.whose || "", fixedMins: Number(st?.mins || 0), fixedStart: Number(st?.startTs || 0), fixedTs: when }; })
       .map(f => ({ ...f, reopened: !!(clearedMap[f.key] && f.ts && clearedMap[f.key] < f.ts) }))
       .filter(f => (stMap[f.key]?.status === "resolved" || clearedMap[f.key]) && f.fixedTs)
-      .filter(fuMatches)
       .sort((a2, b2) => b2.fixedTs - a2.fixedTs);
   })();
+  const fixedList = fixedAll.filter(fuMatches);
   // v437 — cleaning log: every job a cleaning crew logged, with whose mess
   // it was and how long it took, so hours are tracked and the stand's own
   // messes can be billed back to the subcontractor.
@@ -11870,7 +11944,11 @@ ${sections}
     return Object.values(m).sort((a2, b2) => b2.key.localeCompare(a2.key));
   })();
   const startOfToday = new Date(); startOfToday.setHours(0, 0, 0, 0);
-  const fixedTodayN = fixedList.filter(f => f.fixedTs >= startOfToday.getTime()).length;
+  // v556: the header counts (fixed today · total · 🧹 cleans) do not follow a crew chip — tapping one changed them and
+  // dropped the cleans button, the header got shorter and the tapped chip jumped up under the finger at the top of the page
+  const hdrFixed = fuCrewWord ? fixedAll : fixedList;
+  const hdrClean = hdrFixed.filter(f => f.fixedHow);
+  const hdrFixedTodayN = hdrFixed.filter(f => f.fixedTs >= startOfToday.getTime()).length;
   // v447 — group and filter by what kind of stand it is
   const TYPE_ORDER = ["Subcontractor", "Portable - Subcontractor", "Portable", "Concession", "Kitchen", "Bar"];
   const typeRank = t => { const i = TYPE_ORDER.indexOf(t); return i === -1 ? (t ? 90 : 99) : i; };
@@ -11954,6 +12032,10 @@ ${sections}
   const fuDateOptCount = pick => (analysis.followups || []).filter(fuMatches).filter(f => fuDateMatch(f, pick)).length;
   const fuDateLabel = !fuDatePick ? "Date: all" : fuDatePick === "today" ? "Today" : fuDatePick === "yesterday" ? "Yesterday" : fuDatePick === "7d" ? "Last 7 days" : fuDatePick === "30d" ? "Last 30 days" : dayLabel(fuDatePick);
   const fuVisible = (analysis.followups || []).filter(fuMatches).filter(matchesTypePick).filter(matchesFloorPick).filter(matchesDatePick);
+  // v556: the crew chips count from the list WITHOUT the crew pick, so tapping one never changes the others
+  // (counts, chips vanishing) and the tapped chip does not slide sideways
+  const fuCrewBase = fuCrewWord ? (analysis.followups || []).filter(matchesTypePick).filter(matchesFloorPick).filter(matchesDatePick) : fuVisible;
+  const fuCrewN = it => fuCrewBase.filter(f => f.itype === it).length;
   // v440 — one pool to pick from: open items, everything fixed and every
   // clean. Deduped by key, the fixed copy wins because it carries the fix
   // fields (who, when, how long, whose mess).
@@ -12003,11 +12085,11 @@ ${sections}
             <span className="fuHeadCount">📋 {open} open</span>
             <button type="button" className={"fuHeadCount fuHeadCountFixed" + (showFixed ? " on" : "")}
               title="Everything the crews marked fixed"
-              onClick={() => setShowFixed(v => !v)}>✅ {fixedTodayN} fixed today{fixedList.length > fixedTodayN ? ` · ${fixedList.length} total` : ""}</button>
-            {cleanAll.length > 0 && (
+              onClick={() => setShowFixed(v => !v)}>✅ {hdrFixedTodayN} fixed today{hdrFixed.length > hdrFixedTodayN ? ` · ${hdrFixed.length} total` : ""}</button>
+            {hdrClean.length > 0 && (
               <button type="button" className={"fuHeadCount fuHeadCountClean" + (showClean ? " on" : "")}
                 title="Every clean your crew logged — hours and what to bill back"
-                onClick={() => { setShowClean(v => !v); setShowFixed(false); }}>🧹 {cleanAll.length} clean{cleanAll.length !== 1 ? "s" : ""}{cleanAll.filter(f => f.fixedWhose === "sub").length ? ` · ${cleanAll.filter(f => f.fixedWhose === "sub").length} to bill` : ""}</button>
+                onClick={() => { setShowClean(v => !v); setShowFixed(false); }}>🧹 {hdrClean.length} clean{hdrClean.length !== 1 ? "s" : ""}{hdrClean.filter(f => f.fixedWhose === "sub").length ? ` · ${hdrClean.filter(f => f.fixedWhose === "sub").length} to bill` : ""}</button>
             )}
           </div>
         ); })()}
@@ -12153,11 +12235,14 @@ ${sections}
                   <textarea value={qpDesc} onChange={e => { setQpDesc(e.target.value); setQpSaidErr(false); }} rows={2}
                     placeholder="What is wrong and where?"
                     style={{ padding: "7px 10px", borderRadius: 9, border: `1.5px solid ${qpSaidErr ? "#fca5a5" : "var(--sdx-gray-200)"}`, fontSize: "16px", resize: "vertical", fontFamily: "inherit" }} />
-                  {qpNlu && understoodChips(qpNlu).filter(c => c.k !== "temp").length > 0 && (
-                    <div className="nluStrip"><span className="nluStripLbl">Understood:</span>
+                  {/* v556: the strip's slot is always there, one line high — what the reader understood half a second
+                      after typing fills it instead of pushing 📷 / the action box / File down under the finger */}
+                  <div className="nluStrip qpNluSlot" data-testid="qp-nlu-slot">
+                    {qpNlu && understoodChips(qpNlu).filter(c => c.k !== "temp").length > 0 && (<>
+                      <span className="nluStripLbl">Understood:</span>
                       {understoodChips(qpNlu).filter(c => c.k !== "temp").map((c, i) => <span key={i} className={`nluChip nluChip-${c.k}`}>{c.label}<button type="button" className="nluChipX" aria-label="remove" onClick={() => rejectQpNlu(c.k)}>✕</button></span>)}
-                    </div>
-                  )}
+                    </>)}
+                  </div>
                   {qpSaidErr && <div className="haccpProblemErr">⚠️ Say what is wrong and where — a few words is enough</div>}
                   {/* v458 — the chip block is optional and hidden until asked for */}
                   {/* v553: opens only when tapped — the text reader used to open it by itself half a second after typing, pushing 📷 and File down under the finger (what it understood shows in the strip above) */}
@@ -12210,48 +12295,51 @@ ${sections}
             {/* v511: one labelled toolbar — Status (counts) / Crew (tap to filter) / Filter / Group by */}
             <div className="fuTools" data-testid="fu-tools">
               <div className="fuToolsRow fuToolsStatus"><span className="fuToolsLbl">Status</span><div className="fuToolsBody">
-              {fuVisible.filter(f => f.overdue).length > 0 && (
+              {/* v556: which chips show comes from the list WITHOUT the crew pick (the counts follow it) — a chip that
+                  vanished on a crew tap could unwrap this row and lift the Crew row under the finger */}
+              {fuCrewBase.filter(f => f.overdue).length > 0 && (
                 <span className="fuSumChip fuSumOverdue">⏰ {fuVisible.filter(f => f.overdue).length} overdue</span>
               )}
-              {fuVisible.filter(f => !f.overdue && !f.likelyResolved).length > 0 && (
+              {fuCrewBase.filter(f => !f.overdue && !f.likelyResolved).length > 0 && (
                 <span className="fuSumChip fuSumSoon">👁 {fuVisible.filter(f => !f.overdue && !f.likelyResolved).length} due soon</span>
               )}
-              {fuVisible.filter(f => f.likelyResolved).length > 0 && (
+              {fuCrewBase.filter(f => f.likelyResolved).length > 0 && (
                 <span className="fuSumChip fuSumOk">✅ {fuVisible.filter(f => f.likelyResolved).length} likely fixed</span>
               )}
-              {fuVisible.filter(f => effStatus(f) === "in_progress").length > 0 && (
+              {fuCrewBase.filter(f => effStatus(f) === "in_progress").length > 0 && (
                 <span className="fuSumChip fuSumProg">🔧 {fuVisible.filter(f => effStatus(f) === "in_progress").length} in process</span>
               )}
-              {fuVisible.filter(f => effStatus(f) === "waiting").length > 0 && (
+              {fuCrewBase.filter(f => effStatus(f) === "waiting").length > 0 && (
                 <span className="fuSumChip fuSumWait">⏳ {fuVisible.filter(f => effStatus(f) === "waiting").length} waiting</span>
               )}
               </div></div>
               <div className="fuToolsRow"><span className="fuToolsLbl">Crew</span><div className="fuToolsBody fuCrewGroup" data-testid="fu-crew-group">
-              {fuVisible.filter(f => f.itype === "Cleaning").length > 0 && (
+              {fuCrewN("Cleaning") > 0 && (
                 <button type="button" className={"fuSumChip fuCrewChip fuCrewClean" + (fuSearch.trim().toLowerCase() === "cleaning" ? " on" : "")} style={{ background: "#dcfce7", color: "#166534", borderColor: "#86efac", cursor: "pointer" }}
                   onClick={() => setFuSearch(fuSearch.trim().toLowerCase() === "cleaning" ? "" : "cleaning")}>
-                  🧹 {fuVisible.filter(f => f.itype === "Cleaning").length} cleaning
+                  🧹 {fuCrewN("Cleaning")} cleaning
                 </button>
               )}
-              {fuVisible.filter(f => f.itype === "Maintenance").length > 0 && (
+              {fuCrewN("Maintenance") > 0 && (
                 <button type="button" className={"fuSumChip fuCrewChip fuCrewMaint" + (fuSearch.trim().toLowerCase() === "maintenance" ? " on" : "")} style={{ background: "#ffedd5", color: "#9a3412", borderColor: "#fdba74", cursor: "pointer" }}
                   onClick={() => setFuSearch(fuSearch.trim().toLowerCase() === "maintenance" ? "" : "maintenance")}>
-                  🔧 {fuVisible.filter(f => f.itype === "Maintenance").length} maintenance
+                  🔧 {fuCrewN("Maintenance")} maintenance
                 </button>
               )}
-              {fuVisible.filter(f => f.itype === "Building").length > 0 && (
+              {fuCrewN("Building") > 0 && (
                 <button type="button" className={"fuSumChip fuCrewChip fuCrewBuilding" + (fuSearch.trim().toLowerCase() === "building" ? " on" : "")} style={{ background: "#ede9fe", color: "#4c1d95", borderColor: "#c4b5fd", cursor: "pointer" }}
                   onClick={() => setFuSearch(fuSearch.trim().toLowerCase() === "building" ? "" : "building")}>
-                  🏗 {fuVisible.filter(f => f.itype === "Building").length} building
+                  🏗 {fuCrewN("Building")} building
                 </button>
               )}
-              {fuVisible.filter(f => f.itype === "Ecolab / Maintenance").length > 0 && (
+              {fuCrewN("Ecolab / Maintenance") > 0 && (
                 <button type="button" className={"fuSumChip fuCrewChip fuCrewEcolab" + (fuSearch.trim().toLowerCase() === "ecolab" ? " on" : "")} style={{ background: "#ccfbf1", color: "#0f766e", borderColor: "#5eead4", cursor: "pointer" }}
                   onClick={() => setFuSearch(fuSearch.trim().toLowerCase() === "ecolab" ? "" : "ecolab")}>
-                  🧪 {fuVisible.filter(f => f.itype === "Ecolab / Maintenance").length} Ecolab
+                  🧪 {fuCrewN("Ecolab / Maintenance")} Ecolab
                 </button>
               )}
-              {["cleaning", "maintenance", "building", "ecolab"].includes(fuSearch.trim().toLowerCase()) && <button type="button" className="fuFilterClear fuCrewClear" onClick={() => setFuSearch("")}>✕ clear</button>}
+              {/* v556: the ✕ clear slot is always there (hidden when no crew is picked) so the row never reflows */}
+              <button type="button" className="fuFilterClear fuCrewClear" style={{ visibility: fuCrewWord ? "visible" : "hidden" }} aria-hidden={!fuCrewWord} tabIndex={fuCrewWord ? 0 : -1} onClick={() => setFuSearch("")}>✕ clear</button>
               </div></div>
               <div className="fuToolsRow fuFilterBar"><span className="fuToolsLbl">Filter</span><div className="fuToolsBody">
               <span className="fuFilterWrap">
@@ -12660,7 +12748,7 @@ ${sections}
                                   💬 Comment
                                 </button>
                                 {/* v553: the reports for this issue — a button of its own (tapping the card title used to throw you out of Follow-ups) */}
-                                {onIssueDrilldown && <button type="button" className="fuBarBtn" data-testid="fu-reports" onClick={() => onIssueDrilldown(f.loc, f.baseCat || f.cat)}>📄 Reports</button>}
+                                {onIssueDrilldown && <button type="button" className="fuBarBtn" data-testid="fu-reports" onClick={() => onIssueDrilldown(f.loc, f.baseCat || f.cat, f.key)}>📄 Reports</button>}
                                 <span className="fuPhotoWrap">
                                   <button type="button" className={"fuBarBtn" + (photoMenuKey === f.key ? " on" : "")} onClick={() => setPhotoMenuKey(photoMenuKey === f.key ? null : f.key)}>
                                     📷 Photo
@@ -12986,7 +13074,8 @@ function ImportReviewModal({ fields: initialFields, imagePreview, saving, onSave
 }
 
 /* ── History Page Component ──────────────────────────────── */
-function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, currentUser, notifItems, onNotifDismiss, onNotifClearAll, onMyTasks, venueSettings, saveVenueSettings, saveVenueSettingsMap, initialTab, initialAnalyticsTab, initialFocusId }) {
+function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, currentUser, notifItems, onNotifDismiss, onNotifClearAll, onMyTasks, venueSettings, saveVenueSettings, saveVenueSettingsMap, initialTab, initialAnalyticsTab, initialFocusId, initialNonce }) {
+  useState(() => { fuViewReset(); return 0; }); // v556: a new visit to History starts Follow-ups fresh (runs before the panel's own state)
   // Returns true if the current user is allowed to edit the given record.
   // Allowed: the original author (matched by badgeHash), any admin, or global_admin.
   // v553: a report the inspector is still writing (autosaved in the last 3 h) is not edited or resolved from
@@ -13053,7 +13142,7 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
   const [analyticsTab, setAnalyticsTab] = useState(initialAnalyticsTab || "recurring"); // "recurring" (Follow-ups) | "temp" | "insights" | "predictive" | "timeline" | "trends" (admin-gated)
   const canSeeTrends = currentUser?.role === "admin" || currentUser.role === "global_admin"; // Trends stays admin-only in its new Analytics home (it was the admin-only Performance Dashboard's surviving tab)
   // Navigating to this page while it's already open (⋯ menu, notifications) → follow the requested tab
-  useEffect(() => { if (initialTab) setHistoryTab(initialTab); if (initialAnalyticsTab) setAnalyticsTab(initialAnalyticsTab); }, [initialTab, initialAnalyticsTab]);
+  useEffect(() => { if (initialTab) setHistoryTab(initialTab); if (initialAnalyticsTab) setAnalyticsTab(initialAnalyticsTab); }, [initialTab, initialAnalyticsTab, initialNonce]);
   // v508: open one report by id ("Open report" in From the stands, record notifications)
   const focusDoneRef = useRef("");
   useEffect(() => {
@@ -13315,7 +13404,7 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
 
   // When a card is expanded, subscribe real-time to HACCP submissions and chat
   useEffect(() => {
-    if (!expandedId) return;
+    if (!expandedId || historyTab !== "reports") return; // v556: no 5 s poll (and History re-render) while on Analytics
 
     const rec = history.find(r => r.id === expandedId);
     const site = rec?.siteName || rec?.location || "";
@@ -13330,10 +13419,22 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
     // haccpSubsForRecord keeps logs linked to OTHER reports out.
     let byId = [];
     let bySite = [];
+    // v556: show the stand logs ONCE both sources are in (the first, empty byId snapshot wiped them until the site
+    // query landed: the block collapsed, then grew back, pushing Photos / Download / Delete under the finger), and
+    // skip the 5 s poll when nothing changed (it re-rendered the whole page every 5 s)
+    let siteDone = !(site && date), lastSig = null;
     function mergeAndSet() {
+      if (!siteDone) return;
       const merged = haccpSubsForRecord(rec || { id: expandedId, siteName: site, inspectionDate: date }, bySite, byId);
-      setHaccpByReport(prev => ({ ...prev, [expandedId]: merged }));
+      let sig = null; try { sig = JSON.stringify(merged); } catch {}
+      if (sig !== null && sig === lastSig) return;
+      lastSig = sig;
+      setHaccpByReport(prev => {
+        try { if (sig !== null && prev[expandedId] && JSON.stringify(prev[expandedId]) === sig) return prev; } catch {}
+        return { ...prev, [expandedId]: merged };
+      });
     }
+    const siteWait = siteDone ? null : setTimeout(() => { if (!siteDone) { siteDone = true; mergeAndSet(); } }, 6000); // the site query never answered → show what we have
 
     // Real-time subscription by reportId (strict — always preferred)
     const unsubHaccp = subscribeHaccpForReport(expandedId, subs => {
@@ -13346,9 +13447,9 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
     let siteIv = null;
     if (site && date) {
       const unit = rec?.siteNumber || null;
-      loadHaccpBySite(site, date, expandedId, unit).then(subs => { bySite = subs; mergeAndSet(); });
+      loadHaccpBySite(site, date, expandedId, unit).then(subs => { bySite = subs; siteDone = true; mergeAndSet(); });
       siteIv = setInterval(() => {
-        loadHaccpBySite(site, date, expandedId, unit).then(subs => { bySite = subs; mergeAndSet(); });
+        loadHaccpBySite(site, date, expandedId, unit).then(subs => { bySite = subs; siteDone = true; mergeAndSet(); });
       }, 5000);
     }
 
@@ -13361,8 +13462,9 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
       unsubHaccp();
       unsubChat();
       if (siteIv) clearInterval(siteIv);
+      if (siteWait) clearTimeout(siteWait);
     };
-  }, [expandedId, history]);
+  }, [expandedId, history, historyTab]);
 
   // Pre-fill every visible report's HACCP list from the global submissions
   // list (stand-poster logs included) so the section and single-report
@@ -13517,44 +13619,77 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
 
   // v553: a drill-down from Follow-ups (📄 Reports, a stand tag…) remembers where the reader was, and the
   // Reports list shows "← Back to Follow-ups" to return there
-  const [fuReturn, setFuReturn] = useState(null); // { sub, y, site, issue }
-  const noteFuReturn = (site, issue) => { if (historyTab === "analytics") setFuReturn({ sub: analyticsTab, y: window.scrollY, site, issue }); };
+  const [fuReturn, setFuReturn] = useState(null); // { sub, y, site, issue, key, cardTop }
+  // v556: also remember WHICH card was tapped and where it sat on the screen, so Back puts that card back in the
+  // same spot (the list above it can be a different height by then — window.scrollY alone landed anywhere)
+  const noteFuReturn = (site, issue, key) => {
+    if (historyTab !== "analytics") return;
+    let cardTop = null;
+    try { if (key) { const el = document.querySelector(`[data-anchor="${CSS.escape(key)}"]`); if (el) cardTop = el.getBoundingClientRect().top; } } catch {}
+    setFuReturn({ sub: analyticsTab, y: window.scrollY, site, issue, key: key || "", cardTop });
+  };
+  const headerBottom = () => { try { return document.querySelector(".topBar")?.getBoundingClientRect().bottom || 0; } catch { return 0; } };
   function backToFollowups() {
     const r = fuReturn; setFuReturn(null);
     if (!r) return;
     if (filterSite === r.site) setFilterSite("");
     if (r.issue && filterIssue === r.issue) setFilterIssue("");
     setHistoryTab("analytics"); setAnalyticsTab(r.sub || "recurring");
-    setTimeout(() => { try { window.scrollTo(0, r.y || 0); } catch {} }, 350);
+    // v556: the panel comes back built from the FULL list on its first frame — analyticsSrc still held the one-stand
+    // drill-down list, and the swap waited behind the "New reports" pill (or landed a frame later, card far away)
+    const filterLeft = filterDate || filterDateFrom || filterDateTo || filterType || filterFloor || filterLocType
+      || (filterSite && filterSite !== r.site) || (filterIssue && !(r.issue && filterIssue === r.issue));
+    if (!filterLeft) { setAnalyticsSrc(analyticsHistory.length ? mergeHistory(analyticsHistory, history) : history.filter(x => !x.discarded)); setAnalyticsWaiting(false); }
+    // v556: wait for the tapped card to be on the page again (≤ ~1.2 s), then put it where it was; else the old scrollY
+    let tries = 0;
+    const land = () => {
+      try {
+        const el = r.key ? document.querySelector(`[data-anchor="${CSS.escape(r.key)}"]`) : null;
+        if (el) {
+          const want = r.cardTop ?? headerBottom() + 8; // exactly where it was, even when its top sat under the header
+          window.scrollTo({ top: Math.max(0, el.getBoundingClientRect().top + window.scrollY - want) });
+          return;
+        }
+        ++tries;
+        const panelUp = !!document.querySelector('[data-testid="fu-tools"]');
+        if (r.key && tries < 72 && !(panelUp && tries >= 4)) { requestAnimationFrame(land); return; } // card gone (fixed meanwhile) → old place
+        window.scrollTo(0, r.y || 0);
+      } catch {}
+    };
+    requestAnimationFrame(land);
   }
+  // v556: a drill-down lands with "← Back to Follow-ups" and the list just under the header (scrollIntoView put
+  // the list top at y 0, under the fixed header, with the Back bar above the screen)
+  const landOnResults = () => {
+    try {
+      const el = document.querySelector('[data-testid="fu-return"]') || document.getElementById("history-results");
+      if (!el) return;
+      skipScrollAnchor(1200);
+      window.scrollTo({ top: Math.max(0, el.getBoundingClientRect().top + window.scrollY - headerBottom() - 8), behavior: "smooth" });
+    } catch {}
+  };
   // Function to jump to a specific location's reports
-  function filterByLocation(locLabel) {
-    noteFuReturn(locLabel, "");
+  function filterByLocation(locLabel, key) {
+    noteFuReturn(locLabel, "", key);
     setFilterSite(locLabel);
     setFilterDate("");
     setFilterType("");
     setFilterFloor("");
     setFilterIssue("");
     setHistoryTab("reports");
-    setTimeout(() => {
-      const el = document.getElementById("history-results");
-      if (el) { skipScrollAnchor(1200); el.scrollIntoView({ behavior: "smooth", block: "start" }); }
-    }, 100);
+    setTimeout(landOnResults, 100);
   }
 
   // Navigate to reports filtered by both location AND issue category
-  function filterByLocationAndIssue(locLabel, issueCategory) {
-    noteFuReturn(locLabel, issueCategory);
+  function filterByLocationAndIssue(locLabel, issueCategory, key) {
+    noteFuReturn(locLabel, issueCategory, key);
     setFilterSite(locLabel);
     setFilterIssue(issueCategory);
     setFilterDate("");
     setFilterType("");
     setFilterFloor("");
     setHistoryTab("reports");
-    setTimeout(() => {
-      const el = document.getElementById("history-results");
-      if (el) { skipScrollAnchor(1200); el.scrollIntoView({ behavior: "smooth", block: "start" }); }
-    }, 100);
+    setTimeout(landOnResults, 100);
   }
 
   // Navigate to analytics/recurring tab (for tag clicks — stay in analytics, don't jump to reports)
@@ -14809,7 +14944,19 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                 <div className="menuQuick" style={{ padding: "6px 4px 8px" }}>
                   {[["➕", "New Inspection", { page: "inspector", newInspection: true }], ["📷", "Scan stand QR", { page: "inspector", scanStand: true }], ["🔁", "Follow-ups", { page: "history", entry: { tab: "analytics", sub: "recurring" } }], ["🌡", "Equipment temps", { page: "history", entry: { tab: "analytics", sub: "temp" } }]].map(([ic, lb, nav]) => (
                     <button key={lb} type="button" className={cx("menuQuickTile", lb === "Follow-ups" && historyTab === "analytics" && analyticsTab === "recurring" && "on", lb === "Equipment temps" && historyTab === "analytics" && analyticsTab === "temp" && "on")}
-                      onClick={() => { setShowHistoryMenu(false); window.dispatchEvent(new CustomEvent("sdx-nav", { detail: nav })); }}>
+                      onClick={() => {
+                        setShowHistoryMenu(false);
+                        // v556: History is already open — switch the tab here (sdx-nav jumped to the top and, with the
+                        // same tab strings, often did not switch at all); already on that tab → just close the menu
+                        if (nav.page === "history" && nav.entry) {
+                          if (historyTab === nav.entry.tab && analyticsTab === nav.entry.sub) return;
+                          if (fuReturn && historyTab === "reports" && fuReturn.sub === nav.entry.sub) { backToFollowups(); return; }
+                          setHistoryTab(nav.entry.tab); setAnalyticsTab(nav.entry.sub);
+                          try { window.scrollTo({ top: 0 }); } catch {}
+                          return;
+                        }
+                        window.dispatchEvent(new CustomEvent("sdx-nav", { detail: nav }));
+                      }}>
                       <span className="menuQuickIcon">{ic}</span><span>{lb}</span>
                     </button>
                   ))}
@@ -15104,7 +15251,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
               <span className="tabIcon">📋</span>
               Reports {filtered.length > 0 && <span style={{ opacity: 0.75, fontSize: "0.65rem", fontWeight: 600 }}>({filtered.length})</span>}
             </button>
-            <button className={cx("historyTab", historyTab === "analytics" && "historyTabActive")} onClick={() => { setHistoryTab("analytics"); AIEngine.trackPage("analytics"); AIEngine.trackAction("openAnalyticsTab"); }} type="button">
+            <button className={cx("historyTab", historyTab === "analytics" && "historyTabActive")} onClick={() => { if (fuReturn && historyTab === "reports") backToFollowups(); else setHistoryTab("analytics"); AIEngine.trackPage("analytics"); AIEngine.trackAction("openAnalyticsTab"); }} type="button">
               <span className="tabIcon">📊</span>
               Analytics
             </button>
@@ -15748,7 +15895,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                         const openCount = issues.filter((_, i) => !recResolved[i]).length;
                         const resolvedCount = issues.length - openCount;
                         return (
-                          <div className="issuesBlock" style={{ marginTop: 20 }}>
+                          <div className="issuesBlock" style={{ marginTop: 20 }} data-anchor={"ris:" + rec.id}>
                             <div className="issuesBlockTitle">
                               <span className="issuesBlockIcon">⚠️</span>
                               Action Items
@@ -15859,7 +16006,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                         if (!hasAny) return null;
                         let lastSec = null;
                         return (
-                          <div style={{ marginTop: 20, padding: "0 20px" }}>
+                          <div style={{ marginTop: 20, padding: "0 20px" }} data-anchor={"rsc:" + rec.id /* v556: the section being read stays put */}>
                             <div className="rptSectionTitle">Inspection Scorecard</div>
                             <table className="rptScorecard">
                               <thead>
@@ -15919,7 +16066,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                       })()}
 
                       {rec.rawNotes && (
-                        <div style={{ marginTop: 20, padding: "0 20px" }}>
+                        <div style={{ marginTop: 20, padding: "0 20px" }} data-anchor={"rnt:" + rec.id}>
                           <div className="rptSectionTitle">Inspector Notes</div>
                           <div className="historyNotesFormatted" style={{ maxHeight: 300, overflowY: "auto" }}>
                             {(() => {
@@ -15951,16 +16098,16 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                         const hasInspectorTemps = inspItems.length > 0;
 
                         if (haccpSubs === undefined) return (
-                          <div style={{ marginTop: 16, fontSize: "0.8rem", color: "var(--ink-500)" }}>Loading HACCP logs…</div>
+                          <div style={{ marginTop: 16, fontSize: "0.8rem", color: "var(--ink-500)" }} data-anchor={"rhc:" + rec.id}>Loading HACCP logs…</div>
                         );
                         const totalCount = haccpSubs.length + (hasInspectorTemps ? 1 : 0);
                         if (totalCount === 0) return (
-                          <div className="haccpReportSection haccpReportEmpty">
+                          <div className="haccpReportSection haccpReportEmpty" data-anchor={"rhc:" + rec.id}>
                             <span>🌡️ No HACCP temperature logs submitted for this report yet.</span>
                           </div>
                         );
                         return (
-                          <div className="haccpReportSection" style={{ marginTop: 16, padding: "0 20px" }}>
+                          <div className="haccpReportSection" style={{ marginTop: 16, padding: "0 20px" }} data-anchor={"rhc:" + rec.id}>
                             <div className="rptSectionTitle">🌡️ HACCP Temperature Logs ({totalCount})</div>
 
                             {/* Inspector-recorded temps card */}
@@ -16185,7 +16332,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                         const msgs = chatByReport[rec.id];
                         if (!msgs || msgs.length === 0) return null;
                         return (
-                          <div style={{ marginTop: 16, padding: "0 20px" }}>
+                          <div style={{ marginTop: 16, padding: "0 20px" }} data-anchor={"rch:" + rec.id}>
                             <div className="rptSectionTitle">💬 Chat Log ({msgs.length} message{msgs.length !== 1 ? "s" : ""})</div>
                             <div className="historyChatLog">
                               {msgs.map(m => (
@@ -16206,7 +16353,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                         const { index: photoList } = buildPhotoIndex(rec.inspection);
                         if (photoList.length === 0) return null;
                         return (
-                          <div style={{ marginTop: 16, padding: "0 20px" }}>
+                          <div style={{ marginTop: 16, padding: "0 20px" }} data-anchor={"rph:" + rec.id /* v556: stays put when the HACCP / chat block above lands late */}>
                             <div className="rptSectionTitle">📷 Photo Evidence ({photoList.length})</div>
                             <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 8 }}>
                               {photoList.map(p => (
@@ -16243,7 +16390,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                         );
                       })()}
 
-                      <div style={{ marginTop: 20 }}>
+                      <div style={{ marginTop: 20 }} data-anchor={"rdl:" + rec.id /* v556: Download / Edit / Delete stay under the finger */}>
                         {/* Download picker */}
                         {dlPickerId !== rec.id ? (
                           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
@@ -24382,7 +24529,7 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
               const rcA = rowCounts(current);
               const isAnswered = isFilled || (rcA.total > 0 && rcA.answered >= rcA.total) || (!(current.checklist || []).length && !!current.checkedAt);
               return (
-                <div className={`guideItem${isNA ? " guideItemNA" : ""}`} key={key} data-guide-item={it.label} data-guide-key={key}>
+                <div className={`guideItem${isNA ? " guideItemNA" : ""}`} key={key} data-guide-item={it.label} data-guide-key={key} data-anchor={"gi:" + key /* v556: holds the checklist in place when the open-problem boxes above it shrink (a save, a crew fix arriving) */}>
                   <button type="button" className="guideItemHead guideItemToggle"
                     onClick={() => toggleDetails(key, isItemOpen)}
                     style={{ width: "100%", textAlign: "left", background: "none", border: "none", cursor: "pointer", padding: 0, display: "flex", alignItems: "center", gap: 8 }}>
@@ -24569,7 +24716,7 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                                     border: currentLabel === opt ? "1.5px solid #2563eb" : "1.5px solid #e2e8f0",
                                     background: currentLabel === opt ? "var(--tint-blue-2)" : "var(--surface-2)",
                                     color: currentLabel === opt ? "#1d4ed8" : "var(--ink-500)",
-                                    cursor: "pointer", fontWeight: currentLabel === opt ? 700 : 400,
+                                    cursor: "pointer", fontWeight: 600, // v556: one weight — the bold pick got wider and re-wrapped the row under the finger
                                     transition: "all 0.12s",
                                   }}
                                   onClick={() => setInspection(prev => setAtPath(prev, it.path, { ...getAtPath(prev, it.path) || {}, label: currentLabel === opt ? "" : opt }))}
@@ -26289,6 +26436,9 @@ function EquipScanModal({ onClose, onApply, initialTag }) {
 
 /* ── HACCP Today — who did (and didn't do) the temp log ─────── */
 function HaccpTodayTracker({ venueSettings, saveVenueSettingsMap, history, currentUser }) {
+  useScrollAnchor(); // v556: when the logs land (only this card re-renders) the board / chart below keep their place
+  // v556: no cached copy — a stale list on screen could be tapped (text / request temps) and then re-sort; the card's
+  // frame holds its place while the logs load, so nothing below moves when they land
   const [subs, setSubs] = useState(null);
   const [regStands, setRegStands] = useState([]); // stands with QR posters (expected universe)
   const [standFilter, setStandFilter] = useState("done"); // "done" | "missed" | "all"
@@ -26299,6 +26449,8 @@ function HaccpTodayTracker({ venueSettings, saveVenueSettingsMap, history, curre
     setStandFilter(venueSettings?.eventDays?.[day] ? "missed" : "done");
   }, [day]); // eslint-disable-line react-hooks/exhaustive-deps
   const [reqFlash, setReqFlash] = useState(""); // "reminder sent" toast
+  const reqTimerRef = useRef(null); // v556: one timer — a second tap restarts the 5 s, the first tap's timer no longer cuts it short
+  useEffect(() => () => clearTimeout(reqTimerRef.current), []);
   const [editPhone, setEditPhone] = useState(null);
   const [editName, setEditName] = useState("");
   const [editSite, setEditSite] = useState("");
@@ -26312,19 +26464,29 @@ function HaccpTodayTracker({ venueSettings, saveVenueSettingsMap, history, curre
 
   useEffect(() => {
     (async () => {
-      try { setSubs(await loadHaccpSubmissions()); } catch { setSubs([]); }
+      let got = [];
+      try { got = await loadHaccpSubmissions(); } catch { got = []; }
+      setSubs(got);
       try { await loadStandList(); } catch {}
       // Best-effort: stands registered for QR posters count as "expected"
       try {
         if (FIREBASE_ON) {
           const snap = await getDoc(doc(db, "venues", VENUE_ID, "sharedMemory", "kitchenRegistry"));
           const items = snap.exists() ? (snap.data()?.items || {}) : {};
-          setRegStands(Object.entries(items).filter(([, k]) => k?.site || k?.unit).map(([rid, k]) => ({ rid, site: k.site || "", unit: k.unit || "", floor: k.floor || "", locType: k.locType || "", contacts: Array.isArray(k.contacts) ? k.contacts : [] })));
+          const rs = Object.entries(items).filter(([, k]) => k?.site || k?.unit).map(([rid, k]) => ({ rid, site: k.site || "", unit: k.unit || "", floor: k.floor || "", locType: k.locType || "", contacts: Array.isArray(k.contacts) ? k.contacts : [] }));
+          setRegStands(rs);
         }
       } catch {}
     })();
   }, []);
-  if (subs === null) return null;
+  // v556: the card's frame holds its place while the logs load (first visit on this phone) — the arrival fills it
+  // instead of inserting a whole card above the board
+  if (subs === null) return (
+    <div className="card" style={{ marginBottom: 18 }} data-testid="hc-loading">
+      <div className="cardHeader"><div className="cardTitle">🌡 HACCP — temp log tracker</div></div>
+      <div className="cardBody"><div style={{ minHeight: 520, fontSize: "0.8rem", color: "var(--ink-400)", fontStyle: "italic" }}>Loading today's temp logs…</div></div>
+    </div>
+  );
   const overrides = { ...(venueSettings?.haccpTeam || {}), ...teamLocal };
   const dir = buildHaccpDirectory(subs, day, overrides);
   // Expected stands that never logged at all → Pending ("never logged")
@@ -26456,7 +26618,7 @@ function HaccpTodayTracker({ venueSettings, saveVenueSettingsMap, history, curre
     for (const s of list) patch[s.id] = { ts, by: currentUser?.name || "Inspector", site: s.site || "", unit: s.unit || "", msg: `${requesterName} is asking for the temperature log at ${s.site || "your stand"}${s.unit ? ` #${s.unit}` : ""} — please log it now.` };
     saveVenueSettingsMap?.("haccpRequests", patch);
     setReqFlash(`📣 Reminder sent to ${list.length} stand${list.length !== 1 ? "s" : ""} — it pops up on their phone when they open the stand QR`);
-    setTimeout(() => setReqFlash(""), 5000);
+    clearTimeout(reqTimerRef.current); reqTimerRef.current = setTimeout(() => setReqFlash(""), 5000);
   }
   const missedStands = allRows.filter(s => !s.submittedToday && !s.noStand);
   const missedPeople = allRows.filter(r => !r.submittedToday).flatMap(r => r.people.filter(p => p.phone && !p.submittedToday).map(p => ({ k: r.k.site ? r.k : { ...r.k, site: p.site || "" }, p })));
@@ -26561,7 +26723,8 @@ function HaccpTodayTracker({ venueSettings, saveVenueSettingsMap, history, curre
             </button>
           )}
         </div>
-        {reqFlash && <div className="haccpReqFlash">{reqFlash}</div>}
+        {/* v556: a fixed toast outside the page flow (portal — an ancestor's transform traps position:fixed), so showing / hiding it never moves the stand list */}
+        {reqFlash && ReactDOM.createPortal(<div className="fuToastStack" data-testid="hc-req-toast"><div className="haccpReqFlash">{reqFlash}</div></div>, document.body)}
         {texting && <div style={{ marginBottom: 8 }}><TextStepper list={texting} title="Missed" onClose={() => setTexting(null)} /></div>}
         <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 420, overflowY: "auto" }}>
           {rows.length === 0 && (
@@ -27059,6 +27222,9 @@ function HaccpPortal() {
     setStep("form");
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (step !== "form" || !urlCoolers) return; const id = setTimeout(() => { try { document.querySelector(".htEquipCard")?.scrollIntoView({ behavior: "smooth", block: "start" }); } catch {} }, 700); return () => clearTimeout(id); }, [step]); // eslint-disable-line react-hooks/exhaustive-deps
+  // v556: Submitted! (and the sign-in card) paints at its top — Submit is tapped from the bottom of a long form, and the
+  // shorter done screen kept that scroll, landing the person inside the food-safety guide with "Submitted!" off screen
+  React.useLayoutEffect(() => { if (step === "done" || step === "ident") { try { window.scrollTo(0, 0); } catch {} } }, [step]);
   const [supName, setSupName] = useState(() => { try { return localStorage.getItem("sdx_sup_name") || ""; } catch { return ""; } });
   const [supPhone, setSupPhone] = useState(() => { try { return localStorage.getItem("sdx_sup_phone") || ""; } catch { return ""; } });
   const [sessionId, setSessionId] = useState(null);
@@ -27811,7 +27977,7 @@ function HaccpPortal() {
           </div>
           <div className="haccpCardBody">
             {LocationBanner}
-            {TodayStatus}
+            {/* v556: TodayStatus moved under Continue — it arrives seconds late and pushed the name box (and the inspector link) under the finger */}
             <a href={qrStandUrl("inspector")} className="haccpInspectorLink">
               {L("🕵 Inspector? Open the inspection form for this stand →", "🕵 ¿Inspector? Abre el formulario de inspección de este puesto →")}
             </a>
@@ -27830,6 +27996,7 @@ function HaccpPortal() {
               disabled={!supName.trim() || !supPhone.trim()}>
               {L("Continue →", "Continuar →")}
             </button>
+            {TodayStatus && <div style={{ marginTop: 12 }}>{TodayStatus}</div>}
           </div>
         </div>
       )}
@@ -27948,9 +28115,28 @@ function HaccpPortal() {
                   const summaryOf = (item) => { const rs = temps[item.key] || [""]; const subs = tempSubmitted[item.key] || []; const done = rs.map((v, i) => ({ v, i })).filter(x => subs[x.i] && String(x.v).replace(/\D/g, "").length); const fails = done.filter(x => !tempPass(item, x.v)).length; return { n: done.length, fails, last: done.length ? done[done.length - 1].v : "" }; };
                   const isOpen = k => openTemp.has(k);
                   const toggleOpen = k => setOpenTemp(p => { const n = new Set(p); n.has(k) ? n.delete(k) : n.add(k); return n; });
-                  const closeIfPass = (item, val) => { if (tempPass(item, val)) setOpenTemp(p => { const n = new Set(p); n.delete(item.key); return n; }); };
+                  // v556: after a passing ✓ Log it the block folds into its green row. What comes AFTER the block stays where
+                  // it was (the ~300 px block shrinks into a 58 px row, so everything below slid up under the finger), which
+                  // puts the green row right where Log it was. Nothing after it (end of the list) → keep the row on screen.
+                  const closeIfPass = (item, val) => {
+                    if (!tempPass(item, val)) return;
+                    let next = null, before = null;
+                    try {
+                      const blk = document.querySelector(`[data-ht="${CSS.escape(item.key)}"]`);
+                      next = blk?.nextElementSibling || null;
+                      for (let n = blk?.parentElement, k = 0; !next && n && n !== document.body && k < 4; k++, n = n.parentElement) next = n.nextElementSibling || null; // last row of a group → what follows the group
+                      before = next ? next.getBoundingClientRect().top : null;
+                    } catch {}
+                    setOpenTemp(p => { const n = new Set(p); n.delete(item.key); return n; });
+                    requestAnimationFrame(() => {
+                      try {
+                        if (next?.isConnected && before != null) { const d = next.getBoundingClientRect().top - before; if (Math.abs(d) > 1) window.scrollBy(0, d); return; }
+                        const r = document.querySelector(`[data-ht="${CSS.escape(item.key)}"]`); if (r && r.getBoundingClientRect().top < 8) r.scrollIntoView({ block: "nearest" });
+                      } catch {}
+                    });
+                  };
                   const compactRow = (item, emoji, color, badge) => { const sm = summaryOf(item); return (
-                    <button type="button" key={item.key} className={"htRow" + (sm.n ? (sm.fails ? " htRowFail" : " htRowDone") : "")} onClick={() => toggleOpen(item.key)}>
+                    <button type="button" key={item.key} data-ht={item.key} className={"htRow" + (sm.n ? (sm.fails ? " htRowFail" : " htRowDone") : "")} onClick={() => toggleOpen(item.key)}>
                       <span className="htRowEmoji">{emoji}</span>
                       <span className="htRowMain"><span className="htRowName" style={{ color }}>{itemName(item)}</span><span className="htRowHint">{itemHint(item)}</span></span>
                       <span className="htRowBadge" style={badge ? { background: badge } : {}}>{item.max != null ? `≤${item.max}°F` : `≥${item.min}°F`}</span>
@@ -27962,7 +28148,7 @@ function HaccpPortal() {
                     const readings = temps[item.key] || [""];
                     if (!isOpen(item.key)) return compactRow(item, item.type === "cold" ? "🧊" : "🔥", item.type === "cold" ? "#60a5fa" : "#f87171", null);
                     return (
-                    <div className="haccpTempBlock" key={item.key} style={item.type === "hot" ? { borderLeft: "3px solid #ef4444", background: "rgba(254,242,242,0.08)" } : item.type === "cold" ? { borderLeft: "3px solid #3b82f6", background: "rgba(239,246,255,0.08)" } : {}}>
+                    <div className="haccpTempBlock" key={item.key} data-ht={item.key} style={item.type === "hot" ? { borderLeft: "3px solid #ef4444", background: "rgba(254,242,242,0.08)" } : item.type === "cold" ? { borderLeft: "3px solid #3b82f6", background: "rgba(239,246,255,0.08)" } : {}}>
                       <div className="haccpTempBlockHead">
                         {editingLabel === item.key ? (
                           <span style={{ display: "flex", alignItems: "center", gap: 4, flex: 1 }}>
@@ -28209,7 +28395,7 @@ function HaccpPortal() {
                           const readings = temps[item.key] || [""];
                           if (!isOpen(item.key)) return compactRow(item, m.emoji, m.color, m.badgeBg);
                           return (
-                            <div key={item.key} style={{ background: m.bg, borderBottom: ci < cookingItems.length - 1 ? `1px solid ${m.border}` : "none", padding: "8px 12px" }}>
+                            <div key={item.key} data-ht={item.key /* v556: closeIfPass finds the open cooking row too */} style={{ background: m.bg, borderBottom: ci < cookingItems.length - 1 ? `1px solid ${m.border}` : "none", padding: "8px 12px" }}>
                               <div style={{ display: "flex", alignItems: "center", marginBottom: 6, gap: 6 }}>
                                 <span style={{ fontSize: "1.1rem", flexShrink: 0 }}>{m.emoji}</span>
                                 <div style={{ flex: 1, minWidth: 0 }}>
@@ -28360,6 +28546,10 @@ function HaccpPortal() {
                     // Open inline edit immediately for the new item
                     setEditingLabel(key);
                     setEditingLabelVal("New Item");
+                    // v556: open the new item so its rename box really shows (it used to arrive as a closed row far above,
+                    // so the tap looked like it did nothing), then take the person to it on purpose
+                    setOpenTemp(p => { const n = new Set(p); n.add(key); return n; });
+                    setTimeout(() => { try { document.querySelector(`[data-ht="${key}"]`)?.scrollIntoView({ block: "center" }); } catch {} }, 60);
                   }}>
                   {L("+ Add Temperature Item", "+ Agregar otra temperatura")}
                 </button>
@@ -29187,8 +29377,9 @@ function MessagingPanel({ currentUser, onBack, notifItems, onNotifDismiss, onNot
                         return (
                           <button key={item} type="button"
                             onClick={() => setAnnQcItems(arr => on ? arr.filter(x => x !== item) : [...arr, item])}
-                            style={{ fontSize: "0.72rem", padding: "4px 10px", borderRadius: 16, border: on ? "1.5px solid #f59e0b" : "1.5px solid #fde68a", background: on ? "#f59e0b" : "#fff", color: on ? "#fff" : "var(--tx-amber)", cursor: "pointer", fontWeight: on ? 700 : 400, transition: "all 0.12s" }}>
-                            {on ? "✓ " : ""}{item}
+                            style={{ fontSize: "0.72rem", padding: "4px 10px", borderRadius: 16, border: on ? "1.5px solid #f59e0b" : "1.5px solid #fde68a", background: on ? "#f59e0b" : "#fff", color: on ? "#fff" : "var(--tx-amber)", cursor: "pointer", fontWeight: 600, transition: "all 0.12s" }}>
+                            {/* v556: the ✓ keeps its space when off and the weight stays the same, so a pick never widens the chip and re-wraps the row */}
+                            <span style={{ visibility: on ? "visible" : "hidden" }}>✓ </span>{item}
                           </button>
                         );
                       })}
@@ -29431,7 +29622,9 @@ function MessagingPanel({ currentUser, onBack, notifItems, onNotifDismiss, onNot
 const plural = (n, one, many) => `${n} ${n === 1 ? one : (many || one + "s")}`;
 function StandFeedPanel({ feed, ackTs, onClose, onOpenReport, onTempsTracker }) {
   const [filter, setFilter] = useState("all");
-  const [open, setOpen] = useState(null);
+  const [open, setOpen] = useState(() => new Set()); // v556: each card opens on its own — opening one never closes another above it
+  const orderRef = useRef(null); // v556: the card order is frozen while the panel is open (per filter)
+  const keyOfRec = useRef(new Map()); // v556: record id → its card's key (see the groups memo)
   const [done, setDone] = useState(() => { try { return new Set(JSON.parse(localStorage.getItem("sdx_fulfilled_supplies") || "[]")); } catch { return new Set(); } });
   const markDelivered = (recs) => {
     const next = new Set(done);
@@ -29446,8 +29639,16 @@ function StandFeedPanel({ feed, ackTs, onClose, onOpenReport, onTempsTracker }) 
       if (!g) { g = { key: r.id, name: (r.siteName || "A STAND").toUpperCase(), unit: r.siteNumber || "", type: r.locationType || "", recs: [] }; out.push(g); }
       g.recs.push(r);
     }
+    const usedKeys = new Set();
     for (const g of out) {
       g.recs.sort((a, b) => String(b.savedAt).localeCompare(String(a.savedAt)));
+      // v556: a key that never changes while the panel is open — a re-send rewrites a record's savedAt (so "oldest" moved),
+      // and a new key remounted the card closed and sent it to the end. Reuse the key any member already had; else the
+      // smallest id (portal ids start with their creation time, which a re-send keeps).
+      const ids = g.recs.map(r => r.id);
+      const k = ids.map(id => keyOfRec.current.get(id)).find(x => x && !usedKeys.has(x)) || ids.slice().sort().find(x => !usedKeys.has(x)) || ids[0];
+      usedKeys.add(k); ids.forEach(id => keyOfRec.current.set(id, k));
+      g.key = k;
       g.last = g.recs[0].savedAt;
       g.temps = g.recs.reduce((n, r) => n + (r.haccpTempCount || 0), 0);
       g.oor = g.recs.reduce((n, r) => n + (r.haccpOutOfRange || 0), 0);
@@ -29467,7 +29668,17 @@ function StandFeedPanel({ feed, ackTs, onClose, onOpenReport, onTempsTracker }) 
     stands: groups.length, logs: feed.filter(r => r.haccpTempCount).length,
     oor: groups.filter(g => g.oor).length, sup: groups.filter(g => g.openSup.length).length, prob: groups.filter(g => g.problems.length).length,
   };
-  const shown = groups.filter(g => filter === "all" || (filter === "attn" && g.attn) || (filter === "sup" && g.openSup.length) || (filter === "temps" && g.temps));
+  let shown = groups.filter(g => filter === "all" || (filter === "attn" && g.attn) || (filter === "sup" && g.openSup.length) || (filter === "temps" && g.temps));
+  // v556: keep the order (and the cards) the reader is looking at — ✓ Supplies delivered or a new log changes the pills,
+  // not the places. The real ranking comes back when the filter changes or the panel is reopened. New stands go at the end.
+  if (!orderRef.current || orderRef.current.filter !== filter) orderRef.current = { filter, keys: shown.map(g => g.key) };
+  else {
+    const keys = orderRef.current.keys;
+    const kept = new Set(keys);
+    shown = groups.filter(g => kept.has(g.key) || shown.includes(g));
+    for (const g of shown) if (!kept.has(g.key)) keys.push(g.key);
+    shown.sort((a, b) => keys.indexOf(a.key) - keys.indexOf(b.key));
+  }
   const time = t => { try { return new Date(t).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }); } catch { return ""; } };
   const F = (id, label, n) => (
     <button type="button" data-testid={`sf-filter-${id}`} className={cx("sfFilter", filter === id && "on")} onClick={() => setFilter(id)}>{label}{n != null ? <b>{n}</b> : null}</button>
@@ -29491,10 +29702,10 @@ function StandFeedPanel({ feed, ackTs, onClose, onOpenReport, onTempsTracker }) 
         <div className="sfList">
           {shown.length === 0 && <div className="sfEmpty">Nothing here right now.</div>}
           {shown.map(g => {
-            const isOpen = open === g.key;
+            const isOpen = open.has(g.key);
             return (
               <div key={g.key} data-testid="stand-feed-row" className={cx("sfCard", g.attn ? "attn" : g.openSup.length ? "sup" : "", isOpen && "open")}>
-                <button type="button" className="sfCardHead" onClick={() => setOpen(isOpen ? null : g.key)}>
+                <button type="button" className="sfCardHead" onClick={() => setOpen(p => { const n = new Set(p); if (n.has(g.key)) n.delete(g.key); else n.add(g.key); return n; })}>
                   <div className="sfRow1">
                     <span className="sfName"><NT>{g.name}{g.unit ? ` #${g.unit}` : ""}</NT></span>
                     {g.type ? <StandType lt={g.type} /> : null}
@@ -29562,13 +29773,23 @@ export default function App() {
   const pageNowRef = useRef("inspector"); pageNowRef.current = page;
   const leaveGuardRef = useRef(null);
   const startNewRef = useRef(null); // v553: listeners set up once call the current New Inspection
+  // v556: a new page opens at its top (Follow-ups opened from the form landed half-way down its list, at the form's
+  // scroll depth); the form's own place is remembered so ← Back from History returns to it
+  const formScrollRef = useRef(0);
+  function goPage(to) {
+    if (to !== pageNowRef.current) {
+      if (pageNowRef.current === "inspector") formScrollRef.current = window.scrollY;
+      try { window.scrollTo(0, 0); } catch {}
+    }
+    setPageRaw(to);
+  }
   function setPage(next) {
     const to = typeof next === "function" ? next(pageNowRef.current) : next;
     if (pageNowRef.current === "inspector" && to !== "inspector" && leaveGuardRef.current) {
-      leaveGuardRef.current("page", () => setPageRaw(to));
+      leaveGuardRef.current("page", () => goPage(to));
       return;
     }
-    setPageRaw(to);
+    goPage(to);
   }
   const [labelsFocus, setLabelsFocus] = useState(null); // { unit, site, floor, locType, from } — open Equipment Labels on one stand
   const [equipFocus, setEquipFocus] = useState(null); // { id, unit, site } — open the Equipment tab on one stand
@@ -29732,7 +29953,9 @@ export default function App() {
     } catch { return 0; }
   }, [currentUser, fuHistoryTick]);
 
-  const openFollowups = () => { setHistoryEntry({ tab: "analytics", sub: "recurring" }); setPage("history"); };
+  // v556: n = a fresh tap even when History already shows another tab (the same strings did not re-run its effect);
+  // already on History → back to the top of Follow-ups on purpose
+  const openFollowups = () => { if (pageNowRef.current === "history") { try { window.scrollTo(0, 0); } catch {} } setHistoryEntry({ tab: "analytics", sub: "recurring", n: Date.now() }); setPage("history"); };
 
   // Branded browser tab — title and favicon follow the venue's brand
   useEffect(() => {
@@ -30004,10 +30227,13 @@ export default function App() {
   // translation is triggered programmatically via doGTranslate (see custom picker below).
 
   // Measure header height for spacer
-  useEffect(() => {
+  // v556: one measure everywhere — the border box (offsetHeight). contentRect left out the notch padding, so on the
+  // Home Screen app the spacer went 132 → 84 px a moment after every page change: the form jumped up ~48 px and its
+  // top sat under the header. Measured before paint so the first frame already has the right gap.
+  React.useLayoutEffect(() => {
     if (!headerRef.current) return;
-    const ro = new ResizeObserver(([e]) => setHeaderH(e.contentRect.height));
-    ro.observe(headerRef.current);
+    const ro = new ResizeObserver(([e]) => setHeaderH(e.target.offsetHeight));
+    try { ro.observe(headerRef.current, { box: "border-box" }); } catch { ro.observe(headerRef.current); }
     setHeaderH(headerRef.current.offsetHeight);
     return () => ro.disconnect();
   }, [locked, page]);
@@ -30575,6 +30801,9 @@ export default function App() {
   const [participantName, setParticipantName] = useState("");
 
   const [siteName, setSiteName] = useState("");
+  // v556: the stand finder above the Restaurant Name box stays while the box is being typed in (the first letter
+  // removed it — ~300 px above the caret — and the box jumped up under the header)
+  const [siteNameFocus, setSiteNameFocus] = useState(false);
   const [siteNumber, setSiteNumber] = useState("");
   // Open problems at this stand → corrective action is mandatory before saving
   // { [fuKey]: { action, status: "fixed"|"in_progress"|"waiting", photos: [] } }
@@ -30677,6 +30906,7 @@ export default function App() {
   // Ref mirror so saveToHistory always reads the latest ID even inside stale closures
   const savedReportIdRef = useRef(savedReportId);
   _openReportId = savedReportIdRef.current;
+  useEffect(() => { setSiteNameFocus(false); }, [savedReportId]); // v556: a new / opened report starts without the held finder
   // v532: on a date marked as an event day a NEW, untouched form starts as Event Day (temps + uniforms + operations first);
   // a type someone picked, a restored draft or an edited report is never switched (v526)
   useEffect(() => {
@@ -30955,6 +31185,7 @@ export default function App() {
   useEffect(() => {
     const onNav = (e) => {
       const d = e.detail || {};
+      const before = pageNowRef.current;
       if (d.entry !== undefined) setHistoryEntry(d.entry);
       if (d.page === "history" && d.entry === undefined) setHistoryEntry(null);
       if (d.clearFocus) { try { setLabelsFocus(null); } catch {} }
@@ -30962,7 +31193,9 @@ export default function App() {
       if (d.page) setPage(d.page);
       if (d.scanStand) setTimeout(() => setScanStandOpen(true), 50);
       if (d.newInspection) { try { startNewRef.current && startNewRef.current(); } catch {} }
-      window.scrollTo({ top: 0 });
+      // v556: a real page change already opened at the top (goPage); when the "not saved yet" box held the page
+      // back, the form behind it must not jump to the top
+      if (!d.page || d.page === before) window.scrollTo({ top: 0 });
     };
     window.addEventListener("sdx-nav", onNav);
     return () => window.removeEventListener("sdx-nav", onNav);
@@ -31788,7 +32021,7 @@ export default function App() {
   }} />;
   if (page === "history") { AIEngine.trackPage("history"); return <HistoryPage onBack={() => {
     if (managedVenueId) switchVenueTo(VENUE_ID, () => { setManagedVenueId(null); setManagedVenueName(null); setPage("global_admin"); });
-    else { setPage("inspector"); }
+    else { setPage("inspector"); const y = formScrollRef.current; requestAnimationFrame(() => { try { window.scrollTo(0, y); } catch {} }); } // v556: back to the same place in the form
   }} onEdit={loadRecordForEdit} managedVenueId={managedVenueId} managedVenueName={managedVenueName} currentUser={currentUser}
     notifItems={notifItems}
     onNotifDismiss={id => setNotifItems(prev => prev.filter(x => x.id !== id))}
@@ -31799,6 +32032,7 @@ export default function App() {
     saveVenueSettingsMap={saveVenueSettingsMap}
     initialTab={historyEntry?.tab}
     initialAnalyticsTab={historyEntry?.sub}
+    initialNonce={historyEntry?.n}
     initialFocusId={historyEntry?.focusId}
   />; }
   if (page === "schedule") { return <SchedulePage onBack={() => setPage("inspector")} currentUser={currentUser} venueSettings={venueSettings} onManage={(currentUser?.role === "admin" || currentUser?.role === "global_admin") ? () => setPage("admin") : null} />; }
@@ -32346,20 +32580,9 @@ export default function App() {
   // Save Report: send it now and wait for the cloud. Nothing about the report is
   // required except what the database itself needs (stand, inspector, date).
   async function saveToHistory() {
-    // If warnings are already shown, scroll to the first missing field so the
-    // inspector sees what to fix — save still proceeds regardless.
-    if (warnings.length > 0) {
-      const first = warnings[0];
-      const el = document.getElementById(first.fieldId);
-      if (el) {
-        el.scrollIntoView({ behavior: "smooth", block: "center" });
-        el.classList.add("fieldHighlight");
-        setTimeout(() => el.classList.remove("fieldHighlight"), 2000);
-        const input = el.querySelector("input, select, textarea");
-        if (input) setTimeout(() => input.focus(), 400);
-      }
-    }
-
+    // v556: Save no longer scrolls to the first "Missing information" warning and focuses it — that list was the
+    // LAST save's (stale), so every later Save glided the page away and opened the keyboard. The warnings box keeps
+    // its tap-to-go links; a field the database needs still jumps there (jumpToSaveField below).
     const res = autoSaveNow({ reason: "finish", force: true });
     const problem = (txt) => { setSaveToastMsg(txt); setSaveToast(true); setTimeout(() => setSaveToast(false), 6000); };
     if (res?.skipped === "empty") { problem("⚠ Nothing to save yet — pick the stand and fill in the report first."); return; }
@@ -32862,11 +33085,17 @@ export default function App() {
       )}
 
       {/* v495: the report that was open comes back by itself; other unsaved reports are listed */}
-      {restoredFrom && page === "inspector" && (
-        <div className="draftRestoredStrip" data-testid="draft-restored">
-          ↩ Restored your unsaved report from {(() => { try { return new Date(restoredFrom).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }); } catch { return restoredFrom; } })()} — keep going, it saves itself.
-        </div>
-      )}
+      {/* v556: this strip and the scan message are bottom toasts — at the top of the page they pushed the whole form
+          down and pulled it back up 4–8 s later, while the inspector was already tapping rows */}
+      {((restoredFrom && page === "inspector") || (currentUser && scanFlash)) && ReactDOM.createPortal(
+        <div className="fuToastStack formToastStack" data-testid="form-toasts">
+          {currentUser && scanFlash && <div className="qrScanFlash" data-testid="scan-flash">{scanFlash}</div>}
+          {restoredFrom && page === "inspector" && (
+            <div className="draftRestoredStrip" data-testid="draft-restored">
+              ↩ Restored your unsaved report from {(() => { try { return new Date(restoredFrom).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }); } catch { return restoredFrom; } })()} — keep going, it saves itself.
+            </div>
+          )}
+        </div>, document.body)}
       {page === "inspector" && otherDrafts.length > 0 && (
         <div className="draftListBar" data-testid="draft-list">
           <button type="button" className="draftListHead" data-testid="draft-list-toggle" onClick={() => setDraftsOpen(o => !o)}>
@@ -33091,7 +33320,7 @@ export default function App() {
           {QR_OPEN_AS_INSPECTOR && <a href={qrStandUrl("supervisor")} className="qrStandSwitch" onClick={e => { if (reportUnsaved()) { e.preventDefault(); const href = qrStandUrl("supervisor"); guardLeave("link", () => { window.location.href = href; }); } }}>Not inspecting? Open the supervisor log →</a>}
         </div>
       )}
-      {currentUser && scanFlash && <div className="qrScanFlash">{scanFlash}</div>}
+      {/* v556: the scan message (scanFlash) is a bottom toast now — see the draft-restored portal above */}
       {scanStandOpen && (
         <QrScanModal title="📷 Scan stand QR" hint="Point at the QR poster on the stand — the inspection fills itself in."
           onCode={handleStandScan} onClose={() => setScanStandOpen(false)} />
@@ -33223,7 +33452,7 @@ export default function App() {
                 </div>
               )}
             </div>
-            {!siteName.trim() && <div style={{ marginBottom: "1rem" }}><StandFinder onPick={pickStand} /></div>}
+            {(!siteName.trim() || siteNameFocus) && <div style={{ marginBottom: "1rem" }}><StandFinder onPick={k => { setSiteNameFocus(false); pickStand(k); }} /></div>}
             <div className="fieldGrid">
               <label className="field fieldTypeWide">
                 <span className="fieldLabel">Type</span>
@@ -33275,7 +33504,14 @@ export default function App() {
                   <input className="input" value={siteName} readOnly style={{ background: "var(--surface-2)", color: "var(--ink-600)", cursor: "not-allowed" }} title="Location is set by your manager" />
                 ) : (
                   <>
-                    <input className="input" list="siteNameSuggestions" value={siteName} onBlur={(e) => smartFieldCorrect("field-siteName", e.target.value)} onChange={(e) => setSiteName(e.target.value.toUpperCase())} placeholder="e.g., North Stand Kitchen" />{/* v459: typing never prefills — only a scanned stand QR does (applyStandFromQr) */}
+                    <input className="input" list="siteNameSuggestions" value={siteName}
+                      onFocus={() => { if (!siteName.trim()) setSiteNameFocus(true); }} /* v556: only a NAMELESS form holds the finder — nothing is ever inserted above a filled box */
+                      onBlur={(e) => {
+                        // v556: the finder stays when the box loses focus (taking it away then moved the whole form up
+                        // ~300 px as the inspector tapped the next field) — it goes on a pick or a new / opened report
+                        smartFieldCorrect("field-siteName", e.target.value);
+                      }}
+                      onChange={(e) => setSiteName(e.target.value.toUpperCase())} placeholder="e.g., North Stand Kitchen" />{/* v459: typing never prefills — only a scanned stand QR does (applyStandFromQr) */}
                     <datalist id="siteNameSuggestions">
                       {(getAutofillMemory().siteName || []).map((s, i) => <option key={i} value={s} />)}
                     </datalist>
@@ -33392,15 +33628,7 @@ export default function App() {
                   {FLOOR_OPTIONS.map((f) => (<option key={f} value={f}>{f}</option>))}
                 </select>
               </label>
-              {inspectionType === "Event Day" && (
-                <label className="field" id="field-eventName" style={{ gridColumn: "1 / -1" }}>
-                  <span className="fieldLabel">
-                    Event Name <span style={{ color: "#ef4444", fontWeight: 700 }}>*</span>
-                    <span style={{ marginLeft: 6, fontSize: "0.72rem", background: "var(--tint-blue-1)", color: "#1d4ed8", padding: "1px 7px", borderRadius: 20, fontWeight: 600 }}>Event Day only</span>
-                  </span>
-                  <input className="input" value={eventName} onChange={(e) => setEventName(e.target.value)} placeholder="e.g., Super Bowl LVIII, UFC 305" autoFocus={false} />
-                </label>
-              )}
+              {/* v556: Event Name moved under the type cards (it was inserted here, ABOVE them, when Event day was tapped) */}
             </div>
 
             {/* ── From the last inspection — still open at this stand, actionable
@@ -33457,6 +33685,16 @@ export default function App() {
             {(
             <div className="guide">
               <InspTypePick value={inspectionType} onPick={pickInspType} compact />
+              {/* v556: right under the type cards — appearing / disappearing here only moves what is below the tapped card */}
+              {inspectionType === "Event Day" && (
+                <label className="field" id="field-eventName" style={{ margin: "0 0 12px" }}>
+                  <span className="fieldLabel">
+                    Event Name <span style={{ color: "#ef4444", fontWeight: 700 }}>*</span>
+                    <span style={{ marginLeft: 6, fontSize: "0.72rem", background: "var(--tint-blue-1)", color: "#1d4ed8", padding: "1px 7px", borderRadius: 20, fontWeight: 600 }}>Event Day only</span>
+                  </span>
+                  <input className="input" value={eventName} onChange={(e) => setEventName(e.target.value)} placeholder="e.g., Super Bowl LVIII, UFC 305" autoFocus={false} />
+                </label>
+              )}
               <InspTypeBanner type={inspectionType} eventName={guideEventName || eventName} />
               {/* ── Stepper header ─────────────────────────────────────── */}
               {(() => {
@@ -34049,12 +34287,21 @@ export default function App() {
               {(() => {
                 const NAV_LABELS = GUIDE_LABELS.map(l => l.replace(" ⭐", "").replace("Uniforms & operations", "Uniforms & ops").replace("Equipment cleaning", "Equipment").replace("Temps & Supplies", "Temps")); // v532: fit a 390 px phone
                 const last = NAV_LABELS.length - 1;
+                // v556: Next / Previous / Done land on the section that opens (the step chips just under the header) —
+                // Next glided to the very top of the page (1,000+ px above the section), Previous / Done stayed at the
+                // bottom of the other section. The chips sit above the panels, so their place does not change with the swap.
+                const goStep = fn => {
+                  const el = document.querySelector(".guideStepperHeader");
+                  const hb = document.querySelector(".topBar")?.getBoundingClientRect().bottom || 64;
+                  setGuideStep(fn);
+                  if (el) window.scrollTo({ top: Math.max(0, el.getBoundingClientRect().top + window.scrollY - hb - 8), behavior: "smooth" });
+                };
                 return (
                   <div className="guideStepNav">
                     <button
                       type="button"
                       className="guideStepNavBtn guideStepNavPrev"
-                      onClick={() => setGuideStep(s => Math.max(0, s - 1))}
+                      onClick={() => goStep(s => Math.max(0, s - 1))}
                       disabled={guideStep === 0}
                       aria-label="Previous step"
                     >
@@ -34067,7 +34314,7 @@ export default function App() {
                       <button
                         type="button"
                         className="guideStepNavBtn guideStepNavNext"
-                        onClick={() => { setGuideStep(s => Math.min(last, s + 1)); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+                        onClick={() => goStep(s => Math.min(last, s + 1))}
                         aria-label="Next step"
                       >
                         {NAV_LABELS[guideStep + 1]} →
@@ -34076,7 +34323,7 @@ export default function App() {
                       <button
                         type="button"
                         className="guideStepNavBtn guideStepNavDone"
-                        onClick={() => setGuideStep(0)}
+                        onClick={() => goStep(() => 0)}
                         aria-label="Return to first step"
                       >
                         ✓ Done
