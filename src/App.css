@@ -10279,3 +10279,57 @@ html[data-theme="black"] .leaveGuardWhySaving { background: #0f1b33; color: #bfd
 /* v557: every BEFORE / AFTER in the ✅ Fixed and 🧹 cleaning rows */
 .fuBAFixed { margin-top: 6px; }
 .fuBAFixed .fuThumb { width: 48px; height: 48px; }
+
+/* v558: food waste — stand portal section (white card, light greys like the supplies request) */
+.wasteHint { font-size: .8rem; color: #555; margin-bottom: 8px; }
+.wasteStartRow { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+.wasteStartBtn, .wasteAddBtn { flex: 1 1 180px; min-height: 48px; border-radius: 12px; border: 1.5px solid #0f766e; background: #f0fdfa; color: #0f766e; font-weight: 800; font-size: .92rem; }
+.wasteNoneBtn { flex: 1 1 150px; min-height: 48px; border-radius: 12px; border: 1px solid #d5d9e2; background: #f7f8fa; color: #1e2a4a; font-weight: 800; font-size: .9rem; }
+.wasteNoneDone { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 48px; padding: 8px 12px; border-radius: 12px; background: #dcfce7; border: 1px solid #86efac; color: #15803d; font-weight: 800; font-size: .9rem; }
+.wasteLink { border: 0; background: transparent; color: #1e2a4a; text-decoration: underline; font-weight: 700; min-height: 40px; padding: 0 6px; }
+.wasteRow { border: 1.5px solid #d5d9e2; border-radius: 12px; padding: 10px; margin-bottom: 10px; background: #fff; }
+.wasteRow.done { border-color: #86efac; background: #f6fef9; }
+.wasteRowHead { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; color: #1e2a4a; font-size: .86rem; }
+.wasteX { width: 40px; height: 40px; border-radius: 10px; border: 1px solid #d5d9e2; background: #f7f8fa; color: #6b7280; font-weight: 800; }
+.wasteLbl { font-size: .74rem; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; color: #6b7280; margin: 10px 0 5px; }
+.wasteChips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.wasteChip { min-height: 40px; padding: 6px 11px; border-radius: 999px; border: 1px solid #d5d9e2; background: #f7f8fa; color: #1e2a4a; font-weight: 700; font-size: .84rem; }
+.wasteChip.on { background: #0f766e; border-color: #0f766e; color: #fff; }
+.wasteQtyRow { display: flex; flex-direction: column; gap: 2px; }
+.wasteQtyRow .wasteQty { max-width: 140px; font-size: 16px; }
+/* Analytics → 🗑 Waste */
+.wasteReport .cardBody { display: flex; flex-direction: column; gap: 10px; }
+.wasteRepHead { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.wasteRepTitle { font-weight: 900; font-size: 1.05rem; color: var(--ink-900, #0f172a); }
+.wasteRepSub { font-size: .8rem; color: var(--ink-500, #64748b); margin-top: 2px; }
+.wasteXls { min-height: 40px; padding: 6px 14px; border-radius: 10px; border: 1px solid #16a34a; background: #f0fdf4; color: #15803d; font-weight: 800; }
+.wasteRange, .wasteViews, .wasteFlagChips { display: flex; flex-wrap: wrap; gap: 6px; }
+.wasteRangeBtn, .wasteViewBtn { min-height: 40px; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--sdx-gray-200, #e5e7eb); background: var(--surface-1, #fff); color: var(--ink-700, #334155); font-weight: 700; font-size: .82rem; cursor: pointer; }
+.wasteRangeBtn.on, .wasteViewBtn.on { background: var(--sdx-navy, #2a2a5c); border-color: var(--sdx-navy, #2a2a5c); color: #fff; }
+.wasteScope { font-size: .78rem; color: var(--ink-500, #64748b); }
+.wasteSum, .wasteReasons { display: flex; flex-wrap: wrap; gap: 6px; }
+.wastePill { display: inline-flex; align-items: center; gap: 4px; min-height: 32px; padding: 4px 10px; border-radius: 999px; background: var(--surface-2, #f1f5f9); color: var(--ink-700, #334155); font-size: .8rem; font-weight: 700; border: 1px solid transparent; }
+.wastePillWarn { background: #fef2f2; color: #b91c1c; border-color: #fecaca; cursor: pointer; }
+.wasteReasonPill { font-size: .76rem; font-weight: 700; color: var(--ink-600, #475569); padding: 3px 9px; border-radius: 999px; border: 1px solid var(--sdx-gray-200, #e5e7eb); }
+.wasteList { display: flex; flex-direction: column; gap: 6px; }
+.wasteStandRow { border: 1px solid var(--sdx-gray-200, #e5e7eb); border-radius: 12px; background: var(--surface-1, #fff); overflow: hidden; }
+.wasteStandHead { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; width: 100%; text-align: left; border: 0; background: transparent; padding: 9px 11px; cursor: pointer; color: inherit; font: inherit; }
+.wasteStandName { font-weight: 800; color: var(--ink-900, #0f172a); font-size: .9rem; min-width: 0; overflow-wrap: anywhere; }
+.wasteStandAmt { font-weight: 800; color: #0f766e; font-size: .84rem; text-align: right; font-variant-numeric: tabular-nums; }
+.wasteStandMeta { grid-column: 1 / -1; font-size: .76rem; color: var(--ink-500, #64748b); }
+.wasteStandBody { border-top: 1px solid var(--sdx-gray-200, #e5e7eb); padding: 8px 11px; display: flex; flex-direction: column; gap: 4px; }
+.wasteLine { font-size: .8rem; color: var(--ink-700, #334155); }
+.wasteItemRow, .wasteFlagRow { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; padding: 9px 11px; border-radius: 12px; border: 1px solid var(--sdx-gray-200, #e5e7eb); background: var(--surface-1, #fff); }
+.wasteFlag-never { border-color: #fca5a5; background: #fef2f2; }
+.wasteFlag-missed { border-color: #fcd34d; background: #fffbeb; }
+.wasteFlagPill { align-self: start; font-size: .74rem; font-weight: 800; padding: 3px 9px; border-radius: 999px; }
+.wasteFlagPill-never { background: #fee2e2; color: #b91c1c; }
+.wasteFlagPill-missed { background: #fef3c7; color: #92400e; }
+.wasteFlagPill-ok { background: #dcfce7; color: #15803d; }
+.wasteEmpty { font-size: .84rem; color: var(--ink-500, #64748b); font-style: italic; padding: 8px 2px; }
+@media (max-width: 560px) { .wasteStandHead, .wasteItemRow, .wasteFlagRow { grid-template-columns: 1fr; } .wasteStandAmt { text-align: left; } }
+[data-theme="dark"] .wasteFlag-never, [data-theme="midnight"] .wasteFlag-never, [data-theme="noir"] .wasteFlag-never, [data-theme="black"] .wasteFlag-never { background: rgba(185,28,28,.15); border-color: rgba(248,113,113,.4); }
+[data-theme="dark"] .wasteFlag-missed, [data-theme="midnight"] .wasteFlag-missed, [data-theme="noir"] .wasteFlag-missed, [data-theme="black"] .wasteFlag-missed { background: rgba(180,83,9,.15); border-color: rgba(252,211,77,.4); }
+[data-theme="dark"] .wastePillWarn, [data-theme="midnight"] .wastePillWarn, [data-theme="noir"] .wastePillWarn, [data-theme="black"] .wastePillWarn { background: rgba(185,28,28,.18); color: #fca5a5; border-color: rgba(248,113,113,.4); }
+[data-theme="dark"] .wasteXls, [data-theme="midnight"] .wasteXls, [data-theme="noir"] .wasteXls, [data-theme="black"] .wasteXls { background: rgba(22,163,74,.15); color: #86efac; }
+[data-theme="dark"] .wasteStandAmt, [data-theme="midnight"] .wasteStandAmt, [data-theme="noir"] .wasteStandAmt, [data-theme="black"] .wasteStandAmt { color: #5eead4; }

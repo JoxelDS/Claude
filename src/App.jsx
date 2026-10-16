@@ -2299,12 +2299,12 @@ function buildHaccpDirectory(subs, forDate, overrides) {
 // How many real temperature readings a HACCP submission carries (problem-only
 // submissions and empty forms count as zero).
 // v466: tell the inspectors / admins a supervisor filed a log (best effort)
-async function notifySupervisorLog({ site, unit, by, temps, outOfRange, problems, supplies }) {
+async function notifySupervisorLog({ site, unit, by, temps, outOfRange, problems, supplies, waste }) {
   if (!FIREBASE_ON) return;
   try {
     const users = await getUsers();
     const title = `📋 Supervisor log — ${site || "stand"}${unit ? ` #${unit}` : ""}`;
-    const message = `${temps} temp${temps !== 1 ? "s" : ""} logged${outOfRange ? ` · ${outOfRange} out of range` : ""}${problems ? ` · ${problems} problem${problems !== 1 ? "s" : ""}` : ""}${supplies ? ` · 📦 ${supplies} supplies requested` : ""}${by ? ` · by ${by}` : ""}`;
+    const message = `${temps} temp${temps !== 1 ? "s" : ""} logged${outOfRange ? ` · ${outOfRange} out of range` : ""}${problems ? ` · ${problems} problem${problems !== 1 ? "s" : ""}` : ""}${supplies ? ` · 📦 ${supplies} supplies requested` : ""}${waste ? ` · 🗑 ${waste} waste item${waste !== 1 ? "s" : ""}` : ""}${by ? ` · by ${by}` : ""}`;
     (users || []).filter(u => u.approved && u.name && ["inspector", "admin", "global_admin"].includes(u.role)).slice(0, 12)
       .forEach(u => saveInspectorNotification({ inspectorName: u.name.trim().toLowerCase(), kind: "followup", title, message }).catch(() => {}));
   } catch {}
@@ -15321,6 +15321,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
               {[
                 { key: "recurring",  label: "🔁 Follow-ups", badge: fuTabOverdue },
                 { key: "temp",       label: "Temps"      },
+                { key: "waste",      label: "🗑 Waste"    },
                 { key: "insights",   label: "Insights"   },
                 { key: "predictive", label: "Predictive" },
                 { key: "timeline",   label: "Timeline"   },
@@ -15337,6 +15338,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
               ))}
             </div>
             {/* v444: analytics reads the deep list, not the loaded page */}
+            {analyticsTab === "waste" && <FoodWasteReport history={analyticsSrc} venueSettings={venueSettings} />}
             {analyticsTab === "temp" && <><HaccpTodayTracker venueSettings={venueSettings} saveVenueSettingsMap={saveVenueSettingsMap} history={analyticsSrc} currentUser={currentUser} />{venueSettings?.equipTemps?.verifiedAt ? <>{(currentUser?.role === "admin" || currentUser?.role === "global_admin") && <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 10 }}><span style={{ fontSize: "0.74rem", fontWeight: 700, color: "var(--ink-500)" }}>❄ Equipment temps on · walk-through verified {new Date(venueSettings.equipTemps.verifiedAt).toLocaleDateString()}{venueSettings.equipTemps.verifiedBy ? ` by ${venueSettings.equipTemps.verifiedBy}` : ""}</span><button type="button" className="etChip" data-testid="equip-temps-pause" onClick={() => saveVenueSettingsMap?.("equipTemps", { verifiedAt: 0, verifiedBy: "" })}>Pause equipment temps</button></div>}<EquipTempBoard history={analyticsSrc} onOpenStand={st => window.dispatchEvent(new CustomEvent("sdx-open-stand-equipment", { detail: st }))} /></> : <div className="card equipTempsPaused" style={{ marginBottom: 24 }}><div className="cardBody" style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}><span style={{ fontSize: "0.82rem", fontWeight: 700, color: "var(--ink-700)" }}>❄ Equipment temps are paused for this venue — they turn on once the equipment walk-through is verified, so every cooler and freezer tracked is one this venue actually has.</span>{(currentUser?.role === "admin" || currentUser?.role === "global_admin") && <button type="button" className="etChip" data-testid="equip-temps-verify-on" onClick={() => saveVenueSettingsMap?.("equipTemps", { verifiedAt: Date.now(), verifiedBy: currentUser?.name || "" })}>Mark walk-through verified — turn on</button>}</div></div>}<TempTrendChart history={analyticsSrc} /></>}
             {analyticsTab === "insights" && <AIHealthMonitor history={analyticsSrc} currentUser={currentUser} />}
             {analyticsTab === "predictive" && <PredictiveInsightsPanel history={analyticsSrc} venueSettings={venueSettings} />}
@@ -15906,6 +15908,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                             🌡️ {rec.haccpTempCount || 0} temp{(rec.haccpTempCount || 0) !== 1 ? "s" : ""} logged{rec.haccpOutOfRange ? <b className="supLogBad"> · {rec.haccpOutOfRange} out of range</b> : " · all in range"}
                             {(() => { const pr = (rec.actionItems || []).filter(a => !a.fromTemp).length; return pr ? ` · ${pr} problem${pr !== 1 ? "s" : ""} reported` : ""; })()}
                             {(() => { const rd = (rec.haccpReadings || []).filter(x => x.ok === false); const done = rd.filter(x => String(x.corrective || "").replace(/^(Reason|Motivo):[^—]*—?/i, "").trim()).length; const miss = rec.missingCorrective != null ? rec.missingCorrective : rd.length - done; return <>{done ? <b className="supLogCorr" data-testid="sup-corr-ok"> · 🔧 {done} corrective action{done !== 1 ? "s" : ""}</b> : null}{miss > 0 ? <b className="supLogBad" data-testid="sup-corr-miss"> · ⚠ {miss} without corrective action</b> : null}</>; })()}
+                            {Array.isArray(rec.foodWaste) && rec.foodWaste.length ? <span data-testid="sup-waste"> · 🗑 {rec.foodWaste.length} waste item{rec.foodWaste.length !== 1 ? "s" : ""}</span> : rec.foodWasteNone ? <span data-testid="sup-waste"> · 🗑 no waste</span> : null}
                             {rec.reportedBy?.phone ? ` · 📞 ${rec.reportedBy.phone}` : ""}
                           </span>
                           <span className="supLogBadgeHint">Filed by the stand from its QR poster — the temperature log is listed below.</span>
@@ -26490,6 +26493,241 @@ function EquipScanModal({ onClose, onApply, initialTag }) {
 }
 
 /* ── HACCP Today — who did (and didn't do) the temp log ─────── */
+// ── v558: food waste the stands log at the end of a shift / event ─────────────
+// Joxel: "i want to create a food waste tracking for the supervisors" — item + how much (they pick the unit) + why,
+// logged at the end of each event / shift from the stand QR; the inspector gets totals by stand and item, an Excel,
+// and the stands that did not log.
+const WASTE_UNITS = [
+  { k: "pieces", en: "pieces", es: "piezas" },
+  { k: "lb", en: "lb", es: "lb" },
+  { k: "pans", en: "pans", es: "bandejas" },
+  { k: "cases", en: "cases", es: "cajas" },
+  { k: "portions", en: "portions", es: "porciones" },
+];
+const WASTE_REASONS = [
+  { k: "overproduction", icon: "📈", en: "Made too much", es: "Se hizo demasiado" },
+  { k: "expired", icon: "⏰", en: "Past its time / expired", es: "Pasó su tiempo / vencido" },
+  { k: "temperature", icon: "🌡", en: "Temperature out of range", es: "Temperatura fuera de rango" },
+  { k: "dropped", icon: "🫗", en: "Dropped / contaminated", es: "Se cayó / contaminado" },
+  { k: "returned", icon: "↩", en: "Customer sent it back", es: "El cliente lo devolvió" },
+  { k: "endofevent", icon: "🏁", en: "Left over at the end", es: "Sobró al final" },
+  { k: "other", icon: "…", en: "Other", es: "Otro" },
+];
+const WASTE_ITEMS = [
+  { en: "Hot dogs", es: "Hot dogs" }, { en: "Burgers", es: "Hamburguesas" }, { en: "Chicken", es: "Pollo" }, { en: "Fries", es: "Papas fritas" },
+  { en: "Pizza", es: "Pizza" }, { en: "Buns / bread", es: "Pan" }, { en: "Wings", es: "Alitas" }, { en: "Sausages", es: "Salchichas" },
+  { en: "Tacos", es: "Tacos" }, { en: "Nachos", es: "Nachos" }, { en: "Salad", es: "Ensalada" }, { en: "Dessert", es: "Postre" },
+];
+const wasteUnitLabel = k => (WASTE_UNITS.find(u => u.k === k) || { en: k || "" }).en;
+const wasteReasonOf = k => WASTE_REASONS.find(r => r.k === k) || { k, icon: "…", en: k || "—", es: k || "—" };
+const wasteNum = n => Math.round((Number(n) || 0) * 100) / 100;
+// "12 pieces · 3 lb" from { pieces: 12, lb: 3 }
+function wasteAmountText(byUnit) {
+  const keys = [...WASTE_UNITS.map(u => u.k), ...Object.keys(byUnit || {}).filter(k => !WASTE_UNITS.some(u => u.k === k))];
+  return keys.filter(k => byUnit?.[k]).map(k => `${wasteNum(byUnit[k])} ${wasteUnitLabel(k)}`).join(" · ");
+}
+// Every waste line in these records (one per item), plus a { none: true } line for a "No waste today"
+function wasteRowsOf(history) {
+  const out = [];
+  for (const r of (history || [])) {
+    if (!r || r.discarded) continue;
+    const rows = Array.isArray(r.foodWaste) ? r.foodWaste : [];
+    if (!rows.length && !r.foodWasteNone) continue;
+    const day = r.portalDay || r.inspectionDate || String(r.savedAt || "").slice(0, 10);
+    const base = { recId: r.id, day, at: r.savedAt || "", stand: String(r.siteName || "—").toUpperCase(), unit: String(r.siteNumber || "").trim(), floor: r.floor || "", type: r.locationType || "", by: (r.supervisorName || r.reportedBy?.name || r.inspectorName || "").toUpperCase() };
+    if (!rows.length) { out.push({ ...base, none: true }); continue; }
+    rows.forEach((w, i) => { if (!w || !String(w.item || "").trim()) return; out.push({ ...base, i, item: String(w.item).trim(), qty: wasteNum(w.qty), uom: w.unit || "", reason: w.reason || "" }); }); // uom = the unit of measure (unit is the stand #)
+  }
+  return out.sort((a, b) => String(b.at).localeCompare(String(a.at)));
+}
+async function exportWasteExcel({ rows, byStand, byItem, flags, scopeText }) {
+  const ExcelJS = (await import("exceljs")).default;
+  const wb = new ExcelJS.Workbook();
+  const NAVY = "FF1E2A4A", RED = "FFFEE2E2", REDT = "FFB91C1C", AMB = "FFFEF3C7", AMBT = "FF92400E", GRN = "FFDCFCE7", GRNT = "FF15803D";
+  const head = (ws, cols) => {
+    const r = ws.addRow(cols.map(c => c[0]));
+    r.eachCell(c => { c.font = { bold: true, color: { argb: "FFFFFFFF" } }; c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: NAVY } }; c.alignment = { vertical: "middle", wrapText: true }; });
+    r.height = 22;
+    cols.forEach((c, i) => { ws.getColumn(i + 1).width = c[1]; });
+    ws.views = [{ state: "frozen", ySplit: 1 }];
+    ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: cols.length } };
+  };
+  const tm = at => { try { return at ? new Date(at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : ""; } catch { return ""; } };
+  const ws1 = wb.addWorksheet("Waste log");
+  head(ws1, [["Date", 12], ["Time", 10], ["Stand", 30], ["Unit", 8], ["Floor", 10], ["Stand type", 18], ["Logged by", 22], ["Item", 26], ["Amount", 10], ["Unit of measure", 14], ["Why", 28]]);
+  rows.forEach(r => {
+    const row = ws1.addRow([r.day, tm(r.at), r.stand, r.unit, r.floor, r.type, r.by, r.none ? "No waste today" : r.item, r.none ? "" : r.qty, r.none ? "" : wasteUnitLabel(r.uom), r.none ? "" : wasteReasonOf(r.reason).en]);
+    if (r.none) row.getCell(8).font = { italic: true, color: { argb: GRNT } };
+  });
+  const ws2 = wb.addWorksheet("By stand");
+  head(ws2, [["Stand", 30], ["Unit", 8], ["Floor", 10], ["Stand type", 18], ["Items logged", 12], ["Amount", 36], ["Top reason", 28], ["Days logged", 12], ["Last log", 12]]);
+  byStand.forEach(b => ws2.addRow([b.stand, b.unit, b.floor, b.type, b.n, wasteAmountText(b.byUnit) || (b.noneDays ? "no waste" : ""), b.topReason ? wasteReasonOf(b.topReason).en : "", b.days, b.last]));
+  const ws3 = wb.addWorksheet("By item");
+  head(ws3, [["Item", 30], ["Amount", 36], ["Times logged", 13], ["Stands", 9], ["Top reason", 28]]);
+  byItem.forEach(t => ws3.addRow([t.item, wasteAmountText(t.byUnit), t.n, t.stands, t.topReason ? wasteReasonOf(t.topReason).en : ""]));
+  const ws4 = wb.addWorksheet("Didn't log");
+  head(ws4, [["Stand", 30], ["Unit", 8], ["Floor", 10], ["Stand type", 18], ["Days logged", 12], ["Days expected", 13], ["Last log", 12], ["Flag", 20]]);
+  flags.forEach(f => {
+    const row = ws4.addRow([f.site, f.unit, f.floor, f.locType, f.logged, f.expected, f.last || "never", f.flag === "never" ? "Never logged" : f.flag === "missed" ? "Missed some" : "Logged every day"]);
+    const c = row.getCell(8); const [bg, fg] = f.flag === "never" ? [RED, REDT] : f.flag === "missed" ? [AMB, AMBT] : [GRN, GRNT];
+    c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: bg } }; c.font = { bold: true, color: { argb: fg } };
+  });
+  if (scopeText) { ws4.addRow([]); ws4.addRow([scopeText]).getCell(1).font = { italic: true, color: { argb: "FF6B7280" } }; }
+  const buf = await wb.xlsx.writeBuffer();
+  downloadBlob(new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }), `food-waste-${new Date().toISOString().slice(0, 10)}.xlsx`);
+  return rows.length;
+}
+// The inspector's view: Analytics → 🗑 Waste
+function FoodWasteReport({ history, venueSettings }) {
+  const [range, setRange] = useState("3ev");   // "today" | "3ev" | "5ev" | "7d" | "30d"
+  const [view, setView] = useState("stand");   // "stand" | "item" | "flags"
+  const [flagFilter, setFlagFilter] = useState("missed"); // "missed" | "never" | "ok" | "all"
+  const [openStand, setOpenStand] = useState({});
+  const [xls, setXls] = useState("");
+  const [, setStandsTick] = useState(0);
+  useEffect(() => { let alive = true; loadStandList().then(() => { if (alive) setStandsTick(t => t + 1); }).catch(() => {}); return () => { alive = false; }; }, []);
+  const localDay = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const today = localDay(new Date());
+  const all = useMemo(() => wasteRowsOf(history), [history]);
+  // the days that count: marked event days up to today (newest first); none marked → days with any waste log
+  const eventDays = Object.keys(venueSettings?.eventDays || {}).filter(d => d <= today).sort().reverse();
+  const logDays = [...new Set(all.map(r => r.day))].sort().reverse();
+  const evN = range === "3ev" ? 3 : range === "5ev" ? 5 : 0;
+  const days = range === "today" ? [today]
+    : evN ? (eventDays.length ? eventDays : logDays).slice(0, evN)
+    : (() => { const n = range === "7d" ? 7 : 30; const out = []; for (let i = 0; i < n; i++) out.push(localDay(new Date(Date.now() - i * 86400000))); return out; })();
+  const daySet = new Set(days);
+  const rows = all.filter(r => daySet.has(r.day));
+  const items = rows.filter(r => !r.none);
+  const sk = r => `${normUnit(r.unit)}|${standSlug(r.stand)}`;
+  const byStand = (() => {
+    const m = {};
+    for (const r of rows) {
+      const k = sk(r); const b = m[k] || (m[k] = { key: k, stand: r.stand, unit: r.unit, floor: r.floor, type: r.type, n: 0, byUnit: {}, reasons: {}, daySet: new Set(), noneDays: 0, last: "", rows: [] });
+      b.daySet.add(r.day); if (r.day > b.last) b.last = r.day; b.rows.push(r);
+      if (r.none) { b.noneDays++; continue; }
+      b.n++; b.byUnit[r.uom] = (b.byUnit[r.uom] || 0) + r.qty; b.reasons[r.reason] = (b.reasons[r.reason] || 0) + 1;
+    }
+    return Object.values(m).map(b => ({ ...b, days: b.daySet.size, topReason: Object.entries(b.reasons).sort((x, y) => y[1] - x[1])[0]?.[0] || "" }))
+      .sort((a, b) => b.n - a.n || a.stand.localeCompare(b.stand));
+  })();
+  const byItem = (() => {
+    const m = {};
+    for (const r of items) {
+      const k = r.item.toLowerCase(); const t = m[k] || (m[k] = { item: r.item, n: 0, byUnit: {}, reasons: {}, standSet: new Set() });
+      t.n++; t.byUnit[r.uom] = (t.byUnit[r.uom] || 0) + r.qty; t.reasons[r.reason] = (t.reasons[r.reason] || 0) + 1; t.standSet.add(sk(r));
+    }
+    return Object.values(m).map(t => ({ ...t, stands: t.standSet.size, topReason: Object.entries(t.reasons).sort((x, y) => y[1] - x[1])[0]?.[0] || "" }))
+      .sort((a, b) => b.n - a.n || a.item.localeCompare(b.item));
+  })();
+  const reasonCounts = (() => { const m = {}; items.forEach(r => { m[r.reason] = (m[r.reason] || 0) + 1; }); return WASTE_REASONS.map(x => ({ ...x, n: m[x.k] || 0 })).filter(x => x.n); })();
+  // every stand with a poster is expected to log on each counted day (Bars and Pantries too — they throw food away as well)
+  const flags = (() => {
+    const stands = (_standListCache || []).filter(k => k && (k.site || k.unit));
+    const logFor = (k, r) => { const uK = normUnit(k.unit), uR = normUnit(r.unit); if (uK && uR) return uK === uR && (!r.stand || !k.site || sameStandName(r.stand, k.site)); return !!r.stand && !!k.site && sameStandName(r.stand, k.site); };
+    return stands.map(k => {
+      const mine = rows.filter(r => logFor(k, r));
+      const logged = new Set(mine.map(r => r.day)).size;
+      const lastAll = all.filter(r => logFor(k, r)).reduce((a, r) => r.day > a ? r.day : a, "");
+      return { id: k.id, site: String(k.site || "").toUpperCase(), unit: k.unit || "", floor: k.floor || floorFromUnit(k.unit) || "", locType: k.locType || "", logged, expected: days.length, last: lastAll, flag: logged === 0 ? (lastAll ? "missed" : "never") : logged < days.length ? "missed" : "ok" };
+    }).sort((a, b) => (a.flag === "ok") - (b.flag === "ok") || a.logged - b.logged || standPrintOrder(a, b));
+  })();
+  const flagCounts = { missed: flags.filter(f => f.flag !== "ok").length, never: flags.filter(f => f.flag === "never").length, ok: flags.filter(f => f.flag === "ok").length, all: flags.length };
+  const shownFlags = flags.filter(f => flagFilter === "all" ? true : flagFilter === "missed" ? f.flag !== "ok" : f.flag === flagFilter);
+  const fmtDay = d => { try { return new Date(d + "T12:00:00").toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" }); } catch { return d; } };
+  const scopeText = range === "today" ? `Today · ${fmtDay(today)}`
+    : evN ? `${eventDays.length ? `Last ${days.length} event day${days.length !== 1 ? "s" : ""}` : `Last ${days.length} day${days.length !== 1 ? "s" : ""} with a waste log (no event days marked yet)`}: ${days.map(fmtDay).join(" · ") || "—"}`
+    : `Last ${range === "7d" ? 7 : 30} days`;
+  const amountAll = (() => { const u = {}; items.forEach(r => { u[r.uom] = (u[r.uom] || 0) + r.qty; }); return wasteAmountText(u); })();
+  return (
+    <div className="card wasteReport" data-testid="waste-report">
+      <div className="cardBody">
+        <div className="wasteRepHead">
+          <div>
+            <div className="wasteRepTitle">🗑 Food waste</div>
+            <div className="wasteRepSub">What the stands threw away at the end of the shift — logged from the stand QR.</div>
+          </div>
+          <button type="button" className="wasteXls" data-testid="waste-excel" disabled={!!xls}
+            onClick={async () => { setXls("Building…"); try { await exportWasteExcel({ rows, byStand, byItem, flags, scopeText }); } catch {} setXls(""); }}>{xls || "📊 Excel"}</button>
+        </div>
+        <div className="wasteRange" role="group" aria-label="Days">
+          {[["today", "Today"], ["3ev", "Last 3 events"], ["5ev", "Last 5 events"], ["7d", "7 days"], ["30d", "30 days"]].map(([k, lbl]) => (
+            <button key={k} type="button" className={"wasteRangeBtn" + (range === k ? " on" : "")} data-testid={`waste-range-${k}`} onClick={() => setRange(k)}>{lbl}</button>
+          ))}
+        </div>
+        <div className="wasteScope" data-testid="waste-scope">{scopeText}</div>
+        <div className="wasteSum" data-testid="waste-sum">
+          <span className="wastePill"><b>{items.length}</b> item{items.length !== 1 ? "s" : ""} logged</span>
+          <span className="wastePill"><b>{byStand.length}</b> stand{byStand.length !== 1 ? "s" : ""} logged</span>
+          {amountAll && <span className="wastePill">{amountAll}</span>}
+          {flagCounts.missed > 0 && <button type="button" className="wastePill wastePillWarn" onClick={() => { setView("flags"); setFlagFilter("missed"); }}>🚩 {flagCounts.missed} didn't log</button>}
+        </div>
+        {reasonCounts.length > 0 && (
+          <div className="wasteReasons" data-testid="waste-reasons">
+            {reasonCounts.map(x => <span key={x.k} className="wasteReasonPill">{x.icon} {x.en} · <b>{x.n}</b></span>)}
+          </div>
+        )}
+        <div className="wasteViews" role="tablist">
+          {[["stand", "By stand"], ["item", "By item"], ["flags", `🚩 Didn't log (${flagCounts.missed})`]].map(([k, lbl]) => (
+            <button key={k} type="button" role="tab" aria-selected={view === k} className={"wasteViewBtn" + (view === k ? " on" : "")} data-testid={`waste-view-${k}`} onClick={() => setView(k)}>{lbl}</button>
+          ))}
+        </div>
+        {view === "stand" && (byStand.length === 0 ? <div className="wasteEmpty">No food waste logged for these days yet. Supervisors log it on the stand QR, under 🗑 Food waste.</div> : (
+          <div className="wasteList">
+            {byStand.map(b => (
+              <div key={b.key} className="wasteStandRow" data-testid="waste-stand-row" data-anchor={"ws:" + b.key}>
+                <button type="button" className="wasteStandHead" onClick={() => setOpenStand(o => ({ ...o, [b.key]: !o[b.key] }))}>
+                  <span className="wasteStandName"><NT>{b.stand}{b.unit ? ` · #${b.unit}` : ""}</NT>{b.type ? <StandType lt={b.type} style={{ marginLeft: 6 }} /> : null}</span>
+                  <span className="wasteStandAmt">{b.n ? `${wasteAmountText(b.byUnit)} · ${b.n} item${b.n !== 1 ? "s" : ""}` : "no waste"}</span>
+                  <span className="wasteStandMeta">{b.topReason ? `${wasteReasonOf(b.topReason).icon} mostly ${wasteReasonOf(b.topReason).en.toLowerCase()} · ` : ""}logged {b.days} day{b.days !== 1 ? "s" : ""} · last {fmtDay(b.last)}</span>
+                </button>
+                {openStand[b.key] && (
+                  <div className="wasteStandBody">
+                    {b.rows.map((r, i) => (
+                      <div key={i} className="wasteLine">{fmtDay(r.day)} · {r.by || "—"} — {r.none ? <i>no waste</i> : <><b>{r.item}</b> {wasteNum(r.qty)} {wasteUnitLabel(r.uom)} · {wasteReasonOf(r.reason).icon} {wasteReasonOf(r.reason).en}</>}</div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        ))}
+        {view === "item" && (byItem.length === 0 ? <div className="wasteEmpty">No items logged for these days yet.</div> : (
+          <div className="wasteList">
+            {byItem.map(t => (
+              <div key={t.item.toLowerCase()} className="wasteItemRow" data-testid="waste-item-row">
+                <span className="wasteStandName">{t.item}</span>
+                <span className="wasteStandAmt">{wasteAmountText(t.byUnit)}</span>
+                <span className="wasteStandMeta">{t.n} time{t.n !== 1 ? "s" : ""} · {t.stands} stand{t.stands !== 1 ? "s" : ""}{t.topReason ? ` · ${wasteReasonOf(t.topReason).icon} mostly ${wasteReasonOf(t.topReason).en.toLowerCase()}` : ""}</span>
+              </div>
+            ))}
+          </div>
+        ))}
+        {view === "flags" && (
+          <>
+            <div className="wasteFlagChips">
+              {[["missed", "Didn't log"], ["never", "Never logged"], ["ok", "Logged every day"], ["all", "All"]].map(([k, lbl]) => (
+                <button key={k} type="button" className={"wasteRangeBtn" + (flagFilter === k ? " on" : "")} data-testid={`waste-flag-${k}`} onClick={() => setFlagFilter(k)}>{lbl} ({flagCounts[k]})</button>
+              ))}
+            </div>
+            {shownFlags.length === 0 ? <div className="wasteEmpty">{flags.length ? "No stands here." : "Loading the stand list…"}</div> : (
+              <div className="wasteList">
+                {shownFlags.map(f => (
+                  <div key={f.id || f.site + f.unit} className={"wasteFlagRow wasteFlag-" + f.flag} data-testid="waste-flag-row">
+                    <span className="wasteStandName"><NT>{f.site}{f.unit ? ` · #${f.unit}` : ""}</NT>{f.locType ? <StandType lt={f.locType} style={{ marginLeft: 6 }} /> : null}</span>
+                    <span className="wasteStandMeta">logged {f.logged} of {f.expected} day{f.expected !== 1 ? "s" : ""} · {f.last ? `last ${fmtDay(f.last)}` : "never logged"}</span>
+                    <span className={"wasteFlagPill wasteFlagPill-" + f.flag}>{f.flag === "never" ? "🚩 never" : f.flag === "missed" ? "⚠ missed" : "✓ ok"}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function HaccpTodayTracker({ venueSettings, saveVenueSettingsMap, history, currentUser }) {
   useScrollAnchor(); // v556: when the logs land (only this card re-renders) the board / chart below keep their place
   // v556: no cached copy — a stale list on screen could be tapped (text / request temps) and then re-sort; the card's
@@ -27256,6 +27494,7 @@ function HaccpPortal() {
   const urlLocType  = urlParams.get("loctype") || "";
   const urlReportId = urlParams.get("rid")     || ""; // inspector report this HACCP log belongs to
   const urlCoolers = urlParams.get("coolers") === "1"; // v468: the inspector asked for cooler / freezer temps
+  const urlWaste = urlParams.get("waste") === "1"; // v558: a link that opens the food waste log
   const urlName = (urlParams.get("n") || "").trim(), urlPhone = (urlParams.get("p") || "").trim(); // v470: texted link already knows who they are
 
   // If QR has site info pre-filled, the step order is: "ident" → "location" → "form" → "done"
@@ -27276,6 +27515,7 @@ function HaccpPortal() {
     saveHaccpSubmission({ id: `supident_${Date.now()}_${Math.random().toString(16).slice(2)}`, type: "ident", sessionId: newSessionId, reportId: urlReportId, supervisorName: urlName, supervisorPhone: urlPhone, site: urlSite, unit: urlUnit, floor: urlFloor, locationType: urlLocType, viaLink: true, submittedAt: new Date().toISOString() }).catch(() => {});
     setStep("form");
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (step !== "form" || !urlWaste) return; setWasteOpen(true); setWaste(w => w.length ? w : [{ id: `w${Date.now()}`, item: "", qty: "", unit: "", reason: "" }]); const id = setTimeout(() => { try { document.getElementById("waste-sec")?.scrollIntoView({ behavior: "smooth", block: "start" }); } catch {} }, 700); return () => clearTimeout(id); }, [step]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (step !== "form" || !urlCoolers) return; const id = setTimeout(() => { try { document.querySelector(".htEquipCard")?.scrollIntoView({ behavior: "smooth", block: "start" }); } catch {} }, 700); return () => clearTimeout(id); }, [step]); // eslint-disable-line react-hooks/exhaustive-deps
   // v556: Submitted! (and the sign-in card) paints at its top — Submit is tapped from the bottom of a long form, and the
   // shorter done screen kept that scroll, landing the person inside the food-safety guide with "Submitted!" off screen
@@ -27440,6 +27680,11 @@ function HaccpPortal() {
   const [supReq, setSupReq] = useState({});
   const [supOther, setSupOther] = useState("");
   const [supUrgent, setSupUrgent] = useState(false);
+  // v558: food waste at the end of the shift / event — item, how much (they pick the unit), why
+  const [waste, setWaste] = useState([]); // [{ id, item, qty, unit, reason }]
+  const [wasteNone, setWasteNone] = useState(false);
+  const [wasteErr, setWasteErr] = useState("");
+  const [wasteOpen, setWasteOpen] = useState(false);
   // v507 — auto-send while filling in
   const sessionSubIdRef = useRef(""), sessionInspIdRef = useRef(""), autoNotifiedRef = useRef(false), autoTimerRef = useRef(null), handleSubmitRef = useRef(null);
   const [autoSent, setAutoSent] = useState(null);
@@ -27742,7 +27987,18 @@ function HaccpPortal() {
       ...Object.entries(supReq).map(([item, qty]) => ({ item, qty: String(qty || ""), urgent: supUrgent, fromPortal: true })),
       ...(supOther.trim() ? [{ item: supOther.trim(), qty: "", urgent: supUrgent, fromPortal: true }] : []),
     ];
-    if (!auto && problemOnly && !editorFull && problemsAdded.length === 0 && !suppliesReq.length) { setProblemError("Describe the problem · Describe el problema"); return; }
+    // v558: food waste lines that are complete (item + amount + unit + why); a half-filled line stops the final Submit
+    const wasteDoneRow = r => !!(String(r.item || "").trim() && Number(r.qty) > 0 && r.unit && r.reason);
+    const wasteRows = waste.filter(wasteDoneRow).map(r => ({ item: String(r.item).trim(), qty: Math.round(Number(r.qty) * 100) / 100, unit: r.unit, reason: r.reason }));
+    const wasteHalf = waste.filter(r => !wasteDoneRow(r) && (String(r.item || "").trim() || String(r.qty || "").trim() || r.unit || r.reason));
+    const wasteNoneOn = wasteNone && !wasteRows.length;
+    if (!auto && wasteHalf.length) {
+      setWasteErr(L("🗑 Finish each food waste item — what it is, how much, the unit and why (or ✕ to remove it)", "🗑 Completa cada producto — qué es, cuánto, la unidad y por qué (o ✕ para quitarlo)"));
+      setTimeout(() => { const el = document.querySelector(`[data-waste-row="${wasteHalf[0].id}"]`); if (el) el.scrollIntoView({ behavior: "smooth", block: "center" }); }, 60);
+      return;
+    }
+    if (!auto) setWasteErr("");
+    if (!auto && problemOnly && !editorFull && problemsAdded.length === 0 && !suppliesReq.length && !wasteRows.length && !wasteNoneOn) { setProblemError("Describe the problem · Describe el problema"); return; }
     if (editorFull) {
       const err = validateProblemEditor();
       if (err) { setProblemError(err); setTimeout(() => document.querySelector(".haccpProblemErr")?.scrollIntoView({ behavior: "smooth", block: "center" }), 50); return; }
@@ -27815,11 +28071,12 @@ function HaccpPortal() {
       } : null,
       problemReports: allProblems, // v463 — one entry per problem
       suppliesNeeded: suppliesReq, // v503
+      foodWaste: wasteRows, foodWasteNone: wasteNoneOn, // v558
       submittedAt: new Date().toISOString(),
       partial: auto,
       missingCorrective: missingCorr.length,
     };
-    if (auto && haccpTempCount(record) === 0 && !suppliesReq.length) return;
+    if (auto && haccpTempCount(record) === 0 && !suppliesReq.length && !wasteRows.length && !wasteNoneOn) return;
     // v513 — the final Submit shows "Submitted!" after at most 1.2 s; the write keeps going
     // (and lands in the pending outbox if it fails), so a slow stadium network never holds the button.
     if (!auto) clearTimeout(autoTimerRef.current);
@@ -27832,7 +28089,8 @@ function HaccpPortal() {
     // v466 — a log WITH temperatures is a report of its own ("Supervisor
     // Log") in Past Reports, so the inspector gets it without creating one.
     const tempCount = haccpTempCount(record);
-    if (allProblems.length || tempCount > 0 || suppliesReq.length) {
+    const hasWaste = wasteRows.length > 0 || wasteNoneOn; // v558
+    if (allProblems.length || tempCount > 0 || suppliesReq.length || hasWaste) {
       (async () => {
         const now = new Date();
         const items = [];
@@ -27852,7 +28110,7 @@ function HaccpPortal() {
         // were logged (problems ride along as its action items), else the
         // "Quick Report" that computeFollowups reads (one follow-up per loc::category).
         try {
-          const isLog = tempCount > 0 || (suppliesReq.length > 0 && !allProblems.length);
+          const isLog = tempCount > 0 || ((suppliesReq.length > 0 || hasWaste) && !allProblems.length);
           let outOfRange = 0; const haccpReadings = [];
           if (isLog) {
             // v508/v512: each reading rides on the record (with its corrective action) for the inspector
@@ -27880,13 +28138,14 @@ function HaccpPortal() {
             reportedBy: { name: supName.trim(), phone: supPhone.trim() }, inspectorName: supName.trim() || "Supervisor", supervisorName: supName.trim(), sitePhone: supPhone.trim(),
             overallStatus: outOfRange > 0 ? "FAIL" : "PASS", photos: allProblems.flatMap(q => q.photos), actionItems: items, inspection: {},
             suppliesNeeded: suppliesReq, partial: auto, missingCorrective: missingCorr.length,
+            foodWaste: wasteRows, foodWasteNone: wasteNoneOn, // v558
           });
           if (items.length) try { notifyCrewsForItems(items.map(a => ({ issue: a.issue, notes: "" })), locSite.trim().toUpperCase(), locUnit.trim(), supName.trim()); } catch {}
-          if (isLog && !(auto && autoNotifiedRef.current)) try { autoNotifiedRef.current = true; notifySupervisorLog({ site: locSite.trim().toUpperCase(), unit: locUnit.trim(), by: supName.trim(), temps: tempCount, outOfRange, problems: items.length, supplies: suppliesReq.length }); } catch {}
+          if (isLog && !(auto && autoNotifiedRef.current)) try { autoNotifiedRef.current = true; notifySupervisorLog({ site: locSite.trim().toUpperCase(), unit: locUnit.trim(), by: supName.trim(), temps: tempCount, outOfRange, problems: items.length, supplies: suppliesReq.length, waste: wasteRows.length }); } catch {}
         } catch {}
       })();
     }
-    if (auto) { setAutoSent({ at: Date.now(), temps: tempCount, supplies: suppliesReq.length }); return; }
+    if (auto) { setAutoSent({ at: Date.now(), temps: tempCount, supplies: suppliesReq.length, waste: wasteRows.length }); return; }
     setSubmitting(false);
     setStep("done");
   }
@@ -28642,6 +28901,50 @@ function HaccpPortal() {
               </div>
             </div>
 
+            {/* v558 — food waste at the end of the shift */}
+            <div className="haccpSection wasteSection" data-testid="waste-sec" id="waste-sec">
+              <div className="haccpSectionHead">{L("🗑 Food waste — end of the shift", "🗑 Desperdicio de comida — al final del turno")}</div>
+              <div className="haccpSectionBody">
+                <div className="wasteHint">{L("Log what you are throwing away: what it is, how much, and why.", "Anota lo que vas a botar: qué es, cuánto y por qué.")}</div>
+                {wasteNone && !waste.some(r => String(r.item || "").trim()) ? (
+                  <div className="wasteNoneDone" data-testid="waste-none-done">✓ {L("No food waste today", "Sin desperdicio de comida hoy")}
+                    <button type="button" className="wasteLink" onClick={() => { setWasteNone(false); scheduleAutoSend(2500); }}>{L("Change", "Cambiar")}</button></div>
+                ) : !wasteOpen ? (
+                  <div className="wasteStartRow">
+                    <button type="button" className="wasteStartBtn" data-testid="waste-start" onClick={() => { setWasteOpen(true); setWasteNone(false); setWaste(w => w.length ? w : [{ id: `w${Date.now()}`, item: "", qty: "", unit: "", reason: "" }]); }}>＋ {L("Log food waste", "Anotar desperdicio")}</button>
+                    <button type="button" className="wasteNoneBtn" data-testid="waste-none" onClick={() => { setWasteNone(true); scheduleAutoSend(1500); }}>✓ {L("No waste today", "Sin desperdicio hoy")}</button>
+                  </div>
+                ) : (
+                  <>
+                    {waste.map((r, i) => {
+                      const doneRow = !!(String(r.item || "").trim() && Number(r.qty) > 0 && r.unit && r.reason);
+                      const set = patch => { setWaste(w => w.map(x => x.id === r.id ? { ...x, ...patch } : x)); setWasteErr(""); };
+                      return (
+                        <div key={r.id} className={"wasteRow" + (doneRow ? " done" : "")} data-testid="waste-row" data-waste-row={r.id}>
+                          <div className="wasteRowHead"><b>{doneRow ? "✓ " : ""}{L("Item", "Producto")} {i + 1}</b>
+                            <button type="button" className="wasteX" data-testid="waste-remove" aria-label={L("Remove", "Quitar")} onClick={() => setWaste(w => w.filter(x => x.id !== r.id))}>✕</button></div>
+                          <input className="haccpInput" data-testid="waste-item" placeholder={L("What is it? e.g. hot dogs", "¿Qué es? ej. hot dogs")} value={r.item} onChange={e => set({ item: e.target.value })} />
+                          <div className="wasteChips">{WASTE_ITEMS.map(x => <button key={x.en} type="button" className={"wasteChip" + (r.item === x.en ? " on" : "")} data-testid="waste-item-chip" onClick={() => set({ item: x.en })}>{L(x.en, x.es)}</button>)}</div>
+                          <div className="wasteLbl">{L("How much?", "¿Cuánto?")}</div>
+                          <div className="wasteQtyRow">
+                            <input className="haccpInput wasteQty" data-testid="waste-qty" type="text" inputMode="decimal" placeholder="0" value={r.qty} onChange={e => set({ qty: e.target.value.replace(",", ".").replace(/[^0-9.]/g, "") })} />
+                            <div className="wasteChips">{WASTE_UNITS.map(u => <button key={u.k} type="button" className={"wasteChip" + (r.unit === u.k ? " on" : "")} data-testid={`waste-unit-${u.k}`} onClick={() => set({ unit: u.k })}>{L(u.en, u.es)}</button>)}</div>
+                          </div>
+                          <div className="wasteLbl">{L("Why?", "¿Por qué?")}</div>
+                          <div className="wasteChips">{WASTE_REASONS.map(x => <button key={x.k} type="button" className={"wasteChip" + (r.reason === x.k ? " on" : "")} data-testid={`waste-reason-${x.k}`} onClick={() => { set({ reason: x.k }); scheduleAutoSend(2500); }}>{x.icon} {L(x.en, x.es)}</button>)}</div>
+                        </div>
+                      );
+                    })}
+                    <div className="wasteStartRow">
+                      <button type="button" className="wasteAddBtn" data-testid="waste-add" onClick={() => setWaste(w => [...w, { id: `w${Date.now()}_${w.length}`, item: "", qty: "", unit: "", reason: "" }])}>＋ {L(waste.length ? "Add another item" : "Add an item", waste.length ? "Agregar otro producto" : "Agregar un producto")}</button>
+                      {!waste.length && <button type="button" className="wasteNoneBtn" data-testid="waste-none" onClick={() => { setWasteNone(true); scheduleAutoSend(1500); }}>✓ {L("No waste today", "Sin desperdicio hoy")}</button>}
+                    </div>
+                  </>
+                )}
+                {wasteErr && <div className="haccpProblemErr" data-testid="waste-err">⚠️ {wasteErr}</div>}
+              </div>
+            </div>
+
             {/* Problem report section with photo upload */}
             <div className="haccpSection">
               <div className="haccpSectionHead">{problemOnly ? L("Report a Problem", "Reportar un problema") : L("Report a Problem (optional)", "Reportar un problema (opcional)")}</div>
@@ -28753,7 +29056,7 @@ function HaccpPortal() {
             <div className="haccpStickySubmit" data-testid="sticky-submit">
               {autoSent && (
                 <div className="haccpAutoSent" data-testid="auto-sent">
-                  {L("✓ Sent to the inspector", "✓ Enviado al inspector")}{autoSent.temps ? ` · ${autoSent.temps} ${autoSent.temps === 1 ? L("temp", "temperatura") : L("temps", "temperaturas")}` : ""}{autoSent.supplies ? ` · ${autoSent.supplies} ${L("supplies", "suministros")}` : ""} · {new Date(autoSent.at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
+                  {L("✓ Sent to the inspector", "✓ Enviado al inspector")}{autoSent.temps ? ` · ${autoSent.temps} ${autoSent.temps === 1 ? L("temp", "temperatura") : L("temps", "temperaturas")}` : ""}{autoSent.supplies ? ` · ${autoSent.supplies} ${L("supplies", "suministros")}` : ""}{autoSent.waste ? ` · 🗑 ${autoSent.waste} ${L(autoSent.waste === 1 ? "waste item" : "waste items", "desperdicio")}` : ""} · {new Date(autoSent.at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
                 </div>
               )}
               <button className="haccpSubmitBtn" onClick={() => handleSubmit()} disabled={submitting}>
@@ -28782,12 +29085,19 @@ function HaccpPortal() {
             <div className="haccpSuccessBox">
               {(() => { const cats = [...problemsAdded.map(q => q.category), ...(problem.trim() && problemCat ? [problemCat] : [])]; const catsEl = cats.map((c, i) => <b key={i}>{i ? ", " : ""}{supCatEmoji(c)} {c}</b>); return problemOnly
                 ? <>{cats.length > 1 ? `Your ${cats.length} problem reports were` : "Your problem report was"} sent to the inspection team as {catsEl} — now on their follow-up list. · {cats.length > 1 ? "Tus reportes fueron enviados" : "Tu reporte fue enviado"} al equipo de inspección.</>
-                : <>Your temperature log has been submitted and will appear in the inspection report.
+                : <>{Object.values(temps || {}).some(a => (a || []).some(v => String(v || "").trim())) ? "Your temperature log has been submitted and will appear in the inspection report." : "Your log has been sent to the inspector."}
                     {cats.length > 0 && <> Your {catsEl} problem report{cats.length > 1 ? "s are" : " is"} now on the inspector's follow-up list.</>}</>; })()}
             </div>
             {(Object.keys(supReq).length > 0 || supOther.trim()) && (
               <div className="haccpSuccessBox" data-testid="sup-req-done" style={{ marginTop: 8 }}>
                 📦 {L("Supplies requested:", "Suministros pedidos:")} {[...Object.entries(supReq).map(([k, q]) => `${k} ×${q}`), ...(supOther.trim() ? [supOther.trim()] : [])].join(" · ")}{supUrgent ? L(" (urgent)", " (urgente)") : ""}
+              </div>
+            )}
+            {(waste.some(r => String(r.item || "").trim() && Number(r.qty) > 0 && r.unit && r.reason) || wasteNone) && (
+              <div className="haccpSuccessBox" data-testid="waste-done" style={{ marginTop: 8 }}>
+                🗑 {waste.some(r => String(r.item || "").trim() && Number(r.qty) > 0 && r.unit && r.reason)
+                  ? <>{L("Food waste logged:", "Desperdicio anotado:")} {waste.filter(r => String(r.item || "").trim() && Number(r.qty) > 0 && r.unit && r.reason).map(r => `${r.item.trim()} ${r.qty} ${L(wasteUnitLabel(r.unit), (WASTE_UNITS.find(u => u.k === r.unit) || {}).es || r.unit)} (${L(wasteReasonOf(r.reason).en, wasteReasonOf(r.reason).es).toLowerCase()})`).join(" · ")}</>
+                  : L("No food waste today — logged.", "Sin desperdicio de comida hoy — anotado.")}
               </div>
             )}
             {urlSite && (todayChecks || []).length > 0 && (
