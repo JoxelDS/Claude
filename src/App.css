@@ -10275,3 +10275,7 @@ html[data-theme="black"] .leaveGuardWhySaving { background: #0f1b33; color: #bfd
   .card, .historyCard, .btnPrimary, .btnSecondary, .historyTab, .modalOverlay, .modalBox, .notifDropdown,
   .tempAvgPill, .tempAvgPillClickable, .worstLocationClickable { will-change: auto !important; transform: none !important; }
 }
+
+/* v557: every BEFORE / AFTER in the ✅ Fixed and 🧹 cleaning rows */
+.fuBAFixed { margin-top: 6px; }
+.fuBAFixed .fuThumb { width: 48px; height: 48px; }

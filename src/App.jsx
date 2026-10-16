@@ -4406,12 +4406,46 @@ async function makeFollowupPhotos(files, ownerId, limit = 4) {
     if (!thumbUrl) continue;
     const id = `${Date.now()}_${Math.random().toString(16).slice(2, 8)}`;
     let previewUrl = (await compressImage(f, 1024, 0.78)) || thumbUrl;
+    let thumbStored = thumbUrl;
     if (FIREBASE_ON) {
       try { const url = await uploadPhoto(previewUrl, activeVenueId, ownerId, id); if (url) previewUrl = url; } catch {}
+      // v557: the 220 px thumb is a Storage file too — follow-up photos used to keep it inline (~15 KB of text each)
+      // in the shared venueSettings doc, which was already 680 KB of its 1 MB limit
+      try { const tu = await uploadPhoto(thumbUrl, activeVenueId, ownerId, id + "_t"); if (tu) thumbStored = tu; } catch {}
     }
-    out.push({ id, name: f.name || "photo.jpg", thumbUrl, previewUrl, tag: "" });
+    out.push({ id, name: f.name || "photo.jpg", thumbUrl: thumbStored, previewUrl, tag: "" });
   }
   return out;
+}
+// v557: what a follow-up photo keeps in venueSettings.followupPhotos — links, not pictures. A thumb that is still
+// inline (old entries, or an upload that failed) gives way to the Storage preview; an inline preview (upload failed)
+// is never written to the cloud (the small thumb stays so the card is not empty).
+function slimFuPhoto(p) {
+  if (!p || typeof p !== "object") return p;
+  const http = v => /^https?:/.test(String(v || ""));
+  const prev = http(p.previewUrl) ? p.previewUrl : (!FIREBASE_ON ? (p.previewUrl || "") : "");
+  const th = String(p.thumbUrl || "");
+  const thumb = http(th) ? th : (http(prev) ? prev : (th.length <= 40000 ? th : ""));
+  const out = { id: p.id, thumbUrl: thumb, previewUrl: prev || thumb };
+  for (const k of ["by", "ts", "tag"]) if (p[k] !== undefined && p[k] !== "") out[k] = p[k];
+  return out;
+}
+// v557: every BEFORE and every AFTER is kept (up to FU_PHOTO_KEEP of each — a new AFTER never pushes a BEFORE out)
+const FU_PHOTO_KEEP = 20;
+function keepFuPhotos(list) {
+  const seen = new Set(); const all = [];
+  for (const p of (list || [])) { if (!p) continue; const id = p.id || p.thumbUrl; if (seen.has(id)) continue; seen.add(id); all.push(slimFuPhoto(p)); }
+  const isA = p => p.tag === "after";
+  const keepB = new Set(all.filter(p => !isA(p)).slice(-FU_PHOTO_KEEP)), keepA = new Set(all.filter(isA).slice(-FU_PHOTO_KEEP));
+  return all.filter(p => keepB.has(p) || keepA.has(p));
+}
+// v557: a follow-up card's pictures split BEFORE / AFTER — the report's own (marked report) first, then the ones
+// added on the card, the same picture never twice
+function fuSplitPhotos(reportPhotos, cardPhotos) {
+  const seen = new Set(); const before = []; const after = [];
+  const add = (p, report) => { if (!p || !(p.thumbUrl || p.previewUrl)) return; const id = p.id || p.thumbUrl || p.previewUrl; if (seen.has(id)) return; seen.add(id); (p.tag === "after" ? after : before).push(report ? { ...p, report: true } : p); };
+  (reportPhotos || []).forEach(p => add(p, true)); (cardPhotos || []).forEach(p => add(p, false));
+  return { before, after };
 }
 
 function countPhotos(inspection) {
@@ -4632,7 +4666,7 @@ function buildPhotoIndex(inspection, notesPhotos) {
         n += 1;
         mapByPath[pathKey].push(n);
         const caption = sanitizeText(node?.notes) || sanitizeText(p?.name) || "";
-        index.push({ num: n, label, caption, previewUrl: p.previewUrl || p.url || p.dataUrl || null, thumbUrl: p.thumbUrl || null });
+        index.push({ num: n, label, caption, previewUrl: p.previewUrl || p.url || p.dataUrl || null, thumbUrl: p.thumbUrl || null, id: p?.id || null, tag: p?.tag === "after" ? "after" : "" });
       }
     }
     // Checklist-item photos (taken when marking an item ✗)
@@ -4646,7 +4680,7 @@ function buildPhotoIndex(inspection, notesPhotos) {
         n += 1;
         mapByPath[pathKey].push(n);
         const caption = `${p?.tag === "after" ? "AFTER" : "BEFORE"}${(sanitizeText(ci.comment) || sanitizeText(p?.name)) ? ` — ${sanitizeText(ci.comment) || sanitizeText(p?.name)}` : ""}`;
-        index.push({ num: n, label: ciLabel, caption, previewUrl: p.previewUrl || p.url || p.dataUrl || null, thumbUrl: p.thumbUrl || null });
+        index.push({ num: n, label: ciLabel, caption, previewUrl: p.previewUrl || p.url || p.dataUrl || null, thumbUrl: p.thumbUrl || null, id: p?.id || null, tag: p?.tag === "after" ? "after" : "" });
       }
     }
   }
@@ -9892,13 +9926,25 @@ const FU_SPLIT_EPOCH = Date.parse("2026-09-26T01:00:00Z"); // v502 ship time: cl
 const fuRowSlug = t => String(t || "").toLowerCase().replace(/[^a-z0-9]+/g, "").slice(0, 60) || "row";
 const fuBaseKey = k => String(k || "").split(FU_SPLIT_SEP)[0];
 const fuCatOfKey = k => fuBaseKey(k).split("::").slice(1).join("::");
+// v557: a record's photo index (buildPhotoIndex), built once per record — action items of a checklist NODE
+// (status-only items, "off / not in use", rows saved without their own picture) carry photo NUMBERS into it
+const _fuIdxCache = new WeakMap();
+function fuRecPhotoIndex(rec) {
+  if (!rec || typeof rec !== "object") return [];
+  let v = _fuIdxCache.get(rec);
+  if (!v) { try { v = buildPhotoIndex(rec.inspection || {}).index || []; } catch { v = []; } _fuIdxCache.set(rec, v); }
+  return v;
+}
 function fuRowPhotos(item, rec) {
   try {
     const ph = Array.isArray(item.photos) ? item.photos : [];
     const objs = ph.filter(p => p && typeof p === "object" && (p.thumbUrl || p.previewUrl));
     const ids = ph.filter(p => typeof p === "string");
+    const nums = ph.filter(p => typeof p === "number" || (typeof p === "string" && /^\d+$/.test(p))).map(Number);
+    const fromIdx = nums.length ? (() => { const idx = fuRecPhotoIndex(rec); return nums.map(n => ({ n, x: idx[n - 1] })).filter(o => o.x && (o.x.thumbUrl || o.x.previewUrl)).map(o => ({ ...o.x, id: o.x.id || `${rec.id || rec.inspectionDate || "r"}#${o.n}` })); })() : [];
     const fromRec = (rec.photos || []).filter(p => p && (ids.length === 0 ? true : ids.includes(p.id)) && (p.thumbUrl || p.previewUrl));
-    return (objs.length ? objs : (ph.length || rec.quickProblem) ? fromRec : []).slice(0, 6)
+    const list = objs.length ? objs : fromIdx.length ? fromIdx : (ph.length || rec.quickProblem) ? fromRec : [];
+    return list.slice(0, 40)
       .map(p => ({ id: p.id, tag: p.tag === "after" ? "after" : "", thumbUrl: p.thumbUrl || p.previewUrl || "", previewUrl: (p.previewUrl && !String(p.previewUrl).startsWith("data:")) ? p.previewUrl : (p.exportUrl || p.previewUrl || p.thumbUrl || "") }));
   } catch { return []; }
 }
@@ -9908,6 +9954,7 @@ function computeFollowups(history, venueSettings, clearedLocal = {}) {
   const cleared = { ...(venueSettings?.followupCleared || {}), ...clearedLocal };
   const latestInspByLoc = {};   // locName -> newest inspection timestamp
   const catLastSeen = {};       // "loc::cat" -> { ts, dateStr, count, rows }
+  const caPhotos = {};          // v557: key -> AFTER photos the inspector added answering "last time's problems"
   for (const rec of history) {
     if (rec?.discarded) continue; // v553
     const locName = rec.siteName || rec.location || "—";
@@ -9919,6 +9966,10 @@ function computeFollowups(history, venueSettings, clearedLocal = {}) {
     const walking = rec.inProgress === true; // v553: an autosaved, never-finished report is not a walk-through
     if (!rec.quickEquipCheck && !rec.quickProblem && !rec.supervisorLog && !walking && (!latestInspByLoc[locName] || ts > latestInspByLoc[locName])) latestInspByLoc[locName] = ts;
     const recResolvedMap = rec.resolvedIssues || {};
+    for (const ca of (Array.isArray(rec.correctiveActions) ? rec.correctiveActions : [])) {
+      if (!ca || !ca.key || !Array.isArray(ca.photos) || !ca.photos.length) continue;
+      (caPhotos[ca.key] = caPhotos[ca.key] || []).push(...ca.photos.filter(p => p && (p.thumbUrl || p.previewUrl)).map(p => ({ id: p.id, tag: "after", thumbUrl: p.thumbUrl || p.previewUrl, previewUrl: p.previewUrl || p.thumbUrl, ts })));
+    }
     const actionItems = rec.actionItems || [];
     actionItems.forEach((item, i) => {
       if (recResolvedMap[i]) return;
@@ -9939,6 +9990,8 @@ function computeFollowups(history, venueSettings, clearedLocal = {}) {
         photos: fuRowPhotos(item, rec),
         cat,
       };
+      // v557: every report's pictures of this problem are kept (not only the newest report's), by row
+      if (row.photos.length) (c.hist = c.hist || []).push({ ts, slug: fuRowSlug(row.text), photos: row.photos });
       if (ts > c.ts) {
         c.ts = ts; c.dateStr = rec.inspectionDate; c.unit = (rec.siteNumber || "").trim();
         c.floor = floorForStand(rec.siteNumber, rec.siteName, rec.floor);
@@ -9961,7 +10014,7 @@ function computeFollowups(history, venueSettings, clearedLocal = {}) {
     });
   }
   const now = Date.now();
-  const mergePhotos = rows => { const seen = new Set(); const out = []; for (const r of rows) for (const p of (r.photos || [])) { const id = p.id || p.thumbUrl; if (!seen.has(id)) { seen.add(id); out.push(p); } } return out.slice(0, 8); };
+  const mergePhotos = rows => { const seen = new Set(); const out = []; for (const r of rows) for (const p of (r.photos || [])) { const id = p.id || p.thumbUrl; if (!seen.has(id)) { seen.add(id); out.push(p); } } return out; }; // v557: no cap
   const followups = [];
   for (const [key, v] of Object.entries(catLastSeen)) {
     if (now - v.ts > 90 * 24 * 60 * 60 * 1000) continue;             // ignore ancient history
@@ -9989,6 +10042,8 @@ function computeFollowups(history, venueSettings, clearedLocal = {}) {
       (buckets[t] = buckets[t] || []).push(r);
     });
     const common = { loc, cat, unit: v.unit || "", floor: v.floor || "", daysSince, dateStr: v.dateStr, likelyResolved, overdue, locType: v.locType || "", ts: v.ts || 0, source: v.source || "", reportedBy: v.reportedBy || "", inspector: v.inspector || "", baseKey: key };
+    // v557: rows that belong to another crew's card, so an earlier report's picture of that row goes to that card
+    const otherSlugs = new Set(); for (const [t2, rs2] of Object.entries(buckets)) if (t2 !== itype) rs2.forEach(r => otherSlugs.add(fuRowSlug(r.text)));
     for (const [t, rs] of Object.entries(buckets)) {
       const isBase = t === itype;
       if (rs.length === 0 && (!isBase || rows.length > 0)) continue;
@@ -10006,7 +10061,14 @@ function computeFollowups(history, venueSettings, clearedLocal = {}) {
         detail: isBase ? (v.detail || "") : (first.text || ""),
         notes: isBase ? (v.notes || "") : (first.notes || ""),
         area: isBase ? (v.area || "") : (first.area || v.area || ""),
-        photos: rs.length ? mergePhotos(rs) : (v.photos || []),
+        photos: (() => {
+          // v557: newest report first, then the same problem's pictures from earlier reports (only since it was last
+          // cleared — an older, fixed episode keeps its own), then the inspector's AFTER photos from a later visit
+          const mine = new Set(rs.map(r => fuRowSlug(r.text)));
+          const older = (v.hist || []).filter(h => h.ts <= v.ts && (!clearedTs || h.ts > clearedTs) && (mine.has(h.slug) || (isBase && !otherSlugs.has(h.slug)))).sort((a, b) => b.ts - a.ts);
+          const fixes = (caPhotos[k] || []).filter(p => (p.ts || 0) >= v.ts);
+          return mergePhotos([...(rs.length ? rs : [{ photos: v.photos || [] }]), ...older, { photos: fixes }]);
+        })(),
         subs: rs,
         typeManual: manOk, typeBy: man?.by || "",
       });
@@ -10099,7 +10161,7 @@ function fuMergeGroup(unit, ms) {
     merged: true, members: ms, unitName: String(unit).toUpperCase(),
     cat: String(unit).toUpperCase(), baseCat: p.cat,
     detail: subs.map(sb => sb.text).filter(Boolean).join(" · "), notes: "", area: "",
-    subs, photos: photos.slice(0, 8),
+    subs, photos, // v557: no cap
     overdue: ms.some(m => m.overdue), likelyResolved: ms.every(m => m.likelyResolved),
     daysSince: Math.max(...ms.map(m => m.daysSince || 0)), count: ms.reduce((n, m) => n + (m.count || 1), 0),
     ts: newest.ts || 0, dateStr: newest.dateStr || p.dateStr,
@@ -10648,7 +10710,7 @@ function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLoc
       const got = await makeFollowupPhotos(files, `crew_${f.key.replace(/[^A-Za-z0-9]+/g, "_").slice(0, 60)}`, 4);
       if (got.length) {
         const add = got.map(p => ({ id: p.id, thumbUrl: p.thumbUrl, previewUrl: p.previewUrl, by: me, ts: Date.now(), tag: "after" }));
-        const patch = {}; fuMembers(f).forEach(m => { patch[m.key] = [...photosOf(m.key), ...add].slice(-8); }); // v502: one upload, every member
+        const patch = {}; fuMembers(f).forEach(m => { patch[m.key] = keepFuPhotos([...photosOf(m.key), ...add]); }); // v502: one upload, every member · v557: per-tag keep, a new AFTER never pushes a BEFORE out
         setLocal(p => ({ ...p, photos: { ...p.photos, ...patch } }));
         saveVenueSettingsMap?.("followupPhotos", patch);
         notifyInspector(f, `${meta.icon} After photo — ${f.loc}${f.unit ? ` #${f.unit}` : ""}`, `${f.cat}: ${got.length} photo${got.length !== 1 ? "s" : ""} added by ${me}`);
@@ -10667,14 +10729,13 @@ function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLoc
 
   const thumb = (p, side, key) => (
     <div key={(p.report ? "r" : "") + p.id} className={"fuThumb" + (side === "after" ? " fuThumbAfter" : " fuThumbReport")}>
-      <img src={p.thumbUrl} alt="" onClick={() => setLightboxSrc(p.previewUrl || p.thumbUrl)} />
+      <img src={p.thumbUrl || p.previewUrl} alt="" loading="lazy" decoding="async" onClick={() => setLightboxSrc(p.previewUrl || p.thumbUrl)} />
       <span className="fuThumbTag">{side}</span>
     </div>
   );
   const renderCrewItem = (f, withStand) => {
     const stt = statusOf(f.key); const done = isDone(f);
-    const before = [...(f.photos || []).filter(p => p.tag !== "after").map(p => ({ ...p, report: true })), ...photosOfF(f).filter(p => (p.tag || "before") !== "after")];
-    const after = [...(f.photos || []).filter(p => p.tag === "after").map(p => ({ ...p, report: true })), ...photosOfF(f).filter(p => p.tag === "after")];
+    const { before, after } = fuSplitPhotos(f.photos, photosOfF(f)); // v557: every BEFORE / AFTER, the same picture once
     const cm = commentsOf(f.key);
     // v556: this card's own box — the setAction(...) calls below work as before, but only touch f.key
     const action = actions[f.key] ? { key: f.key, ...actions[f.key] } : null;
@@ -10904,7 +10965,7 @@ function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLoc
                       <div key={i} className="crewReportIssue">
                         <div><b>{a.issue}</b></div>
                         {a.notes && <div className="crewItemNotes">{a.notes}</div>}
-                        {(() => { const objs = Array.isArray(a.photos) ? a.photos.filter(p => p && typeof p === "object" && (p.thumbUrl || p.previewUrl)) : []; const ids = Array.isArray(a.photos) ? a.photos.filter(p => typeof p === "string") : []; const ph = objs.length ? objs : (r.photos || []).filter(p => p && (ids.length ? ids.includes(p.id) : r.quickProblem)); return ph.length ? <div className="fuThumbs" style={{ marginTop: 6 }}>{ph.map(p => <div key={p.id} className="fuThumb fuThumbReport"><img src={p.thumbUrl || p.previewUrl} alt="" onClick={() => setLightboxSrc(p.previewUrl || p.thumbUrl)} /></div>)}</div> : null; })()}
+                        {(() => { const ph = fuRowPhotos(a, r); /* v557: objects, ids and photo numbers */ return ph.length ? <div className="fuThumbs" style={{ marginTop: 6 }}>{ph.map(p => <div key={p.id} className="fuThumb fuThumbReport"><img src={p.thumbUrl || p.previewUrl} alt="" onClick={() => setLightboxSrc(p.previewUrl || p.thumbUrl)} /></div>)}</div> : null; })()}
                       </div>
                     ))}
                   </div>
@@ -11783,7 +11844,7 @@ ${sections}
   const fuPhotosOf1 = k => (fuPhotosLocal[k] || venueSettings?.followupPhotos?.[k] || []);
   // v502: a merged card shows the pictures added to any of its issues
   const fuPhotosOf = f => { const seen = new Set(); const out = []; fuMembers(f).forEach(m => fuPhotosOf1(m.key).forEach(ph => { if (!seen.has(ph.id)) { seen.add(ph.id); out.push(ph); } })); return out; };
-  const fuPhotoPatch = (f, fn) => { const patch = {}; fuMembers(f).forEach(m => { patch[m.key] = fn(fuPhotosOf1(m.key)); }); setFuPhotosLocal(prev => ({ ...prev, ...patch })); writeMap("followupPhotos", patch); };
+  const fuPhotoPatch = (f, fn) => { const patch = {}; fuMembers(f).forEach(m => { patch[m.key] = keepFuPhotos(fn(fuPhotosOf1(m.key))); }); setFuPhotosLocal(prev => ({ ...prev, ...patch })); writeMap("followupPhotos", patch); };
   async function addFuPhotos(f, files, tag = "before") {
     if (!files || !files.length) return;
     setFuPhotoBusy(f.key);
@@ -11791,8 +11852,8 @@ ${sections}
       const got = await makeFollowupPhotos(files, `fu_${f.key.replace(/[^A-Za-z0-9]+/g, "_").slice(0, 60)}`, 4);
       if (got.length) {
         const entries = got.map(p => ({ id: p.id, thumbUrl: p.thumbUrl, previewUrl: p.previewUrl, by: currentUser?.name || "Unknown", ts: Date.now(), tag }));
-        // v526: keep up to 6 BEFORE and 6 AFTER — new after photos never push the before pictures out
-        fuPhotoPatch(f, cur => { const all = [...cur, ...entries]; const isA = p => p.tag === "after"; return [...all.filter(p => !isA(p)).slice(-6), ...all.filter(isA).slice(-6)]; });
+        // v526: new after photos never push the before pictures out · v557: up to FU_PHOTO_KEEP of each (fuPhotoPatch → keepFuPhotos)
+        fuPhotoPatch(f, cur => [...cur, ...entries]);
         if (typeof setFuSimDone === "function") { setFuSimDone(`📷 ${tag === "after" ? "After" : "Before"} photo added`); setTimeout(() => setFuSimDone(null), 3000); }
       } else if (typeof setFuSimDone === "function") { setFuSimDone("⚠ The photo could not be added — try again"); setTimeout(() => setFuSimDone(null), 4000); }
     } catch { if (typeof setFuSimDone === "function") { setFuSimDone("⚠ The photo could not be added — try again"); setTimeout(() => setFuSimDone(null), 4000); } }
@@ -11944,6 +12005,13 @@ ${sections}
     return Object.values(m).sort((a2, b2) => b2.key.localeCompare(a2.key));
   })();
   const startOfToday = new Date(); startOfToday.setHours(0, 0, 0, 0);
+  // v557: the ✅ Fixed and 🧹 cleaning rows show EVERY picture under BEFORE / AFTER (they showed 2 unlabelled thumbs)
+  const fixedBA = (before, after) => (before.length || after.length) ? (
+    <div className="fuBA fuBAFixed" data-testid="fu-fixed-ba">
+      <div className="fuBACol"><div className="fuBAHead fuBABefore">🔴 Before</div><div className="fuThumbs">{before.length ? before.map(p => <div key={"b" + (p.id || p.thumbUrl)} className="fuThumb fuThumbReport"><img src={p.thumbUrl || p.previewUrl} alt="" loading="lazy" decoding="async" onClick={() => setLightboxSrc(p.previewUrl || p.thumbUrl)} /></div>) : <span className="fuPhotoHint">no photo</span>}</div></div>
+      <div className="fuBACol"><div className="fuBAHead fuBAAfter">🟢 After</div><div className="fuThumbs">{after.length ? after.map(p => <div key={"a" + (p.id || p.thumbUrl)} className="fuThumb fuThumbAfter"><img src={p.thumbUrl || p.previewUrl} alt="" loading="lazy" decoding="async" onClick={() => setLightboxSrc(p.previewUrl || p.thumbUrl)} /></div>) : <span className="fuPhotoHint">no photo</span>}</div></div>
+    </div>
+  ) : null;
   // v556: the header counts (fixed today · total · 🧹 cleans) do not follow a crew chip — tapping one changed them and
   // dropped the cleans button, the header got shorter and the tapped chip jumped up under the finger at the top of the page
   const hdrFixed = fuCrewWord ? fixedAll : fixedList;
@@ -12470,9 +12538,7 @@ ${sections}
                     </div>
                     <div className="fuCleanDayStands">{[...day.stands].join(" · ")}</div>
                     {day.rows.map(f => {
-                  const ph = [...(f.photos || []), ...((fuPhotosLocal[f.key] || venueSettings?.followupPhotos?.[f.key] || []))];
-                  const before = ph.filter(x => (x.tag || "before") !== "after").slice(-2);
-                  const after = ph.filter(x => x.tag === "after").slice(-2);
+                  const { before, after } = fuSplitPhotos(f.photos, fuPhotosOf(f)); // v557: every photo, BEFORE / AFTER
                   return (
                     <div key={f.key} className="fuFixedRow">
                       {fuSelectMode && selBox(f)}
@@ -12489,14 +12555,9 @@ ${sections}
                           {f.fixedMins ? <span className="fuTlLen">{f.fixedMins >= 60 ? `${(f.fixedMins / 60).toFixed(f.fixedMins % 60 ? 1 : 0)} h` : `${f.fixedMins} min`} on the job</span> : null}
                         </div>
                         {f.fixedWhose === "sub" && <span className="fuCleanBill">BILL THE STAND</span>}
+                        {fixedBA(before, after)}
                         <div className="fuFixedActs">{reopenBtn(f)}</div>
                       </div>
-                      {(before.length > 0 || after.length > 0) && (
-                        <div className="fuFixedThumbs">
-                          {before.map((x, i) => <img key={"b" + i} src={x.thumbUrl || x.previewUrl} alt="" title="before" onClick={() => setLightboxSrc(x.previewUrl || x.thumbUrl)} />)}
-                          {after.map((x, i) => <img key={"a" + i} className="fuThumbAfterMark" src={x.thumbUrl || x.previewUrl} alt="" title="after" onClick={() => setLightboxSrc(x.previewUrl || x.thumbUrl)} />)}
-                        </div>
-                      )}
                     </div>
                   );
                     })}
@@ -12521,7 +12582,7 @@ ${sections}
                   const when = new Date(f.fixedTs);
                   const mins = Math.round((Date.now() - f.fixedTs) / 60000);
                   const ago = mins < 1 ? "just now" : mins < 60 ? `${mins} min ago` : mins < 1440 ? `${Math.round(mins / 60)} h ago` : when.toLocaleDateString();
-                  const ph = [...(f.photos || []), ...((fuPhotosLocal[f.key] || venueSettings?.followupPhotos?.[f.key] || []))];
+                  const { before, after } = fuSplitPhotos(f.photos, fuPhotosOf(f)); // v557: every photo, BEFORE / AFTER
                   return (
                     <div key={f.key} className="fuFixedRow">
                       {fuSelectMode && selBox(f)}
@@ -12531,13 +12592,9 @@ ${sections}
                         {f.detail && <div className="fuFixedDetail">{f.detail}</div>}
                         {f.reopened && <span className="fuReopened">↻ REOPENED — flagged again {f.dateStr}</span>}
                         <div className="fuFixedMeta">{ago} ({clockT(f.fixedTs)}){f.fixedBy ? ` · by ${f.fixedBy}` : ""}{f.fixedHow === "already" ? " · was already clean" : f.fixedHow === "crew" ? " · cleaned by the crew" : ""}{f.dateStr ? ` · flagged ${f.dateStr}` : ""}</div>
+                        {fixedBA(before, after)}
                         <div className="fuFixedActs">{reopenBtn(f)}</div>
                       </div>
-                      {ph.length > 0 && (
-                        <div className="fuFixedThumbs">
-                          {ph.slice(-2).map((p, i) => <img key={i} src={p.thumbUrl || p.previewUrl} alt="" onClick={() => setLightboxSrc(p.previewUrl || p.thumbUrl)} />)}
-                        </div>
-                      )}
                     </div>
                   );
                     })}
@@ -12695,13 +12752,11 @@ ${sections}
                                 })()}
                                 {/* Pictures — from the report, plus what the team adds while fixing it */}
                                 {(() => {
-                                  const mine = fuPhotosOf(f);
-                                  const before = [...(f.photos || []).filter(p => p.tag !== "after").map(p => ({ ...p, report: true })), ...mine.filter(p => (p.tag || "before") !== "after")];
-                                  const after = [...(f.photos || []).filter(p => p.tag === "after").map(p => ({ ...p, report: true })), ...mine.filter(p => p.tag === "after")];
+                                  const { before, after } = fuSplitPhotos(f.photos, fuPhotosOf(f)); // v557: every BEFORE / AFTER, the same picture once
                                   if (!before.length && !after.length) return null;
                                   const thumb = (p, side) => (
                                     <div key={(p.report ? "r" : "") + p.id} className={"fuThumb" + (p.report ? " fuThumbReport" : side === "after" ? " fuThumbAfter" : "")} title={p.report ? "From the report" : `${p.by || ""}${p.ts ? " · " + new Date(p.ts).toLocaleDateString([], { month: "short", day: "numeric" }) : ""}`}>
-                                      <img src={p.thumbUrl} alt="" onClick={() => setLightboxSrc(p.previewUrl || p.thumbUrl)} />
+                                      <img src={p.thumbUrl || p.previewUrl} alt="" loading="lazy" decoding="async" onClick={() => setLightboxSrc(p.previewUrl || p.thumbUrl)} />
                                       <span className="fuThumbTag">{p.report ? "report" : (p.by || "").split(" ")[0] || side}</span>
                                       {!p.report && <button type="button" className="fuThumbX" onClick={() => removeFuPhoto(f, p.id)}>✕</button>}
                                       {!p.report && <button type="button" className="fuThumbSwap" title={side === "after" ? "Move to Before" : "Move to After"} onClick={() => setFuPhotoTag(f, p.id, side === "after" ? "before" : "after")}>⇄</button>}
@@ -29906,6 +29961,32 @@ export default function App() {
     }
   }
 
+  // v557: one-time clean-up of venueSettings.followupPhotos — older follow-up photos kept their 220 px thumb inline
+  // (~15 KB of text each; 37 photos were 579 KB of the 1 MB settings doc, and a full doc stops every resolve /
+  // status / comment write). The thumb moves to Storage (or the Storage preview stands in for it) and only the links
+  // stay. Once per session, on an inspector / admin device, 8 s after the settings arrive.
+  const fuCompactRef = useRef(false);
+  useEffect(() => {
+    if (!FIREBASE_ON || !currentUser || fuCompactRef.current) return;
+    if (!["inspector", "admin", "global_admin", "location_manager"].includes(currentUser.role)) return;
+    const isData = v => String(v || "").startsWith("data:");
+    const fat = Object.entries(venueSettings?.followupPhotos || {}).filter(([, a]) => Array.isArray(a) && a.some(p => p && (isData(p.thumbUrl) || isData(p.previewUrl))));
+    if (!fat.length) return;
+    const t = setTimeout(async () => {
+      if (fuCompactRef.current) return; fuCompactRef.current = true;
+      const up = {};
+      for (const [, arr] of fat) for (const p of arr) {
+        if (!p || !p.id || !isData(p.thumbUrl) || up[p.id] !== undefined) continue;
+        try { up[p.id] = (await uploadPhoto(p.thumbUrl, VENUE_ID, "fu_thumbs", `${String(p.id).replace(/[^A-Za-z0-9_-]/g, "_")}_t`)) || ""; } catch { up[p.id] = ""; }
+      }
+      const cur = _vs?.followupPhotos || {}; // the newest copy: a photo added or removed meanwhile is respected
+      const patch = {};
+      for (const [k] of fat) { const now = Array.isArray(cur[k]) ? cur[k] : []; patch[k] = now.map(p => (p && up[p.id]) ? { ...p, thumbUrl: up[p.id] } : p).map(slimFuPhoto); }
+      saveVenueSettingsMap("followupPhotos", patch);
+    }, 8000);
+    return () => clearTimeout(t);
+  }, [venueSettings?.followupPhotos, currentUser]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Overdue follow-up count for the menu badge + home banner. Reads the
   // already-warmed history cache (no network); stays live because status and
   // cleared changes arrive through the venueSettings snapshot.
@@ -32379,7 +32460,7 @@ export default function App() {
       saveVenueSettingsMap("followupComments", { [f.key]: [...prevC, { text: st === "still" ? `Checked on site — still there` : `Corrective action: ${c.action.trim().slice(0, 200)}`, by, ts, reportId }].slice(-10) });
       if ((c.photos || []).length) {
         const prevP = venueSettings?.followupPhotos?.[f.key] || [];
-        saveVenueSettingsMap("followupPhotos", { [f.key]: [...prevP, ...c.photos.map(p => ({ id: p.id, thumbUrl: p.thumbUrl, previewUrl: p.previewUrl, by, ts, tag: "after" }))].slice(-8) });
+        saveVenueSettingsMap("followupPhotos", { [f.key]: keepFuPhotos([...prevP, ...c.photos.map(p => ({ id: p.id, thumbUrl: p.thumbUrl, previewUrl: p.previewUrl, by, ts, tag: "after" }))]) }); // v557
       }
     }
   }
