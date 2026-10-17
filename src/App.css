@@ -10385,10 +10385,13 @@ html[data-theme="black"] .wasteStandAmt, html[data-theme="dark"] .wasteStandAmt 
 
 /* ── v561: the stand portal reads on its white card ──
    The temperature rows (v378–v380) and the cooler card (v417) were coloured for a dark panel, but .haccpCard is
-   always white: light-blue / yellow / pink text on white ("I can't see"). The card also pins the LIGHT tokens, so
-   inline var(--ink-*) / tint colours stay readable even on a device whose app theme is dark. Colours only — no size,
-   border width or spacing changes, so nothing moves. */
+   always white: light-blue / yellow / pink text on white ("I can't see"). index.html's #sdx-portal-submit-fix
+   (2026-10-11) chose the locked SDX palette for exactly this, but its plain-class rules load BEFORE this sheet and
+   lose to the old ones here — only its !important lines ever applied. These rules carry that same palette with
+   .haccpCard in front so they win. The card also pins the LIGHT tokens and text colour (defence in depth: v562
+   keeps the portal on the light theme). Colours only — no size, weight, border width or spacing changes. */
 .haccpCard, .fsrPortal {
+  color-scheme: light;
   --ink-900: #0f172a; --ink-700: #334155; --ink-600: #475569; --ink-500: #475569; --ink-400: #5b6576;
   --surface-1: #ffffff; --surface-2: #f8fafc; --surface-3: #f1f5f9;
   --tint-amber-1: #fffbeb; --tint-amber-2: #fef3c7; --tx-amber: #92400e; --tx-amber-strong: #78350f;
@@ -10398,31 +10401,55 @@ html[data-theme="black"] .wasteStandAmt, html[data-theme="dark"] .wasteStandAmt 
   --sdx-gray-50: #F7F8FA; --sdx-gray-100: #EEF0F4; --sdx-gray-200: #DDE1E8; --sdx-gray-300: #B8BFCC; --sdx-gray-400: #8D95A5;
   --sdx-gray-500: #6B7280; --sdx-gray-600: #4B5563; --sdx-gray-700: #374151; --sdx-gray-800: #1F2937;
 }
+.haccpCard { color: #111827; }
+.haccpCard .haccpCardHeader { color: #fff; }
+.haccpCard .haccpCardSub { color: #fff; }
+/* temperature rows */
 .haccpCard .htRow { background: #fff; border-color: #d1d5db; }
 .haccpCard .htRowDone { background: #f0fdf4; border-color: #86efac; }
 .haccpCard .htRowFail { background: #fef2f2; border-color: #fca5a5; }
+.haccpCard .htCookBox .htRow:not(.htRowDone):not(.htRowFail) { background: transparent; border-color: transparent; } /* no box inside the cooking box */
 .haccpCard .htRowHint { color: #4b5563; opacity: 1; }
-.haccpCard .htRowState { color: #1d4ed8; }
-.haccpCard .htRowDone .htRowState { color: #15803d; }
-.haccpCard .htRowFail .htRowState { color: #b91c1c; }
+.haccpCard .htRowState { color: #2A295C; }
+.haccpCard .htRowDone .htRowState { color: #166534; }
+.haccpCard .htRowFail .htRowState { color: #B91C1C; }
 .haccpCard .htStepNOk { background: #15803d; }
-.haccpCard .htEquipCard { background: #eff6ff; border-color: #93c5fd; }
-.haccpCard .htEquipTitle { color: #1d4ed8; }
-.haccpCard .htEquipCount { color: #1e3a8a; }
-.haccpCard .htEquipCount small { color: #1d4ed8; }
-.haccpCard .htEquipHint { color: #334155; opacity: 1; }
-.haccpCard .htEquipEmpty { color: #92400e; background: #fffbeb; border-color: #fcd34d; font-weight: 600; }
-.haccpCard .htEquipCard .htRow { background: #fff; border-color: #bfdbfe; }
+.haccpCard .htFoodHead { color: #2A295C; border-top-color: #e5e7eb; }
+/* a logged reading that is out of range is red, not the green "done" box (legend: green = good, red = write what you did) */
+.haccpCard .htReadingDone { opacity: 1; } /* the logged value itself stays readable (the input keeps its own soft look) */
+.haccpCard .htReadingFail { background: #fef2f2; border-color: #fca5a5; opacity: 1; } /* a reading that needs action is never faded */
+.haccpCard .htReadingDone .haccpTempStatus.fail { color: #991b1b; }
+.haccpCard .htSubmitReady { background: #166534; border-color: #166534; }
+.haccpCard .haccpTempUnit { color: #4b5563; }
+/* the cooler & freezer card */
+.haccpCard .htEquipCard { background: #EEF0F4; border-color: #B8BFCC; }
+.haccpCard .htEquipTitle { color: #2A295C; }
+.haccpCard .htEquipCount { color: #2A295C; }
+.haccpCard .htEquipCount small { color: #374151; }
+.haccpCard .htEquipHint { color: #374151; opacity: 1; }
+.haccpCard .htEquipEmpty { color: #78350F; background: #FEF3C7; border-color: #D97706; }
+.haccpCard .htEquipCard .htRow { background: #fff; border-color: #B8BFCC; }
 .haccpCard .htEquipCard .htRowDone { background: #f0fdf4; border-color: #86efac; }
 .haccpCard .htEquipCard .htRowFail { background: #fef2f2; border-color: #fca5a5; }
 .haccpCard .htEquipCard .htEqUnsure { color: #92400e; background: #fffbeb; border-color: #fde68a; }
-.haccpCard .htEqMore { color: #4338ca; }
-.haccpCard .htFoodHead { color: #b91c1c; border-top-color: #e5e7eb; }
-.haccpCard .haccpTempUnit { color: #4b5563; }
-.haccpCard .htReadingDone .haccpTempStatus.fail { color: #991b1b; }
+.haccpCard .htEqMore { color: #2A295C; }
+/* buttons, chips, small meta text */
+.haccpCard .corrSendBtn.ready, .haccpCard .htEqSave { background: #15803d; border-color: #15803d; }
 .haccpCard .haccpSeverityBtn:not(.sel-urgent):not(.sel-issue):not(.sel-info) { color: #4b5563; }
 .haccpCard .haccpLocConfirmMeta { color: #4b5563; }
-.haccpCard .haccpRemoveReadingBtn { color: #6b7280; }
-.haccpCard .haccpEmptyChat { color: #4b5563; }
-.haccpCard .specHead, .haccpCard .specLbl { color: #5b6475; }
+.haccpCard .haccpRemoveReadingBtn:not(:hover) { color: #6b7280; }
+.haccpCard .haccpEmptyChat, .haccpCard .haccpChatMeta { color: #4b5563; }
+.haccpCard .photoTagBtn:not(.tagBefore):not(.tagAfter) { color: #4b5563; }
+.haccpCard .specHead, .haccpCard .specLbl { color: #4B5563; }
+/* boxes on the white card stay light even if a dark theme is on the page (html[data-theme="black"] input …) */
+html[data-theme] .haccpCard :is(input, select, textarea) { background-color: #fff; color: #111827; border-color: #d1d5db; }
+html[data-theme] .haccpCard :is(input, textarea)::placeholder { color: #6b7280; }
+/* the dark-theme variants of these (App.css ~7920) must never reach the white card */
+.haccpCard .haccpProblemOnlyBtn { background: #fff7ed; color: #9a3412; border-color: #fdba74; }
+.haccpCard .haccpCatChip { background: #e0e7ff; color: #3730a3; }
+.haccpCard .haccpProblemErr { background: #fef2f2; color: #b91c1c; border-color: #fecaca; }
+/* done screen: the save line sits on the navy header — give it its own light pill */
+.haccpCard .haccpCardHeader .haccpSaveState { display: inline-block; background: #fff; border-radius: 999px; padding: 3px 10px; color: #374151; }
+.haccpCard .haccpCardHeader .haccpSaveState.saved { color: #166534; }
+.haccpCard .haccpCardHeader .haccpSaveState.queued { color: #92400e; }
 .haccpBackNote { font-size: .82rem; font-weight: 700; color: #1e3a8a; background: #eff6ff; border: 1px solid #93c5fd; border-radius: 8px; padding: 6px 10px; margin-bottom: 8px; text-align: center; }

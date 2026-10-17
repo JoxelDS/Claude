@@ -18105,8 +18105,9 @@ const FSR_ES = {
 "Bottom line: The only safe thawing methods keep food out of the danger zone the entire time — or move through it so quickly that bacteria have no chance to multiply.": "En resumen: los únicos métodos seguros mantienen la comida fuera de la zona de peligro todo el tiempo — o pasan por ella tan rápido que las bacterias no alcanzan a multiplicarse."
 };
 // v561: the stand portal shows the guide on a white card — these mid tones read too light there
-const FSR_DARK = { "#16a34a": "#15803d", "#ea580c": "#c2410c", "#d97706": "#b45309", "#22c55e": "#15803d", "#f59e0b": "#b45309", "#f97316": "#c2410c", "#3b82f6": "#1d4ed8", "#ef4444": "#b91c1c", "#0ea5e9": "#0369a1", "#06b6d4": "#0e7490", "#8b5cf6": "#6d28d9" };
+const FSR_DARK = { "#16a34a": "#15803d", "#ea580c": "#c2410c", "#d97706": "#b45309", "#ca8a04": "#a16207", "#dc2626": "#b91c1c", "#22c55e": "#15803d", "#f59e0b": "#b45309", "#f97316": "#c2410c", "#3b82f6": "#1d4ed8", "#ef4444": "#b91c1c", "#0ea5e9": "#0369a1", "#06b6d4": "#0e7490", "#8b5cf6": "#6d28d9" };
 function FoodSafetyRef({ lang = "en", portal = false, defaultOpen = false, headerOffset = 68 } = {}) {
+  const pc = c => (portal && FSR_DARK[c]) || c; // v561 review: text colours that read too light on the portal's white card
   const t = (en) => lang === "es" ? (FSR_ES[en] || en) : en;
   const [open, setOpen] = React.useState(defaultOpen);
   const [activeTab, setActiveTab] = React.useState(0);
@@ -18202,7 +18203,7 @@ function FoodSafetyRef({ lang = "en", portal = false, defaultOpen = false, heade
                 </div>
               </div>
               <div style={{ textAlign: "right", flexShrink: 0 }}>
-                <span style={{ fontWeight: 900, fontSize: "1rem", color: (portal && FSR_DARK[r.color]) || r.color }}>{r.temp}</span>
+                <span style={{ fontWeight: 900, fontSize: "1rem", color: pc(r.color) }}>{r.temp}</span>
                 <span style={{ fontSize: "0.62rem", color: "var(--ink-400)", fontWeight: 600, marginLeft: 5 }}>{r.c}</span>
               </div>
             </div>
@@ -18221,7 +18222,7 @@ function FoodSafetyRef({ lang = "en", portal = false, defaultOpen = false, heade
               <div style={{ fontSize: "0.63rem", color: "var(--ink-500)", lineHeight: 1.5 }}>{t("Crushed ice + water. Submerge 2 in. Wait 30 sec. ±2°F acceptable.")}</div>
             </div>
             <div style={{ padding: "12px 14px" }}>
-              <div style={{ fontWeight: 700, fontSize: "0.68rem", color: "#dc2626", marginBottom: 4 }}>{t("Boiling-Point Method")}</div>
+              <div style={{ fontWeight: 700, fontSize: "0.68rem", color: pc("#dc2626"), marginBottom: 4 }}>{t("Boiling-Point Method")}</div>
               <div style={{ fontWeight: 900, fontSize: "1.1rem", color: "var(--ink-900)", marginBottom: 4 }}>212°F / 100°C</div>
               <div style={{ fontSize: "0.63rem", color: "var(--ink-500)", lineHeight: 1.5 }}>{t("Boiling water. Deduct 2°F per 1,000 ft elevation.")}</div>
             </div>
@@ -18240,7 +18241,7 @@ function FoodSafetyRef({ lang = "en", portal = false, defaultOpen = false, heade
           <div key={t(s.type)} style={{ padding: "12px 14px", borderBottom: i < arr.length - 1 ? "1px solid var(--surface-3)" : "none", background: i % 2 === 0 ? "var(--surface-1)" : "var(--surface-2)" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 6 }}>
               <span style={{ fontWeight: 700, fontSize: "0.75rem", color: "var(--ink-900)" }}>{t(s.type)}</span>
-              <span style={{ fontWeight: 900, fontSize: "0.9rem", color: "#16a34a", whiteSpace: "nowrap" }}>{s.ppm}</span>
+              <span style={{ fontWeight: 900, fontSize: "0.9rem", color: pc("#16a34a"), whiteSpace: "nowrap" }}>{s.ppm}</span>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
               <div style={{ background: "var(--tint-green-1)", border: "1px solid #bbf7d0", borderRadius: 7, padding: "6px 9px" }}>
@@ -18307,15 +18308,15 @@ function FoodSafetyRef({ lang = "en", portal = false, defaultOpen = false, heade
               <div style={{ fontSize: "0.64rem", color: "var(--ink-600)", marginTop: 2 }}>{t(row.examples)}</div>
             </div>
             <div style={{ textAlign: "right", flexShrink: 0 }}>
-              {row.pos && <div style={{ fontSize: "0.56rem", fontWeight: 800, color: "#fff", background: row.accentColor, borderRadius: 4, padding: "2px 6px", marginBottom: 3, textTransform: "uppercase", letterSpacing: "0.06em" }}>{t(row.pos)}</div>}
-              <div style={{ fontWeight: 800, fontSize: "0.72rem", color: row.accentColor }}>{t(row.cookTemp)}</div>
+              {row.pos && <div style={{ fontSize: "0.56rem", fontWeight: 800, color: "#fff", background: pc(row.accentColor), borderRadius: 4, padding: "2px 6px", marginBottom: 3, textTransform: "uppercase", letterSpacing: "0.06em" }}>{t(row.pos)}</div>}
+              <div style={{ fontWeight: 800, fontSize: "0.72rem", color: pc(row.accentColor) }}>{t(row.cookTemp)}</div>
             </div>
           </div>
         ))}
       </div>
       <div style={{ display: "flex", justifyContent: "space-between", padding: "0 4px" }}>
-        <span style={{ fontSize: "0.62rem", color: "#16a34a", fontWeight: 700 }}>{t("▲ Lowest risk")}</span>
-        <span style={{ fontSize: "0.62rem", color: "#dc2626", fontWeight: 700 }}>{t("Highest risk ▼")}</span>
+        <span style={{ fontSize: "0.62rem", color: pc("#16a34a"), fontWeight: 700 }}>{t("▲ Lowest risk")}</span>
+        <span style={{ fontSize: "0.62rem", color: pc("#dc2626"), fontWeight: 700 }}>{t("Highest risk ▼")}</span>
       </div>
       {tipBox(t("Rule of thumb: The higher the required cook temperature, the lower the shelf. Keep raw proteins in sealed, leak-proof containers. Never store raw meat above ready-to-eat foods."))}
     </div>
@@ -18389,7 +18390,7 @@ function FoodSafetyRef({ lang = "en", portal = false, defaultOpen = false, heade
         ].map((r, i, arr) => (
           <div key={t(r.item)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, padding: "5px 0", borderBottom: i < arr.length - 1 ? "1px solid #fde68a" : "none" }}>
             <span style={{ fontSize: "0.65rem", color: "var(--tx-amber-strong)", lineHeight: 1.4 }}>{t(r.item)}</span>
-            <span style={{ fontSize: "0.7rem", fontWeight: 800, color: "#d97706", whiteSpace: "nowrap" }}>{t(r.days)}</span>
+            <span style={{ fontSize: "0.7rem", fontWeight: 800, color: pc("#d97706"), whiteSpace: "nowrap" }}>{t(r.days)}</span>
           </div>
         ))}
       </div>
@@ -18416,7 +18417,7 @@ function FoodSafetyRef({ lang = "en", portal = false, defaultOpen = false, heade
               <span style={{ display: "inline-block", width: 4, height: 18, background: m.accent, borderRadius: 2, flexShrink: 0 }} />
               <span style={{ fontWeight: 700, fontSize: "0.74rem", color: "var(--ink-900)" }}>{t(m.label)}</span>
             </div>
-            <span style={{ background: m.tagBg, color: m.tagColor, fontWeight: 800, fontSize: "0.58rem", padding: "2px 8px", borderRadius: 5, textTransform: "uppercase", letterSpacing: "0.06em", flexShrink: 0 }}>{t(m.tag)}</span>
+            <span style={{ background: m.tagBg, color: pc(m.tagColor), fontWeight: 800, fontSize: "0.58rem", padding: "2px 8px", borderRadius: 5, textTransform: "uppercase", letterSpacing: "0.06em", flexShrink: 0 }}>{t(m.tag)}</span>
           </div>
           <div style={{ padding: "10px 14px", display: "flex", flexDirection: "column", gap: 5 }}>
             {m.details.map(d => (
@@ -28204,7 +28205,7 @@ function EquipCheckPortal({ tag: tag0 }) {
                 background: tempOk === null ? "#fff" : tempOk ? "#f0fdf4" : "#fef2f2" }}
                 value={temp} onChange={e => setTemp(e.target.value)} inputMode="decimal" placeholder="38" />
               {tempOk !== null && (
-                <div style={{ marginTop: 5, fontSize: "0.8rem", fontWeight: 800, color: tempOk ? "#16a34a" : "#dc2626" }}>
+                <div style={{ marginTop: 5, fontSize: "0.8rem", fontWeight: 800, color: tempOk ? "#15803d" : "#b91c1c" }}>
                   {tempOk ? L("✓ In range", "✓ Bien") : L(`✗ Out of range — must be ${limit}°F or below`, `✗ Fuera de rango — debe estar a ${limit}°F o menos`)}
                 </div>
               )}
@@ -29182,10 +29183,10 @@ function HaccpPortal() {
           <span style={{ fontSize: "1.4rem" }}>🔔</span>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontWeight: 800, fontSize: "0.85rem" }}>Message from {inspectorPing.sender || "the inspector"}</div>
-            <div style={{ fontSize: "0.8rem", opacity: 0.92, lineHeight: 1.4 }}>{(inspectorPing.text || "").replace("[ALERT] ", "")}</div>
+            <div style={{ fontSize: "0.8rem", lineHeight: 1.4 }}>{(inspectorPing.text || "").replace("[ALERT] ", "")}</div>
           </div>
           <button type="button" onClick={dismissPing}
-            style={{ background: "rgba(255,255,255,0.2)", border: "1.5px solid rgba(255,255,255,0.5)", color: "#fff", borderRadius: 8, padding: "0.4rem 0.9rem", fontWeight: 800, fontSize: "0.8rem", cursor: "pointer", flexShrink: 0 }}>
+            style={{ background: "#991b1b", border: "1.5px solid rgba(255,255,255,0.5)", color: "#fff", borderRadius: 8, padding: "0.4rem 0.9rem", fontWeight: 800, fontSize: "0.8rem", cursor: "pointer", flexShrink: 0 }}>
             OK
           </button>
         </div>
@@ -29345,10 +29346,10 @@ function HaccpPortal() {
               <div className="haccpSectionBody">
                 {(() => {
                   const cookingMeta = {
-                    cookingPoultry:    { emoji: "🐔", color: "#92400e", bg: "rgba(251,191,36,0.10)", border: "rgba(251,191,36,0.35)", badgeBg: "var(--tx-amber)" },
-                    cookingGroundMeat: { emoji: "🥩", color: "#b91c1c", bg: "rgba(248,113,113,0.10)", border: "rgba(248,113,113,0.35)", badgeBg: "var(--tx-red-strong)" },
-                    cookingWholeCuts:  { emoji: "🥩", color: "#9a3412", bg: "rgba(251,146,60,0.10)", border: "rgba(251,146,60,0.35)", badgeBg: "#7c2d12" },
-                    cookingSeafood:    { emoji: "🐟", color: "#0e7490", bg: "rgba(34,211,238,0.08)", border: "rgba(34,211,238,0.3)",  badgeBg: "#164e63" },
+                    cookingPoultry:    { emoji: "🐔", color: "#fbbf24", bg: "rgba(251,191,36,0.10)", border: "rgba(251,191,36,0.35)", badgeBg: "var(--tx-amber)" },
+                    cookingGroundMeat: { emoji: "🥩", color: "#f87171", bg: "rgba(248,113,113,0.10)", border: "rgba(248,113,113,0.35)", badgeBg: "var(--tx-red-strong)" },
+                    cookingWholeCuts:  { emoji: "🥩", color: "#fb923c", bg: "rgba(251,146,60,0.10)", border: "rgba(251,146,60,0.35)", badgeBg: "#7c2d12" },
+                    cookingSeafood:    { emoji: "🐟", color: "#22d3ee", bg: "rgba(34,211,238,0.08)", border: "rgba(34,211,238,0.3)",  badgeBg: "#164e63" },
                   };
                   const equipRows = customItems.filter(i => i.tag); // the stand's coolers / freezers — their own card
                   const standardItems = [...HACCP_TEMP_ITEMS.filter(i => !i.group), ...customItems.filter(i => !i.tag)];
@@ -29390,7 +29391,7 @@ function HaccpPortal() {
                     const isCustom = !HACCP_TEMP_ITEMS.find(d => d.key === item.key);
                     const displayLabel = itemName(item);
                     const readings = temps[item.key] || [""];
-                    if (!isOpen(item.key)) return compactRow(item, item.type === "cold" ? "🧊" : "🔥", item.type === "cold" ? "#1d4ed8" : "#b91c1c", null);
+                    if (!isOpen(item.key)) return compactRow(item, item.type === "cold" ? "🧊" : "🔥", item.type === "cold" ? "#60a5fa" : "#f87171", null);
                     return (
                     <div className="haccpTempBlock" key={item.key} data-ht={item.key} style={item.type === "hot" ? { borderLeft: "3px solid #ef4444", background: "rgba(254,242,242,0.08)" } : item.type === "cold" ? { borderLeft: "3px solid #3b82f6", background: "rgba(239,246,255,0.08)" } : {}}>
                       <div className="haccpTempBlockHead">
@@ -29433,7 +29434,7 @@ function HaccpPortal() {
                           <span className="haccpTempLabel"
                             title="Click to rename"
                             onClick={() => { setEditingLabel(item.key); setEditingLabelVal(displayLabel); }}
-                            style={{ cursor: "pointer", color: item.type === "hot" ? "#b91c1c" : item.type === "cold" ? "#1d4ed8" : undefined, fontWeight: 700 }}>
+                            style={{ cursor: "pointer", color: item.type === "hot" ? "#ef4444" : item.type === "cold" ? "#3b82f6" : undefined, fontWeight: 700 }}>
                             {item.type === "hot" ? "🔥 " : item.type === "cold" ? "❄️ " : ""}{displayLabel}
                             <span style={{ fontSize: "0.68rem", color: "var(--ink-400)", fontWeight: 400, marginLeft: 6 }}>
                               {item.type === "hot" ? `Min ${item.min}${item.unit}` : `Max ${item.max}${item.unit}`}
@@ -29483,7 +29484,7 @@ function HaccpPortal() {
                                 📌 {item.how}
                               </div>
                             )}
-                            <div className={`htReading${isSubmitted ? " htReadingDone" : ""}`}>
+                            <div className={`htReading${isSubmitted ? (pass === false ? " htReadingDone htReadingFail" : " htReadingDone") : ""}`}>
                               <input className="htFood" type="text"
                                 value={foodName}
                                 disabled={isSubmitted}
@@ -29628,14 +29629,14 @@ function HaccpPortal() {
                       {beforeCooking.map(item => renderReadingBlock(item))}
 
                       {/* Cooking temps — grouped visual block */}
-                      <div style={{ border: "1.5px solid rgba(239,68,68,0.4)", borderRadius: 10, overflow: "hidden", marginBottom: 2 }}>
+                      <div className="htCookBox" style={{ border: "1.5px solid rgba(239,68,68,0.4)", borderRadius: 10, overflow: "hidden", marginBottom: 2 }}>
                         <div style={{ background: "linear-gradient(90deg,#7f1d1d,#b91c1c)", padding: "7px 12px", display: "flex", alignItems: "center", gap: 6 }}>
                           <span style={{ fontSize: "1rem" }}>🔥</span>
                           <span style={{ fontWeight: 800, fontSize: "0.88rem", color: "#fff", letterSpacing: "0.02em" }}>{L("Cooking Temperatures", "Temperaturas de cocción")}</span>
                           <span style={{ fontSize: "0.7rem", color: "#fee2e2", marginLeft: 2 }}>{L("— required internal temp before serving", "— temperatura interna mínima antes de servir")}</span>
                         </div>
                         {cookingItems.map((item, ci) => {
-                          const m = cookingMeta[item.key] || { emoji: "🔥", color: "#b91c1c", bg: "rgba(248,113,113,0.10)", border: "rgba(248,113,113,0.35)", badgeBg: "var(--tx-red-strong)" };
+                          const m = cookingMeta[item.key] || { emoji: "🔥", color: "#f87171", bg: "rgba(248,113,113,0.10)", border: "rgba(248,113,113,0.35)", badgeBg: "var(--tx-red-strong)" };
                           const readings = temps[item.key] || [""];
                           if (!isOpen(item.key)) return compactRow(item, m.emoji, m.color, m.badgeBg);
                           return (
@@ -29643,7 +29644,7 @@ function HaccpPortal() {
                               <div style={{ display: "flex", alignItems: "center", marginBottom: 6, gap: 6 }}>
                                 <span style={{ fontSize: "1.1rem", flexShrink: 0 }}>{m.emoji}</span>
                                 <div style={{ flex: 1, minWidth: 0 }}>
-                                  <div style={{ fontWeight: 700, fontSize: "0.82rem", color: m.color }}>{itemName(item)}</div>
+                                  <div style={{ fontWeight: 700, fontSize: "0.82rem", color: "#2A295C" }}>{itemName(item)}</div>
                                   <div style={{ fontSize: "0.68rem", color: "var(--ink-400)", marginTop: 1 }}>{itemHint(item)}</div>
                                 </div>
                                 <span style={{ background: m.badgeBg, color: "#fff", borderRadius: 6, padding: "2px 8px", fontSize: "0.78rem", fontWeight: 800, flexShrink: 0, minWidth: 68, textAlign: "center" }}>
@@ -29676,7 +29677,7 @@ function HaccpPortal() {
                                         📌 {item.how}
                                       </div>
                                     )}
-                                    <div className={`htReading${isSubmitted ? " htReadingDone" : ""}`}>
+                                    <div className={`htReading${isSubmitted ? (pass === false ? " htReadingDone htReadingFail" : " htReadingDone") : ""}`}>
                                       <input className="htFood" type="text" value={foodName} disabled={isSubmitted}
                                         onChange={e => setFoodNames(p => { const arr=[...(p[item.key]||[""])]; arr[idx]=e.target.value; return {...p,[item.key]:arr}; })}
                                         placeholder={pl === "es" ? "Comida (ej. Pollo)" : (item.example || "Food item (e.g. Chicken)")} />
@@ -31124,14 +31125,17 @@ export default function App() {
   // Apply the theme (personal override → venue setting → default)
   // Theme applies only once someone is signed in — the badge screen always shows the default look
   useEffect(() => {
+    // v562: the stand portal and the sticker page are white cards — always the light look. A phone with a crew-link
+    // session (v488 signs it in on every load) brought a dark venue / personal theme in: light text on the white card.
+    const portalPage = (IS_HACCP_PORTAL && !QR_OPEN_AS_INSPECTOR) || (!!EQUIP_PORTAL_TAG && !EQUIP_OPEN_AS_INSPECTOR);
     applyTheme(
-      currentUser ? (personalTheme || venueSettings?.theme) : "sodexo",
+      portalPage ? "sodexo" : currentUser ? (personalTheme || venueSettings?.theme) : "sodexo",
       personalAccent || venueSettings?.blackAccent
     );
     // Client brand color: on white-label venues the client's primary color
     // becomes the chrome/brand color everywhere, login screen included.
     const brand = (venueSettings?.primaryColor || "").trim();
-    const activeTheme = currentUser ? (personalTheme || venueSettings?.theme) : "sodexo";
+    const activeTheme = portalPage ? "sodexo" : currentUser ? (personalTheme || venueSettings?.theme) : "sodexo";
     if (VENUE_ID !== "default" && /^#[0-9a-fA-F]{6}$/.test(brand) && activeTheme !== "black") {
       document.documentElement.style.setProperty("--sdx-navy", brand);
       // Derive darker companions so the login gradient is fully the brand's world
