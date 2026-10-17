@@ -247,6 +247,8 @@ function qrStandUrl(as) {
 // Equipment QR portal — printed labels encode ?equip=<TAG> so scanning with any
 // phone camera opens a quick temp-check form for that exact unit.
 const EQUIP_PORTAL_TAG = new URLSearchParams(window.location.search).get("equip") || "";
+// v560: "Inspector? Open in the app" on the sticker page → badge → that unit on the walk
+const EQUIP_OPEN_AS_INSPECTOR = !!EQUIP_PORTAL_TAG && new URLSearchParams(window.location.search).get("as") === "inspector";
 // Value encoded into printed equipment QR labels
 function equipQrValue(tag, meta) {
   const base = window.location.origin + import.meta.env.BASE_URL;
@@ -506,11 +508,17 @@ function findDuplicateUnits(units, cleanName, typeOf) {
   const groups = {};
   for (const it of units) { const k = `${(cleanName(it.label) || "").toLowerCase().replace(/[^a-z0-9]+/g, "")}|${typeOf(it)}`; (groups[k] = groups[k] || []).push(it); }
   const extras = [];
+  // v560: two units with different serial numbers (or written at different spots) are two units
+  const differ = (a, b, f) => { const x = String(f(a) || "").trim().toUpperCase().replace(/[^A-Z0-9]/g, ""), y = String(f(b) || "").trim().toUpperCase().replace(/[^A-Z0-9]/g, ""); return !!x && !!y && x !== y; };
   for (const g of Object.values(groups)) {
     if (g.length < 2) continue;
-    const score = it => (/^CUSTOM_/i.test(it.assetTag || "") ? 0 : 10) + ((it.brandName || "").trim() ? 2 : 0) + ((it.location || "").trim() ? 2 : 0) + (it.standId ? 1 : 0);
+    const score = it => (/^CUSTOM_/i.test(it.assetTag || "") ? 0 : 10) + ((it.serial || "").trim() ? 3 : 0) + ((it.brandName || "").trim() ? 2 : 0) + ((it.location || "").trim() ? 2 : 0) + (it.standId ? 1 : 0);
     const sorted = [...g].sort((a, b) => score(b) - score(a) || String(a.assetTag).localeCompare(String(b.assetTag)));
-    extras.push(...sorted.slice(1));
+    const kept = [sorted[0]];
+    for (const it of sorted.slice(1)) {
+      if (kept.some(k => differ(k, it, x => x.serial) || differ(k, it, x => x.location))) { kept.push(it); continue; }
+      extras.push(it);
+    }
   }
   return extras;
 }
@@ -524,7 +532,9 @@ function standFor(unit, site) {
 }
 // Coolers / freezers SURELY at one stand (from the shared registry mirror) — v518: never a guess.
 // Pass the stand object when you have it (posters, portal); otherwise it is resolved strictly.
-function equipUnitsAtStand(unit, site, standObj) {
+// v560: coolers / freezers only by default (every reader of this list logs a temperature with a 40 / 20 °F limit);
+// { all: true } adds the other kinds (fryers, hoods, sinks…) for the problem "which unit" chips and the unit card.
+function equipUnitsAtStand(unit, site, standObj, opts = {}) {
   const c = _equipRegCache || {};
   const stand = standObj && standObj.id ? standObj : standForStrict(unit, site);
   if (!stand) return [];
@@ -533,9 +543,11 @@ function equipUnitsAtStand(unit, site, standObj) {
     if (!it) continue;
     if (isHiddenTag(_equipHiddenCache, `reg_${tag}`, tag)) continue;
     if (!equipBelongsTo(it, stand)) continue;
-    const name = String(it.label || it.name || "").replace(/\s*(❄|🧊)\s*(Cooler|Freezer)\s*$/u, "").trim();
-    const freezer = /freez|🧊/i.test(it.label || it.name || "") || /^SDX-(FZ|FRZ)/i.test(tag);
-    out.push({ tag, name: name || (freezer ? "Freezer" : "Cooler"), freezer, brand: it.brandName || it.brand || "", location: it.location || "" });
+    const kind = equipKindOf(it, tag);
+    if (!opts.all && !EQUIP_KIND[kind]?.cold) continue;
+    const name = equipCleanName(it.label || it.name || "");
+    const freezer = kind === "freezer";
+    out.push({ tag, kind, name: name || equipKindLabel(kind), freezer, brand: it.brandName || it.brand || "", location: it.location || "", serial: it.serial || "" });
   }
   return out.sort((a, b) => a.name.localeCompare(b.name));
 }
@@ -593,7 +605,7 @@ function patchEquipDocCache(payload) {
     const key = `sdx_equip_reg_doc_${VENUE_ID}`;
     const d = JSON.parse(localStorage.getItem(key) || "null") || { items: {}, labelIndex: {}, hidden: {} };
     const isDel = v => v && typeof v === "object" && (v._methodName === "deleteField" || String(v?.constructor?.name || "").includes("FieldValue"));
-    for (const field of ["items", "labelIndex", "hidden", "confirmed", "verified", "setup"]) {
+    for (const field of ["items", "labelIndex", "hidden", "confirmed", "verified", "setup", "aliases"]) {
       const patch = payload?.[field]; if (!patch || typeof patch !== "object") continue;
       const cur = { ...(d[field] || {}) };
       for (const [k, v] of Object.entries(patch)) {
@@ -606,11 +618,177 @@ function patchEquipDocCache(payload) {
     localStorage.setItem(key, JSON.stringify(d));
   } catch {}
 }
-const writeEquipReg = payload => { patchEquipDocCache(payload); return writeSharedDoc("equipmentRegistry", payload); };
+const writeEquipReg = payload => {
+  patchEquipDocCache(payload);
+  if (payload?.aliases) setEquipAliases({ ..._equipAliasCache, ...Object.fromEntries(Object.entries(payload.aliases).filter(([, v]) => typeof v === "string")) }); // v560
+  // v560: the registry is one Firestore document (1 MB) — warn before it fills (the write still goes out)
+  try { if (equipRegBytes() > 900000 && !writeEquipReg._warned) { writeEquipReg._warned = true; notifySave(false, "⚠ The equipment list is almost full — tell the admin (it needs a clean-up)"); } } catch {}
+  return writeSharedDoc("equipmentRegistry", payload);
+};
 const writeKitchenReg = payload => writeSharedDoc("kitchenRegistry", payload);
 // A unit may be known under two ids (report row = TAG, registry row = reg_TAG) — hidden means hidden under both
 const isHiddenTag = (hidden, uid, tag) => { const T = String(tag || "").toUpperCase(); return !!(hidden && (hidden[uid] || hidden[T] || hidden[`reg_${T}`] || (tag && (hidden[tag] || hidden[`reg_${tag}`])))); };
 const hiddenKeysFor = (uid, tag) => { const T = String(tag || "").toUpperCase(); const o = {}; if (uid) o[uid] = true; if (T) { o[T] = true; o[`reg_${T}`] = true; } return o; };
+// ── v560: a QR sticker + a serial number on EVERY piece of equipment ─────────
+// Joxel: "we are going to do a walk through so we put QR codes in every equipment" · "we want to set the serial number
+// of the equipment because if they get sent to another place we could still track them". Every unit kind gets a tag
+// SDX-<CODE>-<unit>-<n> (the tag never changes — the sticker stays on the unit), the registry record carries kind /
+// serial / model / moves, and the sticker's QR holds the tag only (?equip=TAG), so a moved unit shows where it is NOW.
+const EQUIP_KINDS = [
+  { k: "cooler", code: "CL", en: "Cooler", es: "Refrigerador", icon: "❄", cold: true, max: 40 },
+  { k: "freezer", code: "FZ", en: "Freezer", es: "Congelador", icon: "🧊", cold: true, max: 20 },
+  { k: "fryer", code: "FR", en: "Fryer", es: "Freidora", icon: "🍟" },
+  { k: "hood", code: "HD", en: "Hood", es: "Campana", icon: "💨" },
+  { k: "grill", code: "GR", en: "Grill / griddle", es: "Plancha / parrilla", icon: "🔥" },
+  { k: "warmer", code: "WM", en: "Warmer / hot holding", es: "Calentador", icon: "♨" },
+  { k: "icemaker", code: "IM", en: "Ice machine", es: "Máquina de hielo", icon: "🌨" },
+  { k: "handsink", code: "HS", en: "Hand sink", es: "Lavamanos", icon: "🚰" },
+  { k: "threecomp", code: "3C", en: "3-comp sink", es: "Fregadero de 3", icon: "🧼" },
+  { k: "other", code: "EQ", en: "Other equipment", es: "Otro equipo", icon: "🔧" },
+];
+const EQUIP_KIND = Object.fromEntries(EQUIP_KINDS.map(x => [x.k, x]));
+const EQUIP_KIND_BY_CODE = Object.fromEntries(EQUIP_KINDS.map(x => [x.code, x]));
+// The kind a typed / written name means (blank stickers, the Fix sheet, the portal)
+function equipKindFromName(name) {
+  const l = String(name || "").toLowerCase();
+  if (!l.trim()) return "";
+  if (/freez|congel|🧊/.test(l)) return "freezer";
+  if (/❄/.test(l)) return "cooler";
+  if (/ice\s*(machine|maker|bin)|m[aá]quina de hielo|\bhielo\b/.test(l)) return "icemaker";
+  if (/\bfry|fryer|freidor/.test(l)) return "fryer";
+  if (/\bhood|campana|\bvents?\b|\bventilation/.test(l)) return "hood";
+  if (/grill|griddle|plancha|parrilla|flat\s*top|char\s*broil|broiler/.test(l)) return "grill";
+  if (/\bwarm|hot\s*hold|\bheat|calent|steam\s*table|holding cabinet/.test(l)) return "warmer";
+  if (/hand\s*(wash|sink)|lavamanos/.test(l)) return "handsink";
+  if (/3\s*-?\s*comp|three\s*comp|3-compartment|fregadero de 3/.test(l)) return "threecomp";
+  if (/cool|fridge|refri|nevera|reach\s*-?\s*in|walk\s*-?\s*in|\bbeer|wine|milk|display case|cold|\bwic\b/.test(l)) return "cooler";
+  return "other";
+}
+// While a name is being typed: a kind only when the name clearly says one (never "other" from "2" or "W")
+const equipKindGuess = name => { const k = equipKindFromName(name); return k && k !== "other" ? k : ""; };
+// A record's kind: its own `kind`, else the tag's code, else what its name says. The registry held only coolers and
+// freezers before v560, so a record whose tag and name say nothing stays a cooler — but a record named "Fryer" (an
+// old report row, the form's Auto tag SDX-FRYE-…) is a fryer, never a 40 °F cooler.
+function equipKindOf(it, tag) {
+  const k = String(it?.kind || "");
+  if (EQUIP_KIND[k]) return k;
+  const T = String(tag || it?.assetTag || "").toUpperCase();
+  const nm = String(it?.label || it?.name || "");
+  const m = T.match(/^SDX-(CL|FZ|FR|HD|GR|WM|IM|HS|3C|EQ)-/);
+  if (m && m[1] !== "CL" && m[1] !== "FZ") return EQUIP_KIND_BY_CODE[m[1]].k;
+  if (m) return (m[1] === "FZ" || /freez|congel|🧊/i.test(nm)) ? "freezer" : "cooler";
+  const byName = equipKindFromName(nm);
+  if (byName === "freezer" || byName === "cooler") return byName;
+  const ct = coldTypeFromTag(T);
+  if (ct) return ct;
+  if (byName && byName !== "other") return byName;
+  const dc = detectColdType(nm); if (dc) return dc.type;
+  if (/^SDX-EQUI/.test(T) || byName === "other") return "other";
+  return "cooler";
+}
+const equipIsCold = (it, tag) => !!EQUIP_KIND[equipKindOf(it, tag)]?.cold;
+try { window.__sdxEquipKindOf = (it, tag) => equipKindOf(it, tag); } catch {}
+const equipKindLabel = (k, lang) => { const x = EQUIP_KIND[k] || EQUIP_KIND.other; return lang === "es" ? x.es : x.en; };
+// A record's display name without the old " ❄ Cooler" / " 🧊 Freezer" suffix
+const equipCleanName = l => String(l || "").replace(/\s*(❄|🧊)\s*(Cooler|Freezer)\s*$/u, "").trim();
+// The stored label: cold units keep the suffix every older reader keys on; the other kinds are just their name
+const equipLabelFor = (name, kind) => { const n = equipCleanName(name) || equipKindLabel(kind); return kind === "freezer" ? `${n} 🧊 Freezer` : kind === "cooler" ? `${n} ❄ Cooler` : n; };
+const normSerial = s => String(s || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+// Tag aliases: a new sticker put on a unit that already had one (same serial) points at the unit's real tag
+let _equipAliasCache = {}; // { NEWTAG: OLDTAG }
+try { _equipAliasCache = JSON.parse(localStorage.getItem(`sdx_equip_alias_${VENUE_ID}`) || "{}") || {}; } catch {}
+function setEquipAliases(a) { _equipAliasCache = { ...(a || {}) }; try { localStorage.setItem(`sdx_equip_alias_${VENUE_ID}`, JSON.stringify(_equipAliasCache)); } catch {} }
+const resolveEquipTag = t => { const T = String(t || "").trim().toUpperCase(); const a = _equipAliasCache?.[T]; return a ? String(a).toUpperCase() : T; };
+// Every tag already in use — registry items + index + removed ones + aliases + tags written on reports — so a new tag
+// is never one a removed unit had (it would inherit its "hidden" mark and vanish on reload)
+function equipTakenTags(extra) {
+  const used = new Set();
+  const add = t => { const x = String(t || "").trim().toUpperCase(); if (x) used.add(x); };
+  Object.keys(_equipRegCache || {}).forEach(add);
+  Object.keys(_equipHiddenCache || {}).forEach(k => add(String(k).replace(/^reg_/i, "")));
+  Object.entries(_equipAliasCache || {}).forEach(([a, b]) => { add(a); add(b); });
+  try { const d = JSON.parse(localStorage.getItem(`sdx_equip_reg_doc_${VENUE_ID}`) || "null"); if (d) { Object.keys(d.items || {}).forEach(add); Object.keys(d.labelIndex || {}).forEach(add); Object.keys(d.hidden || {}).forEach(k => add(String(k).replace(/^reg_/i, ""))); } } catch {}
+  try { for (const r of readWarmHistory()) for (const v of Object.values(r?.inspection?.equipment || {})) add(v?.assetTag); } catch {}
+  (extra || []).forEach(add);
+  return used;
+}
+// THE tag minter (was five copies, one of which missed index-only tags)
+function nextEquipTag(kind, unit, site, extra) {
+  const code = (EQUIP_KIND[kind] || EQUIP_KIND.other).code;
+  const unitN = normUnit(unit) || String(site || "").replace(/[^A-Z0-9]/gi, "").toUpperCase().slice(0, 8) || "X";
+  const pre = `SDX-${code}-${unitN}-`;
+  const used = equipTakenTags(extra);
+  let n = 1; while (used.has(pre + n)) n++;
+  return pre + n;
+}
+// Another unit already has this serial? → { tag, rec } (removed units count too: a unit can come back)
+function findBySerial(serial, exceptTag) {
+  const S = normSerial(serial); if (S.length < 3) return null;
+  const ex = String(exceptTag || "").toUpperCase();
+  for (const [t, it] of Object.entries(_equipRegCache || {})) {
+    if (!it || String(t).toUpperCase() === ex) continue;
+    if (normSerial(it.serial) === S) return { tag: String(it.assetTag || t).toUpperCase(), rec: it, hidden: isHiddenTag(_equipHiddenCache, `reg_${t}`, t) };
+  }
+  return null;
+}
+// One line of a unit's travel history (the last 10 are kept on the record)
+function equipMovesAfter(prev, to, by) {
+  const from = prev || {};
+  const list = Array.isArray(from.moves) ? from.moves : [];
+  const toId = canonStandId(to.standId || to.id || "");
+  let p = null; try { p = placeEquip(from); } catch {}
+  // "Not sure which stand" → assigned, or a report spelling that differs from the stand list: not a move
+  if (!p?.sure || !p.id || !toId || canonStandId(p.id) === toId) return list;
+  const st = (_standListCache || []).find(k => k.id === p.id);
+  const fromTxt = `${String(st?.site || from.venueName || "").toUpperCase()}${(st?.unit || from.unit) ? ` #${st?.unit || from.unit}` : ""}`.trim();
+  const toTxt = `${String(to.venueName || to.site || "").toUpperCase()}${to.unit ? ` #${to.unit}` : ""}`.trim();
+  if (!fromTxt) return list;
+  return [...list, { from: fromTxt, fromId: p.id, to: toTxt, toId, at: Date.now(), by: by || "" }].slice(-10);
+}
+// The sticker's QR: the tag only (+ the venue for customer venues) — never the name / stand, which change
+function equipStickerUrl(tag) {
+  const p = new URLSearchParams({ equip: String(tag || "").toUpperCase() });
+  if (VENUE_ID && VENUE_ID !== "default") p.set("v", VENUE_ID);
+  return window.location.origin + import.meta.env.BASE_URL + "?" + p.toString();
+}
+// The registry doc is ONE Firestore document (1 MB limit) — estimate it from this phone's copy before a write
+function equipRegBytes() {
+  try { const raw = localStorage.getItem(`sdx_equip_reg_doc_${VENUE_ID}`) || ""; const n = raw.length; window.__equipRegBytes = n; return n; } catch { return 0; }
+}
+// Avery 5163 / 8163 — letter, 2 × 5 labels of 4" × 2" (top margin 0.5", side 0.15625", column pitch 4.1875", no row gap).
+// labels: [{ tag, kind, name, stand, unit, brand, serial, blank }] · qr: { TAG: dataUrl } · skip: labels already used on sheet 1
+function equipStickerSheetHtml(labels, qr, { skip = 0 } = {}) {
+  const esc = v => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  const slots = [...Array(Math.max(0, Math.min(9, skip | 0))).fill(null), ...labels];
+  const pages = []; for (let i = 0; i < slots.length; i += 10) pages.push(slots.slice(i, i + 10));
+  const one = (l, i) => {
+    const col = i % 2, row = Math.floor(i / 2);
+    const pos = `left:${(0.15625 + col * 4.1875).toFixed(5)}in;top:${(0.5 + row * 2).toFixed(3)}in`;
+    if (!l) return `<div class="lab skip" style="${pos}"></div>`;
+    const k = EQUIP_KIND[l.kind] || EQUIP_KIND.other;
+    const src = qr[String(l.tag).toUpperCase()] || "";
+    const body = l.blank
+      ? `<div class="kind">🏷 NEW EQUIPMENT</div><div class="name">Scan with the SDX app to set it up</div><div class="stand">Nuevo equipo — escanéalo con la app</div>`
+      : `<div class="kind">${esc(k.icon)} ${esc(k.en.toUpperCase())}</div><div class="name">${esc(l.name)}</div><div class="stand">${esc(l.stand)}${l.unit ? ` · #${esc(l.unit)}` : ""}</div>${(l.brand || l.serial) ? `<div class="meta">${[l.brand ? esc(l.brand) : "", l.serial ? `S/N ${esc(l.serial)}` : ""].filter(Boolean).join(" · ")}</div>` : ""}`;
+    return `<div class="lab" style="${pos}" data-tag="${esc(l.tag)}"><img class="qr" src="${src}" alt=""><div class="txt">${body}<div class="tag">${esc(l.tag)}</div><div class="how">${l.blank || k.cold ? "Scan: log a temp · report a problem<br>Escanea: temperatura · reportar" : "Scan: report a problem · see this unit<br>Escanea: reportar un problema"}</div></div></div>`;
+  };
+  return `<!doctype html><html lang="en" translate="no"><head><meta charset="utf-8"><title>Equipment stickers</title><style>
+@page { size: letter; margin: 0 }
+* { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact }
+html, body { margin: 0; padding: 0; background: #fff; font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif; color: #111827 }
+.page { position: relative; width: 8.5in; height: 11in; overflow: hidden; page-break-after: always; break-after: page }
+.page:last-child { page-break-after: auto; break-after: auto }
+.lab { position: absolute; width: 4in; height: 2in; padding: 0.14in 0.16in; display: flex; gap: 0.14in; align-items: center; overflow: hidden }
+.qr { width: 1.62in; height: 1.62in; flex: none; image-rendering: pixelated }
+.txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.03in }
+.kind { font-size: 9pt; font-weight: 800; letter-spacing: 0.04em; color: #1e2a4a }
+.name { font-size: 15pt; font-weight: 900; line-height: 1.05; max-height: 2.2em; overflow: hidden }
+.stand { font-size: 9.5pt; font-weight: 700; color: #374151; white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
+.meta { font-size: 8.5pt; color: #374151; white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
+.tag { font: 700 10pt ui-monospace, "SF Mono", Menlo, Consolas, monospace; letter-spacing: 0.02em; margin-top: 0.02in }
+.how { font-size: 7pt; color: #6b7280; line-height: 1.25 }
+</style></head><body>${pages.map(pg => `<div class="page">${pg.map(one).join("")}</div>`).join("")}</body></html>`;
+}
 async function warmEquipRegistry() {
   try {
     await flushOutbox();
@@ -618,6 +796,7 @@ async function warmEquipRegistry() {
     const d = snap.exists() ? (snap.data() || {}) : {};
     _equipRegCache = { ...(d.labelIndex || {}), ...(d.items || {}) };
     _equipHiddenCache = d.hidden || {};
+    setEquipAliases(d.aliases || {}); // v560
     try { localStorage.setItem(EQUIP_REG_LS, JSON.stringify(_equipRegCache)); localStorage.setItem(`sdx_equip_hidden_${VENUE_ID}`, JSON.stringify(_equipHiddenCache)); } catch {}
   } catch { _equipRegCache = _equipRegCache || {}; }
   return _equipRegCache;
@@ -640,7 +819,7 @@ function indexEquipLabels(items) {
   } catch {}
 }
 function lookupEquipByTag(rawTag, inspection) {
-  const tag = extractEquipTag(rawTag).trim().toUpperCase();
+  const tag = resolveEquipTag(extractEquipTag(rawTag)); // v560: a second sticker on a unit points at its real tag
   if (!tag) return null;
   const same = t => String(t || "").trim().toUpperCase() === tag;
   // 0) the label itself may carry its full identity (v369+ labels)
@@ -3622,7 +3801,7 @@ function equipItemsFor(locType) {
 function detectColdType(label) {
   const l = (label || "").toLowerCase();
   if (/freezer|freez/.test(l)) return { type: "freezer", max: 20 };
-  if (/cooler|cool|refrig|wic|w\.i\.c|walk.in.*c/i.test(l)) return { type: "cooler", max: 40 };
+  if (/cooler|cool|refrig|\bwic\b|w\.i\.c|walk.in.*c/i.test(l)) return { type: "cooler", max: 40 };
   return null;
 }
 // ── v518: the event-day priority check ─────────────────────────────────────
@@ -7726,6 +7905,7 @@ function EquipTempBoard({ history, onOpenStand }) {
       if (!tag || /^CUSTOM_/.test(tag)) continue;
       if (reg.hidden?.[`reg_${tagRaw}`] || reg.hidden?.[tag]) continue;
       if (!/^SDX-(CL|FZ|COOL|FRZ)-/.test(tag) && !it?.assetTag) continue;
+      if (!equipIsCold(it, tag)) continue; // v560: fryers / hoods / sinks have stickers too — no temperature limit to watch
       const label = it.label || it.name || "";
       const type = (/freez|🧊/i.test(label) || coldTypeFromTag(tag) === "freezer") ? "freezer" : "cooler";
       const unit = (it.unit || "").trim();
@@ -7798,7 +7978,7 @@ function EquipTempBoard({ history, onOpenStand }) {
           ))}
         </div>
         {tot.units === 0 && (
-          <div className="etEmpty">No equipment QR labels yet. Print the labels (Menu → Print Equipment Labels) and stick them on — every unit shows up here the moment its label is registered, and its reads start with the first scan.</div>
+          <div className="etEmpty">No equipment stickers yet. Open Stands &amp; equipment → 🏷 Stickers, print them (Avery 2" × 4") and stick one on each unit — every unit shows up here the moment its sticker is set up, and its reads start with the first scan.</div>
         )}
         {tot.units > 0 && shown.length === 0 && <div className="etEmpty">Nothing matches.</div>}
         {floors.filter(f => shown.some(st => (st.floor || "No floor") === f)).map(f => (
@@ -7932,6 +8112,7 @@ function EquipmentPage({ currentUser, onBack, focusStand, onOpenLabels }) {
       if (!tag || /^CUSTOM_/.test(tag)) continue;
       if (isHiddenTag(_equipHiddenCache, `reg_${tagRaw}`, tag)) continue;
       if (!/^SDX-(CL|FZ|COOL|FRZ)-/.test(tag) && !it.assetTag && !it.label) continue;
+      if (!equipIsCold(it, tag)) continue; // v560: only units with a temperature limit
       const label = it.label || it.name || "";
       const freezer = /freez|🧊/i.test(label) || coldTypeFromTag(tag) === "freezer";
       const limit = freezer ? 20 : 40;
@@ -8022,20 +8203,16 @@ function EquipmentPage({ currentUser, onBack, focusStand, onOpenLabels }) {
 
   function addUnit(label0, freezer) {
     if (!sel) return;
-    const unitN = normUnit(sel.unit) || (sel.site || "").replace(/[^A-Z0-9]/gi, "").toUpperCase().slice(0, 8) || "X";
-    const tagPre = `SDX-${freezer ? "FZ" : "CL"}-${unitN}-`;
-    const used = new Set(Object.keys(_equipRegCache || {}).map(t => String(t).toUpperCase()));
-    try { for (const r of hist) for (const v of Object.values(r?.inspection?.equipment || {})) if (v?.assetTag) used.add(String(v.assetTag).toUpperCase()); } catch {}
-    let n = 1; while (used.has(tagPre + n)) n++;
-    const assetTag = tagPre + n;
+    const repTags = []; try { for (const r of hist) for (const v of Object.values(r?.inspection?.equipment || {})) if (v?.assetTag) repTags.push(v.assetTag); } catch {}
+    const assetTag = nextEquipTag(freezer ? "freezer" : "cooler", sel.unit, sel.site, repTags); // v560: the one shared minter
     const label = `${label0}${freezer ? " 🧊 Freezer" : " ❄ Cooler"}`;
     const known = standForStrict(sel.unit, sel.site);
-    const rec = { assetTag, label, venueName: (sel.site || "").trim().toUpperCase(), unit: (sel.unit || "").trim(), floor: sel.floor || "", locType: sel.locType || "", standId: sel.id && !String(sel.id).startsWith("?") ? sel.id : (known?.id || ""), location: "", brandName: "", createdAt: Date.now() };
+    const rec = { assetTag, label, venueName: (sel.site || "").trim().toUpperCase(), unit: (sel.unit || "").trim(), floor: sel.floor || "", locType: sel.locType || "", standId: sel.id && !String(sel.id).startsWith("?") ? sel.id : (known?.id || ""), location: "", brandName: "", kind: freezer ? "freezer" : "cooler", createdAt: Date.now() };
     _equipRegCache = { ...(_equipRegCache || {}), [assetTag]: rec };
     try { localStorage.setItem(EQUIP_REG_LS, JSON.stringify(_equipRegCache)); } catch {}
     try { writeEquipReg({ items: { [assetTag]: rec }, labelIndex: { [assetTag]: { name: label, brand: "", location: "", venueName: rec.venueName, unit: rec.unit, floor: rec.floor, locType: rec.locType, ts: Date.now() } } }); } catch {}
     setRegItems(prev => ({ ...(prev || {}), [assetTag]: rec }));
-    setFlash(`✓ ${label0} added at ${sel.site || "this stand"} — tag ${assetTag}. Stick its label, then log its first temp.`);
+    setFlash(`✓ ${label0} added at ${sel.site || "this stand"} — tag ${assetTag}. Print its sticker (Stands & equipment → 🏷 Stickers), then log its first temp.`);
     setTimeout(() => setFlash(""), 5000);
   }
 
@@ -11970,7 +12147,7 @@ ${sections}
   const qpTouched = useRef({});
   function applyQpNlu(text) {
     if (!String(text || "").trim()) { setQpNlu(null); return; }
-    const r = understandText(text, { units: equipUnitsAtStand(qpUnit, qpSite), lang: "en" });
+    const r = understandText(text, { units: equipUnitsAtStand(qpUnit, qpSite, null, { all: true }), lang: "en" });
     setQpNlu(r);
     if (r.category && !qpTouched.current.cat && QUICK_PROBLEM_CATS.includes(r.category)) setQpCat(r.category);
     if (Object.keys(r.details).length) setQpDetails(prev => { const n = { ...prev }; for (const [k, v] of Object.entries(r.details)) if (!n[k]) n[k] = v; return n; });
@@ -12477,7 +12654,7 @@ ${sections}
                   {/* v458 — the chip block is optional and hidden until asked for */}
                   {/* v553: opens only when tapped — the text reader used to open it by itself half a second after typing, pushing 📷 and File down under the finger (what it understood shows in the strip above) */}
                   {qpSpecOpen ? (
-                    <SpecificsPicker cat={qpCat} units={equipUnitsAtStand(qpUnit, qpSite)} value={qpDetails} onChange={d => { setQpDetails(d); setQpSaidErr(false); }} lang="en" compact optional />
+                    <SpecificsPicker cat={qpCat} units={equipUnitsAtStand(qpUnit, qpSite, null, { all: true })} value={qpDetails} onChange={d => { setQpDetails(d); setQpSaidErr(false); }} lang="en" compact optional />
                   ) : (
                     <button type="button" className="specOptLink" onClick={() => setQpSpecOpen(true)}>＋ Add details (optional)</button>
                   )}
@@ -19046,7 +19223,9 @@ function TrendsPanel({ history }) {
 }
 
 /* ── Reusable QR scanner (camera → BarcodeDetector / jsQR, photo, or paste) ── */
-function QrScanModal({ title, hint, onCode, onClose }) {
+const _qrSeen = new Map(); // v560: code → last read — kept across scanner remounts (a sheet closes, the scanner comes back)
+function QrScanModal({ title, hint, onCode, onClose, keepOpen = false, status = "" }) {
+  const onCodeRef = useRef(onCode); onCodeRef.current = onCode; // the camera loop starts once — it must call today's handler
   const [err, setErr] = useState("");
   const [pasted, setPasted] = useState("");
   const [camOn, setCamOn] = useState(false);
@@ -19061,11 +19240,20 @@ function QrScanModal({ title, hint, onCode, onClose }) {
     streamRef.current = null;
     setCamOn(false);
   }
-  function found(code) {
+  function found(code, typed) {
     if (doneRef.current || !code) return;
+    if (keepOpen) {
+      // v560: the sticker walk — the camera stays on; each sticker in view is read once every 3 s (two in the frame too)
+      const c = String(code), now = Date.now();
+      if (!typed && now - (_qrSeen.get(c) || 0) < 3000) { _qrSeen.set(c, now); return; }
+      _qrSeen.set(c, now); if (_qrSeen.size > 200) _qrSeen.delete(_qrSeen.keys().next().value);
+      try { navigator.vibrate?.(40); } catch {}
+      onCodeRef.current(c);
+      return;
+    }
     doneRef.current = true;
     stop();
-    onCode(String(code));
+    onCodeRef.current(String(code));
   }
   async function start() {
     setErr("");
@@ -19078,7 +19266,7 @@ function QrScanModal({ title, hint, onCode, onClose }) {
         const det = new window.BarcodeDetector({ formats: ["qr_code"] });
         const loop = () => {
           if (!streamRef.current || !videoRef.current) return;
-          det.detect(videoRef.current).then(bc => { if (bc.length > 0) found(bc[0].rawValue); else rafRef.current = requestAnimationFrame(loop); })
+          det.detect(videoRef.current).then(bc => { if (bc.length > 0) found(bc[0].rawValue); if (!bc.length || keepOpen) rafRef.current = requestAnimationFrame(loop); })
             .catch(() => { rafRef.current = requestAnimationFrame(loop); });
         };
         loop();
@@ -19096,7 +19284,7 @@ function QrScanModal({ title, hint, onCode, onClose }) {
               ctx.drawImage(v, 0, 0, canvas.width, canvas.height);
               const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
               const code = jsQR(img.data, img.width, img.height, { inversionAttempts: "dontInvert" });
-              if (code && code.data) { found(code.data); return; }
+              if (code && code.data) { found(code.data); if (!keepOpen) return; }
             }
           } catch {}
           rafRef.current = requestAnimationFrame(() => setTimeout(tick, 150));
@@ -19138,6 +19326,7 @@ function QrScanModal({ title, hint, onCode, onClose }) {
           {!camOn && !err && <div className="qrScanWait">Starting camera…</div>}
         </div>
         {hint && <div className="qrScanHint">{hint}</div>}
+        {keepOpen ? <div className="qrScanStatus qrScanStatusSlot" data-testid="qr-scan-status" role="status">{status}</div> : status ? <div className="qrScanStatus" data-testid="qr-scan-status" role="status">{status}</div> : null}
         {err && <div className="qrScanErr">{err}</div>}
         <div className="qrScanActions">
           <label className="qrScanPhotoBtn">
@@ -19146,9 +19335,9 @@ function QrScanModal({ title, hint, onCode, onClose }) {
           </label>
         </div>
         <div className="qrScanPaste">
-          <input className="input" value={pasted} onChange={e => setPasted(e.target.value)} placeholder="…or paste the QR link / type the unit #"
-            onKeyDown={e => { if (e.key === "Enter" && pasted.trim()) found(pasted.trim()); }} />
-          <button type="button" className="btn btnPrimary btnSmall" disabled={!pasted.trim()} onClick={() => found(pasted.trim())}>Go</button>
+          <input className="input" value={pasted} onChange={e => setPasted(e.target.value)} placeholder={keepOpen ? "…or type the tag on the sticker" : "…or paste the QR link / type the unit #"}
+            onKeyDown={e => { if (e.key === "Enter" && pasted.trim()) { found(pasted.trim(), true); if (keepOpen) setPasted(""); } }} />
+          <button type="button" className="btn btnPrimary btnSmall" disabled={!pasted.trim()} onClick={() => { found(pasted.trim(), true); if (keepOpen) setPasted(""); }}>Go</button>
         </div>
       </div>
     </div>,
@@ -19708,9 +19897,10 @@ function StandsTabs({ active }) {
   );
 }
 /* ── Print Equipment Labels Page ──────────────────────────── */
-function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
+function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus, onFocusUsed }) {
   useScrollAnchor(); // v553: the tapped button stays where it is when groups open / close or the list refreshes
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false); // the cached list is on screen, the cloud copy is still loading
   const [equipItems, setEquipItems] = useState([]); // { uid, assetTag, label, venueName, ... }
   const [qrDataUrls, setQrDataUrls] = useState({}); // { uid: dataUrl }
   const [siteName, setSiteName] = useState("");
@@ -19855,12 +20045,21 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
   const WALK_LOCS = ["Front of the house", "Back of the house", "Front line", "Bar", "Prep area", "Walk-in", "Storage", "Under counter", "Beer room", "Left side", "Right side"];
   const WALK_BRANDS = ["True", "Turbo Air", "Beverage-Air", "Traulsen", "Delfield", "Continental", "Hoshizaki", "Arctic Air", "Atosa", "Victory", "Perlick", "Frigidaire", "Avantco", "Coca-Cola", "Pepsi", "American Panel", "Kolpak", "Nor-Lake"];
   const cleanName = l => String(l || "").replace(/\s*(❄|🧊)\s*(Cooler|Freezer)\s*$/u, "").trim();
-  const typeOf = it => (/freez|🧊/i.test(it?.label || "") || coldTypeFromTag(it?.assetTag) === "freezer") ? "freezer" : "cooler";
+  // v560: every kind of equipment (fryer, hood, sinks…) — `typeOf` keeps the cooler / freezer answer for the cold-only paths
+  const kindOf = it => equipKindOf(it, it?.assetTag);
+  const typeOf = it => kindOf(it) === "freezer" ? "freezer" : "cooler";
+  const kindIcon = it => (EQUIP_KIND[kindOf(it)] || EQUIP_KIND.other).icon;
+  const unitName = it => cleanName(it?.label) || equipKindLabel(kindOf(it));
+  const byName = () => String(_currentUser?.name || "Inspector");
+  const KIND_NAMES = { fryer: ["Fryer", "2-Basket Fryer", "Double Fryer"], hood: ["Hood", "Exhaust Hood"], grill: ["Grill", "Flat Top Griddle", "Char Broiler"], warmer: ["Warmer", "Hot Holding Cabinet", "Steam Table", "Heat Lamp"], icemaker: ["Ice Machine", "Ice Bin"], handsink: ["Hand Sink"], threecomp: ["3-Comp Sink"], other: ["Soda Machine", "Coffee Brewer", "Blender", "Oven", "Microwave", "Prep Table", "Dish Machine"] };
+  const namesFor = k => k === "cooler" ? WALK_NAMES.filter(n => !/freezer/i.test(n)) : k === "freezer" ? WALK_NAMES.filter(n => /freezer/i.test(n)) : (KIND_NAMES[k] || []);
+  const lastMoveTxt = it => { const m = Array.isArray(it?.moves) && it.moves.length ? it.moves[it.moves.length - 1] : null; return m ? `↔ moved from ${m.from} · ${new Date(m.at).toLocaleDateString([], { month: "short", day: "numeric" })}` : ""; };
   const walkStatus = it => {
     const missing = [];
     if (!cleanName(it.label)) missing.push("name");
     if (!(it.brandName || "").trim()) missing.push("brand");
     if (!(it.location || "").trim()) missing.push("location");
+    if (!(it.serial || "").trim()) missing.push("serial"); // v560: the serial is what tracks a unit that moves
     const stuck = !!regSetup[String(it.assetTag || "").toUpperCase()];
     return { missing, stuck, complete: missing.length === 0 };
   };
@@ -19905,10 +20104,12 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
       const T = tagOf(it); if (!T) continue;
       fromKeys.add(standKeyOf(it.unit, it.venueName, it));
       const patch = { venueName: (target.site || "").toUpperCase(), locType: target.locType || "", standId: target.id, unit: (target.unit || "").trim(), floor: floorForStand(target.unit, target.site, target.floor) || it.floor || "" };
+      // v560: the unit's travel history rides on its record (the serial / tag follows it)
+      const moves = equipMovesAfter({ ...it, moves: regItemsState[T]?.moves || it.moves }, { venueName: target.site, unit: target.unit, standId: target.id }, byName());
       // A registry record must always be self-describing: tag + name, never a bare placement patch
-      const rec = regItemsState[T] ? { ...patch, assetTag: T } : { ...patch, assetTag: T, label: it.label || "", brandName: it.brandName || "", location: it.location || "" };
-      items[T] = rec; labelIndex[T] = patch; moved.push({ uid: it.uid, patch });
-      prevPl[T] = { uid: it.uid, venueName: it.venueName || "", unit: it.unit || "", standId: it.standId || "", locType: it.locType || "", floor: it.floor || "" };
+      const rec = regItemsState[T] ? { ...patch, assetTag: T, moves } : { ...patch, assetTag: T, moves, label: it.label || "", brandName: it.brandName || "", location: it.location || "", kind: kindOf(it), ...(it.serial ? { serial: it.serial } : {}) };
+      items[T] = rec; labelIndex[T] = patch; moved.push({ uid: it.uid, patch: { ...patch, moves } });
+      prevPl[T] = { uid: it.uid, venueName: it.venueName || "", unit: it.unit || "", standId: it.standId || "", locType: it.locType || "", floor: it.floor || "", moves: Array.isArray(regItemsState[T]?.moves || it.moves) ? (regItemsState[T]?.moves || it.moves) : [] };
       cacheRegItem(T, rec);
     }
     if (!moved.length) return 0;
@@ -19928,9 +20129,9 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
   function undoMove() {
     const lm = lastMoved; if (!lm) return;
     const items = {}, labelIndex = {};
-    for (const [T, p] of Object.entries(lm.prev)) { const back = { venueName: p.venueName, unit: p.unit, standId: p.standId, locType: p.locType, floor: p.floor }; items[T] = { ...back, assetTag: T }; labelIndex[T] = back; cacheRegItem(T, items[T]); }
+    for (const [T, p] of Object.entries(lm.prev)) { const back = { venueName: p.venueName, unit: p.unit, standId: p.standId, locType: p.locType, floor: p.floor }; items[T] = { ...back, assetTag: T, moves: p.moves || [] }; labelIndex[T] = back; cacheRegItem(T, items[T]); } // v560: the move it recorded goes too
     writeReg({ items, labelIndex });
-    setEquipItems(prev => prev.map(i => { const p = Object.values(lm.prev).find(x => x.uid === i.uid); return p ? { ...i, venueName: p.venueName, unit: p.unit, standId: p.standId, locType: p.locType, floor: p.floor } : i; }));
+    setEquipItems(prev => prev.map(i => { const p = Object.values(lm.prev).find(x => x.uid === i.uid); return p ? { ...i, venueName: p.venueName, unit: p.unit, standId: p.standId, locType: p.locType, floor: p.floor, moves: p.moves || [] } : i; }));
     setRegItemsState(prev => { const n = { ...prev }; for (const [T, rec] of Object.entries(items)) if (n[T]) n[T] = { ...n[T], ...rec }; return n; });
     setLastMoved(null);
     setWalkFlash("↩ Moved back."); setTimeout(() => setWalkFlash(f => f === "↩ Moved back." ? "" : f), 2500);
@@ -19945,7 +20146,7 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
   }
   function confirmTag(tag, key) {
     const T = String(tag || "").toUpperCase(); if (!T) return;
-    const rec = { at: Date.now(), by: "Inspector" };
+    const rec = { at: Date.now(), by: byName() };
     setRegConfirmed(prev => { const n = { ...prev, [T]: rec }; persistConfirmed(n); return n; });
     writeReg({ confirmed: { [T]: rec } });
     if (key) invalidateStand(key);
@@ -19963,9 +20164,11 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
     const T = tagOf(it);
     if (st && T && canonStandId(it.standId || "") !== st.id) {
       const patch = { venueName: (st.site || "").toUpperCase(), locType: st.locType || it.locType || "", standId: st.id, unit: (st.unit || "").trim(), floor: floorForStand(st.unit, st.site, st.floor) || it.floor || "" };
-      const rec = regItemsState[T] ? { ...patch, assetTag: T } : { ...patch, assetTag: T, label: it.label || "", brandName: it.brandName || "", location: it.location || "" };
-      const conf = { at: Date.now(), by: "Inspector" };
-      writeReg({ items: { [T]: rec }, labelIndex: { [T]: patch }, confirmed: { [T]: conf } });
+      patch.moves = equipMovesAfter({ ...it, moves: regItemsState[T]?.moves || it.moves }, { venueName: st.site, unit: st.unit, standId: st.id }, byName()); // v560
+      const rec = regItemsState[T] ? { ...patch, assetTag: T } : { ...patch, assetTag: T, label: it.label || "", brandName: it.brandName || "", location: it.location || "", kind: kindOf(it), ...(it.serial ? { serial: it.serial } : {}) };
+      const conf = { at: Date.now(), by: byName() };
+      const { moves: _mv, ...ixPatch } = patch;
+      writeReg({ items: { [T]: rec }, labelIndex: { [T]: ixPatch }, confirmed: { [T]: conf } });
       cacheRegItem(T, rec);
       setEquipItems(prev => prev.map(i => i.uid === it.uid ? { ...i, ...patch } : i));
       setRegItemsState(prev => prev[T] ? { ...prev, [T]: { ...prev[T], ...patch } } : prev);
@@ -20018,7 +20221,7 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
     if (!key || String(key).startsWith("?:")) return; // v518.1: only a real stand can be verified
     if (!standVerifiable(key)) return;
     const units = standUnits(key).length;
-    const rec = { at: Date.now(), by: "Inspector", units };
+    const rec = { at: Date.now(), by: byName(), units };
     setRegVerified(prev => { const n = { ...prev, [key]: rec }; persistVerified(n); return n; });
     writeReg({ verified: { [key]: rec } });
     setWalkFlash(`✅ ${label || "Stand"} verified — ${units ? `${units} unit${units !== 1 ? "s" : ""} confirmed` : "no cold equipment"}.`); setTimeout(() => setWalkFlash(""), 4000);
@@ -20048,27 +20251,91 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
       localStorage.setItem(EQUIP_REG_LS, JSON.stringify(_equipRegCache));
     } catch {}
   }
-  function openFill(it) {
+  function openFill(it, extra = {}) {
     const tag = String(it.assetTag || "").toUpperCase();
-    setFill({ uid: it.uid, tag, type: typeOf(it), name: cleanName(it.label), brand: it.brandName || "", location: it.location || "",
-      venueName: it.venueName || "", unit: (it.unit || "").trim(), floor: floorForStand(it.unit, it.venueName, it.floor), locType: it.locType || "", standId: it.standId || "", stuck: !!regSetup[tag] });
+    const reg = regItemsState[tag] || {};
+    setFill({ uid: it.uid, tag, kind: kindOf(it), kindAuto: false, name: cleanName(it.label), brand: it.brandName || "", location: it.location || "",
+      serial: it.serial || reg.serial || "", model: it.model || reg.model || "",
+      venueName: it.venueName || "", unit: (it.unit || "").trim(), floor: floorForStand(it.unit, it.venueName, it.floor), locType: it.locType || "", standId: it.standId || "", stuck: !!regSetup[tag], ...extra });
   }
-  async function saveFill(markDone) {
+  // v560: a sticker nobody set up yet (a blank one, or a removed unit's) → "what is it?" at the open stand
+  function openNewUnit(tag, target) {
+    const T = String(tag || "").toUpperCase();
+    const old = (_equipRegCache || {})[T] || null;
+    const st = target ? (standById(target.id) || target) : null;
+    setFill({ uid: `reg_${T}`, tag: T, isNew: true, fromScan: true, kind: old ? equipKindOf(old, T) : (EQUIP_KIND_BY_CODE[(T.match(/^SDX-([A-Z0-9]{2})-/) || [])[1]]?.k || ""),
+      name: old ? cleanName(old.label) : "", brand: old?.brandName || "", location: "", serial: old?.serial || "", model: old?.model || "",
+      venueName: st ? (st.site || st.venueName || "") : "", unit: st ? (st.unit || "").trim() : "", floor: st ? floorForStand(st.unit, st.site || st.venueName, st.floor) : "", locType: st?.locType || "", standId: st?.id || "", needStand: !st, standQ: "", stuck: false });
+  }
+  // v560: the serial says it is a unit we already know (it moved here) → move THAT record here, the sticker points at it
+  function useSerialMatch() {
+    const f = fill; const hit = f?.serialHit; if (!f || !hit) return;
+    const tid = (f.standId && standById(f.standId) ? f.standId : "") || (() => { const k = standKeyOf(f.unit, f.venueName, f); return k.startsWith("?:") ? "" : k; })() || (standFocus?.id && standById(standFocus.id) ? standFocus.id : "") || standForStrict(f.unit, f.venueName)?.id || "";
+    if (!tid) { setFill(x => ({ ...x, serialHit: null, needStand: true, err: "Pick the stand it is at first — then tap Save again" })); return; }
+    const target = standById(tid);
+    const old = equipItems.find(i => tagOf(i) === hit.tag) || { ...hit.rec, uid: `reg_${hit.tag}`, assetTag: hit.tag };
+    const payload = {};
+    if (hit.hidden) { const del = {}; Object.keys(hiddenKeysFor(old.uid, hit.tag)).forEach(k => { del[k] = deleteField(); }); payload.hidden = del; try { const hk = { ...(_equipHiddenCache || {}) }; Object.keys(del).forEach(k => delete hk[k]); _equipHiddenCache = hk; localStorage.setItem(`sdx_equip_hidden_${VENUE_ID}`, JSON.stringify(hk)); } catch {} }
+    if (f.tag !== hit.tag) {
+      payload.aliases = { [f.tag]: hit.tag };
+      // the sticker's own record (if it had one) was the same unit twice — it leaves the lists
+      if (!f.isNew) { payload.hidden = { ...(payload.hidden || {}), ...hiddenKeysFor(f.uid, f.tag) }; setEquipItems(prev => prev.filter(i => tagOf(i) !== f.tag)); }
+    }
+    const loc = (f.location || "").trim().toUpperCase();
+    const fix = { assetTag: hit.tag, ...(loc ? { location: loc } : {}), ...(!(old.brandName || "").trim() && f.brand.trim() ? { brandName: f.brand.trim().toUpperCase() } : {}), ...(!(old.model || "").trim() && (f.model || "").trim() ? { model: f.model.trim().toUpperCase() } : {}) };
+    payload.items = { [hit.tag]: fix };
+    writeReg(payload);
+    cacheRegItem(hit.tag, fix);
+    if (!equipItems.some(i => tagOf(i) === hit.tag)) setEquipItems(prev => [{ ...old, ...fix }, ...prev]);
+    else setEquipItems(prev => prev.map(i => tagOf(i) === hit.tag ? { ...i, ...fix } : i));
+    const nm = unitName(old);
+    if (target.id && standKeyOf(old.unit, old.venueName, old) !== target.id) moveUnitsToStand([{ ...old, ...fix }], target, `↔ ${nm} (serial ${normSerial(hit.rec.serial)}) moved here — its history came with it.`);
+    if (target.id) confirmTag(hit.tag, target.id);
+    setFill(null);
+    resumeScan();
+  }
+  const resumeScanRef = useRef(false);
+  const scanHandledRef = useRef(new Map()); // tag → when it was handled in this scanner session
+  const lastScanTagRef = useRef("");
+  const openStickerScanner = () => { scanHandledRef.current = new Map(); lastScanTagRef.current = ""; setScanStatus(""); setWalkScanOpen("stickers"); };
+  const resumeScan = () => {
+    if (lastScanTagRef.current) scanHandledRef.current.set(lastScanTagRef.current, Date.now()); // the sticker still in view is not read again
+    if (resumeScanRef.current) { resumeScanRef.current = false; setTimeout(() => setWalkScanOpen("stickers"), 250); }
+  };
+  async function saveFill(markDone, { serialOk = false } = {}) {
     if (!fill) return;
     const f = fill;
-    const name = f.name.trim() || (f.type === "freezer" ? "Freezer" : "Cooler");
-    const label = name + (f.type === "freezer" ? " 🧊 Freezer" : " ❄ Cooler");
-    const rec = { assetTag: f.tag, label, venueName: (f.venueName || "").toUpperCase(), unit: f.unit, floor: f.floor, locType: f.locType, location: f.location.trim().toUpperCase(), brandName: f.brand.trim().toUpperCase(), standId: f.standId || standForStrict(f.unit, f.venueName)?.id || "", updatedAt: Date.now() };
+    const kind = EQUIP_KIND[f.kind] ? f.kind : "";
+    if (!kind) { setFill(x => ({ ...x, err: "Pick what it is first" })); return; }
+    if (!f.standId && !(f.venueName || "").trim()) { setFill(x => ({ ...x, err: "Pick the stand it is at" })); return; }
+    const serial = String(f.serial || "").trim().toUpperCase();
+    // v560: the serial already belongs to another unit → ask first (it may have moved here)
+    if (serial && !serialOk) { const hit = findBySerial(serial, f.tag); if (hit) { setFill(x => ({ ...x, serialHit: hit, err: "" })); return; } }
+    let name = f.name.trim() || equipKindLabel(kind);
+    if (f.isNew && !f.name.trim()) { // v560: a second unnamed hand sink at the stand is "Hand sink 2", not a duplicate
+      const sid = f.standId || standForStrict(f.unit, f.venueName)?.id || "";
+      const here = new Set(equipItems.filter(i => sid && i.uid !== f.uid && equipBelongsTo(i, { id: sid })).map(i => cleanName(i.label).toLowerCase()));
+      const base = name; for (let n = 2; here.has(name.toLowerCase()) && n < 50; n++) name = `${base} ${n}`;
+    }
+    const label = equipLabelFor(name, kind);
+    const prevRec = regItemsState[f.tag] || {};
+    const rec = { assetTag: f.tag, kind, label, venueName: (f.venueName || "").toUpperCase(), unit: f.unit, floor: f.floor, locType: f.locType, location: f.location.trim().toUpperCase(), brandName: f.brand.trim().toUpperCase(), serial, model: String(f.model || "").trim().toUpperCase(), standId: f.standId || standForStrict(f.unit, f.venueName)?.id || "", updatedAt: Date.now(), ...(f.isNew && !prevRec.createdAt ? { createdAt: Date.now(), createdBy: byName() } : {}) };
+    // v560: a sticker this phone did not know may already be set up on another phone — empty boxes leave the cloud's values alone (the write merges)
+    if (f.isNew) for (const k of ["location", "brandName", "serial", "model"]) if (!rec[k]) delete rec[k];
     const idx = { name: label, brand: rec.brandName, location: rec.location, venueName: f.venueName, unit: f.unit, floor: f.floor, locType: f.locType, ts: Date.now() };
     const stuck = markDone || f.stuck;
-    const setup = stuck ? { [f.tag]: { doneAt: regSetup[f.tag]?.doneAt || Date.now(), by: "Inspector" } } : null;
+    const setup = stuck ? { [f.tag]: { doneAt: regSetup[f.tag]?.doneAt || Date.now(), by: byName() } } : null;
     setFillSaving(true);
-    try {
+    {
       const payload = { items: { [f.tag]: rec }, labelIndex: { [f.tag]: idx } };
       if (setup) payload.setup = setup;
-      patchEquipDocCache(payload);
-      if (FIREBASE_ON) await setDoc(registryRef(), payload, { merge: true });
-    } catch { /* offline — the local copy below keeps the walk going */ }
+      // a removed unit's sticker set up again — it is back on the lists
+      if (isHiddenTag(_equipHiddenCache, f.uid || `reg_${f.tag}`, f.tag)) {
+        const del = {}; Object.keys(hiddenKeysFor(f.uid || `reg_${f.tag}`, f.tag)).forEach(k => { del[k] = deleteField(); }); payload.hidden = del;
+        try { const hk = { ...(_equipHiddenCache || {}) }; Object.keys(del).forEach(k => delete hk[k]); _equipHiddenCache = hk; localStorage.setItem(`sdx_equip_hidden_${VENUE_ID}`, JSON.stringify(hk)); } catch {}
+      }
+      writeReg(payload); // v560: through the outbox — the walk is on stadium Wi-Fi
+    }
     cacheRegItem(f.tag, rec);
     setRegItemsState(prev => ({ ...prev, [f.tag]: rec }));
     if (setup) setRegSetup(prev => { const next = { ...prev, ...setup }; persistSetupLocal(next); return next; });
@@ -20078,33 +20345,32 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
     });
     setFillSaving(false);
     setFill(null);
-    if (verifyMode) { const k = standKeyOf(f.unit, f.venueName, rec); if (!k.startsWith("?:")) confirmTag(f.tag, k); } // a fix means the unit is really there
-    setWalkFlash(stuck ? `✅ ${name} · ${f.tag} — label stuck, done.` : `💾 ${name} · ${f.tag} saved.`);
+    if (verifyMode || f.fromScan) { const k = standKeyOf(f.unit, f.venueName, rec); if (!k.startsWith("?:")) confirmTag(f.tag, k); } // a fix (or a scanned sticker) means the unit is really there
+    if (f.isNew && EQUIP_KIND[kind].cold) setStandsNoEquip(prev => prev.filter(sn => sn.key !== rec.standId));
+    setWalkFlash(f.isNew ? `🏷 ${name} · ${f.tag} set up at ${(f.venueName || "").toUpperCase()}${f.unit ? ` #${f.unit}` : ""}.` : stuck ? `✅ ${name} · ${f.tag} — sticker on, done.` : `💾 ${name} · ${f.tag} saved.`);
     setTimeout(() => setWalkFlash(""), 3500);
+    resumeScan();
   }
-  function nextTagFor(unit, venueName, type) {
-    const unitN = normUnit(unit) || (venueName || "").replace(/[^A-Z0-9]/gi, "").toUpperCase().slice(0, 8) || "X";
-    const pre = `SDX-${type === "freezer" ? "FZ" : "CL"}-${unitN}-`;
-    const used = new Set([...equipItems.map(i => String(i.assetTag || "").toUpperCase()), ...Object.keys(regItemsState).map(t => String(t).toUpperCase())]);
-    let n = 1; while (used.has(pre + n)) n++;
-    return pre + n;
-  }
-  function addUnitAtStand(stand, name, type) {
-    const tag = nextTagFor(stand.unit, stand.venueName, type);
+  // v560: the one shared minter — it also skips tags only the index or the removed list know (they came back as ghosts)
+  function nextTagFor(unit, venueName, type) { return nextEquipTag(type, unit, venueName, [...equipItems.map(i => i.assetTag), ...Object.keys(regItemsState)]); }
+  function addUnitAtStand(stand, name0, type) {
+    const kind = EQUIP_KIND[type] ? type : "cooler";
+    const tag = nextTagFor(stand.unit, stand.venueName, kind);
+    const sid0 = stand.standId || stand.id || (stand.key && standById(stand.key) ? stand.key : "") || standForStrict(stand.unit, stand.venueName)?.id || "";
+    const namesHere = new Set(equipItems.filter(i => sid0 && equipBelongsTo(i, { id: sid0 })).map(i => cleanName(i.label).toLowerCase()));
+    let name = name0; for (let n = 2; namesHere.has(cleanName(name).toLowerCase()) && n < 50; n++) name = `${name0} ${n}`;
     const floor = floorForStand(stand.unit, stand.venueName, stand.floor);
-    const rec = { assetTag: tag, label: name + (type === "freezer" ? " 🧊 Freezer" : " ❄ Cooler"), venueName: (stand.venueName || "").trim().toUpperCase(), unit: (stand.unit || "").trim(), floor, locType: stand.locType || "", location: "", brandName: "", standId: stand.standId || stand.id || (stand.key && standById(stand.key) ? stand.key : "") || standForStrict(stand.unit, stand.venueName)?.id || "", createdAt: Date.now() };
+    const rec = { assetTag: tag, kind, label: equipLabelFor(name, kind), venueName: (stand.venueName || "").trim().toUpperCase(), unit: (stand.unit || "").trim(), floor, locType: stand.locType || "", location: "", brandName: "", standId: stand.standId || stand.id || (stand.key && standById(stand.key) ? stand.key : "") || standForStrict(stand.unit, stand.venueName)?.id || "", createdAt: Date.now() };
     const item = { ...rec, uid: `reg_${tag}` };
     setEquipItems(prev => prev.some(i => String(i.assetTag || "").toUpperCase() === tag) ? prev : [item, ...prev]);
     setRegItemsState(prev => ({ ...prev, [tag]: rec }));
     setStandsNoEquip(prev => prev.filter(sn => sn.key !== rec.standId));
     setSelected(prev => new Set(prev).add(item.uid));
-    try {
-      { const _p = { items: { [tag]: rec }, labelIndex: { [tag]: { name: rec.label, brand: "", location: "", venueName: rec.venueName, unit: rec.unit, floor, locType: rec.locType, ts: Date.now() } } }; patchEquipDocCache(_p); if (FIREBASE_ON) setDoc(registryRef(), _p, { merge: true }).catch(() => {}); }
-    } catch {}
+    writeReg({ items: { [tag]: rec }, labelIndex: { [tag]: { name: rec.label, brand: "", location: "", venueName: rec.venueName, unit: rec.unit, floor, locType: rec.locType, ts: Date.now() } } }); // v560: through the outbox
     cacheRegItem(tag, rec);
     invalidateStand(rec.standId);
     setAddAt(null);
-    openFill(item); // brand + location right away, then "Label stuck"
+    openFill(item); // brand + location + serial right away, then "Sticker on"
   }
   const listSpotRef = useRef(null); // v553: where the stand list was (scroll + search) when a stand was opened
   function focusOnStand(st) {
@@ -20130,22 +20396,116 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
     setStandFocus(null);
     if (spot) { setLabelSearch(spot.q || ""); skipScrollAnchor(1200); requestAnimationFrame(() => requestAnimationFrame(() => { try { window.scrollTo(0, spot.y); } catch {} })); }
   }
+  // v560: the walk-through — scan the sticker on each unit. Known here → confirmed at once; listed at another stand →
+  // "it's here now?"; a new / blank sticker → "what is it?" at the open stand. The sticker scanner stays open between
+  // codes (keepOpen) and comes back after a sheet is saved.
+  const [scanMove, setScanMove] = useState(null);     // { it, to } — a scanned unit listed at another stand
+  const [scanStatus, setScanStatus] = useState("");   // the last result, shown inside the open scanner
+  const [stickerBox, setStickerBox] = useState(null); // { ids:Set, q, skip, blank }
+  const [stickerBusy, setStickerBusy] = useState("");
+  const flashFor = (msg, ms = 3500) => { setWalkFlash(msg); setTimeout(() => setWalkFlash(f => f === msg ? "" : f), ms); };
+  function scanEquipForWalk(rawTag, keep) {
+    const tag = resolveEquipTag(rawTag);
+    const sf = standFocus?.id ? (standById(standFocus.id) || standFocus) : null;
+    let it = equipItems.find(i => tagOf(i) === tag);
+    // not in this page's list yet, but the registry knows it (set up on another phone, the live copy landed since)
+    if (!it) { const r = (_equipRegCache || {})[tag]; if (r && (r.unit || r.venueName || r.label || r.name) && !isHiddenTag(_equipHiddenCache, `reg_${tag}`, tag)) { it = { ...r, label: r.label || r.name || "", brandName: r.brandName || r.brand || "", assetTag: tag, uid: `reg_${tag}`, floor: floorForStand(r.unit, r.venueName, r.floor) }; setEquipItems(prev => prev.some(i => tagOf(i) === tag) ? prev : [it, ...prev]); } }
+    // the same sticker again in this scanner session: never a second write / sheet (it was read a moment ago, or its sheet just closed)
+    const seenAt = keep ? scanHandledRef.current.get(tag) : 0;
+    if (seenAt) {
+      if (Date.now() - seenAt < 6000) return null;
+      if (it) { scanHandledRef.current.set(tag, Date.now()); return `✔ ${unitName(it)} · ${tag} — already scanned. Tap it in the list to change it.`; }
+    }
+    if (keep) { scanHandledRef.current.set(tag, Date.now()); lastScanTagRef.current = tag; }
+    const pause = () => { if (keep) { resumeScanRef.current = true; setWalkScanOpen(false); } };
+    if (it) {
+      const key = standKeyOf(it.unit, it.venueName, it);
+      const nm = unitName(it);
+      if (sf && key !== sf.id) { pause(); setScanMove({ it, to: sf }); return `↔ ${nm} is listed at ${(it.venueName || "another stand").toUpperCase()}`; }
+      if (!sf) {
+        // no stand open (the sticker's link, a scan from the form): ask where they are — never confirm it at the stand it is LISTED at
+        if (!key.startsWith("?:")) focusOnStand({ id: key, unit: it.unit, site: it.venueName, floor: it.floor, locType: it.locType });
+        setScanMove({ it, to: null, where: true, listed: key.startsWith("?:") ? null : standById(key) });
+        return `📍 ${nm} · ${tag} — where is it?`;
+      }
+      confirmUnit(it, { id: sf.id });
+      const ws = walkStatus(it);
+      const msg = `✔ ${nm} · ${tag} — here${ws.missing.length ? ` · needs ${ws.missing.join(", ")}` : ""}`;
+      flashFor(msg);
+      if (ws.missing.length) { pause(); openFill(it, { fromScan: true, standId: sf.id, venueName: sf.site || it.venueName || "", unit: (sf.unit || it.unit || "").trim(), floor: floorForStand(sf.unit, sf.site, sf.floor) || it.floor || "", locType: sf.locType || it.locType || "" }); }
+      return msg;
+    }
+    // a sticker nobody set up yet (blank, printed elsewhere, or a removed unit's)
+    pause();
+    openNewUnit(tag, sf);
+    return `🏷 New sticker ${tag} — what is it?`;
+  }
+  // "Where is it?" (no stand open) → confirmed at the stand the inspector says
+  function confirmScannedAt(it, st) {
+    confirmUnit(it, { id: st.id });
+    const ws = walkStatus(it);
+    flashFor(`✔ ${unitName(it)} · ${tagOf(it)} — here at ${String(st.site || "").toUpperCase()}${st.unit ? ` #${st.unit}` : ""}`);
+    if (ws.missing.length) openFill(it, { fromScan: true, standId: st.id, venueName: st.site || it.venueName || "", unit: (st.unit || it.unit || "").trim(), floor: floorForStand(st.unit, st.site, st.floor) || it.floor || "", locType: st.locType || it.locType || "" });
+  }
+  try { window.__sdxWalkScan = raw => walkScanCode(raw); } catch {}
   function walkScanCode(raw) {
-    setWalkScanOpen(false);
+    const keep = walkScanOpen === "stickers";
+    if (!keep) setWalkScanOpen(false);
     const st = parseStandQr(raw);
     const tag = String(/[?&]equip=/.test(String(raw || "")) ? extractEquipTag(raw) : (st?.equip || (/^SDX-/i.test(String(raw || "").trim()) ? String(raw).trim() : ""))).toUpperCase();
-    if (tag) {
-      const it = equipItems.find(i => String(i.assetTag || "").toUpperCase() === tag);
-      if (it) { openFill(it); return; }
-      // A label we don't know yet (printed elsewhere) — register it from the QR's own details
-      const meta = metaFromEquipQr(raw) || {};
-      const item = { uid: `reg_${tag}`, assetTag: tag, label: meta.label || (coldTypeFromTag(tag) === "freezer" ? "Freezer 🧊 Freezer" : "Cooler ❄ Cooler"), venueName: meta.venueName || "", unit: meta.unit || "", floor: floorFromUnit(meta.unit) || meta.floor || "", locType: meta.locType || "", location: meta.kitchenArea || "", brandName: meta.brand || "" };
-      setEquipItems(prev => [item, ...prev]);
-      openFill(item);
-      return;
+    if (tag) { const m = scanEquipForWalk(tag, keep); if (m != null) setScanStatus(m); return; }
+    if (st && (st.unit || st.site)) { focusOnStand({ unit: st.unit, site: st.site, floor: st.floor, locType: st.loctype }); setScanStatus(`📍 ${st.site || "Stand"}${st.unit ? ` #${st.unit}` : ""} — now scan its stickers`); return; }
+    const m = "⚠️ That code isn't an equipment sticker or a stand QR.";
+    if (keep) setScanStatus(m); else flashFor(m, 4000);
+  }
+  // ── v560: equipment stickers (Avery 5163 / 8163, 2" × 4") ──
+  const KIND_ORDER = EQUIP_KINDS.map(k => k.k);
+  function stickerLabelsFor(stIds) {
+    const want = new Set(stIds);
+    const rows = [];
+    for (const it of equipItems) {
+      const key = standKeyOf(it.unit, it.venueName, it);
+      if (!want.has(key)) continue;
+      const st = standById(key);
+      rows.push({ tag: tagOf(it), kind: kindOf(it), name: unitName(it), stand: String(st?.site || it.venueName || "").toUpperCase(), unit: st?.unit || it.unit || "", brand: it.brandName || "", serial: it.serial || "", _st: st || { site: it.venueName, unit: it.unit, floor: it.floor } });
     }
-    if (st && (st.unit || st.site)) { focusOnStand({ unit: st.unit, site: st.site, floor: st.floor, locType: st.loctype }); return; }
-    setWalkFlash("⚠️ That code isn't an equipment label or a stand QR."); setTimeout(() => setWalkFlash(""), 4000);
+    return rows.filter(r => r.tag).sort((a, b) => standPrintOrder(a._st, b._st) || KIND_ORDER.indexOf(a.kind) - KIND_ORDER.indexOf(b.kind) || a.name.localeCompare(b.name)).map(({ _st, ...r }) => r);
+  }
+  async function printStickers(labels, skip = 0) {
+    if (!labels.length) return;
+    setStickerBusy(`Making ${labels.length} QR code${labels.length !== 1 ? "s" : ""}…`);
+    flashFor(`🖨 Making ${labels.length} sticker${labels.length !== 1 ? "s" : ""}…`, 2500);
+    // v560: a tag goes on paper only once the registry holds it — a unit known only from a report would get its number
+    // from the report order, and a later report could hand that number to another unit
+    try {
+      const items = {}, labelIndex = {};
+      for (const l of labels) {
+        if (l.blank || regItemsState[l.tag]) continue;
+        const it = equipItems.find(i => tagOf(i) === l.tag); if (!it) continue;
+        const p = placeEquip(it);
+        const rec = { assetTag: l.tag, kind: kindOf(it), label: it.label || equipLabelFor(unitName(it), kindOf(it)), venueName: String(it.venueName || "").toUpperCase(), unit: (it.unit || "").trim(), floor: it.floor || floorForStand(it.unit, it.venueName, it.floor), locType: it.locType || "", location: it.location || "", brandName: it.brandName || "", standId: p.sure ? p.id : (it.standId || ""), createdAt: Date.now(), createdBy: byName(), printedAt: Date.now() };
+        items[l.tag] = rec; labelIndex[l.tag] = { name: rec.label, brand: rec.brandName, location: rec.location, venueName: rec.venueName, unit: rec.unit, floor: rec.floor, locType: rec.locType, standId: rec.standId, ts: Date.now() };
+      }
+      if (Object.keys(items).length) {
+        writeReg({ items, labelIndex });
+        for (const [T, rec] of Object.entries(items)) cacheRegItem(T, rec);
+        setRegItemsState(prev => ({ ...prev, ...items }));
+      }
+    } catch {}
+    try {
+      const QR = await getQRCode();
+      const qr = {};
+      for (const l of labels) qr[l.tag] = await QR.toDataURL(equipStickerUrl(l.tag), { width: 300, margin: 1, errorCorrectionLevel: "M", color: { dark: "#000000", light: "#ffffff" } });
+      const html = equipStickerSheetHtml(labels, qr, { skip });
+      try { window.__sdxLastStickerHtml = html; window.__sdxLastStickerLabels = labels; } catch {}
+      printHtml(html, `equipment-stickers-${new Date().toISOString().slice(0, 10)}.html`);
+      flashFor(`🖨 ${labels.length} sticker${labels.length !== 1 ? "s" : ""} · ${Math.ceil((labels.length + skip) / 10)} sheet${Math.ceil((labels.length + skip) / 10) !== 1 ? "s" : ""} — print at 100% (Actual size).`, 6000);
+    } catch { alert("Could not build the stickers."); }
+    setStickerBusy("");
+  }
+  function blankStickers(n) {
+    const batch = Date.now().toString(36).toUpperCase().slice(-5);
+    return Array.from({ length: Math.max(1, Math.min(200, n | 0)) }, (_, i) => ({ tag: `SDX-N${batch}-${String(i + 1).padStart(2, "0")}`, kind: "other", name: "", stand: "", unit: "", blank: true }));
   }
   // v518: how many "not sure" units list this stand as a possible home
   const nearUnsure = key => { if (!key || key.startsWith("?:")) return 0; let n = 0; for (const it of equipItems) { const p = placeEquip(it); if (!p.sure && p.cands.some(k => k.id === key)) n++; } return n; };
@@ -20160,16 +20520,17 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
       const byStand = new Map(); const unsure = [];
       for (const it of equipItems) { const p = placeEquip(it); if (p.sure && standById(p.id)) { if (!byStand.has(p.id)) byStand.set(p.id, []); byStand.get(p.id).push({ it, p }); } else unsure.push({ it, p }); }
       const ws = wb.addWorksheet("By stand");
-      ws.columns = [{ header: "Floor", key: "floor", width: 12 }, { header: "Stand", key: "site", width: 28 }, { header: "Unit #", key: "unit", width: 9 }, { header: "Stand type", key: "type", width: 20 }, { header: "Equipment", key: "name", width: 24 }, { header: "Cooler / Freezer", key: "cf", width: 14 }, { header: "Brand", key: "brand", width: 16 }, { header: "Location", key: "loc", width: 20 }, { header: "Tag", key: "tag", width: 18 }, { header: "How we know", key: "how", width: 26 }, { header: "Confirmed on walk", key: "conf", width: 16 }, { header: "Stand verified", key: "ver", width: 16 }];
+      ws.columns = [{ header: "Floor", key: "floor", width: 12 }, { header: "Stand", key: "site", width: 28 }, { header: "Unit #", key: "unit", width: 9 }, { header: "Stand type", key: "type", width: 20 }, { header: "Equipment", key: "name", width: 24 }, { header: "Cooler / Freezer", key: "cf", width: 14 }, { header: "Brand", key: "brand", width: 16 }, { header: "Location", key: "loc", width: 20 }, { header: "Tag", key: "tag", width: 18 }, { header: "How we know", key: "how", width: 26 }, { header: "Confirmed on walk", key: "conf", width: 16 }, { header: "Stand verified", key: "ver", width: 16 },
+        { header: "Kind", key: "kind", width: 16 }, { header: "Serial #", key: "serial", width: 18 }, { header: "Model", key: "model", width: 14 }, { header: "Moved", key: "moved", width: 40 }]; // v560: at the END (earlier columns keep their place)
       head(ws);
       for (const k of [...standList].sort(standPrintOrder)) {
         const rows = (byStand.get(k.id) || []).sort((a, b) => cleanName(a.it.label).localeCompare(cleanName(b.it.label)));
         const v = regVerified[k.id];
         const base = { floor: floorForStand(k.unit, k.site, k.floor) || "", site: String(k.site || "").toUpperCase(), unit: k.unit || "", type: k.locType || "", ver: v ? `YES · ${fmtAt(v.at)}` : "" };
-        if (!rows.length) { const r = ws.addRow({ ...base, name: "— no cooler / freezer on file —" }); r.font = { italic: true, color: { argb: "FF6B7280" } }; continue; }
-        for (const { it, p } of rows) ws.addRow({ ...base, name: cleanName(it.label), cf: typeOf(it) === "freezer" ? "Freezer" : "Cooler", brand: it.brandName || "", loc: it.location || "", tag: it.assetTag || "", how: EQ_HOW[p.why] || "", conf: unitConfirmed(it) ? "YES" : "" });
+        if (!rows.length) { const r = ws.addRow({ ...base, name: "— no equipment on file —" }); r.font = { italic: true, color: { argb: "FF6B7280" } }; continue; }
+        for (const { it, p } of rows) ws.addRow({ ...base, name: unitName(it), cf: equipIsCold(it, it.assetTag) ? (typeOf(it) === "freezer" ? "Freezer" : "Cooler") : "—", brand: it.brandName || "", loc: it.location || "", tag: it.assetTag || "", how: EQ_HOW[p.why] || "", conf: unitConfirmed(it) ? "YES" : "", kind: equipKindLabel(kindOf(it)), serial: it.serial || "", model: it.model || "", moved: (Array.isArray(it.moves) ? it.moves : []).map(m => `${m.from} → ${m.to} (${new Date(m.at).toLocaleDateString()})`).join(" · ") });
       }
-      ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: 12 } };
+      ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: 16 } };
       const wu = wb.addWorksheet("Not sure");
       wu.columns = [{ header: "Name written on it", key: "name", width: 28 }, { header: "Unit #", key: "unit", width: 9 }, { header: "Equipment", key: "eq", width: 24 }, { header: "Brand", key: "brand", width: 16 }, { header: "Location", key: "loc", width: 20 }, { header: "Tag", key: "tag", width: 18 }, { header: "Why not sure", key: "why", width: 50 }, { header: "Possible stands", key: "cands", width: 48 }];
       head(wu);
@@ -20180,7 +20541,7 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
       const wsum = wb.addWorksheet("Summary");
       wsum.columns = [{ header: "Stand", key: "site", width: 28 }, { header: "Unit #", key: "unit", width: 9 }, { header: "Floor", key: "floor", width: 12 }, { header: "Coolers", key: "c", width: 9 }, { header: "Freezers", key: "f", width: 9 }, { header: "Confirmed", key: "conf", width: 11 }, { header: "Not sure at this unit #", key: "near", width: 20 }, { header: "Verified", key: "ver", width: 14 }];
       head(wsum);
-      for (const k of [...standList].sort(standPrintOrder)) { const rows = byStand.get(k.id) || []; wsum.addRow({ site: String(k.site || "").toUpperCase(), unit: k.unit || "", floor: floorForStand(k.unit, k.site, k.floor) || "", c: rows.filter(x => typeOf(x.it) !== "freezer").length, f: rows.filter(x => typeOf(x.it) === "freezer").length, conf: rows.filter(x => unitConfirmed(x.it)).length, near: nearUnsure(k.id) || "", ver: regVerified[k.id] ? fmtAt(regVerified[k.id].at) : "" }); }
+      for (const k of [...standList].sort(standPrintOrder)) { const rows = byStand.get(k.id) || []; wsum.addRow({ site: String(k.site || "").toUpperCase(), unit: k.unit || "", floor: floorForStand(k.unit, k.site, k.floor) || "", c: rows.filter(x => kindOf(x.it) === "cooler").length, f: rows.filter(x => kindOf(x.it) === "freezer").length, conf: rows.filter(x => unitConfirmed(x.it)).length, near: nearUnsure(k.id) || "", ver: regVerified[k.id] ? fmtAt(regVerified[k.id].at) : "" }); }
       wsum.addRow({}); wsum.addRow({ site: `TOTAL — ${equipItems.length - unsure.length} placed · ${unsure.length} not sure` }).font = { bold: true };
       const buf = await wb.xlsx.writeBuffer();
       downloadBlob(new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }), `equipment-by-stand-${new Date().toISOString().slice(0, 10)}.xlsx`);
@@ -20197,12 +20558,13 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
         { header: "Equipment", key: "name", width: 24 }, { header: "Type", key: "type", width: 9 }, { header: "Tag", key: "tag", width: 18 },
         { header: "Brand", key: "brand", width: 16 }, { header: "Location", key: "loc", width: 20 }, { header: "Label stuck", key: "stuck", width: 12 }, { header: "Missing", key: "missing", width: 18 },
         { header: "Confirmed", key: "confirmed", width: 12 }, { header: "Stand verified", key: "verified", width: 16 },
+        { header: "Kind", key: "kind", width: 16 }, { header: "Serial #", key: "serial", width: 18 }, { header: "Model", key: "model", width: 14 }, // v560
       ];
       ws.getRow(1).font = { bold: true };
       const vOf = it => regVerified[standKeyOf(it.unit, it.venueName, it)];
       const fmtAt = ms => ms ? new Date(ms).toLocaleDateString() : "";
       const sorted = [...equipItems].filter(it => !verifyOnly || vOf(it)).sort((a, b) => (floorFromUnit(a.unit) || a.floor || "").localeCompare(floorFromUnit(b.unit) || b.floor || "") || (a.unit || "").localeCompare(b.unit || "", undefined, { numeric: true }) || (a.label || "").localeCompare(b.label || ""));
-      for (const it of sorted) { const st = walkStatus(it); ws.addRow({ floor: floorForStand(it.unit, it.venueName, it.floor), site: it.venueName || "", unit: it.unit || "", name: cleanName(it.label), type: typeOf(it) === "freezer" ? "Freezer" : "Cooler", tag: it.assetTag, brand: it.brandName || "", loc: it.location || "", stuck: st.stuck ? "YES" : "", missing: st.missing.join(", "), confirmed: unitConfirmed(it) ? "YES" : "", verified: vOf(it) ? `YES · ${fmtAt(vOf(it).at)}` : "" }); }
+      for (const it of sorted) { const st = walkStatus(it); ws.addRow({ floor: floorForStand(it.unit, it.venueName, it.floor), site: it.venueName || "", unit: it.unit || "", name: unitName(it), type: equipIsCold(it, it.assetTag) ? (typeOf(it) === "freezer" ? "Freezer" : "Cooler") : "—", kind: equipKindLabel(kindOf(it)), serial: it.serial || "", model: it.model || "", tag: it.assetTag, brand: it.brandName || "", loc: it.location || "", stuck: st.stuck ? "YES" : "", missing: st.missing.join(", "), confirmed: unitConfirmed(it) ? "YES" : "", verified: vOf(it) ? `YES · ${fmtAt(vOf(it).at)}` : "" }); }
       for (const sn of standsNoEquip) { const v = regVerified[sn.key]; if (verifyOnly && !v) continue; ws.addRow({ floor: sn.floor || "", site: sn.venueName || "", unit: sn.unit || "", name: v ? "(verified — no cold equipment)" : "(no cooler / freezer yet)", missing: v ? "" : "add units", verified: v ? `YES · ${fmtAt(v.at)}` : "" }); }
       const buf = await wb.xlsx.writeBuffer();
       downloadBlob(new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }), `Equipment-Setup-Walk-${new Date().toISOString().slice(0, 10)}.xlsx`);
@@ -20215,11 +20577,12 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
       <div key={it.uid} className="unitRowWrap">
       <button type="button" className={"walkRow" + (st.complete ? " done" : "")} onClick={() => openFill(it)}>
         <span className="walkRowIcon">{st.complete ? "✅" : st.stuck ? "🏷" : "⬜"}</span>
-        <span className="walkRowName">{cleanName(it.label) || (typ === "freezer" ? "Freezer" : "Cooler")}</span>
-        <span className="walkRowType">{typ === "freezer" ? "🧊" : "❄"}</span>
-        <span className="walkRowMeta">{[it.brandName, it.location].filter(Boolean).join(" · ") || "—"}</span>
+        <span className="walkRowName">{unitName(it)}</span>
+        <span className="walkRowType" title={equipKindLabel(kindOf(it))}>{kindIcon(it)}</span>
+        <span className="walkRowMeta">{[it.brandName, it.location, it.serial ? `S/N ${it.serial}` : ""].filter(Boolean).join(" · ") || "—"}</span>
         {st.missing.length > 0 && <span className="walkMissing">needs {st.missing.join(", ")}</span>}
         <span className="walkRowTag">{it.assetTag}</span>
+        {lastMoveTxt(it) && <span className="walkMoved" data-testid="eq-moved">{lastMoveTxt(it)}</span>}
         {it.changedBy && it.changedAt && Date.now() - it.changedAt < 45 * 864e5 && <span className="walkChanged" title={new Date(it.changedAt).toLocaleString()}>✋ {it.changeNote || "changed"} · {it.changedBy} · {new Date(it.changedAt).toLocaleDateString([], { month: "short", day: "numeric" })}</span>}
       </button>
       <button type="button" className="unitRowTemps" title="Temperature history" onClick={() => setHistoryTag(it.assetTag)}>📈</button>
@@ -20235,10 +20598,11 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
     return (
       <div key={it.uid} className={"walkRow verifyRow" + (ok ? " ok" : "")}>
         <span className="walkRowIcon">{ok ? "✅" : "⬜"}</span>
-        <span className="walkRowName">{cleanName(it.label) || (typ === "freezer" ? "Freezer" : "Cooler")}</span>
-        <span className="walkRowType">{typ === "freezer" ? "🧊 Freezer" : "❄ Cooler"}</span>
-        <span className="walkRowMeta">{[it.brandName, it.location].filter(Boolean).join(" · ") || "no brand / location"}</span>
+        <span className="walkRowName">{unitName(it)}</span>
+        <span className="walkRowType">{kindIcon(it)} {equipKindLabel(kindOf(it))}</span>
+        <span className="walkRowMeta">{[it.brandName, it.location, it.serial ? `S/N ${it.serial}` : "no serial yet"].filter(Boolean).join(" · ")}</span>
         <span className="walkRowTag" style={{ marginLeft: 0 }}>{it.assetTag}</span>
+        {ok && regConfirmed[tagOf(it)]?.by && <span className="walkMoved">✔ {regConfirmed[tagOf(it)].by} · {new Date(regConfirmed[tagOf(it)].at).toLocaleDateString([], { month: "short", day: "numeric" })}</span>}
         <span className="verifyActs">
           {ok
             ? <button type="button" className="verifyAct" onClick={() => unconfirmUnit(it)}>↩ Undo</button>
@@ -20254,10 +20618,12 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
   // Opened from a stand (QR / poster / form) → focus it once the list is loaded
   useEffect(() => {
     if (loading || !focusStand || focusAppliedRef.current) return;
+    if (focusStand.scanTag && refreshing) return; // v560: wait for the cloud copy — a unit set up on another phone is not a "new sticker"
     focusAppliedRef.current = true;
+    if (focusStand.scanTag) { const T = String(focusStand.scanTag).toUpperCase(); onFocusUsed && onFocusUsed(); if (focusStand.id || focusStand.unit || focusStand.site) focusOnStand(focusStand); setTimeout(() => scanEquipForWalk(T, false), 50); return; } // a sticker scanned in the form / opened from its link — used once
     focusOnStand(focusStand);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, focusStand]);
+  }, [loading, refreshing, focusStand]);
 
   // Create equipment manually — stored in the venue registry, no inspection needed
   async function addEquipment() {
@@ -20419,7 +20785,6 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
   // re-downloaded the ~800 KB registry three times per open.
   const skipNextLoadRef = useRef(false);
   const cacheShownRef = useRef(false);
-  const [refreshing, setRefreshing] = useState(false);
   const [loadStats, setLoadStats] = useState("");
   useEffect(() => {
     if (skipNextLoadRef.current) { skipNextLoadRef.current = false; return; }
@@ -20427,6 +20792,7 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
     const dayOf = ms => { const d = new Date(ms); const pad = n => String(n).padStart(2, "0"); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
     const plusDays = (day, n) => { const d = new Date(day + "T12:00:00"); d.setDate(d.getDate() + n); return dayOf(d.getTime()); };
     const applyReg = reg => {
+      if (reg.aliases) setEquipAliases(reg.aliases); // v560
       setRegItemsState(reg.items || {});
       const su = reg.setup || {}; setRegSetup(su); persistSetupLocal(su);
       const v = canonKeys(reg.verified || {}); setRegVerified(v); persistVerified(v);
@@ -20456,6 +20822,23 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
           const noEquipSeen = new Set();
           const isRealUnit = v => !!(v && !v.notApplicable && (String(v.tempF ?? "").trim() || v.brand || (v.assetTag && String(v.assetTag).trim()) || v.count || v.label || (v.status && v.status !== "OK") || (v.notes || "").trim() || (v.photos || []).length));
           const validTag = t => { const x = String(t || "").trim().toUpperCase(); return x && !/^CUSTOM_/.test(x) && !coldMapGet(x.toLowerCase()) && x !== "COOLERS" && x !== "FREEZER" ? x : ""; };
+          // v560: a sticker carries the tag — a report-only unit must keep the number it was given the first time (the
+          // registry / index remember it by unit + stand + name), and a fresh number never takes one already in use
+          const genRe = /^SDX-(CL|FZ)-([A-Z0-9]+)-(\d+)$/;
+          const takenGen = new Set();
+          const genByName = new Map(), genByStand = new Map();
+          const nmOnly = nm => String(nm || "").replace(/\s*(❄|🧊)\s*(Cooler|Freezer)\s*$/u, "").trim().toLowerCase();
+          const nmKey = (u, site, nm, typ) => `${u}|${standSlug(site || "")}|${nmOnly(nm)}|${typ}`;
+          for (const [t0, x] of [...Object.entries(regIndex || {}), ...Object.entries(regItems || {})]) {
+            const t = String(t0).toUpperCase(); const m = genRe.exec(t); if (!m) continue;
+            takenGen.add(t);
+            const k = nmKey(m[2], x?.venueName, x?.name || x?.label, m[1]); if (!genByName.has(k)) genByName.set(k, t);
+            const sid = canonStandId(x?.standId || "") || standForStrict(m[2], x?.venueName || "")?.id || "";
+            if (sid) { const k2 = `${sid}|${nmOnly(x?.name || x?.label)}|${m[1]}`; if (!genByStand.has(k2)) genByStand.set(k2, t); }
+          }
+          // the stand's name spelled another way on a later report: the SAME stand (never a sibling at the unit #) + the unit's name
+          const knownGen = (u, site, nm, typ) => { const a = genByName.get(nmKey(u, site, nm, typ)); if (a) return a; const sid = standForStrict(u, site)?.id || ""; return sid ? (genByStand.get(`${sid}|${nmOnly(nm)}|${typ}`) || "") : ""; };
+          for (const h of Object.keys(hidden || {})) { const t = String(h).replace(/^reg_/i, "").toUpperCase(); if (genRe.test(t)) takenGen.add(t); }
           for (let rec of sortedRecs) {
             // The inspection date is the day the walk happened; savedAt is only
             // when the record was written (edits move it) — prefer the former.
@@ -20489,7 +20872,11 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
               const lbl = cleanLbl(key, val);
               const typ = (/freez|frz/i.test(lbl) || ["freezer", "walkInFreezer", "doubleDoorFreezer"].includes(key)) ? "FZ" : "CL";
               let tag = validTag(val?.assetTag);
-              if (!tag) { const counters = unitCounters[unitN] = unitCounters[unitN] || { CL: 0, FZ: 0 }; counters[typ]++; tag = `SDX-${typ}-${unitN}-${counters[typ]}`; }
+              if (!tag) {
+                const known = knownGen(unitN, rec.siteName, lbl, typ);
+                if (known && !seen.has(known)) tag = known;
+                else { const counters = unitCounters[unitN] = unitCounters[unitN] || { CL: 0, FZ: 0 }; do { counters[typ]++; tag = `SDX-${typ}-${unitN}-${counters[typ]}`; } while ((takenGen.has(tag) || seen.has(tag)) && counters[typ] < 999); }
+              }
               const dedupeId = tag;
               if (seen.has(dedupeId)) continue;
               seen.add(dedupeId);
@@ -20550,6 +20937,7 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
               if (it.locType) existing.locType = it.locType;
               if (it.standId) existing.standId = it.standId;
               if (it.unit || it.venueName) existing.floor = floorForStand(existing.unit, existing.venueName, it.floor || existing.floor);
+              for (const k of ["kind", "serial", "model", "moves", "createdAt", "createdBy", "updatedAt", "printedAt"]) if (it[k] != null && it[k] !== "") existing[k] = it[k]; // v560
               continue;
             }
             if (seen.has(tag)) continue; // already present from an inspection
@@ -20592,7 +20980,7 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
       const out = items.filter(i => !isHiddenTag(hidden, i.uid, i.assetTag));
       // v518: "to add" = every stand with no cooler / freezer SURELY placed on it (after the registry merge)
       {
-        const has = new Set(); for (const it of out) { const p = placeEquip(it); if (p.sure) has.add(p.id); }
+        const has = new Set(); for (const it of out) { const p = placeEquip(it); if (p.sure && equipIsCold(it, it.assetTag)) has.add(p.id); } // v560: a fryer sticker does not make a stand "has coolers"
         const lastByKey = {}; for (const sn of standsNoEquip) lastByKey[sn.key] = sn.last;
         const noEq = stands.filter(k => !has.has(k.id)).map(k => ({ key: k.id, venueName: k.site || "", unit: (k.unit || "").trim(), floor: floorForStand(k.unit, k.site, k.floor), locType: k.locType || "", last: lastByKey[k.id] || "" }));
         setStandsNoEquip(noEq.sort((a, b) => (a.unit || "").localeCompare(b.unit || "", undefined, { numeric: true })));
@@ -20637,7 +21025,7 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
           try {
             localStorage.setItem(EQUIP_REG_LS, JSON.stringify(_equipRegCache));
             localStorage.setItem(`sdx_equip_hidden_${VENUE_ID}`, JSON.stringify(hidden));
-            localStorage.setItem(`sdx_equip_reg_doc_${VENUE_ID}`, JSON.stringify({ items: regItems, labelIndex: regIndex, hidden, setup: reg.setup || {}, verified: reg.verified || {}, confirmed: reg.confirmed || {}, cutoffMs: reg.cutoffMs || 0, cutoffMode: reg.cutoffMode || "" }));
+            localStorage.setItem(`sdx_equip_reg_doc_${VENUE_ID}`, JSON.stringify({ items: regItems, labelIndex: regIndex, hidden, setup: reg.setup || {}, verified: reg.verified || {}, confirmed: reg.confirmed || {}, aliases: reg.aliases || {}, cutoffMs: reg.cutoffMs || 0, cutoffMode: reg.cutoffMode || "" }));
           } catch {}
           if (!live) return;
           applyReg(reg);
@@ -20709,7 +21097,7 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
   // Generate QR code data URLs for all items
   useEffect(() => {
     if (equipItems.length === 0) return;
-    if (!qrDataUrls.__enabled) { setGenerating(false); return; } // v400: no per-unit stickers — the stand poster is the QR
+    if (!qrDataUrls.__enabled) { setGenerating(false); return; } // v400: the old per-unit label grid stays off — v560 stickers print through printStickers (QRs made at print time)
     setGenerating(true);
     const urls = {};
     getQRCode().then(QR => Promise.all(
@@ -20834,8 +21222,8 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
         <div className="printHide" style={{ background: "var(--surface-1)", borderRadius: 12, padding: "1rem 1.25rem", marginBottom: "1.25rem", boxShadow: "0 1px 4px rgba(0,0,0,0.07)", ...(standFocus ? { display: "none" } : {}) }}>
           <div style={{ fontWeight: 700, fontSize: "0.95rem", color: "var(--ink-900)", marginBottom: 6 }}>How stands work</div>
           <ol style={{ margin: 0, paddingLeft: "1.25rem", color: "var(--ink-600)", fontSize: "0.85rem", lineHeight: 1.7 }}>
-            <li><strong>One QR per stand.</strong> The poster on the wall lists every cooler / freezer with its brand and where it is — no stickers on the units.</li>
-            <li>Open a stand here (or scan its QR) to keep its equipment right: name, brand, location, type, license. Then <strong>🔍 Verify walk</strong> stand by stand.</li>
+            <li><strong>One QR poster per stand + one sticker per unit.</strong> Every cooler, freezer, fryer, hood, grill, warmer, ice machine and sink gets a sticker (🏷 Stickers — Avery 2" × 4"). The sticker's QR is the unit's tag, so it still finds the unit after it moves.</li>
+            <li>The walk-through: open a stand (or scan its poster), tap <strong>📷 Scan stickers</strong> and scan each unit — it is confirmed at once; a new sticker asks what it is. Write the <strong>serial number</strong> from the nameplate: if the unit is sent to another stand, the serial finds it.</li>
             <li>Teams scan the poster to log temps for each unit and report problems — it lands in your reports instantly.</li>
           </ol>
         </div>
@@ -20933,7 +21321,7 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
                 {standQr ? <img src={standQr} alt="" width={96} height={96} /> : <div style={{ width: 96, height: 96, background: "var(--surface-2)", borderRadius: 8 }} />}
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 800, fontSize: "0.86rem" }}>🍳 Stand QR poster</div>
-                  <div style={{ fontSize: "0.76rem", color: "var(--ink-500)" }}>Teams scan it to log temps &amp; report problems. Its coolers / freezers are the labels below — one place for the whole stand.</div>
+                  <div style={{ fontSize: "0.76rem", color: "var(--ink-500)" }}>Teams scan it to log temps &amp; report problems. Each unit below has its own sticker too.</div>
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
                     <button type="button" className="lblFloorChip" disabled={!standQr} onClick={() => printStandPoster(sf, (storedStand(sf)?.license || "").trim() || lic?.license || "")}>🖨 Print poster</button>
                     {onKitchenQr && <button type="button" className="lblFloorChip" onClick={onKitchenQr}>All posters →</button>}
@@ -20941,8 +21329,10 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
                 </div>
               </div>
               <div className="standFocusActions">
-                <button type="button" className="lblFloorChip standFocusAdd" onClick={() => setAddAt(standObj)}>➕ Add cooler / freezer</button>
-                {(() => { const dups = findDuplicateUnits(its, cleanName, typeOf); return dups.length ? (
+                <button type="button" className="lblFloorChip standFocusAdd" onClick={() => setAddAt(standObj)}>➕ Add equipment</button>
+                {sf.id && <button type="button" className="lblFloorChip standFocusScan" data-testid="focus-scan-stickers" onClick={openStickerScanner}>📷 Scan stickers</button>}
+                {sf.id && its.length > 0 && <button type="button" className="lblFloorChip" data-testid="focus-stickers" disabled={!!stickerBusy} onClick={() => printStickers(stickerLabelsFor([sf.id]))}>{`🖨 ${its.length} sticker${its.length !== 1 ? "s" : ""}`}</button>}
+                {(() => { const dups = findDuplicateUnits(its, cleanName, kindOf); return dups.length ? (
                   <button type="button" className="lblFloorChip lblToAdd" onClick={() => { if (window.confirm(`Remove ${dups.length} duplicate unit${dups.length !== 1 ? "s" : ""}?\n\n${dups.map(d => `• ${cleanName(d.label)} (${d.assetTag})`).join("\n")}\n\nThe best copy of each stays.`)) dups.forEach(d => removeUnitVerify(d)); }}>🧹 Clean {dups.length} duplicate{dups.length !== 1 ? "s" : ""}</button>
                 ) : null; })()}
                 <button type="button" className="lblFloorChip" onClick={() => setWalkScanOpen(true)}>📷 Scan stand QR</button>
@@ -20959,7 +21349,7 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
                       <span>🔍 Verify this stand</span>
                       <span className="walkHeadCount">{its.length ? `${okN}/${its.length} confirmed` : "no cold equipment listed"}</span>
                     </div>
-                    <div className="verifyHint">For each unit: <b>✔ It's here</b> if it is really there, <b>✏ Fix</b> the name/brand/location, <b>🗑 Not here</b> if it is gone. Missing one? <b>➕ Add</b> it. Then mark the stand verified.</div>
+                    <div className="verifyHint">Fastest: <b>📷 Scan stickers</b> — each scan confirms that unit. Or per unit: <b>✔ It's here</b>, <b>✏ Fix</b> (name, brand, location, <b>serial</b>), <b>🗑 Not here</b> if it is gone. Missing one? <b>➕ Add equipment</b>. Then mark the stand verified.{(() => { const n = its.filter(i => !(i.serial || "").trim()).length; return n ? <span className="verifyNoSerial" data-testid="verify-no-serial"> · {n} without a serial number</span> : null; })()}</div>
                     {its.length > 0 && <div className="standFocusRows">{its.map(it => renderVerifyRow(it, sf.id ? { id: sf.id } : null))}</div>}
                     <div className="verifyFoot">
                       {v ? (
@@ -20978,7 +21368,7 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
                 );
               })()}
               {its.length === 0 ? (
-                !verifyMode && <div className="standFocusEmpty">This stand has no cooler / freezer QR yet. Tap <b>➕ Add cooler / freezer</b>, pick the unit type, fill brand + location — its label is ready to print.</div>
+                !verifyMode && <div className="standFocusEmpty">This stand has no equipment on file yet. Tap <b>➕ Add equipment</b> (or <b>📷 Scan stickers</b> with blank stickers on the units), fill brand, location and serial — then print its stickers.</div>
               ) : (
                 !verifyMode && <div className="standFocusRows">{its.map(renderWalkRow)}</div>
               )}
@@ -21003,7 +21393,7 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
         {!loading && !standFocus && equipItems.length > 0 && (
           <>
             <div className="printHide" style={{ display: "flex", alignItems: "center", gap: 12, color: "var(--ink-500)", fontSize: "0.82rem", marginBottom: 12, flexWrap: "wrap" }}>
-              <span>Every cooler / freezer per stand — open a stand to fix or verify its units</span>
+              <span>Every piece of equipment per stand — open a stand to scan its stickers, fix or verify its units</span>
               <button type="button"
                 style={{ fontSize: "0.75rem", fontWeight: 700, padding: "0.35rem 0.9rem", borderRadius: 999, border: "1.5px solid #16a34a", background: "#16a34a", color: "#fff", cursor: "pointer" }}
                 onClick={() => setShowAdd(true)}>
@@ -21235,6 +21625,7 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
                     <span className="lblFloorTotal">❄ {totalUnits} unit{totalUnits !== 1 ? "s" : ""} · {groups.length} stand{groups.length !== 1 ? "s" : ""}</span>
                     {(() => { const unsure = equipItems.filter(isUnassigned).length; const placed = equipItems.length - unsure; return <button type="button" className={"lblFloorChip eqPlacedChip" + (unsure ? " warn" : "")} data-testid="eq-placed" onClick={() => { try { document.getElementById("eq-review")?.scrollIntoView({ behavior: "smooth", block: "start" }); } catch {} }}>✓ {placed} placed{unsure ? ` · ❓ ${unsure} not sure` : ""}</button>; })()}
                     <button type="button" className="lblFloorChip" data-testid="eq-excel" disabled={eqXls} onClick={exportEquipByStand}>{eqXls ? "Building…" : "📊 Equipment by stand"}</button>
+                    <button type="button" className="lblFloorChip lblStickers" data-testid="eq-stickers" onClick={() => setStickerBox({ ids: new Set(), q: "", skip: 0, blank: "10" })}>🏷 Stickers</button>
                     {(() => { const cnt = {}; const seenK = new Set(); for (const it of equipItems) { const k = standKeyOf(it.unit, it.venueName, it); if (seenK.has(k)) continue; seenK.add(k); const g = typeGroup(typeAt(it.unit, it.venueName, it.locType)); cnt[g] = (cnt[g] || 0) + 1; } for (const sn of standsNoEquip) { if (seenK.has(sn.key)) continue; seenK.add(sn.key); const g = typeGroup(typeAt(sn.unit, sn.venueName, sn.locType)); cnt[g] = (cnt[g] || 0) + 1; }
                       let noLic = 0; const seen2 = new Set(); for (const it of equipItems) { const k = standKeyOf(it.unit, it.venueName, it); if (seen2.has(k)) continue; seen2.add(k); if (!licenseAt(it.unit, it.venueName, it.locType)) noLic++; } for (const sn of standsNoEquip) { if (seen2.has(sn.key)) continue; seen2.add(sn.key); if (!licenseAt(sn.unit, sn.venueName, sn.locType)) noLic++; }
                       return [...TYPE_CHIPS.filter(([g]) => cnt[g]).map(([g, lb]) => <button key={g} type="button" className={"lblFloorChip stTypeChip " + (typePick === g ? "on" : "")} onClick={() => setTypePick(typePick === g ? "" : g)}>{lb} {cnt[g]}</button>),
@@ -21323,35 +21714,66 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
 
       {/* Setup walk — fill one unit */}
       {fill && ReactDOM.createPortal(
-        <div style={{ position: "fixed", inset: 0, zIndex: 10000, background: "rgba(0,0,0,.6)", backdropFilter: "blur(3px)", overflowY: "auto", padding: "4vh 12px" }} onClick={() => setFill(null)}>
+        <div style={{ position: "fixed", inset: 0, zIndex: 10000, background: "rgba(0,0,0,.6)", backdropFilter: "blur(3px)", overflowY: "auto", padding: "4vh 12px" }} onClick={() => { setFill(null); resumeScan(); }}>
           <div className="card walkFill" style={{ maxWidth: 470, margin: "0 auto" }} onClick={e => e.stopPropagation()}>
             <div className="cardHeader" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
               <div className="cardTitle" style={{ minWidth: 0 }}>
                 🏷 {fill.tag}
                 <div style={{ fontSize: "0.74rem", fontWeight: 600, color: "var(--ink-500)" }}>{fill.venueName || "—"}{fill.unit ? ` · #${fill.unit}` : ""}{fill.floor ? ` · ${fill.floor}` : ""}</div>
               </div>
-              <button type="button" onClick={() => setFill(null)} style={{ background: "none", border: "none", fontSize: "1.2rem", cursor: "pointer", color: "var(--ink-400)", lineHeight: 1, padding: 4 }}>✕</button>
+              <button type="button" onClick={() => { setFill(null); resumeScan(); }} style={{ background: "none", border: "none", fontSize: "1.2rem", cursor: "pointer", color: "var(--ink-400)", lineHeight: 1, padding: 4 }}>✕</button>
             </div>
-            <div className="walkFillBody">
-              <div className="walkChips">
-                <button type="button" className={"walkChip" + (fill.type === "cooler" ? " on" : "")} onClick={() => setFill(f => ({ ...f, type: "cooler" }))}>❄ Cooler</button>
-                <button type="button" className={"walkChip" + (fill.type === "freezer" ? " on" : "")} onClick={() => setFill(f => ({ ...f, type: "freezer" }))}>🧊 Freezer</button>
+            <div className="walkFillBody" data-testid="eq-fill">
+              {fill.isNew && <div className="walkNewNote" data-testid="eq-fill-new">🏷 New sticker — what is this unit?</div>}
+              {fill.needStand ? (
+                <div className="walkStandPick" data-testid="eq-fill-stand">
+                  <label className="walkLbl">Which stand is it at?</label>
+                  <input className="input" value={fill.standQ || ""} onChange={e => setFill(f => ({ ...f, standQ: e.target.value }))} placeholder="🔎 stand name or unit #" />
+                  <div className="annStandList">
+                    {standList.filter(k => { const q = String(fill.standQ || "").trim().toLowerCase(); return q && `${k.site} ${k.unit}`.toLowerCase().includes(q); }).slice(0, 12).map(k => (
+                      <button key={k.id} type="button" className="annStand" data-testid="eq-fill-stand-row" onClick={() => setFill(f => ({ ...f, needStand: false, standId: k.id, venueName: k.site || "", unit: (k.unit || "").trim(), floor: floorForStand(k.unit, k.site, k.floor), locType: k.locType || "", err: "" }))}><span className="notranslate" translate="no">{String(k.site || "").toUpperCase()}{k.unit ? ` · #${k.unit}` : ""}</span> <StandType lt={k.locType} /></button>
+                    ))}
+                  </div>
+                  {fill.err && <div className="walkFillErr" data-testid="eq-fill-err">⚠ {fill.err}</div>}
+                </div>
+              ) : (<>
+              <label className="walkLbl">What is it?</label>
+              <div className="walkChips" data-testid="eq-fill-kinds">
+                {EQUIP_KINDS.map(k => <button key={k.k} type="button" className={"walkChip" + (fill.kind === k.k ? " on" : "")} data-testid={`eq-kind-${k.k}`} onClick={() => setFill(f => ({ ...f, kind: k.k, kindAuto: false, err: "", name: f.name && namesFor(f.kind).includes(f.name) ? "" : f.name }))}>{k.icon} {k.en}</button>)}
               </div>
               <label className="walkLbl">Equipment name</label>
-              <input className="input walkFillName" value={fill.name} placeholder="e.g. 2-Door Cooler" onChange={e => setFill(f => ({ ...f, name: e.target.value }))} />
-              <div className="walkChips">{WALK_NAMES.filter(n => (fill.type === "freezer") === /freezer/i.test(n)).map(n => <button key={n} type="button" className={"walkChip" + (fill.name === n ? " on" : "")} onClick={() => setFill(f => ({ ...f, name: n }))}>{n}</button>)}</div>
+              <input className="input walkFillName" value={fill.name} placeholder={fill.kind ? `e.g. ${namesFor(fill.kind)[0] || equipKindLabel(fill.kind)}` : "e.g. 2-Door Cooler"} onChange={e => { const v = e.target.value; setFill(f => { if (f.kind && !f.kindAuto) return { ...f, name: v }; const g = equipKindGuess(v); return { ...f, name: v, kind: g, kindAuto: !!g }; }); }} />
+              {namesFor(fill.kind).length > 0 && <div className="walkChips">{namesFor(fill.kind).map(n => <button key={n} type="button" className={"walkChip" + (fill.name === n ? " on" : "")} onClick={() => setFill(f => ({ ...f, name: n }))}>{n}</button>)}</div>}
+              <label className="walkLbl">Serial number <span className="walkLblHint">on the nameplate (side, back or inside the door)</span></label>
+              <input className="input walkFillSerial" data-testid="eq-fill-serial" value={fill.serial || ""} autoCapitalize="characters" autoCorrect="off" spellCheck={false} placeholder="e.g. 8471-2210-B" onChange={e => setFill(f => ({ ...f, serial: e.target.value, serialHit: null }))} />
+              <label className="walkLbl">Model <span className="walkLblHint">(optional)</span></label>
+              <input className="input" data-testid="eq-fill-model" value={fill.model || ""} autoCapitalize="characters" autoCorrect="off" spellCheck={false} placeholder="e.g. T-49" onChange={e => setFill(f => ({ ...f, model: e.target.value }))} />
               <label className="walkLbl">Brand</label>
               <input className="input walkFillBrand" value={fill.brand} placeholder="e.g. True" onChange={e => setFill(f => ({ ...f, brand: e.target.value }))} />
-              <div className="walkChips">{WALK_BRANDS.map(n => <button key={n} type="button" className={"walkChip" + (fill.brand === n ? " on" : "")} onClick={() => setFill(f => ({ ...f, brand: n }))}>{n}</button>)}</div>
+              {(!fill.kind || EQUIP_KIND[fill.kind]?.cold) && <div className="walkChips">{WALK_BRANDS.map(n => <button key={n} type="button" className={"walkChip" + (fill.brand === n ? " on" : "")} onClick={() => setFill(f => ({ ...f, brand: n }))}>{n}</button>)}</div>}
               <label className="walkLbl">Location in the stand</label>
               <input className="input walkFillLoc" value={fill.location} placeholder="e.g. Front line, left of register" onChange={e => setFill(f => ({ ...f, location: e.target.value }))} />
               <div className="walkChips">{WALK_LOCS.map(n => <button key={n} type="button" className={"walkChip" + (fill.location === n ? " on" : "")} onClick={() => setFill(f => ({ ...f, location: n }))}>{n}</button>)}</div>
               <div className="walkFillActions">
-                <button type="button" className="btn btnGhost" disabled={fillSaving} onClick={() => saveFill(false)}>💾 Save</button>
-                <button type="button" className="btn btnPrimary walkDoneBtn" disabled={fillSaving} onClick={() => saveFill(true)}>✅ Label stuck — done</button>
+                <button type="button" className="btn btnGhost" data-testid="eq-fill-save" disabled={fillSaving || !!fill.serialHit} onClick={() => saveFill(false)}>💾 Save</button>
+                <button type="button" className="btn btnPrimary walkDoneBtn" data-testid="eq-fill-done" disabled={fillSaving || !!fill.serialHit} onClick={() => saveFill(true)}>✅ Sticker on — done</button>
               </div>
-              {fill.stuck && <div style={{ fontSize: "0.74rem", color: "#16a34a", fontWeight: 700, marginTop: 4 }}>✅ Label already marked as stuck on this unit</div>}
+              {fill.err && <div className="walkFillErr" data-testid="eq-fill-err">⚠ {fill.err}</div>}
+              {fill.stuck && <div style={{ fontSize: "0.74rem", color: "#16a34a", fontWeight: 700, marginTop: 4 }}>✅ Sticker already marked as on this unit</div>}
+              </>)}
             </div>
+          </div>
+        </div>, document.body)}
+
+      {fill?.serialHit && ReactDOM.createPortal(
+        <div className="walkSerialSheet" onClick={e => e.stopPropagation()}>
+          <div className="walkSerialHit" data-testid="eq-serial-hit" role="alert">
+            <div><b>Serial {String(fill.serial || "").toUpperCase()}</b> is <b>{unitName(fill.serialHit.rec)}</b> ({fill.serialHit.tag}) {fill.serialHit.hidden ? "— removed from" : "at"} <span className="notranslate" translate="no">{String(fill.serialHit.rec.venueName || "another stand").toUpperCase()}{fill.serialHit.rec.unit ? ` #${fill.serialHit.rec.unit}` : ""}</span>. The same unit, moved here?</div>
+            <div className="walkFillActions">
+              <button type="button" className="btn btnGhost" data-testid="eq-serial-no" onClick={() => saveFill(false, { serialOk: true })}>No, a different unit</button>
+              <button type="button" className="btn btnPrimary" data-testid="eq-serial-yes" onClick={useSerialMatch}>↔ Yes — move it here</button>
+            </div>
+            <button type="button" className="walkSerialBack" data-testid="eq-serial-back" onClick={() => setFill(f => ({ ...f, serialHit: null }))}>Change the serial</button>
           </div>
         </div>, document.body)}
 
@@ -21362,7 +21784,7 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
             <div className="cardHeader" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
               <div className="cardTitle" style={{ minWidth: 0 }}>
                 ➕ {addAt.venueName || "Stand"}{addAt.unit ? ` · #${addAt.unit}` : ""}
-                <div style={{ fontSize: "0.74rem", fontWeight: 600, color: "var(--ink-500)" }}>{[floorFromUnit(addAt.unit) || addAt.floor, addAt.locType].filter(Boolean).join(" · ") || "Pick what this stand has"} — each tap creates a unit with its QR</div>
+                <div style={{ fontSize: "0.74rem", fontWeight: 600, color: "var(--ink-500)" }}>{[floorFromUnit(addAt.unit) || addAt.floor, addAt.locType].filter(Boolean).join(" · ") || "Pick what this stand has"} — each tap creates a unit with its own sticker tag</div>
               </div>
               <button type="button" onClick={() => setAddAt(null)} style={{ background: "none", border: "none", fontSize: "1.2rem", cursor: "pointer", color: "var(--ink-400)", lineHeight: 1, padding: 4 }}>✕</button>
             </div>
@@ -21371,15 +21793,89 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
               <div className="walkChips">{WALK_NAMES.filter(n => !/freezer/i.test(n)).map(n => <button key={n} type="button" className="walkChip" onClick={() => addUnitAtStand(addAt, n, "cooler")}>{n}</button>)}</div>
               <label className="walkLbl">🧊 Freezers</label>
               <div className="walkChips">{WALK_NAMES.filter(n => /freezer/i.test(n)).map(n => <button key={n} type="button" className="walkChip" onClick={() => addUnitAtStand(addAt, n, "freezer")}>{n}</button>)}</div>
-              <div style={{ fontSize: "0.74rem", color: "var(--ink-500)", marginTop: 6 }}>Tags are automatic: SDX-CL-{normUnit(addAt.unit) || "UNIT"}-n for coolers · SDX-FZ-{normUnit(addAt.unit) || "UNIT"}-n for freezers.</div>
+              <label className="walkLbl">🔥 Other equipment</label>
+              <div className="walkChips" data-testid="eq-add-other">{EQUIP_KINDS.filter(k => !k.cold).map(k => <button key={k.k} type="button" className="walkChip" data-testid={`eq-add-${k.k}`} onClick={() => addUnitAtStand(addAt, (KIND_NAMES[k.k] || [k.en])[0], k.k)}>{k.icon} {k.en}</button>)}</div>
+              <div style={{ fontSize: "0.74rem", color: "var(--ink-500)", marginTop: 6 }}>Tags are automatic: SDX-CL-{normUnit(addAt.unit) || "UNIT"}-n coolers · SDX-FZ freezers · SDX-FR fryers · SDX-HD hoods · SDX-GR grills · SDX-WM warmers · SDX-IM ice machines · SDX-HS hand sinks · SDX-3C 3-comp sinks · SDX-EQ other.</div>
             </div>
           </div>
         </div>, document.body)}
 
-      {walkScanOpen && (
-        <QrScanModal title="📷 Scan a label or a stand QR" hint="Scan the equipment label to fill it in — or the stand poster to open that stand."
-          onCode={walkScanCode} onClose={() => setWalkScanOpen(false)} />
-      )}
+      {walkScanOpen && (walkScanOpen === "stickers"
+        ? <QrScanModal keepOpen status={scanStatus} title={`📷 Scan the stickers${standFocus?.site ? ` · ${String(standFocus.site).toUpperCase()}${standFocus.unit ? ` #${standFocus.unit}` : ""}` : ""}`} hint="Point at each unit's sticker — every scan confirms that unit here. A new sticker asks what the unit is."
+            onCode={walkScanCode} onClose={() => { resumeScanRef.current = false; setWalkScanOpen(false); setScanStatus(""); }} />
+        : <QrScanModal title="📷 Scan a sticker or a stand QR" hint="Scan a unit's sticker to open it — or the stand poster to open that stand."
+            onCode={walkScanCode} onClose={() => setWalkScanOpen(false)} />)}
+      {scanMove && ReactDOM.createPortal(
+        <div style={{ position: "fixed", inset: 0, zIndex: 10000, background: "rgba(0,0,0,.6)", overflowY: "auto", padding: "12vh 12px" }} onClick={() => { setScanMove(null); resumeScan(); }}>
+          <div className="card walkFill" style={{ maxWidth: 440, margin: "0 auto" }} onClick={e => e.stopPropagation()} data-testid="eq-scan-move">
+            <div className="cardHeader"><div className="cardTitle">{scanMove.where ? "📍" : "↔"} {unitName(scanMove.it)} · {scanMove.it.assetTag}</div></div>
+            {scanMove.where ? (
+              <div className="walkFillBody" data-testid="eq-scan-where">
+                <div style={{ fontSize: "0.86rem", lineHeight: 1.45 }}>{scanMove.listed ? <>On file at <b className="notranslate" translate="no">{String(scanMove.listed.site || "").toUpperCase()}{scanMove.listed.unit ? ` #${scanMove.listed.unit}` : ""}</b>. Are you there now?</> : <>The app is not sure which stand it is at. Which stand are you at?</>}{scanMove.it.serial ? ` (S/N ${scanMove.it.serial})` : ""}</div>
+                <div className="walkFillActions">
+                  <button type="button" className="btn btnGhost" data-testid="eq-scan-where-other" onClick={() => { const it = scanMove.it; setScanMove(null); setMovePick({ it, q: "", confirm: true }); }}>{scanMove.listed ? "No — another stand…" : "Pick the stand…"}</button>
+                  {scanMove.listed && <button type="button" className="btn btnPrimary" data-testid="eq-scan-where-yes" onClick={() => { const { it, listed } = scanMove; setScanMove(null); confirmScannedAt(it, listed); }}>✔ Yes — it's here</button>}
+                </div>
+              </div>
+            ) : (
+            <div className="walkFillBody">
+              <div style={{ fontSize: "0.86rem", lineHeight: 1.45 }}>On file at <b className="notranslate" translate="no">{String(scanMove.it.venueName || "another stand").toUpperCase()}{scanMove.it.unit ? ` #${scanMove.it.unit}` : ""}</b>. Is it here at <b className="notranslate" translate="no">{String(scanMove.to.site || scanMove.to.venueName || "").toUpperCase()}{scanMove.to.unit ? ` #${scanMove.to.unit}` : ""}</b> now?{scanMove.it.serial ? ` (S/N ${scanMove.it.serial})` : ""}</div>
+              <div className="walkFillActions">
+                <button type="button" className="btn btnGhost" data-testid="eq-scan-move-no" onClick={() => { setScanMove(null); resumeScan(); }}>Not now</button>
+                <button type="button" className="btn btnPrimary" data-testid="eq-scan-move-yes" onClick={() => { const { it, to } = scanMove; moveUnitsToStand([it], to, `↔ ${unitName(it)} moved here — its history came with it.`); confirmTag(it.assetTag, to.id); setScanMove(null); resumeScan(); }}>↔ Yes — it's here now</button>
+              </div>
+            </div>
+            )}
+          </div>
+        </div>, document.body)}
+      {stickerBox && ReactDOM.createPortal(
+        <div style={{ position: "fixed", inset: 0, zIndex: 10000, background: "rgba(0,0,0,.6)", overflowY: "auto", padding: "4vh 12px" }} onClick={() => setStickerBox(null)}>
+          <div className="card walkFill stickerBox" style={{ maxWidth: 560, margin: "0 auto" }} onClick={e => e.stopPropagation()} data-testid="sticker-box">
+            <div className="cardHeader" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+              <div className="cardTitle">🏷 Equipment stickers<div style={{ fontSize: "0.74rem", fontWeight: 600, color: "var(--ink-500)" }}>Avery 5163 / 8163 · 2" × 4" · 10 per sheet</div></div>
+              <button type="button" onClick={() => setStickerBox(null)} style={{ background: "none", border: "none", fontSize: "1.2rem", cursor: "pointer", color: "var(--ink-400)", lineHeight: 1, padding: 4 }}>✕</button>
+            </div>
+            {(() => {
+              const withUnits = standList.filter(k => standUnits(k.id).length > 0).slice().sort(standPrintOrder);
+              const floorsS = [...new Set(withUnits.map(k => floorForStand(k.unit, k.site, k.floor) || "No floor"))].sort((a, b) => floorRank(a) - floorRank(b) || a.localeCompare(b));
+              const q = stickerBox.q.trim().toLowerCase();
+              const shownS = withUnits.filter(k => !q || `${k.site} ${k.unit}`.toLowerCase().includes(q));
+              const picked = withUnits.filter(k => stickerBox.ids.has(k.id));
+              const nUnits = picked.reduce((a, k) => a + standUnits(k.id).length, 0);
+              const sheets = n => Math.ceil((n + (stickerBox.skip | 0)) / 10);
+              const toggle = ids => setStickerBox(b => { const n = new Set(b.ids); const all = ids.every(id => n.has(id)); ids.forEach(id => all ? n.delete(id) : n.add(id)); return { ...b, ids: n }; });
+              return (
+                <div className="walkFillBody">
+                  <label className="walkLbl">Stickers for the units on file</label>
+                  <div className="walkChips">
+                    <button type="button" className="walkChip" data-testid="sticker-all" onClick={() => toggle(withUnits.map(k => k.id))}>{withUnits.length && withUnits.every(k => stickerBox.ids.has(k.id)) ? "✓ " : ""}Every stand ({withUnits.length})</button>
+                    {floorsS.map(f => { const ids = withUnits.filter(k => (floorForStand(k.unit, k.site, k.floor) || "No floor") === f).map(k => k.id); const on = ids.every(id => stickerBox.ids.has(id)); return <button key={f} type="button" className={"walkChip" + (on ? " on" : "")} data-testid="sticker-floor" onClick={() => toggle(ids)}>{on ? "✓ " : ""}🏢 {f} ({ids.length})</button>; })}
+                  </div>
+                  <input className="input" value={stickerBox.q} onChange={e => setStickerBox(b => ({ ...b, q: e.target.value }))} placeholder="🔎 stand name or unit #" />
+                  <div className="stickerStandList">
+                    {shownS.slice(0, 60).map(k => (
+                      <label key={k.id} className="stickerStandRow" data-testid="sticker-stand">
+                        <input type="checkbox" checked={stickerBox.ids.has(k.id)} onChange={() => toggle([k.id])} />
+                        <span className="notranslate" translate="no">{String(k.site || "").toUpperCase()}{k.unit ? ` · #${k.unit}` : ""}</span>
+                        <span className="stickerStandN">{standUnits(k.id).length}</span>
+                      </label>
+                    ))}
+                    {shownS.length > 60 && <div style={{ fontSize: "0.74rem", color: "var(--ink-500)" }}>…{shownS.length - 60} more — search to narrow</div>}
+                  </div>
+                  <label className="walkLbl">Skip the first labels on the sheet <span className="walkLblHint">(a sheet you already used part of)</span></label>
+                  <input className="input" data-testid="sticker-skip" type="number" min="0" max="9" inputMode="numeric" value={stickerBox.skip} onChange={e => setStickerBox(b => ({ ...b, skip: Math.max(0, Math.min(9, parseInt(e.target.value, 10) || 0)) }))} />
+                  <button type="button" className="btn btnPrimary" data-testid="sticker-print" disabled={!nUnits || !!stickerBusy} onClick={() => printStickers(stickerLabelsFor(picked.map(k => k.id)), stickerBox.skip)}>{stickerBusy || (nUnits ? `🖨 Print ${nUnits} sticker${nUnits !== 1 ? "s" : ""} · ${sheets(nUnits)} sheet${sheets(nUnits) !== 1 ? "s" : ""}` : "Pick the stands")}</button>
+                  <label className="walkLbl" style={{ marginTop: 12 }}>Blank stickers for units not in the system yet</label>
+                  <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                    <input className="input" data-testid="sticker-blank-n" type="text" inputMode="numeric" style={{ width: 90 }} value={stickerBox.blank} onChange={e => { const v = e.target.value.replace(/[^0-9]/g, "").slice(0, 3); setStickerBox(b => ({ ...b, blank: v })); }} onBlur={() => setStickerBox(b => ({ ...b, blank: String(Math.max(1, Math.min(200, parseInt(b.blank, 10) || 1))) }))} />
+                    {(() => { const bn = Math.max(0, Math.min(200, parseInt(stickerBox.blank, 10) || 0)); return <button type="button" className="btn btnGhost" data-testid="sticker-blank" disabled={!!stickerBusy || !bn} onClick={() => printStickers(blankStickers(bn), stickerBox.skip)}>🖨 Print {bn || "…"} blank sticker{bn !== 1 ? "s" : ""}</button>; })()}
+                  </div>
+                  <div style={{ fontSize: "0.74rem", color: "var(--ink-500)", lineHeight: 1.45 }}>Stick a blank one on a unit, then scan it on the walk: the app asks what it is and it becomes that unit's sticker. Print at <b>100% / Actual size</b> (not "Fit to page"), on Avery 5163 / 8163 or any 2" × 4" sheet of 10.</div>
+                </div>
+              );
+            })()}
+          </div>
+        </div>, document.body)}
       {walkFlash && <div className="walkFlash">{walkFlash}{lastRemoved && /removed from this stand/.test(walkFlash) && <button type="button" className="walkMini" style={{ marginLeft: 8 }} onClick={undoRemove}>↩ Undo</button>}{lastMoved && /^↔/.test(walkFlash) && <button type="button" className="walkMini" data-testid="eq-move-undo" style={{ marginLeft: 8 }} onClick={undoMove}>↩ Undo</button>}</div>}
       {movePick && ReactDOM.createPortal(
         <div style={{ position: "fixed", inset: 0, zIndex: 10000, background: "rgba(0,0,0,.6)", backdropFilter: "blur(3px)", overflowY: "auto", padding: "4vh 12px" }} onClick={() => setMovePick(null)}>
@@ -21392,7 +21888,7 @@ function PrintLabelsPage({ onBack, onKitchenQr, focusStand, onClearFocus }) {
               <input className="input" autoFocus value={movePick.q} onChange={e => setMovePick(m => ({ ...m, q: e.target.value }))} placeholder="🔎 stand name or unit #" />
               <div className="annStandList">
                 {standList.filter(k => { const q = movePick.q.trim().toLowerCase(); return !q || `${k.site} ${k.unit}`.toLowerCase().includes(q); }).slice(0, 40).map(k => (
-                  <button key={k.id} type="button" className="annStand" onClick={() => { moveUnitsToStand(movePick.all || [movePick.it], k); setMovePick(null); }}>{String(k.site || "").toUpperCase()}{k.unit ? ` · #${k.unit}` : ""} <StandType lt={k.locType} /></button>
+                  <button key={k.id} type="button" className="annStand" data-testid="eq-move-pick" onClick={() => { const mp = movePick; setMovePick(null); if (mp.confirm && !mp.all) { if (standKeyOf(mp.it.unit, mp.it.venueName, mp.it) !== k.id) moveUnitsToStand([mp.it], k); confirmScannedAt({ ...mp.it, standId: k.id, venueName: (k.site || "").toUpperCase(), unit: (k.unit || "").trim() }, k); return; } moveUnitsToStand(mp.all || [mp.it], k); }}>{String(k.site || "").toUpperCase()}{k.unit ? ` · #${k.unit}` : ""} <StandType lt={k.locType} /></button>
                 ))}
               </div>
             </div>
@@ -24586,6 +25082,14 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
   // Scan → the unit is open with the temp field focused. No duplicates: a tag
   // already on the form (carried over from the stand QR / last report) reuses
   // that item; an unknown tag becomes a new cooler named after its tag.
+  const handleFastScanRef = useRef(null);
+  useEffect(() => {
+    if (sectionKey !== "equipment") return;
+    const on = e => { try { handleFastScanRef.current?.(e.detail?.raw || ""); } catch {} };
+    window.addEventListener("sdx-equip-fast-scan", on);
+    return () => window.removeEventListener("sdx-equip-fast-scan", on);
+  }, [sectionKey]);
+  handleFastScanRef.current = raw => handleFastScan(raw); // the latest one (function declarations are hoisted)
   function handleFastScan(raw) {
     setFastScan(false);
     const found = lookupEquipByTag(raw, inspection);
@@ -24606,7 +25110,28 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
     // Name: from the label's QR / registry / history; else typed from the tag
     // prefix so a freezer is never called a cooler.
     const tagType = coldTypeFromTag(tag);
-    const fallbackName = tagType === "freezer" ? `Freezer ${tag}` : `Cooler ${tag}`; // unknown prefix → cooler (temp box ready)
+    // v560: what the unit IS — the registry's kind, else the tag's code. A blank sticker nobody set up adds nothing;
+    // a fryer / hood / sink sticker links to that item and never gets a temperature box.
+    const regRec = (_equipRegCache || {})[tag] || null;
+    const codeKind = EQUIP_KIND_BY_CODE[(tag.match(/^SDX-([A-Z0-9]{2})-/) || [])[1]]?.k || "";
+    const unitKind = regRec ? equipKindOf(regRec, tag) : meta ? equipKindOf(meta, tag) : (codeKind || tagType || "");
+    if (!inForm && !regRec && !meta && !unitKind) {
+      setScanNote(`🏷 Sticker ${tag} is not set up yet — set it up on the walk-through: Stands & equipment → 📷 Scan stickers.`);
+      setTimeout(() => setScanNote(""), 7000);
+      return;
+    }
+    if (unitKind && !EQUIP_KIND[unitKind]?.cold && !(inForm && "tempF" in (inspection?.[sectionKey]?.[inForm] || {}))) {
+      const nm = equipCleanName(meta?.label || regRec?.label || "") || equipKindLabel(unitKind);
+      let k2 = inForm;
+      if (!k2) for (const [k, v] of Object.entries(inspection?.[sectionKey] || {})) { if (v && !v.notApplicable && !String(v.assetTag || "").trim() && equipKindFromName(v.label || k) === unitKind) { k2 = k; break; } }
+      if (k2) { if (!String(inspection?.[sectionKey]?.[k2]?.assetTag || "").trim()) setInspection(prev => setAtPath(prev, [sectionKey, k2], { ...(getAtPath(prev, [sectionKey, k2]) || {}), assetTag: tag })); }
+      else { k2 = `custom_${Date.now()}`; setInspection(prev => setAtPath(prev, [sectionKey, k2], { status: "", notes: "", photos: [], count: "", equipSource: "Facility", label: nm, assetTag: tag, kind: unitKind, brand: meta?.brand || regRec?.brandName || "", kitchenArea: meta?.kitchenArea || regRec?.location || "" })); }
+      setScanNote(`${EQUIP_KIND[unitKind]?.icon || "🔧"} ${nm} · ${tag} — check it here (no temperature for this unit)`);
+      setTimeout(() => setScanNote(""), 6000);
+      focusEquipItem(`${sectionKey}.${k2}`);
+      return;
+    }
+    const fallbackName = (unitKind === "freezer" || tagType === "freezer") ? `Freezer ${tag}` : `Cooler ${tag}`;
     const label = meta?.label || (inForm ? (inspection?.[sectionKey]?.[inForm]?.label || inForm) : fallbackName);
     if (!key) {
       key = `custom_${Date.now()}`;
@@ -24617,7 +25142,7 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
     } else if (meta?.label && !inspection?.[sectionKey]?.[inForm]?.label) {
       setInspection(prev => setAtPath(prev, [sectionKey, inForm], { ...(getAtPath(prev, [sectionKey, inForm]) || {}), label: meta.label, brand: (getAtPath(prev, [sectionKey, inForm]) || {}).brand || meta.brand || "" }));
     }
-    const kind = (detectColdType(label) || { type: tagType })?.type;
+    const kind = unitKind === "freezer" || unitKind === "cooler" ? unitKind : (detectColdType(label) || { type: tagType })?.type;
     const where = [meta?.venueName, meta?.unit ? `#${meta.unit}` : "", floorFromUnit(meta?.unit) || meta?.floor || ""].filter(Boolean).join(" · ");
     setScanNote(`${kind === "freezer" ? "🧊" : "❄"} ${label}${where ? ` · ${where}` : ""} · ${tag}${lastTxt ? ` — last ${lastTxt}` : ""} — enter the temperature`);
     setTimeout(() => setScanNote(""), 6000);
@@ -25353,7 +25878,7 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                         {current.status && current.status !== "OK" && <button type="button" className={"specToggle" + (specOpen === it.path ? " on" : "")} onClick={() => setSpecOpen(specOpen === it.path ? null : it.path)}>🎯</button>}
                       </div>
                       {current.status && current.status !== "OK" && !(current.checklist || []).some(c => (c.comment || "").trim()) && !isSpecific(current.notes, {}, specCatForSection()).ok && <div className="specHint">⚠ Be specific: what, which part, where — tap 🎯</div>}
-                      {specOpen === it.path && <SpecificsPicker cat={specCatForSection()} units={equipUnitsAtStand(siteNumber, siteName)} value={{}} onChange={d => setInspection(prev => { const cur = getAtPath(prev, it.path) || {}; return setAtPath(prev, it.path, { ...cur, notes: appendSpec(cur.notes, { ...(cur.specDetails || {}), ...d }), specDetails: { ...(cur.specDetails || {}), ...d } }); })} lang="en" compact />}
+                      {specOpen === it.path && <SpecificsPicker cat={specCatForSection()} units={equipUnitsAtStand(siteNumber, siteName, null, { all: true })} value={{}} onChange={d => setInspection(prev => { const cur = getAtPath(prev, it.path) || {}; return setAtPath(prev, it.path, { ...cur, notes: appendSpec(cur.notes, { ...(cur.specDetails || {}), ...d }), specDetails: { ...(cur.specDetails || {}), ...d } }); })} lang="en" compact />}
                       <div className="photoRow">
                         <input ref={(el) => (fileRefs.current[key] = el)} className="fileInput" type="file" accept="image/*" multiple
                           onChange={(e) => { addPhotos(key, e.target.files, (current.photos || []).length); e.target.value = ""; }} />
@@ -25767,18 +26292,12 @@ function createEquipUnit({ label0, pre, sectionKey = "equipment", inspection, si
   let assetTag = pre?.tag || "";
   if (!assetTag && cold && sectionKey === "equipment" && (normUnit(siteNumber) || (siteName || "").trim())) {
     try {
-      const unitN = normUnit(siteNumber) || (siteName || "").replace(/[^A-Z0-9]/gi, "").toUpperCase().slice(0, 8) || "X";
-      const tagPre = `SDX-${cold.type === "freezer" ? "FZ" : "CL"}-${unitN}-`;
-      const used = new Set();
-      for (const v of Object.values(inspection?.equipment || {})) if (v?.assetTag) used.add(String(v.assetTag).toUpperCase());
-      for (const t of Object.keys(_equipRegCache || {})) used.add(String(t).toUpperCase());
-      try { for (const r of JSON.parse(localStorage.getItem(`sdx_history_cache_${VENUE_ID}`) || "[]")) for (const v of Object.values(r?.inspection?.equipment || {})) if (v?.assetTag) used.add(String(v.assetTag).toUpperCase()); } catch {}
-      let n = 1; while (used.has(tagPre + n)) n++;
-      assetTag = tagPre + n;
+      // v560: the one shared minter (this form's tags count as taken too)
+      assetTag = nextEquipTag(cold.type === "freezer" ? "freezer" : "cooler", siteNumber, siteName, Object.values(inspection?.equipment || {}).map(v => v?.assetTag));
       _freshEquipTags.add(assetTag);
       const floor = floorForStand(siteNumber, siteName, siteFloor);
       const known = standForStrict(siteNumber, siteName);
-      const rec = { assetTag, label: label + (cold.type === "freezer" ? " 🧊 Freezer" : " ❄ Cooler"), venueName: (siteName || "").trim().toUpperCase(), unit: (siteNumber || "").trim() || (known?.unit || ""), floor: floor || known?.floor || "", locType: siteLocType || known?.locType || "", standId: known?.id || "", location: "", brandName: "", createdAt: Date.now() };
+      const rec = { assetTag, label: label + (cold.type === "freezer" ? " 🧊 Freezer" : " ❄ Cooler"), venueName: (siteName || "").trim().toUpperCase(), unit: (siteNumber || "").trim() || (known?.unit || ""), floor: floor || known?.floor || "", locType: siteLocType || known?.locType || "", standId: known?.id || "", location: "", brandName: "", kind: cold.type === "freezer" ? "freezer" : "cooler", createdAt: Date.now() };
       _equipRegCache = { ...(_equipRegCache || {}), [assetTag]: rec };
       try { localStorage.setItem(EQUIP_REG_LS, JSON.stringify(_equipRegCache)); } catch {}
       { const _p = { items: { [assetTag]: rec }, labelIndex: { [assetTag]: { name: rec.label, brand: "", location: "", venueName: rec.venueName, unit: rec.unit, floor, locType: rec.locType, ts: Date.now() } } }; patchEquipDocCache(_p); if (FIREBASE_ON) setDoc(doc(db, "venues", VENUE_ID, "sharedMemory", "equipmentRegistry"), _p, { merge: true }).catch(() => {}); }
@@ -27464,8 +27983,15 @@ function HaccpChatBlock({ chatMessages, chatInput, setChatInput, chatSending, se
    Opens when a printed equipment label QR is scanned with any phone camera
    (?equip=<TAG>). Shows the unit's info and a quick temp-check form; each
    submission is saved to history so the unit's monitoring builds over time. */
-function EquipCheckPortal({ tag }) {
-  const [meta, setMeta] = useState(null);   // { label, venueName, unit, floor, location, brandName }
+function EquipCheckPortal({ tag: tag0 }) {
+  // v560: the sticker's QR holds the tag only; a second sticker on a unit points at its real tag
+  const [tag, setTag] = useState(() => resolveEquipTag(tag0));
+  const [pl, setPl] = useState(() => { try { const v = localStorage.getItem("sdx_portal_lang"); return v === "es" ? "es" : "en"; } catch { return "en"; } });
+  const L = (en, es) => pl === "es" ? es : en;
+  const setLang = v => { setPl(v); try { localStorage.setItem("sdx_portal_lang", v); } catch {} };
+  const [unknown, setUnknown] = useState(false); // a sticker nobody set up yet
+  const [removed, setRemoved] = useState(false); // the unit was taken off the stand lists
+  const [meta, setMeta] = useState(null);   // { label, venueName, unit, floor, location, brandName, kind, serial, model, standId }
   const [recent, setRecent] = useState([]); // last readings
   const [loading, setLoading] = useState(true);
   const [name, setName] = useState(() => localStorage.getItem("sdx_equip_checker") || "");
@@ -27482,41 +28008,50 @@ function EquipCheckPortal({ tag }) {
     if (url) setPhotoDataUrl(url);
   }
 
-  const isFreezer = /freezer|🧊/i.test(meta?.label || "") || coldTypeFromTag(tag) === "freezer";
+  const kind = meta?.kind || equipKindOf(meta || {}, tag);
+  const isCold = !!EQUIP_KIND[kind]?.cold;
+  const isFreezer = kind === "freezer";
   const limit = isFreezer ? 20 : 40; // same standards as the Temps tab
   const tempNum = parseFloat(temp);
   const tempOk = temp.trim() === "" ? null : !isNaN(tempNum) && tempNum <= limit;
 
   useEffect(() => {
     (async () => {
-      let m = null;
-      // Instant: the label's own QR carries its identity (v369+), else the
-      // cached registry / label index — no network needed to show the name.
-      try {
-        const q = metaFromEquipQr(window.location.href);
-        if (q && q.label) m = { label: q.label, venueName: q.venueName, unit: q.unit, floor: floorFromUnit(q.unit) || q.floor, location: q.kitchenArea, brandName: q.brand, locType: q.locType || "" };
-      } catch {}
+      let m = null, fromReg = false, T = tag, regIt = null;
+      // v560: the REGISTRY's record wins — it knows where the unit is now (a sticker printed before a move still says
+      // the old stand in an old QR). The name inside an old v369 label's QR is only the offline fallback.
+      // `sure`: the stand is certain (placement rule v518) — only then do the stand-log / problem links carry it.
+      const fromRec = it => {
+        let st = null; try { const p = placeEquip(it); if (p.sure) st = (_standListCache || []).find(k => k.id === p.id) || null; } catch {}
+        const vn = String(st?.site || it.venueName || "");
+        return { label: it.label || it.name || "", venueName: vn, unit: st?.unit || it.unit || "", floor: floorForStand(st?.unit || it.unit, st?.site || it.venueName, st?.floor || it.floor), location: it.location || "", brandName: it.brandName || it.brand || "", locType: st?.locType || it.locType || "", kind: equipKindOf(it, T), serial: it.serial || "", model: it.model || "", standId: st?.id || it.standId || "", sure: !!st && !/^UNASSIGNED$/i.test(vn.trim()) };
+      };
+      try { const it = (_equipRegCache || {})[T]; if (it) { regIt = it; m = fromRec(it); fromReg = true; if (isHiddenTag(_equipHiddenCache, `reg_${T}`, T)) setRemoved(true); } } catch {}
       if (!m) {
         try {
-          const cache = _equipRegCache || {};
-          const it = cache[tag.toUpperCase()] || cache[tag];
-          if (it) m = { label: it.label, venueName: it.venueName, unit: it.unit, floor: floorFromUnit(it.unit) || it.floor, location: it.location, brandName: it.brandName, locType: it.locType || "" };
+          const q = metaFromEquipQr(window.location.href);
+          if (q && q.label) m = { label: q.label, venueName: q.venueName, unit: q.unit, floor: floorFromUnit(q.unit) || q.floor, location: q.kitchenArea, brandName: q.brand, locType: q.locType || "" };
         } catch {}
       }
       if (m) { setMeta(m); setLoading(false); }
-      try { // shared registry (manually-created labels + label index)
+      const standsP = loadStandList().catch(() => {});
+      try { // the live registry — the card shows as soon as it answers; the stand list (where the unit IS) follows
         const snap = await getDoc(doc(db, "venues", VENUE_ID, "sharedMemory", "equipmentRegistry"));
         const d = snap.exists() ? (snap.data() || {}) : {};
-        const it = d.items?.[tag.toUpperCase()] || d.items?.[tag] || d.labelIndex?.[tag.toUpperCase()] || d.labelIndex?.[tag];
-        if (it && !m) m = { label: it.label, venueName: it.venueName, unit: it.unit, floor: floorFromUnit(it.unit) || it.floor, location: it.location, brandName: it.brandName };
+        if (d.aliases) setEquipAliases(d.aliases);
+        T = resolveEquipTag(tag0); if (T !== tag) setTag(T);
+        const it = d.items?.[T] || d.labelIndex?.[T];
+        const hid = !!(d.hidden && isHiddenTag(d.hidden, `reg_${T}`, T));
+        if (it) { regIt = { ...(d.labelIndex?.[T] || {}), ...(d.items?.[T] || {}) }; m = fromRec(regIt); fromReg = true; setMeta(m); setRemoved(hid); setUnknown(false); setLoading(false); }
       } catch {}
+      try { await standsP; if (regIt) { m = fromRec(regIt); setMeta(m); } } catch {} // offline too: the stand list (this phone's copy) places it
       try { // inspection history — also collect recent readings
         const { list } = await loadHistory(undefined, { pageSize: 500 });
         const reads = [];
         for (const rec of (list || [])) {
           const equip = rec.inspection?.equipment || {};
           for (const [k, v] of Object.entries(equip)) {
-            if ((v?.assetTag || "").trim().toUpperCase() !== tag.toUpperCase()) continue;
+            const vt = (v?.assetTag || "").trim().toUpperCase(); if (vt !== T && vt !== String(tag0 || "").toUpperCase()) continue;
             if (!m) m = { label: v.label || k, venueName: rec.siteName || "", unit: rec.siteNumber || "", floor: floorFromUnit(rec.siteNumber) || rec.floor || "", location: v.kitchenArea || "", brandName: v.brand || "" };
             if (v.tempF) reads.push({
               date: rec.inspectionDate || (rec.savedAt || "").slice(0, 10),
@@ -27533,11 +28068,17 @@ function EquipCheckPortal({ tag }) {
         reads.sort((a, b) => (b.savedAt || b.date || "").localeCompare(a.savedAt || a.date || ""));
         setRecent(reads);
       } catch {}
-      const tt = coldTypeFromTag(tag);
-      setMeta(m || { label: tt === "freezer" ? `Freezer ${tag}` : tt === "cooler" ? `Cooler ${tag}` : "Equipment", venueName: "", unit: "", floor: "", location: "", brandName: "" });
+      const tt = coldTypeFromTag(T);
+      if (!m) setUnknown(!tt); // v560: a blank / not-set-up sticker — say so instead of a made-up "Equipment"
+      setMeta(m || { label: tt === "freezer" ? `Freezer ${T}` : tt === "cooler" ? `Cooler ${T}` : "Equipment", venueName: "", unit: "", floor: "", location: "", brandName: "" });
+      if (fromReg) setUnknown(false);
       setLoading(false);
     })();
-  }, [tag]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tag0]);
+  // the stand's own log (counts in the daily temperature tracker) / a problem with this unit — the stand portal
+  const portalHref = extra => { const p = new URLSearchParams({ haccp: "1" }); if (meta?.sure && !removed) { if (meta.venueName) p.set("site", meta.venueName); if (meta.unit) p.set("unit", meta.unit); if (meta.floor) p.set("floor", meta.floor); if (meta.locType) p.set("loctype", meta.locType); } p.set("eq", tag); if (VENUE_ID && VENUE_ID !== "default") p.set("v", VENUE_ID); for (const [k, v] of Object.entries(extra || {})) p.set(k, v); return `${window.location.pathname}?${p.toString()}`; };
+  const inspectorHref = () => { const p = new URLSearchParams({ equip: tag, as: "inspector" }); if (VENUE_ID && VENUE_ID !== "default") p.set("v", VENUE_ID); return `${window.location.pathname}?${p.toString()}`; };
 
   async function submit() {
     if (!name.trim() || temp.trim() === "" || isNaN(tempNum)) return;
@@ -27554,6 +28095,7 @@ function EquipCheckPortal({ tag }) {
       siteName: meta?.venueName || (meta?.unit ? `UNIT ${meta.unit}` : "EQUIPMENT CHECK"),
       siteNumber: meta?.unit || "",
       floor: meta?.floor || "",
+      ...(meta?.standId ? { standId: meta.standId } : {}), ...(meta?.locType ? { locationType: meta.locType } : {}),
       quickEquipCheck: true,
       overallStatus: tempOk ? "Pass" : "Needs Attention", // v553: the database refuses a record without it
       inspection: {
@@ -27595,15 +28137,16 @@ function EquipCheckPortal({ tag }) {
     <div style={wrap}>
       <div style={{ ...card, textAlign: "center" }}>
         <div style={{ fontSize: "3rem", marginBottom: 8 }}>✅</div>
-        <div style={{ fontWeight: 800, fontSize: "1.15rem", color: "#111827", marginBottom: 6 }}>Reading Saved</div>
+        <div style={{ fontWeight: 800, fontSize: "1.15rem", color: "#111827", marginBottom: 6 }}>{L("Reading Saved", "Lectura guardada")}</div>
         <div style={{ fontSize: "0.9rem", color: "#555", lineHeight: 1.55 }}>
-          {tempNum}°F logged for <b>{meta?.label}</b>{meta?.venueName ? <> at <b>{meta.venueName}</b></> : null}.<br />
-          {tempOk ? "Temperature is in range. 👍" : <b style={{ color: "#dc2626" }}>Out of range — report it to your supervisor now.</b>}
+          {tempNum}°F {L("logged for", "anotado para")} <b className="notranslate" translate="no">{equipCleanName(meta?.label)}</b>{meta?.venueName ? <> {L("at", "en")} <b className="notranslate" translate="no">{meta.venueName}</b></> : null}.<br />
+          {tempOk ? L("Temperature is in range. 👍", "La temperatura está bien. 👍") : <b style={{ color: "#dc2626" }}>{L("Out of range — report it to your supervisor now.", "Fuera de rango — avísale a tu supervisor ahora.")}</b>}
         </div>
         <button type="button" onClick={() => { setDone(false); setTemp(""); setNotes(""); }}
           style={{ marginTop: 16, width: "100%", background: "#2A295C", color: "#fff", border: "none", borderRadius: 10, padding: "0.75rem", fontWeight: 800, fontSize: "0.95rem", cursor: "pointer" }}>
-          Log Another Reading
+          {L("Log Another Reading", "Anotar otra lectura")}
         </button>
+        {!tempOk && <a href={portalHref({ problem: "1" })} data-testid="eqp-problem" style={{ display: "block", marginTop: 10, background: "#fef2f2", color: "#b91c1c", border: "1.5px solid #fecaca", borderRadius: 10, padding: "0.7rem", fontWeight: 800, fontSize: "0.9rem", textDecoration: "none" }}>⚠ {L("Report the problem with this unit", "Reportar el problema de este equipo")}</a>}
       </div>
     </div>
   );
@@ -27612,48 +28155,63 @@ function EquipCheckPortal({ tag }) {
     <div style={wrap}>
       <div style={{ textAlign: "center", color: "#fff", marginBottom: 16 }}>
         <img src={resolveLogoWhite()} alt={resolveCompanyName()} style={{ height: 30, marginBottom: 8 }} />
-        <div style={{ fontWeight: 800, fontSize: "1.15rem" }}>🌡 Equipment Temp Check</div>
+        <div style={{ fontWeight: 800, fontSize: "1.15rem" }}>{isCold || loading ? `🌡 ${L("Equipment Temp Check", "Temperatura del equipo")}` : `🏷 ${L("Equipment", "Equipo")}`}</div>
         <div style={{ fontSize: "0.72rem", opacity: 0.75, marginTop: 2 }}>{resolveCompanyName()}</div>
         <div style={{ fontSize: "0.78rem", opacity: 0.7, fontFamily: "monospace", marginTop: 3 }}>{tag}</div>
+        <div className="notranslate" translate="no" style={{ display: "inline-flex", gap: 6, marginTop: 8 }}>
+          {[["en", "English"], ["es", "Español"]].map(([c, t]) => <button key={c} type="button" data-testid={`eqp-lang-${c}`} onClick={() => setLang(c)} style={{ border: "1.5px solid rgba(255,255,255,.6)", background: pl === c ? "#fff" : "transparent", color: pl === c ? "#1e1d4a" : "#fff", borderRadius: 999, padding: "0.25rem 0.8rem", fontWeight: 800, fontSize: "0.75rem", cursor: "pointer" }}>{t}</button>)}
+        </div>
       </div>
       <div style={card}>
         {loading ? (
-          <div style={{ textAlign: "center", color: "#888", padding: "1.5rem 0" }}>Loading equipment…</div>
+          <div style={{ textAlign: "center", color: "#888", padding: "1.5rem 0" }}>{L("Loading equipment…", "Cargando el equipo…")}</div>
+        ) : unknown ? (
+          <div data-testid="eqp-unknown" style={{ textAlign: "center", padding: "0.6rem 0" }}>
+            <div style={{ fontSize: "2.4rem", marginBottom: 6 }}>🏷</div>
+            <div style={{ fontWeight: 800, fontSize: "1rem", color: "#111827", marginBottom: 6 }}>{L("This sticker is not set up yet", "Esta etiqueta todavía no está registrada")}</div>
+            <div style={{ fontSize: "0.86rem", color: "#555", lineHeight: 1.5 }}>{L("The inspector sets it up with the SDX app on the walk-through.", "El inspector la registra con la app SDX en su recorrido.")}</div>
+            <a href={inspectorHref()} data-testid="eqp-inspector" style={{ display: "block", marginTop: 14, color: "#2A295C", fontWeight: 800, fontSize: "0.86rem" }}>{L("Inspector? Set it up in the app →", "¿Inspector? Regístrala en la app →")}</a>
+          </div>
         ) : (
           <>
-            <div style={{ background: "#f4f6ff", border: "1.5px solid #dbe2ff", borderRadius: 12, padding: "0.8rem 0.9rem", marginBottom: 14 }}>
-              <div style={{ fontWeight: 800, fontSize: "1rem", color: "#1e1d4a" }}>{meta.label}</div>
+            <div data-testid="eqp-card" style={{ background: "#f4f6ff", border: "1.5px solid #dbe2ff", borderRadius: 12, padding: "0.8rem 0.9rem", marginBottom: 14 }}>
+              <div style={{ fontSize: "0.7rem", fontWeight: 800, letterSpacing: "0.05em", color: "#4b5563", textTransform: "uppercase" }}>{(EQUIP_KIND[kind] || EQUIP_KIND.other).icon} {equipKindLabel(kind, pl)}</div>
+              <div className="notranslate" translate="no" data-testid="eqp-name" style={{ fontWeight: 800, fontSize: "1rem", color: "#1e1d4a" }}>{equipCleanName(meta.label) || equipKindLabel(kind, pl)}</div>
               <div style={{ fontSize: "0.8rem", color: "#555", marginTop: 3, lineHeight: 1.5 }}>
-                {meta.venueName && <><b>{meta.venueName}</b></>}{meta.unit && <> · Unit #{meta.unit}</>}{meta.floor && <> · {meta.floor}</>}{meta.locType && <> <StandType lt={meta.locType} /></>}
-                {meta.brandName && <><br />Brand: {meta.brandName}</>}{meta.location && <> · {meta.location}</>}
+                {meta.venueName && <b className="notranslate" translate="no" data-testid="eqp-stand">{meta.venueName}</b>}{meta.unit && <> · {L("Unit", "Unidad")} #{meta.unit}</>}{meta.floor && <> · {meta.floor}</>}{meta.locType && <> <StandType lt={meta.locType} /></>}
+                {meta.brandName && <><br />{L("Brand", "Marca")}: {meta.brandName}</>}{meta.location && <> · {meta.location}</>}
+                {(meta.serial || meta.model) && <><br /><span data-testid="eqp-serial">{meta.model ? `${L("Model", "Modelo")} ${meta.model}` : ""}{meta.model && meta.serial ? " · " : ""}{meta.serial ? `S/N ${meta.serial}` : ""}</span></>}
               </div>
-              <div style={{ fontSize: "0.72rem", color: "#6b7280", marginTop: 5 }}>
-                Target: <b>{limit}°F or below</b>
-              </div>
+              {removed && <div data-testid="eqp-removed" style={{ fontSize: "0.76rem", color: "#b45309", fontWeight: 700, marginTop: 5 }}>⚠ {L("This unit was taken off the stand list — tell the inspector it is here.", "Este equipo fue quitado de la lista del puesto — avísale al inspector que está aquí.")}</div>}
+              {isCold && <div style={{ fontSize: "0.72rem", color: "#6b7280", marginTop: 5 }}>
+                {L("Target", "Meta")}: <b>{limit}°F {L("or below", "o menos")}</b>
+              </div>}
             </div>
+            <a href={portalHref({ problem: "1" })} data-testid="eqp-problem" style={{ display: "block", textAlign: "center", marginBottom: 12, background: "#fef2f2", color: "#b91c1c", border: "1.5px solid #fecaca", borderRadius: 12, padding: "0.75rem", fontWeight: 800, fontSize: "0.92rem", textDecoration: "none" }}>⚠ {L("Report a problem with this unit", "Reportar un problema con este equipo")}</a>
+            {isCold && <>
 
             <div style={{ marginBottom: 12 }}>
-              <span style={lbl}>Your Name</span>
-              <input style={inp} value={name} onChange={e => setName(e.target.value)} placeholder="First and last name" />
+              <span style={lbl}>{L("Your Name", "Tu nombre")}</span>
+              <input style={inp} value={name} onChange={e => setName(e.target.value)} placeholder={L("First and last name", "Nombre y apellido")} />
             </div>
             <div style={{ marginBottom: 12 }}>
-              <span style={lbl}>Temperature (°F)</span>
+              <span style={lbl}>{L("Temperature (°F)", "Temperatura (°F)")}</span>
               <input style={{ ...inp, fontSize: "1.3rem", fontWeight: 800, textAlign: "center",
                 borderColor: tempOk === null ? "#d7dbeb" : tempOk ? "#16a34a" : "#dc2626",
                 background: tempOk === null ? "#fff" : tempOk ? "#f0fdf4" : "#fef2f2" }}
                 value={temp} onChange={e => setTemp(e.target.value)} inputMode="decimal" placeholder="38" />
               {tempOk !== null && (
                 <div style={{ marginTop: 5, fontSize: "0.8rem", fontWeight: 800, color: tempOk ? "#16a34a" : "#dc2626" }}>
-                  {tempOk ? "✓ In range" : `✗ Out of range — must be ${limit}°F or below`}
+                  {tempOk ? L("✓ In range", "✓ Bien") : L(`✗ Out of range — must be ${limit}°F or below`, `✗ Fuera de rango — debe estar a ${limit}°F o menos`)}
                 </div>
               )}
             </div>
             <div style={{ marginBottom: 12 }}>
-              <span style={lbl}>Notes (optional)</span>
-              <textarea style={{ ...inp, minHeight: 64, resize: "vertical" }} value={notes} onChange={e => setNotes(e.target.value)} placeholder="Door seal loose, ice buildup…" />
+              <span style={lbl}>{L("Notes (optional)", "Notas (opcional)")}</span>
+              <textarea style={{ ...inp, minHeight: 64, resize: "vertical" }} value={notes} onChange={e => setNotes(e.target.value)} placeholder={L("Door seal loose, ice buildup…", "Empaque de la puerta suelto, hielo acumulado…")} />
             </div>
             <div style={{ marginBottom: 14 }}>
-              <span style={lbl}>Picture (optional)</span>
+              <span style={lbl}>{L("Picture (optional)", "Foto (opcional)")}</span>
               {photoDataUrl ? (
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   <img src={photoDataUrl} alt="" style={{ width: 64, height: 64, objectFit: "cover", borderRadius: 8, border: "1.5px solid #d7dbeb" }} />
@@ -27664,7 +28222,7 @@ function EquipCheckPortal({ tag }) {
                 </div>
               ) : (
                 <label style={{ display: "block", border: "1.5px dashed #c3c9dd", borderRadius: 10, padding: "0.7rem", textAlign: "center", fontSize: "0.85rem", fontWeight: 700, color: "#4b5563", cursor: "pointer", background: "#fafbff" }}>
-                  📷 Add Photo
+                  📷 {L("Add Photo", "Agregar foto")}
                   <input type="file" accept="image/*" capture="environment" style={{ display: "none" }}
                     onChange={e => { onPickPhoto(e.target.files?.[0]); e.target.value = ""; }} />
                 </label>
@@ -27673,15 +28231,17 @@ function EquipCheckPortal({ tag }) {
             <button type="button" disabled={submitting || !name.trim() || temp.trim() === "" || isNaN(tempNum)} onClick={submit}
               style={{ width: "100%", background: "#EE0000", color: "#fff", border: "none", borderRadius: 12, padding: "0.85rem", fontWeight: 800, fontSize: "1rem", cursor: "pointer",
                 opacity: submitting || !name.trim() || temp.trim() === "" || isNaN(tempNum) ? 0.5 : 1 }}>
-              {submitting ? "Saving…" : "✓ Save Reading"}
+              {submitting ? L("Saving…", "Guardando…") : `✓ ${L("Save Reading", "Guardar lectura")}`}
             </button>
+            <a href={portalHref()} data-testid="eqp-portal" style={{ display: "block", textAlign: "center", marginTop: 10, color: "#2A295C", fontWeight: 700, fontSize: "0.8rem" }}>{L("Doing the stand's daily temperature log? Open it here →", "¿Haces el registro diario del puesto? Ábrelo aquí →")}</a>
+            </>}
 
             {recent.length > 0 && (() => {
               const th = { padding: "6px 6px", fontSize: "0.62rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.05em", color: "#4b5563", background: "#eef1f8", border: "1px solid #d0d5e2", textAlign: "left", position: "sticky", top: 0 };
               const td = { padding: "6px 6px", fontSize: "0.76rem", border: "1px solid #e0e4ef", verticalAlign: "top" };
               return (
                 <div style={{ marginTop: 16 }}>
-                  <div style={{ ...lbl, marginBottom: 6 }}>Temperature History ({recent.length})</div>
+                  <div style={{ ...lbl, marginBottom: 6 }}>{L("Temperature History", "Historial de temperaturas")} ({recent.length})</div>
                   <div style={{ maxHeight: 330, overflowY: "auto", border: "1.5px solid #d0d5e2", borderRadius: 8 }}>
                     <table style={{ width: "100%", borderCollapse: "collapse", fontVariantNumeric: "tabular-nums" }}>
                       <thead>
@@ -27726,6 +28286,7 @@ function EquipCheckPortal({ tag }) {
                 <img src={photoView} alt="" style={{ maxWidth: "100%", maxHeight: "90vh", borderRadius: 10 }} />
               </div>
             )}
+            <a href={inspectorHref()} data-testid="eqp-inspector" style={{ display: "block", textAlign: "center", marginTop: 16, color: "#6b7280", fontWeight: 700, fontSize: "0.78rem" }}>{L("Inspector? Open this unit in the app →", "¿Inspector? Abre este equipo en la app →")}</a>
           </>
         )}
       </div>
@@ -27743,6 +28304,8 @@ function HaccpPortal() {
   const urlReportId = urlParams.get("rid")     || ""; // inspector report this HACCP log belongs to
   const urlCoolers = urlParams.get("coolers") === "1"; // v468: the inspector asked for cooler / freezer temps
   const urlWaste = urlParams.get("waste") === "1"; // v558: a link that opens the food waste log
+  const urlEq = (urlParams.get("eq") || "").trim().toUpperCase(); // v560: from a unit's sticker — open that unit's row
+  const urlProblem = urlParams.get("problem") === "1";            // v560: …or report a problem with that unit
   const urlName = (urlParams.get("n") || "").trim(), urlPhone = (urlParams.get("p") || "").trim(); // v470: texted link already knows who they are
 
   // If QR has site info pre-filled, the step order is: "ident" → "location" → "form" → "done"
@@ -27829,7 +28392,8 @@ function HaccpPortal() {
   async function eqOpenMove(item) { let stands = _standListCache; try { stands = await loadStandList(); } catch {} setEqMove({ key: item.key, q: "", stands: (stands || []).slice().sort(standPrintOrder) }); }
   function eqMoveTo(item, target) {
     const base = eqRecFor(item);
-    const rec = { ...base, venueName: (target.site || "").toUpperCase(), unit: (target.unit || "").trim(), floor: floorForStand(target.unit, target.site, target.floor) || "", locType: target.locType || "", standId: target.id, ...eqStamp(L(`moved here from ${(locSite || "").toUpperCase()}${locUnit ? ` #${locUnit}` : ""} by the stand`, `movido aquí desde ${(locSite || "").toUpperCase()}${locUnit ? ` #${locUnit}` : ""} por el puesto`)) };
+    const was = { ...base, ...((_equipRegCache || {})[item.tag] || {}) };
+    const rec = { ...base, moves: equipMovesAfter(was, { venueName: target.site, unit: target.unit, standId: target.id }, `${(supName || "").trim().toUpperCase() || "SUPERVISOR"} (stand QR)`), venueName: (target.site || "").toUpperCase(), unit: (target.unit || "").trim(), floor: floorForStand(target.unit, target.site, target.floor) || "", locType: target.locType || "", standId: target.id, ...eqStamp(L(`moved here from ${(locSite || "").toUpperCase()}${locUnit ? ` #${locUnit}` : ""} by the stand`, `movido aquí desde ${(locSite || "").toUpperCase()}${locUnit ? ` #${locUnit}` : ""} por el puesto`)) };
     eqWrite(item.tag, rec);
     setCustomItems(prev => prev.filter(i => i.key !== item.key)); setEqMove(null);
     setEqFlash(L(`Moved to ${target.site}${target.unit ? ` #${target.unit}` : ""}.`, `Movido a ${target.site}${target.unit ? ` #${target.unit}` : ""}.`)); setTimeout(() => setEqFlash(""), 3000);
@@ -27845,10 +28409,8 @@ function HaccpPortal() {
   function eqSaveAdd() {
     const a = eqAdd; if (!a || !a.name.trim()) return;
     const name = a.name.trim().toUpperCase().replace(/\s*(❄|🧊)\s*(Cooler|Freezer)\s*$/u, ""); const fz = /freez|congel|🧊/i.test(name);
-    const unitN = normUnit(locUnit) || (locSite || "").replace(/[^A-Z0-9]/gi, "").toUpperCase().slice(0, 8) || "X";
-    const typ = fz ? "FZ" : "CL"; let n = 1; const reg = _equipRegCache || {}; while (reg[`SDX-${typ}-${unitN}-${n}`] || customItems.some(i => i.tag === `SDX-${typ}-${unitN}-${n}`)) n++;
-    const tag = `SDX-${typ}-${unitN}-${n}`;
-    const rec = { assetTag: tag, label: `${name}${fz ? " 🧊 Freezer" : " ❄ Cooler"}`, brandName: a.brand.trim().toUpperCase(), location: a.location.trim().toUpperCase(), venueName: (locSite || "").trim().toUpperCase(), unit: (locUnit || "").trim(), floor: (locFloor || "").trim(), locType: (locType || "").trim(), standId: standForStrict(locUnit, locSite)?.id || "", createdAt: Date.now(), ...eqStamp(L("added by the stand", "agregado por el puesto")) };
+    const tag = nextEquipTag(fz ? "freezer" : "cooler", locUnit, locSite, customItems.map(i => i.tag)); // v560: the one shared minter
+    const rec = { assetTag: tag, kind: fz ? "freezer" : "cooler", label: `${name}${fz ? " 🧊 Freezer" : " ❄ Cooler"}`, brandName: a.brand.trim().toUpperCase(), location: a.location.trim().toUpperCase(), venueName: (locSite || "").trim().toUpperCase(), unit: (locUnit || "").trim(), floor: (locFloor || "").trim(), locType: (locType || "").trim(), standId: standForStrict(locUnit, locSite)?.id || "", createdAt: Date.now(), ...eqStamp(L("added by the stand", "agregado por el puesto")) };
     eqWrite(tag, rec);
     setCustomItems(prev => [...prev, { key: `eq:${tag}`, label: `${name}${rec.brandName ? ` · ${rec.brandName}` : ""}`, hint: rec.location, unit: "°F", type: "cold", max: fz ? 20 : 40, tag }]);
     setEqAdd(null); setEqFlash(L(`${name} added — log its temperature below.`, `${name} agregado — registre su temperatura abajo.`)); setTimeout(() => setEqFlash(""), 3500);
@@ -27884,11 +28446,13 @@ function HaccpPortal() {
   // { key: string, label: string, unit: "°F", type: "hot"|"cold", min?: number, max?: number }
   // v400: the stand poster is the only QR — its coolers / freezers become the
   // temp rows automatically (name · brand · where it is), one line each.
+  const [eqRegLoaded, setEqRegLoaded] = useState(false); // v560: the &eq link acts once the registry is here
   useEffect(() => {
     if (!locUnit && !locSite) return;
     let live = true;
     Promise.all([warmEquipRegistry().catch(() => {}), loadStandList().catch(() => {})]).then(() => {
       if (!live) return;
+      setEqRegLoaded(true);
       const eq = equipUnitsAtStand(locUnit, locSite);
       const st = standForStrict(locUnit, locSite);
       setEqUnsureN(equipUnsureNear(locUnit, st));
@@ -27950,6 +28514,35 @@ function HaccpPortal() {
   const [problemAction, setProblemAction] = useState("");   // v439 — what did you do
   const [problemProof, setProblemProof] = useState([]);
   const [problemDetails, setProblemDetails] = useState({}); // v415: which unit / part / where
+  // v560: the units at this stand that have no temperature (fryers, hoods, sinks…) — they are "which unit" chips too
+  const otherUnitsHere = (() => { try { return equipUnitsAtStand(locUnit, locSite, null, { all: true }).filter(u => !EQUIP_KIND[u.kind]?.cold); } catch { return []; } })();
+  const eqLinkDoneRef = useRef(false);
+  useEffect(() => {
+    if (step !== "form" || !urlEq || eqLinkDoneRef.current) return;
+    const T = resolveEquipTag(urlEq);
+    const row = customItems.find(i => String(i.tag || "").toUpperCase() === T);
+    const other = row ? null : otherUnitsHere.find(u => String(u.tag).toUpperCase() === T);
+    if (!row && !other) {
+      if (!eqRegLoaded) return; // the stand's units are still loading
+      const timer = setTimeout(() => { // loaded and the unit is not at this stand — open the problem path without a unit
+        if (eqLinkDoneRef.current) return; eqLinkDoneRef.current = true;
+        if (urlProblem) { setProblemCat(c => c || "Equipment"); try { document.querySelector(".supCatChips")?.scrollIntoView({ block: "center" }); } catch {} }
+      }, 800);
+      return () => clearTimeout(timer);
+    }
+    eqLinkDoneRef.current = true;
+    if (urlProblem || !row) {
+      const u = row ? { name: row.label, location: row.hint } : { name: other.name, brand: other.brand, location: other.location };
+      setProblemCat(c => c || "Equipment");
+      setProblemDetails(d => d.unit ? d : { ...d, unit: `${u.name}${u.brand ? ` · ${u.brand}` : ""}${u.location ? ` · ${u.location}` : ""}`.toUpperCase() });
+      try { setProblemSpecOpen(true); } catch {} // the unit chip shows already picked
+      setTimeout(() => { try { document.querySelector(".supCatChips")?.scrollIntoView({ block: "center" }); } catch {} }, 500);
+      return;
+    }
+    setOpenTemp(p => { const n = new Set(p); n.add(row.key); return n; });
+    setTimeout(() => { try { document.querySelector(`[data-ht="${row.key}"]`)?.scrollIntoView({ block: "center" }); } catch {} }, 500);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, customItems, eqRegLoaded]);
   // v467: what the app understood from the description (chips under the box)
   const [problemNlu, setProblemNlu] = useState(null);
   const nluTouched = useRef({}); // fields the person set by hand — never overridden
@@ -29316,7 +29909,7 @@ function HaccpPortal() {
                   placeholder={problemOnly ? L("What is wrong and where?", "¿Qué está mal y dónde?") : L("Describe any issue, equipment problem, or safety concern...", "Describe cualquier problema, falla de equipo o riesgo...")} />
                 {/* v458 — the chip block is optional and hidden until asked for */}
                 {problemCat && (problemSpecOpen
-                  ? <SpecificsPicker cat={problemCat} units={customItems.filter(i => i.tag).map(i => ({ name: i.label, location: i.hint }))} value={problemDetails} onChange={d => { setProblemDetails(d); if (problemError) setProblemError(""); }} lang={pl} optional />
+                  ? <SpecificsPicker cat={problemCat} units={[...customItems.filter(i => i.tag).map(i => ({ name: i.label, location: i.hint })), ...otherUnitsHere.map(u => ({ name: u.name, brand: u.brand, location: u.location }))]} value={problemDetails} onChange={d => { setProblemDetails(d); if (problemError) setProblemError(""); }} lang={pl} optional />
                   : <button type="button" className="specOptLink" onClick={() => setProblemSpecOpen(true)}>＋ {L("Add details (optional)", "Agregar detalles (opcional)")}</button>)}
                 {problemNlu && understoodChips(problemNlu, pl).length > 0 && (
                   <div className="nluStrip">
@@ -30493,6 +31086,8 @@ export default function App() {
     goPage(to);
   }
   const [labelsFocus, setLabelsFocus] = useState(null); // { unit, site, floor, locType, from } — open Equipment Labels on one stand
+  // v560: a sticker link opened as inspector → after the badge, Stands & equipment with that unit open
+  const equipLinkDoneRef = useRef(false);
   const [equipFocus, setEquipFocus] = useState(null); // { id, unit, site } — open the Equipment tab on one stand
   const [historyEntry, setHistoryEntry] = useState(null); // { tab, sub } — deep link into HistoryPage tabs
   const [fuHistoryTick, setFuHistoryTick] = useState(0);  // bumped when the warm history cache lands
@@ -31881,7 +32476,17 @@ export default function App() {
     setScanStandOpen(false);
     const st = parseStandQr(raw);
     if (!st) { setScanFlash("⚠️ That code isn't a stand QR. Scan the poster on the stand, or type the unit #."); setTimeout(() => setScanFlash(""), 5000); return; }
-    if (st.equip) { setScanFlash("🏷 That's an equipment label — open Menu → Equipment Scanner for temp checks."); setTimeout(() => setScanFlash(""), 6000); return; }
+    if (st.equip) {
+      // v560: an equipment sticker — on a report with its stand, the unit goes onto the form (Equipment step); with no
+      // stand yet, the walk-through opens that unit (where it is, confirm, fix)
+      if (siteName.trim() || siteNumber.trim()) {
+        try { const pid = 2; const i = GUIDE_ORDER.indexOf(pid); if (i >= 0) setGuideStep(i); } catch {}
+        setTimeout(() => { try { window.dispatchEvent(new CustomEvent("sdx-equip-fast-scan", { detail: { raw } })); } catch {} }, 200);
+        return;
+      }
+      try { window.dispatchEvent(new CustomEvent("sdx-open-stand-equipment", { detail: { scanTag: resolveEquipTag(st.equip), unit: "", site: "" } })); } catch {} // setPage is guarded (an unsaved report asks first)
+      return;
+    }
     // v553: another stand = another report. The open one is saved first (or the box says why it can't
     // be yet), then a fresh report opens for the scanned stand.
     if (hasContentRef.current && (siteName.trim() || siteNumber.trim())) {
@@ -31945,13 +32550,27 @@ export default function App() {
   useEffect(() => {
     const onOpen = (e) => {
       const d = e.detail || {};
-      setLabelsFocus({ id: d.id || standForStrict(d.unit ?? siteNumber, d.site ?? siteName)?.id || "", unit: d.unit ?? siteNumber ?? "", site: d.site ?? siteName ?? "", floor: floorFromUnit(d.unit ?? siteNumber) || d.floor || floor || "", locType: d.locType ?? locationType ?? "", from: "inspector" });
+      setLabelsFocus({ id: d.id || standForStrict(d.unit ?? siteNumber, d.site ?? siteName)?.id || "", unit: d.unit ?? siteNumber ?? "", site: d.site ?? siteName ?? "", floor: floorFromUnit(d.unit ?? siteNumber) || d.floor || floor || "", locType: d.locType ?? locationType ?? "", from: "inspector", ...(d.scanTag ? { scanTag: d.scanTag } : {}) });
       setPage("print_labels");
       window.scrollTo({ top: 0 });
     };
     window.addEventListener("sdx-open-stand-equipment", onOpen);
     return () => window.removeEventListener("sdx-open-stand-equipment", onOpen);
   }, [siteNumber, siteName, floor, locationType]);
+  useEffect(() => {
+    if (locked || equipLinkDoneRef.current || !EQUIP_OPEN_AS_INSPECTOR) return;
+    equipLinkDoneRef.current = true;
+    const role = String(currentUser?.role || "");
+    if (!["inspector", "admin", "global_admin", "location_manager"].includes(role)) {
+      // crews / guests: the sticker page (log a temp, report a problem), never the registry editor
+      try { const q = new URLSearchParams({ equip: EQUIP_PORTAL_TAG }); if (VENUE_ID && VENUE_ID !== "default") q.set("v", VENUE_ID); window.location.replace(`${window.location.pathname}?${q.toString()}`); } catch {}
+      return;
+    }
+    setLabelsFocus({ id: "", unit: "", site: "", floor: "", locType: "", from: "inspector", scanTag: resolveEquipTag(EQUIP_PORTAL_TAG) });
+    // after the draft restore (it runs in the same flush and opens the form) — the sticker's unit is what was asked for
+    setTimeout(() => { setPage("print_labels"); try { cleanUrlKeepVenue(); } catch {} }, 60);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [locked]);
 
   // Pre-fill form from share URL params (runs once on mount)
   useEffect(() => {
@@ -31971,7 +32590,9 @@ export default function App() {
     if (p.has("date"))      setInspectionDate(p.get("date"));
     if (QR_OPEN_AS_INSPECTOR) applyStandFromQr(QR_STAND);
     // Clean URL without reloading — skip if this is the HACCP portal (params needed for HaccpPortal)
-    if (p.toString() && !(IS_HACCP_PORTAL && !QR_OPEN_AS_INSPECTOR)) cleanUrlKeepVenue();
+    // v560: a sticker link keeps its address too (the auto-update reload landed a camera scan on the sign-in screen);
+    // the inspector's sticker link is cleaned once it has opened the unit
+    if (p.toString() && !(IS_HACCP_PORTAL && !QR_OPEN_AS_INSPECTOR) && !EQUIP_PORTAL_TAG) cleanUrlKeepVenue();
   }, []);
 
   // Warn before leaving with unsaved work (v495: anything dirty, not only notes)
@@ -32673,7 +33294,7 @@ export default function App() {
   // Supervisor HACCP portal — IS_HACCP_PORTAL is captured at module load from the original URL,
   // so replaceState() cleaning the URL after mount never causes this check to flip to false.
   if (IS_HACCP_PORTAL && !QR_OPEN_AS_INSPECTOR) return <HaccpPortal />;
-  if (EQUIP_PORTAL_TAG) return <EquipCheckPortal tag={EQUIP_PORTAL_TAG} />;
+  if (EQUIP_PORTAL_TAG && !EQUIP_OPEN_AS_INSPECTOR) return <EquipCheckPortal tag={EQUIP_PORTAL_TAG} />;
 
   const inviteRole = INVITE_TOKEN ? (Object.entries(venueSettings?.inviteTokens || {}).find(([, t]) => t === INVITE_TOKEN)?.[0] || "") : "";
   if (locked) return <BadgeScreen inviteRole={inviteRole} crewNotice={crewNotice} onUnlock={(user) => {
@@ -32836,7 +33457,7 @@ export default function App() {
   if (page === "mytemps" && currentUser?.role === "location_manager")           { return <MyTempsPage currentUser={currentUser} onBack={() => setPage("inspector")} />; }
   if (page === "equipment") { AIEngine.trackPage("equipment"); return <EquipmentPage currentUser={currentUser} onBack={() => setPage("inspector")} focusStand={equipFocus} onOpenLabels={(st) => { setLabelsFocus({ id: st?.id || "", unit: st?.unit || "", site: st?.site || "", floor: st?.floor || floorForStand(st?.unit, st?.site, st?.floor), locType: st?.locType || "", from: "equipment" }); setPage("print_labels"); }} />; }
   if (page === "equipment_scanner") { return <EquipmentScannerPage onBack={() => setPage("inspector")} onPrintLabels={() => setPage("print_labels")} onKitchenQr={() => setPage("kitchen_qr")} />; }
-  if (page === "print_labels")      { return <PrintLabelsPage onBack={() => { setPage(labelsFocus?.from || "inspector"); setLabelsFocus(null); }} onKitchenQr={() => setPage("kitchen_qr")} focusStand={labelsFocus} onClearFocus={() => setLabelsFocus(null)} />; }
+  if (page === "print_labels")      { return <PrintLabelsPage onBack={() => { setPage(labelsFocus?.from || "inspector"); setLabelsFocus(null); }} onKitchenQr={() => setPage("kitchen_qr")} focusStand={labelsFocus} onClearFocus={() => setLabelsFocus(null)} onFocusUsed={() => setLabelsFocus(f => f && f.scanTag ? (({ scanTag, ...rest }) => rest)(f) : f)} />; }
   if (page === "kitchen_qr")        { return <KitchenQrPage onBack={() => setPage("inspector")} onPrintLabels={() => setPage("print_labels")} onStandEquipment={(k) => { setLabelsFocus({ id: k.id || "", unit: k.unit || "", site: k.site || "", floor: floorForStand(k.unit, k.site, k.floor), locType: k.locType || "", from: "kitchen_qr" }); setPage("print_labels"); }} />; }
 
   const spec = NOTE_TYPES[noteType];

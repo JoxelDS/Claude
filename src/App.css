@@ -10354,3 +10354,31 @@ html[data-theme="black"] .wasteStandAmt, html[data-theme="dark"] .wasteStandAmt 
 .haccpShiftNotice { font-size: 0.8rem; font-weight: 800; color: #1e3a8a; background: #dbeafe; border: 1px solid #93c5fd; border-radius: 10px; padding: 6px 10px; margin-bottom: 6px; }
 /* "📣 Request temps" and "📣 sent 1:23 AM" take the same room — the row no longer rewraps (and moves the list) when a reminder goes out */
 .haccpStandRow .haccpReqBtn:not(.haccpReqAll):not(.haccpReqSms) { min-width: 11.4em; white-space: nowrap; text-align: center; flex-shrink: 0; }
+
+/* v560: equipment stickers + serial numbers */
+.walkMoved { display: inline-block; font-size: 0.7rem; font-weight: 700; color: #1d4ed8; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 999px; padding: 1px 8px; }
+.walkNewNote { font-size: 0.86rem; font-weight: 800; color: #1e2a4a; background: #eef2ff; border: 1.5px solid #c7d2fe; border-radius: 10px; padding: 8px 12px; }
+.walkStandPick { display: flex; flex-direction: column; gap: 6px; }
+.walkLblHint { font-weight: 500; color: var(--ink-500); text-transform: none; letter-spacing: 0; font-size: 0.72rem; }
+.walkSerialHit { display: flex; flex-direction: column; gap: 8px; font-size: 0.84rem; line-height: 1.45; color: #92400e; background: #fffbeb; border: 1.5px solid #fcd34d; border-radius: 10px; padding: 10px 12px; }
+.walkFillErr { font-size: 0.8rem; font-weight: 800; color: #b91c1c; }
+.walkFillSerial { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; letter-spacing: 0.03em; }
+.qrScanStatus { margin: 8px 0 0; font-size: 0.86rem; font-weight: 800; color: #14532d; background: #dcfce7; border: 1px solid #86efac; border-radius: 10px; padding: 8px 10px; min-height: 2.6em; display: flex; align-items: center; }
+.stickerStandList { display: flex; flex-direction: column; gap: 2px; max-height: 38vh; overflow-y: auto; border: 1px solid var(--sdx-gray-200, #e5e7eb); border-radius: 10px; padding: 4px; }
+.stickerStandRow { display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 4px 8px; border-radius: 8px; font-size: 0.84rem; font-weight: 700; cursor: pointer; }
+.stickerStandRow input { width: 20px; height: 20px; flex: none; }
+.stickerStandN { margin-left: auto; font-size: 0.74rem; font-weight: 800; color: var(--ink-500); background: var(--surface-2, #f3f4f6); border-radius: 999px; padding: 1px 8px; }
+.verifyNoSerial { color: #b45309; font-weight: 800; }
+.lblStickers, .standFocusScan { background: #1e2a4a; color: #fff; border-color: #1e2a4a; }
+:root[data-theme="black"] .walkMoved, :root[data-theme="dark"] .walkMoved { color: #bfdbfe; background: rgba(59, 130, 246, 0.18); border-color: rgba(147, 197, 253, 0.4); }
+:root[data-theme="black"] .walkNewNote, :root[data-theme="dark"] .walkNewNote { color: #e0e7ff; background: rgba(99, 102, 241, 0.2); border-color: rgba(165, 180, 252, 0.4); }
+:root[data-theme="black"] .walkSerialHit, :root[data-theme="dark"] .walkSerialHit { color: #fde68a; background: rgba(245, 158, 11, 0.16); border-color: rgba(252, 211, 77, 0.45); }
+:root[data-theme="black"] .qrScanStatus, :root[data-theme="dark"] .qrScanStatus { color: #bbf7d0; background: rgba(22, 163, 74, 0.2); border-color: rgba(134, 239, 172, 0.45); }
+:root[data-theme="black"] .lblStickers, :root[data-theme="black"] .standFocusScan { background: #9DB8F5; color: #0b1220; border-color: #9DB8F5; }
+/* v560 review: the sticker scanner's result line has a fixed slot (nothing above Go moves when a result comes in) */
+.qrScanStatusSlot { height: 3.2em; min-height: 3.2em; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; align-items: initial; padding-top: 6px; padding-bottom: 6px; }
+.qrScanStatusSlot:empty { background: transparent; border-color: transparent; }
+/* the serial question sits at the bottom of the screen, over the Fix sheet */
+.walkSerialSheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 10001; padding: 10px 12px calc(12px + env(safe-area-inset-bottom)); background: linear-gradient(to top, rgba(0,0,0,0.35), rgba(0,0,0,0)); }
+.walkSerialSheet .walkSerialHit { max-width: 470px; margin: 0 auto; box-shadow: 0 -6px 24px rgba(0,0,0,0.25); }
+.walkSerialBack { align-self: flex-start; background: none; border: none; padding: 6px 0; min-height: 36px; font: inherit; font-weight: 700; color: inherit; text-decoration: underline; cursor: pointer; }
