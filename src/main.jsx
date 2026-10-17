@@ -218,6 +218,10 @@ window.__sdxShowUpdateBanner = showUpdateBanner; // harness hook
 let _updating = false;
 function applyUpdateNow() {
   if (_updating) return;
+  // v562: the stand portal and the sticker page never reload themselves. A supervisor in the middle of a log got
+  // the browser's "Reload site? Changes may not be saved" question and lost what was typed. A scan is always a
+  // fresh page load, so the next scan opens the new version (the new service worker is already active).
+  if (window.__sdxPortalOpen) return;
   _updating = true;
   const strip = document.createElement("div");
   strip.className = "swUpdatingStrip";

@@ -27986,6 +27986,7 @@ function HaccpChatBlock({ chatMessages, chatInput, setChatInput, chatSending, se
    (?equip=<TAG>). Shows the unit's info and a quick temp-check form; each
    submission is saved to history so the unit's monitoring builds over time. */
 function EquipCheckPortal({ tag: tag0 }) {
+  React.useEffect(() => { window.__sdxPortalOpen = true; return () => { window.__sdxPortalOpen = false; }; }, []); // v562: no self-reload mid-visit
   // v560: the sticker's QR holds the tag only; a second sticker on a unit points at its real tag
   const [tag, setTag] = useState(() => resolveEquipTag(tag0));
   const [pl, setPl] = useState(() => { try { const v = localStorage.getItem("sdx_portal_lang"); return v === "es" ? "es" : "en"; } catch { return "en"; } });
@@ -28297,6 +28298,8 @@ function EquipCheckPortal({ tag: tag0 }) {
 }
 
 function HaccpPortal() {
+  // v562: a new version never reloads the stand portal mid-visit (main.jsx applyUpdateNow); the next scan opens it
+  React.useEffect(() => { window.__sdxPortalOpen = true; return () => { window.__sdxPortalOpen = false; }; }, []);
   // Read location info embedded in the QR URL
   const urlParams = new URLSearchParams(window.location.search);
   const urlSite     = urlParams.get("site")    || "";
@@ -28560,27 +28563,24 @@ function HaccpPortal() {
   const chatListRef = useRef(null);
   const chatPrevCountRef = useRef(0);
 
-  // Lock the page while the supervisor is filling in the form — prevents accidental back-button exits
+  // Lock the page while the supervisor is filling in the form — prevents accidental back-button exits.
+  // v562: no browser pop-ups. The old "Leave site? / Reload site?" (beforeunload) and the back-button alert
+  // ("Don't close this page…") came up as a question in the middle of a log (a new version reloading the page
+  // set it off by itself) — and they were wrong: every logged reading is sent at once (v507 auto-send, also on
+  // pagehide). Back now stays on the page and says so in a line above Submit.
+  const [backNote, setBackNote] = useState(false);
   useEffect(() => {
     if (step !== "form") return;
     // Push an extra history entry so the back button comes back here instead of leaving
     window.history.pushState({ haccpLock: true }, "");
+    let t = null;
     function handlePop() {
       // Re-push so every back-button press bounces back
       window.history.pushState({ haccpLock: true }, "");
-      // Show a gentle native alert (won't block the UI thread like confirm())
-      alert("⚠️ Don't close this page — your temperature log hasn't been submitted yet.\n\nFinish entering your readings and tap \"Submit Log\" to save.");
-    }
-    function handleBeforeUnload(e) {
-      e.preventDefault();
-      e.returnValue = "";
+      setBackNote(true); clearTimeout(t); t = setTimeout(() => setBackNote(false), 6000);
     }
     window.addEventListener("popstate", handlePop);
-    window.addEventListener("beforeunload", handleBeforeUnload);
-    return () => {
-      window.removeEventListener("popstate", handlePop);
-      window.removeEventListener("beforeunload", handleBeforeUnload);
-    };
+    return () => { clearTimeout(t); window.removeEventListener("popstate", handlePop); };
   }, [step]);
 
   // Load chat scoped to this report (urlReportId), so supervisor and inspector share the same thread
@@ -29223,7 +29223,7 @@ function HaccpPortal() {
             {LocationBanner}
             {/* v556: TodayStatus moved under Continue — it arrives seconds late and pushed the name box (and the inspector link) under the finger */}
             <a href={qrStandUrl("inspector")} className="haccpInspectorLink">
-              {L("🕵 Inspector? Open the inspection form for this stand →", "🕵 ¿Inspector? Abre el formulario de inspección de este puesto →")}
+              {L("🕵 For the inspector: open the inspection form for this stand →", "🕵 Para el inspector: abrir el formulario de inspección de este puesto →")}
             </a>
             <label className="field" style={{ margin: 0 }}>
               <span className="fieldLabel">{L("Your Name", "Tu nombre")} <span style={{ color: "#ef4444" }}>*</span></span>
@@ -29993,6 +29993,7 @@ function HaccpPortal() {
               {/* v558 review: a blocked Submit says why right above the button (the line at the end of the waste section can be off screen) */}
               {wasteErr && <div className="haccpProblemErr wasteErrSticky" data-testid="waste-err-sticky">{wasteErr} — <a href="#" onClick={e => { e.preventDefault(); const el = document.querySelector('[data-testid=waste-row-missing]')?.closest('[data-waste-row]'); el?.scrollIntoView({ behavior: "smooth", block: "start" }); }}>{L("go to it", "ir ahí")}</a></div>}
               {shiftNotice && <div className="haccpShiftNotice" data-testid="shift-notice">{shiftNotice}</div>}
+              {backNote && <div className="haccpBackNote" data-testid="portal-back-note">{L("You are still on the log. Readings you logged are already sent — tap Submit when you finish.", "Sigue en el registro. Las lecturas que registró ya se enviaron — toque Enviar cuando termine.")}</div>}
               {autoSent && (
                 <div className="haccpAutoSent" data-testid="auto-sent">
                   {L("✓ Sent to the inspector", "✓ Enviado al inspector")}{autoSent.temps ? ` · ${autoSent.temps} ${autoSent.temps === 1 ? L("temp", "temperatura") : L("temps", "temperaturas")}` : ""}{autoSent.supplies ? ` · ${autoSent.supplies} ${L("supplies", "suministros")}` : ""}{autoSent.waste ? ` · 🗑 ${autoSent.waste} ${L(autoSent.waste === 1 ? "waste item" : "waste items", "desperdicio")}` : ""} · {new Date(autoSent.at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}

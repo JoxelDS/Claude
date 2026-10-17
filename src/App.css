@@ -10425,3 +10425,4 @@ html[data-theme="black"] .wasteStandAmt, html[data-theme="dark"] .wasteStandAmt 
 .haccpCard .haccpRemoveReadingBtn { color: #6b7280; }
 .haccpCard .haccpEmptyChat { color: #4b5563; }
 .haccpCard .specHead, .haccpCard .specLbl { color: #5b6475; }
+.haccpBackNote { font-size: .82rem; font-weight: 700; color: #1e3a8a; background: #eff6ff; border: 1px solid #93c5fd; border-radius: 8px; padding: 6px 10px; margin-bottom: 8px; text-align: center; }
