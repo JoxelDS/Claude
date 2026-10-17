@@ -8331,6 +8331,9 @@ html[data-theme="dark"] .fuStOnWaiting, html[data-theme="black"] .fuStOnWaiting 
   pointer-events: none;
 }
 .langFabWrap > * { pointer-events: auto; }
+/* v558 review: the stand portal sets --sdx-fab-lift = its sticky Submit bar's height, so the button stays above the bar
+   (its "✓ Sent" strip, a blocked Submit's reason and the "go to it" link) instead of covering them */
+.langFabWrap { bottom: max(calc(max(14px, env(safe-area-inset-bottom)) + 64px), calc(var(--sdx-fab-lift, 0px) + 10px)); }
 .langFab {
   display: inline-flex;
   align-items: center;
@@ -10290,6 +10293,11 @@ html[data-theme="black"] .leaveGuardWhySaving { background: #0f1b33; color: #bfd
 .wasteRow { border: 1.5px solid #d5d9e2; border-radius: 12px; padding: 10px; margin-bottom: 10px; background: #fff; }
 .wasteRow.done { border-color: #86efac; background: #f6fef9; }
 .wasteRowHead { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; color: #1e2a4a; font-size: .86rem; }
+/* v558 review: what a half-filled row still needs, after a blocked Submit — one line of fixed height (it turns green
+   instead of going away, so the chips under it never move while they are tapped) */
+.wasteRowMissing { display: block; box-sizing: border-box; height: 30px; line-height: 20px; margin: 0 0 6px; padding: 4px 10px; border-radius: 8px; font-size: .8rem; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
+.wasteRowMissing.ok { background: #dcfce7; color: #15803d; border-color: #86efac; }
+.haccpStickySubmit .haccpProblemErr.wasteErrSticky { margin: 0 0 8px; background: #fef2f2; color: #b91c1c; border-color: #fecaca; }
 .wasteX { width: 40px; height: 40px; border-radius: 10px; border: 1px solid #d5d9e2; background: #f7f8fa; color: #6b7280; font-weight: 800; }
 .wasteLbl { font-size: .74rem; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; color: #6b7280; margin: 10px 0 5px; }
 .wasteChips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
@@ -10328,8 +10336,9 @@ html[data-theme="black"] .leaveGuardWhySaving { background: #0f1b33; color: #bfd
 .wasteFlagPill-ok { background: #dcfce7; color: #15803d; }
 .wasteEmpty { font-size: .84rem; color: var(--ink-500, #64748b); font-style: italic; padding: 8px 2px; }
 @media (max-width: 560px) { .wasteStandHead, .wasteItemRow, .wasteFlagRow { grid-template-columns: 1fr; } .wasteStandAmt { text-align: left; } }
-[data-theme="dark"] .wasteFlag-never, [data-theme="midnight"] .wasteFlag-never, [data-theme="noir"] .wasteFlag-never, [data-theme="black"] .wasteFlag-never { background: rgba(185,28,28,.15); border-color: rgba(248,113,113,.4); }
-[data-theme="dark"] .wasteFlag-missed, [data-theme="midnight"] .wasteFlag-missed, [data-theme="noir"] .wasteFlag-missed, [data-theme="black"] .wasteFlag-missed { background: rgba(180,83,9,.15); border-color: rgba(252,211,77,.4); }
-[data-theme="dark"] .wastePillWarn, [data-theme="midnight"] .wastePillWarn, [data-theme="noir"] .wastePillWarn, [data-theme="black"] .wastePillWarn { background: rgba(185,28,28,.18); color: #fca5a5; border-color: rgba(248,113,113,.4); }
-[data-theme="dark"] .wasteXls, [data-theme="midnight"] .wasteXls, [data-theme="noir"] .wasteXls, [data-theme="black"] .wasteXls { background: rgba(22,163,74,.15); color: #86efac; }
-[data-theme="dark"] .wasteStandAmt, [data-theme="midnight"] .wasteStandAmt, [data-theme="noir"] .wasteStandAmt, [data-theme="black"] .wasteStandAmt { color: #5eead4; }
+/* v558 review: only the black theme has dark cards — Midnight and Noir are light themes (white cards) */
+html[data-theme="black"] .wasteFlag-never, html[data-theme="dark"] .wasteFlag-never { background: rgba(185,28,28,.15); border-color: rgba(248,113,113,.4); }
+html[data-theme="black"] .wasteFlag-missed, html[data-theme="dark"] .wasteFlag-missed { background: rgba(180,83,9,.15); border-color: rgba(252,211,77,.4); }
+html[data-theme="black"] .wastePillWarn, html[data-theme="dark"] .wastePillWarn { background: rgba(185,28,28,.18); color: #fca5a5; border-color: rgba(248,113,113,.4); }
+html[data-theme="black"] .wasteXls, html[data-theme="dark"] .wasteXls { background: rgba(22,163,74,.15); color: #86efac; }
+html[data-theme="black"] .wasteStandAmt, html[data-theme="dark"] .wasteStandAmt { color: #5eead4; }

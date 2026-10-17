@@ -2214,9 +2214,14 @@ async function loadAnalyticsSnapshot(venueId) {
 const HACCP_PENDING_KEY = () => `sdx_haccp_pending_${VENUE_ID}`;
 function loadHaccpPending() { try { return JSON.parse(localStorage.getItem(HACCP_PENDING_KEY()) || "[]"); } catch { return []; } }
 function storeHaccpPending(list) { try { localStorage.setItem(HACCP_PENDING_KEY(), JSON.stringify(list.slice(0, 50))); } catch {} }
+// v558 review: the newest copy sent per submission id — an auto-send finishing (or failing) after a newer copy of the
+// same log never takes its place in the outbox, and never clears the newer copy's pending entry
+const _haccpNewest = {};
 async function saveHaccpSubmissionSafe(record) {
-  try { await saveHaccpSubmission(record); storeHaccpPending(loadHaccpPending().filter(r => r.id !== record.id)); return true; }
-  catch { const l = loadHaccpPending().filter(r => r.id !== record.id); l.push(record); storeHaccpPending(l); return false; }
+  _haccpNewest[record.id] = record;
+  const newest = () => _haccpNewest[record.id] === record;
+  try { await saveHaccpSubmission(record); if (newest()) { delete _haccpNewest[record.id]; storeHaccpPending(loadHaccpPending().filter(r => r.id !== record.id)); } return true; }
+  catch { if (!newest()) return false; const l = loadHaccpPending().filter(r => r.id !== record.id); l.push(record); storeHaccpPending(l); return false; }
 }
 let _haccpFlushing = false;
 async function flushHaccpPending() {
@@ -2299,12 +2304,20 @@ function buildHaccpDirectory(subs, forDate, overrides) {
 // How many real temperature readings a HACCP submission carries (problem-only
 // submissions and empty forms count as zero).
 // v466: tell the inspectors / admins a supervisor filed a log (best effort)
-async function notifySupervisorLog({ site, unit, by, temps, outOfRange, problems, supplies, waste }) {
+async function notifySupervisorLog({ site, unit, by, temps, outOfRange, problems, supplies, waste, wasteNone }) {
   if (!FIREBASE_ON) return;
   try {
     const users = await getUsers();
     const title = `📋 Supervisor log — ${site || "stand"}${unit ? ` #${unit}` : ""}`;
-    const message = `${temps} temp${temps !== 1 ? "s" : ""} logged${outOfRange ? ` · ${outOfRange} out of range` : ""}${problems ? ` · ${problems} problem${problems !== 1 ? "s" : ""}` : ""}${supplies ? ` · 📦 ${supplies} supplies requested` : ""}${waste ? ` · 🗑 ${waste} waste item${waste !== 1 ? "s" : ""}` : ""}${by ? ` · by ${by}` : ""}`;
+    // v558 review: only what was sent (no "0 temps logged" for a waste-only log)
+    const message = [
+      temps ? `${temps} temp${temps !== 1 ? "s" : ""} logged` : "",
+      outOfRange ? `${outOfRange} out of range` : "",
+      problems ? `${problems} problem${problems !== 1 ? "s" : ""}` : "",
+      supplies ? `📦 ${supplies} supplies requested` : "",
+      waste ? `🗑 ${waste} waste item${waste !== 1 ? "s" : ""}` : (wasteNone ? "🗑 no food waste today" : ""),
+      by ? `by ${by}` : "",
+    ].filter(Boolean).join(" · ") || "log sent";
     (users || []).filter(u => u.approved && u.name && ["inspector", "admin", "global_admin"].includes(u.role)).slice(0, 12)
       .forEach(u => saveInspectorNotification({ inspectorName: u.name.trim().toLowerCase(), kind: "followup", title, message }).catch(() => {}));
   } catch {}
@@ -4680,7 +4693,10 @@ function buildPhotoIndex(inspection, notesPhotos) {
         n += 1;
         mapByPath[pathKey].push(n);
         const caption = `${p?.tag === "after" ? "AFTER" : "BEFORE"}${(sanitizeText(ci.comment) || sanitizeText(p?.name)) ? ` — ${sanitizeText(ci.comment) || sanitizeText(p?.name)}` : ""}`;
-        index.push({ num: n, label: ciLabel, caption, previewUrl: p.previewUrl || p.url || p.dataUrl || null, thumbUrl: p.thumbUrl || null, id: p?.id || null, tag: p?.tag === "after" ? "after" : "" });
+        // ciNo: a picture of a row marked NO — that row has its own action item carrying it as an object, so a
+        // follow-up resolving photo NUMBERS never borrows it (another row's card). Pictures of unanswered / YES rows
+        // stay: they are the only evidence of a node-level Fail / Issue item.
+        index.push({ num: n, label: ciLabel, caption, previewUrl: p.previewUrl || p.url || p.dataUrl || null, thumbUrl: p.thumbUrl || null, id: p?.id || null, tag: p?.tag === "after" ? "after" : "", ...(ci.value === "NO" ? { ciNo: true } : {}) });
       }
     }
   }
@@ -4808,7 +4824,7 @@ function floorForStand(unit, name, saved) {
 }
 
 try { window.__sdxBuildActionItems = (a) => buildActionItems(a); } catch {}
-try { window.__sdxComputeFollowups = (h, vs) => computeFollowups(h, vs); } catch {}
+try { window.__sdxComputeFollowups = (h, vs, cl, o) => computeFollowups(h, vs, cl || {}, o || {}); } catch {}
 function buildActionItems({ inspection, rawNotes, foodTemps: ftArg, foodTempNames: fnArg, foodTempCorrections: fcArg, foodTempSubmitted: fsArg }) {
   const items = [];
   const { mapByPath } = buildPhotoIndex(inspection);
@@ -9935,24 +9951,36 @@ function fuRecPhotoIndex(rec) {
   if (!v) { try { v = buildPhotoIndex(rec.inspection || {}).index || []; } catch { v = []; } _fuIdxCache.set(rec, v); }
   return v;
 }
+// v558 review: the clear in force for a follow-up key — the stored clear, or on a card that was Put back (clear 0) the
+// clear that was in force before it. Stored as `prevClear` on resolve / put-back / status entries so the card's
+// older pictures never reach back into an episode that was already fixed.
+function fuPrevClear(key, clearedMap, statusMap) {
+  const c = Number(clearedMap?.[key]) || 0;
+  return c || Number(statusMap?.[key]?.prevClear) || 0;
+}
 function fuRowPhotos(item, rec) {
   try {
     const ph = Array.isArray(item.photos) ? item.photos : [];
     const objs = ph.filter(p => p && typeof p === "object" && (p.thumbUrl || p.previewUrl));
     const ids = ph.filter(p => typeof p === "string");
     const nums = ph.filter(p => typeof p === "number" || (typeof p === "string" && /^\d+$/.test(p))).map(Number);
-    const fromIdx = nums.length ? (() => { const idx = fuRecPhotoIndex(rec); return nums.map(n => ({ n, x: idx[n - 1] })).filter(o => o.x && (o.x.thumbUrl || o.x.previewUrl)).map(o => ({ ...o.x, id: o.x.id || `${rec.id || rec.inspectionDate || "r"}#${o.n}` })); })() : [];
+    // v558 review: never another NO row's pictures (they ride on that row's own item — a grease photo and its AFTER
+    // landed on a thermostat card, even on another crew's card); the node's own and unanswered / YES rows' pictures stay
+    const fromIdx = nums.length ? (() => { const idx = fuRecPhotoIndex(rec); return nums.map(n => ({ n, x: idx[n - 1] })).filter(o => o.x && !o.x.ciNo && (o.x.thumbUrl || o.x.previewUrl)).map(o => ({ ...o.x, id: o.x.id || `${rec.id || rec.inspectionDate || "r"}#${o.n}` })); })() : [];
     const fromRec = (rec.photos || []).filter(p => p && (ids.length === 0 ? true : ids.includes(p.id)) && (p.thumbUrl || p.previewUrl));
     const list = objs.length ? objs : fromIdx.length ? fromIdx : (ph.length || rec.quickProblem) ? fromRec : [];
     return list.slice(0, 40)
       .map(p => ({ id: p.id, tag: p.tag === "after" ? "after" : "", thumbUrl: p.thumbUrl || p.previewUrl || "", previewUrl: (p.previewUrl && !String(p.previewUrl).startsWith("data:")) ? p.previewUrl : (p.exportUrl || p.previewUrl || p.thumbUrl || "") }));
   } catch { return []; }
 }
-function computeFollowups(history, venueSettings, clearedLocal = {}) {
+// opts.photoFloor {key: ts} — the older pictures of a card come only from after this time (the ✅ Fixed list passes
+// the clear that was in force before the fix, so an earlier, already-fixed episode keeps its own pictures)
+function computeFollowups(history, venueSettings, clearedLocal = {}, opts = {}) {
   const recheckDays = Number(venueSettings?.recheckDays) || 7;
   if (!Array.isArray(history) || history.length < 1) return { followups: [], followupGroups: [], followupCatGroups: [], recheckDays };
   const cleared = { ...(venueSettings?.followupCleared || {}), ...clearedLocal };
   const latestInspByLoc = {};   // locName -> newest inspection timestamp
+  const visitsByLoc = {};       // v558 review: locName -> [{ ts, keys }] every finished walk-through and the problems it flagged
   const catLastSeen = {};       // "loc::cat" -> { ts, dateStr, count, rows }
   const caPhotos = {};          // v557: key -> AFTER photos the inspector added answering "last time's problems"
   for (const rec of history) {
@@ -9964,7 +9992,10 @@ function computeFollowups(history, venueSettings, clearedLocal = {}) {
     // temp scan or a filed problem is not a walk-through of the stand.
     // v553: an autosaved report still being walked is not a finished walk-through (for 8 h)
     const walking = rec.inProgress === true; // v553: an autosaved, never-finished report is not a walk-through
-    if (!rec.quickEquipCheck && !rec.quickProblem && !rec.supervisorLog && !walking && (!latestInspByLoc[locName] || ts > latestInspByLoc[locName])) latestInspByLoc[locName] = ts;
+    const isVisit = !rec.quickEquipCheck && !rec.quickProblem && !rec.supervisorLog && !walking;
+    if (isVisit && (!latestInspByLoc[locName] || ts > latestInspByLoc[locName])) latestInspByLoc[locName] = ts;
+    const recKeys = isVisit ? new Set() : null;
+    if (recKeys) (visitsByLoc[locName] = visitsByLoc[locName] || []).push({ ts, keys: recKeys });
     const recResolvedMap = rec.resolvedIssues || {};
     for (const ca of (Array.isArray(rec.correctiveActions) ? rec.correctiveActions : [])) {
       if (!ca || !ca.key || !Array.isArray(ca.photos) || !ca.photos.length) continue;
@@ -9975,6 +10006,7 @@ function computeFollowups(history, venueSettings, clearedLocal = {}) {
       if (recResolvedMap[i]) return;
       const cat = item.issue?.split(":")[0]?.trim() || "Other";
       const key = `${locName}::${cat}`;
+      if (recKeys) recKeys.add(key);
       if (!catLastSeen[key]) catLastSeen[key] = { ts: 0, dateStr: "", count: 0, unit: "", rows: [] };
       const c = catLastSeen[key];
       c.count++;
@@ -10065,8 +10097,18 @@ function computeFollowups(history, venueSettings, clearedLocal = {}) {
           // v557: newest report first, then the same problem's pictures from earlier reports (only since it was last
           // cleared — an older, fixed episode keeps its own), then the inspector's AFTER photos from a later visit
           const mine = new Set(rs.map(r => fuRowSlug(r.text)));
-          const older = (v.hist || []).filter(h => h.ts <= v.ts && (!clearedTs || h.ts > clearedTs) && (mine.has(h.slug) || (isBase && !otherSlugs.has(h.slug)))).sort((a, b) => b.ts - a.ts);
-          const fixes = (caPhotos[k] || []).filter(p => (p.ts || 0) >= v.ts);
+          // v558 review: the older pictures come only from THIS episode — the run of reports that kept flagging it.
+          // The floor is the newest of: the clear, the clear in force before a Put back / before the fix being listed
+          // (prevClear, opts.photoFloor), the stand's newest walk-through before it that did NOT flag it, and 90 days.
+          const below = t => { const n = Number(t) || 0; return n < v.ts ? n : 0; };
+          let cleanTs = 0;
+          if ((v.hist || []).some(h => h.ts < v.ts)) for (const vv of (visitsByLoc[loc] || [])) if (vv.ts < v.ts && vv.ts > cleanTs && !vv.keys.has(key)) cleanTs = vv.ts;
+          const floor = Math.max(below(clearedTs), below(venueSettings?.followupStatus?.[k]?.prevClear), below(opts?.photoFloor?.[k]), cleanTs, now - 90 * 864e5);
+          const older = (v.hist || []).filter(h => h.ts <= v.ts && h.ts > floor && (mine.has(h.slug) || (isBase && !otherSlugs.has(h.slug)))).sort((a, b) => b.ts - a.ts);
+          // v558 review: once the card has its own photo list (commitCorrectives writes the same pictures there), that
+          // copy is the only one — so ✕ / ⇄ work on it and a removed picture stays removed. The report copy only
+          // stands in when that write never landed.
+          const fixes = Array.isArray(venueSettings?.followupPhotos?.[k]) ? [] : (caPhotos[k] || []).filter(p => (p.ts || 0) >= v.ts);
           return mergePhotos([...(rs.length ? rs : [{ photos: v.photos || [] }]), ...older, { photos: fixes }]);
         })(),
         subs: rs,
@@ -10615,7 +10657,7 @@ function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLoc
   const clearedLocal = local.cleared;
 
   const vsT = Object.keys(local.types).length ? { ...vs, followupType: { ...(vs.followupType || {}), ...local.types } } : vs;
-  const all = useMemo(() => { try { return computeFollowups(history, vsT, clearedLocal).followups; } catch { return []; } }, [history, vs.followupCleared, vs.followupStatus, vs.followupType, vs.recheckDays, clearedLocal, local.types]);
+  const all = useMemo(() => { try { return computeFollowups(history, vsT, clearedLocal).followups; } catch { return []; } }, [history, vs.followupCleared, vs.followupStatus, vs.followupType, vs.followupPhotos, vs.recheckDays, clearedLocal, local.types]);
   function moveTo(f, itype) {
     const entry = { itype, by: me, ts: Date.now() };
     const patch = {}; fuMembers(f).forEach(m => { patch[m.key] = entry; }); // v502: a merged card moves all of its issues
@@ -10688,8 +10730,12 @@ function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLoc
     const text = `${kind === "fixed" ? "Fixed" : kind === "waiting" ? "Waiting on" : "In process"}${tags ? ` (${tags})` : ""}${note ? `: ${note.trim().slice(0, 200)}` : ""}`;
     // v502: a merged card writes the same update to every issue it holds
     const stP = {}, cmP = {}, clP = {}, clLocal = {};
+    const clAll = { ...(vs.followupCleared || {}), ...clearedLocal };
+    const stAll = { ...(vs.followupStatus || {}), ...local.status };
     fuMembers(f).forEach(m => {
-      stP[m.key] = entry;
+      // v558 review: prevClear = the clear in force before this update (the episode floor for the card's older pictures)
+      const pc = fuPrevClear(m.key, clAll, stAll);
+      stP[m.key] = pc ? { ...entry, prevClear: pc } : entry;
       cmP[m.key] = [...commentsOf(m.key), { text: `${prefix} — ${text}`, by: me, ts }].slice(-10);
       // v440: the clear must beat the report's own timestamp or the item never
       // leaves the inspector's list (date-only dates can parse ahead of now).
@@ -11298,7 +11344,10 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
 
   function setStatus(f, status, note = "") {
     const entry = { status, note: note.trim().slice(0, 80), by: currentUser?.name || "Unknown", ts: Date.now() };
-    const patch = {}; fuMembers(f).forEach(m => { patch[m.key] = entry; }); // v502
+    const stAll = { ...(venueSettings?.followupStatus || {}), ...statusLocal };
+    const clAll = { ...(venueSettings?.followupCleared || {}), ...clearedLocal };
+    // v558 review: the episode floor (prevClear) rides along, so a Put-back card keeps it through In process / Waiting
+    const patch = {}; fuMembers(f).forEach(m => { const pc = fuPrevClear(m.key, clAll, stAll); patch[m.key] = pc ? { ...entry, prevClear: pc } : entry; }); // v502
     setStatusLocal(prev => ({ ...prev, ...patch }));
     writeMap("followupStatus", patch);
     setWaitingKey(null); setWaitingNote("");
@@ -11312,9 +11361,12 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
     const now = Date.now();
     const me = currentUser?.name || "Unknown";
     const clearPatch = {}; const statusPatch = {};
+    const stAll = { ...(venueSettings?.followupStatus || {}), ...statusLocal };
     list.forEach(f => {
       clearPatch[f.key] = 0;
-      statusPatch[f.key] = { status: "open", note: (why || "Put back by inspector").slice(0, 80), by: me, ts: now, reopenedFrom: Number(f.fixedTs || 0) };
+      // v558 review: keep the clear that was in force before this fix (prevClear) — the card's older pictures stop there
+      const pc = Number(stAll[f.key]?.prevClear) || 0;
+      statusPatch[f.key] = { status: "open", note: (why || "Put back by inspector").slice(0, 80), by: me, ts: now, reopenedFrom: Number(f.fixedTs || 0), ...(pc ? { prevClear: pc } : {}) };
     });
     setClearedLocal(prev => { const n = { ...prev }; list.forEach(f => { delete n[f.key]; }); return n; });
     setStatusLocal(prev => ({ ...prev, ...statusPatch }));
@@ -11334,7 +11386,14 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
     const pairs = undoRes.multi || [{ key: undoRes.key, prevStamp: undoRes.prevStamp }];
     setClearedLocal(prev => { const n = { ...prev }; pairs.forEach(({ key, prevStamp }) => { if (prevStamp) n[key] = prevStamp; else delete n[key]; }); return n; });
     const clP = {}, stP = {}; const nowTs = Date.now();
-    pairs.forEach(({ key, prevStamp }) => { clP[key] = prevStamp || 0; stP[key] = { status: "open", note: "", by: currentUser?.name || "Unknown", ts: nowTs }; });
+    const stAll = { ...(venueSettings?.followupStatus || {}), ...statusLocal };
+    pairs.forEach(({ key, prevStamp, prevClear }) => {
+      clP[key] = prevStamp || 0;
+      // v558 review: the reopened entry keeps the episode floor the resolve carried (Put back → Resolve → Undo)
+      const pc = Number(prevClear) || Number(prevStamp) || Number(stAll[key]?.prevClear) || 0;
+      stP[key] = { status: "open", note: "", by: currentUser?.name || "Unknown", ts: nowTs, ...(pc ? { prevClear: pc } : {}) };
+    });
+    setStatusLocal(prev => ({ ...prev, ...stP }));
     writeMap("followupCleared", clP);
     writeMap("followupStatus", stP);
     setUndoRes(null);
@@ -11346,12 +11405,18 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
     const ms = fuMembers(f);
     const stamp = Math.max(Date.now(), ...ms.map(m => (m.ts || 0) + 1));
     const clP = {}, stP = {}, multi = [];
+    const stAll = { ...(venueSettings?.followupStatus || {}), ...statusLocal };
+    const clAll = { ...(venueSettings?.followupCleared || {}), ...clearedLocal };
     ms.forEach(m => {
       clP[m.key] = stamp;
-      stP[m.key] = { status: "resolved", note: "", by: currentUser?.name || "Unknown", ts: stamp };
-      multi.push({ key: m.key, prevStamp: (venueSettings?.followupCleared || {})[m.key] || clearedLocal[m.key] || 0 });
+      // v558 review: prevClear = the clear in force before this resolve (the ✅ Fixed list and a later Put back floor the
+      // card's older pictures there)
+      const pc = fuPrevClear(m.key, clAll, stAll);
+      stP[m.key] = { status: "resolved", note: "", by: currentUser?.name || "Unknown", ts: stamp, ...(pc ? { prevClear: pc } : {}) };
+      multi.push({ key: m.key, prevStamp: (venueSettings?.followupCleared || {})[m.key] || clearedLocal[m.key] || 0, prevClear: pc });
     });
     setClearedLocal(prev => ({ ...prev, ...clP }));
+    setStatusLocal(prev => ({ ...prev, ...stP }));
     setRemindedKey(`res::${f.key}`);
     setTimeout(() => setRemindedKey(null), 1500);
     writeMap("followupStatus", stP);
@@ -11440,12 +11505,18 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
     const patch = {};
     const stPatch = {};
     const by = currentUser?.name || "Unknown";
+    const stAll = { ...(venueSettings?.followupStatus || {}), ...statusLocal };
+    const clAll = { ...(venueSettings?.followupCleared || {}), ...clearedLocal };
     g.items.flatMap(fuMembers).forEach(f => { // v502: merged cards hold several keys
       const stamp = Math.max(Date.now(), (f.ts || 0) + 1);
       patch[f.key] = stamp;
-      stPatch[f.key] = { status: "resolved", note: "", by, ts: stamp };
+      // v558 review: the same episode floor as a single Resolve (prevClear) — Resolve all → Put back must not bring an
+      // already-fixed episode's pictures back (the server merge would otherwise keep a stale prevClear, the local copy none)
+      const pc = fuPrevClear(f.key, clAll, stAll);
+      stPatch[f.key] = { status: "resolved", note: "", by, ts: stamp, ...(pc ? { prevClear: pc } : {}) };
     });
     setClearedLocal(prev => ({ ...prev, ...patch }));
+    setStatusLocal(prev => ({ ...prev, ...stPatch }));
     writeMap("followupCleared", patch);
     writeMap("followupStatus", stPatch);
   }
@@ -11571,9 +11642,10 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
         const f = items[i];
         setBaBusy(`${i + 1}/${items.length}`);
         const st = stMapX[f.key] || {};
-        const all = [...(f.photos || []), ...((fuPhotosLocal[f.key] || venueSettings?.followupPhotos?.[f.key] || []))];
-        const before = all.filter(x => (x.tag || "before") !== "after").slice(0, 3);
-        const after = all.filter(x => x.tag === "after").slice(0, 3);
+        // v558 review: the same picture never twice (the inspector's corrective photo sits on the report AND the card)
+        const sp = fuSplitPhotos(f.photos, fuPhotosOf(f));
+        const before = sp.before.slice(0, 3);
+        const after = sp.after.slice(0, 3);
         const solved = Number(f.fixedTs || (st.status === "resolved" ? st.ts : 0) || 0);
         const mins = Number(f.fixedMins || st.mins || 0);
         const whoseKey = f.fixedWhose || st.whose;
@@ -11677,7 +11749,7 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
       const bg = i % 2 === 0 ? "FFFFFFFF" : "FFF4F5F7";
       const cmts = ((commentsLocal[f.key] || venueSettings?.followupComments?.[f.key] || []))
         .map(c => `${c.by}: ${c.text}`).join("  |  ");
-      const nPhotos = (f.photos || []).length + ((fuPhotosLocal[f.key] || venueSettings?.followupPhotos?.[f.key] || []).length);
+      const spN = fuSplitPhotos(f.photos, fuPhotosOf(f)); const nPhotos = spN.before.length + spN.after.length; // v558 review: counted once
       const solved = Number(f.fixedTs || (st?.status === "resolved" ? st?.ts : 0) || 0);
       const clk = t => t ? new Date(t).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "";
       const whose = f.fixedWhose ? whoseProblemLabel(f.locType, f.fixedWhose, st?.standType) : "";
@@ -11728,9 +11800,9 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
       const mins = g.rows.reduce((n, f) => n + (f.fixedMins || 0), 0);
       const bill = g.rows.filter(f => f.fixedWhose === "sub");
       const rows = g.rows.map(f => {
-        const ph = [...(f.photos || []), ...((fuPhotosLocal[f.key] || venueSettings?.followupPhotos?.[f.key] || []))];
-        const before = ph.filter(x => (x.tag || "before") !== "after").slice(0, 2);
-        const after = ph.filter(x => x.tag === "after").slice(0, 2);
+        const sp = fuSplitPhotos(f.photos, fuPhotosOf(f)); // v558 review: the same picture never twice
+        const before = sp.before.slice(0, 2);
+        const after = sp.after.slice(0, 2);
         const img = arr => arr.length ? arr.map(x => `<img src="${x.thumbUrl || x.previewUrl || ""}">`).join("") : `<span class="none">no photo</span>`;
         const clk = t => new Date(t).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
         return `<tr><td>${esc(new Date(f.fixedTs).toLocaleDateString([], { month: "short", day: "numeric" }))}</td>` +
@@ -11955,7 +12027,10 @@ ${sections}
   const fuCrewWord = FU_CREW_WORDS.includes(fuSearch.trim().toLowerCase()) ? fuSearch.trim().toLowerCase() : "";
   const fixedAll = (() => {
     const clearedMap = { ...(venueSettings?.followupCleared || {}), ...clearedLocal };
-    const all = computeFollowups(history, { ...(venueSettings || {}), followupCleared: {} }, {}).followups || [];
+    // v558 review: each fixed card's older pictures stop at the clear that was in force before its fix (prevClear) —
+    // with no clears in this run, an earlier, already-fixed episode's BEFORE photos leaked into the list and the exports
+    const photoFloor = {}; for (const [k2, st2] of Object.entries(stMap)) { const pc = Number(st2?.prevClear) || 0; if (pc) photoFloor[k2] = pc; }
+    const all = computeFollowups(history, { ...(venueSettings || {}), followupCleared: {} }, {}, { photoFloor }).followups || [];
     return all
       .map(f => { const st = stMap[f.key]; const when = Number(st?.ts || clearedMap[f.key] || 0); return { ...f, fixedBy: st?.by || "", fixedHow: st?.how || "", fixedWhose: st?.whose || "", fixedMins: Number(st?.mins || 0), fixedStart: Number(st?.startTs || 0), fixedTs: when }; })
       .map(f => ({ ...f, reopened: !!(clearedMap[f.key] && f.ts && clearedMap[f.key] < f.ts) }))
@@ -13608,8 +13683,12 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
   // and a filter narrows it. Before, with no filter they read the History pages as they arrived (first page,
   // then the prefetch, then refreshes), so Follow-ups kept changing under the reader (and never saw every stand).
   const anyHistoryFilter = !!(filterDate || filterDateFrom || filterDateTo || filterType || filterFloor || filterLocType || filterSite || filterIssue);
-  const liveAnalyticsSrc = useMemo(() => (anyHistoryFilter ? filtered : (analyticsHistory.length ? mergeHistory(analyticsHistory, history) : history.filter(r => !r.discarded))),
-    [anyHistoryFilter, filtered, analyticsHistory, history]); // eslint-disable-line react-hooks/exhaustive-deps
+  const deepAnalyticsSrc = useMemo(() => (analyticsHistory.length ? mergeHistory(analyticsHistory, history) : history.filter(r => !r.discarded)),
+    [analyticsHistory, history]); // eslint-disable-line react-hooks/exhaustive-deps
+  const liveAnalyticsSrc = useMemo(() => (anyHistoryFilter ? filtered : deepAnalyticsSrc), [anyHistoryFilter, filtered, deepAnalyticsSrc]);
+  // v558 review: the waste report reads every report (not the loaded History pages narrowed by date / type / issue —
+  // a type filter dropped every stand log and every stand read "never logged"); only the stand-picking filters apply
+  const wasteScope = (filterFloor || filterLocType || filterSite) ? { floor: filterFloor, locType: filterLocType, site: filterSite } : null;
   // what a list holds (ids + save times) — a refresh that brings nothing new must not raise the pill
   const listSig = l => hashSig((l || []).map(r => `${r.id}:${r.savedAt || ""}:${r.inProgress ? 1 : 0}`).join(","));
   const ownAddRef = useRef(false); // v553: a problem filed from Follow-ups shows at once (never behind the pill)
@@ -15338,7 +15417,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
               ))}
             </div>
             {/* v444: analytics reads the deep list, not the loaded page */}
-            {analyticsTab === "waste" && <FoodWasteReport history={analyticsSrc} venueSettings={venueSettings} />}
+            {analyticsTab === "waste" && <FoodWasteReport history={anyHistoryFilter ? deepAnalyticsSrc : analyticsSrc} standScope={wasteScope} venueSettings={venueSettings} />}
             {analyticsTab === "temp" && <><HaccpTodayTracker venueSettings={venueSettings} saveVenueSettingsMap={saveVenueSettingsMap} history={analyticsSrc} currentUser={currentUser} />{venueSettings?.equipTemps?.verifiedAt ? <>{(currentUser?.role === "admin" || currentUser?.role === "global_admin") && <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 10 }}><span style={{ fontSize: "0.74rem", fontWeight: 700, color: "var(--ink-500)" }}>❄ Equipment temps on · walk-through verified {new Date(venueSettings.equipTemps.verifiedAt).toLocaleDateString()}{venueSettings.equipTemps.verifiedBy ? ` by ${venueSettings.equipTemps.verifiedBy}` : ""}</span><button type="button" className="etChip" data-testid="equip-temps-pause" onClick={() => saveVenueSettingsMap?.("equipTemps", { verifiedAt: 0, verifiedBy: "" })}>Pause equipment temps</button></div>}<EquipTempBoard history={analyticsSrc} onOpenStand={st => window.dispatchEvent(new CustomEvent("sdx-open-stand-equipment", { detail: st }))} /></> : <div className="card equipTempsPaused" style={{ marginBottom: 24 }}><div className="cardBody" style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}><span style={{ fontSize: "0.82rem", fontWeight: 700, color: "var(--ink-700)" }}>❄ Equipment temps are paused for this venue — they turn on once the equipment walk-through is verified, so every cooler and freezer tracked is one this venue actually has.</span>{(currentUser?.role === "admin" || currentUser?.role === "global_admin") && <button type="button" className="etChip" data-testid="equip-temps-verify-on" onClick={() => saveVenueSettingsMap?.("equipTemps", { verifiedAt: Date.now(), verifiedBy: currentUser?.name || "" })}>Mark walk-through verified — turn on</button>}</div></div>}<TempTrendChart history={analyticsSrc} /></>}
             {analyticsTab === "insights" && <AIHealthMonitor history={analyticsSrc} currentUser={currentUser} />}
             {analyticsTab === "predictive" && <PredictiveInsightsPanel history={analyticsSrc} venueSettings={venueSettings} />}
@@ -26533,7 +26612,10 @@ function wasteRowsOf(history) {
     if (!r || r.discarded) continue;
     const rows = Array.isArray(r.foodWaste) ? r.foodWaste : [];
     if (!rows.length && !r.foodWasteNone) continue;
-    const day = r.portalDay || r.inspectionDate || String(r.savedAt || "").slice(0, 10);
+    // v558 review: a stand log counts toward its SHIFT day (local time − 5 h), so a 12:20 AM log after a night game, or
+    // an 11:55 PM log re-sent at 12:02 AM, stays on the game day (portalDay is the send's calendar date — the stand feed's)
+    const shift = (() => { if (r.source !== "haccp_portal") return ""; const t = Date.parse(r.savedAt || ""); if (!isFinite(t)) return ""; const d = new Date(t - 5 * 3600000); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; })();
+    const day = shift || r.portalDay || r.inspectionDate || String(r.savedAt || "").slice(0, 10);
     const base = { recId: r.id, day, at: r.savedAt || "", stand: String(r.siteName || "—").toUpperCase(), unit: String(r.siteNumber || "").trim(), floor: r.floor || "", type: r.locationType || "", by: (r.supervisorName || r.reportedBy?.name || r.inspectorName || "").toUpperCase() };
     if (!rows.length) { out.push({ ...base, none: true }); continue; }
     rows.forEach((w, i) => { if (!w || !String(w.item || "").trim()) return; out.push({ ...base, i, item: String(w.item).trim(), qty: wasteNum(w.qty), uom: w.unit || "", reason: w.reason || "" }); }); // uom = the unit of measure (unit is the stand #)
@@ -26578,7 +26660,8 @@ async function exportWasteExcel({ rows, byStand, byItem, flags, scopeText }) {
   return rows.length;
 }
 // The inspector's view: Analytics → 🗑 Waste
-function FoodWasteReport({ history, venueSettings }) {
+// standScope: the History filters that pick stands (floor / stand type / stand) — they narrow the rows AND the stand list
+function FoodWasteReport({ history, venueSettings, standScope = null }) {
   const [range, setRange] = useState("3ev");   // "today" | "3ev" | "5ev" | "7d" | "30d"
   const [view, setView] = useState("stand");   // "stand" | "item" | "flags"
   const [flagFilter, setFlagFilter] = useState("missed"); // "missed" | "never" | "ok" | "all"
@@ -26588,15 +26671,31 @@ function FoodWasteReport({ history, venueSettings }) {
   useEffect(() => { let alive = true; loadStandList().then(() => { if (alive) setStandsTick(t => t + 1); }).catch(() => {}); return () => { alive = false; }; }, []);
   const localDay = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   const today = localDay(new Date());
-  const all = useMemo(() => wasteRowsOf(history), [history]);
+  // v558 review: only the History filters that pick stands apply here (the report has its own days); they narrow the
+  // waste lines and the stand list alike, so a stand outside the filter is never "never logged"
+  const sFloor = standScope?.floor || "", sType = standScope?.locType || "", sSite = standScope?.site || "";
+  const inScope = (site, unit, floor, lt) => {
+    if (sFloor && (floor || floorFromUnit(unit) || "") !== sFloor) return false;
+    if (sType && (sType === "Portable" ? !isPortableType(lt || "") : (lt || "") !== sType)) return false;
+    if (sSite) { const hay = `${site || ""} ${unit || ""}`.toLowerCase().replace(/#/g, ""); if (!sSite.toLowerCase().replace(/#/g, " ").split(/\s+/).filter(Boolean).every(t => hay.includes(t))) return false; }
+    return true;
+  };
+  const all = useMemo(() => wasteRowsOf(history).filter(r => inScope(r.stand, r.unit, r.floor, r.type)), [history, sFloor, sType, sSite]); // eslint-disable-line react-hooks/exhaustive-deps
   // the days that count: marked event days up to today (newest first); none marked → days with any waste log
   const eventDays = Object.keys(venueSettings?.eventDays || {}).filter(d => d <= today).sort().reverse();
   const logDays = [...new Set(all.map(r => r.day))].sort().reverse();
+  const pool = eventDays.length ? eventDays : logDays;
   const evN = range === "3ev" ? 3 : range === "5ev" ? 5 : 0;
+  // v558 review: calendar days by stepping the local date (subtracting 24 h repeats a date across a DST change)
+  const calDays = n => { const out = []; const d = new Date(); d.setHours(12, 0, 0, 0); for (let i = 0; i < n; i++) { out.push(localDay(d)); d.setDate(d.getDate() - 1); } return out; };
   const days = range === "today" ? [today]
-    : evN ? (eventDays.length ? eventDays : logDays).slice(0, evN)
-    : (() => { const n = range === "7d" ? 7 : 30; const out = []; for (let i = 0; i < n; i++) out.push(localDay(new Date(Date.now() - i * 86400000))); return out; })();
+    : evN ? pool.slice(0, evN)
+    : calDays(range === "7d" ? 7 : 30);
   const daySet = new Set(days);
+  // v558 review: the didn't-log flags count only the days stands are expected to log — the event days in the window
+  // (or, with none marked, the days anyone logged waste). The totals keep the whole window.
+  const flagDays = evN ? days : pool.filter(d => d >= days[days.length - 1] && d <= days[0]);
+  const flagDaySet = new Set(flagDays);
   const rows = all.filter(r => daySet.has(r.day));
   const items = rows.filter(r => !r.none);
   const sk = r => `${normUnit(r.unit)}|${standSlug(r.stand)}`;
@@ -26623,21 +26722,27 @@ function FoodWasteReport({ history, venueSettings }) {
   const reasonCounts = (() => { const m = {}; items.forEach(r => { m[r.reason] = (m[r.reason] || 0) + 1; }); return WASTE_REASONS.map(x => ({ ...x, n: m[x.k] || 0 })).filter(x => x.n); })();
   // every stand with a poster is expected to log on each counted day (Bars and Pantries too — they throw food away as well)
   const flags = (() => {
-    const stands = (_standListCache || []).filter(k => k && (k.site || k.unit));
+    if (!flagDays.length) return []; // no day in this window where the stands were expected to log
+    const stands = (_standListCache || []).filter(k => k && (k.site || k.unit) && inScope(k.site, k.unit, k.floor || floorFromUnit(k.unit) || "", k.locType));
     const logFor = (k, r) => { const uK = normUnit(k.unit), uR = normUnit(r.unit); if (uK && uR) return uK === uR && (!r.stand || !k.site || sameStandName(r.stand, k.site)); return !!r.stand && !!k.site && sameStandName(r.stand, k.site); };
+    const flagRows = all.filter(r => flagDaySet.has(r.day));
     return stands.map(k => {
-      const mine = rows.filter(r => logFor(k, r));
+      const mine = flagRows.filter(r => logFor(k, r));
       const logged = new Set(mine.map(r => r.day)).size;
       const lastAll = all.filter(r => logFor(k, r)).reduce((a, r) => r.day > a ? r.day : a, "");
-      return { id: k.id, site: String(k.site || "").toUpperCase(), unit: k.unit || "", floor: k.floor || floorFromUnit(k.unit) || "", locType: k.locType || "", logged, expected: days.length, last: lastAll, flag: logged === 0 ? (lastAll ? "missed" : "never") : logged < days.length ? "missed" : "ok" };
+      return { id: k.id, site: String(k.site || "").toUpperCase(), unit: k.unit || "", floor: k.floor || floorFromUnit(k.unit) || "", locType: k.locType || "", logged, expected: flagDays.length, last: lastAll, flag: logged === 0 ? (lastAll ? "missed" : "never") : logged < flagDays.length ? "missed" : "ok" };
     }).sort((a, b) => (a.flag === "ok") - (b.flag === "ok") || a.logged - b.logged || standPrintOrder(a, b));
   })();
   const flagCounts = { missed: flags.filter(f => f.flag !== "ok").length, never: flags.filter(f => f.flag === "never").length, ok: flags.filter(f => f.flag === "ok").length, all: flags.length };
   const shownFlags = flags.filter(f => flagFilter === "all" ? true : flagFilter === "missed" ? f.flag !== "ok" : f.flag === flagFilter);
   const fmtDay = d => { try { return new Date(d + "T12:00:00").toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" }); } catch { return d; } };
-  const scopeText = range === "today" ? `Today · ${fmtDay(today)}`
+  const flagNote = evN ? ""
+    : !flagDays.length ? (range === "today" ? ` · ${eventDays.length ? "not an event day" : "no waste log yet today"} — nobody is flagged` : ` · no ${eventDays.length ? "event day" : "waste log"} in these dates — nobody is flagged`)
+    : range === "today" ? ""
+    : ` · the didn't-log flags count the ${flagDays.length} ${eventDays.length ? (flagDays.length !== 1 ? "event days" : "event day") : (flagDays.length !== 1 ? "days with a waste log" : "day with a waste log")} in this range`;
+  const scopeText = (range === "today" ? `Today · ${fmtDay(today)}`
     : evN ? `${eventDays.length ? `Last ${days.length} event day${days.length !== 1 ? "s" : ""}` : `Last ${days.length} day${days.length !== 1 ? "s" : ""} with a waste log (no event days marked yet)`}: ${days.map(fmtDay).join(" · ") || "—"}`
-    : `Last ${range === "7d" ? 7 : 30} days`;
+    : `Last ${range === "7d" ? 7 : 30} days`) + flagNote + (standScope && (sFloor || sType || sSite) ? ` · only the stands that match the History filter (${[sFloor, sType, sSite].filter(Boolean).join(" · ")})` : "");
   const amountAll = (() => { const u = {}; items.forEach(r => { u[r.uom] = (u[r.uom] || 0) + r.qty; }); return wasteAmountText(u); })();
   return (
     <div className="card wasteReport" data-testid="waste-report">
@@ -26710,7 +26815,7 @@ function FoodWasteReport({ history, venueSettings }) {
                 <button key={k} type="button" className={"wasteRangeBtn" + (flagFilter === k ? " on" : "")} data-testid={`waste-flag-${k}`} onClick={() => setFlagFilter(k)}>{lbl} ({flagCounts[k]})</button>
               ))}
             </div>
-            {shownFlags.length === 0 ? <div className="wasteEmpty">{flags.length ? "No stands here." : "Loading the stand list…"}</div> : (
+            {shownFlags.length === 0 ? <div className="wasteEmpty" data-testid="waste-flags-empty">{!flagDays.length ? `No ${eventDays.length ? "event day" : "waste log"} in these dates, so nobody is flagged — pick "Last 3 events" to see who did not log.` : flags.length ? "No stands here." : "Loading the stand list…"}</div> : (
               <div className="wasteList">
                 {shownFlags.map(f => (
                   <div key={f.id || f.site + f.unit} className={"wasteFlagRow wasteFlag-" + f.flag} data-testid="waste-flag-row">
@@ -27685,8 +27790,18 @@ function HaccpPortal() {
   const [wasteNone, setWasteNone] = useState(false);
   const [wasteErr, setWasteErr] = useState("");
   const [wasteOpen, setWasteOpen] = useState(false);
+  // v558 review: rows a blocked Submit flagged — each keeps a one-line "Missing: …" / "✓ Complete" slot under its head
+  // (the slot never comes and goes while they tap the row's chips, so nothing above the finger moves)
+  const [wasteFlagged, setWasteFlagged] = useState({});
+  // v558 review: the item is stored in English (the report groups by it) but shown in the portal's language
+  const wasteItemShow = item => { const hit = pl === "es" && WASTE_ITEMS.find(x => x.en === item); return hit ? hit.es : (item || ""); };
   // v507 — auto-send while filling in
-  const sessionSubIdRef = useRef(""), sessionInspIdRef = useRef(""), autoNotifiedRef = useRef(false), autoTimerRef = useRef(null), handleSubmitRef = useRef(null);
+  // v558 review: ONE object per visit — its ids, whether a record was filed, the visit's alert and a send counter.
+  // "Submit Another Log" starts a new object, so a send of the last person still in flight (slow stadium network)
+  // only ever touches that person's records and never the next person's screen.
+  const newVisit = () => ({ subId: "", inspId: "", filed: false, notified: false, seq: 0, inspSeq: 0 });
+  const visitRef = useRef(null); if (!visitRef.current) visitRef.current = newVisit();
+  const autoTimerRef = useRef(null), handleSubmitRef = useRef(null);
   const [autoSent, setAutoSent] = useState(null);
   const [problemError, setProblemError] = useState("");
   const [tempErr, setTempErr] = useState(""); // v512 — out-of-range readings without a corrective action
@@ -27993,8 +28108,10 @@ function HaccpPortal() {
     const wasteHalf = waste.filter(r => !wasteDoneRow(r) && (String(r.item || "").trim() || String(r.qty || "").trim() || r.unit || r.reason));
     const wasteNoneOn = wasteNone && !wasteRows.length;
     if (!auto && wasteHalf.length) {
+      setWasteFlagged(p => ({ ...p, ...Object.fromEntries(wasteHalf.map(r => [r.id, true])) }));
       setWasteErr(L("🗑 Finish each food waste item — what it is, how much, the unit and why (or ✕ to remove it)", "🗑 Completa cada producto — qué es, cuánto, la unidad y por qué (o ✕ para quitarlo)"));
-      setTimeout(() => { const el = document.querySelector(`[data-waste-row="${wasteHalf[0].id}"]`); if (el) el.scrollIntoView({ behavior: "smooth", block: "center" }); }, 60);
+      // v558 review: the row's head + its "Missing:" line land on screen (block start — a row is ~700 px tall on a phone)
+      setTimeout(() => { const el = document.querySelector(`[data-waste-row="${wasteHalf[0].id}"]`); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 60);
       return;
     }
     if (!auto) setWasteErr("");
@@ -28042,8 +28159,9 @@ function HaccpPortal() {
       return;
     }
     if (!auto) setTempErr("");
-    if (!sessionSubIdRef.current) sessionSubIdRef.current = `haccp_${Date.now()}_${Math.random().toString(16).slice(2)}`;
-    const id = sessionSubIdRef.current;
+    const v = visitRef.current; // this visit — every await below works on v, never on the refs of a later visit
+    if (!v.subId) v.subId = `haccp_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+    const id = v.subId;
     const record = {
       id,
       type: "submission",
@@ -28076,22 +28194,34 @@ function HaccpPortal() {
       partial: auto,
       missingCorrective: missingCorr.length,
     };
-    if (auto && haccpTempCount(record) === 0 && !suppliesReq.length && !wasteRows.length && !wasteNoneOn) return;
+    // v558 review: once a record was filed this visit (an auto-send — even one whose write is still on its way), every
+    // send rewrites it — even with nothing left, so a waste line removed after it went out does not stay on the
+    // inspector's copy. `filed` and the record id are set BEFORE the first await, so a Submit tapped while an auto-send
+    // waits on a slow network still knows about that record.
+    const filedBefore = v.filed;
+    if (auto && haccpTempCount(record) === 0 && !suppliesReq.length && !wasteRows.length && !wasteNoneOn && !filedBefore) return;
+    const seq = ++v.seq; // the newest send of the visit wins: an older one finishing late never overwrites it
+    // v466 — a log WITH temperatures is a report of its own ("Supervisor
+    // Log") in Past Reports, so the inspector gets it without creating one.
+    const tempCount = haccpTempCount(record);
+    const hasWaste = wasteRows.length > 0 || wasteNoneOn; // v558
+    const emptyNow = !allProblems.length && tempCount === 0 && !suppliesReq.length && !hasWaste; // v558 review: everything was taken back out
+    const fileIt = !!(allProblems.length || tempCount > 0 || suppliesReq.length || hasWaste || filedBefore);
+    if (fileIt) { if (!v.inspId) v.inspId = `${Date.now()}_sp${Math.floor(Math.random() * 1e4)}`; v.filed = true; }
     // v513 — the final Submit shows "Submitted!" after at most 1.2 s; the write keeps going
     // (and lands in the pending outbox if it fails), so a slow stadium network never holds the button.
     if (!auto) clearTimeout(autoTimerRef.current);
     const write = saveHaccpSubmissionSafe(record);
     if (auto) await write;
-    else { setSubSaved("sending"); write.then(ok => setSubSaved(ok ? "saved" : "queued")); await Promise.race([write, new Promise(r => setTimeout(r, 1200))]); }
+    else { setSubSaved("sending"); write.then(ok => { if (visitRef.current === v) setSubSaved(ok ? "saved" : "queued"); }); await Promise.race([write, new Promise(r => setTimeout(r, 1200))]); }
     // v463 — the log is in; show "Submitted!" now. The problem reports, the
     // Quick Report record for Follow-ups and the crew pings go in the
     // background (each already survives a failure on its own).
-    // v466 — a log WITH temperatures is a report of its own ("Supervisor
-    // Log") in Past Reports, so the inspector gets it without creating one.
-    const tempCount = haccpTempCount(record);
-    const hasWaste = wasteRows.length > 0 || wasteNoneOn; // v558
-    if (allProblems.length || tempCount > 0 || suppliesReq.length || hasWaste) {
+    if (fileIt) {
       (async () => {
+        // v558 review: a newer send of this visit already took over the record — this older copy stays out
+        if (v.inspSeq > seq) return;
+        v.inspSeq = seq;
         const now = new Date();
         const items = [];
         for (const q of allProblems) {
@@ -28110,7 +28240,9 @@ function HaccpPortal() {
         // were logged (problems ride along as its action items), else the
         // "Quick Report" that computeFollowups reads (one follow-up per loc::category).
         try {
-          const isLog = tempCount > 0 || ((suppliesReq.length > 0 || hasWaste) && !allProblems.length);
+          // v558 review: a visit with food waste is a Supervisor Log too (problems ride along as its action items, as with
+          // temperatures since v466) — so the History card and the alert carry the waste; a record filed earlier keeps its type
+          const isLog = tempCount > 0 || hasWaste || (!allProblems.length && (suppliesReq.length > 0 || filedBefore));
           let outOfRange = 0; const haccpReadings = [];
           if (isLog) {
             // v508/v512: each reading rides on the record (with its corrective action) for the inspector
@@ -28125,8 +28257,8 @@ function HaccpPortal() {
           }
           let license = "";
           try { const lr = lookupLicenseByUnitType(locUnit.trim(), locType.trim()); if (lr?.status === "ACTIVE" && lr.license) license = lr.license; } catch {}
-          if (!sessionInspIdRef.current) sessionInspIdRef.current = `${Date.now()}_sp${Math.floor(Math.random() * 1e4)}`;
-          const inspId = sessionInspIdRef.current;
+          if (v.inspSeq > seq) return; // a newer send of this visit got here while the problem reports were saving
+          const inspId = v.inspId;
           await saveOneInspection({
             id: inspId,
             siteName: locSite.trim().toUpperCase(), siteNumber: locUnit.trim(), floor: locFloor.trim(), locationType: locType.trim(),
@@ -28139,13 +28271,20 @@ function HaccpPortal() {
             overallStatus: outOfRange > 0 ? "FAIL" : "PASS", photos: allProblems.flatMap(q => q.photos), actionItems: items, inspection: {},
             suppliesNeeded: suppliesReq, partial: auto, missingCorrective: missingCorr.length,
             foodWaste: wasteRows, foodWasteNone: wasteNoneOn, // v558
+            ...(emptyNow ? { discarded: true } : {}), // v558 review: nothing left — the thrown-away record leaves every list
           });
           if (items.length) try { notifyCrewsForItems(items.map(a => ({ issue: a.issue, notes: "" })), locSite.trim().toUpperCase(), locUnit.trim(), supName.trim()); } catch {}
-          if (isLog && !(auto && autoNotifiedRef.current)) try { autoNotifiedRef.current = true; notifySupervisorLog({ site: locSite.trim().toUpperCase(), unit: locUnit.trim(), by: supName.trim(), temps: tempCount, outOfRange, problems: items.length, supplies: suppliesReq.length, waste: wasteRows.length }); } catch {}
+          // v558 review: the visit counts as notified only after a send that carried temperatures (or the final Submit), so a
+          // "No waste today" auto-send does not use up the one alert of the visit (false → "waste" after a waste-only alert,
+          // which the next waste-only auto-send does not repeat → true once temperatures went out)
+          const nl = v.notified;
+          if (isLog && !emptyNow && (!auto || !nl || (tempCount > 0 && nl !== true))) try { v.notified = (tempCount > 0 || !auto) ? true : (nl || "waste"); notifySupervisorLog({ site: locSite.trim().toUpperCase(), unit: locUnit.trim(), by: supName.trim(), temps: tempCount, outOfRange, problems: items.length, supplies: suppliesReq.length, waste: wasteRows.length, wasteNone: wasteNoneOn }); } catch {}
         } catch {}
       })();
     }
-    if (auto) { setAutoSent({ at: Date.now(), temps: tempCount, supplies: suppliesReq.length, waste: wasteRows.length }); return; }
+    // v558 review: a late auto-send of the last person (after "Submit Another Log") never shows on the next person's screen,
+    // and an older one finishing after a newer one never replaces its strip
+    if (auto) { if (visitRef.current === v && seq === v.seq) setAutoSent(emptyNow ? null : { at: Date.now(), temps: tempCount, supplies: suppliesReq.length, waste: wasteRows.length }); return; }
     setSubmitting(false);
     setStep("done");
   }
@@ -28155,6 +28294,18 @@ function HaccpPortal() {
     autoTimerRef.current = setTimeout(() => { handleSubmitRef.current?.({ auto: true }).catch(() => {}); }, ms);
   }
   handleSubmitRef.current = handleSubmit;
+  // v558 review: the language button floats ABOVE the sticky Submit bar. The bar grows with "✓ Sent", a blocked Submit's
+  // reason and its "go to it" link — on a phone the button sat on top of them (--sdx-fab-lift, read by .langFabWrap).
+  const stickyRef = useRef(null);
+  useEffect(() => {
+    const root = document.documentElement;
+    const el = stickyRef.current;
+    if (!el) { try { root.style.removeProperty("--sdx-fab-lift"); } catch {} return; }
+    const set = () => { try { root.style.setProperty("--sdx-fab-lift", `${Math.round(el.getBoundingClientRect().height)}px`); } catch {} };
+    set();
+    let ro = null; try { ro = new ResizeObserver(set); ro.observe(el); } catch {}
+    return () => { try { ro?.disconnect(); } catch {} try { root.style.removeProperty("--sdx-fab-lift"); } catch {} };
+  }, [step]);
   useEffect(() => {
     if (step !== "form") return;
     const flush = (ev) => { if (ev.type === "pagehide" || document.visibilityState === "hidden") { clearTimeout(autoTimerRef.current); handleSubmitRef.current?.({ auto: true }).catch(() => {}); } };
@@ -28919,12 +29070,18 @@ function HaccpPortal() {
                     {waste.map((r, i) => {
                       const doneRow = !!(String(r.item || "").trim() && Number(r.qty) > 0 && r.unit && r.reason);
                       const set = patch => { setWaste(w => w.map(x => x.id === r.id ? { ...x, ...patch } : x)); setWasteErr(""); };
+                      // v558 review: what this row still needs — shown under its head once a Submit was blocked
+                      const miss = [!String(r.item || "").trim() && L("what it is", "qué es"), !(Number(r.qty) > 0) && L("how much", "cuánto"), !r.unit && L("the unit", "la unidad"), !r.reason && L("why", "por qué")].filter(Boolean);
                       return (
                         <div key={r.id} className={"wasteRow" + (doneRow ? " done" : "")} data-testid="waste-row" data-waste-row={r.id}>
-                          <div className="wasteRowHead"><b>{doneRow ? "✓ " : ""}{L("Item", "Producto")} {i + 1}</b>
-                            <button type="button" className="wasteX" data-testid="waste-remove" aria-label={L("Remove", "Quitar")} onClick={() => setWaste(w => w.filter(x => x.id !== r.id))}>✕</button></div>
-                          <input className="haccpInput" data-testid="waste-item" placeholder={L("What is it? e.g. hot dogs", "¿Qué es? ej. hot dogs")} value={r.item} onChange={e => set({ item: e.target.value })} />
-                          <div className="wasteChips">{WASTE_ITEMS.map(x => <button key={x.en} type="button" className={"wasteChip" + (r.item === x.en ? " on" : "")} data-testid="waste-item-chip" onClick={() => set({ item: x.en })}>{L(x.en, x.es)}</button>)}</div>
+                          <div className="wasteRowHead"><b key={doneRow ? "done" : "open"}>{doneRow ? "✓ " : ""}{L("Item", "Producto")} {i + 1}</b>
+                            <button type="button" className="wasteX" data-testid="waste-remove" aria-label={L("Remove", "Quitar")} onClick={() => { setWaste(w => w.filter(x => x.id !== r.id)); setWasteErr(""); scheduleAutoSend(2500); }}>✕</button></div>
+                          {/* keyed by what it says: the page translator (Kreyòl) swaps text nodes, so a line patched in place froze on "Missing: why" */}
+                          {wasteFlagged[r.id] && (doneRow
+                            ? <div key="ok" className="wasteRowMissing ok" data-testid="waste-row-ok">✓ {L("Complete", "Completo")}</div>
+                            : <div key={`miss:${miss.join("|")}`} className="wasteRowMissing" data-testid="waste-row-missing">⚠️ {L("Missing:", "Falta:")} {miss.join(" · ")}</div>)}
+                          <input className="haccpInput" data-testid="waste-item" placeholder={L("What is it? e.g. hot dogs", "¿Qué es? ej. hot dogs")} value={wasteItemShow(r.item)} onChange={e => { const v = e.target.value; const hit = pl === "es" && WASTE_ITEMS.find(x => x.es === v); set({ item: hit ? hit.en : v }); }} />
+                          <div className="wasteChips">{WASTE_ITEMS.map(x => <button key={x.en} type="button" className={"wasteChip" + ((r.item === x.en || r.item === x.es) ? " on" : "")} data-testid="waste-item-chip" onClick={() => set({ item: x.en })}>{L(x.en, x.es)}</button>)}</div>
                           <div className="wasteLbl">{L("How much?", "¿Cuánto?")}</div>
                           <div className="wasteQtyRow">
                             <input className="haccpInput wasteQty" data-testid="waste-qty" type="text" inputMode="decimal" placeholder="0" value={r.qty} onChange={e => set({ qty: e.target.value.replace(",", ".").replace(/[^0-9.]/g, "") })} />
@@ -29053,7 +29210,9 @@ function HaccpPortal() {
             {problemError && <div className="haccpProblemErr" style={{ marginBottom: 8 }}>⚠️ {problemError} — <a href="#" onClick={e => { e.preventDefault(); document.querySelector(".supCatChips")?.scrollIntoView({ behavior: "smooth", block: "center" }); }}>{L("go to the problem", "ir al problema")}</a></div>}
             <div className="haccpStickySpacer" />
             {tempErr && <div className="haccpProblemErr" data-testid="temp-corr-err" style={{ marginBottom: 8 }}>{tempErr} — <a href="#" onClick={e => { e.preventDefault(); const box = document.querySelector('[data-corr] textarea'); box?.scrollIntoView({ behavior: "smooth", block: "center" }); box?.focus({ preventScroll: true }); }}>{L("go to it", "ir ahí")}</a></div>}
-            <div className="haccpStickySubmit" data-testid="sticky-submit">
+            <div className="haccpStickySubmit" data-testid="sticky-submit" ref={stickyRef}>
+              {/* v558 review: a blocked Submit says why right above the button (the line at the end of the waste section can be off screen) */}
+              {wasteErr && <div className="haccpProblemErr wasteErrSticky" data-testid="waste-err-sticky">{wasteErr} — <a href="#" onClick={e => { e.preventDefault(); const el = document.querySelector('[data-testid=waste-row-missing]')?.closest('[data-waste-row]'); el?.scrollIntoView({ behavior: "smooth", block: "start" }); }}>{L("go to it", "ir ahí")}</a></div>}
               {autoSent && (
                 <div className="haccpAutoSent" data-testid="auto-sent">
                   {L("✓ Sent to the inspector", "✓ Enviado al inspector")}{autoSent.temps ? ` · ${autoSent.temps} ${autoSent.temps === 1 ? L("temp", "temperatura") : L("temps", "temperaturas")}` : ""}{autoSent.supplies ? ` · ${autoSent.supplies} ${L("supplies", "suministros")}` : ""}{autoSent.waste ? ` · 🗑 ${autoSent.waste} ${L(autoSent.waste === 1 ? "waste item" : "waste items", "desperdicio")}` : ""} · {new Date(autoSent.at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
@@ -29083,7 +29242,7 @@ function HaccpPortal() {
             {LocationBanner}
             {TodayStatus}
             <div className="haccpSuccessBox">
-              {(() => { const cats = [...problemsAdded.map(q => q.category), ...(problem.trim() && problemCat ? [problemCat] : [])]; const catsEl = cats.map((c, i) => <b key={i}>{i ? ", " : ""}{supCatEmoji(c)} {c}</b>); return problemOnly
+              {(() => { const cats = [...problemsAdded.map(q => q.category), ...(problem.trim() && problemCat ? [problemCat] : [])]; const catsEl = cats.map((c, i) => <b key={i}>{i ? ", " : ""}{supCatEmoji(c)} {c}</b>); return problemOnly && cats.length // v558 review: a waste / supplies-only send in problem-only mode is not a problem report
                 ? <>{cats.length > 1 ? `Your ${cats.length} problem reports were` : "Your problem report was"} sent to the inspection team as {catsEl} — now on their follow-up list. · {cats.length > 1 ? "Tus reportes fueron enviados" : "Tu reporte fue enviado"} al equipo de inspección.</>
                 : <>{Object.values(temps || {}).some(a => (a || []).some(v => String(v || "").trim())) ? "Your temperature log has been submitted and will appear in the inspection report." : "Your log has been sent to the inspector."}
                     {cats.length > 0 && <> Your {catsEl} problem report{cats.length > 1 ? "s are" : " is"} now on the inspector's follow-up list.</>}</>; })()}
@@ -29096,7 +29255,7 @@ function HaccpPortal() {
             {(waste.some(r => String(r.item || "").trim() && Number(r.qty) > 0 && r.unit && r.reason) || wasteNone) && (
               <div className="haccpSuccessBox" data-testid="waste-done" style={{ marginTop: 8 }}>
                 🗑 {waste.some(r => String(r.item || "").trim() && Number(r.qty) > 0 && r.unit && r.reason)
-                  ? <>{L("Food waste logged:", "Desperdicio anotado:")} {waste.filter(r => String(r.item || "").trim() && Number(r.qty) > 0 && r.unit && r.reason).map(r => `${r.item.trim()} ${r.qty} ${L(wasteUnitLabel(r.unit), (WASTE_UNITS.find(u => u.k === r.unit) || {}).es || r.unit)} (${L(wasteReasonOf(r.reason).en, wasteReasonOf(r.reason).es).toLowerCase()})`).join(" · ")}</>
+                  ? <>{L("Food waste logged:", "Desperdicio anotado:")} {waste.filter(r => String(r.item || "").trim() && Number(r.qty) > 0 && r.unit && r.reason).map(r => `${wasteItemShow(r.item.trim())} ${r.qty} ${L(wasteUnitLabel(r.unit), (WASTE_UNITS.find(u => u.k === r.unit) || {}).es || r.unit)} (${L(wasteReasonOf(r.reason).en, wasteReasonOf(r.reason).es).toLowerCase()})`).join(" · ")}</>
                   : L("No food waste today — logged.", "Sin desperdicio de comida hoy — anotado.")}
               </div>
             )}
@@ -29143,6 +29302,13 @@ function HaccpPortal() {
               setEditingLabel(null);
               setEditingLabelVal("");
               setLabelOverrides({});
+              // v558 review: the last person's waste answer, supplies, problems and corrective actions stay with them, and the
+              // next log gets its own records (it used to reuse — and overwrite — the last person's ids)
+              setWaste([]); setWasteNone(false); setWasteOpen(false); setWasteErr(""); setWasteFlagged({});
+              setSupReq({}); setSupOther(""); setSupUrgent(false); setProblemsAdded([]);
+              setProblemAction(""); setProblemProof([]); setProblemNlu(null); nluTouched.current = {};
+              setTempErr(""); setCorrSent({}); setSubSaved("");
+              clearTimeout(autoTimerRef.current); visitRef.current = newVisit(); setAutoSent(null);
             }}>
               {L("Submit Another Log", "Enviar otro registro")}
             </button>
@@ -30276,8 +30442,9 @@ export default function App() {
   // status / comment write). The thumb moves to Storage (or the Storage preview stands in for it) and only the links
   // stay. Once per session, on an inspector / admin device, 8 s after the settings arrive.
   const fuCompactRef = useRef(false);
+  const vsLiveRef = useRef(false); // v558 review: a server copy of venueSettings arrived this session (not the phone's old copy)
   useEffect(() => {
-    if (!FIREBASE_ON || !currentUser || fuCompactRef.current) return;
+    if (!FIREBASE_ON || !currentUser || fuCompactRef.current || !vsLiveRef.current) return;
     if (!["inspector", "admin", "global_admin", "location_manager"].includes(currentUser.role)) return;
     const isData = v => String(v || "").startsWith("data:");
     const fat = Object.entries(venueSettings?.followupPhotos || {}).filter(([, a]) => Array.isArray(a) && a.some(p => p && (isData(p.thumbUrl) || isData(p.previewUrl))));
@@ -30289,10 +30456,18 @@ export default function App() {
         if (!p || !p.id || !isData(p.thumbUrl) || up[p.id] !== undefined) continue;
         try { up[p.id] = (await uploadPhoto(p.thumbUrl, VENUE_ID, "fu_thumbs", `${String(p.id).replace(/[^A-Za-z0-9_-]/g, "_")}_t`)) || ""; } catch { up[p.id] = ""; }
       }
-      const cur = _vs?.followupPhotos || {}; // the newest copy: a photo added or removed meanwhile is respected
+      // v558 review: re-read the server copy right before writing — a phone whose copy is days old must never write
+      // its old photo lists over the cloud (crews' AFTER photos added since would be lost). No read = no write.
+      let cur;
+      try { const snap = await getDoc(doc(db, "venues", VENUE_ID, "sharedMemory", "venueSettings")); cur = (snap.exists() && snap.data().followupPhotos) || {}; }
+      catch { fuCompactRef.current = false; return; }
       const patch = {};
-      for (const [k] of fat) { const now = Array.isArray(cur[k]) ? cur[k] : []; patch[k] = now.map(p => (p && up[p.id]) ? { ...p, thumbUrl: up[p.id] } : p).map(slimFuPhoto); }
-      saveVenueSettingsMap("followupPhotos", patch);
+      for (const [k] of fat) {
+        if (!Array.isArray(cur[k])) continue;
+        const next = cur[k].map(p => (p && up[p.id]) ? { ...p, thumbUrl: up[p.id] } : p).map(slimFuPhoto);
+        if (JSON.stringify(next) !== JSON.stringify(cur[k])) patch[k] = next; // only the entries that really change
+      }
+      if (Object.keys(patch).length) saveVenueSettingsMap("followupPhotos", patch);
     }, 8000);
     return () => clearTimeout(t);
   }, [venueSettings?.followupPhotos, currentUser]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -30417,6 +30592,7 @@ export default function App() {
     const unsub = onSnapshot(
       doc(db, "venues", VENUE_ID, "sharedMemory", "venueSettings"),
       (snap) => {
+        if (!snap.metadata?.fromCache) vsLiveRef.current = true; // v558 review: the follow-up photo clean-up waits for this
         if (!snap.exists()) return;
         const remote = snap.data();
         delete remote._updatedAt;
@@ -30763,6 +30939,7 @@ export default function App() {
     const first = !seen; seen = seen || {};
     const fresh = [];
     for (const r of mine) {
+      if (r.discarded) continue; // v558 review: a stand log whose last line was taken back out
       if (seen[r.id] === sig(r)) continue;
       const prev = seen[r.id]; seen[r.id] = sig(r);
       if (first) continue;
@@ -30773,7 +30950,7 @@ export default function App() {
     setStandFeed(prevFeed => {
       const byId = new Map(prevFeed.map(r => [r.id, r]));
       for (const r of mine) byId.set(r.id, r);
-      return [...byId.values()].filter(r => String(r.savedAt || "") >= today).sort((a, b) => String(b.savedAt).localeCompare(String(a.savedAt))).slice(0, 80);
+      return [...byId.values()].filter(r => !r.discarded && String(r.savedAt || "") >= today).sort((a, b) => String(b.savedAt).localeCompare(String(a.savedAt))).slice(0, 80);
     });
     for (const { r, prev } of fresh) {
       const stand = `${r.siteName || "A stand"}${r.siteNumber ? ` #${r.siteNumber}` : ""}`;
@@ -32764,7 +32941,8 @@ export default function App() {
       const c = correctives[f.key]; if (!c || !(c.action || "").trim()) continue;
       const st = c.status || "fixed";
       // v520: the walk's "✗ Still there" is not a crew status — it only leaves a dated comment
-      if (st !== "still") { const entry = { status: st === "fixed" ? "resolved" : st, note: st === "waiting" ? c.action.trim().slice(0, 80) : "", by, ts }; saveVenueSettingsMap("followupStatus", { [f.key]: entry }); }
+      // v558 review: prevClear = the clear in force before this answer (the episode floor for the card's older pictures)
+      if (st !== "still") { const pc = fuPrevClear(f.key, venueSettings?.followupCleared, venueSettings?.followupStatus); const entry = { status: st === "fixed" ? "resolved" : st, note: st === "waiting" ? c.action.trim().slice(0, 80) : "", by, ts, ...(pc ? { prevClear: pc } : {}) }; saveVenueSettingsMap("followupStatus", { [f.key]: entry }); }
       if (st === "fixed") saveVenueSettingsMap("followupCleared", { [f.key]: Math.max(ts, (f.ts || 0) + 1) });
       const prevC = venueSettings?.followupComments?.[f.key] || [];
       saveVenueSettingsMap("followupComments", { [f.key]: [...prevC, { text: st === "still" ? `Checked on site — still there` : `Corrective action: ${c.action.trim().slice(0, 200)}`, by, ts, reportId }].slice(-10) });
@@ -34245,7 +34423,7 @@ export default function App() {
                           <span className="caItemMeta">{[f.detail, f.dateStr ? `flagged ${f.dateStr}` : "", f.daysSince != null ? `${f.daysSince}d open` : "", f.reportedBy ? `by ${f.reportedBy}` : ""].filter(Boolean).join(" · ")}</span>
                         </div>
                         {(f.photos || []).length > 0 && (
-                          <div className="fuThumbs" style={{ margin: "4px 0" }}>{f.photos.map(p => <div key={p.id} className="fuThumb fuThumbReport"><img src={p.thumbUrl} alt="" onClick={() => setAppLightboxSrc(p.previewUrl || p.thumbUrl)} /><span className="fuThumbTag">before</span></div>)}</div>
+                          <div className="fuThumbs" style={{ margin: "4px 0" }}>{f.photos.map(p => { const isA = p.tag === "after"; return <div key={p.id} className={"fuThumb " + (isA ? "fuThumbAfter" : "fuThumbReport")}><img src={p.thumbUrl} alt="" onClick={() => setAppLightboxSrc(p.previewUrl || p.thumbUrl)} /><span className="fuThumbTag">{isA ? "after" : "before"}</span></div>; })}</div>
                         )}
                         <div className="caChips">
                           {[["fixed", "✅ Fixed"], ["in_progress", "🔧 In progress"], ["waiting", "⏳ Waiting on…"], ["still", "✗ Still there"]].map(([v, l]) => (
