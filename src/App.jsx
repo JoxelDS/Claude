@@ -18104,6 +18104,8 @@ const FSR_ES = {
 "Stagnant water quickly warms above 70°F — running water only": "El agua estancada pasa rápido de 70°F — solo agua corriendo",
 "Bottom line: The only safe thawing methods keep food out of the danger zone the entire time — or move through it so quickly that bacteria have no chance to multiply.": "En resumen: los únicos métodos seguros mantienen la comida fuera de la zona de peligro todo el tiempo — o pasan por ella tan rápido que las bacterias no alcanzan a multiplicarse."
 };
+// v561: the stand portal shows the guide on a white card — these mid tones read too light there
+const FSR_DARK = { "#16a34a": "#15803d", "#ea580c": "#c2410c", "#d97706": "#b45309", "#22c55e": "#15803d", "#f59e0b": "#b45309", "#f97316": "#c2410c", "#3b82f6": "#1d4ed8", "#ef4444": "#b91c1c", "#0ea5e9": "#0369a1", "#06b6d4": "#0e7490", "#8b5cf6": "#6d28d9" };
 function FoodSafetyRef({ lang = "en", portal = false, defaultOpen = false, headerOffset = 68 } = {}) {
   const t = (en) => lang === "es" ? (FSR_ES[en] || en) : en;
   const [open, setOpen] = React.useState(defaultOpen);
@@ -18200,7 +18202,7 @@ function FoodSafetyRef({ lang = "en", portal = false, defaultOpen = false, heade
                 </div>
               </div>
               <div style={{ textAlign: "right", flexShrink: 0 }}>
-                <span style={{ fontWeight: 900, fontSize: "1rem", color: r.color }}>{r.temp}</span>
+                <span style={{ fontWeight: 900, fontSize: "1rem", color: (portal && FSR_DARK[r.color]) || r.color }}>{r.temp}</span>
                 <span style={{ fontSize: "0.62rem", color: "var(--ink-400)", fontWeight: 600, marginLeft: 5 }}>{r.c}</span>
               </div>
             </div>
@@ -28183,7 +28185,7 @@ function EquipCheckPortal({ tag: tag0 }) {
                 {(meta.serial || meta.model) && <><br /><span data-testid="eqp-serial">{meta.model ? `${L("Model", "Modelo")} ${meta.model}` : ""}{meta.model && meta.serial ? " · " : ""}{meta.serial ? `S/N ${meta.serial}` : ""}</span></>}
               </div>
               {removed && <div data-testid="eqp-removed" style={{ fontSize: "0.76rem", color: "#b45309", fontWeight: 700, marginTop: 5 }}>⚠ {L("This unit was taken off the stand list — tell the inspector it is here.", "Este equipo fue quitado de la lista del puesto — avísale al inspector que está aquí.")}</div>}
-              {isCold && <div style={{ fontSize: "0.72rem", color: "#6b7280", marginTop: 5 }}>
+              {isCold && <div style={{ fontSize: "0.72rem", color: "#4b5563", marginTop: 5 }}>
                 {L("Target", "Meta")}: <b>{limit}°F {L("or below", "o menos")}</b>
               </div>}
             </div>
@@ -29343,10 +29345,10 @@ function HaccpPortal() {
               <div className="haccpSectionBody">
                 {(() => {
                   const cookingMeta = {
-                    cookingPoultry:    { emoji: "🐔", color: "#fbbf24", bg: "rgba(251,191,36,0.10)", border: "rgba(251,191,36,0.35)", badgeBg: "var(--tx-amber)" },
-                    cookingGroundMeat: { emoji: "🥩", color: "#f87171", bg: "rgba(248,113,113,0.10)", border: "rgba(248,113,113,0.35)", badgeBg: "var(--tx-red-strong)" },
-                    cookingWholeCuts:  { emoji: "🥩", color: "#fb923c", bg: "rgba(251,146,60,0.10)", border: "rgba(251,146,60,0.35)", badgeBg: "#7c2d12" },
-                    cookingSeafood:    { emoji: "🐟", color: "#22d3ee", bg: "rgba(34,211,238,0.08)", border: "rgba(34,211,238,0.3)",  badgeBg: "#164e63" },
+                    cookingPoultry:    { emoji: "🐔", color: "#92400e", bg: "rgba(251,191,36,0.10)", border: "rgba(251,191,36,0.35)", badgeBg: "var(--tx-amber)" },
+                    cookingGroundMeat: { emoji: "🥩", color: "#b91c1c", bg: "rgba(248,113,113,0.10)", border: "rgba(248,113,113,0.35)", badgeBg: "var(--tx-red-strong)" },
+                    cookingWholeCuts:  { emoji: "🥩", color: "#9a3412", bg: "rgba(251,146,60,0.10)", border: "rgba(251,146,60,0.35)", badgeBg: "#7c2d12" },
+                    cookingSeafood:    { emoji: "🐟", color: "#0e7490", bg: "rgba(34,211,238,0.08)", border: "rgba(34,211,238,0.3)",  badgeBg: "#164e63" },
                   };
                   const equipRows = customItems.filter(i => i.tag); // the stand's coolers / freezers — their own card
                   const standardItems = [...HACCP_TEMP_ITEMS.filter(i => !i.group), ...customItems.filter(i => !i.tag)];
@@ -29388,7 +29390,7 @@ function HaccpPortal() {
                     const isCustom = !HACCP_TEMP_ITEMS.find(d => d.key === item.key);
                     const displayLabel = itemName(item);
                     const readings = temps[item.key] || [""];
-                    if (!isOpen(item.key)) return compactRow(item, item.type === "cold" ? "🧊" : "🔥", item.type === "cold" ? "#60a5fa" : "#f87171", null);
+                    if (!isOpen(item.key)) return compactRow(item, item.type === "cold" ? "🧊" : "🔥", item.type === "cold" ? "#1d4ed8" : "#b91c1c", null);
                     return (
                     <div className="haccpTempBlock" key={item.key} data-ht={item.key} style={item.type === "hot" ? { borderLeft: "3px solid #ef4444", background: "rgba(254,242,242,0.08)" } : item.type === "cold" ? { borderLeft: "3px solid #3b82f6", background: "rgba(239,246,255,0.08)" } : {}}>
                       <div className="haccpTempBlockHead">
@@ -29431,7 +29433,7 @@ function HaccpPortal() {
                           <span className="haccpTempLabel"
                             title="Click to rename"
                             onClick={() => { setEditingLabel(item.key); setEditingLabelVal(displayLabel); }}
-                            style={{ cursor: "pointer", color: item.type === "hot" ? "#ef4444" : item.type === "cold" ? "#3b82f6" : undefined, fontWeight: 700 }}>
+                            style={{ cursor: "pointer", color: item.type === "hot" ? "#b91c1c" : item.type === "cold" ? "#1d4ed8" : undefined, fontWeight: 700 }}>
                             {item.type === "hot" ? "🔥 " : item.type === "cold" ? "❄️ " : ""}{displayLabel}
                             <span style={{ fontSize: "0.68rem", color: "var(--ink-400)", fontWeight: 400, marginLeft: 6 }}>
                               {item.type === "hot" ? `Min ${item.min}${item.unit}` : `Max ${item.max}${item.unit}`}
@@ -29569,7 +29571,7 @@ function HaccpPortal() {
                             {isSubmitted && pass === false && corrSent[`${item.key}:${idx}`] && renderCorrSent(item.key, idx)}
                             {isSubmitted && pass === false && !corrSent[`${item.key}:${idx}`] && (
                               <div data-corr={`${item.key}:${idx}`} style={{ background: "var(--tint-red-1)", border: `1px solid ${needsCorrection ? "#dc2626" : "#fca5a5"}`, borderRadius: 8, padding: "8px 10px", marginTop: 4 }}>
-                                <label style={{ display: "block", fontSize: "0.72rem", fontWeight: 700, color: "#dc2626", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                                <label style={{ display: "block", fontSize: "0.72rem", fontWeight: 700, color: "#b91c1c", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>
                                   {L("🔧 WHY? + CORRECTIVE ACTION *", "🔧 ¿POR QUÉ? + ACCIÓN CORRECTIVA *")}
                                 </label>
                                 <div className="specChips" style={{ marginBottom: 6 }}>{TEMP_FAIL_REASONS.map(o => { const lbl = pl === "es" ? o[1] : o[0]; const on = correction.startsWith(`${pl === "es" ? "Motivo" : "Reason"}: ${lbl}`); return <button key={o[0]} type="button" className={"specChip" + (on ? " on" : "")} onClick={() => setTempCorrections(p => { const arr = [...(p[item.key] || [""])]; const rest = String(arr[idx] || "").replace(/^(Reason|Motivo):[^—]*—?\s*/i, ""); arr[idx] = `${pl === "es" ? "Motivo" : "Reason"}: ${lbl} — ${rest}`; return { ...p, [item.key]: arr }; })}>{lbl}</button>; })}</div>
@@ -29585,7 +29587,7 @@ function HaccpPortal() {
                                   style={{ width: "100%", fontSize: "0.82rem", resize: "vertical", borderColor: needsCorrection ? "#dc2626" : "#fca5a5", border: `1px solid ${needsCorrection ? "#dc2626" : "#fca5a5"}`, borderRadius: 6, padding: "6px 8px", outline: "none" }}
                                 />
                                 {needsCorrection && (
-                                  <div style={{ fontSize: "0.72rem", color: "#dc2626", marginTop: 3, fontWeight: 600 }}>
+                                  <div style={{ fontSize: "0.72rem", color: "#b91c1c", marginTop: 3, fontWeight: 600 }}>
                                     {L("Required — tap why it's out of range, then what you did", "Obligatorio — toca por qué está fuera de rango y qué hiciste")}
                                   </div>
                                 )}
@@ -29630,10 +29632,10 @@ function HaccpPortal() {
                         <div style={{ background: "linear-gradient(90deg,#7f1d1d,#b91c1c)", padding: "7px 12px", display: "flex", alignItems: "center", gap: 6 }}>
                           <span style={{ fontSize: "1rem" }}>🔥</span>
                           <span style={{ fontWeight: 800, fontSize: "0.88rem", color: "#fff", letterSpacing: "0.02em" }}>{L("Cooking Temperatures", "Temperaturas de cocción")}</span>
-                          <span style={{ fontSize: "0.7rem", color: "#fca5a5", marginLeft: 2 }}>{L("— required internal temp before serving", "— temperatura interna mínima antes de servir")}</span>
+                          <span style={{ fontSize: "0.7rem", color: "#fee2e2", marginLeft: 2 }}>{L("— required internal temp before serving", "— temperatura interna mínima antes de servir")}</span>
                         </div>
                         {cookingItems.map((item, ci) => {
-                          const m = cookingMeta[item.key] || { emoji: "🔥", color: "#f87171", bg: "rgba(248,113,113,0.10)", border: "rgba(248,113,113,0.35)", badgeBg: "var(--tx-red-strong)" };
+                          const m = cookingMeta[item.key] || { emoji: "🔥", color: "#b91c1c", bg: "rgba(248,113,113,0.10)", border: "rgba(248,113,113,0.35)", badgeBg: "var(--tx-red-strong)" };
                           const readings = temps[item.key] || [""];
                           if (!isOpen(item.key)) return compactRow(item, m.emoji, m.color, m.badgeBg);
                           return (
@@ -29728,13 +29730,13 @@ function HaccpPortal() {
                                     </div>
                                     {isSubmitted && pass === false && corrSent[`${item.key}:${idx}`] && renderCorrSent(item.key, idx)}
                                     {isSubmitted && pass === false && !corrSent[`${item.key}:${idx}`] && (
-                                      <div data-corr={`${item.key}:${idx}`} style={{ background: "rgba(127,29,29,0.25)", border: `1px solid ${needsCorrection ? "#dc2626" : "#fca5a5"}`, borderRadius: 8, padding: "8px 10px", marginTop: 4 }}>
-                                        <label style={{ display: "block", fontSize: "0.72rem", fontWeight: 700, color: "#fca5a5", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>{L("🔧 CORRECTIVE ACTION TAKEN *", "🔧 ACCIÓN CORRECTIVA *")}</label>
+                                      <div data-corr={`${item.key}:${idx}`} style={{ background: "var(--tint-red-1)", border: `1px solid ${needsCorrection ? "#dc2626" : "#fca5a5"}`, borderRadius: 8, padding: "8px 10px", marginTop: 4 }}>
+                                        <label style={{ display: "block", fontSize: "0.72rem", fontWeight: 700, color: "#b91c1c", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>{L("🔧 CORRECTIVE ACTION TAKEN *", "🔧 ACCIÓN CORRECTIVA *")}</label>
                                         <div className="specChips" style={{ marginBottom: 6 }}>{TEMP_FAIL_REASONS.map(o => { const lbl = pl === "es" ? o[1] : o[0]; const on = correction.startsWith(`${pl === "es" ? "Motivo" : "Reason"}: ${lbl}`); return <button key={o[0]} type="button" className={"specChip" + (on ? " on" : "")} onClick={() => setTempCorrections(p => { const arr = [...(p[item.key] || [""])]; const rest = String(arr[idx] || "").replace(/^(Reason|Motivo):[^—]*—?\s*/i, ""); arr[idx] = `${pl === "es" ? "Motivo" : "Reason"}: ${lbl} — ${rest}`; return { ...p, [item.key]: arr }; })}>{lbl}</button>; })}</div>
                                         <textarea rows={2} placeholder={L("What was done? (e.g. Discarded food, reheated to 165°F…)", "¿Qué se hizo? (ej. se desechó, se recalentó a 165°F…)")} value={correction}
                                           onChange={e => setTempCorrections(p => { const arr=[...(p[item.key]||[""])]; arr[idx]=e.target.value; return {...p,[item.key]:arr}; })}
-                                          style={{ width: "100%", fontSize: "0.82rem", resize: "vertical", border: `1px solid ${needsCorrection ? "#dc2626" : "#fca5a5"}`, borderRadius: 6, padding: "6px 8px", outline: "none", background: "#1e293b", color: "#e2e8f0" }} />
-                                        {needsCorrection && <div style={{ fontSize: "0.72rem", color: "#f87171", marginTop: 3, fontWeight: 600 }}>{L("Required — enter corrective action", "Obligatorio — escribe la acción correctiva")}</div>}
+                                          style={{ width: "100%", fontSize: "0.82rem", resize: "vertical", border: `1px solid ${needsCorrection ? "#dc2626" : "#fca5a5"}`, borderRadius: 6, padding: "6px 8px", outline: "none" }} />
+                                        {needsCorrection && <div style={{ fontSize: "0.72rem", color: "#b91c1c", marginTop: 3, fontWeight: 600 }}>{L("Required — enter corrective action", "Obligatorio — escribe la acción correctiva")}</div>}
                                         {renderCorrSendBtn(item.key, idx)}
                                       </div>
                                     )}
