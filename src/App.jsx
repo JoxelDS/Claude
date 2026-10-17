@@ -1410,21 +1410,80 @@ async function pushSharedSiteMap(siteMap) {
   } catch (e) { console.error("pushSharedSiteMap error:", e); }
 }
 
-// v477: the local draft keeps the small thumbs but never the resized exports —
-// a 4 s JSON.stringify of six full photos is what used to kill the tab on iPad.
-function slimLocalDraft(v) {
-  if (Array.isArray(v)) return v.map(slimLocalDraft);
+// v477: the local draft never kept the resized exports — a 4 s JSON.stringify of six full photos is what used to kill
+// the tab on iPad. v559: the phone keeps a TEXT copy only (Joxel: "lets not take storage of devices and use full data
+// base") — every picture string (data: thumbs too) and File / Blob is dropped; a photo is kept only once it has a cloud
+// link, and a photo still uploading lives in memory until its link arrives (the next draft write carries it).
+let _ciTypeFocus = ""; // v559: "<path>#<row>" — the problem box that should take the focus after typing marked the row ✕
+// v559 review: rows marked ✕ BY TYPING — the habitual ✕ tap that follows keeps the row ✕ (it used to toggle it back off)
+const _ciAutoNo = new Map(); // "<path>#<row>" → ts
+// v559 review: photos still on their way to the cloud — the report is not saved until they arrive
+function photosUploadingIn(v, depth = 0) {
+  if (!v || typeof v !== "object" || depth > 12) return 0;
+  if (Array.isArray(v)) return v.reduce((n, x) => n + photosUploadingIn(x, depth + 1), 0);
+  if (v.uploading === true && typeof v.id === "string") return 1;
+  let n = 0; for (const x of Object.values(v)) if (x && typeof x === "object") n += photosUploadingIn(x, depth + 1);
+  return n;
+}
+// v559 review: the full report list read at sign-in, kept in memory — the follow-up panels (open problems at a stand,
+// the menu counts) use it even when it is too big to keep on the phone
+let _warmHistory = null, _warmHistoryComplete = false;
+function readWarmHistory() {
+  if (Array.isArray(_warmHistory)) return _warmHistory;
+  try { return JSON.parse(localStorage.getItem(`sdx_history_cache_${VENUE_ID}`) || "[]"); } catch { return []; }
+}
+// the signature the cloud acked, as the form computes it (contentSigOf) — module level so the draft migration can use it
+const SIG_KEYS = ["noteType", "useCase", "context", "inspection", "rawNotes", "inspectionType", "inspectionDate", "inspectorName", "participantName",
+  "siteName", "siteNumber", "restaurantLicense", "supervisorName", "sitePhone", "locationType", "floor", "eventName",
+  "foodTemps", "foodTempNames", "foodTempCorrections", "foodTempSubmitted", "foodTempTimes", "suppliesNeeded", "notesPhotos", "correctives", "savedReportId"];
+const CLOUD_SIG_V = 2; // v559: the signature leaves pictures out (text-only, like the phone copy)
+const sigPick = snap => { const o = {}; for (const k of SIG_KEYS) o[k] = snap?.[k] ?? null; return o; };
+try { window.__sdxSigOf = (d, legacy) => hashSig(JSON.stringify((legacy ? legacySlimDraft : slimLocalDraft)(sigPick(d)))); } catch {} // harness
+// the pre-v559 slimming rule (kept small thumbs) — only to recognise drafts the cloud acked before the update
+function legacySlimDraft(v) {
+  if (Array.isArray(v)) return v.map(legacySlimDraft);
   if (v && typeof v === "object") {
     if (v instanceof File || v instanceof Blob) return undefined;
+    const out = {}; for (const [k, val] of Object.entries(v)) { if (typeof val === "string" && val.startsWith("data:") && val.length > 60000) continue; const r = legacySlimDraft(val); if (r !== undefined) out[k] = r; }
+    return out;
+  }
+  return v;
+}
+const _isPhotoObj = o => o && typeof o === "object" && !Array.isArray(o) && typeof o.id === "string" && ("thumbUrl" in o || "previewUrl" in o || "exportUrl" in o || "dataUrl" in o || ("url" in o && "type" in o));
+const _cloudUrl = x => typeof x === "string" && /^https?:\/\//.test(x);
+function slimLocalDraft(v) {
+  if (Array.isArray(v)) return v.map(slimLocalDraft).filter(x => x !== undefined);
+  if (v && typeof v === "object") {
+    if (v instanceof File || v instanceof Blob) return undefined;
+    if (_isPhotoObj(v) && !(_cloudUrl(v.exportUrl) || _cloudUrl(v.previewUrl) || _cloudUrl(v.url) || _cloudUrl(v.thumbUrl))) return undefined;
     const out = {};
     for (const [k, val] of Object.entries(v)) {
-      if (typeof val === "string" && val.startsWith("data:") && val.length > 60000) continue;
+      if (typeof val === "string" && (val.startsWith("data:") || val.startsWith("blob:"))) continue;
       const r = slimLocalDraft(val); if (r !== undefined) out[k] = r;
     }
     return out;
   }
   return v;
 }
+// v559: the History warm cache is a cache — it is re-downloaded. It may use at most this much of the phone's storage
+// (Safari gives a site about 5 MB), so the report drafts always fit next to it. ALL or nothing (v559 review): readers
+// treat it as the whole history, so a list cut short made the form say "Nothing open" at stands it did not hold. A big
+// venue keeps the list in memory instead (_warmHistory).
+const HISTORY_CACHE_MAX = 2_000_000;
+function writeHistoryCache(list, venue = VENUE_ID) {
+  const key = `sdx_history_cache_${venue}`;
+  try {
+    const slim = (list || []).filter(Boolean).map(r => { const { photos, itemPhotos, ...rest } = r; return stripDataUrls(rest); })
+      .sort((a, b) => String(b.savedAt || "").localeCompare(String(a.savedAt || "")));
+    const parts = []; let size = 2;
+    for (const r of slim) { const j = JSON.stringify(r); size += j.length + 1; if (size > HISTORY_CACHE_MAX) { localStorage.removeItem(key); historyCacheChanged(); return false; } parts.push(j); }
+    localStorage.setItem(key, "[" + parts.join(",") + "]");
+    historyCacheChanged();
+    return true;
+  } catch { try { localStorage.removeItem(key); } catch {} historyCacheChanged(); return false; }
+}
+function historyCacheChanged() { try { window.dispatchEvent(new Event("sdx-history-cache")); } catch {} }
+try { window.__sdxWriteHistoryCache = writeHistoryCache; } catch {}
 // v495: MANY drafts, one per report id — starting a new report or opening an
 // old one for editing never throws away the walk in progress. The write is
 // synchronous and happens on every change (no timer), so a killed tab, a
@@ -1447,13 +1506,41 @@ function stripDataUrls(v) {
 }
 function saveDraftFor(id, draft) {
   if (!id) return false;
-  const entry = { ...slimLocalDraft(draft), id, draftSavedAt: new Date().toISOString() };
+  // v559 review: the ✏️ Edit original is the cloud record a throw-away writes back — never slimmed (a stand log's
+  // photo thumbs would be lost from the cloud record)
+  const { editBase, ...rest } = draft || {};
+  const entry = { ...slimLocalDraft(rest), ...(editBase ? { editBase } : {}), id, draftSavedAt: new Date().toISOString() };
   entry.title = draftTitle(entry);
-  try { const m = loadDrafts(); m[id] = entry; writeDrafts(m); return true; }
+  const log = (ok, why) => { try { const l = (window.__sdxDraftLog = window.__sdxDraftLog || []); l.push({ id, ok, why, bytes: JSON.stringify(entry).length, at: Date.now() }); if (l.length > 40) l.shift(); } catch {} };
+  try { const m = loadDrafts(); m[id] = entry; writeDrafts(m); log(true, ""); return true; }
   catch {
-    // Quota: retry once without any pictures, then give up loudly (the strip shows it).
-    try { const m = loadDrafts(); m[id] = { ...stripDataUrls(entry), photosDropped: true }; writeDrafts(m); return true; } catch { return false; }
+    // v559: the phone is full — the History warm cache is the big one and it is only a cache: drop it and try again.
+    // The cloud is the real save either way, so nothing on screen asks anyone to free up space.
+    try { localStorage.removeItem(`sdx_history_cache_${VENUE_ID}`); historyCacheChanged(); const m = loadDrafts(); m[id] = entry; writeDrafts(m); log(true, "cache dropped"); return true; }
+    catch { log(false, "quota"); return false; }
   }
+}
+// v559: once per load — rewrite the drafts already on the phone as text-only copies (older ones carried thumbs)
+function slimStoredDrafts() {
+  try {
+    const raw = localStorage.getItem(DRAFTS_KEY); if (!raw) return;
+    const m = JSON.parse(raw); if (!m || typeof m !== "object") return;
+    const out = {};
+    for (const [k, d] of Object.entries(m)) {
+      if (!d) continue;
+      const { editBase, ...body } = d;
+      const { photosDropped, ...rest } = slimLocalDraft(body) || {};
+      if (editBase) rest.editBase = editBase;
+      // v559 review: a draft the cloud acked under the old signature (it kept thumbs) — still the acked content? then
+      // re-sign it with the new rule; edited after the ack? then it is really unsaved (no signature)
+      if (d.cloudSig && d.cloudSigV !== CLOUD_SIG_V) {
+        if (hashSig(JSON.stringify(legacySlimDraft(sigPick(d)))) === d.cloudSig) { rest.cloudSig = hashSig(JSON.stringify(slimLocalDraft(sigPick(d)))); rest.cloudSigV = CLOUD_SIG_V; }
+        else { delete rest.cloudSig; delete rest.cloudSigV; }
+      }
+      out[k] = rest;
+    }
+    const json = JSON.stringify(out); if (json !== raw) localStorage.setItem(DRAFTS_KEY, json);
+  } catch {}
 }
 function removeDraftFor(id) {
   try { const m = loadDrafts(); if (id in m) { delete m[id]; writeDrafts(m); } } catch {}
@@ -12737,13 +12824,19 @@ ${sections}
                               {f.overdue ? "⏰" : f.likelyResolved ? "✅" : "👁"}
                             </div>
                             <div className="fuBody">
+                              {/* v559: the card always names the PROBLEM (the equipment / area it is about); By Problem's header already
+                                  is the problem, so there the title is the stand. Joxel: "when im with the by date i get confused" */}
                               <div className="fuTitle">
-                                {fuGroupBy === "loc"
-                                  ? <>{f.merged ? "🧊 " : ""}{f.cat}</>
-                                  : <><NT>{f.loc}{f.unit ? <span className="fuLoc"> · Unit #{f.unit}</span> : null}</NT>{(fuGroupBy === "type" || f.merged) ? <span className="fuLoc"> — {f.cat}</span> : null}</>}
+                                {fuGroupBy === "cat"
+                                  ? <><NT>{f.loc}{f.unit ? <span className="fuLoc"> · Unit #{f.unit}</span> : null}</NT>{f.merged ? <span className="fuLoc"> — {f.cat}</span> : null}</>
+                                  : <>{f.merged ? "🧊 " : ""}{f.cat}</>}
                                 {(f.subs || []).length > 1 ? <span className="fuSubCount" data-testid="fu-sub-count"> · {(f.subs || []).length} issues</span> : null}
-                                {f.locType ? <StandType lt={f.locType} style={{ marginLeft: 6 }} /> : null}
+                                {f.locType && (fuGroupBy === "loc" || fuGroupBy === "cat") ? <StandType lt={f.locType} style={{ marginLeft: 6 }} /> : null}
                               </div>
+                              {/* …and in the groupings that mix stands (date / floor / type) the stand sits right under it */}
+                              {fuGroupBy !== "loc" && fuGroupBy !== "cat" && (
+                                <div className="fuStandLine" data-testid="fu-stand-line"><NT>🍳 {f.loc}{f.unit ? ` · #${f.unit}` : ""}</NT>{f.locType ? <StandType lt={f.locType} style={{ marginLeft: 6 }} /> : null}</div>
+                              )}
                               {/* v445: which unit — for older reports the name only lives in area */}
                               {f.area && !(f.cat || "").toUpperCase().includes(String(f.area).split(" — ")[0].toUpperCase()) && (
                                 <div className="fuEquipChip">🧊 {f.area}</div>
@@ -24206,7 +24299,7 @@ async function processPhotoFiles(files, { limit, inspId, venueId, firebaseOn, on
   }
   if (skips.length && onError) onError(photoSkipToast(skips));
   if (failCount > 0 && onError) {
-    onError(`⚠️ ${failCount} photo${failCount > 1 ? "s" : ""} kept on this device only (cloud upload failed). Check your internet connection.`);
+    onError(`⚠️ ${failCount} photo${failCount > 1 ? "s" : ""} could not upload — ${failCount > 1 ? "they are" : "it is"} NOT saved. Add ${failCount > 1 ? "them" : "it"} again when the signal is back.`);
   }
   return { photos, failCount };
 }
@@ -24898,7 +24991,14 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                       )}
                       {/* ── Checkmark Checklist items ── */}
                       {Array.isArray(current.checklist) && current.checklist.length > 0 && (() => {
-                        const makeSet = (idx, val) => () => setInspection((prev) => {
+                        const makeSet = (idx, val) => () => {
+                          // v559 review: a row marked ✕ by typing — the ✕ tap that follows (the old habit) keeps it ✕
+                          const ak = `${it.path.join(".")}#${idx}`;
+                          if (val === "NO" && _ciAutoNo.has(ak) && (nodeWithRows(it.path, current).checklist || [])[idx]?.value === "NO") { _ciAutoNo.delete(ak); return; }
+                          _ciAutoNo.delete(ak);
+                          return setInspectionRow(idx, val);
+                        };
+                        const setInspectionRow = (idx, val) => setInspection((prev) => {
                           const cur2 = nodeWithRows(it.path, getAtPath(prev, it.path));
                           // Tapping the active button again clears the item
                           const cur2val = (cur2.checklist || [])[idx]?.value;
@@ -24915,6 +25015,31 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                           const newChecklist = (cur2.checklist || []).map((c, i) => i === idx ? { ...c, comment } : c);
                           return setAtPath(prev, it.path, { ...cur2, checklist: newChecklist });
                         });
+                        // v559: typing on a row nobody answered yet marks it ✕ — the words become the issue description and the
+                        // typing carries on in the problem box that opens in its place. On a ✓ row the words stay a note.
+                        // Joxel: "once they start typing x should be marked by itself"
+                        const makeTypeComment = (idx, comment) => {
+                          const was = (nodeWithRows(it.path, current).checklist || [])[idx];
+                          // v559 review: only the FIRST letter in an EMPTY box flips the row (editing an old note does not), and never
+                          // a supply row — typing there is an on-hand count, not a missing product
+                          const flip = !was?.value && !was?.supply && !String(was?.comment || "").trim() && String(comment || "").trim() !== "";
+                          if (flip) { _ciTypeFocus = `${it.path.join(".")}#${idx}`; _ciAutoNo.set(`${it.path.join(".")}#${idx}`, Date.now()); }
+                          setInspection((prev) => {
+                            const cur2 = nodeWithRows(it.path, getAtPath(prev, it.path));
+                            const row = (cur2.checklist || [])[idx];
+                            const doFlip = flip && !row?.value && !String(row?.comment || "").trim();
+                            const newChecklist = (cur2.checklist || []).map((c, i) => i === idx ? { ...c, comment, ...(doFlip ? { value: "NO" } : {}) } : c);
+                            if (!doFlip) return setAtPath(prev, it.path, { ...cur2, checklist: newChecklist });
+                            if (row?.supply) setTimeout(() => { try { window.dispatchEvent(new CustomEvent("sdx-supply-needed", { detail: { item: row.supply, on: true } })); } catch {} }, 0);
+                            return setAtPath(prev, it.path, { ...cur2, checklist: newChecklist, status: nodeStatusAfter(cur2.status, newChecklist) });
+                          });
+                        };
+                        // the problem box that replaced the typed-in note takes the focus (caret at the end) so the typing goes on
+                        const typeFocusRef = (idx) => (el) => {
+                          if (!el || _ciTypeFocus !== `${it.path.join(".")}#${idx}`) return;
+                          _ciTypeFocus = "";
+                          try { el.focus({ preventScroll: true }); const n = (el.value || "").length; el.setSelectionRange(n, n); } catch {}
+                        };
                         const makeSetCiStatus = (idx, ciStatus) => setInspection((prev) => {
                           const cur2 = nodeWithRows(it.path, getAtPath(prev, it.path));
                           const newChecklist = (cur2.checklist || []).map((c, i) => i === idx ? { ...c, ciStatus } : c);
@@ -24963,7 +25088,7 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                             });
                           }
                           if (skips.length) onError?.(photoSkipToast(skips));
-                          if (failCount > 0) onError?.(`⚠️ ${failCount} photo${failCount > 1 ? "s" : ""} kept on this device only (cloud upload failed). Check your internet connection.`);
+                          if (failCount > 0) onError?.(`⚠️ ${failCount} photo${failCount > 1 ? "s" : ""} could not upload — ${failCount > 1 ? "they are" : "it is"} NOT saved. Add ${failCount > 1 ? "them" : "it"} again when the signal is back.`);
                         };
                         const removeCiPhoto = (idx, photoId) => setInspection((prev) => {
                           const cur2 = nodeWithRows(it.path, getAtPath(prev, it.path));
@@ -25059,10 +25184,27 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                                       {isFail && ci.supply ? (
                                         <div className="supRowNote" data-testid="sup-row-note" style={{ background: "var(--tint-amber-1)", border: "1.5px solid #fed7aa", borderRadius: 8, padding: "8px 12px", marginTop: 6, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                                           <span style={{ fontWeight: 700, color: "var(--tx-amber)", fontSize: "0.82rem" }}>📦 Missing — added to Supplies Needed</span>
-                                          <input className="input" style={{ flex: "1 1 180px", minWidth: 0 }} placeholder="How many? (optional)" value={ci.comment || ""} onChange={e => makeSetComment(idx, e.target.value)} />
+                                          <input className="input" style={{ flex: "1 1 180px", minWidth: 0 }} placeholder="How many? (optional)" value={ci.comment || ""} ref={typeFocusRef(idx)} onChange={e => makeSetComment(idx, e.target.value)} />
                                         </div>
                                       ) : isFail ? (
                                         <div style={{ background: "var(--tint-amber-1)", border: "1.5px solid #fed7aa", borderRadius: 8, padding: "10px 12px", marginTop: 6, display: "flex", flexDirection: "column", gap: 8, animation: "clFailPanelIn 0.18s ease" }}>
+                                          {/* v559: the description first — typing on an unanswered row lands right here */}
+                                          <div>
+                                            <div style={{ fontSize: "0.7rem", fontWeight: 700, color: "var(--tx-amber)", letterSpacing: "0.06em", marginBottom: 3 }}>⚠️ ISSUE DESCRIPTION <span style={{ color: "#dc2626" }}>*</span></div>
+                                            <input
+                                              type="text"
+                                              className="input inputSmall"
+                                              value={ci.comment || ""}
+                                              ref={typeFocusRef(idx)}
+                                              data-testid="ci-issue-desc"
+                                              onChange={(e) => makeSetComment(idx, e.target.value)}
+                                              placeholder="What exactly, which part, where?"
+                                              style={{ width: "100%", borderColor: (ci.comment || "").trim().split(/\s+/).filter(Boolean).length < 4 ? "#fca5a5" : undefined }}
+                                            />
+                                            {/* v450: the WHAT / WHAT'S WRONG / WHERE chips asked the same thing as
+                                                SPECIFIC LOCATION below, so they are gone from this panel. */}
+                                            {(ci.comment || "").trim().split(/\s+/).filter(Boolean).length < 4 && <div className="specHint">⚠ Say what it is and what is wrong with it</div>}
+                                          </div>
                                           <div>
                                             <div style={{ fontSize: "0.7rem", fontWeight: 700, color: "var(--tx-amber)", letterSpacing: "0.06em", marginBottom: 3 }}>📋 STATUS</div>
                                             <select
@@ -25072,20 +25214,6 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                                               style={{ width: "100%" }}>
                                               {["Needs Attention","Fail","Critical Violation","Corrected On-Site","Maintenance","Building","Ecolab","Off / Not In Use"].map(s => <option key={s} value={s}>{s}</option>)}
                                             </select>
-                                          </div>
-                                          <div>
-                                            <div style={{ fontSize: "0.7rem", fontWeight: 700, color: "var(--tx-amber)", letterSpacing: "0.06em", marginBottom: 3 }}>⚠️ ISSUE DESCRIPTION <span style={{ color: "#dc2626" }}>*</span></div>
-                                            <input
-                                              type="text"
-                                              className="input inputSmall"
-                                              value={ci.comment || ""}
-                                              onChange={(e) => makeSetComment(idx, e.target.value)}
-                                              placeholder="What exactly, which part, where?"
-                                              style={{ width: "100%", borderColor: (ci.comment || "").trim().split(/\s+/).filter(Boolean).length < 4 ? "#fca5a5" : undefined }}
-                                            />
-                                            {/* v450: the WHAT / WHAT'S WRONG / WHERE chips asked the same thing as
-                                                SPECIFIC LOCATION below, so they are gone from this panel. */}
-                                            {(ci.comment || "").trim().split(/\s+/).filter(Boolean).length < 4 && <div className="specHint">⚠ Say what it is and what is wrong with it</div>}
                                           </div>
                                           <div>
                                             <div style={{ fontSize: "0.7rem", fontWeight: 700, color: "var(--tx-amber)", letterSpacing: "0.06em", marginBottom: 4 }}>
@@ -25141,11 +25269,11 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                                               </button>
                                             </div>
                                           ); })()}
-                                          {ciPhotos.filter(p => p.tag !== "after").length === 0 && <div className="specHint">Recommended — add a BEFORE photo of the problem</div>}
+                                          {ciPhotos.filter(p => p.tag !== "after").length === 0 && <div className="ciPhotoMissing" data-testid="ci-photo-missing" role="note">📷 Add a BEFORE photo — the crew needs to see the problem</div>}
                                         </div>
                                       ) : (
                                         <div className="clItemCommentRow">
-                                          <input type="text" className="clItemComment" value={ci.comment || ""} onChange={(e) => makeSetComment(idx, e.target.value)} placeholder={isPass ? "Optional note..." : "Add a comment..."} aria-label={`Comment for ${ci.label}`} />
+                                          <input type="text" className="clItemComment" data-testid="ci-comment" value={ci.comment || ""} onChange={(e) => makeTypeComment(idx, e.target.value)} placeholder={isPass ? "Optional note..." : ci.supply ? "On hand? (count) — tap ✕ if it is missing" : "Type the problem — marks it ✕"} aria-label={`Comment for ${ci.label}`} />
                                           <input type="file" accept="image/*" multiple className="fileInput" ref={(el) => { fileRefs.current[ciRefKey] = el; }} onChange={(e) => { addCiPhoto(idx, e.target.files); e.target.value = ""; }} />
                                           <input type="file" accept="image/*" capture="environment" className="fileInput" ref={(el) => { cameraRefs.current[ciRefKey] = el; }} onChange={(e) => { addCiPhoto(idx, e.target.files); e.target.value = ""; }} />
                                           <button type="button" className={`clItemPhotoBtn${ciPhotos.length > 0 ? " clItemPhotoBtnHasPhotos" : ""}`} title={ciPhotos.length > 0 ? `${ciPhotos.length} photo${ciPhotos.length > 1 ? "s" : ""} attached` : "Gallery"} disabled={ciPhotos.length >= PHOTO_LIMIT} onClick={() => fileRefs.current[ciRefKey]?.click()} aria-label={`Add photo from gallery for ${ci.label}`}>
@@ -26600,6 +26728,12 @@ const WASTE_ITEMS = [
 const wasteUnitLabel = k => (WASTE_UNITS.find(u => u.k === k) || { en: k || "" }).en;
 const wasteReasonOf = k => WASTE_REASONS.find(r => r.k === k) || { k, icon: "…", en: k || "—", es: k || "—" };
 const wasteNum = n => Math.round((Number(n) || 0) * 100) / 100;
+// v558 review: the SHIFT day of a moment — local time − 5 h, so a 12:20 AM log after a night game is the game day
+const wasteLocalDay = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const wasteShiftDay = (ms = Date.now()) => wasteLocalDay(new Date(ms - 5 * 3600000));
+// "Hot dogs" from "Hot dogs" / "hot dogs" / "Salchichas"… — a chip's Spanish name is stored as the English item;
+// anything typed stays as typed
+const wasteItemKey = s => { const t = String(s || "").trim(); const lo = t.toLowerCase(); const hit = WASTE_ITEMS.find(x => x.en.toLowerCase() === lo || x.es.toLowerCase() === lo); return hit ? hit.en : t; };
 // "12 pieces · 3 lb" from { pieces: 12, lb: 3 }
 function wasteAmountText(byUnit) {
   const keys = [...WASTE_UNITS.map(u => u.k), ...Object.keys(byUnit || {}).filter(k => !WASTE_UNITS.some(u => u.k === k))];
@@ -26612,9 +26746,18 @@ function wasteRowsOf(history) {
     if (!r || r.discarded) continue;
     const rows = Array.isArray(r.foodWaste) ? r.foodWaste : [];
     if (!rows.length && !r.foodWasteNone) continue;
-    // v558 review: a stand log counts toward its SHIFT day (local time − 5 h), so a 12:20 AM log after a night game, or
-    // an 11:55 PM log re-sent at 12:02 AM, stays on the game day (portalDay is the send's calendar date — the stand feed's)
-    const shift = (() => { if (r.source !== "haccp_portal") return ""; const t = Date.parse(r.savedAt || ""); if (!isFinite(t)) return ""; const d = new Date(t - 5 * 3600000); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; })();
+    // v558 review: a stand log counts toward its SHIFT day. The portal stamps `wasteDay` (local time − 5 h) on the first
+    // send of the visit that carries waste and keeps it, so a 12:20 AM log after a night game, an 11:55 PM log re-sent at
+    // 12:02 AM, or an ✏️ Edit the next morning (which moves savedAt) all stay on the game day. Records from before that:
+    // portalDay (the send's calendar date), one day back when the send was between midnight and 5 AM of that date.
+    const shift = (() => {
+      if (r.wasteDay) return r.wasteDay;
+      if (r.source !== "haccp_portal" || !r.portalDay) return "";
+      const t = Date.parse(r.savedAt || ""); if (!isFinite(t)) return r.portalDay;
+      const s = new Date(t);
+      if (wasteLocalDay(s) === r.portalDay && s.getHours() < 5) { const d = new Date(r.portalDay + "T12:00:00"); d.setDate(d.getDate() - 1); return wasteLocalDay(d); }
+      return r.portalDay;
+    })();
     const day = shift || r.portalDay || r.inspectionDate || String(r.savedAt || "").slice(0, 10);
     const base = { recId: r.id, day, at: r.savedAt || "", stand: String(r.siteName || "—").toUpperCase(), unit: String(r.siteNumber || "").trim(), floor: r.floor || "", type: r.locationType || "", by: (r.supervisorName || r.reportedBy?.name || r.inspectorName || "").toUpperCase() };
     if (!rows.length) { out.push({ ...base, none: true }); continue; }
@@ -26650,7 +26793,7 @@ async function exportWasteExcel({ rows, byStand, byItem, flags, scopeText }) {
   const ws4 = wb.addWorksheet("Didn't log");
   head(ws4, [["Stand", 30], ["Unit", 8], ["Floor", 10], ["Stand type", 18], ["Days logged", 12], ["Days expected", 13], ["Last log", 12], ["Flag", 20]]);
   flags.forEach(f => {
-    const row = ws4.addRow([f.site, f.unit, f.floor, f.locType, f.logged, f.expected, f.last || "never", f.flag === "never" ? "Never logged" : f.flag === "missed" ? "Missed some" : "Logged every day"]);
+    const row = ws4.addRow([f.site, f.unit, f.floor, f.locType, f.logged, f.expected, f.last || "never", f.flag === "never" ? "Never logged" : f.flag === "missed" ? "Missed some" : "Logged every counted day"]);
     const c = row.getCell(8); const [bg, fg] = f.flag === "never" ? [RED, REDT] : f.flag === "missed" ? [AMB, AMBT] : [GRN, GRNT];
     c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: bg } }; c.font = { bold: true, color: { argb: fg } };
   });
@@ -26669,8 +26812,8 @@ function FoodWasteReport({ history, venueSettings, standScope = null }) {
   const [xls, setXls] = useState("");
   const [, setStandsTick] = useState(0);
   useEffect(() => { let alive = true; loadStandList().then(() => { if (alive) setStandsTick(t => t + 1); }).catch(() => {}); return () => { alive = false; }; }, []);
-  const localDay = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-  const today = localDay(new Date());
+  const localDay = wasteLocalDay;
+  const today = wasteShiftDay(); // v558 review: the shift day — at 1 AM after a game, "Today" is still the game
   // v558 review: only the History filters that pick stands apply here (the report has its own days); they narrow the
   // waste lines and the stand list alike, so a stand outside the filter is never "never logged"
   const sFloor = standScope?.floor || "", sType = standScope?.locType || "", sSite = standScope?.site || "";
@@ -26687,7 +26830,7 @@ function FoodWasteReport({ history, venueSettings, standScope = null }) {
   const pool = eventDays.length ? eventDays : logDays;
   const evN = range === "3ev" ? 3 : range === "5ev" ? 5 : 0;
   // v558 review: calendar days by stepping the local date (subtracting 24 h repeats a date across a DST change)
-  const calDays = n => { const out = []; const d = new Date(); d.setHours(12, 0, 0, 0); for (let i = 0; i < n; i++) { out.push(localDay(d)); d.setDate(d.getDate() - 1); } return out; };
+  const calDays = n => { const out = []; const d = new Date(today + "T12:00:00"); for (let i = 0; i < n; i++) { out.push(localDay(d)); d.setDate(d.getDate() - 1); } return out; };
   const days = range === "today" ? [today]
     : evN ? pool.slice(0, evN)
     : calDays(range === "7d" ? 7 : 30);
@@ -26811,11 +26954,11 @@ function FoodWasteReport({ history, venueSettings, standScope = null }) {
         {view === "flags" && (
           <>
             <div className="wasteFlagChips">
-              {[["missed", "Didn't log"], ["never", "Never logged"], ["ok", "Logged every day"], ["all", "All"]].map(([k, lbl]) => (
+              {[["missed", "Didn't log"], ["never", "Never logged"], ["ok", eventDays.length ? "Logged every event day" : "Logged every day"], ["all", "All"]].map(([k, lbl]) => (
                 <button key={k} type="button" className={"wasteRangeBtn" + (flagFilter === k ? " on" : "")} data-testid={`waste-flag-${k}`} onClick={() => setFlagFilter(k)}>{lbl} ({flagCounts[k]})</button>
               ))}
             </div>
-            {shownFlags.length === 0 ? <div className="wasteEmpty" data-testid="waste-flags-empty">{!flagDays.length ? `No ${eventDays.length ? "event day" : "waste log"} in these dates, so nobody is flagged — pick "Last 3 events" to see who did not log.` : flags.length ? "No stands here." : "Loading the stand list…"}</div> : (
+            {shownFlags.length === 0 ? <div className="wasteEmpty" data-testid="waste-flags-empty">{!flagDays.length ? (evN ? "No event days marked and no waste logged yet, so nobody is flagged — mark the event days in the schedule." : `No ${eventDays.length ? "event day" : "waste log"} in these dates, so nobody is flagged — pick "Last 3 events" to see who did not log.`) : flags.length ? "No stands here." : "Loading the stand list…"}</div> : (
               <div className="wasteList">
                 {shownFlags.map(f => (
                   <div key={f.id || f.site + f.unit} className={"wasteFlagRow wasteFlag-" + f.flag} data-testid="waste-flag-row">
@@ -27794,12 +27937,11 @@ function HaccpPortal() {
   // (the slot never comes and goes while they tap the row's chips, so nothing above the finger moves)
   const [wasteFlagged, setWasteFlagged] = useState({});
   // v558 review: the item is stored in English (the report groups by it) but shown in the portal's language
-  const wasteItemShow = item => { const hit = pl === "es" && WASTE_ITEMS.find(x => x.en === item); return hit ? hit.es : (item || ""); };
   // v507 — auto-send while filling in
   // v558 review: ONE object per visit — its ids, whether a record was filed, the visit's alert and a send counter.
   // "Submit Another Log" starts a new object, so a send of the last person still in flight (slow stadium network)
   // only ever touches that person's records and never the next person's screen.
-  const newVisit = () => ({ subId: "", inspId: "", filed: false, notified: false, seq: 0, inspSeq: 0 });
+  const newVisit = () => ({ subId: "", inspId: "", filed: false, notified: false, seq: 0, inspSeq: 0, wasteDay: "", shiftDay: "" });
   const visitRef = useRef(null); if (!visitRef.current) visitRef.current = newVisit();
   const autoTimerRef = useRef(null), handleSubmitRef = useRef(null);
   const [autoSent, setAutoSent] = useState(null);
@@ -28104,7 +28246,7 @@ function HaccpPortal() {
     ];
     // v558: food waste lines that are complete (item + amount + unit + why); a half-filled line stops the final Submit
     const wasteDoneRow = r => !!(String(r.item || "").trim() && Number(r.qty) > 0 && r.unit && r.reason);
-    const wasteRows = waste.filter(wasteDoneRow).map(r => ({ item: String(r.item).trim(), qty: Math.round(Number(r.qty) * 100) / 100, unit: r.unit, reason: r.reason }));
+    const wasteRows = waste.filter(wasteDoneRow).map(r => ({ item: wasteItemKey(r.item), qty: Math.round(Number(r.qty) * 100) / 100, unit: r.unit, reason: r.reason }));
     const wasteHalf = waste.filter(r => !wasteDoneRow(r) && (String(r.item || "").trim() || String(r.qty || "").trim() || r.unit || r.reason));
     const wasteNoneOn = wasteNone && !wasteRows.length;
     if (!auto && wasteHalf.length) {
@@ -28159,8 +28301,11 @@ function HaccpPortal() {
       return;
     }
     if (!auto) setTempErr("");
+    if (shiftStale()) { if (opts?.auto) { startNewShift(); return; } visitRef.current = newVisit(); } // v559 review: a new shift = a new visit
     const v = visitRef.current; // this visit — every await below works on v, never on the refs of a later visit
     if (!v.subId) v.subId = `haccp_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+    // v558 review: the shift day is fixed by the first send of the visit that carries waste — later sends and edits keep it
+    if ((wasteRows.length || wasteNoneOn) && !v.wasteDay) v.wasteDay = wasteShiftDay();
     const id = v.subId;
     const record = {
       id,
@@ -28189,7 +28334,7 @@ function HaccpPortal() {
       } : null,
       problemReports: allProblems, // v463 — one entry per problem
       suppliesNeeded: suppliesReq, // v503
-      foodWaste: wasteRows, foodWasteNone: wasteNoneOn, // v558
+      foodWaste: wasteRows, foodWasteNone: wasteNoneOn, ...(v.wasteDay ? { wasteDay: v.wasteDay } : {}), // v558
       submittedAt: new Date().toISOString(),
       partial: auto,
       missingCorrective: missingCorr.length,
@@ -28207,7 +28352,7 @@ function HaccpPortal() {
     const hasWaste = wasteRows.length > 0 || wasteNoneOn; // v558
     const emptyNow = !allProblems.length && tempCount === 0 && !suppliesReq.length && !hasWaste; // v558 review: everything was taken back out
     const fileIt = !!(allProblems.length || tempCount > 0 || suppliesReq.length || hasWaste || filedBefore);
-    if (fileIt) { if (!v.inspId) v.inspId = `${Date.now()}_sp${Math.floor(Math.random() * 1e4)}`; v.filed = true; }
+    if (fileIt) { if (!v.inspId) v.inspId = `${Date.now()}_sp${Math.floor(Math.random() * 1e4)}`; v.filed = true; if (!v.shiftDay) v.shiftDay = wasteShiftDay(); }
     // v513 — the final Submit shows "Submitted!" after at most 1.2 s; the write keeps going
     // (and lands in the pending outbox if it fails), so a slow stadium network never holds the button.
     if (!auto) clearTimeout(autoTimerRef.current);
@@ -28270,7 +28415,7 @@ function HaccpPortal() {
             reportedBy: { name: supName.trim(), phone: supPhone.trim() }, inspectorName: supName.trim() || "Supervisor", supervisorName: supName.trim(), sitePhone: supPhone.trim(),
             overallStatus: outOfRange > 0 ? "FAIL" : "PASS", photos: allProblems.flatMap(q => q.photos), actionItems: items, inspection: {},
             suppliesNeeded: suppliesReq, partial: auto, missingCorrective: missingCorr.length,
-            foodWaste: wasteRows, foodWasteNone: wasteNoneOn, // v558
+            foodWaste: wasteRows, foodWasteNone: wasteNoneOn, ...(v.wasteDay ? { wasteDay: v.wasteDay } : {}), // v558
             ...(emptyNow ? { discarded: true } : {}), // v558 review: nothing left — the thrown-away record leaves every list
           });
           if (items.length) try { notifyCrewsForItems(items.map(a => ({ issue: a.issue, notes: "" })), locSite.trim().toUpperCase(), locUnit.trim(), supName.trim()); } catch {}
@@ -28294,6 +28439,45 @@ function HaccpPortal() {
     autoTimerRef.current = setTimeout(() => { handleSubmitRef.current?.({ auto: true }).catch(() => {}); }, ms);
   }
   handleSubmitRef.current = handleSubmit;
+  // v559 review: everything one log holds — "Submit Another Log" and a new shift start from a clean form
+  function clearLogFields() {
+              setProblem("");
+              setProblemCat("");
+              setProblemDetails({}); setProblemMissing([]); setProblemSpecOpen(false);
+              setProblemOnly(false);
+              setProblemError("");
+              setProblemPhotos([]);
+              setTemps(Object.fromEntries(HACCP_TEMP_ITEMS.map(it => [it.key, [""]])));
+              setFoodNames(Object.fromEntries(HACCP_TEMP_ITEMS.map(it => [it.key, [""]])));
+              setTempSubmitted(Object.fromEntries(HACCP_TEMP_ITEMS.map(it => [it.key, [false]])));
+              setTempCorrections(Object.fromEntries(HACCP_TEMP_ITEMS.map(it => [it.key, [""]])));
+              setTempTimes(Object.fromEntries(HACCP_TEMP_ITEMS.map(it => [it.key, [""]])));
+              setCustomItems([]);
+              setEditingLabel(null);
+              setEditingLabelVal("");
+              setLabelOverrides({});
+              // v558 review: the last person's waste answer, supplies, problems and corrective actions stay with them, and the
+              // next log gets its own records (it used to reuse — and overwrite — the last person's ids)
+              setWaste([]); setWasteNone(false); setWasteOpen(false); setWasteErr(""); setWasteFlagged({});
+              setSupReq({}); setSupOther(""); setSupUrgent(false); setProblemsAdded([]);
+              setProblemAction(""); setProblemProof([]); setProblemNlu(null); nluTouched.current = {};
+              setTempErr(""); setCorrSent({}); setSubSaved("");
+              clearTimeout(autoTimerRef.current); visitRef.current = newVisit(); setAutoSent(null);
+  }
+  // v559 review: a stand QR tab left open from the last shift (they log on Done and rarely tap Submit) — the visit ends
+  // when the shift does, so today's log gets its own records and its own day (and never overwrites yesterday's)
+  const [shiftNotice, setShiftNotice] = useState("");
+  const shiftStale = () => { const v = visitRef.current; return !!(v.filed && v.shiftDay && wasteShiftDay() !== v.shiftDay); };
+  function startNewShift() {
+    clearLogFields();
+    setShiftNotice(L("🌅 New shift — this is today's log (yesterday's is already with the inspector).", "🌅 Nuevo turno — este es el registro de hoy (el de ayer ya lo tiene el inspector)."));
+    setTimeout(() => setShiftNotice(""), 9000);
+  }
+  useEffect(() => {
+    const on = () => { if (document.visibilityState === "visible" && step === "form" && shiftStale()) startNewShift(); };
+    document.addEventListener("visibilitychange", on); window.addEventListener("pageshow", on); window.addEventListener("focus", on);
+    return () => { document.removeEventListener("visibilitychange", on); window.removeEventListener("pageshow", on); window.removeEventListener("focus", on); };
+  }); // every render: reads the latest step / visit
   // v558 review: the language button floats ABOVE the sticky Submit bar. The bar grows with "✓ Sent", a blocked Submit's
   // reason and its "go to it" link — on a phone the button sat on top of them (--sdx-fab-lift, read by .langFabWrap).
   const stickyRef = useRef(null);
@@ -29080,8 +29264,8 @@ function HaccpPortal() {
                           {wasteFlagged[r.id] && (doneRow
                             ? <div key="ok" className="wasteRowMissing ok" data-testid="waste-row-ok">✓ {L("Complete", "Completo")}</div>
                             : <div key={`miss:${miss.join("|")}`} className="wasteRowMissing" data-testid="waste-row-missing">⚠️ {L("Missing:", "Falta:")} {miss.join(" · ")}</div>)}
-                          <input className="haccpInput" data-testid="waste-item" placeholder={L("What is it? e.g. hot dogs", "¿Qué es? ej. hot dogs")} value={wasteItemShow(r.item)} onChange={e => { const v = e.target.value; const hit = pl === "es" && WASTE_ITEMS.find(x => x.es === v); set({ item: hit ? hit.en : v }); }} />
-                          <div className="wasteChips">{WASTE_ITEMS.map(x => <button key={x.en} type="button" className={"wasteChip" + ((r.item === x.en || r.item === x.es) ? " on" : "")} data-testid="waste-item-chip" onClick={() => set({ item: x.en })}>{L(x.en, x.es)}</button>)}</div>
+                          <input className="haccpInput" data-testid="waste-item" placeholder={L("What is it? e.g. hot dogs", "¿Qué es? ej. hot dogs")} value={r.item || ""} onChange={e => set({ item: e.target.value })} />
+                          <div className="wasteChips">{WASTE_ITEMS.map(x => <button key={x.en} type="button" className={"wasteChip" + (wasteItemKey(r.item) === x.en ? " on" : "")} data-testid="waste-item-chip" onClick={() => set({ item: L(x.en, x.es) })}>{L(x.en, x.es)}</button>)}</div>
                           <div className="wasteLbl">{L("How much?", "¿Cuánto?")}</div>
                           <div className="wasteQtyRow">
                             <input className="haccpInput wasteQty" data-testid="waste-qty" type="text" inputMode="decimal" placeholder="0" value={r.qty} onChange={e => set({ qty: e.target.value.replace(",", ".").replace(/[^0-9.]/g, "") })} />
@@ -29213,6 +29397,7 @@ function HaccpPortal() {
             <div className="haccpStickySubmit" data-testid="sticky-submit" ref={stickyRef}>
               {/* v558 review: a blocked Submit says why right above the button (the line at the end of the waste section can be off screen) */}
               {wasteErr && <div className="haccpProblemErr wasteErrSticky" data-testid="waste-err-sticky">{wasteErr} — <a href="#" onClick={e => { e.preventDefault(); const el = document.querySelector('[data-testid=waste-row-missing]')?.closest('[data-waste-row]'); el?.scrollIntoView({ behavior: "smooth", block: "start" }); }}>{L("go to it", "ir ahí")}</a></div>}
+              {shiftNotice && <div className="haccpShiftNotice" data-testid="shift-notice">{shiftNotice}</div>}
               {autoSent && (
                 <div className="haccpAutoSent" data-testid="auto-sent">
                   {L("✓ Sent to the inspector", "✓ Enviado al inspector")}{autoSent.temps ? ` · ${autoSent.temps} ${autoSent.temps === 1 ? L("temp", "temperatura") : L("temps", "temperaturas")}` : ""}{autoSent.supplies ? ` · ${autoSent.supplies} ${L("supplies", "suministros")}` : ""}{autoSent.waste ? ` · 🗑 ${autoSent.waste} ${L(autoSent.waste === 1 ? "waste item" : "waste items", "desperdicio")}` : ""} · {new Date(autoSent.at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
@@ -29242,10 +29427,16 @@ function HaccpPortal() {
             {LocationBanner}
             {TodayStatus}
             <div className="haccpSuccessBox">
-              {(() => { const cats = [...problemsAdded.map(q => q.category), ...(problem.trim() && problemCat ? [problemCat] : [])]; const catsEl = cats.map((c, i) => <b key={i}>{i ? ", " : ""}{supCatEmoji(c)} {c}</b>); return problemOnly && cats.length // v558 review: a waste / supplies-only send in problem-only mode is not a problem report
-                ? <>{cats.length > 1 ? `Your ${cats.length} problem reports were` : "Your problem report was"} sent to the inspection team as {catsEl} — now on their follow-up list. · {cats.length > 1 ? "Tus reportes fueron enviados" : "Tu reporte fue enviado"} al equipo de inspección.</>
-                : <>{Object.values(temps || {}).some(a => (a || []).some(v => String(v || "").trim())) ? "Your temperature log has been submitted and will appear in the inspection report." : "Your log has been sent to the inspector."}
-                    {cats.length > 0 && <> Your {catsEl} problem report{cats.length > 1 ? "s are" : " is"} now on the inspector's follow-up list.</>}</>; })()}
+              {(() => {
+                // v558 review: only the problems that were really filed — the added ones plus the editor when it held a problem
+                const cats = [...problemsAdded.map(q => q.category), ...(editorHasProblem() && problemCat ? [problemCat] : [])].filter(Boolean);
+                const catsEl = cats.map((c, i) => <b key={i}>{i ? ", " : ""}{supCatEmoji(c)} {c}</b>);
+                const anyTemp = Object.values(temps || {}).some(a => (a || []).some(v => String(v || "").trim()));
+                return problemOnly && cats.length // a waste / supplies-only send in problem-only mode is not a problem report
+                  ? <>{cats.length > 1 ? L(`Your ${cats.length} problem reports were sent to the inspection team as`, `Tus ${cats.length} reportes fueron enviados al equipo de inspección como`) : L("Your problem report was sent to the inspection team as", "Tu reporte fue enviado al equipo de inspección como")} {catsEl} {L("— now on their follow-up list.", "— ya está en su lista de seguimiento.")}</>
+                  : <>{anyTemp ? L("Your temperature log has been submitted and will appear in the inspection report.", "Tu registro de temperaturas fue enviado y aparecerá en el reporte de inspección.") : L("Your log has been sent to the inspector.", "Tu registro fue enviado al inspector.")}
+                      {cats.length > 0 && <> {L(cats.length > 1 ? "Your problem reports" : "Your problem report", cats.length > 1 ? "Tus reportes" : "Tu reporte")} {catsEl} {L(cats.length > 1 ? "are now on the inspector's follow-up list." : "is now on the inspector's follow-up list.", "ya está en la lista de seguimiento del inspector.")}</>}</>;
+              })()}
             </div>
             {(Object.keys(supReq).length > 0 || supOther.trim()) && (
               <div className="haccpSuccessBox" data-testid="sup-req-done" style={{ marginTop: 8 }}>
@@ -29255,7 +29446,7 @@ function HaccpPortal() {
             {(waste.some(r => String(r.item || "").trim() && Number(r.qty) > 0 && r.unit && r.reason) || wasteNone) && (
               <div className="haccpSuccessBox" data-testid="waste-done" style={{ marginTop: 8 }}>
                 🗑 {waste.some(r => String(r.item || "").trim() && Number(r.qty) > 0 && r.unit && r.reason)
-                  ? <>{L("Food waste logged:", "Desperdicio anotado:")} {waste.filter(r => String(r.item || "").trim() && Number(r.qty) > 0 && r.unit && r.reason).map(r => `${wasteItemShow(r.item.trim())} ${r.qty} ${L(wasteUnitLabel(r.unit), (WASTE_UNITS.find(u => u.k === r.unit) || {}).es || r.unit)} (${L(wasteReasonOf(r.reason).en, wasteReasonOf(r.reason).es).toLowerCase()})`).join(" · ")}</>
+                  ? <>{L("Food waste logged:", "Desperdicio anotado:")} {waste.filter(r => String(r.item || "").trim() && Number(r.qty) > 0 && r.unit && r.reason).map(r => `${r.item.trim()} ${r.qty} ${L(wasteUnitLabel(r.unit), (WASTE_UNITS.find(u => u.k === r.unit) || {}).es || r.unit)} (${L(wasteReasonOf(r.reason).en, wasteReasonOf(r.reason).es).toLowerCase()})`).join(" · ")}</>
                   : L("No food waste today — logged.", "Sin desperdicio de comida hoy — anotado.")}
               </div>
             )}
@@ -29287,28 +29478,7 @@ function HaccpPortal() {
               setSupName("");
               setSupPhone("");
               setSessionId(null);
-              setProblem("");
-              setProblemCat("");
-              setProblemDetails({}); setProblemMissing([]); setProblemSpecOpen(false);
-              setProblemOnly(false);
-              setProblemError("");
-              setProblemPhotos([]);
-              setTemps(Object.fromEntries(HACCP_TEMP_ITEMS.map(it => [it.key, [""]])));
-              setFoodNames(Object.fromEntries(HACCP_TEMP_ITEMS.map(it => [it.key, [""]])));
-              setTempSubmitted(Object.fromEntries(HACCP_TEMP_ITEMS.map(it => [it.key, [false]])));
-              setTempCorrections(Object.fromEntries(HACCP_TEMP_ITEMS.map(it => [it.key, [""]])));
-              setTempTimes(Object.fromEntries(HACCP_TEMP_ITEMS.map(it => [it.key, [""]])));
-              setCustomItems([]);
-              setEditingLabel(null);
-              setEditingLabelVal("");
-              setLabelOverrides({});
-              // v558 review: the last person's waste answer, supplies, problems and corrective actions stay with them, and the
-              // next log gets its own records (it used to reuse — and overwrite — the last person's ids)
-              setWaste([]); setWasteNone(false); setWasteOpen(false); setWasteErr(""); setWasteFlagged({});
-              setSupReq({}); setSupOther(""); setSupUrgent(false); setProblemsAdded([]);
-              setProblemAction(""); setProblemProof([]); setProblemNlu(null); nluTouched.current = {};
-              setTempErr(""); setCorrSent({}); setSubSaved("");
-              clearTimeout(autoTimerRef.current); visitRef.current = newVisit(); setAutoSent(null);
+              clearLogFields();
             }}>
               {L("Submit Another Log", "Enviar otro registro")}
             </button>
@@ -30478,7 +30648,7 @@ export default function App() {
   const fuOverdueCount = useMemo(() => {
     if (!currentUser) return 0;
     try {
-      const cached = JSON.parse(localStorage.getItem(`sdx_history_cache_${VENUE_ID}`) || "[]");
+      const cached = readWarmHistory();
       return computeFollowups(cached, venueSettings).followups.filter(f => f.overdue).length;
     } catch { return 0; }
   }, [currentUser, venueSettings?.followupCleared, venueSettings?.followupStatus, venueSettings?.recheckDays, fuHistoryTick]);
@@ -30488,7 +30658,7 @@ export default function App() {
   const fuOpenCount = useMemo(() => {
     if (!currentUser) return 0;
     try {
-      const cached = JSON.parse(localStorage.getItem(`sdx_history_cache_${VENUE_ID}`) || "[]");
+      const cached = readWarmHistory();
       return computeFollowups(cached, venueSettings).followups.length;
     } catch { return 0; }
   }, [currentUser, venueSettings?.followupCleared, venueSettings?.followupStatus, venueSettings?.recheckDays, fuHistoryTick]);
@@ -30498,7 +30668,7 @@ export default function App() {
     if (!currentUser) return 0;
     try {
       const reg = JSON.parse(localStorage.getItem(EQUIP_REG_LS) || "{}") || {};
-      const histC = JSON.parse(localStorage.getItem(`sdx_history_cache_${VENUE_ID}`) || "[]");
+      const histC = readWarmHistory();
       const last = {};
       for (const rec of histC) {
         const eq = rec?.inspection?.equipment; if (!eq) continue;
@@ -30910,7 +31080,7 @@ export default function App() {
     if (!fresh.length) return;
     let byKey = {};
     try {
-      const cached = JSON.parse(localStorage.getItem(`sdx_history_cache_${VENUE_ID}`) || "[]");
+      const cached = readWarmHistory();
       for (const f of (computeFollowups(cached, venueSettings).followups || [])) byKey[f.key] = f;
     } catch {}
     for (const [key, v] of fresh) {
@@ -31383,7 +31553,7 @@ export default function App() {
       const unitN = normUnit(siteNumber); const siteU = (siteName || "").trim().toUpperCase();
       if (!unitN && !siteU) return [];
       let curReportId = ""; try { curReportId = localStorage.getItem(REPORT_ID_KEY) || ""; } catch {}
-      const cached = JSON.parse(localStorage.getItem(`sdx_history_cache_${VENUE_ID}`) || "[]").filter(r => r && r.id !== curReportId && r.id !== _openReportId); // v553: not the report being autosaved now
+      const cached = readWarmHistory().filter(r => r && r.id !== curReportId && r.id !== _openReportId); // v553: not the report being autosaved now
       return computeFollowups(cached, venueSettings).followups
         .filter(f => !f.likelyResolved)
         .filter(f => unitN ? normUnit(f.unit) === unitN : (f.loc || "").toUpperCase() === siteU)
@@ -31394,7 +31564,9 @@ export default function App() {
   // "Already open" peek (report entry): is the history cache warm enough to
   // trust a "nothing open" answer, and which problem texts has THIS report
   // already captured (checklist fails + Action: note lines)?
-  const fuCacheWarm = useMemo(() => { try { return (JSON.parse(localStorage.getItem(`sdx_history_cache_${VENUE_ID}`) || "[]")).length > 0; } catch { return false; } }, [fuHistoryTick]);
+  // v559 review: "Nothing open" only when the WHOLE list is known (read in full at sign-in, or the phone copy — all or nothing)
+  const fuCacheWarm = useMemo(() => { if (_warmHistoryComplete) return true; try { return (JSON.parse(localStorage.getItem(`sdx_history_cache_${VENUE_ID}`) || "[]")).length > 0; } catch { return false; } }, [fuHistoryTick]);
+  useEffect(() => { const on = () => setFuHistoryTick(t => t + 1); window.addEventListener("sdx-history-cache", on); return () => window.removeEventListener("sdx-history-cache", on); }, []);
   const draftIssueTexts = useMemo(() => {
     try { return buildActionItems({ inspection, rawNotes, foodTemps, foodTempNames, foodTempCorrections, foodTempSubmitted }).map(a => String(a.issue || "").trim().toLowerCase().replace(/\s+/g, " ")).filter(Boolean); } catch { return []; }
   }, [inspection, rawNotes, foodTemps, foodTempNames, foodTempCorrections, foodTempSubmitted]);
@@ -31619,7 +31791,7 @@ export default function App() {
     try {
       const unitN = normUnit(g("unit"));
       const siteN = site.toUpperCase();
-      const cached = JSON.parse(localStorage.getItem(`sdx_history_cache_${VENUE_ID}`) || "[]");
+      const cached = readWarmHistory();
       // v518: the SAME stand only — three stands can share a unit #
       const target = standForStrict(g("unit"), site);
       const sameStandRec = r => target ? standForStrict(r.siteNumber, r.siteName)?.id === target.id
@@ -31832,7 +32004,7 @@ export default function App() {
   const flushDraftRef = useRef(null);
   const defaultInspJsonRef = useRef(null);
   const [draftFail, setDraftFail] = useState(false);
-  const [draftList, setDraftList] = useState(() => { migrateLegacyDraft(); return listDrafts(); });
+  const [draftList, setDraftList] = useState(() => { migrateLegacyDraft(); slimStoredDrafts(); return listDrafts(); });
   const [cloudDrafts, setCloudDrafts] = useState([]);
   const [draftsOpen, setDraftsOpen] = useState(false);
   const [draftAsk, setDraftAsk] = useState(null); // id waiting for a delete confirm
@@ -31900,7 +32072,9 @@ export default function App() {
     }
     if (hasWorkRef.current && confirmedSigRef.current[rid] !== curSigRef.current) { if (!firstDirtyAtRef.current) firstDirtyAtRef.current = Date.now(); }
     else firstDirtyAtRef.current = 0;
-    setUnsavedNow(hasWorkRef.current && confirmedSigRef.current[rid] !== curSigRef.current);
+    uploadingRef.current = photosUploadingIn([inspection, notesPhotos, correctives]);
+    setUploadingN(uploadingRef.current);
+    setUnsavedNow((hasWorkRef.current && confirmedSigRef.current[rid] !== curSigRef.current) || uploadingRef.current > 0);
     setFormFlags(f => (f.c === hasContent && f.w === hasWorkRef.current ? f : { c: hasContent, w: hasWorkRef.current }));
     if (pristineArmRef.current) { pristineArmRef.current = false; pristineRef.current = json; dirtyRef.current = false; return; }
     if (json === pristineRef.current) { dirtyRef.current = false; return; }
@@ -31912,8 +32086,7 @@ export default function App() {
     if (saved) return; // the record was just written — no draft of committed data
     const ok = saveDraftFor(savedReportId, snap);
     try { if (localStorage.getItem(REPORT_ID_KEY) !== savedReportId) localStorage.setItem(REPORT_ID_KEY, savedReportId); } catch {} // the report in progress
-    setDraftFail(!ok);
-    if (ok) setDraftSavedAt(new Date());
+    if (ok) setDraftSavedAt(new Date()); // v559: a phone copy that did not fit is logged only (window.__sdxDraftLog) — the cloud save is what counts
     scheduleCloud();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [noteType, useCase, context, inspection, rawNotes, inspectionType,
@@ -31955,6 +32128,7 @@ export default function App() {
   const [formFlags, setFormFlags] = useState({ c: false, w: false }); // has content / has real work (for the bar)
   const saveBarRedRef = useRef(false);
   const [leaveAsk, setLeaveAsk] = useState(null); // { kind, action, discard: 0 | 1 }
+  const uploadingRef = useRef(0); const [uploadingN, setUploadingN] = useState(0); // v559 review: photos still uploading
   const curSigRef = useRef("");
   const hasContentRef = useRef(false);
   const confirmedSigRef = useRef({});  // report id → content signature the cloud confirmed
@@ -32007,14 +32181,12 @@ export default function App() {
       || Object.values(foodTemps || {}).some(a => (a || []).some(v => String(v || "").trim()))
       || JSON.stringify(inspection) !== (defaultInspJsonRef.current || (defaultInspJsonRef.current = JSON.stringify(buildDefaultInspection()))));
   }
-  const SIG_KEYS = ["noteType", "useCase", "context", "inspection", "rawNotes", "inspectionType", "inspectionDate", "inspectorName", "participantName",
-    "siteName", "siteNumber", "restaurantLicense", "supervisorName", "sitePhone", "locationType", "floor", "eventName",
-    "foodTemps", "foodTempNames", "foodTempCorrections", "foodTempSubmitted", "foodTempTimes", "suppliesNeeded", "notesPhotos", "correctives", "savedReportId"];
   function contentSigOf(snap) {
-    try { const o = {}; for (const k of SIG_KEYS) o[k] = snap?.[k] ?? null; return hashSig(JSON.stringify(slimLocalDraft(o))); } catch { return String(Date.now()); }
+    try { return hashSig(JSON.stringify(slimLocalDraft(sigPick(snap)))); } catch { return String(Date.now()); }
   }
   function reportUnsaved() {
-    return !!hasWorkRef.current && confirmedSigRef.current[savedReportIdRef.current] !== curSigRef.current;
+    // v559 review: a photo still on its way to the cloud is not saved yet (the phone copy no longer holds it)
+    return (!!hasWorkRef.current && confirmedSigRef.current[savedReportIdRef.current] !== curSigRef.current) || uploadingRef.current > 0;
   }
   try { window.__sdxHasUnsavedReport = () => reportUnsaved(); window.__sdxCloudState = () => ({ ...cloud, unsaved: reportUnsaved(), id: savedReportIdRef.current }); } catch {}
 
@@ -32089,10 +32261,10 @@ export default function App() {
     if (rec.discarded) return;
     if (id === savedReportIdRef.current) {
       setCloud({ state: "saved", at: new Date(), err: "", missing: [] });
-      const still = !!hasWorkRef.current && curSigRef.current !== confirmedSigRef.current[id];
+      const still = (!!hasWorkRef.current && curSigRef.current !== confirmedSigRef.current[id]) || uploadingRef.current > 0;
       setUnsavedNow(still);
       if (!still) firstDirtyAtRef.current = 0;
-      try { const d = loadDrafts()[id]; if (d && sig) saveDraftFor(id, { ...d, cloudSig: sig }); } catch {} // a reopened app knows this copy is in the cloud
+      try { const d = loadDrafts()[id]; if (d && sig) saveDraftFor(id, { ...d, cloudSig: sig, cloudSigV: CLOUD_SIG_V }); } catch {} // a reopened app knows this copy is in the cloud
       if (cloudDraftSentRef.current[id]) { delete cloudDraftSentRef.current[id]; try { clearDraftCloud(draftCloudKey(badgeKey(), id)); } catch {} }
     } else {
       // an earlier report finished in the background: drop its draft only if the draft holds exactly what the cloud now has
@@ -32305,7 +32477,7 @@ export default function App() {
     restoreFormState(d);
     const id = d.id || d.savedReportId || `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     savedReportIdRef.current = id; setSavedReportId(id);
-    restoreSigRef.current = d.cloudSig ? { id, sig: d.cloudSig } : null;
+    restoreSigRef.current = d.cloudSig && d.cloudSigV === CLOUD_SIG_V ? { id, sig: d.cloudSig } : null; // v559 review: an old-rule signature never counts as saved
     if (d.venueId) reportVenueRef.current = { id, venue: d.venueId }; // a report keeps the venue it was started in
     editBaseRef.current = d.editBase && d.editBase.id === id ? { ...d.editBase } : null; // an ✏️ Edit keeps its author after a reload
     if (d.finishedAt) finishedRef.current[id] = d.finishedAt; // v553: a finished report stays finished after a reload
@@ -32512,13 +32684,12 @@ export default function App() {
     syncSharedSiteMap();
     // Warm the history cache in the background so History opens
     // instantly this session
-    loadHistory(undefined, { pageSize: 2000 }).then(({ list }) => {
+    loadHistory(undefined, { pageSize: 2000 }).then(({ list, error, hasMore }) => {
       try {
         // Never wipe a good cache with an empty fetch (flaky network, cold store)
         if ((list || []).length > 0) {
-          const slim = list.map(r => { const { photos, itemPhotos, ...rest } = r; return rest; });
-          const json = JSON.stringify(slim);
-          if (json.length < 4_000_000) localStorage.setItem(`sdx_history_cache_${VENUE_ID}`, json);
+          _warmHistory = list; _warmHistoryComplete = !error && !hasMore && list.length < 2000; // v559 review: in memory for this session
+          writeHistoryCache(list); // v559: on the phone only when the whole list fits
         }
       } catch { /* quota — not critical */ }
       setFuHistoryTick(t => t + 1);
@@ -33134,7 +33305,7 @@ export default function App() {
       if (full && (full.quickProblem || full.supervisorLog || full.source === "haccp_portal")) {
         // v553: a stand log / quick report is not an inspection the form can rebuild — keep its own fields and problems
         for (const [k, v] of Object.entries(full)) if (cleanRecord[k] === undefined && k !== "_pending" && k !== "inspection") cleanRecord[k] = v;
-        for (const k of ["inspectionType", "quickProblem", "supervisorLog", "source", "haccpSubmissionId", "haccpReadings", "haccpTempCount", "haccpOutOfRange", "reportedBy", "portalDay", "partial", "missingCorrective"]) if (full[k] !== undefined) cleanRecord[k] = full[k];
+        for (const k of ["inspectionType", "quickProblem", "supervisorLog", "source", "haccpSubmissionId", "haccpReadings", "haccpTempCount", "haccpOutOfRange", "reportedBy", "portalDay", "partial", "missingCorrective", "foodWaste", "foodWasteNone", "wasteDay"]) if (full[k] !== undefined) cleanRecord[k] = full[k];
         const norm = t => String(t || "").trim().toLowerCase();
         const have = new Set((cleanRecord.actionItems || []).map(a => norm(a.issue)));
         cleanRecord.actionItems = [...(full.actionItems || []).filter(a => !have.has(norm(a.issue))), ...(cleanRecord.actionItems || [])];
@@ -33552,6 +33723,7 @@ export default function App() {
               if (cloud.state === "missing") return <>{say("missing", `⚠ Not saved yet — add the ${cloud.missing.join(" and ")} so the report can save`, `⚠ Not saved — add the ${cloud.missing.join(" and ")}`)}<button type="button" className="saveBarBtn" data-testid="save-fix" onClick={() => jumpToSaveField(cloud.missing[0])}>Add it</button></>;
               if (cloud.state === "failed" && unsavedNow) return <>{say("failed", `⚠ Not saved — ${cloud.err}`, `⚠ Not saved — ${cloud.err}`)}{retry}</>;
               if (unsavedNow && (cloud.state === "offline" || !isOnline)) return <>{say("offline", "⚠ Not saved yet — no internet. Stay on this report: it saves by itself when the signal is back", "⚠ Not saved — no internet. Stay on this report")}{retry}</>;
+              if (uploadingN > 0) return say("uploading", `📷 ${uploadingN} photo${uploadingN !== 1 ? "s" : ""} uploading — stay on this report until it is saved`, `📷 Photo uploading…`);
               if (cloud.state === "saving") return say("saving", "☁ Saving the report to the cloud…", "☁ Saving to the cloud…");
               if (unsavedNow) return say("pending", "✏️ Changes not saved yet — saving in a few seconds…", "✏️ Saving in a few seconds…");
               if (cloud.state === "saved" || (formFlags.w && confirmedSigRef.current[savedReportId])) return say("saved", `✅ Report saved to the cloud${t ? ` · ${t}` : ""}`, `✅ Saved to the cloud${t ? ` · ${t}` : ""}`);
@@ -34279,12 +34451,14 @@ export default function App() {
                 // v520: count only what this stand type's guide SHOWS — Ecolab lives on step 0, "Other" rows and N/A
                 // items don't count, status-only items count once answered (checkedAt) — so every step can reach "done"
                 const PID_OF = { facility: 1, maintenance: 5, equipment: 2, utensils: 3, operations: 4 };
-                for (const pid of Object.keys(PANEL_SECTIONS)) panelCounts[pid] = { remaining: 0, total: 0, issues: 0 };
+                for (const pid of Object.keys(PANEL_SECTIONS)) panelCounts[pid] = { remaining: 0, total: 0, issues: 0, noPhoto: 0 };
                 for (const gn of guideNodesFor(locationType, inspection)) {
                   if (gn.section === "facility" && gn.key === "ecolabProducts") continue;
                   const pc = panelCounts[PID_OF[gn.section]]; if (!pc) continue;
                   const node = inspection[gn.section]?.[gn.key];
-                  if (gn.kind === "checklist") { const rc = rowCounts(node); pc.total += rc.total; pc.remaining += rc.total - rc.answered; pc.issues += rc.issues; }
+                  if (gn.kind === "checklist") { const rc = rowCounts(node); pc.total += rc.total; pc.remaining += rc.total - rc.answered; pc.issues += rc.issues;
+                    // v559: ✕ rows still without a BEFORE photo (a reminder on the chip — never a block)
+                    if (!node?.notApplicable) pc.noPhoto += (node?.checklist || []).filter(c => c && c.value === "NO" && !c.supply && !(c.photos || []).some(p => p && p.tag !== "after")).length; }
                   else if (!node?.notApplicable) {
                     // a status item already shows "OK" until someone changes it — it counts once answered and is never "left"
                     const st = node?.status || "";
@@ -34353,7 +34527,7 @@ export default function App() {
                             <span className="guideChipIcon" aria-hidden="true">{meta.icon}</span>
                             <span className="guideChipLabel">{SHORT_LABELS[i]}</span>
                             {prio && <span className="guideChipPrio" data-testid="guide-chip-prio">PRIORITY</span>}
-                            {issues > 0 && <span className="guideChipBadge guideChipBadgeWarn" title={`${issues} issue${issues !== 1 ? "s" : ""} flagged`}>⚠ {issues}</span>}
+                            {issues > 0 && <span className="guideChipBadge guideChipBadgeWarn" title={`${issues} issue${issues !== 1 ? "s" : ""} flagged${c?.noPhoto ? ` · ${c.noPhoto} without a photo` : ""}`}>⚠ {issues}{c?.noPhoto ? <span className="guideChipNoPhoto" data-testid="guide-chip-nophoto" aria-label={`${c.noPhoto} without a photo`}> · 📷{c.noPhoto}</span> : null}</span>}
                             {GUIDE_PRIO > 0 && !prio && state === "todo" && !issues ? <span className="guideChipLater">if time allows</span> : c && c.total > 0 && (
                               <span className={`guideChipBadge${done ? " guideChipBadgeDone" : ""}`}>{done ? "✓ done" : `${c.total - c.remaining}/${c.total}`}</span>
                             )}
@@ -35584,6 +35758,8 @@ export default function App() {
           ? { icon: "⚠", en: `The last save did not go through: ${cloud.err}.`, es: `El último guardado no pasó: ${cloud.err}.` }
           : (st === "offline" || !isOnline)
           ? { icon: "📶", en: "No internet — the report is NOT in the cloud yet. Stay on it: it saves by itself as soon as the signal is back.", es: "Sin internet — el reporte todavía NO está en la nube. Quédate aquí: se guarda solo cuando vuelva la señal." }
+          : uploadingN > 0
+          ? { icon: "📷", en: `${uploadingN} photo${uploadingN !== 1 ? "s are" : " is"} still uploading — stay on this report until ${uploadingN !== 1 ? "they are" : "it is"} in the cloud.`, es: `${uploadingN} foto${uploadingN !== 1 ? "s" : ""} todavía se está${uploadingN !== 1 ? "n" : ""} subiendo — quédate en este reporte hasta que esté en la nube.` }
           : { icon: "☁", en: "Saving your report to the cloud — one moment…", es: "Guardando tu reporte en la nube — un momento…" };
         const what = { new: "start a new report", edit: "open another report", draft: "open another report", page: "leave this page", stand: "switch to the other stand", lock: "lock the app", venue: "switch venue", link: "open the supervisor log", back: "go back" }[leaveAsk.kind] || "leave";
         const counts = (() => {
