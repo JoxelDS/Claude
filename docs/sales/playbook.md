@@ -55,5 +55,5 @@ Out-of-office / "not the right person" → Claude drafts a polite forward reques
 ## Pace and rules
 - Start with 10 emails a day from the approved queue, max 25 a day after week 2 (keeps the sender's reputation healthy).
 - Business addresses published by the business only. No scraped personal emails, no guessed addresses.
-- Sodexo: a direct offer by Joxel only (decided 2026-10-18), after a lawyer confirms ownership and the conflict of interest is disclosed. No automated outreach, DMs or emails to Sodexo, its subsidiaries or its clients. Large caterers that compete with Sodexo are flagged in the pipeline; Joxel decided (2026-10-07) that he owns SDX Inspect and they can be contacted.
+- Sodexo, its subsidiaries and its clients: no automated outreach, DMs or emails of any kind. Any contact is Joxel's own. Large caterers that compete with Sodexo are flagged in the pipeline; Joxel decided (2026-10-07) that he owns SDX Inspect and they can be contacted.
 - Log every send in the pipeline (`messages` status `sent`, `sentAt`).
