@@ -9166,6 +9166,7 @@ function buildPredictions(history, venueSettings = {}) {
   const isVisit = rec => !rec.quickProblem && !rec.supervisorLog && !rec.quickEquipCheck;
   const stMap = venueSettings?.followupStatus || {};
   const clearedMap = venueSettings?.followupCleared || {};
+  try { fuNoteHistory(history, venueSettings); } catch {} // v564: shared names (statusOf builds the follow-up key)
   const now = Date.now();
 
   // Sort history oldest → newest
@@ -9192,9 +9193,9 @@ function buildPredictions(history, venueSettings = {}) {
     return parts.join(" — ").slice(0, 140);
   };
   // Is "loc::cat" still open, or did somebody close it after its last sighting?
-  const statusOf = (locName, cat, lastTs) => {
-    const key = `${locName}::${cat}`;
-    const st = stMap[key]; const clearedTs = Number(clearedMap[key] || 0);
+  const statusOf = (locName, cat, lastTs, unit = "") => {
+    const key = `${fuLocLabel(locName, unit)}::${cat}`; // v564: the follow-up key of THIS stand (name + unit when the name is shared)
+    const st = fuGet(stMap, key); const clearedTs = Number(fuGet(clearedMap, key, stMap) || 0);
     if (clearedTs && clearedTs >= lastTs) {
       const by = st && st.status === "resolved" ? st.by : "";
       return { open: false, text: `✅ Closed${by ? ` by ${by}` : ""} on ${fmtD(clearedTs)}${st?.how === "already" ? " (was already clean)" : ""}` };
@@ -9241,7 +9242,7 @@ function buildPredictions(history, venueSettings = {}) {
       const rate = hits.length / recent.length;
       if (rate < 0.6 || hits.length < 2) continue;
       const last = hits[hits.length - 1];
-      const status = statusOf(st.locName, cat, last.ts);
+      const status = statusOf(st.locName, cat, last.ts, st.unit);
       const crew = crewFor(cat);
       const risk = rate >= 0.85 || (status.open && hits.length >= 3) ? "high" : "medium";
       const dates = hits.map(h => h.date).join(", ");
@@ -9333,7 +9334,7 @@ function buildPredictions(history, venueSettings = {}) {
     (lastRec.actionItems || []).forEach((item, i) => {
       if (lastRec.resolvedIssues?.[i]) return;
       const cat = item.issue?.split(":")[0]?.trim() || "Other";
-      const s = statusOf(st.locName, cat, lastTs);
+      const s = statusOf(st.locName, cat, lastTs, st.unit);
       if (!s.open) return;
       open.push({ cat, text: itemText(item), status: s.text });
     });
@@ -10584,6 +10585,316 @@ const FU_SPLIT_EPOCH = Date.parse("2026-09-26T01:00:00Z"); // v502 ship time: cl
 const fuRowSlug = t => String(t || "").toLowerCase().replace(/[^a-z0-9]+/g, "").slice(0, 60) || "row";
 const fuBaseKey = k => String(k || "").split(FU_SPLIT_SEP)[0];
 const fuCatOfKey = k => fuBaseKey(k).split("::").slice(1).join("::");
+// ── v564: which STAND a report is — name + canonical unit ─────────────────────────────────────────────
+// Joxel: a CHEESEBURGER BABY card read "Unit #233" for a ceiling problem reported at #114A. The license sheet has
+// three CHEESEBURGER BABY stands (114A, 233, 314) and follow-ups were keyed by NAME only, so their problems shared
+// cards, "likely fixed" and Resolve all. A name used at 2+ units (SHARED) now keys its follow-ups `NAME #UNIT::cat`
+// (`NAME #?::cat` when the report has no unit); every other stand keeps its old `NAME::cat` key. State stored under
+// another form of a card's key is read through fuGet / fuWithLegacy: a variant of the same stand's key (the unit was
+// typed "114", the stand is 114A) and the old name-only key — the latter only when it was written before v564 or
+// written for this unit (every new write carries `fuUnit`).
+const fuNameId = s => String(s || "").toLowerCase().replace(/[^a-z0-9]+/g, "");
+const fuUnitClean = u => normUnit(u).replace(/[^A-Z0-9-]/g, "");
+const fuDigits = u => (String(u || "").match(/^\d+/) || [""])[0];
+const FU_UNIT_TAIL = / #(\?|[A-Z0-9][A-Z0-9-]*)$/;
+// Home venue: names the reports used at 2+ units when v564 shipped (live, 2026-10-19), so a phone that only holds the
+// newest reports builds the same keys from the first minute. Later units arrive through venueSettings.followupSharedNames.
+const FU_SHARED_SEED = {"tacotomia":"231 340 341","chefcreole":"150 150A 154 329","mrchory":"142 317 318 342","magiccitydogs":"101 114 129 135","aifiwynwoodwalkthrough":"117A 122A 142A","solcubano":"120 350","sobeq":"104 132 247","aifismashedburger":"142A 345A","aifiedgewatergrill":"150A 317A 319A 347A","shulaburgerfarmsteadpizza":"203 222 250","arepacartsub":"315 354","fanfavorites":"107 327 355","fatboysmashburger":"106 122 150","cheeseburgerbaby":"114 114A 233","fuku":"145 319","cantaloupe":"122 150 150A 308 327 336 355","seed":"117 332","littlecaesar":"142 345","kitchen":"204 M19B M45","bar":"201 210 228 311 342","fanfavorite":"203 355","kosherkorner":"114 129 148 320","seeds":"117 332","stacked":"219 219-","tostitos":"119 122 150","lamilanation":"312 313","aifi":"317 317A 319A 345A 347A","shawarma":"114 135 322","wynwoodwalkthrough":"117 117A 122 122A 142 142A 150 150A","italianvice":"139 340","puffles":"245 318","sweetspot":"107 154 354","pantry":"307 325 342","magiccitydog":"101 114 129 135","smashburger":"106 122","lemonadecart":"104 308 322 337","talkintacos":"231 340","arepacart":"148 307","fanfav":"107 122 135"};
+// Per venue (a Global Admin viewing another venue never mixes its units into this one): nameId → units the reports
+// used, unit → stand slugs the reports used there, the persisted map last read, the history arrays already noted
+const _fuVenues = new Map();
+function fuVenue() {
+  let v = _fuVenues.get(activeVenueId);
+  if (!v) {
+    v = { hist: new Map(), unitSlugs: new Map(), persisted: null, seen: new WeakSet() };
+    _fuVenues.set(activeVenueId, v);
+    if (activeVenueId === "default") for (const [id, us] of Object.entries(FU_SHARED_SEED)) v.hist.set(id, new Set(us.split(" ")));
+  }
+  return v;
+}
+let _fuGen = 0;                  // bumps whenever what a key is made of changes (more units known, the stand list loaded)
+let _fuInfoMemo = new Map(), _fuLabelMemo = new Map(), _fuKeyMemo = new Map(), _fuRegMemo = new Map();
+let _fuListRef = null, _fuListVenue = null, _fuAllStands = [];
+let _fuStatusSeen = null;        // venueSettings.followupStatus last seen (a name-only clear checks the status written with it)
+let _fuIdentT = 0;
+function fuReset() {
+  _fuGen++; _fuInfoMemo = new Map(); _fuLabelMemo = new Map(); _fuKeyMemo = new Map(); _fuRegMemo = new Map();
+  // tell the lists that computed their cards before this (crew board, Follow-ups, the form's open problems)
+  if (!_fuIdentT && typeof window !== "undefined") _fuIdentT = setTimeout(() => { _fuIdentT = 0; try { window.dispatchEvent(new Event("sdx-fu-ident")); } catch {} }, 80);
+}
+function fuNoteHistory(history, vs) {
+  const V = fuVenue();
+  if (vs?.followupStatus) _fuStatusSeen = vs.followupStatus;
+  let grew = false;
+  const add = (name, unit) => {
+    const id = fuNameId(name); if (!id) return;
+    const u = fuUnitClean(unit); if (!u) return;
+    let s = V.hist.get(id); if (!s) V.hist.set(id, s = new Set());
+    if (!s.has(u)) { s.add(u); grew = true; }
+    const sl = standSlug(name); if (!sl) return;
+    let t = V.unitSlugs.get(u); if (!t) V.unitSlugs.set(u, t = new Set());
+    if (!t.has(sl)) { t.add(sl); grew = true; }
+  };
+  if (Array.isArray(history) && !V.seen.has(history)) {
+    V.seen.add(history);
+    for (const rec of history) if (rec && !rec.discarded) add(rec.siteName || rec.location || "", rec.siteNumber || "");
+  }
+  const p = vs?.followupSharedNames;
+  if (p && p !== V.persisted) {
+    V.persisted = p;
+    for (const [, e] of Object.entries(p)) for (const u of (Array.isArray(e?.units) ? e.units : [])) add(e?.name || "", u);
+  }
+  if (grew) fuReset();
+}
+function fuStandsFor(name) {
+  if (_standListCache !== _fuListRef || activeVenueId !== _fuListVenue) {
+    _fuListRef = _standListCache; _fuListVenue = activeVenueId;
+    // ONE id space: the loaded stand list (it already holds the license sheet), the license sheet only until it loads.
+    // Another venue viewed from Global Admin uses its reports only (this list is the home venue's).
+    let src = [];
+    if (activeVenueId === VENUE_ID) {
+      const list = Array.isArray(_standListCache) ? _standListCache : [];
+      if (list.length) src = list; else { try { src = standSeeds(); } catch { src = []; } }
+    }
+    _fuAllStands = src.filter(k => k && !k.fromHist && k.site).map(k => ({ site: k.site, unit: fuUnitClean(k.unit), slug: standSlug(k.site), locType: k.locType || "" })).filter(k => k.slug);
+    fuReset();
+  }
+  const key = String(name || "").trim().toUpperCase();
+  let info = _fuInfoMemo.get(key);
+  if (info) return info;
+  const slug = standSlug(key);
+  const all = slug ? _fuAllStands : [];
+  // only stands someone set up (license sheet / Stands & posters) — a name that only lives in old reports never moves a unit
+  const strict = all.filter(k => k.slug === slug);
+  const loose = strict.length ? strict : all.filter(k => k.slug.startsWith(slug) || slug.startsWith(k.slug));
+  const stands = new Set(); for (const k of loose) if (k.unit) stands.add(k.unit);
+  info = { stands, hist: fuVenue().hist.get(fuNameId(key)) || new Set(), canon: new Map(), shared: undefined };
+  _fuInfoMemo.set(key, info);
+  return info;
+}
+// "114" / "114 A" / "114A" of CHEESEBURGER BABY → 114A (the stand list knows it); a unit the list does not know keeps
+// its digits — 233 never becomes 114A, PANTRY 301 never becomes 342
+function fuCanonUnit(name, unit) {
+  const info = fuStandsFor(name);
+  const u = fuUnitClean(unit);
+  if (info.canon.has(u)) return info.canon.get(u);
+  let out;
+  if (!u) {
+    const all = new Set([...info.stands, ...[...info.hist].map(h => fuCanonUnitOf(info, h))]);
+    out = all.size === 1 ? [...all][0] : "";
+  } else out = fuCanonUnitOf(info, u);
+  info.canon.set(u, out);
+  return out;
+}
+function fuCanonUnitOf(info, u) {
+  if (info.stands.has(u)) return u;
+  const d = fuDigits(u);
+  if (!d) return u;
+  const sameD = [...info.stands].filter(x => fuDigits(x) === d);
+  if (sameD.length === 1) return sameD[0];
+  if (!sameD.length && u === d) { const hs = [...info.hist].filter(x => x !== u && fuDigits(x) === d && /^\d+[A-Z]+$/.test(x)); if (hs.length === 1) return hs[0]; }
+  return u;
+}
+function fuIsShared(name) {
+  const info = fuStandsFor(name);
+  if (info.shared === undefined) info.shared = new Set([...info.stands, ...[...info.hist].map(h => fuCanonUnitOf(info, h))].filter(Boolean)).size >= 2;
+  return info.shared;
+}
+// The stand a report / follow-up belongs to: canonical unit + the shortest name the stands and reports at that unit use
+// for it ("AIFI" and "AIFI EDGEWATER GRILL" at #317A are one stand; MAGIC CITY DOGS and SHAWARMA at #114 are two)
+function fuStandKey(name, unit) {
+  const mk = `${name}\u0000${unit}`;
+  const hit = _fuKeyMemo.get(mk); if (hit !== undefined) return hit;
+  const cu = fuCanonUnit(name, unit);
+  const s = standSlug(name) || fuNameId(name) || "x";
+  let out;
+  if (!cu) out = `s:${s}`;
+  else {
+    const reg = fuRegSlugsAt(cu);
+    let best = s;
+    // the ONE listed stand at this unit the written name is near (LITLE CAESAR #345 · SHAWARMA = SHAWARMA / SUB #114);
+    // a name near none of them (PANTRY / BAR at a licensed stand's unit) stays its own stand
+    const near = [...new Set(_fuAllStands.filter(k => k.unit === cu && fuNameNear(name, k)).map(k => k.slug))];
+    if (near.length === 1) best = near[0];
+    else {
+      const consider = t => { if (t && t.length < best.length && s.startsWith(t)) best = t; };
+      for (const t of reg) consider(t);
+      const V = fuVenue(), d = fuDigits(cu);
+      for (const t of (V.unitSlugs.get(cu) || [])) consider(t);
+      if (d && d !== cu) for (const t of (V.unitSlugs.get(d) || [])) consider(t);
+    }
+    out = `u:${cu}|${best}`;
+  }
+  _fuKeyMemo.set(mk, out);
+  return out;
+}
+// The stand slugs on the stand list at a canonical unit
+function fuRegSlugsAt(cu) {
+  fuStandsFor("");
+  let out = _fuRegMemo.get(cu);
+  if (!out) { out = new Set(); for (const k of _fuAllStands) if (k.unit === cu) out.add(k.slug); _fuRegMemo.set(cu, out); }
+  return out;
+}
+// Is a name written in a report the listed stand at that unit? Same slug / prefix, a shared real word (LITLE CAESAR ·
+// LITTLE CAESAR, 347 AIFI · AIFI EDGEWATER GRILL, GRANNY BZ · GRANNY BEEZ) or a one-letter slip. A type word alone
+// (PANTRY, BAR, KITCHEN) is that stand only when the listed stand IS that type — PANTRY #342 is never MR CHORY (v478).
+const FU_TYPE_WORDS = { pantry: "Pantry", bar: "Bar", bars: "Bar", kitchen: "Kitchen" };
+const FU_GENERIC_WORDS = new Set(["pantry", "bar", "bars", "kitchen", "cart", "stand", "the", "and", "of", "section", "club", "suite", "suites", "food", "foods", "grill", "cafe", "express", "market", "lounge", "concession", "portable", "sub", "level", "floor", "north", "south", "east", "west", "new",
+  // food words many stands share — never enough on their own to say two names are one stand
+  "dog", "dogs", "hot", "burger", "burgers", "taco", "tacos", "pizza", "chicken", "wings", "bbq", "lemonade", "coffee", "sushi", "bites", "sweet", "cream", "ice", "smash", "fries", "drinks", "beer", "cocktails", "nachos", "arepa", "arepas", "shake", "shakes", "treats", "snacks", "grab"]);
+const fuWords = s => String(s || "").toLowerCase().replace(/&/g, " ").replace(/[^a-z0-9]+/g, " ").split(" ").filter(w => w.length >= 3 && !/^\d+$/.test(w));
+function fuEditClose(a, b) {
+  if (Math.abs(a.length - b.length) > 1 || Math.min(a.length, b.length) < 6) return false;
+  let i = 0; while (i < a.length && a[i] === b[i]) i++;
+  let j = 0; while (j < a.length - i && j < b.length - i && a[a.length - 1 - j] === b[b.length - 1 - j]) j++;
+  return Math.max(a.length, b.length) - i - j <= 1;
+}
+function fuNameNear(name, listed) {
+  const s = standSlug(name), t = standSlug(listed?.site);
+  if (!s || !t) return false;
+  if (s === t || s.startsWith(t) || t.startsWith(s) || fuEditClose(s, t)) return true;
+  const A = fuWords(name).filter(w => !FU_GENERIC_WORDS.has(w)), B = new Set(fuWords(listed?.site).filter(w => !FU_GENERIC_WORDS.has(w)));
+  if (A.some(w => B.has(w) || [...B].some(x => fuEditClose(w, x) || (w.length >= 5 && x.length >= 5 && (w.startsWith(x) || x.startsWith(w)))))) return true;
+  if (!A.length) { const tw = fuWords(name).map(w => FU_TYPE_WORDS[w]).find(Boolean); if (tw && String(listed?.locType || "").toLowerCase() === tw.toLowerCase()) return true; }
+  return false;
+}
+// Problems written at a unit the stand list does not know are shown for every name there (as before v564)
+function fuUnclaimedKey(key) {
+  const m = /^u:([^|]+)\|(.*)$/.exec(String(key || "")); if (!m) return false;
+  return fuRegSlugsAt(m[1]).size === 0; // a unit the stand list does not know: names written there are shown together (as before v564)
+}
+// The location part of a follow-up key: `NAME #UNIT` for a shared name (`NAME #?` with no unit — never the old key),
+// otherwise the name as written (old keys kept)
+function fuLocLabel(name, unit) {
+  const raw = name || "—";
+  const mk = `${raw}\u0000${unit}`;
+  const hit = _fuLabelMemo.get(mk); if (hit !== undefined) return hit;
+  let out = raw;
+  if (fuIsShared(raw)) out = `${raw} #${fuCanonUnit(raw, unit) || "?"}`;
+  _fuLabelMemo.set(mk, out);
+  return out;
+}
+// The unit stamped on every follow-up write (`fuUnit`), so a write under a name-only key only reaches its own stand
+const fuStampUnit = f => fuCanonUnit(f?.loc || "", f?.unit || "") || "?";
+const fuStamp = f => ({ fuUnit: fuStampUnit(f) });
+// `CHEESEBURGER BABY #114A::Facilities – Ceiling##Maintenance|row` → `CHEESEBURGER BABY::Facilities – Ceiling##Maintenance|row`
+function fuSplitLoc(k) {
+  const s = String(k || "");
+  const i = s.indexOf("::"); if (i < 0) return null;
+  const m = FU_UNIT_TAIL.exec(s.slice(0, i)); if (!m) return null;
+  return { name: s.slice(0, i - m[0].length), unit: m[1], rest: s.slice(i) };
+}
+function fuLegacyKey(k) {
+  const p = fuSplitLoc(k);
+  return p && fuIsShared(p.name) ? `${p.name}${p.rest}` : String(k || "");
+}
+// Stored keys that are another form of a current key (typed "114" → the stand is 114A; a name that is no longer shared)
+const _fuAliasIdx = new WeakMap();
+function fuAliasesOf(map, k) {
+  if (!map || typeof map !== "object") return null;
+  let e = _fuAliasIdx.get(map);
+  if (!e || e.gen !== _fuGen) {
+    const idx = new Map();
+    for (const sk of Object.keys(map)) {
+      const p = fuSplitLoc(sk); if (!p) continue;
+      const want = fuLocLabel(p.name, p.unit === "?" ? "" : p.unit);
+      if (want === `${p.name} #${p.unit}`) continue;
+      const ck = want + p.rest;
+      if (ck === sk) continue;
+      let l = idx.get(ck); if (!l) idx.set(ck, l = []); l.push(sk);
+    }
+    e = { gen: _fuGen, idx };
+    _fuAliasIdx.set(map, e);
+  }
+  return e.idx.get(k) || null;
+}
+const fuValTs = v => typeof v === "number" ? v : Array.isArray(v) ? Math.max(0, ...v.map(x => Number(x?.ts) || 0)) : (Number(v?.ts) || 0);
+function fuNewest(vals) { let best, bt = -1; for (const v of vals) { if (v === undefined) continue; const t = fuValTs(v); if (t > bt) { best = v; bt = t; } } return best; }
+function fuStampMatch(su, cardUnit, name) {
+  const s = (!su || su === "?") ? "?" : (fuCanonUnit(name, su) || "?");
+  return s === cardUnit;
+}
+const fuStampOk = (e, cardUnit, name) => !e || typeof e !== "object" || e.fuUnit === undefined || e.fuUnit === null || fuStampMatch(e.fuUnit, cardUnit, name);
+// What a card may take from the old name-only key: anything written before v564 (no stamp), or written for its unit
+function fuFromLegacy(v, k, l, stMap) {
+  const p = fuSplitLoc(k); if (!p) return v;
+  if (Array.isArray(v)) { const out = v.filter(e => fuStampOk(e, p.unit, p.name)); return out.length ? (out.length === v.length ? v : out) : undefined; }
+  if (typeof v === "number") {
+    // a clear written with a status for another unit (the same write) is that stand's
+    const st = (stMap || _fuStatusSeen || {})[l];
+    if (v > 0 && st && typeof st === "object" && st.fuUnit != null && !fuStampMatch(st.fuUnit, p.unit, p.name) && Math.abs(v - (Number(st.ts) || 0)) < 36 * 3600000) return undefined;
+    return v;
+  }
+  return fuStampOk(v, p.unit, p.name) ? v : undefined;
+}
+// Where a card's value came from: its own key, another form of the same stand's key (alias), or the old name-only key
+function fuGetSrc(map, k, stMap) {
+  if (!map) return { v: undefined };
+  const own = map[k]; if (own !== undefined) return { v: own, via: "own", from: k };
+  const al = fuAliasesOf(map, k);
+  if (al) { const v = fuNewest(al.map(a => map[a])); if (v !== undefined) return { v, via: "alias", from: al.find(a => map[a] === v) || al[0] }; }
+  const l = fuLegacyKey(k); if (l === k) return { v: undefined };
+  const v0 = map[l]; if (v0 === undefined) return { v: undefined };
+  const v = fuFromLegacy(v0, k, l, stMap);
+  return v === undefined ? { v } : { v, via: "legacy", from: l, stamped: !!(v0 && typeof v0 === "object" && !Array.isArray(v0) && v0.fuUnit != null) };
+}
+function fuGet(map, k, stMap) { return fuGetSrc(map, k, stMap).v; }
+// An old (unstamped) name-only entry was written for ONE card — the merged card showed the stand whose report was the
+// newest WHEN it was written. Of ALL the same-name cards with that old key, that one owns it: the card with the latest
+// report at or before the entry (from every report that flagged it — a newer re-flag never moves the fix), else the
+// earliest card. (A fix before v564 counts once: one ✅ Fixed row, one cleaning job, one bill.)
+function fuLegacyOwner(cards, entryTs) {
+  let best = null, bestT = -1, first = null, firstT = Infinity;
+  for (const f of cards) {
+    const seen = Array.isArray(f.seenTs) && f.seenTs.length ? f.seenTs : [Number(f.ts) || 0];
+    const lo = Math.min(...seen);
+    if (lo < firstT) { firstT = lo; first = f; }
+    let t = -1; for (const x of seen) if (x <= entryTs + 60000 && x > t) t = x;
+    if (t > bestT) { bestT = t; best = f; }
+  }
+  return (best || first)?.key || "";
+}
+const FU_STATE_MAPS = ["followupCleared", "followupStatus", "followupComments", "followupPhotos", "followupType", "followupRowType", "followupEdit"];
+// A settings view where every current key also finds what was stored under another form of it
+function fuWithLegacy(vs, keys) {
+  if (!vs) return vs;
+  let out = null;
+  const stMap = vs.followupStatus;
+  for (const m of FU_STATE_MAPS) {
+    const src = vs[m]; if (!src) continue;
+    let copy = null;
+    for (const k of keys) {
+      if (src[k] !== undefined) continue;
+      const v = fuGet(src, k, stMap);
+      if (v !== undefined) { if (!copy) copy = { ...src }; copy[k] = v; }
+    }
+    if (copy) { if (!out) out = { ...vs }; out[m] = copy; }
+  }
+  return out || vs;
+}
+// Every key a follow-up's state can sit under: the card, its members, its rows
+function fuKeysOf(list) {
+  const out = new Set();
+  for (const f of (list || [])) {
+    if (!f) continue;
+    out.add(f.key);
+    for (const m of (Array.isArray(f.members) ? f.members : [])) if (m?.key) out.add(m.key);
+    for (const sb of (Array.isArray(f.subs) ? f.subs : [])) { if (sb?.rowKey) out.add(sb.rowKey); out.add(`${sb?.memberKey || f.key}|${fuRowSlug(sb?.origText || sb?.text)}`); }
+  }
+  return [...out];
+}
+// Lists built from follow-ups recompute when what a key is made of changes after they ran
+function useFuIdentTick() {
+  const [tick, setTick] = useState(0);
+  const seen = useRef(-1);
+  useEffect(() => {
+    const on = e => { if (e.type === "sdx-stands-loaded" || seen.current !== _fuGen) setTick(t => t + 1); };
+    window.addEventListener("sdx-fu-ident", on); window.addEventListener("sdx-stands-loaded", on);
+    return () => { window.removeEventListener("sdx-fu-ident", on); window.removeEventListener("sdx-stands-loaded", on); };
+  }, []);
+  return [tick, seen];
+}
+try { window.__sdxFuStand = { key: fuStandKey, unit: fuCanonUnit, label: fuLocLabel, shared: fuIsShared, legacy: fuLegacyKey, get: fuGet, getSrc: fuGetSrc, owner: fuLegacyOwner, withLegacy: fuWithLegacy, stamp: fuStampUnit, gen: () => _fuGen }; } catch {}
 // v557: a record's photo index (buildPhotoIndex), built once per record — action items of a checklist NODE
 // (status-only items, "off / not in use", rows saved without their own picture) carry photo NUMBERS into it
 const _fuIdxCache = new WeakMap();
@@ -10597,8 +10908,8 @@ function fuRecPhotoIndex(rec) {
 // clear that was in force before it. Stored as `prevClear` on resolve / put-back / status entries so the card's
 // older pictures never reach back into an episode that was already fixed.
 function fuPrevClear(key, clearedMap, statusMap) {
-  const c = Number(clearedMap?.[key]) || 0;
-  return c || Number(statusMap?.[key]?.prevClear) || 0;
+  const c = Number(fuGet(clearedMap, key, statusMap)) || 0; // v564: an old name-only key still counts
+  return c || Number(fuGet(statusMap, key)?.prevClear) || 0;
 }
 function fuRowPhotos(item, rec) {
   try {
@@ -10620,14 +10931,19 @@ function fuRowPhotos(item, rec) {
 function computeFollowups(history, venueSettings, clearedLocal = {}, opts = {}) {
   const recheckDays = Number(venueSettings?.recheckDays) || 7;
   if (!Array.isArray(history) || history.length < 1) return { followups: [], followupGroups: [], followupCatGroups: [], recheckDays };
-  const cleared = { ...(venueSettings?.followupCleared || {}), ...clearedLocal };
+  fuNoteHistory(history, venueSettings); // v564: which names are used at more than one unit
+  const clearedRaw = { ...(venueSettings?.followupCleared || {}), ...clearedLocal };
+  const statusRawF = venueSettings?.followupStatus || {};
+  const cleared = new Proxy(clearedRaw, { get: (t, k) => typeof k === "string" ? fuGet(t, k, statusRawF) : t[k] }); // v564: old name-only keys still count
   const latestInspByLoc = {};   // locName -> newest inspection timestamp
   const visitsByLoc = {};       // v558 review: locName -> [{ ts, keys }] every finished walk-through and the problems it flagged
   const catLastSeen = {};       // "loc::cat" -> { ts, dateStr, count, rows }
   const caPhotos = {};          // v557: key -> AFTER photos the inspector added answering "last time's problems"
   for (const rec of history) {
     if (rec?.discarded) continue; // v553
-    const locName = rec.siteName || rec.location || "—";
+    const locDisplay = rec.siteName || rec.location || "—";
+    // v564: the stand this report is — `NAME #UNIT` when the name is used at more than one unit
+    const locName = fuLocLabel(locDisplay, rec.siteNumber || "");
     const ts = rec.inspectionDate ? new Date(rec.inspectionDate).getTime() : 0;
     if (!ts) continue;
     // Only a real inspection can make an issue "likely fixed" — an equipment
@@ -10649,9 +10965,11 @@ function computeFollowups(history, venueSettings, clearedLocal = {}, opts = {}) 
       const cat = item.issue?.split(":")[0]?.trim() || "Other";
       const key = `${locName}::${cat}`;
       if (recKeys) recKeys.add(key);
-      if (!catLastSeen[key]) catLastSeen[key] = { ts: 0, dateStr: "", count: 0, unit: "", rows: [] };
+      if (!catLastSeen[key]) catLastSeen[key] = { ts: 0, dateStr: "", count: 0, unit: "", rows: [], display: locDisplay, standKey: fuStandKey(locDisplay, rec.siteNumber || ""), shared: locName !== locDisplay };
       const c = catLastSeen[key];
       c.count++;
+      if (!c.seenTs) c.seenTs = [];
+      if (!c.seenTs.includes(ts)) c.seenTs.push(ts); // v564 review: every report that flagged this key (who owned an old fix)
       const afterColon = (item.issue || "").split(":").slice(1).join(":").trim();
       // v502: EVERY row of the newest report is kept, not only the first — each
       // with its own crew (the row STATUS Maintenance / Building / Ecolab counts).
@@ -10667,7 +10985,8 @@ function computeFollowups(history, venueSettings, clearedLocal = {}, opts = {}) 
       // v557: every report's pictures of this problem are kept (not only the newest report's), by row
       if (row.photos.length) (c.hist = c.hist || []).push({ ts, slug: fuRowSlug(row.text), photos: row.photos });
       if (ts > c.ts) {
-        c.ts = ts; c.dateStr = rec.inspectionDate; c.unit = (rec.siteNumber || "").trim();
+        c.ts = ts; c.dateStr = rec.inspectionDate; c.unit = c.shared ? (fuCanonUnit(locDisplay, rec.siteNumber || "") || (rec.siteNumber || "").trim()) : (rec.siteNumber || "").trim();
+        c.display = locDisplay;
         c.floor = floorForStand(rec.siteNumber, rec.siteName, rec.floor);
         c.locType = (rec.locationType || "").trim(); // v448: stamped when the problem was filed
         // Keep the latest issue description + inspector notes so the
@@ -10692,11 +11011,12 @@ function computeFollowups(history, venueSettings, clearedLocal = {}, opts = {}) 
   const followups = [];
   for (const [key, v] of Object.entries(catLastSeen)) {
     if (now - v.ts > 90 * 24 * 60 * 60 * 1000) continue;             // ignore ancient history
-    const [loc, cat] = key.split("::");
+    const [locKey, cat] = key.split("::");
+    const loc = v.display || locKey; // v564: shown as the stand name; locKey (`NAME #UNIT` for a shared name) is the identity
     const daysSince = Math.floor((now - v.ts) / (24 * 60 * 60 * 1000));
-    const likelyResolved = (latestInspByLoc[loc] || 0) > v.ts;   // a newer inspection had no such issue
+    const likelyResolved = (latestInspByLoc[locKey] || 0) > v.ts;   // a newer inspection had no such issue (at THIS stand — v564)
     const overdue = !likelyResolved && daysSince >= recheckDays;
-    const manual = venueSettings?.followupType?.[key];
+    const manual = fuGet(venueSettings?.followupType, key);
     const manualOk = !!(manual && ISSUE_TYPES.includes(manual.itype));
     const itype = manualOk ? manual.itype : classifyIssueType(`${cat}: ${v.detail || ""}`, v.notes || "");
     const rows = v.rows || [];
@@ -10709,13 +11029,13 @@ function computeFollowups(history, venueSettings, clearedLocal = {}, opts = {}) 
     const rowTypes = venueSettings?.followupRowType || {};
     rows.forEach((r, i) => {
       r.rowKey = `${key}|${fuRowSlug(r.text)}`;
-      const rt = rowTypes[r.rowKey]?.itype;
+      const rt = fuGet(rowTypes, r.rowKey)?.itype;
       const rtOk = !!(rt && ISSUE_TYPES.includes(rt));
       if (rtOk) { r.itype = rt; r.rowManual = true; }
       const t = rtOk ? rt : (i === 0 || manualOk) ? itype : r.itype;
       (buckets[t] = buckets[t] || []).push(r);
     });
-    const common = { loc, cat, unit: v.unit || "", floor: v.floor || "", daysSince, dateStr: v.dateStr, likelyResolved, overdue, locType: v.locType || "", ts: v.ts || 0, source: v.source || "", reportedBy: v.reportedBy || "", inspector: v.inspector || "", baseKey: key };
+    const common = { loc, locKey, standKey: v.standKey || "", seenTs: v.seenTs || [], cat, unit: v.unit || "", floor: v.floor || "", daysSince, dateStr: v.dateStr, likelyResolved, overdue, locType: v.locType || "", ts: v.ts || 0, source: v.source || "", reportedBy: v.reportedBy || "", inspector: v.inspector || "", baseKey: key };
     // v557: rows that belong to another crew's card, so an earlier report's picture of that row goes to that card
     const otherSlugs = new Set(); for (const [t2, rs2] of Object.entries(buckets)) if (t2 !== itype) rs2.forEach(r => otherSlugs.add(fuRowSlug(r.text)));
     for (const [t, rs] of Object.entries(buckets)) {
@@ -10725,7 +11045,7 @@ function computeFollowups(history, venueSettings, clearedLocal = {}, opts = {}) 
       const baseClear = cleared[key];
       const clearedTs = isBase ? baseClear : (cleared[k] !== undefined ? cleared[k] : (baseClear && baseClear < FU_SPLIT_EPOCH ? baseClear : undefined));
       if (clearedTs && clearedTs >= v.ts) continue;                // resolved, and hasn't reappeared since
-      const man = isBase ? manual : venueSettings?.followupType?.[k];
+      const man = isBase ? manual : fuGet(venueSettings?.followupType, k);
       const manOk = !!(man && ISSUE_TYPES.includes(man.itype));
       const first = rs[0] || {};
       followups.push({
@@ -10744,13 +11064,13 @@ function computeFollowups(history, venueSettings, clearedLocal = {}, opts = {}) 
           // (prevClear, opts.photoFloor), the stand's newest walk-through before it that did NOT flag it, and 90 days.
           const below = t => { const n = Number(t) || 0; return n < v.ts ? n : 0; };
           let cleanTs = 0;
-          if ((v.hist || []).some(h => h.ts < v.ts)) for (const vv of (visitsByLoc[loc] || [])) if (vv.ts < v.ts && vv.ts > cleanTs && !vv.keys.has(key)) cleanTs = vv.ts;
-          const floor = Math.max(below(clearedTs), below(venueSettings?.followupStatus?.[k]?.prevClear), below(opts?.photoFloor?.[k]), cleanTs, now - 90 * 864e5);
+          if ((v.hist || []).some(h => h.ts < v.ts)) for (const vv of (visitsByLoc[locKey] || [])) if (vv.ts < v.ts && vv.ts > cleanTs && !vv.keys.has(key)) cleanTs = vv.ts;
+          const floor = Math.max(below(clearedTs), below(fuGet(venueSettings?.followupStatus, k)?.prevClear), below(fuGet(opts?.photoFloor, k)), cleanTs, now - 90 * 864e5);
           const older = (v.hist || []).filter(h => h.ts <= v.ts && h.ts > floor && (mine.has(h.slug) || (isBase && !otherSlugs.has(h.slug)))).sort((a, b) => b.ts - a.ts);
           // v558 review: once the card has its own photo list (commitCorrectives writes the same pictures there), that
           // copy is the only one — so ✕ / ⇄ work on it and a removed picture stays removed. The report copy only
           // stands in when that write never landed.
-          const fixes = Array.isArray(venueSettings?.followupPhotos?.[k]) ? [] : (caPhotos[k] || []).filter(p => (p.ts || 0) >= v.ts);
+          const fixes = Array.isArray(fuGet(venueSettings?.followupPhotos, k)) ? [] : (fuGet(caPhotos, k) || []).filter(p => (p.ts || 0) >= v.ts);
           return mergePhotos([...(rs.length ? rs : [{ photos: v.photos || [] }]), ...older, { photos: fixes }]);
         })(),
         subs: rs,
@@ -10765,11 +11085,12 @@ function computeFollowups(history, venueSettings, clearedLocal = {}, opts = {}) 
   const fuByLoc = {};
   const followupGroups = [];
   for (const f of followups) {
-    if (!fuByLoc[f.loc]) {
-      fuByLoc[f.loc] = { loc: f.loc, unit: f.unit, items: [], overdueCount: 0, dueSoonCount: 0, resolvedCount: 0, minDue: Infinity };
-      followupGroups.push(fuByLoc[f.loc]);
+    const gk = f.locKey || f.loc; // v564: one group per STAND (two CHEESEBURGER BABY stands are two groups)
+    if (!fuByLoc[gk]) {
+      fuByLoc[gk] = { loc: f.loc, locKey: gk, unit: f.unit, items: [], overdueCount: 0, dueSoonCount: 0, resolvedCount: 0, minDue: Infinity };
+      followupGroups.push(fuByLoc[gk]);
     }
-    const g = fuByLoc[f.loc];
+    const g = fuByLoc[gk];
     g.items.push(f);
     if (f.unit && !g.unit) g.unit = f.unit;
     if (f.overdue) g.overdueCount++;
@@ -10789,7 +11110,7 @@ function computeFollowups(history, venueSettings, clearedLocal = {}, opts = {}) 
     }
     const g = fuByCat[f.cat];
     g.items.push(f);
-    g.venues.add(f.loc);
+    g.venues.add(f.locKey || f.loc);
     if (f.overdue) g.overdueCount++;
     else if (f.likelyResolved) g.resolvedCount++;
     else { g.dueSoonCount++; g.minDue = Math.min(g.minDue, Math.max(0, recheckDays - f.daysSince)); }
@@ -10856,7 +11177,8 @@ function mergeFollowupsByUnit(list) {
   for (const f of (list || [])) {
     const u = fuUnitName(f); const nu = fuUnitNorm(u);
     if (!nu) { out.push({ f }); continue; }
-    const sk = normUnit(f.unit) ? `u:${normUnit(f.unit)}` : `s:${String(f.loc || "").toUpperCase()}`;
+    // v564: the STAND (name + unit) — two stands at #114 (MAGIC CITY DOGS, SHAWARMA) never share a cooler card
+    const sk = fuStandKey(f.loc, f.unit); // v564: computed now, so every list in this pass agrees
     const gk = `${sk}|${nu}|${f.itype}`;
     if (!groups[gk]) { groups[gk] = { unit: u, members: [] }; out.push({ g: groups[gk] }); }
     // prefer the plainest label for the card title ("2-Door Cooler" over a temperature line)
@@ -11348,16 +11670,18 @@ function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLoc
   useEffect(() => { load(); const t = setInterval(load, 120000); return () => clearInterval(t); }, []);
 
   const vs = venueSettings || {};
-  const statusOf = k => local.status[k] || vs.followupStatus?.[k];
-  const commentsOf = k => local.comments[k] || vs.followupComments?.[k] || [];
-  const photosOf = k => local.photos[k] || vs.followupPhotos?.[k] || [];
+  // v564: fuGet — a card of a shared name (`NAME #UNIT::cat`) also finds what was stored under its old name-only key
+  const statusOf = k => local.status[k] || fuGet(vs.followupStatus, k);
+  const commentsOf = k => local.comments[k] || fuGet(vs.followupComments, k) || [];
+  const photosOf = k => local.photos[k] || fuGet(vs.followupPhotos, k) || [];
   const clearedLocal = local.cleared;
 
   const vsT = Object.keys(local.types).length ? { ...vs, followupType: { ...(vs.followupType || {}), ...local.types } } : vs;
-  const all = useMemo(() => { try { return computeFollowups(history, vsT, clearedLocal).followups; } catch { return []; } }, [history, vs.followupCleared, vs.followupStatus, vs.followupType, vs.followupPhotos, vs.recheckDays, clearedLocal, local.types]);
+  const [fuIdent, fuIdentSeen] = useFuIdentTick(); // v564: recompute when more stands / units are known
+  const all = useMemo(() => { try { const r = computeFollowups(history, vsT, clearedLocal).followups; fuIdentSeen.current = _fuGen; return r; } catch { return []; } }, [history, vs.followupCleared, vs.followupStatus, vs.followupType, vs.followupPhotos, vs.followupSharedNames, vs.recheckDays, clearedLocal, local.types, fuIdent]); // eslint-disable-line react-hooks/exhaustive-deps
   function moveTo(f, itype) {
     const entry = { itype, by: me, ts: Date.now() };
-    const patch = {}; fuMembers(f).forEach(m => { patch[m.key] = entry; }); // v502: a merged card moves all of its issues
+    const patch = {}; fuMembers(f).forEach(m => { patch[m.key] = { ...entry, ...fuStamp(m) }; }); // v502: a merged card moves all of its issues · v564: stamped with its unit
     setLocal(p => ({ ...p, types: { ...p.types, ...patch } }));
     saveVenueSettingsMap?.("followupType", patch);
     dropKey(setMoveKeys, f.key); // v556
@@ -11370,7 +11694,8 @@ function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLoc
   const isDone = f => fuMembers(f).every(m => { const st = statusOf(m.key); return !!(st && st.status === "resolved") || m.likelyResolved; });
   const photosOfF = f => { const seen = new Set(); const out = []; fuMembers(f).forEach(m => photosOf(m.key).forEach(ph => { if (!seen.has(ph.id)) { seen.add(ph.id); out.push(ph); } })); return out; };
   const qq = q.trim().toLowerCase(); const qUnit = normUnit(qq);
-  const standKeyF = f => normUnit(f.unit) ? `u:${normUnit(f.unit)}` : `s:${(f.loc || "").toUpperCase()}`;
+  // v564: a stand is name + unit — MAGIC CITY DOGS, SHAWARMA and LA PLACITA at #114 are three stands
+  const standKeyF = f => fuStandKey(f.loc, f.unit);
   const standList = (() => { const m = {}; for (const f of mine) { const k = standKeyF(f); if (!m[k]) m[k] = { key: k, unit: (f.unit || "").trim(), loc: f.loc || "", open: 0 }; if (!isDone(f)) m[k].open++; } return Object.values(m).sort((a, b) => (a.unit && b.unit) ? a.unit.localeCompare(b.unit, undefined, { numeric: true }) : a.unit ? -1 : b.unit ? 1 : a.loc.localeCompare(b.loc)); })();
   const shown = mine
     .filter(f => showDone ? true : !isDone(f))
@@ -11432,8 +11757,9 @@ function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLoc
     fuMembers(f).forEach(m => {
       // v558 review: prevClear = the clear in force before this update (the episode floor for the card's older pictures)
       const pc = fuPrevClear(m.key, clAll, stAll);
-      stP[m.key] = pc ? { ...entry, prevClear: pc } : entry;
-      cmP[m.key] = [...commentsOf(m.key), { text: `${prefix} — ${text}`, by: me, ts }].slice(-10);
+      const stamp = fuStamp(m); // v564: which stand this write is for
+      stP[m.key] = pc ? { ...entry, ...stamp, prevClear: pc } : { ...entry, ...stamp };
+      cmP[m.key] = [...commentsOf(m.key), { text: `${prefix} — ${text}`, by: me, ts, ...stamp }].slice(-10);
       // v440: the clear must beat the report's own timestamp or the item never
       // leaves the inspector's list (date-only dates can parse ahead of now).
       clP[m.key] = Math.max(ts, (m.ts || 0) + 1); clLocal[m.key] = ts;
@@ -11453,7 +11779,7 @@ function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLoc
       const got = await makeFollowupPhotos(files, `crew_${f.key.replace(/[^A-Za-z0-9]+/g, "_").slice(0, 60)}`, 4);
       if (got.length) {
         const add = got.map(p => ({ id: p.id, thumbUrl: p.thumbUrl, previewUrl: p.previewUrl, by: me, ts: Date.now(), tag: "after" }));
-        const patch = {}; fuMembers(f).forEach(m => { patch[m.key] = keepFuPhotos([...photosOf(m.key), ...add]); }); // v502: one upload, every member · v557: per-tag keep, a new AFTER never pushes a BEFORE out
+        const patch = {}; fuMembers(f).forEach(m => { const st = fuStamp(m); patch[m.key] = keepFuPhotos([...photosOf(m.key), ...add.map(p => ({ ...p, ...st }))]); }); // v502: one upload, every member · v557: per-tag keep, a new AFTER never pushes a BEFORE out · v564: stamped
         setLocal(p => ({ ...p, photos: { ...p.photos, ...patch } }));
         saveVenueSettingsMap?.("followupPhotos", patch);
         notifyInspector(f, `${meta.icon} After photo — ${f.loc}${f.unit ? ` #${f.unit}` : ""}`, `${f.cat}: ${got.length} photo${got.length !== 1 ? "s" : ""} added by ${me}`);
@@ -11828,7 +12154,7 @@ function useScrollAnchor() {
 // list, not a reset one. HistoryPage clears it on each new visit (fuViewReset), so an old search never sticks.
 const FU_VIEW = {};
 function fuViewReset() { for (const k of Object.keys(FU_VIEW)) delete FU_VIEW[k]; }
-function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDrilldown, venueSettings, saveVenueSettings, saveVenueSettingsMap, currentUser, onAddRecord }) {
+function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDrilldown, venueSettings: venueSettingsRaw, saveVenueSettings, saveVenueSettingsMap, currentUser, onAddRecord }) {
   useScrollAnchor();
   // Locally cleared follow-ups — instant feedback independent of settings sync
   const FU_CLEARED_KEY = `sdx_fu_cleared_${VENUE_ID}`;
@@ -11855,6 +12181,7 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
   const [typeLocal, setTypeLocal] = useState({});
   const [rowTypeLocal, setRowTypeLocal] = useState({}); // v509
   const [rowTypeMenu, setRowTypeMenu] = useState(null);
+  const [fuIdent, fuIdentSeen] = useFuIdentTick(); // v564: recompute when more stands / units are known
   const analysis = useMemo(() => {
     if (history.length < 2) return null;
 
@@ -11956,7 +12283,7 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
       .slice(0, 5);
 
     // 6. Follow-ups: open issues that need a recheck or look resolved
-    const vsWithTypes = (Object.keys(typeLocal).length || Object.keys(rowTypeLocal).length) ? { ...venueSettings, followupType: { ...(venueSettings?.followupType || {}), ...typeLocal }, followupRowType: { ...(venueSettings?.followupRowType || {}), ...rowTypeLocal } } : venueSettings;
+    const vsWithTypes = (Object.keys(typeLocal).length || Object.keys(rowTypeLocal).length) ? { ...venueSettingsRaw, followupType: { ...(venueSettingsRaw?.followupType || {}), ...typeLocal }, followupRowType: { ...(venueSettingsRaw?.followupRowType || {}), ...rowTypeLocal } } : venueSettingsRaw;
     const r0 = computeFollowups(history, vsWithTypes, clearedLocal);
     // v447: what kind of stand is this? The license registry IS the stand list,
     // so resolve unit+name against standSeeds(), then fall back to the report.
@@ -11983,9 +12310,13 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
     const followupGroups = (r0.followupGroups || []).map(withType);
     const followupCatGroups = (r0.followupCatGroups || []).map(withType);
     const recheckDays = r0.recheckDays;
+    fuIdentSeen.current = _fuGen;
 
     return { recurring, locationRecurring, tempComplianceRate, tempChecks, tempFails, totalInspections: history.length, worstLocations, followups, followupGroups, followupCatGroups, recheckDays };
-  }, [history, venueSettings, clearedLocal, typeLocal, rowTypeLocal]);
+  }, [history, venueSettingsRaw, clearedLocal, typeLocal, rowTypeLocal, fuIdent]); // eslint-disable-line react-hooks/exhaustive-deps
+  // v564: every card key (a shared name's `NAME #UNIT::cat`, its members, its rows) also finds what was stored under the
+  // old name-only key — status, comments, photos, cleared, type — so splitting CHEESEBURGER BABY 114A / 233 loses nothing
+  const venueSettings = useMemo(() => fuWithLegacy(venueSettingsRaw, fuKeysOf([...(analysis?.followups || []), ...(analysis?.followupGroups || []).flatMap(g => g.items || [])])), [venueSettingsRaw, analysis]);
 
   const [remindedKey, setRemindedKey] = useState(null);
   // Status lifecycle — optimistic overlay + shared per-key writes
@@ -11996,7 +12327,7 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
   // Category by hand: 🧹 / 🔧 / 🧪 / 🐜 / 🌡 / ⚪ — moves the item between the crew boards
   function setFollowupType(f, itype) {
     const entry = itype ? { itype, by: currentUser?.name || "Inspector", ts: Date.now() } : null;
-    const patch = {}; fuMembers(f).forEach(m => { patch[m.key] = entry; }); // v502
+    const patch = {}; fuMembers(f).forEach(m => { patch[m.key] = entry ? { ...entry, ...fuStamp(m) } : null; }); // v502 · v564: stamped with its unit
     setTypeLocal(p => ({ ...p, ...patch }));
     writeMap("followupType", patch);
     setTypeMenuKey(null);
@@ -12006,7 +12337,7 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
   }
   function setRowType(sb, itype, f) {
     if (!sb?.rowKey) return;
-    const entry = itype ? { itype, by: currentUser?.name || "Inspector", ts: Date.now() } : null;
+    const entry = itype ? { itype, by: currentUser?.name || "Inspector", ts: Date.now(), ...fuStamp(f) } : null; // v564: stamped
     setRowTypeLocal(p => ({ ...p, [sb.rowKey]: entry }));
     writeMap("followupRowType", { [sb.rowKey]: entry });
     setRowTypeMenu(null);
@@ -12027,13 +12358,13 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
   const [commentsLocal, setCommentsLocal] = useState({});
   const [commentKey, setCommentKey] = useState(null);
   const [commentText, setCommentText] = useState("");
-  const commentsOf = f => (commentsLocal[f.key] || venueSettings?.followupComments?.[f.key] || []);
+  const commentsOf = f => (commentsLocal[f.key] || fuGet(venueSettings?.followupComments, f.key) || []);
 
   function addComment(f) {
     const text = commentText.trim().slice(0, 200);
     if (!text) return;
     const entry = { text, by: currentUser?.name || "Unknown", ts: Date.now() };
-    const patch = {}; fuMembers(f).forEach(m => { patch[m.key] = [...commentsOf(m), entry].slice(-10); }); // v502
+    const patch = {}; fuMembers(f).forEach(m => { patch[m.key] = [...commentsOf(m), { ...entry, ...fuStamp(m) }].slice(-10); }); // v502 · v564: stamped
     setCommentsLocal(prev => ({ ...prev, ...patch }));
     writeMap("followupComments", patch);
     setCommentText(""); setCommentKey(null);
@@ -12044,7 +12375,7 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
     const stAll = { ...(venueSettings?.followupStatus || {}), ...statusLocal };
     const clAll = { ...(venueSettings?.followupCleared || {}), ...clearedLocal };
     // v558 review: the episode floor (prevClear) rides along, so a Put-back card keeps it through In process / Waiting
-    const patch = {}; fuMembers(f).forEach(m => { const pc = fuPrevClear(m.key, clAll, stAll); patch[m.key] = pc ? { ...entry, prevClear: pc } : entry; }); // v502
+    const patch = {}; fuMembers(f).forEach(m => { const pc = fuPrevClear(m.key, clAll, stAll); patch[m.key] = { ...entry, ...fuStamp(m), ...(pc ? { prevClear: pc } : {}) }; }); // v502 · v564: stamped
     setStatusLocal(prev => ({ ...prev, ...patch }));
     writeMap("followupStatus", patch);
     setWaitingKey(null); setWaitingNote("");
@@ -12062,8 +12393,8 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
     list.forEach(f => {
       clearPatch[f.key] = 0;
       // v558 review: keep the clear that was in force before this fix (prevClear) — the card's older pictures stop there
-      const pc = Number(stAll[f.key]?.prevClear) || 0;
-      statusPatch[f.key] = { status: "open", note: (why || "Put back by inspector").slice(0, 80), by: me, ts: now, reopenedFrom: Number(f.fixedTs || 0), ...(pc ? { prevClear: pc } : {}) };
+      const pc = Number(fuGet(stAll, f.key)?.prevClear) || 0;
+      statusPatch[f.key] = { status: "open", note: (why || "Put back by inspector").slice(0, 80), by: me, ts: now, reopenedFrom: Number(f.fixedTs || 0), ...fuStamp(f), ...(pc ? { prevClear: pc } : {}) };
     });
     setClearedLocal(prev => { const n = { ...prev }; list.forEach(f => { delete n[f.key]; }); return n; });
     setStatusLocal(prev => ({ ...prev, ...statusPatch }));
@@ -12084,11 +12415,11 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
     setClearedLocal(prev => { const n = { ...prev }; pairs.forEach(({ key, prevStamp }) => { if (prevStamp) n[key] = prevStamp; else delete n[key]; }); return n; });
     const clP = {}, stP = {}; const nowTs = Date.now();
     const stAll = { ...(venueSettings?.followupStatus || {}), ...statusLocal };
-    pairs.forEach(({ key, prevStamp, prevClear }) => {
+    pairs.forEach(({ key, prevStamp, prevClear, fuUnit }) => {
       clP[key] = prevStamp || 0;
       // v558 review: the reopened entry keeps the episode floor the resolve carried (Put back → Resolve → Undo)
-      const pc = Number(prevClear) || Number(prevStamp) || Number(stAll[key]?.prevClear) || 0;
-      stP[key] = { status: "open", note: "", by: currentUser?.name || "Unknown", ts: nowTs, ...(pc ? { prevClear: pc } : {}) };
+      const pc = Number(prevClear) || Number(prevStamp) || Number(fuGet(stAll, key)?.prevClear) || 0;
+      stP[key] = { status: "open", note: "", by: currentUser?.name || "Unknown", ts: nowTs, ...(fuUnit ? { fuUnit } : {}), ...(pc ? { prevClear: pc } : {}) };
     });
     setStatusLocal(prev => ({ ...prev, ...stP }));
     writeMap("followupCleared", clP);
@@ -12109,8 +12440,9 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
       // v558 review: prevClear = the clear in force before this resolve (the ✅ Fixed list and a later Put back floor the
       // card's older pictures there)
       const pc = fuPrevClear(m.key, clAll, stAll);
-      stP[m.key] = { status: "resolved", note: "", by: currentUser?.name || "Unknown", ts: stamp, ...(pc ? { prevClear: pc } : {}) };
-      multi.push({ key: m.key, prevStamp: (venueSettings?.followupCleared || {})[m.key] || clearedLocal[m.key] || 0, prevClear: pc });
+      const su = fuStampUnit(m); // v564: which stand this write is for
+      stP[m.key] = { status: "resolved", note: "", by: currentUser?.name || "Unknown", ts: stamp, fuUnit: su, ...(pc ? { prevClear: pc } : {}) };
+      multi.push({ key: m.key, prevStamp: (venueSettings?.followupCleared || {})[m.key] || clearedLocal[m.key] || 0, prevClear: pc, fuUnit: su });
     });
     setClearedLocal(prev => ({ ...prev, ...clP }));
     setStatusLocal(prev => ({ ...prev, ...stP }));
@@ -12210,7 +12542,7 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
       // v558 review: the same episode floor as a single Resolve (prevClear) — Resolve all → Put back must not bring an
       // already-fixed episode's pictures back (the server merge would otherwise keep a stale prevClear, the local copy none)
       const pc = fuPrevClear(f.key, clAll, stAll);
-      stPatch[f.key] = { status: "resolved", note: "", by, ts: stamp, ...(pc ? { prevClear: pc } : {}) };
+      stPatch[f.key] = { status: "resolved", note: "", by, ts: stamp, ...fuStamp(f), ...(pc ? { prevClear: pc } : {}) };
     });
     setClearedLocal(prev => ({ ...prev, ...patch }));
     setStatusLocal(prev => ({ ...prev, ...stPatch }));
@@ -12248,7 +12580,7 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
       };
       localStorage.setItem("sdx_announcements", JSON.stringify([a, ...list]));
       notifyAssignedUsers(open, a.title, a.body);
-      setRemindedKey(`grp::${mode === "loc" ? g.loc : head}`);
+      setRemindedKey(`grp::${mode === "loc" ? (g.locKey || g.loc) : head}`);
       setTimeout(() => setRemindedKey(null), 2200);
     } catch {}
   }
@@ -12275,7 +12607,7 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
   };
   const [fuSubUndo, setFuSubUndo] = useState(null); // {k, label}
   const fixSubRow = (f, sb) => {
-    const k = fuSubKey(f, sb); const entry = { done: true, by: currentUser?.name || "Inspector", ts: Date.now() };
+    const k = fuSubKey(f, sb); const entry = { done: true, by: currentUser?.name || "Inspector", ts: Date.now(), ...fuStamp(f) };
     setFuEditLocal(prev => ({ ...prev, [k]: entry })); writeMap("followupEdit", { [k]: entry });
     setFuSubUndo({ k, label: sb.text });
   };
@@ -12283,8 +12615,9 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
   const saveFuEdit = (f) => {
     if (!fuEdit) return;
     const by = currentUser?.name || "Inspector", ts = Date.now();
-    const patch = { [f.key]: { cat: (fuEdit.cat || "").trim(), detail: fuEdit.detail.trim(), area: fuEdit.area.trim(), by, ts } };
-    Object.entries(fuEdit.subs || {}).forEach(([k, t]) => { patch[k] = { text: String(t).trim(), by, ts }; });
+    const su = fuStamp(f); // v564
+    const patch = { [f.key]: { cat: (fuEdit.cat || "").trim(), detail: fuEdit.detail.trim(), area: fuEdit.area.trim(), by, ts, ...su } };
+    Object.entries(fuEdit.subs || {}).forEach(([k, t]) => { patch[k] = { text: String(t).trim(), by, ts, ...su }; });
     setFuEditLocal(prev => ({ ...prev, ...patch }));
     writeMap("followupEdit", patch);
     setFuEdit(null);
@@ -12338,7 +12671,7 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
       for (let i = 0; i < items.length; i++) {
         const f = items[i];
         setBaBusy(`${i + 1}/${items.length}`);
-        const st = stMapX[f.key] || {};
+        const st = fuGet(stMapX, f.key) || {};
         // v558 review: the same picture never twice (the inspector's corrective photo sits on the report AND the card)
         const sp = fuSplitPhotos(f.photos, fuPhotosOf(f));
         const before = sp.before.slice(0, 3);
@@ -12347,7 +12680,7 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
         const mins = Number(f.fixedMins || st.mins || 0);
         const whoseKey = f.fixedWhose || st.whose;
         const whose = whoseProblemLabel(f.locType, whoseKey, st.standType);
-        const notes = [f.notes, ...((commentsLocal[f.key] || venueSettings?.followupComments?.[f.key] || []).map(c => `${c.by}: ${c.text}`))].filter(Boolean).join("  |  ");
+        const notes = [f.notes, ...((commentsLocal[f.key] || fuGet(venueSettings?.followupComments, f.key) || []).map(c => `${c.by}: ${c.text}`))].filter(Boolean).join("  |  ");
         const r = lic[normUnit(f.unit)] || {};
         const row = ws.addRow([i + 1, f.loc, f.unit || "", f.floor || "", standTypeBadge(f.locType || "").short || "—", r.license || "", f.cat, fuDetailAll(f), f.dateStr || "",
           f.fixedBy || (st.status === "resolved" ? st.by || "" : ""), solved ? new Date(solved).toLocaleDateString() : "", clk(solved),
@@ -12437,14 +12770,14 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
     const stMapX = { ...(venueSettings?.followupStatus || {}), ...statusLocal };
     let nImg = 0;
     items.forEach((f, i) => {
-      const st = stMapX[f.key];
+      const st = fuGet(stMapX, f.key);
       const stLabel = st && st.status === "resolved" ? (f.reopened ? "Fixed — then flagged again" : "Fixed")
         : f.likelyResolved ? "Likely fixed"
         : st && st.status === "in_progress" ? "In process"
         : st && st.status === "waiting" ? `Waiting${st.note ? ` — ${st.note}` : ""}`
         : f.overdue ? "Overdue" : "Open";
       const bg = i % 2 === 0 ? "FFFFFFFF" : "FFF4F5F7";
-      const cmts = ((commentsLocal[f.key] || venueSettings?.followupComments?.[f.key] || []))
+      const cmts = ((commentsLocal[f.key] || fuGet(venueSettings?.followupComments, f.key) || []))
         .map(c => `${c.by}: ${c.text}`).join("  |  ");
       const spN = fuSplitPhotos(f.photos, fuPhotosOf(f)); const nPhotos = spN.before.length + spN.after.length; // v558 review: counted once
       const solved = Number(f.fixedTs || (st?.status === "resolved" ? st?.ts : 0) || 0);
@@ -12506,7 +12839,7 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
           `<td>${f.fixedStart ? esc(clk(f.fixedStart)) : "\u2014"}</td><td><b>${esc(clk(f.fixedTs))}</b></td>` +
           `<td><b>${esc(f.cat)}</b>${f.detail ? `<br><small>${esc(f.detail)}</small>` : ""}</td>` +
           `<td>${esc(f.fixedBy || "")}</td><td>${f.fixedMins ? esc(hrs(f.fixedMins)) : "\u2014"}</td>` +
-          `<td class="${f.fixedWhose === "sub" ? "bill" : ""}">${whoseProblemLabel(f.locType, f.fixedWhose, stMapX[f.key]?.standType) || "\u2014"}${f.fixedHow === "already" ? "<br><small>found already clean</small>" : ""}</td>` +
+          `<td class="${f.fixedWhose === "sub" ? "bill" : ""}">${whoseProblemLabel(f.locType, f.fixedWhose, fuGet(stMapX, f.key)?.standType) || "\u2014"}${f.fixedHow === "already" ? "<br><small>found already clean</small>" : ""}</td>` +
           `<td>${img(before)}</td><td>${img(after)}</td></tr>`;
       }).join("");
       return `<h2>${esc(g.loc)}${g.unit ? ` \u2014 Unit #${esc(g.unit)}` : ""}</h2>` +
@@ -12534,13 +12867,13 @@ ${sections}
     const stMapX = { ...(venueSettings?.followupStatus || {}), ...statusLocal };
     const dateStr = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
     const rows = items.map((f, i) => {
-      const st = stMapX[f.key];
+      const st = fuGet(stMapX, f.key);
       const stLabel = st && st.status === "resolved" ? (f.reopened ? "Fixed — then flagged again" : "Fixed")
         : f.likelyResolved ? "Likely fixed"
         : st && st.status === "in_progress" ? "In process"
         : st && st.status === "waiting" ? `Waiting${st.note ? ` — ${st.note}` : ""}`
         : f.overdue ? "Overdue" : "Open";
-      const cmts = ((commentsLocal[f.key] || venueSettings?.followupComments?.[f.key] || [])).map(c => `${c.by}: ${c.text}`).join(" | ");
+      const cmts = ((commentsLocal[f.key] || fuGet(venueSettings?.followupComments, f.key) || [])).map(c => `${c.by}: ${c.text}`).join(" | ");
       const pp = pics[f.key] || { before: [], after: [] }; // v510: embedded data: pictures, before / after
       const picCell = arr => arr.filter(x => x.data).map(x => `<img src="${x.data}" width="96">`).join("");
       const photoHtml = (pp.before.length || pp.after.length) ? `${pp.before.length ? `<div><small><b>BEFORE</b></small><br>${picCell(pp.before)}</div>` : ""}${pp.after.length ? `<div><small><b style="color:#166534">AFTER</b></small><br>${picCell(pp.after)}</div>` : ""}` : `<small>no photo</small>`;
@@ -12610,10 +12943,11 @@ ${sections}
   const [fuPhotoBusy, setFuPhotoBusy] = useState(null);
   const [photoMenuKey, setPhotoMenuKey] = useState(null); // v473: which card's 📷 Photo menu is open
   const [lightboxSrc, setLightboxSrc] = useState(null);
-  const fuPhotosOf1 = k => (fuPhotosLocal[k] || venueSettings?.followupPhotos?.[k] || []);
+  const fuPhotosOf1 = k => (fuPhotosLocal[k] || fuGet(venueSettings?.followupPhotos, k) || []);
   // v502: a merged card shows the pictures added to any of its issues
   const fuPhotosOf = f => { const seen = new Set(); const out = []; fuMembers(f).forEach(m => fuPhotosOf1(m.key).forEach(ph => { if (!seen.has(ph.id)) { seen.add(ph.id); out.push(ph); } })); return out; };
-  const fuPhotoPatch = (f, fn) => { const patch = {}; fuMembers(f).forEach(m => { patch[m.key] = keepFuPhotos(fn(fuPhotosOf1(m.key))); }); setFuPhotosLocal(prev => ({ ...prev, ...patch })); writeMap("followupPhotos", patch); };
+  // v564: a photo added now carries the stand's unit (fuUnit), so it never shows on a same-name stand's card
+  const fuPhotoPatch = (f, fn) => { const patch = {}; fuMembers(f).forEach(m => { const cur = fuPhotosOf1(m.key); const had = new Set(cur.map(p => p?.id)); const su = fuStampUnit(m); patch[m.key] = keepFuPhotos(fn(cur).map(p => (p && !had.has(p.id) && p.fuUnit === undefined) ? { ...p, fuUnit: su } : p)); }); setFuPhotosLocal(prev => ({ ...prev, ...patch })); writeMap("followupPhotos", patch); };
   async function addFuPhotos(f, files, tag = "before") {
     if (!files || !files.length) return;
     setFuPhotoBusy(f.key);
@@ -12723,15 +13057,25 @@ ${sections}
   const FU_CREW_WORDS = ["cleaning", "maintenance", "building", "ecolab"];
   const fuCrewWord = FU_CREW_WORDS.includes(fuSearch.trim().toLowerCase()) ? fuSearch.trim().toLowerCase() : "";
   const fixedAll = (() => {
-    const clearedMap = { ...(venueSettings?.followupCleared || {}), ...clearedLocal };
     // v558 review: each fixed card's older pictures stop at the clear that was in force before its fix (prevClear) —
     // with no clears in this run, an earlier, already-fixed episode's BEFORE photos leaked into the list and the exports
     const photoFloor = {}; for (const [k2, st2] of Object.entries(stMap)) { const pc = Number(st2?.prevClear) || 0; if (pc) photoFloor[k2] = pc; }
     const all = computeFollowups(history, { ...(venueSettings || {}), followupCleared: {} }, {}, { photoFloor }).followups || [];
-    return all
-      .map(f => { const st = stMap[f.key]; const when = Number(st?.ts || clearedMap[f.key] || 0); return { ...f, fixedBy: st?.by || "", fixedHow: st?.how || "", fixedWhose: st?.whose || "", fixedMins: Number(st?.mins || 0), fixedStart: Number(st?.startTs || 0), fixedTs: when }; })
-      .map(f => ({ ...f, reopened: !!(clearedMap[f.key] && f.ts && clearedMap[f.key] < f.ts) }))
-      .filter(f => (stMap[f.key]?.status === "resolved" || clearedMap[f.key]) && f.fixedTs)
+    // v564: a fix stored under the old name-only key still belongs to the stand's card — read from the RAW maps (the
+    // panel's settings view already copied old values onto every card key, so it cannot tell where a value came from),
+    // and an unstamped old entry counts for ONE same-name card only (fuLegacyOwner): one row, one clean, one bill
+    const stRaw = { ...(venueSettingsRaw?.followupStatus || {}), ...statusLocal };
+    const clRaw = { ...(venueSettingsRaw?.followupCleared || {}), ...clearedLocal };
+    const read = all.map(f => ({ f, s: fuGetSrc(stRaw, f.key, stRaw), c: fuGetSrc(clRaw, f.key, stRaw) }));
+    const byLeg = new Map(); // every same-name card with that old key — readers or not (a Put back on the owner never moves the fix)
+    for (const f of all) { const l = fuLegacyKey(f.key); if (l === f.key) continue; let g = byLeg.get(l); if (!g) byLeg.set(l, g = []); g.push(f); }
+    const legOwner = new Map();
+    for (const [l, cards] of byLeg) if (stRaw[l] !== undefined || clRaw[l] !== undefined) legOwner.set(l, fuLegacyOwner(cards, Number(stRaw[l]?.ts) || Number(clRaw[l]) || 0));
+    const mine = (src, f) => src.via !== "legacy" || src.stamped || legOwner.get(src.from) === f.key;
+    return read
+      .map(({ f, s: ss, c: cc }) => { const st = mine(ss, f) ? ss.v : undefined; const cl = mine(cc, f) ? cc.v : undefined; const when = Number(st?.ts || cl || 0); return { ...f, fixedBy: st?.by || "", fixedHow: st?.how || "", fixedWhose: st?.whose || "", fixedMins: Number(st?.mins || 0), fixedStart: Number(st?.startTs || 0), fixedTs: when, _cl: cl, _st: st }; })
+      .map(f => ({ ...f, reopened: !!(f._cl && f.ts && f._cl < f.ts) }))
+      .filter(f => (f._st?.status === "resolved" || f._cl) && f.fixedTs)
       .sort((a2, b2) => b2.fixedTs - a2.fixedTs);
   })();
   const fixedList = fixedAll.filter(fuMatches);
@@ -13383,7 +13727,7 @@ ${sections}
                 : fuGroupBy === "floor" ? fuFloorGroups.filter(g => (!fuFloorPick || g.floor === fuFloorPick) && g.items.some(f => matchesTypePick(f) && matchesDatePick(f)))
                 : fuGroupBy === "date" ? fuDateGroups.filter(g => g.items.some(f => matchesTypePick(f) && matchesFloorPick(f) && matchesDatePick(f)))
                 : fuGroupsShown);
-                const __gKeyOf = g => `${fuGroupBy}::${fuGroupBy === "cat" ? g.cat : fuGroupBy === "type" ? g.type : fuGroupBy === "floor" ? g.floor : fuGroupBy === "date" ? g.type : g.loc}`;
+                const __gKeyOf = g => `${fuGroupBy}::${fuGroupBy === "cat" ? g.cat : fuGroupBy === "type" ? g.type : fuGroupBy === "floor" ? g.floor : fuGroupBy === "date" ? g.type : (g.locKey || g.loc)}`;
                 const __fz = fuFreezeRef.current, __sig = [fuGroupBy, fuSearch.trim(), fuTypePick, fuFloorPick, fuDatePick].join("|");
                 if (__fz.sig !== __sig || __fz.src !== history) { fuFreezeRef.current = { sig: __sig, src: history, rank: {}, open: {}, n: 0 }; }
                 const __f = fuFreezeRef.current;
@@ -13417,7 +13761,7 @@ ${sections}
                       <div className="fuActions" onClick={e => e.stopPropagation()}>
                         {openItems.length > 0 && (
                           <button type="button" className="fuBtn fuBtnRemind" onClick={() => remindGroup(g, fuGroupBy)}>
-                            {remindedKey === `grp::${fuGroupBy === "cat" ? g.cat : fuGroupBy === "type" ? g.type : fuGroupBy === "floor" ? g.floor : fuGroupBy === "date" ? g.type : g.loc}` ? "✓ Posted" : `🔔 Remind Team (${openItems.length})`}
+                            {remindedKey === `grp::${fuGroupBy === "cat" ? g.cat : fuGroupBy === "type" ? g.type : fuGroupBy === "floor" ? g.floor : fuGroupBy === "date" ? g.type : (g.locKey || g.loc)}` ? "✓ Posted" : `🔔 Remind Team (${openItems.length})`}
                           </button>
                         )}
                         <button type="button" className="fuBtn fuBtnResolve" onClick={() => resolveVenue(g)}>
@@ -13581,7 +13925,7 @@ ${sections}
                                   💬 Comment
                                 </button>
                                 {/* v553: the reports for this issue — a button of its own (tapping the card title used to throw you out of Follow-ups) */}
-                                {onIssueDrilldown && <button type="button" className="fuBarBtn" data-testid="fu-reports" onClick={() => onIssueDrilldown(f.loc, f.baseCat || f.cat, f.key)}>📄 Reports</button>}
+                                {onIssueDrilldown && <button type="button" className="fuBarBtn" data-testid="fu-reports" onClick={() => onIssueDrilldown(f.loc, f.baseCat || f.cat, f.key, { unit: f.unit || "" })}>📄 Reports</button>}
                                 <span className="fuPhotoWrap">
                                   <button type="button" className={"fuBarBtn" + (photoMenuKey === f.key ? " on" : "")} onClick={() => setPhotoMenuKey(photoMenuKey === f.key ? null : f.key)}>
                                     📷 Photo
@@ -13950,6 +14294,9 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
   const [filterFloor, setFilterFloor] = useState("");
   const [filterIssue, setFilterIssue] = useState("");
   const [filterSite, setFilterSite] = useState("");
+  // v564: 📄 Reports from a follow-up card lists only THAT stand (CHEESEBURGER BABY 114A, not 233); {key, unit, site}
+  const [filterStand, setFilterStand] = useState(null); // v564: { site, unit } — 📄 Reports from a card lists that stand only
+  useEffect(() => { if (filterStand && filterStand.site !== filterSite) setFilterStand(null); }, [filterSite]); // eslint-disable-line react-hooks/exhaustive-deps
   const [filterLocType, setFilterLocType] = useState("");
   const [searchAllLoading, setSearchAllLoading] = useState(false);
   const [expandedId, setExpandedId] = useState(null);
@@ -14212,7 +14559,7 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
         // silently drop what he searched for.
         const pinned = matches.map(r => ({ ...r, _pinned: true }));
         setHistory(prev => [...pinned, ...prev.filter(r => !matches.find(m => m.id === r.id))]);
-        setFilterSite(term);
+        setFilterStand(null); setFilterSite(term);
         alert(`Found ${matches.length} record(s) matching "${term}" — shown at top.`);
       }
     } catch (e) {
@@ -14340,6 +14687,8 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
   }, [history]);
 
   const filtered = useMemo(() => {
+    // v564: the 📄 Reports stand (name + unit), worked out now with the same stand list the records are matched with
+    const wantStand = filterStand && filterStand.site === filterSite ? fuStandKey(filterStand.site, filterStand.unit || "") : "";
     return history.filter(rec => {
       if (rec.discarded) return false; // v553
       // Exact date
@@ -14357,6 +14706,7 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
           if ((rec.locationType || "") !== filterLocType) return false;
         }
       }
+      if (wantStand && fuStandKey(rec.siteName || rec.location || "", rec.siteNumber || "") !== wantStand) return false;
       if (filterSite) {
         // "#" is decoration — "Magic City Dogs #114" must match siteName "Magic City Dogs" + unit "114"
         const recSite = `${rec.siteName || rec.location || ""} ${rec.siteNumber || ""}`.toLowerCase().replace(/#/g, "");
@@ -14381,7 +14731,7 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
       }
       return true;
     });
-  }, [history, filterDate, filterDateFrom, filterDateTo, filterType, filterFloor, filterLocType, filterSite, filterIssue]);
+  }, [history, filterDate, filterDateFrom, filterDateTo, filterType, filterFloor, filterLocType, filterSite, filterIssue, filterStand]);
   // v553: the analytics tabs read ONE list — every report (the deep load) plus anything newer this page has —
   // and a filter narrows it. Before, with no filter they read the History pages as they arrived (first page,
   // then the prefetch, then refreshes), so Follow-ups kept changing under the reader (and never saw every stand).
@@ -14469,6 +14819,7 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
   function backToFollowups() {
     const r = fuReturn; setFuReturn(null);
     if (!r) return;
+    setFilterStand(null); // v564
     if (filterSite === r.site) setFilterSite("");
     if (r.issue && filterIssue === r.issue) setFilterIssue("");
     setHistoryTab("analytics"); setAnalyticsTab(r.sub || "recurring");
@@ -14508,6 +14859,7 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
   // Function to jump to a specific location's reports
   function filterByLocation(locLabel, key) {
     noteFuReturn(locLabel, "", key);
+    setFilterStand(null); // v564: a location tap is the whole name, never an old card's stand
     setFilterSite(locLabel);
     setFilterDate("");
     setFilterType("");
@@ -14518,9 +14870,10 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
   }
 
   // Navigate to reports filtered by both location AND issue category
-  function filterByLocationAndIssue(locLabel, issueCategory, key) {
+  function filterByLocationAndIssue(locLabel, issueCategory, key, stand) {
     noteFuReturn(locLabel, issueCategory, key);
     setFilterSite(locLabel);
+    setFilterStand(stand ? { unit: stand.unit || "", site: locLabel } : null); // v564: the stand of the card (name + unit)
     setFilterIssue(issueCategory);
     setFilterDate("");
     setFilterType("");
@@ -15981,7 +16334,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                   {activeFilterCount > 0 && filterOpen && (
                     <span
                       className="btn btnGhost btnSmall"
-                      onClick={e => { e.stopPropagation(); setFilterDate(""); setFilterDateFrom(""); setFilterDateTo(""); setFilterType(""); setFilterFloor(""); setFilterLocType(""); setFilterSite(""); setFilterIssue(""); }}
+                      onClick={e => { e.stopPropagation(); setFilterDate(""); setFilterDateFrom(""); setFilterDateTo(""); setFilterType(""); setFilterFloor(""); setFilterLocType(""); setFilterSite(""); setFilterIssue(""); setFilterStand(null); }}
                       role="button"
                       tabIndex={0}
                       style={{ fontSize: "0.75rem", padding: "2px 10px" }}
@@ -16041,7 +16394,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                         <input
                           className="input"
                           value={filterSite}
-                          onChange={e => setFilterSite(e.target.value)}
+                          onChange={e => { setFilterStand(null); setFilterSite(e.target.value); }}
                           placeholder="Name or stand #"
                           style={{ flex: 1 }}
                         />
@@ -16168,11 +16521,18 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
               // how long it took and whose mess it was.
               try {
                 const fuAll = computeFollowups(src, { ...(venueSettings || {}), followupCleared: {} }, {}).followups || [];
-                const byKey = {};
-                fuAll.forEach(f => { byKey[f.key] = f; });
+                const byKey = {}; const byLeg = new Map();
+                fuAll.forEach(f => { byKey[f.key] = f; const l = fuLegacyKey(f.key); if (l !== f.key) { let g = byLeg.get(l); if (!g) byLeg.set(l, g = []); g.push(f); } });
+                // v564 review: an entry under an old name-only key belongs to one same-name card — the one with its unit
+                // (stamped), else the card the merged card showed when it was written (fuLegacyOwner)
+                const legCard = (key, st) => {
+                  const g = byLeg.get(key); if (!g) return null;
+                  if (st.fuUnit != null) return g.find(c => { const p = fuSplitLoc(c.key); return p && fuStampMatch(st.fuUnit, p.unit, p.name); }) || null;
+                  const ok = fuLegacyOwner(g, Number(st.ts) || 0); return g.find(c => c.key === ok) || null;
+                };
                 Object.entries(venueSettings?.followupStatus || {}).forEach(([key, st]) => {
                   if (!st || !st.ts) return;
-                  const f = byKey[key] || {};
+                  const f = byKey[key] || legCard(key, st) || {};
                   const [loc] = key.split("::"); const cat = fuCatOfKey(key); // v502: drop the "##Crew" suffix
                   // v455 — a put-back is its own event, so the history says closed then reopened
                   if (st.status === "open" && st.reopenedFrom) {
@@ -16416,7 +16776,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
             )}
           </div>
           {fuReturn && historyTab === "reports" && (
-            <button type="button" className="fuReturnBar" data-testid="fu-return" onClick={backToFollowups}>← Back to {fuReturn.sub === "recurring" ? "Follow-ups" : "Analytics"}</button>
+            <button type="button" className="fuReturnBar" data-testid="fu-return" onClick={backToFollowups}>← Back to {fuReturn.sub === "recurring" ? "Follow-ups" : "Analytics"}{filterStand && filterStand.site === filterSite && filterStand.unit ? <span className="fuReturnStand notranslate" translate="no" data-testid="fu-return-stand"> · only <NT>{filterSite} #{filterStand.unit}</NT></span> : null}</button>
           )}
           <div
             className="historyList"
@@ -22916,7 +23276,7 @@ async function loadStandListNow() {
         continue;
       }
       seen.add(id);
-      list.push({ id, site, unit, floor, license, locType }); // v563: the report's type comes with it (BAR 201 read CONCESSION)
+      list.push({ id, site, unit, floor, license, locType, fromHist: true }); // v563: the report's type comes with it (BAR 201 read CONCESSION); v564: fromHist = not a stand anyone added
     }
     // a suggestion the list already covers (same unit, same name — added since) is not offered again
     _standSuggest = Object.values(suggest).filter(sg => !list.some(k => normUnit(k.unit) === normUnit(sg.unit) && sameStandName(k.site, sg.site)))
@@ -28980,7 +29340,11 @@ function HaccpTodayTracker({ venueSettings, saveVenueSettingsMap, history, curre
   const universe = (_standListCache || []).length ? _standListCache.slice() : dir.stands.map(s => ({ id: s.id, site: s.site, unit: s.unit, floor: "", locType: "", contacts: [] }));
   const seenU = new Set(universe.map(k => k.id));
   for (const s of dir.stands) { if (!seenU.has(s.id) && !universe.some(k => normUnit(k.unit) === normUnit(s.unit) && (!s.site || sameStandName(k.site, s.site)))) { seenU.add(s.id); universe.push({ id: s.id, site: s.site, unit: s.unit, floor: "", locType: "", contacts: [] }); } }
-  const subFor = (k, r) => { if (!r || r.type !== "submission") return false; const uK = normUnit(k.unit), uR = normUnit(r.unit); const sR = (r.site || "").trim(); if (uK && uR) return uK === uR && (!sR || !k.site || sameStandName(sR, k.site)); return !!sR && !!k.site && sameStandName(sR, k.site); };
+  // v564: a log typed "114" at CHEESEBURGER BABY is the 114A stand's (canonical unit)
+  // (a canonical unit keeps its digits, so only same-digit pairs are worked out — once per log per render)
+  const _cuSub = new Map();
+  const cuOfSub = (r, sR, uR) => { let v = _cuSub.get(r); if (v === undefined) { v = fuCanonUnit(sR, uR); _cuSub.set(r, v); } return v; };
+  const subFor = (k, r) => { if (!r || r.type !== "submission") return false; const uK = normUnit(k.unit), uR = normUnit(r.unit); const sR = (r.site || "").trim(); if (uK && uR) return (uK === uR || (!!sR && fuDigits(uK) === fuDigits(uR) && cuOfSub(r, sR, uR) === fuUnitClean(uK))) && (!sR || !k.site || sameStandName(sR, k.site)); return !!sR && !!k.site && sameStandName(sR, k.site); };
   const merged = universe.map(k0 => {
     const k = { id: k0.id, site: k0.site || "", unit: k0.unit || "", floor: k0.floor || floorFromUnit(k0.unit) || "", locType: k0.locType || "", contacts: [...(k0.contacts || []), ...(regContacts[k0.id] || [])] };
     let lastAt = "", checksOnDate = 0, doneBy = null;
@@ -32363,7 +32727,8 @@ function StandFeedPanel({ feed, ackTs, onClose, onOpenReport, onTempsTracker }) 
   let shown = groups.filter(g => filter === "all" || (filter === "attn" && g.attn) || (filter === "sup" && g.openSup.length) || (filter === "temps" && g.temps));
   // v556: keep the order (and the cards) the reader is looking at — ✓ Supplies delivered or a new log changes the pills,
   // not the places. The real ranking comes back when the filter changes or the panel is reopened. New stands go at the end.
-  if (!orderRef.current || orderRef.current.filter !== filter) orderRef.current = { filter, keys: shown.map(g => g.key) };
+  // v564 review: one column or two is decided with the order (a stand logging while the panel is open never resizes the cards)
+  if (!orderRef.current || orderRef.current.filter !== filter) orderRef.current = { filter, keys: shown.map(g => g.key), single: shown.length <= 1 };
   else {
     const keys = orderRef.current.keys;
     const kept = new Set(keys);
@@ -32391,34 +32756,43 @@ function StandFeedPanel({ feed, ackTs, onClose, onOpenReport, onTempsTracker }) 
             {F("temps", "🌡 Temps", groups.filter(g => g.temps).length)}
           </div>
         </div>
-        <div className="sfList">
+        <div className={cx("sfList", orderRef.current.single && "single")}>
           {shown.length === 0 && <div className="sfEmpty">Nothing here right now.</div>}
           {shown.map(g => {
             const isOpen = open.has(g.key);
             return (
               <div key={g.key} data-testid="stand-feed-row" className={cx("sfCard", g.attn ? "attn" : g.openSup.length ? "sup" : "", isOpen && "open")}>
-                <button type="button" className="sfCardHead" onClick={() => setOpen(p => { const n = new Set(p); if (n.has(g.key)) n.delete(g.key); else n.add(g.key); return n; })}>
+                <button type="button" className="sfCardHead" aria-expanded={isOpen} onClick={() => setOpen(p => { const n = new Set(p); if (n.has(g.key)) n.delete(g.key); else n.add(g.key); return n; })}>
                   <div className="sfRow1">
-                    <span className="sfName"><NT>{g.name}{g.unit ? ` #${g.unit}` : ""}</NT></span>
-                    {g.type ? <StandType lt={g.type} /> : null}
-                    {g.isNew && <span className="sfNew">NEW</span>}
-                    <span className="sfTime">{time(g.last)}</span>
+                    <div className="sfNameWrap">
+                      <span className="sfName"><NT>{g.name}</NT>{g.unit ? <span className="sfUnit notranslate" translate="no"> #{g.unit}</span> : null}</span>
+                      {g.type ? <StandType lt={g.type} /> : null}
+                    </div>
+                    <div className="sfMeta">
+                      {g.isNew && <span className="sfNew">NEW</span>}
+                      <span className="sfTime">{time(g.last)}</span>
+                    </div>
                   </div>
                   <div className="sfPills">
                     {g.temps > 0 && (g.oor
                       ? <span className="sfPill red">⚠ {g.oor} out of range · {plural(g.temps, "temp")}</span>
-                      : <span className="sfPill green">🌡 {plural(g.temps, "temp")} · all OK</span>)}
-                    {g.supplies.length > 0 && <span className={cx("sfPill", g.openSup.length ? "amber" : "grey")} data-testid="sf-sup-pill">📦 {g.supplies.map(x => x.qty ? `${x.item} ×${x.qty}` : x.item).join(" · ")}{g.urgent ? <b className="sfRed"> · URGENT</b> : null}{!g.openSup.length ? " · ✓ delivered" : ""}</span>}
+                      : <span className="sfPill green">✓ {plural(g.temps, "temp")} · all OK</span>)}
                     {g.problems.length > 0 && <span className="sfPill red">🧰 {plural(g.problems.length, "problem")}</span>}
                     {g.recs.length > 1 && <span className="sfPill grey">{plural(g.recs.length, "visit")}</span>}
                   </div>
-                  <div className="sfPeople">{g.people.join(" · ") || "—"}<span className="sfChevron">{isOpen ? "▴" : "▾"}</span></div>
+                  {g.supplies.length > 0 && (
+                    <div className={cx("sfSupBox", g.openSup.length ? "amber" : "grey")} data-testid="sf-sup-pill">
+                      <div className="sfSupHead">📦 {g.openSup.length ? "Supplies requested" : "Supplies"}{g.urgent ? <b className="sfUrgent">URGENT</b> : null}{!g.openSup.length ? <span className="sfSupDone">✓ delivered</span> : null}</div>
+                      <div className="sfSupItems">{g.supplies.map((x, i) => <span key={i} className={cx("sfSupItem", x.done && "done")}>{x.item}{x.qty ? <b> ×{x.qty}</b> : null}</span>)}</div>
+                    </div>
+                  )}
+                  <div className="sfPeople"><span className="sfWho">👤 {g.people.join(" · ") || "—"}</span><span className="sfMore">{isOpen ? "Hide ▴" : "Details ▾"}</span></div>
                 </button>
                 {isOpen && (
                   <div className="sfBody" data-testid="sf-body">
                     {g.recs.map(r => (
                       <div key={r.id} className="sfVisit">
-                        <div className="sfVisitHead">{time(r.savedAt)} · {r.supervisorName || r.reportedBy?.name || "—"}{r.partial ? <span className="sfFilling"> · still filling in</span> : null}</div>
+                        <div className="sfVisitHead"><b className="sfVisitTime">{time(r.savedAt)}</b><span>{r.supervisorName || r.reportedBy?.name || "—"}</span>{r.partial ? <span className="sfFilling">still filling in</span> : null}</div>
                         {(r.haccpReadings || []).length > 0
                           ? <div className="sfReadings">{r.haccpReadings.map((x, i) => (
                               <span key={i} className={cx("sfReading", x.ok === false && "bad")}>{x.label} <b>{x.value}°F</b>{x.ok === false ? ` ✗ ${x.max != null ? `max ${x.max}°F` : x.min != null ? `min ${x.min}°F` : ""}` : x.ok ? " ✓" : ""}{x.ok === false && ("corrective" in x) && (String(x.corrective || "").replace(/^(Reason|Motivo):[^—]*—?/i, "").trim()
@@ -32661,6 +33035,43 @@ export default function App() {
     }, 8000);
     return () => clearTimeout(t);
   }, [venueSettings?.followupPhotos, currentUser]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // v564: names used at more than one unit (CHEESEBURGER BABY 114A / 233 / 314, PANTRY 301 / 342 …) are saved, so every
+  // phone builds the same follow-up keys — also a crew phone that only reads the newest 300 reports. Units from the
+  // reports AND the stand list; a saved name keeps its units (only new ones are added), so it stays split for good even
+  // after a same-name stand is renamed or removed. Any signed-in phone, the server copy of the settings, this venue only.
+  const fuSharedSentRef = useRef(new Map());
+  const [fuIdentA] = useFuIdentTick();
+  useEffect(() => {
+    if (!currentUser) return;
+    if (FIREBASE_ON && !vsLiveRef.current) return;
+    if (activeVenueId !== VENUE_ID) return; // another venue viewed from Global Admin
+    const t = setTimeout(() => {
+      try {
+        const hist = readWarmHistory();
+        if (hist.length) fuNoteHistory(hist, venueSettings); else fuNoteHistory(null, venueSettings);
+        const cur = venueSettings?.followupSharedNames || {};
+        const listOn = Array.isArray(_standListCache) && _standListCache.length > 0;
+        const names = new Map();
+        const note = n => { n = String(n || "").trim(); const id = fuNameId(n); if (id && !names.has(id)) names.set(id, n.toUpperCase()); };
+        for (const r of hist) if (r && !r.discarded) note(r.siteName || r.location);
+        if (listOn) for (const k of _standListCache) if (k && !k.fromHist) note(k.site);
+        const V = fuVenue();
+        const patch = {};
+        for (const [id, n] of names) {
+          if (!fuIsShared(n)) continue;
+          const have = Array.isArray(cur[id]?.units) ? cur[id].units : [];
+          const units = [...new Set([...have, ...(V.hist.get(id) || []), ...(listOn ? fuStandsFor(n).stands : [])])].filter(Boolean).sort();
+          const sig = units.join(" ");
+          if (units.length === have.length || fuSharedSentRef.current.get(id) === sig) continue;
+          fuSharedSentRef.current.set(id, sig);
+          patch[id] = { name: cur[id]?.name || n, units, at: Date.now() };
+        }
+        if (Object.keys(patch).length) saveVenueSettingsMap("followupSharedNames", patch);
+      } catch {}
+    }, 9000);
+    return () => clearTimeout(t);
+  }, [venueSettings?.followupSharedNames, currentUser, fuHistoryTick, fuIdentA]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Overdue follow-up count for the menu badge + home banner. Reads the
   // already-warmed history cache (no network); stays live because status and
@@ -33569,6 +33980,7 @@ export default function App() {
   const [correctives, setCorrectives] = useState({});
   const [caBusy, setCaBusy] = useState(null);
   // Open follow-ups for the stand being inspected (by unit #, else by name)
+  const [fuIdentF, fuIdentSeenF] = useFuIdentTick(); // v564: recompute when more stands / units are known
   const standOpenProblems = useMemo(() => {
     try {
       const unitN = normUnit(siteNumber); const siteU = (siteName || "").trim().toUpperCase();
@@ -33577,10 +33989,27 @@ export default function App() {
       const cached = readWarmHistory().filter(r => r && r.id !== curReportId && r.id !== _openReportId); // v553: not the report being autosaved now
       return computeFollowups(cached, venueSettings).followups
         .filter(f => !f.likelyResolved)
-        .filter(f => unitN ? normUnit(f.unit) === unitN : (f.loc || "").toUpperCase() === siteU)
-        .filter(f => (venueSettings?.followupStatus?.[f.key]?.status) !== "resolved");
-    } catch { return []; }
-  }, [siteNumber, siteName, venueSettings?.followupCleared, venueSettings?.followupStatus, venueSettings?.recheckDays, fuHistoryTick]);
+        // v564: the SAME stand — name + unit (SHAWARMA #114 never shows MAGIC CITY DOGS #114's problems; a report typed
+        // "114" at CHEESEBURGER BABY is the 114A stand). No name typed yet → the unit alone; no unit → the name alone.
+        // v564 review: plus problems written at this unit under a name no listed stand there claims (shown here as before v564)
+        .filter(f => { if (!(unitN && siteU)) return unitN ? normUnit(f.unit) === unitN : (f.loc || "").toUpperCase() === siteU; const mine = fuStandKey(siteName, siteNumber), theirs = fuStandKey(f.loc, f.unit); return theirs === mine || (theirs.split("|")[0] === mine.split("|")[0] && fuUnclaimedKey(theirs)); })
+        .filter(f => (fuGet(venueSettings?.followupStatus, f.key)?.status) !== "resolved");
+    } catch { return []; } finally { fuIdentSeenF.current = _fuGen; }
+  }, [siteNumber, siteName, venueSettings?.followupCleared, venueSettings?.followupStatus, venueSettings?.followupSharedNames, venueSettings?.recheckDays, fuHistoryTick, fuIdentF]); // eslint-disable-line react-hooks/exhaustive-deps
+  // v564 review: an answer stored under another form of a card's key (a draft from before v564, or a unit worked out again)
+  // moves onto the card's key, so it shows, is saved with the report and reaches Follow-ups
+  useEffect(() => {
+    if (!standOpenProblems.length) return;
+    const moves = [];
+    for (const f of standOpenProblems) {
+      if (correctives[f.key]) continue;
+      const src = fuGetSrc(correctives, f.key);
+      if (src.v !== undefined && src.from && src.from !== f.key && !moves.some(m => m[0] === src.from)) moves.push([src.from, f.key]);
+    }
+    if (!moves.length) return;
+    setCorrectives(p => { const n = { ...p }; for (const [a, b] of moves) if (n[a] && !n[b]) { n[b] = n[a]; delete n[a]; } return n; });
+    try { for (const done of Object.values(committedRef.current || {})) for (const [a, b] of moves) if (done && done[a] !== undefined && done[b] === undefined) { done[b] = done[a]; delete done[a]; } } catch {}
+  }, [standOpenProblems]); // eslint-disable-line react-hooks/exhaustive-deps
   const caMissing = standOpenProblems.filter(f => !(correctives[f.key]?.action || "").trim());
   // "Already open" peek (report entry): is the history cache warm enough to
   // trust a "nothing open" answer, and which problem texts has THIS report
@@ -35191,15 +35620,16 @@ export default function App() {
       if (onlyKeys && !onlyKeys.has(f.key)) continue; // v553: autosave commits each answer once
       const c = correctives[f.key]; if (!c || !(c.action || "").trim()) continue;
       const st = c.status || "fixed";
+      const su = fuStamp(f); // v564: which stand this answer is for
       // v520: the walk's "✗ Still there" is not a crew status — it only leaves a dated comment
       // v558 review: prevClear = the clear in force before this answer (the episode floor for the card's older pictures)
-      if (st !== "still") { const pc = fuPrevClear(f.key, venueSettings?.followupCleared, venueSettings?.followupStatus); const entry = { status: st === "fixed" ? "resolved" : st, note: st === "waiting" ? c.action.trim().slice(0, 80) : "", by, ts, ...(pc ? { prevClear: pc } : {}) }; saveVenueSettingsMap("followupStatus", { [f.key]: entry }); }
+      if (st !== "still") { const pc = fuPrevClear(f.key, venueSettings?.followupCleared, venueSettings?.followupStatus); const entry = { status: st === "fixed" ? "resolved" : st, note: st === "waiting" ? c.action.trim().slice(0, 80) : "", by, ts, ...su, ...(pc ? { prevClear: pc } : {}) }; saveVenueSettingsMap("followupStatus", { [f.key]: entry }); }
       if (st === "fixed") saveVenueSettingsMap("followupCleared", { [f.key]: Math.max(ts, (f.ts || 0) + 1) });
-      const prevC = venueSettings?.followupComments?.[f.key] || [];
-      saveVenueSettingsMap("followupComments", { [f.key]: [...prevC, { text: st === "still" ? `Checked on site — still there` : `Corrective action: ${c.action.trim().slice(0, 200)}`, by, ts, reportId }].slice(-10) });
+      const prevC = fuGet(venueSettings?.followupComments, f.key) || [];
+      saveVenueSettingsMap("followupComments", { [f.key]: [...prevC, { text: st === "still" ? `Checked on site — still there` : `Corrective action: ${c.action.trim().slice(0, 200)}`, by, ts, reportId, ...su }].slice(-10) });
       if ((c.photos || []).length) {
-        const prevP = venueSettings?.followupPhotos?.[f.key] || [];
-        saveVenueSettingsMap("followupPhotos", { [f.key]: keepFuPhotos([...prevP, ...c.photos.map(p => ({ id: p.id, thumbUrl: p.thumbUrl, previewUrl: p.previewUrl, by, ts, tag: "after" }))]) }); // v557
+        const prevP = fuGet(venueSettings?.followupPhotos, f.key) || [];
+        saveVenueSettingsMap("followupPhotos", { [f.key]: keepFuPhotos([...prevP, ...c.photos.map(p => ({ id: p.id, thumbUrl: p.thumbUrl, previewUrl: p.previewUrl, by, ts, tag: "after", ...su }))]) }); // v557
       }
     }
   }
@@ -36488,7 +36918,7 @@ export default function App() {
                     </button>
                     <div className="fuPeekSub">Found last time at this stand. Fixed now? Tap <b>✓ Corrected</b> and it closes with today's report — no need to write it again below.</div>
                     {standOpenProblems.map(f => {
-                      const wst = venueSettings?.followupStatus?.[f.key]?.status;
+                      const wst = fuGet(venueSettings?.followupStatus, f.key)?.status;
                       const stLbl = wst === "in_progress" ? "🔧 In process" : wst === "waiting" ? "⏳ Waiting" : wst === "reported" ? "📣 Reported" : f.overdue ? "⏰ Overdue" : "Open";
                       const c = correctives[f.key];
                       const setCa = patch => setCorrectives(prev => ({ ...prev, [f.key]: { ...(prev[f.key] || { action: "", status: "fixed", photos: [] }), ...patch } }));
