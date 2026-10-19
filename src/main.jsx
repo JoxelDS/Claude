@@ -256,6 +256,11 @@ if ("serviceWorker" in navigator) {
         // When a new SW is waiting to activate, show a reload prompt
         function promptReload(worker) {
           if (!worker) return;
+          // v563: the FIRST install on a phone that never had the app is not an update. This page already runs the
+          // newest bundle (it came from the network), and sw.js claims the page without a reload. Reloading here
+          // dropped every link a newcomer opens on a new phone: the invite card turned into plain sign-in within a
+          // second, and `?equip=` / `?haccp&as=inspector` lost their stand (the address bar is cleaned on load).
+          if (!navigator.serviceWorker.controller) return;
           worker.addEventListener("statechange", () => {
             if (worker.state === "activated") applyUpdateNow();
           });
