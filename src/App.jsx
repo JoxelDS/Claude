@@ -4569,6 +4569,49 @@ function openPhotoLightbox(src) {
   try { window.dispatchEvent(new CustomEvent("sdx-lightbox", { detail: { src } })); } catch {}
 }
 
+// v565: why pictures loaded slowly or stayed blank (Joxel: "i need to know what is happening with the pictures that are
+// not loading"): a report photo is saved with an EMPTY thumbUrl (the small data-URL copy is stripped at save) and its
+// previewUrl is the 1–7 MB photo itself, so every 62 px box downloaded the whole picture. The small copy now lives next to
+// it in Storage as <photoId>_t.jpg (made for every old photo, and uploaded for every new one).
+const STORAGE_PHOTO_RE = /^(https:\/\/firebasestorage\.googleapis\.com\/v0\/b\/[^/]+\/o\/photos%2F[^?#]+?)(_t)?\.jpg(?:[?#].*)?$/;
+function storageThumbOf(url) {
+  const m = STORAGE_PHOTO_RE.exec(String(url || ""));
+  if (!m || m[2]) return "";
+  return `${m[1]}_t.jpg?alt=media`; // public read — no token needed
+}
+// What to try, in order: a stored small copy → the Storage small copy → the photo itself
+function photoSrcChain(p) {
+  const out = [];
+  const add = u => { if (typeof u === "string" && u && !out.includes(u)) out.push(u); };
+  const full = p?.previewUrl || p?.exportUrl || p?.url || p?.dataUrl || "";
+  // a "thumbUrl" that is really the full Storage photo (follow-up cards copy previewUrl into it) → its small copy first
+  const th = p?.thumbUrl || "";
+  if (th && !storageThumbOf(th)) add(th);
+  add(storageThumbOf(th));
+  add(storageThumbOf(full));
+  add(storageThumbOf(p?.exportUrl));
+  add(full);
+  add(p?.exportUrl);
+  add(th);
+  return out;
+}
+// A thumbnail that never stays blank: if a copy does not load it tries the next, then shows a 📷 box
+function PhotoThumb({ p, alt = "", onClick, className, style, lazy = true }) {
+  const chain = photoSrcChain(p);
+  const sig = chain.join("|");
+  const [state, setState] = useState({ sig, i: 0 });
+  const i = state.sig === sig ? state.i : 0;
+  if (i >= chain.length) {
+    return <span className={cx("photoThumbMissing", className)} style={style} role="img" aria-label="Photo not available right now" title="Photo not available right now" data-testid="photo-thumb-missing">📷</span>;
+  }
+  return <img src={chain[i]} alt={alt} className={className} style={style} loading={lazy ? "lazy" : undefined} decoding="async" onClick={onClick} data-testid="photo-thumb" onError={() => setState({ sig, i: i + 1 })} />;
+}
+// Upload the small copy next to a photo (<photoId>_t.jpg); returns its URL or ""
+async function uploadPhotoThumb(dataUrl, venueId, ownerId, photoId) {
+  if (!FIREBASE_ON || typeof dataUrl !== "string" || !dataUrl.startsWith("data:image")) return "";
+  try { return (await uploadPhoto(dataUrl, venueId, ownerId, `${photoId}_t`)) || ""; } catch { return ""; }
+}
+
 function buildDefaultContext(noteType) {
   const spec = NOTE_TYPES[noteType] || NOTE_TYPES["inspection"];
   const obj = {};
@@ -6586,7 +6629,7 @@ function RenderedOutput({ noteType, useCase, context, inspection, rawNotes, insp
             {photoIndexList.map(p => (
               <div className="rptPhotoCard" key={p.num}>
                 {p.previewUrl ? (
-                  <img src={p.previewUrl} alt={`Photo #${p.num}`} className="rptPhotoImg" style={{cursor:"zoom-in"}} onClick={() => setLightboxSrc(p.previewUrl)} />
+                  <PhotoThumb p={p} alt={`Photo #${p.num}`} className="rptPhotoImg" style={{cursor:"zoom-in"}} onClick={() => setLightboxSrc(p.previewUrl)} />
                 ) : (
                   <div className="rptPhotoPlaceholder">{lbl.noPreview}</div>
                 )}
@@ -8211,7 +8254,73 @@ function equipBoardLocalReg() {
   } catch {}
   return null;
 }
-function EquipTempBoard({ history, onOpenStand }) {
+// v565: rename a cooler / freezer (Joxel: "i want to be able to edit the names of the equipment"). Only the name and the
+// brand / place change — the tag, the kind (so the °F limit) and the stand stay. A unit known only from the report index
+// gets a FULL record (v422: never a bare items[TAG] — a record without its place re-grouped the unit as "not sure").
+function renameEquipUnit(tag, fields, base, byName, kindHint) {
+  const T = String(tag || "").trim().toUpperCase();
+  const nm = String(fields?.name || "").replace(/\s*(❄|🧊)\s*(Cooler|Freezer)\s*$/u, "").trim();
+  if (!T || !nm) return null;
+  const cur = (_equipRegCache || {})[T] || (_equipRegCache || {})[tag] || null;
+  const src = { ...(base || {}), ...(cur || {}) };
+  // the STORED kind decides (a sticker whose kind was set in the Fix sheet, a cooler named "… by the freezer") — never the screen's guess
+  const kind = equipKindOf(src, T) || kindHint || "cooler";
+  const label = equipLabelFor(nm, kind);
+  const now = Date.now();
+  const brand = fields?.brand != null ? String(fields.brand).trim().toUpperCase() : null;
+  const location = fields?.location != null ? String(fields.location).trim().toUpperCase() : null;
+  const isItem = !!(cur && cur.assetTag) || !!(base && base.assetTag);
+  const rec = {
+    assetTag: T, kind, label, renamedBy: byName || "", renamedAt: now, updatedAt: now,
+    ...(brand != null ? { brandName: brand } : {}), ...(location != null ? { location } : {}),
+    ...(isItem ? {} : {
+      venueName: String(src.venueName || "").trim().toUpperCase(), unit: String(src.unit || "").trim(), floor: src.floor || "", locType: src.locType || "", standId: src.standId || "",
+      ...(brand == null ? { brandName: src.brandName || src.brand || "" } : {}), ...(location == null ? { location: src.location || "" } : {}),
+      ...(src.serial ? { serial: src.serial } : {}),
+    }),
+  };
+  const idx = { name: label, ...(brand != null ? { brand } : {}), ...(location != null ? { location } : {}), ts: now };
+  try { writeEquipReg({ items: { [T]: rec }, labelIndex: { [T]: idx } }); } catch {}
+  _equipRegCache = { ...(_equipRegCache || {}), [T]: { ...(base || {}), ...(cur || {}), ...rec } }; // review: a partial patch never leaves this phone's copy without its stand
+  try { localStorage.setItem(EQUIP_REG_LS, JSON.stringify(_equipRegCache)); } catch {}
+  return rec;
+}
+// v565 review: "← Back to Temps" lands where the inspector left the board — the stand they opened, else the same height.
+// The tracker and the board paint after a moment, so look for the stand for up to ~3 s.
+function returnToTempsPlace(ret) {
+  if (!ret) return;
+  let n = 0;
+  const tick = () => {
+    n++;
+    let el = null; try { el = ret.key ? document.querySelector(`[data-anchor="et:${CSS.escape(ret.key)}"]`) : null; } catch {}
+    if (el) { const t = el.getBoundingClientRect().top + window.scrollY - 96; window.scrollTo({ top: Math.max(0, t) }); return; }
+    if (!ret.key && ret.y > 0 && document.documentElement.scrollHeight >= ret.y + window.innerHeight * 0.6) { window.scrollTo({ top: ret.y }); return; }
+    if (n < 30) setTimeout(tick, 100); else if (ret.y > 0) window.scrollTo({ top: ret.y });
+  };
+  setTimeout(tick, 150);
+}
+// The small inline editor both screens use
+function EquipRenameRow({ u, onSave, onCancel }) {
+  const [name, setName] = useState(u.name || "");
+  const [brand, setBrand] = useState(u.brand || "");
+  const [loc, setLoc] = useState(u.location || "");
+  const ok = name.trim().length > 0;
+  const save = () => { if (ok) onSave({ name: name.trim(), brand, location: loc }); };
+  return (
+    <div className="eqRenameRow" data-testid="eq-rename-row" onClick={e => e.stopPropagation()}>
+      <label className="eqRenameField"><span>Name</span><input className="input notranslate" translate="no" data-testid="eq-rename-name" autoFocus value={name} onChange={e => setName(e.target.value)} onKeyDown={e => { if (e.key === "Enter") save(); if (e.key === "Escape") onCancel(); }} placeholder="e.g. 2-Door Cooler" /></label>
+      <label className="eqRenameField"><span>Brand</span><input className="input" data-testid="eq-rename-brand" value={brand} onChange={e => setBrand(e.target.value)} placeholder="optional" /></label>
+      <label className="eqRenameField"><span>Where</span><input className="input" data-testid="eq-rename-loc" value={loc} onChange={e => setLoc(e.target.value)} placeholder="e.g. Back of the house" /></label>
+      <div className="eqRenameBtns">
+        <button type="button" className="btn" data-testid="eq-rename-save" disabled={!ok} onClick={save}>Save</button>
+        <button type="button" className="btn btnGhost" data-testid="eq-rename-cancel" onClick={onCancel}>Cancel</button>
+      </div>
+      <div className="eqRenameNote">The tag {u.tag}, the stand and the {u.type === "freezer" || u.freezer ? "20°F" : "40°F"} limit stay the same.</div>
+    </div>
+  );
+}
+
+function EquipTempBoard({ history, onOpenStand, onOpenEquipment, canEdit = false, currentUser }) {
   // v556: paint on the first frame from this phone's copy of the registry (the effect below refreshes it in place),
   // so the board no longer pops in seconds later above "Temperature Monitoring". Only when the stand list is in
   // memory — without it every unit would land in "Not sure" and then re-group.
@@ -8224,6 +8333,11 @@ function EquipTempBoard({ history, onOpenStand }) {
   const [floorPick, setFloorPick] = useState("");
   const [q, setQ] = useState("");
   const [openTag, setOpenTag] = useState(null);
+  const [renTag, setRenTag] = useState(null); // v565: the unit being renamed
+  const [renFlash, setRenFlash] = useState("");
+  const [renKeep, setRenKeep] = useState(null); // v565 review: the stand just renamed stays shown while the search text is the same
+  useEffect(() => { setRenKeep(null); }, [q]);
+  const unitRankRef = useRef({ sig: null, rank: {}, n: 0 }); // v565 review: a unit keeps its place after a rename (no card jumps)
   const [collapsed, setCollapsed] = useState({});
   const STALE_DAYS = 7;
   const cleanName = l => String(l || "").replace(/\s*(❄|🧊)\s*(Cooler|Freezer)\s*$/u, "").trim();
@@ -8281,7 +8395,7 @@ function EquipTempBoard({ history, onOpenStand }) {
       if (!/^SDX-(CL|FZ|COOL|FRZ)-/.test(tag) && !it?.assetTag) continue;
       if (!equipIsCold(it, tag)) continue; // v560: fryers / hoods / sinks have stickers too — no temperature limit to watch
       const label = it.label || it.name || "";
-      const type = (/freez|🧊/i.test(label) || coldTypeFromTag(tag) === "freezer") ? "freezer" : "cooler";
+      const type = equipKindOf(it, tag) === "freezer" ? "freezer" : "cooler"; // v565 review: the stored kind first (a renamed unit keeps its limit)
       const unit = (it.unit || "").trim();
       const installed = !!reg.setup?.[tag] || !!reg.setup?.[tagRaw];
       const last = lastByTag[tag] || null;
@@ -8291,7 +8405,7 @@ function EquipTempBoard({ history, onOpenStand }) {
       if (last) state = last.tempF > limit ? "alert" : (ageDays !== null && ageDays > STALE_DAYS) ? "stale" : "ok";
       else if (installed) state = "await";
       const readToday = !!last?.at && String(last.at).slice(0, 10) === today;
-      units.push({ standId: it.standId || "", tag, type, name: cleanName(label) || (type === "freezer" ? "Freezer" : "Cooler"), brand: it.brandName || it.brand || "", location: it.location || "", unit, site: (it.venueName || "").trim(), floor: floorForStand(unit, it.venueName, it.floor), locType: it.locType || "", installed, last, limit, ageDays, state, readToday });
+      units.push({ key: tagRaw, raw: it, standId: it.standId || "", tag, type, name: cleanName(label) || (type === "freezer" ? "Freezer" : "Cooler"), brand: it.brandName || it.brand || "", location: it.location || "", unit, site: (it.venueName || "").trim(), floor: floorForStand(unit, it.venueName, it.floor), locType: it.locType || "", installed, last, limit, ageDays, state, readToday });
     }
     // Stands: from registry units + any stand in history with a cold read but no registry unit
     const stands = {};
@@ -8317,12 +8431,16 @@ function EquipTempBoard({ history, onOpenStand }) {
 
   if (!model) return null;
   const { standList, floors, tot } = model;
-  const qq = q.trim().toLowerCase(); const qUnit = normUnit(qq);
+  const qq = q.trim().toLowerCase().replace(/^#\s*/, ""); const qUnit = normUnit(qq);
   const unitMatch = u => filter === "all" ? true : filter === "alert" ? u.state === "alert" : filter === "await" ? u.state === "await" : filter === "today" ? u.readToday : filter === "stale" ? (u.state === "stale" || u.state === "nolabel") : true;
+  const rankSig = `${reg ? 1 : 0}|${(history || []).length ? 1 : 0}`;
+  if (unitRankRef.current.sig !== rankSig) unitRankRef.current = { sig: rankSig, rank: {}, n: 0 };
+  const UR = unitRankRef.current;
+  for (const st of standList) for (const u of st.units) if (UR.rank[u.tag] === undefined) UR.rank[u.tag] = UR.n++;
   const shown = standList
     .filter(st => !floorPick || (st.floor || "No floor") === floorPick)
-    .filter(st => !qq || (qUnit && normUnit(st.unit).includes(qUnit)) || (st.site || "").toLowerCase().includes(qq) || st.units.some(u => u.tag.toLowerCase().includes(qq) || u.name.toLowerCase().includes(qq)))
-    .map(st => ({ ...st, units: st.units.filter(unitMatch) }))
+    .filter(st => !qq || st.key === renKeep || (qUnit && normUnit(st.unit).includes(qUnit)) || (st.site || "").toLowerCase().includes(qq) || st.units.some(u => u.tag.toLowerCase().includes(qq) || u.name.toLowerCase().includes(qq)))
+    .map(st => ({ ...st, units: st.units.filter(unitMatch).sort((a, b) => UR.rank[a.tag] - UR.rank[b.tag]) }))
     .filter(st => st.units.length > 0);
   const ago = at => { if (!at) return ""; const ms = Date.now() - Date.parse(at); if (!Number.isFinite(ms)) return ""; const m = Math.round(ms / 60000); if (m < 60) return `${Math.max(1, m)}m ago`; const h = Math.round(m / 60); if (h < 36) return `${h}h ago`; return `${Math.round(h / 24)}d ago`; };
   const STATE = { alert: { cls: "etAlert", text: "over limit" }, ok: { cls: "etOk", text: "ok" }, stale: { cls: "etStale", text: `no read ${STALE_DAYS}d+` }, await: { cls: "etAwait", text: "awaiting first scan" }, nolabel: { cls: "etNoLabel", text: "label not stuck yet" } };
@@ -8332,11 +8450,13 @@ function EquipTempBoard({ history, onOpenStand }) {
   return (
     <div className="card equipTempBoard" style={{ marginBottom: 24 }}>
       {openTag && <EquipScanModal initialTag={openTag} onClose={() => setOpenTag(null)} />}
+      {renFlash && ReactDOM.createPortal(<div className="eqpFlash eqpFlashToast" data-testid="et-rename-flash" role="status">{renFlash}</div>, document.body)}
       <div className="cardHeader" style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
         <div>
           <div className="cardTitle">❄ Equipment temps — by stand</div>
           <div style={{ fontSize: "0.76rem", color: "var(--ink-500)", fontWeight: 600 }}>Every cooler / freezer with a QR label, linked to its stand. Scan a label to log a read — it lands here.</div>
         </div>
+        {onOpenEquipment && <button type="button" className="btn btnSmall etOpenEqp" data-testid="et-open-equipment" onClick={() => onOpenEquipment(null)}>🧊 Open the Equipment screen</button>}
         <input value={q} onChange={e => setQ(e.target.value)} placeholder="🔎 stand, unit #, tag…" className="etSearch" />
       </div>
       <div className="cardBody" style={{ paddingTop: 10 }}>
@@ -8374,7 +8494,9 @@ function EquipTempBoard({ history, onOpenStand }) {
                   {!isCollapsed && st.units.map(u => {
                     const sm = STATE[u.state];
                     return (
-                      <button key={u.tag} type="button" className={"etUnit " + sm.cls} onClick={() => setOpenTag(u.tag)} title="Tap for this unit's reading history">
+                      <div key={u.tag} className="etUnitWrap" data-testid="et-unit">
+                      <div className="etUnitLine">
+                      <button type="button" className={"etUnit " + sm.cls} onClick={() => setOpenTag(u.tag)} title="Tap for this unit's reading history">
                         <span className="etUnitIcon">{u.type === "freezer" ? "🧊" : "❄"}</span>
                         <span className="etUnitName">{u.name}<span className="etUnitSub">{[u.brand, u.location].filter(Boolean).join(" · ")}</span></span>
                         <span className="etUnitTemp">{u.last ? `${u.last.tempF}°F` : "—"}<span className="etUnitLimit">≤ {u.limit}°F</span></span>
@@ -8382,6 +8504,20 @@ function EquipTempBoard({ history, onOpenStand }) {
                         <span className={"etPill " + sm.cls}>{u.last ? sm.text : (u.installed ? "⏳ first scan" : "🏷 stick label")}</span>
                         <span className="etUnitTag">{u.tag}</span>
                       </button>
+                      {canEdit && <button type="button" className="etRenameBtn" data-testid="et-rename-btn" aria-label={`Rename ${u.name}`} title="Rename this unit" onClick={() => setRenTag(renTag === u.tag ? null : u.tag)}>✏️</button>}
+                      </div>
+                      {canEdit && renTag === u.tag && (
+                        <EquipRenameRow u={u} onCancel={() => setRenTag(null)} onSave={f => {
+                          const rec = renameEquipUnit(u.tag, f, u.raw, currentUser?.name || "", u.type);
+                          if (rec) {
+                            setRenKeep(st.key);
+                            setReg(prev => prev ? { ...prev, items: { ...(prev.items || {}), [u.key]: { ...((prev.items || {})[u.key] || {}), ...rec } } } : prev);
+                            setRenFlash(`✓ Renamed to ${f.name}`); setTimeout(() => setRenFlash(""), 3500);
+                          }
+                          setRenTag(null);
+                        }} />
+                      )}
+                      </div>
                     );
                   })}
                   {!isCollapsed && onOpenStand && (
@@ -8389,6 +8525,7 @@ function EquipTempBoard({ history, onOpenStand }) {
                       ? <button type="button" className="etStandLink" onClick={() => { try { window.dispatchEvent(new CustomEvent("sdx-nav", { detail: { page: "print_labels", clearFocus: true } })); setTimeout(() => { try { document.getElementById("eq-review")?.scrollIntoView({ behavior: "smooth", block: "start" }); } catch {} }, 1500); } catch {} }}>❓ Pick the stand for these units →</button>
                       : <button type="button" className="etStandLink" onClick={() => onOpenStand({ id: st.key, unit: st.unit, site: st.site, floor: st.floor, locType: st.locType })}>🏷 This stand's labels — add a unit</button>
                   )}
+                  {!isCollapsed && onOpenEquipment && <button type="button" className="etStandLink" data-testid="et-open-stand-equipment" onClick={() => onOpenEquipment(st.unsure ? { key: st.key, id: "", unit: st.unit, site: st.rawSite || st.units[0]?.site || "" } : { key: st.key, id: st.key, unit: st.unit, site: st.site })}>🧊 Open this stand on the Equipment screen →</button>}
                 </div>
               );
             })}
@@ -8408,7 +8545,7 @@ function EquipTempBoard({ history, onOpenStand }) {
    form's one-tap add and the labels walk use). The inspection form keeps
    pulling this stand's units from the SAME registry (its eqStandCard), so
    nothing is re-entered — the tab is the registry's home. ──────────────── */
-function EquipmentPage({ currentUser, onBack, focusStand, onOpenLabels }) {
+function EquipmentPage({ currentUser, onBack, backLabel = "Back", focusStand, onOpenLabels, canEdit = false }) {
   useScrollAnchor(); // v553: opening / closing a unit's log row or adding a unit keeps the tapped button in place
   const [regItems, setRegItems] = useState(null); // { TAG: registryItem } | null = loading
   const [hist, setHist] = useState([]);
@@ -8421,6 +8558,11 @@ function EquipmentPage({ currentUser, onBack, focusStand, onOpenLabels }) {
   const [logBusy, setLogBusy] = useState(false);
   const [histTag, setHistTag] = useState(null);
   const [flash, setFlash] = useState("");
+  const [renTag, setRenTag] = useState(null); // v565: the unit being renamed
+  // v565: the stand picker is a searchable list (Joxel, desktop screenshot of the chip row: "please also make this better")
+  const [listFilter, setListFilter] = useState("units"); // units | today | alert | await | all — which stands the list shows
+  const [standQ, setStandQ] = useState("");
+  const [pickOpen, setPickOpen] = useState(false); // phones: the stand list is open instead of the stand
   const STALE_DAYS = 7;
 
   useEffect(() => {
@@ -8453,6 +8595,7 @@ function EquipmentPage({ currentUser, onBack, focusStand, onOpenLabels }) {
     return () => { alive = false; };
   }, []);
 
+  const focusSig = focusStand ? `${focusStand.key || ""}|${focusStand.id || ""}|${focusStand.unit || ""}|${focusStand.site || ""}` : "";
   const model = useMemo(() => {
     if (!regItems) return null;
     // Last read per tag — readings live only in inspection records (EquipTempBoard join)
@@ -8488,14 +8631,15 @@ function EquipmentPage({ currentUser, onBack, focusStand, onOpenLabels }) {
       if (!/^SDX-(CL|FZ|COOL|FRZ)-/.test(tag) && !it.assetTag && !it.label) continue;
       if (!equipIsCold(it, tag)) continue; // v560: only units with a temperature limit
       const label = it.label || it.name || "";
-      const freezer = /freez|🧊/i.test(label) || coldTypeFromTag(tag) === "freezer";
+      // v565: a stored kind wins (a renamed cooler whose new name says "freezer" keeps its 40°F limit)
+      const freezer = equipKindOf(it, tag) === "freezer";
       const limit = freezer ? 20 : 40;
       const last = lastByTag[tag] || null;
       const ageDays = last?.at ? (now - Date.parse(last.at)) / 86400000 : null;
       let state = "await";
       if (last) state = last.tempF > limit ? "alert" : (ageDays !== null && ageDays > STALE_DAYS) ? "stale" : "ok";
       const readToday = !!last?.at && String(last.at).slice(0, 10) === today;
-      const u = { tag, name: cleanName(label) || (freezer ? "Freezer" : "Cooler"), freezer, limit, brand: it.brandName || it.brand || "", location: it.location || "", last, state, readToday };
+      const u = { key: tagRaw, raw: it, tag, name: cleanName(label) || (freezer ? "Freezer" : "Cooler"), freezer, limit, brand: it.brandName || it.brand || "", location: it.location || "", last, state, readToday };
       const p = placeEquip(it);
       if (p.sure && standById.has(p.id)) { groupFor(p.id, standById.get(p.id)).units.push(u); continue; }
       if (p.sure) { const k = standById.get(p.id); groupFor(p.id, { id: p.id, unit: it.unit || k?.unit || "", site: it.venueName || k?.site || "", floor: it.floor || k?.floor || "", locType: it.locType || "" }).units.push(u); continue; }
@@ -8510,18 +8654,21 @@ function EquipmentPage({ currentUser, onBack, focusStand, onOpenLabels }) {
     // Default stand: the focused one, else the first with an alert, else the first with units, else the first
     let defKey = "";
     if (focusStand) {
-      const f = list.find(g => (focusStand.id && g.id === focusStand.id) || (focusStand.unit && normUnit(g.unit) === normUnit(focusStand.unit) && (!focusStand.site || sameStandName(g.site, focusStand.site))));
+      const f = (focusStand.key && list.find(g => g.key === focusStand.key)) || list.find(g => (focusStand.id && g.id === focusStand.id) || (focusStand.unit && normUnit(g.unit) === normUnit(focusStand.unit) && (!focusStand.site || sameStandName(g.site, focusStand.site))));
       if (f) defKey = f.key;
     }
     if (!defKey) defKey = (list.find(g => g.units.some(u => u.state === "alert")) || list.find(g => g.units.length) || list[0] || {}).key || "";
     return { groups: list, tot, defKey };
-  }, [regItems, hist, stands]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [regItems, hist, stands, focusSig]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Pin the default stand as soon as the model offers one. defKey is
   // recomputed from live alert state on every render, so without pinning,
   // the view would jump to another stand the moment an alert clears
   // (e.g. right after logging the fixing temp).
   useEffect(() => { if (!standKey && model?.defKey) setStandKey(model.defKey); }, [model?.defKey, standKey]);
+  // v565: opened again with another stand (Analytics → "Open this stand…" while the screen is already up) → that stand
+  const focusSigRef = useRef(focusSig);
+  useEffect(() => { if (focusSigRef.current !== focusSig) { focusSigRef.current = focusSig; if (focusSig) { setStandKey(""); setPickOpen(false); } } }, [focusSig]);
   const selKey = standKey || model?.defKey || "";
   const sel = model?.groups.find(g => g.key === selKey) || null;
   // v553: while the inspector logs a stand, its units keep the order they had when the stand opened (a reading
@@ -8606,41 +8753,119 @@ function EquipmentPage({ currentUser, onBack, focusStand, onOpenLabels }) {
           </div>
         </div>
         <div className="topActions">
-          <button className="btn btnGhost" onClick={onBack} type="button">Back</button>
+          <button className="btn btnGhost" onClick={onBack} type="button" data-testid="eqp-back">{backLabel}</button>
         </div>
       </header>
       <div className="topBarSpacer" />
-      <main className="pageMain pageMainNarrow">
+      <main className="pageMain eqpMain">
         <div data-testid="eqp-page">
           {histTag && <EquipScanModal initialTag={histTag} onClose={() => setHistTag(null)} />}
           {!model && <div className="card"><div className="cardBody">Loading equipment…</div></div>}
           {model && (<>
-            <div className="eqpStats">
-              <div className="eqpStat"><b>{model.tot.units}</b><span>units</span></div>
-              <div className="eqpStat"><b>{model.tot.today}</b><span>read today</span></div>
-              <div className={"eqpStat" + (model.tot.alert ? " eqpStatAlert" : "")}><b>{model.tot.alert}</b><span>over limit</span></div>
-              <div className="eqpStat"><b>{model.tot.await}</b><span>awaiting first read</span></div>
-            </div>
+            {(() => {
+              const st = g => { const n = g.units.length, a = g.units.filter(u => u.state === "alert").length, aw = g.units.filter(u => u.state === "await").length, rt = g.units.filter(u => u.readToday).length; return { n, a, aw, rt, nt: n - rt }; };
+              const has = { units: g => st(g).n > 0, today: g => st(g).rt > 0, alert: g => st(g).a > 0, await: g => st(g).aw > 0, all: () => true };
+              const nStands = k => model.groups.filter(has[k]).length;
+              const TILES = [
+                { k: "units", n: model.tot.units, label: "units", sub: `at ${nStands("units")} stands` },
+                { k: "today", n: model.tot.today, label: "read today", sub: model.tot.today ? `at ${nStands("today")} stand${nStands("today") !== 1 ? "s" : ""}` : "none yet today" },
+                { k: "alert", n: model.tot.alert, label: "over limit", sub: model.tot.alert ? `at ${nStands("alert")} stand${nStands("alert") !== 1 ? "s" : ""}` : "all in range" },
+                { k: "await", n: model.tot.await, label: "awaiting first read", sub: model.tot.await ? `at ${nStands("await")} stand${nStands("await") !== 1 ? "s" : ""}` : "every unit read" },
+              ];
+              return (
+                <div className="eqpStats" role="group" aria-label="Show the stands with…">
+                  {TILES.map(t => (
+                    <button key={t.k} type="button" data-testid={`eqp-stat-${t.k}`} aria-pressed={listFilter === t.k}
+                      className={cx("eqpStat", t.k === "alert" && t.n > 0 && "eqpStatAlert", listFilter === t.k && "on")}
+                      onClick={() => { setListFilter(listFilter === t.k && t.k !== "units" ? "units" : t.k); setStandQ(""); setPickOpen(true); }}>
+                      <b>{t.n}</b><span>{t.label}</span><em>{t.sub}</em>
+                    </button>
+                  ))}
+                </div>
+              );
+            })()}
             {/* v553: a floating toast (it was inserted above the stand chips and every unit, then removed a few seconds later) */}
             {flash && ReactDOM.createPortal(<div className="eqpFlash eqpFlashToast" data-testid="eqp-flash" role="status">{flash}</div>, document.body)}
-            <div className="eqpStandRow" role="tablist" aria-label="Stands">
-              {shownGroups.map(g => {
-                const alerts = g.units.filter(u => u.state === "alert").length;
-                return (
-                  <button key={g.key} type="button" data-testid="eqp-stand-chip" className={"eqpStandChip" + (g.key === selKey ? " on" : "")} onClick={() => { setStandKey(g.key); setFilter("all"); setLogTag(null); }}>
-                    <b>{g.unsure ? `❓ ${g.site || "Unplaced"}` : (g.site || "Stand")}{g.unit ? ` · #${g.unit}` : ""}</b>
-                    <span>{g.units.length} unit{g.units.length !== 1 ? "s" : ""}{alerts ? ` · 🔥 ${alerts}` : ""}</span>
-                  </button>
-                );
-              })}
-            </div>
+            <div className={cx("eqpLayout", pickOpen && "pickOpen")}>
+            {(() => {
+              const st = g => { const n = g.units.length, a = g.units.filter(u => u.state === "alert").length, aw = g.units.filter(u => u.state === "await").length, rt = g.units.filter(u => u.readToday).length; return { n, a, aw, rt, nt: n - rt }; };
+              const q = standQ.trim().toUpperCase().replace(/^#\s*/, ""), qu = normUnit(q);
+              const match = g => !q || String(g.site || "").toUpperCase().includes(q) || (qu && normUnit(g.unit).startsWith(qu)) || g.units.some(u => u.tag.includes(q) || u.name.toUpperCase().includes(q));
+              const keep = { units: x => x.n > 0, today: x => x.rt > 0, alert: x => x.a > 0, await: x => x.aw > 0, all: () => true }[listFilter] || (() => true);
+              const fits = g => q ? match(g) : keep(st(g));
+              const listed = shownGroups.filter(g => fits(g) || g.key === selKey);
+              const nFit = listed.filter(fits).length;
+              const FILT = { units: "Stands with units", today: "Stands read today", alert: "Stands with a unit over the limit", await: "Stands with units awaiting a first read", all: "Every stand" };
+              const pickStand = k => {
+                setStandKey(k); setFilter("all"); setLogTag(null); setRenTag(null);
+                if (pickOpen) { setPickOpen(false); try { if (window.matchMedia("(max-width: 759px)").matches) window.scrollTo({ top: 0 }); } catch {} }
+                // v565 review: picked from the sticky list while scrolled far down → the new stand starts at its header
+                try { if (window.matchMedia("(min-width: 760px)").matches) requestAnimationFrame(() => { const d = document.querySelector(".eqpDetail"); const t = d?.getBoundingClientRect().top; if (t != null && t < 90) window.scrollTo({ top: window.scrollY + t - 90 }); }); } catch {}
+              };
+              return (
+                <aside className="eqpStandList" data-testid="eqp-stand-list" aria-label="Stands">
+                  <div className="eqpListHead">
+                    <div className="eqpSearchWrap">
+                      <input className="input eqpStandSearch" data-testid="eqp-stand-search" type="text" inputMode="search" autoComplete="off" placeholder="Find a stand — name, # or tag" value={standQ} onChange={e => setStandQ(e.target.value)} />
+                      {standQ && <button type="button" className="eqpSearchClear" data-testid="eqp-stand-search-clear" aria-label="Clear the search" onClick={() => setStandQ("")}>✕</button>}
+                    </div>
+                    <div className="eqpListFilt">
+                      <span>{q ? `Searching every stand · ${nFit} found` : `${FILT[listFilter]} · ${nFit}`}</span>
+                      {!q && listFilter !== "all" && <button type="button" className="eqpLinkBtn" data-testid="eqp-list-all" onClick={() => setListFilter("all")}>Show all {model.groups.length}</button>}
+                      {!q && listFilter === "all" && <button type="button" className="eqpLinkBtn" data-testid="eqp-list-units" onClick={() => setListFilter("units")}>Only stands with units</button>}
+                      {sel && <button type="button" className="eqpLinkBtn eqpListClose" data-testid="eqp-list-close" onClick={() => setPickOpen(false)}>Close</button>}
+                    </div>
+                  </div>
+                  <div className="eqpListRows">
+                    {listed.map(g => {
+                      const x = st(g);
+                      return (
+                        <button key={g.key} type="button" data-testid="eqp-stand-chip" aria-current={g.key === selKey ? "true" : undefined}
+                          className={cx("eqpStandItem", g.key === selKey && "on", x.a > 0 && "hasAlert", !x.n && "empty")} onClick={() => pickStand(g.key)}>
+                          <span className="eqpStandItemTop"><b className="notranslate" translate="no">{g.site || (g.unsure ? "Unplaced units" : "Stand")}</b>{g.unit && <span className="eqpUnitChip notranslate" translate="no">#{g.unit}</span>}</span>
+                          <span className="eqpStandItemMeta">
+                            {g.key === selKey && !fits(g) && <span className="eqpPill eqpPillOpen">open now</span>}
+                            {g.unsure && <span className="eqpPill eqpPillUnsure">Not sure which stand</span>}
+                            {x.a > 0 && <span className="eqpPill eqpPillAlert">{x.a} over limit</span>}
+                            <span className="eqpPill">{x.n ? `${x.n} unit${x.n !== 1 ? "s" : ""}` : "no units yet"}</span>
+                            {x.n > 0 && (x.nt > 0 ? <span className="eqpPill eqpPillMuted">{x.nt} not read today</span> : <span className="eqpPill eqpPillOk">✓ all read today</span>)}
+                          </span>
+                        </button>
+                      );
+                    })}
+                    {nFit === 0 && <div className="etEmpty" data-testid="eqp-list-empty">{q ? `No stand matches “${standQ.trim()}”.` : "No stand in this list right now."}</div>}
+                  </div>
+                </aside>
+              );
+            })()}
+            <section className="eqpDetail">
+            {!sel && <div className="etEmpty">Pick a stand from the list.</div>}
             {sel && (<>
-              <div className="etChips" style={{ margin: "4px 0 10px" }}>
+              {(() => {
+                const n = sel.units.length, a = sel.units.filter(u => u.state === "alert").length, nt = sel.units.filter(u => !u.readToday).length;
+                const lt = sel.locType || standForStrict(sel.unit, sel.site)?.locType || "";
+                return (
+                  <div className="eqpSelHead" data-testid="eqp-sel-head">
+                    <div className="eqpSelTitle">
+                      <b className="notranslate" translate="no" data-testid="eqp-sel-name">{sel.site || (sel.unsure ? "Unplaced units" : "Stand")}</b>
+                      {sel.unit && <span className="eqpUnitChip notranslate" translate="no">#{sel.unit}</span>}
+                      {lt && <StandType lt={lt} />}
+                      {sel.unsure && <span className="eqpPill eqpPillUnsure">Not sure which stand</span>}
+                    </div>
+                    <div className="eqpSelCounts">
+                      {[sel.floor, `${n} unit${n !== 1 ? "s" : ""}`, a ? `${a} over limit` : (n ? "all in range" : ""), n ? (nt ? `${nt} not read today` : "all read today") : ""].filter(Boolean).join(" · ")}
+                    </div>
+                    <div className="eqpSelBtns">
+                      <button type="button" className="btn btnGhost btnSmall eqpChangeStand" data-testid="eqp-change-stand" onClick={() => { setPickOpen(true); try { window.scrollTo({ top: 0 }); } catch {} }}>⇄ Change stand</button>
+                      {onOpenLabels && <button type="button" className="btn btnGhost btnSmall" data-testid="eqp-labels-link" onClick={() => onOpenLabels(sel)}>🏷 Labels &amp; details</button>}
+                    </div>
+                  </div>
+                );
+              })()}
+              <div className="etChips eqpUnitFilters">
                 <button type="button" className={"etChip" + (filter === "all" ? " on" : "")} onClick={() => setFilter("all")}>All {sel.units.length}</button>
-                <button type="button" className={"etChip" + (filter === "alert" ? " on" : "")} onClick={() => setFilter("alert")}>🔥 Over limit {sel.units.filter(u => u.state === "alert").length}</button>
+                <button type="button" className={"etChip" + (filter === "alert" ? " on" : "")} onClick={() => setFilter("alert")}>Over limit {sel.units.filter(u => u.state === "alert").length}</button>
                 <button type="button" className={"etChip" + (filter === "unread" ? " on" : "")} onClick={() => setFilter("unread")}>Not read today {sel.units.filter(u => !u.readToday).length}</button>
-                <span style={{ flex: 1 }} />
-                {onOpenLabels && <button type="button" className="etChip" data-testid="eqp-labels-link" onClick={() => onOpenLabels(sel)}>🏷 Labels &amp; details</button>}
               </div>
               {shownUnits.length === 0 && <div className="etEmpty">{sel.units.length === 0 ? "No units registered at this stand yet — add the first one below." : "Nothing matches this filter at this stand."}</div>}
               {shownUnits.map(u => (
@@ -8660,7 +8885,18 @@ function EquipmentPage({ currentUser, onBack, focusStand, onOpenLabels }) {
                   <div className="eqpActions">
                     <button type="button" className="btn btnSmall" data-testid="eqp-log-btn" onClick={() => { setLogTag(logTag === u.tag ? null : u.tag); setLogTemp(""); }}>🌡 Log temp</button>
                     <button type="button" className="btn btnGhost btnSmall" data-testid="eqp-hist-btn" onClick={() => setHistTag(u.tag)}>📈 History</button>
+                    {canEdit && <button type="button" className="btn btnGhost btnSmall" data-testid="eqp-rename-btn" onClick={() => { setRenTag(renTag === u.tag ? null : u.tag); setLogTag(null); }}>✏️ Rename</button>}
                   </div>
+                  {canEdit && renTag === u.tag && (
+                    <EquipRenameRow u={u} onCancel={() => setRenTag(null)} onSave={f => {
+                      const rec = renameEquipUnit(u.tag, f, u.raw, currentUser?.name || "", u.freezer ? "freezer" : "cooler");
+                      if (rec) {
+                        setRegItems(prev => ({ ...(prev || {}), [u.key]: { ...((prev || {})[u.key] || {}), ...rec } }));
+                        setFlash(`✓ Renamed to ${f.name}`); setTimeout(() => setFlash(""), 3500);
+                      }
+                      setRenTag(null);
+                    }} />
+                  )}
                   {logTag === u.tag && (
                     <div className="eqpLogRow">
                       <input className="input eqpLogInput" data-testid="eqp-log-input" type="number" inputMode="decimal" step="0.1" autoFocus placeholder={`°F — limit ${u.limit}°F`} value={logTemp} onChange={e => setLogTemp(e.target.value)} onKeyDown={e => { if (e.key === "Enter") submitLog(u); }} />
@@ -8693,6 +8929,8 @@ function EquipmentPage({ currentUser, onBack, focusStand, onOpenLabels }) {
                 </div>
               </div>
             </>)}
+            </section>
+            </div>
           </>)}
         </div>
       </main>
@@ -11798,7 +12036,7 @@ function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLoc
 
   const thumb = (p, side, key) => (
     <div key={(p.report ? "r" : "") + p.id} className={"fuThumb" + (side === "after" ? " fuThumbAfter" : " fuThumbReport")}>
-      <img src={p.thumbUrl || p.previewUrl} alt="" loading="lazy" decoding="async" onClick={() => setLightboxSrc(p.previewUrl || p.thumbUrl)} />
+      <PhotoThumb p={p} alt="" onClick={() => setLightboxSrc(p.previewUrl || p.thumbUrl)} />
       <span className="fuThumbTag">{side}</span>
     </div>
   );
@@ -12034,7 +12272,7 @@ function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLoc
                       <div key={i} className="crewReportIssue">
                         <div><b>{a.issue}</b></div>
                         {a.notes && <div className="crewItemNotes">{a.notes}</div>}
-                        {(() => { const ph = fuRowPhotos(a, r); /* v557: objects, ids and photo numbers */ return ph.length ? <div className="fuThumbs" style={{ marginTop: 6 }}>{ph.map(p => <div key={p.id} className="fuThumb fuThumbReport"><img src={p.thumbUrl || p.previewUrl} alt="" onClick={() => setLightboxSrc(p.previewUrl || p.thumbUrl)} /></div>)}</div> : null; })()}
+                        {(() => { const ph = fuRowPhotos(a, r); /* v557: objects, ids and photo numbers */ return ph.length ? <div className="fuThumbs" style={{ marginTop: 6 }}>{ph.map(p => <div key={p.id} className="fuThumb fuThumbReport"><PhotoThumb p={p} alt="" onClick={() => setLightboxSrc(p.previewUrl || p.thumbUrl)} /></div>)}</div> : null; })()}
                       </div>
                     ))}
                   </div>
@@ -12833,7 +13071,7 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
         const sp = fuSplitPhotos(f.photos, fuPhotosOf(f)); // v558 review: the same picture never twice
         const before = sp.before.slice(0, 2);
         const after = sp.after.slice(0, 2);
-        const img = arr => arr.length ? arr.map(x => `<img src="${x.thumbUrl || x.previewUrl || ""}">`).join("") : `<span class="none">no photo</span>`;
+        const img = arr => arr.length ? arr.map(x => (() => { const c = photoSrcChain(x); return `<img src="${c[0] || ""}"${c[1] ? ` onerror="this.onerror=null;this.src='${c[c.length - 1]}'"` : ""}>`; })()).join("") : `<span class="none">no photo</span>`;
         const clk = t => new Date(t).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
         return `<tr><td>${esc(new Date(f.fixedTs).toLocaleDateString([], { month: "short", day: "numeric" }))}</td>` +
           `<td>${f.fixedStart ? esc(clk(f.fixedStart)) : "\u2014"}</td><td><b>${esc(clk(f.fixedTs))}</b></td>` +
@@ -13124,8 +13362,8 @@ ${sections}
   // v557: the ✅ Fixed and 🧹 cleaning rows show EVERY picture under BEFORE / AFTER (they showed 2 unlabelled thumbs)
   const fixedBA = (before, after) => (before.length || after.length) ? (
     <div className="fuBA fuBAFixed" data-testid="fu-fixed-ba">
-      <div className="fuBACol"><div className="fuBAHead fuBABefore">🔴 Before</div><div className="fuThumbs">{before.length ? before.map(p => <div key={"b" + (p.id || p.thumbUrl)} className="fuThumb fuThumbReport"><img src={p.thumbUrl || p.previewUrl} alt="" loading="lazy" decoding="async" onClick={() => setLightboxSrc(p.previewUrl || p.thumbUrl)} /></div>) : <span className="fuPhotoHint">no photo</span>}</div></div>
-      <div className="fuBACol"><div className="fuBAHead fuBAAfter">🟢 After</div><div className="fuThumbs">{after.length ? after.map(p => <div key={"a" + (p.id || p.thumbUrl)} className="fuThumb fuThumbAfter"><img src={p.thumbUrl || p.previewUrl} alt="" loading="lazy" decoding="async" onClick={() => setLightboxSrc(p.previewUrl || p.thumbUrl)} /></div>) : <span className="fuPhotoHint">no photo</span>}</div></div>
+      <div className="fuBACol"><div className="fuBAHead fuBABefore">🔴 Before</div><div className="fuThumbs">{before.length ? before.map(p => <div key={"b" + (p.id || p.thumbUrl)} className="fuThumb fuThumbReport"><PhotoThumb p={p} alt="" onClick={() => setLightboxSrc(p.previewUrl || p.thumbUrl)} /></div>) : <span className="fuPhotoHint">no photo</span>}</div></div>
+      <div className="fuBACol"><div className="fuBAHead fuBAAfter">🟢 After</div><div className="fuThumbs">{after.length ? after.map(p => <div key={"a" + (p.id || p.thumbUrl)} className="fuThumb fuThumbAfter"><PhotoThumb p={p} alt="" onClick={() => setLightboxSrc(p.previewUrl || p.thumbUrl)} /></div>) : <span className="fuPhotoHint">no photo</span>}</div></div>
     </div>
   ) : null;
   // v556: the header counts (fixed today · total · 🧹 cleans) do not follow a crew chip — tapping one changed them and
@@ -13458,7 +13696,7 @@ ${sections}
                     <div className="fuThumbs">
                       {qpPhotos.map(p => (
                         <div key={p.id} className="fuThumb">
-                          <img src={p.thumbUrl} alt="" onClick={() => setLightboxSrc(p.previewUrl || p.thumbUrl)} />
+                          <PhotoThumb p={p} alt="" onClick={() => setLightboxSrc(p.previewUrl || p.thumbUrl)} />
                           <button type="button" className="fuThumbX" onClick={() => setQpPhotos(prev => prev.filter(x => x.id !== p.id))}>✕</button>
                         </div>
                       ))}
@@ -13878,7 +14116,7 @@ ${sections}
                                   if (!before.length && !after.length) return null;
                                   const thumb = (p, side) => (
                                     <div key={(p.report ? "r" : "") + p.id} className={"fuThumb" + (p.report ? " fuThumbReport" : side === "after" ? " fuThumbAfter" : "")} title={p.report ? "From the report" : `${p.by || ""}${p.ts ? " · " + new Date(p.ts).toLocaleDateString([], { month: "short", day: "numeric" }) : ""}`}>
-                                      <img src={p.thumbUrl || p.previewUrl} alt="" loading="lazy" decoding="async" onClick={() => setLightboxSrc(p.previewUrl || p.thumbUrl)} />
+                                      <PhotoThumb p={p} alt="" onClick={() => setLightboxSrc(p.previewUrl || p.thumbUrl)} />
                                       <span className="fuThumbTag">{p.report ? "report" : (p.by || "").split(" ")[0] || side}</span>
                                       {!p.report && <button type="button" className="fuThumbX" onClick={() => removeFuPhoto(f, p.id)}>✕</button>}
                                       {!p.report && <button type="button" className="fuThumbSwap" title={side === "after" ? "Move to Before" : "Move to After"} onClick={() => setFuPhotoTag(f, p.id, side === "after" ? "before" : "after")}>⇄</button>}
@@ -16474,7 +16712,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
             </div>
             {/* v444: analytics reads the deep list, not the loaded page */}
             {analyticsTab === "waste" && <FoodWasteReport history={anyHistoryFilter ? deepAnalyticsSrc : analyticsSrc} standScope={wasteScope} venueSettings={venueSettings} />}
-            {analyticsTab === "temp" && <><HaccpTodayTracker venueSettings={venueSettings} saveVenueSettingsMap={saveVenueSettingsMap} history={analyticsSrc} currentUser={currentUser} />{venueSettings?.equipTemps?.verifiedAt ? <>{(currentUser?.role === "admin" || currentUser?.role === "global_admin") && <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 10 }}><span style={{ fontSize: "0.74rem", fontWeight: 700, color: "var(--ink-500)" }}>❄ Equipment temps on · walk-through verified {new Date(venueSettings.equipTemps.verifiedAt).toLocaleDateString()}{venueSettings.equipTemps.verifiedBy ? ` by ${venueSettings.equipTemps.verifiedBy}` : ""}</span><button type="button" className="etChip" data-testid="equip-temps-pause" onClick={() => saveVenueSettingsMap?.("equipTemps", { verifiedAt: 0, verifiedBy: "" })}>Pause equipment temps</button></div>}<EquipTempBoard history={analyticsSrc} onOpenStand={st => window.dispatchEvent(new CustomEvent("sdx-open-stand-equipment", { detail: st }))} /></> : <div className="card equipTempsPaused" style={{ marginBottom: 24 }}><div className="cardBody" style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}><span style={{ fontSize: "0.82rem", fontWeight: 700, color: "var(--ink-700)" }}>❄ Equipment temps are paused for this venue — they turn on once the equipment walk-through is verified, so every cooler and freezer tracked is one this venue actually has.</span>{(currentUser?.role === "admin" || currentUser?.role === "global_admin") && <button type="button" className="etChip" data-testid="equip-temps-verify-on" onClick={() => saveVenueSettingsMap?.("equipTemps", { verifiedAt: Date.now(), verifiedBy: currentUser?.name || "" })}>Mark walk-through verified — turn on</button>}</div></div>}<TempTrendChart history={analyticsSrc} /></>}
+            {analyticsTab === "temp" && <><HaccpTodayTracker venueSettings={venueSettings} saveVenueSettingsMap={saveVenueSettingsMap} history={analyticsSrc} currentUser={currentUser} />{venueSettings?.equipTemps?.verifiedAt ? <>{(currentUser?.role === "admin" || currentUser?.role === "global_admin") && <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 10 }}><span style={{ fontSize: "0.74rem", fontWeight: 700, color: "var(--ink-500)" }}>❄ Equipment temps on · walk-through verified {new Date(venueSettings.equipTemps.verifiedAt).toLocaleDateString()}{venueSettings.equipTemps.verifiedBy ? ` by ${venueSettings.equipTemps.verifiedBy}` : ""}</span><button type="button" className="etChip" data-testid="equip-temps-pause" onClick={() => saveVenueSettingsMap?.("equipTemps", { verifiedAt: 0, verifiedBy: "" })}>Pause equipment temps</button></div>}<EquipTempBoard history={analyticsSrc} currentUser={currentUser} canEdit={canSetupUser(currentUser)} onOpenEquipment={st => window.dispatchEvent(new CustomEvent("sdx-nav", { detail: { page: "equipment", equipFocus: st || null, equipFrom: "history" } }))} onOpenStand={st => window.dispatchEvent(new CustomEvent("sdx-open-stand-equipment", { detail: st }))} /></> : <div className="card equipTempsPaused" style={{ marginBottom: 24 }}><div className="cardBody" style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}><span style={{ fontSize: "0.82rem", fontWeight: 700, color: "var(--ink-700)" }}>❄ Equipment temps are paused for this venue — they turn on once the equipment walk-through is verified, so every cooler and freezer tracked is one this venue actually has.</span><button type="button" className="etChip" data-testid="et-open-equipment" onClick={() => window.dispatchEvent(new CustomEvent("sdx-nav", { detail: { page: "equipment", equipFocus: null, equipFrom: "history" } }))}>🧊 Open the Equipment screen</button>{(currentUser?.role === "admin" || currentUser?.role === "global_admin") && <button type="button" className="etChip" data-testid="equip-temps-verify-on" onClick={() => saveVenueSettingsMap?.("equipTemps", { verifiedAt: Date.now(), verifiedBy: currentUser?.name || "" })}>Mark walk-through verified — turn on</button>}</div></div>}<TempTrendChart history={analyticsSrc} /></>}
             {analyticsTab === "insights" && <AIHealthMonitor history={analyticsSrc} currentUser={currentUser} />}
             {analyticsTab === "predictive" && <PredictiveInsightsPanel history={analyticsSrc} venueSettings={venueSettings} />}
             {analyticsWaiting && ReactDOM.createPortal(
@@ -17079,7 +17317,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                               <div className="fuThumbs" style={{ marginTop: 8 }}>
                                 {photos.map(p => (
                                   <div key={p.id} className="fuThumb fuThumbReport" style={{ width: 84, height: 84 }}>
-                                    <img src={p.thumbUrl || p.previewUrl} alt="" onClick={() => setLightboxSrc(p.previewUrl || p.thumbUrl)} />
+                                    <PhotoThumb p={p} alt="" onClick={() => setLightboxSrc(p.previewUrl || p.thumbUrl)} />
                                     <span className="fuThumbTag">before</span>
                                   </div>
                                 ))}
@@ -17564,11 +17802,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                                 >
                                   {p.previewUrl ? (
                                     <div className="photoThumbImgWrap">
-                                      <img
-                                        src={p.previewUrl}
-                                        alt={`Photo #${p.num}`}
-                                        style={{ width: "100%", height: 100, objectFit: "cover", display: "block" }}
-                                      />
+                                      <PhotoThumb p={p} alt={`Photo #${p.num}`} style={{ width: "100%", height: 100, objectFit: "cover", display: "block" }} />
                                       <div className="photoThumbOverlay">🔍</div>
                                     </div>
                                   ) : (
@@ -26459,7 +26693,7 @@ function PhotoStrip({ photos, onRemove, onTag }) {
       {photos.map((p) => (
         <div className="photoThumbWrap" key={p.id}>
           <div className="photoThumb">
-            <img src={p.previewUrl} alt={p.name} style={{cursor:"zoom-in"}} onClick={() => setLightboxSrc(p.previewUrl)} />
+            <PhotoThumb p={p} alt={p.name} style={{cursor:"zoom-in"}} onClick={() => setLightboxSrc(p.previewUrl)} />
             <button className="thumbX" type="button" onClick={() => onRemove(p.id)} aria-label="Remove photo">×</button>
           </div>
           {onTag && (
@@ -26504,11 +26738,13 @@ async function processPhotoFiles(files, { limit, inspId, venueId, firebaseOn, on
     if (!prep.ok) { skips.push({ name: f.name, reason: prep.reason }); continue; }
     const photoId = `${Date.now()}_${Math.random().toString(16).slice(2)}`;
     let previewUrl = prep.exportUrl, exportUrl = prep.exportUrl;
+    let thumbUrl = prep.thumbUrl;
     if (firebaseOn) {
-      const storageUrl = await uploadPhoto(prep.exportUrl, venueId, inspId, photoId);
-      if (storageUrl) { previewUrl = storageUrl; exportUrl = storageUrl; } else { failCount++; }
+      // v565: the small copy goes up next to the photo (<id>_t.jpg) so saved reports keep a thumbnail
+      const [storageUrl, thumbStored] = await Promise.all([uploadPhoto(prep.exportUrl, venueId, inspId, photoId), uploadPhotoThumb(prep.thumbUrl, venueId, inspId, photoId)]);
+      if (storageUrl) { previewUrl = storageUrl; exportUrl = storageUrl; void thumbStored; } else { failCount++; } // the small data thumb stays in memory; a saved record derives <id>_t.jpg from previewUrl
     }
-    photos.push({ id: photoId, name: f.name, sizeMb: bytesToMb(f.size), type: "image/jpeg", previewUrl, thumbUrl: prep.thumbUrl, exportUrl, tag: "" });
+    photos.push({ id: photoId, name: f.name, sizeMb: bytesToMb(f.size), type: "image/jpeg", previewUrl, thumbUrl, exportUrl, tag: "" });
   }
   if (skips.length && onError) onError(photoSkipToast(skips));
   if (failCount > 0 && onError) {
@@ -27352,15 +27588,16 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                               const newChecklist = (cur2.checklist || []).map((c, i) => i === idx ? { ...c, photos: [...(c.photos || []), ph].slice(0, PHOTO_LIMIT) } : c);
                               return setAtPath(prev, it.path, { ...cur2, checklist: newChecklist });
                             });
-                            let finalPreview = prep.exportUrl, finalExport = prep.exportUrl;
+                            let finalPreview = prep.exportUrl, finalExport = prep.exportUrl, finalThumb = prep.thumbUrl;
                             if (FIREBASE_ON) {
-                              const storageUrl = await uploadPhoto(prep.exportUrl, activeVenueId, inspId, photoId);
-                              if (storageUrl) { finalPreview = storageUrl; finalExport = storageUrl; } else { failCount++; }
+                              // v565: the small copy goes up next to the photo (<id>_t.jpg) so the saved report keeps a thumbnail
+                              const [storageUrl, thumbStored] = await Promise.all([uploadPhoto(prep.exportUrl, activeVenueId, inspId, photoId), uploadPhotoThumb(prep.thumbUrl, activeVenueId, inspId, photoId)]);
+                              if (storageUrl) { finalPreview = storageUrl; finalExport = storageUrl; void thumbStored; } else { failCount++; } // finalThumb stays the data thumb (offline copy); saved reports derive <id>_t.jpg
                             }
                             setInspection((prev) => {
                               const cur2 = nodeWithRows(it.path, getAtPath(prev, it.path));
                               const newChecklist = (cur2.checklist || []).map((c, i) =>
-                                i === idx ? { ...c, photos: (c.photos || []).map(p => p.id === photoId ? { ...p, previewUrl: finalPreview, exportUrl: finalExport, uploading: false } : p) } : c
+                                i === idx ? { ...c, photos: (c.photos || []).map(p => p.id === photoId ? { ...p, previewUrl: finalPreview, exportUrl: finalExport, thumbUrl: finalThumb, uploading: false } : p) } : c
                               );
                               return setAtPath(prev, it.path, { ...cur2, checklist: newChecklist });
                             });
@@ -27567,7 +27804,7 @@ const GuideSection = React.memo(function GuideSection({ title, items, inspection
                                           {ciPhotos.map(p => (
                                             <div key={p.id} className={`ciPhotoThumb${p.uploading ? " ciPhotoUploading" : ""}${p.tag === "after" ? " ciPhotoAfter" : " ciPhotoBefore"}`}>
                                               <span className="ciPhotoTag">{p.tag === "after" ? "AFTER" : "BEFORE"}</span>
-                                              <img src={p.thumbUrl || p.previewUrl || p.url || p.dataUrl} alt="item photo" loading="lazy" style={{ cursor: p.uploading ? "default" : "zoom-in" }} onClick={() => !p.uploading && openPhotoLightbox(p.previewUrl || p.exportUrl || p.url || p.dataUrl || p.thumbUrl)} />
+                                              <PhotoThumb p={p} alt="item photo" style={{ cursor: p.uploading ? "default" : "zoom-in" }} onClick={() => !p.uploading && openPhotoLightbox(p.previewUrl || p.exportUrl || p.url || p.dataUrl || p.thumbUrl)} />
                                               {p.uploading && <div className="ciPhotoSpinner"><div className="ciPhotoSpinnerDot" /></div>}
                                               <button
                                                 type="button"
@@ -28415,7 +28652,7 @@ function LiveHaccpPanel({ reportId, subsFromParent, foodTemps, foodTempNames, in
                         <div key={ph.id || pi}
                           onClick={() => setExpandedPhotos(ph.previewUrl)}
                           style={{ cursor: "pointer", borderRadius: 7, overflow: "hidden", border: "1px solid #e5e7eb", aspectRatio: "1", background: "var(--surface-3)" }}>
-                          <img src={ph.previewUrl} alt={ph.tag || ph.name || "photo"}
+                          <PhotoThumb p={ph} alt={ph.tag || ph.name || "photo"}
                             style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
                           {ph.tag && (
                             <div style={{ fontSize: "0.65rem", textAlign: "center", color: "var(--ink-500)", padding: "2px 4px", background: "rgba(255,255,255,0.85)" }}>{ph.tag}</div>
@@ -30477,17 +30714,18 @@ function HaccpPortal() {
       const thumbUrl = await compressImage(f);
       if (!thumbUrl) continue;
       const photoId = `${Date.now()}_${Math.random().toString(16).slice(2)}`;
-      let previewUrl = thumbUrl;
+      let previewUrl = thumbUrl, storedThumb = thumbUrl;
       if (FIREBASE_ON) {
         const storageData = await compressImage(f, 1024, 0.78);
-        const storageUrl = await uploadPhoto(storageData || thumbUrl, activeVenueId, inspId, photoId);
+        const [storageUrl, thumbStored] = await Promise.all([uploadPhoto(storageData || thumbUrl, activeVenueId, inspId, photoId), uploadPhotoThumb(thumbUrl, activeVenueId, inspId, photoId)]);
         if (storageUrl) {
           previewUrl = storageUrl;
+          void thumbStored; // v565: the small copy is in Storage as <id>_t.jpg; the data thumb stays for this session
         } else {
           uploadFailCount++;
         }
       }
-      enriched.push({ id: photoId, name: f.name, previewUrl, thumbUrl, tag: "" });
+      enriched.push({ id: photoId, name: f.name, previewUrl, thumbUrl: storedThumb, tag: "" });
     }
     if (enriched.length === 0) return;
     if (uploadFailCount > 0) {
@@ -31717,7 +31955,7 @@ function HaccpPortal() {
                     {problemPhotos.map(p => (
                       <div className="photoThumbWrap" key={p.id}>
                         <div className="photoThumb">
-                          <img src={p.previewUrl} alt={p.name} />
+                          <PhotoThumb p={p} alt={p.name} />
                           <button className="thumbX" type="button"
                             onClick={() => setProblemPhotos(prev => prev.filter(x => x.id !== p.id))}>×</button>
                         </div>
@@ -32883,6 +33121,8 @@ export default function App() {
   // v560: a sticker link opened as inspector → after the badge, Stands & equipment with that unit open
   const equipLinkDoneRef = useRef(false);
   const [equipFocus, setEquipFocus] = useState(null); // { id, unit, site } — open the Equipment tab on one stand
+  const [equipFrom, setEquipFrom] = useState(""); // v565: "history" = opened from Analytics → Temps (Back returns there)
+  const equipReturnRef = useRef(null); // v565 review: where the Temps board was ({ y, key }) — Back lands there, not at the top
   const [historyEntry, setHistoryEntry] = useState(null); // { tab, sub } — deep link into HistoryPage tabs
   const [fuHistoryTick, setFuHistoryTick] = useState(0);  // bumped when the warm history cache lands
   const [pendingCount, setPendingCount] = useState(0);
@@ -34403,7 +34643,8 @@ export default function App() {
       if (d.kqrFocus !== undefined) setKqrFocus(d.kqrFocus || "");
       if (d.from !== undefined && (d.page === "kitchen_qr" || d.page === "print_labels" || d.page === "admin")) setQrFrom(d.from || "");
       if (d.adminFocus !== undefined) setAdminFocus(d.adminFocus || ""); // v563 review: setup step 1 lands on the invite links
-      if (d.equipFocus) setEquipFocus(d.equipFocus);
+      if (d.page === "equipment") { setEquipFocus(d.equipFocus || null); setEquipFrom(d.equipFrom || ""); equipReturnRef.current = d.equipFrom === "history" ? { y: window.scrollY, key: d.equipFocus?.key || "" } : null; } // v565
+      else if (d.equipFocus) setEquipFocus(d.equipFocus);
       if (d.page) setPage(d.page);
       if (d.scanStand) setTimeout(() => setScanStandOpen(true), 50);
       if (d.newInspection) { try { startNewRef.current && startNewRef.current(); } catch {} }
@@ -35340,7 +35581,7 @@ export default function App() {
   if (page === "mylocations") { return <MyLocationsPage currentUser={currentUser} venueSettings={venueSettings} saveVenueSettings={saveVenueSettings} onBack={() => setPage("inspector")} onSelectLocation={(loc, slotId) => { if (hasContentRef.current && siteName.trim() && !sameStandName(loc, siteName)) { pendingStandRef.current = { site: loc, slotId: slotId || null }; guardLeave("stand", () => startNewInspection({ force: true })); } else { setSiteName(loc); activeSlotIdRef.current = slotId || null; } setPage("inspector"); window.scrollTo({ top: 0, behavior: "smooth" }); }} />; }
   if (page === "crew")              { return <CrewBoardPage currentUser={currentUser} venueSettings={venueSettings} saveVenueSettingsMap={saveVenueSettingsMap} linkSession={!!loadCrewSession()} onLock={() => { clearCrewSession(); setCrewNotice(""); lockApp(); setCurrentUser(null); setLocked(true); }} onMessages={() => setPage("messaging")} onAppearance={() => setAppearanceOpen(true)} />; }
   if (page === "mytemps" && currentUser?.role === "location_manager")           { return <MyTempsPage currentUser={currentUser} onBack={() => setPage("inspector")} />; }
-  if (page === "equipment") { AIEngine.trackPage("equipment"); return <EquipmentPage currentUser={currentUser} onBack={() => setPage("inspector")} focusStand={equipFocus} onOpenLabels={(st) => { setLabelsFocus({ id: st?.id || "", unit: st?.unit || "", site: st?.site || "", floor: st?.floor || floorForStand(st?.unit, st?.site, st?.floor), locType: st?.locType || "", from: "equipment" }); setPage("print_labels"); }} />; }
+  if (page === "equipment") { AIEngine.trackPage("equipment"); return <EquipmentPage currentUser={currentUser} canEdit={canSetupUser(currentUser)} backLabel={equipFrom === "history" ? "← Back to Temps" : "Back"} onBack={() => { if (equipFrom === "history") { setHistoryEntry({ tab: "analytics", sub: "temp", n: Date.now() }); setPage("history"); returnToTempsPlace(equipReturnRef.current); } else setPage("inspector"); }} focusStand={equipFocus} onOpenLabels={(st) => { setLabelsFocus({ id: st?.id || "", unit: st?.unit || "", site: st?.site || "", floor: st?.floor || floorForStand(st?.unit, st?.site, st?.floor), locType: st?.locType || "", from: "equipment" }); setPage("print_labels"); }} />; }
   if (page === "equipment_scanner") { return <EquipmentScannerPage onBack={() => setPage("inspector")} onPrintLabels={() => setPage("print_labels")} onKitchenQr={() => setPage("kitchen_qr")} />; }
   // v563 review: after Global Admin → Enter venue, the setup pages would show and change THIS page's venue (VENUE_ID)
   if ((page === "print_labels" || page === "kitchen_qr" || page === "venue_setup") && activeVenueId !== VENUE_ID) return <SetupElsewhereNotice venueId={activeVenueId} venueName={managedVenueName} onBack={() => setPage("inspector")} />;
@@ -36132,7 +36373,7 @@ export default function App() {
               <button type="button" className="menuQuickTile" onClick={() => { setModals(m => ({ ...m, menuOpen: false })); setPage("inspector"); setScanStandOpen(true); }}><span className="menuQuickIcon"><MenuIcon name="qr" /></span><span>Scan stand QR</span></button>
               <button type="button" className={cx("menuQuickTile", page === "history" && historyEntry?.sub === "recurring" && "on")} onClick={() => { setMenuOpen(false); openFollowups(); }}><span className="menuQuickIcon"><MenuIcon name="repeat" /></span><span>Follow-ups</span>{fuOpenCount > 0 && <span className="menuQuickSub">{fuOpenCount} open</span>}{fuOverdueCount > 0 && <b className="menuQuickBadge">{fuOverdueCount}</b>}</button>
               <button type="button" className={cx("menuQuickTile", page === "history" && historyEntry?.sub !== "recurring" && "on")} onClick={() => { setHistoryEntry(null); setPage("history"); }}><span className="menuQuickIcon"><MenuIcon name="fileText" /></span><span>Past Reports</span></button>
-              <button type="button" data-testid="eqp-menu-tile" className={cx("menuQuickTile", page === "equipment" && "on")} onClick={() => { setMenuOpen(false); setEquipFocus(null); setPage("equipment"); }}><span className="menuQuickIcon"><MenuIcon name="snowflake" /></span><span>Equipment</span>{equipAlertCount > 0 && <b className="menuQuickBadge">{equipAlertCount}</b>}</button>
+              <button type="button" data-testid="eqp-menu-tile" className={cx("menuQuickTile", page === "equipment" && "on")} onClick={() => { setMenuOpen(false); setEquipFocus(null); setEquipFrom(""); setPage("equipment"); }}><span className="menuQuickIcon"><MenuIcon name="snowflake" /></span><span>Equipment</span>{equipAlertCount > 0 && <b className="menuQuickBadge">{equipAlertCount}</b>}</button>
             </div>
             <div className="menuSection">Work</div>
             <button className={cx("dropdownMenuItem", page === "schedule" && "dropdownMenuItemActive")} onClick={() => { setPage("schedule"); setMenuOpen(false); }} type="button"><span className="menuItemIcon"><MenuIcon name="calendar" /></span><span className="menuItemLabel">Schedule</span></button>
@@ -36157,7 +36398,7 @@ export default function App() {
             )}
             {/* v563: one entry for posters + stickers; while the venue has no stands it opens the stands tab (step 1) */}
             {activeVenueId === VENUE_ID && <button className={cx("dropdownMenuItem", (page === "print_labels" || page === "kitchen_qr") && "dropdownMenuItemActive")} data-testid="menu-qr-codes" onClick={() => { setLabelsFocus(null); setQrFrom(""); setPage(_standListLoadedAt && _standListCache.length === 0 ? "kitchen_qr" : "print_labels"); setMenuOpen(false); }} type="button"><span className="menuItemIcon"><MenuIcon name="store" /></span><span className="menuItemLabel">QR codes · stands &amp; equipment</span></button>}
-            <button className={cx("dropdownMenuItem", page === "equipment" && "dropdownMenuItemActive")} onClick={() => { setEquipFocus(null); setPage("equipment"); setMenuOpen(false); }} type="button"><span className="menuItemIcon"><MenuIcon name="snowflake" /></span><span className="menuItemLabel">Cooler &amp; freezer temps — log a reading</span>{equipAlertCount > 0 && <b className="menuBadge">{equipAlertCount}</b>}</button>
+            <button className={cx("dropdownMenuItem", page === "equipment" && "dropdownMenuItemActive")} onClick={() => { setEquipFocus(null); setEquipFrom(""); setPage("equipment"); setMenuOpen(false); }} type="button"><span className="menuItemIcon"><MenuIcon name="snowflake" /></span><span className="menuItemLabel">Cooler &amp; freezer temps — log a reading</span>{equipAlertCount > 0 && <b className="menuBadge">{equipAlertCount}</b>}</button>
             {(currentUser?.role === "global_admin" || currentUser?.role === "admin" || currentUser?.role === "location_manager" || currentUser?.role === "inspector") && <div className="menuSection">Manage</div>}
             {currentUser?.role === "global_admin" && (
               <button className={cx("dropdownMenuItem", page === "global_admin" && "dropdownMenuItemActive")} onClick={() => setPage("global_admin")} type="button"><span className="menuItemIcon"><MenuIcon name="globe" /></span><span className="menuItemLabel">Global Admin</span></button>
@@ -37124,7 +37365,7 @@ export default function App() {
                           <span className="caItemMeta">{[f.detail, f.dateStr ? `flagged ${f.dateStr}` : "", f.daysSince != null ? `${f.daysSince}d open` : "", f.reportedBy ? `by ${f.reportedBy}` : ""].filter(Boolean).join(" · ")}</span>
                         </div>
                         {(f.photos || []).length > 0 && (
-                          <div className="fuThumbs" style={{ margin: "4px 0" }}>{f.photos.map(p => { const isA = p.tag === "after"; return <div key={p.id} className={"fuThumb " + (isA ? "fuThumbAfter" : "fuThumbReport")}><img src={p.thumbUrl} alt="" onClick={() => setAppLightboxSrc(p.previewUrl || p.thumbUrl)} /><span className="fuThumbTag">{isA ? "after" : "before"}</span></div>; })}</div>
+                          <div className="fuThumbs" style={{ margin: "4px 0" }}>{f.photos.map(p => { const isA = p.tag === "after"; return <div key={p.id} className={"fuThumb " + (isA ? "fuThumbAfter" : "fuThumbReport")}><PhotoThumb p={p} alt="" onClick={() => setAppLightboxSrc(p.previewUrl || p.thumbUrl)} /><span className="fuThumbTag">{isA ? "after" : "before"}</span></div>; })}</div>
                         )}
                         <div className="caChips">
                           {[["fixed", "✅ Fixed"], ["in_progress", "🔧 In progress"], ["waiting", "⏳ Waiting on…"], ["still", "✗ Still there"]].map(([v, l]) => (
@@ -37136,7 +37377,7 @@ export default function App() {
                         <div className="fuPhotoRow">
                           <label className="fuPhotoBtn fuPhotoAfter">📷 After photo<input type="file" accept="image/*" capture="environment" hidden onChange={e => { addCorrectivePhoto(f, e.target.files); e.target.value = ""; }} /></label>
                           {caBusy === f.key && <span className="fuPhotoHint">Adding…</span>}
-                          {(c.photos || []).map(p => <div key={p.id} className="fuThumb fuThumbAfter" style={{ width: 44, height: 44 }}><img src={p.thumbUrl} alt="" onClick={() => setAppLightboxSrc(p.previewUrl || p.thumbUrl)} /><button type="button" className="fuThumbX" onClick={() => set({ photos: (c.photos || []).filter(x => x.id !== p.id) })}>✕</button></div>)}
+                          {(c.photos || []).map(p => <div key={p.id} className="fuThumb fuThumbAfter" style={{ width: 44, height: 44 }}><PhotoThumb p={p} alt="" onClick={() => setAppLightboxSrc(p.previewUrl || p.thumbUrl)} /><button type="button" className="fuThumbX" onClick={() => set({ photos: (c.photos || []).filter(x => x.id !== p.id) })}>✕</button></div>)}
                         </div>
                       </div>
                     );
@@ -38068,7 +38309,7 @@ export default function App() {
                   {notesPhotos.map(p => (
                     <div className="photoThumbWrap" key={p.id}>
                       <div className="photoThumb">
-                        <img src={p.previewUrl} alt={p.name} style={{ cursor: "zoom-in" }} onClick={() => setAppLightboxSrc(p.previewUrl)} />
+                        <PhotoThumb p={p} alt={p.name} style={{ cursor: "zoom-in" }} onClick={() => setAppLightboxSrc(p.previewUrl)} />
                         <button type="button" className="thumbX"
                           onClick={() => setNotesPhotos(prev => prev.filter(x => x.id !== p.id))}>×</button>
                       </div>

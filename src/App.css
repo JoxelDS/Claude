@@ -8096,7 +8096,7 @@ html[data-theme="dark"] .fuStOnWaiting, html[data-theme="black"] .fuStOnWaiting 
 .etUnit.etStale { border-left-color: #f59e0b; }
 .etUnit.etAwait { border-left-color: #2563eb; }
 .etUnit.etNoLabel { border-left-color: #9ca3af; opacity: .8; }
-.etPill.etAlert { background: #dc2626; color: #fff; }
+.etPill.etAlert { background: #b91c1c; color: #fff; }
 .etPill.etOk { background: #dcfce7; color: #166534; }
 .etPill.etStale { background: #fef3c7; color: #92400e; }
 .etPill.etAwait { background: #dbeafe; color: #1e40af; }
@@ -10689,3 +10689,116 @@ html[data-theme="black"] .mgrInvite .btnGhost { color: #C9CDDC; border-color: #3
 .fuReturnBar .fuReturnStand { font-weight: 600; }
 html[data-theme="black"] .fuReturnBar { color: var(--ink-900); border-color: var(--sdx-navy); }
 .sfActions a.sfBtn:not(.primary):not(.green) { color: var(--ink-900, #0f172a); } /* v564: a link-colour rule painted Call red on the Black theme */
+
+/* v565: rename a unit (Equipment screen + Analytics temps board) and the board's way to the Equipment screen */
+.etOpenEqp { white-space: nowrap; }
+.etUnitWrap { display: flex; flex-direction: column; gap: 6px; }
+.etUnitLine { display: flex; gap: 6px; align-items: stretch; }
+.etUnitLine > .etUnit { flex: 1 1 auto; min-width: 0; }
+.etRenameBtn { flex: 0 0 44px; min-height: 44px; border: 1px solid var(--sdx-gray-200, #e5e7eb); background: var(--surface-1, #fff); border-radius: 10px; cursor: pointer; font-size: 1rem; }
+.etRenameBtn:hover { background: var(--surface-2, #f1f5f9); }
+.eqRenameRow { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 8px; align-items: end; padding: 10px 12px; margin: 2px 0 6px; border: 1px solid var(--sdx-gray-200, #e5e7eb); border-radius: 12px; background: var(--surface-2, #f8fafc); }
+.eqRenameField { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.eqRenameField > span { font-size: .72rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-600, #475569); }
+.eqRenameField .input { min-height: 44px; font-size: 16px; }
+.eqRenameBtns { grid-column: 1 / -1; display: flex; gap: 8px; }
+.eqRenameBtns .btn { min-height: 44px; }
+.eqRenameNote { grid-column: 1 / -1; font-size: .78rem; color: var(--ink-600, #475569); }
+@media (max-width: 560px) { .eqRenameRow { grid-template-columns: 1fr; } .eqRenameBtns .btn { flex: 1 1 0; } }
+html[data-theme="black"] .etRenameBtn { background: #1C1C22; border-color: #2F2F3A; }
+
+/* v565: Equipment screen — tappable totals, a searchable stand list (two columns on a computer / iPad landscape,
+   "⇄ Change stand" on phones) and a clear header for the open stand. Replaces the sideways chip row whose names were cut off. */
+.eqpMain { max-width: 1240px; }
+.eqpStats { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 14px; }
+button.eqpStat { font: inherit; cursor: pointer; min-height: 76px; justify-content: center; align-items: center; transition: none; }
+button.eqpStat:focus-visible { outline: 3px solid #4338ca; outline-offset: 2px; }
+.eqpStat em { font-style: normal; font-size: 0.72rem; font-weight: 600; color: var(--ink-600, #4b5563); text-transform: none; letter-spacing: 0; }
+.eqpStat.on { border-color: var(--sdx-navy, #2A295C); box-shadow: inset 0 0 0 1.5px var(--sdx-navy, #2A295C); background: #eef0fb; }
+.eqpStatAlert.on { box-shadow: inset 0 0 0 1.5px #b91c1c; }
+.eqpStatAlert em { color: #991b1b; }
+.eqpLayout { display: grid; grid-template-columns: minmax(250px, 340px) minmax(0, 1fr); gap: 16px; align-items: start; }
+.eqpStandList { position: sticky; top: 84px; max-height: calc(100vh - 100px); display: flex; flex-direction: column; background: var(--surface-1, #fff); border: 1.5px solid var(--sdx-gray-200, #e2e4f0); border-radius: 16px; overflow: hidden; }
+.eqpListHead { padding: 10px; border-bottom: 1px solid var(--sdx-gray-200, #e2e4f0); display: flex; flex-direction: column; gap: 6px; }
+.eqpSearchWrap { position: relative; }
+.eqpStandSearch { width: 100%; min-height: 44px; font-size: 16px; padding-right: 44px; }
+.eqpSearchClear { position: absolute; right: 2px; top: 50%; transform: translateY(-50%); width: 40px; height: 40px; border: 0; background: none; color: var(--ink-600, #4b5563); font-size: 1rem; cursor: pointer; border-radius: 10px; }
+.eqpListFilt { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 0.76rem; font-weight: 700; color: var(--ink-600, #4b5563); }
+.eqpListFilt > span { flex: 1 1 auto; min-width: 0; }
+.eqpLinkBtn { border: 0; background: none; color: #3730a3; font: inherit; font-weight: 800; cursor: pointer; padding: 8px 4px; min-height: 36px; text-decoration: underline; text-underline-offset: 2px; }
+.eqpListRows { overflow-y: auto; overscroll-behavior: contain; padding: 8px; display: flex; flex-direction: column; gap: 6px; }
+.eqpStandItem { display: flex; flex-direction: column; gap: 6px; width: 100%; text-align: left; font: inherit; cursor: pointer; background: var(--surface-1, #fff); border: 1.5px solid var(--sdx-gray-200, #e2e4f0); border-radius: 12px; padding: 10px 12px; min-height: 56px; }
+.eqpStandItem:hover { border-color: #a5abd6; }
+.eqpStandItem.on { background: #eef0fb; border-color: var(--sdx-navy, #2A295C); box-shadow: inset 3px 0 0 var(--sdx-navy, #2A295C); }
+.eqpStandItem.hasAlert:not(.on) { border-color: #fca5a5; }
+.eqpStandItem.empty b { color: var(--ink-600, #4b5563); }
+.eqpStandItemTop { display: flex; align-items: flex-start; gap: 8px; }
+.eqpStandItemTop b { flex: 1 1 auto; min-width: 0; font-size: 0.88rem; font-weight: 800; color: var(--ink-900, #111827); line-height: 1.25; overflow-wrap: anywhere; }
+.eqpUnitChip { flex: 0 0 auto; font-size: 0.74rem; font-weight: 800; color: var(--sdx-navy, #2A295C); background: #e8eaf6; border-radius: 999px; padding: 2px 8px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.eqpStandItemMeta { display: flex; flex-wrap: wrap; gap: 4px; }
+.eqpPill { font-size: 0.7rem; font-weight: 700; color: #374151; background: #f1f2f6; border-radius: 999px; padding: 2px 8px; white-space: nowrap; }
+.eqpPillAlert { color: #991b1b; background: #fee2e2; font-weight: 800; }
+.eqpPillOk { color: #166534; background: #dcfce7; }
+.eqpPillMuted { color: #4b5563; background: #f3f4f6; }
+.eqpPillUnsure { color: #78350f; background: #fef3c7; }
+.eqpDetail { min-width: 0; }
+.eqpSelHead { background: var(--surface-1, #fff); border: 1.5px solid var(--sdx-gray-200, #e2e4f0); border-radius: 16px; padding: 14px 16px; margin-bottom: 12px; display: flex; flex-direction: column; gap: 6px; }
+.eqpSelTitle { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.eqpSelTitle b { font-size: 1.15rem; font-weight: 900; color: var(--ink-900, #111827); line-height: 1.2; overflow-wrap: anywhere; }
+.eqpSelCounts { font-size: 0.82rem; font-weight: 700; color: var(--ink-600, #4b5563); }
+.eqpSelBtns { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 2px; }
+.eqpSelBtns .btn { min-height: 44px; }
+.eqpUnitFilters { margin: 0 0 10px; }
+.eqpUnitFilters .etChip { min-height: 40px; }
+@media (min-width: 760px) { .eqpChangeStand, .eqpListClose { display: none !important; } }
+@media (max-width: 759px) {
+  .eqpLayout { grid-template-columns: minmax(0, 1fr); }
+  .eqpStandList { position: static; max-height: none; }
+  .eqpLayout:not(.pickOpen) .eqpStandList { display: none; }
+  .eqpLayout.pickOpen .eqpDetail { display: none; }
+}
+@media (max-width: 560px) {
+  .eqpStats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  button.eqpStat { min-height: 68px; }
+}
+html[data-theme="black"] button.eqpStat, html[data-theme="black"] .eqpStandList, html[data-theme="black"] .eqpStandItem, html[data-theme="black"] .eqpSelHead { background: #17171C; border-color: #2F2F3A; }
+html[data-theme="black"] .eqpStat b, html[data-theme="black"] .eqpStandItemTop b, html[data-theme="black"] .eqpSelTitle b { color: #F3F4F6; }
+html[data-theme="black"] .eqpStat span, html[data-theme="black"] .eqpStat em, html[data-theme="black"] .eqpListFilt, html[data-theme="black"] .eqpSelCounts { color: #C7CAD6; }
+html[data-theme="black"] .eqpStat.on, html[data-theme="black"] .eqpStandItem.on { background: #23234A; border-color: #9DB8F5; box-shadow: inset 3px 0 0 #9DB8F5; }
+html[data-theme="black"] .eqpStatAlert { background: #3A1518 !important; border-color: #F87171 !important; }
+html[data-theme="black"] .eqpStatAlert b, html[data-theme="black"] .eqpStatAlert em { color: #FCA5A5; }
+html[data-theme="black"] .eqpListHead { border-color: #2F2F3A; }
+html[data-theme="black"] .eqpLinkBtn { color: #9DB8F5; }
+html[data-theme="black"] .eqpUnitChip { background: #2A2A55; color: #DDE3FF; }
+html[data-theme="black"] .eqpPill, html[data-theme="black"] .eqpPillMuted { background: #26262E; color: #D1D5DB; }
+html[data-theme="black"] .eqpPillAlert { background: #4A1A1E; color: #FECACA; }
+html[data-theme="black"] .eqpPillOk { background: #12351F; color: #BBF7D0; }
+html[data-theme="black"] .eqpPillUnsure { background: #3D2E0B; color: #FDE68A; }
+html[data-theme="black"] .eqpSearchClear { color: #C7CAD6; }
+html[data-theme="black"] .eqpStandItem.hasAlert:not(.on) { border-color: #7F1D1D; }
+html[data-theme="black"] .eqpUnit { background: #17171C; border-color: #2F2F3A; }
+html[data-theme="black"] .eqpUnitInfo b { color: #F3F4F6; }
+html[data-theme="black"] .eqpUnitInfo span, html[data-theme="black"] .eqpUnitTemp span { color: #C7CAD6; }
+.photoThumbMissing { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; font-size: 1.2rem; color: var(--ink-600, #4b5563); background: var(--surface-2, #f1f5f9); }
+.fuThumb { background: var(--surface-2, #f1f5f9) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='22' height='22' viewBox='0 0 24 24' fill='none' stroke='%239CA3AF' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 8h3l2-3h6l2 3h3v11H4z'/%3E%3Ccircle cx='12' cy='13' r='3.5'/%3E%3C/svg%3E") center / 22px no-repeat; }
+.eqpTag { color: #4b5563 !important; }
+html[data-theme="black"] .eqpTag { color: #B4B9C8 !important; }
+button.eqpStat span { color: #4b5563; }
+.eqpStatAlert span, .eqpStatAlert em { color: #991b1b !important; }
+html[data-theme="black"] button.eqpStat span { color: #C7CAD6; }
+html[data-theme="black"] .eqpStatAlert span, html[data-theme="black"] .eqpStatAlert em { color: #FCA5A5 !important; }
+/* v565: the Equipment screen's unit cards and stand header are not .card — a ghost button there was white text on white
+   (📈 History showed only its icon since v4xx; ✏️ Rename / ⇄ Change stand / Labels & details too) */
+.eqpUnit .btnGhost, .eqpSelHead .btnGhost, .eqpStandList .btnGhost, .eqRenameRow .btnGhost { background: transparent; color: var(--sdx-gray-600, #4b5563); border: 1px solid var(--sdx-gray-200, #e5e7eb); }
+@media (hover: hover) and (pointer: fine) { .eqpUnit .btnGhost:hover:not(:disabled), .eqpSelHead .btnGhost:hover:not(:disabled), .eqRenameRow .btnGhost:hover:not(:disabled) { background: var(--sdx-gray-100, #f3f4f6); color: var(--sdx-gray-800, #1f2937); } }
+html[data-theme="black"] .eqpUnit .btnGhost, html[data-theme="black"] .eqpSelHead .btnGhost, html[data-theme="black"] .eqRenameRow .btnGhost { background: #1C1C22; color: #C9CDDC; border-color: #2F2F3A; }
+.eqpActions { flex-wrap: wrap; }
+.eqpActions .btn { min-height: 44px; }
+/* v565 review: 44 px touch targets for the new controls; the board's Equipment link readable on Black */
+.eqpLinkBtn { min-height: 44px; }
+.eqpSearchClear { width: 44px; height: 44px; }
+.eqpUnitFilters .etChip { min-height: 44px; }
+.etStandLink[data-testid="et-open-stand-equipment"] { display: flex; align-items: center; min-height: 44px; margin-top: 6px; }
+html[data-theme="black"] .etStandLink { color: #9DB8F5; }
+.eqpPillOpen { color: #1e3a8a; background: #dbeafe; }
+html[data-theme="black"] .eqpPillOpen { color: #DDE3FF; background: #2A2A55; }
