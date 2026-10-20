@@ -49,7 +49,7 @@ export function buildHistory(p) {
 
 export const users = [
   { badgeHash: sha('448800'), name: INSPECTOR, department: 'Inspection', badgeDisplay: '••••8800', role: 'inspector', requestedRole: 'inspector', approved: true, registeredAt: iso(60) },
-  { badgeHash: sha('365582'), name: 'Jordan Lee', department: 'Inspection', badgeDisplay: '••••5582', role: 'global_admin', requestedRole: 'global_admin', approved: true, registeredAt: iso(60) },
+  { badgeHash: sha('990001'), name: 'Jordan Lee', department: 'Inspection', badgeDisplay: '••••0001', role: 'global_admin', requestedRole: 'global_admin', approved: true, registeredAt: iso(60) },
   { badgeHash: sha('777001'), name: 'LUIS M.', department: 'Maintenance / Facilities', badgeDisplay: '••••7001', role: 'maintenance', requestedRole: 'maintenance', approved: true, registeredAt: iso(30) },
   { badgeHash: sha('777002'), name: 'ANA R.', department: 'Cleaning', badgeDisplay: '••••7002', role: 'cleaning', requestedRole: 'cleaning', approved: true, registeredAt: iso(30) },
   { badgeHash: sha('777003'), name: 'CARLOS E.', department: 'Ecolab', badgeDisplay: '••••7003', role: 'ecolab', requestedRole: 'ecolab', approved: true, registeredAt: iso(30) },

@@ -66,8 +66,11 @@ async function seedAdmin() {
   const snapshot = await db.collection("users").where("role", "==", "admin").get();
 
   if (snapshot.empty) {
+    // v566: the badge comes from the environment — never written in the (public) repo
+    const seedBadge = String(process.env.SEED_ADMIN_BADGE || "").trim();
+    if (!seedBadge) { console.log("No admin yet — set SEED_ADMIN_BADGE to create the first one."); return; }
     const id = generateId();
-    const badgeHash = await hashPassword("365582");
+    const badgeHash = await hashPassword(seedBadge);
 
     await db.collection("users").doc(id).set({
       badgeHash,
@@ -78,7 +81,7 @@ async function seedAdmin() {
       registeredAt: new Date().toISOString(),
     });
 
-    console.log("✓ Seed admin created (badge: 365582)");
+    console.log("✓ Seed admin created");
   }
 }
 

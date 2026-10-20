@@ -10802,3 +10802,6 @@ html[data-theme="black"] .eqpUnit .btnGhost, html[data-theme="black"] .eqpSelHea
 html[data-theme="black"] .etStandLink { color: #9DB8F5; }
 .eqpPillOpen { color: #1e3a8a; background: #dbeafe; }
 html[data-theme="black"] .eqpPillOpen { color: #DDE3FF; background: #2A2A55; }
+
+/* v566: the demo badge typed outside the demo — one button to the demo venue */
+.pinDemoBtn { width: 100%; min-height: 44px; margin-top: 8px; }

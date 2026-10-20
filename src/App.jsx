@@ -2110,8 +2110,14 @@ function buildEquipFromMemory(equipItems) {
   return equip;
 }
 
-// First administrator – auto-seeded on first launch
-const SEED_ADMIN = { name: "Joxel Da Silva", badge: "365582", department: "Safety Inspector" };
+// v566: no real badge lives in the code (the repo is public). The owner signs in with the home venue's global_admin
+// record; a new venue gets its first admin from the one-time Venue admin invite (v563). LOCAL MODE ONLY (no cloud — the
+// test harnesses): a stand-in owner with a made-up badge, so a fresh device can sign in. Never used online.
+const LOCAL_TEST_ADMIN = { badge: "990001", name: "Joxel Da Silva", department: "Administration" };
+// The App Store / marketing demo badge — public on purpose, opens only the demo venue
+const DEMO_BADGE = "448800";
+const DEMO_BADGE_MSG = "448800 is the demo badge \u2014 it only opens the demo.";
+const OWNER_LOCKED_MSG = "The owner account can\u2019t be changed here.";
 
 async function getSalt() {
   let stored = localStorage.getItem(SALT_KEY);
@@ -2293,6 +2299,7 @@ async function saveOneUser(user) {
 }
 
 async function deleteOneUser(badgeHash) {
+  if (await ownerLocked(badgeHash)) return { ok: false, reason: "protected" }; // v566
   if (FIREBASE_ON) {
     const col = IS_DEFAULT_VENUE() ? legacyCol("users") : venueCol("users");
     try {
@@ -2311,37 +2318,49 @@ async function deleteOneUser(badgeHash) {
   localStorage.setItem(USERS_KEY, JSON.stringify(users.filter(u => u.badgeHash !== badgeHash)));
 }
 
-async function ensureSeedAdmin() {
-  const users = await getUsers();
-  if (users.length > 0) return;
-  const h = await hashBadge(SEED_ADMIN.badge);
-  const seedUser = {
-    badgeHash: h, name: SEED_ADMIN.name,
-    department: SEED_ADMIN.department, role: "admin",
-    approved: true, registeredAt: new Date().toISOString()
-  };
-  if (FIREBASE_ON) {
-    const col = IS_DEFAULT_VENUE() ? legacyCol("users") : venueCol("users");
-    await setDoc(doc(col, h), seedUser);
-  } else {
-    localStorage.setItem(USERS_KEY, JSON.stringify([seedUser]));
-  }
+// v566: local mode only — the stand-in owner lives in the HOME venue's users, like the real one does online
+async function ensureLocalTestAdmin() {
+  if (FIREBASE_ON) return;
+  try {
+    const h = await hashBadge(LOCAL_TEST_ADMIN.badge);
+    const list = JSON.parse(localStorage.getItem("sdx_users_default") || "[]");
+    if (list.some(u => u.badgeHash === h && u.role === "global_admin" && u.approved && !u.removed)) return;
+    const rec = { badgeHash: h, name: LOCAL_TEST_ADMIN.name, department: LOCAL_TEST_ADMIN.department, badgeDisplay: "••••" + LOCAL_TEST_ADMIN.badge.slice(-4), role: "global_admin", approved: true, registeredAt: new Date().toISOString() };
+    localStorage.setItem("sdx_users_default", JSON.stringify([...list.filter(u => u.badgeHash !== h), rec]));
+    if (VENUE_ID === "default") _invalidateUserCache();
+  } catch { /* non-fatal */ }
+}
+// v566: the owner's record on the home venue (read by its id — nothing is written into the venue being opened)
+async function getHomeUser(h) {
+  if (!FIREBASE_ON) { try { return JSON.parse(localStorage.getItem("sdx_users_default") || "[]").find(u => u.badgeHash === h) || null; } catch { return null; } }
+  try {
+    const snap = await Promise.race([getDoc(doc(legacyCol("users"), h)), new Promise((_, rej) => setTimeout(() => rej(new Error("timeout")), 8000))]);
+    return snap.exists() ? snap.data() : null;
+  } catch { return null; }
+}
+const isOwnerRecord = u => !!u && u.role === "global_admin" && u.approved && !u.removed;
+// v566: nothing re-writes the owner's record any more (the code no longer knows the badge), so only a global admin may
+// change or remove a global_admin record
+async function ownerLocked(badgeHash) {
+  if (_currentUser?.role === "global_admin") return false;
+  try { return (await getUsers()).some(u => u.badgeHash === badgeHash && u.role === "global_admin"); } catch { return false; }
 }
 
-// Demo account for App Store review — inspector role. v563: only on the home venue and the public demo venue.
-// 448800 is printed on the marketing page, so on a customer venue (a readable slug) it was an open door: anyone got an
-// approved inspector account with the venue's reports and its stand people's phone numbers.
-const APP_REVIEW_VENUES = ["default", "riverside-demo"];
+// Demo account for App Store review — inspector role. 448800 is printed on the marketing page, so anywhere but the demo
+// it was an open door: anyone got an approved inspector account with the venue's reports and its stand people's phone
+// numbers. v563: customer venues refused it; v566: the home venue too — it opens ONLY the public demo venue.
+// (Local mode — the harnesses, no cloud data — also lets it in on the home venue.)
+const APP_REVIEW_VENUES = ["riverside-demo"];
 // v563 review: never re-created by Add Venue and never given a one-time Venue admin link (Hard Rock + the shared demo)
 const RESERVED_VENUE_IDS = ["default", "riverside-demo"];
-const appReviewVenue = () => APP_REVIEW_VENUES.includes(activeVenueId);
+const appReviewVenue = () => APP_REVIEW_VENUES.includes(activeVenueId) || (!FIREBASE_ON && activeVenueId === "default");
 // The auto-made demo account (never a real person): hidden from customer venues' Team lists and refused at sign-in there
 const isAppReviewUser = u => !!u && u.department === "App Review";
 const hideAppReviewUsers = list => appReviewVenue() ? (list || []) : (list || []).filter(u => !isAppReviewUser(u));
 async function ensureAppReviewUser() {
   if (!appReviewVenue()) return;
   try {
-    const h = await hashBadge("448800");
+    const h = await hashBadge(DEMO_BADGE);
     const users = await getUsers();
     if (users.find(u => u.badgeHash === h)) return;
     const demo = {
@@ -2371,33 +2390,6 @@ async function ensureHardRockVenue() {
       note: "Primary venue — all legacy data lives under venue ID \"default\"",
     });
   } catch (e) { console.error("ensureHardRockVenue error:", e); }
-}
-
-async function ensureGlobalAdmin() {
-  const TARGET_BADGE = "365582";
-  const TARGET_NAME  = "Joxel Da Silva";
-  const TARGET_DEPT  = "Administration";
-  const h = await hashBadge(TARGET_BADGE);
-  const users = await getUsers();
-  const existing = users.find(u => u.badgeHash === h);
-  if (existing && existing.role === "global_admin") return; // already correct
-  const userRecord = {
-    badgeHash: h,
-    name: TARGET_NAME,
-    department: TARGET_DEPT,
-    badgeDisplay: "••••5582",
-    role: "global_admin",
-    approved: true,
-    registeredAt: existing?.registeredAt || new Date().toISOString(),
-  };
-  if (FIREBASE_ON) {
-    const col = IS_DEFAULT_VENUE() ? legacyCol("users") : venueCol("users");
-    await setDoc(doc(col, h), userRecord);
-  } else {
-    const updated = users.filter(u => u.badgeHash !== h);
-    updated.push(userRecord);
-    localStorage.setItem(USERS_KEY, JSON.stringify(updated));
-  }
 }
 
 /* ── Inspection History ───────────────────────────────────── */
@@ -3155,29 +3147,31 @@ async function signIn(badge) {
   // the maintenance checks (seed admin / global admin / review user)
   // only need to run when the badge isn't found.
   const h = await hashBadge(badge);
+  // v566: the demo badge opens only the demo venue (the sign-in screen offers a button to it)
+  if (!appReviewVenue() && h === await hashBadge(DEMO_BADGE)) return { ok: false, reason: "demo_badge" };
+  // v566: on a customer venue the owner signs in with the home venue's global_admin record — read in parallel with the
+  // venue's own list, and it wins over an older copy there (the demo venue keeps an "admin" one)
+  const homeP = IS_DEFAULT_VENUE() ? Promise.resolve(null) : getHomeUser(h);
   let users = await getUsers();
   let user = users.find(u => u.badgeHash === h);
   if (!user || !user.approved) {
     // Cache miss or stale approval — run maintenance, then retry live
-    await ensureSeedAdmin();
-    await ensureGlobalAdmin(); // always keep Joxel's record correct
-    await ensureAppReviewUser(); // demo badge 448800 for App Store review
+    await ensureLocalTestAdmin(); // local mode only
+    await ensureAppReviewUser(); // demo badge for App Store review (demo venue only)
     users = await getUsers({ fresh: true });
     user = users.find(u => u.badgeHash === h);
   } else {
-    // Known user — keep the maintenance records correct in the background
-    ensureGlobalAdmin().catch(() => {});
+    // Known user — keep the demo record correct in the background
     ensureAppReviewUser().catch(() => {});
   }
+  const home = await homeP;
+  if (isOwnerRecord(home)) user = home;
   // v563: a demo account made on a customer venue before this change is not a way in any more
   if (user && !appReviewVenue() && isAppReviewUser(user)) user = null;
   if (!user) return { ok: false, reason: "not_found" };
   if (!user.approved) return { ok: false, reason: "pending" };
   if (!FIREBASE_ON) _cryptoKey = await getMasterKey();
-  // Hard-lock: badge 365582 is always global_admin regardless of DB record
-  const GLOBAL_ADMIN_HASH = await hashBadge("365582");
-  const sessionUser = { ...user, role: h === GLOBAL_ADMIN_HASH ? "global_admin" : user.role };
-  _currentUser = sessionUser;
+  _currentUser = { ...user };
   return { ok: true, user: _currentUser };
 }
 
@@ -3358,6 +3352,7 @@ async function adminAddUser(badge, name, department, role, assignedLocation) {
 }
 
 async function approveUser(badgeHash, role, assignedLocation) {
+  if (await ownerLocked(badgeHash)) return { ok: false, reason: "protected" };
   const users = await getUsers();
   const u = users.find(x => x.badgeHash === badgeHash);
   if (u) {
@@ -3369,22 +3364,26 @@ async function approveUser(badgeHash, role, assignedLocation) {
 }
 
 async function denyUser(badgeHash) {
+  if (await ownerLocked(badgeHash)) return { ok: false, reason: "protected" };
   await deleteOneUser(badgeHash);
 }
 
 async function promoteToAdmin(badgeHash) {
+  if (await ownerLocked(badgeHash)) return { ok: false, reason: "protected" };
   const users = await getUsers();
   const u = users.find(x => x.badgeHash === badgeHash);
   if (u) { u.role = "admin"; await saveOneUser(u); }
 }
 
 async function demoteToInspector(badgeHash) {
+  if (await ownerLocked(badgeHash)) return { ok: false, reason: "protected" };
   const users = await getUsers();
   const u = users.find(x => x.badgeHash === badgeHash);
   if (u) { u.role = "inspector"; await saveOneUser(u); }
 }
 
 async function setAsLocationManager(badgeHash, assignedLocation) {
+  if (await ownerLocked(badgeHash)) return { ok: false, reason: "protected" };
   const users = await getUsers();
   const u = users.find(x => x.badgeHash === badgeHash);
   // v563: a new stand typed by the admin replaces the stand picked at join (its id no longer describes it)
@@ -3392,6 +3391,7 @@ async function setAsLocationManager(badgeHash, assignedLocation) {
 }
 
 async function changeBadgeNumber(oldBadgeHash, newBadge) {
+  if (await ownerLocked(oldBadgeHash)) return { ok: false, reason: "protected" };
   const newBadge_ = String(newBadge).trim();
   if (!newBadge_) return { ok: false, reason: "empty" };
   const newHash = await hashBadge(newBadge_);
@@ -3414,6 +3414,7 @@ async function changeBadgeNumber(oldBadgeHash, newBadge) {
 const ALL_ROLES = ["inspector", "admin", "location_manager", "guest", "maintenance", "cleaning", "ecolab"];
 // Move a person to another role / department / stand in place
 async function updateUserProfile(badgeHash, { role, department, assignedLocation } = {}) {
+  if (await ownerLocked(badgeHash)) return { ok: false, reason: "protected" };
   const users = await getUsers();
   const u = users.find(x => x.badgeHash === badgeHash);
   if (!u) return { ok: false, reason: "not_found" };
@@ -3428,6 +3429,7 @@ async function updateUserProfile(badgeHash, { role, department, assignedLocation
   return { ok: true };
 }
 async function demoteToInspectorFromManager(badgeHash) {
+  if (await ownerLocked(badgeHash)) return { ok: false, reason: "protected" };
   const users = await getUsers();
   const u = users.find(x => x.badgeHash === badgeHash);
   if (u) { u.role = "inspector"; delete u.assignedLocation; await saveOneUser(u); }
@@ -3452,6 +3454,7 @@ async function addGuestInspector(badge, name, department, assignedLocation, assi
 }
 
 async function removeGuestInspector(badgeHash) {
+  if (await ownerLocked(badgeHash)) return { ok: false, reason: "protected" };
   await deleteOneUser(badgeHash);
 }
 
@@ -3565,7 +3568,7 @@ function BadgeScreen({ onUnlock, inviteRole, crewNotice = "", onAdminInviteUsed 
   const [success, setSuccess] = useState("");
   const inputRef = useRef(null);
 
-  useEffect(() => { ensureSeedAdmin(); }, []);
+  useEffect(() => { ensureLocalTestAdmin(); }, []); // v566: local mode only
   useEffect(() => { inputRef.current?.focus(); }, [mode]);
   // v563: the venue registry's name lands after the first paint — show it as soon as it does
   const [, setNameTick] = useState(0);
@@ -3579,6 +3582,8 @@ function BadgeScreen({ onUnlock, inviteRole, crewNotice = "", onAdminInviteUsed 
       if (result.ok) { onUnlock(result.user); return; }
       if (result.reason === "pending") {
         setMode("pending");
+      } else if (result.reason === "demo_badge") {
+        setError(DEMO_BADGE_MSG);
       } else {
         setError("Badge not recognized. Request access below if you\u2019re new.");
       }
@@ -3617,7 +3622,7 @@ function BadgeScreen({ onUnlock, inviteRole, crewNotice = "", onAdminInviteUsed 
         if (inviteRole === "location_manager" && r.ok && pick?.id) addPersonToStand(pick, { name: regName.trim(), phone, role: "Manager", viaInvite: true });
         cleanUrlKeepVenue(); onUnlock(result.user, { via: isAdminInvite && r.ok ? "admin-invite" : "invite" }); return;
       }
-      if (result.reason === "pending") setMode("pending"); else setError("Badge not recognized. Try again.");
+      if (result.reason === "pending") setMode("pending"); else setError(result.reason === "demo_badge" ? DEMO_BADGE_MSG : "Badge not recognized. Try again.");
     } catch { setError("Could not reach the database. Check your connection and try again."); }
     finally { setLoading(false); }
   }
@@ -3670,6 +3675,7 @@ function BadgeScreen({ onUnlock, inviteRole, crewNotice = "", onAdminInviteUsed 
             <input ref={inputRef} className="pinInput badgeInput" type="password" maxLength={20}
               value={badge} onChange={e => setBadge(e.target.value)} placeholder="Badge #" autoComplete="off" />
             {error && <div className="pinError">{error}</div>}
+            {error === DEMO_BADGE_MSG && <button className="btnPrimary pinDemoBtn" type="button" data-testid="pin-open-demo" onClick={() => { try { location.assign(location.pathname + "?v=riverside-demo"); } catch {} }}>Open the demo</button>}
             <button className="btn btnPrimary pinBtn" type="submit" disabled={loading || badge.trim().length < 3}>
               {loading ? "Verifying..." : "Sign In"}
             </button>
@@ -3775,7 +3781,7 @@ function BadgeScreen({ onUnlock, inviteRole, crewNotice = "", onAdminInviteUsed 
 
         <div className="pinFooter">
           {FIREBASE_ON
-            ? <><span className="pinLock">☁️</span> Synced to secure cloud database</>
+            ? <><span className="pinLock">☁️</span> Synced to the cloud</>
             : <><span className="pinLock">&#128274;</span> AES-256 encrypted &middot; stored only on this device</>
           }
         </div>
@@ -19496,7 +19502,7 @@ function FoodSafetyRef({ lang = "en", portal = false, defaultOpen = false, heade
       >
         <div className="foodSafetyRefToggleMeta">
           <span>{portal ? "📖 " : ""}{t("Food Safety Quick Reference")}</span>
-          <span className="foodSafetyRefBadge">ServSafe</span>
+          <span className="foodSafetyRefBadge">FDA Food Code</span>
         </div>
         <span className="foodSafetyRefChevron" style={{ transform: open ? "rotate(180deg)" : "rotate(0deg)" }}>▼</span>
       </button>
@@ -25673,7 +25679,8 @@ function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVe
   async function saveProfile() {
     const e = editProfile; if (!e) return;
     const dept = e.department === "Other" ? (e.deptOther.trim() || "Other") : e.department;
-    await updateUserProfile(e.badgeHash, { role: e.role, department: dept, assignedLocation: (e.role === "location_manager" || e.role === "guest") ? e.assignedLocation.trim() : "" });
+    const r = await updateUserProfile(e.badgeHash, { role: e.role, department: dept, assignedLocation: (e.role === "location_manager" || e.role === "guest") ? e.assignedLocation.trim() : "" });
+    if (r && r.reason === "protected") { setEditProfile(null); setProfileFlash(OWNER_LOCKED_MSG); setTimeout(() => setProfileFlash(""), 5000); return; }
     setEditProfile(null); await refresh();
     setProfileFlash(`Moved ${e.name} to ${roleChip(e.role)} · ${dept}`); setTimeout(() => setProfileFlash(""), 4000);
   }
@@ -25777,7 +25784,7 @@ function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVe
 
   async function handlePromote(badgeHash) { await promoteToAdmin(badgeHash); await refresh(); }
 
-  async function handleDemote(badgeHash) { await demoteToInspector(badgeHash); await refresh(); }
+  async function handleDemote(badgeHash) { const r = await demoteToInspector(badgeHash); if (r?.reason === "protected") setRemoveError(OWNER_LOCKED_MSG); await refresh(); }
 
   async function handleSetManager(badgeHash, location) {
     await setAsLocationManager(badgeHash, location);
@@ -25789,7 +25796,7 @@ function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVe
     setBadgeChangeError("");
     const result = await changeBadgeNumber(oldHash, newBadge);
     if (!result.ok) {
-      const msgs = { empty: "Please enter a badge number.", same: "That is the same badge number.", exists: "That badge number is already registered.", not_found: "User not found." };
+      const msgs = { empty: "Please enter a badge number.", same: "That is the same badge number.", exists: "That badge number is already registered.", not_found: "User not found.", protected: OWNER_LOCKED_MSG };
       setBadgeChangeError(msgs[result.reason] || "Could not change badge.");
       return;
     }
@@ -25833,7 +25840,8 @@ function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVe
     const prevUsers = users;
     setUsers(prev => prev.filter(u => u.badgeHash !== badgeHash));
     try {
-      await denyUser(badgeHash);
+      const r = await denyUser(badgeHash);
+      if (r?.reason === "protected") { setUsers(prevUsers); setRemoveError(OWNER_LOCKED_MSG); return; } // v566
       // Confirm from server — replaces optimistic state with authoritative list
       await refresh();
     } catch (e) {

@@ -17,7 +17,7 @@
 <body>
 <div class="wrap">
   <h1>Privacy Policy</h1>
-  <p class="updated">SDX Inspect · Last updated: August 15, 2026</p>
+  <p class="updated">SDX Inspect · Last updated: October 20, 2026</p>
 
   <div class="card">
     <h2>What SDX Inspect is</h2>
@@ -26,7 +26,7 @@
     <h2>Information we collect</h2>
     <p>The app stores only the information needed to run inspections:</p>
     <ul>
-      <li><strong>Account information:</strong> your name, department, and work badge number (stored as a secure hash) so you can sign in.</li>
+      <li><strong>Account information:</strong> your name, department, and work badge number (stored as a one-way hash plus its last four digits, never the full number) so you can sign in.</li>
       <li><strong>Inspection data:</strong> the reports, checklists, temperatures, notes, and photos you record during inspections.</li>
       <li><strong>App settings:</strong> your venue's preferences, such as theme and inspection schedule.</li>
     </ul>
@@ -40,10 +40,10 @@
     </ul>
 
     <h2>How data is stored</h2>
-    <p>Inspection data syncs to a secured Google Firebase (Firestore) database restricted to your venue's team. Data recorded offline is stored on your device and syncs when you reconnect. Access is limited to authorized staff of your venue and administrators.</p>
+    <p>Inspection data syncs to Google Firebase (a Firestore database, and Cloud Storage for photos). The app shows each venue only its own data. Data recorded offline is stored on your device and syncs when you reconnect.</p>
 
     <h2>Photos</h2>
-    <p>Photos are captured only when you choose to attach them to an inspection item, and are used solely for inspection documentation.</p>
+    <p>Photos are captured only when you choose to attach them to an inspection item, and are used solely for inspection documentation. Photo files are kept in Google Cloud Storage and open from their link.</p>
 
     <h2>Data retention & deletion</h2>
     <p>Inspection records are retained for compliance purposes by your venue. To request removal of your account or personal information, contact your venue administrator or email us at the address below.</p>

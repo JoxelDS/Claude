@@ -333,7 +333,7 @@ CH.crew = () => L.chapter('crew', { card: [11, 'Crews', 'Maintenance, cleaning a
 });
 
 CH.admin = () => L.chapter('admin', { card: [12, 'Analytics & admin', 'Answers from the reports, and the keys to the app.'] }, async a => {
-  await a.dev('laptop'); await a.open(APP, 2400); await a.signIn('365582', { show: false }); await a.nav('history', 2400);
+  await a.dev('laptop'); await a.open(APP, 2400); await a.signIn('990001', { show: false }); await a.nav('history', 2400);
   const an = await a.find('button', /ANALYTICS/i); if (an) { await an.click(); await W(1800); }
   await a.unchapter(); await W(500);
   await a.scene('s35', async a => {

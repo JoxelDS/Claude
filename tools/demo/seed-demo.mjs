@@ -60,7 +60,9 @@ const equipmentRegistry = {
 // ── People ───────────────────────────────────────────────────────
 const user = (badge, name, role, department, days = 30) => ({ badgeHash: sha(badge), name, department, badgeDisplay: '••••' + badge.slice(-4), role, requestedRole: role, approved: true, registeredAt: at(days) });
 export const USERS = [
-  user('365582', 'Joxel Da Silva', 'admin', 'Safety Inspector', 60),
+  // v566: no real badge in the repo — the owner's demo copy is added only when SDX_ADMIN_BADGE is set (online he signs in
+  // with the home venue's global_admin record anyway)
+  ...(process.env.SDX_ADMIN_BADGE ? [user(String(process.env.SDX_ADMIN_BADGE).trim(), 'Joxel Da Silva', 'admin', 'Safety Inspector', 60)] : []),
   user('448800', 'Demo Inspector', 'inspector', 'Food Safety / QA', 45),
   user('777001', 'Demo Maintenance', 'maintenance', 'Maintenance / Facilities'),
   user('777002', 'Demo Cleaning', 'cleaning', 'Cleaning / Sanitation'),

@@ -62,7 +62,7 @@ if (!process.env.ONLY || process.env.ONLY === 'guide') {
     await page.screenshot({ path: DIR + 'out/stills/posters.png' });
     await ctx.close(); }
   { const { ctx, page } = await ctxFor({ width: 1280, height: 800 }, 2);
-    await signIn(page, '365582'); await nav(page, 'admin'); await W(3000);
+    await signIn(page, '990001'); await nav(page, 'admin'); await W(3000);
     await page.evaluate(() => { const t = [...document.querySelectorAll('.cardTitle')].find(e => /Invite links/.test(e.textContent)); if (t) { const c = t.closest('.card') || t; scrollTo(0, c.getBoundingClientRect().top + scrollY - 90); } }); await W(900);
     await page.screenshot({ path: DIR + 'out/stills/invites.png' });
     await ctx.close(); }
