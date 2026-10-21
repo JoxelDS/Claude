@@ -11460,8 +11460,12 @@ function fuRowPhotos(item, rec) {
 // type / photos) on top, so a crew tap, a comment or a filter no longer re-reads ~900 reports six times.
 const _fuScanCache = new WeakMap();
 function fuScan(history) {
+  // v568 review: the stand list is noticed lazily (fuStandsFor bumps _fuGen on its first call after it changed) — check
+  // it BEFORE trusting the cache, or a scan made with the license sheet stayed cached after the real list loaded
+  try { fuStandsFor(""); } catch {}
   const hit = _fuScanCache.get(history);
   if (hit && hit.gen === _fuGen) return hit.scan;
+  const g0 = _fuGen;
   try { window.__sdxFuScans = (window.__sdxFuScans || 0) + 1; } catch {} // speed harness
   const latestInspByLoc = {};   // locName -> newest inspection timestamp
   const visitsByLoc = {};       // v558 review: locName -> [{ ts, keys }] every finished walk-through and the problems it flagged
@@ -11535,7 +11539,7 @@ function fuScan(history) {
     });
   }
   const scan = { latestInspByLoc, visitsByLoc, catLastSeen, caPhotos };
-  _fuScanCache.set(history, { gen: _fuGen, scan });
+  if (_fuGen === g0) _fuScanCache.set(history, { gen: g0, scan }); // a scan that saw a reset half-way is not kept
   return scan;
 }
 function computeFollowups(history, venueSettings, clearedLocal = {}, opts = {}) {
@@ -12717,6 +12721,10 @@ function fuViewPersist() {
   _fuViewSaveT = setTimeout(() => { _fuViewSaveT = 0; try { localStorage.setItem(fuViewKey(), JSON.stringify({ groupBy: FU_VIEW.groupBy, open: FU_VIEW.open, showN: FU_VIEW.showN, place: FU_VIEW.place || null, at: Date.now() })); } catch {} }, 500);
 }
 function fuViewForgetPlace() { FU_VIEW.place = null; fuViewPersist(); }
+// v568 review: a landing target is used ONCE — a panel remount (← Back from a drill-down) or a History remount (lock /
+// unlock) must not apply it again (it wiped the filters, re-opened ✅ Fixed, brought a dismissed stand filter back)
+const _fuEntryApplied = new Set(); // nonces the panel has applied (filters cleared, Fixed opened)
+const _fuEntryTaken = new Set();   // nonces HistoryPage has turned into its target layer
 function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDrilldown, venueSettings: venueSettingsRaw, saveVenueSettings, saveVenueSettingsMap, currentUser, onAddRecord, entry, onEntryClear }) {
   useScrollAnchor();
   fuViewLoadOnce();
@@ -13219,16 +13227,16 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
   // v568: where you came from (the form's stand, the overdue banner, a bell alert) — a temporary layer over the saved
   // view with its own ✕; never saved into the view
   const [fuEntry, setFuEntry] = useState(() => (entry && !entry.fixedKey ? entry : null));
-  const entryNRef = useRef(0);
-  const entryAtMountRef = useRef(!!entry);
+  const entryAtMountRef = useRef(!!(entry && !_fuEntryApplied.has(entry.n)));
   useEffect(() => {
-    if (!entry || !entry.n || entry.n === entryNRef.current) return;
-    entryNRef.current = entry.n;
+    if (!entry || !entry.n || _fuEntryApplied.has(entry.n)) return;
+    _fuEntryApplied.add(entry.n);
     // a target never hides behind an old search or filter
     setFuSearch(""); setFuTypePick(""); setFuFloorPick(""); setFuDatePick(""); setFuStatusPick("");
     if (entry.fixedKey) {
-      // a crew's fix: open ✅ Fixed on that job
+      // a crew's fix: open ✅ Fixed on that job (once — then the target is done)
       setFuEntry(null); setShowFixed(true); setShowClean(false);
+      try { onEntryClear && onEntryClear(); } catch {}
       let tries = 0;
       const find = () => {
         const el = document.querySelector(`[data-anchor="fx:${CSS.escape(entry.fixedKey)}"]`);
@@ -13833,7 +13841,7 @@ ${sections}
       .map(f => ({ ...f, reopened: !!(f._cl && f.ts && f._cl < f.ts) }))
       .filter(f => (f._st?.status === "resolved" || f._cl) && f.fixedTs)
       .sort((a2, b2) => b2.fixedTs - a2.fixedTs);
-  }, [history, venueSettings, venueSettingsRaw?.followupStatus, venueSettingsRaw?.followupCleared, statusLocal, clearedLocal]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [history, venueSettings, venueSettingsRaw?.followupStatus, venueSettingsRaw?.followupCleared, statusLocal, clearedLocal, analysis, fuIdent]); // eslint-disable-line react-hooks/exhaustive-deps
   // a card hidden at once by ✓ Resolve stops being hidden as soon as the lists no longer hold it (a later Put back shows it)
   useEffect(() => {
     setFuHideNow(h => {
@@ -14541,7 +14549,7 @@ ${sections}
                 : fuGroupBy === "date" ? fuDateGroups.filter(g => g.items.some(fuItemOk))
                 : fuGroupsShown);
                 const __gKeyOf = g => `${fuGroupBy}::${fuGroupBy === "cat" ? g.cat : fuGroupBy === "type" ? g.type : fuGroupBy === "floor" ? g.floor : fuGroupBy === "date" ? g.type : (g.locKey || g.loc)}`;
-                const __fz = fuFreezeRef.current, __sig = [fuGroupBy, fuSearch.trim(), fuTypePick, fuFloorPick, fuDatePick].join("|");
+                const __fz = fuFreezeRef.current, __sig = [fuGroupBy, fuSearch.trim(), fuTypePick, fuFloorPick, fuDatePick, fuStatusPick, fuEntry ? (fuEntry.n || "e") : ""].join("|"); // v568 review: the status filter / target too
                 if (__fz.sig !== __sig || __fz.src !== history) { fuFreezeRef.current = { sig: __sig, src: history, rank: {}, open: {}, n: 0 }; }
                 const __f = fuFreezeRef.current;
                 for (const g of __fuNatural) { const k = __gKeyOf(g); if (__f.rank[k] === undefined) { __f.rank[k] = __f.n++; __f.open[k] = g.overdueCount > 0; } }
@@ -15157,10 +15165,15 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
   // Navigating to this page while it's already open (⋯ menu, notifications) → follow the requested tab
   useEffect(() => { if (initialTab) setHistoryTab(initialTab); if (initialAnalyticsTab) setAnalyticsTab(initialAnalyticsTab); }, [initialTab, initialAnalyticsTab, initialNonce]);
   // v568: where Follow-ups should land (one stand / overdue / one problem / one fixed job) — none = the saved view
-  const [fuEntryH, setFuEntryH] = useState(() => (initialFu && initialAnalyticsTab === "recurring" ? { ...initialFu, n: initialNonce || 1 } : null));
+  const [fuEntryH, setFuEntryH] = useState(() => {
+    if (!(initialFu && initialAnalyticsTab === "recurring" && initialNonce && !_fuEntryTaken.has(initialNonce))) return null;
+    _fuEntryTaken.add(initialNonce); return { ...initialFu, n: initialNonce };
+  });
   useEffect(() => {
     if (initialAnalyticsTab !== "recurring") return;
-    setFuEntryH(initialFu ? { ...initialFu, n: initialNonce || Date.now() } : null);
+    if (initialFu && initialNonce && _fuEntryTaken.has(initialNonce) && !fuEntryH) return; // already used (and maybe dismissed)
+    if (initialFu && initialNonce) _fuEntryTaken.add(initialNonce);
+    setFuEntryH(initialFu && initialNonce ? { ...initialFu, n: initialNonce } : null);
     if (fuReturn) { setFuReturn(null); setFilterStand(null); } // eslint-disable-line no-use-before-define
   }, [initialNonce]); // eslint-disable-line react-hooks/exhaustive-deps
   // v508: open one report by id ("Open report" in From the stands, record notifications)
