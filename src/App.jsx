@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { startTransition, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import ReactDOM from "react-dom";
 import "./App.css";
 // QRCode loaded on demand — not needed at startup
@@ -1733,9 +1733,16 @@ function photosUploadingIn(v, depth = 0) {
 // v559 review: the full report list read at sign-in, kept in memory — the follow-up panels (open problems at a stand,
 // the menu counts) use it even when it is too big to keep on the phone
 let _warmHistory = null, _warmHistoryComplete = false;
+let _warmParsed = { raw: null, list: [] };
 function readWarmHistory() {
   if (Array.isArray(_warmHistory)) return _warmHistory;
-  try { return JSON.parse(localStorage.getItem(`sdx_history_cache_${VENUE_ID}`) || "[]"); } catch { return []; }
+  // v568: the same saved text gives the SAME list (the follow-up scan is cached on it) — it was parsed again by each of
+  // the menu counts, the fixed alerts and the form's open problems on every settings update
+  try {
+    const raw = localStorage.getItem(`sdx_history_cache_${VENUE_ID}`) || "[]";
+    if (raw !== _warmParsed.raw) _warmParsed = { raw, list: JSON.parse(raw) };
+    return _warmParsed.list;
+  } catch { return []; }
 }
 // the signature the cloud acked, as the form computes it (contentSigOf) — module level so the draft migration can use it
 const SIG_KEYS = ["noteType", "useCase", "context", "inspection", "rawNotes", "inspectionType", "inspectionDate", "inspectorName", "participantName",
@@ -11448,14 +11455,14 @@ function fuRowPhotos(item, rec) {
 }
 // opts.photoFloor {key: ts} — the older pictures of a card come only from after this time (the ✅ Fixed list passes
 // the clear that was in force before the fix, so an earlier, already-fixed episode keeps its own pictures)
-function computeFollowups(history, venueSettings, clearedLocal = {}, opts = {}) {
-  try { window.__sdxFuRuns = (window.__sdxFuRuns || 0) + 1; } catch {} // v567: how often the follow-up engine runs (speed harness)
-  const recheckDays = Number(venueSettings?.recheckDays) || 7;
-  if (!Array.isArray(history) || history.length < 1) return { followups: [], followupGroups: [], followupCatGroups: [], recheckDays };
-  fuNoteHistory(history, venueSettings); // v564: which names are used at more than one unit
-  const clearedRaw = { ...(venueSettings?.followupCleared || {}), ...clearedLocal };
-  const statusRawF = venueSettings?.followupStatus || {};
-  const cleared = new Proxy(clearedRaw, { get: (t, k) => typeof k === "string" ? fuGet(t, k, statusRawF) : t[k] }); // v564: old name-only keys still count
+// v568: the follow-up engine in two halves. fuScan reads every report once per report list (and per _fuGen — what a
+// key is made of) and is cached on the list itself; computeFollowups only applies the shared state (cleared / status /
+// type / photos) on top, so a crew tap, a comment or a filter no longer re-reads ~900 reports six times.
+const _fuScanCache = new WeakMap();
+function fuScan(history) {
+  const hit = _fuScanCache.get(history);
+  if (hit && hit.gen === _fuGen) return hit.scan;
+  try { window.__sdxFuScans = (window.__sdxFuScans || 0) + 1; } catch {} // speed harness
   const latestInspByLoc = {};   // locName -> newest inspection timestamp
   const visitsByLoc = {};       // v558 review: locName -> [{ ts, keys }] every finished walk-through and the problems it flagged
   const catLastSeen = {};       // "loc::cat" -> { ts, dateStr, count, rows }
@@ -11527,6 +11534,19 @@ function computeFollowups(history, venueSettings, clearedLocal = {}, opts = {}) 
       }
     });
   }
+  const scan = { latestInspByLoc, visitsByLoc, catLastSeen, caPhotos };
+  _fuScanCache.set(history, { gen: _fuGen, scan });
+  return scan;
+}
+function computeFollowups(history, venueSettings, clearedLocal = {}, opts = {}) {
+  try { window.__sdxFuRuns = (window.__sdxFuRuns || 0) + 1; } catch {} // v567: how often the follow-up engine runs (speed harness)
+  const recheckDays = Number(venueSettings?.recheckDays) || 7;
+  if (!Array.isArray(history) || history.length < 1) return { followups: [], followupGroups: [], followupCatGroups: [], recheckDays };
+  fuNoteHistory(history, venueSettings); // v564: which names are used at more than one unit
+  const clearedRaw = { ...(venueSettings?.followupCleared || {}), ...clearedLocal };
+  const statusRawF = venueSettings?.followupStatus || {};
+  const cleared = new Proxy(clearedRaw, { get: (t, k) => typeof k === "string" ? fuGet(t, k, statusRawF) : t[k] }); // v564: old name-only keys still count
+  const { latestInspByLoc, visitsByLoc, catLastSeen, caPhotos } = fuScan(history);
   const now = Date.now();
   const mergePhotos = rows => { const seen = new Set(); const out = []; for (const r of rows) for (const p of (r.photos || [])) { const id = p.id || p.thumbUrl; if (!seen.has(id)) { seen.add(id); out.push(p); } } return out; }; // v557: no cap
   const followups = [];
@@ -11540,7 +11560,7 @@ function computeFollowups(history, venueSettings, clearedLocal = {}, opts = {}) 
     const manual = fuGet(venueSettings?.followupType, key);
     const manualOk = !!(manual && ISSUE_TYPES.includes(manual.itype));
     const itype = manualOk ? manual.itype : classifyIssueType(`${cat}: ${v.detail || ""}`, v.notes || "");
-    const rows = v.rows || [];
+    const rows = (v.rows || []).map(r => ({ ...r })); // v568: the cached scan's rows are never changed in place
     // Split the rows by crew: row 0 (and every row of the same crew) stays on
     // the existing key; each other crew gets its own sibling card. A card the
     // inspector moved by hand (followupType) keeps all its rows together.
@@ -12675,8 +12695,31 @@ function useScrollAnchor() {
 // list, not a reset one. HistoryPage clears it on each new visit (fuViewReset), so an old search never sticks.
 const FU_VIEW = {};
 function fuViewReset() { for (const k of Object.keys(FU_VIEW)) delete FU_VIEW[k]; }
-function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDrilldown, venueSettings: venueSettingsRaw, saveVenueSettings, saveVenueSettingsMap, currentUser, onAddRecord }) {
+// v568: Joxel "I lose my place" — the view is kept for the whole session (it was wiped on every History visit) and the
+// grouping, open groups, how much is shown and the place in the list also survive a reload for 12 h (per venue).
+// Search and filters stay for the session only (they show in the toolbar).
+const FU_VIEW_TTL = 12 * 3600e3;
+const fuViewKey = () => `sdx_fu_view_${activeVenueId || "default"}`;
+let _fuViewVenue = null;
+function fuViewLoadOnce() {
+  if (_fuViewVenue === activeVenueId) return;
+  if (_fuViewVenue !== null) fuViewReset(); // another venue (Global Admin) never shows this venue's view
+  _fuViewVenue = activeVenueId;
+  if (typeof window !== "undefined" && window.__sdxNoFuViewRestore) return;
+  try {
+    const o = JSON.parse(localStorage.getItem(fuViewKey()) || "null");
+    if (o && Date.now() - (Number(o.at) || 0) < FU_VIEW_TTL) for (const k of ["groupBy", "open", "showN", "place"]) if (o[k] !== undefined && FU_VIEW[k] === undefined) FU_VIEW[k] = o[k];
+  } catch {}
+}
+let _fuViewSaveT = 0;
+function fuViewPersist() {
+  if (_fuViewSaveT) return;
+  _fuViewSaveT = setTimeout(() => { _fuViewSaveT = 0; try { localStorage.setItem(fuViewKey(), JSON.stringify({ groupBy: FU_VIEW.groupBy, open: FU_VIEW.open, showN: FU_VIEW.showN, place: FU_VIEW.place || null, at: Date.now() })); } catch {} }, 500);
+}
+function fuViewForgetPlace() { FU_VIEW.place = null; fuViewPersist(); }
+function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDrilldown, venueSettings: venueSettingsRaw, saveVenueSettings, saveVenueSettingsMap, currentUser, onAddRecord, entry, onEntryClear }) {
   useScrollAnchor();
+  fuViewLoadOnce();
   // Locally cleared follow-ups — instant feedback independent of settings sync
   const FU_CLEARED_KEY = `sdx_fu_cleared_${VENUE_ID}`;
   // v440: the panel unmounts whenever the Analytics tab changes, which used to
@@ -12704,7 +12747,7 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
   const [rowTypeMenu, setRowTypeMenu] = useState(null);
   const [fuIdent, fuIdentSeen] = useFuIdentTick(); // v564: recompute when more stands / units are known
   const analysis = useMemo(() => {
-    if (history.length < 2) return null;
+    if (history.length < 1) return null;
 
     // 1. Count issues per category and track which kitchens have them
     const issueCounts = {};      // { "Ceiling": 5 }
@@ -12834,7 +12877,7 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
     fuIdentSeen.current = _fuGen;
 
     return { recurring, locationRecurring, tempComplianceRate, tempChecks, tempFails, totalInspections: history.length, worstLocations, followups, followupGroups, followupCatGroups, recheckDays };
-  }, [history, venueSettingsRaw, clearedLocal, typeLocal, rowTypeLocal, fuIdent]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [history, venueSettingsRaw?.followupCleared, venueSettingsRaw?.followupStatus, venueSettingsRaw?.followupType, venueSettingsRaw?.followupRowType, venueSettingsRaw?.followupPhotos, venueSettingsRaw?.followupSharedNames, venueSettingsRaw?.recheckDays, clearedLocal, typeLocal, rowTypeLocal, fuIdent]); // eslint-disable-line react-hooks/exhaustive-deps -- v568: only what the cards are made of (a comment / announcement write no longer rebuilds them)
   // v564: every card key (a shared name's `NAME #UNIT::cat`, its members, its rows) also finds what was stored under the
   // old name-only key — status, comments, photos, cleared, type — so splitting CHEESEBURGER BABY 114A / 233 loses nothing
   const venueSettings = useMemo(() => fuWithLegacy(venueSettingsRaw, fuKeysOf([...(analysis?.followups || []), ...(analysis?.followupGroups || []).flatMap(g => g.items || [])])), [venueSettingsRaw, analysis]);
@@ -12887,8 +12930,8 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
     const entry = { text, by: currentUser?.name || "Unknown", ts: Date.now() };
     const patch = {}; fuMembers(f).forEach(m => { patch[m.key] = [...commentsOf(m), { ...entry, ...fuStamp(m) }].slice(-10); }); // v502 · v564: stamped
     setCommentsLocal(prev => ({ ...prev, ...patch }));
-    writeMap("followupComments", patch);
     setCommentText(""); setCommentKey(null);
+    startTransition(() => writeMap("followupComments", patch)); // v568: the comment shows at once; the settings update follows
   }
 
   function setStatus(f, status, note = "") {
@@ -12907,6 +12950,7 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
   function reopenItems(items, why) {
     const list = (Array.isArray(items) ? items : [items]).filter(Boolean);
     if (list.length === 0) return;
+    setFuHideNow({}); // v568: a card put back is never held hidden
     const now = Date.now();
     const me = currentUser?.name || "Unknown";
     const clearPatch = {}; const statusPatch = {};
@@ -12933,6 +12977,7 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
     if (undoRes.mode === "reopen") { const items = undoRes.items || []; setUndoRes(null); items.forEach(f => markResolved(f)); setUndoRes(null); return; }
     // v502: a merged card undoes every issue it resolved
     const pairs = undoRes.multi || [{ key: undoRes.key, prevStamp: undoRes.prevStamp }];
+    setFuHideNow({}); // v568
     setClearedLocal(prev => { const n = { ...prev }; pairs.forEach(({ key, prevStamp }) => { if (prevStamp) n[key] = prevStamp; else delete n[key]; }); return n; });
     const clP = {}, stP = {}; const nowTs = Date.now();
     const stAll = { ...(venueSettings?.followupStatus || {}), ...statusLocal };
@@ -12965,12 +13010,15 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
       stP[m.key] = { status: "resolved", note: "", by: currentUser?.name || "Unknown", ts: stamp, fuUnit: su, ...(pc ? { prevClear: pc } : {}) };
       multi.push({ key: m.key, prevStamp: (venueSettings?.followupCleared || {})[m.key] || clearedLocal[m.key] || 0, prevClear: pc, fuUnit: su });
     });
-    setClearedLocal(prev => ({ ...prev, ...clP }));
-    setStatusLocal(prev => ({ ...prev, ...stP }));
+    setFuHideNow(prev => ({ ...prev, [f.key]: true }));
+    startTransition(() => {
+      setClearedLocal(prev => ({ ...prev, ...clP }));
+      setStatusLocal(prev => ({ ...prev, ...stP }));
+      writeMap("followupStatus", stP);
+      writeMap("followupCleared", clP);
+    });
     setRemindedKey(`res::${f.key}`);
     setTimeout(() => setRemindedKey(null), 1500);
-    writeMap("followupStatus", stP);
-    writeMap("followupCleared", clP);
     // v440: proof it stuck, with a way back
     const prevStamp = multi[0]?.prevStamp || 0;
     setUndoRes({ key: f.key, prevStamp, multi, ts: stamp, label: `${f.loc}${f.unit ? ` #${f.unit}` : ""} — ${f.cat}${ms.length > 1 ? ` (${ms.length} issues)` : ""}` });
@@ -13047,28 +13095,41 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
       notifyAssignedUsers(list, a.title, a.body);
       setRemindedKey(flashKey || (one ? one.key : "many"));
       setTimeout(() => setRemindedKey(null), 2200);
-    } catch {}
+      flashFu(`🔔 Reminder sent${one ? ` · ${one.loc}${one.unit ? ` #${one.unit}` : ""} — ${one.cat}` : ` · ${list.length} problems in one message`}`, 3500); // v568
+    } catch { flashFu("⚠ The reminder could not be sent — try again", 6000); }
   }
 
   // Bulk actions — one click covers every open follow-up at a venue
-  function resolveVenue(g) {
+  // v568: Resolve all acts on the cards SHOWN (a filter no longer resolves hidden ones), says how many, and has ↩ Undo
+  function resolveVenue(g, shown) {
     const patch = {};
     const stPatch = {};
+    const multi = [];
     const by = currentUser?.name || "Unknown";
     const stAll = { ...(venueSettings?.followupStatus || {}), ...statusLocal };
     const clAll = { ...(venueSettings?.followupCleared || {}), ...clearedLocal };
-    g.items.flatMap(fuMembers).forEach(f => { // v502: merged cards hold several keys
+    const cards = Array.isArray(shown) ? shown : g.items;
+    if (!cards.length) return;
+    cards.flatMap(fuMembers).forEach(f => { // v502: merged cards hold several keys
       const stamp = Math.max(Date.now(), (f.ts || 0) + 1);
+      multi.push({ key: f.key, prevStamp: (venueSettings?.followupCleared || {})[f.key] || clearedLocal[f.key] || 0, prevClear: fuPrevClear(f.key, clAll, stAll), fuUnit: fuStampUnit(f) });
       patch[f.key] = stamp;
       // v558 review: the same episode floor as a single Resolve (prevClear) — Resolve all → Put back must not bring an
       // already-fixed episode's pictures back (the server merge would otherwise keep a stale prevClear, the local copy none)
       const pc = fuPrevClear(f.key, clAll, stAll);
       stPatch[f.key] = { status: "resolved", note: "", by, ts: stamp, ...fuStamp(f), ...(pc ? { prevClear: pc } : {}) };
     });
-    setClearedLocal(prev => ({ ...prev, ...patch }));
-    setStatusLocal(prev => ({ ...prev, ...stPatch }));
-    writeMap("followupCleared", patch);
-    writeMap("followupStatus", stPatch);
+    setFuHideNow(prev => { const n = { ...prev }; cards.forEach(c => { n[c.key] = true; }); return n; });
+    startTransition(() => {
+      setClearedLocal(prev => ({ ...prev, ...patch }));
+      setStatusLocal(prev => ({ ...prev, ...stPatch }));
+      writeMap("followupCleared", patch);
+      writeMap("followupStatus", stPatch);
+    });
+    const name = fuGroupBy === "cat" ? g.cat : fuGroupBy === "type" ? g.type : fuGroupBy === "floor" ? g.floor : fuGroupBy === "date" ? dayLabel(g.type) : `${g.loc}${g.unit ? ` #${g.unit}` : ""}`;
+    const k = `all::${Date.now()}`;
+    setUndoRes({ key: k, prevStamp: 0, multi, ts: Date.now(), label: `${cards.length} problem${cards.length !== 1 ? "s" : ""} at ${name}` });
+    setTimeout(() => setUndoRes(u => (u && u.key === k ? null : u)), 9000);
   }
 
   function remindGroup(g, mode) {
@@ -13107,7 +13168,8 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
   }
 
   const [fuOpen, setFuOpen] = useState(() => FU_VIEW.open ?? {});
-  const [fuShowN, setFuShowN] = useState(() => FU_VIEW.showN ?? 30);
+  const [fuShowN, setFuShowN] = useState(() => (FU_VIEW.showN >= 40 ? FU_VIEW.showN : 40)); // v568: a budget of cards + group lines
+  const fuShowMore = useCallback(() => setFuShowN(n => n + 40), []);
   // v553: while someone works the list, a ✓ Resolve must not re-sort the stands or fold a group shut under the
   // finger (groups sort by "has overdue" + due date + size, and open by default only while overdue). The order and
   // the default open state are frozen for this view; they refresh when the grouping, a filter, the search or the
@@ -13149,7 +13211,79 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
   const [fuDatePick, setFuDatePick] = useState(() => FU_VIEW.datePick ?? ""); // v550 — "" | "today" | "yesterday" | "7d" | "30d" | "YYYY-MM-DD"
   const [fuFilterMenu, setFuFilterMenu] = useState(""); // "" | "type" | "floor" | "date"
   const [fuSearch, setFuSearch] = useState(() => FU_VIEW.search ?? "");
-  useEffect(() => { Object.assign(FU_VIEW, { open: fuOpen, showN: fuShowN, groupBy: fuGroupBy, typePick: fuTypePick, floorPick: fuFloorPick, datePick: fuDatePick, search: fuSearch }); }, [fuOpen, fuShowN, fuGroupBy, fuTypePick, fuFloorPick, fuDatePick, fuSearch]); // v556
+  const [fuStatusPick, setFuStatusPick] = useState(() => FU_VIEW.statusPick ?? ""); // v568: "" | overdue | soon | likely | process | waiting
+  const fuSearchQ = useDeferredValue(fuSearch); // v568: the list follows the typing a moment later (letters stay instant)
+  // v568: a resolved card leaves the screen at once; rebuilding the lists (cleared / status / settings) follows as a
+  // transition — ✓ Resolve took ~1 s on a slow phone before anything moved
+  const [fuHideNow, setFuHideNow] = useState({});
+  // v568: where you came from (the form's stand, the overdue banner, a bell alert) — a temporary layer over the saved
+  // view with its own ✕; never saved into the view
+  const [fuEntry, setFuEntry] = useState(() => (entry && !entry.fixedKey ? entry : null));
+  const entryNRef = useRef(0);
+  const entryAtMountRef = useRef(!!entry);
+  useEffect(() => {
+    if (!entry || !entry.n || entry.n === entryNRef.current) return;
+    entryNRef.current = entry.n;
+    // a target never hides behind an old search or filter
+    setFuSearch(""); setFuTypePick(""); setFuFloorPick(""); setFuDatePick(""); setFuStatusPick("");
+    if (entry.fixedKey) {
+      // a crew's fix: open ✅ Fixed on that job
+      setFuEntry(null); setShowFixed(true); setShowClean(false);
+      let tries = 0;
+      const find = () => {
+        const el = document.querySelector(`[data-anchor="fx:${CSS.escape(entry.fixedKey)}"]`);
+        if (el) { skipScrollAnchor(1200); el.scrollIntoView({ block: "center" }); el.classList.add("guideFindFlash"); setTimeout(() => el.classList.remove("guideFindFlash"), 2400); return; }
+        if (++tries < 40) setTimeout(find, 100);
+      };
+      setTimeout(find, 60);
+      return;
+    }
+    setFuEntry(entry);
+    skipScrollAnchor(900); try { window.scrollTo({ top: 0 }); } catch {}
+  }, [entry]); // eslint-disable-line react-hooks/exhaustive-deps
+  const clearEntry = () => { setFuEntry(null); try { onEntryClear && onEntryClear(); } catch {} };
+  useEffect(() => { Object.assign(FU_VIEW, { open: fuOpen, showN: fuShowN, groupBy: fuGroupBy, typePick: fuTypePick, floorPick: fuFloorPick, datePick: fuDatePick, search: fuSearch, statusPick: fuStatusPick }); fuViewPersist(); }, [fuOpen, fuShowN, fuGroupBy, fuTypePick, fuFloorPick, fuDatePick, fuSearch, fuStatusPick]); // v556 (v568: kept across visits)
+  // v568: the place in the list — the first card (or group line) on screen and how far from the top it sits. Only a
+  // scroll the person makes counts (a page change jumps to the top on purpose; that must not wipe the place).
+  useEffect(() => {
+    let raf = 0, lastY = window.scrollY, userAt = 0;
+    const user = () => { userAt = Date.now(); };
+    const save = () => {
+      raf = 0;
+      const y = window.scrollY, jump = Math.abs(y - lastY); lastY = y;
+      if (jump > 1200 || Date.now() - userAt > 4000) return;
+      if (y < 120) { if (FU_VIEW.place) { FU_VIEW.place = null; fuViewPersist(); } return; }
+      const top = 64;
+      for (const el of document.querySelectorAll(".fuList [data-anchor]")) {
+        const r = el.getBoundingClientRect();
+        if (r.bottom > top + 12) { FU_VIEW.place = { key: el.getAttribute("data-anchor"), off: Math.round(r.top) }; fuViewPersist(); break; }
+      }
+    };
+    const on = () => { if (!raf) raf = requestAnimationFrame(save); };
+    const evs = ["touchstart", "touchmove", "wheel", "keydown", "mousedown"]; // mousedown: dragging the scrollbar on a computer
+    evs.forEach(e => window.addEventListener(e, user, { passive: true }));
+    window.addEventListener("scroll", on, { passive: true });
+    return () => { evs.forEach(e => window.removeEventListener(e, user)); window.removeEventListener("scroll", on); if (raf) cancelAnimationFrame(raf); };
+  }, []);
+  // …and coming back to it: a plain way in (🔁, ☰, ⋯, ← Back) puts that card where it was, holding it while the full
+  // list lands, until the person touches or scrolls (or 5 s)
+  useEffect(() => {
+    const p = FU_VIEW.place;
+    if (!p || !p.key || entryAtMountRef.current || (typeof window !== "undefined" && window.__sdxNoFuViewRestore)) return;
+    let stop = false, raf = 0; const t0 = Date.now();
+    const cancel = () => { stop = true; };
+    const evs = ["touchstart", "wheel", "keydown", "mousedown"];
+    evs.forEach(e => window.addEventListener(e, cancel, { passive: true }));
+    const tick = () => {
+      if (stop || Date.now() - t0 > 5000) return;
+      let el = null; try { el = document.querySelector(`.fuList [data-anchor="${CSS.escape(p.key)}"]`); } catch {}
+      if (el) { const d = el.getBoundingClientRect().top - p.off; if (Math.abs(d) > 2) { skipScrollAnchor(250); window.scrollBy(0, d); } }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    try { window.__sdxFuRestore = p; } catch {}
+    return () => { stop = true; if (raf) cancelAnimationFrame(raf); evs.forEach(e => window.removeEventListener(e, cancel)); };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   // Selection → Excel export of chosen follow-ups
   const [fuSelectMode, setFuSelectMode] = useState(false);
   const [fuSelected, setFuSelected] = useState({}); // { [f.key]: true }
@@ -13582,9 +13716,10 @@ ${sections}
         const entries = got.map(p => ({ id: p.id, thumbUrl: p.thumbUrl, previewUrl: p.previewUrl, by: currentUser?.name || "Unknown", ts: Date.now(), tag }));
         // v526: new after photos never push the before pictures out · v557: up to FU_PHOTO_KEEP of each (fuPhotoPatch → keepFuPhotos)
         fuPhotoPatch(f, cur => [...cur, ...entries]);
-        if (typeof setFuSimDone === "function") { setFuSimDone(`📷 ${tag === "after" ? "After" : "Before"} photo added`); setTimeout(() => setFuSimDone(null), 3000); }
-      } else if (typeof setFuSimDone === "function") { setFuSimDone("⚠ The photo could not be added — try again"); setTimeout(() => setFuSimDone(null), 4000); }
-    } catch { if (typeof setFuSimDone === "function") { setFuSimDone("⚠ The photo could not be added — try again"); setTimeout(() => setFuSimDone(null), 4000); } }
+        // v568: say it landed (this called a setter that no longer exists — nothing was ever shown)
+        flashFu(`📷 ${got.length > 1 ? `${got.length} ${tag === "after" ? "AFTER" : "BEFORE"} photos` : `${tag === "after" ? "AFTER" : "BEFORE"} photo`} added · ${f.loc}${f.unit ? ` #${f.unit}` : ""}`, 3500);
+      } else flashFu("⚠ The photo could not be added — try again (a picture file from the camera or the photo library)", 6000);
+    } catch { flashFu("⚠ The photo could not be added — check the connection and try again", 6000); }
     setFuPhotoBusy(null);
   }
   function setFuPhotoTag(f, id, tag) {
@@ -13643,15 +13778,15 @@ ${sections}
   // Search: match unit number (normalized — "142a" hits "142 A"), venue name,
   // problem category, issue text, or notes.
   const fuMatches = f => {
-    const q = fuSearch.trim().toLowerCase();
+    const q = fuSearchQ.trim().toLowerCase();
     if (!q) return true;
     const qUnit = normUnit(q);
     if (qUnit && normUnit(f.unit).includes(qUnit)) return true;
     return [f.loc, f.cat, f.detail, f.notes, f.floor, f.itype].some(v => (v || "").toLowerCase().includes(q));
   };
-  const fuFilterGroups = groups => (!fuSearch.trim() && !fuDatePick) ? groups
+  const fuFilterGroups = groups => (!fuSearch.trim() && !fuDatePick && !fuTypePick && !fuFloorPick && !fuStatusPick && !fuEntry) ? groups
     : groups.map(g => {
-        const items = g.items.filter(fuMatches).filter(matchesDatePick);
+        const items = g.items.filter(fuItemOk); // v568: Type / Floor / Status work in By Venue and By Problem too
         if (!items.length) return null;
         const rec = { ...g, items, overdueCount: 0, dueSoonCount: 0, resolvedCount: 0 };
         for (const f of items) {
@@ -13673,18 +13808,13 @@ ${sections}
     waiting: { icon: "⏳", label: "Waiting", cls: "fuStOnWaiting" },
   };
 
-  if (!analysis) return null;
-  if (analysis.recurring.length === 0 && Object.keys(analysis.locationRecurring).length === 0 && analysis.worstLocations.length === 0 && (analysis.followups || []).length === 0) return null;
-
-  // v434 — everything the crews fixed. computeFollowups drops cleared items,
-  // so recompute with an empty cleared map and keep only the resolved ones.
-  // v556: a crew chip is a search word — these two say which one is picked (the header and the chips read them)
-  const FU_CREW_WORDS = ["cleaning", "maintenance", "building", "ecolab"];
-  const fuCrewWord = FU_CREW_WORDS.includes(fuSearch.trim().toLowerCase()) ? fuSearch.trim().toLowerCase() : "";
-  const fixedAll = (() => {
+  // v568: memoized — it re-ran the whole follow-up engine on every keystroke and tap in the panel
+  const fixedAll = useMemo(() => {
+    if (!analysis) return []; // (above the early returns: a hook)
+    const stMapF = { ...(venueSettings?.followupStatus || {}), ...statusLocal };
     // v558 review: each fixed card's older pictures stop at the clear that was in force before its fix (prevClear) —
     // with no clears in this run, an earlier, already-fixed episode's BEFORE photos leaked into the list and the exports
-    const photoFloor = {}; for (const [k2, st2] of Object.entries(stMap)) { const pc = Number(st2?.prevClear) || 0; if (pc) photoFloor[k2] = pc; }
+    const photoFloor = {}; for (const [k2, st2] of Object.entries(stMapF)) { const pc = Number(st2?.prevClear) || 0; if (pc) photoFloor[k2] = pc; }
     const all = computeFollowups(history, { ...(venueSettings || {}), followupCleared: {} }, {}, { photoFloor }).followups || [];
     // v564: a fix stored under the old name-only key still belongs to the stand's card — read from the RAW maps (the
     // panel's settings view already copied old values onto every card key, so it cannot tell where a value came from),
@@ -13702,7 +13832,27 @@ ${sections}
       .map(f => ({ ...f, reopened: !!(f._cl && f.ts && f._cl < f.ts) }))
       .filter(f => (f._st?.status === "resolved" || f._cl) && f.fixedTs)
       .sort((a2, b2) => b2.fixedTs - a2.fixedTs);
-  })();
+  }, [history, venueSettings, venueSettingsRaw?.followupStatus, venueSettingsRaw?.followupCleared, statusLocal, clearedLocal]); // eslint-disable-line react-hooks/exhaustive-deps
+  // a card hidden at once by ✓ Resolve stops being hidden as soon as the lists no longer hold it (a later Put back shows it)
+  useEffect(() => {
+    setFuHideNow(h => {
+      const ks = Object.keys(h); if (!ks.length) return h;
+      const live = new Set((analysis?.followups || []).map(f => f.key));
+      const n = {}; let ch = false;
+      for (const k of ks) { if (live.has(k)) n[k] = true; else ch = true; }
+      return ch ? n : h;
+    });
+  }, [analysis]);
+  if (!analysis || (analysis.recurring.length === 0 && Object.keys(analysis.locationRecurring).length === 0 && analysis.worstLocations.length === 0 && (analysis.followups || []).length === 0)) {
+    // v568: say so instead of an empty screen
+    return <div className="card fuEmptyCard" data-testid="fu-empty"><div className="cardTitle">🔁 Follow-ups</div><p>Nothing to follow up right now. Every problem flagged in a report — and every problem a stand reports — shows up here until it is fixed.</p></div>;
+  }
+
+  // v434 — everything the crews fixed. computeFollowups drops cleared items,
+  // so recompute with an empty cleared map and keep only the resolved ones.
+  // v556: a crew chip is a search word — these two say which one is picked (the header and the chips read them)
+  const FU_CREW_WORDS = ["cleaning", "maintenance", "building", "ecolab"];
+  const fuCrewWord = FU_CREW_WORDS.includes(fuSearch.trim().toLowerCase()) ? fuSearch.trim().toLowerCase() : "";
   const fixedList = fixedAll.filter(fuMatches);
   // v437 — cleaning log: every job a cleaning crew logged, with whose mess
   // it was and how long it took, so hours are tracked and the stand's own
@@ -13840,10 +13990,28 @@ ${sections}
   const matchesDatePick = f => fuDateMatch(f, fuDatePick);
   const fuDateOptCount = pick => (analysis.followups || []).filter(fuMatches).filter(f => fuDateMatch(f, pick)).length;
   const fuDateLabel = !fuDatePick ? "Date: all" : fuDatePick === "today" ? "Today" : fuDatePick === "yesterday" ? "Yesterday" : fuDatePick === "7d" ? "Last 7 days" : fuDatePick === "30d" ? "Last 30 days" : dayLabel(fuDatePick);
-  const fuVisible = (analysis.followups || []).filter(fuMatches).filter(matchesTypePick).filter(matchesFloorPick).filter(matchesDatePick);
+  // v568: the status chips are filters (⏰ overdue / 👁 due soon / ✅ likely fixed / 🔧 in process / ⏳ waiting)
+  const statusOfF = f => f.overdue ? "overdue" : f.likelyResolved ? "likely" : "soon";
+  const matchesStatusPick = f => !fuStatusPick || (fuStatusPick === "process" ? effStatus(f) === "in_progress" : fuStatusPick === "waiting" ? effStatus(f) === "waiting" : statusOfF(f) === fuStatusPick);
+  const matchesEntry = f => {
+    const e = fuEntry; if (!e) return true;
+    if (e.status) return e.status === "overdue" ? !!f.overdue : statusOfF(f) === e.status;
+    if (e.key) return fuMembers(f).some(m => m.key === e.key || fuBaseKey(m.key) === fuBaseKey(e.key));
+    if (e.stand) {
+      const unitN = normUnit(e.stand.unit || ""), siteU = String(e.stand.site || "").trim().toUpperCase();
+      if (!(unitN && siteU)) return unitN ? normUnit(f.unit) === unitN : (f.loc || "").toUpperCase() === siteU;
+      const mine = fuStandKey(e.stand.site, e.stand.unit), theirs = fuStandKey(f.loc, f.unit);
+      return theirs === mine || (theirs.split("|")[0] === mine.split("|")[0] && fuUnclaimedKey(theirs));
+    }
+    return true;
+  };
+  const fuItemOk = f => !fuHideNow[f.key] && fuMatches(f) && matchesTypePick(f) && matchesFloorPick(f) && matchesDatePick(f) && matchesStatusPick(f) && matchesEntry(f);
+  // counts for the status chips come from the list BEFORE the status pick (tapping one never changes the others)
+  const fuStatusBase = (analysis.followups || []).filter(f => fuMatches(f) && matchesTypePick(f) && matchesFloorPick(f) && matchesDatePick(f) && matchesEntry(f));
+  const fuVisible = fuStatusBase.filter(matchesStatusPick);
   // v556: the crew chips count from the list WITHOUT the crew pick, so tapping one never changes the others
   // (counts, chips vanishing) and the tapped chip does not slide sideways
-  const fuCrewBase = fuCrewWord ? (analysis.followups || []).filter(matchesTypePick).filter(matchesFloorPick).filter(matchesDatePick) : fuVisible;
+  const fuCrewBase = fuCrewWord ? (analysis.followups || []).filter(f => matchesTypePick(f) && matchesFloorPick(f) && matchesDatePick(f) && matchesStatusPick(f) && matchesEntry(f)) : fuVisible;
   const fuCrewN = it => fuCrewBase.filter(f => f.itype === it).length;
   // v440 — one pool to pick from: open items, everything fixed and every
   // clean. Deduped by key, the fixed copy wins because it carries the fix
@@ -14106,21 +14274,22 @@ ${sections}
               <div className="fuToolsRow fuToolsStatus"><span className="fuToolsLbl">Status</span><div className="fuToolsBody">
               {/* v556: which chips show comes from the list WITHOUT the crew pick (the counts follow it) — a chip that
                   vanished on a crew tap could unwrap this row and lift the Crew row under the finger */}
-              {fuCrewBase.filter(f => f.overdue).length > 0 && (
-                <span className="fuSumChip fuSumOverdue">⏰ {fuVisible.filter(f => f.overdue).length} overdue</span>
-              )}
-              {fuCrewBase.filter(f => !f.overdue && !f.likelyResolved).length > 0 && (
-                <span className="fuSumChip fuSumSoon">👁 {fuVisible.filter(f => !f.overdue && !f.likelyResolved).length} due soon</span>
-              )}
-              {fuCrewBase.filter(f => f.likelyResolved).length > 0 && (
-                <span className="fuSumChip fuSumOk">✅ {fuVisible.filter(f => f.likelyResolved).length} likely fixed</span>
-              )}
-              {fuCrewBase.filter(f => effStatus(f) === "in_progress").length > 0 && (
-                <span className="fuSumChip fuSumProg">🔧 {fuVisible.filter(f => effStatus(f) === "in_progress").length} in process</span>
-              )}
-              {fuCrewBase.filter(f => effStatus(f) === "waiting").length > 0 && (
-                <span className="fuSumChip fuSumWait">⏳ {fuVisible.filter(f => effStatus(f) === "waiting").length} waiting</span>
-              )}
+              {/* v568: each status chip is a filter (tap again = all); the counts never change when one is picked */}
+              {[["overdue", "fuSumOverdue", "⏰", "overdue", f => f.overdue], ["soon", "fuSumSoon", "👁", "due soon", f => !f.overdue && !f.likelyResolved],
+                ["likely", "fuSumOk", "✅", "likely fixed", f => f.likelyResolved], ["process", "fuSumProg", "🔧", "in process", f => effStatus(f) === "in_progress"],
+                ["waiting", "fuSumWait", "⏳", "waiting", f => effStatus(f) === "waiting"]].map(([k, cls, ic, word, test]) => {
+                // which chips show comes from the list WITHOUT the crew pick (v556: a chip vanishing on a crew tap moved the rows)
+                const showBase = fuCrewWord ? (analysis.followups || []).filter(f => matchesTypePick(f) && matchesFloorPick(f) && matchesDatePick(f) && matchesEntry(f)) : fuStatusBase;
+                if (!showBase.some(test) && fuStatusPick !== k) return null;
+                const n = fuStatusBase.filter(test).length;
+                return (
+                  <button key={k} type="button" data-testid={`fu-status-${k}`} aria-pressed={fuStatusPick === k}
+                    className={"fuSumChip fuStatusChip " + cls + (fuStatusPick === k ? " on" : "")}
+                    onClick={() => { skipScrollAnchor(600); setFuStatusPick(p => (p === k ? "" : k)); }}>
+                    {ic} {n} {word}{fuStatusPick === k ? " ✕" : ""}
+                  </button>
+                );
+              })}
               </div></div>
               <div className="fuToolsRow"><span className="fuToolsLbl">Crew</span><div className="fuToolsBody fuCrewGroup" data-testid="fu-crew-group">
               {fuCrewN("Cleaning") > 0 && (
@@ -14282,7 +14451,7 @@ ${sections}
                     {day.rows.map(f => {
                   const { before, after } = fuSplitPhotos(f.photos, fuPhotosOf(f)); // v557: every photo, BEFORE / AFTER
                   return (
-                    <div key={f.key} className="fuFixedRow">
+                    <div key={f.key} className="fuFixedRow" data-anchor={"fx:" + f.key}>
                       {fuSelectMode && selBox(f)}
                       <span className="fuFixedIcon">{f.fixedWhose === "sub" ? "🧾" : "🧹"}</span>
                       <div className="fuFixedBody">
@@ -14298,7 +14467,11 @@ ${sections}
                         </div>
                         {f.fixedWhose === "sub" && <span className="fuCleanBill">BILL THE STAND</span>}
                         {fixedBA(before, after)}
-                        <div className="fuFixedActs">{reopenBtn(f)}</div>
+                        <div className="fuFixedActs">
+                          {/* v568: the AFTER picture can come later — no need to reopen the job */}
+                          <label className={"fuBtn fuFixedAddAfter" + (fuPhotoBusy === f.key ? " busy" : "")} data-testid="fu-fixed-add-after">{fuPhotoBusy === f.key ? "Adding…" : "📷 Add AFTER photo"}<input type="file" accept="image/*" multiple hidden onChange={e => { addFuPhotos(f, e.target.files, "after"); e.target.value = ""; }} /></label>
+                          {reopenBtn(f)}
+                        </div>
                       </div>
                     </div>
                   );
@@ -14326,7 +14499,7 @@ ${sections}
                   const ago = mins < 1 ? "just now" : mins < 60 ? `${mins} min ago` : mins < 1440 ? `${Math.round(mins / 60)} h ago` : when.toLocaleDateString();
                   const { before, after } = fuSplitPhotos(f.photos, fuPhotosOf(f)); // v557: every photo, BEFORE / AFTER
                   return (
-                    <div key={f.key} className="fuFixedRow">
+                    <div key={f.key} className="fuFixedRow" data-anchor={"fx:" + f.key}>
                       {fuSelectMode && selBox(f)}
                       <span className="fuFixedIcon">{ISSUE_TYPE_ICON[f.itype] || "🔧"}</span>
                       <div className="fuFixedBody">
@@ -14335,7 +14508,11 @@ ${sections}
                         {f.reopened && <span className="fuReopened">↻ REOPENED — flagged again {f.dateStr}</span>}
                         <div className="fuFixedMeta">{ago} ({clockT(f.fixedTs)}){f.fixedBy ? ` · by ${f.fixedBy}` : ""}{f.fixedHow === "already" ? " · was already clean" : f.fixedHow === "crew" ? " · cleaned by the crew" : ""}{f.dateStr ? ` · flagged ${f.dateStr}` : ""}</div>
                         {fixedBA(before, after)}
-                        <div className="fuFixedActs">{reopenBtn(f)}</div>
+                        <div className="fuFixedActs">
+                          {/* v568: the AFTER picture can come later — no need to reopen the job */}
+                          <label className={"fuBtn fuFixedAddAfter" + (fuPhotoBusy === f.key ? " busy" : "")} data-testid="fu-fixed-add-after">{fuPhotoBusy === f.key ? "Adding…" : "📷 Add AFTER photo"}<input type="file" accept="image/*" multiple hidden onChange={e => { addFuPhotos(f, e.target.files, "after"); e.target.value = ""; }} /></label>
+                          {reopenBtn(f)}
+                        </div>
                       </div>
                     </div>
                   );
@@ -14344,14 +14521,23 @@ ${sections}
                 ))}
               </div>
             )}
+            {fuEntry && (
+              <div className="fuEntryBar" data-testid="fu-entry">
+                <span className="fuEntryTxt">Showing {fuEntry.status ? <b>⏰ overdue only</b> : fuEntry.stand ? <>only <b><NT>{fuEntry.stand.site || "this stand"}{fuEntry.stand.unit ? ` #${fuEntry.stand.unit}` : ""}</NT></b></> : <b>the problem you tapped</b>} · {fuVisible.length} card{fuVisible.length !== 1 ? "s" : ""}</span>
+                <button type="button" className="fuEntryX" data-testid="fu-entry-clear" onClick={() => { skipScrollAnchor(600); clearEntry(); }}>✕ Show all</button>
+              </div>
+            )}
             <div className="fuList">
-              {(fuSearch.trim() || fuDatePick) && fuVisible.length === 0 && (
-                <div style={{ fontSize: "0.82rem", color: "var(--ink-400)", fontStyle: "italic", padding: "10px 4px" }}>{fuSearch.trim() ? `No follow-ups match “${fuSearch.trim()}”.` : `No follow-ups for ${fuDateLabel.toLowerCase()}.`}</div>
+              {(fuSearch.trim() || fuDatePick || fuStatusPick || fuEntry || fuTypePick || fuFloorPick) && fuVisible.length === 0 && (
+                <div className="fuNoMatch" data-testid="fu-no-match">
+                  <span>{fuSearch.trim() ? `No follow-ups match “${fuSearch.trim()}”.` : fuDatePick ? `No follow-ups for ${fuDateLabel.toLowerCase()}.` : fuEntry?.stand ? "Nothing open at this stand." : "Nothing matches these filters."}</span>
+                  <button type="button" className="fuBtn" data-testid="fu-clear-filters" onClick={() => { skipScrollAnchor(600); setFuSearch(""); setFuDatePick(""); setFuStatusPick(""); setFuTypePick(""); setFuFloorPick(""); clearEntry(); }}>Clear the filters</button>
+                </div>
               )}
               {(() => { const __fuNatural = (fuGroupBy === "cat" ? fuCatGroupsShown
-                : fuGroupBy === "type" ? fuTypeGroups.filter(g => (!fuTypePick || g.type === fuTypePick) && g.items.some(f => matchesFloorPick(f) && matchesDatePick(f)))
-                : fuGroupBy === "floor" ? fuFloorGroups.filter(g => (!fuFloorPick || g.floor === fuFloorPick) && g.items.some(f => matchesTypePick(f) && matchesDatePick(f)))
-                : fuGroupBy === "date" ? fuDateGroups.filter(g => g.items.some(f => matchesTypePick(f) && matchesFloorPick(f) && matchesDatePick(f)))
+                : fuGroupBy === "type" ? fuTypeGroups.filter(g => (!fuTypePick || g.type === fuTypePick) && g.items.some(fuItemOk))
+                : fuGroupBy === "floor" ? fuFloorGroups.filter(g => (!fuFloorPick || g.floor === fuFloorPick) && g.items.some(fuItemOk))
+                : fuGroupBy === "date" ? fuDateGroups.filter(g => g.items.some(fuItemOk))
                 : fuGroupsShown);
                 const __gKeyOf = g => `${fuGroupBy}::${fuGroupBy === "cat" ? g.cat : fuGroupBy === "type" ? g.type : fuGroupBy === "floor" ? g.floor : fuGroupBy === "date" ? g.type : (g.locKey || g.loc)}`;
                 const __fz = fuFreezeRef.current, __sig = [fuGroupBy, fuSearch.trim(), fuTypePick, fuFloorPick, fuDatePick].join("|");
@@ -14361,7 +14547,7 @@ ${sections}
                 const __fuAll = fuGroupBy === "date" ? __fuNatural : [...__fuNatural].sort((a, b) => __f.rank[__gKeyOf(a)] - __f.rank[__gKeyOf(b)]);
                 const __renderFuGroup = (g => {
                 const gKey = __gKeyOf(g);
-                const isOpen = fuSearch.trim() ? true : (fuOpen[gKey] !== undefined ? fuOpen[gKey] : (__f.open[gKey] ?? g.overdueCount > 0));
+                const isOpen = (fuSearch.trim() || fuEntry) ? true : (fuOpen[gKey] !== undefined ? fuOpen[gKey] : (__f.open[gKey] ?? g.overdueCount > 0)); // v568: a target's group is open
                 const openItems = g.items.filter(f => !f.likelyResolved);
                 return (
                   <div key={gKey} className={`fuGroup ${g.overdueCount > 0 ? "fuGroupOverdue" : g.dueSoonCount > 0 ? "fuGroupWatching" : "fuGroupResolved"}`}>
@@ -14390,14 +14576,16 @@ ${sections}
                             {remindedKey === `grp::${fuGroupBy === "cat" ? g.cat : fuGroupBy === "type" ? g.type : fuGroupBy === "floor" ? g.floor : fuGroupBy === "date" ? g.type : (g.locKey || g.loc)}` ? "✓ Posted" : `🔔 Remind Team (${openItems.length})`}
                           </button>
                         )}
-                        <button type="button" className="fuBtn fuBtnResolve" onClick={() => resolveVenue(g)}>
-                          ✓ Resolve all
-                        </button>
+                        {(() => { const shownHere = g.items.filter(fuItemOk); return shownHere.length > 0 && (
+                          <button type="button" className="fuBtn fuBtnResolve" data-testid="fu-resolve-all" onClick={() => resolveVenue(g, shownHere)}>
+                            ✓ Resolve all ({shownHere.length})
+                          </button>
+                        ); })()}
                       </div>
                     </div>
                     {isOpen && (
                       <div className="fuGroupBody">
-                        {g.items.filter(f => (fuGroupBy !== "type" || matchesFloorPick(f)) && (fuGroupBy !== "floor" || matchesTypePick(f)) && (fuGroupBy !== "date" || (matchesTypePick(f) && matchesFloorPick(f))) && matchesDatePick(f)).map(f => (
+                        {g.items.filter(fuItemOk).map(f => (
                           <div key={f.key} data-anchor={f.key} className={`fuItem ${f.overdue ? "fuOverdue" : f.likelyResolved ? "fuResolved" : "fuWatching"}`}>
                             {fuSelectMode && selBox(f)}
                             <div className="fuStatus">
@@ -14560,7 +14748,8 @@ ${sections}
                                     <div className="fuPhotoMenu">
                                       <label className="fuPhotoBtn fuCardPhotoBtn fuPhotoBefore">🔴 Before · camera<input type="file" accept="image/*" capture="environment" hidden onChange={e => { addFuPhotos(f, e.target.files, "before"); e.target.value = ""; setPhotoMenuKey(null); }} /></label>
                                       <label className="fuPhotoBtn fuCardPhotoAfter fuPhotoAfter">🟢 After · camera<input type="file" accept="image/*" capture="environment" hidden onChange={e => { addFuPhotos(f, e.target.files, "after"); e.target.value = ""; setPhotoMenuKey(null); }} /></label>
-                                      <label className="fuPhotoBtn fuCardPhotoPick">🖼 Upload from gallery<input type="file" accept="image/*" multiple hidden onChange={e => { addFuPhotos(f, e.target.files, "before"); e.target.value = ""; setPhotoMenuKey(null); }} /></label>
+                                      <label className="fuPhotoBtn fuCardPhotoPick">🖼 Upload BEFORE<input type="file" accept="image/*" multiple hidden onChange={e => { addFuPhotos(f, e.target.files, "before"); e.target.value = ""; setPhotoMenuKey(null); }} /></label>
+                                      <label className="fuPhotoBtn fuCardPhotoPick fuCardPhotoPickAfter">🖼 Upload AFTER<input type="file" accept="image/*" multiple hidden onChange={e => { addFuPhotos(f, e.target.files, "after"); e.target.value = ""; setPhotoMenuKey(null); }} /></label>
                                     </div>
                                   )}
                                 </span>
@@ -14586,7 +14775,18 @@ ${sections}
                     )}
                   </div>
                 );
-              }); return (<>{__fuAll.slice(0, fuShowN).map(__renderFuGroup)}{__fuAll.length > fuShowN && <ShowMoreSentinel left={__fuAll.length - fuShowN} label={`Show more groups · ${__fuAll.length - fuShowN} left`} onMore={() => setFuShowN(n => n + 30)} />}</>); })()}
+              });
+                // v568: paged by CARDS, not groups — 30 open groups put 164 cards on the screen at once (the lag on open).
+                // An open group always shows all its cards; a closed one costs one line.
+                let __cost = 0, __nShow = 0;
+                for (const g of __fuAll) {
+                  if (__nShow > 0 && __cost >= fuShowN) break;
+                  const k = __gKeyOf(g);
+                  const op = (fuSearch.trim() || fuEntry) ? true : (fuOpen[k] !== undefined ? fuOpen[k] : (__f.open[k] ?? g.overdueCount > 0));
+                  __cost += 1 + (op ? g.items.filter(fuItemOk).length : 0); __nShow++;
+                }
+                const __left = __fuAll.length - __nShow;
+                return (<>{__fuAll.slice(0, __nShow).map(__renderFuGroup)}{__left > 0 && <ShowMoreSentinel left={__left} label={`Show more · ${__left} group${__left !== 1 ? "s" : ""} left`} onMore={fuShowMore} />}</>); })()}
             </div>
             <div style={{ fontSize: "0.68rem", color: "var(--sdx-gray-400)", marginTop: 6 }}>
               “Remind” collects the items you tap — hit “Send one reminder” and they all go out as one Quick Check announcement. “Remind Team” does the same for a whole stand. Resolved items reappear automatically if the issue shows up again.
@@ -14877,8 +15077,8 @@ function ImportReviewModal({ fields: initialFields, imagePreview, saving, onSave
 }
 
 /* ── History Page Component ──────────────────────────────── */
-function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, currentUser, notifItems, onNotifDismiss, onNotifClearAll, onMyTasks, venueSettings, saveVenueSettings, saveVenueSettingsMap, initialTab, initialAnalyticsTab, initialFocusId, initialNonce }) {
-  useState(() => { fuViewReset(); return 0; }); // v556: a new visit to History starts Follow-ups fresh (runs before the panel's own state)
+function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, currentUser, notifItems, onNotifDismiss, onNotifClearAll, onMyTasks, venueSettings, saveVenueSettings, saveVenueSettingsMap, initialTab, initialAnalyticsTab, initialFocusId, initialNonce, initialFu }) {
+  useState(() => { fuViewLoadOnce(); return 0; }); // v568: the Follow-ups view is KEPT between visits (v556 reset it here — "I lose my place")
   // Returns true if the current user is allowed to edit the given record.
   // Allowed: the original author (matched by badgeHash), any admin, or global_admin.
   // v553: a report the inspector is still writing (autosaved in the last 3 h) is not edited or resolved from
@@ -14948,9 +15148,20 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
   const [showHistoryMenu, setShowHistoryMenu] = useState(false);
   const [tlShow, setTlShow] = useState(60); // v516 — Timeline renders 60 events, more on scroll
   const [analyticsTab, setAnalyticsTab] = useState(initialAnalyticsTab || "recurring"); // "recurring" (Follow-ups) | "temp" | "insights" | "predictive" | "timeline" | "trends" (admin-gated)
+  // the target lasts while you are on Follow-ups (and through a 📄 Reports drill-down and back) — never into a later visit
+  useEffect(() => {
+    if ((historyTab !== "analytics" || analyticsTab !== "recurring") && !fuReturn) setFuEntryH(null); // eslint-disable-line no-use-before-define
+  }, [historyTab, analyticsTab]); // eslint-disable-line react-hooks/exhaustive-deps
   const canSeeTrends = currentUser?.role === "admin" || currentUser.role === "global_admin"; // Trends stays admin-only in its new Analytics home (it was the admin-only Performance Dashboard's surviving tab)
   // Navigating to this page while it's already open (⋯ menu, notifications) → follow the requested tab
   useEffect(() => { if (initialTab) setHistoryTab(initialTab); if (initialAnalyticsTab) setAnalyticsTab(initialAnalyticsTab); }, [initialTab, initialAnalyticsTab, initialNonce]);
+  // v568: where Follow-ups should land (one stand / overdue / one problem / one fixed job) — none = the saved view
+  const [fuEntryH, setFuEntryH] = useState(() => (initialFu && initialAnalyticsTab === "recurring" ? { ...initialFu, n: initialNonce || 1 } : null));
+  useEffect(() => {
+    if (initialAnalyticsTab !== "recurring") return;
+    setFuEntryH(initialFu ? { ...initialFu, n: initialNonce || Date.now() } : null);
+    if (fuReturn) { setFuReturn(null); setFilterStand(null); } // eslint-disable-line no-use-before-define
+  }, [initialNonce]); // eslint-disable-line react-hooks/exhaustive-deps
   // v508: open one report by id ("Open report" in From the stands, record notifications)
   const focusDoneRef = useRef("");
   useEffect(() => {
@@ -16809,6 +17020,26 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
               style={selectMode ? { background: "#1d4ed8", color: "#fff", borderColor: "#1d4ed8" } : {}}
             >{selectMode ? "✕ Cancel" : "☑ Select"}</button>
           )}
+          {/* v568: 🔁 Follow-ups one tap away (from the reports list, Analytics or a drill-down) */}
+          {currentUser && ["inspector", "admin", "global_admin", "location_manager"].includes(currentUser.role) && (
+            <button
+              className={cx("hamburgerBtn", "headerFuBtn", historyTab === "analytics" && analyticsTab === "recurring" && "on")}
+              data-testid="hist-followups"
+              onClick={() => {
+                setShowHistoryMenu(false); setHistoryNotifOpen(false);
+                if (historyTab === "analytics" && analyticsTab === "recurring") { try { window.scrollTo({ top: 0 }); } catch {} return; }
+                if (fuReturn && historyTab === "reports" && fuReturn.sub === "recurring") { backToFollowups(); return; }
+                setHistoryTab("analytics"); setAnalyticsTab("recurring");
+                try { window.scrollTo({ top: 0 }); } catch {}
+              }}
+              type="button"
+              aria-label={`Follow-ups${fuTabOverdue ? ` · ${fuTabOverdue} overdue` : ""}`}
+              title={`Follow-ups${fuTabOverdue ? ` · ${fuTabOverdue} overdue` : ""}`}
+            >
+              <span className="headerFuIcon"><MenuIcon name="repeat" /></span>
+              {fuTabOverdue > 0 && <span className="hamburgerBadge" style={{ background: "#ef4444" }}>{fuTabOverdue > 99 ? "99+" : fuTabOverdue}</span>}
+            </button>
+          )}
           {/* Notification bell for all users */}
           {currentUser && notifItems && (
             <div>
@@ -17164,8 +17395,8 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
           );
         })()}
 
-        {/* Tabs */}
-        {history.length >= 2 && (
+        {/* Tabs — v568: from the first report (a new venue's first problems never reached Follow-ups) */}
+        {history.length >= 1 && (
           <div className="historyTabs">
             <button className={cx("historyTab", historyTab === "reports" && "historyTabActive")} onClick={() => setHistoryTab("reports")} type="button">
               <span className="tabIcon">📋</span>
@@ -17179,7 +17410,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
         )}
 
         {/* Analytics Tab */}
-        {historyTab === "analytics" && history.length >= 2 && (
+        {historyTab === "analytics" && history.length >= 1 && (
           <>
             {/* Analytics sub-tab nav */}
             <div className="analyticsSubNav">
@@ -17209,7 +17440,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
             {analyticsTab === "predictive" && <PredictiveInsightsPanel history={analyticsSrc} venueSettings={venueSettings} />}
             {analyticsWaiting && ReactDOM.createPortal(
               <button type="button" className="fuUpdatePill" data-testid="fu-update-pill" onClick={applyAnalyticsNow}>↻ New reports came in — tap to update the list</button>, document.body)}
-            {analyticsTab === "recurring" && <RecurringIssuesPanel history={analyticsSrc} onLocationClick={filterByLocation} onTagClick={goToRecurringAnalytics} onIssueDrilldown={filterByLocationAndIssue} venueSettings={venueSettings} saveVenueSettings={saveVenueSettings} saveVenueSettingsMap={saveVenueSettingsMap} currentUser={currentUser} onAddRecord={rec => { ownAddRef.current = true; setHistory(prev => [rec, ...prev]); }} />}
+            {analyticsTab === "recurring" && <RecurringIssuesPanel history={analyticsSrc} onLocationClick={filterByLocation} onTagClick={goToRecurringAnalytics} onIssueDrilldown={filterByLocationAndIssue} venueSettings={venueSettings} saveVenueSettings={saveVenueSettings} saveVenueSettingsMap={saveVenueSettingsMap} currentUser={currentUser} onAddRecord={rec => { ownAddRef.current = true; setHistory(prev => [rec, ...prev]); }} entry={fuEntryH} onEntryClear={() => setFuEntryH(null)} />}
             {analyticsTab === "trends" && canSeeTrends && <TrendsPanel history={analyticsSrc} />}
             {analyticsTab === "timeline" && (() => {
               const src = analyticsSrc;
@@ -33816,23 +34047,16 @@ export default function App() {
   // Overdue follow-up count for the menu badge + home banner. Reads the
   // already-warmed history cache (no network); stays live because status and
   // cleared changes arrive through the venueSettings snapshot.
-  const fuOverdueCount = useMemo(() => {
-    if (!currentUser) return 0;
+  // Open follow-up count for the menu tile — same warmed cache + computation, unfiltered (menu redesign, 2026-10-10).
+  // v568: one computation for both numbers (it ran twice per settings update)
+  const fuCounts = useMemo(() => {
+    if (!currentUser) return { overdue: 0, open: 0 };
     try {
-      const cached = readWarmHistory();
-      return computeFollowups(cached, venueSettings).followups.filter(f => f.overdue).length;
-    } catch { return 0; }
+      const list = computeFollowups(readWarmHistory(), venueSettings).followups;
+      return { overdue: list.filter(f => f.overdue).length, open: list.length };
+    } catch { return { overdue: 0, open: 0 }; }
   }, [currentUser, venueSettings?.followupCleared, venueSettings?.followupStatus, venueSettings?.recheckDays, fuHistoryTick]);
-
-  // Open follow-up count for the menu tile — same warmed cache + computation
-  // as the overdue count above, unfiltered (menu redesign, 2026-10-10).
-  const fuOpenCount = useMemo(() => {
-    if (!currentUser) return 0;
-    try {
-      const cached = readWarmHistory();
-      return computeFollowups(cached, venueSettings).followups.length;
-    } catch { return 0; }
-  }, [currentUser, venueSettings?.followupCleared, venueSettings?.followupStatus, venueSettings?.recheckDays, fuHistoryTick]);
+  const fuOverdueCount = fuCounts.overdue, fuOpenCount = fuCounts.open;
 
   // Equipment tab badge: units whose latest read (local caches) is over limit
   const equipAlertCount = useMemo(() => {
@@ -33862,7 +34086,13 @@ export default function App() {
 
   // v556: n = a fresh tap even when History already shows another tab (the same strings did not re-run its effect);
   // already on History → back to the top of Follow-ups on purpose
-  const openFollowups = () => { if (pageNowRef.current === "history") { try { window.scrollTo(0, 0); } catch {} } setHistoryEntry({ tab: "analytics", sub: "recurring", n: Date.now() }); setPage("history"); };
+  // v568: `fu` = where to land — { stand: {site, unit} } | { status: "overdue" } | { key } | { fixedKey } (none = the saved view and place)
+  try { window.__sdxOpenFollowups = (fu) => openFollowups(fu); } catch {} // harness
+  const openFollowups = (fu) => {
+    const target = fu && typeof fu === "object" && !fu.nativeEvent ? fu : null;
+    if (pageNowRef.current === "history" && !target) { try { window.scrollTo(0, 0); } catch {} fuViewForgetPlace(); }
+    setHistoryEntry({ tab: "analytics", sub: "recurring", n: Date.now(), ...(target ? { fu: target } : {}) }); setPage("history");
+  };
 
   // Branded browser tab — title and favicon follow the venue's brand
   useEffect(() => {
@@ -33939,9 +34169,21 @@ export default function App() {
         const remote = snap.data();
         delete remote._updatedAt;
         setVenueSettings(prev => {
-          const merged = { ...prev, ...remote };
+          // v568: a field whose content did not change keeps its old object — a comment write no longer gives every map a
+          // new identity (each one re-ran the follow-up engine, the counts and the open problems on every phone)
+          const merged = { ...prev };
+          let changed = false;
+          for (const [k, v] of Object.entries(remote)) {
+            const old = prev[k];
+            if (old === v) continue;
+            let same = false;
+            if (old && v && typeof old === "object" && typeof v === "object") { try { same = JSON.stringify(old) === JSON.stringify(v); } catch {} }
+            if (same) continue;
+            merged[k] = v; changed = true;
+          }
+          if (!changed) return prev;
           _vs = merged;
-          localStorage.setItem(VENUE_SETTINGS_KEY, JSON.stringify(merged));
+          try { localStorage.setItem(VENUE_SETTINGS_KEY, JSON.stringify(merged)); } catch {}
           return merged;
         });
       },
@@ -34225,7 +34467,7 @@ export default function App() {
       const n = payload?.notification || {};
       const d = payload?.data || {};
       if (!n.title) return;
-      fireNotification(d.key ? `fixed_${d.key}_${d.ts || Date.now()}` : `push_${Date.now()}`, "fixed", n.title, n.body || "", null);
+      fireNotification(d.key ? `fixed_${d.key}_${d.ts || Date.now()}` : `push_${Date.now()}`, "fixed", n.title, n.body || "", d.key ? `fu:${d.key}` : null);
     });
     return () => { try { stop && stop(); } catch {} };
   }, [currentUser, locked]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -34261,7 +34503,7 @@ export default function App() {
       const cat = f?.cat || fuCatOfKey(key) || "problem";
       const unit = f?.unit ? ` #${f.unit}` : "";
       fireNotification(`fixed_${key}_${v.ts}`, "fixed", `✅ Fixed — ${loc}${unit}`,
-        `${cat}${v.how === "already" ? " · was already OK" : v.how === "crew" ? " · cleaned by the crew" : ""}${v.by ? ` · by ${v.by}` : ""}`, null);
+        `${cat}${v.how === "already" ? " · was already OK" : v.how === "crew" ? " · cleaned by the crew" : ""}${v.by ? ` · by ${v.by}` : ""}`, `fu:${key}`);
     }
     try { localStorage.setItem(FIXED_SEEN_KEY, String(Math.max(newest, seenTs))); } catch {}
   }, [currentUser, locked, venueSettings?.followupStatus]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -34721,12 +34963,16 @@ export default function App() {
   const [caBusy, setCaBusy] = useState(null);
   // Open follow-ups for the stand being inspected (by unit #, else by name)
   const [fuIdentF, fuIdentSeenF] = useFuIdentTick(); // v564: recompute when more stands / units are known
+  const openFiltRef = useRef({ base: null, a: "", b: "", list: [] });
   const standOpenProblems = useMemo(() => {
     try {
       const unitN = normUnit(siteNumber); const siteU = (siteName || "").trim().toUpperCase();
       if (!unitN && !siteU) return [];
       let curReportId = ""; try { curReportId = localStorage.getItem(REPORT_ID_KEY) || ""; } catch {}
-      const cached = readWarmHistory().filter(r => r && r.id !== curReportId && r.id !== _openReportId); // v553: not the report being autosaved now
+      // v553: not the report being autosaved now — v568: the same list object while nothing changed (the scan is cached on it)
+      const base = readWarmHistory(); const om = openFiltRef.current;
+      const cached = (om.base === base && om.a === curReportId && om.b === _openReportId) ? om.list
+        : (openFiltRef.current = { base, a: curReportId, b: _openReportId, list: base.filter(r => r && r.id !== curReportId && r.id !== _openReportId) }).list;
       return computeFollowups(cached, venueSettings).followups
         .filter(f => !f.likelyResolved)
         // v564: the SAME stand — name + unit (SHAWARMA #114 never shows MAGIC CITY DOGS #114's problems; a report typed
@@ -36018,6 +36264,7 @@ export default function App() {
     initialAnalyticsTab={historyEntry?.sub}
     initialNonce={historyEntry?.n}
     initialFocusId={historyEntry?.focusId}
+    initialFu={historyEntry?.fu}
   />; }
   if (page === "schedule") { return <SchedulePage onBack={() => setPage("inspector")} currentUser={currentUser} venueSettings={venueSettings} onManage={(currentUser?.role === "admin" || currentUser?.role === "global_admin") ? () => setPage("admin") : null} />; }
   /* Menu redesign (2026-10-10) — the Manage pages are role-guarded HERE, at
@@ -36766,6 +37013,20 @@ export default function App() {
               </svg>
             </button>
           )}
+          {/* v568: Follow-ups one tap from anywhere (it took ☰ → Follow-ups, or History → Analytics → Follow-ups) */}
+          {currentUser && ["inspector", "admin", "global_admin", "location_manager"].includes(currentUser.role) && (
+            <button
+              className={cx("hamburgerBtn", "headerFuBtn", page === "history" && historyEntry?.sub === "recurring" && "on")}
+              data-testid="hdr-followups"
+              onClick={() => { setMenuOpen(false); setNotifOpen(false); openFollowups(); }}
+              type="button"
+              aria-label={`Follow-ups${fuOpenCount ? ` · ${fuOpenCount} open` : ""}${fuOverdueCount ? ` · ${fuOverdueCount} overdue` : ""}`}
+              title={`Follow-ups${fuOpenCount ? ` · ${fuOpenCount} open` : ""}${fuOverdueCount ? ` · ${fuOverdueCount} overdue` : ""}`}
+            >
+              <span className="headerFuIcon"><MenuIcon name="repeat" /></span>
+              {fuOverdueCount > 0 && <span className="hamburgerBadge" style={{ background: "#ef4444" }}>{fuOverdueCount > 99 ? "99+" : fuOverdueCount}</span>}
+            </button>
+          )}
           {currentUser && (
             <button
               ref={notifBellRef}
@@ -36821,6 +37082,9 @@ export default function App() {
                       setNotifOpen(false);
                       if (n.type === "followup") {
                         openFollowups();
+                      } else if (n.type === "fixed") {
+                        // v568: a crew fix opens that job in ✅ Fixed (it opened the Admin page)
+                        openFollowups(n.url && n.url.startsWith("fu:") ? { fixedKey: n.url.slice(3) } : undefined);
                       } else if (n.type === "assignment") {
                         setPage("mylocations");
                       } else if (n.url && n.url.startsWith("record:")) {
@@ -37342,8 +37606,8 @@ export default function App() {
           <span style={{ flex: 1, fontWeight: 700, fontSize: "0.92rem", color: "#4338ca" }}>
             {fuOverdueCount} follow-up{fuOverdueCount !== 1 ? "s" : ""} overdue for recheck
           </span>
-          <button type="button" onClick={openFollowups}
-            style={{ background: "#6366f1", color: "#fff", border: "none", borderRadius: 6, padding: "0.3rem 0.85rem", fontWeight: 600, fontSize: "0.82rem", cursor: "pointer", whiteSpace: "nowrap" }}>
+          <button type="button" data-testid="fu-overdue-review" onClick={() => openFollowups({ status: "overdue" })}
+            style={{ background: "#6366f1", color: "#fff", border: "none", borderRadius: 6, padding: "0.3rem 0.85rem", fontWeight: 600, fontSize: "0.82rem", cursor: "pointer", whiteSpace: "nowrap", minHeight: 40 }}>
             Review →
           </button>
         </div>
@@ -37653,7 +37917,7 @@ export default function App() {
               <div className="fuPeek" data-testid="fu-peek">
                 {standOpenProblems.length > 0 ? (
                   <>
-                    <button type="button" className="fuPeekHead" data-testid="fu-peek-head" onClick={openFollowups} title="Open these in Follow-ups">
+                    <button type="button" className="fuPeekHead" data-testid="fu-peek-head" onClick={() => openFollowups({ stand: { site: siteName, unit: siteNumber } })} title="Open this stand's follow-ups">
                       <span>📌 From the last inspection — still open ({standOpenProblems.length})</span>
                       <span className="fuPeekGo">Follow-ups →</span>
                     </button>

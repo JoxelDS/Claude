@@ -10811,3 +10811,24 @@ html[data-theme="black"] .eqpPillOpen { color: #DDE3FF; background: #2A2A55; }
 .fuNoteToast.fuNoteBad { background: #fef2f2; color: #991b1b; border-color: #f87171; }
 [data-theme="black"] .fuNoteToast, [data-theme="dark"] .fuNoteToast, [data-theme="noir"] .fuNoteToast { background: #064e3b; color: #d1fae5; border-color: #10b981; }
 [data-theme="black"] .fuNoteToast.fuNoteBad, [data-theme="dark"] .fuNoteToast.fuNoteBad, [data-theme="noir"] .fuNoteToast.fuNoteBad { background: #450a0a; color: #fecaca; border-color: #f87171; }
+
+/* v568: 🔁 Follow-ups in the header — one tap from anywhere */
+.headerFuBtn { color: #fff; }
+.headerFuIcon { display: block; width: 20px; height: 20px; color: #fff; }
+.headerFuIcon svg { width: 20px; height: 20px; display: block; }
+.headerFuBtn.on { background: rgba(255, 255, 255, 0.16); }
+
+/* v568: status chips are filters; the "where you came from" bar */
+.fuStatusChip { cursor: pointer; font: inherit; min-height: 34px; }
+.fuStatusChip.on { outline: 2px solid currentColor; outline-offset: 1px; font-weight: 800; }
+.fuEntryBar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 8px 0 10px; padding: 10px 12px; border-radius: 12px; background: var(--tint-blue-1, #eff6ff); border: 1px solid var(--tint-blue-2, #bfdbfe); color: var(--ink-900); font-size: 0.86rem; }
+.fuEntryTxt { flex: 1 1 200px; }
+.fuEntryX { min-height: 40px; padding: 0 14px; border-radius: 10px; border: 1px solid var(--tint-blue-2, #bfdbfe); background: var(--surface-1); color: var(--ink-900); font-weight: 700; cursor: pointer; }
+.fuNoMatch { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 0.85rem; color: var(--ink-500); padding: 12px 4px; }
+html[data-theme="black"] .fuEntryBar { background: #10182c; border-color: #2b3a5e; color: #e5e7eb; }
+html[data-theme="black"] .fuEntryX { background: #0b1020; color: #e5e7eb; border-color: #2b3a5e; }
+/* v568: add the AFTER picture to a fixed job */
+.fuFixedActs { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.fuFixedAddAfter { display: inline-flex; align-items: center; min-height: 40px; padding: 0 12px; border-radius: 10px; border: 1px solid #86efac; background: #f0fdf4; color: #166534; font-weight: 700; cursor: pointer; }
+.fuFixedAddAfter.busy { opacity: 0.7; }
+html[data-theme="black"] .fuFixedAddAfter { background: #0f2a1a; border-color: #166534; color: #bbf7d0; }
