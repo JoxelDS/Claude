@@ -12729,6 +12729,7 @@ const _fuEntryTaken = new Set();   // nonces HistoryPage has turned into its tar
 function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDrilldown, venueSettings: venueSettingsRaw, saveVenueSettings, saveVenueSettingsMap, currentUser, onAddRecord, entry, onEntryClear, deepLoading }) {
   useScrollAnchor();
   fuViewLoadOnce();
+  const deepLoadingRef = useRef(!!deepLoading); deepLoadingRef.current = !!deepLoading;
   // Locally cleared follow-ups — instant feedback independent of settings sync
   const FU_CLEARED_KEY = `sdx_fu_cleared_${VENUE_ID}`;
   // v440: the panel unmounts whenever the Analytics tab changes, which used to
@@ -13290,13 +13291,20 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
     const p = FU_VIEW.place;
     if (FU_VIEW.skipRestore) { FU_VIEW.skipRestore = false; return; } // ← Back to Follow-ups lands on its own card
     if (!p || !p.key || entryAtMountRef.current || (typeof window !== "undefined" && window.__sdxNoFuViewRestore)) return;
-    let stop = false, raf = 0; const t0 = Date.now();
+    // v568 review: wait for every report first — restored below 160 px, the full list waited behind the "New reports"
+    // pill (v553) and the list stayed built from the first page. At the top it applies at once; then the card is pinned.
+    let stop = false, raf = 0; let t0 = 0; const tWait = Date.now();
     const cancel = () => { stop = true; };
     const evs = ["touchstart", "wheel", "keydown", "mousedown"];
     evs.forEach(e => window.addEventListener(e, cancel, { passive: true }));
     const cands = [{ key: p.key, off: p.off }, ...(Array.isArray(p.more) ? p.more : [])];
     const tick = () => {
-      if (stop || Date.now() - t0 > 5000) return;
+      if (stop) return;
+      if (!t0) {
+        if (deepLoadingRef.current && Date.now() - tWait < 12000) { raf = requestAnimationFrame(tick); return; }
+        t0 = Date.now();
+      }
+      if (Date.now() - t0 > 5000) return;
       let el = null, off = 0;
       for (const c of cands) { try { el = document.querySelector(`.fuList [data-anchor="${CSS.escape(c.key)}"]`); } catch { el = null; } if (el) { off = c.off; break; } }
       if (el) { const d = el.getBoundingClientRect().top - off; if (Math.abs(d) > 2) { skipScrollAnchor(250); window.scrollBy(0, d); } }
@@ -15149,6 +15157,7 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
   useEffect(() => { if (!exportNote) return; const t = setTimeout(() => setExportNote(""), 9000); return () => clearTimeout(t); }, [exportNote]);
   const [analyticsHistory, setAnalyticsHistory] = useState([]);
   const [deepLoading, setDeepLoading] = useState(false);
+  const [deepDone, setDeepDone] = useState(false); // v568 review: the full report list for Analytics was read (or failed) this visit
   function mergeHistory(prev, incoming) {
     const byId = new Map();
     (prev || []).forEach(r => { if (r && r.id) byId.set(r.id, r); });
@@ -15404,7 +15413,7 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
         return list || [];
       })
       .catch(() => [])
-      .finally(() => setDeepLoading(false));
+      .finally(() => { setDeepLoading(false); if (into === "analytics") setDeepDone(true); });
   }
   // Analytics reads every report, once per visit (loadHistory serves full
   // loads from a 60s cache, so re-entering the tab is free).
@@ -15638,13 +15647,10 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
   const [analyticsSrc, setAnalyticsSrc] = useState(liveAnalyticsSrc);
   const [analyticsWaiting, setAnalyticsWaiting] = useState(false);
   const liveAnalyticsRef = useRef(liveAnalyticsSrc); liveAnalyticsRef.current = liveAnalyticsSrc;
-  const deepSeenRef = useRef(false); // v568 review: the full list's first arrival this visit is never held back
   useEffect(() => {
     if (liveAnalyticsSrc === analyticsSrc) return;
     const own = ownAddRef.current; ownAddRef.current = false;
-    const firstDeep = analyticsHistory.length > 0 && !deepSeenRef.current;
-    if (firstDeep) deepSeenRef.current = true;
-    const reading = !firstDeep && historyTab === "analytics" && window.scrollY > 160 && analyticsSrc.length > 0 && !anyHistoryFilter;
+    const reading = historyTab === "analytics" && window.scrollY > 160 && analyticsSrc.length > 0 && !anyHistoryFilter;
     if (reading && !own && listSig(liveAnalyticsSrc) !== listSig(analyticsSrc)) setAnalyticsWaiting(true);
     else { setAnalyticsSrc(liveAnalyticsSrc); setAnalyticsWaiting(false); }
   }, [liveAnalyticsSrc]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -17508,7 +17514,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
             {analyticsTab === "predictive" && <PredictiveInsightsPanel history={analyticsSrc} venueSettings={venueSettings} />}
             {analyticsWaiting && ReactDOM.createPortal(
               <button type="button" className="fuUpdatePill" data-testid="fu-update-pill" onClick={applyAnalyticsNow}>↻ New reports came in — tap to update the list</button>, document.body)}
-            {analyticsTab === "recurring" && <RecurringIssuesPanel history={analyticsSrc} onLocationClick={filterByLocation} onTagClick={goToRecurringAnalytics} onIssueDrilldown={filterByLocationAndIssue} venueSettings={venueSettings} saveVenueSettings={saveVenueSettings} saveVenueSettingsMap={saveVenueSettingsMap} currentUser={currentUser} onAddRecord={rec => { ownAddRef.current = true; setHistory(prev => [rec, ...prev]); }} entry={fuEntryH} onEntryClear={() => setFuEntryH(null)} deepLoading={deepLoading && !analyticsHistory.length} />}
+            {analyticsTab === "recurring" && <RecurringIssuesPanel history={analyticsSrc} onLocationClick={filterByLocation} onTagClick={goToRecurringAnalytics} onIssueDrilldown={filterByLocationAndIssue} venueSettings={venueSettings} saveVenueSettings={saveVenueSettings} saveVenueSettingsMap={saveVenueSettingsMap} currentUser={currentUser} onAddRecord={rec => { ownAddRef.current = true; setHistory(prev => [rec, ...prev]); }} entry={fuEntryH} onEntryClear={() => setFuEntryH(null)} deepLoading={!deepDone && !analyticsHistory.length} />}
             {analyticsTab === "trends" && canSeeTrends && <TrendsPanel history={analyticsSrc} />}
             {analyticsTab === "timeline" && (() => {
               const src = analyticsSrc;
