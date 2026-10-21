@@ -13269,6 +13269,7 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
   // list lands, until the person touches or scrolls (or 5 s)
   useEffect(() => {
     const p = FU_VIEW.place;
+    if (FU_VIEW.skipRestore) { FU_VIEW.skipRestore = false; return; } // ← Back to Follow-ups lands on its own card
     if (!p || !p.key || entryAtMountRef.current || (typeof window !== "undefined" && window.__sdxNoFuViewRestore)) return;
     let stop = false, raf = 0; const t0 = Date.now();
     const cancel = () => { stop = true; };
@@ -15658,6 +15659,7 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
   function backToFollowups() {
     const r = fuReturn; setFuReturn(null);
     if (!r) return;
+    FU_VIEW.skipRestore = true; // v568: this return puts the tapped card back itself — the kept-place restore stays out
     setFilterStand(null); // v564
     if (filterSite === r.site) setFilterSite("");
     if (r.issue && filterIssue === r.issue) setFilterIssue("");
