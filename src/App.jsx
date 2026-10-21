@@ -12713,6 +12713,7 @@ function fuViewLoadOnce() {
   try {
     const o = JSON.parse(localStorage.getItem(fuViewKey()) || "null");
     if (o && Date.now() - (Number(o.at) || 0) < FU_VIEW_TTL) for (const k of ["groupBy", "open", "showN", "place"]) if (o[k] !== undefined && FU_VIEW[k] === undefined) FU_VIEW[k] = o[k];
+    if (FU_VIEW.showN > 120) FU_VIEW.showN = 120;
   } catch {}
 }
 let _fuViewSaveT = 0;
@@ -12725,7 +12726,7 @@ function fuViewForgetPlace() { FU_VIEW.place = null; fuViewPersist(); }
 // unlock) must not apply it again (it wiped the filters, re-opened ✅ Fixed, brought a dismissed stand filter back)
 const _fuEntryApplied = new Set(); // nonces the panel has applied (filters cleared, Fixed opened)
 const _fuEntryTaken = new Set();   // nonces HistoryPage has turned into its target layer
-function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDrilldown, venueSettings: venueSettingsRaw, saveVenueSettings, saveVenueSettingsMap, currentUser, onAddRecord, entry, onEntryClear }) {
+function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDrilldown, venueSettings: venueSettingsRaw, saveVenueSettings, saveVenueSettingsMap, currentUser, onAddRecord, entry, onEntryClear, deepLoading }) {
   useScrollAnchor();
   fuViewLoadOnce();
   // Locally cleared follow-ups — instant feedback independent of settings sync
@@ -12746,6 +12747,7 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
   const [undoRes, setUndoRes] = useState(null); // { key, prevStamp, ts } | { mode:"reopen", items, ts, label }
   const [reopenAsk, setReopenAsk] = useState(null); // v455 — { keys:[…], label } awaiting "Yes, put back"
   const [showFixed, setShowFixed] = useState(false); // v434 — "everything fixed" view
+  const [fuFixedTarget, setFuFixedTarget] = useState(""); // v568 review: the job a Fixed alert opened
   const [showClean, setShowClean] = useState(false);     // v437 — cleaning log
   const [cleanBillOnly, setCleanBillOnly] = useState(false);
   const [cleanRange, setCleanRange] = useState("today"); // today | 7d | all
@@ -13231,17 +13233,19 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
   useEffect(() => {
     if (!entry || !entry.n || _fuEntryApplied.has(entry.n)) return;
     _fuEntryApplied.add(entry.n);
-    // a target never hides behind an old search or filter
+    // a target never hides behind an old search or filter — they come back with ✕ Show all (a temporary layer)
+    if (!entry.fixedKey && (fuSearch || fuTypePick || fuFloorPick || fuDatePick || fuStatusPick)) entrySavedRef.current = { fuSearch, fuTypePick, fuFloorPick, fuDatePick, fuStatusPick };
     setFuSearch(""); setFuTypePick(""); setFuFloorPick(""); setFuDatePick(""); setFuStatusPick("");
     if (entry.fixedKey) {
       // a crew's fix: open ✅ Fixed on that job (once — then the target is done)
-      setFuEntry(null); setShowFixed(true); setShowClean(false);
+      setFuEntry(null); setShowFixed(true); setShowClean(false); setFuFixedTarget(entry.fixedKey);
       try { onEntryClear && onEntryClear(); } catch {}
       let tries = 0;
       const find = () => {
         const el = document.querySelector(`[data-anchor="fx:${CSS.escape(entry.fixedKey)}"]`);
         if (el) { skipScrollAnchor(1200); el.scrollIntoView({ block: "center" }); el.classList.add("guideFindFlash"); setTimeout(() => el.classList.remove("guideFindFlash"), 2400); return; }
         if (++tries < 40) setTimeout(find, 100);
+        else flashFu("That fixed job is no longer in the ✅ Fixed list (it may have been flagged again)", 6000);
       };
       setTimeout(find, 60);
       return;
@@ -13249,7 +13253,12 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
     setFuEntry(entry);
     skipScrollAnchor(900); try { window.scrollTo({ top: 0 }); } catch {}
   }, [entry]); // eslint-disable-line react-hooks/exhaustive-deps
-  const clearEntry = () => { setFuEntry(null); try { onEntryClear && onEntryClear(); } catch {} };
+  const entrySavedRef = useRef(null);
+  const clearEntry = () => {
+    setFuEntry(null); try { onEntryClear && onEntryClear(); } catch {}
+    const sv = entrySavedRef.current; entrySavedRef.current = null;
+    if (sv) { setFuSearch(sv.fuSearch); setFuTypePick(sv.fuTypePick); setFuFloorPick(sv.fuFloorPick); setFuDatePick(sv.fuDatePick); setFuStatusPick(sv.fuStatusPick); }
+  };
   useEffect(() => { Object.assign(FU_VIEW, { open: fuOpen, showN: fuShowN, groupBy: fuGroupBy, typePick: fuTypePick, floorPick: fuFloorPick, datePick: fuDatePick, search: fuSearch, statusPick: fuStatusPick }); fuViewPersist(); }, [fuOpen, fuShowN, fuGroupBy, fuTypePick, fuFloorPick, fuDatePick, fuSearch, fuStatusPick]); // v556 (v568: kept across visits)
   // v568: the place in the list — the first card (or group line) on screen and how far from the top it sits. Only a
   // scroll the person makes counts (a page change jumps to the top on purpose; that must not wipe the place).
@@ -13261,11 +13270,13 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
       const y = window.scrollY, jump = Math.abs(y - lastY); lastY = y;
       if (jump > 1200 || Date.now() - userAt > 4000) return;
       if (y < 120) { if (FU_VIEW.place) { FU_VIEW.place = null; fuViewPersist(); } return; }
-      const top = 64;
+      const top = 64, keys = [];
       for (const el of document.querySelectorAll(".fuList [data-anchor]")) {
         const r = el.getBoundingClientRect();
-        if (r.bottom > top + 12) { FU_VIEW.place = { key: el.getAttribute("data-anchor"), off: Math.round(r.top) }; fuViewPersist(); break; }
+        if (r.bottom > top + 12) { keys.push({ key: el.getAttribute("data-anchor"), off: Math.round(r.top) }); if (keys.length >= 6) break; }
       }
+      // v568 review: the first few things on screen — the one at the top may be resolved before the next visit
+      if (keys.length) { FU_VIEW.place = { key: keys[0].key, off: keys[0].off, more: keys.slice(1) }; fuViewPersist(); }
     };
     const on = () => { if (!raf) raf = requestAnimationFrame(save); };
     const evs = ["touchstart", "touchmove", "wheel", "keydown", "mousedown"]; // mousedown: dragging the scrollbar on a computer
@@ -13283,10 +13294,12 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
     const cancel = () => { stop = true; };
     const evs = ["touchstart", "wheel", "keydown", "mousedown"];
     evs.forEach(e => window.addEventListener(e, cancel, { passive: true }));
+    const cands = [{ key: p.key, off: p.off }, ...(Array.isArray(p.more) ? p.more : [])];
     const tick = () => {
       if (stop || Date.now() - t0 > 5000) return;
-      let el = null; try { el = document.querySelector(`.fuList [data-anchor="${CSS.escape(p.key)}"]`); } catch {}
-      if (el) { const d = el.getBoundingClientRect().top - p.off; if (Math.abs(d) > 2) { skipScrollAnchor(250); window.scrollBy(0, d); } }
+      let el = null, off = 0;
+      for (const c of cands) { try { el = document.querySelector(`.fuList [data-anchor="${CSS.escape(c.key)}"]`); } catch { el = null; } if (el) { off = c.off; break; } }
+      if (el) { const d = el.getBoundingClientRect().top - off; if (Math.abs(d) > 2) { skipScrollAnchor(250); window.scrollBy(0, d); } }
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
@@ -13793,16 +13806,24 @@ ${sections}
     if (qUnit && normUnit(f.unit).includes(qUnit)) return true;
     return [f.loc, f.cat, f.detail, f.notes, f.floor, f.itype].some(v => (v || "").toLowerCase().includes(q));
   };
-  const fuFilterGroups = groups => (!fuSearch.trim() && !fuDatePick && !fuTypePick && !fuFloorPick && !fuStatusPick && !fuEntry) ? groups
+  // v568: every grouping (By Venue / Problem / Type / Floor / Date) is recounted from the cards SHOWN — the group badge,
+  // its chips, 🔔 Remind Team and ✓ Resolve all act on exactly what is on the screen (review: Remind Team posted 59
+  // problems at 20 stands while one stand was shown)
+  const fuFilterGroups = groups => (!fuSearch.trim() && !fuDatePick && !fuTypePick && !fuFloorPick && !fuStatusPick && !fuEntry && !Object.keys(fuHideNow).length) ? groups
     : groups.map(g => {
         const items = g.items.filter(fuItemOk); // v568: Type / Floor / Status work in By Venue and By Problem too
         if (!items.length) return null;
-        const rec = { ...g, items, overdueCount: 0, dueSoonCount: 0, resolvedCount: 0 };
+        const rec = { ...g, items, overdueCount: 0, dueSoonCount: 0, resolvedCount: 0, minDue: Infinity };
+        const stands = new Set(), venues = new Set();
         for (const f of items) {
+          stands.add(`${f.loc}#${f.unit || ""}`); venues.add(f.locKey || f.loc);
           if (f.overdue) rec.overdueCount++;
           else if (f.likelyResolved) rec.resolvedCount++;
-          else rec.dueSoonCount++;
+          else { rec.dueSoonCount++; rec.minDue = Math.min(rec.minDue, Math.max(0, (analysis.recheckDays || 7) - f.daysSince)); }
         }
+        if (g.standCount !== undefined) rec.standCount = stands.size;
+        if (g.venueCount !== undefined) rec.venueCount = venues.size;
+        if (!Number.isFinite(rec.minDue)) rec.minDue = g.minDue;
         return rec;
       }).filter(Boolean);
 
@@ -13852,7 +13873,8 @@ ${sections}
       return ch ? n : h;
     });
   }, [analysis]);
-  if (!analysis || (analysis.recurring.length === 0 && Object.keys(analysis.locationRecurring).length === 0 && analysis.worstLocations.length === 0 && (analysis.followups || []).length === 0)) {
+  if (!analysis) return null; // the list is still arriving (an empty card here flashed on every open)
+  if (analysis.recurring.length === 0 && Object.keys(analysis.locationRecurring).length === 0 && analysis.worstLocations.length === 0 && (analysis.followups || []).length === 0 && fixedAll.length === 0) { // v568 review: fixed jobs (a Fixed alert lands there) keep the panel
     // v568: say so instead of an empty screen
     return <div className="card fuEmptyCard" data-testid="fu-empty"><div className="cardTitle">🔁 Follow-ups</div><p>Nothing to follow up right now. Every problem flagged in a report — and every problem a stand reports — shows up here until it is fixed.</p></div>;
   }
@@ -13895,7 +13917,9 @@ ${sections}
   // v453 — the ✅ Fixed list, grouped by the day the crew closed it.
   const fixedDays = (() => {
     const m = {};
-    fixedList.slice(0, 80).forEach(f => {
+    const base = fixedList.slice(0, 80);
+    if (fuFixedTarget && !base.some(f => f.key === fuFixedTarget)) { const t = fixedList.find(f => f.key === fuFixedTarget) || fixedList.find(f => fuBaseKey(f.key) === fuBaseKey(fuFixedTarget)); if (t) base.push(t); }
+    base.forEach(f => {
       const d = new Date(f.fixedTs); d.setHours(0, 0, 0, 0);
       const k = d.toISOString().slice(0, 10);
       (m[k] = m[k] || { key: k, rows: [], people: new Set() });
@@ -14008,7 +14032,8 @@ ${sections}
     if (e.key) return fuMembers(f).some(m => m.key === e.key || fuBaseKey(m.key) === fuBaseKey(e.key));
     if (e.stand) {
       const unitN = normUnit(e.stand.unit || ""), siteU = String(e.stand.site || "").trim().toUpperCase();
-      if (!(unitN && siteU)) return unitN ? normUnit(f.unit) === unitN : (f.loc || "").toUpperCase() === siteU;
+      if (!(unitN && siteU)) return !f.likelyResolved && (unitN ? normUnit(f.unit) === unitN : (f.loc || "").toUpperCase() === siteU);
+      if (f.likelyResolved) return false; // the same as the form's "still open" count
       const mine = fuStandKey(e.stand.site, e.stand.unit), theirs = fuStandKey(f.loc, f.unit);
       return theirs === mine || (theirs.split("|")[0] === mine.split("|")[0] && fuUnclaimedKey(theirs));
     }
@@ -14539,14 +14564,14 @@ ${sections}
             <div className="fuList">
               {(fuSearch.trim() || fuDatePick || fuStatusPick || fuEntry || fuTypePick || fuFloorPick) && fuVisible.length === 0 && (
                 <div className="fuNoMatch" data-testid="fu-no-match">
-                  <span>{fuSearch.trim() ? `No follow-ups match “${fuSearch.trim()}”.` : fuDatePick ? `No follow-ups for ${fuDateLabel.toLowerCase()}.` : fuEntry?.stand ? "Nothing open at this stand." : "Nothing matches these filters."}</span>
+                  <span>{deepLoading ? "Loading every report…" : fuSearch.trim() ? `No follow-ups match “${fuSearch.trim()}”.` : fuDatePick ? `No follow-ups for ${fuDateLabel.toLowerCase()}.` : fuEntry?.stand ? "Nothing open at this stand." : "Nothing matches these filters."}</span>
                   <button type="button" className="fuBtn" data-testid="fu-clear-filters" onClick={() => { skipScrollAnchor(600); setFuSearch(""); setFuDatePick(""); setFuStatusPick(""); setFuTypePick(""); setFuFloorPick(""); clearEntry(); }}>Clear the filters</button>
                 </div>
               )}
               {(() => { const __fuNatural = (fuGroupBy === "cat" ? fuCatGroupsShown
-                : fuGroupBy === "type" ? fuTypeGroups.filter(g => (!fuTypePick || g.type === fuTypePick) && g.items.some(fuItemOk))
-                : fuGroupBy === "floor" ? fuFloorGroups.filter(g => (!fuFloorPick || g.floor === fuFloorPick) && g.items.some(fuItemOk))
-                : fuGroupBy === "date" ? fuDateGroups.filter(g => g.items.some(fuItemOk))
+                : fuGroupBy === "type" ? fuFilterGroups(fuTypeGroups).filter(g => !fuTypePick || g.type === fuTypePick)
+                : fuGroupBy === "floor" ? fuFilterGroups(fuFloorGroups).filter(g => !fuFloorPick || g.floor === fuFloorPick)
+                : fuGroupBy === "date" ? fuFilterGroups(fuDateGroups)
                 : fuGroupsShown);
                 const __gKeyOf = g => `${fuGroupBy}::${fuGroupBy === "cat" ? g.cat : fuGroupBy === "type" ? g.type : fuGroupBy === "floor" ? g.floor : fuGroupBy === "date" ? g.type : (g.locKey || g.loc)}`;
                 const __fz = fuFreezeRef.current, __sig = [fuGroupBy, fuSearch.trim(), fuTypePick, fuFloorPick, fuDatePick, fuStatusPick, fuEntry ? (fuEntry.n || "e") : ""].join("|"); // v568 review: the status filter / target too
@@ -14554,9 +14579,10 @@ ${sections}
                 const __f = fuFreezeRef.current;
                 for (const g of __fuNatural) { const k = __gKeyOf(g); if (__f.rank[k] === undefined) { __f.rank[k] = __f.n++; __f.open[k] = g.overdueCount > 0; } }
                 const __fuAll = fuGroupBy === "date" ? __fuNatural : [...__fuNatural].sort((a, b) => __f.rank[__gKeyOf(a)] - __f.rank[__gKeyOf(b)]);
+                const __lim = {}; // v568 review: a group cut at the card budget (the rest come with "Show more")
                 const __renderFuGroup = (g => {
                 const gKey = __gKeyOf(g);
-                const isOpen = (fuSearch.trim() || fuEntry) ? true : (fuOpen[gKey] !== undefined ? fuOpen[gKey] : (__f.open[gKey] ?? g.overdueCount > 0)); // v568: a target's group is open
+                const isOpen = (fuSearch.trim() || fuEntry || fuStatusPick) ? true : (fuOpen[gKey] !== undefined ? fuOpen[gKey] : (__f.open[gKey] ?? g.overdueCount > 0)); // v568: a search / target / status pick opens what it leaves
                 const openItems = g.items.filter(f => !f.likelyResolved);
                 return (
                   <div key={gKey} className={`fuGroup ${g.overdueCount > 0 ? "fuGroupOverdue" : g.dueSoonCount > 0 ? "fuGroupWatching" : "fuGroupResolved"}`}>
@@ -14594,7 +14620,7 @@ ${sections}
                     </div>
                     {isOpen && (
                       <div className="fuGroupBody">
-                        {g.items.filter(fuItemOk).map(f => (
+                        {(__lim[gKey] != null ? g.items.filter(fuItemOk).slice(0, __lim[gKey]) : g.items.filter(fuItemOk)).map(f => (
                           <div key={f.key} data-anchor={f.key} className={`fuItem ${f.overdue ? "fuOverdue" : f.likelyResolved ? "fuResolved" : "fuWatching"}`}>
                             {fuSelectMode && selBox(f)}
                             <div className="fuStatus">
@@ -14787,15 +14813,19 @@ ${sections}
               });
                 // v568: paged by CARDS, not groups — 30 open groups put 164 cards on the screen at once (the lag on open).
                 // An open group always shows all its cards; a closed one costs one line.
-                let __cost = 0, __nShow = 0;
+                let __cost = 0, __nShow = 0, __leftCards = 0, __cut = false;
                 for (const g of __fuAll) {
-                  if (__nShow > 0 && __cost >= fuShowN) break;
                   const k = __gKeyOf(g);
-                  const op = (fuSearch.trim() || fuEntry) ? true : (fuOpen[k] !== undefined ? fuOpen[k] : (__f.open[k] ?? g.overdueCount > 0));
-                  __cost += 1 + (op ? g.items.filter(fuItemOk).length : 0); __nShow++;
+                  const op = (fuSearch.trim() || fuEntry || fuStatusPick) ? true : (fuOpen[k] !== undefined ? fuOpen[k] : (__f.open[k] ?? g.overdueCount > 0));
+                  const vis = op ? g.items.filter(fuItemOk).length : 0;
+                  if (__cut || (__nShow > 0 && __cost >= fuShowN)) { __cut = true; __leftCards += 1 + vis; continue; }
+                  __nShow++;
+                  const room = Math.max(8, fuShowN - __cost - 1);
+                  if (vis > room) { __lim[k] = room; __leftCards += vis - room; __cost = fuShowN; __cut = true; continue; }
+                  __cost += 1 + vis;
                 }
-                const __left = __fuAll.length - __nShow;
-                return (<>{__fuAll.slice(0, __nShow).map(__renderFuGroup)}{__left > 0 && <ShowMoreSentinel left={__left} label={`Show more · ${__left} group${__left !== 1 ? "s" : ""} left`} onMore={fuShowMore} />}</>); })()}
+                const __leftGroups = __fuAll.length - __nShow;
+                return (<>{__fuAll.slice(0, __nShow).map(__renderFuGroup)}{__leftCards > 0 && <ShowMoreSentinel left={__leftCards} label={`Show more · ${__leftGroups > 0 ? `${__leftGroups} more group${__leftGroups !== 1 ? "s" : ""}` : `${__leftCards} more card${__leftCards !== 1 ? "s" : ""}`}`} onMore={fuShowMore} />}</>); })()}
             </div>
             <div style={{ fontSize: "0.68rem", color: "var(--sdx-gray-400)", marginTop: 6 }}>
               “Remind” collects the items you tap — hit “Send one reminder” and they all go out as one Quick Check announcement. “Remind Team” does the same for a whole stand. Resolved items reappear automatically if the issue shows up again.
@@ -15087,7 +15117,11 @@ function ImportReviewModal({ fields: initialFields, imagePreview, saving, onSave
 
 /* ── History Page Component ──────────────────────────────── */
 function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, currentUser, notifItems, onNotifDismiss, onNotifClearAll, onMyTasks, venueSettings, saveVenueSettings, saveVenueSettingsMap, initialTab, initialAnalyticsTab, initialFocusId, initialNonce, initialFu }) {
-  useState(() => { fuViewLoadOnce(); return 0; }); // v568: the Follow-ups view is KEPT between visits (v556 reset it here — "I lose my place")
+  useState(() => { // v568: grouping, open groups and the place are KEPT between visits (v556 reset everything here — "I lose my place");
+    fuViewLoadOnce(); // search, filters and the status pick are for one visit (an old search never sticks)
+    for (const k of ["search", "statusPick", "typePick", "floorPick", "datePick"]) delete FU_VIEW[k];
+    return 0;
+  });
   // Returns true if the current user is allowed to edit the given record.
   // Allowed: the original author (matched by badgeHash), any admin, or global_admin.
   // v553: a report the inspector is still writing (autosaved in the last 3 h) is not edited or resolved from
@@ -15185,7 +15219,7 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
     setHistoryTab("reports"); setExpandedId(initialFocusId);
     setTimeout(() => { try { skipScrollAnchor(1200); document.querySelector(`[data-rec="${CSS.escape(initialFocusId)}"]`)?.scrollIntoView({ behavior: "smooth", block: "start" }); } catch {} }, 250);
   }, [initialFocusId, history]); // eslint-disable-line react-hooks/exhaustive-deps
-  const fuTabOverdue = useMemo(() => { try { return computeFollowups(history, venueSettings).followups.filter(f => f.overdue && !f.likelyResolved).length; } catch { return 0; } }, [history, venueSettings?.followupCleared, venueSettings?.followupStatus, venueSettings?.recheckDays]);
+  const fuTabOverdue = useMemo(() => { try { return mergeFollowupsByUnit(computeFollowups(history, venueSettings).followups).filter(f => f.overdue && !f.likelyResolved).length; } catch { return 0; } }, [history, venueSettings?.followupCleared, venueSettings?.followupStatus, venueSettings?.recheckDays]);
   const [selectMode, setSelectMode] = useState(false);
   useEffect(() => { if (historyTab === "analytics") setSelectMode(false); }, [historyTab]); // v511: report Select only on the Reports tab
   const [selectedIds, setSelectedIds] = useState(new Set());
@@ -15604,10 +15638,13 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
   const [analyticsSrc, setAnalyticsSrc] = useState(liveAnalyticsSrc);
   const [analyticsWaiting, setAnalyticsWaiting] = useState(false);
   const liveAnalyticsRef = useRef(liveAnalyticsSrc); liveAnalyticsRef.current = liveAnalyticsSrc;
+  const deepSeenRef = useRef(false); // v568 review: the full list's first arrival this visit is never held back
   useEffect(() => {
     if (liveAnalyticsSrc === analyticsSrc) return;
     const own = ownAddRef.current; ownAddRef.current = false;
-    const reading = historyTab === "analytics" && window.scrollY > 160 && analyticsSrc.length > 0 && !anyHistoryFilter;
+    const firstDeep = analyticsHistory.length > 0 && !deepSeenRef.current;
+    if (firstDeep) deepSeenRef.current = true;
+    const reading = !firstDeep && historyTab === "analytics" && window.scrollY > 160 && analyticsSrc.length > 0 && !anyHistoryFilter;
     if (reading && !own && listSig(liveAnalyticsSrc) !== listSig(analyticsSrc)) setAnalyticsWaiting(true);
     else { setAnalyticsSrc(liveAnalyticsSrc); setAnalyticsWaiting(false); }
   }, [liveAnalyticsSrc]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -17042,7 +17079,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
               data-testid="hist-followups"
               onClick={() => {
                 setShowHistoryMenu(false); setHistoryNotifOpen(false);
-                if (historyTab === "analytics" && analyticsTab === "recurring") { try { window.scrollTo({ top: 0 }); } catch {} return; }
+                if (historyTab === "analytics" && analyticsTab === "recurring") { try { window.scrollTo({ top: 0 }); } catch {} fuViewForgetPlace(); return; }
                 if (fuReturn && historyTab === "reports" && fuReturn.sub === "recurring") { backToFollowups(); return; }
                 setHistoryTab("analytics"); setAnalyticsTab("recurring");
                 try { window.scrollTo({ top: 0 }); } catch {}
@@ -17088,7 +17125,16 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
                     notifItems.map(n => (
                       <div key={n.id} style={{ display: "flex", alignItems: "stretch", borderLeft: `4px solid ${n.type === "chat" ? "#3b82f6" : n.type === "problem_report" ? "#ef4444" : "#f59e0b"}`, borderBottom: "1px solid #f1f5f9", background: "var(--surface-1)" }}>
                         <button type="button" style={{ flex: 1, flexDirection: "column", alignItems: "flex-start", gap: 3, background: "none", border: "none", cursor: "pointer", padding: "0.65rem 0.75rem", textAlign: "left" }}
-                          onClick={() => { onNotifDismiss?.(n.id); setHistoryNotifOpen(false); if (n.type === "assignment") onMyTasks?.(); }}>
+                          onClick={() => {
+                            onNotifDismiss?.(n.id); setHistoryNotifOpen(false);
+                            if (n.type === "assignment") onMyTasks?.();
+                            // v568 review: a crew's ✅ Fixed (and a follow-up alert) open Follow-ups here too — it only dismissed
+                            else if (n.type === "fixed" || n.type === "followup") {
+                              if (fuReturn) { setFuReturn(null); setFilterStand(null); }
+                              setHistoryTab("analytics"); setAnalyticsTab("recurring");
+                              if (n.type === "fixed" && n.url && n.url.startsWith("fu:")) setFuEntryH({ fixedKey: n.url.slice(3), n: Date.now() });
+                            }
+                          }}>
                           <span style={{ fontWeight: 700, fontSize: "0.82rem", color: "var(--ink-900)", display: "block" }}>{n.title}</span>
                           <span style={{ fontSize: "0.78rem", color: "var(--ink-700)", whiteSpace: "normal", display: "block", marginTop: 2, lineHeight: 1.4 }}>{n.body}</span>
                         </button>
@@ -17425,6 +17471,13 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
         )}
 
         {/* Analytics Tab */}
+        {/* v568 review: no reports yet — say so (🔁 opened a blank page) */}
+        {historyTab === "analytics" && history.length === 0 && (
+          <div className="card fuEmptyCard" data-testid="fu-empty">
+            <div className="cardTitle">🔁 Follow-ups</div>
+            <p>{historyLoaded ? "No reports yet. Every problem flagged in a report — and every problem a stand reports — shows up here until it is fixed." : "Loading your reports…"}</p>
+          </div>
+        )}
         {historyTab === "analytics" && history.length >= 1 && (
           <>
             {/* Analytics sub-tab nav */}
@@ -17455,7 +17508,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
             {analyticsTab === "predictive" && <PredictiveInsightsPanel history={analyticsSrc} venueSettings={venueSettings} />}
             {analyticsWaiting && ReactDOM.createPortal(
               <button type="button" className="fuUpdatePill" data-testid="fu-update-pill" onClick={applyAnalyticsNow}>↻ New reports came in — tap to update the list</button>, document.body)}
-            {analyticsTab === "recurring" && <RecurringIssuesPanel history={analyticsSrc} onLocationClick={filterByLocation} onTagClick={goToRecurringAnalytics} onIssueDrilldown={filterByLocationAndIssue} venueSettings={venueSettings} saveVenueSettings={saveVenueSettings} saveVenueSettingsMap={saveVenueSettingsMap} currentUser={currentUser} onAddRecord={rec => { ownAddRef.current = true; setHistory(prev => [rec, ...prev]); }} entry={fuEntryH} onEntryClear={() => setFuEntryH(null)} />}
+            {analyticsTab === "recurring" && <RecurringIssuesPanel history={analyticsSrc} onLocationClick={filterByLocation} onTagClick={goToRecurringAnalytics} onIssueDrilldown={filterByLocationAndIssue} venueSettings={venueSettings} saveVenueSettings={saveVenueSettings} saveVenueSettingsMap={saveVenueSettingsMap} currentUser={currentUser} onAddRecord={rec => { ownAddRef.current = true; setHistory(prev => [rec, ...prev]); }} entry={fuEntryH} onEntryClear={() => setFuEntryH(null)} deepLoading={deepLoading && !analyticsHistory.length} />}
             {analyticsTab === "trends" && canSeeTrends && <TrendsPanel history={analyticsSrc} />}
             {analyticsTab === "timeline" && (() => {
               const src = analyticsSrc;
@@ -33993,6 +34046,9 @@ export default function App() {
   // stay. Once per session, on an inspector / admin device, 8 s after the settings arrive.
   const fuCompactRef = useRef(false);
   const vsLiveRef = useRef(false); // v558 review: a server copy of venueSettings arrived this session (not the phone's old copy)
+  // v568 review: …and a tick when it does — the snapshot merge now keeps unchanged fields as the same object, so the
+  // effects below no longer re-ran on the first server copy by themselves
+  const [vsLiveTick, setVsLiveTick] = useState(0);
   useEffect(() => {
     if (!FIREBASE_ON || !currentUser || fuCompactRef.current || !vsLiveRef.current) return;
     if (!["inspector", "admin", "global_admin", "location_manager"].includes(currentUser.role)) return;
@@ -34020,7 +34076,7 @@ export default function App() {
       if (Object.keys(patch).length) saveVenueSettingsMap("followupPhotos", patch);
     }, 8000);
     return () => clearTimeout(t);
-  }, [venueSettings?.followupPhotos, currentUser]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [venueSettings?.followupPhotos, currentUser, vsLiveTick]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // v564: names used at more than one unit (CHEESEBURGER BABY 114A / 233 / 314, PANTRY 301 / 342 …) are saved, so every
   // phone builds the same follow-up keys — also a crew phone that only reads the newest 300 reports. Units from the
@@ -34057,7 +34113,7 @@ export default function App() {
       } catch {}
     }, 9000);
     return () => clearTimeout(t);
-  }, [venueSettings?.followupSharedNames, currentUser, fuHistoryTick, fuIdentA]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [venueSettings?.followupSharedNames, currentUser, fuHistoryTick, fuIdentA, vsLiveTick]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Overdue follow-up count for the menu badge + home banner. Reads the
   // already-warmed history cache (no network); stays live because status and
@@ -34067,7 +34123,7 @@ export default function App() {
   const fuCounts = useMemo(() => {
     if (!currentUser) return { overdue: 0, open: 0 };
     try {
-      const list = computeFollowups(readWarmHistory(), venueSettings).followups;
+      const list = mergeFollowupsByUnit(computeFollowups(readWarmHistory(), venueSettings).followups); // v568 review: the same cards the panel shows
       return { overdue: list.filter(f => f.overdue).length, open: list.length };
     } catch { return { overdue: 0, open: 0 }; }
   }, [currentUser, venueSettings?.followupCleared, venueSettings?.followupStatus, venueSettings?.recheckDays, fuHistoryTick]);
@@ -34179,7 +34235,7 @@ export default function App() {
     const unsub = onSnapshot(
       doc(db, "venues", VENUE_ID, "sharedMemory", "venueSettings"),
       (snap) => {
-        if (!snap.metadata?.fromCache) vsLiveRef.current = true; // v558 review: the follow-up photo clean-up waits for this
+        if (!snap.metadata?.fromCache && !vsLiveRef.current) { vsLiveRef.current = true; setVsLiveTick(t => t + 1); } // v558 review: the follow-up photo clean-up waits for this
         if (!snap.exists()) return;
         const remote = snap.data();
         delete remote._updatedAt;
