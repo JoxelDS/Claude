@@ -6853,7 +6853,8 @@ async function fetchPhotoBlob(src) {
   try { const res = await fetch(src, { mode: "cors" }); if (res.ok) return await res.blob(); } catch {}
   return null;
 }
-async function shrinkBlobToDataUrl(blob, maxPx = EXPORT_PHOTO_MAX_PX, q = EXPORT_PHOTO_Q) {
+// v567: the shrunk picture with its size — {data, w, h} — so an export can keep the photo's shape
+async function shrinkBlobToPic(blob, maxPx = EXPORT_PHOTO_MAX_PX, q = EXPORT_PHOTO_Q) {
   let bmp = null, src = null, w = 0, h = 0, url = "";
   try { if (typeof createImageBitmap === "function") { bmp = await createImageBitmap(blob, { imageOrientation: "from-image" }); src = bmp; w = bmp.width; h = bmp.height; } } catch { bmp = null; }
   if (!src) {
@@ -6865,34 +6866,324 @@ async function shrinkBlobToDataUrl(blob, maxPx = EXPORT_PHOTO_MAX_PX, q = EXPORT
     if (!w || !h) return null;
     let dw = w, dh = h; if (dw > maxPx || dh > maxPx) { const r = Math.min(maxPx / dw, maxPx / dh); dw = Math.round(dw * r); dh = Math.round(dh * r); }
     const c = document.createElement("canvas"); c.width = dw; c.height = dh; c.getContext("2d").drawImage(src, 0, 0, dw, dh);
-    const out = c.toDataURL("image/jpeg", q); c.width = c.height = 0; return out;
+    const out = c.toDataURL("image/jpeg", q); c.width = c.height = 0; return { data: out, w: dw, h: dh };
   } catch { return null; }
   finally { try { bmp && bmp.close && bmp.close(); } catch {} try { url && URL.revokeObjectURL(url); } catch {} }
 }
-function makeExportPhotoFetcher({ onProgress } = {}) {
+async function shrinkBlobToDataUrl(blob, maxPx = EXPORT_PHOTO_MAX_PX, q = EXPORT_PHOTO_Q) {
+  const pic = await shrinkBlobToPic(blob, maxPx, q);
+  return pic ? pic.data : null;
+}
+// v567 review: the size of a JPEG / PNG from its first bytes (null for anything else, e.g. HEIC)
+function imgDims(u) {
+  try {
+    if (u[0] === 0x89 && u[1] === 0x50 && u[2] === 0x4E && u[3] === 0x47) return { type: "png", w: (u[16] << 24 | u[17] << 16 | u[18] << 8 | u[19]) >>> 0, h: (u[20] << 24 | u[21] << 16 | u[22] << 8 | u[23]) >>> 0 };
+    if (u[0] !== 0xFF || u[1] !== 0xD8) return null;
+    let i = 2;
+    while (i + 9 < u.length) {
+      if (u[i] !== 0xFF) { i++; continue; }
+      const m = u[i + 1];
+      if (m === 0xD8 || m === 0x01 || (m >= 0xD0 && m <= 0xD7)) { i += 2; continue; }
+      const len = (u[i + 2] << 8) | u[i + 3];
+      if (m >= 0xC0 && m <= 0xCF && m !== 0xC4 && m !== 0xC8 && m !== 0xCC) return { type: "jpeg", h: (u[i + 5] << 8) | u[i + 6], w: (u[i + 7] << 8) | u[i + 8] };
+      i += 2 + len;
+    }
+    return { type: "jpeg", w: 0, h: 0 };
+  } catch { return null; }
+}
+function makeExportPhotoFetcher({ onProgress, maxPx = EXPORT_PHOTO_MAX_PX, q = EXPORT_PHOTO_Q } = {}) {
   const cache = new Map(); let active = 0, done = 0, total = 0; const queue = [];
   const stats = { requested: 0, fetched: 0, cached: 0, failed: 0 };
   if (typeof window !== "undefined") window.__sdxExportPhotoStats = stats;
   const next = () => { if (active >= EXPORT_PHOTO_PARALLEL || !queue.length) return; active++; const job = queue.shift(); job().finally(() => { active--; done++; if (onProgress) onProgress({ done, total }); next(); }); };
   const run = (fn) => new Promise((resolve) => { total++; queue.push(async () => { try { resolve(await fn()); } catch { resolve(null); } }); next(); });
+  // v567: {data, w, h} for the first source that loads; a picture that cannot be decoded is only kept when it is
+  // already PNG / JPEG (an iPhone HEIC labelled "jpeg" showed as a broken picture in Excel)
+  const getPic = (srcs, size = maxPx) => {
+    const list = (Array.isArray(srcs) ? srcs : [srcs]).filter(u => typeof u === "string" && u);
+    stats.requested++;
+    if (!list.length) return Promise.resolve(null);
+    const key = `${size}|${list.join("|")}`;
+    if (cache.has(key)) { stats.cached++; return cache.get(key); }
+    const pr = run(async () => {
+      for (const src of list) {
+        const blob = await fetchPhotoBlob(src);
+        if (!blob) continue;
+        const pic = await shrinkBlobToPic(blob, size, q);
+        if (pic) { stats.fetched++; return pic; }
+        // v567 review: only bytes that really ARE a JPEG / PNG (an iPhone HEIC is stored labelled image/jpeg) —
+        // anything else tries the next source (the small JPEG copy)
+        try {
+          const head = new Uint8Array(await blob.slice(0, 32).arrayBuffer());
+          const dim = imgDims(head.length >= 24 ? new Uint8Array(await blob.slice(0, Math.min(blob.size, 65536)).arrayBuffer()) : head);
+          if (dim) { const raw = await blobToDataUrl(blob); stats.fetched++; return { data: raw.replace(/^data:[^;,]*/, `data:image/${dim.type}`), w: dim.w, h: dim.h }; }
+        } catch {}
+      }
+      stats.failed++; return null;
+    });
+    cache.set(key, pr); return pr;
+  };
   return {
     stats,
-    get: (src, fallback) => {
-      stats.requested++;
-      const key = src || fallback || "";
-      if (!key) return Promise.resolve(null);
-      if (cache.has(key)) { stats.cached++; return cache.get(key); }
-      const pr = run(async () => {
-        const blob = await fetchPhotoBlob(src) || (fallback && fallback.startsWith("data:") ? await fetchPhotoBlob(fallback) : null);
-        if (!blob) { stats.failed++; return null; }
-        const small = await shrinkBlobToDataUrl(blob);
-        if (small) { stats.fetched++; return small; }
-        // could not decode (odd format): fall back to the raw bytes
-        try { const raw = await blobToDataUrl(blob); stats.fetched++; return raw; } catch { stats.failed++; return null; }
-      });
-      cache.set(key, pr); return pr;
-    },
+    getPic,
+    get: (src, fallback) => getPic([src, fallback && String(fallback).startsWith("data:") ? fallback : ""]).then(p => (p ? p.data : null)),
   };
+}
+
+// ── v567: BEFORE & AFTER you can't miss ─────────────────────────────────────────
+// Joxel: "I want to really, really tell people … that they have that before and after picture on their Excels".
+// (1) ExcelJS places a picture at a fractional `col` using width×10000 EMU (anchor.js) while a real column is ~66,000
+// EMU per width unit, so every next picture landed 8–15 px from the last one and covered it: each side showed ONE
+// picture. Pictures are placed in true EMU now (nativeCol / nativeColOff), one picture per cell, shape kept.
+// (2) Every before / after file opens on a Summary (how many jobs have BEFORE + AFTER) and has a "Before & After"
+// sheet: one big card per job, BEFORE on the left, AFTER on the right, with the date and who took each picture.
+const XL_PX_EMU = 9525;
+const XL_BIG_PX = 800, XL_SMALL_PX = 320, BA_BIG_MAX = 80;
+const xlColPx = (ws, c0) => Math.trunc(7 * (ws.getColumn(c0 + 1).width || 9.140625) + 0.5);
+// a report photo's caption cell: "🔴 BEFORE — …" / "🟢 AFTER — …" in the matching colour (notes photos stay plain)
+function reportPhotoCaption(cell, p, base) {
+  if (!("tag" in (p || {}))) return;
+  const after = p.tag === "after";
+  const text = String(p.caption || "").replace(/^(BEFORE|AFTER)\s*(—\s*)?/, "").trim();
+  cell.value = `${after ? "🟢 AFTER" : "🔴 BEFORE"}${text ? ` — ${text}` : ""}`;
+  cell.style = { ...(base || {}), font: { name: "Calibri", size: 10, bold: true, color: { argb: after ? "FF166534" : "FFB91C1C" } } };
+}
+// pic {data, w, h} fitted (shape kept) and centred in a boxW × boxH box that starts x / y px inside cell (col, row), 0-based.
+// twoCell: the picture moves AND hides with its row (filterable list sheets); otherwise it keeps its exact size.
+function xlPic(wb, ws, pic, { col, row, x = 6, y = 6, boxW, boxH, cache, key, twoCell = false }) {
+  if (!pic || !pic.data) return null;
+  const m = /^data:image\/(png|jpe?g);base64,/i.exec(pic.data);
+  if (!m) return null;
+  try {
+    let id = cache && key != null ? cache.get(key) : undefined;
+    if (id === undefined) { id = wb.addImage({ base64: pic.data, extension: /png/i.test(m[1]) ? "png" : "jpeg" }); if (cache && key != null) cache.set(key, id); }
+    const pw = pic.w || Math.min(boxW, boxH), ph = pic.h || Math.min(boxW, boxH); // size unknown: a square, never stretched
+    const r = Math.min(boxW / pw, boxH / ph, 2);
+    const w = Math.max(1, Math.round(pw * r)), h = Math.max(1, Math.round(ph * r));
+    const ox = Math.round(x + (boxW - w) / 2), oy = Math.round(y + (boxH - h) / 2);
+    const tl = { nativeCol: col, nativeColOff: Math.round(ox * XL_PX_EMU), nativeRow: row, nativeRowOff: Math.round(oy * XL_PX_EMU) };
+    if (twoCell) ws.addImage(id, { tl, br: { nativeCol: col, nativeColOff: Math.round((ox + w) * XL_PX_EMU), nativeRow: row, nativeRowOff: Math.round((oy + h) * XL_PX_EMU) }, editAs: "twoCell" });
+    else ws.addImage(id, { tl, ext: { width: w, height: h }, editAs: "oneCell" });
+    return { w, h };
+  } catch { return null; }
+}
+// what each side of a job holds, in one word + its look
+const BA_LOOK = {
+  both: { label: "✅ BEFORE + AFTER", fg: "FF166534", bg: "FFDCFCE7" },
+  before: { label: "🔴 BEFORE only", fg: "FFB45309", bg: "FFFEF3C7" },
+  after: { label: "🟢 AFTER only", fg: "FF1D4ED8", bg: "FFDBEAFE" },
+  none: { label: "— no photos", fg: "FF6B7280", bg: "FFF3F4F6" },
+};
+const baStateOf = (nb, na) => (nb && na ? "both" : nb ? "before" : na ? "after" : "none");
+const BA_STATE_ORDER = { both: 0, before: 1, after: 2, none: 3 };
+// a photo's moment and author for its caption — a report photo carries the report's date (no UTC shift), a card photo its ts
+function baPhotoWhen(p) {
+  const ds = String(p?.dateStr || "");
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(ds);
+  if (m) return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])).toLocaleDateString([], { month: "short", day: "numeric" });
+  const t = Number(p?.ts || 0);
+  return t ? new Date(t).toLocaleDateString([], { month: "short", day: "numeric" }) : "";
+}
+const baPhotoCaption = p => [baPhotoWhen(p), String(p?.by || "").trim()].filter(Boolean).join(" · ");
+// sources to try for a picture: the photo itself (big pages) or its small copy first (rows)
+const baBigSrcs = p => [p?.exportUrl, p?.previewUrl, p?.url, p?.dataUrl, ...photoSrcChain(p)].filter((u, i, a) => typeof u === "string" && u && a.indexOf(u) === i);
+const baSmallSrcs = p => photoSrcChain(p);
+const baPhotoKey = p => p?.id || p?.previewUrl || p?.thumbUrl || "";
+// one formula cell that opens another place in the workbook (ExcelJS writes the internal link wrong; HYPERLINK works
+// in Excel, Numbers and LibreOffice)
+const xlLink = (sheet, cell, text) => ({ formula: `HYPERLINK("#'${String(sheet).replace(/'/g, "''")}'!${cell}","${String(text).replace(/"/g, "'")}")`, result: text });
+const BA_SHEET = "Before & After";
+const BA_CARD_ROWS = 8, BA_CARD_TOP = 4;
+const baCardRow = i => BA_CARD_TOP + i * BA_CARD_ROWS; // 1-based row of card i's head band
+const xlFill = argb => ({ type: "pattern", pattern: "solid", fgColor: { argb } });
+
+// start every picture of a file at once (the fetcher runs 6 at a time and caches), so placing them later never waits
+// on one picture after another: the cards' main photos (big for the first BA_BIG_MAX cards), their extras and the rows'
+// small copies
+function baPrefetch(fetcher, cards, rowLists = []) {
+  if (!fetcher) return;
+  cards.forEach((c, i) => {
+    const big = i < BA_BIG_MAX;
+    [c.before, c.after].forEach(list => {
+      if (list[0]) fetcher.getPic(big ? baBigSrcs(list[0]) : baSmallSrcs(list[0]), big ? XL_BIG_PX : XL_SMALL_PX);
+      list.slice(1, 3).forEach(p => fetcher.getPic(baSmallSrcs(p), XL_SMALL_PX));
+    });
+  });
+  rowLists.forEach(list => { if (list && list[0]) fetcher.getPic(baSmallSrcs(list[0]), XL_SMALL_PX); });
+}
+// cards: [{ head, problem, statusText, statusFixed, details, before:[photo], after:[photo], crew, standLabel, listRow }]
+// Fills the "Before & After" sheet: one card per job (8 rows, fixed heights so no viewer re-sizes them), two per page.
+async function fillBaCardsSheet(wb, ws, cards, { fetcher, cache, listSheet, onPic, summarySheet = "Summary", unit = "job" } = {}) {
+  ws.properties.tabColor = { argb: "FF166534" };
+  ws.views = [{ showGridLines: false, state: "frozen", ySplit: 2 }];
+  ws.columns = [{ width: 2 }, { width: 26 }, { width: 26 }, { width: 2 }, { width: 26 }, { width: 26 }, { width: 2 }];
+  ws.pageSetup = { paperSize: 1, orientation: "portrait", fitToPage: true, fitToWidth: 1, fitToHeight: 0, horizontalCentered: true, margins: { left: 0.3, right: 0.3, top: 0.3, bottom: 0.3, header: 0.15, footer: 0.15 }, printTitlesRow: "1:1" };
+  const t = ws.getRow(1); t.height = 30;
+  ws.mergeCells("A1:G1");
+  t.getCell(1).value = `📸 BEFORE & AFTER — one card per ${unit} · BEFORE on the left, AFTER on the right`;
+  t.getCell(1).style = { font: { bold: true, size: 14, color: { argb: "FFFFFFFF" } }, fill: xlFill("FF2A295C"), alignment: { vertical: "middle", horizontal: "left", indent: 1 } };
+  const b = ws.getRow(2); b.height = 18;
+  ws.mergeCells("B2:F2");
+  b.getCell(2).value = xlLink(summarySheet, "A1", "← Back to the Summary");
+  b.getCell(2).style = { font: { size: 10, color: { argb: "FF1D4ED8" }, underline: true }, alignment: { vertical: "middle" } };
+  ws.getRow(3).height = 8;
+  const BA_PHOTO_PT = 160, BA_EXTRA_PT = 60;
+  // the picture box stays 7 px inside its cell on every side (so no viewer's rounding can push it into the next one)
+  const photoBox = { w: xlColPx(ws, 1) + xlColPx(ws, 2) - 14, h: Math.round(BA_PHOTO_PT * 4 / 3) - 14 };
+  const extraBox = { w: xlColPx(ws, 1) - 14, h: Math.round(BA_EXTRA_PT * 4 / 3) - 8 };
+  // v567 review: the problem / details lines grow with their text (a fixed height cut long text off), and a page
+  // takes as many cards as fit (two tall cards no longer split across pages)
+  // a Letter page holds ~730 pt of this sheet after the repeated title row (fit to width scales it ~0.98)
+  const LINE_CH = 105, PAGE_PT = 700;
+  const linesPt = (text, min) => Math.max(min, Math.ceil(String(text || "").length / LINE_CH) * 14 + 8);
+  let pagePt = 26; // rows 2–3 on the first page
+  for (let i = 0; i < cards.length; i++) {
+    const c = cards[i]; const r0 = baCardRow(i);
+    const big = i < BA_BIG_MAX;
+    const rows = Array.from({ length: BA_CARD_ROWS }, (_, k) => ws.getRow(r0 + k));
+    const hasExtras = c.before.length > 1 || c.after.length > 1;
+    const hs = [24, linesPt(c.problem, 24), 20, BA_PHOTO_PT, hasExtras ? BA_EXTRA_PT : 6, linesPt(c.details, 22), 15, 14];
+    hs.forEach((h, k) => { rows[k].height = h; });
+    const cardPt = hs.reduce((a, b) => a + b, 0);
+    if (i > 0 && pagePt + cardPt - hs[7] > PAGE_PT) { ws.getRow(r0 - 1).addPageBreak(); pagePt = 0; } // the last spacer may spill
+    pagePt += cardPt;
+    // head band — the stand and whether it is fixed
+    ws.mergeCells(r0, 2, r0, 6);
+    rows[0].getCell(2).value = `${i + 1}.  ${c.head}${c.statusText ? `     ${c.statusText}` : ""}`;
+    rows[0].getCell(2).style = { font: { bold: true, size: 12, color: { argb: "FFFFFFFF" } }, fill: xlFill(c.statusFixed ? "FF166534" : "FF2A295C"), alignment: { vertical: "middle", indent: 1 } };
+    ws.mergeCells(r0 + 1, 2, r0 + 1, 6);
+    rows[1].getCell(2).value = String(c.problem || "").slice(0, 600);
+    rows[1].getCell(2).style = { font: { bold: true, size: 11, color: { argb: "FF111827" } }, fill: xlFill("FFF4F5F7"), alignment: { vertical: "middle", wrapText: true, indent: 1 } };
+    // c1 = first (1-based) column of this side: BEFORE B:C, AFTER E:F
+    const side = async (list, c1, word, colors) => {
+      const extra = Math.max(0, list.length - 3);
+      const cap = list[0] ? baPhotoCaption(list[0]) : "";
+      ws.mergeCells(r0 + 2, c1, r0 + 2, c1 + 1);
+      rows[2].getCell(c1).value = [word, cap].filter(Boolean).join(" · ") + (list.length > 1 ? `   (${list.length} photos${extra ? ` · ${extra} more in the app` : ""})` : "");
+      rows[2].getCell(c1).style = { font: { bold: true, size: 10, color: { argb: colors.fg } }, fill: xlFill(colors.bg), alignment: { vertical: "middle", indent: 1 } };
+      ws.mergeCells(r0 + 3, c1, r0 + 3, c1 + 1);
+      const main = rows[3].getCell(c1);
+      if (!list.length) {
+        main.value = `No ${word.replace(/^\W+\s*/, "")} photo yet`;
+        main.style = { font: { size: 13, italic: true, color: { argb: "FF9CA3AF" } }, fill: xlFill("FFF3F4F6"), alignment: { vertical: "middle", horizontal: "center" } };
+        return;
+      }
+      const p0 = list[0];
+      const pic = fetcher ? await fetcher.getPic(big ? baBigSrcs(p0) : baSmallSrcs(p0), big ? XL_BIG_PX : XL_SMALL_PX) : null;
+      if (!xlPic(wb, ws, pic, { col: c1 - 1, row: r0 + 2, x: 7, y: 7, boxW: photoBox.w, boxH: photoBox.h, cache, key: `${big ? "b" : "s"}|${baPhotoKey(p0)}` })) {
+        const link = baBigSrcs(p0).find(u => /^https?:/.test(u));
+        main.value = link ? { text: "Open the photo (it did not load into the file)", hyperlink: link } : "Photo did not load into the file";
+        main.style = { font: { size: 10, color: { argb: "FF1D4ED8" }, underline: !!link }, fill: xlFill("FFF3F4F6"), alignment: { vertical: "middle", horizontal: "center" } };
+      }
+      onPic && onPic();
+      for (let k = 1; k < Math.min(3, list.length); k++) {
+        const p = list[k];
+        const sp = fetcher ? await fetcher.getPic(baSmallSrcs(p), XL_SMALL_PX) : null;
+        xlPic(wb, ws, sp, { col: c1 - 1 + (k - 1), row: r0 + 3, x: 7, y: 4, boxW: extraBox.w, boxH: extraBox.h, cache, key: `s|${baPhotoKey(p)}` });
+      }
+    };
+    await side(c.before, 2, "🔴 BEFORE", { fg: "FFB91C1C", bg: "FFFEE2E2" });
+    await side(c.after, 5, "🟢 AFTER", { fg: "FF166534", bg: "FFDCFCE7" });
+    ws.mergeCells(r0 + 5, 2, r0 + 5, 6);
+    rows[5].getCell(2).value = String(c.details || "").slice(0, 800);
+    rows[5].getCell(2).style = { font: { size: 10, color: { argb: "FF374151" } }, alignment: { vertical: "top", wrapText: true, indent: 1 } };
+    if (listSheet && c.listRow) {
+      rows[6].getCell(2).value = xlLink(listSheet, `A${c.listRow}`, "↩ Back to the list");
+      rows[6].getCell(2).style = { font: { size: 9, color: { argb: "FF1D4ED8" }, underline: true } };
+    }
+  }
+  if (!cards.length) {
+    ws.mergeCells("B4:F4");
+    ws.getRow(4).getCell(2).value = `No ${unit}s in this file.`;
+  }
+}
+// The first sheet: how many jobs have BEFORE and AFTER pictures, by crew and by stand
+function fillBaSummarySheet(ws, cards, { title, subtitle, issueCount, smallNote, noCards = "", unit = "job" } = {}) {
+  ws.properties.tabColor = { argb: "FF2A295C" };
+  ws.views = [{ showGridLines: false }];
+  ws.columns = Array.from({ length: 10 }, () => ({ width: 14 }));
+  const n = { both: 0, before: 0, after: 0, none: 0 };
+  cards.forEach(c => { n[baStateOf(c.before.length, c.after.length)]++; });
+  const t = ws.getRow(1); t.height = 34;
+  ws.mergeCells("A1:J1");
+  t.getCell(1).value = title || "📸 Before & After";
+  t.getCell(1).style = { font: { bold: true, size: 18, color: { argb: "FFFFFFFF" } }, fill: xlFill("FF2A295C"), alignment: { vertical: "middle", indent: 1 } };
+  ws.mergeCells("A2:J2");
+  ws.getRow(2).getCell(1).value = subtitle || "";
+  ws.getRow(2).getCell(1).style = { font: { size: 10, color: { argb: "FF6B7280" } }, alignment: { indent: 1 } };
+  ws.getRow(3).height = 10;
+  const tiles = [
+    [cards.length, cards.length === 1 ? unit : `${unit}s`, "FF111827", "FFF3F4F6"],
+    [n.both, "with BEFORE + AFTER", "FF166534", "FFDCFCE7"],
+    [n.before, "BEFORE only — needs an AFTER photo", "FFB45309", "FFFEF3C7"],
+    [n.after, "AFTER only", "FF1D4ED8", "FFDBEAFE"],
+    [n.none, "no photos", "FF6B7280", "FFF3F4F6"],
+  ];
+  const r4 = ws.getRow(4), r5 = ws.getRow(5); r4.height = 40; r5.height = 30;
+  tiles.forEach(([num, label, fg, bg], i) => {
+    const c1 = i * 2 + 1;
+    ws.mergeCells(4, c1, 4, c1 + 1); ws.mergeCells(5, c1, 5, c1 + 1);
+    r4.getCell(c1).value = num;
+    r4.getCell(c1).style = { font: { bold: true, size: 26, color: { argb: fg } }, fill: xlFill(bg), alignment: { vertical: "middle", horizontal: "center" } };
+    r5.getCell(c1).value = label;
+    r5.getCell(c1).style = { font: { bold: true, size: 10, color: { argb: fg } }, fill: xlFill(bg), alignment: { vertical: "middle", horizontal: "center", wrapText: true } };
+  });
+  let r = 7;
+  const line = (v, style = {}) => { ws.mergeCells(r, 1, r, 10); const c = ws.getRow(r).getCell(1); c.value = v; c.style = { alignment: { indent: 1, vertical: "middle", wrapText: true }, ...style }; ws.getRow(r).height = 20; r++; };
+  const pct = cards.length ? Math.round(n.both / cards.length * 100) : 0;
+  line(cards.length ? `${pct}% of the ${unit}s have a BEFORE and an AFTER picture.${unit === "job" && issueCount && issueCount !== cards.length ? `  (${issueCount} issues in ${cards.length} jobs)` : ""}` : `No ${unit}s in this file.`, { font: { bold: true, size: 12, color: { argb: "FF111827" } } });
+  if (noCards) line(noCards, { font: { size: 11, color: { argb: "FF6B7280" } } });
+  else line(xlLink(BA_SHEET, "B4", `👉 Open the "${BA_SHEET}" tab — one big card per ${unit}, BEFORE on the left, AFTER on the right`), { font: { bold: true, size: 12, color: { argb: "FF1D4ED8" }, underline: true } });
+  if (smallNote) line(smallNote, { font: { italic: true, size: 9, color: { argb: "FF6B7280" } } });
+  r++;
+  const table = (head, keyOf, labelOf) => {
+    const groups = new Map();
+    cards.forEach(c => { const k = keyOf(c) || "—"; const g = groups.get(k) || { label: labelOf(c) || k, both: 0, before: 0, after: 0, none: 0, n: 0 }; g[baStateOf(c.before.length, c.after.length)]++; g.n++; groups.set(k, g); });
+    if (!groups.size) return;
+    const hr = ws.getRow(r);
+    ws.mergeCells(r, 1, r, 3);
+    [[1, head], [4, unit === "job" ? "Jobs" : "Issues"], [5, "BEFORE + AFTER"], [6, "BEFORE only"], [7, "AFTER only"], [8, "No photos"]].forEach(([c, v]) => { hr.getCell(c).value = v; hr.getCell(c).style = { font: { bold: true, size: 10, color: { argb: "FFFFFFFF" } }, fill: xlFill("FF2A295C"), alignment: { vertical: "middle", horizontal: c === 1 ? "left" : "center", wrapText: true, indent: c === 1 ? 1 : 0 } }; });
+    hr.height = 30; r++;
+    [...groups.values()].sort((a, b) => b.n - a.n).forEach((g, i) => {
+      const row = ws.getRow(r); ws.mergeCells(r, 1, r, 3);
+      const bg = i % 2 ? "FFF4F5F7" : "FFFFFFFF";
+      [[1, g.label], [4, g.n], [5, g.both], [6, g.before], [7, g.after], [8, g.none]].forEach(([c, v]) => { row.getCell(c).value = v; row.getCell(c).style = { font: { size: 10, bold: c === 5 && v > 0, color: { argb: c === 5 && v > 0 ? "FF166534" : c === 6 && v > 0 ? "FFB45309" : "FF111827" } }, fill: xlFill(bg), alignment: { horizontal: c === 1 ? "left" : "center", indent: c === 1 ? 1 : 0 } }; });
+      r++;
+    });
+    r++;
+  };
+  table("By crew", c => c.crew, c => c.crew);
+  table("By stand", c => c.standLabel, c => c.standLabel);
+  ws.pageSetup = { paperSize: 1, orientation: "portrait", fitToPage: true, fitToWidth: 1, fitToHeight: 0, margins: { left: 0.4, right: 0.4, top: 0.5, bottom: 0.5, header: 0.2, footer: 0.2 } };
+}
+// The "📸 Photos" cell of a list row: what this job has, linked to its card
+function baPhotosCell(cell, nb, na, cardIndex) {
+  const st = baStateOf(nb, na); const look = BA_LOOK[st];
+  const text = st === "none" ? look.label : `${look.label}${st === "both" ? ` (${nb} + ${na})` : ""} →`;
+  cell.value = cardIndex != null ? xlLink(BA_SHEET, `B${baCardRow(cardIndex)}`, text) : text;
+  cell.style = { font: { bold: true, size: 10, color: { argb: look.fg }, underline: cardIndex != null && st !== "none" }, fill: xlFill(look.bg), alignment: { vertical: "top", wrapText: true } };
+}
+// one BEFORE or AFTER thumbnail in a list cell (+N when there are more), the picture hides with its row in a filter
+async function baThumbCell(wb, ws, row, col1, list, word, { fetcher, cache } = {}) {
+  const cell = row.getCell(col1);
+  if (!list.length) { cell.value = `no ${word} photo`; cell.style = { ...cell.style, font: { size: 9, italic: true, color: { argb: "FF9CA3AF" } }, alignment: { vertical: "middle", horizontal: "center" } }; return false; }
+  const pic = fetcher ? await fetcher.getPic(baSmallSrcs(list[0]), XL_SMALL_PX) : null;
+  const boxW = xlColPx(ws, col1 - 1) - 12, boxH = 96;
+  const ok = xlPic(wb, ws, pic, { col: col1 - 1, row: row.number - 1, x: 6, y: 6, boxW, boxH, cache, key: `s|${baPhotoKey(list[0])}`, twoCell: true });
+  if (!ok) {
+    const link = baBigSrcs(list[0]).find(u => /^https?:/.test(u));
+    cell.value = link ? { text: `open ${word} photo`, hyperlink: link } : `${word} photo did not load`;
+    cell.style = { ...cell.style, font: { size: 9, color: { argb: "FF1D4ED8" }, underline: !!link }, alignment: { vertical: "middle", horizontal: "center", wrapText: true } };
+  } else if (list.length > 1) {
+    cell.value = `+${list.length - 1}`;
+    cell.style = { ...cell.style, font: { size: 9, bold: true, color: { argb: "FF374151" } }, alignment: { vertical: "bottom", horizontal: "right" } };
+  }
+  return !!ok;
+}
+// the BEFORE list earliest first, the AFTER list newest first (the latest state of the fix)
+function baOrder(sp) {
+  const t = p => { const ds = String(p?.dateStr || ""); const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(ds); return m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])).getTime() : Number(p?.ts || 0); };
+  return { before: [...sp.before].sort((a, b) => t(a) - t(b)), after: [...sp.after].sort((a, b) => t(b) - t(a)) };
 }
 
 async function exportAsCsv({ inspection, notesPhotos, rawNotes, inspectionType, inspectionDate, inspectorName, participantName, siteName, siteNumber, sitePhone, supervisorName, floor, locationType, restaurantLicense, licenseMissing, eventName, foodTemps, foodTempNames, haccpSubs }) {
@@ -6903,9 +7194,9 @@ async function exportAsCsv({ inspection, notesPhotos, rawNotes, inspectionType, 
   const { index: photoListRaw } = buildPhotoIndex(inspection, notesPhotos || inspection?._notesPhotos);
   const execSummary = buildExportSummary({ inspection, rawNotes, inspectionType, inspectionDate, siteName, foodTemps, foodTempNames });
 
-  const photoList = await Promise.all(
-    photoListRaw.map(async p => ({ ...p, dataUrl: await fetchAsDataUrl(p.previewUrl, p.thumbUrl) }))
-  );
+  // v567: every picture fetched once, shrunk with its shape kept (the Photos sheet used to stretch it to the cell)
+  const photoFetcher = makeExportPhotoFetcher({ q: 0.8 });
+  const photoList = await Promise.all(photoListRaw.map(async p => ({ ...p, pic: await photoFetcher.getPic(baBigSrcs(p), XL_BIG_PX) })));
 
   const str = v => (v == null ? "" : String(v));
 
@@ -7216,30 +7507,11 @@ async function exportAsCsv({ inspection, notesPhotos, rawNotes, inspectionType, 
       row.getCell(3).style = { ...bodyCell(bg), alignment: { wrapText: true, vertical: "top" } };
       row.getCell(4).style = { fill: { type: "pattern", pattern: "solid", fgColor: { argb: "FF" + bg } } };
 
-      // Embed image — prefer high-quality exportUrl, fall back to previewUrl/thumbUrl
-      let dataUrl = p.exportUrl || p.dataUrl || "";
-      if (!dataUrl || !dataUrl.startsWith("data:")) {
-        // previewUrl may be a Firebase URL — try to fetch it
-        const candidate = p.previewUrl || p.thumbUrl || "";
-        if (candidate.startsWith("http")) {
-          try { const resp = await fetch(candidate); const blob = await resp.blob(); dataUrl = await new Promise(r => { const rd = new FileReader(); rd.onload = () => r(rd.result); rd.readAsDataURL(blob); }); } catch { dataUrl = p.thumbUrl || ""; }
-        } else if (candidate.startsWith("data:")) { dataUrl = candidate; }
-      }
-      if (dataUrl && dataUrl.startsWith("data:image")) {
-        try {
-          const commaIdx = dataUrl.indexOf(",");
-          const base64 = commaIdx >= 0 ? dataUrl.slice(commaIdx + 1) : dataUrl;
-          const ext = dataUrl.includes("image/png") ? "png" : "jpeg";
-          const imageId = wb.addImage({ base64, extension: ext });
-          ws3.addImage(imageId, {
-            tl: { col: 3, row: row.number - 1 },
-            br: { col: 4, row: row.number },
-            editAs: "oneCell",
-          });
-        } catch (_) {
-          row.getCell(4).value = str(p.previewUrl || "");
-          row.getCell(4).style = { ...bodyCell(bg), font: { size: 9, color: { argb: "FF1B5EAF" }, name: "Calibri" } };
-        }
+      reportPhotoCaption(row.getCell(3), p, { ...bodyCell(bg), alignment: { wrapText: true, vertical: "top" } });
+      if (p.pic) xlPic(wb, ws3, p.pic, { col: 3, row: row.number - 1, x: 6, y: 6, boxW: xlColPx(ws3, 3) - 12, boxH: Math.round(IMG_HEIGHT_PT * 4 / 3) - 12, key: p.num });
+      else {
+        row.getCell(4).value = str(p.previewUrl || "picture could not be loaded");
+        row.getCell(4).style = { ...bodyCell(bg), font: { size: 9, color: { argb: "FF1B5EAF" }, name: "Calibri" } };
       }
     }
   }
@@ -7674,9 +7946,25 @@ async function exportIssuesOnlyExcel({ rec, haccpSubs = [] }) {
   const { index: photoListRaw } = buildPhotoIndex(rec.inspection);
   const str = v => (v == null ? "" : String(v));
 
-  const photoList = await Promise.all(
-    photoListRaw.map(async p => ({ ...p, dataUrl: await fetchAsDataUrl(p.previewUrl, p.thumbUrl) }))
-  );
+  // v567: every picture fetched ONCE, shrunk with its shape kept; the issue rows and the Photos sheet share one image
+  const photoFetcher = makeExportPhotoFetcher({ q: 0.8 });
+  const photoList = await Promise.all(photoListRaw.map(async p => ({ ...p, pic: await photoFetcher.getPic(baBigSrcs(p), XL_BIG_PX) })));
+  const picCache = new Map();
+  // an issue's own pictures: photo NUMBERS (never another NO row's picture — that row has its own item) and photo
+  // objects (a NO row's own, a quick report's), BEFORE first
+  const rowPicsByItem = await Promise.all(actionItems.map(async a => {
+    const out = []; const seen = new Set();
+    for (const ref of (Array.isArray(a.photos) ? a.photos : [])) {
+      let e = null;
+      if (typeof ref === "number" || (typeof ref === "string" && /^\d+$/.test(ref))) { e = photoList.find(p => p.num === Number(ref)) || null; if (e && e.ciNo) e = null; }
+      else if (ref && typeof ref === "object") {
+        e = (ref.id && photoList.find(p => p.id === ref.id)) || photoList.find(p => p.previewUrl && p.previewUrl === (ref.previewUrl || ref.url)) || null;
+        if (!e) { const pic = await photoFetcher.getPic(baBigSrcs(ref), XL_BIG_PX); if (pic) e = { num: `o${baPhotoKey(ref)}`, pic, tag: ref.tag === "after" ? "after" : "" }; }
+      }
+      if (e && e.pic && !seen.has(e.num)) { seen.add(e.num); out.push(e); }
+    }
+    return [...out.filter(p => p.tag !== "after"), ...out.filter(p => p.tag === "after")];
+  }));
 
   // ── Brand colours (same as bulk export) ──────────────────────────────────
   const NAVY    = (/^#[0-9a-fA-F]{6}$/.test(_vs.primaryColor || "") ? _vs.primaryColor.slice(1).toUpperCase() : "2A295C");
@@ -7801,25 +8089,23 @@ async function exportIssuesOnlyExcel({ rec, haccpSubs = [] }) {
       const _rawSt = a.status && a.status !== "OK" && a.status !== "High" && a.status !== "Med" ? a.status : "";
       const st = _rawSt || (a.priority === "Follow-up" || a.priority === "Maintenance" ? a.priority : "Fail");
       const even = i % 2 === 0;
-      // Photos for this issue — embed thumbnails right next to the issue row
-      const rowPhotos = (a.photos || []).map(num => photoList.find(p => p.num === num)).filter(p => p && p.dataUrl && p.dataUrl.startsWith("data:"));
+      // Photos for this issue — every picture in its own slot next to the issue (v567: they used to stack on top of
+      // each other), BEFORE first, labelled under the pictures
+      const rowPhotos = rowPicsByItem[i] || [];
       const itype = classifyIssueType(rawIssue, a.notes, a.priority);
       const r = ws1.addRow([i + 1, area, issueClean, itype, str(a.notes || ""), corrective, "", str(st), str(a.owner || "—"), str(a.due || "—")]);
       r.eachCell((c, col) => applyStyle(c, col === 8 ? styleStatus(st) : styleBody(even)));
       r.getCell(4).style = issueTypeStyle(itype);
       r.getCell(7).style = styleBody(even);
-      if (rowPhotos.length === 0) { r.height = 18; } else {
-        const perLine = 4;
+      if (rowPhotos.length) {
+        const perLine = 4, SLOT = 86, BOX = 78;
         const nLines = Math.ceil(rowPhotos.length / perLine);
-        r.height = 66 * nLines; // tall rows so embedded thumbnails are visible
+        const nb = rowPhotos.filter(p => p.tag !== "after").length, na = rowPhotos.length - nb;
+        r.height = Math.round((nLines * SLOT + 22) * 0.75);
+        r.getCell(7).value = [nb ? `🔴 BEFORE ×${nb}` : "", na ? `🟢 AFTER ×${na}` : ""].filter(Boolean).join("   ");
+        r.getCell(7).style = { ...styleBody(even), font: font({ bold: true, color: { argb: na && nb ? "FF166534" : na ? "FF166534" : "FFB91C1C" } }), alignment: { vertical: "bottom", horizontal: "left", indent: 1 } };
         rowPhotos.forEach((p, k) => {
-          try {
-            const m = p.dataUrl.match(/^data:image\/(png|jpe?g|gif|webp);base64,(.+)$/);
-            if (!m) return;
-            const imgId = wb.addImage({ base64: m[2], extension: m[1].replace("jpg", "jpeg") });
-            // Column G is index 6 (0-based); grid of up to 4 thumbs per line
-            ws1.addImage(imgId, { tl: { col: 6 + (k % perLine) * 0.24, row: r.number - 1 + Math.floor(k / perLine) / nLines }, ext: { width: 80, height: 84 }, editAs: "oneCell" });
-          } catch (_) { /* skip broken image */ }
+          xlPic(wb, ws1, p.pic, { col: 6, row: r.number - 1, x: 4 + (k % perLine) * SLOT, y: 4 + Math.floor(k / perLine) * SLOT, boxW: BOX, boxH: BOX, cache: picCache, key: p.num });
         });
       }
     });
@@ -7936,37 +8222,23 @@ async function exportIssuesOnlyExcel({ rec, haccpSubs = [] }) {
   // ══════════════════════════════════════════════════════════════════════════
   if (photoList.length > 0) {
     const wsP = wb.addWorksheet("Photos");
-    // Col D is the image column — 28 chars wide ≈ 200px
-    wsP.columns = [{ width: 5 }, { width: 28 }, { width: 44 }, { width: 28 }];
+    // Col D is the image column — 40 wide ≈ 280 px; v567: the picture keeps its shape (it was stretched to the cell)
+    wsP.columns = [{ width: 5 }, { width: 28 }, { width: 44 }, { width: 40 }];
     const pH = wsP.addRow(["#", "Section", "Caption", "Photo"]);
     pH.eachCell(c => applyStyle(c, styleHdr));
     pH.height = 22;
 
-    const IMG_ROW_H = 90; // points (~120px) per photo row
+    const IMG_ROW_H = 150; // points (200 px) per photo row
+    const colPx = xlColPx(wsP, 3), rowPx = Math.round(IMG_ROW_H * 4 / 3);
 
     for (let i = 0; i < photoList.length; i++) {
       const p = photoList[i];
       const r = wsP.addRow([p.num, str(p.label), str(p.caption), ""]);
       r.eachCell(c => applyStyle(c, styleBody(i % 2 === 0)));
       r.height = IMG_ROW_H;
-
-      // Embed the image directly into column D
-      const dataUrl = p.dataUrl || p.previewUrl || "";
-      if (dataUrl && dataUrl.startsWith("data:")) {
-        try {
-          const m = dataUrl.match(/^data:image\/(png|jpe?g|gif|webp);base64,(.+)$/);
-          if (m) {
-            const ext = m[1].replace("jpg", "jpeg");
-            const imgId = wb.addImage({ base64: m[2], extension: ext });
-            // tl/br use 0-based col/row; header is row index 0, first data row is index 1
-            wsP.addImage(imgId, {
-              tl: { col: 3, row: i + 1 },
-              br: { col: 4, row: i + 2 },
-              editAs: "oneCell",
-            });
-          }
-        } catch (_) { /* skip if image can't be embedded */ }
-      }
+      reportPhotoCaption(r.getCell(3), p, styleBody(i % 2 === 0));
+      if (p.pic) xlPic(wb, wsP, p.pic, { col: 3, row: r.number - 1, x: 6, y: 6, boxW: colPx - 12, boxH: rowPx - 12, cache: picCache, key: p.num });
+      else { r.getCell(4).value = "picture could not be loaded — open it in the app"; r.getCell(4).style = { ...styleBody(i % 2 === 0), font: font({ italic: true, color: { argb: "FF6B7280" } }) }; }
     }
     wsP.views = [{ state: "frozen", ySplit: 1 }];
   }
@@ -11155,6 +11427,8 @@ function fuPrevClear(key, clearedMap, statusMap) {
   const c = Number(fuGet(clearedMap, key, statusMap)) || 0; // v564: an old name-only key still counts
   return c || Number(fuGet(statusMap, key)?.prevClear) || 0;
 }
+// v567: who made a report, for a photo caption (a stand log's reportedBy is {name, phone})
+const fuRecBy = rec => String(rec?.inspectorName || rec?.supervisorName || (typeof rec?.reportedBy === "string" ? rec.reportedBy : rec?.reportedBy?.name) || "").trim();
 function fuRowPhotos(item, rec) {
   try {
     const ph = Array.isArray(item.photos) ? item.photos : [];
@@ -11167,12 +11441,15 @@ function fuRowPhotos(item, rec) {
     const fromRec = (rec.photos || []).filter(p => p && (ids.length === 0 ? true : ids.includes(p.id)) && (p.thumbUrl || p.previewUrl));
     const list = objs.length ? objs : fromIdx.length ? fromIdx : (ph.length || rec.quickProblem) ? fromRec : [];
     return list.slice(0, 40)
-      .map(p => ({ id: p.id, tag: p.tag === "after" ? "after" : "", thumbUrl: p.thumbUrl || p.previewUrl || "", previewUrl: (p.previewUrl && !String(p.previewUrl).startsWith("data:")) ? p.previewUrl : (p.exportUrl || p.previewUrl || p.thumbUrl || "") }));
+      .map(p => ({ id: p.id, tag: p.tag === "after" ? "after" : "", thumbUrl: p.thumbUrl || p.previewUrl || "", previewUrl: (p.previewUrl && !String(p.previewUrl).startsWith("data:")) ? p.previewUrl : (p.exportUrl || p.previewUrl || p.thumbUrl || ""),
+        // v567: when and by whom (the exports' captions) — in memory only, nothing is stored
+        dateStr: rec.inspectionDate || "", by: fuRecBy(rec) }));
   } catch { return []; }
 }
 // opts.photoFloor {key: ts} — the older pictures of a card come only from after this time (the ✅ Fixed list passes
 // the clear that was in force before the fix, so an earlier, already-fixed episode keeps its own pictures)
 function computeFollowups(history, venueSettings, clearedLocal = {}, opts = {}) {
+  try { window.__sdxFuRuns = (window.__sdxFuRuns || 0) + 1; } catch {} // v567: how often the follow-up engine runs (speed harness)
   const recheckDays = Number(venueSettings?.recheckDays) || 7;
   if (!Array.isArray(history) || history.length < 1) return { followups: [], followupGroups: [], followupCatGroups: [], recheckDays };
   fuNoteHistory(history, venueSettings); // v564: which names are used at more than one unit
@@ -11201,7 +11478,7 @@ function computeFollowups(history, venueSettings, clearedLocal = {}, opts = {}) 
     const recResolvedMap = rec.resolvedIssues || {};
     for (const ca of (Array.isArray(rec.correctiveActions) ? rec.correctiveActions : [])) {
       if (!ca || !ca.key || !Array.isArray(ca.photos) || !ca.photos.length) continue;
-      (caPhotos[ca.key] = caPhotos[ca.key] || []).push(...ca.photos.filter(p => p && (p.thumbUrl || p.previewUrl)).map(p => ({ id: p.id, tag: "after", thumbUrl: p.thumbUrl || p.previewUrl, previewUrl: p.previewUrl || p.thumbUrl, ts })));
+      (caPhotos[ca.key] = caPhotos[ca.key] || []).push(...ca.photos.filter(p => p && (p.thumbUrl || p.previewUrl)).map(p => ({ id: p.id, tag: "after", thumbUrl: p.thumbUrl || p.previewUrl, previewUrl: p.previewUrl || p.thumbUrl, ts, dateStr: rec.inspectionDate || "", by: fuRecBy(rec) })));
     }
     const actionItems = rec.actionItems || [];
     actionItems.forEach((item, i) => {
@@ -12885,181 +13162,278 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
     return n;
   });
 
-  // v443 — the sheet Joxel sends: every picked job with its before and after
-  // pictures embedded, not just a photo count.
+  // v567: a short message at the bottom (an export is ready, or it failed and why)
+  const [fuNote, setFuNote] = useState("");
+  const fuNoteT = useRef(0);
+  const flashFu = (msg, ms = 6000) => { setFuNote(msg); clearTimeout(fuNoteT.current); fuNoteT.current = setTimeout(() => setFuNote(""), ms); };
+  useEffect(() => () => clearTimeout(fuNoteT.current), []);
+  // v567: the jobs of a before & after file — one card per unit per crew (the v502 merge, so a fix photo shared by a
+  // cooler's issues is shown once), every BEFORE (earliest first) and AFTER (newest first), cards with both first
+  // v567 review: a problem flagged again after an old fix is OPEN — a lingering "resolved" status older than the
+  // newest report (or a ✅ Fixed row marked reopened) is not a fix
+  const baStatusOf = (m, stMapX) => {
+    const st = fuGet(stMapX, m.key) || {};
+    const resolvedNow = st.status === "resolved" && Number(st.ts || 0) >= Number(m.ts || 0);
+    const fixedTs = m.reopened ? 0 : Number(m.fixedTs || (resolvedNow ? st.ts : 0) || 0);
+    return { st, fixedTs, fixedBy: fixedTs ? (m.fixedBy || st.by || "") : "", mins: fixedTs ? Number(m.fixedMins || st.mins || 0) : 0 };
+  };
+  // v567 review: the pictures of ONE episode — a card photo older than the fix that closed the previous episode
+  // (an old AFTER on a problem that came back) stays out of the files
+  const baPhotosOf = (m, stMapX) => {
+    const st = fuGet(stMapX, m.key) || {};
+    const floor = m.fixedTs ? Number(m._st?.prevClear || st.prevClear || 0)
+      : Number(fuGet({ ...(venueSettings?.followupCleared || {}), ...clearedLocal }, m.key) || st.prevClear || 0);
+    const card = fuPhotosOf1(m.key).filter(p => !floor || !Number(p?.ts) || Number(p.ts) >= floor);
+    return fuSplitPhotos(m.photos, card);
+  };
+  const baPhotosOfCard = (card, stMapX) => {
+    const seen = new Set(); const before = []; const after = [];
+    for (const m of fuMembers(card)) {
+      const sp = baPhotosOf(m, stMapX);
+      for (const p of sp.before) { const id = p.id || p.thumbUrl || p.previewUrl; if (!seen.has(id)) { seen.add(id); before.push(p); } }
+      for (const p of sp.after) { const id = p.id || p.thumbUrl || p.previewUrl; if (!seen.has(id)) { seen.add(id); after.push(p); } }
+    }
+    return baOrder({ before, after });
+  };
+  function baCardsFrom(items, stMapX) {
+    const when = t => new Date(t).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+    const cards = mergeFollowupsByUnit(items).map((card, order) => {
+      const ms = fuMembers(card);
+      const sp = baPhotosOfCard(card, stMapX);
+      const ss = ms.map(m => baStatusOf(m, stMapX));
+      const nFixed = ss.filter(x => x.fixedTs).length;
+      const lastFix = Math.max(0, ...ss.map(x => x.fixedTs));
+      const by = [...new Set(ss.map(x => x.fixedBy).filter(Boolean))].join(", ");
+      const mins = ss.reduce((n, x) => n + x.mins, 0);
+      const st0 = ss[0]?.st || {};
+      const allFixed = nFixed === ms.length;
+      const statusText = allFixed ? `✅ FIXED ${when(lastFix)}${by ? ` · ${by}` : ""}`
+        : nFixed ? `🔧 ${nFixed} of ${ms.length} fixed`
+        : card.likelyResolved ? "👁 Likely fixed — confirm it"
+        : st0.status === "in_progress" ? "🔧 In process"
+        : st0.status === "waiting" ? `⏳ Waiting${st0.note ? ` — ${st0.note}` : ""}`
+        : card.overdue ? `⏰ OPEN · ${card.daysSince || 0} days` : `OPEN · ${card.daysSince || 0} days`;
+      const type = standTypeBadge(card.locType || "").short || "";
+      const detail = (ms.length > 1 || (card.subs || []).length > 1) ? fuDetailAll(card).replace(/\n/g, "   ") : (card.detail || "");
+      const cmts = ms.flatMap(m => (commentsLocal[m.key] || fuGet(venueSettings?.followupComments, m.key) || [])).slice(-2).map(c => `${c.by}: ${c.text}`);
+      const whose = [...new Set(ms.map((m, i) => whoseProblemLabel(m.locType, m.fixedWhose || ss[i].st.whose, ss[i].st.standType)).filter(Boolean))].join(", ");
+      const details = [
+        allFixed && by ? `Fixed by ${by}` : "",
+        allFixed && lastFix ? when(lastFix) : "",
+        mins ? `${mins} min on the job` : "",
+        card.itype ? `${card.itype} crew` : "",
+        whose,
+        card.area ? `Where: ${card.area}` : "",
+        card.notes ? `Notes: ${card.notes}` : "",
+        ...cmts,
+      ].filter(Boolean).join("  ·  ");
+      return {
+        order, memberKeys: ms.map(m => m.key),
+        head: `${card.loc || "—"}${card.unit ? ` · #${card.unit}` : ""}${type ? ` · ${type}` : ""}`,
+        problem: `${card.cat || "Problem"}${detail ? ` — ${detail}` : ""}`,
+        statusText, statusFixed: allFixed, details,
+        before: sp.before, after: sp.after,
+        crew: card.itype || "Other", standLabel: `${card.loc || "—"}${card.unit ? ` #${card.unit}` : ""}`,
+      };
+    });
+    return cards.sort((x, y) => (BA_STATE_ORDER[baStateOf(x.before.length, x.after.length)] - BA_STATE_ORDER[baStateOf(y.before.length, y.after.length)]) || (x.order - y.order));
+  }
+  const baDateRange = items => { const ds = items.map(f => f.dateStr).filter(Boolean).sort(); return ds.length ? (ds[0] === ds[ds.length - 1] ? ds[0] : `${ds[0]} – ${ds[ds.length - 1]}`) : ""; };
+  const baReadyNote = (what, cards) => { const both = cards.filter(c => c.before.length && c.after.length).length; return `📸 ${what} ready — ${both} of ${cards.length} job${cards.length !== 1 ? "s" : ""} with BEFORE + AFTER`; };
+
+  // v443 — the sheet Joxel sends: every picked job with its before and after pictures embedded.
+  // v567: Summary first (how many jobs have BEFORE + AFTER), the list (a 📸 Photos cell that opens the job's card,
+  // one BEFORE and one AFTER thumbnail side by side), and the "Before & After" sheet — one big card per job.
   const [baBusy, setBaBusy] = useState("");
   async function exportBeforeAfter(items) {
     if (!items.length || baBusy) return;
-    setBaBusy(`0/${items.length}`);
+    setBaBusy("starting…");
     try {
       const ExcelJS = (await import("exceljs")).default;
       const wb = new ExcelJS.Workbook();
-      const ws = wb.addWorksheet("Before & After");
-      ws.columns = [
-        { width: 4 }, { width: 26 }, { width: 9 }, { width: 11 }, { width: 18 }, { width: 16 }, { width: 24 },
-        { width: 40 }, { width: 12 }, { width: 18 }, { width: 12 }, { width: 11 }, { width: 11 },
-        { width: 22 }, { width: 38 }, { width: 24 }, { width: 24 },
-      ];
-      const title = ws.addRow(["BEFORE & AFTER — " + new Date().toLocaleDateString()]);
-      title.height = 24;
-      ws.mergeCells(`A${title.number}:Q${title.number}`);
-      title.getCell(1).style = { font: { bold: true, size: 13, color: { argb: "FFFFFFFF" } }, fill: { type: "pattern", pattern: "solid", fgColor: { argb: "FF2A295C" } }, alignment: { vertical: "middle", horizontal: "left" } };
-      const hdr = ws.addRow(["#", "Stand", "Unit #", "Floor", "Stand Type", "License", "Problem", "What was wrong", "Flagged",
-        "Fixed by", "Date solved", "Time solved", "Min on job", "Whose problem", "Corrective action / notes", "BEFORE", "AFTER"]);
-      hdr.height = 20;
-      hdr.eachCell(c => { c.style = { font: { bold: true, size: 10, color: { argb: "FFFFFFFF" } }, fill: { type: "pattern", pattern: "solid", fgColor: { argb: "FFDC2626" } }, alignment: { vertical: "middle", horizontal: "center", wrapText: true } }; });
-      ws.views = [{ state: "frozen", ySplit: hdr.number }];
-      const lic = (() => { const m = {}; try { licenseRows().forEach(r => { const u = normUnit(r.unit); if (u && !m[u]) m[u] = r; }); } catch {} return m; })();
+      wb.views = [{ x: 0, y: 0, width: 20000, height: 12000, firstSheet: 0, activeTab: 0, visibility: "visible" }];
+      const wsSum = wb.addWorksheet("Summary");
+      const ws = wb.addWorksheet("Issues");
+      const wsCards = wb.addWorksheet(BA_SHEET);
       const stMapX = { ...(venueSettings?.followupStatus || {}), ...statusLocal };
+      const cards = baCardsFrom(items, stMapX);
+      const cardOf = new Map(); cards.forEach((c, i) => c.memberKeys.forEach(k => { if (!cardOf.has(k)) cardOf.set(k, i); }));
+      const fetcher = makeExportPhotoFetcher({ q: 0.75, onProgress: ({ done, total }) => setBaBusy(`pictures ${total ? Math.round(done / total * 100) : 0}%`) });
+      const cache = new Map();
+      ws.properties.tabColor = { argb: "FFDC2626" };
+      ws.columns = [
+        { width: 4 }, { width: 26 }, { width: 9 }, { width: 11 }, { width: 18 }, { width: 16 }, { width: 24 }, { width: 22 },
+        { width: 40 }, { width: 12 }, { width: 18 }, { width: 12 }, { width: 11 }, { width: 11 },
+        { width: 22 }, { width: 38 }, { width: 20 }, { width: 20 },
+      ];
+      const title = ws.addRow([`BEFORE & AFTER — ${new Date().toLocaleDateString()} · ${items.length} issue${items.length !== 1 ? "s" : ""} · ${cards.length} job${cards.length !== 1 ? "s" : ""}`]);
+      title.height = 24;
+      ws.mergeCells(`A${title.number}:R${title.number}`);
+      title.getCell(1).style = { font: { bold: true, size: 13, color: { argb: "FFFFFFFF" } }, fill: xlFill("FF2A295C"), alignment: { vertical: "middle", horizontal: "left" } };
+      const hdr = ws.addRow(["#", "Stand", "Unit #", "Floor", "Stand Type", "License", "Problem", "📸 Photos", "What was wrong", "Flagged",
+        "Fixed by", "Date solved", "Time solved", "Min on job", "Whose problem", "Corrective action / notes", "🔴 BEFORE", "🟢 AFTER"]);
+      hdr.height = 22;
+      hdr.eachCell((c, col) => { c.style = { font: { bold: true, size: 10, color: { argb: "FFFFFFFF" } }, fill: xlFill(col === 17 ? "FFDC2626" : col === 18 ? "FF166534" : col === 8 ? "FF7C3AED" : "FF2A295C"), alignment: { vertical: "middle", horizontal: "center", wrapText: true } }; });
+      ws.autoFilter = { from: { row: hdr.number, column: 1 }, to: { row: hdr.number, column: 18 } };
+      ws.views = [{ state: "frozen", xSplit: 2, ySplit: hdr.number, topLeftCell: `C${hdr.number + 1}`, activeCell: "A1" }];
+      const lic = (() => { const m = {}; try { licenseRows().forEach(r => { const u = normUnit(r.unit); if (u && !m[u]) m[u] = r; }); } catch {} return m; })();
       const clk = t => t ? new Date(t).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "";
+      const listRows = [];
       for (let i = 0; i < items.length; i++) {
         const f = items[i];
-        setBaBusy(`${i + 1}/${items.length}`);
-        const st = fuGet(stMapX, f.key) || {};
-        // v558 review: the same picture never twice (the inspector's corrective photo sits on the report AND the card)
-        const sp = fuSplitPhotos(f.photos, fuPhotosOf(f));
-        const before = sp.before.slice(0, 3);
-        const after = sp.after.slice(0, 3);
-        const solved = Number(f.fixedTs || (st.status === "resolved" ? st.ts : 0) || 0);
-        const mins = Number(f.fixedMins || st.mins || 0);
+        const { st, fixedTs: solved, fixedBy, mins } = baStatusOf(f, stMapX);
+        const sp = baOrder(baPhotosOf(f, stMapX)); // v558 review: the same picture never twice (v567: one episode)
         const whoseKey = f.fixedWhose || st.whose;
         const whose = whoseProblemLabel(f.locType, whoseKey, st.standType);
         const notes = [f.notes, ...((commentsLocal[f.key] || fuGet(venueSettings?.followupComments, f.key) || []).map(c => `${c.by}: ${c.text}`))].filter(Boolean).join("  |  ");
         const r = lic[normUnit(f.unit)] || {};
-        const row = ws.addRow([i + 1, f.loc, f.unit || "", f.floor || "", standTypeBadge(f.locType || "").short || "—", r.license || "", f.cat, fuDetailAll(f), f.dateStr || "",
-          f.fixedBy || (st.status === "resolved" ? st.by || "" : ""), solved ? new Date(solved).toLocaleDateString() : "", clk(solved),
-          mins || "", whose, notes, before.length ? "" : "no before photo", after.length ? "" : "no after photo"]);
+        const row = ws.addRow([i + 1, f.loc, f.unit || "", f.floor || "", standTypeBadge(f.locType || "").short || "—", r.license || "", f.cat, "", fuDetailAll(f), f.dateStr || "",
+          fixedBy, solved ? new Date(solved).toLocaleDateString() : "", clk(solved), mins || "", whose, notes, "", ""]);
         const bg = i % 2 === 0 ? "FFFFFFFF" : "FFF4F5F7";
-        row.eachCell((c, col) => {
-          c.style = { font: { size: 10, name: "Calibri" }, fill: { type: "pattern", pattern: "solid", fgColor: { argb: bg } }, alignment: { vertical: "top", wrapText: col === 8 || col === 15 } };
-          if (col === 14 && whoseKey === "sub") c.style = { ...c.style, font: { size: 10, bold: true, color: { argb: "FFB45309" } } };
-          if (col === 16 || col === 17) c.style = { ...c.style, font: { size: 9, italic: true, color: { argb: "FF9CA3AF" } }, alignment: { vertical: "middle", horizontal: "center" } };
+        row.eachCell({ includeEmpty: true }, (c, col) => {
+          c.style = { font: { size: 10, name: "Calibri" }, fill: xlFill(bg), alignment: { vertical: "top", wrapText: col === 9 || col === 16 } };
+          if (col === 15 && whoseKey === "sub") c.style = { ...c.style, font: { size: 10, bold: true, color: { argb: "FFB45309" } } };
         });
-        const place = async (list, startCol) => {
-          for (let k = 0; k < list.length; k++) {
-            const pic = list[k];
-            const src = pic.previewUrl || pic.thumbUrl || pic.url || "";
-            let dataUrl = null;
-            try { dataUrl = await fetchAsDataUrl(src, pic.thumbUrl); } catch {}
-            if (!dataUrl) { // never lose the picture silently — leave a link
-              const cell = row.getCell(startCol);
-              if (src) { cell.value = { text: `photo ${k + 1}`, hyperlink: src }; cell.style = { ...cell.style, font: { size: 9, color: { argb: "FF1D4ED8" }, underline: true } }; }
-              continue;
-            }
-            const comma = dataUrl.indexOf(",");
-            const base64 = comma >= 0 ? dataUrl.slice(comma + 1) : dataUrl;
-            const ext = dataUrl.includes("image/png") ? "png" : "jpeg";
-            try {
-              const id = wb.addImage({ base64, extension: ext });
-              ws.addImage(id, { tl: { col: startCol - 1 + k * 0.32, row: row.number - 1 }, ext: { width: 108, height: 116 }, editAs: "oneCell" });
-            } catch {}
-          }
-        };
-        row.height = 92;
-        await place(before, 16);
-        await place(after, 17);
+        const ci = cardOf.get(f.key);
+        if (ci != null && !cards[ci].listRow) cards[ci].listRow = row.number;
+        baPhotosCell(row.getCell(8), sp.before.length, sp.after.length, ci);
+        if (sp.before.length || sp.after.length) row.height = 80;
+        listRows.push({ row, sp });
       }
+      baPrefetch(fetcher, cards, listRows.flatMap(x => [x.sp.before, x.sp.after]));
+      await fillBaCardsSheet(wb, wsCards, cards, { fetcher, cache, listSheet: "Issues" });
+      for (const { row, sp } of listRows) {
+        await baThumbCell(wb, ws, row, 17, sp.before, "before", { fetcher, cache });
+        await baThumbCell(wb, ws, row, 18, sp.after, "after", { fetcher, cache });
+      }
+      fillBaSummarySheet(wsSum, cards, {
+        title: "📸 Before & After",
+        subtitle: [resolveCompanyName(), `made ${new Date().toLocaleDateString()}`, baDateRange(items) && `problems flagged ${baDateRange(items)}`].filter(Boolean).join("  ·  "),
+        issueCount: items.length,
+        smallNote: cards.length > BA_BIG_MAX ? `Big photos for the first ${BA_BIG_MAX} jobs; the other ${cards.length - BA_BIG_MAX} show smaller copies (keeps the file smaller).` : "",
+      });
+      setBaBusy("building the file…");
       const buf = await wb.xlsx.writeBuffer();
       downloadBlob(new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }), `Before-After_${new Date().toISOString().slice(0, 10)}.xlsx`);
-    } catch {}
+      flashFu(baReadyNote("Before & After file", cards));
+    } catch (e) {
+      console.warn("[export] before & after", e);
+      flashFu("⚠ The Before & After file could not be made. Check the connection and try again.", 9000);
+    }
     setBaBusy("");
   }
 
   // v510: the pictures of a follow-up for the exports — report photos + every member's card photos,
   // split before / after, at most 3 each, fetched once and shrunk (v484 fetcher) so the file carries them.
+  // v567: BEFORE earliest first, AFTER newest first (the fix as it is now), and how many were left out
   const [fuXBusy, setFuXBusy] = useState("");
   function fuExportPhotos(f) {
-    const seen = new Set(); const all = [];
-    for (const p of [...(f.photos || []), ...fuPhotosOf(f)]) {
-      if (!p) continue; const id = p.id || p.exportUrl || p.previewUrl || p.url || p.thumbUrl; if (!id || seen.has(id)) continue; seen.add(id); all.push(p);
-    }
-    return { before: all.filter(p => p.tag !== "after").slice(0, 3), after: all.filter(p => p.tag === "after").slice(0, 3) };
+    const sp = baOrder(baPhotosOf(f, { ...(venueSettings?.followupStatus || {}), ...statusLocal }));
+    return { before: sp.before.slice(0, 3), after: sp.after.slice(0, 3), moreB: Math.max(0, sp.before.length - 3), moreA: Math.max(0, sp.after.length - 3) };
   }
   async function loadExportPics(items, label) {
     const fetcher = makeExportPhotoFetcher({ onProgress: ({ done, total }) => setFuXBusy(`${label} · pictures ${done} of ${total}…`) });
-    const src = p => p.exportUrl || p.previewUrl || p.url || p.dataUrl || p.thumbUrl || "";
     const out = {};
     await Promise.all(items.map(async f => {
-      const { before, after } = fuExportPhotos(f);
-      const get = arr => Promise.all(arr.map(async p => ({ link: /^https?:/.test(src(p)) ? src(p) : "", data: await fetcher.get(src(p), p.thumbUrl) })));
-      out[f.key] = { before: await get(before), after: await get(after) };
+      const { before, after, moreB, moreA } = fuExportPhotos(f);
+      const get = arr => Promise.all(arr.map(async p => { const pic = await fetcher.getPic(baBigSrcs(p), 480); return { link: baBigSrcs(p).find(u => /^https?:/.test(u)) || "", data: pic ? pic.data : null, cap: baPhotoCaption(p) }; }));
+      out[f.key] = { before: await get(before), after: await get(after), moreB, moreA };
     }));
     return out;
   }
+  // v567: Summary first, the list (📸 Photos opens the job's card; one BEFORE + one AFTER thumbnail side by side,
+  // red / green headers), and the "Before & After" sheet with one big card per job
   async function exportSelectedFollowups(items) {
     if (!items.length) return;
-    const ExcelJS = (await import("exceljs")).default;
-    const wb = new ExcelJS.Workbook();
-    const ws = wb.addWorksheet("Follow-ups");
-    ws.columns = [
-      { width: 4 }, { width: 26 }, { width: 9 }, { width: 12 }, { width: 20 }, { width: 24 },
-      { width: 16 }, { width: 46 }, { width: 30 }, { width: 14 }, { width: 12 }, { width: 12 }, { width: 20 }, { width: 50 }, { width: 8 },
-      // v440 — what the team actually did
-      { width: 20 }, { width: 12 }, { width: 11 }, { width: 11 }, { width: 12 }, { width: 22 },
-      { width: 44 }, { width: 44 }, // v510 — BEFORE / AFTER pictures
-    ];
     setFuXBusy("Excel · starting…");
-    let pics = {};
-    try { pics = await loadExportPics(items, "Excel"); } catch {}
-    const title = ws.addRow(["FOLLOW-UPS EXPORT — " + new Date().toLocaleDateString()]);
-    title.height = 24;
-    ws.mergeCells(`A${title.number}:W${title.number}`);
-    title.getCell(1).style = { font: { bold: true, size: 13, color: { argb: "FFFFFFFF" } }, fill: { type: "pattern", pattern: "solid", fgColor: { argb: "FF2A295C" } }, alignment: { vertical: "middle", horizontal: "left" } };
-    const hdrRow = ws.addRow(["#", "Venue / Stand", "Unit #", "Floor", "Stand Type", "Problem", "Issue Type", "Latest Detail", "Inspector Notes", "Status", "Days Open", "Flagged", "Status By", "Comments", "Photos",
-      "Fixed by", "Date solved", "Time solved", "Started", "Min on job", "Whose problem", "BEFORE photos", "AFTER photos"]);
-    hdrRow.height = 20;
-    hdrRow.eachCell(c => { c.style = { font: { bold: true, size: 10, color: { argb: "FFFFFFFF" } }, fill: { type: "pattern", pattern: "solid", fgColor: { argb: "FFDC2626" } }, alignment: { vertical: "middle", horizontal: "center", wrapText: true } }; });
-    ws.autoFilter = { from: { row: hdrRow.number, column: 1 }, to: { row: hdrRow.number, column: 23 } };
-    ws.views = [{ state: "frozen", ySplit: hdrRow.number }];
-    const stMapX = { ...(venueSettings?.followupStatus || {}), ...statusLocal };
-    let nImg = 0;
-    items.forEach((f, i) => {
-      const st = fuGet(stMapX, f.key);
-      const stLabel = st && st.status === "resolved" ? (f.reopened ? "Fixed — then flagged again" : "Fixed")
-        : f.likelyResolved ? "Likely fixed"
-        : st && st.status === "in_progress" ? "In process"
-        : st && st.status === "waiting" ? `Waiting${st.note ? ` — ${st.note}` : ""}`
-        : f.overdue ? "Overdue" : "Open";
-      const bg = i % 2 === 0 ? "FFFFFFFF" : "FFF4F5F7";
-      const cmts = ((commentsLocal[f.key] || fuGet(venueSettings?.followupComments, f.key) || []))
-        .map(c => `${c.by}: ${c.text}`).join("  |  ");
-      const spN = fuSplitPhotos(f.photos, fuPhotosOf(f)); const nPhotos = spN.before.length + spN.after.length; // v558 review: counted once
-      const solved = Number(f.fixedTs || (st?.status === "resolved" ? st?.ts : 0) || 0);
-      const clk = t => t ? new Date(t).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "";
-      const whose = f.fixedWhose ? whoseProblemLabel(f.locType, f.fixedWhose, st?.standType) : "";
-      const row = ws.addRow([i + 1, f.loc, f.unit || "", f.floor || "", standTypeBadge(f.locType || "").short || "—", f.cat, f.itype || "Other", fuDetailAll(f), f.notes || "", stLabel, f.daysSince, f.dateStr || "", st?.by || "", cmts, nPhotos,
-        f.fixedBy || (st?.status === "resolved" ? st?.by || "" : ""), solved ? new Date(solved).toLocaleDateString() : "", clk(solved), clk(f.fixedStart), f.fixedMins || "", whose]);
-      row.height = 18;
-      row.eachCell((c, col) => {
-        c.style = { font: { size: 10, name: "Calibri" }, fill: { type: "pattern", pattern: "solid", fgColor: { argb: bg } }, alignment: { vertical: "top", wrapText: col === 8 || col === 9 || col === 14 } };
-        if (col === 7) c.style = issueTypeStyle(f.itype || "Other");
-        if (col === 10) c.style = { ...c.style, font: { size: 10, bold: true, color: { argb: f.overdue && !f.likelyResolved ? "FFDC2626" : "FF166534" } } };
-        if (col === 21 && f.fixedWhose === "sub") c.style = { ...c.style, font: { size: 10, bold: true, color: { argb: "FFB45309" } } };
-      });
-      // v510 — embed the pictures (cols 22 = BEFORE, 23 = AFTER)
-      const pp = pics[f.key] || { before: [], after: [] };
-      [[22, pp.before, "before"], [23, pp.after, "after"]].forEach(([col, arr, word]) => {
-        const cell = row.getCell(col);
-        cell.style = { font: { size: 9, color: { argb: "FF6B7280" } }, alignment: { vertical: "top", wrapText: true } };
-        const ok = arr.filter(x => x.data); const miss = arr.filter(x => !x.data && x.link);
-        if (!arr.length) { cell.value = `no ${word} photo`; return; }
-        if (miss.length && !ok.length) { cell.value = { text: `open ${word} photo`, hyperlink: miss[0].link }; cell.style = { ...cell.style, font: { size: 9, color: { argb: "FF1D4ED8" }, underline: true } }; }
-        ok.forEach((x, j) => {
-          const m = String(x.data).match(/^data:image\/(png|jpe?g|gif|webp);base64,(.+)$/); if (!m) return;
-          try { const id = wb.addImage({ base64: m[2], extension: m[1].replace("jpg", "jpeg") }); ws.addImage(id, { tl: { col: col - 1 + j * 0.33, row: row.number - 1 + 0.08 }, ext: { width: 96, height: 96 }, editAs: "oneCell" }); nImg++; } catch {}
+    try {
+      const ExcelJS = (await import("exceljs")).default;
+      const wb = new ExcelJS.Workbook();
+      wb.views = [{ x: 0, y: 0, width: 20000, height: 12000, firstSheet: 0, activeTab: 0, visibility: "visible" }];
+      const wsSum = wb.addWorksheet("Summary");
+      const ws = wb.addWorksheet("Follow-ups");
+      const wsCards = wb.addWorksheet(BA_SHEET);
+      ws.properties.tabColor = { argb: "FFDC2626" };
+      ws.columns = [
+        { width: 4 }, { width: 26 }, { width: 9 }, { width: 12 }, { width: 20 }, { width: 24 },
+        { width: 16 }, { width: 46 }, { width: 30 }, { width: 14 }, { width: 12 }, { width: 12 }, { width: 20 }, { width: 50 }, { width: 22 },
+        // v440 — what the team actually did
+        { width: 20 }, { width: 12 }, { width: 11 }, { width: 11 }, { width: 12 }, { width: 22 },
+        { width: 20 }, { width: 20 }, // v510 — BEFORE / AFTER pictures
+      ];
+      const stMapX = { ...(venueSettings?.followupStatus || {}), ...statusLocal };
+      const cards = baCardsFrom(items, stMapX);
+      const cardOf = new Map(); cards.forEach((c, i) => c.memberKeys.forEach(k => { if (!cardOf.has(k)) cardOf.set(k, i); }));
+      const fetcher = makeExportPhotoFetcher({ q: 0.75, onProgress: ({ done, total }) => setFuXBusy(`Excel · pictures ${total ? Math.round(done / total * 100) : 0}%…`) });
+      const cache = new Map();
+      const title = ws.addRow([`FOLLOW-UPS EXPORT — ${new Date().toLocaleDateString()} · ${items.length} issue${items.length !== 1 ? "s" : ""} · ${(n => `${n} job${n !== 1 ? "s" : ""}`)(cards.filter(c => c.before.length && c.after.length).length)} with BEFORE + AFTER pictures`]);
+      title.height = 24;
+      ws.mergeCells(`A${title.number}:W${title.number}`);
+      title.getCell(1).style = { font: { bold: true, size: 13, color: { argb: "FFFFFFFF" } }, fill: xlFill("FF2A295C"), alignment: { vertical: "middle", horizontal: "left" } };
+      const hdrRow = ws.addRow(["#", "Venue / Stand", "Unit #", "Floor", "Stand Type", "Problem", "Issue Type", "Latest Detail", "Inspector Notes", "Status", "Days Open", "Flagged", "Status By", "Comments", "📸 Photos",
+        "Fixed by", "Date solved", "Time solved", "Started", "Min on job", "Whose problem", "🔴 BEFORE photos", "🟢 AFTER photos"]);
+      hdrRow.height = 22;
+      hdrRow.eachCell((c, col) => { c.style = { font: { bold: true, size: 10, color: { argb: "FFFFFFFF" } }, fill: xlFill(col === 22 ? "FFDC2626" : col === 23 ? "FF166534" : col === 15 ? "FF7C3AED" : "FF2A295C"), alignment: { vertical: "middle", horizontal: "center", wrapText: true } }; });
+      ws.autoFilter = { from: { row: hdrRow.number, column: 1 }, to: { row: hdrRow.number, column: 23 } };
+      ws.views = [{ state: "frozen", xSplit: 2, ySplit: hdrRow.number, topLeftCell: `C${hdrRow.number + 1}`, activeCell: "A1" }];
+      const listRows = [];
+      items.forEach((f, i) => {
+        const st = fuGet(stMapX, f.key);
+        const bs = baStatusOf(f, stMapX);
+        const stLabel = bs.fixedTs ? "Fixed" : (st && st.status === "resolved") ? "Flagged again after a fix"
+          : f.likelyResolved ? "Likely fixed"
+          : st && st.status === "in_progress" ? "In process"
+          : st && st.status === "waiting" ? `Waiting${st.note ? ` — ${st.note}` : ""}`
+          : f.overdue ? "Overdue" : "Open";
+        const bg = i % 2 === 0 ? "FFFFFFFF" : "FFF4F5F7";
+        const cmts = ((commentsLocal[f.key] || fuGet(venueSettings?.followupComments, f.key) || []))
+          .map(c => `${c.by}: ${c.text}`).join("  |  ");
+        const sp = baOrder(baPhotosOf(f, stMapX)); // v558 review: counted once (v567: one episode)
+        const solved = bs.fixedTs;
+        const clk = t => t ? new Date(t).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "";
+        const whose = f.fixedWhose ? whoseProblemLabel(f.locType, f.fixedWhose, st?.standType) : "";
+        const row = ws.addRow([i + 1, f.loc, f.unit || "", f.floor || "", standTypeBadge(f.locType || "").short || "—", f.cat, f.itype || "Other", fuDetailAll(f), f.notes || "", stLabel, f.daysSince, f.dateStr || "", st?.by || "", cmts, "",
+          bs.fixedBy, solved ? new Date(solved).toLocaleDateString() : "", clk(solved), solved ? clk(f.fixedStart) : "", bs.mins || "", whose, "", ""]);
+        row.eachCell({ includeEmpty: true }, (c, col) => {
+          c.style = { font: { size: 10, name: "Calibri" }, fill: xlFill(bg), alignment: { vertical: "top", wrapText: col === 8 || col === 9 || col === 14 } };
+          if (col === 7) c.style = issueTypeStyle(f.itype || "Other");
+          if (col === 10) c.style = { ...c.style, font: { size: 10, bold: true, color: { argb: f.overdue && !f.likelyResolved ? "FFDC2626" : "FF166534" } } };
+          if (col === 21 && f.fixedWhose === "sub") c.style = { ...c.style, font: { size: 10, bold: true, color: { argb: "FFB45309" } } };
         });
-        if (ok.length) row.height = 80;
+        const ci = cardOf.get(f.key);
+        if (ci != null && !cards[ci].listRow) cards[ci].listRow = row.number;
+        baPhotosCell(row.getCell(15), sp.before.length, sp.after.length, ci);
+        if (sp.before.length || sp.after.length) row.height = 80;
+        listRows.push({ row, sp });
       });
-    });
-    const buf = await wb.xlsx.writeBuffer();
+      baPrefetch(fetcher, cards, listRows.flatMap(x => [x.sp.before, x.sp.after]));
+      await fillBaCardsSheet(wb, wsCards, cards, { fetcher, cache, listSheet: "Follow-ups" });
+      for (const { row, sp } of listRows) {
+        await baThumbCell(wb, ws, row, 22, sp.before, "before", { fetcher, cache });
+        await baThumbCell(wb, ws, row, 23, sp.after, "after", { fetcher, cache });
+      }
+      fillBaSummarySheet(wsSum, cards, {
+        title: "🔁 Follow-ups — before & after",
+        subtitle: [resolveCompanyName(), `made ${new Date().toLocaleDateString()}`, `${items.length} issue${items.length !== 1 ? "s" : ""}`, baDateRange(items) && `flagged ${baDateRange(items)}`].filter(Boolean).join("  ·  "),
+        issueCount: items.length,
+        smallNote: cards.length > BA_BIG_MAX ? `Big photos for the first ${BA_BIG_MAX} jobs; the other ${cards.length - BA_BIG_MAX} show smaller copies (keeps the file smaller).` : "",
+      });
+      setFuXBusy("Excel · building the file…");
+      const buf = await wb.xlsx.writeBuffer();
+      downloadBlob(new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }), `Follow-ups_${new Date().toISOString().slice(0, 10)}.xlsx`);
+      flashFu(baReadyNote("Follow-ups file", cards));
+    } catch (e) {
+      console.warn("[export] follow-ups", e);
+      flashFu("⚠ The Follow-ups file could not be made. Check the connection and try again.", 9000);
+    }
     setFuXBusy("");
-    downloadBlob(new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }), `Follow-ups_${new Date().toISOString().slice(0, 10)}.xlsx`);
   }
   // Follow-ups → PDF (print sheet) or Word (.doc) — same rows as the Excel export (v429)
   // v437 — a cleaning report to send the subcontractor: what our crew
   // cleaned at their stand, before and after, who did it and how long.
   function exportCleaningReport(items) {
     if (!items.length) return;
+    const stMapX = { ...(venueSettings?.followupStatus || {}), ...statusLocal }; // v567: was never defined here (the button did nothing since v564)
     const esc = v => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
     const dateStr = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
     const lic = (() => { const m = {}; try { licenseRows().forEach(r => { const u = normUnit(r.unit); if (u && !m[u]) m[u] = r; }); } catch {} return m; })();
@@ -13074,7 +13448,7 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
       const mins = g.rows.reduce((n, f) => n + (f.fixedMins || 0), 0);
       const bill = g.rows.filter(f => f.fixedWhose === "sub");
       const rows = g.rows.map(f => {
-        const sp = fuSplitPhotos(f.photos, fuPhotosOf(f)); // v558 review: the same picture never twice
+        const sp = baOrder(baPhotosOf(f, stMapX)); // v558 review: the same picture never twice (v567: one episode)
         const before = sp.before.slice(0, 2);
         const after = sp.after.slice(0, 2);
         const img = arr => arr.length ? arr.map(x => (() => { const c = photoSrcChain(x); return `<img src="${c[0] || ""}"${c[1] ? ` onerror="this.onerror=null;this.src='${c[c.length - 1]}'"` : ""}>`; })()).join("") : `<span class="none">no photo</span>`;
@@ -13084,19 +13458,21 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
           `<td><b>${esc(f.cat)}</b>${f.detail ? `<br><small>${esc(f.detail)}</small>` : ""}</td>` +
           `<td>${esc(f.fixedBy || "")}</td><td>${f.fixedMins ? esc(hrs(f.fixedMins)) : "\u2014"}</td>` +
           `<td class="${f.fixedWhose === "sub" ? "bill" : ""}">${whoseProblemLabel(f.locType, f.fixedWhose, fuGet(stMapX, f.key)?.standType) || "\u2014"}${f.fixedHow === "already" ? "<br><small>found already clean</small>" : ""}</td>` +
-          `<td>${img(before)}</td><td>${img(after)}</td></tr>`;
+          `<td class="bef">${img(before)}</td><td class="aft">${img(after)}</td></tr>`;
       }).join("");
       return `<h2>${esc(g.loc)}${g.unit ? ` \u2014 Unit #${esc(g.unit)}` : ""}</h2>` +
         `<p class="meta">${r.license ? `License ${esc(r.license)}` : "No license on file"}${g.rows[0]?.locType ? ` \u00b7 <b>${esc(standTypeBadge(g.rows[0].locType).short)}</b>` : ""}${r.name ? ` \u00b7 ${esc(r.name)}` : ""} \u2022 ${g.rows.length} clean${g.rows.length !== 1 ? "s" : ""} \u2022 ${hrs(mins)} of crew time \u2022 ${bill.length} billable to the stand</p>` +
-        `<table><thead><tr><th>Date</th><th>Started</th><th>Solved</th><th>What was cleaned</th><th>Cleaned by</th><th>Time on job</th><th>Whose problem</th><th>Before</th><th>After</th></tr></thead><tbody>${rows}</tbody></table>`;
+        `<table><thead><tr><th>Date</th><th>Started</th><th>Solved</th><th>What was cleaned</th><th>Cleaned by</th><th>Time on job</th><th>Whose problem</th><th class="bef">🔴 BEFORE</th><th class="aft">🟢 AFTER</th></tr></thead><tbody>${rows}</tbody></table>`;
     }).join("");
     const totalMins = items.reduce((n, f) => n + (f.fixedMins || 0), 0);
     const billN = items.filter(f => f.fixedWhose === "sub").length;
+    const bothN = items.filter(f => { const sp = baPhotosOf(f, stMapX); return sp.before.length && sp.after.length; }).length;
     const body = `<h1>Cleaning Report</h1><div class="brand-line"></div>
 <p class="meta">${dateStr} &bull; ${resolveCompanyName()} &bull; ${items.length} clean${items.length !== 1 ? "s" : ""} &bull; ${hrs(totalMins)} of crew time &bull; ${billN} billable to the stand / subcontractor</p>
+<p class="ba">📸 <b>${bothN} of ${items.length}</b> clean${items.length !== 1 ? "s" : ""} with a BEFORE and an AFTER picture</p>
 ${sections}
 <div class="footer">Generated ${dateStr} &bull; ${resolveSystemName()}</div>`;
-    const css = `body{font-family:Arial,Helvetica,sans-serif;color:#111827;margin:0;padding:14px;font-size:9pt}h1{font-size:16pt;margin:0 0 4px;color:#1e2761}h2{font-size:11pt;margin:14px 0 2px;color:#1e2761}.brand-line{height:3px;background:#EE0000;width:90px;margin:0 0 8px}.meta{color:#6b7280;font-size:8pt;margin:0 0 8px}table{width:100%;border-collapse:collapse;margin-bottom:6px}th{background:#DC2626;color:#fff;text-align:left;padding:5px 6px;font-size:8pt}td{padding:5px 6px;border-bottom:1px solid #e5e7eb;vertical-align:top;font-size:8.5pt}td.bill{color:#b91c1c;font-weight:700}small{color:#6b7280;font-size:7.5pt}.none{color:#9ca3af;font-size:7.5pt}td img{height:62px;width:auto;margin:0 3px 3px 0;border-radius:4px;border:1px solid #e5e7eb}.footer{margin-top:10px;padding-top:5px;border-top:1px solid #e5e7eb;font-size:6.5pt;color:#9ca3af;text-align:center}@page{size:landscape;margin:10mm}@media print{tr,h2{page-break-inside:avoid}}`;
+    const css = `body{font-family:Arial,Helvetica,sans-serif;color:#111827;margin:0;padding:14px;font-size:9pt}h1{font-size:16pt;margin:0 0 4px;color:#1e2761}h2{font-size:11pt;margin:14px 0 2px;color:#1e2761}.brand-line{height:3px;background:#EE0000;width:90px;margin:0 0 8px}.meta{color:#6b7280;font-size:8pt;margin:0 0 8px}table{width:100%;border-collapse:collapse;margin-bottom:6px}th{background:#DC2626;color:#fff;text-align:left;padding:5px 6px;font-size:8pt}td{padding:5px 6px;border-bottom:1px solid #e5e7eb;vertical-align:top;font-size:8.5pt}td.bill{color:#b91c1c;font-weight:700}small{color:#6b7280;font-size:7.5pt}.none{color:#9ca3af;font-size:7.5pt}td img{height:84px;width:auto;margin:0 3px 3px 0;border-radius:4px;border:2px solid #e5e7eb}td.bef img{border-color:#fca5a5}td.aft img{border-color:#86efac}th.bef{background:#DC2626}th.aft{background:#166534}.ba{font-size:10pt;color:#166534;margin:0 0 10px}.footer{margin-top:10px;padding-top:5px;border-top:1px solid #e5e7eb;font-size:6.5pt;color:#9ca3af;text-align:center}@page{size:landscape;margin:10mm}@media print{tr,h2{page-break-inside:avoid}}`;
     const stamp = new Date().toISOString().slice(0, 10);
     printHtml(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Cleaning report ${stamp}</title><style>${css}</style></head><body>${body}</body></html>`, `Cleaning-report_${stamp}.html`);
   }
@@ -13112,24 +13488,29 @@ ${sections}
     const dateStr = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
     const rows = items.map((f, i) => {
       const st = fuGet(stMapX, f.key);
-      const stLabel = st && st.status === "resolved" ? (f.reopened ? "Fixed — then flagged again" : "Fixed")
+      const bs = baStatusOf(f, stMapX);
+      const stLabel = bs.fixedTs ? "Fixed" : (st && st.status === "resolved") ? "Flagged again after a fix"
         : f.likelyResolved ? "Likely fixed"
         : st && st.status === "in_progress" ? "In process"
         : st && st.status === "waiting" ? `Waiting${st.note ? ` — ${st.note}` : ""}`
         : f.overdue ? "Overdue" : "Open";
       const cmts = ((commentsLocal[f.key] || fuGet(venueSettings?.followupComments, f.key) || [])).map(c => `${c.by}: ${c.text}`).join(" | ");
       const pp = pics[f.key] || { before: [], after: [] }; // v510: embedded data: pictures, before / after
-      const picCell = arr => arr.filter(x => x.data).map(x => `<img src="${x.data}" width="96">`).join("");
-      const photoHtml = (pp.before.length || pp.after.length) ? `${pp.before.length ? `<div><small><b>BEFORE</b></small><br>${picCell(pp.before)}</div>` : ""}${pp.after.length ? `<div><small><b style="color:#166534">AFTER</b></small><br>${picCell(pp.after)}</div>` : ""}` : `<small>no photo</small>`;
+      // v567: BEFORE and AFTER side by side in their own columns, each picture with its date and who took it
+      const picCell = (arr, more, word) => !arr.length ? `<span class="none">no ${word} photo${word === "after" ? " yet" : ""}</span>`
+        : arr.map(x => x.data ? `<div class="pic"><img src="${x.data}" height="88">${x.cap ? `<br><small>${esc(x.cap)}</small>` : ""}</div>` : (x.link ? `<div class="pic"><a href="${esc(x.link)}">open the ${word} photo</a></div>` : `<div class="pic none">${word} photo did not load</div>`)).join("") + (more ? `<small>+${more} more in the app</small>` : "");
       const cls = f.overdue && !f.likelyResolved ? "bad" : (f.likelyResolved ? "ok" : "");
-      return `<tr class="${i % 2 ? "alt" : ""}"><td>${i + 1}</td><td><b>${esc(f.loc)}</b>${f.unit ? `<br>#${esc(f.unit)}` : ""}${f.floor ? `<br><small>${esc(f.floor)}</small>` : ""}${f.locType ? `<br><small>${esc(standTypeBadge(f.locType).short)}</small>` : ""}</td><td><b>${esc(f.cat)}</b><br><small>${esc(f.itype || "Other")}</small></td><td>${esc(fuDetailAll(f)).replace(/\n/g, "<br>")}${f.notes ? `<br><small><i>${esc(f.notes)}</i></small>` : ""}${cmts ? `<br><small>${esc(cmts)}</small>` : ""}</td><td class="${cls}">${esc(stLabel)}${st?.by ? `<br><small>${esc(st.by)}</small>` : ""}</td><td>${esc(f.daysSince)}</td><td>${esc(f.dateStr || "")}</td><td>${f.fixedTs ? `${esc(new Date(f.fixedTs).toLocaleDateString())}<br><small>${esc(new Date(f.fixedTs).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }))}${f.fixedBy ? ` · ${esc(f.fixedBy)}` : ""}${f.fixedMins ? ` · ${f.fixedMins} min` : ""}</small>` : ""}</td><td>${photoHtml}</td></tr>`;
+      return `<tr class="${i % 2 ? "alt" : ""}"><td>${i + 1}</td><td><b>${esc(f.loc)}</b>${f.unit ? `<br>#${esc(f.unit)}` : ""}${f.floor ? `<br><small>${esc(f.floor)}</small>` : ""}${f.locType ? `<br><small>${esc(standTypeBadge(f.locType).short)}</small>` : ""}</td><td><b>${esc(f.cat)}</b><br><small>${esc(f.itype || "Other")}</small></td><td>${esc(fuDetailAll(f)).replace(/\n/g, "<br>")}${f.notes ? `<br><small><i>${esc(f.notes)}</i></small>` : ""}${cmts ? `<br><small>${esc(cmts)}</small>` : ""}</td><td class="${cls}">${esc(stLabel)}${st?.by ? `<br><small>${esc(st.by)}</small>` : ""}</td><td>${esc(f.daysSince)}</td><td>${esc(f.dateStr || "")}</td><td>${bs.fixedTs && f.fixedTs ? `${esc(new Date(f.fixedTs).toLocaleDateString())}<br><small>${esc(new Date(f.fixedTs).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }))}${f.fixedBy ? ` · ${esc(f.fixedBy)}` : ""}${f.fixedMins ? ` · ${f.fixedMins} min` : ""}</small>` : ""}</td><td class="bef">${picCell(pp.before, pp.moreB, "before")}</td><td class="aft">${picCell(pp.after, pp.moreA, "after")}</td></tr>`;
     }).join("");
     const overdue = items.filter(f => f.overdue && !f.likelyResolved).length;
+    const baN = { both: 0, before: 0, after: 0, none: 0 };
+    items.forEach(f => { const sp = baPhotosOf(f, stMapX); baN[baStateOf(sp.before.length, sp.after.length)]++; });
     const body = `<h1>Follow-ups &amp; Rechecks</h1><div class="brand-line"></div>
 <p class="meta">${dateStr} &bull; ${resolveCompanyName()} &bull; ${items.length} follow-up${items.length !== 1 ? "s" : ""} &bull; ${overdue} overdue</p>
-<table><thead><tr><th>#</th><th>Venue / Stand</th><th>Problem</th><th>Detail &amp; notes</th><th>Status</th><th>Days open</th><th>Flagged</th><th>Solved</th><th>Photos</th></tr></thead><tbody>${rows}</tbody></table>
+<p class="ba">📸 <b>${baN.both} of ${items.length}</b> with a BEFORE and an AFTER picture${baN.before ? ` &bull; <span class="amber">${baN.before} BEFORE only — need an after photo</span>` : ""}${baN.after ? ` &bull; ${baN.after} AFTER only` : ""}${baN.none ? ` &bull; ${baN.none} without photos` : ""}</p>
+<table><thead><tr><th>#</th><th>Venue / Stand</th><th>Problem</th><th>Detail &amp; notes</th><th>Status</th><th>Days open</th><th>Flagged</th><th>Solved</th><th class="bef">🔴 BEFORE</th><th class="aft">🟢 AFTER</th></tr></thead><tbody>${rows}</tbody></table>
 <div class="footer">Generated ${dateStr} &bull; ${resolveSystemName()}</div>`;
-    const css = `body{font-family:Arial,Helvetica,sans-serif;color:#111827;margin:0;padding:14px;font-size:9pt}h1{font-size:16pt;margin:0 0 4px;color:#1e2761}.brand-line{height:3px;background:#EE0000;width:90px;margin:0 0 8px}.meta{color:#6b7280;font-size:8pt;margin:0 0 10px}table{width:100%;border-collapse:collapse}th{background:#DC2626;color:#fff;text-align:left;padding:5px 6px;font-size:8pt}td{padding:5px 6px;border-bottom:1px solid #e5e7eb;vertical-align:top;font-size:8.5pt}tr.alt td{background:#f4f5f7}td.bad{color:#b91c1c;font-weight:700}td.ok{color:#166534;font-weight:700}small{color:#6b7280;font-size:7.5pt}td img{height:56px;width:auto;margin:0 3px 3px 0;border-radius:4px;border:1px solid #e5e7eb}.footer{margin-top:10px;padding-top:5px;border-top:1px solid #e5e7eb;font-size:6.5pt;color:#9ca3af;text-align:center}@page{size:landscape;margin:10mm}@media print{tr{page-break-inside:avoid}}`;
+    const css = `body{font-family:Arial,Helvetica,sans-serif;color:#111827;margin:0;padding:14px;font-size:9pt}h1{font-size:16pt;margin:0 0 4px;color:#1e2761}.brand-line{height:3px;background:#EE0000;width:90px;margin:0 0 8px}.meta{color:#6b7280;font-size:8pt;margin:0 0 10px}table{width:100%;border-collapse:collapse}th{background:#DC2626;color:#fff;text-align:left;padding:5px 6px;font-size:8pt}td{padding:5px 6px;border-bottom:1px solid #e5e7eb;vertical-align:top;font-size:8.5pt}tr.alt td{background:#f4f5f7}td.bad{color:#b91c1c;font-weight:700}td.ok{color:#166534;font-weight:700}small{color:#6b7280;font-size:7.5pt}td img{height:88px;width:auto;margin:0;border-radius:4px;border:2px solid #e5e7eb}td.bef img{border-color:#fca5a5}td.aft img{border-color:#86efac}th.bef{background:#DC2626}th.aft{background:#166534}td.bef,td.aft{width:15%}.pic{display:inline-block;margin:0 4px 4px 0;vertical-align:top}.none{color:#9ca3af;font-size:7.5pt}.ba{font-size:10pt;color:#166534;margin:0 0 10px}.amber{color:#b45309}.footer{margin-top:10px;padding-top:5px;border-top:1px solid #e5e7eb;font-size:6.5pt;color:#9ca3af;text-align:center}@page{size:landscape;margin:10mm}@media print{tr{page-break-inside:avoid}}`;
     const stamp = new Date().toISOString().slice(0, 10);
     if (fmt === "pdf") {
       printHtml(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Follow-ups ${stamp}</title><style>${css}</style></head><body>${body}</body></html>`, `Follow-ups_${stamp}.html`);
@@ -13838,9 +14219,10 @@ ${sections}
             </div>
             {/* v553: Undo, "not saved yet" and the reminder basket are bottom toasts (a portal — .card's transform
                 traps position:fixed). In the page flow they appeared above the list and pushed it down under the finger. */}
-            {(saveWarn || undoRes || remindList.length > 0) && ReactDOM.createPortal(
+            {(saveWarn || undoRes || remindList.length > 0 || fuNote) && ReactDOM.createPortal(
               <div className="fuToastStack" data-testid="fu-toasts">
                 {saveWarn && <div className="fuSaveWarn">{saveWarn}</div>}
+                {fuNote && <div className={"fuNoteToast" + (/^⚠/.test(fuNote) ? " fuNoteBad" : "")} data-testid="fu-note" role="status">{fuNote}</div>}
                 {undoRes && (
                   <div className={"fuUndoStrip" + (undoRes.mode === "reopen" ? " fuUndoReopen" : "")}>
                     <span>{undoRes.mode === "reopen" ? "↩ Put back" : "✓ Resolved"} {new Date(undoRes.ts).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })} · {undoRes.label}</span>
@@ -14520,6 +14902,8 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
   const lastHistoryLoadRef = useRef(0);
   const [historyStamp, setHistoryStamp] = useState(0);
   const [historyError, setHistoryError] = useState("");
+  const [exportNote, setExportNote] = useState(""); // v567: "📸 Excel ready — N of M issues with BEFORE + AFTER"
+  useEffect(() => { if (!exportNote) return; const t = setTimeout(() => setExportNote(""), 9000); return () => clearTimeout(t); }, [exportNote]);
   const [analyticsHistory, setAnalyticsHistory] = useState([]);
   const [deepLoading, setDeepLoading] = useState(false);
   function mergeHistory(prev, incoming) {
@@ -15286,7 +15670,6 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
     if (!records || records.length === 0) return;
     const { includePhotos = true, onProgress = null, crew = "" } = opts;
     const t0 = Date.now();
-    const photoFetcher = makeExportPhotoFetcher({ onProgress: p => onProgress && onProgress({ phase: "photos", ...p }) });
 
     // ── Pre-fetch HACCP data for ALL records in the export ─────────────────
     // haccpByReport only holds data for the currently-expanded card.
@@ -15399,6 +15782,8 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
 
     const wb = new ExcelJS.Workbook();
     wb.creator = resolveCompanyName() + " Inspection";
+    // v567: the first tab says how many of these issues have a BEFORE and an AFTER picture
+    const wsBaSum = wb.addWorksheet("Photo Summary");
 
     // ── SHEET 1: Inspection Summary ────────────────────────────────────────
     const ws1 = wb.addWorksheet("Inspection Summary");
@@ -15461,18 +15846,20 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
     ws2.columns = [
       { width: 4 }, { width: 28 }, { width: 10 }, { width: 16 },
       { width: 12 }, { width: 18 }, { width: 20 }, { width: 22 }, { width: 40 }, { width: 14 }, { width: 30 },
-      { width: 30 }, { width: 50 }, { width: 20 }, { width: 14 }, { width: 14 },
+      { width: 30 }, { width: 24 }, { width: 20 }, { width: 14 }, { width: 14 },
+      { width: 20 }, { width: 20 }, // v567: 🔴 BEFORE / 🟢 AFTER
     ];
     const s2Title = ws2.addRow(["ACTION ITEMS — ALL VENUES"]);
     s2Title.height = 26;
-    ws2.mergeCells(`A${s2Title.number}:P${s2Title.number}`);
+    ws2.mergeCells(`A${s2Title.number}:R${s2Title.number}`);
     applyB(s2Title.getCell(1), bHdr(10));
 
-    const s2Headers = ["#", "Site / Location", "Unit #", "Location Type", "Date", "Inspection Type", "Inspector", "Area", "Issue", "Issue Type", "Inspector Notes", "Corrective Action", "Photos", "Owner", "Due Date", "Status"];
+    const s2Headers = ["#", "Site / Location", "Unit #", "Location Type", "Date", "Inspection Type", "Inspector", "Area", "Issue", "Issue Type", "Inspector Notes", "Corrective Action", "📸 Photos", "Owner", "Due Date", "Status", "🔴 BEFORE", "🟢 AFTER"];
     const s2HRow = ws2.addRow(s2Headers);
-    s2HRow.height = 20;
+    s2HRow.height = 22;
     s2Headers.forEach((_, ci) => applyB(s2HRow.getCell(ci + 1), bSubHdr()));
-    ws2.autoFilter = { from: { row: s2HRow.number, column: 1 }, to: { row: s2HRow.number, column: 16 } };
+    [[13, "FF7C3AED"], [17, "FFDC2626"], [18, "FF166534"]].forEach(([ci, argb]) => { s2HRow.getCell(ci).style = { ...s2HRow.getCell(ci).style, fill: { type: "pattern", pattern: "solid", fgColor: { argb } }, alignment: { vertical: "middle", horizontal: "center", wrapText: true } }; });
+    ws2.autoFilter = { from: { row: s2HRow.number, column: 1 }, to: { row: s2HRow.number, column: 18 } };
     ws2.views = [{ state: "frozen", xSplit: 2, ySplit: s2HRow.number, topLeftCell: `C${s2HRow.number + 1}`, activeCell: "A1" }];
 
     // Strip "[Corrective action: ...]" embedded in old issue text, return { issueClean, embeddedCorrectve }
@@ -15481,37 +15868,103 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
       return m ? { issueClean: m[1].trim(), embeddedCorrective: m[2].trim() } : { issueClean: (text || "").trim(), embeddedCorrective: "" };
     }
 
-    // v484: the caller already narrowed rec.actionItems to the ticked issues
-    // (doExport), so ONLY those photos are fetched — at most EXPORT_PHOTOS_PER_ISSUE
-    // each, shrunk, cached, 6 in flight — while the HACCP reads run alongside.
+    // v484: the caller already narrowed rec.actionItems to the ticked issues (doExport).
+    // v567: each issue's pictures keep their BEFORE / AFTER tag, and its follow-up adds what the crews did after the
+    // report — their AFTER photos and "Fixed by" live on the follow-up, not on the report. Pictures are fetched later
+    // (one small copy per side in the row, big ones on the "Before & After" tab).
+    let fuByBase = new Map();
+    const flagDays = new Map(); // base key → every report day (local) that flagged it, sorted
+    const localDay = ds => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(ds || "")); return m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])).getTime() : 0; };
+    const baseKeyOf = (rec, a) => `${fuLocLabel(rec.siteName || rec.location || "—", rec.siteNumber || "")}::${(a.issue || "").split(":")[0].trim() || "Other"}`;
+    const fuPromise = (async () => {
+      let full = analyticsHistory.length ? analyticsHistory : history;
+      // the whole history only when pictures are wanted (with them off the file stays instant) — and never more than 10 s
+      if (includePhotos) {
+        try {
+          const r = await Promise.race([loadHistory(managedVenueId || undefined, { pageSize: 2000 }), new Promise(res => setTimeout(() => res(null), 10000))]);
+          if (r?.list?.length) full = r.list;
+        } catch {}
+      }
+      try {
+        const all = computeFollowups(full, { ...(venueSettings || {}), followupCleared: {} }).followups || [];
+        all.forEach(f => { const base = fuBaseKey(f.key); const g = fuByBase.get(base) || []; g.push(f); fuByBase.set(base, g); });
+        for (const r of full) {
+          if (!r || r.discarded || !Array.isArray(r.actionItems)) continue;
+          const d = localDay(r.inspectionDate); if (!d) continue;
+          for (const a of r.actionItems) { const k = baseKeyOf(r, a); const l = flagDays.get(k) || []; if (!l.includes(d)) l.push(d); flagDays.set(k, l); }
+        }
+        for (const l of flagDays.values()) l.sort((x, y) => x - y);
+      } catch (e) { console.warn("[export] follow-ups for photos", e); }
+    })();
+    const refsToPhotos = (rec, a) => {
+      const ph = Array.isArray(a.photos) ? a.photos : [];
+      let index = null;
+      const idx = () => index || (index = (() => { try { return buildPhotoIndex(rec.inspection, rec.notesPhotos || rec.inspection?._notesPhotos).index || []; } catch { return []; } })());
+      const meta = { dateStr: rec.inspectionDate || "", by: fuRecBy(rec) };
+      const out = [];
+      ph.forEach(p => {
+        if (typeof p === "number" || (typeof p === "string" && /^\d+$/.test(p))) {
+          // v567 review: never another NO row's picture (that row has its own item carrying it) — the follow-ups' rule
+          const e = idx().find(x => x.num === Number(p));
+          if (e && !e.ciNo && (e.previewUrl || e.thumbUrl)) out.push({ id: e.id || `${rec.id || rec.inspectionDate || "r"}#${e.num}`, tag: e.tag === "after" ? "after" : "", previewUrl: e.previewUrl || "", thumbUrl: e.thumbUrl || "", ...meta });
+        } else if (p && typeof p === "object" && (p.previewUrl || p.thumbUrl || p.url || p.exportUrl || p.dataUrl)) {
+          out.push({ id: p.id, tag: p.tag === "after" ? "after" : "", previewUrl: p.previewUrl || p.url || "", thumbUrl: p.thumbUrl || "", exportUrl: p.exportUrl || "", dataUrl: p.dataUrl || "", ...meta });
+        } else if (typeof p === "string") {
+          const q = (rec.photos || []).find(x => x && x.id === p);
+          if (q) out.push({ ...q, tag: q.tag === "after" ? "after" : "", ...meta });
+        }
+      });
+      return out;
+    };
+    // v567 review: what was done about THIS report's issue — only the follow-up rows that are this issue (no other
+    // problem's card), and only what happened between this report and the next report that flagged it again
+    const fixOf = (rec, a) => {
+      const base = baseKeyOf(rec, a);
+      const text = (a.issue || "").split(":").slice(1).join(":").trim() || (a.issue || "").trim();
+      const slug = fuRowSlug(text);
+      const card = (fuByBase.get(base) || []).find(f => (f.subs || []).some(sb => fuRowSlug(sb.text || "") === slug)) || null;
+      const crewKey = `${base}${FU_SPLIT_SEP}${classifyIssueType(a.issue || "", a.notes || "", a.priority || "")}`;
+      const keys = card ? [card.key] : [base, crewKey];
+      const from = localDay(rec.inspectionDate);
+      const next = (flagDays.get(base) || []).find(d => d > from) || Infinity;
+      const inWindow = p => {
+        const d = localDay(p?.dateStr); if (d) return d >= from && d < next;
+        const t = Number(p?.ts || 0); return !t || (t >= from && t < next);
+      };
+      const after = [];
+      for (const k of keys) for (const p of (fuGet(venueSettings?.followupPhotos, k) || [])) if (p && p.tag === "after" && inWindow(p)) after.push(p);
+      if (card) for (const p of (card.photos || [])) if (p && p.tag === "after" && inWindow(p)) after.push(p);
+      let fixedBy = "", fixedTs = 0;
+      for (const k of keys) {
+        const st = fuGet(venueSettings?.followupStatus, k);
+        const t = Number(st?.ts || 0);
+        if (st && st.status === "resolved" && t >= from && t < next) { fixedBy = st.by || ""; fixedTs = t; break; }
+      }
+      if (!fixedTs) { // a History ✓ Resolve on the report itself (resolvedIssues by the STORED list's index)
+        const i = Number.isInteger(a._resIdx) ? a._resIdx : -1;
+        const res = i >= 0 ? (rec.resolvedIssues || {})[i] : null;
+        if (res) { fixedBy = res.resolvedBy || ""; fixedTs = res.resolvedAt ? new Date(res.resolvedAt).getTime() || 0 : 0; if (!fixedTs) fixedTs = 1; }
+      }
+      return { after, fixedBy, fixedTs };
+    };
     const rowsByRec = new Map();
-    const photoPromise = Promise.all(records.map(async rec => {
+    await fuPromise;
+    records.forEach(rec => {
       const actionItems = Array.isArray(rec.actionItems) ? rec.actionItems : (rec.inspection
         ? buildActionItems({ inspection: rec.inspection, rawNotes: rec.inspection, foodTemps: rec.foodTemps, foodTempNames: rec.foodTempNames, foodTempCorrections: rec.foodTempCorrections, foodTempSubmitted: rec.foodTempSubmitted })
         : []);
-      let index = null; // built only when an item points at a photo by number
-      const indexEntry = (num) => { if (!index) index = buildPhotoIndex(rec.inspection, rec.notesPhotos || rec.inspection?._notesPhotos).index; return index.find(p => p.num === num) || null; };
-      const resolved = await Promise.all(actionItems.map(async a => {
-        const refs = (Array.isArray(a.photos) ? a.photos : []).slice(0, EXPORT_PHOTOS_PER_ISSUE);
-        if (!includePhotos || !refs.length) return { ...a, _photoDataUrls: [], _photoCount: (Array.isArray(a.photos) ? a.photos : []).length };
-        const dataUrls = (await Promise.all(refs.map(async ph => {
-          if (typeof ph === "number") { const e = indexEntry(ph); return e ? await photoFetcher.get(e.previewUrl, e.thumbUrl) : null; }
-          if (ph && typeof ph === "object") {
-            const direct = ph.dataUrl || "";
-            if (direct.startsWith("data:image")) return await photoFetcher.get(direct, "");
-            return await photoFetcher.get(ph.previewUrl || ph.url || ph.exportUrl, ph.thumbUrl);
-          }
-          return null;
-        }))).filter(u => u && u.startsWith("data:image"));
-        return { ...a, _photoDataUrls: dataUrls, _photoCount: (Array.isArray(a.photos) ? a.photos : []).length };
+      rowsByRec.set(rec, actionItems.map(a => {
+        const own = refsToPhotos(rec, a);
+        const fx = fixOf(rec, a);
+        const sp = baOrder(fuSplitPhotos(own, fx.after));
+        return { ...a, _before: sp.before, _after: sp.after, _fix: fx, _photoCount: own.length + fx.after.length };
       }));
-      rowsByRec.set(rec, resolved);
-    }));
-    await Promise.all([haccpPromise, photoPromise]);
+    });
+    await haccpPromise;
     if (onProgress) onProgress({ phase: "build" });
-    try { console.info(`[export] photos: ${JSON.stringify(photoFetcher.stats)} in ${Date.now() - t0} ms`); } catch {}
 
     let rowNum = 0;
+    const baJobs = []; // v567: one card per issue that has a picture
     records.forEach(rec => {
       const actionItems = rowsByRec.get(rec) || [];
       actionItems.forEach(a => {
@@ -15530,28 +15983,28 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
         const row = ws2.addRow([
           rowNum, str(rec.siteName || rec.location), str(rec.siteNumber), str(rec.locationType),
           str(rec.inspectionDate), str(rec.inspectionType), str(rec.inspectorName),
-          area, issueText, itype, inspNotes, corrective, (!includePhotos && a._photoCount) ? `${a._photoCount} photo${a._photoCount !== 1 ? "s" : ""} in the app` : "", str(a.owner || "—"), str(a.due || "—"), statusLabel,
+          area, issueText, itype, inspNotes, corrective, "", str(a.owner || "—"), str(a.due || "—"), statusLabel, "", "",
         ]);
-        [1,2,3,4,5,6,7,8,9,11,12,13,14,15].forEach(ci => { row.getCell(ci).style = bBody(bg); });
+        [1,2,3,4,5,6,7,8,9,11,12,13,14,15,17,18].forEach(ci => { row.getCell(ci).style = bBody(bg); });
         row.getCell(10).style = issueTypeStyle(itype);
         row.getCell(16).style = bStatusExt(statusLabel);
-        // Embed ALL of this issue's photos right in the row (col P), 4 per line
-        const urls = a._photoDataUrls || [];
-        if (urls.length) {
-          const perLine = 4;
-          const nLines = Math.ceil(urls.length / perLine);
-          row.height = 66 * nLines;
-          urls.forEach((u, k) => {
-            try {
-              const commaIdx = u.indexOf(",");
-              const base64 = commaIdx >= 0 ? u.slice(commaIdx + 1) : u;
-              const ext = u.includes("image/png") ? "png" : "jpeg";
-              const imgId = wb.addImage({ base64, extension: ext });
-              ws2.addImage(imgId, { tl: { col: 12 + (k % perLine) * 0.24, row: row.number - 1 + Math.floor(k / perLine) / nLines }, ext: { width: 80, height: 84 }, editAs: "oneCell" });
-            } catch (_) { /* skip broken image */ }
-          });
-        }
-
+        // v567: what this issue has (BEFORE / AFTER), linked to its card; one small picture per side at the end
+        const nb = a._before.length, na = a._after.length;
+        const ci = (includePhotos && (nb || na)) ? baJobs.length : null;
+        baPhotosCell(row.getCell(13), nb, na, ci);
+        if (!includePhotos && (nb || na)) row.getCell(13).value = `${BA_LOOK[baStateOf(nb, na)].label} · in the app`;
+        if (includePhotos && (nb || na)) row.height = 80; // room for the small pictures; other rows keep Excel's own height
+        const fx = a._fix || {};
+        if (ci != null) baJobs.push({
+          head: `${str(rec.siteName || rec.location) || "—"}${rec.siteNumber ? ` · #${str(rec.siteNumber)}` : ""}${rec.locationType ? ` · ${standTypeBadge(rec.locationType).short || rec.locationType}` : ""}`,
+          problem: `${area ? `${area}: ` : ""}${issueText}`,
+          statusText: fx.fixedTs ? `✅ FIXED${fx.fixedTs > 1 ? ` ${new Date(fx.fixedTs).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}` : ""}${fx.fixedBy ? ` · ${fx.fixedBy}` : ""}` : `Reported ${str(rec.inspectionDate)}`,
+          statusFixed: !!fx.fixedTs,
+          details: [`Report ${str(rec.inspectionDate)} · ${str(rec.inspectionType) || "Inspection"}${rec.inspectorName ? ` · ${str(rec.inspectorName)}` : ""}`, `${itype} crew`, corrective ? `Action: ${corrective}` : "", inspNotes ? `Notes: ${inspNotes}` : ""].filter(Boolean).join("  ·  "),
+          before: a._before, after: a._after, crew: itype, standLabel: `${str(rec.siteName || rec.location) || "—"}${rec.siteNumber ? ` #${str(rec.siteNumber)}` : ""}`,
+          listRow: row.number, _row: row,
+        });
+        else if (nb || na) baJobs.push({ before: a._before, after: a._after, crew: itype, standLabel: `${str(rec.siteName || rec.location) || "—"}${rec.siteNumber ? ` #${str(rec.siteNumber)}` : ""}`, _countOnly: true });
       });
     });
 
@@ -15786,12 +16239,44 @@ function HistoryPage({ onBack, onEdit, managedVenueId, managedVenueName, current
       });
     }
 
+    // ── v567: the "Before & After" tab and the small pictures in the findings rows ───────
+    const cardJobs = baJobs.filter(j => !j._countOnly);
+    const totalIssues = [...rowsByRec.values()].reduce((n, l) => n + l.length, 0);
+    if (includePhotos && cardJobs.length) {
+      if (onProgress) onProgress({ phase: "photos", done: 0, total: 1 });
+      const fetcher = makeExportPhotoFetcher({ q: 0.75, onProgress: p => onProgress && onProgress({ phase: "photos", ...p }) });
+      const cache = new Map();
+      const wsCards = wb.addWorksheet(BA_SHEET);
+      wsCards.orderNo = ws2.orderNo + 0.5; // the tab sits right after "Inspection Findings"
+      baPrefetch(fetcher, cardJobs, cardJobs.flatMap(j => [j.before, j.after]));
+      await fillBaCardsSheet(wb, wsCards, cardJobs, { fetcher, cache, listSheet: "Inspection Findings", summarySheet: "Photo Summary", unit: "issue" });
+      for (const j of cardJobs) {
+        await baThumbCell(wb, ws2, j._row, 17, j.before, "before", { fetcher, cache });
+        await baThumbCell(wb, ws2, j._row, 18, j.after, "after", { fetcher, cache });
+      }
+      try { console.info(`[export] photos: ${JSON.stringify(fetcher.stats)} in ${Date.now() - t0} ms`); } catch {}
+    }
+    // every ticked issue counts on the Photo Summary (also the ones without a picture)
+    const sumCards = [...baJobs.map(j => ({ before: j.before, after: j.after, crew: j.crew, standLabel: j.standLabel })),
+      ...[...rowsByRec.entries()].flatMap(([rec, items]) => items.filter(a => !a._before.length && !a._after.length).map(a => ({ before: [], after: [], crew: classifyIssueType(a.issue, a.notes, a.priority), standLabel: `${str(rec.siteName || rec.location) || "—"}${rec.siteNumber ? ` #${str(rec.siteNumber)}` : ""}` })))];
+    const recDates = records.map(r => r.inspectionDate).filter(Boolean).sort();
+    fillBaSummarySheet(wsBaSum, sumCards, {
+      title: "📸 Inspection issues — before & after",
+      subtitle: [resolveCompanyName(), `made ${new Date().toLocaleDateString()}`, `${records.length} report${records.length !== 1 ? "s" : ""}`, recDates.length ? `${recDates[0]}${recDates[recDates.length - 1] !== recDates[0] ? ` – ${recDates[recDates.length - 1]}` : ""}` : "", crew && crew !== "All" ? `${crew} issues` : ""].filter(Boolean).join("  ·  "),
+      issueCount: totalIssues, unit: "issue",
+      noCards: !includePhotos ? "Pictures were left out of this file (\"Pictures in the file\" was off) — export again with it on to get the Before & After tab." : (!cardJobs.length ? "None of these issues has a picture yet." : ""),
+      smallNote: cardJobs.length > BA_BIG_MAX ? `Big photos for the first ${BA_BIG_MAX} issues; the other ${cardJobs.length - BA_BIG_MAX} show smaller copies (keeps the file smaller).` : "",
+    });
+
     // ── Write & download ───────────────────────────────────────────────────
     const buffer = await wb.xlsx.writeBuffer();
     const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
     const crewTag = crew && crew !== "All" ? `${crew.toLowerCase().replace(/[^a-z]+/g, "-")}-` : "";
     try { console.info(`[export] workbook ready in ${Date.now() - t0} ms`); } catch {}
-    return { blob, filename: `inspection-${crewTag}issues-${dateStr}.xlsx` };
+    const both = sumCards.filter(c => c.before.length && c.after.length).length;
+    const withPic = sumCards.filter(c => c.before.length || c.after.length).length;
+    return { blob, filename: `inspection-${crewTag}issues-${dateStr}.xlsx`,
+      photoNote: withPic ? `📸 Excel ready — ${both} of ${totalIssues} issue${totalIssues !== 1 ? "s" : ""} with BEFORE + AFTER${withPic > both ? ` · ${withPic - both} with one side` : ""}${includePhotos ? " · see the Before & After tab" : ""}` : `Excel ready — ${totalIssues} issue${totalIssues !== 1 ? "s" : ""}, no pictures yet` };
   }
 
   async function exportBulkWord(records) {
@@ -16419,6 +16904,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
         </div>
       </header>
       <div className="topBarSpacer" />
+      {exportNote && ReactDOM.createPortal(<div className="fuToastStack" data-testid="hist-export-toast"><div className="fuNoteToast" role="status" onClick={() => setExportNote("")}>{exportNote}</div></div>, document.body)}
       {lightboxSrc && ReactDOM.createPortal(
         <div onClick={() => setLightboxSrc(null)} style={{ position: "fixed", inset: 0, touchAction: "none", overscrollBehavior: "contain", zIndex: 10050, background: "rgba(0,0,0,.88)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
           <img src={lightboxSrc} alt="" onClick={e => e.stopPropagation()} style={{ maxWidth: "95vw", maxHeight: "90vh", borderRadius: 10, boxShadow: "0 10px 40px rgba(0,0,0,.6)" }} />
@@ -18097,18 +18583,24 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
               const computed = rec.inspection
                 ? buildActionItems({ inspection: rec.inspection, rawNotes: rec.inspection, foodTemps: rec.foodTemps, foodTempNames: rec.foodTempNames, foodTempCorrections: rec.foodTempCorrections, foodTempSubmitted: rec.foodTempSubmitted })
                 : (rec.actionItems || []);
+              // v567: History's ✓ Resolve writes resolvedIssues[i] against the list the History card shows (the same rule as filteredMeta)
+              const histList = (rec.quickProblem || (!Object.keys(rec.inspection || {}).length && (rec.actionItems || []).length))
+                ? (rec.actionItems || [])
+                : (() => { const built = buildActionItems({ inspection: rec.inspection, rawNotes: rec.rawNotes, foodTemps: rec.foodTemps, foodTempNames: rec.foodTempNames });
+                    const stored = rec.actionItems; return Array.isArray(stored) && stored.length && stored.length !== built.length ? stored : built; })();
+              const resIdxOf = a => histList.findIndex(x => (x?.issue || "").trim() === (a.issue || "").trim());
               return {
                 ...rec,
                 actionItems: computed.filter(a => {
                   const { area } = splitIssueModal(a);
                   const key = `${(area || "").trim()}|||${(a.issue || "").trim()}`;
                   return issueKeys.has(key);
-                }),
+                }).map(a => ({ ...a, _resIdx: resIdxOf(a) })),
               };
             });
             if (showIssueFilter === "excel") {
               const result = await exportBulkExcel(filteredRecords, { includePhotos: exportPhotos, crew: exportCrew || "All", onProgress: p => setExportProgress(p) });
-              if (result) downloadBlob(result.blob, result.filename);
+              if (result) { downloadBlob(result.blob, result.filename); if (result.photoNote) setExportNote(result.photoNote); }
             } else if (showIssueFilter === "pdf") {
               await exportBulkPdf(filteredRecords);
             } else {

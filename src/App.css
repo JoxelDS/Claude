@@ -10805,3 +10805,9 @@ html[data-theme="black"] .eqpPillOpen { color: #DDE3FF; background: #2A2A55; }
 
 /* v566: the demo badge typed outside the demo — one button to the demo venue */
 .pinDemoBtn { width: 100%; min-height: 44px; margin-top: 8px; }
+
+/* v567: the follow-ups message toast (an export is ready / it failed and why) */
+.fuNoteToast { padding: 10px 14px; border-radius: 12px; font-size: 0.86rem; font-weight: 700; background: #ecfdf5; color: #065f46; border: 1px solid #10b981; }
+.fuNoteToast.fuNoteBad { background: #fef2f2; color: #991b1b; border-color: #f87171; }
+[data-theme="black"] .fuNoteToast, [data-theme="dark"] .fuNoteToast, [data-theme="noir"] .fuNoteToast { background: #064e3b; color: #d1fae5; border-color: #10b981; }
+[data-theme="black"] .fuNoteToast.fuNoteBad, [data-theme="dark"] .fuNoteToast.fuNoteBad, [data-theme="noir"] .fuNoteToast.fuNoteBad { background: #450a0a; color: #fecaca; border-color: #f87171; }
