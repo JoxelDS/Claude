@@ -2,7 +2,7 @@
 // v119: Restored to July 13 state
 
 
-const CACHE_NAME = "sdx-inspect-v568";
+const CACHE_NAME = "sdx-inspect-v569";
 const BASE = (() => { try { return new URL(self.registration.scope).pathname; } catch { return "/"; } })();
 const PRECACHE = [
   "./favicon.svg",
@@ -83,6 +83,15 @@ self.addEventListener("fetch", (e) => {
 
   // Skip non-GET
   if (e.request.method !== "GET") return;
+
+  // Only the app itself goes through the worker. The static pages that share the scope (the marketing
+  // page, the website previews under p/, the privacy page, review/) and their files go straight to the
+  // network, so a deploy is never hidden behind an old cached copy.
+  if (url.origin === location.origin) {
+    const rest = url.pathname.startsWith(BASE) ? url.pathname.slice(BASE.length) : url.pathname;
+    if (/^(marketing|p|review)(\/|$)/.test(rest) || /^privacy\.html$/.test(rest)) return;
+    if (e.request.mode === "navigate" && rest !== "" && rest !== "index.html") return;
+  }
 
   // Stale-while-revalidate for navigation (index.html):
   // serve the cached shell INSTANTLY for app-like startup, refresh it in the

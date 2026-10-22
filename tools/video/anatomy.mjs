@@ -13,7 +13,7 @@ const DIR = new URL('.', import.meta.url).pathname;
 const args = process.argv.slice(2); const MODE = args[0] || 'reel';
 const opt = k => { const i = args.indexOf('--' + k); return i >= 0 ? args[i + 1] : null; };
 const FPS = 30, SCENE = 40;
-const HOOK = MODE === 'reel' ? 2.4 : 0, END = MODE === 'reel' ? 2.2 : 0.6;
+const HOOK = MODE === 'reel' ? 2.8 : 0, END = MODE === 'reel' ? 2.2 : 0.6;
 const T = HOOK + SCENE + END, N = Math.round(T * FPS);
 const OUT = `${DIR}out/anat_${MODE}`; mkdirSync(OUT, { recursive: true });
 
@@ -28,7 +28,7 @@ const PARTS = [
 const SEGS = [
   { id: 'A', clip: 'g_temps', from: 7.6, to: 13.4, a: 15, b: 21, k: 'FIND IT', h: 'A 50°F cooler?|Caught.', s: 'Flagged on the spot, during the walk.' },
   { id: 'B', clip: 'g_problem', from: 14.6, to: 21.0, a: 21, b: 27.5, k: 'FLAG IT', h: 'Proof, in|the report.', s: 'A BEFORE photo, and where it is.' },
-  { id: 'C', clip: 'crew', from: 12.8, to: 20.8, a: 27.5, b: 34, k: 'FIX IT', h: 'Fixed.|With proof.', s: 'The crew sends the AFTER photo.' },
+  { id: 'C', clip: 'crew', from: 13.4, to: 22.2, a: 27.5, b: 34, k: 'FIX IT', h: 'Fixed.|With proof.', s: 'The crew sends the AFTER photo.' },
 ];
 for (const s of SEGS) {
   s.sp = (s.to - s.from) / (s.b - s.a);
@@ -102,18 +102,20 @@ const css = `${fontCss(DIR)}
 #tsub{position:absolute;left:0;width:1080px;top:1010px;text-align:center;font-weight:600;font-size:46px;color:#AEB4E6}
 #tsub span{display:inline-block}
 #card{position:absolute;left:${CARD.x}px;top:${CARD.y}px;width:${CARD.w}px;height:${CARD.h}px;border-radius:40px;overflow:hidden;box-shadow:0 0 0 2px rgba(160,190,255,.28),0 40px 120px rgba(0,0,0,.55),0 0 90px rgba(72,84,214,.30);transform-origin:50% 50%}
-#tabs{position:absolute;left:${CARD.x}px;top:${CARD.y + CARD.h + 40}px;width:${CARD.w}px;display:flex;gap:12px}
-.tab{position:relative;flex:1;height:88px;border-radius:24px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:30px;letter-spacing:-.5px;overflow:hidden;border:2px solid rgba(160,190,255,.22);background:rgba(255,255,255,.06);color:#8F96CC}
+#tabs{position:absolute;left:${CARD.x}px;top:${CARD.y + CARD.h + 40}px;width:${CARD.w - 100}px;display:flex;gap:10px}
+.tab{position:relative;flex:1;height:88px;border-radius:24px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:28px;letter-spacing:-.5px;white-space:nowrap;overflow:hidden;border:2px solid rgba(160,190,255,.22);background:rgba(255,255,255,.06);color:#8F96CC}
 .tab .fill{position:absolute;left:0;bottom:0;height:7px;background:${TEAL}}
 .tab .lab{position:relative}
-#scrub{position:absolute;left:${CARD.x}px;top:${CARD.y + CARD.h + 162}px;width:${CARD.w}px;height:60px}
+#scrub{position:absolute;left:${CARD.x}px;top:${CARD.y + CARD.h + 162}px;width:${CARD.w - 100}px;height:60px}
 .tick{position:absolute;bottom:22px;width:3px;border-radius:2px;background:rgba(174,180,230,.35)}
 #head{position:absolute;bottom:10px;width:4px;height:52px;margin-left:-2px;border-radius:3px;background:${TEAL};box-shadow:0 0 18px ${TEAL}}
 #time{position:absolute;right:0;top:10px;font-weight:600;font-size:28px;color:#8F96CC;font-variant-numeric:tabular-nums}
-#note{position:absolute;left:60px;width:960px;top:${CARD.y + CARD.h + 260}px}
+#note{position:absolute;left:60px;width:860px;top:${CARD.y + CARD.h + 260}px}
 #nk{font-weight:800;font-size:28px;letter-spacing:6px;color:${TEAL}}
 #nb{font-weight:800;font-size:50px;line-height:1.14;letter-spacing:-1.2px;margin-top:16px}
-#nk span,#nb span{display:inline-block}`;
+#ns{font-weight:600;font-size:34px;line-height:1.25;color:#AEB4E6;margin-top:14px}
+#nk span,#nb span,#ns span{display:inline-block}
+#rtag{position:absolute;left:26px;bottom:24px;background:${TEAL};color:#06231F;font-weight:800;font-size:34px;padding:14px 26px;border-radius:999px;white-space:nowrap;box-shadow:0 12px 30px rgba(0,0,0,.4);opacity:0}`;
 
 const LOGO = (id, size) => `<svg id="${id}" viewBox="0 0 100 100" width="${size}" height="${size}"><rect class="lb" x="10" y="10" width="80" height="80" rx="22" fill="none" stroke="#fff" stroke-width="8" pathLength="1" stroke-dasharray="1" stroke-dashoffset="1"/><path class="lc" d="M30 51 L44 65 L70 37" fill="none" stroke="${TEAL}" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" pathLength="1" stroke-dasharray="1" stroke-dashoffset="1"/></svg>`;
 const sceneHtml = `<div id="scene"><div id="sbg"></div><div id="g1" class="glow"></div><div id="g2" class="glow"></div><div id="grid"></div>
@@ -129,12 +131,13 @@ const sceneHtml = `<div id="scene"><div id="sbg"></div><div id="g1" class="glow"
 const reelHtml = `<div id="page"></div><div id="lock">${lockup(64)}</div>
 <div id="title"><div><span>The</span> <span>anatomy</span> <span>of</span> <span>a</span></div><div><span class="tl">40-second</span> <span>app</span> <span>video</span></div></div>
 <div id="tsub"><span>We</span> <span>broke</span> <span>ours</span> <span>down.</span></div>
-<div id="card">${sceneHtml}</div>
-<div id="tabs">${PARTS.map((p, i) => `<div class="tab" id="tb${i}"><div class="fill" id="tf${i}"></div><div class="lab" id="tl${i}">${p.tab}</div></div>`).join('')}</div>
-<div id="scrub">${[...Array(81)].map((_, i) => { const x = i / 80 * (CARD.w - 170); const big = i % 10 === 0 || PARTS.some(p => Math.abs(p.a / SCENE * 80 - i) < .5); return `<div class="tick" style="left:${x - 1.5}px;height:${big ? 26 : 14}px${big ? ';background:rgba(174,180,230,.6)' : ''}"></div>`; }).join('')}<div id="head"></div><div id="time"></div></div>
-<div id="note"><div id="nk"></div><div id="nb"></div></div>`;
+<div id="card">${sceneHtml}<div id="rtag"></div></div>
+<div id="tabs">${PARTS.map((p, i) => `<div class="tab" id="tb${i}" style="flex:${[0.8, 1, 1, 1.4][i]}"><div class="fill" id="tf${i}"></div><div class="lab" id="tl${i}">${p.tab}</div></div>`).join('')}</div>
+<div id="scrub">${[...Array(81)].map((_, i) => { const x = i / 80 * (CARD.w - 270); const big = i % 10 === 0 || PARTS.some(p => Math.abs(p.a / SCENE * 80 - i) < .5); return `<div class="tick" style="left:${x - 1.5}px;height:${big ? 26 : 14}px${big ? ';background:rgba(174,180,230,.6)' : ''}"></div>`; }).join('')}<div id="head"></div><div id="time"></div></div>
+<div id="note"><div id="nk"></div><div id="nb"></div><div id="ns"></div></div>`;
 
-const DATA = { MODE, T, HOOK, SCENE, FPS, PARTS, SEGS: SEGS.map(s => ({ id: s.id, a: s.a, b: s.b, sp: s.sp, n: s.n, seq: s.seq, k: s.k, h: s.h, s: s.s, taps: s.taps })), SC, LAY, CARD, page };
+const ZS = 860 / PSW, ZC = { x: 450, y: Math.round(CARD.h * 0.42) };
+const DATA = { MODE, T, HOOK, SCENE, FPS, PARTS, ZS, ZC, PB, SEGS: SEGS.map(s => ({ id: s.id, a: s.a, b: s.b, sp: s.sp, n: s.n, seq: s.seq, k: s.k, h: s.h, s: s.s, taps: s.taps })), SC, LAY, CARD, page };
 const html = `<!doctype html><meta charset=utf-8><style>${css}</style>${MODE === 'reel' ? reelHtml : sceneHtml}
 <script>
 const D=${JSON.stringify(DATA)};
@@ -147,7 +150,7 @@ const setWords=(el,txt)=>{ if(el.dataset.t===txt) return false; el.dataset.t=txt
 function words(el,t0,t,stag=.05,dy=30){ [...el.querySelectorAll('span')].forEach((s,i)=>{ const u=t-t0-i*stag; const k=spring(u,.55,.8); s.style.opacity=cl(u/.18); s.style.transform='translateY('+(dy*(1-k)).toFixed(1)+'px)'; s.style.filter='blur('+(12*(1-cl(u/.3))).toFixed(2)+'px)'; }); }
 const vis=(el,o,tf)=>{ el.style.opacity=o; el.style.visibility=o>0.002?'visible':'hidden'; if(tf!=null) el.style.transform=tf; };
 const L=D.LAY;
-function scene(ts){
+function scene(ts,z=0){
   // background drift
   $('g1').style.transform='translate('+(mix(-200,D.SC.w*0.15,0.5+0.5*Math.sin(ts*.21))).toFixed(0)+'px,'+(-200+120*Math.cos(ts*.17)).toFixed(0)+'px)';
   $('g2').style.transform='translate('+(D.SC.w*0.55+120*Math.cos(ts*.19)).toFixed(0)+'px,'+(D.SC.h*0.4+100*Math.sin(ts*.23)).toFixed(0)+'px)';
@@ -164,43 +167,49 @@ function scene(ts){
   for(const s of D.SEGS) if(ts>=s.a&&ts<s.b) { tk=s; t0=s.a+(s.id==='A'?.2:0); }
   const tx=$('txt');
   if(tk){ setWords($('sk'),tk.k); setWords($('sh'),tk.h); setWords($('ss'),tk.s); words($('sk'),t0,ts,.03,16); words($('sh'),t0+.12,ts,.06,40); words($('ss'),t0+.45,ts,.03,20);
-    const end=(tk.b||15); vis(tx,1-ease((ts-(end-.22))/.22)); } else vis(tx,0);
+    const end=(tk.b||15); vis(tx,(D.MODE==='reel'&&ts>=14.9)?0:1-ease((ts-(end-.22))/.22)); } else vis(tx,0); // the reel's note narrates the beats
   // ---- problem visuals 6..15: paper checklist → grease → flies off → LOST + texts
   const pin=spring(ts-6.0,.7,.75), fly=ease((ts-9.9)/.9);
-  vis($('paper'),ts>5.9&&ts<11.2?cl((ts-5.9)/.2)*(1-fly):0,'translate('+(mix(0,D.SC.v?700:900,fly)).toFixed(0)+'px,'+(mix(220*(1-pin),-480,fly)).toFixed(0)+'px) rotate('+(mix(-4+6*(1-pin),28,fly)).toFixed(2)+'deg) scale('+(.9+.1*pin)+')');
+  vis($('paper'),ts>5.9&&ts<11.2?cl((ts-5.9)/.2)*(1-fly):0,'translate('+(mix(0,D.SC.v?700:900,fly)).toFixed(0)+'px,'+(mix(220*(1-pin),D.SC.v?520:-480,fly)).toFixed(0)+'px) rotate('+(mix(-4+6*(1-pin),28,fly)).toFixed(2)+'deg) scale('+(.9+.1*pin)+')');
   ['✓','✓','✗','','',''].forEach((m,i)=>{ const b=$('pb'+i); const on=ts>=6.9+i*.32; b.textContent=on?m:''; b.style.color=m==='✗'?'#D92D2D':'#15803D'; });
   [0,1,2].forEach(i=>{ const k=ease((ts-(8.1+i*.42))/.5); const g=$('gr'+i); g.style.opacity=k; g.style.transform='scale('+(.4+.6*k)+')'; });
   $('ring2').style.opacity=ease((ts-8.9)/.4);
   const lo=ts>10.4&&ts<15?cl((ts-10.4)/.3)*(1-ease((ts-14.5)/.4)):0; vis($('outline'),lo);
   const lk=spring(ts-10.6,.45,.55); $('lost').style.transform='translate(-50%,-50%) rotate(-12deg) scale('+(ts<10.6?2.4:mix(2.4,1,lk)).toFixed(3)+')'; $('lost').style.opacity=cl((ts-10.6)/.12);
-  const bx=D.SC.v?[70,330,120]:[L.pcx-410,L.pcx-150,L.pcx-370], by=D.SC.v?[L.ptop+40,L.ptop+430,L.ptop+600]:[L.ptop+90,L.ptop+520,L.ptop+700];
+  const bx=D.SC.v?[70,330,120]:[L.pcx-410,L.pcx-150,L.pcx-370], by=D.SC.v?[L.ptop+40,L.ptop+470,L.ptop+630]:[L.ptop+90,L.ptop+520,L.ptop+700];
   [0,1,2].forEach(i=>{ const s0=11.5+i*.75, k=spring(ts-s0,.5,.7); const o=ts>s0&&ts<15?cl((ts-s0)/.12)*(1-ease((ts-14.5)/.4)):0; const b=$('bu'+i); b.style.left=bx[i]+'px'; b.style.top=by[i]+'px'; vis(b,o,'translateY('+(40*(1-k)).toFixed(1)+'px) scale('+(.85+.15*k).toFixed(3)+')'); });
   // ---- phone 14.6..34.3: the real app, one segment per beat
   const pe=spring(ts-14.6,.75,.78), px=ease((ts-34.0)/.5);
-  const ph=$('phoneWrap'); vis(ph,ts>14.5&&ts<34.6?cl((ts-14.5)/.15)*(1-px):0,'translateY('+(mix(D.SC.h*0.9,0,pe)+8*Math.sin(ts*1.1)).toFixed(1)+'px) rotateX('+mix(24,0,pe).toFixed(2)+'deg) scale('+(1-.2*px).toFixed(3)+')');
+  const ph=$('phoneWrap'); vis(ph,ts>14.5&&ts<34.6?cl((ts-14.5)/.15)*(1-px):0,'translateY('+(mix(D.SC.h*0.9,0,pe)+8*(1-z)*Math.sin(ts*1.1)).toFixed(1)+'px) rotateX('+mix(24,0,pe).toFixed(2)+'deg) scale('+(1-.2*px).toFixed(3)+')');
   ph.parentElement.style.perspective='2000px';
   let seg=D.SEGS[0]; for(const s of D.SEGS) if(ts>=s.a) seg=s;
   const fi=Math.max(1,Math.min(seg.n,Math.floor(cl(ts-seg.a,0,seg.b-seg.a)*seg.sp*D.FPS)+1));
   const src='file://'+seg.seq+'/'+String(fi).padStart(5,'0')+'.jpg'; const img=$('app'); if(img.dataset.s!==src){ img.dataset.s=src; img.src=src; }
   let ring=null, tag=null; for(const s of D.SEGS) for(const c of s.taps){ if(ts>=c.t&&ts<c.t+.6) ring=c; if(c.key&&ts>=c.t&&ts<Math.min(c.t+2.2,s.b-.1)) tag=c; }
-  const R=$('ring'); if(ring){ const k=(ts-ring.t)/.6; R.style.top=(ring.y*100)+'%'; R.style.opacity=((1-k)*.9).toFixed(3); R.style.transform='scale('+(.4+1.4*ease(k))+')'; } else R.style.opacity=0;
+  const R=$('ring'); if(ring){ const k=(ts-ring.t)/.6; R.style.top=(ring.y*100)+'%'; R.style.opacity=((1-k)*.9).toFixed(3); R.style.transform='scale('+((.4+1.4*ease(k))/(1+1.6*z)).toFixed(3)+')'; } else R.style.opacity=0;
   const tg=$('tag'); if(tag){ if(tg.dataset.t!==tag.text){ tg.dataset.t=tag.text; tg.textContent=tag.text.replace(/\\s*[📷]/u,''); }
-    const k=spring(ts-tag.t,.5,.7); const w=tg.offsetWidth; const py=L.ptop+tag.y*L.ph;
-    const left=D.SC.v?(L.pcx-w/2):(L.pcx-${PW / 2}-w/2); tg.style.left=left+'px'; tg.style.top=(py-36)+'px';
-    vis(tg,cl((ts-tag.t)/.1),'translateY('+(-20*(1-k)).toFixed(1)+'px) scale('+(.8+.2*k).toFixed(3)+')'); } else vis(tg,0);
+    const k=spring(ts-tag.t,.5,.7); const w=tg.offsetWidth;
+    const left=D.SC.v?(L.pcx-w/2):L.tx, top=D.SC.v?(L.ptop+L.ph+30):(L.ty+700); tg.style.left=left+'px'; tg.style.top=top+'px';
+    vis(tg,D.MODE==='reel'?0:cl((ts-tag.t)/.1),'translateY('+(-20*(1-k)).toFixed(1)+'px) scale('+(.8+.2*k).toFixed(3)+')'); } else vis(tg,0);
+  if(D.MODE==='reel'){ const rt=$('rtag'); if(tag){ if(rt.dataset.t!==tag.text){ rt.dataset.t=tag.text; rt.textContent=tag.text.replace(/\s*[📷]/u,''); }
+      const k=spring(ts-tag.t,.5,.7); vis(rt,cl((ts-tag.t)/.1)*z,'translateY('+(24*(1-k)).toFixed(1)+'px) scale('+(.85+.15*k).toFixed(3)+')'); } else vis(rt,0); }
   // ---- call to action 34..40
   const ck=spring(ts-34.25,.7,.78); vis($('cta'),ts>=34.2?cl((ts-34.2)/.25):0); $('cc').style.transform='translateY('+(140*(1-ck)).toFixed(1)+'px) scale('+(.9+.1*ck).toFixed(3)+')';
   // light sweep on each part change
   const sw=[5.9,14.8,34.3].map(s=>cl((ts-s)/.9)).find(k=>k>0&&k<1); $('sweep').style.transform='translateX('+(sw!=null?(-1400+2800*ease(sw)):-3000)+'px)';
   return img;
 }
+// the close-up follows the taps: it starts moving 0.55 s before each one and settles on it; clamped inside the screen
+const KEYS=D.SEGS.flatMap(s=>s.taps.map(c=>({t:c.t,y:c.y}))).sort((a,b)=>a.t-b.t);
+function focusY(ts){ let y=KEYS.length?KEYS[0].y:0.4; for(const k of KEYS){ const u=ease((ts-(k.t-.55))/.5); if(u<=0) break; y=mix(y,k.y,u); }
+  const top=L.ptop+D.PB, h=L.ph-2*D.PB, above=D.ZC.y/D.ZS, below=(D.CARD.h-D.ZC.y)/D.ZS; return Math.min(top+h-below, Math.max(top+above, top+y*h)); }
 function chrome(g){
   const ts=g-D.HOOK;
   // title: big in the middle during the hook, then up to its place over the card
-  const up=spring(g-1.75,.7,.82); const sz=mix(100,64,up), top=mix(640,350,up);
+  const up=spring(g-2.15,.7,.82); const sz=mix(100,64,up), top=mix(640,350,up);
   const ti=$('title'); ti.style.fontSize=sz+'px'; ti.style.top=top+'px'; words(ti,.15,g,.09,40);
-  vis($('tsub'),cl((g-1.0)/.25)*(1-ease((g-1.7)/.3))); words($('tsub'),1.0,g,.05,20);
-  const lk=ease((g-1.9)/.4); vis($('lock'),lk,'translateY('+(-20*(1-lk))+'px)');
+  vis($('tsub'),cl((g-0.55)/.25)*(1-ease((g-2.0)/.18))); words($('tsub'),0.55,g,.05,20);
+  const lk=ease((g-2.3)/.4); vis($('lock'),lk,'translateY('+(-20*(1-lk))+'px)');
   const ce=spring(g-(D.HOOK-.45),.7,.8); vis($('card'),cl((g-(D.HOOK-.45))/.2),'scale('+(.86+.14*ce).toFixed(4)+') translateY('+(60*(1-ce)).toFixed(1)+'px)');
   const te=spring(g-(D.HOOK-.25),.7,.8); $('tabs').style.opacity=cl((g-(D.HOOK-.25))/.25); $('tabs').style.transform='translateY('+(40*(1-te)).toFixed(1)+'px)';
   $('scrub').style.opacity=cl((g-(D.HOOK-.1))/.25);
@@ -210,16 +219,20 @@ function chrome(g){
     tb.style.background=act?'#FFFFFF':(done?'rgba(51,195,176,.14)':'rgba(255,255,255,.06)'); tb.style.borderColor=act?'#FFFFFF':(done?'rgba(51,195,176,.55)':'rgba(160,190,255,.22)');
     tb.style.color=act?'${C.navyDeep}':(done?'#BDF3EA':'#8F96CC'); lab.textContent=(done&&!act?'✓ ':'')+p.tab;
     const pk=act?spring(tsc-p.a,.45,.6):1; tb.style.transform='scale('+(act?(1+.04*Math.sin(Math.PI*cl((tsc-p.a)/.35))):1).toFixed(4)+')'; });
-  $('head').style.left=(tsc/D.SCENE*(D.CARD.w-170)).toFixed(1)+'px';
+  $('head').style.left=(tsc/D.SCENE*(D.CARD.w-270)).toFixed(1)+'px';
   const s=Math.floor(tsc); $('time').textContent='0:'+String(s).padStart(2,'0')+' / 0:40';
   // the note under the bar
-  let nk, nb, n0;
+  let nk, nb, n0, ns='';
+  const beat=D.SEGS.find(s=>tsc>=s.a&&tsc<s.b&&ts<=D.SCENE);
   if(ts<0){ nk=''; nb=''; n0=0; }
+  else if(beat){ nk='03 · USE CASE · '+beat.k; nb=beat.h.replace('|',' '); ns=beat.s; n0=D.HOOK+beat.a+(beat.id==='A'?.45:.12); }
   else if(ts<=D.SCENE){ const i=D.PARTS.findIndex(p=>tsc>=p.a&&tsc<p.b); const p=D.PARTS[i<0?3:i]; nk=String((i<0?3:i)+1).padStart(2,'0')+' · '+p.tab.toUpperCase()+' · '+p.a+'–'+p.b+' s'; nb=p.note; n0=D.HOOK+p.a+(p.a===0?.1:.15); }
   else { nk='SAVE THIS STRUCTURE'; nb='Intro → Problem → Use case → Call to action.'; n0=D.HOOK+D.SCENE+.15; }
-  setWords($('nk'),nk); setWords($('nb'),nb); words($('nk'),n0,g,.02,14); words($('nb'),n0+.12,g,.035,24);
-  const sc=$('scene'); sc.style.transform='scale('+D.CARD.w/1920+')';
-  return scene(D.MODE==='reel'?cl(ts,0,D.SCENE):ts);
+  setWords($('nk'),nk); setWords($('nb'),nb); setWords($('ns'),ns); words($('nk'),n0,g,.02,14); words($('nb'),n0+.12,g,.035,24); words($('ns'),n0+.4,g,.025,16);
+  const s0=D.CARD.w/1920, z=ts<15.35||ts>33.95?0:ease((ts-15.35)/.6)*(1-ease((ts-33.5)/.45));
+  const F={x:L.pcx, y:focusY(tsc)}, zs=mix(s0,D.ZS,z), Q={x:mix(s0*F.x,D.ZC.x,z), y:mix(s0*F.y,D.ZC.y,z)};
+  const sc=$('scene'); sc.style.transform='translate('+(Q.x-zs*F.x).toFixed(2)+'px,'+(Q.y-zs*F.y).toFixed(2)+'px) scale('+zs.toFixed(5)+')';
+  return scene(D.MODE==='reel'?cl(ts,0,D.SCENE):ts, z);
 }
 window.render=async f=>{ const g=f/D.FPS; const img=D.MODE==='reel'?chrome(g):scene(Math.min(g,D.SCENE)); if(!(img.complete&&img.naturalWidth)) await new Promise(r=>{ img.onload=()=>r(); img.onerror=()=>r(); setTimeout(r,3000); }); };
 </script>`;

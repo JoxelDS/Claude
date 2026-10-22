@@ -9,7 +9,7 @@ const photo = (id, thumb, tag) => ({ id, thumbUrl: thumb, previewUrl: thumb, ...
 const svgData = f => 'data:image/svg+xml;base64,' + Buffer.from(readFileSync(new URL(f, import.meta.url))).toString('base64');
 export const LOGO_WHITE = svgData('./logo-white.svg');
 export const LOGO_DARK = svgData('./logo-dark.svg');
-export const INSPECTOR = process.env.INSPECTOR || 'Joxel Da Silva';
+export const INSPECTOR = process.env.INSPECTOR || 'Alex Morgan'; // made-up name: every public video uses demo people only
 // v546: recordings run on a made-up customer venue (?v=demo) — no real stand names, units or licenses
 export const VENUE = 'demo';
 
