@@ -38,7 +38,7 @@ export function buildHistory(p) {
       { issue: 'Facilities – Ice machine: power cable chewed behind the ice machine, not working', photos: [photo('p7', p.cable)] },
     ]),
     rep('r6', 'TRATTORIA NOVA', '112', 'Floor 1', 'Concession', 12, [
-      { issue: 'Cleaning: hood filters greasy', area: 'Hood', photos: [photo('p8', p.grease)] },
+      { issue: 'Cleaning: hood filters greasy', area: 'Hood', photos: [photo('p8', p.hood || p.grease)] },
     ]),
     rep('r7', 'SLICE STATION', '318', 'Floor 3', 'Concession', 6, []),
     rep('r8', 'GREEN BOWL', '315', 'Floor 3', 'Subcontractor', 4, [

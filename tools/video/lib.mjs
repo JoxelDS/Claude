@@ -60,7 +60,14 @@ export async function launch() {
   browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium', args: ['--no-sandbox', '--no-proxy-server', '--force-color-profile=srgb', '--font-render-hinting=none'] });
   const c = await browser.newContext(); const p = await c.newPage();
   const pic = (label, color) => p.evaluate(([l, col]) => { const cv = document.createElement('canvas'); cv.width = 640; cv.height = 480; const g = cv.getContext('2d'); g.fillStyle = col; g.fillRect(0, 0, 640, 480); let seed = l.length * 97; const rnd = () => (seed = (seed * 9301 + 49297) % 233280) / 233280; g.fillStyle = 'rgba(255,255,255,.14)'; for (let i = 0; i < 12; i++) { g.beginPath(); g.arc(rnd() * 640, rnd() * 480, 30 + rnd() * 80, 0, 7); g.fill(); } g.fillStyle = '#fff'; g.font = 'bold 38px Arial'; g.textAlign = 'center'; g.fillText(l, 320, 250); return cv.toDataURL('image/jpeg', 0.7); }, [label, color]);
+  // a real-looking sample photo when tools/video/pics/<key>.jpg exists (our own generated pictures, marked SAMPLE PHOTO)
+  const real = async key => { const f = `${TR}/pics/${key}.jpg`; if (!existsSync(f)) return null;
+    return p.evaluate(src => new Promise(res => { const im = new Image(); im.onload = () => { const cv = document.createElement('canvas'); cv.width = 640; cv.height = 480; const g = cv.getContext('2d');
+      const s = Math.max(640 / im.width, 480 / im.height); g.drawImage(im, (640 - im.width * s) / 2, (480 - im.height * s) / 2, im.width * s, im.height * s);
+      g.fillStyle = 'rgba(0,0,0,.55)'; g.fillRect(12, 440, 150, 28); g.fillStyle = '#fff'; g.font = 'bold 15px Arial'; g.fillText('SAMPLE PHOTO', 22, 459); res(cv.toDataURL('image/jpeg', 0.82)); }; im.src = src; }), 'data:image/jpeg;base64,' + readFileSync(f).toString('base64')); };
   PICS = { faucet: await pic('📷 leaking faucet', '#5b6b7a'), grease: await pic('📷 grease build-up', '#6b4e2e'), sanitizer: await pic('📷 empty dispenser', '#2e6b5a'), pest: await pic('📷 droppings', '#5a3a3a'), light: await pic('📷 light out', '#3a3a5a'), drain: await pic('📷 slow drain', '#3a5a6b'), cable: await pic('📷 chewed cable', '#4b4b4b'), floor: await pic('📷 dirty floor', '#6b5a3a'), after: await pic('✅ fixed', '#2f7d4f'), sink: await pic('📷 hand sink', '#4a6b8a') };
+  for (const k of Object.keys(PICS)) { const r = await real(k); if (r) PICS[k] = r; }
+  for (const k of ['hood']) { const r = await real(k); PICS[k] = r || PICS.grease; }
   await c.close();
   return { browser, PICS };
 }

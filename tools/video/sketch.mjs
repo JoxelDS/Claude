@@ -12,14 +12,15 @@ const FF = process.env.FFMPEG || '/tmp/ff/node_modules/ffmpeg-static/ffmpeg';
 const DIR = new URL('.', import.meta.url).pathname;
 const args = process.argv.slice(2);
 const opt = k => { const i = args.indexOf('--' + k); return i >= 0 ? args[i + 1] : null; };
-const FPS = 30, T = 23.0, N = Math.round(T * FPS), W = 1080, H = 1920;
+const FPS = 30, T = 24.0, N = Math.round(T * FPS), W = 1080, H = 1920;
 const OUT = `${DIR}out/sketch`; mkdirSync(OUT, { recursive: true });
 
 // ---- the three app moments: source window [from, to] of a pov.mjs recording, played over scene [a, b]
 const SEGS = [
-  { id: 'A', clip: 'g_temps', from: 7.9, to: 11.7, a: 10.6, b: 13.8, cap: 'A 50°F cooler? <b>Flagged on the spot.</b>' },
-  { id: 'B', clip: 'g_problem', from: 14.6, to: 18.3, a: 13.8, b: 17.0, cap: 'A <b>BEFORE photo</b>, right in the report.' },
-  { id: 'C', clip: 'crew', from: 13.4, to: 19.9, a: 17.0, b: 21.0, cap: 'The crew sends the AFTER. <b>Fixed.</b>' },
+  { id: 'A', clip: 'g_temps', from: 7.9, to: 11.7, a: 10.6, b: 14.1, cap: 'A 50°F cooler? <b>Flagged on the spot.</b>' },
+  { id: 'B', clip: 'g_problem', from: 14.7, to: 18.4, a: 14.1, b: 17.1, cap: 'A <b>BEFORE photo</b> goes in the report.' },
+  { id: 'C', clip: 'crew', from: 12.9, to: 16.6, a: 17.1, b: 19.3, cap: 'The crew adds the <b>AFTER photo.</b>' },
+  { id: 'D', clip: 'fixed', from: 2.8, to: 8.6, a: 19.3, b: 21.9, cap: '<b>Fixed</b> — before and after, side by side.' },
 ];
 for (const s of SEGS) {
   s.sp = (s.to - s.from) / (s.b - s.a);
@@ -36,8 +37,8 @@ for (const s of SEGS) {
 }
 
 // ---- geometry. The phone is laid out at its BIG size (middle of the screen) and scaled down for the paper part.
-const PB = 14, BIG = { top: 340, h: 1250 }; BIG.w = Math.round((BIG.h - 2 * PB) * 1080 / 2338) + 2 * PB; BIG.left = Math.round(W / 2 - BIG.w / 2);
-const SMALL = { cx: 830, top: 690, h: 760 }; SMALL.s = SMALL.h / BIG.h; SMALL.left = SMALL.cx - SMALL.s * BIG.w / 2;
+const PB = 14, BIG = { top: 330, h: 1150 }; BIG.w = Math.round((BIG.h - 2 * PB) * 1080 / 2338) + 2 * PB; BIG.left = Math.round(W / 2 - BIG.w / 2);
+const SMALL = { cx: 762, top: 690, h: 760 }; SMALL.s = SMALL.h / BIG.h; SMALL.left = SMALL.cx - SMALL.s * BIG.w / 2;
 const PAPER = { x: 60, y: 660, w: 440, h: 660, rot: -3 };
 // the written rows (paper coordinates); kind: t = title, r = row with a box, f = fill-in row, n = red note
 const ROWS = [
@@ -100,8 +101,8 @@ const html = `<!doctype html><meta charset=utf-8><style>${css}</style>
 <svg id="psvg" width="${PAPER.w}" height="${PAPER.h}"><path id="uline" d="M36 112 C 140 104, 260 118, 400 106" fill="none" stroke="#23233A" stroke-width="5" stroke-linecap="round" pathLength="1" stroke-dasharray="1" stroke-dashoffset="1"/>
 <ellipse id="circ" cx="${210 + 82}" cy="${566 + 30}" rx="118" ry="52" fill="none" stroke="#D92D2D" stroke-width="5" pathLength="1" stroke-dasharray="1" stroke-dashoffset="1" transform="rotate(-6 292 596)"/></svg>
 <div id="pen"></div></div>
-<svg id="arrow"><path id="arr" d="M 470 ${PAPER.y + 300} C 545 ${PAPER.y + 170}, 640 ${PAPER.y + 175}, 676 ${PAPER.y + 318}" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round" pathLength="1" stroke-dasharray="1" stroke-dashoffset="1"/>
-<path id="arrh" d="M 648 ${PAPER.y + 296} L 678 ${PAPER.y + 324} L 700 ${PAPER.y + 288}" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" pathLength="1" stroke-dasharray="1" stroke-dashoffset="1"/></svg>
+<svg id="arrow"><path id="arr" d="M 468 ${PAPER.y + 290} C 505 ${PAPER.y + 190}, 545 ${PAPER.y + 190}, 566 ${PAPER.y + 300}" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round" pathLength="1" stroke-dasharray="1" stroke-dashoffset="1"/>
+<path id="arrh" d="M 546 ${PAPER.y + 282} L 568 ${PAPER.y + 308} L 588 ${PAPER.y + 276}" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" pathLength="1" stroke-dasharray="1" stroke-dashoffset="1"/></svg>
 <div id="phoneWrap"><div id="glow"></div><div id="phone"><div id="screen"><div id="off">${mark(150, { onDark: true })}</div><img id="app"><div id="flash"></div><div id="ring"></div></div></div></div>
 ${ROWS.slice(1, 6).map((r, i) => rowHtml(r, 'fly', 'f' + i)).join('')}
 <div id="cap"></div>
@@ -154,10 +155,10 @@ window.render=async f=>{
     el.style.fontSize=r.size+'px'; el.style.left=x+'px'; el.style.top=(y-r.size*.5)+'px'; el.style.color=k>.5?'#06231F':'#23233A'; el.style.background=k>.5?'${TEAL}':'#FDFBF4';
     vis(el,t<a?0:(1-ease((k-.86)/.14)),'rotate('+mix(P.rot,0,k).toFixed(2)+'deg) scale('+mix(1,.5,k).toFixed(3)+')'); }
   // ---- the phone: in at 1.8 (small, dark), lights up at 9.15, moves to the middle at 9.8, out at 20.9
-  const phin=spring(t-1.8,.7,.8), grow=spring(t-9.8,.8,.82), pex=ease((t-20.9)/.45);
+  const phin=spring(t-1.8,.7,.8), grow=spring(t-9.8,.8,.82), pex=ease((t-21.8)/.45);
   const s=mix(D.SMALL.s,1,grow), dx=mix(D.SMALL.left-D.BIG.left,0,grow), dy=mix(D.SMALL.top-D.BIG.top,0,grow)+mix(900,0,phin)+260*pex;
-  vis($('phoneWrap'),t<21.4?cl((t-1.8)/.2)*(1-pex):0,'translate('+dx.toFixed(1)+'px,'+dy.toFixed(1)+'px) scale('+(s*(1-.12*pex)).toFixed(4)+')');
-  const lit=t>=9.3; $('off').style.opacity=lit?0:1; $('glow').style.opacity=(lit?.75:0)*cl((t-9.3)/.4)*(1-ease((t-20.9)/.3));
+  vis($('phoneWrap'),t<22.3?cl((t-1.8)/.2)*(1-pex):0,'translate('+dx.toFixed(1)+'px,'+dy.toFixed(1)+'px) scale('+(s*(1-.12*pex)).toFixed(4)+')');
+  const lit=t>=9.3; $('off').style.opacity=lit?0:1; $('glow').style.opacity=(lit?.75:0)*cl((t-9.3)/.4)*(1-ease((t-21.8)/.3));
   $('flash').style.opacity=t>=9.3&&t<9.75?(t<9.4?(t-9.3)/.1:1-(t-9.4)/.35)*.9:0;
   let seg=D.SEGS[0]; for(const g of D.SEGS) if(t>=g.a) seg=g;
   const fi=Math.max(1,Math.min(seg.n,Math.floor(cl(t-seg.a,0,seg.b-seg.a)*seg.sp*D.FPS)+1));
@@ -168,8 +169,8 @@ window.render=async f=>{
   const cs=D.SEGS.find(g=>t>=g.a-.05&&t<g.b-.15); const cap=$('cap');
   if(cs){ setWords(cap,cs.cap); words(cap,cs.a,t,.045,26); vis(cap,1-ease((t-(cs.b-.4))/.25)); } else vis(cap,0);
   // ---- end card
-  const ek=spring(t-21.15,.7,.78); vis($('end'),t>=21.1?cl((t-21.1)/.25):0); $('ec').style.transform='translateY('+(140*(1-ek)).toFixed(1)+'px) scale('+(.9+.1*ek).toFixed(3)+')';
-  const sw=[9.3,10.6,13.8,17.0,21.1].map(x=>cl((t-x)/.9)).find(k=>k>0&&k<1); $('sweep').style.transform='translateX('+(sw!=null?(-1400+2800*ease(sw)):-3000)+'px)';
+  const ek=spring(t-22.05,.7,.78); vis($('end'),t>=22.0?cl((t-22.0)/.25):0); $('ec').style.transform='translateY('+(140*(1-ek)).toFixed(1)+'px) scale('+(.9+.1*ek).toFixed(3)+')';
+  const sw=[9.3,10.6,14.1,17.1,19.3,22.0].map(x=>cl((t-x)/.9)).find(k=>k>0&&k<1); $('sweep').style.transform='translateX('+(sw!=null?(-1400+2800*ease(sw)):-3000)+'px)';
   if(lit&&!(img.complete&&img.naturalWidth)) await new Promise(r=>{ img.onload=()=>r(); img.onerror=()=>r(); setTimeout(r,3000); });
 };
 </script>`;
@@ -195,12 +196,12 @@ if (at) { console.log('stills in', OUT + '/f'); process.exit(0); }
 const pen = ROWS.map(r => `between(t,${r.a.toFixed(2)},${(r.a + r.d).toFixed(2)})*(0.55+0.45*sin(2*PI*13*t))`).concat([`between(t,7.05,7.5)*(0.55+0.45*sin(2*PI*11*t))`]).join('+');
 const taps = SEGS.flatMap(s => s.taps.map(c => c.t));
 const click = taps.map(s => `0.5*sin(2*PI*2600*(t-${s.toFixed(2)}))*exp(-90*max(t-${s.toFixed(2)},0))*gte(t,${s.toFixed(2)})`).join('+') || '0';
-const bed = `0.05*(sin(2*PI*110*t)+sin(2*PI*164.8*t)+sin(2*PI*220*t)+0.6*sin(2*PI*329.6*t))*(0.65+0.35*sin(2*PI*0.125*t))+0.28*sin(2*PI*(46+70*exp(-30*mod(t,0.5)))*mod(t,0.5))*exp(-9*mod(t,0.5))*gte(t,9.3)*lt(t,21.0)`;
+const bed = `0.05*(sin(2*PI*110*t)+sin(2*PI*164.8*t)+sin(2*PI*220*t)+0.6*sin(2*PI*329.6*t))*(0.65+0.35*sin(2*PI*0.125*t))+0.28*sin(2*PI*(46+70*exp(-30*mod(t,0.5)))*mod(t,0.5))*exp(-9*mod(t,0.5))*gte(t,9.3)*lt(t,21.9)`;
 const chime = s => `0.2*(sin(2*PI*1318*(t-${s}))+0.6*sin(2*PI*1976*(t-${s})))*exp(-3*max(t-${s},0))*gte(t,${s})`;
-const wh = [8.15, 10.45, 13.65, 16.85, 20.95].map(s => `between(t,${s.toFixed(2)},${(s + .45).toFixed(2)})*sin(PI*(t-${s.toFixed(2)})/0.45)`).join('+');
+const wh = [8.15, 10.45, 13.95, 16.95, 19.15, 21.85].map(s => `between(t,${s.toFixed(2)},${(s + .45).toFixed(2)})*sin(PI*(t-${s.toFixed(2)})/0.45)`).join('+');
 const out = `${DIR}out/sketch-reel.mp4`;
 execFileSync(FF, ['-loglevel', 'error', '-y', '-framerate', String(FPS), '-i', `${OUT}/f/%05d.jpg`,
-  '-f', 'lavfi', '-i', `aevalsrc='${bed}+${chime(9.3)}+${chime(21.3)}':s=48000:d=${T.toFixed(2)}`,
+  '-f', 'lavfi', '-i', `aevalsrc='${bed}+${chime(9.3)}+${chime(22.2)}':s=48000:d=${T.toFixed(2)}`,
   '-f', 'lavfi', '-i', `aevalsrc='${click}':s=48000:d=${T.toFixed(2)}`,
   '-f', 'lavfi', '-i', `anoisesrc=d=${T.toFixed(2)}:c=pink:a=0.5:r=48000`,
   '-f', 'lavfi', '-i', `anoisesrc=d=${T.toFixed(2)}:c=white:a=0.5:r=48000:seed=7`,

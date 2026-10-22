@@ -21,14 +21,15 @@ const OUT = `${DIR}out/anat_${MODE}`; mkdirSync(OUT, { recursive: true });
 const PARTS = [
   { id: 'intro', tab: 'Intro', a: 0, b: 6, note: 'Who you are, in one line.' },
   { id: 'problem', tab: 'Problem', a: 6, b: 15, note: 'Show the pain before the product.' },
-  { id: 'use', tab: 'Use case', a: 15, b: 34, note: 'The real app, three moments: find it, flag it, fix it.' },
+  { id: 'use', tab: 'Use case', a: 15, b: 34, note: 'The real app: find it, flag it, fix it, prove it.' },
   { id: 'cta', tab: 'Call to action', a: 34, b: 40, note: 'One clear next step. Nothing else.' },
 ];
 // app segments: real recordings, source window [from, to] played from scene time a at speed sp
 const SEGS = [
   { id: 'A', clip: 'g_temps', from: 7.6, to: 13.4, a: 15, b: 21, k: 'FIND IT', h: 'A 50°F cooler?|Caught.', s: 'Flagged on the spot, during the walk.' },
-  { id: 'B', clip: 'g_problem', from: 14.6, to: 21.0, a: 21, b: 27.5, k: 'FLAG IT', h: 'Proof, in|the report.', s: 'A BEFORE photo, and where it is.' },
-  { id: 'C', clip: 'crew', from: 13.4, to: 22.2, a: 27.5, b: 34, k: 'FIX IT', h: 'Fixed.|With proof.', s: 'The crew sends the AFTER photo.' },
+  { id: 'B', clip: 'g_problem', from: 14.6, to: 20.6, a: 21, b: 26.5, k: 'FLAG IT', h: 'Proof, in|the report.', s: 'A BEFORE photo, and where it is.' },
+  { id: 'C', clip: 'crew', from: 12.9, to: 16.8, a: 26.5, b: 29.8, k: 'FIX IT', h: 'The crew|fixes it.', s: 'Done means an AFTER photo.' },
+  { id: 'D', clip: 'fixed', from: 2.8, to: 8.6, a: 29.8, b: 34, k: 'PROVE IT', h: 'Before → after.|Side by side.', s: 'The inspector sees it fixed, with both photos.' },
 ];
 for (const s of SEGS) {
   s.sp = (s.to - s.from) / (s.b - s.a);
@@ -110,7 +111,7 @@ const css = `${fontCss(DIR)}
 .tick{position:absolute;bottom:22px;width:3px;border-radius:2px;background:rgba(174,180,230,.35)}
 #head{position:absolute;bottom:10px;width:4px;height:52px;margin-left:-2px;border-radius:3px;background:${TEAL};box-shadow:0 0 18px ${TEAL}}
 #time{position:absolute;right:0;top:10px;font-weight:600;font-size:28px;color:#8F96CC;font-variant-numeric:tabular-nums}
-#note{position:absolute;left:60px;width:860px;top:${CARD.y + CARD.h + 260}px}
+#note{position:absolute;left:60px;width:860px;top:${CARD.y + CARD.h + 240}px}
 #nk{font-weight:800;font-size:28px;letter-spacing:6px;color:${TEAL}}
 #nb{font-weight:800;font-size:50px;line-height:1.14;letter-spacing:-1.2px;margin-top:16px}
 #ns{font-weight:600;font-size:34px;line-height:1.25;color:#AEB4E6;margin-top:14px}
@@ -136,7 +137,7 @@ const reelHtml = `<div id="page"></div><div id="lock">${lockup(64)}</div>
 <div id="scrub">${[...Array(81)].map((_, i) => { const x = i / 80 * (CARD.w - 270); const big = i % 10 === 0 || PARTS.some(p => Math.abs(p.a / SCENE * 80 - i) < .5); return `<div class="tick" style="left:${x - 1.5}px;height:${big ? 26 : 14}px${big ? ';background:rgba(174,180,230,.6)' : ''}"></div>`; }).join('')}<div id="head"></div><div id="time"></div></div>
 <div id="note"><div id="nk"></div><div id="nb"></div><div id="ns"></div></div>`;
 
-const ZS = 860 / PSW, ZC = { x: 450, y: Math.round(CARD.h * 0.42) };
+const ZS = (CARD.w + 12) / PSW, ZC = { x: CARD.w / 2, y: Math.round(CARD.h * 0.42) };
 const DATA = { MODE, T, HOOK, SCENE, FPS, PARTS, ZS, ZC, PB, SEGS: SEGS.map(s => ({ id: s.id, a: s.a, b: s.b, sp: s.sp, n: s.n, seq: s.seq, k: s.k, h: s.h, s: s.s, taps: s.taps })), SC, LAY, CARD, page };
 const html = `<!doctype html><meta charset=utf-8><style>${css}</style>${MODE === 'reel' ? reelHtml : sceneHtml}
 <script>
@@ -192,7 +193,7 @@ function scene(ts,z=0){
     const left=D.SC.v?(L.pcx-w/2):L.tx, top=D.SC.v?(L.ptop+L.ph+30):(L.ty+700); tg.style.left=left+'px'; tg.style.top=top+'px';
     vis(tg,D.MODE==='reel'?0:cl((ts-tag.t)/.1),'translateY('+(-20*(1-k)).toFixed(1)+'px) scale('+(.8+.2*k).toFixed(3)+')'); } else vis(tg,0);
   if(D.MODE==='reel'){ const rt=$('rtag'); if(tag){ if(rt.dataset.t!==tag.text){ rt.dataset.t=tag.text; rt.textContent=tag.text.replace(/\s*[📷]/u,''); }
-      const k=spring(ts-tag.t,.5,.7); vis(rt,cl((ts-tag.t)/.1)*z,'translateY('+(24*(1-k)).toFixed(1)+'px) scale('+(.85+.15*k).toFixed(3)+')'); } else vis(rt,0); }
+      const k=spring(ts-tag.t,.5,.7); vis(rt,0*z,'translateY('+(24*(1-k)).toFixed(1)+'px) scale('+(.85+.15*k).toFixed(3)+')'); } else vis(rt,0); }
   // ---- call to action 34..40
   const ck=spring(ts-34.25,.7,.78); vis($('cta'),ts>=34.2?cl((ts-34.2)/.25):0); $('cc').style.transform='translateY('+(140*(1-ck)).toFixed(1)+'px) scale('+(.9+.1*ck).toFixed(3)+')';
   // light sweep on each part change
@@ -227,7 +228,7 @@ function chrome(g){
   if(ts<0){ nk=''; nb=''; n0=0; }
   else if(beat){ nk='03 · USE CASE · '+beat.k; nb=beat.h.replace('|',' '); ns=beat.s; n0=D.HOOK+beat.a+(beat.id==='A'?.45:.12); }
   else if(ts<=D.SCENE){ const i=D.PARTS.findIndex(p=>tsc>=p.a&&tsc<p.b); const p=D.PARTS[i<0?3:i]; nk=String((i<0?3:i)+1).padStart(2,'0')+' · '+p.tab.toUpperCase()+' · '+p.a+'–'+p.b+' s'; nb=p.note; n0=D.HOOK+p.a+(p.a===0?.1:.15); }
-  else { nk='SAVE THIS STRUCTURE'; nb='Intro → Problem → Use case → Call to action.'; n0=D.HOOK+D.SCENE+.15; }
+  else { nk='SAVE THIS STRUCTURE'; nb='Intro → Problem → Use case → Call\u00a0to\u00a0action.'; n0=D.HOOK+D.SCENE+.15; }
   setWords($('nk'),nk); setWords($('nb'),nb); setWords($('ns'),ns); words($('nk'),n0,g,.02,14); words($('nb'),n0+.12,g,.035,24); words($('ns'),n0+.4,g,.025,16);
   const s0=D.CARD.w/1920, z=ts<15.35||ts>33.95?0:ease((ts-15.35)/.6)*(1-ease((ts-33.5)/.45));
   const F={x:L.pcx, y:focusY(tsc)}, zs=mix(s0,D.ZS,z), Q={x:mix(s0*F.x,D.ZC.x,z), y:mix(s0*F.y,D.ZC.y,z)};

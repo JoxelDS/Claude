@@ -134,6 +134,35 @@ const FLOWS = {
     for (let i = 0; i < 20 && !(await send.isEnabled().catch(() => false)); i++) await W(150);
     await a.tap(await send.elementHandle(), null, { cue: 'Sent — the inspector sees it FIXED', key: true, settle: 2600 });
   } },
+  // the crew closes the job off camera, then the inspector's Follow-ups: ✅ Fixed, BEFORE | AFTER, the AFTER photo big
+  fixed: { hook: 'Fixed — and here is|the *proof*', async run(a) {
+    const P = a.page;
+    await a.open(APP + '&invite=tokc', 2500);
+    const nm = await a.find('[data-testid=crew-join-name]'); if (nm) { await nm.fill('ANA R.'); await W(200); }
+    const go = await a.find('[data-testid=crew-join-go]'); if (go) { await go.click(); await W(2500); }
+    const job = () => P.locator('.crewItem', { hasText: 'grease build-up' }).first();
+    await job().locator('[data-testid=crew-work]').click().catch(() => {}); await W(900);
+    const s1 = job().locator('[data-testid=crew-send]'); if (await s1.count()) { await s1.first().click().catch(() => {}); await W(1200); }
+    await job().locator('[data-testid=crew-done]').click().catch(() => {}); await W(900);
+    for (const f of await job().locator('input[type=file]').elementHandles()) { try { await f.setInputFiles({ name: 'after.jpg', mimeType: 'image/jpeg', buffer: jpg('after') }); break; } catch {} } await W(1600);
+    const how = job().locator('.crewHowBtn', { hasText: /We cleaned it/ }); if (await how.count()) { await how.first().click(); await W(500); }
+    const send = job().locator('[data-testid=crew-send]').first();
+    for (let i = 0; i < 20 && !(await send.isEnabled().catch(() => false)); i++) await W(150);
+    await send.click().catch(() => {}); await W(2500);
+    // the crew phone signs out; the inspector signs in on the same demo data
+    await a.evalApp(() => { for (const k of Object.keys(localStorage)) if (/^sdx_crew_session_|^sdx_session|^sdx_current_user|^sdx_auth/.test(k)) localStorage.removeItem(k); });
+    const ctx = P.context(); await ctx.clearCookies().catch(() => {});
+    await a.open(APP, 2500);
+    const pin = await a.find('input', null, 6); if (pin) await a.signIn(process.env.BADGE || '448810');
+    await a.evalApp(() => window.__sdxOpenFollowups && window.__sdxOpenFollowups()); await W(2800);
+    const chip = await a.find('button', /fixed today/, 10); if (chip) await a.show(chip, 'start');
+    await a.start();
+    if (chip) await a.tap(chip, null, { cue: 'The inspector sees it: ✅ Fixed', key: true, settle: 1600 });
+    const ba = await a.find('[data-testid=fu-fixed-ba]', null, 10);
+    if (ba) { await a.show(ba); const bb = await ba.boundingBox(); a.cue('BEFORE → AFTER, side by side', { key: true, y: bb ? bb.y + bb.height / 2 : 400 }); await W(2400);
+      const af = await ba.$('.fuThumbAfter'); if (af) await a.tap(af, null, { cue: 'The AFTER photo', key: true, settle: 2600, show: false }); }
+    await W(600);
+  } },
   portal: { hook: 'Stand teams log temps|with *one scan*', async run(a) {
     await a.open(STAND); await a.start();
     a.cue('Scan the stand poster', { y: 200 }); await W(1200);
