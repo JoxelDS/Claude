@@ -81,7 +81,7 @@ async function record(name, body) {
 
 // ---------------- flows ----------------
 const inspector = async (a, type) => {
-  await a.open(STAND + '&as=inspector'); await a.signIn('448800'); await W(800);
+  await a.open(STAND + '&as=inspector'); await a.signIn(process.env.BADGE || '448810'); await W(800);
   if (type) await a.evalApp(t => window.__sdxPickType(t), type); await W(600);
   await a.start();
   const ov = await a.find('div', /Tap here — I'm on site/, 8); if (ov) await a.tap(ov, null, { cue: "I'm on site — HARBOR DOGS", settle: 1300 });

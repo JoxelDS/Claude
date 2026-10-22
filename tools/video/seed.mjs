@@ -9,7 +9,7 @@ const photo = (id, thumb, tag) => ({ id, thumbUrl: thumb, previewUrl: thumb, ...
 const svgData = f => 'data:image/svg+xml;base64,' + Buffer.from(readFileSync(new URL(f, import.meta.url))).toString('base64');
 export const LOGO_WHITE = svgData('./logo-white.svg');
 export const LOGO_DARK = svgData('./logo-dark.svg');
-export const INSPECTOR = 'Joxel Da Silva';
+export const INSPECTOR = process.env.INSPECTOR || 'Joxel Da Silva';
 // v546: recordings run on a made-up customer venue (?v=demo) — no real stand names, units or licenses
 export const VENUE = 'demo';
 
@@ -49,6 +49,7 @@ export function buildHistory(p) {
 
 export const users = [
   { badgeHash: sha('448800'), name: INSPECTOR, department: 'Inspection', badgeDisplay: '••••8800', role: 'inspector', requestedRole: 'inspector', approved: true, registeredAt: iso(60) },
+  { badgeHash: sha('448810'), name: INSPECTOR, department: 'Inspection', badgeDisplay: '••••8810', role: 'inspector', requestedRole: 'inspector', approved: true, registeredAt: iso(60) }, // recorder badge (448800 opens only riverside-demo since v566)
   { badgeHash: sha('990001'), name: 'Jordan Lee', department: 'Inspection', badgeDisplay: '••••0001', role: 'global_admin', requestedRole: 'global_admin', approved: true, registeredAt: iso(60) },
   { badgeHash: sha('777001'), name: 'LUIS M.', department: 'Maintenance / Facilities', badgeDisplay: '••••7001', role: 'maintenance', requestedRole: 'maintenance', approved: true, registeredAt: iso(30) },
   { badgeHash: sha('777002'), name: 'ANA R.', department: 'Cleaning', badgeDisplay: '••••7002', role: 'cleaning', requestedRole: 'cleaning', approved: true, registeredAt: iso(30) },
