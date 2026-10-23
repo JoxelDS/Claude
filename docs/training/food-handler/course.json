@@ -339,10 +339,10 @@
     },
     {
      "beat": 9,
-     "onscreen_en": "Five symptom cards appear: vomiting · diarrhea · yellow skin or eyes (jaundice) · sore throat with fever · infected cut or boil with pus. An arrow points to 'Tell your supervisor — before your shift'. A red banner: 'Vomiting or diarrhea → stay home'. Caption: 2-201.11 · 2-201.12.",
-     "say_en": "Feeling sick? Tell your supervisor before your shift. Report vomiting, diarrhea, yellow skin or eyes, a sore throat with fever, or a cut or boil with pus. With vomiting or diarrhea, you must stay home. For anything else, your supervisor follows the rules: home, or other work.",
-     "onscreen_es": "Aparecen cinco tarjetas de síntomas: vómito · diarrea · piel u ojos amarillos (ictericia) · dolor de garganta con fiebre · herida infectada o forúnculo (nacido) con pus. Una flecha señala 'Avísele a su supervisor — antes de su turno'. Una franja roja: 'Vómito o diarrea → quédese en casa'. Texto: 2-201.11 · 2-201.12.",
-     "say_es": "¿Se siente enfermo? Avísele a su supervisor antes de empezar el turno. Reporte vómito, diarrea, piel u ojos amarillos, dolor de garganta con fiebre, o una herida infectada o un forúnculo (nacido) con pus. Si tiene vómito o diarrea, debe quedarse en casa. En los demás casos, su supervisor sigue las reglas: a casa o a otro trabajo."
+     "onscreen_en": "Five symptom cards appear: vomiting · diarrhea · yellow skin or eyes (jaundice) · sore throat with fever · infected cut or boil with pus. An arrow points to 'Tell your supervisor — before your shift, or right away at work'. A red banner: 'Vomiting or diarrhea → stay home'. Caption: 2-201.11 · 2-201.12.",
+     "say_en": "Feeling sick? Tell your supervisor before your shift, or right away if it starts at work. Report vomiting, diarrhea, yellow skin or eyes, a sore throat with fever, or a cut or boil with pus. With vomiting or diarrhea, you must stay home. For anything else, your supervisor follows the rules: home, or other work.",
+     "onscreen_es": "Aparecen cinco tarjetas de síntomas: vómito · diarrea · piel u ojos amarillos (ictericia) · dolor de garganta con fiebre · herida infectada o forúnculo (nacido) con pus. Una flecha señala 'Avísele a su supervisor — antes de su turno, o enseguida en el trabajo'. Una franja roja: 'Vómito o diarrea → quédese en casa'. Texto: 2-201.11 · 2-201.12.",
+     "say_es": "¿Se siente enfermo? Avísele a su supervisor antes de empezar el turno, o enseguida si empieza en el trabajo. Reporte vómito, diarrea, piel u ojos amarillos, dolor de garganta con fiebre, o una herida infectada o un forúnculo (nacido) con pus. Si tiene vómito o diarrea, debe quedarse en casa. En los demás casos, su supervisor sigue las reglas: a casa o a otro trabajo."
     },
     {
      "beat": 10,
@@ -375,7 +375,7 @@
     "Gloves are single-use: wash before putting them on; change them when they tear, get dirty, after an interruption (like handling money), or when you switch tasks (3-304.15).",
     "Hair under a hat or hairnet, beards under a beard net; no jewelry on hands or arms except a plain band; clean clothes and apron (2-402.11, 2-303.11, 2-304.11).",
     "Eat, drink and smoke only in the break area; a closed drink with a lid may be allowed (2-401.11).",
-    "Tell your supervisor about vomiting, diarrhea, yellow skin or eyes, sore throat with fever, an infected cut or boil, or a Big 6 diagnosis (2-201.11). Also tell them if someone you live with has one of the Big 6. With vomiting or diarrhea, you must stay home (2-201.12).",
+    "Tell your supervisor before your shift, or right away if it starts at work, about vomiting, diarrhea, yellow skin or eyes, sore throat with fever, an infected cut or boil, or a Big 6 diagnosis (2-201.11). Also tell them if someone you live with has one of the Big 6. With vomiting or diarrhea, you must stay home (2-201.12).",
     "Cover a cut on your hand with a waterproof bandage or finger cot and a glove over it; if the cut is infected with pus, also tell your supervisor (2-201.11). Your local rules or your venue may be stricter.",
     "Hand sinks need water at least 100°F (38°C) (5-202.12). The SDX app flags a hand sink below 95°F — aim for 100°F or more."
    ],
@@ -388,7 +388,7 @@
     "Los guantes son de un solo uso: lávese las manos antes de ponérselos y cámbielos cuando se rompan, se ensucien, después de una interrupción (como cobrar) o cuando cambie de tarea (3-304.15).",
     "Pelo debajo de una gorra o redecilla, barba debajo de un cubrebarba; nada de joyas en manos o brazos, solo un anillo liso; ropa y delantal limpios (2-402.11, 2-303.11, 2-304.11).",
     "Coma, beba y fume solo en el área de descanso; a veces se permite una bebida cerrada con tapa (2-401.11).",
-    "Avísele a su supervisor si tiene vómito, diarrea, piel u ojos amarillos, dolor de garganta con fiebre, una herida infectada o un forúnculo (nacido), o un diagnóstico de los Seis Grandes (2-201.11). Avise también si alguien con quien vive tiene uno de los Seis Grandes. Si tiene vómito o diarrea, debe quedarse en casa (2-201.12).",
+    "Avísele a su supervisor antes del turno, o enseguida si empieza en el trabajo, si tiene vómito, diarrea, piel u ojos amarillos, dolor de garganta con fiebre, una herida infectada o un forúnculo (nacido), o un diagnóstico de los Seis Grandes (2-201.11). Avise también si alguien con quien vive tiene uno de los Seis Grandes. Si tiene vómito o diarrea, debe quedarse en casa (2-201.12).",
     "Cubra una cortada en la mano con una curita impermeable o un dedil y póngase un guante encima; si la herida está infectada con pus, avise también a su supervisor (2-201.11). Las reglas locales o su lugar de trabajo pueden ser más estrictos.",
     "El lavamanos debe dar agua de al menos 100°F (38°C) (5-202.12). La app SDX marca un lavamanos por debajo de 95°F — busque 100°F o más."
    ],
@@ -575,8 +575,8 @@
      "source": "FDA Food Code 2022, 2-201.12(A) Exclusions and Restrictions"
     },
     {
-     "claim": "An employee excluded for vomiting or diarrhea may be reinstated after being free of symptoms for at least 24 hours, or with written medical documentation from a health practitioner that the symptom is from a noninfectious condition; a diagnosis of hepatitis A or Salmonella Typhi follows other, stricter rules.",
-     "source": "FDA Food Code 2022, 2-201.13(A)(1) Removal, Adjustment, or Retention of Exclusions and Restrictions"
+     "claim": "An employee excluded for vomiting or diarrhea who has not been diagnosed with one of the Big 6 may be reinstated after being free of symptoms for at least 24 hours, or with written medical documentation that the symptom is from a noninfectious condition. A diagnosed infection (norovirus, hepatitis A, Shigella, Shiga toxin-producing E. coli, Salmonella Typhi or nontyphoidal Salmonella) follows the later paragraphs of 2-201.13, each with its own conditions for coming back.",
+     "source": "FDA Food Code 2022, 2-201.13(A)(1) (symptoms, no diagnosis); diagnosed infections 2-201.13(B)–(G)"
     },
     {
      "claim": "Norovirus is the leading cause of illness and outbreaks from contaminated food in the United States.",
@@ -685,7 +685,7 @@
     "Clean and sanitize the probe before and after every use, and let it air-dry.",
     "Ice-point check: crushed ice + cold water = 32°F (0°C). If the reading is off, adjust it as the maker says or use another thermometer (Food Code 4-502.11).",
     "Check holding temperatures at least every 4 hours — a common rule; many venues check every 2 hours. Follow your venue's rule.",
-    "Time as a control, 4-hour option: only with a written plan. Food starts at 41°F or below or 135°F or above, is marked with its throw-away time, and is served or thrown away within 4 hours (Food Code 3-501.19(B)). Your local rules or your venue may be stricter.",
+    "Time as a control, 4-hour option: only with a written plan. Food starts at 41°F or below or 135°F or above, is marked with its throw-away time, and is served or thrown away within 4 hours (Food Code 3-501.19(A)–(B)). Your local rules or your venue may be stricter.",
     "Reading out of range? Stop serving and find out how long. If your plan allows it, reheat hot food fast, to 165°F for 15 seconds within 2 hours, or chill cold food to 41°F or below. If you don't know how long, throw it out. Get the cause fixed, tell your supervisor, write it down."
    ],
    "keypoints_es": [
@@ -695,7 +695,7 @@
     "Limpie y desinfecte la sonda antes y después de cada uso, y déjela secar al aire.",
     "Prueba del punto de hielo: hielo picado + agua fría = 32°F (0°C). Si no marca 32°F (0°C), ajústelo como dice el fabricante o use otro termómetro (Código de Alimentos 4-502.11).",
     "Revise las temperaturas por lo menos cada 4 horas — es una regla común; muchos lugares revisan cada 2 horas. Siga la regla de su lugar de trabajo.",
-    "El tiempo como control, opción de 4 horas: solo con un plan escrito. La comida sale a 41°F o menos o a 135°F o más, se marca con la hora en que hay que tirarla y se sirve o se tira antes de 4 horas (Código de Alimentos 3-501.19(B)). Las reglas locales o las de su lugar de trabajo pueden ser más estrictas.",
+    "El tiempo como control, opción de 4 horas: solo con un plan escrito. La comida sale a 41°F o menos o a 135°F o más, se marca con la hora en que hay que tirarla y se sirve o se tira antes de 4 horas (Código de Alimentos 3-501.19(A)–(B)). Las reglas locales o las de su lugar de trabajo pueden ser más estrictas.",
     "¿Lectura fuera del rango? Deje de servir y averigüe cuánto tiempo lleva así. Si su plan lo permite, recaliente rápido la comida caliente a 165°F por 15 segundos en menos de 2 horas, o enfríe la fría a 41°F o menos. Si no sabe cuánto tiempo, tírela. Haga que arreglen la causa, avísele a su supervisor y anótelo."
    ],
    "quiz": [
@@ -842,7 +842,7 @@
     },
     {
      "claim": "Reheating for hot holding: all parts of the food reach at least 165°F (74°C) for 15 seconds, and reheating must be done rapidly — no more than 2 hours between 41°F and 165°F. In this lesson it is used as a corrective action only where the venue's written plan allows it.",
-     "source": "FDA Food Code 2022, 3-403.11(A) and (E)"
+     "source": "FDA Food Code 2022, 3-403.11(A) and (D)"
     },
     {
      "claim": "Corrective actions for out-of-range readings are set in the operation's food safety plan (active managerial control, HACCP principles).",
@@ -855,7 +855,7 @@
    "title_en": "Cooking, cooling and reheating",
    "title_es": "Cocinar, enfriar y recalentar",
    "objectives_en": [
-    "Name the minimum internal cooking temperatures for poultry, stuffed pasta and foods stuffed with meat, fish or poultry; ground meat and fish; steaks, pork and fish; eggs; whole roasts; and plant foods for hot holding.",
+    "Name the minimum internal cooking temperatures for poultry, stuffed pasta and foods stuffed with meat, fish or poultry; ground beef, pork and fish; steaks, pork and fish; eggs; whole roasts; and plant foods for hot holding.",
     "Check food temperature with a thermometer in the thickest part of the food.",
     "Cool cooked food in two stages: 135°F to 70°F within 2 hours, then to 41°F or below within 6 hours total.",
     "Pick a fast cooling method and never cool a big pot on the counter.",
@@ -863,7 +863,7 @@
     "Thaw frozen food using one of the four safe methods."
    ],
    "objectives_es": [
-    "Nombrar las temperaturas internas mínimas de cocción para aves, pasta rellena y comidas rellenas con carne, pescado o aves; carne y pescado molidos; bistecs, cerdo y pescado; huevos; asados enteros; y alimentos vegetales que se mantendrán calientes.",
+    "Nombrar las temperaturas internas mínimas de cocción para aves, pasta rellena y comidas rellenas con carne, pescado o aves; carne de res o cerdo y pescado molidos; bistecs, cerdo y pescado; huevos; asados enteros; y alimentos vegetales que se mantendrán calientes.",
     "Medir la temperatura de la comida con un termómetro en la parte más gruesa.",
     "Enfriar la comida cocinada en dos etapas: de 135 °F a 70 °F en 2 horas o menos, y luego a 41 °F o menos en un total de 6 horas.",
     "Escoger un método de enfriamiento rápido y nunca enfriar una olla grande en el mostrador.",
@@ -888,16 +888,16 @@
     {
      "beat": 3,
      "onscreen_en": "Animated card: '165°F · less than 1 second' with icons: chicken, turkey, a pepper stuffed with ground beef, stuffed pasta. Footer: 'FDA Food Code 3-401.11'.",
-     "say_en": "Chicken, turkey, stuffed pasta, and anything stuffed with meat, fish or poultry, like peppers stuffed with ground beef: 165 degrees. The moment it reaches 165, it is safe.",
+     "say_en": "Chicken, turkey, ground chicken or turkey, stuffed pasta, and anything stuffed with meat, fish or poultry, like peppers stuffed with ground beef: 165 degrees. The moment it reaches 165, it is safe.",
      "onscreen_es": "Tarjeta animada: '165 °F · menos de 1 segundo' con íconos: pollo, pavo, un chile relleno de carne molida, pasta rellena. Pie: 'Código de Alimentos de la FDA 3-401.11'.",
-     "say_es": "Pollo, pavo, pasta rellena y cualquier comida rellena con carne, pescado o aves, como chiles rellenos de carne molida: 165 grados. En cuanto llega a 165, ya es segura."
+     "say_es": "Pollo, pavo, pollo o pavo molido, pasta rellena y cualquier comida rellena con carne, pescado o aves, como chiles rellenos de carne molida: 165 grados. En cuanto llega a 165, ya es segura."
     },
     {
      "beat": 4,
      "onscreen_en": "Card: '155°F · 17 seconds' with icons: burger patty, ground fish, a marinade injector over a piece of meat, a pan of scrambled eggs in a steam table. Footer: '3-401.11'.",
-     "say_en": "Burgers and other ground meat, ground fish, injected meat, and eggs cooked ahead to hold hot: 155 degrees for 17 seconds.",
+     "say_en": "Burgers and other ground beef or pork, ground fish, injected or tenderized meat, and eggs cooked ahead to hold hot: 155 degrees for 17 seconds.",
      "onscreen_es": "Tarjeta: '155 °F · 17 segundos' con íconos: carne de hamburguesa, pescado molido, una jeringa de marinada sobre un trozo de carne, una bandeja de huevos revueltos en la mesa caliente. Pie: '3-401.11'.",
-     "say_es": "Hamburguesas y otras carnes molidas, pescado molido, carne inyectada y huevos que se cocinan antes para mantenerlos calientes: 155 grados durante 17 segundos."
+     "say_es": "Hamburguesas y otras carnes molidas de res o cerdo, pescado molido, carne inyectada o ablandada y huevos que se cocinan antes para mantenerlos calientes: 155 grados durante 17 segundos."
     },
     {
      "beat": 5,
@@ -916,9 +916,9 @@
     {
      "beat": 7,
      "onscreen_en": "The chili pot again, now with a two-step timer: Step 1 '135°F → 70°F · within 2 hours', Step 2 '→ 41°F or below · 6 hours total'. A gloved hand writes the start time on a cooling log. Footer: '3-501.14'.",
-     "say_en": "Now, cooling. Write down the start time. Hot food must drop from 135 to 70 degrees within 2 hours. Then it must reach 41 degrees or colder, within 6 hours total from the start. If it is not at 70 after 2 hours, tell your supervisor right away.",
+     "say_en": "Now, cooling. Write down the start time. Hot food must drop from 135 to 70 degrees within 2 hours. Then it must reach 41 degrees or colder, within 6 hours total from the start. Not at 70 after 2 hours? Reheat it to 165 and start cooling again, or throw it out. Not at 41 by 6 hours? Throw it out. Tell your supervisor.",
      "onscreen_es": "Otra vez la olla de chili, ahora con un cronómetro de dos pasos: Paso 1 '135 °F → 70 °F · en 2 horas o menos', Paso 2 '→ 41 °F o menos · 6 horas en total'. Una mano con guante anota la hora de inicio en un registro de enfriamiento. Pie: '3-501.14'.",
-     "say_es": "Ahora, enfriar. Anote la hora en que empieza. La comida caliente debe bajar de 135 a 70 grados en 2 horas o menos. Después debe llegar a 41 grados o menos, en un total de 6 horas desde el inicio. Si a las 2 horas no está en 70, avísele enseguida a su supervisor."
+     "say_es": "Ahora, enfriar. Anote la hora en que empieza. La comida caliente debe bajar de 135 a 70 grados en 2 horas o menos. Después debe llegar a 41 grados o menos, en un total de 6 horas desde el inicio. ¿No está en 70 a las 2 horas? Recaliéntela a 165 y empiece a enfriar otra vez, o tírela. ¿No llegó a 41 en 6 horas? Tírela. Avísele a su supervisor."
     },
     {
      "beat": 8,
@@ -958,10 +958,10 @@
    ],
    "keypoints_en": [
     "Color does not show food is safe: check with a thermometer in the thickest part of the food.",
-    "165°F (less than 1 second): chicken, turkey and other poultry, stuffed pasta, and any food stuffed with meat, fish or poultry.",
-    "155°F for 17 seconds: burgers and other ground meat, ground fish, injected meat, and eggs cooked ahead for hot holding.",
+    "165°F (less than 1 second): chicken, turkey and other poultry (ground poultry too), stuffed pasta, and any food stuffed with meat, fish or poultry.",
+    "155°F for 17 seconds: burgers and other ground beef or pork, ground fish, injected or tenderized meat, and eggs cooked ahead for hot holding.",
     "145°F for 15 seconds: steaks, pork chops, fish, and eggs cracked for a customer to eat right away. Whole roasts: 145°F for 4 minutes. Fruit, vegetables, rice and beans for hot holding: 135°F.",
-    "Cooling: from 135°F to 70°F within 2 hours, then to 41°F or below within 6 hours total. Not at 70°F after 2 hours? Tell your supervisor right away.",
+    "Cooling: from 135°F to 70°F within 2 hours, then to 41°F or below within 6 hours total. Not at 70°F after 2 hours? Reheat to 165°F and start cooling again, or throw it out. Not at 41°F within 6 hours? Throw it out — and tell your supervisor.",
     "Cool fast with shallow pans, an ice bath and stirring, an ice wand, or a blast chiller. Never cool a big pot on the counter.",
     "Reheat cooked and cooled food for hot holding to 165°F for 15 seconds, within 2 hours, then hold it at 135°F or hotter.",
     "Thaw safely: in the cooler at 41°F or below, under cold running water at 70°F or below, in the microwave only if cooked right away, or as part of cooking. Never on the counter.",
@@ -969,10 +969,10 @@
    ],
    "keypoints_es": [
     "El color no demuestra que la comida es segura: mídala con un termómetro en la parte más gruesa.",
-    "165 °F (menos de 1 segundo): pollo, pavo y otras aves, pasta rellena y cualquier comida rellena con carne, pescado o aves.",
-    "155 °F durante 17 segundos: hamburguesas y otras carnes molidas, pescado molido, carne inyectada y huevos que se cocinan antes para mantenerlos calientes.",
+    "165 °F (menos de 1 segundo): pollo, pavo y otras aves (también molidas), pasta rellena y cualquier comida rellena con carne, pescado o aves.",
+    "155 °F durante 17 segundos: hamburguesas y otras carnes molidas de res o cerdo, pescado molido, carne inyectada o ablandada y huevos que se cocinan antes para mantenerlos calientes.",
     "145 °F durante 15 segundos: bistecs, chuletas de cerdo, pescado y huevos que se preparan al momento para el cliente. Asados enteros: 145 °F durante 4 minutos. Frutas, verduras, arroz y frijoles que se mantendrán calientes: 135 °F.",
-    "Enfriar: de 135 °F a 70 °F en 2 horas o menos, y luego a 41 °F o menos en un total de 6 horas. ¿No está en 70 °F a las 2 horas? Avísele enseguida a su supervisor.",
+    "Enfriar: de 135 °F a 70 °F en 2 horas o menos, y luego a 41 °F o menos en un total de 6 horas. ¿No está en 70 °F a las 2 horas? Recaliente a 165 °F y empiece a enfriar otra vez, o tírela. ¿No llegó a 41 °F en 6 horas? Tírela, y avísele a su supervisor.",
     "Enfríe rápido con bandejas poco hondas, baño de hielo revolviendo, paleta enfriadora o enfriador rápido. Nunca enfríe una olla grande en el mostrador.",
     "Recaliente a 165 °F durante 15 segundos, en 2 horas o menos, la comida cocinada y enfriada que se va a mantener caliente; después manténgala a 135 °F o más.",
     "Descongele de forma segura: en el refrigerador a 41 °F o menos, bajo agua fría corriendo a 70 °F o menos, en el microondas solo si la cocina enseguida, o como parte de la cocción. Nunca en el mostrador.",
@@ -1081,7 +1081,7 @@
      "source": "FDA Food Code 2022, §3-401.11(A)(3)"
     },
     {
-     "claim": "Comminuted (ground) meat and fish, injected or mechanically tenderized meat, and raw eggs that are not broken and prepared to a customer's order for immediate service (for example, eggs cooked ahead for hot holding) must be cooked to 155°F for 17 seconds.",
+     "claim": "Comminuted (ground) meat and fish — such as ground beef or pork — injected or mechanically tenderized meat, and raw eggs not prepared for immediate service (for example, eggs cooked ahead for hot holding) must be cooked to 155°F for 17 seconds. Ground poultry is poultry and must reach 165°F.",
      "source": "FDA Food Code 2022, §3-401.11(A)(2)"
     },
     {
@@ -1103,6 +1103,10 @@
     {
      "claim": "Cooked TCS food must be cooled from 135°F to 70°F within 2 hours, and from 135°F to 41°F or less within a total of 6 hours.",
      "source": "FDA Food Code 2022, §3-501.14(A)"
+    },
+    {
+     "claim": "When cooling misses a limit — not at 70°F within the first 2 hours, or not at 41°F within 6 hours total — the usual corrective action is: within the first 2 hours, reheat to 165°F and start cooling again, or discard; after the 6-hour limit, discard.",
+     "source": "FDA Food Code 2022, 3-501.14(A) (the limits); corrective actions as in the FDA Food Code Annex 4 HACCP guidance — local codes may set their own"
     },
     {
      "claim": "Approved cooling methods include shallow pans, separating food into smaller portions, rapid cooling equipment, stirring in a container placed in an ice water bath, containers that help heat transfer, and adding ice as an ingredient; containers in cooling equipment are loosely covered or uncovered and arranged for heat transfer.",
@@ -1159,10 +1163,10 @@
     },
     {
      "beat": 3,
-     "onscreen_en": "Illustration: a reach-in cooler with 4 shelves, labeled top to bottom: 1 Ready-to-eat (salads, cut fruit, cooked food) · 2 Seafood and whole cuts of beef / pork — cook to 145°F · 3 Ground meat — 155°F · 4 Raw poultry — 165°F. Arrow down the side: the higher the cooking temperature, the lower the shelf. A drip from the chicken lands on no other food. Caption: FDA Food Code 3-302.11 · 3-401.11.",
-     "say_en": "So store food in the cooler by cooking temperature. Ready-to-eat food goes on top. Below it, seafood and whole cuts of beef or pork. Then ground meat. Raw poultry goes on the bottom. It needs the highest cooking temperature, and its juices must never drip on other food.",
-     "onscreen_es": "Ilustración: un refrigerador con 4 repisas, de arriba abajo: 1 Listo para comer (ensaladas, fruta picada, comida cocida) · 2 Pescados, mariscos y cortes enteros de res / cerdo — cocinar a 145°F · 3 Carne molida — 155°F · 4 Aves crudas — 165°F. Flecha al costado: a mayor temperatura de cocción, más abajo va. Una gota del pollo no cae sobre ninguna otra comida. Pie: Código de Alimentos de la FDA 3-302.11 · 3-401.11.",
-     "say_es": "Por eso, guarde la comida en el refrigerador según su temperatura de cocción. Lo listo para comer va arriba. Debajo, los pescados y mariscos, y los cortes enteros de res o cerdo. Después, la carne molida. Las aves crudas van hasta abajo: necesitan la temperatura de cocción más alta, y sus jugos nunca deben gotear sobre otra comida."
+     "onscreen_en": "Illustration: a reach-in cooler with 4 shelves, labeled top to bottom: 1 Ready-to-eat (salads, cut fruit, cooked food) · 2 Seafood and whole cuts of beef / pork — cook to 145°F · 3 Ground beef / pork — 155°F · 4 Raw poultry (ground too) — 165°F. Arrow down the side: the higher the cooking temperature, the lower the shelf. A drip from the chicken lands on no other food. Caption: FDA Food Code 3-302.11 · 3-401.11.",
+     "say_en": "So store food in the cooler by cooking temperature. Ready-to-eat food goes on top. Below it, seafood and whole cuts of beef or pork. Then ground beef and pork. Raw poultry, ground poultry too, goes on the bottom. It needs the highest cooking temperature, and its juices must never drip on other food.",
+     "onscreen_es": "Ilustración: un refrigerador con 4 repisas, de arriba abajo: 1 Listo para comer (ensaladas, fruta picada, comida cocida) · 2 Pescados, mariscos y cortes enteros de res / cerdo — cocinar a 145°F · 3 Carne molida de res / cerdo — 155°F · 4 Aves crudas (también molidas) — 165°F. Flecha al costado: a mayor temperatura de cocción, más abajo va. Una gota del pollo no cae sobre ninguna otra comida. Pie: Código de Alimentos de la FDA 3-302.11 · 3-401.11.",
+     "say_es": "Por eso, guarde la comida en el refrigerador según su temperatura de cocción. Lo listo para comer va arriba. Debajo, los pescados y mariscos, y los cortes enteros de res o cerdo. Después, la carne molida de res o cerdo. Las aves crudas van hasta abajo: necesitan la temperatura de cocción más alta, y sus jugos nunca deben gotear sobre otra comida."
     },
     {
      "beat": 4,
@@ -1216,7 +1220,7 @@
    ],
    "keypoints_en": [
     "Cross-contamination = germs moving from one food, surface or hand to another food.",
-    "Cooler order, top to bottom: ready-to-eat → seafood and whole cuts of beef or pork (145°F) → ground meat (155°F) → raw poultry (165°F) on the bottom.",
+    "Cooler order, top to bottom: ready-to-eat → seafood and whole cuts of beef or pork (145°F) → ground beef or pork (155°F) → raw poultry (165°F) on the bottom.",
     "Use separate boards and utensils, or wash, rinse and sanitize between raw meat and ready-to-eat food. A towel wipe is not enough.",
     "Gloves are for one task. Wash your hands and put on new gloves when you change tasks.",
     "Wash fruits and vegetables in clean water before you cut, cook or serve them, in the prep sink and never in the hand sink.",
@@ -1227,7 +1231,7 @@
    ],
    "keypoints_es": [
     "Contaminación cruzada = gérmenes que pasan de un alimento, una superficie o unas manos a otro alimento.",
-    "Orden en el refrigerador, de arriba abajo: listo para comer → pescados, mariscos y cortes enteros de res o cerdo (145°F) → carne molida (155°F) → aves crudas (165°F) hasta abajo.",
+    "Orden en el refrigerador, de arriba abajo: listo para comer → pescados, mariscos y cortes enteros de res o cerdo (145°F) → carne molida de res o cerdo (155°F) → aves crudas (165°F) hasta abajo.",
     "Use tablas y utensilios separados, o lave, enjuague y desinfecte entre la carne cruda y la comida lista para comer. Pasar un trapo no es suficiente.",
     "Los guantes son para una sola tarea. Lávese las manos y póngase guantes nuevos cuando cambie de tarea.",
     "Lave las frutas y verduras con agua limpia antes de cortarlas, cocinarlas o servirlas, en el fregadero de preparación y nunca en el lavamanos.",
