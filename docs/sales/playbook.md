@@ -33,7 +33,7 @@ SDX Inspect
 {mailing address} · Reply "no thanks" and I won't email again.
 
 **Email 2 (day 4) — subject: "Re: {Org}: food safety checks on one phone"**
-Hi {Name}, a 25-second look at how a bad cooler temp gets caught and fixed: {Reel link on @sdxinspection}. Happy to set up a free 30-day pilot whenever it suits you. — Joxel
+Hi {Name}, 40 seconds on how a problem gets found, fixed and proved with BEFORE and AFTER photos: https://joxelds.github.io/Claude/marketing/watch/. Happy to set up a free 30-day pilot whenever it suits you. — Joxel
 
 **Email 3 (day 11) — subject: "Close the loop?"**
 Hi {Name}, last note from me. If food-safety checks across your {stands / locations} are already covered, no problem. If not, the 30-day pilot is free and takes 20 minutes to start. — Joxel
