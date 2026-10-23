@@ -59,6 +59,9 @@ export const USERS = [
   // v566: no real badge in the repo — the owner's demo copy is added only when SDX_ADMIN_BADGE is set (online he signs in
   // with the home venue's global_admin record anyway)
   ...(process.env.SDX_ADMIN_BADGE ? [user(String(process.env.SDX_ADMIN_BADGE).trim(), 'Joxel Da Silva', 'admin', 'Safety Inspector', 60)] : []),
+  // v570: the App Review admin (Admin → Reported content). Its badge is given only in App Store Connect's review notes,
+  // never written in the repo; department "App Review" keeps it out of every other venue.
+  ...(process.env.SDX_DEMO_ADMIN_BADGE ? [user(String(process.env.SDX_DEMO_ADMIN_BADGE).trim(), 'Demo Admin', 'admin', 'App Review', 45)] : []),
   user('448800', 'Demo Inspector', 'inspector', 'Food Safety / QA', 45),
   user('777001', 'Demo Maintenance', 'maintenance', 'Maintenance / Facilities'),
   user('777002', 'Demo Cleaning', 'cleaning', 'Cleaning / Sanitation'),
@@ -70,6 +73,11 @@ export const venueSettings = {
   inviteTokens: TOKENS,
   eventDays: { [day(0)]: 'DEMO GAME DAY', [day(3)]: 'DEMO GAME DAY', [day(7)]: 'DEMO GAME DAY' },
   demoVenue: true, demoSeededAt: new Date().toISOString(),
+  // v570: crew comments on two follow-ups, so a reviewer has someone else's post to ⚑ Report and block
+  followupComments: {
+    [`${stand('101').siteName}::Cleaning`]: [{ text: 'Coming after the lunch rush — the degreaser is in the truck', by: 'Demo Cleaning', byHash: sha('777002'), ts: Date.parse(at(0, 11, 20)) }],
+    [`${stand('101').siteName}::Facilities – Hand Sink`]: [{ text: 'Part ordered, it should be here Monday', by: 'Demo Maintenance', byHash: sha('777001'), ts: Date.parse(at(0, 10, 5)) }],
+  },
 };
 
 // ── Sample inspection reports ────────────────────────────────────

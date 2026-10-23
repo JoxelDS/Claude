@@ -2361,6 +2361,7 @@ const APP_REVIEW_VENUES = ["riverside-demo"];
 // v563 review: never re-created by Add Venue and never given a one-time Venue admin link (Hard Rock + the shared demo)
 const RESERVED_VENUE_IDS = ["default", "riverside-demo"];
 const appReviewVenue = () => APP_REVIEW_VENUES.includes(activeVenueId) || (!FIREBASE_ON && activeVenueId === "default");
+const isDemoVenue = () => APP_REVIEW_VENUES.includes(activeVenueId); // v570: the public demo only (never the local home venue)
 // The auto-made demo account (never a real person): hidden from customer venues' Team lists and refused at sign-in there
 const isAppReviewUser = u => !!u && u.department === "App Review";
 const hideAppReviewUsers = list => appReviewVenue() ? (list || []) : (list || []).filter(u => !isAppReviewUser(u));
@@ -3175,7 +3176,12 @@ async function signIn(badge) {
   if (isOwnerRecord(home)) user = home;
   // v563: a demo account made on a customer venue before this change is not a way in any more
   if (user && !appReviewVenue() && isAppReviewUser(user)) user = null;
-  if (!user) return { ok: false, reason: "not_found" };
+  if (!user) {
+    // v570: a badge whose owner deleted the account says so (getUsers() leaves removed records out)
+    const raw = await rawUserRecord(h);
+    if (raw?.selfDeleted) return { ok: false, reason: "deleted", at: raw.deletedAt || "" };
+    return { ok: false, reason: "not_found" };
+  }
   if (!user.approved) return { ok: false, reason: "pending" };
   if (!FIREBASE_ON) _cryptoKey = await getMasterKey();
   _currentUser = { ...user };
@@ -3504,6 +3510,7 @@ const MENU_ICONS = {
   share: (<><circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" /><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4" /></>),
   droplet: (<><path d="M12 2.7l5.66 5.66a8 8 0 1 1-11.31 0z" /></>),
   lock: (<><rect x="4" y="11" width="16" height="10" rx="2" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></>),
+  user: (<><circle cx="12" cy="8" r="4" /><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1" /></>), // v570: My account
 };
 function MenuIcon({ name }) {
   return (
@@ -3574,6 +3581,8 @@ function BadgeScreen({ onUnlock, inviteRole, crewNotice = "", onAdminInviteUsed 
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState("");
   const inputRef = useRef(null);
+  // v570: shown once on the sign-in screen right after "Delete my account"
+  const [deletedNote] = useState(() => { try { const v = sessionStorage.getItem("sdx_account_deleted") || ""; if (v) sessionStorage.removeItem("sdx_account_deleted"); return v; } catch { return ""; } });
 
   useEffect(() => { ensureLocalTestAdmin(); }, []); // v566: local mode only
   useEffect(() => { inputRef.current?.focus(); }, [mode]);
@@ -3591,6 +3600,8 @@ function BadgeScreen({ onUnlock, inviteRole, crewNotice = "", onAdminInviteUsed 
         setMode("pending");
       } else if (result.reason === "demo_badge") {
         setError(DEMO_BADGE_MSG);
+      } else if (result.reason === "deleted") {
+        setError(`This account was deleted${result.at ? " on " + new Date(result.at).toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" }) : ""}. To use the app again, request access below.`);
       } else {
         setError("Badge not recognized. Request access below if you\u2019re new.");
       }
@@ -3639,7 +3650,13 @@ function BadgeScreen({ onUnlock, inviteRole, crewNotice = "", onAdminInviteUsed 
     try {
       const dept = regDept === "Other" ? (regDeptOther.trim() || "Other") : regDept;
       const pick = (regRole === "location_manager" || regRole === "guest") ? regStand : null; // v563: picked from the list
-      const result = await registerNewUser(badge.trim(), regName.trim(), dept, { requestedRole: regRole, assignedLocation: pick ? String(pick.site || "").trim().toUpperCase() : regLoc.trim(), assignedStandId: pick?.id || "" });
+      // v570: on the public demo a request opens at once (App Review: sign up → use → delete my account, end to end)
+      const instant = isDemoVenue();
+      const result = await registerNewUser(badge.trim(), regName.trim(), dept, { requestedRole: regRole, assignedLocation: pick ? String(pick.site || "").trim().toUpperCase() : regLoc.trim(), assignedStandId: pick?.id || "", approved: instant });
+      if (result.ok && instant) {
+        const r = await signIn(badge.trim());
+        if (r.ok) { onUnlock(r.user, { via: "register" }); return; }
+      }
       if (result.ok) {
         setSuccess(`Request sent as ${REQUEST_TILES.find(t => t.value === regRole)?.label || regRole} · ${dept}. An administrator will approve your badge.`);
         setMode("pending");
@@ -3674,6 +3691,9 @@ function BadgeScreen({ onUnlock, inviteRole, crewNotice = "", onAdminInviteUsed 
 
         {mode === "signin" && crewNotice !== "opening" && INVITE_TOKEN && !inviteRole && _vs.adminInviteUsed?.token === INVITE_TOKEN && (
           <div className="regInviteHelp joinAdminUsed" data-testid="invite-admin-used">🛡 This venue admin link was already used{_vs.adminInviteUsed.by ? <> by <NT><b>{_vs.adminInviteUsed.by}</b></NT></> : ""}{_vs.adminInviteUsed.at ? ` on ${new Date(_vs.adminInviteUsed.at).toLocaleDateString([], { month: "short", day: "numeric" })}` : ""}. Already joined? Sign in with the badge number you picked.</div>
+        )}
+        {mode === "signin" && crewNotice !== "opening" && deletedNote && (
+          <div className="acctDeletedNote" data-testid="acct-deleted-note" role="status">✓ Your account was deleted. Your name, phone and sign-in are gone from this venue.</div>
         )}
         {mode === "signin" && crewNotice !== "opening" && (<>
           <div className="pinTitle">Badge Sign-In</div>
@@ -3741,7 +3761,7 @@ function BadgeScreen({ onUnlock, inviteRole, crewNotice = "", onAdminInviteUsed 
 
         {mode === "register" && (<>
           <div className="pinTitle">Request Access</div>
-          <div className="pinSub">Fill in your details. An administrator will review your request.</div>
+          <div className="pinSub" data-testid="reg-sub">{isDemoVenue() ? "This is the demo venue — your account opens right away. You can delete it any time from ☰ → My account." : "Fill in your details. An administrator will review your request."}</div>
           <form onSubmit={handleRegister} className="pinForm">
             <input ref={inputRef} className="pinInput badgeInput" type="password" maxLength={20}
               value={badge} onChange={e => setBadge(e.target.value)} placeholder="Badge #" autoComplete="off" />
@@ -3769,7 +3789,7 @@ function BadgeScreen({ onUnlock, inviteRole, crewNotice = "", onAdminInviteUsed 
             {error && <div className="pinError">{error}</div>}
             <button className="btn btnPrimary pinBtn" type="submit"
               disabled={loading || badge.trim().length < 3 || !regName.trim() || !regDept || (regDept === "Other" && !regDeptOther.trim())}>
-              {loading ? "Sending…" : "Send request"}
+              {loading ? "Sending…" : isDemoVenue() ? "Create my account" : "Send request"}
             </button>
           </form>
           <button className="btnLink" type="button" onClick={() => { setMode("signin"); setError(""); setBadge(""); }}>
@@ -3792,6 +3812,7 @@ function BadgeScreen({ onUnlock, inviteRole, crewNotice = "", onAdminInviteUsed 
             : <><span className="pinLock">&#128274;</span> AES-256 encrypted &middot; stored only on this device</>
           }
         </div>
+        <LegalLinks className="pinLegal" />
         <div className="pinPatent">Patent Pending</div>
       </div>
     </div>
@@ -4613,7 +4634,12 @@ function PhotoThumb({ p, alt = "", onClick, className, style, lazy = true }) {
   const chain = photoSrcChain(p);
   const sig = chain.join("|");
   const [state, setState] = useState({ sig, i: 0 });
+  useCrTick(); // v570: a photo reported / removed / from a blocked person turns into a 🚩 box
   const i = state.sig === sig ? state.i : 0;
+  const crs = crState(crPhotoKey(p?.previewUrl || p?.exportUrl || p?.url || p?.thumbUrl || p?.dataUrl || ""), p?.by);
+  if (crs) {
+    return <span className={cx("photoThumbMissing crHiddenThumb", className)} style={style} role="img" aria-label={CR_HIDDEN_TEXT[crs]} title={CR_HIDDEN_TEXT[crs]} data-testid="photo-thumb-hidden" data-cr={crs}>🚩</span>;
+  }
   if (i >= chain.length) {
     return <span className={cx("photoThumbMissing", className)} style={style} role="img" aria-label="Photo not available right now" title="Photo not available right now" data-testid="photo-thumb-missing">📷</span>;
   }
@@ -4623,6 +4649,378 @@ function PhotoThumb({ p, alt = "", onClick, className, style, lazy = true }) {
 async function uploadPhotoThumb(dataUrl, venueId, ownerId, photoId) {
   if (!FIREBASE_ON || typeof dataUrl !== "string" || !dataUrl.startsWith("data:image")) return "";
   try { return (await uploadPhoto(dataUrl, venueId, ownerId, `${photoId}_t`)) || ""; } catch { return ""; }
+}
+
+// ── v570: report + block (App Store 1.2) and "Delete my account" (5.1.1(v)) ───────────────────────────────────
+// Apple (2026-10-23, "Information Needed"): an app with accounts must let people delete them, and an app with user
+// content must let people report it and block who posted it. Every photo, comment, message and announcement posted by
+// someone else has ⚑ Report: it is hidden for the reporter at once, the venue's admins review it in Admin → Reported
+// content (Remove for everyone / Keep, with a note), and — Joxel: "they should get notified and receive a summary of
+// what was done" — the reporter, and the author when it is removed, get a bell alert with that summary (☰ → My account
+// → My reports keeps it). Block hides a person's comments, messages and photos on this phone.
+// Shared doc sharedMemory/contentReports = { items{id: report}, removed{ref: {at, by, id} | null} }.
+const CR_LS = `sdx_content_reports_${VENUE_ID}`;
+let _cr = { items: {}, removed: {} };
+try { const d = JSON.parse(localStorage.getItem(CR_LS) || "null"); if (d && typeof d === "object") _cr = { items: d.items || {}, removed: d.removed || {} }; } catch {}
+let _crMineMem = { key: "", val: null };
+const crMineKey = () => `sdx_cr_mine_${VENUE_ID}_${_currentUser?.badgeHash || "anon"}`;
+function crMine() {
+  const key = crMineKey();
+  if (_crMineMem.key === key && _crMineMem.val) return _crMineMem.val;
+  let val = { hidden: {}, blocked: {} };
+  try { const m = JSON.parse(localStorage.getItem(key) || "null"); if (m) val = { hidden: m.hidden || {}, blocked: m.blocked || {} }; } catch {}
+  _crMineMem = { key, val };
+  return val;
+}
+function crChanged() { try { window.dispatchEvent(new CustomEvent("sdx-cr")); } catch {} }
+function crSaveMine(m) { const key = crMineKey(); _crMineMem = { key, val: m }; try { localStorage.setItem(key, JSON.stringify(m)); } catch {} crChanged(); }
+function crSetDoc(d) { _cr = { items: { ...(d?.items || {}) }, removed: { ...(d?.removed || {}) } }; try { localStorage.setItem(CR_LS, JSON.stringify(_cr)); } catch {} crChanged(); }
+// this phone's copy first (the cloud answers through the listener in the app shell), then the shared doc
+function crWrite(payload) {
+  const next = { items: { ..._cr.items }, removed: { ..._cr.removed } };
+  for (const [id, v] of Object.entries(payload.items || {})) next.items[id] = { ...(next.items[id] || {}), ...v };
+  for (const [k, v] of Object.entries(payload.removed || {})) next.removed[k] = v;
+  crSetDoc(next);
+  return writeSharedDoc("contentReports", payload);
+}
+function useCrTick() {
+  const [, setT] = useState(0);
+  useEffect(() => { const on = () => setT(t => t + 1); window.addEventListener("sdx-cr", on); return () => window.removeEventListener("sdx-cr", on); }, []);
+}
+const crAuthorKey = name => String(name || "").trim().toUpperCase();
+const crSafe = s => String(s).replace(/[^a-z0-9]/gi, "_");
+// one key per photo whatever copy is on screen (its small _t copy, a tokened link or the full photo)
+function crPhotoKey(url) {
+  const u = String(url || ""); if (!u) return "";
+  const m = STORAGE_PHOTO_RE.exec(u);
+  return "p_" + crSafe(hashSig(m ? m[1] : u.split("?")[0]));
+}
+const crTextKey = (kind, ...parts) => kind.slice(0, 1) + "_" + crSafe(hashSig(parts.map(x => String(x ?? "")).join("|")));
+// "removed" (the admin removed it for everyone) · "reported" (I reported it) · "blocked" (I blocked who posted it) · ""
+function crState(ref, author) {
+  if (ref && _cr.removed[ref]) return "removed";
+  const m = crMine();
+  if (ref && m.hidden[ref]) return "reported";
+  const a = crAuthorKey(author);
+  return a && m.blocked[a] ? "blocked" : "";
+}
+const CR_HIDDEN_TEXT = { removed: "Removed by the venue admin", reported: "Hidden — you reported this", blocked: "Hidden — you blocked this person" };
+const CR_REASONS = [["abusive", "Offensive or abusive"], ["personal", "Personal information"], ["notwork", "Not about the work"], ["spam", "Spam"], ["wrong", "Wrong or misleading"], ["other", "Something else"]];
+const crReasonLabel = k => (CR_REASONS.find(r => r[0] === k) || [k, k || "—"])[1];
+const crKindLabel = k => ({ photo: "photo", comment: "comment", message: "message", announcement: "announcement" }[k] || "post");
+const crIsMine = (author, authorHash) => { const me = _currentUser; if (!me) return false; return authorHash ? authorHash === me.badgeHash : !!author && crAuthorKey(author) === crAuthorKey(me.name); };
+function crReport({ kind, ref, preview, where, author, authorHash, reason, note, block }) {
+  const me = _currentUser || {};
+  const id = `cr_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+  const m = crMine();
+  const next = { hidden: { ...m.hidden, [ref]: Date.now() }, blocked: { ...m.blocked } };
+  if (block && crAuthorKey(author)) next.blocked[crAuthorKey(author)] = { name: author, at: Date.now() };
+  crSaveMine(next);
+  crWrite({ items: { [id]: {
+    // a photo's preview is its link (a photo still on the phone — a data: copy — is far too big for the shared doc)
+    kind, ref, preview: kind === "photo" ? (/^https?:/.test(String(preview || "")) ? String(preview).slice(0, 1200) : "") : String(preview || "").slice(0, 400), where: String(where || "").slice(0, 160),
+    author: author || "", authorHash: authorHash || "", reason, note: String(note || "").trim().slice(0, 300),
+    by: me.name || "Someone", byHash: me.badgeHash || "", at: Date.now(), status: "open",
+  } } });
+  return id;
+}
+function crBlock(author) { const a = crAuthorKey(author); if (!a) return; const m = crMine(); crSaveMine({ hidden: { ...m.hidden }, blocked: { ...m.blocked, [a]: { name: author, at: Date.now() } } }); }
+function crUnblock(author) { const a = crAuthorKey(author); const m = crMine(); const blocked = { ...m.blocked }; delete blocked[a]; crSaveMine({ hidden: { ...m.hidden }, blocked }); }
+// the admin's decision — "remove" hides it for everyone, "keep" leaves it, "restore" puts a removed one back
+function crHandle(id, action, adminNote) {
+  const it = _cr.items[id]; if (!it) return null;
+  const me = _currentUser || {};
+  const status = action === "remove" ? "removed" : action === "restore" ? "restored" : "kept";
+  const patch = { items: { [id]: { status, handledBy: me.name || "Admin", handledByHash: me.badgeHash || "", handledAt: Date.now(), adminNote: String(adminNote || "").trim().slice(0, 300) } } };
+  if (action === "remove") patch.removed = { [it.ref]: { at: Date.now(), by: me.name || "Admin", id } };
+  if (action === "restore") patch.removed = { [it.ref]: null };
+  return crWrite(patch);
+}
+const crDay = ts => (ts ? new Date(ts).toLocaleDateString([], { month: "short", day: "numeric" }) : "");
+// the plain-words summary the reporter (and the author) get
+function crSummary(it) {
+  if (!it) return "";
+  const who = it.handledBy || "the venue admin", when = crDay(it.handledAt), note = it.adminNote ? ` — “${it.adminNote}”` : "";
+  if (it.status === "removed") return `Removed for everyone by ${who}${when ? " · " + when : ""}${note}`;
+  if (it.status === "kept") return `Reviewed by ${who}${when ? " · " + when : ""}: it stays up${note}. It stays hidden for you.`;
+  if (it.status === "restored") return `Put back by ${who}${when ? " · " + when : ""}${note}`;
+  return "Waiting for the venue admin to review it";
+}
+const crWhat = it => `the ${crKindLabel(it.kind)}${it.where ? " on " + it.where : ""}${it.author ? " by " + it.author : ""}`;
+// the bell alerts this person should see now (the app shell fires each id once)
+function crNotices(user) {
+  if (!user?.badgeHash) return [];
+  const out = [], now = Date.now(), isAdmin = user.role === "admin" || user.role === "global_admin";
+  for (const [id, it] of Object.entries(_cr.items || {})) {
+    if (!it) continue;
+    if (isAdmin && it.status === "open" && it.byHash !== user.badgeHash && now - (it.at || 0) < 3 * 864e5)
+      out.push({ id: `cr-new-${id}`, title: `⚑ Reported ${crKindLabel(it.kind)} — review it`, body: `${crReasonLabel(it.reason)} · ${crWhat(it)} · reported by ${it.by}. Admin → Reported content.` });
+    if (it.status !== "open" && it.byHash === user.badgeHash && now - (it.handledAt || 0) < 14 * 864e5)
+      out.push({ id: `cr-done-${id}-${it.status}`, title: `Your report was reviewed`, body: `${crWhat(it)}: ${crSummary(it)}` });
+    const authorMe = it.authorHash ? it.authorHash === user.badgeHash : !!it.author && crAuthorKey(it.author) === crAuthorKey(user.name);
+    if (it.status === "removed" && authorMe && now - (it.handledAt || 0) < 14 * 864e5)
+      out.push({ id: `cr-author-${id}`, title: `Your ${crKindLabel(it.kind)} was removed`, body: `${it.where ? "On " + it.where + ": " : ""}${crSummary(it)} (reason: ${crReasonLabel(it.reason).toLowerCase()}).` });
+  }
+  return out;
+}
+
+// ⚑ Report — a small link next to someone else's post, and its sheet
+// (the sheet lives in AccountHost, not here: the post hides the moment it is reported and takes this link with it)
+function ReportLink({ kind, refKey, preview, where, author, authorHash, className, label = "⚑ Report" }) {
+  if (!refKey || !_currentUser || crIsMine(author, authorHash)) return null;
+  const open = e => { e.stopPropagation(); try { window.dispatchEvent(new CustomEvent("sdx-open-report", { detail: { kind, refKey, preview, where, author, authorHash } })); } catch {} };
+  return <button type="button" className={cx("crLink", className)} data-testid="cr-report" aria-label={`Report this ${crKindLabel(kind)}`} onClick={open}>{label}</button>;
+}
+function ReportSheet({ kind, refKey, preview, where, author, authorHash, onClose }) {
+  const [reason, setReason] = useState("");
+  const [note, setNote] = useState("");
+  const [block, setBlock] = useState(false);
+  const [sent, setSent] = useState(false);
+  useEffect(() => { const k = e => { if (e.key === "Escape") onClose(); }; window.addEventListener("keydown", k); return () => window.removeEventListener("keydown", k); }, [onClose]);
+  return ReactDOM.createPortal(
+    <div className="crBackdrop" data-testid="cr-sheet" onClick={e => { e.stopPropagation(); onClose(); }}>
+      <div className="crSheet" role="dialog" aria-modal="true" aria-label={`Report this ${crKindLabel(kind)}`} onClick={e => e.stopPropagation()}>
+        {sent ? (
+          <div className="crSent" data-testid="cr-sent">
+            <div className="crTitle">✓ Report sent</div>
+            <p>It is hidden for you now. The venue admin reviews it and you get a notification with a summary of what was done. You can see it any time in ☰ → My account → My reports.</p>
+            <button type="button" className="btn btnPrimary crWide" data-testid="cr-sent-ok" onClick={onClose}>OK</button>
+          </div>
+        ) : (<>
+          <div className="crTitle">Report this {crKindLabel(kind)}</div>
+          {preview ? <div className="crPreview">{kind === "photo" ? <PhotoThumb p={{ previewUrl: preview }} className="crPreviewImg" lazy={false} /> : <span>“{String(preview).slice(0, 200)}”</span>}</div> : null}
+          {(author || where) && <div className="crMeta">{author ? <>Posted by <NT>{author}</NT></> : null}{author && where ? " · " : ""}{where ? <NT>{where}</NT> : null}</div>}
+          <div className="crLabel">What is wrong with it?</div>
+          <div className="crReasons">
+            {CR_REASONS.map(([k, l]) => <button key={k} type="button" className={cx("crReason", reason === k && "on")} aria-pressed={reason === k} data-testid={`cr-reason-${k}`} onClick={() => setReason(k)}>{l}</button>)}
+          </div>
+          <textarea className="input crNote" data-testid="cr-note" rows={2} maxLength={300} value={note} onChange={e => setNote(e.target.value)} placeholder="Anything the admin should know? (optional)" />
+          {author && !crIsMine(author, authorHash) && (
+            <label className="crBlockRow"><input type="checkbox" data-testid="cr-block" checked={block} onChange={e => setBlock(e.target.checked)} /><span>Also block <NT>{author}</NT> — hide their comments, messages and photos on this phone</span></label>
+          )}
+          <div className="crBtns">
+            <button type="button" className="btn btnGhost" data-testid="cr-cancel" onClick={onClose}>Cancel</button>
+            <button type="button" className="btn btnPrimary" data-testid="cr-send" disabled={!reason} onClick={() => { crReport({ kind, ref: refKey, preview, where, author, authorHash, reason, note, block }); setSent(true); }}>Send report</button>
+          </div>
+        </>)}
+      </div>
+    </div>, document.body);
+}
+// what shows in place of a reported / removed / blocked comment or message
+function CrHidden({ state, author }) {
+  return (
+    <span className="crHidden" data-testid="cr-hidden" data-cr={state}>🚩 {state === "blocked" ? <>Hidden — you blocked <NT>{author}</NT></> : CR_HIDDEN_TEXT[state]}
+      {state === "blocked" && <button type="button" className="crLink" data-testid="cr-unblock" onClick={e => { e.stopPropagation(); crUnblock(author); }}>Unblock</button>}
+    </span>
+  );
+}
+// the full-size photo viewer's bar: ⚑ Report photo (every viewer in the app renders it under the picture)
+function LightboxReport({ src }) {
+  useCrTick();
+  if (!src || !_currentUser) return null;
+  const ref = crPhotoKey(src);
+  const st = crState(ref);
+  return (
+    <div className="crLightboxBar" onClick={e => e.stopPropagation()}>
+      {st ? <span className="crHidden" data-testid="cr-lightbox-state">🚩 {CR_HIDDEN_TEXT[st]}</span>
+        : <ReportLink kind="photo" refKey={ref} preview={src} label="⚑ Report this photo" className="crLightboxBtn" />}
+    </div>
+  );
+}
+
+// ── v570: ☰ → My account — who I am, my reports, blocked people, the legal pages, Delete my account ──────────
+const LEGAL_LINKS = [["privacy.html", "Privacy policy"], ["terms.html", "Terms of use"], ["support.html", "Support"]];
+const legalUrl = page => publicAppBase() + page;
+function LegalLinks({ className }) {
+  return (
+    <div className={cx("legalLinks", className)} data-testid="legal-links">
+      {LEGAL_LINKS.map(([p, l], i) => <React.Fragment key={p}>{i ? <span aria-hidden="true"> · </span> : null}<a href={legalUrl(p)} target="_blank" rel="noreferrer" data-testid={`legal-${p.split(".")[0]}`} onClick={e => e.stopPropagation()}>{l}</a></React.Fragment>)}
+    </div>
+  );
+}
+// the raw user record (getUsers() leaves removed ones out) — tells a deleted account apart from an unknown badge
+async function rawUserRecord(h) {
+  if (!FIREBASE_ON) { try { return JSON.parse(localStorage.getItem(USERS_KEY) || "[]").find(u => u.badgeHash === h) || null; } catch { return null; } }
+  try {
+    const col = IS_DEFAULT_VENUE() ? legacyCol("users") : venueCol("users");
+    const snap = await Promise.race([getDoc(doc(col, h)), new Promise((_, rej) => setTimeout(() => rej(new Error("timeout")), 6000))]);
+    return snap.exists() ? snap.data() : null;
+  } catch { return null; }
+}
+// Delete my account: the record is replaced by a "Former team member" stub (the rules forbid real deletes) with
+// nothing personal left — no name, phone, stand, badge digits — and the badge stops working. Reports the person filed
+// stay with the venue (they are the venue's inspection records) and keep the name they were signed with.
+async function deleteMyAccount() {
+  const me = _currentUser;
+  if (!me?.badgeHash) return { ok: false, reason: "signed-out" };
+  if (me.role === "global_admin") return { ok: false, reason: "owner" };
+  const at = new Date().toISOString();
+  const stub = { badgeHash: me.badgeHash, name: "Former team member", role: me.role || "inspector", department: "", approved: false, removed: true, selfDeleted: true, deletedAt: at, removedAt: at, badgeDisplay: "" };
+  try {
+    if (FIREBASE_ON) {
+      const col = IS_DEFAULT_VENUE() ? legacyCol("users") : venueCol("users");
+      await Promise.race([setDoc(doc(col, me.badgeHash), stub), new Promise((_, rej) => setTimeout(() => rej(new Error("timeout")), 15000))]); // a full replace: nothing else stays
+    } else {
+      const list = JSON.parse(localStorage.getItem(USERS_KEY) || "[]");
+      localStorage.setItem(USERS_KEY, JSON.stringify([...list.filter(u => u.badgeHash !== me.badgeHash), stub]));
+    }
+  } catch { return { ok: false, reason: "network" }; }
+  _invalidateUserCache();
+  // a stand manager who joined by invite is also on their stand's "People at this stand" list (name + phone) — off it too
+  try {
+    const k = me.assignedStandId && (_standListCache || []).find(x => x.id === me.assignedStandId);
+    if (k && Array.isArray(k.contacts)) {
+      const nm = crAuthorKey(me.name), ph = phoneDigits(me.phone || "");
+      const contacts = k.contacts.filter(c => !((ph && phoneDigits(c.phone) === ph) || (nm && crAuthorKey(c.name) === nm)));
+      if (contacts.length !== k.contacts.length) {
+        _standListCache = _standListCache.map(x => x.id === k.id ? { ...x, contacts } : x);
+        writeKitchenReg({ items: { [k.id]: { site: k.site, unit: k.unit || "", floor: k.floor || "", license: k.license || "", locType: k.locType || "", contacts } } });
+      }
+    }
+  } catch {}
+  // the alerts this phone registered under the person's name, the cloud copies of unsaved reports, this phone's
+  // crew link, unsaved reports, report / block lists and caches
+  if (FIREBASE_ON) {
+    try {
+      const ref = doc(db, "venues", VENUE_ID, "sharedMemory", "pushTokens");
+      const snap = await getDoc(ref);
+      const mine = Object.entries(snap.exists() ? snap.data()?.tokens || {} : {}).filter(([, t]) => t && crAuthorKey(t.name) === crAuthorKey(me.name) && (t.role || "") === (me.role || ""));
+      if (mine.length) await setDoc(ref, { tokens: Object.fromEntries(mine.map(([k]) => [k, deleteField()])) }, { merge: true });
+    } catch {}
+    try { for (const d of await loadDraftsCloud(me.badgeHash)) await clearDraftCloud(d.cloudKey); } catch {}
+  }
+  try { clearCrewSession(); } catch {}
+  try {
+    localStorage.removeItem(DRAFTS_KEY); localStorage.removeItem(REPORT_ID_KEY); localStorage.removeItem(crMineKey());
+    localStorage.removeItem(`sdx_history_cache_${VENUE_ID}`); localStorage.removeItem(`sdx_users_cache_${activeVenueId}`);
+    sessionStorage.setItem("sdx_account_deleted", at);
+  } catch {}
+  _crMineMem = { key: "", val: null };
+  return { ok: true };
+}
+// v570: Admin → Reported content — the venue admin's review list (Remove for everyone / Keep, with a note)
+function ReportedContentCard() {
+  useCrTick();
+  const [notes, setNotes] = useState({});
+  const [showDone, setShowDone] = useState(false);
+  const all = Object.entries(_cr.items || {}).filter(([, it]) => it && it.ref).map(([id, it]) => ({ ...it, id })).sort((a, b) => (b.at || 0) - (a.at || 0));
+  const open = all.filter(x => x.status === "open"), done = all.filter(x => x.status !== "open");
+  const list = showDone ? done : open;
+  return (
+    <div className="card adminCard crAdminCard" data-testid="cr-admin" style={{ marginBottom: 24 }}>
+      <div className="cardHeader"><div className="cardTitle">⚑ Reported content {open.length ? <span className="menuBadge" data-testid="cr-admin-count">{open.length} to review</span> : null}</div></div>
+      <div className="cardBody">
+        <div className="venueBrandWhy">Photos, comments, messages and announcements your team reported. “Remove for everyone” takes it down on every phone. The person who reported it — and the author, when it is removed — get a notification with a summary of what you did. To stop someone posting, remove their access in the team list below.</div>
+        <div className="crReasons crAdminTabs">
+          <button type="button" className={cx("crReason", !showDone && "on")} aria-pressed={!showDone} data-testid="cr-admin-open" onClick={() => setShowDone(false)}>To review ({open.length})</button>
+          <button type="button" className={cx("crReason", showDone && "on")} aria-pressed={showDone} data-testid="cr-admin-done" onClick={() => setShowDone(true)}>Done ({done.length})</button>
+        </div>
+        {!list.length ? <div className="acctEmpty" data-testid="cr-admin-empty">{showDone ? "Nothing reviewed yet." : "Nothing to review. Each new report shows up here, and you get a notification."}</div> : list.map(it => (
+          <div key={it.id} className="crAdminRow" data-testid="cr-admin-row" data-status={it.status}>
+            <div className="crAdminTop"><b>⚑ {crKindLabel(it.kind)}</b>{it.where ? <> · <NT>{it.where}</NT></> : null}<span className="crAdminWhen">{it.at ? new Date(it.at).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : ""}</span></div>
+            <div className="crPreview">{it.kind === "photo"
+              ? (it.preview ? <img className="crPreviewImg" alt="Reported photo" loading="lazy" src={storageThumbOf(it.preview) || it.preview} onError={e => { if (e.currentTarget.src !== it.preview) e.currentTarget.src = it.preview; }} /> : <span>📷 A photo that was not uploaded yet — it shows on the card where it was reported.</span>)
+              : <span>“{it.preview || "—"}”</span>}</div>
+            <div className="crMeta">{it.author ? <>Posted by <NT>{it.author}</NT> · </> : null}Reported by <NT>{it.by}</NT> — {crReasonLabel(it.reason)}{it.note ? `: “${it.note}”` : ""}</div>
+            {it.status === "open" ? (<>
+              <input className="input crAdminNote" data-testid="cr-admin-note" maxLength={300} placeholder="A note for the person who reported it (optional)" value={notes[it.id] || ""} onChange={e => setNotes(n => ({ ...n, [it.id]: e.target.value }))} />
+              <div className="crBtns">
+                <button type="button" className="btn btnGhost" data-testid="cr-keep" onClick={() => crHandle(it.id, "keep", notes[it.id])}>Keep it</button>
+                <button type="button" className="btn acctDeleteBtn" data-testid="cr-remove" onClick={() => crHandle(it.id, "remove", notes[it.id])}>Remove for everyone</button>
+              </div>
+            </>) : (
+              <div className="crAdminDone" data-testid="cr-admin-summary">{crSummary(it)} {it.status === "removed" && <button type="button" className="crLink" data-testid="cr-restore" onClick={() => crHandle(it.id, "restore", "")}>↩ Put back</button>}</div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+export function AccountHost() {
+  const [open, setOpen] = useState(false);
+  const [rep, setRep] = useState(null);
+  useEffect(() => {
+    const onA = () => setOpen(true), onR = e => setRep(e?.detail || null);
+    window.addEventListener("sdx-open-account", onA); window.addEventListener("sdx-open-report", onR);
+    return () => { window.removeEventListener("sdx-open-account", onA); window.removeEventListener("sdx-open-report", onR); };
+  }, []);
+  if (!_currentUser) return null;
+  return (<>
+    {open && <AccountSheet onClose={() => setOpen(false)} />}
+    {rep && <ReportSheet {...rep} onClose={() => setRep(null)} />}
+  </>);
+}
+const openAccount = () => { try { window.dispatchEvent(new CustomEvent("sdx-open-account")); } catch {} };
+function AccountSheet({ onClose }) {
+  useCrTick();
+  const me = _currentUser || {};
+  const [ask, setAsk] = useState(false);
+  const [typed, setTyped] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  useEffect(() => { const k = e => { if (e.key === "Escape" && !busy) onClose(); }; window.addEventListener("keydown", k); return () => window.removeEventListener("keydown", k); }, [onClose, busy]);
+  const mine = Object.entries(_cr.items || {}).filter(([, it]) => it && it.byHash && it.byHash === me.badgeHash).sort((a, b) => (b[1].at || 0) - (a[1].at || 0));
+  const blocked = Object.values(crMine().blocked || {});
+  const venue = VENUE_ID !== "default" ? (_vs.venueName || VENUE_NAME || _venueRegName || VENUE_ID.replace(/-/g, " ").replace(/\b\w/g, ch => ch.toUpperCase())) : resolveCompanyName();
+  async function doDelete() {
+    setBusy(true); setErr("");
+    const r = await deleteMyAccount();
+    setBusy(false);
+    if (!r.ok) { setErr(r.reason === "owner" ? "The owner account can't be deleted from the app. Write to support and we will do it with you." : "Could not reach the database — nothing was deleted. Check the connection and try again."); return; }
+    onClose();
+    try { window.dispatchEvent(new CustomEvent("sdx-account-deleted")); } catch {}
+  }
+  return ReactDOM.createPortal(
+    <div className="crBackdrop" data-testid="acct-sheet" onClick={() => { if (!busy) onClose(); }}>
+      <div className="crSheet acctSheet" role="dialog" aria-modal="true" aria-label="My account" onClick={e => e.stopPropagation()}>
+        <div className="acctHead">
+          <div className="crTitle">👤 My account</div>
+          <button type="button" className="acctClose" aria-label="Close" data-testid="acct-close" onClick={onClose}>✕</button>
+        </div>
+        <div className="acctWho" data-testid="acct-who"><b><NT>{me.name}</NT></b> · {ROLE_LABEL[me.role] || roleChip(me.role) || "Team member"}<br /><span><NT>{venue}</NT>{me.badgeDisplay ? ` · badge ${me.badgeDisplay}` : ""}</span></div>
+
+        <div className="acctSection">My reports</div>
+        {mine.length ? (
+          <div className="acctList" data-testid="acct-my-reports">
+            {mine.map(([id, it]) => (
+              <div key={id} className="acctRow" data-testid="acct-report-row" data-status={it.status}>
+                <div className="acctRowTop"><span className={cx("acctPill", "st-" + it.status)}>{it.status === "open" ? "Waiting" : it.status === "removed" ? "Removed" : it.status === "kept" ? "Kept" : "Put back"}</span><span>⚑ {crKindLabel(it.kind)}{it.where ? <> · <NT>{it.where}</NT></> : null} · {crDay(it.at)}</span></div>
+                <div className="acctRowWhy">{crReasonLabel(it.reason)}{it.note ? ` — ${it.note}` : ""}</div>
+                <div className="acctRowSum" data-testid="acct-report-summary">{crSummary(it)}</div>
+              </div>
+            ))}
+          </div>
+        ) : <div className="acctEmpty">You haven't reported anything. Use ⚑ Report on a photo, comment, message or announcement that is offensive, personal or not about the work.</div>}
+
+        <div className="acctSection">Blocked people</div>
+        {blocked.length ? (
+          <div className="acctList" data-testid="acct-blocked">
+            {blocked.map(b => <div key={b.name} className="acctRow acctRowInline"><NT>{b.name}</NT><button type="button" className="crLink" data-testid="acct-unblock" onClick={() => crUnblock(b.name)}>Unblock</button></div>)}
+          </div>
+        ) : <div className="acctEmpty">Nobody. Blocking someone hides their comments, messages and photos on this phone.</div>}
+
+        <div className="acctSection">Help &amp; legal</div>
+        <LegalLinks className="acctLegal" />
+
+        <div className="acctSection acctDanger">Delete my account</div>
+        {!ask ? (<>
+          <div className="acctEmpty">Removes your sign-in and your name, phone and stand from this venue's team. Reports you filed stay with the venue — they are its inspection records.</div>
+          <button type="button" className="btn acctDeleteBtn" data-testid="acct-delete" onClick={() => { setAsk(true); setTyped(""); setErr(""); }}>Delete my account</button>
+        </>) : (
+          <div className="acctConfirm" data-testid="acct-delete-confirm">
+            <div>This can't be undone. Your badge stops working on every phone, and you are signed out. To use SDX Inspect again later, request access again.</div>
+            <label className="crLabel" htmlFor="acct-delete-typed">Type DELETE to confirm</label>
+            <input id="acct-delete-typed" className="input" data-testid="acct-delete-typed" value={typed} autoComplete="off" autoCapitalize="characters" onChange={e => setTyped(e.target.value)} />
+            {err && <div className="pinError" data-testid="acct-delete-err">{err}</div>}
+            <div className="crBtns">
+              <button type="button" className="btn btnGhost" disabled={busy} onClick={() => setAsk(false)}>Keep my account</button>
+              <button type="button" className="btn acctDeleteBtn" data-testid="acct-delete-go" disabled={busy || typed.trim().toUpperCase() !== "DELETE"} onClick={doDelete}>{busy ? "Deleting…" : "Delete forever"}</button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>, document.body);
 }
 
 function buildDefaultContext(noteType) {
@@ -6691,6 +7089,8 @@ function RenderedOutput({ noteType, useCase, context, inspection, rawNotes, insp
       {lightboxSrc && ReactDOM.createPortal(
         <div onClick={() => setLightboxSrc(null)} style={{position:"fixed",inset:0,touchAction:"none",overscrollBehavior:"contain",background:"rgba(0,0,0,0.9)",zIndex:999999,display:"flex",alignItems:"center",justifyContent:"center",cursor:"zoom-out"}}>
           <img src={lightboxSrc} alt="Full size photo" onClick={e => e.stopPropagation()} style={{maxWidth:"95vw",maxHeight:"90vh",objectFit:"contain",borderRadius:8,boxShadow:"0 4px 32px rgba(0,0,0,0.5)"}} />
+        <LightboxReport src={lightboxSrc} />
+          <LightboxReport src={lightboxSrc} />
           <button onClick={() => setLightboxSrc(null)} style={{position:"absolute",top:"max(16px, env(safe-area-inset-top))",right:16,background:"rgba(255,255,255,0.15)",border:"none",color:"#fff",fontSize:28,width:44,height:44,borderRadius:"50%",cursor:"pointer",lineHeight:1}}>×</button>
         </div>,
         document.body
@@ -12195,6 +12595,7 @@ function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLoc
   const [busy, setBusy] = useState(null);
   const [flash, setFlash] = useState("");
   const [lightboxSrc, setLightboxSrc] = useState(null);
+  useCrTick(); // v570: reported / blocked comments hide at once
   const [openReports, setOpenReports] = useState({}); // v556
   const [menuOpen, setMenuOpen] = useState(false);
   // v488: simple view (default) — one list, two big buttons per job. ⚙ More
@@ -12304,7 +12705,7 @@ function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLoc
       const pc = fuPrevClear(m.key, clAll, stAll);
       const stamp = fuStamp(m); // v564: which stand this write is for
       stP[m.key] = pc ? { ...entry, ...stamp, prevClear: pc } : { ...entry, ...stamp };
-      cmP[m.key] = [...commentsOf(m.key), { text: `${prefix} — ${text}`, by: me, ts, ...stamp }].slice(-10);
+      cmP[m.key] = [...commentsOf(m.key), { text: `${prefix} — ${text}`, by: me, byHash: currentUser?.badgeHash || "", ts, ...stamp }].slice(-10);
       // v440: the clear must beat the report's own timestamp or the item never
       // leaves the inspector's list (date-only dates can parse ahead of now).
       clP[m.key] = Math.max(ts, (m.ts || 0) + 1); clLocal[m.key] = ts;
@@ -12390,7 +12791,7 @@ function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLoc
           </div>
         )}
         {stt && <div className="fuStStamp notranslate" translate="no">{stt.status === "resolved" ? T("✅ Fixed", "✅ Arreglado", "✅ Ranje") : stt.status === "waiting" ? `${T("⏳ Waiting", "⏳ Esperando", "⏳ Ap tann")}${stt.note ? ` ${T("for", "por", "pou")} ${stt.note}` : ""}` : T("🔧 In process", "🔧 En proceso", "🔧 Nan pwosesis")} — {stt.by}{stt.ts ? ` · ${new Date(stt.ts).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}` : ""}</div>}
-        {cm.length > 0 && <div className="crewComments">{cm.slice(-3).map((c, i) => <div key={i}>💬 <b>{c.by}</b>: {c.text}</div>)}</div>}
+        {cm.length > 0 && <div className="crewComments">{cm.slice(-3).map((c, i) => { const cref = crTextKey("comment", c.ts, c.by, c.text); const cst = crState(cref, c.by); return <div key={i} data-testid="crew-comment">{cst ? <CrHidden state={cst} author={c.by} /> : <>💬 <b>{c.by}</b>: {c.text} <ReportLink kind="comment" refKey={cref} preview={c.text} where={`${f.loc}${f.unit ? " #" + f.unit : ""} — ${f.cat}`} author={c.by} authorHash={c.byHash} /></>}</div>; })}</div>}
         {action?.key === f.key ? (
           <div className="crewActionBox notranslate" translate="no">
             <div className="crewActionTitle">{action.kind === "fixed" ? (simple ? T("✅ Done — show it", "✅ Listo — muéstralo", "✅ Fini — montre l") : T("✅ What did you do?", "✅ ¿Qué hiciste?", "✅ Kisa ou fè?")) : action.kind === "waiting" ? T("⏳ Waiting on what?", "⏳ ¿Esperando qué?", "⏳ W ap tann kisa?") : (simple ? T("🔧 I'm working on it", "🔧 Estoy en eso", "🔧 M ap travay sou li") : T("🔧 In process", "🔧 En proceso", "🔧 Nan pwosesis"))}</div>
@@ -12466,6 +12867,7 @@ function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLoc
       {lightboxSrc && ReactDOM.createPortal(
         <div onClick={() => setLightboxSrc(null)} style={{ position: "fixed", inset: 0, touchAction: "none", overscrollBehavior: "contain", zIndex: 10050, background: "rgba(0,0,0,.88)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
           <img src={lightboxSrc} alt="" onClick={e => e.stopPropagation()} style={{ maxWidth: "95vw", maxHeight: "90vh", borderRadius: 10 }} />
+          <LightboxReport src={lightboxSrc} />
         </div>, document.body)}
       <header className="topBar notranslate" translate="no">
         <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
@@ -12486,7 +12888,9 @@ function CrewBoardPage({ currentUser, venueSettings, saveVenueSettingsMap, onLoc
               <button className="dropdownMenuItem" type="button" onClick={() => setSimpleSave(!simple)}>{simple ? "⚙ " + T("More options", "Más opciones", "Plis opsyon") : "✨ " + T("Simple view", "Vista simple", "Vi senp")}</button>
               {onMessages && <button className="dropdownMenuItem" type="button" onClick={onMessages}>💬 {T("Messages", "Mensajes", "Mesaj")}</button>}
               {onAppearance && <button className="dropdownMenuItem" type="button" onClick={onAppearance}>🎨 {T("App Color", "Color de la app", "Koule app la")}</button>}
+              <button className="dropdownMenuItem" type="button" data-testid="crew-menu-account" onClick={openAccount}>👤 {T("My account · reports · delete", "Mi cuenta · reportes · borrar", "Kont mwen · rapò · efase")}</button>
               <button className="dropdownMenuItem dropdownMenuDanger" type="button" onClick={() => { if (!linkSession || window.confirm(T("Sign out of this phone? You will need the link again to get back in.", "¿Salir de este teléfono? Necesitarás el enlace otra vez para entrar.", "Soti nan telefòn sa a? W ap bezwen lyen an ankò pou antre."))) onLock(); }}>{linkSession ? T("Sign out of this phone", "Salir de este teléfono", "Soti nan telefòn sa a") : T("Lock App", "Bloquear la app", "Bloke app la")}</button>
+              <LegalLinks className="menuLegal" />
               <div className="menuVersion">SDX Inspect · {SDX_VERSION}</div>
             </div>
           )}
@@ -12931,6 +13335,7 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
   // Comment thread per follow-up — "can't repair, waiting on part" and the
   // like. Shared via venueSettings.followupComments (last 10 per issue).
   const [commentsLocal, setCommentsLocal] = useState({});
+  useCrTick(); // v570: reported / blocked comments hide at once
   const [commentKey, setCommentKey] = useState(null);
   const [commentText, setCommentText] = useState("");
   const commentsOf = f => (commentsLocal[f.key] || fuGet(venueSettings?.followupComments, f.key) || []);
@@ -12938,7 +13343,7 @@ function RecurringIssuesPanel({ history, onLocationClick, onTagClick, onIssueDri
   function addComment(f) {
     const text = commentText.trim().slice(0, 200);
     if (!text) return;
-    const entry = { text, by: currentUser?.name || "Unknown", ts: Date.now() };
+    const entry = { text, by: currentUser?.name || "Unknown", byHash: currentUser?.badgeHash || "", ts: Date.now() }; // v570: byHash — the author hears when it is removed
     const patch = {}; fuMembers(f).forEach(m => { patch[m.key] = [...commentsOf(m), { ...entry, ...fuStamp(m) }].slice(-10); }); // v502 · v564: stamped
     setCommentsLocal(prev => ({ ...prev, ...patch }));
     setCommentText(""); setCommentKey(null);
@@ -14092,6 +14497,7 @@ ${sections}
       {lightboxSrc && ReactDOM.createPortal(
         <div onClick={() => setLightboxSrc(null)} style={{ position: "fixed", inset: 0, touchAction: "none", overscrollBehavior: "contain", zIndex: 10050, background: "rgba(0,0,0,.88)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
           <img src={lightboxSrc} alt="" onClick={e => e.stopPropagation()} style={{ maxWidth: "95vw", maxHeight: "90vh", borderRadius: 10, boxShadow: "0 10px 40px rgba(0,0,0,.6)" }} />
+          <LightboxReport src={lightboxSrc} />
         </div>, document.body)}
       <div className="cardHeader fuCardHead">
         <div>
@@ -14758,12 +15164,15 @@ ${sections}
                                 {/* Comments — the running conversation on this problem */}
                                 {commentsOf(f).length > 0 && (
                                   <div style={{ marginTop: 5, display: "flex", flexDirection: "column", gap: 3 }}>
-                                    {commentsOf(f).slice(-3).map((c, ci) => (
-                                      <div key={ci} style={{ fontSize: "0.72rem", background: "var(--surface-2)", borderRadius: 7, padding: "4px 8px", lineHeight: 1.35 }}>
+                                    {commentsOf(f).slice(-3).map((c, ci) => { const cref = crTextKey("comment", c.ts, c.by, c.text); const cst = crState(cref, c.by); return (
+                                      <div key={ci} data-testid="fu-comment" style={{ fontSize: "0.72rem", background: "var(--surface-2)", borderRadius: 7, padding: "4px 8px", lineHeight: 1.35 }}>
+                                        {cst ? <CrHidden state={cst} author={c.by} /> : <>
                                         💬 <b>{c.by}</b>: {c.text}
                                         <span style={{ color: "var(--ink-400)", marginLeft: 5 }}>{c.ts ? new Date(c.ts).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : ""}</span>
+                                        <ReportLink kind="comment" refKey={cref} preview={c.text} where={`${f.loc}${f.unit ? " #" + f.unit : ""} — ${f.cat}`} author={c.by} authorHash={c.byHash} />
+                                        </>}
                                       </div>
-                                    ))}
+                                    ); })}
                                     {commentsOf(f).length > 3 && <div style={{ fontSize: "0.66rem", color: "var(--ink-400)" }}>+{commentsOf(f).length - 3} earlier comment{commentsOf(f).length - 3 !== 1 ? "s" : ""}</div>}
                                   </div>
                                 )}
@@ -17206,6 +17615,7 @@ Be thorough. If you see checkboxes, scores, temperatures, or item lists, capture
       {lightboxSrc && ReactDOM.createPortal(
         <div onClick={() => setLightboxSrc(null)} style={{ position: "fixed", inset: 0, touchAction: "none", overscrollBehavior: "contain", zIndex: 10050, background: "rgba(0,0,0,.88)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
           <img src={lightboxSrc} alt="" onClick={e => e.stopPropagation()} style={{ maxWidth: "95vw", maxHeight: "90vh", borderRadius: 10, boxShadow: "0 10px 40px rgba(0,0,0,.6)" }} />
+          <LightboxReport src={lightboxSrc} />
         </div>, document.body)}
 
       {/* OCR error banner */}
@@ -26708,6 +27118,8 @@ function AdminPanel({ currentUser, onBack, onNavigate, managedVenueId, managedVe
           </div>
         )}
 
+        {!managedVenueId && <ReportedContentCard />}
+
         {/* v563: Venue name & logo — set by the venue's own admin */}
         <div className="card adminCard venueBrandCard" data-testid="venue-brand-card" style={{ marginBottom: 24 }}>
           <div className="cardHeader"><div className="cardTitle">🏟 Venue name &amp; logo</div></div>
@@ -27490,6 +27902,7 @@ function PhotoStrip({ photos, onRemove, onTag }) {
     {lightboxSrc && ReactDOM.createPortal(
       <div onClick={() => setLightboxSrc(null)} style={{position:"fixed",inset:0,touchAction:"none",overscrollBehavior:"contain",background:"rgba(0,0,0,0.9)",zIndex:999999,display:"flex",alignItems:"center",justifyContent:"center",cursor:"zoom-out"}}>
         <img src={lightboxSrc} alt="Full size photo" onClick={e => e.stopPropagation()} style={{maxWidth:"95vw",maxHeight:"90vh",objectFit:"contain",borderRadius:8,boxShadow:"0 4px 32px rgba(0,0,0,0.5)"}} />
+        <LightboxReport src={lightboxSrc} />
         <button onClick={() => setLightboxSrc(null)} style={{position:"absolute",top:"max(16px, env(safe-area-inset-top))",right:16,background:"rgba(255,255,255,0.15)",border:"none",color:"#fff",fontSize:28,width:44,height:44,borderRadius:"50%",cursor:"pointer",lineHeight:1}}>×</button>
       </div>,
       document.body
@@ -33096,6 +33509,7 @@ function PhotoLightbox({ src, onClose }) {
 
 /* ── Messaging & Communications Panel ──────────────────────── */
 function MessagingPanel({ currentUser, onBack, notifItems, onNotifDismiss, onNotifClearAll }) {
+  useCrTick(); // v570: reported / blocked messages and announcements hide at once
   const NAVY = "var(--sdx-navy)";
   const [activeTab, setActiveTab] = useState("messages"); // "messages" | "notifications" | "announcements"
   const [activeThread, setActiveThread] = useState(null);
@@ -33362,9 +33776,11 @@ function MessagingPanel({ currentUser, onBack, notifItems, onNotifDismiss, onNot
                 <div style={{ flex: 1, overflowY: "auto", padding: "1rem", display: "flex", flexDirection: "column", gap: 10 }}>
                   {activeThread.messages.map(m => {
                     const mine = m.from === myName;
+                    const mref = crTextKey("message", m.id || m.ts, m.from, m.text), mst = mine ? "" : crState(mref, m.from); // v570
+                    if (mst) return <div key={m.id} data-testid="chat-msg" style={{ alignSelf: "flex-start" }}><CrHidden state={mst} author={m.from} /></div>;
                     return (
-                      <div key={m.id} style={{ display: "flex", flexDirection: "column", alignItems: mine ? "flex-end" : "flex-start" }}>
-                        <div style={{ fontSize: "0.68rem", color: "var(--ink-400)", marginBottom: 2 }}>{mine ? "You" : m.from} · {fmtTime(m.ts)}</div>
+                      <div key={m.id} data-testid="chat-msg" style={{ display: "flex", flexDirection: "column", alignItems: mine ? "flex-end" : "flex-start" }}>
+                        <div style={{ fontSize: "0.68rem", color: "var(--ink-400)", marginBottom: 2 }}>{mine ? "You" : m.from} · {fmtTime(m.ts)}{!mine && <> · <ReportLink kind="message" refKey={mref} preview={m.text} where="Messages" author={m.from} /></>}</div>
                         <div style={{
                           maxWidth: "75%", padding: "0.55rem 0.85rem", borderRadius: mine ? "14px 14px 4px 14px" : "14px 14px 14px 4px",
                           background: mine ? NAVY : "#fff", color: mine ? "#fff" : "var(--ink-900)",
@@ -33529,8 +33945,10 @@ function MessagingPanel({ currentUser, onBack, notifItems, onNotifDismiss, onNot
                             <span style={{ fontWeight: 700, fontSize: "0.88rem", color: isQC ? "var(--tx-amber)" : "var(--ink-900)" }}>{a.title}</span>
                             <span style={{ fontSize: "0.68rem", color: "var(--ink-400)", flexShrink: 0 }}>{fmtTime(a.ts)}</span>
                           </div>
+                          {(() => { const aref = crTextKey("announcement", a.id, a.author), ast = crState(aref, a.author); return ast ? <div style={{ marginTop: 4 }}><CrHidden state={ast} author={a.author} /></div> : (<>
                           <div style={{ fontSize: "0.82rem", color: "var(--ink-700)", lineHeight: 1.5, marginTop: 2 }}>{a.body}</div>
-                          <div style={{ fontSize: "0.7rem", color: "var(--ink-400)", marginTop: 4 }}>Posted by {a.author}</div>
+                          <div style={{ fontSize: "0.7rem", color: "var(--ink-400)", marginTop: 4 }}>Posted by {a.author} <ReportLink kind="announcement" refKey={aref} preview={`${a.title || ""}${a.body ? " — " + a.body : ""}`} where="Announcements" author={a.author} /></div>
+                          </>); })()}
                         </div>
                         {isAdmin && (
                           <button onClick={() => saveAnn(announcements.filter(x => x.id !== a.id))} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--sdx-gray-300)", fontSize: "1.1rem", flexShrink: 0, lineHeight: 1 }}>×</button>
@@ -35127,6 +35545,23 @@ export default function App() {
     window.addEventListener("sdx-lightbox", onOpen);
     return () => window.removeEventListener("sdx-lightbox", onOpen);
   }, []);
+  // v570: reported content — the shared doc live on every signed-in phone (no rules deploy needed: sharedMemory), and
+  // the bell alerts it means for this person (a new report for admins; the summary for the reporter and the author)
+  useEffect(() => {
+    if (!currentUser?.badgeHash) return;
+    const fire = () => { for (const n of crNotices(_currentUser)) fireNotification(n.id, "report", n.title, n.body, "account"); };
+    window.addEventListener("sdx-cr", fire);
+    fire();
+    let unsub = () => {};
+    if (FIREBASE_ON) { try { unsub = onSnapshot(doc(db, "venues", VENUE_ID, "sharedMemory", "contentReports"), snap => crSetDoc(snap.exists() ? snap.data() : {}), () => {}); } catch {} }
+    return () => { window.removeEventListener("sdx-cr", fire); try { unsub(); } catch {} };
+  }, [currentUser?.badgeHash]); // eslint-disable-line react-hooks/exhaustive-deps
+  // v570: "Delete my account" finished — sign out to the badge screen (it says the account was deleted)
+  useEffect(() => {
+    const on = () => { try { clearCrewSession(); } catch {} setCrewNotice(""); lockApp(); setCurrentUser(null); setLocked(true); setPageRaw("inspector"); };
+    window.addEventListener("sdx-account-deleted", on);
+    return () => window.removeEventListener("sdx-account-deleted", on);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [output, setOutput] = useState("");
   // v534: iPad / phone — the report opens as a full-screen sheet instead of sitting under the whole form
@@ -37164,6 +37599,9 @@ export default function App() {
                         openFollowups(n.url && n.url.startsWith("fu:") ? { fixedKey: n.url.slice(3) } : undefined);
                       } else if (n.type === "assignment") {
                         setPage("mylocations");
+                      } else if (n.type === "report") {
+                        // v570: a new report → the admin's review list; the reviewed summary → My account
+                        if (String(n.id).startsWith("cr-new-") && (currentUser?.role === "admin" || currentUser?.role === "global_admin")) setPage("admin"); else openAccount();
                       } else if (n.url && n.url.startsWith("record:")) {
                         const recId = n.url.replace("record:", "");
                         setHistoryEntry({ tab: "reports", focusId: recId });
@@ -37261,6 +37699,7 @@ export default function App() {
               <button className="dropdownMenuItem" onClick={() => { setShowShareModal(true); setMenuOpen(false); }} type="button"><span className="menuItemIcon"><MenuIcon name="share" /></span><span className="menuItemLabel">Share Form Link</span></button>
             )}
             <button className="dropdownMenuItem" onClick={() => { setAppearanceOpen(true); setMenuOpen(false); }} type="button"><span className="menuItemIcon"><MenuIcon name="droplet" /></span><span className="menuItemLabel">App Color</span></button>
+            <button className="dropdownMenuItem" data-testid="menu-account" onClick={() => { setMenuOpen(false); openAccount(); }} type="button"><span className="menuItemIcon"><MenuIcon name="user" /></span><span className="menuItemLabel">My account · reports · delete</span></button>
             {lockConfirm ? (
               <div style={{ padding: "0.5rem 1rem 0.7rem", display: "flex", flexDirection: "column", gap: 6, borderTop: "1px solid rgba(239,68,68,.35)", background: "rgba(220,38,38,.14)", borderRadius: "0 0 12px 12px" }} onClick={e => e.stopPropagation()}>
                 <span style={{ fontSize: "0.82rem", color: "#fca5a5", fontWeight: 700 }}>Lock the app?</span>
@@ -37284,6 +37723,7 @@ export default function App() {
               <span className="menuItemIcon"><InstagramGlyph /></span>
               <span className="menuItemLabel">Follow @sdxinspection</span>
             </a>
+            <LegalLinks className="menuLegal" />
             <div className="menuVersion">SDX Inspect · {SDX_VERSION} · close &amp; reopen twice to update</div>
           </div>
         )}
@@ -39353,6 +39793,7 @@ export default function App() {
       {appLightboxSrc && ReactDOM.createPortal(
         <div onClick={() => setAppLightboxSrc(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.92)", zIndex: 999999, display: "flex", alignItems: "center", justifyContent: "center", cursor: "zoom-out" }}>
           <img src={appLightboxSrc} alt="Full size" onClick={e => e.stopPropagation()} style={{ maxWidth: "95vw", maxHeight: "90vh", objectFit: "contain", borderRadius: 8, boxShadow: "0 4px 32px rgba(0,0,0,0.6)" }} />
+          <LightboxReport src={appLightboxSrc} />
           <button onClick={() => setAppLightboxSrc(null)} style={{ position: "absolute", top: 16, right: 16, background: "rgba(255,255,255,0.15)", border: "none", color: "#fff", fontSize: 28, width: 44, height: 44, borderRadius: "50%", cursor: "pointer", lineHeight: 1 }}>×</button>
         </div>,
         document.body

@@ -66,6 +66,12 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>SDX Inspect uses the camera to take photos of problems and fixes, and to scan stand QR posters and equipment stickers.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>SDX Inspect lets you attach photos from your library to an inspection or a fix.</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>

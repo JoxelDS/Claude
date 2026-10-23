@@ -2,7 +2,7 @@
 // v119: Restored to July 13 state
 
 
-const CACHE_NAME = "sdx-inspect-v569";
+const CACHE_NAME = "sdx-inspect-v570";
 const BASE = (() => { try { return new URL(self.registration.scope).pathname; } catch { return "/"; } })();
 const PRECACHE = [
   "./favicon.svg",
@@ -89,7 +89,7 @@ self.addEventListener("fetch", (e) => {
   // network, so a deploy is never hidden behind an old cached copy.
   if (url.origin === location.origin) {
     const rest = url.pathname.startsWith(BASE) ? url.pathname.slice(BASE.length) : url.pathname;
-    if (/^(marketing|p|review)(\/|$)/.test(rest) || /^privacy\.html$/.test(rest)) return;
+    if (/^(marketing|p|review)(\/|$)/.test(rest) || /^(privacy|terms|support)\.html$/.test(rest)) return;
     if (e.request.mode === "navigate" && rest !== "" && rest !== "index.html") return;
   }
 

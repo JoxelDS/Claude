@@ -4,7 +4,6 @@
   "webDir": "dist",
   "server": {
     "allowNavigation": [
-      "joxelds.github.io",
       "*.googleapis.com",
       "*.gstatic.com",
       "*.firebaseapp.com",

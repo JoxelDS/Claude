@@ -1,6 +1,6 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import App from "./App.jsx";
+import App, { AccountHost } from "./App.jsx";
 import LanguageFab from "./LanguageFab.jsx";
 
 // v487 — Google Translate replaces text nodes with its own <font> wrappers,
@@ -161,6 +161,7 @@ class ErrorBoundary extends React.Component {
 ReactDOM.createRoot(document.getElementById("root")).render(
   <ErrorBoundary>
     <App />
+    <AccountHost />
     <LanguageFab />
   </ErrorBoundary>
 );

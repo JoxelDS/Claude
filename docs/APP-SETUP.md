@@ -1,3 +1,8 @@
+> **Update 2026-10-23 (v570):** the app no longer loads the live site (`server.url` was removed on 2026-10-10) — it ships its
+> own copy of the web app, so every web fix needs a new store build. The current build steps are in
+> [`docs/store/build-and-upload.md`](store/build-and-upload.md); the App Review reply and the recording shot list sit next to it.
+> The lockfile note below is history (the lockfile is in the repo).
+
 # SDX Inspect as a real app (Capacitor) — setup & what's left
 
 This branch finishes the Capacitor wrap that was already started on main:
