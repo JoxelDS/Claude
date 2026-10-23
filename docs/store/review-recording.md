@@ -45,6 +45,7 @@ Record it with the **TestFlight build 1.0 (2)**. The fixes are not in build 1. S
 11. ☰ → **Lock App** → **Yes, Lock**.
 12. **Create a new account:**
     - Tap **New here? Request access**.
+    - "Before you start": pick any month and a year that makes you an adult (e.g. 1990) → **Continue**. (The app asks this before anyone signs up and does not store the date.)
     - Badge: any new number (e.g. 246810). Name: "Review Tester". Leave Inspector.
     - Tap **Create my account**. You are signed in right away.
 13. **Delete that account:**

@@ -41,7 +41,7 @@ The problem it solves: findings written on paper or sent in text messages get lo
 Use the demo venue. It has made-up stands, people and reports; no real business data.
 
 - **Inspector:** tap Sign In, type badge **448800**, tap Sign In. If the screen says "448800 is the demo badge", tap **Open the demo**.
-- **New account (registration):** on the demo venue, tap **New here? Request access**, type any badge number (at least 3 digits) and a name, then tap **Create my account**. On the demo the account opens right away. On a real venue an administrator approves it.
+- **New account (registration):** on the demo venue, tap **New here? Request access**, answer the month and year of birth screen (any adult year, e.g. 1990; the app does not store it), type any badge number (at least 3 digits) and a name, then tap **Create my account**. On the demo the account opens right away. On a real venue an administrator approves it.
 - **Delete the account:** ☰ (top right) → **My account · reports · delete** → **Delete my account** → type DELETE → **Delete forever**.
 - **Admin** (sees Admin → Reported content): badge **[DEMO ADMIN BADGE — given in the Notes field]**.
 - **Cleaning crew:** badge **777002**. **Maintenance crew:** badge **777001**.
@@ -101,7 +101,7 @@ SDX Inspect signs in with a work badge number only (no password). Use the public
 • Inspector: type badge 448800 → Sign In. If it says "448800 is the demo badge", tap "Open the demo", then sign in again.
 • Admin (Admin Panel → Reported content): badge [DEMO ADMIN BADGE]
 • Cleaning crew: 777002 · Maintenance crew: 777001
-• Registration: on the demo, "New here? Request access" → any badge (3+ digits) + a name → "Create my account" (opens at once on the demo; on real venues an admin approves it).
+• Registration: on the demo, "New here? Request access" → month + year of birth (any adult year) → any badge (3+ digits) + a name → "Create my account" (opens at once on the demo; on real venues an admin approves it).
 • Account deletion: ☰ → "My account · reports · delete" → "Delete my account" → type DELETE → "Delete forever". The badge is refused afterwards.
 • Report / block: "⚑ Report" next to any comment, message or announcement someone else posted; open a photo full size → "⚑ Report this photo". "Also block" hides that person's posts. The admin reviews in Admin Panel → Reported content; the reporter is notified with a summary of what was done.
 • Stand team (no account, what a stand's QR poster opens): https://joxelds.github.io/Claude/?v=riverside-demo&haccp=1&site=BURGER+BASE&unit=101&loctype=Concession

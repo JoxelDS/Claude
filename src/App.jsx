@@ -2808,6 +2808,7 @@ async function registerNewUser(badge, name, department, extra = {}) {
     // v563: a stand manager picked their stand from the venue's list — the stand id is what links them to it
     ...(extra.assignedStandId ? { assignedStandId: extra.assignedStandId } : {}),
     ...(extra.phone ? { phone: extra.phone } : {}),
+    ...(extra.ageScreenAt ? { ageScreenAt: extra.ageScreenAt } : {}), // v572: when the age screen was passed (no birth date)
     registeredAt: new Date().toISOString()
   };
   await saveOneUser(newUser);
@@ -2854,6 +2855,7 @@ async function signInCrewLink(session) {
       badgeDisplay: "🔗 link", approved: true, viaLink: true, invitedVia: session.role,
       invitedAt: user?.invitedAt || new Date().toISOString(), registeredAt: user?.registeredAt || new Date().toISOString(),
       lastLinkOpenAt: new Date().toISOString(),
+      ...(session.ageScreenAt && !user?.ageScreenAt ? { ageScreenAt: session.ageScreenAt } : {}), // v572
     };
     try { await saveOneUser(user); } catch {}
   }
@@ -2883,6 +2885,9 @@ function CrewJoinCard({ role, token, onUnlock }) {
   const [name, setName] = useState(() => loadCrewSession()?.name || "");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const [ageAsk, setAgeAsk] = useState(false);
+  const [, setAgeTick] = useState(0);
+  const needAge = ageAsk || (!loadCrewSession() && !ageOk()); // v572: a new crew member passes the age screen first
   async function go(e) {
     e?.preventDefault?.();
     const nm = name.trim().toUpperCase().replace(/\s+/g, " ").slice(0, 60);
@@ -2890,7 +2895,9 @@ function CrewJoinCard({ role, token, onUnlock }) {
     setBusy(true); setErr("");
     try {
       const prev = loadCrewSession();
-      const session = { uid: prev?.uid || newCrewUid(), name: nm, role, token, venue: activeVenueId, createdAt: prev?.createdAt || Date.now() };
+      if (!prev && !ageOk(nm)) { setBusy(false); setAgeAsk(true); return; } // v572
+      ageStamp(nm);
+      const session = { uid: prev?.uid || newCrewUid(), name: nm, role, token, venue: activeVenueId, createdAt: prev?.createdAt || Date.now(), ...(prev?.ageScreenAt || ageScreenAt() ? { ageScreenAt: prev?.ageScreenAt || ageScreenAt() } : {}) };
       const r = await signInCrewLink(session);
       if (!r.ok) { setErr(S.replaced + " " + S.ask); setBusy(false); return; }
       saveCrewSession(session);
@@ -2903,11 +2910,13 @@ function CrewJoinCard({ role, token, onUnlock }) {
       <CrewLangPills lang={lang} onPick={setLang} />
       <div className="pinTitle">{S.hi} 👋</div>
       <div className="crewJoinRole">{S.as}<br /><b>{S.role[role] || role}</b> · {resolveCompanyName()}</div>
+      {needAge ? <AgeScreen card={false} lang={lang} who={name} onPass={() => { setAgeAsk(false); setAgeTick(t => t + 1); }} /> :
       <form onSubmit={go} className="pinForm">
         <input className="input crewJoinName" value={name} onChange={e => setName(e.target.value)} placeholder={S.name} autoComplete="name" autoFocus data-testid="crew-join-name" />
         {err && <div className="pinError">{err}</div>}
+        <ConsentLine lang={lang} />
         <button className="btn btnPrimary crewJoinGo" type="submit" disabled={busy || !name.trim()} data-testid="crew-join-go">{busy ? S.busy : S.go} →</button>
-      </form>
+      </form>}
     </div>
   );
 }
@@ -3149,6 +3158,10 @@ function BadgeScreen({ onUnlock, inviteRole, crewNotice = "", onAdminInviteUsed 
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState("");
+  const [ageAsk, setAgeAsk] = useState(false); // v572: the age screen (again, for a different name on this phone)
+  const [, setAgeTick] = useState(0);
+  const agePassed = () => { setAgeAsk(false); setAgeTick(t => t + 1); };
+  const needAge = ageAsk || !ageOk();
   const inputRef = useRef(null);
   // v570: shown once on the sign-in screen right after "Delete my account"
   const [deletedNote] = useState(() => { try { const v = sessionStorage.getItem("sdx_account_deleted") || ""; if (v) sessionStorage.removeItem("sdx_account_deleted"); return v; } catch { return ""; } });
@@ -3183,6 +3196,8 @@ function BadgeScreen({ onUnlock, inviteRole, crewNotice = "", onAdminInviteUsed 
   // Opened from an invite link: create the account with that role, approved, and sign in
   async function handleInvite(e) {
     e.preventDefault();
+    if (!ageOk(regName)) { setAgeAsk(true); return; } // v572: the age screen comes first
+    ageStamp(regName);
     setError(""); setLoading(true);
     try {
       const isAdminInvite = inviteRole === "admin";
@@ -3194,7 +3209,7 @@ function BadgeScreen({ onUnlock, inviteRole, crewNotice = "", onAdminInviteUsed 
       const pick = (inviteRole === "location_manager" || inviteRole === "guest") ? regStand : null;
       const loc = pick ? String(pick.site || "").trim().toUpperCase() : regLoc.trim();
       const phone = inviteRole === "location_manager" ? regPhone.trim() : "";
-      const r = await registerNewUser(badge.trim(), regName.trim(), dept, { requestedRole: inviteRole, assignedLocation: loc, assignedStandId: pick?.id || "", phone, approved: true, viaAdminInvite: isAdminInvite });
+      const r = await registerNewUser(badge.trim(), regName.trim(), dept, { requestedRole: inviteRole, assignedLocation: loc, assignedStandId: pick?.id || "", phone, approved: true, viaAdminInvite: isAdminInvite, ageScreenAt: ageScreenAt() });
       if (!r.ok && r.reason === "exists") {
         // Joining with a badge that already exists would silently sign into the
         // OLD account with its OLD role (e.g. an inspector opening a crew link).
@@ -3215,13 +3230,15 @@ function BadgeScreen({ onUnlock, inviteRole, crewNotice = "", onAdminInviteUsed 
   }
   async function handleRegister(e) {
     e.preventDefault();
+    if (!ageOk(regName)) { setAgeAsk(true); return; } // v572
+    ageStamp(regName);
     setError(""); setLoading(true);
     try {
       const dept = regDept === "Other" ? (regDeptOther.trim() || "Other") : regDept;
       const pick = (regRole === "location_manager" || regRole === "guest") ? regStand : null; // v563: picked from the list
       // v570: on the public demo a request opens at once (App Review: sign up → use → delete my account, end to end)
       const instant = isDemoVenue();
-      const result = await registerNewUser(badge.trim(), regName.trim(), dept, { requestedRole: regRole, assignedLocation: pick ? String(pick.site || "").trim().toUpperCase() : regLoc.trim(), assignedStandId: pick?.id || "", approved: instant });
+      const result = await registerNewUser(badge.trim(), regName.trim(), dept, { requestedRole: regRole, assignedLocation: pick ? String(pick.site || "").trim().toUpperCase() : regLoc.trim(), assignedStandId: pick?.id || "", approved: instant, ageScreenAt: ageScreenAt() });
       if (result.ok && instant) {
         const r = await signIn(badge.trim());
         if (r.ok) { onUnlock(r.user, { via: "register" }); return; }
@@ -3300,7 +3317,11 @@ function BadgeScreen({ onUnlock, inviteRole, crewNotice = "", onAdminInviteUsed 
           <button className="btnLink" type="button" onClick={() => { setMode("signin"); setError(""); }}>{(CREW_JOIN_STR[crewLangGet()] || CREW_JOIN_STR.en).staff}</button>
         )}
 
-        {mode === "invite" && !CREW_LINK_ROLES.includes(inviteRole) && (() => { const meta = inviteRole === "admin" ? VENUE_ADMIN_INVITE : REQUEST_ROLES.find(r => r.value === inviteRole); return (<>
+        {mode === "invite" && !CREW_LINK_ROLES.includes(inviteRole) && needAge && (<>
+          <AgeScreen card={false} who={regName} onPass={agePassed} />
+          <button className="btnLink" type="button" onClick={() => { setMode("signin"); setError(""); }}>Already have a badge? Sign in</button>
+        </>)}
+        {mode === "invite" && !CREW_LINK_ROLES.includes(inviteRole) && !needAge && (() => { const meta = inviteRole === "admin" ? VENUE_ADMIN_INVITE : REQUEST_ROLES.find(r => r.value === inviteRole); return (<>
           <div className="pinTitle">You're invited</div>
           <div className="pinSub" data-testid="invite-role-line">Joining <b>{venueDisplayName || resolveCompanyName()}</b> as <b>{meta ? `${meta.icon} ${meta.label}` : inviteRole}</b>. Pick a badge number you'll remember — it's your sign-in.</div>
           {inviteRole === "admin" && <div className="regInviteHelp joinAdminNote" data-testid="invite-admin-note">🛡 This link works once (within 14 days of being made). After you join, the app opens “Set up this venue” — the team, the stands, the posters and the equipment stickers, step by step.</div>}
@@ -3321,6 +3342,7 @@ function BadgeScreen({ onUnlock, inviteRole, crewNotice = "", onAdminInviteUsed 
             )}
             {meta && <div className="regInviteHelp">{meta.icon} {meta.help}</div>}
             {error && <div className="pinError">{error}</div>}
+            <ConsentLine />
             <button className="btn btnPrimary pinBtn" type="submit" disabled={loading || badge.trim().length < 3 || !regName.trim()}>
               {loading ? "Joining…" : "Join"}
             </button>
@@ -3328,7 +3350,11 @@ function BadgeScreen({ onUnlock, inviteRole, crewNotice = "", onAdminInviteUsed 
           <button className="btnLink" type="button" onClick={() => { setMode("signin"); setError(""); }}>Already have a badge? Sign in</button>
         </>); })()}
 
-        {mode === "register" && (<>
+        {mode === "register" && needAge && (<>
+          <AgeScreen card={false} who={regName} onPass={agePassed} />
+          <button className="btnLink" type="button" onClick={() => { setMode("signin"); setError(""); setBadge(""); }}>Already registered? Sign in</button>
+        </>)}
+        {mode === "register" && !needAge && (<>
           <div className="pinTitle">Request Access</div>
           <div className="pinSub" data-testid="reg-sub">{isDemoVenue() ? "This is the demo venue — your account opens right away. You can delete it any time from ☰ → My account." : "Fill in your details. An administrator will review your request."}</div>
           <form onSubmit={handleRegister} className="pinForm">
@@ -3356,6 +3382,7 @@ function BadgeScreen({ onUnlock, inviteRole, crewNotice = "", onAdminInviteUsed 
             )}
             <div className="regHint">Your badge # is your sign-in — pick one you'll remember.</div>
             {error && <div className="pinError">{error}</div>}
+            <ConsentLine />
             <button className="btn btnPrimary pinBtn" type="submit"
               disabled={loading || badge.trim().length < 3 || !regName.trim() || !regDept || (regDept === "Other" && !regDeptOther.trim())}>
               {loading ? "Sending…" : isDemoVenue() ? "Create my account" : "Send request"}
@@ -4404,6 +4431,82 @@ function LegalLinks({ className }) {
   return (
     <div className={cx("legalLinks", className)} data-testid="legal-links">
       {LEGAL_LINKS.map(([p, l], i) => <React.Fragment key={p}>{i ? <span aria-hidden="true"> · </span> : null}<a href={legalUrl(p)} target="_blank" rel="noreferrer" data-testid={`legal-${p.split(".")[0]}`} onClick={e => e.stopPropagation()}>{l}</a></React.Fragment>)}
+    </div>
+  );
+}
+/* ── v572: age screen before anyone signs up or gives their name ─────────
+   Month + year of birth, no default, nothing about the birth date is kept: the age is worked out here and only
+   "passed at <time>" (plus a short hash of the name it was for) stays on the phone for 24 h. Under 13 → a calm
+   "can't use it" for the rest of this tab, no network call. 13–17 pass (teens work stands). A different name on
+   a shared phone asks again. Local test mode skips it unless sdx_age_test = "1" (older harnesses). */
+const AGE_OK_KEY = "sdx_age_ok", AGE_NO_KEY = "sdx_age_no", AGE_TTL = 24 * 3600 * 1000;
+const ageWhoOf = name => { const t = String(name || "").trim().toUpperCase().replace(/\s+/g, " "); if (!t) return ""; let h = 2166136261; for (let i = 0; i < t.length; i++) { h ^= t.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0).toString(36); };
+function ageRec() { try { const r = JSON.parse(localStorage.getItem(AGE_OK_KEY) || "null"); return r && r.at && Date.now() - r.at < AGE_TTL ? r : null; } catch { return null; } }
+function ageSkip() { try { return !FIREBASE_ON && localStorage.getItem("sdx_age_test") !== "1"; } catch { return !FIREBASE_ON; } }
+function ageBlocked() { if (ageSkip()) return false; try { return sessionStorage.getItem(AGE_NO_KEY) === "1"; } catch { return false; } }
+function ageOk(name) { if (ageSkip()) return true; if (ageBlocked()) return false; const r = ageRec(); if (!r) return false; const w = ageWhoOf(name); return !w || !r.who || r.who === w; }
+// the name this pass belongs to (the first one typed after it) — a different name later asks again
+function ageStamp(name) { const r = ageRec(); const w = ageWhoOf(name); if (!r || !w || r.who) return; try { localStorage.setItem(AGE_OK_KEY, JSON.stringify({ at: r.at, who: w })); } catch {} }
+function ageScreenAt() { const r = ageRec(); return r ? new Date(r.at).toISOString() : ""; }
+function ageForget() { try { localStorage.removeItem(AGE_OK_KEY); } catch {} }
+const AGE_STR = {
+  en: { title: "Before you start", sub: "Your month and year of birth", month: "Month", year: "Year", go: "Continue", note: "We don't save your birth date.", no: "Sorry, you can't use SDX Inspect.", noSub: "Please ask your supervisor or the inspector for help.", consent: ["By continuing you agree to the ", "Terms of use", " and the ", "Privacy policy", "."] },
+  es: { title: "Antes de empezar", sub: "Su mes y año de nacimiento", month: "Mes", year: "Año", go: "Continuar", note: "No guardamos su fecha de nacimiento.", no: "Lo sentimos, no puede usar SDX Inspect.", noSub: "Pida ayuda a su supervisor o al inspector.", consent: ["Al continuar acepta las ", "Condiciones de uso", " y la ", "Política de privacidad", "."] },
+};
+const ageLang = l => (l === "es" ? "es" : "en");
+function ConsentLine({ lang, className }) {
+  const c = AGE_STR[ageLang(lang)].consent;
+  return <div className={cx("consentLine notranslate", className)} translate="no" data-testid="consent-line">{c[0]}<a href={legalUrl("terms.html")} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}>{c[1]}</a>{c[2]}<a href={legalUrl("privacy.html")} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}>{c[3]}</a>{c[4]}</div>;
+}
+function AgeScreen({ lang = "en", who = "", onPass, card = true }) {
+  const S = AGE_STR[ageLang(lang)];
+  const [m, setM] = useState(""), [y, setY] = useState("");
+  const [blocked, setBlocked] = useState(ageBlocked);
+  const months = React.useMemo(() => { const f = new Intl.DateTimeFormat(ageLang(lang) === "es" ? "es" : "en-US", { month: "long" }); return Array.from({ length: 12 }, (_, i) => f.format(new Date(2000, i, 15))); }, [lang]);
+  const now = new Date(), yr = Number(y), ready = !!m && /^\d{4}$/.test(y) && yr >= 1900 && yr <= now.getFullYear();
+  function go(e) {
+    e?.preventDefault?.(); if (!ready) return;
+    // the age is worked out here and thrown away; the birth month counts as "not yet" (the careful side)
+    const age = now.getFullYear() - yr - (now.getMonth() + 1 <= Number(m) ? 1 : 0);
+    if (age < 13) { try { sessionStorage.setItem(AGE_NO_KEY, "1"); } catch {} setBlocked(true); return; }
+    try { localStorage.setItem(AGE_OK_KEY, JSON.stringify({ at: Date.now(), who: ageWhoOf(who) })); } catch {}
+    onPass?.();
+  }
+  const body = blocked ? (
+    <div className="ageNo" role="status" data-testid="age-blocked"><div className="ageTitle">{S.no}</div><div className="ageSub">{S.noSub}</div></div>
+  ) : (
+    <form className="ageForm" onSubmit={go} data-testid="age-screen">
+      <div className="ageTitle">{S.title}</div>
+      <div className="ageSub" id="age-sub">{S.sub}</div>
+      <div className="ageRow">
+        <label className="ageField"><span>{S.month}</span>
+          <select className="input ageMonth" value={m} onChange={e => setM(e.target.value)} aria-describedby="age-sub" data-testid="age-month">
+            <option value="" disabled>{S.month}</option>
+            {months.map((n, i) => <option key={i} value={i + 1}>{n}</option>)}
+          </select>
+        </label>
+        <label className="ageField"><span>{S.year}</span>
+          <input className="input ageYear" value={y} onChange={e => setY(e.target.value.replace(/\D/g, "").slice(0, 4))} inputMode="numeric" autoComplete="off" placeholder={S.year} aria-describedby="age-sub" data-testid="age-year" />
+        </label>
+      </div>
+      <button className="btn btnPrimary ageGo" type="submit" disabled={!ready} data-testid="age-go">{S.go} →</button>
+      <div className="ageNote">{S.note}</div>
+      <ConsentLine lang={lang} />
+    </form>
+  );
+  return card ? <div className="ageCard notranslate" translate="no">{body}</div> : <div className="notranslate" translate="no">{body}</div>;
+}
+// The stand portal does not mount (the texted link writes a sign-in record at once) until the screen is passed
+function PortalAgeGate({ children }) {
+  const who = (() => { try { return new URLSearchParams(location.search).get("n") || ""; } catch { return ""; } })();
+  const [ok, setOk] = useState(() => ageOk(who));
+  const [lang, setLang] = useState(() => { try { return localStorage.getItem("sdx_portal_lang") === "es" ? "es" : "en"; } catch { return "en"; } });
+  if (ok) return children;
+  const pick = l => { setLang(l); try { localStorage.setItem("sdx_portal_lang", l); } catch {} };
+  return (
+    <div className="ageGateWrap" data-testid="portal-age-gate">
+      <div className="ageLangRow notranslate" translate="no">{[["en", "English"], ["es", "Español"]].map(([c, l]) => <button key={c} type="button" className={"ageLangBtn" + (lang === c ? " on" : "")} aria-pressed={lang === c} onClick={() => pick(c)}>{l}</button>)}</div>
+      <AgeScreen lang={lang} who={who} onPass={() => setOk(true)} />
     </div>
   );
 }
@@ -21463,7 +21566,7 @@ function EquipmentScannerPage({ onBack, onPrintLabels, onKitchenQr }) {
               style={{ position: "fixed", top: "max(14px, env(safe-area-inset-top))", right: 14, zIndex: 10001, background: "rgba(255,255,255,0.15)", border: "1.5px solid rgba(255,255,255,0.4)", color: "#fff", borderRadius: 999, padding: "0.45rem 1rem", fontWeight: 700, fontSize: "0.85rem", cursor: "pointer" }}>
               ✕ Close
             </button>
-            <EquipCheckPortal tag={checkTag} />
+            <EquipCheckPortal tag={checkTag} inApp />
           </div>,
           document.body
         )}
@@ -30763,7 +30866,7 @@ function HaccpChatBlock({ chatMessages, chatInput, setChatInput, chatSending, se
    Opens when a printed equipment label QR is scanned with any phone camera
    (?equip=<TAG>). Shows the unit's info and a quick temp-check form; each
    submission is saved to history so the unit's monitoring builds over time. */
-function EquipCheckPortal({ tag: tag0 }) {
+function EquipCheckPortal({ tag: tag0, inApp = false }) {
   React.useEffect(() => { window.__sdxPortalOpen = true; return () => { window.__sdxPortalOpen = false; }; }, []); // v562: no self-reload mid-visit
   // v560: the sticker's QR holds the tag only; a second sticker on a unit points at its real tag
   const [tag, setTag] = useState(() => resolveEquipTag(tag0));
@@ -30779,6 +30882,7 @@ function EquipCheckPortal({ tag: tag0 }) {
   const [temp, setTemp] = useState("");
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [ageAsk, setAgeAsk] = useState(false); // v572
   const [done, setDone] = useState(false);
   const [photoDataUrl, setPhotoDataUrl] = useState("");
   const [photoView, setPhotoView] = useState(""); // full-size overlay
@@ -30861,8 +30965,12 @@ function EquipCheckPortal({ tag: tag0 }) {
   const portalHref = extra => { const p = new URLSearchParams({ haccp: "1" }); if (meta?.sure && !removed) { if (meta.venueName) p.set("site", meta.venueName); if (meta.unit) p.set("unit", meta.unit); if (meta.floor) p.set("floor", meta.floor); if (meta.locType) p.set("loctype", meta.locType); } p.set("eq", tag); addVenueParams(p); for (const [k, v] of Object.entries(extra || {})) p.set(k, v); return `${window.location.pathname}?${p.toString()}`; };
   const inspectorHref = () => { const p = new URLSearchParams({ equip: tag, as: "inspector" }); addVenueParams(p); return `${window.location.pathname}?${p.toString()}`; };
 
+  const submitRef = useRef(null);
+  submitRef.current = () => submit();
   async function submit() {
     if (!name.trim() || temp.trim() === "" || isNaN(tempNum)) return;
+    if (!inApp && !ageOk(name)) { setAgeAsk(true); return; } // v572: someone who scanned the sticker answers the age screen first
+    if (!inApp) ageStamp(name);
     setSubmitting(true);
     try { localStorage.setItem("sdx_equip_checker", name.trim()); } catch {}
     const now = new Date();
@@ -30878,6 +30986,7 @@ function EquipCheckPortal({ tag: tag0 }) {
       floor: meta?.floor || "",
       ...(meta?.standId ? { standId: meta.standId } : {}), ...(meta?.locType ? { locationType: meta.locType } : {}),
       quickEquipCheck: true,
+      ...(!inApp && ageScreenAt() ? { ageScreenAt: ageScreenAt() } : {}),
       overallStatus: tempOk ? "Pass" : "Needs Attention", // v553: the database refuses a record without it
       inspection: {
         equipment: {
@@ -31014,6 +31123,13 @@ function EquipCheckPortal({ tag: tag0 }) {
                 opacity: submitting || !name.trim() || temp.trim() === "" || isNaN(tempNum) ? 0.5 : 1 }}>
               {submitting ? L("Saving…", "Guardando…") : `✓ ${L("Save Reading", "Guardar lectura")}`}
             </button>
+            {!inApp && <ConsentLine lang={pl} className="eqpConsent" />}
+            {!inApp && name && <button type="button" data-testid="eqp-forget-me" onClick={() => { try { localStorage.removeItem("sdx_equip_checker"); } catch {} ageForget(); setName(""); }} style={{ display: "block", margin: "8px auto 0", background: "none", border: 0, color: "#4b5563", fontWeight: 700, fontSize: "0.8rem", textDecoration: "underline", cursor: "pointer", minHeight: 44 }}>{L("Forget me on this phone", "Olvidarme en este teléfono")}</button>}
+            {ageAsk && ReactDOM.createPortal(
+              <div className="ageOverlay" role="dialog" aria-modal="true" data-testid="eqp-age">
+                <AgeScreen lang={pl} who={name} onPass={() => { setAgeAsk(false); setTimeout(() => submitRef.current?.(), 0); }} />
+                <button type="button" className="ageOverlayClose" onClick={() => setAgeAsk(false)} aria-label={L("Close", "Cerrar")}>✕</button>
+              </div>, document.body)}
             <a href={portalHref()} data-testid="eqp-portal" style={{ display: "block", textAlign: "center", marginTop: 10, color: "#2A295C", fontWeight: 700, fontSize: "0.8rem" }}>{L("Doing the stand's daily temperature log? Open it here →", "¿Haces el registro diario del puesto? Ábrelo aquí →")}</a>
             </>}
 
@@ -31107,7 +31223,7 @@ function HaccpPortal() {
     try { localStorage.setItem("sdx_sup_name", urlName); localStorage.setItem("sdx_sup_phone", urlPhone); } catch {}
     const newSessionId = `session_${Date.now()}_${Math.random().toString(16).slice(2)}`;
     setSessionId(newSessionId);
-    saveHaccpSubmission({ id: `supident_${Date.now()}_${Math.random().toString(16).slice(2)}`, type: "ident", sessionId: newSessionId, reportId: urlReportId, supervisorName: urlName, supervisorPhone: urlPhone, site: urlSite, unit: urlUnit, floor: urlFloor, locationType: urlLocType, viaLink: true, submittedAt: new Date().toISOString() }).catch(() => {});
+    saveHaccpSubmission({ id: `supident_${Date.now()}_${Math.random().toString(16).slice(2)}`, type: "ident", sessionId: newSessionId, reportId: urlReportId, supervisorName: urlName, supervisorPhone: urlPhone, site: urlSite, unit: urlUnit, floor: urlFloor, locationType: urlLocType, viaLink: true, ...(ageScreenAt() ? { ageScreenAt: ageScreenAt() } : {}), submittedAt: new Date().toISOString() }).catch(() => {});
     setStep("form");
     // v571: the texted link carries the person's name + phone — take them out of the address bar (history, shared screenshots)
     try { const u = new URL(location.href); u.searchParams.delete("n"); u.searchParams.delete("p"); history.replaceState(history.state, "", u.pathname + (u.search || "") + u.hash); } catch {}
@@ -31120,6 +31236,8 @@ function HaccpPortal() {
   const [supName, setSupName] = useState(() => { try { return localStorage.getItem("sdx_sup_name") || ""; } catch { return ""; } });
   const [supPhone, setSupPhone] = useState(() => { try { return localStorage.getItem("sdx_sup_phone") || ""; } catch { return ""; } });
   const [sessionId, setSessionId] = useState(null);
+  const [ageAsk, setAgeAsk] = useState(false); // v572: a new name on this phone → the age screen again
+  const forgetMe = () => { try { localStorage.removeItem("sdx_sup_name"); localStorage.removeItem("sdx_sup_phone"); } catch {} ageForget(); setSupName(""); setSupPhone(""); };
 
   // Location state — seeded from URL params (QR-encoded)
   const [locSite, setLocSite]       = useState(urlSite);
@@ -31463,6 +31581,8 @@ function HaccpPortal() {
   // Step 1: supervisor enters name + phone → go to location confirmation step
   async function handleIdentSubmit() {
     if (!supName.trim() || !supPhone.trim()) return;
+    if (!ageOk(supName)) { setAgeAsk(true); return; } // v572: another person on a shared phone answers the age screen too
+    ageStamp(supName);
     try { localStorage.setItem("sdx_sup_name", supName.trim()); localStorage.setItem("sdx_sup_phone", supPhone.trim()); } catch {}
     // Generate the session ID now so we can link ident record to the whole session
     const newSessionId = `session_${Date.now()}_${Math.random().toString(16).slice(2)}`;
@@ -31479,6 +31599,7 @@ function HaccpPortal() {
       unit: locUnit,
       floor: locFloor,
       locationType: locType,
+      ...(ageScreenAt() ? { ageScreenAt: ageScreenAt() } : {}),
       submittedAt: new Date().toISOString(),
     });
     setStep("location");
@@ -31997,7 +32118,12 @@ function HaccpPortal() {
         })}
       </div>
 
-      {step === "ident" && (
+      {step === "ident" && ageAsk && (
+        <div className="haccpCard"><div className="haccpCardBody">
+          <AgeScreen card={false} lang={pl === "es" ? "es" : "en"} who={supName} onPass={() => { setAgeAsk(false); handleIdentSubmit(); }} />
+        </div></div>
+      )}
+      {step === "ident" && !ageAsk && (
         <div className="haccpCard">
           <div className="haccpCardHeader">
             <div className="haccpCardTitle">{L("🌡️ HACCP Temperature Log", "🌡️ Registro de temperaturas HACCP")}</div>
@@ -32018,12 +32144,14 @@ function HaccpPortal() {
               <span className="fieldLabel">{L("Phone Number", "Teléfono")} <span style={{ color: "#ef4444" }}>*</span></span>
               <input className="input" type="tel" value={supPhone} onChange={e => setSupPhone(e.target.value)}
                 placeholder="e.g. 787-555-1234" inputMode="tel" autoComplete="tel" />
-              <span className="hint">{L("So the inspector can reach you if needed", "Para que el inspector pueda contactarte")}</span>
+              <span className="hint" data-testid="portal-ident-notice">{L("Your name and phone are saved with your logs so the inspector can reach you.", "Su nombre y teléfono se guardan con sus registros para que el inspector pueda contactarle.")}</span>
             </label>
+            <ConsentLine lang={pl === "es" ? "es" : "en"} className="portalConsent" />
             <button className="haccpSubmitBtn" onClick={handleIdentSubmit}
               disabled={!supName.trim() || !supPhone.trim()}>
               {L("Continue →", "Continuar →")}
             </button>
+            {(supName || supPhone) && <button type="button" className="haccpTextBtn" data-testid="portal-forget-me" onClick={forgetMe}>{L("Forget me on this phone", "Olvidarme en este teléfono")}</button>}
             {TodayStatus && <div style={{ marginTop: 12 }}>{TodayStatus}</div>}
           </div>
         </div>
@@ -36234,7 +36362,8 @@ export default function App() {
 
   // Supervisor HACCP portal — IS_HACCP_PORTAL is captured at module load from the original URL,
   // so replaceState() cleaning the URL after mount never causes this check to flip to false.
-  if (IS_HACCP_PORTAL && !QR_OPEN_AS_INSPECTOR) return <HaccpPortal />;
+  // v572: nothing on the stand portal runs (the texted link writes a sign-in record at once) before the age screen
+  if (IS_HACCP_PORTAL && !QR_OPEN_AS_INSPECTOR) return <PortalAgeGate><HaccpPortal /></PortalAgeGate>;
   if (EQUIP_PORTAL_TAG && !EQUIP_OPEN_AS_INSPECTOR) return <EquipCheckPortal tag={EQUIP_PORTAL_TAG} />;
 
   const inviteRole = INVITE_TOKEN ? (Object.entries(venueSettings?.inviteTokens || {}).find(([, t]) => t === INVITE_TOKEN)?.[0] || "") : "";
