@@ -33,7 +33,8 @@ await put(`${V}/sharedMemory/kitchenRegistry`, kitchenRegistry);
 await put(`${V}/sharedMemory/equipmentRegistry`, equipmentRegistry);
 await put(`${V}/sharedMemory/contentReports`, { items: {}, removed: {} }); // v570: every re-seed starts the report / block demo clean
 for (const r of INSPECTIONS) await put(`${V}/inspections/${r.id}`, r);
-for (const h of HACCP) await put(`${V}/haccpSubmissions/${h.id}`, h);
+// the rules let a stand log be created, not changed: one that is already there keeps its first copy
+for (const h of HACCP) { try { await put(`${V}/haccpSubmissions/${h.id}`, h); } catch (e) { if (!/ 403 /.test(String(e.message))) throw e; console.log('kept', h.id, '(already there)'); } }
 console.log(`${DRY ? 'would write' : 'wrote'}: ${USERS.length} users, ${STANDS.length} stands, ${Object.keys(equipmentRegistry.items).length} units, ${INSPECTIONS.length} reports, ${HACCP.length} stand logs → ${V}`);
 console.log(`demo: ${SITE}?v=${VENUE}`);
 for (const [role, t] of Object.entries(TOKENS)) console.log(`  ${role}: ${SITE}?v=${VENUE}&invite=${t}`);
