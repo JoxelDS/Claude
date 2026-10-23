@@ -3643,6 +3643,7 @@ const FULL_EQUIP_ITEMS = [
   { path: ["equipment", "fryer"],      label: "Fryer — oil quality, oil level, temp correct, basket clean, drain clean, no leaks?" },
   { path: ["equipment", "hood"],       label: "Hood — clean, working, no leakage, hood lights OK?" },
   { path: ["equipment", "iceMaker"],   label: "Ice Maker Machine — clean, door works, scoop/holder, ice bucket, filter OK, no leakage?" },
+  { path: ["equipment", "sanitizer"], label: "Sanitizer Buckets + Test Strips — each bucket at the right strength, towel in solution, labeled, fresh?" },
   { path: ["equipment", "otherEquip"], label: "Other Equipments — clean and in good condition?" },
 ];
 // v476: what a portable cart actually has
@@ -3706,6 +3707,7 @@ const BAR_EQUIP_ITEMS = [
   { path: ["equipment", "speedRails"], label: "Speed Rails & Bottle Wells — clean, pourers capped, bottles labeled?" },
   { path: ["equipment", "blender"], label: "Blender / Juicer / Frozen-Drink Machine — clean, sanitized, working?" },
   { path: ["equipment", "garnishCooler"], label: "Garnish Station / Cooler — covered, dated, cold, tongs not hands?" },
+  { path: ["equipment", "sanitizer"], label: "Sanitizer Buckets + Test Strips — each bucket at the right strength, towel in solution, labeled, fresh?" },
   { path: ["equipment", "dumpSink"], label: "Dump Sink / Drip Trays — draining, no odor, no standing liquid?" },
   { path: ["equipment", "liquorStorage"], label: "Liquor Storage — locked, off the floor, bottles clean?" },
   { path: ["equipment", "glassStorage"], label: "Glassware Storage — inverted, clean racks, no chipped glasses?" },
@@ -3723,6 +3725,7 @@ const PANTRY_EQUIP_ITEMS = [
   { path: ["equipment", "microwave"], label: "Microwave / Toaster / Panini Press — clean inside & out, working?" },
   { path: ["equipment", "iceMaker"], label: "Ice Machine / Ice Bin — clean, no mold or slime, scoop handle-up, bin covered?" },
   { path: ["equipment", "warmers"], label: "Hot Holding / Warmers — clean, at temp, working?" },
+  { path: ["equipment", "sanitizer"], label: "Sanitizer Buckets + Test Strips — each bucket at the right strength, towel in solution, labeled, fresh?" },
   { path: ["equipment", "dryStorage"], label: "Dry Storage Racks — 6\" off the floor, dated, FIFO, no open bags?" },
   { path: ["equipment", "ecolab"], label: "Chemicals (Ecolab) — labeled, correct concentration, stored away from food?" },
   { path: ["equipment", "otherEquip"], label: "Other Equipment — clean and in good condition?" },
