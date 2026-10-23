@@ -89,7 +89,7 @@ const UI = {
     certDate: 'Fecha', certId: 'ID del certificado', certFine: 'Certificado interno de finalización de SDX Inspect, guardado en este dispositivo y no verificado. No es una tarjeta estatal de manipulador de alimentos ni ninguna certificación oficial. Basado en el Código de Alimentos de la FDA de 2022; las reglas locales pueden ser más estrictas.',
     codeTitle: 'Su código de avance', codeLead: 'El avance se guarda solo en este navegador. Copie este código para llevar su avance a otro teléfono o navegador.', copy: 'Copiar', codeEnter: 'Escriba un código', codeUse: 'Usar código',
     guideTitle: 'Cómo usar SDX Inspect', guideLead: 'Elija su trabajo. Cada guía le muestra la app paso a paso, con los botones exactos que verá, y un demo en vivo para probarlo.',
-    demoBox: 'Pruébelo en el demo en vivo', demoBadge: 'Gafete de inspector', demoNote: 'El demo es un lugar inventado. Otros visitantes también lo usan.', openDemo: 'Abrir el demo', tryIt: 'Pruébelo en el demo',
+    demoBox: 'Pruébelo en el demo en vivo', demoBadge: 'Credencial de inspector', demoNote: 'El demo es un lugar inventado. Otros visitantes también lo usan.', openDemo: 'Abrir el demo', tryIt: 'Pruébelo en el demo',
     stepsTitle: 'Paso a paso', checkRole: 'Prueba rápida', checkRoleLead: 'Tres preguntas. Acierte 2 de 3 para terminar esta guía.',
     whoFor: 'Para quién es', nextRole: 'Siguiente guía →',
     aboutTitle: 'Acerca de estas lecciones', footer: 'SDX Inspect · Aprenda', privacy: 'Privacidad',

@@ -1,0 +1,2357 @@
+{
+ "version": 1,
+ "updated": "2026-10-23",
+ "roles": [
+  {
+   "id": "inspector",
+   "icon": "🕵",
+   "title": {
+    "en": "Inspector: one inspection from start to finish",
+    "es": "Inspector: una inspección de principio a fin"
+   },
+   "who": {
+    "en": "Inspectors who walk the stands, check them and follow up on problems until they are fixed.",
+    "es": "Inspectores que recorren los puestos, los revisan y dan seguimiento a los problemas hasta que se arreglan."
+   },
+   "intro": {
+    "en": "Practice on the demo venue, Riverside Arena (demo). Its stands and people are made up. You will sign in, pick the inspection type, answer the guide, log temperatures and save. Then you will follow up on problems, check the stands' logs and export the proof. The inspector screens are in English.",
+    "es": "Practique en el lugar de demostración Riverside Arena (demo). Sus puestos y personas son inventados. Usted va a entrar, elegir el tipo de inspección, responder la guía, anotar temperaturas y guardar. Luego dará seguimiento a los problemas, revisará los registros de los puestos y exportará las pruebas. Las pantallas del inspector están en inglés. Aquí verá cada botón en inglés entre «» y su significado en español."
+   },
+   "demo": "https://joxelds.github.io/Claude/?v=riverside-demo",
+   "steps": [
+    {
+     "id": "sign-in",
+     "title": {
+      "en": "Sign in with your badge",
+      "es": "Entre con su número de credencial"
+     },
+     "do": {
+      "en": [
+       "Open the demo link.",
+       "Type 448800 in the Badge # box.",
+       "Tap Sign In."
+      ],
+      "es": [
+       "Abra el enlace de la demo.",
+       "Escriba 448800 en la casilla «Badge #» (número de credencial).",
+       "Toque «Sign In» (entrar)."
+      ]
+     },
+     "ui": [
+      "Badge Sign-In",
+      "Badge #",
+      "Sign In"
+     ],
+     "tip": {
+      "en": "448800 is the demo badge, and it opens only the demo. At work, use your own badge number.",
+      "es": "El 448800 es la credencial de la demo y solo abre la demo. En el trabajo use su propio número."
+     },
+     "say": {
+      "en": "Hi, I'm Inspector Dex! Open the demo, type badge 448800 and tap Sign In. It's a practice arena with made-up stands.",
+      "es": "¡Hola, soy el inspector Dex! Abra la demo, escriba la credencial 448800 y toque «Sign In». Es un lugar de práctica con puestos inventados."
+     },
+     "try": {
+      "href": "https://joxelds.github.io/Claude/?v=riverside-demo",
+      "note": {
+       "en": "Riverside Arena (demo): made-up stands and people. Other visitors use it too.",
+       "es": "Riverside Arena (demo): puestos y personas inventados. Otros visitantes también la usan."
+      }
+     },
+     "evidence": [
+      "App.jsx 3679-3688 (Badge Sign-In, Badge # box, Sign In button)",
+      "App.jsx 2124-2126 (DEMO_BADGE_MSG: 448800 only opens the demo)",
+      "App.jsx 3685 (Open the demo button)",
+      "CLAUDE.md v566 (demo badge opens only riverside-demo)"
+     ]
+    },
+    {
+     "id": "type",
+     "title": {
+      "en": "Pick the inspection type",
+      "es": "Elija el tipo de inspección"
+     },
+     "do": {
+      "en": [
+       "On the Inspection Locked screen, tap one type.",
+       "Event day: temps, uniforms and operations first.",
+       "Regular inspection: every section, in order.",
+       "Post-event: inventory first, then cleaning and facilities."
+      ],
+      "es": [
+       "En la pantalla «Inspection Locked» (inspección bloqueada), toque un tipo.",
+       "«Event day» (día de evento): primero temperaturas, uniformes y operaciones.",
+       "«Regular inspection» (inspección regular): todas las secciones, en orden.",
+       "«Post-event» (después del evento): primero el inventario, luego limpieza e instalaciones."
+      ]
+     },
+     "ui": [
+      "Inspection Locked",
+      "Event day",
+      "Regular inspection",
+      "Post-event"
+     ],
+     "tip": {
+      "en": "Every type uses the same full guide. The type sets the order and the priorities; Event day adds a quick game-day card, and Post-event hides the food temperatures.",
+      "es": "Todos los tipos usan la misma guía completa. El tipo pone el orden y las prioridades; «Event day» agrega una tarjeta rápida del día de evento y «Post-event» oculta las temperaturas de comida."
+     },
+     "say": {
+      "en": "Pick the type first. Event day: temps and uniforms first. Post-event: inventory first. Regular: every section. Same guide, different focus.",
+      "es": "Primero elija el tipo. Día de evento: temperaturas y uniformes primero. Después del evento: inventario primero. Regular: todas las secciones. La misma guía, otro enfoque."
+     },
+     "try": {
+      "href": "https://joxelds.github.io/Claude/?v=riverside-demo",
+      "note": {
+       "en": "Sign in with 448800. The type cards are on the lock screen.",
+       "es": "Entre con 448800. Las tarjetas de tipo están en la pantalla bloqueada."
+      }
+     },
+     "evidence": [
+      "App.jsx 29107-29114 (GUIDE_FOCUS orders and priorities, INSP_TYPE_CARDS names)",
+      "App.jsx 29130-29139 (InspTypePick cards)",
+      "App.jsx 37396 (Inspection Locked), 37423 (type picker on the lock)",
+      "App.jsx 35020 (pickInspType)",
+      "App.jsx 38241 (post-event inventory first note)",
+      "App.jsx 38692 (food temps hidden on Post Event)",
+      "CLAUDE.md v532, v533, v537",
+      "App.jsx 4209-4275 (GameDayCard: 🏟 Event day — priority check, cooler / sink / food temps, Uniforms & operations Yes / No), shown only when guideFocus === \"event\" (App.jsx 38240)"
+     ]
+    },
+    {
+     "id": "on-site",
+     "title": {
+      "en": "Say you're on site and pick the stand",
+      "es": "Confirme que está en el puesto y elíjalo"
+     },
+     "do": {
+      "en": [
+       "At the stand, tap the blue box “Tap here — I'm on site, Start Timer”.",
+       "Or tap 🔎 Pick the stand from the list and type the name or unit #.",
+       "Or open ☰ → Scan stand QR and point at the stand's poster. The form fills itself in. Then tap the blue box to start the timer."
+      ],
+      "es": [
+       "En el puesto, toque el cuadro azul «Tap here — I'm on site, Start Timer» (toque aquí: estoy en el sitio, iniciar el tiempo).",
+       "O toque «🔎 Pick the stand from the list» (elegir el puesto de la lista) y escriba el nombre o el número del puesto.",
+       "O abra ☰ → «Scan stand QR» (escanear el QR del puesto) y apunte al cartel del puesto. El formulario se llena solo. Luego toque el cuadro azul para iniciar el tiempo."
+      ]
+     },
+     "ui": [
+      "Inspection Locked",
+      "Start Timer",
+      "🔎 Pick the stand from the list",
+      "Scan stand QR",
+      "📷 Scan stand QR",
+      "✅ On-site timer running"
+     ],
+     "tip": {
+      "en": "Picking the stand from the list counts as being on site and fills in the name, unit, floor, type and license. A scan fills in the form too, but only the list or the blue box starts the timer.",
+      "es": "Elegir el puesto de la lista cuenta como estar en el sitio y llena el nombre, número, piso, tipo y licencia. Escanear también llena el formulario, pero solo la lista o el cuadro azul inician el tiempo."
+     },
+     "say": {
+      "en": "At the stand, tap I'm on site, or pick the stand from the list. Scanning its QR poster fills in the form too.",
+      "es": "En el puesto, toque «I'm on site» o elija el puesto de la lista. Escanear su cartel QR también llena el formulario."
+     },
+     "try": {
+      "href": "https://joxelds.github.io/Claude/?v=riverside-demo",
+      "note": {
+       "en": "No poster at home? Type 101 in the finder to pick BURGER BASE.",
+       "es": "¿No tiene el cartel? Escriba 101 en el buscador para elegir BURGER BASE."
+      }
+     },
+     "evidence": [
+      "App.jsx 37355-37378 (lock overlay: a tap confirms on site)",
+      "App.jsx 37396, 37416, 37419 (Inspection Locked, Tap here — I'm on site, Start Timer, pick your stand below)",
+      "App.jsx 29143-29171 (StandFinder: Pick the stand from the list, Find the stand — name or unit #)",
+      "App.jsx 35390-35397 (pickStand = on site, fills stand + license)",
+      "App.jsx 37214 (☰ Scan stand QR), 37675 (scan modal hint), 37791-37796 (On-site timer running + 📷 Scan stand QR)",
+      "CLAUDE.md v532",
+      "App.jsx 37214 (☰ tile \"Scan stand QR\" — the only scanner while the lock shows; the lock sits under the header, z-index 99 < 100)",
+      "App.jsx 35399-35445 (handleStandScan → applyStandFromQr fills the form but never calls setOnSiteConfirmed; only pickStand 35396 and the lock tap 37377 do)"
+     ]
+    },
+    {
+     "id": "sections",
+     "title": {
+      "en": "Follow the section buttons",
+      "es": "Siga los botones de sección"
+     },
+     "do": {
+      "en": [
+       "The numbered buttons at the top are the sections of the guide.",
+       "Do the ones marked PRIORITY first.",
+       "Sections marked “if time allows” can wait.",
+       "Each button counts what you checked. ⚠ means problems were found. ✓ done means the section is finished."
+      ],
+      "es": [
+       "Los botones numerados de arriba son las secciones de la guía.",
+       "Haga primero las marcadas «PRIORITY» (prioridad).",
+       "Las que dicen «if time allows» (si hay tiempo) pueden esperar.",
+       "Cada botón cuenta lo que revisó. ⚠ indica que hay problemas. «✓ done» (listo) indica que terminó la sección."
+      ]
+     },
+     "ui": [
+      "Inspector guide",
+      "PRIORITY",
+      "if time allows",
+      "✓ done",
+      "Temp rules"
+     ],
+     "tip": {
+      "en": "Regular inspection has no priorities, so do every section. Answer only what you see: anything you skip is simply not checked.",
+      "es": "La inspección regular no tiene prioridades: haga todas las secciones. Responda solo lo que ve: lo que no conteste queda sin revisar."
+     },
+     "say": {
+      "en": "These buttons are your sections. Do the PRIORITY ones first. “If time allows” can wait. Answer only what you see.",
+      "es": "Estos botones son sus secciones. Haga primero las de prioridad. Las de «si hay tiempo» pueden esperar. Responda solo lo que ve."
+     },
+     "evidence": [
+      "App.jsx 38094-38107 (Inspector guide, Answer only what you see, Temp rules)",
+      "App.jsx 38111-38145 (step grid: PRIORITY, if time allows, ⚠ badge, ✓ done)",
+      "App.jsx 29107-29111 (prio per type: regular 0, event 2, post 4)",
+      "CLAUDE.md v496, v532, v535"
+     ]
+    },
+    {
+     "id": "rows",
+     "title": {
+      "en": "Answer each row with ✓ or ✕",
+      "es": "Responda cada fila con ✓ o ✕"
+     },
+     "do": {
+      "en": [
+       "Tap an item that says Tap to fill in to open its rows.",
+       "Tap ✓ when it is OK and ✕ when it is not.",
+       "Or just type the problem in the row. It marks ✕ by itself.",
+       "Tap BEFORE and take a photo of the problem.",
+       "Pick where it is, then write what was done under CORRECTIVE ACTION TAKEN."
+      ],
+      "es": [
+       "Toque un punto que dice «Tap to fill in» (toque para llenar) para abrir sus filas.",
+       "Toque ✓ si está bien y ✕ si no.",
+       "O escriba el problema en la fila. Se marca ✕ sola.",
+       "Toque «BEFORE» (antes) y tome una foto del problema.",
+       "Elija dónde está («SPECIFIC LOCATION», lugar exacto) y escriba qué se hizo en «CORRECTIVE ACTION TAKEN» (acción correctiva)."
+      ]
+     },
+     "ui": [
+      "Tap to fill in",
+      "Type the problem — marks it ✕",
+      "ISSUE DESCRIPTION",
+      "SPECIFIC LOCATION",
+      "CORRECTIVE ACTION TAKEN *",
+      "BEFORE",
+      "AFTER",
+      "📷 Add a BEFORE photo — the crew needs to see the problem"
+     ],
+     "tip": {
+      "en": "On a supply row, ✕ just adds the product to Supplies Needed. You can type how many.",
+      "es": "En una fila de productos, la ✕ solo lo agrega a «Supplies Needed» (lo que falta). Puede escribir cuántos."
+     },
+     "say": {
+      "en": "Tap check if it's fine, X if it's not. Just start typing and it marks X for you. Then take a BEFORE photo and say where.",
+      "es": "Toque el visto si está bien y la X si no. Si empieza a escribir, se marca X sola. Luego tome una foto de ANTES y diga dónde."
+     },
+     "evidence": [
+      "App.jsx 28489-28501 (✓ / ✕ row buttons)",
+      "App.jsx 28340-28349 (makeTypeComment: typing in an empty row marks it NO)",
+      "App.jsx 28596 (placeholder Type the problem — marks it ✕)",
+      "App.jsx 28503-28507 (supply row: Missing — added to Supplies Needed)",
+      "App.jsx 28513, 28540-28543, 28568 (ISSUE DESCRIPTION, SPECIFIC LOCATION chips, CORRECTIVE ACTION TAKEN)",
+      "App.jsx 28585-28592 (BEFORE / AFTER buttons, photo reminder)",
+      "CLAUDE.md v457, v538, v559",
+      "App.jsx 28104-28107 (an unanswered item is closed and shows \"Tap to fill in\"; its rows render only once it is open)"
+     ]
+    },
+    {
+     "id": "temps",
+     "title": {
+      "en": "Log the temperatures",
+      "es": "Anote las temperaturas"
+     },
+     "do": {
+      "en": [
+       "In the Temps section, type the Hand Washing Sink and 3-Compartment Wash Sink water temperatures, then tap Submit.",
+       "In Equipment, type each cooler and freezer reading. Tap − for below zero.",
+       "In HACCP Food Temperatures, add the time, the food and its temperature, then tap Submit.",
+       "If a sink or food reading is bad, a CORRECTIVE ACTION TAKEN box opens. Write what was done."
+      ],
+      "es": [
+       "En la sección «Temps» (temperaturas), escriba la temperatura del agua de «Hand Washing Sink» (lavamanos) y de «3-Compartment Wash Sink» (fregadero de 3 compartimentos). Luego toque «Submit» (enviar).",
+       "En «Equipment» (equipo), escriba la temperatura de cada refrigerador y congelador. Toque − para bajo cero.",
+       "En «HACCP Food Temperatures» (temperaturas de la comida), ponga la hora, la comida y la temperatura. Luego toque «Submit».",
+       "Si una lectura del lavamanos o de la comida sale mal, se abre «CORRECTIVE ACTION TAKEN». Escriba qué se hizo."
+      ]
+     },
+     "ui": [
+      "Temp rules",
+      "Key Temperatures",
+      "Hand Washing Sink",
+      "3-Compartment Wash Sink",
+      "Submit",
+      "HACCP Food Temperatures",
+      "Hot Holding",
+      "Cold Holding"
+     ],
+     "tip": {
+      "en": "Coolers 40°F or below, freezers 20°F or below, 3-comp wash water 110°F or more, cold food 41°F or below, hot holding 135°F or more. The app flags a hand sink under 95°F; the Food Code asks for 100°F, so aim for 100°F.",
+      "es": "Refrigeradores a 40°F o menos, congeladores a 20°F o menos, agua de lavado del fregadero de 3 compartimentos a 110°F o más, comida fría a 41°F o menos, comida caliente a 135°F o más. La app marca el lavamanos por debajo de 95°F; el Código de Alimentos pide 100°F, así que busque 100°F."
+     },
+     "say": {
+      "en": "Coolers 40 or below, freezers 20 or below. Hand sink: aim for 100, the app flags anything under 95. Wash sink 110 or more. Cold food 41 or below, hot 135 or above.",
+      "es": "Refrigeradores a 40 o menos, congeladores a 20 o menos. Lavamanos: busque 100, la app marca menos de 95. Fregadero de lavado a 110 o más. Comida fría a 41 o menos, caliente a 135 o más."
+     },
+     "evidence": [
+      "App.jsx 38103-38107 (Temp rules: hand sink ≥95, 3-comp ≥110, cooler ≤40, freezer ≤20)",
+      "App.jsx 38363-38367, 38443-38444 (Key Temperatures, Hand Washing Sink, 3-Compartment Wash Sink)",
+      "App.jsx 38395-38410, 38420-38426 (sink Submit, CORRECTIVE ACTION TAKEN when flagged)",
+      "App.jsx 28280-28305 (cooler / freezer input, − button, Good / Follow-up needed / Out of range)",
+      "App.jsx 4338 (TEMP_WARN_MAX cooler 45, freezer 25)",
+      "App.jsx 38710, 14934, 14958 (HACCP Food Temperatures, Hot Holding min 135, Cold Holding max 41)",
+      "App.jsx 28738 (This stand's coolers & freezers)",
+      "CLAUDE.md v520 (one temperature rule), v532",
+      "App.jsx 38367 (Hand Washing Sink \"Must be at least 95°F\"); the course teaches the Food Code's 100°F (5-202.12)"
+     ]
+    },
+    {
+     "id": "save",
+     "title": {
+      "en": "It saves itself, then Finish & Save",
+      "es": "Se guarda solo; luego «Finish & Save»"
+     },
+     "do": {
+      "en": [
+       "After your first answer, the report saves itself. Look for ✅ Saved to the cloud at the top (on a tablet or computer: ✅ Report saved to the cloud).",
+       "If you try to leave before the cloud has the report, a box says “Your report is not saved yet”. Wait: it closes by itself and goes on as soon as the report is saved. Or tap Keep working on the report to stay on it.",
+       "When you are done, tap Finish & Save.",
+       "If “Before you save” lists missing photos or actions, tap Go fix → or 💾 Save anyway."
+      ],
+      "es": [
+       "Después de su primera respuesta, el reporte se guarda solo. Arriba busque «✅ Saved to the cloud» (guardado en la nube; en tableta o computadora dice «✅ Report saved to the cloud»).",
+       "Si intenta salir antes de que el reporte esté en la nube, sale el cuadro «Your report is not saved yet» (su reporte todavía no está guardado). Espere: se cierra solo y sigue en cuanto se guarda. O toque «Keep working on the report» (seguir con el reporte) para quedarse en él.",
+       "Cuando termine, toque «Finish & Save» (terminar y guardar).",
+       "Si «Before you save» (antes de guardar) muestra fotos o acciones que faltan, toque «Go fix →» (ir a corregir) o «💾 Save anyway» (guardar de todos modos)."
+      ]
+     },
+     "ui": [
+      "✅ Saved to the cloud",
+      "✅ Report saved to the cloud",
+      "☁ Answer the first item — it saves itself",
+      "Your report is not saved yet",
+      "Keep working on the report",
+      "Finish & Save",
+      "💾 Before you save — a few things are missing (optional)",
+      "Go fix →",
+      "💾 Save anyway"
+     ],
+     "tip": {
+      "en": "The report needs the stand name to save; if it is missing, the top bar says so and shows Add it. With no signal, stay on the report: it saves when the signal is back.",
+      "es": "El reporte necesita el nombre del puesto para guardarse; si falta, la barra de arriba lo dice y muestra «Add it» (agregarlo). Sin señal, quédese en el reporte: se guarda cuando vuelve la señal."
+     },
+     "say": {
+      "en": "You don't press save as you go. It saves itself to the cloud. When you're done, tap Finish and Save. Missing photos never stop you.",
+      "es": "No tiene que guardar a cada rato. Se guarda solo en la nube. Al terminar, toque «Finish & Save». Las fotos que faltan nunca lo detienen."
+     },
+     "evidence": [
+      "App.jsx 37317-37333 (save strip states: saved to the cloud, answer the first item, not saved yet, Add it, Try again)",
+      "App.jsx 35953 (✅ Report saved to the cloud)",
+      "App.jsx 39381-39406 (leave box: Your report is not saved yet, Spanish line, Keep working on the report, Throw this report away…)",
+      "App.jsx 37075-37076 (Finish & Save)",
+      "App.jsx 39418-39453 (Before you save — optional, Go fix →, 💾 Save anyway)",
+      "App.jsx 1952 (stand name needed to save)",
+      "CLAUDE.md v497, v498, v553",
+      "App.jsx 37320-37330 + App.css 10241-10246 (≤ 600 px the strip shows the short words: \"✅ Saved to the cloud · time\", \"☁ Answer the first item — it saves itself\")",
+      "App.jsx 39397 (Keep working on the report = setLeaveAsk(null): closes the box and drops the move); 39389 (the box closes by itself once it is in the cloud)"
+     ]
+    },
+    {
+     "id": "follow-ups",
+     "title": {
+      "en": "Follow up until it's fixed",
+      "es": "Dé seguimiento hasta que se arregle"
+     },
+     "do": {
+      "en": [
+       "Tap the 🔁 button at the top, or open ☰ → Follow-ups.",
+       "Tap a stand's line to open its cards (a Status chip opens them too).",
+       "Tap a Status chip, like ⏰ overdue, to see only those cards. A chip shows only when it has cards.",
+       "On a card: 🔔 Remind adds it to one reminder. 📷 Photo adds a BEFORE or AFTER photo. 💬 Comment adds a note.",
+       "Fixed? Tap ✓ Resolve. Wrong tap? Tap ↩ Undo."
+      ],
+      "es": [
+       "Toque el botón 🔁 de arriba, o abra ☰ → «Follow-ups» (seguimientos).",
+       "Toque la línea de un puesto para abrir sus tarjetas (un filtro de «Status» también las abre).",
+       "Toque un filtro de «Status» (estado), por ejemplo «⏰ overdue» (atrasado), para ver solo esas tarjetas. Solo aparecen los estados que tienen tarjetas.",
+       "En una tarjeta: «🔔 Remind» (recordar) la agrega a un solo recordatorio. «📷 Photo» (foto) agrega una foto de ANTES o de DESPUÉS. «💬 Comment» (comentario) agrega una nota.",
+       "¿Ya se arregló? Toque «✓ Resolve» (resolver). ¿Se equivocó? Toque «↩ Undo» (deshacer)."
+      ]
+     },
+     "ui": [
+      "Follow-ups",
+      "Status",
+      "🔔 Remind",
+      "Send one reminder",
+      "📷 Photo",
+      "🖼 Upload AFTER",
+      "💬 Comment",
+      "✓ Resolve",
+      "↩ Undo"
+     ],
+     "tip": {
+      "en": "Picked several cards with 🔔 Remind? The bar at the bottom sends them all as one reminder.",
+      "es": "¿Marcó varias tarjetas con «🔔 Remind»? La barra de abajo las envía todas en un solo recordatorio."
+     },
+     "say": {
+      "en": "Follow-ups keeps every problem until it's fixed. Remind the team, add an AFTER photo, and tap Resolve when it's really done.",
+      "es": "Seguimientos guarda cada problema hasta que se arregla. Avísele al equipo, agregue una foto de DESPUÉS y toque «Resolve» cuando de verdad esté listo."
+     },
+     "try": {
+      "href": "https://joxelds.github.io/Claude/?v=riverside-demo",
+      "note": {
+       "en": "The demo already has sample problems in Follow-ups.",
+       "es": "La demo ya tiene problemas de ejemplo en seguimientos."
+      }
+     },
+     "evidence": [
+      "App.jsx 37088-37099 (🔁 header button, aria-label Follow-ups)",
+      "App.jsx 37215 (☰ Follow-ups tile)",
+      "App.jsx 14315-14334 (Status chips: overdue, due soon, likely fixed, in process, waiting)",
+      "App.jsx 14776-14802 (🔔 Remind, 💬 Comment, 📷 Photo menu with 🖼 Upload BEFORE / AFTER, ✓ Resolve)",
+      "App.jsx 14438-14454 (↩ Undo strip, Send one reminder bar)",
+      "App.jsx 17483-17492 (every problem shows until it is fixed; 🔁 Follow-ups tab)",
+      "CLAUDE.md v436, v473, v568",
+      "App.jsx 14588-14591 (a stand group starts closed unless it has an overdue card; a search / status pick / target opens it), 14597 (tap the group line to open it)",
+      "App.jsx 14320-14326 (a status chip shows only when the list has cards for it)"
+     ]
+    },
+    {
+     "id": "analytics",
+     "title": {
+      "en": "Check the stands: temps and waste",
+      "es": "Revise los puestos: temperaturas y desperdicio"
+     },
+     "do": {
+      "en": [
+       "Open ☰ → Past Reports → Analytics → Temps.",
+       "A stand has not logged today? Tap 📣 Request temps. It pops up on their phone when they open the stand QR.",
+       "Tap 📨 Text all missed to text each person their own link (✉ Open text, then Next).",
+       "Tap 🗑 Waste to see what the stands threw away. 📊 Excel downloads it."
+      ],
+      "es": [
+       "Abra ☰ → «Past Reports» (reportes anteriores) → «Analytics» (análisis) → «Temps» (temperaturas).",
+       "¿Un puesto no ha registrado hoy? Toque «📣 Request temps» (pedir temperaturas). Les aparece en el teléfono cuando abren el QR del puesto.",
+       "Toque «📨 Text all missed» (enviar un texto a todos los que faltan) para mandarle a cada persona su propio enlace («✉ Open text», luego «Next»).",
+       "Toque «🗑 Waste» (desperdicio) para ver lo que desecharon los puestos. «📊 Excel» lo descarga."
+      ]
+     },
+     "ui": [
+      "Past Reports",
+      "Analytics",
+      "Temps",
+      "🌡 HACCP — temp log tracker",
+      "📣 Request temps",
+      "📨 Text all missed",
+      "✉ Open text",
+      "🚩 Not scanning",
+      "🗑 Waste",
+      "📊 Excel"
+     ],
+     "tip": {
+      "en": "🚩 Not scanning lists the stands that keep missing their temperature logs.",
+      "es": "«🚩 Not scanning» (no escanean) muestra los puestos que siguen sin hacer su registro de temperaturas."
+     },
+     "say": {
+      "en": "Temps shows which stands logged today. Tap Request temps or Text all missed. Waste shows what each stand threw away.",
+      "es": "Temperaturas muestra qué puestos registraron hoy. Toque «Request temps» o «Text all missed». Desperdicio muestra lo que desechó cada puesto."
+     },
+     "try": {
+      "href": "https://joxelds.github.io/Claude/?v=riverside-demo",
+      "note": {
+       "en": "The demo phone numbers are made up. You can open a text, but do not send it.",
+       "es": "Los teléfonos de la demo son inventados. Puede abrir el mensaje, pero no lo envíe."
+      }
+     },
+     "evidence": [
+      "App.jsx 37216 (☰ Past Reports)",
+      "App.jsx 17472-17498 (Analytics tab, sub-tabs Temps and 🗑 Waste)",
+      "App.jsx 30533 (🌡 HACCP — temp log tracker)",
+      "App.jsx 30472-30480 (requestTemps: pops up when they open the stand QR)",
+      "App.jsx 30573-30583, 30624 (📣 Request temps, 📨 Text all missed)",
+      "App.jsx 24065-24083 (TextStepper: ✉ Open text, Next ▸)",
+      "App.jsx 30489 (🚩 Not scanning view)",
+      "App.jsx 30205-30234 (🗑 Food waste, 📊 Excel, By stand / By item)",
+      "CLAUDE.md v471, v517, v558"
+     ]
+    },
+    {
+     "id": "exports",
+     "title": {
+      "en": "Export to Excel with BEFORE / AFTER photos",
+      "es": "Exporte a Excel con fotos de ANTES y DESPUÉS"
+     },
+     "do": {
+      "en": [
+       "Open ☰ → Past Reports and tap ☑ Select (on a phone: ⋯ → ☑ Select Reports). Tick the reports.",
+       "Tap 📊 Excel, then pick who it is for: one crew, or Everything.",
+       "Keep 📷 Pictures in the file ticked, then tap Export … to Excel.",
+       "The file opens on Photo Summary. The Before & After tab puts each problem's BEFORE photo next to its AFTER photo."
+      ],
+      "es": [
+       "Abra ☰ → «Past Reports» y toque «☑ Select» (seleccionar). En el teléfono: ⋯ → «☑ Select Reports». Marque los reportes.",
+       "Toque «📊 Excel» y elija para quién es en «Who is this export for?» (¿para quién es?): un equipo, o «Everything» (todo).",
+       "Deje marcado «📷 Pictures in the file» (fotos en el archivo) y toque «Export … to Excel» (exportar a Excel).",
+       "El archivo abre en «Photo Summary» (resumen de fotos). La pestaña «Before & After» pone la foto de ANTES de cada problema junto a la de DESPUÉS."
+      ]
+     },
+     "ui": [
+      "Past Reports",
+      "☑ Select",
+      "☑ Select Reports",
+      "📊 Excel",
+      "Who is this export for?",
+      "Everything",
+      "📷 Pictures in the file",
+      "Photo Summary",
+      "Before & After"
+     ],
+     "tip": {
+      "en": "From Follow-ups, ☑ Select to export → 📸 Before & After makes the same kind of photo file for the jobs you pick.",
+      "es": "Desde seguimientos, «☑ Select to export» → «📸 Before & After» hace el mismo tipo de archivo con fotos para los trabajos que elija."
+     },
+     "say": {
+      "en": "Need proof? Export to Excel with pictures on. Each problem with photos shows its BEFORE right next to its AFTER.",
+      "es": "¿Necesita pruebas? Exporte a Excel con las fotos activadas. Cada problema con fotos muestra su ANTES junto a su DESPUÉS."
+     },
+     "evidence": [
+      "App.jsx 17079 (☑ Select), 17157 (⋯), 17195 (☑ Select Reports)",
+      "App.jsx 18771 (📊 Excel export button)",
+      "App.jsx 18925, 19042 (CREW_BTNS incl. Everything, Who is this export for?)",
+      "App.jsx 18980 (📷 Pictures in the file)",
+      "App.jsx 16055 (Photo Summary sheet), 7002 + 16518 (Before & After sheet)",
+      "App.jsx 16548 (Excel ready note with BEFORE + AFTER counts)",
+      "App.jsx 14181, 14202 (Follow-ups ☑ Select to export, 📸 Before & After)",
+      "CLAUDE.md v484, v567"
+     ]
+    }
+   ],
+   "check": [
+    {
+     "q": {
+      "en": "It is an Event day inspection. Which sections are marked PRIORITY?",
+      "es": "Es una inspección de día de evento («Event day»). ¿Qué secciones están marcadas como prioridad («PRIORITY»)?"
+     },
+     "options": {
+      "en": [
+       "Temps, and Uniforms & operations",
+       "Facilities and Utensils",
+       "Only Maintenance",
+       "None. Every section is the same"
+      ],
+      "es": [
+       "Temperaturas, y uniformes y operaciones",
+       "Instalaciones y utensilios",
+       "Solo mantenimiento",
+       "Ninguna. Todas las secciones son iguales"
+      ]
+     },
+     "answer": 0,
+     "why": {
+      "en": "Event day puts Temps ⭐ and Uniforms & operations ⭐ first. The other sections say “if time allows”.",
+      "es": "El día de evento pone primero temperaturas ⭐ y uniformes y operaciones ⭐. Las demás secciones dicen «if time allows» (si hay tiempo)."
+     }
+    },
+    {
+     "q": {
+      "en": "A cooler reads 44°F. What does the app do?",
+      "es": "Un refrigerador marca 44°F. ¿Qué hace la app?"
+     },
+     "options": {
+      "en": [
+       "Says it is good, because coolers can go up to 45°F",
+       "Flags it, because coolers must be 40°F or below",
+       "Nothing, because coolers have no rule",
+       "Checks only the freezers"
+      ],
+      "es": [
+       "Dice que está bien, porque los refrigeradores pueden llegar a 45°F",
+       "Lo marca, porque los refrigeradores deben estar a 40°F o menos",
+       "Nada, porque los refrigeradores no tienen regla",
+       "Solo revisa los congeladores"
+      ]
+     },
+     "answer": 1,
+     "why": {
+      "en": "Coolers must read 40°F or below. From 41 to 45°F the app says Follow-up needed. Above that, it is out of range.",
+      "es": "Los refrigeradores deben marcar 40°F o menos. De 41 a 45°F la app dice «Follow-up needed» (necesita seguimiento). Más arriba, está fuera de rango."
+     }
+    },
+    {
+     "q": {
+      "en": "A box says “Your report is not saved yet”. What should you do?",
+      "es": "Sale un cuadro que dice «Your report is not saved yet» (su reporte todavía no está guardado). ¿Qué debe hacer?"
+     },
+     "options": {
+      "en": [
+       "Close the app right away",
+       "Wait. The box closes by itself and goes on once the cloud has the report (or tap Keep working on the report to stay)",
+       "Throw the report away and start again",
+       "Sign in with your badge again"
+      ],
+      "es": [
+       "Cerrar la app enseguida",
+       "Esperar. El cuadro se cierra solo y sigue cuando el reporte está en la nube (o tocar «Keep working on the report» para quedarse)",
+       "Botar el reporte y empezar otra vez",
+       "Volver a entrar con su credencial"
+      ]
+     },
+     "answer": 1,
+     "why": {
+      "en": "The report saves itself. The box only waits for the cloud. No signal? Stay on the report. It saves when the signal is back.",
+      "es": "El reporte se guarda solo. El cuadro solo espera a la nube. ¿Sin señal? Quédese en el reporte. Se guarda cuando vuelve la señal."
+     }
+    }
+   ]
+  },
+  {
+   "id": "stand-team",
+   "icon": "🧑‍🍳",
+   "title": {
+    "en": "Stand team: the stand QR page",
+    "es": "Equipo del puesto: la página QR del puesto"
+   },
+   "who": {
+    "en": "Supervisors and cooks at a stand. No app and no password, only your phone camera.",
+    "es": "Supervisores y cocineros de un puesto. Sin aplicación ni contraseña, solo la cámara del teléfono."
+   },
+   "intro": {
+    "en": "Every stand has a QR poster. When you scan it, your stand's own page opens in English, Spanish or Kreyòl. On that page you log food and cooler temperatures, fix a red reading, ask for supplies, report problems and log food waste. The inspector gets it right away. Practice on the demo stand BURGER BASE #101. Other visitors share the demo, so use a made-up name and a 555 phone number.",
+    "es": "Cada puesto tiene un póster QR. Al escanearlo se abre la página de su puesto en inglés, español o kreyòl. En esa página usted registra las temperaturas de la comida y de las neveras, corrige una lectura en rojo, pide suministros, reporta problemas y anota el desperdicio de comida. El inspector lo recibe al momento. Practique en el puesto de prueba BURGER BASE #101. Otras personas usan la misma demo, así que ponga un nombre inventado y un teléfono 555."
+   },
+   "demo": "https://joxelds.github.io/Claude/?v=riverside-demo&haccp=1&site=BURGER%20BASE&unit=101&loctype=Concession",
+   "steps": [
+    {
+     "id": "scan-language",
+     "title": {
+      "en": "Scan the poster and pick your language",
+      "es": "Escanee el póster y elija su idioma"
+     },
+     "do": {
+      "en": [
+       "Scan the QR poster at your stand with the phone camera.",
+       "Tap the link that opens. You need no app and no password.",
+       "At the top, tap 🌐 English, Español or Kreyòl."
+      ],
+      "es": [
+       "Escanee el póster QR de su puesto con la cámara del teléfono.",
+       "Toque el enlace que se abre. No necesita aplicación ni contraseña.",
+       "Arriba, toque «🌐 English», «Español» o «Kreyòl»."
+      ]
+     },
+     "ui": [
+      "English",
+      "Español",
+      "Kreyòl"
+     ],
+     "tip": {
+      "en": "The phone remembers your language for next time. Kreyòl is translated automatically.",
+      "es": "El teléfono recuerda su idioma para la próxima vez. El kreyòl se traduce automáticamente."
+     },
+     "say": {
+      "en": "Hi, I'm Dex! No app, no password. Just scan the QR poster at your stand and pick your language.",
+      "es": "¡Hola, soy Dex! Sin aplicación y sin contraseña. Solo escanee el póster QR de su puesto y elija su idioma."
+     },
+     "try": {
+      "href": "https://joxelds.github.io/Claude/?v=riverside-demo&haccp=1&site=BURGER%20BASE&unit=101&loctype=Concession",
+      "note": {
+       "en": "This is what the poster at the demo stand BURGER BASE #101 opens. Nothing here is real.",
+       "es": "Esto es lo que abre el póster del puesto de prueba BURGER BASE #101. Nada aquí es real."
+      }
+     },
+     "evidence": [
+      "App.jsx:31996-32012 (🌐 English / Español / Kreyòl pills, data-testid portal-lang-*)",
+      "App.jsx:31282 (language remembered in sdx_portal_lang)",
+      "App.jsx:31283-31284 (Kreyòl through the page translator)",
+      "CLAUDE.md v515"
+     ]
+    },
+    {
+     "id": "who-and-where",
+     "title": {
+      "en": "Say who you are and confirm the stand",
+      "es": "Diga quién es y confirme el puesto"
+     },
+     "do": {
+      "en": [
+       "Type Your Name and Phone Number, then tap Continue →.",
+       "Check that the stand name and unit on the screen are yours.",
+       "Tap ✓ This is my location. If you only need to report something, tap ⚠️ Report a problem only."
+      ],
+      "es": [
+       "Escriba «Tu nombre» y «Teléfono» y toque «Continuar →».",
+       "Revise que el nombre del puesto y la unidad en la pantalla sean los suyos.",
+       "Toque «✓ Esta es mi ubicación». Si solo quiere reportar algo, toque «⚠️ Solo reportar un problema»."
+      ]
+     },
+     "ui": [
+      "Your Name",
+      "Phone Number",
+      "Continue →",
+      "✓ This is my location",
+      "⚠️ Report a problem only"
+     ],
+     "tip": {
+      "en": "Under Continue → you can see if today's temp log is already in.",
+      "es": "Debajo de «Continuar →» se ve si ya hay registro de temperaturas de hoy."
+     },
+     "say": {
+      "en": "Type your name and phone so the inspector can reach you. Then check the stand name and tap This is my location.",
+      "es": "Escriba su nombre y su teléfono para que el inspector pueda contactarle. Luego revise el nombre del puesto y toque «Esta es mi ubicación»."
+     },
+     "evidence": [
+      "App.jsx:32016-32046 (ident step: Your Name, Phone Number, Continue →)",
+      "App.jsx:31965-31975 (TodayStatus under Continue)",
+      "App.jsx:32048-32075 (Confirm Location: ✓ This is my location, ⚠️ Report a problem only)"
+     ]
+    },
+    {
+     "id": "food-temps",
+     "title": {
+      "en": "Log food temperatures",
+      "es": "Registre las temperaturas de la comida"
+     },
+     "do": {
+      "en": [
+       "Under FOOD TEMPERATURES, tap a food row (Log it ›).",
+       "Pick or type the food, type the temperature, then tap ✓ Log it.",
+       "Each row shows its limit: Hot Holding 135°F or above, Cold Holding 41°F or below.",
+       "Green means good: the row closes into a green ✓ line by itself, and the reading goes to the inspector (the bottom bar shows ✓ Sent to the inspector). A red reading stays open for its corrective action."
+      ],
+      "es": [
+       "En «TEMPERATURAS DE COMIDA», toque una fila de comida («Registrar ›»).",
+       "Elija o escriba la comida, escriba la temperatura y toque «✓ Registrar».",
+       "Cada fila muestra su límite: «Comida caliente» a 135°F o más, «Comida fría» a 41°F o menos.",
+       "Verde significa que está bien: la fila se cierra sola en una línea verde ✓ y la lectura le llega al inspector (abajo sale «✓ Enviado al inspector»). Una lectura en rojo se queda abierta para su acción correctiva."
+      ]
+     },
+     "ui": [
+      "FOOD TEMPERATURES",
+      "Log it ›",
+      "✓ Log it",
+      "✓ Sent to the inspector",
+      "Hot Holding",
+      "Cold Holding"
+     ],
+     "tip": {
+      "en": "A bar does not show the cooking or reheating rows. A pantry does not show cooking.",
+      "es": "En un bar no salen las filas de cocción ni de recalentado. En una despensa no sale cocción."
+     },
+     "say": {
+      "en": "Tap a food, type the temperature, tap Log it. Green means good. Hot food stays at 135 or above, cold food 41 or below.",
+      "es": "Toque una comida, escriba la temperatura y toque «Registrar». Verde es bien. La comida caliente, a 135 o más; la fría, a 41 o menos."
+     },
+     "evidence": [
+      "App.jsx:32413-32428 (FOOD TEMPERATURES head, steps Tap the food / Type the temp / Log it)",
+      "App.jsx:32189 (compact row 'Log it ›' with ≤/≥ limit badge)",
+      "App.jsx:32358 (✓ Log it)",
+      "App.jsx:32268 (Done ▴ → scheduleAutoSend)",
+      "App.jsx:32137 (each reading is sent when you tap Done)",
+      "App.jsx:14933-14966 (HACCP_TEMP_ITEMS: Hot Holding min 135, Cold Holding max 41)",
+      "App.jsx:32155 (bar hides cooking + reheating, pantry hides cooking)",
+      "CLAUDE.md v507, v563",
+      "App.jsx 32167-32183 + 32358 (✓ Log it on an in-range reading calls closeIfPass: the block folds into its green \"✓ 38°F\" row; Done ▴ only exists inside an open block)",
+      "App.jsx 32311 (leaving the temperature box schedules the auto-send), 32801 (✓ Sent to the inspector strip)"
+     ]
+    },
+    {
+     "id": "coolers-freezers",
+     "title": {
+      "en": "Log your coolers and freezers",
+      "es": "Registre sus neveras y congeladores"
+     },
+     "do": {
+      "en": [
+       "Scroll down to YOUR COOLERS & FREEZERS.",
+       "Tap each unit. In the first box (Food item) type what is inside it, for example Chicken. Type the temperature, then tap ✓ Log it. Coolers 40°F or below, freezers 20°F or below.",
+       "Is a unit wrong? Tap ✎ Edit this unit, then Fix name / location, Moved to another stand or Not here anymore.",
+       "Is a unit missing? Tap ＋ Add a cooler / freezer that is missing, then ✓ Add it."
+      ],
+      "es": [
+       "Baje hasta «SUS NEVERAS Y CONGELADORES».",
+       "Toque cada equipo. Escriba qué hay adentro en el primer cuadro («Comida (ej. Pollo)»), escriba la temperatura y toque «✓ Registrar». Neveras a 40°F o menos, congeladores a 20°F o menos.",
+       "¿Un equipo está mal? Toque «✎ Editar este equipo» y luego «Corregir nombre / lugar», «Se movió a otro puesto» o «Ya no está aquí».",
+       "¿Falta un equipo? Toque «＋ Agregar una nevera / congelador que falta» y luego «✓ Agregar»."
+      ]
+     },
+     "ui": [
+      "YOUR COOLERS & FREEZERS",
+      "Edit this unit",
+      "Fix name / location",
+      "Moved to another stand",
+      "Not here anymore",
+      "Add a cooler / freezer that is missing",
+      "Add it"
+     ],
+     "tip": {
+      "en": "The counter on the card (for example 1/2 logged) shows how many units are done.",
+      "es": "El contador de la tarjeta (por ejemplo 1/2 listos) muestra cuántos equipos van."
+     },
+     "say": {
+      "en": "Now your coolers and freezers. One reading each: coolers 40 or below, freezers 20 or below. Unit moved or missing? Fix it right here.",
+      "es": "Ahora sus neveras y congeladores. Una lectura por equipo: neveras a 40 o menos, congeladores a 20 o menos. ¿Un equipo se movió o falta? Corríjalo aquí mismo."
+     },
+     "try": {
+      "href": "https://joxelds.github.io/Claude/?v=riverside-demo&haccp=1&site=BURGER%20BASE&unit=101&loctype=Concession&coolers=1",
+      "note": {
+       "en": "The link the inspector texts when every cooler must be logged. BURGER BASE has a 2-door cooler and a reach-in freezer in the demo.",
+       "es": "Es el enlace que manda el inspector cuando hay que registrar cada nevera. En la demo, BURGER BASE tiene una nevera de 2 puertas y un congelador."
+      }
+     },
+     "evidence": [
+      "App.jsx:32557-32563 (❄ YOUR COOLERS & FREEZERS, N/N logged, coolers ≤ 40°F · freezers ≤ 20°F)",
+      "App.jsx:31236-31247 (✎ Edit this unit → Fix name / location · Moved to another stand · Not here anymore)",
+      "App.jsx:32570-32577 (＋ Add a cooler / freezer that is missing, ✓ Add it)",
+      "App.jsx:31107 (coolers=1 link)",
+      "CLAUDE.md v468, v470",
+      "App.jsx 32278 (canSubmit needs the first box — placeholder \"Food item (e.g. Chicken)\" / \"Comida (ej. Pollo)\", 32297 — plus the temperature; the time fills itself in); cooler rows have no food chips (App.jsx 31266)"
+     ]
+    },
+    {
+     "id": "corrective-action",
+     "title": {
+      "en": "A red reading: send the corrective action",
+      "es": "Lectura en rojo: envíe la acción correctiva"
+     },
+     "do": {
+      "en": [
+       "A reading that is out of range turns red.",
+       "Tap why it happened (for example Door left open), then write what you did.",
+       "Tap ✓ Send corrective action. The box turns green: Corrective action sent to the inspector.",
+       "Typed it wrong? Tap ✎ Change."
+      ],
+      "es": [
+       "Una lectura fuera de rango sale en rojo.",
+       "Toque por qué pasó (por ejemplo «Puerta quedó abierta») y escriba qué hizo.",
+       "Toque «✓ Enviar acción correctiva». El cuadro se pone verde: «Acción correctiva enviada al inspector».",
+       "¿Se equivocó? Toque «✎ Cambiar»."
+      ]
+     },
+     "ui": [
+      "🔧 WHY? + CORRECTIVE ACTION *",
+      "🔧 CORRECTIVE ACTION TAKEN *",
+      "Door left open",
+      "Send corrective action",
+      "Corrective action sent to the inspector"
+     ],
+     "tip": {
+      "en": "The final Submit waits until every red reading has its corrective action.",
+      "es": "El envío final espera hasta que cada lectura en rojo tenga su acción correctiva."
+     },
+     "say": {
+      "en": "Red reading? Don't panic. Tap why it happened, write what you did, and send the corrective action. The inspector sees it right away.",
+      "es": "¿Salió en rojo? No se preocupe. Toque por qué pasó, escriba qué hizo y envíe la acción correctiva. El inspector la ve al momento."
+     },
+     "evidence": [
+      "App.jsx:32374-32398 (food: 🔧 WHY? + CORRECTIVE ACTION *, reason chips, textarea, send button)",
+      "App.jsx:32536 (cooking rows: 🔧 CORRECTIVE ACTION TAKEN *; food and cooler rows use 🔧 WHY? + CORRECTIVE ACTION * via renderReadingBlock, App.jsx:32377 / 32566)",
+      "App.jsx:31606-31630 (sendCorrective, Corrective action sent to the inspector, ✎ Change)",
+      "App.jsx:31688-31695 (Submit blocked while a red reading has no corrective)",
+      "App.jsx:11799-11800 (TEMP_FAIL_REASONS: Door left open …)",
+      "CLAUDE.md v512, v513"
+     ]
+    },
+    {
+     "id": "supplies",
+     "title": {
+      "en": "Ask for supplies",
+      "es": "Pida suministros"
+     },
+     "do": {
+      "en": [
+       "In 📦 Request supplies (optional), tap what you need, for example Paper towels.",
+       "Use − and ＋ to set how many. Type anything else in the box.",
+       "Tick Urgent — we are out if you have none left."
+      ],
+      "es": [
+       "En «📦 Pedir suministros (opcional)», toque lo que necesita, por ejemplo «Papel toalla».",
+       "Use − y ＋ para poner cuántos. Escriba otra cosa en «¿Otra cosa? Escríbela aquí».",
+       "Marque «Urgente — se nos acabó» si ya no le queda nada."
+      ]
+     },
+     "ui": [
+      "📦 Request supplies (optional)",
+      "Paper towels",
+      "Test strips",
+      "Something else? Type it here",
+      "Urgent — we are out"
+     ],
+     "tip": {
+      "en": "You can send supplies with no temperatures. The inspector still gets the list.",
+      "es": "Puede enviar solo suministros, sin temperaturas. El inspector igual recibe la lista."
+     },
+     "say": {
+      "en": "Running low on paper towels or test strips? Tap what you need, set how many, and mark Urgent if you're out.",
+      "es": "¿Se le acaba el papel toalla o las tiras de prueba? Toque lo que necesita, ponga cuántos y marque Urgente si ya no tiene."
+     },
+     "evidence": [
+      "App.jsx:32606-32634 (supplies section: chips, −/＋ qty, other box, Urgent — we are out)",
+      "App.jsx:4644-4653 (ECOLAB_SUPPLIES with Spanish names)",
+      "CLAUDE.md v503"
+     ]
+    },
+    {
+     "id": "food-waste",
+     "title": {
+      "en": "Log food waste at the end of the shift",
+      "es": "Anote el desperdicio al final del turno"
+     },
+     "do": {
+      "en": [
+       "At the end of the shift, find 🗑 Food waste — end of the shift, right under 📦 Request supplies.",
+       "Nothing thrown away? Tap ✓ No waste today.",
+       "Something thrown away? Tap ＋ Log food waste. Fill in what it is, How much? (pick the unit) and Why?",
+       "Tap ＋ Add another item for each other food."
+      ],
+      "es": [
+       "Al final del turno, busque «🗑 Desperdicio de comida — al final del turno», justo debajo de «📦 Pedir suministros (opcional)».",
+       "¿No botó nada? Toque «✓ Sin desperdicio hoy».",
+       "¿Botó algo? Toque «＋ Anotar desperdicio». Llene qué es, «¿Cuánto?» (elija la unidad) y «¿Por qué?».",
+       "Toque «＋ Agregar otro producto» por cada otra comida."
+      ]
+     },
+     "ui": [
+      "🗑 Food waste — end of the shift",
+      "Log food waste",
+      "How much?",
+      "Why?",
+      "Add another item",
+      "No waste today"
+     ],
+     "tip": {
+      "en": "An item filled in halfway stops Submit and shows what is missing.",
+      "es": "Un producto llenado a medias detiene el envío y muestra lo que falta."
+     },
+     "say": {
+      "en": "End of the shift? Log what you throw away: what it is, how much, and why. Nothing wasted? Tap No waste today.",
+      "es": "¿Terminó el turno? Anote lo que va a botar: qué es, cuánto y por qué. ¿No hubo desperdicio? Toque «Sin desperdicio hoy»."
+     },
+     "try": {
+      "href": "https://joxelds.github.io/Claude/?v=riverside-demo&haccp=1&site=BURGER%20BASE&unit=101&loctype=Concession&waste=1",
+      "note": {
+       "en": "After your name and ✓ This is my location, this link jumps to the food waste part.",
+       "es": "Después de su nombre y «✓ Esta es mi ubicación», este enlace lo lleva a la parte del desperdicio."
+      }
+     },
+     "evidence": [
+      "App.jsx:32636-32683 (food waste section: Log food waste, item chips, How much?, unit chips, Why?, Add another item, No waste today, Missing: …)",
+      "App.jsx:30021-30040 (WASTE_UNITS, WASTE_REASONS, WASTE_ITEMS)",
+      "App.jsx:31108 (waste=1 link)",
+      "CLAUDE.md v558",
+      "App.jsx 32606 / 32636 / 32686 (page order: 📦 Request supplies → 🗑 Food waste → Report a Problem)",
+      "App.jsx 32646-32647 (✓ No waste today sits next to ＋ Log food waste before any row is open)",
+      "App.jsx 31131 (the waste=1 link acts only once step === \"form\", after the name and the stand check)"
+     ]
+    },
+    {
+     "id": "report-problem",
+     "title": {
+      "en": "Report a problem",
+      "es": "Reporte un problema"
+     },
+     "do": {
+      "en": [
+       "Under Report a Problem, tap the type of problem (What kind of problem?).",
+       "Say what is wrong and where. A few words is enough.",
+       "Tap 📷 Add photos to report and fill in What did you do about it? You need both to send it.",
+       "More than one problem? Tap ＋ Add another problem."
+      ],
+      "es": [
+       "En «Reportar un problema», toque el tipo («¿Qué tipo de problema?»).",
+       "Diga qué está mal y dónde. Con pocas palabras basta.",
+       "Toque «📷 Agregar fotos» y llene «¿Qué hiciste al respecto?». Necesita las dos cosas para enviarlo.",
+       "¿Hay más de un problema? Toque «＋ Agregar otro problema»."
+      ]
+     },
+     "ui": [
+      "Report a Problem (optional)",
+      "What kind of problem?",
+      "📷 Add photos to report",
+      "What did you do about it?",
+      "Add another problem",
+      "🔴 Urgent"
+     ],
+     "tip": {
+      "en": "Tap 🔴 Urgent when it cannot wait.",
+      "es": "Toque «🔴 Urgent» (urgente) cuando no puede esperar."
+     },
+     "say": {
+      "en": "Something broken, dirty or leaking? Pick the type, say what and where, add a photo and what you did. Got more? Add another.",
+      "es": "¿Algo roto, sucio o con fuga? Elija el tipo, diga qué y dónde, agregue una foto y qué hizo. ¿Hay más? Agregue otro."
+     },
+     "try": {
+      "href": "https://joxelds.github.io/Claude/?v=riverside-demo&haccp=1&site=BURGER%20BASE&unit=101&loctype=Concession",
+      "note": {
+       "en": "After your name, tap ⚠️ Report a problem only to see the problem form by itself.",
+       "es": "Después de su nombre, toque «⚠️ Solo reportar un problema» para ver solo el formulario de problemas."
+      }
+     },
+     "evidence": [
+      "App.jsx:32686-32760 (problem section: category chips, text, severity, 📷 Add photos to report, What did you do about it?, ＋ Add another problem)",
+      "App.jsx:31574-31588 (validateProblemEditor: category, a few words, photo + action required)",
+      "App.jsx:11753-11763 (SUP_PROBLEM_CATS EN · ES)",
+      "App.jsx:32805 (Send Problem Report in problem-only mode)",
+      "CLAUDE.md v454, v458, v463, v470"
+     ]
+    },
+    {
+     "id": "submit",
+     "title": {
+      "en": "Submit, then log again every 2 hours",
+      "es": "Envíe y registre otra vez cada 2 horas"
+     },
+     "do": {
+      "en": [
+       "Tap Submit Temperature Log at the bottom.",
+       "Wait for ✅ Submitted! and ✓ Saved — the inspector has it.",
+       "Every 2 hours, scan the poster again (or tap Submit Another Log) and log new readings."
+      ],
+      "es": [
+       "Toque «Enviar registro de temperaturas» abajo.",
+       "Espere «✅ ¡Enviado!» y «✓ Guardado — el inspector lo tiene».",
+       "Cada 2 horas, escanee el póster otra vez (o toque «Enviar otro registro») y registre lecturas nuevas."
+      ]
+     },
+     "ui": [
+      "Submit Temperature Log",
+      "✅ Submitted!",
+      "✓ Saved — the inspector has it",
+      "Submit Another Log"
+     ],
+     "tip": {
+      "en": "No signal? It says it is saved on this phone and sends when the connection is back.",
+      "es": "¿Sin señal? Dice que está guardado en este teléfono y se envía cuando vuelva la conexión."
+     },
+     "say": {
+      "en": "Done? Tap Submit Temperature Log. When you see Submitted, you're set. Come back every two hours and log again.",
+      "es": "¿Terminó? Toque «Enviar registro de temperaturas». Cuando vea «¡Enviado!», listo. Vuelva cada dos horas y registre otra vez."
+     },
+     "evidence": [
+      "App.jsx:32795-32806 (sticky Submit bar, ✓ Sent to the inspector strip, Submit Temperature Log)",
+      "App.jsx:32817-32884 (✅ Submitted!, ✓ Saved — the inspector has it / 📥 Saved on this phone, Submit Another Log)",
+      "App.jsx:32134 (Check food and equipment temps EVERY 2 HOURS)",
+      "CLAUDE.md v507, v513"
+     ]
+    },
+    {
+     "id": "equipment-sticker",
+     "title": {
+      "en": "Equipment sticker: report a problem with that unit",
+      "es": "Etiqueta del equipo: reporte un problema de ese equipo"
+     },
+     "do": {
+      "en": [
+       "Scan the QR sticker on the unit (cooler, fryer, sink…).",
+       "Check the unit name and the stand on the page.",
+       "Tap ⚠ Report a problem with this unit. The stand page opens; after your name and the stand check, that unit is already picked.",
+       "On a cooler or freezer you can also type Your Name and the temperature, then tap ✓ Save Reading."
+      ],
+      "es": [
+       "Escanee la etiqueta QR del equipo (nevera, freidora, lavamanos…).",
+       "Revise el nombre del equipo y el puesto en la página.",
+       "Toque «⚠ Reportar un problema con este equipo». Se abre la página del puesto; después de su nombre y de confirmar el puesto, ese equipo ya está elegido.",
+       "En una nevera o congelador también puede escribir «Tu nombre» y la temperatura y tocar «✓ Guardar lectura»."
+      ]
+     },
+     "ui": [
+      "Report a problem with this unit",
+      "Save Reading",
+      "Doing the stand's daily temperature log? Open it here →",
+      "This sticker is not set up yet"
+     ],
+     "tip": {
+      "en": "If it says This sticker is not set up yet, tell the inspector.",
+      "es": "Si dice «Esta etiqueta todavía no está registrada», avísele al inspector."
+     },
+     "say": {
+      "en": "See a QR sticker on a cooler or fryer? Scan it to report a problem with that exact unit. No searching needed.",
+      "es": "¿Ve una etiqueta QR en una nevera o freidora? Escanéela para reportar un problema de ese mismo equipo. No tiene que buscarlo."
+     },
+     "try": {
+      "href": "https://joxelds.github.io/Claude/?v=riverside-demo&equip=SDX-CL-101-1",
+      "note": {
+       "en": "The sticker on BURGER BASE's 2-door cooler in the demo. This page has English and Español.",
+       "es": "La etiqueta de la nevera de 2 puertas de BURGER BASE en la demo. Esta página tiene English y Español."
+      }
+     },
+     "evidence": [
+      "App.jsx:30785 (EquipCheckPortal)",
+      "App.jsx:30880 (portalHref: stand page with eq=TAG, problem=1)",
+      "App.jsx:30962 (EN / ES pills)",
+      "App.jsx:30971-30973 (This sticker is not set up yet)",
+      "App.jsx:30990 (⚠ Report a problem with this unit)",
+      "App.jsx:31034-31036 (✓ Save Reading, Doing the stand's daily temperature log? Open it here →)",
+      "App.jsx:31109-31110, 31333 (eq + problem=1 pick Equipment and that unit)",
+      "CLAUDE.md v560",
+      "App.jsx 31031 (✓ Save Reading is disabled until Your Name and a temperature are in)",
+      "App.jsx 31324-31345 (eq + problem=1 act only once step === \"form\": Equipment + that unit picked)"
+     ]
+    }
+   ],
+   "check": [
+    {
+     "q": {
+      "en": "You log a cooler at 44°F and it turns red. What do you do?",
+      "es": "Registra una nevera a 44°F y sale en rojo. ¿Qué hace?"
+     },
+     "options": {
+      "en": [
+       "Nothing. It is close enough.",
+       "Tap why it happened, write what you did, then tap Send corrective action.",
+       "Delete the reading and type a lower number.",
+       "Wait for the inspector to come."
+      ],
+      "es": [
+       "Nada. Está casi bien.",
+       "Toca por qué pasó, escribe qué hizo y toca «Enviar acción correctiva».",
+       "Borra la lectura y escribe un número más bajo.",
+       "Espera a que venga el inspector."
+      ]
+     },
+     "answer": 1,
+     "why": {
+      "en": "Coolers must be 40°F or below. A red reading needs a reason and what you did, sent with Send corrective action. Submit waits until it is there.",
+      "es": "Las neveras deben estar a 40°F o menos. Una lectura en rojo necesita el motivo y lo que hizo, enviados con «Enviar acción correctiva». El envío final espera hasta tenerla."
+     }
+    },
+    {
+     "q": {
+      "en": "How often should your stand log temperatures during service?",
+      "es": "¿Cada cuánto debe su puesto registrar temperaturas durante el servicio?"
+     },
+     "options": {
+      "en": [
+       "Once a day",
+       "Every 2 hours",
+       "Only when the inspector visits",
+       "Once a week"
+      ],
+      "es": [
+       "Una vez al día",
+       "Cada 2 horas",
+       "Solo cuando viene el inspector",
+       "Una vez por semana"
+      ]
+     },
+     "answer": 1,
+     "why": {
+      "en": "The stand page says it: check food and equipment temps EVERY 2 HOURS. Scan again or tap Submit Another Log.",
+      "es": "La página del puesto lo dice: revise las temperaturas CADA 2 HORAS. Escanee otra vez o toque «Enviar otro registro»."
+     }
+    },
+    {
+     "q": {
+      "en": "The sink drain is leaking. What does the stand page need before it sends your problem report?",
+      "es": "El desagüe del fregadero tiene una fuga. ¿Qué necesita la página del puesto antes de enviar su reporte?"
+     },
+     "options": {
+      "en": [
+       "Only the type of problem",
+       "The type, a few words on what and where, a photo, and what you did about it",
+       "Your badge number",
+       "Nothing, it sends by itself"
+      ],
+      "es": [
+       "Solo el tipo de problema",
+       "El tipo, unas palabras de qué y dónde, una foto y qué hizo al respecto",
+       "Su número de credencial",
+       "Nada, se envía solo"
+      ]
+     },
+     "answer": 1,
+     "why": {
+      "en": "A problem needs its type, a few words, a photo and what you did. If something is missing, the page tells you what to add.",
+      "es": "Un problema necesita el tipo, unas palabras, una foto y qué hizo. Si falta algo, la página le dice qué agregar."
+     }
+    }
+   ]
+  },
+  {
+   "id": "crew",
+   "icon": "🧹",
+   "title": {
+    "en": "Crews: your job board",
+    "es": "Equipos: su tablero de trabajos"
+   },
+   "who": {
+    "en": "Maintenance, cleaning and Ecolab crews",
+    "es": "Equipos de mantenimiento, limpieza y Ecolab"
+   },
+   "intro": {
+    "en": "Your inspector texts you a link. You need no badge, just your name. The link opens your board: your crew's jobs at every stand, each with the problem and, when the inspector took one, a BEFORE photo. Start a job, send an AFTER photo when it is done, and the inspector gets it.",
+    "es": "Su inspector le envía un enlace por mensaje. No necesita credencial, solo su nombre. El enlace abre su tablero con los trabajos de su equipo en cada puesto, cada uno con el problema y, si el inspector la tomó, la foto de antes. Empiece el trabajo, envíe la foto de después al terminar y el inspector la recibe."
+   },
+   "demo": "https://joxelds.github.io/Claude/?v=riverside-demo&invite=trycleaning",
+   "steps": [
+    {
+     "id": "join",
+     "title": {
+      "en": "Open your link",
+      "es": "Abra su enlace"
+     },
+     "do": {
+      "en": [
+       "Open the link your inspector texted you.",
+       "Need Spanish or Kreyòl? Tap Español or Kreyòl at the top first.",
+       "Type your name in the box.",
+       "Tap Open my board. You need no badge."
+      ],
+      "es": [
+       "Abra el enlace que su inspector le envió por mensaje.",
+       "¿Prefiere español? Primero toque «Español» arriba.",
+       "Escriba su nombre en la casilla «Tu nombre».",
+       "Toque «Abrir mi tablero». No necesita credencial."
+      ]
+     },
+     "ui": [
+      "English",
+      "Español",
+      "Kreyòl",
+      "You are joining as",
+      "Your name",
+      "Open my board"
+     ],
+     "tip": {
+      "en": "Next time you open your link on this phone (or the Home Screen icon you saved from it), your board opens by itself. No typing.",
+      "es": "La próxima vez que abra su enlace en este teléfono (o el ícono que guardó desde él), su tablero se abre solo, sin escribir nada."
+     },
+     "say": {
+      "en": "Your inspector texts you a link. Open it, type your name and tap Open my board. No badge, no password, and you're in!",
+      "es": "Su inspector le envía un enlace. Ábralo, escriba su nombre y toque «Abrir mi tablero». Sin credencial y sin contraseña. ¡Ya está adentro!"
+     },
+     "try": {
+      "href": "https://joxelds.github.io/Claude/?v=riverside-demo&invite=trycleaning",
+      "note": {
+       "en": "Demo cleaning crew. For the other crews, use invite=trymaintenance or invite=tryecolab. Other visitors share the demo.",
+       "es": "Equipo de limpieza de prueba. Para los otros equipos use invite=trymaintenance o invite=tryecolab. Otras personas también usan la demo."
+      }
+     },
+     "evidence": [
+      "App.jsx:3289-3293 CREW_JOIN_STR (Your name / Open my board, es: Tu nombre / Abrir mi tablero)",
+      "App.jsx:3305-3336 CrewJoinCard (name box, crew-join-go)",
+      "App.jsx:3707-3712 invite link shows the join card for maintenance / cleaning / ecolab",
+      "App.jsx:3253 CREW_LINK_ROLES",
+      "App.jsx:35211-35240 a saved link session opens the board on every load",
+      "App.jsx:35250-35252 a link session is never idle-locked",
+      "tools/demo/demo-data.mjs:67 TOKENS trymaintenance / trycleaning / tryecolab",
+      "CLAUDE.md v488",
+      "App.jsx 3294-3303 + 3331 (CrewLangPills sit at the top of the join card, above Welcome; the card opens in English unless Spanish was picked before)",
+      "App.jsx 3252 (the saved crew session is kept per venue: sdx_crew_session_<venue>); index.html 37-43 (the venue comes from ?v= and is kept only for that tab)"
+     ]
+    },
+    {
+     "id": "language",
+     "title": {
+      "en": "Pick your language",
+      "es": "Elija su idioma"
+     },
+     "do": {
+      "en": [
+       "On your board, tap English, Español or Kreyòl at the top.",
+       "The buttons change to your language."
+      ],
+      "es": [
+       "En su tablero, toque English, Español o Kreyòl arriba.",
+       "Los botones cambian a su idioma."
+      ]
+     },
+     "ui": [
+      "English",
+      "Español",
+      "Kreyòl"
+     ],
+     "tip": {
+      "en": "The problem text the inspector wrote is translated by the page translator. Stand names stay as written.",
+      "es": "El texto del problema que escribió el inspector lo traduce el traductor de la página. Los nombres de los puestos no cambian."
+     },
+     "say": {
+      "en": "Pick English, Español or Kreyòl at the top. The buttons change right away, and your phone remembers your choice.",
+      "es": "Elija English, Español o Kreyòl arriba. Los botones cambian al momento y su teléfono recuerda lo que eligió."
+     },
+     "evidence": [
+      "App.jsx:3294-3303 CrewLangPills on the join card (saves sdx_crew_lang)",
+      "App.jsx:12154-12171 board language state, T(en, es, ht), pickLang -> applyLanguage",
+      "App.jsx:12498-12503 English / Español / Kreyòl pills on the board",
+      "CLAUDE.md v431, v432, v491"
+     ]
+    },
+    {
+     "id": "card",
+     "title": {
+      "en": "Read a job card",
+      "es": "Lea una tarjeta de trabajo"
+     },
+     "do": {
+      "en": [
+       "Find your stand: name and # unit, listed by floor.",
+       "Read what is wrong under the title.",
+       "A card can list several problems on the same unit (· 3 issues, numbered). One Done closes all of them, so fix them all first.",
+       "If there is a BEFORE photo, look at it.",
+       "⏰ overdue means the job is late."
+      ],
+      "es": [
+       "Busque su puesto: nombre y número de unidad, por piso.",
+       "Lea qué está mal debajo del título.",
+       "Una tarjeta puede tener varios problemas de la misma unidad («· 3 problemas», numerados). Un solo «Listo» los cierra todos: arréglelos todos primero.",
+       "Si hay foto «Antes», mírela.",
+       "«⏰ atrasado» quiere decir que el trabajo va tarde."
+      ]
+     },
+     "ui": [
+      "things to do",
+      "Before",
+      "After",
+      "⏰ overdue"
+     ],
+     "tip": {
+      "en": "Tap a photo to see it big.",
+      "es": "Toque una foto para verla en grande."
+     },
+     "say": {
+      "en": "Every card is one job: the stand, its unit number, what is wrong and the BEFORE photo when there is one. Late jobs say overdue.",
+      "es": "Cada tarjeta es un trabajo: el puesto, su número de unidad, qué está mal y la foto de antes si la hay. Los trabajos que van tarde dicen «atrasado»."
+     },
+     "evidence": [
+      "App.jsx:12510-12515 hello line (Hi NAME · N things to do · overdue)",
+      "App.jsx:12350-12392 renderCrewItem: title, detail, meta (flagged / overdue), Before / After photos",
+      "App.jsx:12465-12468 photo lightbox",
+      "App.jsx:12552-12562 floor heads and stand heads (🍳 NAME · #unit)",
+      "App.jsx:12117 CREW_TYPES (maintenance also gets Building)",
+      "App.jsx 12386 (the Before / After block shows only when the job has a picture; an empty Before side reads \"no photo\")",
+      "App.jsx 12372-12376 (· N issues + numbered list when a card holds several problems); 12298 + v502 (commit writes to every member of a merged card)"
+     ]
+    },
+    {
+     "id": "start",
+     "title": {
+      "en": "Start a job",
+      "es": "Empiece un trabajo"
+     },
+     "do": {
+      "en": [
+       "Tap I'm working on it on the card.",
+       "Add a note if you want.",
+       "Tap Send."
+      ],
+      "es": [
+       "Toque «Estoy en eso» en la tarjeta.",
+       "Agregue una nota si quiere.",
+       "Toque «Enviar»."
+      ]
+     },
+     "ui": [
+      "I'm working on it",
+      "Note (optional)",
+      "Send",
+      "🔧 In process"
+     ],
+     "tip": {
+      "en": "Send it when you start: your minutes on the job count from that Send.",
+      "es": "Envíelo al empezar: los minutos en el trabajo se cuentan desde ese «Enviar»."
+     },
+     "say": {
+      "en": "Heading to the job? Tap I'm working on it, then Send. The clock starts, and the inspector knows you're on it.",
+      "es": "¿Va para el trabajo? Toque «Estoy en eso» y luego «Enviar». El reloj empieza y el inspector sabe que usted ya está en eso."
+     },
+     "try": {
+      "href": "https://joxelds.github.io/Claude/?v=riverside-demo&invite=trymaintenance",
+      "note": {
+       "en": "Demo maintenance board. Already joined another demo crew on this phone? Tap ☰ → Sign out of this phone first.",
+       "es": "Tablero de mantenimiento de prueba. ¿Ya entró con otro equipo de prueba en este teléfono? Primero toque ☰ → «Salir de este teléfono»."
+      }
+     },
+     "evidence": [
+      "App.jsx:12437 crew-work button (I'm working on it / Estoy en eso)",
+      "App.jsx:12395-12396 action box title",
+      "App.jsx:12423 Note (optional) / Nota (opcional)",
+      "App.jsx:12427-12431 crew-send (Send / Enviar)",
+      "App.jsx:12284-12287 start time and minutes from the in-process tap",
+      "App.jsx:12394 status stamp 🔧 In process — NAME",
+      "CLAUDE.md v438, v488",
+      "App.jsx 12437 (I'm working on it only opens the box; Cancel records nothing), 12285-12288 (startTs = the ts of the in_progress entry that Send writes)"
+     ]
+    },
+    {
+     "id": "waiting",
+     "title": {
+      "en": "Waiting on something",
+      "es": "Esperando algo"
+     },
+     "do": {
+      "en": [
+       "Tap more… on the card.",
+       "Tap ⏳ Waiting on…",
+       "Write what you are waiting for (a part, a vendor).",
+       "Tap Send."
+      ],
+      "es": [
+       "Toque «más…» en la tarjeta.",
+       "Toque «⏳ Esperando…».",
+       "Escriba qué espera (una pieza, un proveedor).",
+       "Toque «Enviar»."
+      ]
+     },
+     "ui": [
+      "more…",
+      "⏳ Waiting on…",
+      "⏳ Waiting on what?",
+      "Send"
+     ],
+     "tip": {
+      "en": "Send stays grey until you write what you are waiting for.",
+      "es": "«Enviar» sigue gris hasta que escriba qué está esperando."
+     },
+     "say": {
+      "en": "Waiting on a part or a vendor? Tap more…, then Waiting on…, write what you need, and send it.",
+      "es": "¿Espera una pieza o un proveedor? Toque «más…», luego «Esperando…», escriba qué necesita y envíelo."
+     },
+     "evidence": [
+      "App.jsx:12439-12443 more… then ⏳ Waiting on… (más… / ⏳ Esperando…)",
+      "App.jsx:12396 title ⏳ Waiting on what? (⏳ ¿Esperando qué?)",
+      "App.jsx:12429 Send disabled while the waiting note is empty",
+      "App.jsx:12290 waiting status keeps the note"
+     ]
+    },
+    {
+     "id": "done",
+     "title": {
+      "en": "Done: add the AFTER photo",
+      "es": "Listo: agregue la foto de después"
+     },
+     "do": {
+      "en": [
+       "Tap Done — add photo.",
+       "Tap Take photo (or Upload) for the AFTER picture.",
+       "Add a note if you want, then tap Send."
+      ],
+      "es": [
+       "Toque «Listo — agregar foto».",
+       "Toque «Tomar foto» (o «Subir») para la foto de después.",
+       "Agregue una nota si quiere y toque «Enviar»."
+      ]
+     },
+     "ui": [
+      "Done — add photo",
+      "✅ Done — show it",
+      "After photo required",
+      "Take photo",
+      "Upload",
+      "Send"
+     ],
+     "tip": {
+      "en": "No AFTER photo, no Send: the button stays grey until the photo is in. Cleaning crew: also tap one of the two buttons in the next step.",
+      "es": "Sin foto de después no hay envío: el botón sigue gris hasta que la foto esté puesta. Equipo de limpieza: también toque uno de los dos botones del paso siguiente."
+     },
+     "say": {
+      "en": "All done? Tap Done, add photo. Snap the AFTER picture, add a note if you like, and tap Send. The photo is your proof.",
+      "es": "¿Terminó? Toque «Listo — agregar foto». Tome la foto de después, agregue una nota si quiere y toque «Enviar». La foto es su prueba."
+     },
+     "try": {
+      "note": {
+       "en": "In the demo any picture works as the AFTER photo. Other visitors share the demo, so a job you send may disappear for them too.",
+       "es": "En la demo cualquier foto sirve como foto de después. Otras personas usan la misma demo, así que un trabajo que usted envía también desaparece para ellas."
+      }
+     },
+     "evidence": [
+      "App.jsx:12438 crew-done (Done — add photo / Listo — agregar foto)",
+      "App.jsx:12396 ✅ Done — show it / ✅ Listo — muéstralo",
+      "App.jsx:12399-12411 After photo required, Take photo / Tomar foto, Upload / Subir",
+      "App.jsx:12429 Send disabled until an AFTER photo is added",
+      "App.jsx:12318 flash Sent to the inspector / Enviado al inspector",
+      "App.jsx:12320-12334 addAfterPhotos tags the photo after",
+      "CLAUDE.md v451, v488"
+     ]
+    },
+    {
+     "id": "clean-how",
+     "title": {
+      "en": "Cleaning crew: say how you found it",
+      "es": "Equipo de limpieza: diga cómo lo encontró"
+     },
+     "do": {
+      "en": [
+       "In the Done box, tap We cleaned it or It was already clean.",
+       "Then tap Send."
+      ],
+      "es": [
+       "En la caja de «Listo», toque «Lo limpiamos» o «Ya estaba limpio».",
+       "Luego toque «Enviar»."
+      ]
+     },
+     "ui": [
+      "We cleaned it",
+      "It was already clean",
+      "Send"
+     ],
+     "tip": {
+      "en": "Writing 'we cleaned it' or 'already clean' in the note picks the button for you.",
+      "es": "Si escribe «lo limpiamos» o «ya estaba limpio» en la nota, la app elige el botón por usted."
+     },
+     "say": {
+      "en": "Cleaning crew, one more tap: We cleaned it, or It was already clean. Then Send. The inspector sees how you found it.",
+      "es": "Equipo de limpieza, un toque más: «Lo limpiamos» o «Ya estaba limpio». Luego «Enviar». El inspector ve cómo lo encontró."
+     },
+     "try": {
+      "href": "https://joxelds.github.io/Claude/?v=riverside-demo&invite=trycleaning",
+      "note": {
+       "en": "Demo cleaning board. These two buttons show only for the cleaning crew. Already joined another demo crew on this phone? Tap ☰ → Sign out of this phone first.",
+       "es": "Tablero de limpieza de prueba. Estos dos botones solo salen para el equipo de limpieza. ¿Ya entró con otro equipo de prueba en este teléfono? Primero toque ☰ → «Salir de este teléfono»."
+      }
+     },
+     "evidence": [
+      "App.jsx:12414-12422 We cleaned it / Lo limpiamos · It was already clean / Ya estaba limpio (role cleaning only)",
+      "App.jsx:12424 the note picks the button when none was tapped",
+      "App.jsx:12429 Send disabled for cleaning until one is picked",
+      "App.jsx:12289-12292 how is stored and named in the comment",
+      "CLAUDE.md v434, v467",
+      "App.jsx 35214-35240 (a saved crew session signs itself back in on every load, whatever invite link was opened)"
+     ]
+    },
+    {
+     "id": "move",
+     "title": {
+      "en": "Not your job? Move it",
+      "es": "¿No es su trabajo? Muévalo"
+     },
+     "do": {
+      "en": [
+       "Tap more… on the card.",
+       "Tap Not mine → move.",
+       "Under This belongs to:, tap the right crew."
+      ],
+      "es": [
+       "Toque «más…» en la tarjeta.",
+       "Toque «No es mío → mover».",
+       "En «Esto es de:», toque el equipo correcto (los nombres salen en inglés: Cleaning = limpieza, Maintenance = mantenimiento, Building = edificio, Pest Control = plagas, Other = otro)."
+      ]
+     },
+     "ui": [
+      "more…",
+      "Not mine → move",
+      "This belongs to:",
+      "Cancel"
+     ],
+     "tip": {
+      "en": "Tap Cleaning, Maintenance or Ecolab and the job goes to that crew's board. Pest Control and Other leave the crew boards; the inspector still sees them in Follow-ups.",
+      "es": "Si toca Cleaning, Maintenance o Ecolab, el trabajo pasa al tablero de ese equipo. Pest Control y Other salen de los tableros de los equipos; el inspector los sigue viendo."
+     },
+     "say": {
+      "en": "Not your kind of job? Tap more…, then Not mine, move, and pick the right crew. The job goes to that crew's board.",
+      "es": "¿No es su tipo de trabajo? Toque «más…», luego «No es mío → mover» y elija el equipo correcto. El trabajo pasa al tablero de ese equipo."
+     },
+     "try": {
+      "href": "https://joxelds.github.io/Claude/?v=riverside-demo&invite=tryecolab",
+      "note": {
+       "en": "Demo Ecolab board. Already joined another demo crew on this phone? Tap ☰ → Sign out of this phone first.",
+       "es": "Tablero de Ecolab de prueba. ¿Ya entró con otro equipo de prueba en este teléfono? Primero toque ☰ → «Salir de este teléfono»."
+      }
+     },
+     "evidence": [
+      "App.jsx:12359-12366 move row (This belongs to: / Esto es de:) and Not mine → move / No es mío → mover",
+      "App.jsx:12442-12446 more… opens the move button in the simple view",
+      "App.jsx:12227-12236 moveTo writes the new crew type and tells that crew",
+      "App.jsx:5425-5428 ISSUE_TYPES and issueTypeLabel (English chip names)",
+      "App.jsx 12364 (chips = every ISSUE_TYPE except the card's own and Temperature), 12117 (CREW_TYPES: maintenance = Maintenance + Building, cleaning, ecolab — no board takes Pest Control), 12238 (Other only with \"+ other problems\")"
+     ]
+    },
+    {
+     "id": "more-options",
+     "title": {
+      "en": "More options: search and sort",
+      "es": "Más opciones: buscar y ordenar"
+     },
+     "do": {
+      "en": [
+       "Tap ⚙ More options.",
+       "Search by unit #, stand or problem.",
+       "Pick one stand, or switch By Stand / By Problem.",
+       "Tap Simple view to go back."
+      ],
+      "es": [
+       "Toque «⚙ Más opciones».",
+       "Busque por número de unidad, puesto o problema.",
+       "Elija un puesto, o cambie entre «Por puesto» y «Por problema».",
+       "Toque «Vista simple» para volver."
+      ]
+     },
+     "ui": [
+      "More options",
+      "All stands",
+      "By Stand",
+      "By Problem",
+      "show fixed",
+      "Simple view"
+     ],
+     "tip": {
+      "en": "By Problem puts the same problem from every stand together.",
+      "es": "«Por problema» junta el mismo problema de todos los puestos."
+     },
+     "say": {
+      "en": "Lots of jobs? More options gives you search, one stand at a time, By Stand or By Problem. Simple view brings the big buttons back.",
+      "es": "¿Muchos trabajos? «Más opciones» le da búsqueda, un puesto a la vez, «Por puesto» o «Por problema». «Vista simple» le devuelve los botones grandes."
+     },
+     "evidence": [
+      "App.jsx:12514 crew-more-options (⚙ More options / Más opciones)",
+      "App.jsx:12201-12203 simple view default, setSimpleSave",
+      "App.jsx:12517-12545 stats, search, All stands, By Stand / By Problem, show fixed",
+      "App.jsx:12486 menu More options / Simple view",
+      "App.jsx:12245-12251 By Problem groups the same category across stands"
+     ]
+    },
+    {
+     "id": "reports",
+     "title": {
+      "en": "Read reports, sign out",
+      "es": "Lea reportes, salga"
+     },
+     "do": {
+      "en": [
+       "Tap ☰, then Reports with … issues.",
+       "Tap a report to read its problems and photos.",
+       "Tap Back to my list to return.",
+       "Shared phone? Tap ☰ → Sign out of this phone."
+      ],
+      "es": [
+       "Toque ☰ y luego «Reportes con problemas de …».",
+       "Toque un reporte para leer sus problemas y fotos.",
+       "Toque «Volver a mi lista» para regresar.",
+       "¿Teléfono compartido? Toque ☰ → «Salir de este teléfono»."
+      ]
+     },
+     "ui": [
+      "Reports",
+      "Back to my list",
+      "Refresh",
+      "Sign out of this phone"
+     ],
+     "tip": {
+      "en": "After signing out you need the link again to get back in.",
+      "es": "Después de salir, necesita el enlace otra vez para volver a entrar."
+     },
+     "say": {
+      "en": "Want the whole report? Open the menu for Reports. On a shared phone, tap Sign out of this phone when your shift ends.",
+      "es": "¿Quiere ver el reporte completo? Abra el menú y toque Reportes. En un teléfono compartido, toque «Salir de este teléfono» al terminar su turno."
+     },
+     "evidence": [
+      "App.jsx:12484 menu 📄 Reports with ... issues (Reportes con problemas de ...)",
+      "App.jsx:12506 Reports tab in More options (Reportes)",
+      "App.jsx:12508 Back to my list / Volver a mi lista",
+      "App.jsx:12337-12343 reports from the last 60 days with this crew's problems",
+      "App.jsx:12565-12590 reports list, tap to open, photos",
+      "App.jsx:12485 Refresh / Actualizar",
+      "App.jsx:12489 Sign out of this phone / Salir de este teléfono (confirm)",
+      "App.jsx:36406 sign out clears the link session",
+      "CLAUDE.md v488"
+     ]
+    }
+   ],
+   "check": [
+    {
+     "q": {
+      "en": "How do you get into your crew board the first time?",
+      "es": "¿Cómo entra a su tablero de equipo la primera vez?"
+     },
+     "options": {
+      "en": [
+       "Type your badge number and a password",
+       "Open the link the inspector texted, type your name, tap Open my board",
+       "Download a separate crew app from the store",
+       "Ask the stand supervisor to sign you in"
+      ],
+      "es": [
+       "Escribe su número de credencial y una contraseña",
+       "Abre el enlace que el inspector le envió, escribe su nombre y toca «Abrir mi tablero»",
+       "Descarga otra app para equipos en la tienda",
+       "Le pide al supervisor del puesto que le dé acceso"
+      ]
+     },
+     "answer": 1,
+     "why": {
+      "en": "Crews join from the texted link with just their name, no badge. After that, the same link on that phone opens the board by itself.",
+      "es": "Los equipos entran con el enlace del mensaje y solo su nombre, sin credencial. Después, el mismo enlace en ese teléfono abre el tablero solo."
+     }
+    },
+    {
+     "q": {
+      "en": "You tapped Done — add photo, but Send is grey. Why?",
+      "es": "Tocó «Listo — agregar foto», pero «Enviar» está gris. ¿Por qué?"
+     },
+     "options": {
+      "en": [
+       "You must write a long note first",
+       "Only the inspector can send it",
+       "You still need to add the AFTER photo",
+       "The job is overdue"
+      ],
+      "es": [
+       "Primero tiene que escribir una nota larga",
+       "Solo el inspector puede enviarlo",
+       "Todavía falta la foto de después",
+       "El trabajo está atrasado"
+      ]
+     },
+     "answer": 2,
+     "why": {
+      "en": "Send stays off until an AFTER photo is in (the cleaning crew also picks We cleaned it or It was already clean). The note is optional.",
+      "es": "«Enviar» no se activa hasta que haya una foto de después (el equipo de limpieza también elige «Lo limpiamos» o «Ya estaba limpio»). La nota es opcional."
+     }
+    },
+    {
+     "q": {
+      "en": "The part you need is on order and comes Thursday. What do you do on the card?",
+      "es": "La pieza que necesita está pedida y llega el jueves. ¿Qué hace en la tarjeta?"
+     },
+     "options": {
+      "en": [
+       "Tap more…, then ⏳ Waiting on…, write 'part on order, Thursday', and tap Send",
+       "Tap Done — add photo so it leaves your list",
+       "Tap Not mine → move",
+       "Do nothing until Thursday"
+      ],
+      "es": [
+       "Toca «más…», luego «⏳ Esperando…», escribe «pieza pedida, jueves» y toca «Enviar»",
+       "Toca «Listo — agregar foto» para que salga de su lista",
+       "Toca «No es mío → mover»",
+       "No hace nada hasta el jueves"
+      ]
+     },
+     "answer": 0,
+     "why": {
+      "en": "Waiting on… tells the inspector why the job is still open. Done is only for jobs that are really fixed, with an AFTER photo.",
+      "es": "«Esperando…» le dice al inspector por qué el trabajo sigue abierto. «Listo» es solo para trabajos ya arreglados, con foto de después."
+     }
+    }
+   ]
+  },
+  {
+   "id": "admin",
+   "icon": "⚙️",
+   "title": {
+    "en": "Admin: set up a venue",
+    "es": "Administrador: configurar un lugar"
+   },
+   "who": {
+    "en": "Venue managers and admins who set up a new venue. Inspectors can do most of the steps too.",
+    "es": "Gerentes y administradores que configuran un lugar nuevo. Los inspectores también pueden hacer casi todos los pasos."
+   },
+   "intro": {
+    "en": "You set up a new venue in seven steps: invite the team, make the stand list, print the stand posters and the equipment stickers, walk every stand, verify it, and connect the people at each stand. Practice on the demo with badge 448800. It is an inspector account, so it can do every step except the invites and the venue name and logo, which need a venue admin. Other visitors share the demo, so undo what you add.",
+    "es": "Usted configura un lugar nuevo en siete pasos: invitar al equipo, hacer la lista de puestos, imprimir los afiches de los puestos y los stickers de los equipos, recorrer cada puesto, verificarlo y conectar a la gente de cada puesto. Practique en la demo con la credencial 448800. Es una cuenta de inspector, así que puede hacer todos los pasos menos las invitaciones y el nombre y logo del lugar, que necesitan un administrador del lugar. Otros visitantes comparten la demo, así que deshaga lo que agregue."
+   },
+   "demo": "https://joxelds.github.io/Claude/?v=riverside-demo",
+   "steps": [
+    {
+     "id": "open-setup",
+     "title": {
+      "en": "Open the setup checklist",
+      "es": "Abra la lista de configuración"
+     },
+     "do": {
+      "en": [
+       "Open the demo and sign in with badge 448800.",
+       "Open the ☰ menu → Set up this venue (N of 7).",
+       "Do the 7 steps in order. Each one shows how far you are.",
+       "Tap Go to open its screen (a step that is already done shows Open).",
+       "Nothing is mandatory. You can come back any time."
+      ],
+      "es": [
+       "Abra la demo y entre con la credencial 448800.",
+       "Abra el menú ☰ → «Set up this venue» (configurar este lugar).",
+       "Haga los 7 pasos en orden. Cada uno muestra cuánto le falta.",
+       "Toque «Go» (ir) para abrir su pantalla; un paso ya hecho muestra «Open» (abrir).",
+       "Nada es obligatorio. Puede volver cuando quiera."
+      ]
+     },
+     "ui": [
+      "Set up this venue",
+      "Go",
+      "Open"
+     ],
+     "tip": {
+      "en": "On a new venue with no stands yet, this page opens by itself after you sign in.",
+      "es": "En un lugar nuevo sin puestos, esta página se abre sola al entrar."
+     },
+     "say": {
+      "en": "Welcome, manager! Open the menu and tap Set up this venue. Seven steps, in order, and each one shows how far you are.",
+      "es": "¡Le damos la bienvenida! Abra el menú y toque «Set up this venue». Son siete pasos, en orden, y cada uno le muestra cuánto le falta."
+     },
+     "try": {
+      "href": "https://joxelds.github.io/Claude/?v=riverside-demo",
+      "note": {
+       "en": "Sign in with badge 448800, then open the ☰ menu.",
+       "es": "Entre con la credencial 448800 y abra el menú ☰."
+      }
+     },
+     "evidence": [
+      "App.jsx:37237-37239 menu entry 'Set up this venue ({setupQuickDone} of {SETUP_STEPS_N})', shown when canSetupUser or location_manager",
+      "App.jsx:25464-25519 SETUP_STEPS_N = 7 and venueSetupSteps (team, stands, posters, stickers, walk, verify, people)",
+      "App.jsx:25586 canGo: the team step needs admin / global_admin",
+      "App.jsx:25603 'Nothing here is mandatory, and you can come back any time'",
+      "App.jsx:25617-25619 Go / Open buttons",
+      "App.jsx:24160-24165 SETUP_ROLES + canSetupUser: the demo badge keeps setup on riverside-demo",
+      "App.jsx:33908-33921 auto-open on a venue with 0 stands",
+      "tools/demo/demo-data.mjs:62 448800 = Demo Inspector, role inspector",
+      "CLAUDE.md v563, v566",
+      "App.jsx 25618 ({st.done ? \"Open\" : \"Go\"} →): a step that is done shows Open; on the demo, steps 1 and 2 are already done"
+     ]
+    },
+    {
+     "id": "name-logo",
+     "title": {
+      "en": "Add your venue name and logo",
+      "es": "Ponga el nombre y el logo del lugar"
+     },
+     "do": {
+      "en": [
+       "Open the ☰ menu → Admin Panel → the Venue name & logo card.",
+       "Type the venue name. Add a company name if you want it in the header.",
+       "Tap Pick a picture for the logo, then tap Save.",
+       "The name goes on every stand poster and equipment sticker."
+      ],
+      "es": [
+       "Abra el menú ☰ → «Admin Panel» (panel de administración) → la tarjeta «Venue name & logo» (nombre y logo del lugar).",
+       "Escriba el nombre del lugar. Agregue el nombre de la empresa si lo quiere en el encabezado.",
+       "Toque «Pick a picture» (elegir una foto) para el logo y luego «Save» (guardar).",
+       "El nombre sale en cada afiche de puesto y en cada sticker de equipo."
+      ]
+     },
+     "ui": [
+      "Admin Panel",
+      "Venue name",
+      "Pick a picture",
+      "Save"
+     ],
+     "tip": {
+      "en": "Do this before you print, so posters and stickers carry your name.",
+      "es": "Hágalo antes de imprimir, para que los afiches y stickers lleven su nombre."
+     },
+     "say": {
+      "en": "First, put your venue's name and logo in the Admin Panel. They print on every poster and sticker, so do it before you print.",
+      "es": "Primero, ponga el nombre y el logo del lugar en «Admin Panel». Salen en cada afiche y sticker, así que hágalo antes de imprimir."
+     },
+     "try": {
+      "href": "https://joxelds.github.io/Claude/?v=riverside-demo",
+      "note": {
+       "en": "Badge 448800 is an inspector, so it does not see the Admin Panel. A venue admin account does this step.",
+       "es": "La credencial 448800 es de inspector y no ve «Admin Panel». Este paso lo hace una cuenta de administrador del lugar."
+      }
+     },
+     "evidence": [
+      "App.jsx:26712-26735 Venue name & logo card (Venue name, Company / brand name, Pick a picture, Save)",
+      "App.jsx:26715 'Your venue's name goes on every stand poster, equipment sticker, sign-in screen and link you send'",
+      "App.jsx:37247-37252 Admin Panel menu entry only for admin / global_admin",
+      "App.jsx:24380 poster header prints venueDisplayLabel()",
+      "CLAUDE.md v563 (g12)"
+     ]
+    },
+    {
+     "id": "invite-team",
+     "title": {
+      "en": "Invite your team",
+      "es": "Invite a su equipo"
+     },
+     "do": {
+      "en": [
+       "Admin Panel → 🔗 Invite links. Tap Create link for each role.",
+       "Tap 📱 Text or QR to send the link.",
+       "Cleaning, Maintenance and Ecolab crews only type their name — no badge. Inspectors and managers pick a badge number.",
+       "↻ New makes a new link. The old link stops working, and crew phones that joined with it are signed out. People with a badge keep signing in with their badge."
+      ],
+      "es": [
+       "«Admin Panel» → «🔗 Invite links» (enlaces de invitación). Toque «Create link» (crear enlace) en cada rol.",
+       "Toque «📱 Text» (mensaje de texto) o «QR» para enviar el enlace.",
+       "Los equipos de limpieza, mantenimiento y Ecolab solo escriben su nombre, sin credencial. Inspectores y gerentes eligen un número de credencial.",
+       "«↻ New» (nuevo) hace un enlace nuevo. El enlace viejo deja de funcionar y se cierra la sesión en los teléfonos de los equipos que entraron con él. Quien tiene credencial sigue entrando con su credencial."
+      ]
+     },
+     "ui": [
+      "🔗 Invite links",
+      "Create link",
+      "📱 Text",
+      "QR",
+      "↻ New"
+     ],
+     "tip": {
+      "en": "A crew phone stays signed in after it opens the link — no idle lock.",
+      "es": "El teléfono de un equipo queda conectado después de abrir el enlace, sin bloqueo por inactividad."
+     },
+     "say": {
+      "en": "Invite your team with links. Crews just type their name, no badge. Inspectors pick a badge. Text the link, or show its QR.",
+      "es": "Invite a su equipo con enlaces. Los equipos solo escriben su nombre, sin credencial. Los inspectores eligen una credencial. Envíe el enlace por texto o muestre su QR."
+     },
+     "try": {
+      "href": "https://joxelds.github.io/Claude/?v=riverside-demo&invite=trycleaning",
+      "note": {
+       "en": "See what a cleaning crew member gets from your link: type a name and the board opens, no badge.",
+       "es": "Vea lo que recibe alguien del equipo de limpieza: escribe un nombre y se abre su tablero, sin credencial."
+      }
+     },
+     "evidence": [
+      "App.jsx:27137-27139 '🔗 Invite links' card: crews need no badge, inspectors and managers pick a badge, ↻ New signs out old phones",
+      "App.jsx:27166-27186 one row per role: 📤 Share, Copy, QR, 📱 Text, ↻ New, Create link",
+      "App.jsx:3199-3206 REQUEST_ROLES (Inspector, Maintenance crew, Cleaning crew, Ecolab rep, Location manager / supervisor, Guest inspector)",
+      "App.jsx:27195-27209 Invite QR modal (⬇ Save PNG, 🖨 Print, Copy link)",
+      "App.jsx:25488-25493 setup step 1 'Invite your team'",
+      "tools/demo/demo-data.mjs:67 demo TOKENS",
+      "CLAUDE.md v488, v424",
+      "App.jsx 35221-35224 (only a saved crew LINK session is signed out when its token changes); badge accounts are users records and keep signing in"
+     ]
+    },
+    {
+     "id": "import-stands",
+     "title": {
+      "en": "Import the stand list",
+      "es": "Importe la lista de puestos"
+     },
+     "do": {
+      "en": [
+       "Setup step 2 Make the stand list → Go (or Open).",
+       "Tap ⬇ Template and fill in Unit, Name, Floor, Type and License, and delete the sample rows. Bars and pantries: leave License empty.",
+       "Tap 📥 Import stands from Excel / CSV and pick your file.",
+       "Check the list: pick a type where it says TYPE?, tap ✓ right on each amber type that is correct (a guess you do not confirm is added with no type), then tap ＋ Add N stands."
+      ],
+      "es": [
+       "Paso 2 «Make the stand list» (hacer la lista de puestos) → «Go» (u «Open»).",
+       "Toque «⬇ Template» (plantilla) y llene las columnas Unit, Name, Floor, Type y License (unidad, nombre, piso, tipo, licencia), y borre las filas de ejemplo. Bares y despensas: deje License vacío.",
+       "Toque «📥 Import stands from Excel / CSV» (importar puestos) y elija su archivo.",
+       "Revise la lista: elija el tipo donde dice «TYPE?» (¿tipo?), toque «✓ right» (correcto) en cada tipo en ámbar que esté bien (si no lo confirma, el puesto se agrega sin tipo) y luego «＋ Add N stands» (agregar N puestos)."
+      ]
+     },
+     "ui": [
+      "Make the stand list",
+      "⬇ Template",
+      "📥 Import stands from Excel / CSV",
+      "TYPE?",
+      "✓ right",
+      "↩ Undo this import"
+     ],
+     "tip": {
+      "en": "Made a mistake? ↩ Undo this import takes those stands off the list again.",
+      "es": "¿Se equivocó? «↩ Undo this import» (deshacer la importación) quita esos puestos otra vez."
+     },
+     "say": {
+      "en": "Make the stand list. Download the template, fill it in, and import it. Bars and pantries need no license — leave that box empty.",
+      "es": "Haga la lista de puestos. Descargue la plantilla, llénela e impórtela. Los bares y las despensas no necesitan licencia: deje esa casilla vacía."
+     },
+     "try": {
+      "href": "https://joxelds.github.io/Claude/?v=riverside-demo",
+      "note": {
+       "en": "Other visitors share the demo — after a test import, tap ↩ Undo this import.",
+       "es": "Otros visitantes comparten la demo: después de una prueba, toque «↩ Undo this import»."
+      }
+     },
+     "evidence": [
+      "App.jsx:25234-25237 📥 Import stands from Excel / CSV + ⬇ Template buttons",
+      "App.jsx:24879-24890 downloadStandTemplate: Unit,Name,Floor,Type,License; bars and pantries need no license",
+      "App.jsx:24519 parseStandSheet (xlsx / csv)",
+      "App.jsx:25241-25277 preview: Keep, TYPE?, guessed types, ＋ Add N stands, ↩ Undo this import",
+      "App.jsx:24846 confirmStandImport, 24867 undoStandImport",
+      "App.jsx:25493-25497 setup step 2 'Make the stand list'",
+      "CLAUDE.md v546, v563",
+      "App.jsx 25259 + 25268 (types guessed from the name are amber with \"guessed from the name ✓ right\"; \"A guess left unchecked is added with no type\"), 25276 (＋ Add N stands)",
+      "App.jsx 24879-24892 downloadStandTemplate (6 sample rows SAMPLE GRILL … SAMPLE CART and \"Delete the sample rows\")"
+     ]
+    },
+    {
+     "id": "add-stand",
+     "title": {
+      "en": "Add a stand by hand",
+      "es": "Agregue un puesto a mano"
+     },
+     "do": {
+      "en": [
+       "In ➕ Add a stand, pick the type first.",
+       "Type the Unit #, the name and the floor.",
+       "Add the license number. A Bar or a Pantry needs none.",
+       "Tap ＋ Add stand."
+      ],
+      "es": [
+       "En «➕ Add a stand» (agregar un puesto), elija primero el tipo.",
+       "Escriba «Unit #» (número de unidad), el nombre y el piso («Floor»).",
+       "Agregue el número de licencia. Un bar o una despensa no la necesitan.",
+       "Toque «＋ Add stand» (agregar puesto)."
+      ]
+     },
+     "ui": [
+      "➕ Add a stand",
+      "Unit #",
+      "Floor",
+      "＋ Add stand"
+     ],
+     "tip": {
+      "en": "Removed a stand by mistake? Tap ↩ Undo right away.",
+      "es": "¿Quitó un puesto por error? Toque «↩ Undo» (deshacer) enseguida."
+     },
+     "say": {
+      "en": "One stand missing? Add it by hand. Pick the type first, then the unit number and the name. Done.",
+      "es": "¿Falta un puesto? Agréguelo a mano. Elija primero el tipo, luego el número de unidad y el nombre. Listo."
+     },
+     "try": {
+      "href": "https://joxelds.github.io/Claude/?v=riverside-demo",
+      "note": {
+       "en": "Add one test stand, then remove it with ✕ — other visitors share the demo.",
+       "es": "Agregue un puesto de prueba y luego quítelo con ✕: otros visitantes comparten la demo."
+      }
+     },
+     "evidence": [
+      "App.jsx:25232-25293 ➕ Add a stand card: type select first, Unit #, name, Floor, license, ＋ Add stand",
+      "App.jsx:25233 hint 'Pick the type first (bars and pantries need no license)'",
+      "App.jsx:25288 license placeholder 'No license needed for a ${addType}'",
+      "App.jsx:1568-1570 isLicenseExemptType = Bar or Pantry",
+      "App.jsx:25077-25083 ✕ removed → ↩ Undo",
+      "App.jsx:24770 addKitchen",
+      "CLAUDE.md v563 (B)"
+     ]
+    },
+    {
+     "id": "print-posters",
+     "title": {
+      "en": "Print the stand posters",
+      "es": "Imprima los afiches de los puestos"
+     },
+     "do": {
+      "en": [
+       "Setup step 3 Print the stand posters → Go (or Open).",
+       "Tap a floor button to pick that floor, or Select All.",
+       "Tap 🖨 Print. You get one poster per stand, in floor and unit order.",
+       "Tape each poster where that stand's team sees it."
+      ],
+      "es": [
+       "Paso 3 «Print the stand posters» (imprimir los afiches) → «Go» (u «Open»).",
+       "Toque el botón de un piso para elegirlo, o «Select All» (elegir todo).",
+       "Toque «🖨 Print» (imprimir). Sale un afiche por puesto, en orden de piso y de unidad.",
+       "Pegue cada afiche donde lo vea el equipo de ese puesto."
+      ]
+     },
+     "ui": [
+      "Print the stand posters",
+      "Select All",
+      "🖨 Print"
+     ],
+     "tip": {
+      "en": "Print one floor at a time. A big print job gets a divider page at the start of each floor.",
+      "es": "Imprima un piso a la vez. Si imprime muchos afiches, una hoja separadora abre cada piso."
+     },
+     "say": {
+      "en": "Print one poster per stand, one floor at a time. The stand team scans it with the phone camera — no app needed.",
+      "es": "Imprima un afiche por puesto, un piso a la vez. El equipo del puesto lo escanea con la cámara del teléfono, sin app."
+     },
+     "try": {
+      "href": "https://joxelds.github.io/Claude/?v=riverside-demo&haccp=1&site=BURGER+BASE&unit=101&loctype=Concession",
+      "note": {
+       "en": "This is what a stand's poster opens: the stand's temperature log, no app.",
+       "es": "Esto es lo que abre el afiche de un puesto: su registro de temperaturas, sin app."
+      }
+     },
+     "evidence": [
+      "App.jsx:25068-25071 header '🖨 Print ({toPrint.length})'",
+      "App.jsx:25320 Select All / Deselect All",
+      "App.jsx:25323-25342 one button per floor ('🏢 {fl} ({ids.length})')",
+      "App.jsx:25002-25016 printPosters sorted by standPrintOrder, records posterAt",
+      "App.jsx:24119 standPrintOrder (floor → unit)",
+      "App.jsx:24373 dividers when 6 or more posters",
+      "App.jsx:25100 'Print the posters, one floor at a time … No app, no login'",
+      "App.jsx:25498-25501 setup step 3",
+      "CLAUDE.md v441, v464, v563"
+     ]
+    },
+    {
+     "id": "stickers",
+     "title": {
+      "en": "Print equipment stickers",
+      "es": "Imprima los stickers de los equipos"
+     },
+     "do": {
+      "en": [
+       "Setup step 4 Print equipment stickers → Go (or Open), or tap 🏷 Stickers on the Equipment & stickers tab.",
+       "Pick Every stand or one floor for the units already on file.",
+       "For units not in the system yet, print blank stickers — about 5 per stand.",
+       "Use Avery 5163 / 8163 (2\" × 4\", 10 per sheet) and print at 100% / Actual size."
+      ],
+      "es": [
+       "Paso 4 «Print equipment stickers» (imprimir stickers de equipos) → «Go» (u «Open»), o «🏷 Stickers» en la pestaña de equipos.",
+       "Elija «Every stand» (todos los puestos) o un piso, para los equipos que ya están en el sistema.",
+       "Para los equipos que aún no están, imprima stickers en blanco: unos 5 por puesto.",
+       "Use hojas Avery 5163 / 8163 (2\" × 4\", 10 por hoja) e imprima al 100 % / tamaño real."
+      ]
+     },
+     "ui": [
+      "Print equipment stickers",
+      "🏷 Stickers",
+      "Every stand",
+      "Blank stickers for units not in the system yet",
+      "Skip the first labels on the sheet"
+     ],
+     "tip": {
+      "en": "Used part of a sheet already? Set Skip the first labels on the sheet.",
+      "es": "¿Ya usó parte de una hoja? Use «Skip the first labels on the sheet» (saltar las primeras etiquetas)."
+     },
+     "say": {
+      "en": "Now stickers for the equipment. Avery 5163 or 8163, ten per sheet. Print at actual size, and print blank ones for new units.",
+      "es": "Ahora, los stickers de los equipos. Avery 5163 o 8163, diez por hoja. Imprima a tamaño real, e imprima stickers en blanco para equipos nuevos."
+     },
+     "try": {
+      "href": "https://joxelds.github.io/Claude/?v=riverside-demo",
+      "note": {
+       "en": "The demo already has coolers and freezers on file — pick one stand and print a test sheet.",
+       "es": "La demo ya tiene neveras y congeladores: elija un puesto e imprima una hoja de prueba."
+      }
+     },
+     "evidence": [
+      "App.jsx:23610 floor bar '🏷 Stickers'",
+      "App.jsx:23856-23857 '🏷 Equipment stickers' · 'Avery 5163 / 8163 · 2\" × 4\" · 10 per sheet'",
+      "App.jsx:23873-23874 Every stand / floor chips",
+      "App.jsx:23887-23889 Skip the first labels on the sheet + Print N stickers",
+      "App.jsx:23893-23897 Blank stickers for units not in the system yet (suggested: 5 per stand)",
+      "App.jsx:23899 'Print at 100% / Actual size (not \"Fit to page\") … best from a computer'",
+      "App.jsx:25502-25505 setup step 4",
+      "App.jsx:876 equipStickerSheetHtml",
+      "CLAUDE.md v560, v563"
+     ]
+    },
+    {
+     "id": "walk-through",
+     "title": {
+      "en": "Walk-through: a sticker on every unit",
+      "es": "Recorrido: un sticker en cada equipo"
+     },
+     "do": {
+      "en": [
+       "At the stand, tap 📷 Scan a poster or sticker and scan the stand's poster.",
+       "Put a sticker on each unit, tap 📷 Scan stickers and scan it.",
+       "Tap what it is and type the Serial number from the nameplate.",
+       "Tap ✅ Sticker on — done."
+      ],
+      "es": [
+       "En el puesto, toque «📷 Scan a poster or sticker» (escanear afiche o sticker) y escanee el afiche del puesto.",
+       "Pegue un sticker en cada equipo, toque «📷 Scan stickers» (escanear stickers) y escanéelo.",
+       "Toque qué es («What is it?») y escriba el «Serial number» (número de serie) de la placa del equipo.",
+       "Toque «✅ Sticker on — done» (sticker puesto, listo)."
+      ]
+     },
+     "ui": [
+      "📷 Scan a poster or sticker",
+      "📷 Scan stickers",
+      "What is it?",
+      "Serial number",
+      "✅ Sticker on — done"
+     ],
+     "tip": {
+      "en": "Serial already on file at another stand? Tap ↔ Yes — move it here: the unit keeps its history.",
+      "es": "¿El número de serie ya está en otro puesto? Toque «↔ Yes — move it here» (sí, moverlo aquí): el equipo guarda su historial."
+     },
+     "say": {
+      "en": "Walk each stand. Stick, scan, tap what it is, type the serial number. The serial follows the unit if it moves to another stand.",
+      "es": "Recorra cada puesto. Pegue, escanee, toque qué es y escriba el número de serie. El número de serie sigue al equipo si lo mueven a otro puesto."
+     },
+     "try": {
+      "href": "https://joxelds.github.io/Claude/?v=riverside-demo",
+      "note": {
+       "en": "No sticker at hand? Open BURGER BASE #101, tap 📷 Scan stickers and type SDX-CL-101-1 in the box under the camera.",
+       "es": "¿No tiene sticker? Abra BURGER BASE #101, toque «📷 Scan stickers» y escriba SDX-CL-101-1 en la casilla bajo la cámara."
+      }
+     },
+     "evidence": [
+      "App.jsx:23620 '📷 Scan a poster or sticker' (canSetup)",
+      "App.jsx:23279 stand panel '📷 Scan stickers'",
+      "App.jsx:23729-23737 What is it? kind chips, Equipment name, Serial number (nameplate)",
+      "App.jsx:23752-23756 💾 Save / ✅ Sticker on — done",
+      "App.jsx:23762-23773 serial match → '↔ Yes — move it here'",
+      "App.jsx:22267 scanner line '✔ NAME · TAG — set up at STAND'",
+      "App.jsx:21171-21174 QrScanModal '…or type the tag on the sticker'",
+      "App.jsx:23170-23171 sticker QR = tag; serial tracks a moved unit",
+      "App.jsx:25506-25509 setup step 5",
+      "tools/demo/demo-data.mjs:42 SDX-CL-101-1 at 101",
+      "CLAUDE.md v560"
+     ]
+    },
+    {
+     "id": "verify",
+     "title": {
+      "en": "Verify each stand",
+      "es": "Verifique cada puesto"
+     },
+     "do": {
+      "en": [
+       "Tap 🔍 Verify walk and open a stand.",
+       "For each unit tap ✔ It's here, ✏ Fix or 🗑 Not here — or just scan its sticker.",
+       "When every unit is confirmed, tap ✅ Mark stand verified."
+      ],
+      "es": [
+       "Toque «🔍 Verify walk» (recorrido de verificación) y abra un puesto.",
+       "En cada equipo toque «✔ It's here» (está aquí), «✏ Fix» (corregir) o «🗑 Not here» (no está), o escanee su sticker.",
+       "Cuando todos estén confirmados, toque «✅ Mark stand verified» (marcar puesto verificado)."
+      ]
+     },
+     "ui": [
+      "🔍 Verify walk",
+      "✔ It's here",
+      "✏ Fix",
+      "🗑 Not here",
+      "✅ Mark stand verified"
+     ],
+     "tip": {
+      "en": "A stand with no cold equipment? Tap ✅ Verified — no cold equipment here.",
+      "es": "¿Un puesto sin equipos de frío? Toque «✅ Verified — no cold equipment here» (verificado, sin equipos de frío)."
+     },
+     "say": {
+      "en": "Then verify each stand. Confirm every unit is there and has its serial number, then mark the stand verified.",
+      "es": "Luego verifique cada puesto. Confirme que cada equipo está ahí y tiene su número de serie, y marque el puesto como verificado."
+     },
+     "try": {
+      "href": "https://joxelds.github.io/Claude/?v=riverside-demo",
+      "note": {
+       "en": "Open a demo stand with a cooler, such as TACO TERRACE #104, and confirm its unit.",
+       "es": "Abra un puesto de la demo con nevera, como TACO TERRACE #104, y confirme su equipo."
+      }
+     },
+     "evidence": [
+      "App.jsx:23617-23619 '🔍 Verify walk' toggle (canSetup)",
+      "App.jsx:23296-23312 Verify this stand card: hint, '✅ Mark stand verified', '✅ Verified — no cold equipment here', 'Confirm every unit first'",
+      "App.jsx:22555-22572 renderVerifyRow: ✔ It's here, ✏ Fix, 🗑 Not here, ↔ Move…",
+      "App.jsx:22115 markStandVerified",
+      "App.jsx:25510-25513 setup step 6",
+      "tools/demo/demo-data.mjs:44 SDX-CL-104-1 at 104",
+      "CLAUDE.md v392, v560, v563"
+     ]
+    },
+    {
+     "id": "people",
+     "title": {
+      "en": "Connect the stand people",
+      "es": "Conecte a la gente de cada puesto"
+     },
+     "do": {
+      "en": [
+       "On a stand's poster card, tap ＋ Add person.",
+       "Type the name and phone, then tap ✓ Save.",
+       "Tap ✉ Text link: the supervisor gets their own link to that stand, with their name already in.",
+       "To go through everyone, open 👥 People → 📨 Text everyone (one text per person)."
+      ],
+      "es": [
+       "En la tarjeta del afiche del puesto, toque «＋ Add person» (agregar persona).",
+       "Escriba el nombre y el teléfono, y toque «✓ Save» (guardar).",
+       "Toque «✉ Text link» (enviar enlace): el supervisor recibe su propio enlace a ese puesto, con su nombre ya puesto.",
+       "Para enviarlo a todos, abra «👥 People» (personas) → «📨 Text everyone» (enviar a todos): un mensaje por persona."
+      ]
+     },
+     "ui": [
+      "＋ Add person",
+      "✓ Save",
+      "✉ Text link",
+      "👥 People",
+      "📨 Text everyone"
+     ],
+     "tip": {
+      "en": "People who already logged from a stand's poster show up on its card by themselves.",
+      "es": "Quien ya registró desde el afiche de un puesto aparece solo en su tarjeta."
+     },
+     "say": {
+      "en": "Last, connect the stand people. Add each supervisor's name and phone, then text the link. Their link opens their own stand.",
+      "es": "Por último, conecte a la gente de cada puesto. Agregue el nombre y el teléfono de cada supervisor y envíe el enlace. Su enlace abre su propio puesto."
+     },
+     "try": {
+      "href": "https://joxelds.github.io/Claude/?v=riverside-demo",
+      "note": {
+       "en": "Demo phone numbers are made up — read the text, but do not send it.",
+       "es": "Los teléfonos de la demo son inventados: lea el mensaje, pero no lo envíe."
+      }
+     },
+     "evidence": [
+      "App.jsx:24599-24608 renderPerson: ✉ Text link (sms), 💬 WhatsApp, 📋 copy",
+      "App.jsx:24609-24628 renderPeopleBlock: ＋ Add person, Name / Phone / Role, ✓ Save; empty text 'add the supervisor's name and phone, then text them the stand link'",
+      "App.jsx:24030-24033 standInviteText with standInviteUrl(k, person)",
+      "App.jsx:25062-25066 header 👥 People",
+      "App.jsx:25037 📨 Text everyone (stepper, one person at a time)",
+      "App.jsx:25040 'Names and phones appear here as soon as someone files a log from a stand QR'",
+      "App.jsx:25514-25517 setup step 7",
+      "CLAUDE.md v468, v470"
+     ]
+    }
+   ],
+   "check": [
+    {
+     "q": {
+      "en": "Which stands need no license number?",
+      "es": "¿Qué puestos no necesitan número de licencia?"
+     },
+     "options": {
+      "en": [
+       "Concessions",
+       "Bars and pantries",
+       "Portable carts",
+       "Kitchens"
+      ],
+      "es": [
+       "Concesiones",
+       "Bares y despensas",
+       "Carritos portátiles",
+       "Cocinas"
+      ]
+     },
+     "answer": 1,
+     "why": {
+      "en": "The app treats a Bar and a Pantry as license-exempt. Leave the License box empty for them.",
+      "es": "La app no pide licencia a un bar ni a una despensa. Deje vacía la casilla de licencia para ellos."
+     }
+    },
+    {
+     "q": {
+      "en": "How do you print the equipment stickers so they land on the labels?",
+      "es": "¿Cómo imprime los stickers de equipos para que caigan en las etiquetas?"
+     },
+     "options": {
+      "en": [
+       "\"Fit to page\" on plain paper",
+       "From the phone, any size",
+       "At 100% / Actual size, on Avery 5163 or 8163",
+       "One sticker per sheet"
+      ],
+      "es": [
+       "«Ajustar a la página» en papel normal",
+       "Desde el teléfono, de cualquier tamaño",
+       "Al 100 % / tamaño real, en Avery 5163 u 8163",
+       "Un sticker por hoja"
+      ]
+     },
+     "answer": 2,
+     "why": {
+      "en": "The app says to print at 100% / Actual size, not \"Fit to page\", on a 2\" × 4\" sheet of 10 — best from a computer.",
+      "es": "La app pide imprimir al 100 % / tamaño real, no «Ajustar a la página», en una hoja de 10 de 2\" × 4\", mejor desde una computadora."
+     }
+    },
+    {
+     "q": {
+      "en": "Why do you type the serial number on the walk-through?",
+      "es": "¿Para qué escribe el número de serie en el recorrido?"
+     },
+     "options": {
+      "en": [
+       "It keeps track of the unit if it moves to another stand",
+       "It sets the unit's temperature limit",
+       "It is the crew's sign-in code",
+       "It prints on the stand poster"
+      ],
+      "es": [
+       "Para seguir al equipo si lo mueven a otro puesto",
+       "Para fijar el límite de temperatura",
+       "Es el código de entrada del equipo de trabajo",
+       "Se imprime en el afiche del puesto"
+      ]
+     },
+     "answer": 0,
+     "why": {
+      "en": "The sticker's QR is only the tag. The serial is the unit's identity, so a moved unit is found again (↔ Yes — move it here).",
+      "es": "El QR del sticker es solo la etiqueta. El número de serie identifica al equipo, así se encuentra aunque lo muevan («↔ Yes — move it here»)."
+     }
+    }
+   ]
+  }
+ ]
+}
