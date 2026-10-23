@@ -5,7 +5,7 @@ Quiet room, phone about 20 cm (8 in) from your mouth, normal speed, a short paus
 
 ## English
 
-Halftime. The line is long, and a tray of hot dogs has been sitting on the counter for a while. Is it still safe? Hi, I'm Inspector Joxel. In this lesson, you'll learn why food safety matters, and why it starts with you.
+Halftime. The line is long, and a tray of hot dogs has been sitting on the counter for a while. Is it still safe? Hi, I'm Inspector Dex. In this lesson, you'll learn why food safety matters, and why it starts with you.
 
 Foodborne illness means getting sick from food or drink. Germs or chemicals in food can cause it. People may get stomach cramps, vomiting, diarrhea, or fever. And objects in food, like glass, can hurt people too. The CDC estimates that about 48 million people in the United States get sick from food every year.
 
@@ -25,7 +25,7 @@ The one thing to remember: you are the last check before food reaches a customer
 
 ## Español
 
-Es medio tiempo. La fila es larga, y una bandeja de hot dogs lleva un buen rato sobre el mostrador. ¿Todavía es segura? Hola, soy el Inspector Joxel. En esta lección va a aprender por qué importa la seguridad de los alimentos y por qué empieza con usted.
+Es medio tiempo. La fila es larga, y una bandeja de hot dogs lleva un buen rato sobre el mostrador. ¿Todavía es segura? Hola, soy el Inspector Dex. En esta lección va a aprender por qué importa la seguridad de los alimentos y por qué empieza con usted.
 
 Una enfermedad transmitida por alimentos es enfermarse por algo que uno comió o bebió. La pueden causar gérmenes o químicos en la comida. La persona puede tener dolor de estómago, vómito, diarrea o fiebre. Y los objetos en la comida, como un pedazo de vidrio, también pueden lastimar a la gente. Los CDC calculan que unos 48 millones de personas en Estados Unidos se enferman por alimentos cada año.
 

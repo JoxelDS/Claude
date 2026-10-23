@@ -1,7 +1,7 @@
 {
  "title_en": "Food Handler Basics",
  "title_es": "Conceptos básicos para manipuladores de alimentos",
- "host": "Inspector Joxel (cartoon host; look and voice pending)",
+ "host": "Inspector Dex (SDX Inspect's cartoon inspector; AI voice for now)",
  "basis": "2022 FDA Food Code (section numbers in facts[].source). Local rules may be stricter.",
  "certificate": "In-house certificate of completion from SDX Inspect. This is not a state food handler card or any other official certification.",
  "lessons": [
@@ -26,10 +26,10 @@
    "beats": [
     {
      "beat": 1,
-     "onscreen_en": "Illustration: a busy food stand at halftime, long line of fans. A tray of hot dogs sits on the counter, away from the hot holding unit. Inspector Joxel (navy cap, long hair tied back, white shirt, blue gloves) walks in holding his tablet and looks at the tray. Title card: 'Lesson 1 - Why food safety matters'.",
-     "say_en": "Halftime. The line is long, and a tray of hot dogs has been sitting on the counter for a while. Is it still safe? Hi, I'm Inspector Joxel. In this lesson, you'll learn why food safety matters, and why it starts with you.",
-     "onscreen_es": "Ilustración: un puesto de comida lleno en el medio tiempo, con una fila larga de fanáticos. Una bandeja de hot dogs está sobre el mostrador, lejos del equipo que mantiene la comida caliente. El Inspector Joxel (gorra azul marino, pelo largo recogido, camisa blanca, guantes azules) entra con su tableta y mira la bandeja. Título: 'Lección 1 - Por qué importa la seguridad de los alimentos'.",
-     "say_es": "Es medio tiempo. La fila es larga, y una bandeja de hot dogs lleva un buen rato sobre el mostrador. ¿Todavía es segura? Hola, soy el Inspector Joxel. En esta lección va a aprender por qué importa la seguridad de los alimentos y por qué empieza con usted."
+     "onscreen_en": "Illustration: a busy food stand at halftime, long line of fans. A tray of hot dogs sits on the counter, away from the hot holding unit. Inspector Dex (navy cap with a white ✓, short brown hair, white shirt with two pockets, blue gloves) walks in holding his tablet and looks at the tray. Title card: 'Lesson 1 - Why food safety matters'.",
+     "say_en": "Halftime. The line is long, and a tray of hot dogs has been sitting on the counter for a while. Is it still safe? Hi, I'm Inspector Dex. In this lesson, you'll learn why food safety matters, and why it starts with you.",
+     "onscreen_es": "Ilustración: un puesto de comida lleno en el medio tiempo, con una fila larga de fanáticos. Una bandeja de hot dogs está sobre el mostrador, lejos del equipo que mantiene la comida caliente. El Inspector Dex (gorra azul marino con un ✓ blanco, pelo castaño corto, camisa blanca con dos bolsillos, guantes azules) entra con su tableta y mira la bandeja. Título: 'Lección 1 - Por qué importa la seguridad de los alimentos'.",
+     "say_es": "Es medio tiempo. La fila es larga, y una bandeja de hot dogs lleva un buen rato sobre el mostrador. ¿Todavía es segura? Hola, soy el Inspector Dex. En esta lección va a aprender por qué importa la seguridad de los alimentos y por qué empieza con usted."
     },
     {
      "beat": 2,
@@ -68,23 +68,23 @@
     },
     {
      "beat": 7,
-     "onscreen_en": "Joxel ticks a checklist on his tablet: 'Wash hands', 'Check and log temps', 'Clean and sanitize surfaces', 'Vomiting or diarrhea? Tell your manager. Do not work.' App screen: the SDX Inspect stand temperature log showing 'Walk-in cooler 38°F - logged' with a green check.",
+     "onscreen_en": "Dex ticks a checklist on his tablet: 'Wash hands', 'Check and log temps', 'Clean and sanitize surfaces', 'Vomiting or diarrhea? Tell your manager. Do not work.' App screen: the SDX Inspect stand temperature log showing 'Walk-in cooler 38°F - logged' with a green check.",
      "say_en": "So what is your job? Wash your hands the right way, and often. Check temperatures and write them down. Keep surfaces clean and sanitized. And if you have vomiting or diarrhea, tell your manager before your shift, or right away if it starts at work. With vomiting or diarrhea, you must not work.",
-     "onscreen_es": "Joxel marca una lista en su tableta: 'Lavarse las manos', 'Revisar y anotar temperaturas', 'Limpiar y desinfectar superficies', '¿Vómito o diarrea? Avísele a su gerente. No trabaje.' Pantalla de la app: el registro de temperaturas del puesto en SDX Inspect con 'Cámara fría 38 °F - registrado' y una marca verde.",
+     "onscreen_es": "Dex marca una lista en su tableta: 'Lavarse las manos', 'Revisar y anotar temperaturas', 'Limpiar y desinfectar superficies', '¿Vómito o diarrea? Avísele a su gerente. No trabaje.' Pantalla de la app: el registro de temperaturas del puesto en SDX Inspect con 'Cámara fría 38 °F - registrado' y una marca verde.",
      "say_es": "Entonces, ¿cuál es su trabajo? Lávese las manos bien y con frecuencia. Revise las temperaturas y anótelas. Mantenga las superficies limpias y desinfectadas. Y si tiene vómito o diarrea, avísele a su gerente antes del turno, o de inmediato si le empieza en el trabajo. Con vómito o diarrea, usted no puede trabajar."
     },
     {
      "beat": 8,
-     "onscreen_en": "Back to the hot dog tray. Joxel puts a probe thermometer in a hot dog: the display reads '120°F' in red, under a line marked '135°F'. He waves the manager over. Footer text: 'Your local rules or your venue may be stricter.'",
+     "onscreen_en": "Back to the hot dog tray. Dex puts a probe thermometer in a hot dog: the display reads '120°F' in red, under a line marked '135°F'. He waves the manager over. Footer text: 'Your local rules or your venue may be stricter.'",
      "say_en": "Back to our hot dogs. The thermometer reads 120 degrees. That is below 135, so it is too cold. Tell your manager right away. If nobody knows how long it sat out, throw it out. And remember: your local rules or your venue may be stricter.",
-     "onscreen_es": "Volvemos a la bandeja de hot dogs. Joxel mete un termómetro de sonda en un hot dog: la pantalla marca '120 °F' en rojo, por debajo de una línea de '135 °F'. Le hace señas al gerente para que venga. Texto abajo: 'Las reglas locales o las de su lugar de trabajo pueden ser más estrictas.'",
+     "onscreen_es": "Volvemos a la bandeja de hot dogs. Dex mete un termómetro de sonda en un hot dog: la pantalla marca '120 °F' en rojo, por debajo de una línea de '135 °F'. Le hace señas al gerente para que venga. Texto abajo: 'Las reglas locales o las de su lugar de trabajo pueden ser más estrictas.'",
      "say_es": "Volvamos a los hot dogs. El termómetro marca 120 grados. Eso está por debajo de 135, así que están demasiado fríos. Avísele a su gerente de inmediato. Si nadie sabe cuánto tiempo estuvieron ahí, hay que tirarlos a la basura. Y recuerde: las reglas locales o las de su lugar de trabajo pueden ser más estrictas."
     },
     {
      "beat": 9,
-     "onscreen_en": "Big end card: 'The one thing to remember: You are the last check before food reaches the customer.' Three small icons: clean hands, thermometer, speech bubble. Joxel tips his cap. Button: 'Next lesson'.",
+     "onscreen_en": "Big end card: 'The one thing to remember: You are the last check before food reaches the customer.' Three small icons: clean hands, thermometer, speech bubble. Dex gives a thumbs up. Button: 'Next lesson'.",
      "say_en": "The one thing to remember: you are the last check before food reaches a customer. Clean hands, the right temperatures, and speaking up keep people safe. See you in the next lesson.",
-     "onscreen_es": "Tarjeta final grande: 'Lo único que debe recordar: usted es el último control antes de que la comida llegue al cliente.' Tres íconos pequeños: manos limpias, termómetro, globo de diálogo. Joxel se toca la gorra. Botón: 'Siguiente lección'.",
+     "onscreen_es": "Tarjeta final grande: 'Lo único que debe recordar: usted es el último control antes de que la comida llegue al cliente.' Tres íconos pequeños: manos limpias, termómetro, globo de diálogo. Dex levanta el pulgar. Botón: 'Siguiente lección'.",
      "say_es": "Lo único que debe recordar: usted es el último control antes de que la comida llegue al cliente. Manos limpias, temperaturas correctas y avisar a tiempo protegen a la gente. Nos vemos en la próxima lección."
     }
    ],
@@ -262,7 +262,7 @@
   },
   {
    "id": "fh02",
-   "title_en": "Personal Hygiene and Handwashing",
+   "title_en": "Personal hygiene and handwashing",
    "title_es": "Higiene personal y lavado de manos",
    "objectives_en": [
     "Know when to wash your hands at work.",
@@ -283,10 +283,10 @@
    "beats": [
     {
      "beat": 1,
-     "onscreen_en": "Illustration: a busy stadium concession stand at halftime. A cook walks out of the restroom, walks past the hand sink, and grabs a bun with a bare hand. Freeze frame; glowing germ dots on the hands. Inspector Joxel steps in with a tablet. Title: Personal Hygiene & Handwashing.",
-     "say_en": "Halftime rush. A coworker comes out of the restroom, skips the sink, and grabs a bun with bare hands. Germs you can't see make guests sick. I'm Inspector Joxel. Let's fix this.",
-     "onscreen_es": "Ilustración: un puesto de comida de un estadio lleno en el medio tiempo. Un cocinero sale del baño, pasa de largo frente al lavamanos y agarra un pan con la mano sin guante. Imagen congelada; puntitos de gérmenes brillan en sus manos. Entra el Inspector Joxel con su tableta. Título: Higiene personal y lavado de manos.",
-     "say_es": "Medio tiempo y la fila está llena. Un compañero sale del baño, no pasa por el lavamanos y agarra un pan con la mano, sin guante. Los gérmenes que usted no ve enferman a los clientes. Soy el Inspector Joxel. Vamos a arreglar esto."
+     "onscreen_en": "Illustration: a busy stadium concession stand at halftime. A cook walks out of the restroom, walks past the hand sink, and grabs a bun with a bare hand. Freeze frame; glowing germ dots on the hands. Inspector Dex steps in with a tablet. Title: Personal Hygiene & Handwashing.",
+     "say_en": "Halftime rush. A coworker comes out of the restroom, skips the sink, and grabs a bun with bare hands. Germs you can't see make guests sick. I'm Inspector Dex. Let's fix this.",
+     "onscreen_es": "Ilustración: un puesto de comida de un estadio lleno en el medio tiempo. Un cocinero sale del baño, pasa de largo frente al lavamanos y agarra un pan con la mano sin guante. Imagen congelada; puntitos de gérmenes brillan en sus manos. Entra el Inspector Dex con su tableta. Título: Higiene personal y lavado de manos.",
+     "say_es": "Medio tiempo y la fila está llena. Un compañero sale del baño, no pasa por el lavamanos y agarra un pan con la mano, sin guante. Los gérmenes que usted no ve enferman a los clientes. Soy el Inspector Dex. Vamos a arreglar esto."
     },
     {
      "beat": 2,
@@ -325,9 +325,9 @@
     },
     {
      "beat": 7,
-     "onscreen_en": "Joxel checks a cook from head to toe: cap or hairnet ✓, beard net ✓; a watch, a bracelet and rings fly off into a cup while a plain band stays ✓; a dirty apron is swapped for a clean one ✓. Caption: 2-402.11 hair · 2-303.11 jewelry · 2-304.11 clean clothing.",
+     "onscreen_en": "Dex checks a cook from head to toe: cap or hairnet ✓, beard net ✓; a watch, a bracelet and rings fly off into a cup while a plain band stays ✓; a dirty apron is swapped for a clean one ✓. Caption: 2-402.11 hair · 2-303.11 jewelry · 2-304.11 clean clothing.",
      "say_en": "Hair goes under a hat or hairnet; beards under a beard net. No watches, bracelets or rings, except a plain band. Your local rules or your venue may be stricter. Wear clean clothes and a clean apron.",
-     "onscreen_es": "Joxel revisa a un cocinero de pies a cabeza: gorra o redecilla ✓, cubrebarba ✓; el reloj, la pulsera y los anillos salen volando a un vaso y un anillo liso se queda ✓; un delantal sucio se cambia por uno limpio ✓. Texto: 2-402.11 pelo · 2-303.11 joyas · 2-304.11 ropa limpia.",
+     "onscreen_es": "Dex revisa a un cocinero de pies a cabeza: gorra o redecilla ✓, cubrebarba ✓; el reloj, la pulsera y los anillos salen volando a un vaso y un anillo liso se queda ✓; un delantal sucio se cambia por uno limpio ✓. Texto: 2-402.11 pelo · 2-303.11 joyas · 2-304.11 ropa limpia.",
      "say_es": "El pelo va debajo de una gorra o una redecilla, y la barba debajo de un cubrebarba. No use relojes, pulseras ni anillos; solo se permite un anillo liso, como el de matrimonio. Las reglas locales o su lugar de trabajo pueden ser más estrictos. Use ropa limpia y un delantal limpio."
     },
     {
@@ -360,9 +360,9 @@
     },
     {
      "beat": 12,
-     "onscreen_en": "Joxel faces the camera, tablet in hand. Big text: CLEAN HANDS · NO BARE HANDS · SPEAK UP WHEN SICK. End card: 'Next: 5-question quiz' and 'SDX Inspect Food Handler Training'.",
+     "onscreen_en": "Dex faces the camera, tablet in hand. Big text: CLEAN HANDS · NO BARE HANDS · SPEAK UP WHEN SICK. End card: 'Next: 5-question quiz' and 'SDX Inspect Food Handler Training'.",
      "say_en": "The one thing to remember: clean hands protect every guest. Wash right, no bare hands on ready-to-eat food, and speak up when you're sick.",
-     "onscreen_es": "Joxel mira a la cámara con la tableta en la mano. Texto grande: MANOS LIMPIAS · NADA DE MANOS DESCUBIERTAS · AVISE SI ESTÁ ENFERMO. Pantalla final: 'A continuación: cuestionario de 5 preguntas' y 'Capacitación para manipuladores de alimentos — SDX Inspect'.",
+     "onscreen_es": "Dex mira a la cámara con la tableta en la mano. Texto grande: MANOS LIMPIAS · NADA DE MANOS DESCUBIERTAS · AVISE SI ESTÁ ENFERMO. Pantalla final: 'A continuación: cuestionario de 5 preguntas' y 'Capacitación para manipuladores de alimentos — SDX Inspect'.",
      "say_es": "Lo único que debe recordar: las manos limpias protegen a cada cliente. Lávese bien, no toque comida lista para comer con las manos descubiertas y avise cuando esté enfermo."
     }
    ],
@@ -376,7 +376,8 @@
     "Hair under a hat or hairnet, beards under a beard net; no jewelry on hands or arms except a plain band; clean clothes and apron (2-402.11, 2-303.11, 2-304.11).",
     "Eat, drink and smoke only in the break area; a closed drink with a lid may be allowed (2-401.11).",
     "Tell your supervisor about vomiting, diarrhea, yellow skin or eyes, sore throat with fever, an infected cut or boil, or a Big 6 diagnosis (2-201.11). Also tell them if someone you live with has one of the Big 6. With vomiting or diarrhea, you must stay home (2-201.12).",
-    "Cover a cut on your hand with a waterproof bandage or finger cot and a glove over it; if the cut is infected with pus, also tell your supervisor (2-201.11). Your local rules or your venue may be stricter."
+    "Cover a cut on your hand with a waterproof bandage or finger cot and a glove over it; if the cut is infected with pus, also tell your supervisor (2-201.11). Your local rules or your venue may be stricter.",
+    "Hand sinks need water at least 100°F (38°C) (5-202.12). The SDX app flags a hand sink below 95°F — aim for 100°F or more."
    ],
    "keypoints_es": [
     "Lávese las manos justo antes de empezar a trabajar con comida, después de ir al baño, después de tocar carne cruda, basura, platos sucios o tocarse la cara, el pelo o el teléfono, después de toser, estornudar, comer, beber o fumar, cuando cambie de tarea y antes de ponerse guantes (2-301.14).",
@@ -388,7 +389,8 @@
     "Pelo debajo de una gorra o redecilla, barba debajo de un cubrebarba; nada de joyas en manos o brazos, solo un anillo liso; ropa y delantal limpios (2-402.11, 2-303.11, 2-304.11).",
     "Coma, beba y fume solo en el área de descanso; a veces se permite una bebida cerrada con tapa (2-401.11).",
     "Avísele a su supervisor si tiene vómito, diarrea, piel u ojos amarillos, dolor de garganta con fiebre, una herida infectada o un forúnculo (nacido), o un diagnóstico de los Seis Grandes (2-201.11). Avise también si alguien con quien vive tiene uno de los Seis Grandes. Si tiene vómito o diarrea, debe quedarse en casa (2-201.12).",
-    "Cubra una cortada en la mano con una curita impermeable o un dedil y póngase un guante encima; si la herida está infectada con pus, avise también a su supervisor (2-201.11). Las reglas locales o su lugar de trabajo pueden ser más estrictos."
+    "Cubra una cortada en la mano con una curita impermeable o un dedil y póngase un guante encima; si la herida está infectada con pus, avise también a su supervisor (2-201.11). Las reglas locales o su lugar de trabajo pueden ser más estrictos.",
+    "El lavamanos debe dar agua de al menos 100°F (38°C) (5-202.12). La app SDX marca un lavamanos por debajo de 95°F — busque 100°F o más."
    ],
    "quiz": [
     {
@@ -579,6 +581,10 @@
     {
      "claim": "Norovirus is the leading cause of illness and outbreaks from contaminated food in the United States.",
      "source": "CDC, Norovirus (cdc.gov/norovirus) — Norovirus Facts and Stats"
+    },
+    {
+     "claim": "A handwashing sink must provide water at a temperature of at least 100°F (38°C), through a mixing valve or combination faucet.",
+     "source": "FDA Food Code 2022, 5-202.12(A)"
     }
    ]
   },
@@ -603,9 +609,9 @@
    "beats": [
     {
      "beat": 1,
-     "onscreen_en": "Illustration: a stadium food stand on game day, a long line of fans. A pan of hot dogs sits on a warmer. Joxel (navy cap, blue gloves, tablet under the arm) pushes a digital probe into one hot dog. The display reads 118°F (48°C). Caption: “Would you serve it?”",
+     "onscreen_en": "Illustration: a stadium food stand on game day, a long line of fans. A pan of hot dogs sits on a warmer. Dex (navy cap, blue gloves, tablet under the arm) pushes a digital probe into one hot dog. The display reads 118°F (48°C). Caption: “Would you serve it?”",
      "say_en": "Game day. Long line. Nobody has checked these hot dogs since the gates opened. I check one: 118 degrees. Would you serve it?",
-     "onscreen_es": "Ilustración: un puesto de comida del estadio en día de partido, con una fila larga de fanáticos. Una bandeja de hot dogs en el calentador. Joxel (gorra azul marino, guantes azules, tableta bajo el brazo) mete una sonda digital en un hot dog. La pantalla marca 118°F (48°C). Texto: “¿Usted lo serviría?”",
+     "onscreen_es": "Ilustración: un puesto de comida del estadio en día de partido, con una fila larga de fanáticos. Una bandeja de hot dogs en el calentador. Dex (gorra azul marino, guantes azules, tableta bajo el brazo) mete una sonda digital en un hot dog. La pantalla marca 118°F (48°C). Texto: “¿Usted lo serviría?”",
      "say_es": "Día de partido. Fila larga. Nadie ha revisado estos hot dogs desde que abrieron las puertas. Reviso uno: 118 grados. ¿Usted lo serviría?"
     },
     {
@@ -631,16 +637,16 @@
     },
     {
      "beat": 5,
-     "onscreen_en": "Joxel washes the probe stem, wipes it with a sanitizer wipe and holds it up to air-dry. Icons: “Clean → Sanitize → Air-dry”. Caption: “Before and after every use”. Quick animation: a dirty probe carries germs from raw chicken to a salad — big red ✗.",
+     "onscreen_en": "Dex washes the probe stem, wipes it with a sanitizer wipe and holds it up to air-dry. Icons: “Clean → Sanitize → Air-dry”. Caption: “Before and after every use”. Quick animation: a dirty probe carries germs from raw chicken to a salad — big red ✗.",
      "say_en": "Before and after every use, clean the probe, sanitize it, and let it air-dry. A dirty probe can carry germs from raw chicken into ready-to-eat food.",
-     "onscreen_es": "Joxel lava el vástago de la sonda, lo pasa con una toallita desinfectante y lo deja secar al aire. Íconos: “Limpiar → Desinfectar → Secar al aire”. Texto: “Antes y después de cada uso”. Animación rápida: una sonda sucia lleva gérmenes del pollo crudo a una ensalada — gran ✗ roja.",
+     "onscreen_es": "Dex lava el vástago de la sonda, lo pasa con una toallita desinfectante y lo deja secar al aire. Íconos: “Limpiar → Desinfectar → Secar al aire”. Texto: “Antes y después de cada uso”. Animación rápida: una sonda sucia lleva gérmenes del pollo crudo a una ensalada — gran ✗ roja.",
      "say_es": "Antes y después de cada uso, limpie la sonda, desinféctela y déjela secar al aire. Una sonda sucia puede pasar gérmenes del pollo crudo a la comida lista para comer."
     },
     {
      "beat": 6,
-     "onscreen_en": "Animation: a cup packed with crushed ice and cold water is stirred. The stem sits in the middle, not touching the cup. The needle settles at 32°F (0°C). Joxel turns the nut under the dial with a small wrench (a digital thermometer shows its calibration button). Caption: “Ice-point check · 32°F / 0°C · stem in at least to the dimple · not touching the cup · wait until it stops (about 30 s) · calibrate as the maker says — Food Code 4-502.11”. Tag: “Common venue rule: every shift and after a drop”.",
+     "onscreen_en": "Animation: a cup packed with crushed ice and cold water is stirred. The stem sits in the middle, not touching the cup. The needle settles at 32°F (0°C). Dex turns the nut under the dial with a small wrench (a digital thermometer shows its calibration button). Caption: “Ice-point check · 32°F / 0°C · stem in at least to the dimple · not touching the cup · wait until it stops (about 30 s) · calibrate as the maker says — Food Code 4-502.11”. Tag: “Common venue rule: every shift and after a drop”.",
      "say_en": "Thermometers can drift, so check yours with ice. Fill a cup with crushed ice and cold water, and stir. Put the stem in the middle, not touching the cup. It should read 32 degrees. If not, adjust it as the maker says, or use another. Many venues check every shift and after a drop.",
-     "onscreen_es": "Animación: se revuelve un vaso lleno de hielo picado y agua fría. El vástago queda en el centro, sin tocar el vaso. La aguja se estabiliza en 32°F (0°C). Joxel gira la tuerca debajo de la carátula con una llavecita (en uno digital se ve el botón de calibración). Texto: “Prueba del punto de hielo · 32°F / 0°C · vástago por lo menos hasta la marquita · sin tocar el vaso · espere a que se detenga (unos 30 s) · calibre como dice el fabricante — Código de Alimentos 4-502.11”. Etiqueta: “Regla común en muchos lugares: en cada turno y después de una caída”.",
+     "onscreen_es": "Animación: se revuelve un vaso lleno de hielo picado y agua fría. El vástago queda en el centro, sin tocar el vaso. La aguja se estabiliza en 32°F (0°C). Dex gira la tuerca debajo de la carátula con una llavecita (en uno digital se ve el botón de calibración). Texto: “Prueba del punto de hielo · 32°F / 0°C · vástago por lo menos hasta la marquita · sin tocar el vaso · espere a que se detenga (unos 30 s) · calibre como dice el fabricante — Código de Alimentos 4-502.11”. Etiqueta: “Regla común en muchos lugares: en cada turno y después de una caída”.",
      "say_es": "Los termómetros se pueden descalibrar, así que revise el suyo con hielo. Llene un vaso con hielo picado y agua fría, y revuelva. Ponga el vástago en el centro, sin tocar el vaso. Debe marcar 32 grados. Si no, ajústelo como dice el fabricante, o use otro. Muchos lugares lo revisan en cada turno y después de una caída."
     },
     {
@@ -659,16 +665,16 @@
     },
     {
      "beat": 9,
-     "onscreen_en": "Back to the 118°F hot dogs. A checklist builds step by step: 1 Stop serving · 2 How long? Your venue's plan sets the limit · 3 Inside the limit: reheat hot food fast (stove / grill, not the warmer) to 165°F (74°C) for 15 s within 2 hours, or chill cold food to 41°F (5°C) or below · Don't know? Throw it out · 4 Get the cause fixed and tell your supervisor · 5 Write it down. App screen: the reading logged in red “✗ 118°F — too cold, must be 135°F or more” and the question “What did you do?”; Joxel taps “Threw it out” and “Called maintenance”.",
+     "onscreen_en": "Back to the 118°F hot dogs. A checklist builds step by step: 1 Stop serving · 2 How long? Your venue's plan sets the limit · 3 Inside the limit: reheat hot food fast (stove / grill, not the warmer) to 165°F (74°C) for 15 s within 2 hours, or chill cold food to 41°F (5°C) or below · Don't know? Throw it out · 4 Get the cause fixed and tell your supervisor · 5 Write it down. App screen: the reading logged in red “✗ 118°F — too cold, must be 135°F or more” and the question “What did you do?”; Dex taps “Threw it out” and “Called maintenance”.",
      "say_en": "Back to our hot dogs. 118 is out of range. That needs a corrective action. Stop serving. How long has it been? Your venue's plan sets the limit. Inside that limit, reheat hot food fast to 165 degrees for 15 seconds, or chill cold food fast to 41 or below. Don't know? Throw it out. These? Nobody checked, so they go. Then get the warmer fixed, tell your supervisor, and log what you did.",
-     "onscreen_es": "De vuelta a los hot dogs a 118°F. Una lista aparece paso a paso: 1 Deje de servir · 2 ¿Cuánto tiempo? El plan de su lugar de trabajo pone el límite · 3 Dentro del límite: recaliente rápido la comida caliente (en la estufa o la plancha, no en el calentador) a 165°F (74°C) por 15 s en menos de 2 horas, o enfríe la comida fría a 41°F (5°C) o menos · ¿No sabe? Tírela · 4 Haga que arreglen la causa y avísele a su supervisor · 5 Anótelo. Pantalla de la app: la lectura en rojo “✗ 118°F — muy fría, debe estar a 135°F o más” y la pregunta “¿Qué hizo?”; Joxel toca “La tiré” y “Llamé a mantenimiento”.",
+     "onscreen_es": "De vuelta a los hot dogs a 118°F. Una lista aparece paso a paso: 1 Deje de servir · 2 ¿Cuánto tiempo? El plan de su lugar de trabajo pone el límite · 3 Dentro del límite: recaliente rápido la comida caliente (en la estufa o la plancha, no en el calentador) a 165°F (74°C) por 15 s en menos de 2 horas, o enfríe la comida fría a 41°F (5°C) o menos · ¿No sabe? Tírela · 4 Haga que arreglen la causa y avísele a su supervisor · 5 Anótelo. Pantalla de la app: la lectura en rojo “✗ 118°F — muy fría, debe estar a 135°F o más” y la pregunta “¿Qué hizo?”; Dex toca “La tiré” y “Llamé a mantenimiento”.",
      "say_es": "Volvamos a los hot dogs. 118 está fuera del rango. Eso requiere una acción correctiva. Deje de servir. ¿Cuánto tiempo lleva así? El plan de su lugar de trabajo pone el límite. Dentro de ese límite, recaliente rápido la comida caliente a 165 grados por 15 segundos, o enfríe rápido la fría a 41 o menos. ¿No sabe? Tírela. ¿Estos? Nadie los revisó, así que van a la basura. Luego haga que arreglen el calentador, avísele a su supervisor y anote lo que hizo."
     },
     {
      "beat": 10,
-     "onscreen_en": "Joxel faces the camera, tablet in hand, and tips the cap. End card: “Cold 41°F (5°C) or below · Hot 135°F (57°C) or above · Measure it. Write it. Fix it.”",
+     "onscreen_en": "Dex faces the camera, tablet in hand, and gives a thumbs up. End card: “Cold 41°F (5°C) or below · Hot 135°F (57°C) or above · Measure it. Write it. Fix it.”",
      "say_en": "The one thing to remember: cold at 41 or below, hot at 135 or above. Don't guess. Measure it, write it down, and fix it when it's wrong.",
-     "onscreen_es": "Joxel mira a la cámara con la tableta en la mano y se toca la gorra. Tarjeta final: “Frío: 41°F (5°C) o menos · Caliente: 135°F (57°C) o más · Mídalo. Anótelo. Corríjalo.”",
+     "onscreen_es": "Dex mira a la cámara con la tableta en la mano y levanta el pulgar. Tarjeta final: “Frío: 41°F (5°C) o menos · Caliente: 135°F (57°C) o más · Mídalo. Anótelo. Corríjalo.”",
      "say_es": "Lo único que debe recordar: lo frío, a 41 o menos; lo caliente, a 135 o más. No adivine. Mídalo, anótelo y corríjalo cuando esté mal."
     }
    ],
@@ -867,16 +873,16 @@
    "beats": [
     {
      "beat": 1,
-     "onscreen_en": "Illustration: a busy stand kitchen right after halftime. A big stockpot of chili sits on the steel counter, steam rising; a wall clock reads 3:00. Inspector Joxel walks in with his tablet and waves. Title card: 'Cooking, cooling and reheating'.",
-     "say_en": "Hi, I'm Inspector Joxel. Halftime is over, and there is a big pot of chili left. Someone leaves it on the counter to cool. It looks fine, but germs can grow in it fast. Today you'll learn to cook, cool and reheat food safely.",
-     "onscreen_es": "Ilustración: una cocina de puesto llena de actividad justo después del medio tiempo. Una olla grande de chili está sobre el mostrador de acero, echando vapor; el reloj de la pared marca las 3:00. El Inspector Joxel entra con su tableta y saluda. Título: 'Cocinar, enfriar y recalentar'.",
-     "say_es": "Hola, soy el Inspector Joxel. Se acabó el medio tiempo y sobró una olla grande de chili. Alguien la deja en el mostrador para que se enfríe. Se ve bien, pero ahí los gérmenes pueden crecer rápido. Hoy va a aprender a cocinar, enfriar y recalentar la comida de forma segura."
+     "onscreen_en": "Illustration: a busy stand kitchen right after halftime. A big stockpot of chili sits on the steel counter, steam rising; a wall clock reads 3:00. Inspector Dex walks in with his tablet and waves. Title card: 'Cooking, cooling and reheating'.",
+     "say_en": "Hi, I'm Inspector Dex. Halftime is over, and there is a big pot of chili left. Someone leaves it on the counter to cool. It looks fine, but germs can grow in it fast. Today you'll learn to cook, cool and reheat food safely.",
+     "onscreen_es": "Ilustración: una cocina de puesto llena de actividad justo después del medio tiempo. Una olla grande de chili está sobre el mostrador de acero, echando vapor; el reloj de la pared marca las 3:00. El Inspector Dex entra con su tableta y saluda. Título: 'Cocinar, enfriar y recalentar'.",
+     "say_es": "Hola, soy el Inspector Dex. Se acabó el medio tiempo y sobró una olla grande de chili. Alguien la deja en el mostrador para que se enfríe. Se ve bien, pero ahí los gérmenes pueden crecer rápido. Hoy va a aprender a cocinar, enfriar y recalentar la comida de forma segura."
     },
     {
      "beat": 2,
-     "onscreen_en": "Close-up: Joxel pushes a probe thermometer into the thickest part of a chicken breast. A temperature bar lights up red between 41°F and 135°F with the label 'Germs grow best here'. Text: 'Color lies. Thermometers don't.'",
+     "onscreen_en": "Close-up: Dex pushes a probe thermometer into the thickest part of a chicken breast. A temperature bar lights up red between 41°F and 135°F with the label 'Germs grow best here'. Text: 'Color lies. Thermometers don't.'",
      "say_en": "First, cooking. Color does not tell you food is safe. Only a thermometer can. Put the probe in the thickest part. Germs grow best between 41 and 135 degrees. The right cooking temperature kills most of them.",
-     "onscreen_es": "Primer plano: Joxel mete la punta de un termómetro en la parte más gruesa de una pechuga de pollo. Una barra de temperatura se ilumina en rojo entre 41 °F y 135 °F con la etiqueta 'Aquí crecen mejor los gérmenes'. Texto: 'El color engaña. El termómetro no.'",
+     "onscreen_es": "Primer plano: Dex mete la punta de un termómetro en la parte más gruesa de una pechuga de pollo. Una barra de temperatura se ilumina en rojo entre 41 °F y 135 °F con la etiqueta 'Aquí crecen mejor los gérmenes'. Texto: 'El color engaña. El termómetro no.'",
      "say_es": "Primero, cocinar. El color no le dice si la comida es segura. Solo el termómetro se lo dice. Meta la punta en la parte más gruesa. Los gérmenes crecen mejor entre 41 y 135 grados. Cocinar a la temperatura correcta mata a la mayoría."
     },
     {
@@ -937,16 +943,16 @@
     },
     {
      "beat": 11,
-     "onscreen_en": "App screen on Joxel's tablet: the SDX Inspect food temperature log for a demo stand — Cooking 168°F ✓, Reheating 166°F ✓, Hot holding 140°F ✓, each with the time it was logged.",
+     "onscreen_en": "App screen on Dex's tablet: the SDX Inspect food temperature log for a demo stand — Cooking 168°F ✓, Reheating 166°F ✓, Hot holding 140°F ✓, each with the time it was logged.",
      "say_en": "Write every reading in your temperature log, so your team and your inspector can see the food was safe.",
-     "onscreen_es": "Pantalla de la app en la tableta de Joxel: el registro de temperaturas de comida de SDX Inspect para un puesto de demostración — Cocción 168 °F ✓, Recalentado 166 °F ✓, Mantener caliente 140 °F ✓, cada uno con la hora en que se anotó.",
+     "onscreen_es": "Pantalla de la app en la tableta de Dex: el registro de temperaturas de comida de SDX Inspect para un puesto de demostración — Cocción 168 °F ✓, Recalentado 166 °F ✓, Mantener caliente 140 °F ✓, cada uno con la hora en que se anotó.",
      "say_es": "Anote cada lectura en su registro de temperaturas, así su equipo y su inspector pueden ver que la comida estuvo segura."
     },
     {
      "beat": 12,
-     "onscreen_en": "Joxel tips his cap and smiles. Card: 'The one thing to remember: Never guess — use a thermometer.' Small line under it: 'Cook it hot · Cool it fast · Reheat to 165°F'.",
+     "onscreen_en": "Dex gives a thumbs up and smiles. Card: 'The one thing to remember: Never guess — use a thermometer.' Small line under it: 'Cook it hot · Cool it fast · Reheat to 165°F'.",
      "say_en": "The one thing to remember: never guess. Cook it hot, cool it fast, reheat it to 165, and check every step with a thermometer.",
-     "onscreen_es": "Joxel se toca la gorra y sonríe. Tarjeta: 'Lo único que debe recordar: nunca adivine — use el termómetro.' Línea pequeña abajo: 'Cocine bien caliente · Enfríe rápido · Recaliente a 165 °F'.",
+     "onscreen_es": "Dex levanta el pulgar y sonríe. Tarjeta: 'Lo único que debe recordar: nunca adivine — use el termómetro.' Línea pequeña abajo: 'Cocine bien caliente · Enfríe rápido · Recaliente a 165 °F'.",
      "say_es": "Lo único que debe recordar: nunca adivine. Cocine bien caliente, enfríe rápido, recaliente a 165 y revise cada paso con un termómetro."
     }
    ],
@@ -1139,17 +1145,17 @@
    "beats": [
     {
      "beat": 1,
-     "onscreen_en": "Animation: a stand kitchen. A cook cuts raw chicken on a white cutting board, wipes the board with a towel, then slices tomatoes on the same board. Little green germ dots hop from the board onto the tomatoes. Inspector Joxel steps in with his tablet and raises a gloved hand: STOP.",
+     "onscreen_en": "Animation: a stand kitchen. A cook cuts raw chicken on a white cutting board, wipes the board with a towel, then slices tomatoes on the same board. Little green germ dots hop from the board onto the tomatoes. Inspector Dex steps in with his tablet and raises a gloved hand: STOP.",
      "say_en": "Picture this. A cook cuts raw chicken, wipes the board with a towel, and slices tomatoes on it for the burgers. The chicken germs just moved onto those tomatoes, and nobody cooks a tomato on a burger.",
-     "onscreen_es": "Animación: la cocina de un puesto. Un cocinero corta pollo crudo en una tabla blanca, la limpia con un trapo y rebana tomates en la misma tabla. Puntitos verdes de gérmenes saltan de la tabla a los tomates. El Inspector Joxel entra con su tableta y levanta la mano con guante: ALTO.",
+     "onscreen_es": "Animación: la cocina de un puesto. Un cocinero corta pollo crudo en una tabla blanca, la limpia con un trapo y rebana tomates en la misma tabla. Puntitos verdes de gérmenes saltan de la tabla a los tomates. El Inspector Dex entra con su tableta y levanta la mano con guante: ALTO.",
      "say_es": "Imagínese esto. Un cocinero corta pollo crudo, limpia la tabla con un trapo y en esa misma tabla rebana tomates para las hamburguesas. Los gérmenes del pollo acaban de pasar a los tomates, y nadie cocina el tomate de una hamburguesa."
     },
     {
      "beat": 2,
-     "onscreen_en": "Title card: CROSS-CONTAMINATION = germs moving from a food, a surface or hands to another food. Icons light up one by one: knife, cutting board, towel, gloves, a drip in the cooler. Joxel waves; name tag: Inspector Joxel.",
-     "say_en": "That is cross-contamination: germs moving from one food, surface, or hand to another food. They ride on knives, boards, towels, gloves, and juices that drip in the cooler. I'm Inspector Joxel. Let's stop it.",
-     "onscreen_es": "Título: CONTAMINACIÓN CRUZADA = gérmenes que pasan de un alimento, una superficie o las manos a otro alimento. Se encienden íconos uno por uno: cuchillo, tabla de cortar, trapo, guantes, una gota en el refrigerador. Joxel saluda; etiqueta: Inspector Joxel.",
-     "say_es": "Eso es contaminación cruzada: gérmenes que pasan de un alimento, una superficie o unas manos a otro alimento. Viajan en cuchillos, tablas, trapos, guantes y en los jugos que gotean en el refrigerador. Soy el Inspector Joxel. Vamos a evitarlo."
+     "onscreen_en": "Title card: CROSS-CONTAMINATION = germs moving from a food, a surface or hands to another food. Icons light up one by one: knife, cutting board, towel, gloves, a drip in the cooler. Dex waves; name tag: Inspector Dex.",
+     "say_en": "That is cross-contamination: germs moving from one food, surface, or hand to another food. They ride on knives, boards, towels, gloves, and juices that drip in the cooler. I'm Inspector Dex. Let's stop it.",
+     "onscreen_es": "Título: CONTAMINACIÓN CRUZADA = gérmenes que pasan de un alimento, una superficie o las manos a otro alimento. Se encienden íconos uno por uno: cuchillo, tabla de cortar, trapo, guantes, una gota en el refrigerador. Dex saluda; etiqueta: Inspector Dex.",
+     "say_es": "Eso es contaminación cruzada: gérmenes que pasan de un alimento, una superficie o unas manos a otro alimento. Viajan en cuchillos, tablas, trapos, guantes y en los jugos que gotean en el refrigerador. Soy el Inspector Dex. Vamos a evitarlo."
     },
     {
      "beat": 3,
@@ -1188,9 +1194,9 @@
     },
     {
      "beat": 8,
-     "onscreen_en": "Scene: a customer at the stand window asks, 'Does this have peanuts?' Joxel reads the ingredient label on the package, then calls his manager over. Big text: NEVER GUESS. Speech bubble: 'I'm not sure' beats a wrong 'no'. Caption: Check the label · Check the recipe · Ask your manager · FDA Food Code 2-102.11 · 2-103.11 · 3-602.12(C).",
+     "onscreen_en": "Scene: a customer at the stand window asks, 'Does this have peanuts?' Dex reads the ingredient label on the package, then calls his manager over. Big text: NEVER GUESS. Speech bubble: 'I'm not sure' beats a wrong 'no'. Caption: Check the label · Check the recipe · Ask your manager · FDA Food Code 2-102.11 · 2-103.11 · 3-602.12(C).",
      "say_en": "When a customer asks, 'Does this have peanuts?', be honest. Check the label or the recipe, or ask your manager. Never guess. If nobody is sure, tell the customer. 'I'm not sure' is better than a wrong 'no.'",
-     "onscreen_es": "Escena: un cliente en la ventanilla del puesto pregunta: '¿Esto tiene maní?' Joxel lee la etiqueta de ingredientes del paquete y luego llama a su gerente. Texto grande: NUNCA ADIVINE. Globo de diálogo: 'No estoy seguro' es mejor que un 'no' equivocado. Pie: Revise la etiqueta · Revise la receta · Pregunte a su gerente · Código de Alimentos de la FDA 2-102.11 · 2-103.11 · 3-602.12(C).",
+     "onscreen_es": "Escena: un cliente en la ventanilla del puesto pregunta: '¿Esto tiene maní?' Dex lee la etiqueta de ingredientes del paquete y luego llama a su gerente. Texto grande: NUNCA ADIVINE. Globo de diálogo: 'No estoy seguro' es mejor que un 'no' equivocado. Pie: Revise la etiqueta · Revise la receta · Pregunte a su gerente · Código de Alimentos de la FDA 2-102.11 · 2-103.11 · 3-602.12(C).",
      "say_es": "Cuando un cliente le pregunte: '¿Esto tiene maní?', sea honesto. Revise la etiqueta o la receta, o pregúntele a su gerente. Nunca adivine. Si nadie está seguro, dígaselo al cliente. 'No estoy seguro' es mejor que un 'no' equivocado."
     },
     {
@@ -1202,9 +1208,9 @@
     },
     {
      "beat": 10,
-     "onscreen_en": "End card: Joxel tips his navy cap. Big text: THE ONE THING TO REMEMBER — Keep raw away from ready-to-eat. Never guess about allergens. Small text: Your local rules or your venue may be stricter. Button: Next lesson →",
+     "onscreen_en": "End card: Dex gives a thumbs up. Big text: THE ONE THING TO REMEMBER — Keep raw away from ready-to-eat. Never guess about allergens. Small text: Your local rules or your venue may be stricter. Button: Next lesson →",
      "say_en": "The one thing to remember: keep raw food away from ready-to-eat food, and never guess about allergens. Your local rules or your venue may be stricter, so follow them too. See you in the next lesson.",
-     "onscreen_es": "Cierre: Joxel se toca la gorra azul marino. Texto grande: LO ÚNICO QUE DEBE RECORDAR — Mantenga lo crudo lejos de lo listo para comer. Nunca adivine sobre los alérgenos. Texto pequeño: Las reglas locales o las de su lugar de trabajo pueden ser más estrictas. Botón: Siguiente lección →",
+     "onscreen_es": "Cierre: Dex levanta el pulgar. Texto grande: LO ÚNICO QUE DEBE RECORDAR — Mantenga lo crudo lejos de lo listo para comer. Nunca adivine sobre los alérgenos. Texto pequeño: Las reglas locales o las de su lugar de trabajo pueden ser más estrictas. Botón: Siguiente lección →",
      "say_es": "Lo único que debe recordar: mantenga la comida cruda lejos de la comida lista para comer, y nunca adivine sobre los alérgenos. Las reglas locales o las de su lugar de trabajo pueden ser más estrictas; sígalas también. Nos vemos en la próxima lección."
     }
    ],
@@ -1405,9 +1411,9 @@
    "beats": [
     {
      "beat": 1,
-     "onscreen_en": "Illustration: a busy stadium food stand at halftime. A cook cuts raw chicken on a white cutting board, then reaches for a head of lettuce. A coworker grabs a dirty towel to wipe the board. Inspector Joxel steps in with his tablet, one hand up. Caption: \"Raw chicken → lettuce? STOP.\"",
+     "onscreen_en": "Illustration: a busy stadium food stand at halftime. A cook cuts raw chicken on a white cutting board, then reaches for a head of lettuce. A coworker grabs a dirty towel to wipe the board. Inspector Dex steps in with his tablet, one hand up. Caption: \"Raw chicken → lettuce? STOP.\"",
      "say_en": "It's halftime and the line is long. You just cut raw chicken on this board. Now you need it for lettuce. A quick wipe with a towel? Stop. That towel just spreads the germs around. Let's do it the right way.",
-     "onscreen_es": "Ilustración: un puesto de comida del estadio lleno en el medio tiempo. Un cocinero corta pollo crudo en una tabla blanca y luego toma una lechuga. Un compañero agarra un trapo sucio para limpiar la tabla. El Inspector Joxel entra con su tableta y la mano en alto. Texto: \"¿Pollo crudo → lechuga? ¡ALTO!\"",
+     "onscreen_es": "Ilustración: un puesto de comida del estadio lleno en el medio tiempo. Un cocinero corta pollo crudo en una tabla blanca y luego toma una lechuga. Un compañero agarra un trapo sucio para limpiar la tabla. El Inspector Dex entra con su tableta y la mano en alto. Texto: \"¿Pollo crudo → lechuga? ¡ALTO!\"",
      "say_es": "Es el medio tiempo y la fila es larga. Usted acaba de cortar pollo crudo en esta tabla. Ahora la necesita para la lechuga. ¿Una pasadita con un trapo? ¡Alto! Ese trapo solo esparce los gérmenes. Hagámoslo bien."
     },
     {
@@ -1440,9 +1446,9 @@
     },
     {
      "beat": 6,
-     "onscreen_en": "Three sanitizer cards slide in: CHLORINE 50–100 ppm (small note: \"follow the label · water temperature and pH matter\") · QUAT (quaternary ammonium): \"follow the label\" · IODINE 12.5–25 ppm. Joxel dips a test strip in the sanitizer and matches its color to the chart: ✓. Caption: \"Too weak ✕ · Too strong ✕ · Just right ✓\".",
+     "onscreen_en": "Three sanitizer cards slide in: CHLORINE 50–100 ppm (small note: \"follow the label · water temperature and pH matter\") · QUAT (quaternary ammonium): \"follow the label\" · IODINE 12.5–25 ppm. Dex dips a test strip in the sanitizer and matches its color to the chart: ✓. Caption: \"Too weak ✕ · Too strong ✕ · Just right ✓\".",
      "say_en": "The sanitizer must be the right strength. Chlorine: usually 50 to 100 parts per million. Follow the product label, and use water warm enough for that strength. Quat, short for quaternary ammonium: follow the product label. Iodine: 12.5 to 25 parts per million. Too weak won't kill germs. Too strong can leave chemicals on food. Check it with a test strip every time you mix it, and during your shift.",
-     "onscreen_es": "Entran tres tarjetas de desinfectante: CLORO 50–100 ppm (nota pequeña: \"siga la etiqueta · importan la temperatura y el pH del agua\") · AMONIO CUATERNARIO (\"quat\"): \"siga la etiqueta\" · YODO 12.5–25 ppm. Joxel mete una tira de prueba en el desinfectante y compara el color con la tabla: ✓. Texto: \"Muy débil ✕ · Muy fuerte ✕ · Correcto ✓\".",
+     "onscreen_es": "Entran tres tarjetas de desinfectante: CLORO 50–100 ppm (nota pequeña: \"siga la etiqueta · importan la temperatura y el pH del agua\") · AMONIO CUATERNARIO (\"quat\"): \"siga la etiqueta\" · YODO 12.5–25 ppm. Dex mete una tira de prueba en el desinfectante y compara el color con la tabla: ✓. Texto: \"Muy débil ✕ · Muy fuerte ✕ · Correcto ✓\".",
      "say_es": "El desinfectante debe tener la concentración correcta. Cloro: normalmente de 50 a 100 partes por millón. Siga la etiqueta del producto y use agua lo bastante tibia para esa concentración. Amonio cuaternario, o \"quat\": siga la etiqueta del producto. Yodo: de 12.5 a 25 partes por millón. Si está muy débil, no mata los gérmenes. Si está muy fuerte, puede dejar químicos en la comida. Revíselo con una tira de prueba cada vez que lo prepare y durante su turno."
     },
     {
@@ -1454,16 +1460,16 @@
     },
     {
      "beat": 8,
-     "onscreen_en": "A dish machine. The camera zooms in on its metal data plate showing the wash and final-rinse settings. Joxel points at the machine's gauges, then at a manager icon. Caption: \"Follow the data plate · Readings off? Tell your manager\". Small text at the bottom: \"Your local rules or your venue may be stricter.\"",
+     "onscreen_en": "A dish machine. The camera zooms in on its metal data plate showing the wash and final-rinse settings. Dex points at the machine's gauges, then at a manager icon. Caption: \"Follow the data plate · Readings off? Tell your manager\". Small text at the bottom: \"Your local rules or your venue may be stricter.\"",
      "say_en": "Using a dish machine? Follow the data plate on the machine. It shows the right temperatures and settings. If the readings don't match, tell your manager before you use it. Your local rules or your venue may be stricter.",
-     "onscreen_es": "Una máquina lavaplatos. La cámara se acerca a su placa metálica de datos con los ajustes de lavado y enjuague final. Joxel señala los medidores de la máquina y luego un ícono de gerente. Texto: \"Siga la placa de datos · ¿Lecturas mal? Avise a su gerente\". Texto pequeño abajo: \"Las reglas de su localidad o de su lugar de trabajo pueden ser más estrictas.\"",
+     "onscreen_es": "Una máquina lavaplatos. La cámara se acerca a su placa metálica de datos con los ajustes de lavado y enjuague final. Dex señala los medidores de la máquina y luego un ícono de gerente. Texto: \"Siga la placa de datos · ¿Lecturas mal? Avise a su gerente\". Texto pequeño abajo: \"Las reglas de su localidad o de su lugar de trabajo pueden ser más estrictas.\"",
      "say_es": "¿Usa máquina lavaplatos? Siga la placa de datos de la máquina. Ahí están las temperaturas y los ajustes correctos. Si las lecturas no coinciden, avísele a su gerente antes de usarla. Las reglas de su localidad o de su lugar de trabajo pueden ser más estrictas."
     },
     {
      "beat": 9,
-     "onscreen_en": "Joxel with his tablet, thumbs up, next to the clean cutting board. Five step icons in a row: Scrape · Wash · Rinse · Sanitize · Air dry. Big caption: \"Clean first. Then sanitize. Test it.\"",
+     "onscreen_en": "Dex with his tablet, thumbs up, next to the clean cutting board. Five step icons in a row: Scrape · Wash · Rinse · Sanitize · Air dry. Big caption: \"Clean first. Then sanitize. Test it.\"",
      "say_en": "The one thing to remember: clean first, then sanitize, and check the strength with a test strip. Scrape, wash, rinse, sanitize, air dry. Clean board, safe food.",
-     "onscreen_es": "Joxel con su tableta y el pulgar arriba, junto a la tabla limpia. Cinco íconos en fila: Raspar · Lavar · Enjuagar · Desinfectar · Secar al aire. Texto grande: \"Primero limpie. Después desinfecte. Mídalo con la tira.\"",
+     "onscreen_es": "Dex con su tableta y el pulgar arriba, junto a la tabla limpia. Cinco íconos en fila: Raspar · Lavar · Enjuagar · Desinfectar · Secar al aire. Texto grande: \"Primero limpie. Después desinfecte. Mídalo con la tira.\"",
      "say_es": "Lo más importante que debe recordar: primero limpie, después desinfecte, y mida la concentración con una tira de prueba. Raspar, lavar, enjuagar, desinfectar, secar al aire. Tabla limpia, comida segura."
     }
    ],
@@ -1668,10 +1674,10 @@
    "beats": [
     {
      "beat": 1,
-     "onscreen_en": "Illustration: the back door of a stadium food stand; a clock reads '1 hour to gates'. A delivery driver with a loaded hand truck holds out a clipboard. Inspector Joxel steps in with his tablet and raises his hand: 'Wait!' Title card: 'Receiving, storage, labels and dates'.",
-     "say_en": "One hour before gates open, a delivery arrives. The driver says: \"Just sign here.\" Wait! Before you sign, you check. I'm Inspector Joxel. Today: receiving, storage, labels and dates.",
-     "onscreen_es": "Ilustración: la puerta trasera de un puesto de comida en un estadio; un reloj marca '1 hora para abrir'. Un chofer con una carretilla llena extiende una tabla para firmar. El Inspector Joxel entra con su tableta y levanta la mano: '¡Espere!'. Título: 'Recepción, almacenamiento, etiquetas y fechas'.",
-     "say_es": "Falta una hora para abrir las puertas y llega una entrega. El chofer dice: \"Fírmeme aquí, rápido\". ¡Espere! Antes de firmar, revise. Soy el Inspector Joxel. Hoy vamos a ver cómo recibir, guardar, etiquetar y poner fecha a la comida."
+     "onscreen_en": "Illustration: the back door of a stadium food stand; a clock reads '1 hour to gates'. A delivery driver with a loaded hand truck holds out a clipboard. Inspector Dex steps in with his tablet and raises his hand: 'Wait!' Title card: 'Receiving, storage, labels and dates'.",
+     "say_en": "One hour before gates open, a delivery arrives. The driver says: \"Just sign here.\" Wait! Before you sign, you check. I'm Inspector Dex. Today: receiving, storage, labels and dates.",
+     "onscreen_es": "Ilustración: la puerta trasera de un puesto de comida en un estadio; un reloj marca '1 hora para abrir'. Un chofer con una carretilla llena extiende una tabla para firmar. El Inspector Dex entra con su tableta y levanta la mano: '¡Espere!'. Título: 'Recepción, almacenamiento, etiquetas y fechas'.",
+     "say_es": "Falta una hora para abrir las puertas y llega una entrega. El chofer dice: \"Fírmeme aquí, rápido\". ¡Espere! Antes de firmar, revise. Soy el Inspector Dex. Hoy vamos a ver cómo recibir, guardar, etiquetar y poner fecha a la comida."
     },
     {
      "beat": 2,
@@ -1682,9 +1688,9 @@
     },
     {
      "beat": 3,
-     "onscreen_en": "Close-up: Joxel slides a probe thermometer between two packages of raw chicken: 38°F, green ✓. Big text: 'Cold TCS food: 41°F or below · 3-202.11'. Small card: 'Shell eggs: truck air 45°F or below'. A second crate reads 50°F: red ✗ 'REJECT'. Footnote: 'TCS = needs time and temperature control for safety · 1-201.10'.",
+     "onscreen_en": "Close-up: Dex slides a probe thermometer between two packages of raw chicken: 38°F, green ✓. Big text: 'Cold TCS food: 41°F or below · 3-202.11'. Small card: 'Shell eggs: truck air 45°F or below'. A second crate reads 50°F: red ✗ 'REJECT'. Footnote: 'TCS = needs time and temperature control for safety · 1-201.10'.",
      "say_en": "Next, use your thermometer. Cold TCS food, like raw chicken, deli meat or cut melon, must arrive at 41°F or below. Some foods have their own rule: shell eggs can come in a truck with the air at 45°F or below. Cold food at 50°F? Say no.",
-     "onscreen_es": "Primer plano: Joxel pone un termómetro de punta entre dos paquetes de pollo crudo: 38°F, ✓ verde. Texto grande: 'Alimentos TCS fríos: 41°F o menos · 3-202.11'. Tarjeta pequeña: 'Huevos con cáscara: aire del camión a 45°F o menos'. Otra caja marca 50°F: ✗ roja 'RECHAZAR'. Nota: 'TCS = necesita control de tiempo y temperatura para ser seguro · 1-201.10'.",
+     "onscreen_es": "Primer plano: Dex pone un termómetro de punta entre dos paquetes de pollo crudo: 38°F, ✓ verde. Texto grande: 'Alimentos TCS fríos: 41°F o menos · 3-202.11'. Tarjeta pequeña: 'Huevos con cáscara: aire del camión a 45°F o menos'. Otra caja marca 50°F: ✗ roja 'RECHAZAR'. Nota: 'TCS = necesita control de tiempo y temperatura para ser seguro · 1-201.10'.",
      "say_es": "Después, use su termómetro. Los alimentos TCS fríos, como el pollo crudo, las carnes frías o el melón cortado, deben llegar a 41°F o menos. Algunos alimentos tienen su propia regla: los huevos con cáscara pueden llegar en un camión con el aire a 45°F o menos. ¿Comida fría a 50°F? Diga que no."
     },
     {
@@ -1696,9 +1702,9 @@
     },
     {
      "beat": 5,
-     "onscreen_en": "Quick cuts, each stamped red 'REJECT': a swollen can, a leaking can, a deeply dented can, a torn bag of flour, a box with droppings and chewed corners, a pack of meat with slime and a stink cloud. Text: 'Damaged · Pests · Off smell = REJECT'. Joxel notes it on the invoice and waves over the supervisor.",
+     "onscreen_en": "Quick cuts, each stamped red 'REJECT': a swollen can, a leaking can, a deeply dented can, a torn bag of flour, a box with droppings and chewed corners, a pack of meat with slime and a stink cloud. Text: 'Damaged · Pests · Off smell = REJECT'. Dex notes it on the invoice and waves over the supervisor.",
      "say_en": "Then check the package and the food. Reject swollen, leaking or badly dented cans, torn bags and broken seals. Reject any sign of pests, like droppings or chewed boxes. Off smell or slime? Reject. Tell your supervisor.",
-     "onscreen_es": "Cortes rápidos, cada uno con un sello rojo 'RECHAZAR': una lata inflada, una lata que gotea, una lata muy abollada, una bolsa de harina rota, una caja con excremento y esquinas mordidas, un paquete de carne con baba y una nube de mal olor. Texto: 'Dañado · Plagas · Mal olor = RECHAZAR'. Joxel lo anota en la factura y llama al supervisor.",
+     "onscreen_es": "Cortes rápidos, cada uno con un sello rojo 'RECHAZAR': una lata inflada, una lata que gotea, una lata muy abollada, una bolsa de harina rota, una caja con excremento y esquinas mordidas, un paquete de carne con baba y una nube de mal olor. Texto: 'Dañado · Plagas · Mal olor = RECHAZAR'. Dex lo anota en la factura y llama al supervisor.",
      "say_es": "Luego revise el empaque y la comida. Rechace latas infladas, que gotean o muy abolladas, bolsas rotas y sellos rotos. Rechace cualquier señal de plagas, como excremento o cajas mordidas. ¿Mal olor o baba? Se rechaza. Avísele a su supervisor."
     },
     {
@@ -1710,9 +1716,9 @@
     },
     {
      "beat": 7,
-     "onscreen_en": "Two identical white bins full of white powder, a big '?' between them. Joxel sticks on labels: 'SUGAR' and 'SALT'. Text: 'Working containers: write the common name · 3-302.12'.",
+     "onscreen_en": "Two identical white bins full of white powder, a big '?' between them. Dex sticks on labels: 'SUGAR' and 'SALT'. Text: 'Working containers: write the common name · 3-302.12'.",
      "say_en": "Labels. When you move food out of its original package into a working container, like flour, sugar, salt or oil, write the common name of the food on it. Sugar and salt look the same. A label stops a big mistake.",
-     "onscreen_es": "Dos recipientes blancos iguales llenos de polvo blanco, con un gran '?' entre ellos. Joxel les pega etiquetas: 'AZÚCAR' y 'SAL'. Texto: 'Recipientes de trabajo: escriba el nombre común · 3-302.12'.",
+     "onscreen_es": "Dos recipientes blancos iguales llenos de polvo blanco, con un gran '?' entre ellos. Dex les pega etiquetas: 'AZÚCAR' y 'SAL'. Texto: 'Recipientes de trabajo: escriba el nombre común · 3-302.12'.",
      "say_es": "Etiquetas. Cuando pase comida de su empaque original a un recipiente de trabajo, como harina, azúcar, sal o aceite, escríbale el nombre común del alimento. El azúcar y la sal se ven iguales. Una etiqueta evita un gran error."
     },
     {
@@ -1724,9 +1730,9 @@
     },
     {
      "beat": 9,
-     "onscreen_en": "Joxel opens a cooler, finds one container with a use-by date that has passed and one with no label, and drops both in the trash. Text: 'Date passed or no date = throw it out · 3-501.18'. Small text: 'Your local rules or your venue may be stricter.'",
+     "onscreen_en": "Dex opens a cooler, finds one container with a use-by date that has passed and one with no label, and drops both in the trash. Text: 'Date passed or no date = throw it out · 3-501.18'. Small text: 'Your local rules or your venue may be stricter.'",
      "say_en": "Date passed? Throw it out. Not tomorrow. Not \"it still smells fine.\" Food that needs a date but has none? Out too. Your local rules or your venue may be stricter. Follow the stricter rule.",
-     "onscreen_es": "Joxel abre un refrigerador, encuentra un recipiente con la fecha vencida y otro sin etiqueta, y bota los dos a la basura. Texto: 'Fecha vencida o sin fecha = a la basura · 3-501.18'. Texto pequeño: 'Las reglas locales o las de su recinto pueden ser más estrictas.'",
+     "onscreen_es": "Dex abre un refrigerador, encuentra un recipiente con la fecha vencida y otro sin etiqueta, y bota los dos a la basura. Texto: 'Fecha vencida o sin fecha = a la basura · 3-501.18'. Texto pequeño: 'Las reglas locales o las de su recinto pueden ser más estrictas.'",
      "say_es": "¿Se pasó la fecha? Bótelo. No mañana. Nada de \"todavía huele bien\". ¿Necesita fecha y no la tiene? También se bota. Las reglas locales o las de su recinto pueden ser más estrictas. Siga la regla más estricta."
     },
     {
@@ -1738,9 +1744,9 @@
     },
     {
      "beat": 11,
-     "onscreen_en": "Joxel tips his cap. Big text: 'THE ONE THING TO REMEMBER: Never just sign. If it doesn't pass, it doesn't come in.' A small row of icons: thermometer · box · shelf · label · calendar.",
+     "onscreen_en": "Dex gives a thumbs up. Big text: 'THE ONE THING TO REMEMBER: Never just sign. If it doesn't pass, it doesn't come in.' A small row of icons: thermometer · box · shelf · label · calendar.",
      "say_en": "The one thing to remember: never just sign. Check every delivery, and if it doesn't pass, it doesn't come in. See you next lesson.",
-     "onscreen_es": "Joxel se toca la gorra. Texto grande: 'LO ÚNICO QUE DEBE RECORDAR: Nunca firme sin revisar. Si no pasa, no entra.' Una fila de íconos: termómetro · caja · estante · etiqueta · calendario.",
+     "onscreen_es": "Dex levanta el pulgar. Texto grande: 'LO ÚNICO QUE DEBE RECORDAR: Nunca firme sin revisar. Si no pasa, no entra.' Una fila de íconos: termómetro · caja · estante · etiqueta · calendario.",
      "say_es": "Lo único que debe recordar: nunca firme sin revisar. Revise cada entrega, y si no pasa, no entra. Nos vemos en la próxima lección."
     }
    ],
@@ -1942,7 +1948,7 @@
   },
   {
    "id": "fh08",
-   "title_en": "Pests, Chemicals and Your Inspection",
+   "title_en": "Pests, chemicals and your inspection",
    "title_es": "Plagas, químicos y su inspección",
    "objectives_en": [
     "Spot the signs of pests and keep pests out of the stand.",
@@ -1959,16 +1965,16 @@
    "beats": [
     {
      "beat": 1,
-     "onscreen_en": "Closing time at a food stand. Joxel lifts a case of buns off the bottom shelf. Behind it are tiny black droppings. Title card: Pests, chemicals and your inspection.",
+     "onscreen_en": "Closing time at a food stand. Dex lifts a case of buns off the bottom shelf. Behind it are tiny black droppings. Title card: Pests, chemicals and your inspection.",
      "say_en": "It's closing time. You move a box of buns, and behind it you see tiny black droppings. What do you do? Today: pests, chemicals, and what an inspector looks at, so every visit is easy.",
-     "onscreen_es": "Hora de cerrar en un puesto de comida. Joxel levanta una caja de panes del estante de abajo. Detrás hay excrementos pequeños y negros. Título: Plagas, químicos y su inspección.",
+     "onscreen_es": "Hora de cerrar en un puesto de comida. Dex levanta una caja de panes del estante de abajo. Detrás hay excrementos pequeños y negros. Título: Plagas, químicos y su inspección.",
      "say_es": "Es hora de cerrar. Usted mueve una caja de panes y detrás ve unos excrementos pequeños y negros. ¿Qué hace? Hoy vemos las plagas, los químicos y lo que revisa un inspector, para que cada visita sea fácil."
     },
     {
      "beat": 2,
-     "onscreen_en": "Five signs pop up as icons around Joxel: droppings, gnaw marks on a flour bag, a nest of shredded paper, a cockroach (live and dead), and a nose icon for a musty smell. The usual hiding spots light up: under the sink, behind the cooler.",
+     "onscreen_en": "Five signs pop up as icons around Dex: droppings, gnaw marks on a flour bag, a nest of shredded paper, a cockroach (live and dead), and a nose icon for a musty smell. The usual hiding spots light up: under the sink, behind the cooler.",
      "say_en": "First, learn the signs of pests. Droppings. Gnaw marks on bags and boxes. A bad, musty smell. Nests made of shredded paper or cloth. Live or dead insects in warm, dark, wet places, like under the sink or behind the cooler.",
-     "onscreen_es": "Cinco señales aparecen como íconos alrededor de Joxel: excremento, marcas de mordidas en una bolsa de harina, un nido de papel triturado, una cucaracha (viva y muerta) y una nariz para el olor a humedad. Se iluminan los escondites de siempre: debajo del fregadero, detrás del refrigerador.",
+     "onscreen_es": "Cinco señales aparecen como íconos alrededor de Dex: excremento, marcas de mordidas en una bolsa de harina, un nido de papel triturado, una cucaracha (viva y muerta) y una nariz para el olor a humedad. Se iluminan los escondites de siempre: debajo del fregadero, detrás del refrigerador.",
      "say_es": "Primero, aprenda las señales de plagas. Excremento. Marcas de mordidas en bolsas y cajas. Un olor feo, a humedad. Nidos hechos con papel o tela en pedacitos. Insectos vivos o muertos en lugares tibios, oscuros y húmedos, como debajo del fregadero o detrás del refrigerador."
     },
     {
@@ -1980,9 +1986,9 @@
     },
     {
      "beat": 4,
-     "onscreen_en": "Joxel takes a photo of the droppings with his tablet and shows it to the manager. An open bag that pests got into goes in a 'Throw away' bin. A can of bug spray appears with a red NO sign. A pest control operator in uniform gives a thumbs-up. Small note: 'Your local rules or your venue may be stricter.'",
+     "onscreen_en": "Dex takes a photo of the droppings with his tablet and shows it to the manager. An open bag that pests got into goes in a 'Throw away' bin. A can of bug spray appears with a red NO sign. A pest control operator in uniform gives a thumbs-up. Small note: 'Your local rules or your venue may be stricter.'",
      "say_en": "See a sign of pests? Take a photo and tell your manager right away. Food that pests got into goes in the trash. And never spray bug killer yourself. Pesticides are a job for the licensed pest control operator. Your local rules or your venue may be stricter.",
-     "onscreen_es": "Joxel toma una foto del excremento con su tableta y se la muestra al gerente. Una bolsa abierta en la que se metieron plagas va a un bote de «Desechar». Aparece un insecticida en aerosol con un NO rojo. Un técnico de control de plagas en uniforme levanta el pulgar. Nota pequeña: «Las reglas locales o las de su lugar de trabajo pueden ser más estrictas».",
+     "onscreen_es": "Dex toma una foto del excremento con su tableta y se la muestra al gerente. Una bolsa abierta en la que se metieron plagas va a un bote de «Desechar». Aparece un insecticida en aerosol con un NO rojo. Un técnico de control de plagas en uniforme levanta el pulgar. Nota pequeña: «Las reglas locales o las de su lugar de trabajo pueden ser más estrictas».",
      "say_es": "¿Ve una señal de plagas? Tome una foto y avísele a su gerente de inmediato. La comida en la que se metieron las plagas va a la basura. Y nunca use insecticida por su cuenta. Los pesticidas son trabajo del técnico autorizado de control de plagas. Las reglas locales o las de su lugar de trabajo pueden ser más estrictas."
     },
     {
@@ -2001,16 +2007,16 @@
     },
     {
      "beat": 7,
-     "onscreen_en": "Joxel walks into the stand with his tablet. A checklist builds on screen: hand sink (soap, paper towels or hand dryer, hands only) ✓, cold food 41°F / 5°C or below ✓, hot food 135°F / 57°C or above ✓, thermometer ✓, date labels on cold ready-to-eat food (7 days max at 41°F; the day you make it is day 1) ✓. Small note: 'Your local rules or your venue may be stricter.'",
+     "onscreen_en": "Dex walks into the stand with his tablet. A checklist builds on screen: hand sink (soap, paper towels or hand dryer, hands only) ✓, cold food 41°F / 5°C or below ✓, hot food 135°F / 57°C or above ✓, thermometer ✓, date labels on cold ready-to-eat food (7 days max at 41°F; the day you make it is day 1) ✓. Small note: 'Your local rules or your venue may be stricter.'",
      "say_en": "What do I check when I visit? The hand sink: soap, paper towels or a hand dryer, and used only for washing hands. Cold food at 41°F or below. Hot food at 135°F or above. A thermometer that works. Date labels on cold ready-to-eat food you keep more than a day. Your local rules or your venue may be stricter.",
-     "onscreen_es": "Joxel entra al puesto con su tableta. Se arma una lista en pantalla: lavamanos (jabón, toallas de papel o secador de manos, solo para manos) ✓, comida fría a 41°F / 5°C o menos ✓, comida caliente a 135°F / 57°C o más ✓, termómetro ✓, etiquetas con fecha en la comida fría lista para comer (máximo 7 días a 41°F; el día que se prepara es el día 1) ✓. Nota pequeña: «Las reglas locales o las de su lugar de trabajo pueden ser más estrictas».",
+     "onscreen_es": "Dex entra al puesto con su tableta. Se arma una lista en pantalla: lavamanos (jabón, toallas de papel o secador de manos, solo para manos) ✓, comida fría a 41°F / 5°C o menos ✓, comida caliente a 135°F / 57°C o más ✓, termómetro ✓, etiquetas con fecha en la comida fría lista para comer (máximo 7 días a 41°F; el día que se prepara es el día 1) ✓. Nota pequeña: «Las reglas locales o las de su lugar de trabajo pueden ser más estrictas».",
      "say_es": "¿Qué reviso cuando lo visito? El lavamanos: con jabón, toallas de papel o secador de manos, y usado solo para lavarse las manos. La comida fría a 41°F o menos. La comida caliente a 135°F o más. Un termómetro que funcione. Etiquetas con fecha en la comida fría lista para comer que guarda más de un día. Las reglas locales o las de su lugar de trabajo pueden ser más estrictas."
     },
     {
      "beat": 8,
-     "onscreen_en": "The checklist continues: Joxel dips a test strip in a sanitizer bucket and matches the color ✓; cooler shelves with ready-to-eat food on top and raw meat below ✓; a clean prep table ✓; no signs of pests ✓; a worker with a cap, clean hands and gloves, and a 'no eating here' icon over the prep table ✓.",
+     "onscreen_en": "The checklist continues: Dex dips a test strip in a sanitizer bucket and matches the color ✓; cooler shelves with ready-to-eat food on top and raw meat below ✓; a clean prep table ✓; no signs of pests ✓; a worker with a cap, clean hands and gloves, and a 'no eating here' icon over the prep table ✓.",
      "say_en": "Sanitizer buckets at the right strength. I test them with a strip. Raw meat stored below ready-to-eat food. Clean surfaces. No signs of pests. And healthy staff, with clean hands, hair under a hat or hair net, and no eating at the prep table.",
-     "onscreen_es": "La lista sigue: Joxel mete una tira de prueba en la cubeta de sanitizante y compara el color ✓; estantes del refrigerador con la comida lista para comer arriba y la carne cruda abajo ✓; mesa de preparación limpia ✓; ninguna señal de plagas ✓; un trabajador con gorra, manos limpias y guantes, y un ícono de «no comer aquí» sobre la mesa de preparación ✓.",
+     "onscreen_es": "La lista sigue: Dex mete una tira de prueba en la cubeta de sanitizante y compara el color ✓; estantes del refrigerador con la comida lista para comer arriba y la carne cruda abajo ✓; mesa de preparación limpia ✓; ninguna señal de plagas ✓; un trabajador con gorra, manos limpias y guantes, y un ícono de «no comer aquí» sobre la mesa de preparación ✓.",
      "say_es": "Cubetas de sanitizante con la concentración correcta: las pruebo con una tira. La carne cruda guardada debajo de la comida lista para comer. Superficies limpias. Ninguna señal de plagas. Y personal sano, con las manos limpias, el pelo bajo una gorra o una redecilla, y sin comer en la mesa de preparación."
     },
     {
@@ -2022,9 +2028,9 @@
     },
     {
      "beat": 10,
-     "onscreen_en": "Big text, one word at a time: CLOSE IT · CLEAN IT · LABEL IT · REPORT IT. Joxel tips his cap. Caption: 'The one thing to remember.'",
+     "onscreen_en": "Big text, one word at a time: CLOSE IT · CLEAN IT · LABEL IT · REPORT IT. Dex gives a thumbs up. Caption: 'The one thing to remember.'",
      "say_en": "The one thing to remember: close it, clean it, label it, report it. Every shift. Then every inspection is easy.",
-     "onscreen_es": "Texto grande, palabra por palabra: CIÉRRELO · LÍMPIELO · ETIQUÉTELO · REPÓRTELO. Joxel se toca la gorra. Texto: «Lo único que debe recordar».",
+     "onscreen_es": "Texto grande, palabra por palabra: CIÉRRELO · LÍMPIELO · ETIQUÉTELO · REPÓRTELO. Dex levanta el pulgar. Texto: «Lo único que debe recordar».",
      "say_es": "Lo único que debe recordar: ciérrelo, límpielo, etiquételo, repórtelo. En cada turno. Así cada inspección es fácil."
     }
    ],

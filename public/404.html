@@ -8,8 +8,12 @@
 // Clean per-client links: <site>/<venue-or-client-id>  (BASE below must match vite base)
 // GitHub Pages serves this 404 for unknown paths — turn the path into ?v=
 (function () {
-  var m = location.pathname.match(/^\/Claude\/([a-z0-9_-]+)\/?$/i);
-  if (m && !["owner", "review", "marketing", "icons", "assets"].includes(m[1].toLowerCase())) {
+  // a mistyped Learn / marketing link goes back to Learn (or the product page), not to the app's sign-in
+  var p = location.pathname;
+  if (/^\/Claude\/(marketing\/)?learn(\/|$)/i.test(p)) { location.replace(BASE + "marketing/learn/" + (/\/learn\/es(\/|$)/i.test(p) ? "es/" : "")); return; }
+  if (/^\/Claude\/marketing\//i.test(p)) { location.replace(BASE + "marketing/"); return; }
+  var m = p.match(/^\/Claude\/([a-z0-9_-]+)\/?$/i);
+  if (m && !["owner", "review", "marketing", "icons", "assets", "learn"].includes(m[1].toLowerCase())) {
     location.replace(BASE + "?v=" + encodeURIComponent(m[1].toLowerCase()) + location.hash);
   } else {
     location.replace(BASE);
